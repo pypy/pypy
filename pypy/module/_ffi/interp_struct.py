@@ -90,7 +90,7 @@ class W__StructDescr(Wrappable):
 def descr_new_structdescr(space, w_type, name, w_fields=None):
     descr = W__StructDescr(space, name)
     if w_fields is not space.w_None:
-        descr.define_fields(w_fields)
+        descr.define_fields(space, w_fields)
     return descr
 
 def round_up(size, alignment):
