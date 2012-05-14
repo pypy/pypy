@@ -553,12 +553,12 @@ class AppTestStacklet(BaseAppTest):
                 res = "got keyerror"
             try:
                 c1.switch(res)
-            except IndexError as e:
-                pass
+            except IndexError as exc:
+                e = exc
             try:
                 c1.switch(e)
-            except IndexError as e2:
-                pass
+            except IndexError as exc:
+                e2 = exc
             try:
                 c1.switch(e2)
             except IndexError:
