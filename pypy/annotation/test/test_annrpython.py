@@ -3756,6 +3756,18 @@ class TestAnnotateTestCase:
         s = a.build_types(main, [int])
         assert isinstance(s, annmodel.SomeInteger)
 
+    def test_join_none_and_nonnull(self):
+        from pypy.rlib.rstring import assert_str0
+        
+        def f(i):
+            a = str(i)
+            a = assert_str0(a)
+            return a.join([None])
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert isinstance(s, annmodel.SomeString)
+        assert not s.can_be_None
 
 def g(n):
     return [0,1,2,n]

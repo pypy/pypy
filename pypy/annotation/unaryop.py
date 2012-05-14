@@ -497,7 +497,7 @@ class __extend__(SomeString,
             if isinstance(str, SomeUnicodeString):
                 return immutablevalue(u"")
             return immutablevalue("")
-        no_nul = str.no_nul and s_item.no_nul
+        no_nul = str.no_nul and getattr(s_item, 'no_nul', True)
         return str.basestringclass(no_nul=no_nul)
 
     def iter(str):
