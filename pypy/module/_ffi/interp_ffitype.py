@@ -4,6 +4,7 @@ from pypy.rlib import jit
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.error import OperationError
 
 class W_FFIType(Wrappable):
 
@@ -24,13 +25,22 @@ class W_FFIType(Wrappable):
             raise ValueError("Operation not permitted on an incomplete type")
         return self._ffitype
 
+    def set_ffitype(self, ffitype):
+        if self._ffitype:
+            raise ValueError("The _ffitype is already set")
+        self._ffitype = ffitype
+
     def descr_deref_pointer(self, space):
         if self.w_pointer_to is None:
             return space.w_None
         return self.w_pointer_to
 
     def descr_sizeof(self, space):
-        return space.wrap(self.sizeof())
+        try:
+            return space.wrap(self.sizeof())
+        except ValueError:
+            msg = "Operation not permitted on an incomplete type"
+            raise OperationError(space.w_ValueError, space.wrap(msg))
 
     def sizeof(self):
         return intmask(self.get_ffitype().c_size)

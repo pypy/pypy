@@ -228,6 +228,25 @@ class AppTestStruct(BaseAppTestFFI):
         mem = self.read_raw_mem(struct.getaddr(), 'c_float', 1)
         assert mem == [123.5]
 
+    def test_define_fields(self):
+        from _ffi import _StructDescr, Field, types
+        longsize = types.slong.sizeof()
+        fields = [
+            Field('x', types.slong),
+            Field('y', types.slong),
+            ]
+        descr = _StructDescr('foo')
+        assert descr.ffitype.name == 'struct foo'
+        assert repr(descr.ffitype) == '<ffi type struct foo (incomplete)>'
+        raises(ValueError, "descr.ffitype.sizeof()")
+        raises(ValueError, "descr.allocate()")
+        #
+        descr.define_fields(fields)
+        assert repr(descr.ffitype) == '<ffi type struct foo>'
+        assert descr.ffitype.sizeof() == longsize*2
+        raises(ValueError, "descr.define_fields(fields)")
+        
+
     def test_compute_shape(self):
         from _ffi import Structure, Field, types
         class Point(Structure):

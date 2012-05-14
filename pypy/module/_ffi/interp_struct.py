@@ -41,16 +41,34 @@ W_Field.typedef = TypeDef(
 
 class W__StructDescr(Wrappable):
 
-    def __init__(self, space, name, fields_w, ffistruct):
+    def __init__(self, space, name):
         self.space = space
-        self.ffistruct = ffistruct
-        self.w_ffitype = W_FFIType('struct %s' % name, ffistruct.ffistruct, None)
-        self.fields_w = fields_w
+        self.w_ffitype = W_FFIType('struct %s' % name, clibffi.FFI_TYPE_NULL, None)
+        self.fields_w = None
         self.name2w_field = {}
+
+    def define_fields(self, space, w_fields):
+        if self.fields_w is not None:
+            raise operationerrfmt(space.w_ValueError,
+                                  "%s's fields has already been defined",
+                                  self.w_ffitype.name)
+        space = self.space
+        fields_w = space.fixedview(w_fields)
+        # note that the fields_w returned by compute_size_and_alignement has a
+        # different annotation than the original: list(W_Root) vs list(W_Field)
+        size, alignment, fields_w = compute_size_and_alignement(space, fields_w)
+        self.fields_w = fields_w
+        field_types = [] # clibffi's types
         for w_field in fields_w:
+            field_types.append(w_field.w_ffitype.get_ffitype())
             self.name2w_field[w_field.name] = w_field
+        self.ffistruct = clibffi.make_struct_ffitype_e(size, alignment, field_types)
+        self.w_ffitype.set_ffitype(self.ffistruct.ffistruct)
 
     def allocate(self, space):
+        if self.fields_w is None:
+            raise operationerrfmt(space.w_ValueError, "%s has an incomplete type",
+                                  self.w_ffitype.name)
         return W__StructInstance(self)
 
     @jit.elidable_promote('0')
@@ -69,16 +87,11 @@ class W__StructDescr(Wrappable):
 
 
 @unwrap_spec(name=str)
-def descr_new_structdescr(space, w_type, name, w_fields):
-    fields_w = space.fixedview(w_fields)
-    # note that the fields_w returned by compute_size_and_alignement has a
-    # different annotation than the original: list(W_Root) vs list(W_Field)
-    size, alignment, fields_w = compute_size_and_alignement(space, fields_w)
-    field_types = [] # clibffi's types
-    for w_field in fields_w:
-        field_types.append(w_field.w_ffitype.get_ffitype())
-    ffistruct = clibffi.make_struct_ffitype_e(size, alignment, field_types)
-    return W__StructDescr(space, name, fields_w, ffistruct)
+def descr_new_structdescr(space, w_type, name, w_fields=None):
+    descr = W__StructDescr(space, name)
+    if w_fields is not space.w_None:
+        descr.define_fields(w_fields)
+    return descr
 
 def round_up(size, alignment):
     return (size + alignment - 1) & -alignment
@@ -106,6 +119,7 @@ W__StructDescr.typedef = TypeDef(
     '_StructDescr',
     __new__ = interp2app(descr_new_structdescr),
     ffitype = interp_attrproperty('w_ffitype', W__StructDescr),
+    define_fields = interp2app(W__StructDescr.define_fields),
     allocate = interp2app(W__StructDescr.allocate),
     )
 
