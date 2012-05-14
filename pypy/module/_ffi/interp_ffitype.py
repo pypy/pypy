@@ -1,21 +1,28 @@
 from pypy.rlib import libffi
 from pypy.rlib.rarithmetic import intmask
+from pypy.rlib import jit
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.gateway import interp2app
 
 class W_FFIType(Wrappable):
 
-    _immutable_fields_ = ['name', 'ffitype', 'w_datashape', 'w_pointer_to']
+    _immutable_fields_ = ['name', 'w_datashape', 'w_pointer_to']
 
     def __init__(self, name, ffitype, w_datashape=None, w_pointer_to=None):
         self.name = name
-        self.ffitype = ffitype
+        self._ffitype = ffitype
         self.w_datashape = w_datashape
         self.w_pointer_to = w_pointer_to
         ## XXX: re-enable this check when the ffistruct branch is done
         ## if self.is_struct():
         ##     assert w_datashape is not None
+
+    @jit.elidable
+    def get_ffitype(self):
+        if not self._ffitype:
+            raise ValueError("Operation not permitted on an incomplete type")
+        return self._ffitype
 
     def descr_deref_pointer(self, space):
         if self.w_pointer_to is None:
@@ -26,16 +33,19 @@ class W_FFIType(Wrappable):
         return space.wrap(self.sizeof())
 
     def sizeof(self):
-        return intmask(self.ffitype.c_size)
+        return intmask(self.get_ffitype().c_size)
 
     def get_alignment(self):
-        return intmask(self.ffitype.c_alignment)
+        return intmask(self.get_ffitype().c_alignment)
 
     def repr(self, space):
         return space.wrap(self.__repr__())
 
     def __repr__(self):
-        return "<ffi type %s>" % self.name
+        name = self.name
+        if not self._ffitype:
+            name += ' (incomplete)'
+        return "<ffi type %s>" % name
 
     def is_signed(self):
         return (self is app_types.slong or
@@ -52,7 +62,7 @@ class W_FFIType(Wrappable):
                 self is app_types.ulonglong)
 
     def is_pointer(self):
-        return self.ffitype is libffi.types.pointer
+        return self.get_ffitype() is libffi.types.pointer
 
     def is_char(self):
         return self is app_types.char
@@ -74,7 +84,7 @@ class W_FFIType(Wrappable):
         return self is app_types.void
 
     def is_struct(self):
-        return libffi.types.is_struct(self.ffitype)
+        return libffi.types.is_struct(self.get_ffitype())
 
     def is_char_p(self):
         return self is app_types.char_p

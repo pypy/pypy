@@ -141,6 +141,7 @@ else:
 
 FFI_TYPE_P = lltype.Ptr(lltype.ForwardReference())
 FFI_TYPE_PP = rffi.CArrayPtr(FFI_TYPE_P)
+FFI_TYPE_NULL = lltype.nullptr(FFI_TYPE_P.TO)
 
 class CConfig:
     _compilation_info_ = eci

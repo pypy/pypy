@@ -16,7 +16,7 @@ from pypy.module._ffi.type_converter import FromAppLevelConverter, ToAppLevelCon
 
 
 def unwrap_ffitype(space, w_argtype, allow_void=False):
-    res = w_argtype.ffitype
+    res = w_argtype.get_ffitype()
     if res is libffi.types.void and not allow_void:
         msg = 'void is not a valid argument type'
         raise OperationError(space.w_TypeError, space.wrap(msg))
@@ -154,7 +154,7 @@ class CallFunctionConverter(ToAppLevelConverter):
         # that, we cast it back to LONG, because this is what we want to pass
         # to space.wrap in order to get a nice applevel <int>.
         #
-        restype = w_ffitype.ffitype
+        restype = w_ffitype.get_ffitype()
         call = self.func.call
         if restype is libffi.types.slong:
             return call(self.argchain, rffi.LONG)
@@ -172,7 +172,7 @@ class CallFunctionConverter(ToAppLevelConverter):
 
     def get_unsigned_which_fits_into_a_signed(self, w_ffitype):
         # the same comment as get_signed apply
-        restype = w_ffitype.ffitype
+        restype = w_ffitype.get_ffitype()
         call = self.func.call
         if restype is libffi.types.uint:
             assert not libffi.IS_32_BIT

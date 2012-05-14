@@ -210,7 +210,7 @@ class Func(AbstractFuncPtr):
 
     _immutable_fields_ = ['funcsym']
     argtypes = []
-    restype = lltype.nullptr(clibffi.FFI_TYPE_P.TO)
+    restype = clibffi.FFI_TYPE_NULL
     flags = 0
     funcsym = lltype.nullptr(rffi.VOIDP.TO)
 
