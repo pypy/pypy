@@ -1024,7 +1024,10 @@ class MixinStrUnicodeUserStringTest:
         self.checkequal('abc', 'abc', '__mul__', 1)
         self.checkequal('abcabcabc', 'abc', '__mul__', 3)
         self.checkraises(TypeError, 'abc', '__mul__')
-        self.checkraises(TypeError, 'abc', '__mul__', '')
+        class Mul(object):
+            def mul(self, a, b):
+                return a * b
+        self.checkraises(TypeError, Mul(), 'mul', 'abc', '')
         # XXX: on a 64-bit system, this doesn't raise an overflow error,
         # but either raises a MemoryError, or succeeds (if you have 54TiB)
         #self.checkraises(OverflowError, 10000*'abc', '__mul__', 2000000000)

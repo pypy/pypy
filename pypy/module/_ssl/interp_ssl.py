@@ -432,7 +432,8 @@ class SSLObject(Wrappable):
                     raise _ssl_seterror(self.space, self, length)
                 try:
                     # this is actually an immutable bytes sequence
-                    return self.space.wrap(rffi.charp2str(buf_ptr[0]))
+                    return self.space.wrap(rffi.charpsize2str(buf_ptr[0],
+                                                              length))
                 finally:
                     libssl_OPENSSL_free(buf_ptr[0])
         else:

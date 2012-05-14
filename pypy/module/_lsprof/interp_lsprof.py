@@ -22,7 +22,7 @@ srcdir = py.path.local(pypydir).join('translator', 'c', 'src')
 eci = ExternalCompilationInfo(
     separate_module_files=[srcdir.join('profiling.c')],
     export_symbols=['pypy_setup_profiling', 'pypy_teardown_profiling'])
-                                                     
+
 c_setup_profiling = rffi.llexternal('pypy_setup_profiling',
                                   [], lltype.Void,
                                   compilation_info = eci)
@@ -185,6 +185,7 @@ class ProfilerContext(object):
             if subentry is not None:
                 subentry._stop(tt, it)
 
+@jit.elidable_promote()
 def create_spec(space, w_arg):
     if isinstance(w_arg, Method):
         w_function = w_arg.w_function
@@ -228,7 +229,7 @@ def lsprof_call(space, w_self, frame, event, w_arg):
         if w_self.builtins:
             key = create_spec(space, w_arg)
             w_self._enter_builtin_call(key)
-    elif event == 'c_return':
+    elif event == 'c_return' or event == 'c_exception':
         if w_self.builtins:
             key = create_spec(space, w_arg)
             w_self._enter_builtin_return(key)
@@ -237,7 +238,7 @@ def lsprof_call(space, w_self, frame, event, w_arg):
         pass
 
 class W_Profiler(Wrappable):
-    
+
     def __init__(self, space, w_callable, time_unit, subcalls, builtins):
         self.subcalls = subcalls
         self.builtins = builtins

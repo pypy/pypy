@@ -13,7 +13,7 @@ all_modules = [p.basename for p in modulepath.listdir()
                and not p.basename.startswith('test')]
 
 essential_modules = dict.fromkeys(
-    ["exceptions", "_file", "sys", "__builtin__", "posix"]
+    ["exceptions", "_file", "sys", "__builtin__", "posix", "_warnings"]
 )
 
 default_modules = essential_modules.copy()
@@ -176,9 +176,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                cmdline="--translationmodules",
                suggests=[("objspace.allworkingmodules", False)]),
 
-    BoolOption("geninterp", "specify whether geninterp should be used",
-               default=False),
-
     BoolOption("logbytecodes",
                "keep track of bytecode usage",
                default=False),
@@ -323,10 +320,14 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    default=False),
         BoolOption("getattributeshortcut",
                    "track types that override __getattribute__",
-                   default=False),
+                   default=False,
+                   # weakrefs needed, because of get_subclasses()
+                   requires=[("translation.rweakref", True)]),
         BoolOption("newshortcut",
                    "cache and shortcut calling __new__ from builtin types",
-                   default=False),
+                   default=False,
+                   # weakrefs needed, because of get_subclasses()
+                   requires=[("translation.rweakref", True)]),
 
         BoolOption("logspaceoptypes",
                    "a instrumentation option: before exit, print the types seen by "
@@ -340,7 +341,9 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    requires=[("objspace.std.builtinshortcut", True)]),
         BoolOption("withidentitydict",
                    "track types that override __hash__, __eq__ or __cmp__ and use a special dict strategy for those which do not",
-                   default=False),
+                   default=False,
+                   # weakrefs needed, because of get_subclasses()
+                   requires=[("translation.rweakref", True)]),
      ]),
 ])
 
@@ -391,10 +394,6 @@ def set_pypy_opt_level(config, level):
         if not IS_64_BITS:
             config.objspace.std.suggest(withsmalllong=True)
         # xxx other options? ropes maybe?
-
-    # completely disable geninterp in a level 0 translation
-    if level == '0':
-        config.objspace.suggest(geninterp=False)
 
     # some optimizations have different effects depending on the typesystem
     if type_system == 'ootype':

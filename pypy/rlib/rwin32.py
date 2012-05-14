@@ -8,6 +8,7 @@ from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.translator.platform import CompilationError
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.rarithmetic import intmask
+from pypy.rlib.rposix import validate_fd
 from pypy.rlib import jit
 import os, sys, errno
 
@@ -78,6 +79,7 @@ class CConfig:
         for name in """FORMAT_MESSAGE_ALLOCATE_BUFFER FORMAT_MESSAGE_FROM_SYSTEM
                        MAX_PATH
                        WAIT_OBJECT_0 WAIT_TIMEOUT INFINITE
+                       ERROR_INVALID_HANDLE
                     """.split():
             locals()[name] = rffi_platform.ConstantInteger(name)
 
@@ -126,6 +128,13 @@ if WIN32:
 
     _get_osfhandle = rffi.llexternal('_get_osfhandle', [rffi.INT], HANDLE)
 
+    def get_osfhandle(fd):
+        validate_fd(fd)
+        handle = _get_osfhandle(fd)
+        if handle == INVALID_HANDLE_VALUE:
+            raise WindowsError(ERROR_INVALID_HANDLE, "Invalid file handle")
+        return handle
+
     def build_winerror_to_errno():
         """Build a dictionary mapping windows error numbers to POSIX errno.
         The function returns the dict, and the default value for codes not
@@ -133,14 +142,18 @@ if WIN32:
         # Prior to Visual Studio 8, the MSVCRT dll doesn't export the
         # _dosmaperr() function, which is available only when compiled
         # against the static CRT library.
-        from pypy.translator.platform import platform, Windows
-        static_platform = Windows()
+        from pypy.translator.platform import host_factory
+        static_platform = host_factory()
         if static_platform.name == 'msvc':
             static_platform.cflags = ['/MT']  # static CRT
             static_platform.version = 0       # no manifest
         cfile = udir.join('dosmaperr.c')
         cfile.write(r'''
                 #include <errno.h>
+                #include  <stdio.h>
+                #ifdef __GNUC__
+                #define _dosmaperr mingw_dosmaperr
+                #endif
                 int main()
                 {
                     int i;

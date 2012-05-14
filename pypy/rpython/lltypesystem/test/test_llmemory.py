@@ -1,6 +1,7 @@
 from pypy.rpython.lltypesystem.llmemory import *
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.test.test_llinterp import interpret
+from pypy.rlib.rarithmetic import is_valid_int
 import py
 
 def test_simple():
@@ -639,12 +640,12 @@ def test_cast_adr_to_int():
     assert cast_int_to_adr(0) == NULL
     #
     i = cast_adr_to_int(adr, mode="emulated")
-    assert type(i) is int
+    assert is_valid_int(i)
     i = cast_adr_to_int(NULL, mode="emulated")
-    assert type(i) is int and i == 0
+    assert is_valid_int(i) and i == 0
     #
     i = cast_adr_to_int(adr, mode="forced")
-    assert type(i) is int
+    assert is_valid_int(i)
     #assert cast_int_to_adr(i) == adr -- depends on ll2ctypes details
     i = cast_adr_to_int(NULL, mode="forced")
-    assert type(i) is int and i == 0
+    assert is_valid_int(i) and i == 0

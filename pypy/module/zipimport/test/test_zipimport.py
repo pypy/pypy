@@ -47,9 +47,9 @@ class AppTestZipimport:
         """).compile()
 
         if cls.compression == ZIP_DEFLATED:
-            space = gettestobjspace(usemodules=['zipimport', 'zlib', 'rctime'])
+            space = gettestobjspace(usemodules=['zipimport', 'zlib', 'rctime', 'struct'])
         else:
-            space = gettestobjspace(usemodules=['zipimport', 'rctime'])
+            space = gettestobjspace(usemodules=['zipimport', 'rctime', 'struct'])
             
         cls.space = space
         tmpdir = udir.ensure('zipimport_%s' % cls.__name__, dir=1)
@@ -313,13 +313,11 @@ class AppTestZipimport:
         assert z.get_filename("package") == mod.__file__
 
     def test_subdirectory_twice(self):
-        import os, zipimport
+        #import os, zipimport
  
         self.writefile("package/__init__.py", "")
         self.writefile("package/subpackage/__init__.py", "")
         self.writefile("package/subpackage/foo.py", "")
-        import sys
-        print sys.path
         mod = __import__('package.subpackage.foo', None, None, [])
         assert mod
 

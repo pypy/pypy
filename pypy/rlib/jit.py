@@ -204,6 +204,14 @@ def isvirtual(value):
     return NonConstant(False)
 isvirtual._annspecialcase_ = "specialize:call_location"
 
+LIST_CUTOFF = 2
+
+@specialize.call_location()
+def loop_unrolling_heuristic(lst, size):
+    """ In which cases iterating over items of lst can be unrolled
+    """
+    return isvirtual(lst) or (isconstant(size) and size <= LIST_CUTOFF)
+
 class Entry(ExtRegistryEntry):
     _about_ = hint
 
@@ -382,7 +390,7 @@ class Entry(ExtRegistryEntry):
         pass
 
     def specialize_call(self, hop):
-        pass
+        hop.exception_cannot_occur()
 
 vref_None = non_virtual_ref(None)
 
@@ -391,6 +399,9 @@ vref_None = non_virtual_ref(None)
 
 class JitHintError(Exception):
     """Inconsistency in the JIT hints."""
+
+ENABLE_ALL_OPTS = (
+    'intbounds:rewrite:virtualize:string:earlyforce:pure:heap:ffi:unroll')
 
 PARAMETER_DOCS = {
     'threshold': 'number of times a loop has to run for it to become hot',
@@ -402,7 +413,8 @@ PARAMETER_DOCS = {
     'retrace_limit': 'how many times we can try retracing before giving up',
     'max_retrace_guards': 'number of extra guards a retrace can cause',
     'max_unroll_loops': 'number of extra unrollings a loop can cause',
-    'enable_opts': 'optimizations to enable or all, INTERNAL USE ONLY'
+    'enable_opts': 'INTERNAL USE ONLY (MAY NOT WORK OR LEAD TO CRASHES): '
+                   'optimizations to enable, or all = %s' % ENABLE_ALL_OPTS,
     }
 
 PARAMETERS = {'threshold': 1039, # just above 1024, prime
@@ -450,6 +462,7 @@ class JitDriver(object):
             assert v in self.reds
         self._alllivevars = dict.fromkeys(
             [name for name in self.greens + self.reds if '.' not in name])
+        self._heuristic_order = {}   # check if 'reds' and 'greens' are ordered
         self._make_extregistryentries()
         self.get_jitcell_at = get_jitcell_at
         self.set_jitcell_at = set_jitcell_at
@@ -461,13 +474,61 @@ class JitDriver(object):
     def _freeze_(self):
         return True
 
+    def _check_arguments(self, livevars):
+        assert dict.fromkeys(livevars) == self._alllivevars
+        # check heuristically that 'reds' and 'greens' are ordered as
+        # the JIT will need them to be: first INTs, then REFs, then
+        # FLOATs.
+        if len(self._heuristic_order) < len(livevars):
+            from pypy.rlib.rarithmetic import (r_singlefloat, r_longlong,
+                                               r_ulonglong, r_uint)
+            added = False
+            for var, value in livevars.items():
+                if var not in self._heuristic_order:
+                    if (r_ulonglong is not r_uint and
+                            isinstance(value, (r_longlong, r_ulonglong))):
+                        assert 0, ("should not pass a r_longlong argument for "
+                                   "now, because on 32-bit machines it needs "
+                                   "to be ordered as a FLOAT but on 64-bit "
+                                   "machines as an INT")
+                    elif isinstance(value, (int, long, r_singlefloat)):
+                        kind = '1:INT'
+                    elif isinstance(value, float):
+                        kind = '3:FLOAT'
+                    elif isinstance(value, (str, unicode)) and len(value) != 1:
+                        kind = '2:REF'
+                    elif isinstance(value, (list, dict)):
+                        kind = '2:REF'
+                    elif (hasattr(value, '__class__')
+                          and value.__class__.__module__ != '__builtin__'):
+                        if hasattr(value, '_freeze_'):
+                            continue   # value._freeze_() is better not called
+                        elif getattr(value, '_alloc_flavor_', 'gc') == 'gc':
+                            kind = '2:REF'
+                        else:
+                            kind = '1:INT'
+                    else:
+                        continue
+                    self._heuristic_order[var] = kind
+                    added = True
+            if added:
+                for color in ('reds', 'greens'):
+                    lst = getattr(self, color)
+                    allkinds = [self._heuristic_order.get(name, '?')
+                                for name in lst]
+                    kinds = [k for k in allkinds if k != '?']
+                    assert kinds == sorted(kinds), (
+                        "bad order of %s variables in the jitdriver: "
+                        "must be INTs, REFs, FLOATs; got %r" %
+                        (color, allkinds))
+
     def jit_merge_point(_self, **livevars):
         # special-cased by ExtRegistryEntry
-        assert dict.fromkeys(livevars) == _self._alllivevars
+        _self._check_arguments(livevars)
 
     def can_enter_jit(_self, **livevars):
         # special-cased by ExtRegistryEntry
-        assert dict.fromkeys(livevars) == _self._alllivevars
+        _self._check_arguments(livevars)
 
     def loop_header(self):
         # special-cased by ExtRegistryEntry

@@ -14,12 +14,37 @@ def pytest_addoption(parser):
              "Terminate expression with ':' to make the first match match "
              "all subsequent tests (usually file-order). ")
 
+    group._addoption("-m",
+        action="store", dest="markexpr", default="", metavar="MARKEXPR",
+        help="only run tests matching given mark expression.  "
+             "example: -m 'mark1 and not mark2'."
+             )
+
+    group.addoption("--markers", action="store_true", help=
+        "show markers (builtin, plugin and per-project ones).")
+
+    parser.addini("markers", "markers for test functions", 'linelist')
+
+def pytest_cmdline_main(config):
+    if config.option.markers:
+        config.pluginmanager.do_configure(config)
+        tw = py.io.TerminalWriter()
+        for line in config.getini("markers"):
+            name, rest = line.split(":", 1)
+            tw.write("@pytest.mark.%s:" %  name, bold=True)
+            tw.line(rest)
+            tw.line()
+        config.pluginmanager.do_unconfigure(config)
+        return 0
+pytest_cmdline_main.tryfirst = True
+
 def pytest_collection_modifyitems(items, config):
     keywordexpr = config.option.keyword
-    if not keywordexpr:
+    matchexpr = config.option.markexpr
+    if not keywordexpr and not matchexpr:
         return
     selectuntil = False
-    if keywordexpr[-1] == ":":
+    if keywordexpr[-1:] == ":":
         selectuntil = True
         keywordexpr = keywordexpr[:-1]
 
@@ -29,13 +54,30 @@ def pytest_collection_modifyitems(items, config):
         if keywordexpr and skipbykeyword(colitem, keywordexpr):
             deselected.append(colitem)
         else:
-            remaining.append(colitem)
             if selectuntil:
                 keywordexpr = None
+            if matchexpr:
+                if not matchmark(colitem, matchexpr):
+                    deselected.append(colitem)
+                    continue
+            remaining.append(colitem)
 
     if deselected:
         config.hook.pytest_deselected(items=deselected)
         items[:] = remaining
+
+class BoolDict:
+    def __init__(self, mydict):
+        self._mydict = mydict
+    def __getitem__(self, name):
+        return name in self._mydict
+
+def matchmark(colitem, matchexpr):
+    return eval(matchexpr, {}, BoolDict(colitem.obj.__dict__))
+
+def pytest_configure(config):
+    if config.option.strict:
+        pytest.mark._config = config
 
 def skipbykeyword(colitem, keywordexpr):
     """ return True if they given keyword expression means to
@@ -43,7 +85,7 @@ def skipbykeyword(colitem, keywordexpr):
     """
     if not keywordexpr:
         return
-    
+
     itemkeywords = getkeywords(colitem)
     for key in filter(None, keywordexpr.split()):
         eor = key[:1] == '-'
@@ -77,14 +119,30 @@ class MarkGenerator:
          @py.test.mark.slowtest
          def test_function():
             pass
-  
+
     will set a 'slowtest' :class:`MarkInfo` object
     on the ``test_function`` object. """
 
     def __getattr__(self, name):
         if name[0] == "_":
             raise AttributeError(name)
+        if hasattr(self, '_config'):
+            self._check(name)
         return MarkDecorator(name)
+
+    def _check(self, name):
+        try:
+            if name in self._markers:
+                return
+        except AttributeError:
+            pass
+        self._markers = l = set()
+        for line in self._config.getini("markers"):
+            beginning = line.split(":", 1)
+            x = beginning[0].split("(", 1)[0]
+            l.add(x)
+        if name not in self._markers:
+            raise AttributeError("%r not a registered marker" % (name,))
 
 class MarkDecorator:
     """ A decorator for test functions and test classes.  When applied
@@ -133,8 +191,7 @@ class MarkDecorator:
                         holder = MarkInfo(self.markname, self.args, self.kwargs)
                         setattr(func, self.markname, holder)
                     else:
-                        holder.kwargs.update(self.kwargs)
-                        holder.args += self.args
+                        holder.add(self.args, self.kwargs)
                 return func
         kw = self.kwargs.copy()
         kw.update(kwargs)
@@ -150,27 +207,20 @@ class MarkInfo:
         self.args = args
         #: keyword argument dictionary, empty if nothing specified
         self.kwargs = kwargs
+        self._arglist = [(args, kwargs.copy())]
 
     def __repr__(self):
         return "<MarkInfo %r args=%r kwargs=%r>" % (
                 self.name, self.args, self.kwargs)
 
-def pytest_itemcollected(item):
-    if not isinstance(item, pytest.Function):
-        return
-    try:
-        func = item.obj.__func__
-    except AttributeError:
-        func = getattr(item.obj, 'im_func', item.obj)
-    pyclasses = (pytest.Class, pytest.Module)
-    for node in item.listchain():
-        if isinstance(node, pyclasses):
-            marker = getattr(node.obj, 'pytestmark', None)
-            if marker is not None:
-                if isinstance(marker, list):
-                    for mark in marker:
-                        mark(func)
-                else:
-                    marker(func)
-        node = node.parent
-    item.keywords.update(py.builtin._getfuncdict(func))
+    def add(self, args, kwargs):
+        """ add a MarkInfo with the given args and kwargs. """
+        self._arglist.append((args, kwargs))
+        self.args += args
+        self.kwargs.update(kwargs)
+
+    def __iter__(self):
+        """ yield MarkInfo objects each relating to a marking-call. """
+        for args, kwargs in self._arglist:
+            yield MarkInfo(self.name, args, kwargs)
+

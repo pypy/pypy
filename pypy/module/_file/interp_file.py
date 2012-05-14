@@ -5,14 +5,13 @@ import errno
 from pypy.rlib import streamio
 from pypy.rlib.rarithmetic import r_longlong
 from pypy.rlib.rstring import StringBuilder
-from pypy.module._file.interp_stream import (W_AbstractStream, StreamErrors,
-    wrap_streamerror, wrap_oserror_as_ioerror)
+from pypy.module._file.interp_stream import W_AbstractStream, StreamErrors
 from pypy.module.posix.interp_posix import dispatch_filename
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
     interp_attrproperty, make_weakref_descr, interp_attrproperty_w)
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-
+from pypy.interpreter.streamutil import wrap_streamerror, wrap_oserror_as_ioerror
 
 class W_File(W_AbstractStream):
     """An interp-level file object.  This implements the same interface than

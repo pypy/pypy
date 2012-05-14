@@ -2,7 +2,7 @@
 from pypy.rlib import jit
 from pypy.rlib.objectmodel import instantiate
 from pypy.module.micronumpy.strides import calculate_broadcast_strides,\
-     calculate_slice_strides, calculate_dot_strides
+     calculate_slice_strides, calculate_dot_strides, enumerate_chunks
 
 """ This is a mini-tutorial on iterators, strides, and
 memory layout. It assumes you are familiar with the terms, see
@@ -42,27 +42,80 @@ so if we precalculate the overflow backstride as
 we can go faster.
 All the calculations happen in next()
 
-next_step_x() tries to do the iteration for a number of steps at once,
+next_skip_x() tries to do the iteration for a number of steps at once,
 but then we cannot gaurentee that we only overflow one single shape 
 dimension, perhaps we could overflow times in one big step.
 """
 
 # structures to describe slicing
 
-class Chunk(object):
+class BaseChunk(object):
+    pass
+
+class RecordChunk(BaseChunk):
+    def __init__(self, name):
+        self.name = name
+
+    def apply(self, arr):
+        from pypy.module.micronumpy.interp_numarray import W_NDimSlice
+
+        arr = arr.get_concrete()
+        ofs, subdtype = arr.dtype.fields[self.name]
+        # strides backstrides are identical, ofs only changes start
+        return W_NDimSlice(arr.start + ofs, arr.strides[:], arr.backstrides[:],
+                           arr.shape[:], arr, subdtype)
+
+class Chunks(BaseChunk):
+    def __init__(self, l):
+        self.l = l
+
+    @jit.unroll_safe
+    def extend_shape(self, old_shape):
+        shape = []
+        i = -1
+        for i, c in enumerate_chunks(self.l):
+            if c.step != 0:
+                shape.append(c.lgt)
+        s = i + 1
+        assert s >= 0
+        return shape[:] + old_shape[s:]
+
+    def apply(self, arr):
+        from pypy.module.micronumpy.interp_numarray import W_NDimSlice,\
+             VirtualSlice, ConcreteArray
+
+        shape = self.extend_shape(arr.shape)
+        if not isinstance(arr, ConcreteArray):
+            return VirtualSlice(arr, self, shape)
+        r = calculate_slice_strides(arr.shape, arr.start, arr.strides,
+                                    arr.backstrides, self.l)
+        _, start, strides, backstrides = r
+        return W_NDimSlice(start, strides[:], backstrides[:],
+                           shape[:], arr)
+
+
+class Chunk(BaseChunk):
+    axis_step = 1
+
     def __init__(self, start, stop, step, lgt):
         self.start = start
         self.stop = stop
         self.step = step
         self.lgt = lgt
 
-    def extend_shape(self, shape):
-        if self.step != 0:
-            shape.append(self.lgt)
-
     def __repr__(self):
         return 'Chunk(%d, %d, %d, %d)' % (self.start, self.stop, self.step,
                                           self.lgt)
+
+class NewAxisChunk(Chunk):
+    start = 0
+    stop = 1
+    step = 1
+    lgt = 1
+    axis_step = 0
+
+    def __init__(self):
+        pass
 
 class BaseTransform(object):
     pass
@@ -95,17 +148,19 @@ class BaseIterator(object):
         raise NotImplementedError
 
 class ArrayIterator(BaseIterator):
-    def __init__(self, size):
+    def __init__(self, size, element_size):
         self.offset = 0
         self.size = size
+        self.element_size = element_size
 
     def next(self, shapelen):
         return self.next_skip_x(1)
 
-    def next_skip_x(self, ofs):
+    def next_skip_x(self, x):
         arr = instantiate(ArrayIterator)
         arr.size = self.size
-        arr.offset = self.offset + ofs
+        arr.offset = self.offset + x * self.element_size
+        arr.element_size = self.element_size
         return arr
 
     def next_no_increase(self, shapelen):
@@ -152,7 +207,7 @@ class ViewIterator(BaseIterator):
         elif isinstance(t, ViewTransform):
             r = calculate_slice_strides(self.res_shape, self.offset,
                                         self.strides,
-                                        self.backstrides, t.chunks)
+                                        self.backstrides, t.chunks.l)
             return ViewIterator(r[1], r[2], r[3], r[0])
 
     @jit.unroll_safe
@@ -214,7 +269,7 @@ class ViewIterator(BaseIterator):
 
     def apply_transformations(self, arr, transformations):
         v = BaseIterator.apply_transformations(self, arr, transformations)
-        if len(arr.shape) == 1:
+        if len(arr.shape) == 1 and len(v.res_shape) == 1:
             return OneDimIterator(self.offset, self.strides[0],
                                   self.res_shape[0])
         return v

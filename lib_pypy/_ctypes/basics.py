@@ -230,5 +230,16 @@ _shape_to_ffi_type.typemap =  {
     }
 
 
+# called from primitive.py, pointer.py, array.py
+def as_ffi_pointer(value, ffitype):
+    my_ffitype = type(value).get_ffi_argtype()
+    # for now, we always allow types.pointer, else a lot of tests
+    # break. We need to rethink how pointers are represented, though
+    if my_ffitype is not ffitype and ffitype is not _ffi.types.void_p:
+        raise ArgumentError("expected %s instance, got %s" % (type(value),
+                                                              ffitype))
+    return value._get_buffer_value()
+
+
 # used by "byref"
 from _ctypes.pointer import pointer

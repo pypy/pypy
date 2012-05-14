@@ -562,7 +562,7 @@ _static_opcode_stack_effects = {
 
     ops.WITH_CLEANUP : -1,
     ops.POP_BLOCK : 0,
-    ops.END_FINALLY : -3,
+    ops.END_FINALLY : -1,
     ops.SETUP_WITH : 1,
     ops.SETUP_FINALLY : 0,
     ops.SETUP_EXCEPT : 0,
@@ -610,6 +610,8 @@ _static_opcode_stack_effects = {
     ops.JUMP_IF_FALSE_OR_POP : 0,
     ops.POP_JUMP_IF_TRUE : -1,
     ops.POP_JUMP_IF_FALSE : -1,
+
+    ops.BUILD_LIST_FROM_ARG: 1,
 }
 
 

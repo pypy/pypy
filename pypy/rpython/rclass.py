@@ -364,6 +364,8 @@ class AbstractInstanceRepr(Repr):
     def get_ll_hash_function(self):
         return ll_inst_hash
 
+    get_ll_fasthash_function = get_ll_hash_function
+
     def rtype_type(self, hop):
         raise NotImplementedError
 

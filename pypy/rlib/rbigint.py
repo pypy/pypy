@@ -1,5 +1,5 @@
 from pypy.rlib.rarithmetic import LONG_BIT, intmask, r_uint, r_ulonglong
-from pypy.rlib.rarithmetic import ovfcheck, r_longlong, widen
+from pypy.rlib.rarithmetic import ovfcheck, r_longlong, widen, is_valid_int
 from pypy.rlib.rarithmetic import most_neg_value_of_same_type
 from pypy.rlib.rfloat import isfinite
 from pypy.rlib.debug import make_sure_not_resized, check_regular_int
@@ -40,25 +40,23 @@ KARATSUBA_SQUARE_CUTOFF = 2 * KARATSUBA_CUTOFF
 # In that case, do 5 bits at a time.  The potential drawback is that
 # a table of 2**5 intermediate results is computed.
 
-## FIVEARY_CUTOFF = 8   disabled for now
+FIVEARY_CUTOFF = 8
 
 
 def _mask_digit(x):
-    if not we_are_translated():
-        assert type(x) is not long, "overflow occurred!"
     return intmask(x & MASK)
 _mask_digit._annspecialcase_ = 'specialize:argtype(0)'
 
 def _widen_digit(x):
     if not we_are_translated():
-        assert type(x) is int, "widen_digit() takes an int, got a %r" % type(x)
+        assert is_valid_int(x), "widen_digit() takes an int, got a %r" % type(x)
     if SHIFT <= 15:
         return int(x)
     return r_longlong(x)
 
 def _store_digit(x):
     if not we_are_translated():
-        assert type(x) is int, "store_digit() takes an int, got a %r" % type(x)
+        assert is_valid_int(x), "store_digit() takes an int, got a %r" % type(x)
     if SHIFT <= 15:
         return rffi.cast(rffi.SHORT, x)
     elif SHIFT <= 31:
@@ -87,7 +85,7 @@ class Entry(extregistry.ExtRegistryEntry):
         s_DIGIT = self.bookkeeper.valueoftype(type(NULLDIGIT))
         assert s_DIGIT.contains(s_list.listdef.listitem.s_value)
     def specialize_call(self, hop):
-        pass
+        hop.exception_cannot_occur()
 
 
 class rbigint(object):
@@ -458,7 +456,7 @@ class rbigint(object):
 
         # python adaptation: moved macros REDUCE(X) and MULT(X, Y, result)
         # into helper function result = _help_mult(x, y, c)
-        if 1:   ## b.numdigits() <= FIVEARY_CUTOFF:
+        if b.numdigits() <= FIVEARY_CUTOFF:
             # Left-to-right binary exponentiation (HAC Algorithm 14.79)
             # http://www.cacr.math.uwaterloo.ca/hac/about/chap14.pdf
             i = b.numdigits() - 1
@@ -471,30 +469,51 @@ class rbigint(object):
                         z = _help_mult(z, a, c)
                     j >>= 1
                 i -= 1
-##        else:
-##            This code is disabled for now, because it assumes that
-##            SHIFT is a multiple of 5.  It could be fixed but it looks
-##            like it's more troubles than benefits...
-##
-##            # Left-to-right 5-ary exponentiation (HAC Algorithm 14.82)
-##            # This is only useful in the case where c != None.
-##            # z still holds 1L
-##            table = [z] * 32
-##            table[0] = z
-##            for i in range(1, 32):
-##                table[i] = _help_mult(table[i-1], a, c)
-##            i = b.numdigits() - 1
-##            while i >= 0:
-##                bi = b.digit(i)
-##                j = SHIFT - 5
-##                while j >= 0:
-##                    index = (bi >> j) & 0x1f
-##                    for k in range(5):
-##                        z = _help_mult(z, z, c)
-##                    if index:
-##                        z = _help_mult(z, table[index], c)
-##                    j -= 5
-##                i -= 1
+        else:
+            # Left-to-right 5-ary exponentiation (HAC Algorithm 14.82)
+            # This is only useful in the case where c != None.
+            # z still holds 1L
+            table = [z] * 32
+            table[0] = z
+            for i in range(1, 32):
+                table[i] = _help_mult(table[i-1], a, c)
+            i = b.numdigits()
+            # Note that here SHIFT is not a multiple of 5.  The difficulty
+            # is to extract 5 bits at a time from 'b', starting from the
+            # most significant digits, so that at the end of the algorithm
+            # it falls exactly to zero.
+            # m  = max number of bits = i * SHIFT
+            # m+ = m rounded up to the next multiple of 5
+            # j  = (m+) % SHIFT = (m+) - (i * SHIFT)
+            # (computed without doing "i * SHIFT", which might overflow)
+            j = i % 5
+            if j != 0:
+                j = 5 - j
+            if not we_are_translated():
+                assert j == (i*SHIFT+4)//5*5 - i*SHIFT
+            #
+            accum = r_uint(0)
+            while True:
+                j -= 5
+                if j >= 0:
+                    index = (accum >> j) & 0x1f
+                else:
+                    # 'accum' does not have enough digit.
+                    # must get the next digit from 'b' in order to complete
+                    i -= 1
+                    if i < 0:
+                        break    # done
+                    bi = b.udigit(i)
+                    index = ((accum << (-j)) | (bi >> (j+SHIFT))) & 0x1f
+                    accum = bi
+                    j += SHIFT
+                #
+                for k in range(5):
+                    z = _help_mult(z, z, c)
+                if index:
+                    z = _help_mult(z, table[index], c)
+            #
+            assert j == -5
 
         if negativeOutput and z.sign != 0:
             z = z.sub(c)

@@ -746,4 +746,5 @@ class Entry(ExtRegistryEntry):
         assert isinstance(TYPE, GcStruct)
         assert lltype._castdepth(TYPE, OBJECT) > 0
         hop.rtyper.set_type_for_typeptr(vtable, TYPE)
+        hop.exception_cannot_occur()
         return hop.inputconst(lltype.Void, None)

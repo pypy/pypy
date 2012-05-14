@@ -2,6 +2,7 @@ from pypy.conftest import gettestobjspace
 from pypy.module._multiprocessing.interp_semaphore import (
     RECURSIVE_MUTEX, SEMAPHORE)
 
+
 class AppTestSemaphore:
     def setup_class(cls):
         space = gettestobjspace(usemodules=('_multiprocessing', 'thread'))

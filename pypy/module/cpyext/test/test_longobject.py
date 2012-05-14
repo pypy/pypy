@@ -31,6 +31,12 @@ class TestLongObject(BaseApiTest):
         value = api.PyLong_AsUnsignedLong(w_value)
         assert value == (sys.maxint - 1) * 2
 
+    def test_as_ssize_t(self, space, api):
+        w_value = space.newlong(2)
+        value = api.PyLong_AsSsize_t(w_value)
+        assert value == 2
+        assert space.eq_w(w_value, api.PyLong_FromSsize_t(2))
+
     def test_fromdouble(self, space, api):
         w_value = api.PyLong_FromDouble(-12.74)
         assert space.unwrap(w_value) == -12
@@ -101,9 +107,9 @@ class TestLongObject(BaseApiTest):
                                   space.wrap((2, 7)))):
             py.test.skip("unsupported before Python 2.7")
 
-        assert api._PyLong_Sign(space.wrap(0L)) == 0
-        assert api._PyLong_Sign(space.wrap(2L)) == 1
-        assert api._PyLong_Sign(space.wrap(-2L)) == -1
+        assert api._PyLong_Sign(space.wraplong(0L)) == 0
+        assert api._PyLong_Sign(space.wraplong(2L)) == 1
+        assert api._PyLong_Sign(space.wraplong(-2L)) == -1
 
         assert api._PyLong_NumBits(space.wrap(0)) == 0
         assert api._PyLong_NumBits(space.wrap(1)) == 1

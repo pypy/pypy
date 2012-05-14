@@ -327,8 +327,10 @@ def invalid_typecode(space, u, tc):
     # %r not supported in rpython
     #u.raise_exc('invalid typecode in unmarshal: %r' % tc)
     c = ord(tc)
-    if c < 32 or c > 126:
-        s = '\\x' + hex(c)
+    if c < 16:
+        s = '\\x0%x' % c
+    elif c < 32 or c > 126:
+        s = '\\x%x' % c
     elif tc == '\\':
         s = r'\\'
     else:

@@ -398,6 +398,40 @@ class OptimizeoptTestMultiLabel(BaseTestMultiLabel):
         with raises(InvalidLoop):
             self.optimize_loop(ops, ops)
 
+    def test_issue1045(self):
+        ops = """
+        [i55]
+        i73 = int_mod(i55, 2)
+        i75 = int_rshift(i73, 63)
+        i76 = int_and(2, i75)
+        i77 = int_add(i73, i76)
+        i81 = int_eq(i77, 1)
+        i0 = int_ge(i55, 1)
+        guard_true(i0) []
+        label(i55)
+        i3 = int_mod(i55, 2)
+        i5 = int_rshift(i3, 63)
+        i6 = int_and(2, i5)
+        i7 = int_add(i3, i6)
+        i8 = int_eq(i7, 1)
+        escape(i8)
+        jump(i55)
+        """
+        expected = """
+        [i55]
+        i73 = int_mod(i55, 2)
+        i75 = int_rshift(i73, 63)
+        i76 = int_and(2, i75)
+        i77 = int_add(i73, i76)
+        i81 = int_eq(i77, 1)
+        i0 = int_ge(i55, 1)
+        guard_true(i0) []
+        label(i55, i81)
+        escape(i81)
+        jump(i55, i81)
+        """
+        self.optimize_loop(ops, expected)
+        
 class OptRenameStrlen(Optimization):
     def propagate_forward(self, op):
         dispatch_opt(self, op)
@@ -423,7 +457,7 @@ class BaseTestOptimizerRenamingBoxes(BaseTestMultiLabel):
         metainterp_sd = FakeMetaInterpStaticData(self.cpu)
         optimize_unroll(metainterp_sd, loop, [OptRenameStrlen(), OptPure()], True)
 
-    def test_optimizer_renaming_boxes(self):
+    def test_optimizer_renaming_boxes1(self):
         ops = """
         [p1]
         i1 = strlen(p1)
@@ -457,7 +491,6 @@ class BaseTestOptimizerRenamingBoxes(BaseTestMultiLabel):
         jump(p1, i11)
         """
         self.optimize_loop(ops, expected)
-
         
 
 class TestLLtype(OptimizeoptTestMultiLabel, LLtypeMixin):

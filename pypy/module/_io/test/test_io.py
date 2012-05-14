@@ -158,7 +158,7 @@ class AppTestIoModule:
 
 class AppTestOpen:
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['_io', '_locale'])
+        cls.space = gettestobjspace(usemodules=['_io', '_locale', 'array', 'struct'])
         tmpfile = udir.join('tmpfile').ensure()
         cls.w_tmpfile = cls.space.wrap(str(tmpfile))
 

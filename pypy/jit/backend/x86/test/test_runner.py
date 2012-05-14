@@ -371,7 +371,7 @@ class TestX86(LLtypeBackendTest):
 
         operations = [
             ResOperation(rop.LABEL, [i0], None, descr=targettoken),
-            ResOperation(rop.DEBUG_MERGE_POINT, [FakeString("hello"), 0], None),
+            ResOperation(rop.DEBUG_MERGE_POINT, [FakeString("hello"), 0, 0], None),
             ResOperation(rop.INT_ADD, [i0, ConstInt(1)], i1),
             ResOperation(rop.INT_LE, [i1, ConstInt(9)], i2),
             ResOperation(rop.GUARD_TRUE, [i2], None, descr=faildescr1),
@@ -390,7 +390,7 @@ class TestX86(LLtypeBackendTest):
         bridge = [
             ResOperation(rop.INT_LE, [i1b, ConstInt(19)], i3),
             ResOperation(rop.GUARD_TRUE, [i3], None, descr=faildescr2),
-            ResOperation(rop.DEBUG_MERGE_POINT, [FakeString("bye"), 0], None),
+            ResOperation(rop.DEBUG_MERGE_POINT, [FakeString("bye"), 0, 0], None),
             ResOperation(rop.JUMP, [i1b], None, descr=targettoken),
         ]
         bridge[1].setfailargs([i1b])
@@ -531,12 +531,12 @@ class TestDebuggingAssembler(object):
         loop = """
         [i0]
         label(i0, descr=preambletoken)
-        debug_merge_point('xyz', 0)
+        debug_merge_point('xyz', 0, 0)
         i1 = int_add(i0, 1)
         i2 = int_ge(i1, 10)
         guard_false(i2) []
         label(i1, descr=targettoken)
-        debug_merge_point('xyz', 0)
+        debug_merge_point('xyz', 0, 0)
         i11 = int_add(i1, 1)
         i12 = int_ge(i11, 10)
         guard_false(i12) []
@@ -569,7 +569,7 @@ class TestDebuggingAssembler(object):
         loop = """
         [i0]
         label(i0, descr=targettoken)
-        debug_merge_point('xyz', 0)
+        debug_merge_point('xyz', 0, 0)
         i1 = int_add(i0, 1)
         i2 = int_ge(i1, 10)
         guard_false(i2) []

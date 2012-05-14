@@ -608,6 +608,11 @@ class MiniMarkGC(MovingGCBase):
         specified as 0 if the object is not varsized.  The returned
         object is fully initialized and zero-filled."""
         #
+        # Here we really need a valid 'typeid', not 0 (as the JIT might
+        # try to send us if there is still a bug).
+        ll_assert(bool(self.combine(typeid, 0)),
+                  "external_malloc: typeid == 0")
+        #
         # Compute the total size, carefully checking for overflows.
         size_gc_header = self.gcheaderbuilder.size_gc_header
         nonvarsize = size_gc_header + self.fixed_size(typeid)
@@ -911,7 +916,7 @@ class MiniMarkGC(MovingGCBase):
         ll_assert(not self.is_in_nursery(obj),
                   "object in nursery after collection")
         # similarily, all objects should have this flag:
-        ll_assert(self.header(obj).tid & GCFLAG_TRACK_YOUNG_PTRS,
+        ll_assert(self.header(obj).tid & GCFLAG_TRACK_YOUNG_PTRS != 0,
                   "missing GCFLAG_TRACK_YOUNG_PTRS")
         # the GCFLAG_VISITED should not be set between collections
         ll_assert(self.header(obj).tid & GCFLAG_VISITED == 0,
@@ -1421,23 +1426,25 @@ class MiniMarkGC(MovingGCBase):
                 self._visit_young_rawmalloced_object(obj)
             return
         #
-        # If 'obj' was already forwarded, change it to its forwarding address.
-        if self.is_forwarded(obj):
-            root.address[0] = self.get_forwarding_address(obj)
-            return
-        #
-        # First visit to 'obj': we must move it out of the nursery.
         size_gc_header = self.gcheaderbuilder.size_gc_header
-        size = self.get_size(obj)
-        totalsize = size_gc_header + size
-        #
         if self.header(obj).tid & GCFLAG_HAS_SHADOW == 0:
             #
-            # Common case: allocate a new nonmovable location for it.
+            # Common case: 'obj' was not already forwarded (otherwise
+            # tid == -42, containing all flags), and it doesn't have the
+            # HAS_SHADOW flag either.  We must move it out of the nursery,
+            # into a new nonmovable location.
+            totalsize = size_gc_header + self.get_size(obj)
             newhdr = self._malloc_out_of_nursery(totalsize)
             #
+        elif self.is_forwarded(obj):
+            #
+            # 'obj' was already forwarded.  Change the original reference
+            # to point to its forwarding address, and we're done.
+            root.address[0] = self.get_forwarding_address(obj)
+            return
+            #
         else:
-            # The object has already a shadow.
+            # First visit to an object that has already a shadow.
             newobj = self.nursery_objects_shadows.get(obj)
             ll_assert(newobj != NULL, "GCFLAG_HAS_SHADOW but no shadow found")
             newhdr = newobj - size_gc_header
@@ -1445,6 +1452,8 @@ class MiniMarkGC(MovingGCBase):
             # Remove the flag GCFLAG_HAS_SHADOW, so that it doesn't get
             # copied to the shadow itself.
             self.header(obj).tid &= ~GCFLAG_HAS_SHADOW
+            #
+            totalsize = size_gc_header + self.get_size(obj)
         #
         # Copy it.  Note that references to other objects in the
         # nursery are kept unchanged in this step.

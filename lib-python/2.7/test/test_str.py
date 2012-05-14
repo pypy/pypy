@@ -422,10 +422,11 @@ class StrTest(
         for meth in ('foo'.startswith, 'foo'.endswith):
             with self.assertRaises(TypeError) as cm:
                 meth(['f'])
-            exc = str(cm.exception)
-            self.assertIn('unicode', exc)
-            self.assertIn('str', exc)
-            self.assertIn('tuple', exc)
+            if test_support.check_impl_detail():
+                exc = str(cm.exception)
+                self.assertIn('unicode', exc)
+                self.assertIn('str', exc)
+                self.assertIn('tuple', exc)
 
 def test_main():
     test_support.run_unittest(StrTest)

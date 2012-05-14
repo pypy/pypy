@@ -21,6 +21,8 @@ if sys.version_info < (2,6): py.test.skip("requires 2.6 so far")
 
 USE_ZIPFILE_MODULE = sys.platform == 'win32'
 
+STDLIB_VER = "2.7"
+
 def ignore_patterns(*patterns):
     """Function that can be used as copytree() ignore parameter.
 
@@ -58,9 +60,13 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
     binaries = [(pypy_c, rename_pypy_c)]
     #
     if sys.platform == 'win32':
+        #Don't include a mscvrXX.dll, users should get their own.
+        #Instructions are provided on the website.
+
         # Can't rename a DLL: it is always called 'libpypy-c.dll'
+        
         for extra in ['libpypy-c.dll',
-                      'libexpat.dll', 'sqlite3.dll', 'msvcr90.dll',
+                      'libexpat.dll', 'sqlite3.dll', 
                       'libeay32.dll', 'ssleay32.dll']:
             p = pypy_c.dirpath().join(extra)
             if not p.check():
@@ -73,8 +79,8 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
     pypydir = builddir.ensure(name, dir=True)
     # Careful: to copy lib_pypy, copying just the svn-tracked files
     # would not be enough: there are also ctypes_config_cache/_*_cache.py.
-    shutil.copytree(str(basedir.join('lib-python')),
-                    str(pypydir.join('lib-python')),
+    shutil.copytree(str(basedir.join('lib-python').join(STDLIB_VER)),
+                    str(pypydir.join('lib-python').join(STDLIB_VER)),
                     ignore=ignore_patterns('.svn', 'py', '*.pyc', '*~'))
     shutil.copytree(str(basedir.join('lib_pypy')),
                     str(pypydir.join('lib_pypy')),
@@ -82,6 +88,9 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
     for file in ['LICENSE', 'README']:
         shutil.copy(str(basedir.join(file)), str(pypydir))
     pypydir.ensure('include', dir=True)
+    if sys.platform == 'win32':
+        shutil.copyfile(str(pypy_c.dirpath().join("libpypy-c.lib")),
+                        str(pypydir.join('include/python27.lib')))
     # we want to put there all *.h and *.inl from trunk/include
     # and from pypy/_interfaces
     includedir = basedir.join('include')

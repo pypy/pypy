@@ -3,7 +3,7 @@ from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.dictmultiobject import W_DictMultiObject, IteratorImplementation
 from pypy.objspace.std.dictmultiobject import DictStrategy
 from pypy.objspace.std.typeobject import unwrap_cell
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, operationerrfmt
 
 from pypy.rlib import rerased
 
@@ -20,7 +20,17 @@ class DictProxyStrategy(DictStrategy):
     def getitem(self, w_dict, w_key):
         space = self.space
         w_lookup_type = space.type(w_key)
-        if space.is_w(w_lookup_type, space.w_str):
+        if (space.is_w(w_lookup_type, space.w_str) or  # Most common path first
+            space.abstract_issubclass_w(w_lookup_type, space.w_str)):
+            return self.getitem_str(w_dict, space.str_w(w_key))
+        elif space.abstract_issubclass_w(w_lookup_type, space.w_unicode):
+            try:
+                w_key = space.str(w_key)
+            except OperationError, e:
+                if not e.match(space, space.w_UnicodeEncodeError):
+                    raise
+                # non-ascii unicode is never equal to a byte string
+                return None
             return self.getitem_str(w_dict, space.str_w(w_key))
         else:
             return None
@@ -44,7 +54,8 @@ class DictProxyStrategy(DictStrategy):
                 raise
             if not w_type.is_cpytype():
                 raise
-            # xxx obscure workaround: allow cpyext to write to type->tp_dict.
+            # xxx obscure workaround: allow cpyext to write to type->tp_dict
+            # xxx even in the case of a builtin type.
             # xxx like CPython, we assume that this is only done early after
             # xxx the type is created, and we don't invalidate any cache.
             w_type.dict_w[key] = w_value
@@ -75,7 +86,7 @@ class DictProxyStrategy(DictStrategy):
 
     def keys(self, w_dict):
         space = self.space
-        return [space.wrap(key) for key in self.unerase(w_dict.dstorage).dict_w.iterkeys()]
+        return space.newlist_str(self.unerase(w_dict.dstorage).dict_w.keys())
 
     def values(self, w_dict):
         return [unwrap_cell(self.space, w_value) for w_value in self.unerase(w_dict.dstorage).dict_w.itervalues()]
@@ -86,12 +97,19 @@ class DictProxyStrategy(DictStrategy):
                     for (key, w_value) in self.unerase(w_dict.dstorage).dict_w.iteritems()]
 
     def clear(self, w_dict):
-        self.unerase(w_dict.dstorage).dict_w.clear()
-        self.unerase(w_dict.dstorage).mutated(None)
+        space = self.space
+        w_type = self.unerase(w_dict.dstorage)
+        if (not space.config.objspace.std.mutable_builtintypes
+                and not w_type.is_heaptype()):
+            msg = "can't clear dictionary of type '%s'"
+            raise operationerrfmt(space.w_TypeError, msg, w_type.name)
+        w_type.dict_w.clear()
+        w_type.mutated(None)
 
 class DictProxyIteratorImplementation(IteratorImplementation):
     def __init__(self, space, strategy, dictimplementation):
-        IteratorImplementation.__init__(self, space, dictimplementation)
+        IteratorImplementation.__init__(
+            self, space, strategy, dictimplementation)
         w_type = strategy.unerase(dictimplementation.dstorage)
         self.iterator = w_type.dict_w.iteritems()
 

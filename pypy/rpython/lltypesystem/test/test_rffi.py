@@ -180,7 +180,7 @@ class BaseTestRffi:
             struct.c_three = cast(INT, 5)
             result = z(struct)
             lltype.free(struct, flavor='raw')
-            return cast(LONG, result)
+            return cast(SIGNED, result)
     
         fn = self.compile(f, [], backendopt=False)
         assert fn() == 8
@@ -377,7 +377,7 @@ class BaseTestRffi:
         h_source = py.code.Source("""
         #ifndef _CALLBACK_H
         #define _CALLBACK_H
-        extern long eating_callback(long arg, long(*call)(long));
+        extern Signed eating_callback(Signed arg, Signed(*call)(Signed));
         #endif /* _CALLBACK_H */
         """)
         
@@ -385,9 +385,9 @@ class BaseTestRffi:
         h_include.write(h_source)
 
         c_source = py.code.Source("""
-        long eating_callback(long arg, long(*call)(long))
+        Signed eating_callback(Signed arg, Signed(*call)(Signed))
         {
-            long res = call(arg);
+            Signed res = call(arg);
             if (res == -1)
               return -1;
             return res;
@@ -399,8 +399,8 @@ class BaseTestRffi:
                                       separate_module_sources=[c_source],
                                       export_symbols=['eating_callback'])
 
-        args = [LONG, CCallback([LONG], LONG)]
-        eating_callback = llexternal('eating_callback', args, LONG,
+        args = [SIGNED, CCallback([SIGNED], SIGNED)]
+        eating_callback = llexternal('eating_callback', args, SIGNED,
                                      compilation_info=eci)
 
         return eating_callback
@@ -554,13 +554,13 @@ class TestRffiInternals:
             p = make(X, c_one=cast(INT, 3))
             res = p.c_one
             lltype.free(p, flavor='raw')
-            return cast(LONG, res)
+            return cast(SIGNED, res)
         assert f() == 3
         assert interpret(f, []) == 3
     
     def test_structcopy(self):
-        X2 = lltype.Struct('X2', ('x', LONG))
-        X1 = lltype.Struct('X1', ('a', LONG), ('x2', X2), ('p', lltype.Ptr(X2)))
+        X2 = lltype.Struct('X2', ('x', SIGNED))
+        X1 = lltype.Struct('X1', ('a', SIGNED), ('x2', X2), ('p', lltype.Ptr(X2)))
         def f():
             p2 = make(X2, x=123)
             p1 = make(X1, a=5, p=p2)
@@ -620,7 +620,7 @@ class TestRffiInternals:
         eci = ExternalCompilationInfo(includes=['string.h'])
         strlen = llexternal('strlen', [CCHARP], SIZE_T, compilation_info=eci)
         def f():
-            return cast(LONG, strlen("Xxx"))
+            return cast(SIGNED, strlen("Xxx"))
         assert interpret(f, [], backendopt=True) == 3
     
     def test_stringpolicy3(self):
@@ -643,7 +643,7 @@ class TestRffiInternals:
             ll_str = str2charp("Xxx")
             res2 = strlen(ll_str)
             lltype.free(ll_str, flavor='raw')
-            return cast(LONG, res1*10 + res2)
+            return cast(SIGNED, res1*10 + res2)
     
         assert interpret(f, [], backendopt=True) == 43    
     

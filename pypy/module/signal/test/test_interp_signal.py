@@ -6,6 +6,8 @@ from pypy.module.signal import interp_signal
 def setup_module(mod):
     if not hasattr(os, 'kill') or not hasattr(os, 'getpid'):
         py.test.skip("requires os.kill() and os.getpid()")
+    if not hasattr(interp_signal, 'SIGUSR1'):
+        py.test.skip("requires SIGUSR1 in signal")
 
 
 def check(expected):

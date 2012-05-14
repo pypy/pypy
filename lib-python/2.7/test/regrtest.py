@@ -1388,7 +1388,26 @@ _expectations = {
         test_zipimport
         test_zlib
         """,
-    'openbsd3':
+    'openbsd4':
+        """
+        test_ascii_formatd
+        test_bsddb
+        test_bsddb3
+        test_ctypes
+        test_dl
+        test_epoll
+        test_gdbm
+        test_locale
+        test_normalization
+        test_ossaudiodev
+        test_pep277
+        test_tcl
+        test_tk
+        test_ttk_guionly
+        test_ttk_textonly
+        test_multiprocessing
+        """,
+    'openbsd5':
         """
         test_ascii_formatd
         test_bsddb
@@ -1503,13 +1522,7 @@ class _ExpectedSkips:
         return self.expected
 
 if __name__ == '__main__':
-    # findtestdir() gets the dirname out of __file__, so we have to make it
-    # absolute before changing the working directory.
-    # For example __file__ may be relative when running trace or profile.
-    # See issue #9323.
-    __file__ = os.path.abspath(__file__)
-
-    # sanity check
+    # Simplification for findtestdir().
     assert __file__ == os.path.abspath(sys.argv[0])
 
     # When tests are run from the Python build directory, it is best practice

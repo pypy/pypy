@@ -7,7 +7,8 @@ from pypy.interpreter.argument import Arguments
 from pypy.interpreter.miscutils import ThreadLocals
 from pypy.tool.cache import Cache
 from pypy.tool.uid import HUGEVAL_BYTES
-from pypy.rlib.objectmodel import we_are_translated, newlist, compute_unique_id
+from pypy.rlib.objectmodel import we_are_translated, newlist_hint,\
+     compute_unique_id
 from pypy.rlib.debug import make_sure_not_resized
 from pypy.rlib.timer import DummyTimer, Timer
 from pypy.rlib.rarithmetic import r_uint
@@ -295,6 +296,7 @@ class ObjSpace(object):
         self.check_signal_action = None   # changed by the signal module
         self.user_del_action = UserDelAction(self)
         self.frame_trace_action = FrameTraceAction(self)
+        self._code_of_sys_exc_info = None
 
         from pypy.interpreter.pycode import cpython_magic, default_magic
         self.our_magic = default_magic
@@ -328,7 +330,7 @@ class ObjSpace(object):
                 raise
             modname = self.str_w(w_modname)
             mod = self.interpclass_w(w_mod)
-            if isinstance(mod, Module):
+            if isinstance(mod, Module) and not mod.startup_called:
                 self.timer.start("startup " + modname)
                 mod.init(self)
                 self.timer.stop("startup " + modname)
@@ -466,9 +468,9 @@ class ObjSpace(object):
                 if name not in modules:
                     modules.append(name)
 
-        # a bit of custom logic: time2 or rctime take precedence over time
+        # a bit of custom logic: rctime take precedence over time
         # XXX this could probably be done as a "requires" in the config
-        if ('time2' in modules or 'rctime' in modules) and 'time' in modules:
+        if 'rctime' in modules and 'time' in modules:
             modules.remove('time')
 
         if not self.config.objspace.nofaking:
@@ -799,6 +801,18 @@ class ObjSpace(object):
         return obj
     interp_w._annspecialcase_ = 'specialize:arg(1)'
 
+    def _check_constant_interp_w_or_w_None(self, RequiredClass, w_obj):
+        """
+        This method should NOT be called unless you are really sure about
+        it. It is used inside the implementation of end_finally() in
+        pyopcode.py, and it's there so that it can be overridden by the
+        FlowObjSpace.
+        """
+        if self.is_w(w_obj, self.w_None):
+            return True
+        obj = self.interpclass_w(w_obj)
+        return isinstance(obj, RequiredClass)
+
     def unpackiterable(self, w_iterable, expected_length=-1):
         """Unpack an iterable object into a real (interpreter-level) list.
         Raise an OperationError(w_ValueError) if the length is wrong."""
@@ -833,7 +847,7 @@ class ObjSpace(object):
             items = []
         else:
             try:
-                items = newlist(lgt_estimate)
+                items = newlist_hint(lgt_estimate)
             except MemoryError:
                 items = [] # it might have lied
         #
@@ -911,6 +925,12 @@ class ObjSpace(object):
         May return None anyway.
         """
         return None
+
+    def view_as_kwargs(self, w_dict):
+        """ if w_dict is a kwargs-dict, return two lists, one of unwrapped
+        strings and one of wrapped values. otherwise return (None, None)
+        """
+        return (None, None)
 
     def newlist_str(self, list_s):
         return self.newlist([self.wrap(s) for s in list_s])
@@ -1335,7 +1355,7 @@ class ObjSpace(object):
         if not self.is_true(self.isinstance(w_obj, self.w_str)):
             raise OperationError(self.w_TypeError,
                                  self.wrap('argument must be a string'))
-        return self.str_w(w_obj)
+        return self.str_w(w_obj)            
 
     def unicode_w(self, w_obj):
         return w_obj.unicode_w(self)
@@ -1482,8 +1502,8 @@ class ObjSpace(object):
 
     def warn(self, msg, w_warningcls):
         self.appexec([self.wrap(msg), w_warningcls], """(msg, warningcls):
-            import warnings
-            warnings.warn(msg, warningcls, stacklevel=2)
+            import _warnings
+            _warnings.warn(msg, warningcls, stacklevel=2)
         """)
 
     def resolve_target(self, w_obj):
@@ -1655,8 +1675,6 @@ ObjSpace.ExceptionTable = [
     'UnicodeTranslateError',
     'ValueError',
     'ZeroDivisionError',
-    'UnicodeEncodeError',
-    'UnicodeDecodeError',
     ]
     
 if sys.platform.startswith("win"):

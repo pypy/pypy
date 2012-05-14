@@ -891,7 +891,7 @@ class AppTestItertools26:
 
 class AppTestItertools27:
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['itertools'])
+        cls.space = gettestobjspace(usemodules=['itertools', 'struct'])
         if cls.space.is_true(cls.space.appexec([], """():
             import sys; return sys.version_info < (2, 7)
             """)):

@@ -1633,10 +1633,10 @@ def xmltoolkit63():
 
     Check reference leak.
     >>> xmltoolkit63()
-    >>> count = sys.getrefcount(None)
+    >>> count = sys.getrefcount(None)  #doctest: +SKIP
     >>> for i in range(1000):
     ...     xmltoolkit63()
-    >>> sys.getrefcount(None) - count
+    >>> sys.getrefcount(None) - count  #doctest: +SKIP
     0
 
     """

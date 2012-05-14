@@ -488,6 +488,8 @@ def cast_object_to_ptr(PTR, object):
     else:
         TO = PTR
     if not hasattr(object, '_carry_around_for_tests'):
+        if object is None:
+            return lltype.nullptr(PTR.TO)
         assert not hasattr(object, '_TYPE')
         object._carry_around_for_tests = True
         object._TYPE = TO
@@ -543,11 +545,11 @@ class CastObjectToPtrEntry(extregistry.ExtRegistryEntry):
         else:
             assert False
 
+        hop.exception_cannot_occur()
         if isinstance(hop.args_r[1], rpbc.NoneFrozenPBCRepr):
             return hop.inputconst(PTR, null)
         v_arg = hop.inputarg(hop.args_r[1], arg=1)
         assert isinstance(v_arg.concretetype, T)
-        hop.exception_cannot_occur()
         return hop.genop(opname, [v_arg], resulttype = PTR)
 
 
@@ -557,6 +559,8 @@ def cast_base_ptr_to_instance(Class, ptr):
     """NOT_RPYTHON: hack. Reverse the hacking done in cast_object_to_ptr()."""
     if isinstance(lltype.typeOf(ptr), lltype.Ptr):
         ptr = ptr._as_obj()
+        if ptr is None:
+            return None
     if not isinstance(ptr, Class):
         raise NotImplementedError("cast_base_ptr_to_instance: casting %r to %r"
                                   % (ptr, Class))

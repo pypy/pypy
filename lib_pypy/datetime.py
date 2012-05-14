@@ -968,8 +968,7 @@ class date(object):
             self._checkOverflow(t.year)
             result = date(t.year, t.month, t.day)
             return result
-        raise TypeError
-        # XXX Should be 'return NotImplemented', but there's a bug in 2.2...
+        return NotImplemented    # note that this doesn't work on CPython 2.2
 
     __radd__ = __add__
 
@@ -1032,8 +1031,8 @@ class date(object):
     def __setstate(self, string):
         if len(string) != 4 or not (1 <= ord(string[2]) <= 12):
             raise TypeError("not enough arguments")
-        yhi, ylo, self._month, self._day = map(ord, string)
-        self._year = yhi * 256 + ylo
+        self._month, self._day = ord(string[2]), ord(string[3])
+        self._year = ord(string[0]) * 256 + ord(string[1])
 
     def __reduce__(self):
         return (self.__class__, self._getstate())
@@ -1421,9 +1420,10 @@ class time(object):
     def __setstate(self, string, tzinfo):
         if len(string) != 6 or ord(string[0]) >= 24:
             raise TypeError("an integer is required")
-        self._hour, self._minute, self._second, us1, us2, us3 = \
-                                                            map(ord, string)
-        self._microsecond = (((us1 << 8) | us2) << 8) | us3
+        self._hour, self._minute, self._second = ord(string[0]), \
+                                                 ord(string[1]), ord(string[2])
+        self._microsecond = (((ord(string[3]) << 8) | \
+                            ord(string[4])) << 8) | ord(string[5])
         self._tzinfo = tzinfo
 
     def __reduce__(self):
@@ -1903,10 +1903,11 @@ class datetime(date):
             return (basestate, self._tzinfo)
 
     def __setstate(self, string, tzinfo):
-        (yhi, ylo, self._month, self._day, self._hour,
-         self._minute, self._second, us1, us2, us3) = map(ord, string)
-        self._year = yhi * 256 + ylo
-        self._microsecond = (((us1 << 8) | us2) << 8) | us3
+        (self._month, self._day, self._hour, self._minute,
+            self._second) = (ord(string[2]), ord(string[3]), ord(string[4]),
+                             ord(string[5]), ord(string[6]))
+        self._year = ord(string[0]) * 256 + ord(string[1])
+        self._microsecond = (((ord(string[7]) << 8) | ord(string[8])) << 8) | ord(string[9])
         self._tzinfo = tzinfo
 
     def __reduce__(self):

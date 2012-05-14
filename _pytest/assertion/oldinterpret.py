@@ -1,8 +1,7 @@
 import py
 import sys, inspect
 from compiler import parse, ast, pycodegen
-from _pytest.assertion.util import format_explanation
-from _pytest.assertion.reinterpret import BuiltinAssertionError
+from _pytest.assertion.util import format_explanation, BuiltinAssertionError
 
 passthroughex = py.builtin._sysex
 
@@ -482,7 +481,7 @@ def interpret(source, frame, should_fail=False):
     if should_fail:
         return ("(assertion failed, but when it was re-run for "
                 "printing intermediate values, it did not fail.  Suggestions: "
-                "compute assert expression before the assert or use --nomagic)")
+                "compute assert expression before the assert or use --assert=plain)")
     else:
         return None
 

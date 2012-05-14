@@ -38,10 +38,19 @@ typedef struct {
 	PyObject_VAR_HEAD
 } PyVarObject;
 
+#ifndef PYPY_DEBUG_REFCOUNT
 #define Py_INCREF(ob)   (Py_IncRef((PyObject *)ob))
 #define Py_DECREF(ob)   (Py_DecRef((PyObject *)ob))
 #define Py_XINCREF(ob)  (Py_IncRef((PyObject *)ob))
 #define Py_XDECREF(ob)  (Py_DecRef((PyObject *)ob))
+#else
+#define Py_INCREF(ob)   (((PyObject *)ob)->ob_refcnt++)
+#define Py_DECREF(ob)  ((((PyObject *)ob)->ob_refcnt > 1) ? \
+			((PyObject *)ob)->ob_refcnt-- : (Py_DecRef((PyObject *)ob)))
+
+#define Py_XINCREF(op) do { if ((op) == NULL) ; else Py_INCREF(op); } while (0)
+#define Py_XDECREF(op) do { if ((op) == NULL) ; else Py_DECREF(op); } while (0)
+#endif
 
 #define Py_CLEAR(op)				\
         do {                            	\
@@ -55,6 +64,8 @@ typedef struct {
 #define Py_REFCNT(ob)		(((PyObject*)(ob))->ob_refcnt)
 #define Py_TYPE(ob)		(((PyObject*)(ob))->ob_type)
 #define Py_SIZE(ob)		(((PyVarObject*)(ob))->ob_size)
+
+#define _Py_ForgetReference(ob) /* nothing */
 
 #define Py_None (&_Py_NoneStruct)
 

@@ -182,16 +182,6 @@ def PyInstance_New(space, cls, arg, kw):
     used as the positional and keyword parameters to the object's constructor."""
     raise NotImplementedError
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyCode_Check(space, co):
-    """Return true if co is a code object"""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyCode_GetNumFree(space, co):
-    """Return the number of free variables in co."""
-    raise NotImplementedError
-
 @cpython_api([PyObject], rffi.INT_real, error=-1)
 def PyCodec_Register(space, search_function):
     """Register a new codec search function.
@@ -1293,28 +1283,6 @@ def Py_EndInterpreter(space, tstate):
     that haven't been explicitly destroyed at that point."""
     raise NotImplementedError
 
-@cpython_api([rffi.VOIDP], lltype.Void)
-def Py_AddPendingCall(space, func):
-    """Post a notification to the Python main thread.  If successful, func will
-    be called with the argument arg at the earliest convenience.  func will be
-    called having the global interpreter lock held and can thus use the full
-    Python API and can take any action such as setting object attributes to
-    signal IO completion.  It must return 0 on success, or -1 signalling an
-    exception.  The notification function won't be interrupted to perform another
-    asynchronous notification recursively, but it can still be interrupted to
-    switch threads if the global interpreter lock is released, for example, if it
-    calls back into Python code.
-
-    This function returns 0 on success in which case the notification has been
-    scheduled.  Otherwise, for example if the notification buffer is full, it
-    returns -1 without setting any exception.
-
-    This function can be called on any thread, be it a Python thread or some
-    other system thread.  If it is a Python thread, it doesn't matter if it holds
-    the global interpreter lock or not.
-    """
-    raise NotImplementedError
-
 @cpython_api([Py_tracefunc, PyObject], lltype.Void)
 def PyEval_SetProfile(space, func, obj):
     """Set the profiler function to func.  The obj parameter is passed to the
@@ -1437,24 +1405,6 @@ def PyCallIter_Check(space, op):
     """
     raise NotImplementedError
 
-@cpython_api([PyObject, Py_ssize_t, Py_ssize_t], PyObject)
-def PyList_GetSlice(space, list, low, high):
-    """Return a list of the objects in list containing the objects between low
-    and high.  Return NULL and set an exception if unsuccessful.  Analogous
-    to list[low:high].  Negative indices, as when slicing from Python, are not
-    supported.
-
-    This function used an int for low and high. This might
-    require changes in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
-@cpython_api([Py_ssize_t], PyObject)
-def PyLong_FromSsize_t(space, v):
-    """Return a new PyLongObject object from a C Py_ssize_t, or
-    NULL on failure.
-    """
-    raise NotImplementedError
-
 @cpython_api([rffi.SIZE_T], PyObject)
 def PyLong_FromSize_t(space, v):
     """Return a new PyLongObject object from a C size_t, or
@@ -1472,14 +1422,6 @@ def PyLong_FromUnicode(space, u, length, base):
 
     This function used an int for length. This might require
     changes in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], Py_ssize_t, error=-1)
-def PyLong_AsSsize_t(space, pylong):
-    """Return a C Py_ssize_t representation of the contents of pylong.  If
-    pylong is greater than PY_SSIZE_T_MAX, an OverflowError is raised
-    and -1 will be returned.
-    """
     raise NotImplementedError
 
 @cpython_api([PyObject, rffi.CCHARP], rffi.INT_real, error=-1)
@@ -1638,15 +1580,6 @@ def PyObject_Bytes(space, o):
     for PyObject_Str()."""
     raise NotImplementedError
 
-@cpython_api([PyObject], lltype.Signed, error=-1)
-def PyObject_HashNotImplemented(space, o):
-    """Set a TypeError indicating that type(o) is not hashable and return -1.
-    This function receives special treatment when stored in a tp_hash slot,
-    allowing a type to explicitly indicate to the interpreter that it is not
-    hashable.
-    """
-    raise NotImplementedError
-
 @cpython_api([], PyFrameObject)
 def PyEval_GetFrame(space):
     """Return the current thread state's frame, which is NULL if no frame is
@@ -1769,17 +1702,6 @@ def PyString_Decode(space, s, size, encoding, errors):
     changes in your code for properly supporting 64-bit systems."""
     raise NotImplementedError
 
-@cpython_api([PyObject, rffi.CCHARP, rffi.CCHARP], PyObject)
-def PyString_AsDecodedObject(space, str, encoding, errors):
-    """Decode a string object by passing it to the codec registered for encoding and
-    return the result as Python object. encoding and errors have the same
-    meaning as the parameters of the same name in the string encode() method.
-    The codec to be used is looked up using the Python codec registry. Return NULL
-    if an exception was raised by the codec.
-
-    This function is not available in 3.x and does not have a PyBytes alias."""
-    raise NotImplementedError
-
 @cpython_api([rffi.CCHARP, Py_ssize_t, rffi.CCHARP, rffi.CCHARP], PyObject)
 def PyString_Encode(space, s, size, encoding, errors):
     """Encode the char buffer of the given size by passing it to the codec
@@ -1873,26 +1795,6 @@ def PyType_IS_GC(space, o):
 def PyUnicode_ClearFreeList(space):
     """Clear the free list. Return the total number of freed items.
     """
-    raise NotImplementedError
-
-@cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
-def Py_UNICODE_ISTITLE(space, ch):
-    """Return 1 or 0 depending on whether ch is a titlecase character."""
-    raise NotImplementedError
-
-@cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
-def Py_UNICODE_ISDIGIT(space, ch):
-    """Return 1 or 0 depending on whether ch is a digit character."""
-    raise NotImplementedError
-
-@cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
-def Py_UNICODE_ISNUMERIC(space, ch):
-    """Return 1 or 0 depending on whether ch is a numeric character."""
-    raise NotImplementedError
-
-@cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
-def Py_UNICODE_ISALPHA(space, ch):
-    """Return 1 or 0 depending on whether ch is an alphabetic character."""
     raise NotImplementedError
 
 @cpython_api([rffi.CCHARP], PyObject)
@@ -2061,35 +1963,6 @@ def PyUnicode_DecodeUTF8Stateful(space, s, size, errors, consumed):
 
     This function used an int type for size. This might require
     changes in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
-@cpython_api([rffi.CCHARP, Py_ssize_t, rffi.CCHARP, rffi.INTP], PyObject)
-def PyUnicode_DecodeUTF32(space, s, size, errors, byteorder):
-    """Decode length bytes from a UTF-32 encoded buffer string and return the
-    corresponding Unicode object.  errors (if non-NULL) defines the error
-    handling. It defaults to "strict".
-
-    If byteorder is non-NULL, the decoder starts decoding using the given byte
-    order:
-
-    *byteorder == -1: little endian
-    *byteorder == 0:  native order
-    *byteorder == 1:  big endian
-
-    If *byteorder is zero, and the first four bytes of the input data are a
-    byte order mark (BOM), the decoder switches to this byte order and the BOM is
-    not copied into the resulting Unicode string.  If *byteorder is -1 or
-    1, any byte order mark is copied to the output.
-
-    After completion, *byteorder is set to the current byte order at the end
-    of input data.
-
-    In a narrow build codepoints outside the BMP will be decoded as surrogate pairs.
-
-    If byteorder is NULL, the codec starts in native order mode.
-
-    Return NULL if an exception was raised by the codec.
-    """
     raise NotImplementedError
 
 @cpython_api([rffi.CCHARP, Py_ssize_t, rffi.CCHARP, rffi.INTP, Py_ssize_t], PyObject)
@@ -2305,24 +2178,6 @@ def PyUnicode_Concat(space, left, right):
     """Concat two strings giving a new Unicode string."""
     raise NotImplementedError
 
-@cpython_api([PyObject, PyObject, Py_ssize_t], PyObject)
-def PyUnicode_Split(space, s, sep, maxsplit):
-    """Split a string giving a list of Unicode strings.  If sep is NULL, splitting
-    will be done at all whitespace substrings.  Otherwise, splits occur at the given
-    separator.  At most maxsplit splits will be done.  If negative, no limit is
-    set.  Separators are not included in the resulting list.
-
-    This function used an int type for maxsplit. This might require
-    changes in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, rffi.INT_real], PyObject)
-def PyUnicode_Splitlines(space, s, keepend):
-    """Split a Unicode string at line breaks, returning a list of Unicode strings.
-    CRLF is considered to be one line break.  If keepend is 0, the Line break
-    characters are not included in the resulting strings."""
-    raise NotImplementedError
-
 @cpython_api([PyObject, PyObject, rffi.CCHARP], PyObject)
 def PyUnicode_Translate(space, str, table, errors):
     """Translate a string by applying a character mapping table to it and return the
@@ -2337,50 +2192,6 @@ def PyUnicode_Translate(space, str, table, errors):
 
     errors has the usual meaning for codecs. It may be NULL which indicates to
     use the default error handling."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, PyObject, Py_ssize_t, Py_ssize_t, rffi.INT_real], rffi.INT_real, error=-1)
-def PyUnicode_Tailmatch(space, str, substr, start, end, direction):
-    """Return 1 if substr matches str*[*start:end] at the given tail end
-    (direction == -1 means to do a prefix match, direction == 1 a suffix match),
-    0 otherwise. Return -1 if an error occurred.
-
-    This function used an int type for start and end. This
-    might require changes in your code for properly supporting 64-bit
-    systems."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, PyObject, Py_ssize_t, Py_ssize_t, rffi.INT_real], Py_ssize_t, error=-2)
-def PyUnicode_Find(space, str, substr, start, end, direction):
-    """Return the first position of substr in str*[*start:end] using the given
-    direction (direction == 1 means to do a forward search, direction == -1 a
-    backward search).  The return value is the index of the first match; a value of
-    -1 indicates that no match was found, and -2 indicates that an error
-    occurred and an exception has been set.
-
-    This function used an int type for start and end. This
-    might require changes in your code for properly supporting 64-bit
-    systems."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, PyObject, Py_ssize_t, Py_ssize_t], Py_ssize_t, error=-1)
-def PyUnicode_Count(space, str, substr, start, end):
-    """Return the number of non-overlapping occurrences of substr in
-    str[start:end].  Return -1 if an error occurred.
-
-    This function returned an int type and used an int
-    type for start and end. This might require changes in your code for
-    properly supporting 64-bit systems."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, PyObject, PyObject, Py_ssize_t], PyObject)
-def PyUnicode_Replace(space, str, substr, replstr, maxcount):
-    """Replace at most maxcount occurrences of substr in str with replstr and
-    return the resulting Unicode object. maxcount == -1 means replace all
-    occurrences.
-
-    This function used an int type for maxcount. This might
-    require changes in your code for properly supporting 64-bit systems."""
     raise NotImplementedError
 
 @cpython_api([PyObject, PyObject, rffi.INT_real], PyObject)
@@ -2556,17 +2367,6 @@ def PyParser_SimpleParseFileFlags(space, fp, filename, start, flags):
     source code is read from fp instead of an in-memory string."""
     raise NotImplementedError
 
-@cpython_api([rffi.CCHARP, rffi.INT_real, PyObject, PyObject, PyCompilerFlags], PyObject)
-def PyRun_StringFlags(space, str, start, globals, locals, flags):
-    """Execute Python source code from str in the context specified by the
-    dictionaries globals and locals with the compiler flags specified by
-    flags.  The parameter start specifies the start token that should be used to
-    parse the source code.
-
-    Returns the result of executing the code as a Python object, or NULL if an
-    exception was raised."""
-    raise NotImplementedError
-
 @cpython_api([FILE, rffi.CCHARP, rffi.INT_real, PyObject, PyObject, rffi.INT_real], PyObject)
 def PyRun_FileEx(space, fp, filename, start, globals, locals, closeit):
     """This is a simplified interface to PyRun_FileExFlags() below, leaving
@@ -2585,13 +2385,6 @@ def PyRun_FileExFlags(space, fp, filename, start, globals, locals, closeit, flag
     fp instead of an in-memory string. filename should be the name of the file.
     If closeit is true, the file is closed before PyRun_FileExFlags()
     returns."""
-    raise NotImplementedError
-
-@cpython_api([PyCodeObject, PyObject, PyObject], PyObject)
-def PyEval_EvalCode(space, co, globals, locals):
-    """This is a simplified interface to PyEval_EvalCodeEx(), with just
-    the code object, and the dictionaries of global and local variables.
-    The other arguments are set to NULL."""
     raise NotImplementedError
 
 @cpython_api([PyCodeObject, PyObject, PyObject, PyObjectP, rffi.INT_real, PyObjectP, rffi.INT_real, PyObjectP, rffi.INT_real, PyObject], PyObject)
@@ -2616,12 +2409,6 @@ def PyEval_EvalFrameEx(space, f, throwflag):
     The additional throwflag parameter can mostly be ignored - if true, then
     it causes an exception to immediately be thrown; this is used for the
     throw() methods of generator objects."""
-    raise NotImplementedError
-
-@cpython_api([PyCompilerFlags], rffi.INT_real, error=CANNOT_FAIL)
-def PyEval_MergeCompilerFlags(space, cf):
-    """This function changes the flags of the current evaluation frame, and returns
-    true on success, false on failure."""
     raise NotImplementedError
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)

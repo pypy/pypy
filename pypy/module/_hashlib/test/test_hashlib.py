@@ -3,7 +3,7 @@ from pypy.conftest import gettestobjspace
 
 class AppTestHashlib:
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['_hashlib'])
+        cls.space = gettestobjspace(usemodules=['_hashlib', 'array', 'struct'])
 
     def test_simple(self):
         import _hashlib

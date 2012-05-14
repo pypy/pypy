@@ -414,7 +414,7 @@ class Reader(object):
 
     def _parse_add_char(self, c):
         if len(self.field) + len(c) > _field_limit:
-            raise Error("field larget than field limit (%d)" % (_field_limit))
+            raise Error("field larger than field limit (%d)" % (_field_limit))
         self.field += c
         
 

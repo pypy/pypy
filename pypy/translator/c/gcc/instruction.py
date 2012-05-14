@@ -13,13 +13,17 @@ ARGUMENT_REGISTERS_32 = ('%eax', '%edx', '%ecx')
 ARGUMENT_REGISTERS_64 = ('%rdi', '%rsi', '%rdx', '%rcx', '%r8', '%r9')
 
 
-def frameloc_esp(offset):
+def frameloc_esp(offset, wordsize):
     assert offset >= 0
-    assert offset % 4 == 0
+    assert offset % wordsize == 0
+    if wordsize == 8:    # in this case, there are 3 null bits, but we
+        offset >>= 1     # only need 2 of them
     return LOC_ESP_PLUS | offset
 
-def frameloc_ebp(offset):
-    assert offset % 4 == 0
+def frameloc_ebp(offset, wordsize):
+    assert offset % wordsize == 0
+    if wordsize == 8:    # in this case, there are 3 null bits, but we
+        offset >>= 1     # only need 2 of them
     if offset >= 0:
         return LOC_EBP_PLUS | offset
     else:
@@ -57,12 +61,12 @@ class LocalVar(object):
             # try to use esp-relative addressing
             ofs_from_esp = framesize + self.ofs_from_frame_end
             if ofs_from_esp % 2 == 0:
-                return frameloc_esp(ofs_from_esp)
+                return frameloc_esp(ofs_from_esp, wordsize)
             # we can get an odd value if the framesize is marked as bogus
             # by visit_andl()
         assert uses_frame_pointer
         ofs_from_ebp = self.ofs_from_frame_end + wordsize
-        return frameloc_ebp(ofs_from_ebp)
+        return frameloc_ebp(ofs_from_ebp, wordsize)
 
 
 class Insn(object):

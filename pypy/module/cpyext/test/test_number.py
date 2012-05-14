@@ -6,12 +6,12 @@ from pypy.module.cpyext import sequence
 class TestIterator(BaseApiTest):
     def test_check(self, space, api):
         assert api.PyIndex_Check(space.wrap(12))
-        assert api.PyIndex_Check(space.wrap(-12L))
+        assert api.PyIndex_Check(space.wraplong(-12L))
         assert not api.PyIndex_Check(space.wrap(12.1))
         assert not api.PyIndex_Check(space.wrap('12'))
 
         assert api.PyNumber_Check(space.wrap(12))
-        assert api.PyNumber_Check(space.wrap(-12L))
+        assert api.PyNumber_Check(space.wraplong(-12L))
         assert api.PyNumber_Check(space.wrap(12.1))
         assert not api.PyNumber_Check(space.wrap('12'))
         assert not api.PyNumber_Check(space.wrap(1+3j))
@@ -21,7 +21,7 @@ class TestIterator(BaseApiTest):
         assert api.PyLong_CheckExact(w_l)
 
     def test_number_int(self, space, api):
-        w_l = api.PyNumber_Int(space.wrap(123L))
+        w_l = api.PyNumber_Int(space.wraplong(123L))
         assert api.PyInt_CheckExact(w_l)
         w_l = api.PyNumber_Int(space.wrap(2 << 65))
         assert api.PyLong_CheckExact(w_l)
@@ -29,7 +29,7 @@ class TestIterator(BaseApiTest):
         assert api.PyInt_CheckExact(w_l)
 
     def test_number_index(self, space, api):
-        w_l = api.PyNumber_Index(space.wrap(123L))
+        w_l = api.PyNumber_Index(space.wraplong(123L))
         assert api.PyLong_CheckExact(w_l)
         w_l = api.PyNumber_Index(space.wrap(42.3))
         assert w_l is None

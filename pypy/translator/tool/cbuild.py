@@ -267,9 +267,12 @@ class ExternalCompilationInfo(object):
         d['separate_module_files'] = ()
         return files, ExternalCompilationInfo(**d)
 
-    def compile_shared_lib(self, outputfilename=None):
+    def compile_shared_lib(self, outputfilename=None, ignore_a_files=False):
         self = self.convert_sources_to_files()
-        if not self.separate_module_files:
+        if ignore_a_files:
+            if not [fn for fn in self.link_files if fn.endswith('.a')]:
+                ignore_a_files = False    # there are none
+        if not self.separate_module_files and not ignore_a_files:
             if sys.platform != 'win32':
                 return self
             if not self.export_symbols:
@@ -288,6 +291,13 @@ class ExternalCompilationInfo(object):
                 num += 1
             basepath.ensure(dir=1)
             outputfilename = str(pth.dirpath().join(pth.purebasename))
+
+        if ignore_a_files:
+            d = self._copy_attributes()
+            d['link_files'] = [fn for fn in d['link_files']
+                                  if not fn.endswith('.a')]
+            self = ExternalCompilationInfo(**d)
+
         lib = str(host.compile([], self, outputfilename=outputfilename,
                                standalone=False))
         d = self._copy_attributes()
@@ -320,4 +330,13 @@ STANDARD_DEFINES = '''
 #define __XSI_VISIBLE 700
 /* Windows: winsock/winsock2 mess */
 #define WIN32_LEAN_AND_MEAN
+#ifdef _WIN64
+   typedef          __int64 Signed;
+   typedef unsigned __int64 Unsigned;
+#  define SIGNED_MIN LLONG_MIN 
+#else
+   typedef          long Signed;
+   typedef unsigned long Unsigned;
+#  define SIGNED_MIN LONG_MIN
+#endif
 '''
