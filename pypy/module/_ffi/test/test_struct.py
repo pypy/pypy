@@ -245,6 +245,22 @@ class AppTestStruct(BaseAppTestFFI):
         assert repr(descr.ffitype) == '<ffi type struct foo>'
         assert descr.ffitype.sizeof() == longsize*2
         raises(ValueError, "descr.define_fields(fields)")
+
+    def test_pointer_to_incomplete_struct(self):
+        from _ffi import _StructDescr, Field, types
+        longsize = types.slong.sizeof()
+        fields = [
+            Field('x', types.slong),
+            Field('y', types.slong),
+            ]
+        descr = _StructDescr('foo')
+        foo_ffitype = descr.ffitype
+        foo_p = types.Pointer(descr.ffitype)
+        assert foo_p.deref_pointer() is foo_ffitype
+        descr.define_fields(fields)
+        assert descr.ffitype is foo_ffitype
+        assert foo_p.deref_pointer() is foo_ffitype
+        assert types.Pointer(descr.ffitype) is foo_p
         
 
     def test_compute_shape(self):
