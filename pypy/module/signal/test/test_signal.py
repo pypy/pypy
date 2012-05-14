@@ -61,8 +61,6 @@ class AppTestSignal:
             received.append(signum)
         signal.signal(signum, myhandler)
 
-        print dir(os)
-
         os.kill(os.getpid(), signum)
         # the signal should be delivered to the handler immediately
         assert received == [signum]
