@@ -74,6 +74,32 @@ for methodname in 'register modify unregister poll'.split():
     pollmethods[methodname] = interp2app(getattr(Poll, methodname))
 Poll.typedef = TypeDef('select.poll', **pollmethods)
 
+# ____________________________________________________________
+
+
+from pypy.rlib import _rsocket_rffi as _c
+from pypy.rpython.lltypesystem import lltype, rffi
+
+
+def _build_fd_set(space, list_w, ll_list, nfds):
+    _c.FD_ZERO(ll_list)
+    fdlist = []
+    for w_f in list_w:
+        fd = space.c_filedescriptor_w(w_f)
+        if fd > nfds:
+            nfds = fd
+        _c.FD_SET(fd, ll_list)
+        fdlist.append(fd)
+    return fdlist, nfds
+_build_fd_set._always_inline_ = True    # get rid of the tuple result
+
+def _unbuild_fd_set(space, list_w, fdlist, ll_list, reslist_w):
+    for i in range(len(fdlist)):
+        fd = fdlist[i]
+        if _c.FD_ISSET(fd, ll_list):
+            reslist_w.append(list_w[i])
+
+
 def select(space, w_iwtd, w_owtd, w_ewtd, w_timeout=None):
     """Wait until one or more file descriptors are ready for some kind of I/O.
 The first three arguments are sequences of file descriptors to be waited for:
@@ -99,29 +125,62 @@ On Windows, only sockets are supported; on Unix, all file descriptors.
     iwtd_w = space.listview(w_iwtd)
     owtd_w = space.listview(w_owtd)
     ewtd_w = space.listview(w_ewtd)
-    iwtd = [space.c_filedescriptor_w(w_f) for w_f in iwtd_w]
-    owtd = [space.c_filedescriptor_w(w_f) for w_f in owtd_w]
-    ewtd = [space.c_filedescriptor_w(w_f) for w_f in ewtd_w]
-    iwtd_d = {}
-    owtd_d = {}
-    ewtd_d = {}
-    for i in range(len(iwtd)):
-        iwtd_d[iwtd[i]] = iwtd_w[i]
-    for i in range(len(owtd)):
-        owtd_d[owtd[i]] = owtd_w[i]
-    for i in range(len(ewtd)):
-        ewtd_d[ewtd[i]] = ewtd_w[i]
-    try:
-        if space.is_w(w_timeout, space.w_None):
-            iwtd, owtd, ewtd = rpoll.select(iwtd, owtd, ewtd)
-        else:
-            iwtd, owtd, ewtd = rpoll.select(iwtd, owtd, ewtd, space.float_w(w_timeout))
-    except rpoll.SelectError, s:
-        w_errortype = space.fromcache(Cache).w_error
-        raise OperationError(w_errortype, space.newtuple([
-            space.wrap(s.errno), space.wrap(s.get_msg())]))
 
-    return space.newtuple([
-        space.newlist([iwtd_d[i] for i in iwtd]),
-        space.newlist([owtd_d[i] for i in owtd]),
-        space.newlist([ewtd_d[i] for i in ewtd])])
+    ll_inl  = lltype.nullptr(_c.fd_set.TO)
+    ll_outl = lltype.nullptr(_c.fd_set.TO)
+    ll_errl = lltype.nullptr(_c.fd_set.TO)
+    ll_timeval = lltype.nullptr(_c.timeval)
+    
+    try:
+        fdlistin  = None
+        fdlistout = None
+        fdlisterr = None
+        nfds = -1
+        if len(iwtd_w) > 0:
+            ll_inl = lltype.malloc(_c.fd_set.TO, flavor='raw')
+            fdlistin, nfds = _build_fd_set(space, iwtd_w, ll_inl, nfds)
+        if len(owtd_w) > 0:
+            ll_outl = lltype.malloc(_c.fd_set.TO, flavor='raw')
+            fdlistout, nfds = _build_fd_set(space, owtd_w, ll_outl, nfds)
+        if len(ewtd_w) > 0:
+            ll_errl = lltype.malloc(_c.fd_set.TO, flavor='raw')
+            fdlisterr, nfds = _build_fd_set(space, ewtd_w, ll_errl, nfds)
+
+        if space.is_w(w_timeout, space.w_None):
+            timeout = -1.0
+        else:
+            timeout = space.float_w(w_timeout)
+        if timeout >= 0.0:
+            ll_timeval = rffi.make(_c.timeval)
+            i = int(timeout)
+            rffi.setintfield(ll_timeval, 'c_tv_sec', i)
+            rffi.setintfield(ll_timeval, 'c_tv_usec', int((timeout-i)*1000000))
+
+        res = _c.select(nfds + 1, ll_inl, ll_outl, ll_errl, ll_timeval)
+
+        if res < 0:
+            errno = _c.geterrno()
+            msg = _c.socket_strerror_str(errno)
+            w_errortype = space.fromcache(Cache).w_error
+            raise OperationError(w_errortype, space.newtuple([
+                space.wrap(errno), space.wrap(msg)]))
+
+        resin_w = []
+        resout_w = []
+        reserr_w = []
+        if res > 0:
+            if fdlistin is not None:
+                _unbuild_fd_set(space, iwtd_w, fdlistin,  ll_inl,  resin_w)
+            if fdlistout is not None:
+                _unbuild_fd_set(space, owtd_w, fdlistout, ll_outl, resout_w)
+            if fdlisterr is not None:
+                _unbuild_fd_set(space, ewtd_w, fdlisterr, ll_errl, reserr_w)
+    finally:
+        if ll_timeval: lltype.free(ll_timeval, flavor='raw')
+        if ll_errl:    lltype.free(ll_errl, flavor='raw')
+        if ll_outl:    lltype.free(ll_outl, flavor='raw')
+        if ll_inl:     lltype.free(ll_inl, flavor='raw')
+
+    return space.newtuple([space.newlist(resin_w),
+                           space.newlist(resout_w),
+                           space.newlist(reserr_w)])
