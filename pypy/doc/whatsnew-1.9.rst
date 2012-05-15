@@ -11,10 +11,14 @@ What's new in PyPy 1.9
 .. branch: faster-heapcache
 .. branch: faster-str-decode-escape
 .. branch: float-bytes
+Added some pritives for dealing with floats as raw bytes.
 .. branch: float-bytes-2
+Added more float byte primitives.
 .. branch: jit-frame-counter
+Put more debug info into resops.
 .. branch: kill-geninterp
 .. branch: kqueue
+Finished select.kqueue.
 .. branch: kwargsdict-strategy
 .. branch: matrixmath-dot
 numpypy can now handle matrix multiplication.
