@@ -292,8 +292,11 @@ class SetFieldConverter(FromAppLevelConverter):
         libffi.struct_setfield_singlefloat(w_ffitype.get_ffitype(),
                                            self.rawmem, self.offset, singlefloatval)
 
-    ## def handle_struct(self, w_ffitype, w_structinstance):
-    ##     ...
+    def handle_struct(self, w_ffitype, w_structinstance):
+        dst = rffi.ptradd(self.rawmem, self.offset)
+        src = w_structinstance.rawmem
+        length = w_ffitype.sizeof()
+        rffi.c_memcpy(dst, src, length)
 
     ## def handle_char_p(self, w_ffitype, w_obj, strval):
     ##     ...

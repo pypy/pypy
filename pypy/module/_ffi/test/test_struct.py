@@ -281,11 +281,26 @@ class AppTestStruct(BaseAppTestFFI):
         #
         struct = bar_descr.allocate()
         struct.setfield('x', 40)
+        # reading a nested structure yields a reference to it
         struct_foo = struct.getfield('foo')
         struct_foo.setfield('x', 41)
         struct_foo.setfield('y', 42)
         mem = self.read_raw_mem(struct.getaddr(), 'c_long', 3)
         assert mem == [40, 41, 42]
+        #
+        struct_foo2 = foo_descr.allocate()
+        struct_foo2.setfield('x', 141)
+        struct_foo2.setfield('y', 142)
+        # writing a nested structure copies its memory into the target
+        struct.setfield('foo', struct_foo2)
+        struct_foo2.setfield('x', 241)
+        struct_foo2.setfield('y', 242)
+        mem = self.read_raw_mem(struct.getaddr(), 'c_long', 3)
+        assert mem == [40, 141, 142]
+        mem = self.read_raw_mem(struct_foo2.getaddr(), 'c_long', 2)
+        assert mem == [241, 242]
+
+
 
     def test_compute_shape(self):
         from _ffi import Structure, Field, types
