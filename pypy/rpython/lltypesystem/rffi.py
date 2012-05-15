@@ -810,14 +810,13 @@ def make_string_mappings(strtype):
             b.append(cp[i])
             i += 1
         return assert_str0(b.build())
-    charp2strn._annenforceargs_ = [None, annmodel.SomeInteger(nonneg=True)]
 
     # char* and size -> str (which can contain null bytes)
     def charpsize2str(cp, size):
         b = builder_class(size)
         b.append_charpsize(cp, size)
         return b.build()
-    charpsize2str._annenforceargs_ = [None, annmodel.SomeInteger(nonneg=True)]
+    charpsize2str._annenforceargs_ = [None, int]
 
     return (str2charp, free_charp, charp2str,
             get_nonmovingbuffer, free_nonmovingbuffer,
