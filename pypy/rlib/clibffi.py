@@ -347,11 +347,12 @@ FFI_STRUCT_P = lltype.Ptr(lltype.Struct('FFI_STRUCT',
                                         ('ffistruct', FFI_TYPE_P.TO),
                                         ('members', lltype.Array(FFI_TYPE_P))))
 
-def make_struct_ffitype_e(size, aligment, field_types):
+def make_struct_ffitype_e(size, aligment, field_types, track_allocation=True):
     """Compute the type of a structure.  Returns a FFI_STRUCT_P out of
        which the 'ffistruct' member is a regular FFI_TYPE.
     """
-    tpe = lltype.malloc(FFI_STRUCT_P.TO, len(field_types)+1, flavor='raw')
+    tpe = lltype.malloc(FFI_STRUCT_P.TO, len(field_types)+1, flavor='raw',
+                        track_allocation=track_allocation)
     tpe.ffistruct.c_type = rffi.cast(rffi.USHORT, FFI_TYPE_STRUCT)
     tpe.ffistruct.c_size = rffi.cast(rffi.SIZE_T, size)
     tpe.ffistruct.c_alignment = rffi.cast(rffi.USHORT, aligment)

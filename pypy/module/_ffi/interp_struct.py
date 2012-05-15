@@ -51,7 +51,7 @@ class FFIStructOwner(object):
     @must_be_light_finalizer
     def __del__(self):
         if self.ffistruct:
-            lltype.free(self.ffistruct, flavor='raw')
+            lltype.free(self.ffistruct, flavor='raw', track_allocation=True)
         
 
 class W__StructDescr(Wrappable):
@@ -79,7 +79,12 @@ class W__StructDescr(Wrappable):
         for w_field in fields_w:
             field_types.append(w_field.w_ffitype.get_ffitype())
             self.name2w_field[w_field.name] = w_field
-        ffistruct = clibffi.make_struct_ffitype_e(size, alignment, field_types)
+        #
+        # on CPython, the FFIStructOwner might go into gc.garbage and thus the
+        # __del__ never be called. Thus, we don't track the allocation of the
+        # malloc done inside this function, else the leakfinder might complain
+        ffistruct = clibffi.make_struct_ffitype_e(size, alignment, field_types,
+                                                  track_allocation=False)
         self.w_ffitype.set_ffitype(ffistruct.ffistruct)
         self._ffistruct_owner = FFIStructOwner(ffistruct)
 
