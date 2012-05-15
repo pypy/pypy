@@ -245,8 +245,13 @@ class GetFieldConverter(ToAppLevelConverter):
         return libffi.struct_getfield_singlefloat(w_ffitype.get_ffitype(),
                                                   self.rawmem, self.offset)
 
-    ## def get_struct(self, w_datashape):
-    ##     ...
+    def get_struct(self, w_ffitype, w_datashape):
+        assert isinstance(w_datashape, W__StructDescr)
+        innermem = rffi.ptradd(self.rawmem, self.offset)
+        # we return a reference to the inner struct, not a copy
+        # autofree=False because it's still owned by the parent struct
+        return W__StructInstance(w_datashape, allocate=False, autofree=False,
+                                 rawmem=innermem)
 
     ## def get_void(self, w_ffitype):
     ##     ...

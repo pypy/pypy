@@ -264,7 +264,6 @@ class AppTestStruct(BaseAppTestFFI):
         assert types.Pointer(descr.ffitype) is foo_p
 
     def test_nested_structure(self):
-        skip('in-progress')
         from _ffi import _StructDescr, Field, types
         longsize = types.slong.sizeof()
         foo_fields = [

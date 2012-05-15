@@ -203,8 +203,9 @@ class CallFunctionConverter(ToAppLevelConverter):
     def get_singlefloat(self, w_ffitype):
         return self.func.call(self.argchain, rffi.FLOAT)
 
-    def get_struct(self, w_datashape):
-        return self.func.call(self.argchain, rffi.LONG, is_struct=True)
+    def get_struct(self, w_ffitype, w_datashape):
+        addr = self.func.call(self.argchain, rffi.LONG, is_struct=True)
+        return w_datashape.fromaddress(self.space, addr)
 
     def get_void(self, w_ffitype):
         return self.func.call(self.argchain, lltype.Void)

@@ -224,8 +224,7 @@ class ToAppLevelConverter(object):
         elif w_ffitype.is_struct():
             w_datashape = w_ffitype.w_datashape
             assert isinstance(w_datashape, W__StructDescr)
-            addr = self.get_struct(w_datashape) # this is the ptr to the struct
-            return w_datashape.fromaddress(space, addr)
+            return self.get_struct(w_ffitype, w_datashape)
         elif w_ffitype.is_void():
             voidval = self.get_void(w_ffitype)
             assert voidval is None
@@ -325,7 +324,7 @@ class ToAppLevelConverter(object):
         """
         self.error(w_ffitype)
 
-    def get_struct(self, w_datashape):
+    def get_struct(self, w_ffitype, w_datashape):
         """
         Return type: lltype.Unsigned
         (the address of the structure)
