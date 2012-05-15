@@ -125,6 +125,7 @@ class PushArgumentConverter(FromAppLevelConverter):
         self.argchain.arg(singlefloatval)
 
     def handle_struct(self, w_ffitype, w_structinstance):
+        # arg_raw directly takes value to put inside ll_args
         ptrval = w_structinstance.rawmem
         self.argchain.arg_raw(ptrval)
 
