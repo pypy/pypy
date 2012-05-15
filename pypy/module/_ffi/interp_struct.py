@@ -59,7 +59,7 @@ class W__StructDescr(Wrappable):
     def __init__(self, space, name):
         self.space = space
         self.w_ffitype = W_FFIType('struct %s' % name, clibffi.FFI_TYPE_NULL,
-                                   w_datashape=self)
+                                   w_structdescr=self)
         self.fields_w = None
         self.name2w_field = {}
         self._ffistruct_owner = None
@@ -245,12 +245,12 @@ class GetFieldConverter(ToAppLevelConverter):
         return libffi.struct_getfield_singlefloat(w_ffitype.get_ffitype(),
                                                   self.rawmem, self.offset)
 
-    def get_struct(self, w_ffitype, w_datashape):
-        assert isinstance(w_datashape, W__StructDescr)
+    def get_struct(self, w_ffitype, w_structdescr):
+        assert isinstance(w_structdescr, W__StructDescr)
         innermem = rffi.ptradd(self.rawmem, self.offset)
         # we return a reference to the inner struct, not a copy
         # autofree=False because it's still owned by the parent struct
-        return W__StructInstance(w_datashape, allocate=False, autofree=False,
+        return W__StructInstance(w_structdescr, allocate=False, autofree=False,
                                  rawmem=innermem)
 
     ## def get_void(self, w_ffitype):

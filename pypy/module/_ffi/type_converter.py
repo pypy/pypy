@@ -222,9 +222,9 @@ class ToAppLevelConverter(object):
         elif w_ffitype.is_singlefloat():
             return self._singlefloat(w_ffitype)
         elif w_ffitype.is_struct():
-            w_datashape = w_ffitype.w_datashape
-            assert isinstance(w_datashape, W__StructDescr)
-            return self.get_struct(w_ffitype, w_datashape)
+            w_structdescr = w_ffitype.w_structdescr
+            assert isinstance(w_structdescr, W__StructDescr)
+            return self.get_struct(w_ffitype, w_structdescr)
         elif w_ffitype.is_void():
             voidval = self.get_void(w_ffitype)
             assert voidval is None
@@ -324,7 +324,7 @@ class ToAppLevelConverter(object):
         """
         self.error(w_ffitype)
 
-    def get_struct(self, w_ffitype, w_datashape):
+    def get_struct(self, w_ffitype, w_structdescr):
         """
         Return type: lltype.Unsigned
         (the address of the structure)

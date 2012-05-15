@@ -8,12 +8,12 @@ from pypy.interpreter.error import OperationError
 
 class W_FFIType(Wrappable):
 
-    _immutable_fields_ = ['name', 'w_datashape', 'w_pointer_to']
+    _immutable_fields_ = ['name', 'w_structdescr', 'w_pointer_to']
 
-    def __init__(self, name, ffitype, w_datashape=None, w_pointer_to=None):
+    def __init__(self, name, ffitype, w_structdescr=None, w_pointer_to=None):
         self.name = name
         self._ffitype = clibffi.FFI_TYPE_NULL
-        self.w_datashape = w_datashape
+        self.w_structdescr = w_structdescr
         self.w_pointer_to = w_pointer_to
         self.set_ffitype(ffitype)
 
@@ -28,7 +28,7 @@ class W_FFIType(Wrappable):
             raise ValueError("The _ffitype is already set")
         self._ffitype = ffitype
         if ffitype and self.is_struct():
-            assert self.w_datashape is not None
+            assert self.w_structdescr is not None
 
     def descr_deref_pointer(self, space):
         if self.w_pointer_to is None:
