@@ -3,7 +3,6 @@ from pypy.rlib import jit
 from pypy.rlib.rarithmetic import intmask, r_uint
 from pypy.rpython.lltypesystem import rffi
 from pypy.interpreter.error import operationerrfmt
-from pypy.module._rawffi.structure import W_StructureInstance, W_Structure
 from pypy.module._ffi.interp_ffitype import app_types
 
 class FromAppLevelConverter(object):
@@ -18,6 +17,7 @@ class FromAppLevelConverter(object):
         self.space = space
 
     def unwrap_and_do(self, w_ffitype, w_obj):
+        from pypy.module._ffi.interp_struct import W__StructInstance
         space = self.space
         if w_ffitype.is_longlong():
             # note that we must check for longlong first, because either
@@ -50,7 +50,7 @@ class FromAppLevelConverter(object):
             self._singlefloat(w_ffitype, w_obj)
         elif w_ffitype.is_struct():
             # arg_raw directly takes value to put inside ll_args
-            w_obj = space.interp_w(W_StructureInstance, w_obj)
+            w_obj = space.interp_w(W__StructInstance, w_obj)
             self.handle_struct(w_ffitype, w_obj)
         else:
             self.error(w_ffitype, w_obj)
@@ -183,6 +183,7 @@ class ToAppLevelConverter(object):
         self.space = space
 
     def do_and_wrap(self, w_ffitype):
+        from pypy.module._ffi.interp_struct import W__StructDescr
         space = self.space
         if w_ffitype.is_longlong():
             # note that we must check for longlong first, because either
@@ -222,9 +223,9 @@ class ToAppLevelConverter(object):
             return self._singlefloat(w_ffitype)
         elif w_ffitype.is_struct():
             w_datashape = w_ffitype.w_datashape
-            assert isinstance(w_datashape, W_Structure)
-            uintval = self.get_struct(w_datashape) # this is the ptr to the struct
-            return w_datashape.fromaddress(space, uintval)
+            assert isinstance(w_datashape, W__StructDescr)
+            addr = self.get_struct(w_datashape) # this is the ptr to the struct
+            return w_datashape.fromaddress(space, addr)
         elif w_ffitype.is_void():
             voidval = self.get_void(w_ffitype)
             assert voidval is None

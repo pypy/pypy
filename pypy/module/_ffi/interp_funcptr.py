@@ -125,7 +125,7 @@ class PushArgumentConverter(FromAppLevelConverter):
         self.argchain.arg(singlefloatval)
 
     def handle_struct(self, w_ffitype, w_structinstance):
-        ptrval = w_structinstance.ll_buffer
+        ptrval = w_structinstance.rawmem
         self.argchain.arg_raw(ptrval)
 
 
@@ -204,7 +204,7 @@ class CallFunctionConverter(ToAppLevelConverter):
         return self.func.call(self.argchain, rffi.FLOAT)
 
     def get_struct(self, w_datashape):
-        return self.func.call(self.argchain, rffi.ULONG, is_struct=True)
+        return self.func.call(self.argchain, rffi.LONG, is_struct=True)
 
     def get_void(self, w_ffitype):
         return self.func.call(self.argchain, lltype.Void)

@@ -1,4 +1,4 @@
-from pypy.rlib import libffi
+from pypy.rlib import libffi, clibffi
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib import jit
 from pypy.interpreter.baseobjspace import Wrappable
@@ -12,12 +12,10 @@ class W_FFIType(Wrappable):
 
     def __init__(self, name, ffitype, w_datashape=None, w_pointer_to=None):
         self.name = name
-        self._ffitype = ffitype
+        self._ffitype = clibffi.FFI_TYPE_NULL
         self.w_datashape = w_datashape
         self.w_pointer_to = w_pointer_to
-        ## XXX: re-enable this check when the ffistruct branch is done
-        ## if self.is_struct():
-        ##     assert w_datashape is not None
+        self.set_ffitype(ffitype)
 
     @jit.elidable
     def get_ffitype(self):
@@ -29,6 +27,8 @@ class W_FFIType(Wrappable):
         if self._ffitype:
             raise ValueError("The _ffitype is already set")
         self._ffitype = ffitype
+        if ffitype and self.is_struct():
+            assert self.w_datashape is not None
 
     def descr_deref_pointer(self, space):
         if self.w_pointer_to is None:

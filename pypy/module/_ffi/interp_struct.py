@@ -43,7 +43,8 @@ class W__StructDescr(Wrappable):
 
     def __init__(self, space, name):
         self.space = space
-        self.w_ffitype = W_FFIType('struct %s' % name, clibffi.FFI_TYPE_NULL, None)
+        self.w_ffitype = W_FFIType('struct %s' % name, clibffi.FFI_TYPE_NULL,
+                                   w_datashape=self)
         self.fields_w = None
         self.name2w_field = {}
 
@@ -65,11 +66,20 @@ class W__StructDescr(Wrappable):
         self.ffistruct = clibffi.make_struct_ffitype_e(size, alignment, field_types)
         self.w_ffitype.set_ffitype(self.ffistruct.ffistruct)
 
-    def allocate(self, space):
+    def check_complete(self):
         if self.fields_w is None:
             raise operationerrfmt(space.w_ValueError, "%s has an incomplete type",
                                   self.w_ffitype.name)
+
+    def allocate(self, space):
+        self.check_complete()
         return W__StructInstance(self)
+
+    @unwrap_spec(addr=int)
+    def fromaddress(self, space, addr):
+        self.check_complete()
+        rawmem = rffi.cast(rffi.VOIDP, addr)
+        return W__StructInstance(self, allocate=False, autofree=True, rawmem=rawmem)
 
     @jit.elidable_promote('0')
     def get_type_and_offset_for_field(self, name):
@@ -121,24 +131,33 @@ W__StructDescr.typedef = TypeDef(
     ffitype = interp_attrproperty('w_ffitype', W__StructDescr),
     define_fields = interp2app(W__StructDescr.define_fields),
     allocate = interp2app(W__StructDescr.allocate),
+    fromaddress = interp2app(W__StructDescr.fromaddress),
     )
 
 
 # ==============================================================================
 
+NULL = lltype.nullptr(rffi.VOIDP.TO)
+
 class W__StructInstance(Wrappable):
 
     _immutable_fields_ = ['structdescr', 'rawmem']
 
-    def __init__(self, structdescr):
+    def __init__(self, structdescr, allocate=True, autofree=True, rawmem=NULL):
         self.structdescr = structdescr
-        size = structdescr.w_ffitype.sizeof()
-        self.rawmem = lltype.malloc(rffi.VOIDP.TO, size, flavor='raw',
-                                    zero=True, add_memory_pressure=True)
+        self.autofree = autofree
+        if allocate:
+            assert not rawmem
+            assert autofree
+            size = structdescr.w_ffitype.sizeof()
+            self.rawmem = lltype.malloc(rffi.VOIDP.TO, size, flavor='raw',
+                                        zero=True, add_memory_pressure=True)
+        else:
+            self.rawmem = rawmem
 
     @must_be_light_finalizer
     def __del__(self):
-        if self.rawmem:
+        if self.autofree and self.rawmem:
             lltype.free(self.rawmem, flavor='raw')
             self.rawmem = lltype.nullptr(rffi.VOIDP.TO)
 
