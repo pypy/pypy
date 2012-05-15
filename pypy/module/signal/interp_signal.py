@@ -16,7 +16,8 @@ from pypy.rlib.rarithmetic import intmask, is_valid_int
 def setup():
     for key, value in cpy_signal.__dict__.items():
         if (key.startswith('SIG') or key.startswith('CTRL_')) and \
-                is_valid_int(value):
+                is_valid_int(value) and \
+                key != 'SIG_DFL' and key != 'SIG_IGN':
             globals()[key] = value
             yield key
 

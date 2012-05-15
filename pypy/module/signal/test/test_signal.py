@@ -43,7 +43,11 @@ class AppTestSignal:
         cls.w_signal = space.appexec([], "(): import signal; return signal")
 
     def test_exported_names(self):
+        import os
         self.signal.__dict__   # crashes if the interpleveldefs are invalid
+        if os.name == 'nt':
+            self.signal.CTRL_BREAK_EVENT
+            self.signal.CTRL_C_EVENT
 
     def test_basics(self):
         import types, os
