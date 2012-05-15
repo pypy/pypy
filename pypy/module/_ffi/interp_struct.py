@@ -39,6 +39,21 @@ W_Field.typedef = TypeDef(
 
 # ==============================================================================
 
+class FFIStructOwner(object):
+    """
+    The only job of this class is to stay outside of the reference cycle
+    W__StructDescr -> W_FFIType -> W__StructDescr and free the ffistruct
+    """
+
+    def __init__(self, ffistruct):
+        self.ffistruct = ffistruct
+
+    @must_be_light_finalizer
+    def __del__(self):
+        if self.ffistruct:
+            lltype.free(self.ffistruct, flavor='raw')
+        
+
 class W__StructDescr(Wrappable):
 
     def __init__(self, space, name):
@@ -47,6 +62,7 @@ class W__StructDescr(Wrappable):
                                    w_datashape=self)
         self.fields_w = None
         self.name2w_field = {}
+        self._ffistruct_owner = None
 
     def define_fields(self, space, w_fields):
         if self.fields_w is not None:
@@ -63,8 +79,9 @@ class W__StructDescr(Wrappable):
         for w_field in fields_w:
             field_types.append(w_field.w_ffitype.get_ffitype())
             self.name2w_field[w_field.name] = w_field
-        self.ffistruct = clibffi.make_struct_ffitype_e(size, alignment, field_types)
-        self.w_ffitype.set_ffitype(self.ffistruct.ffistruct)
+        ffistruct = clibffi.make_struct_ffitype_e(size, alignment, field_types)
+        self.w_ffitype.set_ffitype(ffistruct.ffistruct)
+        self._ffistruct_owner = FFIStructOwner(ffistruct)
 
     def check_complete(self):
         if self.fields_w is None:
@@ -90,10 +107,6 @@ class W__StructDescr(Wrappable):
 
         return w_field.w_ffitype, w_field.offset
 
-    @must_be_light_finalizer
-    def __del__(self):
-        if self.ffistruct:
-            lltype.free(self.ffistruct, flavor='raw')
 
 
 @unwrap_spec(name=str)
