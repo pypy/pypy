@@ -36,7 +36,6 @@ What's new in PyPy 1.9
 .. branch: pytest
 .. branch: revive-dlltool
 .. branch: safe-getargs-freelist
-.. branch: sanitize-finally-stack
 .. branch: set-strategies
 .. branch: speedup-list-comprehension
 .. branch: stdlib-unification
@@ -47,3 +46,7 @@ What's new in PyPy 1.9
 .. branch: win32-cleanup_2
 .. branch: win64-stage1
 .. branch: zlib-mem-pressure
+
+
+.. "uninteresting" branches that we should just ignore for the whatsnew:
+.. branch: sanitize-finally-stack
