@@ -17,7 +17,9 @@ What's new in PyPy 1.9
 .. branch: kqueue
 .. branch: kwargsdict-strategy
 .. branch: matrixmath-dot
+numpypy can now handle matrix multiplication.
 .. branch: merge-2.7.2
+The stdlib was updated to version 2.7.2
 .. branch: ndmin
 .. branch: newindex
 .. branch: non-null-threadstate
@@ -31,6 +33,7 @@ What's new in PyPy 1.9
 .. branch: numpy-ufuncs3
 .. branch: numpypy-issue1137
 .. branch: numpypy-out
+The "out" argument was added to most of the numypypy functions.
 .. branch: numpypy-shape-bug
 .. branch: numpypy-ufuncs
 .. branch: pytest
@@ -44,6 +47,9 @@ What's new in PyPy 1.9
 .. branch: win32-cleanup
 .. branch: win32-cleanup2
 .. branch: win32-cleanup_2
+Many bugs were corrected for windows 32 bit. New functionality was added to
+test validity of file descriptors, leading to the removal of the  global 
+_invalid_parameter_handler
 .. branch: win64-stage1
 .. branch: zlib-mem-pressure
 
