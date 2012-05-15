@@ -261,7 +261,31 @@ class AppTestStruct(BaseAppTestFFI):
         assert descr.ffitype is foo_ffitype
         assert foo_p.deref_pointer() is foo_ffitype
         assert types.Pointer(descr.ffitype) is foo_p
-        
+
+    def test_nested_structure(self):
+        skip('in-progress')
+        from _ffi import _StructDescr, Field, types
+        longsize = types.slong.sizeof()
+        foo_fields = [
+            Field('x', types.slong),
+            Field('y', types.slong),
+            ]
+        foo_descr = _StructDescr('foo', foo_fields)
+        #
+        bar_fields = [
+            Field('x', types.slong),
+            Field('foo', foo_descr.ffitype),
+            ]
+        bar_descr = _StructDescr('bar', bar_fields)
+        assert bar_descr.ffitype.sizeof() == longsize*3
+        #
+        struct = bar_descr.allocate()
+        struct.setfield('x', 40)
+        struct_foo = struct.getfield('foo')
+        struct_foo.setfield('x', 41)
+        struct_foo.setfield('y', 42)
+        mem = self.read_raw_mem(struct.getaddr(), 'c_long', 3)
+        assert mem == [40, 41, 42]
 
     def test_compute_shape(self):
         from _ffi import Structure, Field, types
