@@ -83,18 +83,18 @@ class W__StructDescr(Wrappable):
         self.w_ffitype.set_ffitype(ffistruct.ffistruct)
         self._ffistruct_owner = FFIStructOwner(ffistruct)
 
-    def check_complete(self):
+    def check_complete(self, space):
         if self.fields_w is None:
             raise operationerrfmt(space.w_ValueError, "%s has an incomplete type",
                                   self.w_ffitype.name)
 
     def allocate(self, space):
-        self.check_complete()
+        self.check_complete(space)
         return W__StructInstance(self)
 
     @unwrap_spec(addr=int)
     def fromaddress(self, space, addr):
-        self.check_complete()
+        self.check_complete(space)
         rawmem = rffi.cast(rffi.VOIDP, addr)
         return W__StructInstance(self, allocate=False, autofree=True, rawmem=rawmem)
 

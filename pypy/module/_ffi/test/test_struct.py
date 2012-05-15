@@ -60,6 +60,7 @@ class AppTestStruct(BaseAppTestFFI):
         dummy_type = lltype.malloc(clibffi.FFI_TYPE_P.TO, flavor='raw')
         dummy_type.c_size = r_uint(123)
         dummy_type.c_alignment = rffi.cast(rffi.USHORT, 0)
+        dummy_type.c_type = rffi.cast(rffi.USHORT, 0)
         cls.w_dummy_type = W_FFIType('dummy', dummy_type)
         
     def test__StructDescr(self):
