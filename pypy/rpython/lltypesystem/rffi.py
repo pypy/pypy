@@ -436,6 +436,7 @@ TYPES += ['signed char', 'unsigned char',
           'long long', 'unsigned long long',
           'size_t', 'time_t', 'wchar_t',
           'uintptr_t', 'intptr_t']
+_TYPES_ARE_UNSIGNED = set(['size_t', 'uintptr_t'])   # plus "unsigned *"
 if os.name != 'nt':
     TYPES.append('mode_t')
     TYPES.append('pid_t')
@@ -454,7 +455,7 @@ def populate_inttypes():
             name = 'u' + name[9:]
             signed = False
         else:
-            signed = (name != 'size_t')
+            signed = (name not in _TYPES_ARE_UNSIGNED)
         name = name.replace(' ', '')
         names.append(name)
         populatelist.append((name.upper(), c_name, signed))
