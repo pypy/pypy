@@ -23,6 +23,8 @@ The stdlib was updated to version 2.7.2
 .. branch: ndmin
 .. branch: newindex
 .. branch: non-null-threadstate
+cpyext: Better support for PyEval_SaveThread and other PyTreadState_*
+functions.
 .. branch: numppy-flatitter
 .. branch: numpy-back-to-applevel
 .. branch: numpy-concatenate
@@ -37,13 +39,17 @@ The "out" argument was added to most of the numypypy functions.
 .. branch: numpypy-shape-bug
 .. branch: numpypy-ufuncs
 .. branch: pytest
-.. branch: revive-dlltool
 .. branch: safe-getargs-freelist
 .. branch: set-strategies
 .. branch: speedup-list-comprehension
 .. branch: stdlib-unification
+The directory "lib-python/modified-2.7" has been removed, and its
+content merged into "lib-python/2.7".
 .. branch: step-one-xrange
 .. branch: string-NUL
+PyPy refuses filenames with chr(0) characters. This is implemented in
+RPython which can enforce no-NUL correctness and propagation, similar
+to const-correctness in C++.
 .. branch: win32-cleanup
 .. branch: win32-cleanup2
 .. branch: win32-cleanup_2
@@ -56,3 +62,4 @@ _invalid_parameter_handler
 
 .. "uninteresting" branches that we should just ignore for the whatsnew:
 .. branch: sanitize-finally-stack
+.. branch: revive-dlltool (preliminary work for sepcomp)
