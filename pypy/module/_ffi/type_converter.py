@@ -49,7 +49,6 @@ class FromAppLevelConverter(object):
         elif w_ffitype.is_singlefloat():
             self._singlefloat(w_ffitype, w_obj)
         elif w_ffitype.is_struct():
-            # arg_raw directly takes value to put inside ll_args
             w_obj = space.interp_w(W__StructInstance, w_obj)
             self.handle_struct(w_ffitype, w_obj)
         else:
