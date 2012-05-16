@@ -230,12 +230,14 @@ class GetFieldConverter(ToAppLevelConverter):
     get_pointer = get_unsigned
 
     def get_char(self, w_ffitype):
-        return libffi.struct_getfield_int(w_ffitype.get_ffitype(),
-                                          self.rawmem, self.offset)
+        intval = libffi.struct_getfield_int(w_ffitype.get_ffitype(),
+                                            self.rawmem, self.offset)
+        return rffi.cast(rffi.UCHAR, intval)
 
     def get_unichar(self, w_ffitype):
-        return libffi.struct_getfield_int(w_ffitype.get_ffitype(),
-                                          self.rawmem, self.offset)
+        intval = libffi.struct_getfield_int(w_ffitype.get_ffitype(),
+                                            self.rawmem, self.offset)
+        return rffi.cast(rffi.WCHAR_T, intval)
 
     def get_float(self, w_ffitype):
         return libffi.struct_getfield_float(w_ffitype.get_ffitype(),
@@ -247,7 +249,8 @@ class GetFieldConverter(ToAppLevelConverter):
 
     def get_struct(self, w_ffitype, w_structdescr):
         assert isinstance(w_structdescr, W__StructDescr)
-        innermem = rffi.ptradd(self.rawmem, self.offset)
+        rawmem = rffi.cast(rffi.CCHARP, self.rawmem)
+        innermem = rffi.cast(rffi.VOIDP, rffi.ptradd(rawmem, self.offset))
         # we return a reference to the inner struct, not a copy
         # autofree=False because it's still owned by the parent struct
         return W__StructInstance(w_structdescr, allocate=False, autofree=False,
@@ -293,7 +296,8 @@ class SetFieldConverter(FromAppLevelConverter):
                                            self.rawmem, self.offset, singlefloatval)
 
     def handle_struct(self, w_ffitype, w_structinstance):
-        dst = rffi.ptradd(self.rawmem, self.offset)
+        rawmem = rffi.cast(rffi.CCHARP, self.rawmem)
+        dst = rffi.cast(rffi.VOIDP, rffi.ptradd(rawmem, self.offset))
         src = w_structinstance.rawmem
         length = w_ffitype.sizeof()
         rffi.c_memcpy(dst, src, length)
