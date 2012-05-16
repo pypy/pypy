@@ -50,6 +50,9 @@ The "out" argument was added to most of the numypypy functions.
 The directory "lib-python/modified-2.7" has been removed, and its
 content merged into "lib-python/2.7".
 .. branch: step-one-xrange
+The common case of a xrange iterator with no step argument specifed
+was somewhat optimized. The tightest loop involving it,
+sum(xrange(n)), is now 18% faster on average.
 .. branch: string-NUL
 PyPy refuses filenames with chr(0) characters. This is implemented in
 RPython which can enforce no-NUL correctness and propagation, similar
