@@ -105,6 +105,10 @@ class __extend__(SomeObject):
 
     def str(obj):
         getbookkeeper().count('str', obj)
+        if isinstance(obj, SomeString):
+            return obj
+        if isinstance(obj, (SomeInteger, SomeFloat)):
+            return SomeString(no_nul=True)
         return SomeString()
 
     def unicode(obj):

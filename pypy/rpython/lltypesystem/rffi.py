@@ -8,7 +8,7 @@ from pypy.annotation.model import lltype_to_annotation
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.objectmodel import Symbolic, CDefinedIntSymbolic
 from pypy.rlib.objectmodel import keepalive_until_here
-from pypy.rlib import rarithmetic, rgc
+from pypy.rlib import rarithmetic, rgc, rstring
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rpython.tool.rfficache import platform
@@ -195,6 +195,8 @@ def llexternal(name, args, result, _callable=None,
                     arg = lltype.nullptr(CCHARP.TO)   # None => (char*)NULL
                     freeme = arg
                 elif isinstance(arg, str):
+                    if TARGET is CCHARP0:
+                        rstring.check_str0(arg)
                     arg = str2charp(arg)
                     # XXX leaks if a str2charp() fails with MemoryError
                     # and was not the first in this function
@@ -638,6 +640,10 @@ VOIDPP = CArrayPtr(VOIDP)
 
 # char *
 CCHARP = lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True}))
+CCHARP0 = lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True}),
+                     use_cache=False)
+assert CCHARP0 is not CCHARP
+assert CCHARP0 == CCHARP
 
 # wchar_t *
 CWCHARP = lltype.Ptr(lltype.Array(lltype.UniChar, hints={'nolength': True}))

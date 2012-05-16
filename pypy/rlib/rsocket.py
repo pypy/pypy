@@ -311,7 +311,7 @@ class INETAddress(IPAddress):
     def from_object(space, w_address):
         # Parse an app-level object representing an AF_INET address
         w_host, w_port = space.unpackiterable(w_address, 2)
-        host = space.str_w(w_host)
+        host = space.str0_w(w_host)
         port = space.int_w(w_port)
         port = Address.make_ushort_port(space, port)
         return INETAddress(host, port)
@@ -405,7 +405,7 @@ class INET6Address(IPAddress):
         if not (2 <= len(pieces_w) <= 4):
             raise TypeError("AF_INET6 address must be a tuple of length 2 "
                                "to 4, not %d" % len(pieces_w))
-        host = space.str_w(pieces_w[0])
+        host = space.str0_w(pieces_w[0])
         port = space.int_w(pieces_w[1])
         port = Address.make_ushort_port(space, port)
         if len(pieces_w) > 2: flowinfo = space.uint_w(pieces_w[2])
@@ -589,7 +589,7 @@ def make_null_address(family):
     return result, klass.maxlen
 
 def ipaddr_from_object(space, w_sockaddr):
-    host = space.str_w(space.getitem(w_sockaddr, space.wrap(0)))
+    host = space.str0_w(space.getitem(w_sockaddr, space.wrap(0)))
     addr = makeipaddr(host)
     addr.fill_from_object(space, w_sockaddr)
     return addr
