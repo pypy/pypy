@@ -9,13 +9,7 @@ from pypy.rlib.objectmodel import we_are_translated
 from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rlib.objectmodel import we_are_translated
-from pypy.rlib.libffi import Func
-from pypy.rlib.debug import debug_print
-from pypy.rlib import libffi, clibffi
-from pypy.jit.codewriter.effectinfo import EffectInfo
-from pypy.jit.metainterp.resoperation import rop, ResOperation
-from pypy.jit.metainterp.optimizeopt.util import make_dispatcher_method
-from pypy.jit.metainterp.optimizeopt.optimizer import Optimization
+from pypy.rlib.rarithmetic import intmask
 
 
 class FuncInfo(object):
@@ -242,7 +236,7 @@ class OptFfiCall(Optimization):
         else:
             assert False, "unsupported ffitype or kind"
         #
-        fieldsize = ffitype.c_size
+        fieldsize = intmask(ffitype.c_size)
         return self.optimizer.cpu.fielddescrof_dynamic(offset, fieldsize,
                                                        is_pointer, is_float, is_signed)
     
