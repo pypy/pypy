@@ -48,7 +48,7 @@ class W_FuncPtr(Wrappable):
                                   self.func.name, expected, arg, given)
         #
         argchain = libffi.ArgChain()
-        argpusher = PushArgumentConverter(space, argchain, self.to_free)
+        argpusher = PushArgumentConverter(space, argchain, self)
         for i in range(expected):
             w_argtype = self.argtypes_w[i]
             w_arg = args_w[i]
@@ -83,10 +83,10 @@ class PushArgumentConverter(FromAppLevelConverter):
     low-level types and push them to the argchain.
     """
 
-    def __init__(self, space, argchain, to_free):
+    def __init__(self, space, argchain, w_func):
         FromAppLevelConverter.__init__(self, space)
         self.argchain = argchain
-        self.to_free = to_free
+        self.w_func = w_func
 
     def handle_signed(self, w_ffitype, w_obj, intval):
         self.argchain.arg(intval)
@@ -108,13 +108,13 @@ class PushArgumentConverter(FromAppLevelConverter):
 
     def handle_char_p(self, w_ffitype, w_obj, strval):
         buf = rffi.str2charp(strval)
-        self.to_free.append(rffi.cast(rffi.VOIDP, buf))
+        self.w_func.to_free.append(rffi.cast(rffi.VOIDP, buf))
         addr = rffi.cast(rffi.ULONG, buf)
         self.argchain.arg(addr)
 
     def handle_unichar_p(self, w_ffitype, w_obj, unicodeval):
         buf = rffi.unicode2wcharp(unicodeval)
-        self.to_free.append(rffi.cast(rffi.VOIDP, buf))
+        self.w_func.to_free.append(rffi.cast(rffi.VOIDP, buf))
         addr = rffi.cast(rffi.ULONG, buf)
         self.argchain.arg(addr)
 
