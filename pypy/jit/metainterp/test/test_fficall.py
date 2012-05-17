@@ -4,7 +4,7 @@ import py
 from pypy.jit.metainterp.test.support import LLJitMixin
 from pypy.rlib.jit import JitDriver, promote, dont_look_inside
 from pypy.rlib.libffi import (ArgChain, IS_32_BIT, array_getitem, array_setitem,
-    types)
+    types, struct_setfield_int, struct_getfield_int)
 from pypy.rlib.objectmodel import specialize
 from pypy.rlib.rarithmetic import r_singlefloat, r_longlong, r_ulonglong
 from pypy.rlib.test.test_libffi import TestLibffiCall as _TestLibffiCall
@@ -186,6 +186,25 @@ class TestFfiCall(FfiCallTests, LLJitMixin):
 
 class TestFfiCallSupportAll(FfiCallTests, LLJitMixin):
     supports_all = True     # supports_{floats,longlong,singlefloats}
+
+    def test_struct_getfield(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'i', 'addr'])
+
+        def f(n):
+            i = 0
+            addr = lltype.malloc(rffi.VOIDP.TO, 10, flavor='raw')
+            while i < n:
+                myjitdriver.jit_merge_point(n=n, i=i, addr=addr)
+                struct_setfield_int(types.slong, addr, 0, 1)
+                i += struct_getfield_int(types.slong, addr, 0)
+            lltype.free(addr, flavor='raw')
+            return i
+        assert self.meta_interp(f, [20]) == f(20)
+        self.check_resops(
+            setfield_raw=2,
+            getfield_raw=2,
+            call=0)
+
 
 class TestFfiLookup(FfiLookupTests, LLJitMixin):
     pass
