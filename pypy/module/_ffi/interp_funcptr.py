@@ -129,6 +129,11 @@ class PushArgumentConverter(FromAppLevelConverter):
         ptrval = w_structinstance.rawmem
         self.argchain.arg_raw(ptrval)
 
+    def handle_struct_rawffi(self, w_ffitype, w_structinstance):
+        # arg_raw directly takes value to put inside ll_args
+        ptrval = w_structinstance.ll_buffer
+        self.argchain.arg_raw(ptrval)
+
 
 class CallFunctionConverter(ToAppLevelConverter):
     """
@@ -207,6 +212,10 @@ class CallFunctionConverter(ToAppLevelConverter):
     def get_struct(self, w_ffitype, w_structdescr):
         addr = self.func.call(self.argchain, rffi.LONG, is_struct=True)
         return w_structdescr.fromaddress(self.space, addr)
+
+    def get_struct_rawffi(self, w_ffitype, w_structdescr):
+        uintval = self.func.call(self.argchain, rffi.ULONG, is_struct=True)
+        return w_structdescr.fromaddress(self.space, uintval)
 
     def get_void(self, w_ffitype):
         return self.func.call(self.argchain, lltype.Void)

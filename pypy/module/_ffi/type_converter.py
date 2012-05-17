@@ -3,6 +3,7 @@ from pypy.rlib import jit
 from pypy.rlib.rarithmetic import intmask, r_uint
 from pypy.rpython.lltypesystem import rffi
 from pypy.interpreter.error import operationerrfmt
+from pypy.module._rawffi.structure import W_StructureInstance, W_Structure
 from pypy.module._ffi.interp_ffitype import app_types
 
 class FromAppLevelConverter(object):
@@ -49,8 +50,11 @@ class FromAppLevelConverter(object):
         elif w_ffitype.is_singlefloat():
             self._singlefloat(w_ffitype, w_obj)
         elif w_ffitype.is_struct():
-            w_obj = space.interp_w(W__StructInstance, w_obj)
-            self.handle_struct(w_ffitype, w_obj)
+            if isinstance(w_obj, W_StructureInstance):
+                self.handle_struct_rawffi(w_ffitype, w_obj)
+            else:
+                w_obj = space.interp_w(W__StructInstance, w_obj)
+                self.handle_struct(w_ffitype, w_obj)
         else:
             self.error(w_ffitype, w_obj)
 
@@ -168,6 +172,14 @@ class FromAppLevelConverter(object):
         """
         self.error(w_ffitype, w_structinstance)
 
+    def handle_struct_rawffi(self, w_ffitype, w_structinstance):
+        """
+        This method should be killed as soon as we remove support for _rawffi structures
+        
+        w_structinstance: W_StructureInstance
+        """
+        self.error(w_ffitype, w_structinstance)
+
 
 
 class ToAppLevelConverter(object):
@@ -222,8 +234,12 @@ class ToAppLevelConverter(object):
             return self._singlefloat(w_ffitype)
         elif w_ffitype.is_struct():
             w_structdescr = w_ffitype.w_structdescr
-            assert isinstance(w_structdescr, W__StructDescr)
-            return self.get_struct(w_ffitype, w_structdescr)
+            if isinstance(w_structdescr, W__StructDescr):
+                return self.get_struct(w_ffitype, w_structdescr)
+            elif isinstance(w_structdescr, W_Structure):
+                return self.get_struct_rawffi(w_ffitype, w_structdescr)
+            else:
+                raise OperationError(self.space.w_TypeError, "Unsupported struct shape")
         elif w_ffitype.is_void():
             voidval = self.get_void(w_ffitype)
             assert voidval is None
@@ -325,6 +341,15 @@ class ToAppLevelConverter(object):
 
     def get_struct(self, w_ffitype, w_structdescr):
         """
+        Return type: lltype.Signed
+        (the address of the structure)
+        """
+        self.error(w_ffitype)
+
+    def get_struct_rawffi(self, w_ffitype, w_structdescr):
+        """
+        This should be killed as soon as we kill support for _rawffi structures
+        
         Return type: lltype.Unsigned
         (the address of the structure)
         """

@@ -488,6 +488,47 @@ class AppTestFFI(BaseAppTestFFI):
         assert p.getfield('x') == 12
         assert p.getfield('y') == 34
 
+    # XXX: support for _rawffi structures should be killed as soon as we
+    # implement ctypes.Structure on top of _ffi. In the meantime, we support
+    # both
+    def test_byval_argument__rawffi(self):
+        """
+            // defined above
+            struct Point;
+            DLLEXPORT long sum_point(struct Point p);
+        """
+        import _rawffi
+        from _ffi import CDLL, types
+        POINT = _rawffi.Structure([('x', 'l'), ('y', 'l')])
+        ffi_point = POINT.get_ffi_type()
+        libfoo = CDLL(self.libfoo_name)
+        sum_point = libfoo.getfunc('sum_point', [ffi_point], types.slong)
+        #
+        p = POINT()
+        p.x = 30
+        p.y = 12
+        res = sum_point(p)
+        assert res == 42
+        p.free()
+
+    def test_byval_result__rawffi(self):
+        """
+            // defined above
+            DLLEXPORT struct Point make_point(long x, long y);
+        """
+        import _rawffi
+        from _ffi import CDLL, types
+        POINT = _rawffi.Structure([('x', 'l'), ('y', 'l')])
+        ffi_point = POINT.get_ffi_type()
+        libfoo = CDLL(self.libfoo_name)
+        make_point = libfoo.getfunc('make_point', [types.slong, types.slong], ffi_point)
+        #
+        p = make_point(12, 34)
+        assert p.x == 12
+        assert p.y == 34
+        p.free()
+
+
     def test_TypeError_numargs(self):
         from _ffi import CDLL, types
         libfoo = CDLL(self.libfoo_name)
