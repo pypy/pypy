@@ -2,7 +2,7 @@ from pypy.rlib import libffi
 from pypy.rlib import jit
 from pypy.rlib.rarithmetic import intmask, r_uint
 from pypy.rpython.lltypesystem import rffi
-from pypy.interpreter.error import operationerrfmt
+from pypy.interpreter.error import operationerrfmt, OperationError
 from pypy.module._rawffi.structure import W_StructureInstance, W_Structure
 from pypy.module._ffi.interp_ffitype import app_types
 
@@ -240,7 +240,8 @@ class ToAppLevelConverter(object):
             elif isinstance(w_structdescr, W_Structure):
                 return self.get_struct_rawffi(w_ffitype, w_structdescr)
             else:
-                raise OperationError(self.space.w_TypeError, "Unsupported struct shape")
+                raise OperationError(self.space.w_TypeError,
+                                     self.space.wrap("Unsupported struct shape"))
         elif w_ffitype.is_void():
             voidval = self.get_void(w_ffitype)
             assert voidval is None
