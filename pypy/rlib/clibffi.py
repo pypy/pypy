@@ -11,6 +11,7 @@ from pypy.rlib.rmmap import alloc
 from pypy.rlib.rdynload import dlopen, dlclose, dlsym, dlsym_byordinal
 from pypy.rlib.rdynload import DLOpenError, DLLHANDLE
 from pypy.rlib import jit
+from pypy.rlib.objectmodel import specialize
 from pypy.tool.autopath import pypydir
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.translator.platform import platform
@@ -347,6 +348,7 @@ FFI_STRUCT_P = lltype.Ptr(lltype.Struct('FFI_STRUCT',
                                         ('ffistruct', FFI_TYPE_P.TO),
                                         ('members', lltype.Array(FFI_TYPE_P))))
 
+@specialize.arg(3)
 def make_struct_ffitype_e(size, aligment, field_types, track_allocation=True):
     """Compute the type of a structure.  Returns a FFI_STRUCT_P out of
        which the 'ffistruct' member is a regular FFI_TYPE.

@@ -89,6 +89,7 @@ class FromAppLevelConverter(object):
             unicodeval = self.space.unicode_w(w_obj)
             self.handle_unichar_p(w_ffitype, w_obj, unicodeval)
             return True
+        return False
 
     def convert_pointer_arg_maybe(self, w_arg, w_argtype):
         """
