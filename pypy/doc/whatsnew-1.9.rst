@@ -7,11 +7,10 @@ What's new in PyPy 1.9
 
 .. branch: array_equal
 .. branch: better-jit-hooks-2
-.. branch: exception-cannot-occur
 .. branch: faster-heapcache
 .. branch: faster-str-decode-escape
 .. branch: float-bytes
-Added some pritives for dealing with floats as raw bytes.
+Added some primitives for dealing with floats as raw bytes.
 .. branch: float-bytes-2
 Added more float byte primitives.
 .. branch: jit-frame-counter
@@ -73,6 +72,7 @@ with _ffi in a very JIT-friendly way
 
 
 .. "uninteresting" branches that we should just ignore for the whatsnew:
+.. branch: exception-cannot-occur
 .. branch: sanitize-finally-stack
 .. branch: revive-dlltool
      (preliminary work for sepcomp)
