@@ -66,7 +66,13 @@ _invalid_parameter_handler
 .. branch: win64-stage1
 .. branch: zlib-mem-pressure
 
+.. branch: ffistruct
+The ``ffistruct`` branch adds a very low level way to express C structures
+with _ffi in a very JIT-friendly way
+
+
 
 .. "uninteresting" branches that we should just ignore for the whatsnew:
 .. branch: sanitize-finally-stack
-.. branch: revive-dlltool (preliminary work for sepcomp)
+.. branch: revive-dlltool
+     (preliminary work for sepcomp)
