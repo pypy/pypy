@@ -15,7 +15,7 @@ def gethostname(space):
         raise converted_error(space, e)
     return space.wrap(res)
 
-@unwrap_spec(host='str0')
+@unwrap_spec(host=str)
 def gethostbyname(space, host):
     """gethostbyname(host) -> address
 
@@ -35,7 +35,7 @@ def common_wrapgethost(space, (name, aliases, address_list)):
                            space.newlist(aliases),
                            space.newlist(address_list)])
 
-@unwrap_spec(host='str0')
+@unwrap_spec(host=str)
 def gethostbyname_ex(space, host):
     """gethostbyname_ex(host) -> (name, aliaslist, addresslist)
 
@@ -48,7 +48,7 @@ def gethostbyname_ex(space, host):
         raise converted_error(space, e)
     return common_wrapgethost(space, res)
 
-@unwrap_spec(host='str0')
+@unwrap_spec(host=str)
 def gethostbyaddr(space, host):
     """gethostbyaddr(host) -> (name, aliaslist, addresslist)
 
@@ -61,7 +61,7 @@ def gethostbyaddr(space, host):
         raise converted_error(space, e)
     return common_wrapgethost(space, res)
 
-@unwrap_spec(name='str0')
+@unwrap_spec(name=str)
 def getservbyname(space, name, w_proto=None):
     """getservbyname(servicename[, protocolname]) -> integer
 
@@ -72,7 +72,7 @@ def getservbyname(space, name, w_proto=None):
     if space.is_w(w_proto, space.w_None):
         proto = None
     else:
-        proto = space.str0_w(w_proto)
+        proto = space.str_w(w_proto)
     try:
         port = rsocket.getservbyname(name, proto)
     except SocketError, e:
@@ -90,7 +90,7 @@ def getservbyport(space, port, w_proto=None):
     if space.is_w(w_proto, space.w_None):
         proto = None
     else:
-        proto = space.str0_w(w_proto)
+        proto = space.str_w(w_proto)
 
     if port < 0 or port > 0xffff:
         raise OperationError(space.w_ValueError, space.wrap(
@@ -102,7 +102,7 @@ def getservbyport(space, port, w_proto=None):
         raise converted_error(space, e)
     return space.wrap(service)
 
-@unwrap_spec(name='str0')
+@unwrap_spec(name=str)
 def getprotobyname(space, name):
     """getprotobyname(name) -> integer
 
@@ -191,7 +191,7 @@ def htonl(space, x):
     """
     return space.wrap(rsocket.htonl(x))
 
-@unwrap_spec(ip='str0')
+@unwrap_spec(ip=str)
 def inet_aton(space, ip):
     """inet_aton(string) -> packed 32-bit IP representation
 
@@ -216,7 +216,7 @@ def inet_ntoa(space, packed):
         raise converted_error(space, e)
     return space.wrap(ip)
 
-@unwrap_spec(family=int, ip='str0')
+@unwrap_spec(family=int, ip=str)
 def inet_pton(space, family, ip):
     """inet_pton(family, ip) -> packed IP address string
 
@@ -256,10 +256,10 @@ def getaddrinfo(space, w_host, w_port,
     if space.is_w(w_host, space.w_None):
         host = None
     elif space.is_true(space.isinstance(w_host, space.w_str)):
-        host = space.str0_w(w_host)
+        host = space.str_w(w_host)
     elif space.is_true(space.isinstance(w_host, space.w_unicode)):
         w_shost = space.call_method(w_host, "encode", space.wrap("idna"))
-        host = space.str0_w(w_shost)
+        host = space.str_w(w_shost)
     else:
         raise OperationError(space.w_TypeError,
                              space.wrap(
@@ -271,7 +271,7 @@ def getaddrinfo(space, w_host, w_port,
     elif space.is_true(space.isinstance(w_port, space.w_int)):
         port = str(space.int_w(w_port))
     elif space.is_true(space.isinstance(w_port, space.w_str)):
-        port = space.str0_w(w_port)
+        port = space.str_w(w_port)
     else:
         raise OperationError(space.w_TypeError,
                              space.wrap("Int or String expected"))

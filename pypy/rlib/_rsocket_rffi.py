@@ -2,7 +2,7 @@
 from pypy.rpython.lltypesystem import rffi
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.tool import rffi_platform as platform
-from pypy.rpython.lltypesystem.rffi import CCHARP, CCHARP0
+from pypy.rpython.lltypesystem.rffi import CCHARP
 from pypy.rlib.rposix import get_errno as geterrno
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.translator.platform import platform as target_platform
@@ -481,7 +481,7 @@ else:
 
 socketconnect = external('connect', [socketfd_type, sockaddr_ptr, socklen_t], rffi.INT)
 
-getaddrinfo = external('getaddrinfo', [CCHARP0, CCHARP0,
+getaddrinfo = external('getaddrinfo', [CCHARP, CCHARP,
                         addrinfo_ptr,
                         lltype.Ptr(rffi.CArray(addrinfo_ptr))], rffi.INT)
 freeaddrinfo = external('freeaddrinfo', [addrinfo_ptr], lltype.Void)
@@ -494,19 +494,19 @@ ntohl = external('ntohl', [rffi.UINT], rffi.UINT, threadsafe=False)
 ntohs = external('ntohs', [rffi.USHORT], rffi.USHORT, threadsafe=False)
 
 if _POSIX:
-    inet_aton = external('inet_aton', [CCHARP0, lltype.Ptr(in_addr)],
-                         rffi.INT)
+    inet_aton = external('inet_aton', [CCHARP, lltype.Ptr(in_addr)],
+                                rffi.INT)
 
 inet_ntoa = external('inet_ntoa', [in_addr], rffi.CCHARP)
 
 if _POSIX:
-    inet_pton = external('inet_pton', [rffi.INT, CCHARP0, rffi.VOIDP],
-                         rffi.INT)
+    inet_pton = external('inet_pton', [rffi.INT, rffi.CCHARP,
+                                              rffi.VOIDP], rffi.INT)
 
     inet_ntop = external('inet_ntop', [rffi.INT, rffi.VOIDP, CCHARP,
                                               socklen_t], CCHARP)
 
-inet_addr = external('inet_addr', [rffi.CCHARP0], rffi.UINT)
+inet_addr = external('inet_addr', [rffi.CCHARP], rffi.UINT)
 socklen_t_ptr = lltype.Ptr(rffi.CFixedArray(socklen_t, 1))
 socketaccept = external('accept', [socketfd_type, sockaddr_ptr,
                               socklen_t_ptr], socketfd_type)
@@ -531,12 +531,12 @@ sendto = external('sendto', [socketfd_type, rffi.VOIDP, size_t, rffi.INT,
                                     sockaddr_ptr, socklen_t], ssize_t)
 socketshutdown = external('shutdown', [socketfd_type, rffi.INT], rffi.INT)
 gethostname = external('gethostname', [rffi.CCHARP, rffi.INT], rffi.INT)
-gethostbyname = external('gethostbyname', [rffi.CCHARP0],
+gethostbyname = external('gethostbyname', [rffi.CCHARP],
                                 lltype.Ptr(cConfig.hostent))
 gethostbyaddr = external('gethostbyaddr', [rffi.VOIDP, rffi.INT, rffi.INT], lltype.Ptr(cConfig.hostent))
-getservbyname = external('getservbyname', [rffi.CCHARP0, rffi.CCHARP0], lltype.Ptr(cConfig.servent))
-getservbyport = external('getservbyport', [rffi.INT, rffi.CCHARP0], lltype.Ptr(cConfig.servent))
-getprotobyname = external('getprotobyname', [rffi.CCHARP0], lltype.Ptr(cConfig.protoent))
+getservbyname = external('getservbyname', [rffi.CCHARP, rffi.CCHARP], lltype.Ptr(cConfig.servent))
+getservbyport = external('getservbyport', [rffi.INT, rffi.CCHARP], lltype.Ptr(cConfig.servent))
+getprotobyname = external('getprotobyname', [rffi.CCHARP], lltype.Ptr(cConfig.protoent))
 
 if _POSIX:
     fcntl = external('fcntl', [socketfd_type, rffi.INT, rffi.INT], rffi.INT)
