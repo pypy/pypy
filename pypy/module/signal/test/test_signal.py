@@ -43,7 +43,11 @@ class AppTestSignal:
         cls.w_signal = space.appexec([], "(): import signal; return signal")
 
     def test_exported_names(self):
+        import os
         self.signal.__dict__   # crashes if the interpleveldefs are invalid
+        if os.name == 'nt':
+            assert self.signal.CTRL_BREAK_EVENT == 1
+            assert self.signal.CTRL_C_EVENT == 0
 
     def test_basics(self):
         import types, os
@@ -60,8 +64,6 @@ class AppTestSignal:
             assert isinstance(frame, types.FrameType)
             received.append(signum)
         signal.signal(signum, myhandler)
-
-        print dir(os)
 
         os.kill(os.getpid(), signum)
         # the signal should be delivered to the handler immediately

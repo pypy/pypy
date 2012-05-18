@@ -805,6 +805,18 @@ class ObjSpace(object):
         return obj
     interp_w._annspecialcase_ = 'specialize:arg(1)'
 
+    def _check_constant_interp_w_or_w_None(self, RequiredClass, w_obj):
+        """
+        This method should NOT be called unless you are really sure about
+        it. It is used inside the implementation of end_finally() in
+        pyopcode.py, and it's there so that it can be overridden by the
+        FlowObjSpace.
+        """
+        if self.is_w(w_obj, self.w_None):
+            return True
+        obj = self.interpclass_w(w_obj)
+        return isinstance(obj, RequiredClass)
+
     def unpackiterable(self, w_iterable, expected_length=-1):
         """Unpack an iterable object into a real (interpreter-level) list.
         Raise an OperationError(w_ValueError) if the length is wrong."""
@@ -1442,7 +1454,7 @@ class ObjSpace(object):
                                  self.wrap("expected a 32-bit integer"))
         return value
 
-    def truncatedint(self, w_obj):
+    def truncatedint_w(self, w_obj):
         # Like space.gateway_int_w(), but return the integer truncated
         # instead of raising OverflowError.  For obscure cases only.
         try:
@@ -1452,6 +1464,17 @@ class ObjSpace(object):
                 raise
             from pypy.rlib.rarithmetic import intmask
             return intmask(self.bigint_w(w_obj).uintmask())
+
+    def truncatedlonglong_w(self, w_obj):
+        # Like space.gateway_r_longlong_w(), but return the integer truncated
+        # instead of raising OverflowError.
+        try:
+            return self.r_longlong_w(w_obj)
+        except OperationError, e:
+            if not e.match(self, self.w_OverflowError):
+                raise
+            from pypy.rlib.rarithmetic import longlongmask
+            return longlongmask(self.bigint_w(w_obj).ulonglongmask())
 
     def c_filedescriptor_w(self, w_fd):
         # This is only used sometimes in CPython, e.g. for os.fsync() but

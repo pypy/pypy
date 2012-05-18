@@ -100,7 +100,7 @@ class AppTestKqueue(object):
         client.setblocking(False)
         try:
             client.connect(("127.0.0.1", server_socket.getsockname()[1]))
-        except socket.error as e:
+        except socket.error, e:
             if 'bsd' in sys.platform:
                 assert e.args[0] == errno.ENOENT
             else:
