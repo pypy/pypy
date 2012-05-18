@@ -155,8 +155,10 @@ during some warm-up phase.  What is important is to keep them rare
 enough in total.
 
 The other principle is that of avoiding long-running so-called
-"inevitable" transactions.  We can consider that a transaction can be in
-three possible modes (this is actually a slight simplification):
+"inevitable" transactions ("inevitable" is taken in the sense of "which
+cannot be avoided", i.e. transactions which cannot abort any more).  We
+can consider that a transaction can be in three possible modes (this is
+actually a slight simplification):
 
 * *non-atomic:* in this mode, the interpreter is free to insert
   transaction breaks more or less where it wants to.  This is similar to
