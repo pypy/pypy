@@ -10,7 +10,7 @@ Introduction
 PyPy can be translated in a special mode based on Software Transactional
 Memory (STM).  This mode is not compatible with the JIT so far, and moreover
 adds a constant run-time overhead, expected to be in the range 2x to 5x.
-(XXX for now it is bigger, but past experience show it can be reduced.)
+(XXX for now it is bigger, but past experience shows it can be reduced.)
 The benefit is that the resulting ``pypy-stm`` can execute multiple
 threads of Python code in parallel.
 
@@ -45,7 +45,10 @@ This schedules and runs all ten ``do_stuff(i)``.  Each one appears to
 run serially, but in random order.  It is also possible to ``add()``
 more transactions within each transaction, causing additional pieces of
 work to be scheduled.  The call to ``run()`` returns when all
-transactions have completed.
+transactions have completed.  If a transaction raises, the exception
+propagates outside the call to ``run()`` and the remaining transactions
+are lost (they are not executed, or aborted if they are already in
+progress).
 
 The module is written in pure Python (`lib_pypy/transaction.py`_).
 See the source code to see how it is based on the `low-level interface`_.
@@ -108,10 +111,11 @@ lines) is printed atomically, instead of being broken up with
 interleaved output from other threads.
 
 In this case, it is always a good idea to protect ``print`` statements
-by ``thread.atomic``.  But not all file operations benefit: if you have
-a read from a file that may block for some time, putting it in a
-``thread.atomic`` would have the negative effect of suspending all other
-threads while we wait for data to arrive, as described next__.
+with ``thread.atomic``.  The reason it is not done automatically is that
+not all file operations would benefit: if you have a read or write that
+may block, putting it in a ``thread.atomic`` would have the negative
+effect of suspending all other threads while we wait for the call to
+complete, as described next__.
 
 .. __: Parallelization_
 
@@ -122,70 +126,83 @@ Parallelization
 How much actual parallelization a multithreaded program can see is a bit
 subtle.  Basically, a program not using ``thread.atomic`` or using it
 for very short amounts of time will parallelize almost freely.  However,
-using ``thread.atomic`` gives less obvious rules.  The exact details may
-vary from version to version, too, until they are a bit more stabilized.
-Here is an overview.
+using ``thread.atomic`` for longer periods of time comes with less
+obvious rules.  The exact details may vary from version to version, too,
+until they are a bit more stabilized.  Here is an overview.
 
 Each thread is actually running as a sequence of "transactions", which
 are separated by "transaction breaks".  The execution of the whole
-multithreaded program works as if all transactions were serialized.
-You don't see it but the transactions are actually running in parallel.
+multithreaded program works as if all transactions were serialized.  The
+transactions are actually running in parallel, but this is invisible.
 
-This works as long as two principles are respected.  The first one is
-that the transactions must not *conflict* with each other.  The most
-obvious sources of conflicts are threads that all increment a global
-shared counter, or that all store the result of their computations into
-the same list --- or, more subtly, that all ``pop()`` the work to do
-from the same list, because that is also a mutation of the list.
-(It is expected that some STM-aware library will eventually be designed
-to help with sharing problems, like a STM-aware list or queue.)
+This parallelization works as long as two principles are respected.  The
+first one is that the transactions must not *conflict* with each other.
+The most obvious sources of conflicts are threads that all increment a
+global shared counter, or that all store the result of their
+computations into the same list --- or, more subtly, that all ``pop()``
+the work to do from the same list, because that is also a mutation of
+the list.  (It is expected that some STM-aware library will eventually
+be designed to help with sharing problems, like a STM-aware list or
+queue.)
 
-The other principle is that of avoiding long-running "inevitable"
-transactions.  This is more subtle to understand.  The first thing we
-need to learn is where transaction breaks are.  There are two modes of
-execution: either we are in a ``with thread.atomic`` block (or possibly
-several nested ones), or not.
+A conflict occurs as follows: when a transaction commits (i.e. finishes
+successfully) it may cause other transactions that are still in progress
+to abort and retry.  This is a waste of CPU time, but even in the worst
+case senario it is not worse than a GIL, because at least one
+transaction succeeded.  Conflicts do occur, of course, and it is
+pointless to try to avoid them all.  For example they can be abundant
+during some warm-up phase.  What is important is to keep them rare
+enough in total.
 
-If we are not in ``thread.atomic`` mode, then transaction breaks occur
-at the following places:
+The other principle is that of avoiding long-running so-called
+"inevitable" transactions.  We can consider that a transaction can be in
+three possible modes (this is actually a slight simplification):
 
-* from time to time between the execution of two bytecodes;
-* across an external system call.
+* *non-atomic:* in this mode, the interpreter is free to insert
+  transaction breaks more or less where it wants to.  This is similar to
+  how, in CPython, the interpreter is free to release and reacquire the
+  GIL where it wants to.  So in non-atomic mode, transaction breaks
+  occur from time to time between the execution of two bytecodes, as
+  well as across an external system call (the previous transaction is
+  committed, the system call is done outside any transaction, and
+  finally the next transaction is started).
 
-In ``thread.atomic`` mode, transaction breaks *never* occur.
+* *atomic but abortable:* transactions start in this mode at the
+  beginning of a ``with thread.atomic`` block.  In atomic mode,
+  transaction breaks *never* occur, making a single potentially long
+  transaction.  This transaction can be still be aborted if a conflict
+  arises, and retried as usual.
 
-Additionally, every transaction can further be in one of two running
-modes: either "normal" or "inevitable".  To simplify, a transaction
-starts in "normal" mode, but switches to "inevitable" as soon as it
-performs input/output (more precisely, just before).  If we have an
-inevitable transaction, all other transactions are paused; this effect
-is similar to the GIL.
+* *atomic and inevitable:* as soon as an atomic block does a system
+  call, it cannot be aborted any more, because it has visible
+  side-effects.  So we turn the transaction "inevitable" --- more
+  precisely, this occurs just before doing the system call.  Once the
+  system call is started, the transaction cannot be aborted any more:
+  it must "inevitably" complete.  This results in the following
+  internal restrictions: only one transaction in the whole process can
+  be inevitable, and moreover no other transaction can commit before
+  the inevitable one --- they will be paused when they reach that point.
 
-In the absence of ``thread.atomic``, inevitable transactions only have a
-small effect.  The transaction is stopped, and the next one restarted,
-around any long-running I/O.  Inevitable transactions still occur; e.g.
-for technical reasons the transaction immediately following I/O is
-inevitable.  However, as soon as the current bytecode finishes, the
-interpreter notices that the transaction is inevitable and immediately
-introduces yet another transaction break.  This switches us back to a
-normal-mode transaction.  It means that inevitable transactions only run
-for a small fraction of the time.
+So what you should avoid is transactions that are inevitable for a long
+period of time.  Doing so blocks essentially all other transactions and
+gives an effect similar to the GIL again.  To work around the issue, you
+need to organize your code in such a way that for any ``thread.atomic``
+block that runs for a noticable amount of time, you perform no I/O at
+all before you are close to reaching the end of the block.
 
-With ``thread.atomic`` however you have to be a bit careful, because I/O
-will not introduce transaction breaks; instead, it makes the transaction
-inevitable.  Moreover the next transaction break will only occur after
-the end of the outermost ``with thread.atomic``.  Basically, you should
-organize your code in such a way that for any ``thread.atomic`` block
-that runs for a noticable time, any I/O is done near the end of it, not
-when there is still a lot of CPU (or I/O) time ahead.
+Similarly, you should avoid doing any blocking I/O in ``thread.atomic``
+blocks.  They work, but because the transaction is turned inevitable
+*before* the I/O is performed, they will prevent any parallel work at
+all.  You need to organize the code so that such operations are done
+completely outside ``thread.atomic``.
 
-In particular, this means that you should ideally avoid blocking I/O
-operations in ``thread.atomic`` blocks.  They work, but because the
-transaction is turned inevitable *before* the I/O is performed, they
-will prevent any parallel work at all.  (This looks a bit like the
-opposite of the usual effects of the GIL: if the block is
-computation-intensive it will nicely be parallelized, but if it does any
-long I/O then it prevents any parallel work.)
+(This is related to the fact that blocking I/O operations are
+discouraged with Twisted, and if you really need them, you should do
+them on its own separate thread.  One can say that the behavior within
+``thread.atomic`` looks, in a way, like the opposite of the usual
+effects of the GIL: if the ``with`` block is computationally intensive
+it will nicely be parallelized, but if it does any long I/O then it
+prevents any parallel work.)
 
 
 Implementation
