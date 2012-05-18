@@ -105,7 +105,7 @@ class __extend__(SomeObject):
 
     def str(obj):
         getbookkeeper().count('str', obj)
-        if isinstance(obj, SomeString):
+        if type(obj) is SomeString:
             return obj
         if isinstance(obj, (SomeInteger, SomeFloat)):
             return SomeString(no_nul=True)
