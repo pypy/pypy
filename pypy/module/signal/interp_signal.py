@@ -25,11 +25,18 @@ NSIG    = cpy_signal.NSIG
 SIG_DFL = cpy_signal.SIG_DFL
 SIG_IGN = cpy_signal.SIG_IGN
 signal_names = list(setup())
-signal_values = [globals()[key] for key in signal_names]
 signal_values = {}
 for key in signal_names:
     signal_values[globals()[key]] = None
-
+if sys.platform == 'win32' and not hasattr(cpy_signal,'CTRL_C_EVENT'):
+    # XXX Hack to revive values that went missing,
+    #     Remove this once we are sure the host cpy module has them.
+    signal_values[0] = None
+    signal_values[1] = None
+    signal_names.append('CTRL_C_EVENT')
+    signal_names.append('CTRL_BREAK_EVENT')
+    CTRL_C_EVENT = 0
+    CTRL_BREAK_EVENT = 1
 includes = ['stdlib.h', 'src/signals.h']
 if sys.platform != 'win32':
     includes.append('sys/time.h')

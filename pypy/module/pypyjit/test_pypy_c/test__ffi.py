@@ -134,3 +134,31 @@ class Test__ffi(BaseTestPyPyC):
         call = ops[idx]
         assert (call.args[0] == 'ConstClass(fabs)' or    # e.g. OS/X
                 int(call.args[0]) == fabs_addr)
+
+
+    def test__ffi_struct(self):
+        def main():
+            from _ffi import _StructDescr, Field, types
+            fields = [
+                Field('x', types.slong),
+                ]
+            descr = _StructDescr('foo', fields)
+            struct = descr.allocate()
+            i = 0
+            while i < 300:
+                x = struct.getfield('x')   # ID: getfield
+                x = x+1
+                struct.setfield('x', x)    # ID: setfield
+                i += 1
+            return struct.getfield('x')
+        #
+        log = self.run(main, [])
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match_by_id('getfield', """
+            guard_not_invalidated(descr=...)
+            i57 = getfield_raw(i46, descr=<FieldS dynamic 0>)
+        """)
+        assert loop.match_by_id('setfield', """
+            setfield_raw(i44, i57, descr=<FieldS dynamic 0>)
+        """)
+
