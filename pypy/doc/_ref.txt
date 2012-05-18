@@ -6,6 +6,7 @@
 .. _`lib_pypy/greenlet.py`: https://bitbucket.org/pypy/pypy/src/default/lib_pypy/greenlet.py
 .. _`lib_pypy/pypy_test/`: https://bitbucket.org/pypy/pypy/src/default/lib_pypy/pypy_test/
 .. _`lib_pypy/tputil.py`: https://bitbucket.org/pypy/pypy/src/default/lib_pypy/tputil.py
+.. _`lib_pypy/transaction.py`: https://bitbucket.org/pypy/pypy/src/default/lib_pypy/transaction.py
 .. _`pypy/annotation`:
 .. _`pypy/annotation/`: https://bitbucket.org/pypy/pypy/src/default/pypy/annotation/
 .. _`pypy/annotation/annrpython.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/annotation/annrpython.py

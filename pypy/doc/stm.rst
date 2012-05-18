@@ -47,7 +47,7 @@ more transactions within each transaction, causing additional pieces of
 work to be scheduled.  The call to ``run()`` returns when all
 transactions have completed.
 
-The module is written in pure Python (XXX not written yet, add url).
+The module is written in pure Python (`lib_pypy/transaction.py`_).
 See the source code to see how it is based on the `low-level interface`_.
 
 
@@ -192,3 +192,6 @@ Implementation
 ==============
 
 XXX
+
+
+.. include:: _ref.txt
