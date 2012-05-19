@@ -131,7 +131,7 @@ def llexternal(name, args, result, _callable=None,
             llvm_wrapper = name
         wrapper_name = 'pypy_llvm_wrapper_%s' % (name,)
         _write_wrapper(wrapper_name, llvm_wrapper, ext_type, compilation_info, '_with_llvm')
-        name = wrapper_name
+        kwds['llvm_name'] = wrapper_name
 
     funcptr = lltype.functionptr(ext_type, name, external='C',
                                  compilation_info=compilation_info,

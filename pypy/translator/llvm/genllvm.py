@@ -604,7 +604,8 @@ class FuncType(Type):
 
     def repr_ref(self, ptr_type, obj):
         if getattr(obj, 'external', None) == 'C':
-            ptr_type.refs[obj] = name = '@' + obj._name
+            name = '@' + getattr(obj, 'llvm_name', obj._name)
+            ptr_type.refs[obj] = name
             if obj._name == 'ROUND_UP_FOR_ALLOCATION': # XXX
                 database.f.write(ROUND_UP_FOR_ALLOCATION)
             elif obj._name not in ('malloc', 'free'):
