@@ -62,7 +62,8 @@ def llexternal(name, args, result, _callable=None,
                sandboxsafe=False, threadsafe='auto',
                _nowrapper=False, calling_conv='c',
                oo_primitive=None, elidable_function=False,
-               macro=None, random_effects_on_gcobjs='auto'):
+               macro=None, random_effects_on_gcobjs='auto',
+               llvm_wrapper=None):
     """Build an external function that will invoke the C function 'name'
     with the given 'args' types and 'result' type.
 
@@ -122,6 +123,15 @@ def llexternal(name, args, result, _callable=None,
         random_effects_on_gcobjs = (
             invoke_around_handlers or   # because it can release the GIL
             has_callback)               # because the callback can do it
+
+    if llvm_wrapper is None:
+        llvm_wrapper = macro
+    if llvm_wrapper is not None:
+        if llvm_wrapper is True:
+            llvm_wrapper = name
+        wrapper_name = 'pypy_llvm_wrapper_%s' % (name,)
+        _write_wrapper(wrapper_name, llvm_wrapper, ext_type, compilation_info, '_with_llvm')
+        name = wrapper_name
 
     funcptr = lltype.functionptr(ext_type, name, external='C',
                                  compilation_info=compilation_info,
@@ -341,14 +351,10 @@ def llexternal_use_eci(compilation_info):
                       compilation_info=eci, sandboxsafe=True, _nowrapper=True,
                       _callable=lambda: None)
 
-def generate_macro_wrapper(name, macro, functype, eci):
-    """Wraps a function-like macro inside a real function, and expose
-    it with llexternal."""
-
+def _write_wrapper(wrapper_name, macro, functype, eci, wrapped_eci_name):
     # Generate the function call
     from pypy.translator.c.database import LowLevelDatabase
     from pypy.translator.c.support import cdecl
-    wrapper_name = 'pypy_macro_wrapper_%s' % (name,)
     argnames = ['arg%d' % (i,) for i in range(len(functype.ARGS))]
     db = LowLevelDatabase()
     implementationtypename = db.gettype(functype, argnames=argnames)
@@ -364,13 +370,20 @@ def generate_macro_wrapper(name, macro, functype, eci):
     # by ll2ctypes.  We replace eci._with_ctypes, so that only one
     # shared library is actually compiled (when ll2ctypes calls the
     # first function)
-    ctypes_eci = eci.merge(ExternalCompilationInfo(
+    wrapped_eci = eci.merge(ExternalCompilationInfo(
             separate_module_sources=[source],
             export_symbols=[wrapper_name],
             ))
-    if hasattr(eci, '_with_ctypes'):
-        ctypes_eci = eci._with_ctypes.merge(ctypes_eci)
-    eci._with_ctypes = ctypes_eci
+    if hasattr(eci, wrapped_eci_name):
+        wrapped_eci = getattr(eci, wrapped_eci_name).merge(wrapped_eci)
+    setattr(eci, wrapped_eci_name, wrapped_eci)
+
+def generate_macro_wrapper(name, macro, functype, eci):
+    """Wraps a function-like macro inside a real function, and expose
+    it with llexternal."""
+
+    wrapper_name = 'pypy_macro_wrapper_%s' % (name,)
+    _write_wrapper(wrapper_name, macro, functype, eci, '_with_ctypes')
     func = llexternal(wrapper_name, functype.ARGS, functype.RESULT,
                       compilation_info=eci, _nowrapper=True)
     # _nowrapper=True returns a pointer which is not hashable

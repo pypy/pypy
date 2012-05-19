@@ -49,7 +49,7 @@ class BaseTestRffi:
 
         eci = ExternalCompilationInfo(includes=['stuff.h'],
                                       include_dirs=[udir])
-        z = llexternal('X', [Signed], Signed, compilation_info=eci)
+        z = llexternal('X', [Signed], Signed, compilation_info=eci, macro=True)
 
         def f():
             return z(8)
@@ -300,7 +300,7 @@ class BaseTestRffi:
 
         STUFFP = COpaquePtr(typedef='stuff_ptr', compilation_info=eci)
         ll_get = llexternal('get', [STUFFP], lltype.Signed,
-                            compilation_info=eci)
+                            compilation_info=eci, llvm_wrapper=True)
 
         def f():
             return ll_get(lltype.nullptr(STUFFP.TO))
@@ -312,7 +312,7 @@ class BaseTestRffi:
         ctype_pref = ["un", ""][signed]
         rffi_type = [UCHAR, SIGNEDCHAR][signed]
         h_source = py.code.Source("""
-        %ssigned char returnchar(void)
+        static %ssigned char returnchar(void)
         {
             return 42;
         }
@@ -325,7 +325,8 @@ class BaseTestRffi:
             includes=[h_file.basename],
             include_dirs=[str(udir)]
         )
-        ll_returnchar = llexternal('returnchar', [], rffi_type, compilation_info=eci)
+        ll_returnchar = llexternal('returnchar', [], rffi_type,
+                                   compilation_info=eci, llvm_wrapper=True)
     
         def f():
             result = ll_returnchar()

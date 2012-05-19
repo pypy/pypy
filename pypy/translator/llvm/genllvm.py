@@ -274,6 +274,7 @@ PRIMITIVES = {
     lltype.Signed: LLVMSigned,
     lltype.Unsigned: LLVMUnsigned,
     lltype.Char: LLVMChar,
+    rffi.SIGNEDCHAR: LLVMSignedChar,
     lltype.UniChar: LLVMUniChar,
     lltype.Bool: LLVMBool,
     lltype.Float: LLVMFloat,
@@ -610,7 +611,10 @@ class FuncType(Type):
                 database.f.write('declare {} {}({})\n'.format(
                         self.result.repr_type(), name,
                         ', '.join(arg.repr_type() for arg in self.args)))
-                database.genllvm.ecis.append(obj.compilation_info)
+                eci = obj.compilation_info
+                if hasattr(eci, '_with_llvm'):
+                    eci = eci._with_llvm
+                database.genllvm.ecis.append(eci)
         else:
             if obj._name == '__main':
                 name = '@main'
@@ -1395,6 +1399,8 @@ class CTypesFuncWrapper(object):
         if repr_.lowleveltype in PRIMITIVES:
             if repr_.lowleveltype is lltype.Bool:
                 return bool(result)
+            if repr_.lowleveltype is rffi.SIGNEDCHAR:
+                return chr(result)
             return result
         convert = getattr(self, '_from_ctype_' + repr_.__class__.__name__)
         return convert(repr_, result)
