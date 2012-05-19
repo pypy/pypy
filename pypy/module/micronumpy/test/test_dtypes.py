@@ -185,6 +185,33 @@ class AppTestDtypes(BaseNumpyAppTest):
 
         assert dtype("float") is dtype(float)
 
+    def test_index_int8(self):
+        from _numpypy import array, int8
+
+        a = array(range(10), dtype=int8)
+        b = array([0] * 10, dtype=int8)
+        for idx in b: a[idx] += 1
+
+    def test_index_int16(self):
+        from _numpypy import array, int16
+
+        a = array(range(10), dtype=int16)
+        b = array([0] * 10, dtype=int16)
+        for idx in b: a[idx] += 1
+
+    def test_index_int32(self):
+        from _numpypy import array, int32
+
+        a = array(range(10), dtype=int32)
+        b = array([0] * 10, dtype=int32)
+        for idx in b: a[idx] += 1
+
+    def test_index_int64(self):
+        from _numpypy import array, int64
+
+        a = array(range(10), dtype=int64)
+        b = array([0] * 10, dtype=int64)
+        for idx in b: a[idx] += 1
 
 class AppTestTypes(BaseNumpyAppTest):    
     def test_abstract_types(self):

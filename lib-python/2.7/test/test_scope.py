@@ -1,6 +1,6 @@
 import unittest
 from test.test_support import check_syntax_error, check_py3k_warnings, \
-                              check_warnings, run_unittest
+                              check_warnings, run_unittest, gc_collect
 
 
 class ScopeTests(unittest.TestCase):
@@ -432,6 +432,7 @@ self.assertEqual(g.get(), 13)
 
         for i in range(100):
             f1()
+        gc_collect()
 
         self.assertEqual(Foo.count, 0)
 

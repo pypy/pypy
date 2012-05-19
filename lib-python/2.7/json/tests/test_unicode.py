@@ -80,6 +80,12 @@ class TestUnicode(object):
         # Issue 10038.
         self.assertEqual(type(self.loads('"foo"')), unicode)
 
+    def test_encode_not_utf_8(self):
+        self.assertEqual(self.dumps('\xb1\xe6', encoding='iso8859-2'),
+                         '"\\u0105\\u0107"')
+        self.assertEqual(self.dumps(['\xb1\xe6'], encoding='iso8859-2'),
+                         '["\\u0105\\u0107"]')
+
 
 class TestPyUnicode(TestUnicode, PyTest): pass
 class TestCUnicode(TestUnicode, CTest): pass

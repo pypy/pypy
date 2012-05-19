@@ -21,6 +21,26 @@ information, it will not change the python-side interface.
 .. _`llvm`: http://llvm.org/
 
 
+Motivation
+==========
+
+The cppyy module offers two unique features, which result in great
+performance as well as better functionality and cross-language integration
+than would otherwise be possible.
+First, cppyy is written in RPython and therefore open to optimizations by the
+JIT up until the actual point of call into C++.
+This means that there are no conversions necessary between a garbage collected
+and a reference counted environment, as is needed for the use of existing
+extension modules written or generated for CPython.
+It also means that if variables are already unboxed by the JIT, they can be
+passed through directly to C++.
+Second, Reflex (and cling far more so) adds dynamic features to C++, thus
+greatly reducing impedance mismatches between the two languages.
+In fact, Reflex is dynamic enough that you could write the runtime bindings
+generation in python (as opposed to RPython) and this is used to create very
+natural "pythonizations" of the bound code.
+
+
 Installation
 ============
 
@@ -31,8 +51,15 @@ the full ROOT package, you can also use your Reflex-bound code on `CPython`_.
 `Download`_ a binary or install from `source`_.
 Some Linux and Mac systems may have ROOT provided in the list of scientific
 software of their packager.
-A current, standalone version of Reflex should be provided at some point,
-once the dependencies and general packaging have been thought out.
+If, however, you prefer a standalone version of Reflex, the best is to get
+this `recent snapshot`_, and install like so::
+
+    $ tar jxf reflex-2012-05-02.tar.bz2
+    $ cd reflex-2012-05-02
+    $ build/autogen
+    $ ./configure <usual set of options such as --prefix>
+    $ make && make install
+
 Also, make sure you have a version of `gccxml`_ installed, which is most
 easily provided by the packager of your system.
 If you read up on gccxml, you'll probably notice that it is no longer being
@@ -41,12 +68,13 @@ That's why the medium term plan is to move to `cling`_.
 
 .. _`Download`: http://root.cern.ch/drupal/content/downloading-root
 .. _`source`: http://root.cern.ch/drupal/content/installing-root-source
+.. _`recent snapshot`: http://cern.ch/wlav/reflex-2012-05-02.tar.bz2
 .. _`gccxml`: http://www.gccxml.org
 
 Next, get the `PyPy sources`_, select the reflex-support branch, and build
 pypy-c.
 For the build to succeed, the ``$ROOTSYS`` environment variable must point to
-the location of your ROOT installation::
+the location of your ROOT (or standalone Reflex) installation::
 
     $ hg clone https://bitbucket.org/pypy/pypy
     $ cd pypy
@@ -80,7 +108,7 @@ corresponding source file)::
         void SetMyInt(int i) { m_myint = i; }
 
     public:
-       int m_myint;
+        int m_myint;
     };
 
 Then, generate the bindings using ``genreflex`` (part of ROOT), and compile the
@@ -109,6 +137,123 @@ straightforward::
     >>>> help(cppyy.gbl.MyClass)   # shows that normal python introspection works
 
 That's all there is to it!
+
+
+Advanced example
+================
+The following snippet of C++ is very contrived, to allow showing that such
+pathological code can be handled and to show how certain features play out in
+practice::
+
+    $ cat MyAdvanced.h
+    #include <string>
+
+    class Base1 {
+    public:
+        Base1(int i) : m_i(i) {}
+        virtual ~Base1() {}
+        int m_i;
+    };
+
+    class Base2 {
+    public:
+        Base2(double d) : m_d(d) {}
+        virtual ~Base2() {}
+        double m_d;
+    };
+
+    class C;
+
+    class Derived : public virtual Base1, public virtual Base2 {
+    public:
+        Derived(const std::string& name, int i, double d) : Base1(i), Base2(d), m_name(name) {}
+        virtual C* gimeC() { return (C*)0; }
+        std::string m_name;
+    };
+
+    Base1* BaseFactory(const std::string& name, int i, double d) {
+        return new Derived(name, i, d);
+    }
+
+This code is still only in a header file, with all functions inline, for
+convenience of the example.
+If the implementations live in a separate source file or shared library, the
+only change needed is to link those in when building the reflection library.
+
+If you were to run ``genreflex`` like above in the basic example, you will
+find that not all classes of interest will be reflected, nor will be the
+global factory function.
+In particular, ``std::string`` will be missing, since it is not defined in
+this header file, but in a header file that is included.
+In practical terms, general classes such as ``std::string`` should live in a
+core reflection set, but for the moment assume we want to have it in the
+reflection library that we are building for this example.
+
+The ``genreflex`` script can be steered using a so-called `selection file`_,
+which is a simple XML file specifying, either explicitly or by using a
+pattern, which classes, variables, namespaces, etc. to select from the given
+header file.
+With the aid of a selection file, a large project can be easily managed:
+simply ``#include`` all relevant headers into a single header file that is
+handed to ``genreflex``.
+Then, apply a selection file to pick up all the relevant classes.
+For our purposes, the following rather straightforward selection will do
+(the name ``lcgdict`` for the root is historical, but required)::
+
+    $ cat MyAdvanced.xml
+    <lcgdict>
+        <class pattern="Base?" />
+        <class name="Derived" />
+        <class name="std::string" />
+        <function name="BaseFactory" />
+    </lcgdict>
+
+.. _`selection file`: http://root.cern.ch/drupal/content/generating-reflex-dictionaries
+
+Now the reflection info can be generated and compiled::
+
+    $ genreflex MyAdvanced.h --selection=MyAdvanced.xml
+    $ g++ -fPIC -rdynamic -O2 -shared -I$ROOTSYS/include MyAdvanced_rflx.cpp -o libAdvExDict.so
+
+and subsequently be used from PyPy::
+
+    >>>> import cppyy
+    >>>> cppyy.load_reflection_info("libAdvExDict.so")
+    <CPPLibrary object at 0x00007fdb48fc8120>
+    >>>> d = cppyy.gbl.BaseFactory("name", 42, 3.14)
+    >>>> type(d)
+    <class '__main__.Derived'>
+    >>>> isinstance(d, cppyy.gbl.Base1)
+    True
+    >>>> isinstance(d, cppyy.gbl.Base2)
+    True
+    >>>> d.m_i, d.m_d
+    (42, 3.14)
+    >>>> d.m_name == "name"
+    True
+    >>>>
+
+Again, that's all there is to it!
+
+A couple of things to note, though.
+If you look back at the C++ definition of the ``BaseFactory`` function,
+you will see that it declares the return type to be a ``Base1``, yet the
+bindings return an object of the actual type ``Derived``?
+This choice is made for a couple of reasons.
+First, it makes method dispatching easier: if bound objects are always their
+most derived type, then it is easy to calculate any offsets, if necessary.
+Second, it makes memory management easier: the combination of the type and
+the memory address uniquely identifies an object.
+That way, it can be recycled and object identity can be maintained if it is
+entered as a function argument into C++ and comes back to PyPy as a return
+value.
+Last, but not least, casting is decidedly unpythonistic.
+By always providing the most derived type known, casting becomes unnecessary.
+For example, the data member of ``Base2`` is simply directly available.
+Note also that the unreflected ``gimeC`` method of ``Derived`` does not
+preclude its use.
+It is only the ``gimeC`` method that is unusable as long as class ``C`` is
+unknown to the system.
 
 
 Features
@@ -160,6 +305,8 @@ That is a strong statement to make, but also a worthy goal.
 * **doc strings**: The doc string of a method or function contains the C++
   arguments and return types of all overloads of that name, as applicable.
 
+* **enums**: Are translated as ints with no further checking.
+
 * **functions**: Work as expected and live in their appropriate namespace
   (which can be the global one, ``cppyy.gbl``).
 
@@ -178,6 +325,9 @@ That is a strong statement to make, but also a worthy goal.
   To select a specific virtual method, do like with normal python classes
   that override methods: select it from the class that you need, rather than
   calling the method on the instance.
+  To select a specific overload, use the __dispatch__ special function, which
+  takes the name of the desired method and its signature (which can be
+  obtained from the doc string) as arguments.
 
 * **namespaces**: Are represented as python classes.
   Namespaces are more open-ended than classes, so sometimes initial access may
@@ -236,6 +386,9 @@ That is a strong statement to make, but also a worthy goal.
   using classes that themselves are templates (etc.) in the arguments.
   All classes must already exist in the loaded reflection info.
 
+* **typedefs**: Are simple python references to the actual classes to which
+  they refer.
+
 * **unary operators**: Are supported if a python equivalent exists, and if the
   operator is defined in the C++ class.
 
@@ -251,6 +404,107 @@ Only when a missing feature is used, should there be an exception.
 For example, if no reflection info is available for a return type, then a
 class that has a method with that return type can still be used.
 Only that one specific method can not be used.
+
+
+Templates
+=========
+
+A bit of special care needs to be taken for the use of templates.
+For a templated class to be completely available, it must be guaranteed that
+said class is fully instantiated, and hence all executable C++ code is
+generated and compiled in.
+The easiest way to fulfill that guarantee is by explicit instantiation in the
+header file that is handed to ``genreflex``.
+The following example should make that clear::
+
+    $ cat MyTemplate.h
+    #include <vector>
+
+    class MyClass {
+    public:
+        MyClass(int i = -99) : m_i(i) {}
+        MyClass(const MyClass& s) : m_i(s.m_i) {}
+        MyClass& operator=(const MyClass& s) { m_i = s.m_i; return *this; }
+        ~MyClass() {}
+        int m_i;
+    };
+
+    template class std::vector<MyClass>;
+
+If you know for certain that all symbols will be linked in from other sources,
+you can also declare the explicit template instantiation ``extern``.
+
+Unfortunately, this is not enough for gcc.
+The iterators, if they are going to be used, need to be instantiated as well,
+as do the comparison operators on those iterators, as these live in an
+internal namespace, rather than in the iterator classes.
+One way to handle this, is to deal with this once in a macro, then reuse that
+macro for all ``vector`` classes.
+Thus, the header above needs this, instead of just the explicit instantiation
+of the ``vector<MyClass>``::
+
+    #define STLTYPES_EXPLICIT_INSTANTIATION_DECL(STLTYPE, TTYPE)                      \
+    template class std::STLTYPE< TTYPE >;                                             \
+    template class __gnu_cxx::__normal_iterator<TTYPE*, std::STLTYPE< TTYPE > >;      \
+    template class __gnu_cxx::__normal_iterator<const TTYPE*, std::STLTYPE< TTYPE > >;\
+    namespace __gnu_cxx {                                                             \
+    template bool operator==(const std::STLTYPE< TTYPE >::iterator&,                  \
+                             const std::STLTYPE< TTYPE >::iterator&);                 \
+    template bool operator!=(const std::STLTYPE< TTYPE >::iterator&,                  \
+                             const std::STLTYPE< TTYPE >::iterator&);                 \
+    }
+
+    STLTYPES_EXPLICIT_INSTANTIATION_DECL(vector, MyClass)
+
+Then, still for gcc, the selection file needs to contain the full hierarchy as
+well as the global overloads for comparisons for the iterators::
+
+    $ cat MyTemplate.xml
+    <lcgdict>
+        <class pattern="std::vector<*>" />
+        <class pattern="__gnu_cxx::__normal_iterator<*>" />
+        <class pattern="__gnu_cxx::new_allocator<*>" />
+        <class pattern="std::_Vector_base<*>" />
+        <class pattern="std::_Vector_base<*>::_Vector_impl" />
+        <class pattern="std::allocator<*>" />
+        <function name="__gnu_cxx::operator=="/>
+        <function name="__gnu_cxx::operator!="/>
+
+        <class name="MyClass" />
+    </lcgdict>
+
+Run the normal ``genreflex`` and compilation steps::
+
+    $ genreflex MyTemplate.h --selection=MyTemplate.xm
+    $ g++ -fPIC -rdynamic -O2 -shared -I$ROOTSYS/include MyTemplate_rflx.cpp -o libTemplateDict.so
+
+Note: this is a dirty corner that clearly could do with some automation,
+even if the macro already helps.
+Such automation is planned.
+In fact, in the cling world, the backend can perform the template
+instantations and generate the reflection info on the fly, and none of the
+above will any longer be necessary.
+
+Subsequent use should be as expected.
+Note the meta-class style of "instantiating" the template::
+
+    >>>> import cppyy
+    >>>> cppyy.load_reflection_info("libTemplateDict.so")
+    >>>> std = cppyy.gbl.std
+    >>>> MyClass = cppyy.gbl.MyClass
+    >>>> v = std.vector(MyClass)()
+    >>>> v += [MyClass(1), MyClass(2), MyClass(3)]
+    >>>> for m in v:
+    ....     print m.m_i,
+    ....
+    1 2 3
+    >>>>
+
+Other templates work similarly.
+The arguments to the template instantiation can either be a string with the
+full list of arguments, or the explicit classes.
+The latter makes for easier code writing if the classes passed to the
+instantiation are themselves templates.
 
 
 The fast lane

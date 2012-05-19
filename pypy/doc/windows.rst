@@ -24,7 +24,8 @@ was used to build the Python interpreter doing the
 translation.  Failing that, they will pick the most recent Visual Studio
 compiler they can find.  In addition, the target architecture
 (32 bits, 64 bits) is automatically selected.  A 32 bit build can only be built
-using a 32 bit Python and vice versa.
+using a 32 bit Python and vice versa. By default pypy is built using the 
+Multi-threaded DLL (/MD) runtime environment.
 
 **Note:** PyPy is currently not supported for 64 bit Windows, and translation
 will fail in this case.
@@ -102,10 +103,12 @@ The expat XML parser
 
 Download the source code of expat on sourceforge:
 http://sourceforge.net/projects/expat/ and extract it in the base
-directory.  Then open the project file ``expat.dsw`` with Visual
+directory.  Version 2.1.0 is known to pass tests. Then open the project 
+file ``expat.dsw`` with Visual
 Studio; follow the instruction for converting the project files,
-switch to the "Release" configuration, and build the solution (the
-``expat`` project is actually enough for pypy).
+switch to the "Release" configuration, reconfigure the runtime for 
+Multi-threaded DLL (/MD) and build the solution (the ``expat`` project 
+is actually enough for pypy).
 
 Then, copy the file ``win32\bin\release\libexpat.dll`` somewhere in
 your PATH.

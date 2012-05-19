@@ -881,6 +881,8 @@ else:
                 c = socket.socket()
                 c.connect((HOST, port))
                 listener_gone.wait()
+                # XXX why is it necessary?
+                test_support.gc_collect()
                 try:
                     ssl_sock = ssl.wrap_socket(c)
                 except IOError:
@@ -1330,10 +1332,8 @@ else:
 
 def test_main(verbose=False):
     global CERTFILE, SVN_PYTHON_ORG_ROOT_CERT
-    CERTFILE = os.path.join(os.path.dirname(__file__) or os.curdir,
-                            "keycert.pem")
-    SVN_PYTHON_ORG_ROOT_CERT = os.path.join(
-        os.path.dirname(__file__) or os.curdir,
+    CERTFILE = test_support.findfile("keycert.pem")
+    SVN_PYTHON_ORG_ROOT_CERT = test_support.findfile(
         "https_svn_python_org_root.pem")
 
     if (not os.path.exists(CERTFILE) or

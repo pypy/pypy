@@ -253,7 +253,7 @@ class W_DataShape(Wrappable):
         # XXX: this assumes that you have the _ffi module enabled. In the long
         # term, probably we will move the code for build structures and arrays
         # from _rawffi to _ffi
-        from pypy.module._ffi.interp_ffi import W_FFIType
+        from pypy.module._ffi.interp_ffitype import W_FFIType
         return W_FFIType('<unknown>', self.get_basic_ffi_type(), self)
 
     @unwrap_spec(n=int)

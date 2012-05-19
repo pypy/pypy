@@ -787,6 +787,37 @@ class TestNonInteractive:
         assert data.startswith("15\xe2\x82\xac")
 
 
+class TestAppMain:
+    
+    def test_print_info(self):
+        from pypy.translator.goal import app_main
+        import sys, cStringIO
+        prev_so = sys.stdout
+        prev_ti = getattr(sys, 'pypy_translation_info', 'missing')
+        sys.pypy_translation_info = {
+            'translation.foo': True,
+            'translation.bar': 42,
+            'translation.egg.something': None,
+            'objspace.x': 'hello',
+        }
+        try:
+            sys.stdout = f = cStringIO.StringIO()
+            py.test.raises(SystemExit, app_main.print_info)
+        finally:
+            sys.stdout = prev_so
+            if prev_ti == 'missing':
+                del sys.pypy_translation_info
+            else:
+                sys.pypy_translation_info = prev_ti
+        assert f.getvalue() == ("[objspace]\n"
+                                "    x = 'hello'\n"
+                                "[translation]\n"
+                                "    bar = 42\n"
+                                "    [egg]\n"
+                                "        something = None\n"
+                                "    foo = True\n")
+
+
 class AppTestAppMain:
 
     def setup_class(self):
@@ -803,7 +834,6 @@ class AppTestAppMain:
         fake_exe = prefix.join('bin/pypy-c').ensure(file=1)
         expected_path = [str(prefix.join(subdir).ensure(dir=1))
                          for subdir in ('lib_pypy',
-                                        'lib-python/modified-%s' % cpy_ver,
                                         'lib-python/%s' % cpy_ver)]
         
         self.w_goal_dir = self.space.wrap(goal_dir)
@@ -837,9 +867,9 @@ class AppTestAppMain:
             app_main.os = os
             pypy_c = os.path.join(self.trunkdir, 'pypy', 'translator', 'goal', 'pypy-c')
             newpath = app_main.get_library_path(pypy_c)
-            # we get at least lib_pypy, lib-python/modified-X.Y.Z,
+            # we get at least lib_pypy 
             # lib-python/X.Y.Z, and maybe more (e.g. plat-linux2)
-            assert len(newpath) >= 3
+            assert len(newpath) >= 2
             for p in newpath:
                 assert p.startswith(self.trunkdir)
         finally:

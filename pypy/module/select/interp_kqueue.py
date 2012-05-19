@@ -3,6 +3,7 @@ from pypy.interpreter.error import OperationError, operationerrfmt, exception_fr
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, generic_new_descr, GetSetProperty
 from pypy.rlib._rsocket_rffi import socketclose
+from pypy.rlib.rarithmetic import r_uint
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rpython.tool import rffi_platform
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
@@ -226,9 +227,12 @@ class W_Kevent(Wrappable):
         if self.event:
             lltype.free(self.event, flavor="raw")
 
-    @unwrap_spec(filter=int, flags='c_uint', fflags='c_uint', data=int, udata='c_uint')
-    def descr__init__(self, space, w_ident, filter=KQ_FILTER_READ, flags=KQ_EV_ADD, fflags=0, data=0, udata=0):
-        ident = space.c_filedescriptor_w(w_ident)
+    @unwrap_spec(filter=int, flags='c_uint', fflags='c_uint', data=int, udata=r_uint)
+    def descr__init__(self, space, w_ident, filter=KQ_FILTER_READ, flags=KQ_EV_ADD, fflags=0, data=0, udata=r_uint(0)):
+        if space.isinstance_w(w_ident, space.w_long):
+            ident = space.uint_w(w_ident)
+        else:
+            ident = r_uint(space.c_filedescriptor_w(w_ident))
 
         self.event = lltype.malloc(kevent, flavor="raw")
         rffi.setintfield(self.event, "c_ident", ident)
@@ -320,7 +324,7 @@ class W_Kevent(Wrappable):
         return space.wrap(self.event.c_data)
 
     def descr_get_udata(self, space):
-        return space.wrap(rffi.cast(rffi.SIZE_T, self.event.c_udata))
+        return space.wrap(rffi.cast(rffi.UINTPTR_T, self.event.c_udata))
 
 
 W_Kevent.typedef = TypeDef("select.kevent",

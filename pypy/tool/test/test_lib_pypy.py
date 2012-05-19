@@ -7,8 +7,6 @@ def test_lib_pypy_exists():
 
 def test_lib_python_exists():
     assert lib_pypy.LIB_PYTHON.check(dir=1)
-    assert lib_pypy.LIB_PYTHON_VANILLA.check(dir=1)
-    assert lib_pypy.LIB_PYTHON_MODIFIED.check(dir=1)
 
 def test_import_from_lib_pypy():
     _functools = lib_pypy.import_from_lib_pypy('_functools')

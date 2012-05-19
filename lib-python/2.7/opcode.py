@@ -1,4 +1,3 @@
-
 """
 opcode module - potentially shared between dis and other modules which
 operate on bytecodes (e.g. peephole optimizers).
@@ -188,5 +187,11 @@ def_op('EXTENDED_ARG', 145)
 EXTENDED_ARG = 145
 def_op('SET_ADD', 146)
 def_op('MAP_ADD', 147)
+
+# pypy modification, experimental bytecode
+def_op('LOOKUP_METHOD', 201)          # Index in name list
+hasname.append(201)
+def_op('CALL_METHOD', 202)            # #args not including 'self'
+def_op('BUILD_LIST_FROM_ARG', 203)
 
 del def_op, name_op, jrel_op, jabs_op

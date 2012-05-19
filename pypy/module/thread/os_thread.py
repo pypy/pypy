@@ -90,7 +90,6 @@ class Bootstrapper(object):
         bootstrapper.nbthreads += 1
         bootstrapper.release()
         # run!
-        space.threadlocals.enter_thread(space)
         try:
             bootstrapper.run(space, w_callable, args)
         finally:

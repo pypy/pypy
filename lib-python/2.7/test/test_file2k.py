@@ -11,7 +11,7 @@ except ImportError:
     threading = None
 
 from test import test_support
-from test.test_support import TESTFN, run_unittest
+from test.test_support import TESTFN, run_unittest, gc_collect
 from UserList import UserList
 
 class AutoFileTests(unittest.TestCase):
@@ -32,6 +32,7 @@ class AutoFileTests(unittest.TestCase):
         self.assertEqual(self.f.tell(), p.tell())
         self.f.close()
         self.f = None
+        gc_collect()
         self.assertRaises(ReferenceError, getattr, p, 'tell')
 
     def testAttributes(self):
@@ -116,8 +117,12 @@ class AutoFileTests(unittest.TestCase):
 
         for methodname in methods:
             method = getattr(self.f, methodname)
+            args = {'readinto': (bytearray(''),),
+                    'seek':     (0,),
+                    'write':    ('',),
+                    }.get(methodname, ())
             # should raise on closed file
-            self.assertRaises(ValueError, method)
+            self.assertRaises(ValueError, method, *args)
         with test_support.check_py3k_warnings():
             for methodname in deprecated_methods:
                 method = getattr(self.f, methodname)
@@ -216,7 +221,12 @@ class OtherFileTests(unittest.TestCase):
     def testStdin(self):
         # This causes the interpreter to exit on OSF1 v5.1.
         if sys.platform != 'osf1V5':
-            self.assertRaises(IOError, sys.stdin.seek, -1)
+            if sys.stdin.isatty():
+                self.assertRaises(IOError, sys.stdin.seek, -1)
+            else:
+                print >>sys.__stdout__, (
+                    '  Skipping sys.stdin.seek(-1): stdin is not a tty.'
+                    ' Test manualy.')
         else:
             print >>sys.__stdout__, (
                 '  Skipping sys.stdin.seek(-1), it may crash the interpreter.'
@@ -336,8 +346,9 @@ class OtherFileTests(unittest.TestCase):
                 except ValueError:
                     pass
                 else:
-                    self.fail("%s%r after next() didn't raise ValueError" %
-                                     (methodname, args))
+                    if test_support.check_impl_detail():
+                        self.fail("%s%r after next() didn't raise ValueError" %
+                                  (methodname, args))
                 f.close()
 
             # Test to see if harmless (by accident) mixing of read* and
@@ -388,6 +399,7 @@ class OtherFileTests(unittest.TestCase):
             if lines != testlines:
                 self.fail("readlines() after next() with empty buffer "
                           "failed. Got %r, expected %r" % (line, testline))
+            f.close()
             # Reading after iteration hit EOF shouldn't hurt either
             f = open(TESTFN)
             try:
@@ -438,6 +450,9 @@ class FileThreadingTests(unittest.TestCase):
         self.close_count = 0
         self.close_success_count = 0
         self.use_buffering = False
+        # to prevent running out of file descriptors on PyPy,
+        # we only keep the 50 most recent files open
+        self.all_files = [None] * 50
 
     def tearDown(self):
         if self.f:
@@ -453,9 +468,14 @@ class FileThreadingTests(unittest.TestCase):
 
     def _create_file(self):
         if self.use_buffering:
-            self.f = open(self.filename, "w+", buffering=1024*16)
+            f = open(self.filename, "w+", buffering=1024*16)
         else:
-            self.f = open(self.filename, "w+")
+            f = open(self.filename, "w+")
+        self.f = f
+        self.all_files.append(f)
+        oldf = self.all_files.pop(0)
+        if oldf is not None:
+            oldf.close()
 
     def _close_file(self):
         with self._count_lock:
@@ -496,7 +516,6 @@ class FileThreadingTests(unittest.TestCase):
 
     def _test_close_open_io(self, io_func, nb_workers=5):
         def worker():
-            self._create_file()
             funcs = itertools.cycle((
                 lambda: io_func(),
                 lambda: self._close_and_reopen_file(),
@@ -508,7 +527,11 @@ class FileThreadingTests(unittest.TestCase):
                     f()
                 except (IOError, ValueError):
                     pass
+        self._create_file()
         self._run_workers(worker, nb_workers)
+        # make sure that all files can be closed now
+        del self.all_files
+        gc_collect()
         if test_support.verbose:
             # Useful verbose statistics when tuning this test to take
             # less time to run but still ensuring that its still useful.

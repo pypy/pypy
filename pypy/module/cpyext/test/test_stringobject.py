@@ -307,6 +307,13 @@ class TestString(BaseApiTest):
             space.wrap(2), lltype.nullptr(rffi.CCHARP.TO), lltype.nullptr(rffi.CCHARP.TO)
         )
 
+    def test_AsDecodedObject(self, space, api):
+        w_str = space.wrap('caf\xe9')
+        encoding = rffi.str2charp("latin-1")
+        w_res = api.PyString_AsDecodedObject(w_str, encoding, None)
+        rffi.free_charp(encoding)
+        assert space.unwrap(w_res) == u"caf\xe9"
+
     def test_eq(self, space, api):
         assert 1 == api._PyString_Eq(space.wrap("hello"), space.wrap("hello"))
         assert 0 == api._PyString_Eq(space.wrap("hello"), space.wrap("world"))
