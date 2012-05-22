@@ -2,7 +2,9 @@ import __builtin__
 import ctypes
 from itertools import count
 
+from py.path import local
 from py.process import cmdexec
+
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import mkentrymap, Constant, Variable
 from pypy.rlib.jit import _we_are_jitted
@@ -12,11 +14,11 @@ from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
 from pypy.rpython.lltypesystem import llarena, llgroup, llmemory, lltype, rffi
 from pypy.rpython.memory.gctransform.framework import FrameworkGCTransformer
 from pypy.rpython.memory.gctransform.transform import GCTransformer
-from pypy.rpython.tool import rffi_platform
 from pypy.rpython.typesystem import getfunctionptr
 from pypy.translator.gensupp import uniquemodulename
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.translator.unsimplify import remove_double_links
+from pypy.tool.autopath import pypydir
 from pypy.tool.udir import udir
 
 
@@ -582,16 +584,6 @@ class GroupType(Type):
                 groupname, struct_type.repr_type_and_value(group)))
 
 
-align = rffi_platform.memory_alignment()
-ROUND_UP_FOR_ALLOCATION = ( # XXX make it a LLOp?
-        'define i64 @ROUND_UP_FOR_ALLOCATION(i64 %basesize, i64 %minsize) {{\n'
-        '    %cond = icmp sgt i64 %minsize, %basesize\n'
-        '    %size = select i1 %cond, i64 %minsize, i64 %basesize\n'
-        '    %tmp1 = add i64 %size, {}\n'
-        '    %tmp2 = and i64 %tmp1, {}\n'
-        '    ret i64 %tmp2\n'
-        '}}\n').format(align-1, ~(align-1))
-
 class FuncType(Type):
     def setup_from_lltype(self, db, type_):
         self.result = db.get_type(type_.RESULT)
@@ -606,9 +598,7 @@ class FuncType(Type):
         if getattr(obj, 'external', None) == 'C':
             name = '@' + getattr(obj, 'llvm_name', obj._name)
             ptr_type.refs[obj] = name
-            if obj._name == 'ROUND_UP_FOR_ALLOCATION': # XXX
-                database.f.write(ROUND_UP_FOR_ALLOCATION)
-            elif obj._name not in ('malloc', 'free'):
+            if obj._name not in ('malloc', 'free'):
                 database.f.write('declare {} {}({})\n'.format(
                         self.result.repr_type(), name,
                         ', '.join(arg.repr_type() for arg in self.args)))
@@ -1449,7 +1439,14 @@ class GenLLVM(object):
         self.base_path = udir.join(uniquemodulename('main'))
 
         with self.base_path.new(ext='.ll').open('w') as f:
-            f.write(cmdexec('clang -emit-llvm -S -x c /dev/null -o -'))
+            output = cmdexec('clang -emit-llvm -S -x c /dev/null -o -')
+            pointer = output.index('p:')
+            minus = output.index('-', pointer)
+            tmp = output[pointer:minus].split(':')
+            global align
+            align = int(tmp[3])
+            f.write(output)
+
             # XXX
             f.write('declare i8* @malloc(i64)\n')
             f.write('declare void @free(i8*)\n')
@@ -1479,7 +1476,10 @@ class GenLLVM(object):
             self.gcpolicy.finish()
 
     def _compile(self, add_opts, outfile):
-        eci = ExternalCompilationInfo().merge(*self.ecis)
+        eci = ExternalCompilationInfo(
+            include_dirs = [local(pypydir) / 'translator' / 'c'],
+            includes = ['src/g_prerequisite.h']
+        ).merge(*self.ecis)
         eci = eci.convert_sources_to_files(being_main=True)
         cmdexec('clang -O2 {}{}{}{}.ll -o {}'.format(
                 add_opts,

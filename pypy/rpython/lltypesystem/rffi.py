@@ -356,7 +356,7 @@ def _write_wrapper(wrapper_name, macro, functype, eci, wrapped_eci_name):
     from pypy.translator.c.database import LowLevelDatabase
     from pypy.translator.c.support import cdecl
     argnames = ['arg%d' % (i,) for i in range(len(functype.ARGS))]
-    db = LowLevelDatabase()
+    db = LowLevelDatabase(gcpolicyclass=lambda x, y: None)
     implementationtypename = db.gettype(functype, argnames=argnames)
     if functype.RESULT is lltype.Void:
         pattern = '%s { %s(%s); }'

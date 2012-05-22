@@ -15,7 +15,6 @@ from pypy.translator.c.support import cdecl, CNameManager
 from pypy.translator.c.support import log, barebonearray
 from pypy.translator.c.extfunc import do_the_getting
 from pypy import conftest
-from pypy.translator.c import gc
 from pypy.tool.identity_dict import identity_dict
 
 
@@ -37,6 +36,7 @@ class LowLevelDatabase(object):
         self.cpython_extension = cpython_extension
         self.sandbox    = sandbox
         if gcpolicyclass is None:
+            from pypy.translator.c import gc
             gcpolicyclass = gc.RefcountingGcPolicy
         self.gcpolicy = gcpolicyclass(self, thread_enabled)
 

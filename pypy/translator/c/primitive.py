@@ -9,7 +9,6 @@ from pypy.rpython.lltypesystem.llmemory import Address, \
      AddressOffset, ItemOffset, ArrayItemsOffset, FieldOffset, \
      CompositeOffset, ArrayLengthOffset, \
      GCHeaderOffset, GCREF, AddressAsInt
-from pypy.rpython.lltypesystem.llarena import RoundedUpForAllocation
 from pypy.translator.c.support import cdecl, barebonearray
 
 # ____________________________________________________________
@@ -27,6 +26,7 @@ else:
     
 def name_signed(value, db):
     if isinstance(value, Symbolic):
+        from pypy.rpython.lltypesystem.llarena import RoundedUpForAllocation
         if isinstance(value, FieldOffset):
             structnode = db.gettypedefnode(value.TYPE)
             return 'offsetof(%s, %s)'%(
