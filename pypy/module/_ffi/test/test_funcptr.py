@@ -338,6 +338,22 @@ class AppTestFFI(BaseAppTestFFI):
         assert sum_xy(100, 40) == 140
         assert sum_xy(200, 60) == 260 % 256
 
+    def test_unsigned_int_args(self):
+        r"""
+            DLLEXPORT unsigned int sum_xy_ui(unsigned int x, unsigned int y)
+            {
+                return x+y;
+            }
+        """
+        import sys
+        from _ffi import CDLL, types
+        maxint32 = 2147483647
+        libfoo = CDLL(self.libfoo_name)
+        sum_xy = libfoo.getfunc('sum_xy_ui', [types.uint, types.uint],
+                                types.uint)
+        assert sum_xy(maxint32, 1) == maxint32+1
+        assert sum_xy(maxint32, maxint32+2) == 0
+
     def test_signed_byte_args(self):
         """
             DLLEXPORT signed char sum_xy_sb(signed char x, signed char y)
