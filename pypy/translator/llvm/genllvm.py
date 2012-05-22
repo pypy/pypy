@@ -223,7 +223,11 @@ class FloatType(Type):
             import struct
             packed = struct.pack("d", value)
             return "0x" + ''.join([('{:02x}'.format(ord(i))) for i in packed])
-        return repr(float(value))
+        ret = repr(float(value))
+        # llvm requires a . when using e notation
+        if "e" in ret and "." not in ret:
+            return ret.replace("e", ".0e")
+        return ret
 
     def get_cast_op(self, to):
         if isinstance(to, FloatType):

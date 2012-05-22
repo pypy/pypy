@@ -238,6 +238,14 @@ class _LLVMMixin(test_typed.CompilationTestCase):
         raisingop2direct_call(t)
 
 
+class TestSpecialCases(_LLVMMixin):
+    def test_float_e_notation(self):
+        def f():
+            return 1e-06
+        fc = self.getcompiled(f)
+        assert fc() == 1e-06
+
+
 class TestLowLevelTypeLLVM(_LLVMMixin, test_lltyped.TestLowLevelType):
     def test_llgroup_size_limit(self):
         py.test.skip('takes too long to complete')
