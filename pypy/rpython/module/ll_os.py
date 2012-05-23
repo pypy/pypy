@@ -20,6 +20,7 @@ from pypy.rpython.lltypesystem import rffi
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.tool import rffi_platform as platform
 from pypy.rlib import rposix
+from pypy.rlib import rwin32
 from pypy.tool.udir import udir
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rpython.lltypesystem.rstr import mallocstr
@@ -1547,17 +1548,19 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([int], int, llimpl=umask_llimpl,
                       export_name="ll_os.ll_os_umask")
 
-    @registering_if(os, 'kill', sys.platform != 'win32')
+    @registering(os.kill)
     def register_os_kill(self):
-        os_kill = self.llexternal('kill', [rffi.PID_T, rffi.INT],
+        if sys.platform == 'win32':
+            kill_llimpl = rwin32.os_kill
+        else:
+            os_kill = self.llexternal('kill', [rffi.PID_T, rffi.INT],
                                   rffi.INT)
-
-        def kill_llimpl(pid, sig):
-            res = rffi.cast(lltype.Signed, os_kill(rffi.cast(rffi.PID_T, pid),
-                                                   rffi.cast(rffi.INT, sig)))
-            if res < 0:
-                raise OSError(rposix.get_errno(), "os_kill failed")
-
+            def kill_llimpl(pid, sig):
+                res = rffi.cast(lltype.Signed, 
+                             os_kill(rffi.cast(rffi.PID_T, pid),
+                                               rffi.cast(rffi.INT, sig)))
+                if res < 0:
+                    raise OSError(rposix.get_errno(), "os_kill failed")
         return extdef([int, int], s_None, llimpl=kill_llimpl,
                       export_name="ll_os.ll_os_kill")
 

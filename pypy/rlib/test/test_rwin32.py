@@ -32,3 +32,18 @@ def test_open_process():
     assert pid != 0
     handle = rwin32.OpenProcess(rwin32.PROCESS_QUERY_INFORMATION, False, pid)
     rwin32.CloseHandle(handle)
+    raises(WindowsError, rwin32.OpenProcess, rwin32.PROCESS_TERMINATE, False, 0)
+
+def test_terminate_process():
+    import subprocess, signal, sys
+    proc = subprocess.Popen([sys.executable, "-c",
+                         "import time;"
+                         "time.sleep(10)",
+                         ],
+                        ) 
+    print proc.pid
+    handle = rwin32.OpenProcess(rwin32.PROCESS_ALL_ACCESS, False, proc.pid)
+    assert rwin32.TerminateProcess(handle, signal.SIGTERM) == 0
+    rwin32.CloseHandle(handle)
+    assert proc.wait() == signal.SIGTERM
+ 

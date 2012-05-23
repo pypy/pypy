@@ -10,7 +10,7 @@ from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.rposix import validate_fd
 from pypy.rlib import jit
-import os, sys, errno
+import os, sys, errno, signal
 
 # This module can be imported on any platform,
 # but most symbols are not usable...
@@ -356,7 +356,19 @@ if WIN32:
         return handle
     TerminateProcess = winexternal(
         'TerminateProcess', [HANDLE, rffi.UINT], BOOL)
+    GenerateConsoleCtrlEvent = winexternal(
+        'GenerateConsoleCtrlEvent', [DWORD, DWORD], BOOL)
     _GetCurrentProcessId = winexternal(
         'GetCurrentProcessId', [], DWORD)
     def GetCurrentProcessId():
         return rffi.cast(lltype.Signed, _GetCurrentProcessId())
+    def os_kill(pid, sig):
+        if sig == signal.CTRL_C_EVENT or sig == signal.CTRL_BREAK_EVENT:
+            if 0 == GenerateConsoleCtrlEvent(sig, pid):
+                raise lastWindowsError('os_kill failed generating event')
+            return 0
+        handle = OpenProcess(PROCESS_ALL_ACCESS, False, pid)
+        if handle == NULL_HANDLE:
+            raise lastWindowsError('os_kill failed opening process')
+        return TerminateProcess(handle, sig)
+        

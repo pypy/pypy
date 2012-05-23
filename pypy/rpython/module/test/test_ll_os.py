@@ -254,10 +254,7 @@ def test_os_fdatasync():
 
 
 def test_os_kill():
-    try:
-        f = getllimpl(os.kill)
-    except:
-        skip('No kill in os')
+    f = getllimpl(os.kill)
     import subprocess
     import signal
     proc = subprocess.Popen([sys.executable, "-c",
