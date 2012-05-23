@@ -1547,8 +1547,12 @@ class RegisterOs(BaseLazyRegistering):
 
         return extdef([int], int, llimpl=umask_llimpl,
                       export_name="ll_os.ll_os_umask")
-
-    @registering(os.kill)
+    print '1550',globals().keys()
+    if hasattr(os,'kill'):
+        decorator = registering(os.kill)
+    else:
+        decorator = registering(rwin32.os_kill)
+    @decorator
     def register_os_kill(self):
         if sys.platform == 'win32':
             kill_llimpl = rwin32.os_kill

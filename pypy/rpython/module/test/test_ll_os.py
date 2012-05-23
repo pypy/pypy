@@ -254,6 +254,9 @@ def test_os_fdatasync():
 
 
 def test_os_kill():
+    if not hasattr(os,'kill'):
+        from pypy.rlib import rwin32
+        os.kill = rwin32.os_kill
     f = getllimpl(os.kill)
     import subprocess
     import signal

@@ -10,7 +10,7 @@ from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.rposix import validate_fd
 from pypy.rlib import jit
-import os, sys, errno, signal
+import os, sys, errno
 
 # This module can be imported on any platform,
 # but most symbols are not usable...
@@ -89,6 +89,7 @@ class CConfig:
                        PROCESS_SUSPEND_RESUME PROCESS_TERMINATE
                        PROCESS_VM_OPERATION PROCESS_VM_READ
                        PROCESS_VM_WRITE
+                       CTRL_C_EVENT CTRL_BREAK_EVENT
                     """.split():
             locals()[name] = rffi_platform.ConstantInteger(name)
 
@@ -363,7 +364,7 @@ if WIN32:
     def GetCurrentProcessId():
         return rffi.cast(lltype.Signed, _GetCurrentProcessId())
     def os_kill(pid, sig):
-        if sig == signal.CTRL_C_EVENT or sig == signal.CTRL_BREAK_EVENT:
+        if sig == CTRL_C_EVENT or sig == CTRL_BREAK_EVENT:
             if 0 == GenerateConsoleCtrlEvent(sig, pid):
                 raise lastWindowsError('os_kill failed generating event')
             return 0
