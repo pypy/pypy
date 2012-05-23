@@ -514,7 +514,7 @@ class TestInteraction:
             """)
         py_py = os.path.join(autopath.pypydir, 'bin', 'py.py')
         child = self._spawn(sys.executable, [py_py, path])
-        child.expect('Are you suggesting coconuts migrate?', timeout=120)
+        child.expect('Are you suggesting coconuts migrate?', timeout=220)
         child.sendline('Not at all. They could be carried.')
         child.expect('A five ounce bird could not carry a one pound coconut.')
 
