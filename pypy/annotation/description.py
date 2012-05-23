@@ -229,8 +229,8 @@ class FunctionDesc(Desc):
                     return thing
                 elif hasattr(thing, '__name__'): # mostly types and functions
                     return thing.__name__
-                elif hasattr(thing, 'name'): # mostly ClassDescs
-                    return thing.name
+                elif hasattr(thing, 'name') and isinstance(thing.name, str):
+                    return thing.name            # mostly ClassDescs
                 elif isinstance(thing, tuple):
                     return '_'.join(map(nameof, thing))
                 else:

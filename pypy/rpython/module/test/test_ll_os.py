@@ -4,6 +4,7 @@ from py.path import local
 import pypy
 from pypy.tool.udir import udir
 from pypy.translator.c.test.test_genc import compile
+from pypy.rpython.module import ll_os #has side effect of registering functions
 
 from pypy.rpython import extregistry
 import errno
@@ -85,8 +86,10 @@ def test_chdir():
         if (len == 0) and "WINGDB_PYTHON" in os.environ:
             # the ctypes call seems not to work in the Wing debugger
             return
-        assert str(buf.value).lower() == pwd
-        # ctypes returns the drive letter in uppercase, os.getcwd does not
+        assert str(buf.value).lower() == pwd.lower()
+        # ctypes returns the drive letter in uppercase, 
+        # os.getcwd does not, 
+        # but there may be uppercase in os.getcwd path
 
     pwd = os.getcwd()
     try:
@@ -188,7 +191,67 @@ def test_execve():
         OSError, ll_execve, "/etc/passwd", [], {})
     assert info.value.errno == errno.EACCES
 
+def test_os_write():
+    #Same as test in rpython/test/test_rbuiltin
+    fname = str(udir.join('os_test.txt'))
+    fd = os.open(fname, os.O_WRONLY|os.O_CREAT, 0777)
+    assert fd >= 0
+    f = getllimpl(os.write)
+    f(fd, 'Hello world')
+    os.close(fd)
+    with open(fname) as fid:
+        assert fid.read() == "Hello world"
+    fd = os.open(fname, os.O_WRONLY|os.O_CREAT, 0777)
+    os.close(fd)
+    raises(OSError, f, fd, 'Hello world')
 
+def test_os_close():
+    fname = str(udir.join('os_test.txt'))
+    fd = os.open(fname, os.O_WRONLY|os.O_CREAT, 0777)
+    assert fd >= 0
+    os.write(fd, 'Hello world')
+    f = getllimpl(os.close)
+    f(fd)
+    raises(OSError, f, fd)
+
+def test_os_lseek():
+    fname = str(udir.join('os_test.txt'))
+    fd = os.open(fname, os.O_RDWR|os.O_CREAT, 0777)
+    assert fd >= 0
+    os.write(fd, 'Hello world')
+    f = getllimpl(os.lseek)
+    f(fd,0,0)
+    assert os.read(fd, 11) == 'Hello world'
+    os.close(fd)
+    raises(OSError, f, fd, 0, 0)
+
+def test_os_fsync():
+    fname = str(udir.join('os_test.txt'))
+    fd = os.open(fname, os.O_WRONLY|os.O_CREAT, 0777)
+    assert fd >= 0
+    os.write(fd, 'Hello world')
+    f = getllimpl(os.fsync)
+    f(fd)
+    os.close(fd)
+    fid = open(fname)
+    assert fid.read() == 'Hello world'
+    fid.close()
+    raises(OSError, f, fd)
+
+def test_os_fdatasync():
+    try:
+        f = getllimpl(os.fdatasync)
+    except:
+        skip('No fdatasync in os')
+    fname = str(udir.join('os_test.txt'))
+    fd = os.open(fname, os.O_WRONLY|os.O_CREAT, 0777)
+    assert fd >= 0
+    os.write(fd, 'Hello world')
+    f(fd)
+    fid = open(fname)
+    assert fid.read() == 'Hello world'
+    os.close(fd)
+    raises(OSError, f, fd)
 
 class ExpectTestOs:
     def setup_class(cls):

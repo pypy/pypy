@@ -40,7 +40,8 @@ typedef struct PyMemberDef {
 				   when the value is NULL, instead of
 				   converting to None. */
 #define T_LONGLONG	17
-#define T_ULONGLONG	 18
+#define T_ULONGLONG	18
+#define T_PYSSIZET	19
 
 /* Flags. These constants are also in structmemberdefs.py. */
 #define READONLY      1

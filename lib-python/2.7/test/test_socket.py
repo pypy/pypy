@@ -252,6 +252,7 @@ class GeneralModuleTests(unittest.TestCase):
         self.assertEqual(p.fileno(), s.fileno())
         s.close()
         s = None
+        test_support.gc_collect()
         try:
             p.fileno()
         except ReferenceError:
@@ -285,32 +286,34 @@ class GeneralModuleTests(unittest.TestCase):
             s.sendto(u'\u2620', sockname)
         with self.assertRaises(TypeError) as cm:
             s.sendto(5j, sockname)
-        self.assertIn('not complex', str(cm.exception))
+        self.assertIn('complex', str(cm.exception))
         with self.assertRaises(TypeError) as cm:
             s.sendto('foo', None)
-        self.assertIn('not NoneType', str(cm.exception))
+        self.assertIn('NoneType', str(cm.exception))
         # 3 args
         with self.assertRaises(UnicodeEncodeError):
             s.sendto(u'\u2620', 0, sockname)
         with self.assertRaises(TypeError) as cm:
             s.sendto(5j, 0, sockname)
-        self.assertIn('not complex', str(cm.exception))
+        self.assertIn('complex', str(cm.exception))
         with self.assertRaises(TypeError) as cm:
             s.sendto('foo', 0, None)
-        self.assertIn('not NoneType', str(cm.exception))
+        if test_support.check_impl_detail():
+            self.assertIn('not NoneType', str(cm.exception))
         with self.assertRaises(TypeError) as cm:
             s.sendto('foo', 'bar', sockname)
-        self.assertIn('an integer is required', str(cm.exception))
+        self.assertIn('integer', str(cm.exception))
         with self.assertRaises(TypeError) as cm:
             s.sendto('foo', None, None)
-        self.assertIn('an integer is required', str(cm.exception))
+        if test_support.check_impl_detail():
+            self.assertIn('an integer is required', str(cm.exception))
         # wrong number of args
         with self.assertRaises(TypeError) as cm:
             s.sendto('foo')
-        self.assertIn('(1 given)', str(cm.exception))
+        self.assertIn(' given)', str(cm.exception))
         with self.assertRaises(TypeError) as cm:
             s.sendto('foo', 0, sockname, 4)
-        self.assertIn('(4 given)', str(cm.exception))
+        self.assertIn(' given)', str(cm.exception))
 
 
     def testCrucialConstants(self):
@@ -385,10 +388,10 @@ class GeneralModuleTests(unittest.TestCase):
             socket.htonl(k)
             socket.htons(k)
         for k in bad_values:
-            self.assertRaises(OverflowError, socket.ntohl, k)
-            self.assertRaises(OverflowError, socket.ntohs, k)
-            self.assertRaises(OverflowError, socket.htonl, k)
-            self.assertRaises(OverflowError, socket.htons, k)
+            self.assertRaises((OverflowError, ValueError), socket.ntohl, k)
+            self.assertRaises((OverflowError, ValueError), socket.ntohs, k)
+            self.assertRaises((OverflowError, ValueError), socket.htonl, k)
+            self.assertRaises((OverflowError, ValueError), socket.htons, k)
 
     def testGetServBy(self):
         eq = self.assertEqual
@@ -428,8 +431,8 @@ class GeneralModuleTests(unittest.TestCase):
         if udpport is not None:
             eq(socket.getservbyport(udpport, 'udp'), service)
         # Make sure getservbyport does not accept out of range ports.
-        self.assertRaises(OverflowError, socket.getservbyport, -1)
-        self.assertRaises(OverflowError, socket.getservbyport, 65536)
+        self.assertRaises((OverflowError, ValueError), socket.getservbyport, -1)
+        self.assertRaises((OverflowError, ValueError), socket.getservbyport, 65536)
 
     def testDefaultTimeout(self):
         # Testing default timeout
@@ -608,8 +611,8 @@ class GeneralModuleTests(unittest.TestCase):
         neg_port = port - 65536
         sock = socket.socket()
         try:
-            self.assertRaises(OverflowError, sock.bind, (host, big_port))
-            self.assertRaises(OverflowError, sock.bind, (host, neg_port))
+            self.assertRaises((OverflowError, ValueError), sock.bind, (host, big_port))
+            self.assertRaises((OverflowError, ValueError), sock.bind, (host, neg_port))
             sock.bind((host, port))
         finally:
             sock.close()
@@ -1309,6 +1312,7 @@ class Urllib2FileobjectTest(unittest.TestCase):
             closed = False
             def flush(self): pass
             def close(self): self.closed = True
+            def _decref_socketios(self): pass
 
         # must not close unless we request it: the original use of _fileobject
         # by module socket requires that the underlying socket not be closed until

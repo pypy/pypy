@@ -11,7 +11,7 @@ from pypy.jit.backend.llsupport.symbolic import WORD, unroll_basic_sizes
 from pypy.jit.backend.llsupport.descr import (
     get_size_descr, get_field_descr, get_array_descr,
     get_call_descr, get_interiorfield_descr, get_dynamic_interiorfield_descr,
-    FieldDescr, ArrayDescr, CallDescr, InteriorFieldDescr)
+    FieldDescr, ArrayDescr, CallDescr, InteriorFieldDescr, get_dynamic_field_descr)
 from pypy.jit.backend.llsupport.asmmemmgr import AsmMemoryManager
 
 
@@ -246,6 +246,9 @@ class AbstractLLCPU(AbstractCPU):
 
     def fielddescrof(self, STRUCT, fieldname):
         return get_field_descr(self.gc_ll_descr, STRUCT, fieldname)
+
+    def fielddescrof_dynamic(self, offset, fieldsize, is_pointer, is_float, is_signed):
+        return get_dynamic_field_descr(offset, fieldsize, is_pointer, is_float, is_signed)
 
     def unpack_fielddescr(self, fielddescr):
         assert isinstance(fielddescr, FieldDescr)

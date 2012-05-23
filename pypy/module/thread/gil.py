@@ -5,7 +5,7 @@ Global Interpreter Lock.
 # This module adds a global lock to an object space.
 # If multiple threads try to execute simultaneously in this space,
 # all but one will be blocked.  The other threads get a chance to run
-# from time to time, using the hook yield_thread().
+# from time to time, using the periodic action GILReleaseAction.
 
 from pypy.module.thread import ll_thread as thread
 from pypy.module.thread.error import wrap_thread_error
@@ -30,7 +30,6 @@ class GILThreadLocals(OSThreadLocals):
             if not thread.gil_allocate():
                 raise wrap_thread_error(space, "can't allocate GIL")
             self.gil_ready = True
-            self.enter_thread(space)   # setup the main thread
             result = True
         else:
             result = False      # already set up
@@ -51,8 +50,6 @@ class GILThreadLocals(OSThreadLocals):
             self.gil_ready = False
             self.setup_threads(space)
 
-    def yield_thread(self):
-        do_yield_thread()
 
 class GILReleaseAction(PeriodicAsyncAction):
     """An action called every sys.checkinterval bytecodes.  It releases

@@ -24,10 +24,9 @@ if _WIN:
     from pypy.module.thread import ll_thread as thread
 
     eci = ExternalCompilationInfo(
+        includes = ['windows.h'],
         post_include_bits = ["BOOL pypy_timemodule_setCtrlHandler(HANDLE event);"],
         separate_module_sources=['''
-            #include <windows.h>
-
             static HANDLE interrupt_event;
 
             static BOOL WINAPI CtrlHandlerRoutine(
@@ -573,7 +572,7 @@ def strftime(space, format, w_tup=None):
                 if i < length and format[i] == '#':
                     # not documented by python
                     i += 1
-                if i >= length or format[i] not in "aAbBcdfHIjmMpSUwWxXyYzZ%":
+                if i >= length or format[i] not in "aAbBcdHIjmMpSUwWxXyYzZ%":
                     raise OperationError(space.w_ValueError,
                                          space.wrap("invalid format string"))
             i += 1

@@ -7,6 +7,8 @@ Later...
 
 from ctypes import *
 import sys, unittest
+from ctypes.test import xfail
+from test.test_support import impl_detail
 
 try:
     WINFUNCTYPE
@@ -143,6 +145,7 @@ class FunctionTestCase(unittest.TestCase):
         self.assertEqual(result, -21)
         self.assertEqual(type(result), float)
 
+    @impl_detail('long double not supported by PyPy', pypy=False)
     def test_longdoubleresult(self):
         f = dll._testfunc_D_bhilfD
         f.argtypes = [c_byte, c_short, c_int, c_long, c_float, c_longdouble]
@@ -393,6 +396,7 @@ class FunctionTestCase(unittest.TestCase):
             self.assertEqual((s8i.a, s8i.b, s8i.c, s8i.d, s8i.e, s8i.f, s8i.g, s8i.h),
                                  (9*2, 8*3, 7*4, 6*5, 5*6, 4*7, 3*8, 2*9))
 
+    @xfail
     def test_sf1651235(self):
         # see http://www.python.org/sf/1651235
 

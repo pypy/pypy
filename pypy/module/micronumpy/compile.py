@@ -6,10 +6,12 @@ It should not be imported by the module itself
 import re
 
 from pypy.interpreter.baseobjspace import InternalSpaceCache, W_Root
+from pypy.interpreter.error import OperationError
 from pypy.module.micronumpy import interp_boxes
 from pypy.module.micronumpy.interp_dtype import get_dtype_cache
 from pypy.module.micronumpy.interp_numarray import (Scalar, BaseArray,
      scalar_w, W_NDimArray, array)
+from pypy.module.micronumpy.interp_arrayops import where
 from pypy.module.micronumpy import interp_ufuncs
 from pypy.rlib.objectmodel import specialize, instantiate
 
@@ -35,13 +37,14 @@ class BadToken(Exception):
 SINGLE_ARG_FUNCTIONS = ["sum", "prod", "max", "min", "all", "any",
                         "unegative", "flat", "tostring"]
 TWO_ARG_FUNCTIONS = ["dot", 'take']
+THREE_ARG_FUNCTIONS = ['where']
 
 class FakeSpace(object):
-    w_ValueError = None
-    w_TypeError = None
-    w_IndexError = None
-    w_OverflowError = None
-    w_NotImplementedError = None
+    w_ValueError = "ValueError"
+    w_TypeError = "TypeError"
+    w_IndexError = "IndexError"
+    w_OverflowError = "OverflowError"
+    w_NotImplementedError = "NotImplementedError"
     w_None = None
 
     w_bool = "bool"
@@ -124,7 +127,12 @@ class FakeSpace(object):
             return w_obj.intval
         elif isinstance(w_obj, FloatObject):
             return int(w_obj.floatval)
+        elif isinstance(w_obj, SliceObject):
+            raise OperationError(self.w_TypeError, self.wrap("slice."))
         raise NotImplementedError
+
+    def index(self, w_obj):
+        return self.wrap(self.int_w(w_obj))
 
     def str_w(self, w_obj):
         if isinstance(w_obj, StringObject):
@@ -445,14 +453,25 @@ class FunctionCall(Node):
             arg = self.args[1].execute(interp)
             if not isinstance(arg, BaseArray):
                 raise ArgumentNotAnArray
-            if not isinstance(arg, BaseArray):
-                raise ArgumentNotAnArray
             if self.name == "dot":
                 w_res = arr.descr_dot(interp.space, arg)
             elif self.name == 'take':
                 w_res = arr.descr_take(interp.space, arg)
             else:
                 assert False # unreachable code
+        elif self.name in THREE_ARG_FUNCTIONS:
+            if len(self.args) != 3:
+                raise ArgumentMismatch
+            arg1 = self.args[1].execute(interp)
+            arg2 = self.args[2].execute(interp)
+            if not isinstance(arg1, BaseArray):
+                raise ArgumentNotAnArray
+            if not isinstance(arg2, BaseArray):
+                raise ArgumentNotAnArray
+            if self.name == "where":
+                w_res = where(interp.space, arr, arg1, arg2)
+            else:
+                assert False
         else:
             raise WrongFunctionName
         if isinstance(w_res, BaseArray):

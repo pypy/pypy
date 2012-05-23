@@ -493,7 +493,7 @@ class __extend__(SomeString,
             return SomeImpossibleValue()
         getbookkeeper().count("str_join", str)
         s_item = s_list.listdef.read_item()
-        if isinstance(s_item, SomeImpossibleValue):
+        if s_None.contains(s_item):
             if isinstance(str, SomeUnicodeString):
                 return immutablevalue(u"")
             return immutablevalue("")

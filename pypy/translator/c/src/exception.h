@@ -43,6 +43,16 @@ void RPyDebugReturnShowException(const char *msg, const char *filename,
           filename, lineno, functionname);
 }
 #endif
+#else   /* !DO_LOG_EXC: define the function anyway, so that we can shut
+           off the prints of a debug_exc by remaking only testing_1.o */
+void RPyDebugReturnShowException(const char *msg, const char *filename,
+                                 long lineno, const char *functionname);
+#ifndef PYPY_NOT_MAIN_FILE
+void RPyDebugReturnShowException(const char *msg, const char *filename,
+                                 long lineno, const char *functionname)
+{
+}
+#endif
 #endif  /* DO_LOG_EXC */
 
 /* Hint: functions and macros not defined here, like RPyRaiseException,
