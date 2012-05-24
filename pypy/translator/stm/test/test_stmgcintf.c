@@ -10,8 +10,10 @@ struct pypy_header0 {
 struct pypy_pypy_rlib_rstm_Transaction0 {
     struct pypy_header0 header;
     struct pypy_pypy_rlib_rstm_Transaction0 *t_inst__next_transaction;
+    void *stack_root_top;
     int foobar;
     void (*callback)(void);
+    void *stack_roots[3];
 };
 
 typedef struct {
@@ -59,9 +61,9 @@ static long rt2(void *t1, long retry_counter)
 void run_in_transaction(void(*cb)(void), int expected)
 {
     struct pypy_pypy_rlib_rstm_Transaction0 t;
-    void *dummy;
+    t.stack_root_top = t.stack_roots;
     t.callback = cb;
-    stm_perform_transaction(rt2, &t, &dummy);
+    stm_perform_transaction(rt2, &t, &t.stack_root_top);
     assert(t.foobar == expected);
 }
 
@@ -81,16 +83,24 @@ static long rt1(void *t1, long retry_counter)
     struct pypy_pypy_rlib_rstm_Transaction0 *t = t1;
     assert(retry_counter == 0);
     assert(t->foobar == 42);
+    assert(t->stack_root_top == t->stack_roots + 1);
+    assert(t->stack_roots[0] == (void*)-8);    /* END_MARKER */
+    assert(t->stack_roots[1] == (void*)43);
+    assert(t->stack_roots[2] == (void*)44);
     t->foobar = 143;
     return 0;
 }
 void test_run_all_transactions(void)
 {
     struct pypy_pypy_rlib_rstm_Transaction0 t;
-    void *dummy;
+    t.stack_root_top = t.stack_roots;
+    t.stack_roots[0] = (void*)42;
+    t.stack_roots[1] = (void*)43;
+    t.stack_roots[2] = (void*)44;
     t.foobar = 42;
-    stm_perform_transaction(rt1, &t, &dummy);
+    stm_perform_transaction(rt1, &t, &t.stack_root_top);
     assert(t.foobar == 143);
+    assert(t.stack_root_top == t.stack_roots);
 }
 
 /************************************************************/

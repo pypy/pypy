@@ -753,24 +753,36 @@ long stm_should_break_transaction(void)
   return !stm_atomic && is_inevitable(d);
 }
 
+#define END_MARKER   ((void*)-8)   /* keep in sync with stmframework.py */
+
 void stm_perform_transaction(long(*callback)(void*, long), void *arg,
                              void *save_and_restore)
 {
   jmp_buf _jmpbuf;
   long volatile v_counter = 0;
-  void *volatile saved_value;
+  void **volatile v_saved_value;
   long volatile v_atomic = stm_atomic;
   assert((!thread_descriptor->active) == (!stm_atomic));
-  saved_value = *(void**)save_and_restore;
+  v_saved_value = *(void***)save_and_restore;
   /***/
   setjmp(_jmpbuf);
-  /* After setjmp(), the local variables v_counter and saved_value
-   * are preserved because they are volatile.  The other variables
-   * are only declared here. */
+  /* After setjmp(), the local variables v_* are preserved because they
+   * are volatile.  The other variables are only declared here. */
   long counter, result;
-  *(void**)save_and_restore = saved_value;
+  void **restore_value;
   counter = v_counter;
   stm_atomic = v_atomic;
+  restore_value = v_saved_value;
+  if (!stm_atomic)
+    {
+      /* In non-atomic mode, we are now between two transactions.
+         It means that in the next transaction's collections we know
+         that we won't need to access the shadows stack beyond its
+         current position.  So we add an end marker. */
+      *restore_value++ = END_MARKER;
+    }
+  *(void***)save_and_restore = restore_value;
+
   do
     {
       v_counter = counter + 1;
@@ -785,6 +797,8 @@ void stm_perform_transaction(long(*callback)(void*, long), void *arg,
 
   if (stm_atomic && thread_descriptor->setjmp_buf == &_jmpbuf)
     stm_try_inevitable(STM_EXPLAIN1("perform_transaction left with atomic"));
+
+  *(void***)save_and_restore = v_saved_value;
 }
 
 #undef GETVERSION

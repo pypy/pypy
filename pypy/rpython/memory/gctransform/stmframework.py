@@ -9,6 +9,9 @@ from pypy.rlib.nonconst import NonConstant
 from pypy.rlib.objectmodel import specialize
 
 
+END_MARKER = -8      # keep in sync with src_stm/core.c
+
+
 class StmFrameworkGCTransformer(FrameworkGCTransformer):
 
     def _declare_functions(self, GCClass, getfn, s_gc, *args):
@@ -101,14 +104,14 @@ class StmShadowStackRootWalker(BaseRootWalker):
 
         root_iterator = shadowstack.get_root_iterator(gctransformer)
         @specialize.argtype(1)
-        def walk_stack_root(callback, arg, start, end):
+        def walk_stack_root(callback, arg, end):
             root_iterator.setcontext(NonConstant(llmemory.NULL))
             gc = self.gc
             addr = end
             while True:
-                addr = root_iterator.nextleft(gc, start, addr)
-                if addr == llmemory.NULL:
-                    return
+                addr = root_iterator.nextleft(gc, addr)
+                if addr.signed[0] == END_MARKER:
+                    break
                 callback(arg, addr)
         self.rootstackhook = walk_stack_root
 
@@ -144,19 +147,14 @@ class StmShadowStackRootWalker(BaseRootWalker):
         base = llmemory.raw_malloc(root_stack_size)
         if base == llmemory.NULL:
             raise MemoryError
+        base.signed[0] = END_MARKER
+        shift = llmemory.sizeof(llmemory.Address)
         self.stackgcdata.root_stack_base = base
-        self.stackgcdata.root_stack_top  = base
+        self.stackgcdata.root_stack_top  = base + shift
 
     def free_shadow_stack(self):
         base = self.stackgcdata.root_stack_base
         llmemory.raw_free(base)
-
-    def start_transaction(self):
-        # When a transaction is aborted, it leaves behind its shadow
-        # stack content.  We have to clear it here.
-        XXX
-        stackgcdata = self.stackgcdata
-        stackgcdata.root_stack_top = stackgcdata.root_stack_base
 
     def walk_stack_roots(self, collect_stack_root):
         raise NotImplementedError
@@ -165,14 +163,12 @@ class StmShadowStackRootWalker(BaseRootWalker):
         if self.gcdata.main_thread_stack_base != stackgcdata.root_stack_base:
             fatalerror_notb("XXX not implemented: walk_stack_roots in thread")
         self.rootstackhook(collect_stack_root, self.gcdata.gc,
-                           stackgcdata.root_stack_base,
                            stackgcdata.root_stack_top)
 
     @specialize.argtype(2)
     def walk_current_stack_roots(self, collect_stack_root, arg):
         stackgcdata = self.stackgcdata
         self.rootstackhook(collect_stack_root, arg,
-                           stackgcdata.root_stack_base,
                            stackgcdata.root_stack_top)
 
     @specialize.argtype(2)

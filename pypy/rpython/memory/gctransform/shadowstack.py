@@ -333,12 +333,11 @@ def get_root_iterator(gctransformer):
                 return True
             def setcontext(self, context):
                 pass
-            def nextleft(self, gc, start, addr):
-                while addr != start:
+            def nextleft(self, gc, addr):
+                while True:
                     addr -= sizeofaddr
                     if gc.points_to_valid_gc_object(addr):
                         return addr
-                return llmemory.NULL
         result = RootIterator()
     gctransformer._root_iterator = result
     return result
