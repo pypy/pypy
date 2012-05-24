@@ -371,5 +371,15 @@ if WIN32:
         handle = OpenProcess(PROCESS_ALL_ACCESS, False, pid)
         if handle == NULL_HANDLE:
             raise lastWindowsError('os_kill failed opening process')
-        return TerminateProcess(handle, sig)
-        
+        t = TerminateProcess(handle, sig)
+        if t == 0:
+            err = lastWindowsError('os_kill failed to terminate process')
+            CloseHandle(handle)
+            raise err
+        c = CloseHandle(handle)
+        if 0 == int(c):
+            raise lastWindowsError('os_kill after terminating process,'
+                     ' while closing handle') 
+else:
+    #not win32
+    os_kill = os.kill

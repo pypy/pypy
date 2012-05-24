@@ -254,9 +254,8 @@ def test_os_fdatasync():
 
 
 def test_os_kill():
-    if not hasattr(os,'kill'):
-        from pypy.rlib import rwin32
-        os.kill = rwin32.os_kill
+    if not hasattr(os,'kill') or sys.platform == 'win32':
+        skip('No kill in os')
     f = getllimpl(os.kill)
     import subprocess
     import signal
@@ -267,8 +266,6 @@ def test_os_kill():
                         )
     f(proc.pid, signal.SIGTERM)
     expected = -signal.SIGTERM
-    if sys.platform.startswith('win'):
-        expected = -expected
     assert proc.wait() == expected
 
 class ExpectTestOs:
