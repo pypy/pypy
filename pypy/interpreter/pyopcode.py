@@ -224,9 +224,9 @@ class __extend__(pyframe.PyFrame):
                 oparg = 0
 
             # note: the structure of the code here is such that it makes
-            # after transaction a big "if/elif" chain that is turned into
-            # a switch().  It starts here: even if the first one is not
-            # an "if" but a "while" the effect is the same.
+            # (after translation) a big "if/elif" chain, which is then
+            # turned into a switch().  It starts here: even if the first
+            # one is not an "if" but a "while" the effect is the same.
 
             while opcode == self.opcodedesc.EXTENDED_ARG.index:
                 opcode = ord(co_code[next_instr])
