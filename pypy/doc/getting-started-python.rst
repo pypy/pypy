@@ -50,10 +50,10 @@ the version you have is not 4.2 or you will run into `this bug`_.
      libz-dev libbz2-dev libncurses-dev libexpat1-dev \
      libssl-dev libgc-dev python-sphinx python-greenlet
 
-   On a Fedora box these are::
+   On a Fedora-16 box these are::
 
      [user@fedora-or-rh-box ~]$ sudo yum install \
-     gcc make python-devel libffi-devel pkg-config \
+     gcc make python-devel libffi-devel pkgconfig \
      zlib-devel bzip2-devel ncurses-devel expat-devel \
      openssl-devel gc-devel python-sphinx python-greenlet
 
