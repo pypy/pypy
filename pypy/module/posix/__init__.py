@@ -1,5 +1,6 @@
 # Package initialisation
 from pypy.interpreter.mixedmodule import MixedModule
+#importing ll_os has the side effect of adding kill to os on windows
 from pypy.rpython.module.ll_os import RegisterOs
 
 import os, sys
@@ -110,7 +111,7 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['putenv'] = 'interp_posix.putenv'
     if hasattr(posix, 'unsetenv'): # note: emulated in os
         interpleveldefs['unsetenv'] = 'interp_posix.unsetenv'
-    if hasattr(os, 'kill') and sys.platform != 'win32':
+    if hasattr(os, 'kill'):
         interpleveldefs['kill'] = 'interp_posix.kill'
         interpleveldefs['abort'] = 'interp_posix.abort'
     if hasattr(os, 'killpg'):
