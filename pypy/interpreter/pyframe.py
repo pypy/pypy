@@ -221,6 +221,7 @@ class PyFrame(eval.Frame):
     def _new_popvalues():
         @jit.unroll_safe
         def popvalues(self, n):
+            hint(self, stm_assert_local=True)
             values_w = [None] * n
             while True:
                 n -= 1
@@ -235,6 +236,7 @@ class PyFrame(eval.Frame):
 
     @jit.unroll_safe
     def peekvalues(self, n):
+        hint(self, stm_assert_local=True)
         values_w = [None] * n
         base = self.valuestackdepth - n
         assert base >= self.pycode.co_nlocals
@@ -247,6 +249,7 @@ class PyFrame(eval.Frame):
 
     @jit.unroll_safe
     def dropvalues(self, n):
+        hint(self, stm_assert_local=True)
         n = hint(n, promote=True)
         finaldepth = self.valuestackdepth - n
         assert finaldepth >= self.pycode.co_nlocals, (
@@ -278,6 +281,7 @@ class PyFrame(eval.Frame):
             self.pushvalue(w_value)
         
     def peekvalue(self, index_from_top=0):
+        hint(self, stm_assert_local=True)
         # NOTE: top of the stack is peekvalue(0).
         # Contrast this with CPython where it's PEEK(-1).
         index_from_top = hint(index_from_top, promote=True)
@@ -287,6 +291,7 @@ class PyFrame(eval.Frame):
         return self.locals_stack_w[index]
 
     def settopvalue(self, w_object, index_from_top=0):
+        hint(self, stm_assert_local=True)
         index_from_top = hint(index_from_top, promote=True)
         index = self.valuestackdepth + ~index_from_top
         assert index >= self.pycode.co_nlocals, (
