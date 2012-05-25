@@ -8,7 +8,6 @@ from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.translator.platform import CompilationError
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.rarithmetic import intmask
-from pypy.rlib.rposix import validate_fd
 from pypy.rlib import jit
 import os, sys, errno
 
@@ -139,6 +138,7 @@ if WIN32:
     _get_osfhandle = rffi.llexternal('_get_osfhandle', [rffi.INT], HANDLE)
 
     def get_osfhandle(fd):
+        from pypy.rlib.rposix import validate_fd
         validate_fd(fd)
         handle = _get_osfhandle(fd)
         if handle == INVALID_HANDLE_VALUE:
@@ -370,15 +370,8 @@ if WIN32:
         handle = OpenProcess(PROCESS_ALL_ACCESS, False, pid)
         if handle == NULL_HANDLE:
             raise lastWindowsError('os_kill failed opening process')
-        t = TerminateProcess(handle, sig)
-        if t == 0:
-            err = lastWindowsError('os_kill failed to terminate process')
+        try:
+            if TerminateProcess(handle, sig) == 0:
+                raise lastWindowsError('os_kill failed to terminate process')
+        finally:
             CloseHandle(handle)
-            raise err
-        t = CloseHandle(handle)
-        if t == 0:
-            raise lastWindowsError('os_kill after terminating process,'
-                     ' while closing handle') 
-else:
-    #not win32
-    os_kill = os.kill
