@@ -404,6 +404,7 @@ LL_OPERATIONS = {
     'stm_getinteriorfield':   LLOp(sideeffects=False, canrun=True),
     'stm_become_inevitable':  LLOp(),
     'stm_writebarrier':       LLOp(),
+    'stm_local_not_needed':   LLOp(),
     'stm_normalize_global':   LLOp(),
     'stm_start_transaction':  LLOp(canrun=True, canmallocgc=True),
     'stm_stop_transaction':   LLOp(canrun=True, canmallocgc=True),

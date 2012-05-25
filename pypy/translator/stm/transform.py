@@ -31,6 +31,7 @@ class STMTransformer(object):
 
     def __init__(self, translator=None):
         self.translator = translator
+        self.graph = None
         self.count_get_local     = 0
         self.count_get_nonlocal  = 0
         self.count_get_immutable = 0
@@ -41,22 +42,15 @@ class STMTransformer(object):
     def transform(self):
         assert not hasattr(self.translator, 'stm_transformation_applied')
         self.start_log()
-        t = self.translator
-        transactionbreak_analyzer = gcsource.TransactionBreakAnalyzer(t)
-        transactionbreak_analyzer.analyze_all()
-        #
-        for graph in t.graphs:
-            gcsource.break_blocks_after_transaction_breaker(
-                t, graph, transactionbreak_analyzer)
-        #
-        for graph in t.graphs:
+        for graph in self.translator.graphs:
             pre_insert_stm_writebarrier(graph)
-        #
-        self.localtracker = StmLocalTracker(t, transactionbreak_analyzer)
-        for graph in t.graphs:
+        self.localtracker = StmLocalTracker(self.translator)
+        for graph in self.translator.graphs:
             self.transform_graph(graph)
+        self.make_opnames_cannot_malloc_gc()
+        for graph in self.translator.graphs:
+            self.insert_stm_local_not_needed(graph)
         self.localtracker = None
-        #
         self.translator.stm_transformation_applied = True
         self.print_logs()
 
@@ -99,7 +93,45 @@ class STMTransformer(object):
         self.graph = graph
         for block in graph.iterblocks():
             self.transform_block(block)
-        del self.graph
+        self.graph = None
+
+    # ----------
+
+    def make_opnames_cannot_malloc_gc(self):
+        self.opnames_cannot_malloc_gc = set()
+        for name in lloperation.LL_OPERATIONS:
+            if not getattr(lloperation.llop, name).canmallocgc:
+                self.opnames_cannot_malloc_gc.add(name)
+        self.opnames_cannot_malloc_gc.discard('direct_call')
+        self.opnames_cannot_malloc_gc.discard('indirect_call')
+
+    def insert_stm_local_not_needed(self, graph):
+        # put some 'stm_local_not_needed' operations.  These operations mark
+        # GC pointers that are *not* necessarily locals.  The idea is that
+        # non-marked variables should be considered by the shadowstack code
+        # as "must always be a local", a property enforced during collections.
+        #
+        opnames_cannot_malloc_gc = self.opnames_cannot_malloc_gc
+        ensured_local_vars = self.localtracker.ensured_local_vars
+        #
+        for block in graph.iterblocks():
+            if not block.operations:
+                continue
+            alive = set()
+            newoperationsrev = []
+            for op in reversed(block.operations):
+                newoperationsrev.append(op)
+                alive.discard(op.result)
+                alive.update(op.args)
+                if op.opname not in opnames_cannot_malloc_gc:
+                    vlist = [v for v in alive
+                               if (gcsource.is_gc(v) and
+                                   v not in ensured_local_vars)]
+                    if vlist:
+                        newop = SpaceOperation('stm_local_not_needed', vlist,
+                                               varoftype(lltype.Void))
+                        newoperationsrev.append(newop)
+            block.operations = newoperationsrev[::-1]
 
     # ----------
 
@@ -118,7 +150,7 @@ class STMTransformer(object):
             self.count_get_immutable += 1
             newoperations.append(op)
             return
-        if self.localtracker.is_local(op.args[0]):
+        if self.localtracker.try_ensure_local(op.args[0]):
             self.count_get_local += 1
             newoperations.append(op)
             return
@@ -141,10 +173,11 @@ class STMTransformer(object):
             self.count_set_immutable += 1
             newoperations.append(op)
             return
-        # this is not really a transformation, but just an assertion that
-        # it work on local objects.  This should be ensured by
-        # pre_insert_stm_writebarrier().
-        assert self.localtracker.is_local(op.args[0])
+        # this is not just an assertion that it work on local objects
+        # (which should be ensured by pre_insert_stm_writebarrier()):
+        # it also has the effect of recording in localtracker that we
+        # want this variable to be a local
+        self.localtracker.assert_local(op.args[0], self.graph)
         self.count_set_local += 1
         newoperations.append(op)
 
@@ -168,16 +201,16 @@ class STMTransformer(object):
         self.transform_set(newoperations, op)
 
     def stt_stm_writebarrier(self, newoperations, op):
-        if self.localtracker.is_local(op.args[0]):
+        if self.localtracker.try_ensure_local(op.args[0]):
             op = SpaceOperation('same_as', op.args, op.result)
         else:
-            self.count_write_barrier += 1
+            self.count_write_barrier += 1   # the 'stm_writebarrier' op stays
         newoperations.append(op)
 
     def stt_malloc(self, newoperations, op):
         flags = op.args[1].value
         if flags['flavor'] == 'gc':
-            assert self.localtracker.is_local(op.result)
+            self.localtracker.assert_local(op.result, self.graph)
         else:
             turn_inevitable(newoperations, 'malloc-raw')
         newoperations.append(op)
@@ -192,8 +225,7 @@ class STMTransformer(object):
             self.stt_stm_writebarrier(newoperations, op)
             return
         if 'stm_assert_local' in op.args[1].value:
-            self.localtracker.assert_local(op.args[0],
-                                           getattr(self, 'graph', None))
+            self.localtracker.assert_local(op.args[0], self.graph)
             return
         newoperations.append(op)
 
@@ -202,8 +234,7 @@ class STMTransformer(object):
         if T._gckind == 'raw':
             newoperations.append(op)
             return
-        if (self.localtracker.is_local(op.args[0]) and
-            self.localtracker.is_local(op.args[1])):
+        if self.localtracker.try_ensure_local(op.args[0], op.args[1]):   # both
             newoperations.append(op)
             return
         nargs = []
@@ -290,7 +321,7 @@ def pre_insert_stm_writebarrier(graph):
         for op in block.operations:
             if op.opname in gcsource.COPIES_POINTER:
                 assert len(op.args) == 1
-                if gcsource._is_gc(op.result) and gcsource._is_gc(op.args[0]):
+                if gcsource.is_gc(op.result) and gcsource.is_gc(op.args[0]):
                     copies[op.result] = op
             elif (op.opname in ('getfield', 'getarrayitem',
                                 'getinteriorfield') and

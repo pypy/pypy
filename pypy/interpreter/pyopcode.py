@@ -101,7 +101,6 @@ class __extend__(pyframe.PyFrame):
             raise e                   # re-raise the exception we got
 
     def _dispatch_stm_transaction(self, retry_counter):
-        self = self._hints_for_stm()
         try:
             co_code = self.pycode.co_code
             next_instr = r_uint(self.last_instr)
@@ -199,7 +198,6 @@ class __extend__(pyframe.PyFrame):
     def dispatch_bytecode(self, co_code, next_instr, ec):
         space = self.space
         while True:
-            self = self._hints_for_stm()
             self.last_instr = intmask(next_instr)
             if not jit.we_are_jitted():
                 ec.bytecode_trace(self)

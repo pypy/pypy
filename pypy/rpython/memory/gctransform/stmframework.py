@@ -14,6 +14,11 @@ END_MARKER = -8      # keep in sync with src_stm/core.c
 
 class StmFrameworkGCTransformer(FrameworkGCTransformer):
 
+    def transform_graph(self, graph):
+        self.vars_local_not_needed = set()
+        super(StmFrameworkGCTransformer, self).transform_graph(graph)
+        self.vars_local_not_needed = None
+
     def _declare_functions(self, GCClass, getfn, s_gc, *args):
         super(StmFrameworkGCTransformer, self)._declare_functions(
             GCClass, getfn, s_gc, *args)
@@ -71,6 +76,9 @@ class StmFrameworkGCTransformer(FrameworkGCTransformer):
         livevars = self.push_roots(hop)
         hop.genop("direct_call", [self.stm_stop_ptr, self.c_const_gc])
         self.pop_roots(hop, livevars)
+
+    def gct_stm_local_not_needed(self, hop):
+        self.vars_local_not_needed.update(hop.spaceop.args)
 
 
 class StmShadowStackRootWalker(BaseRootWalker):

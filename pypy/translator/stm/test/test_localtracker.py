@@ -25,7 +25,7 @@ class TestStmLocalTracker(object):
     def check(self, expected_names):
         got_local_names = set()
         for name, v in self.translator._seen_locals.items():
-            if self.localtracker.is_local(v):
+            if self.localtracker.try_ensure_local(v):
                 got_local_names.add(name)
                 self.localtracker.assert_local(v, 'foo')
         assert got_local_names == set(expected_names)

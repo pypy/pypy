@@ -1,8 +1,6 @@
 from pypy.objspace.flow.model import Variable
 from pypy.rpython.lltypesystem import lltype, rclass
 from pypy.translator.simplify import get_graph
-from pypy.translator.unsimplify import split_block
-from pypy.translator.backendopt import graphanalyze
 
 
 COPIES_POINTER = set([
@@ -12,7 +10,7 @@ COPIES_POINTER = set([
     ])
 
 
-def _is_gc(var_or_const):
+def is_gc(var_or_const):
     TYPE = var_or_const.concretetype
     return isinstance(TYPE, lltype.Ptr) and TYPE.TO._gckind == 'gc'
 
@@ -36,12 +34,12 @@ def enum_gc_dependencies(translator):
         inputargs = graph.getargs()
         assert len(args) == len(inputargs)
         for v1, v2 in zip(args, inputargs):
-            if _is_gc(v2):
-                assert _is_gc(v1)
+            if is_gc(v2):
+                assert is_gc(v1)
                 resultlist.append((v1, v2))
-        if _is_gc(result):
+        if is_gc(result):
             v = graph.getreturnvar()
-            assert _is_gc(v)
+            assert is_gc(v)
             resultlist.append((v, result))
         was_a_callee.add(graph)
     #
@@ -52,7 +50,7 @@ def enum_gc_dependencies(translator):
                 if (op.opname in COPIES_POINTER or
                         (op.opname == 'hint' and
                          'stm_write' not in op.args[1].value)):
-                    if _is_gc(op.result) and _is_gc(op.args[0]):
+                    if is_gc(op.result) and is_gc(op.args[0]):
                         resultlist.append((op.args[0], op.result))
                         continue
                 #
@@ -82,13 +80,13 @@ def enum_gc_dependencies(translator):
                         resultlist.append(('instantiate', op.result))
                         continue
                 #
-                if _is_gc(op.result):
+                if is_gc(op.result):
                     resultlist.append((op, op.result))
             #
             for link in block.exits:
                 for v1, v2 in zip(link.args, link.target.inputargs):
-                    if _is_gc(v2):
-                        assert _is_gc(v1)
+                    if is_gc(v2):
+                        assert is_gc(v1)
                         if v1 is link.last_exc_value:
                             v1 = 'last_exc_value'
                         resultlist.append((v1, v2))
@@ -107,62 +105,9 @@ def enum_gc_dependencies(translator):
             else:
                 src = 'unknown'
             for v in graph.getargs():
-                if _is_gc(v):
+                if is_gc(v):
                     resultlist.append((src, v))
     return resultlist
-
-
-class TransactionBreakAnalyzer(graphanalyze.BoolGraphAnalyzer):
-    """This analyzer looks for function calls that may ultimately
-    cause a transaction break (end of previous transaction, start
-    of next one)."""
-
-    def analyze_direct_call(self, graph, seen=None):
-        try:
-            func = graph.func
-        except AttributeError:
-            pass
-        else:
-            if getattr(func, '_transaction_break_', False):
-                return True
-        return graphanalyze.GraphAnalyzer.analyze_direct_call(self, graph,
-                                                              seen)
-
-    def analyze_simple_operation(self, op, graphinfo):
-        return op.opname in ('stm_start_transaction',
-                             'stm_stop_transaction')
-
-
-def enum_transactionbroken_vars(translator, transactionbreak_analyzer):
-    if transactionbreak_analyzer is None:
-        return    # for tests only
-    for graph in translator.graphs:
-        for block in graph.iterblocks():
-            if not block.operations:
-                continue
-            for op in block.operations[:-1]:
-                assert not transactionbreak_analyzer.analyze(op)
-            op = block.operations[-1]
-            if not transactionbreak_analyzer.analyze(op):
-                continue
-            # This block ends in a transaction breaking operation.  So
-            # any variable passed from this block to a next one (with
-            # the exception of the variable freshly returned by the
-            # last operation) must be assumed to be potentially global.
-            for link in block.exits:
-                for v1, v2 in zip(link.args, link.target.inputargs):
-                    if v1 is not op.result:
-                        yield v2
-
-def break_blocks_after_transaction_breaker(translator, graph,
-                                           transactionbreak_analyzer):
-    """Split blocks so that they end immediately after any operation
-    that may cause a transaction break."""
-    for block in list(graph.iterblocks()):
-        for i in range(len(block.operations)-2, -1, -1):
-            op = block.operations[i]
-            if transactionbreak_analyzer.analyze(op):
-                split_block(translator.annotator, block, i + 1)
 
 
 class GcSource(object):
@@ -170,16 +115,21 @@ class GcSource(object):
     Constant, or a SpaceOperation that creates the value, or a string
     which describes a special case."""
 
-    def __init__(self, translator, transactionbreak_analyzer=None):
+    def __init__(self, translator):
         self.translator = translator
         self._backmapping = {}
         for v1, v2 in enum_gc_dependencies(translator):
             self._backmapping.setdefault(v2, []).append(v1)
-        for v2 in enum_transactionbroken_vars(translator,
-                                              transactionbreak_analyzer):
-            self._backmapping.setdefault(v2, []).append('transactionbreak')
 
     def __getitem__(self, variable):
+        set_of_origins, set_of_variables = self._backpropagate(variable)
+        return set_of_origins
+    
+    def backpropagate(self, variable):
+        set_of_origins, set_of_variables = self._backpropagate(variable)
+        return set_of_variables
+
+    def _backpropagate(self, variable):
         result = set()
         pending = [variable]
         seen = set(pending)
@@ -193,4 +143,4 @@ class GcSource(object):
                         pending.append(v1)
                 else:
                     result.add(v1)
-        return result
+        return result, seen
