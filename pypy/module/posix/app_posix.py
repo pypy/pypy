@@ -1,6 +1,7 @@
 # NOT_RPYTHON
 
 from _structseq import structseqtype, structseqfield
+from __pypy__ import validate_fd
 
 # XXX we need a way to access the current module's globals more directly...
 import sys
@@ -75,9 +76,7 @@ if osname == 'posix':
         except IOError, e:
             raise OSError(e.errno, e.strerror, e.filename)
 else:
-    def _validate_fd(fd):
-        # XXX for the moment
-        return
+    _validate_fd = validate_fd
 
 # Capture file.fdopen at import time, as some code replaces
 # __builtins__.file with a custom function.

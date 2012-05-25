@@ -55,6 +55,9 @@ class BasePosix(Platform):
 
         if relto:
             response_file = relto.bestrelpath(response_file)
+        if self.cc == 'mingw32' or (self.cc== 'gcc' and os.name=='nt'):    
+            return ["-Wl,--export-all-symbols,--version-script=%s" % \
+                    (response_file,)]
         return ["-Wl,--export-dynamic,--version-script=%s" % (response_file,)]
 
     def _link(self, cc, ofiles, link_args, standalone, exe_name):

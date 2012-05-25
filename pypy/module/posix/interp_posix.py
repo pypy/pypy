@@ -7,6 +7,7 @@ from pypy.interpreter.error import OperationError, wrap_oserror, wrap_oserror2
 from pypy.interpreter.error import operationerrfmt
 from pypy.rpython.module.ll_os import RegisterOs
 from pypy.rpython.module import ll_os_stat
+from pypy.rlib import rwin32
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rpython.tool import rffi_platform
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
@@ -623,7 +624,7 @@ def getpid(space):
 def kill(space, pid, sig):
     "Kill a process with a signal."
     try:
-        os.kill(pid, sig)
+        rwin32.os_kill(pid, sig)
     except OSError, e:
         raise wrap_oserror(space, e)
 
@@ -639,7 +640,7 @@ def abort(space):
     """Abort the interpreter immediately.  This 'dumps core' or otherwise fails
 in the hardest way possible on the hosting operating system."""
     import signal
-    os.kill(os.getpid(), signal.SIGABRT)
+    rwin32.os_kill(os.getpid(), signal.SIGABRT)
 
 @unwrap_spec(src='str0', dst='str0')
 def link(space, src, dst):
