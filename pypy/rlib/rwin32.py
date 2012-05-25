@@ -365,9 +365,8 @@ if WIN32:
         return rffi.cast(lltype.Signed, _GetCurrentProcessId())
     def os_kill(pid, sig):
         if sig == CTRL_C_EVENT or sig == CTRL_BREAK_EVENT:
-            if 0 == GenerateConsoleCtrlEvent(sig, pid):
+            if GenerateConsoleCtrlEvent(sig, pid) == 0:
                 raise lastWindowsError('os_kill failed generating event')
-            return 0
         handle = OpenProcess(PROCESS_ALL_ACCESS, False, pid)
         if handle == NULL_HANDLE:
             raise lastWindowsError('os_kill failed opening process')
@@ -376,8 +375,8 @@ if WIN32:
             err = lastWindowsError('os_kill failed to terminate process')
             CloseHandle(handle)
             raise err
-        c = CloseHandle(handle)
-        if 0 == int(c):
+        t = CloseHandle(handle)
+        if t == 0:
             raise lastWindowsError('os_kill after terminating process,'
                      ' while closing handle') 
 else:

@@ -640,7 +640,7 @@ def abort(space):
     """Abort the interpreter immediately.  This 'dumps core' or otherwise fails
 in the hardest way possible on the hosting operating system."""
     import signal
-    os.kill(os.getpid(), signal.SIGABRT)
+    rwin32.os_kill(os.getpid(), signal.SIGABRT)
 
 @unwrap_spec(src='str0', dst='str0')
 def link(space, src, dst):
