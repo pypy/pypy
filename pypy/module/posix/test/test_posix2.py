@@ -415,6 +415,7 @@ class AppTestPosix:
         def test_execv_no_args(self):
             os = self.posix
             raises(ValueError, os.execv, "notepad", [])
+            raises(ValueError, os.execve, "notepad", [], {})
 
         def test_execv_raising2(self):
             os = self.posix
