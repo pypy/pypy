@@ -78,6 +78,7 @@ class StmFrameworkGCTransformer(FrameworkGCTransformer):
         self.pop_roots(hop, livevars)
 
     def gct_stm_local_not_needed(self, hop):
+        # XXX make use of this info :-)
         self.vars_local_not_needed.update(hop.spaceop.args)
 
 
