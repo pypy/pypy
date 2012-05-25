@@ -91,10 +91,16 @@ def perform_transaction(func, argcls, arg):
     ll_assert(arg is None or isinstance(arg, argcls),
               "perform_transaction: wrong class")
     before_external_call()
+    # Passing around the GC object 'arg' is a bit delicate.  At this point
+    # it has been saved as a global, but 'arg' likely points to the object
+    # with an offset 2, which is the flag used for "used to be a local".
+    # We have to revert this flag here...
     llarg = cast_instance_to_base_ptr(arg)
+    llarg = rffi.cast(lltype.Signed, llarg)
+    llarg &= ~2
     llarg = rffi.cast(rffi.VOIDP, llarg)
-    adr_of_top = llop.gc_adr_of_root_stack_top(llmemory.Address)
     #
+    adr_of_top = llop.gc_adr_of_root_stack_top(llmemory.Address)
     callback = _get_stm_callback(func, argcls)
     llcallback = llhelper(stmgcintf.StmOperations.CALLBACK_TX, callback)
     stmgcintf.StmOperations.perform_transaction(llcallback, llarg, adr_of_top)

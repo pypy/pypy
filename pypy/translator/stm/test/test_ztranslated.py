@@ -8,7 +8,8 @@ class TestSTMTranslated(CompiledSTMTests):
 
     def test_targetdemo(self):
         t, cbuilder = self.compile(targetdemo2.entry_point)
-        data, dataerr = cbuilder.cmdexec('4 5000', err=True)
+        data, dataerr = cbuilder.cmdexec('4 5000', err=True,
+                                         env={'PYPY_GC_DEBUG': '1'})
         assert 'check ok!' in data
 
     def test_bug1(self):

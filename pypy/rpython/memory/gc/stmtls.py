@@ -134,6 +134,8 @@ class StmGCTLS(object):
                                   run_finalizers=False)
         self._promote_locals_to_globals()
         self._disable_mallocs()
+        if self.gc.DEBUG:
+            self.check_all_global_objects()
 
     def local_nursery_is_empty(self):
         ll_assert(bool(self.nursery_free),
@@ -313,9 +315,14 @@ class StmGCTLS(object):
         x = llmemory.cast_adr_to_int(root.address[0])
         if x & 2:
             root.address[0] -= 2
+        old_tid = self.gc.header(root.address[0]).tid
+        #
         self._trace_drag_out1(root)
-        obj = root.address[0]
-        if self.gc.header(obj).tid & GCFLAG_GLOBAL == 0:
+        #
+        # if root.address[0] used to point to a local object, then flag
+        # this by adding the bit of value 2.
+        if old_tid & GCFLAG_GLOBAL == 0:
+            obj = root.address[0]
             x = llmemory.cast_adr_to_int(obj)
             ll_assert(x & 3 == 0, "flag_local: misaligned obj")
             obj = llarena.getfakearenaaddress(obj)
