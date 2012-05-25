@@ -85,6 +85,6 @@ def list_strategy(space, w_list):
 @unwrap_spec(fd='c_int')
 def validate_fd(space, fd):
     try:
-        rposix._validate_fd(fd)
+        rposix.validate_fd(fd)
     except OSError, e:
         raise wrap_oserror(space, e)

@@ -65,6 +65,18 @@ class stat_result:
         if self.st_ctime is None:
             self.__dict__['st_ctime'] = self[9]
 
+if osname == 'posix':
+    def _validate_fd(fd):
+        try:
+            import fcntl
+        except ImportError:
+            return
+        try:
+            fcntl.fcntl(fd, fcntl.F_GETFD)
+        except IOError, e:
+            raise OSError(e.errno, e.strerror, e.filename)
+else:
+    _validate_fd = validate_fd
 
 # Capture file.fdopen at import time, as some code replaces
 # __builtins__.file with a custom function.
@@ -74,7 +86,7 @@ def fdopen(fd, mode='r', buffering=-1):
     """fdopen(fd [, mode='r' [, buffering]]) -> file_object
 
     Return an open file object connected to a file descriptor."""
-    validate_fd(fd)
+    _validate_fd(fd)
     return _fdopen(fd, mode, buffering)
 
 

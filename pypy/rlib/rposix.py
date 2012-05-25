@@ -111,23 +111,12 @@ if os.name == 'nt':
     def validate_fd(fd):
         if not is_valid_fd(fd):
             raise OSError(get_errno(), 'Bad file descriptor')
-    _validate_fd = validate_fd    
 else:
     def is_valid_fd(fd):
         return 1
-    # CPython for linux only validates in the posix module.
-    # in the os module, validate_fd is a nop.
+
     def validate_fd(fd):
         return 1
-    def _validate_fd(fd):
-        try:
-            import fcntl
-        except ImportError:
-            return
-        try:
-            fcntl.fcntl(fd, fcntl.F_GETFD)
-        except IOError, e:
-            raise OSError(e.errno, e.strerror, e.filename)
 
 def closerange(fd_low, fd_high):
     # this behaves like os.closerange() from Python 2.6.
