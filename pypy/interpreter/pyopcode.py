@@ -101,6 +101,7 @@ class __extend__(pyframe.PyFrame):
             raise e                   # re-raise the exception we got
 
     def _dispatch_stm_transaction(self, retry_counter):
+        self = self._hints_for_stm()
         try:
             co_code = self.pycode.co_code
             next_instr = r_uint(self.last_instr)
