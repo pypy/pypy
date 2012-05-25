@@ -252,6 +252,25 @@ def test_os_fdatasync():
     os.close(fd)
     raises(OSError, f, fd)
 
+
+def test_os_kill():
+    try:
+        f = getllimpl(os.kill)
+    except:
+        skip('No kill in os')
+    import subprocess
+    import signal
+    proc = subprocess.Popen([sys.executable, "-c",
+                         "import time;"
+                         "time.sleep(10)",
+                         ],
+                        )
+    f(proc.pid, signal.SIGTERM)
+    expected = -signal.SIGTERM
+    if sys.platform.startswith('win'):
+        expected = -expected
+    assert proc.wait() == expected
+
 class ExpectTestOs:
     def setup_class(cls):
         if not hasattr(os, 'ttyname'):
@@ -273,3 +292,4 @@ class ExpectTestOs:
 
         assert ll_to_string(interpret(f, [0])) == f(0)
         assert ll_to_string(interpret(f, [338])) == ''
+

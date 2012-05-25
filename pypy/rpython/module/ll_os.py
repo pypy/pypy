@@ -514,27 +514,23 @@ class RegisterOs(BaseLazyRegistering):
             from pypy.rpython.module.ll_win32file import make_utime_impl
             os_utime_llimpl = make_utime_impl(traits)
 
-        if traits.str is str:
-            s_string = SomeString()
-        else:
-            s_string = SomeUnicodeString()
         s_tuple_of_2_floats = SomeTuple([SomeFloat(), SomeFloat()])
 
         def os_utime_normalize_args(s_path, s_times):
             # special handling of the arguments: they can be either
             # [str, (float, float)] or [str, s_None], and get normalized
             # to exactly one of these two.
-            if not s_string.contains(s_path):
+            if not traits.str0.contains(s_path):
                 raise Exception("os.utime() arg 1 must be a string, got %s" % (
                     s_path,))
             case1 = s_None.contains(s_times)
             case2 = s_tuple_of_2_floats.contains(s_times)
             if case1 and case2:
-                return [s_string, s_ImpossibleValue] #don't know which case yet
+                return [traits.str0, s_ImpossibleValue] #don't know which case yet
             elif case1:
-                return [s_string, s_None]
+                return [traits.str0, s_None]
             elif case2:
-                return [s_string, s_tuple_of_2_floats]
+                return [traits.str0, s_tuple_of_2_floats]
             else:
                 raise Exception("os.utime() arg 2 must be None or a tuple of "
                                 "2 floats, got %s" % (s_times,))
