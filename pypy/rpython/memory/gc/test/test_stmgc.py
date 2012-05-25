@@ -367,12 +367,14 @@ class TestBasic(StmGCTests):
             shapes = [shape_of_reachable(obj) for obj in root_objects]
             #
             # Do a minor collection
-            self.gc.root_walker.current_stack = fromstack[:]
+            for p in fromstack:
+                self.gc.root_walker.push(p)
             self.gc.collect(0)
             #
             # Reload 'fromstack', which may have moved, and compare the shape
             # of the graph of reachable objects now
-            fromstack[:] = self.gc.root_walker.current_stack
+            for i in range(len(fromstack)-1, -1, -1):
+                fromstack[i] = self.gc.root_walker.pop()
             root_objects = prebuilt + fromstack
             shapes2 = [shape_of_reachable(obj, can_be_indirect=False)
                        for obj in root_objects]
@@ -398,7 +400,7 @@ class TestBasic(StmGCTests):
         tr2, tr2_adr = self.malloc(SR, globl=True)
         tr3, tr3_adr = self.malloc(SR, globl=True)
         tr1.sr2 = tr2
-        self.gc.root_walker.current_stack = [tr1]
+        self.gc.root_walker.push(tr1)
         sr1_adr = self.gc.stm_writebarrier(tr1_adr)
         assert sr1_adr != tr1_adr
         sr2_adr = self.gc.stm_writebarrier(tr2_adr)
@@ -415,6 +417,18 @@ class TestBasic(StmGCTests):
         self.checkflags(tr2_adr, True, True)     # tr2 has become global again
         self.checkflags(tr3_adr, True, True)     # tr3 has become global again
 
+    def test_obj_with_invalid_offset_after_transaction_stop(self):
+        from pypy.rpython.memory.gc.test import test_stmtls
+        self.gc.root_walker = test_stmtls.FakeRootWalker()
+        #
+        tr1, tr1_adr = self.malloc(SR, globl=False)  # local
+        self.checkflags(tr1_adr, False, False)    # check that it is local
+        self.gc.root_walker.push(tr1)
+        self.gc.stop_transaction()
+        # now tr1 is stored in the shadowstack with an offset of 2 to mark
+        # that it was local.
+        py.test.raises(llarena.ArenaError, self.gc.root_walker.pop)
+
     def test_non_prebuilt_relocalize_after_transaction_break(self):
         from pypy.rpython.memory.gc.test import test_stmtls
         self.gc.root_walker = test_stmtls.FakeRootWalker()
@@ -424,21 +438,19 @@ class TestBasic(StmGCTests):
         self.checkflags(tr1_adr, False, False)    # check that it is local
         self.checkflags(tr2_adr, False, False)    # check that it is local
         tr1.sr2 = tr2
-        self.gc.root_walker.current_stack = [tr1]
+        self.gc.root_walker.push(tr1)
         self.gc.stop_transaction()
+        self.gc.start_transaction()
         # tr1 and tr2 moved out of the nursery: check that
-        [sr1] = self.gc.root_walker.current_stack
+        sr1 = self.gc.root_walker.pop()
         assert sr1._obj0 != tr1._obj0
         sr2 = sr1.sr2
         assert sr2 and sr2 != sr1 and not sr2.sr2
         assert sr2._obj0 != tr2._obj0
         sr1_adr = llmemory.cast_ptr_to_adr(sr1)
         sr2_adr = llmemory.cast_ptr_to_adr(sr2)
-        self.checkflags(sr1_adr, True, False)     # sr1 is a global
+        self.checkflags(sr1_adr, False, True)     # sr1 is a WAS_COPIED local
         self.checkflags(sr2_adr, True, False)     # sr2 is a global
-        self.gc.start_transaction()
-        self.checkflags(sr1_adr, True, False)     # sr1 is still global
-        self.checkflags(sr2_adr, True, False)     # sr2 is still global
 
     def test_collect_from_main_thread_was_global_objects(self):
         tr1, tr1_adr = self.malloc(SR, globl=True)  # a global prebuilt object
@@ -640,13 +652,15 @@ class TestBasic(StmGCTests):
         wr1, wr1_adr = self.malloc(WR, globl=False, weakref=True)
         wr1.wadr = sr1_adr
         #
-        self.gc.root_walker.current_stack = [wr1]
+        self.gc.root_walker.push(wr1)
         self.gc.collect(0)
-        [wr1] = self.gc.root_walker.current_stack
+        wr1 = self.gc.root_walker.pop()
         assert not wr1.wadr        # weakref to dead object
         #
+        self.gc.root_walker.push(wr1)
         self.gc.collect(0)
-        assert self.gc.root_walker.current_stack == [wr1]
+        wr1bis = self.gc.root_walker.pop()
+        assert wr1 == wr1bis
         assert not wr1.wadr
 
     def test_normalize_global_null(self):

@@ -25,22 +25,31 @@ class FakeSharedArea:
     pass
 
 class FakeRootWalker:
-    current_stack = ()
+    STACK_DEPTH = 200
     prebuilt_nongc = ()
 
-    def collect_list(self, lst):
+    def __init__(self):
         A = lltype.Array(llmemory.Address)
-        roots = lltype.malloc(A, len(lst), flavor='raw')
-        for i in range(len(lst)):
-            roots[i] = llmemory.cast_ptr_to_adr(lst[i])
-        for i in range(len(lst)):
-            root = lltype.direct_ptradd(lltype.direct_arrayitems(roots), i)
+        self.current_stack = lltype.malloc(A, self.STACK_DEPTH, flavor='raw',
+                                           track_allocation=False)
+        self.stack_types = []
+
+    def push(self, ptr):
+        i = len(self.stack_types)
+        self.current_stack[i] = llmemory.cast_ptr_to_adr(ptr)
+        self.stack_types.append(lltype.typeOf(ptr))
+
+    def pop(self):
+        PTR = self.stack_types.pop()
+        i = len(self.stack_types)
+        return llmemory.cast_adr_to_ptr(self.current_stack[i], PTR)
+
+    def collect_list(self, lst):
+        roots = lltype.direct_arrayitems(self.current_stack)
+        for i in range(len(self.stack_types)):
+            root = lltype.direct_ptradd(roots, i)
             root = llmemory.cast_ptr_to_adr(root)
             yield root
-        for i in range(len(lst)):
-            P = lltype.typeOf(lst[i])
-            lst[i] = llmemory.cast_adr_to_ptr(roots[i], P)
-        lltype.free(roots, flavor='raw')
 
     def walk_current_stack_roots(self, callback, arg):
         for root in self.collect_list(self.current_stack):
@@ -95,20 +104,18 @@ class FakeGC:
 class TestStmGCTLS(object):
 
     def setup_method(self, meth):
-        self.current_stack = []
         self.gc = FakeGC()
         self.gc.sharedarea.gc = self.gc
         self.gctls_main = StmGCTLS(self.gc)
         self.gctls_thrd = StmGCTLS(self.gc)
         self.gc.main_thread_tls = self.gctls_main
         self.gctls_main.start_transaction()
-        self.gc.root_walker.current_stack = self.current_stack
 
     def stack_add(self, p):
-        self.current_stack.append(p)
+        self.gc.root_walker.push(p)
 
     def stack_pop(self):
-        return self.current_stack.pop()
+        return self.gc.root_walker.pop()
 
     def malloc(self, STRUCT):
         size = llarena.round_up_for_allocation(llmemory.sizeof(STRUCT))

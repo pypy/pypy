@@ -122,14 +122,16 @@ class StmGCTLS(object):
         # malloced objects will be LOCAL.
         if self.gc.DEBUG:
             self.check_all_global_objects()
+        self.relocalize_from_stack()
 
     def stop_transaction(self):
         """Stop a transaction: do a local collection to empty the
         nursery and track which objects are still alive now, and
         then mark all these objects as global."""
-        self.local_collection(end_of_transaction=1)
+        self.local_collection(end_of_transaction=True)
         if not self.local_nursery_is_empty():
-            self.local_collection(end_of_transaction=1, run_finalizers=False)
+            self.local_collection(end_of_transaction=True,
+                                  run_finalizers=False)
         self._promote_locals_to_globals()
         self._disable_mallocs()
 
@@ -140,7 +142,7 @@ class StmGCTLS(object):
 
     # ------------------------------------------------------------
 
-    def local_collection(self, end_of_transaction=0, run_finalizers=True):
+    def local_collection(self, end_of_transaction=False, run_finalizers=True):
         """Do a local collection.  This should be equivalent to a minor
         collection only, but the GC is not generational so far, so it is
         for now the same as a full collection --- but only on LOCAL
@@ -171,7 +173,7 @@ class StmGCTLS(object):
         # All OLD objects found are flagged with GCFLAG_VISITED.
         # At this point, the content of the objects is not modified;
         # they are simply added to 'pending'.
-        self.collect_roots_from_stack()
+        self.collect_roots_from_stack(end_of_transaction)
         #
         # Find the roots that are living in raw structures.
         self.collect_from_raw_structures()
@@ -296,9 +298,39 @@ class StmGCTLS(object):
             self.sharedarea_tls.free_object(lst.pop())
 
 
-    def collect_roots_from_stack(self):
+    def collect_roots_from_stack(self, end_of_transaction):
+        if end_of_transaction:
+            # in this mode, we flag the reference to local objects in order
+            # to re-localize them when we later start the next transaction
+            # using this section of the shadowstack
+            self.gc.root_walker.walk_current_stack_roots(
+                StmGCTLS._trace_drag_out_and_flag_local, self)
+        else:
+            self.gc.root_walker.walk_current_stack_roots(
+                StmGCTLS._trace_drag_out1, self)
+
+    def _trace_drag_out_and_flag_local(self, root):
+        x = llmemory.cast_adr_to_int(root.address[0])
+        if x & 2:
+            root.address[0] -= 2
+        self._trace_drag_out1(root)
+        obj = root.address[0]
+        if self.gc.header(obj).tid & GCFLAG_GLOBAL == 0:
+            x = llmemory.cast_adr_to_int(obj)
+            ll_assert(x & 3 == 0, "flag_local: misaligned obj")
+            obj = llarena.getfakearenaaddress(obj)
+            root.address[0] = obj + 2
+
+    def relocalize_from_stack(self):
         self.gc.root_walker.walk_current_stack_roots(
-            StmGCTLS._trace_drag_out1, self)
+            StmGCTLS._relocalize_from_stack, self)
+
+    def _relocalize_from_stack(self, root):
+        x = llmemory.cast_adr_to_int(root.address[0])
+        if x & 2:
+            obj = root.address[0] - 2
+            localobj = self.gc.stm_writebarrier(obj)
+            root.address[0] = localobj
 
     def collect_from_raw_structures(self):
         self.gc.root_walker.walk_current_nongc_roots(
@@ -525,11 +557,17 @@ class StmGCTLS(object):
 
     # ------------------------------------------------------------
 
-    def _debug_check_all_global1(self, root):
-        self._debug_check_all_global(root, None)
+    def _debug_check_all_global_from_stack_1(self, root):
+        obj = root.address[0]
+        if llmemory.cast_adr_to_int(obj) & 2:
+            obj -= 2     # will be fixed by relocalize_from_stack()
+        self._debug_check_all_global_obj(obj)
 
     def _debug_check_all_global(self, root, ignored):
         obj = root.address[0]
+        self._debug_check_all_global_obj(obj)
+
+    def _debug_check_all_global_obj(self, obj):
         if self.debug_seen.contains(obj):
             return
         hdr = self.gc.header(obj)
@@ -549,7 +587,7 @@ class StmGCTLS(object):
         self.pending = self.AddressStack()
         self.debug_seen = self.AddressDict()
         self.gc.root_walker.walk_current_stack_roots(
-            StmGCTLS._debug_check_all_global1, self)
+            StmGCTLS._debug_check_all_global_from_stack_1, self)
         while self.pending.non_empty():
             obj = self.pending.pop()
             offset = self.gc.weakpointer_offset(self.gc.get_type_id(obj))
