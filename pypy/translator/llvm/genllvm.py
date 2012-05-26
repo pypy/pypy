@@ -265,7 +265,7 @@ class AddressType(BasePtrType):
 LLVMVoid = VoidType()
 LLVMSigned = IntegralType(8, False)
 LLVMUnsigned = IntegralType(8, True)
-LLVMShort = IntegralType(4, False)
+LLVMShort = IntegralType(2, False)
 LLVMChar = CharType(1, True)
 LLVMSignedChar = CharType(1, False)
 LLVMUniChar = CharType(4, True)
