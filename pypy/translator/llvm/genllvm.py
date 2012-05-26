@@ -602,14 +602,13 @@ class FuncType(Type):
         if getattr(obj, 'external', None) == 'C':
             name = '@' + getattr(obj, 'llvm_name', obj._name)
             ptr_type.refs[obj] = name
-            if obj._name not in ('malloc', 'free'):
-                database.f.write('declare {} {}({})\n'.format(
-                        self.result.repr_type(), name,
-                        ', '.join(arg.repr_type() for arg in self.args)))
-                eci = obj.compilation_info
-                if hasattr(eci, '_with_llvm'):
-                    eci = eci._with_llvm
-                database.genllvm.ecis.append(eci)
+            database.f.write('declare {} {}({})\n'.format(
+                    self.result.repr_type(), name,
+                    ', '.join(arg.repr_type() for arg in self.args)))
+            eci = obj.compilation_info
+            if hasattr(eci, '_with_llvm'):
+                eci = eci._with_llvm
+            database.genllvm.ecis.append(eci)
         else:
             if obj._name == '__main':
                 name = '@main'
@@ -1099,10 +1098,10 @@ class FunctionWriter(object):
         self.w('{result.V} = fcmp one {var.TV}, 0.0'.format(**locals()))
 
     def op_raw_malloc(self, result, size):
-        self.w('{result.V} = call i8* @malloc({size.TV})'.format(**locals()))
+        self.op_direct_call(result, get_repr(raw_malloc), size)
 
     def op_raw_free(self, result, ptr):
-        self.w('call void @free({ptr.TV})'.format(**locals()))
+        self.op_direct_call(result, get_repr(raw_free), ptr)
 
     def _get_addr(self, ptr_to, addr, incr):
         t1 = self._tmp(PtrType.to(ptr_to))
@@ -1120,12 +1119,12 @@ class FunctionWriter(object):
         self.w('store {value.TV}, {addr.TV}'.format(**locals()))
 
     def op_raw_memclear(self, result, ptr, size):
-        self.w('call void @llvm.memset.p0i8.i64 ('
-               '{ptr.TV}, i8 0, {size.TV}, i32 0, i1 0)'.format(**locals()))
+        self.op_direct_call(result, get_repr(llvm_memset), ptr, null_char,
+                            size, null_int, null_bool)
 
     def op_raw_memcopy(self, result, src, dst, size):
-        self.w('call void @llvm.memcpy.p0i8.p0i8.i64 ({dst.TV}, {src.TV}, '
-               '{size.TV}, i32 0, i1 0)'.format(**locals()))
+        self.op_direct_call(result, get_repr(llvm_memcpy), dst, src, size,
+                            null_int, null_bool)
 
     def op_extract_ushort(self, result, val):
         self.w('{result.V} = trunc {val.TV} to {result.T}'.format(**locals()))
@@ -1174,9 +1173,9 @@ class FunctionWriter(object):
         pass
 
     def op_stack_current(self, result):
-        t = self._tmp()
-        self.w('{t.V} = call i8* @llvm.frameaddress(i32 0)'.format(**locals()))
-        self.w('{result.V} = ptrtoint i8* {t.V} to {result.T}'
+        t = self._tmp(LLVMAddress)
+        self.op_direct_call(t, get_repr(llvm_frameaddress), null_int)
+        self.w('{result.V} = ptrtoint {t.TV} to {result.T}'
                 .format(**locals()))
 
 
@@ -1416,6 +1415,37 @@ class CTypesFuncWrapper(object):
         return self._from_ctype(bindingrepr(graph.getreturnvar()), ret)
 
 
+allocator_eci = ExternalCompilationInfo(
+    include_dirs = [local(pypydir) / 'translator' / 'c'],
+    includes = ['src/allocator.h'],
+    separate_module_sources =
+        ['#define WITH_PYMALLOC\n#include "src/obmalloc.c"']
+)
+llvm_eci = ExternalCompilationInfo()
+
+raw_malloc = lltype.functionptr(
+        lltype.FuncType([lltype.Signed], llmemory.Address), 'PyObject_Malloc',
+        external='C', compilation_info=allocator_eci)
+raw_free = lltype.functionptr(
+        lltype.FuncType([llmemory.Address], lltype.Void), 'PyObject_Free',
+        external='C', compilation_info=allocator_eci)
+
+
+llvm_memcpy = lltype.functionptr(
+        lltype.FuncType([llmemory.Address, llmemory.Address, lltype.Signed,
+                         rffi.INT, lltype.Bool], lltype.Void),
+        'llvm.memcpy.p0i8.p0i8.i64', external='C', compilation_info=llvm_eci)
+llvm_memset = lltype.functionptr(
+        lltype.FuncType([llmemory.Address, rffi.SIGNEDCHAR, lltype.Signed,
+                         rffi.INT, lltype.Bool], lltype.Void),
+        'llvm.memset.p0i8.i64', external='C', compilation_info=llvm_eci)
+llvm_frameaddress = lltype.functionptr(
+        lltype.FuncType([rffi.INT], llmemory.Address),
+        'llvm.frameaddress', external='C', compilation_info=llvm_eci)
+null_int = ConstantRepr(IntegralType(4, False), 0)
+null_char = ConstantRepr(LLVMChar, '\0')
+null_bool = ConstantRepr(LLVMBool, 0)
+
 class GenLLVM(object):
     def __init__(self, translator, standalone):
         self.translator = translator
@@ -1450,15 +1480,6 @@ class GenLLVM(object):
             global align
             align = int(tmp[3])
             f.write(output)
-
-            # XXX
-            f.write('declare i8* @malloc(i64)\n')
-            f.write('declare void @free(i8*)\n')
-            f.write('declare void @llvm.memcpy.p0i8.p0i8.i64 ('
-                    'i8*, i8*, i64, i32, i1)\n')
-            f.write('declare void @llvm.memset.p0i8.i64 ('
-                    'i8*, i8, i64, i32, i1)\n')
-            f.write('declare i8* @llvm.frameaddress(i32)\n')
 
             database = Database(self, f)
             if self.standalone:

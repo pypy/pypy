@@ -269,29 +269,3 @@ class TestLLVMRffi(BaseTestRffi, _LLVMMixin):
             kwds.pop('expected_extra_mallocs', None)
             return fn(*args, **kwds)
         return fn2
-
-    def test_string_reverse(self):
-        c_source = py.code.Source("""
-        #include <string.h>
-
-        char *f(char* arg)
-        {
-            char *ret = malloc(strlen(arg) + 1);
-            strcpy(ret, arg);
-            return ret;
-        }
-        """)
-        eci = ExternalCompilationInfo(separate_module_sources=[c_source],
-                                      post_include_bits=['char *f(char*);'])
-        z = llexternal('f', [CCHARP], CCHARP, compilation_info=eci)
-
-        def f():
-            s = str2charp("xxx")
-            l_res = z(s)
-            res = charp2str(l_res)
-            lltype.free(l_res, flavor='raw')
-            free_charp(s)
-            return len(res)
-
-        xf = self.compile(f, [], backendopt=False)
-        assert xf(expected_extra_mallocs=-1) == 3
