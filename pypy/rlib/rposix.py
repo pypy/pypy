@@ -248,7 +248,7 @@ if os.name == 'nt':
             return nt._getfullpathname(path.as_bytes())
 
 if os.name == 'nt':
-    from rlib import rwin32
+    from pypy.rlib import rwin32
     os_kill = rwin32.os_kill
 else:
     os_kill = os.kill
