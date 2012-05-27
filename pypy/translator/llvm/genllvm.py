@@ -1501,7 +1501,7 @@ class GenLLVM(object):
          .convert_sources_to_files(being_main=True)
          .merge(ExternalCompilationInfo(separate_module_sources=['']))
          .convert_sources_to_files(being_main=False))
-        cmdexec('clang -O2 {}{}{}{}.ll -o {}'.format(
+        cmdexec('clang -O3 -pthread -Wall -Wno-unused {}{}{}{}.ll -o {}'.format(
                 add_opts,
                 ''.join('-I{} '.format(ic) for ic in eci.include_dirs),
                 ''.join(smf + ' ' for smf in eci.separate_module_files),
