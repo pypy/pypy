@@ -1417,9 +1417,7 @@ class CTypesFuncWrapper(object):
 
 allocator_eci = ExternalCompilationInfo(
     include_dirs = [local(pypydir) / 'translator' / 'c'],
-    includes = ['src/allocator.h'],
-    separate_module_sources =
-        ['#define WITH_PYMALLOC\n#include "src/obmalloc.c"']
+    includes = ['src/allocator.h']
 )
 llvm_eci = ExternalCompilationInfo()
 
@@ -1501,11 +1499,13 @@ class GenLLVM(object):
             self.gcpolicy.finish()
 
     def _compile(self, add_opts, outfile):
-        eci = ExternalCompilationInfo(
+        eci = (ExternalCompilationInfo(
             include_dirs = [local(pypydir) / 'translator' / 'c'],
             includes = ['src/g_prerequisite.h']
         ).merge(*self.ecis)
-        eci = eci.convert_sources_to_files(being_main=True)
+         .convert_sources_to_files(being_main=True)
+         .merge(ExternalCompilationInfo(separate_module_sources=['']))
+         .convert_sources_to_files(being_main=False))
         cmdexec('clang -O2 {}{}{}{}.ll -o {}'.format(
                 add_opts,
                 ''.join('-I{} '.format(ic) for ic in eci.include_dirs),

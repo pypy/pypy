@@ -5,8 +5,6 @@ RPython-compliant way, intended mostly for use by the Stackless PyPy.
 
 import inspect
 
-from py.path import local
-
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.rarithmetic import r_uint
 from pypy.rlib import rgc
@@ -15,25 +13,20 @@ from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.controllerentry import Controller, SomeControlledInstance
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.tool.autopath import pypydir
 
 # ____________________________________________________________
 
-compilation_info = ExternalCompilationInfo(
-    include_dirs=[local(pypydir) / 'translator' / 'c'],
-    includes=['src/stack.h'],
-    separate_module_files=[str(local(pypydir) / 'translator' / 'c' / 'src' / 'stack.c')]
-)
+compilation_info = ExternalCompilationInfo(includes=['src/stack.h'])
 
-def llexternal(name, args, res, _callable=None):
+def llexternal(name, args, res, _callable=None, macro=None):
     return rffi.llexternal(name, args, res, compilation_info=compilation_info,
                            sandboxsafe=True, _nowrapper=True,
-                           _callable=_callable)
+                           _callable=_callable, macro=macro)
 
 _stack_get_end = llexternal('LL_stack_get_end', [], lltype.Signed,
-                            lambda: 0)
+                            lambda: 0, True)
 _stack_get_length = llexternal('LL_stack_get_length', [], lltype.Signed,
-                               lambda: 1)
+                               lambda: 1, True)
 _stack_set_length_fraction = llexternal('LL_stack_set_length_fraction',
                                         [lltype.Float], lltype.Void,
                                         lambda frac: None)
