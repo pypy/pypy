@@ -62,6 +62,8 @@ to const-correctness in C++.
 Many bugs were corrected for windows 32 bit. New functionality was added to
 test validity of file descriptors, leading to the removal of the  global 
 _invalid_parameter_handler
+.. branch: win32-kill
+Add os.kill to windows even if translating python does not have os.kill
 .. branch: win64-stage1
 .. branch: zlib-mem-pressure
 

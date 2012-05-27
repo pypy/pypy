@@ -1,15 +1,16 @@
 # nightly test configuration for the paraller runner
 import os
 
+DIRS_SPLIT = [
+    'translator/c', 'translator/jvm', 'rlib', 'rpython/memory',
+    'jit/backend/x86', 'jit/metainterp', 'rpython/test',
+]
+
 def collect_one_testdir(testdirs, reldir, tests):
-    if (reldir.startswith('translator/c/') or 
-        reldir.startswith('translator/jvm/') or
-        reldir.startswith('rlib/test') or
-        reldir.startswith('rpython/memory/') or
-        reldir.startswith('jit/backend/x86/') or
-        #reldir.startswith('jit/backend/cli') or
-        0):
-        testdirs.extend(tests)
+    for dir in DIRS_SPLIT:
+        if reldir.startswith(dir):
+            testdirs.extend(tests)
+            break
     else:
         testdirs.append(reldir)
 

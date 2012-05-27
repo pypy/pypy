@@ -415,6 +415,7 @@ class AppTestPosix:
         def test_execv_no_args(self):
             os = self.posix
             raises(ValueError, os.execv, "notepad", [])
+            raises(ValueError, os.execve, "notepad", [], {})
 
         def test_execv_raising2(self):
             os = self.posix
@@ -941,6 +942,9 @@ class AppTestPosix:
             # not to some code inside app_posix.py
             assert w[-1].lineno == f_tmpnam_warning.func_code.co_firstlineno
 
+    def test_has_kill(self):
+        import os
+        assert hasattr(os, 'kill')
 
 class AppTestEnvironment(object):
     def setup_class(cls):

@@ -205,7 +205,9 @@ class ToAppLevelConverter(object):
         elif w_ffitype.is_signed():
             intval = self.get_signed(w_ffitype)
             return space.wrap(intval)
-        elif w_ffitype is app_types.ulong or w_ffitype is app_types.ulonglong:
+        elif (w_ffitype is app_types.ulonglong or
+              w_ffitype is app_types.ulong or (libffi.IS_32_BIT and
+                                               w_ffitype is app_types.uint)):
             # Note that we the second check (for ulonglong) is meaningful only
             # on 64 bit, because on 32 bit the ulonglong case would have been
             # handled by the is_longlong() branch above. On 64 bit, ulonglong
