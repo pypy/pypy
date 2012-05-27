@@ -531,8 +531,11 @@ class Bookkeeper(object):
                 try:
                     assert pyobj._freeze_()
                 except AttributeError:
-                    raise Exception("unexpected prebuilt constant: %r" % (
-                        pyobj,))
+                    if hasattr(pyobj, '__call__'):
+                        msg = "object with a __call__ is not RPython"
+                    else:
+                        msg = "unexpected prebuilt constant"
+                    raise Exception("%s: %r" % (msg, pyobj))
                 result = self.getfrozen(pyobj)
             self.descs[pyobj] = result
             return result

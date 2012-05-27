@@ -3769,6 +3769,17 @@ class TestAnnotateTestCase:
         assert isinstance(s, annmodel.SomeString)
         assert not s.can_be_None
 
+    def test_no___call__(self):
+        class X(object):
+            def __call__(self):
+                xxx
+        x = X()
+        def f():
+            return x
+        a = self.RPythonAnnotator()
+        e = py.test.raises(Exception, a.build_types, f, [])
+        assert 'object with a __call__ is not RPython' in str(e.value)
+
 def g(n):
     return [0,1,2,n]
 
