@@ -76,13 +76,23 @@ class IntegralType(Type):
         self.typestr = 'i{}'.format(self.bitwidth)
 
     def is_zero(self, value):
+        if isinstance(value, (int, long)):
+            return value == 0
+        if isinstance(value, str):
+            return value == '\00'
+        if isinstance(value, unicode):
+            return value == u'\00'
         if isinstance(value, Symbolic):
             return False
-        return value == 0
+        if value is None:
+            return True
+        raise NotImplementedError
 
     def repr_value(self, value, extra_len=None):
         if isinstance(value, (int, long)):
             return str(value)
+        elif isinstance(value, (str, unicode)):
+            return str(ord(value))
         elif isinstance(value, ComputedIntSymbolic):
             return str(value.compute_fn())
         elif isinstance(value, llarena.RoundedUpForAllocation):
@@ -183,17 +193,6 @@ class IntegralType(Type):
                 self.unsigned != other.unsigned)
 
 
-class CharType(IntegralType):
-    def __init__(self, bytewidth, unsigned):
-        IntegralType.__init__(self, bytewidth, unsigned)
-
-    def is_zero(self, value):
-        return value is None or value == '\00'
-
-    def repr_value(self, value, extra_len=None):
-        return str(ord(value))
-
-
 class BoolType(IntegralType):
     def __init__(self):
         self.bitwidth = 1
@@ -263,34 +262,30 @@ class AddressType(BasePtrType):
 
 
 LLVMVoid = VoidType()
-LLVMSigned = IntegralType(8, False)
-LLVMUnsigned = IntegralType(8, True)
-LLVMShort = IntegralType(2, False)
-LLVMChar = CharType(1, True)
-LLVMSignedChar = CharType(1, False)
-LLVMUniChar = CharType(4, True)
 LLVMBool = BoolType()
 LLVMFloat = FloatType('double', 64)
 LLVMSingleFloat = FloatType('float', 32)
 LLVMLongFloat = FloatType('x86_fp80', 80)
 LLVMAddress = AddressType()
-
 PRIMITIVES = {
     lltype.Void: LLVMVoid,
-    lltype.Signed: LLVMSigned,
-    lltype.Unsigned: LLVMUnsigned,
-    lltype.Char: LLVMChar,
-    rffi.SIGNEDCHAR: LLVMSignedChar,
-    lltype.UniChar: LLVMUniChar,
     lltype.Bool: LLVMBool,
     lltype.Float: LLVMFloat,
     lltype.SingleFloat: LLVMSingleFloat,
     lltype.LongFloat: LLVMLongFloat,
     llmemory.Address: LLVMAddress
 }
-for type_ in rffi.NUMBER_TYPES:
+
+for type_ in rffi.NUMBER_TYPES + [lltype.Char, lltype.UniChar]:
     if type_ not in PRIMITIVES:
         PRIMITIVES[type_] = IntegralType(*rffi.size_and_sign(type_))
+LLVMSigned = PRIMITIVES[lltype.Signed]
+LLVMUnsigned = PRIMITIVES[lltype.Unsigned]
+LLVMInt = PRIMITIVES[rffi.INT]
+LLVMShort = PRIMITIVES[rffi.SHORT]
+LLVMChar = PRIMITIVES[lltype.Char]
+LLVMSignedChar = PRIMITIVES[rffi.SIGNEDCHAR]
+LLVMUniChar = PRIMITIVES[lltype.UniChar]
 
 
 class PtrType(BasePtrType):
@@ -478,7 +473,7 @@ class BareArrayType(Type):
         try:
             return value.getlength()
         except AttributeError:
-            assert isinstance(self.of, CharType)
+            assert isinstance(self.of, IntegralType)
             for i in count():
                 if value.getitem(i) == '\00':
                     return i + 1
@@ -1440,7 +1435,7 @@ llvm_memset = lltype.functionptr(
 llvm_frameaddress = lltype.functionptr(
         lltype.FuncType([rffi.INT], llmemory.Address),
         'llvm.frameaddress', external='C', compilation_info=llvm_eci)
-null_int = ConstantRepr(IntegralType(4, False), 0)
+null_int = ConstantRepr(LLVMInt, 0)
 null_char = ConstantRepr(LLVMChar, '\0')
 null_bool = ConstantRepr(LLVMBool, 0)
 
