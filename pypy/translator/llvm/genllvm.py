@@ -1476,7 +1476,7 @@ class GenLLVM(object):
             minus = output.index('-', pointer)
             tmp = output[pointer:minus].split(':')
             global align
-            align = int(tmp[3])
+            align = int(tmp[3]) / 8
             f.write(output)
 
             database = Database(self, f)
