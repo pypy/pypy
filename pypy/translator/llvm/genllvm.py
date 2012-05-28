@@ -55,6 +55,10 @@ class Type(object):
             ptr_type.refs[obj] = name
         database.f.write('{} = global {}\n'.format(
                 name, self.repr_type_and_value(obj)))
+        hash_ = database.genllvm.gcpolicy.get_prebuilt_hash(obj)
+        if hash_ is not None:
+            database.f.write('{}_hash = global {} {}\n'
+                    .format(name, LLVMSigned.repr_type(), hash_))
 
 
 class VoidType(Type):

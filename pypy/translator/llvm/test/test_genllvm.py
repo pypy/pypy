@@ -9,10 +9,16 @@ from pypy.translator.llvm import genllvm
 from pypy.translator.translator import TranslationContext
 
 
+class _Stub(object):
+    def __getattr__(self, attr):
+        return self
+    def __call__(self, *args, **kwds):
+        return None
+
 class TestDatabase(object):
     def setup_method(self, meth):
         self.f = StringIO()
-        genllvm.database = genllvm.Database(None, self.f)
+        genllvm.database = genllvm.Database(_Stub(), self.f)
 
     def test_repr_signed(self):
         assert genllvm.get_repr(rffi.r_long(-1)).TV == 'i64 -1'
@@ -252,8 +258,7 @@ class TestLowLevelTypeLLVM(_LLVMMixin, test_lltyped.TestLowLevelType):
 
 
 class TestTypedLLVM(_LLVMMixin, test_typed.TestTypedTestCase):
-    def test_hash_preservation(self):
-        py.test.skip('not working yet')
+    pass
 
 
 class TestLLVMRffi(BaseTestRffi, _LLVMMixin):

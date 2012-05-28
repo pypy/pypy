@@ -591,6 +591,8 @@ class TestTypedTestCase(CompilationTestCase):
     def test_hash_preservation(self):
         from pypy.rlib.objectmodel import compute_hash
         from pypy.rlib.objectmodel import current_object_addr_as_int
+        from pypy.rlib.rgc import collect
+        from pypy.rpython.memory.support import mangle_hash
         class C:
             pass
         class D(C):
@@ -601,6 +603,7 @@ class TestTypedTestCase(CompilationTestCase):
         #
         def fn():
             d2 = D()
+            collect()
             return (compute_hash(d2),
                     current_object_addr_as_int(d2),
                     compute_hash(c),
@@ -611,7 +614,7 @@ class TestTypedTestCase(CompilationTestCase):
         res = f()
 
         # xxx the next line is too precise, checking the exact implementation
-        assert res[0] == res[1]
+        assert res[0] == res[1] or res[0] == mangle_hash(res[1])
         assert res[2] != compute_hash(c)     # likely
         assert res[3] == compute_hash(d)
         assert res[4] == compute_hash(("Hi", None, (7.5, 2, d)))
