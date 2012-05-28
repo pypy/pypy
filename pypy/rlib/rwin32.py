@@ -371,6 +371,7 @@ if WIN32:
         if sig == CTRL_C_EVENT or sig == CTRL_BREAK_EVENT:
             if GenerateConsoleCtrlEvent(sig, pid) == 0:
                 raise lastWindowsError('os_kill failed generating event')
+            return 0
         handle = OpenProcess(PROCESS_ALL_ACCESS, False, pid)
         if handle == NULL_HANDLE:
             raise lastWindowsError('os_kill failed opening process')
