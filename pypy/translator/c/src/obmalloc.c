@@ -221,7 +221,8 @@
 #define uchar			unsigned char	/* assuming == 8 bits  */
 
 #undef  uint
-#define uint			unsigned int	/* assuming >= 16 bits */
+typedef unsigned int uint;
+//#define uint			unsigned int	/* assuming >= 16 bits */
 
 #undef  ulong
 #define ulong			Unsigned	/* assuming >= 32 bits */

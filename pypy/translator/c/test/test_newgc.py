@@ -43,7 +43,7 @@ class TestUsingFramework(object):
                         taggedpointers=cls.taggedpointers,
                         gcremovetypeptr=cls.removetypeptr)
         t.disable(['backendopt'])
-        t.set_backend_extra_options(c_debug_defines=True)
+        cls._set_backend(t)
         t.rtype()
         if conftest.option.view:
             t.viewcg()
@@ -57,6 +57,10 @@ class TestUsingFramework(object):
             return data
 
         return run
+
+    @classmethod
+    def _set_backend(cls, t):
+        t.set_backend_extra_options(c_debug_defines=True)
 
 
     def setup_class(cls):

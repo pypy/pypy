@@ -21,7 +21,7 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.tool import rffi_platform as platform
 from pypy.rlib import rposix
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.rpython.lltypesystem.llmemory import itemoffsetof, offsetof
+from pypy.rpython.lltypesystem.llmemory import itemoffsetof, offsetof, Address
 from pypy.rpython.lltypesystem.rstr import STR
 from pypy.rlib.objectmodel import specialize
 
@@ -903,7 +903,7 @@ class RegisterOs(BaseLazyRegistering):
     @registering(os.write)
     def register_os_write(self):
         os_write = self.llexternal(underscore_on_windows+'write',
-                                   [rffi.INT, rffi.VOIDP, rffi.SIZE_T],
+                                   [rffi.INT, Address, rffi.SIZE_T],
                                    rffi.SIZE_T)
 
         def os_write_llimpl(fd, data):
@@ -913,7 +913,8 @@ class RegisterOs(BaseLazyRegistering):
             try:
                 written = rffi.cast(lltype.Signed, os_write(
                     rffi.cast(rffi.INT, fd),
-                    buf, rffi.cast(rffi.SIZE_T, count)))
+                    rffi.cast(Address, buf),
+                    rffi.cast(rffi.SIZE_T, count)))
                 if written < 0:
                     raise OSError(rposix.get_errno(), "os_write failed")
             finally:

@@ -566,7 +566,7 @@ class GroupType(Type):
         if self.written is not None:
             assert self.written == obj.members
             return
-        self.written = obj.members
+        self.written = list(obj.members)
         groupname = '@group_' + obj.name
         group = Group()
         fields = []
@@ -587,6 +587,7 @@ class FuncType(Type):
     def setup_from_lltype(self, db, type_):
         self.result = db.get_type(type_.RESULT)
         self.args = [db.get_type(argtype) for argtype in type_.ARGS]
+        self.extern_declared = set()
 
     def repr_type(self, extra_len=None):
         return '{} ({})'.format(self.result.repr_type(),
@@ -597,6 +598,9 @@ class FuncType(Type):
         if getattr(obj, 'external', None) == 'C':
             name = '@' + getattr(obj, 'llvm_name', obj._name)
             ptr_type.refs[obj] = name
+            if name in self.extern_declared:
+                return
+            self.extern_declared.add(name)
             database.f.write('declare {} {}({})\n'.format(
                     self.result.repr_type(), name,
                     ', '.join(arg.repr_type() for arg in self.args)))
@@ -649,7 +653,8 @@ class Database(object):
             elif isinstance(type_, lltype.FixedSizeArray):
                 class_ = BareArrayType
             elif isinstance(type_, lltype.Struct):
-                if type_._hints.get('typeptr', False):
+                if (type_._hints.get('typeptr', False) and
+                    self.genllvm.translator.config.translation.gcremovetypeptr):
                     self.types[type_] = ret = StructType()
                     ret.setup('%struct.' + type_._name, [], True)
                     return ret
@@ -665,9 +670,18 @@ class Database(object):
             elif isinstance(type_, lltype.FuncType):
                 class_ = FuncType
             elif isinstance(type_, lltype.OpaqueType):
-                class_ = OpaqueType
+                if type_.hints.get('external') == 'C':
+                    typestr = '%' + type_.hints['c_name']
+                    size = type_.hints['getsize']()
+                    self.types[type_] = ret = StructType()
+                    ret.setup(typestr, [(IntegralType(size, False), 'space')])
+                    return ret
+                else:
+                    class_ = OpaqueType
             elif isinstance(type_, llgroup.GroupType):
                 class_ = GroupType
+            elif type_ is llmemory.WeakRef:
+                class_ = OpaqueType
             else:
                 raise TypeError('type_ is {!r}'.format(type_))
 
@@ -992,9 +1006,10 @@ class FunctionWriter(object):
     def _set_element(self, result, var, *rest):
         fields = rest[:-1]
         value = rest[-1]
-        t = self._tmp()
-        self._get_element_ptr(var, fields, t)
-        self.w('store {value.TV}, {value.T}* {t.V}'.format(**locals()))
+        if value.type_ is not LLVMVoid:
+            t = self._tmp()
+            self._get_element_ptr(var, fields, t)
+            self.w('store {value.TV}, {value.T}* {t.V}'.format(**locals()))
     op_setfield = op_bare_setfield = _set_element
     op_setinteriorfield = op_bare_setinteriorfield = _set_element
     op_setarrayitem = op_bare_setarrayitem = _set_element
@@ -1158,9 +1173,6 @@ class FunctionWriter(object):
         self._cast(t2, t1)
         self.op_get_next_group_member(result, grpptr, t2, skipoffset)
 
-    def op_gc_reload_possibly_moved(self, result, v_newaddr, v_targetvar):
-        pass
-
     def op_gc_stack_bottom(self, result):
         pass
 
@@ -1250,6 +1262,9 @@ class FrameworkGCPolicy(GCPolicy):
             if isinstance(type_, lltype.Struct):
                 for f in type_._names:
                     self._consider_constant(type_._flds[f], getattr(value, f))
+            elif isinstance(type_, lltype.Array):
+                for i in value.items:
+                    self._consider_constant(type_.OF, i)
             self.gctransformer.consider_constant(type_, value)
 
     def get_gc_fields(self):
@@ -1457,6 +1472,29 @@ class GenLLVM(object):
             self.transformed_graphs.add(graph)
             self.exctransformer.create_exception_handling(graph)
             self.gcpolicy.transform_graph(graph)
+
+            # the 'gc_reload_possibly_moved' operations make the graph not
+            # really SSA.  Fix them now.
+            for block in graph.iterblocks():
+                rename = {}
+                for op in block.operations:
+                    if rename:
+                        op.args = [rename.get(v, v) for v in op.args]
+                    if op.opname == 'gc_reload_possibly_moved':
+                        v_newaddr, v_targetvar = op.args
+                        assert isinstance(v_targetvar.concretetype, lltype.Ptr)
+                        v_newptr = Variable()
+                        v_newptr.concretetype = v_targetvar.concretetype
+                        op.opname = 'cast_adr_to_ptr'
+                        op.args = [v_newaddr]
+                        op.result = v_newptr
+                        rename[v_targetvar] = v_newptr
+                if rename:
+                    block.exitswitch = rename.get(block.exitswitch,
+                                                  block.exitswitch)
+                    for link in block.exits:
+                        link.args = [rename.get(v, v) for v in link.args]
+
             remove_double_links(self.translator.annotator, graph)
 
     def gen_source(self, entry_point):
@@ -1501,9 +1539,13 @@ class GenLLVM(object):
          .convert_sources_to_files(being_main=True)
          .merge(ExternalCompilationInfo(separate_module_sources=['']))
          .convert_sources_to_files(being_main=False))
-        cmdexec('clang -O3 -pthread -Wall -Wno-unused {}{}{}{}.ll -o {}'.format(
+        cmdexec('clang -O3 -pthread -Wall -Wno-unused {}{}{}{}{}{}{}.ll -o {}'
+                .format(
                 add_opts,
                 ''.join('-I{} '.format(ic) for ic in eci.include_dirs),
+                ''.join('-l{} '.format(li) for li in eci.libraries),
+                ''.join('-L{} '.format(ld) for ld in eci.library_dirs),
+                ''.join(lf + ' ' for lf in eci.link_files),
                 ''.join(smf + ' ' for smf in eci.separate_module_files),
                 self.base_path, outfile))
 

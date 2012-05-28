@@ -1,14 +1,11 @@
 from cStringIO import StringIO
 import py
 from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.rpython.lltypesystem.rffi import (llexternal, CCHARP, str2charp,
-     charp2str, free_charp)
 from pypy.rpython.lltypesystem.test.test_rffi import BaseTestRffi
 from pypy.translator.backendopt.raisingop2direct_call import (
      raisingop2direct_call)
-from pypy.translator.c.test import test_typed, test_lltyped
+from pypy.translator.c.test import test_typed, test_lltyped, test_newgc
 from pypy.translator.llvm import genllvm
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.translator.translator import TranslationContext
 
 
@@ -269,3 +266,14 @@ class TestLLVMRffi(BaseTestRffi, _LLVMMixin):
             kwds.pop('expected_extra_mallocs', None)
             return fn(*args, **kwds)
         return fn2
+
+
+class TestMiniMarkGCLLVM(test_newgc.TestMiniMarkGC):
+    @classmethod
+    def _set_backend(cls, t):
+        t.ensure_backend('llvm')
+
+#class TestMiniMarkGCMostCompactLLVM(test_newgc.TestMiniMarkGCMostCompact):
+#    @classmethod
+#    def _set_backend(cls, t):
+#        t.ensure_backend('llvm')
