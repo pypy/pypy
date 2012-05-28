@@ -75,7 +75,7 @@ class CConfig:
         DEFAULT_LANGUAGE = rffi_platform.ConstantInteger(
             "MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT)")
 
-        for name in """FORMAT_MESSAGE_ALLOCATE_BUFFER FORMAT_MESSAGE_FROM_SYSTEM
+        defines = """FORMAT_MESSAGE_ALLOCATE_BUFFER FORMAT_MESSAGE_FROM_SYSTEM
                        MAX_PATH
                        WAIT_OBJECT_0 WAIT_TIMEOUT INFINITE
                        ERROR_INVALID_HANDLE
@@ -83,13 +83,17 @@ class CConfig:
                        WRITE_OWNER PROCESS_ALL_ACCESS
                        PROCESS_CREATE_PROCESS PROCESS_CREATE_THREAD
                        PROCESS_DUP_HANDLE PROCESS_QUERY_INFORMATION
-                       PROCESS_QUERY_LIMITED_INFORMATION 
                        PROCESS_SET_QUOTA
                        PROCESS_SUSPEND_RESUME PROCESS_TERMINATE
                        PROCESS_VM_OPERATION PROCESS_VM_READ
                        PROCESS_VM_WRITE
                        CTRL_C_EVENT CTRL_BREAK_EVENT
-                    """.split():
+                    """
+        from pypy.translator.platform import host_factory
+        static_platform = host_factory()
+        if static_platform.name == 'msvc':
+            defines += ' PROCESS_QUERY_LIMITED_INFORMATION' 
+        for name in defines.split():
             locals()[name] = rffi_platform.ConstantInteger(name)
 
 for k, v in rffi_platform.configure(CConfig).items():
