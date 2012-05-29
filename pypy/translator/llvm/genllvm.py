@@ -674,8 +674,9 @@ class Database(object):
             elif isinstance(type_, lltype.FuncType):
                 class_ = FuncType
             elif isinstance(type_, lltype.OpaqueType):
-                if type_.hints.get('external') == 'C':
-                    typestr = '%' + type_.hints['c_name']
+                if (type_.hints.get('external') == 'C' and
+                    'c_name' in type_.hints):
+                    typestr = '%' + type_.hints['c_name'].replace(' ', '_')
                     size = type_.hints['getsize']()
                     self.types[type_] = ret = StructType()
                     ret.setup(typestr, [(IntegralType(size, False), 'space')])
