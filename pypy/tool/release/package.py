@@ -54,7 +54,15 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
         pypy_c = py.path.local(override_pypy_c)
     if not pypy_c.check():
         print pypy_c
-        raise PyPyCNotFound('Please compile pypy first, using translate.py')
+        if os.path.isdir(os.path.dirname(str(pypy_c))):
+            raise PyPyCNotFound(
+                'Please compile pypy first, using translate.py,'
+                ' or check that you gave the correct path'
+                ' (see docstring for more info)')
+        else:
+            raise PyPyCNotFound(
+                'Bogus path: %r does not exist (see docstring for more info)'
+                % (os.path.dirname(str(pypy_c)),))
     if sys.platform == 'win32' and not rename_pypy_c.lower().endswith('.exe'):
         rename_pypy_c += '.exe'
     binaries = [(pypy_c, rename_pypy_c)]
