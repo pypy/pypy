@@ -396,10 +396,10 @@ class AppTestAppComplexTest:
         fo = None
         try:
             pth = tempfile.mktemp()
-            fo = open(pth,"wb")
+            fo = open(pth, "w")
             print(a, b, file=fo)
             fo.close()
-            fo = open(pth, "rb")
+            fo = open(pth, "r")
             res = fo.read()
             assert res == "%s %s\n" % (a, b)
         finally:

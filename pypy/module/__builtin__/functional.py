@@ -326,6 +326,7 @@ class W_Range(Wrappable):
         
     def _compute_item(self, space, w_index):
         w_zero = space.newint(0)
+        w_index = space.index(w_index)
         if space.is_true(space.lt(w_index, w_zero)):
             w_index = space.add(w_index, self.w_length)
         if (space.is_true(space.ge(w_index, self.w_length)) or

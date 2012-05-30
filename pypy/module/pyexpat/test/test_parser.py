@@ -48,9 +48,9 @@ class AppTestPyexpat:
                 p.CharacterDataHandler = lambda s: data.append(s)
                 encoding = encoding_arg is None and 'utf-8' or encoding_arg
 
-                res = p.Parse(u"<xml>\u00f6</xml>".encode(encoding), isfinal=True)
+                res = p.Parse("<xml>\u00f6</xml>".encode(encoding), isfinal=True)
                 assert res == 1
-                assert data == [u"\u00f6"]
+                assert data == ["\u00f6"]
 
     def test_get_handler(self):
         import pyexpat
@@ -87,7 +87,7 @@ class AppTestPyexpat:
         import pyexpat
         p = pyexpat.ParserCreate()
         def gotText(text):
-            assert text == u"caf\xe9"
+            assert text == "caf\xe9"
         p.CharacterDataHandler = gotText
         assert p.returns_unicode
         p.Parse(xml)
@@ -97,7 +97,7 @@ class AppTestPyexpat:
         import pyexpat
         p = pyexpat.ParserCreate(encoding='iso-8859-1')
         def gotText(text):
-            assert text == u"caf\xe9"
+            assert text == "caf\xe9"
         p.CharacterDataHandler = gotText
         p.Parse(xml)
 
@@ -107,7 +107,7 @@ class AppTestPyexpat:
         import pyexpat
         p = pyexpat.ParserCreate()
         def gotText(text):
-            assert text == u"caf\xe9"
+            assert text == "caf\xe9"
         p.CharacterDataHandler = gotText
         p.Parse(xml)
 

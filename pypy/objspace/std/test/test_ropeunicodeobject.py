@@ -3,12 +3,6 @@ import py
 from pypy.objspace.std.test import test_stringobject, test_unicodeobject
 from pypy.conftest import gettestobjspace
 
-class TestRopeUnicodeObject(test_unicodeobject.TestUnicodeObject):
-
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withropeunicode": True})
-
-
 class AppTestRopeObject(test_stringobject.AppTestStringObject):
 
     def setup_class(cls):

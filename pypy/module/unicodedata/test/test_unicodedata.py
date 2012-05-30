@@ -75,13 +75,13 @@ class AppTestUnicodeData:
                 char = chr(i)
                 try:
                     unicodedata.name(char)
-                except ValueError, e:
+                except ValueError as e:
                     assert e.message == 'no such name'
                 raises(KeyError, unicodedata.lookup, charname)
 
     def test_bug_1704793(self): # from CPython
         import unicodedata
-        assert unicodedata.lookup("GOTHIC LETTER FAIHU") == u'\U00010346'
+        assert unicodedata.lookup("GOTHIC LETTER FAIHU") == '\U00010346'
 
     def test_normalize(self):
         import unicodedata
@@ -91,14 +91,14 @@ class AppTestUnicodeData:
         import sys, unicodedata
         if sys.maxunicode < 0x10ffff:
             skip("requires a 'wide' python build.")
-        assert unicodedata.normalize('NFC', u'\U000110a5\U000110ba') == u'\U000110ab'
+        assert unicodedata.normalize('NFC', '\U000110a5\U000110ba') == '\U000110ab'
 
     def test_linebreaks(self):
         linebreaks = (0x0a, 0x0b, 0x0c, 0x0d, 0x85,
                       0x1c, 0x1d, 0x1e, 0x2028, 0x2029)
         for i in linebreaks:
             for j in range(-2, 3):
-                lines = (chr(i + j) + u'A').splitlines()
+                lines = (chr(i + j) + 'A').splitlines()
                 if i + j in linebreaks:
                     assert len(lines) == 2
                 else:
@@ -107,7 +107,7 @@ class AppTestUnicodeData:
     def test_mirrored(self):
         import unicodedata
         # For no reason, unicodedata.mirrored() returns an int, not a bool
-        assert repr(unicodedata.mirrored(u' ')) == '0'
+        assert repr(unicodedata.mirrored(' ')) == '0'
 
 class TestUnicodeData(object):
     def setup_class(cls):
