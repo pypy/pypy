@@ -1210,24 +1210,6 @@ class GCPolicy(object):
                 list(finish_tables)
 
 
-class RawGCTransformer(GCTransformer):
-    def gct_fv_gc_malloc(self, hop, flags, *args, **kwds):
-        flags['zero'] = True
-        return self.gct_fv_raw_malloc(hop, flags, *args, **kwds)
-
-    def gct_fv_gc_malloc_varsize(self, hop, flags, *args, **kwds):
-        return self.gct_fv_raw_malloc_varsize(hop, flags, *args, **kwds)
-
-
-class RawGCPolicy(GCPolicy):
-    def __init__(self, genllvm):
-        self.genllvm = genllvm
-        self.gctransformer = RawGCTransformer(genllvm.translator)
-
-    def transform_graph(self, graph):
-        self.gctransformer.transform_graph(graph)
-
-
 class FrameworkGCPolicy(GCPolicy):
     def __init__(self, genllvm):
         self.genllvm = genllvm
@@ -1462,7 +1444,6 @@ class GenLLVM(object):
         self.standalone = standalone
         self.exctransformer = translator.getexceptiontransformer()
         self.gcpolicy = {
-            'none': RawGCPolicy,
             'framework': FrameworkGCPolicy
         }[translator.config.translation.gctransformer](self)
         self.transformed_graphs = set()
