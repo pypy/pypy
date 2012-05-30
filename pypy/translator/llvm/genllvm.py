@@ -309,6 +309,8 @@ class PtrType(BasePtrType):
 
     def repr_value(self, value, extra_len=None):
         obj = value._obj
+        if isinstance(obj, int):
+            return 'inttoptr(i64 {} to {})'.format(obj, self.repr_type())
         try:
             return self.refs[obj]
         except KeyError:
@@ -1243,6 +1245,8 @@ class FrameworkGCPolicy(GCPolicy):
             if value is None:
                 return
         if isinstance(type_, lltype.ContainerType):
+            if isinstance(value, int):
+                return
             if value in self._considered_constant:
                 return
             self._considered_constant.add(value)

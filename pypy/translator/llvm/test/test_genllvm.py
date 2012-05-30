@@ -279,7 +279,7 @@ class TestMiniMarkGCLLVM(test_newgc.TestMiniMarkGC):
     def _set_backend(cls, t):
         t.ensure_backend('llvm')
 
-#class TestMiniMarkGCMostCompactLLVM(test_newgc.TestMiniMarkGCMostCompact):
-#    @classmethod
-#    def _set_backend(cls, t):
-#        t.ensure_backend('llvm')
+class TestMiniMarkGCMostCompactLLVM(test_newgc.TestMiniMarkGCMostCompact):
+    @classmethod
+    def _set_backend(cls, t):
+        t.ensure_backend('llvm')
