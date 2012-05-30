@@ -308,12 +308,7 @@ class PtrType(BasePtrType):
         return not value
 
     def repr_value(self, value, extra_len=None):
-        try:
-            obj = value._obj
-        except lltype.DelayedPointer:
-            assert isinstance(value._obj0, str)
-            database.delayed_ptrs.append(value)
-            return '@rpy_' + value._obj0[len('delayed!'):]
+        obj = value._obj
         try:
             return self.refs[obj]
         except KeyError:
@@ -346,13 +341,15 @@ class StructType(Type):
         self.fields = fields
         self.fldnames_wo_voids = [f for t, f in fields if t is not LLVMVoid]
         self.fldnames_voids = set(f for t, f in fields if t is LLVMVoid)
+        self.fldtypes_wo_voids = [t for t, f in fields if t is not LLVMVoid]
         self.varsize = fields[-1][0].varsize
         self.size_variants = {}
 
     def setup_from_lltype(self, db, type_):
         fields = [(db.get_type(type_._flds[f]), f) for f in type_._names]
         is_gc = type_._gckind == 'gc' and type_._first_struct() == (None, None)
-        self.setup('%struct.' + type_._name, fields, is_gc)
+        name = '%struct.' + type_._name.replace('<', '_').replace('>', '_')
+        self.setup(name, fields, is_gc)
 
     def repr_type(self, extra_len=None):
         if extra_len not in self.size_variants:
@@ -406,7 +403,7 @@ class StructType(Type):
             raise VoidAttributeAccess
         index = self.fldnames_wo_voids.index(attr.value)
         gep.add_field_index(index)
-        return self.fields[index][0]
+        return self.fldtypes_wo_voids[index]
 
 
 class UnionHelper(object):
@@ -483,7 +480,8 @@ class BareArrayType(Type):
         if self.is_zero(value):
             return 'zeroinitializer'
         if self.of is LLVMChar:
-            return 'c"{}"'.format(''.join(i if 32 <= ord(i) <= 126 and i != '"'
+            return 'c"{}"'.format(''.join(i if (32 <= ord(i) <= 126 and
+                                                i != '"' and i != '\\')
                                           else r'\{:02x}'.format(ord(i))
                                   for i in value.items))
         return '[\n    {}\n]'.format(', '.join(
@@ -618,7 +616,6 @@ class FuncType(Type):
                         .replace('(', '_').replace(')', '_')
                         .replace('<', '_').replace('>', '_'))
             ptr_type.refs[obj] = name
-            database.genllvm.transform_graph(obj.graph)
             writer = FunctionWriter()
             writer.write_graph(name, obj.graph)
             database.f.writelines(writer.lines)
@@ -643,7 +640,6 @@ class Database(object):
         self.f = f
         self.names_counter = {}
         self.types = PRIMITIVES.copy()
-        self.delayed_ptrs = []
 
     def get_type(self, type_):
         try:
@@ -683,6 +679,8 @@ class Database(object):
             elif isinstance(type_, llgroup.GroupType):
                 class_ = GroupType
             elif type_ is llmemory.WeakRef:
+                class_ = OpaqueType
+            elif type_ is lltype.PyObject:
                 class_ = OpaqueType
             else:
                 raise TypeError('type_ is {!r}'.format(type_))
@@ -1191,19 +1189,19 @@ class FunctionWriter(object):
 class GCPolicy(object):
     def __init__(self, genllvm):
         self.genllvm = genllvm
+        self.delayed_ptrs = []
 
     def transform_graph(self, graph):
         raise NotImplementedError("Override in subclass.")
 
     def finish(self):
-        while database.delayed_ptrs:
+        while self.delayed_ptrs:
             self.gctransformer.finish_helpers()
 
-            delayed_ptrs = database.delayed_ptrs
-            database.delayed_ptrs = []
+            delayed_ptrs = self.delayed_ptrs
+            self.delayed_ptrs = []
             for ptr in delayed_ptrs:
-                database.genllvm.transform_graph(ptr._obj.graph)
-                get_repr(ptr).V
+                self.genllvm.transform_graph(ptr._obj.graph)
 
             finish_tables = self.gctransformer.get_finish_tables()
             if hasattr(finish_tables, '__iter__'):
@@ -1212,11 +1210,12 @@ class GCPolicy(object):
 
 class FrameworkGCPolicy(GCPolicy):
     def __init__(self, genllvm):
-        self.genllvm = genllvm
+        GCPolicy.__init__(self, genllvm)
         self.gctransformer = FrameworkGCTransformer(genllvm.translator)
         self._considered_constant = set()
 
     def transform_graph(self, graph):
+        self.gctransformer.transform_graph(graph)
         for block in graph.iterblocks():
             for arg in block.inputargs:
                 if isinstance(arg, Constant):
@@ -1229,21 +1228,24 @@ class FrameworkGCPolicy(GCPolicy):
                 for arg in op.args:
                     if isinstance(arg, Constant):
                         self._consider_constant(arg.concretetype, arg.value)
-        self.gctransformer.transform_graph(graph)
 
     def _consider_constant(self, type_, value):
         if isinstance(type_, lltype.Ptr):
             type_ = type_.TO
-            value = value._obj
+            try:
+                value = value._obj
+            except lltype.DelayedPointer:
+                assert isinstance(value._obj0, str)
+                self.delayed_ptrs.append(value)
+                return
             if value is None:
                 return
         if isinstance(type_, lltype.ContainerType):
-            value = lltype.top_container(value)
-            type_ = lltype.typeOf(value)
             if value in self._considered_constant:
                 return
             self._considered_constant.add(value)
-            if isinstance(type_, lltype.Struct):
+            if (isinstance(type_, lltype.Struct) and
+                not isinstance(value, lltype._subarray)):
                 for f in type_._names:
                     self._consider_constant(type_._flds[f], getattr(value, f))
             elif isinstance(type_, lltype.Array):
@@ -1251,14 +1253,16 @@ class FrameworkGCPolicy(GCPolicy):
                     self._consider_constant(type_.OF, i)
             self.gctransformer.consider_constant(type_, value)
 
+            p, c = lltype.parentlink(value)
+            if p:
+                self._consider_constant(lltype.typeOf(p), p)
+
     def get_gc_fields(self):
         return [(database.get_type(self.gctransformer.HDR), '_gc_header')]
 
     def get_gc_field_values(self, obj):
         obj = lltype.top_container(obj)
         needs_hash = self.get_prebuilt_hash(obj) is not None
-        # XXX HACK
-        self._consider_constant(lltype.typeOf(obj), obj)
         hdr = self.gctransformer.gc_header_for(obj, needs_hash)
         return [hdr._obj]
 
@@ -1489,6 +1493,7 @@ class GenLLVM(object):
             self.entry_point = bk.getdesc(entry_point).getuniquegraph()
         for graph in self.translator.graphs:
             self.transform_graph(graph)
+        self.gcpolicy.finish()
 
     def gen_source(self):
         global database
@@ -1515,7 +1520,6 @@ class GenLLVM(object):
                 get_repr(getfunctionptr(self.entry_point)).V
             else:
                 self.wrapper = CTypesFuncWrapper(self, self.entry_point)
-            self.gcpolicy.finish()
 
     def _compile(self, add_opts, outfile):
         eci = (ExternalCompilationInfo(
