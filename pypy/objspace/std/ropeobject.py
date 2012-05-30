@@ -8,6 +8,7 @@ from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import stringobject, slicetype, iterobject
 from pypy.objspace.std.listobject import W_ListObject
+from pypy.objspace.std.longobject import W_LongObject
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.tupleobject import W_TupleObject
 from pypy.rlib.rarithmetic import ovfcheck
@@ -32,7 +33,7 @@ class W_RopeObject(stringobject.W_AbstractStringObject):
 
     def unwrap(w_self, space):
         return w_self._node.flatten_string()
-    str_w = unwrap
+    bytes_w = unwrap
 
     def create_if_subclassed(w_self):
         if type(w_self) is W_RopeObject:
@@ -48,7 +49,7 @@ del i
 def rope_w(space, w_str):
     if isinstance(w_str, W_RopeObject):
         return w_str._node
-    return rope.LiteralStringNode(space.str_w(w_str))
+    return rope.LiteralStringNode(space.bufferstr_w(w_str))
 
 registerimplementation(W_RopeObject)
 
@@ -231,10 +232,10 @@ def str_split__Rope_None_ANY(space, w_self, w_none, w_maxsplit=-1):
                 for node in rope.split_chars(selfnode, maxsplit)]
     return space.newlist(res_w)
 
-def str_split__Rope_Rope_ANY(space, w_self, w_by, w_maxsplit=-1):
+def str_split__Rope_ANY_ANY(space, w_self, w_by, w_maxsplit=-1):
     maxsplit = space.int_w(w_maxsplit)
     selfnode = w_self._node
-    bynode = w_by._node
+    bynode = rope_w(space, w_by)
     bylen = bynode.length()
     if bylen == 0:
         raise OperationError(space.w_ValueError, space.wrap("empty separator"))
@@ -251,13 +252,13 @@ def str_rsplit__Rope_None_ANY(space, w_self, w_none, w_maxsplit=-1):
     return space.newlist(res_w)
 
 
-def str_rsplit__Rope_Rope_ANY(space, w_self, w_by, w_maxsplit=-1):
+def str_rsplit__Rope_ANY_ANY(space, w_self, w_by, w_maxsplit=-1):
     # XXX works but flattens
     maxsplit = space.int_w(w_maxsplit)
     res_w = []
     value = w_self._node.flatten_string()
     end = len(value)
-    by = w_by._node.flatten_string()
+    by = space.bufferstr_w(w_by)
     bylen = len(by)
     if bylen == 0:
         raise OperationError(space.w_ValueError, space.wrap("empty separator"))
@@ -266,11 +267,11 @@ def str_rsplit__Rope_Rope_ANY(space, w_self, w_by, w_maxsplit=-1):
         next = value.rfind(by, 0, end)
         if next < 0:
             break
-        res_w.append(space.wrap(value[next+bylen: end]))
+        res_w.append(space.wrapbytes(value[next+bylen: end]))
         end = next
         maxsplit -= 1   # NB. if it's already < 0, it stays < 0
 
-    res_w.append(space.wrap(value[:end]))
+    res_w.append(space.wrapbytes(value[:end]))
     res_w.reverse()
     return space.newlist(res_w)
 
@@ -283,25 +284,24 @@ def str_join__Rope_ANY(space, w_self, w_list):
     if size == 1:
         w_s = list_w[0]
         # only one item,  return it if it's not a subclass of str
-        if (space.is_w(space.type(w_s), space.w_str) or
-            space.is_w(space.type(w_s), space.w_unicode)):
+        if space.is_w(space.type(w_s), space.w_str):
             return w_s
 
     self = w_self._node
     l = []
     for i in range(size):
         w_s = list_w[i]
-        if not space.isinstance_w(w_s, space.w_str):
-            if space.isinstance_w(w_s, space.w_unicode):
-                w_u = space.call_function(space.w_unicode, w_self)
-                return space.call_method(w_u, "join", space.newlist(list_w))
+        try:
+            item = rope_w(space, w_s)
+        except OperationError, e:
+            if not e.match(space, space.w_TypeError):
+                raise
             raise operationerrfmt(
                 space.w_TypeError,
-                "sequence item %d: expected string, %s "
+                "sequence item %d: expected bytes, %s "
                 "found", i, space.type(w_s).getname(space))
-        assert isinstance(w_s, W_RopeObject)
-        node = w_s._node
-        l.append(node)
+        assert isinstance(item, rope.LiteralStringNode)
+        l.append(item)
     try:
         return W_RopeObject(rope.join(self, l))
     except OverflowError:
@@ -311,7 +311,7 @@ def str_join__Rope_ANY(space, w_self, w_list):
 def str_rjust__Rope_ANY_ANY(space, w_self, w_arg, w_fillchar):
     u_arg = space.int_w(w_arg)
     selfnode = w_self._node
-    fillchar = space.str_w(w_fillchar)
+    fillchar = space.bytes_w(w_fillchar)
     if len(fillchar) != 1:
         raise OperationError(space.w_TypeError,
             space.wrap("rjust() argument 2 must be a single character"))
@@ -330,7 +330,7 @@ def str_rjust__Rope_ANY_ANY(space, w_self, w_arg, w_fillchar):
 def str_ljust__Rope_ANY_ANY(space, w_self, w_arg, w_fillchar):
     u_arg = space.int_w(w_arg)
     selfnode = w_self._node
-    fillchar = space.str_w(w_fillchar)
+    fillchar = space.bytes_w(w_fillchar)
     if len(fillchar) != 1:
         raise OperationError(space.w_TypeError,
             space.wrap("rjust() argument 2 must be a single character"))
@@ -346,32 +346,48 @@ def str_ljust__Rope_ANY_ANY(space, w_self, w_arg, w_fillchar):
     else:
         return W_RopeObject(selfnode)
 
-def _convert_idx_params(space, w_self, w_sub, w_start, w_end, upper_bound=False):
+def _convert_idx_params(space, w_self, w_start, w_end, upper_bound=False):
     self = w_self._node
-    sub = w_sub._node
 
     start, end = slicetype.unwrap_start_stop(
             space, self.length(), w_start, w_end, upper_bound)
 
-    return (self, sub, start, end)
+    return (self, start, end)
 _convert_idx_params._annspecialcase_ = 'specialize:arg(5)'
 
-def contains__Rope_Rope(space, w_self, w_sub):
+def contains__Rope_ANY(space, w_self, w_sub):
     self = w_self._node
-    sub = w_sub._node
+    sub = rope_w(space, w_sub)
     return space.newbool(rope.find(self, sub) >= 0)
 
-def str_find__Rope_Rope_ANY_ANY(space, w_self, w_sub, w_start, w_end):
+def contains__Rope_Long(space, w_self, w_char):
+    self = w_self._node
+    try:
+        char = space.int_w(w_char)
+    except OperationError, e:
+        if e.match(space, space.w_OverflowError):
+            char = 256 # arbitrary value which will trigger the ValueError
+                       # condition below
+        else:
+            raise
+    if 0 <= char < 256:
+        sub = rope.LiteralStringNode.PREBUILT[char]
+        return space.newbool(rope.find(self, sub) >= 0)
+    else:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("character must be in range(256)"))
 
-    (self, sub, start, end) =  _convert_idx_params(space, w_self, w_sub, w_start, w_end)
-    res = rope.find(self, sub, start, end)
+def str_find__Rope_ANY_ANY_ANY(space, w_self, w_sub, w_start, w_end):
+
+    (self, start, end) =  _convert_idx_params(space, w_self, w_start, w_end)
+    res = rope.find(self, rope_w(space, w_sub), start, end)
     return wrapint(space, res)
 
-def str_rfind__Rope_Rope_ANY_ANY(space, w_self, w_sub, w_start, w_end):
+def str_rfind__Rope_ANY_ANY_ANY(space, w_self, w_sub, w_start, w_end):
     # XXX works but flattens
-    (self, sub, start, end) =  _convert_idx_params(space, w_self, w_sub, w_start, w_end)
+    (self, start, end) =  _convert_idx_params(space, w_self, w_start, w_end)
     self = self.flatten_string()
-    sub = sub.flatten_string()
+    sub = space.bufferstr_w(w_sub)
     res = self.rfind(sub, start, end)
     return wrapint(space, res)
 
@@ -413,8 +429,8 @@ def str_rpartition__Rope_Rope(space, w_self, w_sub):
 
 def str_index__Rope_Rope_ANY_ANY(space, w_self, w_sub, w_start, w_end):
 
-    (self, sub, start, end) =  _convert_idx_params(space, w_self, w_sub, w_start, w_end)
-    res = rope.find(self, sub, start, end)
+    (self, start, end) =  _convert_idx_params(space, w_self, w_start, w_end)
+    res = rope.find(self, w_sub._node, start, end)
     if res < 0:
         raise OperationError(space.w_ValueError,
                              space.wrap("substring not found in string.index"))
@@ -423,10 +439,10 @@ def str_index__Rope_Rope_ANY_ANY(space, w_self, w_sub, w_start, w_end):
 
 
 def str_rindex__Rope_Rope_ANY_ANY(space, w_self, w_sub, w_start, w_end):
-    (self, sub, start, end) =  _convert_idx_params(space, w_self, w_sub, w_start, w_end)
+    (self, start, end) =  _convert_idx_params(space, w_self, w_start, w_end)
     # XXX works but flattens
     self = self.flatten_string()
-    sub = sub.flatten_string()
+    sub = w_sub._node.flatten_string()
     res = self.rfind(sub, start, end)
     if res < 0:
         raise OperationError(space.w_ValueError,
@@ -474,23 +490,23 @@ def str_replace__Rope_Rope_Rope_ANY(space, w_self, w_sub, w_by, w_maxsplit=-1):
 def _contains(i, string):
     return chr(i) in string
 
-def str_strip__Rope_Rope(space, w_self, w_chars):
+def str_strip__Rope_ANY(space, w_self, w_chars):
     return W_RopeObject(rope.strip(w_self._node, True, True,
-                                   _contains, w_chars._node.flatten_string()))
+                                   _contains, space.bytes_w(w_chars)))
 
 def str_strip__Rope_None(space, w_self, w_chars):
     return W_RopeObject(rope.strip(w_self._node, left=True, right=True))
 
-def str_rstrip__Rope_Rope(space, w_self, w_chars):
+def str_rstrip__Rope_ANY(space, w_self, w_chars):
     return W_RopeObject(rope.strip(w_self._node, False, True,
-                                   _contains, w_chars._node.flatten_string()))
+                                   _contains, space.bytes_w(w_chars)))
 
 def str_rstrip__Rope_None(space, w_self, w_chars):
     return W_RopeObject(rope.strip(w_self._node, False, True))
 
-def str_lstrip__Rope_Rope(space, w_self, w_chars):
+def str_lstrip__Rope_ANY(space, w_self, w_chars):
     return W_RopeObject(rope.strip(w_self._node, True, False,
-                                   _contains, w_chars._node.flatten_string()))
+                                   _contains, space.bytes_w(w_chars)))
 
 def str_lstrip__Rope_None(space, w_self, w_chars):
     return W_RopeObject(rope.strip(w_self._node, left=True, right=False))
@@ -500,7 +516,7 @@ def str_center__Rope_ANY_ANY(space, w_self, w_arg, w_fillchar):
     node = w_self._node
     length = node.length()
     arg  = space.int_w(w_arg)
-    fillchar = space.str_w(w_fillchar)
+    fillchar = space.bytes_w(w_fillchar)
     if len(fillchar) != 1:
         raise OperationError(space.w_TypeError,
             space.wrap("center() argument 2 must be a single character"))
@@ -536,16 +552,19 @@ def str_count__Rope_Rope_ANY_ANY(space, w_self, w_arg, w_start, w_end):
     return wrapint(space, i)
 
 
+def str_endswith__Rope_ANY_ANY_ANY(space, w_self, w_suffix, w_start, w_end):
+    (self, start, end) = _convert_idx_params(
+        space, w_self, w_start, w_end, True)
+    return space.newbool(rope.endswith(self, w_suffix.node, start, end))
+
 def str_endswith__Rope_Rope_ANY_ANY(space, w_self, w_suffix, w_start, w_end):
-    (self, suffix, start, end) = _convert_idx_params(space, w_self,
-                                                     w_suffix, w_start, w_end,
-                                                     True)
-    return space.newbool(rope.endswith(self, suffix, start, end))
+    (self, start, end) = _convert_idx_params(
+        space, w_self, w_start, w_end, True)
+    return space.newbool(rope.endswith(self, w_suffix._node, start, end))
 
 def str_endswith__Rope_Tuple_ANY_ANY(space, w_self, w_suffixes, w_start, w_end):
-    (self, _, start, end) = _convert_idx_params(space, w_self,
-                                                W_RopeObject.EMPTY, w_start,
-                                                w_end, True)
+    (self, start, end) = _convert_idx_params(
+        space, w_self, w_start, w_end, True)
     for w_suffix in space.fixedview(w_suffixes):
         if space.isinstance_w(w_suffix, space.w_unicode):
             w_u = space.call_function(space.w_unicode, w_self)
@@ -557,15 +576,19 @@ def str_endswith__Rope_Tuple_ANY_ANY(space, w_self, w_suffixes, w_start, w_end):
     return space.w_False
 
 
+def str_startswith__Rope_ANY_ANY_ANY(space, w_self, w_prefix, w_start, w_end):
+    (self, start, end) = _convert_idx_params(
+        space, w_self, w_start, w_end, True)
+    return space.newbool(rope.startswith(self, w_prefix._node, start, end))
+
 def str_startswith__Rope_Rope_ANY_ANY(space, w_self, w_prefix, w_start, w_end):
-    (self, prefix, start, end) = _convert_idx_params(space, w_self,
-                                                     w_prefix, w_start, w_end,
-                                                     True)
-    return space.newbool(rope.startswith(self, prefix, start, end))
+    (self, start, end) = _convert_idx_params(
+        space, w_self, w_start, w_end, True)
+    return space.newbool(rope.startswith(self, w_prefix._node, start, end))
 
 def str_startswith__Rope_Tuple_ANY_ANY(space, w_self, w_prefixes, w_start, w_end):
-    (self, _, start, end) = _convert_idx_params(space, w_self, W_RopeObject.EMPTY,
-                                                  w_start, w_end, True)
+    (self, start, end) = _convert_idx_params(
+        space, w_self, w_start, w_end, True)
     for w_prefix in space.fixedview(w_prefixes):
         if space.isinstance_w(w_prefix, space.w_unicode):
             w_u = space.call_function(space.w_unicode, w_self)
@@ -579,6 +602,8 @@ def str_startswith__Rope_Tuple_ANY_ANY(space, w_self, w_prefixes, w_start, w_end
 
 def _tabindent(node, tabsize):
     "calculates distance after the token to the next tabstop"
+    if tabsize <= 0:
+        return tabsize
     length = node.length()
     distance = tabsize
     if length:
@@ -696,7 +721,7 @@ def getitem__Rope_ANY(space, w_str, w_index):
     if ival < 0 or ival >= slen:
         raise OperationError(space.w_IndexError,
                              space.wrap("string index out of range"))
-    return wrapchar(space, node.getchar(ival))
+    return space.wrap(ord(node.getchar(ival)))
 
 def getitem__Rope_Slice(space, w_str, w_slice):
     node = w_str._node
@@ -741,9 +766,9 @@ def len__Rope(space, w_str):
     return space.wrap(w_str._node.length())
 
 def str__Rope(space, w_str):
-    if type(w_str) is W_RopeObject:
-        return w_str
-    return W_RopeObject(w_str._node)
+    if space.sys.get_flag('bytes_warning'):
+        space.warn("str() on a bytes instance", space.w_BytesWarning)
+    return repr__Rope(space, w_str)
 
 def iter__Rope(space, w_str):
     return W_RopeIterObject(w_str)
@@ -761,54 +786,8 @@ def getnewargs__Rope(space, w_str):
     return space.newtuple([W_RopeObject(w_str._node)])
 
 def repr__Rope(space, w_str):
-    node = w_str._node
-    length = node.length()
-
-    i = 0
-    buf = [' '] * (length * 4 + 2) # safely overallocate
-
-    quote = "'"
-    if (rope.find_int(node, ord(quote)) != -1 and
-        rope.find_int(node, ord('"')) == -1):
-        quote = '"'
-
-    buf[0] = quote
-
-    iter = rope.ItemIterator(node)
-    while 1:
-        try:
-            c = iter.nextchar()
-            i += 1
-        except StopIteration:
-            break
-        bs_char = None # character quoted by backspace
-
-        if c == '\\' or c == quote:
-            bs_char = c
-        elif c == '\t': bs_char = 't'
-        elif c == '\r': bs_char = 'r'
-        elif c == '\n': bs_char = 'n'
-        elif not '\x20' <= c < '\x7f':
-            n = ord(c)
-            buf[i] = '\\'
-            i += 1
-            buf[i] = 'x'
-            i += 1
-            buf[i] = "0123456789abcdef"[n>>4]
-            i += 1
-            buf[i] = "0123456789abcdef"[n&0xF]
-        else:
-            buf[i] = c
-
-        if bs_char is not None:
-            buf[i] = '\\'
-            i += 1
-            buf[i] = bs_char
-
-    i += 1
-    buf[i] = quote
-
-    return W_RopeObject(rope.rope_from_charlist(buf[:i+1]))
+    return space.wrap(stringobject.string_escape_encode(
+            space.bytes_w(w_str), True))
 
 def str_translate__Rope_ANY_ANY(space, w_string, w_table, w_deletechars=''):
     """charfilter - unicode handling is not implemented
@@ -868,7 +847,7 @@ def next__RopeIter(space, w_ropeiter):
         raise OperationError(space.w_StopIteration, space.w_None)
     try:
         char = w_ropeiter.item_iter.nextchar()
-        w_item = wrapchar(space, char)
+        w_item = space.wrap(ord(char))
     except StopIteration:
         w_ropeiter.node = None
         w_ropeiter.char_iter = None

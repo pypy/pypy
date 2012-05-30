@@ -9,6 +9,7 @@ from pypy.objspace.std.ropeobject import W_RopeObject
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.rlib import rope
 from pypy.rlib.rstring import StringBuilder
+from pypy.rlib.runicode import unicode_encode_unicode_escape
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import unicodeobject, slicetype, iterobject
 from pypy.objspace.std.tupleobject import W_TupleObject
@@ -141,7 +142,9 @@ def unicode_to_decimal_w(space, w_unistr):
     return ''.join(result)
 
 def str__RopeUnicode(space, w_uni):
-    return space.call_method(w_uni, 'encode')
+    if type(w_uni) is W_RopeUnicodeObject:
+        return w_uni
+    return W_RopeUnicodeObject(w_uni._node)
 
 def lt__RopeUnicode_RopeUnicode(space, w_str1, w_str2):
     n1 = w_str1._node
@@ -333,6 +336,31 @@ def unicode_istitle__RopeUnicode(space, w_unicode):
             previous_is_cased = cased = True
         else:
             previous_is_cased = False
+
+def unicode_isidentifier__RopeUnicode(space, w_unicode):
+    if w_unicode._node.length() == 0:
+        return space.w_False
+    iter = rope.ItemIterator(w_unicode._node)
+
+    # PEP 3131 says that the first character must be in XID_Start and
+    # subsequent characters in XID_Continue, and for the ASCII range,
+    # the 2.x rules apply (i.e start with letters and underscore,
+    # continue with letters, digits, underscore). However, given the
+    # current definition of XID_Start and XID_Continue, it is
+    # sufficient to check just for these, except that _ must be
+    # allowed as starting an identifier.
+    first = iter.nextint()
+    if not (unicodedb.isxidstart(first) or first == ord('_')):
+        return space.w_False
+
+    while 1:
+        try:
+            ch = iter.nextint()
+        except StopIteration:
+            break
+        if not unicodedb.isxidcontinue(ch):
+            return space.w_False
+    return space.w_True
 
 
 def _contains(i, uni):
@@ -782,102 +810,11 @@ def unicode_translate__RopeUnicode_ANY(space, w_self, w_table):
 
 # Move this into the _codecs module as 'unicodeescape_string (Remember to cater for quotes)'
 def repr__RopeUnicode(space, w_unicode):
-    hexdigits = "0123456789abcdef"
     node = w_unicode._node
+    chars = node.flatten_unicode()
     size = node.length()
-
-    singlequote = doublequote = False
-    iter = rope.ItemIterator(node)
-    for i in range(size):
-        c = iter.nextunichar()
-        if singlequote and doublequote:
-            break
-        if c == u'\'':
-            singlequote = True
-        elif c == u'"':
-            doublequote = True
-    if singlequote and not doublequote:
-        quote = '"'
-    else:
-        quote = '\''
-    result = ['u', quote]
-    iter = rope.ItemIterator(node)
-    j = 0
-    while j < size:
-        code = iter.nextint()
-        if code >= 0x10000:
-            result.extend(['\\', "U",
-                           hexdigits[(code >> 28) & 0xf],
-                           hexdigits[(code >> 24) & 0xf],
-                           hexdigits[(code >> 20) & 0xf],
-                           hexdigits[(code >> 16) & 0xf],
-                           hexdigits[(code >> 12) & 0xf],
-                           hexdigits[(code >>  8) & 0xf],
-                           hexdigits[(code >>  4) & 0xf],
-                           hexdigits[(code >>  0) & 0xf],
-                           ])
-            j += 1
-            continue
-        if code >= 0xD800 and code < 0xDC00:
-            if j < size - 1:
-                code2 = iter.nextint()
-                # XXX this is wrong: if the next if is false,
-                # code2 is lost
-                if code2 >= 0xDC00 and code2 <= 0xDFFF:
-                    code = (((code & 0x03FF) << 10) | (code2 & 0x03FF)) + 0x00010000
-                    result.extend(['\\', "U",
-                                   hexdigits[(code >> 28) & 0xf],
-                                   hexdigits[(code >> 24) & 0xf],
-                                   hexdigits[(code >> 20) & 0xf],
-                                   hexdigits[(code >> 16) & 0xf],
-                                   hexdigits[(code >> 12) & 0xf],
-                                   hexdigits[(code >>  8) & 0xf],
-                                   hexdigits[(code >>  4) & 0xf],
-                                   hexdigits[(code >>  0) & 0xf],
-                                  ])
-                    j += 2
-                    continue
-
-        if code >= 0x100:
-            result.extend(['\\', "u",
-                           hexdigits[(code >> 12) & 0xf],
-                           hexdigits[(code >>  8) & 0xf],
-                           hexdigits[(code >>  4) & 0xf],
-                           hexdigits[(code >>  0) & 0xf],
-                          ])
-            j += 1
-            continue
-        if code == ord('\\') or code == ord(quote):
-            result.append('\\')
-            result.append(chr(code))
-            j += 1
-            continue
-        if code == ord('\t'):
-            result.append('\\')
-            result.append('t')
-            j += 1
-            continue
-        if code == ord('\r'):
-            result.append('\\')
-            result.append('r')
-            j += 1
-            continue
-        if code == ord('\n'):
-            result.append('\\')
-            result.append('n')
-            j += 1
-            continue
-        if code < ord(' ') or code >= 0x7f:
-            result.extend(['\\', "x",
-                           hexdigits[(code >> 4) & 0xf],
-                           hexdigits[(code >> 0) & 0xf],
-                          ])
-            j += 1
-            continue
-        result.append(chr(code))
-        j += 1
-    result.append(quote)
-    return W_RopeObject(rope.rope_from_charlist(result))
+    s = unicode_encode_unicode_escape(chars, size, "strict", quotes=True)
+    return space.wrap(s)
 
 def mod__RopeUnicode_ANY(space, w_format, w_values):
     return mod_format(space, w_format, w_values, do_unicode=True)
