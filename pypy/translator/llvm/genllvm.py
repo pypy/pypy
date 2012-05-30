@@ -617,6 +617,8 @@ class FuncType(Type):
                         .replace('<', '_').replace('>', '_'))
             ptr_type.refs[obj] = name
             writer = FunctionWriter()
+            # XXX temporary fix
+            database.genllvm.transform_graph(obj.graph)
             writer.write_graph(name, obj.graph)
             database.f.writelines(writer.lines)
 
