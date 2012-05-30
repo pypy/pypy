@@ -603,20 +603,24 @@ class TranslationDriver(SimpleTaskEngine):
                                       [STACKCHECKINSERTION, '?'+BACKENDOPT, RTYPE], 
                                       "LLInterpreting")
 
-    def task_source_llvm(self):
+    def task_prepare_llvm(self):
         translator = self.translator
         if translator.annotator is None:
             raise ValueError, "llvm requires annotation."
 
         from pypy.translator.llvm import genllvm
-
         self.llvmgen = genllvm.GenLLVM(translator, self.standalone)
+        self.llvmgen.prepare(self.entry_point)
 
-        llvm_filename = self.llvmgen.gen_source(self.entry_point)
+    task_prepare_llvm = taskdef(task_prepare_llvm,
+                               [STACKCHECKINSERTION, BACKENDOPT, RTYPE],
+                               "Doing exception and gc transformations")
+
+    def task_source_llvm(self):
+        llvm_filename = self.llvmgen.gen_source()
         self.log.info("written: %s" % (llvm_filename,))
 
-    task_source_llvm = taskdef(task_source_llvm,
-                               [STACKCHECKINSERTION, BACKENDOPT, RTYPE],
+    task_source_llvm = taskdef(task_source_llvm, ['prepare_llvm'],
                                "Generating llvm source")
 
     def task_compile_llvm(self):

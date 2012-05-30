@@ -233,7 +233,8 @@ class _LLVMMixin(test_typed.CompilationTestCase):
         if hasattr(self, 'include_also_eci'):
             gen_llvm.ecis.append(self.include_also_eci)
             del self.include_also_eci
-        gen_llvm.gen_source(func)
+        gen_llvm.prepare(func)
+        gen_llvm.gen_source()
         return gen_llvm.compile_module()
 
     def process(self, t):

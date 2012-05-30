@@ -1299,10 +1299,11 @@ def make_main(translator, entrypoint):
 
 
 class CTypesFuncWrapper(object):
-    def __init__(self, genllvm, database, ep_ptr):
+    def __init__(self, genllvm, entry_point):
         self.translator = genllvm.translator
-        self.entry_point_graph = ep_ptr._obj.graph
-        self.entry_point_def = self._get_ctypes_def(ep_ptr)
+        self.entry_point_graph = entry_point
+        self.entry_point_def = self._get_ctypes_def(
+                getfunctionptr(entry_point))
         self.rpyexc_occured_def = self._get_ctypes_def(
                 genllvm.exctransformer.rpyexc_occured_ptr)
         self.rpyexc_fetch_type_def = self._get_ctypes_def(
@@ -1480,10 +1481,18 @@ class GenLLVM(object):
 
             remove_double_links(self.translator.annotator, graph)
 
-    def gen_source(self, entry_point):
+    def prepare(self, entry_point):
+        if self.standalone:
+            self.entry_point = make_main(self.translator, entry_point)
+        else:
+            bk = self.translator.annotator.bookkeeper
+            self.entry_point = bk.getdesc(entry_point).getuniquegraph()
+        for graph in self.translator.graphs:
+            self.transform_graph(graph)
+
+    def gen_source(self):
         global database
 
-        self.entry_point = entry_point
         self.base_path = udir.join(uniquemodulename('main'))
 
         with self.base_path.new(ext='.ll').open('w') as f:
@@ -1496,10 +1505,6 @@ class GenLLVM(object):
             f.write(output)
 
             database = Database(self, f)
-            if self.standalone:
-                main = make_main(self.translator, entry_point)
-            for graph in self.translator.graphs:
-                self.transform_graph(graph)
 
             f.write('%ctor = type { i32, void ()* }\n')
             sr = get_repr(self.gcpolicy.gctransformer.frameworkgc_setup_ptr)
@@ -1507,11 +1512,9 @@ class GenLLVM(object):
                     '[%ctor {{ i32 65535, void ()* @{} }}]\n'.format(sr.V[1:]))
 
             if self.standalone:
-                get_repr(getfunctionptr(main)).V
+                get_repr(getfunctionptr(self.entry_point)).V
             else:
-                bk = self.translator.annotator.bookkeeper
-                ptr = getfunctionptr(bk.getdesc(entry_point).getuniquegraph())
-                self.wrapper = CTypesFuncWrapper(self, database, ptr)
+                self.wrapper = CTypesFuncWrapper(self, self.entry_point)
             self.gcpolicy.finish()
 
     def _compile(self, add_opts, outfile):
