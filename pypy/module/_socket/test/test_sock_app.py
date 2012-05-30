@@ -617,8 +617,6 @@ class AppTestSocketTCP:
                 count += cli.send('foobar' * 70)
         except timeout:
             pass
-        else:
-            assert 0,'no timeout raised'
         t.recv(count)    
         # test sendall() timeout, be sure to send data larger than the
         # socket buffer
