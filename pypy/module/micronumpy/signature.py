@@ -441,7 +441,11 @@ class SliceloopSignature(Call2):
         ofs = frame.iterators[0].offset
         arr.left.setitem(ofs, self.right.eval(frame, arr.right).convert_to(
             self.calc_dtype))
-    
+
+    def _invent_numbering(self, cache, allnumbers):
+        self.left._invent_numbering(new_cache(), allnumbers)
+        self.right._invent_numbering(cache, allnumbers)
+
     def debug_repr(self):
         return 'SliceLoop(%s, %s, %s)' % (self.name, self.left.debug_repr(),
                                           self.right.debug_repr())
