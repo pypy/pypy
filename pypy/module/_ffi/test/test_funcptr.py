@@ -7,7 +7,7 @@ from pypy.translator.platform import platform
 
 import os, sys, py
 
-class AppTestFfi:
+class BaseAppTestFFI(object):
 
     @classmethod
     def prepare_c_example(cls):
@@ -36,7 +36,6 @@ class AppTestFfi:
         eci = ExternalCompilationInfo(export_symbols=[])
         return str(platform.compile([c_file], eci, 'x', standalone=False))
 
-    
     def setup_class(cls):
         from pypy.rpython.lltypesystem import rffi
         from pypy.rlib.libffi import get_libc_name, CDLL, types
@@ -52,7 +51,12 @@ class AppTestFfi:
         pow = libm.getpointer('pow', [], types.void)
         pow_addr = rffi.cast(rffi.LONG, pow.funcsym)
         cls.w_pow_addr = space.wrap(pow_addr)
-        #
+
+class AppTestFFI(BaseAppTestFFI):
+
+    def setup_class(cls):
+        BaseAppTestFFI.setup_class.im_func(cls)
+        space = cls.space
         # these are needed for test_single_float_args
         from ctypes import c_float
         f_12_34 = c_float(12.34).value
@@ -78,11 +82,6 @@ class AppTestFfi:
         res = dll.getfunc('Py_IsInitialized', [], types.slong)()
         assert res == 1
 
-    def test_simple_types(self):
-        from _ffi import types
-        assert str(types.sint) == "<ffi type sint>"
-        assert str(types.uint) == "<ffi type uint>"
-        
     def test_callfunc(self):
         from _ffi import CDLL, types
         libm = CDLL(self.libm_name)
@@ -266,29 +265,6 @@ class AppTestFfi:
         assert list(array) == list('foobar\00')
         do_nothing.free_temp_buffers()
 
-    def test_typed_pointer(self):
-        from _ffi import types
-        intptr = types.Pointer(types.sint) # create a typed pointer to sint
-        assert intptr.deref_pointer() is types.sint
-        assert str(intptr) == '<ffi type (pointer to sint)>'
-        assert types.sint.deref_pointer() is None
-        raises(TypeError, "types.Pointer(42)")
-
-    def test_pointer_identity(self):
-        from _ffi import types
-        x = types.Pointer(types.slong)
-        y = types.Pointer(types.slong)
-        z = types.Pointer(types.char)
-        assert x is y
-        assert x is not z
-
-    def test_char_p_cached(self):
-        from _ffi import types
-        x = types.Pointer(types.char)
-        assert x is types.char_p
-        x = types.Pointer(types.unichar)
-        assert x is types.unichar_p
-
     def test_typed_pointer_args(self):
         """
             extern int dummy; // defined in test_void_result 
@@ -365,6 +341,22 @@ class AppTestFfi:
                                 types.ubyte)
         assert sum_xy(100, 40) == 140
         assert sum_xy(200, 60) == 260 % 256
+
+    def test_unsigned_int_args(self):
+        r"""
+            DLLEXPORT unsigned int sum_xy_ui(unsigned int x, unsigned int y)
+            {
+                return x+y;
+            }
+        """
+        import sys
+        from _ffi import CDLL, types
+        maxint32 = 2147483647
+        libfoo = CDLL(self.libfoo_name)
+        sum_xy = libfoo.getfunc('sum_xy_ui', [types.uint, types.uint],
+                                types.uint)
+        assert sum_xy(maxint32, 1) == maxint32+1
+        assert sum_xy(maxint32, maxint32+2) == 0
 
     def test_signed_byte_args(self):
         """
@@ -481,6 +473,51 @@ class AppTestFfi:
                 return p.x + p.y;
             }
         """
+        from _ffi import CDLL, types, _StructDescr, Field
+        Point = _StructDescr('Point', [
+                Field('x', types.slong),
+                Field('y', types.slong),
+                ])
+        libfoo = CDLL(self.libfoo_name)
+        sum_point = libfoo.getfunc('sum_point', [Point.ffitype], types.slong)
+        #
+        p = Point.allocate()
+        p.setfield('x', 30)
+        p.setfield('y', 12)
+        res = sum_point(p)
+        assert res == 42
+
+    def test_byval_result(self):
+        """
+            DLLEXPORT struct Point make_point(long x, long y) {
+                struct Point p;
+                p.x = x;
+                p.y = y;
+                return p;
+            }
+        """
+        from _ffi import CDLL, types, _StructDescr, Field
+        Point = _StructDescr('Point', [
+                Field('x', types.slong),
+                Field('y', types.slong),
+                ])
+        libfoo = CDLL(self.libfoo_name)
+        make_point = libfoo.getfunc('make_point', [types.slong, types.slong],
+                                    Point.ffitype)
+        #
+        p = make_point(12, 34)
+        assert p.getfield('x') == 12
+        assert p.getfield('y') == 34
+
+    # XXX: support for _rawffi structures should be killed as soon as we
+    # implement ctypes.Structure on top of _ffi. In the meantime, we support
+    # both
+    def test_byval_argument__rawffi(self):
+        """
+            // defined above
+            struct Point;
+            DLLEXPORT long sum_point(struct Point p);
+        """
         import _rawffi
         from _ffi import CDLL, types
         POINT = _rawffi.Structure([('x', 'l'), ('y', 'l')])
@@ -495,14 +532,10 @@ class AppTestFfi:
         assert res == 42
         p.free()
 
-    def test_byval_result(self):
+    def test_byval_result__rawffi(self):
         """
-            DLLEXPORT struct Point make_point(long x, long y) {
-                struct Point p;
-                p.x = x;
-                p.y = y;
-                return p;
-            }
+            // defined above
+            DLLEXPORT struct Point make_point(long x, long y);
         """
         import _rawffi
         from _ffi import CDLL, types
@@ -515,6 +548,7 @@ class AppTestFfi:
         assert p.x == 12
         assert p.y == 34
         p.free()
+
 
     def test_TypeError_numargs(self):
         from _ffi import CDLL, types

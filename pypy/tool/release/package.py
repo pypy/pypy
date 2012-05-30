@@ -21,6 +21,8 @@ if sys.version_info < (2,6): py.test.skip("requires 2.6 so far")
 
 USE_ZIPFILE_MODULE = sys.platform == 'win32'
 
+STDLIB_VER = "2.7"
+
 def ignore_patterns(*patterns):
     """Function that can be used as copytree() ignore parameter.
 
@@ -52,7 +54,15 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
         pypy_c = py.path.local(override_pypy_c)
     if not pypy_c.check():
         print pypy_c
-        raise PyPyCNotFound('Please compile pypy first, using translate.py')
+        if os.path.isdir(os.path.dirname(str(pypy_c))):
+            raise PyPyCNotFound(
+                'Please compile pypy first, using translate.py,'
+                ' or check that you gave the correct path'
+                ' (see docstring for more info)')
+        else:
+            raise PyPyCNotFound(
+                'Bogus path: %r does not exist (see docstring for more info)'
+                % (os.path.dirname(str(pypy_c)),))
     if sys.platform == 'win32' and not rename_pypy_c.lower().endswith('.exe'):
         rename_pypy_c += '.exe'
     binaries = [(pypy_c, rename_pypy_c)]
@@ -77,8 +87,8 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
     pypydir = builddir.ensure(name, dir=True)
     # Careful: to copy lib_pypy, copying just the svn-tracked files
     # would not be enough: there are also ctypes_config_cache/_*_cache.py.
-    shutil.copytree(str(basedir.join('lib-python')),
-                    str(pypydir.join('lib-python')),
+    shutil.copytree(str(basedir.join('lib-python').join(STDLIB_VER)),
+                    str(pypydir.join('lib-python').join(STDLIB_VER)),
                     ignore=ignore_patterns('.svn', 'py', '*.pyc', '*~'))
     shutil.copytree(str(basedir.join('lib_pypy')),
                     str(pypydir.join('lib_pypy')),

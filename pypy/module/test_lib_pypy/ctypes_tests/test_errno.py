@@ -19,3 +19,5 @@ class TestErrno:
         f._call_funcptr(check)
         assert _rawffi.get_errno() == old
         ctypes.set_errno(0)
+
+    # see also test_functions.test_errno

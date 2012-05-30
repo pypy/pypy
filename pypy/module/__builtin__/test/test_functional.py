@@ -146,6 +146,25 @@ class AppTestRange:
       y = callable(*args)
       assert list(y) == list(x)
 
+   def test_xrange_iter_reduce(self):
+      x = iter(xrange(2, 9, 3))
+      x.next()
+      callable, args = x.__reduce__()
+      y = callable(*args)
+      assert list(y) == list(x)
+
+   def test_xrange_iter_reduce_one(self):
+      x = iter(xrange(2, 9))
+      x.next()
+      callable, args = x.__reduce__()
+      y = callable(*args)
+      assert list(y) == list(x)
+
+   def test_lib_python_xrange_optimization(self):
+      x = xrange(1)
+      assert type(reversed(x)) == type(iter(x))
+
+
 class AppTestReversed:
    def test_reversed(self):
       r = reversed("hello")

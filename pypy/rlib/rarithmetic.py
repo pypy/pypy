@@ -97,6 +97,9 @@ to use long everywhere.
 # XXX TODO: replace all int(n) by long(n) and fix everything that breaks.
 # XXX       Then relax it and replace int(n) by n.
 def intmask(n):
+    """
+    NOT_RPYTHON
+    """
     if isinstance(n, objectmodel.Symbolic):
         return n        # assume Symbolics don't overflow
     assert not isinstance(n, float)
@@ -109,6 +112,9 @@ def intmask(n):
     return int(n)
 
 def longlongmask(n):
+    """
+    NOT_RPYTHON
+    """
     assert isinstance(n, (int, long))
     n = long(n)
     n &= LONGLONG_MASK

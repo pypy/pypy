@@ -3,7 +3,6 @@ import sys
 from pypy.interpreter.mixedmodule import MixedModule
 from pypy.module.imp.importing import get_pyc_magic
 
-
 class BuildersModule(MixedModule):
     appleveldefs = {}
 
@@ -43,6 +42,7 @@ class Module(MixedModule):
         'lookup_special'            : 'interp_magic.lookup_special',
         'do_what_I_mean'            : 'interp_magic.do_what_I_mean',
         'list_strategy'             : 'interp_magic.list_strategy',
+        'validate_fd'               : 'interp_magic.validate_fd',
     }
 
     submodules = {

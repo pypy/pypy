@@ -13,7 +13,7 @@ def _get_compiler_type(cc, x64_flag):
         cc = os.environ.get('CC','')
     if not cc:
         return MsvcPlatform(cc=cc, x64=x64_flag)
-    elif cc.startswith('mingw'):
+    elif cc.startswith('mingw') or cc == 'gcc':
         return MingwPlatform(cc)
     try:
         subprocess.check_output([cc, '--version'])

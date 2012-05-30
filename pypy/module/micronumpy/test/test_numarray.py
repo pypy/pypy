@@ -1530,6 +1530,12 @@ class AppTestNumArray(BaseNumpyAppTest):
         # test virtual
         assert ((x + x).swapaxes(0,1) == array([[[ 2,  4,  6], [14, 16, 18]], 
                                          [[ 8, 10, 12], [20, 22, 24]]])).all()
+
+    def test_filter_bug(self):
+        from numpypy import array
+        a = array([1.0,-1.0])
+        a[a<0] = -a[a<0]
+        assert (a == [1, 1]).all()
                         
 class AppTestMultiDim(BaseNumpyAppTest):
     def test_init(self):

@@ -621,7 +621,7 @@ def getpid(space):
 def kill(space, pid, sig):
     "Kill a process with a signal."
     try:
-        os.kill(pid, sig)
+        rposix.os_kill(pid, sig)
     except OSError, e:
         raise wrap_oserror(space, e)
 
@@ -637,7 +637,7 @@ def abort(space):
     """Abort the interpreter immediately.  This 'dumps core' or otherwise fails
 in the hardest way possible on the hosting operating system."""
     import signal
-    os.kill(os.getpid(), signal.SIGABRT)
+    rposix.os_kill(os.getpid(), signal.SIGABRT)
 
 @unwrap_spec(src='str0', dst='str0')
 def link(space, src, dst):
@@ -747,22 +747,7 @@ Execute an executable path with arguments, replacing current process.
         path: path of executable file
         args: iterable of strings
     """
-    command = fsencode_w(space, w_command)
-    try:
-        args_w = space.unpackiterable(w_args)
-        if len(args_w) < 1:
-            w_msg = space.wrap("execv() must have at least one argument")
-            raise OperationError(space.w_ValueError, w_msg)
-        args = [fsencode_w(space, w_arg) for w_arg in args_w]
-    except OperationError, e:
-        if not e.match(space, space.w_TypeError):
-            raise
-        msg = "execv() arg 2 must be an iterable of strings"
-        raise OperationError(space.w_TypeError, space.wrap(str(msg)))
-    try:
-        os.execv(command, args)
-    except OSError, e:
-        raise wrap_oserror(space, e)
+    execve(space, w_command, w_args, None)
 
 def _env2interp(space, w_env):
     env = {}
@@ -782,12 +767,29 @@ Execute a path with arguments and environment, replacing current process.
         env: dictionary of strings mapping to strings
     """
     command = fsencode_w(space, w_command)
-    args = [fsencode_w(space, w_arg) for w_arg in space.unpackiterable(w_args)]
-    env = _env2interp(space, w_env)
     try:
-        os.execve(command, args, env)
-    except OSError, e:
-        raise wrap_oserror(space, e)
+        args_w = space.unpackiterable(w_args)
+        if len(args_w) < 1:
+            w_msg = space.wrap("execv() must have at least one argument")
+            raise OperationError(space.w_ValueError, w_msg)
+        args = [fsencode_w(space, w_arg) for w_arg in args_w]
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        msg = "execv() arg 2 must be an iterable of strings"
+        raise OperationError(space.w_TypeError, space.wrap(str(msg)))
+    #
+    if w_env is None:    # when called via execv() above
+        try:
+            os.execv(command, args)
+        except OSError, e:
+            raise wrap_oserror(space, e)
+    else:
+        env = _env2interp(space, w_env)
+        try:
+            os.execve(command, args, env)
+        except OSError, e:
+            raise wrap_oserror(space, e)
 
 @unwrap_spec(mode=int, path='str0')
 def spawnv(space, mode, path, w_args):

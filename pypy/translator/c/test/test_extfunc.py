@@ -134,6 +134,13 @@ def test_largefile():
         res = os.lseek(fd, -r5200000000, 2)
         assert res == r4800000000
         os.close(fd)
+        try:
+            os.lseek(fd, 0, 0)
+        except OSError:
+            pass
+        else:
+            print "DID NOT RAISE"
+            raise AssertionError
         st = os.stat(filename)
         assert st.st_size == r10000000000
     does_stuff()

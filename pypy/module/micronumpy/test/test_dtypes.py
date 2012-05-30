@@ -212,6 +212,30 @@ class AppTestDtypes(BaseNumpyAppTest):
         b = array([0] * 10, dtype=int64)
         for idx in b: a[idx] += 1
 
+    def test_hash_int8(self):
+        from _numpypy import int8
+
+        hash(int8(0))
+        d = {int8(5):99}
+
+    def test_hash_int16(self):
+        from _numpypy import int16
+
+        hash(int16(0))
+        d = {int16(99):42}
+
+    def test_hash_int32(self):
+        from _numpypy import int32
+
+        hash(int32(0))
+        d = {int32(5):99}
+
+    def test_hash_int64(self):
+        from _numpypy import int64
+
+        hash(int64(0))
+        d = {int64(99):42}
+
 class AppTestTypes(BaseNumpyAppTest):    
     def test_abstract_types(self):
         import _numpypy as numpy

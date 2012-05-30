@@ -7,11 +7,11 @@ Low-level implementations for the external functions of the 'os' module.
 
 import os, sys, errno
 import py
-from pypy.rpython.module.support import ll_strcpy, OOSupport
-from pypy.tool.sourcetools import func_with_new_name, func_renamer
+from pypy.rpython.module.support import OOSupport
+from pypy.tool.sourcetools import func_renamer
 from pypy.rlib.rarithmetic import r_longlong
 from pypy.rpython.extfunc import (
-    BaseLazyRegistering, lazy_register, register_external)
+    BaseLazyRegistering, register_external)
 from pypy.rpython.extfunc import registering, registering_if, extdef
 from pypy.annotation.model import (
     SomeInteger, SomeString, SomeTuple, SomeFloat, SomeUnicodeString)
@@ -20,20 +20,13 @@ from pypy.rpython.lltypesystem import rffi
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.tool import rffi_platform as platform
 from pypy.rlib import rposix
-from pypy.tool.udir import udir
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.rpython.lltypesystem.rstr import mallocstr
-from pypy.rpython.annlowlevel import llstr
-from pypy.rpython.lltypesystem.llmemory import sizeof,\
-     itemoffsetof, cast_ptr_to_adr, cast_adr_to_ptr, offsetof
+from pypy.rpython.lltypesystem.llmemory import itemoffsetof, offsetof
 from pypy.rpython.lltypesystem.rstr import STR
-from pypy.rpython.annlowlevel import llstr
-from pypy.rlib import rgc
 from pypy.rlib.objectmodel import specialize
 
 str0 = SomeString(no_nul=True)
 unicode0 = SomeUnicodeString(no_nul=True)
-
 
 def monkeypatch_rposix(posixfunc, unicodefunc, signature):
     func_name = posixfunc.__name__
@@ -514,27 +507,23 @@ class RegisterOs(BaseLazyRegistering):
             from pypy.rpython.module.ll_win32file import make_utime_impl
             os_utime_llimpl = make_utime_impl(traits)
 
-        if traits.str is str:
-            s_string = SomeString()
-        else:
-            s_string = SomeUnicodeString()
         s_tuple_of_2_floats = SomeTuple([SomeFloat(), SomeFloat()])
 
         def os_utime_normalize_args(s_path, s_times):
             # special handling of the arguments: they can be either
             # [str, (float, float)] or [str, s_None], and get normalized
             # to exactly one of these two.
-            if not s_string.contains(s_path):
+            if not traits.str0.contains(s_path):
                 raise Exception("os.utime() arg 1 must be a string, got %s" % (
                     s_path,))
             case1 = s_None.contains(s_times)
             case2 = s_tuple_of_2_floats.contains(s_times)
             if case1 and case2:
-                return [s_string, s_ImpossibleValue] #don't know which case yet
+                return [traits.str0, s_ImpossibleValue] #don't know which case yet
             elif case1:
-                return [s_string, s_None]
+                return [traits.str0, s_None]
             elif case2:
-                return [s_string, s_tuple_of_2_floats]
+                return [traits.str0, s_tuple_of_2_floats]
             else:
                 raise Exception("os.utime() arg 2 must be None or a tuple of "
                                 "2 floats, got %s" % (s_times,))
@@ -977,7 +966,7 @@ class RegisterOs(BaseLazyRegistering):
 
         os_lseek = self.llexternal(funcname,
                                    [rffi.INT, rffi.LONGLONG, rffi.INT],
-                                   rffi.LONGLONG)
+                                   rffi.LONGLONG, macro=True)
 
         def lseek_llimpl(fd, pos, how):
             rposix.validate_fd(fd)
@@ -1544,9 +1533,8 @@ class RegisterOs(BaseLazyRegistering):
     def register_os_umask(self):
         os_umask = self.llexternal(underscore_on_windows+'umask', [rffi.MODE_T], rffi.MODE_T)
 
-        def umask_llimpl(fd):
-            rposix.validate_fd(fd)
-            res = os_umask(rffi.cast(rffi.MODE_T, fd))
+        def umask_llimpl(newmask):
+            res = os_umask(rffi.cast(rffi.MODE_T, newmask))
             return rffi.cast(lltype.Signed, res)
 
         return extdef([int], int, llimpl=umask_llimpl,
@@ -1556,13 +1544,11 @@ class RegisterOs(BaseLazyRegistering):
     def register_os_kill(self):
         os_kill = self.llexternal('kill', [rffi.PID_T, rffi.INT],
                                   rffi.INT)
-
         def kill_llimpl(pid, sig):
             res = rffi.cast(lltype.Signed, os_kill(rffi.cast(rffi.PID_T, pid),
                                                    rffi.cast(rffi.INT, sig)))
             if res < 0:
                 raise OSError(rposix.get_errno(), "os_kill failed")
-
         return extdef([int, int], s_None, llimpl=kill_llimpl,
                       export_name="ll_os.ll_os_kill")
 

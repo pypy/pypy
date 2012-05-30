@@ -55,6 +55,9 @@ class W_MyObject(Wrappable):
         from pypy.rlib.rbigint import rbigint
         return rbigint.fromint(NonConstant(42))
 
+class W_MyType(W_MyObject):
+    def __init__(self):
+        self.mro_w = [w_some_obj(), w_some_obj()]
 
 def w_some_obj():
     if NonConstant(False):
@@ -65,6 +68,9 @@ def w_obj_or_none():
     if NonConstant(False):
         return None
     return w_some_obj()
+
+def w_some_type():
+    return W_MyType()
 
 def is_root(w_obj):
     assert isinstance(w_obj, W_Root)
@@ -224,6 +230,9 @@ class FakeObjSpace(ObjSpace):
         assert typedef is not None
         return self.fromcache(TypeCache).getorbuild(typedef)
 
+    def type(self, w_obj):
+        return w_some_type()
+
     def unpackiterable(self, w_iterable, expected_length=-1):
         is_root(w_iterable)
         if expected_length < 0:
@@ -291,10 +300,13 @@ def setup():
                  ObjSpace.ExceptionTable +
                  ['int', 'str', 'float', 'long', 'tuple', 'list',
                   'dict', 'bytes', 'complex', 'slice', 'bool',
-                  'type', 'text', 'object', 'unicode']):
+                  'text', 'object', 'unicode']):
         setattr(FakeObjSpace, 'w_' + name, w_some_obj())
+    FakeObjSpace.w_type = w_some_type()
     #
     for (name, _, arity, _) in ObjSpace.MethodTable:
+        if name == 'type':
+            continue
         args = ['w_%d' % i for i in range(arity)]
         params = args[:]
         d = {'is_root': is_root,

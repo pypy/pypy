@@ -7,7 +7,8 @@ from pypy.translator.platform import platform
 from pypy.interpreter import gateway
 
 #XXX # the release serial 42 is not in range(16)
-CPYTHON_VERSION            = (3, 2, 2, "final", 0)   #XXX # sync patchlevel.h
+CPYTHON_VERSION            = (3, 2, 2, "final", 0)
+#XXX # sync CPYTHON_VERSION with patchlevel.h, package.py
 CPYTHON_API_VERSION        = 1013   #XXX # sync with include/modsupport.h
 
 PYPY_VERSION               = (1, 9, 1, "dev", 0)    #XXX # sync patchlevel.h

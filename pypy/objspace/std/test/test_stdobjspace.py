@@ -74,3 +74,20 @@ class TestW_StdObjSpace:
         space = gettestobjspace(withstrbuf=True)
         cls = space._get_interplevel_cls(space.w_str)
         assert cls is W_AbstractStringObject
+
+    def test_wrap_various_unsigned_types(self):
+        import sys
+        from pypy.rpython.lltypesystem import lltype, rffi
+        space = self.space
+        value = sys.maxint * 2
+        x = rffi.cast(lltype.Unsigned, value)
+        assert space.eq_w(space.wrap(value), space.wrap(x))
+        x = rffi.cast(rffi.UINTPTR_T, value)
+        assert x > 0
+        assert space.eq_w(space.wrap(value), space.wrap(x))
+        value = 60000
+        x = rffi.cast(rffi.USHORT, value)
+        assert space.eq_w(space.wrap(value), space.wrap(x))
+        value = 200
+        x = rffi.cast(rffi.UCHAR, value)
+        assert space.eq_w(space.wrap(value), space.wrap(x))
