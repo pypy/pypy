@@ -293,16 +293,13 @@ LLVMUniChar = PRIMITIVES[lltype.UniChar]
 
 
 class PtrType(BasePtrType):
-    @classmethod
-    def to(cls, to):
-        self = cls()
-        self.to = to
+    def __init__(self, to=None):
         self.refs = {None: 'null'}
-        return self
+        if to is not None:
+            self.to = to
 
     def setup_from_lltype(self, db, type_):
         self.to = db.get_type(type_.TO)
-        self.refs = {None: 'null'}
 
     def repr_type(self, extra_len=None):
         return self.to.repr_type() + '*'
@@ -805,8 +802,8 @@ class GEP(object):
         self.indices.append('i32 {}'.format(index))
 
     def cast(self, fr, to):
-        t1 = self.func_writer._tmp(PtrType.to(fr))
-        t2 = self.func_writer._tmp(PtrType.to(to))
+        t1 = self.func_writer._tmp(PtrType(fr))
+        t2 = self.func_writer._tmp(PtrType(to))
         self.assign(t1)
         self.func_writer.w('{t2.V} = bitcast {t1.TV} to {t2.T}'
                 .format(**locals()))
@@ -1020,17 +1017,17 @@ class FunctionWriter(object):
     op_setarrayitem = op_bare_setarrayitem = _set_element
 
     def op_direct_fieldptr(self, result, ptr, field):
-        t = self._tmp(PtrType.to(result.type_.to.of))
+        t = self._tmp(PtrType(result.type_.to.of))
         self._get_element_ptr(ptr, [field], t)
         self.w('{result.V} = bitcast {t.TV} to {result.T}'.format(**locals()))
 
     def op_direct_arrayitems(self, result, ptr):
-        t = self._tmp(PtrType.to(result.type_.to.of))
+        t = self._tmp(PtrType(result.type_.to.of))
         self._get_element_ptr(ptr, [ConstantRepr(LLVMSigned, 0)], t)
         self.w('{result.V} = bitcast {t.TV} to {result.T}'.format(**locals()))
 
     def op_direct_ptradd(self, result, var, val):
-        t = self._tmp(PtrType.to(result.type_.to.of))
+        t = self._tmp(PtrType(result.type_.to.of))
         self.w('{t.V} = getelementptr {var.TV}, i64 0, {val.TV}'
                 .format(**locals()))
         self.w('{result.V} = bitcast {t.TV} to {result.T}'.format(**locals()))
@@ -1119,8 +1116,8 @@ class FunctionWriter(object):
         self.op_direct_call(result, get_repr(raw_free), ptr)
 
     def _get_addr(self, ptr_to, addr, incr):
-        t1 = self._tmp(PtrType.to(ptr_to))
-        t2 = self._tmp(PtrType.to(ptr_to))
+        t1 = self._tmp(PtrType(ptr_to))
+        t2 = self._tmp(PtrType(ptr_to))
         self.w('{t1.V} = bitcast {addr.TV} to {t1.T}'.format(**locals()))
         self.w('{t2.V} = getelementptr {t1.TV}, {incr.TV}'.format(**locals()))
         return t2
