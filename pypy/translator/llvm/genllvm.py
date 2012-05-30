@@ -1259,11 +1259,11 @@ class FrameworkGCPolicy(GCPolicy):
             if value is None:
                 return
         if isinstance(type_, lltype.ContainerType):
+            value = lltype.top_container(value)
+            type_ = lltype.typeOf(value)
             if value in self._considered_constant:
                 return
             self._considered_constant.add(value)
-            value = lltype.top_container(value)
-            type_ = lltype.typeOf(value)
             if isinstance(type_, lltype.Struct):
                 for f in type_._names:
                     self._consider_constant(type_._flds[f], getattr(value, f))
