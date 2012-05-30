@@ -247,7 +247,6 @@ if os.name == 'nt':
         else:
             return nt._getfullpathname(path.as_bytes())
 
-<<<<<<< local
 @specialize.argtype(0, 1)
 def putenv(name, value):
     if isinstance(name, str):
@@ -262,11 +261,9 @@ def unsetenv(name):
     else:
         del os.environ[name.as_bytes()]
 
-=======
 if os.name == 'nt':
     from pypy.rlib import rwin32
     os_kill = rwin32.os_kill
 else:
     os_kill = os.kill
     
->>>>>>> other
