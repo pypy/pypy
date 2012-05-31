@@ -28,7 +28,7 @@ class TestTermios(object):
         return child
 
     def spawn(self, argv):
-        return self._spawn(sys.executable, [str(self.py_py)] + argv)
+        return self._spawn(sys.executable, [str(self.py_py), '-S'] + argv)
 
     def test_one(self):
         child = self.spawn(['--withmod-termios'])
