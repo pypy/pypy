@@ -281,11 +281,13 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert zeros(()).shape == ()
 
     def test_size(self):
-        from _numpypy import array
+        from _numpypy import array,arange,cos
         assert array(3).size == 1
         a = array([1, 2, 3])
         assert a.size == 3
         assert (a + a).size == 3
+        ten = cos(1 + arange(10)).size
+        assert ten == 10
 
     def test_empty(self):
         """
