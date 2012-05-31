@@ -64,13 +64,8 @@ class FPRegisterManager(RegisterManager):
     def __init__(self, longevity, frame_manager=None, assembler=None):
         RegisterManager.__init__(self, longevity, frame_manager, assembler)
 
-    def after_call(self, v):
-        """ Adjust registers according to the result of the call,
-        which is in variable v.
-        """
-        self._check_type(v)
-        r = self.force_allocate_reg(v)
-        return r
+    def call_result_location(self, v):
+        return r.f1
 
     def ensure_value_is_boxed(self, thing, forbidden_vars=[]):
         loc = None
