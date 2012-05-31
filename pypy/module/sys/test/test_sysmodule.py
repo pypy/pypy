@@ -46,18 +46,20 @@ class AppTestAppSysTests:
     def test_sys_exc_info(self):
         try:
             raise Exception
-        except Exception as e:
+        except Exception as exc:
+            e = exc
             import sys
             exc_type,exc_val,tb = sys.exc_info()
         try:
-            raise Exception   # 5 lines below the previous one
-        except Exception as e2:
+            raise Exception   # 6 lines below the previous one
+        except Exception as exc:
+            e2 = exc
             exc_type2,exc_val2,tb2 = sys.exc_info()
         assert exc_type ==Exception
         assert exc_val ==e
         assert exc_type2 ==Exception
         assert exc_val2 ==e2
-        assert tb2.tb_lineno - tb.tb_lineno == 5
+        assert tb2.tb_lineno - tb.tb_lineno == 6
 
     def test_dynamic_attributes(self):
         try:
