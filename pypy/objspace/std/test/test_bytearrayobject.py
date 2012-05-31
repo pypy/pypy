@@ -449,5 +449,5 @@ class AppTestBytesArray:
             count = 1024
         b = bytearray(count)
         for i in range(count):
-            b[i:i+1] = 'y'
-        assert str(b) == 'y' * count
+            b[i:i+1] = b'y'
+        assert bytes(b) == b'y' * count
