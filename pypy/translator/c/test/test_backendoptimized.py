@@ -1,6 +1,8 @@
-import py
 from pypy.translator.c.test.test_typed import TestTypedTestCase as _TestTypedTestCase
 from pypy.translator.backendopt.all import backend_optimizations
+from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem.lloperation import llop
+from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
 from pypy import conftest
 
@@ -22,9 +24,10 @@ class TestTypedOptimizedTestCase(_TestTypedTestCase):
         fn = self.getcompiled(f, [bool])
         assert f(True) == 123
         assert f(False) == 456
+        assert fn(True) == 123
+        assert fn(False) == 456
 
     def test__del__(self):
-        import os
         class B(object):
             pass
         b = B()
@@ -42,6 +45,8 @@ class TestTypedOptimizedTestCase(_TestTypedTestCase):
             a = A()
             for i in range(x):
                 a = A()
+            if we_are_translated():
+                llop.gc__collect(lltype.Void)
             return b.num_deleted
 
         fn = self.getcompiled(f, [int])
@@ -72,6 +77,8 @@ class TestTypedOptimizedTestCase(_TestTypedTestCase):
             A()
             B()
             C()
+            if we_are_translated():
+                llop.gc__collect(lltype.Void)
             if x:
                 return s.a_dels * 10 + s.b_dels
             else:

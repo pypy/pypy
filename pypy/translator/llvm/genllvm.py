@@ -903,7 +903,17 @@ class FunctionWriter(object):
                     get_repr(block.exitswitch, self.var_aliases).V, true,
                     false))
         else:
-            raise NotImplementedError
+            destinations = []
+            for link in block.exits:
+                if link.llexitcase is None:
+                    default = self.block_to_name[link.target]
+                else:
+                    destinations.append((get_repr(link.llexitcase),
+                                         self.block_to_name[link.target]))
+            self.w('switch {}, label %{} [ {} ]'.format(
+                    get_repr(block.exitswitch, self.var_aliases).TV,
+                    default, ' '.join('{}, label %{}'.format(val.TV, dest)
+                                      for val, dest in destinations)))
 
     def write_returnblock(self, block):
         ret = block.inputargs[0]

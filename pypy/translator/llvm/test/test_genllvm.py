@@ -4,7 +4,8 @@ from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rpython.lltypesystem.test.test_rffi import BaseTestRffi
 from pypy.translator.backendopt.raisingop2direct_call import (
      raisingop2direct_call)
-from pypy.translator.c.test import test_typed, test_lltyped, test_newgc
+from pypy.translator.c.test import (test_typed, test_lltyped,
+     test_backendoptimized, test_newgc)
 from pypy.translator.llvm import genllvm
 from pypy.translator.translator import TranslationContext
 
@@ -260,6 +261,21 @@ class TestLowLevelTypeLLVM(_LLVMMixin, test_lltyped.TestLowLevelType):
 
 class TestTypedLLVM(_LLVMMixin, test_typed.TestTypedTestCase):
     pass
+
+
+class TestTypedOptimizedTestCaseLLVM(_LLVMMixin, test_backendoptimized
+                                                 .TestTypedOptimizedTestCase):
+    def process(self, t):
+        test_backendoptimized.TestTypedOptimizedTestCase.process(self, t)
+
+class TestTypedOptimizedSwitchTestCaseLLVM(test_backendoptimized
+                                           .TestTypedOptimizedSwitchTestCase):
+    class CodeGenerator(_LLVMMixin, test_backendoptimized
+                                    .TestTypedOptimizedSwitchTestCase
+                                    .CodeGenerator):
+        def process(self, t):
+            test_backendoptimized.TestTypedOptimizedSwitchTestCase \
+                    .CodeGenerator.process(self, t)
 
 
 class TestLLVMRffi(BaseTestRffi, _LLVMMixin):
