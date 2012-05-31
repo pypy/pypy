@@ -6,6 +6,7 @@ from pypy.rlib.rarithmetic import r_singlefloat, r_longlong, r_ulonglong
 from pypy.rlib.test.test_clibffi import BaseFfiTest, make_struct_ffitype_e
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rpython.lltypesystem.ll2ctypes import ALLOCATED
+from pypy.rpython.llinterp import LLException
 from pypy.rlib.libffi import (CDLL, ArgChain, types,
                               IS_32_BIT, array_getitem, array_setitem)
 from pypy.rlib.libffi import (struct_getfield_int, struct_setfield_int,
@@ -551,6 +552,9 @@ class TestLibffiCall(BaseFfiTest):
             except ValueError, e:
                 assert e.message == 'Procedure called with not enough ' + \
                      'arguments (8 bytes missing) or wrong calling convention'
+            except LLException:
+                #jitted code raises this
+                pass
             else:
                 assert 0, 'wrong calling convention should have raised'
 
