@@ -51,9 +51,12 @@ If the exitcode is omitted or None, it defaults to zero (i.e., success).
 If the exitcode is numeric, it will be used as the system exit status.
 If it is another kind of object, it will be printed and the system
 exit status will be one (i.e., failure)."""
-    # note that we cannot use SystemExit(exitcode) here.
-    # The comma version leads to an extra de-tupelizing
+    # note that we cannot simply use SystemExit(exitcode) here.
+    # in the default branch, we use "raise SystemExit, exitcode", 
+    # which leads to an extra de-tupelizing
     # in normalize_exception, which is exactly like CPython's.
+    if isinstance(exitcode, tuple):
+        raise SystemExit(*exitcode)
     raise SystemExit(exitcode)
 
 #import __builtin__
