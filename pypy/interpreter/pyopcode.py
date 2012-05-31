@@ -880,15 +880,18 @@ class __extend__(pyframe.PyFrame):
         raise BytecodeCorruption, "old opcode, no longer in use"
 
     def SETUP_LOOP(self, offsettoend, next_instr):
-        block = LoopBlock(self, next_instr + offsettoend, self.lastblock)
+        block = LoopBlock(self.valuestackdepth,
+                          next_instr + offsettoend, self.lastblock)
         self.lastblock = block
 
     def SETUP_EXCEPT(self, offsettoend, next_instr):
-        block = ExceptBlock(self, next_instr + offsettoend, self.lastblock)
+        block = ExceptBlock(self.valuestackdepth,
+                            next_instr + offsettoend, self.lastblock)
         self.lastblock = block
 
     def SETUP_FINALLY(self, offsettoend, next_instr):
-        block = FinallyBlock(self, next_instr + offsettoend, self.lastblock)
+        block = FinallyBlock(self.valuestackdepth,
+                             next_instr + offsettoend, self.lastblock)
         self.lastblock = block
 
     def SETUP_WITH(self, offsettoend, next_instr):
@@ -903,7 +906,8 @@ class __extend__(pyframe.PyFrame):
         w_exit = self.space.get(w_descr, w_manager)
         self.settopvalue(w_exit)
         w_result = self.space.get_and_call_function(w_enter, w_manager)
-        block = WithBlock(self, next_instr + offsettoend, self.lastblock)
+        block = WithBlock(self.valuestackdepth,
+                          next_instr + offsettoend, self.lastblock)
         self.lastblock = block
         self.pushvalue(w_result)
 
@@ -1244,9 +1248,9 @@ class FrameBlock(object):
 
     _immutable_ = True
 
-    def __init__(self, frame, handlerposition, previous):
+    def __init__(self, valuestackdepth, handlerposition, previous):
         self.handlerposition = handlerposition
-        self.valuestackdepth = frame.valuestackdepth
+        self.valuestackdepth = valuestackdepth
         self.previous = previous   # this makes a linked list of blocks
 
     def __eq__(self, other):
@@ -1345,7 +1349,8 @@ class ExceptBlock(FrameBlock):
             w_last_exception = W_OperationError(frame.last_exception)
             w_last_exception = frame.space.wrap(w_last_exception)
             frame.pushvalue(w_last_exception)
-            block = ExceptHandlerBlock(self, 0, frame.lastblock)
+            block = ExceptHandlerBlock(self.valuestackdepth,
+                                       0, frame.lastblock)
             frame.lastblock = block
         frame.pushvalue(frame.space.wrap(unroller))
         frame.pushvalue(operationerr.get_w_value(frame.space))

@@ -7,4 +7,6 @@ dead code because the grammar changed
 
 re-enable IntDictStrategy
 
+re-enable StdObjSpace.listview_str
+
 unskip numpypy tests in module/test_lib_pypy/numpypy/

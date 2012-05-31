@@ -430,7 +430,8 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         w_exit = self.space.getattr(w_manager, self.space.wrap("__exit__"))
         self.settopvalue(w_exit)
         w_result = self.space.call_method(w_manager, "__enter__")
-        block = WithBlock(self, next_instr + offsettoend, self.lastblock)
+        block = WithBlock(self.valuestackdepth,
+                          next_instr + offsettoend, self.lastblock)
         self.lastblock = block
         self.pushvalue(w_result)
 
