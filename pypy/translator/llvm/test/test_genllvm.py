@@ -1,5 +1,6 @@
 from cStringIO import StringIO
 import py
+from pypy.objspace.flow.model import FunctionGraph, Block, Link
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rpython.lltypesystem.test.test_rffi import BaseTestRffi
 from pypy.translator.backendopt.raisingop2direct_call import (
@@ -7,6 +8,7 @@ from pypy.translator.backendopt.raisingop2direct_call import (
 from pypy.translator.c.test import (test_typed, test_lltyped,
      test_backendoptimized, test_newgc)
 from pypy.translator.llvm import genllvm
+from pypy.translator.unsimplify import varoftype
 from pypy.translator.translator import TranslationContext
 
 
@@ -249,6 +251,22 @@ class TestSpecialCases(_LLVMMixin):
             return 1e-06
         fc = self.getcompiled(f)
         assert fc() == 1e-06
+
+    def test_two_exits_non_bool(self):
+        genllvm.database = genllvm.Database(None, None)
+        var = varoftype(lltype.Signed)
+        startblock = Block([var])
+        startblock.exitswitch = var
+        startblock.closeblock(Link([var], Block([var])),
+                              Link([var], Block([var])))
+        startblock.exits[0].llexitcase = 0
+        startblock.exits[1].llexitcase = 1
+        graph = FunctionGraph('test', startblock, var)
+        writer = genllvm.FunctionWriter()
+        writer.write_graph('@test', graph)
+        assert [line.strip() for line in writer.lines[-4:-1]] == [
+                'badswitch:', 'call void @abort() noreturn nounwind',
+                'unreachable']
 
 
 class TestLowLevelTypeLLVM(_LLVMMixin, test_lltyped.TestLowLevelType):

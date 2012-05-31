@@ -820,6 +820,7 @@ class FunctionWriter(object):
         self.lines = []
         self.tmp_counter = count()
         self.var_aliases = {}
+        self.need_badswitch_block = False
 
     def w(self, line, indent='    '):
         self.lines.append('{}{}\n'.format(indent, line))
@@ -851,6 +852,10 @@ class FunctionWriter(object):
                 self.write_phi_nodes(block)
             self.write_operations(block)
             self.write_branches(block)
+        if self.need_badswitch_block:
+            self.w('badswitch:', '  ')
+            self.w('call void @abort() noreturn nounwind')
+            self.w('unreachable')
         self.w('}', '')
 
     def write_phi_nodes(self, block):
@@ -892,8 +897,8 @@ class FunctionWriter(object):
             self.write_returnblock(block)
         elif len(block.exits) == 1:
             self.w('br label %' + self.block_to_name[block.exits[0].target])
-        elif len(block.exits) == 2:
-            assert block.exitswitch.concretetype is lltype.Bool
+        elif block.exitswitch.concretetype is lltype.Bool:
+            assert len(block.exits) == 2
             for link in block.exits:
                 if link.llexitcase:
                     true = self.block_to_name[link.target]
@@ -903,6 +908,7 @@ class FunctionWriter(object):
                     get_repr(block.exitswitch, self.var_aliases).V, true,
                     false))
         else:
+            default = None
             destinations = []
             for link in block.exits:
                 if link.llexitcase is None:
@@ -910,6 +916,9 @@ class FunctionWriter(object):
                 else:
                     destinations.append((get_repr(link.llexitcase),
                                          self.block_to_name[link.target]))
+            if default is None:
+                default = 'badswitch'
+                self.need_badswitch_block = True
             self.w('switch {}, label %{} [ {} ]'.format(
                     get_repr(block.exitswitch, self.var_aliases).TV,
                     default, ' '.join('{}, label %{}'.format(val.TV, dest)
@@ -1520,6 +1529,7 @@ class GenLLVM(object):
             global align
             align = int(tmp[3]) / 8
             f.write(output)
+            f.write('declare void @abort() noreturn nounwind')
 
             database = Database(self, f)
 
