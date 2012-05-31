@@ -133,7 +133,7 @@ class AppTestConnectedSSL:
         ss.write(b"hello\n")
         try:
             ss.shutdown(socket.SHUT_RDWR)
-        except socket.error, e:
+        except socket.error as e:
             if e.errno == 0:
                 pass  # xxx obscure case; throwing errno 0 is pretty odd...
             raise
