@@ -1209,8 +1209,6 @@ class ForceOpAssembler(object):
             # result of previous call is in r3
             self.mov_loc_loc(arglocs[0], r.r4)
             self.mc.call(asm_helper_adr)
-            if op.result and resloc.is_fp_reg():
-                assert 0, "not implemented yet"
 
         # merge point
         currpos = self.mc.currpos()
