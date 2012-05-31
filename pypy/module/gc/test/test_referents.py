@@ -57,7 +57,7 @@ class AppTestReferents(object):
         lst = gc.get_rpy_referents(x)
         # After translation, 'lst' should contain the RPython-level list
         # (as a GcStruct).  Before translation, the 'wrappeditems' list.
-        print lst
+        print(lst)
         lst2 = [x for x in lst if type(x) is gc.GcRef]
         assert lst2 != []
         # In any case, we should land on 'y' after one or two extra levels
@@ -73,7 +73,7 @@ class AppTestReferents(object):
     def test_get_rpy_memory_usage(self):
         import gc
         n = gc.get_rpy_memory_usage(12345)
-        print n
+        print(n)
         assert 4 <= n <= 64
 
     def test_get_rpy_type_index(self):
@@ -84,7 +84,7 @@ class AppTestReferents(object):
         n2 = gc.get_rpy_type_index(23456)
         n3 = gc.get_rpy_type_index(1.2)
         n4 = gc.get_rpy_type_index(Foo())
-        print n1, n2, n3, n4
+        print(n1, n2, n3, n4)
         assert n1 == n2
         assert n1 != n3
         assert n1 != n4
