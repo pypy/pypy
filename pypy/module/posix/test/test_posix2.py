@@ -951,19 +951,19 @@ class TestPexpect(object):
     def _spawn(self, *args, **kwds):
         import pexpect
         print 'SPAWN:', args, kwds
-        child = pexpect.spawn(*args, **kwds)
+        child = pexpect.spawn(*args, maxread=5000, **kwds)
         child.logfile = sys.stdout
         return child
 
     def spawn(self, argv):
         py_py = py.path.local(pypydir).join('bin', 'py.py')
-        return self._spawn(sys.executable, [str(py_py)] + argv)
+        return self._spawn(sys.executable, [str(py_py), '-S'] + argv)
 
     def test_ttyname(self):
         source = py.code.Source("""
         import os, sys
         assert os.ttyname(sys.stdin.fileno())
-        print 'ok!'
+        print('ok!')
         """)
         f = udir.join("test_ttyname.py")
         f.write(source)
