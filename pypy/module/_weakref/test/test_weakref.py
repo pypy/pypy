@@ -208,7 +208,9 @@ class AppTestWeakref(object):
         assert w_bound()() == 42
         del meth
         gc.collect()
-        assert w_unbound() is None
+        # it used to be None on py2, but now there is no longer a newly
+        # created unbound method object
+        assert w_unbound() is A.f
         assert w_bound() is None
 
     def test_set_weakrefable(self):
