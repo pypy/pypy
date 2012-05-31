@@ -619,8 +619,6 @@ class FuncType(Type):
                         .replace('<', '_').replace('>', '_'))
             ptr_type.refs[obj] = name
             writer = FunctionWriter()
-            # XXX temporary fix
-            database.genllvm.transform_graph(obj.graph)
             writer.write_graph(name, obj.graph)
             database.f.writelines(writer.lines)
 
@@ -1193,7 +1191,7 @@ class FunctionWriter(object):
 class GCPolicy(object):
     def __init__(self, genllvm):
         self.genllvm = genllvm
-        self.delayed_ptrs = []
+        self.delayed_ptrs = False
 
     def transform_graph(self, graph):
         raise NotImplementedError("Override in subclass.")
@@ -1202,10 +1200,9 @@ class GCPolicy(object):
         while self.delayed_ptrs:
             self.gctransformer.finish_helpers()
 
-            delayed_ptrs = self.delayed_ptrs
-            self.delayed_ptrs = []
-            for ptr in delayed_ptrs:
-                self.genllvm.transform_graph(ptr._obj.graph)
+            self.delayed_ptrs = False
+            for graph in self.genllvm.translator.graphs:
+                self.genllvm.transform_graph(graph)
 
             finish_tables = self.gctransformer.get_finish_tables()
             if hasattr(finish_tables, '__iter__'):
@@ -1239,8 +1236,7 @@ class FrameworkGCPolicy(GCPolicy):
             try:
                 value = value._obj
             except lltype.DelayedPointer:
-                assert isinstance(value._obj0, str)
-                self.delayed_ptrs.append(value)
+                self.delayed_ptrs = True
                 return
             if value is None:
                 return
