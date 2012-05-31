@@ -285,8 +285,8 @@ for type_ in rffi.NUMBER_TYPES + [lltype.Char, lltype.UniChar]:
         PRIMITIVES[type_] = IntegralType(*rffi.size_and_sign(type_))
 LLVMSigned = PRIMITIVES[lltype.Signed]
 LLVMUnsigned = PRIMITIVES[lltype.Unsigned]
+LLVMHalfWord = PRIMITIVES[llgroup.HALFWORD]
 LLVMInt = PRIMITIVES[rffi.INT]
-LLVMShort = PRIMITIVES[rffi.SHORT]
 LLVMChar = PRIMITIVES[lltype.Char]
 LLVMSignedChar = PRIMITIVES[rffi.SIGNEDCHAR]
 LLVMUniChar = PRIMITIVES[lltype.UniChar]
@@ -1179,7 +1179,7 @@ class FunctionWriter(object):
 
     def op_gc_gettypeptr_group(self, result, obj, grpptr, skipoffset, vtinfo):
         t1 = self._tmp(LLVMSigned)
-        t2 = self._tmp(LLVMShort)
+        t2 = self._tmp(LLVMHalfWord)
         self._get_element(t1, obj, ConstantRepr(LLVMVoid, '_gc_header'),
                           ConstantRepr(LLVMVoid, vtinfo.value[2]))
         self._cast(t2, t1)
