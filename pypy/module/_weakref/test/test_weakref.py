@@ -227,16 +227,16 @@ class AppTestWeakref(object):
                 yield i
         g = f(10)
         w = _weakref.ref(g)
-        r = w().next()
+        r = next(w())
         assert r == 0
-        r = g.next()
+        r = next(g)
         assert r == 1
         del g
         gc.collect()
         assert w() is None
         g = f(10)
         w = _weakref.ref(g)
-        assert list(g) == range(10)
+        assert list(g) == list(range(10))
         del g
         gc.collect()
         assert w() is None
@@ -398,7 +398,7 @@ class AppTestProxy(object):
                 return 42
             w = getattr(_weakref, kind)(foobaz)
             s = repr(w)
-            print s
+            print(s)
             if kind == 'ref':
                 assert s.startswith('<weakref at ')
             else:
@@ -414,7 +414,7 @@ class AppTestProxy(object):
             except ReferenceError:
                 pass    # only reachable if kind == 'proxy'
             s = repr(w)
-            print s
+            print(s)
             assert "dead" in s
 
     def test_unicode(self):
@@ -422,12 +422,9 @@ class AppTestProxy(object):
         class C(object):
             def __str__(self):
                 return "string"
-            def __unicode__(self):
-                return u"unicode"
         instance = C()
-        assert "__unicode__" in dir(_weakref.proxy(instance))
+        assert "__str__" in dir(_weakref.proxy(instance))
         assert str(_weakref.proxy(instance)) == "string"
-        assert unicode(_weakref.proxy(instance)) == u"unicode"
 
     def test_eq(self):
         import _weakref
