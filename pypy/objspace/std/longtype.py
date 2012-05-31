@@ -55,7 +55,7 @@ def descr__new__(space, w_longtype, w_x=0, w_base=gateway.NoneNotWrapped):
             s = unicode_to_decimal_w(space, w_value)
         else:
             try:
-                s = space.str_w(w_value)
+                s = space.bufferstr_w(w_value)
             except OperationError, e:
                 raise OperationError(space.w_TypeError,
                                      space.wrap("long() can't convert non-string "

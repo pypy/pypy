@@ -434,6 +434,7 @@ class AppTestBytesArray:
 
     def test_int(self):
         assert int(bytearray(b'-1234')) == -1234
+        assert int(bytearray(b'10'), 16) == 16
 
     def test_reduce(self):
         assert bytearray(b'caf\xe9').__reduce__() == (
