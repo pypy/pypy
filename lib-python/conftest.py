@@ -333,6 +333,7 @@ testmap = [
     RegrTest('test_pstats.py'),
     RegrTest('test_pty.py', skip="unsupported extension module"),
     RegrTest('test_pwd.py', usemodules="pwd", skip=skip_win32),
+    RegrTest('test_py_compile.py'),
     RegrTest('test_pyclbr.py'),
     RegrTest('test_pydoc.py'),
     RegrTest('test_pyexpat.py'),
