@@ -12,6 +12,7 @@ class AppTestMemory:
         raises(TypeError, _multiprocessing.address_of_buffer, "a")
 
     def test_mmap_address(self):
+        py3k_skip('ctypes not working yet')
         import mmap
         import _multiprocessing
 
