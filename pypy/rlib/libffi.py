@@ -1,11 +1,11 @@
 from __future__ import with_statement
 
 from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.rlib.objectmodel import specialize, enforceargs, we_are_translated
+from pypy.rlib.objectmodel import specialize, enforceargs
 from pypy.rlib.rarithmetic import intmask, r_uint, r_singlefloat, r_longlong
 from pypy.rlib import jit
 from pypy.rlib import clibffi
-from pypy.rlib.clibffi import get_libc_name, FUNCFLAG_CDECL, AbstractFuncPtr, \
+from pypy.rlib.clibffi import FUNCFLAG_CDECL, AbstractFuncPtr, \
     push_arg_as_ffiptr, c_ffi_call, FFI_TYPE_STRUCT
 from pypy.rlib.rdynload import dlopen, dlclose, dlsym, dlsym_byordinal
 from pypy.rlib.rdynload import DLLHANDLE
@@ -374,7 +374,7 @@ class Func(AbstractFuncPtr):
         else:
             res = None
         self._free_buffers(ll_result, ll_args)
-        #check_fficall_result(ffires, self.flags)
+        clibffi.check_fficall_result(ffires, self.flags)
         return res
 
     def _free_buffers(self, ll_result, ll_args):
