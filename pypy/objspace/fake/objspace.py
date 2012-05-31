@@ -170,7 +170,6 @@ class FakeObjSpace(ObjSpace):
         raise NotImplementedError
 
     def wrapbytes(self, x):
-        assert isinstance(x, str)
         return w_some_obj()
 
     def _see_interp2app(self, interp2app):
