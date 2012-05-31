@@ -29,7 +29,7 @@ class AppTestBufferTooShort:
         import multiprocessing
         try:
             self.raiseBufferTooShort("data")
-        except multiprocessing.BufferTooShort, e:
+        except multiprocessing.BufferTooShort as e:
             assert isinstance(e, multiprocessing.ProcessError)
             assert e.args == ("data",)
 
@@ -164,12 +164,12 @@ class AppTestSocketConnection(BaseConnectionTest):
         # order) is important for interoperation with others
         # implementations.
         rhandle, whandle = self.make_pair()
-        whandle.send_bytes("abc")
-        whandle.send_bytes("defg")
+        whandle.send_bytes(b"abc")
+        whandle.send_bytes(b"defg")
         sock = socket.fromfd(rhandle.fileno(),
                              socket.AF_INET, socket.SOCK_STREAM)
         data1 = sock.recv(7)
-        assert data1 == '\x00\x00\x00\x03abc'
+        assert data1 == b'\x00\x00\x00\x03abc'
         data2 = sock.recv(8)
-        assert data2 == '\x00\x00\x00\x04defg'
+        assert data2 == b'\x00\x00\x00\x04defg'
 

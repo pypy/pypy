@@ -16,7 +16,7 @@ PY_SSIZE_T_MAX = sys.maxint
 PY_SSIZE_T_MIN = -sys.maxint - 1
 
 def BufferTooShort(space, w_data):
-    w_builtins = space.getbuiltinmodule('__builtin__')
+    w_builtins = space.getbuiltinmodule('builtins')
     w_module = space.call_method(
         w_builtins, '__import__', space.wrap("multiprocessing"))
     w_BufferTooShort = space.getattr(w_module, space.wrap("BufferTooShort"))
@@ -130,7 +130,7 @@ class W_BaseConnection(Wrappable):
     def send(self, space, w_obj):
         self._check_writable(space)
 
-        w_builtins = space.getbuiltinmodule('__builtin__')
+        w_builtins = space.getbuiltinmodule('builtins')
         w_picklemodule = space.call_method(
             w_builtins, '__import__', space.wrap("pickle"))
         w_protocol = space.getattr(
@@ -155,7 +155,7 @@ class W_BaseConnection(Wrappable):
             if newbuf:
                 rffi.free_charp(newbuf)
 
-        w_builtins = space.getbuiltinmodule('__builtin__')
+        w_builtins = space.getbuiltinmodule('builtins')
         w_picklemodule = space.call_method(
             w_builtins, '__import__', space.wrap("pickle"))
         w_unpickled = space.call_method(
