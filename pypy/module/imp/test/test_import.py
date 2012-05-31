@@ -637,7 +637,7 @@ class AppTestImport:
         try:
             import itertools
             assert not hasattr(itertools, 'hello_world')
-            assert hasattr(itertools, 'izip')
+            assert hasattr(itertools, 'islice')
             assert '(built-in)' in repr(itertools)
         finally:
             sys.path.insert(0, sys.path.pop())
