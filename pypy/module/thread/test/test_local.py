@@ -90,8 +90,8 @@ class AppTestLocal(GenericTestThread):
         assert len(done) == 5
 
     def test_local_is_not_immortal(self):
-        import thread, gc, time
-        class Local(thread._local):
+        import _thread, gc, time
+        class Local(_thread._local):
             def __del__(self):
                 done.append('del')
         done = []
@@ -102,7 +102,7 @@ class AppTestLocal(GenericTestThread):
             self.waitfor(lambda: len(done) == 3, delay=8)
         l = Local()
         l.foo = 42
-        thread.start_new_thread(f, ())
+        _thread.start_new_thread(f, ())
         self.waitfor(lambda: len(done) == 1, delay=2)
         l = None
         gc.collect()
