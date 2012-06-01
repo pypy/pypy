@@ -41,7 +41,7 @@ class Test__ffi(BaseTestPyPyC):
 
 
     def test__ffi_call_frame_does_not_escape(self):
-        from pypy.rlib.test.test_libffi import get_libm_name
+        from pypy.rlib.test.test_clibffi import get_libm_name
         def main(libm_name):
             try:
                 from _ffi import CDLL, types
@@ -111,7 +111,7 @@ class Test__ffi(BaseTestPyPyC):
 
 
     def test_ctypes_call(self):
-        from pypy.rlib.test.test_libffi import get_libm_name
+        from pypy.rlib.test.test_clibffi import get_libm_name
         def main(libm_name):
             import ctypes
             libm = ctypes.CDLL(libm_name)
