@@ -221,35 +221,34 @@ class Regalloc(object):
 
     def _set_initial_bindings(self, inputargs):
         arg_index = 0
-        count = 0
+        fparg_index = 0
         n_register_args = len(r.PARAM_REGS)
+        n_fpregister_args = len(r.PARAM_FPREGS)
         cur_frame_pos = -self.assembler.OFFSET_STACK_ARGS // WORD + 1
         for box in inputargs:
             assert isinstance(box, Box)
-            if arg_index < n_register_args:
-                if box.type == FLOAT:
-                    loc = r.PARAM_FPREGS[arg_index]
+            if box.type == FLOAT:
+                if fparg_index < n_fpregister_args:
+                    loc = r.PARAM_FPREGS[fparg_index]
                     self.try_allocate_reg(box, selected_reg=loc)
-                    arg_index += 1
+                    fparg_index += 1
                 else:
-                    loc = r.PARAM_REGS[arg_index]
-                    self.try_allocate_reg(box, selected_reg=loc)
-                    arg_index += 1
-            else:
-                # treat stack args as stack locations with a negative offset
-                if box.type == FLOAT:
                     if IS_PPC_32:
                         cur_frame_pos -= 2
                     else:
                         cur_frame_pos -= 1
-                    if count % 2 != 0: # Stack argument alignment
-                        cur_frame_pos -= 1
-                        count = 0
+                    loc = self.frame_manager.frame_pos(cur_frame_pos, box.type)
+                    self.frame_manager.set_binding(box, loc)
+            else:
+                if arg_index < n_register_args:
+                    loc = r.PARAM_REGS[arg_index]
+                    self.try_allocate_reg(box, selected_reg=loc)
+                    arg_index += 1
                 else:
+                # treat stack args as stack locations with a negative offset
                     cur_frame_pos -= 1
-                    count += 1
-                loc = self.frame_manager.frame_pos(cur_frame_pos, box.type)
-                self.frame_manager.set_binding(box, loc)
+                    loc = self.frame_manager.frame_pos(cur_frame_pos, box.type)
+                    self.frame_manager.set_binding(box, loc)
 
     def _update_bindings(self, locs, inputargs):
         used = {}
