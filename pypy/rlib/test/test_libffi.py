@@ -176,6 +176,15 @@ class TestLibffiMisc(BaseFfiTest):
         #
         lltype.free(p, flavor='raw')
 
+    def test_windll(self):
+        if os.name != 'nt':
+            skip('Run only on windows')
+        from pypy.rlib.libffi import WinDLL
+        dll = WinDLL('Kernel32.dll')
+        sleep = dll.getpointer('Sleep',[types.uint], types.void)
+        chain = ArgChain()
+        chain.arg(10)
+        sleep.call(chain, lltype.Void, is_struct=False)
 
 class TestLibffiCall(BaseFfiTest):
     """
@@ -220,9 +229,16 @@ class TestLibffiCall(BaseFfiTest):
         eci = ExternalCompilationInfo(export_symbols=exports)
         cls.libfoo_name = str(platform.compile([c_file], eci, 'x',
                                                standalone=False))
+        cls.dll = cls.CDLL(cls.libfoo_name)
+
+    def teardown_class(cls):
+        if cls.dll:
+            cls.dll.__del__()
+            # Why doesn't this call cls.dll.__del__() ?
+            #del cls.dll
 
     def get_libfoo(self):
-        return self.CDLL(self.libfoo_name)
+        return self.dll    
 
     def call(self, funcspec, args, RESULT, is_struct=False, jitif=[]):
         """
@@ -262,6 +278,7 @@ class TestLibffiCall(BaseFfiTest):
         func = (libfoo, 'diff_xy', [types.sint, types.signed], types.sint)
         res = self.call(func, [50, 8], lltype.Signed)
         assert res == 42
+
     def test_simple(self):
         """
             int sum_xy(int x, double y)
