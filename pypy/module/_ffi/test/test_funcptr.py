@@ -93,7 +93,7 @@ class AppTestFFI(BaseAppTestFFI):
 
     def test_getaddressindll(self):
         import sys
-        from _ffi import CDLL, types
+        from _ffi import CDLL
         libm = CDLL(self.libm_name)
         pow_addr = libm.getaddressindll('pow')
         fff = sys.maxint*2-1
@@ -102,7 +102,6 @@ class AppTestFFI(BaseAppTestFFI):
         assert pow_addr == self.pow_addr & fff
 
     def test_func_fromaddr(self):
-        import sys
         from _ffi import CDLL, types, FuncPtr
         libm = CDLL(self.libm_name)
         pow_addr = libm.getaddressindll('pow')
@@ -566,3 +565,37 @@ class AppTestFFI(BaseAppTestFFI):
             skip("unix specific")
         libnone = CDLL(None)
         raises(AttributeError, "libnone.getfunc('I_do_not_exist', [], types.void)")
+
+    def test_calling_convention1(self):
+        if not self.iswin32:
+            skip("windows specific")
+        from _ffi import WinDLL, types
+        libm = WinDLL(self.libm_name)
+        pow = libm.getfunc('pow', [types.double, types.double], types.double)
+        try:
+            pow(2, 3)
+        except ValueError, e:
+            assert e.message.startswith('Procedure called with')
+        else:
+            assert 0, 'test must assert, wrong calling convention'
+
+    def test_calling_convention2(self):
+        if not self.iswin32:
+            skip("windows specific")
+        from _ffi import WinDLL, types
+        kernel = WinDLL('Kernel32.dll')
+        sleep = kernel.getfunc('Sleep', [types.uint], types.void)
+        sleep(10)
+
+    def test_calling_convention3(self):
+        if not self.iswin32:
+            skip("windows specific")
+        from _ffi import CDLL, types
+        wrong_kernel = CDLL('Kernel32.dll')
+        wrong_sleep = wrong_kernel.getfunc('Sleep', [types.uint], types.void)
+        try:
+            wrong_sleep(10)
+        except ValueError, e:
+            assert e.message.startswith('Procedure called with')
+        else:
+            assert 0, 'test must assert, wrong calling convention'

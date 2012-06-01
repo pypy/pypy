@@ -9,6 +9,7 @@ from pypy.rpython.lltypesystem import lltype, rffi
 #
 from pypy.rlib import jit
 from pypy.rlib import libffi
+from pypy.rlib.clibffi import get_libc_name, StackCheckError
 from pypy.rlib.rdynload import DLOpenError
 from pypy.rlib.rarithmetic import intmask, r_uint
 from pypy.rlib.objectmodel import we_are_translated
@@ -59,7 +60,10 @@ class W_FuncPtr(Wrappable):
         self = jit.promote(self)
         argchain = self.build_argchain(space, args_w)
         func_caller = CallFunctionConverter(space, self.func, argchain)
-        return func_caller.do_and_wrap(self.w_restype)
+        try:
+            return func_caller.do_and_wrap(self.w_restype)
+        except StackCheckError, e:
+            raise OperationError(space.w_ValueError, space.wrap(e.message))
         #return self._do_call(space, argchain)
 
     def free_temp_buffers(self, space):
@@ -254,6 +258,7 @@ W_FuncPtr.typedef = TypeDef(
 
 class W_CDLL(Wrappable):
     def __init__(self, space, name, mode):
+        self.flags = libffi.FUNCFLAG_CDECL
         self.space = space
         if name is None:
             self.name = "<None>"
@@ -271,7 +276,8 @@ class W_CDLL(Wrappable):
                                                                    w_argtypes,
                                                                    w_restype)
         try:
-            func = self.cdll.getpointer(name, argtypes, restype)
+            func = self.cdll.getpointer(name, argtypes, restype, 
+                                            flags = self.flags)
         except KeyError:
             raise operationerrfmt(space.w_AttributeError,
                                   "No symbol %s found in library %s", name, self.name)
@@ -300,10 +306,26 @@ W_CDLL.typedef = TypeDef(
     getaddressindll = interp2app(W_CDLL.getaddressindll),
     )
 
+class W_WinDLL(W_CDLL):
+    def __init__(self, space, name, mode):
+        W_CDLL.__init__(self, space, name, mode)
+        self.flags = libffi.FUNCFLAG_STDCALL
+
+@unwrap_spec(name='str_or_None', mode=int)
+def descr_new_windll(space, w_type, name, mode=-1):
+    return space.wrap(W_WinDLL(space, name, mode))
+
+
+W_WinDLL.typedef = TypeDef(
+    '_ffi.WinDLL',
+    __new__     = interp2app(descr_new_windll),
+    getfunc     = interp2app(W_WinDLL.getfunc),
+    getaddressindll = interp2app(W_WinDLL.getaddressindll),
+    )
+
 # ========================================================================
 
 def get_libc(space):
-    from pypy.rlib.clibffi import get_libc_name
     try:
         return space.wrap(W_CDLL(space, get_libc_name(), -1))
     except OSError, e:
