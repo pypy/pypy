@@ -1,7 +1,7 @@
 from cStringIO import StringIO
 import py
 from pypy.objspace.flow.model import FunctionGraph, Block, Link
-from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.rpython.lltypesystem import lltype, rffi, llmemory
 from pypy.rpython.lltypesystem.test.test_rffi import BaseTestRffi
 from pypy.translator.backendopt.raisingop2direct_call import (
      raisingop2direct_call)
@@ -271,6 +271,14 @@ class TestSpecialCases(_LLVMMixin):
     def test_empty_struct(self):
         T = lltype.Struct('empty', hints={'immutable': True})
         x = lltype.malloc(T, immortal=True)
+        def f():
+            return len([x])
+        fc = self.getcompiled(f)
+        assert fc() == 1
+
+    def test_consider_constant_with_address(self):
+        T = lltype.GcStruct('test')
+        x = llmemory.cast_ptr_to_adr(lltype.malloc(T))
         def f():
             return len([x])
         fc = self.getcompiled(f)

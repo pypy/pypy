@@ -1250,6 +1250,9 @@ class FrameworkGCPolicy(GCPolicy):
                         self._consider_constant(arg.concretetype, arg.value)
 
     def _consider_constant(self, type_, value):
+        if type_ is llmemory.Address:
+            value = value.ptr
+            type_ = lltype.typeOf(value)
         if isinstance(type_, lltype.Ptr):
             type_ = type_.TO
             try:
