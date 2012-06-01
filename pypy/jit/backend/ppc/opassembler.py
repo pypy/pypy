@@ -493,8 +493,12 @@ class MiscOpAssembler(object):
             for i, arg in enumerate(stack_args):
                 offset = param_offset + i * WORD
                 if arg is not None:
-                    self.regalloc_mov(arg, r.SCRATCH)
-                self.mc.store(r.SCRATCH.value, r.SP.value, offset)
+                    if arg.type == FLOAT:
+                        self.regalloc_mov(arg, r.f0)
+                        self.mc.stfd(r.f0.value, r.SP.value, offset)
+                    else:
+                        self.regalloc_mov(arg, r.SCRATCH)
+                        self.mc.store(r.SCRATCH.value, r.SP.value, offset)
 
         # collect variables that need to go in registers
         # and the registers they will be stored in 
