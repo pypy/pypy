@@ -1,4 +1,3 @@
-import py
 import sys
 from pypy.module.pypyjit.test_pypy_c.test_00_model import BaseTestPyPyC
 
@@ -78,12 +77,19 @@ class Test__ffi(BaseTestPyPyC):
         from pypy.rlib.test.test_libffi import get_libc_name
         def main(libc_name, n):
             import time
+            import os
             from threading import Thread
-            from _ffi import CDLL, types
             #
-            libc = CDLL(libc_name)
-            sleep = libc.getfunc('sleep', [types.uint], types.uint)
-            delays = [0]*n + [1]
+            if os.name == 'nt':
+                from _ffi import WinDLL, types
+                libc = WinDLL(libc_name)
+                sleep = libc.getfunc('Sleep', [types.uint], types.uint)
+                delays = [0]*n + [1000]
+            else:
+                from _ffi import CDLL, types
+                libc = CDLL(libc_name)
+                sleep = libc.getfunc('sleep', [types.uint], types.uint)
+                delays = [0]*n + [1]
             #
             def loop_of_sleeps(i, delays):
                 for delay in delays:
@@ -97,7 +103,6 @@ class Test__ffi(BaseTestPyPyC):
                 thread.join()
             end = time.time()
             return end - start
-        #
         log = self.run(main, [get_libc_name(), 200], threshold=150,
                        import_site=True)
         assert 1 <= log.result <= 1.5 # at most 0.5 seconds of overhead
