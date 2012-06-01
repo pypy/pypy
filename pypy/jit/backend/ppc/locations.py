@@ -111,6 +111,10 @@ class StackLocation(AssemblerLocation):
     _immutable_ = True
 
     def __init__(self, position, num_words=1, type=INT):
+        if type == FLOAT:
+            self.width = FWORD
+        else:
+            self.width = WORD
         self.position = position
         self.type = type
         self.value = get_spp_offset(position)
