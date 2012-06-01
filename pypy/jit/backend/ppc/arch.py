@@ -2,7 +2,8 @@
 
 from pypy.jit.backend.ppc.register import (NONVOLATILES,
                                            NONVOLATILES_FLOAT,
-                                           MANAGED_REGS)
+                                           MANAGED_REGS,
+                                           MANAGED_FP_REGS)
 
 import sys
 if sys.maxint == (2**31 - 1):
@@ -29,7 +30,7 @@ MAX_REG_PARAMS          = 8
 # and one instruction to patch the stack pointer
 SIZE_LOAD_IMM_PATCH_SP  = 6
 
-FORCE_INDEX_OFS         = len(MANAGED_REGS) * WORD
+FORCE_INDEX_OFS         = (len(MANAGED_REGS) + len(MANAGED_FP_REGS)) * WORD
 
 # offset to LR in BACKCHAIN
 if IS_PPC_32:
