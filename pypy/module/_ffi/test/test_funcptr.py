@@ -1,11 +1,11 @@
 from pypy.conftest import gettestobjspace
-from pypy.translator.platform import platform
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.module._rawffi.interp_rawffi import TYPEMAP
-from pypy.module._rawffi.tracker import Tracker
-from pypy.translator.platform import platform
+from pypy.rpython.lltypesystem import rffi
+from pypy.rlib.clibffi import get_libc_name
+from pypy.rlib.libffi import types
+from pypy.rlib.libffi import CDLL
+from pypy.rlib.test.test_clibffi import get_libm_name
 
-import os, sys, py
+import sys, py
 
 class BaseAppTestFFI(object):
 
@@ -37,9 +37,6 @@ class BaseAppTestFFI(object):
         return str(platform.compile([c_file], eci, 'x', standalone=False))
 
     def setup_class(cls):
-        from pypy.rpython.lltypesystem import rffi
-        from pypy.rlib.libffi import get_libc_name, CDLL, types
-        from pypy.rlib.test.test_libffi import get_libm_name
         space = gettestobjspace(usemodules=('_ffi', '_rawffi'))
         cls.space = space
         cls.w_iswin32 = space.wrap(sys.platform == 'win32')
