@@ -211,14 +211,16 @@ class FloatOpAssembler(object):
     emit_float_eq = gen_emit_cmp_op(c.EQ, fp=True)
     emit_float_ne = gen_emit_cmp_op(c.NE, fp=True)
 
-    def emit_op_cast_float_to_int(self, op, arglocs, regalloc):
+    def emit_cast_float_to_int(self, op, arglocs, regalloc):
         l0, temp_loc, res = arglocs
         self.mc.fctidz(temp_loc.value, l0.value)
-        self.mc.mftgpr(res.value, temp_loc.value)
+        self.mc.stfd(temp_loc.value, r.SPP.value, FORCE_INDEX_OFS + WORD)
+        self.mc.ld(res.value, r.SPP.value, FORCE_INDEX_OFS + WORD)
 
-    def emit_op_cast_int_to_float(self, op, arglocs, regalloc):
+    def emit_cast_int_to_float(self, op, arglocs, regalloc):
         l0, temp_loc, res = arglocs
-        self.mc.mffgpr(temp_loc.value, l0.value)
+        self.mc.std(l0.value, r.SPP.value, FORCE_INDEX_OFS + WORD)
+        self.mc.lfd(temp_loc.value, r.SPP.value, FORCE_INDEX_OFS + WORD)
         self.mc.fcfid(res.value, temp_loc.value)
 
 class GuardOpAssembler(object):
