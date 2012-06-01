@@ -1275,6 +1275,9 @@ class FrameworkGCPolicy(GCPolicy):
             elif isinstance(type_, lltype.Array):
                 for i in value.items:
                     self._consider_constant(type_.OF, i)
+            elif isinstance(type_, llgroup.GroupType):
+                for member in value.members:
+                    self._consider_constant(lltype.typeOf(member), member)
             self.gctransformer.consider_constant(type_, value)
 
             p, c = lltype.parentlink(value)

@@ -1,7 +1,7 @@
 from cStringIO import StringIO
 import py
 from pypy.objspace.flow.model import FunctionGraph, Block, Link
-from pypy.rpython.lltypesystem import lltype, rffi, llmemory
+from pypy.rpython.lltypesystem import lltype, rffi, llmemory, llgroup
 from pypy.rpython.lltypesystem.test.test_rffi import BaseTestRffi
 from pypy.translator.backendopt.raisingop2direct_call import (
      raisingop2direct_call)
@@ -281,6 +281,20 @@ class TestSpecialCases(_LLVMMixin):
         x = llmemory.cast_ptr_to_adr(lltype.malloc(T))
         def f():
             return len([x])
+        fc = self.getcompiled(f)
+        assert fc() == 1
+
+    def test_consider_constant_with_llgroup(self):
+        Y = lltype.GcStruct('Y')
+        y = lltype.malloc(Y)
+        X = lltype.Struct('X', ('y', lltype.Ptr(Y)))
+        x = lltype.malloc(X, immortal=True)
+        x.y = y
+        grp = llgroup.group('test')
+        offset = grp.add_member(x)
+        grpptr = grp._as_ptr()
+        def f():
+            return len([(offset, grpptr)])
         fc = self.getcompiled(f)
         assert fc() == 1
 
