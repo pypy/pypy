@@ -285,7 +285,7 @@ class GuardOpAssembler(object):
                 self.mc.cmp_op(0, l0.value, l1.value)
         elif l0.is_fp_reg():
             assert l1.is_fp_reg()
-            self.mc.cmp_op(0, l0,value, l1.value)
+            self.mc.cmp_op(0, l0.value, l1.value)
         self._emit_guard(op, failargs, c.NE)
 
     emit_guard_nonnull = emit_guard_true
