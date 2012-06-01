@@ -2,7 +2,8 @@ from pypy.jit.backend.llsupport.regalloc import (RegisterManager, FrameManager,
                                                  TempBox, compute_vars_longevity)
 from pypy.jit.backend.ppc.arch import (WORD, MY_COPY_OF_REGS, IS_PPC_32)
 from pypy.jit.codewriter import longlong
-from pypy.jit.backend.ppc.jump import remap_frame_layout
+from pypy.jit.backend.ppc.jump import (remap_frame_layout,
+                                       remap_frame_layout_mixed)
 from pypy.jit.backend.ppc.locations import imm
 from pypy.jit.backend.ppc.helper.regalloc import (_check_imm_arg,
                                                   prepare_cmp_op,
@@ -259,7 +260,7 @@ class Regalloc(object):
             if loc.is_reg():
                 self.rm.reg_bindings[arg] = loc
             elif loc.is_fp_reg():
-                assert 0, "not supported"
+                self.fprm.reg_bindings[arg] = loc
             else:
                 assert loc.is_stack()
                 self.frame_manager.set_binding(arg, loc)
@@ -270,6 +271,10 @@ class Regalloc(object):
         for reg in self.rm.all_regs:
             if reg not in used:
                 self.rm.free_regs.append(reg)
+        self.fprm.free_regs = []
+        for reg in self.fprm.all_regs:
+            if reg not in used:
+                self.fprm.free_regs.append(reg)
         # note: we need to make a copy of inputargs because possibly_free_vars
         # is also used on op args, which is a non-resizable list
         self.possibly_free_vars(list(inputargs))
@@ -678,9 +683,9 @@ class Regalloc(object):
                 src_locations2.append(src_loc)
                 dst_locations2.append(dst_loc)
 
-        remap_frame_layout(self.assembler,
-                           src_locations1, dst_locations1, tmploc,
-                           src_locations2, dst_locations2, fptmploc)
+        remap_frame_layout_mixed(self.assembler,
+                                 src_locations1, dst_locations1, tmploc,
+                                 src_locations2, dst_locations2, fptmploc)
         return []
 
     def prepare_setfield_gc(self, op):
