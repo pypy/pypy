@@ -358,7 +358,7 @@ class MiscOpAssembler(object):
                 if box.type == FLOAT:
                     adr = self.fail_boxes_float.get_addr_for_num(i)
                     self.mc.stfd(r.f0.value, r.SPP.value, 0)
-                    self.mov_loc_loc(loc, r.f0.value)
+                    self.mov_loc_loc(loc, r.f0)
                     self.mc.load_imm(r.SCRATCH, adr)
                     self.mc.stfdx(r.f0.value, 0, r.SCRATCH.value)
                     self.mc.lfd(r.f0.value, r.SPP.value, 0)
@@ -499,28 +499,25 @@ class MiscOpAssembler(object):
         # collect variables that need to go in registers
         # and the registers they will be stored in 
         num = 0
+        fpnum = 0
         count = 0
         non_float_locs = []
         non_float_regs = []
         float_locs = []
+        float_regs = []
         for i in range(reg_args):
             arg = arglocs[i]
-            if arg.type == FLOAT and count % 2 != 0:
-                num += 1
-                count = 0
             reg = r.PARAM_REGS[num]
+            fpreg = r.PARAM_FPREGS[fpnum]
 
             if arg.type == FLOAT:
-                float_locs.append((arg, reg))
+                float_locs.append(arg)
+                float_regs.append(fpreg)
+                fpnum += 1
             else:
                 non_float_locs.append(arg)
                 non_float_regs.append(reg)
-
-            if arg.type == FLOAT:
                 num += 1
-            else:
-                num += 1
-                count += 1
 
         if adr in non_float_regs:
             non_float_locs.append(adr)
@@ -528,6 +525,7 @@ class MiscOpAssembler(object):
             adr = r.r11
 
         # remap values stored in core registers
+        remap_frame_layout(self, float_locs, float_regs, r.f0)
         remap_frame_layout(self, non_float_locs, non_float_regs, r.SCRATCH)
 
         # the actual call
@@ -1060,8 +1058,7 @@ class AllocOpAssembler(object):
 
                 # use r20 as temporary register, save it in FORCE INDEX slot
                 temp_reg = r.r20
-                ENCODING_AREA = len(r.MANAGED_REGS) * WORD
-                self.mc.store(temp_reg.value, r.SPP.value, ENCODING_AREA)
+                self.mc.store(temp_reg.value, r.SPP.value, FORCE_INDEX_OFS)
 
                 self.mc.srli_op(temp_reg.value, loc_index.value, s)
                 self.mc.not_(temp_reg.value, temp_reg.value)
@@ -1081,7 +1078,7 @@ class AllocOpAssembler(object):
                 # done
 
                 # restore temporary register r20
-                self.mc.load(temp_reg.value, r.SPP.value, ENCODING_AREA)
+                self.mc.load(temp_reg.value, r.SPP.value, FORCE_INDEX_OFS)
 
                 # patch the JMP above
                 offset = self.mc.currpos()
@@ -1108,9 +1105,8 @@ class ForceOpAssembler(object):
     
     def emit_force_token(self, op, arglocs, regalloc):
         res_loc = arglocs[0]
-        ENCODING_AREA = len(r.MANAGED_REGS) * WORD
         self.mc.mr(res_loc.value, r.SPP.value)
-        self.mc.addi(res_loc.value, res_loc.value, ENCODING_AREA)
+        self.mc.addi(res_loc.value, res_loc.value, FORCE_INDEX_OFS)
 
     #    self._emit_guard(guard_op, regalloc._prepare_guard(guard_op), c.LT)
     # from: ../x86/assembler.py:1668
@@ -1218,9 +1214,8 @@ class ForceOpAssembler(object):
         pmc.b(currpos - fast_path_to_end_jump_pos)
         pmc.overwrite()
 
-        ENCODING_AREA = len(r.MANAGED_REGS) * WORD
         with scratch_reg(self.mc):
-            self.mc.load(r.SCRATCH.value, r.SPP.value, ENCODING_AREA)
+            self.mc.load(r.SCRATCH.value, r.SPP.value, FORCE_INDEX_OFS)
             self.mc.cmp_op(0, r.SCRATCH.value, 0, imm=True)
 
         self._emit_guard(guard_op, regalloc._prepare_guard(guard_op),
