@@ -71,7 +71,7 @@ def get_long_pattern(x):
 
 # used in tests for ctypes and for genc and friends
 # to handle the win64 special case:
-is_emulated_long = _long_typecode <> 'l'
+is_emulated_long = _long_typecode != 'l'
     
 LONG_BIT = _get_long_bit()
 LONG_MASK = (2**LONG_BIT)-1
@@ -97,6 +97,9 @@ to use long everywhere.
 # XXX TODO: replace all int(n) by long(n) and fix everything that breaks.
 # XXX       Then relax it and replace int(n) by n.
 def intmask(n):
+    """
+    NOT_RPYTHON
+    """
     if isinstance(n, objectmodel.Symbolic):
         return n        # assume Symbolics don't overflow
     assert not isinstance(n, float)
@@ -109,6 +112,9 @@ def intmask(n):
     return int(n)
 
 def longlongmask(n):
+    """
+    NOT_RPYTHON
+    """
     assert isinstance(n, (int, long))
     n = long(n)
     n &= LONGLONG_MASK

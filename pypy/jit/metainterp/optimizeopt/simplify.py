@@ -29,9 +29,6 @@ class OptSimplify(Optimization):
         #     but it's a bit hard to implement robustly if heap.py is also run
         pass
 
-    def optimize_MARK_OPAQUE_PTR(self, op):
-        pass
-
     def optimize_RECORD_KNOWN_CLASS(self, op):
         pass
 

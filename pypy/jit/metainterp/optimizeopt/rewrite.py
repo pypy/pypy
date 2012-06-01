@@ -208,7 +208,7 @@ class OptRewrite(Optimization):
             box = value.box
             assert isinstance(box, Const)
             if not box.same_constant(constbox):
-                raise InvalidLoop('A GURAD_{VALUE,TRUE,FALSE} was proven to' +
+                raise InvalidLoop('A GUARD_{VALUE,TRUE,FALSE} was proven to' +
                                   'always fail')
             return
         if emit_operation:
@@ -480,10 +480,6 @@ class OptRewrite(Optimization):
                 op = op.copy_and_change(rop.INT_RSHIFT,
                                         args = [op.getarg(0), ConstInt(highest_bit(val))])
         self.emit_operation(op)
-
-    def optimize_MARK_OPAQUE_PTR(self, op):
-        value = self.getvalue(op.getarg(0))
-        self.optimizer.opaque_pointers[value] = True
 
     def optimize_CAST_PTR_TO_INT(self, op):
         self.pure(rop.CAST_INT_TO_PTR, [op.result], op.getarg(0))

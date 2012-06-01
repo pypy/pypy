@@ -210,7 +210,7 @@ class Func(AbstractFuncPtr):
 
     _immutable_fields_ = ['funcsym']
     argtypes = []
-    restype = lltype.nullptr(clibffi.FFI_TYPE_P.TO)
+    restype = clibffi.FFI_TYPE_NULL
     flags = 0
     funcsym = lltype.nullptr(rffi.VOIDP.TO)
 
@@ -415,6 +415,96 @@ class CDLL(object):
 
     def getaddressindll(self, name):
         return dlsym(self.lib, name)
+
+# ======================================================================
+
+@jit.oopspec('libffi_struct_getfield(ffitype, addr, offset)')
+def struct_getfield_int(ffitype, addr, offset):
+    """
+    Return the field of type ``ffitype`` at ``addr+offset``, widened to
+    lltype.Signed.
+    """
+    for TYPE, ffitype2 in clibffi.ffitype_map_int_or_ptr:
+        if ffitype is ffitype2:
+            value = _struct_getfield(TYPE, addr, offset)
+            return rffi.cast(lltype.Signed, value)
+    assert False, "cannot find the given ffitype"
+
+
+@jit.oopspec('libffi_struct_setfield(ffitype, addr, offset, value)')
+def struct_setfield_int(ffitype, addr, offset, value):
+    """
+    Set the field of type ``ffitype`` at ``addr+offset``.  ``value`` is of
+    type lltype.Signed, and it's automatically converted to the right type.
+    """
+    for TYPE, ffitype2 in clibffi.ffitype_map_int_or_ptr:
+        if ffitype is ffitype2:
+            value = rffi.cast(TYPE, value)
+            _struct_setfield(TYPE, addr, offset, value)
+            return
+    assert False, "cannot find the given ffitype"
+
+
+@jit.oopspec('libffi_struct_getfield(ffitype, addr, offset)')
+def struct_getfield_longlong(ffitype, addr, offset):
+    """
+    Return the field of type ``ffitype`` at ``addr+offset``, casted to
+    lltype.LongLong.
+    """
+    value = _struct_getfield(lltype.SignedLongLong, addr, offset)
+    return value
+
+@jit.oopspec('libffi_struct_setfield(ffitype, addr, offset, value)')
+def struct_setfield_longlong(ffitype, addr, offset, value):
+    """
+    Set the field of type ``ffitype`` at ``addr+offset``.  ``value`` is of
+    type lltype.LongLong
+    """
+    _struct_setfield(lltype.SignedLongLong, addr, offset, value)
+
+
+@jit.oopspec('libffi_struct_getfield(ffitype, addr, offset)')
+def struct_getfield_float(ffitype, addr, offset):
+    value = _struct_getfield(lltype.Float, addr, offset)
+    return value
+
+@jit.oopspec('libffi_struct_setfield(ffitype, addr, offset, value)')
+def struct_setfield_float(ffitype, addr, offset, value):
+    _struct_setfield(lltype.Float, addr, offset, value)
+
+
+@jit.oopspec('libffi_struct_getfield(ffitype, addr, offset)')
+def struct_getfield_singlefloat(ffitype, addr, offset):
+    value = _struct_getfield(lltype.SingleFloat, addr, offset)
+    return value
+
+@jit.oopspec('libffi_struct_setfield(ffitype, addr, offset, value)')
+def struct_setfield_singlefloat(ffitype, addr, offset, value):
+    _struct_setfield(lltype.SingleFloat, addr, offset, value)
+
+
+@specialize.arg(0)
+def _struct_getfield(TYPE, addr, offset):
+    """
+    Read the field of type TYPE at addr+offset.
+    addr is of type rffi.VOIDP, offset is an int.
+    """
+    addr = rffi.ptradd(addr, offset)
+    PTR_FIELD = lltype.Ptr(rffi.CArray(TYPE))
+    return rffi.cast(PTR_FIELD, addr)[0]
+
+
+@specialize.arg(0)
+def _struct_setfield(TYPE, addr, offset, value):
+    """
+    Write the field of type TYPE at addr+offset.
+    addr is of type rffi.VOIDP, offset is an int.
+    """
+    addr = rffi.ptradd(addr, offset)
+    PTR_FIELD = lltype.Ptr(rffi.CArray(TYPE))
+    rffi.cast(PTR_FIELD, addr)[0] = value
+
+# ======================================================================
 
 # These specialize.call_location's should really be specialize.arg(0), however
 # you can't hash a pointer obj, which the specialize machinery wants to do.

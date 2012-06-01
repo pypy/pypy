@@ -54,4 +54,8 @@ class OSThreadLocals:
 
     def leave_thread(self, space):
         "Notification that the current thread is about to stop."
-        self.setvalue(None)
+        from pypy.module.thread.os_local import thread_is_stopping
+        try:
+            thread_is_stopping(self.getvalue())
+        finally:
+            self.setvalue(None)

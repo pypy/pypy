@@ -841,7 +841,6 @@ class Call1(VirtualArray):
                                                             out_arg=None):
         VirtualArray.__init__(self, name, shape, res_dtype, out_arg)
         self.values = values
-        self.size = values.size
         self.ufunc = ufunc
         self.calc_dtype = calc_dtype
 

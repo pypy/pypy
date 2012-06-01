@@ -1,11 +1,11 @@
 import os
-from pypy.rpython.lltypesystem.rffi import (CConstant, CExternVariable,
-        INT, CCHARPP)
-from pypy.rpython.lltypesystem import lltype, ll2ctypes, rffi
+from pypy.rpython.lltypesystem.rffi import CConstant, CExternVariable, INT
+from pypy.rpython.lltypesystem import ll2ctypes, rffi
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.objectmodel import specialize
 from pypy.rlib import jit
+from pypy.translator.platform import platform
 
 class CConstantErrno(CConstant):
     # these accessors are used when calling get_errno() or set_errno()
@@ -21,6 +21,10 @@ class CConstantErrno(CConstant):
         assert index == 0
         ll2ctypes.TLS.errno = value
 if os.name == 'nt':
+    if platform.name == 'msvc':
+        includes=['errno.h','stdio.h']
+    else:
+        includes=['errno.h','stdio.h', 'stdint.h']
     separate_module_sources =['''
         /* Lifted completely from CPython 3.3 Modules/posix_module.c */
         #include <malloc.h> /* for _msize */
@@ -79,10 +83,11 @@ if os.name == 'nt':
 else:
     separate_module_sources = []
     export_symbols = []
+    includes=['errno.h','stdio.h']
 errno_eci = ExternalCompilationInfo(
-    includes=['errno.h','stdio.h'],
-    separate_module_sources = separate_module_sources,
-    export_symbols = export_symbols,
+    includes=includes,
+    separate_module_sources=separate_module_sources,
+    export_symbols=export_symbols,
 )
 
 _get_errno, _set_errno = CExternVariable(INT, 'errno', errno_eci,
@@ -98,16 +103,16 @@ def set_errno(errno):
     _set_errno(rffi.cast(INT, errno))
 
 if os.name == 'nt':
-    _validate_fd = rffi.llexternal(
+    is_valid_fd = rffi.llexternal(
         "_PyVerify_fd", [rffi.INT], rffi.INT,
         compilation_info=errno_eci,
         )
     @jit.dont_look_inside
     def validate_fd(fd):
-        if not _validate_fd(fd):
+        if not is_valid_fd(fd):
             raise OSError(get_errno(), 'Bad file descriptor')
 else:
-    def _validate_fd(fd):
+    def is_valid_fd(fd):
         return 1
 
     def validate_fd(fd):
@@ -117,7 +122,8 @@ def closerange(fd_low, fd_high):
     # this behaves like os.closerange() from Python 2.6.
     for fd in xrange(fd_low, fd_high):
         try:
-            os.close(fd)
+            if is_valid_fd(fd):
+                os.close(fd)
         except OSError:
             pass
 
@@ -240,3 +246,10 @@ if os.name == 'nt':
             return nt._getfullpathname(path)
         else:
             return nt._getfullpathname(path.as_bytes())
+
+if os.name == 'nt':
+    from pypy.rlib import rwin32
+    os_kill = rwin32.os_kill
+else:
+    os_kill = os.kill
+    

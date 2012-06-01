@@ -281,11 +281,13 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert zeros(()).shape == ()
 
     def test_size(self):
-        from _numpypy import array
+        from _numpypy import array,arange,cos
         assert array(3).size == 1
         a = array([1, 2, 3])
         assert a.size == 3
         assert (a + a).size == 3
+        ten = cos(1 + arange(10)).size
+        assert ten == 10
 
     def test_empty(self):
         """
@@ -1530,6 +1532,12 @@ class AppTestNumArray(BaseNumpyAppTest):
         # test virtual
         assert ((x + x).swapaxes(0,1) == array([[[ 2,  4,  6], [14, 16, 18]], 
                                          [[ 8, 10, 12], [20, 22, 24]]])).all()
+
+    def test_filter_bug(self):
+        from numpypy import array
+        a = array([1.0,-1.0])
+        a[a<0] = -a[a<0]
+        assert (a == [1, 1]).all()
                         
 class AppTestMultiDim(BaseNumpyAppTest):
     def test_init(self):
