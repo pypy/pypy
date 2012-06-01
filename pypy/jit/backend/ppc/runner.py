@@ -100,10 +100,9 @@ class PPC_CPU(AbstractLLCPU):
         bytecode = self.asm._find_failure_recovery_bytecode(faildescr)
         addr_all_null_registers = rffi.cast(rffi.LONG, self.all_null_registers)
         # start of "no gc operation!" block
-        fail_index_2 = self.asm.decode_registers_and_descr(
+        fail_index_2 = self.asm.failure_recovery_func(
                 bytecode,
-                spilling_pointer,
-                self.all_null_registers)
+                spilling_pointer)
         self.asm.leave_jitted_hook()
         # end of "no gc operation!" block
         assert fail_index == fail_index_2
