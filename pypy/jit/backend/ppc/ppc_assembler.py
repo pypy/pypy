@@ -70,8 +70,7 @@ def high(w):
 
 class AssemblerPPC(OpAssembler):
 
-    FORCE_INDEX_AREA            = len(r.MANAGED_REGS) * WORD
-    ENCODING_AREA               = len(r.MANAGED_REGS) * WORD
+    ENCODING_AREA               = FORCE_INDEX_OFS
     OFFSET_SPP_TO_GPR_SAVE_AREA = (FORCE_INDEX + FLOAT_INT_CONVERSION
                                    + ENCODING_AREA)
     OFFSET_SPP_TO_OLD_BACKCHAIN = (OFFSET_SPP_TO_GPR_SAVE_AREA
@@ -176,11 +175,14 @@ class AssemblerPPC(OpAssembler):
             """
                 mem_loc is a pointer to the beginning of the encoding.
 
-                spilling_pointer is the address of the FORCE_INDEX.
+                spilling_pointer is the address of the spilling area.
             """
             regs = rffi.cast(rffi.LONGP, spilling_pointer)
+            fpregs = rffi.ptradd(regs, len(r.MANAGED_REGS))
+            fpregs = rffi.cast(rffi.LONGP, fpregs)
             return self.decode_registers_and_descr(mem_loc, 
-                                                   spilling_pointer, regs)
+                                                   spilling_pointer,
+                                                   regs, fpregs)
 
         self.failure_recovery_func = failure_recovery_func
 
@@ -188,7 +190,7 @@ class AssemblerPPC(OpAssembler):
             lltype.Signed], lltype.Signed))
 
     @rgc.no_collect
-    def decode_registers_and_descr(self, mem_loc, spp, registers):
+    def decode_registers_and_descr(self, mem_loc, spp, registers, fp_registers):
         """Decode locations encoded in memory at mem_loc and write the values
         to the failboxes.  Values for spilled vars and registers are stored on
         stack at frame_loc """
@@ -531,7 +533,7 @@ class AssemblerPPC(OpAssembler):
         addr = rffi.cast(lltype.Signed, decode_func_addr)
 
         # load parameters into parameter registers
-        mc.load(r.RES.value, r.SPP.value, self.FORCE_INDEX_AREA)    # address of state encoding 
+        mc.load(r.RES.value, r.SPP.value, FORCE_INDEX_OFS)    # address of state encoding 
         mc.mr(r.r4.value, r.SPP.value)                             # load spilling pointer
         #
         # call decoding function
@@ -571,6 +573,9 @@ class AssemblerPPC(OpAssembler):
         for i in range(len(r.MANAGED_REGS)):
             reg = r.MANAGED_REGS[i]
             mc.store(reg.value, r.SPP.value, i * WORD)
+        for i in range(len(r.MANAGED_FP_REGS)):
+            fpreg = r.MANAGED_FP_REGS[i]
+            mc.stfd(fpreg.value, r.SPP.value, i * WORD + len(r.MANAGED_REGS))
 
     def gen_bootstrap_code(self, loophead, spilling_area):
         self._insert_stack_check()
@@ -1099,7 +1104,7 @@ class AssemblerPPC(OpAssembler):
         encoding_adr = self.gen_descr_encoding(descr, args, arglocs[1:])
         with scratch_reg(self.mc):
             self.mc.load_imm(r.SCRATCH, encoding_adr)
-            self.mc.store(r.SCRATCH.value, r.SPP.value, self.ENCODING_AREA)
+            self.mc.store(r.SCRATCH.value, r.SPP.value, FORCE_INDEX_OFS)
         self.mc.b_abs(path)
         return encoding_adr
 
@@ -1182,7 +1187,7 @@ class AssemblerPPC(OpAssembler):
                         self.mc.load_imm(r.SCRATCH, offset)
                         self.mc.sub(r.SCRATCH.value, r.SPP.value, r.SCRATCH.value)
                     else:
-                        self.mc.sub(r.SCRATCH.value, r.SPP.value, r.SCRARTCH.value)
+                        self.mc.sub(r.SCRATCH.value, r.SPP.value, r.SCRATCH.value)
                     self.mc.lfdx(loc.value, 0, r.SCRATCH.value)
                 return
             assert 0, "not supported location"
@@ -1200,10 +1205,13 @@ class AssemblerPPC(OpAssembler):
                 return
             assert 0, "not supported location"
         elif prev_loc.is_imm_float():
+            value = prev_loc.getint()
             if loc.is_fp_reg():
                 with scratch_reg(self.mc):
                     self.mc.load_imm(r.SCRATCH, value)
-                    self.mc.lfdx(loc, 0, r.SCRATCH)
+                    self.mc.std(r.SCRATCH.value, r.SPP.value, FORCE_INDEX_OFS + WORD)
+                    self.mc.lfd(loc.value, r.SPP.value, FORCE_INDEX_OFS + WORD)
+                    #self.mc.trap()
                 return
             elif loc.is_stack():
                 with scratch_reg(self.mc):
@@ -1374,7 +1382,7 @@ class AssemblerPPC(OpAssembler):
     def _write_fail_index(self, fail_index):
         with scratch_reg(self.mc):
             self.mc.load_imm(r.SCRATCH, fail_index)
-            self.mc.store(r.SCRATCH.value, r.SPP.value, self.FORCE_INDEX_AREA)
+            self.mc.store(r.SCRATCH.value, r.SPP.value, FORCE_INDEX_OFS)
             
     def load(self, loc, value):
         assert (loc.is_reg() and value.is_imm()
