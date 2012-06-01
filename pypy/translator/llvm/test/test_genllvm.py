@@ -268,6 +268,14 @@ class TestSpecialCases(_LLVMMixin):
                 'badswitch:', 'call void @abort() noreturn nounwind',
                 'unreachable']
 
+    def test_empty_struct(self):
+        T = lltype.Struct('empty', hints={'immutable': True})
+        x = lltype.malloc(T, immortal=True)
+        def f():
+            return len([x])
+        fc = self.getcompiled(f)
+        assert fc() == 1
+
 
 class TestLowLevelTypeLLVM(_LLVMMixin, test_lltyped.TestLowLevelType):
     def test_llgroup_size_limit(self):

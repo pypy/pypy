@@ -344,7 +344,7 @@ class StructType(Type):
         self.fldnames_wo_voids = [f for t, f in fields if t is not LLVMVoid]
         self.fldnames_voids = set(f for t, f in fields if t is LLVMVoid)
         self.fldtypes_wo_voids = [t for t, f in fields if t is not LLVMVoid]
-        self.varsize = fields[-1][0].varsize
+        self.varsize = fields and fields[-1][0].varsize
         self.size_variants = {}
 
     def setup_from_lltype(self, db, type_):
@@ -362,7 +362,7 @@ class StructType(Type):
             else:
                 name = self.name
             self.size_variants[extra_len] = name = database.unique_name(name)
-            lastname = self.fldnames_wo_voids[-1]
+            lastname = self.fldnames_wo_voids and self.fldnames_wo_voids[-1]
             tmp = ('    {semicolon}{fldtype}{comma} ; {fldname}\n'.format(
                            semicolon=';' if fldtype is LLVMVoid else '',
                            fldtype=fldtype.repr_type(extra_len),
