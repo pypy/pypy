@@ -298,6 +298,13 @@ class TestSpecialCases(_LLVMMixin):
         fc = self.getcompiled(f)
         assert fc() == 1
 
+    def test_int_abs(self):
+        def f(x):
+            return abs(x)
+        fc = self.getcompiled(f, [int])
+        assert fc(11) == 11
+        assert fc(-22) == 22
+
 
 class TestLowLevelTypeLLVM(_LLVMMixin, test_lltyped.TestLowLevelType):
     def test_llgroup_size_limit(self):

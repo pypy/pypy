@@ -1083,6 +1083,14 @@ class FunctionWriter(object):
     def op_int_neg(self, result, var):
         self.w('{result.V} = sub {var.T} 0, {var.V}'.format(**locals()))
 
+    def op_int_abs(self, result, var):
+        ispos = self._tmp()
+        neg = self._tmp(var.type_)
+        self.w('{ispos.V} = icmp sgt {var.TV}, -1'.format(**locals()))
+        self.w('{neg.V} = sub {var.T} 0, {var.V}'.format(**locals()))
+        self.w('{result.V} = select i1 {ispos.V}, {var.TV}, {neg.TV}'
+                .format(**locals()))
+
     def op_int_invert(self, result, var):
         self.w('{result.V} = xor {var.TV}, -1'.format(**locals()))
     op_uint_invert = op_int_invert
