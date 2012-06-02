@@ -74,7 +74,7 @@ class Test__ffi(BaseTestPyPyC):
         assert opnames.count('new_with_vtable') == 1
 
     def test__ffi_call_releases_gil(self):
-        from pypy.rlib.test.test_libffi import get_libc_name
+        from pypy.rlib.clibffi import get_libc_name
         def main(libc_name, n):
             import time
             import os

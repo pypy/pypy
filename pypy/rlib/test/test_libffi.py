@@ -569,9 +569,9 @@ class TestLibffiCall(BaseFfiTest):
             except ValueError, e:
                 assert e.message == 'Procedure called with not enough ' + \
                      'arguments (8 bytes missing) or wrong calling convention'
-            except LLException:
+            except LLException, e:
                 #jitted code raises this
-                pass
+                assert str(e) == "<LLException 'StackCheckError'>"
             else:
                 assert 0, 'wrong calling convention should have raised'
 
