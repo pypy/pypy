@@ -4,7 +4,7 @@ from pypy.module.pypyjit.test_pypy_c.test_00_model import BaseTestPyPyC
 class Test__ffi(BaseTestPyPyC):
 
     def test__ffi_call(self):
-        from pypy.rlib.test.test_libffi import get_libm_name
+        from pypy.rlib.test.test_clibffi import get_libm_name
         def main(libm_name):
             try:
                 from _ffi import CDLL, types
