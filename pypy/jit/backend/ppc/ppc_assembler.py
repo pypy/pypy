@@ -1205,9 +1205,7 @@ class AssemblerPPC(OpAssembler):
             if loc.is_fp_reg():
                 with scratch_reg(self.mc):
                     self.mc.load_imm(r.SCRATCH, value)
-                    self.mc.std(r.SCRATCH.value, r.SPP.value, FORCE_INDEX_OFS + WORD)
-                    self.mc.lfd(loc.value, r.SPP.value, FORCE_INDEX_OFS + WORD)
-                    #self.mc.trap()
+                    self.mc.lfdx(loc.value, 0, r.SCRATCH.value)
                 return
             # move immediate value to memory
             elif loc.is_stack():
