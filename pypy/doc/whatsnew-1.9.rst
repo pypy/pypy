@@ -7,6 +7,7 @@ What's new in PyPy 1.9
 
 .. branch: array_equal
 .. branch: better-jit-hooks-2
+Improved jit hooks
 .. branch: faster-heapcache
 .. branch: faster-str-decode-escape
 .. branch: float-bytes
@@ -21,6 +22,9 @@ app-level code to interp-level.
 .. branch: kqueue
 Finished select.kqueue.
 .. branch: kwargsdict-strategy
+Special dictionary strategy for dealing with \*\*kwds. Now having a simple
+proxy ``def f(*args, **kwds): return x(*args, **kwds`` should not make
+any allocations at all.
 .. branch: matrixmath-dot
 numpypy can now handle matrix multiplication.
 .. branch: merge-2.7.2
@@ -51,6 +55,7 @@ The "out" argument was added to most of the numypypy functions.
 .. branch: numpypy-ufuncs
 .. branch: pytest
 .. branch: safe-getargs-freelist
+CPyext improvements. For example PyOpenSSL should now work
 .. branch: set-strategies
 Sets now have strategies just like dictionaries. This means a set
 containing only ints will be more compact (and faster)
