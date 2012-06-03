@@ -10,7 +10,7 @@ from pypy.rpython.annlowlevel import llhelper
 from pypy.rlib.jit import AsmInfo
 from pypy.jit.backend.model import CompiledLoopToken
 from pypy.jit.backend.x86.regalloc import (RegAlloc, get_ebp_ofs, _get_scale,
-    gpr_reg_mgr_cls, _valid_addressing_size)
+    gpr_reg_mgr_cls, xmm_reg_mgr_cls, _valid_addressing_size)
 
 from pypy.jit.backend.x86.arch import (FRAME_FIXED_SIZE, FORCE_INDEX_OFS, WORD,
                                        IS_X86_32, IS_X86_64)
@@ -371,7 +371,7 @@ class Assembler386(object):
         #
         frame_size = (1 +     # my argument, considered part of my frame
                       1 +     # my return address
-                      len(self._regalloc.rm.save_around_call_regs))
+                      len(gpr_reg_mgr_cls.save_around_call_regs))
         if withfloats:
             frame_size += 16     # X86_32: 16 words for 8 registers;
                                  # X86_64: just 16 registers
@@ -385,13 +385,13 @@ class Assembler386(object):
         mc.SUB_ri(esp.value, correct_esp_by)
         #
         ofs = correct_esp_by
-        for reg in self._regalloc.rm.save_around_call_regs:
-            ofs -= WORD
-            mc.MOV_sr(ofs, reg.value)
         if withfloats:
-            for reg in self._regalloc.xmm.save_around_call_regs:
+            for reg in xmm_reg_mgr_cls.save_around_call_regs:
                 ofs -= 8
                 mc.MOVSD_sx(ofs, reg.value)
+        for reg in gpr_reg_mgr_cls.save_around_call_regs:
+            ofs -= WORD
+            mc.MOV_sr(ofs, reg.value)
         #
         if IS_X86_32:
             mc.MOV_rs(eax.value, (frame_size - 1) * WORD)
@@ -409,18 +409,18 @@ class Assembler386(object):
                      imm(-0x80))
         #
         ofs = correct_esp_by
-        for reg in self._regalloc.rm.save_around_call_regs:
-            ofs -= WORD
-            mc.MOV_rs(reg.value, ofs)
         if withfloats:
-            for reg in self._regalloc.xmm.save_around_call_regs:
+            for reg in xmm_reg_mgr_cls.save_around_call_regs:
                 ofs -= 8
                 mc.MOVSD_xs(reg.value, ofs)
+        for reg in gpr_reg_mgr_cls.save_around_call_regs:
+            ofs -= WORD
+            mc.MOV_rs(reg.value, ofs)
         #
         # ADD esp, correct_esp_by --- but cannot use ADD, because
         # of its effects on the CPU flags
         mc.LEA_rs(esp.value, correct_esp_by)
-        mc.RET(WORD)
+        mc.RET16_i(WORD)
         #
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
         self.wb_slowpath[withcards + 2 * withfloats] = rawstart
@@ -2443,10 +2443,10 @@ class Assembler386(object):
         # Write only a CALL to the helper prepared in advance, passing it as
         # argument the address of the structure we are writing into
         # (the first argument to COND_CALL_GC_WB).
-        self.mc.PUSH(loc_base)      # push loc_base, either a reg or an immed
         helper_num = card_marking
         if self._regalloc.xrm.reg_bindings:
             helper_num += 2
+        self.mc.PUSH(loc_base)
         self.mc.CALL(imm(self.wb_slowpath[helper_num]))
 
         if card_marking:
