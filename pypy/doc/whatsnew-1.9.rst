@@ -5,6 +5,9 @@ What's new in PyPy 1.9
 .. this is the revision just after the creation of the release-1.8.x branch
 .. startrev: a4261375b359
 
+.. branch: default
+* Working hash function for numpy types.
+
 .. branch: array_equal
 .. branch: better-jit-hooks-2
 .. branch: faster-heapcache
