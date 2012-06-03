@@ -234,13 +234,14 @@ def unpack_argtypes(space, w_argtypes, w_restype):
     restype = unwrap_ffitype(space, w_restype, allow_void=True)
     return argtypes_w, argtypes, w_restype, restype
 
-@unwrap_spec(addr=r_uint, name=str)
-def descr_fromaddr(space, w_cls, addr, name, w_argtypes, w_restype):
+@unwrap_spec(addr=r_uint, name=str, flags=int)
+def descr_fromaddr(space, w_cls, addr, name, w_argtypes, 
+                    w_restype, flags=libffi.FUNCFLAG_CDECL):
     argtypes_w, argtypes, w_restype, restype = unpack_argtypes(space,
                                                                w_argtypes,
                                                                w_restype)
     addr = rffi.cast(rffi.VOIDP, addr)
-    func = libffi.Func(name, argtypes, restype, addr)
+    func = libffi.Func(name, argtypes, restype, addr, flags)
     return W_FuncPtr(func, argtypes_w, w_restype)
 
 

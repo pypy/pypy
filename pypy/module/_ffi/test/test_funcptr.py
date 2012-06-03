@@ -599,3 +599,32 @@ class AppTestFFI(BaseAppTestFFI):
             assert e.message.startswith('Procedure called with')
         else:
             assert 0, 'test must assert, wrong calling convention'
+
+    def test_func_fromaddr2(self):
+        if not self.iswin32:
+            skip("windows specific")
+        from _ffi import CDLL, types, FuncPtr
+        from _rawffi import FUNCFLAG_STDCALL
+        libm = CDLL(self.libm_name)
+        pow_addr = libm.getaddressindll('pow')
+        wrong_pow = FuncPtr.fromaddr(pow_addr, 'pow', 
+                [types.double, types.double], types.double, FUNCFLAG_STDCALL)
+        try:
+            wrong_pow(2, 3) == 8
+        except ValueError, e:
+            assert e.message.startswith('Procedure called with')
+        else:
+            assert 0, 'test must assert, wrong calling convention'
+
+    def test_func_fromaddr3(self):
+        if not self.iswin32:
+            skip("windows specific")
+        from _ffi import WinDLL, types, FuncPtr
+        from _rawffi import FUNCFLAG_STDCALL
+        kernel = WinDLL('Kernel32.dll')
+        sleep_addr = kernel.getaddressindll('Sleep')
+        sleep = FuncPtr.fromaddr(sleep_addr, 'sleep', [types.uint], 
+                            types.void, FUNCFLAG_STDCALL)
+        sleep(10)
+
+ 
