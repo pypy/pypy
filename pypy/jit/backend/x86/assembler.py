@@ -2446,6 +2446,13 @@ class Assembler386(object):
         helper_num = card_marking
         if self._regalloc.xrm.reg_bindings:
             helper_num += 2
+        if self.wb_slowpath[helper_num] == 0:    # tests only
+            assert not we_are_translated()
+            self.cpu.gc_ll_descr.write_barrier_descr = descr
+            self._build_wb_slowpath(card_marking,
+                                    bool(self._regalloc.xrm.reg_bindings))
+            assert self.wb_slowpath[helper_num] != 0
+        #
         self.mc.PUSH(loc_base)
         self.mc.CALL(imm(self.wb_slowpath[helper_num]))
 
