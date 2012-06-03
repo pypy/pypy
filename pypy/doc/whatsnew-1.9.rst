@@ -31,13 +31,19 @@ The stdlib was updated to version 2.7.2
 cpyext: Better support for PyEval_SaveThread and other PyTreadState_*
 functions.
 .. branch: numppy-flatitter
+flatitier for numpy
 .. branch: numpy-back-to-applevel
+reuse more of original numpy
 .. branch: numpy-concatenate
+concatenation support for numpy
 .. branch: numpy-indexing-by-arrays-bool
+indexing by bool arrays
 .. branch: numpy-record-dtypes
+record dtypes on numpy has been started
 .. branch: numpy-single-jitdriver
 .. branch: numpy-ufuncs2
 .. branch: numpy-ufuncs3
+various refactorings regarding numpy
 .. branch: numpypy-issue1137
 .. branch: numpypy-out
 The "out" argument was added to most of the numypypy functions.
@@ -46,7 +52,11 @@ The "out" argument was added to most of the numypypy functions.
 .. branch: pytest
 .. branch: safe-getargs-freelist
 .. branch: set-strategies
+Sets now have strategies just like dictionaries. This means a set
+containing only ints will be more compact (and faster)
 .. branch: speedup-list-comprehension
+The simplest case of list comprehension is preallocating the correct size
+of the list. This speeds up select benchmarks quite significantly.
 .. branch: stdlib-unification
 The directory "lib-python/modified-2.7" has been removed, and its
 content merged into "lib-python/2.7".
@@ -68,6 +78,7 @@ _invalid_parameter_handler
 Add os.kill to windows even if translating python does not have os.kill
 .. branch: win64-stage1
 .. branch: zlib-mem-pressure
+Memory "leaks" associated with zlib are fixed.
 
 .. branch: ffistruct
 The ``ffistruct`` branch adds a very low level way to express C structures
