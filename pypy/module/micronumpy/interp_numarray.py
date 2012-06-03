@@ -690,6 +690,7 @@ class BaseArray(Wrappable):
         return self.getitem(offset).convert_to(longdtype).item(
             space)
 
+    @jit.unroll_safe
     def descr_item(self, space, w_arg=None):
         if space.is_w(w_arg, space.w_None):
             if isinstance(self, Scalar):
