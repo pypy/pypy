@@ -538,7 +538,13 @@ class AbstractX86CodeBuilder(object):
 
     PUSH_r = insn(rex_nw, register(1), '\x50')
     PUSH_b = insn(rex_nw, '\xFF', orbyte(6<<3), stack_bp(1))
-    PUSH_i = insn('\x68', immediate(1, 'i'))
+    PUSH_i8 = insn('\x6A', immediate(1, 'b'))
+    PUSH_i32 = insn('\x68', immediate(1, 'i'))
+    def PUSH_i(mc, immed):
+        if single_byte(immed):
+            mc.PUSH_i8(immed)
+        else:
+            mc.PUSH_i32(immed)
 
     POP_r = insn(rex_nw, register(1), '\x58')
     POP_b = insn(rex_nw, '\x8F', orbyte(0<<3), stack_bp(1))
