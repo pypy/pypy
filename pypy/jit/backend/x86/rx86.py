@@ -316,6 +316,13 @@ def encode_rex(mc, rexbyte, basevalue, orbyte):
         assert rexbyte == 0
     return 0
 
+# REX prefixes: 'rex_w' generates a REX_W, forcing the instruction
+# to operate on 64-bit.  'rex_nw' doesn't, so the instruction operates
+# on 32-bit or less; the complete REX prefix is omitted if unnecessary.
+# 'rex_fw' is a special case which doesn't generate a REX_W but forces
+# the REX prefix in all cases.  It is only useful on instructions which
+# have an 8-bit register argument, to force access to the "sil" or "dil"
+# registers (as opposed to "ah-dh").
 rex_w  = encode_rex, 0, (0x40 | REX_W), None      # a REX.W prefix
 rex_nw = encode_rex, 0, 0, None                   # an optional REX prefix
 rex_fw = encode_rex, 0, 0x40, None                # a forced REX prefix
@@ -496,9 +503,9 @@ class AbstractX86CodeBuilder(object):
     AND8_rr = insn(rex_fw, '\x20', byte_register(1), byte_register(2,8), '\xC0')
 
     OR8_rr = insn(rex_fw, '\x08', byte_register(1), byte_register(2,8), '\xC0')
-    OR8_mi = insn(rex_fw, '\x80', orbyte(1<<3), mem_reg_plus_const(1),
+    OR8_mi = insn(rex_nw, '\x80', orbyte(1<<3), mem_reg_plus_const(1),
                   immediate(2, 'b'))
-    OR8_ji = insn(rex_fw, '\x80', orbyte(1<<3), abs_, immediate(1),
+    OR8_ji = insn(rex_nw, '\x80', orbyte(1<<3), abs_, immediate(1),
                   immediate(2, 'b'))
 
     NEG_r = insn(rex_w, '\xF7', register(1), '\xD8')
