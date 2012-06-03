@@ -16,6 +16,8 @@ Added more float byte primitives.
 .. branch: jit-frame-counter
 Put more debug info into resops.
 .. branch: kill-geninterp
+Kill "geninterp", an old attempt to statically turn some fixed
+app-level code to interp-level.
 .. branch: kqueue
 Finished select.kqueue.
 .. branch: kwargsdict-strategy
