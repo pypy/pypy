@@ -1248,6 +1248,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = arange(3*2*6).reshape((3,2,6))
         b = arange(3*2*6)[::-1].reshape((2,6,3))
         assert dot(a, b)[2,0,1,2] == 1140
+        assert (dot([[1,2],[3,4]],[5,6]) == [17, 39]).all()
 
     def test_dot_constant(self):
         from _numpypy import array, dot
