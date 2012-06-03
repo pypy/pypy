@@ -1999,6 +1999,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert a[::2].item(1) == 3
         assert (a + a).item(1) == 4
         raises(ValueError, "array(5).item(1)")
+        assert array([1]).item() == 1
 
 class AppTestSupport(BaseNumpyAppTest):
     def setup_class(cls):
