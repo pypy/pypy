@@ -411,7 +411,7 @@ class W_TypeObject(W_Object):
             # otherwise, we get all the time spurious transaction conflicts.
             # For now we have one per transaction: the following field is
             # set when we start a transaction, and cleared just before
-            # committing.
+            # committing.  XXX lies
             cache = space.getexecutioncontext()._methodcache
         else:
             cache = space.fromcache(MethodCache)
