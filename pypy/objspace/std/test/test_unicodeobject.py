@@ -304,6 +304,7 @@ class AppTestUnicodeString:
     def test_long_from_unicode(self):
         assert long(u'12345678901234567890') == 12345678901234567890
         assert int(u'12345678901234567890') == 12345678901234567890
+        assert long(u'123', 7) == 66
 
     def test_int_from_unicode(self):
         assert int(u'12345') == 12345

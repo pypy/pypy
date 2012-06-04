@@ -1,6 +1,6 @@
 """Base support for POSIX-like platforms."""
 
-import py, os
+import py, os, sys
 
 from pypy.tool import autopath
 from pypy.translator.platform import Platform, log, _run_subprocess
@@ -55,7 +55,8 @@ class BasePosix(Platform):
 
         if relto:
             response_file = relto.bestrelpath(response_file)
-        if self.cc == 'mingw32' or (self.cc== 'gcc' and os.name=='nt'):    
+        if (self.cc == 'mingw32' or (self.cc== 'gcc' and os.name=='nt')
+                or sys.platform == 'cygwin'):
             return ["-Wl,--export-all-symbols,--version-script=%s" % \
                     (response_file,)]
         return ["-Wl,--export-dynamic,--version-script=%s" % (response_file,)]

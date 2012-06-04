@@ -313,6 +313,8 @@ class NoneGcPolicy(BoehmGcPolicy):
 class FrameworkGcPolicy(BasicGcPolicy):
 
     def gettransformer(self):
+        if hasattr(self, 'transformerclass'):    # for rpython/memory tests
+            return self.transformerclass(self.db.translator)
         from pypy.rpython.memory.gctransform import framework
         return framework.FrameworkGCTransformer(self.db.translator)
 

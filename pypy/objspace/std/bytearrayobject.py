@@ -285,19 +285,6 @@ def repr__Bytearray(space, w_bytearray):
 def str__Bytearray(space, w_bytearray):
     return space.wrap(''.join(w_bytearray.data))
 
-def str_count__Bytearray_Int_ANY_ANY(space, w_bytearray, w_char, w_start, w_stop):
-    char = w_char.intval
-    bytearray = w_bytearray.data
-    length = len(bytearray)
-    start, stop = slicetype.unwrap_start_stop(
-            space, length, w_start, w_stop, False)
-    count = 0
-    for i in range(start, min(stop, length)):
-        c = w_bytearray.data[i]
-        if ord(c) == char:
-            count += 1
-    return space.wrap(count)
-
 def str_count__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_char, w_start, w_stop):
     w_char = space.wrap(space.bufferstr_new_w(w_char))
     w_str = str__Bytearray(space, w_bytearray)

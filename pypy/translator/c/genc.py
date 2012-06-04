@@ -15,6 +15,8 @@ from pypy.translator.c import gc
 from pypy.rlib import exports
 from pypy.tool.nullpath import NullPyPathLocal
 
+_CYGWIN = sys.platform == 'cygwin'
+
 def import_module_from_directory(dir, modname):
     file, pathname, description = imp.find_module(modname, [str(dir)])
     try:
@@ -993,6 +995,8 @@ def add_extra_files(eci):
         srcdir / 'profiling.c',
         srcdir / 'debug_print.c',
     ]
+    if _CYGWIN:
+        files.append(srcdir / 'cygwin_wait.c')
     return eci.merge(ExternalCompilationInfo(separate_module_files=files))
 
 

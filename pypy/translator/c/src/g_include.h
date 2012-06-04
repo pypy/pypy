@@ -63,3 +63,8 @@
 #    pragma warning(disable: 4033 4102 4101 4716)
 #  endif
 #endif
+
+/* work around waitpid expecting different pointer type */
+#ifdef __CYGWIN__
+#include "src/cygwin_wait.h"
+#endif
