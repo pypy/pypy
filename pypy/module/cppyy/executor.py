@@ -336,6 +336,31 @@ class StdStringExecutor(InstancePtrExecutor):
         raise FastCallNotPossible
 
 
+class PyObjectExecutor(PtrTypeExecutor):
+    _immutable_ = True
+
+    def wrap_result(self, space, lresult):
+        space.getbuiltinmodule("cpyext")
+        from pypy.module.cpyext.pyobject import PyObject, from_ref, make_ref, Py_DecRef
+        result = rffi.cast(PyObject, lresult)
+        w_obj = from_ref(space, result)
+        if result:
+            Py_DecRef(space, result)
+        return w_obj
+
+    def execute(self, space, cppmethod, cppthis, num_args, args):
+        if hasattr(space, "fake"):
+            raise NotImplementedError
+        lresult = capi.c_call_l(cppmethod, cppthis, num_args, args)
+        return self.wrap_result(space, lresult)
+
+    def execute_libffi(self, space, libffifunc, argchain):
+        if hasattr(space, "fake"):
+            raise NotImplementedError
+        lresult = libffifunc.call(argchain, rffi.LONG)
+        return self.wrap_result(space, lresult)
+
+
 _executors = {}
 def get_executor(space, name):
     # Matching of 'name' to an executor factory goes through up to four levels:
@@ -436,3 +461,6 @@ _executors["constructor"]         = ConstructorExecutor
 # special cases (note: CINT backend requires the simple name 'string')
 _executors["std::basic_string<char>"]        = StdStringExecutor
 _executors["string"]                         = _executors["std::basic_string<char>"]
+
+_executors["PyObject*"]           = PyObjectExecutor
+_executors["_object*"]            = _executors["PyObject*"]

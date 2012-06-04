@@ -7,6 +7,9 @@ from pypy.interpreter.baseobjspace import InternalSpaceCache, W_Root
 
 from pypy.module.cppyy import interp_cppyy, capi
 
+# load cpyext early, or its global vars are counted as leaks in the test
+# (note that the module is not otherwise used in the test itself)
+import pypy.module.cpyext
 
 currpath = py.path.local(__file__).dirpath()
 test_dct = str(currpath.join("example01Dict.so"))

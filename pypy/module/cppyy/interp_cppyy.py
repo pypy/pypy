@@ -228,7 +228,7 @@ class CPPMethod(object):
                     conv = self.converters[j]
                     arg_j = lltype.direct_ptradd(rffi.cast(rffi.CCHARP, args), j*stride)
                     loc_j = self._address_from_local_buffer(call_local, j)
-                    conv.free_argument(rffi.cast(capi.C_OBJECT, arg_j), loc_j)
+                    conv.free_argument(self.space, rffi.cast(capi.C_OBJECT, arg_j), loc_j)
                 capi.c_deallocate_function_args(args)
                 raise
         return args
@@ -241,7 +241,7 @@ class CPPMethod(object):
             arg_i = lltype.direct_ptradd(rffi.cast(rffi.CCHARP, args), i*stride)
             loc_i = self._address_from_local_buffer(call_local, i)
             conv.finalize_call(self.space, args_w[i], loc_i)
-            conv.free_argument(rffi.cast(capi.C_OBJECT, arg_i), loc_i)
+            conv.free_argument(self.space, rffi.cast(capi.C_OBJECT, arg_i), loc_i)
         capi.c_deallocate_function_args(args)
 
     def signature(self):

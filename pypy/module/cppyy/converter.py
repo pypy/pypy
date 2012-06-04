@@ -81,7 +81,7 @@ class TypeConverter(object):
     def finalize_call(self, space, w_obj, call_local):
         pass
 
-    def free_argument(self, arg, call_local):
+    def free_argument(self, space, arg, call_local):
         pass
 
 
@@ -498,7 +498,7 @@ class CStringConverter(TypeConverter):
         charpptr = rffi.cast(rffi.CCHARPP, address)
         return space.wrap(rffi.charp2str(charpptr[0]))
 
-    def free_argument(self, arg, call_local):
+    def free_argument(self, space, arg, call_local):
         lltype.free(rffi.cast(rffi.CCHARPP, arg)[0], flavor='raw')
 
 
@@ -733,7 +733,7 @@ class StdStringConverter(InstanceConverter):
             pass
         return InstanceConverter.to_memory(self, space, w_obj, w_value, offset)
 
-    def free_argument(self, arg, call_local):
+    def free_argument(self, space, arg, call_local):
         capi.c_free_stdstring(rffi.cast(capi.C_OBJECT, rffi.cast(rffi.VOIDPP, arg)[0]))
 
 class StdStringRefConverter(InstancePtrConverter):
@@ -743,6 +743,35 @@ class StdStringRefConverter(InstancePtrConverter):
         from pypy.module.cppyy import interp_cppyy
         cppclass = interp_cppyy.scope_byname(space, "std::string")
         InstancePtrConverter.__init__(self, space, cppclass)
+
+
+class PyObjectConverter(TypeConverter):
+    _immutable_ = True
+
+    def convert_argument(self, space, w_obj, address, call_local):
+        if hasattr(space, "fake"):
+            raise NotImplementedError
+        space.getbuiltinmodule("cpyext")
+        from pypy.module.cpyext.pyobject import make_ref
+        ref = make_ref(space, w_obj)
+        x = rffi.cast(rffi.VOIDPP, address)
+        x[0] = rffi.cast(rffi.VOIDP, ref);
+        ba = rffi.cast(rffi.CCHARP, address)
+        ba[capi.c_function_arg_typeoffset()] = 'a'
+
+    def convert_argument_libffi(self, space, w_obj, argchain, call_local):
+        if hasattr(space, "fake"):
+            raise NotImplementedError
+        space.getbuiltinmodule("cpyext")
+        from pypy.module.cpyext.pyobject import make_ref
+        ref = make_ref(space, w_obj)
+        argchain.arg(rffi.cast(rffi.VOIDP, ref))
+
+    def free_argument(self, space, arg, call_local):
+        if hasattr(space, "fake"):
+            raise NotImplementedError
+        from pypy.module.cpyext.pyobject import Py_DecRef, PyObject
+        Py_DecRef(space, rffi.cast(PyObject, rffi.cast(rffi.VOIDPP, arg)[0]))
 
 
 _converters = {}         # builtin and custom types
@@ -854,6 +883,9 @@ _converters["const std::basic_string<char>&"]    = StdStringConverter     # TODO
 _converters["const string&"]                     = _converters["const std::basic_string<char>&"]
 _converters["std::basic_string<char>&"]          = StdStringRefConverter
 _converters["string&"]                           = _converters["std::basic_string<char>&"]
+
+_converters["PyObject*"]                         = PyObjectConverter
+_converters["_object*"]                          = _converters["PyObject*"]
 
 # it should be possible to generate these:
 _a_converters["short int*"]               = ShortPtrConverter
