@@ -444,10 +444,6 @@ class CFuncPtr(_CData):
 
     @classmethod
     def _conv_param(cls, argtype, arg):
-        if isinstance(argtype, _CDataMeta):
-            cobj, ffiparam = argtype.get_ffi_param(arg)
-            return cobj, ffiparam, argtype
-        
         if argtype is not None:
             arg = argtype.from_param(arg)
         if hasattr(arg, '_as_parameter_'):

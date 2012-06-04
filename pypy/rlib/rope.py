@@ -769,11 +769,11 @@ def find(node, subnode, start=0, stop=-1):
     len2 = subnode.length()
     if stop > len1 or stop == -1:
         stop = len1
+    if stop - start < 0:
+        return -1
     if len2 == 1:
         return find_int(node, subnode.getint(0), start, stop)
     if len2 == 0:
-        if (stop - start) < 0:
-            return -1
         return start
     if len2 > stop - start:
         return -1

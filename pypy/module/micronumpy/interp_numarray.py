@@ -690,11 +690,17 @@ class BaseArray(Wrappable):
         return self.getitem(offset).convert_to(longdtype).item(
             space)
 
+    @jit.unroll_safe
     def descr_item(self, space, w_arg=None):
         if space.is_w(w_arg, space.w_None):
-            if not isinstance(self, Scalar):
-                raise OperationError(space.w_ValueError, space.wrap("index out of bounds"))
-            return self.value.item(space)
+            if isinstance(self, Scalar):
+                return self.value.item(space)
+            if support.product(self.shape) == 1:
+                return self.descr_getitem(space,
+                                          space.newtuple([space.wrap(0) for i
+                                                   in range(len(self.shape))]))
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("index out of bounds"))
         if space.isinstance_w(w_arg, space.w_int):
             if isinstance(self, Scalar):
                 raise OperationError(space.w_ValueError, space.wrap("index out of bounds"))
