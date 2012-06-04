@@ -115,7 +115,7 @@ def test_unknown_source():
     gsrc = gcsource(main, [lltype.Ptr(lltype.GcStruct('S'))])
     v_result = gsrc.translator.graphs[0].getreturnvar()
     s = gsrc[v_result]
-    assert list(s) == ['unknown']
+    assert list(s) == []
 
 def test_exception():
     class FooError(Exception):

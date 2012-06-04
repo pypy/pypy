@@ -134,6 +134,9 @@ class CBuilder(object):
 
         if self.config.translation.stm:
             from pypy.translator.stm import transform
+            self.getentrypointptr()    # build the wrapper first
+            # ^^ this is needed to make sure we see the no-GC wrapper function
+            # calling the GC entrypoint function.
             transformer = transform.STMTransformer(self.translator)
             transformer.transform()
 

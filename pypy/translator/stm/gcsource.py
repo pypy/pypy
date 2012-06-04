@@ -1,4 +1,4 @@
-from pypy.objspace.flow.model import Variable
+from pypy.objspace.flow.model import Variable, Constant
 from pypy.rpython.lltypesystem import lltype, rclass
 from pypy.translator.simplify import get_graph
 
@@ -25,23 +25,23 @@ def enum_gc_dependencies(translator):
     # We don't have to worry about external calls and callbacks.
     # This works by assuming that each graph's calls are fully tracked
     # by the last argument to 'indirect_call'.  Graphs for which we don't
-    # find any call like this are assumed to be called 'from the outside'
-    # passing any random arguments to it.
+    # find any call like this are assumed to be not called at all, e.g.
+    # as a result of having been inlined everywhere.
     resultlist = []
-    was_a_callee = set()
     #
     def call(graph, args, result):
         inputargs = graph.getargs()
         assert len(args) == len(inputargs)
         for v1, v2 in zip(args, inputargs):
-            if is_gc(v2):
-                assert is_gc(v1)
+            ig = is_gc(v1)
+            assert ig is is_gc(v2)
+            if ig:
                 resultlist.append((v1, v2))
-        if is_gc(result):
-            v = graph.getreturnvar()
-            assert is_gc(v)
+        v = graph.getreturnvar()
+        ig = is_gc(result)
+        assert ig is is_gc(v)
+        if ig:
             resultlist.append((v, result))
-        was_a_callee.add(graph)
     #
     for graph in translator.graphs:
         for block in graph.iterblocks():
@@ -61,6 +61,14 @@ def enum_gc_dependencies(translator):
                         continue
                 #
                 if op.opname == 'indirect_call':
+                    # any GC argument or result?
+                    for v in op.args[:-1]:
+                        if is_gc(v):
+                            break
+                    else:
+                        if not is_gc(op.result):
+                            continue    # no: ignore the indirect_call
+                    #
                     tographs = op.args[-1].value
                     if tographs is not None:
                         for tograph in tographs:
@@ -79,34 +87,21 @@ def enum_gc_dependencies(translator):
                     if is_instantiate:
                         resultlist.append(('instantiate', op.result))
                         continue
+                    #
+                    raise Exception("%r: unknown targets, passing GC "
+                                    "arguments or result" % (op,))
                 #
                 if is_gc(op.result):
                     resultlist.append((op, op.result))
             #
             for link in block.exits:
                 for v1, v2 in zip(link.args, link.target.inputargs):
-                    if is_gc(v2):
-                        assert is_gc(v1)
+                    ig = is_gc(v2)
+                    assert ig is is_gc(v1)
+                    if ig:
                         if v1 is link.last_exc_value:
                             v1 = 'last_exc_value'
                         resultlist.append((v1, v2))
-    #
-    # also add as a callee the graphs that are explicitly callees in the
-    # callgraph.  Useful because some graphs may end up not being called
-    # any more, if they were inlined.
-    was_originally_a_callee = set()
-    for _, graph in translator.callgraph.itervalues():
-        was_originally_a_callee.add(graph)
-    #
-    for graph in translator.graphs:
-        if graph not in was_a_callee:
-            if graph in was_originally_a_callee:
-                src = 'originally_a_callee'
-            else:
-                src = 'unknown'
-            for v in graph.getargs():
-                if is_gc(v):
-                    resultlist.append((src, v))
     return resultlist
 
 
@@ -130,13 +125,13 @@ class GcSource(object):
         return set_of_variables
 
     def _backpropagate(self, variable):
+        if isinstance(variable, Constant):
+            return set([variable]), set()
         result = set()
         pending = [variable]
         seen = set(pending)
         for v2 in pending:
-            # we get a KeyError here if 'variable' is not found,
-            # or if one of the preceeding variables is not found
-            for v1 in self._backmapping[v2]:
+            for v1 in self._backmapping.get(v2, ()):
                 if isinstance(v1, Variable):
                     if v1 not in seen:
                         seen.add(v1)

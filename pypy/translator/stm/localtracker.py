@@ -41,17 +41,7 @@ class StmLocalTracker(object):
         return True
 
     def _could_be_local(self, variable):
-        try:
-            srcs = self.gsrc[variable]
-        except KeyError:
-            if isinstance(variable, Constant):
-                srcs = [variable]
-            else:
-                # XXX we shouldn't get here, but we do translating the whole
-                # pypy.  We should investigate at some point.  In the meantime
-                # returning False is always safe.
-                self.reason = 'variable not in gsrc!'
-                return False
+        srcs = self.gsrc[variable]
         for src in srcs:
             if isinstance(src, SpaceOperation):
                 if src.opname in RETURNS_LOCAL_POINTER:
@@ -65,8 +55,6 @@ class StmLocalTracker(object):
                     self.reason = src
                     return False
             elif src == 'instantiate':
-                pass
-            elif src == 'originally_a_callee':
                 pass
             elif isinstance(src, str):
                 self.reason = src
