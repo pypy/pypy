@@ -1401,6 +1401,11 @@ class CTypesFuncWrapper(object):
         arr = self._get_ctype(llvm_type.to, len(value))((0,), 0, (len(value), value))
         return ctypes.cast(ctypes.pointer(arr), ctype)
 
+    def _to_ctype_UnicodeRepr(self, repr_, ctype, value):
+        llvm_type = database.get_type(repr_.lowleveltype)
+        arr = self._get_ctype(llvm_type.to, len(value))((0,), 0, (len(value), value))
+        return ctypes.cast(ctypes.pointer(arr), ctype)
+
     def _to_ctype(self, repr_, ctype, value):
         if repr_.lowleveltype in PRIMITIVES:
             return value
@@ -1445,6 +1450,8 @@ class CTypesFuncWrapper(object):
             array_type.setup(LLVMChar)
             type_ = self._get_ctype(array_type, name_arr.contents.len)
             name = ctypes.cast(name_arr, ctypes.POINTER(type_)).contents.items
+            if name == 'UnicodeEncodeError':
+                raise UnicodeEncodeError('', u'', 0, 0, '')
             raise getattr(__builtin__, name, RuntimeError)
         return self._from_ctype(bindingrepr(graph.getreturnvar()), ret)
 

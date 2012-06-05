@@ -3,6 +3,11 @@ import py
 from pypy.objspace.flow.model import FunctionGraph, Block, Link
 from pypy.rpython.lltypesystem import lltype, rffi, llmemory, llgroup
 from pypy.rpython.lltypesystem.test.test_rffi import BaseTestRffi
+from pypy.rpython.test import (test_annlowlevel, test_exception,
+     test_generator, test_rbool, test_rbuilder, test_rbuiltin, test_rclass,
+     test_rconstantdict, test_rdict, test_remptydict, test_rfloat,
+     test_rgeneric, test_rint, test_rlist, test_rpbc, test_rrange, test_rstr,
+     test_rtuple, test_runicode, test_rvirtualizable2, test_rweakref)
 from pypy.translator.backendopt.raisingop2direct_call import (
      raisingop2direct_call)
 from pypy.translator.c.test import (test_typed, test_lltyped,
@@ -217,6 +222,9 @@ class TestDatabase(object):
 
 
 class _LLVMMixin(test_typed.CompilationTestCase):
+    _func = None
+    _types = None
+
     def annotatefunc(self, func, argtypes=None):
         from pypy.config.pypyoption import get_pypy_config
         config = get_pypy_config(translating=True)
@@ -243,6 +251,41 @@ class _LLVMMixin(test_typed.CompilationTestCase):
     def process(self, t):
         t.buildrtyper().specialize()
         raisingop2direct_call(t)
+
+    def _compile(self, func, args):
+        types = [type(arg) for arg in args]
+        if not (func == self._func and types == self._types):
+            self._compiled = self.getcompiled(func, types)
+            self._func = func
+            self._types = types
+        return self._compiled
+
+    def interpret(self, func, args, **kwds):
+        fc = self._compile(func, args, **kwds)
+        return fc(*args)
+
+    def interpret_raises(self, exception, func, args, **kwds):
+        fc = self._compile(func, args, **kwds)
+        with py.test.raises(exception):
+            fc(*args)
+
+    def ll_to_string(self, s):
+        return s
+
+    def ll_to_unicode(self, s):
+        return s
+
+    def ll_to_list(self, l):
+        return l
+
+    def ll_to_tuple(self, t):
+        return t
+
+    def string_to_ll(self, s):
+        return s
+
+    def unicode_to_ll(self, s):
+        return s
 
 
 class TestSpecialCases(_LLVMMixin):
@@ -354,3 +397,70 @@ class TestMiniMarkGCMostCompactLLVM(test_newgc.TestMiniMarkGCMostCompact):
     @classmethod
     def _set_backend(cls, t):
         t.ensure_backend('llvm')
+
+
+class TestRtypingLLVM(_LLVMMixin, test_annlowlevel.TestLLType):
+    pass
+
+class TestExceptionLLVM(_LLVMMixin, test_exception.TestLLtype):
+    pass
+
+class TestGeneratorLLVM(_LLVMMixin, test_generator.TestLLtype):
+    pass
+
+class TestRboolLLVM(_LLVMMixin, test_rbool.TestLLtype):
+    pass
+
+class TestStringBuilderLLVM(_LLVMMixin, test_rbuilder.TestLLtype):
+    pass
+
+class TestRbuiltinLLVM(_LLVMMixin, test_rbuiltin.TestLLtype):
+    pass
+
+class TestRclassLLVM(_LLVMMixin, test_rclass.TestLLtype):
+    pass
+
+class TestRconstantdictLLVM(_LLVMMixin, test_rconstantdict.TestLLtype):
+    pass
+
+class TestRdictLLVM(_LLVMMixin, test_rdict.TestLLtype):
+    pass
+
+class TestRemptydictLLVM(_LLVMMixin, test_remptydict.TestLLtype):
+    pass
+
+class TestRfloatLLVM(_LLVMMixin, test_rfloat.TestLLtype):
+    pass
+
+class TestRGenericLLVM(_LLVMMixin, test_rgeneric.TestLLRgeneric):
+    pass
+
+class TestRintLLVM(_LLVMMixin, test_rint.TestLLtype):
+    pass
+
+class TestRlistLLVM(_LLVMMixin, test_rlist.TestLLtype):
+    pass
+
+class TestRPBCLLVM(_LLVMMixin, test_rpbc.TestLLtype):
+    pass
+
+class TestRPBCExtraLLVM(_LLVMMixin, test_rpbc.TestExtraLLtype):
+    pass
+
+class TestRrangeLLVM(_LLVMMixin, test_rrange.TestLLtype):
+    pass
+
+class TestRstrLLVM(_LLVMMixin, test_rstr.TestLLtype):
+    pass
+
+class TestRtupleLLVM(_LLVMMixin, test_rtuple.TestLLtype):
+    pass
+
+class TestRUnicodeLLVM(_LLVMMixin, test_runicode.TestLLtype):
+    pass
+
+class TestRvirtualizableLLVM(_LLVMMixin, test_rvirtualizable2.TestLLtype):
+    pass
+
+class TestRweakrefLLVM(_LLVMMixin, test_rweakref.TestLLtype):
+    pass
