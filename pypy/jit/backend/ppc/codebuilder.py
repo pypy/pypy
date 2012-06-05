@@ -1174,8 +1174,10 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
         self._copy_to_raw_memory(addr)
         self.flush_cache(addr)
 
-    def cmp_op(self, block, a, b, imm=False, signed=True):
-        if IS_PPC_32:
+    def cmp_op(self, block, a, b, imm=False, signed=True, fp=False):
+        if fp == True:
+            self.fcmpu(block, a, b)
+        elif IS_PPC_32:
             if signed:
                 if imm:
                     # 32 bit immediate signed
