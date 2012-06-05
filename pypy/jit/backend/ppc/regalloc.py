@@ -286,7 +286,8 @@ class Regalloc(object):
 
     def possibly_free_vars(self, vars):
         for var in vars:
-            self.possibly_free_var(var)
+            if var is not None:  # xxx kludgy
+                self.possibly_free_var(var)
 
     def possibly_free_vars_for_op(self, op):
         for i in range(op.numargs()):
