@@ -285,7 +285,7 @@ class GuardOpAssembler(object):
                 self.mc.cmp_op(0, l0.value, l1.value)
         elif l0.is_fp_reg():
             assert l1.is_fp_reg()
-            self.mc.cmp_op(0, l0.value, l1.value)
+            self.mc.cmp_op(0, l0.value, l1.value, fp=True)
         self._emit_guard(op, failargs, c.NE)
 
     emit_guard_nonnull = emit_guard_true
@@ -357,11 +357,11 @@ class MiscOpAssembler(object):
             elif loc.is_stack() or loc.is_imm() or loc.is_imm_float():
                 if box.type == FLOAT:
                     adr = self.fail_boxes_float.get_addr_for_num(i)
-                    self.mc.stfd(r.f0.value, r.SPP.value, 0)
+                    self.mc.stfd(r.f0.value, r.SPP.value, FORCE_INDEX_OFS + WORD)
                     self.mov_loc_loc(loc, r.f0)
                     self.mc.load_imm(r.SCRATCH, adr)
                     self.mc.stfdx(r.f0.value, 0, r.SCRATCH.value)
-                    self.mc.lfd(r.f0.value, r.SPP.value, 0)
+                    self.mc.lfd(r.f0.value, r.SPP.value, FORCE_INDEX_OFS + WORD)
                 elif box.type == REF or box.type == INT:
                     if box.type == REF:
                         adr = self.fail_boxes_ptr.get_addr_for_num(i)
@@ -494,8 +494,10 @@ class MiscOpAssembler(object):
                 offset = param_offset + i * WORD
                 if arg is not None:
                     if arg.type == FLOAT:
+                        self.mc.stfd(r.f0.value, r.SPP.value, FORCE_INDEX_OFS + WORD)
                         self.regalloc_mov(arg, r.f0)
                         self.mc.stfd(r.f0.value, r.SP.value, offset)
+                        self.mc.lfd(r.f0.value, r.SPP.value, FORCE_INDEX_OFS + WORD)
                     else:
                         self.regalloc_mov(arg, r.SCRATCH)
                         self.mc.store(r.SCRATCH.value, r.SP.value, offset)
@@ -529,7 +531,9 @@ class MiscOpAssembler(object):
             adr = r.r11
 
         # remap values stored in core registers
+        self.mc.stfd(r.f0.value, r.SPP.value, FORCE_INDEX_OFS + WORD)
         remap_frame_layout(self, float_locs, float_regs, r.f0)
+        self.mc.lfd(r.f0.value, r.SPP.value, FORCE_INDEX_OFS + WORD)
         remap_frame_layout(self, non_float_locs, non_float_regs, r.SCRATCH)
 
         # the actual call
