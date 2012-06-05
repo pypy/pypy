@@ -16,6 +16,7 @@ def parse_doc(s):
             startrev = parseline(line)
         elif line.startswith('.. branch:'):
             branches.add(parseline(line))
+    branches.discard('default')
     return startrev, branches
 
 def get_merged_branches(path, startrev, endrev):
@@ -51,6 +52,10 @@ xxx yyy zzz
 .. branch: hello
 
 qqq www ttt
+
+.. branch: default
+
+"default" should be ignored and not put in the set of documented branches
 """
     startrev, branches = parse_doc(s)
     assert startrev == '12345'

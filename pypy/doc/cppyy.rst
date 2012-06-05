@@ -361,6 +361,11 @@ That is a strong statement to make, but also a worthy goal.
   If a pointer is a global variable, the C++ side can replace the underlying
   object and the python side will immediately reflect that.
 
+* **PyObject***: Arguments and return types of ``PyObject*`` can be used, and
+  passed on to CPython API calls.
+  Since these CPython-like objects need to be created and tracked (this all
+  happens through ``cpyext``) this interface is not particularly fast.
+
 * **static data members**: Are represented as python property objects on the
   class and the meta-class.
   Both read and write access is as expected.
