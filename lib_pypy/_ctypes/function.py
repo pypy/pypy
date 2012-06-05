@@ -391,7 +391,7 @@ class CFuncPtr(_CData):
         address = self._get_address()
         ffiargs = [argtype.get_ffi_argtype() for argtype in argtypes]
         ffires = restype.get_ffi_argtype()
-        return _ffi.FuncPtr.fromaddr(address, '', ffiargs, ffires)
+        return _ffi.FuncPtr.fromaddr(address, '', ffiargs, ffires, self._flags_)
 
     def _getfuncptr(self, argtypes, restype, thisarg=None):
         if self._ptr is not None and (argtypes is self._argtypes_ or argtypes == self._argtypes_):
@@ -412,7 +412,7 @@ class CFuncPtr(_CData):
             ptr = thisarg[0][self._com_index - 0x1000]
             ffiargs = [argtype.get_ffi_argtype() for argtype in argtypes]
             ffires = restype.get_ffi_argtype()
-            return _ffi.FuncPtr.fromaddr(ptr, '', ffiargs, ffires)
+            return _ffi.FuncPtr.fromaddr(ptr, '', ffiargs, ffires, self._flags_)
         
         cdll = self.dll._handle
         try:
