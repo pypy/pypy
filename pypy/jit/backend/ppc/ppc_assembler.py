@@ -241,7 +241,7 @@ class AssemblerPPC(OpAssembler):
                     break
                 code >>= 2
                 if kind == self.DESCR_FLOAT:
-                    fvalue = fp_registers[code]
+                    fvalue = r.get_managed_fpreg_index(code)
                 else:
                     reg_index = r.get_managed_reg_index(code)
                     value = registers[reg_index]
@@ -303,6 +303,8 @@ class AssemblerPPC(OpAssembler):
                 kind = code & 3
                 code >>= 2
                 if kind == self.DESCR_FLOAT:
+                    assert (r.ALL_FLOAT_REGS[code] is 
+                            r.MANAGED_FP_REGS[r.get_managed_fpreg_index(code)])
                     loc = r.ALL_FLOAT_REGS[code]
                 else:
                     #loc = r.all_regs[code]
