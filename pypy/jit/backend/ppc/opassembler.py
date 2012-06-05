@@ -555,10 +555,16 @@ class FieldOpAssembler(object):
     def emit_setfield_gc(self, op, arglocs, regalloc):
         value_loc, base_loc, ofs, size = arglocs
         if size.value == 8:
-            if ofs.is_imm():
-                self.mc.std(value_loc.value, base_loc.value, ofs.value)
+            if value_loc.is_fp_reg():
+                if ofs.is_imm():
+                    self.mc.stfd(value_loc.value, base_loc.value, ofs.value)
+                else:
+                    self.mc.stfdx(value_loc.value, base_loc.value, ofs.value)
             else:
-                self.mc.stdx(value_loc.value, base_loc.value, ofs.value)
+                if ofs.is_imm():
+                    self.mc.std(value_loc.value, base_loc.value, ofs.value)
+                else:
+                    self.mc.stdx(value_loc.value, base_loc.value, ofs.value)
         elif size.value == 4:
             if ofs.is_imm():
                 self.mc.stw(value_loc.value, base_loc.value, ofs.value)
@@ -582,10 +588,16 @@ class FieldOpAssembler(object):
     def emit_getfield_gc(self, op, arglocs, regalloc):
         base_loc, ofs, res, size = arglocs
         if size.value == 8:
-            if ofs.is_imm():
-                self.mc.ld(res.value, base_loc.value, ofs.value)
+            if res.is_fp_reg():
+                if ofs.is_imm():
+                    self.mc.lfd(res.value, base_loc.value, ofs.value)
+                else:
+                    self.mc.lfdx(res.value, base_loc.value, ofs.value)
             else:
-                self.mc.ldx(res.value, base_loc.value, ofs.value)
+                if ofs.is_imm():
+                    self.mc.ld(res.value, base_loc.value, ofs.value)
+                else:
+                    self.mc.ldx(res.value, base_loc.value, ofs.value)
         elif size.value == 4:
             if ofs.is_imm():
                 self.mc.lwz(res.value, base_loc.value, ofs.value)
@@ -626,7 +638,10 @@ class FieldOpAssembler(object):
                     self.mc.add(r.SCRATCH.value, r.SCRATCH.value, ofs_loc.value)
 
             if fieldsize.value == 8:
-                self.mc.ldx(res_loc.value, base_loc.value, r.SCRATCH.value)
+                if res_loc.is_fp_reg():
+                    self.mc.lfdx(res_loc.value, base_loc.value, r.SCRATCH.value)
+                else:
+                    self.mc.ldx(res_loc.value, base_loc.value, r.SCRATCH.value)
             elif fieldsize.value == 4:
                 self.mc.lwzx(res_loc.value, base_loc.value, r.SCRATCH.value)
             elif fieldsize.value == 2:
@@ -653,7 +668,10 @@ class FieldOpAssembler(object):
             else:
                 self.mc.add(r.SCRATCH.value, r.SCRATCH.value, ofs_loc.value)
         if fieldsize.value == 8:
-            self.mc.stdx(value_loc.value, base_loc.value, r.SCRATCH.value)
+            if value_loc.is_fp_reg():
+                self.mc.stfdx(value_loc.value, base_loc.value, r.SCRATCH.value)
+            else:
+                self.mc.stdx(value_loc.value, base_loc.value, r.SCRATCH.value)
         elif fieldsize.value == 4:
             self.mc.stwx(value_loc.value, base_loc.value, r.SCRATCH.value)
         elif fieldsize.value == 2:
@@ -692,7 +710,10 @@ class ArrayOpAssembler(object):
             scale_loc = r.SCRATCH
 
         if scale.value == 3:
-            self.mc.stdx(value_loc.value, base_loc.value, scale_loc.value)
+            if value_loc.is_fp_reg():
+                self.mc.stfdx(value_loc.value, base_loc.value, scale_loc.value)
+            else:
+                self.mc.stdx(value_loc.value, base_loc.value, scale_loc.value)
         elif scale.value == 2:
             self.mc.stwx(value_loc.value, base_loc.value, scale_loc.value)
         elif scale.value == 1:
@@ -723,7 +744,10 @@ class ArrayOpAssembler(object):
             scale_loc = r.SCRATCH
 
         if scale.value == 3:
-            self.mc.ldx(res.value, base_loc.value, scale_loc.value)
+            if res.is_fp_reg():
+                self.mc.lfdx(res.value, base_loc.value, scale_loc.value)
+            else:
+                self.mc.ldx(res.value, base_loc.value, scale_loc.value)
         elif scale.value == 2:
             self.mc.lwzx(res.value, base_loc.value, scale_loc.value)
         elif scale.value == 1:
