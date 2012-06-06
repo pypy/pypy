@@ -417,7 +417,8 @@ class CDLL(object):
 
     def getpointer_by_ordinal(self, name, argtypes, restype,
                               flags=FUNCFLAG_CDECL):
-        return Func(name, argtypes, restype, dlsym_byordinal(self.lib, name),
+        return Func('by_ordinal', argtypes, restype, 
+                    dlsym_byordinal(self.lib, name),
                     flags=flags, keepalive=self)
     def getaddressindll(self, name):
         return dlsym(self.lib, name)
