@@ -64,7 +64,7 @@ class TestTermios(object):
         source = py.code.Source("""
         import sys
         import termios
-        termios.tcsetattr(sys.stdin, 1, [16640, 4, 191, 2608, 15, 15, ['\x03', '\x1c', '\x7f', '\x15', '\x04', 0, 1, '\x00', '\x11', '\x13', '\x1a', '\x00', '\x12', '\x0f', '\x17', '\x16', '\x00', '\x00', '\x00', '\x00', '\x00', '\x00', '\x00', '\x00', '\x00', '\x00', '\x00', '\x00', '\x00', '\x00', '\x00', '\x00']])
+        termios.tcsetattr(sys.stdin, 1, [16640, 4, 191, 2608, 15, 15, [b'\x03', b'\x1c', b'\x7f', b'\x15', b'\x04', 0, 1, b'\x00', b'\x11', b'\x13', b'\x1a', b'\x00', b'\x12', b'\x0f', b'\x17', b'\x16', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00']])
         print('ok!')
         """)
         f = udir.join("test_tcsetattr.py")
