@@ -23,7 +23,7 @@ class TestTermios(object):
 
     def _spawn(self, *args, **kwds):
         print 'SPAWN:', args, kwds
-        child = self.pexpect.spawn(timeout=600, *args, **kwds)
+        child = self.pexpect.spawn(timeout=600, maxread=5000, *args, **kwds)
         child.logfile = sys.stdout
         return child
 
@@ -36,9 +36,9 @@ class TestTermios(object):
         child.expect('>>> ')
         child.sendline('import termios')
         child.expect('>>> ')
-        child.sendline('termios.tcgetattr(0)')
-        child.expect('\[.*?\[.*?\]\]')
-        lst = eval(child.match.group(0))
+        child.sendline('print("attr=", termios.tcgetattr(0))')
+        child.expect('attr= (\[.*?\[.*?\]\])')
+        lst = eval(child.match.group(1))
         assert len(lst) == 7
         assert len(lst[-1]) == 32 # XXX is this portable???
 
