@@ -628,6 +628,8 @@ class AppTestFFI(BaseAppTestFFI):
         sleep(10)
 
     def test_by_ordinal(self):
+        if not self.iswin32:
+            skip("windows specific")
         """
             int DLLEXPORT AAA_first_ordinal_function()
             {
