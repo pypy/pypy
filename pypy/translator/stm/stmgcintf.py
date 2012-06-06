@@ -90,5 +90,10 @@ class StmOperations(object):
                                                 lltype.Signed],
                                                lltype.Void)
 
+    # sets the transaction length, after which should_break_transaction()
+    # returns True
+    set_transaction_length = smexternal('stm_set_transaction_length',
+                                        [lltype.Signed], lltype.Void)
+
     # for testing
     abort_and_retry  = smexternal('stm_abort_and_retry', [], lltype.Void)
