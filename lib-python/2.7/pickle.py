@@ -638,7 +638,7 @@ class Pickler(object):
             # else tmp is empty, and we're done
 
     def save_dict(self, obj):
-        modict_saver = self._pickle_moduledict(obj)
+        modict_saver = self._pickle_maybe_moduledict(obj)
         if modict_saver is not None:
             return self.save_reduce(*modict_saver)
 
@@ -691,26 +691,17 @@ class Pickler(object):
                 write(SETITEM)
             # else tmp is empty, and we're done
 
-    def _pickle_moduledict(self, obj):
+    def _pickle_maybe_moduledict(self, obj):
         # save module dictionary as "getattr(module, '__dict__')"
-
-        # build index of module dictionaries
         try:
-            modict = self.module_dict_ids
-        except AttributeError:
-            modict = {}
-            from sys import modules
-            for mod in modules.values():
-                if isinstance(mod, ModuleType):
-                    modict[id(mod.__dict__)] = mod
-            self.module_dict_ids = modict
-
-        thisid = id(obj)
-        try:
-            themodule = modict[thisid]
-        except KeyError:
+            themodule = sys.modules[obj['__name__']]
+            if type(themodule) is not ModuleType:
+                return None
+            if themodule.__dict__ is not obj:
+                return None
+        except (AttributeError, KeyError, TypeError):
             return None
-        from __builtin__ import getattr
+
         return getattr, (themodule, '__dict__')
 
 
