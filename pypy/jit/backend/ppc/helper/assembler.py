@@ -77,9 +77,11 @@ class Saved_Volatiles(object):
         in ENCODING AREA around calls
     """
 
-    def __init__(self, codebuilder, save_RES=True):
-        self.save_RES = save_RES
+    def __init__(self, codebuilder, save_RES=True, save_FLOAT=True):
         self.mc = codebuilder
+        self.save_RES = save_RES
+        self.save_FLOAT = save_FLOAT
+        self.FLOAT_OFFSET = len(r.VOLATILES)
 
     def __enter__(self):
         """ before a call, volatile registers are saved in ENCODING AREA
@@ -88,6 +90,10 @@ class Saved_Volatiles(object):
             if not self.save_RES and reg is r.RES:
                 continue
             self.mc.store(reg.value, r.SPP.value, i * WORD)
+        if self.save_FLOAT:
+            for i, reg in enumerate(r.VOLATILES_FLOAT):
+                self.mc.stfd(reg.value, r.SPP.value,
+                             (i + self.FLOAT_OFFSET) * WORD)
 
     def __exit__(self, *args):
         """ after call, volatile registers have to be restored
@@ -96,3 +102,7 @@ class Saved_Volatiles(object):
             if not self.save_RES and reg is r.RES:
                 continue
             self.mc.load(reg.value, r.SPP.value, i * WORD)
+        if self.save_FLOAT:
+            for i, reg in enumerate(r.VOLATILES_FLOAT):
+                self.mc.lfd(reg.value, r.SPP.value,
+                             (i + self.FLOAT_OFFSET) * WORD)
