@@ -241,7 +241,8 @@ class AssemblerPPC(OpAssembler):
                     break
                 code >>= 2
                 if kind == self.DESCR_FLOAT:
-                    fvalue = r.get_managed_fpreg_index(code)
+                    reg_index = r.get_managed_fpreg_index(code)
+                    fvalue = fp_registers[reg_index]
                 else:
                     reg_index = r.get_managed_reg_index(code)
                     value = registers[reg_index]
@@ -575,9 +576,10 @@ class AssemblerPPC(OpAssembler):
         for i in range(len(r.MANAGED_REGS)):
             reg = r.MANAGED_REGS[i]
             mc.store(reg.value, r.SPP.value, i * WORD)
+        FLOAT_OFFSET = len(r.MANAGED_REGS)
         for i in range(len(r.MANAGED_FP_REGS)):
             fpreg = r.MANAGED_FP_REGS[i]
-            mc.stfd(fpreg.value, r.SPP.value, i * WORD + len(r.MANAGED_REGS))
+            mc.stfd(fpreg.value, r.SPP.value, (i + FLOAT_OFFSET) * WORD)
 
     def gen_bootstrap_code(self, loophead, spilling_area):
         self._insert_stack_check()
