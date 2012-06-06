@@ -90,6 +90,7 @@ class __extend__(pyframe.PyFrame):
 
     def _runs_normal_handler(self):
         if self.space.config.translation.stm and we_are_translated():
+            from pypy.rlib import rstm
             return not rstm.should_break_transaction()
         return True
 

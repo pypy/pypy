@@ -326,6 +326,7 @@ class AbstractActionFlag(object):
         # but actually *forces* another thread to run whenever the counter
         # reaches zero.
         self.checkinterval_scaled = 10000 * TICK_COUNTER_STEP
+        self.setcheckinterval_callback = None
         self._rebuild_action_dispatcher()
 
     def fire(self, action):
@@ -365,6 +366,8 @@ class AbstractActionFlag(object):
             interval = MAX
         self.checkinterval_scaled = interval * TICK_COUNTER_STEP
         self.reset_ticker(-1)
+        if self.setcheckinterval_callback is not None:
+            self.setcheckinterval_callback()
 
     def _rebuild_action_dispatcher(self):
         periodic_actions = unrolling_iterable(self._periodic_actions)

@@ -16,12 +16,11 @@ class STMThreadLocals(OSThreadLocals):
         """NOT_RPYTHON: set up a mechanism to send to the C code the value
         set by space.actionflag.setcheckinterval()."""
         #
-        def setcheckinterval1(interval):
-            old_setcheckinterval(space.actionflag, interval)
+        def setcheckinterval_callback():
             self.configure_transaction_length(space)
         #
-        old_setcheckinterval = space.actionflag.__class__.setcheckinterval
-        space.actionflag.setcheckinterval = setcheckinterval1
+        assert space.actionflag.setcheckinterval_callback is None
+        space.actionflag.setcheckinterval_callback = setcheckinterval_callback
         self.threads_running = False
 
     def setup_threads(self, space):
