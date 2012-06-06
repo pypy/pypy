@@ -220,7 +220,6 @@ looks like this::
    ./include/
    ./lib_pypy/
    ./lib-python/2.7
-   ./lib-python/modified-2.7
    ./site-packages/
 
 The hierarchy shown above is relative to a PREFIX directory.  PREFIX is

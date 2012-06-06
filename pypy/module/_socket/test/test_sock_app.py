@@ -629,9 +629,12 @@ class AppTestSocketTCP:
         except timeout:
             pass
         t.recv(count)    
-        # test sendall() timeout, be sure to send data larger than the
-        # socket buffer
-        raises(timeout, cli.sendall, b'foobar' * 7000)
+        # test sendall() timeout
+        try:
+            while 1:
+                cli.sendall(b'foobar' * 70)
+        except timeout:
+            pass
         # done
         cli.close()
         t.close()

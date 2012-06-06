@@ -1198,41 +1198,29 @@ def eq__List_List(space, w_list1, w_list2):
         i += 1
     return space.w_True
 
-def lessthan_unwrappeditems(space, w_list1, w_list2):
-    # needs to be safe against eq_w() mutating the w_lists behind our back
-    # Search for the first index where items are different
-    i = 0
-    # XXX in theory, this can be implemented more efficiently as well. let's
-    # not care for now
-    while i < w_list1.length() and i < w_list2.length():
-        w_item1 = w_list1.getitem(i)
-        w_item2 = w_list2.getitem(i)
-        if not space.eq_w(w_item1, w_item2):
-            return space.lt(w_item1, w_item2)
-        i += 1
-    # No more items to compare -- compare sizes
-    return space.newbool(w_list1.length() < w_list2.length())
+def _make_list_comparison(name):
+    import operator
+    op = getattr(operator, name)
+    def compare_unwrappeditems(space, w_list1, w_list2):
+        # needs to be safe against eq_w() mutating the w_lists behind our back
+        # Search for the first index where items are different
+        i = 0
+        # XXX in theory, this can be implemented more efficiently as well.
+        # let's not care for now
+        while i < w_list1.length() and i < w_list2.length():
+            w_item1 = w_list1.getitem(i)
+            w_item2 = w_list2.getitem(i)
+            if not space.eq_w(w_item1, w_item2):
+                return getattr(space, name)(w_item1, w_item2)
+            i += 1
+        # No more items to compare -- compare sizes
+        return space.newbool(op(w_list1.length(), w_list2.length()))
+    return func_with_new_name(compare_unwrappeditems, name + '__List_List')
 
-def greaterthan_unwrappeditems(space, w_list1, w_list2):
-    # needs to be safe against eq_w() mutating the w_lists behind our back
-    # Search for the first index where items are different
-    i = 0
-    # XXX in theory, this can be implemented more efficiently as well. let's
-    # not care for now
-    while i < w_list1.length() and i < w_list2.length():
-        w_item1 = w_list1.getitem(i)
-        w_item2 = w_list2.getitem(i)
-        if not space.eq_w(w_item1, w_item2):
-            return space.gt(w_item1, w_item2)
-        i += 1
-    # No more items to compare -- compare sizes
-    return space.newbool(w_list1.length() > w_list2.length())
-
-def lt__List_List(space, w_list1, w_list2):
-    return lessthan_unwrappeditems(space, w_list1, w_list2)
-
-def gt__List_List(space, w_list1, w_list2):
-    return greaterthan_unwrappeditems(space, w_list1, w_list2)
+lt__List_List = _make_list_comparison('lt')
+le__List_List = _make_list_comparison('le')
+gt__List_List = _make_list_comparison('gt')
+ge__List_List = _make_list_comparison('ge')
 
 def delitem__List_ANY(space, w_list, w_idx):
     idx = get_list_index(space, w_idx)

@@ -145,6 +145,8 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
             archive = str(builddir.join(name + '.tar.bz2'))
             if sys.platform == 'darwin' or sys.platform.startswith('freebsd'):
                 e = os.system('tar --numeric-owner -cvjf ' + archive + " " + name)
+            elif sys.platform == 'cygwin':
+                e = os.system('tar --owner=Administrator --group=Administrators --numeric-owner -cvjf ' + archive + " " + name)
             else:
                 e = os.system('tar --owner=root --group=root --numeric-owner -cvjf ' + archive + " " + name)
             if e:

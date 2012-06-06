@@ -843,6 +843,20 @@ class AppTestPosix:
         import os
         assert hasattr(os, 'kill')
 
+    def test_pipe_flush(self):
+        os = self.posix
+        ffd, gfd = os.pipe()
+        f = os.fdopen(ffd, 'r')
+        g = os.fdopen(gfd, 'w')
+        g.write('he')
+        g.flush()
+        x = f.read(1)
+        assert x == 'h'
+        f.flush()
+        x = f.read(1)
+        assert x == 'e'
+
+
 class AppTestEnvironment(object):
     def setup_class(cls):
         cls.space = space

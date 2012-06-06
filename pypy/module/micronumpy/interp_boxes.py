@@ -12,14 +12,17 @@ from pypy.tool.sourcetools import func_with_new_name
 MIXIN_32 = (int_typedef,) if LONG_BIT == 32 else ()
 MIXIN_64 = (int_typedef,) if LONG_BIT == 64 else ()
 
+
 def new_dtype_getter(name):
     def _get_dtype(space):
         from pypy.module.micronumpy.interp_dtype import get_dtype_cache
         return getattr(get_dtype_cache(space), "w_%sdtype" % name)
+
     def new(space, w_subtype, w_value):
         dtype = _get_dtype(space)
         return dtype.itemtype.coerce_subtype(space, w_subtype, w_value)
     return func_with_new_name(new, name + "_box_new"), staticmethod(_get_dtype)
+
 
 class PrimitiveBox(object):
     _mixin_ = True
@@ -29,6 +32,7 @@ class PrimitiveBox(object):
 
     def convert_to(self, dtype):
         return dtype.box(self.value)
+
 
 class W_GenericBox(Wrappable):
     _attrs_ = ()
@@ -71,7 +75,7 @@ class W_GenericBox(Wrappable):
     def _binop_right_impl(ufunc_name):
         def impl(self, space, w_other, w_out=None):
             from pypy.module.micronumpy import interp_ufuncs
-            return getattr(interp_ufuncs.get(space), ufunc_name).call(space, 
+            return getattr(interp_ufuncs.get(space), ufunc_name).call(space,
                                                             [w_other, self, w_out])
         return func_with_new_name(impl, "binop_right_%s_impl" % ufunc_name)
 
@@ -131,6 +135,9 @@ class W_GenericBox(Wrappable):
         w_quotient = self.descr_rdiv(space, w_other)
         w_remainder = self.descr_rmod(space, w_other)
         return space.newtuple([w_quotient, w_remainder])
+
+    def descr_hash(self, space):
+        return space.hash(self.item(space))
 
     def item(self, space):
         return self.get_dtype(space).itemtype.to_builtin_type(space, self)
@@ -315,6 +322,8 @@ W_GenericBox.typedef = TypeDef("generic",
     __abs__ = interp2app(W_GenericBox.descr_abs),
     __invert__ = interp2app(W_GenericBox.descr_invert),
 
+    __hash__ = interp2app(W_GenericBox.descr_hash),
+
     tolist = interp2app(W_GenericBox.item),
 )
 
@@ -440,4 +449,4 @@ W_UnicodeBox.typedef = TypeDef("unicode_", (unicode_typedef, W_CharacterBox.type
     __module__ = "numpypy",
     __new__ = interp2app(W_UnicodeBox.descr__new__unicode_box.im_func),
 )
-                                          
+

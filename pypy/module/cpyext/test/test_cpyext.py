@@ -36,7 +36,7 @@ class TestApi:
 class AppTestApi:
     def setup_class(cls):
         cls.space = gettestobjspace(usemodules=['cpyext', 'thread', '_rawffi', 'array'])
-        from pypy.rlib.libffi import get_libc_name
+        from pypy.rlib.clibffi import get_libc_name
         cls.w_libc = cls.space.wrap(get_libc_name())
 
     def test_load_error(self):
