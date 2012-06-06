@@ -428,10 +428,10 @@ if os.name == 'nt':
         def getpointer(self, name, argtypes, restype, flags=FUNCFLAG_STDCALL):
             return Func(name, argtypes, restype, dlsym(self.lib, name),
                         flags=flags, keepalive=self)
-    def getpointer_by_ordinal(self, name, argtypes, restype,
-                              flags=FUNCFLAG_STDCALL):
-        return Func(name, argtypes, restype, dlsym_byordinal(self.lib, name),
-                    flags=flags, keepalive=self)
+        def getpointer_by_ordinal(self, name, argtypes, restype,
+                                  flags=FUNCFLAG_STDCALL):
+            return Func(name, argtypes, restype, dlsym_byordinal(self.lib, name),
+                        flags=flags, keepalive=self)
 
 # ======================================================================
 

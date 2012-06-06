@@ -589,5 +589,22 @@ class TestLibffiCall(BaseFfiTest):
             print dir(f_by_name)
             assert f_by_name.funcsym == f_by_ordinal.funcsym
 
+        def test_by_ordinal2(self):
+            """
+            int __stdcall BBB_second_ordinal_function()
+            {
+                return 24;
+            }
+            """
+            from pypy.rlib.libffi import WinDLL
+            dll = WinDLL(self.libfoo_name)
+            f_by_name = dll.getpointer('BBB_second_ordinal_function' ,[],
+                                          types.uint)
+            f_by_ordinal = dll.getpointer_by_ordinal(2 ,[], types.uint)
+            print dir(f_by_name)
+            assert f_by_name.funcsym == f_by_ordinal.funcsym
+            chain = ArgChain()
+            assert 24 == f_by_ordinal.call(chain, lltype.Signed, is_struct=False)
+
 
         
