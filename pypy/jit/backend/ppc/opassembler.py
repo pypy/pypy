@@ -531,9 +531,7 @@ class MiscOpAssembler(object):
             adr = r.r11
 
         # remap values stored in core registers
-        self.mc.stfd(r.f0.value, r.SPP.value, FORCE_INDEX_OFS + WORD)
         remap_frame_layout(self, float_locs, float_regs, r.f0)
-        self.mc.lfd(r.f0.value, r.SPP.value, FORCE_INDEX_OFS + WORD)
         remap_frame_layout(self, non_float_locs, non_float_regs, r.SCRATCH)
 
         # the actual call
