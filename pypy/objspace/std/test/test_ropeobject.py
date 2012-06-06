@@ -1,4 +1,5 @@
 import py
+py.test.py3k_skip('ropes are not supported for now')
 
 from pypy.objspace.std.test import test_stringobject, test_unicodeobject
 from pypy.conftest import gettestobjspace
