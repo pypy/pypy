@@ -694,7 +694,10 @@ class Pickler(object):
     def _pickle_maybe_moduledict(self, obj):
         # save module dictionary as "getattr(module, '__dict__')"
         try:
-            themodule = sys.modules[obj['__name__']]
+            name = obj['__name__']
+            if type(name) is not str:
+                return None
+            themodule = sys.modules[name]
             if type(themodule) is not ModuleType:
                 return None
             if themodule.__dict__ is not obj:
