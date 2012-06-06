@@ -75,23 +75,32 @@ class __extend__(pyframe.PyFrame):
     ### opcode dispatch ###
 
     def dispatch(self, pycode, next_instr, ec):
-        if self.space.config.translation.stm and we_are_translated():
-            return self.dispatch_with_stm(next_instr)
-
         # For the sequel, force 'next_instr' to be unsigned for performance
         next_instr = r_uint(next_instr)
         co_code = pycode.co_code
 
         try:
-            while True:
+            while self._runs_normal_handler():
                 next_instr = self.handle_bytecode(co_code, next_instr, ec)
         except ExitFrame:
             return self.popvalue()
+        #
+        # we only get here if _runs_normal_handler() returned False
+        return self._dispatch_stm_breaking_transaction(next_instr)
 
-    def dispatch_with_stm(self, next_instr):
+    def _runs_normal_handler(self):
+        if self.space.config.translation.stm and we_are_translated():
+            return not rstm.should_break_transaction()
+        return True
+
+    def _dispatch_stm_breaking_transaction(self, next_instr):
+        # STM: entered the first time this frame is asked to introduce
+        # a transaction break.  This is done by invoking the C function
+        # rstm.perform_transaction(), which calls back
+        # _dispatch_new_stm_transaction().
         from pypy.rlib import rstm
-        self.last_instr = intmask(next_instr)
-        rstm.perform_transaction(pyframe.PyFrame._dispatch_stm_transaction,
+        self.last_instr = intmask(next_instr)     # save this value
+        rstm.perform_transaction(pyframe.PyFrame._dispatch_new_stm_transaction,
                                  self.space.FrameClass, self)
         e = self.__reraise
         if e is None:
@@ -100,21 +109,26 @@ class __extend__(pyframe.PyFrame):
             self.__reraise = None
             raise e                   # re-raise the exception we got
 
-    def _dispatch_stm_transaction(self, retry_counter):
+    def _dispatch_new_stm_transaction(self, retry_counter):
         self = self._hints_for_stm()
+        co_code = self.pycode.co_code
+        next_instr = r_uint(self.last_instr)    # restore this value
+        ec = self.space.getexecutioncontext()
+
+        # a loop similar to the one in dispatch()
         try:
-            co_code = self.pycode.co_code
-            next_instr = r_uint(self.last_instr)
-            ec = self.space.getexecutioncontext()
-            next_instr = self.handle_bytecode(co_code, next_instr, ec)
-            self.last_instr = intmask(next_instr)
-            return 1     # loop
+            while self._runs_normal_handler():
+                next_instr = self.handle_bytecode(co_code, next_instr, ec)
         except ExitFrame:
             self.__reraise = None
-            return 0     # stop looping
+            return 0     # stop perform_transaction() and returns
         except Exception, e:
             self.__reraise = e
-            return 0     # stop looping
+            return 0     # stop perform_transaction() and returns
+        #
+        # we get there if _runs_normal_handler() return False again
+        self.last_instr = intmask(next_instr)      # save this value
+        return 1     # causes perform_transaction() to loop and call us again
 
     def handle_bytecode(self, co_code, next_instr, ec):
         try:
@@ -318,9 +332,21 @@ class __extend__(pyframe.PyFrame):
                 return next_instr
 
             if self.space.config.translation.stm:
+                # with STM, if should_break_transaction(), then it is a good
+                # idea to leave and let _dispatch_stm_breaking_transaction()
+                # break the transaction.  But avoid doing it if we are in a
+                # tail-call position: if the next opcode is RETURN_VALUE, or
+                # one of the opcodes in the one of the sequences
+                #    * POP_TOP/LOAD_CONST/RETURN_VALUE
+                #    * POP_TOP/LOAD_FAST/RETURN_VALUE
                 from pypy.rlib import rstm
                 if rstm.should_break_transaction():
-                    return next_instr
+                    opcode = ord(co_code[next_instr])
+                    if opcode not in (self.opcodedesc.RETURN_VALUE.index,
+                                      self.opcodedesc.POP_TOP.index,
+                                      self.opcodedesc.LOAD_CONST.index,
+                                      self.opcodedesc.LOAD_FAST.index):
+                        return next_instr
 
     @jit.unroll_safe
     def unrollstack(self, unroller_kind):
