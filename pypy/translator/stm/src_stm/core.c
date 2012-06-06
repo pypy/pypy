@@ -736,6 +736,7 @@ long stm_is_inevitable(void)
 }
 
 static __thread long stm_atomic = 0;
+static long stm_regular_length_limit = LONG_MAX;
 
 void stm_add_atomic(long delta)
 {
@@ -750,7 +751,15 @@ long stm_get_atomic(void)
 long stm_should_break_transaction(void)
 {
   struct tx_descriptor *d = thread_descriptor;
-  return !stm_atomic && is_inevitable(d);
+  return !stm_atomic && (is_inevitable(d) ||
+                         d->reads.size >= stm_regular_length_limit);
+}
+
+void stm_set_transaction_length(long length_max)
+{
+  struct tx_descriptor *d = thread_descriptor;
+  stm_try_inevitable(STM_EXPLAIN1("set_transaction_length"));
+  stm_regular_length_limit = length_max;
 }
 
 #define END_MARKER   ((void*)-8)   /* keep in sync with stmframework.py */

@@ -17,6 +17,9 @@ def should_break_transaction():
     return we_are_translated() and (
         stmgcintf.StmOperations.should_break_transaction())
 
+def set_transaction_length(length):
+    stmgcintf.StmOperations.set_transaction_length(length)
+
 def increment_atomic():
     stmgcintf.StmOperations.add_atomic(+1)
 

@@ -337,6 +337,37 @@ void test_try_inevitable(void)
 
 /************************************************************/
 
+void should_break_transaction_1(void)
+{
+    assert(stm_should_break_transaction() == 0);
+    stm_set_transaction_length(10);   /* implies "becomes inevitable" */
+    assert(stm_should_break_transaction() == 1);
+}
+
+void should_break_transaction_2(void)
+{
+    S1 s1[15];
+    int i;
+    for (i=0; i<15; i++) {
+        s1[i].header.h_tid = GCFLAG_GLOBAL;
+        s1[i].header.h_version = NULL;
+        s1[i].value1 = 48+i;
+    }
+    for (i=0; i<15; i++) {
+        assert(stm_read_int1(s1+i, offsetof(S1, value1)) == 48+i);
+        assert(stm_should_break_transaction() == ((i+1) >= 10));
+    }
+}
+
+void test_should_break_transaction(void)
+{
+    assert(stm_in_transaction() == 0);
+    run_in_transaction(should_break_transaction_1, '.');
+    run_in_transaction(should_break_transaction_2, '.');
+}
+
+/************************************************************/
+
 
 #define XTEST(name)  if (!strcmp(argv[1], #name)) { test_##name(); return 0; }
 
@@ -355,6 +386,7 @@ int main(int argc, char **argv)
     XTEST(size_getter);
     XTEST(copy_transactional_to_raw);
     XTEST(try_inevitable);
+    XTEST(should_break_transaction);
     printf("bad test name\n");
     return 1;
 }

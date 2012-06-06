@@ -90,8 +90,5 @@ class StmOperations(object):
                                                 lltype.Signed],
                                                lltype.Void)
 
-    # if running in a transaction, make it inevitable
-    try_inevitable = smexternal('stm_try_inevitable', [], lltype.Void)
-
     # for testing
     abort_and_retry  = smexternal('stm_abort_and_retry', [], lltype.Void)

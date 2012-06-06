@@ -13,9 +13,20 @@ class STMThreadLocals(OSThreadLocals):
     can_cache = False
 
     def initialize(self, space):
-        pass
+        """NOT_RPYTHON: set up a mechanism to send to the C code the value
+        set by space.actionflag.setcheckinterval()."""
+        #
+        def setcheckinterval1(interval):
+            old_setcheckinterval(space.actionflag, interval)
+            self.configure_transaction_length(space)
+        #
+        old_setcheckinterval = space.actionflag.__class__.setcheckinterval
+        space.actionflag.setcheckinterval = setcheckinterval1
+        self.threads_running = False
 
     def setup_threads(self, space):
+        self.threads_running = True
+        self.configure_transaction_length(space)
         invoke_around_extcall(rstm.before_external_call,
                               rstm.after_external_call,
                               rstm.enter_callback_call,
@@ -23,6 +34,11 @@ class STMThreadLocals(OSThreadLocals):
 
     def reinit_threads(self, space):
         self.setup_threads(space)
+
+    def configure_transaction_length(self, space):
+        if self.threads_running:
+            interval = space.actionflag.getcheckinterval()
+            rstm.set_transaction_length(interval)
 
 
 class STMLock(ll_thread.Lock):
