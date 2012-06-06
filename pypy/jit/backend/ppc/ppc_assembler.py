@@ -6,7 +6,7 @@ from pypy.jit.backend.ppc.codebuilder import (PPCBuilder, OverwritingBuilder,
 from pypy.jit.backend.ppc.arch import (IS_PPC_32, IS_PPC_64, WORD,
                                               NONVOLATILES, MAX_REG_PARAMS,
                                               GPR_SAVE_AREA, BACKCHAIN_SIZE,
-                                              FPR_SAVE_AREA,
+                                              FPR_SAVE_AREA, NONVOLATILES_FLOAT,
                                               FLOAT_INT_CONVERSION, FORCE_INDEX,
                                               SIZE_LOAD_IMM_PATCH_SP,
                                               FORCE_INDEX_OFS)
@@ -73,6 +73,8 @@ class AssemblerPPC(OpAssembler):
     ENCODING_AREA               = FORCE_INDEX_OFS
     OFFSET_SPP_TO_GPR_SAVE_AREA = (FORCE_INDEX + FLOAT_INT_CONVERSION
                                    + ENCODING_AREA)
+    OFFSET_SPP_TO_FPR_SAVE_AREA = (OFFSET_SPP_TO_GPR_SAVE_AREA
+                                   + GPR_SAVE_AREA)
     OFFSET_SPP_TO_OLD_BACKCHAIN = (OFFSET_SPP_TO_GPR_SAVE_AREA
                                    + GPR_SAVE_AREA + FPR_SAVE_AREA)
 
@@ -104,21 +106,27 @@ class AssemblerPPC(OpAssembler):
         self._debug = v
 
     def _save_nonvolatiles(self):
-        """ save nonvolatile GPRs in GPR SAVE AREA 
+        """ save nonvolatile GPRs and FPRs in SAVE AREA 
         """
         for i, reg in enumerate(NONVOLATILES):
             # save r31 later on
             if reg.value == r.SPP.value:
                 continue
             self.mc.store(reg.value, r.SPP.value, 
-                    self.OFFSET_SPP_TO_GPR_SAVE_AREA + WORD * i)
+                          self.OFFSET_SPP_TO_GPR_SAVE_AREA + WORD * i)
+        for i, reg in enumerate(NONVOLATILES_FLOAT):
+            self.mc.stfd(reg.value, r.SPP.value, 
+                         self.OFFSET_SPP_TO_FPR_SAVE_AREA + WORD * i)
 
     def _restore_nonvolatiles(self, mc, spp_reg):
-        """ restore nonvolatile GPRs from GPR SAVE AREA
+        """ restore nonvolatile GPRs and FPRs from SAVE AREA
         """
         for i, reg in enumerate(NONVOLATILES):
             mc.load(reg.value, spp_reg.value, 
-                self.OFFSET_SPP_TO_GPR_SAVE_AREA + WORD * i)
+                         self.OFFSET_SPP_TO_GPR_SAVE_AREA + WORD * i)
+        for i, reg in enumerate(NONVOLATILES_FLOAT):
+            mc.lfd(reg.value, spp_reg.value,
+                        self.OFFSET_SPP_TO_FPR_SAVE_AREA + WORD * i)
 
     # The code generated here allocates a new stackframe 
     # and is the first machine code to be executed.
