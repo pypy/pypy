@@ -16,6 +16,10 @@ class STMThreadLocals(OSThreadLocals):
         """NOT_RPYTHON: set up a mechanism to send to the C code the value
         set by space.actionflag.setcheckinterval()."""
         #
+        # Set the default checkinterval to 50000, found by exploration to
+        # be a good default value.  XXX do some more in-depth tests
+        space.actionflag.setcheckinterval(50000)
+        #
         def setcheckinterval_callback():
             self.configure_transaction_length(space)
         #
