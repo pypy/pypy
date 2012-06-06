@@ -45,7 +45,8 @@ if os.name == 'nt':
                     space.wrap('function name must be a string or integer'))
 else:    
     @unwrap_spec(name=str)
-    def _getfunc(space, CDLL, name, w_argtypes, w_restype):
+    def _getfunc(space, CDLL, w_name, w_argtypes, w_restype):
+        name = space.str_w(w_name)
         argtypes_w, argtypes, w_restype, restype = unpack_argtypes(space,
                                                                    w_argtypes,
                                                                    w_restype)
