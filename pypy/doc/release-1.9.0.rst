@@ -43,7 +43,7 @@ donated some money to one of our four calls:
   * as well as our general PyPy pot.
 
 Thank you all for proving that it is indeed possible for a small team of
-(inexpensive) programmers to get funded like that, at least for some
+programmers to get funded like that, at least for some
 time.  We want to include this thank you in the present release
 announcement even though most of the work is not finished yet.  More
 precisely, neither Py3k nor STM are ready to make it an official release
