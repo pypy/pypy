@@ -80,6 +80,20 @@ crashing_demo_script = getscript("""
     """)
 
 
+@contextmanager
+def setpythonpath():
+    old_pythonpath = os.getenv('PYTHONPATH')
+    rootdir = os.path.dirname(autopath.pypydir)
+    os.putenv('PYTHONPATH', rootdir)
+    try:
+        yield
+    finally:
+        if old_pythonpath is None:
+            os.delenv('PYTHONPATH')
+        else:
+            os.putenv('PYTHONPATH', old_pythonpath)
+
+
 class TestParseCommandLine:
 
     def check_options(self, options, sys_argv, expected):
@@ -230,13 +244,8 @@ class TestInteraction:
 
     def spawn(self, argv):
         # make sure that when we do 'import pypy' we get the correct package
-        rootdir = os.path.dirname(autopath.pypydir)
-        old_pythonpath = os.environ['PYTHONPATH']
-        os.environ['PYTHONPATH'] = rootdir
-        try:
+        with setpythonpath():
             return self._spawn(python3, [app_main] + argv)
-        finally:
-            os.environ['PYTHONPATH'] = old_pythonpath
 
     def test_interactive(self):
         child = self.spawn([])
@@ -566,7 +575,8 @@ class TestNonInteractive:
         return data, process.returncode
 
     def run(self, *args, **kwargs):
-        data, status = self.run_with_status_code(*args, **kwargs)
+        with setpythonpath():
+            data, status = self.run_with_status_code(*args, **kwargs)
         return data
 
     def test_script_on_stdin(self):
