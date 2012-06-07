@@ -513,8 +513,9 @@ def run_command_line(interactive,
             print >> sys.stderr, "'import site' failed"
 
     readenv = not ignore_environment
-    io_encoding = ((readenv and os.getenv("PYTHONIOENCODING"))
-                   or sys.getfilesystemencoding())
+    io_encoding = readenv and os.getenv("PYTHONIOENCODING")
+    if not io_encoding and not IS_WINDOWS:
+        io_encoding = sys.getfilesystemencoding()
     if io_encoding:
         set_io_encoding(io_encoding)
 
