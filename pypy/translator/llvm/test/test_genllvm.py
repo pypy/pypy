@@ -253,7 +253,7 @@ class _LLVMMixin(test_typed.CompilationTestCase):
         raisingop2direct_call(t)
 
     def _compile(self, func, args):
-        types = [type(arg) for arg in args]
+        types = [lltype.typeOf(arg) for arg in args]
         if not (func == self._func and types == self._types):
             self._compiled = self.getcompiled(func, types)
             self._compiled.convert = False
