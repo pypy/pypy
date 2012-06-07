@@ -815,11 +815,15 @@ if __name__ == '__main__':
     old_argv = sys.argv
     old_path = sys.path
 
+    old_streams = sys.stdin, sys.stdout, sys.stderr
+    del sys.stdin, sys.stdout, sys.stderr
+
     try:
         sys.exit(int(entry_point(sys.argv[0], sys.argv[1:], os)))
     finally:
         # restore the normal prompt (which was changed by _pypy_interact), in
         # case we are dropping to CPython's prompt
+        sys.stdin, sys.stdout, sys.stderr = old_streams
         sys.ps1 = '>>> '
         sys.ps2 = '... '
         import os; os.environ.update(reset)
