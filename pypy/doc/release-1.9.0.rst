@@ -51,17 +51,21 @@ yet: people interested in them need to grab and (attempt to) translate
 PyPy from the corresponding branches (respectively ``py3k`` and
 ``stm-thread``).
 
+.. _`NumPy in PyPy`: http://pypy.org/numpydonate.html
+.. _`Py3k (Python 3)`: http://pypy.org/py3donate.html
+.. _`Software Transactional Memory`: http://pypy.org/tmdonate.html
 
 Highlights
 ==========
 
-* This release still implements Python 2.7, using the standard library of
-  CPython 2.7.2.
+* This release still implements Python 2.7, the standard library has been
+  upgraded to CPython 2.7.2.
 
 * Many bugs were corrected for Windows 32 bit.  This includes new
   functionality to test the validity of file descriptors; and
   correct handling of the calling convensions for ctypes.  (Still not
-  much progress on Win64.)
+  much progress on Win64.) A lot of work on this has been done by Matti Picus
+  and Amaury Forgeot D'Arc.
 
 * Improvements in ``cpyext``, our emulator for CPython C extension modules.
   For example PyOpenSSL should now work.
@@ -78,6 +82,13 @@ Highlights
 * JIT hooks for inspecting the created assembler code has been improved.
   See `JIT hooks documentation`_ for details.
 
+* ``select.kqueue`` has been added.
+
+* Handling of keyword arguments has been drastically improved in the best-case
+  scenario.
+
+* List comprehension has been improved.
+
 JitViewer
 =========
 
@@ -87,5 +98,3 @@ with PyPy 1.9. See `JitViewer docs`_ for details.
 .. _`numpy status`: http://buildbot.pypy.org/numpy-status/latest.html
 .. _`JitViewer docs`: http://bitbucket.org/pypy/jitviewer
 .. _`JIT hooks documentation`: http://doc.pypy.org/en/latest/jit-hooks.html
-
-XXX should we do something with whatsnew-1.9.txt?
