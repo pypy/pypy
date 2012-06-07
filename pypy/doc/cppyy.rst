@@ -71,10 +71,14 @@ That's why the medium term plan is to move to `cling`_.
 .. _`recent snapshot`: http://cern.ch/wlav/reflex-2012-05-02.tar.bz2
 .. _`gccxml`: http://www.gccxml.org
 
-Next, get the `PyPy sources`_, select the reflex-support branch, and build
-pypy-c.
+Next, get the `PyPy sources`_, select the reflex-support branch, and build.
 For the build to succeed, the ``$ROOTSYS`` environment variable must point to
-the location of your ROOT (or standalone Reflex) installation::
+the location of your ROOT (or standalone Reflex) installation, or the
+``root-config`` utility must be accessible through ``PATH`` (e.g. by adding
+``$ROOTSYS/bin`` to ``PATH``).
+In case of the former, include files are expected under ``$ROOTSYS/include``
+and libraries under ``$ROOTSYS/lib``.
+Then run the translation to build ``pypy-c``::
 
     $ hg clone https://bitbucket.org/pypy/pypy
     $ cd pypy
