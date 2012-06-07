@@ -72,6 +72,11 @@ Highlights
 * A lot of progress on various aspects of ``numpypy``. See `numpy-status`_
   page for the automatic report.
 
+* It is now possible to create and manipulate C-like structures using the
+  PyPy-only ``_ffi`` module.  The advantage over using e.g. ``ctypes`` is that
+  ``_ffi`` is very JIT-friendly, and getting/setting of fields is translated
+  to few assembler instructions by the JIT.
+
 * The non-x86 backends for the JIT are progressing but are still not
   merged (ARMv7 and PPC64).
 
