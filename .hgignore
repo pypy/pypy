@@ -25,6 +25,7 @@ syntax: regexp
 ^pypy/module/cppyy/src/.+\.errors$
 ^pypy/module/cppyy/test/.+_rflx\.cpp$
 ^pypy/module/cppyy/test/.+\.so$
+^pypy/module/cppyy/test/.+\.rootmap$
 ^pypy/module/cppyy/test/.+\.exe$
 ^pypy/module/cppyy/test/.+_cint.h$
 ^pypy/doc/.+\.html$

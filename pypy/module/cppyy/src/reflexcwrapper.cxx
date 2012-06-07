@@ -10,6 +10,10 @@
 #include "Reflex/PropertyList.h"
 #include "Reflex/TypeTemplate.h"
 
+#define private public
+#include "Reflex/PluginService.h"
+#undef private
+
 #include <string>
 #include <sstream>
 #include <utility>
@@ -61,6 +65,8 @@ char* cppyy_resolve_name(const char* cppitem_name) {
 
 cppyy_scope_t cppyy_get_scope(const char* scope_name) {
     Reflex::Scope s = Reflex::Scope::ByName(scope_name);
+    if (!s) Reflex::PluginService::Instance().LoadFactoryLib(scope_name);
+    s = Reflex::Scope::ByName(scope_name);
     if (s.IsEnum())     // pretend to be builtin by returning 0
         return (cppyy_type_t)0;
     return (cppyy_type_t)s.Id();

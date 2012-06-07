@@ -35,7 +35,7 @@ ifeq ($(CINT),)
 	g++ -o $@ $^ -shared -lReflex $(cppflags) $(cppflags2)
 
 %_rflx.cpp: %.h %.xml
-	$(genreflex) $< $(genreflexflags) --selection=$*.xml
+	$(genreflex) $< $(genreflexflags) --selection=$*.xml --rootmap=$*Dict.rootmap --rootmap-lib=$*Dict.so
 else
 %Dict.so: %_cint.cxx %.cxx
 	g++ -o $@ $^ -shared $(cppflags) $(cppflags2)
@@ -53,4 +53,4 @@ endif
 
 .PHONY: clean
 clean:
-	-rm -f $(dicts)
+	-rm -f $(dicts) $(subst .so,.rootmap,$(dicts))
