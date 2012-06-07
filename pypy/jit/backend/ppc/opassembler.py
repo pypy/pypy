@@ -200,7 +200,7 @@ class FloatOpAssembler(object):
         l0, res = arglocs
         self.mc.fabs(res.value, l0.value)
 
-    def emit_float_sqrt(self, op, arglocs, regalloc):
+    def emit_math_sqrt(self, op, arglocs, regalloc):
         l0, res = arglocs
         self.mc.fsqrt(res.value, l0.value)
 
