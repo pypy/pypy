@@ -27,6 +27,7 @@ from pypy.jit.backend.llsupport.descr import unpack_arraydescr
 from pypy.jit.backend.llsupport.descr import unpack_fielddescr
 from pypy.jit.backend.llsupport.descr import unpack_interiorfielddescr
 from pypy.rlib.objectmodel import we_are_translated
+from pypy.jit.codewriter.effectinfo import EffectInfo
 
 # xxx hack: set a default value for TargetToken._arm_loop_code.  If 0, we know
 # that it is a LABEL that was not compiled yet.
@@ -900,8 +901,11 @@ class Regalloc(object):
     def prepare_call(self, op):
         effectinfo = op.getdescr().get_extra_info()
         if effectinfo is not None:
-            # XXX TODO
-            pass
+            oopspecindex = effectinfo.oopspecindex
+            if oopspecindex == EffectInfo.OS_MATH_SQRT:
+                args = self.prepare_math_sqrt(op)
+                self.assembler.emit_math_sqrt(op, args, self)
+                return
         return self._prepare_call(op)
 
     def _prepare_call(self, op, force_store=[], save_all_regs=False):
