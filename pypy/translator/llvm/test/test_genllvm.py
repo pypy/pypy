@@ -256,6 +256,7 @@ class _LLVMMixin(test_typed.CompilationTestCase):
         types = [type(arg) for arg in args]
         if not (func == self._func and types == self._types):
             self._compiled = self.getcompiled(func, types)
+            self._compiled.convert = False
             self._func = func
             self._types = types
         return self._compiled
@@ -268,24 +269,6 @@ class _LLVMMixin(test_typed.CompilationTestCase):
         fc = self._compile(func, args, **kwds)
         with py.test.raises(exception):
             fc(*args)
-
-    def ll_to_string(self, s):
-        return s
-
-    def ll_to_unicode(self, s):
-        return s
-
-    def ll_to_list(self, l):
-        return l
-
-    def ll_to_tuple(self, t):
-        return t
-
-    def string_to_ll(self, s):
-        return s
-
-    def unicode_to_ll(self, s):
-        return s
 
 
 class TestSpecialCases(_LLVMMixin):

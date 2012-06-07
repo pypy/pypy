@@ -12,8 +12,11 @@ from pypy.rlib.objectmodel import (Symbolic, ComputedIntSymbolic,
      CDefinedIntSymbolic, malloc_zero_filled, running_on_llinterp)
 from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
 from pypy.rpython.lltypesystem import llarena, llgroup, llmemory, lltype, rffi
+from pypy.rpython.lltypesystem.ll2ctypes import (_llvm_needs_header,
+     get_ctypes_type, lltype2ctypes, ctypes2lltype)
 from pypy.rpython.memory.gctransform.framework import FrameworkGCTransformer
 from pypy.rpython.memory.gctransform.transform import GCTransformer
+from pypy.rpython.module.support import LLSupport
 from pypy.rpython.typesystem import getfunctionptr
 from pypy.translator.gensupp import uniquemodulename
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
@@ -288,8 +291,6 @@ LLVMUnsigned = PRIMITIVES[lltype.Unsigned]
 LLVMHalfWord = PRIMITIVES[llgroup.HALFWORD]
 LLVMInt = PRIMITIVES[rffi.INT]
 LLVMChar = PRIMITIVES[lltype.Char]
-LLVMSignedChar = PRIMITIVES[rffi.SIGNEDCHAR]
-LLVMUniChar = PRIMITIVES[lltype.UniChar]
 
 
 class PtrType(BasePtrType):
@@ -657,6 +658,8 @@ class Database(object):
                     self.types[type_] = ret = StructType()
                     ret.setup('%struct.' + type_._name, [], True)
                     return ret
+                elif (type_._gckind == 'gc' and type_._first_struct() == (None, None)): # hint for ll2ctypes
+                    _llvm_needs_header.add(type_)
                 if type_._hints.get("union", False):
                     class_ = UnionType
                 else:
@@ -1339,50 +1342,21 @@ def make_main(translator, entrypoint):
 
 class CTypesFuncWrapper(object):
     def __init__(self, genllvm, entry_point):
-        self.translator = genllvm.translator
-        self.entry_point_graph = entry_point
+        self.rtyper = genllvm.translator.rtyper
+        self.graph = entry_point
         self.entry_point_def = self._get_ctypes_def(
                 getfunctionptr(entry_point))
         self.rpyexc_occured_def = self._get_ctypes_def(
-                genllvm.exctransformer.rpyexc_occured_ptr)
+                genllvm.exctransformer.rpyexc_occured_ptr.value)
         self.rpyexc_fetch_type_def = self._get_ctypes_def(
-                genllvm.exctransformer.rpyexc_fetch_type_ptr)
+                genllvm.exctransformer.rpyexc_fetch_type_ptr.value)
+        self.convert = True
 
     def _get_ctypes_def(self, func_ptr):
-        ptr_repr = get_repr(func_ptr)
-        return (ptr_repr.V[1:],
-                self._get_ctype(ptr_repr.type_.to.result),
-                map(self._get_ctype, ptr_repr.type_.to.args))
-
-    def _get_ctype(self, llvm_type, extra_len=0):
-        CTYPES_MAP = {
-            LLVMVoid: None,
-            LLVMSigned: ctypes.c_long,
-            LLVMUnsigned: ctypes.c_ulong,
-            LLVMChar: ctypes.c_char,
-            LLVMSignedChar: ctypes.c_byte,
-            LLVMUniChar: ctypes.c_wchar,
-            LLVMBool: ctypes.c_bool,
-            LLVMFloat: ctypes.c_double
-        }
-        if isinstance(llvm_type, PtrType):
-            return ctypes.POINTER(self._get_ctype(llvm_type.to))
-        elif isinstance(llvm_type, StructType):
-            fields = [(fldname, self._get_ctype(fldtype, extra_len))
-                      for fldtype, fldname in llvm_type.fields]
-            return type('Struct', (ctypes.Structure,), {'_fields_': fields})
-        elif isinstance(llvm_type, ArrayType):
-            return self._get_ctype(llvm_type.struct_type, extra_len)
-        elif isinstance(llvm_type, BareArrayType):
-            if llvm_type.length is None:
-                return self._get_ctype(llvm_type.of) * extra_len
-            return self._get_ctype(llvm_type.of) * llvm_type.length
-        elif isinstance(llvm_type, FuncType):
-            return ctypes.c_void_p
-        elif isinstance(llvm_type, OpaqueType):
-            return ctypes.c_void_p
-        else:
-            return CTYPES_MAP[llvm_type]
+        return (get_repr(func_ptr).V[1:],
+                get_ctypes_type(func_ptr._T.RESULT),
+                map(get_ctypes_type, func_ptr._T.ARGS),
+                func_ptr._T.RESULT)
 
     def load_cdll(self, path):
         cdll = ctypes.CDLL(path)
@@ -1390,70 +1364,57 @@ class CTypesFuncWrapper(object):
         self.rpyexc_occured = self._func(cdll, *self.rpyexc_occured_def)
         self.rpyexc_fetch_type = self._func(cdll, *self.rpyexc_fetch_type_def)
 
-    def _func(self, cdll, name, restype, argtypes):
+    def _func(self, cdll, name, restype, argtypes, ll_restype):
         func = getattr(cdll, name)
         func.restype = restype
         func.argtypes = argtypes
-        return func
-
-    def _to_ctype_StringRepr(self, repr_, ctype, value):
-        llvm_type = database.get_type(repr_.lowleveltype)
-        arr = self._get_ctype(llvm_type.to, len(value))((0,), 0, (len(value), value))
-        return ctypes.cast(ctypes.pointer(arr), ctype)
-
-    def _to_ctype_UnicodeRepr(self, repr_, ctype, value):
-        llvm_type = database.get_type(repr_.lowleveltype)
-        arr = self._get_ctype(llvm_type.to, len(value))((0,), 0, (len(value), value))
-        return ctypes.cast(ctypes.pointer(arr), ctype)
-
-    def _to_ctype(self, repr_, ctype, value):
-        if repr_.lowleveltype in PRIMITIVES:
-            return value
-        convert = getattr(self, '_to_ctype_' + repr_.__class__.__name__)
-        return convert(repr_, ctype, value)
-
-    def _from_ctype_TupleRepr(self, repr_, result):
-        l = []
-        for r, name in zip(repr_.items_r, repr_.fieldnames):
-            l.append(self._from_ctype(r, getattr(result.contents, name)))
-        return tuple(l)
-
-    def _from_ctype_StringRepr(self, repr_, result):
-        llvm_type = database.get_type(repr_.lowleveltype)
-        type_ = self._get_ctype(llvm_type.to, result.contents.chars.len)
-        return ctypes.cast(result, ctypes.POINTER(type_)).contents.chars.items
-
-    def _from_ctype_UnicodeRepr(self, repr_, result):
-        llvm_type = database.get_type(repr_.lowleveltype)
-        type_ = self._get_ctype(llvm_type.to, result.contents.chars.len)
-        return ctypes.cast(result, ctypes.POINTER(type_)).contents.chars.items
-
-    def _from_ctype(self, repr_, result):
-        if repr_.lowleveltype in PRIMITIVES:
-            if repr_.lowleveltype is lltype.Bool:
-                return bool(result)
-            if repr_.lowleveltype is rffi.SIGNEDCHAR:
-                return chr(result)
-            return result
-        convert = getattr(self, '_from_ctype_' + repr_.__class__.__name__)
-        return convert(repr_, result)
+        def _call(*args):
+            ret = func(*(lltype2ctypes(arg) for arg in args))
+            return ctypes2lltype(ll_restype, ret)
+        return _call
 
     def __call__(self, *args):
-        bindingrepr = self.translator.rtyper.bindingrepr
-        graph = self.entry_point_graph
-        converted = [self._to_ctype(bindingrepr(llt), ct, arg) for llt, ct, arg
-                     in zip(graph.getargs(), self.entry_point.argtypes, args)]
-        ret = self.entry_point(*converted)
+        if self.convert:
+            getrepr = self.rtyper.bindingrepr
+            args = [self._Repr2lltype(getrepr(var), arg)
+                    for var, arg in zip(self.graph.getargs(), args)]
+        ret = self.entry_point(*args)
         if self.rpyexc_occured():
-            name_arr = self.rpyexc_fetch_type().contents.name
-            array_type = ArrayType()
-            array_type.setup(LLVMChar)
-            type_ = self._get_ctype(array_type, name_arr.contents.len)
-            name = ctypes.cast(name_arr, ctypes.POINTER(type_)).contents.items
+            name = ''.join(self.rpyexc_fetch_type().name._obj.items[:-1])
             if name == 'UnicodeEncodeError':
                 raise UnicodeEncodeError('', u'', 0, 0, '')
             raise getattr(__builtin__, name, RuntimeError)
-        return self._from_ctype(bindingrepr(graph.getreturnvar()), ret)
+        if self.convert:
+            return self._lltype2Repr(getrepr(self.graph.getreturnvar()), ret)
+        return ret
+
+    def _StringRepr2lltype(self, repr_, value):
+        return LLSupport.to_rstr(value)
+
+    def _UnicodeRepr2lltype(self, repr_, value):
+        return LLSupport.to_runicode(value)
+
+    def _Repr2lltype(self, repr_, value):
+        if isinstance(repr_.lowleveltype, lltype.Primitive):
+            return value
+        convert = getattr(self, '_{}2lltype'.format(repr_.__class__.__name__))
+        return convert(repr_, value)
+
+    def _lltype2TupleRepr(self, repr_, value):
+        return tuple(self._lltype2Repr(item_r, getattr(value, name))
+                     for item_r, name in zip(repr_.items_r, repr_.fieldnames))
+
+    def _lltype2StringRepr(self, repr_, value):
+        return ''.join(value.chars)
+
+    def _lltype2UnicodeRepr(self, repr_, value):
+        return u''.join(value.chars)
+
+    def _lltype2Repr(self, repr_, value):
+        if isinstance(repr_.lowleveltype, lltype.Primitive):
+            return value
+        convert = getattr(self, '_lltype2' + repr_.__class__.__name__)
+        return convert(repr_, value)
 
 
 allocator_eci = ExternalCompilationInfo(

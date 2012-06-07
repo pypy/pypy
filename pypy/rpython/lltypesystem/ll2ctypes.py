@@ -147,11 +147,14 @@ def _setup_ctypes_cache():
     else:
         _ctypes_cache[lltype.UniChar] = ctypes.c_uint32
 
+_llvm_needs_header = set()
 def build_ctypes_struct(S, delayed_builders, max_n=None):
     def builder():
         # called a bit later to fill in _fields_
         # (to handle recursive structure pointers)
         fields = []
+        if S in _llvm_needs_header:
+            fields.append(('_gc_header', ctypes.c_int))
         for fieldname in S._names:
             FIELDTYPE = S._flds[fieldname]
             if max_n is not None and fieldname == S._arrayfld:
