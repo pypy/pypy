@@ -386,7 +386,11 @@ class TestRtypingLLVM(_LLVMMixin, test_annlowlevel.TestLLType):
     pass
 
 class TestExceptionLLVM(_LLVMMixin, test_exception.TestLLtype):
-    pass
+    def test_raise_and_catch_other(self):
+        py.test.skip('Impossible to pass if not running on LLInterpreter.')
+
+    def test_raise_prebuilt_and_catch_other(self):
+        py.test.skip('Impossible to pass if not running on LLInterpreter.')
 
 class TestGeneratorLLVM(_LLVMMixin, test_generator.TestLLtype):
     pass
