@@ -285,6 +285,8 @@ def setup_initial_paths(ignore_environment=False, **extra):
             _seen[dir] = True
 
 def initstdio(encoding=None, unbuffered=False):
+    if hasattr(sys, 'stdin'):
+        return # already initialized
     if not encoding:
         encoding = sys.getfilesystemencoding()
     if ':' in encoding:
