@@ -34,11 +34,11 @@ Thanks to our donators
 But first of all, we would like to say thank you to all people who
 donated some money to one of our four calls:
 
-  * `NumPy in PyPy`_ (got so far $44502 out of $60000)
+  * `NumPy in PyPy`_ (got so far $44502 out of $60000, 74%)
 
-  * `Py3k (Python 3)`_ (got so far $43563 out of $105000)
+  * `Py3k (Python 3)`_ (got so far $43563 out of $105000, 41%)
 
-  * `Software Transactional Memory`_ (got so far $21791 of $50400)
+  * `Software Transactional Memory`_ (got so far $21791 of $50400, 43%)
 
   * as well as our general PyPy pot.
 
