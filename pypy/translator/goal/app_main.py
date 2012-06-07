@@ -774,12 +774,11 @@ if __name__ == '__main__':
     sys.modules['__cpython_main__'] = sys.modules['__main__']
 
     def pypy_initial_path(s):
-        return ["../lib-python/3.2", "../lib_pypy", ".."]
-        from pypy.module.sys.state import getinitialpath
-        try:
-            return getinitialpath(None, s)
-        except OSError:
-            return None
+        from os.path import abspath, join, dirname as dn
+        thisfile = os.path.abspath(__file__)
+        root = dn(dn(dn(dn(thisfile))))
+        return [join(root, 'lib-python', '3.2'),
+                join(root, 'lib_pypy')]
     sys.pypy_initial_path = pypy_initial_path
 
     # add an emulator for these pypy-only or 2.7-only functions
