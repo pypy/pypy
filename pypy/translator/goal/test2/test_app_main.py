@@ -415,11 +415,14 @@ class TestInteraction:
         child.expect('789')    # expect to see it before the timeout hits
         child.sendline('X')
 
-    def test_options_i_m(self):
+    def test_options_i_m(self, monkeypatch):
         if sys.platform == "win32":
             skip("close_fds is not supported on Windows platforms")
         if not hasattr(runpy, '_run_module_as_main'):
             skip("requires CPython >= 2.6")
+        # make sure that when we do 'import pypy' we get the correct package
+        rootdir = os.path.dirname(autopath.pypydir)
+        monkeypatch.setenv('PYTHONPATH', rootdir)
         p = os.path.join(autopath.this_dir, 'mymodule.py')
         p = os.path.abspath(p)
         child = self.spawn(['-i',
