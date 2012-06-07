@@ -846,7 +846,11 @@ void stm_perform_transaction(long(*callback)(void*, long), void *arg,
       d->reads_size_limit_nonatomic = stm_regular_length_limit >> counter;
       if (!d->atomic)
         begin_transaction(&_jmpbuf);
+
+      /* invoke the callback in the new transaction */
       result = callback(arg, counter);
+
+      v_atomic = d->atomic;
       if (!d->atomic)
         stm_commit_transaction();
       counter = 0;
