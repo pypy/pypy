@@ -69,11 +69,23 @@ Highlights
 * Sets now have strategies just like dictionaries. This means for example
   that a set containing only ints will be more compact (and faster).
 
-* A lot of progress on various aspects of ``numpypy``.
+* A lot of progress on various aspects of ``numpypy``. See `numpy-status`_
+  page for the automatic report.
 
 * The non-x86 backends for the JIT are progressing but are still not
   merged (ARMv7 and PPC64).
 
+* JIT hooks for inspecting the created assembler code has been improved.
+  See `JIT hooks documentation`_ for details.
 
+JitViewer
+=========
+
+There is a corresponding 1.9 release of JitViewer which is guaranteed to work
+with PyPy 1.9. See `JitViewer docs`_ for details.
+
+.. _`numpy status`: http://buildbot.pypy.org/numpy-status/latest.html
+.. _`JitViewer docs`: http://bitbucket.org/pypy/jitviewer
+.. _`JIT hooks documentation`: http://doc.pypy.org/en/latest/jit-hooks.html
 
 XXX should we do something with whatsnew-1.9.txt?
