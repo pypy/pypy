@@ -404,6 +404,10 @@ def set_pypy_opt_level(config, level):
         config.objspace.std.suggest(withcelldict=True)
         config.objspace.std.suggest(withmapdict=True)
 
+    # tweaks some parameters with STM
+    if config.translation.stm:
+        config.objspace.std.suggest(methodcachesizeexp=9)
+
 
 def enable_allworkingmodules(config):
     if config.translation.type_system == 'ootype':
