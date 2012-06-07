@@ -1217,6 +1217,12 @@ class FunctionWriter(object):
         self.w('{result.V} = ptrtoint {t.TV} to {result.T}'
                 .format(**locals()))
 
+    def op_jit_force_virtualizable(self, *args):
+        pass
+
+    def op_hint(self, result, var, hints):
+        self._cast(result, var)
+
 
 class GCPolicy(object):
     def __init__(self, genllvm):
