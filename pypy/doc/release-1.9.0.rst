@@ -65,7 +65,7 @@ Highlights
   functionality to test the validity of file descriptors; and
   correct handling of the calling convensions for ctypes.  (Still not
   much progress on Win64.) A lot of work on this has been done by Matti Picus
-  and Amaury Forgeot D'Arc.
+  and Amaury Forgeot d'Arc.
 
 * Improvements in ``cpyext``, our emulator for CPython C extension modules.
   For example PyOpenSSL should now work.
