@@ -413,6 +413,9 @@ class AppTestStringObject:
         assert 'abcdefghiabc'.find('def', 4) == -1
         assert 'abcdef'.find('', 13) == -1
         assert 'abcdefg'.find('def', 5, None) == -1
+        assert 'abcdef'.find('d', 6, 0) == -1
+        assert 'abcdef'.find('d', 3, 3) == -1
+        raises(TypeError, 'abcdef'.find, 'd', 1.0)
 
     def test_index(self):
         from sys import maxint

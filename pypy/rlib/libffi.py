@@ -1,14 +1,16 @@
 from __future__ import with_statement
 
 from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.rlib.objectmodel import specialize, enforceargs, we_are_translated
+from pypy.rlib.objectmodel import specialize, enforceargs
 from pypy.rlib.rarithmetic import intmask, r_uint, r_singlefloat, r_longlong
 from pypy.rlib import jit
 from pypy.rlib import clibffi
-from pypy.rlib.clibffi import get_libc_name, FUNCFLAG_CDECL, AbstractFuncPtr, \
-    push_arg_as_ffiptr, c_ffi_call, FFI_TYPE_STRUCT
+from pypy.rlib.clibffi import FUNCFLAG_CDECL, FUNCFLAG_STDCALL, \
+        AbstractFuncPtr, push_arg_as_ffiptr, c_ffi_call, FFI_TYPE_STRUCT
 from pypy.rlib.rdynload import dlopen, dlclose, dlsym, dlsym_byordinal
 from pypy.rlib.rdynload import DLLHANDLE
+
+import os
 
 class types(object):
     """
@@ -374,7 +376,7 @@ class Func(AbstractFuncPtr):
         else:
             res = None
         self._free_buffers(ll_result, ll_args)
-        #check_fficall_result(ffires, self.flags)
+        clibffi.check_fficall_result(ffires, self.flags)
         return res
 
     def _free_buffers(self, ll_result, ll_args):
@@ -416,6 +418,11 @@ class CDLL(object):
     def getaddressindll(self, name):
         return dlsym(self.lib, name)
 
+if os.name == 'nt':
+    class WinDLL(CDLL):
+        def getpointer(self, name, argtypes, restype, flags=FUNCFLAG_STDCALL):
+            return Func(name, argtypes, restype, dlsym(self.lib, name),
+                        flags=flags, keepalive=self)
 # ======================================================================
 
 @jit.oopspec('libffi_struct_getfield(ffitype, addr, offset)')

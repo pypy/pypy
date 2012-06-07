@@ -148,6 +148,7 @@ if not _WIN32:
 else:
     includes += ['sys/utime.h']
 
+_CYGWIN = sys.platform == 'cygwin'
 
 class CConfig:
     """
@@ -1329,9 +1330,14 @@ class RegisterOs(BaseLazyRegistering):
                 return result
         else:
             # Posix
-            os_waitpid = self.llexternal('waitpid',
-                                         [rffi.PID_T, rffi.INTP, rffi.INT],
-                                         rffi.PID_T)
+            if _CYGWIN:
+                os_waitpid = self.llexternal('cygwin_waitpid',
+                                             [rffi.PID_T, rffi.INTP, rffi.INT],
+                                             rffi.PID_T)
+            else:
+                os_waitpid = self.llexternal('waitpid',
+                                             [rffi.PID_T, rffi.INTP, rffi.INT],
+                                             rffi.PID_T)
 
         def os_waitpid_llimpl(pid, options):
             status_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
