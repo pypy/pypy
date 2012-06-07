@@ -28,9 +28,7 @@ def gen_emit_cmp_op(condition, signed=True, fp=False):
         elif condition == c.GT or condition == c.U_GT:
             self.mc.cror(0, 1, 1)
         elif condition == c.NE:
-            self.mc.cror(0, 0, 1)
-            if fp:
-                self.mc.cror(0, 0, 3)
+            self.mc.crnor(0, 2, 2)
         else:
             assert 0, "condition not known"
 
