@@ -16,6 +16,8 @@ options:
   --info         print translation information about this PyPy executable
 """
 
+from __future__ import print_function, unicode_literals
+
 import sys
 
 DEBUG = False       # dump exceptions before calling the except hook
@@ -533,6 +535,11 @@ def parse_command_line(argv):
 
     return options
 
+# this indirection is needed to be able to import this module on python2, else
+# we have a SyntaxError: unqualified exec in a nested function
+def exec_(src, dic):
+    exec(src, dic)
+
 def run_command_line(interactive,
                      inspect,
                      run_command,
@@ -606,7 +613,7 @@ def run_command_line(interactive,
             sys.path.insert(0, '')
 
             def run_it():
-                exec(run_command, mainmodule.__dict__)
+                exec_(run_command, mainmodule.__dict__)
             success = run_toplevel(run_it)
         elif run_module:
             # handle the "-m" command
@@ -642,7 +649,7 @@ def run_command_line(interactive,
                             co_python_startup = compile(startup,
                                                         python_startup,
                                                         'exec')
-                            exec(co_python_startup, mainmodule.__dict__)
+                            exec_(co_python_startup, mainmodule.__dict__)
                         run_toplevel(run_it)
                 # Then we need a prompt.
                 inspect = True
@@ -650,7 +657,7 @@ def run_command_line(interactive,
                 # If not interactive, just read and execute stdin normally.
                 def run_it():
                     co_stdin = compile(sys.stdin.read(), '<stdin>', 'exec')
-                    exec(co_stdin, mainmodule.__dict__)
+                    exec_(co_stdin, mainmodule.__dict__)
                 mainmodule.__file__ = '<stdin>'
                 success = run_toplevel(run_it)
         else:
@@ -683,7 +690,7 @@ def run_command_line(interactive,
                     def execfile(filename, namespace):
                         with open(filename) as f:
                             code = f.read()
-                        exec(code, namespace)
+                        exec_(code, namespace)
                     args = (execfile, filename, mainmodule.__dict__)
             success = run_toplevel(*args)
 
