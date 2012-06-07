@@ -11,8 +11,14 @@ srcpath = pkgpath.join("src")
 incpath = pkgpath.join("include")
 
 if os.environ.get("ROOTSYS"):
-    rootincpath = [os.path.join(os.environ["ROOTSYS"], "include")]
-    rootlibpath = [os.path.join(os.environ["ROOTSYS"], "lib")]
+    import commands
+    (stat, incdir) = commands.getstatusoutput("root-config --incdir")
+    if stat != 0:        # presumably Reflex-only
+        rootincpath = [os.path.join(os.environ["ROOTSYS"], "include")]
+        rootlibpath = [os.path.join(os.environ["ROOTSYS"], "lib64"), os.path.join(os.environ["ROOTSYS"], "lib")]
+    else:
+        rootincpath = [incdir]
+        rootlibpath = commands.getoutput("root-config --libdir").split()
 else:
     rootincpath = []
     rootlibpath = []

@@ -10,7 +10,11 @@ ifeq ($(ROOTSYS),)
   cppflags=
 else
   genreflex=$(ROOTSYS)/bin/genreflex
-  cppflags=-I$(ROOTSYS)/include -L$(ROOTSYS)/lib64 -L$(ROOTSYS)/lib
+  ifeq ($(wildcard $(ROOTSYS)/include),)     # standard locations used?
+    cppflags=-I$(shell root-config --incdir) -L$(shell root-config --libdir)
+  else
+    cppflags=-I$(ROOTSYS)/include -L$(ROOTSYS)/lib64 -L$(ROOTSYS)/lib
+  endif
 endif
 
 PLATFORM := $(shell uname -s)
@@ -32,6 +36,7 @@ endif
 
 ifeq ($(CINT),)
 %Dict.so: %_rflx.cpp %.cxx
+	echo $(cppflags)
 	g++ -o $@ $^ -shared -lReflex $(cppflags) $(cppflags2)
 
 %_rflx.cpp: %.h %.xml
