@@ -278,7 +278,7 @@ class BaseTestRbuiltin(BaseRtypingTest):
         except OSError:
             pass
         count = 0
-        for dir_call in enum_direct_calls(test_llinterp.typer.annotator.translator, fn):
+        for dir_call in enum_direct_calls(self.translator, fn):
             cfptr = dir_call.args[0]
             assert self.get_callable(cfptr.value).__name__.startswith('dup')
             count += 1
@@ -294,7 +294,7 @@ class BaseTestRbuiltin(BaseRtypingTest):
         res = self.interpret(f, [])
         os.close(res)
         count = 0
-        for dir_call in enum_direct_calls(test_llinterp.typer.annotator.translator, wr_open):
+        for dir_call in enum_direct_calls(self.translator, wr_open):
             cfptr = dir_call.args[0]
             assert self.get_callable(cfptr.value).__name__.startswith('os_open')
             count += 1

@@ -236,7 +236,7 @@ class _LLVMMixin(test_typed.CompilationTestCase):
         config.translation.gc = 'minimark'
         config.translation.simplifying = True
         config.override(self.config_override)
-        t = TranslationContext(config=config)
+        t = self._translator = TranslationContext(config=config)
         if argtypes is None:
             argtypes = []
         a = t.buildannotator(self.annotator_policy)
@@ -278,6 +278,10 @@ class _LLVMMixin(test_typed.CompilationTestCase):
         fc = self._compile(func, args, **kwds)
         with py.test.raises(exception):
             fc(*args)
+
+    @property
+    def translator(self):
+        return self._translator
 
 
 class TestSpecialCases(_LLVMMixin):

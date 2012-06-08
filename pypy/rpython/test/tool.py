@@ -1,6 +1,7 @@
 import py
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.test import test_llinterp
 from pypy.rpython.test.test_llinterp import gengraph, interpret, interpret_raises
 
 class BaseRtypingTest(object):
@@ -41,6 +42,10 @@ class BaseRtypingTest(object):
             py.test.skip("lltypesystem doesn't support %s, yet" % reason)        
         if skipOO and self.type_system == 'ootype':
             py.test.skip("ootypesystem doesn't support %s, yet" % reason)    
+
+    @property
+    def translator(self):
+        return test_llinterp.typer.annotator.translator
 
 class LLRtypeMixin(object):
     type_system = 'lltype'
