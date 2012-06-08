@@ -79,6 +79,8 @@ class StmFrameworkGCTransformer(FrameworkGCTransformer):
 
     def gct_stm_local_not_needed(self, hop):
         # XXX make use of this info :-)
+        # for now, 'stm_local_not_needed' is not generated
+        # (INSERT_STM_LOCAL_NOT_NEEDED=False in translator/stm/transform)
         self.vars_local_not_needed.update(hop.spaceop.args)
 
 

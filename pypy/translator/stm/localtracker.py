@@ -8,6 +8,8 @@ RETURNS_LOCAL_POINTER = set([
     'stm_writebarrier',
     ])
 
+ENSURED_LOCAL_VARS = False      # not needed for now
+
 
 class StmLocalTracker(object):
     """Tracker to determine which pointers are statically known to point
@@ -24,7 +26,8 @@ class StmLocalTracker(object):
         # holding a value that we really want to be local.  It does
         # not contain the variables that happen to be local but whose
         # locality is not useful any more.
-        self.ensured_local_vars = set()
+        if ENSURED_LOCAL_VARS:
+            self.ensured_local_vars = set()
 
     def try_ensure_local(self, *variables):
         for variable in variables:
@@ -33,11 +36,12 @@ class StmLocalTracker(object):
         #
         # they could all be locals, so flag them and their dependencies
         # and return True
-        for variable in variables:
-            if (isinstance(variable, Variable) and
-                    variable not in self.ensured_local_vars):
-                depends_on = self.gsrc.backpropagate(variable)
-                self.ensured_local_vars.update(depends_on)
+        if ENSURED_LOCAL_VARS:
+            for variable in variables:
+                if (isinstance(variable, Variable) and
+                        variable not in self.ensured_local_vars):
+                    depends_on = self.gsrc.backpropagate(variable)
+                    self.ensured_local_vars.update(depends_on)
         return True
 
     def _could_be_local(self, variable):

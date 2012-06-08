@@ -21,6 +21,8 @@ ALWAYS_ALLOW_OPERATIONS = set([
     ])
 ALWAYS_ALLOW_OPERATIONS |= set(lloperation.enum_tryfold_ops())
 
+INSERT_STM_LOCAL_NOT_NEEDED = False    # not useful for now
+
 def op_in_set(opname, set):
     return opname in set
 
@@ -47,9 +49,10 @@ class STMTransformer(object):
         self.localtracker = StmLocalTracker(self.translator)
         for graph in self.translator.graphs:
             self.transform_graph(graph)
-        self.make_opnames_cannot_malloc_gc()
-        for graph in self.translator.graphs:
-            self.insert_stm_local_not_needed(graph)
+        if INSERT_STM_LOCAL_NOT_NEEDED:
+            self.make_opnames_cannot_malloc_gc()
+            for graph in self.translator.graphs:
+                self.insert_stm_local_not_needed(graph)
         self.localtracker = None
         self.translator.stm_transformation_applied = True
         self.print_logs()
