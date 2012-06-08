@@ -1168,6 +1168,9 @@ class BaseBackendTest(Runner):
             operations.append(
                 ResOperation(rop.FINISH, retboxes, None, descr=faildescr)
                 )
+            print inputargs
+            for op in operations:
+                print op
             self.cpu.compile_loop(inputargs, operations, looptoken)
             #
             fail = self.cpu.execute_token(looptoken, *values)
