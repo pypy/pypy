@@ -31,6 +31,9 @@ class Type(object):
     def repr_type(self, extra_len=None):
         return self.typestr
 
+    def repr_of_type(self):
+        return self.repr_type()
+
     def is_zero(self, value):
         raise NotImplementedError("Override in subclass.")
 
@@ -259,6 +262,9 @@ class BasePtrType(Type):
 class AddressType(BasePtrType):
     typestr = 'i8*'
 
+    def repr_of_type(self):
+        return 'address'
+
     def is_zero(self, value):
         return value.ptr is None
 
@@ -305,6 +311,11 @@ class PtrType(BasePtrType):
     def repr_type(self, extra_len=None):
         return self.to.repr_type() + '*'
 
+    def repr_of_type(self):
+        if not hasattr(self, 'to'):
+            return 'self'
+        return self.to.repr_of_type() + '_ptr'
+
     def is_zero(self, value):
         return not value
 
@@ -339,6 +350,7 @@ class StructType(Type):
     def setup(self, name, fields, is_gc=False):
         self.name = name
         self.is_gc = is_gc
+        fields = list(fields)
         if is_gc:
             fields = database.genllvm.gcpolicy.get_gc_fields() + fields
         self.fields = fields
@@ -349,7 +361,7 @@ class StructType(Type):
         self.size_variants = {}
 
     def setup_from_lltype(self, db, type_):
-        fields = [(db.get_type(type_._flds[f]), f) for f in type_._names]
+        fields = ((db.get_type(type_._flds[f]), f) for f in type_._names)
         is_gc = type_._gckind == 'gc' and type_._first_struct() == (None, None)
         name = '%struct.' + type_._name.replace('<', '_').replace('>', '_')
         self.setup(name, fields, is_gc)
@@ -372,6 +384,9 @@ class StructType(Type):
                    for fldtype, fldname in self.fields)
             database.f.write('{} = type {{\n{}}}\n'.format(name, ''.join(tmp)))
         return self.size_variants[extra_len]
+
+    def repr_of_type(self):
+        return self.name[1:]
 
     def is_zero(self, value):
         if self.is_gc:
@@ -463,6 +478,9 @@ class BareArrayType(Type):
             return '[0 x {}]'.format(self.of.repr_type())
         return '[{} x {}]'.format(self.length, self.of.repr_type())
 
+    def repr_of_type(self):
+        return 'array_of_' + self.repr_of_type()
+
     @property
     def varsize(self):
         return self.length is None
@@ -512,17 +530,11 @@ class ArrayType(Type):
 
     def setup(self, of, is_gc=False):
         self.is_gc = is_gc
-        tmp = '%array_of_' + of.repr_type().lstrip('%').replace('*', '_ptr')\
-                                                       .replace('[', '_')\
-                                                       .replace(']', '_')\
-                                                       .replace('(', '_')\
-                                                       .replace(')', '_')\
-                                                       .replace(' ', '_')
         self.bare_array_type = BareArrayType()
         self.bare_array_type.setup(of, None)
         self.struct_type = StructType()
         fields = [(LLVMSigned, 'len'), (self.bare_array_type, 'items')]
-        self.struct_type.setup(tmp, fields, is_gc)
+        self.struct_type.setup('%array_of_' + of.repr_of_type(), fields, is_gc)
 
     def setup_from_lltype(self, db, type_):
         self.setup(db.get_type(type_.OF), type_._gckind == 'gc')
@@ -629,6 +641,9 @@ class OpaqueType(Type):
 
     def setup_from_lltype(self, db, type_):
         pass
+
+    def repr_of_type(self):
+        return 'opaque'
 
     def is_zero(self, value):
         return True
