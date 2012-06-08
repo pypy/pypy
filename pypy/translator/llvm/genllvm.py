@@ -542,6 +542,9 @@ class ArrayType(Type):
     def repr_type(self, extra_len=None):
         return self.struct_type.repr_type(extra_len)
 
+    def repr_of_type(self):
+        return self.struct_type.repr_of_type()
+
     def is_zero(self, value):
         return self.struct_type.is_zero(ArrayHelper(value))
 
