@@ -1,6 +1,6 @@
 import py
 import os.path
-from pypy.module.sys.state import getinitialpath, find_executable
+from pypy.module.sys.initpath import compute_stdlib_path, find_executable
 from pypy.module.sys.version import PYPY_VERSION, CPYTHON_VERSION
 
 def build_hierarchy(prefix):
@@ -12,19 +12,19 @@ def build_hierarchy(prefix):
 
 def test_stdlib_in_prefix(tmpdir):
     dirs = build_hierarchy(tmpdir)
-    path = getinitialpath(None, str(tmpdir))
+    path = compute_stdlib_path(None, str(tmpdir))
     # we get at least 'dirs', and maybe more (e.g. plat-linux2)
     assert path[:len(dirs)] == map(str, dirs)
 
 def test_include_libtk(tmpdir):
     lib_pypy, lib_python = build_hierarchy(tmpdir)
     lib_tk = lib_python.join('lib-tk')
-    path = getinitialpath(None, str(tmpdir))
+    path = compute_stdlib_path(None, str(tmpdir))
     assert lib_tk in path
 
 
 def test_find_executable(tmpdir, monkeypatch):
-    from pypy.module.sys import state
+    from pypy.module.sys import initpath
     # /tmp/a/pypy
     # /tmp/b/pypy
     # /tmp/c
@@ -60,8 +60,8 @@ def test_find_executable(tmpdir, monkeypatch):
     c.join('pypy').ensure(dir=True)
     assert find_executable('pypy') == a.join('pypy')
     #
-    monkeypatch.setattr(state, 'we_are_translated', lambda: True)
-    monkeypatch.setattr(state, 'IS_WINDOWS', True)
+    monkeypatch.setattr(initpath, 'we_are_translated', lambda: True)
+    monkeypatch.setattr(initpath, 'IS_WINDOWS', True)
     monkeypatch.setenv('PATH', str(a))
     a.join('pypy.exe').ensure(file=True)
     assert find_executable('pypy') == a.join('pypy.exe')

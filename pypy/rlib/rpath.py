@@ -3,7 +3,6 @@ Minimal (and limited) RPython version of some functions contained in os.path.
 """
 
 import os.path
-from os import sep, pathsep
 from pypy.rlib import rposix
 
 if os.name == 'posix':

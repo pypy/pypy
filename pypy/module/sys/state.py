@@ -1,12 +1,9 @@
 """
 Implementation of interpreter-level 'sys' routines.
 """
+import os
 import pypy
-from pypy.rlib.objectmodel import we_are_translated
-from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import unwrap_spec
-
-import sys, os, stat, errno
+from pypy.module.sys.initpath import compute_stdlib_path
 
 # ____________________________________________________________
 #
@@ -25,63 +22,9 @@ class State:
         # Initialize the default path
         pypydir = os.path.dirname(os.path.abspath(pypy.__file__))
         srcdir = os.path.dirname(pypydir)
-        path = getinitialpath(self, srcdir)
+        path = compute_stdlib_path(self, srcdir)
         self.w_path = space.newlist([space.wrap(p) for p in path])
 
-def checkdir(path):
-    st = os.stat(path)
-    if not stat.S_ISDIR(st[0]):
-        raise OSError(errno.ENOTDIR, path)
-
-
-platform = sys.platform
-
-def getinitialpath(state, prefix):
-    from pypy.module.sys.version import CPYTHON_VERSION
-    dirname = '%d.%d' % (CPYTHON_VERSION[0],
-                         CPYTHON_VERSION[1])
-    lib_python = os.path.join(prefix, 'lib-python')
-    python_std_lib = os.path.join(lib_python, dirname)
-    checkdir(python_std_lib)
-    
-    lib_pypy = os.path.join(prefix, 'lib_pypy')
-    checkdir(lib_pypy)
-
-    importlist = []
-    #
-    if state is not None:    # 'None' for testing only
-        lib_extensions = os.path.join(lib_pypy, '__extensions__')
-        state.w_lib_extensions = state.space.wrap(lib_extensions)
-        importlist.append(lib_extensions)
-    #
-    importlist.append(lib_pypy)
-    importlist.append(python_std_lib)
-    #
-    lib_tk = os.path.join(python_std_lib, 'lib-tk')
-    importlist.append(lib_tk)
-    #
-    # List here the extra platform-specific paths.
-    if platform != 'win32':
-        importlist.append(os.path.join(python_std_lib, 'plat-'+platform))
-    if platform == 'darwin':
-        platmac = os.path.join(python_std_lib, 'plat-mac')
-        importlist.append(platmac)
-        importlist.append(os.path.join(platmac, 'lib-scriptpackages'))
-    #
-    return importlist
-
-@unwrap_spec(srcdir='str0')
-def pypy_initial_path(space, srcdir):
-    try:
-        path = getinitialpath(get(space), srcdir)
-    except OSError:
-        return space.w_None
-    else:
-        space.setitem(space.sys.w_dict, space.wrap('prefix'),
-                                        space.wrap(srcdir))
-        space.setitem(space.sys.w_dict, space.wrap('exec_prefix'),
-                                        space.wrap(srcdir))
-        return space.newlist([space.wrap(p) for p in path])
 
 def get(space):
     return space.fromcache(State)
@@ -117,31 +60,3 @@ def pypy_getudir(space):
     from pypy.tool.udir import udir
     return space.wrap(str(udir))
 
-
-IS_WINDOWS = 'nt' in sys.builtin_module_names
-
-def find_executable(executable):
-    if we_are_translated() and IS_WINDOWS and not executable.lower().endswith('.exe'):
-        executable += '.exe'
-    if os.sep in executable or (IS_WINDOWS and ':' in executable):
-        pass    # the path is already more than just an executable name
-    else:
-        path = os.environ.get('PATH')
-        if path:
-            for dir in path.split(os.pathsep):
-                fn = os.path.join(dir, executable)
-                if os.path.isfile(fn):
-                    executable = fn
-                    break
-    executable = os.path.abspath(executable)
-    #
-    # 'sys.executable' should not end up being an non-existing file;
-    # just use '' in this case. (CPython issue #7774)
-    if not os.path.isfile(executable):
-        executable = ''
-    return executable
-
-@unwrap_spec(executable='str0')
-def pypy_find_executable(space, executable):
-    executable = find_executable(executable)
-    return space.wrap()
