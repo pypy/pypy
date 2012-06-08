@@ -154,7 +154,7 @@ def build_ctypes_struct(S, delayed_builders, max_n=None):
         # (to handle recursive structure pointers)
         fields = []
         if S in _llvm_needs_header:
-            fields.append(('_gc_header', ctypes.c_int))
+            fields.append(('_gc_header', ctypes.c_long))
         for fieldname in S._names:
             FIELDTYPE = S._flds[fieldname]
             if max_n is not None and fieldname == S._arrayfld:
