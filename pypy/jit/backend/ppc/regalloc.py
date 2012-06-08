@@ -233,6 +233,8 @@ class Regalloc(object):
                     loc = r.PARAM_FPREGS[fparg_index]
                     self.try_allocate_reg(box, selected_reg=loc)
                     fparg_index += 1
+                    # XXX stdarg placing float args in FPRs and GPRs
+                    arg_index += 1
                 else:
                     if IS_PPC_32:
                         cur_frame_pos -= 2
