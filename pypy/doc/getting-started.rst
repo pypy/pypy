@@ -53,10 +53,10 @@ Installing PyPy
 PyPy is ready to be executed as soon as you unpack the tarball or the zip
 file, with no need to install it in any specific location::
 
-    $ tar xf pypy-1.8-linux.tar.bz2
-    $ ./pypy-1.8/bin/pypy
-    Python 2.7.2 (0e28b379d8b3, Feb 09 2012, 19:41:03)
-    [PyPy 1.8.0 with GCC 4.4.3] on linux2
+    $ tar xf pypy-1.9-linux.tar.bz2
+    $ ./pypy-1.9/bin/pypy
+    Python 2.7.2 (341e1e3821ff, Jun 07 2012, 15:40:31)
+    [PyPy 1.9.0 with GCC 4.4.3] on linux2
     Type "help", "copyright", "credits" or "license" for more information.
     And now for something completely different: ``it seems to me that once you
     settle on an execution / object model and / or bytecode format, you've already
@@ -76,14 +76,14 @@ install distribute_ and pip_:
 
     $ curl -O https://raw.github.com/pypa/pip/master/contrib/get-pip.py
 
-    $ ./pypy-1.8/bin/pypy distribute_setup.py
+    $ ./pypy-1.9/bin/pypy distribute_setup.py
 
-    $ ./pypy-1.8/bin/pypy get-pip.py
+    $ ./pypy-1.9/bin/pypy get-pip.py
 
-    $ ./pypy-1.8/bin/pip install pygments  # for example
+    $ ./pypy-1.9/bin/pip install pygments  # for example
 
-3rd party libraries will be installed in ``pypy-1.8/site-packages``, and
-the scripts in ``pypy-1.8/bin``.
+3rd party libraries will be installed in ``pypy-1.9/site-packages``, and
+the scripts in ``pypy-1.9/bin``.
 
 Installing using virtualenv
 ---------------------------
