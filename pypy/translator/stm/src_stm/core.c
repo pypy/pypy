@@ -89,7 +89,8 @@ static _Bool is_inevitable(struct tx_descriptor *d)
   return d->active == 2;
 }
 
-/*** run the redo log to commit a transaction, and release the locks */
+/*** run the redo log to commit a transaction, and release the locks.
+     Cannot abort any more. */
 static void tx_redo(struct tx_descriptor *d, owner_version_t newver)
 {
   wlog_t *item;
@@ -343,7 +344,7 @@ static void wait_end_inevitability(struct tx_descriptor *d)
   acquireLocks(d);
 }
 
-static void commitInevitableTransaction(struct tx_descriptor *d)
+static owner_version_t commitInevitableTransaction(struct tx_descriptor *d)
 {
   unsigned long ts;
   _Bool ok;
@@ -356,10 +357,12 @@ static void commitInevitableTransaction(struct tx_descriptor *d)
   set_global_timestamp(d, ts);
   assert(ts == (d->start_time + 2));
 
-  // run the redo log, and release the locks
-  tx_redo(d, ts);
-
+  /* we still have the locks acquired, but we changed the global timestamp
+   * and we can release the mutex here.  The locked orecs will be updated
+   * immediately afterwards by tx_redo(). */
   mutex_unlock();
+
+  return ts;
 }
 
 /* lazy/lazy read instrumentation */
@@ -571,6 +574,7 @@ void stm_begin_inevitable_transaction(void)
 
 void stm_commit_transaction(void)
 {
+  owner_version_t end_time;
   struct tx_descriptor *d = thread_descriptor;
   assert(d->active != 0);
 
@@ -597,11 +601,10 @@ void stm_commit_transaction(void)
 
   if (is_inevitable(d))
     {
-      commitInevitableTransaction(d);
+      end_time = commitInevitableTransaction(d);
     }
   else
     {
-      owner_version_t end_time;
       while (1)
         {
           unsigned long expected = get_global_timestamp(d);
@@ -622,10 +625,10 @@ void stm_commit_transaction(void)
       // validate (but skip validation if nobody else committed)
       if (end_time != (d->start_time + 2))
         validate(d);
-
-      // run the redo log, and release the locks
-      tx_redo(d, end_time);
     }
+
+  // run the redo log, and release the locks
+  tx_redo(d, end_time);
 
   // remember that this was a commit
   d->num_commits++;
