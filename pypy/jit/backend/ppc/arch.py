@@ -26,6 +26,7 @@ FORCE_INDEX             = WORD
 GPR_SAVE_AREA           = len(NONVOLATILES) * WORD
 FLOAT_INT_CONVERSION    = WORD
 MAX_REG_PARAMS          = 8
+MAX_FREG_PARAMS         = 13
 # we need at most 5 instructions to load a constant
 # and one instruction to patch the stack pointer
 SIZE_LOAD_IMM_PATCH_SP  = 6
