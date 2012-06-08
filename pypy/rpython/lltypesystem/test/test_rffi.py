@@ -333,7 +333,7 @@ class BaseTestRffi:
             return result
     
         f1 = self.compile(f, [])
-        assert f1() == chr(42)
+        assert f1() == 42
 
     def test_generate_return_char_tests(self):
         yield self.return_char, False
