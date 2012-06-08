@@ -735,6 +735,9 @@ if __name__ == '__main__':
     if 'PYTHONINSPECT_' in os.environ:
         reset.append(('PYTHONINSPECT', os.environ.get('PYTHONINSPECT', '')))
         os.environ['PYTHONINSPECT'] = os.environ['PYTHONINSPECT_']
+    if 'PYTHONWARNINGS_' in os.environ:
+        reset.append(('PYTHONWARNINGS', os.environ.get('PYTHONWARNINGS', '')))
+        os.environ['PYTHONWARNINGS'] = os.environ['PYTHONWARNINGS_']
 
     # no one should change to which lists sys.argv and sys.path are bound
     old_argv = sys.argv

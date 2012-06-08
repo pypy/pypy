@@ -618,15 +618,14 @@ class TestNonInteractive:
         finally:
             os.environ['PYTHONSTARTUP'] = old
 
-    def test_pythonwarnings(self):
-        old = os.environ.get('PYTHONWARNINGS', '')
-        try:
-            os.environ['PYTHONWARNINGS'] = "once,error"
-            data = self.run('-W ignore -W default '
-                            '-c "import sys; print sys.warnoptions"')
-            assert "['ignore', 'default', 'once', 'error']" in data
-        finally:
-            os.environ['PYTHONWARNINGS'] = old
+    def test_pythonwarnings(self, monkeypatch):
+        # PYTHONWARNINGS_ is special cased by app_main: we cannot directly set
+        # PYTHONWARNINGS because else the warnings raised from within pypy are
+        # turned in errors.
+        monkeypatch.setenv('PYTHONWARNINGS_', "once,error")
+        data = self.run('-W ignore -W default '
+                        '-c "import sys; print sys.warnoptions"')
+        assert "['ignore', 'default', 'once', 'error']" in data
 
     def test_option_m(self):
         if not hasattr(runpy, '_run_module_as_main'):
