@@ -479,7 +479,7 @@ class BareArrayType(Type):
         return '[{} x {}]'.format(self.length, self.of.repr_type())
 
     def repr_of_type(self):
-        return 'array_of_' + self.repr_of_type()
+        return 'array_of_' + self.of.repr_of_type()
 
     @property
     def varsize(self):
