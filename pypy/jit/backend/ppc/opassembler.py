@@ -5,7 +5,8 @@ import pypy.jit.backend.ppc.register as r
 from pypy.jit.backend.ppc.locations import imm
 from pypy.jit.backend.ppc.locations import imm as make_imm_loc
 from pypy.jit.backend.ppc.arch import (IS_PPC_32, WORD, BACKCHAIN_SIZE,
-                                       MAX_REG_PARAMS, FORCE_INDEX_OFS)
+                                       MAX_REG_PARAMS, MAX_FREG_PARAMS,
+                                       FORCE_INDEX_OFS)
 
 from pypy.jit.metainterp.history import (JitCellToken, TargetToken, Box,
                                          AbstractFailDescr, FLOAT, INT, REF)
@@ -458,49 +459,6 @@ class MiscOpAssembler(object):
 
     def _emit_call(self, force_index, adr, arglocs, result=None):
         n_args = len(arglocs)
-        reg_args = count_reg_args(arglocs)
-
-        n = 0   # used to count the number of words pushed on the stack, so we
-                # can later modify the SP back to its original value
-        stack_args = []
-        if n_args > reg_args:
-            # first we need to prepare the list so it stays aligned
-            count = 0
-            for i in range(reg_args, n_args):
-                arg = arglocs[i]
-                if arg.type == FLOAT:
-                    count += 1
-                    n += WORD
-                else:
-                    count += 1
-                    n += WORD
-                stack_args.append(arg)
-            if count % 2 != 0:
-                n += WORD
-                stack_args.append(None)
-
-        # compute maximum of parameters passed
-        self.max_stack_params = max(self.max_stack_params, len(stack_args))
-
-        # compute offset at which parameters are stored
-        if IS_PPC_32:
-            param_offset = BACKCHAIN_SIZE * WORD
-        else:
-            param_offset = ((BACKCHAIN_SIZE + MAX_REG_PARAMS)
-                    * WORD) # space for first 8 parameters
-
-        with scratch_reg(self.mc):
-            for i, arg in enumerate(stack_args):
-                offset = param_offset + i * WORD
-                if arg is not None:
-                    if arg.type == FLOAT:
-                        self.mc.stfd(r.f0.value, r.SPP.value, FORCE_INDEX_OFS + WORD)
-                        self.regalloc_mov(arg, r.f0)
-                        self.mc.stfd(r.f0.value, r.SP.value, offset)
-                        self.mc.lfd(r.f0.value, r.SPP.value, FORCE_INDEX_OFS + WORD)
-                    else:
-                        self.regalloc_mov(arg, r.SCRATCH)
-                        self.mc.store(r.SCRATCH.value, r.SP.value, offset)
 
         # collect variables that need to go in registers
         # and the registers they will be stored in 
@@ -511,24 +469,58 @@ class MiscOpAssembler(object):
         non_float_regs = []
         float_locs = []
         float_regs = []
-        for i in range(reg_args):
+        stack_args = []
+        float_stack_arg = False
+        for i in range(n_args):
             arg = arglocs[i]
-            reg = r.PARAM_REGS[num]
-            fpreg = r.PARAM_FPREGS[fpnum]
 
             if arg.type == FLOAT:
-                float_locs.append(arg)
-                float_regs.append(fpreg)
-                fpnum += 1
+                if fpnum < MAX_FREG_PARAMS:
+                    fpreg = r.PARAM_FPREGS[fpnum]
+                    float_locs.append(arg)
+                    float_regs.append(fpreg)
+                    fpnum += 1
+                else:
+                    stack_args.append(arg)
             else:
-                non_float_locs.append(arg)
-                non_float_regs.append(reg)
-                num += 1
+                if num < MAX_REG_PARAMS:
+                    reg = r.PARAM_REGS[num]
+                    non_float_locs.append(arg)
+                    non_float_regs.append(reg)
+                    num += 1
+                else:
+                    stack_args.append(arg)
+                    float_stack_arg = True
 
         if adr in non_float_regs:
             non_float_locs.append(adr)
             non_float_regs.append(r.r11)
             adr = r.r11
+
+        # compute maximum of parameters passed
+        self.max_stack_params = max(self.max_stack_params, len(stack_args))
+
+        # compute offset at which parameters are stored
+        if IS_PPC_32:
+            param_offset = BACKCHAIN_SIZE * WORD
+        else:
+            # space for first 8 parameters
+            param_offset = ((BACKCHAIN_SIZE + MAX_REG_PARAMS) * WORD)
+
+        with scratch_reg(self.mc):
+            if float_stack_arg:
+                self.mc.stfd(r.f0.value, r.SPP.value, FORCE_INDEX_OFS + WORD)
+            for i, arg in enumerate(stack_args):
+                offset = param_offset + i * WORD
+                if arg is not None:
+                    if arg.type == FLOAT:
+                        self.regalloc_mov(arg, r.f0)
+                        self.mc.stfd(r.f0.value, r.SP.value, offset)
+                    else:
+                        self.regalloc_mov(arg, r.SCRATCH)
+                        self.mc.store(r.SCRATCH.value, r.SP.value, offset)
+            if float_stack_arg:
+                self.mc.lfd(r.f0.value, r.SPP.value, FORCE_INDEX_OFS + WORD)
 
         # remap values stored in core registers
         remap_frame_layout(self, float_locs, float_regs, r.f0)
