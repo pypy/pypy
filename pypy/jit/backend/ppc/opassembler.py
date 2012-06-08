@@ -11,8 +11,7 @@ from pypy.jit.backend.ppc.arch import (IS_PPC_32, WORD, BACKCHAIN_SIZE,
 from pypy.jit.metainterp.history import (JitCellToken, TargetToken, Box,
                                          AbstractFailDescr, FLOAT, INT, REF)
 from pypy.rlib.objectmodel import we_are_translated
-from pypy.jit.backend.ppc.helper.assembler import (count_reg_args,
-                                                          Saved_Volatiles)
+from pypy.jit.backend.ppc.helper.assembler import (Saved_Volatiles)
 from pypy.jit.backend.ppc.jump import remap_frame_layout
 from pypy.jit.backend.ppc.codebuilder import (OverwritingBuilder, scratch_reg,
                                               PPCBuilder)
