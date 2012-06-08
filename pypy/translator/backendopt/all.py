@@ -40,7 +40,8 @@ def backend_optimizations(translator, graphs=None, secondary=False, **kwds):
     config = translator.config.translation.backendopt.copy(as_default=True)
     config.set(**kwds)
 
-    if graphs is None:
+    translator_graphs = graphs is None
+    if translator_graphs:
         graphs = translator.graphs
     for graph in graphs:
         assert not hasattr(graph, '_seen_by_the_backend')
@@ -50,7 +51,11 @@ def backend_optimizations(translator, graphs=None, secondary=False, **kwds):
         print_statistics(translator.graphs[0], translator, "per-graph.txt")
 
     if config.raisingop2direct_call:
-        raisingop2direct_call(translator, graphs)
+        additional_graphs = raisingop2direct_call(translator, graphs)
+        if translator_graphs:
+            graphs = translator.graphs
+        else:
+            graphs.extend(additional_graphs)
 
     if translator.rtyper.type_system.name == 'ootypesystem':
         check_virtual_methods()

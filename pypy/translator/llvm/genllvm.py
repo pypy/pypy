@@ -867,13 +867,10 @@ class FunctionWriter(object):
         for i, block in enumerate(graph.iterblocks()):
             self.block_to_name[block] = 'block{}'.format(i)
             for i, arg in enumerate(block.inputargs):
-                if len(self.entrymap[block]) == 1:
+                if all(link.args[i] == self.entrymap[block][0].args[i]
+                       for link in self.entrymap[block]):
                     self.var_aliases[arg] = get_repr(
-                        self.entrymap[block][0].args[i], self.var_aliases)
-            for op in block.operations:
-                if op.opname == 'same_as':
-                    self.var_aliases[op.result] = get_repr(
-                            op.args[0], self.var_aliases)
+                            self.entrymap[block][0].args[i], self.var_aliases)
 
         for block in graph.iterblocks():
             self.w(self.block_to_name[block] + ':', '  ')
@@ -907,8 +904,6 @@ class FunctionWriter(object):
                 simple_op = OPS[opname]
                 self.w('{opres.V} = {simple_op} {opargs[0].TV}, {opargs[1].V}'
                         .format(**locals()))
-            elif opname == 'same_as':
-                pass
             elif opname.startswith('cast_') or opname.startswith('truncate_'):
                 self._cast(opres, opargs[0])
             else:

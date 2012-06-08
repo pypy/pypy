@@ -26,6 +26,7 @@ def raisingop2direct_call(translator, graphs=None):
 
     log('starting')
     seen = {}
+    additional_graphs = []
     for op in all_operations(graphs):
         if not is_raisingop(op):
             continue
@@ -33,10 +34,12 @@ def raisingop2direct_call(translator, graphs=None):
         if not func:
             log.warning("%s not found" % op.opname)
             continue
+        func_arg = annotate(translator, func, op.result, op.args)
         if op.opname not in seen:
+            additional_graphs.append(func_arg.value._obj.graph)
             seen[op.opname] = 0
         seen[op.opname] += 1
-        op.args.insert(0, annotate(translator, func, op.result, op.args))
+        op.args.insert(0, func_arg)
         op.opname = 'direct_call'
 
     #statistics...
@@ -61,3 +64,5 @@ def raisingop2direct_call(translator, graphs=None):
 
     #translator.view()
     log('finished')
+
+    return additional_graphs
