@@ -1250,8 +1250,6 @@ class AssemblerPPC(OpAssembler):
         loc"""
 
         if loc.is_stack():
-            if loc.type == FLOAT:
-                assert 0, "not implemented yet"
             # XXX this code has to be verified
             assert not self.stack_in_use
             target = StackLocation(self.ENCODING_AREA // WORD) # write to ENCODING AREA           
@@ -1272,8 +1270,6 @@ class AssemblerPPC(OpAssembler):
         """Pops the value on top of the stack to loc. Can trash the current
         value of SCRATCH when popping to a stack loc"""
         if loc.is_stack():
-            if loc.type == FLOAT:
-                assert 0, "not implemented yet"
             # XXX this code has to be verified
             assert self.stack_in_use
             from_loc = StackLocation(self.ENCODING_AREA // WORD) # read from ENCODING AREA
