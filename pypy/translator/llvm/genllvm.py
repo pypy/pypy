@@ -611,6 +611,9 @@ class FuncType(Type):
                                 ', '.join(arg.repr_type()
                                           for arg in self.args))
 
+    def repr_of_type(self):
+        return 'func'
+
     def repr_ref(self, ptr_type, obj):
         if getattr(obj, 'external', None) == 'C':
             name = '@' + getattr(obj, 'llvm_name', obj._name)
