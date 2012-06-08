@@ -673,13 +673,18 @@ class Database(object):
                     self.types[type_] = ret = StructType()
                     ret.setup('%struct.' + type_._name, [], True)
                     return ret
-                elif (type_._gckind == 'gc' and type_._first_struct() == (None, None)): # hint for ll2ctypes
-                    _llvm_needs_header.add(type_)
+                elif (type_._gckind == 'gc' and # hint for ll2ctypes
+                      type_._first_struct() == (None, None)):
+                    _llvm_needs_header[type_] = self.genllvm.gcpolicy\
+                            .get_gc_fields_lltype()
                 if type_._hints.get("union", False):
                     class_ = UnionType
                 else:
                     class_ = StructType
             elif isinstance(type_, lltype.Array):
+                if type_._gckind == 'gc': # hint for ll2ctypes
+                    _llvm_needs_header[type_] = self.genllvm.gcpolicy\
+                            .get_gc_fields_lltype()
                 if type_._hints.get("nolength", False):
                     class_ = BareArrayType
                 else:
@@ -1315,6 +1320,9 @@ class FrameworkGCPolicy(GCPolicy):
             p, c = lltype.parentlink(value)
             if p:
                 self._consider_constant(lltype.typeOf(p), p)
+
+    def get_gc_fields_lltype(self):
+        return [(self.gctransformer.HDR, '_gc_header')]
 
     def get_gc_fields(self):
         return [(database.get_type(self.gctransformer.HDR), '_gc_header')]

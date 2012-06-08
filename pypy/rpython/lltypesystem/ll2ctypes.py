@@ -1,4 +1,5 @@
 import sys
+from weakref import WeakKeyDictionary
 
 try:
     import ctypes
@@ -147,14 +148,15 @@ def _setup_ctypes_cache():
     else:
         _ctypes_cache[lltype.UniChar] = ctypes.c_uint32
 
-_llvm_needs_header = set()
+_llvm_needs_header = WeakKeyDictionary()
 def build_ctypes_struct(S, delayed_builders, max_n=None):
     def builder():
         # called a bit later to fill in _fields_
         # (to handle recursive structure pointers)
         fields = []
         if S in _llvm_needs_header:
-            fields.append(('_gc_header', ctypes.c_long))
+            fields[:0] = [(name, get_ctypes_type(type_))
+                          for type_, name in _llvm_needs_header[S]]
         for fieldname in S._names:
             FIELDTYPE = S._flds[fieldname]
             if max_n is not None and fieldname == S._arrayfld:
@@ -223,6 +225,9 @@ def build_ctypes_array(A, delayed_builders, max_n=0):
                         ('items',  max_n * ctypes_item)]
         else:
             _fields_ = [('items',  max_n * ctypes_item)]
+        if A in _llvm_needs_header:
+            _fields_[:0] = [(name, get_ctypes_type(type_))
+                            for type_, name in _llvm_needs_header[A]]
 
         @classmethod
         def _malloc(cls, n=None):
