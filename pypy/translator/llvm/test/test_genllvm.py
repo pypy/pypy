@@ -227,6 +227,7 @@ class _LLVMMixin(test_typed.CompilationTestCase):
 
     def __init__(self):
         self.config_override = {}
+        self.annotator_policy = None
 
     def annotatefunc(self, func, argtypes=None):
         from pypy.config.pypyoption import get_pypy_config
@@ -238,7 +239,7 @@ class _LLVMMixin(test_typed.CompilationTestCase):
         t = TranslationContext(config=config)
         if argtypes is None:
             argtypes = []
-        a = t.buildannotator()
+        a = t.buildannotator(self.annotator_policy)
         a.build_types(func, argtypes)
         a.simplify()
         return t
@@ -256,10 +257,13 @@ class _LLVMMixin(test_typed.CompilationTestCase):
         t.buildrtyper().specialize()
         raisingop2direct_call(t)
 
-    def _compile(self, func, args):
+    def _compile(self, func, args, someobjects=False, policy=None):
+        if someobjects:
+            py.test.skip('PyObjects are not supported yet')
         types = [lltype.typeOf(arg) for arg in args]
         if not (func == self._func and types == self._types):
             self.config_override['translation.gcremovetypeptr'] = False
+            self.annotator_policy = policy
             self._compiled = self.getcompiled(func, types)
             self._compiled.convert = False
             self._func = func
