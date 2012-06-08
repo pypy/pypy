@@ -26,7 +26,7 @@ class State:
         self.w_path = space.newlist([space.wrap(p) for p in path])
 
 
-def get_state(space):
+def get(space):
     return space.fromcache(State)
 
 class IOState:

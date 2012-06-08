@@ -9,7 +9,7 @@ import errno
 from pypy.rlib import rpath
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.module.sys.state import get_state
+from pypy.module.sys.state import get as get_state
 
 platform = sys.platform
 IS_WINDOWS = sys.platform == 'win32'
@@ -138,7 +138,7 @@ def compute_stdlib_path_maybe(state, prefix):
 def pypy_find_executable(space, executable):
     return space.wrap(find_executable(executable))
 
-@unwrap_spec(srcdir='str0')
+@unwrap_spec(executable='str0')
 def pypy_find_stdlib(space, executable):
     path, prefix = find_stdlib(get_state(space), executable)
     if path is None:
