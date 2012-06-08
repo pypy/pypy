@@ -96,15 +96,16 @@ Highlights
 
 * List comprehension has been improved.
 
+.. _`numpy-status`: http://buildbot.pypy.org/numpy-status/latest.html
+.. _`JIT hooks documentation`: http://doc.pypy.org/en/latest/jit-hooks.html
+
 JitViewer
 =========
 
 There is a corresponding 1.9 release of JitViewer which is guaranteed to work
 with PyPy 1.9. See the `JitViewer docs`_ for details.
 
-.. _`numpy status`: http://buildbot.pypy.org/numpy-status/latest.html
 .. _`JitViewer docs`: http://bitbucket.org/pypy/jitviewer
-.. _`JIT hooks documentation`: http://doc.pypy.org/en/latest/jit-hooks.html
 
 Cheers,
 The PyPy Team
