@@ -411,7 +411,8 @@ class TestStringBuilderLLVM(_LLVMMixin, test_rbuilder.TestLLtype):
     pass
 
 class TestRbuiltinLLVM(_LLVMMixin, test_rbuiltin.TestLLtype):
-    pass
+    def test_debug_llinterpcall(self):
+        py.test.skip('Impossible to pass if not running on LLInterpreter.')
 
 class TestRclassLLVM(_LLVMMixin, test_rclass.TestLLtype):
     pass
