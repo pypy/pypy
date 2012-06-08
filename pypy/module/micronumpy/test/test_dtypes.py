@@ -211,33 +211,23 @@ class AppTestDtypes(BaseNumpyAppTest):
 
         a = array(range(10), dtype=int64)
         b = array([0] * 10, dtype=int64)
-        for idx in b: a[idx] += 1
+        for idx in b:
+            a[idx] += 1
 
-    def test_hash_int8(self):
-        from _numpypy import int8
+    def test_hash(self):
+        import _numpypy as numpy
+        for tp, value in [
+            (numpy.int8, 4),
+            (numpy.int16, 5),
+            (numpy.uint32, 7),
+            (numpy.int64, 3),
+            (numpy.float32, 2.0),
+            (numpy.float64, 4.32),
+        ]:
+            assert hash(tp(value)) == hash(value)
 
-        hash(int8(0))
-        d = {int8(5):99}
 
-    def test_hash_int16(self):
-        from _numpypy import int16
-
-        hash(int16(0))
-        d = {int16(99):42}
-
-    def test_hash_int32(self):
-        from _numpypy import int32
-
-        hash(int32(0))
-        d = {int32(5):99}
-
-    def test_hash_int64(self):
-        from _numpypy import int64
-
-        hash(int64(0))
-        d = {int64(99):42}
-
-class AppTestTypes(BaseNumpyAppTest):    
+class AppTestTypes(BaseNumpyAppTest):
     def test_abstract_types(self):
         import _numpypy as numpy
         raises(TypeError, numpy.generic, 0)
@@ -461,7 +451,7 @@ class AppTestTypes(BaseNumpyAppTest):
     def test_various_types(self):
         import _numpypy as numpy
         import sys
-        
+
         assert numpy.int16 is numpy.short
         assert numpy.int8 is numpy.byte
         assert numpy.bool_ is numpy.bool8
@@ -472,7 +462,7 @@ class AppTestTypes(BaseNumpyAppTest):
 
     def test_mro(self):
         import _numpypy as numpy
-        
+
         assert numpy.int16.__mro__ == (numpy.int16, numpy.signedinteger,
                                        numpy.integer, numpy.number,
                                        numpy.generic, object)
@@ -528,7 +518,7 @@ class AppTestTypes(BaseNumpyAppTest):
 class AppTestStrUnicodeDtypes(BaseNumpyAppTest):
     def test_str_unicode(self):
         from _numpypy import str_, unicode_, character, flexible, generic
-        
+
         assert str_.mro() == [str_, str, basestring, character, flexible, generic, object]
         assert unicode_.mro() == [unicode_, unicode, basestring, character, flexible, generic, object]
 
@@ -588,7 +578,7 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
         from _numpypy import dtype
         d = dtype({'names': ['a', 'b', 'c'],
                    })
-        
+
 class AppTestNotDirect(BaseNumpyAppTest):
     def setup_class(cls):
         BaseNumpyAppTest.setup_class.im_func(cls)

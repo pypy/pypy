@@ -278,6 +278,13 @@ elif os.name == 'nt':
         host_factory = Windows
     else:
         host_factory = Windows_x64
+elif sys.platform == 'cygwin':
+    from pypy.translator.platform.cygwin import Cygwin, Cygwin64
+    import platform
+    if platform.architecture()[0] == '32bit':
+        host_factory = Cygwin
+    else:
+        host_factory = Cygwin64
 else:
     # pray
     from pypy.translator.platform.distutils_platform import DistutilsPlatform

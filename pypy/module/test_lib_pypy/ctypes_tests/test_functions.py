@@ -484,6 +484,20 @@ class TestFunctions(BaseCTypesTestChecker):
         assert tf_b(-126) == -42
         assert tf_b._ptr is ptr
 
+    def test_custom_from_param(self):
+        class A(c_byte):
+            @classmethod
+            def from_param(cls, obj):
+                seen.append(obj)
+                return -126
+        tf_b = dll.tf_b
+        tf_b.restype = c_byte
+        tf_b.argtypes = (c_byte,)
+        tf_b.argtypes = [A]
+        seen = []
+        assert tf_b("yadda") == -42
+        assert seen == ["yadda"]
+
     def test_warnings(self):
         import warnings
         warnings.simplefilter("always")

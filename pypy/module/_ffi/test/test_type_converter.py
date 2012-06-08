@@ -144,6 +144,7 @@ class DummyToAppLevelConverter(ToAppLevelConverter):
     get_unichar_p = get_all
     get_float = get_all
     get_singlefloat = get_all
+    get_unsigned_which_fits_into_a_signed = get_all
     
     def convert(self, w_ffitype, val):
         self.val = val

@@ -351,7 +351,10 @@ class CDLL(object):
         self._FuncPtr = _FuncPtr
 
         if handle is None:
-            self._handle = _ffi.CDLL(name, mode)
+            if flags & _FUNCFLAG_CDECL:
+                self._handle = _ffi.CDLL(name, mode)
+            else:
+                self._handle = _ffi.WinDLL(name, mode)
         else:
             self._handle = handle
 
