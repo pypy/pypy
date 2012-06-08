@@ -92,6 +92,8 @@ class Saved_Volatiles(object):
             self.mc.store(reg.value, r.SPP.value, i * WORD)
         if self.save_FLOAT:
             for i, reg in enumerate(r.VOLATILES_FLOAT):
+                if not self.save_RES and reg is r.f1:
+                    continue
                 self.mc.stfd(reg.value, r.SPP.value,
                              (i + self.FLOAT_OFFSET) * WORD)
 
@@ -104,5 +106,7 @@ class Saved_Volatiles(object):
             self.mc.load(reg.value, r.SPP.value, i * WORD)
         if self.save_FLOAT:
             for i, reg in enumerate(r.VOLATILES_FLOAT):
+                if not self.save_RES and reg is r.f1:
+                    continue
                 self.mc.lfd(reg.value, r.SPP.value,
                              (i + self.FLOAT_OFFSET) * WORD)
