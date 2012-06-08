@@ -82,7 +82,7 @@ class Test__ffi(BaseTestPyPyC):
             #
             if os.name == 'nt':
                 from _ffi import WinDLL, types
-                libc = WinDLL(libc_name)
+                libc = WinDLL('Kernel32.dll')
                 sleep = libc.getfunc('Sleep', [types.uint], types.uint)
                 delays = [0]*n + [1000]
             else:
