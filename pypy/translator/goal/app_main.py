@@ -703,7 +703,9 @@ if __name__ == '__main__':
         path, prefix = find_stdlib(None, s)
         if path is None:
             return None
-        sys.prefix = sys.exec_prefix = prefix
+        # contrarily to the interp-level version, we don't set sys.prefix
+        # here, else CPythno stops to work (and e.g. test_proper_sys_path
+        # fails)
         return path
 
     # add an emulator for these pypy-only or 2.7-only functions
