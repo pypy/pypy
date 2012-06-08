@@ -8,7 +8,6 @@
 struct tx_descriptor {
   jmp_buf *setjmp_buf;
   owner_version_t start_time;
-  owner_version_t end_time;
   /*unsigned long last_known_global_timestamp;*/
   owner_version_t my_lock_word;
   struct OrecList reads;
@@ -91,9 +90,8 @@ static _Bool is_inevitable(struct tx_descriptor *d)
 }
 
 /*** run the redo log to commit a transaction, and release the locks */
-static void tx_redo(struct tx_descriptor *d)
+static void tx_redo(struct tx_descriptor *d, owner_version_t newver)
 {
-  owner_version_t newver = d->end_time;
   wlog_t *item;
   REDOLOG_LOOP_FORWARD(d->redolog, item)
     {
@@ -354,12 +352,12 @@ static void commitInevitableTransaction(struct tx_descriptor *d)
   // and d_inev_checking is 0
   ts = get_global_timestamp(d);
   assert(ts & 1);
-  set_global_timestamp(d, ts + 1);
-  d->end_time = ts + 1;
-  assert(d->end_time == (d->start_time + 2));
+  ts += 1;
+  set_global_timestamp(d, ts);
+  assert(ts == (d->start_time + 2));
 
   // run the redo log, and release the locks
-  tx_redo(d);
+  tx_redo(d, ts);
 
   mutex_unlock();
 }
@@ -603,6 +601,7 @@ void stm_commit_transaction(void)
     }
   else
     {
+      owner_version_t end_time;
       while (1)
         {
           unsigned long expected = get_global_timestamp(d);
@@ -615,17 +614,17 @@ void stm_commit_transaction(void)
             }
           if (change_global_timestamp(d, expected, expected + 2))
             {
-              d->end_time = expected + 2;
+              end_time = expected + 2;
               break;
             }
         }
 
       // validate (but skip validation if nobody else committed)
-      if (d->end_time != (d->start_time + 2))
+      if (end_time != (d->start_time + 2))
         validate(d);
 
       // run the redo log, and release the locks
-      tx_redo(d);
+      tx_redo(d, end_time);
     }
 
   // remember that this was a commit
