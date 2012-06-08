@@ -18,4 +18,3 @@ elif os.name == 'nt':
             return path
 else:
     raise ImportError('Unsupported os: %s' % os.name)
-

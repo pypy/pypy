@@ -1,6 +1,6 @@
 import py
 import os.path
-from pypy.module.sys.initpath import compute_stdlib_path, find_executable
+from pypy.module.sys.initpath import compute_stdlib_path, find_executable, find_stdlib
 from pypy.module.sys.version import PYPY_VERSION, CPYTHON_VERSION
 
 def build_hierarchy(prefix):
@@ -9,8 +9,25 @@ def build_hierarchy(prefix):
     b = prefix.join('lib-python', dirname).ensure(dir=1)
     return a, b
 
+def test_find_stdlib(tmpdir):
+    bin_dir = tmpdir.join('bin').ensure(dir=True)
+    pypy = bin_dir.join('pypy').ensure(file=True)
+    build_hierarchy(tmpdir)
+    path, prefix = find_stdlib(None, str(pypy))
+    assert prefix == tmpdir
 
-def test_stdlib_in_prefix(tmpdir):
+@py.test.mark.skipif('not hasattr(os, "symlink")')
+def test_find_stdlib_follow_symlink(tmpdir):
+    pypydir = tmpdir.join('opt', 'pypy-xxx')
+    pypy = pypydir.join('bin', 'pypy').ensure(file=True)
+    build_hierarchy(pypydir)
+    pypy_sym = tmpdir.join('pypy_sym')
+    os.symlink(str(pypy), str(pypy_sym))
+    path, prefix = find_stdlib(None, str(pypy_sym))
+    assert prefix == pypydir
+
+
+def test_compute_stdlib_path(tmpdir):
     dirs = build_hierarchy(tmpdir)
     path = compute_stdlib_path(None, str(tmpdir))
     # we get at least 'dirs', and maybe more (e.g. plat-linux2)

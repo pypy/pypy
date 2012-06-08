@@ -44,7 +44,7 @@ class Module(MixedModule):
         'warnoptions'           : 'state.get(space).w_warnoptions', 
         'builtin_module_names'  : 'space.w_None',
         'pypy_getudir'          : 'state.pypy_getudir',    # not translated
-        'pypy_initial_path'     : 'initpath.pypy_initial_path',
+        'pypy_find_stdlib'      : 'initpath.pypy_find_stdlib',
         'pypy_find_executable'  : 'initpath.pypy_find_executable',
 
         '_getframe'             : 'vm._getframe', 

@@ -3,7 +3,6 @@ Implementation of interpreter-level 'sys' routines.
 """
 import os
 import pypy
-from pypy.module.sys.initpath import compute_stdlib_path
 
 # ____________________________________________________________
 #
@@ -18,7 +17,8 @@ class State:
         self.w_argv = space.newlist([])
         self.setinitialpath(space) 
 
-    def setinitialpath(self, space): 
+    def setinitialpath(self, space):
+        from pypy.module.sys.initpath import compute_stdlib_path
         # Initialize the default path
         pypydir = os.path.dirname(os.path.abspath(pypy.__file__))
         srcdir = os.path.dirname(pypydir)
@@ -26,7 +26,7 @@ class State:
         self.w_path = space.newlist([space.wrap(p) for p in path])
 
 
-def get(space):
+def get_state(space):
     return space.fromcache(State)
 
 class IOState:
