@@ -13,7 +13,6 @@ You can download the PyPy 1.9 release here:
 
 .. _`numpypy`: http://pypy.org/numpydonate.html
 
-
 What is PyPy?
 =============
 
@@ -105,3 +104,6 @@ with PyPy 1.9. See `JitViewer docs`_ for details.
 .. _`numpy status`: http://buildbot.pypy.org/numpy-status/latest.html
 .. _`JitViewer docs`: http://bitbucket.org/pypy/jitviewer
 .. _`JIT hooks documentation`: http://doc.pypy.org/en/latest/jit-hooks.html
+
+Cheers,
+The PyPy Team
