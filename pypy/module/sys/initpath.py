@@ -41,7 +41,7 @@ def find_executable(executable):
 
 
 def readlink_maybe(filename):
-    if hasattr(os, 'readlink'):
+    if not IS_WINDOWS:
         return os.readlink(filename)
     raise NotImplementedError
 

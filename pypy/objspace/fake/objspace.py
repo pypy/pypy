@@ -158,6 +158,8 @@ class FakeObjSpace(ObjSpace):
         if isinstance(x, r_singlefloat):
             self._wrap_not_rpython(x)
         if isinstance(x, list):
+            if x == []: # special case: it is used e.g. in sys/__init__.py
+                return w_some_obj()
             self._wrap_not_rpython(x)
         return w_some_obj()
     wrap._annspecialcase_ = "specialize:argtype(1)"
