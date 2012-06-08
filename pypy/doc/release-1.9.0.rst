@@ -5,7 +5,7 @@ PyPy 1.9 - Yard Wolf
 We're pleased to announce the 1.9 release of PyPy. This release brings mostly
 bugfixes, performance improvements, other small improvements and overall
 progress on the `numpypy`_ effort.
-It also brings an improved situation on windows and OS X.
+It also brings an improved situation on Windows and OS X.
 
 You can download the PyPy 1.9 release here:
 
@@ -91,7 +91,8 @@ Highlights
 * ``select.kqueue`` has been added.
 
 * Handling of keyword arguments has been drastically improved in the best-case
-  scenario.
+  scenario: proxy functions which simply forwards ``*args`` and ``**kwargs``
+  to another function now performs much better with the JIT.
 
 * List comprehension has been improved.
 
