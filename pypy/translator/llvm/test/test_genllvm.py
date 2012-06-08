@@ -225,12 +225,16 @@ class _LLVMMixin(test_typed.CompilationTestCase):
     _func = None
     _types = None
 
+    def __init__(self):
+        self.config_override = {}
+
     def annotatefunc(self, func, argtypes=None):
         from pypy.config.pypyoption import get_pypy_config
         config = get_pypy_config(translating=True)
         config.translation.backendopt.raisingop2direct_call = True
         config.translation.gc = 'minimark'
         config.translation.simplifying = True
+        config.override(self.config_override)
         t = TranslationContext(config=config)
         if argtypes is None:
             argtypes = []
@@ -255,6 +259,7 @@ class _LLVMMixin(test_typed.CompilationTestCase):
     def _compile(self, func, args):
         types = [lltype.typeOf(arg) for arg in args]
         if not (func == self._func and types == self._types):
+            self.config_override['translation.gcremovetypeptr'] = False
             self._compiled = self.getcompiled(func, types)
             self._compiled.convert = False
             self._func = func
