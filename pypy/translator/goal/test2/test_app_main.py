@@ -513,7 +513,7 @@ class TestInteraction:
             print 'A five ounce bird could not carry a one pound coconut.'
             """)
         py_py = os.path.join(autopath.pypydir, 'bin', 'py.py')
-        child = self._spawn(sys.executable, [py_py, path])
+        child = self._spawn(sys.executable, [py_py, '-S', path])
         child.expect('Are you suggesting coconuts migrate?', timeout=120)
         child.sendline('Not at all. They could be carried.')
         child.expect('A five ounce bird could not carry a one pound coconut.')
@@ -821,9 +821,9 @@ class TestAppMain:
 class AppTestAppMain:
 
     def setup_class(self):
-        # ------------------------------------
-        # setup code for test_get_library_path
-        # ------------------------------------
+        # ----------------------------------------
+        # setup code for test_setup_bootstrap_path
+        # ----------------------------------------
         from pypy.module.sys.version import CPYTHON_VERSION, PYPY_VERSION
         cpy_ver = '%d.%d' % CPYTHON_VERSION[:2]
         
@@ -841,36 +841,43 @@ class AppTestAppMain:
         self.w_expected_path = self.space.wrap(expected_path)
         self.w_trunkdir = self.space.wrap(os.path.dirname(autopath.pypydir))
 
-    def test_get_library_path(self):
+    def test_setup_bootstrap_path(self):
         import sys
         import os
+        old_sys_path = sys.path[:]
         sys.path.append(self.goal_dir)
         try:
             import app_main
             app_main.os = os
-            newpath = app_main.get_library_path('/tmp/pypy-c') # stdlib not found
-            assert newpath == sys.path
-            newpath = app_main.get_library_path(self.fake_exe)
+            app_main.setup_bootstrap_path('/tmp/pypy-c') # stdlib not found
+            sys.path == old_sys_path
+            assert sys.executable == ''
+            #
+            app_main.setup_bootstrap_path(self.fake_exe)
+            assert sys.executable == self.fake_exe
+            newpath = sys.path[:]
             if newpath[0].endswith('__extensions__'):
                 newpath = newpath[1:]
             # we get at least 'expected_path', and maybe more (e.g.plat-linux2)
             assert newpath[:len(self.expected_path)] == self.expected_path
         finally:
-            sys.path.pop()
+            sys.path[:] = old_sys_path
 
     def test_trunk_can_be_prefix(self):
         import sys
         import os
+        old_sys_path = sys.path[:]
         sys.path.append(self.goal_dir)
         try:
             import app_main
             app_main.os = os
             pypy_c = os.path.join(self.trunkdir, 'pypy', 'translator', 'goal', 'pypy-c')
-            newpath = app_main.get_library_path(pypy_c)
+            app_main.setup_bootstrap_path(pypy_c)
+            newpath = sys.path[:]
             # we get at least lib_pypy 
             # lib-python/X.Y.Z, and maybe more (e.g. plat-linux2)
             assert len(newpath) >= 2
             for p in newpath:
                 assert p.startswith(self.trunkdir)
         finally:
-            sys.path.pop()
+            sys.path[:] = old_sys_path

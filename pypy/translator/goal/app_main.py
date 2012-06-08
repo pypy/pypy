@@ -229,53 +229,9 @@ if 'nt' in sys.builtin_module_names:
 else:
     IS_WINDOWS = False
 
-def get_library_path(executable):
-    search = executable
-    while 1:
-        dirname = resolvedirof(search)
-        if dirname == search:
-            # not found!  let's hope that the compiled-in path is ok
-            print >> sys.stderr, """\
-debug: WARNING: Library path not found, using compiled-in sys.path.
-debug: WARNING: 'sys.prefix' will not be set.
-debug: WARNING: Make sure the pypy binary is kept inside its tree of files.
-debug: WARNING: It is ok to create a symlink to it from somewhere else."""
-            newpath = sys.path[:]
-            break
-        newpath = sys.pypy_initial_path(dirname)
-        if newpath is None:
-            search = dirname    # walk to the parent directory
-            continue
-        break      # found!
-    return newpath
 
-def setup_sys_executable(executable, nanos):
-    # a substituted os if we are translated
-    global os
-    os = nanos
-    # find the full path to the executable, assuming that if there is no '/'
-    # in the provided one then we must look along the $PATH
-    if we_are_translated() and IS_WINDOWS and not executable.lower().endswith('.exe'):
-        executable += '.exe'
-    if os.sep in executable or (IS_WINDOWS and DRIVE_LETTER_SEP in executable):
-        pass    # the path is already more than just an executable name
-    else:
-        path = os.getenv('PATH')
-        if path:
-            for dir in path.split(os.pathsep):
-                fn = os.path.join(dir, executable)
-                if os.path.isfile(fn):
-                    executable = fn
-                    break
-    sys.executable = os.path.abspath(executable)
-    #
-    # 'sys.executable' should not end up being an non-existing file;
-    # just use '' in this case. (CPython issue #7774)
-    if not os.path.isfile(sys.executable):
-        sys.executable = ''
-
-def setup_initial_paths(ignore_environment=False, **extra):
-    newpath = get_library_path(sys.executable)
+def setup_and_fix_paths(ignore_environment=False, **extra):
+    newpath = sys.path
     readenv = not ignore_environment
     path = readenv and os.getenv('PYTHONPATH')
     if path:
@@ -689,8 +645,36 @@ def print_banner():
     print ('Type "help", "copyright", "credits" or '
            '"license" for more information.')
 
+STDLIB_WARNING = """\
+debug: WARNING: Library path not found, using compiled-in sys.path.
+debug: WARNING: 'sys.prefix' will not be set.
+debug: WARNING: Make sure the pypy binary is kept inside its tree of files.
+debug: WARNING: It is ok to create a symlink to it from somewhere else."""
+
+def setup_bootstrap_path(executable):
+    """
+    Try to to as little as possible and to have the stdlib in sys.path. In
+    particular, we cannot use any unicode at this point, because lots of
+    unicode operations require to be able to import encodings.
+    """
+    # at this point, sys.path is set to the compiled-in one, based on the
+    # location where pypy was compiled. This is set during the objspace
+    # initialization by module.sys.state.State.setinitialpath.
+    #
+    # Now, we try to find the absolute path of the executable and the stdlib
+    # path
+    executable = sys.pypy_find_executable(executable)
+    stdlib_path = sys.pypy_find_stdlib(executable)
+    if stdlib_path is None:
+        print >> sys.stderr, STDLIB_WARNING
+    else:
+        sys.path[:] = stdlib_path
+    # from this point on, we are free to use all the unicode stuff we want,
+    # This is important for py3k
+    sys.executable = executable
+
 def entry_point(executable, argv, nanos):
-    setup_sys_executable(executable, nanos)
+    setup_bootstrap_path(executable)
     try:
         cmdline = parse_command_line(argv)
     except CommandLineError, e:
@@ -698,7 +682,7 @@ def entry_point(executable, argv, nanos):
         return 2
     except SystemExit, e:
         return e.code or 0
-    setup_initial_paths(**cmdline)
+    setup_and_fix_paths(**cmdline)
     return run_command_line(**cmdline)
 
 
@@ -710,12 +694,17 @@ if __name__ == '__main__':
     ImStillAroundDontForgetMe = sys.modules['__main__']
 
     # debugging only
-    def pypy_initial_path(s):
-        from pypy.module.sys.state import getinitialpath
-        try:
-            return getinitialpath(None, s)
-        except OSError:
+    def pypy_find_executable(s):
+        from pypy.module.sys.initpath import find_executable
+        return find_executable(s)
+
+    def pypy_find_stdlib(s):
+        from pypy.module.sys.initpath import find_stdlib
+        path, prefix = find_stdlib(None, s)
+        if path is None:
             return None
+        sys.prefix = sys.exec_prefix = prefix
+        return path
 
     # add an emulator for these pypy-only or 2.7-only functions
     # (for test_pyc_commandline_argument)
@@ -753,7 +742,8 @@ if __name__ == '__main__':
 
     from pypy.module.sys.version import PYPY_VERSION
     sys.pypy_version_info = PYPY_VERSION
-    sys.pypy_initial_path = pypy_initial_path
+    sys.pypy_find_executable = pypy_find_executable
+    sys.pypy_find_stdlib = pypy_find_stdlib
     os = nanos.os_module_for_testing
     try:
         sys.exit(int(entry_point(sys.argv[0], sys.argv[1:], os)))
