@@ -2,6 +2,7 @@
 Implementation of interpreter-level 'sys' routines.
 """
 import pypy
+from pypy.rlib.objectmodel import we_are_translated
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import unwrap_spec
 
@@ -115,3 +116,32 @@ def pypy_getudir(space):
     (should be removed from interpleveldefs before translation)"""
     from pypy.tool.udir import udir
     return space.wrap(str(udir))
+
+
+IS_WINDOWS = 'nt' in sys.builtin_module_names
+
+def find_executable(executable):
+    if we_are_translated() and IS_WINDOWS and not executable.lower().endswith('.exe'):
+        executable += '.exe'
+    if os.sep in executable or (IS_WINDOWS and ':' in executable):
+        pass    # the path is already more than just an executable name
+    else:
+        path = os.environ.get('PATH')
+        if path:
+            for dir in path.split(os.pathsep):
+                fn = os.path.join(dir, executable)
+                if os.path.isfile(fn):
+                    executable = fn
+                    break
+    executable = os.path.abspath(executable)
+    #
+    # 'sys.executable' should not end up being an non-existing file;
+    # just use '' in this case. (CPython issue #7774)
+    if not os.path.isfile(executable):
+        executable = ''
+    return executable
+
+@unwrap_spec(executable='str0')
+def pypy_find_executable(space, executable):
+    executable = find_executable(executable)
+    return space.wrap()
