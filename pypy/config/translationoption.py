@@ -96,7 +96,8 @@ translation_optiondescription = OptionDescription(
                  requires={
                      "shadowstack": [("translation.gctransformer", "framework")],
                      "asmgcc": [("translation.gctransformer", "framework"),
-                                ("translation.backend", "c")],
+                                ("translation.backend", "c"),
+                                ("translation.shared", False)],
                     }),
 
     # other noticeable options
