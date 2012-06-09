@@ -3780,6 +3780,16 @@ class TestAnnotateTestCase:
         e = py.test.raises(Exception, a.build_types, f, [])
         assert 'object with a __call__ is not RPython' in str(e.value)
 
+    def test_os_getcwd(self):
+        import os
+        def fn():
+            return os.getcwd()
+        a = self.RPythonAnnotator()
+        s = a.build_types(fn, [])
+        assert isinstance(s, annmodel.SomeString)
+        assert s.no_nul
+
+
 def g(n):
     return [0,1,2,n]
 
