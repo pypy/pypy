@@ -3789,6 +3789,16 @@ class TestAnnotateTestCase:
         assert isinstance(s, annmodel.SomeString)
         assert s.no_nul
 
+    def test_os_getenv(self):
+        import os
+        def fn():
+            return os.environ.get('PATH')
+        a = self.RPythonAnnotator()
+        s = a.build_types(fn, [])
+        assert isinstance(s, annmodel.SomeString)
+        assert s.no_nul
+
+
 
 def g(n):
     return [0,1,2,n]
