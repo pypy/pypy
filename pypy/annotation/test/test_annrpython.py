@@ -2138,6 +2138,15 @@ class TestAnnotateTestCase:
         assert isinstance(s, annmodel.SomeString)
         assert s.no_nul
 
+    def test_mul_str0(self):
+        def f(s):
+            return s*10
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [annmodel.SomeString(no_nul=True)])
+        assert isinstance(s, annmodel.SomeString)
+        assert s.no_nul
+        
+
     def test_non_none_and_none_with_isinstance(self):
         class A(object):
             pass
