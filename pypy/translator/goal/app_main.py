@@ -674,6 +674,8 @@ def setup_bootstrap_path(executable):
     sys.executable = executable
 
 def entry_point(executable, argv, nanos):
+    global os
+    os = nanos
     setup_bootstrap_path(executable)
     try:
         cmdline = parse_command_line(argv)

@@ -880,3 +880,16 @@ class AppTestAppMain:
                 assert p.startswith(self.trunkdir)
         finally:
             sys.path[:] = old_sys_path
+
+    def test_entry_point(self):
+        import sys
+        import os
+        old_sys_path = sys.path[:]
+        sys.path.append(self.goal_dir)
+        try:
+            import app_main
+            pypy_c = os.path.join(self.trunkdir, 'pypy', 'translator', 'goal', 'pypy-c')
+            app_main.entry_point(pypy_c, ['-c', 'pass'], os)
+            # assert it did not crash
+        finally:
+            sys.path[:] = old_sys_path
