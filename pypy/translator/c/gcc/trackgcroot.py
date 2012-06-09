@@ -483,8 +483,10 @@ class FunctionGcRootTracker(object):
         'inc', 'dec', 'not', 'neg', 'or', 'and', 'sbb', 'adc',
         'shl', 'shr', 'sal', 'sar', 'rol', 'ror', 'mul', 'imul', 'div', 'idiv',
         'bswap', 'bt', 'rdtsc',
-        'punpck', 'pshufd', 'pcmp', 'pand', 'psllw', 'pslld', 'psllq',
-        'paddq', 'pinsr', 'pmul', 'psrl',
+        'pabs', 'pack', 'padd', 'palign', 'pand', 'pavg', 'pcmp', 'pextr',
+        'phadd', 'phsub', 'pinsr', 'pmadd', 'pmax', 'pmin', 'pmovmsk',
+        'pmul', 'por', 'psadb', 'pshuf', 'psign', 'psll', 'psra', 'psrl',
+        'psub', 'punpck', 'pxor',
         # all vectors don't produce pointers
         'v',
         # sign-extending moves should not produce GC pointers
@@ -492,7 +494,7 @@ class FunctionGcRootTracker(object):
         # zero-extending moves should not produce GC pointers
         'movz', 
         # locked operations should not move GC pointers, at least so far
-        'lock',
+        'lock', 'pause',
         ])
 
     # a partial list is hopefully good enough for now; it's all to support

@@ -457,13 +457,13 @@ def parse_command_line(argv):
 
     if PYTHON26 and not options["ignore_environment"]:
         if os.getenv('PYTHONNOUSERSITE'):
-            options["no_user_site"] = True
+            options["no_user_site"] = 1
         if os.getenv('PYTHONDONTWRITEBYTECODE'):
-            options["dont_write_bytecode"] = True
+            options["dont_write_bytecode"] = 1
 
     if (options["interactive"] or
         (not options["ignore_environment"] and os.getenv('PYTHONINSPECT'))):
-        options["inspect"] = True
+        options["inspect"] = 1
 
     if PYTHON26 and we_are_translated():
         flags = [options[flag] for flag in sys_flags]
