@@ -84,6 +84,8 @@ test validity of file descriptors, leading to the removal of the  global
 _invalid_parameter_handler
 .. branch: win32-kill
 Add os.kill to windows even if translating python does not have os.kill
+.. branch: win_ffi
+Handle calling conventions for the _ffi and ctypes modules
 .. branch: win64-stage1
 .. branch: zlib-mem-pressure
 Memory "leaks" associated with zlib are fixed.

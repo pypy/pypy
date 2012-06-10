@@ -1,11 +1,11 @@
 from pypy.conftest import gettestobjspace
-from pypy.translator.platform import platform
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.module._rawffi.interp_rawffi import TYPEMAP
-from pypy.module._rawffi.tracker import Tracker
-from pypy.translator.platform import platform
+from pypy.rpython.lltypesystem import rffi
+from pypy.rlib.clibffi import get_libc_name
+from pypy.rlib.libffi import types
+from pypy.rlib.libffi import CDLL
+from pypy.rlib.test.test_clibffi import get_libm_name
 
-import os, sys, py
+import sys, py
 
 class BaseAppTestFFI(object):
 
@@ -37,9 +37,6 @@ class BaseAppTestFFI(object):
         return str(platform.compile([c_file], eci, 'x', standalone=False))
 
     def setup_class(cls):
-        from pypy.rpython.lltypesystem import rffi
-        from pypy.rlib.libffi import get_libc_name, CDLL, types
-        from pypy.rlib.test.test_libffi import get_libm_name
         space = gettestobjspace(usemodules=('_ffi', '_rawffi'))
         cls.space = space
         cls.w_iswin32 = space.wrap(sys.platform == 'win32')
@@ -96,7 +93,7 @@ class AppTestFFI(BaseAppTestFFI):
 
     def test_getaddressindll(self):
         import sys
-        from _ffi import CDLL, types
+        from _ffi import CDLL
         libm = CDLL(self.libm_name)
         pow_addr = libm.getaddressindll('pow')
         fff = sys.maxint*2-1
@@ -105,7 +102,6 @@ class AppTestFFI(BaseAppTestFFI):
         assert pow_addr == self.pow_addr & fff
 
     def test_func_fromaddr(self):
-        import sys
         from _ffi import CDLL, types, FuncPtr
         libm = CDLL(self.libm_name)
         pow_addr = libm.getaddressindll('pow')
@@ -569,3 +565,66 @@ class AppTestFFI(BaseAppTestFFI):
             skip("unix specific")
         libnone = CDLL(None)
         raises(AttributeError, "libnone.getfunc('I_do_not_exist', [], types.void)")
+
+    def test_calling_convention1(self):
+        if not self.iswin32:
+            skip("windows specific")
+        from _ffi import WinDLL, types
+        libm = WinDLL(self.libm_name)
+        pow = libm.getfunc('pow', [types.double, types.double], types.double)
+        try:
+            pow(2, 3)
+        except ValueError, e:
+            assert e.message.startswith('Procedure called with')
+        else:
+            assert 0, 'test must assert, wrong calling convention'
+
+    def test_calling_convention2(self):
+        if not self.iswin32:
+            skip("windows specific")
+        from _ffi import WinDLL, types
+        kernel = WinDLL('Kernel32.dll')
+        sleep = kernel.getfunc('Sleep', [types.uint], types.void)
+        sleep(10)
+
+    def test_calling_convention3(self):
+        if not self.iswin32:
+            skip("windows specific")
+        from _ffi import CDLL, types
+        wrong_kernel = CDLL('Kernel32.dll')
+        wrong_sleep = wrong_kernel.getfunc('Sleep', [types.uint], types.void)
+        try:
+            wrong_sleep(10)
+        except ValueError, e:
+            assert e.message.startswith('Procedure called with')
+        else:
+            assert 0, 'test must assert, wrong calling convention'
+
+    def test_func_fromaddr2(self):
+        if not self.iswin32:
+            skip("windows specific")
+        from _ffi import CDLL, types, FuncPtr
+        from _rawffi import FUNCFLAG_STDCALL
+        libm = CDLL(self.libm_name)
+        pow_addr = libm.getaddressindll('pow')
+        wrong_pow = FuncPtr.fromaddr(pow_addr, 'pow', 
+                [types.double, types.double], types.double, FUNCFLAG_STDCALL)
+        try:
+            wrong_pow(2, 3) == 8
+        except ValueError, e:
+            assert e.message.startswith('Procedure called with')
+        else:
+            assert 0, 'test must assert, wrong calling convention'
+
+    def test_func_fromaddr3(self):
+        if not self.iswin32:
+            skip("windows specific")
+        from _ffi import WinDLL, types, FuncPtr
+        from _rawffi import FUNCFLAG_STDCALL
+        kernel = WinDLL('Kernel32.dll')
+        sleep_addr = kernel.getaddressindll('Sleep')
+        sleep = FuncPtr.fromaddr(sleep_addr, 'sleep', [types.uint], 
+                            types.void, FUNCFLAG_STDCALL)
+        sleep(10)
+
+ 

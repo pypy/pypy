@@ -8,6 +8,7 @@ from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import slicetype
 from pypy.rlib.debug import make_sure_not_resized
 from pypy.rlib import jit
+from pypy.tool.sourcetools import func_with_new_name
 
 # Tuples of known length up to UNROLL_TUPLE_LIMIT have unrolled certain methods
 UNROLL_TUPLE_LIMIT = 10
@@ -138,29 +139,27 @@ def eq__Tuple_Tuple(space, w_tuple1, w_tuple2):
             return space.w_False
     return space.w_True
 
-@jit.look_inside_iff(tuple_unroll_condition)
-def lt__Tuple_Tuple(space, w_tuple1, w_tuple2):
-    items1 = w_tuple1.wrappeditems
-    items2 = w_tuple2.wrappeditems
-    ncmp = min(len(items1), len(items2))
-    # Search for the first index where items are different
-    for p in range(ncmp):
-        if not space.eq_w(items1[p], items2[p]):
-            return space.lt(items1[p], items2[p])
-    # No more items to compare -- compare sizes
-    return space.newbool(len(items1) < len(items2))
+def _make_tuple_comparison(name):
+    import operator
+    op = getattr(operator, name)
+    #
+    @jit.look_inside_iff(tuple_unroll_condition)
+    def compare_tuples(space, w_tuple1, w_tuple2):
+        items1 = w_tuple1.wrappeditems
+        items2 = w_tuple2.wrappeditems
+        ncmp = min(len(items1), len(items2))
+        # Search for the first index where items are different
+        for p in range(ncmp):
+            if not space.eq_w(items1[p], items2[p]):
+                return getattr(space, name)(items1[p], items2[p])
+        # No more items to compare -- compare sizes
+        return space.newbool(op(len(items1), len(items2)))
+    return func_with_new_name(compare_tuples, name + '__Tuple_Tuple')
 
-@jit.look_inside_iff(tuple_unroll_condition)
-def gt__Tuple_Tuple(space, w_tuple1, w_tuple2):
-    items1 = w_tuple1.wrappeditems
-    items2 = w_tuple2.wrappeditems
-    ncmp = min(len(items1), len(items2))
-    # Search for the first index where items are different
-    for p in range(ncmp):
-        if not space.eq_w(items1[p], items2[p]):
-            return space.gt(items1[p], items2[p])
-    # No more items to compare -- compare sizes
-    return space.newbool(len(items1) > len(items2))
+lt__Tuple_Tuple = _make_tuple_comparison('lt')
+le__Tuple_Tuple = _make_tuple_comparison('le')
+gt__Tuple_Tuple = _make_tuple_comparison('gt')
+ge__Tuple_Tuple = _make_tuple_comparison('ge')
 
 def repr__Tuple(space, w_tuple):
     items = w_tuple.wrappeditems
