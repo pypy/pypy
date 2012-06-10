@@ -319,7 +319,8 @@ class TestInteraction:
         child.sendline('import sys; sys.argv')
         child.expect(re.escape("['-c']"))
 
-    def test_options_i_c_crashing(self):
+    def test_options_i_c_crashing(self, monkeypatch):
+        monkeypatch.setenv('PYTHONPATH', None)
         child = self.spawn(['-i', '-c', 'x=666;foobar'])
         child.expect('NameError')
         idx = child.expect(['>>> ', re.escape(banner)])
@@ -351,28 +352,25 @@ class TestInteraction:
             sys.stdin = old
         child.expect('foobye')
 
-    def test_pythonstartup(self):
-        old = os.environ.get('PYTHONSTARTUP', '')
-        try:
-            os.environ['PYTHONSTARTUP'] = crashing_demo_script
-            child = self.spawn([])
-            child.expect(re.escape(banner))
-            child.expect('Traceback')
-            child.expect('NameError')
-            child.expect('>>> ')
-            child.sendline('[myvalue2]')
-            child.expect(re.escape('[11]'))
-            child.expect('>>> ')
+    def test_pythonstartup(self, monkeypatch):
+        monkeypatch.setenv('PYTHONPATH', None)
+        monkeypatch.setenv('PYTHONSTARTUP', crashing_demo_script)
+        child = self.spawn([])
+        child.expect(re.escape(banner))
+        child.expect('Traceback')
+        child.expect('NameError')
+        child.expect('>>> ')
+        child.sendline('[myvalue2]')
+        child.expect(re.escape('[11]'))
+        child.expect('>>> ')
 
-            child = self.spawn(['-i', demo_script])
-            for line in ['hello', 'goodbye', '>>> ']:
-                idx = child.expect([line, 'Hello2'])
-                assert idx == 0    # no PYTHONSTARTUP run here
-            child.sendline('myvalue2')
-            child.expect('Traceback')
-            child.expect('NameError')
-        finally:
-            os.environ['PYTHONSTARTUP'] = old
+        child = self.spawn(['-i', demo_script])
+        for line in ['hello', 'goodbye', '>>> ']:
+            idx = child.expect([line, 'Hello2'])
+            assert idx == 0    # no PYTHONSTARTUP run here
+        child.sendline('myvalue2')
+        child.expect('Traceback')
+        child.expect('NameError')
 
     def test_ignore_python_startup(self):
         old = os.environ.get('PYTHONSTARTUP', '')
@@ -607,16 +605,12 @@ class TestNonInteractive:
         data = self.run('-c "print 6**5"')
         assert '7776' in data
 
-    def test_no_pythonstartup(self):
-        old = os.environ.get('PYTHONSTARTUP', '')
-        try:
-            os.environ['PYTHONSTARTUP'] = crashing_demo_script
-            data = self.run('"%s"' % (demo_script,))
-            assert 'Hello2' not in data
-            data = self.run('-c pass')
-            assert 'Hello2' not in data
-        finally:
-            os.environ['PYTHONSTARTUP'] = old
+    def test_no_pythonstartup(self, monkeypatch):
+        monkeypatch.setenv('PYTHONSTARTUP', crashing_demo_script)
+        data = self.run('"%s"' % (demo_script,))
+        assert 'Hello2' not in data
+        data = self.run('-c pass')
+        assert 'Hello2' not in data
 
     def test_pythonwarnings(self, monkeypatch):
         # PYTHONWARNINGS_ is special cased by app_main: we cannot directly set
