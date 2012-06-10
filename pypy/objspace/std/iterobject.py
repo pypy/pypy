@@ -16,6 +16,7 @@ def length_hint(space, w_obj, default):
             raise
 
     try:
+        XXX  # should not use call_method here, which is based on getattr
         w_hint = space.call_method(w_obj, '__length_hint__')
     except OperationError, e:
         if not (e.match(space, space.w_TypeError) or
