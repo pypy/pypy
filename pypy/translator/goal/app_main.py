@@ -231,7 +231,7 @@ else:
 
 
 def setup_and_fix_paths(ignore_environment=False, **extra):
-    newpath = sys.path
+    newpath = sys.path[:]
     readenv = not ignore_environment
     path = readenv and os.getenv('PYTHONPATH')
     if path:
