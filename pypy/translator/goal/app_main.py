@@ -250,7 +250,15 @@ def set_io_encoding(io_encoding, io_encoding_output, errors, overridden):
     except ImportError:
         if sys.version_info < (2, 7):
             return
-        import ctypes # HACK: while running on top of CPython
+        # HACK: while running on top of CPython, and make sure to import
+        # CPython's ctypes (because at this point sys.path has already been
+        # set to the pypy one)
+        pypy_path = sys.path
+        try:
+            sys.path = sys.cpython_path
+            import ctypes
+        finally:
+            sys.path = pypy_path
         set_file_encoding = ctypes.pythonapi.PyFile_SetEncodingAndErrors
         set_file_encoding.argtypes = [ctypes.py_object, ctypes.c_char_p, ctypes.c_char_p]
     else:
@@ -751,6 +759,7 @@ if __name__ == '__main__':
     sys.pypy_version_info = PYPY_VERSION
     sys.pypy_find_executable = pypy_find_executable
     sys.pypy_find_stdlib = pypy_find_stdlib
+    sys.cpython_path = sys.path[:]
     os = nanos.os_module_for_testing
     try:
         sys.exit(int(entry_point(sys.argv[0], sys.argv[1:], os)))
