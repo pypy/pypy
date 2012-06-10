@@ -367,13 +367,6 @@ static owner_version_t commitInevitableTransaction(struct tx_descriptor *d)
 
 /* lazy/lazy read instrumentation */
 #define STM_DO_READ(READ_OPERATION)                                     \
-  if (is_inevitable(d)) {                                               \
-    /* if is_inevitable(), then we don't need to do the checking of  */ \
-    /* o->version done below --- but more importantly, we don't need */ \
-    /* to insert o in the OrecList                                   */ \
-    READ_OPERATION;                                                     \
-  }                                                                     \
-  else {                                                                \
  retry:                                                                 \
   /* read the orec BEFORE we read anything else */                      \
   ovt = GETVERSION(o);                                                  \
@@ -397,12 +390,18 @@ static owner_version_t commitInevitableTransaction(struct tx_descriptor *d)
   /* orec is unlocked, with ts <= start_time.  read the location */     \
   READ_OPERATION;                                                       \
                                                                         \
-  /* postvalidate AFTER reading addr: */                                \
-  CFENCE;                                                               \
-  if (__builtin_expect(GETVERSION(o) != ovt, 0))                        \
-    goto retry;       /* oups, try again */                             \
+  if (!is_inevitable(d)) {                                              \
+    /* if is_inevitable(), then we don't need to do the checking of  */ \
+    /* o->version done below --- but more importantly, we don't need */ \
+    /* to insert o in the OrecList.  We *do* need to do the above    */ \
+    /* check for locked-ness, though.                                */ \
                                                                         \
-  oreclist_insert(&d->reads, (orec_t*)o);                               \
+    /* postvalidate AFTER reading addr: */                              \
+    CFENCE;                                                             \
+    if (__builtin_expect(GETVERSION(o) != ovt, 0))                      \
+      goto retry;       /* oups, try again */                           \
+                                                                        \
+    oreclist_insert(&d->reads, (orec_t*)o);                             \
   }
 
 
