@@ -16,6 +16,9 @@ class Global:
     LENGTH      = 5000
     USE_MEMORY  = False
     anchor      = Node(-1)
+    othernode1  = Node(0)
+    othernode2  = Node(0)
+    othernodes  = [Node(0) for i in range(1000)]
 glob = Global()
 
 def add_at_end_of_chained_list(node, value, threadindex):
@@ -66,6 +69,9 @@ class ThreadRunner(object):
     def run(self):
         try:
             self.value = 0
+            rstm.perform_transaction(ThreadRunner.check_inev,
+                                     ThreadRunner, self)
+            self.value = 0
             self.arg = Arg()
             rstm.perform_transaction(ThreadRunner.check_ptr_equality,
                                      ThreadRunner, self)
@@ -97,6 +103,26 @@ class ThreadRunner(object):
         raw2 = rffi.cast(rffi.CCHARP, -1)
         ll_assert(raw1 != raw2, "ERROR: retry_counter == -1")
         return 0
+
+    def _check_content(self, content):
+        ll_assert(glob.othernode2.value == content, "bogus value after inev")
+    _check_content._dont_inline_ = True
+
+    def _check_inev(self):
+        read_value = glob.othernode1.value
+        rstm.become_inevitable()
+        self._check_content(read_value)
+    _check_inev._dont_inline_ = True
+
+    def check_inev(self, retry_counter):
+        self.value += 1
+        new_value = self.index * 1000000 + self.value
+        self._check_inev()
+        glob.othernode1.value = new_value
+        for n in glob.othernodes:   # lots of unrelated writes in-between
+            n.value = new_value
+        glob.othernode2.value = new_value
+        return int(self.value < glob.LENGTH)
 
 class Arg:
     foobar = 42

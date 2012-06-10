@@ -13,6 +13,9 @@ from pypy.rpython.annlowlevel import (cast_base_ptr_to_instance,
 def is_inevitable():
     return we_are_translated() and stmgcintf.StmOperations.is_inevitable()
 
+def become_inevitable():
+    llop.stm_become_inevitable(lltype.Void)
+
 def should_break_transaction():
     return we_are_translated() and (
         stmgcintf.StmOperations.should_break_transaction())

@@ -57,7 +57,10 @@ def stm_getinteriorfield(funcgen, op):
 
 
 def stm_become_inevitable(funcgen, op):
-    info = op.args[0].value
+    try:
+        info = op.args[0].value
+    except IndexError:
+        info = "rstm.become_inevitable"    # cannot insert it in 'llop'
     string_literal = c_string_constant(info)
     return 'stm_try_inevitable(STM_EXPLAIN1(%s));' % (string_literal,)
 
