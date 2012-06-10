@@ -1362,7 +1362,8 @@ class RegisterOs(BaseLazyRegistering):
         os_isatty = self.llexternal(underscore_on_windows+'isatty', [rffi.INT], rffi.INT)
 
         def isatty_llimpl(fd):
-            rposix.validate_fd(fd)
+            if not rposix.is_valid_fd(fd):
+                return False
             res = rffi.cast(lltype.Signed, os_isatty(rffi.cast(rffi.INT, fd)))
             return res != 0
 
