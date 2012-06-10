@@ -1316,7 +1316,11 @@ class TransformerLayoutBuilder(gctypelayout.TypeLayoutBuilder):
         fptr = self.transformer.annotate_finalizer(ll_finalizer,
                 [llmemory.Address, llmemory.Address], llmemory.Address)
         g = destrptr._obj.graph
-        light = not FinalizerAnalyzer(self.translator).analyze_light_finalizer(g)
+        if self.translator.config.translation.stm:
+            light = False    # XXX no working finalizers with STM so far
+        else:
+            analyzer = FinalizerAnalyzer(self.translator)
+            light = not analyzer.analyze_light_finalizer(g)
         return fptr, light
 
     def make_custom_trace_funcptr_for_type(self, TYPE):
