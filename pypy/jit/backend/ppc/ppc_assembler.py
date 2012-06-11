@@ -179,13 +179,14 @@ class AssemblerPPC(OpAssembler):
     def setup_failure_recovery(self):
 
         @rgc.no_collect
-        def failure_recovery_func(mem_loc, spilling_pointer):
+        def failure_recovery_func(mem_loc, spilling_pointer,
+                                  managed_registers_pointer):
             """
                 mem_loc is a pointer to the beginning of the encoding.
 
                 spilling_pointer is the address of the spilling area.
             """
-            regs = rffi.cast(rffi.LONGP, spilling_pointer)
+            regs = rffi.cast(rffi.LONGP, managed_registers_pointer)
             fpregs = rffi.ptradd(regs, len(r.MANAGED_REGS))
             fpregs = rffi.cast(rffi.LONGP, fpregs)
             return self.decode_registers_and_descr(mem_loc, 
@@ -194,8 +195,8 @@ class AssemblerPPC(OpAssembler):
 
         self.failure_recovery_func = failure_recovery_func
 
-    recovery_func_sign = lltype.Ptr(lltype.FuncType([lltype.Signed, 
-            lltype.Signed], lltype.Signed))
+    recovery_func_sign = lltype.Ptr(lltype.FuncType([lltype.Signed] * 3,
+            lltype.Signed))
 
     @rgc.no_collect
     def decode_registers_and_descr(self, mem_loc, spp, registers, fp_registers):
@@ -551,8 +552,10 @@ class AssemblerPPC(OpAssembler):
         addr = rffi.cast(lltype.Signed, decode_func_addr)
 
         # load parameters into parameter registers
-        mc.load(r.RES.value, r.SPP.value, FORCE_INDEX_OFS)    # address of state encoding 
-        mc.mr(r.r4.value, r.SPP.value)                             # load spilling pointer
+        # address of state encoding 
+        mc.load(r.RES.value, r.SPP.value, FORCE_INDEX_OFS)
+        mc.mr(r.r4.value, r.SPP.value)  # load spilling pointer
+        mc.mr(r.r5.value, r.SPP.value)  # load managed registers pointer
         #
         # call decoding function
         mc.call(addr)
