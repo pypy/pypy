@@ -66,7 +66,7 @@ def __dirinfo(part):
     sys.path.insert(0, head)
 
     munged = {}
-    for name, mod in list(sys.modules.items()):
+    for name, mod in sys.modules.items():
         if '.' in name:
             continue
         fn = getattr(mod, '__file__', None)

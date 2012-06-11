@@ -84,7 +84,7 @@ def __dirinfo(part):
             if modpath not in sys.modules:
                 munged[modpath] = mod
 
-    for name, mod in munged.iteritems():
+    for name, mod in munged.items():
         if name not in sys.modules:
             sys.modules[name] = mod
         if '.' in name:
@@ -111,9 +111,9 @@ def __clone():
             f = open(fn, 'rwb+')
             try:
                 if f.read() == arg:
-                    print "checkok", fn
+                    print("checkok", fn)
                 else:
-                    print "syncing", fn
+                    print("syncing", fn)
                     f = open(fn, 'w')
                     f.write(arg)
             finally:
