@@ -476,13 +476,13 @@ class FunctionGcRootTracker(object):
         # floating-point operations cannot produce GC pointers
         'f',
         'cvt', 'ucomi', 'comi', 'subs', 'subp' , 'adds', 'addp', 'xorp',
-        'movap', 'movd', 'movlp', 'sqrtsd', 'movhpd',
+        'movap', 'movd', 'movlp', 'sqrt', 'rsqrt', 'movhpd',
         'mins', 'minp', 'maxs', 'maxp', 'unpck', 'pxor', 'por', # sse2
         'shufps', 'shufpd',
         # arithmetic operations should not produce GC pointers
         'inc', 'dec', 'not', 'neg', 'or', 'and', 'sbb', 'adc',
         'shl', 'shr', 'sal', 'sar', 'rol', 'ror', 'mul', 'imul', 'div', 'idiv',
-        'bswap', 'bt', 'rdtsc',
+        'bswap', 'bt', 'rdtsc', 'rounds',
         'pabs', 'pack', 'padd', 'palign', 'pand', 'pavg', 'pcmp', 'pextr',
         'phadd', 'phsub', 'pinsr', 'pmadd', 'pmax', 'pmin', 'pmovmsk',
         'pmul', 'por', 'psadb', 'pshuf', 'psign', 'psll', 'psra', 'psrl',
