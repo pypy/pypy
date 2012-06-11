@@ -238,7 +238,7 @@ static void oreclist_insert(struct OrecList *oreclist, orec_t *newitem)
      in addition, we need a general de-duplicator logic called
      at every local_collection().
   */
-  if (oreclist->size == oreclist->alloc)
+  if (__builtin_expect(oreclist->size == oreclist->alloc, 0))
     _oreclist_grow(oreclist);
   oreclist->items[oreclist->size++] = newitem;
 }
