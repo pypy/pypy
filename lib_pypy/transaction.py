@@ -26,7 +26,7 @@ except ImportError:
     atomic = _Atomic()
 
 
-def set_num_threads(self, num):
+def set_num_threads(num):
     """Set the number of threads to use."""
     if num < 1:
         raise ValueError("'num' must be at least 1, got %r" % (num,))
