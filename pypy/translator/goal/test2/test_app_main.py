@@ -786,7 +786,7 @@ class TestNonInteractive:
         ]:
             p = getscript_in_dir("""
             import sys
-            sys.stdout.write(u'15\u20ac')
+            sys.stdout.write('15\u20ac')
             sys.stdout.flush()
             """)
             env = os.environ.copy()
@@ -799,7 +799,7 @@ class TestNonInteractive:
             skip("test required Python >= 2.7")
         p = getscript_in_dir("""
         import sys
-        sys.exit(u'15\u20ac')
+        sys.exit('15\u20ac')
         """)
         env = os.environ.copy()
         env["PYTHONIOENCODING"] = "utf-8"
