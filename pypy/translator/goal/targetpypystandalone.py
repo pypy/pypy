@@ -27,7 +27,7 @@ def create_entry_point(space, w_dict):
     w_run_toplevel = space.getitem(w_dict, space.wrap('run_toplevel'))
     w_call_finish_gateway = space.wrap(gateway.interp2app(call_finish))
     w_call_startup_gateway = space.wrap(gateway.interp2app(call_startup))
-    w_os = setup_nanos(space)
+    #w_os = setup_nanos(space)
     withjit = space.config.objspace.usemodules.pypyjit
 
     def entry_point(argv):
@@ -56,7 +56,7 @@ def create_entry_point(space, w_dict):
                 w_executable = space.wrap(argv[0])
                 w_argv = space.newlist([space.wrap(s) for s in argv[1:]])
                 space.timer.start("w_entry_point")
-                w_exitcode = space.call_function(w_entry_point, w_executable, w_argv, w_os)
+                w_exitcode = space.call_function(w_entry_point, w_executable, w_argv)
                 space.timer.stop("w_entry_point")
                 exitcode = space.int_w(w_exitcode)
                 # try to pull it all in

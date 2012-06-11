@@ -213,12 +213,6 @@ def set_fully_buffered_io():
 # ____________________________________________________________
 # Main entry point
 
-# see nanos.py for explainment why we do not import os here
-# CAUTION!
-# remember to update nanos.py if you are using more functions
-# from os or os.path!
-# Running test/test_nanos.py might be helpful as well.
-
 def we_are_translated():
     # app-level, very different from pypy.rlib.objectmodel.we_are_translated
     return hasattr(sys, 'pypy_translation_info')
@@ -231,6 +225,7 @@ else:
 
 
 def setup_and_fix_paths(ignore_environment=False, **extra):
+    import os
     newpath = sys.path[:]
     readenv = not ignore_environment
     path = readenv and os.getenv('PYTHONPATH')
@@ -381,6 +376,7 @@ def handle_argument(c, options, iterargv, iterarg=iter(())):
 
 
 def parse_command_line(argv):
+    import os
     options = default_options.copy()
     options['warnoptions'] = []
     #
@@ -460,6 +456,7 @@ def run_command_line(interactive,
     # but we need more in the translated PyPy for the compiler package
     if '__pypy__' not in sys.builtin_module_names:
         sys.setrecursionlimit(5000)
+    import os
 
     if unbuffered:
         set_unbuffered_io()
@@ -634,6 +631,7 @@ def run_command_line(interactive,
     return status
 
 def resolvedirof(filename):
+    import os
     try:
         filename = os.path.abspath(filename)
     except OSError:
@@ -681,9 +679,12 @@ def setup_bootstrap_path(executable):
     # This is important for py3k
     sys.executable = executable
 
-def entry_point(executable, argv, nanos):
-    global os
-    os = nanos
+def entry_point(executable, argv):
+    # note that before calling setup_bootstrap_path, we are limited because we
+    # cannot import stdlib modules. In particular, we cannot use unicode
+    # stuffs (because we need to be able to import encodings) and we cannot
+    # import os, which is used a bit everywhere in app_main, but only imported
+    # *after* setup_bootstrap_path
     setup_bootstrap_path(executable)
     try:
         cmdline = parse_command_line(argv)
@@ -698,7 +699,12 @@ def entry_point(executable, argv, nanos):
 
 if __name__ == '__main__':
     import autopath
-    import nanos
+    # we need to import pypy.translator.platform early, before we start to
+    # mess up the env variables. In particular, during the import we spawn a
+    # couple of processes which gets confused if PYTHONINSPECT is set (e.g.,
+    # hg to get the version and the hack in tool.runsubprocess to prevent
+    # out-of-memory for late os.fork())
+    import pypy.translator.platform
     # obscure! try removing the following line, see how it crashes, and
     # guess why...
     ImStillAroundDontForgetMe = sys.modules['__main__']
@@ -750,19 +756,18 @@ if __name__ == '__main__':
     if 'PYTHONWARNINGS_' in os.environ:
         reset.append(('PYTHONWARNINGS', os.environ.get('PYTHONWARNINGS', '')))
         os.environ['PYTHONWARNINGS'] = os.environ['PYTHONWARNINGS_']
+    del os # make sure that os is not available globally, because this is what
+           # happens in "real life" outside the tests
 
     # no one should change to which lists sys.argv and sys.path are bound
     old_argv = sys.argv
     old_path = sys.path
 
-    from pypy.module.sys.version import PYPY_VERSION
-    sys.pypy_version_info = PYPY_VERSION
     sys.pypy_find_executable = pypy_find_executable
     sys.pypy_find_stdlib = pypy_find_stdlib
     sys.cpython_path = sys.path[:]
-    os = nanos.os_module_for_testing
     try:
-        sys.exit(int(entry_point(sys.argv[0], sys.argv[1:], os)))
+        sys.exit(int(entry_point(sys.argv[0], sys.argv[1:])))
     finally:
         # restore the normal prompt (which was changed by _pypy_interact), in
         # case we are dropping to CPython's prompt
