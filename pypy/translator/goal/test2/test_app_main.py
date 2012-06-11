@@ -735,7 +735,7 @@ class TestNonInteractive:
 
         with chdir_and_unset_pythonpath(tmpdir):
             data = self.run(cmdline2, python_flags='-S')
-        assert data.startswith("'import site' failed\nsome new text\n")
+        assert data.startswith("some new text\n")
         assert repr(str(tmpdir.join('otherpath'))) in data
         assert "''" not in data
 
