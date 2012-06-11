@@ -148,28 +148,27 @@ class CheckSignalAction(PeriodicAsyncAction):
             n = pypysig_poll()
             if n < 0:
                 break
-            if self.reissue_signal_action is None:
-                # no threads: we can report the signal immediately
+            self.perform_signal(executioncontext, n)
+
+    def perform_signal(self, executioncontext, n):
+        if self.reissue_signal_action is None:
+            # no threads: we can report the signal immediately
+            self.report_signal(n)
+        else:
+            main_ec = self.space.threadlocals.getmainthreadvalue()
+            if executioncontext is main_ec:
+                # running in the main thread: we can report the
+                # signal immediately
                 self.report_signal(n)
             else:
-                main_ec = self.space.threadlocals.getmainthreadvalue()
-                if executioncontext is main_ec:
-                    # running in the main thread: we can report the
-                    # signal immediately
-                    self.report_signal(n)
-                else:
-                    # running in another thread: we need to hack a bit
-                    self.pending_signals[n] = None
-                    self.reissue_signal_action.fire_after_thread_switch()
+                # running in another thread: we need to hack a bit
+                self.pending_signals[n] = None
+                self.reissue_signal_action.fire_after_thread_switch()
 
     def set_interrupt(self):
         "Simulates the effect of a SIGINT signal arriving"
-        n = cpy_signal.SIGINT
-        if self.reissue_signal_action is None:
-            self.report_signal(n)
-        else:
-            self.pending_signals[n] = None
-            self.reissue_signal_action.fire_after_thread_switch()
+        ec = self.space.getexecutioncontext()
+        self.perform_signal(ec, cpy_signal.SIGINT)
 
     def report_signal(self, n):
         try:

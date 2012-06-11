@@ -252,6 +252,24 @@ def initstdio(encoding=None, unbuffered=False):
     sys.stderr = sys.__stderr__ = create_stdio(
         2, True, "<stderr>", encoding, errors, unbuffered)
 
+def set_stdio_encodings(ignore_environment):
+    import os
+    readenv = not ignore_environment
+    io_encoding = readenv and os.getenv("PYTHONIOENCODING")
+    if io_encoding:
+        errors = None
+        if ":" in io_encoding:
+            io_encoding, errors = io_encoding.split(":", 1)
+        set_io_encoding(io_encoding, io_encoding, errors, True)
+    else:
+        if IS_WINDOWS:
+            import __pypy__
+            io_encoding, io_encoding_output = __pypy__.get_console_cp()
+        else:
+            io_encoding = io_encoding_output = sys.getfilesystemencoding()
+        if io_encoding:
+            set_io_encoding(io_encoding, io_encoding_output, None, False)
+
 def create_stdio(fd, writing, name, encoding, errors, unbuffered):
     import io
 
@@ -468,13 +486,13 @@ def parse_command_line(argv):
 
     if PYTHON26 and not options["ignore_environment"]:
         if os.getenv('PYTHONNOUSERSITE'):
-            options["no_user_site"] = True
+            options["no_user_site"] = 1
         if os.getenv('PYTHONDONTWRITEBYTECODE'):
-            options["dont_write_bytecode"] = True
+            options["dont_write_bytecode"] = 1
 
     if (options["interactive"] or
         (not options["ignore_environment"] and os.getenv('PYTHONINSPECT'))):
-        options["inspect"] = True
+        options["inspect"] = 1
 
     if PYTHON26 and we_are_translated():
         flags = [options[flag] for flag in sys_flags]
@@ -527,22 +545,9 @@ def run_command_line(interactive,
         except:
             print("'import site' failed", file=sys.stderr)
 
-    readenv = not ignore_environment
-    io_encoding = readenv and os.getenv("PYTHONIOENCODING")
-    if io_encoding:
-        errors = None
-        if ":" in io_encoding:
-            io_encoding, errors = io_encoding.split(":", 1)
-        set_io_encoding(io_encoding, io_encoding, errors, True)
-    else:
-        if IS_WINDOWS:
-            import __pypy__
-            io_encoding, io_encoding_output = __pypy__.get_console_cp()
-        else:
-            io_encoding = io_encoding_output = sys.getfilesystemencoding()
-        if io_encoding:
-            set_io_encoding(io_encoding, io_encoding_output, None, False)
+    set_stdio_encodings(ignore_environment)
 
+    readenv = not ignore_environment
     pythonwarnings = readenv and os.getenv('PYTHONWARNINGS')
     if pythonwarnings:
         warnoptions.extend(pythonwarnings.split(','))

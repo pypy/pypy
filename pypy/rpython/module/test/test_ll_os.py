@@ -268,6 +268,14 @@ def test_os_kill():
     expected = -signal.SIGTERM
     assert proc.wait() == expected
 
+def test_isatty():
+    try:
+        f = getllimpl(os.isatty)
+    except:
+        skip('No isatty in os')
+    assert f(-1)  == False
+
+
 class ExpectTestOs:
     def setup_class(cls):
         if not hasattr(os, 'ttyname'):

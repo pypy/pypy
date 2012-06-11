@@ -5,7 +5,7 @@ PyPy 1.9 - Yard Wolf
 We're pleased to announce the 1.9 release of PyPy. This release brings mostly
 bugfixes, performance improvements, other small improvements and overall
 progress on the `numpypy`_ effort.
-It also brings an improved situation on windows and OS X.
+It also brings an improved situation on Windows and OS X.
 
 You can download the PyPy 1.9 release here:
 
@@ -28,8 +28,8 @@ to handle that.
 .. _`pypy 1.9 and cpython 2.7.2`: http://speed.pypy.org
 
 
-Thanks to our donators
-======================
+Thanks to our donors
+====================
 
 But first of all, we would like to say thank you to all people who
 donated some money to one of our four calls:
@@ -46,7 +46,7 @@ Thank you all for proving that it is indeed possible for a small team of
 programmers to get funded like that, at least for some
 time.  We want to include this thank you in the present release
 announcement even though most of the work is not finished yet.  More
-precisely, neither Py3k nor STM are ready to make it an official release
+precisely, neither Py3k nor STM are ready to make it in an official release
 yet: people interested in them need to grab and (attempt to) translate
 PyPy from the corresponding branches (respectively ``py3k`` and
 ``stm-thread``).
@@ -58,8 +58,7 @@ PyPy from the corresponding branches (respectively ``py3k`` and
 Highlights
 ==========
 
-* This release still implements Python 2.7, the standard library has been
-  upgraded to CPython 2.7.2.
+* This release still implements Python 2.7.2.
 
 * Many bugs were corrected for Windows 32 bit.  This includes new
   functionality to test the validity of file descriptors; and
@@ -68,12 +67,12 @@ Highlights
   and Amaury Forgeot d'Arc.
 
 * Improvements in ``cpyext``, our emulator for CPython C extension modules.
-  For example PyOpenSSL should now work.
+  For example PyOpenSSL should now work.  We thank various people for help.
 
 * Sets now have strategies just like dictionaries. This means for example
   that a set containing only ints will be more compact (and faster).
 
-* A lot of progress on various aspects of ``numpypy``. See `numpy-status`_
+* A lot of progress on various aspects of ``numpypy``. See the `numpy-status`_
   page for the automatic report.
 
 * It is now possible to create and manipulate C-like structures using the
@@ -86,22 +85,27 @@ Highlights
 * The non-x86 backends for the JIT are progressing but are still not
   merged (ARMv7 and PPC64).
 
-* JIT hooks for inspecting the created assembler code has been improved.
+* JIT hooks for inspecting the created assembler code have been improved.
   See `JIT hooks documentation`_ for details.
 
-* ``select.kqueue`` has been added.
+* ``select.kqueue`` has been added (BSD).
 
 * Handling of keyword arguments has been drastically improved in the best-case
-  scenario.
+  scenario: proxy functions which simply forwards ``*args`` and ``**kwargs``
+  to another function now performs much better with the JIT.
 
 * List comprehension has been improved.
+
+.. _`numpy-status`: http://buildbot.pypy.org/numpy-status/latest.html
+.. _`JIT hooks documentation`: http://doc.pypy.org/en/latest/jit-hooks.html
 
 JitViewer
 =========
 
 There is a corresponding 1.9 release of JitViewer which is guaranteed to work
-with PyPy 1.9. See `JitViewer docs`_ for details.
+with PyPy 1.9. See the `JitViewer docs`_ for details.
 
-.. _`numpy status`: http://buildbot.pypy.org/numpy-status/latest.html
 .. _`JitViewer docs`: http://bitbucket.org/pypy/jitviewer
-.. _`JIT hooks documentation`: http://doc.pypy.org/en/latest/jit-hooks.html
+
+Cheers,
+The PyPy Team

@@ -64,15 +64,10 @@ class stat_result(metaclass=structseqtype):
             self.__dict__['st_ctime'] = self[9]
 
 if osname == 'posix':
-    def _validate_fd(fd):
-        try:
-            import fcntl
-        except ImportError:
-            return
-        try:
-            fcntl.fcntl(fd, fcntl.F_GETFD)
-        except IOError as e:
-            raise OSError(e.errno, e.strerror, e.filename)
+    # POSIX: we want to check the file descriptor when fdopen() is called,
+    # not later when we read or write data.  So we call fstat(), letting
+    # it raise if fd is invalid.
+    _validate_fd = posix.fstat
 else:
     _validate_fd = validate_fd
 

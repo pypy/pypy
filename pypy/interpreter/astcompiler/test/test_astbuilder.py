@@ -1118,6 +1118,18 @@ class TestAstBuilder:
         s = ast_from_node(space, tree, info).body[0].value
         assert isinstance(s, ast.Str)
         assert space.eq_w(s.s, space.wrap(japan))
+ 
+    def test_string_bug(self):
+        py3k_skip('fixme')
+        space = self.space
+        source = '# -*- encoding: utf8 -*-\nstuff = "x \xc3\xa9 \\n"\n'
+        info = pyparse.CompileInfo("<test>", "exec")
+        tree = self.parser.parse_source(source, info)
+        assert info.encoding == "utf8"
+        s = ast_from_node(space, tree, info).body[0].value
+        assert isinstance(s, ast.Str)
+        expected = ['x', ' ', chr(0xc3), chr(0xa9), ' ', '\n']
+        assert space.eq_w(s.s, space.wrap(''.join(expected)))
 
     def test_number(self):
         def get_num(s):
