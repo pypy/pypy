@@ -210,70 +210,19 @@ def fdopen(fd, mode, bufsize=-1):
 # ____________________________________________________________
 # Main entry point
 
-# see nanos.py for explainment why we do not import os here
-# CAUTION!
-# remember to update nanos.py if you are using more functions
-# from os or os.path!
-# Running test/test_nanos.py might be helpful as well.
-
 def we_are_translated():
     # app-level, very different from pypy.rlib.objectmodel.we_are_translated
     return hasattr(sys, 'pypy_translation_info')
 
 if 'nt' in sys.builtin_module_names:
     IS_WINDOWS = True
-    DRIVE_LETTER_SEP = ':'
 else:
     IS_WINDOWS = False
 
-def get_library_path(executable):
-    search = executable
-    while 1:
-        dirname = resolvedirof(search)
-        if dirname == search:
-            # not found!  let's hope that the compiled-in path is ok
-            print("""\
-debug: WARNING: Library path not found, using compiled-in sys.path.
-debug: WARNING: 'sys.prefix' will not be set.
-debug: WARNING: Make sure the pypy binary is kept inside its tree of files.
-debug: WARNING: It is ok to create a symlink to it from somewhere else.""",
-                  file=sys.stderr)
-            newpath = sys.path[:]
-            break
-        newpath = sys.pypy_initial_path(dirname)
-        if newpath is None:
-            search = dirname    # walk to the parent directory
-            continue
-        break      # found!
-    return newpath
 
-def setup_sys_executable(executable, nanos):
-    # a substituted os if we are translated
-    global os
-    os = nanos
-    # find the full path to the executable, assuming that if there is no '/'
-    # in the provided one then we must look along the $PATH
-    if we_are_translated() and IS_WINDOWS and not executable.lower().endswith('.exe'):
-        executable += '.exe'
-    if os.sep in executable or (IS_WINDOWS and DRIVE_LETTER_SEP in executable):
-        pass    # the path is already more than just an executable name
-    else:
-        path = os.getenv('PATH')
-        if path:
-            for dir in path.split(os.pathsep):
-                fn = os.path.join(dir, executable)
-                if os.path.isfile(fn):
-                    executable = fn
-                    break
-    sys.executable = os.path.abspath(executable)
-    #
-    # 'sys.executable' should not end up being an non-existing file;
-    # just use '' in this case. (CPython issue #7774)
-    if not os.path.isfile(sys.executable):
-        sys.executable = ''
-
-def setup_initial_paths(ignore_environment=False, **extra):
-    newpath = get_library_path(sys.executable)
+def setup_and_fix_paths(ignore_environment=False, **extra):
+    import os
+    newpath = sys.path[:]
     readenv = not ignore_environment
     path = readenv and os.getenv('PYTHONPATH')
     if path:
@@ -340,23 +289,30 @@ def create_stdio(fd, writing, name, encoding, errors, unbuffered):
                               line_buffering=line_buffering)
     return stream
 
-def set_io_encoding(io_encoding):
+def set_io_encoding(io_encoding, io_encoding_output, errors, overridden):
     try:
         import _file
     except ImportError:
         if sys.version_info < (2, 7):
             return
-        import ctypes # HACK: while running on top of CPython
+        # HACK: while running on top of CPython, and make sure to import
+        # CPython's ctypes (because at this point sys.path has already been
+        # set to the pypy one)
+        pypy_path = sys.path
+        try:
+            sys.path = sys.cpython_path
+            import ctypes
+        finally:
+            sys.path = pypy_path
         set_file_encoding = ctypes.pythonapi.PyFile_SetEncodingAndErrors
         set_file_encoding.argtypes = [ctypes.py_object, ctypes.c_char_p, ctypes.c_char_p]
     else:
         set_file_encoding = _file.set_file_encoding
-    if ":" in io_encoding:
-        encoding, errors = io_encoding.split(":", 1)
-    else:
-        encoding, errors = io_encoding, None
-    for f in [sys.stdin, sys.stdout, sys.stderr]:
-        set_file_encoding(f, encoding, errors)
+    for f, encoding in [(sys.stdin, io_encoding),
+                        (sys.stdout, io_encoding_output),
+                        (sys.stderr, io_encoding_output)]:
+        if isinstance(f, file) and (overridden or f.isatty()):
+            set_file_encoding(f, encoding, errors)
 
 # Order is significant!
 sys_flags = (
@@ -470,6 +426,7 @@ def handle_argument(c, options, iterargv, iterarg=iter(())):
 
 
 def parse_command_line(argv):
+    import os
     options = default_options.copy()
     options['warnoptions'] = []
     #
@@ -554,6 +511,7 @@ def run_command_line(interactive,
     # but we need more in the translated PyPy for the compiler package
     if '__pypy__' not in sys.builtin_module_names:
         sys.setrecursionlimit(5000)
+    import os
 
     readenv = not ignore_environment
     io_encoding = readenv and os.getenv("PYTHONIOENCODING")
@@ -567,6 +525,22 @@ def run_command_line(interactive,
             import site
         except:
             print("'import site' failed", file=sys.stderr)
+
+    readenv = not ignore_environment
+    io_encoding = readenv and os.getenv("PYTHONIOENCODING")
+    if io_encoding:
+        errors = None
+        if ":" in io_encoding:
+            io_encoding, errors = io_encoding.split(":", 1)
+        set_io_encoding(io_encoding, io_encoding, errors, True)
+    else:
+        if IS_WINDOWS:
+            import __pypy__
+            io_encoding, io_encoding_output = __pypy__.get_console_cp()
+        else:
+            io_encoding = io_encoding_output = sys.getfilesystemencoding()
+        if io_encoding:
+            set_io_encoding(io_encoding, io_encoding_output, None, False)
 
     pythonwarnings = readenv and os.getenv('PYTHONWARNINGS')
     if pythonwarnings:
@@ -665,7 +639,7 @@ def run_command_line(interactive,
             # on the command-line.
             filename = sys.argv[0]
             mainmodule.__file__ = filename
-            sys.path.insert(0, resolvedirof(filename))
+            sys.path.insert(0, sys.pypy_resolvedirof(filename))
             # assume it's a pyc file only if its name says so.
             # CPython goes to great lengths to detect other cases
             # of pyc file format, but I think it's ok not to care.
@@ -714,28 +688,46 @@ def run_command_line(interactive,
 
     return status
 
-def resolvedirof(filename):
-    try:
-        filename = os.path.abspath(filename)
-    except OSError:
-        pass
-    dirname = os.path.dirname(filename)
-    if os.path.islink(filename):
-        try:
-            link = os.readlink(filename)
-        except OSError:
-            pass
-        else:
-            return resolvedirof(os.path.join(dirname, link))
-    return dirname
-
 def print_banner():
     print('Python %s on %s' % (sys.version, sys.platform))
     print('Type "help", "copyright", "credits" or '
           '"license" for more information.')
 
-def entry_point(executable, argv, nanos):
-    setup_sys_executable(executable, nanos)
+STDLIB_WARNING = """\
+debug: WARNING: Library path not found, using compiled-in sys.path.
+debug: WARNING: 'sys.prefix' will not be set.
+debug: WARNING: Make sure the pypy binary is kept inside its tree of files.
+debug: WARNING: It is ok to create a symlink to it from somewhere else."""
+
+def setup_bootstrap_path(executable):
+    """
+    Try to to as little as possible and to have the stdlib in sys.path. In
+    particular, we cannot use any unicode at this point, because lots of
+    unicode operations require to be able to import encodings.
+    """
+    # at this point, sys.path is set to the compiled-in one, based on the
+    # location where pypy was compiled. This is set during the objspace
+    # initialization by module.sys.state.State.setinitialpath.
+    #
+    # Now, we try to find the absolute path of the executable and the stdlib
+    # path
+    executable = sys.pypy_find_executable(executable)
+    stdlib_path = sys.pypy_find_stdlib(executable)
+    if stdlib_path is None:
+        print >> sys.stderr, STDLIB_WARNING
+    else:
+        sys.path[:] = stdlib_path
+    # from this point on, we are free to use all the unicode stuff we want,
+    # This is important for py3k
+    sys.executable = executable
+
+def entry_point(executable, argv):
+    # note that before calling setup_bootstrap_path, we are limited because we
+    # cannot import stdlib modules. In particular, we cannot use unicode
+    # stuffs (because we need to be able to import encodings) and we cannot
+    # import os, which is used a bit everywhere in app_main, but only imported
+    # *after* setup_bootstrap_path
+    setup_bootstrap_path(executable)
     try:
         cmdline = parse_command_line(argv)
     except CommandLineError as e:
@@ -744,14 +736,22 @@ def entry_point(executable, argv, nanos):
         return 2
     except SystemExit as e:
         return e.code or 0
-    setup_initial_paths(**cmdline)
+    setup_and_fix_paths(**cmdline)
     return run_command_line(**cmdline)
 
 
 if __name__ == '__main__':
     "For unit tests only"
-    import os as nanos
-    import os
+    import autopath
+    # we need to import pypy.translator.platform early, before we start to
+    # mess up the env variables. In particular, during the import we spawn a
+    # couple of processes which gets confused if PYTHONINSPECT is set (e.g.,
+    # hg to get the version and the hack in tool.runsubprocess to prevent
+    # out-of-memory for late os.fork())
+    import pypy.translator.platform
+    # obscure! try removing the following line, see how it crashes, and
+    # guess why...
+    ImStillAroundDontForgetMe = sys.modules['__main__']
 
     if len(sys.argv) > 1 and sys.argv[1] == '--argparse-only':
         import io
@@ -780,13 +780,24 @@ if __name__ == '__main__':
     # To avoid this we make a copy of our __main__ module.
     sys.modules['__cpython_main__'] = sys.modules['__main__']
 
-    def pypy_initial_path(s):
-        from os.path import abspath, join, dirname as dn
-        thisfile = os.path.abspath(__file__)
-        root = dn(dn(dn(dn(thisfile))))
-        return [join(root, 'lib-python', '3.2'),
-                join(root, 'lib_pypy')]
-    sys.pypy_initial_path = pypy_initial_path
+    # debugging only
+    def pypy_find_executable(s):
+        from pypy.module.sys.initpath import find_executable
+        return find_executable(s)
+
+    def pypy_find_stdlib(s):
+        from pypy.module.sys.initpath import find_stdlib
+        path, prefix = find_stdlib(None, s)
+        if path is None:
+            return None
+        # contrarily to the interp-level version, we don't set sys.prefix
+        # here, else CPythno stops to work (and e.g. test_proper_sys_path
+        # fails)
+        return path
+    
+    def pypy_resolvedirof(s):
+        from pypy.module.sys.initpath import resolvedirof
+        return resolvedirof(s)
 
     # add an emulator for these pypy-only or 2.7-only functions
     # (for test_pyc_commandline_argument)
@@ -809,14 +820,16 @@ if __name__ == '__main__':
     imp._run_compiled_module = _run_compiled_module
     imp._getimporter = _getimporter
 
-    # stick the current sys.path into $PYTHONPATH, so that CPython still
-    # finds its own extension modules :-/
     import os
-    os.environ['PYTHONPATH'] = ':'.join(sys.path)
     reset = []
     if 'PYTHONINSPECT_' in os.environ:
         reset.append(('PYTHONINSPECT', os.environ.get('PYTHONINSPECT', '')))
         os.environ['PYTHONINSPECT'] = os.environ['PYTHONINSPECT_']
+    if 'PYTHONWARNINGS_' in os.environ:
+        reset.append(('PYTHONWARNINGS', os.environ.get('PYTHONWARNINGS', '')))
+        os.environ['PYTHONWARNINGS'] = os.environ['PYTHONWARNINGS_']
+    del os # make sure that os is not available globally, because this is what
+           # happens in "real life" outside the tests
 
     # no one should change to which lists sys.argv and sys.path are bound
     old_argv = sys.argv
@@ -825,8 +838,13 @@ if __name__ == '__main__':
     old_streams = sys.stdin, sys.stdout, sys.stderr
     del sys.stdin, sys.stdout, sys.stderr
 
+    sys.pypy_find_executable = pypy_find_executable
+    sys.pypy_find_stdlib = pypy_find_stdlib
+    sys.pypy_resolvedirof = pypy_resolvedirof
+    sys.cpython_path = sys.path[:]
+    
     try:
-        sys.exit(int(entry_point(sys.argv[0], sys.argv[1:], os)))
+        sys.exit(int(entry_point(sys.argv[0], sys.argv[1:])))
     finally:
         # restore the normal prompt (which was changed by _pypy_interact), in
         # case we are dropping to CPython's prompt

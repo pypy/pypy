@@ -367,6 +367,14 @@ if WIN32:
         'GetCurrentProcessId', [], DWORD)
     def GetCurrentProcessId():
         return rffi.cast(lltype.Signed, _GetCurrentProcessId())
+
+    _GetConsoleCP = winexternal('GetConsoleCP', [], DWORD)
+    _GetConsoleOutputCP = winexternal('GetConsoleOutputCP', [], DWORD)
+    def GetConsoleCP():
+        return rffi.cast(lltype.Signed, _GetConsoleCP())
+    def GetConsoleOutputCP():
+        return rffi.cast(lltype.Signed, _GetConsoleOutputCP())
+
     def os_kill(pid, sig):
         if sig == CTRL_C_EVENT or sig == CTRL_BREAK_EVENT:
             if GenerateConsoleCtrlEvent(sig, pid) == 0:

@@ -2138,6 +2138,15 @@ class TestAnnotateTestCase:
         assert isinstance(s, annmodel.SomeString)
         assert s.no_nul
 
+    def test_mul_str0(self):
+        def f(s):
+            return s*10
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [annmodel.SomeString(no_nul=True)])
+        assert isinstance(s, annmodel.SomeString)
+        assert s.no_nul
+        
+
     def test_non_none_and_none_with_isinstance(self):
         class A(object):
             pass
@@ -3779,6 +3788,26 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         e = py.test.raises(Exception, a.build_types, f, [])
         assert 'object with a __call__ is not RPython' in str(e.value)
+
+    def test_os_getcwd(self):
+        import os
+        def fn():
+            return os.getcwd()
+        a = self.RPythonAnnotator()
+        s = a.build_types(fn, [])
+        assert isinstance(s, annmodel.SomeString)
+        assert s.no_nul
+
+    def test_os_getenv(self):
+        import os
+        def fn():
+            return os.environ.get('PATH')
+        a = self.RPythonAnnotator()
+        s = a.build_types(fn, [])
+        assert isinstance(s, annmodel.SomeString)
+        assert s.no_nul
+
+
 
 def g(n):
     return [0,1,2,n]

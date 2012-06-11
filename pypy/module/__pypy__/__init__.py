@@ -44,6 +44,8 @@ class Module(MixedModule):
         'list_strategy'             : 'interp_magic.list_strategy',
         'validate_fd'               : 'interp_magic.validate_fd',
     }
+    if sys.platform == 'win32':
+        interpleveldefs['get_console_cp'] = 'interp_magic.get_console_cp'
 
     submodules = {
         "builders": BuildersModule,

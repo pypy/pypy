@@ -1114,7 +1114,7 @@ class RegisterOs(BaseLazyRegistering):
         def os_getcwd_oofakeimpl():
             return OOSupport.to_rstr(os.getcwd())
 
-        return extdef([], str,
+        return extdef([], str0,
                       "ll_os.ll_os_getcwd", llimpl=os_getcwd_llimpl,
                       oofakeimpl=os_getcwd_oofakeimpl)
 

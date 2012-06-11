@@ -85,3 +85,10 @@ def validate_fd(space, fd):
         rposix.validate_fd(fd)
     except OSError, e:
         raise wrap_oserror(space, e)
+
+def get_console_cp(space):
+    from pypy.rlib import rwin32    # Windows only
+    return space.newtuple([
+        space.wrap('cp%d' % rwin32.GetConsoleCP()),
+        space.wrap('cp%d' % rwin32.GetConsoleOutputCP()),
+        ])
