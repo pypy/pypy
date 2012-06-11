@@ -328,7 +328,7 @@ class AssemblerPPC(OpAssembler):
         if IS_PPC_64:
             for _ in range(6):
                 mc.write32(0)
-        frame_size = (# add space for floats later
+        frame_size = (len(r.MANAGED_FP_REGS) * WORD
                     + (BACKCHAIN_SIZE + MAX_REG_PARAMS) * WORD)
 
         with scratch_reg(mc):
@@ -342,7 +342,9 @@ class AssemblerPPC(OpAssembler):
                 mc.std(r.SCRATCH.value, r.SP.value, frame_size + 2 * WORD)
         # managed volatiles are saved below
         if self.cpu.supports_floats:
-            assert 0, "make sure to save floats here"
+            for i in range(len(r.MANAGED_FP_REGS)):
+                mc.std(r.MANAGED_FP_REGS[i].value, r.SP.value,
+                       (BACKCHAIN_SIZE + MAX_REG_PARAMS + i) * WORD)
         # Values to compute size stored in r3 and r4
         mc.subf(r.RES.value, r.RES.value, r.r4.value)
         addr = self.cpu.gc_ll_descr.get_malloc_slowpath_addr()
@@ -351,6 +353,11 @@ class AssemblerPPC(OpAssembler):
         mc.call(rffi.cast(lltype.Signed, addr))
         for reg, ofs in PPCRegisterManager.REGLOC_TO_COPY_AREA_OFS.items():
             mc.load(reg.value, r.SPP.value, ofs)
+        # restore floats
+        if self.cpu.supports_floats:
+            for i in range(len(r.MANAGED_FP_REGS)):
+                mc.lfd(r.MANAGED_FP_REGS[i].value, r.SP.value,
+                       (BACKCHAIN_SIZE + MAX_REG_PARAMS + i) * WORD)
 
         mc.cmp_op(0, r.RES.value, 0, imm=True)
         jmp_pos = mc.currpos()
