@@ -252,23 +252,6 @@ def initstdio(encoding=None, unbuffered=False):
     sys.stderr = sys.__stderr__ = create_stdio(
         2, True, "<stderr>", encoding, errors, unbuffered)
 
-def set_stdio_encodings(ignore_environment):
-    import os
-    readenv = not ignore_environment
-    io_encoding = readenv and os.getenv("PYTHONIOENCODING")
-    if io_encoding:
-        errors = None
-        if ":" in io_encoding:
-            io_encoding, errors = io_encoding.split(":", 1)
-        set_io_encoding(io_encoding, io_encoding, errors, True)
-    else:
-        if IS_WINDOWS:
-            import __pypy__
-            io_encoding, io_encoding_output = __pypy__.get_console_cp()
-        else:
-            io_encoding = io_encoding_output = sys.getfilesystemencoding()
-        if io_encoding:
-            set_io_encoding(io_encoding, io_encoding_output, None, False)
 
 def create_stdio(fd, writing, name, encoding, errors, unbuffered):
     import io
@@ -307,31 +290,6 @@ def create_stdio(fd, writing, name, encoding, errors, unbuffered):
                               line_buffering=line_buffering)
     return stream
 
-def set_io_encoding(io_encoding, io_encoding_output, errors, overridden):
-    return # XXX fix this for py3k
-    try:
-        import _file
-    except ImportError:
-        if sys.version_info < (2, 7):
-            return
-        # HACK: while running on top of CPython, and make sure to import
-        # CPython's ctypes (because at this point sys.path has already been
-        # set to the pypy one)
-        pypy_path = sys.path
-        try:
-            sys.path = sys.cpython_path
-            import ctypes
-        finally:
-            sys.path = pypy_path
-        set_file_encoding = ctypes.pythonapi.PyFile_SetEncodingAndErrors
-        set_file_encoding.argtypes = [ctypes.py_object, ctypes.c_char_p, ctypes.c_char_p]
-    else:
-        set_file_encoding = _file.set_file_encoding
-    for f, encoding in [(sys.stdin, io_encoding),
-                        (sys.stdout, io_encoding_output),
-                        (sys.stderr, io_encoding_output)]:
-        if isinstance(f, file) and (overridden or f.isatty()):
-            set_file_encoding(f, encoding, errors)
 
 # Order is significant!
 sys_flags = (
@@ -545,9 +503,6 @@ def run_command_line(interactive,
         except:
             print("'import site' failed", file=sys.stderr)
 
-    set_stdio_encodings(ignore_environment)
-
-    readenv = not ignore_environment
     pythonwarnings = readenv and os.getenv('PYTHONWARNINGS')
     if pythonwarnings:
         warnoptions.extend(pythonwarnings.split(','))
