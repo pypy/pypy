@@ -97,7 +97,8 @@ def parsestr(space, encoding, s, unicode_literal=False):
         return space.wrap(v)
 
     need_encoding = (encoding is not None and
-                     encoding != "utf-8" and encoding != "iso-8859-1")
+                     encoding != "utf-8" and encoding != "utf8" and
+                     encoding != "iso-8859-1")
     assert 0 <= ps <= q
     substr = s[ps : q]
     if rawmode or '\\' not in s[ps:]:
