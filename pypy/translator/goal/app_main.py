@@ -732,10 +732,7 @@ if __name__ == '__main__':
     imp._run_compiled_module = _run_compiled_module
     imp._getimporter = _getimporter
 
-    # stick the current sys.path into $PYTHONPATH, so that CPython still
-    # finds its own extension modules :-/
     import os
-    os.environ['PYTHONPATH'] = ':'.join(sys.path)
     reset = []
     if 'PYTHONINSPECT_' in os.environ:
         reset.append(('PYTHONINSPECT', os.environ.get('PYTHONINSPECT', '')))
