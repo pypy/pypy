@@ -238,6 +238,24 @@ def setup_and_fix_paths(ignore_environment=False, **extra):
             sys.path.append(dir)
             _seen[dir] = True
 
+def set_stdio_encodings(ignore_environment):
+    import os
+    readenv = not ignore_environment
+    io_encoding = readenv and os.getenv("PYTHONIOENCODING")
+    if io_encoding:
+        errors = None
+        if ":" in io_encoding:
+            io_encoding, errors = io_encoding.split(":", 1)
+        set_io_encoding(io_encoding, io_encoding, errors, True)
+    else:
+        if IS_WINDOWS:
+            import __pypy__
+            io_encoding, io_encoding_output = __pypy__.get_console_cp()
+        else:
+            io_encoding = io_encoding_output = sys.getfilesystemencoding()
+        if io_encoding:
+            set_io_encoding(io_encoding, io_encoding_output, None, False)
+
 def set_io_encoding(io_encoding, io_encoding_output, errors, overridden):
     try:
         import _file
@@ -471,22 +489,9 @@ def run_command_line(interactive,
         except:
             print >> sys.stderr, "'import site' failed"
 
-    readenv = not ignore_environment
-    io_encoding = readenv and os.getenv("PYTHONIOENCODING")
-    if io_encoding:
-        errors = None
-        if ":" in io_encoding:
-            io_encoding, errors = io_encoding.split(":", 1)
-        set_io_encoding(io_encoding, io_encoding, errors, True)
-    else:
-        if IS_WINDOWS:
-            import __pypy__
-            io_encoding, io_encoding_output = __pypy__.get_console_cp()
-        else:
-            io_encoding = io_encoding_output = sys.getfilesystemencoding()
-        if io_encoding:
-            set_io_encoding(io_encoding, io_encoding_output, None, False)
+    set_stdio_encodings(ignore_environment)
 
+    readenv = not ignore_environment
     pythonwarnings = readenv and os.getenv('PYTHONWARNINGS')
     if pythonwarnings:
         warnoptions.extend(pythonwarnings.split(','))
