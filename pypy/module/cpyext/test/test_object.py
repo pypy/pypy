@@ -363,6 +363,10 @@ class AppTestPyBuffer_Release(AppTestCpythonExtensionBase):
      * Py_buffer and the string should be released as well.
      */
     PyBuffer_Release(&buf);
+    assert(!buf.obj);
+    PyBuffer_Release(&buf);   /* call again, should not have any more effect */
+    PyBuffer_Release(&buf);
+    PyBuffer_Release(&buf);
 
     Py_RETURN_NONE;
                  """)])

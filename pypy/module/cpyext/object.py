@@ -489,3 +489,4 @@ def PyBuffer_Release(space, view):
     provides a subset of CPython's behavior.
     """
     Py_DecRef(space, view.c_obj)
+    view.c_obj = lltype.nullptr(PyObject.TO)
