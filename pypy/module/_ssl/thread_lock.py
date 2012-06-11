@@ -39,9 +39,9 @@ static void _ssl_thread_locking_function(int mode, int n, const char *file,
         return;
 
     if (mode & CRYPTO_LOCK) {
-        RPyThreadAcquireLock(_ssl_locks[n], 1);
+        RPyThreadAcquireLock(_ssl_locks + n, 1);
     } else {
-        RPyThreadReleaseLock(_ssl_locks[n]);
+        RPyThreadReleaseLock(_ssl_locks + n);
     }
 }
 
