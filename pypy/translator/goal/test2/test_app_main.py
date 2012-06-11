@@ -216,6 +216,11 @@ class TestInteraction:
     http://pexpect.sourceforge.net/
     """
 
+    def setup_class(cls):
+        # some tests need to be able to import test2, change the cwd
+        goal_dir = os.path.abspath(os.path.join(autopath.this_dir, '..'))
+        os.chdir(goal_dir)
+
     def _spawn(self, *args, **kwds):
         try:
             import pexpect
@@ -437,7 +442,7 @@ class TestInteraction:
         p = os.path.join(autopath.this_dir, 'mymodule.py')
         p = os.path.abspath(p)
         child = self.spawn(['-i',
-                            '-m', 'pypy.translator.goal.test2.mymodule',
+                            '-m', 'test2.mymodule',
                             'extra'])
         child.expect('mymodule running')
         child.expect('Name: __main__')
@@ -448,9 +453,9 @@ class TestInteraction:
         child.expect(re.escape(repr("foobar")))
         child.expect('>>> ')
         child.sendline('import sys')
-        child.sendline('"pypy.translator.goal.test2" in sys.modules')
+        child.sendline('"test2" in sys.modules')
         child.expect('True')
-        child.sendline('"pypy.translator.goal.test2.mymodule" in sys.modules')
+        child.sendline('"test2.mymodule" in sys.modules')
         child.expect('False')
         child.sendline('sys.path[0]')
         child.expect("''")
@@ -541,7 +546,7 @@ class TestInteraction:
         child = self.spawn(['-cprint("hel" + "lo")'])
         child.expect('hello')
 
-        child = self.spawn(['-mpypy.translator.goal.test2.mymodule'])
+        child = self.spawn(['-mtest2.mymodule'])
         child.expect('mymodule running')
 
     def test_ps1_only_if_interactive(self):
@@ -646,7 +651,7 @@ class TestNonInteractive:
             skip("requires CPython >= 2.6")
         p = os.path.join(autopath.this_dir, 'mymodule.py')
         p = os.path.abspath(p)
-        data = self.run('-m pypy.translator.goal.test2.mymodule extra')
+        data = self.run('-m test2.mymodule extra')
         assert 'mymodule running' in data
         assert 'Name: __main__' in data
         # ignoring case for windows. abspath behaves different from autopath

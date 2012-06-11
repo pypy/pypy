@@ -290,6 +290,7 @@ def create_stdio(fd, writing, name, encoding, errors, unbuffered):
     return stream
 
 def set_io_encoding(io_encoding, io_encoding_output, errors, overridden):
+    return # XXX fix this for py3k
     try:
         import _file
     except ImportError:
@@ -741,14 +742,6 @@ def entry_point(executable, argv):
 
 
 if __name__ == '__main__':
-    "For unit tests only"
-    import autopath
-    # we need to import pypy.translator.platform early, before we start to
-    # mess up the env variables. In particular, during the import we spawn a
-    # couple of processes which gets confused if PYTHONINSPECT is set (e.g.,
-    # hg to get the version and the hack in tool.runsubprocess to prevent
-    # out-of-memory for late os.fork())
-    import pypy.translator.platform
     # obscure! try removing the following line, see how it crashes, and
     # guess why...
     ImStillAroundDontForgetMe = sys.modules['__main__']
@@ -782,22 +775,22 @@ if __name__ == '__main__':
 
     # debugging only
     def pypy_find_executable(s):
-        from pypy.module.sys.initpath import find_executable
-        return find_executable(s)
+        import os
+        return os.path.abspath(s)
 
     def pypy_find_stdlib(s):
-        from pypy.module.sys.initpath import find_stdlib
-        path, prefix = find_stdlib(None, s)
-        if path is None:
-            return None
-        # contrarily to the interp-level version, we don't set sys.prefix
-        # here, else CPythno stops to work (and e.g. test_proper_sys_path
-        # fails)
-        return path
+        from os.path import abspath, join, dirname as dn
+        thisfile = abspath(__file__)
+        root = dn(dn(dn(dn(thisfile))))
+        return [join(root, 'lib-python', '3.2'),
+                join(root, 'lib_pypy')]
     
     def pypy_resolvedirof(s):
-        from pypy.module.sys.initpath import resolvedirof
-        return resolvedirof(s)
+        # we ignore the issue of symlinks; for tests, the executable is always
+        # translator/goal/app_main.py anyway
+        import os
+        return os.path.abspath(os.path.join(s, '..'))
+
 
     # add an emulator for these pypy-only or 2.7-only functions
     # (for test_pyc_commandline_argument)
