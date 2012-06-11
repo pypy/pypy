@@ -102,7 +102,8 @@ class PPC_CPU(AbstractLLCPU):
         # start of "no gc operation!" block
         fail_index_2 = self.asm.failure_recovery_func(
                 bytecode,
-                spilling_pointer)
+                spilling_pointer,
+                addr_all_null_registers)
         self.asm.leave_jitted_hook()
         # end of "no gc operation!" block
         assert fail_index == fail_index_2
