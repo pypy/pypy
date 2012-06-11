@@ -263,6 +263,22 @@ class c_bool(_SimpleCData):
 
 from _ctypes import POINTER, pointer, _pointer_type_cache
 
+def _reset_cache():
+    _pointer_type_cache.clear()
+    _c_functype_cache.clear()
+    if _os.name in ("nt", "ce"):
+        _win_functype_cache.clear()
+    # _SimpleCData.c_wchar_p_from_param
+    POINTER(c_wchar).from_param = c_wchar_p.from_param
+    # _SimpleCData.c_char_p_from_param
+    POINTER(c_char).from_param = c_char_p.from_param
+    _pointer_type_cache[None] = c_void_p
+    # XXX for whatever reasons, creating the first instance of a callback
+    # function is needed for the unittests on Win64 to succeed.  This MAY
+    # be a compiler bug, since the problem occurs only when _ctypes is
+    # compiled with the MS SDK compiler.  Or an uninitialized variable?
+    CFUNCTYPE(c_int)(lambda: None)
+
 try:
     from _ctypes import set_conversion_mode
 except ImportError:
@@ -278,8 +294,6 @@ else:
 
     class c_wchar(_SimpleCData):
         _type_ = "u"
-
-    POINTER(c_wchar).from_param = c_wchar_p.from_param #_SimpleCData.c_wchar_p_from_param
 
     def create_unicode_buffer(init, size=None):
         """create_unicode_buffer(aString) -> character array
@@ -298,8 +312,6 @@ else:
             buf = buftype()
             return buf
         raise TypeError(init)
-
-POINTER(c_char).from_param = c_char_p.from_param #_SimpleCData.c_char_p_from_param
 
 # XXX Deprecated
 def SetPointerType(pointer, cls):
@@ -463,8 +475,6 @@ if _os.name in ("nt", "ce"):
             descr = FormatError(code).strip()
         return WindowsError(code, descr)
 
-_pointer_type_cache[None] = c_void_p
-
 if sizeof(c_uint) == sizeof(c_void_p):
     c_size_t = c_uint
     c_ssize_t = c_int
@@ -550,8 +560,4 @@ for kind in [c_ushort, c_uint, c_ulong, c_ulonglong]:
     elif sizeof(kind) == 8: c_uint64 = kind
 del(kind)
 
-# XXX for whatever reasons, creating the first instance of a callback
-# function is needed for the unittests on Win64 to succeed.  This MAY
-# be a compiler bug, since the problem occurs only when _ctypes is
-# compiled with the MS SDK compiler.  Or an uninitialized variable?
-CFUNCTYPE(c_int)(lambda: None)
+_reset_cache()
