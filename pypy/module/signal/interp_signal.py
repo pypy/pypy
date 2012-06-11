@@ -227,7 +227,7 @@ def getsignal(space, signum):
     None -- if an unknown handler is in effect (XXX UNIMPLEMENTED)
     anything else -- the callable Python object used as a handler
     """
-    check_signum(space, signum)
+    check_signum_in_range(space, signum)
     action = space.check_signal_action
     if signum in action.handlers_w:
         return action.handlers_w[signum]
@@ -253,11 +253,17 @@ def pause(space):
     c_pause()
     return space.w_None
 
-def check_signum(space, signum):
+def check_signum_exists(space, signum):
     if signum in signal_values:
         return
     raise OperationError(space.w_ValueError,
                          space.wrap("invalid signal value"))
+
+def check_signum_in_range(space, signum):
+    if 1 <= signum < NSIG:
+        return
+    raise OperationError(space.w_ValueError,
+                         space.wrap("signal number out of range"))
 
 
 @jit.dont_look_inside
@@ -319,7 +325,7 @@ def set_wakeup_fd(space, fd):
 
 @unwrap_spec(signum=int, flag=int)
 def siginterrupt(space, signum, flag):
-    check_signum(space, signum)
+    check_signum_exists(space, signum)
     if rffi.cast(lltype.Signed, c_siginterrupt(signum, flag)) < 0:
         errno = rposix.get_errno()
         raise OperationError(space.w_RuntimeError, space.wrap(errno))

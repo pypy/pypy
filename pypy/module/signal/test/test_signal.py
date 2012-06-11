@@ -154,7 +154,12 @@ class AppTestSignal:
 
         raises(ValueError, getsignal, 4444)
         raises(ValueError, signal, 4444, lambda *args: None)
-        raises(ValueError, signal, 42, lambda *args: None)
+        import sys
+        if sys.platform == 'win32':
+            raises(ValueError, signal, 42, lambda *args: None)
+        else:
+            signal(42, lambda *args: None)
+            signal(42, SIG_DFL)
 
     def test_alarm(self):
         try:
