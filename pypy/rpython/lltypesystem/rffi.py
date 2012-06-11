@@ -934,7 +934,7 @@ def offsetof(STRUCT, fieldname):
 offsetof._annspecialcase_ = 'specialize:memo'
 
 # check that we have a sane configuration
-assert maxint == (1 << (8 * sizeof(lltype.Signed) - 1)) - 1, (
+assert maxint == (1 << (8 * platform._size_of_Signed - 1)) - 1, (
     "Mixed configuration of the word size of the machine:\n\t"
     "the underlying Python was compiled with maxint=%d,\n\t"
     "but the C compiler says that 'long' is %d bytes" % (
