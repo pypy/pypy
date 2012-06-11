@@ -938,7 +938,7 @@ offsetof._annspecialcase_ = 'specialize:memo'
 assert maxint == (1 << (8 * sizeof(llmemory.Address) - 1)) - 1, (
     "Mixed configuration of the word size of the machine:\n\t"
     "the underlying Python was compiled with maxint=%d,\n\t"
-    "but the C compiler says that 'long' is %d bytes" % (
+    "but the C compiler says that 'void *' is %d bytes" % (
     maxint, sizeof(llmemory.Address)))
 assert sizeof(lltype.Signed) == sizeof(llmemory.Address), (
     "Bad configuration: we should manage to get lltype.Signed "
