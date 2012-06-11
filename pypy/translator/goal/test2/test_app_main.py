@@ -45,13 +45,15 @@ def getscript_pyc(space, source):
         sys.path.insert(0, dir)
         __import__(modname)
         sys.path.pop(0)
-        for key in sys.modules.keys():
+        for key in list(sys.modules.keys()):
             if key not in d:
                 del sys.modules[key]
     """)
-    p = str(p) + 'c'
-    assert os.path.isfile(p)   # the .pyc file should have been created above
-    return p
+    # the .pyc file should have been created above
+    pycache = p.dirpath('__pycache__')
+    pycs = pycache.listdir(p.basename + '*.pyc')
+    assert len(pycs) == 1
+    return str(pycs[0])
 
 def getscript_in_dir(source):
     pdir = _get_next_path(ext='')
