@@ -46,6 +46,7 @@ class Module(MixedModule):
         'pypy_getudir'          : 'state.pypy_getudir',    # not translated
         'pypy_find_stdlib'      : 'initpath.pypy_find_stdlib',
         'pypy_find_executable'  : 'initpath.pypy_find_executable',
+        'pypy_resolvedirof'     : 'initpath.pypy_resolvedirof',
 
         '_getframe'             : 'vm._getframe', 
         '_current_frames'       : 'currentframes._current_frames', 

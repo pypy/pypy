@@ -1,6 +1,7 @@
 import py
 import os.path
-from pypy.module.sys.initpath import compute_stdlib_path, find_executable, find_stdlib
+from pypy.module.sys.initpath import (compute_stdlib_path, find_executable, find_stdlib,
+                                      resolvedirof)
 from pypy.module.sys.version import PYPY_VERSION, CPYTHON_VERSION
 
 def build_hierarchy(prefix):
@@ -82,3 +83,13 @@ def test_find_executable(tmpdir, monkeypatch):
     monkeypatch.setenv('PATH', str(a))
     a.join('pypy.exe').ensure(file=True)
     assert find_executable('pypy') == a.join('pypy.exe')
+
+def test_resolvedirof(tmpdir):
+    foo = tmpdir.join('foo').ensure(dir=True)
+    bar = tmpdir.join('bar').ensure(dir=True)
+    myfile = foo.join('myfile').ensure(file=True)
+    assert resolvedirof(str(myfile)) == foo
+    if hasattr(myfile, 'mksymlinkto'):
+        myfile2 = bar.join('myfile')
+        myfile2.mksymlinkto(myfile)
+        assert resolvedirof(str(myfile2)) == foo

@@ -138,6 +138,10 @@ def compute_stdlib_path_maybe(state, prefix):
 def pypy_find_executable(space, executable):
     return space.wrap(find_executable(executable))
 
+@unwrap_spec(filename='str0')
+def pypy_resolvedirof(space, filename):
+    return space.wrap(resolvedirof(filename))
+
 @unwrap_spec(executable='str0')
 def pypy_find_stdlib(space, executable):
     path, prefix = find_stdlib(get_state(space), executable)

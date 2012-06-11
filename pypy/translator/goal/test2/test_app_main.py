@@ -834,6 +834,9 @@ class AppTestAppMain:
         self.w_fake_exe = self.space.wrap(str(fake_exe))
         self.w_expected_path = self.space.wrap(expected_path)
         self.w_trunkdir = self.space.wrap(os.path.dirname(autopath.pypydir))
+        #
+        foo_py = prefix.join('foo.py').write("pass")
+        self.w_foo_py = self.space.wrap(str(foo_py))
 
     def test_setup_bootstrap_path(self):
         import sys
@@ -882,7 +885,7 @@ class AppTestAppMain:
         try:
             import app_main
             pypy_c = os.path.join(self.trunkdir, 'pypy', 'translator', 'goal', 'pypy-c')
-            app_main.entry_point(pypy_c, ['-c', 'pass'])
+            app_main.entry_point(pypy_c, [self.foo_py])
             # assert it did not crash
         finally:
             sys.path[:] = old_sys_path

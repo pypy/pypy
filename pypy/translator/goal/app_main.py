@@ -219,7 +219,6 @@ def we_are_translated():
 
 if 'nt' in sys.builtin_module_names:
     IS_WINDOWS = True
-    DRIVE_LETTER_SEP = ':'
 else:
     IS_WINDOWS = False
 
@@ -585,7 +584,7 @@ def run_command_line(interactive,
             # on the command-line.
             filename = sys.argv[0]
             mainmodule.__file__ = filename
-            sys.path.insert(0, resolvedirof(filename))
+            sys.path.insert(0, sys.pypy_resolvedirof(filename))
             # assume it's a pyc file only if its name says so.
             # CPython goes to great lengths to detect other cases
             # of pyc file format, but I think it's ok not to care.
@@ -629,22 +628,6 @@ def run_command_line(interactive,
             status = not success
 
     return status
-
-def resolvedirof(filename):
-    import os
-    try:
-        filename = os.path.abspath(filename)
-    except OSError:
-        pass
-    dirname = os.path.dirname(filename)
-    if os.path.islink(filename):
-        try:
-            link = os.readlink(filename)
-        except OSError:
-            pass
-        else:
-            return resolvedirof(os.path.join(dirname, link))
-    return dirname
 
 def print_banner():
     print 'Python %s on %s' % (sys.version, sys.platform)
@@ -724,6 +707,10 @@ if __name__ == '__main__':
         # fails)
         return path
 
+    def pypy_resolvedirof(s):
+        from pypy.module.sys.initpath import resolvedirof
+        return resolvedirof(s)
+
     # add an emulator for these pypy-only or 2.7-only functions
     # (for test_pyc_commandline_argument)
     import imp, runpy
@@ -765,6 +752,7 @@ if __name__ == '__main__':
 
     sys.pypy_find_executable = pypy_find_executable
     sys.pypy_find_stdlib = pypy_find_stdlib
+    sys.pypy_resolvedirof = pypy_resolvedirof
     sys.cpython_path = sys.path[:]
     try:
         sys.exit(int(entry_point(sys.argv[0], sys.argv[1:])))
