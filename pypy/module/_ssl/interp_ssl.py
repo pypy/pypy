@@ -789,7 +789,11 @@ def check_socket_and_wait_for_timeout(space, w_sock, writing):
 def _ssl_seterror(space, ss, ret):
     assert ret <= 0
 
-    if ss and ss.ssl:
+    if ss is None:
+        errval = libssl_ERR_peek_last_error()
+        errstr = rffi.charp2str(libssl_ERR_error_string(errval, None))
+        return ssl_error(space, errstr, errval)
+    elif ss.ssl:
         err = libssl_SSL_get_error(ss.ssl, ret)
     else:
         err = SSL_ERROR_SSL
