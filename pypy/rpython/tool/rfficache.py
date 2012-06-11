@@ -67,8 +67,6 @@ class Platform:
     def _make_type(self, name, signed, size):
         inttype = rarithmetic.build_int('r_' + name, signed, size*8)
         tp = lltype.build_number(name, inttype)
-        if tp is lltype.Signed:
-            self._size_of_Signed = size
         self.numbertype_to_rclass[tp] = inttype
         self.types[name] = tp
         return tp
