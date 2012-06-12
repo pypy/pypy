@@ -353,11 +353,13 @@ class StructType(Type):
         fields = list(fields)
         if is_gc:
             fields = database.genllvm.gcpolicy.get_gc_fields() + fields
+        elif not fields:
+            fields.append((LLVMSigned, '_fill'))
         self.fields = fields
         self.fldnames_wo_voids = [f for t, f in fields if t is not LLVMVoid]
         self.fldnames_voids = set(f for t, f in fields if t is LLVMVoid)
         self.fldtypes_wo_voids = [t for t, f in fields if t is not LLVMVoid]
-        self.varsize = fields and fields[-1][0].varsize
+        self.varsize = fields[-1][0].varsize
         self.size_variants = {}
 
     def setup_from_lltype(self, db, type_):
@@ -375,7 +377,7 @@ class StructType(Type):
             else:
                 name = self.name
             self.size_variants[extra_len] = name = database.unique_name(name)
-            lastname = self.fldnames_wo_voids and self.fldnames_wo_voids[-1]
+            lastname = self.fldnames_wo_voids[-1]
             tmp = ('    {semicolon}{fldtype}{comma} ; {fldname}\n'.format(
                            semicolon=';' if fldtype is LLVMVoid else '',
                            fldtype=fldtype.repr_type(extra_len),
@@ -391,6 +393,8 @@ class StructType(Type):
     def is_zero(self, value):
         if self.is_gc:
             return False
+        elif self.fields[0][1] == '_fill':
+            return True
         return all(ft.is_zero(getattr(value, fn)) for ft, fn in self.fields)
 
     def get_extra_len(self, value):

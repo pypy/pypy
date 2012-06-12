@@ -312,11 +312,13 @@ class TestSpecialCases(_LLVMMixin):
 
     def test_empty_struct(self):
         T = lltype.Struct('empty', hints={'immutable': True})
-        x = lltype.malloc(T, immortal=True)
+        x1 = lltype.malloc(T, immortal=True)
+        x2 = lltype.malloc(T, immortal=True)
         def f():
-            return len([x])
+            return (lltype.cast_ptr_to_int(x1), lltype.cast_ptr_to_int(x2))
         fc = self.getcompiled(f)
-        assert fc() == 1
+        ret = fc()
+        assert ret[0] != ret[1]
 
     def test_consider_constant_with_address(self):
         T = lltype.GcStruct('test')
