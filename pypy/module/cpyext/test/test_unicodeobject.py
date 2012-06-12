@@ -198,27 +198,35 @@ class TestUnicode(BaseApiTest):
 
     def test_encode_decimal(self, space, api):
         with rffi.scoped_unicode2wcharp(u' (12, 35 ABC)') as u:
-            with rffi.scoped_alloc_buffer(13) as buf:
+            with rffi.scoped_alloc_buffer(20) as buf:
                 res = api.PyUnicode_EncodeDecimal(u, 13, buf.raw, None)
-                s = buf.str(13)
+                s = rffi.charp2str(buf.raw)
         assert res == 0
         assert s == ' (12, 35 ABC)'
 
         with rffi.scoped_unicode2wcharp(u' (12, \u1234\u1235)') as u:
-            with rffi.scoped_alloc_buffer(9) as buf:
+            with rffi.scoped_alloc_buffer(20) as buf:
                 res = api.PyUnicode_EncodeDecimal(u, 9, buf.raw, None)
         assert res == -1
         api.PyErr_Clear()
 
         with rffi.scoped_unicode2wcharp(u' (12, \u1234\u1235)') as u:
-            with rffi.scoped_alloc_buffer(9) as buf:
+            with rffi.scoped_alloc_buffer(20) as buf:
                 with rffi.scoped_str2charp("replace") as errors:
                     res = api.PyUnicode_EncodeDecimal(u, 9, buf.raw,
                                                       errors)
-                s = buf.str(9)
+                s = rffi.charp2str(buf.raw)
         assert res == 0
-        assert res == " (12, ??)"
-        api.PyErr_Clear()
+        assert s == " (12, ??)"
+
+        with rffi.scoped_unicode2wcharp(u'12\u1234') as u:
+            with rffi.scoped_alloc_buffer(20) as buf:
+                with rffi.scoped_str2charp("xmlcharrefreplace") as errors:
+                    res = api.PyUnicode_EncodeDecimal(u, 3, buf.raw,
+                                                      errors)
+                s = rffi.charp2str(buf.raw)
+        assert res == 0
+        assert s == "12&#4660;"
 
 
     def test_IS(self, space, api):

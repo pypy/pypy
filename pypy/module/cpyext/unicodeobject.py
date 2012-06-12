@@ -635,8 +635,12 @@ def PyUnicode_EncodeDecimal(space, s, length, output, llerrors):
     state = space.fromcache(CodecState)
     result = runicode.unicode_encode_decimal(u, length, errors,
                                              state.encode_error_handler)
-    for i in range(0, length):
+    i = len(result)
+    output[i] = '\0'
+    i -= 1
+    while i >= 0:
         output[i] = result[i]
+        i -= 1
     return 0
 
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=-2)
