@@ -54,7 +54,7 @@ class AppTestSignal:
         if not hasattr(os, 'kill') or not hasattr(os, 'getpid'):
             skip("requires os.kill() and os.getpid()")
         signal = self.signal   # the signal module to test
-        if not hasattr(cpy_signal, 'SIGUSR1'):    
+        if not hasattr(signal, 'SIGUSR1'):    
             py.test.skip("requires SIGUSR1 in signal")
         signum = signal.SIGUSR1
 
