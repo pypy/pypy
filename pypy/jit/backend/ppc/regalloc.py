@@ -508,6 +508,20 @@ class Regalloc(object):
         res = self.fprm.force_allocate_reg(op.result)
         return [loc1, temp_loc, res]
 
+    def prepare_convert_float_bytes_to_longlong(self, op):
+        loc1 = self._ensure_value_is_boxed(op.getarg(0))
+        self.possibly_free_vars_for_op(op)
+        self.free_temp_vars()
+        res = self.rm.force_allocate_reg(op.result)
+        return [loc1, res]
+
+    def prepare_convert_longlong_bytes_to_float(self, op):
+        loc1 = self._ensure_value_is_boxed(op.getarg(0))
+        self.possibly_free_vars_for_op(op)
+        self.free_temp_vars()
+        res = self.fprm.force_allocate_reg(op.result)
+        return [loc1, res]
+
     def prepare_finish(self, op):
         args = [None] * (op.numargs() + 1)
         for i in range(op.numargs()):

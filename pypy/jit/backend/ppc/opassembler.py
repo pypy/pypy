@@ -223,6 +223,16 @@ class FloatOpAssembler(object):
         self.mc.lfd(temp_loc.value, r.SPP.value, FORCE_INDEX_OFS + WORD)
         self.mc.fcfid(res.value, temp_loc.value)
 
+    def emit_convert_float_bytes_to_longlong(self, op, arglocs, regalloc):
+        l0, res = arglocs
+        self.mc.stfd(l0.value, r.SPP.value, FORCE_INDEX_OFS + WORD)
+        self.mc.ld(res.value, r.SPP.value, FORCE_INDEX_OFS + WORD)
+
+    def emit_convert_longlong_bytes_to_float(self, op, arglocs, regalloc):
+        l0, res = arglocs
+        self.mc.std(l0.value, r.SPP.value, FORCE_INDEX_OFS + WORD)
+        self.mc.lfd(res.value, r.SPP.value, FORCE_INDEX_OFS + WORD)
+
 class GuardOpAssembler(object):
 
     _mixin_ = True
