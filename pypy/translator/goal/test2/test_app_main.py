@@ -23,8 +23,7 @@ def _get_next_path(ext='.py'):
 def getscript(source):
     p = _get_next_path()
     p.write(str(py.code.Source(source)))
-    # return relative path for testing purposes 
-    return py.path.local().bestrelpath(p) 
+    return str(p)
 
 def getscript_pyc(space, source):
     p = _get_next_path()
