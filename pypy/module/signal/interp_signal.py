@@ -143,6 +143,7 @@ class CheckSignalAction(PeriodicAsyncAction):
         else:
             self.reissue_signal_action = None
 
+    @jit.dont_look_inside
     def perform(self, executioncontext, frame):
         while True:
             n = pypysig_poll()
@@ -150,6 +151,7 @@ class CheckSignalAction(PeriodicAsyncAction):
                 break
             self.perform_signal(executioncontext, n)
 
+    @jit.dont_look_inside
     def perform_signal(self, executioncontext, n):
         if self.reissue_signal_action is None:
             # no threads: we can report the signal immediately
@@ -165,11 +167,13 @@ class CheckSignalAction(PeriodicAsyncAction):
                 self.pending_signals[n] = None
                 self.reissue_signal_action.fire_after_thread_switch()
 
+    @jit.dont_look_inside
     def set_interrupt(self):
         "Simulates the effect of a SIGINT signal arriving"
         ec = self.space.getexecutioncontext()
         self.perform_signal(ec, cpy_signal.SIGINT)
 
+    @jit.dont_look_inside
     def report_signal(self, n):
         try:
             w_handler = self.handlers_w[n]
@@ -183,6 +187,7 @@ class CheckSignalAction(PeriodicAsyncAction):
         w_frame = space.wrap(ec.gettopframe_nohidden())
         space.call_function(w_handler, space.wrap(n), w_frame)
 
+    @jit.dont_look_inside
     def report_pending_signals(self):
         # XXX this logic isn't so complicated but I have no clue how
         # to test it :-(
@@ -305,6 +310,7 @@ def signal(space, signum, w_handler):
         action.handlers_w[signum] = w_handler
     return old_handler
 
+@jit.dont_look_inside
 @unwrap_spec(fd=int)
 def set_wakeup_fd(space, fd):
     """Sets the fd to be written to (with '\0') when a signal
@@ -323,6 +329,7 @@ def set_wakeup_fd(space, fd):
     old_fd = pypysig_set_wakeup_fd(fd)
     return space.wrap(intmask(old_fd))
 
+@jit.dont_look_inside
 @unwrap_spec(signum=int, flag=int)
 def siginterrupt(space, signum, flag):
     check_signum_exists(space, signum)
