@@ -23,7 +23,7 @@
 #
 # Note: This software has been modified for use in PyPy.
 
-from ctypes import c_void_p, c_int, c_double, c_int64, c_char_p, cdll
+from ctypes import c_void_p, c_int, c_double, c_int64, c_char_p, c_char, cdll
 from ctypes import POINTER, byref, string_at, CFUNCTYPE, cast
 from ctypes import sizeof, c_ssize_t
 from collections import OrderedDict
@@ -190,7 +190,7 @@ sqlite.sqlite3_column_int64.restype = c_int64
 sqlite.sqlite3_column_name.argtypes = [c_void_p, c_int]
 sqlite.sqlite3_column_name.restype = c_char_p
 sqlite.sqlite3_column_text.argtypes = [c_void_p, c_int]
-sqlite.sqlite3_column_text.restype = c_char_p
+sqlite.sqlite3_column_text.restype = POINTER(c_char)
 sqlite.sqlite3_column_type.argtypes = [c_void_p, c_int]
 sqlite.sqlite3_column_type.restype = c_int
 sqlite.sqlite3_complete.argtypes = [c_char_p]
@@ -1008,10 +1008,10 @@ class Statement(object):
             sqlite.sqlite3_bind_double(self.statement, idx, param)
         elif isinstance(param, str):
             self._check_decodable(param)
-            sqlite.sqlite3_bind_text(self.statement, idx, param, -1, SQLITE_TRANSIENT)
+            sqlite.sqlite3_bind_text(self.statement, idx, param, len(param), SQLITE_TRANSIENT)
         elif isinstance(param, unicode):
             param = param.encode("utf-8")
-            sqlite.sqlite3_bind_text(self.statement, idx, param, -1, SQLITE_TRANSIENT)
+            sqlite.sqlite3_bind_text(self.statement, idx, param, len(param), SQLITE_TRANSIENT)
         elif type(param) is buffer:
             sqlite.sqlite3_bind_blob(self.statement, idx, str(param), len(param), SQLITE_TRANSIENT)
         else:
@@ -1092,7 +1092,9 @@ class Statement(object):
                 elif typ == SQLITE_NULL:
                     val = None
                 elif typ == SQLITE_TEXT:
-                    val = sqlite.sqlite3_column_text(self.statement, i)
+                    text_len = sqlite.sqlite3_column_bytes(self.statement, i)
+                    text = sqlite.sqlite3_column_text(self.statement, i)
+                    val = string_at(text, text_len)
                     val = self.con.text_factory(val)
             else:
                 blob = sqlite.sqlite3_column_blob(self.statement, i)
