@@ -7,7 +7,8 @@ import py
 from pypy.tool.uid import uid, Hashable
 from pypy.tool.descriptor import roproperty
 from pypy.tool.sourcetools import PY_IDENTIFIER, nice_repr_for_func
-from pypy.tool.identity_dict import identity_dict
+from pypy.rlib.rarithmetic import is_valid_int, r_longlong, r_ulonglong, r_uint
+
 
 """
     memory size before and after introduction of __slots__
@@ -542,7 +543,9 @@ def checkgraph(graph):
                     cases = [link.exitcase for link in block.exits]
                     has_default = cases[-1] == 'default'
                     for n in cases[:len(cases)-has_default]:
-                        if isinstance(n, (int, long)):
+                        if is_valid_int(n):
+                            continue
+                        if isinstance(n, (r_longlong, r_ulonglong, r_uint)):
                             continue
                         if isinstance(n, (str, unicode)) and len(n) == 1:
                             continue

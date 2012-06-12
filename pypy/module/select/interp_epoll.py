@@ -58,7 +58,7 @@ epoll_ctl = rffi.llexternal(
 )
 epoll_wait = rffi.llexternal(
     "epoll_wait",
-    [rffi.INT, lltype.Ptr(rffi.CArray(epoll_event)), rffi.INT, rffi.INT],
+    [rffi.INT, rffi.CArrayPtr(epoll_event), rffi.INT, rffi.INT],
     rffi.INT,
     compilation_info=eci,
 )

@@ -291,6 +291,12 @@ class Transformer(object):
         op1 = SpaceOperation('-live-', [], None)
         return [op, op1]
 
+    def _noop_rewrite(self, op):
+        return op
+
+    rewrite_op_convert_float_bytes_to_longlong = _noop_rewrite
+    rewrite_op_convert_longlong_bytes_to_float = _noop_rewrite
+
     # ----------
     # Various kinds of calls
 
@@ -365,7 +371,7 @@ class Transformer(object):
     def handle_builtin_call(self, op):
         oopspec_name, args = support.decode_builtin_call(op)
         # dispatch to various implementations depending on the oopspec_name
-        if oopspec_name.startswith('list.') or oopspec_name == 'newlist':
+        if oopspec_name.startswith('list.') or oopspec_name.startswith('newlist'):
             prepare = self._handle_list_call
         elif oopspec_name.startswith('stroruni.'):
             prepare = self._handle_stroruni_call
@@ -1494,6 +1500,14 @@ class Transformer(object):
                                arraydescr, v_length],
                               op.result)
 
+    def do_resizable_newlist_hint(self, op, args, arraydescr, lengthdescr,
+                                  itemsdescr, structdescr):
+        v_hint = self._get_initial_newlist_length(op, args)
+        return SpaceOperation('newlist_hint',
+                              [structdescr, lengthdescr, itemsdescr,
+                               arraydescr, v_hint],
+                              op.result)
+
     def do_resizable_list_getitem(self, op, args, arraydescr, lengthdescr,
                                   itemsdescr, structdescr):
         v_index, extraop = self._prepare_list_getset(op, lengthdescr, args,
@@ -1661,6 +1675,12 @@ class Transformer(object):
         elif oopspec_name.startswith('libffi_call_'):
             oopspecindex = EffectInfo.OS_LIBFFI_CALL
             extraeffect = EffectInfo.EF_RANDOM_EFFECTS
+        elif oopspec_name == 'libffi_struct_getfield':
+            oopspecindex = EffectInfo.OS_LIBFFI_STRUCT_GETFIELD
+            extraeffect = EffectInfo.EF_CANNOT_RAISE
+        elif oopspec_name == 'libffi_struct_setfield':
+            oopspecindex = EffectInfo.OS_LIBFFI_STRUCT_SETFIELD
+            extraeffect = EffectInfo.EF_CANNOT_RAISE
         elif oopspec_name == 'libffi_array_getitem':
             oopspecindex = EffectInfo.OS_LIBFFI_GETARRAYITEM
             extraeffect = EffectInfo.EF_CANNOT_RAISE

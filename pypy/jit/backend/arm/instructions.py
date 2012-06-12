@@ -93,6 +93,7 @@ data_proc_imm = {
 
 supervisor_and_coproc = {
     'MCR': {'op1': 0x20, 'op': 1, 'rn':0, 'coproc':0},
+    'MRC': {'op1': 0x21, 'op': 1, 'rn':0, 'coproc':0},
 }
 
 block_data = {
@@ -127,7 +128,7 @@ float_load_store = {
 }
 
 
-# based on encoding from A7.5	VFP data-processing instructions
+# based on encoding from A7.5 VFP data-processing instructions
 # opc2 is one of the parameters and therefore ignored here
 float64_data_proc_instructions = {
     'VADD'  : {'opc1':0x3, 'opc3':0x0},
@@ -139,4 +140,12 @@ float64_data_proc_instructions = {
     'VABS'  : {'opc1':0xB, 'opc2':0x0, 'opc3':0x3, 'base': False},
     'VSQRT' : {'opc1':0xB, 'opc2':0x1, 'opc3':0x3, 'base': False},
     #'VCVT' : {'opc1':0xB, 'opc2':0xE, 'opc3':0x1, 'base': False},
+}
+
+simd_instructions_3regs = {
+    'VADD_i64': {'A': 0x8, 'B': 0, 'U': 0},
+    'VSUB_i64': {'A': 0x8, 'B': 0, 'U': 1},
+    'VAND_i64': {'A': 0x1, 'B': 1, 'U': 0, 'C': 0},
+    'VORR_i64': {'A': 0x1, 'B': 1, 'U': 0, 'C': 0x2},
+    'VEOR_i64': {'A': 0x1, 'B': 1, 'U': 1, 'C': 0x0},
 }

@@ -42,8 +42,6 @@ def getinitialpath(state, prefix):
     lib_python = os.path.join(prefix, 'lib-python')
     python_std_lib = os.path.join(lib_python, dirname)
     checkdir(python_std_lib)
-    python_std_lib_modified = os.path.join(lib_python, 'modified-' + dirname)
-    checkdir(python_std_lib_modified)
     
     lib_pypy = os.path.join(prefix, 'lib_pypy')
     checkdir(lib_pypy)
@@ -56,12 +54,9 @@ def getinitialpath(state, prefix):
         importlist.append(lib_extensions)
     #
     importlist.append(lib_pypy)
-    importlist.append(python_std_lib_modified)
     importlist.append(python_std_lib)
     #
-    lib_tk_modified = os.path.join(python_std_lib_modified, 'lib-tk')
     lib_tk = os.path.join(python_std_lib, 'lib-tk')
-    importlist.append(lib_tk_modified)
     importlist.append(lib_tk)
     #
     # List here the extra platform-specific paths.

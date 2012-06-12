@@ -2,7 +2,7 @@ import py
 import sys
 from pypy.objspace.std import intobject as iobj
 from pypy.objspace.std.multimethod import FailedToImplement
-from pypy.rlib.rarithmetic import r_uint
+from pypy.rlib.rarithmetic import r_uint, is_valid_int
 from pypy.rlib.rbigint import rbigint
 
 
@@ -15,7 +15,7 @@ class TestW_IntObject:
         while 1:
             ires = x << n
             lres = l << n
-            if type(ires) is long or lres != ires:
+            if not is_valid_int(ires) or lres != ires:
                 return n
             n += 1
 

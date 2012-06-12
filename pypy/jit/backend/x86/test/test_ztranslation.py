@@ -52,6 +52,7 @@ class TestTranslationX86(CCompiledMixin):
             set_param(jitdriver, "trace_eagerness", 2)
             total = 0
             frame = Frame(i)
+            j = float(j)
             while frame.i > 3:
                 jitdriver.can_enter_jit(frame=frame, total=total, j=j)
                 jitdriver.jit_merge_point(frame=frame, total=total, j=j)

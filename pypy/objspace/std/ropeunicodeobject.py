@@ -8,6 +8,7 @@ from pypy.objspace.std.unicodeobject import _normalize_index
 from pypy.objspace.std.ropeobject import W_RopeObject
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.rlib import rope
+from pypy.rlib.rstring import StringBuilder
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import unicodeobject, slicetype, iterobject
 from pypy.objspace.std.tupleobject import W_TupleObject
@@ -946,15 +947,16 @@ def mod__RopeUnicode_ANY(space, w_format, w_values):
     return mod_format(space, w_format, w_values, do_unicode=True)
 
 def buffer__RopeUnicode(space, w_unicode):
-    from pypy.rlib.rstruct.unichar import pack_unichar
-    charlist = []
+    from pypy.rlib.rstruct.unichar import pack_unichar, UNICODE_SIZE
     node = w_unicode._node
     iter = rope.ItemIterator(node)
-    for idx in range(node.length()):
+    length = node.length()
+    builder = StringBuilder(length * UNICODE_SIZE)
+    for idx in range(length):
         unich = unichr(iter.nextint())
-        pack_unichar(unich, charlist)
+        pack_unichar(unich, builder)
     from pypy.interpreter.buffer import StringBuffer
-    return space.wrap(StringBuffer(''.join(charlist)))
+    return space.wrap(StringBuffer(builder.build()))
 
 
 # methods of the iterator

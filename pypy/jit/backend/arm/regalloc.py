@@ -374,6 +374,12 @@ class Regalloc(object):
         # is also used on op args, which is a non-resizable list
         self.possibly_free_vars(list(inputargs))
 
+    def perform_llong(self, op, args, fcond):
+        return self.assembler.regalloc_emit_llong(op, args, fcond, self)
+    
+    def perform_math(self, op, args, fcond):
+        return self.assembler.regalloc_emit_math(op, args, self, fcond)
+
     def force_spill_var(self, var):
         if var.type == FLOAT:
             self.vfprm.force_spill_var(var)
@@ -541,9 +547,21 @@ class Regalloc(object):
         effectinfo = op.getdescr().get_extra_info()
         if effectinfo is not None:
             oopspecindex = effectinfo.oopspecindex
+            if oopspecindex in (EffectInfo.OS_LLONG_ADD,
+                            EffectInfo.OS_LLONG_SUB,
+                            EffectInfo.OS_LLONG_AND,
+                            EffectInfo.OS_LLONG_OR,
+                            EffectInfo.OS_LLONG_XOR):
+                args = self._prepare_llong_binop_xx(op, fcond)
+                self.perform_llong(op, args, fcond)
+                return
+            if oopspecindex == EffectInfo.OS_LLONG_TO_INT:
+                args = self._prepare_llong_to_int(op, fcond)
+                self.perform_llong(op, args, fcond)
+                return
             if oopspecindex == EffectInfo.OS_MATH_SQRT:
                 args = self.prepare_op_math_sqrt(op, fcond)
-                self.assembler.emit_op_math_sqrt(op, args, self, fcond)
+                self.perform_math(op, args, fcond)
                 return
         return self._prepare_call(op)
 
@@ -567,6 +585,21 @@ class Regalloc(object):
 
     def prepare_op_call_malloc_gc(self, op, fcond):
         return self._prepare_call(op)
+
+    def _prepare_llong_binop_xx(self, op, fcond):
+        # arg 0 is the address of the function
+        loc0 = self._ensure_value_is_boxed(op.getarg(1))
+        loc1 = self._ensure_value_is_boxed(op.getarg(2))
+        self.possibly_free_vars_for_op(op)
+        self.free_temp_vars()
+        res = self.vfprm.force_allocate_reg(op.result)
+        return [loc0, loc1, res]
+
+    def _prepare_llong_to_int(self, op, fcond):
+        loc0 = self._ensure_value_is_boxed(op.getarg(1))
+        res = self.force_allocate_reg(op.result)
+        return [loc0, res]
+
 
     def _prepare_guard(self, op, args=None):
         if args is None:
@@ -988,7 +1021,7 @@ class Regalloc(object):
         return [imm(size)]
 
     def get_mark_gc_roots(self, gcrootmap, use_copy_area=False):
-        shape = gcrootmap.get_basic_shape(False)
+        shape = gcrootmap.get_basic_shape()
         for v, val in self.frame_manager.bindings.items():
             if (isinstance(v, BoxPtr) and self.rm.stays_alive(v)):
                 assert val.is_stack()
@@ -1159,23 +1192,27 @@ class Regalloc(object):
 
     def prepare_op_cast_float_to_int(self, op, fcond):
         loc1 = self._ensure_value_is_boxed(op.getarg(0))
-        temp_loc = self.get_scratch_reg(FLOAT)
-        self.possibly_free_vars_for_op(op)
-        self.free_temp_vars()
         res = self.rm.force_allocate_reg(op.result)
-        return [loc1, temp_loc, res]
+        return [loc1, res]
 
     def prepare_op_cast_int_to_float(self, op, fcond):
         loc1 = self._ensure_value_is_boxed(op.getarg(0))
-        temp_loc = self.get_scratch_reg(FLOAT)
-        self.possibly_free_vars_for_op(op)
-        self.free_temp_vars()
         res = self.vfprm.force_allocate_reg(op.result)
-        return [loc1, temp_loc, res]
+        return [loc1, res]
 
     def prepare_force_spill(self, op, fcond):
         self.force_spill_var(op.getarg(0))
         return []
+
+    prepare_op_convert_float_bytes_to_longlong = prepare_float_op(base=False,
+                              name='prepare_op_convert_float_bytes_to_longlong')
+    prepare_op_convert_longlong_bytes_to_float = prepare_float_op(base=False,
+                              name='prepare_op_convert_longlong_bytes_to_float')
+
+    def prepare_op_read_timestamp(self, op, fcond):
+        loc = self.get_scratch_reg(INT)
+        res = self.vfprm.force_allocate_reg(op.result)
+        return [loc, res]
 
 
 def add_none_argument(fn):

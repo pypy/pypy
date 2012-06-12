@@ -82,7 +82,10 @@ Howto
 
 In pypy/translator/goal::
 
-   ./translate.py --sandbox targetpypystandalone.py
+   ./translate.py -O2 --sandbox targetpypystandalone.py
+
+If you don't have a regular PyPy installed, you should, because it's
+faster to translate, but you can also run ``python translate.py`` instead.
 
 
 To run it, use the tools in the pypy/translator/sandbox directory::

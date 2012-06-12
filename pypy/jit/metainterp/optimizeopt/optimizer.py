@@ -525,6 +525,7 @@ class Optimizer(Optimization):
 
     @specialize.argtype(0)
     def _emit_operation(self, op):
+        assert op.getopnum() != rop.CALL_PURE
         for i in range(op.numargs()):
             arg = op.getarg(i)
             try:
@@ -567,7 +568,7 @@ class Optimizer(Optimization):
         assert isinstance(descr, compile.ResumeGuardDescr)
         modifier = resume.ResumeDataVirtualAdder(descr, self.resumedata_memo)
         try:
-            newboxes = modifier.finish(self.values, self.pendingfields)
+            newboxes = modifier.finish(self, self.pendingfields)
             if len(newboxes) > self.metainterp_sd.options.failargs_limit:
                 raise resume.TagOverflow
         except resume.TagOverflow:
@@ -651,8 +652,15 @@ class Optimizer(Optimization):
             arrayvalue.make_len_gt(MODE_UNICODE, op.getdescr(), indexvalue.box.getint())
         self.optimize_default(op)
 
+    # These are typically removed already by OptRewrite, but it can be
+    # dissabled and unrolling emits some SAME_AS ops to setup the
+    # optimizier state. These needs to always be optimized out.
+    def optimize_SAME_AS(self, op):
+        self.make_equal_to(op.result, self.getvalue(op.getarg(0)))
 
-
+    def optimize_MARK_OPAQUE_PTR(self, op):
+        value = self.getvalue(op.getarg(0))
+        self.optimizer.opaque_pointers[value] = True
 
 dispatch_opt = make_dispatcher_method(Optimizer, 'optimize_',
         default=Optimizer.optimize_default)

@@ -175,24 +175,23 @@ StreamErrors = (OSError, StreamError)     # errors that can generally be raised
 
 
 if sys.platform == "win32":
-    from pypy.rlib import rwin32
+    from pypy.rlib.rwin32 import BOOL, HANDLE, get_osfhandle, GetLastError
     from pypy.translator.tool.cbuild import ExternalCompilationInfo
     from pypy.rpython.lltypesystem import rffi
-    import errno
 
     _eci = ExternalCompilationInfo()
-    _get_osfhandle = rffi.llexternal('_get_osfhandle', [rffi.INT], rffi.LONG,
-                                     compilation_info=_eci)
     _setmode = rffi.llexternal('_setmode', [rffi.INT, rffi.INT], rffi.INT,
                                compilation_info=_eci)
-    SetEndOfFile = rffi.llexternal('SetEndOfFile', [rffi.LONG], rwin32.BOOL,
+    SetEndOfFile = rffi.llexternal('SetEndOfFile', [HANDLE], BOOL,
                                    compilation_info=_eci)
 
     # HACK: These implementations are specific to MSVCRT and the C backend.
     # When generating on CLI or JVM, these are patched out.
     # See PyPyTarget.target() in targetpypystandalone.py
     def _setfd_binary(fd):
-        _setmode(fd, os.O_BINARY)
+        #Allow this to succeed on invalid fd's
+        if rposix.is_valid_fd(fd):
+            _setmode(fd, os.O_BINARY)
 
     def ftruncate_win32(fd, size):
         curpos = os.lseek(fd, 0, 1)
@@ -200,11 +199,9 @@ if sys.platform == "win32":
             # move to the position to be truncated
             os.lseek(fd, size, 0)
             # Truncate.  Note that this may grow the file!
-            handle = _get_osfhandle(fd)
-            if handle == -1:
-                raise OSError(errno.EBADF, "Invalid file handle")
+            handle = get_osfhandle(fd)
             if not SetEndOfFile(handle):
-                raise WindowsError(rwin32.GetLastError(),
+                raise WindowsError(GetLastError(),
                                    "Could not truncate file")
         finally:
             # we restore the file pointer position in any case

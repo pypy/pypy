@@ -16,6 +16,8 @@ from pypy.tool.nullpath import NullPyPathLocal
 
 def compile(fn, argtypes, view=False, gcpolicy="ref", backendopt=True,
             annotatorpolicy=None):
+    if argtypes is not None and "__pypy__" in sys.builtin_module_names:
+        py.test.skip("requires building cpython extension modules")
     t = Translation(fn, argtypes, gc=gcpolicy, backend="c",
                     policy=annotatorpolicy)
     if not backendopt:

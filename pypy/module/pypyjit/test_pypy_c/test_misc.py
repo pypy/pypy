@@ -131,6 +131,36 @@ class TestMisc(BaseTestPyPyC):
             jump(..., descr=...)
             """)
 
+    def test_xrange_iter(self):
+        def main(n):
+            def g(n):
+                return xrange(n)
+            s = 0
+            for i in xrange(n):  # ID: for
+                tmp = g(n)
+                s += tmp[i]     # ID: getitem
+                a = 0
+            return s
+        #
+        log = self.run(main, [1000])
+        assert log.result == 1000 * 999 / 2
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+        i15 = int_lt(i10, i11)
+        guard_true(i15, descr=...)
+        i17 = int_add(i10, 1)
+        i18 = force_token()
+        setfield_gc(p9, i17, descr=<.* .*W_XRangeIterator.inst_current .*>)
+        guard_not_invalidated(descr=...)
+        i21 = int_lt(i10, 0)
+        guard_false(i21, descr=...)
+        i22 = int_lt(i10, i14)
+        guard_true(i22, descr=...)
+        i23 = int_add_ovf(i6, i10)
+        guard_no_overflow(descr=...)
+        --TICK--
+        jump(..., descr=...)
+        """)
 
     def test_range_iter(self):
         def main(n):
@@ -212,7 +242,7 @@ class TestMisc(BaseTestPyPyC):
             i19 = int_add(i12, 1)
             setfield_gc(p9, i19, descr=<FieldS .*W_AbstractSeqIterObject.inst_index .*>)
             guard_nonnull_class(p17, 146982464, descr=...)
-            i21 = getfield_gc(p17, descr=<FieldS .*W_ArrayTypei.inst_len .*>)
+            i21 = getfield_gc(p17, descr=<FieldS .*W_Array.*.inst_len .*>)
             i23 = int_lt(0, i21)
             guard_true(i23, descr=...)
             i24 = getfield_gc(p17, descr=<FieldU .*W_ArrayTypei.inst_buffer .*>)
@@ -351,3 +381,23 @@ class TestMisc(BaseTestPyPyC):
         # the following assertion fails if the loop was cancelled due
         # to "abort: vable escape"
         assert len(log.loops_by_id("eval")) == 1
+
+    def test_sys_exc_info(self):
+        def main():
+            i = 1
+            lst = [i]
+            while i < 1000:
+                try:
+                    return lst[i]
+                except:
+                    e = sys.exc_info()[1]    # ID: exc_info
+                    if not isinstance(e, IndexError):
+                        raise
+                i += 1
+            return 42
+
+        log = self.run(main)
+        assert log.result == 42
+        # the following assertion fails if the loop was cancelled due
+        # to "abort: vable escape"
+        assert len(log.loops_by_id("exc_info")) == 1

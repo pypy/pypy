@@ -241,4 +241,7 @@ opcodes = _proc_dict({
     'cast_ulonglong_to_float':  jvm.PYPYULONGTODOUBLE,
     'cast_primitive':           [PushAllArgs, CastPrimitive, StoreResult],
     'force_cast':               [PushAllArgs, CastPrimitive, StoreResult],
+
+    'convert_float_bytes_to_longlong': jvm.PYPYDOUBLEBYTESTOLONG,
+    'convert_longlong_bytes_to_float': jvm.PYPYLONGBYTESTODOUBLE,
 })

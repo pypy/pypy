@@ -13,7 +13,7 @@ class Exit(Exception):
 
 
 class WarmspotTests(object):
-    
+
     def test_basic(self):
         mydriver = JitDriver(reds=['a'],
                              greens=['i'])
@@ -77,16 +77,16 @@ class WarmspotTests(object):
         self.meta_interp(f, [123, 10])
         assert len(get_stats().locations) >= 4
         for loc in get_stats().locations:
-            assert loc == (0, 123)
+            assert loc == (0, 0, 123)
 
     def test_set_param_enable_opts(self):
         from pypy.rpython.annlowlevel import llstr, hlstr
-        
+
         myjitdriver = JitDriver(greens = [], reds = ['n'])
         class A(object):
             def m(self, n):
                 return n-1
-            
+
         def g(n):
             while n > 0:
                 myjitdriver.can_enter_jit(n=n)
@@ -332,7 +332,7 @@ class TestWarmspotDirect(object):
             ts = llhelper
             translate_support_code = False
             stats = "stats"
-            
+
             def get_fail_descr_number(self, d):
                 return -1
 
@@ -352,7 +352,7 @@ class TestWarmspotDirect(object):
                 return "not callable"
 
         driver = JitDriver(reds = ['red'], greens = ['green'])
-        
+
         def f(green):
             red = 0
             while red < 10:

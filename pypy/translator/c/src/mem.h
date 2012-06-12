@@ -53,7 +53,7 @@ extern long pypy_asm_stackwalk(void*, void*);
 extern void* __gcmapstart;
 extern void* __gcmapend;
 extern char* __gccallshapes;
-extern long pypy_asm_stackwalk(void*, void*);
+extern Signed pypy_asm_stackwalk(void*, void*);
 
 /* With the msvc Microsoft Compiler, the optimizer seems free to move
    any code (even asm) that involves local memory (registers and stack).
@@ -66,14 +66,20 @@ static __forceinline void*
 pypy_asm_gcroot(void* _r1)
 {
 	static volatile int _constant_always_one_ = 1;
-	(long)_r1 *= _constant_always_one_;
+	(Signed)_r1 *= _constant_always_one_;
 	_ReadWriteBarrier();
     return _r1;
 }
 
 #define pypy_asm_gc_nocollect(f) "/* GC_NOCOLLECT " #f " */"
 
-#define pypy_asm_keepalive(v)    __asm { }
+#ifndef _WIN64
+#  define pypy_asm_keepalive(v)    __asm { }
+#else
+   /* is there something cheaper? */
+#  define pypy_asm_keepalive(v)    _ReadWriteBarrier();
+#endif
+
 static __declspec(noinline) void pypy_asm_stack_bottom() { }
 
 #define OP_GC_ASMGCROOT_STATIC(i, r)   r =      \
@@ -86,7 +92,7 @@ static __declspec(noinline) void pypy_asm_stack_bottom() { }
 
 
 /* used by pypy.rlib.rstack, but also by asmgcc */
-#define OP_STACK_CURRENT(r)  r = (long)&r
+#define OP_STACK_CURRENT(r)  r = (Signed)&r
 
 
 #define RAW_MALLOC_ZERO_FILLED 0

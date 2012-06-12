@@ -3,7 +3,7 @@ import os
 
 class AppTestRCTime:
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('rctime',))
+        space = gettestobjspace(usemodules=('rctime', 'struct'))
         cls.space = space
 
     def test_attributes(self):
@@ -64,6 +64,7 @@ class AppTestRCTime:
 
     def test_localtime(self):
         import time as rctime
+        import os
         raises(TypeError, rctime.localtime, "foo")
         rctime.localtime()
         rctime.localtime(None)
@@ -75,6 +76,10 @@ class AppTestRCTime:
         assert 0 <= (t1 - t0) < 1.2
         t = rctime.time()
         assert rctime.localtime(t) == rctime.localtime(t)
+        if os.name == 'nt':
+            raises(ValueError, rctime.localtime, -1)
+        else:
+            rctime.localtime(-1)
 
     def test_mktime(self):
         import time as rctime
@@ -108,8 +113,8 @@ class AppTestRCTime:
         assert long(rctime.mktime(rctime.gmtime(t))) - rctime.timezone == long(t)
         ltime = rctime.localtime()
         assert rctime.mktime(tuple(ltime)) == rctime.mktime(ltime)
-
-        assert rctime.mktime(rctime.localtime(-1)) == -1
+        if os.name != 'nt':
+            assert rctime.mktime(rctime.localtime(-1)) == -1
 
     def test_asctime(self):
         import time as rctime
@@ -208,6 +213,7 @@ class AppTestRCTime:
 
     def test_strftime(self):
         import time as rctime
+        import os
 
         t = rctime.time()
         tt = rctime.gmtime(t)
@@ -222,6 +228,14 @@ class AppTestRCTime:
         raises(TypeError, rctime.strftime, range(8))
         exp = '2000 01 01 00 00 00 1 001'
         assert rctime.strftime("%Y %m %d %H %M %S %w %j", (0,)*9) == exp
+
+        # Guard against invalid/non-supported format string
+        # so that Python don't crash (Windows crashes when the format string
+        # input to [w]strftime is not kosher.
+        if os.name == 'nt':
+            raises(ValueError, rctime.strftime, '%f')
+        else:
+            assert rctime.strftime('%f') == '%f'
 
     def test_strftime_ext(self):
         import time as rctime

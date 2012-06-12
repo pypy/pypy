@@ -54,12 +54,16 @@ class BaseTestPyPyC(object):
             cmdline += ['--jit', ','.join(jitcmdline)]
         cmdline.append(str(self.filepath))
         #
-        env={'PYPYLOG': self.log_string + ':' + str(logfile)}
+        env = os.environ.copy()
+        env['PYPYLOG'] = self.log_string + ':' + str(logfile)
         pipe = subprocess.Popen(cmdline,
                                 env=env,
                                 stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE)
         stdout, stderr = pipe.communicate()
+        if getattr(pipe, 'returncode', 0) < 0:
+            raise IOError("subprocess was killed by signal %d" % (
+                pipe.returncode,))
         if stderr.startswith('SKIP:'):
             py.test.skip(stderr)
         if stderr.startswith('debug_alloc.h:'):   # lldebug builds

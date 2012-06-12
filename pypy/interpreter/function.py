@@ -49,7 +49,9 @@ class Function(Wrappable):
     def __repr__(self):
         # return "function %s.%s" % (self.space, self.name)
         # maybe we want this shorter:
-        name = getattr(self, 'name', '?')
+        name = getattr(self, 'name', None)
+        if not isinstance(name, str):
+            name = '?'
         return "<%s %s>" % (self.__class__.__name__, name)
 
     def call_args(self, args):
@@ -113,6 +115,12 @@ class Function(Wrappable):
         from pypy.interpreter.pycode import PyCode
 
         code = self.getcode() # hook for the jit
+        #
+        if (jit.we_are_jitted() and code is self.space._code_of_sys_exc_info
+                                and nargs == 0):
+            from pypy.module.sys.vm import exc_info_direct
+            return exc_info_direct(self.space, frame)
+        #
         fast_natural_arity = code.fast_natural_arity
         if nargs == fast_natural_arity:
             if nargs == 0:

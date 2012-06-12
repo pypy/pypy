@@ -8,6 +8,7 @@ from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.rlist import *
 from pypy.rpython.lltypesystem.rlist import ListRepr, FixedSizeListRepr, ll_newlist, ll_fixed_newlist
 from pypy.rpython.lltypesystem import rlist as ll_rlist
+from pypy.rpython.llinterp import LLException
 from pypy.rpython.ootypesystem import rlist as oo_rlist
 from pypy.rpython.rint import signed_repr
 from pypy.objspace.flow.model import Constant, Variable
@@ -1361,13 +1362,12 @@ class BaseTestRlist(BaseRtypingTest):
                    ("y[*]" in immutable_fields)
 
     def test_hints(self):
-        from pypy.rlib.objectmodel import newlist
-        from pypy.rpython.annlowlevel import hlstr
+        from pypy.rlib.objectmodel import newlist_hint
 
         strings = ['abc', 'def']
         def f(i):
             z = strings[i]
-            x = newlist(sizehint=13)
+            x = newlist_hint(sizehint=13)
             x += z
             return ''.join(x)
 
@@ -1476,6 +1476,80 @@ class TestLLtype(BaseTestRlist, LLRtypeMixin):
         func2 = lst2_getitem_op.args[0].value._obj._callable
         assert func1.oopspec == 'list.getitem_foldable(l, index)'
         assert not hasattr(func2, 'oopspec')
+
+    def test_iterate_over_immutable_list(self):
+        from pypy.rpython import rlist
+        class MyException(Exception):
+            pass
+        lst = list('abcdef')
+        def dummyfn():
+            total = 0
+            for c in lst:
+                total += ord(c)
+            return total
+        #
+        prev = rlist.ll_getitem_foldable_nonneg
+        try:
+            def seen_ok(l, index):
+                if index == 5:
+                    raise KeyError     # expected case
+                return prev(l, index)
+            rlist.ll_getitem_foldable_nonneg = seen_ok
+            e = raises(LLException, self.interpret, dummyfn, [])
+            assert 'KeyError' in str(e.value)
+        finally:
+            rlist.ll_getitem_foldable_nonneg = prev
+
+    def test_iterate_over_immutable_list_quasiimmut_attr(self):
+        from pypy.rpython import rlist
+        class MyException(Exception):
+            pass
+        class Foo:
+            _immutable_fields_ = ['lst?[*]']
+            lst = list('abcdef')
+        foo = Foo()
+        def dummyfn():
+            total = 0
+            for c in foo.lst:
+                total += ord(c)
+            return total
+        #
+        prev = rlist.ll_getitem_foldable_nonneg
+        try:
+            def seen_ok(l, index):
+                if index == 5:
+                    raise KeyError     # expected case
+                return prev(l, index)
+            rlist.ll_getitem_foldable_nonneg = seen_ok
+            e = raises(LLException, self.interpret, dummyfn, [])
+            assert 'KeyError' in str(e.value)
+        finally:
+            rlist.ll_getitem_foldable_nonneg = prev
+
+    def test_iterate_over_mutable_list(self):
+        from pypy.rpython import rlist
+        class MyException(Exception):
+            pass
+        lst = list('abcdef')
+        def dummyfn():
+            total = 0
+            for c in lst:
+                total += ord(c)
+            lst[0] = 'x'
+            return total
+        #
+        prev = rlist.ll_getitem_foldable_nonneg
+        try:
+            def seen_ok(l, index):
+                if index == 5:
+                    raise KeyError     # expected case
+                return prev(l, index)
+            rlist.ll_getitem_foldable_nonneg = seen_ok
+            res = self.interpret(dummyfn, [])
+            assert res == sum(map(ord, 'abcdef'))
+        finally:
+            rlist.ll_getitem_foldable_nonneg = prev
+
 
 class TestOOtype(BaseTestRlist, OORtypeMixin):
     rlist = oo_rlist

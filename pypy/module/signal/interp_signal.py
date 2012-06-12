@@ -11,11 +11,13 @@ import py
 import sys
 from pypy.tool import autopath
 from pypy.rlib import jit, rposix
-from pypy.rlib.rarithmetic import intmask
+from pypy.rlib.rarithmetic import intmask, is_valid_int
 
 def setup():
     for key, value in cpy_signal.__dict__.items():
-        if key.startswith('SIG') and isinstance(value, int):
+        if (key.startswith('SIG') or key.startswith('CTRL_')) and \
+                is_valid_int(value) and \
+                key != 'SIG_DFL' and key != 'SIG_IGN':
             globals()[key] = value
             yield key
 
@@ -23,7 +25,18 @@ NSIG    = cpy_signal.NSIG
 SIG_DFL = cpy_signal.SIG_DFL
 SIG_IGN = cpy_signal.SIG_IGN
 signal_names = list(setup())
-
+signal_values = {}
+for key in signal_names:
+    signal_values[globals()[key]] = None
+if sys.platform == 'win32' and not hasattr(cpy_signal,'CTRL_C_EVENT'):
+    # XXX Hack to revive values that went missing,
+    #     Remove this once we are sure the host cpy module has them.
+    signal_values[0] = None
+    signal_values[1] = None
+    signal_names.append('CTRL_C_EVENT')
+    signal_names.append('CTRL_BREAK_EVENT')
+    CTRL_C_EVENT = 0
+    CTRL_BREAK_EVENT = 1
 includes = ['stdlib.h', 'src/signals.h']
 if sys.platform != 'win32':
     includes.append('sys/time.h')
@@ -242,9 +255,11 @@ def pause(space):
     return space.w_None
 
 def check_signum(space, signum):
-    if signum < 1 or signum >= NSIG:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("signal number out of range"))
+    if signum in signal_values:
+        return
+    raise OperationError(space.w_ValueError,
+                         space.wrap("invalid signal value"))
+
 
 @jit.dont_look_inside
 @unwrap_spec(signum=int)

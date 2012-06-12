@@ -131,6 +131,45 @@ class TestW_DictObject:
         assert self.space.eq_w(space.call_function(get, w("33")), w(None))
         assert self.space.eq_w(space.call_function(get, w("33"), w(44)), w(44))
 
+    def test_fromkeys_fastpath(self):
+        space = self.space
+        w = space.wrap
+
+        w_l = self.space.newlist([w("a"),w("b")])
+        w_l.getitems = None
+        w_d = space.call_method(space.w_dict, "fromkeys", w_l)
+
+        assert space.eq_w(w_d.getitem_str("a"), space.w_None)
+        assert space.eq_w(w_d.getitem_str("b"), space.w_None)
+
+    def test_listview_str_dict(self):
+        w = self.space.wrap
+
+        w_d = self.space.newdict()
+        w_d.initialize_content([(w("a"), w(1)), (w("b"), w(2))])
+
+        assert self.space.listview_str(w_d) == ["a", "b"]
+
+    def test_listview_int_dict(self):
+        w = self.space.wrap
+        w_d = self.space.newdict()
+        w_d.initialize_content([(w(1), w("a")), (w(2), w("b"))])
+
+        assert self.space.listview_int(w_d) == [1, 2]
+
+    def test_keys_on_string_int_dict(self):
+        w = self.space.wrap
+        w_d = self.space.newdict()
+        w_d.initialize_content([(w(1), w("a")), (w(2), w("b"))])
+
+        w_l = self.space.call_method(w_d, "keys")
+        assert sorted(self.space.listview_int(w_l)) == [1,2]
+
+        w_d = self.space.newdict()
+        w_d.initialize_content([(w("a"), w(1)), (w("b"), w(6))])
+
+        w_l = self.space.call_method(w_d, "keys")
+        assert sorted(self.space.listview_str(w_l)) == ["a", "b"]
 
 class AppTest_DictObject:
     def setup_class(cls):
@@ -613,6 +652,7 @@ class AppTestDictViews:
         assert len(keys) == 2
         assert set(keys) == set([1, "a"])
         assert keys == set([1, "a"])
+        assert keys == frozenset([1, "a"])
         assert keys != set([1, "a", "b"])
         assert keys != set([1, "b"])
         assert keys != set([1])
@@ -633,6 +673,7 @@ class AppTestDictViews:
         assert len(items) == 2
         assert set(items) == set([(1, 10), ("a", "ABC")])
         assert items == set([(1, 10), ("a", "ABC")])
+        assert items == frozenset([(1, 10), ("a", "ABC")])
         assert items != set([(1, 10), ("a", "ABC"), "junk"])
         assert items != set([(1, 10), ("a", "def")])
         assert items != set([(1, 10)])
@@ -763,6 +804,33 @@ class AppTestStrategies(object):
         assert "IntDictStrategy" in self.get_strategy(d)
         assert d[1L] == "hi"
 
+    def test_iter_dict_length_change(self):
+        d = {1: 2, 3: 4, 5: 6}
+        it = d.iteritems()
+        d[7] = 8
+        # 'd' is now length 4
+        raises(RuntimeError, it.next)
+
+    def test_iter_dict_strategy_only_change_1(self):
+        d = {1: 2, 3: 4, 5: 6}
+        it = d.iteritems()
+        class Foo(object):
+            def __eq__(self, other):
+                return False
+        assert d.get(Foo()) is None    # this changes the strategy of 'd'
+        lst = list(it)  # but iterating still works
+        assert sorted(lst) == [(1, 2), (3, 4), (5, 6)]
+
+    def test_iter_dict_strategy_only_change_2(self):
+        d = {1: 2, 3: 4, 5: 6}
+        it = d.iteritems()
+        d['foo'] = 'bar'
+        del d[1]
+        # 'd' is still length 3, but its strategy changed.  we are
+        # getting a RuntimeError because iterating over the old storage
+        # gives us (1, 2), but 1 is not in the dict any longer.
+        raises(RuntimeError, list, it)
+
 
 class FakeString(str):
     hash_count = 0
@@ -791,7 +859,9 @@ class FakeSpace:
         return x == y
     eq_w = eq
     def newlist(self, l):
-        return []
+        return l
+    def newlist_str(self, l):
+        return l
     DictObjectCls = W_DictMultiObject
     def type(self, w_obj):
         if isinstance(w_obj, FakeString):
@@ -815,10 +885,9 @@ class FakeSpace:
     def newtuple(self, l):
         return tuple(l)
 
-    def newdict(self, module=False, instance=False, classofinstance=None):
+    def newdict(self, module=False, instance=False):
         return W_DictMultiObject.allocate_and_init_instance(
-                self, module=module, instance=instance,
-                classofinstance=classofinstance)
+                self, module=module, instance=instance)
 
     def finditem_str(self, w_dict, s):
         return w_dict.getitem_str(s) # assume it's a multidict
@@ -898,6 +967,20 @@ class BaseTestRDictImplementation:
         assert type(self.impl.strategy) is self.StrategyClass
         #assert self.impl.r_dict_content is None
 
+    def test_popitem(self):
+        self.fill_impl()
+        assert self.impl.length() == 2
+        a, b = self.impl.popitem()
+        assert self.impl.length() == 1
+        if a == self.string:
+            assert b == 1000
+            assert self.impl.getitem(self.string2) == 2000
+        else:
+            assert a == self.string2
+            assert b == 2000
+            assert self.impl.getitem_str(self.string) == 1000
+        self.check_not_devolved()
+
     def test_setitem(self):
         self.impl.setitem(self.string, 1000)
         assert self.impl.length() == 1
@@ -931,7 +1014,7 @@ class BaseTestRDictImplementation:
 
     def test_keys(self):
         self.fill_impl()
-        keys = self.impl.keys()
+        keys = self.impl.w_keys() # wrapped lists = lists in the fake space
         keys.sort()
         assert keys == [self.string, self.string2]
         self.check_not_devolved()
@@ -1009,8 +1092,8 @@ class BaseTestRDictImplementation:
         d.setitem("s", 12)
         d.delitem(F())
 
-        assert "s" not in d.keys()
-        assert F() not in d.keys()
+        assert "s" not in d.w_keys()
+        assert F() not in d.w_keys()
 
 class TestStrDictImplementation(BaseTestRDictImplementation):
     StrategyClass = StringDictStrategy

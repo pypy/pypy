@@ -23,6 +23,7 @@ class TestTermios(object):
 
     def _spawn(self, *args, **kwds):
         print 'SPAWN:', args, kwds
+        kwds.setdefault('timeout', 600)
         child = self.pexpect.spawn(*args, **kwds)
         child.logfile = sys.stdout
         return child

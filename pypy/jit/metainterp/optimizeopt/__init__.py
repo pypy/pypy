@@ -9,7 +9,7 @@ from pypy.jit.metainterp.optimizeopt.fficall import OptFfiCall
 from pypy.jit.metainterp.optimizeopt.simplify import OptSimplify
 from pypy.jit.metainterp.optimizeopt.pure import OptPure
 from pypy.jit.metainterp.optimizeopt.earlyforce import OptEarlyForce
-from pypy.rlib.jit import PARAMETERS
+from pypy.rlib.jit import PARAMETERS, ENABLE_ALL_OPTS
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.debug import debug_start, debug_stop, debug_print
 
@@ -30,6 +30,9 @@ ALL_OPTS_DICT = dict.fromkeys([name for name, _ in ALL_OPTS])
 ALL_OPTS_LIST = [name for name, _ in ALL_OPTS]
 ALL_OPTS_NAMES = ':'.join([name for name, _ in ALL_OPTS])
 
+assert ENABLE_ALL_OPTS == ALL_OPTS_NAMES, (
+    'please fix rlib/jit.py to say ENABLE_ALL_OPTS = %r' % (ALL_OPTS_NAMES,))
+
 def build_opt_chain(metainterp_sd, enable_opts):
     config = metainterp_sd.config
     optimizations = []
@@ -46,8 +49,9 @@ def build_opt_chain(metainterp_sd, enable_opts):
                 optimizations.append(OptFfiCall())
 
     if ('rewrite' not in enable_opts or 'virtualize' not in enable_opts
-        or 'heap' not in enable_opts or 'unroll' not in enable_opts):
-        optimizations.append(OptSimplify())
+        or 'heap' not in enable_opts or 'unroll' not in enable_opts
+        or 'pure' not in enable_opts):
+        optimizations.append(OptSimplify(unroll))
 
     return optimizations, unroll
 

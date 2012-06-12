@@ -130,6 +130,7 @@ class Entry(ExtRegistryEntry):
 
     def specialize_call(self, hop):
         from pypy.rpython.lltypesystem import lltype
+        hop.exception_cannot_occur()
         return hop.inputconst(lltype.Void, None)
 
 def enum_ops_without_sideeffects(raising_is_ok=False):
@@ -349,6 +350,8 @@ LL_OPERATIONS = {
     'cast_float_to_ulonglong':LLOp(canfold=True),
     'truncate_longlong_to_int':LLOp(canfold=True),
     'force_cast':           LLOp(sideeffects=False),    # only for rffi.cast()
+    'convert_float_bytes_to_longlong': LLOp(canfold=True),
+    'convert_longlong_bytes_to_float': LLOp(canfold=True),
 
     # __________ pointer operations __________
 

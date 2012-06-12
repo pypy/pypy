@@ -113,6 +113,7 @@ typedef long Py_ssize_t;
 #include "compile.h"
 #include "frameobject.h"
 #include "eval.h"
+#include "pymath.h"
 #include "pymem.h"
 #include "pycobject.h"
 #include "pycapsule.h"

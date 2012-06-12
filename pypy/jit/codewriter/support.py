@@ -144,6 +144,10 @@ _ll_0_newlist.need_result_type = True
 _ll_1_newlist.need_result_type = True
 _ll_2_newlist.need_result_type = True
 
+def _ll_1_newlist_hint(LIST, hint):
+    return LIST.ll_newlist_hint(hint)
+_ll_1_newlist_hint.need_result_type = True
+
 def _ll_1_list_len(l):
     return l.ll_length()
 def _ll_2_list_getitem(l, index):
@@ -451,7 +455,6 @@ def _ll_3_libffi_call_float(llfunc, funcsym, ll_args):
 
 def _ll_3_libffi_call_void(llfunc, funcsym, ll_args):
     return func(llfunc)._do_call(funcsym, ll_args, lltype.Void)
-
 
 # in the following calls to builtins, the JIT is allowed to look inside:
 inline_calls_to = [

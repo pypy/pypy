@@ -56,8 +56,8 @@ dis_bug1333982 = """\
  %-4d         0 LOAD_CONST               1 (0)
               3 POP_JUMP_IF_TRUE        38
               6 LOAD_GLOBAL              0 (AssertionError)
-              9 BUILD_LIST               0
-             12 LOAD_FAST                0 (x)
+              9 LOAD_FAST                0 (x)
+             12 BUILD_LIST_FROM_ARG      0
              15 GET_ITER
         >>   16 FOR_ITER                12 (to 31)
              19 STORE_FAST               1 (s)

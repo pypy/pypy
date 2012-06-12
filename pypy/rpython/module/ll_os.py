@@ -202,7 +202,7 @@ class RegisterOs(BaseLazyRegistering):
 
     def __init__(self):
         self.configure(CConfig)
-	assert self.OFF_T_SIZE == rffi.sizeof(rffi.LONGLONG)
+        assert self.OFF_T_SIZE == rffi.sizeof(rffi.LONGLONG)
 
         if hasattr(os, 'getpgrp'):
             self.GETPGRP_HAVE_ARG = platform.checkcompiles(
@@ -243,7 +243,7 @@ class RegisterOs(BaseLazyRegistering):
     def extdef_for_os_function_returning_int(self, name, **kwds):
         c_func = self.llexternal(name, [], rffi.INT, **kwds)
         def c_func_llimpl():
-            res = rffi.cast(rffi.LONG, c_func())
+            res = rffi.cast(rffi.SIGNED, c_func())
             if res == -1:
                 raise OSError(rposix.get_errno(), "%s failed" % name)
             return res
@@ -255,7 +255,7 @@ class RegisterOs(BaseLazyRegistering):
     def extdef_for_os_function_accepting_int(self, name, **kwds):
         c_func = self.llexternal(name, [rffi.INT], rffi.INT, **kwds)
         def c_func_llimpl(arg):
-            res = rffi.cast(rffi.LONG, c_func(arg))
+            res = rffi.cast(rffi.SIGNED, c_func(arg))
             if res == -1:
                 raise OSError(rposix.get_errno(), "%s failed" % name)
         
@@ -267,7 +267,7 @@ class RegisterOs(BaseLazyRegistering):
     def extdef_for_os_function_accepting_2int(self, name, **kwds):
         c_func = self.llexternal(name, [rffi.INT, rffi.INT], rffi.INT, **kwds)
         def c_func_llimpl(arg, arg2):
-            res = rffi.cast(rffi.LONG, c_func(arg, arg2))
+            res = rffi.cast(rffi.SIGNED, c_func(arg, arg2))
             if res == -1:
                 raise OSError(rposix.get_errno(), "%s failed" % name)
         
@@ -279,7 +279,7 @@ class RegisterOs(BaseLazyRegistering):
     def extdef_for_os_function_accepting_0int(self, name, **kwds):
         c_func = self.llexternal(name, [], rffi.INT, **kwds)
         def c_func_llimpl():
-            res = rffi.cast(rffi.LONG, c_func())
+            res = rffi.cast(rffi.SIGNED, c_func())
             if res == -1:
                 raise OSError(rposix.get_errno(), "%s failed" % name)
         
@@ -291,7 +291,7 @@ class RegisterOs(BaseLazyRegistering):
     def extdef_for_os_function_int_to_int(self, name, **kwds):
         c_func = self.llexternal(name, [rffi.INT], rffi.INT, **kwds)
         def c_func_llimpl(arg):
-            res = rffi.cast(rffi.LONG, c_func(arg))
+            res = rffi.cast(rffi.SIGNED, c_func(arg))
             if res == -1:
                 raise OSError(rposix.get_errno(), "%s failed" % name)
             return res
@@ -403,6 +403,7 @@ class RegisterOs(BaseLazyRegistering):
         os_dup = self.llexternal(underscore_on_windows+'dup', [rffi.INT], rffi.INT)
 
         def dup_llimpl(fd):
+            rposix.validate_fd(fd)
             newfd = rffi.cast(lltype.Signed, os_dup(rffi.cast(rffi.INT, fd)))
             if newfd == -1:
                 raise OSError(rposix.get_errno(), "dup failed")
@@ -417,6 +418,7 @@ class RegisterOs(BaseLazyRegistering):
                                   [rffi.INT, rffi.INT], rffi.INT)
 
         def dup2_llimpl(fd, newfd):
+            rposix.validate_fd(fd)
             error = rffi.cast(lltype.Signed, os_dup2(rffi.cast(rffi.INT, fd),
                                              rffi.cast(rffi.INT, newfd)))
             if error == -1:
@@ -444,9 +446,13 @@ class RegisterOs(BaseLazyRegistering):
         UTIMBUFP = lltype.Ptr(self.UTIMBUF)
         os_utime = self.llexternal('utime', [rffi.CCHARP, UTIMBUFP], rffi.INT)
 
+        if not _WIN32:
+            includes = ['sys/time.h']
+        else:
+            includes = ['time.h']
         class CConfig:
             _compilation_info_ = ExternalCompilationInfo(
-                includes=['sys/time.h']
+                includes=includes
             )
             HAVE_UTIMES = platform.Has('utimes')
         config = platform.configure(CConfig)
@@ -456,9 +462,14 @@ class RegisterOs(BaseLazyRegistering):
 
         if config['HAVE_UTIMES']:
             class CConfig:
-                _compilation_info_ = ExternalCompilationInfo(
-                    includes = ['sys/time.h']
-                )
+                if not _WIN32:
+                    _compilation_info_ = ExternalCompilationInfo(
+                    includes = includes
+                    )
+                else:
+                    _compilation_info_ = ExternalCompilationInfo(
+                        includes = ['time.h']
+                    )
                 TIMEVAL = platform.Struct('struct timeval', [('tv_sec', rffi.LONG),
                                                              ('tv_usec', rffi.LONG)])
             config = platform.configure(CConfig)
@@ -509,27 +520,23 @@ class RegisterOs(BaseLazyRegistering):
             from pypy.rpython.module.ll_win32file import make_utime_impl
             os_utime_llimpl = make_utime_impl(traits)
 
-        if traits.str is str:
-            s_string = SomeString()
-        else:
-            s_string = SomeUnicodeString()
         s_tuple_of_2_floats = SomeTuple([SomeFloat(), SomeFloat()])
 
         def os_utime_normalize_args(s_path, s_times):
             # special handling of the arguments: they can be either
             # [str, (float, float)] or [str, s_None], and get normalized
             # to exactly one of these two.
-            if not s_string.contains(s_path):
+            if not traits.str0.contains(s_path):
                 raise Exception("os.utime() arg 1 must be a string, got %s" % (
                     s_path,))
             case1 = s_None.contains(s_times)
             case2 = s_tuple_of_2_floats.contains(s_times)
             if case1 and case2:
-                return [s_string, s_ImpossibleValue] #don't know which case yet
+                return [traits.str0, s_ImpossibleValue] #don't know which case yet
             elif case1:
-                return [s_string, s_None]
+                return [traits.str0, s_None]
             elif case2:
-                return [s_string, s_tuple_of_2_floats]
+                return [traits.str0, s_tuple_of_2_floats]
             else:
                 raise Exception("os.utime() arg 2 must be None or a tuple of "
                                 "2 floats, got %s" % (s_times,))
@@ -563,10 +570,10 @@ class RegisterOs(BaseLazyRegistering):
                 # The fields of a FILETIME structure are the hi and lo parts
                 # of a 64-bit value expressed in 100 nanosecond units
                 # (of course).
-                result = (pkernel.c_dwHighDateTime*429.4967296 +
-                          pkernel.c_dwLowDateTime*1E-7,
-                          puser.c_dwHighDateTime*429.4967296 +
-                          puser.c_dwLowDateTime*1E-7,
+                result = (rffi.cast(lltype.Signed, pkernel.c_dwHighDateTime) * 429.4967296 +
+                          rffi.cast(lltype.Signed, pkernel.c_dwLowDateTime) * 1E-7,
+                          rffi.cast(lltype.Signed, puser.c_dwHighDateTime) * 429.4967296 +
+                          rffi.cast(lltype.Signed, puser.c_dwLowDateTime) * 1E-7,
                           0, 0, 0)
                 lltype.free(puser,   flavor='raw')
                 lltype.free(pkernel, flavor='raw')
@@ -761,7 +768,7 @@ class RegisterOs(BaseLazyRegistering):
         if self.GETPGRP_HAVE_ARG:
             c_func = self.llexternal(name, [rffi.INT], rffi.INT)
             def c_func_llimpl():
-                res = rffi.cast(rffi.LONG, c_func(0))
+                res = rffi.cast(rffi.SIGNED, c_func(0))
                 if res == -1:
                     raise OSError(rposix.get_errno(), "%s failed" % name)
                 return res
@@ -779,7 +786,7 @@ class RegisterOs(BaseLazyRegistering):
         if self.SETPGRP_HAVE_ARG:
             c_func = self.llexternal(name, [rffi.INT, rffi.INT], rffi.INT)
             def c_func_llimpl():
-                res = rffi.cast(rffi.LONG, c_func(0, 0))
+                res = rffi.cast(rffi.SIGNED, c_func(0, 0))
                 if res == -1:
                     raise OSError(rposix.get_errno(), "%s failed" % name)
 
@@ -824,7 +831,7 @@ class RegisterOs(BaseLazyRegistering):
                                   [traits.CCHARP, rffi.INT, rffi.MODE_T],
                                   rffi.INT)
         def os_open_llimpl(path, flags, mode):
-            result = rffi.cast(rffi.LONG, os_open(path, flags, mode))
+            result = rffi.cast(lltype.Signed, os_open(path, flags, mode))
             if result == -1:
                 raise OSError(rposix.get_errno(), "os_open failed")
             return result
@@ -888,6 +895,7 @@ class RegisterOs(BaseLazyRegistering):
         def os_read_llimpl(fd, count):
             if count < 0:
                 raise OSError(errno.EINVAL, None)
+            rposix.validate_fd(fd)
             raw_buf, gc_buf = rffi.alloc_buffer(count)
             try:
                 void_buf = rffi.cast(rffi.VOIDP, raw_buf)
@@ -913,6 +921,7 @@ class RegisterOs(BaseLazyRegistering):
 
         def os_write_llimpl(fd, data):
             count = len(data)
+            rposix.validate_fd(fd)
             buf = rffi.get_nonmovingbuffer(data)
             try:
                 written = rffi.cast(lltype.Signed, os_write(
@@ -937,6 +946,7 @@ class RegisterOs(BaseLazyRegistering):
                                    rffi.INT, threadsafe=False)
         
         def close_llimpl(fd):
+            rposix.validate_fd(fd)
             error = rffi.cast(lltype.Signed, os_close(rffi.cast(rffi.INT, fd)))
             if error == -1:
                 raise OSError(rposix.get_errno(), "close failed")
@@ -972,6 +982,7 @@ class RegisterOs(BaseLazyRegistering):
                                    rffi.LONGLONG, macro=True)
 
         def lseek_llimpl(fd, pos, how):
+            rposix.validate_fd(fd)
             how = fix_seek_arg(how)
             res = os_lseek(rffi.cast(rffi.INT,      fd),
                            rffi.cast(rffi.LONGLONG, pos),
@@ -997,6 +1008,7 @@ class RegisterOs(BaseLazyRegistering):
                                        [rffi.INT, rffi.LONGLONG], rffi.INT, macro=True)
 
         def ftruncate_llimpl(fd, length):
+            rposix.validate_fd(fd)
             res = rffi.cast(rffi.LONG,
                             os_ftruncate(rffi.cast(rffi.INT, fd),
                                          rffi.cast(rffi.LONGLONG, length)))
@@ -1015,7 +1027,8 @@ class RegisterOs(BaseLazyRegistering):
             os_fsync = self.llexternal('_commit', [rffi.INT], rffi.INT)
 
         def fsync_llimpl(fd):
-            res = rffi.cast(rffi.LONG, os_fsync(rffi.cast(rffi.INT, fd)))
+            rposix.validate_fd(fd)
+            res = rffi.cast(rffi.SIGNED, os_fsync(rffi.cast(rffi.INT, fd)))
             if res < 0:
                 raise OSError(rposix.get_errno(), "fsync failed")
         return extdef([int], s_None,
@@ -1027,7 +1040,8 @@ class RegisterOs(BaseLazyRegistering):
         os_fdatasync = self.llexternal('fdatasync', [rffi.INT], rffi.INT)
 
         def fdatasync_llimpl(fd):
-            res = rffi.cast(rffi.LONG, os_fdatasync(rffi.cast(rffi.INT, fd)))
+            rposix.validate_fd(fd)
+            res = rffi.cast(rffi.SIGNED, os_fdatasync(rffi.cast(rffi.INT, fd)))
             if res < 0:
                 raise OSError(rposix.get_errno(), "fdatasync failed")
         return extdef([int], s_None,
@@ -1039,7 +1053,8 @@ class RegisterOs(BaseLazyRegistering):
         os_fchdir = self.llexternal('fchdir', [rffi.INT], rffi.INT)
 
         def fchdir_llimpl(fd):
-            res = rffi.cast(rffi.LONG, os_fchdir(rffi.cast(rffi.INT, fd)))
+            rposix.validate_fd(fd)
+            res = rffi.cast(rffi.SIGNED, os_fchdir(rffi.cast(rffi.INT, fd)))
             if res < 0:
                 raise OSError(rposix.get_errno(), "fchdir failed")
         return extdef([int], s_None,
@@ -1165,8 +1180,11 @@ class RegisterOs(BaseLazyRegistering):
             DIRENTP = lltype.Ptr(DIRENT)
             os_opendir = self.llexternal('opendir', [rffi.CCHARP], DIRP,
                                          compilation_info=compilation_info)
+            # XXX macro=True is hack to make sure we get the correct kind of
+            # dirent struct (which depends on defines)
             os_readdir = self.llexternal('readdir', [DIRP], DIRENTP,
-                                         compilation_info=compilation_info)
+                                         compilation_info=compilation_info,
+                                         macro=True)
             os_closedir = self.llexternal('closedir', [DIRP], rffi.INT,
                                           compilation_info=compilation_info)
 
@@ -1318,7 +1336,9 @@ class RegisterOs(BaseLazyRegistering):
                 result = os__cwait(status_p, pid, options)
                 # shift the status left a byte so this is more
                 # like the POSIX waitpid
-                status_p[0] <<= 8
+                tmp = rffi.cast(rffi.SIGNED, status_p[0])
+                tmp <<= 8
+                status_p[0] = rffi.cast(rffi.INT, tmp)
                 return result
         else:
             # Posix
@@ -1349,7 +1369,8 @@ class RegisterOs(BaseLazyRegistering):
         os_isatty = self.llexternal(underscore_on_windows+'isatty', [rffi.INT], rffi.INT)
 
         def isatty_llimpl(fd):
-            res = rffi.cast(rffi.LONG, os_isatty(rffi.cast(rffi.INT, fd)))
+            rposix.validate_fd(fd)
+            res = rffi.cast(lltype.Signed, os_isatty(rffi.cast(rffi.INT, fd)))
             return res != 0
 
         return extdef([int], bool, llimpl=isatty_llimpl,
@@ -1525,8 +1546,8 @@ class RegisterOs(BaseLazyRegistering):
     def register_os_umask(self):
         os_umask = self.llexternal(underscore_on_windows+'umask', [rffi.MODE_T], rffi.MODE_T)
 
-        def umask_llimpl(fd):
-            res = os_umask(rffi.cast(rffi.MODE_T, fd))
+        def umask_llimpl(newmask):
+            res = os_umask(rffi.cast(rffi.MODE_T, newmask))
             return rffi.cast(lltype.Signed, res)
 
         return extdef([int], int, llimpl=umask_llimpl,

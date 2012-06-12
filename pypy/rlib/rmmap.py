@@ -228,6 +228,7 @@ elif _MS_WINDOWS:
             # XXX should be propagate the real type, allowing
             # for 2*sys.maxint?
             high = high_ref[0]
+            high = rffi.cast(lltype.Signed, high)
             # low might just happen to have the value INVALID_FILE_SIZE
             # so we need to check the last error also
             INVALID_FILE_SIZE = -1
@@ -554,7 +555,7 @@ class MMap(object):
             FILE_BEGIN = 0
             high_ref = lltype.malloc(PLONG.TO, 1, flavor='raw')
             try:
-                high_ref[0] = newsize_high
+                high_ref[0] = rffi.cast(LONG, newsize_high)
                 SetFilePointer(self.file_handle, newsize_low, high_ref,
                                FILE_BEGIN)
             finally:
@@ -722,6 +723,8 @@ if _POSIX:
 
 elif _MS_WINDOWS:
     def mmap(fileno, length, tagname="", access=_ACCESS_DEFAULT, offset=0):
+        # XXX flags is or-ed into access by now.
+        flags = 0
         # check size boundaries
         _check_map_size(length)
         map_size = length
@@ -747,13 +750,34 @@ elif _MS_WINDOWS:
         # assume -1 and 0 both mean invalid file descriptor
         # to 'anonymously' map memory.
         if fileno != -1 and fileno != 0:
-            fh = rwin32._get_osfhandle(fileno)
-            if fh == INVALID_HANDLE:
-                errno = rposix.get_errno()
-                raise OSError(errno, os.strerror(errno))
+            fh = rwin32.get_osfhandle(fileno)
             # Win9x appears to need us seeked to zero
             # SEEK_SET = 0
             # libc._lseek(fileno, 0, SEEK_SET)
+
+            # check file size
+            try:
+                low, high = _get_file_size(fh)
+            except OSError:
+                pass     # ignore non-seeking files and errors and trust map_size
+            else:
+                if not high and low <= sys.maxint:
+                   size = low
+                else:   
+                    # not so sure if the signed/unsigned strictness is a good idea:
+                    high = rffi.cast(lltype.Unsigned, high)
+                    low = rffi.cast(lltype.Unsigned, low)
+                    size = (high << 32) + low
+                    size = rffi.cast(lltype.Signed, size)
+                if map_size == 0:
+                    if offset > size:
+                        raise RValueError(
+                            "mmap offset is greater than file size")
+                    map_size = int(size - offset)
+                    if map_size != size - offset:
+                        raise RValueError("mmap length is too large")
+                elif offset + map_size > size:
+                    raise RValueError("mmap length is greater than file size")
 
         m = MMap(access, offset)
         m.file_handle = INVALID_HANDLE
@@ -803,6 +827,7 @@ elif _MS_WINDOWS:
             offset_hi = 0
             offset_lo = offset
 
+        flProtect |= flags
         m.map_handle = CreateFileMapping(m.file_handle, NULL, flProtect,
                                          size_hi, size_lo, m.tagname)
 
@@ -819,6 +844,11 @@ elif _MS_WINDOWS:
             rwin32.CloseHandle(m.map_handle)
         m.map_handle = INVALID_HANDLE
         raise winerror
+
+    class Hint:
+        pos = -0x4fff0000   # for reproducible results
+    hint = Hint()
+    # XXX this has no effect on windows
 
     def alloc(map_size):
         """Allocate memory.  This is intended to be used by the JIT,

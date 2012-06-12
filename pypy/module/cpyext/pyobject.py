@@ -17,6 +17,7 @@ from pypy.rpython.annlowlevel import llhelper
 
 class BaseCpyTypedescr(object):
     basestruct = PyObject.TO
+    W_BaseObject = W_ObjectObject
 
     def get_dealloc(self, space):
         from pypy.module.cpyext.typeobject import subtype_dealloc
@@ -51,10 +52,14 @@ class BaseCpyTypedescr(object):
     def attach(self, space, pyobj, w_obj):
         pass
 
-    def realize(self, space, ref):
-        # For most types, a reference cannot exist without
-        # a real interpreter object
-        raise InvalidPointerException(str(ref))
+    def realize(self, space, obj):
+        w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
+        w_obj = space.allocate_instance(self.W_BaseObject, w_type)
+        track_reference(space, obj, w_obj)
+        if w_type is not space.gettypefor(self.W_BaseObject):
+            state = space.fromcache(RefcountState)
+            state.set_lifeline(w_obj, obj)
+        return w_obj
 
 typedescr_cache = {}
 
@@ -369,13 +374,7 @@ def _Py_NewReference(space, obj):
     obj.c_ob_refcnt = 1
     w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
     assert isinstance(w_type, W_TypeObject)
-    if w_type.is_cpytype():
-        w_obj = space.allocate_instance(W_ObjectObject, w_type)
-        track_reference(space, obj, w_obj)
-        state = space.fromcache(RefcountState)
-        state.set_lifeline(w_obj, obj)
-    else:
-        assert False, "Please add more cases in _Py_NewReference()"
+    get_typedescr(w_type.instancetypedef).realize(space, obj)
 
 def _Py_Dealloc(space, obj):
     from pypy.module.cpyext.api import generic_cpy_call_dont_decref

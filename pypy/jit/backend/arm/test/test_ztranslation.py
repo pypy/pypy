@@ -24,7 +24,7 @@ class TestTranslationARM(CCompiledMixin):
         return t
 
     def _check_cbuilder(self, cbuilder):
-        import pdb; pdb.set_trace()
+        pass
 
     def test_stuff_translates(self):
         # this is a basic test that tries to hit a number of features and their
@@ -57,6 +57,7 @@ class TestTranslationARM(CCompiledMixin):
             set_param(jitdriver, "trace_eagerness", 2)
             total = 0
             frame = Frame(i)
+            j = float(j)
             while frame.i > 3:
                 jitdriver.can_enter_jit(frame=frame, total=total, j=j)
                 jitdriver.jit_merge_point(frame=frame, total=total, j=j)

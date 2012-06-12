@@ -35,6 +35,7 @@ class types(object):
         cls.ulong = clibffi.cast_type_to_ffitype(rffi.ULONG)
         cls.slonglong = clibffi.cast_type_to_ffitype(rffi.LONGLONG)
         cls.ulonglong = clibffi.cast_type_to_ffitype(rffi.ULONGLONG)
+        cls.signed = clibffi.cast_type_to_ffitype(rffi.SIGNED)
         cls.wchar_t = clibffi.cast_type_to_ffitype(lltype.UniChar)
         del cls._import
 
@@ -79,16 +80,20 @@ class types(object):
 
 types._import()
 
+# this was '_fits_into_long', which is not adequate, because long is
+# not necessary the type where we compute with. Actually meant is
+# the type 'Signed'.
+
 @specialize.arg(0)
-def _fits_into_long(TYPE):
+def _fits_into_signed(TYPE):
     if isinstance(TYPE, lltype.Ptr):
-        return True # pointers always fits into longs
+        return True # pointers always fits into Signeds
     if not isinstance(TYPE, lltype.Primitive):
         return False
     if TYPE is lltype.Void or TYPE is rffi.FLOAT or TYPE is rffi.DOUBLE:
         return False
     sz = rffi.sizeof(TYPE)
-    return sz <= rffi.sizeof(rffi.LONG)
+    return sz <= rffi.sizeof(rffi.SIGNED)
 
 
 # ======================================================================
@@ -115,9 +120,9 @@ class ArgChain(object):
     def arg(self, val):
         TYPE = lltype.typeOf(val)
         _check_type(TYPE)
-        if _fits_into_long(TYPE):
+        if _fits_into_signed(TYPE):
             cls = IntArg
-            val = rffi.cast(rffi.LONG, val)
+            val = rffi.cast(rffi.SIGNED, val)
         elif TYPE is rffi.DOUBLE:
             cls = FloatArg
         elif TYPE is rffi.LONGLONG or TYPE is rffi.ULONGLONG:
@@ -205,7 +210,7 @@ class Func(AbstractFuncPtr):
 
     _immutable_fields_ = ['funcsym']
     argtypes = []
-    restype = lltype.nullptr(clibffi.FFI_TYPE_P.TO)
+    restype = clibffi.FFI_TYPE_NULL
     flags = 0
     funcsym = lltype.nullptr(rffi.VOIDP.TO)
 
@@ -250,7 +255,7 @@ class Func(AbstractFuncPtr):
         if is_struct:
             assert types.is_struct(self.restype)
             res = self._do_call_raw(self.funcsym, ll_args)
-        elif _fits_into_long(RESULT):
+        elif _fits_into_signed(RESULT):
             assert not types.is_struct(self.restype)
             res = self._do_call_int(self.funcsym, ll_args)
         elif RESULT is rffi.DOUBLE:
@@ -309,7 +314,7 @@ class Func(AbstractFuncPtr):
 
     @jit.oopspec('libffi_call_int(self, funcsym, ll_args)')
     def _do_call_int(self, funcsym, ll_args):
-        return self._do_call(funcsym, ll_args, rffi.LONG)
+        return self._do_call(funcsym, ll_args, rffi.SIGNED)
 
     @jit.oopspec('libffi_call_float(self, funcsym, ll_args)')
     def _do_call_float(self, funcsym, ll_args):
@@ -322,7 +327,7 @@ class Func(AbstractFuncPtr):
     @jit.dont_look_inside
     def _do_call_raw(self, funcsym, ll_args):
         # same as _do_call_int, but marked as jit.dont_look_inside
-        return self._do_call(funcsym, ll_args, rffi.LONG)
+        return self._do_call(funcsym, ll_args, rffi.SIGNED)
 
     @jit.oopspec('libffi_call_longlong(self, funcsym, ll_args)')
     def _do_call_longlong(self, funcsym, ll_args):
@@ -360,7 +365,7 @@ class Func(AbstractFuncPtr):
             TP = lltype.Ptr(rffi.CArray(RESULT))
             buf = rffi.cast(TP, ll_result)
             if types.is_struct(self.restype):
-                assert RESULT == rffi.LONG
+                assert RESULT == rffi.SIGNED
                 # for structs, we directly return the buffer and transfer the
                 # ownership
                 res = rffi.cast(RESULT, buf)
@@ -411,6 +416,96 @@ class CDLL(object):
     def getaddressindll(self, name):
         return dlsym(self.lib, name)
 
+# ======================================================================
+
+@jit.oopspec('libffi_struct_getfield(ffitype, addr, offset)')
+def struct_getfield_int(ffitype, addr, offset):
+    """
+    Return the field of type ``ffitype`` at ``addr+offset``, widened to
+    lltype.Signed.
+    """
+    for TYPE, ffitype2 in clibffi.ffitype_map_int_or_ptr:
+        if ffitype is ffitype2:
+            value = _struct_getfield(TYPE, addr, offset)
+            return rffi.cast(lltype.Signed, value)
+    assert False, "cannot find the given ffitype"
+
+
+@jit.oopspec('libffi_struct_setfield(ffitype, addr, offset, value)')
+def struct_setfield_int(ffitype, addr, offset, value):
+    """
+    Set the field of type ``ffitype`` at ``addr+offset``.  ``value`` is of
+    type lltype.Signed, and it's automatically converted to the right type.
+    """
+    for TYPE, ffitype2 in clibffi.ffitype_map_int_or_ptr:
+        if ffitype is ffitype2:
+            value = rffi.cast(TYPE, value)
+            _struct_setfield(TYPE, addr, offset, value)
+            return
+    assert False, "cannot find the given ffitype"
+
+
+@jit.oopspec('libffi_struct_getfield(ffitype, addr, offset)')
+def struct_getfield_longlong(ffitype, addr, offset):
+    """
+    Return the field of type ``ffitype`` at ``addr+offset``, casted to
+    lltype.LongLong.
+    """
+    value = _struct_getfield(lltype.SignedLongLong, addr, offset)
+    return value
+
+@jit.oopspec('libffi_struct_setfield(ffitype, addr, offset, value)')
+def struct_setfield_longlong(ffitype, addr, offset, value):
+    """
+    Set the field of type ``ffitype`` at ``addr+offset``.  ``value`` is of
+    type lltype.LongLong
+    """
+    _struct_setfield(lltype.SignedLongLong, addr, offset, value)
+
+
+@jit.oopspec('libffi_struct_getfield(ffitype, addr, offset)')
+def struct_getfield_float(ffitype, addr, offset):
+    value = _struct_getfield(lltype.Float, addr, offset)
+    return value
+
+@jit.oopspec('libffi_struct_setfield(ffitype, addr, offset, value)')
+def struct_setfield_float(ffitype, addr, offset, value):
+    _struct_setfield(lltype.Float, addr, offset, value)
+
+
+@jit.oopspec('libffi_struct_getfield(ffitype, addr, offset)')
+def struct_getfield_singlefloat(ffitype, addr, offset):
+    value = _struct_getfield(lltype.SingleFloat, addr, offset)
+    return value
+
+@jit.oopspec('libffi_struct_setfield(ffitype, addr, offset, value)')
+def struct_setfield_singlefloat(ffitype, addr, offset, value):
+    _struct_setfield(lltype.SingleFloat, addr, offset, value)
+
+
+@specialize.arg(0)
+def _struct_getfield(TYPE, addr, offset):
+    """
+    Read the field of type TYPE at addr+offset.
+    addr is of type rffi.VOIDP, offset is an int.
+    """
+    addr = rffi.ptradd(addr, offset)
+    PTR_FIELD = lltype.Ptr(rffi.CArray(TYPE))
+    return rffi.cast(PTR_FIELD, addr)[0]
+
+
+@specialize.arg(0)
+def _struct_setfield(TYPE, addr, offset, value):
+    """
+    Write the field of type TYPE at addr+offset.
+    addr is of type rffi.VOIDP, offset is an int.
+    """
+    addr = rffi.ptradd(addr, offset)
+    PTR_FIELD = lltype.Ptr(rffi.CArray(TYPE))
+    rffi.cast(PTR_FIELD, addr)[0] = value
+
+# ======================================================================
+
 # These specialize.call_location's should really be specialize.arg(0), however
 # you can't hash a pointer obj, which the specialize machinery wants to do.
 # Given the present usage of these functions, it's good enough.
@@ -424,6 +519,11 @@ def array_getitem(ffitype, width, addr, index, offset):
             return rffi.cast(rffi.CArrayPtr(TYPE), addr)[0]
     assert False
 
+def array_getitem_T(TYPE, width, addr, index, offset):
+    addr = rffi.ptradd(addr, index * width)
+    addr = rffi.ptradd(addr, offset)
+    return rffi.cast(rffi.CArrayPtr(TYPE), addr)[0]
+
 @specialize.call_location()
 @jit.oopspec("libffi_array_setitem(ffitype, width, addr, index, offset, value)")
 def array_setitem(ffitype, width, addr, index, offset, value):
@@ -434,3 +534,8 @@ def array_setitem(ffitype, width, addr, index, offset, value):
             rffi.cast(rffi.CArrayPtr(TYPE), addr)[0] = value
             return
     assert False
+
+def array_setitem_T(TYPE, width, addr, index, offset, value):
+    addr = rffi.ptradd(addr, index * width)
+    addr = rffi.ptradd(addr, offset)
+    rffi.cast(rffi.CArrayPtr(TYPE), addr)[0] = value

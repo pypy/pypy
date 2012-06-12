@@ -3,7 +3,7 @@ from _ctypes.basics import _CData, _CDataMeta, cdata_from_address
 from _ctypes.primitive import SimpleType, _SimpleCData
 from _ctypes.basics import ArgumentError, keepalive_key
 from _ctypes.basics import is_struct_shape
-from _ctypes.builtin import set_errno, set_last_error
+from _ctypes.builtin import get_errno, set_errno, get_last_error, set_last_error
 import _rawffi
 import _ffi
 import sys
@@ -350,16 +350,24 @@ class CFuncPtr(_CData):
     def _call_funcptr(self, funcptr, *newargs):
 
         if self._flags_ & _rawffi.FUNCFLAG_USE_ERRNO:
-            set_errno(_rawffi.get_errno())
+            tmp = _rawffi.get_errno()
+            _rawffi.set_errno(get_errno())
+            set_errno(tmp)
         if self._flags_ & _rawffi.FUNCFLAG_USE_LASTERROR:
-            set_last_error(_rawffi.get_last_error())
+            tmp = _rawffi.get_last_error()
+            _rawffi.set_last_error(get_last_error())
+            set_last_error(tmp)
         try:
             result = funcptr(*newargs)
         finally:
             if self._flags_ & _rawffi.FUNCFLAG_USE_ERRNO:
-                set_errno(_rawffi.get_errno())
+                tmp = _rawffi.get_errno()
+                _rawffi.set_errno(get_errno())
+                set_errno(tmp)
             if self._flags_ & _rawffi.FUNCFLAG_USE_LASTERROR:
-                set_last_error(_rawffi.get_last_error())
+                tmp = _rawffi.get_last_error()
+                _rawffi.set_last_error(get_last_error())
+                set_last_error(tmp)
         #
         try:
             return self._build_result(self._restype_, result, newargs)

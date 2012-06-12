@@ -7,7 +7,7 @@ from pypy.jit.metainterp.test.test_compile import FakeLogger
 import pypy.jit.metainterp.optimizeopt.optimizer as optimizeopt
 import pypy.jit.metainterp.optimizeopt.virtualize as virtualize
 from pypy.jit.metainterp.optimize import InvalidLoop
-from pypy.jit.metainterp.history import AbstractDescr, ConstInt, BoxInt
+from pypy.jit.metainterp.history import AbstractDescr, ConstInt, BoxInt, get_const_ptr_for_string
 from pypy.jit.metainterp import executor, compile, resume, history
 from pypy.jit.metainterp.resoperation import rop, opname, ResOperation
 from pypy.rlib.rarithmetic import LONG_BIT
@@ -5031,10 +5031,65 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_str_copy_virtual(self):
+        ops = """
+        [i0]
+        p0 = newstr(8)
+        strsetitem(p0, 0, i0)
+        strsetitem(p0, 1, i0)
+        strsetitem(p0, 2, i0)
+        strsetitem(p0, 3, i0)
+        strsetitem(p0, 4, i0)
+        strsetitem(p0, 5, i0)
+        strsetitem(p0, 6, i0)
+        strsetitem(p0, 7, i0)
+        p1 = newstr(12)
+        copystrcontent(p0, p1, 0, 0, 8)
+        strsetitem(p1, 8, 3)
+        strsetitem(p1, 9, 0)
+        strsetitem(p1, 10, 0)
+        strsetitem(p1, 11, 0)
+        finish(p1)
+        """
+        expected = """
+        [i0]
+        p1 = newstr(12)
+        strsetitem(p1, 0, i0)
+        strsetitem(p1, 1, i0)
+        strsetitem(p1, 2, i0)
+        strsetitem(p1, 3, i0)
+        strsetitem(p1, 4, i0)
+        strsetitem(p1, 5, i0)
+        strsetitem(p1, 6, i0)
+        strsetitem(p1, 7, i0)
+        strsetitem(p1, 8, 3)
+        finish(p1)
+        """
+        self.optimize_strunicode_loop(ops, expected)
+
+    def test_call_pure_vstring_const(self):
+        py.test.skip("implement me")
+        ops = """
+        []
+        p0 = newstr(3)
+        strsetitem(p0, 0, 97)
+        strsetitem(p0, 1, 98)
+        strsetitem(p0, 2, 99)
+        i0 = call_pure(123, p0, descr=nonwritedescr)
+        finish(i0)
+        """
+        expected = """
+        []
+        finish(5)
+        """
+        call_pure_results = {
+            (ConstInt(123), get_const_ptr_for_string("abc"),): ConstInt(5),
+        }
+        self.optimize_loop(ops, expected, call_pure_results)
+
 
 class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
     pass
-
 
 ##class TestOOtype(BaseTestOptimizeBasic, OOtypeMixin):
 

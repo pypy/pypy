@@ -148,7 +148,7 @@ def test_get_array_descr():
     #
     def get_alignment(code):
         # Retrieve default alignment for the compiler/platform
-        return struct.calcsize('l' + code) - struct.calcsize(code)
+        return struct.calcsize(lltype.SignedFmt + code) - struct.calcsize(code)
     assert descr1.basesize == get_alignment('c')
     assert descr2.basesize == get_alignment('p')
     assert descr3.basesize == get_alignment('p')

@@ -4,25 +4,50 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app, ObjSpace
 from pypy.interpreter.typedef import TypeDef
 from pypy.rlib import jit
+from pypy.rlib.rshrinklist import AbstractShrinkList
+from pypy.rlib.objectmodel import specialize
 import weakref
 
 
+class WRefShrinkList(AbstractShrinkList):
+    def must_keep(self, wref):
+        return wref() is not None
+
+
 class WeakrefLifeline(W_Root):
-    cached_weakref_index = -1
-    cached_proxy_index = -1
+    cached_weakref  = None
+    cached_proxy    = None
+    other_refs_weak = None
 
     def __init__(self, space):
         self.space = space
-        self.refs_weak = []
+
+    def append_wref_to(self, w_ref):
+        if self.other_refs_weak is None:
+            self.other_refs_weak = WRefShrinkList()
+        self.other_refs_weak.append(weakref.ref(w_ref))
+
+    @specialize.arg(1)
+    def traverse(self, callback, arg=None):
+        if self.cached_weakref is not None:
+            arg = callback(self, self.cached_weakref, arg)
+        if self.cached_proxy is not None:
+            arg = callback(self, self.cached_proxy, arg)
+        if self.other_refs_weak is not None:
+            for ref_w_ref in self.other_refs_weak.items():
+                arg = callback(self, ref_w_ref, arg)
+        return arg
+
+    def _clear_wref(self, wref, _):
+        w_ref = wref()
+        if w_ref is not None:
+            w_ref.clear()
 
     def clear_all_weakrefs(self):
         """Clear all weakrefs.  This is called when an app-level object has
         a __del__, just before the app-level __del__ method is called.
         """
-        for ref_w_ref in self.refs_weak:
-            w_ref = ref_w_ref()
-            if w_ref is not None:
-                w_ref.clear()
+        self.traverse(WeakrefLifeline._clear_wref)
         # Note that for no particular reason other than convenience,
         # weakref callbacks are not invoked eagerly here.  They are
         # invoked by self.__del__() anyway.
@@ -30,49 +55,46 @@ class WeakrefLifeline(W_Root):
     def get_or_make_weakref(self, w_subtype, w_obj):
         space = self.space
         w_weakreftype = space.gettypeobject(W_Weakref.typedef)
-        is_weakreftype = space.is_w(w_weakreftype, w_subtype)
-        if is_weakreftype and self.cached_weakref_index >= 0:
-            w_cached = self.refs_weak[self.cached_weakref_index]()
-            if w_cached is not None:
-                return w_cached
-            else:
-                self.cached_weakref_index = -1
-        w_ref = space.allocate_instance(W_Weakref, w_subtype)
-        index = len(self.refs_weak)
-        W_Weakref.__init__(w_ref, space, w_obj, None)
-        self.refs_weak.append(weakref.ref(w_ref))
-        if is_weakreftype:
-            self.cached_weakref_index = index
+        #
+        if space.is_w(w_weakreftype, w_subtype):
+            if self.cached_weakref is not None:
+                w_cached = self.cached_weakref()
+                if w_cached is not None:
+                    return w_cached
+            w_ref = W_Weakref(space, w_obj, None)
+            self.cached_weakref = weakref.ref(w_ref)
+        else:
+            # subclass: cannot cache
+            w_ref = space.allocate_instance(W_Weakref, w_subtype)
+            W_Weakref.__init__(w_ref, space, w_obj, None)
+            self.append_wref_to(w_ref)
         return w_ref
 
     def get_or_make_proxy(self, w_obj):
         space = self.space
-        if self.cached_proxy_index >= 0:
-            w_cached = self.refs_weak[self.cached_proxy_index]()
+        if self.cached_proxy is not None:
+            w_cached = self.cached_proxy()
             if w_cached is not None:
                 return w_cached
-            else:
-                self.cached_proxy_index = -1
-        index = len(self.refs_weak)
         if space.is_true(space.callable(w_obj)):
             w_proxy = W_CallableProxy(space, w_obj, None)
         else:
             w_proxy = W_Proxy(space, w_obj, None)
-        self.refs_weak.append(weakref.ref(w_proxy))
-        self.cached_proxy_index = index
+        self.cached_proxy = weakref.ref(w_proxy)
         return w_proxy
 
     def get_any_weakref(self, space):
-        if self.cached_weakref_index != -1:
-            w_ref = self.refs_weak[self.cached_weakref_index]()
+        if self.cached_weakref is not None:
+            w_ref = self.cached_weakref()
             if w_ref is not None:
                 return w_ref
-        w_weakreftype = space.gettypeobject(W_Weakref.typedef)
-        for i in range(len(self.refs_weak)):
-            w_ref = self.refs_weak[i]()
-            if (w_ref is not None and
-                space.is_true(space.isinstance(w_ref, w_weakreftype))):
-                return w_ref
+        if self.other_refs_weak is not None:
+            w_weakreftype = space.gettypeobject(W_Weakref.typedef)
+            for wref in self.other_refs_weak.items():
+                w_ref = wref()
+                if (w_ref is not None and
+                    space.is_true(space.isinstance(w_ref, w_weakreftype))):
+                    return w_ref
         return space.w_None
 
 
@@ -80,10 +102,10 @@ class WeakrefLifelineWithCallbacks(WeakrefLifeline):
 
     def __init__(self, space, oldlifeline=None):
         self.space = space
-        if oldlifeline is None:
-            self.refs_weak = []
-        else:
-            self.refs_weak = oldlifeline.refs_weak
+        if oldlifeline is not None:
+            self.cached_weakref  = oldlifeline.cached_weakref
+            self.cached_proxy    = oldlifeline.cached_proxy
+            self.other_refs_weak = oldlifeline.other_refs_weak
 
     def __del__(self):
         """This runs when the interp-level object goes away, and allows
@@ -91,8 +113,11 @@ class WeakrefLifelineWithCallbacks(WeakrefLifeline):
         callbacks even if there is no __del__ method on the interp-level
         W_Root subclass implementing the object.
         """
-        for i in range(len(self.refs_weak) - 1, -1, -1):
-            w_ref = self.refs_weak[i]()
+        if self.other_refs_weak is None:
+            return
+        items = self.other_refs_weak.items()
+        for i in range(len(items)-1, -1, -1):
+            w_ref = items[i]()
             if w_ref is not None and w_ref.w_callable is not None:
                 w_ref.enqueue_for_destruction(self.space,
                                               W_WeakrefBase.activate_callback,
@@ -102,7 +127,7 @@ class WeakrefLifelineWithCallbacks(WeakrefLifeline):
         space = self.space
         w_ref = space.allocate_instance(W_Weakref, w_subtype)
         W_Weakref.__init__(w_ref, space, w_obj, w_callable)
-        self.refs_weak.append(weakref.ref(w_ref))
+        self.append_wref_to(w_ref)
         return w_ref
 
     def make_proxy_with_callback(self, w_obj, w_callable):
@@ -111,7 +136,7 @@ class WeakrefLifelineWithCallbacks(WeakrefLifeline):
             w_proxy = W_CallableProxy(space, w_obj, w_callable)
         else:
             w_proxy = W_Proxy(space, w_obj, w_callable)
-        self.refs_weak.append(weakref.ref(w_proxy))
+        self.append_wref_to(w_proxy)
         return w_proxy
 
 # ____________________________________________________________
@@ -247,30 +272,33 @@ which is called with 'obj' as an argument when it is about to be finalized.""",
 )
 
 
+def _weakref_count(lifeline, wref, count):
+    if wref() is not None:
+        count += 1
+    return count
+
 def getweakrefcount(space, w_obj):
     """Return the number of weak references to 'obj'."""
     lifeline = w_obj.getweakref()
     if lifeline is None:
         return space.wrap(0)
     else:
-        result = 0
-        for i in range(len(lifeline.refs_weak)):
-            if lifeline.refs_weak[i]() is not None:
-                result += 1
+        result = lifeline.traverse(_weakref_count, 0)
         return space.wrap(result)
+
+def _get_weakrefs(lifeline, wref, result):
+    w_ref = wref()
+    if w_ref is not None:
+        result.append(w_ref)
+    return result
 
 def getweakrefs(space, w_obj):
     """Return a list of all weak reference objects that point to 'obj'."""
+    result = []
     lifeline = w_obj.getweakref()
-    if lifeline is None:
-        return space.newlist([])
-    else:
-        result = []
-        for i in range(len(lifeline.refs_weak)):
-            w_ref = lifeline.refs_weak[i]()
-            if w_ref is not None:
-                result.append(w_ref)
-        return space.newlist(result)
+    if lifeline is not None:
+        lifeline.traverse(_get_weakrefs, result)
+    return space.newlist(result)
 
 #_________________________________________________________________
 # Proxy

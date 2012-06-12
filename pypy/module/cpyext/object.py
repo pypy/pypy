@@ -193,7 +193,7 @@ def PyObject_Init(space, obj, type):
     if not obj:
         PyErr_NoMemory(space)
     obj.c_ob_type = type
-    _Py_NewReference(space, obj)
+    obj.c_ob_refcnt = 1
     return obj
 
 @cpython_api([PyVarObject, PyTypeObjectPtr, Py_ssize_t], PyObject)
@@ -380,6 +380,15 @@ def PyObject_Hash(space, w_obj):
     Compute and return the hash value of an object o.  On failure, return -1.
     This is the equivalent of the Python expression hash(o)."""
     return space.int_w(space.hash(w_obj))
+
+@cpython_api([PyObject], lltype.Signed, error=-1)
+def PyObject_HashNotImplemented(space, o):
+    """Set a TypeError indicating that type(o) is not hashable and return -1.
+    This function receives special treatment when stored in a tp_hash slot,
+    allowing a type to explicitly indicate to the interpreter that it is not
+    hashable.
+    """
+    raise OperationError(space.w_TypeError, space.wrap("unhashable type"))
 
 @cpython_api([PyObject], PyObject)
 def PyObject_Dir(space, w_o):

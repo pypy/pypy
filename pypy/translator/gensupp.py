@@ -5,61 +5,6 @@ Another name could be genEric, but well...
 
 import sys
 
-from pypy.objspace.flow.model import Block
-
-# ordering the blocks of a graph by source position
-
-def ordered_blocks(graph):
-    # collect all blocks
-    allblocks = []
-    for block in graph.iterblocks():
-            # first we order by offset in the code string
-            if block.operations:
-                ofs = block.operations[0].offset
-            else:
-                ofs = sys.maxint
-            # then we order by input variable name or value
-            if block.inputargs:
-                txt = str(block.inputargs[0])
-            else:
-                txt = "dummy"
-            allblocks.append((ofs, txt, block))
-    allblocks.sort()
-    #for ofs, txt, block in allblocks:
-    #    print ofs, txt, block
-    return [block for ofs, txt, block in allblocks]
-
-# a unique list, similar to a list.
-# append1 appends an object only if it is not there, already.
-
-class UniqueList(list):
-    def __init__(self, *args, **kwds):
-        list.__init__(self, *args, **kwds)
-        self.dic = {}
-
-    def append1(self, arg):
-        try:
-            self.dic[arg]
-        except KeyError:
-            self.dic[arg] = 1
-            list.append(self, arg)
-        except TypeError: # not hashable
-            if arg not in self:
-                list.append(self, arg)
-
-def builtin_base(obj):
-    typ = type(obj)
-    return builtin_type_base(typ)
-
-def builtin_type_base(typ):
-    from copy_reg import _HEAPTYPE
-    while typ.__flags__&_HEAPTYPE:
-        typ = typ.__base__
-    return typ
-
-def c_string(s):
-    return '"%s"' % (s.replace('\\', '\\\\').replace('"', '\"'),)
-
 def uniquemodulename(name, SEEN={}):
     # never reuse the same module name within a Python session!
     i = 0

@@ -72,8 +72,8 @@ if os.name == "ce":
         return name
 
 if os.name == "posix" and sys.platform == "darwin":
-    from ctypes.macholib.dyld import dyld_find as _dyld_find
     def find_library(name):
+        from ctypes.macholib.dyld import dyld_find as _dyld_find
         possible = ['lib%s.dylib' % name,
                     '%s.dylib' % name,
                     '%s.framework/%s' % (name, name)]

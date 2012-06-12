@@ -19,10 +19,6 @@ int main(int argc, char *argv[]);
 #define PYPY_MAIN_FUNCTION main
 #endif
 
-#ifdef MS_WINDOWS
-#include "src/winstuff.c"
-#endif
-
 #ifdef __GNUC__
 /* Hack to prevent this function from being inlined.  Helps asmgcc
    because the main() function has often a different prologue/epilogue. */
@@ -36,16 +32,18 @@ int pypy_main_function(int argc, char *argv[])
     RPyListOfString *list;
 
     pypy_asm_stack_bottom();
+#ifdef PYPY_X86_CHECK_SSE2_DEFINED
+    pypy_x86_check_sse2();
+#endif
     instrument_setup();
 
+#ifndef MS_WINDOWS
+    /* this message does no longer apply to win64 :-) */
     if (sizeof(void*) != SIZEOF_LONG) {
         errmsg = "only support platforms where sizeof(void*) == sizeof(long),"
                  " for now";
         goto error;
     }
-
-#ifdef MS_WINDOWS
-    pypy_Windows_startup();
 #endif
 
     errmsg = RPython_StartupCode();

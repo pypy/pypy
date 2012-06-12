@@ -43,7 +43,7 @@ register_all(vars(), globals())
 def descr__new__(space, w_listtype, __args__):
     from pypy.objspace.std.listobject import W_ListObject
     w_obj = space.allocate_instance(W_ListObject, w_listtype)
-    W_ListObject.__init__(w_obj, space, [])
+    w_obj.clear(space)
     return w_obj
 
 # ____________________________________________________________

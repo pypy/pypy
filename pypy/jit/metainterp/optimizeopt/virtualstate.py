@@ -27,11 +27,15 @@ class AbstractVirtualStateInfo(resume.AbstractVirtualInfo):
         if self.generalization_of(other, renum, {}):
             return
         if renum[self.position] != other.position:
-            raise InvalidLoop
+            raise InvalidLoop('The numbering of the virtual states does not ' +
+                              'match. This means that two virtual fields ' +
+                              'have been set to the same Box in one of the ' +
+                              'virtual states but not in the other.')
         self._generate_guards(other, box, cpu, extra_guards)
 
     def _generate_guards(self, other, box, cpu, extra_guards):
-        raise InvalidLoop
+        raise InvalidLoop('Generating guards for making the VirtualStates ' +
+                          'at hand match have not been implemented')
 
     def enum_forced_boxes(self, boxes, value, optimizer):
         raise NotImplementedError
@@ -346,10 +350,12 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
 
     def _generate_guards(self, other, box, cpu, extra_guards):
         if not isinstance(other, NotVirtualStateInfo):
-            raise InvalidLoop
+            raise InvalidLoop('The VirtualStates does not match as a ' +
+                              'virtual appears where a pointer is needed ' +
+                              'and it is too late to force it.')
 
         if self.lenbound or other.lenbound:
-            raise InvalidLoop
+            raise InvalidLoop('The array length bounds does not match.')
 
         if self.level == LEVEL_KNOWNCLASS and \
            box.nonnull() and \
@@ -400,7 +406,8 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
             return
 
         # Remaining cases are probably not interesting
-        raise InvalidLoop
+        raise InvalidLoop('Generating guards for making the VirtualStates ' +
+                          'at hand match have not been implemented')
         if self.level == LEVEL_CONSTANT:
             import pdb; pdb.set_trace()
             raise NotImplementedError
@@ -681,13 +688,14 @@ class ShortBoxes(object):
             self.synthetic[op] = True
 
     def debug_print(self, logops):
-        debug_start('jit-short-boxes')
-        for box, op in self.short_boxes.items():
-            if op:
-                debug_print(logops.repr_of_arg(box) + ': ' + logops.repr_of_resop(op))
-            else:
-                debug_print(logops.repr_of_arg(box) + ': None')
-        debug_stop('jit-short-boxes')
+        if 0:
+            debug_start('jit-short-boxes')
+            for box, op in self.short_boxes.items():
+                if op:
+                    debug_print(logops.repr_of_arg(box) + ': ' + logops.repr_of_resop(op))
+                else:
+                    debug_print(logops.repr_of_arg(box) + ': None')
+            debug_stop('jit-short-boxes')
 
     def operations(self):
         if not we_are_translated(): # For tests

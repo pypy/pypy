@@ -45,9 +45,7 @@ class GuardToken(object):
         self.fcond = fcond
 
 
-class IntOpAsslember(object):
-
-    _mixin_ = True
+class ResOpAssembler(object):
 
     def emit_op_int_add(self, op, arglocs, regalloc, fcond, flags=False):
         l0, l1, res = arglocs
@@ -162,10 +160,6 @@ class IntOpAsslember(object):
     emit_op_int_sub_ovf = emit_op_int_sub
 
 
-class UnaryIntOpAssembler(object):
-
-    _mixin_ = True
-
     emit_op_int_is_true = gen_emit_op_unary_cmp('int_is_true', c.NE)
     emit_op_int_is_zero = gen_emit_op_unary_cmp('int_is_zero', c.EQ)
 
@@ -183,10 +177,6 @@ class UnaryIntOpAssembler(object):
         self.mc.RSB_ri(resloc.value, l0.value, imm=0)
         return fcond
 
-
-class GuardOpAssembler(object):
-
-    _mixin_ = True
 
     def _emit_guard(self, op, arglocs, fcond, save_exc,
                                     is_guard_not_invalidated=False):
@@ -291,10 +281,6 @@ class GuardOpAssembler(object):
                                             is_guard_not_invalidated=True)
 
 
-class OpAssembler(object):
-
-    _mixin_ = True
-
     def emit_op_jump(self, op, arglocs, regalloc, fcond):
         # The backend's logic assumes that the target code is in a piece of
         # assembler that was also called with the same number of arguments,
@@ -371,6 +357,7 @@ class OpAssembler(object):
         cond = self._emit_call(force_index, adr, arglist, fcond, resloc)
         descr = op.getdescr()
         #XXX Hack, Hack, Hack
+        # XXX NEEDS TO BE FIXED
         if (op.result and not we_are_translated()):
             #XXX check result type
             loc = regalloc.rm.call_result_location(op.result)
@@ -616,10 +603,6 @@ class OpAssembler(object):
     emit_op_cond_call_gc_wb_array = emit_op_cond_call_gc_wb
 
 
-class FieldOpAssembler(object):
-
-    _mixin_ = True
-
     def emit_op_setfield_gc(self, op, arglocs, regalloc, fcond):
         value_loc, base_loc, ofs, size = arglocs
         if size.value == 8:
@@ -675,11 +658,16 @@ class FieldOpAssembler(object):
             else:
                 self.mc.LDR_rr(res.value, base_loc.value, ofs.value)
         elif size.value == 2:
+            # XXX NEEDS TO BE FIXED
+            # XXX this doesn't get the correct result: it needs to know
+            # XXX if we want a signed or unsigned result
             if ofs.is_imm():
                 self.mc.LDRH_ri(res.value, base_loc.value, ofs.value)
             else:
                 self.mc.LDRH_rr(res.value, base_loc.value, ofs.value)
         elif size.value == 1:
+            # XXX this doesn't get the correct result: it needs to know
+            # XXX if we want a signed or unsigned result
             if ofs.is_imm():
                 self.mc.LDRB_ri(res.value, base_loc.value, ofs.value)
             else:
@@ -718,8 +706,13 @@ class FieldOpAssembler(object):
         elif fieldsize.value == 4:
             self.mc.LDR_rr(res_loc.value, base_loc.value, r.ip.value)
         elif fieldsize.value == 2:
+            # XXX NEEDS TO BE FIXED
+            # XXX this doesn't get the correct result: it needs to know
+            # XXX if we want a signed or unsigned result
             self.mc.LDRH_rr(res_loc.value, base_loc.value, r.ip.value)
         elif fieldsize.value == 1:
+            # XXX this doesn't get the correct result: it needs to know
+            # XXX if we want a signed or unsigned result
             self.mc.LDRB_rr(res_loc.value, base_loc.value, r.ip.value)
         else:
             assert 0
@@ -759,10 +752,6 @@ class FieldOpAssembler(object):
         return fcond
     emit_op_setinteriorfield_raw = emit_op_setinteriorfield_gc
 
-
-class ArrayOpAssember(object):
-
-    _mixin_ = True
 
     def emit_op_arraylen_gc(self, op, arglocs, regalloc, fcond):
         res, base_loc, ofs = arglocs
@@ -826,9 +815,14 @@ class ArrayOpAssember(object):
             self.mc.LDR_rr(res.value, base_loc.value, scale_loc.value,
                                                                 cond=fcond)
         elif scale.value == 1:
+            # XXX NEEDS TO BE FIXED
+            # XXX this doesn't get the correct result: it needs to know
+            # XXX if we want a signed or unsigned result
             self.mc.LDRH_rr(res.value, base_loc.value, scale_loc.value,
                                                                 cond=fcond)
         elif scale.value == 0:
+            # XXX this doesn't get the correct result: it needs to know
+            # XXX if we want a signed or unsigned result
             self.mc.LDRB_rr(res.value, base_loc.value, scale_loc.value,
                                                                 cond=fcond)
         else:
@@ -845,10 +839,6 @@ class ArrayOpAssember(object):
     emit_op_getarrayitem_raw = emit_op_getarrayitem_gc
     emit_op_getarrayitem_gc_pure = emit_op_getarrayitem_gc
 
-
-class StrOpAssembler(object):
-
-    _mixin_ = True
 
     def emit_op_strlen(self, op, arglocs, regalloc, fcond):
         l0, l1, res = arglocs
@@ -998,11 +988,7 @@ class StrOpAssembler(object):
             raise AssertionError("bad unicode item size")
 
 
-class UnicodeOpAssembler(object):
-
-    _mixin_ = True
-
-    emit_op_unicodelen = StrOpAssembler.emit_op_strlen
+    emit_op_unicodelen = emit_op_strlen
 
     def emit_op_unicodegetitem(self, op, arglocs, regalloc, fcond):
         res, base_loc, ofs_loc, scale, basesize, itemsize = arglocs
@@ -1031,10 +1017,6 @@ class UnicodeOpAssembler(object):
 
         return fcond
 
-
-class ForceOpAssembler(object):
-
-    _mixin_ = True
 
     def emit_op_force_token(self, op, arglocs, regalloc, fcond):
         res_loc = arglocs[0]
@@ -1248,10 +1230,6 @@ class ForceOpAssembler(object):
         self.mc.STR_ri(r.ip.value, r.fp.value)
 
 
-class AllocOpAssembler(object):
-
-    _mixin_ = True
-
     def emit_op_call_malloc_gc(self, op, arglocs, regalloc, fcond):
         self.emit_op_call(op, arglocs, regalloc, fcond)
         self.propagate_memoryerror_if_r0_is_null()
@@ -1282,9 +1260,6 @@ class AllocOpAssembler(object):
         self.mc.NOP()
 
 
-class FloatOpAssemlber(object):
-    _mixin_ = True
-
     emit_op_float_add = gen_emit_float_op('float_add', 'VADD')
     emit_op_float_sub = gen_emit_float_op('float_sub', 'VSUB')
     emit_op_float_mul = gen_emit_float_op('float_mul', 'VMUL')
@@ -1309,25 +1284,43 @@ class FloatOpAssemlber(object):
     emit_guard_float_ge = gen_emit_float_cmp_op_guard('float_ge', c.GE)
 
     def emit_op_cast_float_to_int(self, op, arglocs, regalloc, fcond):
-        arg, temp, res = arglocs
-        self.mc.VCVT_float_to_int(temp.value, arg.value)
-        self.mc.VPUSH([temp.value])
-        # res is lower register than r.ip
-        self.mc.POP([res.value, r.ip.value])
+        arg, res = arglocs
+        assert arg.is_vfp_reg()
+        assert res.is_reg()
+        self.mc.VCVT_float_to_int(r.vfp_ip.value, arg.value)
+        self.mc.VMOV_rc(res.value, r.ip.value, r.vfp_ip.value)
         return fcond
 
     def emit_op_cast_int_to_float(self, op, arglocs, regalloc, fcond):
-        arg, temp, res = arglocs
-        self.mc.PUSH([arg.value, r.ip.value])
-        self.mc.VPOP([temp.value])
-        self.mc.VCVT_int_to_float(res.value, temp.value)
+        arg, res = arglocs
+        assert res.is_vfp_reg()
+        assert arg.is_reg()
+        self.mc.MOV_ri(r.ip.value, 0)
+        self.mc.VMOV_cr(res.value, arg.value, r.ip.value)
+        self.mc.VCVT_int_to_float(res.value, res.value)
         return fcond
 
+    emit_op_llong_add = gen_emit_float_op('llong_add', 'VADD_i64')
+    emit_op_llong_sub = gen_emit_float_op('llong_sub', 'VSUB_i64')
+    emit_op_llong_and = gen_emit_float_op('llong_and', 'VAND_i64')
+    emit_op_llong_or = gen_emit_float_op('llong_or', 'VORR_i64')
+    emit_op_llong_xor = gen_emit_float_op('llong_xor', 'VEOR_i64')
 
-class ResOpAssembler(GuardOpAssembler, IntOpAsslember,
-                    OpAssembler, UnaryIntOpAssembler,
-                    FieldOpAssembler, ArrayOpAssember,
-                    StrOpAssembler, UnicodeOpAssembler,
-                    ForceOpAssembler, AllocOpAssembler,
-                    FloatOpAssemlber):
-    pass
+    def emit_op_llong_to_int(self, op, arglocs, regalloc, fcond):
+        loc = arglocs[0]
+        res = arglocs[1]
+        assert loc.is_vfp_reg()
+        assert res.is_reg()
+        self.mc.VMOV_rc(res.value, r.ip.value, loc.value)
+        return fcond
+
+    emit_op_convert_float_bytes_to_longlong = gen_emit_unary_float_op('float_bytes_to_longlong', 'VMOV_cc')
+    emit_op_convert_longlong_bytes_to_float = gen_emit_unary_float_op('longlong_bytes_to_float', 'VMOV_cc')
+
+    def emit_op_read_timestamp(self, op, arglocs, regalloc, fcond):
+        tmp = arglocs[0]
+        res = arglocs[1]
+        self.mc.MRC(15, 0, tmp.value, 15, 12, 1)
+        self.mc.MOV_ri(r.ip.value, 0)
+        self.mc.VMOV_cr(res.value, tmp.value, r.ip.value)
+        return fcond

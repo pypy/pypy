@@ -6,7 +6,7 @@ Extra tests for the pure Python PyPy _collections module
 
 from pypy.conftest import gettestobjspace
 
-class AppTestcStringIO:
+class AppTestCollections:
     def test_copy(self):
         import _collections
         def f():

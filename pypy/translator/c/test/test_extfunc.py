@@ -134,6 +134,13 @@ def test_largefile():
         res = os.lseek(fd, -r5200000000, 2)
         assert res == r4800000000
         os.close(fd)
+        try:
+            os.lseek(fd, 0, 0)
+        except OSError:
+            pass
+        else:
+            print "DID NOT RAISE"
+            raise AssertionError
         st = os.stat(filename)
         assert st.st_size == r10000000000
     does_stuff()
@@ -919,4 +926,5 @@ class TestExtFuncStandalone(StandaloneTests):
             t, cbuilder = self.compile(does_stuff)
             data = cbuilder.cmdexec('')
             res = os.nice(0) + 3
+            if res > 19: res = 19    # xxx Linux specific, probably
             assert data.startswith('os.nice returned %d\n' % res)

@@ -241,6 +241,37 @@ class TestObjSpace:
         w_obj = space.wrap(-12)
         space.raises_w(space.w_ValueError, space.r_ulonglong_w, w_obj)
 
+    def test_truncatedint_w(self):
+        space = self.space
+        assert space.truncatedint_w(space.wrap(42)) == 42
+        assert space.truncatedint_w(space.wrap(sys.maxint)) == sys.maxint
+        assert space.truncatedint_w(space.wrap(sys.maxint+1)) == -sys.maxint-1
+        assert space.truncatedint_w(space.wrap(-1)) == -1
+        assert space.truncatedint_w(space.wrap(-sys.maxint-2)) == sys.maxint
+
+    def test_truncatedlonglong_w(self):
+        space = self.space
+        w_value = space.wrap(12)
+        res = space.truncatedlonglong_w(w_value)
+        assert res == 12
+        assert type(res) is r_longlong
+        #
+        w_value = space.wrap(r_ulonglong(9223372036854775808))
+        res = space.truncatedlonglong_w(w_value)
+        assert res == -9223372036854775808
+        assert type(res) is r_longlong
+        #
+        w_value = space.wrap(r_ulonglong(18446744073709551615))
+        res = space.truncatedlonglong_w(w_value)
+        assert res == -1
+        assert type(res) is r_longlong
+        #
+        w_value = space.wrap(r_ulonglong(18446744073709551616))
+        res = space.truncatedlonglong_w(w_value)
+        assert res == 0
+        assert type(res) is r_longlong
+
+
     def test_call_obj_args(self):
         from pypy.interpreter.argument import Arguments
         
@@ -312,8 +343,8 @@ class TestModuleMinimal:
             mods = space.get_builtinmodule_to_install()
             
             assert '__pypy__' in mods                # real builtin
-            assert 'array' not in mods               # in lib_pypy
-            assert 'faked+array' not in mods         # in lib_pypy
+            assert '_functools' not in mods               # in lib_pypy
+            assert 'faked+_functools' not in mods         # in lib_pypy
             assert 'this_doesnt_exist' not in mods   # not in lib_pypy
             assert 'faked+this_doesnt_exist' in mods # not in lib_pypy, but in
                                                      # ALL_BUILTIN_MODULES
@@ -322,3 +353,14 @@ class TestModuleMinimal:
             space.ALL_BUILTIN_MODULES.pop()
             del space._builtinmodule_list
             mods = space.get_builtinmodule_to_install()
+
+    def test_dont_reload_builtin_mods_on_startup(self):
+        from pypy.tool.option import make_config, make_objspace
+        config = make_config(None)
+        space = make_objspace(config)
+        w_executable = space.wrap('executable')
+        assert space.str_w(space.getattr(space.sys, w_executable)) == 'py.py'
+        space.setattr(space.sys, w_executable, space.wrap('foobar'))
+        assert space.str_w(space.getattr(space.sys, w_executable)) == 'foobar'
+        space.startup()
+        assert space.str_w(space.getattr(space.sys, w_executable)) == 'foobar'

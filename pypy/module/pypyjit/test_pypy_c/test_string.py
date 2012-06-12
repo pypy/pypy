@@ -198,3 +198,37 @@ class TestString(BaseTestPyPyC):
             i49 = call(ConstClass(_ll_2_str_eq_nonnull__rpy_stringPtr_rpy_stringPtr), p35, ConstPtr(ptr48), descr=<Calli [48] rr EF=0 OS=28>)
             guard_value(i49, 1, descr=...)
             ''')
+
+    def test_remove_duplicate_method_calls(self):
+        def main(n):
+            lst = []
+            for i in range(n):
+                s = 'Hello %d' % i
+                t = s.lower()   # ID: callone
+                u = s.lower()   # ID: calltwo
+                lst.append(t)
+                lst.append(u)
+            return len(','.join(lst))
+        log = self.run(main, [1000])
+        assert log.result == main(1000)
+        loops = log.loops_by_filename(self.filepath)
+        loop, = loops
+        loop.match_by_id('callone', '''
+            p114 = call(ConstClass(ll_lower__rpy_stringPtr), p113, descr=<Callr . r EF=3>)
+            guard_no_exception(descr=...)
+            ''')
+        loop.match_by_id('calltwo', '')    # nothing
+
+    def test_move_method_call_out_of_loop(self):
+        def main(n):
+            lst = []
+            s = 'Hello %d' % n
+            for i in range(n):
+                t = s.lower()   # ID: callone
+                lst.append(t)
+            return len(','.join(lst))
+        log = self.run(main, [1000])
+        assert log.result == main(1000)
+        loops = log.loops_by_filename(self.filepath)
+        loop, = loops
+        loop.match_by_id('callone', '')    # nothing

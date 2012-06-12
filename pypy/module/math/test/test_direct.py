@@ -55,6 +55,15 @@ class MathTests:
         ('frexp', (-1.25,), lambda x: x == (-0.625, 1)),
         ('modf',  (4.25,), lambda x: x == (0.25, 4.0)),
         ('modf',  (-4.25,), lambda x: x == (-0.25, -4.0)),
+        ('copysign', (1.5, 0.0), 1.5),
+        ('copysign', (1.5, -0.0), -1.5),
+        ('copysign', (1.5, INFINITY), 1.5),
+        ('copysign', (1.5, -INFINITY), -1.5),
+        ]
+    if sys.platform != 'win32':    # all NaNs seem to be negative there...?
+        IRREGCASES += [
+        ('copysign', (1.5, NAN), 1.5),
+        ('copysign', (1.75, -NAN), -1.75),      # special case for -NAN here
         ]
 
     OVFCASES = [

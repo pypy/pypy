@@ -449,6 +449,21 @@ class BaseTestRdict(BaseRtypingTest):
 
         assert r_AB_dic.lowleveltype == r_BA_dic.lowleveltype
 
+    def test_identity_hash_is_fast(self):
+        class A(object):
+            pass
+
+        def f():
+            return {A(): 1}
+
+        t = TranslationContext()
+        s = t.buildannotator().build_types(f, [])
+        rtyper = t.buildrtyper()
+        rtyper.specialize()
+
+        r_dict = rtyper.getrepr(s)
+        assert not hasattr(r_dict.lowleveltype.TO.entries.TO.OF, "f_hash")
+
     def test_tuple_dict(self):
         def f(i):
             d = {}
@@ -734,13 +749,20 @@ class TestLLtype(BaseTestRdict, LLRtypeMixin):
         assert count_frees >= 3
 
     def test_dict_resize(self):
+        # XXX we no longer automatically resize on 'del'.  We need to
+        # hack a bit in this test to trigger a resize by continuing to
+        # fill the dict's table while keeping the actual size very low
+        # in order to force a resize to shrink the table back
         def func(want_empty):
             d = {}
-            for i in range(rdict.DICT_INITSIZE):
+            for i in range(rdict.DICT_INITSIZE << 1):
                 d[chr(ord('a') + i)] = i
             if want_empty:
-                for i in range(rdict.DICT_INITSIZE):
+                for i in range(rdict.DICT_INITSIZE << 1):
                     del d[chr(ord('a') + i)]
+                for i in range(rdict.DICT_INITSIZE << 3):
+                    d[chr(ord('A') - i)] = i
+                    del d[chr(ord('A') - i)]
             return d
         res = self.interpret(func, [0])
         assert len(res.entries) > rdict.DICT_INITSIZE

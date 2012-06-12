@@ -11,6 +11,8 @@ from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.objectmodel import we_are_translated, running_on_llinterp
 from pypy.rpython.lltypesystem import rffi
 from pypy.rpython.memory.gcheader import GCHeaderBuilder
+from pypy.rlib.rarithmetic import is_valid_int
+
 
 # Mark'n'compact garbage collector
 #
@@ -353,7 +355,7 @@ class MarkCompactGC(MovingGCBase):
         # like header(), but asserts that we have a forwarding header
         hdr = MovingGCBase.header(self, addr)
         if not we_are_translated():
-            assert isinstance(hdr.tid, int)
+            assert is_valid_int(hdr.tid)
         return hdr
 
     def combine(self, typeid16, flags):

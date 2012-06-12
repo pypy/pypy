@@ -1,15 +1,12 @@
 from __future__ import with_statement
-import autopath
 import py.test
 import sys
 from pypy import conftest
-from pypy.tool.udir import udir
 
 from pypy.annotation import model as annmodel
 from pypy.annotation.annrpython import RPythonAnnotator as _RPythonAnnotator
 from pypy.translator.translator import graphof as tgraphof
 from pypy.annotation import policy
-from pypy.annotation import specialize
 from pypy.annotation.listdef import ListDef, ListChangeUnallowed
 from pypy.annotation.dictdef import DictDef
 from pypy.objspace.flow.model import *
@@ -486,7 +483,7 @@ class TestAnnotateTestCase:
                 return a_str.strip(' ')
             elif n == 1:
                 return a_str.rstrip(' ')
-            else: 
+            else:
                 return a_str.lstrip(' ')
         s = a.build_types(f, [int, annmodel.SomeString(no_nul=True)])
         assert s.no_nul
@@ -2431,6 +2428,93 @@ class TestAnnotateTestCase:
         assert isinstance(s.items[1], annmodel.SomeChar)
         assert isinstance(s.items[2], annmodel.SomeChar)
 
+    def test_mixin_first(self):
+        class Mixin(object):
+            _mixin_ = True
+            def foo(self): return 4
+        class Base(object):
+            def foo(self): return 5
+        class Concrete(Mixin, Base):
+            pass
+        def f():
+            return Concrete().foo()
+
+        assert f() == 4
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert s.const == 4
+
+    def test_mixin_last(self):
+        class Mixin(object):
+            _mixin_ = True
+            def foo(self): return 4
+        class Base(object):
+            def foo(self): return 5
+        class Concrete(Base, Mixin):
+            pass
+        def f():
+            return Concrete().foo()
+
+        assert f() == 5
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert s.const == 5
+
+    def test_mixin_concrete(self):
+        class Mixin(object):
+            _mixin_ = True
+            def foo(self): return 4
+        class Concrete(Mixin):
+            def foo(self): return 5
+        def f():
+            return Concrete().foo()
+
+        assert f() == 5
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert s.const == 5
+
+    def test_multiple_mixins_mro(self):
+        # an obscure situation, but it occurred in module/micronumpy/types.py
+        class A(object):
+            _mixin_ = True
+            def foo(self): return 1
+        class B(A):
+            _mixin_ = True
+            def foo(self): return 2
+        class C(A):
+            _mixin_ = True
+        class D(B, C):
+            _mixin_ = True
+        class Concrete(D):
+            pass
+        def f():
+            return Concrete().foo()
+
+        assert f() == 2
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert s.const == 2
+
+    def test_multiple_mixins_mro_2(self):
+        class A(object):
+            _mixin_ = True
+            def foo(self): return 1
+        class B(A):
+            _mixin_ = True
+            def foo(self): return 2
+        class C(A):
+            _mixin_ = True
+        class Concrete(C, B):
+            pass
+        def f():
+            return Concrete().foo()
+
+        assert f() == 2
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert s.const == 2
+
     def test___class___attribute(self):
         class Base(object): pass
         class A(Base): pass
@@ -2468,6 +2552,26 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         s = a.build_types(f, [int])
         assert s.knowntype == int
+
+    def test_slots_reads(self):
+        class A(object):
+            __slots__ = ()
+        class B(A):
+            def __init__(self, x):
+                self.x = x
+        def f(x):
+            if x:
+                a = A()
+            else:
+                a = B(x)
+            return a.x   # should explode here
+
+        a = self.RPythonAnnotator()
+        e = py.test.raises(Exception, a.build_types, f, [int])
+        # this should explode on reading the attribute 'a.x', but it can
+        # sometimes explode on 'self.x = x', which does not make much sense.
+        # But it looks hard to fix in general: we don't know yet during 'a.x'
+        # if the attribute x will be read-only or read-write.
 
     def test_unboxed_value(self):
         class A(object):
@@ -3633,6 +3737,37 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [int])
         assert s.listdef.listitem.range_step == 0
 
+    def test_specialize_arg_memo(self):
+        @objectmodel.specialize.memo()
+        def g(n):
+            return n
+        @objectmodel.specialize.arg(0)
+        def f(i):
+            return g(i)
+        def main(i):
+            if i == 2:
+                return f(2)
+            elif i == 3:
+                return f(3)
+            else:
+                raise NotImplementedError
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(main, [int])
+        assert isinstance(s, annmodel.SomeInteger)
+
+    def test_join_none_and_nonnull(self):
+        from pypy.rlib.rstring import assert_str0
+        
+        def f(i):
+            a = str(i)
+            a = assert_str0(a)
+            return a.join([None])
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert isinstance(s, annmodel.SomeString)
+        assert not s.can_be_None
 
 def g(n):
     return [0,1,2,n]

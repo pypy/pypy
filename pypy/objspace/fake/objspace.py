@@ -55,6 +55,9 @@ class W_MyObject(Wrappable):
         from pypy.rlib.rbigint import rbigint
         return rbigint.fromint(NonConstant(42))
 
+class W_MyType(W_MyObject):
+    def __init__(self):
+        self.mro_w = [w_some_obj(), w_some_obj()]
 
 def w_some_obj():
     if NonConstant(False):
@@ -65,6 +68,9 @@ def w_obj_or_none():
     if NonConstant(False):
         return None
     return w_some_obj()
+
+def w_some_type():
+    return W_MyType()
 
 def is_root(w_obj):
     assert isinstance(w_obj, W_Root)
@@ -86,6 +92,7 @@ class Entry(ExtRegistryEntry):
         return s_None
 
     def specialize_call(self, hop):
+        hop.exception_cannot_occur()
         return hop.inputconst(lltype.Void, None)
 
 # ____________________________________________________________
@@ -109,7 +116,7 @@ class FakeObjSpace(ObjSpace):
         "NOT_RPYTHON"
         raise NotImplementedError
 
-    def newdict(self, module=False, instance=False, classofinstance=None,
+    def newdict(self, module=False, instance=False, kwargs=False,
                 strdict=False):
         return w_some_obj()
 
@@ -207,12 +214,20 @@ class FakeObjSpace(ObjSpace):
         is_arguments(args)
         return w_some_obj()
 
+    def get_and_call_function(space, w_descr, w_obj, *args_w):
+        args = argument.Arguments(space, list(args_w))
+        w_impl = space.get(w_descr, w_obj)
+        return space.call_args(w_impl, args)
+
     def gettypefor(self, cls):
         return self.gettypeobject(cls.typedef)
 
     def gettypeobject(self, typedef):
         assert typedef is not None
         return self.fromcache(TypeCache).getorbuild(typedef)
+
+    def type(self, w_obj):
+        return w_some_type()
 
     def unpackiterable(self, w_iterable, expected_length=-1):
         is_root(w_iterable)
@@ -281,10 +296,13 @@ def setup():
                  ObjSpace.ExceptionTable +
                  ['int', 'str', 'float', 'long', 'tuple', 'list',
                   'dict', 'unicode', 'complex', 'slice', 'bool',
-                  'type', 'basestring', 'object']):
+                  'basestring', 'object']):
         setattr(FakeObjSpace, 'w_' + name, w_some_obj())
+    FakeObjSpace.w_type = w_some_type()
     #
     for (name, _, arity, _) in ObjSpace.MethodTable:
+        if name == 'type':
+            continue
         args = ['w_%d' % i for i in range(arity)]
         params = args[:]
         d = {'is_root': is_root,
