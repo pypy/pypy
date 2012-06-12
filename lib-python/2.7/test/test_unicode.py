@@ -5,8 +5,15 @@ Written by Marc-Andre Lemburg (mal@lemburg.com).
 (c) Copyright CNRI, All Rights Reserved. NO WARRANTY.
 
 """#"
-import sys, struct, codecs
+import sys
+import struct
+import codecs
+import unittest
 from test import test_support, string_tests
+
+# decorator to skip tests on narrow builds
+requires_wide_build = unittest.skipIf(sys.maxunicode == 65535,
+                                      'requires wide build')
 
 # Error handling (bad decoder return)
 def search_function(encoding):
@@ -269,19 +276,71 @@ class UnicodeTest(
         # Surrogates on both sides, no fixup required
         self.assertTrue(u'\ud800\udc02' < u'\ud84d\udc56')
 
+    def test_capitalize(self):
+        string_tests.CommonTest.test_capitalize(self)
+        # check that titlecased chars are lowered correctly
+        # \u1ffc is the titlecased char
+        self.checkequal(u'\u1ffc\u1ff3\u1ff3\u1ff3',
+                        u'\u1ff3\u1ff3\u1ffc\u1ffc', 'capitalize')
+        # check with cased non-letter chars
+        self.checkequal(u'\u24c5\u24e8\u24e3\u24d7\u24de\u24dd',
+                        u'\u24c5\u24ce\u24c9\u24bd\u24c4\u24c3', 'capitalize')
+        self.checkequal(u'\u24c5\u24e8\u24e3\u24d7\u24de\u24dd',
+                        u'\u24df\u24e8\u24e3\u24d7\u24de\u24dd', 'capitalize')
+        self.checkequal(u'\u2160\u2171\u2172',
+                        u'\u2160\u2161\u2162', 'capitalize')
+        self.checkequal(u'\u2160\u2171\u2172',
+                        u'\u2170\u2171\u2172', 'capitalize')
+        # check with Ll chars with no upper - nothing changes here
+        self.checkequal(u'\u019b\u1d00\u1d86\u0221\u1fb7',
+                        u'\u019b\u1d00\u1d86\u0221\u1fb7', 'capitalize')
+
     def test_islower(self):
         string_tests.MixinStrUnicodeUserStringTest.test_islower(self)
         self.checkequalnofix(False, u'\u1FFc', 'islower')
+
+    @requires_wide_build
+    def test_islower_non_bmp(self):
+        # non-BMP, uppercase
+        self.assertFalse(u'\U00010401'.islower())
+        self.assertFalse(u'\U00010427'.islower())
+        # non-BMP, lowercase
+        self.assertTrue(u'\U00010429'.islower())
+        self.assertTrue(u'\U0001044E'.islower())
+        # non-BMP, non-cased
+        self.assertFalse(u'\U0001F40D'.islower())
+        self.assertFalse(u'\U0001F46F'.islower())
 
     def test_isupper(self):
         string_tests.MixinStrUnicodeUserStringTest.test_isupper(self)
         if not sys.platform.startswith('java'):
             self.checkequalnofix(False, u'\u1FFc', 'isupper')
 
+    @requires_wide_build
+    def test_isupper_non_bmp(self):
+        # non-BMP, uppercase
+        self.assertTrue(u'\U00010401'.isupper())
+        self.assertTrue(u'\U00010427'.isupper())
+        # non-BMP, lowercase
+        self.assertFalse(u'\U00010429'.isupper())
+        self.assertFalse(u'\U0001044E'.isupper())
+        # non-BMP, non-cased
+        self.assertFalse(u'\U0001F40D'.isupper())
+        self.assertFalse(u'\U0001F46F'.isupper())
+
     def test_istitle(self):
-        string_tests.MixinStrUnicodeUserStringTest.test_title(self)
+        string_tests.MixinStrUnicodeUserStringTest.test_istitle(self)
         self.checkequalnofix(True, u'\u1FFc', 'istitle')
         self.checkequalnofix(True, u'Greek \u1FFcitlecases ...', 'istitle')
+
+    @requires_wide_build
+    def test_istitle_non_bmp(self):
+        # non-BMP, uppercase + lowercase
+        self.assertTrue(u'\U00010401\U00010429'.istitle())
+        self.assertTrue(u'\U00010427\U0001044E'.istitle())
+        # apparently there are no titlecased (Lt) non-BMP chars in Unicode 6
+        for ch in [u'\U00010429', u'\U0001044E', u'\U0001F40D', u'\U0001F46F']:
+            self.assertFalse(ch.istitle(), '{!r} is not title'.format(ch))
 
     def test_isspace(self):
         string_tests.MixinStrUnicodeUserStringTest.test_isspace(self)
@@ -289,9 +348,33 @@ class UnicodeTest(
         self.checkequalnofix(True, u'\u200a', 'isspace')
         self.checkequalnofix(False, u'\u2014', 'isspace')
 
+    @requires_wide_build
+    def test_isspace_non_bmp(self):
+        # apparently there are no non-BMP spaces chars in Unicode 6
+        for ch in [u'\U00010401', u'\U00010427', u'\U00010429', u'\U0001044E',
+                   u'\U0001F40D', u'\U0001F46F']:
+            self.assertFalse(ch.isspace(), '{!r} is not space.'.format(ch))
+
+    @requires_wide_build
+    def test_isalnum_non_bmp(self):
+        for ch in [u'\U00010401', u'\U00010427', u'\U00010429', u'\U0001044E',
+                   u'\U0001D7F6', u'\U000104A0', u'\U000104A0', u'\U0001F107']:
+            self.assertTrue(ch.isalnum(), '{!r} is alnum.'.format(ch))
+
     def test_isalpha(self):
         string_tests.MixinStrUnicodeUserStringTest.test_isalpha(self)
         self.checkequalnofix(True, u'\u1FFc', 'isalpha')
+
+    @requires_wide_build
+    def test_isalpha_non_bmp(self):
+        # non-BMP, cased
+        self.assertTrue(u'\U00010401'.isalpha())
+        self.assertTrue(u'\U00010427'.isalpha())
+        self.assertTrue(u'\U00010429'.isalpha())
+        self.assertTrue(u'\U0001044E'.isalpha())
+        # non-BMP, non-cased
+        self.assertFalse(u'\U0001F40D'.isalpha())
+        self.assertFalse(u'\U0001F46F'.isalpha())
 
     def test_isdecimal(self):
         self.checkequalnofix(False, u'', 'isdecimal')
@@ -305,11 +388,27 @@ class UnicodeTest(
 
         self.checkraises(TypeError, 'abc', 'isdecimal', 42)
 
+    @requires_wide_build
+    def test_isdecimal_non_bmp(self):
+        for ch in [u'\U00010401', u'\U00010427', u'\U00010429', u'\U0001044E',
+                   u'\U0001F40D', u'\U0001F46F', u'\U00011065', u'\U0001F107']:
+            self.assertFalse(ch.isdecimal(), '{!r} is not decimal.'.format(ch))
+        for ch in [u'\U0001D7F6', u'\U000104A0', u'\U000104A0']:
+            self.assertTrue(ch.isdecimal(), '{!r} is decimal.'.format(ch))
+
     def test_isdigit(self):
         string_tests.MixinStrUnicodeUserStringTest.test_isdigit(self)
         self.checkequalnofix(True, u'\u2460', 'isdigit')
         self.checkequalnofix(False, u'\xbc', 'isdigit')
         self.checkequalnofix(True, u'\u0660', 'isdigit')
+
+    @requires_wide_build
+    def test_isdigit_non_bmp(self):
+        for ch in [u'\U00010401', u'\U00010427', u'\U00010429', u'\U0001044E',
+                   u'\U0001F40D', u'\U0001F46F', u'\U00011065']:
+            self.assertFalse(ch.isdigit(), '{!r} is not a digit.'.format(ch))
+        for ch in [u'\U0001D7F6', u'\U000104A0', u'\U000104A0', u'\U0001F107']:
+            self.assertTrue(ch.isdigit(), '{!r} is a digit.'.format(ch))
 
     def test_isnumeric(self):
         self.checkequalnofix(False, u'', 'isnumeric')
@@ -322,6 +421,109 @@ class UnicodeTest(
         self.checkequalnofix(False, u'0123456789a', 'isnumeric')
 
         self.assertRaises(TypeError, u"abc".isnumeric, 42)
+
+    @requires_wide_build
+    def test_isnumeric_non_bmp(self):
+        for ch in [u'\U00010401', u'\U00010427', u'\U00010429', u'\U0001044E',
+                   u'\U0001F40D', u'\U0001F46F']:
+            self.assertFalse(ch.isnumeric(), '{!r} is not numeric.'.format(ch))
+        for ch in [u'\U00010107', u'\U0001D7F6', u'\U00023b1b',
+                   u'\U000104A0', u'\U0001F107']:
+            self.assertTrue(ch.isnumeric(), '{!r} is numeric.'.format(ch))
+
+    @requires_wide_build
+    def test_surrogates(self):
+        # this test actually passes on narrow too, but it's just by accident.
+        # Surrogates are seen as non-cased chars, so u'X\uD800X' is as
+        # uppercase as 'X X'
+        for s in (u'a\uD800b\uDFFF', u'a\uDFFFb\uD800',
+                  u'a\uD800b\uDFFFa', u'a\uDFFFb\uD800a'):
+            self.assertTrue(s.islower())
+            self.assertFalse(s.isupper())
+            self.assertFalse(s.istitle())
+        for s in (u'A\uD800B\uDFFF', u'A\uDFFFB\uD800',
+                  u'A\uD800B\uDFFFA', u'A\uDFFFB\uD800A'):
+            self.assertFalse(s.islower())
+            self.assertTrue(s.isupper())
+            self.assertTrue(s.istitle())
+
+        for meth_name in ('islower', 'isupper', 'istitle'):
+            meth = getattr(unicode, meth_name)
+            for s in (u'\uD800', u'\uDFFF', u'\uD800\uD800', u'\uDFFF\uDFFF'):
+                self.assertFalse(meth(s), '%r.%s() is False' % (s, meth_name))
+
+        for meth_name in ('isalpha', 'isalnum', 'isdigit', 'isspace',
+                          'isdecimal', 'isnumeric'):
+            meth = getattr(unicode, meth_name)
+            for s in (u'\uD800', u'\uDFFF', u'\uD800\uD800', u'\uDFFF\uDFFF',
+                      u'a\uD800b\uDFFF', u'a\uDFFFb\uD800',
+                      u'a\uD800b\uDFFFa', u'a\uDFFFb\uD800a'):
+                self.assertFalse(meth(s), '%r.%s() is False' % (s, meth_name))
+
+
+    @requires_wide_build
+    def test_lower(self):
+        string_tests.CommonTest.test_lower(self)
+        self.assertEqual(u'\U00010427'.lower(), u'\U0001044F')
+        self.assertEqual(u'\U00010427\U00010427'.lower(),
+                         u'\U0001044F\U0001044F')
+        self.assertEqual(u'\U00010427\U0001044F'.lower(),
+                         u'\U0001044F\U0001044F')
+        self.assertEqual(u'X\U00010427x\U0001044F'.lower(),
+                         u'x\U0001044Fx\U0001044F')
+
+    @requires_wide_build
+    def test_upper(self):
+        string_tests.CommonTest.test_upper(self)
+        self.assertEqual(u'\U0001044F'.upper(), u'\U00010427')
+        self.assertEqual(u'\U0001044F\U0001044F'.upper(),
+                         u'\U00010427\U00010427')
+        self.assertEqual(u'\U00010427\U0001044F'.upper(),
+                         u'\U00010427\U00010427')
+        self.assertEqual(u'X\U00010427x\U0001044F'.upper(),
+                         u'X\U00010427X\U00010427')
+
+    @requires_wide_build
+    def test_capitalize(self):
+        string_tests.CommonTest.test_capitalize(self)
+        self.assertEqual(u'\U0001044F'.capitalize(), u'\U00010427')
+        self.assertEqual(u'\U0001044F\U0001044F'.capitalize(),
+                         u'\U00010427\U0001044F')
+        self.assertEqual(u'\U00010427\U0001044F'.capitalize(),
+                         u'\U00010427\U0001044F')
+        self.assertEqual(u'\U0001044F\U00010427'.capitalize(),
+                         u'\U00010427\U0001044F')
+        self.assertEqual(u'X\U00010427x\U0001044F'.capitalize(),
+                         u'X\U0001044Fx\U0001044F')
+
+    @requires_wide_build
+    def test_title(self):
+        string_tests.MixinStrUnicodeUserStringTest.test_title(self)
+        self.assertEqual(u'\U0001044F'.title(), u'\U00010427')
+        self.assertEqual(u'\U0001044F\U0001044F'.title(),
+                         u'\U00010427\U0001044F')
+        self.assertEqual(u'\U0001044F\U0001044F \U0001044F\U0001044F'.title(),
+                         u'\U00010427\U0001044F \U00010427\U0001044F')
+        self.assertEqual(u'\U00010427\U0001044F \U00010427\U0001044F'.title(),
+                         u'\U00010427\U0001044F \U00010427\U0001044F')
+        self.assertEqual(u'\U0001044F\U00010427 \U0001044F\U00010427'.title(),
+                         u'\U00010427\U0001044F \U00010427\U0001044F')
+        self.assertEqual(u'X\U00010427x\U0001044F X\U00010427x\U0001044F'.title(),
+                         u'X\U0001044Fx\U0001044F X\U0001044Fx\U0001044F')
+
+    @requires_wide_build
+    def test_swapcase(self):
+        string_tests.CommonTest.test_swapcase(self)
+        self.assertEqual(u'\U0001044F'.swapcase(), u'\U00010427')
+        self.assertEqual(u'\U00010427'.swapcase(), u'\U0001044F')
+        self.assertEqual(u'\U0001044F\U0001044F'.swapcase(),
+                         u'\U00010427\U00010427')
+        self.assertEqual(u'\U00010427\U0001044F'.swapcase(),
+                         u'\U0001044F\U00010427')
+        self.assertEqual(u'\U0001044F\U00010427'.swapcase(),
+                         u'\U00010427\U0001044F')
+        self.assertEqual(u'X\U00010427x\U0001044F'.swapcase(),
+                         u'x\U0001044FX\U00010427')
 
     def test_contains(self):
         # Testing Unicode contains method
@@ -569,10 +771,18 @@ class UnicodeTest(
         for (x, y) in utfTests:
             self.assertEqual(x.encode('utf-7'), y)
 
-        # Unpaired surrogates not supported
-        self.assertRaises(UnicodeError, unicode, '+3ADYAA-', 'utf-7')
+        # Unpaired surrogates are passed through
+        self.assertEqual(u'\uD801'.encode('utf-7'), '+2AE-')
+        self.assertEqual(u'\uD801x'.encode('utf-7'), '+2AE-x')
+        self.assertEqual(u'\uDC01'.encode('utf-7'), '+3AE-')
+        self.assertEqual(u'\uDC01x'.encode('utf-7'), '+3AE-x')
+        self.assertEqual('+2AE-'.decode('utf-7'), u'\uD801')
+        self.assertEqual('+2AE-x'.decode('utf-7'), u'\uD801x')
+        self.assertEqual('+3AE-'.decode('utf-7'), u'\uDC01')
+        self.assertEqual('+3AE-x'.decode('utf-7'), u'\uDC01x')
 
-        self.assertEqual(unicode('+3ADYAA-', 'utf-7', 'replace'), u'\ufffd\ufffd')
+        self.assertEqual(u'\uD801\U000abcde'.encode('utf-7'), '+2AHab9ze-')
+        self.assertEqual('+2AHab9ze-'.decode('utf-7'), u'\uD801\U000abcde')
 
         # Direct encoded characters
         set_d = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'(),-./:?"
@@ -1395,6 +1605,31 @@ class UnicodeTest(
         u = U(u'xxx')
         self.assertEqual("%s" % u, u'__unicode__ overridden')
         self.assertEqual("{}".format(u), '__unicode__ overridden')
+
+    def test_encode_decimal(self):
+        from _testcapi import unicode_encodedecimal
+        self.assertEqual(unicode_encodedecimal(u'123'),
+                         b'123')
+        self.assertEqual(unicode_encodedecimal(u'\u0663.\u0661\u0664'),
+                         b'3.14')
+        self.assertEqual(unicode_encodedecimal(u"\N{EM SPACE}3.14\N{EN SPACE}"),
+                         b' 3.14 ')
+        self.assertRaises(UnicodeEncodeError,
+                          unicode_encodedecimal, u"123\u20ac", "strict")
+        self.assertEqual(unicode_encodedecimal(u"123\u20ac", "replace"),
+                         b'123?')
+        self.assertEqual(unicode_encodedecimal(u"123\u20ac", "ignore"),
+                         b'123')
+        self.assertEqual(unicode_encodedecimal(u"123\u20ac", "xmlcharrefreplace"),
+                         b'123&#8364;')
+        self.assertEqual(unicode_encodedecimal(u"123\u20ac", "backslashreplace"),
+                         b'123\\u20ac')
+        self.assertEqual(unicode_encodedecimal(u"123\u20ac\N{EM SPACE}", "replace"),
+                         b'123? ')
+        self.assertEqual(unicode_encodedecimal(u"123\u20ac\u20ac", "replace"),
+                         b'123??')
+        self.assertEqual(unicode_encodedecimal(u"123\u20ac\u0660", "replace"),
+                         b'123?0')
 
 
 def test_main():

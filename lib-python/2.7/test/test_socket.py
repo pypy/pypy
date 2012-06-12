@@ -145,11 +145,10 @@ class ThreadableTest:
 
     def clientRun(self, test_func):
         self.server_ready.wait()
-        self.client_ready.set()
         self.clientSetUp()
-        with test_support.check_py3k_warnings():
-            if not callable(test_func):
-                raise TypeError("test_func must be a callable function.")
+        self.client_ready.set()
+        if not callable(test_func):
+            raise TypeError("test_func must be a callable function.")
         try:
             test_func()
         except Exception, strerror:
@@ -706,6 +705,16 @@ class GeneralModuleTests(unittest.TestCase):
         # backlog = 0
         srv.listen(0)
         srv.close()
+
+    @unittest.skipUnless(SUPPORTS_IPV6, 'IPv6 required for this test.')
+    def test_flowinfo(self):
+        self.assertRaises(OverflowError, socket.getnameinfo,
+                          ('::1',0, 0xffffffff), 0)
+        s = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+        try:
+            self.assertRaises(OverflowError, s.bind, ('::1', 0, -10))
+        finally:
+            s.close()
 
 
 @unittest.skipUnless(thread, 'Threading required for this test.')
@@ -1380,7 +1389,7 @@ class TCPTimeoutTest(SocketTCPTest):
             # no alarm can be pending.  Safe to restore old handler.
             signal.signal(signal.SIGALRM, old_alarm)
 
-class UDPTimeoutTest(SocketTCPTest):
+class UDPTimeoutTest(SocketUDPTest):
 
     def testUDPTimeout(self):
         def raise_timeout(*args, **kwargs):

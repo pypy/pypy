@@ -110,6 +110,23 @@ class BasicSocketTests(unittest.TestCase):
         p = ssl._ssl._test_decode_cert(CERTFILE, False)
         if test_support.verbose:
             sys.stdout.write("\n" + pprint.pformat(p) + "\n")
+        self.assertEqual(p['subject'],
+                         ((('countryName', u'US'),),
+                          (('stateOrProvinceName', u'Delaware'),),
+                          (('localityName', u'Wilmington'),),
+                          (('organizationName', u'Python Software Foundation'),),
+                          (('organizationalUnitName', u'SSL'),),
+                          (('commonName', u'somemachine.python.org'),)),
+                        )
+        # Issue #13034: the subjectAltName in some certificates
+        # (notably projects.developer.nokia.com:443) wasn't parsed
+        p = ssl._ssl._test_decode_cert(NOKIACERT)
+        if test_support.verbose:
+            sys.stdout.write("\n" + pprint.pformat(p) + "\n")
+        self.assertEqual(p['subjectAltName'],
+                         (('DNS', 'projects.developer.nokia.com'),
+                          ('DNS', 'projects.forum.nokia.com'))
+                        )
 
     def test_DER_to_PEM(self):
         with open(SVN_PYTHON_ORG_ROOT_CERT, 'r') as f:
@@ -400,10 +417,11 @@ else:
                                                    ca_certs=self.server.cacerts,
                                                    cert_reqs=self.server.certreqs,
                                                    ciphers=self.server.ciphers)
-                except ssl.SSLError:
+                except ssl.SSLError as e:
                     # XXX Various errors can have happened here, for example
                     # a mismatching protocol version, an invalid certificate,
                     # or a low-level bug. This should be made more discriminating.
+                    self.server.conn_errors.append(e)
                     if self.server.chatty:
                         handle_error("\n server:  bad connection attempt from " +
                                      str(self.sock.getpeername()) + ":\n")
@@ -512,8 +530,18 @@ else:
                     sys.stdout.write(' server:  wrapped server socket as %s\n' % str(self.sock))
             self.port = test_support.bind_port(self.sock)
             self.active = False
+            self.conn_errors = []
             threading.Thread.__init__(self)
             self.daemon = True
+
+        def __enter__(self):
+            self.start(threading.Event())
+            self.flag.wait()
+            return self
+
+        def __exit__(self, *args):
+            self.stop()
+            self.join()
 
         def start(self, flag=None):
             self.flag = flag
@@ -534,6 +562,7 @@ else:
                                          + str(connaddr) + '\n')
                     handler = self.ConnectionHandler(self, newconn)
                     handler.start()
+                    handler.join()
                 except socket.timeout:
                     pass
                 except KeyboardInterrupt:
@@ -620,6 +649,21 @@ else:
 
         def __str__(self):
             return "<%s %s>" % (self.__class__.__name__, self.server)
+
+        def __enter__(self):
+            self.start(threading.Event())
+            self.flag.wait()
+            return self
+
+        def __exit__(self, *args):
+            if test_support.verbose:
+                sys.stdout.write(" cleanup: stopping server.\n")
+            self.stop()
+            if test_support.verbose:
+                sys.stdout.write(" cleanup: joining server thread.\n")
+            self.join()
+            if test_support.verbose:
+                sys.stdout.write(" cleanup: successfully joined.\n")
 
         def start(self, flag=None):
             self.flag = flag
@@ -735,12 +779,7 @@ else:
         server = ThreadedEchoServer(CERTFILE,
                                     certreqs=ssl.CERT_REQUIRED,
                                     cacerts=CERTFILE, chatty=False)
-        flag = threading.Event()
-        server.start(flag)
-        # wait for it to start
-        flag.wait()
-        # try to connect
-        try:
+        with server:
             try:
                 s = ssl.wrap_socket(socket.socket(),
                                     certfile=certfile,
@@ -754,9 +793,6 @@ else:
                     sys.stdout.write("\nsocket.error is %s\n" % x[1])
             else:
                 raise AssertionError("Use of invalid cert should have failed!")
-        finally:
-            server.stop()
-            server.join()
 
     def server_params_test(certfile, protocol, certreqs, cacertsfile,
                            client_certfile, client_protocol=None, indata="FOO\n",
@@ -774,14 +810,10 @@ else:
                                     chatty=chatty,
                                     connectionchatty=connectionchatty,
                                     wrap_accepting_socket=wrap_accepting_socket)
-        flag = threading.Event()
-        server.start(flag)
-        # wait for it to start
-        flag.wait()
-        # try to connect
-        if client_protocol is None:
-            client_protocol = protocol
-        try:
+        with server:
+            # try to connect
+            if client_protocol is None:
+                client_protocol = protocol
             s = ssl.wrap_socket(socket.socket(),
                                 certfile=client_certfile,
                                 ca_certs=cacertsfile,
@@ -809,9 +841,6 @@ else:
                 if test_support.verbose:
                     sys.stdout.write(" client:  closing connection.\n")
             s.close()
-        finally:
-            server.stop()
-            server.join()
 
     def try_protocol_combo(server_protocol,
                            client_protocol,
@@ -913,12 +942,7 @@ else:
                                         ssl_version=ssl.PROTOCOL_SSLv23,
                                         cacerts=CERTFILE,
                                         chatty=False)
-            flag = threading.Event()
-            server.start(flag)
-            # wait for it to start
-            flag.wait()
-            # try to connect
-            try:
+            with server:
                 s = ssl.wrap_socket(socket.socket(),
                                     certfile=CERTFILE,
                                     ca_certs=CERTFILE,
@@ -940,9 +964,6 @@ else:
                         "Missing or invalid 'organizationName' field in certificate subject; "
                         "should be 'Python Software Foundation'.")
                 s.close()
-            finally:
-                server.stop()
-                server.join()
 
         def test_empty_cert(self):
             """Connecting with an empty cert file"""
@@ -966,6 +987,8 @@ else:
             """Connecting to an SSLv2 server with various client options"""
             if test_support.verbose:
                 sys.stdout.write("\n")
+            if not hasattr(ssl, 'PROTOCOL_SSLv2'):
+                self.skipTest("PROTOCOL_SSLv2 needed")
             try_protocol_combo(ssl.PROTOCOL_SSLv2, ssl.PROTOCOL_SSLv2, True)
             try_protocol_combo(ssl.PROTOCOL_SSLv2, ssl.PROTOCOL_SSLv2, True, ssl.CERT_OPTIONAL)
             try_protocol_combo(ssl.PROTOCOL_SSLv2, ssl.PROTOCOL_SSLv2, True, ssl.CERT_REQUIRED)
@@ -978,14 +1001,6 @@ else:
             """Connecting to an SSLv23 server with various client options"""
             if test_support.verbose:
                 sys.stdout.write("\n")
-            try:
-                try_protocol_combo(ssl.PROTOCOL_SSLv23, ssl.PROTOCOL_SSLv2, True)
-            except (ssl.SSLError, socket.error), x:
-                # this fails on some older versions of OpenSSL (0.9.7l, for instance)
-                if test_support.verbose:
-                    sys.stdout.write(
-                        " SSL2 client to SSL23 server test unexpectedly failed:\n %s\n"
-                        % str(x))
             try_protocol_combo(ssl.PROTOCOL_SSLv23, ssl.PROTOCOL_SSLv3, True)
             try_protocol_combo(ssl.PROTOCOL_SSLv23, ssl.PROTOCOL_SSLv23, True)
             try_protocol_combo(ssl.PROTOCOL_SSLv23, ssl.PROTOCOL_TLSv1, True)
@@ -1008,7 +1023,6 @@ else:
             try_protocol_combo(ssl.PROTOCOL_SSLv3, ssl.PROTOCOL_SSLv3, True, ssl.CERT_REQUIRED)
             if hasattr(ssl, 'PROTOCOL_SSLv2'):
                 try_protocol_combo(ssl.PROTOCOL_SSLv3, ssl.PROTOCOL_SSLv2, False)
-            try_protocol_combo(ssl.PROTOCOL_SSLv3, ssl.PROTOCOL_SSLv23, False)
             try_protocol_combo(ssl.PROTOCOL_SSLv3, ssl.PROTOCOL_TLSv1, False)
 
         @skip_if_broken_ubuntu_ssl
@@ -1022,7 +1036,6 @@ else:
             if hasattr(ssl, 'PROTOCOL_SSLv2'):
                 try_protocol_combo(ssl.PROTOCOL_TLSv1, ssl.PROTOCOL_SSLv2, False)
             try_protocol_combo(ssl.PROTOCOL_TLSv1, ssl.PROTOCOL_SSLv3, False)
-            try_protocol_combo(ssl.PROTOCOL_TLSv1, ssl.PROTOCOL_SSLv23, False)
 
         def test_starttls(self):
             """Switching from clear text to encrypted and back again."""
@@ -1033,13 +1046,8 @@ else:
                                         starttls_server=True,
                                         chatty=True,
                                         connectionchatty=True)
-            flag = threading.Event()
-            server.start(flag)
-            # wait for it to start
-            flag.wait()
-            # try to connect
             wrapped = False
-            try:
+            with server:
                 s = socket.socket()
                 s.setblocking(1)
                 s.connect((HOST, server.port))
@@ -1084,9 +1092,6 @@ else:
                 else:
                     s.send("over\n")
                 s.close()
-            finally:
-                server.stop()
-                server.join()
 
         def test_socketserver(self):
             """Using a SocketServer to create and manage SSL connections."""
@@ -1136,12 +1141,7 @@ else:
             if test_support.verbose:
                 sys.stdout.write("\n")
             server = AsyncoreEchoServer(CERTFILE)
-            flag = threading.Event()
-            server.start(flag)
-            # wait for it to start
-            flag.wait()
-            # try to connect
-            try:
+            with server:
                 s = ssl.wrap_socket(socket.socket())
                 s.connect(('127.0.0.1', server.port))
                 if test_support.verbose:
@@ -1160,10 +1160,6 @@ else:
                 if test_support.verbose:
                     sys.stdout.write(" client:  closing connection.\n")
                 s.close()
-            finally:
-                server.stop()
-                # wait for server thread to end
-                server.join()
 
         def test_recv_send(self):
             """Test recv(), send() and friends."""
@@ -1176,19 +1172,14 @@ else:
                                         cacerts=CERTFILE,
                                         chatty=True,
                                         connectionchatty=False)
-            flag = threading.Event()
-            server.start(flag)
-            # wait for it to start
-            flag.wait()
-            # try to connect
-            s = ssl.wrap_socket(socket.socket(),
-                                server_side=False,
-                                certfile=CERTFILE,
-                                ca_certs=CERTFILE,
-                                cert_reqs=ssl.CERT_NONE,
-                                ssl_version=ssl.PROTOCOL_TLSv1)
-            s.connect((HOST, server.port))
-            try:
+            with server:
+                s = ssl.wrap_socket(socket.socket(),
+                                    server_side=False,
+                                    certfile=CERTFILE,
+                                    ca_certs=CERTFILE,
+                                    cert_reqs=ssl.CERT_NONE,
+                                    ssl_version=ssl.PROTOCOL_TLSv1)
+                s.connect((HOST, server.port))
                 # helper methods for standardising recv* method signatures
                 def _recv_into():
                     b = bytearray("\0"*100)
@@ -1276,9 +1267,6 @@ else:
 
                 s.write("over\n".encode("ASCII", "strict"))
                 s.close()
-            finally:
-                server.stop()
-                server.join()
 
         def test_handshake_timeout(self):
             # Issue #5103: SSL handshake must respect the socket timeout
@@ -1327,17 +1315,39 @@ else:
                 t.join()
                 server.close()
 
+        def test_default_ciphers(self):
+            with ThreadedEchoServer(CERTFILE,
+                                    ssl_version=ssl.PROTOCOL_SSLv23,
+                                    chatty=False) as server:
+                sock = socket.socket()
+                try:
+                    # Force a set of weak ciphers on our client socket
+                    try:
+                        s = ssl.wrap_socket(sock,
+                                            ssl_version=ssl.PROTOCOL_SSLv23,
+                                            ciphers="DES")
+                    except ssl.SSLError:
+                        self.skipTest("no DES cipher available")
+                    with self.assertRaises((OSError, ssl.SSLError)):
+                        s.connect((HOST, server.port))
+                finally:
+                    sock.close()
+            self.assertIn("no shared cipher", str(server.conn_errors[0]))
+
 
 def test_main(verbose=False):
-    global CERTFILE, SVN_PYTHON_ORG_ROOT_CERT
+    global CERTFILE, SVN_PYTHON_ORG_ROOT_CERT, NOKIACERT
     CERTFILE = os.path.join(os.path.dirname(__file__) or os.curdir,
                             "keycert.pem")
     SVN_PYTHON_ORG_ROOT_CERT = os.path.join(
         os.path.dirname(__file__) or os.curdir,
         "https_svn_python_org_root.pem")
+    NOKIACERT = os.path.join(os.path.dirname(__file__) or os.curdir,
+                             "nokia.pem")
 
     if (not os.path.exists(CERTFILE) or
-        not os.path.exists(SVN_PYTHON_ORG_ROOT_CERT)):
+        not os.path.exists(SVN_PYTHON_ORG_ROOT_CERT) or
+        not os.path.exists(NOKIACERT)):
         raise test_support.TestFailed("Can't read certificate files!")
 
     tests = [BasicTests, BasicSocketTests]

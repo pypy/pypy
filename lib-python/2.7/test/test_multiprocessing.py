@@ -15,6 +15,7 @@ import array
 import socket
 import random
 import logging
+import errno
 from test import test_support
 from StringIO import StringIO
 _multiprocessing = test_support.import_module('_multiprocessing')
@@ -35,10 +36,21 @@ import multiprocessing.pool
 from multiprocessing import util
 
 try:
+    from multiprocessing import reduction
+    HAS_REDUCTION = True
+except ImportError:
+    HAS_REDUCTION = False
+
+try:
     from multiprocessing.sharedctypes import Value, copy
     HAS_SHAREDCTYPES = True
 except ImportError:
     HAS_SHAREDCTYPES = False
+
+try:
+    import msvcrt
+except ImportError:
+    msvcrt = None
 
 #
 #
@@ -68,6 +80,11 @@ HAVE_GETVALUE = not getattr(_multiprocessing,
 
 WIN32 = (sys.platform == "win32")
 
+try:
+    MAXFD = os.sysconf("SC_OPEN_MAX")
+except:
+    MAXFD = 256
+
 #
 # Some tests require ctypes
 #
@@ -77,6 +94,22 @@ try:
 except ImportError:
     Structure = object
     c_int = c_double = None
+
+
+def check_enough_semaphores():
+    """Check that the system supports enough semaphores to run the test."""
+    # minimum number of semaphores available according to POSIX
+    nsems_min = 256
+    try:
+        nsems = os.sysconf("SC_SEM_NSEMS_MAX")
+    except (AttributeError, ValueError):
+        # sysconf not available or setting not available
+        return
+    if nsems == -1 or nsems >= nsems_min:
+        return
+    raise unittest.SkipTest("The OS doesn't support enough semaphores "
+                            "to run the test (required: %d)." % nsems_min)
+
 
 #
 # Creates a wrapper for a function which records the time it takes to finish
@@ -253,6 +286,7 @@ class _TestProcess(BaseTestCase):
         p = self.Process(target=time.sleep, args=(DELTA,))
         self.assertNotIn(p, self.active_children())
 
+        p.daemon = True
         p.start()
         self.assertIn(p, self.active_children())
 
@@ -323,6 +357,7 @@ class _TestSubclassingProcess(BaseTestCase):
 
     def test_subclassing(self):
         uppercaser = _UpperCaser()
+        uppercaser.daemon = True
         uppercaser.start()
         self.assertEqual(uppercaser.submit('hello'), 'HELLO')
         self.assertEqual(uppercaser.submit('world'), 'WORLD')
@@ -501,6 +536,7 @@ class _TestQueue(BaseTestCase):
 
         # fork process
         p = self.Process(target=self._test_fork, args=(queue,))
+        p.daemon = True
         p.start()
 
         # check that all expected items are in the queue
@@ -541,6 +577,7 @@ class _TestQueue(BaseTestCase):
                    for i in xrange(4)]
 
         for p in workers:
+            p.daemon = True
             p.start()
 
         for i in xrange(10):
@@ -805,7 +842,9 @@ class _TestEvent(BaseTestCase):
 
         #self.assertEqual(event.is_set(), False)
 
-        self.Process(target=self._test_event, args=(event,)).start()
+        p = self.Process(target=self._test_event, args=(event,))
+        p.daemon = True
+        p.start()
         self.assertEqual(wait(), True)
 
 #
@@ -845,6 +884,7 @@ class _TestValue(BaseTestCase):
             self.assertEqual(sv.value, cv[1])
 
         proc = self.Process(target=self._test, args=(values,))
+        proc.daemon = True
         proc.start()
         proc.join()
 
@@ -908,6 +948,7 @@ class _TestArray(BaseTestCase):
         self.f(seq)
 
         p = self.Process(target=self.f, args=(arr,))
+        p.daemon = True
         p.start()
         p.join()
 
@@ -1085,6 +1126,9 @@ class _TestPool(BaseTestCase):
         self.assertEqual(sorted(it), map(sqr, range(1000)))
 
     def test_make_pool(self):
+        self.assertRaises(ValueError, multiprocessing.Pool, -1)
+        self.assertRaises(ValueError, multiprocessing.Pool, 0)
+
         p = multiprocessing.Pool(3)
         self.assertEqual(3, len(p._pool))
         p.close()
@@ -1139,6 +1183,20 @@ class _TestPoolWorkerLifetime(BaseTestCase):
         self.assertNotEqual(sorted(origworkerpids), sorted(finalworkerpids))
         p.close()
         p.join()
+
+    def test_pool_worker_lifetime_early_close(self):
+        # Issue #10332: closing a pool whose workers have limited lifetimes
+        # before all the tasks completed would make join() hang.
+        p = multiprocessing.Pool(3, maxtasksperchild=1)
+        results = []
+        for i in range(6):
+            results.append(p.apply_async(sqr, (i, 0.3)))
+        p.close()
+        p.join()
+        # check the results
+        for (j, res) in enumerate(results):
+            self.assertEqual(res.get(), sqr(j))
+
 
 #
 # Test that manager has expected number of shared objects left
@@ -1271,6 +1329,7 @@ class _TestRemoteManager(BaseTestCase):
         manager.start()
 
         p = self.Process(target=self._putter, args=(manager.address, authkey))
+        p.daemon = True
         p.start()
 
         manager2 = QueueManager2(
@@ -1312,6 +1371,7 @@ class _TestManagerRestart(BaseTestCase):
         manager.start()
 
         p = self.Process(target=self._putter, args=(manager.address, authkey))
+        p.daemon = True
         p.start()
         queue = manager.get_queue()
         self.assertEqual(queue.get(), 'hello world')
@@ -1435,6 +1495,7 @@ class _TestConnection(BaseTestCase):
         conn, child_conn = self.Pipe()
 
         p = self.Process(target=self._echo, args=(child_conn,))
+        p.daemon = True
         p.start()
         child_conn.close()    # this might complete before child initializes
 
@@ -1477,6 +1538,98 @@ class _TestConnection(BaseTestCase):
         self.assertRaises(ValueError, a.send_bytes, msg, -1)
 
         self.assertRaises(ValueError, a.send_bytes, msg, 4, -1)
+
+    @classmethod
+    def _is_fd_assigned(cls, fd):
+        try:
+            os.fstat(fd)
+        except OSError as e:
+            if e.errno == errno.EBADF:
+                return False
+            raise
+        else:
+            return True
+
+    @classmethod
+    def _writefd(cls, conn, data, create_dummy_fds=False):
+        if create_dummy_fds:
+            for i in range(0, 256):
+                if not cls._is_fd_assigned(i):
+                    os.dup2(conn.fileno(), i)
+        fd = reduction.recv_handle(conn)
+        if msvcrt:
+            fd = msvcrt.open_osfhandle(fd, os.O_WRONLY)
+        os.write(fd, data)
+        os.close(fd)
+
+    @unittest.skipUnless(HAS_REDUCTION, "test needs multiprocessing.reduction")
+    def test_fd_transfer(self):
+        if self.TYPE != 'processes':
+            self.skipTest("only makes sense with processes")
+        conn, child_conn = self.Pipe(duplex=True)
+
+        p = self.Process(target=self._writefd, args=(child_conn, b"foo"))
+        p.daemon = True
+        p.start()
+        with open(test_support.TESTFN, "wb") as f:
+            fd = f.fileno()
+            if msvcrt:
+                fd = msvcrt.get_osfhandle(fd)
+            reduction.send_handle(conn, fd, p.pid)
+        p.join()
+        with open(test_support.TESTFN, "rb") as f:
+            self.assertEqual(f.read(), b"foo")
+
+    @unittest.skipUnless(HAS_REDUCTION, "test needs multiprocessing.reduction")
+    @unittest.skipIf(sys.platform == "win32",
+                     "test semantics don't make sense on Windows")
+    @unittest.skipIf(MAXFD <= 256,
+                     "largest assignable fd number is too small")
+    @unittest.skipUnless(hasattr(os, "dup2"),
+                         "test needs os.dup2()")
+    def test_large_fd_transfer(self):
+        # With fd > 256 (issue #11657)
+        if self.TYPE != 'processes':
+            self.skipTest("only makes sense with processes")
+        conn, child_conn = self.Pipe(duplex=True)
+
+        p = self.Process(target=self._writefd, args=(child_conn, b"bar", True))
+        p.daemon = True
+        p.start()
+        with open(test_support.TESTFN, "wb") as f:
+            fd = f.fileno()
+            for newfd in range(256, MAXFD):
+                if not self._is_fd_assigned(newfd):
+                    break
+            else:
+                self.fail("could not find an unassigned large file descriptor")
+            os.dup2(fd, newfd)
+            try:
+                reduction.send_handle(conn, newfd, p.pid)
+            finally:
+                os.close(newfd)
+        p.join()
+        with open(test_support.TESTFN, "rb") as f:
+            self.assertEqual(f.read(), b"bar")
+
+    @classmethod
+    def _send_data_without_fd(self, conn):
+        os.write(conn.fileno(), b"\0")
+
+    @unittest.skipUnless(HAS_REDUCTION, "test needs multiprocessing.reduction")
+    @unittest.skipIf(sys.platform == "win32", "doesn't make sense on Windows")
+    def test_missing_fd_transfer(self):
+        # Check that exception is raised when received data is not
+        # accompanied by a file descriptor in ancillary data.
+        if self.TYPE != 'processes':
+            self.skipTest("only makes sense with processes")
+        conn, child_conn = self.Pipe(duplex=True)
+
+        p = self.Process(target=self._send_data_without_fd, args=(child_conn,))
+        p.daemon = True
+        p.start()
+        self.assertRaises(RuntimeError, reduction.recv_handle, conn)
+        p.join()
 
 class _TestListenerClient(BaseTestCase):
 
@@ -1548,11 +1701,13 @@ class _TestPicklingConnections(BaseTestCase):
 
         lconn, lconn0 = self.Pipe()
         lp = self.Process(target=self._listener, args=(lconn0, families))
+        lp.daemon = True
         lp.start()
         lconn0.close()
 
         rconn, rconn0 = self.Pipe()
         rp = self.Process(target=self._remote, args=(rconn0,))
+        rp.daemon = True
         rp.start()
         rconn0.close()
 
@@ -1612,6 +1767,8 @@ class _TestHeap(BaseTestCase):
         # verify the state of the heap
         all = []
         occupied = 0
+        heap._lock.acquire()
+        self.addCleanup(heap._lock.release)
         for L in heap._len_to_seq.values():
             for arena, start, stop in L:
                 all.append((heap._arenas.index(arena), start, stop,
@@ -1628,6 +1785,28 @@ class _TestHeap(BaseTestCase):
             (narena, nstart, nstop) = all[i+1][:3]
             self.assertTrue((arena != narena and nstart == 0) or
                             (stop == nstart))
+
+    def test_free_from_gc(self):
+        # Check that freeing of blocks by the garbage collector doesn't deadlock
+        # (issue #12352).
+        # Make sure the GC is enabled, and set lower collection thresholds to
+        # make collections more frequent (and increase the probability of
+        # deadlock).
+        if not gc.isenabled():
+            gc.enable()
+            self.addCleanup(gc.disable)
+        thresholds = gc.get_threshold()
+        self.addCleanup(gc.set_threshold, *thresholds)
+        gc.set_threshold(10)
+
+        # perform numerous block allocations, with cyclic references to make
+        # sure objects are collected asynchronously by the gc
+        for i in range(5000):
+            a = multiprocessing.heap.BufferWrapper(1)
+            b = multiprocessing.heap.BufferWrapper(1)
+            # circular references
+            a.buddy = b
+            b.buddy = a
 
 #
 #
@@ -1666,6 +1845,7 @@ class _TestSharedCTypes(BaseTestCase):
         string.value = latin('hello')
 
         p = self.Process(target=self._double, args=(x, y, foo, arr, string))
+        p.daemon = True
         p.start()
         p.join()
 
@@ -1738,6 +1918,7 @@ class _TestFinalize(BaseTestCase):
         conn, child_conn = self.Pipe()
 
         p = self.Process(target=self._test_finalize, args=(child_conn,))
+        p.daemon = True
         p.start()
         p.join()
 
@@ -1757,9 +1938,11 @@ class _TestImportStar(BaseTestCase):
             'multiprocessing', 'multiprocessing.connection',
             'multiprocessing.heap', 'multiprocessing.managers',
             'multiprocessing.pool', 'multiprocessing.process',
-            'multiprocessing.reduction',
             'multiprocessing.synchronize', 'multiprocessing.util'
             ]
+
+        if HAS_REDUCTION:
+            modules.append('multiprocessing.reduction')
 
         if c_int is not None:
             # This module requires _ctypes
@@ -1807,12 +1990,16 @@ class _TestLogging(BaseTestCase):
         reader, writer = multiprocessing.Pipe(duplex=False)
 
         logger.setLevel(LEVEL1)
-        self.Process(target=self._test_level, args=(writer,)).start()
+        p = self.Process(target=self._test_level, args=(writer,))
+        p.daemon = True
+        p.start()
         self.assertEqual(LEVEL1, reader.recv())
 
         logger.setLevel(logging.NOTSET)
         root_logger.setLevel(LEVEL2)
-        self.Process(target=self._test_level, args=(writer,)).start()
+        p = self.Process(target=self._test_level, args=(writer,))
+        p.daemon = True
+        p.start()
         self.assertEqual(LEVEL2, reader.recv())
 
         root_logger.setLevel(root_level)
@@ -1998,6 +2185,7 @@ def _ThisSubProcess(q):
 def _TestProcess(q):
     queue = multiprocessing.Queue()
     subProc = multiprocessing.Process(target=_ThisSubProcess, args=(queue,))
+    subProc.daemon = True
     subProc.start()
     subProc.join()
 
@@ -2063,6 +2251,8 @@ def test_main(run=None):
             lock = multiprocessing.RLock()
         except OSError:
             raise unittest.SkipTest("OSError raises on RLock creation, see issue 3111!")
+
+    check_enough_semaphores()
 
     if run is None:
         from test.test_support import run_unittest as run

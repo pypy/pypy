@@ -27,6 +27,8 @@ import socket
 import os
 import time
 import sys
+import base64
+
 from urlparse import urljoin as basejoin
 
 __all__ = ["urlopen", "URLopener", "FancyURLopener", "urlretrieve",
@@ -257,9 +259,9 @@ class URLopener:
                 size = -1
                 read = 0
                 blocknum = 0
+                if "content-length" in headers:
+                    size = int(headers["Content-Length"])
                 if reporthook:
-                    if "content-length" in headers:
-                        size = int(headers["Content-Length"])
                     reporthook(blocknum, bs, size)
                 while 1:
                     block = fp.read(bs)
@@ -318,13 +320,13 @@ class URLopener:
         if not host: raise IOError, ('http error', 'no host given')
 
         if proxy_passwd:
-            import base64
+            proxy_passwd = unquote(proxy_passwd)
             proxy_auth = base64.b64encode(proxy_passwd).strip()
         else:
             proxy_auth = None
 
         if user_passwd:
-            import base64
+            user_passwd = unquote(user_passwd)
             auth = base64.b64encode(user_passwd).strip()
         else:
             auth = None
@@ -374,7 +376,6 @@ class URLopener:
 
     def http_error_default(self, url, fp, errcode, errmsg, headers):
         """Default error handler: close the connection and raise IOError."""
-        void = fp.read()
         fp.close()
         raise IOError, ('http error', errcode, errmsg, headers)
 
@@ -409,12 +410,12 @@ class URLopener:
                 #print "proxy via https:", host, selector
             if not host: raise IOError, ('https error', 'no host given')
             if proxy_passwd:
-                import base64
+                proxy_passwd = unquote(proxy_passwd)
                 proxy_auth = base64.b64encode(proxy_passwd).strip()
             else:
                 proxy_auth = None
             if user_passwd:
-                import base64
+                user_passwd = unquote(user_passwd)
                 auth = base64.b64encode(user_passwd).strip()
             else:
                 auth = None
@@ -483,6 +484,8 @@ class URLopener:
             urlfile = file
             if file[:1] == '/':
                 urlfile = 'file://' + file
+            elif file[:2] == './':
+                raise ValueError("local file url may start with / or file:. Unknown url of type: %s" % url)
             return addinfourl(open(localname, 'rb'),
                               headers, urlfile)
         host, port = splitport(host)
@@ -590,7 +593,6 @@ class URLopener:
                                             time.gmtime(time.time())))
         msg.append('Content-type: %s' % type)
         if encoding == 'base64':
-            import base64
             data = base64.decodestring(data)
         else:
             data = unquote(data)
@@ -640,7 +642,6 @@ class FancyURLopener(URLopener):
             newurl = headers['uri']
         else:
             return
-        void = fp.read()
         fp.close()
         # In case the server sent a relative URL, join with original:
         newurl = basejoin(self.type + ":" + url, newurl)
@@ -850,13 +851,16 @@ class ftpwrapper:
     """Class used by open_ftp() for cache of open FTP connections."""
 
     def __init__(self, user, passwd, host, port, dirs,
-                 timeout=socket._GLOBAL_DEFAULT_TIMEOUT):
+                 timeout=socket._GLOBAL_DEFAULT_TIMEOUT,
+                 persistent=True):
         self.user = user
         self.passwd = passwd
         self.host = host
         self.port = port
         self.dirs = dirs
         self.timeout = timeout
+        self.refcount = 0
+        self.keepalive = persistent
         self.init()
 
     def init(self):
@@ -883,7 +887,7 @@ class ftpwrapper:
             # Try to retrieve as a file
             try:
                 cmd = 'RETR ' + file
-                conn = self.ftp.ntransfercmd(cmd)
+                conn, retrlen = self.ftp.ntransfercmd(cmd)
             except ftplib.error_perm, reason:
                 if str(reason)[:3] != '550':
                     raise IOError, ('ftp error', reason), sys.exc_info()[2]
@@ -903,11 +907,14 @@ class ftpwrapper:
                 cmd = 'LIST ' + file
             else:
                 cmd = 'LIST'
-            conn = self.ftp.ntransfercmd(cmd)
+            conn, retrlen = self.ftp.ntransfercmd(cmd)
         self.busy = 1
+        ftpobj = addclosehook(conn.makefile('rb'), self.file_close)
+        self.refcount += 1
+        conn.close()
         # Pass back both a suitably decorated object and a retrieval length
-        return (addclosehook(conn[0].makefile('rb'),
-                             self.endtransfer), conn[1])
+        return (ftpobj, retrlen)
+
     def endtransfer(self):
         if not self.busy:
             return
@@ -918,6 +925,17 @@ class ftpwrapper:
             pass
 
     def close(self):
+        self.keepalive = False
+        if self.refcount <= 0:
+            self.real_close()
+
+    def file_close(self):
+        self.endtransfer()
+        self.refcount -= 1
+        if self.refcount <= 0 and not self.keepalive:
+            self.real_close()
+
+    def real_close(self):
         self.endtransfer()
         try:
             self.ftp.close()
@@ -1349,7 +1367,8 @@ def proxy_bypass_environment(host):
     # strip port off host
     hostonly, port = splitport(host)
     # check if the host ends with any of the DNS suffixes
-    for name in no_proxy.split(','):
+    no_proxy_list = [proxy.strip() for proxy in no_proxy.split(',')]
+    for name in no_proxy_list:
         if name and (hostonly.endswith(name) or host.endswith(name)):
             return 1
     # otherwise, don't bypass
@@ -1581,66 +1600,3 @@ def reporthook(blocknum, blocksize, totalsize):
     # Report during remote transfers
     print "Block number: %d, Block size: %d, Total size: %d" % (
         blocknum, blocksize, totalsize)
-
-# Test program
-def test(args=[]):
-    if not args:
-        args = [
-            '/etc/passwd',
-            'file:/etc/passwd',
-            'file://localhost/etc/passwd',
-            'ftp://ftp.gnu.org/pub/README',
-            'http://www.python.org/index.html',
-            ]
-        if hasattr(URLopener, "open_https"):
-            args.append('https://synergy.as.cmu.edu/~geek/')
-    try:
-        for url in args:
-            print '-'*10, url, '-'*10
-            fn, h = urlretrieve(url, None, reporthook)
-            print fn
-            if h:
-                print '======'
-                for k in h.keys(): print k + ':', h[k]
-                print '======'
-            with open(fn, 'rb') as fp:
-                data = fp.read()
-            if '\r' in data:
-                table = string.maketrans("", "")
-                data = data.translate(table, "\r")
-            print data
-            fn, h = None, None
-        print '-'*40
-    finally:
-        urlcleanup()
-
-def main():
-    import getopt, sys
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], "th")
-    except getopt.error, msg:
-        print msg
-        print "Use -h for help"
-        return
-    t = 0
-    for o, a in opts:
-        if o == '-t':
-            t = t + 1
-        if o == '-h':
-            print "Usage: python urllib.py [-t] [url ...]"
-            print "-t runs self-test;",
-            print "otherwise, contents of urls are printed"
-            return
-    if t:
-        if t > 1:
-            test1()
-        test(args)
-    else:
-        if not args:
-            print "Use -h for help"
-        for url in args:
-            print urlopen(url).read(),
-
-# Run test program when run as a script
-if __name__ == '__main__':
-    main()

@@ -141,6 +141,7 @@ def get_python_lib(plat_specific=0, standard_lib=0, prefix=None):
             "I don't know where Python installs its library "
             "on platform '%s'" % os.name)
 
+_USE_CLANG = None
 
 def customize_compiler(compiler):
     """Do any platform-specific customization of a CCompiler instance.
@@ -149,12 +150,43 @@ def customize_compiler(compiler):
     varies across Unices and is stored in Python's Makefile.
     """
     if compiler.compiler_type == "unix":
-        (cc, cxx, opt, cflags, ccshared, ldshared, so_ext) = \
+        (cc, cxx, opt, cflags, ccshared, ldshared, so_ext, ar, ar_flags) = \
             get_config_vars('CC', 'CXX', 'OPT', 'CFLAGS',
-                            'CCSHARED', 'LDSHARED', 'SO')
+                            'CCSHARED', 'LDSHARED', 'SO', 'AR',
+                            'ARFLAGS')
 
+        newcc = None
         if 'CC' in os.environ:
-            cc = os.environ['CC']
+            newcc = os.environ['CC']
+        elif sys.platform == 'darwin' and cc == 'gcc-4.2':
+            # Issue #13590:
+            #       Since Apple removed gcc-4.2 in Xcode 4.2, we can no
+            #       longer assume it is available for extension module builds.
+            #       If Python was built with gcc-4.2, check first to see if
+            #       it is available on this system; if not, try to use clang
+            #       instead unless the caller explicitly set CC.
+            global _USE_CLANG
+            if _USE_CLANG is None:
+                from distutils import log
+                from subprocess import Popen, PIPE
+                p = Popen("! type gcc-4.2 && type clang && exit 2",
+                                shell=True, stdout=PIPE, stderr=PIPE)
+                p.wait()
+                if p.returncode == 2:
+                    _USE_CLANG = True
+                    log.warn("gcc-4.2 not found, using clang instead")
+                else:
+                    _USE_CLANG = False
+            if _USE_CLANG:
+                newcc = 'clang'
+        if newcc:
+            # On OS X, if CC is overridden, use that as the default
+            #       command for LDSHARED as well
+            if (sys.platform == 'darwin'
+                    and 'LDSHARED' not in os.environ
+                    and ldshared.startswith(cc)):
+                ldshared = newcc + ldshared[len(cc):]
+            cc = newcc
         if 'CXX' in os.environ:
             cxx = os.environ['CXX']
         if 'LDSHARED' in os.environ:
@@ -172,6 +204,12 @@ def customize_compiler(compiler):
             cpp = cpp + ' ' + os.environ['CPPFLAGS']
             cflags = cflags + ' ' + os.environ['CPPFLAGS']
             ldshared = ldshared + ' ' + os.environ['CPPFLAGS']
+        if 'AR' in os.environ:
+            ar = os.environ['AR']
+        if 'ARFLAGS' in os.environ:
+            archiver = ar + ' ' + os.environ['ARFLAGS']
+        else:
+            archiver = ar + ' ' + ar_flags
 
         cc_cmd = cc + ' ' + cflags
         compiler.set_executables(
@@ -180,7 +218,8 @@ def customize_compiler(compiler):
             compiler_so=cc_cmd + ' ' + ccshared,
             compiler_cxx=cxx,
             linker_so=ldshared,
-            linker_exe=cc)
+            linker_exe=cc,
+            archiver=archiver)
 
         compiler.shared_lib_extension = so_ext
 
@@ -379,21 +418,6 @@ def _init_posix():
             my_msg = my_msg + " (%s)" % msg.strerror
 
         raise DistutilsPlatformError(my_msg)
-
-    # On MacOSX we need to check the setting of the environment variable
-    # MACOSX_DEPLOYMENT_TARGET: configure bases some choices on it so
-    # it needs to be compatible.
-    # If it isn't set we set it to the configure-time value
-    if sys.platform == 'darwin' and 'MACOSX_DEPLOYMENT_TARGET' in g:
-        cfg_target = g['MACOSX_DEPLOYMENT_TARGET']
-        cur_target = os.getenv('MACOSX_DEPLOYMENT_TARGET', '')
-        if cur_target == '':
-            cur_target = cfg_target
-            os.environ['MACOSX_DEPLOYMENT_TARGET'] = cfg_target
-        elif map(int, cfg_target.split('.')) > map(int, cur_target.split('.')):
-            my_msg = ('$MACOSX_DEPLOYMENT_TARGET mismatch: now "%s" but "%s" during configure'
-                % (cur_target, cfg_target))
-            raise DistutilsPlatformError(my_msg)
 
     # On AIX, there are wrong paths to the linker scripts in the Makefile
     # -- these paths are relative to the Python source, but when installed

@@ -293,6 +293,7 @@ class MockHTTPClass:
             self._tunnel_headers = headers
         else:
             self._tunnel_headers.clear()
+
     def request(self, method, url, body=None, headers=None):
         self.method = method
         self.selector = url
@@ -304,8 +305,12 @@ class MockHTTPClass:
         if self.raise_on_endheaders:
             import socket
             raise socket.error()
+
     def getresponse(self):
         return MockHTTPResponse(MockFile(), {}, 200, "OK")
+
+    def close(self):
+        pass
 
 class MockHandler:
     # useful for testing handler machinery
@@ -606,6 +611,7 @@ class HandlerTests(unittest.TestCase):
             def retrfile(self, filename, filetype):
                 self.filename, self.filetype = filename, filetype
                 return StringIO.StringIO(self.data), len(self.data)
+            def close(self): pass
 
         class NullFTPHandler(urllib2.FTPHandler):
             def __init__(self, data): self.data = data
@@ -1311,6 +1317,17 @@ class RequestTests(unittest.TestCase):
         url = 'http://docs.python.org/library/urllib2.html#OK'
         req = Request(url)
         self.assertEqual(req.get_full_url(), url)
+
+def test_HTTPError_interface():
+    """
+    Issue 13211 reveals that HTTPError didn't implement the URLError
+    interface even though HTTPError is a subclass of URLError.
+
+    >>> err = urllib2.HTTPError(msg='something bad happened', url=None, code=None, hdrs=None, fp=None)
+    >>> assert hasattr(err, 'reason')
+    >>> err.reason
+    'something bad happened'
+    """
 
 def test_main(verbose=None):
     from test import test_urllib2

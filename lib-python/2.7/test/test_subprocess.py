@@ -10,6 +10,11 @@ import time
 import re
 import sysconfig
 
+try:
+    import resource
+except ImportError:
+    resource = None
+
 mswindows = (sys.platform == "win32")
 
 #
@@ -112,6 +117,16 @@ class ProcessTestCase(BaseTestCase):
                               'sys.exit(os.getenv("FRUIT")=="banana")'],
                              env=newenv)
         self.assertEqual(rc, 1)
+
+    def test_invalid_args(self):
+        # Popen() called with invalid arguments should raise TypeError
+        # but Popen.__del__ should not complain (issue #12085)
+        with test_support.captured_stderr() as s:
+            self.assertRaises(TypeError, subprocess.Popen, invalid_arg_name=1)
+            argcount = subprocess.Popen.__init__.__code__.co_argcount
+            too_many_args = [0] * (argcount + 1)
+            self.assertRaises(TypeError, subprocess.Popen, *too_many_args)
+        self.assertEqual(s.getvalue(), '')
 
     def test_stdin_none(self):
         # .stdin is None when not redirected
@@ -623,12 +638,12 @@ class _SuppressCoreFiles(object):
 
     def __enter__(self):
         """Try to save previous ulimit, then set it to (0, 0)."""
-        try:
-            import resource
-            self.old_limit = resource.getrlimit(resource.RLIMIT_CORE)
-            resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
-        except (ImportError, ValueError, resource.error):
-            pass
+        if resource is not None:
+            try:
+                self.old_limit = resource.getrlimit(resource.RLIMIT_CORE)
+                resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+            except (ValueError, resource.error):
+                pass
 
         if sys.platform == 'darwin':
             # Check if the 'Crash Reporter' on OSX was configured
@@ -648,11 +663,29 @@ class _SuppressCoreFiles(object):
         """Return core file behavior to default."""
         if self.old_limit is None:
             return
-        try:
-            import resource
-            resource.setrlimit(resource.RLIMIT_CORE, self.old_limit)
-        except (ImportError, ValueError, resource.error):
+        if resource is not None:
+            try:
+                resource.setrlimit(resource.RLIMIT_CORE, self.old_limit)
+            except (ValueError, resource.error):
+                pass
+
+    @unittest.skipUnless(hasattr(signal, 'SIGALRM'),
+                         "Requires signal.SIGALRM")
+    def test_communicate_eintr(self):
+        # Issue #12493: communicate() should handle EINTR
+        def handler(signum, frame):
             pass
+        old_handler = signal.signal(signal.SIGALRM, handler)
+        self.addCleanup(signal.signal, signal.SIGALRM, old_handler)
+
+        # the process is running for 2 seconds
+        args = [sys.executable, "-c", 'import time; time.sleep(2)']
+        for stream in ('stdout', 'stderr'):
+            kw = {stream: subprocess.PIPE}
+            with subprocess.Popen(args, **kw) as process:
+                signal.alarm(1)
+                # communicate() will be interrupted by SIGALRM
+                process.communicate()
 
 
 @unittest.skipIf(mswindows, "POSIX specific tests")
@@ -849,6 +882,64 @@ class POSIXProcessTestCase(BaseTestCase):
         # all standard fds closed.
         self.check_close_std_fds([0, 1, 2])
 
+    def check_swap_fds(self, stdin_no, stdout_no, stderr_no):
+        # open up some temporary files
+        temps = [mkstemp() for i in range(3)]
+        temp_fds = [fd for fd, fname in temps]
+        try:
+            # unlink the files -- we won't need to reopen them
+            for fd, fname in temps:
+                os.unlink(fname)
+
+            # save a copy of the standard file descriptors
+            saved_fds = [os.dup(fd) for fd in range(3)]
+            try:
+                # duplicate the temp files over the standard fd's 0, 1, 2
+                for fd, temp_fd in enumerate(temp_fds):
+                    os.dup2(temp_fd, fd)
+
+                # write some data to what will become stdin, and rewind
+                os.write(stdin_no, b"STDIN")
+                os.lseek(stdin_no, 0, 0)
+
+                # now use those files in the given order, so that subprocess
+                # has to rearrange them in the child
+                p = subprocess.Popen([sys.executable, "-c",
+                    'import sys; got = sys.stdin.read();'
+                    'sys.stdout.write("got %s"%got); sys.stderr.write("err")'],
+                    stdin=stdin_no,
+                    stdout=stdout_no,
+                    stderr=stderr_no)
+                p.wait()
+
+                for fd in temp_fds:
+                    os.lseek(fd, 0, 0)
+
+                out = os.read(stdout_no, 1024)
+                err = test_support.strip_python_stderr(os.read(stderr_no, 1024))
+            finally:
+                for std, saved in enumerate(saved_fds):
+                    os.dup2(saved, std)
+                    os.close(saved)
+
+            self.assertEqual(out, b"got STDIN")
+            self.assertEqual(err, b"err")
+
+        finally:
+            for fd in temp_fds:
+                os.close(fd)
+
+    # When duping fds, if there arises a situation where one of the fds is
+    # either 0, 1 or 2, it is possible that it is overwritten (#12607).
+    # This tests all combinations of this.
+    def test_swap_fds(self):
+        self.check_swap_fds(0, 1, 2)
+        self.check_swap_fds(0, 2, 1)
+        self.check_swap_fds(1, 0, 2)
+        self.check_swap_fds(1, 2, 0)
+        self.check_swap_fds(2, 0, 1)
+        self.check_swap_fds(2, 1, 0)
+
     def test_wait_when_sigchild_ignored(self):
         # NOTE: sigchild_ignore.py may not be an effective test on all OSes.
         sigchild_ignore = test_support.findfile("sigchild_ignore.py",
@@ -858,6 +949,87 @@ class POSIXProcessTestCase(BaseTestCase):
         stdout, stderr = p.communicate()
         self.assertEqual(0, p.returncode, "sigchild_ignore.py exited"
                          " non-zero with this error:\n%s" % stderr)
+
+    def test_zombie_fast_process_del(self):
+        # Issue #12650: on Unix, if Popen.__del__() was called before the
+        # process exited, it wouldn't be added to subprocess._active, and would
+        # remain a zombie.
+        # spawn a Popen, and delete its reference before it exits
+        p = subprocess.Popen([sys.executable, "-c",
+                              'import sys, time;'
+                              'time.sleep(0.2)'],
+                             stdout=subprocess.PIPE,
+                             stderr=subprocess.PIPE)
+        self.addCleanup(p.stdout.close)
+        self.addCleanup(p.stderr.close)
+        ident = id(p)
+        pid = p.pid
+        del p
+        # check that p is in the active processes list
+        self.assertIn(ident, [id(o) for o in subprocess._active])
+
+    def test_leak_fast_process_del_killed(self):
+        # Issue #12650: on Unix, if Popen.__del__() was called before the
+        # process exited, and the process got killed by a signal, it would never
+        # be removed from subprocess._active, which triggered a FD and memory
+        # leak.
+        # spawn a Popen, delete its reference and kill it
+        p = subprocess.Popen([sys.executable, "-c",
+                              'import time;'
+                              'time.sleep(3)'],
+                             stdout=subprocess.PIPE,
+                             stderr=subprocess.PIPE)
+        self.addCleanup(p.stdout.close)
+        self.addCleanup(p.stderr.close)
+        ident = id(p)
+        pid = p.pid
+        del p
+        os.kill(pid, signal.SIGKILL)
+        # check that p is in the active processes list
+        self.assertIn(ident, [id(o) for o in subprocess._active])
+
+        # let some time for the process to exit, and create a new Popen: this
+        # should trigger the wait() of p
+        time.sleep(0.2)
+        with self.assertRaises(EnvironmentError) as c:
+            with subprocess.Popen(['nonexisting_i_hope'],
+                                  stdout=subprocess.PIPE,
+                                  stderr=subprocess.PIPE) as proc:
+                pass
+        # p should have been wait()ed on, and removed from the _active list
+        self.assertRaises(OSError, os.waitpid, pid, 0)
+        self.assertNotIn(ident, [id(o) for o in subprocess._active])
+
+    def test_pipe_cloexec(self):
+        # Issue 12786: check that the communication pipes' FDs are set CLOEXEC,
+        # and are not inherited by another child process.
+        p1 = subprocess.Popen([sys.executable, "-c",
+                               'import os;'
+                               'os.read(0, 1)'
+                              ],
+                              stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE)
+
+        p2 = subprocess.Popen([sys.executable, "-c", """if True:
+                               import os, errno, sys
+                               for fd in %r:
+                                   try:
+                                       os.close(fd)
+                                   except OSError as e:
+                                       if e.errno != errno.EBADF:
+                                           raise
+                                   else:
+                                       sys.exit(1)
+                               sys.exit(0)
+                               """ % [f.fileno() for f in (p1.stdin, p1.stdout,
+                                                           p1.stderr)]
+                              ],
+                              stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE, close_fds=False)
+        p1.communicate('foo')
+        _, stderr = p2.communicate()
+
+        self.assertEqual(p2.returncode, 0, "Unexpected error: " + repr(stderr))
 
 
 @unittest.skipUnless(mswindows, "Windows specific tests")
@@ -993,7 +1165,6 @@ class HelperFunctionTests(unittest.TestCase):
         self.assertEqual((666,),
                          subprocess._eintr_retry_call(fake_os_func, 666))
         self.assertEqual([(256, 999), (666,), (666,)], record_calls)
-
 
 @unittest.skipUnless(mswindows, "mswindows only")
 class CommandsWithSpaces (BaseTestCase):

@@ -1,3 +1,4 @@
+import errno
 import imp
 import marshal
 import os
@@ -263,7 +264,43 @@ class ImportTests(unittest.TestCase):
                   import imp
             sys.argv.insert(0, C())
             """))
-        script_helper.assert_python_ok(testfn)
+        try:
+            script_helper.assert_python_ok(testfn)
+        finally:
+            unlink(testfn)
+
+    def test_bug7732(self):
+        source = TESTFN + '.py'
+        os.mkdir(source)
+        try:
+            self.assertRaises((ImportError, IOError),
+                              imp.find_module, TESTFN, ["."])
+        finally:
+            os.rmdir(source)
+
+    def test_timestamp_overflow(self):
+        # A modification timestamp larger than 2**32 should not be a problem
+        # when importing a module (issue #11235).
+        sys.path.insert(0, os.curdir)
+        try:
+            source = TESTFN + ".py"
+            compiled = source + ('c' if __debug__ else 'o')
+            with open(source, 'w') as f:
+                pass
+            try:
+                os.utime(source, (2 ** 33 - 5, 2 ** 33 - 5))
+            except OverflowError:
+                self.skipTest("cannot set modification time to large integer")
+            except OSError as e:
+                if e.errno != getattr(errno, 'EOVERFLOW', None):
+                    raise
+                self.skipTest("cannot set modification time to large integer ({})".format(e))
+            __import__(TESTFN)
+            # The pyc file was created.
+            os.stat(compiled)
+        finally:
+            del sys.path[0]
+            remove_files(TESTFN)
 
 
 class PycRewritingTests(unittest.TestCase):
