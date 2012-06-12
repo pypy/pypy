@@ -445,7 +445,24 @@ class TestRintLLVM(_LLVMMixin, test_rint.TestLLtype):
     pass
 
 class TestRlistLLVM(_LLVMMixin, test_rlist.TestLLtype):
-    pass
+    def test_iterate_over_immutable_list(self):
+        py.test.skip('Impossible to pass if not running on LLInterpreter.')
+
+    def test_iterate_over_immutable_list_quasiimmut_attr(self):
+        py.test.skip('Impossible to pass if not running on LLInterpreter.')
+
+    def test_getitem_exc_1(self):
+        py.test.skip('Impossible to pass if not running on LLInterpreter.')
+
+    def test_getitem_exc_2(self):
+        py.test.skip('Impossible to pass if not running on LLInterpreter.')
+
+    def list_is_clear(self, lis, idx):
+        items = lis._obj.items
+        for i in range(idx, lis._obj.length):
+            if items[i]._obj is not None:
+                return False
+        return True
 
 class TestRPBCLLVM(_LLVMMixin, test_rpbc.TestLLtype):
     pass

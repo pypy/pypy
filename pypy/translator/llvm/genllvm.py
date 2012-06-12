@@ -1380,6 +1380,8 @@ class CTypesFuncWrapper(object):
         self.graph = entry_point
         self.entry_point_def = self._get_ctypes_def(
                 getfunctionptr(entry_point))
+        self.rpyexc_clear_def = self._get_ctypes_def(
+                genllvm.exctransformer.rpyexc_clear_ptr.value)
         self.rpyexc_occured_def = self._get_ctypes_def(
                 genllvm.exctransformer.rpyexc_occured_ptr.value)
         self.rpyexc_fetch_type_def = self._get_ctypes_def(
@@ -1395,6 +1397,7 @@ class CTypesFuncWrapper(object):
     def load_cdll(self, path):
         cdll = ctypes.CDLL(path)
         self.entry_point = self._func(cdll, *self.entry_point_def)
+        self.rpyexc_clear = self._func(cdll, *self.rpyexc_clear_def)
         self.rpyexc_occured = self._func(cdll, *self.rpyexc_occured_def)
         self.rpyexc_fetch_type = self._func(cdll, *self.rpyexc_fetch_type_def)
 
@@ -1412,6 +1415,7 @@ class CTypesFuncWrapper(object):
             getrepr = self.rtyper.bindingrepr
             args = [self._Repr2lltype(getrepr(var), arg)
                     for var, arg in zip(self.graph.getargs(), args)]
+        self.rpyexc_clear()
         ret = self.entry_point(*args)
         if self.rpyexc_occured():
             name = ''.join(self.rpyexc_fetch_type().name._obj.items[:-1])
