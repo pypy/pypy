@@ -27,7 +27,7 @@ class PPC_CPU(AbstractLLCPU):
                                translate_support_code, gcdescr)
 
         # floats are not supported yet
-        self.supports_floats = False
+        self.supports_floats = True
 
     def setup(self):
         self.asm = AssemblerPPC(self)
@@ -100,10 +100,10 @@ class PPC_CPU(AbstractLLCPU):
         bytecode = self.asm._find_failure_recovery_bytecode(faildescr)
         addr_all_null_registers = rffi.cast(rffi.LONG, self.all_null_registers)
         # start of "no gc operation!" block
-        fail_index_2 = self.asm.decode_registers_and_descr(
+        fail_index_2 = self.asm.failure_recovery_func(
                 bytecode,
                 spilling_pointer,
-                self.all_null_registers)
+                addr_all_null_registers)
         self.asm.leave_jitted_hook()
         # end of "no gc operation!" block
         assert fail_index == fail_index_2
@@ -114,9 +114,11 @@ class PPC_CPU(AbstractLLCPU):
         return self.asm.fail_boxes_count
 
     # fetch the result of the computation and return it
+    def get_latest_value_float(self, index):
+        return self.asm.fail_boxes_float.getitem(index)
+
     def get_latest_value_int(self, index):
-        value = self.asm.fail_boxes_int.getitem(index)
-        return value
+        return self.asm.fail_boxes_int.getitem(index)
 
     def get_latest_value_ref(self, index):
         return self.asm.fail_boxes_ptr.getitem(index)

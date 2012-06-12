@@ -6,7 +6,7 @@ from pypy.jit.backend.ppc.codebuilder import (PPCBuilder, OverwritingBuilder,
 from pypy.jit.backend.ppc.arch import (IS_PPC_32, IS_PPC_64, WORD,
                                               NONVOLATILES, MAX_REG_PARAMS,
                                               GPR_SAVE_AREA, BACKCHAIN_SIZE,
-                                              FPR_SAVE_AREA,
+                                              FPR_SAVE_AREA, NONVOLATILES_FLOAT,
                                               FLOAT_INT_CONVERSION, FORCE_INDEX,
                                               SIZE_LOAD_IMM_PATCH_SP,
                                               FORCE_INDEX_OFS)
@@ -20,6 +20,7 @@ from pypy.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from pypy.jit.backend.model import CompiledLoopToken
 from pypy.rpython.lltypesystem import lltype, rffi, llmemory
 from pypy.jit.metainterp.resoperation import rop, ResOperation
+from pypy.jit.codewriter import longlong
 from pypy.jit.metainterp.history import (INT, REF, FLOAT)
 from pypy.jit.backend.x86.support import values_array
 from pypy.rlib.debug import (debug_print, debug_start, debug_stop,
@@ -69,10 +70,11 @@ def high(w):
 
 class AssemblerPPC(OpAssembler):
 
-    FORCE_INDEX_AREA            = len(r.MANAGED_REGS) * WORD
-    ENCODING_AREA               = len(r.MANAGED_REGS) * WORD
+    ENCODING_AREA               = FORCE_INDEX_OFS
     OFFSET_SPP_TO_GPR_SAVE_AREA = (FORCE_INDEX + FLOAT_INT_CONVERSION
                                    + ENCODING_AREA)
+    OFFSET_SPP_TO_FPR_SAVE_AREA = (OFFSET_SPP_TO_GPR_SAVE_AREA
+                                   + GPR_SAVE_AREA)
     OFFSET_SPP_TO_OLD_BACKCHAIN = (OFFSET_SPP_TO_GPR_SAVE_AREA
                                    + GPR_SAVE_AREA + FPR_SAVE_AREA)
 
@@ -83,6 +85,8 @@ class AssemblerPPC(OpAssembler):
     def __init__(self, cpu, failargs_limit=1000):
         self.cpu = cpu
         self.fail_boxes_int = values_array(lltype.Signed, failargs_limit)
+        self.fail_boxes_float = values_array(longlong.FLOATSTORAGE,
+                                                            failargs_limit)
         self.fail_boxes_ptr = values_array(llmemory.GCREF, failargs_limit)
         self.mc = None
         self.datablockwrapper = None
@@ -102,21 +106,27 @@ class AssemblerPPC(OpAssembler):
         self._debug = v
 
     def _save_nonvolatiles(self):
-        """ save nonvolatile GPRs in GPR SAVE AREA 
+        """ save nonvolatile GPRs and FPRs in SAVE AREA 
         """
         for i, reg in enumerate(NONVOLATILES):
             # save r31 later on
             if reg.value == r.SPP.value:
                 continue
             self.mc.store(reg.value, r.SPP.value, 
-                    self.OFFSET_SPP_TO_GPR_SAVE_AREA + WORD * i)
+                          self.OFFSET_SPP_TO_GPR_SAVE_AREA + WORD * i)
+        for i, reg in enumerate(NONVOLATILES_FLOAT):
+            self.mc.stfd(reg.value, r.SPP.value, 
+                         self.OFFSET_SPP_TO_FPR_SAVE_AREA + WORD * i)
 
     def _restore_nonvolatiles(self, mc, spp_reg):
-        """ restore nonvolatile GPRs from GPR SAVE AREA
+        """ restore nonvolatile GPRs and FPRs from SAVE AREA
         """
         for i, reg in enumerate(NONVOLATILES):
             mc.load(reg.value, spp_reg.value, 
-                self.OFFSET_SPP_TO_GPR_SAVE_AREA + WORD * i)
+                         self.OFFSET_SPP_TO_GPR_SAVE_AREA + WORD * i)
+        for i, reg in enumerate(NONVOLATILES_FLOAT):
+            mc.lfd(reg.value, spp_reg.value,
+                        self.OFFSET_SPP_TO_FPR_SAVE_AREA + WORD * i)
 
     # The code generated here allocates a new stackframe 
     # and is the first machine code to be executed.
@@ -169,23 +179,27 @@ class AssemblerPPC(OpAssembler):
     def setup_failure_recovery(self):
 
         @rgc.no_collect
-        def failure_recovery_func(mem_loc, spilling_pointer):
+        def failure_recovery_func(mem_loc, spilling_pointer,
+                                  managed_registers_pointer):
             """
                 mem_loc is a pointer to the beginning of the encoding.
 
-                spilling_pointer is the address of the FORCE_INDEX.
+                spilling_pointer is the address of the spilling area.
             """
-            regs = rffi.cast(rffi.LONGP, spilling_pointer)
+            regs = rffi.cast(rffi.LONGP, managed_registers_pointer)
+            fpregs = rffi.ptradd(regs, len(r.MANAGED_REGS))
+            fpregs = rffi.cast(rffi.LONGP, fpregs)
             return self.decode_registers_and_descr(mem_loc, 
-                                                   spilling_pointer, regs)
+                                                   spilling_pointer,
+                                                   regs, fpregs)
 
         self.failure_recovery_func = failure_recovery_func
 
-    recovery_func_sign = lltype.Ptr(lltype.FuncType([lltype.Signed, 
-            lltype.Signed], lltype.Signed))
+    recovery_func_sign = lltype.Ptr(lltype.FuncType([lltype.Signed] * 3,
+            lltype.Signed))
 
     @rgc.no_collect
-    def decode_registers_and_descr(self, mem_loc, spp, registers):
+    def decode_registers_and_descr(self, mem_loc, spp, registers, fp_registers):
         """Decode locations encoded in memory at mem_loc and write the values
         to the failboxes.  Values for spilled vars and registers are stored on
         stack at frame_loc """
@@ -194,6 +208,7 @@ class AssemblerPPC(OpAssembler):
         bytecode = rffi.cast(rffi.UCHARP, mem_loc)
         num = 0
         value = 0
+        fvalue = 0
         code_inputarg = False
         while True:
             code = rffi.cast(lltype.Signed, bytecode[0])
@@ -216,7 +231,8 @@ class AssemblerPPC(OpAssembler):
                     code = ~code
                     code_inputarg = False
                 if kind == self.DESCR_FLOAT:
-                    assert 0, "not implemented yet"
+                    start = spp + get_spp_offset(int(code))
+                    fvalue = rffi.cast(rffi.LONGP, start)[0]
                 else:
                     start = spp + get_spp_offset(int(code))
                     value = rffi.cast(rffi.LONGP, start)[0]
@@ -234,13 +250,15 @@ class AssemblerPPC(OpAssembler):
                     break
                 code >>= 2
                 if kind == self.DESCR_FLOAT:
-                    assert 0, "not implemented yet"
+                    reg_index = r.get_managed_fpreg_index(code)
+                    fvalue = fp_registers[reg_index]
                 else:
                     reg_index = r.get_managed_reg_index(code)
                     value = registers[reg_index]
             # store the loaded value into fail_boxes_<type>
             if kind == self.DESCR_FLOAT:
-                assert 0, "not implemented yet"
+                tgt = self.fail_boxes_float.get_addr_for_num(num)
+                rffi.cast(rffi.LONGP, tgt)[0] = fvalue
             else:
                 if kind == self.DESCR_INT:
                     tgt = self.fail_boxes_int.get_addr_for_num(num)
@@ -295,7 +313,9 @@ class AssemblerPPC(OpAssembler):
                 kind = code & 3
                 code >>= 2
                 if kind == self.DESCR_FLOAT:
-                    assert 0, "not implemented yet"
+                    assert (r.ALL_FLOAT_REGS[code] is 
+                            r.MANAGED_FP_REGS[r.get_managed_fpreg_index(code)])
+                    loc = r.ALL_FLOAT_REGS[code]
                 else:
                     #loc = r.all_regs[code]
                     assert (r.ALL_REGS[code] is 
@@ -309,7 +329,7 @@ class AssemblerPPC(OpAssembler):
         if IS_PPC_64:
             for _ in range(6):
                 mc.write32(0)
-        frame_size = (# add space for floats later
+        frame_size = (len(r.MANAGED_FP_REGS) * WORD
                     + (BACKCHAIN_SIZE + MAX_REG_PARAMS) * WORD)
 
         with scratch_reg(mc):
@@ -323,7 +343,9 @@ class AssemblerPPC(OpAssembler):
                 mc.std(r.SCRATCH.value, r.SP.value, frame_size + 2 * WORD)
         # managed volatiles are saved below
         if self.cpu.supports_floats:
-            assert 0, "make sure to save floats here"
+            for i in range(len(r.MANAGED_FP_REGS)):
+                mc.std(r.MANAGED_FP_REGS[i].value, r.SP.value,
+                       (BACKCHAIN_SIZE + MAX_REG_PARAMS + i) * WORD)
         # Values to compute size stored in r3 and r4
         mc.subf(r.RES.value, r.RES.value, r.r4.value)
         addr = self.cpu.gc_ll_descr.get_malloc_slowpath_addr()
@@ -332,6 +354,11 @@ class AssemblerPPC(OpAssembler):
         mc.call(rffi.cast(lltype.Signed, addr))
         for reg, ofs in PPCRegisterManager.REGLOC_TO_COPY_AREA_OFS.items():
             mc.load(reg.value, r.SPP.value, ofs)
+        # restore floats
+        if self.cpu.supports_floats:
+            for i in range(len(r.MANAGED_FP_REGS)):
+                mc.lfd(r.MANAGED_FP_REGS[i].value, r.SP.value,
+                       (BACKCHAIN_SIZE + MAX_REG_PARAMS + i) * WORD)
 
         mc.cmp_op(0, r.RES.value, 0, imm=True)
         jmp_pos = mc.currpos()
@@ -525,8 +552,10 @@ class AssemblerPPC(OpAssembler):
         addr = rffi.cast(lltype.Signed, decode_func_addr)
 
         # load parameters into parameter registers
-        mc.load(r.RES.value, r.SPP.value, self.FORCE_INDEX_AREA)    # address of state encoding 
-        mc.mr(r.r4.value, r.SPP.value)                             # load spilling pointer
+        # address of state encoding 
+        mc.load(r.RES.value, r.SPP.value, FORCE_INDEX_OFS)
+        mc.mr(r.r4.value, r.SPP.value)  # load spilling pointer
+        mc.mr(r.r5.value, r.SPP.value)  # load managed registers pointer
         #
         # call decoding function
         mc.call(addr)
@@ -565,6 +594,10 @@ class AssemblerPPC(OpAssembler):
         for i in range(len(r.MANAGED_REGS)):
             reg = r.MANAGED_REGS[i]
             mc.store(reg.value, r.SPP.value, i * WORD)
+        FLOAT_OFFSET = len(r.MANAGED_REGS)
+        for i in range(len(r.MANAGED_FP_REGS)):
+            fpreg = r.MANAGED_FP_REGS[i]
+            mc.stfd(fpreg.value, r.SPP.value, (i + FLOAT_OFFSET) * WORD)
 
     def gen_bootstrap_code(self, loophead, spilling_area):
         self._insert_stack_check()
@@ -901,7 +934,7 @@ class AssemblerPPC(OpAssembler):
                 elif arg.type == INT:
                     kind = self.DESCR_INT
                 elif arg.type == FLOAT:
-                    assert 0, "not implemented"
+                    kind = self.DESCR_FLOAT
                 else:
                     raise AssertionError("bogus kind")
                 loc = locs[i]
@@ -912,7 +945,7 @@ class AssemblerPPC(OpAssembler):
                         pos = ~pos
                     n = self.CODE_FROMSTACK // 4 + pos
                 else:
-                    assert loc.is_reg() or loc.is_vfp_reg()
+                    assert loc.is_reg() or loc.is_fp_reg()
                     n = loc.value
                 n = kind + 4 * n
                 while n > 0x7F:
@@ -1093,7 +1126,7 @@ class AssemblerPPC(OpAssembler):
         encoding_adr = self.gen_descr_encoding(descr, args, arglocs[1:])
         with scratch_reg(self.mc):
             self.mc.load_imm(r.SCRATCH, encoding_adr)
-            self.mc.store(r.SCRATCH.value, r.SPP.value, self.ENCODING_AREA)
+            self.mc.store(r.SCRATCH.value, r.SPP.value, FORCE_INDEX_OFS)
         self.mc.b_abs(path)
         return encoding_adr
 
@@ -1168,6 +1201,12 @@ class AssemblerPPC(OpAssembler):
                     self.mc.load(r.SCRATCH.value, r.SPP.value, offset)
                     self.mc.store(r.SCRATCH.value, r.SPP.value, target_offset)
                 return
+            # move from memory to fp register
+            elif loc.is_fp_reg():
+                assert prev_loc.type == FLOAT, 'source not float location'
+                reg = loc.as_key()
+                self.mc.lfd(reg, r.SPP.value, offset)
+                return
             assert 0, "not supported location"
         elif prev_loc.is_reg():
             reg = prev_loc.as_key()
@@ -1182,6 +1221,36 @@ class AssemblerPPC(OpAssembler):
                 self.mc.store(reg, r.SPP.value, offset)
                 return
             assert 0, "not supported location"
+        elif prev_loc.is_imm_float():
+            value = prev_loc.getint()
+            # move immediate value to fp register
+            if loc.is_fp_reg():
+                with scratch_reg(self.mc):
+                    self.mc.load_imm(r.SCRATCH, value)
+                    self.mc.lfdx(loc.value, 0, r.SCRATCH.value)
+                return
+            # move immediate value to memory
+            elif loc.is_stack():
+                with scratch_reg(self.mc):
+                    offset = loc.value
+                    self.mc.load_imm(r.SCRATCH, value)
+                    self.mc.store(r.SCRATCH.value, r.SPP.value, offset)
+                return
+            assert 0, "not supported location"
+        elif prev_loc.is_fp_reg():
+            reg = prev_loc.as_key()
+            # move to another fp register
+            if loc.is_fp_reg():
+                other_reg = loc.as_key()
+                self.mc.fmr(other_reg, reg)
+                return
+            # move from fp register to memory
+            elif loc.is_stack():
+                assert loc.type == FLOAT, "target not float location"
+                offset = loc.value
+                self.mc.stfd(reg, r.SPP.value, offset)
+                return
+            assert 0, "not supported location"
         assert 0, "not supported location"
     mov_loc_loc = regalloc_mov
 
@@ -1191,8 +1260,6 @@ class AssemblerPPC(OpAssembler):
         loc"""
 
         if loc.is_stack():
-            if loc.type == FLOAT:
-                assert 0, "not implemented yet"
             # XXX this code has to be verified
             assert not self.stack_in_use
             target = StackLocation(self.ENCODING_AREA // WORD) # write to ENCODING AREA           
@@ -1213,8 +1280,6 @@ class AssemblerPPC(OpAssembler):
         """Pops the value on top of the stack to loc. Can trash the current
         value of SCRATCH when popping to a stack loc"""
         if loc.is_stack():
-            if loc.type == FLOAT:
-                assert 0, "not implemented yet"
             # XXX this code has to be verified
             assert self.stack_in_use
             from_loc = StackLocation(self.ENCODING_AREA // WORD) # read from ENCODING AREA
@@ -1328,14 +1393,17 @@ class AssemblerPPC(OpAssembler):
     def _write_fail_index(self, fail_index):
         with scratch_reg(self.mc):
             self.mc.load_imm(r.SCRATCH, fail_index)
-            self.mc.store(r.SCRATCH.value, r.SPP.value, self.FORCE_INDEX_AREA)
+            self.mc.store(r.SCRATCH.value, r.SPP.value, FORCE_INDEX_OFS)
             
     def load(self, loc, value):
-        assert loc.is_reg() and value.is_imm()
+        assert (loc.is_reg() and value.is_imm()
+                or loc.is_fp_reg() and value.is_imm_float())
         if value.is_imm():
             self.mc.load_imm(loc, value.getint())
         elif value.is_imm_float():
-            assert 0, "not implemented yet"
+            with scratch_reg(self.mc):
+                self.mc.load_imm(r.SCRATCH, value.getint())
+                self.mc.lfdx(loc.value, 0, r.SCRATCH.value)
 
 def notimplemented_op(self, op, arglocs, regalloc):
     print "[PPC/asm] %s not implemented" % op.getopname()

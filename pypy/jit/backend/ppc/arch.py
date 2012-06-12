@@ -2,7 +2,8 @@
 
 from pypy.jit.backend.ppc.register import (NONVOLATILES,
                                            NONVOLATILES_FLOAT,
-                                           MANAGED_REGS)
+                                           MANAGED_REGS,
+                                           MANAGED_FP_REGS)
 
 import sys
 if sys.maxint == (2**31 - 1):
@@ -25,11 +26,12 @@ FORCE_INDEX             = WORD
 GPR_SAVE_AREA           = len(NONVOLATILES) * WORD
 FLOAT_INT_CONVERSION    = WORD
 MAX_REG_PARAMS          = 8
+MAX_FREG_PARAMS         = 13
 # we need at most 5 instructions to load a constant
 # and one instruction to patch the stack pointer
 SIZE_LOAD_IMM_PATCH_SP  = 6
 
-FORCE_INDEX_OFS         = len(MANAGED_REGS) * WORD
+FORCE_INDEX_OFS         = (len(MANAGED_REGS) + len(MANAGED_FP_REGS)) * WORD
 
 # offset to LR in BACKCHAIN
 if IS_PPC_32:

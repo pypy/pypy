@@ -1,5 +1,4 @@
 from pypy.jit.backend.arm.assembler import AssemblerARM
-from pypy.jit.backend.arm.arch import WORD
 from pypy.jit.backend.arm.registers import all_regs, all_vfp_regs
 from pypy.jit.backend.llsupport.llmodel import AbstractLLCPU
 from pypy.rpython.llinterp import LLInterpreter
@@ -10,6 +9,8 @@ from pypy.jit.backend.arm.arch import FORCE_INDEX_OFS
 class ArmCPU(AbstractLLCPU):
 
     supports_floats = True
+    supports_longlong = False # XXX requires an implementation of
+                              # read_timestamp that works in user mode
 
     def __init__(self, rtyper, stats, opts=None, translate_support_code=False,
                  gcdescr=None):
@@ -41,7 +42,7 @@ class ArmCPU(AbstractLLCPU):
         clt = original_loop_token.compiled_loop_token
         clt.compiling_a_bridge()
         return self.assembler.assemble_bridge(faildescr, inputargs, operations,
-                                       original_loop_token, log=log)
+                                                original_loop_token, log=log)
 
     def get_latest_value_float(self, index):
         return self.assembler.fail_boxes_float.getitem(index)
@@ -100,12 +101,15 @@ class ArmCPU(AbstractLLCPU):
     all_null_registers = lltype.malloc(rffi.LONGP.TO,
                         len(all_vfp_regs) * 2 + len(all_regs),
                         flavor='raw', zero=True, immortal=True)
+
     def force(self, addr_of_force_index):
         TP = rffi.CArrayPtr(lltype.Signed)
         fail_index = rffi.cast(TP, addr_of_force_index)[0]
         assert fail_index >= 0, "already forced!"
         faildescr = self.get_fail_descr_from_number(fail_index)
         rffi.cast(TP, addr_of_force_index)[0] = ~fail_index
+        bytecode = self.assembler._find_failure_recovery_bytecode(faildescr)
+        addr_all_null_regsiters = rffi.cast(rffi.LONG, self.all_null_registers)
         # start of "no gc operation!" block
         fail_index_2 = self.assembler.failure_recovery_func(
             bytecode,

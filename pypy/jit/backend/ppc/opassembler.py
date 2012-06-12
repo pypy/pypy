@@ -5,13 +5,13 @@ import pypy.jit.backend.ppc.register as r
 from pypy.jit.backend.ppc.locations import imm
 from pypy.jit.backend.ppc.locations import imm as make_imm_loc
 from pypy.jit.backend.ppc.arch import (IS_PPC_32, WORD, BACKCHAIN_SIZE,
-                                       MAX_REG_PARAMS, FORCE_INDEX_OFS)
+                                       MAX_REG_PARAMS, MAX_FREG_PARAMS,
+                                       FORCE_INDEX_OFS)
 
 from pypy.jit.metainterp.history import (JitCellToken, TargetToken, Box,
                                          AbstractFailDescr, FLOAT, INT, REF)
 from pypy.rlib.objectmodel import we_are_translated
-from pypy.jit.backend.ppc.helper.assembler import (count_reg_args,
-                                                          Saved_Volatiles)
+from pypy.jit.backend.ppc.helper.assembler import (Saved_Volatiles)
 from pypy.jit.backend.ppc.jump import remap_frame_layout
 from pypy.jit.backend.ppc.codebuilder import (OverwritingBuilder, scratch_reg,
                                               PPCBuilder)
@@ -53,8 +53,7 @@ class IntOpAssembler(object):
     def emit_int_sub(self, op, arglocs, regalloc):
         l0, l1, res = arglocs
         if l0.is_imm():
-            self.mc.load_imm(r.r0, l0.value)
-            self.mc.sub(res.value, r.r0.value, l1.value)
+            self.mc.subfic(res.value, l1.value, l0.value)
         elif l1.is_imm():
             self.mc.subi(res.value, l0.value, l1.value)
         else:
@@ -174,6 +173,55 @@ class IntOpAssembler(object):
         l0, res = arglocs
         self.mc.not_(res.value, l0.value)
 
+class FloatOpAssembler(object):
+    _mixin_ = True
+
+    def emit_float_add(self, op, arglocs, regalloc):
+        l0, l1, res = arglocs
+        self.mc.fadd(res.value, l0.value, l1.value)
+
+    def emit_float_sub(self, op, arglocs, regalloc):
+        l0, l1, res = arglocs
+        self.mc.fsub(res.value, l0.value, l1.value)
+
+    def emit_float_mul(self, op, arglocs, regalloc):
+        l0, l1, res = arglocs
+        self.mc.fmul(res.value, l0.value, l1.value)
+
+    def emit_float_truediv(self, op, arglocs, regalloc):
+        l0, l1, res = arglocs
+        self.mc.fdiv(res.value, l0.value, l1.value)
+
+    def emit_float_neg(self, op, arglocs, regalloc):
+        l0, res = arglocs
+        self.mc.fneg(res.value, l0.value)
+
+    def emit_float_abs(self, op, arglocs, regalloc):
+        l0, res = arglocs
+        self.mc.fabs(res.value, l0.value)
+
+    def emit_math_sqrt(self, op, arglocs, regalloc):
+        l0, res = arglocs
+        self.mc.fsqrt(res.value, l0.value)
+
+    emit_float_le = gen_emit_cmp_op(c.LE, fp=True)
+    emit_float_lt = gen_emit_cmp_op(c.LT, fp=True)
+    emit_float_gt = gen_emit_cmp_op(c.GT, fp=True)
+    emit_float_ge = gen_emit_cmp_op(c.GE, fp=True)
+    emit_float_eq = gen_emit_cmp_op(c.EQ, fp=True)
+    emit_float_ne = gen_emit_cmp_op(c.NE, fp=True)
+
+    def emit_cast_float_to_int(self, op, arglocs, regalloc):
+        l0, temp_loc, res = arglocs
+        self.mc.fctidz(temp_loc.value, l0.value)
+        self.mc.stfd(temp_loc.value, r.SPP.value, FORCE_INDEX_OFS + WORD)
+        self.mc.ld(res.value, r.SPP.value, FORCE_INDEX_OFS + WORD)
+
+    def emit_cast_int_to_float(self, op, arglocs, regalloc):
+        l0, temp_loc, res = arglocs
+        self.mc.std(l0.value, r.SPP.value, FORCE_INDEX_OFS + WORD)
+        self.mc.lfd(temp_loc.value, r.SPP.value, FORCE_INDEX_OFS + WORD)
+        self.mc.fcfid(res.value, temp_loc.value)
 
 class GuardOpAssembler(object):
 
@@ -235,8 +283,9 @@ class GuardOpAssembler(object):
                 self.mc.cmp_op(0, l0.value, l1.getint(), imm=True)
             else:
                 self.mc.cmp_op(0, l0.value, l1.value)
-        else:
-            assert 0, "not implemented yet"
+        elif l0.is_fp_reg():
+            assert l1.is_fp_reg()
+            self.mc.cmp_op(0, l0.value, l1.value, fp=True)
         self._emit_guard(op, failargs, c.NE)
 
     emit_guard_nonnull = emit_guard_true
@@ -299,12 +348,20 @@ class MiscOpAssembler(object):
                 with scratch_reg(self.mc):
                     self.mc.load_imm(r.SCRATCH, adr)
                     self.mc.storex(loc.value, 0, r.SCRATCH.value)
-            elif loc.is_vfp_reg():
+            elif loc.is_fp_reg():
                 assert box.type == FLOAT
-                assert 0, "not implemented yet"
+                adr = self.fail_boxes_float.get_addr_for_num(i)
+                with scratch_reg(self.mc):
+                    self.mc.load_imm(r.SCRATCH, adr)
+                    self.mc.stfdx(loc.value, 0, r.SCRATCH.value)
             elif loc.is_stack() or loc.is_imm() or loc.is_imm_float():
                 if box.type == FLOAT:
-                    assert 0, "not implemented yet"
+                    adr = self.fail_boxes_float.get_addr_for_num(i)
+                    self.mc.stfd(r.f0.value, r.SPP.value, FORCE_INDEX_OFS + WORD)
+                    self.mov_loc_loc(loc, r.f0)
+                    self.mc.load_imm(r.SCRATCH, adr)
+                    self.mc.stfdx(r.f0.value, 0, r.SCRATCH.value)
+                    self.mc.lfd(r.f0.value, r.SPP.value, FORCE_INDEX_OFS + WORD)
                 elif box.type == REF or box.type == INT:
                     if box.type == REF:
                         adr = self.fail_boxes_ptr.get_addr_for_num(i)
@@ -401,25 +458,43 @@ class MiscOpAssembler(object):
 
     def _emit_call(self, force_index, adr, arglocs, result=None):
         n_args = len(arglocs)
-        reg_args = count_reg_args(arglocs)
 
-        n = 0   # used to count the number of words pushed on the stack, so we
-                # can later modify the SP back to its original value
+        # collect variables that need to go in registers
+        # and the registers they will be stored in 
+        num = 0
+        fpnum = 0
+        count = 0
+        non_float_locs = []
+        non_float_regs = []
+        float_locs = []
+        float_regs = []
         stack_args = []
-        if n_args > reg_args:
-            # first we need to prepare the list so it stays aligned
-            count = 0
-            for i in range(reg_args, n_args):
-                arg = arglocs[i]
-                if arg.type == FLOAT:
-                    assert 0, "not implemented yet"
+        float_stack_arg = False
+        for i in range(n_args):
+            arg = arglocs[i]
+
+            if arg.type == FLOAT:
+                if fpnum < MAX_FREG_PARAMS:
+                    fpreg = r.PARAM_FPREGS[fpnum]
+                    float_locs.append(arg)
+                    float_regs.append(fpreg)
+                    fpnum += 1
                 else:
-                    count += 1
-                    n += WORD
-                stack_args.append(arg)
-            if count % 2 != 0:
-                n += WORD
-                stack_args.append(None)
+                    stack_args.append(arg)
+            else:
+                if num < MAX_REG_PARAMS:
+                    reg = r.PARAM_REGS[num]
+                    non_float_locs.append(arg)
+                    non_float_regs.append(reg)
+                    num += 1
+                else:
+                    stack_args.append(arg)
+                    float_stack_arg = True
+
+        if adr in non_float_regs:
+            non_float_locs.append(adr)
+            non_float_regs.append(r.r11)
+            adr = r.r11
 
         # compute maximum of parameters passed
         self.max_stack_params = max(self.max_stack_params, len(stack_args))
@@ -428,46 +503,26 @@ class MiscOpAssembler(object):
         if IS_PPC_32:
             param_offset = BACKCHAIN_SIZE * WORD
         else:
-            param_offset = ((BACKCHAIN_SIZE + MAX_REG_PARAMS)
-                    * WORD) # space for first 8 parameters
+            # space for first 8 parameters
+            param_offset = ((BACKCHAIN_SIZE + MAX_REG_PARAMS) * WORD)
 
         with scratch_reg(self.mc):
+            if float_stack_arg:
+                self.mc.stfd(r.f0.value, r.SPP.value, FORCE_INDEX_OFS + WORD)
             for i, arg in enumerate(stack_args):
                 offset = param_offset + i * WORD
                 if arg is not None:
-                    self.regalloc_mov(arg, r.SCRATCH)
-                self.mc.store(r.SCRATCH.value, r.SP.value, offset)
-
-        # collect variables that need to go in registers
-        # and the registers they will be stored in 
-        num = 0
-        count = 0
-        non_float_locs = []
-        non_float_regs = []
-        for i in range(reg_args):
-            arg = arglocs[i]
-            if arg.type == FLOAT and count % 2 != 0:
-                assert 0, "not implemented yet"
-            reg = r.PARAM_REGS[num]
-
-            if arg.type == FLOAT:
-                assert 0, "not implemented yet"
-            else:
-                non_float_locs.append(arg)
-                non_float_regs.append(reg)
-
-            if arg.type == FLOAT:
-                assert 0, "not implemented yet"
-            else:
-                num += 1
-                count += 1
-
-        if adr in non_float_regs:
-            non_float_locs.append(adr)
-            non_float_regs.append(r.r11)
-            adr = r.r11
+                    if arg.type == FLOAT:
+                        self.regalloc_mov(arg, r.f0)
+                        self.mc.stfd(r.f0.value, r.SP.value, offset)
+                    else:
+                        self.regalloc_mov(arg, r.SCRATCH)
+                        self.mc.store(r.SCRATCH.value, r.SP.value, offset)
+            if float_stack_arg:
+                self.mc.lfd(r.f0.value, r.SPP.value, FORCE_INDEX_OFS + WORD)
 
         # remap values stored in core registers
+        remap_frame_layout(self, float_locs, float_regs, r.f0)
         remap_frame_layout(self, non_float_locs, non_float_regs, r.SCRATCH)
 
         # the actual call
@@ -489,10 +544,16 @@ class FieldOpAssembler(object):
     def emit_setfield_gc(self, op, arglocs, regalloc):
         value_loc, base_loc, ofs, size = arglocs
         if size.value == 8:
-            if ofs.is_imm():
-                self.mc.std(value_loc.value, base_loc.value, ofs.value)
+            if value_loc.is_fp_reg():
+                if ofs.is_imm():
+                    self.mc.stfd(value_loc.value, base_loc.value, ofs.value)
+                else:
+                    self.mc.stfdx(value_loc.value, base_loc.value, ofs.value)
             else:
-                self.mc.stdx(value_loc.value, base_loc.value, ofs.value)
+                if ofs.is_imm():
+                    self.mc.std(value_loc.value, base_loc.value, ofs.value)
+                else:
+                    self.mc.stdx(value_loc.value, base_loc.value, ofs.value)
         elif size.value == 4:
             if ofs.is_imm():
                 self.mc.stw(value_loc.value, base_loc.value, ofs.value)
@@ -516,10 +577,16 @@ class FieldOpAssembler(object):
     def emit_getfield_gc(self, op, arglocs, regalloc):
         base_loc, ofs, res, size = arglocs
         if size.value == 8:
-            if ofs.is_imm():
-                self.mc.ld(res.value, base_loc.value, ofs.value)
+            if res.is_fp_reg():
+                if ofs.is_imm():
+                    self.mc.lfd(res.value, base_loc.value, ofs.value)
+                else:
+                    self.mc.lfdx(res.value, base_loc.value, ofs.value)
             else:
-                self.mc.ldx(res.value, base_loc.value, ofs.value)
+                if ofs.is_imm():
+                    self.mc.ld(res.value, base_loc.value, ofs.value)
+                else:
+                    self.mc.ldx(res.value, base_loc.value, ofs.value)
         elif size.value == 4:
             if ofs.is_imm():
                 self.mc.lwz(res.value, base_loc.value, ofs.value)
@@ -560,7 +627,10 @@ class FieldOpAssembler(object):
                     self.mc.add(r.SCRATCH.value, r.SCRATCH.value, ofs_loc.value)
 
             if fieldsize.value == 8:
-                self.mc.ldx(res_loc.value, base_loc.value, r.SCRATCH.value)
+                if res_loc.is_fp_reg():
+                    self.mc.lfdx(res_loc.value, base_loc.value, r.SCRATCH.value)
+                else:
+                    self.mc.ldx(res_loc.value, base_loc.value, r.SCRATCH.value)
             elif fieldsize.value == 4:
                 self.mc.lwzx(res_loc.value, base_loc.value, r.SCRATCH.value)
             elif fieldsize.value == 2:
@@ -587,7 +657,10 @@ class FieldOpAssembler(object):
             else:
                 self.mc.add(r.SCRATCH.value, r.SCRATCH.value, ofs_loc.value)
         if fieldsize.value == 8:
-            self.mc.stdx(value_loc.value, base_loc.value, r.SCRATCH.value)
+            if value_loc.is_fp_reg():
+                self.mc.stfdx(value_loc.value, base_loc.value, r.SCRATCH.value)
+            else:
+                self.mc.stdx(value_loc.value, base_loc.value, r.SCRATCH.value)
         elif fieldsize.value == 4:
             self.mc.stwx(value_loc.value, base_loc.value, r.SCRATCH.value)
         elif fieldsize.value == 2:
@@ -626,7 +699,10 @@ class ArrayOpAssembler(object):
             scale_loc = r.SCRATCH
 
         if scale.value == 3:
-            self.mc.stdx(value_loc.value, base_loc.value, scale_loc.value)
+            if value_loc.is_fp_reg():
+                self.mc.stfdx(value_loc.value, base_loc.value, scale_loc.value)
+            else:
+                self.mc.stdx(value_loc.value, base_loc.value, scale_loc.value)
         elif scale.value == 2:
             self.mc.stwx(value_loc.value, base_loc.value, scale_loc.value)
         elif scale.value == 1:
@@ -657,7 +733,10 @@ class ArrayOpAssembler(object):
             scale_loc = r.SCRATCH
 
         if scale.value == 3:
-            self.mc.ldx(res.value, base_loc.value, scale_loc.value)
+            if res.is_fp_reg():
+                self.mc.lfdx(res.value, base_loc.value, scale_loc.value)
+            else:
+                self.mc.ldx(res.value, base_loc.value, scale_loc.value)
         elif scale.value == 2:
             self.mc.lwzx(res.value, base_loc.value, scale_loc.value)
         elif scale.value == 1:
@@ -1000,8 +1079,7 @@ class AllocOpAssembler(object):
 
                 # use r20 as temporary register, save it in FORCE INDEX slot
                 temp_reg = r.r20
-                ENCODING_AREA = len(r.MANAGED_REGS) * WORD
-                self.mc.store(temp_reg.value, r.SPP.value, ENCODING_AREA)
+                self.mc.store(temp_reg.value, r.SPP.value, FORCE_INDEX_OFS)
 
                 self.mc.srli_op(temp_reg.value, loc_index.value, s)
                 self.mc.not_(temp_reg.value, temp_reg.value)
@@ -1021,7 +1099,7 @@ class AllocOpAssembler(object):
                 # done
 
                 # restore temporary register r20
-                self.mc.load(temp_reg.value, r.SPP.value, ENCODING_AREA)
+                self.mc.load(temp_reg.value, r.SPP.value, FORCE_INDEX_OFS)
 
                 # patch the JMP above
                 offset = self.mc.currpos()
@@ -1048,9 +1126,8 @@ class ForceOpAssembler(object):
     
     def emit_force_token(self, op, arglocs, regalloc):
         res_loc = arglocs[0]
-        ENCODING_AREA = len(r.MANAGED_REGS) * WORD
         self.mc.mr(res_loc.value, r.SPP.value)
-        self.mc.addi(res_loc.value, res_loc.value, ENCODING_AREA)
+        self.mc.addi(res_loc.value, res_loc.value, FORCE_INDEX_OFS)
 
     #    self._emit_guard(guard_op, regalloc._prepare_guard(guard_op), c.LT)
     # from: ../x86/assembler.py:1668
@@ -1121,13 +1198,13 @@ class ForceOpAssembler(object):
             elif kind == REF:
                 adr = self.fail_boxes_ptr.get_addr_for_num(0)
             elif kind == FLOAT:
-                assert 0, "not implemented"
+                adr = self.fail_boxes_float.get_addr_for_num(0)
             else:
                 raise AssertionError(kind)
             with scratch_reg(self.mc):
                 self.mc.load_imm(r.SCRATCH, adr)
                 if op.result.type == FLOAT:
-                    assert 0, "not implemented yet"
+                    self.mc.lfdx(resloc.value, 0, r.SCRATCH.value)
                 else:
                     self.mc.loadx(resloc.value, 0, r.SCRATCH.value)
 
@@ -1143,14 +1220,14 @@ class ForceOpAssembler(object):
         # Path B: use assembler helper
         asm_helper_adr = self.cpu.cast_adr_to_int(jd.assembler_helper_adr)
         if self.cpu.supports_floats:
-            assert 0, "not implemented yet"
+            floats = r.VOLATILES_FLOAT
+        else:
+            floats = []
 
         with Saved_Volatiles(self.mc, save_RES=False):
             # result of previous call is in r3
             self.mov_loc_loc(arglocs[0], r.r4)
             self.mc.call(asm_helper_adr)
-            if op.result and resloc.is_vfp_reg():
-                assert 0, "not implemented yet"
 
         # merge point
         currpos = self.mc.currpos()
@@ -1158,9 +1235,8 @@ class ForceOpAssembler(object):
         pmc.b(currpos - fast_path_to_end_jump_pos)
         pmc.overwrite()
 
-        ENCODING_AREA = len(r.MANAGED_REGS) * WORD
         with scratch_reg(self.mc):
-            self.mc.load(r.SCRATCH.value, r.SPP.value, ENCODING_AREA)
+            self.mc.load(r.SCRATCH.value, r.SPP.value, FORCE_INDEX_OFS)
             self.mc.cmp_op(0, r.SCRATCH.value, 0, imm=True)
 
         self._emit_guard(guard_op, regalloc._prepare_guard(guard_op),
@@ -1254,7 +1330,7 @@ class OpAssembler(IntOpAssembler, GuardOpAssembler,
                   MiscOpAssembler, FieldOpAssembler,
                   ArrayOpAssembler, StrOpAssembler,
                   UnicodeOpAssembler, ForceOpAssembler,
-                  AllocOpAssembler):
+                  AllocOpAssembler, FloatOpAssembler):
 
     def nop(self):
         self.mc.ori(0, 0, 0)

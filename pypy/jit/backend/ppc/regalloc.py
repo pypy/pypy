@@ -1,15 +1,18 @@
 from pypy.jit.backend.llsupport.regalloc import (RegisterManager, FrameManager,
                                                  TempBox, compute_vars_longevity)
 from pypy.jit.backend.ppc.arch import (WORD, MY_COPY_OF_REGS, IS_PPC_32)
-from pypy.jit.backend.ppc.jump import remap_frame_layout
+from pypy.jit.codewriter import longlong
+from pypy.jit.backend.ppc.jump import (remap_frame_layout,
+                                       remap_frame_layout_mixed)
 from pypy.jit.backend.ppc.locations import imm
 from pypy.jit.backend.ppc.helper.regalloc import (_check_imm_arg,
                                                   prepare_cmp_op,
                                                   prepare_unary_int_op,
                                                   prepare_binary_int_op,
                                                   prepare_binary_int_op_with_imm,
-                                                  prepare_unary_cmp)
-from pypy.jit.metainterp.history import (Const, ConstInt, ConstPtr,
+                                                  prepare_unary_cmp,
+                                                  prepare_float_op)
+from pypy.jit.metainterp.history import (Const, ConstInt, ConstFloat, ConstPtr,
                                          Box, BoxPtr,
                                          INT, REF, FLOAT)
 from pypy.jit.metainterp.history import JitCellToken, TargetToken
@@ -24,6 +27,7 @@ from pypy.jit.backend.llsupport.descr import unpack_arraydescr
 from pypy.jit.backend.llsupport.descr import unpack_fielddescr
 from pypy.jit.backend.llsupport.descr import unpack_interiorfielddescr
 from pypy.rlib.objectmodel import we_are_translated
+from pypy.jit.codewriter.effectinfo import EffectInfo
 
 # xxx hack: set a default value for TargetToken._arm_loop_code.  If 0, we know
 # that it is a LABEL that was not compiled yet.
@@ -40,6 +44,52 @@ class TempPtr(TempBox):
 
     def __repr__(self):
         return "<TempPtr at %s>" % (id(self),)
+
+class TempFloat(TempBox):
+    type = FLOAT
+
+    def __repr__(self):
+        return "<TempFloat at %s>" % (id(self),)
+
+
+class FPRegisterManager(RegisterManager):
+    all_regs              = r.ALL_FLOAT_REGS
+    box_types             = [FLOAT]
+    save_around_call_regs = r.VOLATILES_FLOAT
+
+    def convert_to_imm(self, c):
+        adr = self.assembler.datablockwrapper.malloc_aligned(8, 8)
+        x = c.getfloatstorage()
+        rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), adr)[0] = x
+        return locations.ConstFloatLoc(adr)
+
+    def __init__(self, longevity, frame_manager=None, assembler=None):
+        RegisterManager.__init__(self, longevity, frame_manager, assembler)
+
+    def call_result_location(self, v):
+        return r.f1
+
+    def ensure_value_is_boxed(self, thing, forbidden_vars=[]):
+        loc = None
+        if isinstance(thing, Const):
+            assert isinstance(thing, ConstFloat)
+            loc = self.get_scratch_reg(FLOAT, self.temp_boxes + forbidden_vars)
+            immvalue = self.convert_to_imm(thing)
+            self.assembler.load(loc, immvalue)
+        else:
+            loc = self.make_sure_var_in_reg(thing,
+                            forbidden_vars=self.temp_boxes + forbidden_vars)
+        return loc
+
+    def get_scratch_reg(self, type=FLOAT, forbidden_vars=[],
+                                                        selected_reg=None):
+        assert type == FLOAT  # for now
+        box = TempFloat()
+        self.temp_boxes.append(box)
+        reg = self.force_allocate_reg(box, forbidden_vars=forbidden_vars,
+                                                    selected_reg=selected_reg)
+        return reg
+
 
 class PPCRegisterManager(RegisterManager):
     all_regs              = r.MANAGED_REGS
@@ -131,21 +181,15 @@ class PPCFrameManager(FrameManager):
     @staticmethod
     def frame_pos(loc, type):
         num_words = PPCFrameManager.frame_size(type)
-        if type == FLOAT:
-            assert 0, "not implemented yet"
         return locations.StackLocation(loc, num_words=num_words, type=type)
 
     @staticmethod
     def frame_size(type):
-        if type == FLOAT:
-            assert 0, "TODO"
         return 1
 
     @staticmethod
     def get_loc_index(loc):
         assert loc.is_stack()
-        if loc.type == FLOAT:
-            assert 0, "not implemented yet"
         return loc.position
 
 class Regalloc(object):
@@ -164,6 +208,7 @@ class Regalloc(object):
         self.last_real_usage = last_real_usage
         fm = self.frame_manager
         asm = self.assembler
+        self.fprm = FPRegisterManager(longevity, fm, asm)
         self.rm = PPCRegisterManager(longevity, fm, asm)
 
     def prepare_loop(self, inputargs, operations):
@@ -177,30 +222,39 @@ class Regalloc(object):
 
     def _set_initial_bindings(self, inputargs):
         arg_index = 0
-        count = 0
+        fparg_index = 0
         n_register_args = len(r.PARAM_REGS)
+        n_fpregister_args = len(r.PARAM_FPREGS)
         cur_frame_pos = -self.assembler.OFFSET_STACK_ARGS // WORD + 1
         for box in inputargs:
             assert isinstance(box, Box)
-            # handle inputargs in argument registers
-            if box.type == FLOAT and arg_index % 2 != 0:
-                assert 0, "not implemented yet"
-            if arg_index < n_register_args:
-                if box.type == FLOAT:
-                    assert 0, "not implemented yet"
+            if box.type == FLOAT:
+                if fparg_index < n_fpregister_args:
+                    loc = r.PARAM_FPREGS[fparg_index]
+                    self.try_allocate_reg(box, selected_reg=loc)
+                    fparg_index += 1
+                    # XXX stdarg placing float args in FPRs and GPRs
+                    if arg_index < n_register_args:
+                        arg_index += 1
+                    else:
+                        cur_frame_pos -= 1
                 else:
+                    if IS_PPC_32:
+                        cur_frame_pos -= 2
+                    else:
+                        cur_frame_pos -= 1
+                    loc = self.frame_manager.frame_pos(cur_frame_pos, box.type)
+                    self.frame_manager.set_binding(box, loc)
+            else:
+                if arg_index < n_register_args:
                     loc = r.PARAM_REGS[arg_index]
                     self.try_allocate_reg(box, selected_reg=loc)
                     arg_index += 1
-            else:
-                # treat stack args as stack locations with a negative offset
-                if box.type == FLOAT:
-                    assert 0, "not implemented yet"
                 else:
+                # treat stack args as stack locations with a negative offset
                     cur_frame_pos -= 1
-                    count += 1
-                loc = self.frame_manager.frame_pos(cur_frame_pos, box.type)
-                self.frame_manager.set_binding(box, loc)
+                    loc = self.frame_manager.frame_pos(cur_frame_pos, box.type)
+                    self.frame_manager.set_binding(box, loc)
 
     def _update_bindings(self, locs, inputargs):
         used = {}
@@ -210,8 +264,8 @@ class Regalloc(object):
             i += 1
             if loc.is_reg():
                 self.rm.reg_bindings[arg] = loc
-            elif loc.is_vfp_reg():
-                assert 0, "not supported"
+            elif loc.is_fp_reg():
+                self.fprm.reg_bindings[arg] = loc
             else:
                 assert loc.is_stack()
                 self.frame_manager.set_binding(arg, loc)
@@ -222,16 +276,24 @@ class Regalloc(object):
         for reg in self.rm.all_regs:
             if reg not in used:
                 self.rm.free_regs.append(reg)
+        self.fprm.free_regs = []
+        for reg in self.fprm.all_regs:
+            if reg not in used:
+                self.fprm.free_regs.append(reg)
         # note: we need to make a copy of inputargs because possibly_free_vars
         # is also used on op args, which is a non-resizable list
         self.possibly_free_vars(list(inputargs))
 
     def possibly_free_var(self, var):
-        self.rm.possibly_free_var(var)
+        if var.type == FLOAT:
+            self.fprm.possibly_free_var(var)
+        else:
+            self.rm.possibly_free_var(var)
 
     def possibly_free_vars(self, vars):
         for var in vars:
-            self.possibly_free_var(var)
+            if var is not None:  # xxx kludgy
+                self.possibly_free_var(var)
 
     def possibly_free_vars_for_op(self, op):
         for i in range(op.numargs()):
@@ -240,12 +302,19 @@ class Regalloc(object):
                 self.possibly_free_var(var)
 
     def try_allocate_reg(self, v, selected_reg=None, need_lower_byte=False):
-        return self.rm.try_allocate_reg(v, selected_reg, need_lower_byte)
+        if v.type == FLOAT:
+            return self.fprm.try_allocate_reg(v, selected_reg, need_lower_byte)
+        else:
+            return self.rm.try_allocate_reg(v, selected_reg, need_lower_byte)
 
     def force_allocate_reg(self, var, forbidden_vars=[], selected_reg=None, 
             need_lower_byte=False):
-        return self.rm.force_allocate_reg(var, forbidden_vars, selected_reg,
-                need_lower_byte)
+        if var.type == FLOAT:
+            return self.fprm.force_allocate_reg(var, forbidden_vars,
+                                                selected_reg, need_lower_byte)
+        else:
+            return self.rm.force_allocate_reg(var, forbidden_vars,
+                                              selected_reg, need_lower_byte)
 
     def allocate_scratch_reg(self, type=INT, forbidden_vars=[], selected_reg=None):
         assert type == INT # XXX extend this once floats are supported
@@ -255,53 +324,59 @@ class Regalloc(object):
 
     def _check_invariants(self):
         self.rm._check_invariants()
+        self.fprm._check_invariants()
 
     def loc(self, var):
         if var.type == FLOAT:
-            assert 0, "not implemented yet"
-        return self.rm.loc(var)
+            return self.fprm.loc(var)
+        else:
+            return self.rm.loc(var)
 
     def position(self):
         return self.rm.position
 
     def next_instruction(self):
         self.rm.next_instruction()
+        self.fprm.next_instruction()
 
     def force_spill_var(self, var):
         if var.type == FLOAT:
-            assert 0, "not implemented yet"
+            self.fprm.force_spill_var(var)
         else:
             self.rm.force_spill_var(var)
 
     def before_call(self, force_store=[], save_all_regs=False):
         self.rm.before_call(force_store, save_all_regs)
+        self.fprm.before_call(force_store, save_all_regs)
 
     def after_call(self, v):
         if v.type == FLOAT:
-            assert 0, "not implemented yet"
+            return self.fprm.after_call(v)
         else:
             return self.rm.after_call(v)
 
     def call_result_location(self, v):
         if v.type == FLOAT:
-            assert 0, "not implemented yet"
+            return self.fprm.call_result_location(v)
         else:
             return self.rm.call_result_location(v)
 
     def _ensure_value_is_boxed(self, thing, forbidden_vars=[]):
         if thing.type == FLOAT:
-            assert 0, "not implemented yet"
+            return self.fprm.ensure_value_is_boxed(thing, forbidden_vars)
         else:
             return self.rm.ensure_value_is_boxed(thing, forbidden_vars)
 
     def get_scratch_reg(self, type, forbidden_vars=[], selected_reg=None):
         if type == FLOAT:
-            assert 0, "not implemented yet"
+            return self.fprm.get_scratch_reg(type, forbidden_vars,
+                                                                selected_reg)
         else:
             return self.rm.get_scratch_reg(type, forbidden_vars, selected_reg)
 
     def free_temp_vars(self):
         self.rm.free_temp_vars()
+        self.fprm.free_temp_vars()
 
     def make_sure_var_in_reg(self, var, forbidden_vars=[],
                              selected_reg=None, need_lower_byte=False):
@@ -315,11 +390,12 @@ class Regalloc(object):
         if isinstance(value, ConstInt):
             return self.rm.convert_to_imm(value)
         else:
-            assert 0, "not implemented yet"
+            assert isinstance(value, ConstFloat)
+            return self.fprm.convert_to_imm(value)
 
     def _sync_var(self, v):
         if v.type == FLOAT:
-            assert 0, "not implemented yet"
+            self.fprm._sync_var(v)
         else:
             self.rm._sync_var(v)
 
@@ -372,6 +448,65 @@ class Regalloc(object):
 
     prepare_int_is_true = prepare_unary_cmp()
     prepare_int_is_zero = prepare_unary_cmp()
+
+    prepare_float_add = prepare_float_op(name='prepare_float_add')
+    prepare_float_sub = prepare_float_op(name='prepare_float_sub')
+    prepare_float_mul = prepare_float_op(name='prepare_float_mul')
+    prepare_float_truediv = prepare_float_op(name='prepare_float_truediv')
+
+    prepare_float_lt = prepare_float_op(float_result=False,
+                                        name='prepare_op_float_lt')
+    prepare_float_le = prepare_float_op(float_result=False,
+                                        name='prepare_op_float_le')
+    prepare_float_eq = prepare_float_op(float_result=False,
+                                        name='prepare_op_float_eq')
+    prepare_float_ne = prepare_float_op(float_result=False,
+                                        name='prepare_op_float_ne')
+    prepare_float_gt = prepare_float_op(float_result=False,
+                                        name='prepare_op_float_gt')
+    prepare_float_ge = prepare_float_op(float_result=False,
+                                        name='prepare_op_float_ge')
+    prepare_float_neg = prepare_float_op(base=False,
+                                         name='prepare_op_float_neg')
+    prepare_float_abs = prepare_float_op(base=False,
+                                         name='prepare_op_float_abs')
+
+    prepare_guard_float_lt = prepare_float_op(guard=True,
+                            float_result=False, name='prepare_guard_float_lt')
+    prepare_guard_float_le = prepare_float_op(guard=True,
+                            float_result=False, name='prepare_guard_float_le')
+    prepare_guard_float_eq = prepare_float_op(guard=True,
+                            float_result=False, name='prepare_guard_float_eq')
+    prepare_guard_float_ne = prepare_float_op(guard=True,
+                            float_result=False, name='prepare_guard_float_ne')
+    prepare_guard_float_gt = prepare_float_op(guard=True,
+                            float_result=False, name='prepare_guard_float_gt')
+    prepare_guard_float_ge = prepare_float_op(guard=True,
+                            float_result=False, name='prepare_guard_float_ge')
+
+    def prepare_math_sqrt(self, op):
+        loc = self._ensure_value_is_boxed(op.getarg(1))
+        self.possibly_free_vars_for_op(op)
+        self.free_temp_vars()
+        res = self.fprm.force_allocate_reg(op.result)
+        self.possibly_free_var(op.result)
+        return [loc, res]
+
+    def prepare_cast_float_to_int(self, op):
+        loc1 = self._ensure_value_is_boxed(op.getarg(0))
+        temp_loc = self.get_scratch_reg(FLOAT)
+        self.possibly_free_vars_for_op(op)
+        self.free_temp_vars()
+        res = self.rm.force_allocate_reg(op.result)
+        return [loc1, temp_loc, res]
+
+    def prepare_cast_int_to_float(self, op):
+        loc1 = self._ensure_value_is_boxed(op.getarg(0))
+        temp_loc = self.get_scratch_reg(FLOAT)
+        self.possibly_free_vars_for_op(op)
+        self.free_temp_vars()
+        res = self.fprm.force_allocate_reg(op.result)
+        return [loc1, temp_loc, res]
 
     def prepare_finish(self, op):
         args = [None] * (op.numargs() + 1)
@@ -534,10 +669,13 @@ class Regalloc(object):
 
         # get temporary locs
         tmploc = r.SCRATCH
+        fptmploc = r.f0
 
         # Part about non-floats
         src_locations1 = []
         dst_locations1 = []
+        src_locations2 = []
+        dst_locations2 = []
 
         # Build the four lists
         for i in range(op.numargs()):
@@ -548,10 +686,12 @@ class Regalloc(object):
                 src_locations1.append(src_loc)
                 dst_locations1.append(dst_loc)
             else:
-                assert 0, "not implemented yet"
+                src_locations2.append(src_loc)
+                dst_locations2.append(dst_loc)
 
-        remap_frame_layout(self.assembler, src_locations1,
-                dst_locations1, tmploc)
+        remap_frame_layout_mixed(self.assembler,
+                                 src_locations1, dst_locations1, tmploc,
+                                 src_locations2, dst_locations2, fptmploc)
         return []
 
     def prepare_setfield_gc(self, op):
@@ -766,8 +906,11 @@ class Regalloc(object):
     def prepare_call(self, op):
         effectinfo = op.getdescr().get_extra_info()
         if effectinfo is not None:
-            # XXX TODO
-            pass
+            oopspecindex = effectinfo.oopspecindex
+            if oopspecindex == EffectInfo.OS_MATH_SQRT:
+                args = self.prepare_math_sqrt(op)
+                self.assembler.emit_math_sqrt(op, args, self)
+                return
         return self._prepare_call(op)
 
     def _prepare_call(self, op, force_store=[], save_all_regs=False):
@@ -776,6 +919,7 @@ class Regalloc(object):
         for i in range(op.numargs()):
             args.append(self.loc(op.getarg(i)))
         # spill variables that need to be saved around calls
+        self.fprm.before_call(save_all_regs=save_all_regs)
         if not save_all_regs:
             gcrootmap = self.assembler.cpu.gc_ll_descr.gcrootmap
             if gcrootmap and gcrootmap.is_shadow_stack:

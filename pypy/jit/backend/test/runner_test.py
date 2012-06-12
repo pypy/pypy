@@ -1206,6 +1206,80 @@ class BaseBackendTest(Runner):
     def test_virtual_ref_finish(self):
         pass   # VIRTUAL_REF_FINISH must not reach the backend nowadays
 
+    def test_arguments_to_execute_token(self):
+        # this test checks that execute_token() can be called with any
+        # variant of ints and floats as arguments
+        if self.cpu.supports_floats:
+            numkinds = 2
+        else:
+            numkinds = 1
+        seed = random.randrange(0, 10000)
+        print 'Seed is', seed    # or choose it by changing the previous line
+        r = random.Random()
+        r.seed(seed)
+        for nb_args in range(50):
+            print 'Passing %d arguments to execute_token...' % nb_args
+            #
+            inputargs = []
+            values = []
+            for k in range(nb_args):
+                kind = r.randrange(0, numkinds)
+                if kind == 0:
+                    inputargs.append(BoxInt())
+                    values.append(r.randrange(-100000, 100000))
+                else:
+                    inputargs.append(BoxFloat())
+                    values.append(longlong.getfloatstorage(r.random()))
+            #
+            looptoken = JitCellToken()
+            faildescr = BasicFailDescr(42)
+            operations = []
+            retboxes = []
+            retvalues = []
+            #
+            ks = range(nb_args)
+            random.shuffle(ks)
+            for k in ks:
+                if isinstance(inputargs[k], BoxInt):
+                    newbox = BoxInt()
+                    x = r.randrange(-100000, 100000)
+                    operations.append(
+                        ResOperation(rop.INT_ADD, [inputargs[k],
+                                                   ConstInt(x)], newbox)
+                        )
+                    y = values[k] + x
+                else:
+                    newbox = BoxFloat()
+                    x = r.random()
+                    operations.append(
+                        ResOperation(rop.FLOAT_ADD, [inputargs[k],
+                                                     constfloat(x)], newbox)
+                        )
+                    y = longlong.getrealfloat(values[k]) + x
+                    y = longlong.getfloatstorage(y)
+                kk = r.randrange(0, len(retboxes)+1)
+                retboxes.insert(kk, newbox)
+                retvalues.insert(kk, y)
+            #
+            operations.append(
+                ResOperation(rop.FINISH, retboxes, None, descr=faildescr)
+                )
+            print inputargs
+            print values
+            for op in operations:
+                print op
+            self.cpu.compile_loop(inputargs, operations, looptoken)
+            #
+            fail = self.cpu.execute_token(looptoken, *values)
+            assert fail.identifier == 42
+            #
+            for k in range(len(retvalues)):
+                if isinstance(retboxes[k], BoxInt):
+                    got = self.cpu.get_latest_value_int(k)
+                else:
+                    got = self.cpu.get_latest_value_float(k)
+                assert got == retvalues[k]
+
     def test_jump(self):
         # this test generates small loops where the JUMP passes many
         # arguments of various types, shuffling them around.

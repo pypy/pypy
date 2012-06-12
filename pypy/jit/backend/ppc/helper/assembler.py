@@ -6,12 +6,15 @@ from pypy.jit.metainterp.history import FLOAT
 import pypy.jit.backend.ppc.register as r
 from pypy.rpython.lltypesystem import rffi, lltype
 
-def gen_emit_cmp_op(condition, signed=True):
+def gen_emit_cmp_op(condition, signed=True, fp=False):
     def f(self, op, arglocs, regalloc):
         l0, l1, res = arglocs
         # do the comparison
-        self.mc.cmp_op(0, l0.value, l1.value,
-                       imm=l1.is_imm(), signed=signed)
+        if fp == True:
+            self.mc.fcmpu(0, l0.value, l1.value)
+        else:
+            self.mc.cmp_op(0, l0.value, l1.value,
+                           imm=l1.is_imm(), signed=signed)
         # After the comparison, place the result
         # in the first bit of the CR
         if condition == c.LT or condition == c.U_LT:
@@ -25,7 +28,7 @@ def gen_emit_cmp_op(condition, signed=True):
         elif condition == c.GT or condition == c.U_GT:
             self.mc.cror(0, 1, 1)
         elif condition == c.NE:
-            self.mc.cror(0, 0, 1)
+            self.mc.crnor(0, 2, 2)
         else:
             assert 0, "condition not known"
 
@@ -58,7 +61,8 @@ def count_reg_args(args):
     count = 0
     for x in range(min(len(args), MAX_REG_PARAMS)):
         if args[x].type == FLOAT:
-            assert 0, "not implemented yet"
+            count += 1
+            words += 1
         else:
             count += 1
             words += 1
@@ -73,9 +77,11 @@ class Saved_Volatiles(object):
         in ENCODING AREA around calls
     """
 
-    def __init__(self, codebuilder, save_RES=True):
-        self.save_RES = save_RES
+    def __init__(self, codebuilder, save_RES=True, save_FLOAT=True):
         self.mc = codebuilder
+        self.save_RES = save_RES
+        self.save_FLOAT = save_FLOAT
+        self.FLOAT_OFFSET = len(r.VOLATILES)
 
     def __enter__(self):
         """ before a call, volatile registers are saved in ENCODING AREA
@@ -84,6 +90,12 @@ class Saved_Volatiles(object):
             if not self.save_RES and reg is r.RES:
                 continue
             self.mc.store(reg.value, r.SPP.value, i * WORD)
+        if self.save_FLOAT:
+            for i, reg in enumerate(r.VOLATILES_FLOAT):
+                if not self.save_RES and reg is r.f1:
+                    continue
+                self.mc.stfd(reg.value, r.SPP.value,
+                             (i + self.FLOAT_OFFSET) * WORD)
 
     def __exit__(self, *args):
         """ after call, volatile registers have to be restored
@@ -92,3 +104,9 @@ class Saved_Volatiles(object):
             if not self.save_RES and reg is r.RES:
                 continue
             self.mc.load(reg.value, r.SPP.value, i * WORD)
+        if self.save_FLOAT:
+            for i, reg in enumerate(r.VOLATILES_FLOAT):
+                if not self.save_RES and reg is r.f1:
+                    continue
+                self.mc.lfd(reg.value, r.SPP.value,
+                             (i + self.FLOAT_OFFSET) * WORD)
