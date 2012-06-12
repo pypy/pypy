@@ -628,8 +628,13 @@ class TestUTF8Decoding(UnicodeTests):
             assert decoder(seq, len(seq), None, final=True,
                            errorhandler=self.ignore_handler) == (res, len(seq))
 
-
 class TestEncoding(UnicodeTests):
+    def replace_handler(self, errors, codec, message, input, start, end):
+        if errors=='strict':
+            runicode.raise_unicode_exception_encode(errors, codec, message,
+                                                    input, start, end)
+        return u'?', end
+
     def test_all_ascii(self):
         for i in range(128):
             if sys.version >= "2.7":
@@ -700,6 +705,12 @@ class TestEncoding(UnicodeTests):
         # XXX test this on a non-western Windows installation
         self.checkencode(u"\N{GREEK CAPITAL LETTER PHI}", "mbcs") # a F
         self.checkencode(u"\N{GREEK CAPITAL LETTER PSI}", "mbcs") # a ?
+
+    def test_encode_decimal(self):
+        encoder = self.getencoder('decimal')
+        assert encoder(u' 12, 34 ', 8, None) == ' 12, 34 '
+        raises(UnicodeEncodeError, encoder, u' 12, \u1234 ', 7, None)
+        assert encoder(u'u\u1234', 2, 'replace', self.replace_handler) == 'u?'
 
 class TestTranslation(object):
     def setup_class(cls):

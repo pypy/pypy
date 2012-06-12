@@ -4,6 +4,7 @@ from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.rlib.rstring import StringBuilder, UnicodeBuilder
 from pypy.rlib.rarithmetic import r_uint, intmask
+from pypy.module.unicodedata import unicodedb
 
 if rffi.sizeof(lltype.UniChar) == 4:
     MAXUNICODE = 0x10ffff
@@ -958,7 +959,12 @@ def unicode_encode_ucs1_helper(p, size, errors,
                 collend += 1
             r, pos = errorhandler(errors, encoding, reason, p,
                                   collstart, collend)
-            result.append(r)
+            for ch in r:
+                if ord(ch) < limit:
+                    result.append(chr(ord(ch)))
+                else:
+                    errorhandler("strict", encoding, reason, p,
+                                 collstart, collend)
 
     return result.build()
 
@@ -1027,7 +1033,7 @@ def unicode_encode_charmap(s, size, errors, errorhandler=None,
                                     "character maps to <undefined>",
                                     s, pos, pos + 1)
             for ch2 in res:
-                c2 = mapping.get(unichr(ord(ch2)), '')
+                c2 = mapping.get(ch2, '')
                 if len(c2) == 0:
                     errorhandler(
                         "strict", "charmap",
@@ -1544,3 +1550,71 @@ if sys.platform == 'win32':
                 rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
         finally:
             rffi.free_nonmoving_unicodebuffer(p, dataptr)
+
+# ____________________________________________________________
+# Decimal Encoder
+def unicode_encode_decimal(s, size, errors, errorhandler=None):
+    """Converts whitespace to ' ', decimal characters to their
+    corresponding ASCII digit and all other Latin-1 characters except
+    \0 as-is. Characters outside this range (Unicode ordinals 1-256)
+    are treated as errors. This includes embedded NULL bytes.
+    """
+    if errorhandler is None:
+        errorhandler = raise_unicode_exception_encode
+    if size == 0:
+        return ''
+    result = StringBuilder(size)
+    pos = 0
+    while pos < size:
+        ch = ord(s[pos])
+        if unicodedb.isspace(ch):
+            result.append(' ')
+            pos += 1
+            continue
+        try:
+            decimal = unicodedb.decimal(ch)
+        except KeyError:
+            pass
+        else:
+            result.append(chr(48 + decimal))
+            pos += 1
+            continue
+        if 0 < ch < 256:
+            result.append(chr(ch))
+            pos += 1
+            continue
+        # All other characters are considered unencodable
+        collstart = pos
+        collend = collstart + 1
+        while collend < size:
+            ch = ord(s[collend])
+            try:
+                if (0 < ch < 256 or
+                    unicodedb.isspace(ch) or
+                    unicodedb.decimal(ch) >= 0):
+                    break
+            except KeyError:
+                # not a decimal
+                pass
+            collend += 1
+        msg = "invalid decimal Unicode string"
+        r, pos = errorhandler(errors, 'decimal',
+                              msg, s, collstart, collend)
+        for char in r:
+            ch = ord(char)
+            if unicodedb.isspace(ch):
+                result.append(' ')
+                continue
+            try:
+                decimal = unicodedb.decimal(ch)
+            except KeyError:
+                pass
+            else:
+                result.append(chr(48 + decimal))
+                continue
+            if 0 < ch < 256:
+                result.append(chr(ch))
+                continue
+            errorhandler('strict', 'decimal',
+                         msg, s, collstart, collend)
+    return result.build()
