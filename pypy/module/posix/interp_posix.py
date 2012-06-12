@@ -1,5 +1,5 @@
 from pypy.interpreter.gateway import unwrap_spec, NoneNotWrapped
-from pypy.rlib import rposix, objectmodel
+from pypy.rlib import rposix, objectmodel, rurandom
 from pypy.rlib.objectmodel import specialize
 from pypy.rlib.rarithmetic import r_longlong
 from pypy.rlib.unroll import unrolling_iterable
@@ -13,7 +13,6 @@ from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.module.sys.interp_encoding import getfilesystemencoding
 
 import os, sys
-_WIN = sys.platform == 'win32'
 
 c_int = "c_int"
 
@@ -491,17 +490,13 @@ class State:
     def __init__(self, space):
         self.space = space
         self.w_environ = space.newdict()
-        if _WIN:
-            self.cryptProviderPtr = lltype.malloc(
-                rffi.CArray(HCRYPTPROV), 1, zero=True,
-                flavor='raw', immortal=True)
+        self.random_context = rurandom.init_urandom()
     def startup(self, space):
         _convertenviron(space, self.w_environ)
     def _freeze_(self):
         # don't capture the environment in the translated pypy
         self.space.call_method(self.w_environ, 'clear')
-        if _WIN:
-            self.cryptProviderPtr[0] = HCRYPTPROV._default
+        self.random_context = None
         return True
 
 def get(space):
@@ -1165,72 +1160,14 @@ def nice(space, inc):
         raise wrap_oserror(space, e)
     return space.wrap(res)
 
-if _WIN:
-    from pypy.rlib import rwin32
+@unwrap_spec(n=int)
+def urandom(space, n):
+    """urandom(n) -> str
 
-    eci = ExternalCompilationInfo(
-        includes = ['windows.h', 'wincrypt.h'],
-        libraries = ['advapi32'],
-        )
-
-    class CConfig:
-        _compilation_info_ = eci
-        PROV_RSA_FULL = rffi_platform.ConstantInteger(
-            "PROV_RSA_FULL")
-        CRYPT_VERIFYCONTEXT = rffi_platform.ConstantInteger(
-            "CRYPT_VERIFYCONTEXT")
-
-    globals().update(rffi_platform.configure(CConfig))
-
-    HCRYPTPROV = rwin32.ULONG_PTR
-
-    CryptAcquireContext = rffi.llexternal(
-        'CryptAcquireContextA',
-        [rffi.CArrayPtr(HCRYPTPROV),
-         rwin32.LPCSTR, rwin32.LPCSTR, rwin32.DWORD, rwin32.DWORD],
-        rwin32.BOOL,
-        calling_conv='win',
-        compilation_info=eci)
-
-    CryptGenRandom = rffi.llexternal(
-        'CryptGenRandom',
-        [HCRYPTPROV, rwin32.DWORD, rffi.CArrayPtr(rwin32.BYTE)],
-        rwin32.BOOL,
-        calling_conv='win',
-        compilation_info=eci)
-
-    @unwrap_spec(n=int)
-    def win32_urandom(space, n):
-        """urandom(n) -> str
-
-        Return a string of n random bytes suitable for cryptographic use.
-        """
-
-        if n < 0:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("negative argument not allowed"))
-
-        provider = get(space).cryptProviderPtr[0]
-        if not provider:
-            # Acquire context.
-            # This handle is never explicitly released. The operating
-            # system will release it when the process terminates.
-            if not CryptAcquireContext(
-                get(space).cryptProviderPtr, None, None,
-                PROV_RSA_FULL, CRYPT_VERIFYCONTEXT):
-                raise rwin32.lastWindowsError("CryptAcquireContext")
-
-            provider = get(space).cryptProviderPtr[0]
-
-        # Get random data
-        buf = lltype.malloc(rffi.CArray(rwin32.BYTE), n,
-                            zero=True, # zero seed
-                            flavor='raw')
-        try:
-            if not CryptGenRandom(provider, n, buf):
-                raise rwin32.lastWindowsError("CryptGenRandom")
-
-            return space.wrap(
-                rffi.charpsize2str(rffi.cast(rffi.CCHARP, buf), n))
-        finally:
-            lltype.free(buf, flavor='raw')
+    Return a string of n random bytes suitable for cryptographic use.
+    """
+    context = get(space).random_context
+    try:
+        return space.wrap(rurandom.urandom(context, n))
+    except OSError, e:
+        raise wrap_oserror(space, e)
