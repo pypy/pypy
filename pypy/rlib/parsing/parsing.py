@@ -110,8 +110,7 @@ class LazyParseTable(object):
             lastexpansion = len(rule.expansions) - 1
             subsymbol = None
             error = None
-            for expansionindex in range(len(rule.expansions)):
-                expansion = rule.expansions[expansionindex]
+            for expansion in rule.expansions:
                 curr = i
                 children = []
                 for j in range(len(expansion)):
