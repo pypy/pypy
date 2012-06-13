@@ -355,7 +355,7 @@ class INET6Address(IPAddress):
         makeipaddr(host, self)
         a = self.lock(_c.sockaddr_in6)
         rffi.setintfield(a, 'c_sin6_port', htons(port))
-        rffi.setintfield(a, 'c_sin6_flowinfo', flowinfo)
+        rffi.setintfield(a, 'c_sin6_flowinfo', htonl(flowinfo))
         rffi.setintfield(a, 'c_sin6_scope_id', scope_id)
         self.unlock()
 
@@ -376,7 +376,7 @@ class INET6Address(IPAddress):
 
     def get_flowinfo(self):
         a = self.lock(_c.sockaddr_in6)
-        flowinfo = a.c_sin6_flowinfo
+        flowinfo = ntohl(a.c_sin6_flowinfo)
         self.unlock()
         return rffi.cast(lltype.Unsigned, flowinfo)
 
@@ -412,6 +412,9 @@ class INET6Address(IPAddress):
         else:                 flowinfo = 0
         if len(pieces_w) > 3: scope_id = space.uint_w(pieces_w[3])
         else:                 scope_id = 0
+        if flowinfo < 0 or flowinfo > 0xfffff:
+            raise OperationError(space.w_OverflowError, space.wrap(
+                "flowinfo must be 0-1048575."))
         return INET6Address(host, port, flowinfo, scope_id)
     from_object = staticmethod(from_object)
 
@@ -428,9 +431,12 @@ class INET6Address(IPAddress):
         else:                 flowinfo = 0
         if len(pieces_w) > 3: scope_id = space.uint_w(pieces_w[3])
         else:                 scope_id = 0
+        if flowinfo < 0 or flowinfo > 0xfffff:
+            raise OperationError(space.w_OverflowError, space.wrap(
+                "flowinfo must be 0-1048575."))
         a = self.lock(_c.sockaddr_in6)
         rffi.setintfield(a, 'c_sin6_port', htons(port))
-        rffi.setintfield(a, 'c_sin6_flowinfo', flowinfo)
+        rffi.setintfield(a, 'c_sin6_flowinfo', htonl(flowinfo))
         rffi.setintfield(a, 'c_sin6_scope_id', scope_id)
         self.unlock()
 
