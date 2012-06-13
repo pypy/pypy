@@ -26,7 +26,10 @@ else:
 def identify():
     return 'CINT'
 
-threadsafe = 'auto'
+ts_reflect = False
+ts_call    = 'auto'
+ts_memory  = 'auto'
+ts_helper  = 'auto'
 
 # force loading in global mode of core libraries, rather than linking with
 # them as PyPy uses various version of dlopen in various places; note that

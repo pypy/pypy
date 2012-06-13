@@ -25,7 +25,10 @@ else:
 def identify():
     return 'Reflex'
 
-threadsafe='auto'
+ts_reflect = False
+ts_call    = 'auto'
+ts_memory  = 'auto'
+ts_helper  = 'auto'
 
 eci = ExternalCompilationInfo(
     separate_module_files=[srcpath.join("reflexcwrapper.cxx")],
