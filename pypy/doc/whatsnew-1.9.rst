@@ -94,12 +94,9 @@ Memory "leaks" associated with zlib are fixed.
 The ``ffistruct`` branch adds a very low level way to express C structures
 with _ffi in a very JIT-friendly way
 
-.. branch: app_main-refactor
-.. branch: win-ordinal
 
 
 .. "uninteresting" branches that we should just ignore for the whatsnew:
-.. branch: slightly-shorter-c
 .. branch: exception-cannot-occur
 .. branch: sanitize-finally-stack
 .. branch: revive-dlltool
