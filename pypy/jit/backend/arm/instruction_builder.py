@@ -352,7 +352,7 @@ def define_float64_data_proc_instructions_func(name, table):
     return f
 
 def define_simd_instructions_3regs_func(name, table):
-    n = 0x79 << 25
+    n = 0
     if 'A' in table:
         n |= (table['A'] & 0xF) << 8
     if 'B' in table:
@@ -362,14 +362,16 @@ def define_simd_instructions_3regs_func(name, table):
     if 'C' in table:
         n |= (table['C'] & 0x3) << 20
     if name == 'VADD_i64' or name == 'VSUB_i64':
-        size = 0x3
-        n |= size << 20
+        size = 0x3 << 20
+        n |= size
     def f(self, dd, dn, dm):
+        base = 0x79
         N = (dn >> 4) & 0x1
         M = (dm >> 4) & 0x1
         D = (dd >> 4) & 0x1
         Q = 0 # we want doubleword regs
         instr = (n
+		| base << 25
                 | D << 22
                 | (dn & 0xf) << 16
                 | (dd & 0xf) << 12
