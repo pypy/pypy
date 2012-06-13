@@ -371,14 +371,16 @@ class AST_Tests(unittest.TestCase):
         ast.fix_missing_locations(m)
         with self.assertRaises(TypeError) as cm:
             compile(m, "<test>", "exec")
-        self.assertIn("identifier must be of type str", str(cm.exception))
+        if test_support.check_impl_detail():
+            self.assertIn("identifier must be of type str", str(cm.exception))
 
     def test_invalid_string(self):
         m = ast.Module([ast.Expr(ast.Str(43))])
         ast.fix_missing_locations(m)
         with self.assertRaises(TypeError) as cm:
             compile(m, "<test>", "exec")
-        self.assertIn("string must be of type str or uni", str(cm.exception))
+        if test_support.check_impl_detail():
+            self.assertIn("string must be of type str or uni", str(cm.exception))
 
 
 class ASTHelpers_Test(unittest.TestCase):
