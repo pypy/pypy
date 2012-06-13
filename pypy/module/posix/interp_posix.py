@@ -14,6 +14,10 @@ from pypy.module.sys.interp_encoding import getfilesystemencoding
 
 import os, sys
 
+_WIN32 = sys.platform == 'win32'
+if _WIN32:
+    from pypy.rlib.rwin32 import _MAX_ENV
+    
 c_int = "c_int"
 
 # CPython 2.7 semantics are too messy to follow exactly,
@@ -417,7 +421,7 @@ def getcwd(space):
     else:
         return space.wrap(cur)
 
-if sys.platform == 'win32':
+if _WIN32:
     def getcwdu(space):
         """Return the current working directory as a unicode string."""
         try:
@@ -510,6 +514,9 @@ def _convertenviron(space, w_env):
 @unwrap_spec(name='str0', value='str0')
 def putenv(space, name, value):
     """Change or add an environment variable."""
+    if _WIN32 and len(name) > _MAX_ENV:
+        raise OperationError(space.w_ValueError, space.wrap(
+                "the environment variable is longer than %d bytes" % _MAX_ENV))
     try:
         os.environ[name] = value
     except OSError, e:
