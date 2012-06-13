@@ -44,6 +44,7 @@ ifeq ($(CINT),)
 else
 %Dict.so: %_cint.cxx %.cxx
 	g++ -o $@ $^ -shared $(cppflags) $(cppflags2)
+	rlibmap -f -o $*Dict.rootmap -l $@ -c $*_LinkDef.h
 
 %_cint.cxx: %.h %_LinkDef.h
 	rootcint -f $@ -c $*.h $*_LinkDef.h
@@ -58,4 +59,4 @@ endif
 
 .PHONY: clean
 clean:
-	-rm -f $(dicts) $(subst .so,.rootmap,$(dicts))
+	-rm -f $(dicts) $(subst .so,.rootmap,$(dicts)) $(wildcard *_cint.h)
