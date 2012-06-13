@@ -489,6 +489,11 @@ class MiscOpAssembler(object):
                     float_locs.append(arg)
                     float_regs.append(fpreg)
                     fpnum += 1
+                    # XXX Duplicate float arguments in GPR slots
+                    if num < MAX_REG_PARAMS:
+                        num += 1
+                    else:
+                        stack_args.append(arg)
                 else:
                     stack_args.append(arg)
             else:
