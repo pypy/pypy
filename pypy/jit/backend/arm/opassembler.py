@@ -363,7 +363,7 @@ class ResOpAssembler(object):
         return cond
 
     def _emit_call(self, force_index, adr, arglocs, fcond=c.AL, 
-                                                 resloc=None, result_info=None):
+                                                 resloc=None, result_info=(-1,-1)):
         n_args = len(arglocs)
         reg_args = count_reg_args(arglocs)
         # all arguments past the 4th go on the stack
@@ -455,7 +455,7 @@ class ResOpAssembler(object):
             if resloc.is_vfp_reg():
                 # move result to the allocated register
                 self.mov_to_vfp_loc(r.r0, r.r1, resloc)
-            elif result_info:
+            elif result_info != (-1, -1):
                 self._ensure_result_bit_extension(resloc, result_info[0],
                                                           result_info[1])
 
