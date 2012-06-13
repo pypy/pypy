@@ -354,19 +354,15 @@ class ResOpAssembler(object):
         resloc = arglocs[0]
         adr = arglocs[1]
         arglist = arglocs[2:]
-        cond = self._emit_call(force_index, adr, arglist, fcond, resloc)
         descr = op.getdescr()
-        #XXX Hack, Hack, Hack
-        # XXX NEEDS TO BE FIXED
-        if (op.result and not we_are_translated()):
-            #XXX check result type
-            loc = regalloc.rm.call_result_location(op.result)
-            size = descr.get_result_size()
-            signed = descr.is_result_signed()
-            self._ensure_result_bit_extension(loc, size, signed)
+        size = descr.get_result_size()
+        signed = descr.is_result_signed()
+        cond = self._emit_call(force_index, adr, arglist, 
+                                            fcond, resloc, (size, signed))
         return cond
 
-    def _emit_call(self, force_index, adr, arglocs, fcond=c.AL, resloc=None):
+    def _emit_call(self, force_index, adr, arglocs, fcond=c.AL, 
+                                                 resloc=None, result_info=None):
         n_args = len(arglocs)
         reg_args = count_reg_args(arglocs)
         # all arguments past the 4th go on the stack
@@ -453,11 +449,14 @@ class ResOpAssembler(object):
         if n > 0:
             self._adjust_sp(-n, fcond=fcond)
 
-        # restore the argumets stored on the stack
+        # ensure the result is wellformed and stored in the correct location
         if resloc is not None:
             if resloc.is_vfp_reg():
                 # move result to the allocated register
                 self.mov_to_vfp_loc(r.r0, r.r1, resloc)
+            elif result_info:
+                self._ensure_result_bit_extension(resloc, result_info[0],
+                                                          result_info[1])
 
         return fcond
 
@@ -1146,7 +1145,13 @@ class ResOpAssembler(object):
         callargs = arglocs[2:numargs + 1]  # extract the arguments to the call
         adr = arglocs[1]
         resloc = arglocs[0]
-        self._emit_call(fail_index, adr, callargs, fcond, resloc)
+        #
+        descr = op.getdescr()
+        size = descr.get_result_size()
+        signed = descr.is_result_signed()
+        #
+        self._emit_call(fail_index, adr, callargs, fcond, 
+                                    resloc, (size, signed))
 
         self.mc.LDR_ri(r.ip.value, r.fp.value)
         self.mc.CMP_ri(r.ip.value, 0)
@@ -1169,8 +1174,13 @@ class ResOpAssembler(object):
         faildescr = guard_op.getdescr()
         fail_index = self.cpu.get_fail_descr_number(faildescr)
         self._write_fail_index(fail_index)
-
-        self._emit_call(fail_index, adr, callargs, fcond, resloc)
+        #
+        descr = op.getdescr()
+        size = descr.get_result_size()
+        signed = descr.is_result_signed()
+        #
+        self._emit_call(fail_index, adr, callargs, fcond, 
+                                    resloc, (size, signed))
         # then reopen the stack
         if gcrootmap:
             self.call_reacquire_gil(gcrootmap, resloc, fcond)
