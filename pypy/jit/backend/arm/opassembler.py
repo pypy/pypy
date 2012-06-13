@@ -22,6 +22,7 @@ from pypy.jit.backend.arm.jump import remap_frame_layout
 from pypy.jit.backend.arm.regalloc import TempInt, TempPtr
 from pypy.jit.backend.arm.locations import imm
 from pypy.jit.backend.llsupport import symbolic
+from pypy.jit.backend.llsupport.descr import InteriorFieldDescr
 from pypy.jit.metainterp.history import (Box, AbstractFailDescr,
                                             INT, FLOAT, REF)
 from pypy.jit.metainterp.history import JitCellToken, TargetToken
@@ -692,7 +693,9 @@ class ResOpAssembler(object):
             ofs_loc, ofs, itemsize, fieldsize) = arglocs
         self.mc.gen_load_int(r.ip.value, itemsize.value)
         self.mc.MUL(r.ip.value, index_loc.value, r.ip.value)
-        signed = op.getdescr().fielddescr.is_field_signed()
+        descr = op.getdescr()
+        assert isinstance(descr, InteriorFieldDescr)
+        signed = descr.fielddescr.is_field_signed()
         if ofs.value > 0:
             if ofs_loc.is_imm():
                 self.mc.ADD_ri(r.ip.value, r.ip.value, ofs_loc.value)
