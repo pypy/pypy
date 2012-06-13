@@ -753,22 +753,14 @@ def str_decode_utf_7(s, size, errors, final=False,
                                     UNICHR((((surrogate & 0x3FF)<<10) |
                                             (outCh & 0x3FF)) + 0x10000))
                             surrogate = 0
-                        else:
-                            surrogate = 0
-                            msg = "second surrogate missing"
-                            res, pos = errorhandler(errors, 'utf-7',
-                                                    msg, s, pos-1, pos)
-                            result.append(res)
                             continue
-                    elif outCh >= 0xD800 and outCh <= 0xDBFF:
+                        else:
+                            result.append(unichr(surrogate))
+                            surrogate = 0
+                            # Not done with outCh: falls back to next line
+                    if outCh >= 0xD800 and outCh <= 0xDBFF:
                         # first surrogate
                         surrogate = outCh
-                    elif outCh >= 0xDC00 and outCh <= 0xDFFF:
-                        msg = "unexpected second surrogate"
-                        res, pos = errorhandler(errors, 'utf-7',
-                                                msg, s, pos-1, pos)
-                        result.append(res)
-                        continue
                     else:
                         result.append(unichr(outCh))
 
@@ -778,11 +770,8 @@ def str_decode_utf_7(s, size, errors, final=False,
                 pos += 1
 
                 if surrogate:
-                    msg = "second surrogate missing at end of shift sequence"
-                    res, pos = errorhandler(errors, 'utf-7',
-                                            msg, s, pos-1, pos)
-                    result.append(res)
-                    continue
+                    result.append(unichr(surrogate))
+                    surrogate = 0
 
                 if base64bits > 0: # left-over bits
                     if base64bits >= 6:

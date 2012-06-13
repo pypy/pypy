@@ -209,12 +209,19 @@ class TestDecoding(UnicodeTests):
         u = u'\U000abcde'
         assert encode(u, len(u), None) == '+2m/c3g-'
         decode = self.getdecoder('utf-7')
-        s = '+3ADYAA-'
-        raises(UnicodeError, decode, s, len(s), None)
-        def replace_handler(errors, codec, message, input, start, end):
-            return u'?', end
-        assert decode(s, len(s), None, final=True,
-                      errorhandler = replace_handler) == (u'??', len(s))
+
+        # Unpaired surrogates are passed through
+        assert encode(u'\uD801', 1, None) == '+2AE-'
+        assert encode(u'\uD801x', 2, None) == '+2AE-x'
+        assert encode(u'\uDC01', 1, None) == '+3AE-'
+        assert encode(u'\uDC01x', 2, None) == '+3AE-x'
+        assert decode('+2AE-', 5, None) == (u'\uD801', 5)
+        assert decode('+2AE-x', 6, None) == (u'\uD801x', 6)
+        assert decode('+3AE-', 5, None) == (u'\uDC01', 5)
+        assert decode('+3AE-x', 6, None) == (u'\uDC01x', 6)
+
+        assert encode(u'\uD801\U000abcde', 2, None) == '+2AHab9ze-'
+        assert decode('+2AHab9ze-', 10, None) == (u'\uD801\U000abcde', 10)
 
 
 class TestUTF8Decoding(UnicodeTests):
