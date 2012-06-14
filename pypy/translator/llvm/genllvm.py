@@ -229,7 +229,7 @@ class FloatType(Type):
         from pypy.rlib.rfloat import isinf, isnan
         if isinf(value) or isnan(value):
             import struct
-            packed = struct.pack("d", value)
+            packed = struct.pack(">d", value)
             return "0x" + ''.join([('{:02x}'.format(ord(i))) for i in packed])
         ret = repr(float(value))
         # llvm requires a . when using e notation
@@ -756,7 +756,8 @@ for type_, prefix in [('char', 'u'), ('unichar', 'u'), ('int', 's'),
         OPS['{}_{}'.format(type_, op)] = 'icmp {}{}'.format(prefix, op)
 
 for type_ in ['float']:
-    for op in ['eq', 'ne', 'gt', 'ge', 'lt', 'le']:
+    OPS[type_ + '_ne'] = 'fcmp une'
+    for op in ['eq', 'gt', 'ge', 'lt', 'le']:
         OPS['{}_{}'.format(type_, op)] = 'fcmp o' + op
 
 del type_
