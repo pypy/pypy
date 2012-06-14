@@ -4617,7 +4617,8 @@ class DictProxyTests(unittest.TestCase):
         self.C = C
 
     def test_repr(self):
-        self.assertIn('dict_proxy({', repr(vars(self.C)))
+        if test_support.check_impl_detail():
+            self.assertIn('dict_proxy({', repr(vars(self.C)))
         self.assertIn("'meth':", repr(vars(self.C)))
 
     def test_iter_keys(self):
