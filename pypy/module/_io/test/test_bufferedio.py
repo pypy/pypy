@@ -336,9 +336,14 @@ class AppTestBufferedWriter:
                     except ValueError:
                         pass
                     else:
-                        self._blocker_char = None
-                        self._write_stack.append(b[:n])
-                        raise _io.BlockingIOError(0, "test blocking", n)
+                        if n > 0:
+                            # write data up to the first blocker
+                            self._write_stack.append(b[:n])
+                            return n
+                        else:
+                            # cancel blocker and indicate would block
+                            self._blocker_char = None
+                            return None
                 self._write_stack.append(b)
                 return len(b)
 

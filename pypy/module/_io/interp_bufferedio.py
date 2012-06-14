@@ -6,6 +6,7 @@ from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.buffer import RWBuffer
 from pypy.rlib.rstring import StringBuilder
 from pypy.rlib.rarithmetic import r_longlong, intmask
+from pypy.rlib import rposix
 from pypy.tool.sourcetools import func_renamer
 from pypy.module._io.interp_iobase import (
     W_IOBase, DEFAULT_BUFFER_SIZE, convert_size,
@@ -27,6 +28,16 @@ def trap_eintr(space, error):
             space.eq(w_errno, space.wrap(errno.EINTR)))
     except OperationError:
         return False
+
+
+def make_write_blocking_error(space, written):
+    w_type = space.gettypeobject(W_BlockingIOError.typedef)
+    w_value = space.call_function(
+        w_type,
+        space.wrap(rposix.get_errno()),
+        space.wrap("write could not complete without blocking"),
+        space.wrap(written))
+    return OperationError(w_type, w_value)
 
 
 class TryLock(object):
@@ -308,7 +319,7 @@ class BufferedMixin:
         self._check_init(space)
         return space.call_method(self.w_raw, "flush")
 
-    def _writer_flush_unlocked(self, space, restore_pos=False):
+    def _writer_flush_unlocked(self, space):
         if self.write_end == -1 or self.write_pos == self.write_end:
             return
         # First, rewind
@@ -321,18 +332,8 @@ class BufferedMixin:
         while self.write_pos < self.write_end:
             try:
                 n = self._raw_write(space, self.write_pos, self.write_end)
-            except OperationError, e:
-                if not e.match(space, space.gettypeobject(
-                    W_BlockingIOError.typedef)):
-                    raise
-                w_exc = e.get_w_value(space)
-                assert isinstance(w_exc, W_BlockingIOError)
-                self.write_pos += w_exc.written
-                self.raw_pos = self.write_pos
-                written += w_exc.written
-                # re-raise the error
-                w_exc.written = written
-                raise
+            except BlockingIOError:
+                raise make_write_blocking_error(space, 0)
             self.write_pos += n
             self.raw_pos = self.write_pos
             written += n
@@ -340,12 +341,6 @@ class BufferedMixin:
             # signal (see write(2)).  We must run signal handlers before
             # blocking another time, possibly indefinitely.
             space.getexecutioncontext().checksignals()
-
-        if restore_pos:
-            forward = rewind - written
-            if forward:
-                self._raw_seek(space, forward, 1)
-                self.raw_pos += forward
 
         self._writer_reset_buf()
 
@@ -360,7 +355,11 @@ class BufferedMixin:
                 raise
             else:
                 break
-                
+
+        if space.is_w(w_written, space.w_None):
+            # Non-blocking stream would have blocked.
+            raise BlockingIOError()
+
         written = space.getindex_w(w_written, space.w_IOError)
         if not 0 <= written <= len(data):
             raise OperationError(space.w_IOError, space.wrap(
@@ -431,7 +430,7 @@ class BufferedMixin:
         self._check_init(space)
         with self.lock:
             if self.writable:
-                self._writer_flush_unlocked(space, restore_pos=True)
+                self._writer_flush_unlocked(space)
             # Constraints:
             # 1. we don't want to advance the file position.
             # 2. we don't want to lose block alignment, so we can't shift the
@@ -466,7 +465,7 @@ class BufferedMixin:
 
         with self.lock:
             if self.writable:
-                self._writer_flush_unlocked(space, restore_pos=True)
+                self._writer_flush_unlocked(space)
 
             # Return up to n bytes.  If at least one byte is buffered, we only
             # return buffered bytes.  Otherwise, we do one raw read.
@@ -504,7 +503,7 @@ class BufferedMixin:
         self._reader_reset_buf()
         # We're going past the buffer's bounds, flush it
         if self.writable:
-            self._writer_flush_unlocked(space, restore_pos=True)
+            self._writer_flush_unlocked(space)
 
         while True:
             # Read until EOF or until read() would block
@@ -578,7 +577,7 @@ class BufferedMixin:
         # XXX potential bug in CPython? The following is not enabled.
         # We're going past the buffer's bounds, flush it
         ## if self.writable:
-        ##     self._writer_flush_unlocked(space, restore_pos=True)
+        ##     self._writer_flush_unlocked(space)
 
         # Read whole blocks, and don't buffer them
         while remaining > 0:
@@ -698,9 +697,10 @@ class BufferedMixin:
                 for i in range(available):
                     self.buffer[self.write_end + i] = data[i]
                     self.write_end += available
-                # Raise previous exception
-                w_exc.written = available
-                raise
+                # Modifying the existing exception will will change
+                # e.characters_written but not e.args[2].  Therefore
+                # we just replace with a new error.
+                raise make_write_blocking_error(space, available)
 
             # Adjust the raw stream position if it is away from the logical
             # stream position. This happens if the read buffer has been filled
@@ -717,14 +717,8 @@ class BufferedMixin:
             while remaining > self.buffer_size:
                 try:
                     n = self._write(space, data[written:])
-                except OperationError, e:
-                    if not e.match(space, space.gettypeobject(
-                        W_BlockingIOError.typedef)):
-                        raise
-                    w_exc = e.get_w_value(space)
-                    assert isinstance(w_exc, W_BlockingIOError)
-                    written += w_exc.written
-                    remaining -= w_exc.written
+                except BlockingIOError:
+                    # Write failed because raw file is non-blocking
                     if remaining > self.buffer_size:
                         # Can't buffer everything, still buffer as much as
                         # possible
@@ -733,8 +727,8 @@ class BufferedMixin:
                         self.raw_pos = 0
                         self._adjust_position(self.buffer_size)
                         self.write_end = self.buffer_size
-                        w_exc.written = written + self.buffer_size
-                        raise
+                        written += self.buffer_size
+                        raise make_write_blocking_error(space, written)
                     break
                 written += n
                 remaining -= n
