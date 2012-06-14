@@ -361,8 +361,8 @@ class GeneralModuleTests(unittest.TestCase):
         try:
             # On some versions, this crashes the interpreter.
             socket.getnameinfo(('x', 0, 0, 0), 0)
-        except socket.error:
-            pass
+        except socket.error as e:
+            self.assertEqual(str(e), 'IPv4 sockaddr must be 2 tuple')
 
     def testNtoH(self):
         # This just checks that htons etc. are their own inverse,
