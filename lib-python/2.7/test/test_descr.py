@@ -3128,7 +3128,8 @@ order (MRO) for bases """
         # Issue5283: when __class__ changes in __del__, the wrong
         # type gets DECREF'd.
         class O(object):
-            pass
+            def __del__(self):
+                pass
         class A(object):
             def __del__(self):
                 self.__class__ = O
