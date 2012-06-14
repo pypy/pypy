@@ -4607,7 +4607,10 @@ order (MRO) for bases """
             pass
         Foo.__repr__ = Foo.__str__
         foo = Foo()
-        str(foo)
+        # Behavior will change in CPython 2.7.4.
+        # PyPy already does the right thing here.
+        self.assertRaises(RuntimeError, str, foo)
+        self.assertRaises(RuntimeError, repr, foo)
 
 class DictProxyTests(unittest.TestCase):
     def setUp(self):
