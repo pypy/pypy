@@ -2,6 +2,7 @@ from cStringIO import StringIO
 import py
 from pypy.objspace.flow.model import FunctionGraph, Block, Link
 from pypy.rpython.lltypesystem import lltype, rffi, llmemory, llgroup
+from pypy.rpython.lltypesystem.ll2ctypes import force_cast
 from pypy.rpython.lltypesystem.test.test_rffi import BaseTestRffi
 from pypy.rpython.test import (test_annlowlevel, test_exception,
      test_generator, test_rbool, test_rbuilder, test_rbuiltin, test_rclass,
@@ -462,7 +463,20 @@ class TestRlistLLVM(_LLVMMixin, test_rlist.TestLLtype):
         return True
 
 class TestRPBCLLVM(_LLVMMixin, test_rpbc.TestLLtype):
-    pass
+    def read_attr(self, value, attr_name):
+        class_name = 'pypy.rpython.test.test_rpbc.' + self.class_name(value)
+        for (cd, _), ir in self._translator.rtyper.instance_reprs.items():
+            if cd is not None and cd.name == class_name:
+                value = force_cast(ir.lowleveltype, value)
+
+        value = value._obj
+        while value is not None:
+            attr = getattr(value, "inst_" + attr_name, None)
+            if attr is None:
+                value = value.super
+            else:
+                return attr
+        raise AttributeError()
 
 class TestRPBCExtraLLVM(_LLVMMixin, test_rpbc.TestExtraLLtype):
     pass

@@ -349,7 +349,7 @@ class StructType(Type):
         fields = list(fields)
         if is_gc:
             fields = database.genllvm.gcpolicy.get_gc_fields() + fields
-        elif not fields:
+        elif all(t is LLVMVoid for t, f in fields):
             fields.append((LLVMSigned, '_fill'))
         self.fields = fields
         self.fldtypes_wo_voids = [t for t, f in fields if t is not LLVMVoid]
@@ -389,7 +389,7 @@ class StructType(Type):
     def is_zero(self, value):
         if self.is_gc:
             return False
-        elif self.fields[0][1] == '_fill':
+        elif self.fldnames_wo_voids == ['_fill']:
             return True
         return all(ft.is_zero(getattr(value, fn)) for ft, fn in self.fields)
 
