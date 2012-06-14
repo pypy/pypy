@@ -80,8 +80,8 @@ class VoidType(Type):
 
 
 class IntegralType(Type):
-    def __init__(self, bytewidth, unsigned):
-        self.bitwidth = bytewidth * 8
+    def __init__(self, bitwidth, unsigned):
+        self.bitwidth = bitwidth
         self.unsigned = unsigned
         self.typestr = 'i{}'.format(self.bitwidth)
 
@@ -205,9 +205,7 @@ class IntegralType(Type):
 
 class BoolType(IntegralType):
     def __init__(self):
-        self.bitwidth = 1
-        self.unsigned = True
-        self.typestr = 'i1'
+        IntegralType.__init__(self, 1, True)
 
     def is_zero(self, value):
         return not value
@@ -276,24 +274,21 @@ class AddressType(BasePtrType):
 
 LLVMVoid = VoidType()
 LLVMBool = BoolType()
-LLVMFloat = FloatType('double', 64)
-LLVMSingleFloat = FloatType('float', 32)
-LLVMLongFloat = FloatType('x86_fp80', 80)
 LLVMAddress = AddressType()
 PRIMITIVES = {
     lltype.Void: LLVMVoid,
     lltype.Bool: LLVMBool,
-    lltype.Float: LLVMFloat,
-    lltype.SingleFloat: LLVMSingleFloat,
-    lltype.LongFloat: LLVMLongFloat,
+    lltype.Float: FloatType('double', 64),
+    lltype.SingleFloat: FloatType('float', 32),
+    lltype.LongFloat: FloatType('x86_fp80', 80),
     llmemory.Address: LLVMAddress
 }
 
 for type_ in rffi.NUMBER_TYPES + [lltype.Char, lltype.UniChar]:
     if type_ not in PRIMITIVES:
-        PRIMITIVES[type_] = IntegralType(*rffi.size_and_sign(type_))
+        PRIMITIVES[type_] = IntegralType(rffi.sizeof(type_) * 8,
+                                         rffi.is_unsigned(type_))
 LLVMSigned = PRIMITIVES[lltype.Signed]
-LLVMUnsigned = PRIMITIVES[lltype.Unsigned]
 LLVMHalfWord = PRIMITIVES[llgroup.HALFWORD]
 LLVMInt = PRIMITIVES[rffi.INT]
 LLVMChar = PRIMITIVES[lltype.Char]
@@ -356,9 +351,9 @@ class StructType(Type):
         elif not fields:
             fields.append((LLVMSigned, '_fill'))
         self.fields = fields
+        self.fldtypes_wo_voids = [t for t, f in fields if t is not LLVMVoid]
         self.fldnames_wo_voids = [f for t, f in fields if t is not LLVMVoid]
         self.fldnames_voids = set(f for t, f in fields if t is LLVMVoid)
-        self.fldtypes_wo_voids = [t for t, f in fields if t is not LLVMVoid]
         self.varsize = fields[-1][0].varsize
         self.size_variants = {}
 
@@ -705,7 +700,7 @@ class Database(object):
                 if (type_.hints.get('external') == 'C' and
                     'c_name' in type_.hints):
                     typestr = '%' + type_.hints['c_name'].replace(' ', '_')
-                    size = type_.hints['getsize']()
+                    size = type_.hints['getsize']() * 8
                     self.types[type_] = ret = StructType()
                     ret.setup(typestr, [(IntegralType(size, False), 'space')])
                     return ret
@@ -1549,7 +1544,7 @@ class GenLLVM(object):
             global align
             align = int(tmp[3]) / 8
             f.write(output)
-            f.write('declare void @abort() noreturn nounwind')
+            f.write('declare void @abort() noreturn nounwind\n')
 
             database = Database(self, f)
 
