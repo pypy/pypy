@@ -367,7 +367,7 @@ class StructType(Type):
     def setup_from_lltype(self, db, type_):
         fields = ((db.get_type(type_._flds[f]), f) for f in type_._names)
         is_gc = type_._gckind == 'gc' and type_._first_struct() == (None, None)
-        name = '%struct.' + type_._name.replace('<', '_').replace('>', '_')
+        name = '%' + type_._name.replace('<', '_').replace('>', '_')
         self.setup(name, fields, is_gc)
 
     def repr_type(self, extra_len=None):
@@ -683,7 +683,7 @@ class Database(object):
                 if (type_._hints.get('typeptr', False) and
                     self.genllvm.translator.config.translation.gcremovetypeptr):
                     self.types[type_] = ret = StructType()
-                    ret.setup('%struct.' + type_._name, [], True)
+                    ret.setup('%' + type_._name, [], True)
                     return ret
                 elif (type_._gckind == 'gc' and # hint for ll2ctypes
                       type_._first_struct() == (None, None)):

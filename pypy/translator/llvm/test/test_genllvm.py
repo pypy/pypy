@@ -70,12 +70,12 @@ class TestDatabase(object):
     def test_repr_struct(self):
         struct = lltype.Struct(
                 'spam', ('eggs', lltype.Signed))._container_example()
-        assert genllvm.get_repr(struct).TV == '%struct.spam zeroinitializer'
+        assert genllvm.get_repr(struct).TV == '%spam zeroinitializer'
         struct.eggs = 1
-        assert genllvm.get_repr(struct).TV == ('%struct.spam {\n'
+        assert genllvm.get_repr(struct).TV == ('%spam {\n'
                                                  '    i64 1 ; eggs\n'
                                                  '}')
-        assert self.f.getvalue() == ('%struct.spam = type {\n'
+        assert self.f.getvalue() == ('%spam = type {\n'
                                      '    i64 ; eggs\n'
                                      '}\n')
 
@@ -83,18 +83,18 @@ class TestDatabase(object):
         struct = lltype.Struct(
                 'spam', ('eggs', lltype.Struct(
                         'foo', ('bar', lltype.Signed))))._container_example()
-        assert genllvm.get_repr(struct).TV == '%struct.spam zeroinitializer'
+        assert genllvm.get_repr(struct).TV == '%spam zeroinitializer'
         struct.eggs.bar = 1
-        assert genllvm.get_repr(struct).TV == ('%struct.spam {\n'
-                                                 '    %struct.foo {\n'
+        assert genllvm.get_repr(struct).TV == ('%spam {\n'
+                                                 '    %foo {\n'
                                                  '        i64 1 ; bar\n'
                                                  '    } ; eggs\n'
                                                  '}')
-        assert self.f.getvalue() == ('%struct.foo = type {\n'
+        assert self.f.getvalue() == ('%foo = type {\n'
                                      '    i64 ; bar\n'
                                      '}\n'
-                                     '%struct.spam = type {\n'
-                                     '    %struct.foo ; eggs\n'
+                                     '%spam = type {\n'
+                                     '    %foo ; eggs\n'
                                      '}\n')
 
     def test_repr_array(self):
@@ -126,31 +126,31 @@ class TestDatabase(object):
         struct_ptr_type = lltype.Ptr(lltype.Struct('x', ('y', lltype.Signed)))
         array = lltype.Array(struct_ptr_type)._container_example()
         assert genllvm.get_repr(array).TV == (
-                '%array_of_struct.x_ptr_plus_1 {\n'
+                '%array_of_x_ptr_plus_1 {\n'
                 '    i64 1, ; len\n'
-                '    [1 x %struct.x*] zeroinitializer ; items\n'
+                '    [1 x %x*] zeroinitializer ; items\n'
                 '}')
         array.setitem(0, struct_ptr_type._example())
         assert genllvm.get_repr(array).TV == (
-                '%array_of_struct.x_ptr_plus_1 {\n'
+                '%array_of_x_ptr_plus_1 {\n'
                 '    i64 1, ; len\n'
-                '    [1 x %struct.x*] [\n'
-                '        %struct.x* @global\n'
+                '    [1 x %x*] [\n'
+                '        %x* @global\n'
                 '    ] ; items\n'
                 '}')
         assert self.f.getvalue() == (
-                '%struct.x = type {\n'
+                '%x = type {\n'
                 '    i64 ; y\n'
                 '}\n'
-                '%array_of_struct.x_ptr_varsize = type {\n'
+                '%array_of_x_ptr_varsize = type {\n'
                 '    i64, ; len\n'
-                '    [0 x %struct.x*] ; items\n'
+                '    [0 x %x*] ; items\n'
                 '}\n'
-                '%array_of_struct.x_ptr_plus_1 = type {\n'
+                '%array_of_x_ptr_plus_1 = type {\n'
                 '    i64, ; len\n'
-                '    [1 x %struct.x*] ; items\n'
+                '    [1 x %x*] ; items\n'
                 '}\n'
-                '@global = global %struct.x zeroinitializer\n')
+                '@global = global %x zeroinitializer\n')
 
     def test_repr_func_type(self):
         func_type = lltype.FuncType([lltype.Signed], lltype.Void)
@@ -166,13 +166,12 @@ class TestDatabase(object):
     def test_repr_struct_ptr(self):
         struct_ptr = lltype.Ptr(
                 lltype.Struct('spam', ('eggs', lltype.Signed)))._example()
-        assert genllvm.get_repr(struct_ptr).TV == (
-                '%struct.spam* @global')
+        assert genllvm.get_repr(struct_ptr).TV == '%spam* @global'
         assert self.f.getvalue() == (
-                '%struct.spam = type {\n'
+                '%spam = type {\n'
                 '    i64 ; eggs\n'
                 '}\n'
-                '@global = global %struct.spam zeroinitializer\n')
+                '@global = global %spam zeroinitializer\n')
 
     def test_repr_array_ptr(self):
         array_ptr = lltype.Ptr(lltype.Array(lltype.Signed))._example()
@@ -197,24 +196,23 @@ class TestDatabase(object):
         nested_array_ptr = lltype.Ptr(lltype.Struct(
                 'foo', ('bar', lltype.Array(lltype.Signed))))._example()
         assert genllvm.get_repr(nested_array_ptr).TV == (
-                '%struct.foo_varsize* bitcast(%struct.foo_plus_1* '
-                '@global to %struct.foo_varsize*)')
+                '%foo_varsize* bitcast(%foo_plus_1* @global to %foo_varsize*)')
         assert self.f.getvalue() == (
                 '%array_of_i64_varsize = type {\n'
                 '    i64, ; len\n'
                 '    [0 x i64] ; items\n'
                 '}\n'
-                '%struct.foo_varsize = type {\n'
+                '%foo_varsize = type {\n'
                 '    %array_of_i64_varsize ; bar\n'
                 '}\n'
                 '%array_of_i64_plus_1 = type {\n'
                 '    i64, ; len\n'
                 '    [1 x i64] ; items\n'
                 '}\n'
-                '%struct.foo_plus_1 = type {\n'
+                '%foo_plus_1 = type {\n'
                 '    %array_of_i64_plus_1 ; bar\n'
                 '}\n'
-                '@global = global %struct.foo_plus_1 {\n'
+                '@global = global %foo_plus_1 {\n'
                 '    %array_of_i64_plus_1 {\n'
                 '        i64 1, ; len\n'
                 '        [1 x i64] zeroinitializer ; items\n'
