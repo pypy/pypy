@@ -222,7 +222,7 @@ class TestLibffiCall(BaseFfiTest):
                 if meth.__doc__ is not None and '{' in meth.__doc__:
                     snippets.append(meth.__doc__)
                     import re
-                    for match in re.finditer(" ([a-z_]+)\(", meth.__doc__):
+                    for match in re.finditer(" ([A-Za-z_]+)\(", meth.__doc__):
                         exports.append(match.group(1))
         #
         c_file.write(STANDARD_DEFINES + str(py.code.Source('\n'.join(snippets))))
@@ -557,10 +557,10 @@ class TestLibffiCall(BaseFfiTest):
     if os.name == 'nt':
         def test_stdcall_simple(self):
             """
-                int __stdcall std_diff_xy(int x, Signed y)
-                {
-                    return x - y;
-                }
+            int __stdcall std_diff_xy(int x, Signed y)
+            {
+                return x - y;
+            }
             """
             libfoo = self.get_libfoo()
             func = (libfoo, 'std_diff_xy', [types.sint, types.signed], types.sint)
@@ -574,6 +574,37 @@ class TestLibffiCall(BaseFfiTest):
                 assert str(e) == "<LLException 'StackCheckError'>"
             else:
                 assert 0, 'wrong calling convention should have raised'
+
+        def test_by_ordinal(self):
+            """
+            int AAA_first_ordinal_function()
+            {
+                return 42;
+            }
+            """
+            libfoo = self.get_libfoo()
+            f_by_name = libfoo.getpointer('AAA_first_ordinal_function' ,[],
+                                          types.uint)
+            f_by_ordinal = libfoo.getpointer_by_ordinal(1 ,[], types.uint)
+            print dir(f_by_name)
+            assert f_by_name.funcsym == f_by_ordinal.funcsym
+
+        def test_by_ordinal2(self):
+            """
+            int __stdcall BBB_second_ordinal_function()
+            {
+                return 24;
+            }
+            """
+            from pypy.rlib.libffi import WinDLL
+            dll = WinDLL(self.libfoo_name)
+            f_by_name = dll.getpointer('BBB_second_ordinal_function' ,[],
+                                          types.uint)
+            f_by_ordinal = dll.getpointer_by_ordinal(2 ,[], types.uint)
+            print dir(f_by_name)
+            assert f_by_name.funcsym == f_by_ordinal.funcsym
+            chain = ArgChain()
+            assert 24 == f_by_ordinal.call(chain, lltype.Signed, is_struct=False)
 
 
         

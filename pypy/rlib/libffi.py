@@ -415,6 +415,11 @@ class CDLL(object):
         return Func(name, argtypes, restype, dlsym(self.lib, name),
                     flags=flags, keepalive=self)
 
+    def getpointer_by_ordinal(self, name, argtypes, restype,
+                              flags=FUNCFLAG_CDECL):
+        return Func('by_ordinal', argtypes, restype, 
+                    dlsym_byordinal(self.lib, name),
+                    flags=flags, keepalive=self)
     def getaddressindll(self, name):
         return dlsym(self.lib, name)
 
@@ -423,6 +428,11 @@ if os.name == 'nt':
         def getpointer(self, name, argtypes, restype, flags=FUNCFLAG_STDCALL):
             return Func(name, argtypes, restype, dlsym(self.lib, name),
                         flags=flags, keepalive=self)
+        def getpointer_by_ordinal(self, name, argtypes, restype,
+                                  flags=FUNCFLAG_STDCALL):
+            return Func(name, argtypes, restype, dlsym_byordinal(self.lib, name),
+                        flags=flags, keepalive=self)
+
 # ======================================================================
 
 @jit.oopspec('libffi_struct_getfield(ffitype, addr, offset)')

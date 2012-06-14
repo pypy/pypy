@@ -56,8 +56,7 @@ class FFIStructOwner(object):
 
 class W__StructDescr(Wrappable):
 
-    def __init__(self, space, name):
-        self.space = space
+    def __init__(self, name):
         self.w_ffitype = W_FFIType('struct %s' % name, clibffi.FFI_TYPE_NULL,
                                    w_structdescr=self)
         self.fields_w = None
@@ -69,7 +68,6 @@ class W__StructDescr(Wrappable):
             raise operationerrfmt(space.w_ValueError,
                                   "%s's fields has already been defined",
                                   self.w_ffitype.name)
-        space = self.space
         fields_w = space.fixedview(w_fields)
         # note that the fields_w returned by compute_size_and_alignement has a
         # different annotation than the original: list(W_Root) vs list(W_Field)
@@ -104,11 +102,11 @@ class W__StructDescr(Wrappable):
         return W__StructInstance(self, allocate=False, autofree=True, rawmem=rawmem)
 
     @jit.elidable_promote('0')
-    def get_type_and_offset_for_field(self, name):
+    def get_type_and_offset_for_field(self, space, name):
         try:
             w_field = self.name2w_field[name]
         except KeyError:
-            raise operationerrfmt(self.space.w_AttributeError, '%s', name)
+            raise operationerrfmt(space.w_AttributeError, '%s', name)
 
         return w_field.w_ffitype, w_field.offset
 
@@ -116,7 +114,7 @@ class W__StructDescr(Wrappable):
 
 @unwrap_spec(name=str)
 def descr_new_structdescr(space, w_type, name, w_fields=None):
-    descr = W__StructDescr(space, name)
+    descr = W__StructDescr(name)
     if w_fields is not space.w_None:
         descr.define_fields(space, w_fields)
     return descr
@@ -185,13 +183,15 @@ class W__StructInstance(Wrappable):
 
     @unwrap_spec(name=str)
     def getfield(self, space, name):
-        w_ffitype, offset = self.structdescr.get_type_and_offset_for_field(name)
+        w_ffitype, offset = self.structdescr.get_type_and_offset_for_field(
+            space, name)
         field_getter = GetFieldConverter(space, self.rawmem, offset)
         return field_getter.do_and_wrap(w_ffitype)
 
     @unwrap_spec(name=str)
     def setfield(self, space, name, w_value):
-        w_ffitype, offset = self.structdescr.get_type_and_offset_for_field(name)
+        w_ffitype, offset = self.structdescr.get_type_and_offset_for_field(
+            space, name)
         field_setter = SetFieldConverter(space, self.rawmem, offset)
         field_setter.unwrap_and_do(w_ffitype, w_value)
 

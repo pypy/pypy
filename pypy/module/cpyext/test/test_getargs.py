@@ -144,6 +144,31 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
         assert 'foo\0bar\0baz' == pybuffer(buffer('foo\0bar\0baz'))
 
 
+    def test_pyarg_parse_string_fails(self):
+        """
+        Test the failing case of PyArg_ParseTuple(): it must not keep
+        a reference on the PyObject passed in.
+        """
+        pybuffer = self.import_parser(
+            '''
+            Py_buffer buf1, buf2, buf3;
+            PyObject *result;
+            if (!PyArg_ParseTuple(args, "s*s*s*", &buf1, &buf2, &buf3)) {
+                return NULL;
+            }
+            Py_FatalError("should not get there");
+            return NULL;
+            ''')
+        freed = []
+        class freestring(str):
+            def __del__(self):
+                freed.append('x')
+        raises(TypeError, pybuffer,
+               freestring("string"), freestring("other string"), 42)
+        import gc; gc.collect()
+        assert freed == ['x', 'x']
+
+
     def test_pyarg_parse_charbuf_and_length(self):
         """
         The `t#` format specifier can be used to parse a read-only 8-bit

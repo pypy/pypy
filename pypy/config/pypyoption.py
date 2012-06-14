@@ -79,6 +79,7 @@ if sys.platform == "sunos5":
 module_dependencies = {
     '_multiprocessing': [('objspace.usemodules.rctime', True),
                          ('objspace.usemodules.thread', True)],
+    'cpyext': [('objspace.usemodules.array', True)],
     }
 module_suggests = {
     # the reason you want _rawffi is for ctypes, which

@@ -97,7 +97,8 @@ def parsestr(space, encoding, s, unicode_literal=False):
         return space.wrap(v)
 
     need_encoding = (encoding is not None and
-                     encoding != "utf-8" and encoding != "iso-8859-1")
+                     encoding != "utf-8" and encoding != "utf8" and
+                     encoding != "iso-8859-1")
     assert 0 <= ps <= q
     substr = s[ps : q]
     if rawmode or '\\' not in s[ps:]:
@@ -129,19 +130,18 @@ def PyString_DecodeEscape(space, s, recode_encoding):
     builder = StringBuilder(len(s))
     ps = 0
     end = len(s)
-    while 1:
-        ps2 = ps
-        while ps < end and s[ps] != '\\':
+    while ps < end:
+        if s[ps] != '\\':
+            # note that the C code has a label here.
+            # the logic is the same.
             if recode_encoding and ord(s[ps]) & 0x80:
                 w, ps = decode_utf8(space, s, ps, end, recode_encoding)
+                # Append bytes to output buffer.
                 builder.append(w)
-                ps2 = ps
             else:
+                builder.append(s[ps])
                 ps += 1
-        if ps > ps2:
-            builder.append_slice(s, ps2, ps)
-        if ps == end:
-            break
+            continue
 
         ps += 1
         if ps == end:

@@ -27,7 +27,7 @@ def identify():
     return 'CINT'
 
 ts_reflect = False
-ts_call    = 'auto'
+ts_call    = False
 ts_memory  = 'auto'
 ts_helper  = 'auto'
 
