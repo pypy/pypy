@@ -967,6 +967,7 @@ class POSIXProcessTestCase(BaseTestCase):
         ident = id(p)
         pid = p.pid
         del p
+        test_support.gc_collect()
         # check that p is in the active processes list
         self.assertIn(ident, [id(o) for o in subprocess._active])
 
@@ -986,6 +987,7 @@ class POSIXProcessTestCase(BaseTestCase):
         ident = id(p)
         pid = p.pid
         del p
+        test_support.gc_collect()
         os.kill(pid, signal.SIGKILL)
         # check that p is in the active processes list
         self.assertIn(ident, [id(o) for o in subprocess._active])
