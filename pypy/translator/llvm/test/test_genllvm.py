@@ -10,7 +10,6 @@ from pypy.rpython.test import (test_annlowlevel, test_exception,
      test_rtuple, test_runicode, test_rvirtualizable2, test_rweakref)
 from pypy.translator.backendopt.raisingop2direct_call import (
      raisingop2direct_call)
-from pypy.translator.backendopt.removenoops import remove_same_as
 from pypy.translator.c.test import (test_typed, test_lltyped,
      test_backendoptimized, test_newgc)
 from pypy.translator.llvm import genllvm
@@ -257,8 +256,6 @@ class _LLVMMixin(test_typed.CompilationTestCase):
     def process(self, t):
         t.buildrtyper().specialize()
         raisingop2direct_call(t)
-        for graph in t.graphs:
-            remove_same_as(graph)
 
     def _compile(self, func, args, someobjects=False, policy=None):
         if someobjects:

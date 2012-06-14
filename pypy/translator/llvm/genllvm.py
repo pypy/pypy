@@ -18,6 +18,7 @@ from pypy.rpython.memory.gctransform.framework import FrameworkGCTransformer
 from pypy.rpython.memory.gctransform.transform import GCTransformer
 from pypy.rpython.module.support import LLSupport
 from pypy.rpython.typesystem import getfunctionptr
+from pypy.translator.backendopt.removenoops import remove_same_as
 from pypy.translator.gensupp import uniquemodulename
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.translator.unsimplify import remove_double_links
@@ -1520,6 +1521,7 @@ class GenLLVM(object):
                         link.args = [rename.get(v, v) for v in link.args]
 
             remove_double_links(self.translator.annotator, graph)
+            remove_same_as(graph)
 
     def prepare(self, entry_point):
         if self.standalone:
