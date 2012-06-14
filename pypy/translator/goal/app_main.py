@@ -298,6 +298,7 @@ sys_flags = (
     "verbose",
     "unicode",
     "bytes_warning",
+    "hash_randomization",
 )
 
 
@@ -370,6 +371,7 @@ if PYTHON26:
         'B': (simple_option, 'dont_write_bytecode'),
         's': (simple_option, 'no_user_site'),
         'b': (simple_option, 'bytes_warning'),
+        'R': (simple_option, 'hash_randomization'),
         })
 
 
