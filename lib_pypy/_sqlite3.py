@@ -288,7 +288,7 @@ class StatementCache(object):
         self.maxcount = maxcount
         self.cache = OrderedDict()
 
-    def get(self, sql, cursor, row_factory):
+    def get(self, sql, row_factory):
         try:
             stat = self.cache[sql]
         except KeyError:
@@ -426,10 +426,9 @@ class Connection(object):
 
     def __call__(self, sql):
         self._check_closed()
-        cur = Cursor(self)
         if not isinstance(sql, (str, unicode)):
             raise Warning("SQL is of wrong type. Must be string or unicode.")
-        statement = self.statement_cache.get(sql, cur, self.row_factory)
+        statement = self.statement_cache.get(sql, self.row_factory)
         return statement
 
     def _get_isolation_level(self):
@@ -769,7 +768,7 @@ class Cursor(object):
             self._description = None
             self.reset = False
             self.statement = self.connection.statement_cache.get(
-                sql, self, self.row_factory)
+                sql, self.row_factory)
 
             if self.connection._isolation_level is not None:
                 if self.statement.kind == DDL:
@@ -809,7 +808,7 @@ class Cursor(object):
             self._description = None
             self.reset = False
             self.statement = self.connection.statement_cache.get(
-                sql, self, self.row_factory)
+                sql, self.row_factory)
 
             if self.statement.kind == DML:
                 self.connection._begin()
