@@ -979,12 +979,13 @@ class FunctionWriter(object):
         pass
 
     def op_debug_llinterpcall(self, result, *args):
+        self.w('call void @abort() noreturn nounwind')
         if result.type_ is not LLVMVoid:
             self.w('{result.V} = bitcast {result.T} undef to {result.T}'
                     .format(**locals()))
 
     def op_debug_fatalerror(self, result, *args):
-        pass
+        self.w('call void @abort() noreturn nounwind')
 
     def op_debug_record_traceback(self, result, *args):
         pass
