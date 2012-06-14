@@ -43,7 +43,10 @@ class BaseTestRweakref(BaseRtypingTest):
                 r = w1
             else:
                 r = w2
-            return r().hello
+            obj = r()
+            if obj is None:
+                return -1
+            return obj.hello
         res = self.interpret(f, [1])
         assert res == 5
         res = self.interpret(f, [0])

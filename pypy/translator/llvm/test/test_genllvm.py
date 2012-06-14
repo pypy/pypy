@@ -12,7 +12,7 @@ from pypy.rpython.test import (test_annlowlevel, test_exception,
 from pypy.translator.backendopt.raisingop2direct_call import (
      raisingop2direct_call)
 from pypy.translator.c.test import (test_typed, test_lltyped,
-     test_backendoptimized, test_newgc)
+     test_backendoptimized, test_newgc, test_refcount)
 from pypy.translator.llvm import genllvm
 from pypy.translator.unsimplify import varoftype
 from pypy.translator.translator import TranslationContext
@@ -227,14 +227,13 @@ class _LLVMMixin(test_typed.CompilationTestCase):
     _types = None
 
     def __init__(self):
-        self.config_override = {}
+        self.config_override = {'translation.gc': 'ref'}
         self.annotator_policy = None
 
     def annotatefunc(self, func, argtypes=None):
         from pypy.config.pypyoption import get_pypy_config
         config = get_pypy_config(translating=True)
         config.translation.backendopt.raisingop2direct_call = True
-        config.translation.gc = 'minimark'
         config.translation.simplifying = True
         config.override(self.config_override)
         t = self._translator = TranslationContext(config=config)
@@ -376,10 +375,9 @@ class TestTypedOptimizedSwitchTestCaseLLVM(test_backendoptimized
 
 
 class TestLLVMRffi(BaseTestRffi, _LLVMMixin):
-    def compile(self, func, argtypes=None, backendopt=True, gcpolicy='framework'):
+    def compile(self, func, argtypes=None, backendopt=True, gcpolicy='ref'):
         # XXX do not ignore backendopt
-        if gcpolicy != 'framework':
-            py.test.skip('gcpolicy not supported')
+        self.config_override['translation.gc'] = gcpolicy
         fn = self.getcompiled(func, argtypes)
         def fn2(*args, **kwds):
             kwds.pop('expected_extra_mallocs', None)
@@ -396,6 +394,14 @@ class TestMiniMarkGCMostCompactLLVM(test_newgc.TestMiniMarkGCMostCompact):
     @classmethod
     def _set_backend(cls, t):
         t.ensure_backend('llvm')
+
+
+class TestRefcountLLVM(_LLVMMixin, test_refcount.TestRefcount):
+    def compile_func(self, fn, inputtypes, t=None):
+        if t is not None:
+            py.test.skip('not supported yet')
+        self.config_override['translation.gc'] = 'ref'
+        return self.getcompiled(fn, inputtypes)
 
 
 class TestRtypingLLVM(_LLVMMixin, test_annlowlevel.TestLLType):
@@ -497,4 +503,6 @@ class TestRvirtualizableLLVM(_LLVMMixin, test_rvirtualizable2.TestLLtype):
     pass
 
 class TestRweakrefLLVM(_LLVMMixin, test_rweakref.TestLLtype):
-    pass
+    def _compile(self, *args, **kwds):
+        self.config_override['translation.gc'] = 'minimark'
+        return _LLVMMixin._compile(self, *args, **kwds)

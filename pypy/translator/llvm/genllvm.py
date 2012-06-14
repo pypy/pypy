@@ -14,6 +14,8 @@ from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
 from pypy.rpython.lltypesystem import llarena, llgroup, llmemory, lltype, rffi
 from pypy.rpython.lltypesystem.ll2ctypes import (_llvm_needs_header,
      get_ctypes_type, lltype2ctypes, ctypes2lltype)
+from pypy.rpython.memory.gctransform.refcounting import (
+     RefcountingGCTransformer)
 from pypy.rpython.memory.gctransform.framework import FrameworkGCTransformer
 from pypy.rpython.memory.gctransform.transform import GCTransformer
 from pypy.rpython.module.support import LLSupport
@@ -196,10 +198,14 @@ class IntegralType(Type):
         return 257 * self.unsigned + self.bitwidth
 
     def __eq__(self, other):
+        if not isinstance(other, IntegralType):
+            return False
         return (self.bitwidth == other.bitwidth and
                 self.unsigned == other.unsigned)
 
     def __ne__(self, other):
+        if not isinstance(other, IntegralType):
+            return True
         return (self.bitwidth != other.bitwidth or
                 self.unsigned != other.unsigned)
 
@@ -697,6 +703,8 @@ class Database(object):
                     class_ = ArrayType
             elif isinstance(type_, lltype.FuncType):
                 class_ = FuncType
+            elif type_ == lltype.RuntimeTypeInfo:
+                class_ = self.genllvm.gcpolicy.RttiType
             elif isinstance(type_, lltype.OpaqueType):
                 if (type_.hints.get('external') == 'C' and
                     'c_name' in type_.hints):
@@ -1245,33 +1253,24 @@ class FunctionWriter(object):
     def op_hint(self, result, var, hints):
         self._cast(result, var)
 
+    def op_gc_call_rtti_destructor(self, result, rtti, addr):
+        self.op_direct_call(result, rtti, addr)
+
+    def op_gc_free(self, result, addr):
+        self.op_raw_free(result, addr)
+
+    def op_gc__collect(self, result):
+        pass
+
+    def op_have_debug_prints(self, result):
+        self.w('{result.V} = bitcast i1 false to i1'.format(**locals()))
+
 
 class GCPolicy(object):
     def __init__(self, genllvm):
         self.genllvm = genllvm
-        self.delayed_ptrs = False
-
-    def transform_graph(self, graph):
-        raise NotImplementedError("Override in subclass.")
-
-    def finish(self):
-        while self.delayed_ptrs:
-            self.gctransformer.finish_helpers()
-
-            self.delayed_ptrs = False
-            for graph in self.genllvm.translator.graphs:
-                self.genllvm.transform_graph(graph)
-
-            finish_tables = self.gctransformer.get_finish_tables()
-            if hasattr(finish_tables, '__iter__'):
-                list(finish_tables)
-
-
-class FrameworkGCPolicy(GCPolicy):
-    def __init__(self, genllvm):
-        GCPolicy.__init__(self, genllvm)
-        self.gctransformer = FrameworkGCTransformer(genllvm.translator)
         self._considered_constant = set()
+        self.delayed_ptrs = False
 
     def transform_graph(self, graph):
         self.gctransformer.transform_graph(graph)
@@ -1317,17 +1316,58 @@ class FrameworkGCPolicy(GCPolicy):
             elif isinstance(type_, llgroup.GroupType):
                 for member in value.members:
                     self._consider_constant(lltype.typeOf(member), member)
+            elif type_ is lltype.RuntimeTypeInfo:
+                if isinstance(self.gctransformer, RefcountingGCTransformer):
+                    self.gctransformer.static_deallocation_funcptr_for_type(
+                            value.about)
             self.gctransformer.consider_constant(type_, value)
 
             p, c = lltype.parentlink(value)
             if p:
                 self._consider_constant(lltype.typeOf(p), p)
 
+    def add_startup_code(self):
+        pass
+
     def get_gc_fields_lltype(self):
         return [(self.gctransformer.HDR, '_gc_header')]
 
     def get_gc_fields(self):
         return [(database.get_type(self.gctransformer.HDR), '_gc_header')]
+
+    def get_prebuilt_hash(self, obj):
+        pass
+
+    def finish(self):
+        while self.delayed_ptrs:
+            self.gctransformer.finish_helpers()
+
+            self.delayed_ptrs = False
+            for graph in self.genllvm.translator.graphs:
+                self.genllvm.transform_graph(graph)
+
+            finish_tables = self.gctransformer.get_finish_tables()
+            if hasattr(finish_tables, '__iter__'):
+                list(finish_tables)
+
+
+class FrameworkGCPolicy(GCPolicy):
+    class RttiType(Type):
+        def setup_from_lltype(self, db, type_):
+            self.typestr = '{}'
+
+        def repr_value(self, obj):
+            return '{}'
+
+    def __init__(self, genllvm):
+        GCPolicy.__init__(self, genllvm)
+        self.gctransformer = FrameworkGCTransformer(genllvm.translator)
+
+    def add_startup_code(self):
+        database.f.write('%ctor = type { i32, void ()* }\n')
+        sr = get_repr(self.gctransformer.frameworkgc_setup_ptr)
+        database.f.write('@llvm.global_ctors = appending global [1 x %ctor] '
+                '[%ctor {{ i32 65535, void ()* @{} }}]\n'.format(sr.V[1:]))
 
     def get_gc_field_values(self, obj):
         obj = lltype.top_container(obj)
@@ -1347,6 +1387,27 @@ class FrameworkGCPolicy(GCPolicy):
         if TYPE._is_varsize():
             return None
         return getattr(obj, '_hash_cache_', None)
+
+
+class RefcountGCPolicy(GCPolicy):
+    class RttiType(FuncType):
+        def setup_from_lltype(self, db, type_):
+            self.result = LLVMVoid
+            self.args = [LLVMAddress]
+
+        def repr_ref(self, ptr_type, obj):
+            ptr = database.genllvm.gcpolicy.gctransformer\
+                    .static_deallocation_funcptr_for_type(obj.about)
+            FuncType.repr_ref(self, ptr_type, ptr._obj)
+            ptr_type.refs[obj] = ptr_type.refs.pop(ptr._obj)
+
+    def __init__(self, genllvm):
+        GCPolicy.__init__(self, genllvm)
+        self.gctransformer = RefcountingGCTransformer(genllvm.translator)
+
+    def get_gc_field_values(self, obj):
+        obj = lltype.top_container(obj)
+        return [self.gctransformer.gcheaderbuilder.header_of_object(obj)._obj]
 
 
 def make_main(translator, entrypoint):
@@ -1487,7 +1548,8 @@ class GenLLVM(object):
         self.standalone = standalone
         self.exctransformer = translator.getexceptiontransformer()
         self.gcpolicy = {
-            'framework': FrameworkGCPolicy
+            'framework': FrameworkGCPolicy,
+            'ref': RefcountGCPolicy
         }[translator.config.translation.gctransformer](self)
         self.transformed_graphs = set()
         self.ecis = []
@@ -1551,11 +1613,7 @@ class GenLLVM(object):
 
             database = Database(self, f)
 
-            f.write('%ctor = type { i32, void ()* }\n')
-            sr = get_repr(self.gcpolicy.gctransformer.frameworkgc_setup_ptr)
-            f.write('@llvm.global_ctors = appending global [1 x %ctor] '
-                    '[%ctor {{ i32 65535, void ()* @{} }}]\n'.format(sr.V[1:]))
-
+            self.gcpolicy.add_startup_code()
             if self.standalone:
                 get_repr(getfunctionptr(self.entry_point)).V
             else:
