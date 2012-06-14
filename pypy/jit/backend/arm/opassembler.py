@@ -48,7 +48,10 @@ class GuardToken(object):
 
 class ResOpAssembler(object):
 
-    def emit_op_int_add(self, op, arglocs, regalloc, fcond, flags=False):
+    def emit_op_int_add(self, op, arglocs, regalloc, fcond):
+        return self.int_add_impl(op, arglocs, regalloc, fcond)
+ 
+    def int_add_impl(self, op, arglocs, regalloc, fcond, flags=False):
         l0, l1, res = arglocs
         if flags:
             s = 1
@@ -64,6 +67,9 @@ class ResOpAssembler(object):
         return fcond
 
     def emit_op_int_sub(self, op, arglocs, regalloc, fcond, flags=False):
+        return self.int_sub_impl(op, arglocs, regalloc, fcond)
+
+    def int_sub_impl(self, op, arglocs, regalloc, fcond, flags=False):
         l0, l1, res = arglocs
         if flags:
             s = 1
@@ -108,12 +114,12 @@ class ResOpAssembler(object):
         return fcond
 
     def emit_guard_int_add_ovf(self, op, guard, arglocs, regalloc, fcond):
-        self.emit_op_int_add(op, arglocs[0:3], regalloc, fcond, flags=True)
+        self.int_add_impl(op, arglocs[0:3], regalloc, fcond, flags=True)
         self._emit_guard_overflow(guard, arglocs[3:], fcond)
         return fcond
 
     def emit_guard_int_sub_ovf(self, op, guard, arglocs, regalloc, fcond):
-        self.emit_op_int_sub(op, arglocs[0:3], regalloc, fcond, flags=True)
+        self.int_sub_impl(op, arglocs[0:3], regalloc, fcond, flags=True)
         self._emit_guard_overflow(guard, arglocs[3:], fcond)
         return fcond
 
