@@ -659,7 +659,7 @@ class __extend__(pairtype(SomeString, SomeInteger)):
 
     def mul((str1, int2)): # xxx do we want to support this
         getbookkeeper().count("str_mul", str1, int2)
-        return SomeString()
+        return SomeString(no_nul=str1.no_nul)
 
 class __extend__(pairtype(SomeUnicodeString, SomeInteger)):
     def getitem((str1, int2)):

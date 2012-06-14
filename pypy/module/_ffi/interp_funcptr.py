@@ -15,6 +15,51 @@ from pypy.rlib.rarithmetic import intmask, r_uint
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.module._ffi.type_converter import FromAppLevelConverter, ToAppLevelConverter
 
+import os
+if os.name == 'nt':
+    def _getfunc(space, CDLL, w_name, w_argtypes, w_restype):
+        argtypes_w, argtypes, w_restype, restype = unpack_argtypes(
+            space, w_argtypes, w_restype)
+        if space.isinstance_w(w_name, space.w_str):
+            name = space.str_w(w_name)
+            try:
+                func = CDLL.cdll.getpointer(name, argtypes, restype, 
+                                            flags = CDLL.flags)
+            except KeyError:
+                raise operationerrfmt(
+                    space.w_AttributeError,
+                    "No symbol %s found in library %s", name, CDLL.name)
+
+            return W_FuncPtr(func, argtypes_w, w_restype)
+        elif space.isinstance_w(w_name, space.w_int):
+            ordinal = space.int_w(w_name)
+            try:
+                func = CDLL.cdll.getpointer_by_ordinal(
+                    ordinal, argtypes, restype, 
+                    flags = CDLL.flags)
+            except KeyError:
+                raise operationerrfmt(
+                    space.w_AttributeError,
+                    "No ordinal %d found in library %s", ordinal, CDLL.name)
+            return W_FuncPtr(func, argtypes_w, w_restype)
+        else:
+            raise OperationError(space.w_TypeError, space.wrap(
+                    'function name must be a string or integer'))
+else:    
+    @unwrap_spec(name=str)
+    def _getfunc(space, CDLL, w_name, w_argtypes, w_restype):
+        name = space.str_w(w_name)
+        argtypes_w, argtypes, w_restype, restype = unpack_argtypes(
+            space, w_argtypes, w_restype)
+        try:
+            func = CDLL.cdll.getpointer(name, argtypes, restype, 
+                                        flags = CDLL.flags)
+        except KeyError:
+            raise operationerrfmt(
+                space.w_AttributeError,
+                "No symbol %s found in library %s", name, CDLL.name)
+
+        return W_FuncPtr(func, argtypes_w, w_restype)
 
 def unwrap_ffitype(space, w_argtype, allow_void=False):
     res = w_argtype.get_ffitype()
@@ -271,19 +316,8 @@ class W_CDLL(Wrappable):
             raise operationerrfmt(space.w_OSError, '%s: %s', self.name,
                                   e.msg or 'unspecified error')
 
-    @unwrap_spec(name=str)
-    def getfunc(self, space, name, w_argtypes, w_restype):
-        argtypes_w, argtypes, w_restype, restype = unpack_argtypes(space,
-                                                                   w_argtypes,
-                                                                   w_restype)
-        try:
-            func = self.cdll.getpointer(name, argtypes, restype, 
-                                            flags = self.flags)
-        except KeyError:
-            raise operationerrfmt(space.w_AttributeError,
-                                  "No symbol %s found in library %s", name, self.name)
-
-        return W_FuncPtr(func, argtypes_w, w_restype)
+    def getfunc(self, space, w_name, w_argtypes, w_restype):
+        return _getfunc(space, self, w_name, w_argtypes, w_restype)
 
     @unwrap_spec(name=str)
     def getaddressindll(self, space, name):
@@ -291,8 +325,9 @@ class W_CDLL(Wrappable):
             address_as_uint = rffi.cast(lltype.Unsigned,
                                         self.cdll.getaddressindll(name))
         except KeyError:
-            raise operationerrfmt(space.w_ValueError,
-                                  "No symbol %s found in library %s", name, self.name)
+            raise operationerrfmt(
+                space.w_ValueError,
+                "No symbol %s found in library %s", name, self.name)
         return space.wrap(address_as_uint)
 
 @unwrap_spec(name='str_or_None', mode=int)

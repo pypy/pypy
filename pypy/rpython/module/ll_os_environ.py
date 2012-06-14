@@ -67,7 +67,7 @@ def getenv_llimpl(name):
     rffi.free_charp(l_name)
     return result
 
-register_external(r_getenv, [str0], annmodel.SomeString(can_be_None=True),
+register_external(r_getenv, [str0], annmodel.SomeString(can_be_None=True, no_nul=True),
                   export_name='ll_os.ll_os_getenv',
                   llimpl=getenv_llimpl)
 
