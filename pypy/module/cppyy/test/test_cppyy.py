@@ -150,8 +150,30 @@ class AppTestCPPYY:
         gc.collect()
         assert t.get_overload("getCount").call(None) == 0
 
+    def test05a_memory2(self):
+        """Test ownership control."""
+
+        import gc, cppyy
+
+        t = self.example01
+
+        assert t.get_overload("getCount").call(None) == 0
+
+        e1 = t.get_overload(t.type_name).call(None, 7)
+        assert t.get_overload("getCount").call(None) == 1
+        assert e1._python_owns == True
+        e1._python_owns = False
+        e1 = None
+        gc.collect()
+        assert t.get_overload("getCount").call(None) == 1
+
+        # forced fix-up of object count for later tests
+        t.get_overload("setCount").call(None, 0)
+
+
     def test06_method_double(self):
-        """Test passing of a double and returning of double on a method"""
+        """Test passing of a double and returning of double on a method."""
+
         import cppyy
 
         t = self.example01

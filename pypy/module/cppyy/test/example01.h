@@ -36,6 +36,7 @@ public:        // class-level methods
     static payload* staticCyclePayload(payload* p, double d);
     static payload staticCopyCyclePayload(payload* p, double d);
     static int getCount();
+    static void setCount(int);
 
 public:        // instance methods
     int addDataToInt(int a);

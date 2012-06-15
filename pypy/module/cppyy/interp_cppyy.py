@@ -2,7 +2,7 @@ import pypy.module.cppyy.capi as capi
 
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.typedef import TypeDef, interp_attrproperty
+from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
 from pypy.interpreter.baseobjspace import Wrappable, W_Root
 
 from pypy.rpython.lltypesystem import rffi, lltype
@@ -676,6 +676,15 @@ class W_CPPInstance(Wrappable):
             raise OperationError(self.space.w_ReferenceError,
                                  self.space.wrap("trying to access a NULL pointer"))
 
+    # allow user to determine ownership rules on a per object level
+    @unwrap_spec(self='self')
+    def fget_python_owns(self, space):
+        return space.wrap(self.python_owns)
+
+    @unwrap_spec(value=bool)
+    def fset_python_owns(self, space, value):
+        self.python_owns = space.is_true(value)
+
     def get_cppthis(self, calling_scope):
         return self.cppclass.get_cppthis(self, calling_scope)
 
@@ -714,6 +723,7 @@ class W_CPPInstance(Wrappable):
 W_CPPInstance.typedef = TypeDef(
     'CPPInstance',
     cppclass = interp_attrproperty('cppclass', cls=W_CPPInstance),
+    _python_owns = GetSetProperty(W_CPPInstance.fget_python_owns, W_CPPInstance.fset_python_owns),
     __eq__ = interp2app(W_CPPInstance.instance__eq__, unwrap_spec=['self', W_Root]),
     __ne__ = interp2app(W_CPPInstance.instance__ne__, unwrap_spec=['self', W_Root]),
     __nonzero__ = interp2app(W_CPPInstance.instance__nonzero__, unwrap_spec=['self']),

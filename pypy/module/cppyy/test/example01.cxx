@@ -86,6 +86,10 @@ int example01::getCount() {
     return count;
 }
 
+void example01::setCount(int value) {
+    count = value;
+}
+
 // instance methods
 int example01::addDataToInt(int a) {
     return m_somedata + a;
