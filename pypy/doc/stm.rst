@@ -9,8 +9,7 @@ Introduction
 
 PyPy can be translated in a special mode based on Software Transactional
 Memory (STM).  This mode is not compatible with the JIT so far, and moreover
-adds a constant run-time overhead, expected to be in the range 2x to 5x.
-(XXX for now it is bigger, but past experience shows it can be reduced.)
+adds a constant run-time overhead (so far 4-5x).
 The benefit is that the resulting ``pypy-stm`` can execute multiple
 threads of Python code in parallel.
 
@@ -30,25 +29,43 @@ threads of Python code in parallel.
   raw threads.
 
 
+Drop-in replacement
+===================
+
+Multithreaded, CPU-intensive Python programs should work unchanged on
+``pypy-stm``.  They will run using multiple CPU cores in parallel.
+
+(The existing semantics of the GIL (Global Interpreter Lock) are
+unchanged: although running on multiple cores in parallel, ``pypy-stm``
+gives the illusion that threads are run serially, with switches only
+occurring between bytecodes, not in the middle of one.)
+
+
 High-level interface
 ====================
 
-The basic high-level interface is planned in the ``transaction`` module
-(XXX name can change).  A minimal example of usage will be along the
-lines of::
+Alternatively, if you have a program not using threads, but containing a
+loop that runs "chunks" of work in random order::
 
-    for i in range(10):
-        transaction.add(do_stuff, i)
+    somedict = {...}
+    while len(somedict) > 0:
+        key, value = somedict.popitem()
+        do_work(key, value)   # which may add more things to 'somedict'
+
+Then you can parallelize it *without using threads* by replacing this
+loop with code like this::
+
+    transaction.add(do_work, initialkey1, initialvalue1)
+    transaction.add(do_work, initialkey2, initialvalue2)
     transaction.run()
+    # and 'do_work()' may call more 'transaction.add(do_work, key, value)'
 
-This schedules and runs all ten ``do_stuff(i)``.  Each one appears to
-run serially, but in random order.  It is also possible to ``add()``
-more transactions within each transaction, causing additional pieces of
-work to be scheduled.  The call to ``run()`` returns when all
-transactions have completed.  If a transaction raises, the exception
-propagates outside the call to ``run()`` and the remaining transactions
-are lost (they are not executed, or aborted if they are already in
-progress).
+The ``transaction`` module works as if it ran each 'do_work()' call
+serially in some unspecified order.  Under the hood, it creates a pool
+of threads.  But this is not visible: each 'do_work()' is run as one
+"atomic" block.  Multiple atomic block can actually run in parallel, but
+behave as if they were run serially.  This works as long as they are
+doing "generally independent" things.  More details in the next section.
 
 The module is written in pure Python (`lib_pypy/transaction.py`_).
 See the source code to see how it is based on the `low-level interface`_.
