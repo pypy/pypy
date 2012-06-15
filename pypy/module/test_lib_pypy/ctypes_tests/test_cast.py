@@ -94,4 +94,9 @@ class TestCast(BaseCTypesTestChecker):
     def test_cast_argumenterror(self):
         param = c_uint(42)
         py.test.raises(ArgumentError, "cast(param, c_void_p)")
-        
+
+    def test_c_bool(self):
+        x = c_bool(42)
+        assert x.value is True
+        x = c_bool(0.0)
+        assert x.value is False
