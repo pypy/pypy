@@ -39,20 +39,18 @@ extern "C" void G__UnlockCriticalSection();
 #define G__SETMEMFUNCENV      (long)0x7fff0035
 #define G__NOP                (long)0x7fff00ff
 
-
-/* ROOT meta internals ---------------------------------------------------- */
 namespace {
 
 class Cppyy_OpenedTClass : public TDictionary {
 public:
-   mutable TObjArray *fStreamerInfo;    //Array of TVirtualStreamerInfo
-   mutable std::map<std::string, TObjArray*> *fConversionStreamerInfo; //Array of the streamer infos derived from another class.
-   TList             *fRealData;        //linked list for persistent members including base classes
-   TList             *fBase;            //linked list for base classes
-   TList             *fData;            //linked list for data members
-   TList             *fMethod;          //linked list for methods
-   TList             *fAllPubData;      //all public data members (including from base classes)
-   TList             *fAllPubMethod;    //all public methods (including from base classes)
+    mutable TObjArray* fStreamerInfo;    //Array of TVirtualStreamerInfo
+    mutable std::map<std::string, TObjArray*>* fConversionStreamerInfo; //Array of the streamer infos derived from another class.
+    TList*             fRealData;       //linked list for persistent members including base classes
+    TList*             fBase;           //linked list for base classes
+    TList*             fData;           //linked list for data members
+    TList*             fMethod;         //linked list for methods
+    TList*             fAllPubData;     //all public data members (including from base classes)
+    TList*             fAllPubMethod;   //all public methods (including from base classes)
 };
 
 } // unnamed namespace
@@ -291,7 +289,9 @@ static inline G__value cppyy_call_T(cppyy_method_t method,
     G__value result;
     G__setnull(&result);
 
-    G__LockCriticalSection();      // is recursive lock
+    G__LockCriticalSection();      // CINT-level lock, is recursive
+    G__settemplevel(1);
+
     long index = (long)&method;
     G__CurrentCall(G__SETMEMFUNCENV, 0, &index);
     
@@ -301,7 +301,6 @@ static inline G__value cppyy_call_T(cppyy_method_t method,
         G__store_struct_offset = (long)self;
 
     meth(&result, 0, libp, 0);
-
     if (self)
         G__store_struct_offset = store_struct_offset;
 
@@ -309,6 +308,7 @@ static inline G__value cppyy_call_T(cppyy_method_t method,
         G__security_recover(0);    // 0 ensures silence
 
     G__CurrentCall(G__NOP, 0, 0);
+    G__settemplevel(-1);
     G__UnlockCriticalSection();
 
     return result;
