@@ -670,9 +670,6 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = array([True, False, True, False], dtype="?")
         b = array([True, True, False, False], dtype="?")
         c = a + b
-        print 'c.dtype',c.dtype
-        print 'c',c,'a',a,'b',b
-        print 'a+b',a+b
         for i in range(4):
             assert c[i] == bool(a[i] + b[i])
 
