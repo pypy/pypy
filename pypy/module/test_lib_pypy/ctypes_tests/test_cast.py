@@ -100,3 +100,7 @@ class TestCast(BaseCTypesTestChecker):
         assert x.value is True
         x = c_bool(0.0)
         assert x.value is False
+        x = c_bool("")
+        assert x.value is False
+        x = c_bool(['yadda'])
+        assert x.value is True
