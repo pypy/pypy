@@ -349,9 +349,6 @@ class TestLowLevelTypeLLVM(_LLVMMixin, test_lltyped.TestLowLevelType):
     def test_llgroup_size_limit(self):
         py.test.skip('takes too long to complete')
 
-    def test_prebuilt_ll2ctypes_array(self):
-        py.test.skip('not working yet')
-
 
 class TestTypedLLVM(_LLVMMixin, test_typed.TestTypedTestCase):
     pass

@@ -439,7 +439,6 @@ def convert_array(container, carray=None):
         # regular case: allocate a new ctypes array of the proper type
         cls = get_ctypes_type(ARRAY)
         carray = cls._malloc(container.getlength())
-    add_storage(container, _array_mixin, ctypes.pointer(carray))
     if not isinstance(ARRAY.OF, lltype.ContainerType):
         # fish that we have enough space
         ctypes_array = ctypes.cast(carray.items,
@@ -453,6 +452,7 @@ def convert_array(container, carray=None):
         for i in range(container.getlength()):
             item_ptr = container.items[i]    # fish fish
             convert_struct(item_ptr, carray.items[i])
+    add_storage(container, _array_mixin, ctypes.pointer(carray))
 
 def remove_regular_array_content(container):
     for i in range(container.getlength()):
@@ -609,6 +609,11 @@ class _array_mixin(_parentable_mixin):
 
     def setitem(self, index, value):
         self._storage.contents._setitem(index, value)
+
+    @property
+    def items(self):
+        len_ = len(super(_array_mixin, self).items)
+        return [self.getitem(i) for i in xrange(len_)]
 
 class _array_of_unknown_length(_parentable_mixin, lltype._parentable):
     _kind = "array"
