@@ -692,11 +692,13 @@ class BufferedMixin:
                     for i in range(size):
                         self.buffer[self.write_end + i] = data[i]
                     self.write_end += size
+                    self.pos += size
                     return space.wrap(size)
                 # Buffer as much as possible
                 for i in range(available):
                     self.buffer[self.write_end + i] = data[i]
                 self.write_end += available
+                self.pos += available
                 # Modifying the existing exception will will change
                 # e.characters_written but not e.args[2].  Therefore
                 # we just replace with a new error.

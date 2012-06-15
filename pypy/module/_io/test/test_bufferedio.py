@@ -1,3 +1,4 @@
+from __future__ import with_statement
 from pypy.conftest import gettestobjspace, option
 from pypy.interpreter.gateway import interp2app
 from pypy.tool.udir import udir
@@ -371,6 +372,69 @@ class AppTestBufferedWriter:
         s = raw.pop_written()
         # Previously buffered bytes were flushed
         assert s.startswith("01234567A")
+
+    def test_nonblock_pipe_write_bigbuf(self):
+        self.test_nonblock_pipe_write(16*1024)
+
+    def test_nonblock_pipe_write_smallbuf(self):
+        self.test_nonblock_pipe_write(1024)
+
+    def w_test_nonblock_pipe_write(self, bufsize):
+        import io
+        class NonBlockingPipe(io.BufferedIOBase):
+            "write() returns None when buffer is full"
+            def __init__(self, buffersize=4096):
+                self.buffersize = buffersize
+                self.buffer = b''
+            def readable(self): return True
+            def writable(self): return True
+
+            def write(self, data):
+                available = self.buffersize - len(self.buffer)
+                if available <= 0:
+                    return None
+                self.buffer += data[:available]
+                return min(len(data), available)
+            def read(self, size=-1):
+                if not self.buffer:
+                    return None
+                if size == -1:
+                    size = len(self.buffer)
+                data = self.buffer[:size]
+                self.buffer = self.buffer[size:]
+                return data
+
+        sent = []
+        received = []
+        pipe = NonBlockingPipe()
+        rf = io.BufferedReader(pipe, bufsize)
+        wf = io.BufferedWriter(pipe, bufsize)
+
+        for N in 9999, 7574:
+            try:
+                i = 0
+                while True:
+                    msg = chr(i % 26 + 97) * N
+                    sent.append(msg)
+                    wf.write(msg)
+                    i += 1
+            except io.BlockingIOError as e:
+                sent[-1] = sent[-1][:e.characters_written]
+                received.append(rf.read())
+                msg = b'BLOCKED'
+                wf.write(msg)
+                sent.append(msg)
+        while True:
+            try:
+                wf.flush()
+                break
+            except io.BlockingIOError as e:
+                received.append(rf.read())
+        received += iter(rf.read, None)
+        rf.close()
+        wf.close()
+        sent, received = b''.join(sent), b''.join(received)
+        assert sent == received
 
     def test_read_non_blocking(self):
         import _io
