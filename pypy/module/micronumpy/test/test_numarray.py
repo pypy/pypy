@@ -670,6 +670,9 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = array([True, False, True, False], dtype="?")
         b = array([True, True, False, False], dtype="?")
         c = a + b
+        print 'c.dtype',c.dtype
+        print 'c',c,'a',a,'b',b
+        print 'a+b',a+b
         for i in range(4):
             assert c[i] == bool(a[i] + b[i])
 
@@ -1086,6 +1089,9 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (b == array(range(35, 70), dtype=float).reshape(5, 7)).all()
         assert (a.mean(2) == array(range(0, 15), dtype=float).reshape(3, 5) * 7 + 3).all()
         assert (arange(10).reshape(5, 2).mean(axis=1) == [0.5, 2.5, 4.5, 6.5, 8.5]).all()
+        assert (a.mean(axis=-1) == a.mean(axis=2)).all()
+        raises(ValueError, a.mean, -4)
+        raises(ValueError, a.mean, 3)
 
     def test_sum(self):
         from _numpypy import array
@@ -1096,7 +1102,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = array([True] * 5, bool)
         assert a.sum() == 5
 
-        raises(TypeError, 'a.sum(2, 3)')
+        raises(TypeError, 'a.sum(axis=0, out=3)')
+        raises(ValueError, 'a.sum(axis=2)')
         d = array(0.)
         b = a.sum(out=d)
         assert b == d

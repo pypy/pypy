@@ -6,7 +6,7 @@ from pypy.module.micronumpy import interp_boxes, interp_dtype, support, loop
 from pypy.rlib import jit
 from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.tool.sourcetools import func_with_new_name
-
+from pypy.rlib.rarithmetic import maxint
 
 class W_Ufunc(Wrappable):
     _attrs_ = ["name", "promote_to_float", "promote_bools", "identity"]
@@ -123,9 +123,16 @@ class W_Ufunc(Wrappable):
         if w_axis is None:
             axis = 0
         elif space.is_w(w_axis, space.w_None):
-            axis = -1
+            axis = maxint
         else:
             axis = space.int_w(w_axis)
+            shapelen = len(self.shape)
+            if axis < -shapelen or axis>= shapelen:
+                raise operationerrfmt(space.w_ValueError,
+                    "axis entry %d is out of bounds [%d, %d)", axis,
+                    -shapelen, shapelen)
+            if axis < 0:
+                axis += shapelen
         if space.is_w(w_out, space.w_None):
             out = None
         elif not isinstance(w_out, BaseArray):
@@ -143,9 +150,8 @@ class W_Ufunc(Wrappable):
             raise OperationError(space.w_ValueError, space.wrap("reduce only "
                 "supported for binary functions"))
         assert isinstance(self, W_Ufunc2)
+        assert axis>=0
         obj = convert_to_array(space, w_obj)
-        if axis >= len(obj.shape):
-            raise OperationError(space.w_ValueError, space.wrap("axis(=%d) out of bounds" % axis))
         if isinstance(obj, Scalar):
             raise OperationError(space.w_TypeError, space.wrap("cannot reduce "
                 "on a scalar"))
@@ -163,7 +169,7 @@ class W_Ufunc(Wrappable):
         if self.identity is None and size == 0:
             raise operationerrfmt(space.w_ValueError, "zero-size array to "
                     "%s.reduce without identity", self.name)
-        if shapelen > 1 and axis >= 0:
+        if shapelen > 1 and axis < shapelen:
             if keepdims:
                 shape = obj.shape[:axis] + [1] + obj.shape[axis + 1:]
             else:
