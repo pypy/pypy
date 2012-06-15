@@ -65,7 +65,7 @@ serially in some unspecified order.  Under the hood, it creates a pool
 of threads.  But this is not visible: each 'do_work()' is run as one
 "atomic" block.  Multiple atomic block can actually run in parallel, but
 behave as if they were run serially.  This works as long as they are
-doing "generally independent" things.  More details in the next section.
+doing "generally independent" things.  More details about this later.
 
 The module is written in pure Python (`lib_pypy/transaction.py`_).
 See the source code to see how it is based on the `low-level interface`_.
