@@ -668,6 +668,9 @@ class OpaqueType(Type):
         if hasattr(obj, 'container'):
             ptr_type.refs[obj] = 'bitcast({} to {{}}*)'.format(
                     get_repr(obj.container._as_ptr()).TV)
+        elif isinstance(obj, llmemory._wref):
+            ptr_type.refs[obj] = 'bitcast({} to {{}}*)'.format(
+                    get_repr(obj._converted_weakref).TV)
         else:
             ptr_type.refs[obj] = 'null'
 
@@ -1323,6 +1326,11 @@ class GCPolicy(object):
                             value.about)
             elif type_ is llmemory.GCREF.TO and hasattr(value, 'container'):
                 self._consider_constant(value.ORIGTYPE.TO, value.container)
+            elif type_ is llmemory.WeakRef:
+                from pypy.rpython.memory.gctypelayout import convert_weakref_to
+                wrapper = convert_weakref_to(value._dereference())
+                self._consider_constant(wrapper._TYPE, wrapper)
+                value._converted_weakref = wrapper
             self.gctransformer.consider_constant(type_, value)
 
             p, c = lltype.parentlink(value)
