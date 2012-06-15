@@ -1269,6 +1269,10 @@ class AssemblerPPC(OpAssembler):
             self.mc.addi(r.SP.value, r.SP.value, -WORD) # decrease stack pointer
             # push value
             self.mc.store(loc.value, r.SP.value, 0)
+        elif loc.is_fp_reg():
+            self.mc.addi(r.SP.value, r.SP.value, -WORD) # decrease stack pointer
+            # push value
+            self.mc.stfd(loc.value, r.SP.value, 0)
         elif loc.is_imm():
             assert 0, "not implemented yet"
         elif loc.is_imm_float():
@@ -1291,6 +1295,9 @@ class AssemblerPPC(OpAssembler):
                 self.mc.lwz(loc.value, r.SP.value, 0)
             else:
                 self.mc.ld(loc.value, r.SP.value, 0)
+            self.mc.addi(r.SP.value, r.SP.value, WORD) # increase stack pointer
+        elif loc.is_fp_reg():
+            self.mc.lfd(loc.value, r.SP.value, 0)
             self.mc.addi(r.SP.value, r.SP.value, WORD) # increase stack pointer
         else:
             raise AssertionError('Trying to pop to an invalid location')
