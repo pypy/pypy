@@ -380,8 +380,8 @@ class AppTestBufferedWriter:
         self.test_nonblock_pipe_write(1024)
 
     def w_test_nonblock_pipe_write(self, bufsize):
-        import io
-        class NonBlockingPipe(io.BufferedIOBase):
+        import _io as io
+        class NonBlockingPipe(io._BufferedIOBase):
             "write() returns None when buffer is full"
             def __init__(self, buffersize=4096):
                 self.buffersize = buffersize
@@ -583,6 +583,44 @@ class AppTestBufferedRandom:
                 expected[i] = 1
                 assert raw.getvalue() == str(expected)
         
+    def test_interleaved_read_write(self):
+        import _io as io
+        # Test for issue #12213
+        with io.BytesIO(b'abcdefgh') as raw:
+            with io.BufferedRandom(raw, 100) as f:
+                f.write(b"1")
+                assert f.read(1) == b'b'
+                f.write(b'2')
+                assert f.read1(1) == b'd'
+                f.write(b'3')
+                buf = bytearray(1)
+                f.readinto(buf)
+                assert buf ==  b'f'
+                f.write(b'4')
+                assert f.peek(1) == b'h'
+                f.flush()
+                assert raw.getvalue() == b'1b2d3f4h'
+
+        with io.BytesIO(b'abc') as raw:
+            with io.BufferedRandom(raw, 100) as f:
+                assert f.read(1) == b'a'
+                f.write(b"2")
+                assert f.read(1) == b'c'
+                f.flush()
+                assert raw.getvalue() == b'a2c'
+
+    def test_interleaved_readline_write(self):
+        import _io as io
+        with io.BytesIO(b'ab\ncdef\ng\n') as raw:
+            with io.BufferedRandom(raw) as f:
+                f.write(b'1')
+                assert f.readline() == b'b\n'
+                f.write(b'2')
+                assert f.readline() == b'def\n'
+                f.write(b'3')
+                assert f.readline() == b'\n'
+                f.flush()
+                assert raw.getvalue() == b'1b\n2def\n3\n'
 
 class TestNonReentrantLock:
     def test_trylock(self):

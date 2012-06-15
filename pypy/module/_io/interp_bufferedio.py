@@ -391,13 +391,7 @@ class BufferedMixin:
         self._check_init(space)
         with self.lock:
             if self.writable:
-                self._writer_flush_unlocked(space)
-            if self.readable:
-                if space.is_w(w_size, space.w_None):
-                    # Rewind the raw stream so that its position corresponds
-                    # to the current logical position
-                    self._raw_seek(space, -self._raw_offset(), 1)
-                self._reader_reset_buf()
+                self._flush_and_rewind_unlocked(space)
             # invalidate cached position
             self.abs_pos = -1
 
@@ -430,7 +424,7 @@ class BufferedMixin:
         self._check_init(space)
         with self.lock:
             if self.writable:
-                self._writer_flush_unlocked(space)
+                self._flush_and_rewind_unlocked(space)
             # Constraints:
             # 1. we don't want to advance the file position.
             # 2. we don't want to lose block alignment, so we can't shift the
@@ -464,9 +458,6 @@ class BufferedMixin:
             return space.wrap("")
 
         with self.lock:
-            if self.writable:
-                self._writer_flush_unlocked(space)
-
             # Return up to n bytes.  If at least one byte is buffered, we only
             # return buffered bytes.  Otherwise, we do one raw read.
 
@@ -477,6 +468,9 @@ class BufferedMixin:
 
             have = self._readahead()
             if have == 0:
+                if self.writable:
+                    self._flush_and_rewind_unlocked(space)
+
                 # Fill the buffer from the raw stream
                 self._reader_reset_buf()
                 self.pos = 0
@@ -493,6 +487,7 @@ class BufferedMixin:
 
     def _read_all(self, space):
         "Read all the file, don't update the cache"
+        # Must run with the lock held!
         builder = StringBuilder()
         # First copy what we have in the current buffer
         current_size = self._readahead()
@@ -500,10 +495,11 @@ class BufferedMixin:
         if current_size:
             data = ''.join(self.buffer[self.pos:self.pos + current_size])
             builder.append(data)
-        self._reader_reset_buf()
+            self.pos += current_size
         # We're going past the buffer's bounds, flush it
         if self.writable:
-            self._writer_flush_unlocked(space)
+            self._flush_and_rewind_unlocked(space)
+        self._reader_reset_buf()
 
         while True:
             # Read until EOF or until read() would block
@@ -559,6 +555,7 @@ class BufferedMixin:
     def _read_generic(self, space, n):
         """Generic read function: read from the stream until enough bytes are
            read, or until an EOF occurs or until read() would block."""
+        # Must run with the lock held!
         current_size = self._readahead()
         if n <= current_size:
             return self._read_fast(n)
@@ -572,12 +569,12 @@ class BufferedMixin:
                 result_buffer[written + i] = self.buffer[self.pos + i]
             remaining -= current_size
             written += current_size
-        self._reader_reset_buf()
+            self.pos += current_size
 
-        # XXX potential bug in CPython? The following is not enabled.
-        # We're going past the buffer's bounds, flush it
-        ## if self.writable:
-        ##     self._writer_flush_unlocked(space)
+        # Flush the write buffer if necessary
+        if self.writable:
+            self._writer_flush_unlocked(space)
+        self._reader_reset_buf()
 
         # Read whole blocks, and don't buffer them
         while remaining > 0:
@@ -755,13 +752,22 @@ class BufferedMixin:
         self._check_init(space)
         self._check_closed(space, "flush of closed file")
         with self.lock:
-            self._writer_flush_unlocked(space)
+            self._flush_and_rewind_unlocked(space)
             if self.readable:
                 # Rewind the raw stream so that its position corresponds to
                 # the current logical position.
                 self._raw_seek(space, -self._raw_offset(), 1)
                 self._reader_reset_buf()
 
+    def _flush_and_rewind_unlocked(self, space):
+        self._writer_flush_unlocked(space)
+        if self.readable:
+            # Rewind the raw stream so that its position corresponds to
+            # the current logical position.
+            try:
+                self._raw_seek(space, -self._raw_offset(), 1)
+            finally:
+                self._reader_reset_buf()
 
 class W_BufferedReader(BufferedMixin, W_BufferedIOBase):
     @unwrap_spec(buffer_size=int)
