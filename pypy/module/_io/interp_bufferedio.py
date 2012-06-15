@@ -684,6 +684,7 @@ class BufferedMixin:
                 self.pos = newpos
                 self.write_pos = 0
                 available = self.buffer_size - self.write_end
+                assert available >= 0
                 if size <= available:
                     # Everything can be buffered
                     for i in range(size):
