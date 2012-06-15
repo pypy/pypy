@@ -665,7 +665,11 @@ class OpaqueType(Type):
         return True
 
     def repr_ref(self, ptr_type, obj):
-        ptr_type.refs[obj] = 'null'
+        if hasattr(obj, 'container'):
+            ptr_type.refs[obj] = 'bitcast({} to {{}}*)'.format(
+                    get_repr(obj.container._as_ptr()).TV)
+        else:
+            ptr_type.refs[obj] = 'null'
 
 
 class Database(object):
@@ -1317,6 +1321,8 @@ class GCPolicy(object):
                 if isinstance(self.gctransformer, RefcountingGCTransformer):
                     self.gctransformer.static_deallocation_funcptr_for_type(
                             value.about)
+            elif type_ is llmemory.GCREF.TO and hasattr(value, 'container'):
+                self._consider_constant(value.ORIGTYPE.TO, value.container)
             self.gctransformer.consider_constant(type_, value)
 
             p, c = lltype.parentlink(value)

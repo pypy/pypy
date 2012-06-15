@@ -344,6 +344,38 @@ class TestSpecialCases(_LLVMMixin):
         assert fc(11) == 11
         assert fc(-22) == 22
 
+    def test_new_erasing_pair(self):
+        from pypy.rlib.rerased import new_erasing_pair
+        erase, unerase = new_erasing_pair('test')
+
+        class A(object):
+            pass
+        class B(object):
+            pass
+
+        a1 = A()
+        a1.y = 11
+        b1 = B()
+        b1.x = erase(a1)
+        a2 = A()
+        a2.y = 22
+        b2 = B()
+        b2.x = erase(a2)
+
+        def f(x):
+            if x == 0:
+                b = b1
+            else:
+                b = b2
+            return unerase(b.x).y
+        try:
+            self.config_override['translation.gc'] = 'minimark'
+            fc = self.getcompiled(f, [int])
+            assert fc(0) == 11
+            assert fc(1) == 22
+        finally:
+            self.config_override['translation.gc'] = 'gc'
+
 
 class TestLowLevelTypeLLVM(_LLVMMixin, test_lltyped.TestLowLevelType):
     def test_llgroup_size_limit(self):
