@@ -372,7 +372,7 @@ class CCompiler:
         self.library_dirs = list(eci.library_dirs)
         self.compiler_exe = compiler_exe
         self.profbased = profbased
-        if not sys.platform in ('win32', 'darwin'): # xxx
+        if not sys.platform in ('win32', 'darwin', 'cygwin'): # xxx
             if 'm' not in self.libraries:
                 self.libraries.append('m')
             if 'pthread' not in self.libraries:

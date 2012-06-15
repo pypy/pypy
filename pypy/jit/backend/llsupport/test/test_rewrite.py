@@ -205,7 +205,7 @@ class TestFramework(RewriteTests):
     def setup_method(self, meth):
         class config_(object):
             class translation(object):
-                gc = 'hybrid'
+                gc = 'minimark'
                 gcrootfinder = 'asmgcc'
                 gctransformer = 'framework'
                 gcremovetypeptr = False

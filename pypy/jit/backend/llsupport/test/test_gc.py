@@ -296,7 +296,7 @@ class FakeLLOp(object):
 
 
 class TestFramework(object):
-    gc = 'hybrid'
+    gc = 'minimark'
 
     def setup_method(self, meth):
         class config_(object):

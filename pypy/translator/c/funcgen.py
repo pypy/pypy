@@ -716,12 +716,14 @@ class FunctionCodeGenerator(object):
     def OP_CAST_PRIMITIVE(self, op):
         TYPE = self.lltypemap(op.result)
         val =  self.expr(op.args[0])
+        result = self.expr(op.result)
+        if TYPE == Bool:
+            return "%(result)s = !!%(val)s;" % locals()
         ORIG = self.lltypemap(op.args[0])
         if ORIG is Char:
             val = "(unsigned char)%s" % val
         elif ORIG is UniChar:
             val = "(unsigned long)%s" % val
-        result = self.expr(op.result)
         typename = cdecl(self.db.gettype(TYPE), '')        
         return "%(result)s = (%(typename)s)(%(val)s);" % locals()
 

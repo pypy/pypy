@@ -1234,6 +1234,8 @@ def force_cast(RESTYPE, value):
         # upgrade to a more recent ctypes (e.g. 1.0.2) if you get
         # an OverflowError on the following line.
         cvalue = ctypes.cast(ctypes.c_void_p(cvalue), cresulttype)
+    elif RESTYPE == lltype.Bool:
+        cvalue = bool(cvalue)
     else:
         try:
             cvalue = cresulttype(cvalue).value   # mask high bits off if needed
