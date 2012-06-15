@@ -17,6 +17,7 @@ def setup_module(mod):
 
 class TestCPPYYImplementation:
     def test01_class_query(self):
+        # NOTE: this test needs to run before test_pythonify.py
         dct = interp_cppyy.load_dictionary(space, test_dct)
         w_cppyyclass = interp_cppyy.scope_byname(space, "example01")
         w_cppyyclass2 = interp_cppyy.scope_byname(space, "example01")

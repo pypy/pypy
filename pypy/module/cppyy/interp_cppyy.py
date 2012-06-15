@@ -291,6 +291,7 @@ class W_CPPOverload(Wrappable):
         return self.space.wrap(isinstance(self.functions[0], CPPFunction))
 
     @jit.unroll_safe
+    @unwrap_spec(args_w='args_w')
     def call(self, w_cppinstance, args_w):
         cppinstance = self.space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=True)
         if cppinstance is not None:
@@ -346,9 +347,9 @@ class W_CPPOverload(Wrappable):
 
 W_CPPOverload.typedef = TypeDef(
     'CPPOverload',
-    is_static = interp2app(W_CPPOverload.is_static, unwrap_spec=['self']),
-    call = interp2app(W_CPPOverload.call, unwrap_spec=['self', W_Root, 'args_w']),
-    signature = interp2app(W_CPPOverload.signature, unwrap_spec=['self']),
+    is_static = interp2app(W_CPPOverload.is_static),
+    call = interp2app(W_CPPOverload.call),
+    signature = interp2app(W_CPPOverload.signature),
 )
 
 
@@ -391,10 +392,10 @@ class W_CPPDataMember(Wrappable):
 
 W_CPPDataMember.typedef = TypeDef(
     'CPPDataMember',
-    is_static = interp2app(W_CPPDataMember.is_static, unwrap_spec=['self']),
-    get_returntype = interp2app(W_CPPDataMember.get_returntype, unwrap_spec=['self']),
-    get = interp2app(W_CPPDataMember.get, unwrap_spec=['self', W_Root, W_Root]),
-    set = interp2app(W_CPPDataMember.set, unwrap_spec=['self', W_Root, W_Root]),
+    is_static = interp2app(W_CPPDataMember.is_static),
+    get_returntype = interp2app(W_CPPDataMember.get_returntype),
+    get = interp2app(W_CPPDataMember.get),
+    set = interp2app(W_CPPDataMember.set),
 )
 W_CPPDataMember.typedef.acceptable_as_base_class = False
 
@@ -538,12 +539,12 @@ class W_CPPNamespace(W_CPPScope):
 
 W_CPPNamespace.typedef = TypeDef(
     'CPPNamespace',
-    update = interp2app(W_CPPNamespace.update, unwrap_spec=['self']),
-    get_method_names = interp2app(W_CPPNamespace.get_method_names, unwrap_spec=['self']),
+    update = interp2app(W_CPPNamespace.update),
+    get_method_names = interp2app(W_CPPNamespace.get_method_names),
     get_overload = interp2app(W_CPPNamespace.get_overload, unwrap_spec=['self', str]),
-    get_datamember_names = interp2app(W_CPPNamespace.get_datamember_names, unwrap_spec=['self']),
+    get_datamember_names = interp2app(W_CPPNamespace.get_datamember_names),
     get_datamember = interp2app(W_CPPNamespace.get_datamember, unwrap_spec=['self', str]),
-    is_namespace = interp2app(W_CPPNamespace.is_namespace, unwrap_spec=['self']),
+    is_namespace = interp2app(W_CPPNamespace.is_namespace),
 )
 W_CPPNamespace.typedef.acceptable_as_base_class = False
 
@@ -604,13 +605,13 @@ class W_CPPClass(W_CPPScope):
 W_CPPClass.typedef = TypeDef(
     'CPPClass',
     type_name = interp_attrproperty('name', W_CPPClass),
-    get_base_names = interp2app(W_CPPClass.get_base_names, unwrap_spec=['self']),
-    get_method_names = interp2app(W_CPPClass.get_method_names, unwrap_spec=['self']),
+    get_base_names = interp2app(W_CPPClass.get_base_names),
+    get_method_names = interp2app(W_CPPClass.get_method_names),
     get_overload = interp2app(W_CPPClass.get_overload, unwrap_spec=['self', str]),
-    get_datamember_names = interp2app(W_CPPClass.get_datamember_names, unwrap_spec=['self']),
+    get_datamember_names = interp2app(W_CPPClass.get_datamember_names),
     get_datamember = interp2app(W_CPPClass.get_datamember, unwrap_spec=['self', str]),
-    is_namespace = interp2app(W_CPPClass.is_namespace, unwrap_spec=['self']),
-    dispatch = interp2app(W_CPPClass.dispatch, unwrap_spec=['self', str, str]),
+    is_namespace = interp2app(W_CPPClass.is_namespace),
+    dispatch = interp2app(W_CPPClass.dispatch, unwrap_spec=['self', str, str])
 )
 W_CPPClass.typedef.acceptable_as_base_class = False
 
@@ -626,13 +627,13 @@ class W_ComplexCPPClass(W_CPPClass):
 W_ComplexCPPClass.typedef = TypeDef(
     'ComplexCPPClass',
     type_name = interp_attrproperty('name', W_CPPClass),
-    get_base_names = interp2app(W_ComplexCPPClass.get_base_names, unwrap_spec=['self']),
-    get_method_names = interp2app(W_ComplexCPPClass.get_method_names, unwrap_spec=['self']),
+    get_base_names = interp2app(W_ComplexCPPClass.get_base_names),
+    get_method_names = interp2app(W_ComplexCPPClass.get_method_names),
     get_overload = interp2app(W_ComplexCPPClass.get_overload, unwrap_spec=['self', str]),
-    get_datamember_names = interp2app(W_ComplexCPPClass.get_datamember_names, unwrap_spec=['self']),
+    get_datamember_names = interp2app(W_ComplexCPPClass.get_datamember_names),
     get_datamember = interp2app(W_ComplexCPPClass.get_datamember, unwrap_spec=['self', str]),
-    is_namespace = interp2app(W_ComplexCPPClass.is_namespace, unwrap_spec=['self']),
-    dispatch = interp2app(W_CPPClass.dispatch, unwrap_spec=['self', str, str]),
+    is_namespace = interp2app(W_ComplexCPPClass.is_namespace),
+    dispatch = interp2app(W_CPPClass.dispatch, unwrap_spec=['self', str, str])
 )
 W_ComplexCPPClass.typedef.acceptable_as_base_class = False
 
@@ -646,6 +647,7 @@ class W_CPPTemplateType(Wrappable):
         assert lltype.typeOf(opaque_handle) == capi.C_TYPE
         self.handle = opaque_handle
 
+    @unwrap_spec(args_w='args_w')
     def __call__(self, args_w):
         # TODO: this is broken but unused (see pythonify.py)
         fullname = "".join([self.name, '<', self.space.str_w(args_w[0]), '>'])
@@ -653,7 +655,7 @@ class W_CPPTemplateType(Wrappable):
 
 W_CPPTemplateType.typedef = TypeDef(
     'CPPTemplateType',
-    __call__ = interp2app(W_CPPTemplateType.__call__, unwrap_spec=['self', 'args_w']),
+    __call__ = interp2app(W_CPPTemplateType.__call__),
 )
 W_CPPTemplateType.typedef.acceptable_as_base_class = False
 
@@ -677,7 +679,6 @@ class W_CPPInstance(Wrappable):
                                  self.space.wrap("trying to access a NULL pointer"))
 
     # allow user to determine ownership rules on a per object level
-    @unwrap_spec(self='self')
     def fget_python_owns(self, space):
         return space.wrap(self.python_owns)
 
@@ -724,10 +725,10 @@ W_CPPInstance.typedef = TypeDef(
     'CPPInstance',
     cppclass = interp_attrproperty('cppclass', cls=W_CPPInstance),
     _python_owns = GetSetProperty(W_CPPInstance.fget_python_owns, W_CPPInstance.fset_python_owns),
-    __eq__ = interp2app(W_CPPInstance.instance__eq__, unwrap_spec=['self', W_Root]),
-    __ne__ = interp2app(W_CPPInstance.instance__ne__, unwrap_spec=['self', W_Root]),
-    __nonzero__ = interp2app(W_CPPInstance.instance__nonzero__, unwrap_spec=['self']),
-    destruct = interp2app(W_CPPInstance.destruct, unwrap_spec=['self']),
+    __eq__ = interp2app(W_CPPInstance.instance__eq__),
+    __ne__ = interp2app(W_CPPInstance.instance__ne__),
+    __nonzero__ = interp2app(W_CPPInstance.instance__nonzero__),
+    destruct = interp2app(W_CPPInstance.destruct),
 )
 W_CPPInstance.typedef.acceptable_as_base_class = True
 
