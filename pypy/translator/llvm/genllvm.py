@@ -123,6 +123,10 @@ class IntegralType(Type):
                 x = 'add(i64 {}, i64 {})'.format(x, self.repr_value(offset))
             return x
         elif isinstance(value, llmemory.AddressOffset):
+            if (isinstance(value, llmemory.ItemOffset) and
+                isinstance(value.TYPE, lltype.OpaqueType) and
+                value.TYPE.hints.get('external') == 'C'):
+                return value.TYPE.hints['getsize']() * value.repeat
             indices = []
             to = self.add_offset_indices(indices, value)
             if to is lltype.Void:
@@ -649,7 +653,7 @@ class FuncType(Type):
 
 
 class OpaqueType(Type):
-    typestr = 'i8*'
+    typestr = '{}'
 
     def setup_from_lltype(self, db, type_):
         pass
@@ -660,8 +664,8 @@ class OpaqueType(Type):
     def is_zero(self, value):
         return True
 
-    def repr_value(self, value, extra_len=None):
-        return 'null'
+    def repr_ref(self, ptr_type, obj):
+        ptr_type.refs[obj] = 'null'
 
 
 class Database(object):
@@ -706,15 +710,7 @@ class Database(object):
             elif type_ == lltype.RuntimeTypeInfo:
                 class_ = self.genllvm.gcpolicy.RttiType
             elif isinstance(type_, lltype.OpaqueType):
-                if (type_.hints.get('external') == 'C' and
-                    'c_name' in type_.hints):
-                    typestr = '%' + type_.hints['c_name'].replace(' ', '_')
-                    size = type_.hints['getsize']() * 8
-                    self.types[type_] = ret = StructType()
-                    ret.setup(typestr, [(IntegralType(size, False), 'space')])
-                    return ret
-                else:
-                    class_ = OpaqueType
+                class_ = OpaqueType
             elif isinstance(type_, llgroup.GroupType):
                 class_ = GroupType
             elif type_ is llmemory.WeakRef:
@@ -1353,12 +1349,7 @@ class GCPolicy(object):
 
 
 class FrameworkGCPolicy(GCPolicy):
-    class RttiType(Type):
-        def setup_from_lltype(self, db, type_):
-            self.typestr = '{}'
-
-        def repr_value(self, obj):
-            return '{}'
+    RttiType = OpaqueType
 
     def __init__(self, genllvm):
         GCPolicy.__init__(self, genllvm)
