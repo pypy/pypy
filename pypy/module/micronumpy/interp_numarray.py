@@ -15,6 +15,7 @@ from pypy.rlib import jit
 from pypy.rlib.rstring import StringBuilder
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.tool.sourcetools import func_with_new_name
+from pypy.module.micronumpy.interp_support import unwrap_axis_arg
 
 
 count_driver = jit.JitDriver(
@@ -568,14 +569,7 @@ class BaseArray(Wrappable):
         if space.is_w(w_axis, space.w_None):
             w_denom = space.wrap(support.product(self.shape))
         else:
-            axis = space.int_w(w_axis)
-            shapelen = len(self.shape)
-            if axis < -shapelen or axis>= shapelen:
-                raise operationerrfmt(space.w_ValueError,
-                    "axis entry %d is out of bounds [%d, %d)", axis,
-                    -shapelen, shapelen)
-            if axis < 0:    
-                axis += shapelen
+            axis = unwrap_axis_arg(space, len(self.shape), w_axis)
             w_denom = space.wrap(self.shape[axis])
         return space.div(self.descr_sum_promote(space, w_axis, w_out), w_denom)
 
@@ -969,7 +963,6 @@ class AxisReduce(Call2):
     def __init__(self, ufunc, name, identity, shape, dtype, left, right, dim):
         Call2.__init__(self, ufunc, name, shape, dtype, dtype,
                        left, right)
-        assert dim >= 0
         self.dim = dim
         self.identity = identity
 
