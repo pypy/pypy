@@ -637,7 +637,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert count_reduce_items(a) == 24
         assert count_reduce_items(a, 1) == 3
         assert count_reduce_items(a, (1, 2)) == 3 * 4
-        raises(ValueError, count_reduce_items, a, -3)
+        raises(ValueError, count_reduce_items, a, -4)
         raises(ValueError, count_reduce_items, a, (0, 2, -4))
 
     def test_true_divide(self):

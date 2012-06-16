@@ -15,7 +15,6 @@ from pypy.rlib import jit
 from pypy.rlib.rstring import StringBuilder
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.tool.sourcetools import func_with_new_name
-from pypy.rlib.rarithmetic import maxint
 
 
 count_driver = jit.JitDriver(
@@ -157,18 +156,6 @@ class BaseArray(Wrappable):
 
     def _reduce_ufunc_impl(ufunc_name, promote_to_largest=False):
         def impl(self, space, w_axis=None, w_out=None):
-            if space.is_w(w_axis, space.w_None):
-                axis = maxint
-            else:
-                axis = space.int_w(w_axis)
-                shapelen = len(self.shape)
-                if axis < -shapelen or axis>= shapelen:
-                    raise operationerrfmt(space.w_ValueError,
-                        "axis entry %d is out of bounds [%d, %d)", axis,
-                        -shapelen, shapelen)
-                if axis < 0:
-                    axis += shapelen
-
             if space.is_w(w_out, space.w_None) or not w_out:
                 out = None
             elif not isinstance(w_out, BaseArray):
@@ -177,7 +164,7 @@ class BaseArray(Wrappable):
             else:
                 out = w_out
             return getattr(interp_ufuncs.get(space), ufunc_name).reduce(space,
-                                        self, True, promote_to_largest, axis,
+                                        self, True, promote_to_largest, w_axis,
                                                                    False, out)
         return func_with_new_name(impl, "reduce_%s_impl" % ufunc_name)
 
@@ -1326,22 +1313,23 @@ def count_reduce_items(space, arr, w_axis=None, skipna=False, keepdims=True):
         raise OperationError(space.w_NotImplementedError, space.wrap("unsupported"))
     if space.is_w(w_axis, space.w_None):
         return space.wrap(support.product(arr.shape))
+    shapelen = len(arr.shape)
     if space.isinstance_w(w_axis, space.w_int):
         axis = space.int_w(w_axis)
-        if axis < -arr.shapelen or axis>= arr.shapelen:
+        if axis < -shapelen or axis>= shapelen:
             raise operationerrfmt(space.w_ValueError,
                 "axis entry %d is out of bounds [%d, %d)", axis,
-                -arr.shapelen, arr.shapelen)
+                -shapelen, shapelen)
         return space.wrap(arr.shape[axis])    
     # numpy as of June 2012 does not implement this 
     s = 1
     elems = space.fixedview(w_axis)
     for w_elem in elems:
         axis = space.int_w(w_elem)
-        if axis < -arr.shapelen or axis>= arr.shapelen:
+        if axis < -shapelen or axis>= shapelen:
             raise operationerrfmt(space.w_ValueError,
                 "axis entry %d is out of bounds [%d, %d)", axis,
-                -arr.shapelen, arr.shapelen)
+                -shapelen, shapelen)
         s *= arr.shape[axis]
     return space.wrap(s)
 
