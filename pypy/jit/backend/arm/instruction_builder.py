@@ -371,7 +371,7 @@ def define_simd_instructions_3regs_func(name, table):
         D = (dd >> 4) & 0x1
         Q = 0 # we want doubleword regs
         instr = (n
-		| base << 25
+                | base << 25
                 | D << 22
                 | (dn & 0xf) << 16
                 | (dd & 0xf) << 12
