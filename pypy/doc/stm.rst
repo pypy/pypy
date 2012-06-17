@@ -114,10 +114,17 @@ if a ``thread.atomic`` block tries to acquire a lock that has already
 been acquired outside.  In that situation (only), trying to acquire the
 lock will raise ``thread.error``.
 
-A common way for this issue to show up is using ``print`` statements,
-because of the internal lock on ``stdout``.  You are free to use
-``print`` either outside ``thread.atomic`` blocks or inside them, but
-not both concurrently.  An easy fix is to put all ``print`` statements
+Importantly, note that this is not issue with the `high-level
+interface`_, but only if you use ``thread.atomic`` directly.  In the
+high-level interface, the running code is either single-threaded
+(outside ``transaction.run()``) or systematically running in
+``thred.atomic`` blocks.
+
+If you *are* using ``thread.atomic`` directly, then a common way for
+this issue to show up is using ``print`` statements: this is due to the
+internal lock on ``stdout``.  You are free to use ``print`` either
+outside ``thread.atomic`` blocks or inside them, but not both
+concurrently.  A way to fix this is to put all ``print`` statements
 inside ``thread.atomic`` blocks, by writing this kind of code::
 
     with thread.atomic:
@@ -129,10 +136,11 @@ interleaved output from other threads.
 
 In this case, it is always a good idea to protect ``print`` statements
 with ``thread.atomic``.  The reason it is not done automatically is that
-not all file operations would benefit: if you have a read or write that
-may block, putting it in a ``thread.atomic`` would have the negative
-effect of suspending all other threads while we wait for the call to
-complete, as described next__.
+it is not useful for the high-level interface, and moreover not all file
+operations would benefit: if you have a read or write that may block,
+putting it in a ``thread.atomic`` would have the negative effect of
+suspending all other threads while we wait for the call to complete, as
+described next__.
 
 .. __: Parallelization_
 
@@ -166,7 +174,10 @@ A conflict occurs as follows: when a transaction commits (i.e. finishes
 successfully) it may cause other transactions that are still in progress
 to abort and retry.  This is a waste of CPU time, but even in the worst
 case senario it is not worse than a GIL, because at least one
-transaction succeeded.  Conflicts do occur, of course, and it is
+transaction succeeded (so we get at worst N-1 CPUs doing useless jobs
+and 1 CPU doing a job that commits successfully).
+
+Conflicts do occur, of course, and it is
 pointless to try to avoid them all.  For example they can be abundant
 during some warm-up phase.  What is important is to keep them rare
 enough in total.
@@ -200,7 +211,9 @@ actually a slight simplification):
   it must "inevitably" complete.  This results in the following
   internal restrictions: only one transaction in the whole process can
   be inevitable, and moreover no other transaction can commit before
-  the inevitable one --- they will be paused when they reach that point.
+  the inevitable one.  In other words, as soon as there is an inevitable
+  transaction, the other transactions can continue and run until the end,
+  but then they will be paused.
 
 So what you should avoid is transactions that are inevitable for a long
 period of time.  Doing so blocks essentially all other transactions and
@@ -209,11 +222,11 @@ need to organize your code in such a way that for any ``thread.atomic``
 block that runs for a noticable amount of time, you perform no I/O at
 all before you are close to reaching the end of the block.
 
-Similarly, you should avoid doing any blocking I/O in ``thread.atomic``
+Similarly, you should avoid doing any *blocking* I/O in ``thread.atomic``
 blocks.  They work, but because the transaction is turned inevitable
 *before* the I/O is performed, they will prevent any parallel work at
 all.  You need to organize the code so that such operations are done
-completely outside ``thread.atomic``.
+completely outside ``thread.atomic``, e.g. in a separate thread.
 
 (This is related to the fact that blocking I/O operations are
 discouraged with Twisted, and if you really need them, you should do
