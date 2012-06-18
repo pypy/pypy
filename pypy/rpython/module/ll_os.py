@@ -1114,7 +1114,7 @@ class RegisterOs(BaseLazyRegistering):
         def os_getcwd_oofakeimpl():
             return OOSupport.to_rstr(os.getcwd())
 
-        return extdef([], str,
+        return extdef([], str0,
                       "ll_os.ll_os_getcwd", llimpl=os_getcwd_llimpl,
                       oofakeimpl=os_getcwd_oofakeimpl)
 
@@ -1362,7 +1362,8 @@ class RegisterOs(BaseLazyRegistering):
         os_isatty = self.llexternal(underscore_on_windows+'isatty', [rffi.INT], rffi.INT)
 
         def isatty_llimpl(fd):
-            rposix.validate_fd(fd)
+            if not rposix.is_valid_fd(fd):
+                return False
             res = rffi.cast(lltype.Signed, os_isatty(rffi.cast(rffi.INT, fd)))
             return res != 0
 

@@ -48,8 +48,6 @@ class JitPolicy(object):
         mod = func.__module__ or '?'
         if mod.startswith('pypy.rpython.module.'):
             return True
-        if mod == 'pypy.translator.goal.nanos':    # more helpers
-            return True
         return False
 
     def look_inside_graph(self, graph):
