@@ -209,6 +209,21 @@ class AppTestStringFormat(BaseStringFormatTests):
         assert self.s("{!r}").format(x()) == self.s("32")
 
 
+class AppTestBoolFormat:
+
+    def setup_class(cls):
+        cls.w_s = cls.space.w_str
+        cls.w_b = cls.space.w_bool
+
+    def test_simple(self):
+        # present behaviour
+        # assert format(self.b(False)) == self.s("0")
+        # assert format(self.b(True)) == self.s("1")
+        # desired
+        assert format(self.b(False)) == self.s("False")
+        assert format(self.b(True)) == self.s("True")
+
+
 class BaseIntegralFormattingTest:
 
     def test_simple(self):
