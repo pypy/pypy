@@ -216,10 +216,8 @@ class AppTestBoolFormat:
         cls.w_b = cls.space.w_bool
 
     def test_simple(self):
-        # present behaviour
-        # assert format(self.b(False)) == self.s("0")
-        # assert format(self.b(True)) == self.s("1")
-        # desired
+        assert self.s("{0}").format(self.b(True)) == self.s("True")
+        assert self.s("{0}").format(self.b(False)) == self.s("False")
         assert format(self.b(False)) == self.s("False")
         assert format(self.b(True)) == self.s("True")
 
