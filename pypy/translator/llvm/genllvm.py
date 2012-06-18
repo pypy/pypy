@@ -974,9 +974,6 @@ class FunctionWriter(object):
 
     # TODO: implement
 
-    def op_zero_gc_pointers_inside(self, result, var):
-        pass
-
     def op_debug_print(self, result, *args):
         pass
 
@@ -1241,20 +1238,26 @@ class FunctionWriter(object):
         self._cast(t2, t1)
         self.op_get_next_group_member(result, grpptr, t2, skipoffset)
 
-    def op_gc_stack_bottom(self, result):
+    def _ignore(self, *args):
         pass
+    op_gc_stack_bottom = _ignore
+    op_keepalive = _ignore
+    op_jit_force_virtualizable = _ignore
+    op_jit_force_quasi_immutable = _ignore
+    op_jit_marker = _ignore
+    op_gc__collect = _ignore
 
-    def op_keepalive(self, result, var):
-        pass
+    def op_jit_force_virtual(self, result, x):
+        self._cast(result, x)
+
+    def op_jit_is_virtual(self, result, x):
+        self.w('{result.V} = bitcast i1 false to i1'.format(**locals()))
 
     def op_stack_current(self, result):
         t = self._tmp(LLVMAddress)
         self.op_direct_call(t, get_repr(llvm_frameaddress), null_int)
         self.w('{result.V} = ptrtoint {t.TV} to {result.T}'
                 .format(**locals()))
-
-    def op_jit_force_virtualizable(self, *args):
-        pass
 
     def op_hint(self, result, var, hints):
         self._cast(result, var)
@@ -1264,9 +1267,6 @@ class FunctionWriter(object):
 
     def op_gc_free(self, result, addr):
         self.op_raw_free(result, addr)
-
-    def op_gc__collect(self, result):
-        pass
 
     def op_have_debug_prints(self, result):
         self.w('{result.V} = bitcast i1 false to i1'.format(**locals()))
