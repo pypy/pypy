@@ -1641,8 +1641,8 @@ class GenLLVM(object):
                 ''.join('-I{} '.format(ic) for ic in eci.include_dirs),
                 ''.join('-l{} '.format(li) for li in eci.libraries),
                 ''.join('-L{} '.format(ld) for ld in eci.library_dirs),
-                ''.join(lf + ' ' for lf in eci.link_files),
-                ''.join(smf + ' ' for smf in eci.separate_module_files),
+                ''.join('{} '.format(lf) for lf in eci.link_files),
+                ''.join('{} '.format(mf) for mf in eci.separate_module_files),
                 self.base_path, outfile))
 
     def compile_standalone(self, exe_name):
