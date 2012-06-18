@@ -1,6 +1,8 @@
 from cStringIO import StringIO
 import py
 from pypy.objspace.flow.model import FunctionGraph, Block, Link
+from pypy.rlib.rarithmetic import r_singlefloat
+from pypy.rlib.test.test_longlong2float import enum_floats, fn, fnsingle
 from pypy.rpython.lltypesystem import lltype, rffi, llmemory, llgroup
 from pypy.rpython.lltypesystem.ll2ctypes import force_cast
 from pypy.rpython.lltypesystem.test.test_rffi import BaseTestRffi
@@ -391,6 +393,18 @@ class TestSpecialCases(_LLVMMixin):
         fc = self.getcompiled(f, [int])
         assert fc(0) == 11
         assert fc(1) == 22
+
+    def test_longlong2float(self):
+        fn2 = self.getcompiled(fn, [float])
+        for x in enum_floats():
+            res = fn2(x)
+            assert repr(res) == repr(x)
+
+    def test_uint2singlefloat(self):
+        fn2 = self.getcompiled(fnsingle, [float])
+        for x in enum_floats():
+            res = fn2(x)
+            assert repr(res) == repr(float(r_singlefloat(x)))
 
 
 class TestLowLevelTypeLLVM(_LLVMMixin, test_lltyped.TestLowLevelType):

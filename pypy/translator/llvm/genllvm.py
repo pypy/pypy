@@ -1271,6 +1271,12 @@ class FunctionWriter(object):
     def op_have_debug_prints(self, result):
         self.w('{result.V} = bitcast i1 false to i1'.format(**locals()))
 
+    def op_convert_float_bytes_to_longlong(self, result, fl):
+        self.w('{result.V} = bitcast {fl.TV} to {result.T}'.format(**locals()))
+
+    def op_convert_longlong_bytes_to_float(self, result, ll):
+        self.w('{result.V} = bitcast {ll.TV} to {result.T}'.format(**locals()))
+
 
 class GCPolicy(object):
     def __init__(self, genllvm):
