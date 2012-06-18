@@ -35,6 +35,10 @@ class BoolTest(unittest.TestCase):
         self.assertEqual(eval(repr(False)), False)
         self.assertEqual(eval(repr(True)), True)
 
+    def test_string_format(self):
+        self.assertEqual('{0}'.format(True), 'True')
+        self.assertEqual('{0}'.format(False), 'False')
+
     def test_str(self):
         self.assertEqual(str(False), 'False')
         self.assertEqual(str(True), 'True')
