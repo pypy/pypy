@@ -370,13 +370,10 @@ class TestSpecialCases(_LLVMMixin):
             else:
                 b = b2
             return unerase(b.x).y
-        try:
-            self.config_override['translation.gc'] = 'minimark'
-            fc = self.getcompiled(f, [int])
-            assert fc(0) == 11
-            assert fc(1) == 22
-        finally:
-            self.config_override['translation.gc'] = 'gc'
+        self.config_override['translation.gc'] = 'minimark'
+        fc = self.getcompiled(f, [int])
+        assert fc(0) == 11
+        assert fc(1) == 22
 
     def test_void_arg(self):
         class A(object):
