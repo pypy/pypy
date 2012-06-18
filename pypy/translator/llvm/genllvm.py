@@ -613,7 +613,8 @@ class GroupType(Type):
 class FuncType(Type):
     def setup_from_lltype(self, db, type_):
         self.result = db.get_type(type_.RESULT)
-        self.args = [db.get_type(argtype) for argtype in type_.ARGS]
+        self.args = [db.get_type(argtype) for argtype in type_.ARGS
+                     if argtype is not lltype.Void]
         self.extern_declared = set()
 
     def repr_type(self, extra_len=None):

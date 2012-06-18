@@ -376,6 +376,22 @@ class TestSpecialCases(_LLVMMixin):
         finally:
             self.config_override['translation.gc'] = 'gc'
 
+    def test_void_arg(self):
+        class A(object):
+            def _freeze_(self):
+                return True
+        a = A()
+        def g1(x):
+            return 11
+        def g2(x):
+            return 22
+        def f(x):
+            g = [g1, g2][x]
+            return g(a)
+        fc = self.getcompiled(f, [int])
+        assert fc(0) == 11
+        assert fc(1) == 22
+
 
 class TestLowLevelTypeLLVM(_LLVMMixin, test_lltyped.TestLowLevelType):
     def test_llgroup_size_limit(self):
