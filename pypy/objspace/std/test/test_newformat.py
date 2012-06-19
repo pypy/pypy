@@ -211,15 +211,17 @@ class AppTestStringFormat(BaseStringFormatTests):
 
 class AppTestBoolFormat:
 
-    def setup_class(cls):
-        cls.w_s = cls.space.w_str
-        cls.w_b = cls.space.w_bool
-
     def test_simple(self):
-        assert self.s("{0}").format(self.b(True)) == self.s("True")
-        assert self.s("{0}").format(self.b(False)) == self.s("False")
-        assert format(self.b(False)) == self.s("False")
-        assert format(self.b(True)) == self.s("True")
+        assert "{0}".format(True) == "True"
+        assert "{0}".format(False) == "False"
+        assert format(False) == "False"
+        assert format(True) == "True"
+
+    def test_with_format(self):
+        assert "{:f}".format(True) == "1.000000"
+        assert "{:05d}".format(False) == "00000"
+        # TODO - add more?
+
 
 
 class BaseIntegralFormattingTest:
