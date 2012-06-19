@@ -777,6 +777,13 @@ class ObjectSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
 
     def update(self, w_set, w_other):
         d_obj = self.unerase(w_set.sstorage)
+
+        # optimization only
+        if w_other.strategy is self:
+            d_other = self.unerase(w_other.sstorage)
+            d_obj.update(d_other)
+            return
+
         w_iterator = w_other.iter()
         while True:
             w_item = w_iterator.next_entry()
