@@ -516,22 +516,15 @@ int cppyy_num_methods(cppyy_scope_t handle) {
     if (cr.GetClass() && cr->GetListOfMethods())
         return cr->GetListOfMethods()->GetSize();
     else if (strcmp(cr.GetClassName(), "") == 0) {
-    // NOTE: the updated list of global funcs grows with 5 "G__ateval"'s just
-    // because it is being updated => infinite loop! Apply offset to correct ...
-        static int ateval_offset = 0;
-        TCollection* funcs = gROOT->GetListOfGlobalFunctions(kTRUE);
-        ateval_offset += 5;
-	if (g_globalfuncs.size() <= (GlobalFuncs_t::size_type)funcs->GetSize() - ateval_offset) {
-            g_globalfuncs.clear();
+        if (g_globalfuncs.empty()) {
+            TCollection* funcs = gROOT->GetListOfGlobalFunctions(kTRUE);
 	    g_globalfuncs.reserve(funcs->GetSize());
 
             TIter ifunc(funcs);
 
             TFunction* func = 0;
             while ((func = (TFunction*)ifunc.Next())) {
-                if (strcmp(func->GetName(), "G__ateval") == 0)
-                    ateval_offset += 1;
-                else
+                if (strcmp(func->GetName(), "G__ateval") != 0)
                     g_globalfuncs.push_back(*func);
             }
         }

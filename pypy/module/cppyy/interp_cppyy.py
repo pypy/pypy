@@ -530,16 +530,11 @@ class W_CPPNamespace(W_CPPScope):
         datamember = self._make_datamember(dm_name, dm_idx)
         return datamember
 
-    def update(self):
-        self._find_methods()
-        self._find_datamembers()
-
     def is_namespace(self):
         return self.space.w_True
 
 W_CPPNamespace.typedef = TypeDef(
     'CPPNamespace',
-    update = interp2app(W_CPPNamespace.update),
     get_method_names = interp2app(W_CPPNamespace.get_method_names),
     get_overload = interp2app(W_CPPNamespace.get_overload, unwrap_spec=['self', str]),
     get_datamember_names = interp2app(W_CPPNamespace.get_datamember_names),
