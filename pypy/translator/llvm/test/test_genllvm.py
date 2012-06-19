@@ -403,6 +403,16 @@ class TestSpecialCases(_LLVMMixin):
             res = fn2(x)
             assert repr(res) == repr(float(r_singlefloat(x)))
 
+    def test_float_neg(self):
+        from math import copysign
+        def f(x):
+            return -x
+        fc = self.getcompiled(f, [float])
+        assert fc(1.0) == -1.0
+        res = fc(0.0)
+        assert res == -0.0
+        assert copysign(1.0, res) == -1.0
+
 
 class TestLowLevelTypeLLVM(_LLVMMixin, test_lltyped.TestLowLevelType):
     def test_llgroup_size_limit(self):

@@ -1167,7 +1167,7 @@ class FunctionWriter(object):
     op_adr_sub = _adr_op('sub')
 
     def op_float_neg(self, result, var):
-        self.w('{result.V} = fsub {var.T} 0.0, {var.V}'.format(**locals()))
+        self.w('{result.V} = fsub {var.T} -0.0, {var.V}'.format(**locals()))
 
     def op_float_abs(self, result, var):
         ispos = self._tmp()
