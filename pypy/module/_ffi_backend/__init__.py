@@ -12,4 +12,5 @@ class Module(MixedModule):
         'new_primitive_type': 'newtype.new_primitive_type',
 
         'cast': 'func.cast',
+        'sizeof': 'func.sizeof',
         }

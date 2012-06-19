@@ -75,3 +75,7 @@ W_CType.typedef = TypeDef(
     __repr__ = interp2app(W_CType.repr),
     )
 W_CType.acceptable_as_base_class = False
+
+
+def check_ctype(space, w_obj):
+    return space.is_w(space.type(w_obj), space.gettypefor(W_CType))

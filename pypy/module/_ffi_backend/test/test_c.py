@@ -63,9 +63,9 @@ class AppTestFfiBackend(object):
         assert (x != self.b.cast(q, -66)) is True
 
     def test_sizeof_type(self):
-        py.test.raises(TypeError, sizeof, 42.5)
-        p = new_primitive_type("short")
-        assert sizeof(p) == 2
+        raises(TypeError, self.b.sizeof, 42.5)
+        p = self.b.new_primitive_type("short")
+        assert self.b.sizeof(p) == 2
 
     def test_integer_types(self):
         for name in ['signed char', 'short', 'int', 'long', 'long long']:
