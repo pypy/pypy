@@ -219,7 +219,7 @@ class AppTestBoolFormat:
         assert "{0} or {1}".format(True, False) == "True or False"
         assert "{} or {}".format(True, False) == "True or False"
 
-    def test_int_deletaion_format(self):
+    def test_int_delegation_format(self):
         assert "{:f}".format(True) == "1.000000"
         assert "{:05d}".format(False) == "00000"
         assert "{:g}".format(True) == "1"
