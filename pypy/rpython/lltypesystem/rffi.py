@@ -87,6 +87,10 @@ def llexternal(name, args, result, _callable=None,
            translation backend. Setting it to True generates a macro wrapper
            named 'pypy_macro_wrapper_{name}'. Setting it to a string
            generates a macro wrapper named 'pypy_macro_wrapper_{macro}'.
+    llvm_wrapper: same semantics as macro but for calling ordinary functions
+                  that the llvm translation backend can't handle, for example
+                  static functions defined in ExternalCompilationInfo's
+                  post_include_bits or functions with varargs.
     """
     if _callable is not None:
         assert callable(_callable)
@@ -135,9 +139,11 @@ def llexternal(name, args, result, _callable=None,
         llvm_wrapper = macro
     if llvm_wrapper is not None:
         if llvm_wrapper is True:
-            llvm_wrapper = name
-        wrapper_name = 'pypy_llvm_wrapper_%s' % (name,)
-        _write_wrapper(wrapper_name, llvm_wrapper, ext_type, compilation_info, '_with_llvm')
+            wrapper_name = 'pypy_llvm_wrapper_%s' % (name,)
+        else:
+            wrapper_name = 'pypy_llvm_wrapper_%s' % (llvm_wrapper,)
+        _write_wrapper(wrapper_name, name, ext_type, compilation_info,
+                       '_with_llvm')
         kwds['llvm_name'] = wrapper_name
 
     funcptr = lltype.functionptr(ext_type, name, external='C',
