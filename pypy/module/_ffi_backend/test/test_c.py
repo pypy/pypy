@@ -43,24 +43,24 @@ class AppTestFfiBackend(object):
         assert d['size_t'] == d['ssize_t'] + 0x1000
 
     def test_new_primitive_type(self):
-        py.test.raises(KeyError, new_primitive_type, "foo")
-        p = new_primitive_type("signed char")
+        raises(KeyError, self.b.new_primitive_type, "foo")
+        p = self.b.new_primitive_type("signed char")
         assert repr(p) == "<ctype 'signed char'>"
 
     def test_cast_to_signed_char(self):
-        p = new_primitive_type("signed char")
-        x = cast(p, -65 + 17*256)
+        p = self.b.new_primitive_type("signed char")
+        x = self.b.cast(p, -65 + 17*256)
         assert repr(x) == "<cdata 'signed char'>"
         assert repr(type(x)) == "<type '_ffi_backend.CData'>"
         assert int(x) == -65
-        x = cast(p, -66 + (1<<199)*256)
+        x = self.b.cast(p, -66 + (1<<199)*256)
         assert repr(x) == "<cdata 'signed char'>"
         assert int(x) == -66
-        assert (x == cast(p, -66)) is False
-        assert (x != cast(p, -66)) is True
-        q = new_primitive_type("short")
-        assert (x == cast(q, -66)) is False
-        assert (x != cast(q, -66)) is True
+        assert (x == self.b.cast(p, -66)) is False
+        assert (x != self.b.cast(p, -66)) is True
+        q = self.b.new_primitive_type("short")
+        assert (x == self.b.cast(q, -66)) is False
+        assert (x != self.b.cast(q, -66)) is True
 
     def test_sizeof_type(self):
         py.test.raises(TypeError, sizeof, 42.5)

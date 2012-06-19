@@ -5,7 +5,11 @@ class Module(MixedModule):
     appleveldefs = {
         }
     interpleveldefs = {
-        'nonstandard_integer_types':
-                        'interp_extra_types.nonstandard_integer_types',
-        'load_library': 'interp_library.load_library',
+        'nonstandard_integer_types': 'misc.nonstandard_integer_types',
+
+        'load_library': 'libraryobj.load_library',
+
+        'new_primitive_type': 'newtype.new_primitive_type',
+
+        'cast': 'func.cast',
         }
