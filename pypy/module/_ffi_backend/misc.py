@@ -1,5 +1,43 @@
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.rarithmetic import r_ulonglong
+from pypy.rlib.unroll import unrolling_iterable
+
+# ____________________________________________________________
+
+_prim_signed_types = unrolling_iterable([
+    (rffi.SIGNEDCHAR, rffi.SIGNEDCHARP),
+    (rffi.SHORT, rffi.SHORTP),
+    (rffi.INT, rffi.INTP),
+    (rffi.LONG, rffi.LONGP),
+    (rffi.LONGLONG, rffi.LONGLONGP)])
+
+_prim_unsigned_types = unrolling_iterable([
+    (rffi.UCHAR, rffi.UCHARP),
+    (rffi.USHORT, rffi.USHORTP),
+    (rffi.UINT, rffi.UINTP),
+    (rffi.ULONG, rffi.ULONGP),
+    (rffi.ULONGLONG, rffi.ULONGLONGP)])
+
+def read_raw_signed_data(target, size):
+    for TP, TPP in _prim_signed_types:
+        if size == rffi.sizeof(TP):
+            return rffi.cast(rffi.LONGLONG, rffi.cast(TPP, target)[0])
+    raise NotImplementedError("bad integer size")
+
+def read_raw_unsigned_data(target, size):
+    for TP, TPP in _prim_unsigned_types:
+        if size == rffi.sizeof(TP):
+            return rffi.cast(rffi.ULONGLONG, rffi.cast(TPP, target)[0])
+    raise NotImplementedError("bad integer size")
+
+def write_raw_integer_data(target, source, size):
+    for TP, TPP in _prim_unsigned_types:
+        if size == rffi.sizeof(TP):
+            rffi.cast(TPP, target)[0] = rffi.cast(TP, source)
+            return
+    raise NotImplementedError("bad integer size")
+
+# ____________________________________________________________
 
 
 UNSIGNED = 0x1000

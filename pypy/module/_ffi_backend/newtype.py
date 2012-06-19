@@ -11,16 +11,27 @@ from pypy.module._ffi_backend import ctypeobj
 PRIMITIVE_TYPES = {}
 
 def eptype(name, TYPE, ctypecls):
-    PRIMITIVE_TYPES[name] = ctypecls, rffi.sizeof(TYPE)
+    size = rffi.sizeof(TYPE)
+    if ctypecls is ctypeobj.W_CTypePrimitiveSigned:
+        value_fits_long = size <= rffi.sizeof(lltype.Signed)
+    elif ctypecls is ctypeobj.W_CTypePrimitiveUnsigned:
+        value_fits_long = size < rffi.sizeof(lltype.Signed)
+    else:
+        value_fits_long = False
+    PRIMITIVE_TYPES[name] = ctypecls, size, value_fits_long
 
-eptype("char", lltype.Char, ctypeobj.W_CTypePrimitiveChar)
+eptype("char",        lltype.Char,     ctypeobj.W_CTypePrimitiveChar)
 eptype("signed char", rffi.SIGNEDCHAR, ctypeobj.W_CTypePrimitiveSigned)
+eptype("short",       rffi.SHORT,      ctypeobj.W_CTypePrimitiveSigned)
+# xxx
 
 
 @unwrap_spec(name=str)
 def new_primitive_type(space, name):
     try:
-        ctypecls, size = PRIMITIVE_TYPES[name]
+        ctypecls, size, value_fits_long = PRIMITIVE_TYPES[name]
     except KeyError:
         raise OperationError(space.w_KeyError, space.wrap(name))
-    return ctypecls(space, name, size)
+    ctype = ctypecls(space, name, size)
+    ctype.value_fits_long = value_fits_long
+    return ctype

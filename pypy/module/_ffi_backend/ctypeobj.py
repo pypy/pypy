@@ -3,6 +3,7 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
 from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.rlib.rarithmetic import intmask
 
 from pypy.module._ffi_backend import cdataobj, misc
 
@@ -21,6 +22,11 @@ class W_CType(Wrappable):
 
     def cast(self, w_ob):
         raise NotImplementedError
+
+    def int(self, cdataobj):
+        space = self.space
+        raise operationerrfmt(space.w_TypeError,
+                              "int() not supported on cdata '%s'", self.name)
 
 
 class W_CTypePrimitive(W_CType):
@@ -41,11 +47,27 @@ class W_CTypePrimitive(W_CType):
 
 
 class W_CTypePrimitiveChar(W_CTypePrimitive):
-    pass
+
+    def int(self, cdataobj):
+        xxx
+
 
 class W_CTypePrimitiveSigned(W_CTypePrimitive):
-    pass
 
+    def int(self, cdataobj):
+        if self.value_fits_long:
+            # this case is to handle enums, but also serves as a slight
+            # performance improvement for some other primitive types
+            value = intmask(cdataobj.read_raw_signed_data())
+            return self.space.wrap(value)
+        else:
+            return cdataobj.convert_to_object()
+
+
+class W_CTypePrimitiveUnsigned(W_CTypePrimitive):
+
+    def int(self, cdataobj):
+        return cdataobj.convert_to_object()
 
 
 W_CType.typedef = TypeDef(

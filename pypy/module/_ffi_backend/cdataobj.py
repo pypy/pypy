@@ -3,8 +3,10 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
 from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.rlib.unroll import unrolling_iterable
+from pypy.rlib.objectmodel import keepalive_until_here
 from pypy.rlib import rgc
+
+from pypy.module._ffi_backend import misc
 
 
 class W_CData(Wrappable):
@@ -22,20 +24,22 @@ class W_CData(Wrappable):
     def repr(self):
         return self.space.wrap("<cdata '%s'>" % self.ctype.name)
 
-    def write_raw_integer_data(self, source):
-        size = self.ctype.size
-        for TP, TPP in _prim_unsigned_types:
-            if size == rffi.sizeof(TP):
-                rffi.cast(TPP, self.cdata)[0] = rffi.cast(TP, source)
-                return
-        raise NotImplementedError("bad integer size")
+    def int(self):
+        return self.ctype.int(self)
 
-_prim_unsigned_types = unrolling_iterable([
-    (rffi.UCHAR, rffi.UCHARP),
-    (rffi.USHORT, rffi.USHORTP),
-    (rffi.UINT, rffi.UINTP),
-    (rffi.ULONG, rffi.ULONGP),
-    (rffi.ULONGLONG, rffi.ULONGLONGP)])
+    def read_raw_signed_data(self):
+        result = misc.read_raw_signed_data(self.cdata, self.ctype.size)
+        keepalive_until_here(self)
+        return result
+
+    def read_raw_unsigned_data(self):
+        result = misc.read_raw_unsigned_data(self.cdata, self.ctype.size)
+        keepalive_until_here(self)
+        return result
+
+    def write_raw_integer_data(self, source):
+        misc.write_raw_integer_data(self.cdata, source, self.ctype.size)
+        keepalive_until_here(self)
 
 
 class W_CDataOwn(W_CData):
@@ -52,6 +56,7 @@ class W_CDataOwn(W_CData):
 W_CData.typedef = TypeDef(
     '_ffi_backend.CData',
     __repr__ = interp2app(W_CData.repr),
+    __int__ = interp2app(W_CData.int),
     )
 W_CData.acceptable_as_base_class = False
 
