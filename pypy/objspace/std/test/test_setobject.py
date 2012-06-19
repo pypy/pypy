@@ -648,7 +648,14 @@ class AppTestAppSetTest:
         c = a - b
         c.remove(2)
         assert c == set([1, 3])
-        assert a == set([1,2, 3])
+        assert a == set([1, 2, 3])
+
+        a = set([1,2,3])
+        b = set(["a", "b", "c"])
+        c = a - b
+        c.remove(2)
+        assert c == set([1, 3])
+        assert a == set([1, 2, 3])
 
     def test_intersection_update(self):
         s = set([1,2,3,4,7])
