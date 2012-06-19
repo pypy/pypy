@@ -14,7 +14,7 @@ from pypy.rlib.objectmodel import (Symbolic, ComputedIntSymbolic,
 from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
 from pypy.rpython.lltypesystem import llarena, llgroup, llmemory, lltype, rffi
 from pypy.rpython.lltypesystem.ll2ctypes import (_llvm_needs_header,
-     get_ctypes_type, lltype2ctypes, ctypes2lltype)
+     get_ctypes_type, lltype2ctypes, ctypes2lltype, _array_mixin)
 from pypy.rpython.memory.gctransform.refcounting import (
      RefcountingGCTransformer)
 from pypy.rpython.memory.gctransform.framework import FrameworkGCTransformer
@@ -496,7 +496,11 @@ class BareArrayType(Type):
         return self.length is None
 
     def is_zero(self, value):
-        return all(self.of.is_zero(item) for item in value.items)
+        if isinstance(value, _array_mixin):
+            items = [value.getitem(i) for i in xrange(len(value.items))]
+        else:
+            items = value.items
+        return all(self.of.is_zero(item) for item in items)
 
     def get_extra_len(self, value):
         try:
@@ -508,15 +512,19 @@ class BareArrayType(Type):
                     return i + 1
 
     def repr_value(self, value, extra_len=None):
+        if isinstance(value, _array_mixin):
+            items = [value.getitem(i) for i in xrange(len(value.items))]
+        else:
+            items = value.items
         if self.is_zero(value):
             return 'zeroinitializer'
         if self.of is LLVMChar:
             return 'c"{}"'.format(''.join(i if (32 <= ord(i) <= 126 and
                                                 i != '"' and i != '\\')
                                           else r'\{:02x}'.format(ord(i))
-                                  for i in value.items))
+                                  for i in items))
         return '[\n    {}\n]'.format(', '.join(
-                self.of.repr_type_and_value(item) for item in value.items))
+                self.of.repr_type_and_value(item) for item in items))
 
     def add_indices(self, gep, key):
         if key.type_ is LLVMVoid:
@@ -1323,7 +1331,12 @@ class GCPolicy(object):
                 for f in type_._names:
                     self._consider_constant(type_._flds[f], getattr(value, f))
             elif isinstance(type_, lltype.Array):
-                for i in value.items:
+                if isinstance(value, _array_mixin):
+                    len_ = len(value.items)
+                    items = [value.getitem(i) for i in xrange(len_)]
+                else:
+                    items = value.items
+                for i in items:
                     self._consider_constant(type_.OF, i)
             elif isinstance(type_, llgroup.GroupType):
                 for member in value.members:
