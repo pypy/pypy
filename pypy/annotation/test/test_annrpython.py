@@ -2747,20 +2747,6 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [])
         assert s.knowntype == int
 
-    def test_helper_method_annotator(self):
-        def fun():
-            return 21
-
-        class A(object):
-            def helper(self):
-                return 42
-
-        a = self.RPythonAnnotator()
-        a.build_types(fun, [])
-        a.annotate_helper_method(A, "helper", [])
-        assert a.bookkeeper.getdesc(A.helper).getuniquegraph()
-        assert a.bookkeeper.getdesc(A().helper).getuniquegraph()
-
     def test_chr_out_of_bounds(self):
         def g(n, max):
             if n < max:
