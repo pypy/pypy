@@ -842,8 +842,8 @@ class TestLL2Ctypes(object):
         )
         fn1 = rffi.llexternal('fn', [rffi.INT], rffi.INT,
                               compilation_info=eci, macro=True)
-        fn2 = rffi.llexternal('fn2', [rffi.DOUBLE], rffi.DOUBLE,
-                              compilation_info=eci, macro='fn')
+        fn2 = rffi.llexternal('fn', [rffi.DOUBLE], rffi.DOUBLE,
+                              compilation_info=eci, macro='fn2')
         res = fn1(10)
         assert res == 52
         res = fn2(10.5)
