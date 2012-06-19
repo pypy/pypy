@@ -36,7 +36,7 @@ class AppTestFfiBackend(object):
         assert repr(x).startswith("<clibrary '")
 
     def test_nonstandard_integer_types(self):
-        d = nonstandard_integer_types()
+        d = self.b.nonstandard_integer_types()
         assert type(d) is dict
         assert 'char' not in d
         assert d['size_t'] in (0x1004, 0x1008)
