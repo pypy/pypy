@@ -212,10 +212,11 @@ class AppTestStringFormat(BaseStringFormatTests):
 class AppTestBoolFormat:
 
     def test_simple(self):
-        assert "{0}".format(True) == "True"
-        assert "{0}".format(False) == "False"
         assert format(False) == "False"
         assert format(True) == "True"
+        assert "{0}".format(True) == "True"
+        assert "{0}".format(False) == "False"
+        assert "{0} or {1}".format(True, False) == "True or False"
 
     def test_with_format(self):
         assert "{:f}".format(True) == "1.000000"

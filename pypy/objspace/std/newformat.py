@@ -879,7 +879,11 @@ def make_formatting_class():
             return self.empty.join(buf[i:])
         
         def format_bool(self, w_bool):
-            return self.space.str(w_bool)
+            # FIXME - this is not a proper fix
+            if self.spec:
+                return self.format_int_or_long(w_bool, INT_KIND) 
+            else:
+                return self.space.str(w_bool)
 
         def format_int_or_long(self, w_num, kind):
             space = self.space
