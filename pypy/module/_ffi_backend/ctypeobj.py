@@ -23,10 +23,13 @@ class W_CType(Wrappable):
     def cast(self, w_ob):
         raise NotImplementedError
 
-    def int(self, cdataobj):
+    def int(self, cdata):
         space = self.space
         raise operationerrfmt(space.w_TypeError,
                               "int() not supported on cdata '%s'", self.name)
+
+    def convert_to_object(self, cdata):
+        raise NotImplementedError
 
 
 class W_CTypePrimitive(W_CType):
@@ -48,26 +51,41 @@ class W_CTypePrimitive(W_CType):
 
 class W_CTypePrimitiveChar(W_CTypePrimitive):
 
-    def int(self, cdataobj):
+    def int(self, cdata):
         xxx
 
 
 class W_CTypePrimitiveSigned(W_CTypePrimitive):
 
-    def int(self, cdataobj):
+    def int(self, cdata):
         if self.value_fits_long:
             # this case is to handle enums, but also serves as a slight
             # performance improvement for some other primitive types
-            value = intmask(cdataobj.read_raw_signed_data())
+            value = intmask(misc.read_raw_signed_data(cdata, self.size))
             return self.space.wrap(value)
         else:
-            return cdataobj.convert_to_object()
+            return self.convert_to_object(cdata)
+
+    def convert_to_object(self, cdata):
+        value = misc.read_raw_signed_data(cdata, self.size)
+        # xxx enum
+        if self.value_fits_long:
+            return self.space.wrap(intmask(value))
+        else:
+            return self.space.wrap(value)    # r_longlong => on 32-bit, 'long'
 
 
 class W_CTypePrimitiveUnsigned(W_CTypePrimitive):
 
-    def int(self, cdataobj):
-        return cdataobj.convert_to_object()
+    def int(self, cdata):
+        return self.convert_to_object(cdata)
+
+    def convert_to_object(self, cdata):
+        value = misc.read_raw_unsigned_data(cdata, self.size)
+        if self.value_fits_long:
+            return self.space.wrap(intmask(value))
+        else:
+            return self.space.wrap(value)    # r_ulonglong => 'long' object
 
 
 W_CType.typedef = TypeDef(

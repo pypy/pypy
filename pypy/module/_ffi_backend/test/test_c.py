@@ -68,6 +68,9 @@ class AppTestFfiBackend(object):
         assert self.b.sizeof(p) == 2
 
     def test_integer_types(self):
+        new_primitive_type = self.b.new_primitive_type
+        sizeof = self.b.sizeof
+        cast = self.b.cast
         for name in ['signed char', 'short', 'int', 'long', 'long long']:
             p = new_primitive_type(name)
             size = sizeof(p)

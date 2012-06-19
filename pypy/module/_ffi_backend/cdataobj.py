@@ -25,7 +25,16 @@ class W_CData(Wrappable):
         return self.space.wrap("<cdata '%s'>" % self.ctype.name)
 
     def int(self):
-        return self.ctype.int(self)
+        w_result = self.ctype.int(self.cdata)
+        keepalive_until_here(self)
+        return w_result
+
+    def long(self):
+        w_result = self.int()
+        space = self.space
+        if space.is_w(space.type(w_result), space.w_int):
+            w_result = space.newlong(space.int_w(w_result))
+        return w_result
 
     def read_raw_signed_data(self):
         result = misc.read_raw_signed_data(self.cdata, self.ctype.size)
@@ -40,6 +49,11 @@ class W_CData(Wrappable):
     def write_raw_integer_data(self, source):
         misc.write_raw_integer_data(self.cdata, source, self.ctype.size)
         keepalive_until_here(self)
+
+    def convert_to_object(self):
+        w_obj = self.ctype.convert_to_object(self.cdata)
+        keepalive_until_here(self)
+        return w_obj
 
 
 class W_CDataOwn(W_CData):
@@ -57,6 +71,7 @@ W_CData.typedef = TypeDef(
     '_ffi_backend.CData',
     __repr__ = interp2app(W_CData.repr),
     __int__ = interp2app(W_CData.int),
+    __long__ = interp2app(W_CData.long),
     )
 W_CData.acceptable_as_base_class = False
 

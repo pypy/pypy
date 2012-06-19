@@ -23,7 +23,14 @@ def eptype(name, TYPE, ctypecls):
 eptype("char",        lltype.Char,     ctypeobj.W_CTypePrimitiveChar)
 eptype("signed char", rffi.SIGNEDCHAR, ctypeobj.W_CTypePrimitiveSigned)
 eptype("short",       rffi.SHORT,      ctypeobj.W_CTypePrimitiveSigned)
-# xxx
+eptype("int",         rffi.INT,        ctypeobj.W_CTypePrimitiveSigned)
+eptype("long",        rffi.LONG,       ctypeobj.W_CTypePrimitiveSigned)
+eptype("long long",   rffi.LONGLONG,   ctypeobj.W_CTypePrimitiveSigned)
+eptype("unsigned char",      rffi.UCHAR,    ctypeobj.W_CTypePrimitiveUnsigned)
+eptype("unsigned short",     rffi.SHORT,    ctypeobj.W_CTypePrimitiveUnsigned)
+eptype("unsigned int",       rffi.INT,      ctypeobj.W_CTypePrimitiveUnsigned)
+eptype("unsigned long",      rffi.LONG,     ctypeobj.W_CTypePrimitiveUnsigned)
+eptype("unsigned long long", rffi.LONGLONG, ctypeobj.W_CTypePrimitiveUnsigned)
 
 
 @unwrap_spec(name=str)
