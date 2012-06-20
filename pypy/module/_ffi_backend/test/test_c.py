@@ -136,6 +136,8 @@ class AppTestFfiBackend(object):
         assert str(cast(p, 'A')) == 'A'
 
     def test_pointer_type(self):
+        new_primitive_type = self.b.new_primitive_type
+        new_pointer_type = self.b.new_pointer_type
         p = new_primitive_type("int")
         assert repr(p) == "<ctype 'int'>"
         p = new_pointer_type(p)

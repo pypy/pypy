@@ -11,10 +11,13 @@ from pypy.module._ffi_backend import cdataobj, misc
 class W_CType(Wrappable):
     _immutable_ = True
 
-    def __init__(self, space, name, size):
+    def __init__(self, space, size, name, name_position):
         self.space = space
-        self.name = name
         self.size = size     # size of instances, or -1 if unknown
+        self.name = name     # the name of the C type as a string
+        self.name_position = name_position
+        # 'name_position' is the index in 'name' where it must be extended,
+        # e.g. with a '*' or a variable name.
 
     def repr(self):
         space = self.space
@@ -38,6 +41,17 @@ class W_CType(Wrappable):
 
     def try_str(self, cdata):
         return None
+
+    def insert_name(self, extra, extra_position):
+        name = '%s%s%s' % (self.name[:self.name_position],
+                           extra,
+                           self.name[self.name_position:])
+        name_position = self.name_position + extra_position
+        return name, name_position
+
+
+class W_CTypePointer(W_CType):
+    pass
 
 
 class W_CTypePrimitive(W_CType):
@@ -73,6 +87,10 @@ class W_CTypePrimitiveChar(W_CTypePrimitive):
 
 class W_CTypePrimitiveSigned(W_CTypePrimitive):
 
+    def __init__(self, *args):
+        W_CTypePrimitive.__init__(self, *args)
+        self.value_fits_long = self.size <= rffi.sizeof(lltype.Signed)
+
     def int(self, cdata):
         if self.value_fits_long:
             # this case is to handle enums, but also serves as a slight
@@ -92,6 +110,10 @@ class W_CTypePrimitiveSigned(W_CTypePrimitive):
 
 
 class W_CTypePrimitiveUnsigned(W_CTypePrimitive):
+
+    def __init__(self, *args):
+        W_CTypePrimitive.__init__(self, *args)
+        self.value_fits_long = self.size < rffi.sizeof(lltype.Signed)
 
     def int(self, cdata):
         return self.convert_to_object(cdata)

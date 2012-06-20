@@ -11,14 +11,7 @@ from pypy.module._ffi_backend import ctypeobj
 PRIMITIVE_TYPES = {}
 
 def eptype(name, TYPE, ctypecls):
-    size = rffi.sizeof(TYPE)
-    if ctypecls is ctypeobj.W_CTypePrimitiveSigned:
-        value_fits_long = size <= rffi.sizeof(lltype.Signed)
-    elif ctypecls is ctypeobj.W_CTypePrimitiveUnsigned:
-        value_fits_long = size < rffi.sizeof(lltype.Signed)
-    else:
-        value_fits_long = False
-    PRIMITIVE_TYPES[name] = ctypecls, size, value_fits_long
+    PRIMITIVE_TYPES[name] = ctypecls, rffi.sizeof(TYPE)
 
 eptype("char",        lltype.Char,     ctypeobj.W_CTypePrimitiveChar)
 eptype("signed char", rffi.SIGNEDCHAR, ctypeobj.W_CTypePrimitiveSigned)
@@ -37,9 +30,17 @@ eptype("double", rffi.DOUBLE, ctypeobj.W_CTypePrimitiveFloat)
 @unwrap_spec(name=str)
 def new_primitive_type(space, name):
     try:
-        ctypecls, size, value_fits_long = PRIMITIVE_TYPES[name]
+        ctypecls, size = PRIMITIVE_TYPES[name]
     except KeyError:
         raise OperationError(space.w_KeyError, space.wrap(name))
-    ctype = ctypecls(space, name, size)
-    ctype.value_fits_long = value_fits_long
+    ctype = ctypecls(space, size, name, len(name))
+    return ctype
+
+# ____________________________________________________________
+
+@unwrap_spec(ctype=ctypeobj.W_CType)
+def new_pointer_type(space, ctype):
+    name, name_position = ctype.insert_name(' *', 2)
+    size = rffi.sizeof(rffi.VOIDP)
+    ctype = ctypeobj.W_CTypePointer(space, size, name, name_position)
     return ctype

@@ -10,6 +10,7 @@ class Module(MixedModule):
         'load_library': 'libraryobj.load_library',
 
         'new_primitive_type': 'newtype.new_primitive_type',
+        'new_pointer_type': 'newtype.new_pointer_type',
 
         'cast': 'func.cast',
         'sizeof': 'func.sizeof',
