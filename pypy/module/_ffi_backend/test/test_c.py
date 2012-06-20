@@ -124,6 +124,8 @@ class AppTestFfiBackend(object):
             assert repr(float(cast(p, -0.0))) == '-0.0'
 
     def test_character_type(self):
+        new_primitive_type = self.b.new_primitive_type
+        cast = self.b.cast
         p = new_primitive_type("char")
         assert bool(cast(p, '\x00'))
         assert cast(p, '\x00') != cast(p, -17*256)

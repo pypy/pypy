@@ -36,6 +36,9 @@ class W_CType(Wrappable):
     def convert_to_object(self, cdata):
         raise NotImplementedError
 
+    def try_str(self, cdata):
+        return None
+
 
 class W_CTypePrimitive(W_CType):
 
@@ -44,7 +47,12 @@ class W_CTypePrimitive(W_CType):
         if cdataobj.check_cdata(space, w_ob):
             xxx
         elif space.isinstance_w(w_ob, space.w_str):
-            xxx
+            s = space.str_w(w_ob)
+            if len(s) != 1:
+                raise operationerrfmt(space.w_TypeError,
+                    "cannot cast string of length %d to ctype '%s'",
+                                      len(s), self.name)
+            value = ord(s[0])
         elif space.is_w(w_ob, space.w_None):
             value = 0
         else:
@@ -57,7 +65,10 @@ class W_CTypePrimitive(W_CType):
 class W_CTypePrimitiveChar(W_CTypePrimitive):
 
     def int(self, cdata):
-        xxx
+        return self.space.wrap(ord(cdata[0]))
+
+    def try_str(self, cdata):
+        return self.space.wrap(cdata[0])
 
 
 class W_CTypePrimitiveSigned(W_CTypePrimitive):

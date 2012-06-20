@@ -44,6 +44,11 @@ class W_CData(Wrappable):
         keepalive_until_here(self)
         return w_result
 
+    def str(self):
+        w_result = self.ctype.try_str(self.cdata)
+        keepalive_until_here(self)
+        return w_result or self.repr()
+
     def read_raw_signed_data(self):
         result = misc.read_raw_signed_data(self.cdata, self.ctype.size)
         keepalive_until_here(self)
@@ -91,6 +96,7 @@ W_CData.typedef = TypeDef(
     __int__ = interp2app(W_CData.int),
     __long__ = interp2app(W_CData.long),
     __float__ = interp2app(W_CData.float),
+    __str__ = interp2app(W_CData.str),
     )
 W_CData.acceptable_as_base_class = False
 
