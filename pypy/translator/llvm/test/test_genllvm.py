@@ -413,6 +413,15 @@ class TestSpecialCases(_LLVMMixin):
         assert res == -0.0
         assert copysign(1.0, res) == -1.0
 
+    def test_llexternal_multiple_signatures(self):
+        from pypy.module.fcntl import interp_fcntl
+        def f(x):
+            if x == 0:
+                interp_fcntl.fcntl_int(0, 0, 0)
+            elif x == 1:
+                interp_fcntl.fcntl_str(0, 0, '')
+        fc = self.getcompiled(f, [int])
+
 
 class TestLowLevelTypeLLVM(_LLVMMixin, test_lltyped.TestLowLevelType):
     def test_llgroup_size_limit(self):

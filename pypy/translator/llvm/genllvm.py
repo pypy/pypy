@@ -623,7 +623,6 @@ class FuncType(Type):
         self.result = db.get_type(type_.RESULT)
         self.args = [db.get_type(argtype) for argtype in type_.ARGS
                      if argtype is not lltype.Void]
-        self.extern_declared = set()
 
     def repr_type(self, extra_len=None):
         return '{} ({})'.format(self.result.repr_type(),
@@ -636,10 +635,17 @@ class FuncType(Type):
     def repr_ref(self, ptr_type, obj):
         if getattr(obj, 'external', None) == 'C':
             name = '@' + getattr(obj, 'llvm_name', obj._name)
-            ptr_type.refs[obj] = name
-            if name in self.extern_declared:
+            prev_type = database.external_declared.get(name)
+            if prev_type is None:
+                database.external_declared[name] = self
+            elif prev_type is self:
+                ptr_type.refs[obj] = name
                 return
-            self.extern_declared.add(name)
+            else:
+                ptr_type.refs[obj] = 'bitcast({}* {} to {}*)'.format(
+                        prev_type.repr_type(), name, self.repr_type())
+                return
+            ptr_type.refs[obj] = name
             database.f.write('declare {} {}({})\n'.format(
                     self.result.repr_type(), name,
                     ', '.join(arg.repr_type() for arg in self.args)))
@@ -689,6 +695,7 @@ class Database(object):
         self.f = f
         self.names_counter = {}
         self.types = PRIMITIVES.copy()
+        self.external_declared = {}
 
     def get_type(self, type_):
         try:
