@@ -71,6 +71,7 @@ str__Bool = repr__Bool
 
 def format__Bool_ANY(space, w_bool, w_format_spec):
     return newformat.run_formatter(
-            space, w_format_spec, "format_bool", w_bool)
+            space, w_format_spec, "format_int_or_long", w_bool,
+            newformat.INT_KIND)
 
 register_all(vars())

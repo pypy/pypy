@@ -877,12 +877,6 @@ def make_formatting_class():
                 buf[i] = "-"
             assert i >= 0
             return self.empty.join(buf[i:])
-        
-        def format_bool(self, w_bool):
-            if self.spec:
-                return self.format_int_or_long(w_bool, INT_KIND) 
-            else:
-                return self.space.str(w_bool)
 
         def format_int_or_long(self, w_num, kind):
             space = self.space
