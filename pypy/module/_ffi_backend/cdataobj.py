@@ -24,6 +24,9 @@ class W_CData(Wrappable):
     def repr(self):
         return self.space.wrap("<cdata '%s'>" % self.ctype.name)
 
+    def nonzero(self):
+        return self.space.wrap(bool(self.cdata))
+
     def int(self):
         w_result = self.ctype.int(self.cdata)
         keepalive_until_here(self)
@@ -34,6 +37,11 @@ class W_CData(Wrappable):
         space = self.space
         if space.is_w(space.type(w_result), space.w_int):
             w_result = space.newlong(space.int_w(w_result))
+        return w_result
+
+    def float(self):
+        w_result = self.ctype.float(self.cdata)
+        keepalive_until_here(self)
         return w_result
 
     def read_raw_signed_data(self):
@@ -48,6 +56,15 @@ class W_CData(Wrappable):
 
     def write_raw_integer_data(self, source):
         misc.write_raw_integer_data(self.cdata, source, self.ctype.size)
+        keepalive_until_here(self)
+
+    def read_raw_float_data(self):
+        result = misc.read_raw_float_data(self.cdata, self.ctype.size)
+        keepalive_until_here(self)
+        return result
+
+    def write_raw_float_data(self, source):
+        misc.write_raw_float_data(self.cdata, source, self.ctype.size)
         keepalive_until_here(self)
 
     def convert_to_object(self):
@@ -70,8 +87,10 @@ class W_CDataOwn(W_CData):
 W_CData.typedef = TypeDef(
     '_ffi_backend.CData',
     __repr__ = interp2app(W_CData.repr),
+    __nonzero__ = interp2app(W_CData.nonzero),
     __int__ = interp2app(W_CData.int),
     __long__ = interp2app(W_CData.long),
+    __float__ = interp2app(W_CData.float),
     )
 W_CData.acceptable_as_base_class = False
 

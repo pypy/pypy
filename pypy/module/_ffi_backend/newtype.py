@@ -31,7 +31,8 @@ eptype("unsigned short",     rffi.SHORT,    ctypeobj.W_CTypePrimitiveUnsigned)
 eptype("unsigned int",       rffi.INT,      ctypeobj.W_CTypePrimitiveUnsigned)
 eptype("unsigned long",      rffi.LONG,     ctypeobj.W_CTypePrimitiveUnsigned)
 eptype("unsigned long long", rffi.LONGLONG, ctypeobj.W_CTypePrimitiveUnsigned)
-
+eptype("float",  rffi.FLOAT,  ctypeobj.W_CTypePrimitiveFloat)
+eptype("double", rffi.DOUBLE, ctypeobj.W_CTypePrimitiveFloat)
 
 @unwrap_spec(name=str)
 def new_primitive_type(space, name):

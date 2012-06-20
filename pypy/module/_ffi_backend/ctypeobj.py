@@ -28,6 +28,11 @@ class W_CType(Wrappable):
         raise operationerrfmt(space.w_TypeError,
                               "int() not supported on cdata '%s'", self.name)
 
+    def float(self, cdata):
+        space = self.space
+        raise operationerrfmt(space.w_TypeError,
+                              "float() not supported on cdata '%s'", self.name)
+
     def convert_to_object(self, cdata):
         raise NotImplementedError
 
@@ -86,6 +91,34 @@ class W_CTypePrimitiveUnsigned(W_CTypePrimitive):
             return self.space.wrap(intmask(value))
         else:
             return self.space.wrap(value)    # r_ulonglong => 'long' object
+
+
+class W_CTypePrimitiveFloat(W_CTypePrimitive):
+
+    def cast(self, w_ob):
+        space = self.space
+        if cdataobj.check_cdata(space, w_ob):
+            xxx
+        elif space.isinstance_w(w_ob, space.w_str):
+            xxx
+        elif space.is_w(w_ob, space.w_None):
+            value = 0.0
+        else:
+            value = space.float_w(w_ob)
+        w_cdata = cdataobj.W_CDataOwn(space, self.size, self)
+        w_cdata.write_raw_float_data(value)
+        return w_cdata
+
+    def int(self, cdata):
+        w_value = self.float(cdata)
+        return self.space.int(w_value)
+
+    def float(self, cdata):
+        return self.convert_to_object(cdata)
+
+    def convert_to_object(self, cdata):
+        value = misc.read_raw_float_data(cdata, self.size)
+        return self.space.wrap(value)
 
 
 W_CType.typedef = TypeDef(

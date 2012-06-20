@@ -1,3 +1,4 @@
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.rarithmetic import r_ulonglong
 from pypy.rlib.unroll import unrolling_iterable
@@ -18,17 +19,27 @@ _prim_unsigned_types = unrolling_iterable([
     (rffi.ULONG, rffi.ULONGP),
     (rffi.ULONGLONG, rffi.ULONGLONGP)])
 
+_prim_float_types = unrolling_iterable([
+    (rffi.FLOAT, rffi.FLOATP),
+    (rffi.DOUBLE, rffi.DOUBLEP)])
+
 def read_raw_signed_data(target, size):
     for TP, TPP in _prim_signed_types:
         if size == rffi.sizeof(TP):
-            return rffi.cast(rffi.LONGLONG, rffi.cast(TPP, target)[0])
+            return rffi.cast(lltype.SignedLongLong, rffi.cast(TPP, target)[0])
     raise NotImplementedError("bad integer size")
 
 def read_raw_unsigned_data(target, size):
     for TP, TPP in _prim_unsigned_types:
         if size == rffi.sizeof(TP):
-            return rffi.cast(rffi.ULONGLONG, rffi.cast(TPP, target)[0])
+            return rffi.cast(lltype.UnsignedLongLong, rffi.cast(TPP,target)[0])
     raise NotImplementedError("bad integer size")
+
+def read_raw_float_data(target, size):
+    for TP, TPP in _prim_float_types:
+        if size == rffi.sizeof(TP):
+            return rffi.cast(lltype.Float, rffi.cast(TPP, target)[0])
+    raise NotImplementedError("bad float size")
 
 def write_raw_integer_data(target, source, size):
     for TP, TPP in _prim_unsigned_types:
@@ -36,6 +47,13 @@ def write_raw_integer_data(target, source, size):
             rffi.cast(TPP, target)[0] = rffi.cast(TP, source)
             return
     raise NotImplementedError("bad integer size")
+
+def write_raw_float_data(target, source, size):
+    for TP, TPP in _prim_float_types:
+        if size == rffi.sizeof(TP):
+            rffi.cast(TPP, target)[0] = rffi.cast(TP, source)
+            return
+    raise NotImplementedError("bad float size")
 
 # ____________________________________________________________
 
@@ -91,8 +109,8 @@ def as_long_long(space, w_ob, strict):
 def as_unsigned_long_long(space, w_ob, strict):
     # (possibly) convert and cast a Python object to an unsigned long long.
     # This accepts a Python int too, and does convertions from other types of
-    # objects.  If 'overflow', complains with OverflowError; if 'not overflow',
-    # mask the result.
+    # objects.  If 'strict', complains with OverflowError; if 'not strict',
+    # mask the result and round floats.
     if space.is_w(space.type(w_ob), space.w_int):   # shortcut
         value = space.int_w(w_ob)
         if strict and value < 0:

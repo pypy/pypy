@@ -92,10 +92,12 @@ class AppTestFfiBackend(object):
             assert long(cast(p, -1)) == max
 
     def test_no_float_on_int_types(self):
-        p = new_primitive_type('long')
-        py.test.raises(TypeError, float, cast(p, 42))
+        p = self.b.new_primitive_type('long')
+        raises(TypeError, float, self.b.cast(p, 42))
 
     def test_float_types(self):
+        new_primitive_type = self.b.new_primitive_type
+        cast = self.b.cast
         INF = 1E200 * 1E200
         for name in ["float", "double"]:
             p = new_primitive_type(name)
@@ -109,8 +111,8 @@ class AppTestFfiBackend(object):
             assert type(int(cast(p, 1E22))) is long
             assert type(long(cast(p, 61.91))) is long
             assert type(long(cast(p, 1E22))) is long
-            py.test.raises(OverflowError, int, cast(p, INF))
-            py.test.raises(OverflowError, int, cast(p, -INF))
+            raises(OverflowError, int, cast(p, INF))
+            raises(OverflowError, int, cast(p, -INF))
             assert float(cast(p, 1.25)) == 1.25
             assert float(cast(p, INF)) == INF
             assert float(cast(p, -INF)) == -INF
