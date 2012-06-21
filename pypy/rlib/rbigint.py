@@ -18,7 +18,7 @@ import math, sys
 SHIFT = 31
 
 MASK = int((1 << SHIFT) - 1)
-FLOAT_MULTIPLIER = float(1 << SHIFT)
+FLOAT_MULTIPLIER = float(1 << LONG_BIT) # Because it works.
 
 
 # Debugging digit array access.
@@ -31,9 +31,11 @@ FLOAT_MULTIPLIER = float(1 << SHIFT)
 # both operands contain more than KARATSUBA_CUTOFF digits (this
 # being an internal Python long digit, in base BASE).
 
+# Karatsuba is O(N**1.585)
 USE_KARATSUBA = True # set to False for comparison
-KARATSUBA_CUTOFF = 70
+KARATSUBA_CUTOFF = 38
 KARATSUBA_SQUARE_CUTOFF = 2 * KARATSUBA_CUTOFF
+
 
 # For exponentiation, use the binary left-to-right algorithm
 # unless the exponent contains more than FIVEARY_CUTOFF digits.
@@ -629,18 +631,19 @@ class rbigint(object):
         return l * self.sign
 
     def _normalize(self):
-        if self.numdigits() == 0:
+        i = self.numdigits()
+        if i == 0:
             self.sign = 0
             self._digits = [NULLDIGIT]
             return
-        i = self.numdigits()
+        
         while i > 1 and self.digit(i - 1) == 0:
             i -= 1
         assert i >= 1
         if i != self.numdigits():
             self._digits = self._digits[:i]
-        if self.numdigits() == 1 and self.digit(0) == 0:
-            self.sign = 0
+            if self.numdigits() == 1 and self.digit(0) == 0:
+                self.sign = 0
 
     def bit_length(self):
         i = self.numdigits()
@@ -817,6 +820,8 @@ def _x_mul(a, b):
     size_a = a.numdigits()
     size_b = b.numdigits()
     z = rbigint([NULLDIGIT] * (size_a + size_b), 1)
+    """
+    # Code below actually runs slower (about 20%). Dunno why, since it shouldn't.
     if a is b:
         # Efficient squaring per HAC, Algorithm 14.16:
         # http://www.cacr.math.uwaterloo.ca/hac/about/chap14.pdf
@@ -853,28 +858,27 @@ def _x_mul(a, b):
                 carry >>= SHIFT
             if carry:
                 z.setdigit(pz, z.widedigit(pz) + carry)
-            assert (carry >> SHIFT) == 0
+            assert (carry >> 63) == 0
             i += 1
-    else:
-        # a is not the same as b -- gradeschool long mult
-        i = 0
-        while i < size_a:
-            carry = 0
-            f = a.widedigit(i)
-            pz = i
-            pb = 0
-            pbend = size_b
-            while pb < pbend:
-                carry += z.widedigit(pz) + b.widedigit(pb) * f
-                pb += 1
-                z.setdigit(pz, carry)
-                pz += 1
-                carry >>= SHIFT
-                assert carry <= MASK
-            if carry:
-                z.setdigit(pz, z.widedigit(pz) + carry)
-            assert (carry >> SHIFT) == 0
-            i += 1
+    else:"""
+    # gradeschool long mult
+    i = 0
+    while i < size_a:
+        carry = 0
+        f = a.widedigit(i)
+        pz = i
+        pb = 0
+        while pb < size_b:
+            carry += z.widedigit(pz) + b.widedigit(pb) * f
+            pb += 1
+            z.setdigit(pz, carry)
+            pz += 1
+            carry >>= SHIFT
+            assert carry <= MASK
+        if carry:
+            z.setdigit(pz, z.widedigit(pz) + carry)
+        assert (carry >> SHIFT) == 0
+        i += 1
     z._normalize()
     return z
 
@@ -1081,9 +1085,10 @@ def _k_lopsided_mul(a, b):
     # Successive slices of b are copied into bslice.
     #bslice = rbigint([0] * asize, 1)
     # XXX we cannot pre-allocate, see comments below!
+    
+    nbdone = 0;
     bslice = rbigint([NULLDIGIT], 1)
 
-    nbdone = 0;
     while bsize > 0:
         nbtouse = min(bsize, asize)
 
@@ -1098,14 +1103,13 @@ def _k_lopsided_mul(a, b):
 
         # Add into result.
         _v_iadd(ret, nbdone, ret.numdigits() - nbdone,
-                 product, product.numdigits())
+                product, product.numdigits())
 
         bsize -= nbtouse
         nbdone += nbtouse
 
     ret._normalize()
     return ret
-
 
 def _inplace_divrem1(pout, pin, n, size=0):
     """
