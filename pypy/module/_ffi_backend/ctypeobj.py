@@ -63,6 +63,9 @@ class W_CTypePointer(W_CType):
         W_CType.__init__(self, space, size, name, name_position)
         self.ctypeitem = ctypeitem
 
+    def cast(self, w_ob):
+        xxx
+
     def newp(self, w_init):
         space = self.space
         citem = self.ctypeitem
@@ -76,17 +79,21 @@ class W_CTypePointer(W_CType):
 
 class W_CTypePrimitive(W_CType):
 
+    def cast_single_char(self, w_ob):
+        space = self.space
+        s = space.str_w(w_ob)
+        if len(s) != 1:
+            raise operationerrfmt(space.w_TypeError,
+                              "cannot cast string of length %d to ctype '%s'",
+                                  len(s), self.name)
+        return ord(s[0])
+
     def cast(self, w_ob):
         space = self.space
         if cdataobj.check_cdata(space, w_ob):
             xxx
         elif space.isinstance_w(w_ob, space.w_str):
-            s = space.str_w(w_ob)
-            if len(s) != 1:
-                raise operationerrfmt(space.w_TypeError,
-                    "cannot cast string of length %d to ctype '%s'",
-                                      len(s), self.name)
-            value = ord(s[0])
+            value = self.cast_single_char(w_ob)
         elif space.is_w(w_ob, space.w_None):
             value = 0
         else:
@@ -153,7 +160,7 @@ class W_CTypePrimitiveFloat(W_CTypePrimitive):
         if cdataobj.check_cdata(space, w_ob):
             xxx
         elif space.isinstance_w(w_ob, space.w_str):
-            xxx
+            value = self.cast_single_char(w_ob)
         elif space.is_w(w_ob, space.w_None):
             value = 0.0
         else:
