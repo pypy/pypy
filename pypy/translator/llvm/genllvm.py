@@ -153,6 +153,8 @@ class IntegralType(Type):
                 return '0'
             elif value is running_on_llinterp:
                 return '0'
+        elif isinstance(value, llmemory.AddressAsInt):
+            return 'ptrtoint({.TV} to i64)'.format(get_repr(value.adr.ptr))
         raise NotImplementedError(value)
 
     def add_offset_indices(self, indices, offset):

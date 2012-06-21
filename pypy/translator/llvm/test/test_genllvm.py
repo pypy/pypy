@@ -428,6 +428,19 @@ class TestSpecialCases(_LLVMMixin):
             return inet_ntoa(x)
         fc = self.getcompiled(f, [str])
 
+    def test_cast_adr_to_int_symbolic(self):
+        x = lltype.malloc(lltype.Struct(''), immortal=True)
+        a = llmemory.cast_adr_to_int(llmemory.cast_ptr_to_adr(x), 'symbolic')
+        b = llmemory.cast_adr_to_int(llmemory.NULL, 'symbolic')
+        def f(x):
+            if x == 0:
+                return a
+            else:
+                return b
+        fc = self.getcompiled(f, [int])
+        assert fc(0) != 0
+        assert fc(1) == 0
+
 
 class TestLowLevelTypeLLVM(_LLVMMixin, test_lltyped.TestLowLevelType):
     def test_llgroup_size_limit(self):
