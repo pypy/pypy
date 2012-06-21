@@ -23,6 +23,11 @@ class W_CType(Wrappable):
         space = self.space
         return space.wrap("<ctype '%s'>" % (self.name,))
 
+    def newp(self, w_init):
+        space = self.space
+        raise OperationError(space.w_TypeError,
+                             space.wrap("expected a pointer or array ctype"))
+
     def cast(self, w_ob):
         raise NotImplementedError
 
@@ -51,7 +56,22 @@ class W_CType(Wrappable):
 
 
 class W_CTypePointer(W_CType):
-    pass
+
+    def __init__(self, space, ctypeitem):
+        name, name_position = ctypeitem.insert_name(' *', 2)
+        size = rffi.sizeof(rffi.VOIDP)
+        W_CType.__init__(self, space, size, name, name_position)
+        self.ctypeitem = ctypeitem
+
+    def newp(self, w_init):
+        space = self.space
+        citem = self.ctypeitem
+        if citem.size < 0:
+            xxx
+        if isinstance(citem, W_CTypePrimitiveChar):
+            xxx
+        w_cdata = cdataobj.W_CDataOwn(space, citem.size, self)
+        return w_cdata
 
 
 class W_CTypePrimitive(W_CType):

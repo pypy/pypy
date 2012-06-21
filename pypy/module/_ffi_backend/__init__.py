@@ -12,6 +12,7 @@ class Module(MixedModule):
         'new_primitive_type': 'newtype.new_primitive_type',
         'new_pointer_type': 'newtype.new_pointer_type',
 
+        'newp': 'func.newp',
         'cast': 'func.cast',
         'sizeof': 'func.sizeof',
         }

@@ -22,7 +22,11 @@ class W_CData(Wrappable):
         self.ctype = ctype
 
     def repr(self):
-        return self.space.wrap("<cdata '%s'>" % self.ctype.name)
+        extra = self.extra_repr()
+        return self.space.wrap("<cdata '%s'%s>" % (self.ctype.name, extra))
+
+    def extra_repr(self):
+        return ''
 
     def nonzero(self):
         return self.space.wrap(bool(self.cdata))
@@ -78,15 +82,22 @@ class W_CData(Wrappable):
         return w_obj
 
 
-class W_CDataOwn(W_CData):
+class W_CDataOwnFromCasted(W_CData):
 
     def __init__(self, space, size, ctype):
-        cdata = lltype.malloc(rffi.CCHARP.TO, size, flavor='raw')
+        cdata = lltype.malloc(rffi.CCHARP.TO, size, flavor='raw', zero=True)
         W_CData.__init__(self, space, cdata, ctype)
 
     @rgc.must_be_light_finalizer
     def __del__(self):
         lltype.free(self.cdata, flavor='raw')
+
+
+class W_CDataOwn(W_CDataOwnFromCasted):
+
+    def extra_repr(self):
+        return ' owning %d bytes' % (self.ctype.size,)
+
 
 
 W_CData.typedef = TypeDef(

@@ -40,7 +40,5 @@ def new_primitive_type(space, name):
 
 @unwrap_spec(ctype=ctypeobj.W_CType)
 def new_pointer_type(space, ctype):
-    name, name_position = ctype.insert_name(' *', 2)
-    size = rffi.sizeof(rffi.VOIDP)
-    ctype = ctypeobj.W_CTypePointer(space, size, name, name_position)
-    return ctype
+    ctypeptr = ctypeobj.W_CTypePointer(space, ctype)
+    return ctypeptr
