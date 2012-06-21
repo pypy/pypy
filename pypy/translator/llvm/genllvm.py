@@ -1232,6 +1232,9 @@ class FunctionWriter(object):
     def op_extract_ushort(self, result, val):
         self.w('{result.V} = trunc {val.TV} to {result.T}'.format(**locals()))
 
+    def op_is_group_member_nonzero(self, result, compactoffset):
+        self.w('{result.V} = icmp ne {compactoffset.TV}, 0'.format(**locals()))
+
     def op_combine_ushort(self, result, ushort, rest):
         t = self._tmp(result.type_)
         self.w('{t.V} = zext {ushort.TV} to {t.T}'.format(**locals()))
