@@ -789,6 +789,7 @@ def _x_sub(a, b):
             sign = -1
             a, b = b, a
         size_a = size_b = i+1
+        
     z = rbigint([NULLDIGIT] * size_a, sign)
     borrow = r_uint(0)
     i = 0
@@ -810,7 +811,12 @@ def _x_sub(a, b):
     z._normalize()
     return z
 
-
+# A neat little table of power of twos.
+ptwotable = {}
+for x in range(SHIFT):
+    ptwotable[2 << x] = x+1
+    ptwotable[-2 << x] = x+1
+    
 def _x_mul(a, b):
     """
     Grade school multiplication, ignoring the signs.
@@ -819,7 +825,6 @@ def _x_mul(a, b):
 
     size_a = a.numdigits()
     size_b = b.numdigits()
-    z = rbigint([NULLDIGIT] * (size_a + size_b), 1)
     """
     # Code below actually runs slower (about 20%). Dunno why, since it shouldn't.
     if a is b:
@@ -861,6 +866,17 @@ def _x_mul(a, b):
             assert (carry >> SHIFT) == 0
             i += 1
     else:"""
+    if size_a == 1:
+        # Special case.
+        digit = a.digit(0)
+        if digit == 0:
+            return rbigint(a._digits[:], 1)
+        elif digit == 1:
+            return rbigint(b._digits[:], 1)
+        elif digit & (digit - 1) == 0:
+            return b.lshift(ptwotable[digit])
+    
+    z = rbigint([NULLDIGIT] * (size_a + size_b), 1)
     # gradeschool long mult
     i = 0
     while i < size_a:
@@ -931,6 +947,10 @@ def _k_mul(a, b):
         else:
             return _x_mul(a, b)
 
+    if asize == 1:
+        # Then _x_mul will always be faster.
+        return _x_mul(a, b)
+    
     # If a is small compared to b, splitting on b gives a degenerate
     # case with ah==0, and Karatsuba may be (even much) less efficient
     # than "grade school" then.  However, we can still win, by viewing
@@ -1135,6 +1155,7 @@ def _divrem1(a, n):
     The sign of a is ignored; n should not be zero.
     """
     assert n > 0 and n <= MASK
+        
     size = a.numdigits()
     z = rbigint([NULLDIGIT] * size, 1)
     rem = _inplace_divrem1(z, a, n)
@@ -1198,6 +1219,11 @@ def _v_isub(x, xofs, m, y, n):
 def _muladd1(a, n, extra=0):
     """Multiply by a single digit and add a single digit, ignoring the sign.
     """
+    
+    # Special case this one. 
+    if n == 1 and not extra:
+        return a
+
     size_a = a.numdigits()
     z = rbigint([NULLDIGIT] * (size_a+1), 1)
     assert extra & MASK == extra
