@@ -133,7 +133,7 @@ class AppTestOPERATORS:
 
         o = gbl.operator_unsigned_long();
         o.m_ulong = sys.maxint + 128
-	assert o.m_ulong == sys.maxint + 128
+        assert o.m_ulong == sys.maxint + 128
         assert long(o)   == sys.maxint + 128
 
         o = gbl.operator_float(); o.m_float = 3.14
