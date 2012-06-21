@@ -422,6 +422,12 @@ class TestSpecialCases(_LLVMMixin):
                 interp_fcntl.fcntl_str(0, 0, '')
         fc = self.getcompiled(f, [int])
 
+    def test_inet_ntoa(self):
+        from pypy.rlib.rsocket import inet_ntoa
+        def f(x):
+            return inet_ntoa(x)
+        fc = self.getcompiled(f, [str])
+
 
 class TestLowLevelTypeLLVM(_LLVMMixin, test_lltyped.TestLowLevelType):
     def test_llgroup_size_limit(self):

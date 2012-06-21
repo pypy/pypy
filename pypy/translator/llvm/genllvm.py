@@ -1043,8 +1043,19 @@ class FunctionWriter(object):
     op_raw_malloc_usage = _cast
 
     def op_direct_call(self, result, fn, *args):
-        args = ', '.join('{arg.TV}'.format(arg=arg) for arg in args
-                         if arg.type_ is not LLVMVoid)
+        it = iter(fn.type_.to.args)
+        tmp = []
+        for arg in args:
+            if arg.type_ is LLVMVoid:
+                continue
+            argtype = next(it)
+            if isinstance(argtype, StructType):
+                t = self._tmp(argtype)
+                self.w('{t.V} = load {arg.TV}'.format(**locals()))
+                arg = t
+            tmp.append('{arg.TV}'.format(arg=arg))
+        args = ', '.join(tmp)
+
         if result.type_ is LLVMVoid:
             fmt = 'call void {fn.V}({args})'
         elif (isinstance(result.type_, PtrType) and
