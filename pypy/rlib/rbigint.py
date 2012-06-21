@@ -858,7 +858,7 @@ def _x_mul(a, b):
                 carry >>= SHIFT
             if carry:
                 z.setdigit(pz, z.widedigit(pz) + carry)
-            assert (carry >> 63) == 0
+            assert (carry >> SHIFT) == 0
             i += 1
     else:"""
     # gradeschool long mult
@@ -1085,10 +1085,9 @@ def _k_lopsided_mul(a, b):
     # Successive slices of b are copied into bslice.
     #bslice = rbigint([0] * asize, 1)
     # XXX we cannot pre-allocate, see comments below!
+    bslice = rbigint([NULLDIGIT], 1)
     
     nbdone = 0;
-    bslice = rbigint([NULLDIGIT], 1)
-
     while bsize > 0:
         nbtouse = min(bsize, asize)
 
@@ -1196,7 +1195,6 @@ def _v_isub(x, xofs, m, y, n):
         i += 1
     return borrow
 
-
 def _muladd1(a, n, extra=0):
     """Multiply by a single digit and add a single digit, ignoring the sign.
     """
@@ -1213,7 +1211,6 @@ def _muladd1(a, n, extra=0):
     z.setdigit(i, carry)
     z._normalize()
     return z
-
 
 def _x_divrem(v1, w1):
     """ Unsigned bigint division with remainder -- the algorithm """
@@ -1288,7 +1285,6 @@ def _x_divrem(v1, w1):
     a._normalize()
     rem, _ = _divrem1(v, d)
     return a, rem
-
 
 def _divrem(a, b):
     """ Long division with remainder, top-level routine """
