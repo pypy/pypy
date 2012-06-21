@@ -1018,6 +1018,9 @@ class FunctionWriter(object):
     def op_debug_reraise_traceback(self, result, *args):
         pass
 
+    def op_debug_print_traceback(self, result):
+        pass
+
     def op_debug_start(self, result, *args):
         pass
 
