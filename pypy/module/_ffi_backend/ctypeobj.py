@@ -92,11 +92,12 @@ class W_CTypePointer(W_CTypePtrOrArray):
     def newp(self, w_init):
         space = self.space
         citem = self.ctypeitem
-        if citem.size < 0:
+        datasize = citem.size
+        if datasize < 0:
             xxx
         if isinstance(citem, W_CTypePrimitiveChar):
-            xxx
-        cdata = cdataobj.W_CDataOwn(space, citem.size, self)
+            datasize *= 2       # forcefully add a null character
+        cdata = cdataobj.W_CDataOwn(space, datasize, self)
         if not space.is_w(w_init, space.w_None):
             citem.convert_from_object(cdata._cdata, w_init)
             keepalive_until_here(cdata)
@@ -136,19 +137,21 @@ class W_CTypePrimitive(W_CType):
         w_cdata.write_raw_integer_data(value)
         return w_cdata
 
-    def convert_from_object(self, cdata, w_ob):
-        value = misc.as_unsigned_long_long(self.space, w_ob, strict=True)
-        misc.write_raw_integer_data(cdata, value, self.size)
-        # xxx overflow
-
 
 class W_CTypePrimitiveChar(W_CTypePrimitive):
 
     def int(self, cdata):
         return self.space.wrap(ord(cdata[0]))
 
-    def try_str(self, cdata):
+    def convert_to_object(self, cdata):
         return self.space.wrap(cdata[0])
+
+    try_str = convert_to_object
+
+    def convert_from_object(self, cdata, w_ob):
+        value = misc.as_unsigned_long_long(self.space, w_ob, strict=True)
+        misc.write_raw_integer_data(cdata, value, self.size)
+        # xxx overflow
 
 
 class W_CTypePrimitiveSigned(W_CTypePrimitive):
@@ -189,6 +192,11 @@ class W_CTypePrimitiveUnsigned(W_CTypePrimitive):
 
     def int(self, cdata):
         return self.convert_to_object(cdata)
+
+    def convert_from_object(self, cdata, w_ob):
+        value = misc.as_unsigned_long_long(self.space, w_ob, strict=True)
+        misc.write_raw_integer_data(cdata, value, self.size)
+        # xxx overflow
 
     def convert_to_object(self, cdata):
         value = misc.read_raw_unsigned_data(cdata, self.size)
