@@ -148,10 +148,23 @@ class W_CTypePrimitiveChar(W_CTypePrimitive):
 
     try_str = convert_to_object
 
+    def _convert_to_char(self, w_ob):
+        space = self.space
+        if space.isinstance_w(w_ob, space.w_str):
+            s = space.str_w(w_ob)
+            if len(s) == 1:
+                return s[0]
+        ob = space.interpclass_w(w_ob)
+        if (isinstance(ob, cdataobj.W_CData) and
+               isinstance(ob.type, W_CTypePrimitiveChar)):
+            return ob._cdata[0]
+        raise operationerrfmt(space.w_TypeError,
+            "initializer for ctype 'char' must be a string of length 1, "
+            "not %s", space.type(w_ob).getname(space))
+
     def convert_from_object(self, cdata, w_ob):
-        value = misc.as_unsigned_long_long(self.space, w_ob, strict=True)
-        misc.write_raw_integer_data(cdata, value, self.size)
-        # xxx overflow
+        value = self._convert_to_char(w_ob)
+        cdata[0] = value
 
 
 class W_CTypePrimitiveSigned(W_CTypePrimitive):
