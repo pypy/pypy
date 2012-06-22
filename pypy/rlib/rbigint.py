@@ -979,10 +979,6 @@ def _k_mul(a, b):
             return rbigint()     # zero
         else:
             return _x_mul(a, b)
-
-    if asize == 1:
-        # Then _x_mul will always be faster.
-        return _x_mul(a, b)
     
     # If a is small compared to b, splitting on b gives a degenerate
     # case with ah==0, and Karatsuba may be (even much) less efficient
