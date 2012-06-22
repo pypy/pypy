@@ -65,6 +65,8 @@ int _PyPy_SSL_SetupThreads(void)
 
 eci = ExternalCompilationInfo(
     separate_module_sources=[separate_module_source],
+    post_include_bits=[
+        "int _PyPy_SSL_SetupThreads(void);"],
     export_symbols=['_PyPy_SSL_SetupThreads'],
 )
 
