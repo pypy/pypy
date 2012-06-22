@@ -24,6 +24,15 @@ def entry_point(argv):
         6.446812
 
     """
+    
+    t = time()
+    i = rbigint.fromint(2**31)
+    i2 = rbigint.fromint(2**31)
+    for n in xrange(75000):
+        i = i.mul(i2)
+
+    print time() - t
+    
     t = time()
     
     for n in xrange(10000):
