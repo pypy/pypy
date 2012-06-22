@@ -864,7 +864,7 @@ def _x_mul(a, b):
         if digit == 0:
             return rbigint([NULLDIGIT], 1)
         elif digit == 1:
-            return rbigint([b._digits[0]], 1)
+            return rbigint(b._digits[:], 1)
         
     size_b = b.numdigits()
 
