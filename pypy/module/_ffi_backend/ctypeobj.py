@@ -136,6 +136,11 @@ class W_CTypePrimitive(W_CType):
         w_cdata.write_raw_integer_data(value)
         return w_cdata
 
+    def convert_from_object(self, cdata, w_ob):
+        value = misc.as_unsigned_long_long(self.space, w_ob, strict=True)
+        misc.write_raw_integer_data(cdata, value, self.size)
+        # xxx overflow
+
 
 class W_CTypePrimitiveChar(W_CTypePrimitive):
 
