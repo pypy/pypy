@@ -221,6 +221,11 @@ class W_CTypePrimitiveFloat(W_CTypePrimitive):
         value = misc.read_raw_float_data(cdata, self.size)
         return self.space.wrap(value)
 
+    def convert_from_object(self, cdata, w_ob):
+        space = self.space
+        value = space.float_w(space.float(w_ob))
+        misc.write_raw_float_data(cdata, value, self.size)
+
 
 W_CType.typedef = TypeDef(
     '_ffi_backend.CTypeDescr',
