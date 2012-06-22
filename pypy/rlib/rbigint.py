@@ -763,20 +763,13 @@ def _x_add(a, b):
     """ Add the absolute values of two bigint integers. """
     
     size_a = a.numdigits()
-    
-    # Special casing. This is good, sometimes.
-    # The sweetspot is hard to find. But it's someplace between 60 and 70.
-    if size_a < 65 and a is b:
-        return a.lqshift(1)
-    
-    
     size_b = b.numdigits()
 
     # Ensure a is the larger of the two:
     if size_a < size_b:
         a, b = b, a
         size_a, size_b = size_b, size_a
-    z = rbigint([NULLDIGIT] * (a.numdigits() + 1), 1)
+    z = rbigint([NULLDIGIT] * (size_a + 1), 1)
     i = 0
     carry = r_uint(0)
     while i < size_b:

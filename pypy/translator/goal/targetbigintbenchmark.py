@@ -10,7 +10,8 @@ def entry_point(argv):
     """
         A cutout with some benchmarks.
         Pypy default:
-        <No run yet>
+        8.637287
+        12.211942
         18.270045
         2.512140
         14.148920
@@ -24,7 +25,7 @@ def entry_point(argv):
         1.635417
         12.023154
         14.320596
-        6.464143
+        6.439088
 
     """
 
