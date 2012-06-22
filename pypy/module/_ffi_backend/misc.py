@@ -86,7 +86,7 @@ def nonstandard_integer_types(space):
 
 # ____________________________________________________________
 
-def as_long_long(space, w_ob, strict):
+def as_long_long(space, w_ob):
     # (possibly) convert and cast a Python object to a long long.
     # This version accepts a Python int too, and does convertions from
     # other types of objects.  It refuses floats.

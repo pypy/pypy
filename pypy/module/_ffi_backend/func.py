@@ -21,13 +21,12 @@ def cast(space, ctype, w_ob):
 # ____________________________________________________________
 
 def sizeof(space, w_obj):
-    if cdataobj.check_cdata(space, w_obj):
+    ob = space.interpclass_w(w_obj)
+    if isinstance(ob, cdataobj.W_CData):
         # xxx CT_ARRAY
-        w_cdata = space.interp_w(cdataobj.W_CData, w_obj)
-        size = w_cdata.ctype.size
-    elif ctypeobj.check_ctype(space, w_obj):
-        w_ctype = space.interp_w(ctypeobj.W_CType, w_obj)
-        size = w_ctype.size
+        size = ob.ctype.size
+    elif isinstance(ob, ctypeobj.W_CType):
+        size = ob.size
         if size < 0:
             raise operationerrfmt(space.w_ValueError,
                                   "ctype '%s' is of unknown size",

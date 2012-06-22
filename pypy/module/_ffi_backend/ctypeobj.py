@@ -4,6 +4,7 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.rarithmetic import intmask
+from pypy.rlib.objectmodel import keepalive_until_here
 
 from pypy.module._ffi_backend import cdataobj, misc
 
@@ -44,6 +45,13 @@ class W_CType(Wrappable):
     def convert_to_object(self, cdata):
         raise NotImplementedError
 
+    def convert_from_object(self, cdata, w_ob):
+        raise NotImplementedError
+
+    def _check_subscript_index(self, w_cdata, i):
+        space = self.space
+        raise OperationError(xxx)
+
     def try_str(self, cdata):
         return None
 
@@ -55,7 +63,11 @@ class W_CType(Wrappable):
         return name, name_position
 
 
-class W_CTypePointer(W_CType):
+class W_CTypePtrOrArray(W_CType):
+    pass
+
+
+class W_CTypePointer(W_CTypePtrOrArray):
 
     def __init__(self, space, ctypeitem):
         name, name_position = ctypeitem.insert_name(' *', 2)
@@ -64,7 +76,18 @@ class W_CTypePointer(W_CType):
         self.ctypeitem = ctypeitem
 
     def cast(self, w_ob):
-        xxx
+        space = self.space
+        ob = space.interpclass_w(w_ob)
+        if (isinstance(ob, cdataobj.W_CData) and
+                isinstance(ob.ctype, W_CTypePtrOrArray)):
+            value = ob._cdata
+        elif space.is_w(w_ob, space.w_None):
+            value = lltype.nullptr(rffi.CCHARP.TO)
+        else:
+            xxx
+            value = misc.as_unsigned_long_long(space, w_ob, strict=False)
+            value = rffi.cast(rffi.CCHARP, value)
+        return cdataobj.W_CData(space, value, self)
 
     def newp(self, w_init):
         space = self.space
@@ -73,8 +96,18 @@ class W_CTypePointer(W_CType):
             xxx
         if isinstance(citem, W_CTypePrimitiveChar):
             xxx
-        w_cdata = cdataobj.W_CDataOwn(space, citem.size, self)
-        return w_cdata
+        cdata = cdataobj.W_CDataOwn(space, citem.size, self)
+        if not space.is_w(w_init, space.w_None):
+            citem.convert_from_object(cdata._cdata, w_init)
+            keepalive_until_here(cdata)
+        return cdata
+
+    def _check_subscript_index(self, w_cdata, i):
+        if isinstance(w_cdata, cdataobj.W_CDataOwn) and i != 0:
+            space = self.space
+            raise operationerrfmt(space.w_IndexError,
+                                  "cdata '%s' can only be indexed by 0",
+                                  self.name)
 
 
 class W_CTypePrimitive(W_CType):
@@ -90,7 +123,8 @@ class W_CTypePrimitive(W_CType):
 
     def cast(self, w_ob):
         space = self.space
-        if cdataobj.check_cdata(space, w_ob):
+        ob = space.interpclass_w(w_ob)
+        if isinstance(ob, cdataobj.W_CData):
             xxx
         elif space.isinstance_w(w_ob, space.w_str):
             value = self.cast_single_char(w_ob)
@@ -135,6 +169,12 @@ class W_CTypePrimitiveSigned(W_CTypePrimitive):
         else:
             return self.space.wrap(value)    # r_longlong => on 32-bit, 'long'
 
+    def convert_from_object(self, cdata, w_ob):
+        value = misc.as_long_long(self.space, w_ob)
+        # xxx enums
+        misc.write_raw_integer_data(cdata, value, self.size)
+        # xxx overflow
+
 
 class W_CTypePrimitiveUnsigned(W_CTypePrimitive):
 
@@ -157,7 +197,8 @@ class W_CTypePrimitiveFloat(W_CTypePrimitive):
 
     def cast(self, w_ob):
         space = self.space
-        if cdataobj.check_cdata(space, w_ob):
+        ob = space.interpclass_w(w_ob)
+        if isinstance(ob, cdataobj.W_CData):
             xxx
         elif space.isinstance_w(w_ob, space.w_str):
             value = self.cast_single_char(w_ob)
@@ -186,7 +227,3 @@ W_CType.typedef = TypeDef(
     __repr__ = interp2app(W_CType.repr),
     )
 W_CType.acceptable_as_base_class = False
-
-
-def check_ctype(space, w_obj):
-    return space.is_w(space.type(w_obj), space.gettypefor(W_CType))
