@@ -561,6 +561,26 @@ class rbigint(object):
         z._normalize()
         return z
 
+    def lqshift(self, int_other):
+        " A quicker one with much less checks, int_other is valid and for the most part constant."
+        if int_other == 0:
+            return self
+
+        oldsize = self.numdigits()
+        newsize = oldsize + 1
+
+        z = rbigint([NULLDIGIT] * newsize, self.sign)
+        accum = _widen_digit(0)
+
+        for i in range(oldsize):
+            accum += self.widedigit(i) << int_other
+            z.setdigit(i, accum)
+            accum >>= SHIFT
+            
+        z.setdigit(newsize - 1, accum)
+        z._normalize()
+        return z
+    
     def rshift(self, int_other, dont_invert=False):
         if int_other < 0:
             raise ValueError("negative shift count")
@@ -642,8 +662,8 @@ class rbigint(object):
         assert i >= 1
         if i != self.numdigits():
             self._digits = self._digits[:i]
-            if self.numdigits() == 1 and self.digit(0) == 0:
-                self.sign = 0
+        if self.numdigits() == 1 and self.digit(0) == 0:
+            self.sign = 0
 
     def bit_length(self):
         i = self.numdigits()
@@ -743,7 +763,15 @@ def args_from_long(x):
 
 def _x_add(a, b):
     """ Add the absolute values of two bigint integers. """
+    
     size_a = a.numdigits()
+    
+    # Special casing. This is good, sometimes.
+    # The sweetspot is hard to find. But it's someplace between 60 and 70.
+    if size_a < 65 and a is b:
+        return a.lqshift(1)
+    
+    
     size_b = b.numdigits()
 
     # Ensure a is the larger of the two:
@@ -769,6 +797,11 @@ def _x_add(a, b):
 
 def _x_sub(a, b):
     """ Subtract the absolute values of two integers. """
+    
+    # Special casing.
+    if a is b:
+        return rbigint([NULLDIGIT], 1)
+    
     size_a = a.numdigits()
     size_b = b.numdigits()
     sign = 1
@@ -870,11 +903,11 @@ def _x_mul(a, b):
         # Special case.
         digit = a.digit(0)
         if digit == 0:
-            return rbigint(a._digits[:], 1)
+            return rbigint([NULLDIGIT], 1)
         elif digit == 1:
             return rbigint(b._digits[:], 1)
         elif digit & (digit - 1) == 0:
-            return b.lshift(ptwotable[digit])
+            return b.lqshift(ptwotable[digit])
     
     z = rbigint([NULLDIGIT] * (size_a + size_b), 1)
     # gradeschool long mult
