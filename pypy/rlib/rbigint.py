@@ -93,9 +93,7 @@ class Entry(extregistry.ExtRegistryEntry):
 class rbigint(object):
     """This is a reimplementation of longs using a list of digits."""
 
-    def __init__(self, digits=[], sign=0):
-        if len(digits) == 0:
-            digits = [NULLDIGIT]
+    def __init__(self, digits=[NULLDIGIT], sign=0):
         _check_digits(digits)
         make_sure_not_resized(digits)
         self._digits = digits
@@ -374,7 +372,7 @@ class rbigint(object):
             result = _x_mul(self, other)
         result.sign = self.sign * other.sign
         return result
-
+    
     def truediv(self, other):
         div = _bigint_true_divide(self, other)
         return div
@@ -450,27 +448,29 @@ class rbigint(object):
             if a.sign < 0:
                 a, temp = a.divmod(c)
                 a = temp
-
+                
+        size_b = b.numdigits()
+            
         # At this point a, b, and c are guaranteed non-negative UNLESS
         # c is NULL, in which case a may be negative. */
 
-        z = rbigint([_store_digit(1)], 1)
-
+        z = rbigint([ONEDIGIT], 1)
+        
         # python adaptation: moved macros REDUCE(X) and MULT(X, Y, result)
         # into helper function result = _help_mult(x, y, c)
-        if b.numdigits() <= FIVEARY_CUTOFF:
+        if not c or size_b <= FIVEARY_CUTOFF:
             # Left-to-right binary exponentiation (HAC Algorithm 14.79)
             # http://www.cacr.math.uwaterloo.ca/hac/about/chap14.pdf
-            i = b.numdigits() - 1
-            while i >= 0:
-                bi = b.digit(i)
+            size_b -= 1
+            while size_b >= 0:
+                bi = b.digit(size_b)
                 j = 1 << (SHIFT-1)
                 while j != 0:
                     z = _help_mult(z, z, c)
                     if bi & j:
                         z = _help_mult(z, a, c)
                     j >>= 1
-                i -= 1
+                size_b -= 1
         else:
             # Left-to-right 5-ary exponentiation (HAC Algorithm 14.82)
             # This is only useful in the case where c != None.
@@ -479,7 +479,7 @@ class rbigint(object):
             table[0] = z
             for i in range(1, 32):
                 table[i] = _help_mult(table[i-1], a, c)
-            i = b.numdigits()
+
             # Note that here SHIFT is not a multiple of 5.  The difficulty
             # is to extract 5 bits at a time from 'b', starting from the
             # most significant digits, so that at the end of the algorithm
@@ -488,11 +488,11 @@ class rbigint(object):
             # m+ = m rounded up to the next multiple of 5
             # j  = (m+) % SHIFT = (m+) - (i * SHIFT)
             # (computed without doing "i * SHIFT", which might overflow)
-            j = i % 5
+            j = size_b % 5
             if j != 0:
                 j = 5 - j
             if not we_are_translated():
-                assert j == (i*SHIFT+4)//5*5 - i*SHIFT
+                assert j == (size_b*SHIFT+4)//5*5 - size_b*SHIFT
             #
             accum = r_uint(0)
             while True:
@@ -502,10 +502,12 @@ class rbigint(object):
                 else:
                     # 'accum' does not have enough digit.
                     # must get the next digit from 'b' in order to complete
-                    i -= 1
-                    if i < 0:
-                        break    # done
-                    bi = b.udigit(i)
+                    if size_b == 0:
+                        break # Done
+                        
+                    size_b -= 1
+
+                    bi = b.udigit(size_b)
                     index = ((accum << (-j)) | (bi >> (j+SHIFT))) & 0x1f
                     accum = bi
                     j += SHIFT
@@ -563,13 +565,11 @@ class rbigint(object):
 
     def lqshift(self, int_other):
         " A quicker one with much less checks, int_other is valid and for the most part constant."
-        if int_other == 0:
-            return self
+        assert int_other > 0
 
         oldsize = self.numdigits()
-        newsize = oldsize + 1
 
-        z = rbigint([NULLDIGIT] * newsize, self.sign)
+        z = rbigint([NULLDIGIT] * (oldsize + 1), self.sign)
         accum = _widen_digit(0)
 
         for i in range(oldsize):
@@ -577,7 +577,7 @@ class rbigint(object):
             z.setdigit(i, accum)
             accum >>= SHIFT
             
-        z.setdigit(newsize - 1, accum)
+        z.setdigit(oldsize, accum)
         z._normalize()
         return z
     
@@ -701,11 +701,9 @@ def _help_mult(x, y, c):
     # Perform a modular reduction, X = X % c, but leave X alone if c
     # is NULL.
     if c is not None:
-        res, temp = res.divmod(c)
-        res = temp
+        temp, res = res.divmod(c)
+        
     return res
-
-
 
 def digits_from_nonneg_long(l):
     digits = []
@@ -850,21 +848,21 @@ for x in range(SHIFT):
     ptwotable[2 << x] = x+1
     ptwotable[-2 << x] = x+1
     
-def _x_mul(a, b):
+def _x_mul(a, b, digit=0):
     """
     Grade school multiplication, ignoring the signs.
     Returns the absolute value of the product, or None if error.
     """
 
     size_a = a.numdigits()
-    
+
     if size_a == 1:
         # Special case.
         digit = a.digit(0)
         if digit == 0:
             return rbigint([NULLDIGIT], 1)
         elif digit == 1:
-            return rbigint(b._digits[:], 1)
+            return rbigint(b._digits[:], 1) # We assume b was normalized already.
         
     size_b = b.numdigits()
 
@@ -909,33 +907,31 @@ def _x_mul(a, b):
             i += 1
         z._normalize()
         return z
-    else:
-        if size_a == 1:
-            digit = a.digit(0)
-            if digit & (digit - 1) == 0:
-                return b.lqshift(ptwotable[digit])
-        
-        z = rbigint([NULLDIGIT] * (size_a + size_b), 1)
-        # gradeschool long mult
-        i = 0
-        while i < size_a:
-            carry = 0
-            f = a.widedigit(i)
-            pz = i
-            pb = 0
-            while pb < size_b:
-                carry += z.widedigit(pz) + b.widedigit(pb) * f
-                pb += 1
-                z.setdigit(pz, carry)
-                pz += 1
-                carry >>= SHIFT
-                assert carry <= MASK
-            if carry:
-                z.setdigit(pz, z.widedigit(pz) + carry)
-            assert (carry >> SHIFT) == 0
-            i += 1
-        z._normalize()
-        return z
+    
+    elif digit and digit & (digit - 1) == 0:
+        return b.lqshift(ptwotable[digit])
+
+    z = rbigint([NULLDIGIT] * (size_a + size_b), 1)
+    # gradeschool long mult
+    i = 0
+    while i < size_a:
+        carry = 0
+        f = a.widedigit(i)
+        pz = i
+        pb = 0
+        while pb < size_b:
+            carry += z.widedigit(pz) + b.widedigit(pb) * f
+            pb += 1
+            z.setdigit(pz, carry)
+            pz += 1
+            carry >>= SHIFT
+            assert carry <= MASK
+        if carry:
+            z.setdigit(pz, z.widedigit(pz) + carry)
+        assert (carry >> SHIFT) == 0
+        i += 1
+    z._normalize()
+    return z
 
 
 def _kmul_split(n, size):
@@ -1140,7 +1136,8 @@ def _k_lopsided_mul(a, b):
     # Successive slices of b are copied into bslice.
     #bslice = rbigint([0] * asize, 1)
     # XXX we cannot pre-allocate, see comments below!
-    bslice = rbigint([NULLDIGIT], 1)
+    # XXX prevent one list from being created.
+    bslice = rbigint(sign = 1)
     
     nbdone = 0;
     while bsize > 0:
