@@ -857,26 +857,25 @@ def _x_mul(a, b):
     """
 
     size_a = a.numdigits()
-
+    
     if size_a == 1:
         # Special case.
         digit = a.digit(0)
         if digit == 0:
             return rbigint([NULLDIGIT], 1)
         elif digit == 1:
-            return rbigint(b._digits[:], 1)
-        elif digit & (digit - 1) == 0:
-            return b.lqshift(ptwotable[digit])
+            return rbigint([b._digits[0]], 1)
         
-    size_b = b.numdigits()    
-    z = rbigint([NULLDIGIT] * (size_a + size_b), 1)
-    i = 0
+    size_b = b.numdigits()
+
     if a is b:
         # Efficient squaring per HAC, Algorithm 14.16:
         # http://www.cacr.math.uwaterloo.ca/hac/about/chap14.pdf
         # Gives slightly less than a 2x speedup when a == b,
         # via exploiting that each entry in the multiplication
         # pyramid appears twice (except for the size_a squares).
+        z = rbigint([NULLDIGIT] * (size_a + size_b), 1)
+        i = 0
         while i < size_a:
             f = a.widedigit(i)
             pz = i << 1
@@ -908,8 +907,17 @@ def _x_mul(a, b):
                 z.setdigit(pz, z.widedigit(pz) + carry)
             assert (carry >> SHIFT) == 0
             i += 1
+        z._normalize()
+        return z
     else:
+        if size_a == 1:
+            digit = a.digit(0)
+            if digit & (digit - 1) == 0:
+                return b.lqshift(ptwotable[digit])
+        
+        z = rbigint([NULLDIGIT] * (size_a + size_b), 1)
         # gradeschool long mult
+        i = 0
         while i < size_a:
             carry = 0
             f = a.widedigit(i)
@@ -926,9 +934,8 @@ def _x_mul(a, b):
                 z.setdigit(pz, z.widedigit(pz) + carry)
             assert (carry >> SHIFT) == 0
             i += 1
-            
-    z._normalize()
-    return z
+        z._normalize()
+        return z
 
 
 def _kmul_split(n, size):
