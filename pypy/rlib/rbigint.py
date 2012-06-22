@@ -857,16 +857,26 @@ def _x_mul(a, b):
     """
 
     size_a = a.numdigits()
-    size_b = b.numdigits()
-    """
-    # Code below actually runs slower (about 20%). Dunno why, since it shouldn't.
+
+    if size_a == 1:
+        # Special case.
+        digit = a.digit(0)
+        if digit == 0:
+            return rbigint([NULLDIGIT], 1)
+        elif digit == 1:
+            return rbigint(b._digits[:], 1)
+        elif digit & (digit - 1) == 0:
+            return b.lqshift(ptwotable[digit])
+        
+    size_b = b.numdigits()    
+    z = rbigint([NULLDIGIT] * (size_a + size_b), 1)
+    i = 0
     if a is b:
         # Efficient squaring per HAC, Algorithm 14.16:
         # http://www.cacr.math.uwaterloo.ca/hac/about/chap14.pdf
         # Gives slightly less than a 2x speedup when a == b,
         # via exploiting that each entry in the multiplication
         # pyramid appears twice (except for the size_a squares).
-        i = 0
         while i < size_a:
             f = a.widedigit(i)
             pz = i << 1
@@ -898,36 +908,25 @@ def _x_mul(a, b):
                 z.setdigit(pz, z.widedigit(pz) + carry)
             assert (carry >> SHIFT) == 0
             i += 1
-    else:"""
-    if size_a == 1:
-        # Special case.
-        digit = a.digit(0)
-        if digit == 0:
-            return rbigint([NULLDIGIT], 1)
-        elif digit == 1:
-            return rbigint(b._digits[:], 1)
-        elif digit & (digit - 1) == 0:
-            return b.lqshift(ptwotable[digit])
-    
-    z = rbigint([NULLDIGIT] * (size_a + size_b), 1)
-    # gradeschool long mult
-    i = 0
-    while i < size_a:
-        carry = 0
-        f = a.widedigit(i)
-        pz = i
-        pb = 0
-        while pb < size_b:
-            carry += z.widedigit(pz) + b.widedigit(pb) * f
-            pb += 1
-            z.setdigit(pz, carry)
-            pz += 1
-            carry >>= SHIFT
-            assert carry <= MASK
-        if carry:
-            z.setdigit(pz, z.widedigit(pz) + carry)
-        assert (carry >> SHIFT) == 0
-        i += 1
+    else:
+        # gradeschool long mult
+        while i < size_a:
+            carry = 0
+            f = a.widedigit(i)
+            pz = i
+            pb = 0
+            while pb < size_b:
+                carry += z.widedigit(pz) + b.widedigit(pb) * f
+                pb += 1
+                z.setdigit(pz, carry)
+                pz += 1
+                carry >>= SHIFT
+                assert carry <= MASK
+            if carry:
+                z.setdigit(pz, z.widedigit(pz) + carry)
+            assert (carry >> SHIFT) == 0
+            i += 1
+            
     z._normalize()
     return z
 
