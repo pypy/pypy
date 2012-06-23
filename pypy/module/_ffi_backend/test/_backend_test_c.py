@@ -831,7 +831,15 @@ def test_bitfield_instance_init():
     BInt = new_primitive_type("int")
     BStruct = new_struct_type("foo")
     complete_struct_or_union(BStruct, [('a1', BInt, 1)])
-    py.test.raises(NotImplementedError, newp, new_pointer_type(BStruct), [-1])
+    p = newp(new_pointer_type(BStruct), [-1])
+    assert p.a1 == -1
+    p = newp(new_pointer_type(BStruct), {'a1': -1})
+    assert p.a1 == -1
+    #
+    BUnion = new_union_type("bar")
+    complete_struct_or_union(BUnion, [('a1', BInt, 1)])
+    p = newp(new_pointer_type(BUnion), -1)
+    assert p.a1 == -1
 
 def test_weakref():
     import weakref

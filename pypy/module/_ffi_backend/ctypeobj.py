@@ -211,12 +211,12 @@ class W_CTypeArray(W_CTypePtrOrArray):
         space = self.space
         if (space.isinstance_w(w_ob, space.w_list) or
             space.isinstance_w(w_ob, space.w_tuple)):
-            lst = space.listview(w_ob)
-            if self.length >= 0 and len(lst) > self.length:
+            lst_w = space.listview(w_ob)
+            if self.length >= 0 and len(lst_w) > self.length:
                 xxx
             ctitem = self.ctitem
-            for i in range(len(lst)):
-                ctitem.convert_from_object(cdata, lst[i])
+            for i in range(len(lst_w)):
+                ctitem.convert_from_object(cdata, lst_w[i])
                 cdata = rffi.ptradd(cdata, ctitem.size)
         else:
             xxx
@@ -432,8 +432,29 @@ class W_CTypeStructOrUnion(W_CType):
 class W_CTypeStruct(W_CTypeStructOrUnion):
     kind = "struct"
 
+    def convert_from_object(self, cdata, w_ob):
+        space = self.space
+        ob = space.interpclass_w(w_ob)
+        if isinstance(ob, cdataobj.W_CData):
+            xxx
+
+        if (space.isinstance_w(w_ob, space.w_list) or
+            space.isinstance_w(w_ob, space.w_tuple)):
+            lst_w = space.listview(w_ob)
+            if len(lst_w) > len(self.fields_list):
+                xxx  # "too many initializers for '%s' (got %zd)"
+            for i in range(len(lst_w)):
+                self.fields_list[i].write(cdata, lst_w[i])
+        else:
+            xxx
+
+
 class W_CTypeUnion(W_CTypeStructOrUnion):
     kind = "union"
+
+    def convert_from_object(self, cdata, w_ob):
+        xxx
+
 
 class W_CField(Wrappable):
     _immutable_ = True
