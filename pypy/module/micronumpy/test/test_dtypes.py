@@ -439,6 +439,16 @@ class AppTestTypes(BaseNumpyAppTest):
         assert c.imag == 2
         assert repr(c) == '(1+2j)'
 
+        c = numpy.complex128(complex(0, 1))
+        assert c.real == 0
+        assert c.imag == 1
+        assert repr(c) == '1j'
+
+        c = numpy.complex128(complex(1, 0))
+        assert c.real == 1
+        assert c.imag == 0
+        assert repr(c) == '(1+0j)'
+
     def test_complex_dtype(self):
         import _numpypy as numpy
 

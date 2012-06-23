@@ -936,9 +936,12 @@ class Complex128(BaseType):
         return w_obj
 
     def str_format(self, box):
+        imag_str = str_format(box.imag) + 'j'
+        if box.real == 0:
+            return imag_str
+        
         real_str = str_format(box.real)
-        imag_str = str_format(box.imag)
-        return ''.join(['(', real_str, '+', imag_str, 'j', ')'])
+        return ''.join(['(', real_str, '+', imag_str, ')'])
 
 
 NonNativeComplex128 = Complex128
