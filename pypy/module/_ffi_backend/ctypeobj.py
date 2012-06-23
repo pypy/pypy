@@ -263,6 +263,12 @@ class W_CTypePrimitive(W_CType):
         w_cdata.write_raw_integer_data(value)
         return w_cdata
 
+    def _overflow(self, w_ob):
+        space = self.space
+        s = space.str_w(space.str(w_ob))
+        raise operationerrfmt(space.w_OverflowError,
+                              "integer %s does not fit '%s'", s, self.name)
+
 
 class W_CTypePrimitiveChar(W_CTypePrimitive):
 
@@ -319,8 +325,12 @@ class W_CTypePrimitiveSigned(W_CTypePrimitive):
     def convert_from_object(self, cdata, w_ob):
         value = misc.as_long_long(self.space, w_ob)
         # xxx enums
+        if self.value_fits_long:
+            vmin = (-1) << (self.size * 8 - 1)
+            vmax = ~vmin
+            if not (vmin <= value <= vmax):
+                self._overflow(w_ob)
         misc.write_raw_integer_data(cdata, value, self.size)
-        # xxx overflow
 
 
 class W_CTypePrimitiveUnsigned(W_CTypePrimitive):
