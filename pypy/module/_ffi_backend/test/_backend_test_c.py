@@ -65,6 +65,7 @@ def test_integer_types():
         assert int(cast(p, max)) == max
         assert int(cast(p, min - 1)) == max
         assert int(cast(p, max + 1)) == min
+        assert int(cast(p, None)) == 0
         assert long(cast(p, min - 1)) == max
     for name in ['char', 'short', 'int', 'long', 'long long']:
         p = new_primitive_type('unsigned ' + name)
@@ -142,6 +143,16 @@ def test_pointer_to_int():
     assert p == q
     assert hash(p) == hash(q)
 
+def test_pointer_bool():
+    BInt = new_primitive_type("int")
+    BPtr = new_pointer_type(BInt)
+    p = cast(BPtr, None)
+    assert bool(p) is False
+    p = cast(BPtr, 0)
+    assert bool(p) is False
+    p = cast(BPtr, 42)
+    assert bool(p) is True
+
 def test_pointer_to_pointer():
     BInt = new_primitive_type("int")
     BPtr = new_pointer_type(BInt)
@@ -187,6 +198,8 @@ def test_reading_pointer_to_char():
     assert p[0] == 'A'
     py.test.raises(TypeError, newp, BPtr, 65)
     py.test.raises(TypeError, newp, BPtr, "foo")
+    assert str(cast(BChar, 'A')) == 'A'
+    py.test.raises(TypeError, cast, BChar, 'foo')
 
 def test_hash_differences():
     BChar = new_primitive_type("char")
@@ -195,6 +208,47 @@ def test_hash_differences():
     assert (hash(cast(BChar, 'A')) !=
             hash(cast(BInt, 65)))
     assert hash(cast(BFloat, 65)) != hash(65.0)
+
+def test_no_len_on_nonarray():
+    p = new_primitive_type("int")
+    py.test.raises(TypeError, len, cast(p, 42))
+
+def test_cmp_none():
+    p = new_primitive_type("int")
+    x = cast(p, 42)
+    assert (x == None) is False
+    assert (x != None) is True
+    assert (x == ["hello"]) is False
+    assert (x != ["hello"]) is True
+
+def test_invalid_indexing():
+    p = new_primitive_type("int")
+    x = cast(p, 42)
+    py.test.raises(TypeError, "p[0]")
+
+def test_default_str():
+    p = new_primitive_type("int")
+    x = cast(p, 42)
+    assert str(x) == repr(x)
+
+def test_cast_from_cdataint():
+    BInt = new_primitive_type("int")
+    x = cast(BInt, 0)
+    y = cast(new_pointer_type(BInt), x)
+    assert bool(y) is False
+    #
+    x = cast(BInt, 42)
+    y = cast(BInt, x)
+    assert int(y) == 42
+    y = cast(new_primitive_type("char"), x)
+    assert str(y) == chr(42)
+    y = cast(new_primitive_type("float"), x)
+    assert float(y) == 42.0
+    #
+    z = cast(BInt, 42.5)
+    assert int(z) == 42
+    z = cast(BInt, y)
+    assert int(z) == 42
 
 def test_array_type():
     p = new_primitive_type("int")
@@ -236,6 +290,7 @@ def test_array_instance():
         assert a[i] == i * i + 1
     e = py.test.raises(IndexError, "a[LENGTH+100] = 500")
     assert ('(expected %d < %d)' % (LENGTH+100, LENGTH)) in str(e.value)
+    py.test.raises(TypeError, int, a)
 
 def test_array_of_unknown_length_instance():
     p = new_primitive_type("int")
