@@ -134,42 +134,31 @@ class W_CData(Wrappable):
         #
         return self._add_or_sub(w_other, -1)
 
-    def getattr(self, w_attr):
+    def getcfield(self, w_attr):
         from pypy.module._ffi_backend import ctypeobj
         space = self.space
         ctype = self.ctype
         attr = space.str_w(w_attr)
+        if isinstance(ctype, ctypeobj.W_CTypePointer):
+            ctype = ctype.ctitem
         if (isinstance(ctype, ctypeobj.W_CTypeStructOrUnion) and
                 ctype.fields_dict is not None):
             try:
-                cfield = ctype.fields_dict[attr]
+                return ctype.fields_dict[attr]
             except KeyError:
                 pass
-            else:
-                w_res = cfield.read(self._cdata)
-                keepalive_until_here(self)
-                return w_res
         raise operationerrfmt(space.w_AttributeError,
                               "cdata '%s' has no attribute '%s'",
                               ctype.name, attr)
 
+    def getattr(self, w_attr):
+        w_res = self.getcfield(w_attr).read(self._cdata)
+        keepalive_until_here(self)
+        return w_res
+
     def setattr(self, w_attr, w_value):
-        from pypy.module._ffi_backend import ctypeobj
-        space = self.space
-        ctype = self.ctype
-        attr = space.str_w(w_attr)
-        if (isinstance(ctype, ctypeobj.W_CTypeStructOrUnion) and
-                ctype.fields_dict is not None):
-            try:
-                cfield = ctype.fields_dict[attr]
-            except KeyError:
-                pass
-            else:
-                cfield.write(self._cdata, w_value)
-                return
-        raise operationerrfmt(space.w_AttributeError,
-                              "cdata '%s' has no attribute '%s'",
-                              ctype.name, attr)
+        self.getcfield(w_attr).write(self._cdata, w_value)
+        keepalive_until_here(self)
 
 ##    def read_raw_signed_data(self):
 ##        result = misc.read_raw_signed_data(self._cdata, self.ctype.size)
