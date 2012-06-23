@@ -6,13 +6,19 @@ from pypy.rlib.rarithmetic import ovfcheck
 from pypy.module._ffi_backend import ctypeobj
 
 
+def alignment(TYPE):
+    S = lltype.Struct('aligncheck', ('x', lltype.Char), ('y', TYPE))
+    return rffi.offsetof(S, 'y')
+
+alignment_of_pointer = alignment(rffi.CCHARP)
+
 # ____________________________________________________________
 
 
 PRIMITIVE_TYPES = {}
 
 def eptype(name, TYPE, ctypecls):
-    PRIMITIVE_TYPES[name] = ctypecls, rffi.sizeof(TYPE)
+    PRIMITIVE_TYPES[name] = ctypecls, rffi.sizeof(TYPE), alignment(TYPE)
 
 eptype("char",        lltype.Char,     ctypeobj.W_CTypePrimitiveChar)
 eptype("signed char", rffi.SIGNEDCHAR, ctypeobj.W_CTypePrimitiveSigned)
@@ -31,10 +37,10 @@ eptype("double", rffi.DOUBLE, ctypeobj.W_CTypePrimitiveFloat)
 @unwrap_spec(name=str)
 def new_primitive_type(space, name):
     try:
-        ctypecls, size = PRIMITIVE_TYPES[name]
+        ctypecls, size, align = PRIMITIVE_TYPES[name]
     except KeyError:
         raise OperationError(space.w_KeyError, space.wrap(name))
-    ctype = ctypecls(space, size, name, len(name))
+    ctype = ctypecls(space, size, name, len(name), align)
     return ctype
 
 # ____________________________________________________________

@@ -16,4 +16,5 @@ class Module(MixedModule):
         'newp': 'func.newp',
         'cast': 'func.cast',
         'sizeof': 'func.sizeof',
+        'alignof': 'func.alignof',
         }

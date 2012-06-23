@@ -71,6 +71,9 @@ class W_CType(Wrappable):
         name_position = self.name_position + extra_position
         return name, name_position
 
+    def alignof(self):
+        xxx
+
 
 class W_CTypePtrOrArray(W_CType):
 
@@ -132,6 +135,10 @@ class W_CTypePointer(W_CTypePtrOrArray):
         p = rffi.ptradd(cdata, i * self.ctitem.size)
         return cdataobj.W_CData(self.space, p, self)
 
+    def alignof(self):
+        from pypy.module._ffi_backend import newtype
+        return newtype.alignment_of_pointer
+
 
 class W_CTypeArray(W_CTypePtrOrArray):
 
@@ -140,6 +147,9 @@ class W_CTypeArray(W_CTypePtrOrArray):
                                    ctptr.ctitem)
         self.length = length
         self.ctptr = ctptr
+
+    def alignof(self):
+        return self.ctitem.alignof()
 
     def newp(self, w_init):
         space = self.space
@@ -208,6 +218,13 @@ class W_CTypeArray(W_CTypePtrOrArray):
 
 
 class W_CTypePrimitive(W_CType):
+
+    def __init__(self, space, size, name, name_position, align):
+        W_CType.__init__(self, space, size, name, name_position)
+        self.align = align
+
+    def alignof(self):
+        return self.align
 
     def cast_single_char(self, w_ob):
         space = self.space
