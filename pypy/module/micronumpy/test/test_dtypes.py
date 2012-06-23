@@ -434,20 +434,17 @@ class AppTestTypes(BaseNumpyAppTest):
             numpy.complexfloating, numpy.inexact, numpy.number, numpy.generic,
             complex, object)
 
-        c = numpy.complex128(complex(1, 2))
-        assert c.real == 1 
-        assert c.imag == 2
-        assert repr(c) == '(1+2j)'
+        for real, imag, should in [
+            (1, 2, '(1+2j)'),
+            (0, 1, '1j'),
+            (1, 0, '(1+0j)'),
+            (-1, -2, '(-1-2j)')
+            ]:
 
-        c = numpy.complex128(complex(0, 1))
-        assert c.real == 0
-        assert c.imag == 1
-        assert repr(c) == '1j'
-
-        c = numpy.complex128(complex(1, 0))
-        assert c.real == 1
-        assert c.imag == 0
-        assert repr(c) == '(1+0j)'
+            c = numpy.complex128(complex(real, imag))
+            assert c.real == real
+            assert c.imag == imag
+            assert repr(c) == should
 
     def test_complex_dtype(self):
         import _numpypy as numpy
