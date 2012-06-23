@@ -421,6 +421,29 @@ class AppTestTypes(BaseNumpyAppTest):
         assert numpy.float64('23.4') == numpy.float64(23.4)
         raises(ValueError, numpy.float64, '23.2df')
 
+    def test_complex_floating(self):
+        import _numpypy as numpy
+
+        assert numpy.complexfloating.__mro__ == (numpy.complexfloating,
+            numpy.inexact, numpy.number, numpy.generic, object)
+
+    def test_complex(self):
+        import _numpypy as numpy
+
+        assert numpy.complex128.__mro__ == (numpy.complex128,
+            numpy.complexfloating, numpy.inexact, numpy.number, numpy.generic,
+            complex, object)
+
+        c = numpy.complex128(complex(1, 2))
+        assert c.real == 1 
+        assert c.imag == 2
+        assert repr(c) == '(1+2j)'
+
+    def test_complex_dtype(self):
+        import _numpypy as numpy
+
+        assert numpy.dtype(complex) is numpy.dtype("complex")
+
     def test_subclass_type(self):
         import _numpypy as numpy
 

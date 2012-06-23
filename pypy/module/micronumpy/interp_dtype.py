@@ -387,6 +387,16 @@ class DtypeCache(object):
             alternate_constructors=[space.w_float],
             aliases=["float"],
         )
+        self.w_complex128dtype = W_Dtype(
+            types.Complex128(),
+            num=15,
+            kind=FLOATINGLTR,
+            name="complex128",
+            char="c",
+            w_box_type = space.gettypefor(interp_boxes.W_Complex128Box),
+            alternate_constructors=[space.w_complex],
+            aliases=["complex"],
+        )
         self.w_stringdtype = W_Dtype(
             types.StringType(1),
             num=18,
@@ -420,8 +430,8 @@ class DtypeCache(object):
             self.w_int16dtype, self.w_uint16dtype, self.w_int32dtype,
             self.w_uint32dtype, self.w_longdtype, self.w_ulongdtype,
             self.w_int64dtype, self.w_uint64dtype,
-            self.w_float32dtype,
-            self.w_float64dtype, self.w_stringdtype, self.w_unicodedtype,
+            self.w_float32dtype, self.w_float64dtype, self.w_complex128dtype,
+            self.w_stringdtype, self.w_unicodedtype,
             self.w_voiddtype,
         ]
         self.float_dtypes_by_num_bytes = sorted(

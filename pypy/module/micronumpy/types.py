@@ -5,6 +5,7 @@ import struct
 from pypy.interpreter.error import OperationError
 from pypy.module.micronumpy import interp_boxes
 from pypy.objspace.std.floatobject import float2string
+from pypy.objspace.std.complexobject import W_ComplexObject, str_format
 from pypy.rlib import rfloat, libffi, clibffi
 from pypy.rlib.objectmodel import specialize, we_are_translated
 from pypy.rlib.rarithmetic import widen, byteswap
@@ -917,6 +918,30 @@ class NonNativeFloat64(BaseType, NonNativeFloat):
     T = rffi.DOUBLE
     BoxType = interp_boxes.W_Float64Box
     format_code = "d"
+
+class Complex128(BaseType):
+    _attrs_ = ()
+
+    T = rffi.CHAR
+    BoxType = interp_boxes.W_Complex128Box
+
+    def get_element_size(self):
+        return 2 * rffi.sizeof(rffi.DOUBLE)
+
+    def coerce_subtype(self, space, w_subtype, w_item):
+        real, imag = space.unpackcomplex(w_item)
+        w_obj = space.allocate_instance(self.BoxType, w_subtype)
+        assert isinstance(w_obj, self.BoxType)
+        w_obj.__init__(real, imag)
+        return w_obj
+
+    def str_format(self, box):
+        real_str = str_format(box.real)
+        imag_str = str_format(box.imag)
+        return ''.join(['(', real_str, '+', imag_str, 'j', ')'])
+
+
+NonNativeComplex128 = Complex128
 
 class BaseStringType(object):
     _mixin_ = True

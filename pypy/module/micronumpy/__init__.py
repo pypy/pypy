@@ -78,6 +78,8 @@ class Module(MixedModule):
         'str_': 'interp_boxes.W_StringBox',
         'unicode_': 'interp_boxes.W_UnicodeBox',
         'void': 'interp_boxes.W_VoidBox',
+        'complexfloating': 'interp_boxes.W_ComplexFloatingBox',
+        'complex128': 'interp_boxes.W_Complex128Box'
     }
 
     # ufuncs

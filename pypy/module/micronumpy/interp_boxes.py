@@ -1,11 +1,12 @@
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import operationerrfmt, OperationError
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.objspace.std.floattype import float_typedef
 from pypy.objspace.std.stringtype import str_typedef
 from pypy.objspace.std.unicodetype import unicode_typedef, unicode_from_object
 from pypy.objspace.std.inttype import int_typedef
+from pypy.objspace.std.complextype import complex_typedef
 from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.tool.sourcetools import func_with_new_name
 
@@ -221,6 +222,7 @@ class W_FlexibleBox(W_GenericBox):
 def descr_index(space, self):
     return space.index(self.item(space))
 
+
 class W_VoidBox(W_FlexibleBox):
     @unwrap_spec(item=str)
     def descr_getitem(self, space, item):
@@ -267,6 +269,24 @@ class W_UnicodeBox(W_CharacterBox):
         #for i in range(len(arg)):
         #    arr.storage[i] = arg[i]
         return W_UnicodeBox(arr, 0, arr.dtype)
+
+
+class W_ComplexFloatingBox(W_InexactBox):
+    _attrs_ = ()
+
+class W_Complex128Box(W_ComplexFloatingBox):
+    descr__new__, _get_dtype = new_dtype_getter("complex128")
+
+    def __init__(self, real, imag):
+        self.real = real
+        self.imag = imag
+
+    def descr_get_real(self, space):
+        return space.wrap(self.real)
+
+    def descr_get_imag(self, space):
+        return space.wrap(self.imag)
+
 
 W_GenericBox.typedef = TypeDef("generic",
     __module__ = "numpypy",
@@ -450,3 +470,13 @@ W_UnicodeBox.typedef = TypeDef("unicode_", (unicode_typedef, W_CharacterBox.type
     __new__ = interp2app(W_UnicodeBox.descr__new__unicode_box.im_func),
 )
 
+W_ComplexFloatingBox.typedef = TypeDef("complexfloating", W_InexactBox.typedef,
+    __module__ = "numpypy",
+)
+
+W_Complex128Box.typedef = TypeDef("complex128", (W_ComplexFloatingBox.typedef, complex_typedef),
+    __module__ = "numpypy",
+    __new__ = interp2app(W_Complex128Box.descr__new__.im_func),
+    real = GetSetProperty(W_Complex128Box.descr_get_real),
+    imag = GetSetProperty(W_Complex128Box.descr_get_imag),
+)
