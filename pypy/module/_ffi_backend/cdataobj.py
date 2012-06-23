@@ -134,6 +134,43 @@ class W_CData(Wrappable):
         #
         return self._add_or_sub(w_other, -1)
 
+    def getattr(self, w_attr):
+        from pypy.module._ffi_backend import ctypeobj
+        space = self.space
+        ctype = self.ctype
+        attr = space.str_w(w_attr)
+        if (isinstance(ctype, ctypeobj.W_CTypeStructOrUnion) and
+                ctype.fields_dict is not None):
+            try:
+                cfield = ctype.fields_dict[attr]
+            except KeyError:
+                pass
+            else:
+                w_res = cfield.read(self._cdata)
+                keepalive_until_here(self)
+                return w_res
+        raise operationerrfmt(space.w_AttributeError,
+                              "cdata '%s' has no attribute '%s'",
+                              ctype.name, attr)
+
+    def setattr(self, w_attr, w_value):
+        from pypy.module._ffi_backend import ctypeobj
+        space = self.space
+        ctype = self.ctype
+        attr = space.str_w(w_attr)
+        if (isinstance(ctype, ctypeobj.W_CTypeStructOrUnion) and
+                ctype.fields_dict is not None):
+            try:
+                cfield = ctype.fields_dict[attr]
+            except KeyError:
+                pass
+            else:
+                cfield.write(self._cdata, w_value)
+                return
+        raise operationerrfmt(space.w_AttributeError,
+                              "cdata '%s' has no attribute '%s'",
+                              ctype.name, attr)
+
 ##    def read_raw_signed_data(self):
 ##        result = misc.read_raw_signed_data(self._cdata, self.ctype.size)
 ##        keepalive_until_here(self)
@@ -214,5 +251,7 @@ W_CData.typedef = TypeDef(
     __setitem__ = interp2app(W_CData.setitem),
     __add__ = interp2app(W_CData.add),
     __sub__ = interp2app(W_CData.sub),
+    __getattr__ = interp2app(W_CData.getattr),
+    __setattr__ = interp2app(W_CData.setattr),
     )
 W_CData.typedef.acceptable_as_base_class = False

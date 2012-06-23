@@ -410,6 +410,14 @@ class W_CTypeStructOrUnion(W_CType):
                                         space.wrap(field)])
         return space.newlist(result)
 
+    def convert_to_object(self, cdata):
+        space = self.space
+        if self.size < 0:
+            raise operationerrfmt(space.w_TypeError,
+                                  "cannot return an incomplete cdata '%s'",
+                                  self.name)
+        return cdataobj.W_CData(space, cdata, self)
+
 
 class W_CTypeStruct(W_CTypeStructOrUnion):
     kind = "struct"
@@ -424,6 +432,20 @@ class W_CField(Wrappable):
         self.offset = offset
         self.bitshift = bitshift
         self.bitsize = bitsize
+
+    def read(self, cdata):
+        cdata = rffi.ptradd(cdata, self.offset)
+        if self.bitshift >= 0:
+            xxx
+        else:
+            return self.ctype.convert_to_object(cdata)
+
+    def write(self, cdata, w_ob):
+        cdata = rffi.ptradd(cdata, self.offset)
+        if self.bitshift >= 0:
+            xxx
+        else:
+            self.ctype.convert_from_object(cdata, w_ob)
 
 
 W_CType.typedef = TypeDef(
