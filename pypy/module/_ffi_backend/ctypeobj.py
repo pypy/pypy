@@ -253,7 +253,7 @@ class W_CTypePrimitiveChar(W_CTypePrimitive):
                 return s[0]
         ob = space.interpclass_w(w_ob)
         if (isinstance(ob, cdataobj.W_CData) and
-               isinstance(ob.type, W_CTypePrimitiveChar)):
+               isinstance(ob.ctype, W_CTypePrimitiveChar)):
             return ob._cdata[0]
         raise operationerrfmt(space.w_TypeError,
             "initializer for ctype 'char' must be a string of length 1, "
