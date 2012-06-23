@@ -54,9 +54,9 @@ _mask_digit._annspecialcase_ = 'specialize:argtype(0)'
 def _widen_digit(x):
     if not we_are_translated():
         assert is_valid_int(x), "widen_digit() takes an int, got a %r" % type(x)
-    if SHIFT <= 15:
-        return int(x)
-    return r_longlong(x)
+    if LONG_BIT < 64:
+        return r_longlong(x)
+    return x
 
 def _store_digit(x):
     if not we_are_translated():
