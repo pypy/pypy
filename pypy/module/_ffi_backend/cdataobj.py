@@ -183,4 +183,4 @@ W_CData.typedef = TypeDef(
     __getitem__ = interp2app(W_CData.getitem),
     __setitem__ = interp2app(W_CData.setitem),
     )
-W_CData.acceptable_as_base_class = False
+W_CData.typedef.acceptable_as_base_class = False

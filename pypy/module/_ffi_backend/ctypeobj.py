@@ -293,4 +293,4 @@ W_CType.typedef = TypeDef(
     '_ffi_backend.CTypeDescr',
     __repr__ = interp2app(W_CType.repr),
     )
-W_CType.acceptable_as_base_class = False
+W_CType.typedef.acceptable_as_base_class = False

@@ -769,3 +769,19 @@ def test_weakref():
     weakref.ref(newp(BPtr, 42))
     py.test.raises(TypeError, weakref.ref, cast(BPtr, 42))
     py.test.raises(TypeError, weakref.ref, cast(BInt, 42))
+
+def test_no_inheritance():
+    BInt = new_primitive_type("int")
+    try:
+        class foo(type(BInt)): pass
+    except TypeError:
+        pass
+    else:
+        raise AssertionError
+    x = cast(BInt, 42)
+    try:
+        class foo(type(x)): pass
+    except TypeError:
+        pass
+    else:
+        raise AssertionError
