@@ -64,16 +64,18 @@ class W_CType(Wrappable):
 
 
 class W_CTypePtrOrArray(W_CType):
-    pass
+
+    def __init__(self, space, size, extra, extra_position, ctitem):
+        name, name_position = ctitem.insert_name(extra, extra_position)
+        W_CType.__init__(self, space, size, name, name_position)
+        self.ctitem = ctitem
 
 
 class W_CTypePointer(W_CTypePtrOrArray):
 
-    def __init__(self, space, ctypeitem):
-        name, name_position = ctypeitem.insert_name(' *', 2)
+    def __init__(self, space, ctitem):
         size = rffi.sizeof(rffi.VOIDP)
-        W_CType.__init__(self, space, size, name, name_position)
-        self.ctypeitem = ctypeitem
+        W_CTypePtrOrArray.__init__(self, space, size, ' *', 2, ctitem)
 
     def cast(self, w_ob):
         space = self.space
@@ -91,15 +93,15 @@ class W_CTypePointer(W_CTypePtrOrArray):
 
     def newp(self, w_init):
         space = self.space
-        citem = self.ctypeitem
-        datasize = citem.size
+        ctitem = self.ctitem
+        datasize = ctitem.size
         if datasize < 0:
             xxx
-        if isinstance(citem, W_CTypePrimitiveChar):
+        if isinstance(ctitem, W_CTypePrimitiveChar):
             datasize *= 2       # forcefully add a null character
         cdata = cdataobj.W_CDataOwn(space, datasize, self)
         if not space.is_w(w_init, space.w_None):
-            citem.convert_from_object(cdata._cdata, w_init)
+            ctitem.convert_from_object(cdata._cdata, w_init)
             keepalive_until_here(cdata)
         return cdata
 
@@ -109,6 +111,14 @@ class W_CTypePointer(W_CTypePtrOrArray):
             raise operationerrfmt(space.w_IndexError,
                                   "cdata '%s' can only be indexed by 0",
                                   self.name)
+
+
+class W_CTypeArray(W_CTypePtrOrArray):
+
+    def __init__(self, space, ctptr, length, arraysize, extra):
+        W_CTypePtrOrArray.__init__(self, space, arraysize, extra, 0,
+                                   ctptr.ctitem)
+        self.ctptr = ctptr
 
 
 class W_CTypePrimitive(W_CType):

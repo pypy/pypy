@@ -11,6 +11,7 @@ class Module(MixedModule):
 
         'new_primitive_type': 'newtype.new_primitive_type',
         'new_pointer_type': 'newtype.new_pointer_type',
+        'new_array_type': 'newtype.new_array_type',
 
         'newp': 'func.newp',
         'cast': 'func.cast',

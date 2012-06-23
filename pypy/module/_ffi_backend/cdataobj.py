@@ -80,8 +80,9 @@ class W_CData(Wrappable):
         space = self.space
         i = space.getindex_w(w_index, space.w_IndexError)
         self.ctype._check_subscript_index(self, i)
-        citem = self.ctype.ctypeitem
-        w_o = citem.convert_to_object(rffi.ptradd(self._cdata, i * citem.size))
+        ctitem = self.ctype.ctitem
+        w_o = ctitem.convert_to_object(
+            rffi.ptradd(self._cdata, i * ctitem.size))
         keepalive_until_here(self)
         return w_o
 

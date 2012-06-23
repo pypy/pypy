@@ -52,6 +52,7 @@ with tmpname.open('w') as f:
 
 tmpname2 = tmpdir.join('_all_test_c.py')
 with tmpname2.open('w') as f:
+    print >> f, 'import sys'
     print >> f, 'from _ffi_backend import %s' % all_names
     print >> f, 'class py:'
     print >> f, '    class test:'
