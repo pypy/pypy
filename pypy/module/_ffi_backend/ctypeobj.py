@@ -83,6 +83,11 @@ class W_CType(Wrappable):
     def _alignof(self):
         xxx
 
+    def offsetof(self, fieldname):
+        space = self.space
+        raise OperationError(space.w_TypeError,
+                             space.wrap("not a struct or union ctype"))
+
     def _getfields(self):
         return None
 
@@ -402,11 +407,14 @@ class W_CTypeStructOrUnion(W_CType):
         name = '%s %s' % (self.kind, name)
         W_CType.__init__(self, space, -1, name, len(name))
 
-    def _alignof(self):
-        space = self.space
-        if self.size < 0:
+    def check_complete(self):
+        if self.fields_dict is None:
+            space = self.space
             raise operationerrfmt(space.w_TypeError,
                                   "'%s' is not completed yet", self.name)
+
+    def _alignof(self):
+        self.check_complete()
         return self.alignment
 
     def _getfields(self):
@@ -422,11 +430,17 @@ class W_CTypeStructOrUnion(W_CType):
 
     def convert_to_object(self, cdata):
         space = self.space
-        if self.size < 0:
-            raise operationerrfmt(space.w_TypeError,
-                                  "cannot return an incomplete cdata '%s'",
-                                  self.name)
+        self.check_complete()
         return cdataobj.W_CData(space, cdata, self)
+
+    def offsetof(self, fieldname):
+        self.check_complete()
+        try:
+            cfield = self.fields_dict[fieldname]
+        except KeyError:
+            space = self.space
+            raise OperationError(space.w_KeyError, space.wrap(fieldname))
+        return cfield.offset
 
 
 class W_CTypeStruct(W_CTypeStructOrUnion):

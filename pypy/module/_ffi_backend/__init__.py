@@ -20,5 +20,6 @@ class Module(MixedModule):
         'cast': 'func.cast',
         'sizeof': 'func.sizeof',
         'alignof': 'func.alignof',
+        'offsetof': 'func.offsetof',
         '_getfields': 'func._getfields',
         }
