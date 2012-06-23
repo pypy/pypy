@@ -761,15 +761,11 @@ def test_bitfield_instance_init():
     complete_struct_or_union(BStruct, [('a1', BInt, 1)])
     py.test.raises(NotImplementedError, newp, new_pointer_type(BStruct), [-1])
 
-def test_gc():
-    from gc import collect
+def test_weakref():
+    import weakref
     BInt = new_primitive_type("int")
-    n = cast(BInt, 123)
-    py.test.raises(TypeError, gc, n, 5)
-    destroyed = []
-    m = gc(n, destroyed.append)
-    assert repr(m) == "<cdata 'int' with destructor>"
-    assert destroyed == []
-    del m; collect()
-    assert len(destroyed) == 1
-    assert int(destroyed[0]) == 123
+    BPtr = new_pointer_type(BInt)
+    weakref.ref(BInt)
+    weakref.ref(newp(BPtr, 42))
+    py.test.raises(TypeError, weakref.ref, cast(BPtr, 42))
+    py.test.raises(TypeError, weakref.ref, cast(BInt, 42))
