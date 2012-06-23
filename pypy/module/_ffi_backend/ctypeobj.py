@@ -1,16 +1,16 @@
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.rarithmetic import intmask, ovfcheck
-from pypy.rlib.objectmodel import keepalive_until_here
+from pypy.rlib.objectmodel import keepalive_until_here, we_are_translated
 
 from pypy.module._ffi_backend import cdataobj, misc
 
 
 class W_CType(Wrappable):
-    _immutable_ = True
+    #_immutable_ = True    XXX newtype.complete_struct_or_union()?
 
     def __init__(self, space, size, name, name_position):
         self.space = space
@@ -72,7 +72,19 @@ class W_CType(Wrappable):
         return name, name_position
 
     def alignof(self):
+        align = self._alignof()
+        if not we_are_translated():
+            # obscure hack when untranslated, maybe, approximate, don't use
+            from pypy.rpython.lltypesystem import llmemory
+            if isinstance(align, llmemory.FieldOffset):
+                align = rffi.sizeof(align.TYPE.y)
+        return align
+
+    def _alignof(self):
         xxx
+
+    def _getfields(self):
+        return None
 
 
 class W_CTypePtrOrArray(W_CType):
@@ -135,7 +147,7 @@ class W_CTypePointer(W_CTypePtrOrArray):
         p = rffi.ptradd(cdata, i * self.ctitem.size)
         return cdataobj.W_CData(self.space, p, self)
 
-    def alignof(self):
+    def _alignof(self):
         from pypy.module._ffi_backend import newtype
         return newtype.alignment_of_pointer
 
@@ -148,7 +160,7 @@ class W_CTypeArray(W_CTypePtrOrArray):
         self.length = length
         self.ctptr = ctptr
 
-    def alignof(self):
+    def _alignof(self):
         return self.ctitem.alignof()
 
     def newp(self, w_init):
@@ -223,7 +235,7 @@ class W_CTypePrimitive(W_CType):
         W_CType.__init__(self, space, size, name, name_position)
         self.align = align
 
-    def alignof(self):
+    def _alignof(self):
         return self.align
 
     def cast_single_char(self, w_ob):
@@ -370,8 +382,61 @@ class W_CTypePrimitiveFloat(W_CTypePrimitive):
         misc.write_raw_float_data(cdata, value, self.size)
 
 
+class W_CTypeStructOrUnion(W_CType):
+    # fields added by complete_struct_or_union():
+    alignment = -1
+    fields_list = None
+    fields_dict = None
+
+    def __init__(self, space, name):
+        name = '%s %s' % (self.kind, name)
+        W_CType.__init__(self, space, -1, name, len(name))
+
+    def _alignof(self):
+        space = self.space
+        if self.size < 0:
+            raise operationerrfmt(space.w_TypeError,
+                                  "'%s' is not completed yet", self.name)
+        return self.alignment
+
+    def _getfields(self):
+        if self.size < 0:
+            return None
+        space = self.space
+        result = [None] * len(self.fields_list)
+        for fname, field in self.fields_dict.iteritems():
+            i = self.fields_list.index(field)
+            result[i] = space.newtuple([space.wrap(fname),
+                                        space.wrap(field)])
+        return space.newlist(result)
+
+
+class W_CTypeStruct(W_CTypeStructOrUnion):
+    kind = "struct"
+
+class W_CTypeUnion(W_CTypeStructOrUnion):
+    kind = "union"
+
+class W_CField(Wrappable):
+    _immutable_ = True
+    def __init__(self, ctype, offset, bitshift, bitsize):
+        self.ctype = ctype
+        self.offset = offset
+        self.bitshift = bitshift
+        self.bitsize = bitsize
+
+
 W_CType.typedef = TypeDef(
     '_ffi_backend.CTypeDescr',
     __repr__ = interp2app(W_CType.repr),
     )
 W_CType.typedef.acceptable_as_base_class = False
+
+W_CField.typedef = TypeDef(
+    '_ffi_backend.CField',
+    type = interp_attrproperty('ctype', W_CField),
+    offset = interp_attrproperty('offset', W_CField),
+    bitshift = interp_attrproperty('bitshift', W_CField),
+    bitsize = interp_attrproperty('bitsize', W_CField),
+    )
+W_CField.typedef.acceptable_as_base_class = False

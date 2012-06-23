@@ -440,6 +440,7 @@ def test_new_struct_type():
     assert repr(BStruct) == "<ctype 'struct foo'>"
     BPtr = new_pointer_type(BStruct)
     assert repr(BPtr) == "<ctype 'struct foo *'>"
+    py.test.raises(TypeError, alignof, BStruct)
 
 def test_new_union_type():
     BUnion = new_union_type("foo")

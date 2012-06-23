@@ -12,9 +12,12 @@ class Module(MixedModule):
         'new_primitive_type': 'newtype.new_primitive_type',
         'new_pointer_type': 'newtype.new_pointer_type',
         'new_array_type': 'newtype.new_array_type',
+        'new_struct_type': 'newtype.new_struct_type',
+        'complete_struct_or_union': 'newtype.complete_struct_or_union',
 
         'newp': 'func.newp',
         'cast': 'func.cast',
         'sizeof': 'func.sizeof',
         'alignof': 'func.alignof',
+        '_getfields': 'func._getfields',
         }
