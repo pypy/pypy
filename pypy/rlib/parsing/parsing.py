@@ -107,7 +107,6 @@ class LazyParseTable(object):
         error = None # for the annotator
         if self.parser.is_nonterminal(symbol):
             rule = self.parser.get_rule(symbol)
-            lastexpansion = len(rule.expansions) - 1
             subsymbol = None
             error = None
             for expansion in rule.expansions:
