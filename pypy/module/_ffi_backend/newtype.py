@@ -87,6 +87,10 @@ def new_array_type(space, ctptr, w_length):
 def new_struct_type(space, name):
     return ctypeobj.W_CTypeStruct(space, name)
 
+@unwrap_spec(name=str)
+def new_union_type(space, name):
+    return ctypeobj.W_CTypeUnion(space, name)
+
 @unwrap_spec(ctype=ctypeobj.W_CType, totalsize=int, totalalignment=int)
 def complete_struct_or_union(space, ctype, w_fields, w_ignored=None,
                              totalsize=-1, totalalignment=-1):
