@@ -50,7 +50,9 @@ class W_CType(Wrappable):
 
     def _check_subscript_index(self, w_cdata, i):
         space = self.space
-        raise OperationError(xxx)
+        raise operationerrfmt(space.w_TypeError,
+                              "cdata of type '%s' cannot be indexed",
+                              self.name)
 
     def try_str(self, cdata):
         return None
@@ -118,7 +120,31 @@ class W_CTypeArray(W_CTypePtrOrArray):
     def __init__(self, space, ctptr, length, arraysize, extra):
         W_CTypePtrOrArray.__init__(self, space, arraysize, extra, 0,
                                    ctptr.ctitem)
+        self.length = length
         self.ctptr = ctptr
+
+    def newp(self, w_init):
+        space = self.space
+        datasize = self.size
+        if datasize < 0:
+            xxx
+            cdataobj.W_CDataOwnLength(space, )
+            xxx
+        cdata = cdataobj.W_CDataOwn(space, datasize, self)
+        if not space.is_w(w_init, space.w_None):
+            self.convert_from_object(cdata._cdata, w_init)
+            keepalive_until_here(cdata)
+        return cdata
+
+    def _check_subscript_index(self, w_cdata, i):
+        space = self.space
+        if i < 0:
+            raise OperationError(space.w_IndexError,
+                                 space.wrap("negative index not supported"))
+        if i >= w_cdata.get_array_length():
+            raise operationerrfmt(space.w_IndexError,
+                "index too large for cdata '%s' (expected %d < %d)",
+                self.name, i, w_cdata.get_array_length())
 
 
 class W_CTypePrimitive(W_CType):

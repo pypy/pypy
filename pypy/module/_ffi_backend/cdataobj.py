@@ -49,6 +49,15 @@ class W_CData(Wrappable):
         keepalive_until_here(self)
         return w_result
 
+    def len(self):
+        from pypy.module._ffi_backend import ctypeobj
+        space = self.space
+        if isinstance(self.ctype, ctypeobj.W_CTypeArray):
+            return space.wrap(self.get_array_length())
+        raise operationerrfmt(space.w_TypeError,
+                              "cdata of type '%s' has no len()",
+                              self.ctype.name)
+
     def str(self):
         w_result = self.ctype.try_str(self._cdata)
         keepalive_until_here(self)
@@ -76,7 +85,6 @@ class W_CData(Wrappable):
         return self.space.wrap(h)
 
     def getitem(self, w_index):
-        from pypy.module._ffi_backend import ctypeobj
         space = self.space
         i = space.getindex_w(w_index, space.w_IndexError)
         self.ctype._check_subscript_index(self, i)
@@ -85,6 +93,16 @@ class W_CData(Wrappable):
             rffi.ptradd(self._cdata, i * ctitem.size))
         keepalive_until_here(self)
         return w_o
+
+    def setitem(self, w_index, w_value):
+        space = self.space
+        i = space.getindex_w(w_index, space.w_IndexError)
+        self.ctype._check_subscript_index(self, i)
+        ctitem = self.ctype.ctitem
+        ctitem.convert_from_object(
+            rffi.ptradd(self._cdata, i * ctitem.size),
+            w_value)
+        keepalive_until_here(self)
 
     def read_raw_signed_data(self):
         result = misc.read_raw_signed_data(self._cdata, self.ctype.size)
@@ -114,6 +132,14 @@ class W_CData(Wrappable):
         keepalive_until_here(self)
         return w_obj
 
+    def get_array_length(self):
+        from pypy.module._ffi_backend import ctypeobj
+        ctype = self.ctype
+        assert isinstance(ctype, ctypeobj.W_CTypeArray)
+        length = ctype.length
+        assert length >= 0
+        return length
+
 
 class W_CDataOwnFromCasted(W_CData):
 
@@ -132,6 +158,15 @@ class W_CDataOwn(W_CDataOwnFromCasted):
         return ' owning %d bytes' % (self.ctype.size,)
 
 
+class W_CDataOwnLength(W_CDataOwn):
+
+    def __init__(self, space, size, ctype, length):
+        W_CDataOwn.__init__(self, space, size, ctype)
+        self.length = length
+
+    def get_array_length(self):
+        return self.length
+
 
 W_CData.typedef = TypeDef(
     '_ffi_backend.CData',
@@ -140,10 +175,12 @@ W_CData.typedef = TypeDef(
     __int__ = interp2app(W_CData.int),
     __long__ = interp2app(W_CData.long),
     __float__ = interp2app(W_CData.float),
+    __len__ = interp2app(W_CData.len),
     __str__ = interp2app(W_CData.str),
     __eq__ = interp2app(W_CData.eq),
     __ne__ = interp2app(W_CData.ne),
     __hash__ = interp2app(W_CData.hash),
     __getitem__ = interp2app(W_CData.getitem),
+    __setitem__ = interp2app(W_CData.setitem),
     )
 W_CData.acceptable_as_base_class = False
