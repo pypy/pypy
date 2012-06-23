@@ -166,6 +166,20 @@ class W_CTypeArray(W_CTypePtrOrArray):
                 "index too large for cdata '%s' (expected %d < %d)",
                 self.name, i, w_cdata.get_array_length())
 
+    def convert_from_object(self, cdata, w_ob):
+        space = self.space
+        if (space.isinstance_w(w_ob, space.w_list) or
+            space.isinstance_w(w_ob, space.w_tuple)):
+            lst = space.listview(w_ob)
+            if self.length >= 0 and len(lst) > self.length:
+                xxx
+            ctitem = self.ctitem
+            for i in range(len(lst)):
+                ctitem.convert_from_object(cdata, lst[i])
+                cdata = rffi.ptradd(cdata, ctitem.size)
+        else:
+            xxx
+
 
 class W_CTypePrimitive(W_CType):
 
