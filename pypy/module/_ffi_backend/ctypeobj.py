@@ -88,7 +88,6 @@ class W_CTypePointer(W_CTypePtrOrArray):
         elif space.is_w(w_ob, space.w_None):
             value = lltype.nullptr(rffi.CCHARP.TO)
         else:
-            xxx
             value = misc.as_unsigned_long_long(space, w_ob, strict=False)
             value = rffi.cast(rffi.CCHARP, value)
         return cdataobj.W_CData(space, value, self)
@@ -161,8 +160,9 @@ class W_CTypePrimitive(W_CType):
     def cast(self, w_ob):
         space = self.space
         ob = space.interpclass_w(w_ob)
-        if isinstance(ob, cdataobj.W_CData):
-            xxx
+        if (isinstance(ob, cdataobj.W_CData) and
+               isinstance(ob.ctype, W_CTypePtrOrArray)):
+            value = rffi.cast(lltype.Signed, ob._cdata)
         elif space.isinstance_w(w_ob, space.w_str):
             value = self.cast_single_char(w_ob)
         elif space.is_w(w_ob, space.w_None):
@@ -261,8 +261,11 @@ class W_CTypePrimitiveFloat(W_CTypePrimitive):
         space = self.space
         ob = space.interpclass_w(w_ob)
         if isinstance(ob, cdataobj.W_CData):
-            xxx
-        elif space.isinstance_w(w_ob, space.w_str):
+            if not isinstance(ob.ctype, W_CTypePrimitive):
+                xxx
+            w_ob = ob.convert_to_object()
+        #
+        if space.isinstance_w(w_ob, space.w_str):
             value = self.cast_single_char(w_ob)
         elif space.is_w(w_ob, space.w_None):
             value = 0.0

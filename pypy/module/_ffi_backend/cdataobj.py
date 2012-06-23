@@ -127,10 +127,10 @@ class W_CData(Wrappable):
         misc.write_raw_float_data(self._cdata, source, self.ctype.size)
         keepalive_until_here(self)
 
-##    def convert_to_object(self):
-##        w_obj = self.ctype.convert_to_object(self._cdata)
-##        keepalive_until_here(self)
-##        return w_obj
+    def convert_to_object(self):
+        w_obj = self.ctype.convert_to_object(self._cdata)
+        keepalive_until_here(self)
+        return w_obj
 
     def get_array_length(self):
         from pypy.module._ffi_backend import ctypeobj
