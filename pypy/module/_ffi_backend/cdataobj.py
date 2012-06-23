@@ -112,6 +112,28 @@ class W_CData(Wrappable):
     def add(self, w_other):
         return self._add_or_sub(w_other, +1)
 
+    def sub(self, w_other):
+        space = self.space
+        ob = space.interpclass_w(w_other)
+        if isinstance(ob, W_CData):
+            from pypy.module._ffi_backend import ctypeobj
+            ct = ob.ctype
+            if isinstance(ct, ctypeobj.W_CTypeArray):
+                ct = ct.ctptr
+            #
+            if (ct is not self.ctype or
+                   not isinstance(ct, ctypeobj.W_CTypePointer) or
+                   ct.ctitem.size <= 0):
+                raise operationerrfmt(space.w_TypeError,
+                    "cannot subtract cdata '%s' and cdata '%s'",
+                    self.ctype.name, ct.name)
+            #
+            diff = (rffi.cast(lltype.Signed, self._cdata) -
+                    rffi.cast(lltype.Signed, ob._cdata)) // ct.ctitem.size
+            return space.wrap(diff)
+        #
+        return self._add_or_sub(w_other, -1)
+
 ##    def read_raw_signed_data(self):
 ##        result = misc.read_raw_signed_data(self._cdata, self.ctype.size)
 ##        keepalive_until_here(self)
@@ -191,5 +213,6 @@ W_CData.typedef = TypeDef(
     __getitem__ = interp2app(W_CData.getitem),
     __setitem__ = interp2app(W_CData.setitem),
     __add__ = interp2app(W_CData.add),
+    __sub__ = interp2app(W_CData.sub),
     )
 W_CData.typedef.acceptable_as_base_class = False

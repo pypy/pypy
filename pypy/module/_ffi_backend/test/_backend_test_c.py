@@ -343,6 +343,22 @@ def test_array_add():
     assert type(a[0][0]) is int
     assert type((a[0] + 0)[0]) is int
 
+def test_array_sub():
+    BInt = new_primitive_type("int")
+    BArray = new_array_type(new_pointer_type(BInt), 5)   # int[5]
+    a = newp(BArray, None)
+    p = a + 1
+    assert p - a == 1
+    assert p - (a+0) == 1
+    assert a == (p - 1)
+    BPtr = new_pointer_type(new_primitive_type("short"))
+    q = newp(BPtr, None)
+    py.test.raises(TypeError, "p - q")
+    py.test.raises(TypeError, "q - p")
+    py.test.raises(TypeError, "a - q")
+    e = py.test.raises(TypeError, "q - a")
+    assert str(e.value) == "cannot subtract cdata 'short *' and cdata 'int *'"
+
 def test_cast_primitive_from_cdata():
     p = new_primitive_type("int")
     n = cast(p, cast(p, -42))
