@@ -104,6 +104,14 @@ class W_CData(Wrappable):
             w_value)
         keepalive_until_here(self)
 
+    def _add_or_sub(self, w_other, sign):
+        space = self.space
+        i = sign * space.getindex_w(w_other, space.w_OverflowError)
+        return self.ctype.add(self._cdata, i)
+
+    def add(self, w_other):
+        return self._add_or_sub(w_other, +1)
+
 ##    def read_raw_signed_data(self):
 ##        result = misc.read_raw_signed_data(self._cdata, self.ctype.size)
 ##        keepalive_until_here(self)
@@ -182,5 +190,6 @@ W_CData.typedef = TypeDef(
     __hash__ = interp2app(W_CData.hash),
     __getitem__ = interp2app(W_CData.getitem),
     __setitem__ = interp2app(W_CData.setitem),
+    __add__ = interp2app(W_CData.add),
     )
 W_CData.typedef.acceptable_as_base_class = False

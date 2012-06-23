@@ -57,6 +57,13 @@ class W_CType(Wrappable):
     def try_str(self, cdata):
         return None
 
+    def add(self, cdata, i):
+        xxx
+        space = self.space
+        raise operationerrfmt(space.w_TypeError,
+                              "cannot add a cdata '%s' and a number",
+                              self.name)
+
     def insert_name(self, extra, extra_position):
         name = '%s%s%s' % (self.name[:self.name_position],
                            extra,
@@ -77,7 +84,11 @@ class W_CTypePointer(W_CTypePtrOrArray):
 
     def __init__(self, space, ctitem):
         size = rffi.sizeof(rffi.VOIDP)
-        W_CTypePtrOrArray.__init__(self, space, size, ' *', 2, ctitem)
+        if isinstance(ctitem, W_CTypeArray):
+            extra = "(*)"    # obscure case: see test_array_add
+        else:
+            extra = " *"
+        W_CTypePtrOrArray.__init__(self, space, size, extra, 2, ctitem)
 
     def cast(self, w_ob):
         space = self.space
@@ -112,6 +123,14 @@ class W_CTypePointer(W_CTypePtrOrArray):
             raise operationerrfmt(space.w_IndexError,
                                   "cdata '%s' can only be indexed by 0",
                                   self.name)
+
+    def add(self, cdata, i):
+        ctitem = self.ctitem
+        if ctitem.size < 0:
+            xxx
+            "ctype '%s' points to items of unknown size"
+        p = rffi.ptradd(cdata, i * self.ctitem.size)
+        return cdataobj.W_CData(self.space, p, self)
 
 
 class W_CTypeArray(W_CTypePtrOrArray):
@@ -179,6 +198,13 @@ class W_CTypeArray(W_CTypePtrOrArray):
                 cdata = rffi.ptradd(cdata, ctitem.size)
         else:
             xxx
+
+    def convert_to_object(self, cdata):
+        return cdataobj.W_CData(self.space, cdata, self)
+
+    def add(self, cdata, i):
+        p = rffi.ptradd(cdata, i * self.ctitem.size)
+        return cdataobj.W_CData(self.space, p, self.ctptr)
 
 
 class W_CTypePrimitive(W_CType):
