@@ -113,8 +113,7 @@ class LazyParseTable(object):
             for expansion in rule.expansions:
                 curr = i
                 children = []
-                for j in range(len(expansion)):
-                    subsymbol = expansion[j]
+                for subsymbol in expansion:
                     node, next, error2 = self.match_symbol(curr, subsymbol)
                     if node is None:
                         error = combine_errors(error, error2)
