@@ -3,7 +3,7 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
 from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.rlib.rarithmetic import intmask
+from pypy.rlib.rarithmetic import intmask, ovfcheck
 from pypy.rlib.objectmodel import keepalive_until_here
 
 from pypy.module._ffi_backend import cdataobj, misc
@@ -125,11 +125,32 @@ class W_CTypeArray(W_CTypePtrOrArray):
     def newp(self, w_init):
         space = self.space
         datasize = self.size
+        #
         if datasize < 0:
-            xxx
-            cdataobj.W_CDataOwnLength(space, )
-            xxx
-        cdata = cdataobj.W_CDataOwn(space, datasize, self)
+            if (space.isinstance_w(w_init, space.w_list) or
+                space.isinstance_w(w_init, space.w_tuple)):
+                length = space.int_w(space.len(w_init))
+            elif space.isinstance_w(w_init, space.w_str):
+                # from a string, we add the null terminator
+                length = space.int_w(space.len(w_init)) + 1
+            else:
+                length = space.getindex_w(w_init, space.w_OverflowError)
+                if length < 0:
+                    raise OperationError(space.w_ValueError,
+                                         space.wrap("negative array length"))
+                w_init = space.w_None
+            #
+            try:
+                datasize = ovfcheck(length * self.ctitem.size)
+            except OverflowError:
+                raise OperationError(space.w_OverflowError,
+                    space.wrap("array size would overflow a ssize_t"))
+            #
+            cdata = cdataobj.W_CDataOwnLength(space, datasize, self, length)
+        #
+        else:
+            cdata = cdataobj.W_CDataOwn(space, datasize, self)
+        #
         if not space.is_w(w_init, space.w_None):
             self.convert_from_object(cdata._cdata, w_init)
             keepalive_until_here(cdata)
