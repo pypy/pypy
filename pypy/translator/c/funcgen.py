@@ -699,18 +699,18 @@ class FunctionCodeGenerator(object):
     #address operations
     def OP_RAW_STORE(self, op):
         addr = self.expr(op.args[0])
-        TYPE = op.args[1].value
-        offset = self.expr(op.args[2])
-        value = self.expr(op.args[3])
+        offset = self.expr(op.args[1])
+        value = self.expr(op.args[2])
+        TYPE = op.args[2].concretetype
         typename = cdecl(self.db.gettype(TYPE).replace('@', '*@'), '')
         return ('((%(typename)s) (%(addr)s + %(offset)s))[0] = %(value)s;' %
                 locals())
 
     def OP_RAW_LOAD(self, op):
         addr = self.expr(op.args[0])
-        TYPE = op.args[1].value
-        offset = self.expr(op.args[2])
+        offset = self.expr(op.args[1])
         result = self.expr(op.result)
+        TYPE = op.result.concretetype
         typename = cdecl(self.db.gettype(TYPE).replace('@', '*@'), '')
         return ("%(result)s = ((%(typename)s) (%(addr)s + %(offset)s))[0];" %
                 locals())

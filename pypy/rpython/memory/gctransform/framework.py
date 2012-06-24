@@ -1224,11 +1224,10 @@ class FrameworkGCTransformer(GCTransformer):
         c_len = rmodel.inputconst(lltype.Signed, len(livevars) )
         base_addr = hop.genop("direct_call", [self.incr_stack_ptr, c_len ],
                               resulttype=llmemory.Address)
-        c_type = rmodel.inputconst(lltype.Void, llmemory.Address)
         for k,var in enumerate(livevars):
             c_k = rmodel.inputconst(lltype.Signed, k * sizeofaddr)
             v_adr = gen_cast(hop.llops, llmemory.Address, var)
-            hop.genop("raw_store", [base_addr, c_type, c_k, v_adr])
+            hop.genop("raw_store", [base_addr, c_k, v_adr])
         return livevars
 
     def pop_roots(self, hop, livevars):
@@ -1241,10 +1240,9 @@ class FrameworkGCTransformer(GCTransformer):
                               resulttype=llmemory.Address)
         if self.gcdata.gc.moving_gc:
             # for moving collectors, reload the roots into the local variables
-            c_type = rmodel.inputconst(lltype.Void, llmemory.Address)
             for k,var in enumerate(livevars):
                 c_k = rmodel.inputconst(lltype.Signed, k * sizeofaddr)
-                v_newaddr = hop.genop("raw_load", [base_addr, c_type, c_k],
+                v_newaddr = hop.genop("raw_load", [base_addr, c_k],
                                       resulttype=llmemory.Address)
                 hop.genop("gc_reload_possibly_moved", [v_newaddr, var])
 

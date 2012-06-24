@@ -854,9 +854,12 @@ class Transformer(object):
                                   op.result)
 
     def rewrite_op_raw_store(self, op):
+        assert op.args[3].concretetype == op.args[1].value
         kind = getkind(op.args[3].concretetype)[0]
+        size = llmemory.sizeof(op.args[1].value)
+        c_size = Constant(size, lltype.Signed)
         return SpaceOperation('raw_store_%s' % kind,
-                              [op.args[0], op.args[2], op.args[3]],
+                              [op.args[0], c_size, op.args[2], op.args[3]],
                               None)
 
     def _rewrite_equality(self, op, opname):
