@@ -8,7 +8,7 @@ from pypy.rlib import jit
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rpython import extregistry
 
-import math, sys, array
+import math, sys
 
 # note about digit sizes:
 # In division, the native integer type must be able to hold
