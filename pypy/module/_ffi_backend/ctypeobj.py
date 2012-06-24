@@ -2,7 +2,7 @@ from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
-from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rlib.rarithmetic import intmask, ovfcheck
 from pypy.rlib.objectmodel import keepalive_until_here, we_are_translated
 
@@ -75,7 +75,6 @@ class W_CType(Wrappable):
         align = self._alignof()
         if not we_are_translated():
             # obscure hack when untranslated, maybe, approximate, don't use
-            from pypy.rpython.lltypesystem import llmemory
             if isinstance(align, llmemory.FieldOffset):
                 align = rffi.sizeof(align.TYPE.y)
         return align
@@ -223,6 +222,20 @@ class W_CTypeArray(W_CTypePtrOrArray):
             for i in range(len(lst_w)):
                 ctitem.convert_from_object(cdata, lst_w[i])
                 cdata = rffi.ptradd(cdata, ctitem.size)
+        elif isinstance(self.ctitem, W_CTypePrimitiveChar):
+            try:
+                s = space.str_w(w_ob)
+            except OperationError, e:
+                if not e.match(space, space.w_TypeError):
+                    raise
+                xxx
+            n = len(s)
+            if self.length >= 0 and n > self.length:
+                xxx
+            for i in range(n):
+                cdata[i] = s[i]
+            if n != self.length:
+                cdata[n] = '\x00'
         else:
             xxx
 
