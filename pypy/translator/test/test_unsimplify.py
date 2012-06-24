@@ -1,7 +1,7 @@
 import os
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.translator.unsimplify import (split_block, call_final_function,
-     remove_double_links, call_initial_function)
+     remove_double_links, no_links_to_startblock, call_initial_function)
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.objspace.flow.model import checkgraph
 from pypy.rlib.objectmodel import we_are_translated
@@ -91,6 +91,37 @@ def test_remove_double_links():
     assert blocks[0].exits[1].target == blocks[2]
     assert len(blocks[2].exits) == 1
     assert blocks[2].exits[0].target == blocks[1]
+
+    checkgraph(graph)
+    interp = LLInterpreter(t.rtyper)
+    result = interp.eval_graph(graph, [True])
+    assert result == False
+    result = interp.eval_graph(graph, [False])
+    assert result == True
+
+def test_no_links_to_startblock():
+    def f(b, x):
+        while b > 0:
+            x += 1
+            b -= 1
+        return x
+    graph, t = translate(f, [int, int])
+
+    assert not graph.startblock.operations
+    graph.startblock = graph.startblock.exits[0].target
+    assert graph.startblock.operations
+    checkgraph(graph)
+    interp = LLInterpreter(t.rtyper)
+    result = interp.eval_graph(graph, [11, 0])
+    assert result == 11
+
+    assert graph.startblock.operations
+    no_links_to_startblock(graph)
+    assert not graph.startblock.operations
+    checkgraph(graph)
+    interp = LLInterpreter(t.rtyper)
+    result = interp.eval_graph(graph, [11, 0])
+    assert result == 11
 
 def test_call_initial_function():
     tmpfile = str(udir.join('test_call_initial_function'))

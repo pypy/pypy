@@ -24,7 +24,8 @@ from pypy.rpython.typesystem import getfunctionptr
 from pypy.translator.backendopt.removenoops import remove_same_as
 from pypy.translator.gensupp import uniquemodulename
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.translator.unsimplify import remove_double_links
+from pypy.translator.unsimplify import (remove_double_links,
+     no_links_to_startblock)
 from pypy.tool.autopath import pypydir
 from pypy.tool.udir import udir
 
@@ -1637,6 +1638,7 @@ class GenLLVM(object):
                         link.args = [rename.get(v, v) for v in link.args]
 
             remove_double_links(self.translator.annotator, graph)
+            no_links_to_startblock(graph)
             remove_same_as(graph)
 
     def prepare(self, entry_point):

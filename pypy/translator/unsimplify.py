@@ -145,6 +145,17 @@ def remove_double_links(annotator, graph):
         for link in double_links:
             insert_empty_block(annotator, link)
 
+def no_links_to_startblock(graph):
+    """Ensure no links to start block."""
+    links_to_start_block = False
+    for block in graph.iterblocks():
+        for link in block.exits:
+            if link.target == graph.startblock:
+                links_to_start_block = True
+                break
+    if links_to_start_block:
+        insert_empty_startblock(None, graph)
+
 def call_initial_function(translator, initial_func, annhelper=None):
     """Before the program starts, call 'initial_func()'."""
     from pypy.annotation import model as annmodel
