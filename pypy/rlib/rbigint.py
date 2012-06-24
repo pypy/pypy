@@ -484,7 +484,20 @@ class rbigint(object):
                 a = temp
                 
         size_b = b.numdigits()
-            
+        
+        if not c and size_b == 1 and a.sign == 1:
+            digit = b.digit(0)
+            if digit == 0:
+                return rbigint([ONEDIGIT], 1)
+            elif digit == 1:
+                return a
+            elif a.numdigits() == 1:
+                adigit = a.digit(0)
+                if adigit == 1:
+                    return rbigint([ONEDIGIT], 1)
+                elif adigit == 2:
+                    return a.lshift(digit-1)
+                
         # At this point a, b, and c are guaranteed non-negative UNLESS
         # c is NULL, in which case a may be negative. */
 
