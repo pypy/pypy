@@ -21,7 +21,8 @@ else:
         lltype.Void,
         compilation_info=eci,
         _nowrapper=True,
-        sandboxsafe=True)
+        sandboxsafe=True,
+        macro=True)
 
 # ____________________________________________________________
 
