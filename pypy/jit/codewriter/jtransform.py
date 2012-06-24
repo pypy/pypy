@@ -11,6 +11,7 @@ from pypy.jit.metainterp.blackhole import BlackholeInterpreter
 from pypy.objspace.flow.model import SpaceOperation, Variable, Constant, c_last_exception
 from pypy.rlib import objectmodel
 from pypy.rlib.jit import _we_are_jitted
+from pypy.rlib.rgc import lltype_is_gc
 from pypy.rpython.lltypesystem import lltype, llmemory, rstr, rclass, rffi
 from pypy.rpython.rclass import IR_QUASIIMMUTABLE, IR_QUASIIMMUTABLE_ARRAY
 from pypy.translator.simplify import get_funcobj
@@ -207,6 +208,10 @@ class Transformer(object):
     def rewrite_op_same_as(self, op):
         if op.args[0] in self.vable_array_vars:
             self.vable_array_vars[op.result]= self.vable_array_vars[op.args[0]]
+
+    def rewrite_op_cast_ptr_to_adr(self, op):
+        if lltype_is_gc(op.args[0].concretetype):
+            raise Exception("cast_ptr_to_adr for GC types unsupported")
 
     def rewrite_op_cast_pointer(self, op):
         newop = self.rewrite_op_same_as(op)
@@ -520,9 +525,12 @@ class Transformer(object):
             name += '_add_memory_pressure'
         if not track_allocation:
             name += '_no_track_allocation'
-        return self._do_builtin_call(op, name, args,
-                                     extra = (TYPE,),
-                                     extrakey = TYPE)
+        op1 = self.prepare_builtin_call(op, name, args, (TYPE,), TYPE)
+        if name == 'raw_malloc_varsize':
+            return self._handle_oopspec_call(op1, args,
+                                             EffectInfo.OS_RAW_MALLOC_VARSIZE,
+                                             EffectInfo.EF_CAN_RAISE)
+        return self.rewrite_op_direct_call(op1)
 
     def rewrite_op_malloc_varsize(self, op):
         if op.args[1].value['flavor'] == 'raw':
@@ -550,8 +558,13 @@ class Transformer(object):
         name = 'raw_free'
         if not track_allocation:
             name += '_no_track_allocation'
-        return self._do_builtin_call(op, name, [op.args[0]],
-                                     extra = (STRUCT,), extrakey = STRUCT)
+        op1 = self.prepare_builtin_call(op, name, [op.args[0]], (STRUCT,),
+                                        STRUCT)
+        if name == 'raw_free':
+            return self._handle_oopspec_call(op1, [op.args[0]],
+                                             EffectInfo.OS_RAW_FREE,
+                                             EffectInfo.EF_CANNOT_RAISE)
+        return self.rewrite_op_direct_call(op1)
 
     def rewrite_op_getarrayitem(self, op):
         ARRAY = op.args[0].concretetype.TO
@@ -840,6 +853,12 @@ class Transformer(object):
             return SpaceOperation('setinteriorfield_gc_%s' % kind, args,
                                   op.result)
 
+    def rewrite_op_raw_store(self, op):
+        kind = getkind(op.args[3].concretetype)[0]
+        return SpaceOperation('raw_store_%s' % kind,
+                              [op.args[0], op.args[2], op.args[3]],
+                              None)
+
     def _rewrite_equality(self, op, opname):
         arg0, arg1 = op.args
         if isinstance(arg0, Constant) and not arg0.value:
@@ -850,7 +869,7 @@ class Transformer(object):
             return self._rewrite_symmetric(op)
 
     def _is_gc(self, v):
-        return getattr(getattr(v.concretetype, "TO", None), "_gckind", "?") == 'gc'
+        return lltype_is_gc(v.concretetype)
 
     def _is_rclass_instance(self, v):
         return lltype._castdepth(v.concretetype.TO, rclass.OBJECT) >= 0

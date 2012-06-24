@@ -1011,8 +1011,14 @@ class LLFrame(object):
     def op_raw_store(self, addr, typ, offset, value):
         checkadr(addr)
         assert lltype.typeOf(value) == typ
-        assert offset.TYPE == typ
-        getattr(addr, str(typ).lower())[offset.repeat] = value
+        if isinstance(offset, int):
+            from pypy.rpython.lltypesystem import rffi
+            ll_p = rffi.cast(rffi.CCHARP, addr)
+            ll_p = rffi.cast(rffi.CArrayPtr(typ), rffi.ptradd(ll_p, offset))
+            ll_p[0] = value
+        else:
+            assert offset.TYPE == typ
+            getattr(addr, str(typ).lower())[offset.repeat] = value
 
     def op_stack_malloc(self, size): # mmh
         raise NotImplementedError("backend only")
