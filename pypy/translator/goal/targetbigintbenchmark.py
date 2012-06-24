@@ -11,6 +11,7 @@ def entry_point(argv):
         A cutout with some benchmarks.
         Pypy default:
         5.147583
+        5.139127
         484.5688
         334.611903
         8.637287
@@ -22,16 +23,17 @@ def entry_point(argv):
         6.647562
 
         Pypy with improvements:
-        2.307890
-        9.451896
-        1.122038
-        5.787821
-        9.937016
-        14.927304
-        0.016683
-        12.018289
-        14.261727
-        6.434917
+        2.291724
+        4.616600
+        9.538857
+        1.102726
+        4.820049
+        9.899771
+        14.733251
+        0.016657
+        11.992919
+        14.144412
+        6.404446
 
     """
 
@@ -39,6 +41,14 @@ def entry_point(argv):
     num = rbigint.fromint(100000000)
     for n in xrange(80000000):
         rbigint.floordiv(num, rbigint.fromint(2))
+        
+
+    print time() - t
+    
+    t = time()
+    num = rbigint.fromint(100000000)
+    for n in xrange(80000000):
+        rbigint.floordiv(num, rbigint.fromint(3))
         
 
     print time() - t

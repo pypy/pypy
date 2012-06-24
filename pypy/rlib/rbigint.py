@@ -161,8 +161,8 @@ class rbigint(object):
         # This function is marked as pure, so you must not call it and
         # then modify the result.
         if b:
-            return rbigint([ONEDIGIT], 1)
-        return rbigint()
+            return ONERBIGINT
+        return NULLRBIGINT
 
     @staticmethod
     def fromlong(l):
@@ -421,14 +421,18 @@ class rbigint(object):
                 div = self.rshift(ptwotable[digit])
                 return div
             
-        div, mod = self.divmod(other)
+        div, mod = _divrem(self, other)
+        if mod.sign * other.sign == -1:
+            div = div.sub(ONERBIGINT)
         return div
 
     def div(self, other):
         return self.floordiv(other)
 
     def mod(self, other):
-        div, mod = self.divmod(other)
+        div, mod = _divrem(self, other)
+        if mod.sign * other.sign == -1:
+            mod = mod.add(other)
         return mod
 
     def divmod(v, w):
@@ -451,7 +455,7 @@ class rbigint(object):
         div, mod = _divrem(v, w)
         if mod.sign * w.sign == -1:
             mod = mod.add(w)
-            div = div.sub(rbigint([_store_digit(1)], 1))
+            div = div.sub(ONERBIGINT)
         return div, mod
 
     def pow(a, b, c=None):
@@ -498,13 +502,13 @@ class rbigint(object):
         elif size_b == 1 and a.sign == 1:
             digit = b.digit(0)
             if digit == 0:
-                return rbigint([ONEDIGIT], 1)
+                return ONERBIGINT
             elif digit == 1:
                 return a
             elif a.numdigits() == 1:
                 adigit = a.digit(0)
                 if adigit == 1:
-                    return rbigint([ONEDIGIT], 1)
+                    return ONERBIGINT
                 elif adigit & (adigit - 1) == 0:
                     return a.lshift(((digit-1)*(ptwotable[adigit]-1)) + digit-1)
                 
@@ -745,6 +749,9 @@ class rbigint(object):
         return "<rbigint digits=%s, sign=%s, %s>" % (self._digits,
                                                      self.sign, self.str())
 
+ONERBIGINT = rbigint([ONEDIGIT], 1)
+NULLRBIGINT = rbigint()
+
 #_________________________________________________________________
 
 # Helper Functions
@@ -866,7 +873,7 @@ def _x_sub(a, b):
         while i >= 0 and a.digit(i) == b.digit(i):
             i -= 1
         if i < 0:
-            return rbigint()
+            return NULLRBIGINT
         if a.digit(i) < b.digit(i):
             sign = -1
             a, b = b, a
@@ -1464,9 +1471,7 @@ def _divrem(a, b):
         (size_a == size_b and
          a.digit(size_a-1) < b.digit(size_b-1))):
         # |a| < |b|
-        z = rbigint()   # result is 0
-        rem = a
-        return z, rem
+        return NULLRBIGINT, a# result is 0
     if size_b == 1:
         z, urem = _divrem1(a, b.digit(0))
         rem = rbigint([_store_digit(urem)], int(urem != 0))
