@@ -156,6 +156,12 @@ class IntegralType(Type):
                 return '0'
         elif isinstance(value, llmemory.AddressAsInt):
             return 'ptrtoint({.TV} to i64)'.format(get_repr(value.adr.ptr))
+        elif isinstance(value, rffi.CConstant):
+            # XXX HACK
+            from pypy.rpython.tool import rffi_platform
+            return rffi_platform.getconstantinteger(
+                    value.c_name,
+                    '#include "/usr/include/curses.h"')
         raise NotImplementedError(value)
 
     def add_offset_indices(self, indices, offset):
