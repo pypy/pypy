@@ -1,7 +1,7 @@
 from pypy.jit.metainterp.test.support import LLJitMixin
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.rawstorage import (alloc_raw_storage, raw_storage_setitem,
-                                  free_raw_storage)
+                                  free_raw_storage, raw_storage_getitem)
 
 class TestJITRawMem(LLJitMixin):
     def test_cast_void_ptr(self):
@@ -36,9 +36,10 @@ class TestJITRawMem(LLJitMixin):
         def f():
             p = alloc_raw_storage(15)
             raw_storage_setitem(p, 3, 24)
+            res = raw_storage_getitem(lltype.Signed, p, 3)
             free_raw_storage(p)
-            return 42
+            return res
         res = self.interp_operations(f, [])
-        assert res == 42
+        assert res == 24
         self.check_operations_history({'call': 2, 'guard_no_exception': 1,
                                        'finish': 1})

@@ -860,12 +860,27 @@ def test_dict_setinteriorfield():
 
 def test_raw_store():
     v_storage = varoftype(llmemory.Address)
-    v_typ = varoftype(lltype.Void)
     v_index = varoftype(lltype.Signed)
     v_item = varoftype(lltype.Signed) # for example
-    op = SpaceOperation('raw_store', [v_storage, v_typ, v_index, v_item])
+    op = SpaceOperation('raw_store', [v_storage, v_index, v_item], None)
     op1 = Transformer(FakeCPU()).rewrite_operation(op)
-    assert op1.opname == 'raw_store'
+    assert op1.opname == 'raw_store_i'
+    assert op1.args[0] == v_storage
+    assert op1.args[1] == v_index
+    assert op1.args[2].value == rffi.sizeof(lltype.Signed)
+    assert op1.args[3] == v_item
+
+def test_raw_load():
+    v_storage = varoftype(llmemory.Address)
+    v_index = varoftype(lltype.Signed)
+    v_res = varoftype(lltype.Signed) # for example
+    op = SpaceOperation('raw_load', [v_storage, v_index], v_res)
+    op1 = Transformer(FakeCPU()).rewrite_operation(op)
+    assert op1.opname == 'raw_load_i'
+    assert op1.args[0] == v_storage
+    assert op1.args[1] == v_index
+    assert op1.args[2].value == rffi.sizeof(lltype.Signed)
+    assert op1.result == v_res
 
 def test_promote_1():
     v1 = varoftype(lltype.Signed)
