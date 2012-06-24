@@ -998,6 +998,12 @@ class FunctionWriter(object):
 
     # TODO: implement
 
+    def op_have_debug_prints(self, result):
+        self.w('{result.V} = bitcast i1 false to i1'.format(**locals()))
+
+    def op_ll_read_timestamp(self, result):
+        self.w('{result.V} = bitcast i64 0 to i64'.format(**locals()))
+
     def op_debug_print(self, result, *args):
         pass
 
@@ -1312,9 +1318,6 @@ class FunctionWriter(object):
 
     def op_gc_free(self, result, addr):
         self.op_raw_free(result, addr)
-
-    def op_have_debug_prints(self, result):
-        self.w('{result.V} = bitcast i1 false to i1'.format(**locals()))
 
     def op_convert_float_bytes_to_longlong(self, result, fl):
         self.w('{result.V} = bitcast {fl.TV} to {result.T}'.format(**locals()))
