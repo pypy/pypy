@@ -18,7 +18,6 @@ from pypy.rpython.lltypesystem.ll2ctypes import (_llvm_needs_header,
 from pypy.rpython.memory.gctransform.refcounting import (
      RefcountingGCTransformer)
 from pypy.rpython.memory.gctransform.framework import FrameworkGCTransformer
-from pypy.rpython.memory.gctransform.transform import GCTransformer
 from pypy.rpython.module.support import LLSupport
 from pypy.rpython.typesystem import getfunctionptr
 from pypy.translator.backendopt.removenoops import remove_same_as

@@ -453,13 +453,13 @@ class TestSpecialCases(_LLVMMixin):
                 interp_fcntl.fcntl_int(0, 0, 0)
             elif x == 1:
                 interp_fcntl.fcntl_str(0, 0, '')
-        fc = self.getcompiled(f, [int])
+        self.getcompiled(f, [int])
 
     def test_inet_ntoa(self):
         from pypy.rlib.rsocket import inet_ntoa
         def f(x):
             return inet_ntoa(x)
-        fc = self.getcompiled(f, [str])
+        self.getcompiled(f, [str])
 
     def test_cast_adr_to_int_symbolic(self):
         x = lltype.malloc(lltype.Struct(''), immortal=True)
