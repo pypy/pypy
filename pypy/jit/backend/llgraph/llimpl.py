@@ -823,9 +823,7 @@ class Frame(object):
     op_getfield_gc_pure = op_getfield_gc
 
     def op_getfield_raw(self, fielddescr, struct):
-        if fielddescr.arg_types == 'dynamic': # abuse of .arg_types
-            return do_getfield_raw_dynamic(struct, fielddescr)
-        elif fielddescr.typeinfo == REF:
+        if fielddescr.typeinfo == REF:
             return do_getfield_raw_ptr(struct, fielddescr.ofs)
         elif fielddescr.typeinfo == INT:
             return do_getfield_raw_int(struct, fielddescr.ofs)
@@ -835,6 +833,26 @@ class Frame(object):
             raise NotImplementedError
 
     op_getfield_raw_pure = op_getfield_raw
+
+    def op_raw_store(self, arraydescr, addr, offset, value):
+        if arraydescr.typeinfo == REF:
+            xxx
+        elif arraydescr.typeinfo == INT:
+            do_raw_store_int(addr, offset, arraydescr.ofs, value)
+        elif arraydescr.typeinfo == FLOAT:
+            xxx
+        else:
+            raise NotImplementedError
+
+    def op_raw_load(self, arraydescr, addr, offset):
+        if arraydescr.typeinfo == REF:
+            xxx
+        elif arraydescr.typeinfo == INT:
+            return do_raw_load_int(addr, offset, arraydescr.ofs)
+        elif arraydescr.typeinfo == FLOAT:
+            xxx
+        else:
+            raise NotImplementedError
 
     def op_new(self, size):
         return do_new(size.ofs)
@@ -1515,18 +1533,18 @@ def do_getfield_raw_dynamic(struct, fielddescr):
     else:
         return libffi._struct_getfield(lltype.Signed, addr, ofs)
 
-def do_raw_load_int(struct, offset, size):
-    assert isinstance(size, llmemory.ItemOffset) and size.repeat == 1
+def do_raw_load_int(struct, offset, descrofs):
+    TYPE = symbolic.Size2Type[descrofs]
     ll_p = rffi.cast(rffi.CCHARP, struct)
-    ll_p = rffi.cast(rffi.CArrayPtr(size.TYPE), rffi.ptradd(ll_p, offset))
+    ll_p = rffi.cast(lltype.Ptr(TYPE), rffi.ptradd(ll_p, offset))
     value = ll_p[0]
     return rffi.cast(lltype.Signed, value)
 
-def do_raw_store_int(struct, offset, size, value):
-    assert isinstance(size, llmemory.ItemOffset) and size.repeat == 1
+def do_raw_store_int(struct, offset, descrofs, value):
+    TYPE = symbolic.Size2Type[descrofs]
     ll_p = rffi.cast(rffi.CCHARP, struct)
-    ll_p = rffi.cast(rffi.CArrayPtr(size.TYPE), rffi.ptradd(ll_p, offset))
-    ll_p[0] = rffi.cast(size.TYPE, value)
+    ll_p = rffi.cast(lltype.Ptr(TYPE), rffi.ptradd(ll_p, offset))
+    ll_p[0] = rffi.cast(TYPE.OF, value)
 
 def do_new(size):
     TYPE = symbolic.Size2Type[size]

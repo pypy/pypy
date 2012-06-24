@@ -1269,13 +1269,13 @@ class BlackholeInterpreter(object):
     def bhimpl_setfield_raw_f(cpu, struct, fielddescr, newvalue):
         cpu.bh_setfield_raw_f(struct, fielddescr, newvalue)
 
-    @arguments("cpu", "i", "i", "i", "i")
-    def bhimpl_raw_store_i(cpu, struct, offset, size, newvalue):
-        cpu.bh_raw_store_i(struct, offset, size, newvalue)
+    @arguments("cpu", "i", "i", "d", "i")
+    def bhimpl_raw_store_i(cpu, addr, offset, arraydescr, newvalue):
+        cpu.bh_raw_store_i(addr, offset, arraydescr, newvalue)
 
-    @arguments("cpu", "i", "i", "i", returns="i")
-    def bhimpl_raw_load_i(cpu, struct, offset, size):
-        return cpu.bh_raw_load_i(struct, offset, size)
+    @arguments("cpu", "i", "i", "d", returns="i")
+    def bhimpl_raw_load_i(cpu, addr, offset, arraydescr):
+        return cpu.bh_raw_load_i(addr, offset, arraydescr)
 
     @arguments("r", "d", "d")
     def bhimpl_record_quasiimmut_field(struct, fielddescr, mutatefielddescr):

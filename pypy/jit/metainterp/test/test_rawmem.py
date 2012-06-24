@@ -32,7 +32,7 @@ class TestJITRawMem(LLJitMixin):
         self.check_operations_history({'call': 2, 'guard_no_exception': 1,
                                        'finish': 1})
 
-    def test_raw_storage(self):
+    def test_raw_storage_int(self):
         def f():
             p = alloc_raw_storage(15)
             raw_storage_setitem(p, 3, 24)
@@ -42,4 +42,5 @@ class TestJITRawMem(LLJitMixin):
         res = self.interp_operations(f, [])
         assert res == 24
         self.check_operations_history({'call': 2, 'guard_no_exception': 1,
+                                       'raw_store': 1, 'raw_load': 1,
                                        'finish': 1})

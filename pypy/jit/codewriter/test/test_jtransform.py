@@ -867,7 +867,7 @@ def test_raw_store():
     assert op1.opname == 'raw_store_i'
     assert op1.args[0] == v_storage
     assert op1.args[1] == v_index
-    assert op1.args[2].value == rffi.sizeof(lltype.Signed)
+    assert op1.args[2] == ('arraydescr', rffi.CArray(lltype.Signed))
     assert op1.args[3] == v_item
 
 def test_raw_load():
@@ -879,7 +879,7 @@ def test_raw_load():
     assert op1.opname == 'raw_load_i'
     assert op1.args[0] == v_storage
     assert op1.args[1] == v_index
-    assert op1.args[2].value == rffi.sizeof(lltype.Signed)
+    assert op1.args[2] == ('arraydescr', rffi.CArray(lltype.Signed))
     assert op1.result == v_res
 
 def test_promote_1():

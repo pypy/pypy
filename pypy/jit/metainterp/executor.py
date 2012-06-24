@@ -180,6 +180,26 @@ def do_setfield_raw(cpu, _, structbox, itembox, fielddescr):
     else:
         cpu.bh_setfield_raw_i(struct, fielddescr, itembox.getint())
 
+def do_raw_store(cpu, _, addrbox, offsetbox, valuebox, arraydescr):
+    addr = addrbox.getint()
+    offset = offsetbox.getint()
+    if arraydescr.is_array_of_pointers():
+        xxx
+    elif arraydescr.is_array_of_floats():
+        xxx
+    else:
+        cpu.bh_raw_store_i(addr, offset, arraydescr, valuebox.getint())
+
+def do_raw_load(cpu, _, addrbox, offsetbox, arraydescr):
+    addr = addrbox.getint()
+    offset = offsetbox.getint()
+    if arraydescr.is_array_of_pointers():
+        xxx
+    elif arraydescr.is_array_of_floats():
+        xxx
+    else:
+        return BoxInt(cpu.bh_raw_load_i(addr, offset, arraydescr))
+
 def exec_new_with_vtable(cpu, clsbox):
     from pypy.jit.codewriter import heaptracker
     vtable = clsbox.getint()
@@ -343,8 +363,6 @@ def _make_execute_list():
                          rop.DEBUG_MERGE_POINT,
                          rop.JIT_DEBUG,
                          rop.SETARRAYITEM_RAW,
-                         rop.GETINTERIORFIELD_RAW,
-                         rop.SETINTERIORFIELD_RAW,
                          rop.CALL_RELEASE_GIL,
                          rop.QUASIIMMUT_FIELD,
                          rop.CALL_MALLOC_GC,

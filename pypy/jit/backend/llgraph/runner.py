@@ -482,10 +482,12 @@ class LLtypeCPU(BaseCPU):
         return llimpl.do_setinteriorfield_gc_float(array, index, descr.ofs,
                                                    value)
 
-    def bh_raw_store_i(self, struct, offset, size, newvalue):
-        return llimpl.do_raw_store_int(struct, offset, size, newvalue)
-    def bh_raw_load_i(self, struct, offset, size):
-        return llimpl.do_raw_load_int(struct, offset, size)
+    def bh_raw_store_i(self, struct, offset, descr, newvalue):
+        assert isinstance(descr, Descr)
+        return llimpl.do_raw_store_int(struct, offset, descr.ofs, newvalue)
+    def bh_raw_load_i(self, struct, offset, descr):
+        assert isinstance(descr, Descr)
+        return llimpl.do_raw_load_int(struct, offset, descr.ofs)
 
     def bh_new(self, sizedescr):
         assert isinstance(sizedescr, Descr)
