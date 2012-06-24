@@ -835,17 +835,17 @@ class Frame(object):
 
     def op_raw_store(self, arraydescr, addr, offset, value):
         if arraydescr.typeinfo == REF:
-            xxx
+            raise AssertionError("cannot store GC pointer in raw storage")
         elif arraydescr.typeinfo == INT:
             do_raw_store_int(addr, offset, arraydescr.ofs, value)
         elif arraydescr.typeinfo == FLOAT:
-            xxx
+            do_raw_store_float(addr, offset, arraydescr.ofs, value)
         else:
             raise NotImplementedError
 
     def op_raw_load(self, arraydescr, addr, offset):
-        if arraydescr.typeinfo == REF:
-            xxx
+        if arraydescr.typeinfo == REF: 
+            raise AssertionError("cannot store GC pointer in raw storage")
         elif arraydescr.typeinfo == INT:
             return do_raw_load_int(addr, offset, arraydescr.ofs)
         elif arraydescr.typeinfo == FLOAT:
@@ -1526,6 +1526,7 @@ def do_raw_store_int(struct, offset, descrofs, value):
     ll_p = rffi.cast(rffi.CCHARP, struct)
     ll_p = rffi.cast(lltype.Ptr(TYPE), rffi.ptradd(ll_p, offset))
     ll_p[0] = rffi.cast(TYPE.OF, value)
+do_raw_store_float = do_raw_store_int
 
 def do_new(size):
     TYPE = symbolic.Size2Type[size]
