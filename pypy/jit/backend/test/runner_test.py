@@ -3340,6 +3340,58 @@ class LLtypeBackendTest(BaseBackendTest):
         fail = self.cpu.execute_token(looptoken2, -9)
         assert fail.identifier == 42
 
+    def test_raw_load_int(self):
+        from pypy.rlib import rawstorage
+        for T in [rffi.UCHAR, rffi.SIGNEDCHAR,
+                  rffi.USHORT, rffi.SHORT,
+                  rffi.UINT, rffi.INT,
+                  rffi.ULONG, rffi.LONG]:
+            ops = """
+            [i0, i1]
+            i2 = raw_load(i0, i1, descr=arraydescr)
+            finish(i2)
+            """
+            arraydescr = self.cpu.arraydescrof(rffi.CArray(T))
+            p = rawstorage.alloc_raw_storage(31)
+            for i in range(31):
+                p[i] = '\xDD'
+            value = rffi.cast(T, 0x4243444546474849)
+            rawstorage.raw_storage_setitem(p, 16, value)
+            loop = parse(ops, self.cpu, namespace=locals())
+            looptoken = JitCellToken()
+            self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+            self.cpu.execute_token(looptoken,
+                                   rffi.cast(lltype.Signed, p), 16)
+            result = self.cpu.get_latest_value_int(0)
+            assert result == rffi.cast(lltype.Signed, value)
+            rawstorage.free_raw_storage(p)
+
+    def test_raw_load_float(self):
+        if not self.cpu.supports_floats:
+            py.test.skip("requires floats")
+        from pypy.rlib import rawstorage
+        for T in [rffi.DOUBLE]:
+            ops = """
+            [i0, i1]
+            f2 = raw_load(i0, i1, descr=arraydescr)
+            finish(f2)
+            """
+            arraydescr = self.cpu.arraydescrof(rffi.CArray(T))
+            p = rawstorage.alloc_raw_storage(31)
+            for i in range(31):
+                p[i] = '\xDD'
+            value = rffi.cast(T, 1.12e20)
+            rawstorage.raw_storage_setitem(p, 16, value)
+            loop = parse(ops, self.cpu, namespace=locals())
+            looptoken = JitCellToken()
+            self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+            self.cpu.execute_token(looptoken,
+                                   rffi.cast(lltype.Signed, p), 16)
+            result = self.cpu.get_latest_value_float(0)
+            result = longlong.getrealfloat(result)
+            assert result == rffi.cast(lltype.Float, value)
+            rawstorage.free_raw_storage(p)
+
 
 class OOtypeBackendTest(BaseBackendTest):
 

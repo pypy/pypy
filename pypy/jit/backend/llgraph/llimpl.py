@@ -21,7 +21,6 @@ from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.backend.llgraph import symbolic
 from pypy.jit.codewriter import longlong
 
-from pypy.rlib import libffi, clibffi
 from pypy.rlib.objectmodel import ComputedIntSymbolic, we_are_translated
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rlib.rarithmetic import r_longlong, r_ulonglong, r_uint
@@ -850,7 +849,7 @@ class Frame(object):
         elif arraydescr.typeinfo == INT:
             return do_raw_load_int(addr, offset, arraydescr.ofs)
         elif arraydescr.typeinfo == FLOAT:
-            xxx
+            return do_raw_load_float(addr, offset, arraydescr.ofs)
         else:
             raise NotImplementedError
 
@@ -939,9 +938,7 @@ class Frame(object):
             raise NotImplementedError
 
     def op_setfield_raw(self, fielddescr, struct, newvalue):
-        if fielddescr.arg_types == 'dynamic': # abuse of .arg_types
-            do_setfield_raw_dynamic(struct, fielddescr, newvalue)
-        elif fielddescr.typeinfo == REF:
+        if fielddescr.typeinfo == REF:
             do_setfield_raw_ptr(struct, fielddescr.ofs, newvalue)
         elif fielddescr.typeinfo == INT:
             do_setfield_raw_int(struct, fielddescr.ofs, newvalue)
@@ -1496,18 +1493,6 @@ def do_getinteriorfield_gc_ptr(array, index, fieldnum):
     struct = array._obj.container.getitem(index)
     return cast_to_ptr(_getinteriorfield_gc(struct, fieldnum))
 
-def _getinteriorfield_raw(ffitype, array, index, width, ofs):
-    addr = rffi.cast(rffi.VOIDP, array)
-    return libffi.array_getitem(ffitype, width, addr, index, ofs)
-
-def do_getinteriorfield_raw_int(array, index, width, ofs):
-    res = _getinteriorfield_raw(libffi.types.slong, array, index, width, ofs)
-    return res
-
-def do_getinteriorfield_raw_float(array, index, width, ofs):
-    res = _getinteriorfield_raw(libffi.types.double, array, index, width, ofs)
-    return res
-
 def _getfield_raw(struct, fieldnum):
     STRUCT, fieldname = symbolic.TokenToField[fieldnum]
     ptr = cast_from_int(lltype.Ptr(STRUCT), struct)
@@ -1522,23 +1507,19 @@ def do_getfield_raw_float(struct, fieldnum):
 def do_getfield_raw_ptr(struct, fieldnum):
     return cast_to_ptr(_getfield_raw(struct, fieldnum))
 
-def do_getfield_raw_dynamic(struct, fielddescr):
-    from pypy.rlib import libffi
-    addr = cast_from_int(rffi.VOIDP, struct)
-    ofs = fielddescr.ofs
-    if fielddescr.is_pointer_field():
-        assert False, 'fixme'
-    elif fielddescr.is_float_field():
-        assert False, 'fixme'
-    else:
-        return libffi._struct_getfield(lltype.Signed, addr, ofs)
-
 def do_raw_load_int(struct, offset, descrofs):
     TYPE = symbolic.Size2Type[descrofs]
     ll_p = rffi.cast(rffi.CCHARP, struct)
     ll_p = rffi.cast(lltype.Ptr(TYPE), rffi.ptradd(ll_p, offset))
     value = ll_p[0]
     return rffi.cast(lltype.Signed, value)
+
+def do_raw_load_float(struct, offset, descrofs):
+    TYPE = symbolic.Size2Type[descrofs]
+    ll_p = rffi.cast(rffi.CCHARP, struct)
+    ll_p = rffi.cast(lltype.Ptr(TYPE), rffi.ptradd(ll_p, offset))
+    value = ll_p[0]
+    return rffi.cast(lltype.Float, value)
 
 def do_raw_store_int(struct, offset, descrofs, value):
     TYPE = symbolic.Size2Type[descrofs]
@@ -1610,18 +1591,6 @@ do_setinteriorfield_gc_int = new_setinteriorfield_gc(cast_from_int)
 do_setinteriorfield_gc_float = new_setinteriorfield_gc(cast_from_floatstorage)
 do_setinteriorfield_gc_ptr = new_setinteriorfield_gc(cast_from_ptr)
 
-def new_setinteriorfield_raw(cast_func, ffitype):
-    def do_setinteriorfield_raw(array, index, newvalue, width, ofs):
-        addr = rffi.cast(rffi.VOIDP, array)
-        for TYPE, ffitype2 in clibffi.ffitype_map:
-            if ffitype2 is ffitype:
-                newvalue = cast_func(TYPE, newvalue)
-                break
-        return libffi.array_setitem(ffitype, width, addr, index, ofs, newvalue)
-    return do_setinteriorfield_raw
-do_setinteriorfield_raw_int = new_setinteriorfield_raw(cast_from_int, libffi.types.slong)
-do_setinteriorfield_raw_float = new_setinteriorfield_raw(cast_from_floatstorage, libffi.types.double)
-
 def do_setfield_raw_int(struct, fieldnum, newvalue):
     STRUCT, fieldname = symbolic.TokenToField[fieldnum]
     ptr = cast_from_int(lltype.Ptr(STRUCT), struct)
@@ -1642,17 +1611,6 @@ def do_setfield_raw_ptr(struct, fieldnum, newvalue):
     FIELDTYPE = getattr(STRUCT, fieldname)
     newvalue = cast_from_ptr(FIELDTYPE, newvalue)
     setattr(ptr, fieldname, newvalue)
-
-def do_setfield_raw_dynamic(struct, fielddescr, newvalue):
-    from pypy.rlib import libffi
-    addr = cast_from_int(rffi.VOIDP, struct)
-    ofs = fielddescr.ofs
-    if fielddescr.is_pointer_field():
-        assert False, 'fixme'
-    elif fielddescr.is_float_field():
-        assert False, 'fixme'
-    else:
-        libffi._struct_setfield(lltype.Signed, addr, ofs, newvalue)
 
 def do_newstr(length):
     x = rstr.mallocstr(length)

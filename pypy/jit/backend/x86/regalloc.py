@@ -1166,8 +1166,6 @@ class RegAlloc(object):
         self.Perform(op, [base_loc, ofs, itemsize, fieldsize,
                           index_loc, temp_loc, sign_loc], result_loc)
 
-    consider_getinteriorfield_raw = consider_getinteriorfield_gc
-
     def consider_int_is_true(self, op, guard_op):
         # doesn't need arg to be in a register
         argloc = self.loc(op.getarg(0))

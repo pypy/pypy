@@ -1570,9 +1570,6 @@ class Assembler386(object):
                                                 ofs_loc)
         self.load_from_mem(resloc, src_addr, fieldsize_loc, sign_loc)
 
-    genop_getinteriorfield_raw = genop_getinteriorfield_gc
-
-
     def genop_discard_setfield_gc(self, op, arglocs):
         base_loc, ofs_loc, size_loc, value_loc = arglocs
         assert isinstance(size_loc, ImmedLoc)
