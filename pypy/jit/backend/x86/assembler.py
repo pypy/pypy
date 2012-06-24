@@ -1545,6 +1545,12 @@ class Assembler386(object):
     genop_getarrayitem_gc_pure = genop_getarrayitem_gc
     genop_getarrayitem_raw = genop_getarrayitem_gc
 
+    def genop_raw_load(self, op, arglocs, resloc):
+        base_loc, ofs_loc, size_loc, ofs, sign_loc = arglocs
+        assert isinstance(ofs, ImmedLoc)
+        src_addr = addr_add(base_loc, ofs_loc, ofs.value, 0)
+        self.load_from_mem(resloc, src_addr, size_loc, sign_loc)
+
     def _get_interiorfield_addr(self, temp_loc, index_loc, itemsize_loc,
                                 base_loc, ofs_loc):
         assert isinstance(itemsize_loc, ImmedLoc)
@@ -1592,6 +1598,12 @@ class Assembler386(object):
         assert isinstance(size_loc, ImmedLoc)
         scale = _get_scale(size_loc.value)
         dest_addr = AddressLoc(base_loc, ofs_loc, scale, baseofs.value)
+        self.save_into_mem(dest_addr, value_loc, size_loc)
+
+    def genop_discard_raw_store(self, op, arglocs):
+        base_loc, ofs_loc, value_loc, size_loc, baseofs = arglocs
+        assert isinstance(baseofs, ImmedLoc)
+        dest_addr = AddressLoc(base_loc, ofs_loc, 0, baseofs.value)
         self.save_into_mem(dest_addr, value_loc, size_loc)
 
     def genop_discard_strsetitem(self, op, arglocs):
