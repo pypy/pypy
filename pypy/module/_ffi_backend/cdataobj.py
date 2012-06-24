@@ -59,8 +59,7 @@ class W_CData(Wrappable):
                               self.ctype.name)
 
     def str(self):
-        w_result = self.ctype.try_str(self._cdata)
-        keepalive_until_here(self)
+        w_result = self.ctype.try_str(self)
         return w_result or self.repr()
 
     @specialize.arg(2)

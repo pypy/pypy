@@ -205,9 +205,17 @@ def test_hash_differences():
     BChar = new_primitive_type("char")
     BInt = new_primitive_type("int")
     BFloat = new_primitive_type("float")
-    assert (hash(cast(BChar, 'A')) !=
-            hash(cast(BInt, 65)))
-    assert hash(cast(BFloat, 65)) != hash(65.0)
+    for i in range(1, 20):
+        if (hash(cast(BChar, chr(i))) !=
+            hash(cast(BInt, i))):
+            break
+    else:
+        raise AssertionError("hashes are equal")
+    for i in range(1, 20):
+        if hash(cast(BFloat, i)) != hash(float(i)):
+            break
+    else:
+        raise AssertionError("hashes are equal")
 
 def test_no_len_on_nonarray():
     p = new_primitive_type("int")
@@ -933,3 +941,13 @@ def test_newp_copying_struct_and_union():
     u1 = newp(BUnionPtr, 42)
     u2 = newp(BUnionPtr, u1[0])
     assert u2.a1 == 42
+
+def test_str():
+    BChar = new_primitive_type("char")
+    BCharP = new_pointer_type(BChar)
+    BArray = new_array_type(BCharP, 10)
+    a = newp(BArray, "hello")
+    assert len(a) == 10
+    assert str(a) == "hello"
+    p = a + 2
+    assert str(p) == "llo"

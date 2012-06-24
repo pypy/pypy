@@ -54,7 +54,7 @@ class W_CType(Wrappable):
                               "cdata of type '%s' cannot be indexed",
                               self.name)
 
-    def try_str(self, cdata):
+    def try_str(self, cdataobj):
         return None
 
     def add(self, cdata, i):
@@ -108,6 +108,13 @@ class W_CTypePointer(W_CTypePtrOrArray):
         else:
             extra = " *"
         W_CTypePtrOrArray.__init__(self, space, size, extra, 2, ctitem)
+
+    def try_str(self, cdataobj):
+        if isinstance(self.ctitem, W_CTypePrimitiveChar):
+            s = rffi.charp2str(cdataobj._cdata)
+            keepalive_until_here(cdataobj)
+            return self.space.wrap(s)
+        return None
 
     def cast(self, w_ob):
         space = self.space
@@ -163,6 +170,13 @@ class W_CTypeArray(W_CTypePtrOrArray):
                                    ctptr.ctitem)
         self.length = length
         self.ctptr = ctptr
+
+    def try_str(self, cdataobj):
+        if isinstance(self.ctitem, W_CTypePrimitiveChar):
+            s = rffi.charp2strn(cdataobj._cdata, cdataobj.get_array_length())
+            keepalive_until_here(cdataobj)
+            return self.space.wrap(s)
+        return None
 
     def _alignof(self):
         return self.ctitem.alignof()
@@ -296,7 +310,10 @@ class W_CTypePrimitiveChar(W_CTypePrimitive):
     def convert_to_object(self, cdata):
         return self.space.wrap(cdata[0])
 
-    try_str = convert_to_object
+    def try_str(self, cdataobj):
+        w_res = self.convert_to_object(cdataobj._cdata)
+        keepalive_until_here(cdataobj)
+        return w_res
 
     def _convert_to_char(self, w_ob):
         space = self.space
