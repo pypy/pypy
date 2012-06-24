@@ -184,9 +184,9 @@ def do_raw_store(cpu, _, addrbox, offsetbox, valuebox, arraydescr):
     addr = addrbox.getint()
     offset = offsetbox.getint()
     if arraydescr.is_array_of_pointers():
-        xxx
+        raise AssertionError("cannot store GC pointers in raw store")
     elif arraydescr.is_array_of_floats():
-        xxx
+        cpu.bh_raw_store_f(addr, offset, arraydescr, valuebox.getfloat())
     else:
         cpu.bh_raw_store_i(addr, offset, arraydescr, valuebox.getint())
 
@@ -194,9 +194,9 @@ def do_raw_load(cpu, _, addrbox, offsetbox, arraydescr):
     addr = addrbox.getint()
     offset = offsetbox.getint()
     if arraydescr.is_array_of_pointers():
-        xxx
+        raise AssertionError("cannot store GC pointers in raw store")
     elif arraydescr.is_array_of_floats():
-        xxx
+        return BoxFloat(cpu.bh_raw_load_f(addr, offset, arraydescr))
     else:
         return BoxInt(cpu.bh_raw_load_i(addr, offset, arraydescr))
 

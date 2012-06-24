@@ -44,3 +44,16 @@ class TestJITRawMem(LLJitMixin):
         self.check_operations_history({'call': 2, 'guard_no_exception': 1,
                                        'raw_store': 1, 'raw_load': 1,
                                        'finish': 1})
+
+    def test_raw_storage_float(self):
+        def f():
+            p = alloc_raw_storage(15)
+            raw_storage_setitem(p, 3, 2.4e15)
+            res = raw_storage_getitem(lltype.Float, p, 3)
+            free_raw_storage(p)
+            return res
+        res = self.interp_operations(f, [])
+        assert res == 2.4e15
+        self.check_operations_history({'call': 2, 'guard_no_exception': 1,
+                                       'raw_store': 1, 'raw_load': 1,
+                                       'finish': 1})

@@ -856,6 +856,7 @@ class Transformer(object):
     def rewrite_op_raw_store(self, op):
         T = op.args[2].concretetype
         kind = getkind(T)[0]
+        assert kind != 'r'
         descr = self.cpu.arraydescrof(rffi.CArray(T))
         return SpaceOperation('raw_store_%s' % kind,
                               [op.args[0], op.args[1], descr, op.args[2]],
@@ -864,6 +865,7 @@ class Transformer(object):
     def rewrite_op_raw_load(self, op):
         T = op.result.concretetype
         kind = getkind(T)[0]
+        assert kind != 'r'
         descr = self.cpu.arraydescrof(rffi.CArray(T))
         return SpaceOperation('raw_load_%s' % kind,
                               [op.args[0], op.args[1], descr], op.result)

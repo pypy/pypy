@@ -654,12 +654,14 @@ class MIFrame(object):
         self.execute_with_descr(rop.RAW_STORE, arraydescr,
                                 addrbox, offsetbox, valuebox)
     opimpl_raw_store_i = _opimpl_raw_store
+    opimpl_raw_store_f = _opimpl_raw_store
 
     @arguments("box", "box", "descr")
     def _opimpl_raw_load(self, addrbox, offsetbox, arraydescr):
         return self.execute_with_descr(rop.RAW_LOAD, arraydescr,
                                        addrbox, offsetbox)
     opimpl_raw_load_i = _opimpl_raw_load
+    opimpl_raw_load_f = _opimpl_raw_load
 
     @arguments("box", "descr", "descr", "orgpc")
     def opimpl_record_quasiimmut_field(self, box, fielddescr,
