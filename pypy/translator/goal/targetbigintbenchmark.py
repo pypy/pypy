@@ -11,6 +11,7 @@ def entry_point(argv):
         A cutout with some benchmarks.
         Pypy default:
         484.5688
+        334.611903
         8.637287
         12.211942
         18.270045
@@ -32,13 +33,13 @@ def entry_point(argv):
 
     """
     
-    """t = time()
+    t = time()
     num = rbigint.fromint(10000000)
     for n in xrange(10000):
         rbigint.pow(rbigint.fromint(2), num)
         
 
-    print time() - t"""
+    print time() - t
 
     t = time()
     num = rbigint.fromint(100000000)
