@@ -856,7 +856,7 @@ class Transformer(object):
     def rewrite_op_raw_store(self, op):
         T = op.args[2].concretetype
         kind = getkind(T)[0]
-        c_size = Constant(rffi.sizeof(T), lltype.Signed)
+        c_size = Constant(llmemory.sizeof(T), lltype.Signed)
         return SpaceOperation('raw_store_%s' % kind,
                               [op.args[0], op.args[1], c_size, op.args[2]],
                               None)
@@ -864,7 +864,7 @@ class Transformer(object):
     def rewrite_op_raw_load(self, op):
         T = op.result.concretetype
         kind = getkind(T)[0]
-        c_size = Constant(rffi.sizeof(T), lltype.Signed)
+        c_size = Constant(llmemory.sizeof(T), lltype.Signed)
         return SpaceOperation('raw_load_%s' % kind,
                               [op.args[0], op.args[1], c_size], op.result)
 

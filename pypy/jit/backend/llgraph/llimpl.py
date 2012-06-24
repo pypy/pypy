@@ -1515,6 +1515,19 @@ def do_getfield_raw_dynamic(struct, fielddescr):
     else:
         return libffi._struct_getfield(lltype.Signed, addr, ofs)
 
+def do_raw_load_int(struct, offset, size):
+    assert isinstance(size, llmemory.ItemOffset) and size.repeat == 1
+    ll_p = rffi.cast(rffi.CCHARP, struct)
+    ll_p = rffi.cast(rffi.CArrayPtr(size.TYPE), rffi.ptradd(ll_p, offset))
+    value = ll_p[0]
+    return rffi.cast(lltype.Signed, value)
+
+def do_raw_store_int(struct, offset, size, value):
+    assert isinstance(size, llmemory.ItemOffset) and size.repeat == 1
+    ll_p = rffi.cast(rffi.CCHARP, struct)
+    ll_p = rffi.cast(rffi.CArrayPtr(size.TYPE), rffi.ptradd(ll_p, offset))
+    ll_p[0] = rffi.cast(size.TYPE, value)
+
 def do_new(size):
     TYPE = symbolic.Size2Type[size]
     x = lltype.malloc(TYPE, zero=True)
@@ -1921,6 +1934,7 @@ setannotation(do_getfield_raw_float, s_FloatStorage)
 setannotation(do_getinteriorfield_gc_int, annmodel.SomeInteger())
 setannotation(do_getinteriorfield_gc_ptr, annmodel.SomePtr(llmemory.GCREF))
 setannotation(do_getinteriorfield_gc_float, s_FloatStorage)
+setannotation(do_raw_load_int, annmodel.SomeInteger())
 setannotation(do_new, annmodel.SomePtr(llmemory.GCREF))
 setannotation(do_new_array, annmodel.SomePtr(llmemory.GCREF))
 setannotation(do_setarrayitem_gc_int, annmodel.s_None)
@@ -1937,6 +1951,7 @@ setannotation(do_setfield_raw_float, annmodel.s_None)
 setannotation(do_setinteriorfield_gc_int, annmodel.s_None)
 setannotation(do_setinteriorfield_gc_ptr, annmodel.s_None)
 setannotation(do_setinteriorfield_gc_float, annmodel.s_None)
+setannotation(do_raw_store_int, annmodel.s_None)
 setannotation(do_newstr, annmodel.SomePtr(llmemory.GCREF))
 setannotation(do_strsetitem, annmodel.s_None)
 setannotation(do_newunicode, annmodel.SomePtr(llmemory.GCREF))
