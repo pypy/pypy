@@ -8,7 +8,7 @@ from pypy.rlib import jit
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rpython import extregistry
 
-import math, sys
+import math, sys, array
 
 # note about digit sizes:
 # In division, the native integer type must be able to hold
@@ -459,7 +459,9 @@ class rbigint(object):
                     "cannot be negative when 3rd argument specified")
             # XXX failed to implement
             raise ValueError("bigint pow() too negative")
-
+        
+        size_b = b.numdigits()
+        
         if c is not None:
             if c.sign == 0:
                 raise ValueError("pow() 3rd argument cannot be 0")
@@ -483,9 +485,8 @@ class rbigint(object):
                 a, temp = a.divmod(c)
                 a = temp
                 
-        size_b = b.numdigits()
-        
-        if not c and size_b == 1 and a.sign == 1:
+            
+        elif size_b == 1 and a.sign == 1:
             digit = b.digit(0)
             if digit == 0:
                 return rbigint([ONEDIGIT], 1)
@@ -495,8 +496,8 @@ class rbigint(object):
                 adigit = a.digit(0)
                 if adigit == 1:
                     return rbigint([ONEDIGIT], 1)
-                elif adigit == 2:
-                    return a.lshift(digit-1)
+                elif adigit & (adigit - 1) == 0:
+                    return a.lshift(((digit-1)*(ptwotable[adigit]-1)) + digit-1)
                 
         # At this point a, b, and c are guaranteed non-negative UNLESS
         # c is NULL, in which case a may be negative. */
@@ -518,6 +519,7 @@ class rbigint(object):
                         z = _help_mult(z, a, c)
                     j >>= 1
                 size_b -= 1
+                
         else:
             # Left-to-right 5-ary exponentiation (HAC Algorithm 14.82)
             # This is only useful in the case where c != None.

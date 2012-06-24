@@ -1,6 +1,6 @@
 from __future__ import division
 import py
-import operator, sys
+import operator, sys, array
 from random import random, randint, sample
 from pypy.rlib.rbigint import rbigint, SHIFT, MASK, KARATSUBA_CUTOFF
 from pypy.rlib.rbigint import _store_digit
