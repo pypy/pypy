@@ -10,6 +10,7 @@ def entry_point(argv):
     """
         A cutout with some benchmarks.
         Pypy default:
+        5.147583
         484.5688
         334.611903
         8.637287
@@ -21,6 +22,7 @@ def entry_point(argv):
         6.647562
 
         Pypy with improvements:
+        2.307890
         9.451896
         1.122038
         5.787821
@@ -32,6 +34,14 @@ def entry_point(argv):
         6.434917
 
     """
+
+    t = time()
+    num = rbigint.fromint(100000000)
+    for n in xrange(80000000):
+        rbigint.floordiv(num, rbigint.fromint(2))
+        
+
+    print time() - t
     
     t = time()
     num = rbigint.fromint(10000000)

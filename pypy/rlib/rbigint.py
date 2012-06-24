@@ -412,6 +412,15 @@ class rbigint(object):
         return div
 
     def floordiv(self, other):
+        if other.numdigits() == 1 and other.sign == 1:
+            digit = other.digit(0)
+
+            if digit == 1:
+                return self
+            elif digit & (digit - 1) == 0:
+                div = self.rshift(ptwotable[digit])
+                return div
+            
         div, mod = self.divmod(other)
         return div
 
