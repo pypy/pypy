@@ -865,3 +865,71 @@ def test_no_inheritance():
         pass
     else:
         raise AssertionError
+
+def test_assign_string():
+    BChar = new_primitive_type("char")
+    BArray1 = new_array_type(new_pointer_type(BChar), 5)
+    BArray2 = new_array_type(new_pointer_type(BArray1), 5)
+    a = newp(BArray2, ["abc", "de", "ghij"])
+    assert str(a[2]) == "ghij"
+    a[2] = "."
+    assert str(a[2]) == "."
+    a[2] = "12345"
+    assert str(a[2]) == "12345"
+    e = py.test.raises(IndexError, 'a[2] = "123456"')
+    assert 'char[5]' in str(e.value)
+    assert 'got 6 characters' in str(e.value)
+
+def test_add_error():
+    x = cast(new_primitive_type("int"), 42)
+    py.test.raises(TypeError, "x + 1")
+    py.test.raises(TypeError, "x - 1")
+
+def test_void_errors():
+    py.test.raises(TypeError, alignof, new_void_type())
+    py.test.raises(TypeError, newp, new_pointer_type(new_void_type()), None)
+    x = cast(new_pointer_type(new_void_type()), 42)
+    py.test.raises(TypeError, "x + 1")
+    py.test.raises(TypeError, "x - 1")
+
+def test_too_many_items():
+    BChar = new_primitive_type("char")
+    BArray = new_array_type(new_pointer_type(BChar), 5)
+    py.test.raises(IndexError, newp, BArray, ('1', '2', '3', '4', '5', '6'))
+    py.test.raises(IndexError, newp, BArray, ['1', '2', '3', '4', '5', '6'])
+    py.test.raises(IndexError, newp, BArray, '123456')
+    BStruct = new_struct_type("foo")
+    complete_struct_or_union(BStruct, [])
+    py.test.raises(TypeError, newp, new_pointer_type(BStruct), '')
+    py.test.raises(ValueError, newp, new_pointer_type(BStruct), ['1'])
+
+def test_more_type_errors():
+    BInt = new_primitive_type("int")
+    BChar = new_primitive_type("char")
+    BArray = new_array_type(new_pointer_type(BChar), 5)
+    py.test.raises(TypeError, newp, BArray, 12.34)
+    BArray = new_array_type(new_pointer_type(BInt), 5)
+    py.test.raises(TypeError, newp, BArray, 12.34)
+    BFloat = new_primitive_type("float")
+    py.test.raises(TypeError, cast, BFloat, newp(BArray, None))
+
+def test_more_overflow_errors():
+    BUInt = new_primitive_type("unsigned int")
+    py.test.raises(OverflowError, newp, new_pointer_type(BUInt), -1)
+    py.test.raises(OverflowError, newp, new_pointer_type(BUInt), 2**32)
+
+def test_newp_copying_struct_and_union():
+    BInt = new_primitive_type("int")
+    BStruct = new_struct_type("foo_s")
+    BStructPtr = new_pointer_type(BStruct)
+    complete_struct_or_union(BStruct, [('a1', BInt, -1)])
+    s1 = newp(BStructPtr, [42])
+    s2 = newp(BStructPtr, s1[0])
+    assert s2.a1 == 42
+    #
+    BUnion = new_union_type("foo_u")
+    BUnionPtr = new_pointer_type(BUnion)
+    complete_struct_or_union(BUnion, [('a1', BInt, -1)])
+    u1 = newp(BUnionPtr, 42)
+    u2 = newp(BUnionPtr, u1[0])
+    assert u2.a1 == 42
