@@ -1055,6 +1055,10 @@ class FunctionWriter(object):
     op_raw_malloc_usage = _cast
 
     def op_direct_call(self, result, fn, *args):
+        if (isinstance(fn, ConstantRepr) and
+            fn.value._obj._name == 'PYPY_NO_OP'):
+            return
+
         it = iter(fn.type_.to.args)
         tmp = []
         for arg in args:
