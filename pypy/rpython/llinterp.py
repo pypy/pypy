@@ -1003,14 +1003,16 @@ class LLFrame(object):
 
     def op_raw_load(self, addr, typ, offset):
         checkadr(addr)
-        value = getattr(addr, str(typ).lower())[offset]
+        assert offset.TYPE == typ
+        value = getattr(addr, str(typ).lower())[offset.repeat]
         assert lltype.typeOf(value) == typ
         return value
 
     def op_raw_store(self, addr, typ, offset, value):
         checkadr(addr)
         assert lltype.typeOf(value) == typ
-        getattr(addr, str(typ).lower())[offset] = value
+        assert offset.TYPE == typ
+        getattr(addr, str(typ).lower())[offset.repeat] = value
 
     def op_stack_malloc(self, size): # mmh
         raise NotImplementedError("backend only")

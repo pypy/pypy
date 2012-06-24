@@ -703,7 +703,8 @@ class FunctionCodeGenerator(object):
         offset = self.expr(op.args[2])
         value = self.expr(op.args[3])
         typename = cdecl(self.db.gettype(TYPE).replace('@', '*@'), '')
-        return "((%(typename)s) %(addr)s)[%(offset)s] = %(value)s;" % locals()
+        return ('((%(typename)s) (%(addr)s + %(offset)s))[0] = %(value)s;' %
+                locals())
 
     def OP_RAW_LOAD(self, op):
         addr = self.expr(op.args[0])
@@ -711,7 +712,8 @@ class FunctionCodeGenerator(object):
         offset = self.expr(op.args[2])
         result = self.expr(op.result)
         typename = cdecl(self.db.gettype(TYPE).replace('@', '*@'), '')
-        return "%(result)s = ((%(typename)s) %(addr)s)[%(offset)s];" % locals()
+        return ("%(result)s = ((%(typename)s) (%(addr)s + %(offset)s))[0];" %
+                locals())
 
     def OP_CAST_PRIMITIVE(self, op):
         TYPE = self.lltypemap(op.result)

@@ -1226,7 +1226,7 @@ class FrameworkGCTransformer(GCTransformer):
                               resulttype=llmemory.Address)
         c_type = rmodel.inputconst(lltype.Void, llmemory.Address)
         for k,var in enumerate(livevars):
-            c_k = rmodel.inputconst(lltype.Signed, k)
+            c_k = rmodel.inputconst(lltype.Signed, k * sizeofaddr)
             v_adr = gen_cast(hop.llops, llmemory.Address, var)
             hop.genop("raw_store", [base_addr, c_type, c_k, v_adr])
         return livevars
@@ -1243,7 +1243,7 @@ class FrameworkGCTransformer(GCTransformer):
             # for moving collectors, reload the roots into the local variables
             c_type = rmodel.inputconst(lltype.Void, llmemory.Address)
             for k,var in enumerate(livevars):
-                c_k = rmodel.inputconst(lltype.Signed, k)
+                c_k = rmodel.inputconst(lltype.Signed, k * sizeofaddr)
                 v_newaddr = hop.genop("raw_load", [base_addr, c_type, c_k],
                                       resulttype=llmemory.Address)
                 hop.genop("gc_reload_possibly_moved", [v_newaddr, var])
