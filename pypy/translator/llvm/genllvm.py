@@ -1053,6 +1053,10 @@ class FunctionWriter(object):
             return
         elif fr.type_ is to.type_:
             op = 'bitcast'
+        elif to.type_ is LLVMBool:
+            assert isinstance(fr.type_, IntegralType)
+            self.w('{to.V} = icmp ne {fr.TV}, 0'.format(**locals()))
+            return
         else:
             op = fr.type_.get_cast_op(to.type_)
         self.w('{to.V} = {op} {fr.TV} to {to.T}'.format(**locals()))
