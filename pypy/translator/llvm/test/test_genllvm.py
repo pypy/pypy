@@ -339,6 +339,39 @@ class TestSpecialCases(_LLVMMixin):
         fc = self.getcompiled(f)
         assert fc() == 1
 
+    def test_consider_constant_with_llgroup_delayed(self):
+        class X1(object):
+            y = 11
+        class X2(X1):
+            y = 22
+        class A1(object):
+            x = X1()
+        class A2(A1):
+            x = X2()
+        class B1(object):
+            x = 1
+        class B2(B1):
+            x = 2
+        def g(x):
+            if x == 0:
+                a = A1()
+            else:
+                a = A2()
+            return a.x.y
+        def f(x):
+            if x == 0:
+                b = B1()
+            else:
+                b = B2()
+            # the expression `b.x` forces the type info group to be passed to
+            # _consider_constant() before A1's vtable is added to the group
+            return b.x * g(x)
+
+        self.config_override['translation.gc'] = 'minimark'
+        fc = self.getcompiled(f, [int])
+        assert fc(0) == 11
+        assert fc(1) == 44
+
     def test_int_abs(self):
         def f(x):
             return abs(x)

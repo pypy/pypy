@@ -1331,6 +1331,7 @@ class GCPolicy(object):
         self.genllvm = genllvm
         self._considered_constant = set()
         self.delayed_ptrs = False
+        self.groups = set()
 
     def transform_graph(self, graph):
         self.gctransformer.transform_graph(graph)
@@ -1379,8 +1380,7 @@ class GCPolicy(object):
                 for i in items:
                     self._consider_constant(type_.OF, i)
             elif isinstance(type_, llgroup.GroupType):
-                for member in value.members:
-                    self._consider_constant(lltype.typeOf(member), member)
+                self.groups.add(value)
             elif type_ is lltype.RuntimeTypeInfo:
                 if isinstance(self.gctransformer, RefcountingGCTransformer):
                     self.gctransformer.static_deallocation_funcptr_for_type(
@@ -1417,6 +1417,9 @@ class GCPolicy(object):
             self.delayed_ptrs = False
             for graph in self.genllvm.translator.graphs:
                 self.genllvm.transform_graph(graph)
+            for group in self.groups:
+                for member in group.members:
+                    self._consider_constant(lltype.typeOf(member), member)
 
             finish_tables = self.gctransformer.get_finish_tables()
             if hasattr(finish_tables, '__iter__'):
