@@ -10,6 +10,7 @@ def entry_point(argv):
     """
         A cutout with some benchmarks.
         Pypy default:
+        484.5688
         8.637287
         12.211942
         18.270045
