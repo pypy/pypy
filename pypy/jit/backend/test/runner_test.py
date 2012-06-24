@@ -1733,39 +1733,6 @@ class LLtypeBackendTest(BaseBackendTest):
         assert s.x == chr(190)
         assert s.y == chr(150)
 
-    def test_fielddescrof_dynamic(self):
-        S = lltype.Struct('S',
-                          ('x', lltype.Signed),
-                          ('y', lltype.Signed),
-                          )
-        longsize = rffi.sizeof(lltype.Signed)
-        y_ofs = longsize
-        s = lltype.malloc(S, flavor='raw')
-        sa = llmemory.cast_ptr_to_adr(s)
-        s_box = BoxInt(heaptracker.adr2int(sa))
-        #
-        field = self.cpu.fielddescrof(S, 'y')
-        field_dyn = self.cpu.fielddescrof_dynamic(offset=y_ofs,
-                                                  fieldsize=longsize,
-                                                  is_pointer=False,
-                                                  is_float=False,
-                                                  is_signed=True)
-        assert field.is_pointer_field() == field_dyn.is_pointer_field()
-        assert field.is_float_field()   == field_dyn.is_float_field()
-        if 'llgraph' not in str(self.cpu):
-            assert field.is_field_signed()  == field_dyn.is_field_signed()
-
-        #
-        for get_op, set_op in ((rop.GETFIELD_RAW, rop.SETFIELD_RAW),
-                               (rop.GETFIELD_RAW_PURE, rop.SETFIELD_RAW)):
-            for descr in (field, field_dyn):
-                self.execute_operation(set_op, [s_box, BoxInt(32)], 'void',
-                                       descr=descr)
-                res = self.execute_operation(get_op, [s_box], 'int', descr=descr)
-                assert res.getint()  == 32
-
-        lltype.free(s, flavor='raw')
-
     def test_new_with_vtable(self):
         cpu = self.cpu
         t_box, T_box = self.alloc_instance(self.T)
