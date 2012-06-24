@@ -48,6 +48,20 @@ class W_CType(Wrappable):
     def convert_from_object(self, cdata, w_ob):
         raise NotImplementedError
 
+    def _convert_error(self, expected, w_got):
+        space = self.space
+        ob = space.interpclass_w(w_got)
+        if isinstance(ob, cdataobj.W_CData):
+            return operationerrfmt(space.w_TypeError,
+                                   "initializer for ctype '%s' must be a %s, "
+                                   "not cdata '%s'", self.name, expected,
+                                   ob.ctype.name)
+        else:
+            return operationerrfmt(space.w_TypeError,
+                                   "initializer for ctype '%s' must be a %s, "
+                                   "not %s", self.name, expected,
+                                   space.type(w_got).getname(space))
+
     def _check_subscript_index(self, w_cdata, i):
         space = self.space
         raise operationerrfmt(space.w_TypeError,
@@ -58,7 +72,6 @@ class W_CType(Wrappable):
         return None
 
     def add(self, cdata, i):
-        xxx
         space = self.space
         raise operationerrfmt(space.w_TypeError,
                               "cannot add a cdata '%s' and a number",
@@ -242,7 +255,7 @@ class W_CTypeArray(W_CTypePtrOrArray):
             except OperationError, e:
                 if not e.match(space, space.w_TypeError):
                     raise
-                xxx
+                raise self._convert_error("str or list or tuple", w_ob)
             n = len(s)
             if self.length >= 0 and n > self.length:
                 xxx
@@ -251,7 +264,7 @@ class W_CTypeArray(W_CTypePtrOrArray):
             if n != self.length:
                 cdata[n] = '\x00'
         else:
-            xxx
+            raise self._convert_error("list or tuple", w_ob)
 
     def convert_to_object(self, cdata):
         return cdataobj.W_CData(self.space, cdata, self)
@@ -325,9 +338,7 @@ class W_CTypePrimitiveChar(W_CTypePrimitive):
         if (isinstance(ob, cdataobj.W_CData) and
                isinstance(ob.ctype, W_CTypePrimitiveChar)):
             return ob._cdata[0]
-        raise operationerrfmt(space.w_TypeError,
-            "initializer for ctype 'char' must be a string of length 1, "
-            "not %s", space.type(w_ob).getname(space))
+        raise self._convert_error("string of length 1", w_ob)
 
     def convert_from_object(self, cdata, w_ob):
         value = self._convert_to_char(w_ob)
@@ -486,7 +497,9 @@ class W_CTypeStruct(W_CTypeStructOrUnion):
             space.isinstance_w(w_ob, space.w_tuple)):
             lst_w = space.listview(w_ob)
             if len(lst_w) > len(self.fields_list):
-                xxx  # "too many initializers for '%s' (got %zd)"
+                raise operationerrfmt(space.w_ValueError,
+                        "too many initializers for '%s' (got %d)",
+                                      self.name, len(lst_w))
             for i in range(len(lst_w)):
                 self.fields_list[i].write(cdata, lst_w[i])
         else:
