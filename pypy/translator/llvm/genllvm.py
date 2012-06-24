@@ -1611,6 +1611,10 @@ null_bool = ConstantRepr(LLVMBool, 0)
 
 class GenLLVM(object):
     def __init__(self, translator, standalone):
+        # XXX refactor code to be less recursive
+        import sys
+        sys.setrecursionlimit(10000)
+
         self.translator = translator
         self.standalone = standalone
         self.exctransformer = translator.getexceptiontransformer()
