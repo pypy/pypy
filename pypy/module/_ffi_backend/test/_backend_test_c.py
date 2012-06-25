@@ -222,6 +222,21 @@ def test_reading_pointer_to_char():
     assert str(cast(BChar, 'A')) == 'A'
     py.test.raises(TypeError, cast, BChar, 'foo')
 
+def test_reading_pointer_to_pointer():
+    BInt = new_primitive_type("int")
+    BIntPtr = new_pointer_type(BInt)
+    BIntPtrPtr = new_pointer_type(BIntPtr)
+    q = newp(BIntPtr, 42)
+    assert q[0] == 42
+    p = newp(BIntPtrPtr, None)
+    assert p[0] is None
+    p[0] = q
+    assert p[0][0] == 42
+    q[0] += 1
+    assert p[0][0] == 43
+    p = newp(BIntPtrPtr, q)
+    assert p[0][0] == 43
+
 def test_hash_differences():
     BChar = new_primitive_type("char")
     BInt = new_primitive_type("int")
@@ -542,6 +557,15 @@ def test_struct_instance():
     assert s.a1 == 0
     py.test.raises(AttributeError, "p.foobar")
     py.test.raises(AttributeError, "s.foobar")
+
+def test_union_instance():
+    BInt = new_primitive_type("int")
+    BUInt = new_primitive_type("unsigned int")
+    BUnion = new_union_type("bar")
+    complete_struct_or_union(BUnion, [('a1', BInt, -1), ('a2', BUInt, -1)])
+    p = newp(new_pointer_type(BUnion), -42)
+    assert p.a1 == -42
+    assert p.a2 == -42 + (1 << (8*size_of_int()))
 
 def test_struct_pointer():
     BInt = new_primitive_type("int")
@@ -954,11 +978,40 @@ def test_more_overflow_errors():
     py.test.raises(OverflowError, newp, new_pointer_type(BUInt), -1)
     py.test.raises(OverflowError, newp, new_pointer_type(BUInt), 2**32)
 
-def test_newp_copying_struct_and_union():
+def test_newp_copying():
+    """Test that we can do newp(<type>, <cdata of the given type>) for most
+    types, with the exception of arrays, like in C.
+    """
     BInt = new_primitive_type("int")
+    p = newp(new_pointer_type(BInt), cast(BInt, 42))
+    assert p[0] == 42
+    #
+    BUInt = new_primitive_type("unsigned int")
+    p = newp(new_pointer_type(BUInt), cast(BUInt, 42))
+    assert p[0] == 42
+    #
+    BChar = new_primitive_type("char")
+    p = newp(new_pointer_type(BChar), cast(BChar, '!'))
+    assert p[0] == '!'
+    #
+    BFloat = new_primitive_type("float")
+    p = newp(new_pointer_type(BFloat), cast(BFloat, 12.25))
+    assert p[0] == 12.25
+    #
     BStruct = new_struct_type("foo_s")
     BStructPtr = new_pointer_type(BStruct)
     complete_struct_or_union(BStruct, [('a1', BInt, -1)])
+    s1 = newp(BStructPtr, [42])
+    p1 = newp(new_pointer_type(BStructPtr), s1)
+    assert p1[0] == s1
+    #
+    BArray = new_array_type(new_pointer_type(BInt), None)
+    a1 = newp(BArray, [1, 2, 3, 4])
+    py.test.raises(TypeError, newp, BArray, a1)
+    BArray6 = new_array_type(new_pointer_type(BInt), 6)
+    a1 = newp(BArray6, None)
+    py.test.raises(TypeError, newp, BArray6, a1)
+    #
     s1 = newp(BStructPtr, [42])
     s2 = newp(BStructPtr, s1[0])
     assert s2.a1 == 42
@@ -969,6 +1022,11 @@ def test_newp_copying_struct_and_union():
     u1 = newp(BUnionPtr, 42)
     u2 = newp(BUnionPtr, u1[0])
     assert u2.a1 == 42
+    #
+    BFunc = new_function_type((BInt,), BUInt)
+    p1 = cast(BFunc, 42)
+    p2 = newp(new_pointer_type(BFunc), p1)
+    assert p2[0] == p1
 
 def test_str():
     BChar = new_primitive_type("char")
@@ -979,3 +1037,10 @@ def test_str():
     assert str(a) == "hello"
     p = a + 2
     assert str(p) == "llo"
+
+def test_bug_convert_to_ptr():
+    BChar = new_primitive_type("char")
+    BCharP = new_pointer_type(BChar)
+    BDouble = new_primitive_type("double")
+    x = cast(BDouble, 42)
+    py.test.raises(TypeError, newp, new_pointer_type(BCharP), x)

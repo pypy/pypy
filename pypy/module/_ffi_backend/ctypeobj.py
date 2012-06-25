@@ -11,6 +11,7 @@ from pypy.module._ffi_backend import cdataobj, misc
 
 class W_CType(Wrappable):
     #_immutable_ = True    XXX newtype.complete_struct_or_union()?
+    cast_anything = False
 
     def __init__(self, space, size, name, name_position):
         self.space = space
@@ -182,6 +183,32 @@ class W_CTypePointer(W_CTypePtrOrArray):
         from pypy.module._ffi_backend import newtype
         return newtype.alignment_of_pointer
 
+    def convert_to_object(self, cdata):
+        ptrdata = rffi.cast(rffi.CCHARPP, cdata)[0]
+        if ptrdata:
+            return cdataobj.W_CData(self.space, ptrdata, self)
+        else:
+            return self.space.w_None
+
+    def convert_from_object(self, cdata, w_ob):
+        space = self.space
+        if not space.is_w(w_ob, space.w_None):
+            ob = space.interpclass_w(w_ob)
+            if not isinstance(ob, cdataobj.W_CData):
+                raise self._convert_error("compatible pointer", w_ob)
+            otherctype = ob.ctype
+            if (isinstance(otherctype, W_CTypePtrOrArray) and
+              (self.ctitem.cast_anything or self.ctitem is otherctype.ctitem)):
+                pass    # compatible types
+            else:
+                raise self._convert_error("compatible pointer", w_ob)
+
+            ptrdata = ob._cdata
+        else:
+            ptrdata = lltype.nullptr(rffi.CCHARP.TO)
+
+        rffi.cast(rffi.CCHARPP, cdata)[0] = ptrdata
+
 
 class W_CTypeArray(W_CTypePtrOrArray):
 
@@ -328,6 +355,7 @@ class W_CTypePrimitive(W_CType):
 
 
 class W_CTypePrimitiveChar(W_CTypePrimitive):
+    cast_anything = True
 
     def int(self, cdata):
         return self.space.wrap(ord(cdata[0]))
@@ -584,7 +612,10 @@ class W_CTypeStruct(W_CTypeStructOrUnion):
         space = self.space
         ob = space.interpclass_w(w_ob)
         if isinstance(ob, cdataobj.W_CData):
-            xxx
+            if ob.ctype is self and self.size >= 0:
+                llmemory.raw_memcopy(ob._cdata, cdata, self.size)
+                keepalive_until_here(ob)
+                return
 
         if (space.isinstance_w(w_ob, space.w_list) or
             space.isinstance_w(w_ob, space.w_tuple)):
@@ -617,10 +648,21 @@ class W_CTypeUnion(W_CTypeStructOrUnion):
     kind = "union"
 
     def convert_from_object(self, cdata, w_ob):
-        xxx
+        space = self.space
+        ob = space.interpclass_w(w_ob)
+        if isinstance(ob, cdataobj.W_CData):
+            if ob.ctype is self and self.size >= 0:
+                llmemory.raw_memcopy(ob._cdata, cdata, self.size)
+                keepalive_until_here(ob)
+                return
+        if not self.fields_list:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("empty union"))
+        self.fields_list[0].write(cdata, w_ob)
 
 
 class W_CTypeVoid(W_CType):
+    cast_anything = True
 
     def __init__(self, space):
         W_CType.__init__(self, space, -1, "void", len("void"))
