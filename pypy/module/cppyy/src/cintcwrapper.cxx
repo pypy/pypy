@@ -141,6 +141,13 @@ public:
 
 
 /* local helpers ---------------------------------------------------------- */
+static inline const std::string resolve_typedef(const std::string& tname) {
+    G__TypeInfo ti(tname.c_str());
+    if (!ti.IsValid())
+        return tname;
+    return TClassEdit::ShortType(TClassEdit::CleanType(ti.TrueName(), 1).c_str(), 3);
+}
+
 static inline char* cppstring_to_cstring(const std::string& name) {
     char* name_char = (char*)malloc(name.size() + 1);
     strcpy(name_char, name.c_str());
@@ -154,16 +161,16 @@ static inline char* type_cppstring_to_cstring(const std::string& tname) {
 }
 
 static inline TClassRef type_from_handle(cppyy_type_t handle) {
+    assert((ClassRefs_t::size_type)handle < g_classrefs.size());
     return g_classrefs[(ClassRefs_t::size_type)handle];
 }
 
-static inline TFunction* type_get_method(cppyy_type_t handle, int method_index) {
+static inline TFunction* type_get_method(cppyy_type_t handle, cppyy_index_t idx) {
     TClassRef cr = type_from_handle(handle);
     if (cr.GetClass())
-        return (TFunction*)cr->GetListOfMethods()->At(method_index);
-    return &g_globalfuncs[method_index];
+        return (TFunction*)cr->GetListOfMethods()->At(idx);
+    return (TFunction*)idx;
 }
-
 
 static inline void fixup_args(G__param* libp) {
     for (int i = 0; i < libp->paran; ++i) {
@@ -194,7 +201,6 @@ static inline void fixup_args(G__param* libp) {
             libp->para[i].ref = (long)&libp->para[i].obj.i;
             libp->para[i].type = 'd';
             break;
-
         }
         }
     }
@@ -260,6 +266,7 @@ cppyy_type_t cppyy_actual_class(cppyy_type_t klass, cppyy_object_t obj) {
     }
     return klass;
 }
+
 
 /* memory management ------------------------------------------------------ */
 cppyy_object_t cppyy_allocate(cppyy_type_t handle) {
@@ -387,7 +394,7 @@ cppyy_object_t cppyy_call_o(cppyy_type_t method, cppyy_object_t self, int nargs,
     return G__int(result);
 }
 
-cppyy_methptrgetter_t cppyy_get_methptr_getter(cppyy_type_t /*handle*/, int /*method_index*/) {
+cppyy_methptrgetter_t cppyy_get_methptr_getter(cppyy_type_t /*handle*/, cppyy_index_t /*idx*/) {
     return (cppyy_methptrgetter_t)NULL;
 }
 
@@ -533,47 +540,75 @@ int cppyy_num_methods(cppyy_scope_t handle) {
     return 0;
 }
 
-char* cppyy_method_name(cppyy_scope_t handle, int method_index) {
-    TFunction* f = type_get_method(handle, method_index);
+cppyy_index_t cppyy_method_index_at(cppyy_scope_t handle, int imeth) {
+    TClassRef cr = type_from_handle(handle);
+    if (cr.GetClass())
+        return (cppyy_index_t)imeth;
+    return (cppyy_index_t)&g_globalfuncs[imeth];
+}
+
+cppyy_index_t cppyy_method_index_from_name(cppyy_scope_t handle, const char* name) {
+    TClassRef cr = type_from_handle(handle);
+    if (cr.GetClass()) {
+        gInterpreter->UpdateListOfMethods(cr.GetClass());
+        int imeth = 0;
+        TFunction* func;
+        TIter next(cr->GetListOfMethods());
+        while ((func = (TFunction*)next())) {
+            if (strcmp(name, func->GetName()) == 0) {
+                if (func->Property() & G__BIT_ISPUBLIC)
+                    return (cppyy_index_t)imeth;
+                return (cppyy_index_t)-1;
+            }
+            ++imeth;
+        }
+    }
+    TFunction* func = gROOT->GetGlobalFunction(name, NULL, kTRUE);
+    if (!func)
+        return (cppyy_index_t)-1;  // (void*)-1 is in kernel space, so invalid
+    int idx = g_globalfuncs.size();
+    g_globalfuncs.push_back(*func);
+    return (cppyy_index_t)func;
+}
+
+
+char* cppyy_method_name(cppyy_scope_t handle, cppyy_index_t idx) {
+    TFunction* f = type_get_method(handle, idx);
     return cppstring_to_cstring(f->GetName());
 }
 
-char* cppyy_method_result_type(cppyy_scope_t handle, int method_index) {
-    TFunction* f = 0;
+char* cppyy_method_result_type(cppyy_scope_t handle, cppyy_index_t idx) {
     TClassRef cr = type_from_handle(handle);
-    if (cr.GetClass()) {
-        if (cppyy_is_constructor(handle, method_index))
-            return cppstring_to_cstring("constructor");
-        f = (TFunction*)cr->GetListOfMethods()->At(method_index);
-    } else
-        f = &g_globalfuncs[method_index];
+    if (cr.GetClass() && cppyy_is_constructor(handle, idx))
+        return cppstring_to_cstring("constructor");
+    TFunction* f = type_get_method(handle, idx);
     return type_cppstring_to_cstring(f->GetReturnTypeName());
 }
 
-int cppyy_method_num_args(cppyy_scope_t handle, int method_index) {
-    TFunction* f = type_get_method(handle, method_index);
+int cppyy_method_num_args(cppyy_scope_t handle, cppyy_index_t idx) {
+    TFunction* f = type_get_method(handle, idx);
     return f->GetNargs();
 }
 
-int cppyy_method_req_args(cppyy_scope_t handle, int method_index) {
-    TFunction* f = type_get_method(handle, method_index);
+int cppyy_method_req_args(cppyy_scope_t handle, cppyy_index_t idx) {
+    TFunction* f = type_get_method(handle, idx);
     return f->GetNargs() - f->GetNargsOpt();
 }
 
-char* cppyy_method_arg_type(cppyy_scope_t handle, int method_index, int arg_index) {
-    TFunction* f = type_get_method(handle, method_index);
+char* cppyy_method_arg_type(cppyy_scope_t handle, cppyy_index_t idx, int arg_index) {
+    TFunction* f = type_get_method(handle, idx);
     TMethodArg* arg = (TMethodArg*)f->GetListOfMethodArgs()->At(arg_index);
     return type_cppstring_to_cstring(arg->GetFullTypeName());
 }
 
-char* cppyy_method_arg_default(cppyy_scope_t, int, int) {
+char* cppyy_method_arg_default(cppyy_scope_t /*handle*/, cppyy_index_t /*idx*/, int /*arg_index*/) {
     /* unused: libffi does not work with CINT back-end */
     return cppstring_to_cstring("");
 }
 
-char* cppyy_method_signature(cppyy_scope_t handle, int method_index) {
-    TFunction* f = type_get_method(handle, method_index);
+char* cppyy_method_signature(cppyy_scope_t handle, cppyy_index_t idx) {
     TClassRef cr = type_from_handle(handle);
+    TFunction* f = type_get_method(handle, idx);
     std::ostringstream sig;
     if (cr.GetClass() && cr->GetClassInfo()
         && strcmp(f->GetName(), ((G__ClassInfo*)cr->GetClassInfo())->Name()) != 0)
@@ -589,46 +624,53 @@ char* cppyy_method_signature(cppyy_scope_t handle, int method_index) {
     return cppstring_to_cstring(sig.str());
 }
 
-int cppyy_method_index(cppyy_scope_t handle, const char* name) {
-    TClassRef cr = type_from_handle(handle);
-    if (cr.GetClass()) {
-        gInterpreter->UpdateListOfMethods(cr.GetClass());
-        int imeth = 0;
-        TFunction* func;
-        TIter next(cr->GetListOfMethods());
-        while ((func = (TFunction*)next())) {
-            if (strcmp(name, func->GetName()) == 0) {
-                if (func->Property() & G__BIT_ISPUBLIC)
-                    return imeth;
-                return -1;
-            }
-            ++imeth;
-        }
-    }
-    TFunction* func = gROOT->GetGlobalFunction(name, NULL, kTRUE);
-    if (!func)
-        return -1;
-    int idx = g_globalfuncs.size();
-    g_globalfuncs.push_back(*func);
-    return idx;
+
+cppyy_method_t cppyy_get_method(cppyy_scope_t handle, cppyy_index_t idx) {
+    TFunction* f = type_get_method(handle, idx);
+    return (cppyy_method_t)f->InterfaceMethod();
 }
 
-cppyy_method_t cppyy_get_method(cppyy_scope_t handle, int method_index) {
-    TFunction* f = type_get_method(handle, method_index);
-    return (cppyy_method_t)f->InterfaceMethod();
+cppyy_index_t cppyy_get_global_operator(cppyy_scope_t lc, cppyy_scope_t rc, const char* op) {
+    TClassRef lccr = type_from_handle(lc);
+    if (!lccr.GetClass()) 
+        return (cppyy_index_t)-1;  // (void*)-1 is in kernel space, so invalid as a method handle
+    std::string lcname = lccr->GetName();
+
+    TClassRef rccr = type_from_handle(lc);
+    if (!rccr.GetClass())
+        return (cppyy_index_t)-1;
+    std::string rcname = rccr->GetName();
+
+    std::string opname = "operator";
+    opname += op;
+
+    for (int idx = 0; idx < (int)g_globalfuncs.size(); ++idx) {
+        TFunction* func = &g_globalfuncs[idx];
+        if (func->GetListOfMethodArgs()->GetSize() != 2)
+            continue;
+
+        if (func->GetName() == opname) {
+            if (lcname == resolve_typedef(((TMethodArg*)func->GetListOfMethodArgs()->At(0))->GetTypeName()) &&
+                rcname == resolve_typedef(((TMethodArg*)func->GetListOfMethodArgs()->At(1))->GetTypeName())) {
+                return (cppyy_index_t)func;
+            }
+        }
+    }
+
+    return (cppyy_index_t)-1;
 }
 
 
 /* method properties -----------------------------------------------------  */
-int cppyy_is_constructor(cppyy_type_t handle, int method_index) {
+int cppyy_is_constructor(cppyy_type_t handle, cppyy_index_t idx) {
     TClassRef cr = type_from_handle(handle);
-    TMethod* m = (TMethod*)cr->GetListOfMethods()->At(method_index);
+    TMethod* m = (TMethod*)cr->GetListOfMethods()->At(idx);
     return strcmp(m->GetName(), ((G__ClassInfo*)cr->GetClassInfo())->Name()) == 0;
 }
 
-int cppyy_is_staticmethod(cppyy_type_t handle, int method_index) {
+int cppyy_is_staticmethod(cppyy_type_t handle, cppyy_index_t idx) {
     TClassRef cr = type_from_handle(handle);
-    TMethod* m = (TMethod*)cr->GetListOfMethods()->At(method_index);
+    TMethod* m = (TMethod*)cr->GetListOfMethods()->At(idx);
     return m->Property() & G__BIT_ISSTATIC;
 }
 
@@ -769,13 +811,14 @@ cppyy_object_t cppyy_stdstring2stdstring(cppyy_object_t ptr) {
     return (cppyy_object_t)new std::string(*(std::string*)ptr);
 }
 
+void cppyy_assign2stdstring(cppyy_object_t ptr, const char* str) {
+   *((std::string*)ptr) = str;
+}
+
 void cppyy_free_stdstring(cppyy_object_t ptr) {
     delete (std::string*)ptr;
 }
 
-void cppyy_assign2stdstring(cppyy_object_t ptr, const char* str) {
-   *((std::string*)ptr) = str;
-}
 
 void* cppyy_load_dictionary(const char* lib_name) {
     if (0 <= gSystem->Load(lib_name))

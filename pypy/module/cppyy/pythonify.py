@@ -329,10 +329,9 @@ def _pythonize(pyclass):
 
     # map begin()/end() protocol to iter protocol
     if hasattr(pyclass, 'begin') and hasattr(pyclass, 'end'):
-        # TODO: make gnu-independent
         def __iter__(self):
             iter = self.begin()
-            while gbl.__gnu_cxx.__ne__(iter, self.end()):
+            while iter != self.end():
                 yield iter.__deref__()
                 iter.__preinc__()
             iter.destruct()

@@ -188,7 +188,7 @@ static cppyy_methptrgetter_t get_methptr_getter(Reflex::Member m) {
     return 0;
 }
 
-cppyy_methptrgetter_t cppyy_get_methptr_getter(cppyy_type_t handle, int method_index) {
+cppyy_methptrgetter_t cppyy_get_methptr_getter(cppyy_type_t handle, cppyy_index_t method_index) {
     Reflex::Scope s = scope_from_handle(handle);
     Reflex::Member m = s.FunctionMemberAt(method_index);
     return get_methptr_getter(m);
@@ -332,7 +332,28 @@ int cppyy_num_methods(cppyy_scope_t handle) {
     return s.FunctionMemberSize();
 }
 
-char* cppyy_method_name(cppyy_scope_t handle, int method_index) {
+cppyy_index_t cppyy_method_index_at(cppyy_scope_t scope, int imeth) {
+    return (cppyy_index_t)imeth;
+}
+
+cppyy_index_t cppyy_method_index_from_name(cppyy_scope_t handle, const char* name) {
+    Reflex::Scope s = scope_from_handle(handle);
+    // the following appears dumb, but the internal storage for Reflex is an
+    // unsorted std::vector anyway, so there's no gain to be had in using the
+    // Scope::FunctionMemberByName() function
+    int num_meth = s.FunctionMemberSize();
+    for (int imeth = 0; imeth < num_meth; ++imeth) {
+        Reflex::Member m = s.FunctionMemberAt(imeth);
+        if (m.Name() == name) {
+            if (m.IsPublic())
+               return (cppyy_index_t)imeth;
+            return (cppyy_index_t)-1;
+        }
+    }
+    return (cppyy_index_t)-1;
+}
+
+char* cppyy_method_name(cppyy_scope_t handle, cppyy_index_t method_index) {
     Reflex::Scope s = scope_from_handle(handle);
     Reflex::Member m = s.FunctionMemberAt(method_index);
     std::string name;
@@ -343,7 +364,7 @@ char* cppyy_method_name(cppyy_scope_t handle, int method_index) {
     return cppstring_to_cstring(name);
 }
 
-char* cppyy_method_result_type(cppyy_scope_t handle, int method_index) {
+char* cppyy_method_result_type(cppyy_scope_t handle, cppyy_index_t method_index) {
     Reflex::Scope s = scope_from_handle(handle);
     Reflex::Member m = s.FunctionMemberAt(method_index);
     if (m.IsConstructor())
@@ -353,19 +374,19 @@ char* cppyy_method_result_type(cppyy_scope_t handle, int method_index) {
     return cppstring_to_cstring(name);
 }
 
-int cppyy_method_num_args(cppyy_scope_t handle, int method_index) {
+int cppyy_method_num_args(cppyy_scope_t handle, cppyy_index_t method_index) {
     Reflex::Scope s = scope_from_handle(handle);
     Reflex::Member m = s.FunctionMemberAt(method_index);
     return m.FunctionParameterSize();
 }
 
-int cppyy_method_req_args(cppyy_scope_t handle, int method_index) {
+int cppyy_method_req_args(cppyy_scope_t handle, cppyy_index_t method_index) {
     Reflex::Scope s = scope_from_handle(handle);
     Reflex::Member m = s.FunctionMemberAt(method_index);
     return m.FunctionParameterSize(true);
 }
 
-char* cppyy_method_arg_type(cppyy_scope_t handle, int method_index, int arg_index) {
+char* cppyy_method_arg_type(cppyy_scope_t handle, cppyy_index_t method_index, int arg_index) {
     Reflex::Scope s = scope_from_handle(handle);
     Reflex::Member m = s.FunctionMemberAt(method_index);
     Reflex::Type at = m.TypeOf().FunctionParameterAt(arg_index);
@@ -373,14 +394,14 @@ char* cppyy_method_arg_type(cppyy_scope_t handle, int method_index, int arg_inde
     return cppstring_to_cstring(name);
 }
 
-char* cppyy_method_arg_default(cppyy_scope_t handle, int method_index, int arg_index) {
+char* cppyy_method_arg_default(cppyy_scope_t handle, cppyy_index_t method_index, int arg_index) {
     Reflex::Scope s = scope_from_handle(handle);
     Reflex::Member m = s.FunctionMemberAt(method_index);
     std::string dflt = m.FunctionParameterDefaultAt(arg_index);
     return cppstring_to_cstring(dflt);
 }
 
-char* cppyy_method_signature(cppyy_scope_t handle, int method_index) {
+char* cppyy_method_signature(cppyy_scope_t handle, cppyy_index_t method_index) {
     Reflex::Scope s = scope_from_handle(handle);
     Reflex::Member m = s.FunctionMemberAt(method_index);
     Reflex::Type mt = m.TypeOf();
@@ -398,39 +419,26 @@ char* cppyy_method_signature(cppyy_scope_t handle, int method_index) {
     return cppstring_to_cstring(sig.str());
 }
 
-int cppyy_method_index(cppyy_scope_t handle, const char* name) {
-    Reflex::Scope s = scope_from_handle(handle);
-    // the following appears dumb, but the internal storage for Reflex is an
-    // unsorted std::vector anyway, so there's no gain to be had in using the
-    // Scope::FunctionMemberByName() function
-    int num_meth = s.FunctionMemberSize();
-    for (int imeth = 0; imeth < num_meth; ++imeth) {
-        Reflex::Member m = s.FunctionMemberAt(imeth);
-        if (m.Name() == name) {
-            if (m.IsPublic())
-                return imeth;
-            return -1;
-        }
-    }
-    return -1;
-}
-
-cppyy_method_t cppyy_get_method(cppyy_scope_t handle, int method_index) {
+cppyy_method_t cppyy_get_method(cppyy_scope_t handle, cppyy_index_t method_index) {
     Reflex::Scope s = scope_from_handle(handle);
     Reflex::Member m = s.FunctionMemberAt(method_index);
     assert(m.IsFunctionMember());
     return (cppyy_method_t)m.Stubfunction();
 }
 
+cppyy_index_t cppyy_get_global_operator(cppyy_scope_t lc, cppyy_scope_t rc, const char* op) {
+    return (cppyy_index_t)-1; /* not needed yet; covered in pythonify.py */
+}
+
 
 /* method properties -----------------------------------------------------  */
-int cppyy_is_constructor(cppyy_type_t handle, int method_index) {
+int cppyy_is_constructor(cppyy_type_t handle, cppyy_index_t method_index) {
     Reflex::Scope s = scope_from_handle(handle);
     Reflex::Member m = s.FunctionMemberAt(method_index);
     return m.IsConstructor();
 }
 
-int cppyy_is_staticmethod(cppyy_type_t handle, int method_index) {
+int cppyy_is_staticmethod(cppyy_type_t handle, cppyy_index_t method_index) {
     Reflex::Scope s = scope_from_handle(handle);
     Reflex::Member m = s.FunctionMemberAt(method_index);
     return m.IsStatic();
