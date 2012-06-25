@@ -15,6 +15,7 @@ class Module(MixedModule):
         'new_struct_type': 'newtype.new_struct_type',
         'new_union_type': 'newtype.new_union_type',
         'complete_struct_or_union': 'newtype.complete_struct_or_union',
+        'new_void_type': 'newtype.new_void_type',
 
         'newp': 'func.newp',
         'cast': 'func.cast',

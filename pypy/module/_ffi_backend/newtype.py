@@ -179,3 +179,9 @@ def complete_struct_or_union(space, ctype, w_fields, w_ignored=None,
     ctype.alignment = totalalignment
     ctype.fields_list = fields_list
     ctype.fields_dict = fields_dict
+
+# ____________________________________________________________
+
+def new_void_type(space):
+    ctype = ctypeobj.W_CTypeVoid(space)
+    return ctype

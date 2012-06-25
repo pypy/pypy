@@ -93,7 +93,10 @@ class W_CType(Wrappable):
         return align
 
     def _alignof(self):
-        xxx
+        space = self.space
+        raise operationerrfmt(space.w_TypeError,
+                              "ctype '%s' is of unknown alignment",
+                              self.name)
 
     def offsetof(self, fieldname):
         space = self.space
@@ -147,7 +150,9 @@ class W_CTypePointer(W_CTypePtrOrArray):
         ctitem = self.ctitem
         datasize = ctitem.size
         if datasize < 0:
-            xxx
+            raise operationerrfmt(space.w_TypeError,
+                "cannot instantiate ctype '%s' of unknown size",
+                                  self.name)
         if isinstance(ctitem, W_CTypePrimitiveChar):
             datasize *= 2       # forcefully add a null character
         cdata = cdataobj.W_CDataOwn(space, datasize, self)
@@ -164,12 +169,14 @@ class W_CTypePointer(W_CTypePtrOrArray):
                                   self.name)
 
     def add(self, cdata, i):
+        space = self.space
         ctitem = self.ctitem
         if ctitem.size < 0:
-            xxx
-            "ctype '%s' points to items of unknown size"
+            raise operationerrfmt(space.w_TypeError,
+                                  "ctype '%s' points to items of unknown size",
+                                  self.name)
         p = rffi.ptradd(cdata, i * self.ctitem.size)
-        return cdataobj.W_CData(self.space, p, self)
+        return cdataobj.W_CData(space, p, self)
 
     def _alignof(self):
         from pypy.module._ffi_backend import newtype
@@ -539,6 +546,12 @@ class W_CTypeUnion(W_CTypeStructOrUnion):
 
     def convert_from_object(self, cdata, w_ob):
         xxx
+
+
+class W_CTypeVoid(W_CType):
+
+    def __init__(self, space):
+        W_CType.__init__(self, space, -1, "void", len("void"))
 
 
 class W_CField(Wrappable):
