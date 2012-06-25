@@ -564,7 +564,7 @@ class rbigint(object):
                 size_b -= 1
                 
         else:
-            # XXX: Not working with int128!
+            # XXX: Not working with int128! Yet
             # Left-to-right 5-ary exponentiation (HAC Algorithm 14.82)
             # This is only useful in the case where c != None.
             # z still holds 1L
@@ -582,8 +582,8 @@ class rbigint(object):
             # j  = (m+) % SHIFT = (m+) - (i * SHIFT)
             # (computed without doing "i * SHIFT", which might overflow)
             j = size_b % 5
-            if j != 0:
-                j = 5 - j
+            """if j != 0:
+                j = 5 - j"""
             if not we_are_translated():
                 assert j == (size_b*SHIFT+4)//5*5 - size_b*SHIFT
             #
@@ -611,7 +611,7 @@ class rbigint(object):
                     z = _help_mult(z, table[index], c)
             #
             assert j == -5
-
+        
         if negativeOutput and z.sign != 0:
             z = z.sub(c)
         return z
