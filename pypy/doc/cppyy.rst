@@ -88,7 +88,7 @@ Then run the translation to build ``pypy-c``::
     $ hg up reflex-support         # optional
     $ cd pypy/translator/goal
     
-    # Example shows python, but using pypy-c is faster and uses less memory:
+    # This example shows python, but using pypy-c is faster and uses less memory
     $ python translate.py -O jit --gcrootfinder=shadowstack targetpypystandalone.py --withmod-cppyy
 
 This will build a ``pypy-c`` that includes the cppyy module, and through that,
