@@ -892,6 +892,11 @@ class FunctionWriter(object):
         self.lines.append('{}{}\n'.format(indent, line))
 
     def write_graph(self, name, graph):
+        database.genllvm.gcpolicy.gctransformer.inline_helpers(graph)
+        remove_double_links(database.genllvm.translator.annotator, graph)
+        no_links_to_startblock(graph)
+        remove_same_as(graph)
+
         self.w('define {retvar.T} {name}({a}) {{'.format(
                        retvar=get_repr(graph.getreturnvar()),
                        name=name,
@@ -1065,7 +1070,7 @@ class FunctionWriter(object):
 
     def op_direct_call(self, result, fn, *args):
         if (isinstance(fn, ConstantRepr) and
-            fn.value._obj._name == 'PYPY_NO_OP'):
+            (fn.value._obj is None or fn.value._obj._name == 'PYPY_NO_OP')):
             return
 
         it = iter(fn.type_.to.args)
@@ -1414,12 +1419,13 @@ class GCPolicy(object):
         pass
 
     def finish(self):
+        genllvm = self.genllvm
         while self.delayed_ptrs:
             self.gctransformer.finish_helpers()
 
             self.delayed_ptrs = False
-            for graph in self.genllvm.translator.graphs:
-                self.genllvm.transform_graph(graph)
+            for graph in genllvm.translator.graphs:
+                genllvm.transform_graph(graph)
             for group in self.groups:
                 for member in group.members:
                     self._consider_constant(lltype.typeOf(member), member)
@@ -1427,6 +1433,7 @@ class GCPolicy(object):
             finish_tables = self.gctransformer.get_finish_tables()
             if hasattr(finish_tables, '__iter__'):
                 list(finish_tables)
+        self.gctransformer.prepare_inline_helpers(genllvm.translator.graphs)
 
 
 class FrameworkGCPolicy(GCPolicy):
@@ -1659,10 +1666,6 @@ class GenLLVM(object):
                                                   block.exitswitch)
                     for link in block.exits:
                         link.args = [rename.get(v, v) for v in link.args]
-
-            remove_double_links(self.translator.annotator, graph)
-            no_links_to_startblock(graph)
-            remove_same_as(graph)
 
     def prepare(self, entry_point):
         if self.standalone:

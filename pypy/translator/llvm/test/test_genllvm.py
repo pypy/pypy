@@ -292,7 +292,7 @@ class TestSpecialCases(_LLVMMixin):
         assert fc() == 1e-06
 
     def test_two_exits_non_bool(self):
-        genllvm.database = genllvm.Database(None, None)
+        genllvm.database = genllvm.Database(_Stub(), None)
         var = varoftype(lltype.Signed)
         startblock = Block([var])
         startblock.exitswitch = var
