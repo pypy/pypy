@@ -295,7 +295,7 @@ class W_CTypePrimitive(W_CType):
     def _alignof(self):
         return self.align
 
-    def cast_single_char(self, w_ob):
+    def cast_str(self, w_ob):
         space = self.space
         s = space.str_w(w_ob)
         if len(s) != 1:
@@ -311,7 +311,7 @@ class W_CTypePrimitive(W_CType):
                isinstance(ob.ctype, W_CTypePtrOrArray)):
             value = rffi.cast(lltype.Signed, ob._cdata)
         elif space.isinstance_w(w_ob, space.w_str):
-            value = self.cast_single_char(w_ob)
+            value = self.cast_str(w_ob)
         elif space.is_w(w_ob, space.w_None):
             value = 0
         else:
@@ -378,7 +378,6 @@ class W_CTypePrimitiveSigned(W_CTypePrimitive):
 
     def convert_to_object(self, cdata):
         value = misc.read_raw_signed_data(cdata, self.size)
-        # xxx enum
         if self.value_fits_long:
             return self.space.wrap(intmask(value))
         else:
@@ -386,7 +385,6 @@ class W_CTypePrimitiveSigned(W_CTypePrimitive):
 
     def convert_from_object(self, cdata, w_ob):
         value = misc.as_long_long(self.space, w_ob)
-        # xxx enums
         if self.size < rffi.sizeof(lltype.SignedLongLong):
             if r_ulonglong(value) - self.vmin > self.vrangemax:
                 self._overflow(w_ob)
@@ -433,7 +431,7 @@ class W_CTypePrimitiveFloat(W_CTypePrimitive):
             w_ob = ob.convert_to_object()
         #
         if space.isinstance_w(w_ob, space.w_str):
-            value = self.cast_single_char(w_ob)
+            value = self.cast_str(w_ob)
         elif space.is_w(w_ob, space.w_None):
             value = 0.0
         else:
@@ -484,6 +482,53 @@ class W_CTypeEnum(W_CTypePrimitiveSigned):
         w_lst = space.newlist(lst)
         space.call_method(w_lst, 'sort')
         return w_lst
+
+    def try_str(self, cdataobj):
+        w_res = self.convert_to_object(cdataobj._cdata)
+        keepalive_until_here(cdataobj)
+        return w_res
+
+    def convert_to_object(self, cdata):
+        value = intmask(misc.read_raw_signed_data(cdata, self.size))
+        try:
+            enumerator = self.enumvalues2erators[value]
+        except KeyError:
+            enumerator = '#%d' % (value,)
+        return self.space.wrap(enumerator)
+
+    def convert_from_object(self, cdata, w_ob):
+        space = self.space
+        try:
+            return W_CTypePrimitiveSigned.convert_from_object(self, cdata,
+                                                              w_ob)
+        except OperationError, e:
+            if not e.match(space, space.w_TypeError):
+                raise
+        if space.isinstance_w(w_ob, space.w_str):
+            value = self.convert_enum_string_to_int(space.str_w(w_ob))
+            misc.write_raw_integer_data(cdata, value, self.size)
+        else:
+            raise self._convert_error("str or int", w_ob)
+
+    def cast_str(self, w_ob):
+        space = self.space
+        return self.convert_enum_string_to_int(space.str_w(w_ob))
+
+    def convert_enum_string_to_int(self, s):
+        space = self.space
+        if s.startswith('#'):
+            try:
+                return int(s[1:])     # xxx is it RPython?
+            except ValueError:
+                raise OperationError(space.w_ValueError,
+                                     space.wrap("invalid literal after '#'"))
+        else:
+            try:
+                return self.enumerators2values[s]
+            except KeyError:
+                raise operationerrfmt(space.w_ValueError,
+                                      "'%s' is not an enumerator for %s",
+                                      s, self.name)
 
 
 class W_CTypeStructOrUnion(W_CType):
