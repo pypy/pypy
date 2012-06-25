@@ -281,7 +281,7 @@ def test_array_type():
                    new_array_type, new_pointer_type(p), sys.maxint // 3)
 
 def test_array_instance():
-    LENGTH = 14242
+    LENGTH = 1423
     p = new_primitive_type("int")
     p1 = new_array_type(new_pointer_type(p), LENGTH)
     a = newp(p1, None)
@@ -545,6 +545,13 @@ def test_struct_init_list():
     assert s.a1 == 123
     assert s.a2 == 456
     assert s.a3 == 0
+    #
+    s = newp(BStructPtr, {'a2': 41122, 'a3': -123})
+    assert s.a1 == 0
+    assert s.a2 == 41122
+    assert s.a3 == -123
+    #
+    py.test.raises(KeyError, newp, BStructPtr, {'foobar': 0})
 
 def test_array_in_struct():
     BInt = new_primitive_type("int")

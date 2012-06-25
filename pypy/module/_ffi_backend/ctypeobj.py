@@ -244,7 +244,9 @@ class W_CTypeArray(W_CTypePtrOrArray):
             space.isinstance_w(w_ob, space.w_tuple)):
             lst_w = space.listview(w_ob)
             if self.length >= 0 and len(lst_w) > self.length:
-                xxx
+                raise operationerrfmt(space.w_IndexError,
+                    "too many initializers for '%s' (got %d)",
+                                      self.name, len(lst_w))
             ctitem = self.ctitem
             for i in range(len(lst_w)):
                 ctitem.convert_from_object(cdata, lst_w[i])
@@ -258,7 +260,10 @@ class W_CTypeArray(W_CTypePtrOrArray):
                 raise self._convert_error("str or list or tuple", w_ob)
             n = len(s)
             if self.length >= 0 and n > self.length:
-                xxx
+                raise operationerrfmt(space.w_IndexError,
+                                      "initializer string is too long for '%s'"
+                                      " (got %d characters)",
+                                      self.name, n)
             for i in range(n):
                 cdata[i] = s[i]
             if n != self.length:
@@ -504,8 +509,22 @@ class W_CTypeStruct(W_CTypeStructOrUnion):
                                       self.name, len(lst_w))
             for i in range(len(lst_w)):
                 self.fields_list[i].write(cdata, lst_w[i])
+
+        elif space.isinstance_w(w_ob, space.w_dict):
+            lst_w = space.fixedview(w_ob)
+            for i in range(len(lst_w)):
+                w_key = lst_w[i]
+                key = space.str_w(w_key)
+                try:
+                    cf = self.fields_dict[key]
+                except KeyError:
+                    space.raise_key_error(w_key)
+                    assert 0
+                cf.write(cdata, space.getitem(w_ob, w_key))
+
         else:
-            xxx
+            raise self._convert_error("list or tuple or dict or struct-cdata",
+                                      w_ob)
 
 
 class W_CTypeUnion(W_CTypeStructOrUnion):
