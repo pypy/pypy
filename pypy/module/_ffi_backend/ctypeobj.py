@@ -388,7 +388,7 @@ class W_CTypePrimitiveSigned(W_CTypePrimitive):
         value = misc.as_long_long(self.space, w_ob)
         # xxx enums
         if self.size < rffi.sizeof(lltype.SignedLongLong):
-            if r_ulonglong(value) + self.vmin > self.vrangemax:
+            if r_ulonglong(value) - self.vmin > self.vrangemax:
                 self._overflow(w_ob)
         misc.write_raw_integer_data(cdata, value, self.size)
 
