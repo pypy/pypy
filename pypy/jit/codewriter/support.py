@@ -250,6 +250,101 @@ def _ll_1_cast_float_to_uint(x):
 
 _ll_1_ll_math_ll_math_sqrt = ll_math.ll_math_sqrt
 
+# long long long support
+# -----------------
+
+def u_to_longlonglong(x):
+    return rffi.cast(lltype.SignedLongLongLong, x)
+
+def _ll_1_lllong_invert(xll):
+    y = ~r_ulonglonglong(xll)
+    return u_to_longlonglong(y)
+
+def _ll_2_lllong_lt(xll, yll):
+    return xll < yll
+
+def _ll_2_lllong_le(xll, yll):
+    return xll <= yll
+
+def _ll_2_lllong_eq(xll, yll):
+    return xll == yll
+
+def _ll_2_lllong_ne(xll, yll):
+    return xll != yll
+
+def _ll_2_lllong_gt(xll, yll):
+    return xll > yll
+
+def _ll_2_lllong_ge(xll, yll):
+    return xll >= yll
+
+def _ll_2_lllong_add(xull, yull):
+    z = (xull) + (yull)
+    return (z)
+
+def _ll_2_lllong_sub(xull, yull):
+    z = (xull) - (yull)
+    return (z)
+
+def _ll_2_lllong_mul(xull, yull):
+    z = (xull) * (yull)
+    return (z)
+
+def _ll_2_lllong_and(xull, yull):
+    z = (xull) & (yull)
+    return (z)
+
+def _ll_2_lllong_or(xull, yull):
+    z = (xull) | (yull)
+    return (z)
+
+def _ll_2_lllong_xor(xull, yull):
+    z = (xull) ^ (yull)
+    return (z)
+
+def _ll_2_lllong_lshift(xlll, y):
+    return xll << y
+
+def _ll_2_lllong_rshift(xlll, y):
+    return xll >> y
+
+def _ll_1_lllong_from_int(x):
+    return r_longlonglong(intmask(x))
+
+def _ll_1_lllong_from_uint(x):
+    return r_longlonglong(r_uint(x))
+
+def _ll_1_lllong_to_int(xlll):
+    return intmask(xll)
+
+def _ll_1_lllong_from_float(xf):
+    return r_longlonglong(xf)
+
+def _ll_1_llong_to_float(xll):
+    return float(rffi.cast(lltype.SignedLongLongLong, xlll))
+
+def _ll_1_llong_abs(xll):
+    if xll < 0:
+        return -xll
+    else:
+        return xll
+
+def _ll_2_llong_floordiv(xll, yll):
+    return llop.lllong_floordiv(lltype.SignedLongLongLong, xll, yll)
+
+def _ll_2_llong_floordiv_zer(xll, yll):
+    if yll == 0:
+        raise ZeroDivisionError
+    return llop.lllong_floordiv(lltype.SignedLongLongLong, xll, yll)
+
+def _ll_2_llong_mod(xll, yll):
+    return llop.lllong_mod(lltype.SignedLongLongLong, xll, yll)
+
+def _ll_2_llong_mod_zer(xll, yll):
+    if yll == 0:
+        raise ZeroDivisionError
+    return llop.lllong_mod(lltype.SignedLongLongLong, xll, yll)
+
 
 # long long support
 # -----------------

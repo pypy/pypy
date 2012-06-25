@@ -434,6 +434,7 @@ for _name in 'short int long'.split():
         TYPES.append(name)
 TYPES += ['signed char', 'unsigned char',
           'long long', 'unsigned long long',
+          '__int128',
           'size_t', 'time_t', 'wchar_t',
           'uintptr_t', 'intptr_t',
           'void*']    # generic pointer type

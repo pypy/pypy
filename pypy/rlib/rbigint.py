@@ -1,4 +1,4 @@
-from pypy.rlib.rarithmetic import LONG_BIT, intmask, r_uint, r_ulonglong
+from pypy.rlib.rarithmetic import LONG_BIT, intmask, longlongmask, r_uint, r_ulonglong, r_longlonglong
 from pypy.rlib.rarithmetic import ovfcheck, r_longlong, widen, is_valid_int
 from pypy.rlib.rarithmetic import most_neg_value_of_same_type
 from pypy.rlib.rfloat import isfinite
@@ -15,11 +15,12 @@ import math, sys
 # a sign bit plus two digits plus 1 overflow bit.
 
 #SHIFT = (LONG_BIT // 2) - 1
-SHIFT = 31
+SHIFT = 63
 
 MASK = int((1 << SHIFT) - 1)
 FLOAT_MULTIPLIER = float(1 << LONG_BIT) # Because it works.
 
+CACHE_INTS = 1024 # CPython do 256
 
 # Debugging digit array access.
 #
@@ -33,7 +34,7 @@ FLOAT_MULTIPLIER = float(1 << LONG_BIT) # Because it works.
 
 # Karatsuba is O(N**1.585)
 USE_KARATSUBA = True # set to False for comparison
-KARATSUBA_CUTOFF = 38
+KARATSUBA_CUTOFF = 19 #38
 KARATSUBA_SQUARE_CUTOFF = 2 * KARATSUBA_CUTOFF
 
 USE_TOOMCOCK = False # WIP
@@ -48,30 +49,36 @@ FIVEARY_CUTOFF = 8
 
 
 def _mask_digit(x):
-    return intmask(x & MASK)
+    return longlongmask(x & MASK) #intmask(x & MASK)
 _mask_digit._annspecialcase_ = 'specialize:argtype(0)'
 
 def _widen_digit(x):
-    if not we_are_translated():
-        assert is_valid_int(x), "widen_digit() takes an int, got a %r" % type(x)
-    if LONG_BIT < 64:
+    """if not we_are_translated():
+        assert is_valid_int(x), "widen_digit() takes an int, got a %r" % type(x)"""
+    return r_longlonglong(x)
+    """if LONG_BIT < 64:
         return r_longlong(x)
-    return x
+    return x"""
 
 def _store_digit(x):
-    if not we_are_translated():
-        assert is_valid_int(x), "store_digit() takes an int, got a %r" % type(x)
+    """if not we_are_translated():
+        assert is_valid_int(x), "store_digit() takes an int, got a %r" % type(x)"""
     if SHIFT <= 15:
         return rffi.cast(rffi.SHORT, x)
     elif SHIFT <= 31:
         return rffi.cast(rffi.INT, x)
+    elif SHIFT <= 63:
+        return int(x)
+        #return rffi.cast(rffi.LONGLONG, x)
     else:
         raise ValueError("SHIFT too large!")
 
 def _load_digit(x):
-    return rffi.cast(lltype.Signed, x)
+    return x
+    #return rffi.cast(lltype.Signed, x)
 
 def _load_unsigned_digit(x):
+    #return r_ulonglong(x)
     return rffi.cast(lltype.Unsigned, x)
 
 NULLDIGIT = _store_digit(0)
@@ -80,7 +87,9 @@ ONEDIGIT  = _store_digit(1)
 def _check_digits(l):
     for x in l:
         assert type(x) is type(NULLDIGIT)
-        assert intmask(x) & MASK == intmask(x)
+        # XXX: Fix for int128
+        # assert intmask(x) & MASK == intmask(x)
+            
 class Entry(extregistry.ExtRegistryEntry):
     _about_ = _check_digits
     def compute_result_annotation(self, s_list):
@@ -90,7 +99,6 @@ class Entry(extregistry.ExtRegistryEntry):
         assert s_DIGIT.contains(s_list.listdef.listitem.s_value)
     def specialize_call(self, hop):
         hop.exception_cannot_occur()
-
 
 class rbigint(object):
     """This is a reimplementation of longs using a list of digits."""
@@ -129,6 +137,12 @@ class rbigint(object):
         # This function is marked as pure, so you must not call it and
         # then modify the result.
         check_regular_int(intval)
+        
+        cache = False
+        
+        if intval != 0 and intval < CACHE_INTS and intval > -CACHE_INTS:
+            return INTCACHE[intval]
+            
         if intval < 0:
             sign = -1
             ival = r_uint(-intval)
@@ -141,6 +155,14 @@ class rbigint(object):
         # We used to pick 5 ("big enough for anything"), but that's a
         # waste of time and space given that 5*15 = 75 bits are rarely
         # needed.
+        # XXX: Even better!
+        if SHIFT >= 63:
+            carry = ival >> SHIFT
+            if carry:
+                return rbigint([intmask((ival)), intmask(carry)], sign)
+            else:
+                return rbigint([intmask(ival)], sign)
+            
         t = ival
         ndigits = 0
         while t:
@@ -153,6 +175,7 @@ class rbigint(object):
             v.setdigit(p, t)
             t >>= SHIFT
             p += 1
+
         return v
 
     @staticmethod
@@ -250,7 +273,7 @@ class rbigint(object):
             x = (x << SHIFT) + self.udigit(i)
             if (x >> SHIFT) != prev:
                 raise OverflowError(
-                        "long int too large to convert to unsigned int")
+                        "long int too large to convert to unsigned int (%d, %d)" % (x >> SHIFT, prev))
             i -= 1
         return x
 
@@ -379,13 +402,22 @@ class rbigint(object):
         if a.sign == 0 or b.sign == 0:
             return rbigint()
         
+        
         if asize == 1:
-            digit = a.digit(0)
+            digit = a.widedigit(0)
             if digit == 0:
                 return rbigint()
             elif digit == 1:
                 return rbigint(b._digits[:], a.sign * b.sign)
-            
+            elif bsize == 1:
+                result = rbigint([NULLDIGIT] * 2, a.sign * b.sign)
+                carry = b.widedigit(0) * digit
+                result.setdigit(0, carry)
+                carry >>= SHIFT
+                if carry:
+                    result.setdigit(1, carry)
+                return result
+                
             result =  _x_mul(a, b, digit)
         elif USE_TOOMCOCK and asize >= TOOMCOOK_CUTOFF:
             result = _tc_mul(a, b)
@@ -494,8 +526,7 @@ class rbigint(object):
             #     base = base % modulus
             # Having the base positive just makes things easier.
             if a.sign < 0:
-                a, temp = a.divmod(c)
-                a = temp
+                a = a.mod(c)
                 
             
         elif size_b == 1 and a.sign == 1:
@@ -518,7 +549,7 @@ class rbigint(object):
         
         # python adaptation: moved macros REDUCE(X) and MULT(X, Y, result)
         # into helper function result = _help_mult(x, y, c)
-        if not c or size_b <= FIVEARY_CUTOFF:
+        if True: #not c or size_b <= FIVEARY_CUTOFF:
             # Left-to-right binary exponentiation (HAC Algorithm 14.79)
             # http://www.cacr.math.uwaterloo.ca/hac/about/chap14.pdf
             size_b -= 1
@@ -533,6 +564,7 @@ class rbigint(object):
                 size_b -= 1
                 
         else:
+            # XXX: Not working with int128!
             # Left-to-right 5-ary exponentiation (HAC Algorithm 14.82)
             # This is only useful in the case where c != None.
             # z still holds 1L
@@ -605,8 +637,11 @@ class rbigint(object):
 
         oldsize = self.numdigits()
         newsize = oldsize + wordshift
-        if remshift:
-            newsize += 1
+        if not remshift:
+            return rbigint([NULLDIGIT] * wordshift + self._digits, self.sign)
+            
+        newsize += 1
+        
         z = rbigint([NULLDIGIT] * newsize, self.sign)
         accum = _widen_digit(0)
         i = wordshift
@@ -748,6 +783,12 @@ class rbigint(object):
         return "<rbigint digits=%s, sign=%s, %s>" % (self._digits,
                                                      self.sign, self.str())
 
+INTCACHE = {}
+for x in range(1, CACHE_INTS):
+    numList = [_store_digit(x)]
+    INTCACHE[x] = rbigint(numList, 1)
+    INTCACHE[-x] = rbigint(numList, -1)
+    
 ONERBIGINT = rbigint([ONEDIGIT], 1)
 NULLRBIGINT = rbigint()
 
@@ -765,7 +806,7 @@ def _help_mult(x, y, c):
     # Perform a modular reduction, X = X % c, but leave X alone if c
     # is NULL.
     if c is not None:
-        temp, res = res.divmod(c)
+        res = res.mod(c)
         
     return res
 
@@ -835,7 +876,7 @@ def _x_add(a, b):
         size_a, size_b = size_b, size_a
     z = rbigint([NULLDIGIT] * (size_a + 1), 1)
     i = 0
-    carry = r_uint(0)
+    carry = r_ulonglong(0)
     while i < size_b:
         carry += a.udigit(i) + b.udigit(i)
         z.setdigit(i, carry)
@@ -879,7 +920,7 @@ def _x_sub(a, b):
         size_a = size_b = i+1
         
     z = rbigint([NULLDIGIT] * size_a, sign)
-    borrow = r_uint(0)
+    borrow = r_ulonglong(0)
     i = 0
     while i < size_b:
         # The following assumes unsigned arithmetic
@@ -901,9 +942,9 @@ def _x_sub(a, b):
 
 # A neat little table of power of twos.
 ptwotable = {}
-for x in range(SHIFT):
-    ptwotable[2 << x] = x+1
-    ptwotable[-2 << x] = x+1
+for x in range(SHIFT-1):
+    ptwotable[r_longlong(2 << x)] = x+1
+    ptwotable[r_longlong(-2 << x)] = x+1
     
 def _x_mul(a, b, digit=0):
     """
@@ -943,7 +984,7 @@ def _x_mul(a, b, digit=0):
                 z.setdigit(pz, carry)
                 pz += 1
                 carry >>= SHIFT
-                assert carry <= (_widen_digit(MASK) << 1)
+                #assert carry <= (_widen_digit(MASK) << 1)
             if carry:
                 carry += z.widedigit(pz)
                 z.setdigit(pz, carry)
@@ -1365,10 +1406,6 @@ def _v_isub(x, xofs, m, y, n):
 def _muladd1(a, n, extra=0):
     """Multiply by a single digit and add a single digit, ignoring the sign.
     """
-    
-    # Special case this one. 
-    if n == 1 and not extra:
-        return a
 
     size_a = a.numdigits()
     z = rbigint([NULLDIGIT] * (size_a+1), 1)
@@ -1387,9 +1424,10 @@ def _muladd1(a, n, extra=0):
 def _x_divrem(v1, w1):
     """ Unsigned bigint division with remainder -- the algorithm """
     size_w = w1.numdigits()
-    d = (r_uint(MASK)+1) // (w1.udigit(size_w-1) + 1)
+    d = (r_ulonglong(MASK)+1) // (w1.udigit(size_w-1) + 1)
     assert d <= MASK    # because the first digit of w1 is not zero
-    d = intmask(d)
+    d = longlongmask(d)
+    assert d != 0
     v = _muladd1(v1, d)
     w = _muladd1(w1, d)
     size_v = v.numdigits()

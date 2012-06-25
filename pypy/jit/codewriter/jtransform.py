@@ -462,6 +462,11 @@ class Transformer(object):
     rewrite_op_llong_floordiv_zer = _do_builtin_call
     rewrite_op_llong_mod          = _do_builtin_call
     rewrite_op_llong_mod_zer      = _do_builtin_call
+    rewrite_op_lllong_abs          = _do_builtin_call
+    rewrite_op_lllong_floordiv     = _do_builtin_call
+    rewrite_op_lllong_floordiv_zer = _do_builtin_call
+    rewrite_op_lllong_mod          = _do_builtin_call
+    rewrite_op_lllong_mod_zer      = _do_builtin_call
     rewrite_op_ullong_floordiv     = _do_builtin_call
     rewrite_op_ullong_floordiv_zer = _do_builtin_call
     rewrite_op_ullong_mod          = _do_builtin_call

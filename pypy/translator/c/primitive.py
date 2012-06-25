@@ -247,3 +247,4 @@ define_c_primitive(rffi.LONG, 'long', 'L')
 define_c_primitive(rffi.ULONG, 'unsigned long', 'UL')
 define_c_primitive(rffi.LONGLONG, 'long long', 'LL')
 define_c_primitive(rffi.ULONGLONG, 'unsigned long long', 'ULL')
+define_c_primitive(rffi.__INT128, '__int128', 'LL') # Unless it's a 128bit platform, LL is the biggest

@@ -4,7 +4,7 @@ from pypy.annotation import model as annmodel
 from pypy.objspace.flow.operation import op_appendices
 from pypy.rpython.lltypesystem.lltype import Signed, Unsigned, Bool, Float, \
      Void, Char, UniChar, malloc, pyobjectptr, UnsignedLongLong, \
-     SignedLongLong, build_number, Number, cast_primitive, typeOf
+     SignedLongLong, build_number, Number, cast_primitive, typeOf, SignedLongLongLong
 from pypy.rpython.rmodel import IntegerRepr, inputconst
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rlib.rarithmetic import intmask, r_int, r_uint, r_ulonglong, \
@@ -32,6 +32,7 @@ class __extend__(annmodel.SomeInteger):
 
 signed_repr = getintegerrepr(Signed, 'int_')
 signedlonglong_repr = getintegerrepr(SignedLongLong, 'llong_')
+unsigned_repr = getintegerrepr(SignedLongLongLong, 'lllong_')
 unsigned_repr = getintegerrepr(Unsigned, 'uint_')
 unsignedlonglong_repr = getintegerrepr(UnsignedLongLong, 'ullong_')
 
