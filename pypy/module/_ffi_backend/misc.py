@@ -103,8 +103,7 @@ def as_long_long(space, w_ob):
     try:
         return bigint.tolonglong()
     except OverflowError:
-        raise OperationError(space.w_OverflowError,
-                             space.wrap("long too big to convert"))
+        raise OperationError(space.w_OverflowError, space.wrap(ovf_msg))
 
 def as_unsigned_long_long(space, w_ob, strict):
     # (possibly) convert and cast a Python object to an unsigned long long.
@@ -129,7 +128,10 @@ def as_unsigned_long_long(space, w_ob, strict):
             return bigint.toulonglong()
         except ValueError:
             raise OperationError(space.w_OverflowError, space.wrap(neg_msg))
+        except OverflowError:
+            raise OperationError(space.w_OverflowError, space.wrap(ovf_msg))
     else:
         return bigint.ulonglongmask()
 
 neg_msg = "can't convert negative number to unsigned"
+ovf_msg = "long too big to convert"

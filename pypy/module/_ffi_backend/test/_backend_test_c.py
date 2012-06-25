@@ -188,6 +188,27 @@ def test_cast_float_to_int():
         assert int(cast(p, 4.2)) == 4
         py.test.raises(TypeError, newp, new_pointer_type(p), 4.2)
 
+def test_newp_integer_types():
+    for name in ['signed char', 'short', 'int', 'long', 'long long']:
+        p = new_primitive_type(name)
+        pp = new_pointer_type(p)
+        size = sizeof(p)
+        min = -(1 << (8*size-1))
+        max = (1 << (8*size-1)) - 1
+        assert newp(pp, min)[0] == min
+        assert newp(pp, max)[0] == max
+        py.test.raises(OverflowError, newp, pp, min - 1)
+        py.test.raises(OverflowError, newp, pp, max + 1)
+    for name in ['char', 'short', 'int', 'long', 'long long']:
+        p = new_primitive_type('unsigned ' + name)
+        pp = new_pointer_type(p)
+        size = sizeof(p)
+        max = (1 << (8*size)) - 1
+        assert newp(pp, 0)[0] == 0
+        assert newp(pp, max)[0] == max
+        py.test.raises(OverflowError, newp, pp, -1)
+        py.test.raises(OverflowError, newp, pp, max + 1)
+
 def test_reading_pointer_to_char():
     BChar = new_primitive_type("char")
     py.test.raises(TypeError, newp, BChar, None)
