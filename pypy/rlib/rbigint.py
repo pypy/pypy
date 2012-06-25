@@ -17,7 +17,7 @@ import math, sys
 #SHIFT = (LONG_BIT // 2) - 1
 SHIFT = 63
 
-MASK = int((1 << SHIFT) - 1)
+MASK = long((1 << SHIFT) - 1)
 FLOAT_MULTIPLIER = float(1 << LONG_BIT) # Because it works.
 
 CACHE_INTS = 1024 # CPython do 256
@@ -137,9 +137,7 @@ class rbigint(object):
         # then modify the result.
         check_regular_int(intval)
         
-        cache = False
-        
-        if intval != 0 and intval < CACHE_INTS and intval > -CACHE_INTS:
+        if intval != 0 and intval <= CACHE_INTS and intval >= -CACHE_INTS:
             return INTCACHE[intval]
             
         if intval < 0:
@@ -158,9 +156,10 @@ class rbigint(object):
         if SHIFT >= 63:
             carry = ival >> SHIFT
             if carry:
-                return rbigint([intmask((ival)), intmask(carry)], sign)
+                return rbigint([_store_digit(_mask_digit(ival)),
+                    _store_digit(_mask_digit(carry))], sign)
             else:
-                return rbigint([intmask(ival)], sign)
+                return rbigint([_store_digit(_mask_digit(ival))], sign)
             
         t = ival
         ndigits = 0
@@ -581,8 +580,8 @@ class rbigint(object):
             # j  = (m+) % SHIFT = (m+) - (i * SHIFT)
             # (computed without doing "i * SHIFT", which might overflow)
             j = size_b % 5
-            """if j != 0:
-                j = 5 - j"""
+            if j != 0:
+                j = 5 - j
             if not we_are_translated():
                 assert j == (size_b*SHIFT+4)//5*5 - size_b*SHIFT
             #
@@ -783,7 +782,7 @@ class rbigint(object):
                                                      self.sign, self.str())
 
 INTCACHE = {}
-for x in range(1, CACHE_INTS):
+for x in range(1, CACHE_INTS+1):
     numList = [_store_digit(x)]
     INTCACHE[x] = rbigint(numList, 1)
     INTCACHE[-x] = rbigint(numList, -1)
