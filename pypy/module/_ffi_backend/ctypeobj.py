@@ -408,7 +408,9 @@ class W_CTypePrimitiveFloat(W_CTypePrimitive):
         ob = space.interpclass_w(w_ob)
         if isinstance(ob, cdataobj.W_CData):
             if not isinstance(ob.ctype, W_CTypePrimitive):
-                xxx
+                raise operationerrfmt(space.w_TypeError,
+                                      "cannot cast ctype '%s' to ctype '%s'",
+                                      ob.ctype.name, self.name)
             w_ob = ob.convert_to_object()
         #
         if space.isinstance_w(w_ob, space.w_str):
