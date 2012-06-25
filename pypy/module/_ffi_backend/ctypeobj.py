@@ -459,6 +459,33 @@ class W_CTypePrimitiveFloat(W_CTypePrimitive):
         misc.write_raw_float_data(cdata, value, self.size)
 
 
+class W_CTypeEnum(W_CTypePrimitiveSigned):
+
+    def __init__(self, space, name, enumerators, enumvalues):
+        from pypy.module._ffi_backend.newtype import alignment
+        name = "enum " + name
+        size = rffi.sizeof(rffi.INT)
+        align = alignment(rffi.INT)
+        W_CTypePrimitiveSigned.__init__(self, space, size,
+                                        name, len(name), align)
+        self.enumerators2values = {}   # str -> int
+        self.enumvalues2erators = {}   # int -> str
+        for i in range(len(enumerators)):
+            self.enumerators2values[enumerators[i]] = enumvalues[i]
+            self.enumvalues2erators[enumvalues[i]] = enumerators[i]
+
+    def _getfields(self):
+        space = self.space
+        lst = []
+        for enumerator in self.enumerators2values:
+            enumvalue = self.enumerators2values[enumerator]
+            lst.append(space.newtuple([space.wrap(enumvalue),
+                                       space.wrap(enumerator)]))
+        w_lst = space.newlist(lst)
+        space.call_method(w_lst, 'sort')
+        return w_lst
+
+
 class W_CTypeStructOrUnion(W_CType):
     # fields added by complete_struct_or_union():
     alignment = -1

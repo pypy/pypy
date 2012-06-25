@@ -185,3 +185,17 @@ def complete_struct_or_union(space, ctype, w_fields, w_ignored=None,
 def new_void_type(space):
     ctype = ctypeobj.W_CTypeVoid(space)
     return ctype
+
+# ____________________________________________________________
+
+@unwrap_spec(name=str)
+def new_enum_type(space, name, w_enumerators, w_enumvalues):
+    enumerators_w = space.fixedview(w_enumerators)
+    enumvalues_w  = space.fixedview(w_enumvalues)
+    if len(enumerators_w) != len(enumvalues_w):
+        raise OperationError(space.w_ValueError,
+                             space.wrap("tuple args must have the same size"))
+    enumerators = [space.str_w(w) for w in enumerators_w]
+    enumvalues  = [space.int_w(w) for w in enumvalues_w]
+    ctype = ctypeobj.W_CTypeEnum(space, name, enumerators, enumvalues)
+    return ctype
