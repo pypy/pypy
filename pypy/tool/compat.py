@@ -8,6 +8,4 @@ except ImportError:
     except ImportError:
         # no _md5 module on this platform. Try hard to find a pure-python one
         # by fishing it from lib_pypy
-        from pypy.tool.lib_pypy import import_from_lib_pypy
-        md5 = import_from_lib_pypy('md5')
-        del import_from_lib_pypy
+        from lib_pypy._md5 import new as md5
