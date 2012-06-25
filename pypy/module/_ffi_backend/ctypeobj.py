@@ -3,7 +3,7 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
-from pypy.rlib.rarithmetic import intmask, ovfcheck
+from pypy.rlib.rarithmetic import intmask, ovfcheck, r_ulonglong
 from pypy.rlib.objectmodel import keepalive_until_here, we_are_translated
 
 from pypy.module._ffi_backend import cdataobj, misc
@@ -355,6 +355,10 @@ class W_CTypePrimitiveSigned(W_CTypePrimitive):
     def __init__(self, *args):
         W_CTypePrimitive.__init__(self, *args)
         self.value_fits_long = self.size <= rffi.sizeof(lltype.Signed)
+        if self.size < rffi.sizeof(lltype.SignedLongLong):
+            sh = self.size * 8
+            self.vmin = r_ulonglong(-1) << (sh - 1)
+            self.vrangemax = (r_ulonglong(1) << sh) - 1
 
     def int(self, cdata):
         if self.value_fits_long:
@@ -376,10 +380,8 @@ class W_CTypePrimitiveSigned(W_CTypePrimitive):
     def convert_from_object(self, cdata, w_ob):
         value = misc.as_long_long(self.space, w_ob)
         # xxx enums
-        if self.value_fits_long:
-            vmin = (-1) << (self.size * 8 - 1)
-            vmax = ~vmin
-            if not (vmin <= value <= vmax):
+        if self.size < rffi.sizeof(lltype.SignedLongLong):
+            if r_ulonglong(value) + self.vmin > self.vrangemax:
                 self._overflow(w_ob)
         misc.write_raw_integer_data(cdata, value, self.size)
 
@@ -389,14 +391,19 @@ class W_CTypePrimitiveUnsigned(W_CTypePrimitive):
     def __init__(self, *args):
         W_CTypePrimitive.__init__(self, *args)
         self.value_fits_long = self.size < rffi.sizeof(lltype.Signed)
+        if self.size < rffi.sizeof(lltype.SignedLongLong):
+            sh = self.size * 8
+            self.vrangemax = (r_ulonglong(1) << sh) - 1
 
     def int(self, cdata):
         return self.convert_to_object(cdata)
 
     def convert_from_object(self, cdata, w_ob):
         value = misc.as_unsigned_long_long(self.space, w_ob, strict=True)
+        if self.size < rffi.sizeof(lltype.SignedLongLong):
+            if value > self.vrangemax:
+                self._overflow(w_ob)
         misc.write_raw_integer_data(cdata, value, self.size)
-        # xxx overflow
 
     def convert_to_object(self, cdata):
         value = misc.read_raw_unsigned_data(cdata, self.size)
