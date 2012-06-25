@@ -605,18 +605,30 @@ class W_CTypeStructOrUnion(W_CType):
             raise OperationError(space.w_KeyError, space.wrap(fieldname))
         return cfield.offset
 
+    def _copy_from_same(self, cdata, w_ob):
+        space = self.space
+        ob = space.interpclass_w(w_ob)
+        if isinstance(ob, cdataobj.W_CData):
+            if ob.ctype is self and self.size >= 0:
+                # push push push at the llmemory interface (with hacks that
+                # are all removed after translation)
+                zero = llmemory.itemoffsetof(rffi.CCHARP.TO, 0)
+                llmemory.raw_memcopy(
+                    llmemory.cast_ptr_to_adr(ob._cdata) + zero,
+                    llmemory.cast_ptr_to_adr(cdata) + zero,
+                    self.size * llmemory.sizeof(lltype.Char))
+                keepalive_until_here(ob)
+                return True
+        return False
+
 
 class W_CTypeStruct(W_CTypeStructOrUnion):
     kind = "struct"
 
     def convert_from_object(self, cdata, w_ob):
         space = self.space
-        ob = space.interpclass_w(w_ob)
-        if isinstance(ob, cdataobj.W_CData):
-            if ob.ctype is self and self.size >= 0:
-                llmemory.raw_memcopy(ob._cdata, cdata, self.size)
-                keepalive_until_here(ob)
-                return
+        if self._copy_from_same(cdata, w_ob):
+            return
 
         if (space.isinstance_w(w_ob, space.w_list) or
             space.isinstance_w(w_ob, space.w_tuple)):
@@ -650,12 +662,8 @@ class W_CTypeUnion(W_CTypeStructOrUnion):
 
     def convert_from_object(self, cdata, w_ob):
         space = self.space
-        ob = space.interpclass_w(w_ob)
-        if isinstance(ob, cdataobj.W_CData):
-            if ob.ctype is self and self.size >= 0:
-                llmemory.raw_memcopy(ob._cdata, cdata, self.size)
-                keepalive_until_here(ob)
-                return
+        if self._copy_from_same(cdata, w_ob):
+            return
         if not self.fields_list:
             raise OperationError(space.w_ValueError,
                                  space.wrap("empty union"))
