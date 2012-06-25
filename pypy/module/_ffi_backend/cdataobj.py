@@ -2,7 +2,7 @@ import operator
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.objectmodel import keepalive_until_here, specialize
 from pypy.rlib import objectmodel, rgc
@@ -23,11 +23,7 @@ class W_CData(Wrappable):
         self.ctype = ctype
 
     def repr(self):
-        extra = self.extra_repr()
-        return self.space.wrap("<cdata '%s'%s>" % (self.ctype.name, extra))
-
-    def extra_repr(self):
-        return ''
+        return self.space.wrap("<cdata '%s'>" % (self.ctype.name,))
 
     def nonzero(self):
         return self.space.wrap(bool(self._cdata))
@@ -209,8 +205,9 @@ class W_CDataOwnFromCasted(W_CData):
 
 class W_CDataOwn(W_CDataOwnFromCasted):
 
-    def extra_repr(self):
-        return ' owning %d bytes' % (self.ctype.size,)
+    def repr(self):
+        return self.space.wrap("<cdata '%s' owning %d bytes>" % (
+            self.ctype.name, self.ctype.size))
 
 
 class W_CDataOwnLength(W_CDataOwn):
@@ -223,9 +220,7 @@ class W_CDataOwnLength(W_CDataOwn):
         return self.length
 
 
-W_CData.typedef = TypeDef(
-    '_ffi_backend.CData',
-    __repr__ = interp2app(W_CData.repr),
+common_methods = dict(
     __nonzero__ = interp2app(W_CData.nonzero),
     __int__ = interp2app(W_CData.int),
     __long__ = interp2app(W_CData.long),
@@ -241,5 +236,20 @@ W_CData.typedef = TypeDef(
     __sub__ = interp2app(W_CData.sub),
     __getattr__ = interp2app(W_CData.getattr),
     __setattr__ = interp2app(W_CData.setattr),
+)
+
+W_CData.typedef = TypeDef(
+    '_ffi_backend.CData',
+    __repr__ = interp2app(W_CData.repr),
+    **common_methods
     )
 W_CData.typedef.acceptable_as_base_class = False
+
+W_CDataOwn.typedef = TypeDef(
+    '_ffi_backend.CDataOwn',
+    __base = W_CData.typedef,
+    __repr__ = interp2app(W_CDataOwn.repr),
+    __weakref__ = make_weakref_descr(W_CDataOwn),
+    **common_methods
+    )
+W_CDataOwn.typedef.acceptable_as_base_class = False

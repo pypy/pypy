@@ -2,6 +2,7 @@ from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
+from pypy.interpreter.typedef import make_weakref_descr
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rlib.rarithmetic import intmask, ovfcheck, r_ulonglong
 from pypy.rlib.objectmodel import keepalive_until_here, we_are_translated
@@ -694,6 +695,7 @@ class W_CField(Wrappable):
 W_CType.typedef = TypeDef(
     '_ffi_backend.CTypeDescr',
     __repr__ = interp2app(W_CType.repr),
+    __weakref__ = make_weakref_descr(W_CType),
     )
 W_CType.typedef.acceptable_as_base_class = False
 
