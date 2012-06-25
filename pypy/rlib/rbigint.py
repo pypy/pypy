@@ -1,4 +1,4 @@
-from pypy.rlib.rarithmetic import LONG_BIT, intmask, longlongmask, r_uint, r_ulonglong, r_longlonglong
+from pypy.rlib.rarithmetic import LONG_BIT, intmask, longlongmask, r_uint, r_int, r_ulonglong, r_longlonglong
 from pypy.rlib.rarithmetic import ovfcheck, r_longlong, widen, is_valid_int
 from pypy.rlib.rarithmetic import most_neg_value_of_same_type
 from pypy.rlib.rfloat import isfinite
@@ -55,10 +55,11 @@ _mask_digit._annspecialcase_ = 'specialize:argtype(0)'
 def _widen_digit(x):
     """if not we_are_translated():
         assert is_valid_int(x), "widen_digit() takes an int, got a %r" % type(x)"""
-    return r_longlonglong(x)
-    """if LONG_BIT < 64:
+    if SHIFT > 31:
+        # XXX: Using rffi.cast is probably quicker, but I dunno how to get it working.
+        return r_longlonglong(x)
+    else:
         return r_longlong(x)
-    return x"""
 
 def _store_digit(x):
     """if not we_are_translated():
@@ -71,14 +72,22 @@ def _store_digit(x):
         return rffi.cast(rffi.LONGLONG, x)
     else:
         raise ValueError("SHIFT too large!")
+_store_digit._annspecialcase_ = 'specialize:argtype(0)'
 
 def _load_digit(x):
-    return x
-    #return rffi.cast(lltype.Signed, x)
+    if SHIFT < LONG_BIT: # This would be the case for any SHIFT < LONG_BIT
+        return rffi.cast(lltype.Signed, x)
+    else:
+        # x already is a type large enough, just not as fast.
+        return x
 
 def _load_unsigned_digit(x):
-    return r_ulonglong(x)
-    #return rffi.cast(lltype.Unsigned, x)
+    if SHIFT < LONG_BIT: # This would be the case for any SHIFT < LONG_BIT
+        return rffi.cast(lltype.Unsigned, x)
+    else:
+        # This needs a performance test on 32bit
+        return rffi.cast(rffi.ULONGLONG, x)
+        #return r_ulonglong(x)
 
 NULLDIGIT = _store_digit(0)
 ONEDIGIT  = _store_digit(1)
@@ -86,8 +95,7 @@ ONEDIGIT  = _store_digit(1)
 def _check_digits(l):
     for x in l:
         assert type(x) is type(NULLDIGIT)
-        # XXX: Fix for int128
-        # assert intmask(x) & MASK == intmask(x)
+        assert longlongmask(x) & MASK == longlongmask(x)
             
 class Entry(extregistry.ExtRegistryEntry):
     _about_ = _check_digits
@@ -621,7 +629,7 @@ class rbigint(object):
         return rbigint(self._digits, abs(self.sign))
 
     def invert(self): #Implement ~x as -(x + 1)
-        return self.add(rbigint([_store_digit(1)], 1)).neg()
+        return self.add(ONERBIGINT).neg()
 
     def lshift(self, int_other):
         if int_other < 0:
@@ -783,7 +791,7 @@ class rbigint(object):
 
 INTCACHE = {}
 for x in range(1, CACHE_INTS+1):
-    numList = [_store_digit(x)]
+    numList = [_store_digit(_mask_digit(x))]
     INTCACHE[x] = rbigint(numList, 1)
     INTCACHE[-x] = rbigint(numList, -1)
     
@@ -811,7 +819,7 @@ def _help_mult(x, y, c):
 def digits_from_nonneg_long(l):
     digits = []
     while True:
-        digits.append(_store_digit(intmask(l & MASK)))
+        digits.append(_store_digit(_mask_digit(l & MASK)))
         l = l >> SHIFT
         if not l:
             return digits[:] # to make it non-resizable
@@ -894,7 +902,7 @@ def _x_sub(a, b):
     
     # Special casing.
     if a is b:
-        return rbigint([NULLDIGIT], 1)
+        return NULLRBIGINT
     
     size_a = a.numdigits()
     size_b = b.numdigits()
@@ -1425,12 +1433,11 @@ def _x_divrem(v1, w1):
     d = (r_ulonglong(MASK)+1) // (w1.udigit(size_w-1) + 1)
     assert d <= MASK    # because the first digit of w1 is not zero
     d = longlongmask(d)
-    assert d != 0
     v = _muladd1(v1, d)
     w = _muladd1(w1, d)
     size_v = v.numdigits()
     size_w = w.numdigits()
-    assert size_v >= size_w and size_w > 1 # Assert checks by div()
+    assert size_v >= size_w and size_w >= 1 # (stian: Adding d doesn't necessary mean it will increase by 1), Assert checks by div()
 
     size_a = size_v - size_w + 1
     a = rbigint([NULLDIGIT] * size_a, 1)

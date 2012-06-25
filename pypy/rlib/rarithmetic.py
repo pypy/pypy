@@ -115,26 +115,25 @@ def intmask(n):
         n -= 2*LONG_TEST
     return int(n)
 
-def longlongmask(n):
-    """
-    NOT_RPYTHON
-    """
-    assert isinstance(n, (int, long))
-    n = long(n)
-    n &= LONGLONG_MASK
-    if n >= LONGLONG_TEST:
-        n -= 2*LONGLONG_TEST
-    return r_longlong(n)
+if LONG_BIT >= 64:
+    def longlongmask(n):
+        assert isinstance(n, (int, long))
+        return int(n)
+else:
+    def longlongmask(n):
+        """
+        NOT_RPYTHON
+        """
+        assert isinstance(n, (int, long))
+        n = long(n)
+        n &= LONGLONG_MASK
+        if n >= LONGLONG_TEST:
+            n -= 2*LONGLONG_TEST
+        return r_longlong(n)
 
 def longlonglongmask(n):
-    """
-    NOT_RPYTHON
-    """
-    assert isinstance(n, (int, long))
-    n = long(n)
-    n &= LONGLONGLONG_MASK
-    if n >= LONGLONGLONG_TEST:
-        n -= 2*LONGLONGLONG_TEST
+    # Assume longlonglong doesn't overflow. This is perfectly fine for rbigint.
+    # We deal directly with overflow there anyway.
     return r_longlonglong(n)
 
 def widen(n):

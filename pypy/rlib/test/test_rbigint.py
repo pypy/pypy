@@ -3,7 +3,7 @@ import py
 import operator, sys, array
 from random import random, randint, sample
 from pypy.rlib.rbigint import rbigint, SHIFT, MASK, KARATSUBA_CUTOFF
-from pypy.rlib.rbigint import _store_digit
+from pypy.rlib.rbigint import _store_digit, _mask_digit
 from pypy.rlib import rbigint as lobj
 from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong, intmask
 from pypy.rpython.test.test_llinterp import interpret
@@ -120,7 +120,7 @@ def gen_signs(l):
 def bigint(lst, sign):
     for digit in lst:
         assert digit & MASK == digit    # wrongly written test!
-    return rbigint(map(_store_digit, lst), sign)
+    return rbigint(map(_store_digit, map(_mask_digit, lst)), sign)
 
 
 class Test_rbigint(object):
