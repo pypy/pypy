@@ -68,8 +68,7 @@ def _store_digit(x):
     elif SHIFT <= 31:
         return rffi.cast(rffi.INT, x)
     elif SHIFT <= 63:
-        return int(x)
-        #return rffi.cast(rffi.LONGLONG, x)
+        return rffi.cast(rffi.LONGLONG, x)
     else:
         raise ValueError("SHIFT too large!")
 
@@ -78,8 +77,8 @@ def _load_digit(x):
     #return rffi.cast(lltype.Signed, x)
 
 def _load_unsigned_digit(x):
-    #return r_ulonglong(x)
-    return rffi.cast(lltype.Unsigned, x)
+    return r_ulonglong(x)
+    #return rffi.cast(lltype.Unsigned, x)
 
 NULLDIGIT = _store_digit(0)
 ONEDIGIT  = _store_digit(1)
