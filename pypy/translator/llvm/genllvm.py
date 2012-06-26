@@ -892,12 +892,14 @@ class FunctionWriter(object):
         self.lines.append('{}{}\n'.format(indent, line))
 
     def write_graph(self, name, graph):
-        database.genllvm.gcpolicy.gctransformer.inline_helpers(graph)
-        remove_double_links(database.genllvm.translator.annotator, graph)
+        genllvm = database.genllvm
+        genllvm.gcpolicy.gctransformer.inline_helpers(graph)
+        remove_double_links(genllvm.translator.annotator, graph)
         no_links_to_startblock(graph)
         remove_same_as(graph)
 
-        self.w('define {retvar.T} {name}({a}) {{'.format(
+        self.w('define {linkage}{retvar.T} {name}({a}) {{'.format(
+                       linkage='' if graph in genllvm.export else 'internal ',
                        retvar=get_repr(graph.getreturnvar()),
                        name=name,
                        a=', '.join(get_repr(arg).TV for arg in graph.getargs()
@@ -1494,7 +1496,7 @@ class RefcountGCPolicy(GCPolicy):
         return [self.gctransformer.gcheaderbuilder.header_of_object(obj)._obj]
 
 
-def make_main(translator, entrypoint):
+def make_main(genllvm, entrypoint):
     import os
 
     def __main(argc, argv):
@@ -1506,13 +1508,14 @@ def make_main(translator, entrypoint):
                         'entrypoint: ' + str(exc) + '\n')
             return 1
 
-    mixlevelannotator = MixLevelHelperAnnotator(translator.rtyper)
+    mixlevelannotator = MixLevelHelperAnnotator(genllvm.translator.rtyper)
     arg1 = annmodel.lltype_to_annotation(rffi.INT)
     arg2 = annmodel.lltype_to_annotation(rffi.CCHARPP)
     res = annmodel.lltype_to_annotation(lltype.Signed)
     graph = mixlevelannotator.getgraph(__main, [arg1, arg2], res)
     mixlevelannotator.finish()
     mixlevelannotator.backend_optimize()
+    genllvm.export.add(graph)
     return graph
 
 
@@ -1531,6 +1534,7 @@ class CTypesFuncWrapper(object):
         self.convert = True
 
     def _get_ctypes_def(self, func_ptr):
+        database.genllvm.export.add(func_ptr._obj.graph)
         return (get_repr(func_ptr).V[1:],
                 get_ctypes_type(func_ptr._T.RESULT),
                 map(get_ctypes_type, func_ptr._T.ARGS),
@@ -1641,6 +1645,7 @@ class GenLLVM(object):
         }[translator.config.translation.gctransformer](self)
         self.transformed_graphs = set()
         self.ecis = []
+        self.export = set()
 
     def transform_graph(self, graph):
         if (graph not in self.transformed_graphs and
@@ -1673,7 +1678,7 @@ class GenLLVM(object):
 
     def prepare(self, entry_point):
         if self.standalone:
-            self.entry_point = make_main(self.translator, entry_point)
+            self.entry_point = make_main(self, entry_point)
         else:
             bk = self.translator.annotator.bookkeeper
             self.entry_point = bk.getdesc(entry_point).getuniquegraph()

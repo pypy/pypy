@@ -293,6 +293,7 @@ class TestSpecialCases(_LLVMMixin):
 
     def test_two_exits_non_bool(self):
         genllvm.database = genllvm.Database(_Stub(), None)
+        genllvm.database.genllvm.export = {}
         var = varoftype(lltype.Signed)
         startblock = Block([var])
         startblock.exitswitch = var
