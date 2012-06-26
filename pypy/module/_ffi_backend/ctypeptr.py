@@ -18,17 +18,61 @@ class W_CTypePtrOrArray(W_CType):
         W_CType.__init__(self, space, size, name, name_position)
         self.ctitem = ctitem
 
+    def cast_anything(self):
+        return self.ctitem is not None and self.ctitem.cast_anything
 
-class W_CTypePointer(W_CTypePtrOrArray):
+
+class W_CTypePtrBase(W_CTypePtrOrArray):
+    # base class for both pointers and pointers-to-functions
+
+    def __init__(self, space, extra, extra_position, ctitem):
+        size = rffi.sizeof(rffi.VOIDP)
+        W_CTypePtrOrArray.__init__(self, space, size,
+                                   extra, extra_position, ctitem)
+
+    def cast(self, w_ob):
+        space = self.space
+        ob = space.interpclass_w(w_ob)
+        if (isinstance(ob, cdataobj.W_CData) and
+                isinstance(ob.ctype, W_CTypePtrOrArray)):
+            value = ob._cdata
+        else:
+            value = misc.as_unsigned_long_long(space, w_ob, strict=False)
+            value = rffi.cast(rffi.CCHARP, value)
+        return cdataobj.W_CData(space, value, self)
+
+    def convert_to_object(self, cdata):
+        ptrdata = rffi.cast(rffi.CCHARPP, cdata)[0]
+        return cdataobj.W_CData(self.space, ptrdata, self)
+
+    def convert_from_object(self, cdata, w_ob):
+        space = self.space
+        ob = space.interpclass_w(w_ob)
+        if not isinstance(ob, cdataobj.W_CData):
+            raise self._convert_error("compatible pointer", w_ob)
+        other = ob.ctype
+        if (isinstance(other, W_CTypePtrOrArray) and
+             (self is other or self.cast_anything() or other.cast_anything())):
+            pass    # compatible types
+        else:
+            raise self._convert_error("compatible pointer", w_ob)
+
+        rffi.cast(rffi.CCHARPP, cdata)[0] = ob._cdata
+
+    def _alignof(self):
+        from pypy.module._ffi_backend import newtype
+        return newtype.alignment_of_pointer
+
+
+class W_CTypePointer(W_CTypePtrBase):
 
     def __init__(self, space, ctitem):
-        size = rffi.sizeof(rffi.VOIDP)
         from pypy.module._ffi_backend import ctypearray
         if isinstance(ctitem, ctypearray.W_CTypeArray):
             extra = "(*)"    # obscure case: see test_array_add
         else:
             extra = " *"
-        W_CTypePtrOrArray.__init__(self, space, size, extra, 2, ctitem)
+        W_CTypePtrBase.__init__(self, space, extra, 2, ctitem)
 
     def str(self, cdataobj):
         if isinstance(self.ctitem, W_CTypePrimitiveChar):
@@ -41,17 +85,6 @@ class W_CTypePointer(W_CTypePtrOrArray):
             keepalive_until_here(cdataobj)
             return self.space.wrap(s)
         return W_CTypePtrOrArray.str(self, cdataobj)
-
-    def cast(self, w_ob):
-        space = self.space
-        ob = space.interpclass_w(w_ob)
-        if (isinstance(ob, cdataobj.W_CData) and
-                isinstance(ob.ctype, W_CTypePtrOrArray)):
-            value = ob._cdata
-        else:
-            value = misc.as_unsigned_long_long(space, w_ob, strict=False)
-            value = rffi.cast(rffi.CCHARP, value)
-        return cdataobj.W_CData(space, value, self)
 
     def newp(self, w_init):
         from pypy.module._ffi_backend import ctypeprim
@@ -86,27 +119,3 @@ class W_CTypePointer(W_CTypePtrOrArray):
                                   self.name)
         p = rffi.ptradd(cdata, i * self.ctitem.size)
         return cdataobj.W_CData(space, p, self)
-
-    def _alignof(self):
-        from pypy.module._ffi_backend import newtype
-        return newtype.alignment_of_pointer
-
-    def convert_to_object(self, cdata):
-        ptrdata = rffi.cast(rffi.CCHARPP, cdata)[0]
-        return cdataobj.W_CData(self.space, ptrdata, self)
-
-    def convert_from_object(self, cdata, w_ob):
-        space = self.space
-        ob = space.interpclass_w(w_ob)
-        if not isinstance(ob, cdataobj.W_CData):
-            raise self._convert_error("compatible pointer", w_ob)
-        otherctype = ob.ctype
-        if (isinstance(otherctype, W_CTypePtrOrArray) and
-            (self.ctitem.cast_anything or
-             otherctype.ctitem.cast_anything or
-             self.ctitem is otherctype.ctitem)):
-            pass    # compatible types
-        else:
-            raise self._convert_error("compatible pointer", w_ob)
-
-        rffi.cast(rffi.CCHARPP, cdata)[0] = ob._cdata

@@ -593,12 +593,13 @@ def test_struct_pointer():
 def test_struct_init_list():
     BVoidP = new_pointer_type(new_void_type())
     BInt = new_primitive_type("int")
+    BIntPtr = new_pointer_type(BInt)
     BStruct = new_struct_type("foo")
     BStructPtr = new_pointer_type(BStruct)
     complete_struct_or_union(BStruct, [('a1', BInt, -1),
                                        ('a2', BInt, -1),
                                        ('a3', BInt, -1),
-                                       ('p4', new_pointer_type(BInt), -1)])
+                                       ('p4', BIntPtr, -1)])
     s = newp(BStructPtr, [123, 456])
     assert s.a1 == 123
     assert s.a2 == 456
@@ -613,7 +614,7 @@ def test_struct_init_list():
     #
     py.test.raises(KeyError, newp, BStructPtr, {'foobar': 0})
     #
-    p = newp(new_pointer_type(BInt), 14141)
+    p = newp(BIntPtr, 14141)
     s = newp(BStructPtr, [12, 34, 56, p])
     assert s.p4 == p
     #
@@ -1108,3 +1109,28 @@ def test_set_struct_fields():
     assert list(p.a1) == ['f', 'o', 'o'] + ['\x00'] * 7
     p.a1 = ['x', 'y']
     assert str(p.a1) == 'xyo'
+
+def test_no_struct_return_in_func():
+    BFunc = new_function_type((), new_void_type())
+    BArray = new_array_type(new_pointer_type(BFunc), 5)        # works
+    new_function_type((), BFunc)    # works
+    new_function_type((), new_primitive_type("int"))
+    new_function_type((), new_pointer_type(BFunc))
+    py.test.raises(NotImplementedError, new_function_type, (),
+                   new_struct_type("foo_s"))
+    py.test.raises(NotImplementedError, new_function_type, (),
+                   new_union_type("foo_u"))
+    py.test.raises(TypeError, new_function_type, (), BArray)
+
+def test_cast_with_functionptr():
+    BFunc = new_function_type((), new_void_type())
+    BFunc2 = new_function_type((), new_primitive_type("short"))
+    BCharP = new_pointer_type(new_primitive_type("char"))
+    BIntP = new_pointer_type(new_primitive_type("int"))
+    BStruct = new_struct_type("foo")
+    BStructPtr = new_pointer_type(BStruct)
+    complete_struct_or_union(BStruct, [('a1', BFunc, -1)])
+    newp(BStructPtr, [cast(BFunc, 0)])
+    newp(BStructPtr, [cast(BCharP, 0)])
+    py.test.raises(TypeError, newp, BStructPtr, [cast(BIntP, 0)])
+    py.test.raises(TypeError, newp, BStructPtr, [cast(BFunc2, 0)])

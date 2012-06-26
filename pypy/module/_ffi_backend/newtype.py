@@ -200,3 +200,26 @@ def new_enum_type(space, name, w_enumerators, w_enumvalues):
     enumvalues  = [space.int_w(w) for w in enumvalues_w]
     ctype = ctypeenum.W_CTypeEnum(space, name, enumerators, enumvalues)
     return ctype
+
+# ____________________________________________________________
+
+@unwrap_spec(fresult=ctypeobj.W_CType, ellipsis=int)
+def new_function_type(space, w_fargs, fresult, ellipsis=0):
+    fargs = []
+    for w_farg in space.fixedview(w_fargs):
+        farg = space.interpclass_w(w_farg)
+        if not isinstance(farg, ctypeobj.W_CType):
+            raise OperationError(space.w_TypeError,
+                space.wrap("first arg must be a tuple of ctype objects"))
+        fargs.append(farg)
+    #
+    if isinstance(fresult, ctypestruct.W_CTypeStructOrUnion):
+        raise OperationError(space.w_NotImplementedError,
+                         space.wrap("functions returning a struct or a union"))
+    if ((fresult.size < 0 and not isinstance(fresult, ctypevoid.W_CTypeVoid))
+            or isinstance(fresult, ctypearray.W_CTypeArray)):
+        raise operationerrfmt(space.w_TypeError,
+                              "invalid result type: '%s'", fresult.name)
+    #
+    fct = ctypefunc.W_CTypeFunc(fargs, fresult, ellipsis)
+    return fct
