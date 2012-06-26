@@ -207,7 +207,16 @@ class AppTestDATATYPES:
         # test arrays in mixed order, to give overload resolution a workout
         for t in ['d', 'i', 'f', 'H', 'I', 'h', 'L', 'l' ]:
             b = array.array(t, a)
+
+            # typed passing
             ca = c.pass_array(b)
+            assert type(ca[0]) == type(b[0])
+            assert len(b) == self.N
+            for i in range(self.N):
+                assert ca[i] == b[i]
+
+            # void* passing
+            ca = eval('c.pass_void_array_%s(b)' % t)
             assert type(ca[0]) == type(b[0])
             assert len(b) == self.N
             for i in range(self.N):

@@ -104,6 +104,15 @@ public:
     float*          pass_array(float*);
     double*         pass_array(double*);
 
+    short*          pass_void_array_h(void* a) { return pass_array((short*)a); }
+    unsigned short* pass_void_array_H(void* a) { return pass_array((unsigned short*)a); }
+    int*            pass_void_array_i(void* a) { return pass_array((int*)a); }
+    unsigned int*   pass_void_array_I(void* a) { return pass_array((unsigned int*)a); }
+    long*           pass_void_array_l(void* a) { return pass_array((long*)a); }
+    unsigned long*  pass_void_array_L(void* a) { return pass_array((unsigned long*)a); }
+    float*          pass_void_array_f(void* a) { return pass_array((float*)a); }
+    double*         pass_void_array_d(void* a) { return pass_array((double*)a); }
+
 public:
 // basic types
     bool                 m_bool;

@@ -44,6 +44,12 @@ class FakeType(FakeBase):
         self.__name__ = name
     def getname(self, space, name):
         return self.name
+class FakeBuffer(FakeBase):
+    typedname = "buffer"
+    def __init__(self, val):
+        self.val = val
+    def get_raw_address(self):
+        raise ValueError("no raw buffer")
 class FakeException(FakeType):
     def __init__(self, name):
         FakeType.__init__(self, name)
@@ -116,6 +122,9 @@ class FakeSpace(object):
 
     def interpclass_w(self, w_obj):
         return w_obj
+
+    def buffer_w(self, w_obj):
+        return FakeBuffer(w_obj)
 
     def exception_match(self, typ, sub):
         return typ is sub

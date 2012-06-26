@@ -524,9 +524,14 @@ class VoidPtrConverter(TypeConverter):
 
     def convert_argument(self, space, w_obj, address, call_local):
         x = rffi.cast(rffi.VOIDPP, address)
-        x[0] = rffi.cast(rffi.VOIDP, get_rawobject(space, w_obj))
         ba = rffi.cast(rffi.CCHARP, address)
-        ba[capi.c_function_arg_typeoffset()] = 'a'
+        try:
+            buf = space.buffer_w(w_obj)
+            x[0] = rffi.cast(rffi.VOIDP, buf.get_raw_address())
+            ba[capi.c_function_arg_typeoffset()] = 'o'
+        except (OperationError, ValueError):
+            x[0] = rffi.cast(rffi.VOIDP, get_rawobject(space, w_obj))
+            ba[capi.c_function_arg_typeoffset()] = 'a'
 
     def convert_argument_libffi(self, space, w_obj, argchain, call_local):
         argchain.arg(get_rawobject(space, w_obj))
