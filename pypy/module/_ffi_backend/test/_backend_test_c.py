@@ -811,9 +811,29 @@ def test_callback():
         def cb(n):
             return n + 1
         BFunc = new_function_type((BInt,), BInt, False)
-        return callback(BFunc, cb)    # 'cb' and 'BFunc' go out of scope
+        return callback(BFunc, cb, 42)    # 'cb' and 'BFunc' go out of scope
     f = make_callback()
     assert f(-142) == -141
+
+def test_callback_return_type():
+    for rettype in ["signed char", "short", "int", "long", "long long",
+                    "unsigned char", "unsigned short", "unsigned int",
+                    "unsigned long", "unsigned long long"]:
+        BRet = new_primitive_type(rettype)
+        def cb(n):
+            return n + 1
+        BFunc = new_function_type((BRet,), BRet)
+        f = callback(BFunc, cb, 42)
+        assert f(41) == 42
+        if rettype.startswith("unsigned "):
+            min = 0
+            max = (1 << (8*sizeof(BRet))) - 1
+        else:
+            min = -(1 << (8*sizeof(BRet)-1))
+            max = (1 << (8*sizeof(BRet)-1)) - 1
+        assert f(min) == min + 1
+        assert f(max - 1) == max
+        assert f(max) == 42
 
 def test_a_lot_of_callbacks():
     BInt = new_primitive_type("int")
@@ -821,7 +841,7 @@ def test_a_lot_of_callbacks():
         def cb(n):
             return n + m
         BFunc = new_function_type((BInt,), BInt, False)
-        return callback(BFunc, cb)    # 'cb' and 'BFunc' go out of scope
+        return callback(BFunc, cb, 42)    # 'cb' and 'BFunc' go out of scope
     #
     flist = [make_callback(i) for i in range(10000)]
     for i, f in enumerate(flist):
