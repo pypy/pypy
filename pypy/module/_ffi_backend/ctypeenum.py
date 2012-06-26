@@ -3,6 +3,8 @@ Enums.
 """
 
 from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.rpython.lltypesystem import rffi
+from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.objectmodel import keepalive_until_here
 
 from pypy.module._ffi_backend.ctypeprim import W_CTypePrimitiveSigned
