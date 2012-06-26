@@ -700,7 +700,7 @@ class W_CPPInstance(Wrappable):
             f = gbl._make_cppfunction(meth_idx)
             ol = W_CPPOverload(self.space, scope_byname(self.space, ""), [f])
             # TODO: cache this operator (currently cached by JIT in capi/__init__.py)
-            return ol.call(self, (self, w_other))
+            return ol.call(self, [self, w_other])
         
         # fallback: direct pointer comparison (the class comparison is needed since the
         # first data member in a struct and the struct have the same address)
