@@ -346,7 +346,6 @@ _c_get_global_operator = rffi.llexternal(
     [C_SCOPE, C_SCOPE, rffi.CCHARP], WLAVC_INDEX,
     threadsafe=ts_reflect,
     compilation_info=backend.eci)
-@jit.elidable_promote()                      # TODO: this is debatable
 def c_get_global_operator(lc, rc, op):
     return _c_get_global_operator(lc.handle, rc.handle, op)
 

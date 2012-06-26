@@ -136,9 +136,11 @@ class PtrTypeConverterMixin(object):
         self.size = sys.maxint
 
     def convert_argument(self, space, w_obj, address, call_local):
-        tc = space.str_w(space.getattr(w_obj, space.wrap('typecode')))
-        if self.typecode != tc:
-            msg = "expected %s pointer type, but received %s" % (self.typecode, tc)
+        w_tc = space.findattr(w_obj, space.wrap('typecode'))
+        if w_tc is None:
+            raise OperationError(space.w_TypeError, space.wrap("can not determine buffer type"))
+        if space.str_w(w_tc) != self.typecode:
+            msg = "expected %s pointer type, but received %s" % (self.typecode, space.str_w(w_tc))
             raise OperationError(space.w_TypeError, space.wrap(msg))
         x = rffi.cast(rffi.LONGP, address)
         buf = space.buffer_w(w_obj)

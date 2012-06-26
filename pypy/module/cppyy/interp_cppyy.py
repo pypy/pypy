@@ -785,7 +785,7 @@ def wrap_new_cppobject_nocast(space, w_pycppclass, cppclass, rawobject, isref, p
 
 def wrap_cppobject_nocast(space, w_pycppclass, cppclass, rawobject, isref, python_owns):
     obj = memory_regulator.retrieve(rawobject)
-    if not (obj is None) and obj.cppclass is cppclass:
+    if obj is not None and obj.cppclass is cppclass:
         return obj
     return wrap_new_cppobject_nocast(space, w_pycppclass, cppclass, rawobject, isref, python_owns)
 
