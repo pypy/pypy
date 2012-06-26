@@ -11,7 +11,8 @@ What's new in PyPy xxx
 .. branch: reflex-support
 Provides cppyy module (disabled by default) for access to C++ through Reflex.
 See doc/cppyy.rst for full details and functionality.
-
+.. branch: nupypy-axis-arg-check
+Check that axis arg is valid in _numpypy
 
 .. "uninteresting" branches that we should just ignore for the whatsnew:
 .. branch: slightly-shorter-c
