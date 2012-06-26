@@ -646,13 +646,13 @@ class StdStringConverter(InstanceConverter):
 
     def _unwrap_object(self, space, w_obj):
         try:
-           charp = rffi.str2charp(space.str_w(w_obj))
-           arg = capi.c_charp2stdstring(charp)
-           rffi.free_charp(charp)
-           return arg
+            charp = rffi.str2charp(space.str_w(w_obj))
+            arg = capi.c_charp2stdstring(charp)
+            rffi.free_charp(charp)
+            return arg
         except OperationError:
-           arg = InstanceConverter._unwrap_object(self, space, w_obj)
-           return capi.c_stdstring2stdstring(arg)
+            arg = InstanceConverter._unwrap_object(self, space, w_obj)
+            return capi.c_stdstring2stdstring(arg)
 
     def to_memory(self, space, w_obj, w_value, offset):
         try:
@@ -687,7 +687,7 @@ class PyObjectConverter(TypeConverter):
         from pypy.module.cpyext.pyobject import make_ref
         ref = make_ref(space, w_obj)
         x = rffi.cast(rffi.VOIDPP, address)
-        x[0] = rffi.cast(rffi.VOIDP, ref);
+        x[0] = rffi.cast(rffi.VOIDP, ref)
         ba = rffi.cast(rffi.CCHARP, address)
         ba[capi.c_function_arg_typeoffset()] = 'a'
 

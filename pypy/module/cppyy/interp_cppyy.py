@@ -802,8 +802,8 @@ def wrap_cppobject(space, w_pycppclass, cppclass, rawobject, isref, python_owns)
 
 @unwrap_spec(cppinstance=W_CPPInstance)
 def addressof(space, cppinstance):
-     address = rffi.cast(rffi.LONG, cppinstance.get_rawobject())
-     return space.wrap(address)
+    address = rffi.cast(rffi.LONG, cppinstance.get_rawobject())
+    return space.wrap(address)
 
 @unwrap_spec(address=int, owns=bool)
 def bind_object(space, address, w_pycppclass, owns=False):
