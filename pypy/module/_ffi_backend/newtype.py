@@ -3,7 +3,8 @@ from pypy.interpreter.gateway import unwrap_spec
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.rarithmetic import ovfcheck
 
-from pypy.module._ffi_backend import ctypeobj
+from pypy.module._ffi_backend import ctypeobj, ctypeprim, ctypeptr, ctypearray
+from pypy.module._ffi_backend import ctypestruct, ctypevoid, ctypeenum
 
 
 def alignment(TYPE):
@@ -20,19 +21,19 @@ PRIMITIVE_TYPES = {}
 def eptype(name, TYPE, ctypecls):
     PRIMITIVE_TYPES[name] = ctypecls, rffi.sizeof(TYPE), alignment(TYPE)
 
-eptype("char",        lltype.Char,     ctypeobj.W_CTypePrimitiveChar)
-eptype("signed char", rffi.SIGNEDCHAR, ctypeobj.W_CTypePrimitiveSigned)
-eptype("short",       rffi.SHORT,      ctypeobj.W_CTypePrimitiveSigned)
-eptype("int",         rffi.INT,        ctypeobj.W_CTypePrimitiveSigned)
-eptype("long",        rffi.LONG,       ctypeobj.W_CTypePrimitiveSigned)
-eptype("long long",   rffi.LONGLONG,   ctypeobj.W_CTypePrimitiveSigned)
-eptype("unsigned char",      rffi.UCHAR,    ctypeobj.W_CTypePrimitiveUnsigned)
-eptype("unsigned short",     rffi.SHORT,    ctypeobj.W_CTypePrimitiveUnsigned)
-eptype("unsigned int",       rffi.INT,      ctypeobj.W_CTypePrimitiveUnsigned)
-eptype("unsigned long",      rffi.LONG,     ctypeobj.W_CTypePrimitiveUnsigned)
-eptype("unsigned long long", rffi.LONGLONG, ctypeobj.W_CTypePrimitiveUnsigned)
-eptype("float",  rffi.FLOAT,  ctypeobj.W_CTypePrimitiveFloat)
-eptype("double", rffi.DOUBLE, ctypeobj.W_CTypePrimitiveFloat)
+eptype("char",        lltype.Char,     ctypeprim.W_CTypePrimitiveChar)
+eptype("signed char", rffi.SIGNEDCHAR, ctypeprim.W_CTypePrimitiveSigned)
+eptype("short",       rffi.SHORT,      ctypeprim.W_CTypePrimitiveSigned)
+eptype("int",         rffi.INT,        ctypeprim.W_CTypePrimitiveSigned)
+eptype("long",        rffi.LONG,       ctypeprim.W_CTypePrimitiveSigned)
+eptype("long long",   rffi.LONGLONG,   ctypeprim.W_CTypePrimitiveSigned)
+eptype("unsigned char",      rffi.UCHAR,    ctypeprim.W_CTypePrimitiveUnsigned)
+eptype("unsigned short",     rffi.SHORT,    ctypeprim.W_CTypePrimitiveUnsigned)
+eptype("unsigned int",       rffi.INT,      ctypeprim.W_CTypePrimitiveUnsigned)
+eptype("unsigned long",      rffi.LONG,     ctypeprim.W_CTypePrimitiveUnsigned)
+eptype("unsigned long long", rffi.LONGLONG, ctypeprim.W_CTypePrimitiveUnsigned)
+eptype("float",  rffi.FLOAT,  ctypeprim.W_CTypePrimitiveFloat)
+eptype("double", rffi.DOUBLE, ctypeprim.W_CTypePrimitiveFloat)
 
 @unwrap_spec(name=str)
 def new_primitive_type(space, name):
@@ -47,14 +48,14 @@ def new_primitive_type(space, name):
 
 @unwrap_spec(ctype=ctypeobj.W_CType)
 def new_pointer_type(space, ctype):
-    ctypeptr = ctypeobj.W_CTypePointer(space, ctype)
-    return ctypeptr
+    ctypepointer = ctypeptr.W_CTypePointer(space, ctype)
+    return ctypepointer
 
 # ____________________________________________________________
 
 @unwrap_spec(ctptr=ctypeobj.W_CType)
 def new_array_type(space, ctptr, w_length):
-    if not isinstance(ctptr, ctypeobj.W_CTypePointer):
+    if not isinstance(ctptr, ctypeptr.W_CTypePointer):
         raise OperationError(space.w_TypeError,
                              space.wrap("first arg must be a pointer ctype"))
     ctitem = ctptr.ctitem
@@ -78,29 +79,29 @@ def new_array_type(space, ctptr, w_length):
                 space.wrap("array size would overflow a ssize_t"))
         extra = '[%d]' % length
     #
-    ctypeptr = ctypeobj.W_CTypeArray(space, ctptr, length, arraysize, extra)
-    return ctypeptr
+    ctype = ctypearray.W_CTypeArray(space, ctptr, length, arraysize, extra)
+    return ctype
 
 # ____________________________________________________________
 
 @unwrap_spec(name=str)
 def new_struct_type(space, name):
-    return ctypeobj.W_CTypeStruct(space, name)
+    return ctypestruct.W_CTypeStruct(space, name)
 
 @unwrap_spec(name=str)
 def new_union_type(space, name):
-    return ctypeobj.W_CTypeUnion(space, name)
+    return ctypestruct.W_CTypeUnion(space, name)
 
 @unwrap_spec(ctype=ctypeobj.W_CType, totalsize=int, totalalignment=int)
 def complete_struct_or_union(space, ctype, w_fields, w_ignored=None,
                              totalsize=-1, totalalignment=-1):
-    if (not isinstance(ctype, ctypeobj.W_CTypeStructOrUnion)
+    if (not isinstance(ctype, ctypestruct.W_CTypeStructOrUnion)
             or ctype.size >= 0):
         raise OperationError(space.w_TypeError,
                              space.wrap("first arg must be a non-initialized"
                                         " struct or union ctype"))
 
-    is_union = isinstance(ctype, ctypeobj.W_CTypeUnion)
+    is_union = isinstance(ctype, ctypestruct.W_CTypeUnion)
     maxsize = 1
     alignment = 1
     offset = 0
@@ -149,7 +150,7 @@ def complete_struct_or_union(space, ctype, w_fields, w_ignored=None,
         else:
             xxx
         #
-        fld = ctypeobj.W_CField(ftype, offset, bitshift, fbitsize)
+        fld = ctypestruct.W_CField(ftype, offset, bitshift, fbitsize)
         fields_list.append(fld)
         fields_dict[fname] = fld
         #
@@ -183,7 +184,7 @@ def complete_struct_or_union(space, ctype, w_fields, w_ignored=None,
 # ____________________________________________________________
 
 def new_void_type(space):
-    ctype = ctypeobj.W_CTypeVoid(space)
+    ctype = ctypevoid.W_CTypeVoid(space)
     return ctype
 
 # ____________________________________________________________
@@ -197,5 +198,5 @@ def new_enum_type(space, name, w_enumerators, w_enumvalues):
                              space.wrap("tuple args must have the same size"))
     enumerators = [space.str_w(w) for w in enumerators_w]
     enumvalues  = [space.int_w(w) for w in enumvalues_w]
-    ctype = ctypeobj.W_CTypeEnum(space, name, enumerators, enumvalues)
+    ctype = ctypeenum.W_CTypeEnum(space, name, enumerators, enumvalues)
     return ctype

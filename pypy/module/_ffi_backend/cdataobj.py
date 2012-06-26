@@ -15,9 +15,9 @@ class W_CData(Wrappable):
     cdata = lltype.nullptr(rffi.CCHARP.TO)
 
     def __init__(self, space, cdata, ctype):
-        from pypy.module._ffi_backend import ctypeobj
+        from pypy.module._ffi_backend import ctypeprim
         assert lltype.typeOf(cdata) == rffi.CCHARP
-        assert isinstance(ctype, ctypeobj.W_CType)
+        assert isinstance(ctype, ctypeprim.W_CType)
         self.space = space
         self._cdata = cdata    # don't forget keepalive_until_here!
         self.ctype = ctype
@@ -48,9 +48,9 @@ class W_CData(Wrappable):
         return w_result
 
     def len(self):
-        from pypy.module._ffi_backend import ctypeobj
+        from pypy.module._ffi_backend import ctypearray
         space = self.space
-        if isinstance(self.ctype, ctypeobj.W_CTypeArray):
+        if isinstance(self.ctype, ctypearray.W_CTypeArray):
             return space.wrap(self.get_array_length())
         raise operationerrfmt(space.w_TypeError,
                               "cdata of type '%s' has no len()",
@@ -110,13 +110,13 @@ class W_CData(Wrappable):
         space = self.space
         ob = space.interpclass_w(w_other)
         if isinstance(ob, W_CData):
-            from pypy.module._ffi_backend import ctypeobj
+            from pypy.module._ffi_backend import ctypeptr, ctypearray
             ct = ob.ctype
-            if isinstance(ct, ctypeobj.W_CTypeArray):
+            if isinstance(ct, ctypearray.W_CTypeArray):
                 ct = ct.ctptr
             #
             if (ct is not self.ctype or
-                   not isinstance(ct, ctypeobj.W_CTypePointer) or
+                   not isinstance(ct, ctypeptr.W_CTypePointer) or
                    ct.ctitem.size <= 0):
                 raise operationerrfmt(space.w_TypeError,
                     "cannot subtract cdata '%s' and cdata '%s'",
@@ -129,13 +129,13 @@ class W_CData(Wrappable):
         return self._add_or_sub(w_other, -1)
 
     def getcfield(self, w_attr):
-        from pypy.module._ffi_backend import ctypeobj
+        from pypy.module._ffi_backend import ctypeptr, ctypestruct
         space = self.space
         ctype = self.ctype
         attr = space.str_w(w_attr)
-        if isinstance(ctype, ctypeobj.W_CTypePointer):
+        if isinstance(ctype, ctypeptr.W_CTypePointer):
             ctype = ctype.ctitem
-        if (isinstance(ctype, ctypeobj.W_CTypeStructOrUnion) and
+        if (isinstance(ctype, ctypestruct.W_CTypeStructOrUnion) and
                 ctype.fields_dict is not None):
             try:
                 return ctype.fields_dict[attr]
@@ -183,9 +183,9 @@ class W_CData(Wrappable):
         return w_obj
 
     def get_array_length(self):
-        from pypy.module._ffi_backend import ctypeobj
+        from pypy.module._ffi_backend import ctypearray
         ctype = self.ctype
-        assert isinstance(ctype, ctypeobj.W_CTypeArray)
+        assert isinstance(ctype, ctypearray.W_CTypeArray)
         length = ctype.length
         assert length >= 0
         return length
