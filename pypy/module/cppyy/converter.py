@@ -135,6 +135,21 @@ class PtrTypeConverterMixin(object):
     def __init__(self, space, array_size):
         self.size = sys.maxint
 
+    def convert_argument(self, space, w_obj, address, call_local):
+        tc = space.str_w(space.getattr(w_obj, space.wrap('typecode')))
+        if self.typecode != tc:
+            msg = "expected %s pointer type, but received %s" % (self.typecode, tc)
+            raise OperationError(space.w_TypeError, space.wrap(msg))
+        x = rffi.cast(rffi.LONGP, address)
+        buf = space.buffer_w(w_obj)
+        try:
+            x[0] = rffi.cast(rffi.LONG, buf.get_raw_address())
+        except ValueError:
+            raise OperationError(space.w_TypeError,
+                                 space.wrap("raw buffer interface not supported"))
+        ba = rffi.cast(rffi.CCHARP, address)
+        ba[capi.c_function_arg_typeoffset()] = 'o'
+
     def from_memory(self, space, w_obj, w_pycppclass, offset):
         # read access, so no copy needed
         address_value = self._get_raw_address(space, w_obj, offset)

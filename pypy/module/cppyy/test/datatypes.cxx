@@ -1,7 +1,5 @@
 #include "datatypes.h"
 
-#include <iostream>
-
 
 //===========================================================================
 cppyy_test_data::cppyy_test_data() : m_owns_arrays(false)
@@ -151,8 +149,19 @@ void cppyy_test_data::set_pod_ptr_out(cppyy_test_pod* pp)      { *pp = m_pod; }
 void cppyy_test_data::set_pod_ref(const cppyy_test_pod& rp)    { m_pod = rp; }
 void cppyy_test_data::set_pod_ptrptr_in(cppyy_test_pod** ppp)  { m_pod = **ppp; }
 void cppyy_test_data::set_pod_void_ptrptr_in(void** pp)        { m_pod = **((cppyy_test_pod**)pp); }
-void cppyy_test_data::set_pod_ptrptr_out(cppyy_test_pod** ppp) { *ppp = &m_pod; }
-void cppyy_test_data::set_pod_void_ptrptr_out(void** pp)       { *((cppyy_test_pod**)pp) = &m_pod; }
+void cppyy_test_data::set_pod_ptrptr_out(cppyy_test_pod** ppp) { delete *ppp; *ppp = new cppyy_test_pod(m_pod); }
+void cppyy_test_data::set_pod_void_ptrptr_out(void** pp)       { delete *((cppyy_test_pod**)pp);
+                                                                 *((cppyy_test_pod**)pp) = new cppyy_test_pod(m_pod); }
+
+//- passers -----------------------------------------------------------------
+short*          cppyy_test_data::pass_array(short* a)          { return a; }
+unsigned short* cppyy_test_data::pass_array(unsigned short* a) { return a; }
+int*            cppyy_test_data::pass_array(int* a)            { return a; }
+unsigned int*   cppyy_test_data::pass_array(unsigned int* a)   { return a; }
+long*           cppyy_test_data::pass_array(long* a)           { return a; }
+unsigned long*  cppyy_test_data::pass_array(unsigned long* a)  { return a; }
+float*          cppyy_test_data::pass_array(float* a)          { return a; }
+double*         cppyy_test_data::pass_array(double* a)         { return a; }
 
 char                cppyy_test_data::s_char   = 's';
 unsigned char       cppyy_test_data::s_uchar  = 'u';

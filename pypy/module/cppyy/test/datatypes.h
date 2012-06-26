@@ -94,6 +94,16 @@ public:
     void set_pod_ptrptr_out(cppyy_test_pod**);
     void set_pod_void_ptrptr_out(void**);
 
+// passers
+    short*          pass_array(short*);
+    unsigned short* pass_array(unsigned short*);
+    int*            pass_array(int*);
+    unsigned int*   pass_array(unsigned int*);
+    long*           pass_array(long*);
+    unsigned long*  pass_array(unsigned long*);
+    float*          pass_array(float*);
+    double*         pass_array(double*);
+
 public:
 // basic types
     bool                 m_bool;

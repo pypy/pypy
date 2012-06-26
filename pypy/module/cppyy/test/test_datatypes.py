@@ -194,16 +194,24 @@ class AppTestDATATYPES:
 
         c.destruct()
 
-    def test04_respect_privacy(self):
-        """Test that privacy settings are respected"""
+    def test04_array_passing(self):
+        """Test passing of array arguments"""
 
-        import cppyy
+        import cppyy, array, sys
         cppyy_test_data = cppyy.gbl.cppyy_test_data
 
         c = cppyy_test_data()
         assert isinstance(c, cppyy_test_data)
 
-        raises(AttributeError, getattr, c, 'm_owns_arrays')
+        a = range(self.N)
+        # test arrays in mixed order, to give overload resolution a workout
+        for t in ['d', 'i', 'f', 'H', 'I', 'h', 'L', 'l' ]:
+            b = array.array(t, a)
+            ca = c.pass_array(b)
+            assert type(ca[0]) == type(b[0])
+            assert len(b) == self.N
+            for i in range(self.N):
+                assert ca[i] == b[i]
 
         c.destruct()
 
@@ -524,3 +532,16 @@ class AppTestDATATYPES:
         assert c.m_pod.m_double == 3.14
         assert p.m_int == 888
         assert p.m_double == 3.14
+
+    def test14_respect_privacy(self):
+        """Test that privacy settings are respected"""
+
+        import cppyy
+        cppyy_test_data = cppyy.gbl.cppyy_test_data
+
+        c = cppyy_test_data()
+        assert isinstance(c, cppyy_test_data)
+
+        raises(AttributeError, getattr, c, 'm_owns_arrays')
+
+        c.destruct()
