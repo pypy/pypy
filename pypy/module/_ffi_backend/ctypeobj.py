@@ -26,6 +26,12 @@ class W_CType(Wrappable):
         space = self.space
         return space.wrap("<ctype '%s'>" % (self.name,))
 
+    def extra_repr(self, cdata):
+        if cdata:
+            return '0x%x' % rffi.cast(lltype.Unsigned, cdata)
+        else:
+            return 'NULL'
+
     def newp(self, w_init):
         space = self.space
         raise OperationError(space.w_TypeError,
@@ -70,8 +76,8 @@ class W_CType(Wrappable):
                               "cdata of type '%s' cannot be indexed",
                               self.name)
 
-    def try_str(self, cdataobj):
-        return None
+    def str(self, cdataobj):
+        return cdataobj.repr()
 
     def add(self, cdata, i):
         space = self.space
@@ -127,12 +133,17 @@ class W_CTypePointer(W_CTypePtrOrArray):
             extra = " *"
         W_CTypePtrOrArray.__init__(self, space, size, extra, 2, ctitem)
 
-    def try_str(self, cdataobj):
+    def str(self, cdataobj):
         if isinstance(self.ctitem, W_CTypePrimitiveChar):
+            if not cdataobj._cdata:
+                space = self.space
+                raise operationerrfmt(space.w_RuntimeError,
+                                      "cannot use str() on %s",
+                                      space.str_w(cdataobj.repr()))
             s = rffi.charp2str(cdataobj._cdata)
             keepalive_until_here(cdataobj)
             return self.space.wrap(s)
-        return None
+        return W_CTypePtrOrArray.str(self, cdataobj)
 
     def cast(self, w_ob):
         space = self.space
@@ -140,8 +151,6 @@ class W_CTypePointer(W_CTypePtrOrArray):
         if (isinstance(ob, cdataobj.W_CData) and
                 isinstance(ob.ctype, W_CTypePtrOrArray)):
             value = ob._cdata
-        elif space.is_w(w_ob, space.w_None):
-            value = lltype.nullptr(rffi.CCHARP.TO)
         else:
             value = misc.as_unsigned_long_long(space, w_ob, strict=False)
             value = rffi.cast(rffi.CCHARP, value)
@@ -186,29 +195,23 @@ class W_CTypePointer(W_CTypePtrOrArray):
 
     def convert_to_object(self, cdata):
         ptrdata = rffi.cast(rffi.CCHARPP, cdata)[0]
-        if ptrdata:
-            return cdataobj.W_CData(self.space, ptrdata, self)
-        else:
-            return self.space.w_None
+        return cdataobj.W_CData(self.space, ptrdata, self)
 
     def convert_from_object(self, cdata, w_ob):
         space = self.space
-        if not space.is_w(w_ob, space.w_None):
-            ob = space.interpclass_w(w_ob)
-            if not isinstance(ob, cdataobj.W_CData):
-                raise self._convert_error("compatible pointer", w_ob)
-            otherctype = ob.ctype
-            if (isinstance(otherctype, W_CTypePtrOrArray) and
-              (self.ctitem.cast_anything or self.ctitem is otherctype.ctitem)):
-                pass    # compatible types
-            else:
-                raise self._convert_error("compatible pointer", w_ob)
-
-            ptrdata = ob._cdata
+        ob = space.interpclass_w(w_ob)
+        if not isinstance(ob, cdataobj.W_CData):
+            raise self._convert_error("compatible pointer", w_ob)
+        otherctype = ob.ctype
+        if (isinstance(otherctype, W_CTypePtrOrArray) and
+            (self.ctitem.cast_anything or
+             otherctype.ctitem.cast_anything or
+             self.ctitem is otherctype.ctitem)):
+            pass    # compatible types
         else:
-            ptrdata = lltype.nullptr(rffi.CCHARP.TO)
+            raise self._convert_error("compatible pointer", w_ob)
 
-        rffi.cast(rffi.CCHARPP, cdata)[0] = ptrdata
+        rffi.cast(rffi.CCHARPP, cdata)[0] = ob._cdata
 
 
 class W_CTypeArray(W_CTypePtrOrArray):
@@ -219,12 +222,12 @@ class W_CTypeArray(W_CTypePtrOrArray):
         self.length = length
         self.ctptr = ctptr
 
-    def try_str(self, cdataobj):
+    def str(self, cdataobj):
         if isinstance(self.ctitem, W_CTypePrimitiveChar):
             s = rffi.charp2strn(cdataobj._cdata, cdataobj.get_array_length())
             keepalive_until_here(cdataobj)
             return self.space.wrap(s)
-        return None
+        return W_CTypePtrOrArray.str(self, cdataobj)
 
     def _alignof(self):
         return self.ctitem.alignof()
@@ -320,6 +323,10 @@ class W_CTypePrimitive(W_CType):
         W_CType.__init__(self, space, size, name, name_position)
         self.align = align
 
+    def extra_repr(self, cdata):
+        w_ob = self.convert_to_object(cdata)
+        return self.space.str_w(self.space.repr(w_ob))
+
     def _alignof(self):
         return self.align
 
@@ -340,8 +347,6 @@ class W_CTypePrimitive(W_CType):
             value = rffi.cast(lltype.Signed, ob._cdata)
         elif space.isinstance_w(w_ob, space.w_str):
             value = self.cast_str(w_ob)
-        elif space.is_w(w_ob, space.w_None):
-            value = 0
         else:
             value = misc.as_unsigned_long_long(space, w_ob, strict=False)
         w_cdata = cdataobj.W_CDataOwnFromCasted(space, self.size, self)
@@ -364,7 +369,7 @@ class W_CTypePrimitiveChar(W_CTypePrimitive):
     def convert_to_object(self, cdata):
         return self.space.wrap(cdata[0])
 
-    def try_str(self, cdataobj):
+    def str(self, cdataobj):
         w_res = self.convert_to_object(cdataobj._cdata)
         keepalive_until_here(cdataobj)
         return w_res
@@ -461,8 +466,6 @@ class W_CTypePrimitiveFloat(W_CTypePrimitive):
         #
         if space.isinstance_w(w_ob, space.w_str):
             value = self.cast_str(w_ob)
-        elif space.is_w(w_ob, space.w_None):
-            value = 0.0
         else:
             value = space.float_w(w_ob)
         w_cdata = cdataobj.W_CDataOwnFromCasted(space, self.size, self)
@@ -512,7 +515,7 @@ class W_CTypeEnum(W_CTypePrimitiveSigned):
         space.call_method(w_lst, 'sort')
         return w_lst
 
-    def try_str(self, cdataobj):
+    def str(self, cdataobj):
         w_res = self.convert_to_object(cdataobj._cdata)
         keepalive_until_here(cdataobj)
         return w_res

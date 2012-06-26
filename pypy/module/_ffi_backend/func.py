@@ -9,7 +9,7 @@ from pypy.module._ffi_backend import ctypeobj, cdataobj
 # ____________________________________________________________
 
 @unwrap_spec(ctype=ctypeobj.W_CType)
-def newp(space, ctype, w_init):
+def newp(space, ctype, w_init=None):
     return ctype.newp(w_init)
 
 # ____________________________________________________________

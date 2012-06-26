@@ -23,7 +23,9 @@ class W_CData(Wrappable):
         self.ctype = ctype
 
     def repr(self):
-        return self.space.wrap("<cdata '%s'>" % (self.ctype.name,))
+        extra = self.ctype.extra_repr(self._cdata)
+        keepalive_until_here(self)
+        return self.space.wrap("<cdata '%s' %s>" % (self.ctype.name, extra))
 
     def nonzero(self):
         return self.space.wrap(bool(self._cdata))
@@ -55,8 +57,7 @@ class W_CData(Wrappable):
                               self.ctype.name)
 
     def str(self):
-        w_result = self.ctype.try_str(self)
-        return w_result or self.repr()
+        return self.ctype.str(self)
 
     @specialize.arg(2)
     def _cmp(self, w_other, cmp):
@@ -65,8 +66,6 @@ class W_CData(Wrappable):
         other = space.interpclass_w(w_other)
         if isinstance(other, W_CData):
             cdata2 = other._cdata
-        elif space.is_w(w_other, space.w_None):
-            cdata2 = lltype.nullptr(rffi.CCHARP.TO)
         else:
             return space.w_NotImplemented
         return space.newbool(cmp(cdata1, cdata2))
