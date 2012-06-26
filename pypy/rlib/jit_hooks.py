@@ -108,3 +108,27 @@ def box_nonconstbox(llbox):
 def box_isconst(llbox):
     from pypy.jit.metainterp.history import Const
     return isinstance(_cast_to_box(llbox), Const)
+
+@register_helper(annmodel.SomePtr(llmemory.GCREF))
+def get_stats():
+    """ Returns various statistics, including how many times each loop
+    was run. Note that on this level the resulting instance is completely
+    opaque, you need to use the interface specified below.
+
+    Note that since we pass warmspot by closure, the actual implementation
+    is in warmspot.py, this is just a placeholder
+    """
+    from pypy.rpython.lltypesystem import lltype, llmemory
+    return lltype.nullptr(llmemory.GCREF.TO) # unusable without the actual JIT
+
+# ------------------------- stats interface ---------------------------
+
+def _cast_to_warmrunnerdesc(llref):
+    from pypy.jit.metainterp.warmspot import WarmRunnerDesc
+
+    ptr = lltype.cast_opaque_ptr(rclass.OBJECTPTR, llref)
+    return cast_base_ptr_to_instance(WarmRunnerDesc, ptr)
+
+@register_helper(annmodel.SomeFloat())
+def stats_get_counter_value(llref, no):
+    return _cast_to_warmrunnerdesc(llref).metainterp_sd.profiler.get_counter(no)

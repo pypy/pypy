@@ -6,42 +6,11 @@ import time
 from pypy.rlib.debug import debug_print, debug_start, debug_stop
 from pypy.rlib.debug import have_debug_prints
 from pypy.jit.metainterp.jitexc import JitException
+from pypy.rlib.jit import Counters
 
-counters="""
-TRACING
-BACKEND
-OPS
-RECORDED_OPS
-GUARDS
-OPT_OPS
-OPT_GUARDS
-OPT_FORCINGS
-ABORT_TOO_LONG
-ABORT_BRIDGE
-ABORT_BAD_LOOP
-ABORT_ESCAPE
-ABORT_FORCE_QUASIIMMUT
-NVIRTUALS
-NVHOLES
-NVREUSED
-TOTAL_COMPILED_LOOPS
-TOTAL_COMPILED_BRIDGES
-TOTAL_FREED_LOOPS
-TOTAL_FREED_BRIDGES
-"""
 
-counter_names = []
-
-def _setup():
-    names = counters.split()
-    for i, name in enumerate(names):
-        globals()[name] = i
-        counter_names.append(name)
-    global ncounters
-    ncounters = len(names)
-_setup()
-
-JITPROF_LINES = ncounters + 1 + 1 # one for TOTAL, 1 for calls, update if needed
+JITPROF_LINES = Counters.ncounters + 1 + 1
+# one for TOTAL, 1 for calls, update if needed
 _CPU_LINES = 4       # the last 4 lines are stored on the cpu
 
 class BaseProfiler(object):
@@ -71,8 +40,11 @@ class EmptyProfiler(BaseProfiler):
     def count(self, kind, inc=1):
         pass
 
-    def count_ops(self, opnum, kind=OPS):
+    def count_ops(self, opnum, kind=Counters.OPS):
         pass
+
+    def get_counter(self, num):
+        return -1.0
 
 class Profiler(BaseProfiler):
     initialized = False
@@ -89,7 +61,7 @@ class Profiler(BaseProfiler):
         self.starttime = self.timer()
         self.t1 = self.starttime
         self.times = [0, 0]
-        self.counters = [0] * (ncounters - _CPU_LINES)
+        self.counters = [0] * (Counters.ncounters - _CPU_LINES)
         self.calls = 0
         self.current = []
 
@@ -117,19 +89,30 @@ class Profiler(BaseProfiler):
             return
         self.times[ev1] += self.t1 - t0
 
-    def start_tracing(self):   self._start(TRACING)
-    def end_tracing(self):     self._end  (TRACING)
+    def start_tracing(self):   self._start(Counters.TRACING)
+    def end_tracing(self):     self._end  (Counters.TRACING)
 
-    def start_backend(self):   self._start(BACKEND)
-    def end_backend(self):     self._end  (BACKEND)
+    def start_backend(self):   self._start(Counters.BACKEND)
+    def end_backend(self):     self._end  (Counters.BACKEND)
 
     def count(self, kind, inc=1):
         self.counters[kind] += inc        
-    
-    def count_ops(self, opnum, kind=OPS):
+
+    def get_counter(self, num):
+        if num == Counters.TOTAL_COMPILED_LOOPS:
+            return float(self.cpu.total_compiled_loops)
+        elif num == Counters.TOTAL_COMPILED_BRIDGES:
+            return float(self.cpu.total_compiled_bridges)
+        elif num == Counters.TOTAL_FREED_LOOPS:
+            return float(self.cpu.total_freed_loops)
+        elif num == Counters.TOTAL_FREED_BRIDGES:
+            return float(self.cpu.total_freed_bridges)
+        return float(self.counters[num])
+
+    def count_ops(self, opnum, kind=Counters.OPS):
         from pypy.jit.metainterp.resoperation import rop
         self.counters[kind] += 1
-        if opnum == rop.CALL and kind == RECORDED_OPS:# or opnum == rop.OOSEND:
+        if opnum == rop.CALL and kind == Counters.RECORDED_OPS:# or opnum == rop.OOSEND:
             self.calls += 1
 
     def print_stats(self):
@@ -142,26 +125,29 @@ class Profiler(BaseProfiler):
         cnt = self.counters
         tim = self.times
         calls = self.calls
-        self._print_line_time("Tracing", cnt[TRACING],   tim[TRACING])
-        self._print_line_time("Backend", cnt[BACKEND],   tim[BACKEND])
+        self._print_line_time("Tracing", cnt[Counters.TRACING],
+                              tim[Counters.TRACING])
+        self._print_line_time("Backend", cnt[Counters.BACKEND],
+                              tim[Counters.BACKEND])
         line = "TOTAL:      \t\t%f" % (self.tk - self.starttime, )
         debug_print(line)
-        self._print_intline("ops", cnt[OPS])
-        self._print_intline("recorded ops", cnt[RECORDED_OPS])
+        self._print_intline("ops", cnt[Counters.OPS])
+        self._print_intline("recorded ops", cnt[Counters.RECORDED_OPS])
         self._print_intline("  calls", calls)
-        self._print_intline("guards", cnt[GUARDS])
-        self._print_intline("opt ops", cnt[OPT_OPS])
-        self._print_intline("opt guards", cnt[OPT_GUARDS])
-        self._print_intline("forcings", cnt[OPT_FORCINGS])
-        self._print_intline("abort: trace too long", cnt[ABORT_TOO_LONG])
-        self._print_intline("abort: compiling", cnt[ABORT_BRIDGE])
-        self._print_intline("abort: vable escape", cnt[ABORT_ESCAPE])
-        self._print_intline("abort: bad loop", cnt[ABORT_BAD_LOOP])
+        self._print_intline("guards", cnt[Counters.GUARDS])
+        self._print_intline("opt ops", cnt[Counters.OPT_OPS])
+        self._print_intline("opt guards", cnt[Counters.OPT_GUARDS])
+        self._print_intline("forcings", cnt[Counters.OPT_FORCINGS])
+        self._print_intline("abort: trace too long",
+                            cnt[Counters.ABORT_TOO_LONG])
+        self._print_intline("abort: compiling", cnt[Counters.ABORT_BRIDGE])
+        self._print_intline("abort: vable escape", cnt[Counters.ABORT_ESCAPE])
+        self._print_intline("abort: bad loop", cnt[Counters.ABORT_BAD_LOOP])
         self._print_intline("abort: force quasi-immut",
-                                               cnt[ABORT_FORCE_QUASIIMMUT])
-        self._print_intline("nvirtuals", cnt[NVIRTUALS])
-        self._print_intline("nvholes", cnt[NVHOLES])
-        self._print_intline("nvreused", cnt[NVREUSED])
+                            cnt[Counters.ABORT_FORCE_QUASIIMMUT])
+        self._print_intline("nvirtuals", cnt[Counters.NVIRTUALS])
+        self._print_intline("nvholes", cnt[Counters.NVHOLES])
+        self._print_intline("nvreused", cnt[Counters.NVREUSED])
         cpu = self.cpu
         if cpu is not None:   # for some tests
             self._print_intline("Total # of loops",

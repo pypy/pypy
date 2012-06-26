@@ -1,11 +1,11 @@
 
-from pypy.rlib.jit import JitDriver, JitHookInterface
+from pypy.rlib.jit import JitDriver, JitHookInterface, Counters
 from pypy.rlib import jit_hooks
 from pypy.jit.metainterp.test.support import LLJitMixin
 from pypy.jit.codewriter.policy import JitPolicy
-from pypy.jit.metainterp.jitprof import ABORT_FORCE_QUASIIMMUT
 from pypy.jit.metainterp.resoperation import rop
 from pypy.rpython.annlowlevel import hlstr
+from pypy.jit.metainterp.jitprof import Profiler
 
 class TestJitHookInterface(LLJitMixin):
     def test_abort_quasi_immut(self):
@@ -41,7 +41,7 @@ class TestJitHookInterface(LLJitMixin):
         assert f(100, 7) == 721
         res = self.meta_interp(f, [100, 7], policy=JitPolicy(iface))
         assert res == 721
-        assert reasons == [ABORT_FORCE_QUASIIMMUT] * 2
+        assert reasons == [Counters.ABORT_FORCE_QUASIIMMUT] * 2
 
     def test_on_compile(self):
         called = []
@@ -146,3 +146,29 @@ class TestJitHookInterface(LLJitMixin):
             assert jit_hooks.resop_getresult(op) == box5
 
         self.meta_interp(main, [])
+
+    def test_get_stats(self):
+        driver = JitDriver(greens = [], reds = ['i', 's'])
+
+        def loop(i):
+            s = 0
+            while i > 0:
+                driver.jit_merge_point(i=i, s=s)
+                if i % 2:
+                    s += 1
+                i -= 1
+                s+= 2
+            return s
+
+        def main():
+            loop(30)
+            stats = jit_hooks.get_stats()
+            assert jit_hooks.stats_get_counter_value(stats,
+                           Counters.TOTAL_COMPILED_LOOPS) == 1
+            assert jit_hooks.stats_get_counter_value(stats,
+                           Counters.TOTAL_COMPILED_BRIDGES) == 1
+            assert jit_hooks.stats_get_counter_value(stats,
+                           Counters.TRACING) >= 0
+            
+
+        self.meta_interp(main, [], ProfilerClass=Profiler)

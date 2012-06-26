@@ -42,7 +42,7 @@ def set_compile_hook(space, w_hook):
     Set a compiling hook that will be called each time a loop is compiled.
     The hook will be called with the following signature:
     hook(jitdriver_name, loop_type, greenkey or guard_number, operations,
-         assembler_addr, assembler_length)
+         assembler_addr, assembler_length, loopno)
 
     jitdriver_name is the name of this particular jitdriver, 'pypyjit' is
     the main interpreter loop
@@ -51,12 +51,14 @@ def set_compile_hook(space, w_hook):
     in case loop is not `bridge`, greenkey will be a tuple of constants
     or a string describing it.
 
-    for the interpreter loop` it'll be a tuple
+    for the main interpreter loop` it'll be a tuple
     (code, offset, is_being_profiled)
 
     assembler_addr is an integer describing where assembler starts,
     can be accessed via ctypes, assembler_lenght is the lenght of compiled
     asm
+
+    loopno is the unique loop identifier (int)
 
     Note that jit hook is not reentrant. It means that if the code
     inside the jit hook is itself jitted, it will get compiled, but the
@@ -74,7 +76,8 @@ def set_optimize_hook(space, w_hook):
     optimizations on Python level.
 
     The hook will be called with the following signature:
-    hook(jitdriver_name, loop_type, greenkey or guard_number, operations)
+    hook(jitdriver_name, loop_type, greenkey or guard_number, operations,
+         loopno)
 
     jitdriver_name is the name of this particular jitdriver, 'pypyjit' is
     the main interpreter loop
@@ -89,6 +92,8 @@ def set_optimize_hook(space, w_hook):
     Note that jit hook is not reentrant. It means that if the code
     inside the jit hook is itself jitted, it will get compiled, but the
     jit hook won't be called for that.
+
+    loopno is the unique loop identifier (int)
 
     Result value will be the resulting list of operations, or None
     """

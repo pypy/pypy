@@ -6,6 +6,7 @@ from pypy.rpython.annlowlevel import llhelper, MixLevelHelperAnnotator,\
 from pypy.annotation import model as annmodel
 from pypy.rpython.llinterp import LLException
 from pypy.rpython.test.test_llinterp import get_interpreter, clear_tcache
+from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
 from pypy.objspace.flow.model import SpaceOperation, Variable, Constant
 from pypy.objspace.flow.model import checkgraph, Link, copygraph
 from pypy.rlib.objectmodel import we_are_translated
@@ -151,6 +152,9 @@ def locate_jit_merge_point(graph):
 def find_set_param(graphs):
     return _find_jit_marker(graphs, 'set_param')
 
+def find_get_stats(graphs):
+    return _find_jit_marker(graphs, 'get_stats', False)
+
 def find_force_quasi_immutable(graphs):
     results = []
     for graph in graphs:
@@ -221,7 +225,7 @@ class WarmRunnerDesc(object):
         self.rewrite_access_helpers()
         self.codewriter.make_jitcodes(verbose=verbose)
         self.rewrite_can_enter_jits()
-        self.rewrite_set_param()
+        self.rewrite_set_param_and_get_stats()
         self.rewrite_force_virtual(vrefinfo)
         self.rewrite_force_quasi_immutable()
         self.add_finish()
@@ -638,7 +642,14 @@ class WarmRunnerDesc(object):
         # make sure we make a copy of function so it no longer belongs
         # to extregistry
         func = op.args[1].value
-        func = func_with_new_name(func, func.func_name + '_compiled')
+        if func.func_name == 'get_stats':
+            # get special treatment since we rewrite it to a call that accepts
+            # jit driver
+            def func():
+                return lltype.cast_opaque_ptr(llmemory.GCREF,
+                                              cast_instance_to_base_ptr(self))
+        else:
+            func = func_with_new_name(func, func.func_name + '_compiled')
         ptr = self.helper_func(FUNCPTR, func)
         op.opname = 'direct_call'
         op.args = [Constant(ptr, FUNCPTR)] + op.args[2:]
@@ -859,7 +870,7 @@ class WarmRunnerDesc(object):
             call_final_function(self.translator, finish,
                                 annhelper = self.annhelper)
 
-    def rewrite_set_param(self):
+    def rewrite_set_param_and_get_stats(self):
         from pypy.rpython.lltypesystem.rstr import STR
 
         closures = {}
@@ -906,6 +917,9 @@ class WarmRunnerDesc(object):
                                              funcname == 'enable_opts')
             op.opname = 'direct_call'
             op.args[:3] = [closures[key]]
+
+        for graph, block, i in find_get_stats(graphs):
+            xxx
 
     def rewrite_force_virtual(self, vrefinfo):
         if self.cpu.ts.name != 'lltype':
