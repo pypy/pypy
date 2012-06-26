@@ -5,6 +5,7 @@ from pypy.rlib.rarithmetic import ovfcheck
 
 from pypy.module._ffi_backend import ctypeobj, ctypeprim, ctypeptr, ctypearray
 from pypy.module._ffi_backend import ctypestruct, ctypevoid, ctypeenum
+from pypy.module._ffi_backend import ctypefunc
 
 
 def alignment(TYPE):
@@ -221,5 +222,5 @@ def new_function_type(space, w_fargs, fresult, ellipsis=0):
         raise operationerrfmt(space.w_TypeError,
                               "invalid result type: '%s'", fresult.name)
     #
-    fct = ctypefunc.W_CTypeFunc(fargs, fresult, ellipsis)
+    fct = ctypefunc.W_CTypeFunc(space, fargs, fresult, ellipsis)
     return fct

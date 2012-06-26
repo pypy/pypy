@@ -16,10 +16,13 @@ class W_CTypePtrOrArray(W_CType):
     def __init__(self, space, size, extra, extra_position, ctitem):
         name, name_position = ctitem.insert_name(extra, extra_position)
         W_CType.__init__(self, space, size, name, name_position)
+        # this is the "underlying type":
+        #  - for pointers, it is the pointed-to type
+        #  - for arrays, it is the array item type
+        #  - for functions, it is the return type
         self.ctitem = ctitem
-
-    def cast_anything(self):
-        return self.ctitem is not None and self.ctitem.cast_anything
+        # overridden to False in W_CTypeFunc
+        self.can_cast_anything = ctitem.cast_anything
 
 
 class W_CTypePtrBase(W_CTypePtrOrArray):
@@ -52,7 +55,8 @@ class W_CTypePtrBase(W_CTypePtrOrArray):
             raise self._convert_error("compatible pointer", w_ob)
         other = ob.ctype
         if (isinstance(other, W_CTypePtrOrArray) and
-             (self is other or self.cast_anything() or other.cast_anything())):
+             (self is other or
+              self.can_cast_anything or other.can_cast_anything)):
             pass    # compatible types
         else:
             raise self._convert_error("compatible pointer", w_ob)

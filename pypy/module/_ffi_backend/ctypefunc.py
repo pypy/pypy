@@ -2,10 +2,10 @@
 Function pointers.
 """
 
-from pypy.module._ffi_backend.ctypeptr import W_CTypePtrOrArray
+from pypy.module._ffi_backend.ctypeptr import W_CTypePtrBase
 
 
-class W_CTypeFunctionPtr(W_CTypePtrOrArray):
+class W_CTypeFunc(W_CTypePtrBase):
 
     def __init__(self, space, fargs, fresult, ellipsis):
         argnames = ['(*)(']
@@ -20,7 +20,8 @@ class W_CTypeFunctionPtr(W_CTypePtrOrArray):
         argnames.append(')')
         extra = ''.join(argnames)
         #
-        W_CTypePtrOrArray.__init__(self, space, extra, 2, 
+        W_CTypePtrBase.__init__(self, space, extra, 2, fresult)
+        self.can_cast_anything = False
         self.ellipsis = ellipsis
         
         if not ellipsis:
