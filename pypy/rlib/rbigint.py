@@ -7,17 +7,35 @@ from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.rlib import jit
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rpython import extregistry
+from pypy.rpython.tool import rffi_platform
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
 import math, sys
+
+# Check for int128 support. Is this right? It sure doesn't work.
+"""class CConfig:
+    _compilation_info_ = ExternalCompilationInfo()
+    
+    __INT128 = rffi_platform.SimpleType("__int128", rffi.__INT128)
+
+cConfig = rffi_platform.configure(CConfig)"""
+
+SUPPORT_INT128 = True
 
 # note about digit sizes:
 # In division, the native integer type must be able to hold
 # a sign bit plus two digits plus 1 overflow bit.
 
 #SHIFT = (LONG_BIT // 2) - 1
-SHIFT = 63
-
-MASK = long((1 << SHIFT) - 1)
+if SUPPORT_INT128:
+    SHIFT = 63
+    MASK = long((1 << SHIFT) - 1)
+    UDIGIT_TYPE = r_ulonglong
+else:
+    SHIFT = 31
+    MASK = int((1 << SHIFT) - 1)
+    UDIGIT_TYPE = r_uint
+    
 FLOAT_MULTIPLIER = float(1 << LONG_BIT) # Because it works.
 
 CACHE_INTS = 1024 # CPython do 256
@@ -34,7 +52,12 @@ CACHE_INTS = 1024 # CPython do 256
 
 # Karatsuba is O(N**1.585)
 USE_KARATSUBA = True # set to False for comparison
-KARATSUBA_CUTOFF = 19 #38
+
+if SHIFT > 31:
+    KARATSUBA_CUTOFF = 19
+else:
+    KARATSUBA_CUTOFF = 38
+    
 KARATSUBA_SQUARE_CUTOFF = 2 * KARATSUBA_CUTOFF
 
 USE_TOOMCOCK = False # WIP
@@ -48,8 +71,13 @@ TOOMCOOK_CUTOFF = 3 # Smallest possible cutoff is 3. Ideal is probably around 15
 FIVEARY_CUTOFF = 8
 
 
-def _mask_digit(x):
-    return longlongmask(x & MASK) #intmask(x & MASK)
+if SHIFT <= 31:
+    def _mask_digit(x):
+        return intmask(x & MASK)
+else:
+    def _mask_digit(x):
+        return longlongmask(x & MASK)
+        
 _mask_digit._annspecialcase_ = 'specialize:argtype(0)'
 
 def _widen_digit(x):
@@ -95,7 +123,10 @@ ONEDIGIT  = _store_digit(1)
 def _check_digits(l):
     for x in l:
         assert type(x) is type(NULLDIGIT)
-        assert longlongmask(x) & MASK == longlongmask(x)
+        if SHIFT <= 31:
+            assert intmask(x) & MASK == intmask(x)
+        else:
+            assert longlongmask(x) & MASK == longlongmask(x)
             
 class Entry(extregistry.ExtRegistryEntry):
     _about_ = _check_digits
@@ -882,7 +913,7 @@ def _x_add(a, b):
         size_a, size_b = size_b, size_a
     z = rbigint([NULLDIGIT] * (size_a + 1), 1)
     i = 0
-    carry = r_ulonglong(0)
+    carry = UDIGIT_TYPE(0)
     while i < size_b:
         carry += a.udigit(i) + b.udigit(i)
         z.setdigit(i, carry)
@@ -926,7 +957,7 @@ def _x_sub(a, b):
         size_a = size_b = i+1
         
     z = rbigint([NULLDIGIT] * size_a, sign)
-    borrow = r_ulonglong(0)
+    borrow = UDIGIT_TYPE(0)
     i = 0
     while i < size_b:
         # The following assumes unsigned arithmetic
@@ -1430,7 +1461,7 @@ def _muladd1(a, n, extra=0):
 def _x_divrem(v1, w1):
     """ Unsigned bigint division with remainder -- the algorithm """
     size_w = w1.numdigits()
-    d = (r_ulonglong(MASK)+1) // (w1.udigit(size_w-1) + 1)
+    d = (UDIGIT_TYPE(MASK)+1) // (w1.udigit(size_w-1) + 1)
     assert d <= MASK    # because the first digit of w1 is not zero
     d = longlongmask(d)
     v = _muladd1(v1, d)
