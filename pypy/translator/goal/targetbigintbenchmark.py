@@ -23,6 +23,8 @@ def entry_point(argv):
         6.647562
 
         Pypy with improvements:
+        2.522946
+        4.600970
         2.126048
         4.276203
         9.662745
@@ -38,6 +40,22 @@ def entry_point(argv):
 
     """
 
+    t = time()
+    num = rbigint.fromint(1000000000)
+    for n in xrange(160000000):
+        rbigint.rshift(num, 16)
+        
+
+    print time() - t
+    
+    t = time()
+    num = rbigint.fromint(1000000000)
+    for n in xrange(160000000):
+        rbigint.lshift(num, 4)
+        
+
+    print time() - t
+    
     t = time()
     num = rbigint.fromint(100000000)
     for n in xrange(80000000):

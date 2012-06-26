@@ -420,7 +420,7 @@ class rbigint(object):
         if other.sign == 0:
             return self
         if self.sign == 0:
-            return rbigint(other._digits[:], -other.sign)
+            return rbigint(other._digits, -other.sign)
         if self.sign == other.sign:
             result = _x_sub(self, other)
         else:
@@ -447,7 +447,7 @@ class rbigint(object):
             if digit == 0:
                 return rbigint()
             elif digit == 1:
-                return rbigint(b._digits[:], a.sign * b.sign)
+                return rbigint(b._digits, a.sign * b.sign)
             elif bsize == 1:
                 result = rbigint([NULLDIGIT] * 2, a.sign * b.sign)
                 carry = b.widedigit(0) * digit
@@ -737,10 +737,11 @@ class rbigint(object):
         z = rbigint([NULLDIGIT] * newsize, self.sign)
         i = 0
         j = wordshift
+        newdigit = UDIGIT_TYPE(0)
         while i < newsize:
             newdigit = (self.digit(j) >> loshift) & lomask
             if i+1 < newsize:
-                newdigit |= intmask(self.digit(j+1) << hishift) & himask
+                newdigit |= UDIGIT_MASK(self.digit(j+1) << hishift) & himask
             z.setdigit(i, newdigit)
             i += 1
             j += 1
