@@ -8,8 +8,12 @@ from pypy.rlib.rbigint import rbigint
 
 def entry_point(argv):
     """
+        All benchmarks are run using --opt=2 and minimark gc (default).
+        
         A cutout with some benchmarks.
         Pypy default:
+        2.316023
+        2.418211
         5.147583
         5.139127
         484.5688

@@ -690,10 +690,9 @@ class rbigint(object):
             accum >>= SHIFT
             i += 1
             j += 1
-        if remshift:
-            z.setdigit(newsize - 1, accum)
-        else:
-            assert not accum
+            
+        z.setdigit(newsize - 1, accum)
+
         z._normalize()
         return z
 
