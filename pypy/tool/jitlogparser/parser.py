@@ -7,7 +7,7 @@ from copy import copy
 
 def parse_code_data(arg):
     name = None
-    lineno = -1
+    lineno = 0
     filename = None
     bytecode_no = 0
     bytecode_name = None
