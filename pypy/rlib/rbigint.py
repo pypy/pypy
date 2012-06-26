@@ -31,10 +31,12 @@ if SUPPORT_INT128:
     SHIFT = 63
     MASK = long((1 << SHIFT) - 1)
     UDIGIT_TYPE = r_ulonglong
+    UDIGIT_MASK = longlongmask
 else:
     SHIFT = 31
     MASK = int((1 << SHIFT) - 1)
     UDIGIT_TYPE = r_uint
+    UDIGIT_MASK = intmask
     
 FLOAT_MULTIPLIER = float(1 << LONG_BIT) # Because it works.
 
@@ -486,8 +488,7 @@ class rbigint(object):
             if digit == 1:
                 return self
             elif digit and digit & (digit - 1) == 0:
-                div = self.rshift(ptwotable[digit])
-                return div
+                return self.rshift(ptwotable[digit])
             
         div, mod = _divrem(self, other)
         if mod.sign * other.sign == -1:
@@ -727,11 +728,11 @@ class rbigint(object):
         wordshift = int_other // SHIFT
         newsize = self.numdigits() - wordshift
         if newsize <= 0:
-            return rbigint()
+            return NULLRBIGINT
 
         loshift = int_other % SHIFT
         hishift = SHIFT - loshift
-        lomask = intmask((r_uint(1) << hishift) - 1)
+        lomask = UDIGIT_MASK((UDIGIT_TYPE(1) << hishift) - 1)
         himask = MASK ^ lomask
         z = rbigint([NULLDIGIT] * newsize, self.sign)
         i = 0
