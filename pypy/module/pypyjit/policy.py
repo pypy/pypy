@@ -49,6 +49,9 @@ class PyPyJitIface(JitHookInterface):
     def _compile_hook(self, debug_info, w_arg):
         space = self.space
         cache = space.fromcache(Cache)
+        # note that we *have to* get a number here always, even if we're in
+        # recursion
+        no = cache.getno()
         if cache.in_recursion:
             return
         if space.is_true(cache.w_compile_hook):
@@ -65,6 +68,7 @@ class PyPyJitIface(JitHookInterface):
                                         space.wrap(debug_info.type),
                                         w_arg,
                                         space.newlist(list_w),
+                                        space.wrap(no),
                                         space.wrap(asminfo.asmaddr),
                                         space.wrap(asminfo.asmlen))
                 except OperationError, e:
@@ -75,6 +79,9 @@ class PyPyJitIface(JitHookInterface):
     def _optimize_hook(self, debug_info, w_arg):
         space = self.space
         cache = space.fromcache(Cache)
+        # note that we *have to* get a number here always, even if we're in
+        # recursion
+        no = cache.getno()
         if cache.in_recursion:
             return
         if space.is_true(cache.w_optimize_hook):
@@ -88,7 +95,8 @@ class PyPyJitIface(JitHookInterface):
                                                 space.wrap(jd_name),
                                                 space.wrap(debug_info.type),
                                                 w_arg,
-                                                space.newlist(list_w))
+                                                space.newlist(list_w),
+                                                space.wrap(no))
                     if space.is_w(w_res, space.w_None):
                         return
                     l = []

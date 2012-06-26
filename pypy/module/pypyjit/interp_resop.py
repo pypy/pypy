@@ -15,11 +15,16 @@ from pypy.module.pypyjit.interp_jit import pypyjitdriver
 
 class Cache(object):
     in_recursion = False
+    no = 0
 
     def __init__(self, space):
         self.w_compile_hook = space.w_None
         self.w_abort_hook = space.w_None
         self.w_optimize_hook = space.w_None
+
+    def getno(self):
+        self.no += 1
+        return self.no - 1
 
 def wrap_greenkey(space, jitdriver, greenkey, greenkey_repr):
     if greenkey is None:
@@ -42,7 +47,8 @@ def set_compile_hook(space, w_hook):
     Set a compiling hook that will be called each time a loop is compiled.
     The hook will be called with the following signature:
     hook(jitdriver_name, loop_type, greenkey or guard_number, operations,
-         assembler_addr, assembler_length, loopno)
+         loopno, assembler_addr, assembler_length)
+         assembler_addr, assembler_length)
 
     jitdriver_name is the name of this particular jitdriver, 'pypyjit' is
     the main interpreter loop
