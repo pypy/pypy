@@ -45,6 +45,15 @@ def entry_point(argv):
     """
 
     t = time()
+    num = rbigint.pow(rbigint.fromint(100000000), rbigint.fromint(1024))
+    by = rbigint.pow(rbigint.fromint(2), rbigint.fromint(128))
+    for n in xrange(80000):
+        rbigint.divmod(num, by)
+        
+
+    print time() - t
+    
+    t = time()
     num = rbigint.fromint(1000000000)
     for n in xrange(160000000):
         rbigint.rshift(num, 16)

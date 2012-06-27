@@ -29,15 +29,16 @@ SUPPORT_INT128 = True
 #SHIFT = (LONG_BIT // 2) - 1
 if SUPPORT_INT128:
     SHIFT = 63
-    MASK = long((1 << SHIFT) - 1)
+    BASE = long(1 << SHIFT)
     UDIGIT_TYPE = r_ulonglong
     UDIGIT_MASK = longlongmask
 else:
     SHIFT = 31
-    MASK = int((1 << SHIFT) - 1)
+    BASE = int(1 << SHIFT)
     UDIGIT_TYPE = r_uint
     UDIGIT_MASK = intmask
-    
+
+MASK = BASE - 1
 FLOAT_MULTIPLIER = float(1 << LONG_BIT) # Because it works.
 
 CACHE_INTS = 1024 # CPython do 256
@@ -64,6 +65,9 @@ KARATSUBA_SQUARE_CUTOFF = 2 * KARATSUBA_CUTOFF
 
 USE_TOOMCOCK = False # WIP
 TOOMCOOK_CUTOFF = 3 # Smallest possible cutoff is 3. Ideal is probably around 150+
+
+# Use N**2 division when number of digits are smaller than this.
+DIV_LIMIT = KARATSUBA_CUTOFF
 
 # For exponentiation, use the binary left-to-right algorithm
 # unless the exponent contains more than FIVEARY_CUTOFF digits.
@@ -1482,21 +1486,66 @@ def _muladd1(a, n, extra=0):
     z._normalize()
     return z
 
+def _v_lshift(z, a, m, d):
+    """ Shift digit vector a[0:m] d bits left, with 0 <= d < SHIFT. Put
+        * result in z[0:m], and return the d bits shifted out of the top.
+    """
+    
+    carry = 0
+    assert 0 <= d and d < SHIFT
+    for i in range(m):
+        acc = a.widedigit(i) << d | carry
+        z.setdigit(i, acc)
+        carry = acc >> SHIFT
+        
+    return carry
+
+def _v_rshift(z, a, m, d):
+    """ Shift digit vector a[0:m] d bits right, with 0 <= d < PyLong_SHIFT. Put
+        * result in z[0:m], and return the d bits shifted out of the bottom.
+    """
+    
+    carry = 0
+    acc = _widen_digit(0)
+    mask = (1 << d) - 1
+    
+    assert 0 <= d and d < SHIFT
+    for i in range(m-1, 0, -1):
+        acc = carry << SHIFT | a.digit(i)
+        carry = acc & mask
+        z.setdigit(i, acc >> d)
+        
+    return carry
+
 def _x_divrem(v1, w1):
     """ Unsigned bigint division with remainder -- the algorithm """
+
     size_w = w1.numdigits()
     d = (UDIGIT_TYPE(MASK)+1) // (w1.udigit(size_w-1) + 1)
     assert d <= MASK    # because the first digit of w1 is not zero
     d = longlongmask(d)
     v = _muladd1(v1, d)
     w = _muladd1(w1, d)
-    size_v = v.numdigits()
-    size_w = w.numdigits()
-    assert size_v >= size_w and size_w >= 1 # (stian: Adding d doesn't necessary mean it will increase by 1), Assert checks by div()
+    size_v = v1.numdigits()
+    size_w = w1.numdigits()
+    assert size_v >= size_w and size_w >= 1 # (Assert checks by div()
 
+    """v = rbigint([NULLDIGIT] * (size_v + 1))
+    w = rbigint([NULLDIGIT] * (size_w))
+    
+    d = SHIFT - bits_in_digit(w1.digit(size_w-1))
+    carry = _v_lshift(w, w1, size_w, d)
+    assert carry == 0
+    carrt = _v_lshift(v, v1, size_v, d)
+    if carry != 0 or v.digit(size_v - 1) >= w.digit(size_w-1):
+        v.setdigit(size_v, carry)
+        size_v += 1"""
+        
     size_a = size_v - size_w + 1
     a = rbigint([NULLDIGIT] * size_a, 1)
 
+    wm1 = w.widedigit(size_w-1)
+    wm2 = w.widedigit(size_w-2)
     j = size_v
     k = size_a - 1
     while k >= 0:
@@ -1504,20 +1553,24 @@ def _x_divrem(v1, w1):
             vj = 0
         else:
             vj = v.widedigit(j)
+            
         carry = 0
-
-        if vj == w.widedigit(size_w-1):
+        vj1 = v.widedigit(j-1)
+        
+        if vj == wm1:
             q = MASK
         else:
-            q = ((vj << SHIFT) + v.widedigit(j-1)) // w.widedigit(size_w-1)
+            q = ((vj << SHIFT) + vj1) // wm1
 
-        while (w.widedigit(size_w-2) * q >
+        
+        vj2 = v.widedigit(j-2)
+        while (wm2 * q >
                 ((
                     (vj << SHIFT)
-                    + v.widedigit(j-1)
-                    - q * w.widedigit(size_w-1)
+                    + vj1
+                    - q * wm1
                                 ) << SHIFT)
-                + v.widedigit(j-2)):
+                + vj2):
             q -= 1
         i = 0
         while i < size_w and i+k < size_v:
@@ -1556,6 +1609,95 @@ def _x_divrem(v1, w1):
     rem, _ = _divrem1(v, d)
     return a, rem
 
+    """
+    Didn't work as expected. Someone want to look over this?
+    size_v = v1.numdigits()
+    size_w = w1.numdigits()
+    
+    assert size_v >= size_w and size_w >= 2
+    
+    v = rbigint([NULLDIGIT] * (size_v + 1))
+    w = rbigint([NULLDIGIT] * size_w)
+    
+    # Normalization
+    d = SHIFT - bits_in_digit(w1.digit(size_w-1))
+    carry = _v_lshift(w, w1, size_w, d)
+    assert carry == 0
+    carry = _v_lshift(v, v1, size_v, d)
+    if carry != 0 or v.digit(size_v-1) >= w.digit(size_w-1):
+        v.setdigit(size_v, carry)
+        size_v += 1
+        
+    # Now v->ob_digit[size_v-1] < w->ob_digit[size_w-1], so quotient has
+    # at most (and usually exactly) k = size_v - size_w digits.
+    
+    k = size_v - size_w
+    assert k >= 0
+    
+    a = rbigint([NULLDIGIT] * k)
+    
+    k -= 1
+    wm1 = w.digit(size_w-1)
+    wm2 = w.digit(size_w-2)
+    
+    j = size_v
+    
+    while k >= 0:
+        # inner loop: divide vk[0:size_w+1] by w[0:size_w], giving
+        # single-digit quotient q, remainder in vk[0:size_w].
+            
+        vtop = v.widedigit(size_w)
+        assert vtop <= wm1
+        
+        vv = vtop << SHIFT | v.digit(size_w-1)
+        
+        q = vv / wm1
+        r = vv - _widen_digit(wm1) * q
+        
+        # estimate quotient digit q; may overestimate by 1 (rare)
+        while wm2 * q > ((r << SHIFT) | v.digit(size_w-2)):
+            q -= 1
+            
+            r+= wm1
+            if r >= SHIFT:
+                break
+                
+        assert q <= BASE
+        
+        # subtract q*w0[0:size_w] from vk[0:size_w+1]
+        zhi = 0
+        for i in range(size_w):
+            #invariants: -BASE <= -q <= zhi <= 0;
+            #    -BASE * q <= z < ASE
+            z = v.widedigit(i+k) + zhi - (q * w.widedigit(i))
+            v.setdigit(i+k, z)
+            zhi = z >> SHIFT
+            
+        # add w back if q was too large (this branch taken rarely)
+        assert vtop + zhi == -1 or vtop + zhi == 0
+        if vtop + zhi < 0:
+            carry = 0
+            for i in range(size_w):
+                carry += v.digit(i+k) + w.digit(i)
+                v.setdigit(i+k, carry)
+                carry >>= SHIFT
+                
+            q -= 1
+           
+        assert q < BASE
+        
+        a.setdigit(k, q)
+
+        j -= 1
+        k -= 1
+        
+    carry = _v_rshift(w, v, size_w, d)
+    assert carry == 0
+    
+    a._normalize()
+    w._normalize()
+    return a, w"""
+        
 def _divrem(a, b):
     """ Long division with remainder, top-level routine """
     size_a = a.numdigits()
