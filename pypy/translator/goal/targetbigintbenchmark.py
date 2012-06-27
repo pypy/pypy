@@ -12,6 +12,7 @@ def entry_point(argv):
         
         A cutout with some benchmarks.
         Pypy default:
+        2.777119
         2.316023
         2.418211
         5.147583
@@ -27,21 +28,38 @@ def entry_point(argv):
         6.647562
 
         Pypy with improvements:
-        2.522946
-        4.600970
-        2.126048
-        4.276203
-        9.662745
-        1.621029
-        3.956685
-        5.752223
-        7.660295
-        0.039137
-        4.437456
-        9.078680
-        4.995520
+        2.822389 # Little slower, divmod
+        2.522946 # Little shower, rshift
+        4.600970 # Much slower, lshift
+        2.126048 # Twice as fast
+        4.276203 # Little faster
+        9.662745 # 50 times faster
+        1.621029 # 200 times faster
+        3.956685 # Twice as fast
+        5.752223 # Twice as fast
+        7.660295 # More than twice as fast
+        0.039137 # 50 times faster
+        4.437456 # 3 times faster
+        9.078680 # Twice as fast
+        4.995520 # 1/3 faster, add
 
 
+        A pure python form of those tests where also run
+        Improved pypy           | Pypy                  | CPython 2.7.3
+        0.0440728664398         2.82172012329             1.38699007034
+        0.1241710186            0.126130104065            8.17586708069
+        0.12434387207           0.124358177185            8.34655714035
+        0.0627701282501         0.0626962184906           4.88309693336
+        0.0636250972748         0.0626759529114           4.88519001007
+        1.20847392082           479.282402992             (forever, I yet it run for 5min before quiting)
+        1.66941714287           (forever)                 (another forever)
+        0.0701060295105         6.59566307068             8.29050803185
+        6.55810189247           12.1487128735             7.1309800148
+        7.59417295456           15.0498359203             11.733394146
+        0.00144410133362        2.13657021523             1.67227101326
+        5.06110692024           14.7546520233             9.05311799049
+        9.19830608368           17.0125601292             11.1488289833
+        5.40441417694           6.59027791023             3.63601899147
     """
 
     t = time()

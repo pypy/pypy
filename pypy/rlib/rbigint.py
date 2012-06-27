@@ -181,10 +181,7 @@ class rbigint(object):
         # This function is marked as pure, so you must not call it and
         # then modify the result.
         check_regular_int(intval)
-        
-        if intval != 0 and intval <= CACHE_INTS and intval >= -CACHE_INTS:
-            return INTCACHE[intval]
-            
+
         if intval < 0:
             sign = -1
             ival = r_uint(-intval)
@@ -848,12 +845,7 @@ class rbigint(object):
         return "<rbigint digits=%s, sign=%s, %s>" % (self._digits,
                                                      self.sign, self.str())
 
-INTCACHE = {}
-for x in range(1, CACHE_INTS+1):
-    numList = [_store_digit(_mask_digit(x))]
-    INTCACHE[x] = rbigint(numList, 1)
-    INTCACHE[-x] = rbigint(numList, -1)
-    
+
 ONERBIGINT = rbigint([ONEDIGIT], 1)
 NULLRBIGINT = rbigint()
 
@@ -931,7 +923,6 @@ def args_from_long(x):
 
 def _x_add(a, b):
     """ Add the absolute values of two bigint integers. """
-    
     size_a = a.numdigits()
     size_b = b.numdigits()
 
@@ -1559,19 +1550,18 @@ def _x_divrem(v1, w1):
         
         if vj == wm1:
             q = MASK
+            r = 0
         else:
-            q = ((vj << SHIFT) + vj1) // wm1
-
+            vv = ((vj << SHIFT) | vj1)
+            q = vv // wm1
+            r = _widen_digit(vv) - wm1 * q
         
         vj2 = v.widedigit(j-2)
-        while (wm2 * q >
-                ((
-                    (vj << SHIFT)
-                    + vj1
-                    - q * wm1
-                                ) << SHIFT)
-                + vj2):
+        while wm2 * q > ((r << SHIFT) | vj2):
             q -= 1
+            r += wm1
+            if r > MASK:
+                break
         i = 0
         while i < size_w and i+k < size_v:
             z = w.widedigit(i) * q
