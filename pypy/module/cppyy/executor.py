@@ -425,40 +425,27 @@ def get_executor(space, name):
 _executors["void"]                = VoidExecutor
 _executors["void*"]               = PtrTypeExecutor
 _executors["bool"]                = BoolExecutor
-_executors["bool*"]               = BoolPtrExecutor
 _executors["char"]                = CharExecutor
 _executors["char*"]               = CStringExecutor
 _executors["unsigned char"]       = CharExecutor
 _executors["short int"]           = ShortExecutor
 _executors["short"]               = _executors["short int"]
-_executors["short int*"]          = ShortPtrExecutor
-_executors["short*"]              = _executors["short int*"]
 _executors["unsigned short int"]  = ShortExecutor
 _executors["unsigned short"]      = _executors["unsigned short int"]
-_executors["unsigned short int*"] = ShortPtrExecutor
-_executors["unsigned short*"]     = _executors["unsigned short int*"]
 _executors["int"]                 = IntExecutor
-_executors["int*"]                = IntPtrExecutor
 _executors["const int&"]          = ConstIntRefExecutor
 _executors["int&"]                = ConstIntRefExecutor
 _executors["unsigned int"]        = UnsignedIntExecutor
-_executors["unsigned int*"]       = UnsignedIntPtrExecutor
 _executors["long int"]            = LongExecutor
 _executors["long"]                = _executors["long int"]
-_executors["long int*"]           = LongPtrExecutor
-_executors["long*"]               = _executors["long int*"]
 _executors["unsigned long int"]   = UnsignedLongExecutor
 _executors["unsigned long"]       = _executors["unsigned long int"]
-_executors["unsigned long int*"]  = UnsignedLongPtrExecutor
-_executors["unsigned long*"]      = _executors["unsigned long int*"]
 _executors["long long int"]       = LongLongExecutor
 _executors["long long"]           = _executors["long long int"]
 _executors["unsigned long long int"] = UnsignedLongLongExecutor
 _executors["unsigned long long"]  = _executors["unsigned long long int"]
 _executors["float"]               = FloatExecutor
-_executors["float*"]              = FloatPtrExecutor
 _executors["double"]              = DoubleExecutor
-_executors["double*"]             = DoublePtrExecutor
 
 _executors["constructor"]         = ConstructorExecutor
 
@@ -468,3 +455,25 @@ _executors["string"]                         = _executors["std::basic_string<cha
 
 _executors["PyObject*"]           = PyObjectExecutor
 _executors["_object*"]            = _executors["PyObject*"]
+
+def _build_ptr_executors():
+    "NOT_RPYTHON"
+    ptr_info = (
+        ('b', ("bool",)),     # really unsigned char, but this works ...
+        ('h', ("short int", "short")),
+        ('H', ("unsigned short int", "unsigned short")),
+        ('i', ("int",)),
+        ('I', ("unsigned int", "unsigned")),
+        ('l', ("long int", "long")),
+        ('L', ("unsigned long int", "unsigned long")),
+        ('f', ("float",)),
+        ('d', ("double",)),
+    )
+
+    for info in ptr_info:
+        class PtrExecutor(PtrTypeExecutor):
+            _immutable_ = True
+            typecode = info[0]
+        for name in info[1]:
+            _executors[name+'*'] = PtrExecutor
+_build_ptr_executors()
