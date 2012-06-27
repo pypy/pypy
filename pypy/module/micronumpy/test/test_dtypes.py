@@ -427,29 +427,56 @@ class AppTestTypes(BaseNumpyAppTest):
         assert numpy.complexfloating.__mro__ == (numpy.complexfloating,
             numpy.inexact, numpy.number, numpy.generic, object)
 
+    def test_complex_format(self):
+        import _numpypy as numpy
+        
+        for complex_ in (numpy.complex128, numpy.complex64,):
+            for real, imag, should in [
+                (1, 2, '(1+2j)'),
+                (0, 1, '1j'),
+                (1, 0, '(1+0j)'),
+                (-1, -2, '(-1-2j)'),
+                (0.5, -0.75, '(0.5-0.75j)'),
+                #xxx
+                #(numpy.inf, numpy.inf, '(inf+inf*j)'),
+                ]:
+            
+                c = complex_(complex(real, imag))
+                assert c == complex(real, imag)
+                assert c.real == real
+                assert c.imag == imag
+                assert repr(c) == should
+            
+        real, imag, should = (1e100, 3e66, '(1e+100+3e+66j)')
+        c128 = numpy.complex128(complex(real, imag))
+        assert type(c128.real) is type(c128.imag) is numpy.float64
+        assert c128.real == real
+        assert c128.imag == imag
+        assert repr(c128) == should
+
+        c64 = numpy.complex64(complex(real, imag))
+        assert repr(c64.real) == 'inf'  
+        assert type(c64.real) is type(c64.imag) is numpy.float32
+        assert repr(c64.imag).startswith('inf')
+        assert repr(c64) in ('(inf+inf*j)', '(inf+infj)')
+
+
+        assert numpy.complex128(1.2) == numpy.complex128(complex(1.2, 0))
+        assert numpy.complex64(1.2) == numpy.complex64(complex(1.2, 0))
+
     def test_complex(self):
         import _numpypy as numpy
 
+        assert numpy.complex_ is numpy.complex128
+        assert numpy.complex64.__mro__ == (numpy.complex64,
+            numpy.complexfloating, numpy.inexact, numpy.number, numpy.generic,
+            object)
         assert numpy.complex128.__mro__ == (numpy.complex128,
             numpy.complexfloating, numpy.inexact, numpy.number, numpy.generic,
             complex, object)
 
-        for real, imag, should in [
-            (1, 2, '(1+2j)'),
-            (0, 1, '1j'),
-            (1, 0, '(1+0j)'),
-            (-1, -2, '(-1-2j)')
-            ]:
-
-            c = numpy.complex128(complex(real, imag))
-            assert c.real == real
-            assert c.imag == imag
-            assert repr(c) == should
-
-    def test_complex_dtype(self):
-        import _numpypy as numpy
-
-        assert numpy.dtype(complex) is numpy.dtype("complex")
+        assert numpy.dtype(complex).type is numpy.complex128
+        assert numpy.dtype("complex").type is numpy.complex128
 
     def test_subclass_type(self):
         import _numpypy as numpy

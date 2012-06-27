@@ -823,3 +823,88 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert logaddexp2(float('-inf'), float('inf')) == float('inf')
         assert logaddexp2(float('inf'), float('-inf')) == float('inf')
         assert logaddexp2(float('inf'), float('inf')) == float('inf')
+
+    def test_conjugate(self):
+        from _numpypy import conj, conjugate, complex128, complex64
+        import _numpypy as np
+
+        c0 = complex128(complex(2.5, 0))
+        c1 = complex64(complex(1, 2))
+
+        assert conj is conjugate
+        assert conj(c0) == c0
+        assert conj(c1) == complex(1, -2)
+        assert conj(1) == 1
+        assert conj(-3) == -3
+        assert conj(float('-inf')) == float('-inf')
+
+
+        assert np.conjugate(1+2j) == 1-2j
+
+        x = np.eye(2) + 1j * np.eye(2)
+        for a, b in zip(np.conjugate(x), np.array([[ 1.-1.j,  0.-0.j], [ 0.-0.j,  1.-1.j]])):
+            assert a[0] == b[0]
+            assert a[1] == b[1]
+
+
+    def test_complex(self):
+        from _numpypy import (array, complex128, complex64, add, subtract as sub, multiply,
+            divide, negative, conjugate, conj, abs)
+        from _numpypy import equal, not_equal, greater, greater_equal, less, less_equal
+
+        for complex_ in complex128, complex64:
+
+            O = complex(0, 0)
+            c0 = complex_(complex(2.5, 0))
+            c1 = complex_(complex(1, 2))
+            c2 = complex_(complex(3, 4))
+            c3 = complex_(complex(-3, -3))
+
+            assert equal(c0, 2.5)
+            assert equal(c1, complex_(complex(1, 2)))
+            assert equal(c1, complex(1, 2))
+            assert equal(c1, c1)
+            assert not_equal(c1, c2)
+            assert not equal(c1, c2)
+
+            assert less(c1, c2)
+            assert less_equal(c1, c2)
+            assert less_equal(c1, c1)
+            assert not less(c1, c1)
+
+            assert greater(c2, c1)
+            assert greater_equal(c2, c1)
+            assert not greater(c1, c2)
+
+            assert add(c1, c2) == complex_(complex(4, 6))
+            assert add(c1, c2) == complex(4, 6)
+            
+            assert sub(c0, c0) == sub(c1, c1) == 0
+            assert sub(c1, c2) == complex(-2, -2)
+            assert negative(complex(1,1)) == complex(-1, -1)
+            assert negative(complex(0, 0)) == 0
+            
+
+            assert multiply(1, c1) == c1
+            assert multiply(2, c2) == complex(6, 8)
+            assert multiply(c1, c2) == complex(-5, 10)
+
+            assert divide(c0, 1) == c0
+            assert divide(c2, -1) == negative(c2)
+            assert divide(c1, complex(0, 1)) == complex(2, -1)
+            n = divide(c1, O)
+            assert repr(n.real) == 'nan'
+            assert repr(n.imag).startswith('nan') #can be nan*j or nanj
+            assert divide(c0, c0) == 1
+            res = divide(c2, c1)
+            assert abs(res.real-2.2) < 0.001
+            assert abs(res.imag+0.4) < 0.001
+
+            assert abs(c0) == 2.5
+            assert abs(c2) == 5
+
+
+
+    def test_complex_math(self):
+        # from _numpypy import 
+        pass

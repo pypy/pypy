@@ -443,6 +443,7 @@ def find_dtype_for_scalar(space, w_obj, current_guess=None):
     bool_dtype = interp_dtype.get_dtype_cache(space).w_booldtype
     long_dtype = interp_dtype.get_dtype_cache(space).w_longdtype
     int64_dtype = interp_dtype.get_dtype_cache(space).w_int64dtype
+    complex_type = interp_dtype.get_dtype_cache(space).w_complex128dtype
 
     if isinstance(w_obj, interp_boxes.W_GenericBox):
         dtype = w_obj.get_dtype(space)
@@ -464,6 +465,13 @@ def find_dtype_for_scalar(space, w_obj, current_guess=None):
             current_guess is long_dtype or current_guess is int64_dtype):
             return int64_dtype
         return current_guess
+    elif space.isinstance_w(w_obj, space.w_complex):
+        if (current_guess is None or current_guess is bool_dtype or
+            current_guess is long_dtype or current_guess is int64_dtype or
+            current_guess is complex_type):
+            return complex_type
+        return current_guess
+
     return interp_dtype.get_dtype_cache(space).w_float64dtype
 
 
@@ -535,6 +543,7 @@ class UfuncState(object):
             ("sign", "sign", 1, {"promote_bools": True}),
             ("signbit", "signbit", 1, {"bool_result": True}),
             ("reciprocal", "reciprocal", 1),
+            ("conjugate", "conj", 1),
 
             ("fabs", "fabs", 1, {"promote_to_float": True}),
             ("fmax", "fmax", 2, {"promote_to_float": True}),

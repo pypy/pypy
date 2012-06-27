@@ -79,7 +79,9 @@ class Module(MixedModule):
         'unicode_': 'interp_boxes.W_UnicodeBox',
         'void': 'interp_boxes.W_VoidBox',
         'complexfloating': 'interp_boxes.W_ComplexFloatingBox',
-        'complex128': 'interp_boxes.W_Complex128Box'
+        'complex_': 'interp_boxes.W_Complex128Box',
+        'complex128': 'interp_boxes.W_Complex128Box',
+        'complex64': 'interp_boxes.W_Complex64Box',
     }
 
     # ufuncs
@@ -94,6 +96,8 @@ class Module(MixedModule):
         ("arccosh", "arccosh"),
         ("arcsinh", "arcsinh"),
         ("arctanh", "arctanh"),
+        ("conj", "conjugate"),
+        ("conjugate", "conjugate"),
         ("copysign", "copysign"),
         ("cos", "cos"),
         ("cosh", "cosh"),
