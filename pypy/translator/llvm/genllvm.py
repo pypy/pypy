@@ -747,6 +747,8 @@ class Database(object):
                 class_ = OpaqueType
             elif type_ is lltype.PyObject:
                 class_ = OpaqueType
+            elif isinstance(type_, lltype.Typedef):
+                return self.get_type(type_.OF)
             else:
                 raise TypeError('type_ is {!r}'.format(type_))
 

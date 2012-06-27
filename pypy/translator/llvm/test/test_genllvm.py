@@ -221,6 +221,10 @@ class TestDatabase(object):
                 '    } ; bar\n'
                 '}\n')
 
+    def test_typedef(self):
+        TD = lltype.Typedef(lltype.Signed, 'test')
+        assert genllvm.database.get_type(TD).repr_type() == 'i64'
+
 
 class _LLVMMixin(test_typed.CompilationTestCase):
     _func = None
