@@ -741,7 +741,7 @@ def get_converter(space, name, default):
 
     #   2) match of decorated, unqualified type
     compound = helper.compound(name)
-    clean_name = helper.clean_type(name)
+    clean_name = capi.c_resolve_name(helper.clean_type(name))
     try:
         # array_index may be negative to indicate no size or no size found
         array_size = helper.array_size(name)

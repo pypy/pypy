@@ -209,15 +209,29 @@ static inline void fixup_args(G__param* libp) {
 
 /* name to opaque C++ scope representation -------------------------------- */
 char* cppyy_resolve_name(const char* cppitem_name) {
-    if (strcmp(cppitem_name, "") == 0)
+    std::string tname = cppitem_name;
+
+    // global namespace?
+    if (tname.empty())
         return cppstring_to_cstring(cppitem_name);
-    G__TypeInfo ti(cppitem_name);
-    if (ti.IsValid()) {
-        if (ti.Property() & G__BIT_ISENUM)
-            return cppstring_to_cstring("unsigned int");
-        return cppstring_to_cstring(ti.TrueName());
-    }
-    return cppstring_to_cstring(cppitem_name);
+
+    // special care needed for builtin arrays
+    std::string::size_type pos = tname.rfind("[");
+    G__TypeInfo ti(tname.substr(0, pos).c_str());
+
+    // if invalid (most likely unknown), simply return old name
+    if (!ti.IsValid())
+        return cppstring_to_cstring(cppitem_name);
+
+    // special case treatment of enum types as unsigned int (CINTism)
+    if (ti.Property() & G__BIT_ISENUM)
+        return cppstring_to_cstring("unsigned int");
+
+    // actual typedef resolution; add back array declartion portion, if needed
+    std::string rt = ti.TrueName();
+    if (pos != std::string::npos)
+        rt += tname.substr(pos, std::string::npos);
+    return cppstring_to_cstring(rt);
 }
 
 cppyy_scope_t cppyy_get_scope(const char* scope_name) {
