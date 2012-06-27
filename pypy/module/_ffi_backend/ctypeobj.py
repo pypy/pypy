@@ -113,6 +113,11 @@ class W_CType(Wrappable):
     def _getfields(self):
         return None
 
+    def call(self, funcaddr, args_w):
+        space = self.space
+        raise operationerrfmt(space.w_TypeError,
+                              "cdata '%s' is not callable", ctype.name)
+
 
 W_CType.typedef = TypeDef(
     '_ffi_backend.CTypeDescr',

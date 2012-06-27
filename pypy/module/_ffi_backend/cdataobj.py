@@ -154,24 +154,14 @@ class W_CData(Wrappable):
         self.getcfield(w_attr).write(self._cdata, w_value)
         keepalive_until_here(self)
 
-##    def read_raw_signed_data(self):
-##        result = misc.read_raw_signed_data(self._cdata, self.ctype.size)
-##        keepalive_until_here(self)
-##        return result
-
-##    def read_raw_unsigned_data(self):
-##        result = misc.read_raw_unsigned_data(self._cdata, self.ctype.size)
-##        keepalive_until_here(self)
-##        return result
+    def call(self, args_w):
+        w_result = self.ctype.call(self._cdata, args_w)
+        keepalive_until_here(self)
+        return w_result
 
     def write_raw_integer_data(self, source):
         misc.write_raw_integer_data(self._cdata, source, self.ctype.size)
         keepalive_until_here(self)
-
-##    def read_raw_float_data(self):
-##        result = misc.read_raw_float_data(self._cdata, self.ctype.size)
-##        keepalive_until_here(self)
-##        return result
 
     def write_raw_float_data(self, source):
         misc.write_raw_float_data(self._cdata, source, self.ctype.size)
@@ -235,6 +225,7 @@ common_methods = dict(
     __sub__ = interp2app(W_CData.sub),
     __getattr__ = interp2app(W_CData.getattr),
     __setattr__ = interp2app(W_CData.setattr),
+    __call__ = interp2app(W_CData.call),
 )
 
 W_CData.typedef = TypeDef(

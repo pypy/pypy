@@ -13,7 +13,8 @@ from pypy.module._ffi_backend import cdataobj, misc
 
 class W_CTypePtrOrArray(W_CType):
 
-    def __init__(self, space, size, extra, extra_position, ctitem):
+    def __init__(self, space, size, extra, extra_position, ctitem,
+                 could_cast_anything=True):
         name, name_position = ctitem.insert_name(extra, extra_position)
         W_CType.__init__(self, space, size, name, name_position)
         # this is the "underlying type":
@@ -21,17 +22,11 @@ class W_CTypePtrOrArray(W_CType):
         #  - for arrays, it is the array item type
         #  - for functions, it is the return type
         self.ctitem = ctitem
-        # overridden to False in W_CTypeFunc
-        self.can_cast_anything = ctitem.cast_anything
+        self.can_cast_anything = could_cast_anything and ctitem.cast_anything
 
 
 class W_CTypePtrBase(W_CTypePtrOrArray):
     # base class for both pointers and pointers-to-functions
-
-    def __init__(self, space, extra, extra_position, ctitem):
-        size = rffi.sizeof(rffi.VOIDP)
-        W_CTypePtrOrArray.__init__(self, space, size,
-                                   extra, extra_position, ctitem)
 
     def cast(self, w_ob):
         space = self.space
@@ -72,11 +67,12 @@ class W_CTypePointer(W_CTypePtrBase):
 
     def __init__(self, space, ctitem):
         from pypy.module._ffi_backend import ctypearray
+        size = rffi.sizeof(rffi.VOIDP)
         if isinstance(ctitem, ctypearray.W_CTypeArray):
             extra = "(*)"    # obscure case: see test_array_add
         else:
             extra = " *"
-        W_CTypePtrBase.__init__(self, space, extra, 2, ctitem)
+        W_CTypePtrBase.__init__(self, space, size, extra, 2, ctitem)
 
     def str(self, cdataobj):
         if isinstance(self.ctitem, W_CTypePrimitiveChar):

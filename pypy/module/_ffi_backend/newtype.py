@@ -5,7 +5,6 @@ from pypy.rlib.rarithmetic import ovfcheck
 
 from pypy.module._ffi_backend import ctypeobj, ctypeprim, ctypeptr, ctypearray
 from pypy.module._ffi_backend import ctypestruct, ctypevoid, ctypeenum
-from pypy.module._ffi_backend import ctypefunc
 
 
 def alignment(TYPE):
@@ -206,6 +205,7 @@ def new_enum_type(space, name, w_enumerators, w_enumvalues):
 
 @unwrap_spec(fresult=ctypeobj.W_CType, ellipsis=int)
 def new_function_type(space, w_fargs, fresult, ellipsis=0):
+    from pypy.module._ffi_backend import ctypefunc
     fargs = []
     for w_farg in space.fixedview(w_fargs):
         farg = space.interpclass_w(w_farg)
