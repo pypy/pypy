@@ -235,6 +235,9 @@ class CStringExecutor(FunctionExecutor):
         result = rffi.charp2str(ccpresult)  # TODO: make it a choice to free
         return space.wrap(result)
 
+class BoolPtrExecutor(PtrTypeExecutor):
+    _immutable_ = True
+    typecode = 'b'       # really unsigned char, but this works ...
 
 class ShortPtrExecutor(PtrTypeExecutor):
     _immutable_ = True
@@ -422,6 +425,7 @@ def get_executor(space, name):
 _executors["void"]                = VoidExecutor
 _executors["void*"]               = PtrTypeExecutor
 _executors["bool"]                = BoolExecutor
+_executors["bool*"]               = BoolPtrExecutor
 _executors["char"]                = CharExecutor
 _executors["char*"]               = CStringExecutor
 _executors["unsigned char"]       = CharExecutor

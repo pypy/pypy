@@ -63,6 +63,10 @@ class AppTestDATATYPES:
         # reding of array types
         for i in range(self.N):
             # reading of integer array types
+            assert c.m_bool_array[i]        ==   bool(i%2)
+            assert c.get_bool_array()[i]    ==   bool(i%2)
+            assert c.m_bool_array2[i]       ==   bool((i+1)%2)
+            assert c.get_bool_array2()[i]   ==   bool((i+1)%2)
             assert c.m_short_array[i]       ==  -1*i
             assert c.get_short_array()[i]   ==  -1*i
             assert c.m_short_array2[i]      ==  -2*i

@@ -829,6 +829,7 @@ _converters["_object*"]                          = _converters["PyObject*"]
 def _build_array_converters():
     "NOT_RPYTHON"
     array_info = (
+        ('b', rffi.sizeof(rffi.UCHAR),  ("bool",)),    # is debatable, but works ...
         ('h', rffi.sizeof(rffi.SHORT),  ("short int", "short")),
         ('H', rffi.sizeof(rffi.USHORT), ("unsigned short int", "unsigned short")),
         ('i', rffi.sizeof(rffi.INT),    ("int",)),

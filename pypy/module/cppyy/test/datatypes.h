@@ -36,6 +36,8 @@ public:
     double               get_double();
     what                 get_enum();
 
+    bool*           get_bool_array();
+    bool*           get_bool_array2();
     short*          get_short_array();
     short*          get_short_array2();
     unsigned short* get_ushort_array();
@@ -131,6 +133,8 @@ public:
     what                 m_enum;
 
 // array types
+    bool            m_bool_array[N];
+    bool*           m_bool_array2;
     short           m_short_array[N];
     short*          m_short_array2;
     unsigned short  m_ushort_array[N];
