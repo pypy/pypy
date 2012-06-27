@@ -2,7 +2,7 @@
 Void.
 """
 
-from pypy.module._ffi_backend.ctypeobj import W_CType
+from pypy.module._cffi_backend.ctypeobj import W_CType
 
 
 class W_CTypeVoid(W_CType):

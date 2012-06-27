@@ -6,9 +6,9 @@ from pypy.interpreter.error import operationerrfmt
 from pypy.rpython.lltypesystem import rffi
 from pypy.rlib.objectmodel import keepalive_until_here
 
-from pypy.module._ffi_backend.ctypeobj import W_CType
-from pypy.module._ffi_backend.ctypeprim import W_CTypePrimitiveChar
-from pypy.module._ffi_backend import cdataobj, misc
+from pypy.module._cffi_backend.ctypeobj import W_CType
+from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveChar
+from pypy.module._cffi_backend import cdataobj, misc
 
 
 class W_CTypePtrOrArray(W_CType):
@@ -59,14 +59,14 @@ class W_CTypePtrBase(W_CTypePtrOrArray):
         rffi.cast(rffi.CCHARPP, cdata)[0] = ob._cdata
 
     def _alignof(self):
-        from pypy.module._ffi_backend import newtype
+        from pypy.module._cffi_backend import newtype
         return newtype.alignment_of_pointer
 
 
 class W_CTypePointer(W_CTypePtrBase):
 
     def __init__(self, space, ctitem):
-        from pypy.module._ffi_backend import ctypearray
+        from pypy.module._cffi_backend import ctypearray
         size = rffi.sizeof(rffi.VOIDP)
         if isinstance(ctitem, ctypearray.W_CTypeArray):
             extra = "(*)"    # obscure case: see test_array_add
@@ -87,7 +87,7 @@ class W_CTypePointer(W_CTypePtrBase):
         return W_CTypePtrOrArray.str(self, cdataobj)
 
     def newp(self, w_init):
-        from pypy.module._ffi_backend import ctypeprim
+        from pypy.module._cffi_backend import ctypeprim
         space = self.space
         ctitem = self.ctitem
         datasize = ctitem.size

@@ -8,8 +8,8 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.rlib.objectmodel import keepalive_until_here
 
-from pypy.module._ffi_backend.ctypeobj import W_CType
-from pypy.module._ffi_backend import cdataobj
+from pypy.module._cffi_backend.ctypeobj import W_CType
+from pypy.module._cffi_backend import cdataobj
 
 
 class W_CTypeStructOrUnion(W_CType):
@@ -148,7 +148,7 @@ class W_CField(Wrappable):
 
 
 W_CField.typedef = TypeDef(
-    '_ffi_backend.CField',
+    '_cffi_backend.CField',
     type = interp_attrproperty('ctype', W_CField),
     offset = interp_attrproperty('offset', W_CField),
     bitshift = interp_attrproperty('bitshift', W_CField),

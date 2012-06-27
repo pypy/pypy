@@ -33,7 +33,7 @@ class W_Library(Wrappable):
 
 
 W_Library.typedef = TypeDef(
-    '_ffi_backend.Library',
+    '_cffi_backend.Library',
     __repr__ = interp2app(W_Library.repr),
     )
 W_Library.acceptable_as_base_class = False

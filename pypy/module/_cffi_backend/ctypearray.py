@@ -7,10 +7,10 @@ from pypy.rpython.lltypesystem import rffi
 from pypy.rlib.objectmodel import keepalive_until_here
 from pypy.rlib.rarithmetic import ovfcheck
 
-from pypy.module._ffi_backend.ctypeobj import W_CType
-from pypy.module._ffi_backend.ctypeprim import W_CTypePrimitiveChar
-from pypy.module._ffi_backend.ctypeptr import W_CTypePtrOrArray
-from pypy.module._ffi_backend import cdataobj
+from pypy.module._cffi_backend.ctypeobj import W_CType
+from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveChar
+from pypy.module._cffi_backend.ctypeptr import W_CTypePtrOrArray
+from pypy.module._cffi_backend import cdataobj
 
 
 class W_CTypeArray(W_CTypePtrOrArray):

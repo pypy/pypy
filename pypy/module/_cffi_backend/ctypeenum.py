@@ -7,14 +7,14 @@ from pypy.rpython.lltypesystem import rffi
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.objectmodel import keepalive_until_here
 
-from pypy.module._ffi_backend.ctypeprim import W_CTypePrimitiveSigned
-from pypy.module._ffi_backend import misc
+from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveSigned
+from pypy.module._cffi_backend import misc
 
 
 class W_CTypeEnum(W_CTypePrimitiveSigned):
 
     def __init__(self, space, name, enumerators, enumvalues):
-        from pypy.module._ffi_backend.newtype import alignment
+        from pypy.module._cffi_backend.newtype import alignment
         name = "enum " + name
         size = rffi.sizeof(rffi.INT)
         align = alignment(rffi.INT)

@@ -6,7 +6,7 @@ from pypy.interpreter.typedef import make_weakref_descr
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rlib.objectmodel import we_are_translated
 
-from pypy.module._ffi_backend import cdataobj
+from pypy.module._cffi_backend import cdataobj
 
 
 class W_CType(Wrappable):
@@ -120,7 +120,7 @@ class W_CType(Wrappable):
 
 
 W_CType.typedef = TypeDef(
-    '_ffi_backend.CTypeDescr',
+    '_cffi_backend.CTypeDescr',
     __repr__ = interp2app(W_CType.repr),
     __weakref__ = make_weakref_descr(W_CType),
     )

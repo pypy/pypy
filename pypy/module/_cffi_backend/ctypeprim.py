@@ -7,8 +7,8 @@ from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.rarithmetic import intmask, r_ulonglong
 from pypy.rlib.objectmodel import keepalive_until_here
 
-from pypy.module._ffi_backend.ctypeobj import W_CType
-from pypy.module._ffi_backend import cdataobj, misc
+from pypy.module._cffi_backend.ctypeobj import W_CType
+from pypy.module._cffi_backend import cdataobj, misc
 
 
 class W_CTypePrimitive(W_CType):
@@ -34,7 +34,7 @@ class W_CTypePrimitive(W_CType):
         return ord(s[0])
 
     def cast(self, w_ob):
-        from pypy.module._ffi_backend import ctypeptr
+        from pypy.module._cffi_backend import ctypeptr
         space = self.space
         ob = space.interpclass_w(w_ob)
         if (isinstance(ob, cdataobj.W_CData) and

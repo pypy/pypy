@@ -7,7 +7,7 @@ from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.objectmodel import keepalive_until_here, specialize
 from pypy.rlib import objectmodel, rgc
 
-from pypy.module._ffi_backend import misc
+from pypy.module._cffi_backend import misc
 
 
 class W_CData(Wrappable):
@@ -15,7 +15,7 @@ class W_CData(Wrappable):
     cdata = lltype.nullptr(rffi.CCHARP.TO)
 
     def __init__(self, space, cdata, ctype):
-        from pypy.module._ffi_backend import ctypeprim
+        from pypy.module._cffi_backend import ctypeprim
         assert lltype.typeOf(cdata) == rffi.CCHARP
         assert isinstance(ctype, ctypeprim.W_CType)
         self.space = space
@@ -48,7 +48,7 @@ class W_CData(Wrappable):
         return w_result
 
     def len(self):
-        from pypy.module._ffi_backend import ctypearray
+        from pypy.module._cffi_backend import ctypearray
         space = self.space
         if isinstance(self.ctype, ctypearray.W_CTypeArray):
             return space.wrap(self.get_array_length())
@@ -110,7 +110,7 @@ class W_CData(Wrappable):
         space = self.space
         ob = space.interpclass_w(w_other)
         if isinstance(ob, W_CData):
-            from pypy.module._ffi_backend import ctypeptr, ctypearray
+            from pypy.module._cffi_backend import ctypeptr, ctypearray
             ct = ob.ctype
             if isinstance(ct, ctypearray.W_CTypeArray):
                 ct = ct.ctptr
@@ -129,7 +129,7 @@ class W_CData(Wrappable):
         return self._add_or_sub(w_other, -1)
 
     def getcfield(self, w_attr):
-        from pypy.module._ffi_backend import ctypeptr, ctypestruct
+        from pypy.module._cffi_backend import ctypeptr, ctypestruct
         space = self.space
         ctype = self.ctype
         attr = space.str_w(w_attr)
@@ -173,7 +173,7 @@ class W_CData(Wrappable):
         return w_obj
 
     def get_array_length(self):
-        from pypy.module._ffi_backend import ctypearray
+        from pypy.module._cffi_backend import ctypearray
         ctype = self.ctype
         assert isinstance(ctype, ctypearray.W_CTypeArray)
         length = ctype.length
@@ -229,14 +229,14 @@ common_methods = dict(
 )
 
 W_CData.typedef = TypeDef(
-    '_ffi_backend.CData',
+    '_cffi_backend.CData',
     __repr__ = interp2app(W_CData.repr),
     **common_methods
     )
 W_CData.typedef.acceptable_as_base_class = False
 
 W_CDataOwn.typedef = TypeDef(
-    '_ffi_backend.CDataOwn',
+    '_cffi_backend.CDataOwn',
     __base = W_CData.typedef,
     __repr__ = interp2app(W_CDataOwn.repr),
     __weakref__ = make_weakref_descr(W_CDataOwn),

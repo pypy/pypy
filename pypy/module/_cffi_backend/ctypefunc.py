@@ -5,7 +5,7 @@ Function pointers.
 from pypy.rpython.lltypesystem import rffi
 from pypy.rlib import clibffi
 
-from pypy.module._ffi_backend.ctypeptr import W_CTypePtrBase
+from pypy.module._cffi_backend.ctypeptr import W_CTypePtrBase
 
 
 class W_CTypeFunc(W_CTypePtrBase):

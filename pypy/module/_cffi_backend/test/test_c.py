@@ -7,15 +7,15 @@ import py, ctypes
 from pypy.tool.udir import udir
 from pypy.conftest import gettestobjspace
 from pypy.interpreter import gateway
-from pypy.module._ffi_backend.test import _backend_test_c
-from pypy.module._ffi_backend import Module
+from pypy.module._cffi_backend.test import _backend_test_c
+from pypy.module._cffi_backend import Module
 
 
 class AppTestC(object):
     """Populated below, hack hack hack."""
 
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('_ffi_backend',))
+        space = gettestobjspace(usemodules=('_cffi_backend',))
         cls.space = space
         testfuncs_w = []
         keepalive_funcs = []
@@ -24,8 +24,8 @@ class AppTestC(object):
             import ctypes.util
             path = ctypes.util.find_library(space.str_w(w_name))
             return space.appexec([space.wrap(path)], """(path):
-                import _ffi_backend
-                return _ffi_backend.load_library(path)""")
+                import _cffi_backend
+                return _cffi_backend.load_library(path)""")
 
         def testfunc0(a, b):
             return chr(ord(a) + ord(b))
@@ -76,7 +76,7 @@ with tmpname.open('w') as f:
 tmpname2 = tmpdir.join('_all_test_c.py')
 with tmpname2.open('w') as f:
     print >> f, 'import sys'
-    print >> f, 'from _ffi_backend import %s' % all_names
+    print >> f, 'from _cffi_backend import %s' % all_names
     print >> f, 'class py:'
     print >> f, '    class test:'
     print >> f, '        raises = staticmethod(raises)'
