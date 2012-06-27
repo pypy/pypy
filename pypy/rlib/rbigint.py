@@ -232,6 +232,7 @@ class rbigint(object):
         return rbigint(*args_from_long(l))
 
     @staticmethod
+    @jit.elidable
     def fromfloat(dval):
         """ Create a new bigint object from a float """
         # This function is not marked as pure because it can raise
@@ -328,20 +329,25 @@ class rbigint(object):
         """Return r_ulonglong(self), truncating."""
         return _AsULonglong_mask(self)
 
+    @jit.elidable
     def tofloat(self):
         return _AsDouble(self)
 
+    @jit.elidable
     def format(self, digits, prefix='', suffix=''):
         # 'digits' is a string whose length is the base to use,
         # and where each character is the corresponding digit.
         return _format(self, digits, prefix, suffix)
 
+    @jit.elidable
     def repr(self):
         return _format(self, BASE10, '', 'L')
 
+    @jit.elidable
     def str(self):
         return _format(self, BASE10)
 
+    @jit.elidable
     def eq(self, other):
         if (self.sign != other.sign or
             self.numdigits() != other.numdigits()):
@@ -401,9 +407,11 @@ class rbigint(object):
     def ge(self, other):
         return not self.lt(other)
 
+    @jit.elidable
     def hash(self):
         return _hash(self)
 
+    @jit.elidable
     def add(self, other):
         if self.sign == 0:
             return other
@@ -416,6 +424,7 @@ class rbigint(object):
         result.sign *= other.sign
         return result
 
+    @jit.elidable
     def sub(self, other):
         if other.sign == 0:
             return self
@@ -429,6 +438,7 @@ class rbigint(object):
         result._normalize()
         return result
 
+    @jit.elidable
     def mul(self, b):
         asize = self.numdigits()
         bsize = b.numdigits()
@@ -477,11 +487,13 @@ class rbigint(object):
 
         result.sign = a.sign * b.sign
         return result
-    
+
+    @jit.elidable
     def truediv(self, other):
         div = _bigint_true_divide(self, other)
         return div
 
+    @jit.elidable
     def floordiv(self, other):
         if other.numdigits() == 1 and other.sign == 1:
             digit = other.digit(0)
@@ -495,15 +507,18 @@ class rbigint(object):
             div = div.sub(ONERBIGINT)
         return div
 
+    @jit.elidable
     def div(self, other):
         return self.floordiv(other)
 
+    @jit.elidable
     def mod(self, other):
         div, mod = _divrem(self, other)
         if mod.sign * other.sign == -1:
             mod = mod.add(other)
         return mod
 
+    @jit.elidable
     def divmod(v, w):
         """
         The / and % operators are now defined in terms of divmod().
@@ -527,6 +542,7 @@ class rbigint(object):
             div = div.sub(ONERBIGINT)
         return div, mod
 
+    @jit.elidable
     def pow(a, b, c=None):
         negativeOutput = False  # if x<0 return negative output
 
@@ -663,6 +679,7 @@ class rbigint(object):
     def invert(self): #Implement ~x as -(x + 1)
         return self.add(ONERBIGINT).neg()
 
+    @jit.elidable
     def lshift(self, int_other):
         if int_other < 0:
             raise ValueError("negative shift count")
@@ -696,6 +713,7 @@ class rbigint(object):
         z._normalize()
         return z
 
+    @jit.elidable
     def lqshift(self, int_other):
         " A quicker one with much less checks, int_other is valid and for the most part constant."
         assert int_other > 0
@@ -714,6 +732,7 @@ class rbigint(object):
         z._normalize()
         return z
     
+    @jit.elidable
     def rshift(self, int_other, dont_invert=False):
         if int_other < 0:
             raise ValueError("negative shift count")
@@ -747,12 +766,15 @@ class rbigint(object):
         z._normalize()
         return z
 
+    @jit.elidable
     def and_(self, other):
         return _bitwise(self, '&', other)
 
+    @jit.elidable
     def xor(self, other):
         return _bitwise(self, '^', other)
 
+    @jit.elidable
     def or_(self, other):
         return _bitwise(self, '|', other)
 
@@ -765,6 +787,7 @@ class rbigint(object):
     def hex(self):
         return _format(self, BASE16, '0x', 'L')
 
+    @jit.elidable
     def log(self, base):
         # base is supposed to be positive or 0.0, which means we use e
         if base == 10.0:

@@ -98,8 +98,7 @@
 						r = Py_ARITHMETIC_RIGHT_SHIFT(PY_LONG_LONG,x, (y))
 #define OP_ULLONG_RSHIFT(x,y,r) CHECK_SHIFT_RANGE(y, PYPY_LONGLONG_BIT); \
 						r = (x) >> (y)
-#define OP_LLLONG_RSHIFT(x,y,r)  CHECK_SHIFT_RANGE(y, PYPY_LONGLONGLONG_BIT); \
-                                                r = Py_ARITHMETIC_RIGHT_SHIFT(PY_LONG_LONG_LONG,x, (y))
+#define OP_LLLONG_RSHIFT(x,y,r)  r = Py_ARITHMETIC_RIGHT_SHIFT(PY_LONG_LONG_LONG,x, (y))
 
 #define OP_INT_LSHIFT(x,y,r)    CHECK_SHIFT_RANGE(y, PYPY_LONG_BIT); \
 							r = (x) << (y)
@@ -107,8 +106,7 @@
 							r = (x) << (y)
 #define OP_LLONG_LSHIFT(x,y,r)  CHECK_SHIFT_RANGE(y, PYPY_LONGLONG_BIT); \
 							r = (x) << (y)
-#define OP_LLLONG_LSHIFT(x,y,r)  CHECK_SHIFT_RANGE(y, PYPY_LONGLONGLONG_BIT); \
-                                                        r = (x) << (y)
+#define OP_LLLONG_LSHIFT(x,y,r)  r = (x) << (y)
 #define OP_ULLONG_LSHIFT(x,y,r) CHECK_SHIFT_RANGE(y, PYPY_LONGLONG_BIT); \
 							r = (x) << (y)
 
