@@ -59,7 +59,7 @@ class TypeConverter(object):
         return fieldptr
 
     def _is_abstract(self, space):
-        raise OperationError(space.w_TypeError, space.wrap("no converter available"))
+        raise OperationError(space.w_TypeError, space.wrap("no converter available for '%s'" % self.name))
 
     def convert_argument(self, space, w_obj, address, call_local):
         self._is_abstract(space)
