@@ -481,6 +481,9 @@ class TestSpecialCases(_LLVMMixin):
 
 
 class TestLowLevelTypeLLVM(_LLVMMixin, test_lltyped.TestLowLevelType):
+    def test_union(self):
+        py.test.skip('not supported')
+
     def test_llgroup_size_limit(self):
         py.test.skip('takes too long to complete')
 

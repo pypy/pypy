@@ -442,43 +442,6 @@ class StructType(Type):
         return self.fldtypes_wo_voids[index]
 
 
-class UnionHelper(object):
-    def __init__(self, storage):
-        self.storage = storage
-
-class UnionType(Type):
-    varsize = False
-
-    def setup_from_lltype(self, db, type_):
-        self.fields = [(db.get_type(type_._flds[f]), f) for f in type_._names]
-        self.storage = max(self.fields, key=lambda x: x[0].bitwidth)[0]
-        self.struct_type = StructType()
-        self.struct_type.setup('%union', [(self.storage, 'storage')])
-
-    def repr_type(self, extra_len=None):
-        return self.struct_type.repr_type(extra_len)
-
-    def is_zero(self, value):
-        return all(ft.is_zero(getattr(value, fn)) for ft, fn in self.fields)
-
-    def get_extra_len(self, value):
-        raise TypeError
-
-    def repr_value(self, value, extra_len=None):
-        if self.is_zero(value):
-            return 'zeroinitializer'
-        raise TypeError
-
-    def add_indices(self, gep, attr):
-        gep.add_field_index(0)
-        for fldtype, fldname in self.fields:
-            if fldname == attr.value:
-                gep.cast(self.storage, fldtype)
-                return fldtype
-        else:
-            raise TypeError
-
-
 class BareArrayType(Type):
     def setup(self, of, length):
         self.of = of
@@ -723,10 +686,7 @@ class Database(object):
                       type_._first_struct() == (None, None)):
                     _llvm_needs_header[type_] = self.genllvm.gcpolicy\
                             .get_gc_fields_lltype()
-                if type_._hints.get("union", False):
-                    class_ = UnionType
-                else:
-                    class_ = StructType
+                class_ = StructType
             elif isinstance(type_, lltype.Array):
                 if type_._gckind == 'gc': # hint for ll2ctypes
                     _llvm_needs_header[type_] = self.genllvm.gcpolicy\
@@ -868,15 +828,6 @@ class GEP(object):
 
     def add_field_index(self, index):
         self.indices.append('i32 {}'.format(index))
-
-    def cast(self, fr, to):
-        t1 = self.func_writer._tmp(PtrType(fr))
-        t2 = self.func_writer._tmp(PtrType(to))
-        self.assign(t1)
-        self.func_writer.w('{t2.V} = bitcast {t1.TV} to {t2.T}'
-                .format(**locals()))
-        self.ptr = t2
-        self.indices[:] = ['i64 0']
 
     def assign(self, result):
         self.func_writer.w('{result.V} = getelementptr {ptr.TV}, {gep}'.format(
