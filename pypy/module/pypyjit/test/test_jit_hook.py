@@ -14,8 +14,7 @@ from pypy.module.pypyjit.interp_jit import pypyjitdriver
 from pypy.module.pypyjit.policy import pypy_hooks
 from pypy.jit.tool.oparser import parse
 from pypy.jit.metainterp.typesystem import llhelper
-from pypy.jit.metainterp.jitprof import ABORT_TOO_LONG
-from pypy.rlib.jit import JitDebugInfo, AsmInfo
+from pypy.rlib.jit import JitDebugInfo, AsmInfo, Counters
 
 class MockJitDriverSD(object):
     class warmstate(object):
@@ -85,8 +84,8 @@ class AppTestJitHook(object):
             pypy_hooks.before_compile(di_loop_optimize)
 
         def interp_on_abort():
-            pypy_hooks.on_abort(ABORT_TOO_LONG, pypyjitdriver, greenkey,
-                                'blah')
+            pypy_hooks.on_abort(Counters.ABORT_TOO_LONG, pypyjitdriver,
+                                greenkey, 'blah')
 
         cls.w_on_compile = space.wrap(interp2app(interp_on_compile))
         cls.w_on_compile_bridge = space.wrap(interp2app(interp_on_compile_bridge))
@@ -103,8 +102,9 @@ class AppTestJitHook(object):
         import pypyjit
         all = []
 
-        def hook(name, looptype, tuple_or_guard_no, ops, asmstart, asmlen):
-            all.append((name, looptype, tuple_or_guard_no, ops))
+        def hook(name, looptype, tuple_or_guard_no, ops, loopno, asmstart,
+                 asmlen):
+            all.append((name, looptype, tuple_or_guard_no, ops, loopno))
 
         self.on_compile()
         pypyjit.set_compile_hook(hook)
@@ -195,7 +195,7 @@ class AppTestJitHook(object):
         def hook(name, looptype, tuple_or_guard_no, ops, *args):
             l.append(ops)
 
-        def optimize_hook(name, looptype, tuple_or_guard_no, ops):
+        def optimize_hook(name, looptype, tuple_or_guard_no, ops, loopno):
             return []
 
         pypyjit.set_compile_hook(hook)

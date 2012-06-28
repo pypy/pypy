@@ -1,8 +1,7 @@
 from pypy.jit.codewriter.policy import JitPolicy
-from pypy.rlib.jit import JitHookInterface
+from pypy.rlib.jit import JitHookInterface, Counters
 from pypy.rlib import jit_hooks
 from pypy.interpreter.error import OperationError
-from pypy.jit.metainterp.jitprof import counter_names
 from pypy.module.pypyjit.interp_resop import wrap_oplist, Cache, wrap_greenkey,\
      WrappedOp
 
@@ -20,7 +19,8 @@ class PyPyJitIface(JitHookInterface):
                                         space.wrap(jitdriver.name),
                                         wrap_greenkey(space, jitdriver,
                                                       greenkey, greenkey_repr),
-                                        space.wrap(counter_names[reason]))
+                                        space.wrap(
+                                            Counters.counter_names[reason]))
                 except OperationError, e:
                     e.write_unraisable(space, "jit hook ", cache.w_abort_hook)
             finally:
