@@ -1,10 +1,12 @@
 import os
 import sys
+from functools import partial
 
 import py
 import pypy
 import pypy.module
 from pypy.module.sys.version import CPYTHON_VERSION
+
 
 from ctypes_configure import dumpcache
 from pypy.jit.backend import detect_cpu
@@ -49,17 +51,12 @@ globals().update(mod.__dict__)\\
 def rebuild_one(path):
     filename = str(path)
     d = {'__file__': filename}
-    #XXX: hack
-    class DumpCache:
-        @staticmethod
-        def dumpcache2(basename, config):
-            dumpcache2(basename, config, filename)
-
-    sys.modules['dumpcache'] = DumpCache()
     try:
         execfile(filename, d)
     finally:
-        del sys.modules['dumpcache']
+        base = path.basename.split('.')[0]
+        dumpcache2(base, d['config'], filename)
+
 
 def try_rebuild():
     from pypy.jit.backend import detect_cpu

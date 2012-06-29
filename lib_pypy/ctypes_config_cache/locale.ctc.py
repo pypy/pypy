@@ -5,7 +5,6 @@ Run this to rebuild _locale_cache.py.
 
 from ctypes_configure.configure import (configure, ExternalCompilationInfo,
     ConstantInteger, DefinedConstantInteger, SimpleType, check_eci)
-import dumpcache
 
 # ____________________________________________________________
 
@@ -70,4 +69,3 @@ if HAS_LANGINFO:
 
 config['ALL_CONSTANTS'] = tuple(_CONSTANTS)
 config['HAS_LANGINFO'] = HAS_LANGINFO
-dumpcache.dumpcache2('locale', config)
