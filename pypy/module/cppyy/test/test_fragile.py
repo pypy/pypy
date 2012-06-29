@@ -1,6 +1,7 @@
 import py, os, sys
 from pypy.conftest import gettestobjspace
 
+from pypy.module.cppyy import capi
 
 currpath = py.path.local(__file__).dirpath()
 test_dct = str(currpath.join("fragileDict.so"))
@@ -19,6 +20,7 @@ class AppTestFRAGILE:
         cls.space = space
         env = os.environ
         cls.w_test_dct  = space.wrap(test_dct)
+        cls.w_capi = space.wrap(capi)
         cls.w_fragile = cls.space.appexec([], """():
             import cppyy
             return cppyy.load_reflection_info(%r)""" % (test_dct, ))
@@ -200,14 +202,22 @@ class AppTestFRAGILE:
 
         import cppyy
 
-        members = dir(cppyy.gbl.fragile)
-        assert 'A' in members
-        assert 'B' in members
-        assert 'C' in members
-        assert 'D' in members                # classes
+        if self.capi.identify() == 'CINT':   # CINT only support classes on global space
+            members = dir(cppyy.gbl)
+            assert 'TROOT' in members
+            assert 'TSystem' in members
+            assert 'TClass' in members
+            members = dir(cppyy.gbl.fragile)
+        else:
+            members = dir(cppyy.gbl.fragile)
+            assert 'A' in members
+            assert 'B' in members
+            assert 'C' in members
+            assert 'D' in members            # classes
+
+            assert 'nested1' in members          # namespace
 
         assert 'fglobal' in members          # function
-        assert 'nested1' in members          # namespace
         assert 'gI'in members                # variable
 
     def test12_imports(self):

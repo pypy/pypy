@@ -16,6 +16,7 @@
 #include "TClass.h"
 #include "TClassEdit.h"
 #include "TClassRef.h"
+#include "TClassTable.h"
 #include "TDataMember.h"
 #include "TFunction.h"
 #include "TGlobal.h"
@@ -208,6 +209,28 @@ static inline void fixup_args(G__param* libp) {
 
 
 /* name to opaque C++ scope representation -------------------------------- */
+int cppyy_num_scopes(cppyy_scope_t handle) {
+    TClassRef cr = type_from_handle(handle);
+    if (cr.GetClass()) {
+        /* not supported as CINT does not store classes hierarchically */
+        return 0;
+    }
+    return gClassTable->Classes();
+}
+
+char* cppyy_scope_name(cppyy_scope_t handle, int iscope) {
+    TClassRef cr = type_from_handle(handle);
+    if (cr.GetClass()) {
+        /* not supported as CINT does not store classes hierarchically */
+        assert(!"scope name lookup not supported on inner scopes");
+        return 0;
+    }
+    std::string name = gClassTable->At(iscope);
+    if (name.find("::") == std::string::npos)
+        return cppstring_to_cstring(name);
+    return cppstring_to_cstring("");
+}
+
 char* cppyy_resolve_name(const char* cppitem_name) {
     std::string tname = cppitem_name;
 

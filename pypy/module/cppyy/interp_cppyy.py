@@ -534,14 +534,22 @@ class W_CPPNamespace(W_CPPScope):
         return self.space.w_True
 
     def ns__dir__(self):
+        # Collect a list of everything (currently) available in the namespace.
+        # The backend can filter by returning empty strings. Special care is
+        # taken for functions, which need not be unique (overloading).
         alldir = []
         for i in range(capi.c_num_scopes(self)):
-            alldir.append(capi.c_scope_name(self, i))
+            sname = capi.c_scope_name(self, i)
+            if sname: alldir.append(sname)
+        allmeth = []
         for i in range(capi.c_num_methods(self)):
             idx = capi.c_method_index_at(self, i)
-            alldir.append(capi.c_method_name(self, idx))
+            mname = capi.c_method_name(self, idx)
+            if mname: allmeth.append(mname)
+        alldir += set(allmeth)
         for i in range(capi.c_num_datamembers(self)):
-            alldir.append(capi.c_datamember_name(self, i))
+            dname = capi.c_datamember_name(self, i)
+            if dname: alldir.append(dname)
         return self.space.wrap(alldir)
         
 
