@@ -31,6 +31,7 @@ from pypy.tool.udir import udir
 
 class Type(object):
     varsize = False
+    is_gc = False
 
     def repr_type(self, extra_len=None):
         return self.typestr
@@ -378,6 +379,10 @@ class StructType(Type):
         self.size_variants = {}
 
     def setup_from_lltype(self, db, type_):
+        if (type_._hints.get('typeptr', False) and
+            db.genllvm.translator.config.translation.gcremovetypeptr):
+            self.setup('%' + type_._name, [], True)
+            return
         fields = ((db.get_type(type_._flds[f]), f) for f in type_._names)
         is_gc = type_._gckind == 'gc' and type_._first_struct() == (None, None)
         self.setup('%' + type_._name, fields, is_gc)
@@ -658,6 +663,16 @@ class OpaqueType(Type):
             ptr_type.refs[obj] = 'null'
 
 
+_LL_TO_LLVM = {lltype.Ptr: PtrType,
+               lltype.Struct: StructType, lltype.GcStruct: StructType,
+               lltype.Array: ArrayType, lltype.GcArray: ArrayType,
+               lltype.FixedSizeArray: BareArrayType,
+               lltype.FuncType: FuncType,
+               lltype.OpaqueType: OpaqueType, lltype.GcOpaqueType: OpaqueType,
+               llgroup.GroupType: GroupType,
+               llmemory._WeakRefType: OpaqueType,
+               lltype.PyObjectType: OpaqueType}
+
 class Database(object):
     identifier_regex = re.compile('^[%@][a-zA-Z$._][a-zA-Z$._0-9]*$')
 
@@ -672,48 +687,20 @@ class Database(object):
         try:
             return self.types[type_]
         except KeyError:
-            if isinstance(type_, lltype.Ptr):
-                class_ = PtrType
-            elif isinstance(type_, lltype.FixedSizeArray):
-                class_ = BareArrayType
-            elif isinstance(type_, lltype.Struct):
-                if (type_._hints.get('typeptr', False) and
-                    self.genllvm.translator.config.translation.gcremovetypeptr):
-                    self.types[type_] = ret = StructType()
-                    ret.setup('%' + type_._name, [], True)
-                    return ret
-                elif (type_._gckind == 'gc' and # hint for ll2ctypes
-                      type_._first_struct() == (None, None)):
-                    _llvm_needs_header[type_] = self.genllvm.gcpolicy\
-                            .get_gc_fields_lltype()
-                class_ = StructType
-            elif isinstance(type_, lltype.Array):
-                if type_._gckind == 'gc': # hint for ll2ctypes
-                    _llvm_needs_header[type_] = self.genllvm.gcpolicy\
-                            .get_gc_fields_lltype()
-                if type_._hints.get("nolength", False):
-                    class_ = BareArrayType
-                else:
-                    class_ = ArrayType
-            elif isinstance(type_, lltype.FuncType):
-                class_ = FuncType
-            elif type_ == lltype.RuntimeTypeInfo:
-                class_ = self.genllvm.gcpolicy.RttiType
-            elif isinstance(type_, lltype.OpaqueType):
-                class_ = OpaqueType
-            elif isinstance(type_, llgroup.GroupType):
-                class_ = GroupType
-            elif type_ is llmemory.WeakRef:
-                class_ = OpaqueType
-            elif type_ is lltype.PyObject:
-                class_ = OpaqueType
-            elif isinstance(type_, lltype.Typedef):
+            if isinstance(type_, lltype.Typedef):
                 return self.get_type(type_.OF)
+            elif (isinstance(type_, lltype.Array) and
+                  type_._hints.get('nolength', False)):
+                class_ = BareArrayType
+            elif type_ is lltype.RuntimeTypeInfo:
+                class_ = self.genllvm.gcpolicy.RttiType
             else:
-                raise TypeError('type_ is {!r}'.format(type_))
-
+                class_ = _LL_TO_LLVM[type(type_)]
             self.types[type_] = ret = class_()
             ret.setup_from_lltype(self, type_)
+            if ret.is_gc:
+                _llvm_needs_header[type_] = database.genllvm.gcpolicy \
+                        .get_gc_fields_lltype() # hint for ll2ctypes
             return ret
 
     def unique_name(self, name):
