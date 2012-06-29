@@ -53,6 +53,17 @@ static inline std::vector<void*> build_args(int nargs, void* args) {
 
 
 /* name to opaque C++ scope representation -------------------------------- */
+int cppyy_num_scopes(cppyy_scope_t handle) {
+    Reflex::Scope s = scope_from_handle(handle);
+    return s.SubScopeSize();
+}
+
+char* cppyy_scope_name(cppyy_scope_t handle, int iscope) {
+    Reflex::Scope s = scope_from_handle(handle);
+    std::string name = s.SubScopeAt(iscope).Name(Reflex::F);
+    return cppstring_to_cstring(name);
+}
+
 char* cppyy_resolve_name(const char* cppitem_name) {
     Reflex::Scope s = Reflex::Scope::ByName(cppitem_name);
     if (s.IsEnum())

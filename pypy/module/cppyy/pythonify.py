@@ -1,6 +1,6 @@
 # NOT_RPYTHON
 import cppyy
-import types
+import types, sys
 
 
 # For now, keep namespaces and classes separate as namespaces are extensible
@@ -15,7 +15,8 @@ class CppyyScopeMeta(type):
             raise AttributeError("%s object has no attribute '%s'" % (self, name))
 
 class CppyyNamespaceMeta(CppyyScopeMeta):
-    pass
+    def __dir__(cls):
+        return cls._cpp_proxy.__dir__()
 
 class CppyyClass(CppyyScopeMeta):
     pass
@@ -124,6 +125,8 @@ def make_cppnamespace(scope, namespace_name, cppns, build_in_full=True):
             setattr(pycppns, dm, pydm)
             setattr(metans, dm, pydm)
 
+        modname = pycppns.__name__.replace('::', '.')
+        sys.modules['cppyy.gbl.'+modname] = pycppns
     return pycppns
 
 def _drop_cycles(bases):
@@ -375,9 +378,11 @@ def load_reflection_info(name):
 # creation of global functions may cause the creation of classes in the global
 # namespace, so gbl must exist at that point to cache them)
 gbl = make_cppnamespace(None, "::", None, False)   # global C++ namespace
+sys.modules['cppyy.gbl'] = gbl
 
 # mostly for the benefit of the CINT backend, which treats std as special
 gbl.std = make_cppnamespace(None, "std", None, False)
+sys.modules['cppyy.gbl.std'] = gbl.std
 
 # user-defined pythonizations interface
 _pythonizations = {}

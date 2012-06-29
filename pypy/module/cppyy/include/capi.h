@@ -15,6 +15,9 @@ extern "C" {
     typedef void* (*cppyy_methptrgetter_t)(cppyy_object_t);
 
     /* name to opaque C++ scope representation -------------------------------- */
+    int cppyy_num_scopes(cppyy_scope_t parent);
+    char* cppyy_scope_name(cppyy_scope_t parent, int iscope);
+
     char* cppyy_resolve_name(const char* cppitem_name);
     cppyy_scope_t cppyy_get_scope(const char* scope_name);
     cppyy_type_t cppyy_get_template(const char* template_name);

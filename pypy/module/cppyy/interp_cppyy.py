@@ -533,6 +533,18 @@ class W_CPPNamespace(W_CPPScope):
     def is_namespace(self):
         return self.space.w_True
 
+    def ns__dir__(self):
+        alldir = []
+        for i in range(capi.c_num_scopes(self)):
+            alldir.append(capi.c_scope_name(self, i))
+        for i in range(capi.c_num_methods(self)):
+            idx = capi.c_method_index_at(self, i)
+            alldir.append(capi.c_method_name(self, idx))
+        for i in range(capi.c_num_datamembers(self)):
+            alldir.append(capi.c_datamember_name(self, i))
+        return self.space.wrap(alldir)
+        
+
 W_CPPNamespace.typedef = TypeDef(
     'CPPNamespace',
     get_method_names = interp2app(W_CPPNamespace.get_method_names),
@@ -540,6 +552,7 @@ W_CPPNamespace.typedef = TypeDef(
     get_datamember_names = interp2app(W_CPPNamespace.get_datamember_names),
     get_datamember = interp2app(W_CPPNamespace.get_datamember, unwrap_spec=['self', str]),
     is_namespace = interp2app(W_CPPNamespace.is_namespace),
+    __dir__ = interp2app(W_CPPNamespace.ns__dir__),
 )
 W_CPPNamespace.typedef.acceptable_as_base_class = False
 

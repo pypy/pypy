@@ -19,7 +19,7 @@ class AppTestFRAGILE:
         cls.space = space
         env = os.environ
         cls.w_test_dct  = space.wrap(test_dct)
-        cls.w_datatypes = cls.space.appexec([], """():
+        cls.w_fragile = cls.space.appexec([], """():
             import cppyy
             return cppyy.load_reflection_info(%r)""" % (test_dct, ))
 
@@ -194,3 +194,53 @@ class AppTestFRAGILE:
 
         f = fragile.fglobal
         assert f.__doc__ == "void fragile::fglobal(int, double, char)"
+
+    def test11_dir(self):
+        """Test __dir__ method"""
+
+        import cppyy
+
+        members = dir(cppyy.gbl.fragile)
+        assert 'A' in members
+        assert 'B' in members
+        assert 'C' in members
+        assert 'D' in members                # classes
+
+        assert 'fglobal' in members          # function
+        assert 'nested1' in members          # namespace
+        assert 'gI'in members                # variable
+
+    def test12_imports(self):
+        """Test ability to import from namespace (or fail with ImportError)"""
+
+        import cppyy
+
+        # TODO: namespaces aren't loaded (and thus not added to sys.modules)
+        # with just the from ... import statement; actual use is needed
+        from cppyy.gbl import fragile
+
+        def fail_import():
+            from cppyy.gbl import does_not_exist
+        raises(ImportError, fail_import)
+
+        from cppyy.gbl.fragile import A, B, C, D
+        assert cppyy.gbl.fragile.A is A
+        assert cppyy.gbl.fragile.B is B
+        assert cppyy.gbl.fragile.C is C
+        assert cppyy.gbl.fragile.D is D
+
+        # according to warnings, can't test "import *" ...
+
+        from cppyy.gbl.fragile import nested1
+        assert cppyy.gbl.fragile.nested1 is nested1
+
+        from cppyy.gbl.fragile.nested1 import A, nested2
+        assert cppyy.gbl.fragile.nested1.A is A
+        assert cppyy.gbl.fragile.nested1.nested2 is nested2
+
+        from cppyy.gbl.fragile.nested1.nested2 import A, nested3
+        assert cppyy.gbl.fragile.nested1.nested2.A is A
+        assert cppyy.gbl.fragile.nested1.nested2.nested3 is nested3
+
+        from cppyy.gbl.fragile.nested1.nested2.nested3 import A
+        assert cppyy.gbl.fragile.nested1.nested2.nested3.A is nested3.A

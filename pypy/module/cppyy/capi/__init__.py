@@ -39,6 +39,20 @@ def direct_ptradd(ptr, offset):
 c_load_dictionary = backend.c_load_dictionary
 
 # name to opaque C++ scope representation ------------------------------------
+_c_num_scopes = rffi.llexternal(
+    "cppyy_num_scopes",
+    [C_SCOPE], rffi.INT,
+    threadsafe=ts_reflect,
+    compilation_info=backend.eci)
+def c_num_scopes(cppscope):
+    return _c_num_scopes(cppscope.handle)
+_c_scope_name = rffi.llexternal(
+    "cppyy_scope_name",
+    [C_SCOPE, rffi.INT], rffi.CCHARP,
+    compilation_info = backend.eci)
+def c_scope_name(cppscope, iscope):
+    return charp2str_free(_c_scope_name(cppscope.handle, iscope))
+
 _c_resolve_name = rffi.llexternal(
     "cppyy_resolve_name",
     [rffi.CCHARP], rffi.CCHARP,
