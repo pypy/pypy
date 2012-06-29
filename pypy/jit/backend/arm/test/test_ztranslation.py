@@ -74,7 +74,7 @@ class TestTranslationARM(CCompiledMixin):
         #
         from pypy.rpython.lltypesystem import lltype, rffi
         from pypy.rlib.libffi import types, CDLL, ArgChain
-        from pypy.rlib.test.test_libffi import get_libm_name
+        from pypy.rlib.test.test_clibffi import get_libm_name
         libm_name = get_libm_name(sys.platform)
         jitdriver2 = JitDriver(greens=[], reds = ['i', 'func', 'res', 'x'])
         def libffi_stuff(i, j):

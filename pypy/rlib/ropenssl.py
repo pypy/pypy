@@ -259,6 +259,7 @@ ssl_external('SSL_CIPHER_get_version', [SSL_CIPHER], rffi.CCHARP)
 ssl_external('SSL_CIPHER_get_bits', [SSL_CIPHER, rffi.INTP], rffi.INT)
 
 ssl_external('ERR_get_error', [], rffi.INT)
+ssl_external('ERR_peek_last_error', [], rffi.INT)
 ssl_external('ERR_error_string', [rffi.ULONG, rffi.CCHARP], rffi.CCHARP)
 
 ssl_external('SSL_free', [SSL], lltype.Void)

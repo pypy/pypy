@@ -577,7 +577,6 @@ class WriteBarrierDescr(AbstractDescr):
     def __init__(self, gc_ll_descr):
         self.llop1 = gc_ll_descr.llop1
         self.WB_FUNCPTR = gc_ll_descr.WB_FUNCPTR
-        self.WB_ARRAY_FUNCPTR = gc_ll_descr.WB_ARRAY_FUNCPTR
         self.fielddescr_tid = gc_ll_descr.fielddescr_tid
         #
         GCClass = gc_ll_descr.GCClass
@@ -592,6 +591,11 @@ class WriteBarrierDescr(AbstractDescr):
             self.jit_wb_card_page_shift = GCClass.JIT_WB_CARD_PAGE_SHIFT
             self.jit_wb_cards_set_byteofs, self.jit_wb_cards_set_singlebyte = (
                 self.extract_flag_byte(self.jit_wb_cards_set))
+            #
+            # the x86 backend uses the following "accidental" facts to
+            # avoid one instruction:
+            assert self.jit_wb_cards_set_byteofs == self.jit_wb_if_flag_byteofs
+            assert self.jit_wb_cards_set_singlebyte == -0x80
         else:
             self.jit_wb_cards_set = 0
 
@@ -615,7 +619,7 @@ class WriteBarrierDescr(AbstractDescr):
         # returns a function with arguments [array, index, newvalue]
         llop1 = self.llop1
         funcptr = llop1.get_write_barrier_from_array_failing_case(
-            self.WB_ARRAY_FUNCPTR)
+            self.WB_FUNCPTR)
         funcaddr = llmemory.cast_ptr_to_adr(funcptr)
         return cpu.cast_adr_to_int(funcaddr)    # this may return 0
 
@@ -655,10 +659,11 @@ class GcLLDescr_framework(GcLLDescription):
 
     def _check_valid_gc(self):
         # we need the hybrid or minimark GC for rgc._make_sure_does_not_move()
-        # to work
-        if self.gcdescr.config.translation.gc not in ('hybrid', 'minimark'):
+        # to work.  Additionally, 'hybrid' is missing some stuff like
+        # jit_remember_young_pointer() for now.
+        if self.gcdescr.config.translation.gc not in ('minimark',):
             raise NotImplementedError("--gc=%s not implemented with the JIT" %
-                                      (gcdescr.config.translation.gc,))
+                                      (self.gcdescr.config.translation.gc,))
 
     def _make_gcrootmap(self):
         # to find roots in the assembler, make a GcRootMap
@@ -699,9 +704,7 @@ class GcLLDescr_framework(GcLLDescription):
 
     def _setup_write_barrier(self):
         self.WB_FUNCPTR = lltype.Ptr(lltype.FuncType(
-            [llmemory.Address, llmemory.Address], lltype.Void))
-        self.WB_ARRAY_FUNCPTR = lltype.Ptr(lltype.FuncType(
-            [llmemory.Address, lltype.Signed, llmemory.Address], lltype.Void))
+            [llmemory.Address], lltype.Void))
         self.write_barrier_descr = WriteBarrierDescr(self)
 
     def _make_functions(self, really_not_translated):
@@ -861,8 +864,7 @@ class GcLLDescr_framework(GcLLDescription):
             # the GC, and call it immediately
             llop1 = self.llop1
             funcptr = llop1.get_write_barrier_failing_case(self.WB_FUNCPTR)
-            funcptr(llmemory.cast_ptr_to_adr(gcref_struct),
-                    llmemory.cast_ptr_to_adr(gcref_newptr))
+            funcptr(llmemory.cast_ptr_to_adr(gcref_struct))
 
     def can_use_nursery_malloc(self, size):
         return size < self.max_size_of_young_obj

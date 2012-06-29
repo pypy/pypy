@@ -111,10 +111,13 @@ GCFLAG_FINALIZATION_ORDERING = first_gcflag << 4
 # The following flag is set on externally raw_malloc'ed arrays of pointers.
 # They are allocated with some extra space in front of them for a bitfield,
 # one bit per 'card_page_indices' indices.
-GCFLAG_HAS_CARDS    = first_gcflag << 5
-GCFLAG_CARDS_SET    = first_gcflag << 6     # <- at least one card bit is set
+GCFLAG_HAS_CARDS    = first_gcflag << 6
+GCFLAG_CARDS_SET    = first_gcflag << 7     # <- at least one card bit is set
+# note that GCFLAG_CARDS_SET is the most significant bit of a byte:
+# this is required for the JIT (x86)
 
-TID_MASK            = (first_gcflag << 7) - 1
+#GCFLAG_UNUSED      = first_gcflag << 5     # this flag is free
+TID_MASK            = (first_gcflag << 8) - 1
 
 
 FORWARDSTUB = lltype.GcStruct('forwarding_stub',
@@ -994,12 +997,9 @@ class MiniMarkGC(MovingGCBase):
     def _init_writebarrier_logic(self):
         DEBUG = self.DEBUG
         # The purpose of attaching remember_young_pointer to the instance
-        # instead of keeping it as a regular method is to help the JIT call it.
-        # Additionally, it makes the code in write_barrier() marginally smaller
+        # instead of keeping it as a regular method is to
+        # make the code in write_barrier() marginally smaller
         # (which is important because it is inlined *everywhere*).
-        # For x86, there is also an extra requirement: when the JIT calls
-        # remember_young_pointer(), it assumes that it will not touch the SSE
-        # registers, so it does not save and restore them (that's a *hack*!).
         def remember_young_pointer(addr_struct, newvalue):
             # 'addr_struct' is the address of the object in which we write.
             # 'newvalue' is the address that we are going to write in there.
@@ -1032,6 +1032,17 @@ class MiniMarkGC(MovingGCBase):
 
         remember_young_pointer._dont_inline_ = True
         self.remember_young_pointer = remember_young_pointer
+        #
+        def jit_remember_young_pointer(addr_struct):
+            # minimal version of the above, with just one argument,
+            # called by the JIT when GCFLAG_TRACK_YOUNG_PTRS is set
+            self.old_objects_pointing_to_young.append(addr_struct)
+            objhdr = self.header(addr_struct)
+            objhdr.tid &= ~GCFLAG_TRACK_YOUNG_PTRS
+            if objhdr.tid & GCFLAG_NO_HEAP_PTRS:
+                objhdr.tid &= ~GCFLAG_NO_HEAP_PTRS
+                self.prebuilt_root_objects.append(addr_struct)
+        self.jit_remember_young_pointer = jit_remember_young_pointer
         #
         if self.card_page_indices > 0:
             self._init_writebarrier_with_card_marker()
@@ -1087,60 +1098,21 @@ class MiniMarkGC(MovingGCBase):
         self.remember_young_pointer_from_array2 = (
             remember_young_pointer_from_array2)
 
-        # xxx trying it out for the JIT: a 3-arguments version of the above
-        def remember_young_pointer_from_array3(addr_array, index, newvalue):
+        def jit_remember_young_pointer_from_array(addr_array):
+            # minimal version of the above, with just one argument,
+            # called by the JIT when GCFLAG_TRACK_YOUNG_PTRS is set
+            # but GCFLAG_CARDS_SET is cleared.  This tries to set
+            # GCFLAG_CARDS_SET if possible; otherwise, it falls back
+            # to jit_remember_young_pointer().
             objhdr = self.header(addr_array)
-            #
-            # a single check for the common case of neither GCFLAG_HAS_CARDS
-            # nor GCFLAG_NO_HEAP_PTRS
-            if objhdr.tid & (GCFLAG_HAS_CARDS | GCFLAG_NO_HEAP_PTRS) == 0:
-                # common case: fast path, jump to the end of the function
-                pass
-            elif objhdr.tid & GCFLAG_HAS_CARDS == 0:
-                # no cards, but GCFLAG_NO_HEAP_PTRS is set.
-                objhdr.tid &= ~GCFLAG_NO_HEAP_PTRS
-                self.prebuilt_root_objects.append(addr_array)
-                # jump to the end of the function
+            if objhdr.tid & GCFLAG_HAS_CARDS:
+                self.old_objects_with_cards_set.append(addr_array)
+                objhdr.tid |= GCFLAG_CARDS_SET
             else:
-                # case with cards.
-                #
-                # If the newly written address does not actually point to a
-                # young object, leave now.
-                if not self.appears_to_be_young(newvalue):
-                    return
-                #
-                # 'addr_array' is a raw_malloc'ed array with card markers
-                # in front.  Compute the index of the bit to set:
-                bitindex = index >> self.card_page_shift
-                byteindex = bitindex >> 3
-                bitmask = 1 << (bitindex & 7)
-                #
-                # If the bit is already set, leave now.
-                addr_byte = self.get_card(addr_array, byteindex)
-                byte = ord(addr_byte.char[0])
-                if byte & bitmask:
-                    return
-                addr_byte.char[0] = chr(byte | bitmask)
-                #
-                if objhdr.tid & GCFLAG_CARDS_SET == 0:
-                    self.old_objects_with_cards_set.append(addr_array)
-                    objhdr.tid |= GCFLAG_CARDS_SET
-                return
-            #
-            # Logic for the no-cards case, put here to minimize the number
-            # of checks done at the start of the function
-            if DEBUG:   # note: PYPY_GC_DEBUG=1 does not enable this
-                ll_assert(self.debug_is_old_object(addr_array),
-                        "young array with no card but GCFLAG_TRACK_YOUNG_PTRS")
-            #
-            if self.appears_to_be_young(newvalue):
-                self.old_objects_pointing_to_young.append(addr_array)
-                objhdr.tid &= ~GCFLAG_TRACK_YOUNG_PTRS
+                self.jit_remember_young_pointer(addr_array)
 
-        remember_young_pointer_from_array3._dont_inline_ = True
-        assert self.card_page_indices > 0
-        self.remember_young_pointer_from_array3 = (
-            remember_young_pointer_from_array3)
+        self.jit_remember_young_pointer_from_array = (
+            jit_remember_young_pointer_from_array)
 
     def get_card(self, obj, byteindex):
         size_gc_header = self.gcheaderbuilder.size_gc_header

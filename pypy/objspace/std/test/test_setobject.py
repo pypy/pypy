@@ -425,6 +425,8 @@ class AppTestAppSetTest:
         s1 = set()
         s1.update(set('abcd'))
         assert s1 == set('abcd')
+        s1 = set([1, 2.0, "3"])
+        s1.update(set(["3", 4, 5.0]))
 
     def test_recursive_repr(self):
         class A(object):
@@ -641,6 +643,21 @@ class AppTestAppSetTest:
         assert set([1,2,3]).difference(set([2,3,4,'5'])) == set([1])
         assert set([1,2,3,'5']).difference(set([2,3,4])) == set([1,'5'])
         assert set().difference(set([1,2,3])) == set()
+
+    def test_difference_bug(self):
+        a = set([1,2,3])
+        b = set([])
+        c = a - b
+        c.remove(2)
+        assert c == set([1, 3])
+        assert a == set([1, 2, 3])
+
+        a = set([1,2,3])
+        b = set(["a", "b", "c"])
+        c = a - b
+        c.remove(2)
+        assert c == set([1, 3])
+        assert a == set([1, 2, 3])
 
     def test_intersection_update(self):
         s = set([1,2,3,4,7])

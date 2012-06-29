@@ -54,7 +54,15 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
         pypy_c = py.path.local(override_pypy_c)
     if not pypy_c.check():
         print pypy_c
-        raise PyPyCNotFound('Please compile pypy first, using translate.py')
+        if os.path.isdir(os.path.dirname(str(pypy_c))):
+            raise PyPyCNotFound(
+                'Please compile pypy first, using translate.py,'
+                ' or check that you gave the correct path'
+                ' (see docstring for more info)')
+        else:
+            raise PyPyCNotFound(
+                'Bogus path: %r does not exist (see docstring for more info)'
+                % (os.path.dirname(str(pypy_c)),))
     if sys.platform == 'win32' and not rename_pypy_c.lower().endswith('.exe'):
         rename_pypy_c += '.exe'
     binaries = [(pypy_c, rename_pypy_c)]
@@ -137,6 +145,8 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
             archive = str(builddir.join(name + '.tar.bz2'))
             if sys.platform == 'darwin' or sys.platform.startswith('freebsd'):
                 e = os.system('tar --numeric-owner -cvjf ' + archive + " " + name)
+            elif sys.platform == 'cygwin':
+                e = os.system('tar --owner=Administrator --group=Administrators --numeric-owner -cvjf ' + archive + " " + name)
             else:
                 e = os.system('tar --owner=root --group=root --numeric-owner -cvjf ' + archive + " " + name)
             if e:

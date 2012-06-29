@@ -922,16 +922,6 @@ class RegAlloc(object):
         # or setarrayitem_gc. It avoids loading it twice from the memory.
         arglocs = [self.rm.make_sure_var_in_reg(op.getarg(i), args)
                    for i in range(N)]
-        # add eax, ecx and edx as extra "arguments" to ensure they are
-        # saved and restored.  Fish in self.rm to know which of these
-        # registers really need to be saved (a bit of a hack).  Moreover,
-        # we don't save and restore any SSE register because the called
-        # function, a GC write barrier, is known not to touch them.
-        # See remember_young_pointer() in rpython/memory/gc/generation.py.
-        for v, reg in self.rm.reg_bindings.items():
-            if (reg in self.rm.save_around_call_regs
-                and self.rm.stays_alive(v)):
-                arglocs.append(reg)
         self.PerformDiscard(op, arglocs)
         self.rm.possibly_free_vars_for_op(op)
 

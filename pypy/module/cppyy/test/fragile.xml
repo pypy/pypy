@@ -1,0 +1,11 @@
+<lcgdict>
+
+  <namespace name="fragile" />
+
+  <class pattern="fragile::[A-Z]" />
+
+  <variable name="fragile::gI" />
+
+  <function pattern="fragile::f*" />
+
+</lcgdict>
