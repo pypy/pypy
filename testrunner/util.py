@@ -3,6 +3,30 @@ import os
 import subprocess
 import signal
 import time
+import optparse
+
+parser = optparse.OptionParser()
+parser.add_option("--logfile", dest="logfile", default=None,
+                  help="accumulated machine-readable logfile")
+parser.add_option("--output", dest="output", default='-',
+                  help="plain test output (default: stdout)")
+parser.add_option("--config", dest="config", default=[],
+                  action="append",
+                  help="configuration python file (optional)")
+parser.add_option("--root", dest="root", default=".",
+                  help="root directory for the run")
+parser.add_option("--parallel-runs", dest="parallel_runs", default=0,
+                  type="int",
+                  help="number of parallel test runs")
+parser.add_option("--dry-run", dest="dry_run", default=False,
+                  action="store_true",
+                  help="dry run"),
+parser.add_option("--timeout", dest="timeout", default=None,
+                  type="int",
+                  help="timeout in secs for test processes")
+
+
+
 
 if sys.platform == 'win32':
     PROCESS_TERMINATE = 0x1

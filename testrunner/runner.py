@@ -1,4 +1,4 @@
-import sys, os, signal, thread, Queue, time
+import sys, os, thread, Queue
 import py
 import util
 
@@ -163,9 +163,8 @@ class RunParam(object):
     timeout = None
     cherrypick = None
     
-    def __init__(self, root):
-        self.root = root
-        self.self = self
+    def __init__(self, opts):
+        self.root = py.path.local(opts.root)
 
     def startup(self):
         pass
@@ -212,28 +211,8 @@ class RunParam(object):
         pass
 
 
-def main(args, RunParam=RunParam):
-    parser = optparse.OptionParser()
-    parser.add_option("--logfile", dest="logfile", default=None,
-                      help="accumulated machine-readable logfile")
-    parser.add_option("--output", dest="output", default='-',
-                      help="plain test output (default: stdout)")
-    parser.add_option("--config", dest="config", default=[],
-                      action="append",
-                      help="configuration python file (optional)")
-    parser.add_option("--root", dest="root", default=".",
-                      help="root directory for the run")
-    parser.add_option("--parallel-runs", dest="parallel_runs", default=0,
-                      type="int",
-                      help="number of parallel test runs")
-    parser.add_option("--dry-run", dest="dry_run", default=False,
-                      action="store_true",
-                      help="dry run"),
-    parser.add_option("--timeout", dest="timeout", default=None,
-                      type="int",
-                      help="timeout in secs for test processes")
-        
-    opts, args = parser.parse_args(args)
+def main(opts, args):
+
 
     if opts.logfile is None:
         print "no logfile specified"
@@ -245,11 +224,10 @@ def main(args, RunParam=RunParam):
     else:
         out = open(opts.output, WRITE_MODE)
 
-    root = py.path.local(opts.root)
 
     testdirs = []
 
-    run_param = RunParam(root)
+    run_param = RunParam(opts)
     # the config files are python files whose run overrides the content
     # of the run_param instance namespace
     # in that code function overriding method should not take self
@@ -272,7 +250,7 @@ def main(args, RunParam=RunParam):
         run_param.timeout = opts.timeout
     run_param.dry_run = opts.dry_run
 
-    if run_param.dry_run:
+    if opts.dry_run:
         print >>out, run_param.__dict__
     
     res = execute_tests(run_param, testdirs, logfile, out)
@@ -282,4 +260,5 @@ def main(args, RunParam=RunParam):
 
 
 if __name__ == '__main__':
-    main(sys.argv)
+    opts, args = util.parser.parse_args()
+    main(opts, args)
