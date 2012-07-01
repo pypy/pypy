@@ -40,7 +40,7 @@ def worker(num, n, run_param, testdirs, result_queue):
     root = run_param.root
     test_driver = run_param.test_driver
     interp = run_param.interp
-    dry_run = run_param.dry_run
+    runfunc = run_param.runfunc
     timeout = run_param.timeout
     cleanup = run_param.cleanup
     # xxx cfg thread start
@@ -56,15 +56,10 @@ def worker(num, n, run_param, testdirs, result_queue):
         one_output = sessdir.join("%d-%s-output" % (num, basename))
         num += n
 
-        if dry_run:
-            runfunc = util.dry_run
-        else:
-            runfunc = util.run
         try:
             exitcode = execute_test(root, test, one_output, logfname,
                                     interp, test_driver, runfunc=runfunc,
                                     timeout=timeout)
-
             cleanup(test)
         except:
             print "execute-test for %r failed with:" % test
@@ -98,7 +93,7 @@ def start_workers(n, run_param, testdirs):
     return result_queue
 
 
-def execute_tests(run_param, testdirs, logfile, out):
+def execute_tests(run_param, testdirs, logfile):
     sessdir = py.path.local.make_numbered_dir(prefix='usession-testrunner-',
                                               keep=4)
     run_param.sessdir = sessdir
@@ -107,8 +102,8 @@ def execute_tests(run_param, testdirs, logfile, out):
     failure = False
 
     for testname in testdirs:
-        out.write("-- %s\n" % testname)
-    out.write("-- total: %d to run\n" % len(testdirs))
+        run_param.log("-- %s", testname)
+    run_param.log("-- total: %d to run", len(testdirs))
 
     result_queue = start_workers(N, run_param, testdirs)
 
@@ -126,8 +121,8 @@ def execute_tests(run_param, testdirs, logfile, out):
 
         if res[0] == 'start':
             started += 1
-            out.write("++ starting %s [%d started in total]\n" % (res[1],
-                                                                  started))
+            run_param.log("++ starting %s [%d started in total]",
+                          res[1], started)
             continue
         
         testname, somefailed, logdata, output = res[1:]
@@ -136,9 +131,9 @@ def execute_tests(run_param, testdirs, logfile, out):
 
         heading = "__ %s [%d done in total] " % (testname, done)
         
-        out.write(heading + (79-len(heading))*'_'+'\n')
+        run_param.log(heading.ljust(79, '_'))
 
-        out.write(output)
+        run_param.log(output.rstrip())
         if logdata:
             logfile.write(logdata)
 
@@ -146,20 +141,44 @@ def execute_tests(run_param, testdirs, logfile, out):
 
 
 class RunParam(object):
-    dry_run = False
-    interp = [os.path.abspath(sys.executable)]
+    run = staticmethod(util.run)
+    dry_run = staticmethod(util.dry_run)
+
     pytestpath = os.path.abspath(os.path.join('py', 'bin', 'py.test'))
     if not os.path.exists(pytestpath):
         pytestpath = os.path.abspath(os.path.join('pytest.py'))
         assert os.path.exists(pytestpath)
     test_driver = [pytestpath]
 
-    parallel_runs = 1
-    timeout = None
     cherrypick = None
     
-    def __init__(self, opts):
-        self.root = py.path.local(opts.root)
+    def __init__(self, root, out):
+        self.root = root
+        self.out = out
+        self.interp = [os.path.abspath(sys.executable)]
+        self.runfunc = self.run
+        self.parallel_runs = 1
+        self.timeout = None
+        self.cherrypick = None
+    
+    @classmethod
+    def from_options(cls, opts, out):
+        root = py.path.local(opts.root)
+
+        self = cls(root, out)
+
+        self.parallel_runs = opts.parallel_runs
+        self.timeout = opts.timeout
+
+        if opts.dry_run:
+            self.runfunc = self.dry_run
+        else:
+            self.runfunc = self.run
+        return self
+
+
+    def log(self, fmt, *args):
+        self.out.write((fmt % args) + '\n')
 
     def is_test_py_file(self, p):
         name = p.basename
@@ -172,6 +191,10 @@ class RunParam(object):
     def collect_one_testdir(self, testdirs, reldir, tests):
         testdirs.append(reldir)
         return
+
+    def cleanup(self, test):
+        # used for test_collect_testdirs
+        pass
 
     def collect_testdirs(self, testdirs, p=None):
         if p is None:
@@ -193,9 +216,6 @@ class RunParam(object):
             if p1.check(dir=1, link=0):
                 self.collect_testdirs(testdirs, p1)
 
-    def cleanup(self, testdir):
-        pass
-
 
 def main(opts, args):
 
@@ -212,7 +232,7 @@ def main(opts, args):
 
     testdirs = []
 
-    run_param = RunParam(opts)
+    run_param = RunParam.from_options(opts, out)
     # the config files are python files whose run overrides the content
     # of the run_param instance namespace
     # in that code function overriding method should not take self
@@ -220,7 +240,7 @@ def main(opts, args):
     for config_py_file in opts.config:
         config_py_file = os.path.expanduser(config_py_file)
         if py.path.local(config_py_file).check(file=1):
-            print >>out, "using config", config_py_file
+            run_param.log("using config %s", config_py_file)
             execfile(config_py_file, run_param.__dict__)
 
     if run_param.cherrypick:
@@ -229,16 +249,11 @@ def main(opts, args):
     else:
         run_param.collect_testdirs(testdirs)
 
-    if opts.parallel_runs:
-        run_param.parallel_runs = opts.parallel_runs
-    if opts.timeout:
-        run_param.timeout = opts.timeout
-    run_param.dry_run = opts.dry_run
 
     if opts.dry_run:
-        print >>out, run_param.__dict__
+        run_param.log("%s", run_param.__dict__)
     
-    res = execute_tests(run_param, testdirs, logfile, out)
+    res = execute_tests(run_param, testdirs, logfile)
 
     if res:
         sys.exit(1)

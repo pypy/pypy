@@ -120,11 +120,11 @@ class RunnerTests(object):
         log = cStringIO.StringIO()
         out = cStringIO.StringIO()
 
-        run_param = runner.RunParam(self.one_test_dir)
+        run_param = runner.RunParam(self.one_test_dir,out)
         run_param.test_driver = test_driver
         run_param.parallel_runs = 3        
         
-        res = runner.execute_tests(run_param, ['test_normal'], log, out)
+        res = runner.execute_tests(run_param, ['test_normal'], log)
 
         assert res
 
@@ -156,12 +156,12 @@ class RunnerTests(object):
         log = cStringIO.StringIO()
         out = cStringIO.StringIO()
 
-        run_param = runner.RunParam(self.one_test_dir)
+        run_param = runner.RunParam(self.one_test_dir, out)
         run_param.test_driver = test_driver
         run_param.parallel_runs = 3
-        run_param.dry_run = True
+        run_param.runfunc = run_param.dry_run
         
-        res = runner.execute_tests(run_param, ['test_normal'], log, out)
+        res = runner.execute_tests(run_param, ['test_normal'], log)
 
         assert not res
 
@@ -186,7 +186,7 @@ class RunnerTests(object):
         def cleanup(testdir):
             cleanedup.append(testdir)
 
-        run_param = runner.RunParam(self.manydir)
+        run_param = runner.RunParam(self.manydir, out)
         run_param.test_driver = test_driver
         run_param.parallel_runs = 3
         run_param.cleanup = cleanup
@@ -195,7 +195,7 @@ class RunnerTests(object):
         run_param.collect_testdirs(testdirs)
         alltestdirs = testdirs[:]
         
-        res = runner.execute_tests(run_param, testdirs, log, out)
+        res = runner.execute_tests(run_param, testdirs, log)
 
         assert res
 
@@ -220,16 +220,15 @@ class RunnerTests(object):
         test_driver = [pytest_script]
 
         log = cStringIO.StringIO()
-        out = cStringIO.StringIO()
 
-        run_param = runner.RunParam(self.test_stall_dir)
+        run_param = runner.RunParam(self.test_stall_dir, sys.stdout)
         run_param.test_driver = test_driver
         run_param.parallel_runs = 3
         run_param.timeout = 3
 
         testdirs = []
         run_param.collect_testdirs(testdirs)
-        res = runner.execute_tests(run_param, testdirs, log, out)
+        res = runner.execute_tests(run_param, testdirs, log)
         assert res
 
         log_lines = log.getvalue().splitlines()
@@ -237,39 +236,18 @@ class RunnerTests(object):
 
     def test_run_wrong_interp(self):
         log = cStringIO.StringIO()
-        out = cStringIO.StringIO()
 
-        run_param = runner.RunParam(self.one_test_dir)
+        run_param = runner.RunParam(self.one_test_dir, sys.stdout)
         run_param.interp = ['wrong-interp']
         run_param.parallel_runs = 3
 
         testdirs = []
         run_param.collect_testdirs(testdirs)
-        res = runner.execute_tests(run_param, testdirs, log, out)
+        res = runner.execute_tests(run_param, testdirs, log)
         assert res
 
         log_lines = log.getvalue().splitlines()
         assert log_lines[1] == ' Failed to run interp'
-
-    def test_run_bad_get_test_driver(self):
-        test_driver = [pytest_script]
-        
-        log = cStringIO.StringIO()
-        out = cStringIO.StringIO()
-
-        run_param = runner.RunParam(self.one_test_dir)
-        run_param.parallel_runs = 3
-        def boom(testdir):
-            raise RuntimeError("Boom")
-        run_param.get_test_driver = boom
-
-        testdirs = []
-        run_param.collect_testdirs(testdirs)
-        res = runner.execute_tests(run_param, testdirs, log, out)
-        assert res
-
-        log_lines = log.getvalue().splitlines()
-        assert log_lines[1] == ' Failed with exception in execute-test'
 
 
 class TestRunnerNoThreads(RunnerTests):
@@ -278,7 +256,7 @@ class TestRunnerNoThreads(RunnerTests):
     def test_collect_testdirs(self):
         res = []
         seen = []
-        run_param = runner.RunParam(self.one_test_dir)
+        run_param = runner.RunParam(self.one_test_dir, sys.stdout)
         real_collect_one_testdir = run_param.collect_one_testdir
 
         def witness_collect_one_testdir(testdirs, reldir, tests):
@@ -298,7 +276,7 @@ class TestRunnerNoThreads(RunnerTests):
 
         run_param.collect_one_testdir = real_collect_one_testdir
         res = []
-        run_param = runner.RunParam(self.two_test_dir)
+        run_param = runner.RunParam(self.two_test_dir, sys.stdout)
         
         run_param.collect_testdirs(res)
 

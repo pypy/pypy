@@ -15,7 +15,7 @@ parser.add_option("--config", dest="config", default=[],
                   help="configuration python file (optional)")
 parser.add_option("--root", dest="root", default=".",
                   help="root directory for the run")
-parser.add_option("--parallel-runs", dest="parallel_runs", default=0,
+parser.add_option("--parallel-runs", dest="parallel_runs", default=1,
                   type="int",
                   help="number of parallel test runs")
 parser.add_option("--dry-run", dest="dry_run", default=False,
