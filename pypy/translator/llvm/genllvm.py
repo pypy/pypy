@@ -21,6 +21,7 @@ from pypy.rpython.memory.gctransform.framework import FrameworkGCTransformer
 from pypy.rpython.module.support import LLSupport
 from pypy.rpython.typesystem import getfunctionptr
 from pypy.translator.backendopt.removenoops import remove_same_as
+from pypy.translator.backendopt.ssa import SSI_to_SSA
 from pypy.translator.gensupp import uniquemodulename
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.translator.unsimplify import (remove_double_links,
@@ -791,12 +792,10 @@ class VariableRepr(object):
         return '<{} {}>'.format(self.type_.repr_type(), self.name)
 
 
-def get_repr(cov, var_aliases={}):
+def get_repr(cov):
     if isinstance(cov, Constant):
         return ConstantRepr(database.get_type(cov.concretetype), cov.value)
     elif isinstance(cov, Variable):
-        if cov in var_aliases:
-            return var_aliases[cov]
         return VariableRepr(database.get_type(cov.concretetype), '%'+cov.name)
     return ConstantRepr(database.get_type(lltype.typeOf(cov)), cov)
 
@@ -821,11 +820,15 @@ class GEP(object):
                 result=result, ptr=self.ptr, gep=', '.join(self.indices)))
 
 
+def _var_eq(res, inc):
+    return (isinstance(inc, Variable) and
+            inc._name == res._name and
+            inc._nr == res._nr)
+
 class FunctionWriter(object):
     def __init__(self):
         self.lines = []
         self.tmp_counter = count()
-        self.var_aliases = {}
         self.need_badswitch_block = False
 
     def w(self, line, indent='    '):
@@ -837,6 +840,7 @@ class FunctionWriter(object):
         remove_double_links(genllvm.translator.annotator, graph)
         no_links_to_startblock(graph)
         remove_same_as(graph)
+        SSI_to_SSA(graph)
 
         self.w('define {linkage}{retvar.T} {name}({a}) {{'.format(
                        linkage='' if graph in genllvm.export else 'internal ',
@@ -850,15 +854,10 @@ class FunctionWriter(object):
         self.block_to_name = {}
         for i, block in enumerate(graph.iterblocks()):
             self.block_to_name[block] = 'block{}'.format(i)
-            for i, arg in enumerate(block.inputargs):
-                if all(link.args[i] == self.entrymap[block][0].args[i]
-                       for link in self.entrymap[block]):
-                    self.var_aliases[arg] = get_repr(
-                            self.entrymap[block][0].args[i], self.var_aliases)
 
         for block in graph.iterblocks():
             self.w(self.block_to_name[block] + ':', '  ')
-            if block is not graph.startblock and len(self.entrymap[block]) > 1:
+            if block is not graph.startblock:
                 self.write_phi_nodes(block)
             self.write_operations(block)
             self.write_branches(block)
@@ -870,11 +869,11 @@ class FunctionWriter(object):
 
     def write_phi_nodes(self, block):
         for i, arg in enumerate(block.inputargs):
-            if arg.concretetype == lltype.Void:
+            if (arg.concretetype == lltype.Void or
+                all(_var_eq(arg, l.args[i]) for l in self.entrymap[block])):
                 continue
             s = ', '.join('[{}, %{}]'.format(
-                        get_repr(l.args[i], self.var_aliases).V,
-                        self.block_to_name[l.prevblock])
+                        get_repr(l.args[i]).V, self.block_to_name[l.prevblock])
                     for l in self.entrymap[block] if l.prevblock is not None)
             self.w('{arg.V} = phi {arg.T} {s}'.format(arg=get_repr(arg), s=s))
 
@@ -882,8 +881,8 @@ class FunctionWriter(object):
         for op in block.operations:
             self.w('; {}'.format(op))
             opname = op.opname
-            opres = get_repr(op.result, self.var_aliases)
-            opargs = [get_repr(arg, self.var_aliases) for arg in op.args]
+            opres = get_repr(op.result)
+            opargs = [get_repr(arg) for arg in op.args]
             if opname in OPS:
                 simple_op = OPS[opname]
                 self.w('{opres.V} = {simple_op} {opargs[0].TV}, {opargs[1].V}'
@@ -913,8 +912,7 @@ class FunctionWriter(object):
                 else:
                     false = self.block_to_name[link.target]
             self.w('br i1 {}, label %{}, label %{}'.format(
-                    get_repr(block.exitswitch, self.var_aliases).V, true,
-                    false))
+                    get_repr(block.exitswitch).V, true, false))
         else:
             default = None
             destinations = []
@@ -928,7 +926,7 @@ class FunctionWriter(object):
                 default = 'badswitch'
                 self.need_badswitch_block = True
             self.w('switch {}, label %{} [ {} ]'.format(
-                    get_repr(block.exitswitch, self.var_aliases).TV,
+                    get_repr(block.exitswitch).TV,
                     default, ' '.join('{}, label %{}'.format(val.TV, dest)
                                       for val, dest in destinations)))
 
@@ -937,7 +935,7 @@ class FunctionWriter(object):
         if ret.concretetype is lltype.Void:
             self.w('ret void')
         else:
-            self.w('ret {ret.TV}'.format(ret=get_repr(ret, self.var_aliases)))
+            self.w('ret {ret.TV}'.format(ret=get_repr(ret)))
 
     def _tmp(self, type_=None):
         return VariableRepr(type_, '%tmp{}'.format(next(self.tmp_counter)))
