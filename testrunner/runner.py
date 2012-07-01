@@ -38,7 +38,7 @@ def execute_test(cwd, test, out, logfname, interp, test_driver,
 def worker(num, n, run_param, testdirs, result_queue):
     sessdir = run_param.sessdir
     root = run_param.root
-    get_test_driver = run_param.get_test_driver
+    test_driver = run_param.test_driver
     interp = run_param.interp
     dry_run = run_param.dry_run
     timeout = run_param.timeout
@@ -61,7 +61,6 @@ def worker(num, n, run_param, testdirs, result_queue):
         else:
             runfunc = util.run
         try:
-            test_driver = get_test_driver(test)
             exitcode = execute_test(root, test, one_output, logfname,
                                     interp, test_driver, runfunc=runfunc,
                                     timeout=timeout)
@@ -104,8 +103,6 @@ def execute_tests(run_param, testdirs, logfile, out):
                                               keep=4)
     run_param.sessdir = sessdir
 
-    run_param.startup()
-
     N = run_param.parallel_runs
     failure = False
 
@@ -145,8 +142,6 @@ def execute_tests(run_param, testdirs, logfile, out):
         if logdata:
             logfile.write(logdata)
 
-    run_param.shutdown()
-
     return failure
 
 
@@ -165,15 +160,6 @@ class RunParam(object):
     
     def __init__(self, opts):
         self.root = py.path.local(opts.root)
-
-    def startup(self):
-        pass
-
-    def shutdown(self):
-        pass
-
-    def get_test_driver(self, testdir):
-        return self.test_driver
 
     def is_test_py_file(self, p):
         name = p.basename
@@ -223,7 +209,6 @@ def main(opts, args):
         out = sys.stdout
     else:
         out = open(opts.output, WRITE_MODE)
-
 
     testdirs = []
 
