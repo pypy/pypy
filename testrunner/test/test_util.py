@@ -1,7 +1,8 @@
+import sys
 import util
-import runner
+import signal
 
-def test_busywait():
+def test_busywait(monkeypatch):
     class FakeProcess:
         def poll(self):
             if timers[0] >= timers[1]:
@@ -14,28 +15,25 @@ def test_busywait():
             timers[2] += 1
             return 12345678.9 + timers[0]
     p = FakeProcess()
-    prevtime = runner.time
-    try:
-        runner.time = FakeTime()
-        #
-        timers = [0.0, 0.0, 0]
-        returncode = util.busywait(p, 10)
-        assert returncode == 42 and 0.0 <= timers[0] <= 1.0
-        #
-        timers = [0.0, 3.0, 0]
-        returncode = util.busywait(p, 10)
-        assert returncode == 42 and 3.0 <= timers[0] <= 5.0 and timers[2] <= 10
-        #
-        timers = [0.0, 500.0, 0]
-        returncode = util.busywait(p, 1000)
-        assert returncode == 42 and 500.0<=timers[0]<=510.0 and timers[2]<=100
-        #
-        timers = [0.0, 500.0, 0]
-        returncode = util.busywait(p, 100)    # get a timeout
-        assert returncode == None and 100.0 <= timers[0] <= 110.0
-        #
-    finally:
-        runner.time = prevtime
+    
+    monkeypatch.setattr(util, 'time', FakeTime())
+    #
+    timers = [0.0, 0.0, 0]
+    returncode = util.busywait(p, 10)
+    assert returncode == 42 and 0.0 <= timers[0] <= 1.0
+    #
+    timers = [0.0, 3.0, 0]
+    returncode = util.busywait(p, 10)
+    assert returncode == 42 and 3.0 <= timers[0] <= 5.0 and timers[2] <= 10
+    #
+    timers = [0.0, 500.0, 0]
+    returncode = util.busywait(p, 1000)
+    assert returncode == 42 and 500.0<=timers[0]<=510.0 and timers[2]<=100
+    #
+    timers = [0.0, 500.0, 0]
+    returncode = util.busywait(p, 100)    # get a timeout
+    assert returncode == None and 100.0 <= timers[0] <= 110.0
+    #
 
 def test_should_report_failure():
     should_report_failure = util.should_report_failure
@@ -94,23 +92,22 @@ def test_interpret_exitcode():
     assert not failure
     assert extralog == ""
 
-    failure, extralog = runner.interpret_exitcode(1, "test_foo", "")
+    failure, extralog = util.interpret_exitcode(1, "test_foo", "")
     assert failure
     assert extralog == """! test_foo
-Exit code 1.
+ Exit code 1.
 """
 
-    failure, extralog = runner.interpret_exitcode(1, "test_foo", "F Foo\n")
+    failure, extralog = util.interpret_exitcode(1, "test_foo", "F Foo\n")
     assert failure
     assert extralog == ""
 
-    failure, extralog = runner.interpret_exitcode(2, "test_foo")
+    failure, extralog = util.interpret_exitcode(2, "test_foo")
     assert failure
     assert extralog == """! test_foo
-Exit code 2.
+ Exit code 2.
 """
-
-    failure, extralog = runner.interpret_exitcode(-signal.SIGSEGV,
+    failure, extralog = util.interpret_exitcode(-signal.SIGSEGV,
                                                   "test_foo")
     assert failure
     assert extralog == """! test_foo
