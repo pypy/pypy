@@ -51,11 +51,9 @@ globals().update(mod.__dict__)
 def rebuild_one(path):
     filename = str(path)
     d = {'__file__': filename}
-    try:
-        execfile(filename, d)
-    finally:
-        base = path.basename.split('.')[0]
-        dumpcache2(base, d['config'], filename)
+    execfile(filename, d)
+    base = path.basename.split('.')[0]
+    dumpcache2(base, d['config'], filename)
 
 
 def try_rebuild():
