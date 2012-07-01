@@ -877,31 +877,13 @@ class FunctionWriter(object):
                     for l in self.entrymap[block] if l.prevblock is not None)
             self.w('{arg.V} = phi {arg.T} {s}'.format(arg=get_repr(arg), s=s))
 
-    def write_operations(self, block):
-        for op in block.operations:
-            self.w('; {}'.format(op))
-            opname = op.opname
-            opres = get_repr(op.result)
-            opargs = [get_repr(arg) for arg in op.args]
-            if opname in OPS:
-                simple_op = OPS[opname]
-                self.w('{opres.V} = {simple_op} {opargs[0].TV}, {opargs[1].V}'
-                        .format(**locals()))
-            elif opname.startswith('cast_') or opname.startswith('truncate_'):
-                self._cast(opres, opargs[0])
-            else:
-                func = getattr(self, 'op_' + opname, None)
-                if func is not None:
-                    try:
-                        func(opres, *opargs)
-                    except VoidAttributeAccess:
-                        pass
-                else:
-                    raise NotImplementedError(op)
-
     def write_branches(self, block):
         if len(block.exits) == 0:
-            self.write_returnblock(block)
+            ret = block.inputargs[0]
+            if ret.concretetype is lltype.Void:
+                self.w('ret void')
+            else:
+                self.w('ret {ret.TV}'.format(ret=get_repr(ret)))
         elif len(block.exits) == 1:
             self.w('br label %' + self.block_to_name[block.exits[0].target])
         elif block.exitswitch.concretetype is lltype.Bool:
@@ -930,12 +912,27 @@ class FunctionWriter(object):
                     default, ' '.join('{}, label %{}'.format(val.TV, dest)
                                       for val, dest in destinations)))
 
-    def write_returnblock(self, block):
-        ret = block.inputargs[0]
-        if ret.concretetype is lltype.Void:
-            self.w('ret void')
-        else:
-            self.w('ret {ret.TV}'.format(ret=get_repr(ret)))
+    def write_operations(self, block):
+        for op in block.operations:
+            self.w('; {}'.format(op))
+            opname = op.opname
+            opres = get_repr(op.result)
+            opargs = [get_repr(arg) for arg in op.args]
+            if opname in OPS:
+                simple_op = OPS[opname]
+                self.w('{opres.V} = {simple_op} {opargs[0].TV}, {opargs[1].V}'
+                        .format(**locals()))
+            elif opname.startswith('cast_') or opname.startswith('truncate_'):
+                self._cast(opres, opargs[0])
+            else:
+                func = getattr(self, 'op_' + opname, None)
+                if func is not None:
+                    try:
+                        func(opres, *opargs)
+                    except VoidAttributeAccess:
+                        pass
+                else:
+                    raise NotImplementedError(op)
 
     def _tmp(self, type_=None):
         return VariableRepr(type_, '%tmp{}'.format(next(self.tmp_counter)))
