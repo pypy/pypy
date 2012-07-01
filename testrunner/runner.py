@@ -9,11 +9,7 @@ READ_MODE = 'rU'
 WRITE_MODE = 'wb'
 
 
-
-
-def execute_test(cwd, test, out, logfname, interp, test_driver,
-                 do_dry_run=False, timeout=None,
-                 _win32=(sys.platform=='win32')):
+def execute_args(test, logfname, interp, test_driver):
     args = interp + test_driver
     args += ['-p', 'resultlog',
              '--resultlog=%s' % logfname,
@@ -21,15 +17,20 @@ def execute_test(cwd, test, out, logfname, interp, test_driver,
              test]
 
     args = map(str, args)
+    return args
+
+
+
+def execute_test(cwd, test, out, logfname, interp, test_driver,
+                 runfunc, timeout=None,
+                 _win32=(sys.platform=='win32')):
+    args = execute_args(test, logfname, interp, test_driver)
+
     interp0 = args[0]
     if (_win32 and not os.path.isabs(interp0) and
         ('\\' in interp0 or '/' in interp0)):
         args[0] = os.path.join(str(cwd), interp0)
 
-    if do_dry_run:
-        runfunc = util.dry_run
-    else:
-        runfunc = util.run
     
     exitcode = runfunc(args, cwd, out, timeout=timeout)
     
@@ -57,10 +58,14 @@ def worker(num, n, run_param, testdirs, result_queue):
         one_output = sessdir.join("%d-%s-output" % (num, basename))
         num += n
 
+        if dry_run:
+            runfunc = util.dry_run
+        else:
+            runfunc = util.run
         try:
             test_driver = get_test_driver(test)
             exitcode = execute_test(root, test, one_output, logfname,
-                                    interp, test_driver, do_dry_run=dry_run,
+                                    interp, test_driver, runfunc=runfunc,
                                     timeout=timeout)
 
             cleanup(test)

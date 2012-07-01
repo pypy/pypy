@@ -8,21 +8,24 @@ pytest_script = py.path.local(pypy.__file__).dirpath('test_all.py')
 
 
 
+class FakeRun(object):
+    exitcode = 0
+    def __call__(self, args, cwd, out, timeout):
+        self.called = (args, cwd, out, timeout)
+        return self.exitcode
+
+
+
 
 class TestExecuteTest(object):
 
-    def pytest_funcarg__info(self, request):
-        monkeypatch = request.getfuncargvalue('monkeypatch')
-        info = {'exitcode' : 0}
-        def fake_run(args, cwd, out, timeout):
-            info['called'] = (args, cwd, out, timeout)
-            return info['exitcode']
-        monkeypatch.setattr(util, 'run', fake_run)
-        return info
+    def pytest_funcarg__fakerun(self, request):
+        return FakeRun()
 
 
-    def test_explicit(self, info):
+    def test_explicit(self, fakerun):
         res = runner.execute_test('/wd', 'test_one', 'out', 'LOGFILE',
+                                  runfunc=fakerun,
                                   interp=['INTERP', 'IARG'],
                                   test_driver=['driver', 'darg'],
                                   timeout='secs')
@@ -35,11 +38,12 @@ class TestExecuteTest(object):
 
                     'test_one']
 
-        assert info['called'] == (expected, '/wd', 'out', 'secs')        
+        assert fakerun.called == (expected, '/wd', 'out', 'secs')        
         assert res == 0
 
-    def test_explicit_win32(self, info):
+    def test_explicit_win32(self, fakerun):
         res = runner.execute_test('/wd', 'test_one', 'out', 'LOGFILE',
+                                  runfunc=fakerun,
                                   interp=['./INTERP', 'IARG'],
                                   test_driver=['driver', 'darg'],
                                   timeout='secs',
@@ -52,20 +56,22 @@ class TestExecuteTest(object):
                     '--resultlog=LOGFILE',
                     '--junitxml=LOGFILE.junit',
                     'test_one']
-        assert info['called'][0] == expected
-        assert info['called'] == (expected, '/wd', 'out', 'secs') 
+        assert fakerun.called[0] == expected
+        assert fakerun.called == (expected, '/wd', 'out', 'secs') 
         assert res == 0
 
-    def test_error(self, info):
-        info['exitcode'] = 1
+    def test_error(self, fakerun):
+        fakerun.exitcode = 1
         res = runner.execute_test('/wd', 'test_one', 'out', 'LOGFILE',
+                                  runfunc=fakerun,
                                   interp=['INTERP', 'IARG'],
                                   test_driver=['driver', 'darg'])
         assert res == 1
 
 
-        info['exitcode'] = -signal.SIGSEGV
+        fakerun.exitcode = -signal.SIGSEGV
         res = runner.execute_test('/wd', 'test_one', 'out', 'LOGFILE',
+                                  runfunc=fakerun,
                                   interp=['INTERP', 'IARG'],
                                   test_driver=['driver', 'darg'])
         assert res == -signal.SIGSEGV
