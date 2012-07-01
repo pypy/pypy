@@ -540,17 +540,18 @@ class W_CPPNamespace(W_CPPScope):
         alldir = []
         for i in range(capi.c_num_scopes(self)):
             sname = capi.c_scope_name(self, i)
-            if sname: alldir.append(sname)
-        allmeth = []
+            if sname: alldir.append(self.space.wrap(sname))
+        allmeth = {}
         for i in range(capi.c_num_methods(self)):
             idx = capi.c_method_index_at(self, i)
             mname = capi.c_method_name(self, idx)
-            if mname: allmeth.append(mname)
-        alldir += set(allmeth)
+            if mname: allmeth.setdefault(mname, 0)
+        for m in allmeth.keys():
+            alldir.append(self.space.wrap(m))
         for i in range(capi.c_num_datamembers(self)):
             dname = capi.c_datamember_name(self, i)
-            if dname: alldir.append(dname)
-        return self.space.wrap(alldir)
+            if dname: alldir.append(self.space.wrap(dname))
+        return self.space.newlist(alldir)
         
 
 W_CPPNamespace.typedef = TypeDef(
