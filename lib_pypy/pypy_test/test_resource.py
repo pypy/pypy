@@ -1,10 +1,15 @@
 from __future__ import absolute_import
 from lib_pypy.ctypes_config_cache import rebuild
-rebuild.rebuild_one('resource.ctc.py')
+from pypy.tool.lib_pypy import ctypes_cachedir, rebuild_one
 
-from lib_pypy import resource
+
+def setup_module(mod):
+    # Generates the resource cache
+    rebuild_one(ctypes_cachedir.join('resource.ctc.py'))
+
 
 def test_resource():
+    from lib_pypy import resource
     x = resource.getrusage(resource.RUSAGE_SELF)
     assert len(x) == 16
     assert x[0] == x[-16] == x.ru_utime
