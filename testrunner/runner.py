@@ -9,7 +9,8 @@ READ_MODE = 'rU'
 WRITE_MODE = 'wb'
 
 
-def execute_args(test, logfname, interp, test_driver):
+def execute_args(cwd, test, logfname, interp, test_driver,
+                 _win32=(sys.platform=='win32')):
     args = interp + test_driver
     args += ['-p', 'resultlog',
              '--resultlog=%s' % logfname,
@@ -17,23 +18,20 @@ def execute_args(test, logfname, interp, test_driver):
              test]
 
     args = map(str, args)
-    return args
-
-
-
-def execute_test(cwd, test, out, logfname, interp, test_driver,
-                 runfunc, timeout=None,
-                 _win32=(sys.platform=='win32')):
-    args = execute_args(test, logfname, interp, test_driver)
 
     interp0 = args[0]
     if (_win32 and not os.path.isabs(interp0) and
         ('\\' in interp0 or '/' in interp0)):
         args[0] = os.path.join(str(cwd), interp0)
 
-    
+
+    return args
+
+
+def execute_test(cwd, test, out, logfname, interp, test_driver,
+                 runfunc, timeout=None):
+    args = execute_args(cwd, test, logfname, interp, test_driver)
     exitcode = runfunc(args, cwd, out, timeout=timeout)
-    
     return exitcode
 
 
@@ -214,7 +212,7 @@ class RunParam(object):
         pass
 
 
-def main(args):
+def main(args, RunParam=RunParam):
     parser = optparse.OptionParser()
     parser.add_option("--logfile", dest="logfile", default=None,
                       help="accumulated machine-readable logfile")

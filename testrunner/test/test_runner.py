@@ -42,11 +42,9 @@ class TestExecuteTest(object):
         assert res == 0
 
     def test_explicit_win32(self, fakerun):
-        res = runner.execute_test('/wd', 'test_one', 'out', 'LOGFILE',
-                                  runfunc=fakerun,
+        args = runner.execute_args('/wd', 'test_one', 'LOGFILE',
                                   interp=['./INTERP', 'IARG'],
                                   test_driver=['driver', 'darg'],
-                                  timeout='secs',
                                   _win32=True
                                   )
 
@@ -56,9 +54,7 @@ class TestExecuteTest(object):
                     '--resultlog=LOGFILE',
                     '--junitxml=LOGFILE.junit',
                     'test_one']
-        assert fakerun.called[0] == expected
-        assert fakerun.called == (expected, '/wd', 'out', 'secs') 
-        assert res == 0
+        assert args == expected
 
     def test_error(self, fakerun):
         fakerun.exitcode = 1
