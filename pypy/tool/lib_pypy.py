@@ -41,7 +41,7 @@ except ImportError:
 # XXX the relative imports done e.g. by lib_pypy/pypy_test/test_hashlib
 mod = __import__("_BASENAME_%s_" % (cpumodel,),
                  globals(), locals(), ["*"])
-globals().update(mod.__dict__)\\
+globals().update(mod.__dict__)
 '''.replace("BASENAME", basename))
 
 
