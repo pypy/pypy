@@ -837,6 +837,28 @@ class FunctionWriter(object):
     def write_graph(self, name, graph):
         genllvm = database.genllvm
         genllvm.gcpolicy.gctransformer.inline_helpers(graph)
+        # the 'gc_reload_possibly_moved' operations make the graph not
+        # really SSA.  Fix them now.
+        for block in graph.iterblocks():
+            rename = {}
+            for op in block.operations:
+                if rename:
+                    op.args = [rename.get(v, v) for v in op.args]
+                if op.opname == 'gc_reload_possibly_moved':
+                    v_newaddr, v_targetvar = op.args
+                    assert isinstance(v_targetvar.concretetype, lltype.Ptr)
+                    v_newptr = Variable()
+                    v_newptr.concretetype = v_targetvar.concretetype
+                    op.opname = 'cast_adr_to_ptr'
+                    op.args = [v_newaddr]
+                    op.result = v_newptr
+                    rename[v_targetvar] = v_newptr
+            if rename:
+                block.exitswitch = rename.get(block.exitswitch,
+                                              block.exitswitch)
+                for link in block.exits:
+                    link.args = [rename.get(v, v) for v in link.args]
+
         remove_double_links(genllvm.translator.annotator, graph)
         no_links_to_startblock(graph)
         remove_same_as(graph)
@@ -1588,28 +1610,6 @@ class GenLLVM(object):
             self.transformed_graphs.add(graph)
             self.exctransformer.create_exception_handling(graph)
             self.gcpolicy.transform_graph(graph)
-
-            # the 'gc_reload_possibly_moved' operations make the graph not
-            # really SSA.  Fix them now.
-            for block in graph.iterblocks():
-                rename = {}
-                for op in block.operations:
-                    if rename:
-                        op.args = [rename.get(v, v) for v in op.args]
-                    if op.opname == 'gc_reload_possibly_moved':
-                        v_newaddr, v_targetvar = op.args
-                        assert isinstance(v_targetvar.concretetype, lltype.Ptr)
-                        v_newptr = Variable()
-                        v_newptr.concretetype = v_targetvar.concretetype
-                        op.opname = 'cast_adr_to_ptr'
-                        op.args = [v_newaddr]
-                        op.result = v_newptr
-                        rename[v_targetvar] = v_newptr
-                if rename:
-                    block.exitswitch = rename.get(block.exitswitch,
-                                                  block.exitswitch)
-                    for link in block.exits:
-                        link.args = [rename.get(v, v) for v in link.args]
 
     def prepare(self, entry_point):
         if self.standalone:
