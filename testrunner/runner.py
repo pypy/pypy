@@ -217,7 +217,7 @@ class RunParam(object):
                 self.collect_testdirs(testdirs, p1)
 
 
-def main(opts, args):
+def main(opts, args, RunParamClass):
 
 
     if opts.logfile is None:
@@ -232,7 +232,7 @@ def main(opts, args):
 
     testdirs = []
 
-    run_param = RunParam.from_options(opts, out)
+    run_param = RunParamClass.from_options(opts, out)
     # the config files are python files whose run overrides the content
     # of the run_param instance namespace
     # in that code function overriding method should not take self
@@ -261,4 +261,4 @@ def main(opts, args):
 
 if __name__ == '__main__':
     opts, args = util.parser.parse_args()
-    main(opts, args)
+    main(opts, args, RunParam)
