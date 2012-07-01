@@ -1,115 +1,27 @@
 import py, sys, os, signal, cStringIO, tempfile
 
 import runner
+import util
 import pypy
 
 pytest_script = py.path.local(pypy.__file__).dirpath('test_all.py')
 
 
-def test_busywait():
-    class FakeProcess:
-        def poll(self):
-            if timers[0] >= timers[1]:
-                return 42
-            return None
-    class FakeTime:
-        def sleep(self, delay):
-            timers[0] += delay
-        def time(self):
-            timers[2] += 1
-            return 12345678.9 + timers[0]
-    p = FakeProcess()
-    prevtime = runner.time
-    try:
-        runner.time = FakeTime()
-        #
-        timers = [0.0, 0.0, 0]
-        returncode = runner.busywait(p, 10)
-        assert returncode == 42 and 0.0 <= timers[0] <= 1.0
-        #
-        timers = [0.0, 3.0, 0]
-        returncode = runner.busywait(p, 10)
-        assert returncode == 42 and 3.0 <= timers[0] <= 5.0 and timers[2] <= 10
-        #
-        timers = [0.0, 500.0, 0]
-        returncode = runner.busywait(p, 1000)
-        assert returncode == 42 and 500.0<=timers[0]<=510.0 and timers[2]<=100
-        #
-        timers = [0.0, 500.0, 0]
-        returncode = runner.busywait(p, 100)    # get a timeout
-        assert returncode == None and 100.0 <= timers[0] <= 110.0
-        #
-    finally:
-        runner.time = prevtime
-
-def test_should_report_failure():
-    should_report_failure = runner.should_report_failure
-    assert should_report_failure("")
-    assert should_report_failure(". Abc\n. Def\n")
-    assert should_report_failure("s Ghi\n")
-    assert not should_report_failure(". Abc\nF Def\n")
-    assert not should_report_failure(". Abc\nE Def\n")
-    assert not should_report_failure(". Abc\nP Def\n")
-    assert not should_report_failure("F Def\n. Ghi\n. Jkl\n")
-
-
-
-class TestRunHelper(object):
-    def pytest_funcarg__out(self, request):
-        tmpdir = request.getfuncargvalue('tmpdir')
-        return tmpdir.ensure('out')
-
-    def test_run(self, out):
-        res = runner.run([sys.executable, "-c", "print 42"], '.', out)
-        assert res == 0
-        assert out.read() == "42\n"
-
-    def test_error(self, out):
-        res = runner.run([sys.executable, "-c", "import sys; sys.exit(3)"], '.', out)
-        assert res == 3
-
-    def test_signal(self, out):
-        if sys.platform == 'win32':
-            py.test.skip("no death by signal on windows")
-        res = runner.run([sys.executable, "-c", "import os; os.kill(os.getpid(), 9)"], '.', out)
-        assert res == -9
-
-    def test_timeout(self, out):
-        res = runner.run([sys.executable, "-c", "while True: pass"], '.', out, timeout=3)
-        assert res == -999
-
-    def test_timeout_lock(self, out):
-        res = runner.run([sys.executable, "-c", "import threading; l=threading.Lock(); l.acquire(); l.acquire()"], '.', out, timeout=3)
-        assert res == -999
-
-    def test_timeout_syscall(self, out):
-        res = runner.run([sys.executable, "-c", "import socket; s=s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM); s.bind(('', 0)); s.recv(1000)"], '.', out, timeout=3)
-        assert res == -999        
-
-    def test_timeout_success(self, out):
-        res = runner.run([sys.executable, "-c", "print 42"], '.',
-                         out, timeout=2)
-        assert res == 0
-        out = out.read()
-        assert out == "42\n"        
 
 
 class TestExecuteTest(object):
 
-    def setup_class(cls):
-        cls.real_run = (runner.run,)
-        cls.called = []
-        cls.exitcode = [0]
-        
+    def pytest_funcarg__info(self, request):
+        monkeypatch = request.getfuncargvalue('monkeypatch')
+        info = {'exitcode' : 0}
         def fake_run(args, cwd, out, timeout):
-            cls.called = (args, cwd, out, timeout)
-            return cls.exitcode[0]
-        runner.run = fake_run
+            info['called'] = (args, cwd, out, timeout)
+            return info['exitcode']
+        monkeypatch.setattr(util, 'run', fake_run)
+        return info
 
-    def teardown_class(cls):
-        runner.run = cls.real_run[0]
 
-    def test_explicit(self):
+    def test_explicit(self, info):
         res = runner.execute_test('/wd', 'test_one', 'out', 'LOGFILE',
                                   interp=['INTERP', 'IARG'],
                                   test_driver=['driver', 'darg'],
@@ -123,10 +35,10 @@ class TestExecuteTest(object):
 
                     'test_one']
 
-        assert self.called == (expected, '/wd', 'out', 'secs')        
+        assert info['called'] == (expected, '/wd', 'out', 'secs')        
         assert res == 0
 
-    def test_explicit_win32(self):
+    def test_explicit_win32(self, info):
         res = runner.execute_test('/wd', 'test_one', 'out', 'LOGFILE',
                                   interp=['./INTERP', 'IARG'],
                                   test_driver=['driver', 'darg'],
@@ -140,51 +52,24 @@ class TestExecuteTest(object):
                     '--resultlog=LOGFILE',
                     '--junitxml=LOGFILE.junit',
                     'test_one']
-        assert self.called[0] == expected
-        assert self.called == (expected, '/wd', 'out', 'secs')        
+        assert info['called'][0] == expected
+        assert info['called'] == (expected, '/wd', 'out', 'secs') 
         assert res == 0
 
-    def test_error(self):
-        self.exitcode[:] = [1]
+    def test_error(self, info):
+        info['exitcode'] = 1
         res = runner.execute_test('/wd', 'test_one', 'out', 'LOGFILE',
                                   interp=['INTERP', 'IARG'],
                                   test_driver=['driver', 'darg'])
         assert res == 1
 
 
-        self.exitcode[:] = [-signal.SIGSEGV]
+        info['exitcode'] = -signal.SIGSEGV
         res = runner.execute_test('/wd', 'test_one', 'out', 'LOGFILE',
                                   interp=['INTERP', 'IARG'],
                                   test_driver=['driver', 'darg'])
         assert res == -signal.SIGSEGV
 
-    def test_interpret_exitcode(self):
-        failure, extralog = runner.interpret_exitcode(0, "test_foo")
-        assert not failure
-        assert extralog == ""
-
-        failure, extralog = runner.interpret_exitcode(1, "test_foo", "")
-        assert failure
-        assert extralog == """! test_foo
- Exit code 1.
-"""
-
-        failure, extralog = runner.interpret_exitcode(1, "test_foo", "F Foo\n")
-        assert failure
-        assert extralog == ""
-
-        failure, extralog = runner.interpret_exitcode(2, "test_foo")
-        assert failure
-        assert extralog == """! test_foo
- Exit code 2.
-"""
-
-        failure, extralog = runner.interpret_exitcode(-signal.SIGSEGV,
-                                                      "test_foo")
-        assert failure
-        assert extralog == """! test_foo
- Killed by SIGSEGV.
-"""
 
 class RunnerTests(object):
     with_thread = True

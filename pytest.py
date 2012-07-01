@@ -32,6 +32,9 @@ if hasattr(sys, "maxsize"):
 ---> When pypy/__init__.py becomes empty again, we have reached stage 2.
 """)
 
+import warnings
+warnings.filterwarnings('ignore', module='_pytest.core')
+
 from _pytest.core import main, UsageError, _preloadplugins
 from _pytest import core as cmdline
 from _pytest import __version__
