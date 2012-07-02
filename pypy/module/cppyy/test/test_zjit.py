@@ -177,10 +177,10 @@ class FakeSpace(object):
         return True
 
 class TestFastPathJIT(LLJitMixin):
-    def _run_zjit(self, method_name):
-        if capi.identify() == 'CINT':   # CINT does not support fast path
-            return
+    if not capi.identify() != 'CINT':
+        py.test.skip("CINT does not support fast path")
 
+    def _run_zjit(self, method_name):
         space = FakeSpace()
         drv = jit.JitDriver(greens=[], reds=["i", "inst", "cppmethod"])
         def f():
