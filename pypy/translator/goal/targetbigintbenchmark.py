@@ -89,16 +89,18 @@ def entry_point(argv):
     
     t = time()
     num = rbigint.fromint(100000000)
+    V2 = rbigint.fromint(2)
     for n in xrange(80000000):
-        rbigint.floordiv(num, rbigint.fromint(2))
+        rbigint.floordiv(num, V2)
         
 
     print time() - t
     
     t = time()
     num = rbigint.fromint(100000000)
+    V3 = rbigint.fromint(3)
     for n in xrange(80000000):
-        rbigint.floordiv(num, rbigint.fromint(3))
+        rbigint.floordiv(num, V3)
         
 
     print time() - t
@@ -106,7 +108,7 @@ def entry_point(argv):
     t = time()
     num = rbigint.fromint(10000000)
     for n in xrange(10000):
-        rbigint.pow(rbigint.fromint(2), num)
+        rbigint.pow(V2, num)
         
 
     print time() - t
@@ -114,15 +116,17 @@ def entry_point(argv):
     t = time()
     num = rbigint.fromint(100000000)
     for n in xrange(31):
-        rbigint.pow(rbigint.pow(rbigint.fromint(2), rbigint.fromint(n)), num)
+        rbigint.pow(rbigint.pow(V2, rbigint.fromint(n)), num)
         
 
     print time() - t
     
     t = time()
     num = rbigint.pow(rbigint.fromint(10000), rbigint.fromint(2 ** 8))
+    P10_4 = rbigint.fromint(10**4)
+    V100 = rbigint.fromint(100)
     for n in xrange(60000):
-        rbigint.pow(rbigint.fromint(10**4), num, rbigint.fromint(100))
+        rbigint.pow(P10_4, num, V100)
         
 
     print time() - t
@@ -138,15 +142,16 @@ def entry_point(argv):
     t = time()
     
     for n in xrange(10000):
-        rbigint.pow(rbigint.fromint(n), rbigint.fromint(10**4))
+        rbigint.pow(rbigint.fromint(n), P10_4)
         
 
     print time() - t
     
     t = time()
     
+    V1024 = rbigint.fromint(1024)
     for n in xrange(100000):
-        rbigint.pow(rbigint.fromint(1024), rbigint.fromint(1024))
+        rbigint.pow(V1024, V1024)
         
 
     print time() - t
@@ -154,8 +159,9 @@ def entry_point(argv):
     
     t = time()
     v = rbigint.fromint(2)
+    P62 = rbigint.fromint(2**62)
     for n in xrange(50000):
-        v = v.mul(rbigint.fromint(2**62))
+        v = v.mul(P62)
         
 
     print time() - t

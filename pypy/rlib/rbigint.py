@@ -41,8 +41,6 @@ else:
 MASK = BASE - 1
 FLOAT_MULTIPLIER = float(1 << LONG_BIT) # Because it works.
 
-CACHE_INTS = 1024 # CPython do 256
-
 # Debugging digit array access.
 #
 # False == no checking at all
@@ -65,9 +63,6 @@ KARATSUBA_SQUARE_CUTOFF = 2 * KARATSUBA_CUTOFF
 
 USE_TOOMCOCK = False # WIP
 TOOMCOOK_CUTOFF = 3 # Smallest possible cutoff is 3. Ideal is probably around 150+
-
-# Use N**2 division when number of digits are smaller than this.
-DIV_LIMIT = KARATSUBA_CUTOFF
 
 # For exponentiation, use the binary left-to-right algorithm
 # unless the exponent contains more than FIVEARY_CUTOFF digits.
@@ -709,7 +704,7 @@ class rbigint(object):
             i += 1
             j += 1
             
-        z.setdigit(newsize - 1, accum)
+        z.setdigit(abs(newsize - 1), accum)
 
         z._normalize()
         return z
@@ -809,18 +804,18 @@ class rbigint(object):
         return l * self.sign
 
     def _normalize(self):
-        i = self.numdigits()
+        i = _load_unsigned_digit(self.numdigits())
         if i == 0:
             self.sign = 0
             self._digits = [NULLDIGIT]
             return
         
-        while i > 1 and self.digit(i - 1) == 0:
+        while i > 1 and self.udigit(i - 1) == 0:
             i -= 1
         assert i >= 1
         if i != self.numdigits():
             self._digits = self._digits[:i]
-        if self.numdigits() == 1 and self.digit(0) == 0:
+        if self.numdigits() == 1 and self.udigit(0) == 0:
             self.sign = 0
 
     def bit_length(self):
@@ -931,19 +926,22 @@ def _x_add(a, b):
         a, b = b, a
         size_a, size_b = size_b, size_a
     z = rbigint([NULLDIGIT] * (size_a + 1), 1)
-    i = 0
+    i = _load_unsigned_digit(0)
     carry = UDIGIT_TYPE(0)
     while i < size_b:
         carry += a.udigit(i) + b.udigit(i)
         z.setdigit(i, carry)
         carry >>= SHIFT
         i += 1
-    while i < size_a:
+    if i < size_a:
         carry += a.udigit(i)
         z.setdigit(i, carry)
-        carry >>= SHIFT
         i += 1
-    z.setdigit(i, carry)
+        while i < size_a:
+            z.setdigit(i, a.udigit(i))
+            i += 1
+    else:
+        z.setdigit(i, carry)
     z._normalize()
     return z
 
@@ -977,7 +975,7 @@ def _x_sub(a, b):
         
     z = rbigint([NULLDIGIT] * size_a, sign)
     borrow = UDIGIT_TYPE(0)
-    i = 0
+    i = _load_unsigned_digit(0)
     while i < size_b:
         # The following assumes unsigned arithmetic
         # works modulo 2**N for some N>SHIFT.
@@ -986,13 +984,15 @@ def _x_sub(a, b):
         borrow >>= SHIFT
         borrow &= 1 # Keep only one sign bit
         i += 1
-    while i < size_a:
+    if i < size_a:
         borrow = a.udigit(i) - borrow
         z.setdigit(i, borrow)
-        borrow >>= SHIFT
-        borrow &= 1 # Keep only one sign bit
         i += 1
-    assert borrow == 0
+        assert borrow >> 63 == 0
+        
+        while i < size_a:
+            z.setdigit(i, a.udigit(i))
+            i += 1
     z._normalize()
     return z
 
@@ -1018,7 +1018,7 @@ def _x_mul(a, b, digit=0):
         # via exploiting that each entry in the multiplication
         # pyramid appears twice (except for the size_a squares).
         z = rbigint([NULLDIGIT] * (size_a + size_b), 1)
-        i = 0
+        i = _load_unsigned_digit(0)
         while i < size_a:
             f = a.widedigit(i)
             pz = i << 1
@@ -1058,7 +1058,7 @@ def _x_mul(a, b, digit=0):
 
     z = rbigint([NULLDIGIT] * (size_a + size_b), 1)
     # gradeschool long mult
-    i = 0
+    i = _load_unsigned_digit(0)
     while i < size_a:
         carry = 0
         f = a.widedigit(i)
@@ -1415,7 +1415,7 @@ def _v_iadd(x, xofs, m, y, n):
     carry = r_uint(0)
 
     assert m >= n
-    i = xofs
+    i = _load_unsigned_digit(xofs)
     iend = xofs + n
     while i < iend:
         carry += x.udigit(i) + y.udigit(i-xofs)
@@ -1442,7 +1442,7 @@ def _v_isub(x, xofs, m, y, n):
     borrow = r_uint(0)
 
     assert m >= n
-    i = xofs
+    i = _load_unsigned_digit(xofs)
     iend = xofs + n
     while i < iend:
         borrow = x.udigit(i) - y.udigit(i-xofs) - borrow
@@ -1512,7 +1512,7 @@ def _x_divrem(v1, w1):
     """ Unsigned bigint division with remainder -- the algorithm """
 
     size_w = w1.numdigits()
-    d = (UDIGIT_TYPE(MASK)+1) // (w1.udigit(size_w-1) + 1)
+    d = (UDIGIT_TYPE(MASK)+1) // (w1.udigit(abs(size_w-1)) + 1)
     assert d <= MASK    # because the first digit of w1 is not zero
     d = longlongmask(d)
     v = _muladd1(v1, d)
@@ -1535,9 +1535,9 @@ def _x_divrem(v1, w1):
     size_a = size_v - size_w + 1
     a = rbigint([NULLDIGIT] * size_a, 1)
 
-    wm1 = w.widedigit(size_w-1)
-    wm2 = w.widedigit(size_w-2)
-    j = size_v
+    wm1 = w.widedigit(abs(size_w-1))
+    wm2 = w.widedigit(abs(size_w-2))
+    j = _load_unsigned_digit(size_v)
     k = size_a - 1
     while k >= 0:
         if j >= size_v:
@@ -1690,8 +1690,8 @@ def _x_divrem(v1, w1):
         
 def _divrem(a, b):
     """ Long division with remainder, top-level routine """
-    size_a = a.numdigits()
-    size_b = b.numdigits()
+    size_a = _load_unsigned_digit(a.numdigits())
+    size_b = _load_unsigned_digit(b.numdigits())
 
     if b.sign == 0:
         raise ZeroDivisionError("long division or modulo by zero")
