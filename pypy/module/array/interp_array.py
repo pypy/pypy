@@ -227,14 +227,17 @@ def make_array(mytype):
             # length
             self.setlen(0)
 
-        def setlen(self, size, zero=False):
+        def setlen(self, size, zero=False, overallocate=True):
             if size > 0:
                 if size > self.allocated or size < self.allocated / 2:
-                    if size < 9:
-                        some = 3
+                    if overallocate:
+                        if size < 9:
+                            some = 3
+                        else:
+                            some = 6
+                        some += size >> 3
                     else:
-                        some = 6
-                    some += size >> 3
+                        some = 0
                     self.allocated = size + some
                     if zero:
                         new_buffer = lltype.malloc(mytype.arraytype,
@@ -352,7 +355,7 @@ def make_array(mytype):
     def getitem__Array_Slice(space, self, w_slice):
         start, stop, step, size = space.decode_index4(w_slice, self.len)
         w_a = mytype.w_class(self.space)
-        w_a.setlen(size)
+        w_a.setlen(size, overallocate=False)
         assert step != 0
         j = 0
         for i in range(start, stop, step):
@@ -477,7 +480,7 @@ def make_array(mytype):
 
     def add__Array_Array(space, self, other):
         a = mytype.w_class(space)
-        a.setlen(self.len + other.len)
+        a.setlen(self.len + other.len, overallocate=False)
         for i in range(self.len):
             a.buffer[i] = self.buffer[i]
         for i in range(other.len):
@@ -523,15 +526,15 @@ def make_array(mytype):
         # <a performance hack>
         if oldlen == 1:
             if self.buffer[0] == rffi.cast(mytype.itemtype, 0):
-                a.setlen(newlen, zero=True)
+                a.setlen(newlen, zero=True, overallocate=False)
                 return a
-            a.setlen(newlen)
+            a.setlen(newlen, overallocate=False)
             item = self.buffer[0]
             for r in range(start, repeat):
                 a.buffer[r] = item
             return a
         # </a performance hack>
-        a.setlen(newlen)
+        a.setlen(newlen, overallocate=False)
         for r in range(start, repeat):
             for i in range(oldlen):
                 a.buffer[r * oldlen + i] = self.buffer[i]
@@ -658,7 +661,7 @@ def make_array(mytype):
 
     def array_copy__Array(space, self):
         w_a = mytype.w_class(self.space)
-        w_a.setlen(self.len)
+        w_a.setlen(self.len, overallocate=False)
         rffi.c_memcpy(
             rffi.cast(rffi.VOIDP, w_a.buffer),
             rffi.cast(rffi.VOIDP, self.buffer),
