@@ -377,26 +377,18 @@ def make_array(mytype):
     def setitem__Array_Slice_Array(space, self, w_idx, w_item):
         start, stop, step, size = self.space.decode_index4(w_idx, self.len)
         assert step != 0
-        if w_item.len != size:
+        if w_item.len != size or self is w_item:
+            # XXX this is a giant slow hack
             w_lst = array_tolist__Array(space, self)
             w_item = space.call_method(w_item, 'tolist')
             space.setitem(w_lst, w_idx, w_item)
             self.setlen(0)
             self.fromsequence(w_lst)
         else:
-            if self is w_item:
-                with lltype.scoped_alloc(mytype.arraytype, self.allocated) as new_buffer:
-                    for i in range(self.len):
-                        new_buffer[i] = w_item.buffer[i]
-                    j = 0
-                    for i in range(start, stop, step):
-                        self.buffer[i] = new_buffer[j]
-                        j += 1
-            else:
-                j = 0
-                for i in range(start, stop, step):
-                    self.buffer[i] = w_item.buffer[j]
-                    j += 1
+            j = 0
+            for i in range(start, stop, step):
+                self.buffer[i] = w_item.buffer[j]
+                j += 1
 
     def setslice__Array_ANY_ANY_ANY(space, self, w_i, w_j, w_x):
         space.setitem(self, space.newslice(w_i, w_j, space.w_None), w_x)
@@ -468,6 +460,7 @@ def make_array(mytype):
         self.buffer[i] = val
 
     def delitem__Array_ANY(space, self, w_idx):
+        # XXX this is a giant slow hack
         w_lst = array_tolist__Array(space, self)
         space.delitem(w_lst, w_idx)
         self.setlen(0)
@@ -615,6 +608,7 @@ def make_array(mytype):
     # Compare methods
     @specialize.arg(3)
     def _cmp_impl(space, self, other, space_fn):
+        # XXX this is a giant slow hack
         w_lst1 = array_tolist__Array(space, self)
         w_lst2 = space.call_method(other, 'tolist')
         return space_fn(w_lst1, w_lst2)
