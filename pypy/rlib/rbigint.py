@@ -89,7 +89,7 @@ def _widen_digit(x):
         return r_longlonglong(x)
     else:
         return r_longlong(x)
-
+_widen_digit._always_inline_ = True
 def _store_digit(x):
     """if not we_are_translated():
         assert is_valid_int(x), "store_digit() takes an int, got a %r" % type(x)"""
@@ -102,6 +102,7 @@ def _store_digit(x):
     else:
         raise ValueError("SHIFT too large!")
 _store_digit._annspecialcase_ = 'specialize:argtype(0)'
+_store_digit._always_inline_ = True
 
 def _load_digit(x):
     if SHIFT < LONG_BIT: # This would be the case for any SHIFT < LONG_BIT
@@ -109,6 +110,7 @@ def _load_digit(x):
     else:
         # x already is a type large enough, just not as fast.
         return x
+_load_digit._always_inline_ = True
 
 def _load_unsigned_digit(x):
     if SHIFT < LONG_BIT: # This would be the case for any SHIFT < LONG_BIT
@@ -117,6 +119,7 @@ def _load_unsigned_digit(x):
         # This needs a performance test on 32bit
         return rffi.cast(rffi.ULONGLONG, x)
         #return r_ulonglong(x)
+_load_unsigned_digit._always_inline_ = True
 
 NULLDIGIT = _store_digit(0)
 ONEDIGIT  = _store_digit(1)
@@ -151,25 +154,30 @@ class rbigint(object):
     def digit(self, x):
         """Return the x'th digit, as an int."""
         return _load_digit(self._digits[x])
-
+    digit._always_inline_ = True
+    
     def widedigit(self, x):
         """Return the x'th digit, as a long long int if needed
         to have enough room to contain two digits."""
         return _widen_digit(_load_digit(self._digits[x]))
-
+    widedigit._always_inline_ = True
+    
     def udigit(self, x):
         """Return the x'th digit, as an unsigned int."""
         return _load_unsigned_digit(self._digits[x])
-
+    udigit._always_inline_ = True
+    
     def setdigit(self, x, val):
         val = _mask_digit(val)
         assert val >= 0
         self._digits[x] = _store_digit(val)
     setdigit._annspecialcase_ = 'specialize:argtype(2)'
+    setdigit._always_inline_ = True
 
     def numdigits(self):
         return len(self._digits)
-
+    numdigits._always_inline_ = True
+    
     @staticmethod
     @jit.elidable
     def fromint(intval):
@@ -708,7 +716,8 @@ class rbigint(object):
 
         z._normalize()
         return z
-
+    lshift._always_inline_ = True # It's so fast that it's always benefitial.
+    
     @jit.elidable
     def lqshift(self, int_other):
         " A quicker one with much less checks, int_other is valid and for the most part constant."
@@ -727,6 +736,7 @@ class rbigint(object):
         z.setdigit(oldsize, accum)
         z._normalize()
         return z
+    lqshift._always_inline_ = True # It's so fast that it's always benefitial.
     
     @jit.elidable
     def rshift(self, int_other, dont_invert=False):
@@ -761,7 +771,8 @@ class rbigint(object):
             j += 1
         z._normalize()
         return z
-
+    rshift._always_inline_ = True # It's so fast that it's always benefitial.
+    
     @jit.elidable
     def and_(self, other):
         return _bitwise(self, '&', other)
@@ -1690,15 +1701,15 @@ def _x_divrem(v1, w1):
         
 def _divrem(a, b):
     """ Long division with remainder, top-level routine """
-    size_a = _load_unsigned_digit(a.numdigits())
-    size_b = _load_unsigned_digit(b.numdigits())
+    size_a = a.numdigits()
+    size_b = b.numdigits()
 
     if b.sign == 0:
         raise ZeroDivisionError("long division or modulo by zero")
 
     if (size_a < size_b or
         (size_a == size_b and
-         a.digit(size_a-1) < b.digit(size_b-1))):
+         a.digit(abs(size_a-1)) < b.digit(abs(size_b-1)))):
         # |a| < |b|
         return NULLRBIGINT, a# result is 0
     if size_b == 1:

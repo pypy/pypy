@@ -12,37 +12,38 @@ def entry_point(argv):
         
         A cutout with some benchmarks.
         Pypy default:
-        2.777119
-        2.316023
-        2.418211
-        5.147583
-        5.139127
-        484.5688
-        334.611903
-        8.637287
-        12.211942
-        18.270045
-        2.512140
-        14.148920
-        18.576713
-        6.647562
-
+        2.803071
+        2.366586
+        2.428205
+        4.408400
+        4.424533
+        537.338
+        268.3339
+        8.548186
+        12.197392
+        17.629869
+        2.360716
+        14.315827
+        17.963899
+        6.604541
+        Sum: 901.7231250000001
+        
         Pypy with improvements:
-        2.822389 # Little slower, divmod
-        2.522946 # Little shower, rshift
-        4.600970 # Much slower, lshift
-        2.126048 # Twice as fast
-        4.276203 # Little faster
-        9.662745 # 50 times faster
-        1.621029 # 200 times faster
-        3.956685 # Twice as fast
-        5.752223 # Twice as fast
-        7.660295 # More than twice as fast
-        0.039137 # 50 times faster
-        4.437456 # 3 times faster
-        9.078680 # Twice as fast
-        4.995520 # 1/3 faster, add
-
+        2.884540
+        2.499774
+        3.796117
+        1.681326
+        4.060521
+        9.696996
+        1.643792
+        4.045248
+        4.714733
+        6.589811
+        0.039319
+        3.503355
+        8.266362
+        5.044856
+        Sum:  58.466750
 
         A pure python form of those tests where also run
         Improved pypy           | Pypy                  | CPython 2.7.3
@@ -61,7 +62,8 @@ def entry_point(argv):
         9.19830608368           17.0125601292             11.1488289833
         5.40441417694           6.59027791023             3.63601899147
     """
-
+    sumTime = 0.0
+    
     t = time()
     num = rbigint.pow(rbigint.fromint(100000000), rbigint.fromint(1024))
     by = rbigint.pow(rbigint.fromint(2), rbigint.fromint(128))
@@ -69,7 +71,9 @@ def entry_point(argv):
         rbigint.divmod(num, by)
         
 
-    print time() - t
+    _time = time() - t
+    sumTime += _time
+    print _time
     
     t = time()
     num = rbigint.fromint(1000000000)
@@ -77,7 +81,9 @@ def entry_point(argv):
         rbigint.rshift(num, 16)
         
 
-    print time() - t
+    _time = time() - t
+    sumTime += _time
+    print _time
     
     t = time()
     num = rbigint.fromint(1000000000)
@@ -85,7 +91,9 @@ def entry_point(argv):
         rbigint.lshift(num, 4)
         
 
-    print time() - t
+    _time = time() - t
+    sumTime += _time
+    print _time
     
     t = time()
     num = rbigint.fromint(100000000)
@@ -94,7 +102,9 @@ def entry_point(argv):
         rbigint.floordiv(num, V2)
         
 
-    print time() - t
+    _time = time() - t
+    sumTime += _time
+    print _time
     
     t = time()
     num = rbigint.fromint(100000000)
@@ -103,7 +113,9 @@ def entry_point(argv):
         rbigint.floordiv(num, V3)
         
 
-    print time() - t
+    _time = time() - t
+    sumTime += _time
+    print _time
     
     t = time()
     num = rbigint.fromint(10000000)
@@ -111,7 +123,9 @@ def entry_point(argv):
         rbigint.pow(V2, num)
         
 
-    print time() - t
+    _time = time() - t
+    sumTime += _time
+    print _time
 
     t = time()
     num = rbigint.fromint(100000000)
@@ -119,7 +133,9 @@ def entry_point(argv):
         rbigint.pow(rbigint.pow(V2, rbigint.fromint(n)), num)
         
 
-    print time() - t
+    _time = time() - t
+    sumTime += _time
+    print _time
     
     t = time()
     num = rbigint.pow(rbigint.fromint(10000), rbigint.fromint(2 ** 8))
@@ -129,7 +145,9 @@ def entry_point(argv):
         rbigint.pow(P10_4, num, V100)
         
 
-    print time() - t
+    _time = time() - t
+    sumTime += _time
+    print _time
     
     t = time()
     i = rbigint.fromint(2**31)
@@ -137,7 +155,9 @@ def entry_point(argv):
     for n in xrange(75000):
         i = i.mul(i2)
 
-    print time() - t
+    _time = time() - t
+    sumTime += _time
+    print _time
     
     t = time()
     
@@ -145,7 +165,9 @@ def entry_point(argv):
         rbigint.pow(rbigint.fromint(n), P10_4)
         
 
-    print time() - t
+    _time = time() - t
+    sumTime += _time
+    print _time
     
     t = time()
     
@@ -154,7 +176,9 @@ def entry_point(argv):
         rbigint.pow(V1024, V1024)
         
 
-    print time() - t
+    _time = time() - t
+    sumTime += _time
+    print _time
     
     
     t = time()
@@ -164,7 +188,9 @@ def entry_point(argv):
         v = v.mul(P62)
         
 
-    print time() - t
+    _time = time() - t
+    sumTime += _time
+    print _time
     
     t = time()
     v2 = rbigint.fromint(2**8)
@@ -172,7 +198,9 @@ def entry_point(argv):
         v2 = v2.mul(v2)
         
 
-    print time() - t
+    _time = time() - t
+    sumTime += _time
+    print _time
     
     t = time()
     v3 = rbigint.fromint(2**62)
@@ -180,7 +208,11 @@ def entry_point(argv):
         v3 = v3.add(v3)
         
 
-    print time() - t
+    _time = time() - t
+    sumTime += _time
+    print _time
+    
+    print "Sum: ", sumTime
     
     return 0
 
