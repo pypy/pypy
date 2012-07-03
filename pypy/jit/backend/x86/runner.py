@@ -3,6 +3,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib.jit_hooks import LOOP_RUN_CONTAINER
 from pypy.jit.codewriter import longlong
 from pypy.jit.metainterp import history, compile
 from pypy.jit.backend.x86.assembler import Assembler386
@@ -181,6 +182,14 @@ class AbstractX86CPU(AbstractLLCPU):
         # positions invalidated
         looptoken.compiled_loop_token.invalidate_positions = []
 
+    def get_all_loop_runs(self):
+        l = lltype.malloc(LOOP_RUN_CONTAINER,
+                          len(self.assembler.loop_run_counters))
+        for i, ll_s in enumerate(self.assembler.loop_run_counters):
+            l[i].type = ll_s.type
+            l[i].number = ll_s.number
+            l[i].counter = ll_s.i
+        return l
 
 class CPU386(AbstractX86CPU):
     backend_name = 'x86'

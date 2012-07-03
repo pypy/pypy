@@ -55,6 +55,20 @@ class AbstractCPU(object):
         """Called once by the front-end when the program stops."""
         pass
 
+    def get_all_loop_runs(self):
+        """ Function that will return number of times all the loops were run.
+        Requires earlier setting of set_debug(True), otherwise you won't
+        get the information.
+
+        Returns an instance of LOOP_RUN_CONTAINER from rlib.jit_hooks
+        """
+        raise NotImplementedError
+
+    def set_debug(self, value):
+        """ Enable or disable debugging info. Does nothing by default
+        """
+        pass
+
     def compile_loop(self, inputargs, operations, looptoken, log=True, name=''):
         """Assemble the given loop.
         Should create and attach a fresh CompiledLoopToken to

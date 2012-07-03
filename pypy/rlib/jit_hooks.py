@@ -13,7 +13,9 @@ def register_helper(s_result):
             _about_ = helper
 
             def compute_result_annotation(self, *args):
-                return s_result
+                if isinstance(s_result, annmodel.SomeObject):
+                    return s_result
+                return annmodel.lltype_to_annotation(s_result)
 
             def specialize_call(self, hop):
                 from pypy.rpython.lltypesystem import lltype
@@ -132,3 +134,13 @@ def _cast_to_warmrunnerdesc(llref):
 @register_helper(annmodel.SomeFloat())
 def stats_get_counter_value(llref, no):
     return _cast_to_warmrunnerdesc(llref).metainterp_sd.profiler.get_counter(no)
+
+LOOP_RUN_CONTAINER = lltype.GcArray(lltype.Struct('elem',
+                                                  ('type', lltype.Char),
+                                                  ('number', lltype.Signed),
+                                                  ('counter', lltype.Signed)))
+
+@register_helper(lltype.Ptr(LOOP_RUN_CONTAINER))
+def stats_get_loop_run_times(llref):
+    warmrunnerdesc = _cast_to_warmrunnerdesc(llref)
+    return warmrunnerdesc.metainterp_sd.cpu.get_all_loop_runs()

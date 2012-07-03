@@ -750,7 +750,6 @@ class Assembler386(object):
     @specialize.argtype(1)
     def _inject_debugging_code(self, looptoken, operations, tp, number):
         if self._debug:
-            # before doing anything, let's increase a counter
             s = 0
             for op in operations:
                 s += op.getopnum()
