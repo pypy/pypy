@@ -227,7 +227,7 @@ def make_array(mytype):
             # length
             self.setlen(0)
 
-        def setlen(self, size):
+        def setlen(self, size, zero=False):
             if size > 0:
                 if size > self.allocated or size < self.allocated / 2:
                     if size < 9:
@@ -236,11 +236,17 @@ def make_array(mytype):
                         some = 6
                     some += size >> 3
                     self.allocated = size + some
-                    new_buffer = lltype.malloc(mytype.arraytype,
-                                               self.allocated, flavor='raw',
-                                               add_memory_pressure=True)
-                    for i in range(min(size, self.len)):
-                        new_buffer[i] = self.buffer[i]
+                    if zero:
+                        new_buffer = lltype.malloc(mytype.arraytype,
+                                                   self.allocated, flavor='raw',
+                                                   add_memory_pressure=True,
+                                                   zero=True)
+                    else:
+                        new_buffer = lltype.malloc(mytype.arraytype,
+                                                   self.allocated, flavor='raw',
+                                                   add_memory_pressure=True)
+                        for i in range(min(size, self.len)):
+                            new_buffer[i] = self.buffer[i]
                 else:
                     self.len = size
                     return
@@ -487,45 +493,49 @@ def make_array(mytype):
         return self
 
     def mul__Array_ANY(space, self, w_repeat):
-        try:
-            repeat = space.getindex_w(w_repeat, space.w_OverflowError)
-        except OperationError, e:
-            if e.match(space, space.w_TypeError):
-                raise FailedToImplement
-            raise
-        a = mytype.w_class(space)
-        repeat = max(repeat, 0)
-        try:
-            newlen = ovfcheck(self.len * repeat)
-        except OverflowError:
-            raise MemoryError
-        a.setlen(newlen)
-        for r in range(repeat):
-            for i in range(self.len):
-                a.buffer[r * self.len + i] = self.buffer[i]
-        return a
+        return _mul_helper(space, self, w_repeat, False)
 
     def mul__ANY_Array(space, w_repeat, self):
-        return mul__Array_ANY(space, self, w_repeat)
+        return _mul_helper(space, self, w_repeat, False)
 
     def inplace_mul__Array_ANY(space, self, w_repeat):
+        return _mul_helper(space, self, w_repeat, True)
+
+    def _mul_helper(space, self, w_repeat, is_inplace):
         try:
             repeat = space.getindex_w(w_repeat, space.w_OverflowError)
         except OperationError, e:
             if e.match(space, space.w_TypeError):
                 raise FailedToImplement
             raise
-        oldlen = self.len
         repeat = max(repeat, 0)
         try:
             newlen = ovfcheck(self.len * repeat)
         except OverflowError:
             raise MemoryError
-        self.setlen(newlen)
-        for r in range(1, repeat):
+        oldlen = self.len
+        if is_inplace:
+            a = self
+            start = 1
+        else:
+            a = mytype.w_class(space)
+            start = 0
+        # <a performance hack>
+        if oldlen == 1:
+            if self.buffer[0] == rffi.cast(mytype.itemtype, 0):
+                a.setlen(newlen, zero=True)
+                return a
+            a.setlen(newlen)
+            item = self.buffer[0]
+            for r in range(start, repeat):
+                a.buffer[r] = item
+            return a
+        # </a performance hack>
+        a.setlen(newlen)
+        for r in range(start, repeat):
             for i in range(oldlen):
-                self.buffer[r * oldlen + i] = self.buffer[i]
-        return self
+                a.buffer[r * oldlen + i] = self.buffer[i]
+        return a
 
     # Convertions
 
