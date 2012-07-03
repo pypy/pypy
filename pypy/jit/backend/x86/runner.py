@@ -45,6 +45,9 @@ class AbstractX86CPU(AbstractLLCPU):
 
         self.profile_agent = profile_agent
 
+    def set_debug(self, flag):
+        return self.assembler.set_debug(flag)
+
     def setup(self):
         if self.opts is not None:
             failargs_limit = self.opts.failargs_limit

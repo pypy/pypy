@@ -65,9 +65,10 @@ class AbstractCPU(object):
         raise NotImplementedError
 
     def set_debug(self, value):
-        """ Enable or disable debugging info. Does nothing by default
+        """ Enable or disable debugging info. Does nothing by default. Returns
+        the previous setting.
         """
-        pass
+        return False
 
     def compile_loop(self, inputargs, operations, looptoken, log=True, name=''):
         """Assemble the given loop.

@@ -101,7 +101,9 @@ class Assembler386(object):
                                       llmemory.cast_ptr_to_adr(ptrs))
 
     def set_debug(self, v):
+        r = self._debug
         self._debug = v
+        return r
 
     def setup_once(self):
         # the address of the function called by 'new'

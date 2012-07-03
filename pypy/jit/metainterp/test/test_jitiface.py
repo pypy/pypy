@@ -190,25 +190,32 @@ class LLJitHookInterfaceTests(JitHookInterfaceTests):
                 s+= 2
             return s
 
-        def main():
-            loop(30)
+        def main(b):
             stats = jit_hooks.get_stats()
+            jit_hooks.stats_set_debug(stats, b)
+            loop(30)
             l = jit_hooks.stats_get_loop_run_times(stats)
-            assert len(l) == 4
-            # completely specific test that would fail each time
-            # we change anything major. for now it's 4
-            # (loop, bridge, 2 entry points)
-            assert l[0].type == 'e'
-            assert l[0].number == 0
-            assert l[0].counter == 4
-            assert l[1].type == 'l'
-            assert l[1].counter == 4
-            assert l[2].type == 'l'
-            assert l[2].counter == 23
-            assert l[3].type == 'b'
-            assert l[3].number == 4
-            assert l[3].counter == 11
-        self.meta_interp(main, [], ProfilerClass=Profiler)
+            if b:
+                assert len(l) == 4
+                # completely specific test that would fail each time
+                # we change anything major. for now it's 4
+                # (loop, bridge, 2 entry points)
+                assert l[0].type == 'e'
+                assert l[0].number == 0
+                assert l[0].counter == 4
+                assert l[1].type == 'l'
+                assert l[1].counter == 4
+                assert l[2].type == 'l'
+                assert l[2].counter == 23
+                assert l[3].type == 'b'
+                assert l[3].number == 4
+                assert l[3].counter == 11
+            else:
+                assert len(l) == 0
+        self.meta_interp(main, [True], ProfilerClass=Profiler)
+        # this so far does not work because of the way setup_once is done,
+        # but fine, it's only about untranslated version anyway
+        #self.meta_interp(main, [False], ProfilerClass=Profiler)
         
 
 class TestJitHookInterface(JitHookInterfaceTests, LLJitMixin):

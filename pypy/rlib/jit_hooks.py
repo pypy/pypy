@@ -13,7 +13,8 @@ def register_helper(s_result):
             _about_ = helper
 
             def compute_result_annotation(self, *args):
-                if isinstance(s_result, annmodel.SomeObject):
+                if (isinstance(s_result, annmodel.SomeObject) or
+                    s_result is None):
                     return s_result
                 return annmodel.lltype_to_annotation(s_result)
 
@@ -130,6 +131,10 @@ def _cast_to_warmrunnerdesc(llref):
 
     ptr = lltype.cast_opaque_ptr(rclass.OBJECTPTR, llref)
     return cast_base_ptr_to_instance(WarmRunnerDesc, ptr)
+
+@register_helper(annmodel.SomeBool())
+def stats_set_debug(llref, flag):
+    return _cast_to_warmrunnerdesc(llref).metainterp_sd.cpu.set_debug(flag)
 
 @register_helper(annmodel.SomeFloat())
 def stats_get_counter_value(llref, no):
