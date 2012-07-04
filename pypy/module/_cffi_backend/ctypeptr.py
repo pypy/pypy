@@ -49,12 +49,15 @@ class W_CTypePtrBase(W_CTypePtrOrArray):
         if not isinstance(ob, cdataobj.W_CData):
             raise self._convert_error("compatible pointer", w_ob)
         other = ob.ctype
-        if (isinstance(other, W_CTypePtrOrArray) and
-             (self is other or
-              self.can_cast_anything or other.can_cast_anything)):
-            pass    # compatible types
-        else:
-            raise self._convert_error("compatible pointer", w_ob)
+        if not isinstance(other, W_CTypePtrBase):
+            from pypy.module._cffi_backend import ctypearray
+            if isinstance(other, ctypearray.W_CTypeArray):
+                other = other.ctptr
+            else:
+                raise self._convert_error("compatible pointer", w_ob)
+        if self is not other:
+            if not (self.can_cast_anything or other.can_cast_anything):
+                raise self._convert_error("compatible pointer", w_ob)
 
         rffi.cast(rffi.CCHARPP, cdata)[0] = ob._cdata
 
