@@ -1,4 +1,4 @@
-from pypy.rlib.rarithmetic import LONG_BIT, intmask, longlongmask, r_uint, r_int, r_ulonglong, r_longlonglong
+from pypy.rlib.rarithmetic import LONG_BIT, intmask, longlongmask, r_uint, r_ulonglong, r_longlonglong
 from pypy.rlib.rarithmetic import ovfcheck, r_longlong, widen, is_valid_int
 from pypy.rlib.rarithmetic import most_neg_value_of_same_type
 from pypy.rlib.rfloat import isfinite
@@ -32,11 +32,19 @@ if SUPPORT_INT128:
     BASE = long(1 << SHIFT)
     UDIGIT_TYPE = r_ulonglong
     UDIGIT_MASK = longlongmask
+    if LONG_BIT > SHIFT:
+        STORE_TYPE = lltype.Signed
+        UNSIGNED_TYPE = lltype.Unsigned
+    else:
+        STORE_TYPE = rffi.LONGLONG
+        UNSIGNED_TYPE = rffi.ULONGLONG
 else:
     SHIFT = 31
     BASE = int(1 << SHIFT)
     UDIGIT_TYPE = r_uint
     UDIGIT_MASK = intmask
+    STORE_TYPE = lltype.Signed
+    UNSIGNED_TYPE = lltype.Unsigned
 
 MASK = BASE - 1
 FLOAT_MULTIPLIER = float(1 << LONG_BIT) # Because it works.
@@ -98,27 +106,15 @@ def _store_digit(x):
     elif SHIFT <= 31:
         return rffi.cast(rffi.INT, x)
     elif SHIFT <= 63:
-        return rffi.cast(rffi.LONGLONG, x)
+        return rffi.cast(STORE_TYPE, x)
     else:
         raise ValueError("SHIFT too large!")
 _store_digit._annspecialcase_ = 'specialize:argtype(0)'
 _store_digit._always_inline_ = True
 
-def _load_digit(x):
-    if SHIFT < LONG_BIT: # This would be the case for any SHIFT < LONG_BIT
-        return rffi.cast(lltype.Signed, x)
-    else:
-        # x already is a type large enough, just not as fast.
-        return x
-_load_digit._always_inline_ = True
-
 def _load_unsigned_digit(x):
-    if SHIFT < LONG_BIT: # This would be the case for any SHIFT < LONG_BIT
-        return rffi.cast(lltype.Unsigned, x)
-    else:
-        # This needs a performance test on 32bit
-        return rffi.cast(rffi.ULONGLONG, x)
-        #return r_ulonglong(x)
+    return rffi.cast(UNSIGNED_TYPE, x)
+        
 _load_unsigned_digit._always_inline_ = True
 
 NULLDIGIT = _store_digit(0)
@@ -153,13 +149,13 @@ class rbigint(object):
 
     def digit(self, x):
         """Return the x'th digit, as an int."""
-        return _load_digit(self._digits[x])
+        return self._digits[x]
     digit._always_inline_ = True
     
     def widedigit(self, x):
         """Return the x'th digit, as a long long int if needed
         to have enough room to contain two digits."""
-        return _widen_digit(_load_digit(self._digits[x]))
+        return _widen_digit(self._digits[x])
     widedigit._always_inline_ = True
     
     def udigit(self, x):
@@ -851,7 +847,6 @@ class rbigint(object):
         return "<rbigint digits=%s, sign=%s, %s>" % (self._digits,
                                                      self.sign, self.str())
 
-
 ONERBIGINT = rbigint([ONEDIGIT], 1)
 NULLRBIGINT = rbigint()
 
@@ -937,7 +932,7 @@ def _x_add(a, b):
         a, b = b, a
         size_a, size_b = size_b, size_a
     z = rbigint([NULLDIGIT] * (size_a + 1), 1)
-    i = _load_unsigned_digit(0)
+    i = UDIGIT_TYPE(0)
     carry = UDIGIT_TYPE(0)
     while i < size_b:
         carry += a.udigit(i) + b.udigit(i)
