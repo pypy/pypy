@@ -3,12 +3,14 @@ from __future__ import with_statement
 This file is OBSCURE.  Really.  The purpose is to avoid copying and changing
 'test_c.py' from cffi/c/.
 """
-import py, ctypes, operator
+import py, ctypes
 from pypy.tool.udir import udir
 from pypy.conftest import gettestobjspace
 from pypy.interpreter import gateway
 from pypy.module._cffi_backend.test import _backend_test_c
 from pypy.module._cffi_backend import Module
+from pypy.translator.platform import host
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
 
 class AppTestC(object):
@@ -27,52 +29,18 @@ class AppTestC(object):
                 import _cffi_backend
                 return _cffi_backend.load_library(path)""")
 
-        def testfunc0(a, b):
-            return chr((ord(a) + ord(b)) & 0xFF)
+        test_lib_c = tmpdir.join('_test_lib.c')
+        src_test_lib_c = py.path.local(__file__).dirpath().join('_test_lib.c')
+        src_test_lib_c.copy(test_lib_c)
+        eci = ExternalCompilationInfo()
+        test_lib = host.compile([test_lib_c], eci, standalone=False)
 
-        testfunc6_static = ctypes.c_int(0)
-        def testfunc6(p_int):
-            testfunc6_static.value = p_int[0] - 1000
-            ptr = ctypes.pointer(testfunc6_static)
-            return ctypes.cast(ptr, ctypes.c_void_p).value
-
-        class _testfunc7_s(ctypes.Structure):
-            _fields_ = [('a1', ctypes.c_ubyte),
-                        ('a2', ctypes.c_short)]
-        def testfunc7(inlined):
-            return inlined.a1 + inlined.a2
-
-        def prepfunc(func, argtypes, restype):
-            c_func = ctypes.CFUNCTYPE(restype, *argtypes)(func)
-            keepalive_funcs.append(c_func)
-            return ctypes.cast(c_func, ctypes.c_void_p).value
+        cdll = ctypes.CDLL(str(test_lib))
+        cdll.gettestfunc.restype = ctypes.c_void_p
 
         def testfunc_for_test(space, w_num):
-            if not testfuncs_w:
-                testfuncs = [
-                    prepfunc(testfunc0,       # testfunc0
-                             (ctypes.c_char, ctypes.c_char), ctypes.c_char),
-                    prepfunc(operator.add,    # testfunc1
-                             (ctypes.c_int, ctypes.c_long), ctypes.c_long),
-                    prepfunc(operator.add,    # testfunc2
-                             (ctypes.c_longlong, ctypes.c_longlong),
-                             ctypes.c_longlong),
-                    prepfunc(operator.add,    # testfunc3
-                             (ctypes.c_float, ctypes.c_double),
-                             ctypes.c_double),
-                    prepfunc(operator.add,    # testfunc4
-                             (ctypes.c_float, ctypes.c_double),
-                             ctypes.c_float),
-                    prepfunc(lambda: None,    # testfunc5
-                             (), None),
-                    prepfunc(testfunc6,       # testfunc6
-                             (ctypes.POINTER(ctypes.c_int),),
-                             ctypes.c_void_p),
-                    prepfunc(testfunc7,       # testfunc7
-                             (_testfunc7_s,), ctypes.c_short),
-                    ]
-                testfuncs_w[:] = [space.wrap(addr) for addr in testfuncs]
-            return testfuncs_w[space.int_w(w_num)]
+            addr = cdll.gettestfunc(space.int_w(w_num))
+            return space.wrap(addr)
 
         w_func = space.wrap(gateway.interp2app(find_and_load_library_for_test))
         w_testfunc = space.wrap(gateway.interp2app(testfunc_for_test))
