@@ -782,7 +782,7 @@ def test_cannot_call_with_a_autocompleted_struct():
                                        ('a', BSChar, -1, 2),
                                        ('b', BSChar, -1, 0)])
     e = py.test.raises(TypeError, new_function_type, (BStruct,), BDouble)
-    msg = 'cannot pass as a argument a struct that was completed with verify()'
+    msg ='cannot pass as an argument a struct that was completed with verify()'
     assert msg in str(e.value)
 
 def test_new_charp():
