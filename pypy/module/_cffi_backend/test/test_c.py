@@ -3,7 +3,7 @@ from __future__ import with_statement
 This file is OBSCURE.  Really.  The purpose is to avoid copying and changing
 'test_c.py' from cffi/c/.
 """
-import py, ctypes
+import py, ctypes, operator
 from pypy.tool.udir import udir
 from pypy.conftest import gettestobjspace
 from pypy.interpreter import gateway
@@ -30,6 +30,12 @@ class AppTestC(object):
         def testfunc0(a, b):
             return chr((ord(a) + ord(b)) & 0xFF)
 
+        testfunc6_static = ctypes.c_int(0)
+        def testfunc6(p_int):
+            testfunc6_static.value = p_int[0] - 1000
+            ptr = ctypes.pointer(testfunc6_static)
+            return ctypes.cast(ptr, ctypes.c_void_p)
+
         def prepfunc(func, argtypes, restype):
             c_func = ctypes.CFUNCTYPE(restype, *argtypes)(func)
             keepalive_funcs.append(c_func)
@@ -38,8 +44,24 @@ class AppTestC(object):
         def testfunc_for_test(space, w_num):
             if not testfuncs_w:
                 testfuncs = [
-                    prepfunc(testfunc0,
+                    prepfunc(testfunc0,       # testfunc0
                              (ctypes.c_char, ctypes.c_char), ctypes.c_char),
+                    prepfunc(operator.add,    # testfunc1
+                             (ctypes.c_int, ctypes.c_long), ctypes.c_long),
+                    prepfunc(operator.add,    # testfunc2
+                             (ctypes.c_longlong, ctypes.c_longlong),
+                             ctypes.c_longlong),
+                    prepfunc(operator.add,    # testfunc3,
+                             (ctypes.c_float, ctypes.c_double),
+                             ctypes.c_double),
+                    prepfunc(operator.add,    # testfunc4,
+                             (ctypes.c_float, ctypes.c_double),
+                             ctypes.c_float),
+                    prepfunc(lambda: None,    # testfunc5,
+                             (), None),
+                    prepfunc(testfunc6,       # testfunc6,
+                             (ctypes.POINTER(ctypes.c_int),),
+                             ctypes.c_void_p),
                     ]
                 testfuncs_w[:] = [space.wrap(addr) for addr in testfuncs]
             return testfuncs_w[space.int_w(w_num)]
