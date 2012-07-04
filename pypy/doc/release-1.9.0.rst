@@ -102,8 +102,8 @@ Highlights
 JitViewer
 =========
 
-There is a corresponding 1.9 release of JitViewer which is guaranteed to work
-with PyPy 1.9. See the `JitViewer docs`_ for details.
+There will be a corresponding 1.9 release of JitViewer which is guaranteed
+to work with PyPy 1.9. See the `JitViewer docs`_ for details.
 
 .. _`JitViewer docs`: http://bitbucket.org/pypy/jitviewer
 

@@ -23,7 +23,7 @@ for the PyPy python interpreter (in order of usefulness):
 
 * Write them in RPython as mixedmodule_, using *rffi* as bindings.
 
-* Write them in C++ and bind them through Reflex_ (EXPERIMENTAL)
+* Write them in C++ and bind them through Reflex_
 
 .. _ctypes: #CTypes
 .. _\_ffi: #LibFFI

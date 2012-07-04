@@ -16,6 +16,26 @@ def identity(n, dtype=None):
         a[i][i] = 1
     return a
 
+def eye(n, m=None, k=0, dtype=None):
+    if m is None:
+        m = n
+    a = _numpypy.zeros((n, m), dtype=dtype)
+    ni = 0
+    mi = 0
+
+    if k < 0:
+        p = n + k
+        ni = -k
+    else:
+        p = n - k
+        mi = k
+
+    while ni < n and mi < m:
+        a[ni][mi] = 1
+        ni += 1
+        mi += 1
+    return a
+
 def sum(a,axis=None, out=None):
     '''sum(a, axis=None)
     Sum of array elements over a given axis.

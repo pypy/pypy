@@ -573,6 +573,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         a = arange(12).reshape(3, 4)
         assert (add.reduce(a, 0) == [12, 15, 18, 21]).all()
         assert (add.reduce(a, 1) == [6.0, 22.0, 38.0]).all()
+        raises(ValueError, add.reduce, a, 2)
 
     def test_reduce_keepdims(self):
         from _numpypy import add, arange
@@ -636,6 +637,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert count_reduce_items(a) == 24
         assert count_reduce_items(a, 1) == 3
         assert count_reduce_items(a, (1, 2)) == 3 * 4
+        raises(ValueError, count_reduce_items, a, -4)
+        raises(ValueError, count_reduce_items, a, (0, 2, -4))
 
     def test_true_divide(self):
         from _numpypy import arange, array, true_divide

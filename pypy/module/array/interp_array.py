@@ -164,6 +164,8 @@ class ArrayBuffer(RWBuffer):
         data[index] = char
         array._charbuf_stop()
 
+    def get_raw_address(self):
+        return self.array._charbuf_start()
 
 def make_array(mytype):
     W_ArrayBase = globals()['W_ArrayBase']
@@ -225,20 +227,29 @@ def make_array(mytype):
             # length
             self.setlen(0)
 
-        def setlen(self, size):
+        def setlen(self, size, zero=False, overallocate=True):
             if size > 0:
                 if size > self.allocated or size < self.allocated / 2:
-                    if size < 9:
-                        some = 3
+                    if overallocate:
+                        if size < 9:
+                            some = 3
+                        else:
+                            some = 6
+                        some += size >> 3
                     else:
-                        some = 6
-                    some += size >> 3
+                        some = 0
                     self.allocated = size + some
-                    new_buffer = lltype.malloc(mytype.arraytype,
-                                               self.allocated, flavor='raw',
-                                               add_memory_pressure=True)
-                    for i in range(min(size, self.len)):
-                        new_buffer[i] = self.buffer[i]
+                    if zero:
+                        new_buffer = lltype.malloc(mytype.arraytype,
+                                                   self.allocated, flavor='raw',
+                                                   add_memory_pressure=True,
+                                                   zero=True)
+                    else:
+                        new_buffer = lltype.malloc(mytype.arraytype,
+                                                   self.allocated, flavor='raw',
+                                                   add_memory_pressure=True)
+                        for i in range(min(size, self.len)):
+                            new_buffer[i] = self.buffer[i]
                 else:
                     self.len = size
                     return
@@ -344,7 +355,7 @@ def make_array(mytype):
     def getitem__Array_Slice(space, self, w_slice):
         start, stop, step, size = space.decode_index4(w_slice, self.len)
         w_a = mytype.w_class(self.space)
-        w_a.setlen(size)
+        w_a.setlen(size, overallocate=False)
         assert step != 0
         j = 0
         for i in range(start, stop, step):
@@ -366,26 +377,18 @@ def make_array(mytype):
     def setitem__Array_Slice_Array(space, self, w_idx, w_item):
         start, stop, step, size = self.space.decode_index4(w_idx, self.len)
         assert step != 0
-        if w_item.len != size:
+        if w_item.len != size or self is w_item:
+            # XXX this is a giant slow hack
             w_lst = array_tolist__Array(space, self)
             w_item = space.call_method(w_item, 'tolist')
             space.setitem(w_lst, w_idx, w_item)
             self.setlen(0)
             self.fromsequence(w_lst)
         else:
-            if self is w_item:
-                with lltype.scoped_alloc(mytype.arraytype, self.allocated) as new_buffer:
-                    for i in range(self.len):
-                        new_buffer[i] = w_item.buffer[i]
-                    j = 0
-                    for i in range(start, stop, step):
-                        self.buffer[i] = new_buffer[j]
-                        j += 1
-            else:
-                j = 0
-                for i in range(start, stop, step):
-                    self.buffer[i] = w_item.buffer[j]
-                    j += 1
+            j = 0
+            for i in range(start, stop, step):
+                self.buffer[i] = w_item.buffer[j]
+                j += 1
 
     def setslice__Array_ANY_ANY_ANY(space, self, w_i, w_j, w_x):
         space.setitem(self, space.newslice(w_i, w_j, space.w_None), w_x)
@@ -457,6 +460,7 @@ def make_array(mytype):
         self.buffer[i] = val
 
     def delitem__Array_ANY(space, self, w_idx):
+        # XXX this is a giant slow hack
         w_lst = array_tolist__Array(space, self)
         space.delitem(w_lst, w_idx)
         self.setlen(0)
@@ -469,7 +473,7 @@ def make_array(mytype):
 
     def add__Array_Array(space, self, other):
         a = mytype.w_class(space)
-        a.setlen(self.len + other.len)
+        a.setlen(self.len + other.len, overallocate=False)
         for i in range(self.len):
             a.buffer[i] = self.buffer[i]
         for i in range(other.len):
@@ -485,45 +489,49 @@ def make_array(mytype):
         return self
 
     def mul__Array_ANY(space, self, w_repeat):
-        try:
-            repeat = space.getindex_w(w_repeat, space.w_OverflowError)
-        except OperationError, e:
-            if e.match(space, space.w_TypeError):
-                raise FailedToImplement
-            raise
-        a = mytype.w_class(space)
-        repeat = max(repeat, 0)
-        try:
-            newlen = ovfcheck(self.len * repeat)
-        except OverflowError:
-            raise MemoryError
-        a.setlen(newlen)
-        for r in range(repeat):
-            for i in range(self.len):
-                a.buffer[r * self.len + i] = self.buffer[i]
-        return a
+        return _mul_helper(space, self, w_repeat, False)
 
     def mul__ANY_Array(space, w_repeat, self):
-        return mul__Array_ANY(space, self, w_repeat)
+        return _mul_helper(space, self, w_repeat, False)
 
     def inplace_mul__Array_ANY(space, self, w_repeat):
+        return _mul_helper(space, self, w_repeat, True)
+
+    def _mul_helper(space, self, w_repeat, is_inplace):
         try:
             repeat = space.getindex_w(w_repeat, space.w_OverflowError)
         except OperationError, e:
             if e.match(space, space.w_TypeError):
                 raise FailedToImplement
             raise
-        oldlen = self.len
         repeat = max(repeat, 0)
         try:
             newlen = ovfcheck(self.len * repeat)
         except OverflowError:
             raise MemoryError
-        self.setlen(newlen)
-        for r in range(1, repeat):
+        oldlen = self.len
+        if is_inplace:
+            a = self
+            start = 1
+        else:
+            a = mytype.w_class(space)
+            start = 0
+        # <a performance hack>
+        if oldlen == 1:
+            if self.buffer[0] == rffi.cast(mytype.itemtype, 0):
+                a.setlen(newlen, zero=True, overallocate=False)
+                return a
+            a.setlen(newlen, overallocate=False)
+            item = self.buffer[0]
+            for r in range(start, repeat):
+                a.buffer[r] = item
+            return a
+        # </a performance hack>
+        a.setlen(newlen, overallocate=False)
+        for r in range(start, repeat):
             for i in range(oldlen):
-                self.buffer[r * oldlen + i] = self.buffer[i]
-        return self
+                a.buffer[r * oldlen + i] = self.buffer[i]
+        return a
 
     # Convertions
 
@@ -600,6 +608,7 @@ def make_array(mytype):
     # Compare methods
     @specialize.arg(3)
     def _cmp_impl(space, self, other, space_fn):
+        # XXX this is a giant slow hack
         w_lst1 = array_tolist__Array(space, self)
         w_lst2 = space.call_method(other, 'tolist')
         return space_fn(w_lst1, w_lst2)
@@ -646,7 +655,7 @@ def make_array(mytype):
 
     def array_copy__Array(space, self):
         w_a = mytype.w_class(self.space)
-        w_a.setlen(self.len)
+        w_a.setlen(self.len, overallocate=False)
         rffi.c_memcpy(
             rffi.cast(rffi.VOIDP, w_a.buffer),
             rffi.cast(rffi.VOIDP, self.buffer),
