@@ -36,6 +36,12 @@ class AppTestC(object):
             ptr = ctypes.pointer(testfunc6_static)
             return ctypes.cast(ptr, ctypes.c_void_p).value
 
+        class _testfunc7_s(ctypes.Structure):
+            _fields_ = [('a1', ctypes.c_ubyte),
+                        ('a2', ctypes.c_short)]
+        def testfunc7(inlined):
+            return inlined.a1 + inlined.a2
+
         def prepfunc(func, argtypes, restype):
             c_func = ctypes.CFUNCTYPE(restype, *argtypes)(func)
             keepalive_funcs.append(c_func)
@@ -51,17 +57,19 @@ class AppTestC(object):
                     prepfunc(operator.add,    # testfunc2
                              (ctypes.c_longlong, ctypes.c_longlong),
                              ctypes.c_longlong),
-                    prepfunc(operator.add,    # testfunc3,
+                    prepfunc(operator.add,    # testfunc3
                              (ctypes.c_float, ctypes.c_double),
                              ctypes.c_double),
-                    prepfunc(operator.add,    # testfunc4,
+                    prepfunc(operator.add,    # testfunc4
                              (ctypes.c_float, ctypes.c_double),
                              ctypes.c_float),
-                    prepfunc(lambda: None,    # testfunc5,
+                    prepfunc(lambda: None,    # testfunc5
                              (), None),
-                    prepfunc(testfunc6,       # testfunc6,
+                    prepfunc(testfunc6,       # testfunc6
                              (ctypes.POINTER(ctypes.c_int),),
                              ctypes.c_void_p),
+                    prepfunc(testfunc7,       # testfunc7
+                             (_testfunc7_s,), ctypes.c_short),
                     ]
                 testfuncs_w[:] = [space.wrap(addr) for addr in testfuncs]
             return testfuncs_w[space.int_w(w_num)]
