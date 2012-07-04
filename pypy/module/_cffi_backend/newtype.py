@@ -217,6 +217,8 @@ def new_function_type(space, w_fargs, fresult, ellipsis=0):
         if not isinstance(farg, ctypeobj.W_CType):
             raise OperationError(space.w_TypeError,
                 space.wrap("first arg must be a tuple of ctype objects"))
+        if isinstance(farg, ctypearray.W_CTypeArray):
+            farg = farg.ctptr
         fargs.append(farg)
     #
     if isinstance(fresult, ctypestruct.W_CTypeStructOrUnion):
