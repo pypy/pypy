@@ -21,8 +21,9 @@ class Module(MixedModule):
 
         'newp': 'func.newp',
         'cast': 'func.cast',
-        'sizeof': 'func.sizeof',
         'alignof': 'func.alignof',
+        'sizeof': 'func.sizeof',
+        'typeof': 'func.typeof',
         'offsetof': 'func.offsetof',
         '_getfields': 'func._getfields',
         }

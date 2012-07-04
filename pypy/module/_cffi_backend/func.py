@@ -20,6 +20,12 @@ def cast(space, ctype, w_ob):
 
 # ____________________________________________________________
 
+@unwrap_spec(cdata=cdataobj.W_CData)
+def typeof(space, cdata):
+    return cdata.ctype
+
+# ____________________________________________________________
+
 def sizeof(space, w_obj):
     ob = space.interpclass_w(w_obj)
     if isinstance(ob, cdataobj.W_CData):
