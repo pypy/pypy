@@ -163,6 +163,7 @@ class CConfig:
                                                  ('type', rffi.USHORT),
                                                  ('elements', FFI_TYPE_PP)])
 
+    ffi_cif = rffi_platform.Struct('ffi_cif', [])
     ffi_closure = rffi_platform.Struct('ffi_closure', [])
 
 def add_simple_type(type_name):
@@ -324,7 +325,7 @@ FFI_DEFAULT_ABI = cConfig.FFI_DEFAULT_ABI
 if _WIN32 and not _WIN64:
     FFI_STDCALL = cConfig.FFI_STDCALL
 FFI_TYPE_STRUCT = cConfig.FFI_TYPE_STRUCT
-FFI_CIFP = rffi.COpaquePtr('ffi_cif', compilation_info=eci)
+FFI_CIFP = lltype.Ptr(cConfig.ffi_cif)
 
 FFI_CLOSUREP = lltype.Ptr(cConfig.ffi_closure)
 

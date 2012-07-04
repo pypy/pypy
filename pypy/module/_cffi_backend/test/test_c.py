@@ -28,7 +28,7 @@ class AppTestC(object):
                 return _cffi_backend.load_library(path)""")
 
         def testfunc0(a, b):
-            return chr(ord(a) + ord(b))
+            return chr((ord(a) + ord(b)) & 0xFF)
 
         def prepfunc(func, argtypes, restype):
             c_func = ctypes.CFUNCTYPE(restype, *argtypes)(func)

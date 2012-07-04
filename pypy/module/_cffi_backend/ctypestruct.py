@@ -17,6 +17,7 @@ class W_CTypeStructOrUnion(W_CType):
     alignment = -1
     fields_list = None
     fields_dict = None
+    custom_field_pos = False
 
     def __init__(self, space, name):
         name = '%s %s' % (self.kind, name)
@@ -131,16 +132,19 @@ class W_CField(Wrappable):
         self.bitshift = bitshift
         self.bitsize = bitsize
 
+    def is_bitfield(self):
+        return self.bitshift >= 0
+
     def read(self, cdata):
         cdata = rffi.ptradd(cdata, self.offset)
-        if self.bitshift >= 0:
+        if self.is_bitfield():
             xxx
         else:
             return self.ctype.convert_to_object(cdata)
 
     def write(self, cdata, w_ob):
         cdata = rffi.ptradd(cdata, self.offset)
-        if self.bitshift >= 0:
+        if self.is_bitfield():
             xxx
         else:
             self.ctype.convert_from_object(cdata, w_ob)

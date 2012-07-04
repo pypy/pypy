@@ -110,6 +110,7 @@ def complete_struct_or_union(space, ctype, w_fields, w_ignored=None,
     fields_dict = {}
     prev_bit_position = 0
     prev_field = None
+    custom_field_pos = False
 
     for w_field in fields_w:
         field_w = space.fixedview(w_field)
@@ -140,6 +141,9 @@ def complete_struct_or_union(space, ctype, w_fields, w_ignored=None,
             # align this field to its own 'falign' by inserting padding
             offset = (offset + falign - 1) & ~(falign-1)
         else:
+            # a forced field position: ignore the offset just computed,
+            # except to know if we must set 'custom_field_pos'
+            custom_field_pos |= (offset != foffset)
             offset = foffset
         #
         if fbitsize < 0 or (fbitsize == 8 * ftype.size and
@@ -180,6 +184,7 @@ def complete_struct_or_union(space, ctype, w_fields, w_ignored=None,
     ctype.alignment = totalalignment
     ctype.fields_list = fields_list
     ctype.fields_dict = fields_dict
+    ctype.custom_field_pos = custom_field_pos
 
 # ____________________________________________________________
 

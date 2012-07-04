@@ -2,11 +2,16 @@
 Function pointers.
 """
 
+from __future__ import with_statement
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rlib import jit, clibffi
+from pypy.rlib.objectmodel import we_are_translated
 
+from pypy.module._cffi_backend.ctypeobj import W_CType
 from pypy.module._cffi_backend.ctypeptr import W_CTypePtrBase
+from pypy.module._cffi_backend.ctypevoid import W_CTypeVoid
+from pypy.module._cffi_backend import ctypeprim, ctypestruct
 
 
 class W_CTypeFunc(W_CTypePtrBase):
@@ -30,7 +35,7 @@ class W_CTypeFunc(W_CTypePtrBase):
 
     def __del__(self):
         if self.cif_descr:
-            llmemory.raw_free(llmemory.cast_ptr_to_adr(self.cif_descr))
+            lltype.free(self.cif_descr, flavor='raw')
 
     def _compute_extra_text(self, fargs, fresult, ellipsis):
         argnames = ['(*)(']
@@ -48,11 +53,39 @@ class W_CTypeFunc(W_CTypePtrBase):
 
     def call(self, funcaddr, args_w):
         space = self.space
-        if len(args_w) != len(self.fargs):
-            raise operationerrfmt(space.w_TypeError,
-                                  "'%s' expects %d arguments, got %d",
-                                  self.name, len(self.fargs), len(args_w))
-        xxx
+        cif_descr = self.cif_descr
+
+        if cif_descr:
+            # regular case: this function does not take '...' arguments
+            if len(args_w) != len(self.fargs):
+                raise operationerrfmt(space.w_TypeError,
+                                      "'%s' expects %d arguments, got %d",
+                                      self.name, len(self.fargs), len(args_w))
+        else:
+            # call of a variadic function
+            xxx
+
+        size = cif_descr.exchange_size
+        with lltype.scoped_alloc(rffi.CCHARP.TO, size) as buffer:
+            buffer_array = rffi.cast(rffi.VOIDPP, buffer)
+            for i in range(len(args_w)):
+                data = rffi.ptradd(buffer, cif_descr.exchange_args[i])
+                buffer_array[i] = data
+                w_obj = args_w[i]
+                argtype = self.fargs[i]
+                argtype.convert_from_object(data, w_obj)
+            resultdata = rffi.ptradd(buffer, cif_descr.exchange_result)
+
+            clibffi.c_ffi_call(cif_descr.cif,
+                               rffi.cast(rffi.VOIDP, funcaddr),
+                               resultdata,
+                               buffer_array)
+
+            if isinstance(self.ctitem, W_CTypeVoid):
+                w_res = space.w_None
+            else:
+                w_res = self.ctitem.convert_to_object(resultdata)
+        return w_res
 
 # ____________________________________________________________
 
@@ -87,9 +120,18 @@ CIF_DESCRIPTION = lltype.Struct(
     ('cif', FFI_CIF),
     ('exchange_size', lltype.Signed),
     ('exchange_result', lltype.Signed),
-    ('exchange_args', lltype.Array(lltype.Signed)))
+    ('exchange_args', rffi.CArray(lltype.Signed)))
 
 CIF_DESCRIPTION_P = lltype.Ptr(CIF_DESCRIPTION)
+
+# We attach (lazily or not) to the classes or instances a 'ffi_type' attribute
+W_CType.ffi_type = lltype.nullptr(FFI_TYPE_P.TO)
+W_CTypePtrBase.ffi_type = clibffi.ffi_type_pointer
+W_CTypeVoid.ffi_type = clibffi.ffi_type_void
+
+def _settype(ctype, ffi_type):
+    ctype.ffi_type = ffi_type
+    return ffi_type
 
 
 class CifDescrBuilder(object):
@@ -111,7 +153,85 @@ class CifDescrBuilder(object):
 
 
     def fb_fill_type(self, ctype):
-        xxx
+        if ctype.ffi_type:   # common case: the ffi_type was already computed
+            return ctype.ffi_type
+
+        size = ctype.size
+        if size < 0:
+            space = self.space
+            raise operationerrfmt(space.w_TypeError,
+                                  "ctype '%s' has incomplete type",
+                                  ctype.name)
+
+        if isinstance(ctype, ctypestruct.W_CTypeStruct):
+
+            # We can't pass a struct that was completed by verify().
+            # Issue: assume verify() is given "struct { long b; ...; }".
+            # Then it will complete it in the same way whether it is actually
+            # "struct { long a, b; }" or "struct { double a; long b; }".
+            # But on 64-bit UNIX, these two structs are passed by value
+            # differently: e.g. on x86-64, "b" ends up in register "rsi" in
+            # the first case and "rdi" in the second case.
+            if ctype.custom_field_pos:
+                raise OperationError(space.w_TypeError,
+                                     space.wrap(
+                   "cannot pass as an argument a struct that was completed "
+                   "with verify() (see pypy/module/_cffi_backend/ctypefunc.py "
+                   "for details)"))
+
+            # allocate an array of (n + 1) ffi_types
+            n = len(ctype.fields_list)
+            elements = self.fb_alloc(rffi.sizeof(FFI_TYPE_P) * (n + 1))
+            elements = rffi.cast(FFI_TYPE_PP, elements)
+
+            # fill it with the ffi types of the fields
+            for i, cf in enumerate(ctype.fields_list):
+                if cf.is_bitfield():
+                    raise OperationError(space.w_NotImplementedError,
+                        space.wrap("cannot pass as argument a struct "
+                                   "with bit fields"))
+                ffi_subtype = self.fb_fill_type(cf.ctype)
+                if elements:
+                    elements[i] = ffi_subtype
+
+            # zero-terminate the array
+            if elements:
+                elements[n] = lltype.nullptr(FFI_TYPE_P.TO)
+
+            # allocate and fill an ffi_type for the struct itself
+            ffistruct = self.fb_alloc(rffi.sizeof(FFI_TYPE))
+            ffistruct = rffi.cast(FFI_TYPE_P, ffistruct)
+            if ffistruct:
+                rffi.setintfield(ffistruct, 'c_size', size)
+                rffi.setintfield(ffistruct, 'c_alignment', ctype.alignof())
+                rffi.setintfield(ffistruct, 'c_type', clibffi.FFI_TYPE_STRUCT)
+                ffistruct.c_elements = elements
+
+            return ffistruct
+
+        elif isinstance(ctype, ctypeprim.W_CTypePrimitiveSigned):
+            # compute lazily once the ffi_type
+            if   size == 1: return _settype(ctype, clibffi.ffi_type_sint8)
+            elif size == 2: return _settype(ctype, clibffi.ffi_type_sint16)
+            elif size == 4: return _settype(ctype, clibffi.ffi_type_sint32)
+            elif size == 8: return _settype(ctype, clibffi.ffi_type_sint64)
+
+        elif (isinstance(ctype, ctypeprim.W_CTypePrimitiveChar) or
+              isinstance(ctype, ctypeprim.W_CTypePrimitiveUnsigned)):
+            if   size == 1: return _settype(ctype, clibffi.ffi_type_uint8)
+            elif size == 2: return _settype(ctype, clibffi.ffi_type_uint16)
+            elif size == 4: return _settype(ctype, clibffi.ffi_type_uint32)
+            elif size == 8: return _settype(ctype, clibffi.ffi_type_uint64)
+
+        elif isinstance(ctype, ctypeprim.W_CTypePrimitiveFloat):
+            if   size == 4: return _settype(ctype, clibffi.ffi_type_float)
+            elif size == 8: return _settype(ctype, clibffi.ffi_type_double)
+
+        space = self.space
+        raise operationerrfmt(space.w_NotImplementedError,
+                              "ctype '%s' (size %d) not supported as argument"
+                              " or return value",
+                              ctype.name, size)
 
 
     def fb_build(self):
@@ -128,7 +248,7 @@ class CifDescrBuilder(object):
         self.rtype = self.fb_fill_type(self.fresult)
 
         # next comes each argument's type data
-        for farg in self.fargs:
+        for i, farg in enumerate(self.fargs):
             atype = self.fb_fill_type(farg)
             if self.atypes:
                 self.atypes[i] = atype
@@ -146,14 +266,14 @@ class CifDescrBuilder(object):
         cif_descr.exchange_result = exchange_offset
 
         # then enough room for the result --- which means at least
-        # sizeof(ffi_arg), according to the ffi docs (which is 8).
-        exchange_offset += max(self.rtype.c_size, 8)
+        # sizeof(ffi_arg), according to the ffi docs (this is 8).
+        exchange_offset += max(rffi.getintfield(self.rtype, 'c_size'), 8)
 
         # loop over args
         for i, farg in enumerate(self.fargs):
             exchange_offset = self.align_arg(exchange_offset)
             cif_descr.exchange_args[i] = exchange_offset
-            exchange_offset += self.atypes[i].c_size
+            exchange_offset += rffi.getintfield(self.atypes[i], 'c_size')
 
         # store the exchange data size
         cif_descr.exchange_size = exchange_offset
@@ -161,32 +281,40 @@ class CifDescrBuilder(object):
 
     @jit.dont_look_inside
     def rawallocate(self, ctypefunc):
+        self.space = ctypefunc.space
+
         # compute the total size needed in the CIF_DESCRIPTION buffer
         self.nb_bytes = 0
         self.bufferp = lltype.nullptr(rffi.CCHARP.TO)
         self.fb_build()
 
         # allocate the buffer
-        rawmem = rffi.cast(rffi.CCHARP,
-                           llmemory.raw_malloc(self.nb_bytes))
+        if we_are_translated():
+            rawmem = lltype.malloc(rffi.CCHARP.TO, self.nb_bytes,
+                                   flavor='raw')
+            rawmem = rffi.cast(CIF_DESCRIPTION_P, rawmem)
+        else:
+            # gross overestimation of the length below, but too bad
+            rawmem = lltype.malloc(CIF_DESCRIPTION_P.TO, self.nb_bytes,
+                                   flavor='raw')
 
         # the buffer is automatically managed from the W_CTypeFunc instance
-        ctypefunc.cif_descr = rffi.cast(CIF_DESCRIPTION_P, rawmem)
+        ctypefunc.cif_descr = rawmem
 
         # call again fb_build() to really build the libffi data structures
-        self.bufferp = rawmem
+        self.bufferp = rffi.cast(rffi.CCHARP, rawmem)
         self.fb_build()
-        assert self.bufferp == rawmem + self.nb_bytes
+        assert self.bufferp == rffi.ptradd(rffi.cast(rffi.CCHARP, rawmem),
+                                           self.nb_bytes)
 
         # fill in the 'exchange_*' fields
         self.fb_build_exchange(ctypefunc.cif_descr)
 
         # call libffi's ffi_prep_cif() function
-        cif = rffi.cast(FFI_CIFP, rawmem)
-        res = clibffi.c_ffi_prep_cif(cif, clibffi.FFI_DEFAULT_ABI,
+        res = clibffi.c_ffi_prep_cif(rawmem.cif, clibffi.FFI_DEFAULT_ABI,
                                      len(self.fargs),
                                      self.rtype, self.atypes)
         if rffi.cast(lltype.Signed, res) != clibffi.FFI_OK:
-            space = ctypefunc.space
+            space = self.space
             raise OperationError(space.w_SystemError,
                 space.wrap("libffi failed to build this function type"))
