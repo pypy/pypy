@@ -6,12 +6,13 @@ from __future__ import with_statement
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rlib import jit, clibffi
-from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib.objectmodel import we_are_translated, instantiate
 
 from pypy.module._cffi_backend.ctypeobj import W_CType
 from pypy.module._cffi_backend.ctypeptr import W_CTypePtrBase
 from pypy.module._cffi_backend.ctypevoid import W_CTypeVoid
-from pypy.module._cffi_backend import ctypeprim, ctypestruct
+from pypy.module._cffi_backend import ctypeprim, ctypestruct, ctypearray
+from pypy.module._cffi_backend import cdataobj
 
 
 class W_CTypeFunc(W_CTypePtrBase):
@@ -32,6 +33,30 @@ class W_CTypeFunc(W_CTypePtrBase):
             # types passed in.  For all other functions, the cif_descr
             # is computed here.
             CifDescrBuilder(fargs, fresult).rawallocate(self)
+
+    def new_ctypefunc_completing_argtypes(self, args_w):
+        space = self.space
+        nargs_declared = len(self.fargs)
+        fvarargs = [None] * len(args_w)
+        fvarargs[:nargs_declared] = self.fargs
+        for i in range(nargs_declared, len(args_w)):
+            w_obj = args_w[i]
+            if isinstance(w_obj, cdataobj.W_CData):
+                ct = w_obj.ctype
+                if isinstance(ct, ctypearray.W_CTypeArray):
+                    ct = ct.ctptr
+            else:
+                raise operationerrfmt(space.w_TypeError,
+                             "argument %d passed in the variadic part "
+                             "needs to be a cdata object (got %s)",
+                             i + 1, space.type(w_obj).getname(space))
+            fvarargs[i] = ct
+        ctypefunc = instantiate(W_CTypeFunc)
+        ctypefunc.space = space
+        ctypefunc.fargs = fvarargs
+        ctypefunc.ctitem = self.ctitem
+        CifDescrBuilder(fvarargs, self.ctitem).rawallocate(ctypefunc)
+        return ctypefunc
 
     def __del__(self):
         if self.cif_descr:
@@ -54,16 +79,22 @@ class W_CTypeFunc(W_CTypePtrBase):
     def call(self, funcaddr, args_w):
         space = self.space
         cif_descr = self.cif_descr
+        nargs_declared = len(self.fargs)
 
         if cif_descr:
             # regular case: this function does not take '...' arguments
-            if len(args_w) != len(self.fargs):
+            if len(args_w) != nargs_declared:
                 raise operationerrfmt(space.w_TypeError,
                                       "'%s' expects %d arguments, got %d",
-                                      self.name, len(self.fargs), len(args_w))
+                                      self.name, nargs_declared, len(args_w))
         else:
             # call of a variadic function
-            xxx
+            if len(args_w) < nargs_declared:
+                raise operationerrfmt(space.w_TypeError,
+                                    "%s expects at least %d arguments, got %d",
+                                      self.name, nargs_declared, len(args_w))
+            self = self.new_ctypefunc_completing_argtypes(args_w)
+            cif_descr = self.cif_descr
 
         size = cif_descr.exchange_size
         with lltype.scoped_alloc(rffi.CCHARP.TO, size) as buffer:
