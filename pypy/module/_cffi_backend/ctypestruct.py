@@ -74,14 +74,15 @@ class W_CTypeStructOrUnion(W_CType):
                 return True
         return False
 
-
-class W_CTypeStruct(W_CTypeStructOrUnion):
-    kind = "struct"
+    def _check_only_one_argument_for_union(self, w_ob):
+        pass
 
     def convert_from_object(self, cdata, w_ob):
         space = self.space
         if self._copy_from_same(cdata, w_ob):
             return
+
+        self._check_only_one_argument_for_union(w_ob)
 
         if (space.isinstance_w(w_ob, space.w_list) or
             space.isinstance_w(w_ob, space.w_tuple)):
@@ -110,18 +111,19 @@ class W_CTypeStruct(W_CTypeStructOrUnion):
                                       w_ob)
 
 
+class W_CTypeStruct(W_CTypeStructOrUnion):
+    kind = "struct"
+
 class W_CTypeUnion(W_CTypeStructOrUnion):
     kind = "union"
 
-    def convert_from_object(self, cdata, w_ob):
+    def _check_only_one_argument_for_union(self, w_ob):
         space = self.space
-        if self._copy_from_same(cdata, w_ob):
-            return
-        if not self.fields_list:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("empty union"))
-        self.fields_list[0].write(cdata, w_ob)
-
+        if space.int_w(space.len(w_ob)) > 1:
+            raise operationerrfmt(space.w_ValueError,
+                                  "initializer for '%s': %d items given, but "
+                                  "only one supported (use a dict if needed)",
+                                  self.name, n)
 
 
 class W_CField(Wrappable):
