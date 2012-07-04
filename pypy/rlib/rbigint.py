@@ -944,15 +944,12 @@ def _x_add(a, b):
         z.setdigit(i, carry)
         carry >>= SHIFT
         i += 1
-    if i < size_a:
+    while i < size_a:
         carry += a.udigit(i)
         z.setdigit(i, carry)
+        carry >>= SHIFT
         i += 1
-        while i < size_a:
-            z.setdigit(i, a.udigit(i))
-            i += 1
-    else:
-        z.setdigit(i, carry)
+    z.setdigit(i, carry)
     z._normalize()
     return z
 
@@ -995,15 +992,13 @@ def _x_sub(a, b):
         borrow >>= SHIFT
         borrow &= 1 # Keep only one sign bit
         i += 1
-    if i < size_a:
+    while i < size_a:
         borrow = a.udigit(i) - borrow
         z.setdigit(i, borrow)
+        borrow >>= SHIFT
+        borrow &= 1
         i += 1
-        assert borrow >> 63 == 0
-        
-        while i < size_a:
-            z.setdigit(i, a.udigit(i))
-            i += 1
+    assert borrow == 0
     z._normalize()
     return z
 
