@@ -34,7 +34,7 @@ class AppTestC(object):
         def testfunc6(p_int):
             testfunc6_static.value = p_int[0] - 1000
             ptr = ctypes.pointer(testfunc6_static)
-            return ctypes.cast(ptr, ctypes.c_void_p)
+            return ctypes.cast(ptr, ctypes.c_void_p).value
 
         def prepfunc(func, argtypes, restype):
             c_func = ctypes.CFUNCTYPE(restype, *argtypes)(func)
