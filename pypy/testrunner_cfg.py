@@ -3,7 +3,7 @@ import os
 
 DIRS_SPLIT = [
     'translator/c', 'translator/jvm', 'rlib', 'rpython/memory',
-    'jit/backend/x86', 'jit/metainterp', 'rpython/test',
+    'jit/backend/x86', 'jit/backend/arm', 'jit/metainterp', 'rpython/test',
 ]
 
 def collect_one_testdir(testdirs, reldir, tests):
