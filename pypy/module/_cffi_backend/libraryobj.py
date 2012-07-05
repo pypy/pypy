@@ -7,6 +7,7 @@ from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.rdynload import DLLHANDLE, dlopen, dlsym, dlclose, DLOpenError
 
 from pypy.module._cffi_backend.cdataobj import W_CData
+from pypy.module._cffi_backend.ctypeobj import W_CType
 from pypy.module._cffi_backend.ctypefunc import W_CTypeFunc
 
 
@@ -44,11 +45,33 @@ class W_Library(Wrappable):
                                   name, self.name)
         return W_CData(space, rffi.cast(rffi.CCHARP, cdata), ctypefunc)
 
+    @unwrap_spec(ctype=W_CType, name=str)
+    def read_variable(self, ctype, name):
+        space = self.space
+        cdata = dlsym(self.handle, name)
+        if not cdata:
+            raise operationerrfmt(space.w_KeyError,
+                                  "variable '%s' not found in library '%s'",
+                                  name, self.name)
+        return ctype.convert_to_object(rffi.cast(rffi.CCHARP, cdata))
+
+    @unwrap_spec(ctype=W_CType, name=str)
+    def write_variable(self, ctype, name, w_value):
+        space = self.space
+        cdata = dlsym(self.handle, name)
+        if not cdata:
+            raise operationerrfmt(space.w_KeyError,
+                                  "variable '%s' not found in library '%s'",
+                                  name, self.name)
+        ctype.convert_from_object(rffi.cast(rffi.CCHARP, cdata), w_value)
+
 
 W_Library.typedef = TypeDef(
     '_cffi_backend.Library',
     __repr__ = interp2app(W_Library.repr),
     load_function = interp2app(W_Library.load_function),
+    read_variable = interp2app(W_Library.read_variable),
+    write_variable = interp2app(W_Library.write_variable),
     )
 W_Library.acceptable_as_base_class = False
 
