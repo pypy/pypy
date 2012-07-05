@@ -22,8 +22,10 @@ class AppTestCINT:
         assert cppyy.gbl.gROOT
         assert cppyy.gbl.gApplication
         assert cppyy.gbl.gSystem
-        assert cppyy.gbl.TInterpreter.Instance()
-        assert cppyy.gbl.TDirectory.CurrentDirectory()
+        assert cppyy.gbl.TInterpreter.Instance()           # compiled
+        assert cppyy.gbl.TInterpreter                      # interpreted
+        assert cppyy.gbl.TDirectory.CurrentDirectory()     # compiled
+        assert cppyy.gbl.TDirectory                        # interpreted
 
     def test02_write_access_to_globals(self):
         """Test overwritability of ROOT globals"""
