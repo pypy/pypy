@@ -558,6 +558,11 @@ class rbigint(object):
             # XXX failed to implement
             raise ValueError("bigint pow() too negative")
         
+        if b.sign == 0:
+            return ONERBIGINT
+        elif a.sign == 0:
+            return NULLRBIGINT
+        
         size_b = b.numdigits()
         
         if c is not None:
@@ -574,7 +579,7 @@ class rbigint(object):
             # if modulus == 1:
             #     return 0
             if c.numdigits() == 1 and c.digit(0) == 1:
-                return rbigint()
+                return NULLRBIGINT
 
             # if base < 0:
             #     base = base % modulus
@@ -583,18 +588,23 @@ class rbigint(object):
                 a = a.mod(c)
                 
             
-        elif size_b == 1 and a.sign == 1:
+        elif size_b == 1:
             digit = b.digit(0)
             if digit == 0:
-                return ONERBIGINT
+                return ONERBIGINT if a.sign == 1 else ONENEGATIVERBIGINT
             elif digit == 1:
                 return a
             elif a.numdigits() == 1:
                 adigit = a.digit(0)
                 if adigit == 1:
+                    if a.sign == -1 and digit % 2:
+                        return ONENEGATIVERBIGINT
                     return ONERBIGINT
                 elif adigit & (adigit - 1) == 0:
-                    return a.lshift(((digit-1)*(ptwotable[adigit]-1)) + digit-1)
+                    ret = a.lshift(((digit-1)*(ptwotable[adigit]-1)) + digit-1)
+                    if a.sign == -1 and not digit % 2:
+                        ret.sign = 1
+                    return ret
                 
         # At this point a, b, and c are guaranteed non-negative UNLESS
         # c is NULL, in which case a may be negative. */
@@ -848,6 +858,7 @@ class rbigint(object):
                                                      self.sign, self.str())
 
 ONERBIGINT = rbigint([ONEDIGIT], 1)
+ONENEGATIVERBIGINT = rbigint([ONEDIGIT], -1)
 NULLRBIGINT = rbigint()
 
 #_________________________________________________________________
