@@ -6,6 +6,9 @@ from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.interpreter.baseobjspace import InternalSpaceCache, W_Root
 
 from pypy.module.cppyy import interp_cppyy, capi
+# These tests are for the backend that support the fast path only.
+if capi.identify() == 'CINT':
+    py.test.skip("CINT does not support fast path")
 
 # load cpyext early, or its global vars are counted as leaks in the test
 # (note that the module is not otherwise used in the test itself)
@@ -177,9 +180,6 @@ class FakeSpace(object):
         return True
 
 class TestFastPathJIT(LLJitMixin):
-    if not capi.identify() != 'CINT':
-        py.test.skip("CINT does not support fast path")
-
     def _run_zjit(self, method_name):
         space = FakeSpace()
         drv = jit.JitDriver(greens=[], reds=["i", "inst", "cppmethod"])

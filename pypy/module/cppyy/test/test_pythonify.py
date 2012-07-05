@@ -345,3 +345,17 @@ class AppTestPYTHONIFY_UI:
 
         example01_pythonize = 1
         raises(TypeError, cppyy.add_pythonization, 'example01', example01_pythonize)
+
+    def test03_write_access_to_globals(self):
+        """Test overwritability of globals"""
+
+        import cppyy
+
+        oldval = cppyy.gbl.ns_example01.gMyGlobalInt
+        assert oldval == 99
+
+        proxy = cppyy.gbl.ns_example01.__class__.gMyGlobalInt
+        cppyy.gbl.ns_example01.gMyGlobalInt = 3
+        assert proxy.__get__(proxy) == 3
+
+        cppyy.gbl.ns_example01.gMyGlobalInt = oldval

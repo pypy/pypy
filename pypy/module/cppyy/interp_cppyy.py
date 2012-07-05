@@ -423,8 +423,7 @@ class W_CPPScope(Wrappable):
     def _build_methods(self):
         assert len(self.methods) == 0
         methods_temp = {}
-        N = capi.c_num_methods(self)
-        for i in range(N):
+        for i in range(capi.c_num_methods(self)):
             idx = capi.c_method_index_at(self, i)
             pyname = helper.map_operator_name(
                 capi.c_method_name(self, idx),

@@ -1,8 +1,6 @@
 #include "cppyy.h"
 #include "cintcwrapper.h"
 
-#include "Api.h"
-
 #include "TROOT.h"
 #include "TError.h"
 #include "TList.h"
@@ -23,6 +21,8 @@
 #include "TMethod.h"
 #include "TMethodArg.h"
 
+#include "Api.h"
+
 #include <assert.h>
 #include <string.h>
 #include <map>
@@ -31,9 +31,8 @@
 #include <utility>
 
 
-/*  CINT internals (some won't work on Windows) -------------------------- */
+/* ROOT/CINT internals --------------------------------------------------- */
 extern long G__store_struct_offset;
-extern "C" void* G__SetShlHandle(char*);
 extern "C" void G__LockCriticalSection();
 extern "C" void G__UnlockCriticalSection();
 
@@ -66,25 +65,14 @@ static ClassRefs_t g_classrefs(1);
 typedef std::map<std::string, ClassRefs_t::size_type> ClassRefIndices_t;
 static ClassRefIndices_t g_classref_indices;
 
-class ClassRefsInit {
-public:
-    ClassRefsInit() {   // setup dummy holders for global and std namespaces
-        assert(g_classrefs.size() == (ClassRefs_t::size_type)GLOBAL_HANDLE);
-        g_classref_indices[""] = (ClassRefs_t::size_type)GLOBAL_HANDLE;
-        g_classrefs.push_back(TClassRef(""));
-        g_classref_indices["std"] = g_classrefs.size();
-        g_classrefs.push_back(TClassRef(""));    // CINT ignores std
-        g_classref_indices["::std"] = g_classrefs.size();
-        g_classrefs.push_back(TClassRef(""));    // id.
-    }
-};
-static ClassRefsInit _classrefs_init;
-
 typedef std::vector<TFunction> GlobalFuncs_t;
 static GlobalFuncs_t g_globalfuncs;
 
 typedef std::vector<TGlobal> GlobalVars_t;
 static GlobalVars_t g_globalvars;
+
+typedef std::vector<G__MethodInfo> InterpretedFuncs_t;
+static InterpretedFuncs_t g_interpreted;
 
 
 /* initialization of the ROOT system (debatable ... ) --------------------- */
@@ -95,12 +83,12 @@ public:
     TCppyyApplication(const char* acn, Int_t* argc, char** argv, Bool_t do_load = kTRUE)
            : TApplication(acn, argc, argv) {
 
-       // Explicitly load libMathCore as CINT will not auto load it when using one
-       // of its globals. Once moved to Cling, which should work correctly, we
-       // can remove this statement.
-       gSystem->Load("libMathCore");
+        // Explicitly load libMathCore as CINT will not auto load it when using
+        // one of its globals. Once moved to Cling, which should work correctly,
+        // we can remove this statement.
+        gSystem->Load("libMathCore");
 
-       if (do_load) {
+        if (do_load) {
             // follow TRint to minimize differences with CINT
             ProcessLine("#include <iostream>", kTRUE);
             ProcessLine("#include <_string>",  kTRUE); // for std::string iostream.
@@ -130,10 +118,30 @@ static const char* appname = "pypy-cppyy";
 class ApplicationStarter {
 public:
     ApplicationStarter() {
+        // setup dummy holders for global and std namespaces
+        assert(g_classrefs.size() == (ClassRefs_t::size_type)GLOBAL_HANDLE);
+        g_classref_indices[""] = (ClassRefs_t::size_type)GLOBAL_HANDLE;
+        g_classrefs.push_back(TClassRef(""));
+        g_classref_indices["std"] = g_classrefs.size();
+        g_classrefs.push_back(TClassRef(""));    // CINT ignores std
+        g_classref_indices["::std"] = g_classrefs.size();
+        g_classrefs.push_back(TClassRef(""));    // id.
+ 
+        // an offset for the interpreted methods
+        g_interpreted.push_back(G__MethodInfo());
+
+        // actual application init, if necessary
         if (!gApplication) {
             int argc = 1;
             char* argv[1]; argv[0] = (char*)appname;
             gApplication = new TCppyyApplication(appname, &argc, argv, kTRUE);
+            if (!gProgName)                  // should have been set by TApplication
+                gSystem->SetProgname(appname);
+        }
+
+        // program name should've been set by TApplication; just in case ...
+        if (!gProgName) {
+            gSystem->SetProgname(appname);
         }
     }
 } _applicationStarter;
@@ -325,10 +333,20 @@ void cppyy_destruct(cppyy_type_t handle, cppyy_object_t self) {
 static inline G__value cppyy_call_T(cppyy_method_t method,
         cppyy_object_t self, int nargs, void* args) {
 
-    G__InterfaceMethod meth = (G__InterfaceMethod)method;
     G__param* libp = (G__param*)((char*)args - offsetof(G__param, para));
     assert(libp->paran == nargs);
     fixup_args(libp);
+
+    if ((InterpretedFuncs_t::size_type)method < g_interpreted.size()) {
+    // the idea here is that all these low values are invalid memory addresses,
+    // allowing the reuse of method to index the stored bytecodes
+        G__CallFunc callf;
+        callf.SetFunc(g_interpreted[(size_t)method]);
+        callf.SetArgs(*libp);
+        return callf.Execute((void*)self);
+    }
+
+    G__InterfaceMethod meth = (G__InterfaceMethod)method;
 
     G__value result;
     G__setnull(&result);
@@ -338,13 +356,13 @@ static inline G__value cppyy_call_T(cppyy_method_t method,
 
     long index = (long)&method;
     G__CurrentCall(G__SETMEMFUNCENV, 0, &index);
-    
+
     // TODO: access to store_struct_offset won't work on Windows
     long store_struct_offset = G__store_struct_offset;
     if (self)
         G__store_struct_offset = (long)self;
 
-    meth(&result, 0, libp, 0);
+    meth(&result, (char*)0, libp, 0);
     if (self)
         G__store_struct_offset = store_struct_offset;
 
@@ -663,8 +681,27 @@ char* cppyy_method_signature(cppyy_scope_t handle, cppyy_index_t idx) {
 
 
 cppyy_method_t cppyy_get_method(cppyy_scope_t handle, cppyy_index_t idx) {
+    TClassRef cr = type_from_handle(handle);
     TFunction* f = type_get_method(handle, idx);
-    return (cppyy_method_t)f->InterfaceMethod();
+    if (cr && cr.GetClass() && !cr->IsLoaded()) {
+        G__ClassInfo* gcl = (G__ClassInfo*)cr->GetClassInfo();
+        if (gcl) {
+            long offset;
+            std::ostringstream sig;
+            int nArgs = f->GetNargs();
+            for (int iarg = 0; iarg < nArgs; ++iarg) {
+                sig << ((TMethodArg*)f->GetListOfMethodArgs()->At(iarg))->GetFullTypeName();
+                if (iarg != nArgs-1) sig << ", ";
+            }
+            G__MethodInfo gmi = gcl->GetMethod(
+                f->GetName(), sig.str().c_str(), &offset, G__ClassInfo::ExactMatch);
+            cppyy_method_t method = (cppyy_method_t)g_interpreted.size();
+            g_interpreted.push_back(gmi);
+            return method;
+        }
+    }
+    cppyy_method_t method = (cppyy_method_t)f->InterfaceMethod();
+    return method;
 }
 
 cppyy_index_t cppyy_get_global_operator(cppyy_scope_t lc, cppyy_scope_t rc, const char* op) {
