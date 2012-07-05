@@ -2,11 +2,11 @@
 Function pointers.
 """
 
-from __future__ import with_statement
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rlib import jit, clibffi
 from pypy.rlib.objectmodel import we_are_translated, instantiate
+from pypy.rlib.objectmodel import keepalive_until_here
 
 from pypy.module._cffi_backend.ctypeobj import W_CType
 from pypy.module._cffi_backend.ctypeptr import W_CTypePtrBase
@@ -97,13 +97,34 @@ class W_CTypeFunc(W_CTypePtrBase):
             cif_descr = self.cif_descr
 
         size = cif_descr.exchange_size
-        with lltype.scoped_alloc(rffi.CCHARP.TO, size) as buffer:
+        mustfree_count_plus_1 = 0
+        buffer = lltype.malloc(rffi.CCHARP.TO, size, flavor='raw')
+        try:
             buffer_array = rffi.cast(rffi.VOIDPP, buffer)
             for i in range(len(args_w)):
                 data = rffi.ptradd(buffer, cif_descr.exchange_args[i])
                 buffer_array[i] = data
                 w_obj = args_w[i]
                 argtype = self.fargs[i]
+                #
+                # special-case for strings.  xxx should avoid copying
+                if argtype.is_char_ptr_or_array:
+                    try:
+                        s = space.str_w(w_obj)
+                    except OperationError, e:
+                        if not e.match(space, space.w_TypeError):
+                            raise
+                    else:
+                        raw_string = rffi.str2charp(s)
+                        rffi.cast(rffi.CCHARPP, data)[0] = raw_string
+                        # set the "must free" flag to 1
+                        set_mustfree_flag(data, 1)
+                        mustfree_count_plus_1 = i + 1
+                        continue   # skip the convert_from_object()
+
+                    # set the "must free" flag to 0
+                    set_mustfree_flag(data, 0)
+                #
                 argtype.convert_from_object(data, w_obj)
             resultdata = rffi.ptradd(buffer, cif_descr.exchange_result)
 
@@ -116,7 +137,22 @@ class W_CTypeFunc(W_CTypePtrBase):
                 w_res = space.w_None
             else:
                 w_res = self.ctitem.convert_to_object(resultdata)
+        finally:
+            for i in range(mustfree_count_plus_1):
+                argtype = self.fargs[i]
+                if argtype.is_char_ptr_or_array:
+                    data = rffi.ptradd(buffer, cif_descr.exchange_args[i])
+                    if get_mustfree_flag(data):
+                        raw_string = rffi.cast(rffi.CCHARPP, data)[0]
+                        lltype.free(raw_string, flavor='raw')
+            lltype.free(buffer, flavor='raw')
         return w_res
+
+def get_mustfree_flag(data):
+    return ord(rffi.ptradd(data, -1)[0])
+
+def set_mustfree_flag(data, flag):
+    rffi.ptradd(data, -1)[0] = chr(flag)
 
 # ____________________________________________________________
 
@@ -187,9 +223,9 @@ class CifDescrBuilder(object):
         if ctype.ffi_type:   # common case: the ffi_type was already computed
             return ctype.ffi_type
 
+        space = self.space
         size = ctype.size
         if size < 0:
-            space = self.space
             raise operationerrfmt(space.w_TypeError,
                                   "ctype '%s' has incomplete type",
                                   ctype.name)
@@ -258,7 +294,6 @@ class CifDescrBuilder(object):
             if   size == 4: return _settype(ctype, clibffi.ffi_type_float)
             elif size == 8: return _settype(ctype, clibffi.ffi_type_double)
 
-        space = self.space
         raise operationerrfmt(space.w_NotImplementedError,
                               "ctype '%s' (size %d) not supported as argument"
                               " or return value",
@@ -302,6 +337,8 @@ class CifDescrBuilder(object):
 
         # loop over args
         for i, farg in enumerate(self.fargs):
+            if farg.is_char_ptr_or_array:
+                exchange_offset += 1   # for the "must free" flag
             exchange_offset = self.align_arg(exchange_offset)
             cif_descr.exchange_args[i] = exchange_offset
             exchange_offset += rffi.getintfield(self.atypes[i], 'c_size')
@@ -312,7 +349,8 @@ class CifDescrBuilder(object):
 
     @jit.dont_look_inside
     def rawallocate(self, ctypefunc):
-        self.space = ctypefunc.space
+        space = ctypefunc.space
+        self.space = space
 
         # compute the total size needed in the CIF_DESCRIPTION buffer
         self.nb_bytes = 0
@@ -346,6 +384,5 @@ class CifDescrBuilder(object):
                                      len(self.fargs),
                                      self.rtype, self.atypes)
         if rffi.cast(lltype.Signed, res) != clibffi.FFI_OK:
-            space = self.space
             raise OperationError(space.w_SystemError,
                 space.wrap("libffi failed to build this function type"))

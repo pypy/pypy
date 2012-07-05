@@ -12,6 +12,7 @@ from pypy.module._cffi_backend import cdataobj
 class W_CType(Wrappable):
     #_immutable_ = True    XXX newtype.complete_struct_or_union()?
     cast_anything = False
+    is_char_ptr_or_array = False
 
     def __init__(self, space, size, name, name_position):
         self.space = space

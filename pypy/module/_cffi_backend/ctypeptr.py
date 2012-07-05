@@ -23,6 +23,7 @@ class W_CTypePtrOrArray(W_CType):
         #  - for functions, it is the return type
         self.ctitem = ctitem
         self.can_cast_anything = could_cast_anything and ctitem.cast_anything
+        self.is_char_ptr_or_array = isinstance(ctitem, W_CTypePrimitiveChar)
 
 
 class W_CTypePtrBase(W_CTypePtrOrArray):
