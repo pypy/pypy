@@ -309,6 +309,20 @@ class AppTestPYTHONIFY:
         assert hasattr(z, 'myint')
         assert z.gime_z_(z)
 
+    def test14_bound_unbound_calls(self):
+        """Test (un)bound method calls"""
+
+        import cppyy
+
+        raises(TypeError, cppyy.gbl.example01.addDataToInt, 1)
+
+        meth = cppyy.gbl.example01.addDataToInt
+        raises(TypeError, meth)
+        raises(TypeError, meth, 1)
+
+        e = cppyy.gbl.example01(2)
+        assert 5 == meth(e, 3)
+
 
 class AppTestPYTHONIFY_UI:
     def setup_class(cls):
