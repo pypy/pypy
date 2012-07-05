@@ -701,24 +701,21 @@ class rbigint(object):
         remshift  = int_other - wordshift * SHIFT
 
         oldsize = self.numdigits()
-        newsize = oldsize + wordshift
         if not remshift:
             return rbigint([NULLDIGIT] * wordshift + self._digits, self.sign)
             
-        newsize += 1
-        
-        z = rbigint([NULLDIGIT] * newsize, self.sign)
+        z = rbigint([NULLDIGIT] * (oldsize + wordshift + 1), self.sign)
         accum = _widen_digit(0)
         i = wordshift
         j = 0
         while j < oldsize:
-            accum |= self.widedigit(j) << remshift
+            accum += self.widedigit(j) << remshift
             z.setdigit(i, accum)
             accum >>= SHIFT
             i += 1
             j += 1
             
-        z.setdigit(abs(newsize - 1), accum)
+        z.setdigit(oldsize, accum)
 
         z._normalize()
         return z
