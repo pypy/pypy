@@ -302,11 +302,7 @@ class RunParam(object):
 
     def is_test_py_file(self, p):
         name = p.basename
-        # XXX avoid picking up pypy/test_all.py as a test test_xxx.py file else
-        # the pypy directory is not traversed and picked up as one test
-        # directory
-        return (self.reltoroot(p) != 'pypy/test_all.py'
-                    and (name.startswith('test_') and name.endswith('.py')))
+        return name.startswith('test_') and name.endswith('.py')
 
     def reltoroot(self, p):
         rel = p.relto(self.root)
