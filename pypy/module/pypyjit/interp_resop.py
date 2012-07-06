@@ -15,16 +15,11 @@ from pypy.module.pypyjit.interp_jit import pypyjitdriver
 
 class Cache(object):
     in_recursion = False
-    no = 0
 
     def __init__(self, space):
         self.w_compile_hook = space.w_None
         self.w_abort_hook = space.w_None
         self.w_optimize_hook = space.w_None
-
-    def getno(self):
-        self.no += 1
-        return self.no - 1
 
 def wrap_greenkey(space, jitdriver, greenkey, greenkey_repr):
     if greenkey is None:
@@ -220,6 +215,10 @@ class WrappedOp(Wrappable):
         jit_hooks.resop_setresult(self.op, box.llbox)
 
 class DebugMergePoint(WrappedOp):
+    """ A class representing Debug Merge Point - the entry point
+    to a jitted loop.
+    """
+    
     def __init__(self, space, op, repr_of_resop, jd_name, call_depth, call_id,
         w_greenkey):
 
@@ -259,13 +258,78 @@ WrappedOp.acceptable_as_base_class = False
 DebugMergePoint.typedef = TypeDef(
     'DebugMergePoint', WrappedOp.typedef,
     __new__ = interp2app(descr_new_dmp),
-    greenkey = interp_attrproperty_w("w_greenkey", cls=DebugMergePoint),
+    __doc__ = DebugMergePoint.__doc__,
+    greenkey = interp_attrproperty_w("w_greenkey", cls=DebugMergePoint,
+               doc="Representation of place where the loop was compiled. "
+                    "In the case of the main interpreter loop, it's a triplet "
+                    "(code, ofs, is_profiled)"),
     pycode = GetSetProperty(DebugMergePoint.get_pycode),
-    bytecode_no = GetSetProperty(DebugMergePoint.get_bytecode_no),
-    call_depth = interp_attrproperty("call_depth", cls=DebugMergePoint),
-    call_id = interp_attrproperty("call_id", cls=DebugMergePoint),
-    jitdriver_name = GetSetProperty(DebugMergePoint.get_jitdriver_name),
+    bytecode_no = GetSetProperty(DebugMergePoint.get_bytecode_no,
+                                 doc="offset in the bytecode"),
+    call_depth = interp_attrproperty("call_depth", cls=DebugMergePoint,
+                                     doc="Depth of calls within this loop"),
+    call_id = interp_attrproperty("call_id", cls=DebugMergePoint,
+                     doc="Number of applevel function traced in this loop"),
+    jitdriver_name = GetSetProperty(DebugMergePoint.get_jitdriver_name,
+                     doc="Name of the jitdriver 'pypyjit' in the case "
+                                    "of the main interpreter loop"),
 )
 DebugMergePoint.acceptable_as_base_class = False
 
+class W_JitLoopInfo(Wrappable):
+    """ Loop debug information
+    """
+    
+    w_green_key = None
+    bridge_no   = 0
+    asmaddr     = 0
+    asmlen      = 0
+    
+    def __init__(self, space, debug_info, is_bridge=False):
+        logops = debug_info.logger._make_log_operations()
+        if debug_info.asminfo is not None:
+            ofs = debug_info.asminfo.ops_offset
+        else:
+            ofs = {}
+        self.w_ops = space.newlist(
+            wrap_oplist(space, logops, debug_info.operations, ofs))
+        
+        self.jd_name = debug_info.get_jitdriver().name
+        self.type = debug_info.type
+        if is_bridge:
+            self.bridge_no = debug_info.fail_descr_no
+            self.w_green_key = space.w_None
+        else:
+            self.w_green_key = wrap_greenkey(space,
+                                             debug_info.get_jitdriver(),
+                                             debug_info.greenkey,
+                                             debug_info.get_greenkey_repr())
+        self.loop_no = debug_info.looptoken.number
+        asminfo = debug_info.asminfo
+        if asminfo is not None:
+            self.asmaddr = asminfo.asmaddr
+            self.asmlen = asminfo.asmlen
 
+    def descr_repr(self, space):
+        lgt = space.int_w(space.len(self.w_ops))
+        if self.type == "bridge":
+            code_repr = 'bridge no %d' % self.bridge_no
+        else:
+            code_repr = space.str_w(space.repr(self.w_green_key))
+        return space.wrap('<JitLoopInfo %s, %d operations, starting at <%s>>' %
+                          (self.jd_name, lgt, code_repr))
+
+W_JitLoopInfo.typedef = TypeDef(
+    'JitLoopInfo',
+    __doc__ = W_JitLoopInfo.__doc__,
+    jitdriver_name = interp_attrproperty('jd_name', cls=W_JitLoopInfo,
+                       doc="Name of the JitDriver, pypyjit for the main one"),
+    greenkey       = interp_attrproperty_w('w_green_key', cls=W_JitLoopInfo,
+               doc="Representation of place where the loop was compiled. "
+                    "In the case of the main interpreter loop, it's a triplet "
+                    "(code, ofs, is_profiled)"),
+    operations     = interp_attrproperty_w('w_ops', cls=W_JitLoopInfo, doc=
+                    "List of operations in this loop."),
+    __repr__ = interp2app(W_JitLoopInfo.descr_repr),
+)
+W_JitLoopInfo.acceptable_as_base_class = False

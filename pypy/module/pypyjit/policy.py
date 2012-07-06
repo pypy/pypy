@@ -2,8 +2,8 @@ from pypy.jit.codewriter.policy import JitPolicy
 from pypy.rlib.jit import JitHookInterface, Counters
 from pypy.rlib import jit_hooks
 from pypy.interpreter.error import OperationError
-from pypy.module.pypyjit.interp_resop import wrap_oplist, Cache, wrap_greenkey,\
-     WrappedOp
+from pypy.module.pypyjit.interp_resop import Cache, wrap_greenkey,\
+     WrappedOp, W_JitLoopInfo
 
 class PyPyJitIface(JitHookInterface):
     def on_abort(self, reason, jitdriver, greenkey, greenkey_repr):
@@ -27,76 +27,46 @@ class PyPyJitIface(JitHookInterface):
                 cache.in_recursion = False
 
     def after_compile(self, debug_info):
-        w_greenkey = wrap_greenkey(self.space, debug_info.get_jitdriver(),
-                                   debug_info.greenkey,
-                                   debug_info.get_greenkey_repr())
-        self._compile_hook(debug_info, w_greenkey)
+        self._compile_hook(debug_info, is_bridge=False)
 
     def after_compile_bridge(self, debug_info):
-        self._compile_hook(debug_info,
-                           self.space.wrap(debug_info.fail_descr_no))
+        self._compile_hook(debug_info, is_bridge=True)
 
     def before_compile(self, debug_info):
-        w_greenkey = wrap_greenkey(self.space, debug_info.get_jitdriver(),
-                                   debug_info.greenkey,
-                                   debug_info.get_greenkey_repr())
-        self._optimize_hook(debug_info, w_greenkey)
+        self._optimize_hook(debug_info, is_bridge=False)
 
     def before_compile_bridge(self, debug_info):
-        self._optimize_hook(debug_info,
-                            self.space.wrap(debug_info.fail_descr_no))
+        self._optimize_hook(debug_info, is_bridge=True)
 
-    def _compile_hook(self, debug_info, w_arg):
+    def _compile_hook(self, debug_info, is_bridge):
         space = self.space
         cache = space.fromcache(Cache)
-        # note that we *have to* get a number here always, even if we're in
-        # recursion
-        no = cache.getno()
         if cache.in_recursion:
             return
         if space.is_true(cache.w_compile_hook):
-            logops = debug_info.logger._make_log_operations()
-            list_w = wrap_oplist(space, logops, debug_info.operations,
-                                 debug_info.asminfo.ops_offset)
+            w_debug_info = W_JitLoopInfo(space, debug_info, is_bridge)
             cache.in_recursion = True
             try:
                 try:
-                    jd_name = debug_info.get_jitdriver().name
-                    asminfo = debug_info.asminfo
                     space.call_function(cache.w_compile_hook,
-                                        space.wrap(jd_name),
-                                        space.wrap(debug_info.type),
-                                        w_arg,
-                                        space.newlist(list_w),
-                                        space.wrap(no),
-                                        space.wrap(asminfo.asmaddr),
-                                        space.wrap(asminfo.asmlen))
+                                        space.wrap(w_debug_info))
                 except OperationError, e:
                     e.write_unraisable(space, "jit hook ", cache.w_compile_hook)
             finally:
                 cache.in_recursion = False
 
-    def _optimize_hook(self, debug_info, w_arg):
+    def _optimize_hook(self, debug_info, is_bridge=False):
         space = self.space
         cache = space.fromcache(Cache)
-        # note that we *have to* get a number here always, even if we're in
-        # recursion
-        no = cache.getno()
         if cache.in_recursion:
             return
         if space.is_true(cache.w_optimize_hook):
-            logops = debug_info.logger._make_log_operations()
-            list_w = wrap_oplist(space, logops, debug_info.operations)
+            w_debug_info = W_JitLoopInfo(space, debug_info, is_bridge)
             cache.in_recursion = True
             try:
                 try:
-                    jd_name = debug_info.get_jitdriver().name
                     w_res = space.call_function(cache.w_optimize_hook,
-                                                space.wrap(jd_name),
-                                                space.wrap(debug_info.type),
-                                                w_arg,
-                                                space.newlist(list_w),
-                                                space.wrap(no))
+                                                space.wrap(w_debug_info))
                     if space.is_w(w_res, space.w_None):
                         return
                     l = []

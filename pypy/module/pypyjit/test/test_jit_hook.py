@@ -102,23 +102,22 @@ class AppTestJitHook(object):
         import pypyjit
         all = []
 
-        def hook(name, looptype, tuple_or_guard_no, ops, loopno, asmstart,
-                 asmlen):
-            all.append((name, looptype, tuple_or_guard_no, ops, loopno))
+        def hook(info):
+            all.append(info)
 
         self.on_compile()
         pypyjit.set_compile_hook(hook)
         assert not all
         self.on_compile()
         assert len(all) == 1
-        elem = all[0]
-        assert elem[0] == 'pypyjit'
-        assert elem[2][0].co_name == 'function'
-        assert elem[2][1] == 0
-        assert elem[2][2] == False
-        assert len(elem[3]) == 4
-        int_add = elem[3][0]
-        dmp = elem[3][1]
+        info = all[0]
+        assert info.jitdriver_name == 'pypyjit'
+        assert info.greenkey[0].co_name == 'function'
+        assert info.greenkey[1] == 0
+        assert info.greenkey[2] == False
+        assert len(info.operations) == 4
+        int_add = info.operations[0]
+        dmp = info.operations[1]
         assert isinstance(dmp, pypyjit.DebugMergePoint)
         assert dmp.pycode is self.f.func_code
         assert dmp.greenkey == (self.f.func_code, 0, False)
@@ -127,6 +126,8 @@ class AppTestJitHook(object):
         assert int_add.name == 'int_add'
         assert int_add.num == self.int_add_num
         self.on_compile_bridge()
+        code_repr = "(<code object function, file '?', line 2>, 0, False)"
+        assert repr(all[0]) == '<JitLoopInfo pypyjit, 4 operations, starting at <%s>>' % code_repr
         assert len(all) == 2
         pypyjit.set_compile_hook(None)
         self.on_compile()
@@ -168,12 +169,12 @@ class AppTestJitHook(object):
         import pypyjit
         l = []
 
-        def hook(*args):
-            l.append(args)
+        def hook(info):
+            l.append(info)
 
         pypyjit.set_compile_hook(hook)
         self.on_compile()
-        op = l[0][3][1]
+        op = l[0].operations[1]
         assert isinstance(op, pypyjit.ResOperation)
         assert 'function' in repr(op)
 
@@ -192,17 +193,17 @@ class AppTestJitHook(object):
         import pypyjit
         l = []
 
-        def hook(name, looptype, tuple_or_guard_no, ops, *args):
-            l.append(ops)
+        def hook(info):
+            l.append(info.jitdriver_name)
 
-        def optimize_hook(name, looptype, tuple_or_guard_no, ops, loopno):
+        def optimize_hook(info):
             return []
 
         pypyjit.set_compile_hook(hook)
         pypyjit.set_optimize_hook(optimize_hook)
         self.on_optimize()
         self.on_compile()
-        assert l == [[]]
+        assert l == ['pypyjit']
 
     def test_creation(self):
         from pypyjit import Box, ResOperation
