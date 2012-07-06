@@ -360,7 +360,7 @@ class Test_rbigint(object):
                       for i in (10L, 5L, 0L)]
         py.test.raises(ValueError, f1.pow, f2, f3)
         #
-        MAX = 1E40
+        MAX = 1E20
         x = long(random() * MAX) + 1
         y = long(random() * MAX) + 1
         z = long(random() * MAX) + 1
@@ -521,9 +521,9 @@ class TestInternalFunctions(object):
     def test__x_divrem(self):
         x = 12345678901234567890L
         for i in range(100):
-            y = long(randint(0, 1 << 30))
-            y <<= 30
-            y += randint(0, 1 << 30)
+            y = long(randint(0, 1 << 60))
+            y <<= 60
+            y += randint(0, 1 << 60)
             f1 = rbigint.fromlong(x)
             f2 = rbigint.fromlong(y)
             div, rem = lobj._x_divrem(f1, f2)
@@ -532,9 +532,9 @@ class TestInternalFunctions(object):
     def test__divrem(self):
         x = 12345678901234567890L
         for i in range(100):
-            y = long(randint(0, 1 << 30))
-            y <<= 30
-            y += randint(0, 1 << 30)
+            y = long(randint(0, 1 << 60))
+            y <<= 60
+            y += randint(0, 1 << 60)
             for sx, sy in (1, 1), (1, -1), (-1, -1), (-1, 1):
                 sx *= x
                 sy *= y

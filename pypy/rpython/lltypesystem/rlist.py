@@ -303,12 +303,12 @@ def ll_items(l):
     return l.items
 
 def ll_getitem_fast(l, index):
-    #ll_assert(index < l.length, "getitem out of bounds")
+    ll_assert(index < l.length, "getitem out of bounds")
     return l.ll_items()[index]
 ll_getitem_fast.oopspec = 'list.getitem(l, index)'
 
 def ll_setitem_fast(l, index, item):
-    #ll_assert(index < l.length, "setitem out of bounds")
+    ll_assert(index < l.length, "setitem out of bounds")
     l.ll_items()[index] = item
 ll_setitem_fast.oopspec = 'list.setitem(l, index, item)'
 
@@ -316,7 +316,7 @@ ll_setitem_fast.oopspec = 'list.setitem(l, index, item)'
 
 @typeMethod
 def ll_fixed_newlist(LIST, length):
-    #ll_assert(length >= 0, "negative fixed list length")
+    ll_assert(length >= 0, "negative fixed list length")
     l = malloc(LIST, length)
     return l
 ll_fixed_newlist.oopspec = 'newlist(length)'
@@ -333,12 +333,12 @@ def ll_fixed_items(l):
     return l
 
 def ll_fixed_getitem_fast(l, index):
-    #ll_assert(index < len(l), "fixed getitem out of bounds")
+    ll_assert(index < len(l), "fixed getitem out of bounds")
     return l[index]
 ll_fixed_getitem_fast.oopspec = 'list.getitem(l, index)'
 
 def ll_fixed_setitem_fast(l, index, item):
-    #ll_assert(index < len(l), "fixed setitem out of bounds")
+    ll_assert(index < len(l), "fixed setitem out of bounds")
     l[index] = item
 ll_fixed_setitem_fast.oopspec = 'list.setitem(l, index, item)'
 
