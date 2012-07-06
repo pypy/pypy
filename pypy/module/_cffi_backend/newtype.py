@@ -109,7 +109,6 @@ def complete_struct_or_union(space, ctype, w_fields, w_ignored=None,
     fields_list = []
     fields_dict = {}
     prev_bit_position = 0
-    prev_field = None
     custom_field_pos = False
 
     for w_field in fields_w:
@@ -146,13 +145,34 @@ def complete_struct_or_union(space, ctype, w_fields, w_ignored=None,
             custom_field_pos |= (offset != foffset)
             offset = foffset
         #
-        if fbitsize < 0 or (fbitsize == 8 * ftype.size and
-                            not isinstance(ftype, W_CTypePrimitiveChar)):
+        if fbitsize < 0 or (fbitsize == 8 * ftype.size and not
+                            isinstance(ftype, ctypeprim.W_CTypePrimitiveChar)):
             fbitsize = -1
             bitshift = -1
             prev_bit_position = 0
         else:
-            xxx
+            if (not (isinstance(ftype, ctypeprim.W_CTypePrimitiveSigned) or
+                     isinstance(ftype, ctypeprim.W_CTypePrimitiveUnsigned) or
+                     isinstance(ftype, ctypeprim.W_CTypePrimitiveChar)) or
+                fbitsize == 0 or
+                fbitsize > 8 * ftype.size):
+                raise operationerrfmt(space.w_TypeError,
+                                      "invalid bit field '%s'", fname)
+            if prev_bit_position > 0:
+                prev_field = fields_list[-1]
+                assert prev_field.bitshift >= 0
+                if prev_field.ctype.size != ftype.size:
+                    raise OperationError(space.w_NotImplementedError,
+                        space.wrap("consecutive bit fields should be "
+                                   "declared with a same-sized type"))
+                if prev_bit_position + fbitsize > 8 * ftype.size:
+                    prev_bit_position = 0
+                else:
+                    # we can share the same field as 'prev_field'
+                    offset = prev_field.offset
+            bitshift = prev_bit_position
+            if not is_union:
+                prev_bit_position += fbitsize
         #
         fld = ctypestruct.W_CField(ftype, offset, bitshift, fbitsize)
         fields_list.append(fld)
