@@ -823,11 +823,13 @@ def wrap_cppobject(space, w_pycppclass, cppclass, rawobject, isref, python_owns)
 
 @unwrap_spec(cppinstance=W_CPPInstance)
 def addressof(space, cppinstance):
+    """Takes a bound C++ instance, returns the raw address."""
     address = rffi.cast(rffi.LONG, cppinstance.get_rawobject())
     return space.wrap(address)
 
 @unwrap_spec(address=int, owns=bool)
 def bind_object(space, address, w_pycppclass, owns=False):
+    """Takes an address and a bound C++ class proxy, returns a bound instance."""
     rawobject = rffi.cast(capi.C_OBJECT, address)
     w_cppclass = space.findattr(w_pycppclass, space.wrap("_cpp_proxy"))
     cppclass = space.interp_w(W_CPPClass, w_cppclass, can_be_None=False)

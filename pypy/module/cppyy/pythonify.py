@@ -366,18 +366,21 @@ def _pythonize(pyclass):
 
 _loaded_dictionaries = {}
 def load_reflection_info(name):
+    """Takes the name of a library containing reflection info, returns a handle
+    to the loaded library."""
     try:
         return _loaded_dictionaries[name]
     except KeyError:
-        dct = cppyy._load_dictionary(name)
-        _loaded_dictionaries[name] = dct
-        return dct
+        lib = cppyy._load_dictionary(name)
+        _loaded_dictionaries[name] = lib
+        return lib
     
 
 # user interface objects (note the two-step of not calling scope_byname here:
 # creation of global functions may cause the creation of classes in the global
 # namespace, so gbl must exist at that point to cache them)
 gbl = make_cppnamespace(None, "::", None, False)   # global C++ namespace
+gbl.__doc__ = "Global C++ namespace."
 sys.modules['cppyy.gbl'] = gbl
 
 # mostly for the benefit of the CINT backend, which treats std as special
@@ -387,6 +390,9 @@ sys.modules['cppyy.gbl.std'] = gbl.std
 # user-defined pythonizations interface
 _pythonizations = {}
 def add_pythonization(class_name, callback):
+    """Takes a class name and a callback. The callback should take a single
+    argument, the class proxy, and is called the first time the named class
+    is bound."""
     if not callable(callback):
         raise TypeError("given '%s' object is not callable" % str(callback))
     _pythonizations[class_name] = callback

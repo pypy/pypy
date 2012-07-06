@@ -10,6 +10,19 @@ from pypy.module._rawffi.array import W_Array
 
 from pypy.module.cppyy import helper, capi
 
+# Executor objects are used to dispatch C++ methods. They are defined by their
+# return type only: arguments are converted by Converter objects, and Executors
+# only deal with arrays of memory that are either passed to a stub or libffi.
+# No argument checking or conversions are done.
+#
+# If a libffi function is not implemented, FastCallNotPossible is raised. If a
+# stub function is missing (e.g. if no reflection info is available for the
+# return type), an app-level TypeError is raised.
+#
+# Executor instances are created by get_executor(<return type name>), see
+# below. The name given should be qualified in case there is a specialised,
+# exact match for the qualified type.
+
 
 NULL = lltype.nullptr(clibffi.FFI_TYPE_P.TO)
 
@@ -235,38 +248,6 @@ class CStringExecutor(FunctionExecutor):
         result = rffi.charp2str(ccpresult)  # TODO: make it a choice to free
         return space.wrap(result)
 
-class BoolPtrExecutor(PtrTypeExecutor):
-    _immutable_ = True
-    typecode = 'b'       # really unsigned char, but this works ...
-
-class ShortPtrExecutor(PtrTypeExecutor):
-    _immutable_ = True
-    typecode = 'h'
-
-class IntPtrExecutor(PtrTypeExecutor):
-    _immutable_ = True
-    typecode = 'i'
-
-class UnsignedIntPtrExecutor(PtrTypeExecutor):
-    _immutable_ = True
-    typecode = 'I'
-
-class LongPtrExecutor(PtrTypeExecutor):
-    _immutable_ = True
-    typecode = 'l'
-
-class UnsignedLongPtrExecutor(PtrTypeExecutor):
-    _immutable_ = True
-    typecode = 'L'
-
-class FloatPtrExecutor(PtrTypeExecutor):
-    _immutable_ = True
-    typecode = 'f'
-
-class DoublePtrExecutor(PtrTypeExecutor):
-    _immutable_ = True
-    typecode = 'd'
-
 
 class ConstructorExecutor(VoidExecutor):
     _immutable_ = True
@@ -426,24 +407,17 @@ _executors["void"]                = VoidExecutor
 _executors["void*"]               = PtrTypeExecutor
 _executors["bool"]                = BoolExecutor
 _executors["char"]                = CharExecutor
-_executors["char*"]               = CStringExecutor
-_executors["unsigned char"]       = CharExecutor
-_executors["short int"]           = ShortExecutor
-_executors["short"]               = _executors["short int"]
-_executors["unsigned short int"]  = ShortExecutor
-_executors["unsigned short"]      = _executors["unsigned short int"]
+_executors["const char*"]         = CStringExecutor
+_executors["short"]               = ShortExecutor
+_executors["unsigned short"]      = ShortExecutor
 _executors["int"]                 = IntExecutor
 _executors["const int&"]          = ConstIntRefExecutor
 _executors["int&"]                = ConstIntRefExecutor
-_executors["unsigned int"]        = UnsignedIntExecutor
-_executors["long int"]            = LongExecutor
-_executors["long"]                = _executors["long int"]
-_executors["unsigned long int"]   = UnsignedLongExecutor
-_executors["unsigned long"]       = _executors["unsigned long int"]
-_executors["long long int"]       = LongLongExecutor
-_executors["long long"]           = _executors["long long int"]
-_executors["unsigned long long int"] = UnsignedLongLongExecutor
-_executors["unsigned long long"]  = _executors["unsigned long long int"]
+_executors["unsigned"]            = UnsignedIntExecutor
+_executors["long"]                = LongExecutor
+_executors["unsigned long"]       = UnsignedLongExecutor
+_executors["long long"]           = LongLongExecutor
+_executors["unsigned long long"]  = UnsignedLongLongExecutor
 _executors["float"]               = FloatExecutor
 _executors["double"]              = DoubleExecutor
 
@@ -451,11 +425,37 @@ _executors["constructor"]         = ConstructorExecutor
 
 # special cases (note: CINT backend requires the simple name 'string')
 _executors["std::basic_string<char>"]        = StdStringExecutor
-_executors["string"]                         = _executors["std::basic_string<char>"]
 
 _executors["PyObject*"]           = PyObjectExecutor
-_executors["_object*"]            = _executors["PyObject*"]
 
+# add the set of aliased names
+def _add_aliased_executors():
+    "NOT_RPYTHON"
+    alias_info = (
+        ("char",                            ("unsigned char",)),
+
+        ("short",                           ("short int",)),
+        ("unsigned short",                  ("unsigned short int",)),
+        ("unsigned",                        ("unsigned int",)),
+        ("long",                            ("long int",)),
+        ("unsigned long",                   ("unsigned long int",)),
+        ("long long",                       ("long long int",)),
+        ("unsigned long long",              ("unsigned long long int",)),
+
+        ("const char*",                     ("char*",)),
+
+        ("std::basic_string<char>",         ("string",)),
+
+        ("PyObject*",                       ("_object*",)),
+    )
+
+    for info in alias_info:
+        for name in info[1]:
+            _executors[name] = _executors[info[0]]
+_add_aliased_executors()
+
+# create the pointer executors; all real work is in the PtrTypeExecutor, since
+# all pointer types are of the same size
 def _build_ptr_executors():
     "NOT_RPYTHON"
     ptr_info = (

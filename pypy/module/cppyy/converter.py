@@ -11,6 +11,15 @@ from pypy.module._rawffi.array import W_Array
 
 from pypy.module.cppyy import helper, capi
 
+# Converter objects are used to translate between RPython and C++. They are
+# defined by the type name for which they provide conversion. Uses are for
+# function arguments, as well as for read and write access to data members.
+# All type conversions are fully checked.
+#
+# Converter instances are greated by get_converter(<type name>), see below.
+# The name given should be qualified in case there is a specialised, exact
+# match for the qualified type.
+
 
 def get_rawobject(space, w_obj):
     from pypy.module.cppyy.interp_cppyy import W_CPPInstance
@@ -316,10 +325,6 @@ class ShortConverter(IntTypeConverterMixin, TypeConverter):
     def _unwrap_object(self, space, w_obj):
         return rffi.cast(rffi.SHORT, space.int_w(w_obj))
 
-class ConstShortRefConverter(ConstRefNumericTypeConverterMixin, ShortConverter):
-    _immutable_ = True
-    libffitype = libffi.types.pointer
-
 class UnsignedShortConverter(IntTypeConverterMixin, TypeConverter):
     _immutable_ = True
     libffitype = libffi.types.sshort
@@ -331,10 +336,6 @@ class UnsignedShortConverter(IntTypeConverterMixin, TypeConverter):
 
     def _unwrap_object(self, space, w_obj):
         return rffi.cast(self.c_type, space.int_w(w_obj))
-
-class ConstUnsignedShortRefConverter(ConstRefNumericTypeConverterMixin, UnsignedShortConverter):
-    _immutable_ = True
-    libffitype = libffi.types.pointer
 
 class IntConverter(IntTypeConverterMixin, TypeConverter):
     _immutable_ = True
@@ -348,10 +349,6 @@ class IntConverter(IntTypeConverterMixin, TypeConverter):
     def _unwrap_object(self, space, w_obj):
         return rffi.cast(self.c_type, space.c_int_w(w_obj))
 
-class ConstIntRefConverter(ConstRefNumericTypeConverterMixin, IntConverter):
-    _immutable_ = True
-    libffitype = libffi.types.pointer
-
 class UnsignedIntConverter(IntTypeConverterMixin, TypeConverter):
     _immutable_ = True
     libffitype = libffi.types.uint
@@ -363,10 +360,6 @@ class UnsignedIntConverter(IntTypeConverterMixin, TypeConverter):
 
     def _unwrap_object(self, space, w_obj):
         return rffi.cast(self.c_type, space.uint_w(w_obj))
-
-class ConstUnsignedIntRefConverter(ConstRefNumericTypeConverterMixin, UnsignedIntConverter):
-    _immutable_ = True
-    libffitype = libffi.types.pointer
 
 class LongConverter(IntTypeConverterMixin, TypeConverter):
     _immutable_ = True
@@ -426,10 +419,6 @@ class UnsignedLongConverter(IntTypeConverterMixin, TypeConverter):
     def _unwrap_object(self, space, w_obj):
         return space.uint_w(w_obj)
 
-class ConstUnsignedLongRefConverter(ConstRefNumericTypeConverterMixin, UnsignedLongConverter):
-    _immutable_ = True
-    libffitype = libffi.types.pointer
-
 class UnsignedLongLongConverter(IntTypeConverterMixin, TypeConverter):
     _immutable_ = True
     libffitype = libffi.types.ulong
@@ -441,10 +430,6 @@ class UnsignedLongLongConverter(IntTypeConverterMixin, TypeConverter):
 
     def _unwrap_object(self, space, w_obj):
         return space.r_ulonglong_w(w_obj)
-
-class ConstUnsignedLongLongRefConverter(ConstRefNumericTypeConverterMixin, UnsignedLongLongConverter):
-    _immutable_ = True
-    libffitype = libffi.types.pointer
 
 
 class FloatConverter(FloatTypeConverterMixin, TypeConverter):
@@ -776,56 +761,85 @@ def get_converter(space, name, default):
 
 _converters["bool"]                     = BoolConverter
 _converters["char"]                     = CharConverter
-_converters["unsigned char"]            = CharConverter
-_converters["short int"]                = ShortConverter
-_converters["const short int&"]         = ConstShortRefConverter
-_converters["short"]                    = _converters["short int"]
-_converters["const short&"]             = _converters["const short int&"]
-_converters["unsigned short int"]       = UnsignedShortConverter
-_converters["const unsigned short int&"] = ConstUnsignedShortRefConverter
-_converters["unsigned short"]           = _converters["unsigned short int"]
-_converters["const unsigned short&"]    = _converters["const unsigned short int&"]
+_converters["short"]                    = ShortConverter
+_converters["unsigned short"]           = UnsignedShortConverter
 _converters["int"]                      = IntConverter
-_converters["const int&"]               = ConstIntRefConverter
-_converters["unsigned int"]             = UnsignedIntConverter
-_converters["const unsigned int&"]      = ConstUnsignedIntRefConverter
-_converters["long int"]                 = LongConverter
-_converters["const long int&"]          = ConstLongRefConverter
-_converters["long"]                     = _converters["long int"]
-_converters["const long&"]              = _converters["const long int&"]
-_converters["unsigned long int"]        = UnsignedLongConverter
-_converters["const unsigned long int&"] = ConstUnsignedLongRefConverter
-_converters["unsigned long"]            = _converters["unsigned long int"]
-_converters["const unsigned long&"]     = _converters["const unsigned long int&"]
-_converters["long long int"]            = LongLongConverter
-_converters["const long long int&"]     = ConstLongLongRefConverter
-_converters["long long"]                = _converters["long long int"]
-_converters["const long long&"]         = _converters["const long long int&"]
-_converters["unsigned long long int"]   = UnsignedLongLongConverter
-_converters["const unsigned long long int&"] = ConstUnsignedLongLongRefConverter
-_converters["unsigned long long"]       = _converters["unsigned long long int"]
-_converters["const unsigned long long&"] = _converters["const unsigned long long int&"]
+_converters["unsigned"]                 = UnsignedIntConverter
+_converters["long"]                     = LongConverter
+_converters["const long&"]              = ConstLongRefConverter
+_converters["unsigned long"]            = UnsignedLongConverter
+_converters["long long"]                = LongLongConverter
+_converters["const long long&"]         = ConstLongLongRefConverter
+_converters["unsigned long long"]       = UnsignedLongLongConverter
 _converters["float"]                    = FloatConverter
 _converters["const float&"]             = ConstFloatRefConverter
 _converters["double"]                   = DoubleConverter
 _converters["const double&"]            = ConstDoubleRefConverter
 _converters["const char*"]              = CStringConverter
-_converters["char*"]                    = CStringConverter
 _converters["void*"]                    = VoidPtrConverter
 _converters["void**"]                   = VoidPtrPtrConverter
 _converters["void*&"]                   = VoidPtrRefConverter
 
 # special cases (note: CINT backend requires the simple name 'string')
 _converters["std::basic_string<char>"]           = StdStringConverter
-_converters["string"]                            = _converters["std::basic_string<char>"]
 _converters["const std::basic_string<char>&"]    = StdStringConverter     # TODO: shouldn't copy
-_converters["const string&"]                     = _converters["const std::basic_string<char>&"]
 _converters["std::basic_string<char>&"]          = StdStringRefConverter
-_converters["string&"]                           = _converters["std::basic_string<char>&"]
 
 _converters["PyObject*"]                         = PyObjectConverter
-_converters["_object*"]                          = _converters["PyObject*"]
 
+# add the set of aliased names
+def _add_aliased_converters():
+    "NOT_RPYTHON"
+    alias_info = (
+        ("char",                            ("unsigned char",)),
+
+        ("short",                           ("short int",)),
+        ("unsigned short",                  ("unsigned short int",)),
+        ("unsigned",                        ("unsigned int",)),
+        ("long",                            ("long int",)),
+        ("const long&",                     ("const long int&",)),
+        ("unsigned long",                   ("unsigned long int",)),
+        ("long long",                       ("long long int",)),
+        ("const long long&",                ("const long long int&",)),
+        ("unsigned long long",              ("unsigned long long int",)),
+
+        ("const char*",                     ("char*",)),
+
+        ("std::basic_string<char>",         ("string",)),
+        ("const std::basic_string<char>&",  ("const string&",)),
+        ("std::basic_string<char>&",        ("string&",)),
+
+        ("PyObject*",                       ("_object*",)),
+    )
+
+    for info in alias_info:
+        for name in info[1]:
+            _converters[name] = _converters[info[0]]
+_add_aliased_converters()
+
+# constref converters exist only b/c the stubs take constref by value, whereas
+# libffi takes them by pointer (hence it needs the fast-path in testing); note
+# that this is list is not complete, as some classes are specialized
+def _build_constref_converters():
+    "NOT_RPYTHON"
+    type_info = (
+        (ShortConverter,            ("short int", "short")),
+        (UnsignedShortConverter,    ("unsigned short int", "unsigned short")),
+        (IntConverter,              ("int",)),
+        (UnsignedIntConverter,      ("unsigned int", "unsigned")),
+        (UnsignedLongConverter,     ("unsigned long int", "unsigned long")),
+        (UnsignedLongLongConverter, ("unsigned long long int", "unsigned long long")),
+    )
+
+    for info in type_info:
+        class ConstRefConverter(ConstRefNumericTypeConverterMixin, info[0]):
+            _immutable_ = True
+            libffitype = libffi.types.pointer
+        for name in info[1]:
+            _converters["const "+name+"&"] = ConstRefConverter
+_build_constref_converters()
+
+# create the array and pointer converters; all real work is in the mixins
 def _build_array_converters():
     "NOT_RPYTHON"
     array_info = (
