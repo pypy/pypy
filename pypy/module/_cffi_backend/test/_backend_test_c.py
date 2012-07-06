@@ -857,14 +857,17 @@ def test_callback_return_type():
         assert f(max) == 42
 
 def test_a_lot_of_callbacks():
+    BIGNUM = 10000
+    if hasattr(sys, 'pypy_objspaceclass'): BIGNUM = 100   # tests on py.py
+    #
     BInt = new_primitive_type("int")
+    BFunc = new_function_type((BInt,), BInt, False)
     def make_callback(m):
         def cb(n):
             return n + m
-        BFunc = new_function_type((BInt,), BInt, False)
         return callback(BFunc, cb, 42)    # 'cb' and 'BFunc' go out of scope
     #
-    flist = [make_callback(i) for i in range(10000)]
+    flist = [make_callback(i) for i in range(BIGNUM)]
     for i, f in enumerate(flist):
         assert f(-142) == -142 + i
 
