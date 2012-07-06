@@ -9,7 +9,7 @@ from pypy.objspace.std.model import W_Object
 from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.objspace.std.stdtypedef import SMM, StdTypeDef
 from pypy.objspace.std.register_all import register_all
-from pypy.rlib.rarithmetic import ovfcheck
+from pypy.rlib.rarithmetic import ovfcheck, widen
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.objectmodel import specialize, keepalive_until_here
 from pypy.rpython.lltypesystem import lltype, rffi
@@ -518,7 +518,15 @@ def make_array(mytype):
             start = 0
         # <a performance hack>
         if oldlen == 1:
-            if self.buffer[0] == rffi.cast(mytype.itemtype, 0):
+            if self.unwrap == 'str_w' or self.unwrap == 'unicode_w':
+                zero = not ord(self.buffer[0])
+            elif self.unwrap == 'int_w' or self.unwrap == 'bigint_w':
+                zero = not widen(self.buffer[0])
+            #elif self.unwrap == 'float_w':
+            #    value = ...float(self.buffer[0])  xxx handle the case of -0.0
+            else:
+                zero = False
+            if zero:
                 a.setlen(newlen, zero=True, overallocate=False)
                 return a
             a.setlen(newlen, overallocate=False)

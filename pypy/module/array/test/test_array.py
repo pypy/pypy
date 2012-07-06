@@ -928,7 +928,15 @@ class AppTestArray(BaseArrayTests):
         assert b[22] == 0
         a *= 13
         assert a[22] == 0
-        assert len(a) == 26        
+        assert len(a) == 26
+        a = self.array('f', [-0.0])
+        b = a * 13
+        assert len(b) == 13
+        assert str(b[12]) == "-0.0"
+        a = self.array('d', [-0.0])
+        b = a * 13
+        assert len(b) == 13
+        assert str(b[12]) == "-0.0"
 
 
 class AppTestArrayBuiltinShortcut(AppTestArray):
