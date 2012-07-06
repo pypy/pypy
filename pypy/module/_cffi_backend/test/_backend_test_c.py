@@ -1158,8 +1158,9 @@ def test_invalid_function_result_types():
     new_function_type((), BFunc)    # works
     new_function_type((), new_primitive_type("int"))
     new_function_type((), new_pointer_type(BFunc))
-    py.test.raises(NotImplementedError, new_function_type, (),
-                   new_union_type("foo_u"))
+    BUnion = new_union_type("foo_u")
+    complete_struct_or_union(BUnion, [])
+    py.test.raises(NotImplementedError, new_function_type, (), BUnion)
     py.test.raises(TypeError, new_function_type, (), BArray)
 
 def test_struct_return_in_func():
