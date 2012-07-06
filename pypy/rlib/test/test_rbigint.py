@@ -459,6 +459,7 @@ class Test_rbigint(object):
     def test_tc_mul(self):
         a = rbigint.fromlong(1<<300)
         b = rbigint.fromlong(1<<200)
+        print _tc_mul(a, b)
         assert _tc_mul(a, b).tolong() == ((1<<300)*(1<<200))
         
     def test_overzelous_assertion(self):

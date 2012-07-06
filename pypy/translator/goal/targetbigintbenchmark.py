@@ -64,6 +64,19 @@ def entry_point(argv):
     """
     sumTime = 0.0
     
+    
+    t = time()
+    by = rbigint.pow(rbigint.fromint(63), rbigint.fromint(100))
+    for n in xrange(9900):
+        by2 = by.lshift(63)
+        rbigint.mul(by, by2)
+        by = by2
+        
+
+    _time = time() - t
+    sumTime += _time
+    print "Toom-cook effectivity 100-10000 digits:", _time
+    
     t = time()
     num = rbigint.pow(rbigint.fromint(100000000), rbigint.fromint(1024))
     by = rbigint.pow(rbigint.fromint(2), rbigint.fromint(128))

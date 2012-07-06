@@ -69,8 +69,8 @@ else:
     
 KARATSUBA_SQUARE_CUTOFF = 2 * KARATSUBA_CUTOFF
 
-USE_TOOMCOCK = False # WIP
-TOOMCOOK_CUTOFF = 3 # Smallest possible cutoff is 3. Ideal is probably around 150+
+USE_TOOMCOCK = False
+TOOMCOOK_CUTOFF = 2000 # Smallest possible cutoff is 3. Ideal is probably around 150+
 
 # For exponentiation, use the binary left-to-right algorithm
 # unless the exponent contains more than FIVEARY_CUTOFF digits.
@@ -1127,6 +1127,7 @@ def _tcmul_split(n, size):
     hi._normalize()
     return hi, mid, lo
 
+THREERBIGINT = rbigint.fromint(3) # Used by tc_mul
 def _tc_mul(a, b):
     """
     Toom Cook
@@ -1145,11 +1146,6 @@ def _tc_mul(a, b):
         bl = al
     else:
         bh, bm, bl = _tcmul_split(b, shift)
-
-    
-    # 1. Allocate result space.
-    ret = rbigint([NULLDIGIT] * (asize + bsize), 1)
-
     # 2. ahl, bhl
     ahl = al.add(ah)
     bhl = bl.add(bh)
@@ -1159,12 +1155,15 @@ def _tc_mul(a, b):
     v1 = ahl.add(bm).mul(bhl.add(bm))
     
     vn1 = ahl.sub(bm).mul(bhl.sub(bm))
-    v2 = al.add(am.lshift(1)).add(ah.lshift(2)).mul(bl.add(bm.lshift(1))).add(bh.lshift(2))
+    v2 = al.add(am.lshift(1)).add(ah.lshift(2)).mul(bl.add(bm.lshift(1)).add(bh.lshift(2)))
     vinf = ah.mul(bh)
     
     # Construct
-    t1 = v0.mul(rbigint.fromint(3)).add(vn1.lshift(1)).add(v2).floordiv(rbigint.fromint(6)).sub(vinf.lshift(1))
-    t2 = v1.add(vn1).rshift(1)
+    t1 = v0.mul(THREERBIGINT).add(vn1.lshift(1)).add(v2)
+    _inplace_divrem1(t1, t1, 6)
+    t1 = t1.sub(vinf.lshift(1))
+    t2 = v1.add(vn1)
+    _v_rshift(t2, t2, t2.numdigits(), 1)
     
     r1 = v1.sub(t1)
     r2 = t2.sub(v0).sub(vinf)
@@ -1172,24 +1171,29 @@ def _tc_mul(a, b):
     # r0 = v0, r4 = vinf
     
     # Now we fit r+ r2 + r4 into the new string.
-    # Now we got to add the r1 and r3 in the mid shift. This is TODO (aga, not fixed yet)
+    # Now we got to add the r1 and r3 in the mid shift.
+    # Allocate result space.
+    ret = rbigint([NULLDIGIT] * (4*shift + vinf.numdigits()), 1)  # This is because of the size of vinf
+    
     ret._digits[:v0.numdigits()] = v0._digits
-    
+    #print ret.numdigits(), r2.numdigits(), vinf.numdigits(), shift, shift * 5, asize, bsize
+    #print r2.sign >= 0
+    assert r2.sign >= 0
+    #print 2*shift + r2.numdigits() < ret.numdigits()
+    assert 2*shift + r2.numdigits() < ret.numdigits()
     ret._digits[shift * 2:shift * 2+r2.numdigits()] = r2._digits
-    
+    #print vinf.sign >= 0
+    assert vinf.sign >= 0
+    #print 4*shift + vinf.numdigits() <= ret.numdigits()
+    assert 4*shift + vinf.numdigits() <= ret.numdigits()
     ret._digits[shift*4:shift*4+vinf.numdigits()] = vinf._digits
 
-    # TODO!!!!
-    """
-    x and y are rbigints, m >= n required.  x.digits[0:n] is modified in place,
-    by adding y.digits[0:m] to it.  Carries are propagated as far as
-    x[m-1], and the remaining carry (0 or 1) is returned.
-    Python adaptation: x is addressed relative to xofs!
-    """
-    _v_iadd(ret, shift, ret.numdigits() - shift * 4, r1, r1.numdigits())
-    _v_iadd(ret, shift * 3, ret.numdigits() - shift * 4 , r3, r3.numdigits())
 
-    ret._normalize()
+    i = ret.numdigits() - shift
+    _v_iadd(ret, shift, i, r1, r1.numdigits())
+    _v_iadd(ret, shift * 3, i, r3, r3.numdigits())
+
+    ret._positivenormalize()
     return ret
 
 
