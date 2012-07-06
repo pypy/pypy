@@ -266,7 +266,9 @@ class W_CDataCasted(W_CData):
         lltype.free(self._cdata, flavor='raw')
 
 
-common_methods = dict(
+W_CData.typedef = TypeDef(
+    '_cffi_backend.CData',
+    __repr__ = interp2app(W_CData.repr),
     __nonzero__ = interp2app(W_CData.nonzero),
     __int__ = interp2app(W_CData.int),
     __long__ = interp2app(W_CData.long),
@@ -283,20 +285,13 @@ common_methods = dict(
     __getattr__ = interp2app(W_CData.getattr),
     __setattr__ = interp2app(W_CData.setattr),
     __call__ = interp2app(W_CData.call),
-)
-
-W_CData.typedef = TypeDef(
-    '_cffi_backend.CData',
-    __repr__ = interp2app(W_CData.repr),
-    **common_methods
     )
 W_CData.typedef.acceptable_as_base_class = False
 
 W_CDataApplevelOwning.typedef = TypeDef(
     '_cffi_backend.CDataOwn',
-    __base = W_CData.typedef,
+    W_CData.typedef,    # base typedef
     __repr__ = interp2app(W_CDataApplevelOwning.repr),
     __weakref__ = make_weakref_descr(W_CDataApplevelOwning),
-    **common_methods
     )
 W_CDataApplevelOwning.typedef.acceptable_as_base_class = False
