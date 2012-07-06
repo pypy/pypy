@@ -117,7 +117,7 @@ class W_CType(Wrappable):
     def call(self, funcaddr, args_w):
         space = self.space
         raise operationerrfmt(space.w_TypeError,
-                              "cdata '%s' is not callable", ctype.name)
+                              "cdata '%s' is not callable", self.name)
 
 
 W_CType.typedef = TypeDef(

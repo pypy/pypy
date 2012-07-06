@@ -187,7 +187,7 @@ class W_CData(Wrappable):
 class W_CDataApplevelOwning(W_CData):
     """This is the abstract base class for classes that are of the app-level
     type '_cffi_backend.CDataOwn'.  These are weakrefable."""
-    _attrs_ = []
+    _attrs_ = ['_lifeline_']    # for weakrefs
     _immutable_ = True
 
     def _owning_num_bytes(self):
