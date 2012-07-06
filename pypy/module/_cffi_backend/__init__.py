@@ -21,6 +21,7 @@ class Module(MixedModule):
 
         'newp': 'func.newp',
         'cast': 'func.cast',
+        'callback': 'func.callback',
         'alignof': 'func.alignof',
         'sizeof': 'func.sizeof',
         'typeof': 'func.typeof',

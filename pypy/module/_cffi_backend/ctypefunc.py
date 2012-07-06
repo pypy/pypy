@@ -181,6 +181,7 @@ FFI_CIF = clibffi.FFI_CIFP.TO
 FFI_TYPE = clibffi.FFI_TYPE_P.TO
 FFI_TYPE_P = clibffi.FFI_TYPE_P
 FFI_TYPE_PP = clibffi.FFI_TYPE_PP
+SIZE_OF_FFI_ARG = 8     # good enough
 
 CIF_DESCRIPTION = lltype.Struct(
     'CIF_DESCRIPTION',
@@ -333,7 +334,8 @@ class CifDescrBuilder(object):
 
         # then enough room for the result --- which means at least
         # sizeof(ffi_arg), according to the ffi docs (this is 8).
-        exchange_offset += max(rffi.getintfield(self.rtype, 'c_size'), 8)
+        exchange_offset += max(rffi.getintfield(self.rtype, 'c_size'),
+                               SIZE_OF_FFI_ARG)
 
         # loop over args
         for i, farg in enumerate(self.fargs):
