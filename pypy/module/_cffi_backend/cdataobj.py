@@ -1,10 +1,9 @@
-import operator
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.rlib.objectmodel import keepalive_until_here, specialize
+from pypy.rlib.objectmodel import keepalive_until_here
 from pypy.rlib import objectmodel, rgc
 
 from pypy.module._cffi_backend import misc
@@ -60,8 +59,7 @@ class W_CData(Wrappable):
     def str(self):
         return self.ctype.str(self)
 
-    @specialize.arg(2)
-    def _cmp(self, w_other, cmp):
+    def _cmp(self, w_other, compare_for_ne):
         space = self.space
         cdata1 = self._cdata
         other = space.interpclass_w(w_other)
@@ -69,10 +67,11 @@ class W_CData(Wrappable):
             cdata2 = other._cdata
         else:
             return space.w_NotImplemented
-        return space.newbool(cmp(cdata1, cdata2))
+        result = (cdata1 == cdata2) ^ compare_for_ne
+        return space.newbool(result)
 
-    def eq(self, w_other): return self._cmp(w_other, operator.eq)
-    def ne(self, w_other): return self._cmp(w_other, operator.ne)
+    def eq(self, w_other): return self._cmp(w_other, False)
+    def ne(self, w_other): return self._cmp(w_other, True)
 
     def hash(self):
         h = (objectmodel.compute_identity_hash(self.ctype) ^
