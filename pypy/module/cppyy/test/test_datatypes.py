@@ -558,3 +558,25 @@ class AppTestDATATYPES:
         raises(AttributeError, getattr, c, 'm_owns_arrays')
 
         c.destruct()
+
+    def test15_buffer_reshaping(self):
+        """Test usage of buffer sizing"""
+
+        import cppyy
+        cppyy_test_data = cppyy.gbl.cppyy_test_data
+
+        c = cppyy_test_data()
+        for func in ['get_bool_array',   'get_bool_array2',
+                     'get_ushort_array', 'get_ushort_array2',
+                     'get_int_array',    'get_int_array2',
+                     'get_uint_array',   'get_uint_array2',
+                     'get_long_array',   'get_long_array2',
+                     'get_ulong_array',  'get_ulong_array2']:
+            arr = getattr(c, func)()
+            arr = arr.shape.fromaddress(arr.itemaddress(0), self.N)
+            assert len(arr) == self.N
+
+            l = list(arr)
+            for i in range(self.N):
+                assert arr[i] == l[i]
+
