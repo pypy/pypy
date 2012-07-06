@@ -7,7 +7,6 @@ from pypy.rpython.lltypesystem import rffi
 from pypy.rlib.objectmodel import keepalive_until_here
 
 from pypy.module._cffi_backend.ctypeobj import W_CType
-from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveChar
 from pypy.module._cffi_backend import cdataobj, misc
 
 
@@ -15,6 +14,8 @@ class W_CTypePtrOrArray(W_CType):
 
     def __init__(self, space, size, extra, extra_position, ctitem,
                  could_cast_anything=True):
+        from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveChar
+        from pypy.module._cffi_backend.ctypestruct import W_CTypeStructOrUnion
         name, name_position = ctitem.insert_name(extra, extra_position)
         W_CType.__init__(self, space, size, name, name_position)
         # this is the "underlying type":
@@ -24,6 +25,7 @@ class W_CTypePtrOrArray(W_CType):
         self.ctitem = ctitem
         self.can_cast_anything = could_cast_anything and ctitem.cast_anything
         self.is_char_ptr_or_array = isinstance(ctitem, W_CTypePrimitiveChar)
+        self.is_struct_ptr = isinstance(ctitem, W_CTypeStructOrUnion)
 
 
 class W_CTypePtrBase(W_CTypePtrOrArray):
@@ -79,7 +81,7 @@ class W_CTypePointer(W_CTypePtrBase):
         W_CTypePtrBase.__init__(self, space, size, extra, 2, ctitem)
 
     def str(self, cdataobj):
-        if isinstance(self.ctitem, W_CTypePrimitiveChar):
+        if self.is_char_ptr_or_array:
             if not cdataobj._cdata:
                 space = self.space
                 raise operationerrfmt(space.w_RuntimeError,
@@ -99,16 +101,26 @@ class W_CTypePointer(W_CTypePtrBase):
             raise operationerrfmt(space.w_TypeError,
                 "cannot instantiate ctype '%s' of unknown size",
                                   self.name)
-        if isinstance(ctitem, W_CTypePrimitiveChar):
-            datasize *= 2       # forcefully add a null character
-        cdata = cdataobj.W_CDataOwn(space, datasize, self)
+        if self.is_struct_ptr:
+            # 'newp' on a struct-or-union pointer: in this case, we return
+            # a W_CDataPtrToStruct object which has a strong reference
+            # to a W_CDataNewOwning that really contains the structure.
+            cdatastruct = cdataobj.W_CDataNewOwning(space, datasize, ctitem)
+            cdata = cdataobj.W_CDataPtrToStructOrUnion(space,
+                                                       cdatastruct._cdata,
+                                                       self, cdatastruct)
+        else:
+            if self.is_char_ptr_or_array:
+                datasize *= 2       # forcefully add a null character
+            cdata = cdataobj.W_CDataNewOwning(space, datasize, self)
+        #
         if not space.is_w(w_init, space.w_None):
             ctitem.convert_from_object(cdata._cdata, w_init)
             keepalive_until_here(cdata)
         return cdata
 
     def _check_subscript_index(self, w_cdata, i):
-        if isinstance(w_cdata, cdataobj.W_CDataOwn) and i != 0:
+        if isinstance(w_cdata, cdataobj.W_CDataApplevelOwning) and i != 0:
             space = self.space
             raise operationerrfmt(space.w_IndexError,
                                   "cdata '%s' can only be indexed by 0",

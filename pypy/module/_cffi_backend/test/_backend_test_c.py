@@ -885,7 +885,8 @@ def test_callback_returning_struct():
     f = callback(BFunc, cb)
     s = f(10)
     assert typeof(s) is BStruct
-    assert repr(s).startswith("<cdata 'struct foo' owning ")
+    assert repr(s) in ["<cdata 'struct foo' owning 12 bytes>",
+                       "<cdata 'struct foo' owning 16 bytes>"]
     assert s.a == -10
     assert s.b == 1E-42
 
@@ -1266,17 +1267,19 @@ def test_keepalive_struct():
     # struct that *also* owns the memory
     BStruct = new_struct_type("foo")
     BStructPtr = new_pointer_type(BStruct)
-    complete_struct_or_union(BStruct, [('a1', new_primitive_type("int"), -1)])
+    complete_struct_or_union(BStruct, [('a1', new_primitive_type("int"), -1),
+                                       ('a2', new_primitive_type("int"), -1),
+                                       ('a3', new_primitive_type("int"), -1)])
     p = newp(BStructPtr)
-    assert repr(p) == "<cdata 'struct foo *' owning 4 bytes>"
+    assert repr(p) == "<cdata 'struct foo *' owning 12 bytes>"
     q = p[0]
-    assert repr(q) == "<cdata 'struct foo' owning 4 bytes>"
+    assert repr(q) == "<cdata 'struct foo' owning 12 bytes>"
     q.a1 = 123456
     assert p.a1 == 123456
     del p
     import gc; gc.collect()
     assert q.a1 == 123456
-    assert repr(q) == "<cdata 'struct foo' owning 4 bytes>"
+    assert repr(q) == "<cdata 'struct foo' owning 12 bytes>"
     assert q.a1 == 123456
 
 def test_nokeepalive_struct():

@@ -44,7 +44,7 @@ class W_CTypePrimitive(W_CType):
             value = self.cast_str(w_ob)
         else:
             value = misc.as_unsigned_long_long(space, w_ob, strict=False)
-        w_cdata = cdataobj.W_CDataOwnFromCasted(space, self.size, self)
+        w_cdata = cdataobj.W_CDataCasted(space, self.size, self)
         w_cdata.write_raw_integer_data(value)
         return w_cdata
 
@@ -163,7 +163,7 @@ class W_CTypePrimitiveFloat(W_CTypePrimitive):
             value = self.cast_str(w_ob)
         else:
             value = space.float_w(w_ob)
-        w_cdata = cdataobj.W_CDataOwnFromCasted(space, self.size, self)
+        w_cdata = cdataobj.W_CDataCasted(space, self.size, self)
         w_cdata.write_raw_float_data(value)
         return w_cdata
 

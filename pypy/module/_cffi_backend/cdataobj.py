@@ -11,8 +11,9 @@ from pypy.module._cffi_backend import misc
 
 
 class W_CData(Wrappable):
+    _attrs_ = ['space', '_cdata', 'ctype']
     _immutable_ = True
-    cdata = lltype.nullptr(rffi.CCHARP.TO)
+    _cdata = lltype.nullptr(rffi.CCHARP.TO)
 
     def __init__(self, space, cdata, ctype):
         from pypy.module._cffi_backend import ctypeprim
@@ -82,11 +83,14 @@ class W_CData(Wrappable):
         space = self.space
         i = space.getindex_w(w_index, space.w_IndexError)
         self.ctype._check_subscript_index(self, i)
-        ctitem = self.ctype.ctitem
-        w_o = ctitem.convert_to_object(
-            rffi.ptradd(self._cdata, i * ctitem.size))
+        w_o = self._do_getitem(i)
         keepalive_until_here(self)
         return w_o
+
+    def _do_getitem(self, i):
+        ctitem = self.ctype.ctitem
+        return ctitem.convert_to_object(
+            rffi.ptradd(self._cdata, i * ctitem.size))
 
     def setitem(self, w_index, w_value):
         space = self.space
@@ -181,7 +185,72 @@ class W_CData(Wrappable):
         return length
 
 
-class W_CDataOwnFromCasted(W_CData):
+class W_CDataApplevelOwning(W_CData):
+    """This is the abstract base class for classes that are of the app-level
+    type '_cffi_backend.CDataOwn'.  These are weakrefable."""
+    _attrs_ = []
+
+    def _owning_num_bytes(self):
+        return self.ctype.size
+
+    def repr(self):
+        return self.space.wrap("<cdata '%s' owning %d bytes>" % (
+            self.ctype.name, self._owning_num_bytes()))
+
+
+class W_CDataNewOwning(W_CDataApplevelOwning):
+    """This is the class used for the app-level type
+    '_cffi_backend.CDataOwn' created by newp()."""
+    _attrs_ = []
+
+    def __init__(self, space, size, ctype):
+        cdata = lltype.malloc(rffi.CCHARP.TO, size, flavor='raw', zero=True)
+        W_CDataApplevelOwning.__init__(self, space, cdata, ctype)
+
+    @rgc.must_be_light_finalizer
+    def __del__(self):
+        lltype.free(self._cdata, flavor='raw')
+
+
+class W_CDataNewOwningLength(W_CDataNewOwning):
+    """Subclass with an explicit length, for allocated instances of
+    the C type 'foo[]'."""
+    _attrs_ = ['length']
+
+    def __init__(self, space, size, ctype, length):
+        W_CDataNewOwning.__init__(self, space, size, ctype)
+        self.length = length
+
+    def get_array_length(self):
+        return self.length
+
+
+class W_CDataPtrToStructOrUnion(W_CDataApplevelOwning):
+    """This subclass is used for the pointer returned by new('struct foo').
+    It has a strong reference to a W_CDataNewOwning that really owns the
+    struct, which is the object returned by the app-level expression 'p[0]'."""
+    _attrs_ = ['structobj']
+
+    def __init__(self, space, cdata, ctype, structobj):
+        W_CDataApplevelOwning.__init__(self, space, cdata, ctype)
+        self.structobj = structobj
+
+    def _owning_num_bytes(self):
+        from pypy.module._cffi_backend.ctypeptr import W_CTypePtrBase
+        ctype = self.ctype
+        assert isinstance(ctype, W_CTypePtrBase)
+        return ctype.ctitem.size
+
+    def _do_getitem(self, i):
+        return self.structobj
+
+
+class W_CDataCasted(W_CData):
+    """This subclass is used by the results of cffi.cast('int', x)
+    or other primitive explicitly-casted types.  Relies on malloc'ing
+    small bits of memory (e.g. just an 'int').  Its point is to not be
+    a subclass of W_CDataApplevelOwning."""
+    _attrs_ = []
 
     def __init__(self, space, size, ctype):
         cdata = lltype.malloc(rffi.CCHARP.TO, size, flavor='raw', zero=True)
@@ -190,23 +259,6 @@ class W_CDataOwnFromCasted(W_CData):
     @rgc.must_be_light_finalizer
     def __del__(self):
         lltype.free(self._cdata, flavor='raw')
-
-
-class W_CDataOwn(W_CDataOwnFromCasted):
-
-    def repr(self):
-        return self.space.wrap("<cdata '%s' owning %d bytes>" % (
-            self.ctype.name, self.ctype.size))
-
-
-class W_CDataOwnLength(W_CDataOwn):
-
-    def __init__(self, space, size, ctype, length):
-        W_CDataOwn.__init__(self, space, size, ctype)
-        self.length = length
-
-    def get_array_length(self):
-        return self.length
 
 
 common_methods = dict(
@@ -235,11 +287,11 @@ W_CData.typedef = TypeDef(
     )
 W_CData.typedef.acceptable_as_base_class = False
 
-W_CDataOwn.typedef = TypeDef(
+W_CDataApplevelOwning.typedef = TypeDef(
     '_cffi_backend.CDataOwn',
     __base = W_CData.typedef,
-    __repr__ = interp2app(W_CDataOwn.repr),
-    __weakref__ = make_weakref_descr(W_CDataOwn),
+    __repr__ = interp2app(W_CDataApplevelOwning.repr),
+    __weakref__ = make_weakref_descr(W_CDataApplevelOwning),
     **common_methods
     )
-W_CDataOwn.typedef.acceptable_as_base_class = False
+W_CDataApplevelOwning.typedef.acceptable_as_base_class = False

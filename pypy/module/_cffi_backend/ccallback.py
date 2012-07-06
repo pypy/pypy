@@ -7,13 +7,13 @@ from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rlib.objectmodel import compute_unique_id, keepalive_until_here
 from pypy.rlib import clibffi, rweakref, rgc
 
-from pypy.module._cffi_backend.cdataobj import W_CData, W_CDataOwn
+from pypy.module._cffi_backend.cdataobj import W_CData, W_CDataApplevelOwning
 from pypy.module._cffi_backend.ctypefunc import SIZE_OF_FFI_ARG
 
 # ____________________________________________________________
 
 
-class W_CDataCallback(W_CDataOwn):
+class W_CDataCallback(W_CDataApplevelOwning):
     ll_error = lltype.nullptr(rffi.CCHARP.TO)
 
     def __init__(self, space, ctype, w_callable, w_error):

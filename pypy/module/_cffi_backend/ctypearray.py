@@ -55,10 +55,11 @@ class W_CTypeArray(W_CTypePtrOrArray):
                 raise OperationError(space.w_OverflowError,
                     space.wrap("array size would overflow a ssize_t"))
             #
-            cdata = cdataobj.W_CDataOwnLength(space, datasize, self, length)
+            cdata = cdataobj.W_CDataNewOwningLength(space, datasize,
+                                                    self, length)
         #
         else:
-            cdata = cdataobj.W_CDataOwn(space, datasize, self)
+            cdata = cdataobj.W_CDataNewOwning(space, datasize, self)
         #
         if not space.is_w(w_init, space.w_None):
             self.convert_from_object(cdata._cdata, w_init)
