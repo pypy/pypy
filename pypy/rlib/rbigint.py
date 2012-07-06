@@ -454,7 +454,7 @@ class rbigint(object):
         if asize == 1:
             if a._digits[0] == NULLDIGIT:
                 return rbigint()
-            elif b._digits[0] == ONEDIGIT:
+            elif a._digits[0] == ONEDIGIT:
                 return rbigint(b._digits, a.sign * b.sign)
             elif bsize == 1:
                 result = rbigint([NULLDIGIT] * 2, a.sign * b.sign)
@@ -511,21 +511,7 @@ class rbigint(object):
 
     @jit.elidable
     def mod(self, other):
-        if other.numdigits() == 1:
-            # Faster.
-            i = 0
-            mod = 0
-            b = other.digit(0) * other.sign
-            while i < self.numdigits():
-                digit = self.digit(i) * self.sign
-                if digit:
-                    mod <<= SHIFT
-                    mod = (mod + digit) % b
-                
-                i += 1
-            mod = rbigint.fromint(mod)
-        else:        
-            div, mod = _divrem(self, other)
+        div, mod = _divrem(self, other)
         if mod.sign * other.sign == -1:
             mod = mod.add(other)
         return mod
@@ -1131,9 +1117,11 @@ def _tcmul_split(n, size):
     viewing the shift as being by digits.  The sign bit is ignored, and
     the return values are >= 0.
     """
-    lo = rbigint(n._digits[:size], 1)
-    mid = rbigint(n._digits[size:size * 2], 1)
-    hi = rbigint(n._digits[size *2:], 1)
+    size_n = n.numdigits() / 3
+    size_lo = min(size_n, size)
+    lo = rbigint(n._digits[:size_lo], 1)
+    mid = rbigint(n._digits[size_lo:size * 2], 1)
+    hi = rbigint(n._digits[size_lo *2:], 1)
     lo._normalize()
     mid._normalize()
     hi._normalize()
@@ -1147,7 +1135,7 @@ def _tc_mul(a, b):
     bsize = b.numdigits()
 
     # Split a & b into hi, mid and lo pieces.
-    shift = asize // 3
+    shift = bsize // 3
     ah, am, al = _tcmul_split(a, shift)
     assert ah.sign == 1    # the split isn't degenerate
 
@@ -1158,46 +1146,39 @@ def _tc_mul(a, b):
     else:
         bh, bm, bl = _tcmul_split(b, shift)
 
+    
     # 1. Allocate result space.
     ret = rbigint([NULLDIGIT] * (asize + bsize), 1)
 
-    # 2. w points
-    pO = al.add(ah)
-    p1 = pO.add(am)
-    pn1 = pO.sub(am)
-    pn2 = pn1.add(ah).lshift(1).sub(al)
+    # 2. ahl, bhl
+    ahl = al.add(ah)
+    bhl = bl.add(bh)
     
-    qO = bl.add(bh)
-    q1 = qO.add(bm)
-    qn1 = qO.sub(bm)
-    qn2 = qn1.add(bh).lshift(1).sub(bl)
+    # Points
+    v0 = al.mul(bl)
+    v1 = ahl.add(bm).mul(bhl.add(bm))
     
-    w0 = al.mul(bl)
-    winf = ah.mul(bh)
-
-    w1 = p1.mul(q1)
-    wn1 = pn1.mul(qn1)
-    wn2 = pn2.mul(qn2)
+    vn1 = ahl.sub(bm).mul(bhl.sub(bm))
+    v2 = al.add(am.lshift(1)).add(ah.lshift(2)).mul(bl.add(bm.lshift(1))).add(bh.lshift(2))
+    vinf = ah.mul(bh)
     
-    # 3. The important stuff
-    # XXX: Need a faster / 3 and /2 like in GMP!
-    r0 = w0
-    r4 = winf
-    r3 = _divrem1(wn2.sub(wn1), 3)[0]
-    r1 = w1.sub(wn1).rshift(1)
-    r2 = wn1.sub(w0)
-    r3 = _divrem1(r2.sub(r3), 2)[0].add(r4.lshift(1))
-    r2 = r2.add(r1).sub(r4)
-    r1 = r1.sub(r3)
+    # Construct
+    t1 = v0.mul(rbigint.fromint(3)).add(vn1.lshift(1)).add(v2).floordiv(rbigint.fromint(6)).sub(vinf.lshift(1))
+    t2 = v1.add(vn1).rshift(1)
+    
+    r1 = v1.sub(t1)
+    r2 = t2.sub(v0).sub(vinf)
+    r3 = t1.sub(t2)
+    # r0 = v0, r4 = vinf
     
     # Now we fit r+ r2 + r4 into the new string.
     # Now we got to add the r1 and r3 in the mid shift. This is TODO (aga, not fixed yet)
-    ret._digits[:shift] = r0._digits
+    ret._digits[:v0.numdigits()] = v0._digits
     
-    ret._digits[shift:shift*2] = r2._digits
+    ret._digits[shift * 2:shift * 2+r2.numdigits()] = r2._digits
     
-    ret._digits[shift*2:(shift*2)+r4.numdigits()] = r4._digits
-    
+    ret._digits[shift*4:shift*4+vinf.numdigits()] = vinf._digits
+
     # TODO!!!!
     """
     x and y are rbigints, m >= n required.  x.digits[0:n] is modified in place,
@@ -1205,8 +1186,8 @@ def _tc_mul(a, b):
     x[m-1], and the remaining carry (0 or 1) is returned.
     Python adaptation: x is addressed relative to xofs!
     """
-    _v_iadd(ret, shift, shift + r1.numdigits(), r1, r1.numdigits())
-    _v_iadd(ret, shift * 2, shift + r3.numdigits(), r3, r3.numdigits())
+    _v_iadd(ret, shift, ret.numdigits() - shift * 4, r1, r1.numdigits())
+    _v_iadd(ret, shift * 3, ret.numdigits() - shift * 4 , r3, r3.numdigits())
 
     ret._normalize()
     return ret
