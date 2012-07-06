@@ -435,7 +435,6 @@ class rbigint(object):
         else:
             result = _x_add(self, other)
         result.sign *= self.sign
-        result._normalize()
         return result
 
     @jit.elidable
@@ -684,10 +683,17 @@ class rbigint(object):
         return rbigint(self._digits, -self.sign)
 
     def abs(self):
+        if self.sign != -1:
+            return self
         return rbigint(self._digits, abs(self.sign))
 
     def invert(self): #Implement ~x as -(x + 1)
-        return self.add(ONERBIGINT).neg()
+        if self.sign == 0:
+            return ONENEGATIVERBIGINT
+        
+        ret = self.add(ONERBIGINT)
+        ret.sign = -ret.sign
+        return ret
 
     @jit.elidable
     def lshift(self, int_other):
