@@ -221,9 +221,6 @@ def new_function_type(space, w_fargs, fresult, ellipsis=0):
             farg = farg.ctptr
         fargs.append(farg)
     #
-    if isinstance(fresult, ctypestruct.W_CTypeStructOrUnion):
-        raise OperationError(space.w_NotImplementedError,
-                         space.wrap("functions returning a struct or a union"))
     if ((fresult.size < 0 and not isinstance(fresult, ctypevoid.W_CTypeVoid))
             or isinstance(fresult, ctypearray.W_CTypeArray)):
         raise operationerrfmt(space.w_TypeError,

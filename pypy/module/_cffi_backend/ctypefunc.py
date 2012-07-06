@@ -11,6 +11,7 @@ from pypy.rlib.objectmodel import keepalive_until_here
 from pypy.module._cffi_backend.ctypeobj import W_CType
 from pypy.module._cffi_backend.ctypeptr import W_CTypePtrBase
 from pypy.module._cffi_backend.ctypevoid import W_CTypeVoid
+from pypy.module._cffi_backend.ctypestruct import W_CTypeStructOrUnion
 from pypy.module._cffi_backend import ctypeprim, ctypestruct, ctypearray
 from pypy.module._cffi_backend import cdataobj
 
@@ -135,6 +136,8 @@ class W_CTypeFunc(W_CTypePtrBase):
 
             if isinstance(self.ctitem, W_CTypeVoid):
                 w_res = space.w_None
+            elif isinstance(self.ctitem, W_CTypeStructOrUnion):
+                w_res = self.ctitem.copy_and_convert_to_object(resultdata)
             else:
                 w_res = self.ctitem.convert_to_object(resultdata)
         finally:

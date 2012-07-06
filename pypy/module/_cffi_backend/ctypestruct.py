@@ -49,6 +49,19 @@ class W_CTypeStructOrUnion(W_CType):
         self.check_complete()
         return cdataobj.W_CData(space, cdata, self)
 
+    def copy_and_convert_to_object(self, cdata):
+        space = self.space
+        self.check_complete()
+        ob = cdataobj.W_CDataNewOwning(space, self.size, self)
+        # push push push at the llmemory interface (with hacks that
+        # are all removed after translation)
+        zero = llmemory.itemoffsetof(rffi.CCHARP.TO, 0)
+        llmemory.raw_memcopy(
+            llmemory.cast_ptr_to_adr(cdata) + zero,
+            llmemory.cast_ptr_to_adr(ob._cdata) + zero,
+            self.size * llmemory.sizeof(lltype.Char))
+        return ob
+
     def offsetof(self, fieldname):
         self.check_complete()
         try:
