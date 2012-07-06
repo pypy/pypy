@@ -831,7 +831,7 @@ class rbigint(object):
             self._digits = self._digits[:i]
         if self.numdigits() == 1 and self.udigit(0) == 0:
             self.sign = 0
-
+    _normalize._always_inline_ = True
     def bit_length(self):
         i = self.numdigits()
         if i == 1 and self.digit(0) == 0:
@@ -1392,7 +1392,9 @@ def _inplace_divrem1(pout, pin, n, size=0):
     if not size:
         size = pin.numdigits()
     size -= 1
+    
     while size >= 0:
+        assert size >= 0
         rem = (rem << SHIFT) + pin.widedigit(size)
         hi = rem // n
         pout.setdigit(size, hi)
