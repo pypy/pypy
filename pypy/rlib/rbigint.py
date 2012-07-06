@@ -717,7 +717,7 @@ class rbigint(object):
             
         z.setdigit(oldsize, accum)
 
-        z._normalize()
+        z._positivenormalize()
         return z
     lshift._always_inline_ = True # It's so fast that it's always benefitial.
     
@@ -737,7 +737,7 @@ class rbigint(object):
             accum >>= SHIFT
             
         z.setdigit(oldsize, accum)
-        z._normalize()
+        z._positivenormalize()
         return z
     lqshift._always_inline_ = True # It's so fast that it's always benefitial.
     
@@ -772,7 +772,7 @@ class rbigint(object):
             z.setdigit(i, newdigit)
             i += 1
             j += 1
-        z._normalize()
+        z._positivenormalize()
         return z
     rshift._always_inline_ = True # It's so fast that it's always benefitial.
     
@@ -818,20 +818,34 @@ class rbigint(object):
         return l * self.sign
 
     def _normalize(self):
-        i = _load_unsigned_digit(self.numdigits())
+        i = c = self.numdigits()
         if i == 0:
             self.sign = 0
             self._digits = [NULLDIGIT]
             return
         
-        while i > 1 and self.udigit(i - 1) == 0:
+        while i > 1 and self.digit(i - 1) == 0:
             i -= 1
-        assert i >= 1
-        if i != self.numdigits():
+        assert i > 0
+        if i != c:
             self._digits = self._digits[:i]
-        if self.numdigits() == 1 and self.udigit(0) == 0:
+        if self.numdigits() == 1 and self.digit(0) == 0:
             self.sign = 0
+            
     _normalize._always_inline_ = True
+    
+    def _positivenormalize(self):
+        """ This function assumes numdigits > 0. Good for shifts and such """
+        i = c = self.numdigits()
+        while i > 1 and self.digit(i - 1) == 0:
+            i -= 1
+        assert i > 0
+        if i != c:
+            self._digits = self._digits[:i]
+        if self.numdigits() == 1 and self.digit(0) == 0:
+            self.sign = 0
+    _positivenormalize._always_inline_ = True
+    
     def bit_length(self):
         i = self.numdigits()
         if i == 1 and self.digit(0) == 0:
@@ -953,7 +967,7 @@ def _x_add(a, b):
         carry >>= SHIFT
         i += 1
     z.setdigit(i, carry)
-    z._normalize()
+    z._positivenormalize()
     return z
 
 def _x_sub(a, b):
@@ -1059,7 +1073,7 @@ def _x_mul(a, b, digit=0):
                 z.setdigit(pz, z.widedigit(pz) + carry)
             assert (carry >> SHIFT) == 0
             i += 1
-        z._normalize()
+        z._positivenormalize()
         return z
     
     elif digit and digit & (digit - 1) == 0:
@@ -1084,7 +1098,7 @@ def _x_mul(a, b, digit=0):
             z.setdigit(pz, z.widedigit(pz) + carry)
         assert (carry >> SHIFT) == 0
         i += 1
-    z._normalize()
+    z._positivenormalize()
     return z
 
 
@@ -1190,8 +1204,8 @@ def _kmul_split(n, size):
 
     lo = rbigint(n._digits[:size_lo], 1)
     hi = rbigint(n._digits[size_lo:], 1)
-    lo._normalize()
-    hi._normalize()
+    lo._positivenormalize()
+    hi._positivenormalize()
     return hi, lo
 
 def _k_mul(a, b):
@@ -1285,7 +1299,7 @@ def _k_mul(a, b):
     # See the (*) comment after this function.
     _v_iadd(ret, shift, i, t3, t3.numdigits())
 
-    ret._normalize()
+    ret._positivenormalize()
     return ret
 
 """ (*) Why adding t3 can't "run out of room" above.
@@ -1379,7 +1393,7 @@ def _k_lopsided_mul(a, b):
         bsize -= nbtouse
         nbdone += nbtouse
 
-    ret._normalize()
+    ret._positivenormalize()
     return ret
 
 def _inplace_divrem1(pout, pin, n, size=0):
