@@ -40,8 +40,10 @@ class W_CTypePrimitive(W_CType):
         if (isinstance(ob, cdataobj.W_CData) and
                isinstance(ob.ctype, ctypeptr.W_CTypePtrOrArray)):
             value = rffi.cast(lltype.Signed, ob._cdata)
+            value = r_ulonglong(value)
         elif space.isinstance_w(w_ob, space.w_str):
             value = self.cast_str(w_ob)
+            value = r_ulonglong(value)
         else:
             value = misc.as_unsigned_long_long(space, w_ob, strict=False)
         w_cdata = cdataobj.W_CDataCasted(space, self.size, self)
@@ -117,6 +119,7 @@ class W_CTypePrimitiveSigned(W_CTypePrimitive):
         if self.size < rffi.sizeof(lltype.SignedLongLong):
             if r_ulonglong(value) - self.vmin > self.vrangemax:
                 self._overflow(w_ob)
+        value = r_ulonglong(value)
         misc.write_raw_integer_data(cdata, value, self.size)
 
 

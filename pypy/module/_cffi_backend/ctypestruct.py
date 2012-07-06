@@ -133,7 +133,8 @@ class W_CTypeUnion(W_CTypeStructOrUnion):
 
     def _check_only_one_argument_for_union(self, w_ob):
         space = self.space
-        if space.int_w(space.len(w_ob)) > 1:
+        n = space.int_w(space.len(w_ob))
+        if n > 1:
             raise operationerrfmt(space.w_ValueError,
                                   "initializer for '%s': %d items given, but "
                                   "only one supported (use a dict if needed)",

@@ -14,6 +14,7 @@ from pypy.module._cffi_backend.ctypefunc import SIZE_OF_FFI_ARG
 
 
 class W_CDataCallback(W_CDataApplevelOwning):
+    _immutable_ = True
     ll_error = lltype.nullptr(rffi.CCHARP.TO)
 
     def __init__(self, space, ctype, w_callable, w_error):

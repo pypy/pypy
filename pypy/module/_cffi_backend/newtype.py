@@ -2,11 +2,13 @@ from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.rarithmetic import ovfcheck
+from pypy.rlib.objectmodel import specialize
 
 from pypy.module._cffi_backend import ctypeobj, ctypeprim, ctypeptr, ctypearray
 from pypy.module._cffi_backend import ctypestruct, ctypevoid, ctypeenum
 
 
+@specialize.memo()
 def alignment(TYPE):
     S = lltype.Struct('aligncheck', ('x', lltype.Char), ('y', TYPE))
     return rffi.offsetof(S, 'y')

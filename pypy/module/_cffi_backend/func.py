@@ -43,7 +43,7 @@ def sizeof(space, w_obj):
         if size < 0:
             raise operationerrfmt(space.w_ValueError,
                                   "ctype '%s' is of unknown size",
-                                  w_ctype.name)
+                                  ob.name)
     else:
         raise OperationError(space.w_TypeError,
                             space.wrap("expected a 'cdata' or 'ctype' object"))

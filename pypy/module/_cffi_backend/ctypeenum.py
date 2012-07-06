@@ -4,7 +4,7 @@ Enums.
 
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.rpython.lltypesystem import rffi
-from pypy.rlib.rarithmetic import intmask
+from pypy.rlib.rarithmetic import intmask, r_ulonglong
 from pypy.rlib.objectmodel import keepalive_until_here
 
 from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveSigned
@@ -60,6 +60,7 @@ class W_CTypeEnum(W_CTypePrimitiveSigned):
                 raise
         if space.isinstance_w(w_ob, space.w_str):
             value = self.convert_enum_string_to_int(space.str_w(w_ob))
+            value = r_ulonglong(value)
             misc.write_raw_integer_data(cdata, value, self.size)
         else:
             raise self._convert_error("str or int", w_ob)

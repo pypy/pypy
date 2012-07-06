@@ -189,6 +189,7 @@ class W_CDataApplevelOwning(W_CData):
     """This is the abstract base class for classes that are of the app-level
     type '_cffi_backend.CDataOwn'.  These are weakrefable."""
     _attrs_ = []
+    _immutable_ = True
 
     def _owning_num_bytes(self):
         return self.ctype.size
@@ -202,6 +203,7 @@ class W_CDataNewOwning(W_CDataApplevelOwning):
     """This is the class used for the app-level type
     '_cffi_backend.CDataOwn' created by newp()."""
     _attrs_ = []
+    _immutable_ = True
 
     def __init__(self, space, size, ctype):
         cdata = lltype.malloc(rffi.CCHARP.TO, size, flavor='raw', zero=True)
@@ -216,6 +218,7 @@ class W_CDataNewOwningLength(W_CDataNewOwning):
     """Subclass with an explicit length, for allocated instances of
     the C type 'foo[]'."""
     _attrs_ = ['length']
+    _immutable_ = True
 
     def __init__(self, space, size, ctype, length):
         W_CDataNewOwning.__init__(self, space, size, ctype)
@@ -230,6 +233,7 @@ class W_CDataPtrToStructOrUnion(W_CDataApplevelOwning):
     It has a strong reference to a W_CDataNewOwning that really owns the
     struct, which is the object returned by the app-level expression 'p[0]'."""
     _attrs_ = ['structobj']
+    _immutable_ = True
 
     def __init__(self, space, cdata, ctype, structobj):
         W_CDataApplevelOwning.__init__(self, space, cdata, ctype)
@@ -251,6 +255,7 @@ class W_CDataCasted(W_CData):
     small bits of memory (e.g. just an 'int').  Its point is to not be
     a subclass of W_CDataApplevelOwning."""
     _attrs_ = []
+    _immutable_ = True
 
     def __init__(self, space, size, ctype):
         cdata = lltype.malloc(rffi.CCHARP.TO, size, flavor='raw', zero=True)
