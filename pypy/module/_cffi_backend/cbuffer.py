@@ -2,7 +2,7 @@ from pypy.interpreter.error import operationerrfmt
 from pypy.interpreter.buffer import RWBuffer
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.rpython.lltypesystem import rffi
-from pypy.module._cffi_backend import cdataobj, ctypeptr
+from pypy.module._cffi_backend import cdataobj, ctypeptr, ctypearray
 
 
 class LLBuffer(RWBuffer):
@@ -36,14 +36,19 @@ class LLBuffer(RWBuffer):
 
 @unwrap_spec(cdata=cdataobj.W_CData, size=int)
 def buffer(space, cdata, size=-1):
-    if not isinstance(cdata.ctype, ctypeptr.W_CTypePtrOrArray):
+    ctype = cdata.ctype
+    if isinstance(ctype, ctypeptr.W_CTypePointer):
+        if size < 0:
+            size = ctype.ctitem.size
+    elif isinstance(ctype, ctypearray.W_CTypeArray):
+        if size < 0:
+            size = cdata._sizeof()
+    else:
         raise operationerrfmt(space.w_TypeError,
                               "expected a pointer or array cdata, got '%s'",
-                              cdata.ctype.name)
+                              ctype.name)
     if size < 0:
-        size = cdata._sizeof()
-        if size < 0:
-            raise operationerrfmt(space.w_TypeError,
-                                  "don't know the size pointed to by '%s'",
-                                  cdata.ctype.name)
+        raise operationerrfmt(space.w_TypeError,
+                              "don't know the size pointed to by '%s'",
+                              ctype.name)
     return space.wrap(LLBuffer(cdata._cdata, size))

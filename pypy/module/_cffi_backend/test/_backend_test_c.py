@@ -1348,6 +1348,12 @@ def test_cmp():
     assert (p < s) ^ (p > s)
 
 def test_buffer():
+    BShort = new_primitive_type("short")
+    s = newp(new_pointer_type(BShort), 100)
+    assert sizeof(s) == size_of_ptr()
+    assert sizeof(BShort) == 2
+    assert len(str(buffer(s))) == 2
+    #
     BChar = new_primitive_type("char")
     BCharArray = new_array_type(new_pointer_type(BChar), None)
     c = newp(BCharArray, "hi there")
