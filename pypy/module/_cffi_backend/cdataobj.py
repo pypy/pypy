@@ -79,11 +79,13 @@ class W_CData(Wrappable):
             else:
                 return space.w_NotImplemented
 
-            if requires_ordering and (
-                    isinstance(self.ctype, W_CTypePrimitive) or
+            if requires_ordering:
+                if (isinstance(self.ctype, W_CTypePrimitive) or
                     isinstance(other.ctype, W_CTypePrimitive)):
-                raise OperationError(space.w_TypeError,
-                    space.wrap("cannot do comparison on a primitive cdata"))
+                    raise OperationError(space.w_TypeError,
+                        space.wrap("cannot do comparison on a primitive cdata"))
+                cdata1 = rffi.cast(lltype.Unsigned, cdata1)
+                cdata2 = rffi.cast(lltype.Unsigned, cdata2)
             return space.newbool(op(cdata1, cdata2))
         #
         return func_with_new_name(_cmp, name)
