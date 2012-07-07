@@ -295,7 +295,7 @@ class W_JitLoopInfo(Wrappable):
 @unwrap_spec(loopno=int, asmaddr=r_uint, asmlen=r_uint, loop_no=int)
 def descr_new_jit_loop_info(space, w_subtype, w_greenkey, w_ops, loopno,
                             asmaddr, asmlen, loop_no):
-    w_info = space.allocate_instance(W_JitLoopInfo)
+    w_info = space.allocate_instance(W_JitLoopInfo, w_subtype)
     w_info.w_greenkey = w_greenkey
     w_info.w_ops = w_ops
     w_info.asmaddr = asmaddr
