@@ -53,7 +53,7 @@ class W_CDataCallback(W_CDataApplevelOwning):
     def get_closure(self):
         return rffi.cast(clibffi.FFI_CLOSUREP, self._cdata)
 
-    @rgc.must_be_light_finalizer
+    #@rgc.must_be_light_finalizer
     def __del__(self):
         clibffi.closureHeap.free(self.get_closure())
         if self.ll_error:
