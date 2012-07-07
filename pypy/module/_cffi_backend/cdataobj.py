@@ -22,9 +22,13 @@ class W_CData(Wrappable):
         self._cdata = cdata    # don't forget keepalive_until_here!
         self.ctype = ctype
 
-    def repr(self):
+    def _repr_extra(self):
         extra = self.ctype.extra_repr(self._cdata)
         keepalive_until_here(self)
+        return extra
+
+    def repr(self):
+        extra = self._repr_extra()
         return self.space.wrap("<cdata '%s' %s>" % (self.ctype.name, extra))
 
     def nonzero(self):
@@ -193,9 +197,8 @@ class W_CDataApplevelOwning(W_CData):
     def _owning_num_bytes(self):
         return self.ctype.size
 
-    def repr(self):
-        return self.space.wrap("<cdata '%s' owning %d bytes>" % (
-            self.ctype.name, self._owning_num_bytes()))
+    def _repr_extra(self):
+        return 'owning %d bytes' % self._owning_num_bytes()
 
 
 class W_CDataNewOwning(W_CDataApplevelOwning):
@@ -296,7 +299,6 @@ W_CData.typedef.acceptable_as_base_class = False
 W_CDataApplevelOwning.typedef = TypeDef(
     '_cffi_backend.CDataOwn',
     W_CData.typedef,    # base typedef
-    __repr__ = interp2app(W_CDataApplevelOwning.repr),
     __weakref__ = make_weakref_descr(W_CDataApplevelOwning),
     )
 W_CDataApplevelOwning.typedef.acceptable_as_base_class = False

@@ -59,6 +59,10 @@ class W_CDataCallback(W_CDataApplevelOwning):
         if self.ll_error:
             lltype.free(self.ll_error, flavor='raw')
 
+    def _repr_extra(self):
+        space = self.space
+        return 'calling ' + space.str_w(space.repr(self.w_callable))
+
     def invoke(self, ll_args, ll_res):
         space = self.space
         ctype = self.ctype

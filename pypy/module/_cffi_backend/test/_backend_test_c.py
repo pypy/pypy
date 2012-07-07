@@ -835,6 +835,8 @@ def test_callback():
         return callback(BFunc, cb, 42)    # 'cb' and 'BFunc' go out of scope
     f = make_callback()
     assert f(-142) == -141
+    assert repr(f).startswith(
+        "<cdata 'int(*)(int)' calling <function cb at 0x")
 
 def test_callback_return_type():
     for rettype in ["signed char", "short", "int", "long", "long long",
