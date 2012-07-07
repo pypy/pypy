@@ -293,9 +293,9 @@ class W_JitLoopInfo(Wrappable):
                           (self.jd_name, lgt, code_repr))
 
 @unwrap_spec(loopno=int, asmaddr=r_uint, asmlen=r_uint, loop_no=int,
-             type=str)
+             type=str, jd_name=str)
 def descr_new_jit_loop_info(space, w_subtype, w_greenkey, w_ops, loopno,
-                            asmaddr, asmlen, loop_no, type):
+                            asmaddr, asmlen, loop_no, type, jd_name):
     w_info = space.allocate_instance(W_JitLoopInfo, w_subtype)
     w_info.w_greenkey = w_greenkey
     w_info.w_ops = w_ops
@@ -303,6 +303,7 @@ def descr_new_jit_loop_info(space, w_subtype, w_greenkey, w_ops, loopno,
     w_info.asmlen = asmlen
     w_info.loop_no = loop_no
     w_info.type = type
+    w_info.jd_name = jd_name
     return w_info
 
 W_JitLoopInfo.typedef = TypeDef(
