@@ -989,8 +989,22 @@ def test_PYTHONPATH_takes_precedence(space):
 class AppTestImportHooks(object):
 
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=('struct',))
-    
+        space = cls.space = gettestobjspace(usemodules=('struct',))
+        mydir = os.path.dirname(__file__)
+        cls.w_hooktest = space.wrap(os.path.join(mydir, 'hooktest'))
+        space.appexec([space.wrap(mydir)], """
+            (mydir):
+                import sys
+                sys.path.append(mydir)
+        """)
+
+    def teardown_class(cls):
+        cls.space.appexec([], """
+            ():
+                import sys
+                sys.path.pop()
+        """)
+
     def test_meta_path(self):
         tried_imports = []
         class Importer(object):
@@ -1127,6 +1141,23 @@ class AppTestImportHooks(object):
             sys.meta_path.pop()
             sys.path_hooks.pop()
 
+    def test_path_hooks_module(self):
+        "Verify that non-sibling imports from module loaded by path hook works"
+
+        import sys
+        import hooktest
+
+        hooktest.__path__.append(self.hooktest) # Avoid importing os at applevel
+
+        sys.path_hooks.append(hooktest.Importer)
+
+        try:
+            import hooktest.foo
+            def import_nonexisting():
+                import hooktest.errno
+            raises(ImportError, import_nonexisting)
+        finally:
+            sys.path_hooks.pop()
 
 class AppTestPyPyExtension(object):
     def setup_class(cls):
