@@ -292,15 +292,17 @@ class W_JitLoopInfo(Wrappable):
         return space.wrap('<JitLoopInfo %s, %d operations, starting at <%s>>' %
                           (self.jd_name, lgt, code_repr))
 
-@unwrap_spec(loopno=int, asmaddr=r_uint, asmlen=r_uint, loop_no=int)
+@unwrap_spec(loopno=int, asmaddr=r_uint, asmlen=r_uint, loop_no=int,
+             type=str)
 def descr_new_jit_loop_info(space, w_subtype, w_greenkey, w_ops, loopno,
-                            asmaddr, asmlen, loop_no):
+                            asmaddr, asmlen, loop_no, type):
     w_info = space.allocate_instance(W_JitLoopInfo, w_subtype)
     w_info.w_greenkey = w_greenkey
     w_info.w_ops = w_ops
     w_info.asmaddr = asmaddr
     w_info.asmlen = asmlen
     w_info.loop_no = loop_no
+    w_info.type = type
     return w_info
 
 W_JitLoopInfo.typedef = TypeDef(
