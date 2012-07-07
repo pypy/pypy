@@ -927,8 +927,8 @@ def make_formatting_class():
             flags = 0
             default_precision = 6
             if self._alternate:
-                msg = "alternate form not allowed in float formats"
-                raise OperationError(space.w_ValueError, space.wrap(msg))
+               flags |= rfloat.DTSF_ALT
+
             tp = self._type
             self._get_locale(tp)
             if tp == "\0":
@@ -990,6 +990,7 @@ def make_formatting_class():
             self._unknown_presentation("float")
 
         def _format_complex(self, w_complex):
+            flags = 0
             space = self.space
             tp = self._type
             self._get_locale(tp)
@@ -1004,10 +1005,8 @@ def make_formatting_class():
                 msg = "Zero padding is not allowed in complex format specifier"
                 raise OperationError(space.w_ValueError, space.wrap(msg))
             if self._alternate:
-                #alternate is invalid
-                msg = "Alternate form %s not allowed in complex format specifier"
-                raise OperationError(space.w_ValueError,
-                                     space.wrap(msg % (self._alternate)))
+                flags |= rfloat.DTSF_ALT
+
             skip_re = 0
             add_parens = 0
             if tp == "\0":
@@ -1029,10 +1028,9 @@ def make_formatting_class():
             if self._precision == -1:
                 self._precision = default_precision
 
-            #might want to switch to double_to_string from formatd
             #in CPython it's named 're' - clashes with re module
-            re_num = formatd(w_complex.realval, tp, self._precision)
-            im_num = formatd(w_complex.imagval, tp, self._precision)
+            re_num, special = rfloat.double_to_string(w_complex.realval, tp, self._precision, flags)
+            im_num, special = rfloat.double_to_string(w_complex.imagval, tp, self._precision, flags)
             n_re_digits = len(re_num)
             n_im_digits = len(im_num)
 

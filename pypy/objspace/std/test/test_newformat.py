@@ -272,7 +272,8 @@ class AppTestFloatFormatting:
         cls.space = gettestobjspace(usemodules=('_locale',))
 
     def test_alternate(self):
-        raises(ValueError, format, 1.0, "#")
+        assert format(1.0, "#.0e") == "1.e+00"
+        assert format(1+1j, '#.0e') == '1.e+00+1.e+00j'
 
     def test_simple(self):
         assert format(0.0, "f") == "0.000000"
