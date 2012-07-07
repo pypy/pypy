@@ -29,21 +29,24 @@ def entry_point(argv):
         Sum: 901.7231250000001
         
         Pypy with improvements:
-        2.156113
-        2.139545
-        2.413156
-        1.496088
-        4.047559
-        9.551884
-        1.625509
-        3.048558
-        4.867547
-        6.223230
-        0.038463
-        3.637759
-        8.325080
-        5.038974
-        Sum:  54.609465
+        mod by 2:  0.006297
+        mod by 10000:  3.693501
+        mod by 1024 (power of two):  0.011243
+        Div huge number by 2**128: 2.163590
+        rshift: 2.219846
+        lshift: 2.689848
+        Floordiv by 2: 1.460396
+        Floordiv by 3 (not power of two): 4.071267
+        2**10000000: 9.720923
+        (2**N)**100000000 (power of two): 1.639600
+        10000 ** BIGNUM % 100 1.738285
+        i = i * i: 4.861456
+        n**10000 (not power of two): 6.206040
+        Power of two ** power of two: 0.038726
+        v = v * power of two 3.633579
+        v = v * v 8.180117
+        v = v + v 5.006874
+        Sum:  57.341588
 
         A pure python form of those tests where also run
         Improved pypy           | Pypy                  | CPython 2.7.3
@@ -77,6 +80,34 @@ def entry_point(argv):
     sumTime += _time
     print "Toom-cook effectivity 100-10000 digits:", _time"""
     
+    V2 = rbigint.fromint(2)
+    num = rbigint.pow(rbigint.fromint(100000000), rbigint.fromint(1024))
+    t = time()
+    for n in xrange(600000):
+        rbigint.mod(num, V2)
+        
+    _time = time() - t
+    sumTime += _time
+    print "mod by 2: ", _time
+    
+    by = rbigint.fromint(10000)
+    t = time()
+    for n in xrange(300000):
+        rbigint.mod(num, by)
+        
+    _time = time() - t
+    sumTime += _time
+    print "mod by 10000: ", _time
+    
+    V1024 = rbigint.fromint(1024)
+    t = time()
+    for n in xrange(300000):
+        rbigint.mod(num, V1024)
+        
+    _time = time() - t
+    sumTime += _time
+    print "mod by 1024 (power of two): ", _time
+    
     t = time()
     num = rbigint.pow(rbigint.fromint(100000000), rbigint.fromint(1024))
     by = rbigint.pow(rbigint.fromint(2), rbigint.fromint(128))
@@ -86,7 +117,7 @@ def entry_point(argv):
 
     _time = time() - t
     sumTime += _time
-    print _time
+    print "Div huge number by 2**128:", _time
     
     t = time()
     num = rbigint.fromint(1000000000)
@@ -96,7 +127,7 @@ def entry_point(argv):
 
     _time = time() - t
     sumTime += _time
-    print _time
+    print "rshift:", _time
     
     t = time()
     num = rbigint.fromint(1000000000)
@@ -106,18 +137,17 @@ def entry_point(argv):
 
     _time = time() - t
     sumTime += _time
-    print _time
+    print "lshift:", _time
     
     t = time()
     num = rbigint.fromint(100000000)
-    V2 = rbigint.fromint(2)
     for n in xrange(80000000):
         rbigint.floordiv(num, V2)
         
 
     _time = time() - t
     sumTime += _time
-    print _time
+    print "Floordiv by 2:", _time
     
     t = time()
     num = rbigint.fromint(100000000)
@@ -128,7 +158,7 @@ def entry_point(argv):
 
     _time = time() - t
     sumTime += _time
-    print _time
+    print "Floordiv by 3 (not power of two):",_time
     
     t = time()
     num = rbigint.fromint(10000000)
@@ -138,7 +168,7 @@ def entry_point(argv):
 
     _time = time() - t
     sumTime += _time
-    print _time
+    print "2**10000000:",_time
 
     t = time()
     num = rbigint.fromint(100000000)
@@ -148,7 +178,7 @@ def entry_point(argv):
 
     _time = time() - t
     sumTime += _time
-    print _time
+    print "(2**N)**100000000 (power of two):",_time
     
     t = time()
     num = rbigint.pow(rbigint.fromint(10000), rbigint.fromint(2 ** 8))
@@ -160,7 +190,7 @@ def entry_point(argv):
 
     _time = time() - t
     sumTime += _time
-    print _time
+    print "10000 ** BIGNUM % 100", _time
     
     t = time()
     i = rbigint.fromint(2**31)
@@ -170,7 +200,7 @@ def entry_point(argv):
 
     _time = time() - t
     sumTime += _time
-    print _time
+    print "i = i * i:", _time
     
     t = time()
     
@@ -180,18 +210,16 @@ def entry_point(argv):
 
     _time = time() - t
     sumTime += _time
-    print _time
+    print "n**10000 (not power of two):",_time
     
     t = time()
-    
-    V1024 = rbigint.fromint(1024)
     for n in xrange(100000):
         rbigint.pow(V1024, V1024)
         
 
     _time = time() - t
     sumTime += _time
-    print _time
+    print "Power of two ** power of two:", _time
     
     
     t = time()
@@ -203,7 +231,7 @@ def entry_point(argv):
 
     _time = time() - t
     sumTime += _time
-    print _time
+    print "v = v * power of two", _time
     
     t = time()
     v2 = rbigint.fromint(2**8)
@@ -213,7 +241,7 @@ def entry_point(argv):
 
     _time = time() - t
     sumTime += _time
-    print _time
+    print "v = v * v", _time
     
     t = time()
     v3 = rbigint.fromint(2**62)
@@ -223,7 +251,7 @@ def entry_point(argv):
 
     _time = time() - t
     sumTime += _time
-    print _time
+    print "v = v + v", _time
     
     print "Sum: ", sumTime
     

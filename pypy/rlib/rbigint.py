@@ -511,7 +511,39 @@ class rbigint(object):
 
     @jit.elidable
     def mod(self, other):
-        div, mod = _divrem(self, other)
+        if self.sign == 0:
+            return NULLRBIGINT
+        
+        if other.sign != 0 and other.numdigits() == 1:
+            digit = other.digit(0)
+            if digit == 1:
+                return NULLRBIGINT
+            elif digit == 2:
+                modm = self.digit(0) % digit
+                if modm:
+                    if other.sign < 0:
+                        return ONENEGATIVERBIGINT
+                    return ONERBIGINT
+                return NULLRBIGINT
+            elif digit & (digit - 1) == 0:
+                mod = self.and_(_x_sub(other, ONERBIGINT))
+            else:
+                # Perform
+                size = self.numdigits() - 1
+                if size > 0:
+                    rem = self.widedigit(size)
+                    size -= 1
+                    while size >= 0:
+                        rem = ((rem << SHIFT) + self.widedigit(size)) % digit
+                        size -= 1
+                else:
+                    rem = self.digit(0) % digit
+                    
+                if rem == 0:
+                    return NULLRBIGINT
+                mod = rbigint([_store_digit(rem)], -1 if self.sign < 0 else 1)
+        else:
+            div, mod = _divrem(self, other)
         if mod.sign * other.sign == -1:
             mod = mod.add(other)
         return mod
