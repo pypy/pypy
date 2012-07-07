@@ -29,21 +29,21 @@ def entry_point(argv):
         Sum: 901.7231250000001
         
         Pypy with improvements:
-        2.887265
-        2.253981
-        2.480497
-        1.572440
-        3.941691
-        9.530685
-        1.786801
-        4.046154
-        4.844644
-        6.412511
-        0.038662
-        3.629173
-        8.155449
-        4.997199
-        Sum:  56.577152
+        2.885155
+        2.301395
+        2.425767
+        1.526053
+        4.066191
+        9.405854
+        1.622019
+        3.089785
+        4.844679
+        6.211589
+        0.038158
+        3.629360
+        8.194571
+        5.000065
+        Sum:  55.240641
 
         A pure python form of those tests where also run
         Improved pypy           | Pypy                  | CPython 2.7.3
@@ -65,7 +65,7 @@ def entry_point(argv):
     sumTime = 0.0
     
     
-    t = time()
+    """t = time()
     by = rbigint.pow(rbigint.fromint(63), rbigint.fromint(100))
     for n in xrange(9900):
         by2 = by.lshift(63)
@@ -75,7 +75,7 @@ def entry_point(argv):
 
     _time = time() - t
     sumTime += _time
-    print "Toom-cook effectivity 100-10000 digits:", _time
+    print "Toom-cook effectivity 100-10000 digits:", _time"""
     
     t = time()
     num = rbigint.pow(rbigint.fromint(100000000), rbigint.fromint(1024))

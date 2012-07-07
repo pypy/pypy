@@ -1048,7 +1048,7 @@ def _x_mul(a, b, digit=0):
         # via exploiting that each entry in the multiplication
         # pyramid appears twice (except for the size_a squares).
         z = rbigint([NULLDIGIT] * (size_a + size_b), 1)
-        i = 0
+        i = UDIGIT_TYPE(0)
         while i < size_a:
             f = a.widedigit(i)
             pz = i << 1
@@ -1071,12 +1071,7 @@ def _x_mul(a, b, digit=0):
                 carry >>= SHIFT
                 #assert carry <= (_widen_digit(MASK) << 1)
             if carry:
-                carry += z.widedigit(pz)
-                z.setdigit(pz, carry)
-                pz += 1
-                carry >>= SHIFT
-                if carry:
-                    z.setdigit(pz, z.widedigit(pz) + carry)
+                z.setdigit(pz, z.widedigit(pz) + carry)
             assert (carry >> SHIFT) == 0
             i += 1
         z._positivenormalize()
@@ -1087,7 +1082,7 @@ def _x_mul(a, b, digit=0):
 
     z = rbigint([NULLDIGIT] * (size_a + size_b), 1)
     # gradeschool long mult
-    i = 0
+    i = UDIGIT_TYPE(0)
     while i < size_a:
         carry = 0
         f = a.widedigit(i)
@@ -1565,9 +1560,9 @@ def _x_divrem(v1, w1):
         
     size_a = size_v - size_w + 1
     a = rbigint([NULLDIGIT] * size_a, 1)
-    assert size_w >= 2
-    wm1 = w.widedigit(size_w-1)
-    wm2 = w.widedigit(size_w-2)
+
+    wm1 = w.widedigit(abs(size_w-1))
+    wm2 = w.widedigit(abs(size_w-2))
     j = size_v
     k = size_a - 1
     while k >= 0:
@@ -1578,7 +1573,7 @@ def _x_divrem(v1, w1):
             vj = v.widedigit(j)
             
         carry = 0
-        vj1 = v.widedigit(j-1)
+        vj1 = v.widedigit(abs(j-1))
         
         if vj == wm1:
             q = MASK
@@ -1588,7 +1583,7 @@ def _x_divrem(v1, w1):
             q = vv // wm1
             r = _widen_digit(vv) - wm1 * q
         
-        vj2 = v.widedigit(j-2)
+        vj2 = v.widedigit(abs(j-2))
         while wm2 * q > ((r << SHIFT) | vj2):
             q -= 1
             r += wm1
