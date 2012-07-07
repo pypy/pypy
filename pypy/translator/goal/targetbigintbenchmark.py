@@ -10,43 +10,49 @@ def entry_point(argv):
     """
         All benchmarks are run using --opt=2 and minimark gc (default).
         
+        Benchmark changes:
+        2**N is a VERY heavy operation in default pypy, default to 10 million instead of 500,000 used like an hour to finish.
+        
         A cutout with some benchmarks.
         Pypy default:
-        2.803071
-        2.366586
-        2.428205
-        4.408400
-        4.424533
-        537.338
-        268.3339
-        8.548186
-        12.197392
-        17.629869
-        2.360716
-        14.315827
-        17.963899
-        6.604541
-        Sum: 901.7231250000001
+        mod by 2:  7.978181
+        mod by 10000:  4.016121
+        mod by 1024 (power of two):  3.966439
+        Div huge number by 2**128: 2.906821
+        rshift: 2.444589
+        lshift: 2.500746
+        Floordiv by 2: 4.431134
+        Floordiv by 3 (not power of two): 4.404396
+        2**500000: 23.206724
+        (2**N)**5000000 (power of two): 13.886118
+        10000 ** BIGNUM % 100 8.464378
+        i = i * i: 10.121505
+        n**10000 (not power of two): 16.296989
+        Power of two ** power of two: 2.224125
+        v = v * power of two 12.228391
+        v = v * v 17.119933
+        v = v + v 6.489957
+        Sum:  142.686547
         
         Pypy with improvements:
-        mod by 2:  0.006297
-        mod by 10000:  3.693501
-        mod by 1024 (power of two):  0.011243
-        Div huge number by 2**128: 2.163590
-        rshift: 2.219846
-        lshift: 2.689848
-        Floordiv by 2: 1.460396
-        Floordiv by 3 (not power of two): 4.071267
-        2**10000000: 9.720923
-        (2**N)**100000000 (power of two): 1.639600
-        10000 ** BIGNUM % 100 1.738285
-        i = i * i: 4.861456
-        n**10000 (not power of two): 6.206040
-        Power of two ** power of two: 0.038726
-        v = v * power of two 3.633579
-        v = v * v 8.180117
-        v = v + v 5.006874
-        Sum:  57.341588
+        mod by 2:  0.007535
+        mod by 10000:  3.686409
+        mod by 1024 (power of two):  0.011153
+        Div huge number by 2**128: 2.162245
+        rshift: 2.211261
+        lshift: 2.711231
+        Floordiv by 2: 1.481641
+        Floordiv by 3 (not power of two): 4.067045
+        2**500000: 0.155143
+        (2**N)**5000000 (power of two): 0.098826
+        10000 ** BIGNUM % 100 1.742109
+        i = i * i: 4.836238
+        n**10000 (not power of two): 6.196422
+        Power of two ** power of two: 0.038207
+        v = v * power of two 3.629006
+        v = v * v 8.220768
+        v = v + v 4.998141
+        Sum:  46.253380
 
         A pure python form of those tests where also run
         Improved pypy           | Pypy                  | CPython 2.7.3
@@ -161,24 +167,24 @@ def entry_point(argv):
     print "Floordiv by 3 (not power of two):",_time
     
     t = time()
-    num = rbigint.fromint(10000000)
+    num = rbigint.fromint(500000)
     for n in xrange(10000):
         rbigint.pow(V2, num)
         
 
     _time = time() - t
     sumTime += _time
-    print "2**10000000:",_time
+    print "2**500000:",_time
 
     t = time()
-    num = rbigint.fromint(100000000)
+    num = rbigint.fromint(5000000)
     for n in xrange(31):
         rbigint.pow(rbigint.pow(V2, rbigint.fromint(n)), num)
         
 
     _time = time() - t
     sumTime += _time
-    print "(2**N)**100000000 (power of two):",_time
+    print "(2**N)**5000000 (power of two):",_time
     
     t = time()
     num = rbigint.pow(rbigint.fromint(10000), rbigint.fromint(2 ** 8))
