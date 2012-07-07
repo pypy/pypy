@@ -27,5 +27,7 @@ class Module(MixedModule):
         'typeof': 'func.typeof',
         'offsetof': 'func.offsetof',
         '_getfields': 'func._getfields',
+        'getcname': 'func.getcname',
+
         'buffer': 'cbuffer.buffer',
         }

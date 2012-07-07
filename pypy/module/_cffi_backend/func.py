@@ -61,3 +61,11 @@ def offsetof(space, ctype, fieldname):
 @unwrap_spec(ctype=ctypeobj.W_CType)
 def _getfields(space, ctype):
     return ctype._getfields()
+
+# ____________________________________________________________
+
+@unwrap_spec(ctype=ctypeobj.W_CType, replace_with=str)
+def getcname(space, ctype, replace_with):
+    p = ctype.name_position
+    s = '%s%s%s' % (ctype.name[:p], replace_with, ctype.name[p:])
+    return space.wrap(s)

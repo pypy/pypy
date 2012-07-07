@@ -1367,3 +1367,8 @@ def test_buffer():
         # XXX pypy doesn't support the following assignment so far
         buf[:4:2] = 'XY'
         assert str(c) == 'XIYthere'
+
+def test_getcname():
+    BUChar = new_primitive_type("unsigned char")
+    BArray = new_array_type(new_pointer_type(BUChar), 123)
+    assert getcname(BArray, "<-->") == "unsigned char<-->[123]"
