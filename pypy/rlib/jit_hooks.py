@@ -136,9 +136,13 @@ def _cast_to_warmrunnerdesc(llref):
 def stats_set_debug(llref, flag):
     return _cast_to_warmrunnerdesc(llref).metainterp_sd.cpu.set_debug(flag)
 
-@register_helper(annmodel.SomeFloat())
+@register_helper(annmodel.SomeInteger())
 def stats_get_counter_value(llref, no):
     return _cast_to_warmrunnerdesc(llref).metainterp_sd.profiler.get_counter(no)
+
+@register_helper(annmodel.SomeFloat())
+def stats_get_times_value(llref, no):
+    return _cast_to_warmrunnerdesc(llref).metainterp_sd.profiler.times[no]
 
 LOOP_RUN_CONTAINER = lltype.GcArray(lltype.Struct('elem',
                                                   ('type', lltype.Char),

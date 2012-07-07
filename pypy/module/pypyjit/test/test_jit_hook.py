@@ -94,6 +94,7 @@ class AppTestJitHook(object):
         cls.w_dmp_num = space.wrap(rop.DEBUG_MERGE_POINT)
         cls.w_on_optimize = space.wrap(interp2app(interp_on_optimize))
         cls.orig_oplist = oplist
+        cls.w_sorted_keys = space.wrap(sorted(Counters.counter_names))
 
     def setup_method(self, meth):
         self.__class__.oplist = self.orig_oplist[:]
@@ -115,6 +116,7 @@ class AppTestJitHook(object):
         assert info.greenkey[0].co_name == 'function'
         assert info.greenkey[1] == 0
         assert info.greenkey[2] == False
+        assert info.loop_no == 0
         assert len(info.operations) == 4
         int_add = info.operations[0]
         dmp = info.operations[1]
@@ -237,3 +239,13 @@ class AppTestJitHook(object):
         op = DebugMergePoint([Box(0)], 'repr', 'notmain', 5, 4, ('str',))
         raises(AttributeError, 'op.pycode')
         assert op.call_depth == 5
+
+    def test_get_stats_snapshot(self):
+        skip("a bit no idea how to test it")
+        from pypyjit import get_stats_snapshot
+
+        stats = get_stats_snapshot() # we can't do much here, unfortunately
+        assert stats.w_loop_run_times == []
+        assert isinstance(stats.w_counters, dict)
+        assert sorted(stats.w_counters.keys()) == self.sorted_keys
+

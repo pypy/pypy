@@ -11,15 +11,21 @@ from pypy.rpython.lltypesystem.rclass import OBJECT
 from pypy.jit.metainterp.resoperation import rop, AbstractResOp
 from pypy.rlib.nonconst import NonConstant
 from pypy.rlib import jit_hooks
+from pypy.rlib.jit import Counters
 from pypy.module.pypyjit.interp_jit import pypyjitdriver
 
 class Cache(object):
     in_recursion = False
+    no = 0
 
     def __init__(self, space):
         self.w_compile_hook = space.w_None
         self.w_abort_hook = space.w_None
         self.w_optimize_hook = space.w_None
+
+    def getno(self):
+        self.no += 1
+        return self.no - 1
 
 def wrap_greenkey(space, jitdriver, greenkey, greenkey_repr):
     if greenkey is None:
@@ -40,26 +46,9 @@ def set_compile_hook(space, w_hook):
     """ set_compile_hook(hook)
 
     Set a compiling hook that will be called each time a loop is compiled.
-    The hook will be called with the following signature:
-    hook(jitdriver_name, loop_type, greenkey or guard_number, operations,
-         loopno, assembler_addr, assembler_length)
-         assembler_addr, assembler_length)
 
-    jitdriver_name is the name of this particular jitdriver, 'pypyjit' is
-    the main interpreter loop
-
-    loop_type can be either `loop` `entry_bridge` or `bridge`
-    in case loop is not `bridge`, greenkey will be a tuple of constants
-    or a string describing it.
-
-    for the main interpreter loop` it'll be a tuple
-    (code, offset, is_being_profiled)
-
-    assembler_addr is an integer describing where assembler starts,
-    can be accessed via ctypes, assembler_lenght is the lenght of compiled
-    asm
-
-    loopno is the unique loop identifier (int)
+    The hook will be called with the pypyjit.JitLoopInfo object. Refer to it's
+    docstring for details.
 
     Note that jit hook is not reentrant. It means that if the code
     inside the jit hook is itself jitted, it will get compiled, but the
@@ -76,25 +65,8 @@ def set_optimize_hook(space, w_hook):
     but before assembler compilation. This allows to add additional
     optimizations on Python level.
 
-    The hook will be called with the following signature:
-    hook(jitdriver_name, loop_type, greenkey or guard_number, operations,
-         loopno)
-
-    jitdriver_name is the name of this particular jitdriver, 'pypyjit' is
-    the main interpreter loop
-
-    loop_type can be either `loop` `entry_bridge` or `bridge`
-    in case loop is not `bridge`, greenkey will be a tuple of constants
-    or a string describing it.
-
-    for the interpreter loop` it'll be a tuple
-    (code, offset, is_being_profiled)
-
-    Note that jit hook is not reentrant. It means that if the code
-    inside the jit hook is itself jitted, it will get compiled, but the
-    jit hook won't be called for that.
-
-    loopno is the unique loop identifier (int)
+    The hook will be called with the pypyjit.JitLoopInfo object. Refer to it's
+    docstring for details.
 
     Result value will be the resulting list of operations, or None
     """
@@ -304,7 +276,7 @@ class W_JitLoopInfo(Wrappable):
                                              debug_info.get_jitdriver(),
                                              debug_info.greenkey,
                                              debug_info.get_greenkey_repr())
-        self.loop_no = debug_info.looptoken.number
+        self.loop_no = space.fromcache(Cache).getno()
         asminfo = debug_info.asminfo
         if asminfo is not None:
             self.asmaddr = asminfo.asmaddr
@@ -324,12 +296,79 @@ W_JitLoopInfo.typedef = TypeDef(
     __doc__ = W_JitLoopInfo.__doc__,
     jitdriver_name = interp_attrproperty('jd_name', cls=W_JitLoopInfo,
                        doc="Name of the JitDriver, pypyjit for the main one"),
-    greenkey       = interp_attrproperty_w('w_green_key', cls=W_JitLoopInfo,
+    greenkey = interp_attrproperty_w('w_green_key', cls=W_JitLoopInfo,
                doc="Representation of place where the loop was compiled. "
                     "In the case of the main interpreter loop, it's a triplet "
                     "(code, ofs, is_profiled)"),
-    operations     = interp_attrproperty_w('w_ops', cls=W_JitLoopInfo, doc=
-                    "List of operations in this loop."),
+    operations = interp_attrproperty_w('w_ops', cls=W_JitLoopInfo, doc=
+                                       "List of operations in this loop."),
+    loop_no = interp_attrproperty('loop_no', cls=W_JitLoopInfo, doc=
+                                  "Loop cardinal number"),
     __repr__ = interp2app(W_JitLoopInfo.descr_repr),
 )
 W_JitLoopInfo.acceptable_as_base_class = False
+
+class W_JitInfoSnapshot(Wrappable):
+    def __init__(self, space, w_times, w_counters, w_counter_times):
+        self.w_loop_run_times = w_times
+        self.w_counters = w_counters
+        self.w_counter_times = w_counter_times
+
+W_JitInfoSnapshot.typedef = TypeDef(
+    "JitInfoSnapshot",
+    w_loop_run_times = interp_attrproperty_w("w_loop_run_times",
+                                             cls=W_JitInfoSnapshot),
+    w_counters = interp_attrproperty_w("w_counters",
+                                       cls=W_JitInfoSnapshot,
+                                       doc="various JIT counters"),
+    w_counter_times = interp_attrproperty_w("w_counter_times",
+                                            cls=W_JitInfoSnapshot,
+                                            doc="various JIT timers")
+)
+W_JitInfoSnapshot.acceptable_as_base_class = False
+
+def get_stats_snapshot(space):
+    """ Get the jit status in the specific moment in time. Note that this
+    is eager - the attribute access is not lazy, if you need new stats
+    you need to call this function again.
+    """
+    stats = jit_hooks.get_stats()
+    if not stats:
+        raise OperationError(space.w_TypeError, space.wrap(
+            "JIT not enabled, not stats available"))
+    ll_times = jit_hooks.stats_get_loop_run_times(stats)
+    w_times = space.newdict()
+    for i in range(len(ll_times)):
+        space.setitem(w_times, space.wrap(ll_times[i].number),
+                      space.wrap(ll_times[i].counter))
+    w_counters = space.newdict()
+    for i, counter_name in enumerate(Counters.counter_names):
+        v = jit_hooks.stats_get_counter_value(stats, i)
+        space.setitem_str(w_counters, counter_name, space.wrap(v))
+    w_counter_times = space.newdict()
+    tr_time = jit_hooks.stats_get_times_value(stats, Counters.TRACING)
+    space.setitem_str(w_counter_times, 'TRACING', space.wrap(tr_time))
+    b_time = jit_hooks.stats_get_times_value(stats, Counters.BACKEND)
+    space.setitem_str(w_counter_times, 'BACKEND', space.wrap(b_time))
+    return space.wrap(W_JitInfoSnapshot(space, w_times, w_counters,
+                                        w_counter_times))
+
+def enable_debug(space):
+    """ Set the jit debugging - completely necessary for some stats to work,
+    most notably assembler counters.
+    """
+    stats = jit_hooks.get_stats()
+    if not stats:
+        raise OperationError(space.w_TypeError, space.wrap(
+            "JIT not enabled, not stats available"))
+    jit_hooks.stats_set_debug(stats, True)
+
+def disable_debug(space):
+    """ Disable the jit debugging. This means some very small loops will be
+    marginally faster and the counters will stop working.
+    """
+    stats = jit_hooks.get_stats()
+    if not stats:
+        raise OperationError(space.w_TypeError, space.wrap(
+            "JIT not enabled, not stats available"))
+    jit_hooks.stats_set_debug(stats, False)
