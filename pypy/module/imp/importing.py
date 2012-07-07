@@ -49,6 +49,10 @@ def get_so_extension(space):
 
     return '.' + soabi + SO
 
+def file_exists(path):
+    """Tests whether the given path is an existing regular file."""
+    return os.path.isfile(path) and case_ok(path)
+
 def find_modtype(space, filepart):
     """Check which kind of module to import for the given filepart,
     which is a path without extension.  Returns PY_SOURCE, PY_COMPILED or
@@ -56,13 +60,13 @@ def find_modtype(space, filepart):
     """
     # check the .py file
     pyfile = filepart + ".py"
-    if os.path.exists(pyfile) and case_ok(pyfile):
+    if file_exists(pyfile):
         return PY_SOURCE, ".py", "U"
 
     # on Windows, also check for a .pyw file
     if CHECK_FOR_PYW:
         pyfile = filepart + ".pyw"
-        if os.path.exists(pyfile) and case_ok(pyfile):
+        if file_exists(pyfile):
             return PY_SOURCE, ".pyw", "U"
 
     # The .py file does not exist.  By default on PyPy, lonepycfiles
@@ -73,14 +77,14 @@ def find_modtype(space, filepart):
     # check the .pyc file
     if space.config.objspace.usepycfiles and space.config.objspace.lonepycfiles:
         pycfile = filepart + ".pyc"
-        if os.path.exists(pycfile) and case_ok(pycfile):
+        if file_exists(pycfile):
             # existing .pyc file
             return PY_COMPILED, ".pyc", "rb"
 
     if space.config.objspace.usemodules.cpyext:
         so_extension = get_so_extension(space)
         pydfile = filepart + so_extension
-        if os.path.exists(pydfile) and case_ok(pydfile):
+        if file_exists(pydfile):
             return C_EXTENSION, so_extension, "rb"
 
     return SEARCH_ERROR, None, None
