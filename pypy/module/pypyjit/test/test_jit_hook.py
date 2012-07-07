@@ -63,8 +63,10 @@ class AppTestJitHook(object):
             if i != 1:
                offset[op] = i
 
-        di_loop = JitDebugInfo(MockJitDriverSD, logger, JitCellToken(),
-                               oplist, 'loop', greenkey)
+        token = JitCellToken()
+        token.number = 0
+        di_loop = JitDebugInfo(MockJitDriverSD, logger, token, oplist, 'loop',
+                   greenkey)
         di_loop_optimize = JitDebugInfo(MockJitDriverSD, logger, JitCellToken(),
                                         oplist, 'loop', greenkey)
         di_loop.asminfo = AsmInfo(offset, 0, 0)

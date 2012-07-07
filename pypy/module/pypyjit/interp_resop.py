@@ -12,6 +12,7 @@ from pypy.jit.metainterp.resoperation import rop, AbstractResOp
 from pypy.rlib.nonconst import NonConstant
 from pypy.rlib import jit_hooks
 from pypy.rlib.jit import Counters
+from pypy.rlib.rarithmetic import r_uint
 from pypy.module.pypyjit.interp_jit import pypyjitdriver
 
 class Cache(object):
@@ -276,7 +277,7 @@ class W_JitLoopInfo(Wrappable):
                                              debug_info.get_jitdriver(),
                                              debug_info.greenkey,
                                              debug_info.get_greenkey_repr())
-        self.loop_no = space.fromcache(Cache).getno()
+        self.loop_no = debug_info.looptoken.number
         asminfo = debug_info.asminfo
         if asminfo is not None:
             self.asmaddr = asminfo.asmaddr
@@ -291,9 +292,21 @@ class W_JitLoopInfo(Wrappable):
         return space.wrap('<JitLoopInfo %s, %d operations, starting at <%s>>' %
                           (self.jd_name, lgt, code_repr))
 
+@unwrap_spec(loopno=int, asmaddr=r_uint, asmlen=r_uint, loop_no=int)
+def descr_new_jit_loop_info(space, w_subtype, w_greenkey, w_ops, loopno,
+                            asmaddr, asmlen, loop_no):
+    w_info = space.allocate_instance(W_JitLoopInfo)
+    w_info.w_greenkey = w_greenkey
+    w_info.w_ops = w_ops
+    w_info.asmaddr = asmaddr
+    w_info.asmlen = asmlen
+    w_info.loop_no = loop_no
+    return w_info
+
 W_JitLoopInfo.typedef = TypeDef(
     'JitLoopInfo',
     __doc__ = W_JitLoopInfo.__doc__,
+    __new__ = descr_new_jit_loop_info,
     jitdriver_name = interp_attrproperty('jd_name', cls=W_JitLoopInfo,
                        doc="Name of the JitDriver, pypyjit for the main one"),
     greenkey = interp_attrproperty_w('w_green_key', cls=W_JitLoopInfo,
