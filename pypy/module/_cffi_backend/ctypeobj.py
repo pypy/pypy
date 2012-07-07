@@ -51,10 +51,14 @@ class W_CType(Wrappable):
                               "float() not supported on cdata '%s'", self.name)
 
     def convert_to_object(self, cdata):
-        raise NotImplementedError
+        space = self.space
+        raise operationerrfmt(space.w_TypeError,
+                              "cannot return a cdata '%s'", self.name)
 
     def convert_from_object(self, cdata, w_ob):
-        raise NotImplementedError
+        space = self.space
+        raise operationerrfmt(space.w_TypeError,
+                              "cannot initialize cdata '%s'", self.name)
 
     def _convert_error(self, expected, w_got):
         space = self.space

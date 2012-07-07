@@ -49,6 +49,7 @@ class AppTestC(object):
             import sys
             sys.path.append(path)
             import _all_test_c
+            _all_test_c.PY_DOT_PY = True
             _all_test_c.find_and_load_library = func
             _all_test_c._testfunc = testfunc
         """)
@@ -78,6 +79,7 @@ with tmpname2.open('w') as f:
     print >> f, 'class py:'
     print >> f, '    class test:'
     print >> f, '        raises = staticmethod(raises)'
+    print >> f, '        skip = staticmethod(skip)'
     print >> f, py.path.local(__file__).join('..', '_backend_test_c.py').read()
 
 

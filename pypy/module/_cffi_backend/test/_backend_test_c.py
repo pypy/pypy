@@ -858,7 +858,7 @@ def test_callback_return_type():
 
 def test_a_lot_of_callbacks():
     BIGNUM = 10000
-    if hasattr(sys, 'pypy_objspaceclass'): BIGNUM = 100   # tests on py.py
+    if 'PY_DOT_PY' in globals(): BIGNUM = 100   # tests on py.py
     #
     BInt = new_primitive_type("int")
     BFunc = new_function_type((BInt,), BInt, False)
@@ -1300,3 +1300,11 @@ def test_owning_repr():
     p = newp(BArray, 7)
     assert repr(p) == "<cdata 'int[]' owning 28 bytes>"
     assert sizeof(p) == 28
+
+def test_cannot_dereference_void():
+    BVoidP = new_pointer_type(new_void_type())
+    p = cast(BVoidP, 123456)
+    py.test.raises(TypeError, "p[0]")
+    p = cast(BVoidP, 0)
+    if 'PY_DOT_PY' in globals(): py.test.skip("NULL crashes early on py.py")
+    py.test.raises(TypeError, "p[0]")
