@@ -403,7 +403,8 @@ class BaseArray(Wrappable):
         return Chunks(result)
 
     def descr_count_nonzero(self, space):
-        res = self.count_all_true()
+        concr = self.get_concrete()
+        res = concr.count_all_true()
         return space.wrap(res)
 
     def count_all_true(self):
