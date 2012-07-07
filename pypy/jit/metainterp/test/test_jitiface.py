@@ -170,7 +170,9 @@ class JitHookInterfaceTests(object):
             assert jit_hooks.stats_get_counter_value(stats,
                            Counters.TOTAL_COMPILED_BRIDGES) == 1
             assert jit_hooks.stats_get_counter_value(stats,
-                           Counters.TRACING) >= 0
+                           Counters.TRACING) == 2
+            assert jit_hooks.stats_get_times_value(stats,
+                                                   Counters.TRACING) >= 0
 
         self.meta_interp(main, [], ProfilerClass=Profiler)
 

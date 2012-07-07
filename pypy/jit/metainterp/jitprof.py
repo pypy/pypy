@@ -100,14 +100,14 @@ class Profiler(BaseProfiler):
 
     def get_counter(self, num):
         if num == Counters.TOTAL_COMPILED_LOOPS:
-            return float(self.cpu.total_compiled_loops)
+            return self.cpu.total_compiled_loops
         elif num == Counters.TOTAL_COMPILED_BRIDGES:
-            return float(self.cpu.total_compiled_bridges)
+            return self.cpu.total_compiled_bridges
         elif num == Counters.TOTAL_FREED_LOOPS:
-            return float(self.cpu.total_freed_loops)
+            return self.cpu.total_freed_loops
         elif num == Counters.TOTAL_FREED_BRIDGES:
-            return float(self.cpu.total_freed_bridges)
-        return float(self.counters[num])
+            return self.cpu.total_freed_bridges
+        return self.counters[num]
 
     def count_ops(self, opnum, kind=Counters.OPS):
         from pypy.jit.metainterp.resoperation import rop
