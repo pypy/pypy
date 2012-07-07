@@ -9,8 +9,8 @@ from pypy.jit.backend.test.support import CCompiledMixin
 from pypy.jit.codewriter.policy import StopAtXPolicy
 from pypy.translator.translator import TranslationContext
 from pypy.config.translationoption import DEFL_GC
-from pypy.jit.backend.arm.test.support import skip_unless_run_translation
-skip_unless_run_translation()
+from pypy.jit.backend.arm.test.support import skip_unless_run_slow_tests
+skip_unless_run_slow_tests()
 
 class TestTranslationARM(CCompiledMixin):
     CPUClass = getcpuclass()
