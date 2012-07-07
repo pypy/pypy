@@ -1346,3 +1346,24 @@ def test_cmp():
     assert (p < s) is (p <= s) is (s > p) is (s >= p)
     assert (p > s) is (p >= s) is (s < p) is (s <= p)
     assert (p < s) ^ (p > s)
+
+def test_buffer():
+    BChar = new_primitive_type("char")
+    BCharArray = new_array_type(new_pointer_type(BChar), None)
+    c = newp(BCharArray, "hi there")
+    buf = buffer(c)
+    assert str(buf) == "hi there\x00"
+    assert len(buf) == len("hi there\x00")
+    assert buf[0] == 'h'
+    assert buf[2] == ' '
+    assert list(buf) == ['h', 'i', ' ', 't', 'h', 'e', 'r', 'e', '\x00']
+    buf[2] = '-'
+    assert c[2] == '-'
+    assert str(buf) == "hi-there\x00"
+    buf[:2] = 'HI'
+    assert str(c) == 'HI-there'
+    assert buf[:4:2] == 'H-'
+    if '__pypy__' not in sys.builtin_module_names:
+        # XXX pypy doesn't support the following assignment so far
+        buf[:4:2] = 'XY'
+        assert str(c) == 'XIYthere'

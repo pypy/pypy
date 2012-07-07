@@ -208,6 +208,9 @@ class W_CData(Wrappable):
         assert length >= 0
         return length
 
+    def _sizeof(self):
+        return self.ctype.size
+
 
 class W_CDataApplevelOwning(W_CData):
     """This is the abstract base class for classes that are of the app-level
@@ -247,11 +250,14 @@ class W_CDataNewOwningLength(W_CDataNewOwning):
         W_CDataNewOwning.__init__(self, space, size, ctype)
         self.length = length
 
-    def _owning_num_bytes(self):
+    def _sizeof(self):
         from pypy.module._cffi_backend import ctypearray
         ctype = self.ctype
         assert isinstance(ctype, ctypearray.W_CTypeArray)
         return self.length * ctype.ctitem.size
+
+    def _owning_num_bytes(self):
+        return self._sizeof()
 
     def get_array_length(self):
         return self.length
