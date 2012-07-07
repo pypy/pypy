@@ -430,7 +430,7 @@ class Test_rbigint(object):
                 res2 = f1.rshift(int(y)).tolong()
                 assert res1 == x << y
                 assert res2 == x >> y
-
+                
     def test_bitwise(self):
         for x in gen_signs([0, 1, 5, 11, 42, 43, 3 ** 30]):
             for y in gen_signs([0, 1, 5, 11, 42, 43, 3 ** 30, 3 ** 31]):

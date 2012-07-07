@@ -711,13 +711,12 @@ class rbigint(object):
         newsize = oldsize + wordshift + 1
         z = rbigint([NULLDIGIT] * newsize, self.sign)
         accum = _widen_digit(0)
-        i = wordshift
         j = 0
         while j < oldsize:
             accum += self.widedigit(j) << remshift
-            z.setdigit(i, accum)
+            z.setdigit(wordshift, accum)
             accum >>= SHIFT
-            i += 1
+            wordshift += 1
             j += 1
         
         newsize -= 1
@@ -766,19 +765,19 @@ class rbigint(object):
 
         loshift = int_other % SHIFT
         hishift = SHIFT - loshift
-        lomask = UDIGIT_MASK((UDIGIT_TYPE(1) << hishift) - 1)
-        himask = MASK ^ lomask
+        # Not 100% sure here, but the reason why it won't be a problem is because
+        # int is max 63bit, same as our SHIFT now.
+        #lomask = UDIGIT_MASK((UDIGIT_TYPE(1) << hishift) - 1)
+        #himask = MASK ^ lomask
         z = rbigint([NULLDIGIT] * newsize, self.sign)
         i = 0
-        j = wordshift
-        newdigit = UDIGIT_TYPE(0)
         while i < newsize:
-            newdigit = (self.digit(j) >> loshift) & lomask
+            newdigit = (self.udigit(wordshift) >> loshift) #& lomask
             if i+1 < newsize:
-                newdigit |= UDIGIT_MASK(self.digit(j+1) << hishift) & himask
+                newdigit |= (self.udigit(wordshift+1) << hishift) #& himask
             z.setdigit(i, newdigit)
             i += 1
-            j += 1
+            wordshift += 1
         z._positivenormalize()
         return z
     rshift._always_inline_ = True # It's so fast that it's always benefitial.
