@@ -3,8 +3,6 @@ from pypy.jit.metainterp.history import JitCellToken
 from pypy.jit.backend.test.calling_convention_test import TestCallingConv, parse
 from pypy.rpython.lltypesystem import lltype
 from pypy.jit.codewriter.effectinfo import EffectInfo
-from pypy.jit.backend.arm.test.support import skip_unless_arm
-skip_unless_arm()
 
 
 class TestARMCallingConvention(TestCallingConv):

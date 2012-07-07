@@ -4,7 +4,6 @@ from pypy.jit.backend.arm.arch import WORD
 from pypy.jit.backend.test.runner_test import LLtypeBackendTest, \
                                                 boxfloat, \
                                                 constfloat
-from pypy.jit.backend.arm.test.support import skip_unless_arm
 from pypy.jit.metainterp.history import (BasicFailDescr,
                                          BoxInt,
                                          ConstInt)
@@ -14,8 +13,6 @@ from pypy.rpython.lltypesystem import lltype, llmemory, rclass
 from pypy.rpython.annlowlevel import llhelper
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.metainterp.history import JitCellToken, TargetToken
-
-skip_unless_arm()
 
 
 class FakeStats(object):

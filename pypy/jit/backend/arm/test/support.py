@@ -27,12 +27,9 @@ def run_asm(asm):
     asm.mc._dump_trace(addr, 'test.asm')
     return func()
 
-def skip_unless_arm():
-    check_skip(os.uname()[4])
-
 def skip_unless_run_translation():
     if not pytest.config.option.run_translation_tests:
-        py.test.skip("Test skipped beause --run-translation-tests option is not set")
+        py.test.skip("Test skipped because --run-translation-tests option is not set")
 
 
 def requires_arm_as():
