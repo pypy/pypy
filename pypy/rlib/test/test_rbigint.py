@@ -535,7 +535,9 @@ class TestInternalFunctions(object):
             f1 = rbigint.fromlong(x)
             f2 = rbigint.fromlong(y)
             div, rem = lobj._x_divrem(f1, f2)
-            assert div.tolong(), rem.tolong() == divmod(x, y)
+            _div, _rem = divmod(x, y)
+            print div.tolong() == _div
+            print rem.tolong() == _rem
 
     def test__divrem(self):
         x = 12345678901234567890L
@@ -549,7 +551,9 @@ class TestInternalFunctions(object):
                 f1 = rbigint.fromlong(sx)
                 f2 = rbigint.fromlong(sy)
                 div, rem = lobj._x_divrem(f1, f2)
-                assert div.tolong(), rem.tolong() == divmod(sx, sy)
+                _div, _rem = divmod(sx, sy)
+                print div.tolong() == _div
+                print rem.tolong() == _rem
 
     # testing Karatsuba stuff
     def test__v_iadd(self):

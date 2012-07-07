@@ -1542,8 +1542,8 @@ def _x_divrem(v1, w1):
     d = longlongmask(d)
     v = _muladd1(v1, d)
     w = _muladd1(w1, d)
-    size_v = v1.numdigits()
-    size_w = w1.numdigits()
+    size_v = v.numdigits()
+    size_w = w.numdigits()
     assert size_v >= size_w and size_w > 1 # (Assert checks by div()
 
     """v = rbigint([NULLDIGIT] * (size_v + 1))
@@ -1622,8 +1622,8 @@ def _x_divrem(v1, w1):
         k -= 1
 
     a._normalize()
-    rem, _ = _divrem1(v, d)
-    return a, rem
+    _inplace_divrem1(v, v, d, size_v)
+    return a, v
 
     """
     Didn't work as expected. Someone want to look over this?
