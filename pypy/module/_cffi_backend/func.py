@@ -36,8 +36,10 @@ def typeof(space, cdata):
 def sizeof(space, w_obj):
     ob = space.interpclass_w(w_obj)
     if isinstance(ob, cdataobj.W_CData):
-        # xxx CT_ARRAY
-        size = ob.ctype.size
+        if isinstance(ob, cdataobj.W_CDataNewOwningLength):
+            size = ob._owning_num_bytes()
+        else:
+            size = ob.ctype.size
     elif isinstance(ob, ctypeobj.W_CType):
         size = ob.size
         if size < 0:
