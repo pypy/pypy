@@ -1,3 +1,4 @@
+import operator
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import interp2app, unwrap_spec
@@ -5,6 +6,7 @@ from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.objectmodel import keepalive_until_here
 from pypy.rlib import objectmodel, rgc
+from pypy.tool.sourcetools import func_with_new_name
 
 from pypy.module._cffi_backend import misc
 
@@ -63,19 +65,35 @@ class W_CData(Wrappable):
     def str(self):
         return self.ctype.str(self)
 
-    def _cmp(self, w_other, compare_for_ne):
-        space = self.space
-        cdata1 = self._cdata
-        other = space.interpclass_w(w_other)
-        if isinstance(other, W_CData):
-            cdata2 = other._cdata
-        else:
-            return space.w_NotImplemented
-        result = (cdata1 == cdata2) ^ compare_for_ne
-        return space.newbool(result)
+    def _make_comparison(name):
+        op = getattr(operator, name)
+        requires_ordering = name not in ('eq', 'ne')
+        #
+        def _cmp(self, w_other):
+            from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitive
+            space = self.space
+            cdata1 = self._cdata
+            other = space.interpclass_w(w_other)
+            if isinstance(other, W_CData):
+                cdata2 = other._cdata
+            else:
+                return space.w_NotImplemented
 
-    def eq(self, w_other): return self._cmp(w_other, False)
-    def ne(self, w_other): return self._cmp(w_other, True)
+            if requires_ordering and (
+                    isinstance(self.ctype, W_CTypePrimitive) or
+                    isinstance(other.ctype, W_CTypePrimitive)):
+                raise OperationError(space.w_TypeError,
+                    space.wrap("cannot do comparison on a primitive cdata"))
+            return space.newbool(op(cdata1, cdata2))
+        #
+        return func_with_new_name(_cmp, name)
+
+    lt = _make_comparison('lt')
+    le = _make_comparison('le')
+    eq = _make_comparison('eq')
+    ne = _make_comparison('ne')
+    gt = _make_comparison('gt')
+    ge = _make_comparison('ge')
 
     def hash(self):
         h = (objectmodel.compute_identity_hash(self.ctype) ^
@@ -287,8 +305,12 @@ W_CData.typedef = TypeDef(
     __float__ = interp2app(W_CData.float),
     __len__ = interp2app(W_CData.len),
     __str__ = interp2app(W_CData.str),
+    __lt__ = interp2app(W_CData.lt),
+    __le__ = interp2app(W_CData.le),
     __eq__ = interp2app(W_CData.eq),
     __ne__ = interp2app(W_CData.ne),
+    __gt__ = interp2app(W_CData.gt),
+    __ge__ = interp2app(W_CData.ge),
     __hash__ = interp2app(W_CData.hash),
     __getitem__ = interp2app(W_CData.getitem),
     __setitem__ = interp2app(W_CData.setitem),

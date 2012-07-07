@@ -1320,3 +1320,29 @@ def test_iter():
     #
     py.test.raises(TypeError, iter, cast(BInt, 5))
     py.test.raises(TypeError, iter, cast(BIntP, 123456))
+
+def test_cmp():
+    BInt = new_primitive_type("int")
+    BIntP = new_pointer_type(BInt)
+    BVoidP = new_pointer_type(new_void_type())
+    p = newp(BIntP, 123)
+    q = cast(BInt, 124)
+    py.test.raises(TypeError, "p < q")
+    py.test.raises(TypeError, "p <= q")
+    assert (p == q) is False
+    assert (p != q) is True
+    py.test.raises(TypeError, "p > q")
+    py.test.raises(TypeError, "p >= q")
+    r = cast(BVoidP, p)
+    assert (p <  r) is False
+    assert (p <= r) is True
+    assert (p == r) is True
+    assert (p != r) is False
+    assert (p >  r) is False
+    assert (p >= r) is True
+    s = newp(BIntP, 125)
+    assert (p == s) is False
+    assert (p != s) is True
+    assert (p < s) is (p <= s) is (s > p) is (s >= p)
+    assert (p > s) is (p >= s) is (s < p) is (s <= p)
+    assert (p < s) ^ (p > s)
