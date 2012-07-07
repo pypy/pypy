@@ -1293,3 +1293,9 @@ def test_nokeepalive_struct():
     pp[0] = p
     s = pp[0][0]
     assert repr(s).startswith("<cdata 'struct foo' 0x")
+
+def test_owning_repr():
+    BInt = new_primitive_type("int")
+    BArray = new_array_type(new_pointer_type(BInt), None)   # int[]
+    p = newp(BArray, 7)
+    assert repr(p) == "<cdata 'int[]' owning 28 bytes>"

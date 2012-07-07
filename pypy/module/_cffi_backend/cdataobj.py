@@ -223,6 +223,12 @@ class W_CDataNewOwningLength(W_CDataNewOwning):
         W_CDataNewOwning.__init__(self, space, size, ctype)
         self.length = length
 
+    def _owning_num_bytes(self):
+        from pypy.module._cffi_backend import ctypearray
+        ctype = self.ctype
+        assert isinstance(ctype, ctypearray.W_CTypeArray)
+        return self.length * ctype.ctitem.size
+
     def get_array_length(self):
         return self.length
 
