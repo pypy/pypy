@@ -145,7 +145,7 @@ class AppTestCPPYY:
         e1 = None
         gc.collect()
         assert t.get_overload("getCount").call(None) == 1
-	e2.destruct()
+        e2.destruct()
         assert t.get_overload("getCount").call(None) == 0
         e2 = None
         gc.collect()

@@ -1086,6 +1086,9 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (b == array(range(35, 70), dtype=float).reshape(5, 7)).all()
         assert (a.mean(2) == array(range(0, 15), dtype=float).reshape(3, 5) * 7 + 3).all()
         assert (arange(10).reshape(5, 2).mean(axis=1) == [0.5, 2.5, 4.5, 6.5, 8.5]).all()
+        assert (a.mean(axis=-1) == a.mean(axis=2)).all()
+        raises(ValueError, a.mean, -4)
+        raises(ValueError, a.mean, 3)
 
     def test_sum(self):
         from _numpypy import array
@@ -1096,7 +1099,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = array([True] * 5, bool)
         assert a.sum() == 5
 
-        raises(TypeError, 'a.sum(2, 3)')
+        raises(TypeError, 'a.sum(axis=0, out=3)')
+        raises(ValueError, 'a.sum(axis=2)')
         d = array(0.)
         b = a.sum(out=d)
         assert b == d
@@ -1112,6 +1116,10 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (a.sum(0) == [30, 35, 40]).all()
         assert (a.sum(axis=0) == [30, 35, 40]).all()
         assert (a.sum(1) == [3, 12, 21, 30, 39]).all()
+        assert (a.sum(-1) == a.sum(-1)).all()
+        assert (a.sum(-2) == a.sum(-2)).all()
+        raises(ValueError, a.sum, -3)
+        raises(ValueError, a.sum, 2)
         assert (a.max(0) == [12, 13, 14]).all()
         assert (a.max(1) == [2, 5, 8, 11, 14]).all()
         assert ((a + a).max() == 28)
@@ -1147,6 +1155,38 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert d.shape == (3, 3)
         assert d.dtype == dtype('int32')
         assert (d == [[1, 0, 0], [0, 1, 0], [0, 0, 1]]).all()
+   
+    def test_eye(self):
+        from _numpypy import eye, array
+        from _numpypy import int32, float64, dtype
+        a = eye(0)
+        assert len(a) == 0
+        assert a.dtype == dtype('float64')
+        assert a.shape == (0, 0)
+        b = eye(1, dtype=int32)
+        assert len(b) == 1
+        assert b[0][0] == 1
+        assert b.shape == (1, 1)
+        assert b.dtype == dtype('int32')
+        c = eye(2)
+        assert c.shape == (2, 2)
+        assert (c == [[1, 0], [0, 1]]).all()
+        d = eye(3, dtype='int32')
+        assert d.shape == (3, 3)
+        assert d.dtype == dtype('int32')
+        assert (d == [[1, 0, 0], [0, 1, 0], [0, 0, 1]]).all()
+        e = eye(3, 4)
+        assert e.shape == (3, 4)
+        assert (e == [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0]]).all()
+        f = eye(2, 4, k=3)
+        assert f.shape == (2, 4)
+        assert (f == [[0, 0, 0, 1], [0, 0, 0, 0]]).all()
+        g = eye(3, 4, k=-1)
+        assert g.shape == (3, 4)
+        assert (g == [[0, 0, 0, 0], [1, 0, 0, 0], [0, 1, 0, 0]]).all()
+
+
+
 
     def test_prod(self):
         from _numpypy import array

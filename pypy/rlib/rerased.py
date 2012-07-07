@@ -48,6 +48,9 @@ class ErasingPairIdentity(object):
     def __repr__(self):
         return 'ErasingPairIdentity(%r)' % self.name
 
+    def __deepcopy__(self, memo):
+        return self
+
     def _getdict(self, bk):
         try:
             dict = bk._erasing_pairs_tunnel
