@@ -166,6 +166,9 @@ class W_CData(Wrappable):
         keepalive_until_here(self)
         return w_result
 
+    def iter(self):
+        return self.ctype.iter(self)
+
     def write_raw_integer_data(self, source):
         misc.write_raw_integer_data(self._cdata, source, self.ctype.size)
         keepalive_until_here(self)
@@ -275,7 +278,8 @@ class W_CDataCasted(W_CData):
 
 
 W_CData.typedef = TypeDef(
-    '_cffi_backend.CData',
+    'CData',
+    __module__ = '_cffi_backend',
     __repr__ = interp2app(W_CData.repr),
     __nonzero__ = interp2app(W_CData.nonzero),
     __int__ = interp2app(W_CData.int),
@@ -293,12 +297,13 @@ W_CData.typedef = TypeDef(
     __getattr__ = interp2app(W_CData.getattr),
     __setattr__ = interp2app(W_CData.setattr),
     __call__ = interp2app(W_CData.call),
+    __iter__ = interp2app(W_CData.iter),
     )
 W_CData.typedef.acceptable_as_base_class = False
 
 W_CDataApplevelOwning.typedef = TypeDef(
-    '_cffi_backend.CDataOwn',
-    W_CData.typedef,    # base typedef
+    'CDataOwn', W_CData.typedef,    # base typedef
+    __module__ = '_cffi_backend',
     __weakref__ = make_weakref_descr(W_CDataApplevelOwning),
     )
 W_CDataApplevelOwning.typedef.acceptable_as_base_class = False

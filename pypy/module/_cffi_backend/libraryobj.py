@@ -67,7 +67,8 @@ class W_Library(Wrappable):
 
 
 W_Library.typedef = TypeDef(
-    '_cffi_backend.Library',
+    'Library',
+    __module__ = '_cffi_backend',
     __repr__ = interp2app(W_Library.repr),
     load_function = interp2app(W_Library.load_function),
     read_variable = interp2app(W_Library.read_variable),

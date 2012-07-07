@@ -222,7 +222,8 @@ class W_CField(Wrappable):
 
 
 W_CField.typedef = TypeDef(
-    '_cffi_backend.CField',
+    'CField',
+    __module__ = '_cffi_backend',
     type = interp_attrproperty('ctype', W_CField),
     offset = interp_attrproperty('offset', W_CField),
     bitshift = interp_attrproperty('bitshift', W_CField),

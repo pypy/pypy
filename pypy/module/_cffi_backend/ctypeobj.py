@@ -123,9 +123,16 @@ class W_CType(Wrappable):
         raise operationerrfmt(space.w_TypeError,
                               "cdata '%s' is not callable", self.name)
 
+    def iter(self, cdata):
+        space = self.space
+        raise operationerrfmt(space.w_TypeError,
+                              "cdata '%s' does not support iteration",
+                              self.name)
+
 
 W_CType.typedef = TypeDef(
-    '_cffi_backend.CTypeDescr',
+    'CTypeDescr',
+    __module__ = '_cffi_backend',
     __repr__ = interp2app(W_CType.repr),
     __weakref__ = make_weakref_descr(W_CType),
     )

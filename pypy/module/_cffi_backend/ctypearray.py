@@ -3,6 +3,9 @@ Arrays.
 """
 
 from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.typedef import TypeDef
 from pypy.rpython.lltypesystem import rffi
 from pypy.rlib.objectmodel import keepalive_until_here
 from pypy.rlib.rarithmetic import ovfcheck
@@ -115,3 +118,35 @@ class W_CTypeArray(W_CTypePtrOrArray):
     def add(self, cdata, i):
         p = rffi.ptradd(cdata, i * self.ctitem.size)
         return cdataobj.W_CData(self.space, p, self.ctptr)
+
+    def iter(self, cdata):
+        return W_CDataIter(self.space, self.ctitem, cdata)
+
+
+class W_CDataIter(Wrappable):
+
+    def __init__(self, space, ctitem, cdata):
+        self.space = space
+        self.ctitem = ctitem
+        self.cdata = cdata
+        length = cdata.get_array_length()
+        self._next = cdata._cdata
+        self._stop = rffi.ptradd(cdata._cdata, length * ctitem.size)
+
+    def iter_w(self):
+        return self.space.wrap(self)
+
+    def next_w(self):
+        result = self._next
+        if result == self._stop:
+            raise OperationError(self.space.w_StopIteration, self.space.w_None)
+        self._next = rffi.ptradd(result, self.ctitem.size)
+        return self.ctitem.convert_to_object(result)
+
+W_CDataIter.typedef = TypeDef(
+    'CDataIter',
+    __module__ = '_cffi_backend',
+    __iter__ = interp2app(W_CDataIter.iter_w),
+    next = interp2app(W_CDataIter.next_w),
+    )
+W_CDataIter.typedef.acceptable_as_base_class = False

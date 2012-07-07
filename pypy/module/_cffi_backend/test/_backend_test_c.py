@@ -1310,3 +1310,13 @@ def test_cannot_dereference_void():
     p = cast(BVoidP, 0)
     if 'PY_DOT_PY' in globals(): py.test.skip("NULL crashes early on py.py")
     py.test.raises(TypeError, "p[0]")
+
+def test_iter():
+    BInt = new_primitive_type("int")
+    BIntP = new_pointer_type(BInt)
+    BArray = new_array_type(BIntP, None)   # int[]
+    p = newp(BArray, 7)
+    assert list(p) == list(iter(p)) == [0] * 7
+    #
+    py.test.raises(TypeError, iter, cast(BInt, 5))
+    py.test.raises(TypeError, iter, cast(BIntP, 123456))
