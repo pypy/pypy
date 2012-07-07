@@ -518,11 +518,11 @@ def make_array(mytype):
             start = 0
         # <a performance hack>
         if oldlen == 1:
-            if self.unwrap == 'str_w' or self.unwrap == 'unicode_w':
+            if mytype.unwrap == 'str_w' or mytype.unwrap == 'unicode_w':
                 zero = not ord(self.buffer[0])
-            elif self.unwrap == 'int_w' or self.unwrap == 'bigint_w':
+            elif mytype.unwrap == 'int_w' or mytype.unwrap == 'bigint_w':
                 zero = not widen(self.buffer[0])
-            #elif self.unwrap == 'float_w':
+            #elif mytype.unwrap == 'float_w':
             #    value = ...float(self.buffer[0])  xxx handle the case of -0.0
             else:
                 zero = False
