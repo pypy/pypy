@@ -306,7 +306,7 @@ def descr_new_jit_loop_info(space, w_subtype, w_greenkey, w_ops, loopno,
 W_JitLoopInfo.typedef = TypeDef(
     'JitLoopInfo',
     __doc__ = W_JitLoopInfo.__doc__,
-    __new__ = descr_new_jit_loop_info,
+    __new__ = interp2app(descr_new_jit_loop_info),
     jitdriver_name = interp_attrproperty('jd_name', cls=W_JitLoopInfo,
                        doc="Name of the JitDriver, pypyjit for the main one"),
     greenkey = interp_attrproperty_w('w_green_key', cls=W_JitLoopInfo,
