@@ -7,8 +7,11 @@ from pypy.rlib.rgc import lltype_is_gc
 RAW_STORAGE = rffi.CCHARP.TO
 RAW_STORAGE_PTR = rffi.CCHARP
 
-def alloc_raw_storage(size):
-    return lltype.malloc(RAW_STORAGE, size, flavor='raw')
+def alloc_raw_storage(size, track_allocation=True, zero=False):
+    return lltype.malloc(RAW_STORAGE, size, flavor='raw',
+                         add_memory_pressure=True,
+                         track_allocation=track_allocation,
+                         zero=zero)
 
 def raw_storage_getitem(TP, storage, index):
     "NOT_RPYTHON"
@@ -19,8 +22,8 @@ def raw_storage_setitem(storage, index, item):
     TP = rffi.CArrayPtr(lltype.typeOf(item))
     rffi.cast(TP, rffi.ptradd(storage, index))[0] = item
 
-def free_raw_storage(storage):
-    lltype.free(storage, flavor='raw')
+def free_raw_storage(storage, track_allocation=True):
+    lltype.free(storage, flavor='raw', track_allocation=track_allocation)
 
 class RawStorageGetitemEntry(ExtRegistryEntry):
     _about_ = raw_storage_getitem
