@@ -638,7 +638,7 @@ class __extend__(SomeInstance):
     def getattr(ins, s_attr):
         if s_attr.is_constant() and isinstance(s_attr.const, str):
             attr = s_attr.const
-            return ins._true_getattr(ins, s_attr)
+            return ins._true_getattr(attr)
         return SomeObject()
     getattr.can_only_throw = []
 
