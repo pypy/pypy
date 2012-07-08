@@ -600,6 +600,7 @@ class AbstractLLCPU(AbstractCPU):
             if size == itemsize:
                 items = rffi.cast(rffi.CArrayPtr(TYPE), items)
                 return rffi.cast(lltype.Signed, items[0])
+        assert False # unreachable code
 
     def bh_raw_load_f(self, addr, offset, descr):
         items = rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), addr + offset)
