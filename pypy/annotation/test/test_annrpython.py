@@ -3793,7 +3793,18 @@ class TestAnnotateTestCase:
         assert isinstance(s, annmodel.SomeString)
         assert s.no_nul
 
+    def test_base_iter(self):
+        class A(object):
+            def __iter__(self):
+                return self
+        
+        def fn():
+            return iter(A())
 
+        a = self.RPythonAnnotator()
+        s = a.build_types(fn, [])
+        assert isinstance(s, annmodel.SomeInstance)
+        assert s.classdef.name.endswith('.A')
 
 def g(n):
     return [0,1,2,n]
