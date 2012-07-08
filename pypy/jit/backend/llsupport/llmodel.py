@@ -580,6 +580,30 @@ class AbstractLLCPU(AbstractCPU):
     bh_setfield_raw_r = _base_do_setfield_r
     bh_setfield_raw_f = _base_do_setfield_f
 
+    def bh_raw_store_i(self, addr, offset, descr, newvalue):
+        ofs, size, sign = self.unpack_arraydescr_size(descr)
+        items = addr + offset
+        for TYPE, _, itemsize in unroll_basic_sizes:
+            if size == itemsize:
+                items = rffi.cast(rffi.CArrayPtr(TYPE), items)
+                items[0] = rffi.cast(TYPE, newvalue)
+
+    def bh_raw_store_f(self, addr, offset, descr, newvalue):
+        items = rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), addr + offset)
+        items[0] = newvalue
+
+    def bh_raw_load_i(self, addr, offset, descr):
+        ofs, size, sign = self.unpack_arraydescr_size(descr)
+        items = addr + offset
+        for TYPE, _, itemsize in unroll_basic_sizes:
+            if size == itemsize:
+                items = rffi.cast(rffi.CArrayPtr(TYPE), items)
+                return rffi.cast(lltype.Signed, items[0])
+
+    def bh_raw_load_f(self, addr, offset, descr):
+        items = rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), addr + offset)
+        return items[0]
+
     def bh_new(self, sizedescr):
         return self.gc_ll_descr.gc_malloc(sizedescr)
 

@@ -3,7 +3,7 @@ from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.rawstorage import (alloc_raw_storage, raw_storage_setitem,
                                   free_raw_storage, raw_storage_getitem)
 
-class TestJITRawMem(LLJitMixin):
+class RawMemTests(object):
     def test_cast_void_ptr(self):
         TP = lltype.Array(lltype.Float, hints={"nolength": True})
         VOID_TP = lltype.Array(lltype.Void, hints={"nolength": True, "uncast_on_llgraph": True})
@@ -57,3 +57,6 @@ class TestJITRawMem(LLJitMixin):
         self.check_operations_history({'call': 2, 'guard_no_exception': 1,
                                        'raw_store': 1, 'raw_load': 1,
                                        'finish': 1})
+
+class TestRawMem(RawMemTests, LLJitMixin):
+    pass
