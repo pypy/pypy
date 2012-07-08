@@ -378,6 +378,17 @@ class AbstractInstanceRepr(Repr):
     def rtype_is_true(self, hop):
         raise NotImplementedError
 
+    def rtype_iter(self, hop):
+        vinst, = hop.inputargs(self)
+        vcls = self.getfield(vinst, '__class__', hop.llops)
+        if '__iter__' not in self.rclass.allmethods:
+            raise Exception("Only supporting iterators with __iter__ as a method")
+        viter = self.rclass.getclsfield(vcls, '__iter__', hop.llops)
+        return hop.gendirectcall(viter, vinst)
+
+    def rtype_next(self, hop):
+        xxx
+
     def ll_str(self, i):
         raise NotImplementedError
 

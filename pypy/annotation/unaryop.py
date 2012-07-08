@@ -664,6 +664,10 @@ class __extend__(SomeInstance):
         s_iterable = ins._true_getattr('__iter__')
         return s_iterable.call(getbookkeeper().build_args("simple_call", []))
 
+    def next(ins):
+        s_next = ins._true_getattr('next')
+        return s_next.call(getbookkeeper().build_args('simple_call', []))
+
 class __extend__(SomeBuiltin):
     def _can_only_throw(bltn, *args):
         analyser_func = getattr(bltn.analyser, 'im_func', None)
