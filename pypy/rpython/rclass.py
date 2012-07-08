@@ -389,19 +389,12 @@ class AbstractInstanceRepr(Repr):
         if '__iter__' in self.allinstancefields:
             raise Exception("__iter__ on instance disallowed")
         r_method = self.rtyper.makerepr(s_attr)
-        v_self = r_method.get_method_from_instance(self, vinst, hop.llops)
+        r_method.get_method_from_instance(self, vinst, hop.llops)
         hop2 = hop.copy()
         hop2.spaceop.opname = 'simple_call'
         hop2.args_r = [r_method]
         hop2.args_s = [s_attr]
         return hop2.dispatch()
-        xxx
-        #return hop.r_result.get_method_from_instance(self, vinst,
-        #                                             hop.llops)
-        if '__iter__' not in self.rclass.allmethods:
-            raise Exception("Only supporting iterators with __iter__ as a method")
-        viter = self.rclass.getclsfield(vcls, '__iter__', hop.llops)
-        return hop.gendirectcall(viter, vinst)
 
     def rtype_next(self, hop):
         xxx

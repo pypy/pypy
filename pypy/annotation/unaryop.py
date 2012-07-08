@@ -662,11 +662,13 @@ class __extend__(SomeInstance):
 
     def iter(ins):
         s_iterable = ins._true_getattr('__iter__')
-        return s_iterable.call(getbookkeeper().build_args("simple_call", []))
+        bk = getbookkeeper()
+        return bk.emulate_pbc_call(bk.position_key, s_iterable, [])
 
     def next(ins):
         s_next = ins._true_getattr('next')
-        return s_next.call(getbookkeeper().build_args('simple_call', []))
+        bk = getbookkeeper()
+        return bk.emulate_pbc_call(bk.position_key, s_next, [])
 
 class __extend__(SomeBuiltin):
     def _can_only_throw(bltn, *args):
