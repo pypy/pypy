@@ -483,6 +483,8 @@ def cast_object_to_ptr(PTR, object):
     """NOT_RPYTHON: hack. The object may be disguised as a PTR now.
     Limited to casting a given object to a single type.
     """
+    if hasattr(object, '_freeze_'):
+        raise Exception("Trying to cast a frozen object to pointer")
     if isinstance(PTR, lltype.Ptr):
         TO = PTR.TO
     else:
