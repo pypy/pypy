@@ -380,7 +380,24 @@ class AbstractInstanceRepr(Repr):
 
     def rtype_iter(self, hop):
         vinst, = hop.inputargs(self)
-        vcls = self.getfield(vinst, '__class__', hop.llops)
+        clsdef = hop.args_s[0].classdef
+        s_unbound_attr = clsdef.find_attribute('__iter__').getvalue()
+        s_attr = clsdef.lookup_filter(s_unbound_attr, '__iter__',
+                                      hop.args_s[0].flags)
+        if s_attr.is_constant():
+            xxx # does that even happen?
+        if '__iter__' in self.allinstancefields:
+            raise Exception("__iter__ on instance disallowed")
+        r_method = self.rtyper.makerepr(s_attr)
+        v_self = r_method.get_method_from_instance(self, vinst, hop.llops)
+        hop2 = hop.copy()
+        hop2.spaceop.opname = 'simple_call'
+        hop2.args_r = [r_method]
+        hop2.args_s = [s_attr]
+        return hop2.dispatch()
+        xxx
+        #return hop.r_result.get_method_from_instance(self, vinst,
+        #                                             hop.llops)
         if '__iter__' not in self.rclass.allmethods:
             raise Exception("Only supporting iterators with __iter__ as a method")
         viter = self.rclass.getclsfield(vcls, '__iter__', hop.llops)

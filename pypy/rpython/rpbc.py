@@ -399,6 +399,8 @@ class SingleFrozenPBCRepr(Repr):
     lowleveltype = Void
 
     def __init__(self, frozendesc):
+        import pdb
+        pdb.set_trace()
         self.frozendesc = frozendesc
 
     def rtype_getattr(_, hop):
