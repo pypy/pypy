@@ -1378,22 +1378,3 @@ def test_getcname():
     BUChar = new_primitive_type("unsigned char")
     BArray = new_array_type(new_pointer_type(BUChar), 123)
     assert getcname(BArray, "<-->") == "unsigned char<-->[123]"
-
-def test_errno():
-    BVoid = new_void_type()
-    BFunc5 = new_function_type((), BVoid)
-    f = cast(BFunc5, _testfunc(5))
-    set_errno(50)
-    f()
-    assert get_errno() == 65
-    f(); f()
-    assert get_errno() == 95
-    #
-    def cb():
-        e = get_errno()
-        set_errno(e - 6)
-    f = callback(BFunc5, cb)
-    f()
-    assert get_errno() == 89
-    f(); f()
-    assert get_errno() == 77

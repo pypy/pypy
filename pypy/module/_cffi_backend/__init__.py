@@ -30,7 +30,4 @@ class Module(MixedModule):
         'getcname': 'func.getcname',
 
         'buffer': 'cbuffer.buffer',
-
-        'get_errno': 'cerrno.get_errno',
-        'set_errno': 'cerrno.set_errno',
         }
