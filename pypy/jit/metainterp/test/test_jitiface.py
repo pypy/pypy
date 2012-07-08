@@ -164,15 +164,10 @@ class JitHookInterfaceTests(object):
 
         def main():
             loop(30)
-            stats = jit_hooks.get_stats()
-            assert jit_hooks.stats_get_counter_value(stats,
-                           Counters.TOTAL_COMPILED_LOOPS) == 1
-            assert jit_hooks.stats_get_counter_value(stats,
-                           Counters.TOTAL_COMPILED_BRIDGES) == 1
-            assert jit_hooks.stats_get_counter_value(stats,
-                           Counters.TRACING) == 2
-            assert jit_hooks.stats_get_times_value(stats,
-                                                   Counters.TRACING) >= 0
+            assert jit_hooks.stats_get_counter_value(Counters.TOTAL_COMPILED_LOOPS) == 1
+            assert jit_hooks.stats_get_counter_value(Counters.TOTAL_COMPILED_BRIDGES) == 1
+            assert jit_hooks.stats_get_counter_value(Counters.TRACING) == 2
+            assert jit_hooks.stats_get_times_value(Counters.TRACING) >= 0
 
         self.meta_interp(main, [], ProfilerClass=Profiler)
 

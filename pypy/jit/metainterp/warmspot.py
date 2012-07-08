@@ -636,21 +636,21 @@ class WarmRunnerDesc(object):
             self.rewrite_access_helper(op)
 
     def rewrite_access_helper(self, op):
-        ARGS = [arg.concretetype for arg in op.args[2:]]
-        RESULT = op.result.concretetype
-        FUNCPTR = lltype.Ptr(lltype.FuncType(ARGS, RESULT))
         # make sure we make a copy of function so it no longer belongs
         # to extregistry
         func = op.args[1].value
-        if func.func_name == 'get_stats':
+        if func.func_name.startswith('stats_'):
             # get special treatment since we rewrite it to a call that accepts
             # jit driver
-            def func():
-                return lltype.cast_opaque_ptr(llmemory.GCREF,
-                                              cast_instance_to_base_ptr(self))
+            def new_func(*args):
+                return func(self, *args)
+            ARGS = [lltype.Void] + [arg.concretetype for arg in op.args[2:]]
         else:
-            func = func_with_new_name(func, func.func_name + '_compiled')
-        ptr = self.helper_func(FUNCPTR, func)
+            ARGS = [arg.concretetype for arg in op.args[2:]]
+            new_func = func_with_new_name(func, func.func_name + '_compiled')
+        RESULT = op.result.concretetype
+        FUNCPTR = lltype.Ptr(lltype.FuncType(ARGS, RESULT))
+        ptr = self.helper_func(FUNCPTR, new_func)
         op.opname = 'direct_call'
         op.args = [Constant(ptr, FUNCPTR)] + op.args[2:]
 

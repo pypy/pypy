@@ -112,37 +112,19 @@ def box_isconst(llbox):
     from pypy.jit.metainterp.history import Const
     return isinstance(_cast_to_box(llbox), Const)
 
-@register_helper(annmodel.SomePtr(llmemory.GCREF))
-def get_stats():
-    """ Returns various statistics, including how many times each loop
-    was run. Note that on this level the resulting instance is completely
-    opaque, you need to use the interface specified below.
-
-    Note that since we pass warmspot by closure, the actual implementation
-    is in warmspot.py, this is just a placeholder
-    """
-    from pypy.rpython.lltypesystem import lltype, llmemory
-    return lltype.nullptr(llmemory.GCREF.TO) # unusable without the actual JIT
-
 # ------------------------- stats interface ---------------------------
 
-def _cast_to_warmrunnerdesc(llref):
-    from pypy.jit.metainterp.warmspot import WarmRunnerDesc
-
-    ptr = lltype.cast_opaque_ptr(rclass.OBJECTPTR, llref)
-    return cast_base_ptr_to_instance(WarmRunnerDesc, ptr)
-
 @register_helper(annmodel.SomeBool())
-def stats_set_debug(llref, flag):
-    return _cast_to_warmrunnerdesc(llref).metainterp_sd.cpu.set_debug(flag)
+def stats_set_debug(warmrunnerdesc, flag):
+    return warmrunnerdesc.metainterp_sd.cpu.set_debug(flag)
 
 @register_helper(annmodel.SomeInteger())
-def stats_get_counter_value(llref, no):
-    return _cast_to_warmrunnerdesc(llref).metainterp_sd.profiler.get_counter(no)
+def stats_get_counter_value(warmrunnerdesc, no):
+    return warmrunnerdesc.metainterp_sd.profiler.get_counter(no)
 
 @register_helper(annmodel.SomeFloat())
-def stats_get_times_value(llref, no):
-    return _cast_to_warmrunnerdesc(llref).metainterp_sd.profiler.times[no]
+def stats_get_times_value(warmrunnerdesc, no):
+    return warmrunnerdesc.metainterp_sd.profiler.times[no]
 
 LOOP_RUN_CONTAINER = lltype.GcArray(lltype.Struct('elem',
                                                   ('type', lltype.Char),
@@ -150,6 +132,5 @@ LOOP_RUN_CONTAINER = lltype.GcArray(lltype.Struct('elem',
                                                   ('counter', lltype.Signed)))
 
 @register_helper(lltype.Ptr(LOOP_RUN_CONTAINER))
-def stats_get_loop_run_times(llref):
-    warmrunnerdesc = _cast_to_warmrunnerdesc(llref)
+def stats_get_loop_run_times(warmrunnerdesc):
     return warmrunnerdesc.metainterp_sd.cpu.get_all_loop_runs()

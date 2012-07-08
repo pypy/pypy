@@ -349,23 +349,19 @@ def get_stats_snapshot(space):
     is eager - the attribute access is not lazy, if you need new stats
     you need to call this function again.
     """
-    stats = jit_hooks.get_stats()
-    if not stats:
-        raise OperationError(space.w_TypeError, space.wrap(
-            "JIT not enabled, not stats available"))
-    ll_times = jit_hooks.stats_get_loop_run_times(stats)
+    ll_times = jit_hooks.stats_get_loop_run_times()
     w_times = space.newdict()
     for i in range(len(ll_times)):
         space.setitem(w_times, space.wrap(ll_times[i].number),
                       space.wrap(ll_times[i].counter))
     w_counters = space.newdict()
     for i, counter_name in enumerate(Counters.counter_names):
-        v = jit_hooks.stats_get_counter_value(stats, i)
+        v = jit_hooks.stats_get_counter_value(i)
         space.setitem_str(w_counters, counter_name, space.wrap(v))
     w_counter_times = space.newdict()
-    tr_time = jit_hooks.stats_get_times_value(stats, Counters.TRACING)
+    tr_time = jit_hooks.stats_get_times_value(Counters.TRACING)
     space.setitem_str(w_counter_times, 'TRACING', space.wrap(tr_time))
-    b_time = jit_hooks.stats_get_times_value(stats, Counters.BACKEND)
+    b_time = jit_hooks.stats_get_times_value(Counters.BACKEND)
     space.setitem_str(w_counter_times, 'BACKEND', space.wrap(b_time))
     return space.wrap(W_JitInfoSnapshot(space, w_times, w_counters,
                                         w_counter_times))
@@ -374,18 +370,10 @@ def enable_debug(space):
     """ Set the jit debugging - completely necessary for some stats to work,
     most notably assembler counters.
     """
-    stats = jit_hooks.get_stats()
-    if not stats:
-        raise OperationError(space.w_TypeError, space.wrap(
-            "JIT not enabled, not stats available"))
-    jit_hooks.stats_set_debug(stats, True)
+    jit_hooks.stats_set_debug(True)
 
 def disable_debug(space):
     """ Disable the jit debugging. This means some very small loops will be
     marginally faster and the counters will stop working.
     """
-    stats = jit_hooks.get_stats()
-    if not stats:
-        raise OperationError(space.w_TypeError, space.wrap(
-            "JIT not enabled, not stats available"))
-    jit_hooks.stats_set_debug(stats, False)
+    jit_hooks.stats_set_debug(False)
