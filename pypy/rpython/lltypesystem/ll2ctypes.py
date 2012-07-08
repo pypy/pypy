@@ -331,7 +331,12 @@ def build_new_ctypes_type(T, delayed_builders):
                 restype = None
             else:
                 restype = get_ctypes_type(T.TO.RESULT)
-            return ctypes.CFUNCTYPE(restype, *argtypes)
+            try:
+                kwds = {'use_errno': True}
+                return ctypes.CFUNCTYPE(restype, *argtypes, **kwds)
+            except TypeError:
+                # unexpected 'use_errno' argument, old ctypes version
+                return ctypes.CFUNCTYPE(restype, *argtypes)
         elif isinstance(T.TO, lltype.OpaqueType):
             return ctypes.c_void_p
         else:
