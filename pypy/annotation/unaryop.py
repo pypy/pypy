@@ -663,12 +663,16 @@ class __extend__(SomeInstance):
     def iter(ins):
         s_iterable = ins._true_getattr('__iter__')
         bk = getbookkeeper()
-        return bk.emulate_pbc_call(bk.position_key, s_iterable, [])
+        # record for calltables
+        bk.emulate_pbc_call(bk.position_key, s_iterable, [])
+        return s_iterable.call(bk.build_args("simple_call", []))
 
     def next(ins):
         s_next = ins._true_getattr('next')
         bk = getbookkeeper()
-        return bk.emulate_pbc_call(bk.position_key, s_next, [])
+        # record for calltables
+        bk.emulate_pbc_call(bk.position_key, s_next, [])
+        return s_next.call(bk.build_args("simple_call", []))
 
 class __extend__(SomeBuiltin):
     def _can_only_throw(bltn, *args):

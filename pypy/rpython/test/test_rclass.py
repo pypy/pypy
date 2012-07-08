@@ -958,28 +958,6 @@ class BaseTestRclass(BaseRtypingTest):
                 found.append(op.args[1].value)
         assert found == ['mutate_c']
 
-    def test_iter(self):
-        class Iterable(object):
-            def __init__(self):
-                self.counter = 0
-            
-            def __iter__(self):
-                return self
-
-            def next(self):
-                if self.counter == 5:
-                    raise StopIteration
-                self.counter += 1
-                return self.counter - 1
-
-        def f():
-            i = Iterable()
-            s = 0
-            for elem in i:
-                s += elem
-            return s
-
-        assert self.interpret(f, []) == f()
 
 class TestLLtype(BaseTestRclass, LLRtypeMixin):
 
@@ -1164,6 +1142,29 @@ class TestLLtype(BaseTestRclass, LLRtypeMixin):
             assert summary(graph) == {opname: 1,
                                       'cast_pointer': 1,
                                       'setfield': 1}
+
+    def test_iter(self):
+        class Iterable(object):
+            def __init__(self):
+                self.counter = 0
+            
+            def __iter__(self):
+                return self
+
+            def next(self):
+                if self.counter == 5:
+                    raise StopIteration
+                self.counter += 1
+                return self.counter - 1
+
+        def f():
+            i = Iterable()
+            s = 0
+            for elem in i:
+                s += elem
+            return s
+
+        assert self.interpret(f, []) == f()
 
 
 class TestOOtype(BaseTestRclass, OORtypeMixin):
