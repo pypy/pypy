@@ -587,6 +587,7 @@ class AbstractLLCPU(AbstractCPU):
             if size == itemsize:
                 items = rffi.cast(rffi.CArrayPtr(TYPE), items)
                 items[0] = rffi.cast(TYPE, newvalue)
+                break
 
     def bh_raw_store_f(self, addr, offset, descr, newvalue):
         items = rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), addr + offset)
