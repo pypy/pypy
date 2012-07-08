@@ -164,10 +164,13 @@ class JitHookInterfaceTests(object):
 
         def main():
             loop(30)
-            assert jit_hooks.stats_get_counter_value(Counters.TOTAL_COMPILED_LOOPS) == 1
-            assert jit_hooks.stats_get_counter_value(Counters.TOTAL_COMPILED_BRIDGES) == 1
-            assert jit_hooks.stats_get_counter_value(Counters.TRACING) == 2
-            assert jit_hooks.stats_get_times_value(Counters.TRACING) >= 0
+            assert jit_hooks.stats_get_counter_value(None,
+                                           Counters.TOTAL_COMPILED_LOOPS) == 1
+            assert jit_hooks.stats_get_counter_value(None,
+                                           Counters.TOTAL_COMPILED_BRIDGES) == 1
+            assert jit_hooks.stats_get_counter_value(None,
+                                                     Counters.TRACING) == 2
+            assert jit_hooks.stats_get_times_value(None, Counters.TRACING) >= 0
 
         self.meta_interp(main, [], ProfilerClass=Profiler)
 
@@ -188,10 +191,9 @@ class LLJitHookInterfaceTests(JitHookInterfaceTests):
             return s
 
         def main(b):
-            stats = jit_hooks.get_stats()
-            jit_hooks.stats_set_debug(stats, b)
+            jit_hooks.stats_set_debug(None, b)
             loop(30)
-            l = jit_hooks.stats_get_loop_run_times(stats)
+            l = jit_hooks.stats_get_loop_run_times(None)
             if b:
                 assert len(l) == 4
                 # completely specific test that would fail each time
