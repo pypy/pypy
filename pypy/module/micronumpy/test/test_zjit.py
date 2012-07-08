@@ -483,21 +483,18 @@ class TestNumpyJIt(LLJitMixin):
     def define_count_nonzero():
         return """
         a = [[0, 2, 3, 4], [5, 6, 0, 8], [9, 10, 11, 0]]
-        c = count_nonzero(a)
+        count_nonzero(a) 
         """
 
     def test_count_nonzero(self):
         result = self.run("count_nonzero")
         assert result == 9
-        self.check_simple_loop({'arraylen_gc': 9,
-                                'float_add': 1,
-                                'float_mul': 1,
-                                'getinteriorfield_raw': 3,
-                                'guard_false': 3,
-                                'guard_true': 3,
-                                'int_add': 6,
-                                'int_lt': 6,
-                                'int_sub': 3,
-                                'jump': 1,
-                                'setinteriorfield_raw': 1})
+        self.check_simple_loop({'setfield_gc': 3, 
+                                'getinteriorfield_raw': 1, 
+                                'guard_false': 1, 
+                                'jump': 1, 
+                                'int_ge': 1, 
+                                'new_with_vtable': 1, 
+                                'int_add': 2, 
+                                'float_ne': 1})
 
