@@ -1166,6 +1166,39 @@ class TestLLtype(BaseTestRclass, LLRtypeMixin):
 
         assert self.interpret(f, []) == f()
 
+    def test_iter_2_kinds(self):
+        class BaseIterable(object):
+            def __init__(self):
+                self.counter = 0
+            
+            def __iter__(self):
+                return self
+
+            def next(self):
+                if self.counter >= 5:
+                    raise StopIteration
+                self.counter += self.step
+                return self.counter - 1
+        
+        class Iterable(BaseIterable):
+            step = 1
+
+        class OtherIter(BaseIterable):
+            step = 2
+
+        def f(k):
+            if k:
+                i = Iterable()
+            else:
+                i = OtherIter()
+            s = 0
+            for elem in i:
+                s += elem
+            return s
+
+        assert self.interpret(f, [True]) == f(True)
+        assert self.interpret(f, [False]) == f(False)
+
 
 class TestOOtype(BaseTestRclass, OORtypeMixin):
 
