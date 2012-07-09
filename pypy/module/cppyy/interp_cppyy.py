@@ -460,6 +460,16 @@ class W_CPPScope(Wrappable):
                 capi.c_method_result_type(self, idx))
             cppmethod = self._make_cppfunction(pyname, idx)
             methods_temp.setdefault(pyname, []).append(cppmethod)
+        # the following covers the case where the only kind of operator[](idx)
+        # returns are the ones that produce non-const references; these can be
+        # used for __getitem__ just as much as for __setitem__, though
+        if not "__getitem__" in methods_temp:
+            try:
+                for m in methods_temp["__setitem__"]:
+                    cppmethod = self._make_cppfunction("__getitem__", m.index)
+                    methods_temp.setdefault("__getitem__", []).append(cppmethod)
+            except KeyError:
+                pass          # just means there's no __setitem__ either
         for pyname, methods in methods_temp.iteritems():
             overload = W_CPPOverload(self.space, self, methods[:])
             self.methods[pyname] = overload

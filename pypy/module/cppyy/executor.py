@@ -390,7 +390,7 @@ def get_executor(space, name):
         pass
 
     compound = helper.compound(name)
-    clean_name = helper.clean_type(name)
+    clean_name = capi.c_resolve_name(helper.clean_type(name))
 
     #   1a) clean lookup
     try:
