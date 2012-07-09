@@ -109,7 +109,10 @@ W_CPPLibrary.typedef.acceptable_as_base_class = True
 
 
 class CPPMethod(object):
-    """ A concrete function after overloading has been resolved """
+    """Dispatcher of methods. Checks the arguments, find the corresponding FFI
+    function if available, makes the call, and returns the wrapped result. It
+    also takes care of offset casting and recycling of known objects through
+    the memory_regulator."""
     _immutable_ = True
     
     def __init__(self, space, containing_scope, method_index, arg_defs, args_required):
@@ -255,6 +258,9 @@ class CPPMethod(object):
 
 
 class CPPFunction(CPPMethod):
+    """Global (namespaced) function dispatcher. For now, the base class has
+    all the needed functionality, by allowing the C++ this pointer to be null
+    in the call. An optimization is expected there, however."""
     _immutable_ = True
 
     def __repr__(self):
@@ -262,6 +268,9 @@ class CPPFunction(CPPMethod):
 
 
 class CPPConstructor(CPPMethod):
+    """Method dispatcher that constructs new objects. In addition to the call,
+    it allocates memory for the newly constructed object and sets ownership
+    to Python."""
     _immutable_ = True
 
     def call(self, cppthis, args_w):
@@ -279,7 +288,27 @@ class CPPConstructor(CPPMethod):
         return "CPPConstructor: %s" % self.signature()
 
 
+class CPPSetItem(CPPMethod):
+    """Method dispatcher specific to Python's __setitem__ mapped onto C++'s
+    operator[](int). The former function takes an extra argument to assign to
+    the return type of the latter."""
+    _immutable_ = True
+
+    def call(self, cppthis, args_w):
+        end = len(args_w)-1
+        if 0 <= end:
+            w_item = args_w[end]
+            args_w = args_w[:end]
+            if self.converters is None:
+                self._setup(cppthis)
+            self.executor.set_item(self.space, w_item) # TODO: what about threads?
+        CPPMethod.call(self, cppthis, args_w)
+
+
 class W_CPPOverload(Wrappable):
+    """Dispatcher that is actually available at the app-level: it is a
+    collection of (possibly) overloaded methods or functions. It calls these
+    in order and deals with error handling and reporting."""
     _immutable_ = True
 
     def __init__(self, space, containing_scope, functions):
@@ -429,7 +458,7 @@ class W_CPPScope(Wrappable):
                 capi.c_method_name(self, idx),
                 capi.c_method_num_args(self, idx),
                 capi.c_method_result_type(self, idx))
-            cppmethod = self._make_cppfunction(idx)
+            cppmethod = self._make_cppfunction(pyname, idx)
             methods_temp.setdefault(pyname, []).append(cppmethod)
         for pyname, methods in methods_temp.iteritems():
             overload = W_CPPOverload(self.space, self, methods[:])
@@ -487,7 +516,7 @@ class W_CPPNamespace(W_CPPScope):
     _immutable_ = True
     kind = "namespace"
 
-    def _make_cppfunction(self, index):
+    def _make_cppfunction(self, pyname, index):
         num_args = capi.c_method_num_args(self, index)
         args_required = capi.c_method_req_args(self, index)
         arg_defs = []
@@ -518,7 +547,7 @@ class W_CPPNamespace(W_CPPScope):
         meth_idx = capi.c_method_index_from_name(self, meth_name)
         if meth_idx == -1:
             raise self.missing_attribute_error(meth_name)
-        cppfunction = self._make_cppfunction(meth_idx)
+        cppfunction = self._make_cppfunction(meth_name, meth_idx)
         overload = W_CPPOverload(self.space, self, [cppfunction])
         return overload
 
@@ -569,7 +598,7 @@ class W_CPPClass(W_CPPScope):
     _immutable_ = True
     kind = "class"
 
-    def _make_cppfunction(self, index):
+    def _make_cppfunction(self, pyname, index):
         num_args = capi.c_method_num_args(self, index)
         args_required = capi.c_method_req_args(self, index)
         arg_defs = []
@@ -581,6 +610,8 @@ class W_CPPClass(W_CPPScope):
             cls = CPPConstructor
         elif capi.c_is_staticmethod(self, index):
             cls = CPPFunction
+        elif pyname == "__setitem__":
+            cls = CPPSetItem
         else:
             cls = CPPMethod
         return cls(self.space, self, index, arg_defs, args_required)
@@ -718,7 +749,7 @@ class W_CPPInstance(Wrappable):
         meth_idx = capi.c_get_global_operator(self.cppclass, other.cppclass, "==")
         if meth_idx != -1:
             gbl = scope_byname(self.space, "")
-            f = gbl._make_cppfunction(meth_idx)
+            f = gbl._make_cppfunction("operator==", meth_idx)
             ol = W_CPPOverload(self.space, scope_byname(self.space, ""), [f])
             # TODO: cache this operator (currently cached by JIT in capi/__init__.py)
             return ol.call(self, [self, w_other])

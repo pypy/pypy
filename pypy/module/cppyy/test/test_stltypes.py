@@ -51,9 +51,9 @@ class AppTestSTLVECTOR:
 
         #-----
         for i in range(self.N):
-          #  v[i] = i
-          #  assert v[i] == i
-          #  assert v.at(i) == i
+            v[i] = i
+            assert v[i] == i
+            assert v.at(i) == i
             pass
 
         assert v.size() == self.N

@@ -202,6 +202,32 @@ class ConstIntRefExecutor(FunctionExecutor):
         result = libffifunc.call(argchain, rffi.INTP)
         return space.wrap(result[0])
 
+class IntRefExecutor(FunctionExecutor):
+    _immutable_ = True
+    libffitype = libffi.types.pointer
+
+    def __init__(self, space, extra):
+        FunctionExecutor.__init__(self, space, extra)
+        self.do_assign = False
+        self.item = rffi.cast(rffi.INT, 0)
+
+    def set_item(self, space, w_item):
+        self.item = rffi.cast(rffi.INT, space.c_int_w(w_item))
+        self.do_assign = True
+
+    def _wrap_result(self, space, intptr):
+        if self.do_assign:
+            intptr[0] = self.item
+        return space.wrap(intptr[0])    # all paths, for rtyper
+
+    def execute(self, space, cppmethod, cppthis, num_args, args):
+        result = rffi.cast(rffi.INTP, capi.c_call_r(cppmethod, cppthis, num_args, args))
+        return self._wrap_result(space, result)
+
+    def execute_libffi(self, space, libffifunc, argchain):
+        result = libffifunc.call(argchain, rffi.INTP)
+        return self._wrap_result(space, result)
+
 class ConstLongRefExecutor(ConstIntRefExecutor):
     _immutable_ = True
     libffitype = libffi.types.pointer
@@ -412,7 +438,7 @@ _executors["short"]               = ShortExecutor
 _executors["unsigned short"]      = ShortExecutor
 _executors["int"]                 = IntExecutor
 _executors["const int&"]          = ConstIntRefExecutor
-_executors["int&"]                = ConstIntRefExecutor
+_executors["int&"]                = IntRefExecutor
 _executors["unsigned"]            = UnsignedIntExecutor
 _executors["long"]                = LongExecutor
 _executors["unsigned long"]       = UnsignedLongExecutor
