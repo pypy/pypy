@@ -62,23 +62,25 @@ def getscript_in_dir(source):
     # return relative path for testing purposes 
     return py.path.local().bestrelpath(pdir)
 
-demo_script = getscript("""
-    print('hello')
-    print('Name:', __name__)
-    print('File:', __file__)
-    import sys
-    print('Exec:', sys.executable)
-    print('Argv:', sys.argv)
-    print('goodbye')
-    myvalue = 6*7
+def pytest_funcarg__demo_script(request):
+    return getscript("""
+        print('hello')
+        print('Name:', __name__)
+        print('File:', __file__)
+        import sys
+        print('Exec:', sys.executable)
+        print('Argv:', sys.argv)
+        print('goodbye')
+        myvalue = 6*7
     """)
 
-crashing_demo_script = getscript("""
-    print('Hello2')
-    myvalue2 = 11
-    ooups
-    myvalue2 = 22
-    print('Goodbye2')  # should not be reached
+def pytest_funcarg__crashing_demo_script(request):
+    return getscript("""
+        print('Hello2')
+        myvalue2 = 11
+        ooups
+        myvalue2 = 22
+        print('Goodbye2')  # should not be reached
     """)
 
 
@@ -283,7 +285,7 @@ class TestInteraction:
         child = self.spawn(['-h'])
         child.expect(r'usage: .*app_main.py \[options\]')
 
-    def test_run_script(self):
+    def test_run_script(self, demo_script):
         child = self.spawn([demo_script])
         idx = child.expect(['hello', 'Python ', '>>> '])
         assert idx == 0   # no banner or prompt
@@ -293,7 +295,7 @@ class TestInteraction:
         child.expect(re.escape('Argv: ' + repr([demo_script])))
         child.expect('goodbye')
 
-    def test_run_script_with_args(self):
+    def test_run_script_with_args(self, demo_script):
         argv = [demo_script, 'hello', 'world']
         child = self.spawn(argv)
         child.expect(re.escape('Argv: ' + repr(argv)))
@@ -305,7 +307,7 @@ class TestInteraction:
         child = self.spawn(['xxx-no-such-file-xxx'])
         child.expect(re.escape(msg))
 
-    def test_option_i(self):
+    def test_option_i(self, demo_script):
         argv = [demo_script, 'foo', 'bar']
         child = self.spawn(['-i'] + argv)
         idx = child.expect(['hello', re.escape(banner)])
@@ -320,7 +322,7 @@ class TestInteraction:
         child.sendline('__name__')
         child.expect('__main__')
 
-    def test_option_i_crashing(self):
+    def test_option_i_crashing(self, crashing_demo_script):
         argv = [crashing_demo_script, 'foo', 'bar']
         child = self.spawn(['-i'] + argv)
         idx = child.expect(['Hello2', re.escape(banner)])
@@ -377,7 +379,7 @@ class TestInteraction:
             sys.stdin = old
         child.expect('foobye')
 
-    def test_pythonstartup(self, monkeypatch):
+    def test_pythonstartup(self, monkeypatch, demo_script, crashing_demo_script):
         monkeypatch.setenv('PYTHONPATH', None)
         monkeypatch.setenv('PYTHONSTARTUP', crashing_demo_script)
         child = self.spawn([])
@@ -397,7 +399,7 @@ class TestInteraction:
         child.expect('Traceback')
         child.expect('NameError')
 
-    def test_ignore_python_startup(self):
+    def test_ignore_python_startup(self, crashing_demo_script):
         old = os.environ.get('PYTHONSTARTUP', '')
         try:
             os.environ['PYTHONSTARTUP'] = crashing_demo_script
@@ -584,7 +586,7 @@ class TestNonInteractive:
             data, status = self.run_with_status_code(*args, **kwargs)
         return data
 
-    def test_script_on_stdin(self):
+    def test_script_on_stdin(self, demo_script):
         for extraargs, expected_argv in [
             ('',              ['']),
             ('-',             ['-']),
@@ -598,13 +600,13 @@ class TestNonInteractive:
             assert ("Argv: " + repr(expected_argv)) in data
             assert "goodbye" in data
 
-    def test_run_crashing_script(self):
+    def test_run_crashing_script(self, crashing_demo_script):
         data = self.run('"%s"' % (crashing_demo_script,))
         assert 'Hello2' in data
         assert 'NameError' in data
         assert 'Goodbye2' not in data
 
-    def test_crashing_script_on_stdin(self):
+    def test_crashing_script_on_stdin(self, crashing_demo_script):
         data = self.run(' < "%s"' % (crashing_demo_script,))
         assert 'Hello2' in data
         assert 'NameError' in data
@@ -632,7 +634,7 @@ class TestNonInteractive:
         data = self.run('-c "print(6**5)"')
         assert '7776' in data
 
-    def test_no_pythonstartup(self, monkeypatch):
+    def test_no_pythonstartup(self, monkeypatch, demo_script, crashing_demo_script):
         monkeypatch.setenv('PYTHONSTARTUP', crashing_demo_script)
         data = self.run('"%s"' % (demo_script,))
         assert 'Hello2' not in data
