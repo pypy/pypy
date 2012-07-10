@@ -1302,6 +1302,11 @@ def test_owning_repr():
     p = newp(BArray, 7)
     assert repr(p) == "<cdata 'int[]' owning 28 bytes>"
     assert sizeof(p) == 28
+    #
+    BArray = new_array_type(new_pointer_type(BInt), 7)   # int[7]
+    p = newp(BArray, None)
+    assert repr(p) == "<cdata 'int[7]' owning 28 bytes>"
+    assert sizeof(p) == 28
 
 def test_cannot_dereference_void():
     BVoidP = new_pointer_type(new_void_type())

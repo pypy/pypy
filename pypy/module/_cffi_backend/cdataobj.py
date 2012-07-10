@@ -220,11 +220,14 @@ class W_CDataApplevelOwning(W_CData):
     _attrs_ = ['_lifeline_']    # for weakrefs
     _immutable_ = True
 
-    def _owning_num_bytes(self):
-        return self.ctype.size
-
     def _repr_extra(self):
-        return 'owning %d bytes' % self._owning_num_bytes()
+        from pypy.module._cffi_backend.ctypeptr import W_CTypePointer
+        ctype = self.ctype
+        if isinstance(ctype, W_CTypePointer):
+            num_bytes = ctype.ctitem.size
+        else:
+            num_bytes = self._sizeof()
+        return 'owning %d bytes' % num_bytes
 
 
 class W_CDataNewOwning(W_CDataApplevelOwning):
@@ -258,9 +261,6 @@ class W_CDataNewOwningLength(W_CDataNewOwning):
         assert isinstance(ctype, ctypearray.W_CTypeArray)
         return self.length * ctype.ctitem.size
 
-    def _owning_num_bytes(self):
-        return self._sizeof()
-
     def get_array_length(self):
         return self.length
 
@@ -275,12 +275,6 @@ class W_CDataPtrToStructOrUnion(W_CDataApplevelOwning):
     def __init__(self, space, cdata, ctype, structobj):
         W_CDataApplevelOwning.__init__(self, space, cdata, ctype)
         self.structobj = structobj
-
-    def _owning_num_bytes(self):
-        from pypy.module._cffi_backend.ctypeptr import W_CTypePtrBase
-        ctype = self.ctype
-        assert isinstance(ctype, W_CTypePtrBase)
-        return ctype.ctitem.size
 
     def _do_getitem(self, i):
         return self.structobj
