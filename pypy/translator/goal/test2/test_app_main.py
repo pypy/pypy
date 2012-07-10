@@ -91,7 +91,7 @@ def setpythonpath():
         yield
     finally:
         if old_pythonpath is None:
-            os.delenv('PYTHONPATH')
+            os.unsetenv('PYTHONPATH')
         else:
             os.putenv('PYTHONPATH', old_pythonpath)
 
