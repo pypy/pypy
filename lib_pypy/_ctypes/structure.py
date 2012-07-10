@@ -4,8 +4,9 @@ from _ctypes.basics import _CData, _CDataMeta, keepalive_key,\
      store_reference, ensure_objects, CArgObject
 import inspect
 
-def names_and_fields(self, _fields_, superclass, anonymous_fields=None):
+def names_and_fields(self, superclass, anonymous_fields=None):
     # _fields_: list of (name, ctype, [optional_bitfield])
+    _fields_ = self._fields_
     if isinstance(_fields_, tuple):
         _fields_ = list(_fields_)
     for f in _fields_:
@@ -131,11 +132,11 @@ def struct_setattr(self, name, value):
             raise AttributeError("_fields_ is final")
         if self in [f[1] for f in value]:
             raise AttributeError("Structure or union cannot contain itself")
+        _CDataMeta.__setattr__(self, '_fields_', value)
         names_and_fields(
             self,
-            value, self.__bases__[0],
+            self.__bases__[0],
             self.__dict__.get('_anonymous_', None))
-        _CDataMeta.__setattr__(self, '_fields_', value)
         return
     _CDataMeta.__setattr__(self, name, value)
 
@@ -154,9 +155,10 @@ class StructOrUnionMeta(_CDataMeta):
             for item in typedict.get('_anonymous_', []):
                 if item not in dict(typedict['_fields_']):
                     raise AttributeError("Anonymous field not found")
+            setattr(res, '_fields_', typedict['_fields_'])
             names_and_fields(
                 res,
-                typedict['_fields_'], cls[0],
+                cls[0],
                 typedict.get('_anonymous_', None))
 
         return res
