@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdarg.h>
+#include <errno.h>
 
 static char _testfunc0(char a, char b)
 {
@@ -23,6 +24,7 @@ static float _testfunc4(float a, double b)
 }
 static void _testfunc5(void)
 {
+    errno = errno + 15;
 }
 static int *_testfunc6(int *x)
 {

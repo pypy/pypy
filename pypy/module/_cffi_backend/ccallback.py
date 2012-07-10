@@ -9,6 +9,7 @@ from pypy.rlib import clibffi, rweakref, rgc
 
 from pypy.module._cffi_backend.cdataobj import W_CData, W_CDataApplevelOwning
 from pypy.module._cffi_backend.ctypefunc import SIZE_OF_FFI_ARG
+from pypy.module._cffi_backend import cerrno
 
 # ____________________________________________________________
 
@@ -108,6 +109,7 @@ def invoke_callback(ffi_cif, ll_res, ll_args, ll_userdata):
     ll_userdata - a special structure which holds necessary information
                   (what the real callback is for example), casted to VOIDP
     """
+    cerrno.save_errno()
     ll_res = rffi.cast(rffi.CCHARP, ll_res)
     unique_id = rffi.cast(lltype.Signed, ll_userdata)
     callback = global_callback_mapping.get(unique_id)
@@ -141,3 +143,4 @@ def invoke_callback(ffi_cif, ll_res, ll_args, ll_userdata):
         except OSError:
             pass
         callback.write_error_return_value(ll_res)
+    cerrno.restore_errno()

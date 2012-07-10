@@ -13,7 +13,7 @@ from pypy.module._cffi_backend.ctypeptr import W_CTypePtrBase
 from pypy.module._cffi_backend.ctypevoid import W_CTypeVoid
 from pypy.module._cffi_backend.ctypestruct import W_CTypeStructOrUnion
 from pypy.module._cffi_backend import ctypeprim, ctypestruct, ctypearray
-from pypy.module._cffi_backend import cdataobj
+from pypy.module._cffi_backend import cdataobj, cerrno
 
 
 class W_CTypeFunc(W_CTypePtrBase):
@@ -129,10 +129,12 @@ class W_CTypeFunc(W_CTypePtrBase):
                 argtype.convert_from_object(data, w_obj)
             resultdata = rffi.ptradd(buffer, cif_descr.exchange_result)
 
+            cerrno.restore_errno()
             clibffi.c_ffi_call(cif_descr.cif,
                                rffi.cast(rffi.VOIDP, funcaddr),
                                resultdata,
                                buffer_array)
+            cerrno.save_errno()
 
             if isinstance(self.ctitem, W_CTypeVoid):
                 w_res = space.w_None
