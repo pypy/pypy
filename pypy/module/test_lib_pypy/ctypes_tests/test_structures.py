@@ -433,15 +433,6 @@ class TestStructure(BaseCTypesTestChecker):
         obj = X()
         assert isinstance(obj.items, Array)
 
-    def test_big_endian(self):
-        py.test.skip("xxx: reversed-endian support")
-        class S(BigEndianStructure):
-            _fields_ = [('x', c_short)]
-        obj = S()
-        obj.x = 0x1234
-        assert cast(pointer(obj), POINTER(c_ubyte))[0] == 0x12
-        assert cast(pointer(obj), POINTER(c_ubyte))[1] == 0x34
-
 class TestPointerMember(BaseCTypesTestChecker):
 
     def test_1(self):
