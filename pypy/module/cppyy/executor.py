@@ -68,9 +68,25 @@ class VoidExecutor(FunctionExecutor):
         return space.w_None
 
 
+class NumericExecutorMixin(object):
+    _mixin_ = True
+    _immutable_ = True
+
+    def _wrap_result(self, space, result):
+        return space.wrap(rffi.cast(self.c_type, result))
+
+    def execute(self, space, cppmethod, cppthis, num_args, args):
+        result = self.c_stubcall(cppmethod, cppthis, num_args, args)
+        return self._wrap_result(space, result)
+
+    def execute_libffi(self, space, libffifunc, argchain):
+        result = libffifunc.call(argchain, self.c_type)
+        return space.wrap(result)
+
+
 class BoolExecutor(FunctionExecutor):
     _immutable_ = True
-    libffitype = libffi.types.schar
+    libffitype  = libffi.types.schar
 
     def execute(self, space, cppmethod, cppthis, num_args, args):
         result = capi.c_call_b(cppmethod, cppthis, num_args, args)
@@ -79,112 +95,6 @@ class BoolExecutor(FunctionExecutor):
     def execute_libffi(self, space, libffifunc, argchain):
         result = libffifunc.call(argchain, rffi.CHAR)
         return space.wrap(bool(ord(result)))
-
-class CharExecutor(FunctionExecutor):
-    _immutable_ = True
-    libffitype = libffi.types.schar
-
-    def execute(self, space, cppmethod, cppthis, num_args, args):
-        result = capi.c_call_c(cppmethod, cppthis, num_args, args)
-        return space.wrap(result)
-
-    def execute_libffi(self, space, libffifunc, argchain):
-        result = libffifunc.call(argchain, rffi.CHAR)
-        return space.wrap(result)
-
-class ShortExecutor(FunctionExecutor):
-    _immutable_ = True
-    libffitype = libffi.types.sshort
-
-    def execute(self, space, cppmethod, cppthis, num_args, args):
-        result = capi.c_call_h(cppmethod, cppthis, num_args, args)
-        return space.wrap(result)
-
-    def execute_libffi(self, space, libffifunc, argchain):
-        result = libffifunc.call(argchain, rffi.SHORT)
-        return space.wrap(result)
-
-class IntExecutor(FunctionExecutor):
-    _immutable_ = True
-    libffitype = libffi.types.sint
-
-    def _wrap_result(self, space, result):
-        return space.wrap(result)
-
-    def execute(self, space, cppmethod, cppthis, num_args, args):
-        result = capi.c_call_i(cppmethod, cppthis, num_args, args)
-        return self._wrap_result(space, result)
-
-    def execute_libffi(self, space, libffifunc, argchain):
-        result = libffifunc.call(argchain, rffi.INT)
-        return space.wrap(result)
-
-class UnsignedIntExecutor(FunctionExecutor):
-    _immutable_ = True
-    libffitype = libffi.types.uint
-
-    def _wrap_result(self, space, result):
-        return space.wrap(rffi.cast(rffi.UINT, result))
-
-    def execute(self, space, cppmethod, cppthis, num_args, args):
-        result = capi.c_call_l(cppmethod, cppthis, num_args, args)
-        return self._wrap_result(space, result)
-
-    def execute_libffi(self, space, libffifunc, argchain):
-        result = libffifunc.call(argchain, rffi.UINT)
-        return space.wrap(result)
-
-class LongExecutor(FunctionExecutor):
-    _immutable_ = True
-    libffitype = libffi.types.slong
-
-    def _wrap_result(self, space, result):
-        return space.wrap(result)
-
-    def execute(self, space, cppmethod, cppthis, num_args, args):
-        result = capi.c_call_l(cppmethod, cppthis, num_args, args)
-        return self._wrap_result(space, result)
-
-    def execute_libffi(self, space, libffifunc, argchain):
-        result = libffifunc.call(argchain, rffi.LONG)
-        return space.wrap(result)
-
-class UnsignedLongExecutor(LongExecutor):
-    _immutable_ = True
-    libffitype = libffi.types.ulong
-
-    def _wrap_result(self, space, result):
-        return space.wrap(rffi.cast(rffi.ULONG, result))
-
-    def execute_libffi(self, space, libffifunc, argchain):
-        result = libffifunc.call(argchain, rffi.ULONG)
-        return space.wrap(result)
-
-class LongLongExecutor(FunctionExecutor):
-    _immutable_ = True
-    libffitype = libffi.types.sint64
-
-    def _wrap_result(self, space, result):
-        return space.wrap(result)
-
-    def execute(self, space, cppmethod, cppthis, num_args, args):
-        result = capi.c_call_ll(cppmethod, cppthis, num_args, args)
-        return self._wrap_result(space, result)
-
-    def execute_libffi(self, space, libffifunc, argchain):
-        result = libffifunc.call(argchain, rffi.LONGLONG)
-        return space.wrap(result)
-
-class UnsignedLongLongExecutor(LongLongExecutor):
-    _immutable_ = True
-    libffitype = libffi.types.uint64
-
-    def _wrap_result(self, space, result):
-        return space.wrap(rffi.cast(rffi.ULONGLONG, result))
-
-    def execute_libffi(self, space, libffifunc, argchain):
-        result = libffifunc.call(argchain, rffi.ULONGLONG)
-        return space.wrap(result)
 
 class ConstIntRefExecutor(FunctionExecutor):
     _immutable_ = True
@@ -252,17 +162,31 @@ class FloatExecutor(FunctionExecutor):
         result = libffifunc.call(argchain, rffi.FLOAT)
         return space.wrap(float(result))
 
-class DoubleExecutor(FunctionExecutor):
+class DoubleRefExecutor(FunctionExecutor):
     _immutable_ = True
-    libffitype = libffi.types.double
+    libffitype = libffi.types.pointer
+
+    def __init__(self, space, extra):
+        FunctionExecutor.__init__(self, space, extra)
+        self.do_assign = False
+        self.item = rffi.cast(rffi.DOUBLE, 0)
+
+    def set_item(self, space, w_item):
+        self.item = rffi.cast(rffi.DOUBLE, space.float_w(w_item))
+        self.do_assign = True
+
+    def _wrap_result(self, space, dptr):
+        if self.do_assign:
+            dptr[0] = self.item
+        return space.wrap(dptr[0])      # all paths, for rtyper
 
     def execute(self, space, cppmethod, cppthis, num_args, args):
-        result = capi.c_call_d(cppmethod, cppthis, num_args, args)
-        return space.wrap(result)
+        result = rffi.cast(rffi.DOUBLEP, capi.c_call_r(cppmethod, cppthis, num_args, args))
+        return self._wrap_result(space, result)
 
     def execute_libffi(self, space, libffifunc, argchain):
-        result = libffifunc.call(argchain, rffi.DOUBLE)
-        return space.wrap(result)
+        result = libffifunc.call(argchain, rffi.DOUBLEP)
+        return self._wrap_result(space, result)
 
 
 class CStringExecutor(FunctionExecutor):
@@ -420,7 +344,7 @@ def get_executor(space, name):
         elif compound == "**" or compound == "*&":
             return InstancePtrPtrExecutor(space, cppclass)
     elif capi.c_is_enum(clean_name):
-        return UnsignedIntExecutor(space, None)
+        return _executors['unsigned int'](space, None)
 
     # 4) additional special cases
     # ... none for now
@@ -432,20 +356,11 @@ def get_executor(space, name):
 _executors["void"]                = VoidExecutor
 _executors["void*"]               = PtrTypeExecutor
 _executors["bool"]                = BoolExecutor
-_executors["char"]                = CharExecutor
 _executors["const char*"]         = CStringExecutor
-_executors["short"]               = ShortExecutor
-_executors["unsigned short"]      = ShortExecutor
-_executors["int"]                 = IntExecutor
 _executors["const int&"]          = ConstIntRefExecutor
 _executors["int&"]                = IntRefExecutor
-_executors["unsigned"]            = UnsignedIntExecutor
-_executors["long"]                = LongExecutor
-_executors["unsigned long"]       = UnsignedLongExecutor
-_executors["long long"]           = LongLongExecutor
-_executors["unsigned long long"]  = UnsignedLongLongExecutor
 _executors["float"]               = FloatExecutor
-_executors["double"]              = DoubleExecutor
+_executors["double&"]             = DoubleRefExecutor
 
 _executors["constructor"]         = ConstructorExecutor
 
@@ -454,24 +369,37 @@ _executors["std::basic_string<char>"]        = StdStringExecutor
 
 _executors["PyObject*"]           = PyObjectExecutor
 
+# add basic (builtin) executors
+def _build_basic_executors():
+    "NOT_RPYTHON"
+    type_info = (
+        (rffi.CHAR,       libffi.types.schar,   capi.c_call_c,   ("char", "unsigned char")),
+        (rffi.SHORT,      libffi.types.sshort,  capi.c_call_h,   ("short", "short int", "unsigned short", "unsigned short int")),
+        (rffi.INT,        libffi.types.sint,    capi.c_call_i,   ("int",)),
+        (rffi.UINT,       libffi.types.uint,    capi.c_call_l,   ("unsigned", "unsigned int")),
+        (rffi.LONG,       libffi.types.slong,   capi.c_call_l,   ("long", "long int")),
+        (rffi.ULONG,      libffi.types.ulong,   capi.c_call_l,   ("unsigned long", "unsigned long int")),
+        (rffi.LONGLONG,   libffi.types.sint64,  capi.c_call_ll,  ("long long", "long long int")),
+        (rffi.ULONGLONG,  libffi.types.uint64,  capi.c_call_ll,  ("unsigned long long", "unsigned long long int")),
+        (rffi.DOUBLE,     libffi.types.double,  capi.c_call_d,   ("double",))
+    )
+
+    for t_rffi, t_ffi, stub, names in type_info:
+        class BasicExecutor(NumericExecutorMixin, FunctionExecutor):
+            _immutable_ = True
+            libffitype  = t_ffi
+            c_type      = t_rffi
+            c_stubcall  = staticmethod(stub)
+        for name in names:
+            _executors[name] = BasicExecutor
+_build_basic_executors()
+
 # add the set of aliased names
 def _add_aliased_executors():
     "NOT_RPYTHON"
     alias_info = (
-        ("char",                            ("unsigned char",)),
-
-        ("short",                           ("short int",)),
-        ("unsigned short",                  ("unsigned short int",)),
-        ("unsigned",                        ("unsigned int",)),
-        ("long",                            ("long int",)),
-        ("unsigned long",                   ("unsigned long int",)),
-        ("long long",                       ("long long int",)),
-        ("unsigned long long",              ("unsigned long long int",)),
-
         ("const char*",                     ("char*",)),
-
         ("std::basic_string<char>",         ("string",)),
-
         ("PyObject*",                       ("_object*",)),
     )
 

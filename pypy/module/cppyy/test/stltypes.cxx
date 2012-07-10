@@ -14,6 +14,7 @@ template bool operator!=(const std::STLTYPE< TTYPE >::iterator&,                
 
 //- explicit instantiations of used types
 STLTYPES_EXPLICIT_INSTANTIATION(vector, int)
+STLTYPES_EXPLICIT_INSTANTIATION(vector, double)
 STLTYPES_EXPLICIT_INSTANTIATION(vector, just_a_class)
 
 //- class with lots of std::string handling

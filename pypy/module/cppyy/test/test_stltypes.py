@@ -24,8 +24,8 @@ class AppTestSTLVECTOR:
             import cppyy
             return cppyy.load_reflection_info(%r)""" % (test_dct, ))
 
-    def test01_builtin_type_vector_type(self):
-        """Test access to an std::vector<int>"""
+    def test01_builtin_type_vector_types(self):
+        """Test access to std::vector<int>/std::vector<double>"""
 
         import cppyy
 
@@ -34,46 +34,54 @@ class AppTestSTLVECTOR:
 
         assert callable(cppyy.gbl.std.vector)
 
-        tv1 = getattr(cppyy.gbl.std, 'vector<int>')
-        tv2 = cppyy.gbl.std.vector('int')
+        tv1i = getattr(cppyy.gbl.std, 'vector<int>')
+        tv2i = cppyy.gbl.std.vector(int)
+        assert tv1i is tv2i
+        assert cppyy.gbl.std.vector(int).iterator is cppyy.gbl.std.vector('int').iterator
 
-        assert tv1 is tv2
-
-        assert cppyy.gbl.std.vector(int).iterator is cppyy.gbl.std.vector(int).iterator
-
-        #-----
-        v = tv1(self.N)
-        assert v.begin().__eq__(v.begin())
-        assert v.begin() == v.begin()
-        assert v.end() == v.end()
-        assert v.begin() != v.end()
-        assert v.end() != v.begin()
+        tv1d = getattr(cppyy.gbl.std, 'vector<double>')
+        tv2d = cppyy.gbl.std.vector('double')
+        assert tv1d is tv2d
+        assert tv1d.iterator is cppyy.gbl.std.vector('double').iterator
 
         #-----
-        for i in range(self.N):
-            v[i] = i
-            assert v[i] == i
-            assert v.at(i) == i
-            pass
-
-        assert v.size() == self.N
-        assert len(v) == self.N
-        v.destruct()
+        vi = tv1i(self.N)
+        vd = tv1d(); vd += range(self.N)     # default args from Reflex are useless :/
+        def test_v(v):
+            assert v.begin().__eq__(v.begin())
+            assert v.begin() == v.begin()
+            assert v.end() == v.end()
+            assert v.begin() != v.end()
+            assert v.end() != v.begin()
+        test_v(vi)
+        test_v(vd)
 
         #-----
-        v = tv1()
-        for i in range(self.N):
-            v.push_back(i)
-            assert v.size() == i+1
-            assert v.at(i) == i
-            assert v[i] == i
+        def test_v(v):
+            for i in range(self.N):
+                v[i] = i
+                assert v[i] == i
+                assert v.at(i) == i
 
-        return
+            assert v.size() == self.N
+            assert len(v) == self.N
+        test_v(vi)
+        test_v(vd)
 
-        assert v.size() == self.N
-        assert len(v) == self.N
-        v.destruct()
+        #-----
+        vi = tv1i()
+        vd = tv1d()
+        def test_v(v):
+            for i in range(self.N):
+                v.push_back(i)
+                assert v.size() == i+1
+                assert v.at(i) == i
+                assert v[i] == i
 
+            assert v.size() == self.N
+            assert len(v) == self.N
+        test_v(vi)
+        test_v(vd)
 
     def test02_user_type_vector_type(self):
         """Test access to an std::vector<just_a_class>"""
