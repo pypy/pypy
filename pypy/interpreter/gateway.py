@@ -496,7 +496,12 @@ def build_unwrap_spec(func, argnames, self_type=None):
 
     # apply kw_spec
     for name, spec in kw_spec.items():
-        unwrap_spec[argnames.index(name)] = spec
+        try:
+            unwrap_spec[argnames.index(name)] = spec
+        except ValueError:
+            raise ValueError("unwrap_spec() got a keyword %r but it is not "
+                             "the name of an argument of the following "
+                             "function" % (name,))
 
     return unwrap_spec
 

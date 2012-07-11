@@ -39,7 +39,8 @@ def normalize_calltable(annotator, callfamily):
                                                               row)
             if did_something:
                 assert not callfamily.normalized, "change in call family normalisation"
-                assert nshapes == 1, "XXX call table too complex"
+                if nshapes != 1:
+                    raise_call_table_too_complex_error(callfamily, annotator)
     while True: 
         progress = False
         for shape, table in callfamily.calltables.items():
@@ -49,6 +50,38 @@ def normalize_calltable(annotator, callfamily):
         if not progress:
             return   # done
         assert not callfamily.normalized, "change in call family normalisation"
+
+def raise_call_table_too_complex_error(callfamily, annotator):
+    msg = []
+    items = callfamily.calltables.items()
+    for i, (shape1, table1) in enumerate(items):
+        for shape2, table2 in items[i + 1:]:
+            if shape1 == shape2:
+                continue
+            row1 = table1[0]
+            row2 = table2[0]
+            problematic_function_graphs = set(row1.values()).union(set(row2.values()))
+            pfg = [str(graph) for graph in problematic_function_graphs]
+            pfg.sort()
+            msg.append("the following functions:")
+            msg.append("    %s" % ("\n    ".join(pfg), ))
+            msg.append("are called with inconsistent numbers of arguments")
+            if shape1[0] != shape2[0]:
+                msg.append("sometimes with %s arguments, sometimes with %s" % (shape1[0], shape2[0]))
+            else:
+                pass # XXX better message in this case
+            callers = []
+            msg.append("the callers of these functions are:")
+            for tag, (caller, callee) in annotator.translator.callgraph.iteritems():
+                if callee not in problematic_function_graphs:
+                    continue
+                if str(caller) in callers:
+                    continue
+                callers.append(str(caller))
+            callers.sort()
+            for caller in callers:
+                msg.append("    %s" % (caller, ))
+    raise TyperError("\n".join(msg))
 
 def normalize_calltable_row_signature(annotator, shape, row):
     graphs = row.values()

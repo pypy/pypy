@@ -7,6 +7,7 @@ from pypy.rlib.rarithmetic import r_uint
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rpython.tool import rffi_platform
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
+import sys
 
 
 eci = ExternalCompilationInfo(
@@ -20,14 +21,26 @@ class CConfig:
     _compilation_info_ = eci
 
 
-CConfig.kevent = rffi_platform.Struct("struct kevent", [
-    ("ident", rffi.UINTPTR_T),
-    ("filter", rffi.SHORT),
-    ("flags", rffi.USHORT),
-    ("fflags", rffi.UINT),
-    ("data", rffi.INTPTR_T),
-    ("udata", rffi.VOIDP),
-])
+if "openbsd" in sys.platform:
+    IDENT_UINT = True
+    CConfig.kevent = rffi_platform.Struct("struct kevent", [
+        ("ident", rffi.UINT),
+        ("filter", rffi.SHORT),
+        ("flags", rffi.USHORT),
+        ("fflags", rffi.UINT),
+        ("data", rffi.INT),
+        ("udata", rffi.VOIDP),
+    ])
+else:
+    IDENT_UINT = False
+    CConfig.kevent = rffi_platform.Struct("struct kevent", [
+        ("ident", rffi.UINTPTR_T),
+        ("filter", rffi.SHORT),
+        ("flags", rffi.USHORT),
+        ("fflags", rffi.UINT),
+        ("data", rffi.INTPTR_T),
+        ("udata", rffi.VOIDP),
+    ])
 
 
 CConfig.timespec = rffi_platform.Struct("struct timespec", [
@@ -243,16 +256,24 @@ class W_Kevent(Wrappable):
         self.event.c_udata = rffi.cast(rffi.VOIDP, udata)
 
     def _compare_all_fields(self, other, op):
-        l_ident = self.event.c_ident
-        r_ident = other.event.c_ident
+        if IDENT_UINT:
+            l_ident = rffi.cast(lltype.Unsigned, self.event.c_ident)
+            r_ident = rffi.cast(lltype.Unsigned, other.event.c_ident)
+        else:
+            l_ident = self.event.c_ident
+            r_ident = other.event.c_ident
         l_filter = rffi.cast(lltype.Signed, self.event.c_filter)
         r_filter = rffi.cast(lltype.Signed, other.event.c_filter)
         l_flags = rffi.cast(lltype.Unsigned, self.event.c_flags)
         r_flags = rffi.cast(lltype.Unsigned, other.event.c_flags)
         l_fflags = rffi.cast(lltype.Unsigned, self.event.c_fflags)
         r_fflags = rffi.cast(lltype.Unsigned, other.event.c_fflags)
-        l_data = self.event.c_data
-        r_data = other.event.c_data
+        if IDENT_UINT:
+            l_data = rffi.cast(lltype.Signed, self.event.c_data)
+            r_data = rffi.cast(lltype.Signed, other.event.c_data)
+        else:
+            l_data = self.event.c_data
+            r_data = other.event.c_data
         l_udata = rffi.cast(lltype.Unsigned, self.event.c_udata)
         r_udata = rffi.cast(lltype.Unsigned, other.event.c_udata)
 

@@ -35,7 +35,7 @@ class BadToken(Exception):
     pass
 
 SINGLE_ARG_FUNCTIONS = ["sum", "prod", "max", "min", "all", "any",
-                        "unegative", "flat", "tostring"]
+                        "unegative", "flat", "tostring","count_nonzero"]
 TWO_ARG_FUNCTIONS = ["dot", 'take']
 THREE_ARG_FUNCTIONS = ['where']
 
@@ -445,6 +445,8 @@ class FunctionCall(Node):
             elif self.name == "tostring":
                 arr.descr_tostring(interp.space)
                 w_res = None
+            elif self.name == "count_nonzero":
+                w_res = arr.descr_count_nonzero(interp.space)
             else:
                 assert False # unreachable code
         elif self.name in TWO_ARG_FUNCTIONS:
@@ -478,6 +480,8 @@ class FunctionCall(Node):
             return w_res
         if isinstance(w_res, FloatObject):
             dtype = get_dtype_cache(interp.space).w_float64dtype
+        elif isinstance(w_res, IntObject):
+            dtype = get_dtype_cache(interp.space).w_int64dtype
         elif isinstance(w_res, BoolObject):
             dtype = get_dtype_cache(interp.space).w_booldtype
         elif isinstance(w_res, interp_boxes.W_GenericBox):
