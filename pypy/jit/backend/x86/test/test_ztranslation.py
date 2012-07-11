@@ -182,7 +182,7 @@ class TestTranslationX86(CCompiledMixin):
 
         def main():
             f()
-            ll_times = jit_hooks.stats_get_loop_run_times()
+            ll_times = jit_hooks.stats_get_loop_run_times(None)
             return len(ll_times)
 
         res = self.meta_interp(main, [])
