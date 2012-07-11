@@ -6,6 +6,7 @@ from pypy.rpython.annlowlevel import llhelper, MixLevelHelperAnnotator,\
 from pypy.annotation import model as annmodel
 from pypy.rpython.llinterp import LLException
 from pypy.rpython.test.test_llinterp import get_interpreter, clear_tcache
+from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
 from pypy.objspace.flow.model import SpaceOperation, Variable, Constant
 from pypy.objspace.flow.model import checkgraph, Link, copygraph
 from pypy.rlib.objectmodel import we_are_translated
@@ -221,7 +222,7 @@ class WarmRunnerDesc(object):
         self.rewrite_access_helpers()
         self.codewriter.make_jitcodes(verbose=verbose)
         self.rewrite_can_enter_jits()
-        self.rewrite_set_param()
+        self.rewrite_set_param_and_get_stats()
         self.rewrite_force_virtual(vrefinfo)
         self.rewrite_force_quasi_immutable()
         self.add_finish()
@@ -632,14 +633,21 @@ class WarmRunnerDesc(object):
             self.rewrite_access_helper(op)
 
     def rewrite_access_helper(self, op):
-        ARGS = [arg.concretetype for arg in op.args[2:]]
-        RESULT = op.result.concretetype
-        FUNCPTR = lltype.Ptr(lltype.FuncType(ARGS, RESULT))
         # make sure we make a copy of function so it no longer belongs
         # to extregistry
         func = op.args[1].value
-        func = func_with_new_name(func, func.func_name + '_compiled')
-        ptr = self.helper_func(FUNCPTR, func)
+        if func.func_name.startswith('stats_'):
+            # get special treatment since we rewrite it to a call that accepts
+            # jit driver
+            def new_func(ignored, *args):
+                return func(self, *args)
+            ARGS = [lltype.Void] + [arg.concretetype for arg in op.args[3:]]
+        else:
+            ARGS = [arg.concretetype for arg in op.args[2:]]
+            new_func = func_with_new_name(func, func.func_name + '_compiled')
+        RESULT = op.result.concretetype
+        FUNCPTR = lltype.Ptr(lltype.FuncType(ARGS, RESULT))
+        ptr = self.helper_func(FUNCPTR, new_func)
         op.opname = 'direct_call'
         op.args = [Constant(ptr, FUNCPTR)] + op.args[2:]
 
@@ -859,7 +867,7 @@ class WarmRunnerDesc(object):
             call_final_function(self.translator, finish,
                                 annhelper = self.annhelper)
 
-    def rewrite_set_param(self):
+    def rewrite_set_param_and_get_stats(self):
         from pypy.rpython.lltypesystem.rstr import STR
 
         closures = {}

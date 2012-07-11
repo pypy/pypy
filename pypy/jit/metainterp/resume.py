@@ -254,9 +254,9 @@ class ResumeDataLoopMemo(object):
         self.cached_virtuals.clear()
 
     def update_counters(self, profiler):
-        profiler.count(jitprof.NVIRTUALS, self.nvirtuals)
-        profiler.count(jitprof.NVHOLES, self.nvholes)
-        profiler.count(jitprof.NVREUSED, self.nvreused)
+        profiler.count(jitprof.Counters.NVIRTUALS, self.nvirtuals)
+        profiler.count(jitprof.Counters.NVHOLES, self.nvholes)
+        profiler.count(jitprof.Counters.NVREUSED, self.nvreused)
 
 _frame_info_placeholder = (None, 0, 0)
 
