@@ -342,7 +342,11 @@ static inline G__value cppyy_call_T(cppyy_method_t method,
     // allowing the reuse of method to index the stored bytecodes
         G__CallFunc callf;
         callf.SetFunc(g_interpreted[(size_t)method]);
-        callf.SetArgs(*libp);
+        G__param p;      // G__param has fixed size; libp is sized to nargs
+        for (int i =0; i<nargs; ++i)
+            p.para[i] = libp->para[i];
+        p.paran = nargs;
+        callf.SetArgs(p);     // will copy p yet again
         return callf.Execute((void*)self);
     }
 
