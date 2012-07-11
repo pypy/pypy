@@ -655,3 +655,15 @@ importing the ``cppyy`` or ``PyCintex`` modules directly.
 In that wrapper script you can rename methods exactly the way you need it.
 
 In the cling world, all these differences will be resolved.
+
+
+Python3
+=======
+
+To change versions of CPython (to Python3, another version of Python, or later
+to the `Py3k`_ version of PyPy), the only part that requires recompilation is
+the bindings module, be it ``cppyy`` or ``libPyROOT.so`` (in PyCintex).
+Although ``genreflex`` is indeed a Python tool, the generated reflection
+information is completely independent of Python.
+
+.. _`Py3k`: https://bitbucket.org/pypy/pypy/src/py3k
