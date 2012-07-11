@@ -152,9 +152,6 @@ def locate_jit_merge_point(graph):
 def find_set_param(graphs):
     return _find_jit_marker(graphs, 'set_param')
 
-def find_get_stats(graphs):
-    return _find_jit_marker(graphs, 'get_stats', False)
-
 def find_force_quasi_immutable(graphs):
     results = []
     for graph in graphs:
@@ -917,9 +914,6 @@ class WarmRunnerDesc(object):
                                              funcname == 'enable_opts')
             op.opname = 'direct_call'
             op.args[:3] = [closures[key]]
-
-        for graph, block, i in find_get_stats(graphs):
-            xxx
 
     def rewrite_force_virtual(self, vrefinfo):
         if self.cpu.ts.name != 'lltype':
