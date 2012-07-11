@@ -639,6 +639,7 @@ class WarmRunnerDesc(object):
         if func.func_name.startswith('stats_'):
             # get special treatment since we rewrite it to a call that accepts
             # jit driver
+            func = func_with_new_name(func, func.func_name + '_compiled')
             def new_func(ignored, *args):
                 return func(self, *args)
             ARGS = [lltype.Void] + [arg.concretetype for arg in op.args[3:]]
