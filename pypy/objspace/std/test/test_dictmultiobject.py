@@ -1035,10 +1035,10 @@ class BaseTestRDictImplementation:
 
     def test_iter(self):
         self.fill_impl()
-        iteratorimplementation = self.impl.iter()
+        iteratorimplementation = self.impl.iteritems()
         items = []
         while 1:
-            item = iteratorimplementation.next()
+            item = iteratorimplementation.next_item()
             if item == (None, None):
                 break
             items.append(item)
