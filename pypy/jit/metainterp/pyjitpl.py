@@ -13,9 +13,7 @@ from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp import executor
 from pypy.jit.metainterp.logger import Logger
 from pypy.jit.metainterp.jitprof import EmptyProfiler
-from pypy.jit.metainterp.jitprof import GUARDS, RECORDED_OPS, ABORT_ESCAPE
-from pypy.jit.metainterp.jitprof import ABORT_TOO_LONG, ABORT_BRIDGE, \
-                                        ABORT_FORCE_QUASIIMMUT, ABORT_BAD_LOOP
+from pypy.rlib.jit import Counters
 from pypy.jit.metainterp.jitexc import JitException, get_llexception
 from pypy.jit.metainterp.heapcache import HeapCache
 from pypy.rlib.objectmodel import specialize
@@ -675,7 +673,7 @@ class MIFrame(object):
             from pypy.jit.metainterp.quasiimmut import do_force_quasi_immutable
             do_force_quasi_immutable(self.metainterp.cpu, box.getref_base(),
                                      mutatefielddescr)
-            raise SwitchToBlackhole(ABORT_FORCE_QUASIIMMUT)
+            raise SwitchToBlackhole(Counters.ABORT_FORCE_QUASIIMMUT)
         self.generate_guard(rop.GUARD_ISNULL, mutatebox, resumepc=orgpc)
 
     def _nonstandard_virtualizable(self, pc, box):
@@ -1255,7 +1253,7 @@ class MIFrame(object):
         guard_op = metainterp.history.record(opnum, moreargs, None,
                                              descr=resumedescr)
         self.capture_resumedata(resumedescr, resumepc)
-        self.metainterp.staticdata.profiler.count_ops(opnum, GUARDS)
+        self.metainterp.staticdata.profiler.count_ops(opnum, Counters.GUARDS)
         # count
         metainterp.attach_debug_info(guard_op)
         return guard_op
@@ -1776,7 +1774,7 @@ class MetaInterp(object):
             return resbox.constbox()
         # record the operation
         profiler = self.staticdata.profiler
-        profiler.count_ops(opnum, RECORDED_OPS)
+        profiler.count_ops(opnum, Counters.RECORDED_OPS)
         self.heapcache.invalidate_caches(opnum, descr, argboxes)
         op = self.history.record(opnum, argboxes, resbox, descr)
         self.attach_debug_info(op)
@@ -1837,7 +1835,7 @@ class MetaInterp(object):
             if greenkey_of_huge_function is not None:
                 warmrunnerstate.disable_noninlinable_function(
                     greenkey_of_huge_function)
-            raise SwitchToBlackhole(ABORT_TOO_LONG)
+            raise SwitchToBlackhole(Counters.ABORT_TOO_LONG)
 
     def _interpret(self):
         # Execute the frames forward until we raise a DoneWithThisFrame,
@@ -1921,7 +1919,7 @@ class MetaInterp(object):
         try:
             self.prepare_resume_from_failure(key.guard_opnum, dont_change_position)
             if self.resumekey_original_loop_token is None:   # very rare case
-                raise SwitchToBlackhole(ABORT_BRIDGE)
+                raise SwitchToBlackhole(Counters.ABORT_BRIDGE)
             self.interpret()
         except SwitchToBlackhole, stb:
             self.run_blackhole_interp_to_cancel_tracing(stb)
@@ -1996,7 +1994,7 @@ class MetaInterp(object):
                 # raises in case it works -- which is the common case
                 if self.partial_trace:
                     if  start != self.retracing_from:
-                        raise SwitchToBlackhole(ABORT_BAD_LOOP) # For now
+                        raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP) # For now
                 self.compile_loop(original_boxes, live_arg_boxes, start, resumedescr)
                 # creation of the loop was cancelled!
                 self.cancel_count += 1
@@ -2005,7 +2003,7 @@ class MetaInterp(object):
                     if memmgr:
                         if self.cancel_count > memmgr.max_unroll_loops:
                             self.staticdata.log('cancelled too many times!')
-                            raise SwitchToBlackhole(ABORT_BAD_LOOP)
+                            raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP)
                 self.staticdata.log('cancelled, tracing more...')
 
         # Otherwise, no loop found so far, so continue tracing.
@@ -2299,7 +2297,8 @@ class MetaInterp(object):
             if vinfo.tracing_after_residual_call(virtualizable):
                 # the virtualizable escaped during CALL_MAY_FORCE.
                 self.load_fields_from_virtualizable()
-                raise SwitchToBlackhole(ABORT_ESCAPE, raising_exception=True)
+                raise SwitchToBlackhole(Counters.ABORT_ESCAPE,
+                                        raising_exception=True)
                 # ^^^ we set 'raising_exception' to True because we must still
                 # have the eventual exception raised (this is normally done
                 # after the call to vable_after_residual_call()).

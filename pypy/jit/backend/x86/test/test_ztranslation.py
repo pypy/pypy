@@ -3,6 +3,7 @@ from pypy.tool.udir import udir
 from pypy.rlib.jit import JitDriver, unroll_parameters, set_param
 from pypy.rlib.jit import PARAMETERS, dont_look_inside
 from pypy.rlib.jit import promote
+from pypy.rlib import jit_hooks
 from pypy.jit.metainterp.jitprof import Profiler
 from pypy.jit.backend.detect_cpu import getcpuclass
 from pypy.jit.backend.test.support import CCompiledMixin
@@ -170,6 +171,22 @@ class TestTranslationX86(CCompiledMixin):
         assert 1024 <= bound <= 131072
         assert bound & (bound-1) == 0       # a power of two
 
+    def test_jit_get_stats(self):
+        driver = JitDriver(greens = [], reds = ['i'])
+        
+        def f():
+            i = 0
+            while i < 100000:
+                driver.jit_merge_point(i=i)
+                i += 1
+
+        def main():
+            f()
+            ll_times = jit_hooks.stats_get_loop_run_times(None)
+            return len(ll_times)
+
+        res = self.meta_interp(main, [])
+        assert res == 1
 
 class TestTranslationRemoveTypePtrX86(CCompiledMixin):
     CPUClass = getcpuclass()

@@ -101,7 +101,9 @@ class Assembler386(object):
                                       llmemory.cast_ptr_to_adr(ptrs))
 
     def set_debug(self, v):
+        r = self._debug
         self._debug = v
+        return r
 
     def setup_once(self):
         # the address of the function called by 'new'
@@ -750,7 +752,6 @@ class Assembler386(object):
     @specialize.argtype(1)
     def _inject_debugging_code(self, looptoken, operations, tp, number):
         if self._debug:
-            # before doing anything, let's increase a counter
             s = 0
             for op in operations:
                 s += op.getopnum()
