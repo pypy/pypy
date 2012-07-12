@@ -35,24 +35,24 @@ def entry_point(argv):
         Sum:  142.686547
         
         Pypy with improvements:
-        mod by 2:  0.007535
-        mod by 10000:  3.686409
-        mod by 1024 (power of two):  0.011153
-        Div huge number by 2**128: 2.162245
-        rshift: 2.211261
-        lshift: 2.711231
-        Floordiv by 2: 1.481641
-        Floordiv by 3 (not power of two): 4.067045
-        2**500000: 0.155143
-        (2**N)**5000000 (power of two): 0.098826
-        10000 ** BIGNUM % 100 1.742109
-        i = i * i: 4.836238
-        n**10000 (not power of two): 6.196422
-        Power of two ** power of two: 0.038207
-        v = v * power of two 3.629006
-        v = v * v 8.220768
-        v = v + v 4.998141
-        Sum:  46.253380
+        mod by 2:  0.005984
+        mod by 10000:  3.664320
+        mod by 1024 (power of two):  0.011461
+        Div huge number by 2**128: 2.146720
+        rshift: 2.319716
+        lshift: 1.344974
+        Floordiv by 2: 1.597306
+        Floordiv by 3 (not power of two): 4.197931
+        2**500000: 0.033942
+        (2**N)**5000000 (power of two): 0.050020
+        10000 ** BIGNUM % 100 1.960709
+        i = i * i: 3.902392
+        n**10000 (not power of two): 5.980987
+        Power of two ** power of two: 0.013227
+        v = v * power of two 3.478328
+        v = v * v 6.345457
+        v = v + v 2.770636
+        Sum:  39.824111
 
         A pure python form of those tests where also run
         Improved pypy           | Pypy                  | CPython 2.7.3

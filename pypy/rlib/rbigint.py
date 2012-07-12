@@ -145,6 +145,7 @@ class rbigint(object):
         _check_digits(digits)
         make_sure_not_resized(digits)
         self._digits = digits
+        self.size = len(digits)
         self.sign = sign
 
     def digit(self, x):
@@ -172,7 +173,7 @@ class rbigint(object):
     setdigit._always_inline_ = True
 
     def numdigits(self):
-        return len(self._digits)
+        return self.size
     numdigits._always_inline_ = True
     
     @staticmethod
@@ -755,7 +756,7 @@ class rbigint(object):
         assert newsize >= 0
         z.setdigit(newsize, accum)
 
-        z._positivenormalize()
+        z._normalize()
         return z
     lshift._always_inline_ = True # It's so fast that it's always benefitial.
     
@@ -775,7 +776,7 @@ class rbigint(object):
             accum >>= SHIFT
             
         z.setdigit(oldsize, accum)
-        z._positivenormalize()
+        z._normalize()
         return z
     lqshift._always_inline_ = True # It's so fast that it's always benefitial.
     
@@ -810,7 +811,7 @@ class rbigint(object):
             z.setdigit(i, newdigit)
             i += 1
             wordshift += 1
-        z._positivenormalize()
+        z._normalize()
         return z
     rshift._always_inline_ = True # It's so fast that it's always benefitial.
     
@@ -859,6 +860,7 @@ class rbigint(object):
         i = c = self.numdigits()
         if i == 0:
             self.sign = 0
+            self.size = 1
             self._digits = [NULLDIGIT]
             return
         
@@ -866,23 +868,12 @@ class rbigint(object):
             i -= 1
         assert i > 0
         if i != c:
-            self._digits = self._digits[:i]
+            self.size = i
         if self.numdigits() == 1 and self._digits[0] == NULLDIGIT:
             self.sign = 0
+            self._digits = [NULLDIGIT]
             
-    #_normalize._always_inline_ = True
-    
-    def _positivenormalize(self):
-        """ This function assumes numdigits > 0. Good for shifts and such """
-        i = c = self.numdigits()
-        while i > 1 and self._digits[i - 1] == NULLDIGIT:
-            i -= 1
-        assert i > 0
-        if i != c:
-            self._digits = self._digits[:i]
-        if self.numdigits() == 1 and self._digits[0] == NULLDIGIT:
-            self.sign = 0
-    _positivenormalize._always_inline_ = True
+    _normalize._always_inline_ = True
     
     def bit_length(self):
         i = self.numdigits()
@@ -1005,7 +996,7 @@ def _x_add(a, b):
         carry >>= SHIFT
         i += 1
     z.setdigit(i, carry)
-    z._positivenormalize()
+    z._normalize()
     return z
 
 def _x_sub(a, b):
@@ -1105,7 +1096,7 @@ def _x_mul(a, b, digit=0):
                 z.setdigit(pz, z.widedigit(pz) + carry)
             assert (carry >> SHIFT) == 0
             i += 1
-        z._positivenormalize()
+        z._normalize()
         return z
     
     elif digit and digit & (digit - 1) == 0:
@@ -1131,7 +1122,7 @@ def _x_mul(a, b, digit=0):
             z.setdigit(pz, z.widedigit(pz) + carry)
         assert (carry >> SHIFT) == 0
         i += 1
-    z._positivenormalize()
+    z._normalize()
     return z
 
 
@@ -1219,7 +1210,7 @@ def _tc_mul(a, b):
     _v_iadd(ret, shift, i, r1, r1.numdigits())
     _v_iadd(ret, shift * 3, i, r3, r3.numdigits())
 
-    ret._positivenormalize()
+    ret._normalize()
     return ret
 
 
@@ -1236,8 +1227,8 @@ def _kmul_split(n, size):
 
     lo = rbigint(n._digits[:size_lo], 1)
     hi = rbigint(n._digits[size_lo:], 1)
-    lo._positivenormalize()
-    hi._positivenormalize()
+    lo._normalize()
+    hi._normalize()
     return hi, lo
 
 def _k_mul(a, b):
@@ -1331,7 +1322,7 @@ def _k_mul(a, b):
     # See the (*) comment after this function.
     _v_iadd(ret, shift, i, t3, t3.numdigits())
 
-    ret._positivenormalize()
+    ret._normalize()
     return ret
 
 """ (*) Why adding t3 can't "run out of room" above.
@@ -1425,7 +1416,7 @@ def _k_lopsided_mul(a, b):
         bsize -= nbtouse
         nbdone += nbtouse
 
-    ret._positivenormalize()
+    ret._normalize()
     return ret
 
 def _inplace_divrem1(pout, pin, n, size=0):
