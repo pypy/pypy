@@ -20,7 +20,8 @@ __all__ = ['ObjSpace', 'OperationError', 'Wrappable', 'W_Root']
 
 UINT_MAX_32_BITS = r_uint(4294967295)
 
-unpackiterable_driver = jit.JitDriver(greens = ['tp'],
+unpackiterable_driver = jit.JitDriver(name = 'unpackiterable',
+                                      greens = ['tp'],
                                       reds = ['items', 'w_item', 'w_iterator'])
 
 class W_Root(object):
