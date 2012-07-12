@@ -188,8 +188,8 @@ class AppTestExc(object):
         assert not isinstance(c, KeyError)
 
     def test_doc_and_module(self):
-        import builtins
-        for name, e in builtins.__dict__.items():
+        import __exceptions__
+        for name, e in __exceptions__.__dict__.items():
             if isinstance(e, type) and issubclass(e, BaseException):
                 assert e.__doc__, e
                 assert e.__module__ == 'builtins', e
