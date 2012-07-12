@@ -465,3 +465,20 @@ def test_newlist_nonconst():
             break
     assert llop.args[2] is graph.startblock.inputargs[0]
     
+def test_resizelist_hint():
+    from pypy.annotation.model import SomeInteger
+    def f(z):
+        x = []
+        resizelist_hint(x, 39)
+        if z < 0:
+            x.append(1)
+        return len(x)
+
+    graph = getgraph(f, [SomeInteger()])
+    for llop in graph.startblock.operations:
+        if llop.opname == 'direct_call':
+            break
+    call_name = llop.args[0].value._obj.graph.name
+    call_arg2 = llop.args[2].value
+    assert call_name.startswith('_ll_list_resize_really')
+    assert call_arg2 == 39

@@ -262,6 +262,27 @@ class Entry(ExtRegistryEntry):
         hop.exception_is_here()
         return rtype_newlist(hop, v_sizehint=v)
 
+def resizelist_hint(l, sizehint):
+    """Reallocate the underlying list to the specified sizehint"""
+    return l
+
+class Entry(ExtRegistryEntry):
+    _about_ = resizelist_hint
+
+    def compute_result_annotation(self, s_l, s_sizehint):
+        from pypy.annotation.model import SomeInteger, SomeList
+        assert isinstance(s_l, SomeList)
+        assert isinstance(s_sizehint, SomeInteger)
+        s_l.listdef.listitem.resize()
+        return s_l
+
+    def specialize_call(self, hop, i_sizehint=None):
+        from pypy.rpython.lltypesystem.rlist import _ll_list_resize
+        v_list, v_sizehint = hop.inputargs(*hop.args_r)
+        hop.exception_is_here()
+        hop.llops.gendirectcall(_ll_list_resize, v_list, v_sizehint)
+        return v_list
+
 # ____________________________________________________________
 #
 # id-like functions.  The idea is that calling hash() or id() is not
