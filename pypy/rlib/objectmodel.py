@@ -276,11 +276,11 @@ class Entry(ExtRegistryEntry):
         s_l.listdef.listitem.resize()
         return s_l
 
-    def specialize_call(self, hop, i_sizehint=None):
-        from pypy.rpython.lltypesystem.rlist import _ll_list_resize
+    def specialize_call(self, hop):
+        r_list = hop.r_result
         v_list, v_sizehint = hop.inputargs(*hop.args_r)
         hop.exception_is_here()
-        hop.llops.gendirectcall(_ll_list_resize, v_list, v_sizehint)
+        hop.llops.gendirectcall(r_list.LIST._ll_resize, v_list, v_sizehint)
         return v_list
 
 # ____________________________________________________________
