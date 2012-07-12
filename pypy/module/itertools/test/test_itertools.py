@@ -88,6 +88,14 @@ class AppTestItertools:
         list(it)
         assert repr(it) == "repeat('foobar', 0)"
 
+    def test_repeat_len(self):
+        import itertools
+
+        r = itertools.repeat('a', 15)
+        r.next()
+        assert len(r) == 14
+        raises(TypeError, "len(itertools.repeat('xkcd'))")
+
     def test_takewhile(self):
         import itertools
 
