@@ -199,8 +199,10 @@ def make_pycppclass(scope, class_name, final_class_name, cppclass):
         if cppdm.is_static():
             setattr(metacpp, dm_name, pydm)
 
-    _pythonize(pycppclass)
+    # the call to register will add back-end specific pythonizations and thus
+    # needs to run first, so that the generic pythonizations can use them
     cppyy._register_class(pycppclass)
+    _pythonize(pycppclass)
     return pycppclass
 
 def make_cpptemplatetype(scope, template_name):
@@ -358,11 +360,6 @@ def _pythonize(pyclass):
                 return self.c_str() == other
         pyclass.__eq__ = eq
         pyclass.__str__ = pyclass.c_str
-
-    # TODO: clean this up
-    # fixup lack of __getitem__ if no const return
-    if hasattr(pyclass, '__setitem__') and not hasattr(pyclass, '__getitem__'):
-        pyclass.__getitem__ = pyclass.__setitem__
 
 _loaded_dictionaries = {}
 def load_reflection_info(name):

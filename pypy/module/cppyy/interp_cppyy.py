@@ -91,6 +91,9 @@ def set_class_generator(space, w_callback):
 def register_class(space, w_pycppclass):
     w_cppclass = space.findattr(w_pycppclass, space.wrap("_cpp_proxy"))
     cppclass = space.interp_w(W_CPPClass, w_cppclass, can_be_None=False)
+    # add back-end specific method pythonizations (doing this on the wrapped
+    # class allows simple aliasing of methods)
+    capi.pythonize(space, cppclass.name, w_pycppclass)
     state = space.fromcache(State)
     state.cppclass_registry[cppclass.handle] = w_pycppclass
 
@@ -470,6 +473,8 @@ class W_CPPScope(Wrappable):
                     methods_temp.setdefault("__getitem__", []).append(cppmethod)
             except KeyError:
                 pass          # just means there's no __setitem__ either
+
+        # create the overload methods from the method sets
         for pyname, methods in methods_temp.iteritems():
             overload = W_CPPOverload(self.space, self, methods[:])
             self.methods[pyname] = overload
@@ -833,6 +838,7 @@ def get_pythonized_cppclass(space, handle):
         w_pycppclass = state.cppclass_registry[handle]
     except KeyError:
         final_name = capi.c_scoped_final_name(handle)
+        # the callback will cache the class by calling register_class
         w_pycppclass = space.call_function(state.w_clgen_callback, space.wrap(final_name))
     return w_pycppclass
 

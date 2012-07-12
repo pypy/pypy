@@ -61,3 +61,10 @@ def c_load_dictionary(name):
         err = rdynload.dlerror()
         raise rdynload.DLOpenError(err)
     return libffi.CDLL(name)       # should return handle to already open file
+
+# CINT-specific pythonizations     
+def pythonize(space, name, w_pycppclass):
+
+    if name[0:8] == "TVectorT":
+        space.setattr(w_pycppclass, space.wrap("__len__"),
+                      space.getattr(w_pycppclass, space.wrap("GetNoElements")))

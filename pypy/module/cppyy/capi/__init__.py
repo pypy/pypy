@@ -4,7 +4,8 @@ from pypy.rlib import jit
 import reflex_capi as backend
 #import cint_capi as backend
 
-identify = backend.identify
+identify  = backend.identify
+pythonize = backend.pythonize
 ts_reflect = backend.ts_reflect
 ts_call    = backend.ts_call
 ts_memory  = backend.ts_memory

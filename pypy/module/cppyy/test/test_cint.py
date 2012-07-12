@@ -103,10 +103,8 @@ class AppTestCINTPythonizations:
         # TVectorF is a typedef of floats
         v = cppyy.gbl.TVectorF(N)
         for i in range(N):
-            v[i] = i*i
+             v[i] = i*i
 
-        #for j in v:       # TODO: raise exception on out-of-bounds
-        #   assert round(v[int(math.sqrt(j)+0.5)]-j, 5) == 0.
-        for i in range(N):
-            j = v[i]
-            assert round(v[int(math.sqrt(j)+0.5)]-j, 5) == 0.
+        assert len(v) == N
+        for j in v:
+             assert round(v[int(math.sqrt(j)+0.5)]-j, 5) == 0.
