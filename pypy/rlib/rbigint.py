@@ -1411,6 +1411,7 @@ def _k_lopsided_mul(a, b):
         # way to store the size, instead of resizing the list!
         # XXX change the implementation, encoding length via the sign.
         bslice._digits = b._digits[nbdone : nbdone + nbtouse]
+        bslice.size = nbtouse
         product = _k_mul(a, bslice)
 
         # Add into result.
