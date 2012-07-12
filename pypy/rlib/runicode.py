@@ -505,8 +505,9 @@ def str_decode_utf_32_helper(s, size, errors, final=True,
     pos = 0
     if byteorder == 'native':
         if size >= 4:
-            bom = ((ord(s[iorder[3]]) << 24) | (ord(s[iorder[2]]) << 16) |
-                   (ord(s[iorder[1]]) << 8)  | ord(s[iorder[0]]))
+            bom = intmask(
+                (ord(s[iorder[3]]) << 24) | (ord(s[iorder[2]]) << 16) |
+                (ord(s[iorder[1]]) << 8)  | ord(s[iorder[0]]))
             if BYTEORDER == 'little':
                 if bom == BOM32_DIRECT:
                     pos += 4
@@ -1234,7 +1235,7 @@ def unicode_encode_unicode_escape(s, size, errors, errorhandler=None, quotes=Fal
             pos += 1
             continue
 
-        if 0xD800 <= oc < 0xDC00 and pos + 1 < size:
+        if MAXUNICODE < 65536 and 0xD800 <= oc < 0xDC00 and pos + 1 < size:
             # Map UTF-16 surrogate pairs to Unicode \UXXXXXXXX escapes
             pos += 1
             oc2 = ord(s[pos])
@@ -1350,6 +1351,20 @@ def unicode_encode_raw_unicode_escape(s, size, errors, errorhandler=None):
     pos = 0
     while pos < size:
         oc = ord(s[pos])
+
+        if MAXUNICODE < 65536 and 0xD800 <= oc < 0xDC00 and pos + 1 < size:
+            # Map UTF-16 surrogate pairs to Unicode \UXXXXXXXX escapes
+            pos += 1
+            oc2 = ord(s[pos])
+
+            if 0xDC00 <= oc2 <= 0xDFFF:
+                ucs = (((oc & 0x03FF) << 10) | (oc2 & 0x03FF)) + 0x00010000
+                raw_unicode_escape_helper(result, ucs)
+                pos += 1
+                continue
+            # Fall through: isolated surrogates are copied as-is
+            pos -= 1
+
         if oc < 0x100:
             result.append(chr(oc))
         else:

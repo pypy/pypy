@@ -885,3 +885,22 @@ class TestTypedTestCase(CompilationTestCase):
         assert res == 'acquire, hello, raised, release'
         res = f(2)
         assert res == 'acquire, hello, raised, release'
+
+    def test_longlongmask(self):
+        from pypy.rlib.rarithmetic import longlongmask, r_ulonglong
+        def func(n):
+            m = r_ulonglong(n)
+            m *= 100000
+            return longlongmask(m)
+        f = self.getcompiled(func, [int])
+        res = f(-2000000000)
+        assert res == -200000000000000
+
+    def test_bool_2(self):
+        from pypy.rpython.lltypesystem import lltype, rffi
+        def func(n):
+            x = rffi.cast(lltype.Bool, n)
+            return int(x)
+        f = self.getcompiled(func, [int])
+        res = f(2)
+        assert res == 1     # and not 2

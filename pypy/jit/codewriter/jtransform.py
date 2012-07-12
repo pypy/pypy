@@ -1675,6 +1675,12 @@ class Transformer(object):
         elif oopspec_name.startswith('libffi_call_'):
             oopspecindex = EffectInfo.OS_LIBFFI_CALL
             extraeffect = EffectInfo.EF_RANDOM_EFFECTS
+        elif oopspec_name == 'libffi_struct_getfield':
+            oopspecindex = EffectInfo.OS_LIBFFI_STRUCT_GETFIELD
+            extraeffect = EffectInfo.EF_CANNOT_RAISE
+        elif oopspec_name == 'libffi_struct_setfield':
+            oopspecindex = EffectInfo.OS_LIBFFI_STRUCT_SETFIELD
+            extraeffect = EffectInfo.EF_CANNOT_RAISE
         elif oopspec_name == 'libffi_array_getitem':
             oopspecindex = EffectInfo.OS_LIBFFI_GETARRAYITEM
             extraeffect = EffectInfo.EF_CANNOT_RAISE

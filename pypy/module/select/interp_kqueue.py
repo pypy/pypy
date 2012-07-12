@@ -3,9 +3,11 @@ from pypy.interpreter.error import OperationError, operationerrfmt, exception_fr
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, generic_new_descr, GetSetProperty
 from pypy.rlib._rsocket_rffi import socketclose
+from pypy.rlib.rarithmetic import r_uint
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rpython.tool import rffi_platform
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
+import sys
 
 
 eci = ExternalCompilationInfo(
@@ -19,14 +21,26 @@ class CConfig:
     _compilation_info_ = eci
 
 
-CConfig.kevent = rffi_platform.Struct("struct kevent", [
-    ("ident", rffi.UINTPTR_T),
-    ("filter", rffi.SHORT),
-    ("flags", rffi.USHORT),
-    ("fflags", rffi.UINT),
-    ("data", rffi.INTPTR_T),
-    ("udata", rffi.VOIDP),
-])
+if "openbsd" in sys.platform:
+    IDENT_UINT = True
+    CConfig.kevent = rffi_platform.Struct("struct kevent", [
+        ("ident", rffi.UINT),
+        ("filter", rffi.SHORT),
+        ("flags", rffi.USHORT),
+        ("fflags", rffi.UINT),
+        ("data", rffi.INT),
+        ("udata", rffi.VOIDP),
+    ])
+else:
+    IDENT_UINT = False
+    CConfig.kevent = rffi_platform.Struct("struct kevent", [
+        ("ident", rffi.UINTPTR_T),
+        ("filter", rffi.SHORT),
+        ("flags", rffi.USHORT),
+        ("fflags", rffi.UINT),
+        ("data", rffi.INTPTR_T),
+        ("udata", rffi.VOIDP),
+    ])
 
 
 CConfig.timespec = rffi_platform.Struct("struct timespec", [
@@ -226,9 +240,12 @@ class W_Kevent(Wrappable):
         if self.event:
             lltype.free(self.event, flavor="raw")
 
-    @unwrap_spec(filter=int, flags='c_uint', fflags='c_uint', data=int, udata='c_uint')
-    def descr__init__(self, space, w_ident, filter=KQ_FILTER_READ, flags=KQ_EV_ADD, fflags=0, data=0, udata=0):
-        ident = space.c_filedescriptor_w(w_ident)
+    @unwrap_spec(filter=int, flags='c_uint', fflags='c_uint', data=int, udata=r_uint)
+    def descr__init__(self, space, w_ident, filter=KQ_FILTER_READ, flags=KQ_EV_ADD, fflags=0, data=0, udata=r_uint(0)):
+        if space.isinstance_w(w_ident, space.w_long):
+            ident = space.uint_w(w_ident)
+        else:
+            ident = r_uint(space.c_filedescriptor_w(w_ident))
 
         self.event = lltype.malloc(kevent, flavor="raw")
         rffi.setintfield(self.event, "c_ident", ident)
@@ -239,16 +256,24 @@ class W_Kevent(Wrappable):
         self.event.c_udata = rffi.cast(rffi.VOIDP, udata)
 
     def _compare_all_fields(self, other, op):
-        l_ident = self.event.c_ident
-        r_ident = other.event.c_ident
+        if IDENT_UINT:
+            l_ident = rffi.cast(lltype.Unsigned, self.event.c_ident)
+            r_ident = rffi.cast(lltype.Unsigned, other.event.c_ident)
+        else:
+            l_ident = self.event.c_ident
+            r_ident = other.event.c_ident
         l_filter = rffi.cast(lltype.Signed, self.event.c_filter)
         r_filter = rffi.cast(lltype.Signed, other.event.c_filter)
         l_flags = rffi.cast(lltype.Unsigned, self.event.c_flags)
         r_flags = rffi.cast(lltype.Unsigned, other.event.c_flags)
         l_fflags = rffi.cast(lltype.Unsigned, self.event.c_fflags)
         r_fflags = rffi.cast(lltype.Unsigned, other.event.c_fflags)
-        l_data = self.event.c_data
-        r_data = other.event.c_data
+        if IDENT_UINT:
+            l_data = rffi.cast(lltype.Signed, self.event.c_data)
+            r_data = rffi.cast(lltype.Signed, other.event.c_data)
+        else:
+            l_data = self.event.c_data
+            r_data = other.event.c_data
         l_udata = rffi.cast(lltype.Unsigned, self.event.c_udata)
         r_udata = rffi.cast(lltype.Unsigned, other.event.c_udata)
 
@@ -320,7 +345,7 @@ class W_Kevent(Wrappable):
         return space.wrap(self.event.c_data)
 
     def descr_get_udata(self, space):
-        return space.wrap(rffi.cast(rffi.SIZE_T, self.event.c_udata))
+        return space.wrap(rffi.cast(rffi.UINTPTR_T, self.event.c_udata))
 
 
 W_Kevent.typedef = TypeDef("select.kevent",

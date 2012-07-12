@@ -157,13 +157,15 @@ class AppTestSocketConnection(BaseConnectionTest):
         raises(IOError, _multiprocessing.Connection, -15)
 
     def test_byte_order(self):
+        import socket
+        if not 'fromfd' in dir(socket):
+            skip('No fromfd in socket')
         # The exact format of net strings (length in network byte
         # order) is important for interoperation with others
         # implementations.
         rhandle, whandle = self.make_pair()
         whandle.send_bytes("abc")
         whandle.send_bytes("defg")
-        import socket
         sock = socket.fromfd(rhandle.fileno(),
                              socket.AF_INET, socket.SOCK_STREAM)
         data1 = sock.recv(7)

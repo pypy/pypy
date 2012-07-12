@@ -85,13 +85,6 @@ List of extension modules that we support:
 
     _winreg
 
-  Note that only some of these modules are built-in in a typical
-  CPython installation, and the rest is from non built-in extension
-  modules.  This means that e.g. ``import parser`` will, on CPython,
-  find a local file ``parser.py``, while ``import sys`` will not find a
-  local file ``sys.py``.  In PyPy the difference does not exist: all
-  these modules are built-in.
-
 * Supported by being rewritten in pure Python (possibly using ``ctypes``):
   see the `lib_pypy/`_ directory.  Examples of modules that we
   support this way: ``ctypes``, ``cPickle``, ``cmath``, ``dbm``, ``datetime``...
@@ -138,12 +131,8 @@ makes "weak proxies" (as returned by ``weakref.proxy()``) somewhat less
 useful: they will appear to stay alive for a bit longer in PyPy, and
 suddenly they will really be dead, raising a ``ReferenceError`` on the
 next access.  Any code that uses weak proxies must carefully catch such
-``ReferenceError`` at any place that uses them.
-
-As a side effect, the ``finally`` clause inside a generator will be executed
-only when the generator object is garbage collected (see `issue 736`__).
-
-.. __: http://bugs.pypy.org/issue736
+``ReferenceError`` at any place that uses them.  (Or, better yet, don't use
+``weakref.proxy()`` at all; use ``weakref.ref()``.)
 
 There are a few extra implications for the difference in the GC.  Most
 notably, if an object has a ``__del__``, the ``__del__`` is never called more
@@ -157,6 +146,15 @@ module.  More information is available on the blog `[1]`__ `[2]`__.
 
 .. __: http://morepypy.blogspot.com/2008/02/python-finalizers-semantics-part-1.html
 .. __: http://morepypy.blogspot.com/2008/02/python-finalizers-semantics-part-2.html
+
+Note that this difference might show up indirectly in some cases.  For
+example, a generator left pending in the middle is --- again ---
+garbage-collected later in PyPy than in CPython.  You can see the
+difference if the ``yield`` keyword it is suspended at is itself
+enclosed in a ``try:`` or a ``with:`` block.  This shows up for example
+as `issue 736`__.
+
+.. __: http://bugs.pypy.org/issue736
 
 Using the default GC called ``minimark``, the built-in function ``id()``
 works like it does in CPython.  With other GCs it returns numbers that
@@ -180,7 +178,8 @@ not be called::
 Even more obscure: the same is true, for old-style classes, if you attach
 the ``__del__`` to an instance (even in CPython this does not work with
 new-style classes).  You get a RuntimeWarning in PyPy.  To fix these cases
-just make sure there is a ``__del__`` method in the class to start with.
+just make sure there is a ``__del__`` method in the class to start with
+(even containing only ``pass``; replacing or overriding it later works fine).
 
 
 Subclasses of built-in types
@@ -317,6 +316,11 @@ Miscellaneous
   opposed to a dict proxy like in CPython. Mutating the dict will change the
   type and vice versa. For builtin types, a dictionary will be returned that
   cannot be changed (but still looks and behaves like a normal dictionary).
+
+* the ``__len__`` or ``__length_hint__`` special methods are sometimes
+  called by CPython to get a length estimate to preallocate internal arrays.
+  So far, PyPy never calls ``__len__`` for this purpose, and never calls
+  ``__length_hint__`` at all.
 
 
 .. include:: _ref.txt

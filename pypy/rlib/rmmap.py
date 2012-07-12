@@ -14,6 +14,7 @@ _POSIX = os.name == "posix"
 _MS_WINDOWS = os.name == "nt"
 _LINUX = "linux" in sys.platform
 _64BIT = "64bit" in platform.architecture()[0]
+_CYGWIN = "cygwin" == sys.platform
 
 class RValueError(Exception):
     def __init__(self, message):
@@ -114,6 +115,10 @@ def winexternal(name, args, result, **kwargs):
                            **kwargs)
 
 PTR = rffi.CCHARP
+
+if _CYGWIN:
+    c_malloc, _ = external('malloc', [size_t], PTR)
+    c_free, _ = external('free', [PTR], lltype.Void)
 
 c_memmove, _ = external('memmove', [PTR, PTR, size_t], lltype.Void)
 
@@ -692,6 +697,14 @@ if _POSIX:
         so the memory has the executable bit set and gets allocated
         internally in case of a sandboxed process.
         """
+        if _CYGWIN:
+            # XXX: JIT memory should be using mmap MAP_PRIVATE with
+            #      PROT_EXEC but Cygwin's fork() fails.  mprotect()
+            #      cannot be used, but seems to be unnecessary there.
+            res = c_malloc(map_size)
+            if res == rffi.cast(PTR, 0):
+                raise MemoryError
+            return res
         flags = MAP_PRIVATE | MAP_ANONYMOUS
         prot = PROT_EXEC | PROT_READ | PROT_WRITE
         hintp = rffi.cast(PTR, hint.pos)
@@ -708,7 +721,10 @@ if _POSIX:
         return res
     alloc._annenforceargs_ = (int,)
 
-    free = c_munmap_safe
+    if _CYGWIN:
+        free = c_free
+    else:
+        free = c_munmap_safe
 
 elif _MS_WINDOWS:
     def mmap(fileno, length, tagname="", access=_ACCESS_DEFAULT, offset=0):
@@ -739,13 +755,34 @@ elif _MS_WINDOWS:
         # assume -1 and 0 both mean invalid file descriptor
         # to 'anonymously' map memory.
         if fileno != -1 and fileno != 0:
-            fh = rwin32._get_osfhandle(fileno)
-            if fh == INVALID_HANDLE:
-                errno = rposix.get_errno()
-                raise OSError(errno, os.strerror(errno))
+            fh = rwin32.get_osfhandle(fileno)
             # Win9x appears to need us seeked to zero
             # SEEK_SET = 0
             # libc._lseek(fileno, 0, SEEK_SET)
+
+            # check file size
+            try:
+                low, high = _get_file_size(fh)
+            except OSError:
+                pass     # ignore non-seeking files and errors and trust map_size
+            else:
+                if not high and low <= sys.maxint:
+                   size = low
+                else:   
+                    # not so sure if the signed/unsigned strictness is a good idea:
+                    high = rffi.cast(lltype.Unsigned, high)
+                    low = rffi.cast(lltype.Unsigned, low)
+                    size = (high << 32) + low
+                    size = rffi.cast(lltype.Signed, size)
+                if map_size == 0:
+                    if offset > size:
+                        raise RValueError(
+                            "mmap offset is greater than file size")
+                    map_size = int(size - offset)
+                    if map_size != size - offset:
+                        raise RValueError("mmap length is too large")
+                elif offset + map_size > size:
+                    raise RValueError("mmap length is greater than file size")
 
         m = MMap(access, offset)
         m.file_handle = INVALID_HANDLE

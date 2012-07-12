@@ -1405,24 +1405,6 @@ def PyCallIter_Check(space, op):
     """
     raise NotImplementedError
 
-@cpython_api([PyObject, Py_ssize_t, Py_ssize_t], PyObject)
-def PyList_GetSlice(space, list, low, high):
-    """Return a list of the objects in list containing the objects between low
-    and high.  Return NULL and set an exception if unsuccessful.  Analogous
-    to list[low:high].  Negative indices, as when slicing from Python, are not
-    supported.
-
-    This function used an int for low and high. This might
-    require changes in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
-@cpython_api([Py_ssize_t], PyObject)
-def PyLong_FromSsize_t(space, v):
-    """Return a new PyLongObject object from a C Py_ssize_t, or
-    NULL on failure.
-    """
-    raise NotImplementedError
-
 @cpython_api([rffi.SIZE_T], PyObject)
 def PyLong_FromSize_t(space, v):
     """Return a new PyLongObject object from a C size_t, or
@@ -1440,14 +1422,6 @@ def PyLong_FromUnicode(space, u, length, base):
 
     This function used an int for length. This might require
     changes in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], Py_ssize_t, error=-1)
-def PyLong_AsSsize_t(space, pylong):
-    """Return a C Py_ssize_t representation of the contents of pylong.  If
-    pylong is greater than PY_SSIZE_T_MAX, an OverflowError is raised
-    and -1 will be returned.
-    """
     raise NotImplementedError
 
 @cpython_api([PyObject, rffi.CCHARP], rffi.INT_real, error=-1)
@@ -1606,15 +1580,6 @@ def PyObject_Bytes(space, o):
     for PyObject_Str()."""
     raise NotImplementedError
 
-@cpython_api([PyObject], lltype.Signed, error=-1)
-def PyObject_HashNotImplemented(space, o):
-    """Set a TypeError indicating that type(o) is not hashable and return -1.
-    This function receives special treatment when stored in a tp_hash slot,
-    allowing a type to explicitly indicate to the interpreter that it is not
-    hashable.
-    """
-    raise NotImplementedError
-
 @cpython_api([], PyFrameObject)
 def PyEval_GetFrame(space):
     """Return the current thread state's frame, which is NULL if no frame is
@@ -1735,17 +1700,6 @@ def PyString_Decode(space, s, size, encoding, errors):
 
     This function used an int type for size. This might require
     changes in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, rffi.CCHARP, rffi.CCHARP], PyObject)
-def PyString_AsDecodedObject(space, str, encoding, errors):
-    """Decode a string object by passing it to the codec registered for encoding and
-    return the result as Python object. encoding and errors have the same
-    meaning as the parameters of the same name in the string encode() method.
-    The codec to be used is looked up using the Python codec registry. Return NULL
-    if an exception was raised by the codec.
-
-    This function is not available in 3.x and does not have a PyBytes alias."""
     raise NotImplementedError
 
 @cpython_api([rffi.CCHARP, Py_ssize_t, rffi.CCHARP, rffi.CCHARP], PyObject)
@@ -2011,35 +1965,6 @@ def PyUnicode_DecodeUTF8Stateful(space, s, size, errors, consumed):
     changes in your code for properly supporting 64-bit systems."""
     raise NotImplementedError
 
-@cpython_api([rffi.CCHARP, Py_ssize_t, rffi.CCHARP, rffi.INTP], PyObject)
-def PyUnicode_DecodeUTF32(space, s, size, errors, byteorder):
-    """Decode length bytes from a UTF-32 encoded buffer string and return the
-    corresponding Unicode object.  errors (if non-NULL) defines the error
-    handling. It defaults to "strict".
-
-    If byteorder is non-NULL, the decoder starts decoding using the given byte
-    order:
-
-    *byteorder == -1: little endian
-    *byteorder == 0:  native order
-    *byteorder == 1:  big endian
-
-    If *byteorder is zero, and the first four bytes of the input data are a
-    byte order mark (BOM), the decoder switches to this byte order and the BOM is
-    not copied into the resulting Unicode string.  If *byteorder is -1 or
-    1, any byte order mark is copied to the output.
-
-    After completion, *byteorder is set to the current byte order at the end
-    of input data.
-
-    In a narrow build codepoints outside the BMP will be decoded as surrogate pairs.
-
-    If byteorder is NULL, the codec starts in native order mode.
-
-    Return NULL if an exception was raised by the codec.
-    """
-    raise NotImplementedError
-
 @cpython_api([rffi.CCHARP, Py_ssize_t, rffi.CCHARP, rffi.INTP, Py_ssize_t], PyObject)
 def PyUnicode_DecodeUTF32Stateful(space, s, size, errors, byteorder, consumed):
     """If consumed is NULL, behave like PyUnicode_DecodeUTF32(). If
@@ -2253,24 +2178,6 @@ def PyUnicode_Concat(space, left, right):
     """Concat two strings giving a new Unicode string."""
     raise NotImplementedError
 
-@cpython_api([PyObject, PyObject, Py_ssize_t], PyObject)
-def PyUnicode_Split(space, s, sep, maxsplit):
-    """Split a string giving a list of Unicode strings.  If sep is NULL, splitting
-    will be done at all whitespace substrings.  Otherwise, splits occur at the given
-    separator.  At most maxsplit splits will be done.  If negative, no limit is
-    set.  Separators are not included in the resulting list.
-
-    This function used an int type for maxsplit. This might require
-    changes in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, rffi.INT_real], PyObject)
-def PyUnicode_Splitlines(space, s, keepend):
-    """Split a Unicode string at line breaks, returning a list of Unicode strings.
-    CRLF is considered to be one line break.  If keepend is 0, the Line break
-    characters are not included in the resulting strings."""
-    raise NotImplementedError
-
 @cpython_api([PyObject, PyObject, rffi.CCHARP], PyObject)
 def PyUnicode_Translate(space, str, table, errors):
     """Translate a string by applying a character mapping table to it and return the
@@ -2285,29 +2192,6 @@ def PyUnicode_Translate(space, str, table, errors):
 
     errors has the usual meaning for codecs. It may be NULL which indicates to
     use the default error handling."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, PyObject, Py_ssize_t, Py_ssize_t, rffi.INT_real], Py_ssize_t, error=-2)
-def PyUnicode_Find(space, str, substr, start, end, direction):
-    """Return the first position of substr in str*[*start:end] using the given
-    direction (direction == 1 means to do a forward search, direction == -1 a
-    backward search).  The return value is the index of the first match; a value of
-    -1 indicates that no match was found, and -2 indicates that an error
-    occurred and an exception has been set.
-
-    This function used an int type for start and end. This
-    might require changes in your code for properly supporting 64-bit
-    systems."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, PyObject, Py_ssize_t, Py_ssize_t], Py_ssize_t, error=-1)
-def PyUnicode_Count(space, str, substr, start, end):
-    """Return the number of non-overlapping occurrences of substr in
-    str[start:end].  Return -1 if an error occurred.
-
-    This function returned an int type and used an int
-    type for start and end. This might require changes in your code for
-    properly supporting 64-bit systems."""
     raise NotImplementedError
 
 @cpython_api([PyObject, PyObject, rffi.INT_real], PyObject)

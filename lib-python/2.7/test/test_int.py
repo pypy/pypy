@@ -1,7 +1,7 @@
 import sys
 
 import unittest
-from test.test_support import run_unittest, have_unicode
+from test.test_support import run_unittest, have_unicode, check_impl_detail
 import math
 
 L = [
@@ -392,9 +392,10 @@ class IntTestCases(unittest.TestCase):
                 try:
                     int(TruncReturnsNonIntegral())
                 except TypeError as e:
-                    self.assertEqual(str(e),
-                                      "__trunc__ returned non-Integral"
-                                      " (type NonIntegral)")
+                    if check_impl_detail(cpython=True):
+                        self.assertEqual(str(e),
+                                          "__trunc__ returned non-Integral"
+                                          " (type NonIntegral)")
                 else:
                     self.fail("Failed to raise TypeError with %s" %
                               ((base, trunc_result_base),))

@@ -278,6 +278,13 @@ elif os.name == 'nt':
         host_factory = Windows
     else:
         host_factory = Windows_x64
+elif sys.platform == 'cygwin':
+    from pypy.translator.platform.cygwin import Cygwin, Cygwin64
+    import platform
+    if platform.architecture()[0] == '32bit':
+        host_factory = Cygwin
+    else:
+        host_factory = Cygwin64
 else:
     # pray
     from pypy.translator.platform.distutils_platform import DistutilsPlatform
@@ -299,10 +306,11 @@ def pick_platform(new_platform, cc):
 
 def set_platform(new_platform, cc):
     global platform
-    log.msg("Setting platform to %r cc=%s" % (new_platform,cc))
     platform = pick_platform(new_platform, cc)
     if not platform:
-        raise ValueError("pick_platform failed")
+        raise ValueError("pick_platform(%r, %s) failed"%(new_platform, cc))
+    log.msg("Set platform with %r cc=%s, using cc=%r" % (new_platform, cc,
+                    getattr(platform, 'cc','Unknown')))
 
     if new_platform == 'host':
         global host

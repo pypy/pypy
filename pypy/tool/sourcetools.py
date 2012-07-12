@@ -224,6 +224,7 @@ def func_with_new_name(func, newname, globals=None):
     if func.func_dict:
         f.func_dict = {}
         f.func_dict.update(func.func_dict)
+    f.func_doc = func.func_doc
     return f
 
 def func_renamer(newname):

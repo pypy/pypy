@@ -476,15 +476,17 @@ class FunctionGcRootTracker(object):
         # floating-point operations cannot produce GC pointers
         'f',
         'cvt', 'ucomi', 'comi', 'subs', 'subp' , 'adds', 'addp', 'xorp',
-        'movap', 'movd', 'movlp', 'sqrtsd', 'movhpd',
+        'movap', 'movd', 'movlp', 'movup', 'sqrt', 'rsqrt', 'movhpd',
         'mins', 'minp', 'maxs', 'maxp', 'unpck', 'pxor', 'por', # sse2
         'shufps', 'shufpd',
         # arithmetic operations should not produce GC pointers
         'inc', 'dec', 'not', 'neg', 'or', 'and', 'sbb', 'adc',
         'shl', 'shr', 'sal', 'sar', 'rol', 'ror', 'mul', 'imul', 'div', 'idiv',
-        'bswap', 'bt', 'rdtsc',
-        'punpck', 'pshufd', 'pcmp', 'pand', 'psllw', 'pslld', 'psllq',
-        'paddq', 'pinsr', 'pmul', 'psrl',
+        'bswap', 'bt', 'rdtsc', 'rounds',
+        'pabs', 'pack', 'padd', 'palign', 'pand', 'pavg', 'pcmp', 'pextr',
+        'phadd', 'phsub', 'pinsr', 'pmadd', 'pmax', 'pmin', 'pmovmsk',
+        'pmul', 'por', 'psadb', 'pshuf', 'psign', 'psll', 'psra', 'psrl',
+        'psub', 'punpck', 'pxor',
         # all vectors don't produce pointers
         'v',
         # sign-extending moves should not produce GC pointers
@@ -492,7 +494,7 @@ class FunctionGcRootTracker(object):
         # zero-extending moves should not produce GC pointers
         'movz', 
         # locked operations should not move GC pointers, at least so far
-        'lock',
+        'lock', 'pause',
         ])
 
     # a partial list is hopefully good enough for now; it's all to support
@@ -847,6 +849,10 @@ class FunctionGcRootTracker(object):
                 if sources:
                     target, = sources
 
+        if target.endswith('@PLT'):
+            # In -fPIC mode, all functions calls have this suffix
+            target = target[:-4]
+
         if target in self.FUNCTIONS_NOT_RETURNING:
             return [InsnStop(target)]
         if self.format == 'mingw32' and target == '__alloca':
@@ -1137,7 +1143,7 @@ class ElfFunctionGcRootTracker64(FunctionGcRootTracker64):
     r_jump_rel_label = re.compile(r"\tj\w+\s+"+"(\d+)f"+"\s*$")
 
     r_unaryinsn_star= re.compile(r"\t[a-z]\w*\s+[*]("+OPERAND+")\s*$")
-    r_jmptable_item = re.compile(r"\t.quad\t"+LABEL+"(-\"[A-Za-z0-9$]+\")?\s*$")
+    r_jmptable_item = re.compile(r"\t.(?:quad|long)\t"+LABEL+"(-\"[A-Za-z0-9$]+\"|-"+LABEL+")?\s*$")
     r_jmptable_end  = re.compile(r"\t.text|\t.section\s+.text|\t\.align|"+LABEL)
 
     r_gcroot_marker = re.compile(r"\t/[*] GCROOT ("+LOCALVARFP+") [*]/")

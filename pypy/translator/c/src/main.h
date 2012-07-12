@@ -19,10 +19,6 @@ int main(int argc, char *argv[]);
 #define PYPY_MAIN_FUNCTION main
 #endif
 
-#ifdef MS_WINDOWS
-#include "src/winstuff.c"
-#endif
-
 #ifdef __GNUC__
 /* Hack to prevent this function from being inlined.  Helps asmgcc
    because the main() function has often a different prologue/epilogue. */
@@ -48,10 +44,6 @@ int pypy_main_function(int argc, char *argv[])
                  " for now";
         goto error;
     }
-#endif
-
-#ifdef MS_WINDOWS
-    pypy_Windows_startup();
 #endif
 
     errmsg = RPython_StartupCode();

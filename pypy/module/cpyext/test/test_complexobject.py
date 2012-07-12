@@ -31,3 +31,12 @@ class AppTestCComplex(AppTestCpythonExtensionBase):
         assert module.as_tuple(12-34j) == (12, -34)
         assert module.as_tuple(-3.14) == (-3.14, 0.0)
         raises(TypeError, module.as_tuple, "12")
+
+    def test_FromCComplex(self):
+        module = self.import_extension('foo', [
+            ("test", "METH_NOARGS",
+             """
+                 Py_complex c = {1.2, 3.4};
+                 return PyComplex_FromCComplex(c);
+             """)])
+        assert module.test() == 1.2 + 3.4j

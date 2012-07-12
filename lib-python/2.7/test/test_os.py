@@ -690,7 +690,8 @@ else:
     class PosixUidGidTests(unittest.TestCase):
         pass
 
-@unittest.skipUnless(sys.platform == "win32", "Win32 specific tests")
+@unittest.skipUnless(sys.platform == "win32" and hasattr(os,'kill'),
+                         "Win32 specific tests")
 class Win32KillTests(unittest.TestCase):
     def _kill(self, sig):
         # Start sys.executable as a subprocess and communicate from the

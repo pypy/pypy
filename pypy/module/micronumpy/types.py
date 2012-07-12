@@ -13,10 +13,13 @@ from pypy.rlib.rstruct.runpack import runpack
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib import jit
 
+
 VOID_STORAGE = lltype.Array(lltype.Char, hints={'nolength': True,
                                                 'render_as_void': True})
 degToRad = math.pi / 180.0
 log2 = math.log(2)
+log2e = 1. / log2
+
 
 def simple_unary_op(func):
     specialize.argtype(1)(func)
@@ -65,7 +68,7 @@ def raw_binary_op(func):
 
 class BaseType(object):
     _attrs_ = ()
-    
+
     def _unimplemented_ufunc(self, *args):
         raise NotImplementedError
 
@@ -132,7 +135,7 @@ class Primitive(object):
                                  width, storage, i, offset, value)
         else:
             libffi.array_setitem_T(self.T, width, storage, i, offset, value)
-        
+
 
     def store(self, arr, width, i, offset, box):
         self._write(arr.storage, width, i, offset, self.unbox(box))
@@ -241,7 +244,7 @@ class Primitive(object):
 
 class NonNativePrimitive(Primitive):
     _mixin_ = True
-    
+
     def _read(self, storage, width, i, offset):
         if we_are_translated():
             res = libffi.array_getitem(clibffi.cast_type_to_ffitype(self.T),
@@ -527,7 +530,7 @@ class NonNativeInt64(BaseType, NonNativeInteger):
 
     T = rffi.LONGLONG
     BoxType = interp_boxes.W_Int64Box
-    format_code = "q"    
+    format_code = "q"
 
     _coerce = func_with_new_name(_int64_coerce, '_coerce')
 
@@ -841,45 +844,26 @@ class Float(Primitive):
 
     @simple_binary_op
     def logaddexp(self, v1, v2):
-        try:
-            v1e = math.exp(v1)
-        except OverflowError:
-            v1e = rfloat.INFINITY
-        try:
-            v2e = math.exp(v2)
-        except OverflowError:
-            v2e = rfloat.INFINITY
+        tmp = v1 - v2
+        if tmp > 0:
+            return v1 + rfloat.log1p(math.exp(-tmp))
+        elif tmp <= 0:
+            return v2 + rfloat.log1p(math.exp(tmp))
+        else:
+            return v1 + v2
 
-        v12e = v1e + v2e
-        try:
-            return math.log(v12e)
-        except ValueError:
-            if v12e == 0.0:
-                # CPython raises ValueError here, so we have to check
-                # the value to find the correct numpy return value
-                return -rfloat.INFINITY
-            return rfloat.NAN
+    def npy_log2_1p(self, v):
+        return log2e * rfloat.log1p(v)
 
     @simple_binary_op
     def logaddexp2(self, v1, v2):
-        try:
-            v1e = math.pow(2, v1)
-        except OverflowError:
-            v1e = rfloat.INFINITY
-        try:
-            v2e = math.pow(2, v2)
-        except OverflowError:
-            v2e = rfloat.INFINITY
-
-        v12e = v1e + v2e
-        try:
-            return math.log(v12e) / log2
-        except ValueError:
-            if v12e == 0.0:
-                # CPython raises ValueError here, so we have to check
-                # the value to find the correct numpy return value
-                return -rfloat.INFINITY
-            return rfloat.NAN
+        tmp = v1 - v2
+        if tmp > 0:
+            return v1 + self.npy_log2_1p(math.pow(2, -tmp))
+        if tmp <= 0:
+            return v2 + self.npy_log2_1p(math.pow(2, tmp))
+        else:
+            return v1 + v2
 
 class NonNativeFloat(NonNativePrimitive, Float):
     _mixin_ = True
@@ -918,7 +902,7 @@ class NonNativeFloat32(BaseType, NonNativeFloat):
 
     T = rffi.FLOAT
     BoxType = interp_boxes.W_Float32Box
-    format_code = "f"    
+    format_code = "f"
 
 class Float64(BaseType, Float):
     _attrs_ = ()
@@ -936,7 +920,7 @@ class NonNativeFloat64(BaseType, NonNativeFloat):
 
 class BaseStringType(object):
     _mixin_ = True
-    
+
     def __init__(self, size=0):
         self.size = size
 
@@ -967,14 +951,14 @@ class RecordType(BaseType):
 
     def get_element_size(self):
         return self.size
-    
+
     def read(self, arr, width, i, offset, dtype=None):
         if dtype is None:
             dtype = arr.dtype
         return interp_boxes.W_VoidBox(arr, i + offset, dtype)
 
     @jit.unroll_safe
-    def coerce(self, space, dtype, w_item): 
+    def coerce(self, space, dtype, w_item):
         from pypy.module.micronumpy.interp_numarray import W_NDimArray
 
         if isinstance(w_item, interp_boxes.W_VoidBox):

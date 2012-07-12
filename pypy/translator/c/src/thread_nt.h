@@ -33,6 +33,7 @@ BOOL InitializeNonRecursiveMutex(PNRMUTEX mutex);
 VOID DeleteNonRecursiveMutex(PNRMUTEX mutex);
 DWORD EnterNonRecursiveMutex(PNRMUTEX mutex, BOOL wait);
 BOOL LeaveNonRecursiveMutex(PNRMUTEX mutex);
+int RPyThreadLockInit(struct RPyOpaque_ThreadLock *lock);
 void RPyOpaqueDealloc_ThreadLock(struct RPyOpaque_ThreadLock *lock);
 int RPyThreadAcquireLock(struct RPyOpaque_ThreadLock *lock, int waitflag);
 void RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock);
@@ -174,7 +175,7 @@ void RPyThreadAfterFork(void)
 {
 }
 
-int RPyThreadLockInit(struct RPyOpaque_ThreadLock * lock)
+int RPyThreadLockInit(struct RPyOpaque_ThreadLock *lock)
 {
   return InitializeNonRecursiveMutex(lock);
 }

@@ -47,10 +47,6 @@ class _CDataMeta(type):
         else:
             return self.from_param(as_parameter)
 
-    def get_ffi_param(self, value):
-        cdata = self.from_param(value)
-        return cdata, cdata._to_ffi_param()
-
     def get_ffi_argtype(self):
         if self._ffiargtype:
             return self._ffiargtype

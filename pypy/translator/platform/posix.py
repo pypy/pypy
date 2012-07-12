@@ -1,6 +1,6 @@
 """Base support for POSIX-like platforms."""
 
-import py, os
+import py, os, sys
 
 from pypy.tool import autopath
 from pypy.translator.platform import Platform, log, _run_subprocess
@@ -55,6 +55,10 @@ class BasePosix(Platform):
 
         if relto:
             response_file = relto.bestrelpath(response_file)
+        if (self.cc == 'mingw32' or (self.cc== 'gcc' and os.name=='nt')
+                or sys.platform == 'cygwin'):
+            return ["-Wl,--export-all-symbols,--version-script=%s" % \
+                    (response_file,)]
         return ["-Wl,--export-dynamic,--version-script=%s" % (response_file,)]
 
     def _link(self, cc, ofiles, link_args, standalone, exe_name):
@@ -125,7 +129,7 @@ class BasePosix(Platform):
             return fpath
 
         rel_cfiles = [m.pathrel(cfile) for cfile in cfiles]
-        rel_ofiles = [rel_cfile[:-2]+'.o' for rel_cfile in rel_cfiles]
+        rel_ofiles = [rel_cfile[:rel_cfile.rfind('.')]+'.o' for rel_cfile in rel_cfiles]
         m.cfiles = rel_cfiles
 
         rel_includedirs = [pypyrel(incldir) for incldir in
@@ -159,6 +163,7 @@ class BasePosix(Platform):
             ('all', '$(DEFAULT_TARGET)', []),
             ('$(TARGET)', '$(OBJECTS)', '$(CC_LINK) $(LDFLAGSEXTRA) -o $@ $(OBJECTS) $(LIBDIRS) $(LIBS) $(LINKFILES) $(LDFLAGS)'),
             ('%.o', '%.c', '$(CC) $(CFLAGS) $(CFLAGSEXTRA) -o $@ -c $< $(INCLUDEDIRS)'),
+            ('%.o', '%.cxx', '$(CXX) $(CFLAGS) $(CFLAGSEXTRA) -o $@ -c $< $(INCLUDEDIRS)'),
             ]
 
         for rule in rules:

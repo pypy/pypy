@@ -107,6 +107,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         obj.double_member = 9.25;      assert obj.double_member == 9.25
         obj.longlong_member = -2**59;  assert obj.longlong_member == -2**59
         obj.ulonglong_member = 2**63;  assert obj.ulonglong_member == 2**63
+        obj.ssizet_member = sys.maxint;assert obj.ssizet_member == sys.maxint
         #
 
     def test_staticmethod(self):
@@ -488,3 +489,55 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert type(it) is type(iter([]))
         assert module.tp_iternext(it) == 1
         raises(StopIteration, module.tp_iternext, it)
+        
+    def test_bool(self):
+        module = self.import_extension('foo', [
+            ("newInt", "METH_VARARGS",
+             """
+                IntLikeObject *intObj;
+                long intval;
+                PyObject *name;
+
+                if (!PyArg_ParseTuple(args, "i", &intval))
+                    return NULL;
+
+                IntLike_Type.tp_as_number = &intlike_as_number;
+                intlike_as_number.nb_nonzero = intlike_nb_nonzero;
+                if (PyType_Ready(&IntLike_Type) < 0) return NULL;
+                intObj = PyObject_New(IntLikeObject, &IntLike_Type);
+                if (!intObj) {
+                    return NULL;
+                }
+
+                intObj->value = intval;
+                return (PyObject *)intObj;
+             """)],
+            """
+            typedef struct
+            {
+                PyObject_HEAD
+                int value;
+            } IntLikeObject;
+
+            static int
+            intlike_nb_nonzero(IntLikeObject *v)
+            {
+                if (v->value == -42) {
+                    PyErr_SetNone(PyExc_ValueError);
+                    return -1;
+                }
+                return v->value;
+            }
+
+            PyTypeObject IntLike_Type = {
+                PyObject_HEAD_INIT(0)
+                /*ob_size*/             0,
+                /*tp_name*/             "IntLike",
+                /*tp_basicsize*/        sizeof(IntLikeObject),
+            };
+            static PyNumberMethods intlike_as_number;
+            """)
+        assert not bool(module.newInt(0))
+        assert bool(module.newInt(1))
+        assert bool(module.newInt(-1))
+        raises(ValueError, bool, module.newInt(-42))

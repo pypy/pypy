@@ -483,7 +483,7 @@ class TestAnnotateTestCase:
                 return a_str.strip(' ')
             elif n == 1:
                 return a_str.rstrip(' ')
-            else: 
+            else:
                 return a_str.lstrip(' ')
         s = a.build_types(f, [int, annmodel.SomeString(no_nul=True)])
         assert s.no_nul
@@ -2138,6 +2138,15 @@ class TestAnnotateTestCase:
         assert isinstance(s, annmodel.SomeString)
         assert s.no_nul
 
+    def test_mul_str0(self):
+        def f(s):
+            return s*10
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [annmodel.SomeString(no_nul=True)])
+        assert isinstance(s, annmodel.SomeString)
+        assert s.no_nul
+        
+
     def test_non_none_and_none_with_isinstance(self):
         class A(object):
             pass
@@ -2737,20 +2746,6 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         s = a.build_types(f, [])
         assert s.knowntype == int
-
-    def test_helper_method_annotator(self):
-        def fun():
-            return 21
-
-        class A(object):
-            def helper(self):
-                return 42
-
-        a = self.RPythonAnnotator()
-        a.build_types(fun, [])
-        a.annotate_helper_method(A, "helper", [])
-        assert a.bookkeeper.getdesc(A.helper).getuniquegraph()
-        assert a.bookkeeper.getdesc(A().helper).getuniquegraph()
 
     def test_chr_out_of_bounds(self):
         def g(n, max):
@@ -3737,6 +3732,98 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [int])
         assert s.listdef.listitem.range_step == 0
 
+    def test_specialize_arg_memo(self):
+        @objectmodel.specialize.memo()
+        def g(n):
+            return n
+        @objectmodel.specialize.arg(0)
+        def f(i):
+            return g(i)
+        def main(i):
+            if i == 2:
+                return f(2)
+            elif i == 3:
+                return f(3)
+            else:
+                raise NotImplementedError
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(main, [int])
+        assert isinstance(s, annmodel.SomeInteger)
+
+    def test_join_none_and_nonnull(self):
+        from pypy.rlib.rstring import assert_str0
+        
+        def f(i):
+            a = str(i)
+            a = assert_str0(a)
+            return a.join([None])
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert isinstance(s, annmodel.SomeString)
+        assert not s.can_be_None
+
+    def test_no___call__(self):
+        class X(object):
+            def __call__(self):
+                xxx
+        x = X()
+        def f():
+            return x
+        a = self.RPythonAnnotator()
+        e = py.test.raises(Exception, a.build_types, f, [])
+        assert 'object with a __call__ is not RPython' in str(e.value)
+
+    def test_os_getcwd(self):
+        import os
+        def fn():
+            return os.getcwd()
+        a = self.RPythonAnnotator()
+        s = a.build_types(fn, [])
+        assert isinstance(s, annmodel.SomeString)
+        assert s.no_nul
+
+    def test_os_getenv(self):
+        import os
+        def fn():
+            return os.environ.get('PATH')
+        a = self.RPythonAnnotator()
+        s = a.build_types(fn, [])
+        assert isinstance(s, annmodel.SomeString)
+        assert s.no_nul
+
+    def test_base_iter(self):
+        class A(object):
+            def __iter__(self):
+                return self
+        
+        def fn():
+            return iter(A())
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(fn, [])
+        assert isinstance(s, annmodel.SomeInstance)
+        assert s.classdef.name.endswith('.A')
+
+    def test_iter_next(self):
+        class A(object):
+            def __iter__(self):
+                return self
+
+            def next(self):
+                return 1
+        
+        def fn():
+            s = 0
+            for x in A():
+                s += x
+            return s
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(fn, [])
+        assert len(a.translator.graphs) == 3 # fn, __iter__, next
+        assert isinstance(s, annmodel.SomeInteger)
 
 def g(n):
     return [0,1,2,n]
