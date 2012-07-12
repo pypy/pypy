@@ -164,7 +164,9 @@ code never has to call ``load_reflection_info()`` directly.
 The class loader makes use of so-called rootmap files, which ``genreflex``
 can produce.
 These files contain the list of available C++ classes and specify the library
-that needs to be loaded for their use.
+that needs to be loaded for their use (as an aside, this listing allows for a
+cross-check to see whether reflection info is generated for all classes that
+you expect).
 By convention, the rootmap files should be located next to the reflection info
 libraries, so that they can be found through the normal shared library search
 path.
@@ -253,6 +255,9 @@ header file.
 With the aid of a selection file, a large project can be easily managed:
 simply ``#include`` all relevant headers into a single header file that is
 handed to ``genreflex``.
+In fact, if you hand multiple header files to ``genreflex``, then a selection
+file is almost obligatory: without it, only classes from the last header will
+be selected.
 Then, apply a selection file to pick up all the relevant classes.
 For our purposes, the following rather straightforward selection will do
 (the name ``lcgdict`` for the root is historical, but required)::
