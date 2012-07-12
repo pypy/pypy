@@ -384,9 +384,9 @@ void cppyy_call_v(cppyy_method_t method, cppyy_object_t self, int nargs, void* a
     cppyy_call_T(method, self, nargs, args);
 }
 
-int cppyy_call_b(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
+unsigned char cppyy_call_b(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
     G__value result = cppyy_call_T(method, self, nargs, args);
-    return (bool)G__int(result);
+    return (unsigned char)(bool)G__int(result);
 }
 
 char cppyy_call_c(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
@@ -414,9 +414,9 @@ long long cppyy_call_ll(cppyy_method_t method, cppyy_object_t self, int nargs, v
     return G__Longlong(result);
 }
 
-double cppyy_call_f(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
+float cppyy_call_f(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
     G__value result = cppyy_call_T(method, self, nargs, args);
-    return G__double(result);
+    return (float)G__double(result);
 }
 
 double cppyy_call_d(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {

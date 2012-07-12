@@ -34,30 +34,27 @@ class AppTestSTLVECTOR:
 
         assert callable(cppyy.gbl.std.vector)
 
-        tv1i = getattr(cppyy.gbl.std, 'vector<int>')
-        tv2i = cppyy.gbl.std.vector(int)
-        assert tv1i is tv2i
-        assert cppyy.gbl.std.vector(int).iterator is cppyy.gbl.std.vector('int').iterator
+        type_info = (
+            ("int",     int),
+            ("float",   "float"),
+            ("double",  "double"),
+        )
 
-        tv1d = getattr(cppyy.gbl.std, 'vector<double>')
-        tv2d = cppyy.gbl.std.vector('double')
-        assert tv1d is tv2d
-        assert tv1d.iterator is cppyy.gbl.std.vector('double').iterator
+        for c_type, p_type in type_info:
+            tv1 = getattr(cppyy.gbl.std, 'vector<%s>' % c_type)
+            tv2 = cppyy.gbl.std.vector(p_type)
+            assert tv1 is tv2
+            assert tv1.iterator is cppyy.gbl.std.vector(p_type).iterator
 
-        #-----
-        vi = tv1i(self.N)
-        vd = tv1d(); vd += range(self.N)     # default args from Reflex are useless :/
-        def test_v(v):
+            #-----
+            v = tv1(); v += range(self.N)    # default args from Reflex are useless :/
             assert v.begin().__eq__(v.begin())
             assert v.begin() == v.begin()
             assert v.end() == v.end()
             assert v.begin() != v.end()
             assert v.end() != v.begin()
-        test_v(vi)
-        test_v(vd)
 
-        #-----
-        def test_v(v):
+            #-----
             for i in range(self.N):
                 v[i] = i
                 assert v[i] == i
@@ -65,13 +62,9 @@ class AppTestSTLVECTOR:
 
             assert v.size() == self.N
             assert len(v) == self.N
-        test_v(vi)
-        test_v(vd)
 
-        #-----
-        vi = tv1i()
-        vd = tv1d()
-        def test_v(v):
+            #-----
+            v = tv1()
             for i in range(self.N):
                 v.push_back(i)
                 assert v.size() == i+1
@@ -80,8 +73,6 @@ class AppTestSTLVECTOR:
 
             assert v.size() == self.N
             assert len(v) == self.N
-        test_v(vi)
-        test_v(vd)
 
     def test02_user_type_vector_type(self):
         """Test access to an std::vector<just_a_class>"""

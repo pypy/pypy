@@ -109,7 +109,7 @@ c_call_v = rffi.llexternal(
     compilation_info=backend.eci)
 c_call_b = rffi.llexternal(
     "cppyy_call_b",
-    [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.INT,
+    [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.UCHAR,
     threadsafe=ts_call,
     compilation_info=backend.eci)
 c_call_c = rffi.llexternal(
@@ -139,7 +139,7 @@ c_call_ll = rffi.llexternal(
     compilation_info=backend.eci)
 c_call_f = rffi.llexternal(
     "cppyy_call_f",
-    [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.DOUBLE,
+    [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.FLOAT,
     threadsafe=ts_call,
     compilation_info=backend.eci)
 c_call_d = rffi.llexternal(

@@ -244,16 +244,8 @@ class VoidConverter(TypeConverter):
                              space.wrap('no converter available for type "%s"' % self.name))
 
 
-class BoolConverter(TypeConverter):
+class BoolConverter(ffitypes.typeid(bool), TypeConverter):
     _immutable_ = True
-    libffitype = libffi.types.schar
-
-    def _unwrap_object(self, space, w_obj):
-        arg = space.c_int_w(w_obj)
-        if arg != False and arg != True:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("boolean value should be bool, or integer 1 or 0"))
-        return arg
 
     def convert_argument(self, space, w_obj, address, call_local):
         x = rffi.cast(rffi.LONGP, address)

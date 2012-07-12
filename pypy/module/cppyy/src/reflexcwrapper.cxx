@@ -133,8 +133,8 @@ static inline T cppyy_call_T(cppyy_method_t method, cppyy_object_t self, int nar
     return result;
 }
 
-int cppyy_call_b(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
-    return (int)cppyy_call_T<bool>(method, self, nargs, args);
+unsigned char cppyy_call_b(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
+    return (unsigned char)cppyy_call_T<bool>(method, self, nargs, args);
 }
 
 char cppyy_call_c(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
@@ -157,7 +157,7 @@ long long cppyy_call_ll(cppyy_method_t method, cppyy_object_t self, int nargs, v
     return cppyy_call_T<long long>(method, self, nargs, args);
 }
 
-double cppyy_call_f(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
+float cppyy_call_f(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
     return cppyy_call_T<float>(method, self, nargs, args);
 }
 

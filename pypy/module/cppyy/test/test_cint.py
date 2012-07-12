@@ -87,3 +87,26 @@ class AppTestCINT:
         c.set_data(13)
         assert c.m_data == 13
         assert c.get_data() == 13
+
+
+class AppTestCINTPythonizations:
+    def setup_class(cls):
+        cls.space = space
+
+    def test03_TVector(self):
+        """Test TVector2/3/T behavior"""
+
+        import cppyy, math
+
+        N = 51
+
+        # TVectorF is a typedef of floats
+        v = cppyy.gbl.TVectorF(N)
+        for i in range(N):
+            v[i] = i*i
+
+        #for j in v:       # TODO: raise exception on out-of-bounds
+        #   assert round(v[int(math.sqrt(j)+0.5)]-j, 5) == 0.
+        for i in range(N):
+            j = v[i]
+            assert round(v[int(math.sqrt(j)+0.5)]-j, 5) == 0.

@@ -72,16 +72,16 @@ class NumericExecutorMixin(object):
     _mixin_ = True
     _immutable_ = True
 
-    def _wrap_result(self, space, result):
-        return space.wrap(rffi.cast(self.c_type, result))
+    def _wrap_object(self, space, obj):
+        return space.wrap(obj)
 
     def execute(self, space, cppmethod, cppthis, num_args, args):
         result = self.c_stubcall(cppmethod, cppthis, num_args, args)
-        return self._wrap_result(space, result)
+        return self._wrap_object(space, rffi.cast(self.c_type, result))
 
     def execute_libffi(self, space, libffifunc, argchain):
         result = libffifunc.call(argchain, self.c_type)
-        return space.wrap(result)
+        return self._wrap_object(space, result)
 
 class NumericRefExecutorMixin(object):
     _mixin_ = True
@@ -96,71 +96,22 @@ class NumericRefExecutorMixin(object):
         self.item = self._unwrap_object(space, w_item)
         self.do_assign = True
 
-    def _wrap_result(self, space, rffiptr):
+    def _wrap_object(self, space, obj):
+        return space.wrap(rffi.cast(self.c_type, obj))
+
+    def _wrap_reference(self, space, rffiptr):
         if self.do_assign:
             rffiptr[0] = self.item
-        return space.wrap(rffiptr[0])   # all paths, for rtyper
-
-    def execute(self, space, cppmethod, cppthis, num_args, args):
-        result = rffi.cast(self.c_ptrtype, capi.c_call_r(cppmethod, cppthis, num_args, args))
-        return self._wrap_result(space, result)
-
-    def execute_libffi(self, space, libffifunc, argchain):
-        result = libffifunc.call(argchain, self.c_ptrtype)
-        return self._wrap_result(space, result)
-
-
-class BoolExecutor(FunctionExecutor):
-    _immutable_ = True
-    libffitype  = libffi.types.schar
-
-    def execute(self, space, cppmethod, cppthis, num_args, args):
-        result = capi.c_call_b(cppmethod, cppthis, num_args, args)
-        return space.wrap(result)
-
-    def execute_libffi(self, space, libffifunc, argchain):
-        result = libffifunc.call(argchain, rffi.CHAR)
-        return space.wrap(bool(ord(result)))
-
-class ConstIntRefExecutor(FunctionExecutor):
-    _immutable_ = True
-    libffitype = libffi.types.pointer
-
-    def _wrap_result(self, space, result):
-        intptr = rffi.cast(rffi.INTP, result)
-        return space.wrap(intptr[0])
+        self.do_assign = False
+        return self._wrap_object(space, rffiptr[0])    # all paths, for rtyper
 
     def execute(self, space, cppmethod, cppthis, num_args, args):
         result = capi.c_call_r(cppmethod, cppthis, num_args, args)
-        return self._wrap_result(space, result)
+        return self._wrap_reference(space, rffi.cast(self.c_ptrtype, result))
 
     def execute_libffi(self, space, libffifunc, argchain):
-        result = libffifunc.call(argchain, rffi.INTP)
-        return space.wrap(result[0])
-
-class ConstLongRefExecutor(ConstIntRefExecutor):
-    _immutable_ = True
-    libffitype = libffi.types.pointer
-
-    def _wrap_result(self, space, result):
-        longptr = rffi.cast(rffi.LONGP, result)
-        return space.wrap(longptr[0])
-
-    def execute_libffi(self, space, libffifunc, argchain):
-        result = libffifunc.call(argchain, rffi.LONGP)
-        return space.wrap(result[0])
-
-class FloatExecutor(FunctionExecutor):
-    _immutable_ = True
-    libffitype = libffi.types.float
-
-    def execute(self, space, cppmethod, cppthis, num_args, args):
-        result = capi.c_call_f(cppmethod, cppthis, num_args, args)
-        return space.wrap(float(result))
-
-    def execute_libffi(self, space, libffifunc, argchain):
-        result = libffifunc.call(argchain, rffi.FLOAT)
-        return space.wrap(float(result))
+        result = libffifunc.call(argchain, self.c_ptrtype)
+        return self._wrap_reference(space, result)
 
 
 class CStringExecutor(FunctionExecutor):
@@ -329,14 +280,11 @@ def get_executor(space, name):
 
 _executors["void"]                = VoidExecutor
 _executors["void*"]               = PtrTypeExecutor
-_executors["bool"]                = BoolExecutor
 _executors["const char*"]         = CStringExecutor
-_executors["const int&"]          = ConstIntRefExecutor
-_executors["float"]               = FloatExecutor
-
-_executors["constructor"]         = ConstructorExecutor
 
 # special cases
+_executors["constructor"]         = ConstructorExecutor
+
 _executors["std::basic_string<char>"]         = StdStringExecutor
 _executors["const std::basic_string<char>&"]  = StdStringExecutor
 _executors["std::basic_string<char>&"]        = StdStringExecutor    # TODO: shouldn't copy
@@ -347,6 +295,7 @@ _executors["PyObject*"]           = PyObjectExecutor
 def _build_basic_executors():
     "NOT_RPYTHON"
     type_info = (
+        (bool,            capi.c_call_b,   ("bool",)),
         (rffi.CHAR,       capi.c_call_c,   ("char", "unsigned char")),
         (rffi.SHORT,      capi.c_call_h,   ("short", "short int", "unsigned short", "unsigned short int")),
         (rffi.INT,        capi.c_call_i,   ("int",)),
@@ -355,7 +304,8 @@ def _build_basic_executors():
         (rffi.ULONG,      capi.c_call_l,   ("unsigned long", "unsigned long int")),
         (rffi.LONGLONG,   capi.c_call_ll,  ("long long", "long long int")),
         (rffi.ULONGLONG,  capi.c_call_ll,  ("unsigned long long", "unsigned long long int")),
-        (rffi.DOUBLE,     capi.c_call_d,   ("double",))
+        (rffi.FLOAT,      capi.c_call_f,   ("float",)),
+        (rffi.DOUBLE,     capi.c_call_d,   ("double",)),
     )
 
     for c_type, stub, names in type_info:
@@ -366,8 +316,9 @@ def _build_basic_executors():
             _immutable_ = True
             libffitype = libffi.types.pointer
         for name in names:
-            _executors[name]     = BasicExecutor
-            _executors[name+'&'] = BasicRefExecutor
+            _executors[name]              = BasicExecutor
+            _executors[name+'&']          = BasicRefExecutor
+            _executors['const '+name+'&'] = BasicRefExecutor     # no copy needed for builtins
 _build_basic_executors()
 
 # create the pointer executors; all real work is in the PtrTypeExecutor, since

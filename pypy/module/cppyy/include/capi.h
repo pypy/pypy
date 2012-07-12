@@ -30,13 +30,13 @@ extern "C" {
 
     /* method/function dispatching -------------------------------------------- */
     void   cppyy_call_v(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
-    int    cppyy_call_b(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
+    unsigned char cppyy_call_b(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
     char   cppyy_call_c(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
     short  cppyy_call_h(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
     int    cppyy_call_i(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
     long   cppyy_call_l(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
     long long cppyy_call_ll(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
-    double cppyy_call_f(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
+    float  cppyy_call_f(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
     double cppyy_call_d(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
 
     void*  cppyy_call_r(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);

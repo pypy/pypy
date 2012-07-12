@@ -10,6 +10,23 @@ from pypy.rlib import libffi, rfloat
 # mixin, a non-RPython function typeid() is used.
 
 
+class BoolTypeMixin(object):
+    _mixin_     = True
+    _immutable_ = True
+    libffitype  = libffi.types.uchar
+    c_type      = rffi.UCHAR
+    c_ptrtype   = rffi.UCHARP
+
+    def _unwrap_object(self, space, w_obj):
+        arg = space.c_int_w(w_obj)
+        if arg != False and arg != True:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("boolean value should be bool, or integer 1 or 0"))
+        return arg
+
+    def _wrap_object(self, space, obj):
+        return space.wrap(bool(ord(rffi.cast(rffi.CHAR, obj))))
+
 class CharTypeMixin(object):
     _mixin_     = True
     _immutable_ = True
@@ -125,6 +142,9 @@ class FloatTypeMixin(object):
     def _unwrap_object(self, space, w_obj):
         return r_singlefloat(space.float_w(w_obj))
 
+    def _wrap_object(self, space, obj):
+        return space.wrap(float(obj))
+
 class DoubleTypeMixin(object):
     _mixin_     = True
     _immutable_ = True
@@ -139,6 +159,7 @@ class DoubleTypeMixin(object):
 
 def typeid(c_type):
     "NOT_RPYTHON"
+    if c_type == bool:            return BoolTypeMixin
     if c_type == rffi.CHAR:       return CharTypeMixin
     if c_type == rffi.SHORT:      return ShortTypeMixin
     if c_type == rffi.USHORT:     return UShortTypeMixin
