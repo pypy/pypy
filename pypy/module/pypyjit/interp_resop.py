@@ -333,12 +333,12 @@ class W_JitInfoSnapshot(Wrappable):
 
 W_JitInfoSnapshot.typedef = TypeDef(
     "JitInfoSnapshot",
-    w_loop_run_times = interp_attrproperty_w("w_loop_run_times",
+    loop_run_times = interp_attrproperty_w("w_loop_run_times",
                                              cls=W_JitInfoSnapshot),
-    w_counters = interp_attrproperty_w("w_counters",
+    counters = interp_attrproperty_w("w_counters",
                                        cls=W_JitInfoSnapshot,
                                        doc="various JIT counters"),
-    w_counter_times = interp_attrproperty_w("w_counter_times",
+    counter_times = interp_attrproperty_w("w_counter_times",
                                             cls=W_JitInfoSnapshot,
                                             doc="various JIT timers")
 )
