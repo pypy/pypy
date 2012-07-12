@@ -2,7 +2,7 @@
 
 import os, sys
 from time import time
-from pypy.rlib.rbigint import rbigint
+from pypy.rlib.rbigint import rbigint, _k_mul, _tc_mul
 
 # __________  Entry point  __________
 
@@ -74,17 +74,30 @@ def entry_point(argv):
     sumTime = 0.0
     
     
-    """t = time()
-    by = rbigint.pow(rbigint.fromint(63), rbigint.fromint(100))
-    for n in xrange(9900):
+    """ t = time()
+    by = rbigint.fromint(2**62).lshift(1030000)
+    for n in xrange(5000):
         by2 = by.lshift(63)
-        rbigint.mul(by, by2)
+        _tc_mul(by, by2)
         by = by2
         
 
     _time = time() - t
     sumTime += _time
-    print "Toom-cook effectivity 100-10000 digits:", _time"""
+    print "Toom-cook effectivity _Tcmul 1030000-1035000 digits:", _time
+    
+    t = time()
+    by = rbigint.fromint(2**62).lshift(1030000)
+    for n in xrange(5000):
+        by2 = by.lshift(63)
+        _k_mul(by, by2)
+        by = by2
+        
+
+    _time = time() - t
+    sumTime += _time
+    print "Toom-cook effectivity _kMul 1030000-1035000 digits:", _time"""
+    
     
     V2 = rbigint.fromint(2)
     num = rbigint.pow(rbigint.fromint(100000000), rbigint.fromint(1024))
