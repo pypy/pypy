@@ -155,8 +155,10 @@ class KwargsDictStrategy(DictStrategy):
         return space.wrap(key)
 
 def next_item(self):
+    strategy = self.strategy
+    assert isinstance(strategy, KwargsDictStrategy)
     for i in self.iterator:
-        keys, values_w = self.strategy.unerase(
+        keys, values_w = strategy.unerase(
             self.dictimplementation.dstorage)
         return self.space.wrap(keys[i]), values_w[i]
     else:
