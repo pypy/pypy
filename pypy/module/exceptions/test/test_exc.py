@@ -6,8 +6,6 @@ class AppTestExc(object):
         cls.space = gettestobjspace(usemodules=('exceptions',))
 
     def test_baseexc(self):
-        from exceptions import BaseException
-
         assert str(BaseException()) == ''
         assert repr(BaseException()) == 'BaseException()'
         assert BaseException().message == ''
@@ -35,7 +33,6 @@ class AppTestExc(object):
         assert not hasattr(x, "message")
 
     def test_kwargs(self):
-        from exceptions import Exception
         class X(Exception):
             def __init__(self, x=3):
                 self.x = x
@@ -44,8 +41,6 @@ class AppTestExc(object):
         assert x.x == 8
 
     def test_exc(self):
-        from exceptions import Exception, BaseException
-
         assert issubclass(Exception, BaseException)
         assert isinstance(Exception(), Exception)
         assert isinstance(Exception(), BaseException)
@@ -55,8 +50,6 @@ class AppTestExc(object):
         assert str(IOError(1, 2)) == "[Errno 1] 2"
 
     def test_custom_class(self):
-        from exceptions import Exception, BaseException, LookupError
-
         class MyException(Exception):
             def __init__(self, x):
                 self.x = x
@@ -70,7 +63,6 @@ class AppTestExc(object):
         assert str(MyException("x")) == "x"
 
     def test_unicode_translate_error(self):
-        from exceptions import UnicodeTranslateError
         ut = UnicodeTranslateError("x", 1, 5, "bah")
         assert ut.object == 'x'
         assert ut.start == 1
@@ -88,12 +80,9 @@ class AppTestExc(object):
         assert ut.object == []
 
     def test_key_error(self):
-        from exceptions import KeyError
-
         assert str(KeyError('s')) == "'s'"
 
     def test_environment_error(self):
-        from exceptions import EnvironmentError
         ee = EnvironmentError(3, "x", "y")
         assert str(ee) == "[Errno 3] x: 'y'"
         assert str(EnvironmentError(3, "x")) == "[Errno 3] x"
@@ -104,8 +93,8 @@ class AppTestExc(object):
 
     def test_windows_error(self):
         try:
-            from exceptions import WindowsError
-        except ImportError:
+            WindowsError
+        except NameError:
             skip('WindowsError not present')
         ee = WindowsError(3, "x", "y")
         assert str(ee) == "[Error 3] x: y"
@@ -115,7 +104,6 @@ class AppTestExc(object):
         assert str(WindowsError(3, "x")) == "[Error 3] x"
 
     def test_syntax_error(self):
-        from exceptions import SyntaxError
         s = SyntaxError()
         assert s.msg is None
         s = SyntaxError(3)
@@ -128,13 +116,11 @@ class AppTestExc(object):
         assert str(SyntaxError("msg", ("file.py", 2, 3, 4))) == "msg (file.py, line 2)"
 
     def test_system_exit(self):
-        from exceptions import SystemExit
         assert SystemExit().code is None
         assert SystemExit("x").code == "x"
         assert SystemExit(1, 2).code == (1, 2)
 
     def test_unicode_decode_error(self):
-        from exceptions import UnicodeDecodeError
         ud = UnicodeDecodeError("x", b"y", 1, 5, "bah")
         assert ud.encoding == 'x'
         assert ud.object == b'y'
@@ -150,7 +136,6 @@ class AppTestExc(object):
         assert str(ud) == "'x' codec can't decode byte 0x39 in position 1: bah"
 
     def test_unicode_encode_error(self):
-        from exceptions import UnicodeEncodeError
         ue = UnicodeEncodeError("x", "y", 1, 5, "bah")
         assert ue.encoding == 'x'
         assert ue.object == 'y'
@@ -169,7 +154,6 @@ class AppTestExc(object):
         raises(TypeError, UnicodeEncodeError, "x", b"y", 1, 5, "bah")
 
     def test_multiple_inheritance(self):
-        from exceptions import LookupError, ValueError, Exception, IOError
         class A(LookupError, ValueError):
             pass
         assert issubclass(A, A)
@@ -184,7 +168,6 @@ class AppTestExc(object):
         assert isinstance(a, ValueError)
         assert not isinstance(a, KeyError)
 
-        from exceptions import UnicodeDecodeError, UnicodeEncodeError
         try:
             class B(UnicodeTranslateError, UnicodeEncodeError):
                 pass
@@ -205,16 +188,14 @@ class AppTestExc(object):
         assert not isinstance(c, KeyError)
 
     def test_doc_and_module(self):
-        import exceptions
-        for name, e in exceptions.__dict__.items():
-            if isinstance(e, type) and issubclass(e, exceptions.BaseException):
+        import builtins
+        for name, e in builtins.__dict__.items():
+            if isinstance(e, type) and issubclass(e, BaseException):
                 assert e.__doc__, e
-                assert e.__module__ == 'exceptions', e
+                assert e.__module__ == 'builtins', e
         assert 'run-time' in RuntimeError.__doc__
 
     def test_reduce(self):
-        from exceptions import LookupError, EnvironmentError
-
         le = LookupError(1, 2, "a")
         assert le.__reduce__() == (LookupError, (1, 2, "a"))
         le.xyz = (1, 2)
@@ -223,8 +204,6 @@ class AppTestExc(object):
         assert ee.__reduce__() == (EnvironmentError, (1, 2, "a"))
 
     def test_setstate(self):
-        from exceptions import FutureWarning
-
         fw = FutureWarning()
         fw.__setstate__({"xyz": (1, 2)})
         assert fw.xyz == (1, 2)

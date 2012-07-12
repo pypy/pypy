@@ -503,7 +503,7 @@ class ObjSpace(object):
         "NOT_RPYTHON: only for initializing the space."
 
         from pypy.module.exceptions import Module
-        w_name = self.wrap('exceptions')
+        w_name = self.wrap('__exceptions__')
         self.exceptions_module = Module(self, w_name)
         self.exceptions_module.install()
 

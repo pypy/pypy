@@ -246,7 +246,7 @@ def _new(cls, basecls=None):
 W_BaseException.typedef = TypeDef(
     'BaseException',
     __doc__ = W_BaseException.__doc__,
-    __module__ = 'exceptions',
+    __module__ = 'builtins',
     __new__ = _new(W_BaseException),
     __init__ = interp2app(W_BaseException.descr_init),
     __str__ = interp2app(W_BaseException.descr_str),
@@ -291,7 +291,7 @@ def _new_exception(name, base, docstring, **kwargs):
         name,
         base.typedef,
         __doc__ = W_Exc.__doc__,
-        __module__ = 'exceptions',
+        __module__ = 'builtins',
         **kwargs
     )
     W_Exc.typedef.applevel_subclasses_base = realbase
@@ -359,7 +359,7 @@ W_UnicodeTranslateError.typedef = TypeDef(
     'UnicodeTranslateError',
     W_UnicodeError.typedef,
     __doc__ = W_UnicodeTranslateError.__doc__,
-    __module__ = 'exceptions',
+    __module__ = 'builtins',
     __new__ = _new(W_UnicodeTranslateError),
     __init__ = interp2app(W_UnicodeTranslateError.descr_init),
     __str__ = interp2app(W_UnicodeTranslateError.descr_str),
@@ -443,7 +443,7 @@ W_EnvironmentError.typedef = TypeDef(
     'EnvironmentError',
     W_StandardError.typedef,
     __doc__ = W_EnvironmentError.__doc__,
-    __module__ = 'exceptions',
+    __module__ = 'builtins',
     __new__ = _new(W_EnvironmentError),
     __reduce__ = interp2app(W_EnvironmentError.descr_reduce),
     __init__ = interp2app(W_EnvironmentError.descr_init),
@@ -497,7 +497,7 @@ W_WindowsError.typedef = TypeDef(
     "WindowsError",
     W_OSError.typedef,
     __doc__  = W_WindowsError.__doc__,
-    __module__ = 'exceptions',
+    __module__ = 'builtins',
     __new__  = _new(W_WindowsError),
     __init__ = interp2app(W_WindowsError.descr_init),
     __str__  = interp2app(W_WindowsError.descr_str),
@@ -608,7 +608,7 @@ W_SyntaxError.typedef = TypeDef(
     __str__ = interp2app(W_SyntaxError.descr_str),
     __repr__ = interp2app(W_SyntaxError.descr_repr),
     __doc__ = W_SyntaxError.__doc__,
-    __module__ = 'exceptions',
+    __module__ = 'builtins',
     msg      = readwrite_attrproperty_w('w_msg', W_SyntaxError),
     filename = readwrite_attrproperty_w('w_filename', W_SyntaxError),
     lineno   = readwrite_attrproperty_w('w_lineno', W_SyntaxError),
@@ -642,7 +642,7 @@ W_SystemExit.typedef = TypeDef(
     __new__ = _new(W_SystemExit),
     __init__ = interp2app(W_SystemExit.descr_init),
     __doc__ = W_SystemExit.__doc__,
-    __module__ = 'exceptions',
+    __module__ = 'builtins',
     code    = readwrite_attrproperty_w('w_code', W_SystemExit)
 )
 
@@ -705,7 +705,7 @@ W_UnicodeDecodeError.typedef = TypeDef(
     'UnicodeDecodeError',
     W_UnicodeError.typedef,
     __doc__ = W_UnicodeDecodeError.__doc__,
-    __module__ = 'exceptions',
+    __module__ = 'builtins',
     __new__ = _new(W_UnicodeDecodeError),
     __init__ = interp2app(W_UnicodeDecodeError.descr_init),
     __str__ = interp2app(W_UnicodeDecodeError.descr_str),
@@ -800,7 +800,7 @@ W_UnicodeEncodeError.typedef = TypeDef(
     'UnicodeEncodeError',
     W_UnicodeError.typedef,
     __doc__ = W_UnicodeEncodeError.__doc__,
-    __module__ = 'exceptions',
+    __module__ = 'builtins',
     __new__ = _new(W_UnicodeEncodeError),
     __init__ = interp2app(W_UnicodeEncodeError.descr_init),
     __str__ = interp2app(W_UnicodeEncodeError.descr_str),
