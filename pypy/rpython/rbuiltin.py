@@ -247,6 +247,11 @@ def rtype_intmask(hop):
     vlist = hop.inputargs(lltype.Signed)
     return vlist[0]
 
+def rtype_longlongmask(hop):
+    hop.exception_cannot_occur()
+    vlist = hop.inputargs(lltype.SignedLongLong)
+    return vlist[0]
+
 def rtype_builtin_min(hop):
     v1, v2 = hop.inputargs(hop.r_result, hop.r_result)
     hop.exception_cannot_occur()
@@ -564,6 +569,7 @@ BUILTIN_TYPER[lltype.getRuntimeTypeInfo] = rtype_const_result
 BUILTIN_TYPER[lltype.Ptr] = rtype_const_result
 BUILTIN_TYPER[lltype.runtime_type_info] = rtype_runtime_type_info
 BUILTIN_TYPER[rarithmetic.intmask] = rtype_intmask
+BUILTIN_TYPER[rarithmetic.longlongmask] = rtype_longlongmask
 
 BUILTIN_TYPER[objectmodel.hlinvoke] = rtype_hlinvoke
 

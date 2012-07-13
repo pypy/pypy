@@ -263,7 +263,7 @@ def importhook(space, name, w_globals=None,
                 w_mod = check_sys_modules_w(space, rel_modulename)
                 if w_mod is not None and space.is_w(w_mod, space.w_None):
                     # if we already find space.w_None, it means that we
-                    # already tried and failed and falled back to the
+                    # already tried and failed and fell back to the
                     # end of this function.
                     w_mod = None
                 else:
@@ -283,10 +283,16 @@ def importhook(space, name, w_globals=None,
     return w_mod
 
 def absolute_import(space, modulename, baselevel, fromlist_w, tentative):
-    # Short path: check in sys.modules
-    w_mod = absolute_import_try(space, modulename, baselevel, fromlist_w)
-    if w_mod is not None and not space.is_w(w_mod, space.w_None):
-        return w_mod
+    # Short path: check in sys.modules, but only if there is no conflict
+    # on the import lock.  In the situation of 'import' statements
+    # inside tight loops, this should be true, and absolute_import_try()
+    # should be followed by the JIT and turned into not much code.  But
+    # if the import lock is currently held by another thread, then we
+    # have to wait, and so shouldn't use the fast path.
+    if not getimportlock(space).lock_held_by_someone_else():
+        w_mod = absolute_import_try(space, modulename, baselevel, fromlist_w)
+        if w_mod is not None and not space.is_w(w_mod, space.w_None):
+            return w_mod
     return absolute_import_with_lock(space, modulename, baselevel,
                                      fromlist_w, tentative)
 
@@ -423,7 +429,12 @@ def _getimporter(space, w_pathitem):
 def find_in_path_hooks(space, w_modulename, w_pathitem):
     w_importer = _getimporter(space, w_pathitem)
     if w_importer is not None and space.is_true(w_importer):
-        w_loader = space.call_method(w_importer, "find_module", w_modulename)
+        try:
+            w_loader = space.call_method(w_importer, "find_module", w_modulename)
+        except OperationError, e:
+            if e.match(space, space.w_ImportError):
+                return None
+            raise
         if space.is_true(w_loader):
             return w_loader
 
@@ -740,6 +751,9 @@ class ImportRLock:
         self.lock = None
         self.lockowner = None
         self.lockcounter = 0
+
+    def lock_held_by_someone_else(self):
+        return self.lockowner is not None and not self.lock_held()
 
     def lock_held(self):
         me = self.space.getexecutioncontext()   # used as thread ident

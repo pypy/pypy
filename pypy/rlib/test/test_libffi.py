@@ -1,13 +1,18 @@
-import sys
+import os
 
 import py
 
-from pypy.rlib.libffi import (CDLL, Func, get_libc_name, ArgChain, types,
-    IS_32_BIT, array_getitem, array_setitem)
 from pypy.rlib.rarithmetic import r_singlefloat, r_longlong, r_ulonglong
-from pypy.rlib.test.test_clibffi import BaseFfiTest, get_libm_name, make_struct_ffitype_e
+from pypy.rlib.test.test_clibffi import BaseFfiTest, make_struct_ffitype_e
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rpython.lltypesystem.ll2ctypes import ALLOCATED
+from pypy.rpython.llinterp import LLException
+from pypy.rlib.libffi import (CDLL, ArgChain, types,
+                              IS_32_BIT, array_getitem, array_setitem)
+from pypy.rlib.libffi import (struct_getfield_int, struct_setfield_int,
+                              struct_getfield_longlong, struct_setfield_longlong,
+                              struct_getfield_float, struct_setfield_float,
+                              struct_getfield_singlefloat, struct_setfield_singlefloat)
 
 class TestLibffiMisc(BaseFfiTest):
 
@@ -54,6 +59,33 @@ class TestLibffiMisc(BaseFfiTest):
         del lib
         assert not ALLOCATED
 
+    def test_struct_fields(self):
+        longsize = 4 if IS_32_BIT else 8
+        POINT = lltype.Struct('POINT',
+                              ('x', rffi.LONG),
+                              ('y', rffi.SHORT),
+                              ('z', rffi.VOIDP),
+                              )
+        y_ofs = longsize
+        z_ofs = longsize*2
+        p = lltype.malloc(POINT, flavor='raw')
+        p.x = 42
+        p.y = rffi.cast(rffi.SHORT, -1)
+        p.z = rffi.cast(rffi.VOIDP, 0x1234)
+        addr = rffi.cast(rffi.VOIDP, p)
+        assert struct_getfield_int(types.slong, addr, 0) == 42
+        assert struct_getfield_int(types.sshort, addr, y_ofs) == -1
+        assert struct_getfield_int(types.pointer, addr, z_ofs) == 0x1234
+        #
+        struct_setfield_int(types.slong, addr, 0, 43)
+        struct_setfield_int(types.sshort, addr, y_ofs, 0x1234FFFE) # 0x1234 is masked out
+        struct_setfield_int(types.pointer, addr, z_ofs, 0x4321)
+        assert p.x == 43
+        assert p.y == -2
+        assert rffi.cast(rffi.LONG, p.z) == 0x4321
+        #
+        lltype.free(p, flavor='raw')
+
     def test_array_fields(self):
         POINT = lltype.Struct("POINT",
             ("x", lltype.Float),
@@ -69,18 +101,90 @@ class TestLibffiMisc(BaseFfiTest):
         assert array_getitem(types.double, 16, points, 0, 8) == 2.0
         assert array_getitem(types.double, 16, points, 1, 0) == 3.0
         assert array_getitem(types.double, 16, points, 1, 8) == 4.0
-
+        #
         array_setitem(types.double, 16, points, 0, 0, 10.0)
         array_setitem(types.double, 16, points, 0, 8, 20.0)
         array_setitem(types.double, 16, points, 1, 0, 30.0)
         array_setitem(types.double, 16, points, 1, 8, 40.0)
-
+        #
         assert array_getitem(types.double, 16, points, 0, 0) == 10.0
         assert array_getitem(types.double, 16, points, 0, 8) == 20.0
         assert array_getitem(types.double, 16, points, 1, 0) == 30.0
         assert array_getitem(types.double, 16, points, 1, 8) == 40.0
-
+        #
         lltype.free(points, flavor="raw")
+
+
+    def test_struct_fields_longlong(self):
+        POINT = lltype.Struct('POINT',
+                              ('x', rffi.LONGLONG),
+                              ('y', rffi.ULONGLONG)
+                              )
+        y_ofs = 8
+        p = lltype.malloc(POINT, flavor='raw')
+        p.x = r_longlong(123)
+        p.y = r_ulonglong(456)
+        addr = rffi.cast(rffi.VOIDP, p)
+        assert struct_getfield_longlong(types.slonglong, addr, 0) == 123
+        assert struct_getfield_longlong(types.ulonglong, addr, y_ofs) == 456
+        #
+        v = rffi.cast(lltype.SignedLongLong, r_ulonglong(9223372036854775808))
+        struct_setfield_longlong(types.slonglong, addr, 0, v)
+        struct_setfield_longlong(types.ulonglong, addr, y_ofs, r_longlong(-1))
+        assert p.x == -9223372036854775808
+        assert rffi.cast(lltype.UnsignedLongLong, p.y) == 18446744073709551615
+        #
+        lltype.free(p, flavor='raw')
+
+    def test_struct_fields_float(self):
+        POINT = lltype.Struct('POINT',
+                              ('x', rffi.DOUBLE),
+                              ('y', rffi.DOUBLE)
+                              )
+        y_ofs = 8
+        p = lltype.malloc(POINT, flavor='raw')
+        p.x = 123.4
+        p.y = 567.8
+        addr = rffi.cast(rffi.VOIDP, p)
+        assert struct_getfield_float(types.double, addr, 0) == 123.4
+        assert struct_getfield_float(types.double, addr, y_ofs) == 567.8
+        #
+        struct_setfield_float(types.double, addr, 0, 321.0)
+        struct_setfield_float(types.double, addr, y_ofs, 876.5)
+        assert p.x == 321.0
+        assert p.y == 876.5
+        #
+        lltype.free(p, flavor='raw')
+
+    def test_struct_fields_singlefloat(self):
+        POINT = lltype.Struct('POINT',
+                              ('x', rffi.FLOAT),
+                              ('y', rffi.FLOAT)
+                              )
+        y_ofs = 4
+        p = lltype.malloc(POINT, flavor='raw')
+        p.x = r_singlefloat(123.4)
+        p.y = r_singlefloat(567.8)
+        addr = rffi.cast(rffi.VOIDP, p)
+        assert struct_getfield_singlefloat(types.double, addr, 0) == r_singlefloat(123.4)
+        assert struct_getfield_singlefloat(types.double, addr, y_ofs) == r_singlefloat(567.8)
+        #
+        struct_setfield_singlefloat(types.double, addr, 0, r_singlefloat(321.0))
+        struct_setfield_singlefloat(types.double, addr, y_ofs, r_singlefloat(876.5))
+        assert p.x == r_singlefloat(321.0)
+        assert p.y == r_singlefloat(876.5)
+        #
+        lltype.free(p, flavor='raw')
+
+    def test_windll(self):
+        if os.name != 'nt':
+            skip('Run only on windows')
+        from pypy.rlib.libffi import WinDLL
+        dll = WinDLL('Kernel32.dll')
+        sleep = dll.getpointer('Sleep',[types.uint], types.void)
+        chain = ArgChain()
+        chain.arg(10)
+        sleep.call(chain, lltype.Void, is_struct=False)
 
 class TestLibffiCall(BaseFfiTest):
     """
@@ -118,16 +222,23 @@ class TestLibffiCall(BaseFfiTest):
                 if meth.__doc__ is not None and '{' in meth.__doc__:
                     snippets.append(meth.__doc__)
                     import re
-                    for match in re.finditer(" ([a-z_]+)\(", meth.__doc__):
+                    for match in re.finditer(" ([A-Za-z_]+)\(", meth.__doc__):
                         exports.append(match.group(1))
         #
         c_file.write(STANDARD_DEFINES + str(py.code.Source('\n'.join(snippets))))
         eci = ExternalCompilationInfo(export_symbols=exports)
         cls.libfoo_name = str(platform.compile([c_file], eci, 'x',
                                                standalone=False))
+        cls.dll = cls.CDLL(cls.libfoo_name)
+
+    def teardown_class(cls):
+        if cls.dll:
+            cls.dll.__del__()
+            # Why doesn't this call cls.dll.__del__() ?
+            #del cls.dll
 
     def get_libfoo(self):
-        return self.CDLL(self.libfoo_name)
+        return self.dll    
 
     def call(self, funcspec, args, RESULT, is_struct=False, jitif=[]):
         """
@@ -442,4 +553,58 @@ class TestLibffiCall(BaseFfiTest):
         assert p[1] == 34
         lltype.free(p, flavor='raw')
         lltype.free(ffi_point_struct, flavor='raw')
+
+    if os.name == 'nt':
+        def test_stdcall_simple(self):
+            """
+            int __stdcall std_diff_xy(int x, Signed y)
+            {
+                return x - y;
+            }
+            """
+            libfoo = self.get_libfoo()
+            func = (libfoo, 'std_diff_xy', [types.sint, types.signed], types.sint)
+            try:
+                self.call(func, [50, 8], lltype.Signed)
+            except ValueError, e:
+                assert e.message == 'Procedure called with not enough ' + \
+                     'arguments (8 bytes missing) or wrong calling convention'
+            except LLException, e:
+                #jitted code raises this
+                assert str(e) == "<LLException 'StackCheckError'>"
+            else:
+                assert 0, 'wrong calling convention should have raised'
+
+        def test_by_ordinal(self):
+            """
+            int AAA_first_ordinal_function()
+            {
+                return 42;
+            }
+            """
+            libfoo = self.get_libfoo()
+            f_by_name = libfoo.getpointer('AAA_first_ordinal_function' ,[],
+                                          types.uint)
+            f_by_ordinal = libfoo.getpointer_by_ordinal(1 ,[], types.uint)
+            print dir(f_by_name)
+            assert f_by_name.funcsym == f_by_ordinal.funcsym
+
+        def test_by_ordinal2(self):
+            """
+            int __stdcall BBB_second_ordinal_function()
+            {
+                return 24;
+            }
+            """
+            from pypy.rlib.libffi import WinDLL
+            dll = WinDLL(self.libfoo_name)
+            f_by_name = dll.getpointer('BBB_second_ordinal_function' ,[],
+                                          types.uint)
+            f_by_ordinal = dll.getpointer_by_ordinal(2 ,[], types.uint)
+            print dir(f_by_name)
+            assert f_by_name.funcsym == f_by_ordinal.funcsym
+            chain = ArgChain()
+            assert 24 == f_by_ordinal.call(chain, lltype.Signed, is_struct=False)
+
+
         

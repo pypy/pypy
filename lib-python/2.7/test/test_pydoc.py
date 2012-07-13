@@ -267,8 +267,8 @@ class PyDocDocTest(unittest.TestCase):
         testpairs = (
             ('i_am_not_here', 'i_am_not_here'),
             ('test.i_am_not_here_either', 'i_am_not_here_either'),
-            ('test.i_am_not_here.neither_am_i', 'i_am_not_here.neither_am_i'),
-            ('i_am_not_here.{}'.format(modname), 'i_am_not_here.{}'.format(modname)),
+            ('test.i_am_not_here.neither_am_i', 'i_am_not_here'),
+            ('i_am_not_here.{}'.format(modname), 'i_am_not_here'),
             ('test.{}'.format(modname), modname),
             )
 
@@ -292,8 +292,8 @@ class PyDocDocTest(unittest.TestCase):
                     result = run_pydoc(modname)
                 finally:
                     forget(modname)
-                expected = badimport_pattern % (modname, expectedinmsg)
-                self.assertEqual(expected, result)
+                expected = badimport_pattern % (modname, '(.+\\.)?' + expectedinmsg + '(\\..+)?$')
+                self.assertTrue(re.match(expected, result))
 
     def test_input_strip(self):
         missing_module = " test.i_am_not_here "

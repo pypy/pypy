@@ -52,7 +52,7 @@ class DistutilsPlatform(Platform):
         self.compile_extra = list(eci.compile_extra)
         self.link_extra = list(eci.link_extra)
         self.frameworks = list(eci.frameworks)
-        if not self.name in ('win32', 'darwin'): # xxx
+        if not self.name in ('win32', 'darwin', 'cygwin'): # xxx
             if 'm' not in self.libraries:
                 self.libraries.append('m')
             self.compile_extra += CFLAGS + ['-fomit-frame-pointer']

@@ -1,9 +1,10 @@
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, wrap_oserror
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.objspace.std.typeobject import MethodCache
 from pypy.objspace.std.mapdict import IndexCache
+from pypy.rlib import rposix
 
 def internal_repr(space, w_object):
     return space.wrap('%r' % (w_object,))
@@ -80,3 +81,17 @@ def list_strategy(space, w_list):
     else:
         w_msg = space.wrap("Can only get the list strategy of a list")
         raise OperationError(space.w_TypeError, w_msg)
+
+@unwrap_spec(fd='c_int')
+def validate_fd(space, fd):
+    try:
+        rposix.validate_fd(fd)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+
+def get_console_cp(space):
+    from pypy.rlib import rwin32    # Windows only
+    return space.newtuple([
+        space.wrap('cp%d' % rwin32.GetConsoleCP()),
+        space.wrap('cp%d' % rwin32.GetConsoleOutputCP()),
+        ])

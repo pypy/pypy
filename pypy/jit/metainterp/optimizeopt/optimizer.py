@@ -401,7 +401,7 @@ class Optimizer(Optimization):
             o.turned_constant(value)
 
     def forget_numberings(self, virtualbox):
-        self.metainterp_sd.profiler.count(jitprof.OPT_FORCINGS)
+        self.metainterp_sd.profiler.count(jitprof.Counters.OPT_FORCINGS)
         self.resumedata_memo.forget_numberings(virtualbox)
 
     def getinterned(self, box):
@@ -525,6 +525,7 @@ class Optimizer(Optimization):
 
     @specialize.argtype(0)
     def _emit_operation(self, op):
+        assert op.getopnum() != rop.CALL_PURE
         for i in range(op.numargs()):
             arg = op.getarg(i)
             try:
@@ -534,9 +535,9 @@ class Optimizer(Optimization):
             else:
                 self.ensure_imported(value)
                 op.setarg(i, value.force_box(self))
-        self.metainterp_sd.profiler.count(jitprof.OPT_OPS)
+        self.metainterp_sd.profiler.count(jitprof.Counters.OPT_OPS)
         if op.is_guard():
-            self.metainterp_sd.profiler.count(jitprof.OPT_GUARDS)
+            self.metainterp_sd.profiler.count(jitprof.Counters.OPT_GUARDS)
             if self.replaces_guard and op in self.replaces_guard:
                 self.replace_op(self.replaces_guard[op], op)
                 del self.replaces_guard[op]
@@ -651,8 +652,15 @@ class Optimizer(Optimization):
             arrayvalue.make_len_gt(MODE_UNICODE, op.getdescr(), indexvalue.box.getint())
         self.optimize_default(op)
 
+    # These are typically removed already by OptRewrite, but it can be
+    # dissabled and unrolling emits some SAME_AS ops to setup the
+    # optimizier state. These needs to always be optimized out.
+    def optimize_SAME_AS(self, op):
+        self.make_equal_to(op.result, self.getvalue(op.getarg(0)))
 
-
+    def optimize_MARK_OPAQUE_PTR(self, op):
+        value = self.getvalue(op.getarg(0))
+        self.optimizer.opaque_pointers[value] = True
 
 dispatch_opt = make_dispatcher_method(Optimizer, 'optimize_',
         default=Optimizer.optimize_default)

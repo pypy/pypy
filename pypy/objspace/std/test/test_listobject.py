@@ -1204,6 +1204,57 @@ class AppTestW_ListObject(object):
             s.update(Sub2(arg))
             assert s == set(base(arg))
 
+    def test_comparison(self):
+        assert ([] <  []) is False
+        assert ([] <= []) is True
+        assert ([] == []) is True
+        assert ([] != []) is False
+        assert ([] >  []) is False
+        assert ([] >= []) is True
+        assert ([5] <  []) is False
+        assert ([5] <= []) is False
+        assert ([5] == []) is False
+        assert ([5] != []) is True
+        assert ([5] >  []) is True
+        assert ([5] >= []) is True
+        assert ([] <  [5]) is True
+        assert ([] <= [5]) is True
+        assert ([] == [5]) is False
+        assert ([] != [5]) is True
+        assert ([] >  [5]) is False
+        assert ([] >= [5]) is False
+        assert ([4] <  [5]) is True
+        assert ([4] <= [5]) is True
+        assert ([4] == [5]) is False
+        assert ([4] != [5]) is True
+        assert ([4] >  [5]) is False
+        assert ([4] >= [5]) is False
+        assert ([5] <  [5]) is False
+        assert ([5] <= [5]) is True
+        assert ([5] == [5]) is True
+        assert ([5] != [5]) is False
+        assert ([5] >  [5]) is False
+        assert ([5] >= [5]) is True
+        assert ([6] <  [5]) is False
+        assert ([6] <= [5]) is False
+        assert ([6] == [5]) is False
+        assert ([6] != [5]) is True
+        assert ([6] >  [5]) is True
+        assert ([6] >= [5]) is True
+        N = float('nan')
+        assert ([N] <  [5]) is False
+        assert ([N] <= [5]) is False
+        assert ([N] == [5]) is False
+        assert ([N] != [5]) is True
+        assert ([N] >  [5]) is False
+        assert ([N] >= [5]) is False
+        assert ([5] <  [N]) is False
+        assert ([5] <= [N]) is False
+        assert ([5] == [N]) is False
+        assert ([5] != [N]) is True
+        assert ([5] >  [N]) is False
+        assert ([5] >= [N]) is False
+
 class AppTestForRangeLists(AppTestW_ListObject):
 
     def setup_class(cls):

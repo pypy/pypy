@@ -253,7 +253,7 @@ class World(object):
                 self.logentries[addr] = pieces[3]
             elif line.startswith('SYS_EXECUTABLE '):
                 filename = line[len('SYS_EXECUTABLE '):].strip()
-                if filename != self.executable_name:
+                if filename != self.executable_name and filename != '??':
                     self.symbols.update(load_symbols(filename))
                     self.executable_name = filename
 

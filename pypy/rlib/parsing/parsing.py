@@ -107,15 +107,12 @@ class LazyParseTable(object):
         error = None # for the annotator
         if self.parser.is_nonterminal(symbol):
             rule = self.parser.get_rule(symbol)
-            lastexpansion = len(rule.expansions) - 1
             subsymbol = None
             error = None
-            for expansionindex in range(len(rule.expansions)):
-                expansion = rule.expansions[expansionindex]
+            for expansion in rule.expansions:
                 curr = i
                 children = []
-                for j in range(len(expansion)):
-                    subsymbol = expansion[j]
+                for subsymbol in expansion:
                     node, next, error2 = self.match_symbol(curr, subsymbol)
                     if node is None:
                         error = combine_errors(error, error2)

@@ -600,16 +600,28 @@ class __extend__(pyframe.PyFrame):
         block.cleanup(self)  # the block knows how to clean up the value stack
 
     def end_finally(self):
-        # unlike CPython, when we reach this opcode the value stack has
-        # always been set up as follows (topmost first):
-        #   [exception type  or None]
-        #   [exception value or None]
-        #   [wrapped stack unroller ]
-        self.popvalue()   # ignore the exception type
-        self.popvalue()   # ignore the exception value
-        w_unroller = self.popvalue()
-        unroller = self.space.interpclass_w(w_unroller)
-        return unroller
+        # unlike CPython, there are two statically distinct cases: the
+        # END_FINALLY might be closing an 'except' block or a 'finally'
+        # block.  In the first case, the stack contains three items:
+        #   [exception type we are now handling]
+        #   [exception value we are now handling]
+        #   [wrapped SApplicationException]
+        # In the case of a finally: block, the stack contains only one
+        # item (unlike CPython which can have 1, 2 or 3 items):
+        #   [wrapped subclass of SuspendedUnroller]
+        w_top = self.popvalue()
+        # the following logic is a mess for the flow objspace,
+        # so we hide it specially in the space :-/
+        if self.space._check_constant_interp_w_or_w_None(SuspendedUnroller, w_top):
+            # case of a finally: block
+            unroller = self.space.interpclass_w(w_top)
+            return unroller
+        else:
+            # case of an except: block.  We popped the exception type
+            self.popvalue()        #     Now we pop the exception value
+            unroller = self.space.interpclass_w(self.popvalue())
+            assert unroller is not None
+            return unroller
 
     def BUILD_CLASS(self, oparg, next_instr):
         w_methodsdict = self.popvalue()
@@ -939,17 +951,13 @@ class __extend__(pyframe.PyFrame):
             # Implementation since 2.7a0: 62191 (introduce SETUP_WITH)
             or self.pycode.magic >= 0xa0df2d1):
             # implementation since 2.6a1: 62161 (WITH_CLEANUP optimization)
-            self.popvalue()
-            self.popvalue()
             w_unroller = self.popvalue()
             w_exitfunc = self.popvalue()
             self.pushvalue(w_unroller)
-            self.pushvalue(self.space.w_None)
-            self.pushvalue(self.space.w_None)
         elif self.pycode.magic >= 0xa0df28c:
             # Implementation since 2.5a0: 62092 (changed WITH_CLEANUP opcode)
             w_exitfunc = self.popvalue()
-            w_unroller = self.peekvalue(2)
+            w_unroller = self.peekvalue(0)
         else:
             raise NotImplementedError("WITH_CLEANUP for CPython <= 2.4")
 
@@ -966,7 +974,7 @@ class __extend__(pyframe.PyFrame):
                 w_traceback)
             if self.space.is_true(w_suppress):
                 # __exit__() returned True -> Swallow the exception.
-                self.settopvalue(self.space.w_None, 2)
+                self.settopvalue(self.space.w_None)
         else:
             self.call_contextmanager_exit_function(
                 w_exitfunc,
@@ -1290,10 +1298,6 @@ class FrameBlock(object):
                                w(self.valuestackdepth)])
 
     def handle(self, frame, unroller):
-        next_instr = self.really_handle(frame, unroller)   # JIT hack
-        return r_uint(next_instr)
-
-    def really_handle(self, frame, unroller):
         """ Purely abstract method
         """
         raise NotImplementedError
@@ -1305,17 +1309,17 @@ class LoopBlock(FrameBlock):
     _opname = 'SETUP_LOOP'
     handling_mask = SBreakLoop.kind | SContinueLoop.kind
 
-    def really_handle(self, frame, unroller):
+    def handle(self, frame, unroller):
         if isinstance(unroller, SContinueLoop):
             # re-push the loop block without cleaning up the value stack,
             # and jump to the beginning of the loop, stored in the
             # exception's argument
             frame.append_block(self)
-            return unroller.jump_to
+            return r_uint(unroller.jump_to)
         else:
             # jump to the end of the loop
             self.cleanupstack(frame)
-            return self.handlerposition
+            return r_uint(self.handlerposition)
 
 
 class ExceptBlock(FrameBlock):
@@ -1325,7 +1329,7 @@ class ExceptBlock(FrameBlock):
     _opname = 'SETUP_EXCEPT'
     handling_mask = SApplicationException.kind
 
-    def really_handle(self, frame, unroller):
+    def handle(self, frame, unroller):
         # push the exception to the value stack for inspection by the
         # exception handler (the code after the except:)
         self.cleanupstack(frame)
@@ -1340,7 +1344,7 @@ class ExceptBlock(FrameBlock):
         frame.pushvalue(operationerr.get_w_value(frame.space))
         frame.pushvalue(operationerr.w_type)
         frame.last_exception = operationerr
-        return self.handlerposition   # jump to the handler
+        return r_uint(self.handlerposition)   # jump to the handler
 
 
 class FinallyBlock(FrameBlock):
@@ -1350,37 +1354,24 @@ class FinallyBlock(FrameBlock):
     _opname = 'SETUP_FINALLY'
     handling_mask = -1     # handles every kind of SuspendedUnroller
 
-    def cleanup(self, frame):
-        # upon normal entry into the finally: part, the standard Python
-        # bytecode pushes a single None for END_FINALLY.  In our case we
-        # always push three values into the stack: the wrapped ctlflowexc,
-        # the exception value and the exception type (which are all None
-        # here).
-        self.cleanupstack(frame)
-        # one None already pushed by the bytecode
-        frame.pushvalue(frame.space.w_None)
-        frame.pushvalue(frame.space.w_None)
-
-    def really_handle(self, frame, unroller):
+    def handle(self, frame, unroller):
         # any abnormal reason for unrolling a finally: triggers the end of
         # the block unrolling and the entering the finally: handler.
         # see comments in cleanup().
         self.cleanupstack(frame)
         frame.pushvalue(frame.space.wrap(unroller))
-        frame.pushvalue(frame.space.w_None)
-        frame.pushvalue(frame.space.w_None)
-        return self.handlerposition   # jump to the handler
+        return r_uint(self.handlerposition)   # jump to the handler
 
 
 class WithBlock(FinallyBlock):
 
     _immutable_ = True
 
-    def really_handle(self, frame, unroller):
+    def handle(self, frame, unroller):
         if (frame.space.full_exceptions and
             isinstance(unroller, SApplicationException)):
             unroller.operr.normalize_exception(frame.space)
-        return FinallyBlock.really_handle(self, frame, unroller)
+        return FinallyBlock.handle(self, frame, unroller)
 
 block_classes = {'SETUP_LOOP': LoopBlock,
                  'SETUP_EXCEPT': ExceptBlock,

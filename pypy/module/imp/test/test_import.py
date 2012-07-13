@@ -989,8 +989,22 @@ def test_PYTHONPATH_takes_precedence(space):
 class AppTestImportHooks(object):
 
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=('struct',))
-    
+        space = cls.space = gettestobjspace(usemodules=('struct',))
+        mydir = os.path.dirname(__file__)
+        cls.w_hooktest = space.wrap(os.path.join(mydir, 'hooktest'))
+        space.appexec([space.wrap(mydir)], """
+            (mydir):
+                import sys
+                sys.path.append(mydir)
+        """)
+
+    def teardown_class(cls):
+        cls.space.appexec([], """
+            ():
+                import sys
+                sys.path.pop()
+        """)
+
     def test_meta_path(self):
         tried_imports = []
         class Importer(object):
@@ -1127,6 +1141,23 @@ class AppTestImportHooks(object):
             sys.meta_path.pop()
             sys.path_hooks.pop()
 
+    def test_path_hooks_module(self):
+        "Verify that non-sibling imports from module loaded by path hook works"
+
+        import sys
+        import hooktest
+
+        hooktest.__path__.append(self.hooktest) # Avoid importing os at applevel
+
+        sys.path_hooks.append(hooktest.Importer)
+
+        try:
+            import hooktest.foo
+            def import_nonexisting():
+                import hooktest.errno
+            raises(ImportError, import_nonexisting)
+        finally:
+            sys.path_hooks.pop()
 
 class AppTestPyPyExtension(object):
     def setup_class(cls):
@@ -1212,3 +1243,45 @@ class AppTestLonePycFile(AppTestNoPycFile):
         "objspace.usepycfiles": True,
         "objspace.lonepycfiles": True
     }
+
+
+class AppTestMultithreadedImp(object):
+    def setup_class(cls):
+        #if not conftest.option.runappdirect:
+        #    py.test.skip("meant as an -A test")
+        cls.space = gettestobjspace(usemodules=['thread', 'time'])
+        tmpfile = udir.join('test_multithreaded_imp.py')
+        tmpfile.write('''if 1:
+            x = 666
+            import time
+            for i in range(1000): time.sleep(0.001)
+            x = 42
+        ''')
+        cls.w_tmppath = cls.space.wrap(str(udir))
+
+    def test_multithreaded_import(self):
+        import sys, thread, time
+        oldpath = sys.path[:]
+        try:
+            sys.path.insert(0, self.tmppath)
+            got = []
+
+            def check():
+                import test_multithreaded_imp
+                got.append(getattr(test_multithreaded_imp, 'x', '?'))
+
+            for i in range(5):
+                thread.start_new_thread(check, ())
+
+            for n in range(100):
+                for i in range(105): time.sleep(0.001)
+                if len(got) == 5:
+                    break
+            else:
+                raise AssertionError("got %r so far but still waiting" %
+                                     (got,))
+
+            assert got == [42] * 5, got
+
+        finally:
+            sys.path[:] = oldpath

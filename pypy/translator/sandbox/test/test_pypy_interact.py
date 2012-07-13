@@ -2,14 +2,12 @@ import autopath
 import os, sys, stat, errno
 from pypy.translator.sandbox.pypy_interact import PyPySandboxedProc
 from pypy.translator.interactive import Translation
+
 from pypy.module.sys.version import CPYTHON_VERSION
+from pypy.tool.lib_pypy import LIB_PYTHON
 
 VERSION = '%d.%d' % CPYTHON_VERSION[:2]
-SITE_PY_CONTENT = open(os.path.join(autopath.pypydir,
-                                    '..',
-                                    'lib-python',
-                                    'modified-' + VERSION, 'site.py'),
-                       'rb').read()
+SITE_PY_CONTENT = LIB_PYTHON.join('site.py').read()
 ERROR_TEXT = os.strerror(errno.ENOENT)
 
 def assert_(cond, text):
@@ -39,15 +37,14 @@ def mini_pypy_like_entry_point(argv):
         pass
     else:
         assert_(False, "os.stat('site') should have failed")
-    st = os.stat('/bin/lib-python/modified-%s/site.py' % VERSION)
-    assert_(stat.S_ISREG(st.st_mode), "bad st_mode for .../site.py")
+
     try:
-        os.stat('/bin/lib-python/modified-%s/site.pyc' % VERSION)
+        os.stat('/bin/lib-python/%s/site.pyc' % VERSION)
     except OSError:
         pass
     else:
         assert_(False, "os.stat('....pyc') should have failed")
-    fd = os.open('/bin/lib-python/modified-%s/site.py' % VERSION,
+    fd = os.open('/bin/lib-python/%s/site.py' % VERSION,
                  os.O_RDONLY, 0666)
     length = 8192
     ofs = 0

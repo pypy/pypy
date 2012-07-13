@@ -50,10 +50,10 @@ the version you have is not 4.2 or you will run into `this bug`_.
      libz-dev libbz2-dev libncurses-dev libexpat1-dev \
      libssl-dev libgc-dev python-sphinx python-greenlet
 
-   On a Fedora box these are::
+   On a Fedora-16 box these are::
 
      [user@fedora-or-rh-box ~]$ sudo yum install \
-     gcc make python-devel libffi-devel pkg-config \
+     gcc make python-devel libffi-devel pkgconfig \
      zlib-devel bzip2-devel ncurses-devel expat-devel \
      openssl-devel gc-devel python-sphinx python-greenlet
 
@@ -103,10 +103,12 @@ translation options that where used to produce this particular
 executable. The executable behaves mostly like a normal Python interpreter::
 
     $ ./pypy-c
-    Python 2.7.2 (0e28b379d8b3, Feb 09 2012, 19:41:03)
-    [PyPy 1.8.0 with GCC 4.4.3] on linux2
+    Python 2.7.2 (341e1e3821ff, Jun 07 2012, 15:40:31)
+    [PyPy 1.9.0 with GCC 4.4.3] on linux2
     Type "help", "copyright", "credits" or "license" for more information.
-    And now for something completely different: ``this sentence is false''
+    And now for something completely different: ``RPython magically makes you rich
+    and famous (says so on the tin)''
+
     >>>> 46 - 4
     42
     >>>> from test import pystone
@@ -220,7 +222,6 @@ looks like this::
    ./include/
    ./lib_pypy/
    ./lib-python/2.7
-   ./lib-python/modified-2.7
    ./site-packages/
 
 The hierarchy shown above is relative to a PREFIX directory.  PREFIX is

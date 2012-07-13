@@ -110,6 +110,16 @@ def PyList_Reverse(space, w_list):
     space.call_method(w_list, "reverse")
     return 0
 
+@cpython_api([PyObject, Py_ssize_t, Py_ssize_t], PyObject)
+def PyList_GetSlice(space, w_list, low, high):
+    """Return a list of the objects in list containing the objects between low
+    and high.  Return NULL and set an exception if unsuccessful.  Analogous
+    to list[low:high].  Negative indices, as when slicing from Python, are not
+    supported."""
+    w_start = space.wrap(low)
+    w_stop = space.wrap(high)
+    return space.getslice(w_list, w_start, w_stop)
+
 @cpython_api([PyObject, Py_ssize_t, Py_ssize_t, PyObject], rffi.INT_real, error=-1)
 def PyList_SetSlice(space, w_list, low, high, w_sequence):
     """Set the slice of list between low and high to the contents of
