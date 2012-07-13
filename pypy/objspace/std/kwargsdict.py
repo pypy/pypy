@@ -4,8 +4,17 @@
 from pypy.rlib import rerased, jit
 from pypy.objspace.std.dictmultiobject import (DictStrategy,
                                                create_itertor_classes,
+                                               EmptyDictStrategy,
                                                ObjectDictStrategy,
                                                StringDictStrategy)
+
+
+class EmptyKwargsDictStrategy(EmptyDictStrategy):
+    def switch_to_string_strategy(self, w_dict):
+        strategy = self.space.fromcache(KwargsDictStrategy)
+        storage = strategy.get_empty_storage()
+        w_dict.strategy = strategy
+        w_dict.dstorage = storage
 
 
 class KwargsDictStrategy(DictStrategy):
@@ -142,7 +151,8 @@ class KwargsDictStrategy(DictStrategy):
         w_dict.dstorage = storage
 
     def view_as_kwargs(self, w_dict):
-        return self.unerase(w_dict.dstorage)
+        keys, values_w = self.unerase(w_dict.dstorage)
+        return keys[:], values_w[:] # copy to make non-resizable
 
     def getiterkeys(self, w_dict):
         return self.unerase(w_dict.dstorage)[0]

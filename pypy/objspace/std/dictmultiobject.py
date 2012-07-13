@@ -50,8 +50,8 @@ class W_DictMultiObject(W_Object):
 
         elif kwargs:
             assert w_type is None
-            from pypy.objspace.std.kwargsdict import KwargsDictStrategy
-            strategy = space.fromcache(KwargsDictStrategy)
+            from pypy.objspace.std.kwargsdict import EmptyKwargsDictStrategy
+            strategy = space.fromcache(EmptyKwargsDictStrategy)
         else:
             strategy = space.fromcache(EmptyDictStrategy)
         if w_type is None:
@@ -590,6 +590,17 @@ class StringDictStrategy(AbstractTypedStrategy, DictStrategy):
 
     def wrapkey(space, key):
         return space.wrap(key)
+
+    def view_as_kwargs(self, w_dict):
+        d = self.unerase(w_dict.dstorage)
+        l = len(d)
+        keys, values = [None] * l, [None] * l
+        i = 0
+        for key, val in d.iteritems():
+            keys[i] = key
+            values[i] = val
+            i += 1
+        return keys, values
 
 create_itertor_classes(StringDictStrategy)
 
