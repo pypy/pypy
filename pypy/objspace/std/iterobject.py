@@ -15,9 +15,11 @@ def length_hint(space, w_obj, default):
                 e.match(space, space.w_AttributeError)):
             raise
 
+    w_descr = space.lookup(w_obj, '__length_hint__')
+    if w_descr is None:
+        return default
     try:
-        XXX  # should not use call_method here, which is based on getattr
-        w_hint = space.call_method(w_obj, '__length_hint__')
+        w_hint = space.get_and_call_function(w_descr, w_obj)
     except OperationError, e:
         if not (e.match(space, space.w_TypeError) or
                 e.match(space, space.w_AttributeError)):

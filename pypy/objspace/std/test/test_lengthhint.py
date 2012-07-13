@@ -40,13 +40,13 @@ class TestLengthHint:
         from pypy.interpreter.error import OperationError
         space = self.space
         w_foo = space.appexec([], """():
-            class Foo:
+            class Foo(object):
                 def __length_hint__(self):
                     1 / 0
             return Foo()
         """)
         try:
-            assert length_hint(space, w_foo, 3)
+            length_hint(space, w_foo, 3)
         except OperationError, e:
             assert e.match(space, space.w_ZeroDivisionError)
         else:
