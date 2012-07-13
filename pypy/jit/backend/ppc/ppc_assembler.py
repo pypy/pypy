@@ -332,15 +332,7 @@ class AssemblerPPC(OpAssembler):
         frame_size = (len(r.MANAGED_FP_REGS) * WORD
                     + (BACKCHAIN_SIZE + MAX_REG_PARAMS) * WORD)
 
-        with scratch_reg(mc):
-            if IS_PPC_32:
-                mc.stwu(r.SP.value, r.SP.value, -frame_size)
-                mc.mflr(r.SCRATCH.value)
-                mc.stw(r.SCRATCH.value, r.SP.value, frame_size + WORD) 
-            else:
-                mc.stdu(r.SP.value, r.SP.value, -frame_size)
-                mc.mflr(r.SCRATCH.value)
-                mc.std(r.SCRATCH.value, r.SP.value, frame_size + 2 * WORD)
+        mc.make_function_prologue(frame_size)
         # managed volatiles are saved below
         if self.cpu.supports_floats:
             for i in range(len(r.MANAGED_FP_REGS)):
