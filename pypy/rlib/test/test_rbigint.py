@@ -407,7 +407,7 @@ class Test_rbigint(object):
     def test_normalize(self):
         f1 = bigint([1, 0], 1)
         f1._normalize()
-        assert len(f1._digits) == 1
+        assert f1.size == 1
         f0 = bigint([0], 0)
         assert f1.sub(f1).eq(f0)
 
