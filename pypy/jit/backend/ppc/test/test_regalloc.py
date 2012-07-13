@@ -1,3 +1,6 @@
+from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.lltypesystem import rclass, rstr
+from pypy.rpython.annlowlevel import llhelper
 from pypy.rlib.objectmodel import instantiate
 from pypy.jit.backend.ppc.locations import (imm, RegisterLocation,
                                             ImmLocation, StackLocation)
@@ -6,6 +9,13 @@ from pypy.jit.backend.ppc.codebuilder import hi, lo
 from pypy.jit.backend.ppc.ppc_assembler import AssemblerPPC
 from pypy.jit.backend.ppc.arch import WORD
 from pypy.jit.backend.ppc.locations import get_spp_offset
+from pypy.jit.backend.detect_cpu import getcpuclass
+from pypy.jit.codewriter.effectinfo import EffectInfo
+from pypy.jit.codewriter import longlong
+from pypy.jit.metainterp.history import BasicFailDescr, \
+                                        JitCellToken, \
+                                        TargetToken
+from pypy.jit.tool.oparser import parse
 
 class MockBuilder(object):
     
@@ -141,3 +151,134 @@ def reg(i):
 
 def stack(i):
     return StackLocation(i)
+
+CPU = getcpuclass()
+class BaseTestRegalloc(object):
+    cpu = CPU(None, None)
+    cpu.setup_once()
+
+    def raising_func(i):
+        if i:
+            raise LLException(zero_division_error,
+                              zero_division_value)
+    FPTR = lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Void))
+    raising_fptr = llhelper(FPTR, raising_func)
+
+    def f(a):
+        return 23
+
+    FPTR = lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Signed))
+    f_fptr = llhelper(FPTR, f)
+    f_calldescr = cpu.calldescrof(FPTR.TO, FPTR.TO.ARGS, FPTR.TO.RESULT,
+                                                    EffectInfo.MOST_GENERAL)
+
+    zero_division_tp, zero_division_value = cpu.get_zero_division_error()
+    zd_addr = cpu.cast_int_to_adr(zero_division_tp)
+    zero_division_error = llmemory.cast_adr_to_ptr(zd_addr,
+                                            lltype.Ptr(rclass.OBJECT_VTABLE))
+    raising_calldescr = cpu.calldescrof(FPTR.TO, FPTR.TO.ARGS, FPTR.TO.RESULT,
+                                                    EffectInfo.MOST_GENERAL)
+
+    targettoken = TargetToken()
+    targettoken2 = TargetToken()
+    fdescr1 = BasicFailDescr(1)
+    fdescr2 = BasicFailDescr(2)
+    fdescr3 = BasicFailDescr(3)
+
+    def setup_method(self, meth):
+        self.targettoken._arm_loop_code = 0
+        self.targettoken2._arm_loop_code = 0
+
+    def f1(x):
+        return x + 1
+
+    def f2(x, y):
+        return x * y
+
+    def f10(*args):
+        assert len(args) == 10
+        return sum(args)
+
+    F1PTR = lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Signed))
+    F2PTR = lltype.Ptr(lltype.FuncType([lltype.Signed] * 2, lltype.Signed))
+    F10PTR = lltype.Ptr(lltype.FuncType([lltype.Signed] * 10, lltype.Signed))
+    f1ptr = llhelper(F1PTR, f1)
+    f2ptr = llhelper(F2PTR, f2)
+    f10ptr = llhelper(F10PTR, f10)
+
+    f1_calldescr = cpu.calldescrof(F1PTR.TO, F1PTR.TO.ARGS, F1PTR.TO.RESULT,
+                                                    EffectInfo.MOST_GENERAL)
+    f2_calldescr = cpu.calldescrof(F2PTR.TO, F2PTR.TO.ARGS, F2PTR.TO.RESULT,
+                                                    EffectInfo.MOST_GENERAL)
+    f10_calldescr = cpu.calldescrof(F10PTR.TO, F10PTR.TO.ARGS,
+                                    F10PTR.TO.RESULT, EffectInfo.MOST_GENERAL)
+
+    namespace = locals().copy()
+    type_system = 'lltype'
+
+    def parse(self, s, boxkinds=None):
+        return parse(s, self.cpu, self.namespace,
+                     type_system=self.type_system,
+                     boxkinds=boxkinds)
+
+    def interpret(self, ops, args, run=True):
+        loop = self.parse(ops)
+        looptoken = JitCellToken()
+        self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+        arguments = []
+        for arg in args:
+            if isinstance(arg, int):
+                arguments.append(arg)
+            elif isinstance(arg, float):
+                arg = longlong.getfloatstorage(arg)
+                arguments.append(arg)
+            else:
+                assert isinstance(lltype.typeOf(arg), lltype.Ptr)
+                llgcref = lltype.cast_opaque_ptr(llmemory.GCREF, arg)
+                arguments.append(llgcref)
+        loop._jitcelltoken = looptoken
+        if run:
+            self.cpu.execute_token(looptoken, *arguments)
+        return loop
+
+    def prepare_loop(self, ops):
+        loop = self.parse(ops)
+        regalloc = Regalloc(assembler=self.cpu.assembler,
+        frame_manager=ARMFrameManager())
+        regalloc.prepare_loop(loop.inputargs, loop.operations)
+        return regalloc
+
+    def getint(self, index):
+        return self.cpu.get_latest_value_int(index)
+
+    def getfloat(self, index):
+        v = self.cpu.get_latest_value_float(index)
+        return longlong.getrealfloat(v)
+
+    def getints(self, end):
+        return [self.cpu.get_latest_value_int(index) for
+                index in range(0, end)]
+
+    def getfloats(self, end):
+        return [self.getfloat(index) for
+                index in range(0, end)]
+
+    def getptr(self, index, T):
+        gcref = self.cpu.get_latest_value_ref(index)
+        return lltype.cast_opaque_ptr(T, gcref)
+
+    def attach_bridge(self, ops, loop, guard_op_index, **kwds):
+        guard_op = loop.operations[guard_op_index]
+        assert guard_op.is_guard()
+        bridge = self.parse(ops, **kwds)
+        assert ([box.type for box in bridge.inputargs] ==
+                [box.type for box in guard_op.getfailargs()])
+        faildescr = guard_op.getdescr()
+        self.cpu.compile_bridge(faildescr, bridge.inputargs, bridge.operations,
+                                loop._jitcelltoken)
+        return bridge
+
+    def run(self, loop, *args):
+        return self.cpu.execute_token(loop._jitcelltoken, *args)
+
+
