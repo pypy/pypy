@@ -3,7 +3,7 @@ from pypy.jit.backend.arm import registers as r
 from pypy.jit.backend.arm.arch import arm_int_div
 from pypy.jit.backend.arm.assembler import AssemblerARM
 from pypy.jit.backend.arm.locations import imm
-from pypy.jit.backend.arm.test.support import skip_unless_arm, run_asm
+from pypy.jit.backend.arm.test.support import run_asm
 from pypy.jit.backend.detect_cpu import getcpuclass
 from pypy.jit.metainterp.resoperation import rop
 
@@ -11,8 +11,6 @@ from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.jit.metainterp.history import JitCellToken
 from pypy.jit.backend.model import CompiledLoopToken
-
-skip_unless_arm()
 
 CPU = getcpuclass()
 

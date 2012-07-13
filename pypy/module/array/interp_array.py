@@ -164,6 +164,8 @@ class ArrayBuffer(RWBuffer):
         data[index] = char
         array._charbuf_stop()
 
+    def get_raw_address(self):
+        return self.array._charbuf_start()
 
 def make_array(mytype):
     W_ArrayBase = globals()['W_ArrayBase']

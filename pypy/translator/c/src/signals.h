@@ -46,6 +46,7 @@ void pypysig_ignore(int signum);  /* signal will be ignored (SIG_IGN) */
 void pypysig_default(int signum); /* signal will do default action (SIG_DFL) */
 void pypysig_setflag(int signum); /* signal will set a flag which can be
                                      queried with pypysig_poll() */
+void pypysig_reinstall(int signum);
 int pypysig_set_wakeup_fd(int fd);
 
 /* utility to poll for signals that arrived */

@@ -89,12 +89,12 @@ def main_(argv=None):
     space.setitem(space.sys.w_dict, space.wrap('executable'),
                   space.wrap(argv[0]))
 
-    # call pypy_initial_path: the side-effect is that it sets sys.prefix and
+    # call pypy_find_stdlib: the side-effect is that it sets sys.prefix and
     # sys.exec_prefix
-    srcdir = os.path.dirname(os.path.dirname(pypy.__file__))
-    space.appexec([space.wrap(srcdir)], """(srcdir):
+    executable = argv[0]
+    space.appexec([space.wrap(executable)], """(executable):
         import sys
-        sys.pypy_initial_path(srcdir)
+        sys.pypy_find_stdlib(executable)
     """)
 
     # set warning control options (if any)

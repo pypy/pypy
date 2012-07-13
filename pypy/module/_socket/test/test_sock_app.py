@@ -611,14 +611,19 @@ class AppTestSocketTCP:
         buf = t.recv(1)
         assert buf == '?'
         # test send() timeout
+        count = 0
         try:
             while 1:
-                cli.send('foobar' * 70)
+                count += cli.send('foobar' * 70)
         except timeout:
             pass
-        # test sendall() timeout, be sure to send data larger than the
-        # socket buffer
-        raises(timeout, cli.sendall, 'foobar' * 7000)
+        t.recv(count)    
+        # test sendall() timeout
+        try:
+            while 1:
+                cli.sendall('foobar' * 70)
+        except timeout:
+            pass
         # done
         cli.close()
         t.close()

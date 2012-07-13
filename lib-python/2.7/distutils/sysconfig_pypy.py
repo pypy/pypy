@@ -39,11 +39,10 @@ def get_python_lib(plat_specific=0, standard_lib=0, prefix=None):
     If 'prefix' is supplied, use it instead of sys.prefix or
     sys.exec_prefix -- i.e., ignore 'plat_specific'.
     """
-    if standard_lib:
-        raise DistutilsPlatformError(
-            "calls to get_python_lib(standard_lib=1) cannot succeed")
     if prefix is None:
         prefix = PREFIX
+    if standard_lib:
+        return os.path.join(prefix, "lib-python", get_python_version())
     return os.path.join(prefix, 'site-packages')
 
 

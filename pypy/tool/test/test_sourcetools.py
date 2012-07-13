@@ -22,3 +22,15 @@ def test_rename_decorator():
     assert f.func_name == "g"
     assert f.func_defaults == (5,)
     assert f.prop is int
+
+def test_func_rename_decorator():
+    def bar():
+        'doc'
+
+    bar2 = func_with_new_name(bar, 'bar2')
+    assert bar.func_doc == bar2.func_doc == 'doc'
+
+    bar.func_doc = 'new doc'
+    bar3 = func_with_new_name(bar, 'bar3')
+    assert bar3.func_doc == 'new doc'
+    assert bar2.func_doc != bar3.func_doc

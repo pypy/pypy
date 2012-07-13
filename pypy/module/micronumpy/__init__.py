@@ -163,6 +163,7 @@ class Module(MixedModule):
         'sum': 'app_numpy.sum',
         'min': 'app_numpy.min',
         'identity': 'app_numpy.identity',
+        'eye': 'app_numpy.eye',
         'max': 'app_numpy.max',
         'arange': 'app_numpy.arange',
     }

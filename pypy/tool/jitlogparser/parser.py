@@ -5,6 +5,22 @@ from pypy.jit.tool.oparser import OpParser
 from pypy.tool.logparser import parse_log_file, extract_category
 from copy import copy
 
+def parse_code_data(arg):
+    name = None
+    lineno = 0
+    filename = None
+    bytecode_no = 0
+    bytecode_name = None
+    m = re.search('<code object ([<>\w]+)[\.,] file \'(.+?)\'[\.,] line (\d+)> #(\d+) (\w+)',
+                  arg)
+    if m is None:
+        # a non-code loop, like StrLiteralSearch or something
+        if arg:
+            bytecode_name = arg
+    else:
+        name, filename, lineno, bytecode_no, bytecode_name = m.groups()
+    return name, bytecode_name, filename, int(lineno), int(bytecode_no)
+
 class Op(object):
     bridge = None
     offset = None
@@ -134,38 +150,24 @@ class NonCodeError(Exception):
     pass
 
 class TraceForOpcode(object):
-    filename = None
-    startlineno = 0
-    name = None
     code = None
-    bytecode_no = 0
-    bytecode_name = None
     is_bytecode = True
     inline_level = None
     has_dmp = False
-
-    def parse_code_data(self, arg):
-        m = re.search('<code object ([<>\w]+)[\.,] file \'(.+?)\'[\.,] line (\d+)> #(\d+) (\w+)',
-                      arg)
-        if m is None:
-            # a non-code loop, like StrLiteralSearch or something
-            if arg:
-                self.bytecode_name = arg
-        else:
-            self.name, self.filename, lineno, bytecode_no, self.bytecode_name = m.groups()
-            self.startlineno = int(lineno)
-            self.bytecode_no = int(bytecode_no)
-
 
     def __init__(self, operations, storage, loopname):
         for op in operations:
             if op.name == 'debug_merge_point':
                 self.inline_level = int(op.args[0])
-                self.parse_code_data(op.args[2][1:-1])
+                parsed = parse_code_data(op.args[2][1:-1])
+                (self.name, self.bytecode_name, self.filename,
+                 self.startlineno, self.bytecode_no) = parsed
                 break
         else:
             self.inline_level = 0
-            self.parse_code_data(loopname)
+            parsed = parse_code_data(loopname)
+            (self.name, self.bytecode_name, self.filename,
+             self.startlineno, self.bytecode_no) = parsed
         self.operations = operations
         self.storage = storage
         self.code = storage.disassemble_code(self.filename, self.startlineno,

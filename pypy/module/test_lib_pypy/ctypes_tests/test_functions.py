@@ -5,6 +5,7 @@ show how the type behave.
 Later...
 """
 
+from __future__ import with_statement
 from ctypes import *
 import sys
 import py
@@ -20,7 +21,7 @@ except NameError:
 def setup_module(mod):
     import conftest
     _ctypes_test = str(conftest.sofile)
-    mod.dll = CDLL(_ctypes_test)
+    mod.dll = CDLL(_ctypes_test, use_errno=True)
     if sys.platform == "win32":
         mod.windll = WinDLL(_ctypes_test)
 
@@ -483,6 +484,20 @@ class TestFunctions(BaseCTypesTestChecker):
         assert tf_b(-126) == -42
         assert tf_b._ptr is ptr
 
+    def test_custom_from_param(self):
+        class A(c_byte):
+            @classmethod
+            def from_param(cls, obj):
+                seen.append(obj)
+                return -126
+        tf_b = dll.tf_b
+        tf_b.restype = c_byte
+        tf_b.argtypes = (c_byte,)
+        tf_b.argtypes = [A]
+        seen = []
+        assert tf_b("yadda") == -42
+        assert seen == ["yadda"]
+
     def test_warnings(self):
         import warnings
         warnings.simplefilter("always")
@@ -521,3 +536,12 @@ class TestFunctions(BaseCTypesTestChecker):
             assert len(w) == 0
             
         warnings.resetwarnings()
+
+
+    def test_errno(self):
+        test_errno = dll.test_errno
+        test_errno.restype = c_int
+        set_errno(42)
+        res = test_errno()
+        n = get_errno()
+        assert (res, n) == (42, 43)

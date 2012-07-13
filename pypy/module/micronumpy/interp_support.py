@@ -4,6 +4,7 @@ from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.module.micronumpy import interp_dtype
 from pypy.objspace.std.strutil import strip_spaces
 from pypy.rlib import jit
+from pypy.rlib.rarithmetic import maxint
 
 FLOAT_SIZE = rffi.sizeof(lltype.Float)
 
@@ -103,3 +104,16 @@ def fromstring(space, s, w_dtype=None, count=-1, sep=''):
         return _fromstring_bin(space, s, count, length, dtype)
     else:
         return _fromstring_text(space, s, count, sep, length, dtype)
+
+def unwrap_axis_arg(space, shapelen, w_axis):
+    if space.is_w(w_axis, space.w_None) or not w_axis:
+        axis = maxint
+    else:
+        axis = space.int_w(w_axis)
+        if axis < -shapelen or axis>= shapelen:
+            raise operationerrfmt(space.w_ValueError,
+                "axis entry %d is out of bounds [%d, %d)", axis,
+                -shapelen, shapelen)
+        if axis < 0:
+            axis += shapelen
+    return axis
