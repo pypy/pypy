@@ -12,15 +12,7 @@ from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
 import math, sys
 
-# Check for int128 support. Is this right? It sure doesn't work.
-"""class CConfig:
-    _compilation_info_ = ExternalCompilationInfo()
-    
-    __INT128 = rffi_platform.SimpleType("__int128", rffi.__INT128)
-
-cConfig = rffi_platform.configure(CConfig)"""
-
-SUPPORT_INT128 = True
+SUPPORT_INT128 = rffi_platform.has('__int128', '')
 
 # note about digit sizes:
 # In division, the native integer type must be able to hold
