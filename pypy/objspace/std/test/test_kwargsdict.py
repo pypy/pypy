@@ -141,3 +141,9 @@ class AppTestKwargsDictStrategy(object):
         d = f()
         assert "EmptyKwargsDictStrategy" in self.get_strategy(d)
 
+    def test_iterator(self):
+        def f(**args):
+            return args
+
+        assert dict.fromkeys(f(a=2, b=3)) == {"a": None, "b": None}
+        assert sorted(f(a=2, b=3).itervalues()) == [2, 3]

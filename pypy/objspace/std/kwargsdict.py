@@ -155,9 +155,9 @@ class KwargsDictStrategy(DictStrategy):
         return keys[:], values_w[:] # copy to make non-resizable
 
     def getiterkeys(self, w_dict):
-        return self.unerase(w_dict.dstorage)[0]
+        return iter(self.unerase(w_dict.dstorage)[0])
     def getitervalues(self, w_dict):
-        return self.unerase(w_dict.dstorage)[1]
+        return iter(self.unerase(w_dict.dstorage)[1])
     def getiteritems(self, w_dict):
         keys = self.unerase(w_dict.dstorage)[0]
         return iter(range(len(keys)))

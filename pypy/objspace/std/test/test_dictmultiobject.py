@@ -454,6 +454,8 @@ class AppTest_DictObject:
         class E(dict):
             pass
         assert isinstance(D.fromkeys([1, 2]), E)
+        assert dict.fromkeys({"a": 2, "b": 3}) == {"a": None, "b": None}
+        assert dict.fromkeys({"a": 2, 1: 3}) == {"a": None, 1: None}
 
     def test_str_uses_repr(self):
         class D(dict):
