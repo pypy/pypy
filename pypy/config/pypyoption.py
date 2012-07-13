@@ -41,6 +41,7 @@ translation_modules = default_modules.copy()
 translation_modules.update(dict.fromkeys(
     ["fcntl", "rctime", "select", "signal", "_rawffi", "zlib",
      "struct", "_md5", "cStringIO", "array", "_ffi",
+     "binascii",
      # the following are needed for pyrepl (and hence for the
      # interactive prompt/pdb)
      "termios", "_minimal_curses",
