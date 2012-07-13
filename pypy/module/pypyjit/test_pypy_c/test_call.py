@@ -1,5 +1,6 @@
 import py
 from pypy.module.pypyjit.test_pypy_c.test_00_model import BaseTestPyPyC
+from pypy.module.pypyjit.test_pypy_c.model import OpMatcher
 
 class TestCall(BaseTestPyPyC):
 
@@ -507,7 +508,6 @@ class TestCall(BaseTestPyPyC):
             return res""", [1000])
         assert log.result == 500
         loop, = log.loops_by_id('call')
-        print loop.ops_by_id('call')
         assert loop.match("""
             i65 = int_lt(i58, i29)
             guard_true(i65, descr=...)
@@ -523,3 +523,26 @@ class TestCall(BaseTestPyPyC):
             jump(..., descr=...)
         """)
 
+    def test_kwargs_not_virtual(self):
+        log = self.run("""
+        def f(a, b, c):
+            pass
+
+        def main(stop):
+            d = {'a': 2, 'b': 3, 'c': 4}
+            i = 0
+            while i < stop:
+                f(**d) # ID: call
+                i += 1
+            return 13
+        """, [1000])
+        assert log.result == 13
+        loop, = log.loops_by_id('call')
+        allops = loop.allops()
+        calls = [op for op in allops if op.name.startswith('call')]
+        assert OpMatcher(calls).match('''
+        p93 = call(ConstClass(StringDictStrategy.view_as_kwargs), p35, p12, descr=<.*>)
+        i103 = call(ConstClass(_match_keywords), ConstPtr(ptr52), 0, 0, p94, p98, 0, descr=<.*>)
+        ''')
+        assert len([op for op in allops if op.name.startswith('new')]) == 1
+        # 1 alloc
