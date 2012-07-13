@@ -318,16 +318,13 @@ class rbigint(object):
             raise ValueError("cannot convert negative integer to unsigned int")
         return _AsULonglong_ignore_sign(self)
 
-    @jit.elidable
     def uintmask(self):
         return _AsUInt_mask(self)
 
-    @jit.elidable
     def ulonglongmask(self):
         """Return r_ulonglong(self), truncating."""
         return _AsULonglong_mask(self)
 
-    @jit.elidable
     def tofloat(self):
         return _AsDouble(self)
 
