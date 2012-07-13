@@ -426,9 +426,21 @@ class TestMallocShadowStack(BaseTestRegalloc):
                                    ('s12', lltype.Ptr(S1)),
                                    ('s13', lltype.Ptr(S1)),
                                    ('s14', lltype.Ptr(S1)),
-                                   ('s15', lltype.Ptr(S1)))
+                                   ('s15', lltype.Ptr(S1)),
+                                   ('s16', lltype.Ptr(S1)),
+                                   ('s17', lltype.Ptr(S1)),
+                                   ('s18', lltype.Ptr(S1)),
+                                   ('s19', lltype.Ptr(S1)),
+                                   ('s20', lltype.Ptr(S1)),
+                                   ('s21', lltype.Ptr(S1)),
+                                   ('s22', lltype.Ptr(S1)),
+                                   ('s23', lltype.Ptr(S1)),
+                                   ('s24', lltype.Ptr(S1)),
+                                   ('s25', lltype.Ptr(S1)),
+                                   ('s26', lltype.Ptr(S1)),
+                                   ('s27', lltype.Ptr(S1)))
         self.namespace = self.namespace.copy()
-        for i in range(16):
+        for i in range(28):
             self.namespace['ds%i' % i] = cpu.fielddescrof(S2, 's%d' % i)
         ops = '''
         [p0]
@@ -448,16 +460,29 @@ class TestMallocShadowStack(BaseTestRegalloc):
         p14 = getfield_gc(p0, descr=ds13)
         p15 = getfield_gc(p0, descr=ds14)
         p16 = getfield_gc(p0, descr=ds15)
+        p17 = getfield_gc(p0, descr=ds9)
+        p18 = getfield_gc(p0, descr=ds10)
+        p19 = getfield_gc(p0, descr=ds11)
+        p20 = getfield_gc(p0, descr=ds12)
+        p21 = getfield_gc(p0, descr=ds13)
+        p22 = getfield_gc(p0, descr=ds14)
+        p23 = getfield_gc(p0, descr=ds15)
+        p24 = getfield_gc(p0, descr=ds9)
+        p25 = getfield_gc(p0, descr=ds10)
+        p26 = getfield_gc(p0, descr=ds11)
+        p27 = getfield_gc(p0, descr=ds12)
         #
         # now all registers are in use
-        p17 = call_malloc_nursery(40)
-        p18 = call_malloc_nursery(40)     # overflow
+        p28 = call_malloc_nursery(40)
+        p29 = call_malloc_nursery(40)     # overflow
         #
         finish(p1, p2, p3, p4, p5, p6, p7, p8,         \
-               p9, p10, p11, p12, p13, p14, p15, p16)
+               p9, p10, p11, p12, p13, p14, p15, p16   \
+               p17, p18, p19, p20, p21, p22, p23, p24, \
+               p25, p26, p27)
         '''
         s2 = lltype.malloc(S2)
-        for i in range(16):
+        for i in range(28):
             s1 = lltype.malloc(S1)
             setattr(s2, 's%d' % i, s1)
             gc_ll_descr.gcrootmap.should_see.append(s1)
@@ -468,9 +493,9 @@ class TestMallocShadowStack(BaseTestRegalloc):
         assert gc_ll_descr.calls == [40]
         gc_ll_descr.gcrootmap.check_initial_and_final_state()
         # check the returned pointers
-        for i in range(16):
+        for i in range(28):
             s1ref = self.cpu.get_latest_value_ref(i)
             s1 = lltype.cast_opaque_ptr(lltype.Ptr(S1), s1ref)
-            for j in range(16):
+            for j in range(28):
                 assert s1 != getattr(s2, 's%d' % j)
             assert s1 == gc_ll_descr.gcrootmap.should_see[i]
