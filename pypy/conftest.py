@@ -102,7 +102,7 @@ def maketestobjspace(config=None):
         config = make_config(option)
     try:
         space = make_objspace(config)
-    except OperationError, e:
+    except OperationError as e:
         check_keyboard_interrupt(e)
         if option.verbose:
             import traceback
@@ -156,7 +156,7 @@ class TinyObjSpace(object):
         assert body.startswith('(')
         src = py.code.Source("def anonymous" + body)
         d = {}
-        exec src.compile() in d
+        exec(src.compile() in d)
         return d['anonymous'](*args)
 
     def wrap(self, obj):
@@ -235,9 +235,9 @@ def run_with_python(python, target):
     pyfile.write(helpers + str(source))
     res, stdout, stderr = runsubprocess.run_subprocess(
         python, [str(pyfile)])
-    print source
-    print >> sys.stdout, stdout
-    print >> sys.stderr, stderr
+    print(source)
+    print(stdout, file=sys.stdout)
+    print(stderr, file=sys.stderr)
     if res > 0:
         raise AssertionError("Subprocess failed")
 
@@ -250,7 +250,7 @@ def check_keyboard_interrupt(e):
     try:
         if e.w_type.name == 'KeyboardInterrupt':
             tb = sys.exc_info()[2]
-            raise OpErrKeyboardInterrupt, OpErrKeyboardInterrupt(), tb
+            raise OpErrKeyboardInterrupt(OpErrKeyboardInterrupt(), tb)
     except AttributeError:
         pass
 
@@ -412,10 +412,10 @@ class IntTestFunction(py.test.collect.Function):
     def runtest(self):
         try:
             super(IntTestFunction, self).runtest()
-        except OperationError, e:
+        except OperationError as e:
             check_keyboard_interrupt(e)
             raise
-        except Exception, e:
+        except Exception as e:
             cls = e.__class__
             while cls is not Exception:
                 if cls.__name__ == 'DistutilsPlatformError':
@@ -436,13 +436,13 @@ class AppTestFunction(py.test.collect.Function):
     def execute_appex(self, space, target, *args):
         try:
             target(*args)
-        except OperationError, e:
+        except OperationError as e:
             tb = sys.exc_info()[2]
             if e.match(space, space.w_KeyboardInterrupt):
-                raise OpErrKeyboardInterrupt, OpErrKeyboardInterrupt(), tb
+                raise OpErrKeyboardInterrupt(OpErrKeyboardInterrupt(), tb)
             appexcinfo = appsupport.AppExceptionInfo(space, e)
             if appexcinfo.traceback:
-                raise AppError, AppError(appexcinfo), tb
+                raise AppError(AppError(appexcinfo), tb)
             raise
 
     def runtest(self):
@@ -453,7 +453,7 @@ class AppTestFunction(py.test.collect.Function):
         space = gettestobjspace()
         filename = self._getdynfilename(target)
         func = app2interp_temp(src, filename=filename)
-        print "executing", func
+        print("executing", func)
         self.execute_appex(space, func, space)
 
     def repr_failure(self, excinfo):
