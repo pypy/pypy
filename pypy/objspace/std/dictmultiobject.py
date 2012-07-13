@@ -298,20 +298,15 @@ def _new_next(TP):
                 # length of the dict.  The (key, value) pair in 'result'
                 # might be out-of-date.  We try to explicitly look up
                 # the key in the dict.
-                if TP == 'key':
-                    return result[0]
+                if TP == 'key' or TP == 'value':
+                    return result
                 w_key = result[0]
                 w_value = self.dictimplementation.getitem(w_key)
                 if w_value is None:
                     self.len = -1   # Make this error state sticky
                     raise OperationError(self.space.w_RuntimeError,
                         self.space.wrap("dictionary changed during iteration"))
-                if TP == 'value':
-                    return w_value
-                elif TP == 'item':
-                    return (w_key, w_value)
-                else:
-                    assert False # unreachable code
+                return (w_key, w_value)
         # no more entries
         self.dictimplementation = None
         return EMPTY
