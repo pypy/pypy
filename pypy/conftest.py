@@ -1,3 +1,4 @@
+from __future__ import print_option
 import py, pytest, sys, os, textwrap, types
 from pypy.interpreter.gateway import app2interp_temp
 from pypy.interpreter.error import OperationError
