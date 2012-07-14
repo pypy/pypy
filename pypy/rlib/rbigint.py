@@ -76,13 +76,8 @@ TOOMCOOK_CUTOFF = 10000 # Smallest possible cutoff is 3. Ideal is probably aroun
 FIVEARY_CUTOFF = 8
 
 
-if SHIFT <= 31:
-    def _mask_digit(x):
-        return intmask(x & MASK)
-else:
-    def _mask_digit(x):
-        return longlongmask(x & MASK)
-        
+def _mask_digit(x):
+    return UDIGIT_MASK(x & MASK)
 _mask_digit._annspecialcase_ = 'specialize:argtype(0)'
 
 def _widen_digit(x):
@@ -103,10 +98,7 @@ ONEDIGIT  = _store_digit(1)
 def _check_digits(l):
     for x in l:
         assert type(x) is type(NULLDIGIT)
-        if SHIFT <= 31:
-            assert intmask(x) & MASK == intmask(x)
-        else:
-            assert longlongmask(x) & MASK == longlongmask(x)
+        assert UDIGIT_MASK(x) & MASK == UDIGIT_MASK(x)
             
 class Entry(extregistry.ExtRegistryEntry):
     _about_ = _check_digits
@@ -1564,12 +1556,12 @@ def _x_divrem(v1, w1):
     size_w = w1.numdigits()
     d = (UDIGIT_TYPE(MASK)+1) // (w1.udigit(abs(size_w-1)) + 1)
     assert d <= MASK    # because the first digit of w1 is not zero
-    d = longlongmask(d)
+    d = UDIGIT_MASK(d)
     v = _muladd1(v1, d)
     w = _muladd1(w1, d)
     size_v = v.numdigits()
     size_w = w.numdigits()
-    assert size_v >= size_w and size_w > 1 # (Assert checks by div()
+    assert size_w > 1 # (Assert checks by div()
 
     """v = rbigint([NULLDIGIT] * (size_v + 1))
     w = rbigint([NULLDIGIT] * (size_w))
