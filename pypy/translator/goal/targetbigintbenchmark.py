@@ -35,25 +35,24 @@ def entry_point(argv):
         Sum:  142.686547
         
         Pypy with improvements:
-        mod by 2:  0.007256
-        mod by 10000:  3.175842
-        mod by 1024 (power of two):  0.011571
-        Div huge number by 2**128: 2.187273
-        rshift: 2.319537
-        lshift: 1.488359
-        Floordiv by 2: 1.513284
-        Floordiv by 3 (not power of two): 4.210322
-        2**500000: 0.033903
-        (2**N)**5000000 (power of two): 0.052366
-        10000 ** BIGNUM % 100 2.032749
-        i = i * i: 4.609749
-        n**10000 (not power of two): 6.266791
-        Power of two ** power of two: 0.013294
-        v = v * power of two 4.107085
-        v = v * v 6.384141
-        v = v + v 2.820538
-        Sum:  41.234060
-
+        mod by 2:  0.003079
+        mod by 10000:  3.227921
+        mod by 1024 (power of two):  0.011448
+        Div huge number by 2**128: 2.185106
+        rshift: 2.327723
+        lshift: 1.490478
+        Floordiv by 2: 1.555817
+        Floordiv by 3 (not power of two): 4.179813
+        2**500000: 0.034017
+        (2**N)**5000000 (power of two): 0.047109
+        10000 ** BIGNUM % 100 2.024060
+        i = i * i: 3.966529
+        n**10000 (not power of two): 6.251766
+        Power of two ** power of two: 0.013693
+        v = v * power of two 3.535467
+        v = v * v 6.361221
+        v = v + v 2.771434
+        Sum:  39.986681
 
         With SUPPORT_INT128 set to False
         mod by 2:  0.004103

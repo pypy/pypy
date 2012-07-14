@@ -39,7 +39,7 @@ argtype_by_name = {
     'float': float,
     'uint': r_uint,
     'llong': r_longlong_arg,
-    'llong': r_longlong_arg,
+    'ullong': r_ulonglong,
     'lllong': r_longlonglong,
     }
 

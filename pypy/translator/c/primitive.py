@@ -12,6 +12,9 @@ from pypy.rpython.lltypesystem.llmemory import Address, \
 from pypy.rpython.lltypesystem.llarena import RoundedUpForAllocation
 from pypy.translator.c.support import cdecl, barebonearray
 
+from pypy.rpython.tool import rffi_platform
+SUPPORT_INT128 = rffi_platform.has('__int128', '')
+
 # ____________________________________________________________
 #
 # Primitives
@@ -247,4 +250,5 @@ define_c_primitive(rffi.LONG, 'long', 'L')
 define_c_primitive(rffi.ULONG, 'unsigned long', 'UL')
 define_c_primitive(rffi.LONGLONG, 'long long', 'LL')
 define_c_primitive(rffi.ULONGLONG, 'unsigned long long', 'ULL')
-define_c_primitive(rffi.__INT128, '__int128', 'LL') # Unless it's a 128bit platform, LL is the biggest
+if SUPPORT_INT128:
+    define_c_primitive(rffi.__INT128, '__int128', 'LL') # Unless it's a 128bit platform, LL is the biggest

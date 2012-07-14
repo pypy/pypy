@@ -20,10 +20,13 @@ SUPPORT_INT128 = rffi_platform.has('__int128', '')
 
 #SHIFT = (LONG_BIT // 2) - 1
 if SUPPORT_INT128:
+    rffi.TYPES += ["__int128"]
+    rffi.setup()
     SHIFT = 63
     BASE = long(1 << SHIFT)
     UDIGIT_TYPE = r_ulonglong
     UDIGIT_MASK = longlongmask
+    LONG_TYPE = rffi.__INT128
     if LONG_BIT > SHIFT:
         STORE_TYPE = lltype.Signed
         UNSIGNED_TYPE = lltype.Unsigned
@@ -37,6 +40,7 @@ else:
     UDIGIT_MASK = intmask
     STORE_TYPE = lltype.Signed
     UNSIGNED_TYPE = lltype.Unsigned
+    LONG_TYPE = rffi.LONGLONG
 
 MASK = BASE - 1
 FLOAT_MULTIPLIER = float(1 << LONG_BIT) # Because it works.
@@ -82,14 +86,7 @@ else:
 _mask_digit._annspecialcase_ = 'specialize:argtype(0)'
 
 def _widen_digit(x):
-    """if not we_are_translated():
-        assert is_valid_int(x), "widen_digit() takes an int, got a %r" % type(x)"""
-    if SHIFT > 31:
-        # XXX: Using rffi.cast is probably quicker, but I dunno how to get it working.
-        return r_longlonglong(x)
-    else:
-        return r_longlong(x)
-_widen_digit._always_inline_ = True
+    return rffi.cast(LONG_TYPE, x)
 
 def _store_digit(x):
     return rffi.cast(STORE_TYPE, x)
