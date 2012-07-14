@@ -264,24 +264,22 @@ class Entry(ExtRegistryEntry):
 
 def resizelist_hint(l, sizehint):
     """Reallocate the underlying list to the specified sizehint"""
-    return l
+    return
 
 class Entry(ExtRegistryEntry):
     _about_ = resizelist_hint
 
     def compute_result_annotation(self, s_l, s_sizehint):
-        from pypy.annotation.model import SomeInteger, SomeList
-        assert isinstance(s_l, SomeList)
-        assert isinstance(s_sizehint, SomeInteger)
+        from pypy.annotation import model as annmodel
+        assert isinstance(s_l, annmodel.SomeList)
+        assert isinstance(s_sizehint, annmodel.SomeInteger)
         s_l.listdef.listitem.resize()
-        return s_l
 
     def specialize_call(self, hop):
-        r_list = hop.r_result
+        r_list = hop.args_r[0]
         v_list, v_sizehint = hop.inputargs(*hop.args_r)
         hop.exception_is_here()
-        hop.llops.gendirectcall(r_list.LIST._ll_resize, v_list, v_sizehint)
-        return v_list
+        hop.gendirectcall(r_list.LIST._ll_resize_hint, v_list, v_sizehint)
 
 # ____________________________________________________________
 #

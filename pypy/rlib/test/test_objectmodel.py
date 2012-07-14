@@ -2,6 +2,7 @@ import py
 from pypy.rlib.objectmodel import *
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+from pypy.rpython.test.test_llinterp import interpret
 from pypy.conftest import option
 
 def strange_key_eq(key1, key2):
@@ -470,15 +471,22 @@ def test_resizelist_hint():
     def f(z):
         x = []
         resizelist_hint(x, 39)
-        if z < 0:
-            x.append(1)
         return len(x)
 
     graph = getgraph(f, [SomeInteger()])
-    for llop in graph.startblock.operations:
-        if llop.opname == 'direct_call':
+    for _, op in graph.iterblockops():
+        if op.opname == 'direct_call':
             break
-    call_name = llop.args[0].value._obj.graph.name
-    call_arg2 = llop.args[2].value
-    assert call_name.startswith('_ll_list_resize_really')
+    call_name = op.args[0].value._obj.graph.name
+    call_arg2 = op.args[2].value
+    assert call_name.startswith('_ll_list_resize_hint')
     assert call_arg2 == 39
+
+def test_resizelist_hint_len():
+    def f(i):
+        l = [44]
+        resizelist_hint(l, i)
+        return len(l)
+
+    r = interpret(f, [29])
+    assert r == 1
