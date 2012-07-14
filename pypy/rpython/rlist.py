@@ -26,6 +26,8 @@ ADTIList = ADTInterface(ADTIFixedList, {
     '_ll_resize_le':   (['self', Signed        ], Void),
     # resize to exactly the given size
     '_ll_resize':      (['self', Signed        ], Void),
+    # realloc the underlying list
+    '_ll_resize_hint': (['self', Signed        ], Void),
 })
 
 
