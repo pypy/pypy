@@ -108,8 +108,7 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
         self.func = original_sig.func
         self.orig_arg = iter(original_sig.argnames).next
 
-    def visit_function(self, func_cls, app_sig):
-        func, cls = func_cls
+    def visit_function(self, (func, cls), app_sig):
         self.dispatch(cls, app_sig)
 
     def visit_self(self, cls, app_sig):
@@ -209,8 +208,7 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
     def scopenext(self):
         return "scope_w[%d]" % self.succ()
 
-    def visit_function(self, func_cls):
-        func, cls = func_cls
+    def visit_function(self, (func, cls)):
         self.run_args.append("%s(%s)" % (self.use(func),
                                          self.scopenext()))
 
@@ -296,7 +294,7 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
                 def _run(self, space, scope_w):
                     return self.behavior(%s)
                 \n""" % (', '.join(self.run_args),)
-            exec(compile2(source) in self.miniglobals, d)
+            exec compile2(source) in self.miniglobals, d
 
             activation_cls = type("BuiltinActivation_UwS_%s" % label,
                              (BuiltinActivation,), d)
@@ -322,7 +320,7 @@ class BuiltinActivation(object):
 
     def _run(self, space, scope_w):
         """Subclasses with behavior specific for an unwrap spec are generated"""
-        raise TypeError("abstract")
+        raise TypeError, "abstract"
 
 #________________________________________________________________
 
@@ -348,7 +346,7 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
         self.args.append(arg)
         return arg
 
-    def visit_function(self, func_cls):
+    def visit_function(self, (func, cls)):
         raise FastFuncNotSupported
 
     def visit_self(self, typ):
@@ -436,7 +434,7 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
                 \n""" % (func.__name__, narg,
                          ', '.join(args),
                          ', '.join(unwrap_info.unwrap))
-            exec(compile2(source) in unwrap_info.miniglobals, d)
+            exec compile2(source) in unwrap_info.miniglobals, d
             fastfunc = d['fastfunc_%s_%d' % (func.__name__, narg)]
         return narg, fastfunc
     make_fastfunc = staticmethod(make_fastfunc)
@@ -629,7 +627,7 @@ class BuiltinCode(eval.Code):
                                                   self.descrmismatch_op,
                                                   self.descr_reqcls,
                                                   args)
-        except Exception as e:
+        except Exception, e:
             self.handle_exception(space, e)
             w_result = None
         if w_result is None:
@@ -646,7 +644,7 @@ class BuiltinCode(eval.Code):
                                  space.w_None)
         except MemoryError:
             raise OperationError(space.w_MemoryError, space.w_None)
-        except rstackovf.StackOverflow as e:
+        except rstackovf.StackOverflow, e:
             rstackovf.check_stack_overflow()
             raise space.prebuilt_recursion_error
         except RuntimeError:   # not on top of py.py
@@ -666,7 +664,7 @@ class BuiltinCodePassThroughArguments0(BuiltinCode):
                                                   self.descrmismatch_op,
                                                   self.descr_reqcls,
                                                   args)
-        except Exception as e:
+        except Exception, e:
             self.handle_exception(space, e)
             w_result = None
         if w_result is None:
@@ -686,7 +684,7 @@ class BuiltinCodePassThroughArguments1(BuiltinCode):
                                                   self.descrmismatch_op,
                                                   self.descr_reqcls,
                                                   args.prepend(w_obj))
-        except Exception as e:
+        except Exception, e:
             self.handle_exception(space, e)
             w_result = None
         if w_result is None:
@@ -703,7 +701,7 @@ class BuiltinCode0(BuiltinCode):
         except DescrMismatch:
             raise OperationError(space.w_SystemError,
                                  space.wrap("unexpected DescrMismatch error"))
-        except Exception as e:
+        except Exception, e:
             self.handle_exception(space, e)
             w_result = None
         if w_result is None:
@@ -722,7 +720,7 @@ class BuiltinCode1(BuiltinCode):
                                            self.descrmismatch_op,
                                            self.descr_reqcls,
                                            Arguments(space, [w1]))
-        except Exception as e:
+        except Exception, e:
             self.handle_exception(space, e)
             w_result = None
         if w_result is None:
@@ -741,7 +739,7 @@ class BuiltinCode2(BuiltinCode):
                                            self.descrmismatch_op,
                                            self.descr_reqcls,
                                            Arguments(space, [w1, w2]))
-        except Exception as e:
+        except Exception, e:
             self.handle_exception(space, e)
             w_result = None
         if w_result is None:
@@ -760,7 +758,7 @@ class BuiltinCode3(BuiltinCode):
                                            self.descrmismatch_op,
                                            self.descr_reqcls,
                                            Arguments(space, [w1, w2, w3]))
-        except Exception as e:
+        except Exception, e:
             self.handle_exception(space, e)
             w_result = None
         if w_result is None:
@@ -780,7 +778,7 @@ class BuiltinCode4(BuiltinCode):
                                            self.descr_reqcls,
                                            Arguments(space,
                                                      [w1, w2, w3, w4]))
-        except Exception as e:
+        except Exception, e:
             self.handle_exception(space, e)
             w_result = None
         if w_result is None:
@@ -814,10 +812,10 @@ class interp2app(Wrappable):
             self_type = f.im_class
             f = f.im_func
         if not isinstance(f, types.FunctionType):
-            raise TypeError("function expected, got %r instead" % f)
+            raise TypeError, "function expected, got %r instead" % f
         if app_name is None:
             if f.func_name.startswith('app_'):
-                raise ValueError("function name %r suspiciously starts "
+                raise ValueError, ("function name %r suspiciously starts "
                                    "with 'app_'" % f.func_name)
             app_name = f.func_name
 

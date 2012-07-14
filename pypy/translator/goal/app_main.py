@@ -472,7 +472,6 @@ def parse_command_line(argv):
 # this indirection is needed to be able to import this module on python2, else
 # we have a SyntaxError: unqualified exec in a nested function
 def exec_(src, dic):
-    print('Calling exec(%s, %s)',src,dic)
     exec(src, dic)
 
 def run_command_line(interactive,
