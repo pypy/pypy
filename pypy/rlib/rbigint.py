@@ -90,19 +90,10 @@ def _widen_digit(x):
     else:
         return r_longlong(x)
 _widen_digit._always_inline_ = True
+
 def _store_digit(x):
-    """if not we_are_translated():
-        assert is_valid_int(x), "store_digit() takes an int, got a %r" % type(x)"""
-    if SHIFT <= 15:
-        return rffi.cast(rffi.SHORT, x)
-    elif SHIFT <= 31:
-        return rffi.cast(rffi.INT, x)
-    elif SHIFT <= 63:
-        return rffi.cast(STORE_TYPE, x)
-    else:
-        raise ValueError("SHIFT too large!")
+    return rffi.cast(STORE_TYPE, x)
 _store_digit._annspecialcase_ = 'specialize:argtype(0)'
-_store_digit._always_inline_ = True
 
 def _load_unsigned_digit(x):
     return rffi.cast(UNSIGNED_TYPE, x)
