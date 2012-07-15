@@ -91,13 +91,15 @@ class W_DictMultiObject(W_Object):
         for w_k, w_v in list_pairs_w:
             w_self.setitem(w_k, w_v)
 
+    def view_as_kwargs(self):
+        return self.strategy.view_as_kwargs(self)
+
 def _add_indirections():
     dict_methods = "setitem setitem_str getitem \
                     getitem_str delitem length \
                     clear w_keys values \
                     items iter setdefault \
-                    popitem listview_str listview_int \
-                    view_as_kwargs".split()
+                    popitem listview_str listview_int".split()
 
     def make_method(method):
         def f(self, *args):
