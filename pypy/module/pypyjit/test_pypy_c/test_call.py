@@ -546,3 +546,58 @@ class TestCall(BaseTestPyPyC):
         ''')
         assert len([op for op in allops if op.name.startswith('new')]) == 1
         # 1 alloc
+
+    def test_complex_case(self):
+        log = self.run("""
+        def f(x, y, a, b, c=3, d=4):
+            pass
+
+        def main(stop):
+            i = 0
+            while i < stop:
+                a = [1, 2]
+                d = {'a': 2, 'b': 3, 'd':4}
+                f(*a, **d) # ID: call
+                i += 1
+            return 13        
+        """, [1000])
+        loop, = log.loops_by_id('call')
+        allops = loop.allops()
+        calls = [op for op in allops if op.name.startswith('call')]
+        assert OpMatcher(calls).match('''
+        p93 = call(ConstClass(StringDictStrategy.view_as_kwargs), p35, p12, descr=<.*>)
+        i103 = call(ConstClass(_match_keywords), ConstPtr(ptr52), 0, 0, p94, p98, 0, descr=<.*>)
+        ''')
+        assert len([op for op in allops if op.name.startswith('new')]) == 1
+        # 1 alloc
+
+    def test_complex_case_global(self):
+        log = self.run("""
+        def f(x, y, a, b, c=3, d=4):
+            pass
+
+        a = [1, 2]
+        d = {'a': 2, 'b': 3, 'd':4}
+
+        def main(stop):
+            i = 0
+            while i < stop:
+                f(*a, **d) # ID: call
+                i += 1
+            return 13        
+        """, [1000])
+
+    def test_complex_case_loopconst(self):
+        log = self.run("""
+        def f(x, y, a, b, c=3, d=4):
+            pass
+
+        def main(stop):
+            i = 0
+            a = [1, 2]
+            d = {'a': 2, 'b': 3, 'd':4}
+            while i < stop:
+                f(*a, **d) # ID: call
+                i += 1
+            return 13        
+        """, [1000])
