@@ -11,6 +11,7 @@ from pypy.rlib.objectmodel import r_dict, we_are_translated, specialize
 from pypy.rlib.debug import mark_dict_non_null
 
 from pypy.rlib import rerased
+from pypy.rlib import jit
 
 def _is_str(space, w_key):
     return space.is_w(space.type(w_key), space.w_str)
@@ -508,6 +509,7 @@ class StringDictStrategy(AbstractTypedStrategy, DictStrategy):
     def w_keys(self, w_dict):
         return self.space.newlist_str(self.listview_str(w_dict))
 
+    @jit.look_inside_iff(lambda self, w_dict : jit.isvirtual(w_dict))
     def view_as_kwargs(self, w_dict):
         d = self.unerase(w_dict.dstorage)
         l = len(d)
