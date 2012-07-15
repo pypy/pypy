@@ -214,17 +214,6 @@ def loop_unrolling_heuristic(lst, size):
     """
     return isvirtual(lst) or (isconstant(size) and size <= LIST_CUTOFF)
 
-DICT_CUTOFF = 5
-
-@specialize.call_location()
-def w_dict_unrolling_heuristic(w_dct):
-    """ In which cases iterating over dict items can be unrolled.
-    Note that w_dct is an instance of W_DictMultiObject, not necesarilly
-    an actual dict
-    """
-    return isvirtual(w_dct) or (isconstant(w_dct) and
-                                w_dct.length() <= DICT_CUTOFF)
-
 class Entry(ExtRegistryEntry):
     _about_ = hint
 

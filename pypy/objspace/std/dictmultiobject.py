@@ -29,6 +29,18 @@ def _never_equal_to_string(space, w_lookup_type):
             space.is_w(w_lookup_type, space.w_float)
             )
 
+
+DICT_CUTOFF = 5
+
+@specialize.call_location()
+def w_dict_unrolling_heuristic(w_dct):
+    """ In which cases iterating over dict items can be unrolled.
+    Note that w_dct is an instance of W_DictMultiObject, not necesarilly
+    an actual dict
+    """
+    return jit.isvirtual(w_dct) or (jit.isconstant(w_dct) and
+                                    w_dct.length() <= DICT_CUTOFF)
+
 class W_DictMultiObject(W_Object):
     from pypy.objspace.std.dicttype import dict_typedef as typedef
 
@@ -512,7 +524,7 @@ class StringDictStrategy(AbstractTypedStrategy, DictStrategy):
         return self.space.newlist_str(self.listview_str(w_dict))
 
     @jit.look_inside_iff(lambda self, w_dict:
-                         jit.w_dict_unrolling_heuristic(w_dict))
+                         w_dict_unrolling_heuristic(w_dict))
     def view_as_kwargs(self, w_dict):
         d = self.unerase(w_dict.dstorage)
         l = len(d)
