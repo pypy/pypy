@@ -631,7 +631,9 @@ class FuncType(Type):
                 eci = eci._with_llvm
             database.genllvm.ecis.append(eci)
         else:
-            if obj._name == '__main':
+            if hasattr(getattr(obj, '_callable', None), 'c_name'):
+                name = '@' + obj._callable.c_name
+            elif obj._name == '__main':
                 name = '@main'
             else:
                 name = database.unique_name('@rpy_' + obj._name)
@@ -1611,12 +1613,14 @@ class GenLLVM(object):
             self.exctransformer.create_exception_handling(graph)
             self.gcpolicy.transform_graph(graph)
 
-    def prepare(self, entry_point):
+    def prepare(self, entry_point, secondary_entrypoints):
+        bk = self.translator.annotator.bookkeeper
         if self.standalone:
             self.entry_point = make_main(self, entry_point)
         else:
-            bk = self.translator.annotator.bookkeeper
             self.entry_point = bk.getdesc(entry_point).getuniquegraph()
+        for secondary_entrypoint, _ in secondary_entrypoints:
+             self.export.add(bk.getdesc(secondary_entrypoint).getuniquegraph())
         for graph in self.translator.graphs:
             self.transform_graph(graph)
         self.gcpolicy.finish()
@@ -1639,10 +1643,10 @@ class GenLLVM(object):
             database = Database(self, f)
 
             self.gcpolicy.add_startup_code()
-            if self.standalone:
-                get_repr(getfunctionptr(self.entry_point)).V
-            else:
+            if not self.standalone:
                 self.wrapper = CTypesFuncWrapper(self, self.entry_point)
+            for export in self.export:
+                get_repr(getfunctionptr(export)).V
 
     def _compile(self, add_opts, outfile):
         eci = (ExternalCompilationInfo(

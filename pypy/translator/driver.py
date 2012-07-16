@@ -610,7 +610,7 @@ class TranslationDriver(SimpleTaskEngine):
 
         from pypy.translator.llvm import genllvm
         self.llvmgen = genllvm.GenLLVM(translator, self.standalone)
-        self.llvmgen.prepare(self.entry_point)
+        self.llvmgen.prepare(self.entry_point, self.secondary_entrypoints)
 
     task_prepare_llvm = taskdef(task_prepare_llvm,
                                [STACKCHECKINSERTION, BACKENDOPT, RTYPE],
