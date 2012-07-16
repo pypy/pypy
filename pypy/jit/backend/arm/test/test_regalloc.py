@@ -16,9 +16,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.lltypesystem import rclass, rstr
 from pypy.jit.codewriter.effectinfo import EffectInfo
-from pypy.jit.backend.arm.test.support import skip_unless_arm
 from pypy.jit.codewriter import longlong
-skip_unless_arm()
 
 
 def test_is_comparison_or_ovf_op():

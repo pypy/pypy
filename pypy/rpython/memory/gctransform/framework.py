@@ -455,13 +455,12 @@ class FrameworkGCTransformer(GCTransformer):
                                             annmodel.SomeAddress()],
                                            annmodel.s_None,
                                            inline=True)
-            func = getattr(gcdata.gc, 'remember_young_pointer', None)
+            func = getattr(gcdata.gc, 'jit_remember_young_pointer', None)
             if func is not None:
                 # func should not be a bound method, but a real function
                 assert isinstance(func, types.FunctionType)
                 self.write_barrier_failing_case_ptr = getfn(func,
-                                               [annmodel.SomeAddress(),
-                                                annmodel.SomeAddress()],
+                                               [annmodel.SomeAddress()],
                                                annmodel.s_None)
             func = getattr(GCClass, 'write_barrier_from_array', None)
             if func is not None:
@@ -472,16 +471,15 @@ class FrameworkGCTransformer(GCTransformer):
                                             annmodel.SomeInteger()],
                                            annmodel.s_None,
                                            inline=True)
-                func = getattr(gcdata.gc, 'remember_young_pointer_from_array3',
+                func = getattr(gcdata.gc,
+                               'jit_remember_young_pointer_from_array',
                                None)
                 if func is not None:
                     # func should not be a bound method, but a real function
                     assert isinstance(func, types.FunctionType)
                     self.write_barrier_from_array_failing_case_ptr = \
                                              getfn(func,
-                                                   [annmodel.SomeAddress(),
-                                                    annmodel.SomeInteger(),
-                                                    annmodel.SomeAddress()],
+                                                   [annmodel.SomeAddress()],
                                                    annmodel.s_None)
         self.statistics_ptr = getfn(GCClass.statistics.im_func,
                                     [s_gc, annmodel.SomeInteger()],

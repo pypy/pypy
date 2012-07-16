@@ -133,44 +133,6 @@ class RPythonAnnotator(object):
         self.build_graph_types(graph, inputcells, complete_now=False)
         self.complete_helpers(policy)
         return graph
-    
-    def annotate_helper_method(self, _class, attr, args_s, policy=None):
-        """ Warning! this method is meant to be used between
-        annotation and rtyping
-        """
-        if policy is None:
-            from pypy.annotation.policy import AnnotatorPolicy
-            policy = AnnotatorPolicy()
-        
-        assert attr != '__class__'
-        classdef = self.bookkeeper.getuniqueclassdef(_class)
-        attrdef = classdef.find_attribute(attr)
-        s_result = attrdef.getvalue()
-        classdef.add_source_for_attribute(attr, classdef.classdesc)
-        self.bookkeeper
-        assert isinstance(s_result, annmodel.SomePBC)
-        olddesc = s_result.any_description()
-        desc = olddesc.bind_self(classdef)
-        args = self.bookkeeper.build_args("simple_call", args_s[:])
-        desc.consider_call_site(self.bookkeeper, desc.getcallfamily(), [desc],
-            args, annmodel.s_ImpossibleValue, None)
-        result = []
-        def schedule(graph, inputcells):
-            result.append((graph, inputcells))
-            return annmodel.s_ImpossibleValue
-
-        prevpolicy = self.policy
-        self.policy = policy
-        self.bookkeeper.enter(None)
-        try:
-            desc.pycall(schedule, args, annmodel.s_ImpossibleValue)
-        finally:
-            self.bookkeeper.leave()
-            self.policy = prevpolicy
-        [(graph, inputcells)] = result
-        self.build_graph_types(graph, inputcells, complete_now=False)
-        self.complete_helpers(policy)
-        return graph
 
     def complete_helpers(self, policy):
         saved = self.policy, self.added_blocks

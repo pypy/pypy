@@ -249,6 +249,13 @@ class SimpleType(_CDataMeta):
                 self._buffer[0] = value
             result.value = property(_getvalue, _setvalue)
 
+        elif tp == '?':  # regular bool
+            def _getvalue(self):
+                return bool(self._buffer[0])
+            def _setvalue(self, value):
+                self._buffer[0] = bool(value)
+            result.value = property(_getvalue, _setvalue)
+
         elif tp == 'v': # VARIANT_BOOL type
             def _getvalue(self):
                 return bool(self._buffer[0])

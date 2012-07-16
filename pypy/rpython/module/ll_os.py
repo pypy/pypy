@@ -7,11 +7,11 @@ Low-level implementations for the external functions of the 'os' module.
 
 import os, sys, errno
 import py
-from pypy.rpython.module.support import ll_strcpy, OOSupport
-from pypy.tool.sourcetools import func_with_new_name, func_renamer
+from pypy.rpython.module.support import OOSupport
+from pypy.tool.sourcetools import func_renamer
 from pypy.rlib.rarithmetic import r_longlong
 from pypy.rpython.extfunc import (
-    BaseLazyRegistering, lazy_register, register_external)
+    BaseLazyRegistering, register_external)
 from pypy.rpython.extfunc import registering, registering_if, extdef
 from pypy.annotation.model import (
     SomeInteger, SomeString, SomeTuple, SomeFloat, SomeUnicodeString)
@@ -20,20 +20,13 @@ from pypy.rpython.lltypesystem import rffi
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.tool import rffi_platform as platform
 from pypy.rlib import rposix
-from pypy.tool.udir import udir
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.rpython.lltypesystem.rstr import mallocstr
-from pypy.rpython.annlowlevel import llstr
-from pypy.rpython.lltypesystem.llmemory import sizeof,\
-     itemoffsetof, cast_ptr_to_adr, cast_adr_to_ptr, offsetof
+from pypy.rpython.lltypesystem.llmemory import itemoffsetof, offsetof
 from pypy.rpython.lltypesystem.rstr import STR
-from pypy.rpython.annlowlevel import llstr
-from pypy.rlib import rgc
 from pypy.rlib.objectmodel import specialize
 
 str0 = SomeString(no_nul=True)
 unicode0 = SomeUnicodeString(no_nul=True)
-
 
 def monkeypatch_rposix(posixfunc, unicodefunc, signature):
     func_name = posixfunc.__name__
@@ -155,6 +148,7 @@ if not _WIN32:
 else:
     includes += ['sys/utime.h']
 
+_CYGWIN = sys.platform == 'cygwin'
 
 class CConfig:
     """
@@ -1126,7 +1120,7 @@ class RegisterOs(BaseLazyRegistering):
         def os_getcwd_oofakeimpl():
             return OOSupport.to_rstr(os.getcwd())
 
-        return extdef([], str,
+        return extdef([], str0,
                       "ll_os.ll_os_getcwd", llimpl=os_getcwd_llimpl,
                       oofakeimpl=os_getcwd_oofakeimpl)
 
@@ -1342,9 +1336,14 @@ class RegisterOs(BaseLazyRegistering):
                 return result
         else:
             # Posix
-            os_waitpid = self.llexternal('waitpid',
-                                         [rffi.PID_T, rffi.INTP, rffi.INT],
-                                         rffi.PID_T)
+            if _CYGWIN:
+                os_waitpid = self.llexternal('cygwin_waitpid',
+                                             [rffi.PID_T, rffi.INTP, rffi.INT],
+                                             rffi.PID_T)
+            else:
+                os_waitpid = self.llexternal('waitpid',
+                                             [rffi.PID_T, rffi.INTP, rffi.INT],
+                                             rffi.PID_T)
 
         def os_waitpid_llimpl(pid, options):
             status_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
@@ -1369,7 +1368,8 @@ class RegisterOs(BaseLazyRegistering):
         os_isatty = self.llexternal(underscore_on_windows+'isatty', [rffi.INT], rffi.INT)
 
         def isatty_llimpl(fd):
-            rposix.validate_fd(fd)
+            if not rposix.is_valid_fd(fd):
+                return False
             res = rffi.cast(lltype.Signed, os_isatty(rffi.cast(rffi.INT, fd)))
             return res != 0
 
@@ -1557,13 +1557,11 @@ class RegisterOs(BaseLazyRegistering):
     def register_os_kill(self):
         os_kill = self.llexternal('kill', [rffi.PID_T, rffi.INT],
                                   rffi.INT)
-
         def kill_llimpl(pid, sig):
             res = rffi.cast(lltype.Signed, os_kill(rffi.cast(rffi.PID_T, pid),
                                                    rffi.cast(rffi.INT, sig)))
             if res < 0:
                 raise OSError(rposix.get_errno(), "os_kill failed")
-
         return extdef([int, int], s_None, llimpl=kill_llimpl,
                       export_name="ll_os.ll_os_kill")
 

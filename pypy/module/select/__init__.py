@@ -19,9 +19,8 @@ class Module(MixedModule):
 
     if sys.platform.startswith('linux'):
         interpleveldefs['epoll'] = 'interp_epoll.W_Epoll'
-        from pypy.module.select.interp_epoll import cconfig, public_symbols
-        for symbol in public_symbols:
-            value = cconfig[symbol]
+        from pypy.module.select.interp_epoll import public_symbols
+        for symbol, value in public_symbols.iteritems():
             if value is not None:
                 interpleveldefs[symbol] = "space.wrap(%r)" % value
 

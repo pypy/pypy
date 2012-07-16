@@ -12,6 +12,15 @@ import time as pytime
 
 _POSIX = os.name == "posix"
 _WIN = os.name == "nt"
+_CYGWIN = sys.platform == "cygwin"
+
+_time_zones = []
+if _CYGWIN:
+    _time_zones = ["GMT-12", "GMT-11", "GMT-10", "GMT-9", "GMT-8", "GMT-7",
+                   "GMT-6", "GMT-5", "GMT-4", "GMT-3", "GMT-2", "GMT-1",
+                   "GMT",  "GMT+1", "GMT+2", "GMT+3", "GMT+4", "GMT+5",
+                   "GMT+6",  "GMT+7", "GMT+8", "GMT+9", "GMT+10", "GMT+11",
+                   "GMT+12",  "GMT+13", "GMT+14"]
 
 if _WIN:
     # Interruptible sleeps on Windows:
@@ -107,11 +116,17 @@ if _POSIX:
     CConfig.timeval = platform.Struct("struct timeval",
                                       [("tv_sec", rffi.INT),
                                        ("tv_usec", rffi.INT)])
-    CConfig.tm = platform.Struct("struct tm", [("tm_sec", rffi.INT),
-        ("tm_min", rffi.INT), ("tm_hour", rffi.INT), ("tm_mday", rffi.INT),
-        ("tm_mon", rffi.INT), ("tm_year", rffi.INT), ("tm_wday", rffi.INT),
-        ("tm_yday", rffi.INT), ("tm_isdst", rffi.INT), ("tm_gmtoff", rffi.LONG),
-        ("tm_zone", rffi.CCHARP)])
+    if _CYGWIN:
+        CConfig.tm = platform.Struct("struct tm", [("tm_sec", rffi.INT),
+            ("tm_min", rffi.INT), ("tm_hour", rffi.INT), ("tm_mday", rffi.INT),
+            ("tm_mon", rffi.INT), ("tm_year", rffi.INT), ("tm_wday", rffi.INT),
+            ("tm_yday", rffi.INT), ("tm_isdst", rffi.INT)])
+    else:
+        CConfig.tm = platform.Struct("struct tm", [("tm_sec", rffi.INT),
+            ("tm_min", rffi.INT), ("tm_hour", rffi.INT), ("tm_mday", rffi.INT),
+            ("tm_mon", rffi.INT), ("tm_year", rffi.INT), ("tm_wday", rffi.INT),
+            ("tm_yday", rffi.INT), ("tm_isdst", rffi.INT), ("tm_gmtoff", rffi.LONG),
+            ("tm_zone", rffi.CCHARP)])
 elif _WIN:
     calling_conv = 'win'
     CConfig.tm = platform.Struct("struct tm", [("tm_sec", rffi.INT),
@@ -202,35 +217,81 @@ def _init_timezone(space):
          tzname = rffi.charp2str(tzname_ptr[0]), rffi.charp2str(tzname_ptr[1])
 
     if _POSIX:
-        YEAR = (365 * 24 + 6) * 3600
+        if _CYGWIN:
+            YEAR = (365 * 24 + 6) * 3600
 
-        t = (((c_time(lltype.nullptr(rffi.TIME_TP.TO))) / YEAR) * YEAR)
-        # we cannot have reference to stack variable, put it on the heap
-        t_ref = lltype.malloc(rffi.TIME_TP.TO, 1, flavor='raw')
-        t_ref[0] = rffi.cast(rffi.TIME_T, t)
-        p = c_localtime(t_ref)
-        janzone = -p.c_tm_gmtoff
-        tm_zone = rffi.charp2str(p.c_tm_zone)
-        janname = ["   ", tm_zone][bool(tm_zone)]
-        tt = t + YEAR / 2
-        t_ref[0] = rffi.cast(rffi.TIME_T, tt)
-        p = c_localtime(t_ref)
-        lltype.free(t_ref, flavor='raw')
-        tm_zone = rffi.charp2str(p.c_tm_zone)
-        julyzone = -p.c_tm_gmtoff
-        julyname = ["   ", tm_zone][bool(tm_zone)]
+            # about January 11th
+            t = (((c_time(lltype.nullptr(rffi.TIME_TP.TO))) / YEAR) * YEAR + 10 * 24 * 3600)
+            # we cannot have reference to stack variable, put it on the heap
+            t_ref = lltype.malloc(rffi.TIME_TP.TO, 1, flavor='raw')
+            t_ref[0] = rffi.cast(rffi.TIME_T, t)
+            p = c_localtime(t_ref)
+            q = c_gmtime(t_ref)
+            janzone = (p.c_tm_hour + 24 * p.c_tm_mday) - (q.c_tm_hour + 24 * q.c_tm_mday)
+            if janzone < -12:
+                janname = "   "
+            elif janzone > 14:
+                janname = "   "
+            else:
+                janname = _time_zones[janzone - 12]
+            janzone = janzone * 3600
+            # about July 11th
+            tt = t + YEAR / 2
+            t_ref[0] = rffi.cast(rffi.TIME_T, tt)
+            p = c_localtime(t_ref)
+            q = c_gmtime(t_ref)
+            julyzone = (p.c_tm_hour + 24 * p.c_tm_mday) - (q.c_tm_hour + 24 * q.c_tm_mday)
+            if julyzone < -12:
+                julyname = "   "
+            elif julyzone > 14:
+                julyname = "   "
+            else:
+                julyname = _time_zones[julyzone - 12]
+            julyzone = julyzone * 3600
+            lltype.free(t_ref, flavor='raw')
 
-        if janzone < julyzone:
-            # DST is reversed in the southern hemisphere
-            timezone = julyzone
-            altzone = janzone
-            daylight = int(janzone != julyzone)
-            tzname = [julyname, janname]
+            if janzone < julyzone:
+                # DST is reversed in the southern hemisphere
+                timezone = julyzone
+                altzone = janzone
+                daylight = int(janzone != julyzone)
+                tzname = [julyname, janname]
+            else:
+                timezone = janzone
+                altzone = julyzone
+                daylight = int(janzone != julyzone)
+                tzname = [janname, julyname]
+
         else:
-            timezone = janzone
-            altzone = julyzone
-            daylight = int(janzone != julyzone)
-            tzname = [janname, julyname]
+            YEAR = (365 * 24 + 6) * 3600
+
+            t = (((c_time(lltype.nullptr(rffi.TIME_TP.TO))) / YEAR) * YEAR)
+            # we cannot have reference to stack variable, put it on the heap
+            t_ref = lltype.malloc(rffi.TIME_TP.TO, 1, flavor='raw')
+            t_ref[0] = rffi.cast(rffi.TIME_T, t)
+            p = c_localtime(t_ref)
+            janzone = -p.c_tm_gmtoff
+            tm_zone = rffi.charp2str(p.c_tm_zone)
+            janname = ["   ", tm_zone][bool(tm_zone)]
+            tt = t + YEAR / 2
+            t_ref[0] = rffi.cast(rffi.TIME_T, tt)
+            p = c_localtime(t_ref)
+            lltype.free(t_ref, flavor='raw')
+            tm_zone = rffi.charp2str(p.c_tm_zone)
+            julyzone = -p.c_tm_gmtoff
+            julyname = ["   ", tm_zone][bool(tm_zone)]
+
+            if janzone < julyzone:
+                # DST is reversed in the southern hemisphere
+                timezone = julyzone
+                altzone = janzone
+                daylight = int(janzone != julyzone)
+                tzname = [julyname, janname]
+            else:
+                timezone = janzone
+                altzone = julyzone
+                daylight = int(janzone != julyzone)
+                tzname = [janname, julyname]
 
     _set_module_object(space, "timezone", space.wrap(timezone))
     _set_module_object(space, 'daylight', space.wrap(daylight))
@@ -361,9 +422,12 @@ def _gettmarg(space, w_tup, allowNone=True):
     rffi.setintfield(glob_buf, 'c_tm_yday', tm_yday)
     rffi.setintfield(glob_buf, 'c_tm_isdst', space.int_w(tup_w[8]))
     if _POSIX:
-        # actually never happens, but makes annotator happy
-        glob_buf.c_tm_zone = lltype.nullptr(rffi.CCHARP.TO)
-        rffi.setintfield(glob_buf, 'c_tm_gmtoff', 0)
+        if _CYGWIN:
+            pass
+        else:
+            # actually never happens, but makes annotator happy
+            glob_buf.c_tm_zone = lltype.nullptr(rffi.CCHARP.TO)
+            rffi.setintfield(glob_buf, 'c_tm_gmtoff', 0)
 
     w_accept2dyear = _get_module_object(space, "accept2dyear")
     accept2dyear = space.int_w(w_accept2dyear)

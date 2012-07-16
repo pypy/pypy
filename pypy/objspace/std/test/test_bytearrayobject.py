@@ -168,7 +168,6 @@ class AppTestBytesArray:
         assert bytearray('hello').count('l') == 2
         assert bytearray('hello').count(bytearray('l')) == 2
         assert bytearray('hello').count(memoryview('l')) == 2
-        assert bytearray('hello').count(ord('l')) == 2
 
         assert bytearray('hello').index('e') == 1
         assert bytearray('hello').rindex('l') == 3

@@ -112,7 +112,7 @@ def execute_test(cwd, test, out, logfname, interp, test_driver,
     args = interp + test_driver
     args += ['-p', 'resultlog',
              '--resultlog=%s' % logfname,
-             '--junitxml=%s.junit' % logfname,
+             #'--junitxml=%s.junit' % logfname,
              test]
 
     args = map(str, args)

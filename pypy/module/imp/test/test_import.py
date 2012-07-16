@@ -1212,3 +1212,45 @@ class AppTestLonePycFile(AppTestNoPycFile):
         "objspace.usepycfiles": True,
         "objspace.lonepycfiles": True
     }
+
+
+class AppTestMultithreadedImp(object):
+    def setup_class(cls):
+        #if not conftest.option.runappdirect:
+        #    py.test.skip("meant as an -A test")
+        cls.space = gettestobjspace(usemodules=['thread', 'time'])
+        tmpfile = udir.join('test_multithreaded_imp.py')
+        tmpfile.write('''if 1:
+            x = 666
+            import time
+            for i in range(1000): time.sleep(0.001)
+            x = 42
+        ''')
+        cls.w_tmppath = cls.space.wrap(str(udir))
+
+    def test_multithreaded_import(self):
+        import sys, thread, time
+        oldpath = sys.path[:]
+        try:
+            sys.path.insert(0, self.tmppath)
+            got = []
+
+            def check():
+                import test_multithreaded_imp
+                got.append(getattr(test_multithreaded_imp, 'x', '?'))
+
+            for i in range(5):
+                thread.start_new_thread(check, ())
+
+            for n in range(100):
+                for i in range(105): time.sleep(0.001)
+                if len(got) == 5:
+                    break
+            else:
+                raise AssertionError("got %r so far but still waiting" %
+                                     (got,))
+
+            assert got == [42] * 5, got
+
+        finally:
+            sys.path[:] = oldpath

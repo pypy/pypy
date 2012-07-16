@@ -500,7 +500,7 @@ class BufferingInputStream(Stream):
         if self.buf:
             try:
                 self.do_seek(self.tell(), 0)
-            except MyNotImplementedError:
+            except (MyNotImplementedError, OSError):
                 pass
             else:
                 self.buf = ""
@@ -713,7 +713,7 @@ class ReadlineInputStream(Stream):
         if self.buf is not None:
             try:
                 self.do_seek(self.bufstart-len(self.buf), 1)
-            except MyNotImplementedError:
+            except (MyNotImplementedError, OSError):
                 pass
             else:
                 self.buf = None
@@ -968,7 +968,10 @@ class TextCRLFFilter(Stream):
 
     def flush_buffers(self):
         if self.lfbuffer:
-            self.base.seek(-len(self.lfbuffer), 1)
+            try:
+                self.base.seek(-len(self.lfbuffer), 1)
+            except (MyNotImplementedError, OSError):
+                return
             self.lfbuffer = ""
         self.do_flush()
 
@@ -1102,7 +1105,7 @@ class TextInputFilter(Stream):
         if self.buf:
             try:
                 self.base.seek(-len(self.buf), 1)
-            except MyNotImplementedError:
+            except (MyNotImplementedError, OSError):
                 pass
             else:
                 self.buf = ""

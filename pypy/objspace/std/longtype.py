@@ -52,7 +52,10 @@ def descr__new__(space, w_longtype, w_x=0, w_base=gateway.NoneNotWrapped):
         base = space.int_w(w_base)
 
         if space.isinstance_w(w_value, space.w_unicode):
-            from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
+            if space.config.objspace.std.withropeunicode:
+                from pypy.objspace.std.ropeunicodeobject import unicode_to_decimal_w
+            else:
+                from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
             s = unicode_to_decimal_w(space, w_value)
         else:
             try:

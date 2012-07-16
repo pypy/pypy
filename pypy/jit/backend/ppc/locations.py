@@ -63,7 +63,7 @@ class FPRegisterLocation(RegisterLocation):
         return True
 
     def as_key(self):
-        return self.value
+        return self.value + 100
 
 class ImmLocation(AssemblerLocation):
     _immutable_ = True
@@ -81,9 +81,6 @@ class ImmLocation(AssemblerLocation):
 
     def is_imm(self):
         return True
-
-    def as_key(self):
-        return self.value + 40
 
 class ConstFloatLoc(AssemblerLocation):
     """This class represents an imm float value which is stored in memory at
@@ -132,7 +129,7 @@ class StackLocation(AssemblerLocation):
         return True
 
     def as_key(self):
-        return -self.position
+        return -self.position + 10000
 
 def imm(val):
     return ImmLocation(val)

@@ -326,21 +326,10 @@ class AssemblerPPC(OpAssembler):
 
     def _build_malloc_slowpath(self):
         mc = PPCBuilder()
-        if IS_PPC_64:
-            for _ in range(6):
-                mc.write32(0)
         frame_size = (len(r.MANAGED_FP_REGS) * WORD
                     + (BACKCHAIN_SIZE + MAX_REG_PARAMS) * WORD)
 
-        with scratch_reg(mc):
-            if IS_PPC_32:
-                mc.stwu(r.SP.value, r.SP.value, -frame_size)
-                mc.mflr(r.SCRATCH.value)
-                mc.stw(r.SCRATCH.value, r.SP.value, frame_size + WORD) 
-            else:
-                mc.stdu(r.SP.value, r.SP.value, -frame_size)
-                mc.mflr(r.SCRATCH.value)
-                mc.std(r.SCRATCH.value, r.SP.value, frame_size + 2 * WORD)
+        mc.make_function_prologue(frame_size)
         # managed volatiles are saved below
         if self.cpu.supports_floats:
             for i in range(len(r.MANAGED_FP_REGS)):
@@ -393,8 +382,8 @@ class AssemblerPPC(OpAssembler):
 
         mc.prepare_insts_blocks()
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
-        if IS_PPC_64:
-            self.write_64_bit_func_descr(rawstart, rawstart+3*WORD)
+        # here we do not need a function descr. This is being only called using
+        # an internal ABI
         self.malloc_slowpath = rawstart
 
     def _build_stack_check_slowpath(self):
@@ -1359,7 +1348,9 @@ class AssemblerPPC(OpAssembler):
         # r3.
         self.mark_gc_roots(self.write_new_force_index(),
                            use_copy_area=True)
-        self.mc.call(self.malloc_slowpath)
+        # We are jumping to malloc_slowpath without a call through a function
+        # descriptor, because it is an internal call and "call" would trash r11
+        self.mc.bl_abs(self.malloc_slowpath)
 
         offset = self.mc.currpos() - fast_jmp_pos
         pmc = OverwritingBuilder(self.mc, fast_jmp_pos, 1)

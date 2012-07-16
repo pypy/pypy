@@ -8,8 +8,6 @@ from pypy.jit.backend.arm.conditions import AL
 from pypy.jit.backend.arm.arch import WORD
 from pypy.jit.metainterp.history import FLOAT
 import py
-from pypy.jit.backend.arm.test.support import skip_unless_arm
-skip_unless_arm()
 
 
 class MockInstr(object):

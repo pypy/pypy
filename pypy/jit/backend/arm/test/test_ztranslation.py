@@ -9,10 +9,8 @@ from pypy.jit.backend.test.support import CCompiledMixin
 from pypy.jit.codewriter.policy import StopAtXPolicy
 from pypy.translator.translator import TranslationContext
 from pypy.config.translationoption import DEFL_GC
-from pypy.jit.backend.arm.test.support import skip_unless_arm
-from pypy.jit.backend.arm.test.support import skip_unless_run_translation
-skip_unless_arm()
-skip_unless_run_translation()
+from pypy.jit.backend.arm.test.support import skip_unless_run_slow_tests
+skip_unless_run_slow_tests()
 
 class TestTranslationARM(CCompiledMixin):
     CPUClass = getcpuclass()
@@ -74,7 +72,7 @@ class TestTranslationARM(CCompiledMixin):
         #
         from pypy.rpython.lltypesystem import lltype, rffi
         from pypy.rlib.libffi import types, CDLL, ArgChain
-        from pypy.rlib.test.test_libffi import get_libm_name
+        from pypy.rlib.test.test_clibffi import get_libm_name
         libm_name = get_libm_name(sys.platform)
         jitdriver2 = JitDriver(greens=[], reds = ['i', 'func', 'res', 'x'])
         def libffi_stuff(i, j):

@@ -1,12 +1,13 @@
-import sys
+import os
 
 import py
 
 from pypy.rlib.rarithmetic import r_singlefloat, r_longlong, r_ulonglong
-from pypy.rlib.test.test_clibffi import BaseFfiTest, get_libm_name, make_struct_ffitype_e
+from pypy.rlib.test.test_clibffi import BaseFfiTest, make_struct_ffitype_e
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rpython.lltypesystem.ll2ctypes import ALLOCATED
-from pypy.rlib.libffi import (CDLL, Func, get_libc_name, ArgChain, types,
+from pypy.rpython.llinterp import LLException
+from pypy.rlib.libffi import (CDLL, ArgChain, types,
                               IS_32_BIT, array_getitem, array_setitem)
 from pypy.rlib.libffi import (struct_getfield_int, struct_setfield_int,
                               struct_getfield_longlong, struct_setfield_longlong,
@@ -175,6 +176,15 @@ class TestLibffiMisc(BaseFfiTest):
         #
         lltype.free(p, flavor='raw')
 
+    def test_windll(self):
+        if os.name != 'nt':
+            skip('Run only on windows')
+        from pypy.rlib.libffi import WinDLL
+        dll = WinDLL('Kernel32.dll')
+        sleep = dll.getpointer('Sleep',[types.uint], types.void)
+        chain = ArgChain()
+        chain.arg(10)
+        sleep.call(chain, lltype.Void, is_struct=False)
 
 class TestLibffiCall(BaseFfiTest):
     """
@@ -212,16 +222,23 @@ class TestLibffiCall(BaseFfiTest):
                 if meth.__doc__ is not None and '{' in meth.__doc__:
                     snippets.append(meth.__doc__)
                     import re
-                    for match in re.finditer(" ([a-z_]+)\(", meth.__doc__):
+                    for match in re.finditer(" ([A-Za-z_]+)\(", meth.__doc__):
                         exports.append(match.group(1))
         #
         c_file.write(STANDARD_DEFINES + str(py.code.Source('\n'.join(snippets))))
         eci = ExternalCompilationInfo(export_symbols=exports)
         cls.libfoo_name = str(platform.compile([c_file], eci, 'x',
                                                standalone=False))
+        cls.dll = cls.CDLL(cls.libfoo_name)
+
+    def teardown_class(cls):
+        if cls.dll:
+            cls.dll.__del__()
+            # Why doesn't this call cls.dll.__del__() ?
+            #del cls.dll
 
     def get_libfoo(self):
-        return self.CDLL(self.libfoo_name)
+        return self.dll    
 
     def call(self, funcspec, args, RESULT, is_struct=False, jitif=[]):
         """
@@ -536,4 +553,58 @@ class TestLibffiCall(BaseFfiTest):
         assert p[1] == 34
         lltype.free(p, flavor='raw')
         lltype.free(ffi_point_struct, flavor='raw')
+
+    if os.name == 'nt':
+        def test_stdcall_simple(self):
+            """
+            int __stdcall std_diff_xy(int x, Signed y)
+            {
+                return x - y;
+            }
+            """
+            libfoo = self.get_libfoo()
+            func = (libfoo, 'std_diff_xy', [types.sint, types.signed], types.sint)
+            try:
+                self.call(func, [50, 8], lltype.Signed)
+            except ValueError, e:
+                assert e.message == 'Procedure called with not enough ' + \
+                     'arguments (8 bytes missing) or wrong calling convention'
+            except LLException, e:
+                #jitted code raises this
+                assert str(e) == "<LLException 'StackCheckError'>"
+            else:
+                assert 0, 'wrong calling convention should have raised'
+
+        def test_by_ordinal(self):
+            """
+            int AAA_first_ordinal_function()
+            {
+                return 42;
+            }
+            """
+            libfoo = self.get_libfoo()
+            f_by_name = libfoo.getpointer('AAA_first_ordinal_function' ,[],
+                                          types.uint)
+            f_by_ordinal = libfoo.getpointer_by_ordinal(1 ,[], types.uint)
+            print dir(f_by_name)
+            assert f_by_name.funcsym == f_by_ordinal.funcsym
+
+        def test_by_ordinal2(self):
+            """
+            int __stdcall BBB_second_ordinal_function()
+            {
+                return 24;
+            }
+            """
+            from pypy.rlib.libffi import WinDLL
+            dll = WinDLL(self.libfoo_name)
+            f_by_name = dll.getpointer('BBB_second_ordinal_function' ,[],
+                                          types.uint)
+            f_by_ordinal = dll.getpointer_by_ordinal(2 ,[], types.uint)
+            print dir(f_by_name)
+            assert f_by_name.funcsym == f_by_ordinal.funcsym
+            chain = ArgChain()
+            assert 24 == f_by_ordinal.call(chain, lltype.Signed, is_struct=False)
+
+
         

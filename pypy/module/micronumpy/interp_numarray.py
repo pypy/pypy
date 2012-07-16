@@ -15,6 +15,7 @@ from pypy.rlib import jit
 from pypy.rlib.rstring import StringBuilder
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.tool.sourcetools import func_with_new_name
+from pypy.module.micronumpy.interp_support import unwrap_axis_arg
 
 
 count_driver = jit.JitDriver(
@@ -156,10 +157,6 @@ class BaseArray(Wrappable):
 
     def _reduce_ufunc_impl(ufunc_name, promote_to_largest=False):
         def impl(self, space, w_axis=None, w_out=None):
-            if space.is_w(w_axis, space.w_None):
-                axis = -1
-            else:
-                axis = space.int_w(w_axis)
             if space.is_w(w_out, space.w_None) or not w_out:
                 out = None
             elif not isinstance(w_out, BaseArray):
@@ -168,7 +165,7 @@ class BaseArray(Wrappable):
             else:
                 out = w_out
             return getattr(interp_ufuncs.get(space), ufunc_name).reduce(space,
-                                        self, True, promote_to_largest, axis,
+                                        self, True, promote_to_largest, w_axis,
                                                                    False, out)
         return func_with_new_name(impl, "reduce_%s_impl" % ufunc_name)
 
@@ -570,11 +567,10 @@ class BaseArray(Wrappable):
 
     def descr_mean(self, space, w_axis=None, w_out=None):
         if space.is_w(w_axis, space.w_None):
-            w_axis = space.wrap(-1)
             w_denom = space.wrap(support.product(self.shape))
         else:
-            dim = space.int_w(w_axis)
-            w_denom = space.wrap(self.shape[dim])
+            axis = unwrap_axis_arg(space, len(self.shape), w_axis)
+            w_denom = space.wrap(self.shape[axis])
         return space.div(self.descr_sum_promote(space, w_axis, w_out), w_denom)
 
     def descr_var(self, space, w_axis=None):
@@ -690,11 +686,17 @@ class BaseArray(Wrappable):
         return self.getitem(offset).convert_to(longdtype).item(
             space)
 
+    @jit.unroll_safe
     def descr_item(self, space, w_arg=None):
         if space.is_w(w_arg, space.w_None):
-            if not isinstance(self, Scalar):
-                raise OperationError(space.w_ValueError, space.wrap("index out of bounds"))
-            return self.value.item(space)
+            if isinstance(self, Scalar):
+                return self.value.item(space)
+            if support.product(self.shape) == 1:
+                return self.descr_getitem(space,
+                                          space.newtuple([space.wrap(0) for i
+                                                   in range(len(self.shape))]))
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("index out of bounds"))
         if space.isinstance_w(w_arg, space.w_int):
             if isinstance(self, Scalar):
                 raise OperationError(space.w_ValueError, space.wrap("index out of bounds"))
@@ -841,7 +843,6 @@ class Call1(VirtualArray):
                                                             out_arg=None):
         VirtualArray.__init__(self, name, shape, res_dtype, out_arg)
         self.values = values
-        self.size = values.size
         self.ufunc = ufunc
         self.calc_dtype = calc_dtype
 
@@ -1305,12 +1306,24 @@ def count_reduce_items(space, arr, w_axis=None, skipna=False, keepdims=True):
         raise OperationError(space.w_NotImplementedError, space.wrap("unsupported"))
     if space.is_w(w_axis, space.w_None):
         return space.wrap(support.product(arr.shape))
+    shapelen = len(arr.shape)
     if space.isinstance_w(w_axis, space.w_int):
-        return space.wrap(arr.shape[space.int_w(w_axis)])
+        axis = space.int_w(w_axis)
+        if axis < -shapelen or axis>= shapelen:
+            raise operationerrfmt(space.w_ValueError,
+                "axis entry %d is out of bounds [%d, %d)", axis,
+                -shapelen, shapelen)
+        return space.wrap(arr.shape[axis])    
+    # numpy as of June 2012 does not implement this 
     s = 1
     elems = space.fixedview(w_axis)
     for w_elem in elems:
-        s *= arr.shape[space.int_w(w_elem)]
+        axis = space.int_w(w_elem)
+        if axis < -shapelen or axis>= shapelen:
+            raise operationerrfmt(space.w_ValueError,
+                "axis entry %d is out of bounds [%d, %d)", axis,
+                -shapelen, shapelen)
+        s *= arr.shape[axis]
     return space.wrap(s)
 
 def dot(space, w_obj, w_obj2):

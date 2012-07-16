@@ -22,6 +22,7 @@ from pypy.jit.backend.arm.jump import remap_frame_layout
 from pypy.jit.backend.arm.regalloc import TempInt, TempPtr
 from pypy.jit.backend.arm.locations import imm
 from pypy.jit.backend.llsupport import symbolic
+from pypy.jit.backend.llsupport.descr import InteriorFieldDescr
 from pypy.jit.metainterp.history import (Box, AbstractFailDescr,
                                             INT, FLOAT, REF)
 from pypy.jit.metainterp.history import JitCellToken, TargetToken
@@ -47,7 +48,10 @@ class GuardToken(object):
 
 class ResOpAssembler(object):
 
-    def emit_op_int_add(self, op, arglocs, regalloc, fcond, flags=False):
+    def emit_op_int_add(self, op, arglocs, regalloc, fcond):
+        return self.int_add_impl(op, arglocs, regalloc, fcond)
+ 
+    def int_add_impl(self, op, arglocs, regalloc, fcond, flags=False):
         l0, l1, res = arglocs
         if flags:
             s = 1
@@ -63,6 +67,9 @@ class ResOpAssembler(object):
         return fcond
 
     def emit_op_int_sub(self, op, arglocs, regalloc, fcond, flags=False):
+        return self.int_sub_impl(op, arglocs, regalloc, fcond)
+
+    def int_sub_impl(self, op, arglocs, regalloc, fcond, flags=False):
         l0, l1, res = arglocs
         if flags:
             s = 1
@@ -107,12 +114,12 @@ class ResOpAssembler(object):
         return fcond
 
     def emit_guard_int_add_ovf(self, op, guard, arglocs, regalloc, fcond):
-        self.emit_op_int_add(op, arglocs[0:3], regalloc, fcond, flags=True)
+        self.int_add_impl(op, arglocs[0:3], regalloc, fcond, flags=True)
         self._emit_guard_overflow(guard, arglocs[3:], fcond)
         return fcond
 
     def emit_guard_int_sub_ovf(self, op, guard, arglocs, regalloc, fcond):
-        self.emit_op_int_sub(op, arglocs[0:3], regalloc, fcond, flags=True)
+        self.int_sub_impl(op, arglocs[0:3], regalloc, fcond, flags=True)
         self._emit_guard_overflow(guard, arglocs[3:], fcond)
         return fcond
 
@@ -354,19 +361,15 @@ class ResOpAssembler(object):
         resloc = arglocs[0]
         adr = arglocs[1]
         arglist = arglocs[2:]
-        cond = self._emit_call(force_index, adr, arglist, fcond, resloc)
         descr = op.getdescr()
-        #XXX Hack, Hack, Hack
-        # XXX NEEDS TO BE FIXED
-        if (op.result and not we_are_translated()):
-            #XXX check result type
-            loc = regalloc.rm.call_result_location(op.result)
-            size = descr.get_result_size()
-            signed = descr.is_result_signed()
-            self._ensure_result_bit_extension(loc, size, signed)
+        size = descr.get_result_size()
+        signed = descr.is_result_signed()
+        cond = self._emit_call(force_index, adr, arglist, 
+                                            fcond, resloc, (size, signed))
         return cond
 
-    def _emit_call(self, force_index, adr, arglocs, fcond=c.AL, resloc=None):
+    def _emit_call(self, force_index, adr, arglocs, fcond=c.AL, 
+                                                 resloc=None, result_info=(-1,-1)):
         n_args = len(arglocs)
         reg_args = count_reg_args(arglocs)
         # all arguments past the 4th go on the stack
@@ -453,11 +456,14 @@ class ResOpAssembler(object):
         if n > 0:
             self._adjust_sp(-n, fcond=fcond)
 
-        # restore the argumets stored on the stack
+        # ensure the result is wellformed and stored in the correct location
         if resloc is not None:
             if resloc.is_vfp_reg():
                 # move result to the allocated register
                 self.mov_to_vfp_loc(r.r0, r.r1, resloc)
+            elif result_info != (-1, -1):
+                self._ensure_result_bit_extension(resloc, result_info[0],
+                                                          result_info[1])
 
         return fcond
 
@@ -640,6 +646,7 @@ class ResOpAssembler(object):
 
     def emit_op_getfield_gc(self, op, arglocs, regalloc, fcond):
         base_loc, ofs, res, size = arglocs
+        signed = op.getdescr().is_field_signed()
         if size.value == 8:
             assert res.is_vfp_reg()
             # vldr only supports imm offsets
@@ -658,27 +665,29 @@ class ResOpAssembler(object):
             else:
                 self.mc.LDR_rr(res.value, base_loc.value, ofs.value)
         elif size.value == 2:
-            # XXX NEEDS TO BE FIXED
-            # XXX this doesn't get the correct result: it needs to know
-            # XXX if we want a signed or unsigned result
             if ofs.is_imm():
-                self.mc.LDRH_ri(res.value, base_loc.value, ofs.value)
+                if signed:
+                    self.mc.LDRSH_ri(res.value, base_loc.value, ofs.value)
+                else:
+                    self.mc.LDRH_ri(res.value, base_loc.value, ofs.value)
             else:
-                self.mc.LDRH_rr(res.value, base_loc.value, ofs.value)
+                if signed:
+                    self.mc.LDRSH_rr(res.value, base_loc.value, ofs.value)
+                else:
+                    self.mc.LDRH_rr(res.value, base_loc.value, ofs.value)
         elif size.value == 1:
-            # XXX this doesn't get the correct result: it needs to know
-            # XXX if we want a signed or unsigned result
             if ofs.is_imm():
-                self.mc.LDRB_ri(res.value, base_loc.value, ofs.value)
+                if signed:
+                    self.mc.LDRSB_ri(res.value, base_loc.value, ofs.value)
+                else:
+                    self.mc.LDRB_ri(res.value, base_loc.value, ofs.value)
             else:
-                self.mc.LDRB_rr(res.value, base_loc.value, ofs.value)
+                if signed:
+                    self.mc.LDRSB_rr(res.value, base_loc.value, ofs.value)
+                else:
+                    self.mc.LDRB_rr(res.value, base_loc.value, ofs.value)
         else:
             assert 0
-
-        #XXX Hack, Hack, Hack
-        if not we_are_translated():
-            signed = op.getdescr().is_field_signed()
-            self._ensure_result_bit_extension(res, size.value, signed)
         return fcond
 
     emit_op_getfield_raw = emit_op_getfield_gc
@@ -690,6 +699,9 @@ class ResOpAssembler(object):
             ofs_loc, ofs, itemsize, fieldsize) = arglocs
         self.mc.gen_load_int(r.ip.value, itemsize.value)
         self.mc.MUL(r.ip.value, index_loc.value, r.ip.value)
+        descr = op.getdescr()
+        assert isinstance(descr, InteriorFieldDescr)
+        signed = descr.fielddescr.is_field_signed()
         if ofs.value > 0:
             if ofs_loc.is_imm():
                 self.mc.ADD_ri(r.ip.value, r.ip.value, ofs_loc.value)
@@ -706,21 +718,18 @@ class ResOpAssembler(object):
         elif fieldsize.value == 4:
             self.mc.LDR_rr(res_loc.value, base_loc.value, r.ip.value)
         elif fieldsize.value == 2:
-            # XXX NEEDS TO BE FIXED
-            # XXX this doesn't get the correct result: it needs to know
-            # XXX if we want a signed or unsigned result
-            self.mc.LDRH_rr(res_loc.value, base_loc.value, r.ip.value)
+            if signed:
+                self.mc.LDRSH_rr(res_loc.value, base_loc.value, r.ip.value)
+            else:
+                self.mc.LDRH_rr(res_loc.value, base_loc.value, r.ip.value)
         elif fieldsize.value == 1:
-            # XXX this doesn't get the correct result: it needs to know
-            # XXX if we want a signed or unsigned result
-            self.mc.LDRB_rr(res_loc.value, base_loc.value, r.ip.value)
+            if signed:
+                self.mc.LDRSB_rr(res_loc.value, base_loc.value, r.ip.value)
+            else:
+                self.mc.LDRB_rr(res_loc.value, base_loc.value, r.ip.value)
         else:
             assert 0
 
-        #XXX Hack, Hack, Hack
-        if not we_are_translated():
-            signed = op.getdescr().fielddescr.is_field_signed()
-            self._ensure_result_bit_extension(res_loc, fieldsize.value, signed)
         return fcond
     emit_op_getinteriorfield_raw = emit_op_getinteriorfield_gc
 
@@ -795,6 +804,7 @@ class ResOpAssembler(object):
     def emit_op_getarrayitem_gc(self, op, arglocs, regalloc, fcond):
         res, base_loc, ofs_loc, scale, ofs = arglocs
         assert ofs_loc.is_reg()
+        signed = op.getdescr().is_item_signed()
         if scale.value > 0:
             scale_loc = r.ip
             self.mc.LSL_ri(r.ip.value, ofs_loc.value, scale.value)
@@ -812,28 +822,25 @@ class ResOpAssembler(object):
             self.mc.ADD_rr(r.ip.value, base_loc.value, scale_loc.value)
             self.mc.VLDR(res.value, r.ip.value, cond=fcond)
         elif scale.value == 2:
-            self.mc.LDR_rr(res.value, base_loc.value, scale_loc.value,
-                                                                cond=fcond)
+            self.mc.LDR_rr(res.value, base_loc.value,
+                                 scale_loc.value, cond=fcond)
         elif scale.value == 1:
-            # XXX NEEDS TO BE FIXED
-            # XXX this doesn't get the correct result: it needs to know
-            # XXX if we want a signed or unsigned result
-            self.mc.LDRH_rr(res.value, base_loc.value, scale_loc.value,
-                                                                cond=fcond)
+            if signed:
+                self.mc.LDRSH_rr(res.value, base_loc.value,
+                                 scale_loc.value, cond=fcond)
+            else:
+                self.mc.LDRH_rr(res.value, base_loc.value,
+                                 scale_loc.value, cond=fcond)
         elif scale.value == 0:
-            # XXX this doesn't get the correct result: it needs to know
-            # XXX if we want a signed or unsigned result
-            self.mc.LDRB_rr(res.value, base_loc.value, scale_loc.value,
-                                                                cond=fcond)
+            if signed:
+                self.mc.LDRSB_rr(res.value, base_loc.value,
+                                 scale_loc.value, cond=fcond)
+            else:
+                self.mc.LDRB_rr(res.value, base_loc.value,
+                                 scale_loc.value, cond=fcond)
         else:
             assert 0
 
-        #XXX Hack, Hack, Hack
-        if not we_are_translated():
-            descr = op.getdescr()
-            size = descr.itemsize
-            signed = descr.is_item_signed()
-            self._ensure_result_bit_extension(res, size, signed)
         return fcond
 
     emit_op_getarrayitem_raw = emit_op_getarrayitem_gc
@@ -1147,7 +1154,13 @@ class ResOpAssembler(object):
         callargs = arglocs[2:numargs + 1]  # extract the arguments to the call
         adr = arglocs[1]
         resloc = arglocs[0]
-        self._emit_call(fail_index, adr, callargs, fcond, resloc)
+        #
+        descr = op.getdescr()
+        size = descr.get_result_size()
+        signed = descr.is_result_signed()
+        #
+        self._emit_call(fail_index, adr, callargs, fcond, 
+                                    resloc, (size, signed))
 
         self.mc.LDR_ri(r.ip.value, r.fp.value)
         self.mc.CMP_ri(r.ip.value, 0)
@@ -1170,8 +1183,13 @@ class ResOpAssembler(object):
         faildescr = guard_op.getdescr()
         fail_index = self.cpu.get_fail_descr_number(faildescr)
         self._write_fail_index(fail_index)
-
-        self._emit_call(fail_index, adr, callargs, fcond, resloc)
+        #
+        descr = op.getdescr()
+        size = descr.get_result_size()
+        signed = descr.is_result_signed()
+        #
+        self._emit_call(fail_index, adr, callargs, fcond, 
+                                    resloc, (size, signed))
         # then reopen the stack
         if gcrootmap:
             self.call_reacquire_gil(gcrootmap, resloc, fcond)

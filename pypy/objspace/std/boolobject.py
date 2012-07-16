@@ -1,6 +1,7 @@
 from pypy.rlib.rbigint import rbigint
 from pypy.rlib.rarithmetic import r_uint
 from pypy.interpreter.error import OperationError
+from pypy.objspace.std import newformat
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.intobject import W_IntObject
@@ -67,5 +68,10 @@ def xor__Bool_Bool(space, w_bool1, w_bool2):
     return space.newbool(w_bool1.boolval ^ w_bool2.boolval)
 
 str__Bool = repr__Bool
+
+def format__Bool_ANY(space, w_bool, w_format_spec):
+    return newformat.run_formatter(
+            space, w_format_spec, "format_int_or_long", w_bool,
+            newformat.INT_KIND)
 
 register_all(vars())

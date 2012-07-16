@@ -85,13 +85,6 @@ List of extension modules that we support:
 
     _winreg
 
-  Note that only some of these modules are built-in in a typical
-  CPython installation, and the rest is from non built-in extension
-  modules.  This means that e.g. ``import parser`` will, on CPython,
-  find a local file ``parser.py``, while ``import sys`` will not find a
-  local file ``sys.py``.  In PyPy the difference does not exist: all
-  these modules are built-in.
-
 * Supported by being rewritten in pure Python (possibly using ``ctypes``):
   see the `lib_pypy/`_ directory.  Examples of modules that we
   support this way: ``ctypes``, ``cPickle``, ``cmath``, ``dbm``, ``datetime``...
@@ -323,6 +316,11 @@ Miscellaneous
   opposed to a dict proxy like in CPython. Mutating the dict will change the
   type and vice versa. For builtin types, a dictionary will be returned that
   cannot be changed (but still looks and behaves like a normal dictionary).
+
+* the ``__len__`` or ``__length_hint__`` special methods are sometimes
+  called by CPython to get a length estimate to preallocate internal arrays.
+  So far, PyPy never calls ``__len__`` for this purpose, and never calls
+  ``__length_hint__`` at all.
 
 
 .. include:: _ref.txt

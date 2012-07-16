@@ -964,15 +964,15 @@ class Regalloc(object):
                 assert val.is_stack()
                 gcrootmap.add_frame_offset(shape, val.value)
         for v, reg in self.rm.reg_bindings.items():
+            gcrootmap = self.assembler.cpu.gc_ll_descr.gcrootmap
+            assert gcrootmap is not None and gcrootmap.is_shadow_stack
             if reg is r.r3:
                 continue
             if (isinstance(v, BoxPtr) and self.rm.stays_alive(v)):
-                if use_copy_area:
-                    assert reg in self.rm.REGLOC_TO_COPY_AREA_OFS
-                    area_offset = self.rm.REGLOC_TO_COPY_AREA_OFS[reg]
-                    gcrootmap.add_frame_offset(shape, area_offset)
-                else:
-                    assert 0, 'sure??'
+                assert use_copy_area
+                assert reg in self.rm.REGLOC_TO_COPY_AREA_OFS
+                area_offset = self.rm.REGLOC_TO_COPY_AREA_OFS[reg]
+                gcrootmap.add_frame_offset(shape, area_offset)
         return gcrootmap.compress_callshape(shape,
                                             self.assembler.datablockwrapper)
 

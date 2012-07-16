@@ -126,3 +126,46 @@ class TestFromAppLevel(object):
         # then, try to pass explicit pointers
         self.check(app_types.char_p, self.space.wrap(42), 42)
         self.check(app_types.unichar_p, self.space.wrap(42), 42)        
+
+
+
+class DummyToAppLevelConverter(ToAppLevelConverter):
+
+    def get_all(self, w_ffitype):
+        return self.val
+
+    get_signed = get_all
+    get_unsigned = get_all
+    get_pointer = get_all
+    get_char = get_all        
+    get_unichar = get_all
+    get_longlong = get_all
+    get_char_p = get_all
+    get_unichar_p = get_all
+    get_float = get_all
+    get_singlefloat = get_all
+    get_unsigned_which_fits_into_a_signed = get_all
+    
+    def convert(self, w_ffitype, val):
+        self.val = val
+        return self.do_and_wrap(w_ffitype)
+
+
+class TestFromAppLevel(object):
+
+    def setup_class(cls):
+        cls.space = gettestobjspace(usemodules=('_ffi',))
+        converter = DummyToAppLevelConverter(cls.space)
+        cls.from_app_level = staticmethod(converter.convert)
+
+    def check(self, w_ffitype, val, w_expected):
+        w_v = self.from_app_level(w_ffitype, val)
+        assert self.space.eq_w(w_v, w_expected)
+
+    def test_int(self):
+        self.check(app_types.sint, 42, self.space.wrap(42))
+        self.check(app_types.sint, -sys.maxint-1, self.space.wrap(-sys.maxint-1))
+
+    def test_uint(self):
+        self.check(app_types.uint, 42, self.space.wrap(42))
+        self.check(app_types.uint, r_uint(sys.maxint+1), self.space.wrap(sys.maxint+1))
