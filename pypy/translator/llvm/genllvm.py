@@ -633,8 +633,6 @@ class FuncType(Type):
         else:
             if hasattr(getattr(obj, '_callable', None), 'c_name'):
                 name = '@' + obj._callable.c_name
-            elif obj._name == '__main':
-                name = '@main'
             else:
                 name = database.unique_name('@rpy_' + obj._name)
             ptr_type.refs[obj] = name
@@ -1458,7 +1456,7 @@ class RefcountGCPolicy(GCPolicy):
 def make_main(genllvm, entrypoint):
     import os
 
-    def __main(argc, argv):
+    def main(argc, argv):
         args = [rffi.charp2str(argv[i]) for i in range(argc)]
         try:
             return entrypoint(args)
@@ -1466,12 +1464,13 @@ def make_main(genllvm, entrypoint):
             os.write(2, 'DEBUG: An uncaught exception was raised in '
                         'entrypoint: ' + str(exc) + '\n')
             return 1
+    main.c_name = 'main'
 
     mixlevelannotator = MixLevelHelperAnnotator(genllvm.translator.rtyper)
     arg1 = annmodel.lltype_to_annotation(rffi.INT)
     arg2 = annmodel.lltype_to_annotation(rffi.CCHARPP)
     res = annmodel.lltype_to_annotation(lltype.Signed)
-    graph = mixlevelannotator.getgraph(__main, [arg1, arg2], res)
+    graph = mixlevelannotator.getgraph(main, [arg1, arg2], res)
     mixlevelannotator.finish()
     mixlevelannotator.backend_optimize()
     genllvm.export.add(graph)
