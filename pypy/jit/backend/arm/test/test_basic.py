@@ -30,3 +30,6 @@ class TestBasic(JitARMMixin, test_ajit.BaseLLtypeTests):
 
     def test_free_object(self):
         py.test.skip("issue of freeing, probably with ll2ctypes")
+
+    def test_read_timestamp(self):
+        py.test.skip("The JIT on ARM does not support read_timestamp")
