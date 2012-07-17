@@ -1,5 +1,5 @@
 import py
-from pypy.jit.backend.arm.runner import ArmCPU
+from pypy.jit.backend.detect_cpu import getcpuclass
 from pypy.jit.backend.arm.arch import WORD
 from pypy.jit.backend.test.runner_test import LLtypeBackendTest, \
                                                 boxfloat, \
@@ -15,6 +15,8 @@ from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.metainterp.history import JitCellToken, TargetToken
 
 
+CPU = getcpuclass()
+
 class FakeStats(object):
     pass
 
@@ -28,7 +30,7 @@ class TestARM(LLtypeBackendTest):
     bridge_loop_instructions = ['movw', 'movt', 'bx']
 
     def setup_method(self, meth):
-        self.cpu = ArmCPU(rtyper=None, stats=FakeStats())
+        self.cpu = CPU(rtyper=None, stats=FakeStats())
         self.cpu.setup_once()
 
     def test_result_is_spilled(self):
