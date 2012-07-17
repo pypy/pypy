@@ -165,6 +165,7 @@ def enforceargs(*types, **kwds):
         exec src.compile() in mydict
         result = mydict[f.func_name]
         result.func_defaults = f.func_defaults
+        result.func_dict.update(f.func_dict)
         result._annenforceargs_ = types
         return result
     return decorator

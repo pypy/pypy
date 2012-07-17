@@ -421,8 +421,10 @@ def test_enforceargs_decorator():
     @enforceargs(int, str, None)
     def f(a, b, c):
         return a, b, c
+    f.foo = 'foo'
     assert f._annenforceargs_ == (int, str, None)
     assert f.func_name == 'f'
+    assert f.foo == 'foo'
     assert f(1, 'hello', 42) == (1, 'hello', 42)
     exc = py.test.raises(TypeError, "f(1, 2, 3)")
     assert exc.value.message == "f argument number 2 must be of type <type 'str'>"
