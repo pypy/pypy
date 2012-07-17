@@ -154,12 +154,14 @@ def enforceargs(*types, **kwds):
         arglist = ', '.join(argspec.args)
         src = py.code.Source("""
             def {name}({arglist}):
-                typecheck({arglist})
+                if not we_are_translated():
+                    typecheck({arglist})
                 return {name}_original({arglist})
         """.format(name=f.func_name, arglist=arglist))
         #
         mydict = {f.func_name + '_original': f,
-                  'typecheck': typecheck}
+                  'typecheck': typecheck,
+                  'we_are_translated': we_are_translated}
         exec src.compile() in mydict
         result = mydict[f.func_name]
         result.func_defaults = f.func_defaults

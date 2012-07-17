@@ -448,6 +448,14 @@ def test_enforceargs_no_typecheck():
     assert f._annenforceargs_ == (int, str, None)
     assert f(1, 2, 3) == (1, 2, 3) # no typecheck
 
+def test_enforceargs_translates():
+    from pypy.rpython.lltypesystem import lltype
+    @enforceargs(int, float)
+    def f(a, b):
+        return a, b
+    graph = getgraph(f, [int, int])
+    TYPES = [v.concretetype for v in graph.getargs()]
+    assert TYPES == [lltype.Signed, lltype.Float]
 
 def getgraph(f, argtypes):
     from pypy.translator.translator import TranslationContext, graphof
