@@ -108,12 +108,21 @@ class _Specialize(object):
 
 specialize = _Specialize()
 
-def enforceargs(*types):
+def enforceargs(*types, **kwds):
     """ Decorate a function with forcing of RPython-level types on arguments.
     None means no enforcing.
 
     XXX shouldn't we also add asserts in function body?
     """
+    typecheck = kwds.pop('typecheck', True)
+    if kwds:
+        raise TypeError, 'got an unexpected keyword argument: %s' % kwds.keys()
+    if not typecheck:
+        def decorator(f):
+            f._annenforceargs_ = types
+            return f
+        return decorator
+    #
     from pypy.annotation.signature import annotationoftype
     from pypy.annotation.model import SomeObject
     def decorator(f):

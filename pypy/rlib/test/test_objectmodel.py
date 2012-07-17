@@ -440,6 +440,14 @@ def test_enforceargs_int_float_promotion():
     # in RPython there is an implicit int->float promotion
     assert f(42) == 42
 
+def test_enforceargs_no_typecheck():
+    @enforceargs(int, str, None, typecheck=False)
+    def f(a, b, c):
+        return a, b, c
+    assert f._annenforceargs_ == (int, str, None)
+    assert f(1, 2, 3) == (1, 2, 3) # no typecheck
+
+
 def getgraph(f, argtypes):
     from pypy.translator.translator import TranslationContext, graphof
     from pypy.translator.backendopt.all import backend_optimizations
