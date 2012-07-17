@@ -3,6 +3,7 @@ This file defines utilities for manipulating objects in an
 RPython-compliant way.
 """
 
+import py
 import sys
 import types
 import math
@@ -106,15 +107,43 @@ class _Specialize(object):
 
 specialize = _Specialize()
 
-def enforceargs(*args):
+def enforceargs(*types):
     """ Decorate a function with forcing of RPython-level types on arguments.
     None means no enforcing.
 
     XXX shouldn't we also add asserts in function body?
     """
+    import inspect
     def decorator(f):
-        f._annenforceargs_ = args
-        return f
+        def typecheck(*args):
+            for t, arg in zip(types, args):
+                if t is not None and not isinstance(arg, t):
+                    raise TypeError
+        #
+        # we cannot simply wrap the function using *args, **kwds, because it's
+        # not RPython. Instead, we generate a function with exactly the same
+        # argument list
+        argspec = inspect.getargspec(f)
+        assert len(argspec.args) == len(types), (
+            'not enough types provided: expected %d, got %d' %
+            (len(types), len(argspec.args)))
+        assert not argspec.varargs, '*args not supported by enforceargs'
+        assert not argspec.keywords, '**kwargs not supported by enforceargs'
+        #
+        arglist = ', '.join(argspec.args)
+        src = py.code.Source("""
+            def {name}({arglist}):
+                typecheck({arglist})
+                return {name}_original({arglist})
+        """.format(name=f.func_name, arglist=arglist))
+        #
+        mydict = {f.func_name + '_original': f,
+                  'typecheck': typecheck}
+        exec src.compile() in mydict
+        result = mydict[f.func_name]
+        # XXX defaults
+        result._annenforceargs_ = types
+        return result
     return decorator
 
 # ____________________________________________________________

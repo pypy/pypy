@@ -420,9 +420,14 @@ def test_specialize_decorator():
 def test_enforceargs_decorator():
     @enforceargs(int, str, None)
     def f(a, b, c):
-        pass
-
+        return a, b, c
     assert f._annenforceargs_ == (int, str, None)
+    assert f.func_name == 'f'
+    assert f(1, 'hello', 42) == (1, 'hello', 42)
+    py.test.raises(TypeError, "f(1, 2, 3)")
+    py.test.raises(TypeError, "f('hello', 'world', 3)")
+
+    
 
 def getgraph(f, argtypes):
     from pypy.translator.translator import TranslationContext, graphof
