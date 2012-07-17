@@ -131,13 +131,15 @@ def enforceargs(*types, **kwds):
                 return t
             return annotationoftype(t)
         def typecheck(*args):
-            for expected_type, arg in zip(types, args):
+            for i, (expected_type, arg) in enumerate(zip(types, args)):
                 if expected_type is None:
                     continue
                 s_expected = get_annotation(expected_type)
                 s_argtype = get_annotation(type(arg))
                 if not s_expected.contains(s_argtype):
-                    raise TypeError
+                    msg = "%s argument number %d must be of type %s" % (
+                        f.func_name, i+1, expected_type)
+                    raise TypeError, msg
         #
         # we cannot simply wrap the function using *args, **kwds, because it's
         # not RPython. Instead, we generate a function with exactly the same
