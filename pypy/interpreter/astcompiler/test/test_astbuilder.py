@@ -1120,7 +1120,7 @@ class TestAstBuilder:
         assert space.eq_w(s.s, space.wrap(japan))
  
     def test_string_bug(self):
-        py3k_skip('fixme')
+        py.test.py3k_skip('fixme')
         space = self.space
         source = '# -*- encoding: utf8 -*-\nstuff = "x \xc3\xa9 \\n"\n'
         info = pyparse.CompileInfo("<test>", "exec")
