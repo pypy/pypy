@@ -21,6 +21,10 @@
 #include "TMethod.h"
 #include "TMethodArg.h"
 
+// for pythonization
+#include "TTree.h"
+#include "TBranch.h"
+
 #include "Api.h"
 
 #include <assert.h>
@@ -902,4 +906,14 @@ void* cppyy_load_dictionary(const char* lib_name) {
     if (0 <= gSystem->Load(lib_name))
         return (void*)1;
     return (void*)0;
+}
+
+
+/* pythonization helpers -------------------------------------------------- */
+cppyy_object_t cppyy_ttree_Branch(void* vtree, const char* branchname, const char* classname,
+        void* addobj, int bufsize, int splitlevel) {
+    // this little song-and-dance is to by-pass the handwritten Branch methods
+    TBranch* b = ((TTree*)vtree)->Bronch(branchname, classname, (void*)&addobj, bufsize, splitlevel);
+    b->SetObject(addobj);
+    return (cppyy_object_t)b;
 }

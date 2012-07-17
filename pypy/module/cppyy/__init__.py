@@ -22,3 +22,12 @@ class Module(MixedModule):
         'load_reflection_info'   : 'pythonify.load_reflection_info',
         'add_pythonization'      : 'pythonify.add_pythonization',
     }
+
+    def __init__(self, space, *args):
+        "NOT_RPYTHON"
+        MixedModule.__init__(self, space, *args)
+
+        # pythonization functions may be written in RPython, but the interp2app
+        # code generation is not, so give it a chance to run now
+        from pypy.module.cppyy import capi
+        capi.register_pythonizations(space)

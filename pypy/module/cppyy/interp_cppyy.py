@@ -522,6 +522,9 @@ class W_CPPScope(Wrappable):
     def __eq__(self, other):
         return self.handle == other.handle
 
+    def __ne__(self, other):
+        return self.handle != other.handle
+
 
 # For now, keep namespaces and classes separate as namespaces are extensible
 # with info from multiple dictionaries and do not need to bother with meta
@@ -613,7 +616,12 @@ class W_CPPClass(W_CPPScope):
     _immutable_ = True
     kind = "class"
 
+    def __init__(self, space, name, opaque_handle):
+        W_CPPScope.__init__(self, space, name, opaque_handle)
+        self.default_constructor = None
+
     def _make_cppfunction(self, pyname, index):
+        default_constructor = False
         num_args = capi.c_method_num_args(self, index)
         args_required = capi.c_method_req_args(self, index)
         arg_defs = []
@@ -623,13 +631,18 @@ class W_CPPClass(W_CPPScope):
             arg_defs.append((arg_type, arg_dflt))
         if capi.c_is_constructor(self, index):
             cls = CPPConstructor
+            if args_required == 0:
+                default_constructor = True
         elif capi.c_is_staticmethod(self, index):
             cls = CPPFunction
         elif pyname == "__setitem__":
             cls = CPPSetItem
         else:
             cls = CPPMethod
-        return cls(self.space, self, index, arg_defs, args_required)
+        cppfunction = cls(self.space, self, index, arg_defs, args_required)
+        if default_constructor:
+            self.default_constructor = cppfunction
+        return cppfunction
 
     def _find_datamembers(self):
         num_datamembers = capi.c_num_datamembers(self)
@@ -642,6 +655,11 @@ class W_CPPClass(W_CPPScope):
             is_static = bool(capi.c_is_staticdata(self, i))
             datamember = W_CPPDataMember(self.space, self, type_name, offset, is_static)
             self.datamembers[datamember_name] = datamember
+
+    def construct(self):
+        if self.default_constructor is not None:
+            return self.default_constructor.call(capi.C_NULL_OBJECT, [])
+        raise self.missing_attribute_error("default_constructor")
 
     def find_overload(self, name):
         raise self.missing_attribute_error(name)
@@ -843,6 +861,7 @@ def get_pythonized_cppclass(space, handle):
     return w_pycppclass
 
 def wrap_new_cppobject_nocast(space, w_pycppclass, cppclass, rawobject, isref, python_owns):
+    rawobject = rffi.cast(capi.C_OBJECT, rawobject)
     if space.is_w(w_pycppclass, space.w_None):
         w_pycppclass = get_pythonized_cppclass(space, cppclass.handle)
     w_cppinstance = space.allocate_instance(W_CPPInstance, w_pycppclass)
@@ -852,12 +871,14 @@ def wrap_new_cppobject_nocast(space, w_pycppclass, cppclass, rawobject, isref, p
     return w_cppinstance
 
 def wrap_cppobject_nocast(space, w_pycppclass, cppclass, rawobject, isref, python_owns):
+    rawobject = rffi.cast(capi.C_OBJECT, rawobject)
     obj = memory_regulator.retrieve(rawobject)
     if obj is not None and obj.cppclass is cppclass:
         return obj
     return wrap_new_cppobject_nocast(space, w_pycppclass, cppclass, rawobject, isref, python_owns)
 
 def wrap_cppobject(space, w_pycppclass, cppclass, rawobject, isref, python_owns):
+    rawobject = rffi.cast(capi.C_OBJECT, rawobject)
     if rawobject:
         actual = capi.c_actual_class(cppclass, rawobject)
         if actual != cppclass.handle:

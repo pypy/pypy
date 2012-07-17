@@ -6,6 +6,8 @@ import reflex_capi as backend
 
 identify  = backend.identify
 pythonize = backend.pythonize
+register_pythonizations = backend.register_pythonizations
+
 ts_reflect = backend.ts_reflect
 ts_call    = backend.ts_call
 ts_memory  = backend.ts_memory

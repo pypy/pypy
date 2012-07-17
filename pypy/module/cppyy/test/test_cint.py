@@ -108,3 +108,58 @@ class AppTestCINTPythonizations:
         assert len(v) == N
         for j in v:
              assert round(v[int(math.sqrt(j)+0.5)]-j, 5) == 0.
+
+
+class AppTestCINTTTree:
+    def setup_class(cls):
+        cls.space = space
+        cls.w_N = space.wrap(5)
+        cls.w_M = space.wrap(10)
+        cls.w_fname = space.wrap("test.root")
+        cls.w_tname = space.wrap("test")
+        cls.w_title = space.wrap("test tree")
+        cls.space.appexec([], """():
+            import cppyy""")
+
+    def test01_write_stdvector( self ):
+        """Test writing of a single branched TTree with an std::vector<double>"""
+
+        from cppyy import gbl               # bootstraps, only needed for tests
+        from cppyy.gbl import TFile, TTree
+        from cppyy.gbl.std import vector
+
+        f = TFile(self.fname, "RECREATE")
+        t = TTree(self.tname, self.title)
+        t._python_owns = False
+
+        v = vector("double")()
+        raises(TypeError, TTree.Branch, None, "mydata", v.__class__.__name__, v)
+        raises(TypeError, TTree.Branch, v, "mydata", v.__class__.__name__, v)
+
+        t.Branch("mydata", v.__class__.__name__, v)
+
+        for i in range(self.N):
+            for j in range(self.M):
+                v.push_back(i*self.M+j)
+            t.Fill()
+            v.clear()
+        f.Write()
+        f.Close()
+
+    def test02_read_stdvector(self):
+        """Test reading of a single branched TTree with an std::vector<double>"""
+
+        from cppyy import gbl               # bootstraps, only needed for tests
+        from cppyy.gbl import TFile
+
+        f = TFile(self.fname)
+        mytree = f.Get(self.tname)
+
+        i = 0
+        for event in mytree:
+            for entry in mytree.mydata:
+                assert i == int(entry)
+                i += 1
+        assert i == self.N * self.M
+
+        f.Close()
