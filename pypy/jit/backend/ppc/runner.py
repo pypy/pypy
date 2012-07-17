@@ -30,27 +30,27 @@ class PPC_CPU(AbstractLLCPU):
         self.supports_floats = True
 
     def setup(self):
-        self.asm = AssemblerPPC(self)
+        self.assembler = AssemblerPPC(self)
 
     def setup_once(self):
-        self.asm.setup_once()
+        self.assembler.setup_once()
 
     def finish_once(self):
-        self.asm.finish_once()
+        self.assembler.finish_once()
 
     def compile_loop(self, inputargs, operations, looptoken, log=True, name=""):
-        return self.asm.assemble_loop(name, inputargs, 
+        return self.assembler.assemble_loop(name, inputargs, 
                                       operations, looptoken, log)
 
     def compile_bridge(self, faildescr, inputargs, operations, 
                       original_loop_token, log=False):
         clt = original_loop_token.compiled_loop_token
         clt.compiling_a_bridge()
-        return self.asm.assemble_bridge(faildescr, inputargs, operations,
+        return self.assembler.assemble_bridge(faildescr, inputargs, operations,
                                        original_loop_token, log=log)
 
     def clear_latest_values(self, count):
-        setitem = self.asm.fail_boxes_ptr.setitem
+        setitem = self.assembler.fail_boxes_ptr.setitem
         null = lltype.nullptr(llmemory.GCREF.TO)
         for index in range(count):
             setitem(index, null)
@@ -97,37 +97,37 @@ class PPC_CPU(AbstractLLCPU):
         faildescr = self.get_fail_descr_from_number(fail_index)
         rffi.cast(TP, addr_of_force_index)[0] = ~fail_index
 
-        bytecode = self.asm._find_failure_recovery_bytecode(faildescr)
+        bytecode = self.assembler._find_failure_recovery_bytecode(faildescr)
         addr_all_null_registers = rffi.cast(rffi.LONG, self.all_null_registers)
         # start of "no gc operation!" block
-        fail_index_2 = self.asm.failure_recovery_func(
+        fail_index_2 = self.assembler.failure_recovery_func(
                 bytecode,
                 spilling_pointer,
                 addr_all_null_registers)
-        self.asm.leave_jitted_hook()
+        self.assembler.leave_jitted_hook()
         # end of "no gc operation!" block
         assert fail_index == fail_index_2
         return faildescr
 
     # return the number of values that can be returned
     def get_latest_value_count(self):
-        return self.asm.fail_boxes_count
+        return self.assembler.fail_boxes_count
 
     # fetch the result of the computation and return it
     def get_latest_value_float(self, index):
-        return self.asm.fail_boxes_float.getitem(index)
+        return self.assembler.fail_boxes_float.getitem(index)
 
     def get_latest_value_int(self, index):
-        return self.asm.fail_boxes_int.getitem(index)
+        return self.assembler.fail_boxes_int.getitem(index)
 
     def get_latest_value_ref(self, index):
-        return self.asm.fail_boxes_ptr.getitem(index)
+        return self.assembler.fail_boxes_ptr.getitem(index)
 
     def get_latest_force_token(self):
-        return self.asm.fail_force_index
+        return self.assembler.fail_force_index
     
     def get_on_leave_jitted_hook(self):
-        return self.asm.leave_jitted_hook
+        return self.assembler.leave_jitted_hook
 
     # walk through the given trace and generate machine code
     def _walk_trace_ops(self, codebuilder, operations):
@@ -142,7 +142,7 @@ class PPC_CPU(AbstractLLCPU):
         self.reg_map = None
 
     def redirect_call_assembler(self, oldlooptoken, newlooptoken):
-        self.asm.redirect_call_assembler(oldlooptoken, newlooptoken)
+        self.assembler.redirect_call_assembler(oldlooptoken, newlooptoken)
 
     def invalidate_loop(self, looptoken):
         """Activate all GUARD_NOT_INVALIDATED in the loop and its attached

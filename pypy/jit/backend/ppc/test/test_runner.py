@@ -156,16 +156,16 @@ class TestPPC(LLtypeBackendTest):
                                      'preambletoken': preambletoken})
         debug._log = dlog = debug.DebugLog()
         try:
-            self.cpu.asm.set_debug(True)
+            self.cpu.assembler.set_debug(True)
             looptoken = JitCellToken()
             self.cpu.compile_loop(ops.inputargs, ops.operations, looptoken)
             self.cpu.execute_token(looptoken, 0)
             # check debugging info
-            struct = self.cpu.asm.loop_run_counters[0]
+            struct = self.cpu.assembler.loop_run_counters[0]
             assert struct.i == 1
-            struct = self.cpu.asm.loop_run_counters[1]
+            struct = self.cpu.assembler.loop_run_counters[1]
             assert struct.i == 1
-            struct = self.cpu.asm.loop_run_counters[2]
+            struct = self.cpu.assembler.loop_run_counters[2]
             assert struct.i == 9
             self.cpu.finish_once()
         finally:

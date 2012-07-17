@@ -3573,7 +3573,7 @@ class LLtypeBackendTest(BaseBackendTest):
     def test_compile_asmlen(self):
         from pypy.jit.backend.llsupport.llmodel import AbstractLLCPU
         if not isinstance(self.cpu, AbstractLLCPU):
-            py.test.skip("pointless test on non-asm")
+            py.test.skip("pointless test on non-assembler")
         from pypy.jit.backend.tool.viewcode import machine_code_dump
         import ctypes
         ops = """
@@ -3594,12 +3594,12 @@ class LLtypeBackendTest(BaseBackendTest):
         """
         bridge = parse(bridge_ops, self.cpu, namespace=locals())
         looptoken = JitCellToken()
-        self.cpu.asm.set_debug(False)
+        self.cpu.assembler.set_debug(False)
         info = self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
         bridge_info = self.cpu.compile_bridge(faildescr, bridge.inputargs,
                                               bridge.operations,
                                               looptoken)
-        self.cpu.asm.set_debug(True) # always on untranslated
+        self.cpu.assembler.set_debug(True) # always on untranslated
         assert info.asmlen != 0
         cpuname = autodetect_main_model_and_size()
         # XXX we have to check the precise assembler, otherwise
