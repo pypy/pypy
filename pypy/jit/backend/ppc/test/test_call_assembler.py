@@ -1,6 +1,7 @@
 import py
-from pypy.jit.metainterp.history import BoxInt, ConstInt,\
-     BoxPtr, ConstPtr, TreeLoop, BasicFailDescr
+from pypy.jit.metainterp.history import BoxInt, ConstInt
+from pypy.jit.metainterp.history import BoxPtr, ConstPtr, BasicFailDescr
+from pypy.jit.metainterp.history import JitCellToken
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.codewriter import heaptracker
 from pypy.jit.backend.llsupport.descr import GcCache
@@ -10,7 +11,7 @@ from pypy.jit.tool.oparser import parse
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.lltypesystem import rclass, rstr
-from pypy.jit.backend.llsupport.gc import GcLLDescr_framework, GcPtrFieldDescr
+from pypy.jit.backend.llsupport.gc import GcLLDescr_framework
 
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.backend.ppc.runner import PPC_CPU
@@ -26,7 +27,8 @@ class TestAssembler(object):
 
     def interpret_direct_entry_point(self, ops, args, namespace):
         loop = self.parse(ops, namespace)
-        self.cpu.compile_loop(loop.inputargs, loop.operations, loop.token)
+        looptoken = JitCellToken()
+        self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
         param_sign_list = []
         for i, arg in enumerate(args):
             if isinstance(arg, int):
@@ -36,12 +38,8 @@ class TestAssembler(object):
             else:
                 assert 0, "not implemented yet"
 
-        looptoken = loop.token
         signature = lltype.FuncType(param_sign_list, lltype.Signed)
-        addr = looptoken._ppc_direct_bootstrap_code
-        func = rffi.cast(lltype.Ptr(signature), addr)
-        fail_index = func(*args)
-        fail_descr = self.cpu.get_fail_descr_from_number(fail_index)
+        fail_descr = self.cpu.execute_token(looptoken, *args)
         return fail_descr
 
     def parse(self, s, namespace, boxkinds=None):
