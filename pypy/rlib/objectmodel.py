@@ -7,6 +7,7 @@ import py
 import sys
 import types
 import math
+import inspect
 
 # specialize is a decorator factory for attaching _annspecialcase_
 # attributes to functions: for example
@@ -113,11 +114,20 @@ def enforceargs(*types):
 
     XXX shouldn't we also add asserts in function body?
     """
-    import inspect
+    from pypy.annotation.signature import annotationoftype
+    from pypy.annotation.model import SomeObject
     def decorator(f):
+        def get_annotation(t):
+            if isinstance(t, SomeObject):
+                return t
+            return annotationoftype(t)
         def typecheck(*args):
-            for t, arg in zip(types, args):
-                if t is not None and not isinstance(arg, t):
+            for expected_type, arg in zip(types, args):
+                if expected_type is None:
+                    continue
+                s_expected = get_annotation(expected_type)
+                s_argtype = get_annotation(type(arg))
+                if not s_expected.contains(s_argtype):
                     raise TypeError
         #
         # we cannot simply wrap the function using *args, **kwds, because it's

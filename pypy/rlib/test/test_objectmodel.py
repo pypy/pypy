@@ -433,6 +433,12 @@ def test_enforceargs_defaults():
         return a+b
     assert f(2) == 42
 
+def test_enforceargs_int_float_promotion():
+    @enforceargs(float)
+    def f(x):
+        return x
+    # in RPython there is an implicit int->float promotion
+    assert f(42) == 42
 
 def getgraph(f, argtypes):
     from pypy.translator.translator import TranslationContext, graphof
