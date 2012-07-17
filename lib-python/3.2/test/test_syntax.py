@@ -492,15 +492,15 @@ Corner-cases that used to fail to raise the correct error:
 
     >>> def f(*, x=lambda __debug__:0): pass
     Traceback (most recent call last):
-    SyntaxError: assignment to keyword
+    SyntaxError: cannot assign to __debug__
 
     >>> def f(*args:(lambda __debug__:0)): pass
     Traceback (most recent call last):
-    SyntaxError: assignment to keyword
+    SyntaxError: cannot assign to __debug__
 
     >>> def f(**kwargs:(lambda __debug__:0)): pass
     Traceback (most recent call last):
-    SyntaxError: assignment to keyword
+    SyntaxError: cannot assign to __debug__
 
     >>> with (lambda *:0): pass
     Traceback (most recent call last):
@@ -510,11 +510,11 @@ Corner-cases that used to crash:
 
     >>> def f(**__debug__): pass
     Traceback (most recent call last):
-    SyntaxError: assignment to keyword
+    SyntaxError: cannot assign to __debug__
 
     >>> def f(*xx, __debug__): pass
     Traceback (most recent call last):
-    SyntaxError: assignment to keyword
+    SyntaxError: cannot assign to __debug__
 
 """
 
