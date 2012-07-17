@@ -173,7 +173,24 @@ class StdObjSpace(ObjSpace, DescrOperation):
             else:
                 return self.newint(x)
         if isinstance(x, str):
-            return wrapunicode(self, x.decode('ascii'))
+            # this hack is temporary: look at the comment in
+            # test_stdstdobjspace.test_wrap_string
+            try:
+                unicode_x = x.decode('ascii')
+            except UnicodeDecodeError:
+                # poor man's x.decode('ascii', 'replace'), since it's not
+                # supported by RPython
+                if not we_are_translated():
+                    print 'WARNING: space.str() called on a non-ascii byte string: %r' % x
+                lst = []
+                for ch in x:
+                    ch = ord(ch)
+                    if ch > 127:
+                        lst.append(u'\ufffd')
+                    else:
+                        lst.append(unichr(ch))
+                unicode_x = u''.join(lst)
+            return wrapunicode(self, unicode_x)
         if isinstance(x, unicode):
             return wrapunicode(self, x)
         if isinstance(x, float):

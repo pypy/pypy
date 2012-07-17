@@ -91,3 +91,18 @@ class TestW_StdObjSpace:
         value = 200
         x = rffi.cast(rffi.UCHAR, value)
         assert space.eq_w(space.wrap(value), space.wrap(x))
+
+    def test_wrap_string(self):
+        from pypy.objspace.std.unicodeobject import W_UnicodeObject
+        w_x = self.space.wrap('foo')
+        assert isinstance(w_x, W_UnicodeObject)
+        assert w_x._value == u'foo'
+        #
+        # calling space.wrap() on a byte string which is not ASCII should
+        # never happen. Howeven it might happen while the py3k port is not
+        # 100% complete. In the meantime, try to return something more or less
+        # sensible instead of crashing with an RPython UnicodeError.
+        from pypy.objspace.std.unicodeobject import W_UnicodeObject
+        w_x = self.space.wrap('foo\xF0')
+        assert isinstance(w_x, W_UnicodeObject)
+        assert w_x._value == u'foo\ufffd'
