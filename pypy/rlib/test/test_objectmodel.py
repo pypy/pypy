@@ -427,7 +427,12 @@ def test_enforceargs_decorator():
     py.test.raises(TypeError, "f(1, 2, 3)")
     py.test.raises(TypeError, "f('hello', 'world', 3)")
 
-    
+def test_enforceargs_defaults():
+    @enforceargs(int, int)
+    def f(a, b=40):
+        return a+b
+    assert f(2) == 42
+
 
 def getgraph(f, argtypes):
     from pypy.translator.translator import TranslationContext, graphof

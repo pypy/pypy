@@ -141,7 +141,7 @@ def enforceargs(*types):
                   'typecheck': typecheck}
         exec src.compile() in mydict
         result = mydict[f.func_name]
-        # XXX defaults
+        result.func_defaults = f.func_defaults
         result._annenforceargs_ = types
         return result
     return decorator
