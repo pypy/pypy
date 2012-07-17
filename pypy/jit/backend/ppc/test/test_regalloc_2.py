@@ -164,7 +164,7 @@ class BaseTestRegalloc(object):
 
     def prepare_loop(self, ops):
         loop = self.parse(ops)
-        regalloc = Regalloc(assembler=self.cpu.asm,
+        regalloc = Regalloc(assembler=self.cpu.assembler,
                 frame_manager=PPCFrameManager())
         regalloc.prepare_loop(loop.inputargs, loop.operations)
         return regalloc
