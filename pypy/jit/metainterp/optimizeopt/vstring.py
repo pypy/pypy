@@ -131,6 +131,7 @@ class VStringPlainValue(VAbstractStringValue):
         # Also, as long as self.is_virtual(), then we know that no-one else
         # could have written to the string, so we know that in this case
         # "None" corresponds to "really uninitialized".
+        assert size >= 0
         self._chars = [None] * size
 
     def setup_slice(self, longerlist, start, stop):
