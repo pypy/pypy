@@ -80,6 +80,12 @@ class UnicodeRepr(BaseOOStringRepr, AbstractUnicodeRepr):
             sb.ll_append_char(cast_primitive(Char, c))
         return sb.ll_build()
 
+    def ll_unicode(self, s):
+        if s:
+            return s
+        else:
+            return self.convert_const(u'None')
+
     def ll_encode_latin1(self, value):
         sb = ootype.new(ootype.StringBuilder)
         length = value.ll_strlen()
@@ -340,7 +346,12 @@ class LLHelpers(AbstractLLHelpers):
                 vitem, r_arg = argsiter.next()
                 if not hasattr(r_arg, 'll_str'):
                     raise TyperError("ll_str unsupported for: %r" % r_arg)
-                if code == 's' or (code == 'r' and isinstance(r_arg, InstanceRepr)):
+                if code == 's':
+                    if is_unicode:
+                        vchunk = hop.gendirectcall(r_arg.ll_unicode, vitem)
+                    else:
+                        vchunk = hop.gendirectcall(r_arg.ll_str, vitem)
+                elif code == 'r' and isinstance(r_arg, InstanceRepr):
                     vchunk = hop.gendirectcall(r_arg.ll_str, vitem)
                 elif code == 'd':
                     assert isinstance(r_arg, IntegerRepr)
