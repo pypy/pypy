@@ -1180,7 +1180,7 @@ class AssemblerPPC(OpAssembler):
             offset = prev_loc.value
             # move from memory to register
             if loc.is_reg():
-                reg = loc.as_key()
+                reg = loc.value
                 self.mc.load(reg, r.SPP.value, offset)
                 return
             # move in memory
@@ -1193,15 +1193,15 @@ class AssemblerPPC(OpAssembler):
             # move from memory to fp register
             elif loc.is_fp_reg():
                 assert prev_loc.type == FLOAT, 'source not float location'
-                reg = loc.as_key()
+                reg = loc.value
                 self.mc.lfd(reg, r.SPP.value, offset)
                 return
             assert 0, "not supported location"
         elif prev_loc.is_reg():
-            reg = prev_loc.as_key()
+            reg = prev_loc.value
             # move to another register
             if loc.is_reg():
-                other_reg = loc.as_key()
+                other_reg = loc.value
                 self.mc.mr(other_reg, reg)
                 return
             # move to memory
@@ -1227,10 +1227,10 @@ class AssemblerPPC(OpAssembler):
                 return
             assert 0, "not supported location"
         elif prev_loc.is_fp_reg():
-            reg = prev_loc.as_key()
+            reg = prev_loc.value
             # move to another fp register
             if loc.is_fp_reg():
-                other_reg = loc.as_key()
+                other_reg = loc.value
                 self.mc.fmr(other_reg, reg)
                 return
             # move from fp register to memory
