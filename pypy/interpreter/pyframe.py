@@ -222,6 +222,7 @@ class PyFrame(eval.Frame):
 
     @jit.unroll_safe
     def peekvalues(self, n):
+        assert n >= 0
         values_w = [None] * n
         base = self.valuestackdepth - n
         assert base >= self.pycode.co_nlocals
