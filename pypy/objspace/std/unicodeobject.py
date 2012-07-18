@@ -66,33 +66,31 @@ W_UnicodeObject.EMPTY = W_UnicodeObject(u'')
 
 registerimplementation(W_UnicodeObject)
 
-# Helper for converting int/long
+# Helper for converting int/long this is called only from
+# {int,long,float}type.descr__new__: in the default branch this is implemented
+# using the same logic as PyUnicode_EncodeDecimal, as CPython 2.7 does.
+#
+# In CPython3 the call to PyUnicode_EncodeDecimal has been replaced to a call
+# to PyUnicode_TransformDecimalToASCII, which is much simpler. Here, we do the
+# equivalent.
+#
+# Note that, differently than default, we return an *unicode* RPython string
 def unicode_to_decimal_w(space, w_unistr):
     if not isinstance(w_unistr, W_UnicodeObject):
         raise operationerrfmt(space.w_TypeError,
                               "expected unicode, got '%s'",
                               space.type(w_unistr).getname(space))
     unistr = w_unistr._value
-    result = ['\0'] * len(unistr)
-    digits = [ '0', '1', '2', '3', '4',
-               '5', '6', '7', '8', '9']
+    result = [u'\0'] * len(unistr)
     for i in xrange(len(unistr)):
         uchr = ord(unistr[i])
-        if unicodedb.isspace(uchr):
-            result[i] = ' '
-            continue
-        try:
-            result[i] = digits[unicodedb.decimal(uchr)]
-        except KeyError:
-            if 0 < uchr < 256:
-                result[i] = chr(uchr)
-            else:
-                w_encoding = space.wrap('decimal')
-                w_start = space.wrap(i)
-                w_end = space.wrap(i+1)
-                w_reason = space.wrap('invalid decimal Unicode string')
-                raise OperationError(space.w_UnicodeEncodeError, space.newtuple([w_encoding, w_unistr, w_start, w_end, w_reason]))
-    return ''.join(result)
+        if uchr > 127:
+            try:
+                uchr = ord(u'0') + unicodedb.decimal(uchr)
+            except KeyError:
+                pass
+        result[i] = unichr(uchr)
+    return u''.join(result)
 
 def str__Unicode(space, w_uni):
     if space.is_w(space.type(w_uni), space.w_unicode):

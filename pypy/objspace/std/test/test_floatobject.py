@@ -1,3 +1,5 @@
+# -*- encoding: utf-8 -*-
+
 from pypy.objspace.std import floatobject as fobj
 from pypy.objspace.std.multimethod import FailedToImplement
 import py, sys
@@ -438,6 +440,10 @@ class AppTestAppFloatTest:
         class A(float): pass
         b = A(5).real
         assert type(b) is float
+
+    def test_float_from_unicode(self):
+        s = '\U0001D7CF\U0001D7CE.4' # 𝟏𝟎.4
+        assert float(s) == 10.4
 
 
 class AppTestFloatHex:

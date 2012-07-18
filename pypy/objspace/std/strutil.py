@@ -2,6 +2,7 @@
 Pure Python implementation of string utilities.
 """
 
+from pypy.rlib.objectmodel import enforceargs
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rlib.rfloat import rstring_to_float, INFINITY, NAN
 from pypy.rlib.rbigint import rbigint, parse_digit_string
@@ -11,18 +12,20 @@ import math
 # XXX factor more functions out of stringobject.py.
 # This module is independent from PyPy.
 
+@enforceargs(unicode)
 def strip_spaces(s):
     # XXX this is not locale-dependent
     p = 0
     q = len(s)
-    while p < q and s[p] in ' \f\n\r\t\v':
+    while p < q and s[p] in u' \f\n\r\t\v':
         p += 1
-    while p < q and s[q-1] in ' \f\n\r\t\v':
+    while p < q and s[q-1] in u' \f\n\r\t\v':
         q -= 1
     assert q >= p     # annotator hint, don't remove
     return s[p:q]
 
 class ParseStringError(Exception):
+    @enforceargs(None, unicode)
     def __init__(self, msg):
         self.msg = msg
 
@@ -34,39 +37,40 @@ class ParseStringOverflowError(Exception):
 class NumberStringParser:
 
     def error(self):
-        raise ParseStringError("invalid literal for %s() with base %d: '%s'" %
+        raise ParseStringError(u"invalid literal for %s() with base %d: '%s'" %
                                (self.fname, self.original_base, self.literal))
 
+    @enforceargs(None, unicode, unicode, int, unicode)
     def __init__(self, s, literal, base, fname):
         self.literal = literal
         self.fname = fname
         sign = 1
-        if s.startswith('-'):
+        if s.startswith(u'-'):
             sign = -1
             s = strip_spaces(s[1:])
-        elif s.startswith('+'):
+        elif s.startswith(u'+'):
             s = strip_spaces(s[1:])
         self.sign = sign
         self.original_base = base
 
         if base == 0:
-            if s.startswith('0x') or s.startswith('0X'):
+            if s.startswith(u'0x') or s.startswith(u'0X'):
                 base = 16
-            elif s.startswith('0b') or s.startswith('0B'):
+            elif s.startswith(u'0b') or s.startswith(u'0B'):
                 base = 2
-            elif s.startswith('0'): # also covers the '0o' case
+            elif s.startswith(u'0'): # also covers the '0o' case
                 base = 8
             else:
                 base = 10
         elif base < 2 or base > 36:
-            raise ParseStringError, "%s() base must be >= 2 and <= 36" % (fname,)
+            raise ParseStringError, u"%s() base must be >= 2 and <= 36" % (fname,)
         self.base = base
 
-        if base == 16 and (s.startswith('0x') or s.startswith('0X')):
+        if base == 16 and (s.startswith(u'0x') or s.startswith(u'0X')):
             s = s[2:]
-        if base == 8 and (s.startswith('0o') or s.startswith('0O')):
+        if base == 8 and (s.startswith(u'0o') or s.startswith(u'0O')):
             s = s[2:]
-        if base == 2 and (s.startswith('0b') or s.startswith('0B')):
+        if base == 2 and (s.startswith(u'0b') or s.startswith(u'0B')):
             s = s[2:]
         if not s:
             self.error()
@@ -81,12 +85,12 @@ class NumberStringParser:
         if self.i < self.n:
             c = self.s[self.i]
             digit = ord(c)
-            if '0' <= c <= '9':
-                digit -= ord('0')
-            elif 'A' <= c <= 'Z':
-                digit = (digit - ord('A')) + 10
-            elif 'a' <= c <= 'z':
-                digit = (digit - ord('a')) + 10
+            if u'0' <= c <= u'9':
+                digit -= ord(u'0')
+            elif u'A' <= c <= u'Z':
+                digit = (digit - ord(u'A')) + 10
+            elif u'a' <= c <= u'z':
+                digit = (digit - ord(u'a')) + 10
             else:
                 self.error()
             if digit >= self.base:
@@ -103,7 +107,7 @@ def string_to_int(s, base=10):
     Raises ParseStringOverflowError in case the result does not fit.
     """
     s = literal = strip_spaces(s)
-    p = NumberStringParser(s, literal, base, 'int')
+    p = NumberStringParser(s, literal, base, u'int')
     base = p.base
     result = 0
     while True:
@@ -125,10 +129,10 @@ def string_to_bigint(s, base=10, parser=None):
     and returns an rbigint."""
     if parser is None:
         s = literal = strip_spaces(s)
-        if (s.endswith('l') or s.endswith('L')) and base < 22:
+        if (s.endswith(u'l') or s.endswith(u'L')) and base < 22:
             # in base 22 and above, 'L' is a valid digit!  try: long('L',22)
             s = s[:-1]
-        p = NumberStringParser(s, literal, base, 'long')
+        p = NumberStringParser(s, literal, base, u'long')
     else:
         p = parser
     return parse_digit_string(p)
@@ -155,6 +159,7 @@ MANTISSA_BITS = calc_mantissa_bits()
 del calc_mantissa_bits
 MANTISSA_DIGITS = len(str( (1L << MANTISSA_BITS)-1 )) + 1
 
+@enforceargs(unicode)
 def string_to_float(s):
     """
     Conversion of string to float.
@@ -167,22 +172,25 @@ def string_to_float(s):
     s = strip_spaces(s)
 
     if not s:
-        raise ParseStringError("empty string for float()")
+        raise ParseStringError(u"empty string for float()")
 
 
     low = s.lower()
-    if low == "-inf" or low == "-infinity":
+    if low == u"-inf" or low == u"-infinity":
         return -INFINITY
-    elif low == "inf" or low == "+inf":
+    elif low == u"inf" or low == u"+inf":
         return INFINITY
-    elif low == "infinity" or low == "+infinity":
+    elif low == u"infinity" or low == u"+infinity":
         return INFINITY
-    elif low == "nan" or low == "+nan":
+    elif low == u"nan" or low == u"+nan":
         return NAN
-    elif low == "-nan":
+    elif low == u"-nan":
         return -NAN
 
+    # rstring_to_float only supports byte strings, but we have an unicode
+    # here. Do as CPython does: convert it to UTF-8
+    mystring = s.encode('utf-8')
     try:
-        return rstring_to_float(s)
+        return rstring_to_float(mystring)
     except ValueError:
-        raise ParseStringError("invalid literal for float()")
+        raise ParseStringError(u"invalid literal for float()")

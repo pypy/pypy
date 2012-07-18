@@ -34,6 +34,7 @@ def descr__new__(space, w_longtype, w_x=0, w_base=gateway.NoneNotWrapped):
             return string_to_w_long(space, w_longtype,
                                     unicode_to_decimal_w(space, w_value))
         elif space.isinstance_w(w_value, space.w_bytearray):
+            # XXX: convert to unicode
             return string_to_w_long(space, w_longtype, space.bufferstr_w(w_value))
         else:
             # otherwise, use the __int__() or the __trunc__ methods

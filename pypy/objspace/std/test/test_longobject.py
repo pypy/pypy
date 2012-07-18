@@ -1,3 +1,4 @@
+# -*- encoding: utf-8 -*-
 import py
 import sys
 from pypy.objspace.std import longobject as lobj
@@ -318,3 +319,7 @@ class AppTestLong:
         class A(int): pass
         b = A(5).real
         assert type(b) is int
+
+    def test_long_from_unicode(self):
+        s = '\U0001D7CF\U0001D7CE' # 𝟏𝟎
+        assert int(s) == 10
