@@ -84,7 +84,7 @@ class UnicodeRepr(BaseOOStringRepr, AbstractUnicodeRepr):
         if s:
             return s
         else:
-            return self.convert_const(u'None')
+            return self.ll.ll_constant(u'None')
 
     def ll_encode_latin1(self, value):
         sb = ootype.new(ootype.StringBuilder)
@@ -311,7 +311,12 @@ class LLHelpers(AbstractLLHelpers):
         return buf.ll_build()
 
     def ll_constant(s):
-        return ootype.make_string(s)
+        if isinstance(s, str):
+            return ootype.make_string(s)
+        elif isinstance(s, unicode):
+            return ootype.make_unicode(s)
+        else:
+            assert False
     ll_constant._annspecialcase_ = 'specialize:memo'
 
     def do_stringformat(cls, hop, sourcevarsrepr):
