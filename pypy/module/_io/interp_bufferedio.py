@@ -148,11 +148,12 @@ class BufferedMixin:
         self.write_end = -1
 
     def _init(self, space):
-        if self.buffer_size <= 0:
+        buf_size = self.buffer_size
+        if buf_size <= 0:
             raise OperationError(space.w_ValueError, space.wrap(
                 "buffer size must be strictly positive"))
 
-        self.buffer = ['\0'] * self.buffer_size
+        self.buffer = ['\0'] * buf_size
 
         self.lock = TryLock(space)
 
