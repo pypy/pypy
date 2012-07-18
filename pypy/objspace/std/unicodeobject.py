@@ -594,6 +594,7 @@ def unicode_zfill__Unicode_ANY(space, w_self, w_width):
     padding = width - len(self)
     if padding <= 0:
         return w_self.create_if_subclassed()
+    assert width >= 0
     result = [u'0'] * width
     for i in range(len(self)):
         result[padding + i] = self[i]
