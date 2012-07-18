@@ -1028,7 +1028,7 @@ class LLHelpers(AbstractLLHelpers):
                 # if we are here, one of the ll_str.* functions returned some
                 # STR, so we convert it to unicode. It's a bit suboptimal
                 # because we do one extra copy.
-                vchunk = hop.gendirectcall(string_repr.ll_decode_latin1, vchunk)
+                vchunk = hop.gendirectcall(cls.ll_str2unicode, vchunk)
             hop.genop('setarrayitem', [vtemp, i, vchunk])
 
         hop.exception_cannot_occur()   # to ignore the ZeroDivisionError of '%'
