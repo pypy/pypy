@@ -272,6 +272,7 @@ class Arguments(object):
             for i in range(take):
                 scope_w[i + input_argcount] = args_w[i]
             input_argcount += take
+            input_argcount = max(input_argcount, 0)
 
         # collect extra positional arguments into the *vararg
         if signature.has_vararg():
