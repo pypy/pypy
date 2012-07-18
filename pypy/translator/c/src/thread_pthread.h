@@ -137,10 +137,15 @@ long RPyThreadGetIdent(void)
 	/* Jump through some hoops for Alpha OSF/1 */
 	threadid = pthread_self();
 
+#ifdef __CYGWIN__
+	/* typedef __uint32_t pthread_t; */
+	return (long) threadid;
+#else
 	if (sizeof(pthread_t) <= sizeof(long))
 		return (long) threadid;
 	else
 		return (long) *(long *) &threadid;
+#endif
 }
 
 static long _pypythread_stacksize = 0;
@@ -193,10 +198,15 @@ long RPyThreadStart(void (*func)(void))
 
         pthread_detach(th);
 
+#ifdef __CYGWIN__
+	/* typedef __uint32_t pthread_t; */
+	return (long) th;
+#else
 	if (sizeof(pthread_t) <= sizeof(long))
 		return (long) th;
 	else
 		return (long) *(long *) &th;
+#endif
 }
 
 long RPyThreadGetStackSize(void)

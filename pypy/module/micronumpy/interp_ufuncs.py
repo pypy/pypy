@@ -2,11 +2,11 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, NoneNotWrapped
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
-from pypy.module.micronumpy import interp_boxes, interp_dtype, support, loop
+from pypy.module.micronumpy import interp_boxes, interp_dtype, loop
 from pypy.rlib import jit
 from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.tool.sourcetools import func_with_new_name
-
+from pypy.module.micronumpy.interp_support import unwrap_axis_arg
 
 class W_Ufunc(Wrappable):
     _attrs_ = ["name", "promote_to_float", "promote_bools", "identity"]
@@ -121,11 +121,7 @@ class W_Ufunc(Wrappable):
         """
         from pypy.module.micronumpy.interp_numarray import BaseArray
         if w_axis is None:
-            axis = 0
-        elif space.is_w(w_axis, space.w_None):
-            axis = -1
-        else:
-            axis = space.int_w(w_axis)
+            w_axis = space.wrap(0)
         if space.is_w(w_out, space.w_None):
             out = None
         elif not isinstance(w_out, BaseArray):
@@ -133,9 +129,9 @@ class W_Ufunc(Wrappable):
                                                 'output must be an array'))
         else:
             out = w_out
-        return self.reduce(space, w_obj, False, False, axis, keepdims, out)
+        return self.reduce(space, w_obj, False, False, w_axis, keepdims, out)
 
-    def reduce(self, space, w_obj, multidim, promote_to_largest, axis,
+    def reduce(self, space, w_obj, multidim, promote_to_largest, w_axis,
                keepdims=False, out=None):
         from pypy.module.micronumpy.interp_numarray import convert_to_array, \
                                              Scalar, ReduceArray, W_NDimArray
@@ -144,11 +140,11 @@ class W_Ufunc(Wrappable):
                 "supported for binary functions"))
         assert isinstance(self, W_Ufunc2)
         obj = convert_to_array(space, w_obj)
-        if axis >= len(obj.shape):
-            raise OperationError(space.w_ValueError, space.wrap("axis(=%d) out of bounds" % axis))
         if isinstance(obj, Scalar):
             raise OperationError(space.w_TypeError, space.wrap("cannot reduce "
                 "on a scalar"))
+        axis = unwrap_axis_arg(space, len(obj.shape), w_axis)    
+        assert axis>=0
         size = obj.size
         if self.comparison_func:
             dtype = interp_dtype.get_dtype_cache(space).w_booldtype
@@ -163,7 +159,7 @@ class W_Ufunc(Wrappable):
         if self.identity is None and size == 0:
             raise operationerrfmt(space.w_ValueError, "zero-size array to "
                     "%s.reduce without identity", self.name)
-        if shapelen > 1 and axis >= 0:
+        if shapelen > 1 and axis < shapelen:
             if keepdims:
                 shape = obj.shape[:axis] + [1] + obj.shape[axis + 1:]
             else:

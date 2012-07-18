@@ -47,6 +47,7 @@ translation_modules = default_modules.copy()
 translation_modules.update(dict.fromkeys(
     ["fcntl", "rctime", "select", "signal", "_rawffi", "zlib",
      "struct", "array", "_ffi",
+     "binascii",
      # the following are needed for pyrepl (and hence for the
      # interactive prompt/pdb)
      "termios", "_minimal_curses",
@@ -85,6 +86,7 @@ if sys.platform == "sunos5":
 module_dependencies = {
     '_multiprocessing': [('objspace.usemodules.rctime', True),
                          ('objspace.usemodules.thread', True)],
+    'cpyext': [('objspace.usemodules.array', True)],
     }
 module_suggests = {
     # the reason you want _rawffi is for ctypes, which

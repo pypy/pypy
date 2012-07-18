@@ -341,8 +341,8 @@ We are using
 
 **objects**
 
-  Normal rules apply. Special methods are not honoured, except ``__init__`` and
-  ``__del__``.
+  Normal rules apply. Special methods are not honoured, except ``__init__``,
+  ``__del__`` and ``__iter__``.
 
 This layout makes the number of types to take care about quite limited.
 

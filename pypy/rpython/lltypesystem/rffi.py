@@ -435,7 +435,8 @@ for _name in 'short int long'.split():
 TYPES += ['signed char', 'unsigned char',
           'long long', 'unsigned long long',
           'size_t', 'time_t', 'wchar_t',
-          'uintptr_t', 'intptr_t']
+          'uintptr_t', 'intptr_t',
+          'void*']    # generic pointer type
 _TYPES_ARE_UNSIGNED = set(['size_t', 'uintptr_t'])   # plus "unsigned *"
 if os.name != 'nt':
     TYPES.append('mode_t')
@@ -903,7 +904,7 @@ def sizeof(tp):
             size = llmemory.sizeof(tp)    # a symbolic result in this case
         return size
     if isinstance(tp, lltype.Ptr) or tp is llmemory.Address:
-        tp = lltype.Signed
+        return globals()['r_void*'].BITS/8
     if tp is lltype.Char or tp is lltype.Bool:
         return 1
     if tp is lltype.UniChar:
@@ -934,11 +935,16 @@ def offsetof(STRUCT, fieldname):
 offsetof._annspecialcase_ = 'specialize:memo'
 
 # check that we have a sane configuration
-assert maxint == (1 << (8 * sizeof(lltype.Signed) - 1)) - 1, (
+assert maxint == (1 << (8 * sizeof(llmemory.Address) - 1)) - 1, (
     "Mixed configuration of the word size of the machine:\n\t"
     "the underlying Python was compiled with maxint=%d,\n\t"
-    "but the C compiler says that 'long' is %d bytes" % (
-    maxint, sizeof(lltype.Signed)))
+    "but the C compiler says that 'void *' is %d bytes" % (
+    maxint, sizeof(llmemory.Address)))
+assert sizeof(lltype.Signed) == sizeof(llmemory.Address), (
+    "Bad configuration: we should manage to get lltype.Signed "
+    "be an integer type of the same size as llmemory.Address, "
+    "but we got %s != %s" % (sizeof(lltype.Signed),
+                             sizeof(llmemory.Address)))
 
 # ********************** some helpers *******************
 

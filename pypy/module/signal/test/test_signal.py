@@ -54,10 +54,9 @@ class AppTestSignal:
         if not hasattr(os, 'kill') or not hasattr(os, 'getpid'):
             skip("requires os.kill() and os.getpid()")
         signal = self.signal   # the signal module to test
-        if hasattr(signal,'SIGUSR1'):
-            signum = signal.SIGUSR1
-        else:
-            signum = signal.CTRL_BREAK_EVENT
+        if not hasattr(signal, 'SIGUSR1'):    
+            py.test.skip("requires SIGUSR1 in signal")
+        signum = signal.SIGUSR1
 
         received = []
         def myhandler(signum, frame):
@@ -154,7 +153,12 @@ class AppTestSignal:
 
         raises(ValueError, getsignal, 4444)
         raises(ValueError, signal, 4444, lambda *args: None)
-        raises(ValueError, signal, 42, lambda *args: None)
+        import sys
+        if sys.platform == 'win32':
+            raises(ValueError, signal, 42, lambda *args: None)
+        else:
+            signal(42, lambda *args: None)
+            signal(42, SIG_DFL)
 
     def test_alarm(self):
         try:

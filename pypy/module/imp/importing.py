@@ -429,7 +429,12 @@ def _getimporter(space, w_pathitem):
 def find_in_path_hooks(space, w_modulename, w_pathitem):
     w_importer = _getimporter(space, w_pathitem)
     if w_importer is not None and space.is_true(w_importer):
-        w_loader = space.call_method(w_importer, "find_module", w_modulename)
+        try:
+            w_loader = space.call_method(w_importer, "find_module", w_modulename)
+        except OperationError, e:
+            if e.match(space, space.w_ImportError):
+                return None
+            raise
         if space.is_true(w_loader):
             return w_loader
 

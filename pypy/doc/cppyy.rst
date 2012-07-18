@@ -5,8 +5,10 @@ cppyy: C++ bindings for PyPy
 The cppyy module provides C++ bindings for PyPy by using the reflection
 information extracted from C++ header files by means of the
 `Reflex package`_.
-For this to work, you have to both install Reflex and build PyPy from the
-reflex-support branch.
+For this to work, you have to both install Reflex and build PyPy from source,
+as the cppyy module is not enabled by default.
+Note that the development version of cppyy lives in the reflex-support
+branch.
 As indicated by this being a branch, support for Reflex is still
 experimental.
 However, it is functional enough to put it in the hands of those who want
@@ -71,7 +73,8 @@ That's why the medium term plan is to move to `cling`_.
 .. _`recent snapshot`: http://cern.ch/wlav/reflex-2012-05-02.tar.bz2
 .. _`gccxml`: http://www.gccxml.org
 
-Next, get the `PyPy sources`_, select the reflex-support branch, and build.
+Next, get the `PyPy sources`_, optionally select the reflex-support branch,
+and build it.
 For the build to succeed, the ``$ROOTSYS`` environment variable must point to
 the location of your ROOT (or standalone Reflex) installation, or the
 ``root-config`` utility must be accessible through ``PATH`` (e.g. by adding
@@ -82,16 +85,21 @@ Then run the translation to build ``pypy-c``::
 
     $ hg clone https://bitbucket.org/pypy/pypy
     $ cd pypy
-    $ hg up reflex-support
+    $ hg up reflex-support         # optional
     $ cd pypy/translator/goal
+    
+    # This example shows python, but using pypy-c is faster and uses less memory
     $ python translate.py -O jit --gcrootfinder=shadowstack targetpypystandalone.py --withmod-cppyy
 
 This will build a ``pypy-c`` that includes the cppyy module, and through that,
 Reflex support.
 Of course, if you already have a pre-built version of the ``pypy`` interpreter,
 you can use that for the translation rather than ``python``.
+If not, you may want `to obtain a binary distribution`_ to speed up the
+translation step.
 
 .. _`PyPy sources`: https://bitbucket.org/pypy/pypy/overview
+.. _`to obtain a binary distribution`: http://doc.pypy.org/en/latest/getting-started.html#download-a-pre-built-pypy
 
 
 Basic example
@@ -367,6 +375,11 @@ That is a strong statement to make, but also a worthy goal.
   This is a current, not a fundamental, limitation.
   The C++ side will not see any overridden methods on the python side, as
   cross-inheritance is planned but not yet supported.
+
+* **memory**: C++ instances created by calling their constructor from python
+  are owned by python.
+  You can check/change the ownership with the _python_owns flag that every
+  bound instance carries.
 
 * **methods**: Are represented as python methods and work as expected.
   They are first class objects and can be bound to an instance.
