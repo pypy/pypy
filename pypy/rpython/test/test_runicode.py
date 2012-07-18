@@ -202,12 +202,6 @@ class BaseTestRUnicode(AbstractTestRstr):
     test_upper = unsupported
     test_lower = unsupported
     test_splitlines = unsupported
-    test_strformat = unsupported
-    test_strformat_instance = unsupported
-    test_strformat_nontuple = unsupported
-    test_percentformat_instance = unsupported
-    test_percentformat_tuple = unsupported
-    test_percentformat_list = unsupported
     test_int = unsupported
     test_int_valueerror = unsupported
     test_float = unsupported
