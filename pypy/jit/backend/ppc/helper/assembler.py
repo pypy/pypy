@@ -10,11 +10,8 @@ def gen_emit_cmp_op(condition, signed=True, fp=False):
     def f(self, op, arglocs, regalloc):
         l0, l1, res = arglocs
         # do the comparison
-        if fp == True:
-            self.mc.fcmpu(0, l0.value, l1.value)
-        else:
-            self.mc.cmp_op(0, l0.value, l1.value,
-                           imm=l1.is_imm(), signed=signed)
+        self.mc.cmp_op(0, l0.value, l1.value,
+                       imm=l1.is_imm(), signed=signed, fp=fp)
         # After the comparison, place the result
         # in the first bit of the CR
         if condition == c.LT or condition == c.U_LT:
