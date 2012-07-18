@@ -37,7 +37,6 @@ class ParseStringOverflowError(Exception):
 class NumberStringParser:
 
     def error(self):
-        import pdb;pdb.set_trace()
         raise ParseStringError(u"invalid literal for %s() with base %d: '%s'" %
                                (self.fname, self.original_base, self.literal))
 
@@ -101,6 +100,7 @@ class NumberStringParser:
         else:
             return -1
 
+@enforceargs(unicode, None)
 def string_to_int(s, base=10):
     """Utility to converts a string to an integer.
     If base is 0, the proper base is guessed based on the leading
@@ -125,6 +125,7 @@ def string_to_int(s, base=10):
         except OverflowError:
             raise ParseStringOverflowError(p)
 
+@enforceargs(unicode, None, None)
 def string_to_bigint(s, base=10, parser=None):
     """As string_to_int(), but ignores an optional 'l' or 'L' suffix
     and returns an rbigint."""

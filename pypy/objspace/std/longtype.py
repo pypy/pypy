@@ -32,8 +32,8 @@ def descr__new__(space, w_longtype, w_x=0, w_base=gateway.NoneNotWrapped):
             return string_to_w_long(space, w_longtype,
                                     unicode_to_decimal_w(space, w_value))
         elif space.isinstance_w(w_value, space.w_bytearray):
-            # XXX: convert to unicode
-            return string_to_w_long(space, w_longtype, space.bufferstr_w(w_value))
+            strvalue = space.bufferstr_w(w_value)
+            return string_to_w_long(space, w_longtype, strvalue.decode('latin1'))
         else:
             # otherwise, use the __int__() or the __trunc__ methods
             w_obj = w_value
@@ -57,7 +57,8 @@ def descr__new__(space, w_longtype, w_x=0, w_base=gateway.NoneNotWrapped):
             s = unicode_to_decimal_w(space, w_value)
         else:
             try:
-                s = space.bufferstr_w(w_value)
+                strval = space.bufferstr_w(w_value)
+                s = strval.decode('latin1')
             except OperationError, e:
                 raise OperationError(space.w_TypeError,
                                      space.wrap("long() can't convert non-string "
