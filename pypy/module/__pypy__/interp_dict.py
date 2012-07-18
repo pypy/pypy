@@ -21,4 +21,4 @@ def dictstrategy(space, w_obj):
     if not isinstance(w_obj, W_DictMultiObject):
         raise OperationError(space.w_TypeError,
                              space.wrap("expecting dict object"))
-    return space.wrap('%r' % (w_obj.strategy,)))
+    return space.wrap('%r' % (w_obj.strategy,))
