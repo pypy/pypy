@@ -1225,6 +1225,8 @@ def _x_divrem(v1, w1):
     assert size_v >= size_w and size_w > 1 # Assert checks by div()
 
     size_a = size_v - size_w + 1
+    if size_a < 0:
+        size_a = 0
     a = rbigint([NULLDIGIT] * size_a, 1)
 
     j = size_v
