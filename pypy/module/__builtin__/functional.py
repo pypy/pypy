@@ -125,6 +125,7 @@ def range_with_longs(space, w_start, w_stop, w_step):
     else:
         howmany = 0
 
+    assert howmany >= 0
     res_w = [None] * howmany
     v = start
     for idx in range(howmany):
