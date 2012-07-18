@@ -270,6 +270,15 @@ def nice_repr_for_func(fn, name=None):
         firstlineno = -1
     return "(%s:%d)%s" % (mod or '?', firstlineno, name or 'UNKNOWN')
 
+
+def _convert_const_maybe(x, encoding):
+    if isinstance(x, str):
+        return x.decode(encoding)
+    elif isinstance(x, tuple):
+        items = [_convert_const_maybe(item, encoding) for item in x]
+        return tuple(items)
+    return x
+    
 def with_unicode_literals(fn=None, **kwds):
     encoding = kwds.pop('encoding', 'ascii')
     if kwds:
@@ -278,9 +287,7 @@ def with_unicode_literals(fn=None, **kwds):
         co = fn.func_code
         new_consts = []
         for const in co.co_consts:
-            if isinstance(const, str):
-                const = const.decode(encoding)
-            new_consts.append(const)
+            new_consts.append(_convert_const_maybe(const, encoding))
         new_consts = tuple(new_consts)
         new_code = types.CodeType(co.co_argcount, co.co_nlocals, co.co_stacksize,
                                   co.co_flags, co.co_code, new_consts, co.co_names,

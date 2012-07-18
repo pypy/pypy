@@ -57,3 +57,9 @@ def test_with_unicode_literals():
     def foo():
         return 'hello àèì'
     assert foo() == u'hello àèì'
+    #
+    @with_unicode_literals
+    def foo():
+        return ('a', 'b')
+    assert type(foo()[0]) is unicode
+
