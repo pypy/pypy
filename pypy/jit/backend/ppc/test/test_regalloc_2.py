@@ -700,3 +700,24 @@ class TestRegAllocCallAndStackDepth(BaseTestRegalloc):
         self.run(loop, 4, 7)
         assert self.getint(0) == 29
 
+
+
+    def test_basic_failure_float(self):
+        ops = """ 
+           [f0, f1, f2]
+           label(f0, f1, f2, descr=targettoken2)
+           f3 = float_add(f2, f0)
+           f5 = float_sub(f1, 1.0)
+           i7 = float_gt(f5, 0.0)
+           guard_true(i7, descr=fdescr1) [f3, f5, f0] 
+           label(f0, f5, f3, descr=targettoken)
+           f8 = float_add(f3, f0)
+           f9 = float_sub(f5, 1.0)
+           i10 = float_gt(f9, 0.0)
+           guard_true(i10, descr=fdescr2) [f8, f9, f0]
+           jump(f0, f9, f8, descr=targettoken)
+           """
+        loop = self.interpret(ops, [6.0, 7.0, 0.0])
+        assert self.getfloat(0) == 42.0
+        assert 0
+        import pdb; pdb.set_trace()
