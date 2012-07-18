@@ -89,6 +89,7 @@ class W_Random(Wrappable):
             strerror = space.wrap("number of bits must be greater than zero")
             raise OperationError(space.w_ValueError, strerror)
         bytes = ((k - 1) // 32 + 1) * 4
+        assert bytes >= 0
         bytesarray = [0] * bytes
         for i in range(0, bytes, 4):
             r = self._rnd.genrand32()
