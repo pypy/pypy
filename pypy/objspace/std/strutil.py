@@ -2,6 +2,7 @@
 Pure Python implementation of string utilities.
 """
 
+from pypy.tool.sourcetools import with_unicode_literals
 from pypy.rlib.objectmodel import enforceargs
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rlib.rfloat import rstring_to_float, INFINITY, NAN
@@ -13,13 +14,14 @@ import math
 # This module is independent from PyPy.
 
 @enforceargs(unicode)
+@with_unicode_literals
 def strip_spaces(s):
     # XXX this is not locale-dependent
     p = 0
     q = len(s)
-    while p < q and s[p] in u' \f\n\r\t\v':
+    while p < q and s[p] in ' \f\n\r\t\v':
         p += 1
-    while p < q and s[q-1] in u' \f\n\r\t\v':
+    while p < q and s[q-1] in ' \f\n\r\t\v':
         q -= 1
     assert q >= p     # annotator hint, don't remove
     return s[p:q]
@@ -41,24 +43,25 @@ class NumberStringParser:
                                (self.fname, self.original_base, self.literal))
 
     @enforceargs(None, unicode, unicode, int, unicode)
+    @with_unicode_literals
     def __init__(self, s, literal, base, fname):
         self.literal = literal
         self.fname = fname
         sign = 1
-        if s.startswith(u'-'):
+        if s.startswith('-'):
             sign = -1
             s = strip_spaces(s[1:])
-        elif s.startswith(u'+'):
+        elif s.startswith('+'):
             s = strip_spaces(s[1:])
         self.sign = sign
         self.original_base = base
 
         if base == 0:
-            if s.startswith(u'0x') or s.startswith(u'0X'):
+            if s.startswith('0x') or s.startswith('0X'):
                 base = 16
-            elif s.startswith(u'0b') or s.startswith(u'0B'):
+            elif s.startswith('0b') or s.startswith('0B'):
                 base = 2
-            elif s.startswith(u'0'): # also covers the '0o' case
+            elif s.startswith('0'): # also covers the '0o' case
                 base = 8
             else:
                 base = 10
@@ -66,11 +69,11 @@ class NumberStringParser:
             raise ParseStringError, u"%s() base must be >= 2 and <= 36" % (fname,)
         self.base = base
 
-        if base == 16 and (s.startswith(u'0x') or s.startswith(u'0X')):
+        if base == 16 and (s.startswith('0x') or s.startswith('0X')):
             s = s[2:]
-        if base == 8 and (s.startswith(u'0o') or s.startswith(u'0O')):
+        if base == 8 and (s.startswith('0o') or s.startswith('0O')):
             s = s[2:]
-        if base == 2 and (s.startswith(u'0b') or s.startswith(u'0B')):
+        if base == 2 and (s.startswith('0b') or s.startswith('0B')):
             s = s[2:]
         if not s:
             self.error()
@@ -81,16 +84,17 @@ class NumberStringParser:
     def rewind(self):
         self.i = 0
 
+    @with_unicode_literals
     def next_digit(self): # -1 => exhausted
         if self.i < self.n:
             c = self.s[self.i]
             digit = ord(c)
-            if u'0' <= c <= u'9':
-                digit -= ord(u'0')
-            elif u'A' <= c <= u'Z':
-                digit = (digit - ord(u'A')) + 10
-            elif u'a' <= c <= u'z':
-                digit = (digit - ord(u'a')) + 10
+            if '0' <= c <= '9':
+                digit -= ord('0')
+            elif 'A' <= c <= 'Z':
+                digit = (digit - ord('A')) + 10
+            elif 'a' <= c <= 'z':
+                digit = (digit - ord('a')) + 10
             else:
                 self.error()
             if digit >= self.base:
@@ -162,6 +166,7 @@ del calc_mantissa_bits
 MANTISSA_DIGITS = len(str( (1L << MANTISSA_BITS)-1 )) + 1
 
 @enforceargs(unicode)
+@with_unicode_literals
 def string_to_float(s):
     """
     Conversion of string to float.
@@ -174,25 +179,30 @@ def string_to_float(s):
     s = strip_spaces(s)
 
     if not s:
-        raise ParseStringError(u"empty string for float()")
+        raise ParseStringError("empty string for float()")
 
 
     low = s.lower()
-    if low == u"-inf" or low == u"-infinity":
+    if low == "-inf" or low == "-infinity":
         return -INFINITY
-    elif low == u"inf" or low == u"+inf":
+    elif low == "inf" or low == "+inf":
         return INFINITY
-    elif low == u"infinity" or low == u"+infinity":
+    elif low == "infinity" or low == "+infinity":
         return INFINITY
-    elif low == u"nan" or low == u"+nan":
+    elif low == "nan" or low == "+nan":
         return NAN
-    elif low == u"-nan":
+    elif low == "-nan":
         return -NAN
 
     # rstring_to_float only supports byte strings, but we have an unicode
     # here. Do as CPython does: convert it to UTF-8
-    mystring = s.encode('utf-8')
+    mystring = encode_utf8(s)
     try:
         return rstring_to_float(mystring)
     except ValueError:
-        raise ParseStringError(u"invalid literal for float(): '%s'" % s)
+        raise ParseStringError("invalid literal for float(): '%s'" % s)
+
+# we need to put it in a separate function else 'utf-8' becomes an unicode
+# literal too
+def encode_utf8(s):
+    return s.encode('utf-8')
