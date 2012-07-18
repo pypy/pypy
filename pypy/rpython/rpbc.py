@@ -11,7 +11,7 @@ from pypy.rpython.rmodel import Repr, inputconst, CanBeNull, \
         mangle, inputdesc, warning, impossible_repr
 from pypy.rpython import rclass
 from pypy.rpython import robject
-from pypy.rpython.annlowlevel import llstr
+from pypy.rpython.annlowlevel import llstr, llunicode
 
 from pypy.rpython import callparse
 
@@ -611,6 +611,9 @@ class NoneFrozenPBCRepr(Repr):
 
     def ll_str(self, none):
         return llstr("None")
+
+    def ll_unicode(self, none):
+        return llunicode(u"None")
 
     def get_ll_hash_function(self):
         return ll_none_hash
