@@ -184,8 +184,12 @@ def string_to_float(s):
     try:
         ascii_s = s.encode('ascii')
     except UnicodeEncodeError:
-        # if it's not ASCII, it certainly is not one of the cases below
-        pass
+        # if s is not ASCII, it certainly is not a float literal (because the
+        # unicode-decimal to ascii-decimal conversion already happened
+        # earlier). We just set ascii_s to something which will fail when
+        # passed to rstring_to_float, to keep the code as similar as possible
+        # to the one we have on default
+        ascii_s = "not a float"
     else:
         low = ascii_s.lower()
         if low == "-inf" or low == "-infinity":
@@ -199,10 +203,9 @@ def string_to_float(s):
         elif low == "-nan":
             return -NAN
 
-    # rstring_to_float only supports byte strings, but we have an unicode
-    # here. Do as CPython does: convert it to UTF-8
-    mystring = s.encode('utf-8')
     try:
-        return rstring_to_float(mystring)
+        return rstring_to_float(ascii_s)
     except ValueError:
+        # note that we still put the original unicode string in the error
+        # message, not ascii_s
         raise ParseStringError(u"invalid literal for float(): '%s'" % s)
