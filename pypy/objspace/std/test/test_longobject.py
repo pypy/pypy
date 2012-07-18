@@ -323,3 +323,11 @@ class AppTestLong:
     def test_long_from_unicode(self):
         s = '\U0001D7CF\U0001D7CE' # 𝟏𝟎
         assert int(s) == 10
+
+    def test_invalid_literal_message(self):
+        try:
+            int('hello àèìò')
+        except ValueError as e:
+            assert 'hello àèìò' in e.message
+        else:
+            assert False, 'did not raise'

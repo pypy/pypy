@@ -37,6 +37,7 @@ class ParseStringOverflowError(Exception):
 class NumberStringParser:
 
     def error(self):
+        import pdb;pdb.set_trace()
         raise ParseStringError(u"invalid literal for %s() with base %d: '%s'" %
                                (self.fname, self.original_base, self.literal))
 
