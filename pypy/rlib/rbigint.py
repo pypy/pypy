@@ -20,8 +20,6 @@ SUPPORT_INT128 = rffi_platform.has('__int128', '')
 
 #SHIFT = (LONG_BIT // 2) - 1
 if SUPPORT_INT128:
-    rffi.TYPES += ["__int128"]
-    rffi.setup()
     SHIFT = 63
     BASE = long(1 << SHIFT)
     UDIGIT_TYPE = r_ulonglong
