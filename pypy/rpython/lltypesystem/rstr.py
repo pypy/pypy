@@ -170,6 +170,13 @@ class UnicodeRepr(BaseLLStringRepr, AbstractUnicodeRepr):
         return result
 
     @jit.elidable
+    def ll_unicode(self, s):
+        if s:
+            return s
+        else:
+            return self.convert_const(u'None')
+
+    @jit.elidable
     def ll_encode_latin1(self, s):
         length = len(s.chars)
         result = mallocstr(length)
@@ -985,8 +992,13 @@ class LLHelpers(AbstractLLHelpers):
                 vitem, r_arg = argsiter.next()
                 if not hasattr(r_arg, 'll_str'):
                     raise TyperError("ll_str unsupported for: %r" % r_arg)
-                if code == 's' or (code == 'r' and isinstance(r_arg, InstanceRepr)):
-                    # XXX: if it's unicode we don't want to call ll_str
+                if code == 's':
+                    if is_unicode:
+                        # only UniCharRepr and UnicodeRepr has it so far
+                        vchunk = hop.gendirectcall(r_arg.ll_unicode, vitem)
+                    else:
+                        vchunk = hop.gendirectcall(r_arg.ll_str, vitem)
+                elif code == 'r' and isinstance(r_arg, InstanceRepr):
                     vchunk = hop.gendirectcall(r_arg.ll_str, vitem)
                 elif code == 'd':
                     assert isinstance(r_arg, IntegerRepr)
