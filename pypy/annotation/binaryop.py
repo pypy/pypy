@@ -614,6 +614,8 @@ class __extend__(pairtype(SomeTuple, SomeInteger)):
 class __extend__(pairtype(SomeList, SomeInteger)):
     
     def mul((lst1, int2)):
+        if not int2.nonneg:
+            raise TypeError("in [item] * times, times must be proven non-negative")
         return lst1.listdef.offspring()
 
     def getitem((lst1, int2)):

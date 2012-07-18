@@ -295,6 +295,8 @@ class __extend__(pairtype(AbstractBaseListRepr, IntegerRepr)):
     def rtype_mul((r_lst, r_int), hop):
         cRESLIST = hop.inputconst(Void, hop.r_result.LIST)
         v_lst, v_factor = hop.inputargs(r_lst, Signed)
+        if not hop.args_s[1].nonneg:
+            raise TypeError("in [item] * times, times must be proven non-negative")
         return hop.gendirectcall(ll_mul, cRESLIST, v_lst, v_factor)
 
 

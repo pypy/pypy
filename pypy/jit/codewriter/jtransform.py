@@ -1430,8 +1430,6 @@ class Transformer(object):
 
     def do_fixed_newlist(self, op, args, arraydescr):
         v_length = self._get_initial_newlist_length(op, args)
-        if v_length.concretetype == lltype.Signed:
-            raise Exception("[item] * lgt must have lgt to be proven non-negative for the JIT")
         return SpaceOperation('new_array', [arraydescr, v_length], op.result)
 
     def do_fixed_list_len(self, op, args, arraydescr):
