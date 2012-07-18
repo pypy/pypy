@@ -24,8 +24,6 @@ def descr__new__(space, w_longtype, w_x=0, w_base=gateway.NoneNotWrapped):
             return w_value
         elif type(w_value) is W_LongObject:
             return newbigint(space, w_longtype, w_value.num)
-        elif space.isinstance_w(w_value, space.w_str):
-            return string_to_w_long(space, w_longtype, space.str_w(w_value))
         elif space.isinstance_w(w_value, space.w_unicode):
             if space.config.objspace.std.withropeunicode:
                 from pypy.objspace.std.ropeunicodeobject import unicode_to_decimal_w
