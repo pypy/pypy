@@ -651,6 +651,7 @@ def _setitem_slice_helper(space, items, start, step, slicelength, sequence2,
             delta = -delta
             newsize = oldsize + delta
             # XXX support this in rlist!
+            assert delta >= 0
             items += [empty_elem] * delta
             lim = start+len2
             i = newsize - 1
