@@ -479,6 +479,9 @@ class W_CPPScope(Wrappable):
             overload = W_CPPOverload(self.space, self, methods[:])
             self.methods[pyname] = overload
 
+    def full_name(self):
+        return capi.c_scoped_final_name(self.handle)
+
     def get_method_names(self):
         return self.space.newlist([self.space.wrap(name) for name in self.methods])
 

@@ -46,15 +46,12 @@ with rffi.scoped_str2charp('libCint.so') as ll_libname:
     _cintdll = rdynload.dlopen(ll_libname, rdynload.RTLD_GLOBAL | rdynload.RTLD_NOW)
 with rffi.scoped_str2charp('libCore.so') as ll_libname:
     _coredll = rdynload.dlopen(ll_libname, rdynload.RTLD_GLOBAL | rdynload.RTLD_NOW)
-#with rffi.scoped_str2charp('libTree.so') as ll_libname:
-#    _coredll = rdynload.dlopen(ll_libname, rdynload.RTLD_GLOBAL | rdynload.RTLD_NOW)
 
 eci = ExternalCompilationInfo(
     separate_module_files=[srcpath.join("cintcwrapper.cxx")],
     include_dirs=[incpath] + rootincpath,
     includes=["cintcwrapper.h"],
     library_dirs=rootlibpath,
-#    link_extra=["-lCore", "-lCint", "-lTree"],
     link_extra=["-lCore", "-lCint"],
     use_cpp_linker=True,
 )
@@ -124,15 +121,15 @@ def ttree_Branch(space, w_self, args_w):
         if addr_idx+2 < argc: splitlevel = space.c_int_w(args_w[addr_idx+2])
 
         # now retrieve the W_CPPInstance and build other stub arguments
+        space = tree.space    # holds the class cache in State
         cppinstance = space.interp_w(interp_cppyy.W_CPPInstance, w_address)
         address = rffi.cast(rffi.VOIDP, cppinstance.get_rawobject())
-        klassname = cppinstance.cppclass.name
+        klassname = cppinstance.cppclass.full_name()
         vtree = rffi.cast(rffi.VOIDP, tree.get_rawobject())
 
         # call the helper stub to by-pass CINT
         vbranch = _ttree_Branch(vtree, branchname, klassname, address, bufsize, splitlevel)
         branch_class = interp_cppyy.scope_byname(space, "TBranch")
-        space = tree.space    # holds the class cache in State
         w_branch = interp_cppyy.wrap_cppobject(
             space, space.w_None, branch_class, vbranch, isref=False, python_owns=False)
         return w_branch
@@ -176,7 +173,7 @@ class W_TTreeIter(interp_itertools.W_Count):
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
         w_c = self.w_c
         self.w_c = self.space.add(w_c, self.w_step)
-        return w_c
+        return self.w_tree
 
 W_TTreeIter.typedef = TypeDef(
     'TTreeIter',

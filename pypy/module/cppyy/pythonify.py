@@ -333,7 +333,11 @@ def _pythonize(pyclass):
                 setattr(pyclass, '__ne__', gbl.__gnu_cxx.__ne__)
 
     # map begin()/end() protocol to iter protocol
-    if hasattr(pyclass, 'begin') and hasattr(pyclass, 'end'):
+    # TODO: the vector hack is there b/c it's safer/faster to use the normal
+    # index iterator (with len checking) rather than the begin()/end() iterators
+    if not 'vector' in pyclass.__name__ and \
+            (hasattr(pyclass, 'begin') and hasattr(pyclass, 'end')):
+        # TODO: check return type of begin() and end() for existence
         def __iter__(self):
             iter = self.begin()
             while iter != self.end():

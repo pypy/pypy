@@ -914,6 +914,6 @@ cppyy_object_t cppyy_ttree_Branch(void* vtree, const char* branchname, const cha
         void* addobj, int bufsize, int splitlevel) {
     // this little song-and-dance is to by-pass the handwritten Branch methods
     TBranch* b = ((TTree*)vtree)->Bronch(branchname, classname, (void*)&addobj, bufsize, splitlevel);
-    b->SetObject(addobj);
+    if (b) b->SetObject(addobj);
     return (cppyy_object_t)b;
 }

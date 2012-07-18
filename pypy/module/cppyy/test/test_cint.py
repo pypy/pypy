@@ -8,7 +8,17 @@ from pypy.module.cppyy import capi
 if capi.identify() != 'CINT':
     py.test.skip("backend-specific: CINT-only tests")
 
+currpath = py.path.local(__file__).dirpath()
+iotypes_dct = str(currpath.join("iotypesDict.so"))
+
 space = gettestobjspace(usemodules=['cppyy'])
+
+def setup_module(mod):
+    if sys.platform == 'win32':
+        py.test.skip("win32 not supported so far")
+    err = os.system("cd '%s' && make CINT=t iotypesDict.so" % currpath)
+    if err:
+        raise OSError("'make' failed (see stderr)")
 
 class AppTestCINT:
     def setup_class(cls):
@@ -118,8 +128,9 @@ class AppTestCINTTTree:
         cls.w_fname = space.wrap("test.root")
         cls.w_tname = space.wrap("test")
         cls.w_title = space.wrap("test tree")
-        cls.space.appexec([], """():
-            import cppyy""")
+        cls.w_iotypes = cls.space.appexec([], """():
+            import cppyy
+            return cppyy.load_reflection_info(%r)""" % (iotypes_dct,))
 
     def test01_write_stdvector( self ):
         """Test writing of a single branched TTree with an std::vector<double>"""
@@ -129,19 +140,19 @@ class AppTestCINTTTree:
         from cppyy.gbl.std import vector
 
         f = TFile(self.fname, "RECREATE")
-        t = TTree(self.tname, self.title)
-        t._python_owns = False
+        mytree = TTree(self.tname, self.title)
+        mytree._python_owns = False
 
         v = vector("double")()
         raises(TypeError, TTree.Branch, None, "mydata", v.__class__.__name__, v)
         raises(TypeError, TTree.Branch, v, "mydata", v.__class__.__name__, v)
 
-        t.Branch("mydata", v.__class__.__name__, v)
+        mytree.Branch("mydata", v.__class__.__name__, v)
 
         for i in range(self.N):
             for j in range(self.M):
                 v.push_back(i*self.M+j)
-            t.Fill()
+            mytree.Fill()
             v.clear()
         f.Write()
         f.Close()
@@ -149,7 +160,7 @@ class AppTestCINTTTree:
     def test02_read_stdvector(self):
         """Test reading of a single branched TTree with an std::vector<double>"""
 
-        from cppyy import gbl               # bootstraps, only needed for tests
+        from cppyy import gbl
         from cppyy.gbl import TFile
 
         f = TFile(self.fname)
@@ -157,9 +168,57 @@ class AppTestCINTTTree:
 
         i = 0
         for event in mytree:
-            for entry in mytree.mydata:
+            for entry in event.mydata:
                 assert i == int(entry)
                 i += 1
         assert i == self.N * self.M
 
+        f.Close()
+
+    def test03_write_some_data_object(self):
+        """Test writing of a complex data object"""
+
+        from cppyy import gbl
+        from cppyy.gbl import TFile, TTree, IO
+        from cppyy.gbl.IO import SomeDataObject
+
+        f = TFile(self.fname, "RECREATE")
+        mytree = TTree(self.tname, self.title)
+
+        d = SomeDataObject()
+        b = mytree.Branch("data", d)
+        mytree._python_owns = False
+        assert b
+
+        for i in range(self.N):
+            for j in range(self.M):
+                d.add_float(i*self.M+j)
+            d.add_tuple(d.get_floats())
+
+            mytree.Fill()
+
+        f.Write()
+        f.Close()
+
+    def test04_read_some_data_object(self):
+        """Test reading of a complex data object"""
+
+        from cppyy import gbl
+        from cppyy.gbl import TFile
+
+        f = TFile(self.fname)
+        mytree = f.Get(self.tname)
+
+        for event in mytree:
+            i = 0
+            for entry in event.data.get_floats():
+                assert i == int(entry)
+                i += 1
+
+            for mytuple in event.data.get_tuples():
+                i = 0
+                for entry in mytuple:
+                    assert i == int(entry)
+                    i += 1
+        #
         f.Close()
