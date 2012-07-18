@@ -1,4 +1,5 @@
 from pypy.tool.pairtype import pairtype
+from pypy.annotation import model as annmodel
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rpython.error import TyperError
 from pypy.rpython.rstr import AbstractStringRepr,AbstractCharRepr,\
@@ -312,6 +313,7 @@ class LLHelpers(AbstractLLHelpers):
         string_repr = hop.rtyper.type_system.rstr.string_repr
         s_str = hop.args_s[0]
         assert s_str.is_constant()
+        is_unicode = isinstance(s_str, annmodel.SomeUnicodeString)
         s = s_str.const
 
         c_append = hop.inputconst(ootype.Void, 'll_append')
@@ -320,8 +322,15 @@ class LLHelpers(AbstractLLHelpers):
         c8 = hop.inputconst(ootype.Signed, 8)
         c10 = hop.inputconst(ootype.Signed, 10)
         c16 = hop.inputconst(ootype.Signed, 16)
-        c_StringBuilder = hop.inputconst(ootype.Void, ootype.StringBuilder)
-        v_buf = hop.genop("new", [c_StringBuilder], resulttype=ootype.StringBuilder)
+        if is_unicode:
+            StringBuilder = ootype.UnicodeBuilder
+            RESULT = ootype.Unicode
+        else:
+            StringBuilder = ootype.StringBuilder
+            RESULT = ootype.String
+            
+        c_StringBuilder = hop.inputconst(ootype.Void, StringBuilder)
+        v_buf = hop.genop("new", [c_StringBuilder], resulttype=StringBuilder)
 
         things = cls.parse_fmt_string(s)
         argsiter = iter(sourcevarsrepr)
@@ -348,13 +357,19 @@ class LLHelpers(AbstractLLHelpers):
                 else:
                     raise TyperError, "%%%s is not RPython" % (code, )
             else:
-                vchunk = hop.inputconst(string_repr, thing)
-            #i = inputconst(Signed, i)
-            #hop.genop('setarrayitem', [vtemp, i, vchunk])
+                if is_unicode:
+                    vchunk = hop.inputconst(unicode_repr, thing)
+                else:
+                    vchunk = hop.inputconst(string_repr, thing)
+            if is_unicode and vchunk.concretetype != ootype.Unicode:
+                # if we are here, one of the ll_str.* functions returned some
+                # STR, so we convert it to unicode. It's a bit suboptimal
+                # because we do one extra copy.
+                vchunk = hop.gendirectcall(cls.ll_str2unicode, vchunk)
             hop.genop('oosend', [c_append, v_buf, vchunk], resulttype=ootype.Void)
 
         hop.exception_cannot_occur()   # to ignore the ZeroDivisionError of '%'
-        return hop.genop('oosend', [c_build, v_buf], resulttype=ootype.String)
+        return hop.genop('oosend', [c_build, v_buf], resulttype=RESULT)
     do_stringformat = classmethod(do_stringformat)
 
 
