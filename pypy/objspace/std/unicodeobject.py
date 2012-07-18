@@ -557,6 +557,7 @@ def unicode_center__Unicode_ANY_ANY(space, w_self, w_width, w_fillchar):
     if padding < 0:
         return w_self.create_if_subclassed()
     leftpad = padding // 2 + (padding & width & 1)
+    assert width >= 0
     result = [fillchar] * width
     for i in range(len(self)):
         result[leftpad + i] = self[i]
@@ -569,6 +570,7 @@ def unicode_ljust__Unicode_ANY_ANY(space, w_self, w_width, w_fillchar):
     padding = width - len(self)
     if padding < 0:
         return w_self.create_if_subclassed()
+    assert width >= 0
     result = [fillchar] * width
     for i in range(len(self)):
         result[i] = self[i]
@@ -581,6 +583,7 @@ def unicode_rjust__Unicode_ANY_ANY(space, w_self, w_width, w_fillchar):
     padding = width - len(self)
     if padding < 0:
         return w_self.create_if_subclassed()
+    assert width >= 0
     result = [fillchar] * width
     for i in range(len(self)):
         result[padding + i] = self[i]
@@ -590,6 +593,8 @@ def unicode_zfill__Unicode_ANY(space, w_self, w_width):
     self = w_self._value
     width = space.int_w(w_width)
     if len(self) == 0:
+        if width < 0:
+            width = 0
         return W_UnicodeObject(u'0' * width)
     padding = width - len(self)
     if padding <= 0:
