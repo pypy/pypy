@@ -166,7 +166,6 @@ del calc_mantissa_bits
 MANTISSA_DIGITS = len(str( (1L << MANTISSA_BITS)-1 )) + 1
 
 @enforceargs(unicode)
-@with_unicode_literals
 def string_to_float(s):
     """
     Conversion of string to float.
@@ -179,30 +178,31 @@ def string_to_float(s):
     s = strip_spaces(s)
 
     if not s:
-        raise ParseStringError("empty string for float()")
+        raise ParseStringError(u"empty string for float()")
 
 
-    low = s.lower()
-    if low == "-inf" or low == "-infinity":
-        return -INFINITY
-    elif low == "inf" or low == "+inf":
-        return INFINITY
-    elif low == "infinity" or low == "+infinity":
-        return INFINITY
-    elif low == "nan" or low == "+nan":
-        return NAN
-    elif low == "-nan":
-        return -NAN
+    try:
+        ascii_s = s.encode('ascii')
+    except UnicodeEncodeError:
+        # if it's not ASCII, it certainly is not one of the cases below
+        pass
+    else:
+        low = ascii_s.lower()
+        if low == "-inf" or low == "-infinity":
+            return -INFINITY
+        elif low == "inf" or low == "+inf":
+            return INFINITY
+        elif low == "infinity" or low == "+infinity":
+            return INFINITY
+        elif low == "nan" or low == "+nan":
+            return NAN
+        elif low == "-nan":
+            return -NAN
 
     # rstring_to_float only supports byte strings, but we have an unicode
     # here. Do as CPython does: convert it to UTF-8
-    mystring = encode_utf8(s)
+    mystring = s.encode('utf-8')
     try:
         return rstring_to_float(mystring)
     except ValueError:
-        raise ParseStringError("invalid literal for float(): '%s'" % s)
-
-# we need to put it in a separate function else 'utf-8' becomes an unicode
-# literal too
-def encode_utf8(s):
-    return s.encode('utf-8')
+        raise ParseStringError(u"invalid literal for float(): '%s'" % s)
