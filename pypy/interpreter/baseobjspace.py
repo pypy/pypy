@@ -873,6 +873,7 @@ class ObjSpace(object):
     @jit.unroll_safe
     def _unpackiterable_known_length_jitlook(self, w_iterator,
                                              expected_length):
+        assert expected_length >= 0
         items = [None] * expected_length
         idx = 0
         while True:
