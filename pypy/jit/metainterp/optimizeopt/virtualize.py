@@ -241,6 +241,7 @@ class VArrayValue(AbstractVirtualValue):
         AbstractVirtualValue.__init__(self, keybox, source_op)
         self.arraydescr = arraydescr
         self.constvalue = constvalue
+        assert size >= 0
         self._items = [self.constvalue] * size
 
     def getlength(self):
