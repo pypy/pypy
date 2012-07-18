@@ -174,7 +174,7 @@ class UnicodeRepr(BaseLLStringRepr, AbstractUnicodeRepr):
         if s:
             return s
         else:
-            return self.convert_const(u'None')
+            return self.ll.ll_constant(u'None')
 
     @jit.elidable
     def ll_encode_latin1(self, s):
@@ -964,7 +964,12 @@ class LLHelpers(AbstractLLHelpers):
         return LLHelpers.ll_join_strs(len(builder), builder)
 
     def ll_constant(s):
-        return string_repr.convert_const(s)
+        if isinstance(s, str):
+            return string_repr.convert_const(s)
+        elif isinstance(s, unicode):
+            return unicode_repr.convert_const(s)
+        else:
+            assert False
     ll_constant._annspecialcase_ = 'specialize:memo'
 
     def do_stringformat(cls, hop, sourcevarsrepr):

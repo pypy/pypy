@@ -198,11 +198,15 @@ class BaseTestRUnicode(AbstractTestRstr):
 
     def test_strformat_unicode_arg(self):
         const = self.const
-        def percentS(s):
+        def percentS(s, i):
+            s = [s, None][i]
             return const("before %s after") % (s,)
         #
-        res = self.interpret(percentS, [const(u'à')])
+        res = self.interpret(percentS, [const(u'à'), 0])
         assert self.ll_to_string(res) == const(u'before à after')
+        #
+        res = self.interpret(percentS, [const(u'à'), 1])
+        assert self.ll_to_string(res) == const(u'before None after')
         #
 
     def unsupported(self):
