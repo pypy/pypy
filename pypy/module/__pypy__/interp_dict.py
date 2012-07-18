@@ -1,6 +1,6 @@
 
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.interpreter.error import operationerrfmt
+from pypy.interpreter.error import operationerrfmt, OperationError
 from pypy.objspace.std.dictmultiobject import W_DictMultiObject
 
 @unwrap_spec(type=str)
@@ -19,5 +19,6 @@ def newdict(space, type):
 
 def dictstrategy(space, w_obj):
     if not isinstance(w_obj, W_DictMultiObject):
-        raise operationerrfmt(space.w_TypeError, "expecting dict object")
+        raise OperationError(space.w_TypeError,
+                             space.wrap("expecting dict object"))
     return space.wrap(w_obj.strategy.__class__.__name__)
