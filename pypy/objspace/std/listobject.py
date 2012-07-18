@@ -841,6 +841,7 @@ class AbstractUnwrappedStrategy(object):
                 delta = -delta
                 newsize = oldsize + delta
                 # XXX support this in rlist!
+                assert delta >= 0
                 items += [self._none_value] * delta
                 lim = start+len2
                 i = newsize - 1
