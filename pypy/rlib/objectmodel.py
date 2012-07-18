@@ -3,9 +3,11 @@ This file defines utilities for manipulating objects in an
 RPython-compliant way.
 """
 
+import py
 import sys
 import types
 import math
+import inspect
 
 # specialize is a decorator factory for attaching _annspecialcase_
 # attributes to functions: for example
@@ -106,15 +108,68 @@ class _Specialize(object):
 
 specialize = _Specialize()
 
-def enforceargs(*args):
+def enforceargs(*types, **kwds):
     """ Decorate a function with forcing of RPython-level types on arguments.
     None means no enforcing.
 
-    XXX shouldn't we also add asserts in function body?
+    When not translated, the type of the actual arguments are checked against
+    the enforced types every time the function is called. You can disable the
+    typechecking by passing ``typecheck=False`` to @enforceargs.
     """
+    typecheck = kwds.pop('typecheck', True)
+    if kwds:
+        raise TypeError, 'got an unexpected keyword argument: %s' % kwds.keys()
+    if not typecheck:
+        def decorator(f):
+            f._annenforceargs_ = types
+            return f
+        return decorator
+    #
+    from pypy.annotation.signature import annotationoftype
+    from pypy.annotation.model import SomeObject
     def decorator(f):
-        f._annenforceargs_ = args
-        return f
+        def get_annotation(t):
+            if isinstance(t, SomeObject):
+                return t
+            return annotationoftype(t)
+        def typecheck(*args):
+            for i, (expected_type, arg) in enumerate(zip(types, args)):
+                if expected_type is None:
+                    continue
+                s_expected = get_annotation(expected_type)
+                s_argtype = get_annotation(type(arg))
+                if not s_expected.contains(s_argtype):
+                    msg = "%s argument number %d must be of type %s" % (
+                        f.func_name, i+1, expected_type)
+                    raise TypeError, msg
+        #
+        # we cannot simply wrap the function using *args, **kwds, because it's
+        # not RPython. Instead, we generate a function with exactly the same
+        # argument list
+        argspec = inspect.getargspec(f)
+        assert len(argspec.args) == len(types), (
+            'not enough types provided: expected %d, got %d' %
+            (len(types), len(argspec.args)))
+        assert not argspec.varargs, '*args not supported by enforceargs'
+        assert not argspec.keywords, '**kwargs not supported by enforceargs'
+        #
+        arglist = ', '.join(argspec.args)
+        src = py.code.Source("""
+            def {name}({arglist}):
+                if not we_are_translated():
+                    typecheck({arglist})
+                return {name}_original({arglist})
+        """.format(name=f.func_name, arglist=arglist))
+        #
+        mydict = {f.func_name + '_original': f,
+                  'typecheck': typecheck,
+                  'we_are_translated': we_are_translated}
+        exec src.compile() in mydict
+        result = mydict[f.func_name]
+        result.func_defaults = f.func_defaults
+        result.func_dict.update(f.func_dict)
+        result._annenforceargs_ = types
+        return result
     return decorator
 
 # ____________________________________________________________

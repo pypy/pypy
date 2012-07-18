@@ -1,5 +1,6 @@
 from weakref import WeakValueDictionary
 from pypy.tool.pairtype import pairtype
+from pypy.annotation import model as annmodel
 from pypy.rpython.error import TyperError
 from pypy.rlib.objectmodel import malloc_zero_filled, we_are_translated
 from pypy.rlib.objectmodel import _hash_string, enforceargs
@@ -167,6 +168,13 @@ class UnicodeRepr(BaseLLStringRepr, AbstractUnicodeRepr):
                 raise UnicodeEncodeError("character not in ascii range")
             result.chars[i] = cast_primitive(Char, c)
         return result
+
+    @jit.elidable
+    def ll_unicode(self, s):
+        if s:
+            return s
+        else:
+            return self.convert_const(u'None')
 
     @jit.elidable
     def ll_encode_latin1(self, s):
@@ -962,13 +970,18 @@ class LLHelpers(AbstractLLHelpers):
     def do_stringformat(cls, hop, sourcevarsrepr):
         s_str = hop.args_s[0]
         assert s_str.is_constant()
+        is_unicode = isinstance(s_str, annmodel.SomeUnicodeString)
+        if is_unicode:
+            TEMPBUF = TEMP_UNICODE
+        else:
+            TEMPBUF = TEMP
         s = s_str.const
         things = cls.parse_fmt_string(s)
         size = inputconst(Signed, len(things)) # could be unsigned?
-        cTEMP = inputconst(Void, TEMP)
+        cTEMP = inputconst(Void, TEMPBUF)
         cflags = inputconst(Void, {'flavor': 'gc'})
         vtemp = hop.genop("malloc_varsize", [cTEMP, cflags, size],
-                          resulttype=Ptr(TEMP))
+                          resulttype=Ptr(TEMPBUF))
 
         argsiter = iter(sourcevarsrepr)
 
@@ -979,7 +992,13 @@ class LLHelpers(AbstractLLHelpers):
                 vitem, r_arg = argsiter.next()
                 if not hasattr(r_arg, 'll_str'):
                     raise TyperError("ll_str unsupported for: %r" % r_arg)
-                if code == 's' or (code == 'r' and isinstance(r_arg, InstanceRepr)):
+                if code == 's':
+                    if is_unicode:
+                        # only UniCharRepr and UnicodeRepr has it so far
+                        vchunk = hop.gendirectcall(r_arg.ll_unicode, vitem)
+                    else:
+                        vchunk = hop.gendirectcall(r_arg.ll_str, vitem)
+                elif code == 'r' and isinstance(r_arg, InstanceRepr):
                     vchunk = hop.gendirectcall(r_arg.ll_str, vitem)
                 elif code == 'd':
                     assert isinstance(r_arg, IntegerRepr)
@@ -999,9 +1018,17 @@ class LLHelpers(AbstractLLHelpers):
                 else:
                     raise TyperError, "%%%s is not RPython" % (code, )
             else:
-                from pypy.rpython.lltypesystem.rstr import string_repr
-                vchunk = inputconst(string_repr, thing)
+                from pypy.rpython.lltypesystem.rstr import string_repr, unicode_repr
+                if is_unicode:
+                    vchunk = inputconst(unicode_repr, thing)
+                else:
+                    vchunk = inputconst(string_repr, thing)
             i = inputconst(Signed, i)
+            if is_unicode and vchunk.concretetype != Ptr(UNICODE):
+                # if we are here, one of the ll_str.* functions returned some
+                # STR, so we convert it to unicode. It's a bit suboptimal
+                # because we do one extra copy.
+                vchunk = hop.gendirectcall(cls.ll_str2unicode, vchunk)
             hop.genop('setarrayitem', [vtemp, i, vchunk])
 
         hop.exception_cannot_occur()   # to ignore the ZeroDivisionError of '%'
@@ -1009,6 +1036,7 @@ class LLHelpers(AbstractLLHelpers):
     do_stringformat = classmethod(do_stringformat)
 
 TEMP = GcArray(Ptr(STR))
+TEMP_UNICODE = GcArray(Ptr(UNICODE))
 
 # ____________________________________________________________
 
