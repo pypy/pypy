@@ -494,7 +494,7 @@ class TestSpecialCases(_LLVMMixin):
         t = Translation(f, [], backend='llvm', secondaryentrypoints=key,
                         gcremovetypeptr=False)
         t.annotate()
-        t.compile_llvm()
+        t.source_llvm()
         assert 'define i64 @foobar' in t.driver.llvmgen.base_path.new(
                 ext='.ll').read()
 
