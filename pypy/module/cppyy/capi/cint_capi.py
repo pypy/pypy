@@ -3,6 +3,7 @@ import py, os, sys
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.baseobjspace import Wrappable
 
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rpython.lltypesystem import rffi
@@ -139,20 +140,21 @@ def ttree_Branch(space, w_self, args_w):
     # return control back to the original, unpythonized overload
     return tree_class.get_overload("Branch").call(w_self, args_w)
 
-class W_TTreeIter(interp_itertools.W_Count):
-    def __init__(self, space, w_firstval, w_step):
-        interp_itertools.W_Count.__init__(self, space, w_firstval, w_step)
-        self.w_tree = space.w_None
-
-    def set_tree(self, space, w_tree):
+class W_TTreeIter(Wrappable):
+    def __init__(self, space, w_tree):
+        self.current = 0
         self.w_tree = w_tree
+        from pypy.module.cppyy import interp_cppyy
+        tree = space.interp_w(interp_cppyy.W_CPPInstance, self.w_tree)
+        self.tree = tree.get_cppthis(tree.cppclass)
+        self.getentry = tree.cppclass.get_overload("GetEntry").functions[0]
+
+        # setup data members if this is the first iteration time
         try:
-            space.getattr(self.w_tree, space.wrap("_pythonized"))
+            space.getattr(w_tree, space.wrap("_pythonized"))
         except OperationError:
-            from pypy.module.cppyy import interp_cppyy
-            tree = space.interp_w(interp_cppyy.W_CPPInstance, self.w_tree)
             self.space = space = tree.space       # holds the class cache in State
-            w_branches = space.call_method(self.w_tree, "GetListOfBranches")
+            w_branches = space.call_method(w_tree, "GetListOfBranches")
             for i in range(space.int_w(space.call_method(w_branches, "GetEntriesFast"))):
                 w_branch = space.call_method(w_branches, "At", space.wrap(i))
                 w_name = space.call_method(w_branch, "GetName")
@@ -161,18 +163,17 @@ class W_TTreeIter(interp_itertools.W_Count):
                 w_obj = klass.construct()
                 space.call_method(w_branch, "SetObject", w_obj)
                 # cache the object and define this tree pythonized
-                space.setattr(self.w_tree, w_name, w_obj)
-                space.setattr(self.w_tree, space.wrap("_pythonized"), space.w_True)
+                space.setattr(w_tree, w_name, w_obj)
+                space.setattr(w_tree, space.wrap("_pythonized"), space.w_True)
 
     def iter_w(self):
         return self.space.wrap(self)
 
     def next_w(self):
-        w_bytes_read = self.space.call_method(self.w_tree, "GetEntry", self.w_c)
+        w_bytes_read = self.getentry.call(self.tree, [self.space.wrap(self.current)])
         if not self.space.is_true(w_bytes_read):
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
-        w_c = self.w_c
-        self.w_c = self.space.add(w_c, self.w_step)
+        self.current += 1 
         return self.w_tree
 
 W_TTreeIter.typedef = TypeDef(
@@ -181,12 +182,10 @@ W_TTreeIter.typedef = TypeDef(
     next = interp2app(W_TTreeIter.next_w),
 )
 
-@unwrap_spec(args_w='args_w')
-def ttree_iter(space, w_self, args_w):
+def ttree_iter(space, w_self):
     """Allow iteration over TTree's. Also initializes branch data members and
     sets addresses, if needed."""
-    w_treeiter = W_TTreeIter(space, space.wrap(0), space.wrap(1))
-    w_treeiter.set_tree(space, w_self)
+    w_treeiter = W_TTreeIter(space, w_self)
     return w_treeiter
 
 # setup pythonizations for later use at run-time
