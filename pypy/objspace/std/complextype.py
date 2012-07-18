@@ -1,3 +1,4 @@
+from pypy.tool.sourcetools import with_unicode_literals
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.objspace.std.register_all import register_all
@@ -16,6 +17,7 @@ complex_conjugate = StdObjSpaceMultiMethod('conjugate', 1,
 
 register_all(vars(),globals())
 
+@with_unicode_literals
 def _split_complex(s):
     slen = len(s)
     if slen == 0:
@@ -135,7 +137,7 @@ def descr__new__(space, w_complextype, w_real=0.0, w_imag=None):
                                  space.wrap("complex() can't take second arg"
                                             " if first is a string"))
         try:
-            realstr, imagstr = _split_complex(space.str_w(w_real))
+            realstr, imagstr = _split_complex(space.unicode_w(w_real))
         except ValueError:
             raise OperationError(space.w_ValueError, space.wrap(ERR_MALFORMED))
         try:
