@@ -515,9 +515,7 @@ class AppTestAppComplexTest:
         assert format(1.5e20+3j, '^40,.2f') == '  150,000,000,000,000,000,000.00+3.00j  '
         assert format(1.5e21+3j, '^40,.2f') == ' 1,500,000,000,000,000,000,000.00+3.00j '
         assert format(1.5e21+3000j, ',.2f') == '1,500,000,000,000,000,000,000.00+3,000.00j'
-
-        # alternate is invalid
-        raises(ValueError, (1.5+0.5j).__format__, '#f')
+        assert format(1.5+0.5j, '#f') == '1.500000+0.500000j'
 
         # zero padding is invalid
         raises(ValueError, (1.5+0.5j).__format__, '010f')
