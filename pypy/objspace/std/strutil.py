@@ -193,4 +193,4 @@ def string_to_float(s):
     try:
         return rstring_to_float(mystring)
     except ValueError:
-        raise ParseStringError(u"invalid literal for float()")
+        raise ParseStringError(u"invalid literal for float(): '%s'" % s)

@@ -429,6 +429,7 @@ def test_enforceargs_decorator():
     exc = py.test.raises(TypeError, "f(1, 2, 3)")
     assert exc.value.message == "f argument number 2 must be of type <type 'str'>"
     py.test.raises(TypeError, "f('hello', 'world', 3)")
+    
 
 def test_enforceargs_defaults():
     @enforceargs(int, int)

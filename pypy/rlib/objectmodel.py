@@ -112,7 +112,9 @@ def enforceargs(*types, **kwds):
     """ Decorate a function with forcing of RPython-level types on arguments.
     None means no enforcing.
 
-    XXX shouldn't we also add asserts in function body?
+    When not translated, the type of the actual arguments are checked against
+    the enforced types every time the function is called. You can disable the
+    typechecking by passing ``typecheck=False`` to @enforceargs.
     """
     typecheck = kwds.pop('typecheck', True)
     if kwds:
