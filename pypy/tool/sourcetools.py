@@ -6,6 +6,7 @@
 # XXX We should try to generalize and single out one approach to dynamic
 # XXX code compilation.
 
+import types
 import sys, os, inspect, new
 import autopath, py
 
@@ -268,3 +269,29 @@ def nice_repr_for_func(fn, name=None):
     except AttributeError:
         firstlineno = -1
     return "(%s:%d)%s" % (mod or '?', firstlineno, name or 'UNKNOWN')
+
+def with_unicode_literals(fn=None, **kwds):
+    encoding = kwds.pop('encoding', 'ascii')
+    if kwds:
+        raise TypeError("Unexpected keyword argument(s): %s" % ', '.join(kwds.keys()))
+    def decorator(fn):
+        co = fn.func_code
+        new_consts = []
+        for const in co.co_consts:
+            if isinstance(const, str):
+                const = const.decode(encoding)
+            new_consts.append(const)
+        new_consts = tuple(new_consts)
+        new_code = types.CodeType(co.co_argcount, co.co_nlocals, co.co_stacksize,
+                                  co.co_flags, co.co_code, new_consts, co.co_names,
+                                  co.co_varnames, co.co_filename, co.co_name,
+                                  co.co_firstlineno, co.co_lnotab)
+        fn.func_code = new_code
+        return fn
+    #
+    # support the usage of @with_unicode_literals instead of @with_unicode_literals()
+    if fn is not None:
+        assert type(fn) is types.FunctionType
+        return decorator(fn)
+    else:
+        return decorator

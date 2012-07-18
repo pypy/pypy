@@ -1,4 +1,6 @@
-from pypy.tool.sourcetools import func_with_new_name, func_renamer
+# -*- encoding: utf-8 -*-
+import py
+from pypy.tool.sourcetools import func_with_new_name, func_renamer, with_unicode_literals
 
 def test_rename():
     def f(x, y=5):
@@ -34,3 +36,24 @@ def test_func_rename_decorator():
     bar3 = func_with_new_name(bar, 'bar3')
     assert bar3.func_doc == 'new doc'
     assert bar2.func_doc != bar3.func_doc
+
+
+def test_with_unicode_literals():
+    @with_unicode_literals()
+    def foo():
+        return 'hello'
+    assert type(foo()) is unicode
+    #
+    @with_unicode_literals
+    def foo():
+        return 'hello'
+    assert type(foo()) is unicode
+    #
+    def foo():
+        return 'hello àèì'
+    py.test.raises(UnicodeDecodeError, "with_unicode_literals(foo)")
+    #
+    @with_unicode_literals(encoding='utf-8')
+    def foo():
+        return 'hello àèì'
+    assert foo() == u'hello àèì'
