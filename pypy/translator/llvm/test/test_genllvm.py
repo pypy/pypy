@@ -249,7 +249,7 @@ class _LLVMMixin(test_typed.CompilationTestCase):
         return t
 
     def compilefunc(self, t, func):
-        gen_llvm = genllvm.GenLLVM(t, False)
+        gen_llvm = self.genllvm = genllvm.GenLLVM(t, False)
         if hasattr(self, 'include_also_eci'):
             gen_llvm.ecis.append(self.include_also_eci)
             del self.include_also_eci
@@ -497,6 +497,17 @@ class TestSpecialCases(_LLVMMixin):
         t.compile_llvm()
         assert 'define i64 @foobar' in t.driver.llvmgen.base_path.new(
                 ext='.ll').read()
+
+    def test_export_struct(self):
+        from pypy.rlib.exports import export_struct
+
+        a = lltype.malloc(lltype.Struct('A'), immortal=True)
+        export_struct('a', a._obj)
+
+        def f():
+            return len([a])
+        self.getcompiled(f)
+        assert '@a = global %A' in self.genllvm.base_path.new(ext='.ll').read()
 
 
 class TestLowLevelTypeLLVM(_LLVMMixin, test_lltyped.TestLowLevelType):

@@ -9,6 +9,7 @@ from py.process import cmdexec
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import mkentrymap, Constant, Variable
 from pypy.rlib.jit import _we_are_jitted
+from pypy.rlib.exports import EXPORTS_obj2name
 from pypy.rlib.objectmodel import (Symbolic, ComputedIntSymbolic,
      CDefinedIntSymbolic, malloc_zero_filled, running_on_llinterp)
 from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
@@ -58,7 +59,10 @@ class Type(object):
         return '{} {}'.format(self.repr_type(), self.repr_value(value))
 
     def repr_ref(self, ptr_type, obj):
-        name = database.unique_name('@global')
+        if obj in EXPORTS_obj2name:
+            name = '@' + EXPORTS_obj2name[obj]
+        else:
+            name = database.unique_name('@global')
         if self.varsize:
             extra_len = self.get_extra_len(obj)
             ptr_type.refs[obj] = 'bitcast({}* {} to {}*)'.format(
