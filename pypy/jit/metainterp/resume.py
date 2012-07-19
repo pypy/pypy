@@ -493,7 +493,7 @@ class VirtualInfo(AbstractVirtualStructInfo):
         return self.setfields(decoder, struct)
 
     def debug_prints(self):
-        debug_print("\tvirtualinfo", self.known_class.repr_rpython())
+        debug_print("\tvirtualinfo", self.known_class.repr_rpython(), " at ",  compute_unique_id(self))
         AbstractVirtualStructInfo.debug_prints(self)
 
 
@@ -509,7 +509,7 @@ class VStructInfo(AbstractVirtualStructInfo):
         return self.setfields(decoder, struct)
 
     def debug_prints(self):
-        debug_print("\tvstructinfo", self.typedescr.repr_rpython())
+        debug_print("\tvstructinfo", self.typedescr.repr_rpython(), " at ",  compute_unique_id(self))
         AbstractVirtualStructInfo.debug_prints(self)
 
 class VArrayInfo(AbstractVirtualInfo):
@@ -539,7 +539,7 @@ class VArrayInfo(AbstractVirtualInfo):
         return array
 
     def debug_prints(self):
-        debug_print("\tvarrayinfo", self.arraydescr)
+        debug_print("\tvarrayinfo", self.arraydescr, " at ",  compute_unique_id(self))
         for i in self.fieldnums:
             debug_print("\t\t", str(untag(i)))
 
@@ -550,7 +550,7 @@ class VArrayStructInfo(AbstractVirtualInfo):
         self.fielddescrs = fielddescrs
 
     def debug_prints(self):
-        debug_print("\tvarraystructinfo", self.arraydescr)
+        debug_print("\tvarraystructinfo", self.arraydescr, " at ",  compute_unique_id(self))
         for i in self.fieldnums:
             debug_print("\t\t", str(untag(i)))
 
@@ -581,7 +581,7 @@ class VStrPlainInfo(AbstractVirtualInfo):
         return string
 
     def debug_prints(self):
-        debug_print("\tvstrplaininfo length", len(self.fieldnums))
+        debug_print("\tvstrplaininfo length", len(self.fieldnums), " at ",  compute_unique_id(self))
 
 
 class VStrConcatInfo(AbstractVirtualInfo):
@@ -599,7 +599,7 @@ class VStrConcatInfo(AbstractVirtualInfo):
         return string
 
     def debug_prints(self):
-        debug_print("\tvstrconcatinfo")
+        debug_print("\tvstrconcatinfo at ",  compute_unique_id(self))
         for i in self.fieldnums:
             debug_print("\t\t", str(untag(i)))
 
@@ -615,7 +615,7 @@ class VStrSliceInfo(AbstractVirtualInfo):
         return string
 
     def debug_prints(self):
-        debug_print("\tvstrsliceinfo")
+        debug_print("\tvstrsliceinfo at ",  compute_unique_id(self))
         for i in self.fieldnums:
             debug_print("\t\t", str(untag(i)))
 
@@ -636,7 +636,7 @@ class VUniPlainInfo(AbstractVirtualInfo):
         return string
 
     def debug_prints(self):
-        debug_print("\tvuniplaininfo length", len(self.fieldnums))
+        debug_print("\tvuniplaininfo length", len(self.fieldnums), " at ",  compute_unique_id(self))
 
 
 class VUniConcatInfo(AbstractVirtualInfo):
@@ -654,7 +654,7 @@ class VUniConcatInfo(AbstractVirtualInfo):
         return string
 
     def debug_prints(self):
-        debug_print("\tvuniconcatinfo")
+        debug_print("\tvuniconcatinfo at ",  compute_unique_id(self))
         for i in self.fieldnums:
             debug_print("\t\t", str(untag(i)))
 
@@ -671,7 +671,7 @@ class VUniSliceInfo(AbstractVirtualInfo):
         return string
 
     def debug_prints(self):
-        debug_print("\tvunisliceinfo")
+        debug_print("\tvunisliceinfo at ",  compute_unique_id(self))
         for i in self.fieldnums:
             debug_print("\t\t", str(untag(i)))
 
