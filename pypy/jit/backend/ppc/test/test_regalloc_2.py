@@ -719,5 +719,5 @@ class TestRegAllocCallAndStackDepth(BaseTestRegalloc):
            """
         loop = self.interpret(ops, [6.0, 7.0, 0.0])
         assert self.getfloat(0) == 42.0
-        assert 0
-        import pdb; pdb.set_trace()
+        assert self.getfloat(1) == 0
+        assert self.getfloat(2) == 6.0
