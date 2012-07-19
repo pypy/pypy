@@ -863,21 +863,23 @@ class BaseTestRlist(BaseRtypingTest):
 
     def test_list_multiply(self):
         def fn(i):
+            assert i >= 0
             lst = [i] * i
             ret = len(lst)
             if ret:
                 ret *= lst[-1]
             return ret
-        for arg in (1, 9, 0, -1, -27):
+        for arg in (1, 9, 0):
             res = self.interpret(fn, [arg])
             assert res == fn(arg)
         def fn(i):
+            assert i >= 0
             lst = [i, i + 1] * i
             ret = len(lst)
             if ret:
                 ret *= lst[-1]
             return ret
-        for arg in (1, 9, 0, -1, -27):
+        for arg in (1, 9, 0):
             res = self.interpret(fn, [arg])
             assert res == fn(arg)
 
@@ -1035,6 +1037,7 @@ class BaseTestRlist(BaseRtypingTest):
                 return 42
             return -1
         def g(n):
+            assert n >= 0
             l = [1] * n
             return f(l)
         res = self.interpret(g, [3])
@@ -1048,6 +1051,7 @@ class BaseTestRlist(BaseRtypingTest):
                 return 42
             return -1
         def g(n):
+            assert n >= 0
             l = [1] * n
             f(l)
             return l[2]
@@ -1056,6 +1060,7 @@ class BaseTestRlist(BaseRtypingTest):
 
     def test_list_equality(self):
         def dummyfn(n):
+            assert n >= 0
             lst = [12] * n
             assert lst == [12, 12, 12]
             lst2 = [[12, 34], [5], [], [12, 12, 12], [5]]
@@ -1380,6 +1385,7 @@ class TestLLtype(BaseTestRlist, LLRtypeMixin):
 
     def test_memoryerror(self):
         def fn(i):
+            assert i >= 0
             lst = [0] * i
             lst[i-1] = 5
             return lst[0]

@@ -828,6 +828,7 @@ class AbstractTestRstr(BaseRtypingTest):
     def test_count_char(self):
         const = self.const
         def fn(i):
+            assert i >= 0
             s = const("").join([const("abcasd")] * i)
             return s.count(const("a")) + s.count(const("a"), 2) + \
                    s.count(const("b"), 1, 6) + s.count(const("a"), 5, 99)
@@ -837,6 +838,7 @@ class AbstractTestRstr(BaseRtypingTest):
     def test_count(self):
         const = self.const
         def fn(i):
+            assert i >= 0
             s = const("").join([const("abcabsd")] * i)
             one = i / i # confuse the annotator
             return (s.count(const("abc")) + const("abcde").count(const("")) +

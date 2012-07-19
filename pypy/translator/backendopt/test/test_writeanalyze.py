@@ -232,6 +232,7 @@ class TestLLtype(BaseTestWriteAnalyze):
         def g(x, y, z):
             return f(x, y, z)
         def f(x, y, z):
+            assert x >= 0
             l = [0] * x
             l.append(y)
             return len(l) + z
@@ -291,6 +292,7 @@ class TestOOtype(BaseTestWriteAnalyze):
         def g(x, y, z):
             return f(x, y, z)
         def f(x, y, z):
+            assert x >= 0
             l = [0] * x
             l[1] = 42
             return len(l) + z
@@ -309,6 +311,7 @@ class TestOOtype(BaseTestWriteAnalyze):
         def g(x, y, z):
             return f(x, y, z)
         def f(x, y, z):
+            assert x >= 0
             l = [0] * x
             l.append(z)
             return len(l) + z

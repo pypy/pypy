@@ -709,7 +709,7 @@ class TestTranslation(object):
     def test_utf8(self):
         from pypy.rpython.test.test_llinterp import interpret
         def f(x):
-
+            assert x >= 0
             s1 = "".join(["\xd7\x90\xd6\x96\xeb\x96\x95\xf0\x90\x91\x93"] * x)
             u, consumed = runicode.str_decode_utf_8(s1, len(s1), True)
             s2 = runicode.unicode_encode_utf_8(u, len(u), True)

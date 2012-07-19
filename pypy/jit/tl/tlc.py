@@ -216,6 +216,7 @@ def char2int(c):
     t = ord(c)
     if t & 128:
         t = -(-ord(c) & 0xff)
+    assert t >= 0
     return t
 
 class Frame(object):
