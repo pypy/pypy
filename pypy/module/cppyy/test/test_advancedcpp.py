@@ -7,7 +7,7 @@ from pypy.module.cppyy import capi
 currpath = py.path.local(__file__).dirpath()
 test_dct = str(currpath.join("advancedcppDict.so"))
 
-space = gettestobjspace(usemodules=['cppyy'])
+space = gettestobjspace(usemodules=['cppyy', 'array'])
 
 def setup_module(mod):
     if sys.platform == 'win32':
@@ -382,6 +382,10 @@ class AppTestADVANCEDCPP:
         assert cppyy.addressof(o) == pp.gime_address_ptr(o)
         assert cppyy.addressof(o) == pp.gime_address_ptr_ptr(o)
         assert cppyy.addressof(o) == pp.gime_address_ptr_ref(o)
+
+        import array
+        addressofo = array.array('l', [cppyy.addressof(o)])
+        assert addressofo.buffer_info()[0] == pp.gime_address_ptr_ptr(addressofo)
 
     def test09_opaque_pointer_assing(self):
         """Test passing around of opaque pointers"""

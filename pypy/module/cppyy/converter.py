@@ -353,7 +353,7 @@ class VoidPtrConverter(TypeConverter):
         try:
             buf = space.buffer_w(w_obj)
             x[0] = rffi.cast(rffi.VOIDP, buf.get_raw_address())
-        except (OperationError, ValueError):
+        except (OperationError, ValueError), e:
             x[0] = rffi.cast(rffi.VOIDP, get_rawobject(space, w_obj))
         ba[capi.c_function_arg_typeoffset()] = 'o'
 
@@ -365,17 +365,23 @@ class VoidPtrPtrConverter(TypeConverter):
     uses_local = True
 
     def convert_argument(self, space, w_obj, address, call_local):
-        r = rffi.cast(rffi.VOIDPP, call_local)
-        r[0] = rffi.cast(rffi.VOIDP, get_rawobject(space, w_obj))
         x = rffi.cast(rffi.VOIDPP, address)
-        x[0] = rffi.cast(rffi.VOIDP, call_local)
-        address = rffi.cast(capi.C_OBJECT, address)
         ba = rffi.cast(rffi.CCHARP, address)
+        r = rffi.cast(rffi.VOIDPP, call_local)
+        try:
+            buf = space.buffer_w(w_obj)
+            r[0] = rffi.cast(rffi.VOIDP, buf.get_raw_address())
+        except (OperationError, ValueError), e:
+            r[0] = rffi.cast(rffi.VOIDP, get_rawobject(space, w_obj))
+        x[0] = rffi.cast(rffi.VOIDP, call_local)
         ba[capi.c_function_arg_typeoffset()] = 'a'
 
     def finalize_call(self, space, w_obj, call_local):
         r = rffi.cast(rffi.VOIDPP, call_local)
-        set_rawobject(space, w_obj, r[0])
+        try:
+            set_rawobject(space, w_obj, r[0])
+        except OperationError:
+            pass             # no set on buffer/array
 
 class VoidPtrRefConverter(TypeConverter):
     _immutable_ = True
