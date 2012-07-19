@@ -2,7 +2,7 @@ from pypy.rlib.rarithmetic import LONG_BIT, intmask, longlongmask, r_uint, r_ulo
 from pypy.rlib.rarithmetic import ovfcheck, r_longlong, widen, is_valid_int
 from pypy.rlib.rarithmetic import most_neg_value_of_same_type
 from pypy.rlib.rfloat import isfinite
-from pypy.rlib.debug import make_sure_not_resized, check_regular_int
+from pypy.rlib.debug import make_sure_not_resized, check_regular_int, check_nonneg
 from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.rlib import jit
 from pypy.rpython.lltypesystem import lltype, rffi
@@ -112,7 +112,8 @@ class rbigint(object):
     """This is a reimplementation of longs using a list of digits."""
 
     def __init__(self, digits=[NULLDIGIT], sign=0, size=0):
-        _check_digits(digits)
+        if not we_are_translated():
+            _check_digits(digits)
         make_sure_not_resized(digits)
         self._digits = digits
         self.size = size or len(digits)
@@ -122,28 +123,27 @@ class rbigint(object):
         """Return the x'th digit, as an int."""
         return self._digits[x]
     digit._always_inline_ = True
-    digit._annonforceargs_ = [None, r_uint] # These are necessary because x can't always be proven non negative, no matter how hard we try.
+
     def widedigit(self, x):
         """Return the x'th digit, as a long long int if needed
         to have enough room to contain two digits."""
         return _widen_digit(self._digits[x])
     widedigit._always_inline_ = True
-    widedigit._annonforceargs_ = [None, r_uint]
+
     def udigit(self, x):
         """Return the x'th digit, as an unsigned int."""
         return _load_unsigned_digit(self._digits[x])
     udigit._always_inline_ = True
-    udigit._annonforceargs_ = [None, r_uint]
+
     def setdigit(self, x, val):
         val = val & MASK
         assert val >= 0
         self._digits[x] = _store_digit(val)
     setdigit._annspecialcase_ = 'specialize:argtype(2)'
-    digit._annonforceargs_ = [None, r_uint, None]
     setdigit._always_inline_ = True
 
     def numdigits(self):
-        return self.size
+        return check_nonneg(self.size)
     numdigits._always_inline_ = True
     
     @staticmethod
@@ -160,7 +160,7 @@ class rbigint(object):
             sign = 1
             ival = r_uint(intval)
         else:
-            return rbigint()
+            return NULLRBIGINT
         # Count the number of Python digits.
         # We used to pick 5 ("big enough for anything"), but that's a
         # waste of time and space given that 5*15 = 75 bits are rarely
@@ -170,16 +170,16 @@ class rbigint(object):
             carry = ival >> SHIFT
             if carry:
                 return rbigint([_store_digit(ival & MASK),
-                    _store_digit(carry & MASK)], sign)
+                    _store_digit(carry & MASK)], sign, 2)
             else:
-                return rbigint([_store_digit(ival & MASK)], sign)
+                return rbigint([_store_digit(ival & MASK)], sign, 1)
             
         t = ival
         ndigits = 0
         while t:
             ndigits += 1
             t >>= SHIFT
-        v = rbigint([NULLDIGIT] * ndigits, sign)
+        v = rbigint([NULLDIGIT] * ndigits, sign, ndigits)
         t = ival
         p = 0
         while t:
@@ -221,9 +221,9 @@ class rbigint(object):
             dval = -dval
         frac, expo = math.frexp(dval) # dval = frac*2**expo; 0.0 <= frac < 1.0
         if expo <= 0:
-            return rbigint()
+            return NULLRBIGINT
         ndig = (expo-1) // SHIFT + 1 # Number of 'digits' in result
-        v = rbigint([NULLDIGIT] * ndig, sign)
+        v = rbigint([NULLDIGIT] * ndig, sign, ndig)
         frac = math.ldexp(frac, (expo-1) % SHIFT + 1)
         for i in range(ndig-1, -1, -1):
             # use int(int(frac)) as a workaround for a CPython bug:
@@ -421,22 +421,20 @@ class rbigint(object):
             a, b, asize, bsize = b, a, bsize, asize
 
         if a.sign == 0 or b.sign == 0:
-            return rbigint()
+            return NULLRBIGINT
         
         if asize == 1:
             if a._digits[0] == NULLDIGIT:
-                return rbigint()
+                return NULLRBIGINT
             elif a._digits[0] == ONEDIGIT:
                 return rbigint(b._digits[:], a.sign * b.sign, b.size)
             elif bsize == 1:
-                result = rbigint([NULLDIGIT] * 2, a.sign * b.sign)
-                carry = b.widedigit(0) * a.widedigit(0)
-                result.setdigit(0, carry)
-                carry >>= SHIFT
+                res = b.widedigit(0) * a.widedigit(0)
+                carry = res >> SHIFT
                 if carry:
-                    result.setdigit(1, carry)
-                result._normalize()
-                return result
+                    return rbigint([_store_digit(res & MASK), _store_digit(carry & MASK)], a.sign * b.sign, 2)
+                else:
+                    return rbigint([_store_digit(res & MASK)], a.sign * b.sign, 1)
                 
             result =  _x_mul(a, b, a.digit(0))
         elif USE_TOOMCOCK and asize >= TOOMCOOK_CUTOFF:
@@ -469,13 +467,18 @@ class rbigint(object):
         if other.numdigits() == 1 and other.sign == 1:
             digit = other.digit(0)
             if digit == 1:
-                return self
+                return rbigint(self._digits[:], other.sign * self.sign, self.size)
             elif digit and digit & (digit - 1) == 0:
                 return self.rshift(ptwotable[digit])
             
         div, mod = _divrem(self, other)
         if mod.sign * other.sign == -1:
-            div = div.sub(ONERBIGINT)
+            if div.sign == 0:
+                return ONENEGATIVERBIGINT
+            if div.sign == 1:
+                _v_isub(div, 0, div.numdigits(), ONERBIGINT, 1)
+            else:
+                _v_iadd(div, 0, div.numdigits(), ONERBIGINT, 1)
         return div
 
     def div(self, other):
@@ -493,12 +496,10 @@ class rbigint(object):
             elif digit == 2:
                 modm = self.digit(0) % digit
                 if modm:
-                    if other.sign < 0:
-                        return ONENEGATIVERBIGINT
-                    return ONERBIGINT
+                    return ONENEGATIVERBIGINT if other.sign == -1 else ONERBIGINT
                 return NULLRBIGINT
             elif digit & (digit - 1) == 0:
-                mod = self.and_(_x_sub(other, ONERBIGINT))
+                mod = self.and_(rbigint([_store_digit(digit - 1)], 1, 1))
             else:
                 # Perform
                 size = self.numdigits() - 1
@@ -513,7 +514,7 @@ class rbigint(object):
                     
                 if rem == 0:
                     return NULLRBIGINT
-                mod = rbigint([_store_digit(rem)], -1 if self.sign < 0 else 1)
+                mod = rbigint([_store_digit(rem)], -1 if self.sign < 0 else 1, 1)
         else:
             div, mod = _divrem(self, other)
         if mod.sign * other.sign == -1:
@@ -541,7 +542,12 @@ class rbigint(object):
         div, mod = _divrem(v, w)
         if mod.sign * w.sign == -1:
             mod = mod.add(w)
-            div = div.sub(ONERBIGINT)
+            if div.sign == 0:
+                return ONENEGATIVERBIGINT, mod
+            if div.sign == 1:
+                _v_isub(div, 0, div.numdigits(), ONERBIGINT, 1)
+            else:
+                _v_iadd(div, 0, div.numdigits(), ONERBIGINT, 1)
         return div, mod
 
     @jit.elidable
@@ -611,11 +617,11 @@ class rbigint(object):
         # At this point a, b, and c are guaranteed non-negative UNLESS
         # c is NULL, in which case a may be negative. */
 
-        z = rbigint([ONEDIGIT], 1)
+        z = rbigint([ONEDIGIT], 1, 1)
         
         # python adaptation: moved macros REDUCE(X) and MULT(X, Y, result)
         # into helper function result = _help_mult(x, y, c)
-        if not c or size_b <= FIVEARY_CUTOFF:
+        if size_b <= FIVEARY_CUTOFF:
             # Left-to-right binary exponentiation (HAC Algorithm 14.79)
             # http://www.cacr.math.uwaterloo.ca/hac/about/chap14.pdf
             size_b -= 1
@@ -719,13 +725,11 @@ class rbigint(object):
         remshift  = int_other - wordshift * SHIFT
 
         if not remshift:
-            ret = rbigint([NULLDIGIT] * wordshift + self._digits, self.sign)
-            ret._normalize()
-            return ret
+            return rbigint([NULLDIGIT] * wordshift + self._digits, self.sign, self.size + wordshift)
         
         oldsize = self.numdigits()
         newsize = oldsize + wordshift + 1
-        z = rbigint([NULLDIGIT] * newsize, self.sign)
+        z = rbigint([NULLDIGIT] * newsize, self.sign, newsize)
         accum = _widen_digit(0)
         j = 0
         while j < oldsize:
@@ -750,7 +754,7 @@ class rbigint(object):
 
         oldsize = self.numdigits()
 
-        z = rbigint([NULLDIGIT] * (oldsize + 1), self.sign)
+        z = rbigint([NULLDIGIT] * (oldsize + 1), self.sign, (oldsize + 1))
         accum = _widen_digit(0)
 
         for i in range(oldsize):
@@ -785,7 +789,7 @@ class rbigint(object):
         # int is max 63bit, same as our SHIFT now.
         #lomask = UDIGIT_MASK((UDIGIT_TYPE(1) << hishift) - 1)
         #himask = MASK ^ lomask
-        z = rbigint([NULLDIGIT] * newsize, self.sign)
+        z = rbigint([NULLDIGIT] * newsize, self.sign, newsize)
         i = 0
         while i < newsize:
             newdigit = (self.udigit(wordshift) >> loshift) #& lomask
@@ -840,17 +844,12 @@ class rbigint(object):
         return l * self.sign
 
     def _normalize(self):
-        i = c = self.numdigits()
-        if i == 0:
-            self.sign = 0
-            self.size = 1
-            self._digits = [NULLDIGIT]
-            return
-        
+        i = self.numdigits()
+        # i is always >= 1
         while i > 1 and self._digits[i - 1] == NULLDIGIT:
             i -= 1
         assert i > 0
-        if i != c:
+        if i != self.numdigits():
             self.size = i
         if self.numdigits() == 1 and self._digits[0] == NULLDIGIT:
             self.sign = 0
@@ -881,8 +880,8 @@ class rbigint(object):
         return "<rbigint digits=%s, sign=%s, %s>" % (self._digits,
                                                      self.sign, self.str())
 
-ONERBIGINT = rbigint([ONEDIGIT], 1)
-ONENEGATIVERBIGINT = rbigint([ONEDIGIT], -1)
+ONERBIGINT = rbigint([ONEDIGIT], 1, 1)
+ONENEGATIVERBIGINT = rbigint([ONEDIGIT], -1, 1)
 NULLRBIGINT = rbigint()
 
 #_________________________________________________________________
@@ -1011,7 +1010,7 @@ def _x_sub(a, b):
             a, b = b, a
         size_a = size_b = i+1
         
-    z = rbigint([NULLDIGIT] * size_a, sign)
+    z = rbigint([NULLDIGIT] * size_a, sign, size_a)
     borrow = UDIGIT_TYPE(0)
     i = _load_unsigned_digit(0)
     while i < size_b:
@@ -1088,9 +1087,13 @@ def _x_mul(a, b, digit=0):
         z._normalize()
         return z
     
-    elif digit and digit & (digit - 1) == 0:
-        return b.lqshift(ptwotable[digit])
-
+    elif digit:
+        if digit & (digit - 1) == 0:
+            return b.lqshift(ptwotable[digit])
+        
+        # Even if it's not power of two it can still be useful.
+        return _muladd1(b, digit)
+        
     z = rbigint([NULLDIGIT] * (size_a + size_b), 1)
     # gradeschool long mult
     i = UDIGIT_TYPE(0)
@@ -1123,7 +1126,7 @@ def _tcmul_split(n, size):
     viewing the shift as being by digits.  The sign bit is ignored, and
     the return values are >= 0.
     """
-    size_n = n.numdigits()
+    size_n = n.numdigits() // 3
     size_lo = min(size_n, size)
     lo = rbigint(n._digits[:size_lo], 1)
     mid = rbigint(n._digits[size_lo:size_lo * 2], 1)
@@ -1425,7 +1428,6 @@ def _inplace_divrem1(pout, pin, n, size=0):
     size -= 1
     
     while size >= 0:
-        assert size >= 0
         rem = (rem << SHIFT) + pin.widedigit(size)
         hi = rem // n
         pout.setdigit(size, hi)
@@ -1442,7 +1444,7 @@ def _divrem1(a, n):
     assert n > 0 and n <= MASK
         
     size = a.numdigits()
-    z = rbigint([NULLDIGIT] * size, 1)
+    z = rbigint([NULLDIGIT] * size, 1, size)
     rem = _inplace_divrem1(z, a, n)
     z._normalize()
     return z, rem
@@ -1516,7 +1518,7 @@ def _muladd1(a, n, extra=0):
     z.setdigit(i, carry)
     z._normalize()
     return z
-
+_muladd1._annspecialcase_ = "specialize:argtype(2)"
 def _v_lshift(z, a, m, d):
     """ Shift digit vector a[0:m] d bits left, with 0 <= d < SHIFT. Put
         * result in z[0:m], and return the d bits shifted out of the top.
@@ -1573,7 +1575,8 @@ def _x_divrem(v1, w1):
         size_v += 1"""
         
     size_a = size_v - size_w + 1
-    a = rbigint([NULLDIGIT] * size_a, 1)
+    assert size_a >= 0
+    a = rbigint([NULLDIGIT] * size_a, 1, size_a)
 
     wm1 = w.widedigit(abs(size_w-1))
     wm2 = w.widedigit(abs(size_w-2))
@@ -1745,7 +1748,7 @@ def _divrem(a, b):
         return NULLRBIGINT, a# result is 0
     if size_b == 1:
         z, urem = _divrem1(a, b.digit(0))
-        rem = rbigint([_store_digit(urem)], int(urem != 0))
+        rem = rbigint([_store_digit(urem)], int(urem != 0), 1)
     else:
         z, rem = _x_divrem(a, b)
     # Set the signs.
@@ -2103,7 +2106,7 @@ def _format(a, digits, prefix='', suffix=''):
             power += 1
 
         # Get a scratch area for repeated division.
-        scratch = rbigint([NULLDIGIT] * size, 1)
+        scratch = rbigint([NULLDIGIT] * size, 1, size)
 
         # Repeatedly divide by powbase.
         while 1:
@@ -2200,7 +2203,7 @@ def _bitwise(a, op, b): # '&', '|', '^'
     else:
         size_z = max(size_a, size_b)
 
-    z = rbigint([NULLDIGIT] * size_z, 1)
+    z = rbigint([NULLDIGIT] * size_z, 1, size_z)
 
     for i in range(size_z):
         if i < size_a:

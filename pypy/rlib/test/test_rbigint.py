@@ -458,8 +458,8 @@ class Test_rbigint(object):
         assert x.format('abcdefghijkl', '<<', '>>') == '-<<cakdkgdijffjf>>'
 
     def test_tc_mul(self):
-        a = rbigint.fromlong(1<<300)
-        b = rbigint.fromlong(1<<200)
+        a = rbigint.fromlong(1<<200)
+        b = rbigint.fromlong(1<<300)
         print _tc_mul(a, b)
         assert _tc_mul(a, b).tolong() == ((1<<300)*(1<<200))
         
