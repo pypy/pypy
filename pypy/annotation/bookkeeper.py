@@ -201,6 +201,7 @@ class Bookkeeper(object):
                     for op in block.operations:
                         if op.opname in ('simple_call', 'call_args'):
                             yield op
+
                         # some blocks are partially annotated
                         if binding(op.result, None) is None:
                             break   # ignore the unannotated part

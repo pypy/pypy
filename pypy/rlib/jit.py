@@ -600,7 +600,6 @@ def set_user_param(driver, text):
                 raise ValueError
 set_user_param._annspecialcase_ = 'specialize:arg(0)'
 
-
 # ____________________________________________________________
 #
 # Annotation and rtyping of some of the JitDriver methods
@@ -901,11 +900,6 @@ class JitHookInterface(object):
         instance, overwrite for custom behavior
         """
 
-    def get_stats(self):
-        """ Returns various statistics
-        """
-        raise NotImplementedError
-
 def record_known_class(value, cls):
     """
     Assure the JIT that value is an instance of cls. This is not a precise
@@ -932,3 +926,39 @@ class Entry(ExtRegistryEntry):
         v_cls = hop.inputarg(classrepr, arg=1)
         return hop.genop('jit_record_known_class', [v_inst, v_cls],
                          resulttype=lltype.Void)
+
+class Counters(object):
+    counters="""
+    TRACING
+    BACKEND
+    OPS
+    RECORDED_OPS
+    GUARDS
+    OPT_OPS
+    OPT_GUARDS
+    OPT_FORCINGS
+    ABORT_TOO_LONG
+    ABORT_BRIDGE
+    ABORT_BAD_LOOP
+    ABORT_ESCAPE
+    ABORT_FORCE_QUASIIMMUT
+    NVIRTUALS
+    NVHOLES
+    NVREUSED
+    TOTAL_COMPILED_LOOPS
+    TOTAL_COMPILED_BRIDGES
+    TOTAL_FREED_LOOPS
+    TOTAL_FREED_BRIDGES
+    """
+
+    counter_names = []
+
+    @staticmethod
+    def _setup():
+        names = Counters.counters.split()
+        for i, name in enumerate(names):
+            setattr(Counters, name, i)
+            Counters.counter_names.append(name)
+        Counters.ncounters = len(names)
+
+Counters._setup()

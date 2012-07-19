@@ -4,6 +4,7 @@ Minimal-API wrapper around the llinterpreter to run operations.
 
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib.jit_hooks import LOOP_RUN_CONTAINER
 from pypy.rpython.lltypesystem import lltype, llmemory, rclass
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.llinterp import LLInterpreter
@@ -33,6 +34,10 @@ class Descr(history.AbstractDescr):
         self.arg_types = arg_types
         self.count_fields_if_immut = count_fields_if_immut
         self.ffi_flags = ffi_flags
+        self._debug = False
+
+    def set_debug(self, v):
+        self._debug = True
 
     def get_arg_types(self):
         return self.arg_types
@@ -582,6 +587,9 @@ class LLtypeCPU(BaseCPU):
         if args_f is not None:
             for x in args_f:
                 llimpl.do_call_pushfloat(x)
+
+    def get_all_loop_runs(self):
+        return lltype.malloc(LOOP_RUN_CONTAINER, 0)
 
     def force(self, force_token):
         token = llmemory.cast_int_to_adr(force_token)
