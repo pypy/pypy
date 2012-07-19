@@ -1271,7 +1271,9 @@ def array(space, w_item_or_iterable, w_dtype=None, w_order=None,
     if w_ndmin is not None and not space.is_w(w_ndmin, space.w_None):
         ndmin = space.int_w(w_ndmin)
         if ndmin > shapelen:
-            shape = [1] * (ndmin - shapelen) + shape
+            lgt = (ndmin - shapelen) + shape
+            assert lgt >= 0
+            shape = [1] * lgt
             shapelen = ndmin
     arr = W_NDimArray(shape[:], dtype=dtype, order=order)
     arr_iter = arr.create_iter()
