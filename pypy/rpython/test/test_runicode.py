@@ -1,3 +1,4 @@
+# -*- encoding: utf-8 -*-
 
 from pypy.rpython.lltypesystem.lltype import malloc
 from pypy.rpython.lltypesystem.rstr import LLHelpers, UNICODE
@@ -194,7 +195,32 @@ class BaseTestRUnicode(AbstractTestRstr):
         assert self.interpret(fn, [u'(']) == False
         assert self.interpret(fn, [u'\u1058']) == False
         assert self.interpret(fn, [u'X']) == True
-    
+
+    def test_strformat_unicode_arg(self):
+        const = self.const
+        def percentS(s, i):
+            s = [s, None][i]
+            return const("before %s after") % (s,)
+        #
+        res = self.interpret(percentS, [const(u'à'), 0])
+        assert self.ll_to_string(res) == const(u'before à after')
+        #
+        res = self.interpret(percentS, [const(u'à'), 1])
+        assert self.ll_to_string(res) == const(u'before None after')
+        #
+
+    def test_strformat_unicode_and_str(self):
+        # test that we correctly specialize ll_constant when we pass both a
+        # string and an unicode to it
+        const = self.const
+        def percentS(ch):
+            x = "%s" % (ch + "bc")
+            y = u"%s" % (unichr(ord(ch)) + u"bc")
+            return len(x)+len(y)
+        #
+        res = self.interpret(percentS, ["a"])
+        assert res == 6
+
     def unsupported(self):
         py.test.skip("not supported")
 
@@ -202,12 +228,6 @@ class BaseTestRUnicode(AbstractTestRstr):
     test_upper = unsupported
     test_lower = unsupported
     test_splitlines = unsupported
-    test_strformat = unsupported
-    test_strformat_instance = unsupported
-    test_strformat_nontuple = unsupported
-    test_percentformat_instance = unsupported
-    test_percentformat_tuple = unsupported
-    test_percentformat_list = unsupported
     test_int = unsupported
     test_int_valueerror = unsupported
     test_float = unsupported

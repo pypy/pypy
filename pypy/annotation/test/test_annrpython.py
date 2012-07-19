@@ -3389,6 +3389,22 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [str])
         assert isinstance(s, annmodel.SomeString)
 
+    def test_unicodeformatting(self):
+        def f(x):
+            return u'%s' % x
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [unicode])
+        assert isinstance(s, annmodel.SomeUnicodeString)
+
+    def test_unicodeformatting_tuple(self):
+        def f(x):
+            return u'%s' % (x,)
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [unicode])
+        assert isinstance(s, annmodel.SomeUnicodeString)
+
 
     def test_negative_slice(self):
         def f(s, e):

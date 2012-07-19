@@ -181,6 +181,7 @@ class TestTranslationX86(CCompiledMixin):
                 i += 1
 
         def main():
+            jit_hooks.stats_set_debug(None, True)
             f()
             ll_times = jit_hooks.stats_get_loop_run_times(None)
             return len(ll_times)

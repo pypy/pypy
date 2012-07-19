@@ -14,5 +14,12 @@ See doc/cppyy.rst for full details and functionality.
 .. branch: nupypy-axis-arg-check
 Check that axis arg is valid in _numpypy
 
+.. branch: iterator-in-rpython
+.. branch: numpypy_count_nonzero
+.. branch: even-more-jit-hooks
+Implement better JIT hooks
+
 .. "uninteresting" branches that we should just ignore for the whatsnew:
 .. branch: slightly-shorter-c
+.. branch: better-enforceargs
+.. branch: rpython-unicode-formatting
