@@ -214,6 +214,7 @@ class ViewIterator(BaseIterator):
     def next(self, shapelen):
         shapelen = jit.promote(len(self.res_shape))
         offset = self.offset
+        assert shapelen >= 0
         indices = [0] * shapelen
         for i in range(shapelen):
             indices[i] = self.indices[i]
@@ -241,6 +242,7 @@ class ViewIterator(BaseIterator):
     def next_skip_x(self, shapelen, step):
         shapelen = jit.promote(len(self.res_shape))
         offset = self.offset
+        assert shapelen >= 0
         indices = [0] * shapelen
         for i in range(shapelen):
             indices[i] = self.indices[i]
@@ -305,6 +307,7 @@ class AxisIterator(BaseIterator):
     def next(self, shapelen):
         offset = self.offset
         first_line = self.first_line
+        assert shapelen >= 0
         indices = [0] * shapelen
         for i in range(shapelen):
             indices[i] = self.indices[i]
@@ -342,7 +345,9 @@ class AxisIterator(BaseIterator):
 class SkipLastAxisIterator(object):
     def __init__(self, arr):
         self.arr = arr
-        self.indices = [0] * (len(arr.shape) - 1)
+        lgt = (len(arr.shape) - 1)
+        assert lgt >= 0
+        self.indices = [0] * lgt
         self.done = False
         self.offset = arr.start
 

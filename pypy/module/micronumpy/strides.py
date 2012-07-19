@@ -43,8 +43,12 @@ def calculate_broadcast_strides(strides, backstrides, orig_shape, res_shape):
         else:
             rstrides.append(strides[i])
             rbackstrides.append(backstrides[i])
-    rstrides = [0] * (len(res_shape) - len(orig_shape)) + rstrides
-    rbackstrides = [0] * (len(res_shape) - len(orig_shape)) + rbackstrides
+    lgt = (len(res_shape) - len(orig_shape))
+    assert lgt >= 0
+    rstrides = [0] * lgt + rstrides
+    lgt = (len(res_shape) - len(orig_shape))
+    assert lgt >= 0
+    rbackstrides = [0] * lgt + rbackstrides
     return rstrides, rbackstrides
 
 def is_single_elem(space, w_elem, is_rec_type):
