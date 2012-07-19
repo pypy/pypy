@@ -241,6 +241,16 @@ class OptRewrite(Optimization):
             # guard_nonnull_class on this value, which is rather silly.
             # replace the original guard with a guard_value
             old_guard_op = value.last_guard
+            if old_guard_op.getopnum() != rop.GUARD_NONNULL:
+                # This is only safe if the class of the guard_value matches the
+                # class of the guard_*_class, otherwise the intermediate ops might
+                # be executed with wrong classes.
+                previous_classbox = value.get_constant_class(self.optimizer.cpu)            
+                expected_classbox = self.optimizer.cpu.ts.cls_of_box(op.getarg(1))
+                assert previous_classbox is not None
+                assert expected_classbox is not None
+                if not previous_classbox.same_constant(expected_classbox):
+                    raise InvalidLoop('A GUARD_VALUE was proven to always fail')
             op = old_guard_op.copy_and_change(rop.GUARD_VALUE,
                                       args = [old_guard_op.getarg(0), op.getarg(1)])
             self.optimizer.replaces_guard[op] = old_guard_op
@@ -251,6 +261,8 @@ class OptRewrite(Optimization):
             assert isinstance(descr, compile.ResumeGuardDescr)
             descr.guard_opnum = rop.GUARD_VALUE
             descr.make_a_counter_per_value(op)
+            # to be safe
+            value.last_guard = None
         constbox = op.getarg(1)
         assert isinstance(constbox, Const)
         self.optimize_guard(op, constbox)
