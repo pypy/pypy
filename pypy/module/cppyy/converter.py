@@ -47,6 +47,24 @@ def get_rawobject_nonnull(space, w_obj):
         return rawobject
     return capi.C_NULL_OBJECT
 
+def get_rawbuffer(space, w_obj):
+    try:
+        buf = space.buffer_w(w_obj)
+        return rffi.cast(rffi.VOIDP, buf.get_raw_address())
+    except Exception:
+        pass
+    # special case: allow integer 0 as NULL
+    try:
+        buf = space.int_w(w_obj)
+        if buf == 0:
+            return rffi.cast(rffi.VOIDP, 0)
+    except Exception:
+        pass
+    # special case: allow None as NULL
+    if space.is_true(space.is_(w_obj, space.w_None)):
+        return rffi.cast(rffi.VOIDP, 0)
+    raise TypeError("not an addressable buffer")
+
 
 class TypeConverter(object):
     _immutable_ = True
@@ -146,16 +164,13 @@ class PtrTypeConverterMixin(object):
 
     def convert_argument(self, space, w_obj, address, call_local):
         w_tc = space.findattr(w_obj, space.wrap('typecode'))
-        if w_tc is None:
-            raise OperationError(space.w_TypeError, space.wrap("can not determine buffer type"))
-        if space.str_w(w_tc) != self.typecode:
+        if w_tc is not None and space.str_w(w_tc) != self.typecode:
             msg = "expected %s pointer type, but received %s" % (self.typecode, space.str_w(w_tc))
             raise OperationError(space.w_TypeError, space.wrap(msg))
         x = rffi.cast(rffi.LONGP, address)
-        buf = space.buffer_w(w_obj)
         try:
-            x[0] = rffi.cast(rffi.LONG, buf.get_raw_address())
-        except ValueError:
+            x[0] = rffi.cast(rffi.LONG, get_rawbuffer(space, w_obj))
+        except TypeError:
             raise OperationError(space.w_TypeError,
                                  space.wrap("raw buffer interface not supported"))
         ba = rffi.cast(rffi.CCHARP, address)
@@ -351,9 +366,8 @@ class VoidPtrConverter(TypeConverter):
         x = rffi.cast(rffi.VOIDPP, address)
         ba = rffi.cast(rffi.CCHARP, address)
         try:
-            buf = space.buffer_w(w_obj)
-            x[0] = rffi.cast(rffi.VOIDP, buf.get_raw_address())
-        except (OperationError, ValueError), e:
+            x[0] = get_rawbuffer(space, w_obj)
+        except TypeError:
             x[0] = rffi.cast(rffi.VOIDP, get_rawobject(space, w_obj))
         ba[capi.c_function_arg_typeoffset()] = 'o'
 
@@ -369,9 +383,8 @@ class VoidPtrPtrConverter(TypeConverter):
         ba = rffi.cast(rffi.CCHARP, address)
         r = rffi.cast(rffi.VOIDPP, call_local)
         try:
-            buf = space.buffer_w(w_obj)
-            r[0] = rffi.cast(rffi.VOIDP, buf.get_raw_address())
-        except (OperationError, ValueError), e:
+            r[0] = get_rawbuffer(space, w_obj)
+        except TypeError:
             r[0] = rffi.cast(rffi.VOIDP, get_rawobject(space, w_obj))
         x[0] = rffi.cast(rffi.VOIDP, call_local)
         ba[capi.c_function_arg_typeoffset()] = 'a'
@@ -381,7 +394,7 @@ class VoidPtrPtrConverter(TypeConverter):
         try:
             set_rawobject(space, w_obj, r[0])
         except OperationError:
-            pass             # no set on buffer/array
+            pass             # no set on buffer/array/None
 
 class VoidPtrRefConverter(TypeConverter):
     _immutable_ = True

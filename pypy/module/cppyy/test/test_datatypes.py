@@ -5,7 +5,7 @@ from pypy.conftest import gettestobjspace
 currpath = py.path.local(__file__).dirpath()
 test_dct = str(currpath.join("datatypesDict.so"))
 
-space = gettestobjspace(usemodules=['cppyy', 'array'])
+space = gettestobjspace(usemodules=['cppyy', 'array', '_rawffi'])
 
 def setup_module(mod):
     if sys.platform == 'win32':
@@ -225,6 +225,12 @@ class AppTestDATATYPES:
             assert len(b) == self.N
             for i in range(self.N):
                 assert ca[i] == b[i]
+
+        # NULL/None passing (will use short*)
+        assert not c.pass_array(0)
+        raises(Exception, c.pass_array(0).__getitem__, 0)    # raises SegfaultException
+        assert not c.pass_array(None)
+        raises(Exception, c.pass_array(None).__getitem__, 0) # id.
 
         c.destruct()
 

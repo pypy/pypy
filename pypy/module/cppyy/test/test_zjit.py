@@ -155,9 +155,15 @@ class FakeSpace(object):
     r_longlong_w = int_w
     r_ulonglong_w = uint_w
 
+    def is_(self, w_obj1, w_obj2):
+        return w_obj1 is w_obj2
+
     def isinstance_w(self, w_obj, w_type):
         assert isinstance(w_obj, FakeBase)
         return w_obj.typename == w_type.name
+
+    def is_true(self, w_obj):
+        return not not w_obj
 
     def type(self, w_obj):
         return FakeType("fake")

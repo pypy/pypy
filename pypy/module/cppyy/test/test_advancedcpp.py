@@ -387,6 +387,9 @@ class AppTestADVANCEDCPP:
         addressofo = array.array('l', [cppyy.addressof(o)])
         assert addressofo.buffer_info()[0] == pp.gime_address_ptr_ptr(addressofo)
 
+        assert 0 == pp.gime_address_ptr(0)
+        assert 0 == pp.gime_address_ptr(None)
+
     def test09_opaque_pointer_assing(self):
         """Test passing around of opaque pointers"""
 

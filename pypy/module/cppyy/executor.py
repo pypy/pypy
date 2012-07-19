@@ -6,7 +6,7 @@ from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rlib import libffi, clibffi
 
 from pypy.module._rawffi.interp_rawffi import unpack_simple_shape
-from pypy.module._rawffi.array import W_Array
+from pypy.module._rawffi.array import W_Array, W_ArrayInstance
 
 from pypy.module.cppyy import helper, capi, ffitypes
 
@@ -52,6 +52,14 @@ class PtrTypeExecutor(FunctionExecutor):
         lresult = capi.c_call_l(cppmethod, cppthis, num_args, args)
         address = rffi.cast(rffi.ULONG, lresult)
         arr = space.interp_w(W_Array, unpack_simple_shape(space, space.wrap(self.typecode)))
+        if address == 0:
+            # TODO: fix this hack; fromaddress() will allocate memory if address
+            # is null and there seems to be no way around it (ll_buffer can not
+            # be touched directly)
+            nullarr = arr.fromaddress(space, address, 0)
+            assert isinstance(nullarr, W_ArrayInstance)
+            nullarr.free(space)
+            return nullarr
         return arr.fromaddress(space, address, sys.maxint)
 
 
