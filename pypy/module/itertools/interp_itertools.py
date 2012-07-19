@@ -1074,9 +1074,12 @@ W_Compress.typedef = TypeDef(
 
 class W_Product(Wrappable):
     def __init__(self, space, args_w, w_repeat):
+        repeat = space.int_w(w_repeat)
+        if repeat < 0:
+            repeat = 0
         self.gears = [
             space.fixedview(arg_w) for arg_w in args_w
-        ] * space.int_w(w_repeat)
+        ] * repeat
         self.num_gears = len(self.gears)
         # initialization of indicies to loop over
         self.indicies = [
