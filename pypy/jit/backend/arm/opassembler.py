@@ -1336,6 +1336,7 @@ class ResOpAssembler(object):
     emit_op_convert_longlong_bytes_to_float = gen_emit_unary_float_op('longlong_bytes_to_float', 'VMOV_cc')
 
     def emit_op_read_timestamp(self, op, arglocs, regalloc, fcond):
+	assert 0, 'not supported'
         tmp = arglocs[0]
         res = arglocs[1]
         self.mc.MRC(15, 0, tmp.value, 15, 12, 1)
