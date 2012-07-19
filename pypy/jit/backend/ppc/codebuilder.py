@@ -967,7 +967,7 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
         assert v == expected
 
     def load_imm(self, rD, word):
-        rD = rD.as_key()
+        rD = rD.value
         if word <= 32767 and word >= -32768:
             self.li(rD, word)
         elif IS_PPC_32 or (word <= 2147483647 and word >= -2147483648):
