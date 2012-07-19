@@ -396,15 +396,9 @@ class VoidPtrPtrConverter(TypeConverter):
         except OperationError:
             pass             # no set on buffer/array/None
 
-class VoidPtrRefConverter(TypeConverter):
+class VoidPtrRefConverter(VoidPtrPtrConverter):
     _immutable_ = True
-
-    def convert_argument(self, space, w_obj, address, call_local):
-        x = rffi.cast(rffi.VOIDPP, address)
-        x[0] = rffi.cast(rffi.VOIDP, get_rawobject(space, w_obj))
-        ba = rffi.cast(rffi.CCHARP, address)
-        ba[capi.c_function_arg_typeoffset()] = 'r'
-
+    uses_local = True
 
 class InstancePtrConverter(TypeConverter):
     _immutable_ = True

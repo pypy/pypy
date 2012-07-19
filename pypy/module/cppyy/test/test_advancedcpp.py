@@ -390,6 +390,13 @@ class AppTestADVANCEDCPP:
         assert 0 == pp.gime_address_ptr(0)
         assert 0 == pp.gime_address_ptr(None)
 
+        ptr = cppyy.bind_object(0, some_concrete_class)
+        assert cppyy.addressof(ptr) == 0
+        pp.set_address_ptr_ref(ptr)
+        assert cppyy.addressof(ptr) == 0x1234
+        pp.set_address_ptr_ptr(ptr)
+        assert cppyy.addressof(ptr) == 0x4321
+
     def test09_opaque_pointer_assing(self):
         """Test passing around of opaque pointers"""
 

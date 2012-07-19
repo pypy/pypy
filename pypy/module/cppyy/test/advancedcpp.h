@@ -314,6 +314,16 @@ public:
     long gime_address_ptr_ref(void*& obj) {
         return (long)obj;
     }
+
+    static long set_address_ptr_ptr(void** obj) {
+        (*(long**)obj) = (long*)0x4321;
+        return 42;
+    }
+
+    static long set_address_ptr_ref(void*& obj) {
+        obj = (void*)0x1234;
+        return 21;
+    }
 };
 
 
