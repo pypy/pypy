@@ -975,7 +975,6 @@ class AssemblerPPC(OpAssembler):
         self.mc = None
         self._regalloc = None
         assert self.datablockwrapper is None
-        self.stack_in_use = False
         self.max_stack_params = 0
 
     def _walk_operations(self, operations, regalloc):
@@ -1247,37 +1246,41 @@ class AssemblerPPC(OpAssembler):
         """Pushes the value stored in loc to the stack
         Can trash the current value of SCRATCH when pushing a stack
         loc"""
+        if loc.is_imm() or loc.is_imm_float():
+            assert 0, "not implemented yet"
 
+        self.mc.addi(r.SP.value, r.SP.value, -WORD) # decrease stack pointer
+        assert IS_PPC_64, 'needs to updated for ppc 32'
         if loc.is_stack():
             # XXX this code has to be verified
-            assert not self.stack_in_use
-            target = StackLocation(self.ENCODING_AREA // WORD) # write to ENCODING AREA           
-            self.regalloc_mov(loc, target)
-            self.stack_in_use = True
+            with scratch_reg(self.mc):
+                self.regalloc_mov(loc, r.SCRATCH)
+                # push value
+                self.mc.store(r.SCRATCH.value, r.SP.value, 0)
         elif loc.is_reg():
-            self.mc.addi(r.SP.value, r.SP.value, -WORD) # decrease stack pointer
             # push value
             self.mc.store(loc.value, r.SP.value, 0)
         elif loc.is_fp_reg():
             self.mc.addi(r.SP.value, r.SP.value, -WORD) # decrease stack pointer
             # push value
             self.mc.stfd(loc.value, r.SP.value, 0)
-        elif loc.is_imm():
-            assert 0, "not implemented yet"
-        elif loc.is_imm_float():
-            assert 0, "not implemented yet"
         else:
             raise AssertionError('Trying to push an invalid location')
 
     def regalloc_pop(self, loc):
         """Pops the value on top of the stack to loc. Can trash the current
         value of SCRATCH when popping to a stack loc"""
+        assert IS_PPC_64, 'needs to updated for ppc 32'
         if loc.is_stack():
             # XXX this code has to be verified
-            assert self.stack_in_use
-            from_loc = StackLocation(self.ENCODING_AREA // WORD) # read from ENCODING AREA
-            self.regalloc_mov(from_loc, loc)
-            self.stack_in_use = False
+            with scratch_reg(self.mc):
+                # pop value
+                if IS_PPC_32:
+                    self.mc.lwz(r.SCRATCH.value, r.SP.value, 0)
+                else:
+                    self.mc.ld(r.SCRATCH.value, r.SP.value, 0)
+                self.mc.addi(r.SP.value, r.SP.value, WORD) # increase stack pointer
+                self.regalloc_mov(r.SCRATCH, loc)
         elif loc.is_reg():
             # pop value
             if IS_PPC_32:
