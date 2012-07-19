@@ -78,7 +78,7 @@ def entry_point(argv):
     sumTime = 0.0
     
     
-    """ t = time()
+    """t = time()
     by = rbigint.fromint(2**62).lshift(1030000)
     for n in xrange(5000):
         by2 = by.lshift(63)
