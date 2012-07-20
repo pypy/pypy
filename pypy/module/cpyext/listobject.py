@@ -19,8 +19,6 @@ def PyList_New(space, len):
     PySequence_SetItem()  or expose the object to Python code before
     setting all items to a real object with PyList_SetItem().
     """
-    if len < 0:
-        len = 0
     return space.newlist([None] * len)
 
 @cpython_api([PyObject, Py_ssize_t, PyObject], rffi.INT_real, error=-1)
