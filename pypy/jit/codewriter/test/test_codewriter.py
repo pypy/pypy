@@ -231,4 +231,7 @@ def test_newlist_negativ():
     jitdriver_sd = FakeJitDriverSD(rtyper.annotator.translator.graphs[0])
     cw = CodeWriter(FakeCPU(rtyper), [jitdriver_sd])
     cw.find_all_graphs(FakePolicy())
-    py.test.raises(Exception, "cw.make_jitcodes(verbose=True)")
+    cw.make_jitcodes(verbose=True)
+    s = jitdriver_sd.mainjitcode.dump()
+    assert 'int_force_ge_zero' in s
+    assert 'new_array' in s
