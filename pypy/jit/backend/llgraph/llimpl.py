@@ -1522,6 +1522,7 @@ def do_new(size):
 
 def do_new_array(arraynum, count):
     TYPE = symbolic.Size2Type[arraynum]
+    assert count >= 0 # explode if it's not
     x = lltype.malloc(TYPE, count, zero=True)
     return cast_to_ptr(x)
 
