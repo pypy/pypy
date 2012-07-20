@@ -458,7 +458,6 @@ class W_SRE_Match(Wrappable):
         space = self.space
         fmarks = self.flatten_marks()
         num_groups = self.srepat.num_groups
-        assert num_groups >= 0
         result_w = [None] * (num_groups + 1)
         ctx = self.ctx
         result_w[0] = space.newtuple([space.wrap(ctx.match_start),
