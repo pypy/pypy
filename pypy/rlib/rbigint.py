@@ -1604,7 +1604,6 @@ def _format(a, digits, prefix='', suffix=''):
         bits += 1
         i >>= 1
     i = 5 + len(prefix) + len(suffix) + (size_a*SHIFT + bits-1) // bits
-    assert i >= 0
     s = [chr(0)] * i
     p = i
     j = len(suffix)
