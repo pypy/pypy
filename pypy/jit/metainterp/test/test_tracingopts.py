@@ -329,7 +329,6 @@ class TestLLtype(LLJitMixin):
 
     def test_list_caching_negative(self):
         def fn(n):
-            assert n >= 0
             a = [0] * n
             if n > 1000:
                 a.append(0)
@@ -351,7 +350,6 @@ class TestLLtype(LLJitMixin):
 
             def __init__(self, a, s):
                 self = jit.hint(self, access_directly=True, fresh_virtualizable=True)
-                assert a >= 0
                 self.l = [0] * (4 + a)
                 self.s = s
 
@@ -558,7 +556,6 @@ class TestLLtype(LLJitMixin):
         def fn(n):
             a = g.a
             res = len(a) + len(a)
-            assert n >= 0
             a1 = [0] * n
             g.a = a1
             return len(a1) + res

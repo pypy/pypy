@@ -263,7 +263,6 @@ def test_list_extend():
 
 def test_list_multiply():
     def f(i):
-        assert i >= 0
         l = [i]
         l = l * i  # uses alloc_and_set for len(l) == 1
         return len(l)

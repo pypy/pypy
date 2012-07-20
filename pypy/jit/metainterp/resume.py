@@ -799,9 +799,7 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
     def __init__(self, storage, metainterp):
         self._init(metainterp.cpu, storage)
         self.metainterp = metainterp
-        count = metainterp.cpu.get_latest_value_count()
-        assert count >= 0
-        self.liveboxes = [None] * count
+        self.liveboxes = [None] * metainterp.cpu.get_latest_value_count()
         self._prepare(storage)
 
     def consume_boxes(self, info, boxes_i, boxes_r, boxes_f):
