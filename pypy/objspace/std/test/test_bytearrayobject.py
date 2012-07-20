@@ -441,6 +441,8 @@ class AppTestBytesArray:
 
     def test_float(self):
         assert float(bytearray(b'10.4')) == 10.4
+        assert float(bytearray('-1.7e-1')) == -1.7e-1
+        assert float(bytearray(u'.9e10', 'utf-8')) == .9e10
 
     def test_reduce(self):
         assert bytearray('caf\xe9').__reduce__() == (
