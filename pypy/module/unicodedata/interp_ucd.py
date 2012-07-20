@@ -251,9 +251,8 @@ class UCD(Wrappable):
                     result[j + 1] = V
                     j += 2
                 else:
-                    lgt = j + 2 - resultlen
-                    if lgt > 0:
-                        result.extend([0] * (lgt + 10))
+                    if j + 3 > resultlen:
+                        result.extend([0] * (j + 3 - resultlen + 10))
                         resultlen = len(result)
                     result[j] = L
                     result[j + 1] = V
@@ -263,17 +262,15 @@ class UCD(Wrappable):
             decomp = decomposition(ch)
             if decomp:
                 decomplen = len(decomp)
-                lgt = j + decomplen - resultlen
-                if lgt > 0:
-                    result.extend([0] * (lgt + 10))
+                if j + decomplen > resultlen:
+                    result.extend([0] * (j + decomplen - resultlen + 10))
                     resultlen = len(result)
                 for ch in decomp:
                     result[j] = ch
                     j += 1
             else:
-                lgt = j + 1 - resultlen
-                if lgt > 0:
-                    result.extend([0] * (lgt + 10))
+                if j + 1 > resultlen:
+                    result.extend([0] * (j + 1 - resultlen + 10))
                     resultlen = len(result)
                 result[j] = ch
                 j += 1
