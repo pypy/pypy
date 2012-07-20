@@ -164,8 +164,6 @@ def mul_bytearray_times(space, w_bytearray, w_times):
             raise FailedToImplement
         raise
     data = w_bytearray.data
-    if times < 0:
-        times = 0
     return W_BytearrayObject(data * times)
 
 def mul__Bytearray_ANY(space, w_bytearray, w_times):
