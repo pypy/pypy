@@ -556,8 +556,6 @@ class RangeListStrategy(ListStrategy):
         start = l[0]
         step = l[1]
         length  = l[2]
-        if length < 0:
-            length = 0
         if wrap_items:
             r = [None] * length
         else:
