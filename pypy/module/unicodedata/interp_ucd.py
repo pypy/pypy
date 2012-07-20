@@ -227,10 +227,7 @@ class UCD(Wrappable):
                                  space.wrap('invalid normalization form'))
 
         strlen = space.len_w(w_unistr)
-        lgt = (strlen + strlen / 10 + 10)
-        if lgt < 0:
-            lgt = 0
-        result = [0] * lgt
+        result = [0] * (strlen + strlen / 10 + 10)
         j = 0
         resultlen = len(result)
         # Expand the character
