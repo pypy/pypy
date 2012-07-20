@@ -79,9 +79,8 @@ class W_BytesIO(W_BufferedIOBase):
         if length <= 0:
             return
 
-        lgt = (self.pos + length - len(self.buf))
-        if lgt > 0:
-            self.buf.extend(['\0'] * lgt)
+        if self.pos + length > len(self.buf):
+            self.buf.extend(['\0'] * (self.pos + length - len(self.buf)))
 
         if self.pos > self.string_size:
             # In case of overseek, pad with null bytes the buffer region
