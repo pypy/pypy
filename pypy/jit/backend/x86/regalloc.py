@@ -1189,7 +1189,7 @@ class RegAlloc(object):
     consider_cast_int_to_ptr = consider_same_as
 
     def consider_int_force_ge_zero(self, op):
-        argloc = self.loc(op.getarg(0))
+        argloc = self.make_sure_var_in_reg(op.getarg(0))
         resloc = self.force_allocate_reg(op.result, [op.getarg(0)])
         self.possibly_free_var(op.getarg(0))
         self.Perform(op, [argloc], resloc)
