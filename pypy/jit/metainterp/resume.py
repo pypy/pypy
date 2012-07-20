@@ -332,7 +332,6 @@ class ResumeDataVirtualAdder(object):
 
         # collect liveboxes and virtuals
         n = len(liveboxes_from_env) - v
-        assert n >= 0
         liveboxes = [None]*n
         self.vfieldboxes = {}
         for box, tagged in liveboxes_from_env.iteritems():
