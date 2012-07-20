@@ -604,24 +604,11 @@ class StringDictStrategy(AbstractTypedStrategy, DictStrategy):
     def w_keys(self, w_dict):
         return self.space.newlist_str(self.listview_str(w_dict))
 
-<<<<<<< local
     def wrapkey(space, key):
         return space.wrap(key)
-=======
+
     @jit.look_inside_iff(lambda self, w_dict:
                          w_dict_unrolling_heuristic(w_dict))
-    def view_as_kwargs(self, w_dict):
-        d = self.unerase(w_dict.dstorage)
-        l = len(d)
-        keys, values = [None] * l, [None] * l
-        i = 0
-        for key, val in d.iteritems():
-            keys[i] = key
-            values[i] = val
-            i += 1
-        return keys, values
->>>>>>> other
-
     def view_as_kwargs(self, w_dict):
         d = self.unerase(w_dict.dstorage)
         l = len(d)
