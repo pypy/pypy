@@ -82,7 +82,8 @@ extern "C" {
     char* cppyy_method_signature(cppyy_scope_t scope, cppyy_index_t idx);
 
     cppyy_method_t cppyy_get_method(cppyy_scope_t scope, cppyy_index_t idx);
-    cppyy_index_t cppyy_get_global_operator(cppyy_scope_t lc, cppyy_scope_t rc, const char* op);
+    cppyy_index_t cppyy_get_global_operator(
+        cppyy_scope_t scope, cppyy_scope_t lc, cppyy_scope_t rc, const char* op);
 
     /* method properties -----------------------------------------------------  */
     int cppyy_is_constructor(cppyy_type_t type, cppyy_index_t idx);

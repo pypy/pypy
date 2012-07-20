@@ -437,8 +437,35 @@ cppyy_method_t cppyy_get_method(cppyy_scope_t handle, cppyy_index_t method_index
     return (cppyy_method_t)m.Stubfunction();
 }
 
-cppyy_index_t cppyy_get_global_operator(cppyy_scope_t lc, cppyy_scope_t rc, const char* op) {
-    return (cppyy_index_t)-1; /* not needed yet; covered in pythonify.py */
+cppyy_method_t cppyy_get_global_operator(cppyy_scope_t scope, cppyy_scope_t lc, cppyy_scope_t rc, const char* op) {
+    Reflex::Type lct = type_from_handle(lc);
+    Reflex::Type rct = type_from_handle(rc);
+    Reflex::Scope nss = scope_from_handle(scope);
+
+    if (!lct || !rct || !nss) 
+        return (cppyy_index_t)-1;  // (void*)-1 is in kernel space, so invalid as a method handle
+
+    std::string lcname = lct.Name(Reflex::SCOPED|Reflex::FINAL);
+    std::string rcname = rct.Name(Reflex::SCOPED|Reflex::FINAL);
+
+    std::string opname = "operator";
+    opname += op;
+
+    for (int idx = 0; idx < (int)nss.FunctionMemberSize(); ++idx) {
+        Reflex::Member m = nss.FunctionMemberAt(idx);
+        if (m.FunctionParameterSize() != 2)
+            continue;
+
+        if (m.Name() == opname) {
+            Reflex::Type mt = m.TypeOf();
+            if (lcname == mt.FunctionParameterAt(0).Name(Reflex::SCOPED|Reflex::FINAL) &&
+                rcname == mt.FunctionParameterAt(1).Name(Reflex::SCOPED|Reflex::FINAL)) {
+                return (cppyy_index_t)idx;
+            }
+        }
+    }
+
+    return (cppyy_index_t)-1;  
 }
 
 

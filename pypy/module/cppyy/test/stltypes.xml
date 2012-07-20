@@ -3,12 +3,18 @@
   <namespace name="std" />
 
   <class pattern="std::vector<*>" />
-  <class pattern="__gnu_cxx::__normal_iterator<*>" />
-  <class pattern="__gnu_cxx::new_allocator<*>" />
   <class pattern="std::_Vector_base<*>" />
   <class pattern="std::_Vector_base<*>::_Vector_impl" />
-  <class pattern="std::allocator<*>" />
+  <class pattern="std::vector<*>::iterator" />
+  <class pattern="std::vector<*>::const_iterator" />
 
+  <class pattern="std::list<*>" />
+  <class pattern="std::_List_base<*>" />
+  <class pattern="std::list<*>::iterator" />
+  <class pattern="std::list<*>::const_iterator" />
+  <class name="std::__detail::_List_node_base" />
+
+  <class pattern="__gnu_cxx::__normal_iterator<*>" />
   <function name="__gnu_cxx::operator=="/>
   <function name="__gnu_cxx::operator!="/>
 

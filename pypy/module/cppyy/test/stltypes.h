@@ -3,32 +3,50 @@
 #include <string>
 #include <vector>
 
-#define STLTYPES_EXPLICIT_INSTANTIATION_DECL(STLTYPE, TTYPE)                    \
-extern template class std::STLTYPE< TTYPE >;                                    \
-extern template class __gnu_cxx::__normal_iterator<TTYPE*, std::STLTYPE< TTYPE > >;\
-extern template class __gnu_cxx::__normal_iterator<const TTYPE*, std::STLTYPE< TTYPE > >;\
-namespace __gnu_cxx {                                                           \
-extern template bool operator==(const std::STLTYPE< TTYPE >::iterator&,         \
-                         const std::STLTYPE< TTYPE >::iterator&);               \
-extern template bool operator!=(const std::STLTYPE< TTYPE >::iterator&,         \
-                         const std::STLTYPE< TTYPE >::iterator&);               \
-}
-
-
 //- basic example class
 class just_a_class {
 public:
     int m_i;
 };
 
+#define STLTYPE_INSTANTIATION(STLTYPE, TTYPE, N)                             \
+   std::STLTYPE<TTYPE > STLTYPE##_##N;                                       \
+   std::STLTYPE<TTYPE >::iterator STLTYPE##_##N##_i;                         \
+   std::STLTYPE<TTYPE >::const_iterator STLTYPE##_##N##_ci
 
-#ifndef __CINT__
-//- explicit instantiations of used types
-STLTYPES_EXPLICIT_INSTANTIATION_DECL(vector, int)
-STLTYPES_EXPLICIT_INSTANTIATION_DECL(vector, float)
-STLTYPES_EXPLICIT_INSTANTIATION_DECL(vector, double)
-STLTYPES_EXPLICIT_INSTANTIATION_DECL(vector, just_a_class)
-#endif
+//- instantiations of used STL types
+namespace {
+
+    struct _CppyyVectorInstances {
+
+        STLTYPE_INSTANTIATION(vector, int,          1);
+        STLTYPE_INSTANTIATION(vector, float,        2);
+        STLTYPE_INSTANTIATION(vector, double,       3);
+        STLTYPE_INSTANTIATION(vector, just_a_class, 4);
+
+    };
+
+    struct _CppyyListInstances {
+
+        STLTYPE_INSTANTIATION(list, int,          1);
+        STLTYPE_INSTANTIATION(list, float,        2);
+        STLTYPE_INSTANTIATION(list, double,       3);
+
+    };
+
+} // unnamed namespace
+
+#define STLTYPES_EXPLICIT_INSTANTIATION_DECL_COMPS(STLTYPE, TTYPE)           \
+namespace __gnu_cxx {                                                        \
+extern template bool operator==(const std::STLTYPE< TTYPE >::iterator&,      \
+                         const std::STLTYPE< TTYPE >::iterator&);            \
+extern template bool operator!=(const std::STLTYPE< TTYPE >::iterator&,      \
+                         const std::STLTYPE< TTYPE >::iterator&);            \
+}
+
+// comps for int only to allow testing: normal use of vector is looping over a
+// range-checked version of __getitem__
+STLTYPES_EXPLICIT_INSTANTIATION_DECL_COMPS(vector, int)
 
 
 //- class with lots of std::string handling

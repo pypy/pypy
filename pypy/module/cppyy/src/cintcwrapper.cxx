@@ -264,6 +264,12 @@ char* cppyy_resolve_name(const char* cppitem_name) {
 
     // actual typedef resolution; add back array declartion portion, if needed
     std::string rt = ti.TrueName();
+
+    // builtin STL types have fake typedefs :/
+    G__TypeInfo ti_test(rt.c_str());
+    if (!ti_test.IsValid())
+        return cppstring_to_cstring(cppitem_name);
+
     if (pos != std::string::npos)
         rt += tname.substr(pos, std::string::npos);
     return cppstring_to_cstring(rt);
@@ -712,15 +718,14 @@ cppyy_method_t cppyy_get_method(cppyy_scope_t handle, cppyy_index_t idx) {
     return method;
 }
 
-cppyy_index_t cppyy_get_global_operator(cppyy_scope_t lc, cppyy_scope_t rc, const char* op) {
+cppyy_index_t cppyy_get_global_operator(cppyy_scope_t scope, cppyy_scope_t lc, cppyy_scope_t rc, const char* op) {
     TClassRef lccr = type_from_handle(lc);
-    if (!lccr.GetClass()) 
-        return (cppyy_index_t)-1;  // (void*)-1 is in kernel space, so invalid as a method handle
-    std::string lcname = lccr->GetName();
+    TClassRef rccr = type_from_handle(rc);
 
-    TClassRef rccr = type_from_handle(lc);
-    if (!rccr.GetClass())
-        return (cppyy_index_t)-1;
+    if (!lccr.GetClass() || !rccr.GetClass() || scope != GLOBAL_HANDLE)
+        return (cppyy_index_t)-1;  // (void*)-1 is in kernel space, so invalid as a method handle
+
+    std::string lcname = lccr->GetName();
     std::string rcname = rccr->GetName();
 
     std::string opname = "operator";

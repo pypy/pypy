@@ -781,14 +781,17 @@ class W_CPPInstance(Wrappable):
 
     def instance__eq__(self, w_other):
         other = self.space.interp_w(W_CPPInstance, w_other, can_be_None=False)
-        # get here if no class-specific overloaded operator is available
-        meth_idx = capi.c_get_global_operator(self.cppclass, other.cppclass, "==")
-        if meth_idx != -1:
-            gbl = scope_byname(self.space, "")
-            f = gbl._make_cppfunction("operator==", meth_idx)
-            ol = W_CPPOverload(self.space, scope_byname(self.space, ""), [f])
-            # TODO: cache this operator (currently cached by JIT in capi/__init__.py)
-            return ol.call(self, [self, w_other])
+        # get here if no class-specific overloaded operator is available, try to
+        # find a global overload in gbl, in __gnu_cxx (for iterators), or in the
+        # scopes of the argument classes (TODO: implement that last)
+        for name in ["", "__gnu_cxx"]:
+            nss = scope_byname(self.space, name)
+            meth_idx = capi.c_get_global_operator(nss, self.cppclass, other.cppclass, "==")
+            if meth_idx != -1:
+                f = nss._make_cppfunction("operator==", meth_idx)
+                ol = W_CPPOverload(self.space, nss, [f])
+                # TODO: cache this operator
+                return ol.call(self, [self, w_other])
         
         # fallback: direct pointer comparison (the class comparison is needed since the
         # first data member in a struct and the struct have the same address)

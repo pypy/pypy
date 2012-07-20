@@ -360,11 +360,13 @@ def c_get_method(cppscope, index):
     return _c_get_method(cppscope.handle, index)
 _c_get_global_operator = rffi.llexternal(
     "cppyy_get_global_operator",
-    [C_SCOPE, C_SCOPE, rffi.CCHARP], WLAVC_INDEX,
+    [C_SCOPE, C_SCOPE, C_SCOPE, rffi.CCHARP], WLAVC_INDEX,
     threadsafe=ts_reflect,
     compilation_info=backend.eci)
-def c_get_global_operator(lc, rc, op):
-    return _c_get_global_operator(lc.handle, rc.handle, op)
+def c_get_global_operator(nss, lc, rc, op):
+    if nss is not None:
+        return _c_get_global_operator(nss.handle, lc.handle, rc.handle, op)
+    return rffi.cast(WLAVC_INDEX, -1)
 
 # method properties ----------------------------------------------------------
 _c_is_constructor = rffi.llexternal(

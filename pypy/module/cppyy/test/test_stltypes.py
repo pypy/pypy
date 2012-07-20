@@ -17,7 +17,6 @@ def setup_module(mod):
 class AppTestSTLVECTOR:
     def setup_class(cls):
         cls.space = space
-        env = os.environ
         cls.w_N = space.wrap(13)
         cls.w_test_dct  = space.wrap(test_dct)
         cls.w_stlvector = cls.space.appexec([], """():
@@ -46,13 +45,14 @@ class AppTestSTLVECTOR:
             assert tv1 is tv2
             assert tv1.iterator is cppyy.gbl.std.vector(p_type).iterator
 
-            #-----
+            #----- 
             v = tv1(); v += range(self.N)    # default args from Reflex are useless :/
-            assert v.begin().__eq__(v.begin())
-            assert v.begin() == v.begin()
-            assert v.end() == v.end()
-            assert v.begin() != v.end()
-            assert v.end() != v.begin()
+            if p_type == int:                # only type with == and != reflected in .xml
+                assert v.begin().__eq__(v.begin())
+                assert v.begin() == v.begin()
+                assert v.end() == v.end()
+                assert v.begin() != v.end()
+                assert v.end() != v.begin()
 
             #-----
             for i in range(self.N):
@@ -204,7 +204,6 @@ class AppTestSTLVECTOR:
 class AppTestSTLSTRING:
     def setup_class(cls):
         cls.space = space
-        env = os.environ
         cls.w_test_dct  = space.wrap(test_dct)
         cls.w_stlstring = cls.space.appexec([], """():
             import cppyy
@@ -279,3 +278,59 @@ class AppTestSTLSTRING:
         c.set_string1(s)
         assert t0 == c.get_string1()
         assert s == c.get_string1()
+
+
+class AppTestSTLSTRING:
+    def setup_class(cls):
+        cls.space = space
+        cls.w_N = space.wrap(13)
+        cls.w_test_dct  = space.wrap(test_dct)
+        cls.w_stlstring = cls.space.appexec([], """():
+            import cppyy
+            return cppyy.load_reflection_info(%r)""" % (test_dct, ))
+
+    def test01_builtin_list_type(self):
+        """Test access to a list<int>"""
+
+        import cppyy
+        from cppyy.gbl import std
+
+        type_info = (
+            ("int",     int),
+            ("float",   "float"),
+            ("double",  "double"),
+        )
+
+        for c_type, p_type in type_info:
+            tl1 = getattr(std, 'list<%s>' % c_type)
+            tl2 = cppyy.gbl.std.list(p_type)
+            assert tl1 is tl2
+            assert tl1.iterator is cppyy.gbl.std.list(p_type).iterator
+
+            #-----
+            a = tl1()
+            for i in range(self.N):
+                a.push_back( i )
+
+            assert len(a) == self.N
+            assert 11 < self.N
+            assert 11 in a
+
+            #-----
+            ll = list(a)
+            for i in range(self.N):
+                assert ll[i] == i
+
+            for val in a:
+                assert ll[ll.index(val)] == val
+
+    def test02_empty_list_type(self):
+        """Test behavior of empty list<int>"""
+
+        import cppyy
+        from cppyy.gbl import std
+
+        a = std.list(int)()
+        for arg in a:
+           pass
+

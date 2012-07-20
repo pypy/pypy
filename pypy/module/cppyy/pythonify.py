@@ -323,19 +323,10 @@ def _pythonize(pyclass):
             return self
         pyclass.__iadd__ = __iadd__
 
-    # for STL iterators, whose comparison functions live globally for gcc
-    # TODO: this needs to be solved fundamentally for all classes
-    if 'iterator' in pyclass.__name__:
-        if hasattr(gbl, '__gnu_cxx'):
-            if hasattr(gbl.__gnu_cxx, '__eq__'):
-                setattr(pyclass, '__eq__', gbl.__gnu_cxx.__eq__)
-            if hasattr(gbl.__gnu_cxx, '__ne__'):
-                setattr(pyclass, '__ne__', gbl.__gnu_cxx.__ne__)
-
-    # map begin()/end() protocol to iter protocol
-    # TODO: the vector hack is there b/c it's safer/faster to use the normal
-    # index iterator (with len checking) rather than the begin()/end() iterators
-    if not 'vector' in pyclass.__name__ and \
+    # map begin()/end() protocol to iter protocol on STL(-like) classes, but
+    # not on vector, for which otherwise the user has to make sure that the
+    # global == and != for its iterators are reflected, which is a hassle ...
+    if not 'vector' in pyclass.__name__[:11] and \
             (hasattr(pyclass, 'begin') and hasattr(pyclass, 'end')):
         # TODO: check return type of begin() and end() for existence
         def __iter__(self):
