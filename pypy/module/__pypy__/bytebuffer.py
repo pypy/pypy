@@ -9,8 +9,6 @@ from pypy.interpreter.gateway import unwrap_spec
 class ByteBuffer(RWBuffer):
 
     def __init__(self, len):
-        if len < 0:
-            len = 0
         self.data = ['\x00'] * len
 
     def getlength(self):
