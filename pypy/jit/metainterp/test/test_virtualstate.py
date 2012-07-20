@@ -908,6 +908,94 @@ class BaseTestBridges(BaseTest):
         """
         self.optimize_bridge(loop, bridge, expected, p5=self.myptr, p6=self.myptr2)
 
+    def test_licm_boxed_opaque_getitem(self):
+        loop = """
+        [p1]
+        p2 = getfield_gc(p1, descr=nextdescr) 
+        mark_opaque_ptr(p2)        
+        guard_class(p2,  ConstClass(node_vtable)) []
+        i3 = getfield_gc(p2, descr=otherdescr)
+        i4 = call(i3, descr=nonwritedescr)
+        jump(p1)
+        """
+        bridge = """
+        [p1]
+        guard_nonnull(p1) []
+        jump(p1)
+        """
+        expected = """
+        [p1]
+        guard_nonnull(p1) []
+        p2 = getfield_gc(p1, descr=nextdescr)
+        jump(p1)
+        """        
+        self.optimize_bridge(loop, bridge, expected, 'Preamble')
+        
+        bridge = """
+        [p1]
+        p2 = getfield_gc(p1, descr=nextdescr) 
+        guard_class(p2,  ConstClass(node_vtable2)) []
+        jump(p1)
+        """
+        expected = """
+        [p1]
+        p2 = getfield_gc(p1, descr=nextdescr) 
+        guard_class(p2,  ConstClass(node_vtable2)) []
+        jump(p1)
+        """
+        self.optimize_bridge(loop, bridge, expected, 'Preamble')
+
+        bridge = """
+        [p1]
+        p2 = getfield_gc(p1, descr=nextdescr) 
+        guard_class(p2,  ConstClass(node_vtable)) []
+        jump(p1)
+        """
+        expected = """
+        [p1]
+        p2 = getfield_gc(p1, descr=nextdescr) 
+        guard_class(p2,  ConstClass(node_vtable)) []
+        i3 = getfield_gc(p2, descr=otherdescr)
+        jump(p1, i3)
+        """
+        self.optimize_bridge(loop, bridge, expected, 'Loop')
+
+    def test_licm_unboxed_opaque_getitem(self):
+        loop = """
+        [p2]
+        mark_opaque_ptr(p2)        
+        guard_class(p2,  ConstClass(node_vtable)) []
+        i3 = getfield_gc(p2, descr=otherdescr)
+        i4 = call(i3, descr=nonwritedescr)
+        jump(p2)
+        """
+        bridge = """
+        [p1]
+        guard_nonnull(p1) []
+        jump(p1)
+        """
+        self.optimize_bridge(loop, bridge, 'RETRACE')
+        
+        bridge = """
+        [p2]
+        guard_class(p2,  ConstClass(node_vtable2)) []
+        jump(p2)
+        """
+        self.optimize_bridge(loop, bridge, 'RETRACE')
+
+        bridge = """
+        [p2]
+        guard_class(p2,  ConstClass(node_vtable)) []
+        jump(p2)
+        """
+        expected = """
+        [p2]
+        guard_class(p2,  ConstClass(node_vtable)) []
+        i3 = getfield_gc(p2, descr=otherdescr)
+        jump(p2, i3)
+        """
+        self.optimize_bridge(loop, bridge, expected, 'Loop')
+
 class TestLLtypeGuards(BaseTestGenerateGuards, LLtypeMixin):
     pass
 

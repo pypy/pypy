@@ -597,7 +597,7 @@ class UnrollOptimizer(Optimization):
                         self.optimizer.send_extra_operation(newop)
                         if shop.result in target.assumed_classes:
                             classbox = self.getvalue(newop.result).get_constant_class(self.optimizer.cpu)
-                            if not classbox or not classbox.same_constant(target.assumed_classes[shop]):
+                            if not classbox or not classbox.same_constant(target.assumed_classes[shop.result]):
                                 raise InvalidLoop('The class of an opaque pointer at the end ' +
                                                   'of the bridge does not mach the class ' + 
                                                   'it has at the start of the target loop')
