@@ -764,8 +764,6 @@ class AbstractUnwrappedStrategy(object):
             storage = self.erase(sublist)
             return W_ListObject.from_storage_and_strategy(self.space, storage, self)
         else:
-            if length < 0:
-                length = 0
             subitems_w = [self._none_value] * length
             l = self.unerase(w_list.lstorage)
             for i in range(length):
