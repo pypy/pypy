@@ -477,6 +477,11 @@ class BlackholeInterpreter(object):
     @arguments("i", "i", "i", returns="i")
     def bhimpl_int_between(a, b, c):
         return a <= b < c
+    @arguments("i", returns="i")
+    def bhimpl_int_force_ge_zero(i):
+        if i < 0:
+            return 0
+        return i
 
     @arguments("i", "i", returns="i")
     def bhimpl_uint_lt(a, b):
