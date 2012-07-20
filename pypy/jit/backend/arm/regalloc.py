@@ -1045,27 +1045,23 @@ class Regalloc(object):
 
     def prepare_op_cond_call_gc_wb(self, op, fcond):
         assert op.result is None
-        N = op.numargs()
         # we force all arguments in a reg because it will be needed anyway by
         # the following setfield_gc or setarrayitem_gc. It avoids loading it
         # twice from the memory.
-        arglocs = []
+        N = op.numargs()
         args = op.getarglist()
-        for i in range(N):
-            loc = self._ensure_value_is_boxed(op.getarg(i), args)
-            arglocs.append(loc)
-        card_marking = False
-        if op.getopnum() == rop.COND_CALL_GC_WB_ARRAY:
-            descr = op.getdescr()
-            if we_are_translated():
-                cls = self.cpu.gc_ll_descr.has_write_barrier_class()
-                assert cls is not None and isinstance(descr, cls)
-            card_marking = descr.jit_wb_cards_set != 0
-        if card_marking:  # allocate scratch registers
-            tmp1 = self.get_scratch_reg(INT)
-            tmp2 = self.get_scratch_reg(INT)
-            arglocs.append(tmp1)
-            arglocs.append(tmp2)
+        arglocs = [self._ensure_value_is_boxed(op.getarg(i), args)
+			 for i in range(N)]
+        descr = op.getdescr()
+        if(op.getopnum() == rop.COND_CALL_GC_WB_ARRAY 
+            and descr.jit_wb_cards_set != 0):
+            # check conditions for card marking
+            assert (descr.jit_wb_cards_set_byteofs ==
+                    descr.jit_wb_if_flag_byteofs)
+            assert descr.jit_wb_cards_set_singlebyte == -0x80
+            # allocate scratch register
+            tmp = self.get_scratch_reg(INT)
+            arglocs.append(tmp)
         return arglocs
 
     prepare_op_cond_call_gc_wb_array = prepare_op_cond_call_gc_wb

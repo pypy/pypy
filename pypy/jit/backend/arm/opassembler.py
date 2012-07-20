@@ -506,32 +506,30 @@ class ResOpAssembler(object):
 
     def emit_op_cond_call_gc_wb(self, op, arglocs, regalloc, fcond):
         # Write code equivalent to write_barrier() in the GC: it checks
-        # a flag in the object at arglocs[0], and if set, it calls the
-        # function remember_young_pointer() from the GC.  The two arguments
-        # to the call are in arglocs[:2].  The rest, arglocs[2:], contains
-        # registers that need to be saved and restored across the call.
+        # a flag in the object at arglocs[0], and if set, it calls a
+        # helper piece of assembler.  The latter saves registers as needed
+        # and call the function jit_remember_young_pointer() from the GC.
         descr = op.getdescr()
         if we_are_translated():
             cls = self.cpu.gc_ll_descr.has_write_barrier_class()
             assert cls is not None and isinstance(descr, cls)
-
+        #
         opnum = op.getopnum()
-        if opnum == rop.COND_CALL_GC_WB:
-            N = 2
-            addr = descr.get_write_barrier_fn(self.cpu)
-            card_marking = False
-        elif opnum == rop.COND_CALL_GC_WB_ARRAY:
-            N = 3
-            addr = descr.get_write_barrier_from_array_fn(self.cpu)
-            assert addr != 0
-            card_marking = descr.jit_wb_cards_set != 0
-        else:
-            raise AssertionError(opnum)
+        card_marking = False
+        mask = descr.jit_wb_if_flag_singlebyte
+        if opnum == rop.COND_CALL_GC_WB_ARRAY and descr.jit_wb_cards_set != 0:
+            # assumptions the rest of the function depends on:
+            assert (descr.jit_wb_cards_set_byteofs ==
+                    descr.jit_wb_if_flag_byteofs)
+            assert descr.jit_wb_cards_set_singlebyte == -0x80
+            card_marking = True
+            mask = descr.jit_wb_if_flag_singlebyte | -0x80
+        #
         loc_base = arglocs[0]
-        assert check_imm_arg(descr.jit_wb_if_flag_byteofs)
-        assert check_imm_arg(descr.jit_wb_if_flag_singlebyte)
-        self.mc.LDRB_ri(r.ip.value, loc_base.value, imm=descr.jit_wb_if_flag_byteofs)
-        self.mc.TST_ri(r.ip.value, imm=descr.jit_wb_if_flag_singlebyte)
+        self.mc.LDRB_ri(r.ip.value, loc_base.value,
+                                    imm=descr.jit_wb_if_flag_byteofs)
+        mask &= 0xFF
+        self.mc.TST_ri(r.ip.value, imm=mask)
 
         jz_location = self.mc.currpos()
         self.mc.BKPT()
@@ -539,68 +537,80 @@ class ResOpAssembler(object):
         # for cond_call_gc_wb_array, also add another fast path:
         # if GCFLAG_CARDS_SET, then we can just set one bit and be done
         if card_marking:
-            assert check_imm_arg(descr.jit_wb_cards_set_byteofs)
-            assert check_imm_arg(descr.jit_wb_cards_set_singlebyte)
-            self.mc.LDRB_ri(r.ip.value, loc_base.value, imm=descr.jit_wb_cards_set_byteofs)
-            self.mc.TST_ri(r.ip.value, imm=descr.jit_wb_cards_set_singlebyte)
-            #
-            jnz_location = self.mc.currpos()
+            # GCFLAG_CARDS_SET is in this byte at 0x80
+            self.mc.TST_ri(r.ip.value, imm=0x80)
+
+            js_location = self.mc.currpos() # 
+            self.mc.BKPT()
+        else:
+            js_location = 0
+
+        # Write only a CALL to the helper prepared in advance, passing it as
+        # argument the address of the structure we are writing into
+        # (the first argument to COND_CALL_GC_WB).
+        helper_num = card_marking
+        if self._regalloc.vfprm.reg_bindings:
+            helper_num += 2
+        if self.wb_slowpath[helper_num] == 0:    # tests only
+            assert not we_are_translated()
+            self.cpu.gc_ll_descr.write_barrier_descr = descr
+            self._build_wb_slowpath(card_marking,
+                                    bool(self._regalloc.vfprm.reg_bindings))
+            assert self.wb_slowpath[helper_num] != 0
+        #
+        if loc_base is not r.r0:
+            # push two registers to keep stack aligned
+	    self.mc.PUSH([r.r0.value, loc_base.value])
+            remap_frame_layout(self, [loc_base], [r.r0], r.ip)
+        self.mc.BL(self.wb_slowpath[helper_num])
+        if loc_base is not r.r0:
+	    self.mc.POP([r.r0.value, loc_base.value])
+
+        if card_marking:
+	    # The helper ends again with a check of the flag in the object.  So
+	    # here, we can simply write again a conditional jump, which will be
+	    # taken if GCFLAG_CARDS_SET is still not set.
+            jns_location = self.mc.currpos()
             self.mc.BKPT()
             #
-        else:
-            jnz_location = 0
-
-        # the following is supposed to be the slow path, so whenever possible
-        # we choose the most compact encoding over the most efficient one.
-        with saved_registers(self.mc, r.caller_resp):
-            if N == 2:
-                callargs = [r.r0, r.r1]
-            else:
-                callargs = [r.r0, r.r1, r.r2]
-            remap_frame_layout(self, arglocs, callargs, r.ip)
-            func = rffi.cast(lltype.Signed, addr)
-            # misaligned stack in the call, but it's ok because the write
-            # barrier is not going to call anything more.
-            self.mc.BL(func)
-
-        # if GCFLAG_CARDS_SET, then we can do the whole thing that would
-        # be done in the CALL above with just four instructions, so here
-        # is an inline copy of them
-        if card_marking:
-            jmp_location = self.mc.get_relative_pos()
-            self.mc.BKPT()  # jump to the exit, patched later
-            # patch the JNZ above
+            # patch the JS above
             offset = self.mc.currpos()
-            pmc = OverwritingBuilder(self.mc, jnz_location, WORD)
-            pmc.B_offs(offset, c.NE)
+            pmc = OverwritingBuilder(self.mc, js_location, WORD)
+	    pmc.B_offs(offset, c.NE) # We want to jump if the z flag is not set
             #
+            # case GCFLAG_CARDS_SET: emit a few instructions to do
+            # directly the card flag setting
             loc_index = arglocs[1]
             assert loc_index.is_reg()
-            tmp1 = arglocs[-2]
-            tmp2 = arglocs[-1]
-            #byteofs
-            s = 3 + descr.jit_wb_card_page_shift
-            self.mc.MVN_rr(r.lr.value, loc_index.value,
-                                imm=s, shifttype=shift.LSR)
-            # byte_index
-            self.mc.MOV_ri(r.ip.value, imm=7)
-            self.mc.AND_rr(tmp1.value, r.ip.value, loc_index.value,
-                    imm=descr.jit_wb_card_page_shift, shifttype=shift.LSR)
-
-            # set the bit
-            self.mc.MOV_ri(tmp2.value, imm=1)
-            self.mc.LDRB_rr(r.ip.value, loc_base.value, r.lr.value)
-            self.mc.ORR_rr_sr(r.ip.value, r.ip.value, tmp2.value,
-                                    tmp1.value, shifttype=shift.LSL)
-            self.mc.STRB_rr(r.ip.value, loc_base.value, r.lr.value)
-            # done
-
-            # patch the JMP above
+	    # must save the register loc_index before it is mutated
+	    self.mc.PUSH([loc_index.value])
+	    tmp1 = loc_index
+	    tmp2 = arglocs[2] 
+	    # lr = byteofs
+	    s = 3 + descr.jit_wb_card_page_shift
+	    self.mc.MVN_rr(r.lr.value, loc_index.value,
+	    		imm=s, shifttype=shift.LSR)
+	    
+	    # tmp1 = byte_index
+	    self.mc.MOV_ri(r.ip.value, imm=7)
+	    self.mc.AND_rr(tmp1.value, r.ip.value, loc_index.value,
+	        imm=descr.jit_wb_card_page_shift, shifttype=shift.LSR)
+	    
+	    # set the bit
+	    self.mc.MOV_ri(tmp2.value, imm=1)
+	    self.mc.LDRB_rr(r.ip.value, loc_base.value, r.lr.value)
+	    self.mc.ORR_rr_sr(r.ip.value, r.ip.value, tmp2.value,
+	    			tmp1.value, shifttype=shift.LSL)
+	    self.mc.STRB_rr(r.ip.value, loc_base.value, r.lr.value)
+	    # done
+	    self.mc.POP([loc_index.value])
+	    #
+            #
+            # patch the JNS above
             offset = self.mc.currpos()
-            pmc = OverwritingBuilder(self.mc, jmp_location, WORD)
-            pmc.B_offs(offset)
-        #
-        # patch the JZ above
+            pmc = OverwritingBuilder(self.mc, jns_location, WORD)
+	    pmc.B_offs(offset, c.EQ) # We want to jump if the z flag is set
+
         offset = self.mc.currpos()
         pmc = OverwritingBuilder(self.mc, jz_location, WORD)
         pmc.B_offs(offset, c.EQ)

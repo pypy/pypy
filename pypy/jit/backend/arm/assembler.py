@@ -59,6 +59,7 @@ class AssemblerARM(ResOpAssembler):
         self._exit_code_addr = 0
         self.current_clt = None
         self.malloc_slowpath = 0
+        self.wb_slowpath = [0, 0, 0, 0]
         self._regalloc = None
         self.datablockwrapper = None
         self.propagate_exception_path = 0
@@ -107,6 +108,11 @@ class AssemblerARM(ResOpAssembler):
         # Addresses of functions called by new_xxx operations
         gc_ll_descr = self.cpu.gc_ll_descr
         gc_ll_descr.initialize()
+        self._build_wb_slowpath(False)
+        self._build_wb_slowpath(True)
+        if self.cpu.supports_floats:
+            self._build_wb_slowpath(False, withfloats=True)
+            self._build_wb_slowpath(True, withfloats=True)
         self._build_propagate_exception_path()
         if gc_ll_descr.get_malloc_slowpath_addr is not None:
             self._build_malloc_slowpath()
@@ -285,6 +291,46 @@ class AssemblerARM(ResOpAssembler):
         #
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
         self.stack_check_slowpath = rawstart
+
+    def _build_wb_slowpath(self, withcards, withfloats=False):
+        descr = self.cpu.gc_ll_descr.write_barrier_descr
+        if descr is None:
+            return
+        if not withcards:
+            func = descr.get_write_barrier_fn(self.cpu)
+        else:
+            if descr.jit_wb_cards_set == 0:
+                return
+            func = descr.get_write_barrier_from_array_fn(self.cpu)
+            if func == 0:
+                return
+        #
+        # This builds a helper function called from the slow path of
+        # write barriers.  It must save all registers, and optionally
+        # all vfp registers.  It takes a single argument which is in r0.
+        # It must keep stack alignment accordingly.
+        mc = ARMv7Builder()
+        #
+        if withfloats:
+            floats = r.caller_vfp_resp
+        else:
+            floats = []
+        with saved_registers(mc, r.caller_resp + [r.ip, r.lr], floats):
+            mc.BL(func)
+        #
+        if withcards:
+            # A final TEST8 before the RET, for the caller.  Careful to
+            # not follow this instruction with another one that changes
+            # the status of the CPU flags!
+            mc.LDRB_ri(r.ip.value, r.r0.value,
+                                    imm=descr.jit_wb_if_flag_byteofs)
+            mc.TST_ri(r.ip.value, imm=0x80)
+        #
+	print 'Withcars is %d' % withcards
+	mc.MOV_rr(r.pc.value, r.lr.value)
+        #
+        rawstart = mc.materialize(self.cpu.asmmemmgr, [])
+        self.wb_slowpath[withcards + 2 * withfloats] = rawstart
 
     def setup_failure_recovery(self):
 
