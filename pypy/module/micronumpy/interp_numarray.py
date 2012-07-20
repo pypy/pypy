@@ -797,7 +797,6 @@ class VirtualArray(BaseArray):
         loop.compute(ra)
         if self.res:
             broadcast_dims = len(self.res.shape) - len(self.shape)
-            assert broadcast_dims >= 0
             chunks = [Chunk(0,0,0,0)] * broadcast_dims + \
                      [Chunk(0, i, 1, i) for i in self.shape]
             return Chunks(chunks).apply(self.res)
@@ -1271,9 +1270,10 @@ def array(space, w_item_or_iterable, w_dtype=None, w_order=None,
     shapelen = len(shape)
     if w_ndmin is not None and not space.is_w(w_ndmin, space.w_None):
         ndmin = space.int_w(w_ndmin)
-        lgt = (ndmin - shapelen)
-        if lgt > 0:
-            shape = [1] * lgt + shape
+        if ndmin > shapelen:
+            lgt = (ndmin - shapelen) + shape
+            assert lgt >= 0
+            shape = [1] * lgt
             shapelen = ndmin
     arr = W_NDimArray(shape[:], dtype=dtype, order=order)
     arr_iter = arr.create_iter()
