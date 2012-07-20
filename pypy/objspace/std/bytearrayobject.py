@@ -81,6 +81,9 @@ def init__Bytearray(space, w_bytearray, __args__):
     data = makebytearraydata_w(space, w_source)
     w_bytearray.data = data
 
+def float__Bytearray(space, w_bytearray):
+    return space.wrap(float(''.join(w_bytearray.data)))
+
 def len__Bytearray(space, w_bytearray):
     result = len(w_bytearray.data)
     return wrapint(space, result)
