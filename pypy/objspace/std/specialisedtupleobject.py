@@ -270,8 +270,6 @@ def mul_specialisedtuple_times(space, w_tuple, w_times):
     if times == 1 and space.type(w_tuple) == space.w_tuple:
         return w_tuple
     items = w_tuple.tolist()
-    if times < 0:
-        times = 0
     return space.newtuple(items * times)
 
 def mul__SpecialisedTuple_ANY(space, w_tuple, w_times):
