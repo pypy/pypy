@@ -59,9 +59,7 @@ class PyFrame(eval.Frame):
         assert isinstance(code, pycode.PyCode)
         self.pycode = code
         eval.Frame.__init__(self, space, w_globals)
-        size = (code.co_nlocals + code.co_stacksize)
-        assert size >= 0
-        self.locals_stack_w = [None] * size
+        self.locals_stack_w = [None] * (code.co_nlocals + code.co_stacksize)
         self.valuestackdepth = code.co_nlocals
         self.lastblock = None
         make_sure_not_resized(self.locals_stack_w)
