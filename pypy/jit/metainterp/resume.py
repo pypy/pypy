@@ -10,6 +10,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory, rffi, rstr
 from pypy.rpython import annlowlevel
 from pypy.rlib import rarithmetic, rstack
 from pypy.rlib.objectmodel import we_are_translated, specialize
+from pypy.rlib.objectmodel import compute_unique_id
 from pypy.rlib.debug import have_debug_prints, ll_assert
 from pypy.rlib.debug import debug_start, debug_stop, debug_print
 from pypy.jit.metainterp.optimize import InvalidLoop
@@ -1280,7 +1281,6 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
 
 def dump_storage(storage, liveboxes):
     "For profiling only."
-    from pypy.rlib.objectmodel import compute_unique_id
     debug_start("jit-resume")
     if have_debug_prints():
         debug_print('Log storage', compute_unique_id(storage))
