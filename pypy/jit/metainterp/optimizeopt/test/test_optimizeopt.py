@@ -7872,6 +7872,24 @@ class OptimizeOptTest(BaseTestWithUnroll):
         self.raises(InvalidLoop, self.optimize_loop,
                        ops, ops)
 
+    def test_licm_array_attrib_len(self):
+        ops = """
+        [p8]
+        p44 = getfield_gc(p8, descr=nextdescr) # inst__value0 
+        mark_opaque_ptr(p44)        
+        guard_nonnull(p44) []
+        guard_class(p44,  ConstClass(node_vtable)) []
+        i55 = getfield_gc(p44, descr=otherdescr) # inst_buffer
+        jump(p8)
+        """
+        expected = """
+        [p8]
+        jump(p8)
+        """
+        self.optimize_loop(ops, expected)
+
+
+
 
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass

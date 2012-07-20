@@ -341,6 +341,9 @@ class UnrollOptimizer(Optimization):
             op = self.short[i]
             newop = self.short_inliner.inline_op(op)
             self.optimizer.send_extra_operation(newop)
+            if op.result in self.short_boxes.assumed_classes:
+                classbox = self.getvalue(newop.result).get_constant_class(self.optimizer.cpu)
+                assert classbox.same_constant(self.short_boxes.assumed_classes[op.result])
             i += 1
 
         # Import boxes produced in the preamble but used in the loop
@@ -432,9 +435,13 @@ class UnrollOptimizer(Optimization):
                 newargs[i] = a.clonebox()
                 boxmap[a] = newargs[i]
         inliner = Inliner(short_inputargs, newargs)
+        target_token.assumed_classes = {}
         for i in range(len(short)):
-            short[i] = inliner.inline_op(short[i])
-
+            op = short[i]
+            newop = inliner.inline_op(op)
+            if op.result and op.result in self.short_boxes.assumed_classes:
+                target_token.assumed_classes[newop.result] = self.short_boxes.assumed_classes[op.result]
+            short[i] = newop
         target_token.resume_at_jump_descr = target_token.resume_at_jump_descr.clone_if_mutable()
         inliner.inline_descr_inplace(target_token.resume_at_jump_descr)
 
@@ -588,6 +595,12 @@ class UnrollOptimizer(Optimization):
                     for shop in target.short_preamble[1:]:
                         newop = inliner.inline_op(shop)
                         self.optimizer.send_extra_operation(newop)
+                        if shop.result in target.assumed_classes:
+                            classbox = self.getvalue(newop.result).get_constant_class(self.optimizer.cpu)
+                            if not classbox or not classbox.same_constant(target.assumed_classes[shop]):
+                                raise InvalidLoop('The class of an opaque pointer at the end ' +
+                                                  'of the bridge does not mach the class ' + 
+                                                  'it has at the start of the target loop')
                 except InvalidLoop:
                     #debug_print("Inlining failed unexpectedly",
                     #            "jumping to preamble instead")

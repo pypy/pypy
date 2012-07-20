@@ -585,6 +585,7 @@ class ShortBoxes(object):
         self.rename = {}
         self.optimizer = optimizer
         self.availible_boxes = availible_boxes
+        self.assumed_classes = {}
 
         if surviving_boxes is not None:
             for box in surviving_boxes:
@@ -678,6 +679,13 @@ class ShortBoxes(object):
             raise BoxNotProducable
 
     def add_potential(self, op, synthetic=False):
+        if op.result:
+            value = self.optimizer.getvalue(op.result)
+            if value in self.optimizer.opaque_pointers:
+                classbox = value.get_constant_class(self.optimizer.cpu)
+                if classbox is None:
+                    return
+                self.assumed_classes[op.result] = classbox
         if op.result not in self.potential_ops:
             self.potential_ops[op.result] = op
         else:
