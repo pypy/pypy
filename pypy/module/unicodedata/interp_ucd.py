@@ -240,9 +240,8 @@ class UCD(Wrappable):
                 V = VBase + (SIndex % NCount) / TCount;
                 T = TBase + SIndex % TCount;
                 if T == TBase:
-                    lgt = j + 2 - resultlen
-                    if lgt > 0:
-                        result.extend([0] * (lgt + 10))
+                    if j + 2 > resultlen:
+                        result.extend([0] * (j + 2 - resultlen + 10))
                         resultlen = len(result)
                     result[j] = L
                     result[j + 1] = V
