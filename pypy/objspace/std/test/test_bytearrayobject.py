@@ -439,6 +439,9 @@ class AppTestBytesArray:
     def test_int(self):
         assert int(bytearray('-1234')) == -1234
 
+    def test_float(self):
+        assert float(bytearray(b'10.4')) == 10.4
+
     def test_reduce(self):
         assert bytearray('caf\xe9').__reduce__() == (
             bytearray, (u'caf\xe9', 'latin-1'), None)
