@@ -222,7 +222,7 @@ class MIFrame(object):
                     'float_neg', 'float_abs',
                     'cast_ptr_to_int', 'cast_int_to_ptr',
                     'convert_float_bytes_to_longlong',
-                    'convert_longlong_bytes_to_float',
+                    'convert_longlong_bytes_to_float', 'int_force_ge_zero',
                     ]:
         exec py.code.Source('''
             @arguments("box")
