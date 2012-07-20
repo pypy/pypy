@@ -11,8 +11,6 @@ PyTuple_Check, PyTuple_CheckExact = build_type_checkers("Tuple")
 
 @cpython_api([Py_ssize_t], PyObject)
 def PyTuple_New(space, size):
-    if size < 0:
-        size = 0
     return W_TupleObject([space.w_None] * size)
 
 @cpython_api([PyObject, Py_ssize_t, PyObject], rffi.INT_real, error=-1)
