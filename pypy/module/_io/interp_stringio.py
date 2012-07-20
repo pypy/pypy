@@ -113,9 +113,8 @@ class W_StringIO(W_TextIOBase):
     def resize_buffer(self, newlength):
         if len(self.buf) > newlength:
             self.buf = self.buf[:newlength]
-        lgt = newlength - len(self.buf)
-        if lgt > 0:
-            self.buf.extend([u'\0'] * lgt)
+        if len(self.buf) < newlength:
+            self.buf.extend([u'\0'] * (newlength - len(self.buf)))
 
     def write(self, string):
         length = len(string)
