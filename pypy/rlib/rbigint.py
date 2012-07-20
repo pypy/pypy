@@ -187,7 +187,6 @@ class rbigint(object):
         if expo <= 0:
             return rbigint()
         ndig = (expo-1) // SHIFT + 1 # Number of 'digits' in result
-        assert ndig >= 0
         v = rbigint([NULLDIGIT] * ndig, sign)
         frac = math.ldexp(frac, (expo-1) % SHIFT + 1)
         for i in range(ndig-1, -1, -1):
