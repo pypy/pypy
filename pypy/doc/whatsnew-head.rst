@@ -18,6 +18,8 @@ Check that axis arg is valid in _numpypy
 .. branch: numpypy_count_nonzero
 .. branch: even-more-jit-hooks
 Implement better JIT hooks
+.. branch: virtual-arguments
+Improve handling of **kwds greatly, making them virtual sometimes.
 
 .. "uninteresting" branches that we should just ignore for the whatsnew:
 .. branch: slightly-shorter-c
