@@ -197,7 +197,7 @@ void boehm_gc_finalizer_notifier(void);
 #define OP_GC__ENABLE_FINALIZERS(r)   (boehm_gc_finalizer_lock--,	\
 				       boehm_gc_finalizer_notifier())
 
-#ifndef PYPY_NOT_MAIN_FILE
+#ifdef PYPY_MAIN_IMPLEMENTATION_FILE
 int boehm_gc_finalizer_lock = 0;
 void boehm_gc_finalizer_notifier(void)
 {
@@ -225,7 +225,7 @@ void boehm_gc_startup_code(void)
 	GC_finalize_on_demand = 1;
   GC_set_warn_proc(mem_boehm_ignore);
 }
-#endif /* PYPY_NOT_MAIN_FILE */
+#endif /* PYPY_MAIN_IMPLEMENTATION_FILE */
 
 #endif /* USING_BOEHM_GC */
 

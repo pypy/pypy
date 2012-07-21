@@ -2,7 +2,7 @@
 /************************************************************/
  /***  C header subsection: exceptions                     ***/
 
-#if defined(PYPY_CPYTHON_EXTENSION) && !defined(PYPY_NOT_MAIN_FILE)
+#if defined(PYPY_CPYTHON_EXTENSION) && defined(PYPY_MAIN_IMPLEMENTATION_FILE)
    PyObject *RPythonError;
 #endif 
 
@@ -34,7 +34,7 @@
   )
 void RPyDebugReturnShowException(const char *msg, const char *filename,
                                  long lineno, const char *functionname);
-#ifndef PYPY_NOT_MAIN_FILE
+#ifdef PYPY_MAIN_IMPLEMENTATION_FILE
 void RPyDebugReturnShowException(const char *msg, const char *filename,
                                  long lineno, const char *functionname)
 {
@@ -47,7 +47,7 @@ void RPyDebugReturnShowException(const char *msg, const char *filename,
            off the prints of a debug_exc by remaking only testing_1.o */
 void RPyDebugReturnShowException(const char *msg, const char *filename,
                                  long lineno, const char *functionname);
-#ifndef PYPY_NOT_MAIN_FILE
+#ifdef PYPY_MAIN_IMPLEMENTATION_FILE
 void RPyDebugReturnShowException(const char *msg, const char *filename,
                                  long lineno, const char *functionname)
 {
@@ -76,7 +76,7 @@ void RPyConvertExceptionToCPython(void);
 
 /* implementations */
 
-#ifndef PYPY_NOT_MAIN_FILE
+#ifdef PYPY_MAIN_IMPLEMENTATION_FILE
 
 void _RPyRaiseSimpleException(RPYTHON_EXCEPTION rexc)
 {
@@ -134,7 +134,7 @@ void RPyConvertExceptionToCPython(void)
 }
 #endif   /* !PYPY_STANDALONE */
 
-#endif /* PYPY_NOT_MAIN_FILE */
+#endif /* PYPY_MAIN_IMPLEMENTATION_FILE */
 
 
 

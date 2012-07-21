@@ -229,7 +229,7 @@ long long op_llong_mul_ovf(long long a, long long b);
 
 /* implementations */
 
-#ifndef PYPY_NOT_MAIN_FILE
+#ifdef PYPY_MAIN_IMPLEMENTATION_FILE
 
 long long op_llong_mul_ovf(long long a, long long b)
 {
@@ -266,7 +266,7 @@ long long op_llong_mul_ovf(long long a, long long b)
 	}
 }
 
-#endif /* PYPY_NOT_MAIN_FILE */
+#endif /* PYPY_MAIN_IMPLEMENTATION_FILE */
 
 /* implementations */
 

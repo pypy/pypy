@@ -7,7 +7,7 @@ extern void pypy_x86_check_sse2(void);
 
 /* implementations */
 
-#ifndef PYPY_NOT_MAIN_FILE
+#ifdef PYPY_MAIN_IMPLEMENTATION_FILE
 #ifdef PYPY_X86_CHECK_SSE2
 #include <intrin.h>
 void pypy_x86_check_sse2(void)

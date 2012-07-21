@@ -105,7 +105,7 @@ void RPyThreadAfterFork(void);
 
 /* implementations */
 
-#ifndef PYPY_NOT_MAIN_FILE
+#ifdef PYPY_MAIN_IMPLEMENTATION_FILE
 
 /* The POSIX spec requires that use of pthread_attr_setstacksize
    be conditional on _POSIX_THREAD_ATTR_STACKSIZE being defined. */
@@ -579,4 +579,4 @@ void RPyGilAcquire(void)
 }
 
 
-#endif /* PYPY_NOT_MAIN_FILE */
+#endif /* PYPY_MAIN_IMPLEMENTATION_FILE */

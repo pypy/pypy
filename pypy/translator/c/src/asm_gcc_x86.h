@@ -110,7 +110,7 @@ extern void pypy_x86_check_sse2(void);
 
 /* implementations */
 
-#ifndef PYPY_NOT_MAIN_FILE
+#ifdef PYPY_MAIN_IMPLEMENTATION_FILE
 
 #  if 0   /* disabled */
 void op_int_overflowed(void)

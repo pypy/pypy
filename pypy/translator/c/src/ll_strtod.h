@@ -18,7 +18,7 @@ char *LL_strtod_formatd(double x, char code, int precision);
 
 /* implementations */
 
-#ifndef PYPY_NOT_MAIN_FILE
+#ifdef PYPY_MAIN_IMPLEMENTATION_FILE
 
 double LL_strtod_parts_to_float(
 	char *sign, 
@@ -139,5 +139,5 @@ char* LL_strtod_formatd(double x, char code, int precision) {
 	return buffer;
 }
 
-#endif /* PYPY_NOT_MAIN_FILE */
+#endif /* PYPY_MAIN_IMPLEMENTATION_FILE */
 #endif

@@ -1,7 +1,7 @@
 
 void LL_flush_icache(long base, long size);
 
-#ifndef PYPY_NOT_MAIN_FILE
+#ifdef PYPY_MAIN_IMPLEMENTATION_FILE
 
 #define __dcbst(base, index)    \
   __asm__ ("dcbst %0, %1" : /*no result*/ : "b%" (index), "r" (base) : "memory")

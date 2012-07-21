@@ -794,7 +794,6 @@ class SourceGenerator:
         print >> fc, '/***********************************************************/'
         print >> fc, '/***  Structure Implementations                          ***/'
         print >> fc
-        print >> fc, '#define PYPY_NOT_MAIN_FILE'
         print >> fc, '#include "common_header.h"'
         print >> fc, '#include "structdef.h"'
         print >> fc, '#include "forwarddecl.h"'
@@ -815,7 +814,6 @@ class SourceGenerator:
             print >> fc, '/***********************************************************/'
             print >> fc, '/***  Non-function Implementations                       ***/'
             print >> fc
-            print >> fc, '#define PYPY_NOT_MAIN_FILE'
             print >> fc, '#include "common_header.h"'
             print >> fc, '#include "structdef.h"'
             print >> fc, '#include "forwarddecl.h"'
@@ -839,7 +837,6 @@ class SourceGenerator:
             print >> fc, '/***********************************************************/'
             print >> fc, '/***  Implementations                                    ***/'
             print >> fc
-            print >> fc, '#define PYPY_NOT_MAIN_FILE'
             print >> fc, '#define PYPY_FILE_NAME "%s"' % name
             print >> fc, '#include "common_header.h"'
             print >> fc, '#include "structdef.h"'
@@ -974,6 +971,7 @@ def gen_source(database, modulename, targetdir,
     #
     # Header
     #
+    print >> f, '#define PYPY_MAIN_IMPLEMENTATION_FILE'
     print >> f, '#include "common_header.h"'
     print >> f
     commondefs(defines)

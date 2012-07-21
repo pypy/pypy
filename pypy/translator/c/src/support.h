@@ -53,7 +53,7 @@
 
 void RPyAssertFailed(const char* filename, long lineno,
                      const char* function, const char *msg);
-#  ifndef PYPY_NOT_MAIN_FILE
+#  ifdef PYPY_MAIN_IMPLEMENTATION_FILE
 void RPyAssertFailed(const char* filename, long lineno,
                      const char* function, const char *msg) {
   fprintf(stderr,
@@ -89,7 +89,7 @@ void RPyAssertFailed(const char* filename, long lineno,
      ((RPyCHECK((array) && (index) >= 0), (array))[index])
 
 void RPyAbort(void);
-#ifndef PYPY_NOT_MAIN_FILE
+#ifdef PYPY_MAIN_IMPLEMENTATION_FILE
 void RPyAbort(void) {
   fprintf(stderr, "Invalid RPython operation (NULL ptr or bad array index)\n");
   abort();
@@ -133,7 +133,7 @@ PyObject* _PyUnicode_FromRPyUnicode(wchar_t *items, long length);
 
 /* implementations */
 
-#ifndef PYPY_NOT_MAIN_FILE
+#ifdef PYPY_MAIN_IMPLEMENTATION_FILE
 
 /* we need a subclass of 'builtin_function_or_method' which can be used
    as methods: builtin function objects that can be bound on instances */
@@ -516,4 +516,4 @@ PyObject* _PyUnicode_FromRPyUnicode(wchar_t *items, long length)
 
 #endif /* PYPY_STANDALONE */
 
-#endif /* PYPY_NOT_MAIN_FILE */
+#endif /* PYPY_MAIN_IMPLEMENTATION_FILE */

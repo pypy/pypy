@@ -5,7 +5,7 @@ void *PyObject_Realloc(void *p, size_t n);
 void PyObject_Free(void *p);
 
 
-#ifndef PYPY_NOT_MAIN_FILE
+#ifdef PYPY_MAIN_IMPLEMENTATION_FILE
 
 #if defined(TRIVIAL_MALLOC_DEBUG)
   void *PyObject_Malloc(size_t n) { return malloc(n); }

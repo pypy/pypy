@@ -64,7 +64,7 @@ extern struct pypysig_long_struct pypysig_counter;
    export a function with the correct name for testing */
 #undef pypysig_getaddr_occurred
 void *pypysig_getaddr_occurred(void);
-#ifndef PYPY_NOT_MAIN_FILE
+#ifdef PYPY_MAIN_IMPLEMENTATION_FILE
 void *pypysig_getaddr_occurred(void) { return (void *)(&pypysig_counter); }
 #endif
 #define pypysig_getaddr_occurred()   ((void *)(&pypysig_counter))
@@ -72,7 +72,7 @@ void *pypysig_getaddr_occurred(void) { return (void *)(&pypysig_counter); }
 /************************************************************/
 /* Implementation                                           */
 
-#ifndef PYPY_NOT_MAIN_FILE
+#ifdef PYPY_MAIN_IMPLEMENTATION_FILE
 
 struct pypysig_long_struct pypysig_counter = {0};
 static char volatile pypysig_flags[NSIG] = {0};
@@ -183,6 +183,6 @@ int pypysig_set_wakeup_fd(int fd)
   return old_fd;
 }
 
-#endif  /* !PYPY_NOT_MAIN_FILE */
+#endif  /* !PYPY_MAIN_IMPLEMENTATION_FILE */
 
 #endif

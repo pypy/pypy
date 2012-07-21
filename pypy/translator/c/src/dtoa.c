@@ -127,7 +127,6 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
-#define PYPY_NOT_MAIN_FILE
 #include "src/asm.h"
 #define PyMem_Malloc malloc
 #define PyMem_Free free

@@ -19,7 +19,7 @@ void pypy_debug_alloc_results(void);
 /************************************************************/
 
 
-#ifndef PYPY_NOT_MAIN_FILE
+#ifdef PYPY_MAIN_IMPLEMENTATION_FILE
 
 struct pypy_debug_alloc_s {
   struct pypy_debug_alloc_s *next;

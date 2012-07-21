@@ -5,7 +5,7 @@ void instrument_setup();
 
 void instrument_count(long);
 
-#ifndef PYPY_NOT_MAIN_FILE
+#ifdef PYPY_MAIN_IMPLEMENTATION_FILE
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -70,7 +70,7 @@ void instrument_count(long label) {
 
 #else
 
-#ifndef PYPY_NOT_MAIN_FILE
+#ifdef PYPY_MAIN_IMPLEMENTATION_FILE
 void instrument_setup() {
 }
 #endif

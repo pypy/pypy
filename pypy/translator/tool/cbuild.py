@@ -247,8 +247,11 @@ class ExternalCompilationInfo(object):
                 if not filename.check():
                     break
             f = filename.open("w")
-            if being_main:
-                f.write("#define PYPY_NOT_MAIN_FILE\n")
+            if not being_main:
+                # This eci is being built independently from a larger
+                # target, so it has to include a copy of the C RPython
+                # helper functions when needed.
+                f.write("#define PYPY_MAIN_IMPLEMENTATION_FILE\n")
             self.write_c_header(f)
             source = str(source)
             f.write(source)

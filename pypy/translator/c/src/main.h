@@ -13,7 +13,7 @@ int main(int argc, char *argv[]);
 
 /* implementations */
 
-#ifndef PYPY_NOT_MAIN_FILE
+#ifdef PYPY_MAIN_IMPLEMENTATION_FILE
 
 #ifndef PYPY_MAIN_FUNCTION
 #define PYPY_MAIN_FUNCTION main
@@ -83,4 +83,4 @@ int PYPY_MAIN_FUNCTION(int argc, char *argv[])
     return pypy_main_function(argc, argv);
 }
 
-#endif /* PYPY_NOT_MAIN_FILE */
+#endif /* PYPY_MAIN_IMPLEMENTATION_FILE */

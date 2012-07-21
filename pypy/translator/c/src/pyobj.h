@@ -221,7 +221,7 @@
 unsigned long long RPyLong_AsUnsignedLongLong(PyObject *v);
 long long RPyLong_AsLongLong(PyObject *v);
 
-#ifndef PYPY_NOT_MAIN_FILE
+#ifdef PYPY_MAIN_IMPLEMENTATION_FILE
 
 #if (PY_VERSION_HEX < 0x02040000)
 

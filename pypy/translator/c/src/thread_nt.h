@@ -43,7 +43,7 @@ long RPyThreadSetStackSize(long);
 
 /* implementations */
 
-#ifndef PYPY_NOT_MAIN_FILE
+#ifdef PYPY_MAIN_IMPLEMENTATION_FILE
 
 static long _pypythread_stacksize = 0;
 
@@ -275,4 +275,4 @@ void RPyGilAcquire(void)
 }
 
 
-#endif /* PYPY_NOT_MAIN_FILE */
+#endif /* PYPY_MAIN_IMPLEMENTATION_FILE */

@@ -21,7 +21,7 @@ RPyString *RPyString_FromString(char *buf);
 
 /* implementations */
 
-#ifndef PYPY_NOT_MAIN_FILE
+#ifdef PYPY_MAIN_IMPLEMENTATION_FILE
 
 struct _RPyString_dump_t {
 	struct _RPyString_dump_t *next;
@@ -59,4 +59,4 @@ RPyString *RPyString_FromString(char *buf)
 	return rps;
 }
 
-#endif /* PYPY_NOT_MAIN_FILE */
+#endif /* PYPY_MAIN_IMPLEMENTATION_FILE */

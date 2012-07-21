@@ -70,7 +70,7 @@ void pypy_debug_catch_fatal_exception(void);
 /************************************************************/
 
 
-#ifndef PYPY_NOT_MAIN_FILE
+#ifdef PYPY_MAIN_IMPLEMENTATION_FILE
 
 int pypydtcount = 0;
 struct pypydtentry_s pypy_debug_tracebacks[PYPY_DEBUG_TRACEBACK_DEPTH];
@@ -137,4 +137,4 @@ void pypy_debug_catch_fatal_exception(void)
   abort();
 }
 
-#endif /* PYPY_NOT_MAIN_FILE */
+#endif /* PYPY_MAIN_IMPLEMENTATION_FILE */

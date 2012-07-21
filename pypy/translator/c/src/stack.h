@@ -35,7 +35,7 @@ void LL_stack_set_length_fraction(double);
 #endif
 
 
-#ifndef PYPY_NOT_MAIN_FILE
+#ifdef PYPY_MAIN_IMPLEMENTATION_FILE
 #include <stdio.h>
 
 /* the current stack is in the interval [end-length:end].  We assume a
