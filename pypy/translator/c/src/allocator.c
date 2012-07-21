@@ -1,5 +1,6 @@
 /* allocation functions */
 #include "common_header.h"
+#include <malloc.h>
 
 #if defined(PYPY_USE_TRIVIAL_MALLOC)
   void *PyObject_Malloc(size_t n) { return malloc(n); }
