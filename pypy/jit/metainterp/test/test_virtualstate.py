@@ -1005,6 +1005,7 @@ class TestLLtypeBridges(BaseTestBridges, LLtypeMixin):
 class FakeOptimizer:
     def __init__(self):
         self.opaque_pointers = {}
+        self.values = {}
     def make_equal_to(*args):
         pass
     def getvalue(*args):
