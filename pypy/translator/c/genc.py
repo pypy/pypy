@@ -952,6 +952,7 @@ def add_extra_files(eci):
     files = [
         srcdir / 'profiling.c',
         srcdir / 'debug_print.c',
+        srcdir / 'thread.c',
     ]
     if _CYGWIN:
         files.append(srcdir / 'cygwin_wait.c')

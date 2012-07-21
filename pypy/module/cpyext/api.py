@@ -720,7 +720,7 @@ def build_bridge(space):
     global_code = '\n'.join(global_objects)
 
     prologue = ("#include <Python.h>\n"
-                "#include <src/thread.h>\n")
+                "#include <src/thread.c>\n")
     code = (prologue +
             struct_declaration_code +
             global_code +

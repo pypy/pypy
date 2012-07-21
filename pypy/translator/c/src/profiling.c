@@ -2,6 +2,8 @@
 #include <stddef.h>
 #if defined(__GNUC__) && defined(__linux__)
 
+/* Linux GCC implementation */
+
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #include <sched.h>
@@ -31,6 +33,9 @@ void pypy_teardown_profiling()
 }
 
 #elif defined(_WIN32)
+
+/* Windows implementation */
+
 #include <windows.h>
 
 DWORD_PTR base_affinity_mask;
@@ -59,6 +64,9 @@ void pypy_teardown_profiling() {
 }
 
 #else
+
+/* Empty implementations for other platforms */
 void pypy_setup_profiling() { }
 void pypy_teardown_profiling() { }
+
 #endif
