@@ -59,8 +59,12 @@ def autodetect():
             from pypy.jit.backend.x86.detect_sse2 import detect_sse2
             if not detect_sse2():
                 model = 'x86-without-sse2'
+    if model == 'arm':
+            from pypy.jit.backend.arm.detect import detect_hardfloat, detect_float
+            assert not detect_hardfloat(), 'armhf is not supported yet'
+            assert detect_float(), 'the JIT-compiler requires a vfp unit'
     return model
-
+    
 def getcpuclassname(backend_name="auto"):
     if backend_name == "auto":
         backend_name = autodetect()
