@@ -683,9 +683,8 @@ class ShortBoxes(object):
             value = self.optimizer.values[op.result]
             if value in self.optimizer.opaque_pointers:
                 classbox = value.get_constant_class(self.optimizer.cpu)
-                if classbox is None:
-                    return
-                self.assumed_classes[op.result] = classbox
+                if classbox:
+                    self.assumed_classes[op.result] = classbox
         if op.result not in self.potential_ops:
             self.potential_ops[op.result] = op
         else:

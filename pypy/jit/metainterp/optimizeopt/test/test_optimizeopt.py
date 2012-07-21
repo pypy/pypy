@@ -7899,11 +7899,10 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(p1)
         """
         expected = """
-        [p1]
-        p2 = getfield_gc(p1, descr=nextdescr)  # FIXME: This first getfield would be ok to licm out
-        i3 = getfield_gc(p2, descr=otherdescr) # While this needs be kept in the loop
+        [p1, p2]
+        i3 = getfield_gc(p2, descr=otherdescr)
         i4 = call(i3, descr=nonwritedescr)
-        jump(p1)
+        jump(p1, p2)
         """
         self.optimize_loop(ops, expected)
 
