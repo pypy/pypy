@@ -1016,9 +1016,10 @@ class AllocOpAssembler(object):
         with scratch_reg(self.mc):
             self.mc.lbz(r.SCRATCH.value, loc_base.value,
                         descr.jit_wb_if_flag_byteofs)
+
             # test whether this bit is set
-            self.mc.cmp_op(0, r.SCRATCH.value,
-                           descr.jit_wb_if_flag_singlebyte, imm=True)
+            self.mc.andix(r.SCRATCH.value, r.SCRATCH.value,
+                          descr.jit_wb_if_flag_singlebyte)
 
         jz_location = self.mc.currpos()
         self.mc.nop()
@@ -1033,8 +1034,8 @@ class AllocOpAssembler(object):
                             descr.jit_wb_if_flag_byteofs)
 
                 # test whether this bit is set
-                self.mc.cmp_op(0, r.SCRATCH.value,
-                               descr.jit_wb_cards_set_singlebyte, imm=True)
+                self.mc.andix(r.SCRATCH.value, r.SCRATCH.value,
+                              descr.jit_wb_cards_set_singlebyte)
 
                 jnz_location = self.mc.currpos()
                 self.mc.nop()
