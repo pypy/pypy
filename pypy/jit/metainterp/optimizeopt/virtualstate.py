@@ -288,7 +288,8 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
 
 
 class NotVirtualStateInfo(AbstractVirtualStateInfo):
-    def __init__(self, value):
+    def __init__(self, value, is_opaque=False):
+        self.is_opaque = is_opaque
         self.known_class = value.known_class
         self.level = value.level
         if value.intbound is None:
@@ -356,6 +357,9 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
 
         if self.lenbound or other.lenbound:
             raise InvalidLoop('The array length bounds does not match.')
+
+        if self.is_opaque:
+            raise InvalidLoop('Generating guards for opaque pointers is not safe')
 
         if self.level == LEVEL_KNOWNCLASS and \
            box.nonnull() and \
@@ -560,7 +564,8 @@ class VirtualStateAdder(resume.ResumeDataVirtualAdder):
         return VirtualState([self.state(box) for box in jump_args])
 
     def make_not_virtual(self, value):
-        return NotVirtualStateInfo(value)
+        is_opaque = value in self.optimizer.opaque_pointers
+        return NotVirtualStateInfo(value, is_opaque)
 
     def make_virtual(self, known_class, fielddescrs):
         return VirtualStateInfo(known_class, fielddescrs)
