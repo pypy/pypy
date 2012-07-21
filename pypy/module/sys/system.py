@@ -47,8 +47,8 @@ def get_float_info(space):
     return space.call_function(w_float_info, space.newtuple(info_w))
 
 def get_long_info(space):
-    #assert rbigint.SHIFT == 31
-    bits_per_digit = 31 #rbigint.SHIFT
+    assert rbigint.SHIFT == 31
+    bits_per_digit = rbigint.SHIFT
     sizeof_digit = rffi.sizeof(rffi.ULONG)
     info_w = [
         space.wrap(bits_per_digit),
