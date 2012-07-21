@@ -1,5 +1,6 @@
 from pypy.jit.backend.ppc.helper.assembler import (gen_emit_cmp_op, 
-                                                          gen_emit_unary_cmp_op)
+                                                   gen_emit_unary_cmp_op)
+from pypy.jit.backend.ppc.helper.regalloc import _check_imm_arg
 import pypy.jit.backend.ppc.condition as c
 import pypy.jit.backend.ppc.register as r
 from pypy.jit.backend.ppc.locations import imm
@@ -544,7 +545,8 @@ class MiscOpAssembler(object):
         if adr.is_imm():
             self.mc.call(adr.value)
         elif adr.is_stack():
-            assert 0, "not implemented yet"
+            self.mc.load_from_addr(r.SCRATCH, adr)
+            self.mc.call_register(r.SCRATCH)
         elif adr.is_reg():
             self.mc.call_register(adr)
         else:
@@ -997,36 +999,26 @@ class AllocOpAssembler(object):
             assert cls is not None and isinstance(descr, cls)
 
         opnum = op.getopnum()
-        if opnum == rop.COND_CALL_GC_WB:
-            N = 2
-            addr = descr.get_write_barrier_fn(self.cpu)
-            card_marking = False
-        elif opnum == rop.COND_CALL_GC_WB_ARRAY:
+        card_marking = False
+        if opnum == rop.COND_CALL_GC_WB_ARRAY and descr.jit_wb_cards_set != 0:
             N = 3
             addr = descr.get_write_barrier_from_array_fn(self.cpu)
             assert addr != 0
-            card_marking = descr.jit_wb_cards_set != 0
+            assert (descr.jit_wb_cards_set_byteofs ==
+                    descr.jit_wb_if_flag_byteofs)
+            assert descr.jit_wb_cards_set_singlebyte == -0x80
+            card_marking = True
         else:
-            raise AssertionError(opnum)
+            N = 2
+            addr = descr.get_write_barrier_fn(self.cpu)
         loc_base = arglocs[0]
+        assert _check_imm_arg(descr.jit_wb_if_flag_byteofs)
         with scratch_reg(self.mc):
-            self.mc.load(r.SCRATCH.value, loc_base.value, 0)
-
-            # get the position of the bit we want to test
-            bitpos = descr.jit_wb_if_flag_bitpos
-
-            if IS_PPC_32:
-                # put this bit to the rightmost bitposition of r0
-                if bitpos > 0:
-                    self.mc.rlwinm(r.SCRATCH.value, r.SCRATCH.value,
-                                   32 - bitpos, 31, 31)
-            else:
-                if bitpos > 0:
-                    self.mc.rldicl(r.SCRATCH.value, r.SCRATCH.value,
-                                   64 - bitpos, 63)
-
+            self.mc.lbz(r.SCRATCH.value, loc_base.value,
+                        descr.jit_wb_if_flag_byteofs)
             # test whether this bit is set
-            self.mc.cmp_op(0, r.SCRATCH.value, 1, imm=True)
+            self.mc.cmp_op(0, r.SCRATCH.value,
+                           descr.jit_wb_if_flag_singlebyte, imm=True)
 
         jz_location = self.mc.currpos()
         self.mc.nop()
@@ -1034,24 +1026,15 @@ class AllocOpAssembler(object):
         # for cond_call_gc_wb_array, also add another fast path:
         # if GCFLAG_CARDS_SET, then we can just set one bit and be done
         if card_marking:
+            assert _check_imm_arg(descr.jit_wb_cards_set_byteofs)
+            assert descr.jit_wb_cards_set_singlebyte == -0x80
             with scratch_reg(self.mc):
-                self.mc.load(r.SCRATCH.value, loc_base.value, 0)
-
-                # get the position of the bit we want to test
-                bitpos = descr.jit_wb_cards_set_bitpos
-
-                if IS_PPC_32:
-                    # put this bit to the rightmost bitposition of r0
-                    if bitpos > 0:
-                        self.mc.rlwinm(r.SCRATCH.value, r.SCRATCH.value,
-                                       32 - bitpos, 31, 31)
-                else:
-                    if bitpos > 0:
-                        self.mc.rldicl(r.SCRATCH.value, r.SCRATCH.value,
-                                       64 - bitpos, 63)
+                self.mc.lbz(r.SCRATCH.value, loc_base.value,
+                            descr.jit_wb_if_flag_byteofs)
 
                 # test whether this bit is set
-                self.mc.cmp_op(0, r.SCRATCH.value, 1, imm=True)
+                self.mc.cmp_op(0, r.SCRATCH.value,
+                               descr.jit_wb_cards_set_singlebyte, imm=True)
 
                 jnz_location = self.mc.currpos()
                 self.mc.nop()
@@ -1068,8 +1051,8 @@ class AllocOpAssembler(object):
             remap_frame_layout(self, arglocs, callargs, r.SCRATCH)
             func = rffi.cast(lltype.Signed, addr)
             #
-            # misaligned stack in the call, but it's ok because the write barrier
-            # is not going to call anything more.  
+            # misaligned stack in the call, but it's ok because the write
+            # barrier is not going to call anything more.  
             self.mc.call(func)
 
         # if GCFLAG_CARDS_SET, then we can do the whole thing that would
