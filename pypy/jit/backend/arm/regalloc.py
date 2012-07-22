@@ -104,8 +104,8 @@ class VFPRegisterManager(RegisterManager):
         which is in variable v.
         """
         self._check_type(v)
-        r = self.force_allocate_reg(v)
-        return r
+        reg = self.force_allocate_reg(v, selected_reg=r.d0)
+        return reg
 
     def ensure_value_is_boxed(self, thing, forbidden_vars=[]):
         loc = None
@@ -309,6 +309,12 @@ class Regalloc(object):
         # The first inputargs are passed in registers r0-r3
         # we relly on the soft-float calling convention so we need to move
         # float params to the coprocessor.
+	if self.cpu.use_hf_abi:
+            self._set_initial_bindings_hf(inputargs)
+        else:
+            self._set_initial_bindings_sf(inputargs)
+
+    def _set_initial_bindings_sf(self, inputargs):
 
         arg_index = 0
         count = 0
@@ -328,11 +334,43 @@ class Regalloc(object):
                     vfpreg = self.try_allocate_reg(box)
                     # move soft-float argument to vfp
                     self.assembler.mov_to_vfp_loc(loc, loc2, vfpreg)
-                    arg_index += 2  # this argument used to argument registers
+                    arg_index += 2  # this argument used two argument registers
                 else:
                     loc = r.argument_regs[arg_index]
                     self.try_allocate_reg(box, selected_reg=loc)
                     arg_index += 1
+            else:
+                # treat stack args as stack locations with a negative offset
+                if box.type == FLOAT:
+                    cur_frame_pos -= 2
+                    if count % 2 != 0: # Stack argument alignment
+                        cur_frame_pos -= 1
+                        count = 0
+                else:
+                    cur_frame_pos -= 1
+                    count += 1
+                loc = self.frame_manager.frame_pos(cur_frame_pos, box.type)
+                self.frame_manager.set_binding(box, loc)
+
+    def _set_initial_bindings_hf(self, inputargs):
+
+        arg_index = vfp_arg_index = 0
+        count = 0
+        n_reg_args = len(r.argument_regs)
+        n_vfp_reg_args = len(r.vfp_argument_regs)
+        cur_frame_pos = - (self.assembler.STACK_FIXED_AREA / WORD) + 1
+        cur_frame_pos = 1 - (self.assembler.STACK_FIXED_AREA // WORD)
+        for box in inputargs:
+            assert isinstance(box, Box)
+            # handle inputargs in argument registers
+            if box.type != FLOAT and arg_index < n_reg_args:
+                reg = r.argument_regs[arg_index]
+                self.try_allocate_reg(box, selected_reg=reg)
+                arg_index += 1
+            elif box.type == FLOAT and vfp_arg_index < n_vfp_reg_args:
+                reg = r.vfp_argument_regs[vfp_arg_index]
+                self.try_allocate_reg(box, selected_reg=reg)
+                vfp_arg_index += 1
             else:
                 # treat stack args as stack locations with a negative offset
                 if box.type == FLOAT:

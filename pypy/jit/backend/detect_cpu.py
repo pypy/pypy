@@ -63,7 +63,6 @@ def autodetect():
             from pypy.jit.backend.arm.detect import detect_hardfloat, detect_float
             if detect_hardfloat():
                 model = 'armhf'
-                raise AssertionError, 'disabled for now (ABI switching issues with libffi)'
             assert detect_float(), 'the JIT-compiler requires a vfp unit'
     return model
     

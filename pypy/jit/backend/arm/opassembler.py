@@ -2,7 +2,7 @@ from __future__ import with_statement
 from pypy.jit.backend.arm import conditions as c
 from pypy.jit.backend.arm import registers as r
 from pypy.jit.backend.arm import shift
-from pypy.jit.backend.arm.arch import WORD
+from pypy.jit.backend.arm.arch import WORD, DOUBLE_WORD
 
 from pypy.jit.backend.arm.helper.assembler import (gen_emit_op_by_helper_call,
                                                 gen_emit_op_unary_cmp,
@@ -370,31 +370,69 @@ class ResOpAssembler(object):
 
     def _emit_call(self, force_index, adr, arglocs, fcond=c.AL, 
                                                  resloc=None, result_info=(-1,-1)):
+        if self.cpu.use_hf_abi:
+            stack_args, adr = self._setup_call_hf(force_index, adr, arglocs, fcond, resloc, result_info)
+        else:
+            stack_args, adr = self._setup_call_sf(force_index, adr, arglocs, fcond, resloc, result_info)
+
+        #the actual call
+        #self.mc.BKPT()
+        if adr.is_imm():
+            self.mc.BL(adr.value)
+        elif adr.is_stack():
+            self.mov_loc_loc(adr, r.ip)
+            adr = r.ip
+        else:
+            assert adr.is_reg()
+        if adr.is_reg():
+            self.mc.BLX(adr.value)
+        self.mark_gc_roots(force_index)
+        self._restore_sp(stack_args, fcond)
+
+        # ensure the result is wellformed and stored in the correct location
+        if resloc is not None:
+            if resloc.is_vfp_reg() and not self.cpu.use_hf_abi:
+                # move result to the allocated register
+                self.mov_to_vfp_loc(r.r0, r.r1, resloc)
+            elif resloc.is_reg() and result_info != (-1, -1):
+                self._ensure_result_bit_extension(resloc, result_info[0],
+                                                          result_info[1])
+        return fcond
+
+    def _restore_sp(self, stack_args, fcond):
+        # readjust the sp in case we passed some args on the stack
+        if len(stack_args) > 0:
+            n = 0
+            for arg in stack_args:
+                if arg is None or arg.type != FLOAT:
+                    n += WORD
+                else:
+                    n += DOUBLE_WORD
+            self._adjust_sp(-n, fcond=fcond)
+            assert n % 8 == 0 # sanity check
+
+    def _collect_stack_args_sf(self, arglocs):
         n_args = len(arglocs)
         reg_args = count_reg_args(arglocs)
         # all arguments past the 4th go on the stack
-        n = 0   # used to count the number of words pushed on the stack, so we
-                #can later modify the SP back to its original value
+        # first we need to prepare the list so it stays aligned
+        stack_args = []
+        count = 0
         if n_args > reg_args:
-            # first we need to prepare the list so it stays aligned
-            stack_args = []
-            count = 0
             for i in range(reg_args, n_args):
                 arg = arglocs[i]
                 if arg.type != FLOAT:
                     count += 1
-                    n += WORD
                 else:
-                    n += 2 * WORD
                     if count % 2 != 0:
                         stack_args.append(None)
-                        n += WORD
                         count = 0
                 stack_args.append(arg)
             if count % 2 != 0:
-                n += WORD
                 stack_args.append(None)
+        return stack_args
 
+    def _push_stack_args(self, stack_args):
             #then we push every thing on the stack
             for i in range(len(stack_args) - 1, -1, -1):
                 arg = stack_args[i]
@@ -402,6 +440,13 @@ class ResOpAssembler(object):
                     self.mc.PUSH([r.ip.value])
                 else:
                     self.regalloc_push(arg)
+
+    def _setup_call_sf(self, force_index, adr, arglocs, fcond=c.AL, 
+                                                 resloc=None, result_info=(-1,-1)):
+        n_args = len(arglocs)
+        reg_args = count_reg_args(arglocs)
+        stack_args = self._collect_stack_args_sf(arglocs)
+        self._push_stack_args(stack_args)
         # collect variables that need to go in registers and the registers they
         # will be stored in
         num = 0
@@ -440,32 +485,55 @@ class ResOpAssembler(object):
 
         for loc, reg in float_locs:
             self.mov_from_vfp_loc(loc, reg, r.all_regs[reg.value + 1])
+        return stack_args, adr
 
-        #the actual call
-        if adr.is_imm():
-            self.mc.BL(adr.value)
-        elif adr.is_stack():
-            self.mov_loc_loc(adr, r.ip)
-            adr = r.ip
-        else:
-            assert adr.is_reg()
-        if adr.is_reg():
-            self.mc.BLX(adr.value)
-        self.mark_gc_roots(force_index)
-        # readjust the sp in case we passed some args on the stack
-        if n > 0:
-            self._adjust_sp(-n, fcond=fcond)
 
-        # ensure the result is wellformed and stored in the correct location
-        if resloc is not None:
-            if resloc.is_vfp_reg():
-                # move result to the allocated register
-                self.mov_to_vfp_loc(r.r0, r.r1, resloc)
-            elif result_info != (-1, -1):
-                self._ensure_result_bit_extension(resloc, result_info[0],
-                                                          result_info[1])
+    def _setup_call_hf(self, force_index, adr, arglocs, fcond=c.AL, 
+                                                 resloc=None, result_info=(-1,-1)):
+        n_reg_args = n_vfp_args = 0
+        non_float_locs = []
+        non_float_regs = []
+        float_locs = []
+        float_regs = []
+        stack_args = []
+        count = 0                      # stack alignment counter
+        for arg in arglocs:
+            if arg.type != FLOAT:
+                if len(non_float_regs) < len(r.argument_regs):
+		    reg = r.argument_regs[len(non_float_regs)]
+                    non_float_locs.append(arg)
+                    non_float_regs.append(reg)
+                else: # non-float argument that needs to go on the stack 
+                    count += 1
+                    stack_args.append(arg)
+            else:
+                if len(float_regs) < len(r.vfp_argument_regs): 
+		    reg = r.vfp_argument_regs[len(float_regs)]
+                    float_locs.append(arg)
+                    float_regs.append(reg)
+                else: # float argument that needs to go on the stack
+                    if count % 2 != 0:
+                        stack_args.append(None)
+			count = 0
+                    stack_args.append(arg)
+        # align the stack
+	if count % 2 != 0:
+            stack_args.append(None)
+        self._push_stack_args(stack_args)
+        # Check that the address of the function we want to call is not
+        # currently stored in one of the registers used to pass the arguments.
+        # If this happens to be the case we remap the register to r4 and use r4
+        # to call the function
+        if adr in non_float_regs:
+            non_float_locs.append(adr)
+            non_float_regs.append(r.r4)
+            adr = r.r4
+        # remap values stored in core registers
+        remap_frame_layout(self, non_float_locs, non_float_regs, r.ip)
+        # remap values stored in vfp registers
+        remap_frame_layout(self, float_locs, float_regs, r.vfp_ip)
 
-        return fcond
+        return stack_args, adr
 
     def emit_op_same_as(self, op, arglocs, regalloc, fcond):
         argloc, resloc = arglocs

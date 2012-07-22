@@ -26,7 +26,7 @@ callee_resp = [r4, r5, r6, r7, r8, r9, r10, fp]
 callee_saved_registers = callee_resp + [lr]
 callee_restored_registers = callee_resp + [pc]
 
-caller_vfp_resp = [d0, d1, d2, d3, d4, d5, d6, d7]
+vfp_argument_regs = caller_vfp_resp = [d0, d1, d2, d3, d4, d5, d6, d7]
 callee_vfp_resp = [d8, d9, d10, d11, d12, d13, d14, d15]
 
 callee_saved_vfp_registers = callee_vfp_resp
