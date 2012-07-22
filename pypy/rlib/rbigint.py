@@ -137,7 +137,7 @@ class rbigint(object):
     udigit._always_inline_ = True
 
     def setdigit(self, x, val):
-        val = val & MASK
+        val = _mask_digit(val)
         assert val >= 0
         self._digits[x] = _store_digit(val)
     setdigit._annspecialcase_ = 'specialize:argtype(2)'
@@ -553,9 +553,6 @@ class rbigint(object):
 
     @jit.elidable
     def pow(a, b, c=None):
-        if a.sign == 0:
-            return NULLRBIGINT
-        
         negativeOutput = False  # if x<0 return negative output
 
         # 5-ary values.  If the exponent is large enough, table is
@@ -569,13 +566,6 @@ class rbigint(object):
                     "cannot be negative when 3rd argument specified")
             # XXX failed to implement
             raise ValueError("bigint pow() too negative")
-        
-        if b.sign == 0:
-            return ONERBIGINT
-        elif a.sign == 0:
-            return NULLRBIGINT
-        
-        size_b = b.numdigits()
         
         if c is not None:
             if c.sign == 0:
@@ -592,15 +582,21 @@ class rbigint(object):
             #     return 0
             if c.numdigits() == 1 and c._digits[0] == ONEDIGIT:
                 return NULLRBIGINT
-
+   
             # if base < 0:
             #     base = base % modulus
             # Having the base positive just makes things easier.
             if a.sign < 0:
                 a = a.mod(c)
-                
             
-        elif size_b == 1:
+        if b.sign == 0:
+            return ONERBIGINT
+        if a.sign == 0:
+            return NULLRBIGINT
+            
+        size_b = b.numdigits()
+        
+        if size_b == 1:
             if b._digits[0] == NULLDIGIT:
                 return ONERBIGINT if a.sign == 1 else ONENEGATIVERBIGINT
             elif b._digits[0] == ONEDIGIT:
@@ -849,7 +845,7 @@ class rbigint(object):
 
     def _normalize(self):
         i = self.numdigits()
-        # i is always >= 1
+
         while i > 1 and self._digits[i - 1] == NULLDIGIT:
             i -= 1
         assert i > 0
