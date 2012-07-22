@@ -997,15 +997,17 @@ class BaseBackendTest(Runner):
         s_box, S = self.alloc_instance(TP)
         kdescr = self.cpu.interiorfielddescrof(A, 'k')
         pdescr = self.cpu.interiorfielddescrof(A, 'p')
-        self.execute_operation(rop.SETINTERIORFIELD_GC, [a_box, BoxInt(3),
-                                                         boxfloat(1.5)],
-                               'void', descr=kdescr)
-        f = self.cpu.bh_getinteriorfield_gc_f(a_box.getref_base(), 3, kdescr)
-        assert longlong.getrealfloat(f) == 1.5
-        self.cpu.bh_setinteriorfield_gc_f(a_box.getref_base(), 3, kdescr, longlong.getfloatstorage(2.5))
-        r = self.execute_operation(rop.GETINTERIORFIELD_GC, [a_box, BoxInt(3)],
-                                   'float', descr=kdescr)
-        assert r.getfloat() == 2.5
+        #
+        if self.cpu.supports_floats:
+            self.execute_operation(rop.SETINTERIORFIELD_GC, [a_box, BoxInt(3),
+                                                             boxfloat(1.5)],
+                                   'void', descr=kdescr)
+            f = self.cpu.bh_getinteriorfield_gc_f(a_box.getref_base(), 3, kdescr)
+            assert longlong.getrealfloat(f) == 1.5
+            self.cpu.bh_setinteriorfield_gc_f(a_box.getref_base(), 3, kdescr, longlong.getfloatstorage(2.5))
+            r = self.execute_operation(rop.GETINTERIORFIELD_GC, [a_box, BoxInt(3)],
+                                       'float', descr=kdescr)
+            assert r.getfloat() == 2.5
         #
         NUMBER_FIELDS = [('vs', lltype.Signed),
                          ('vu', lltype.Unsigned),
