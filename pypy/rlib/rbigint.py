@@ -553,6 +553,9 @@ class rbigint(object):
 
     @jit.elidable
     def pow(a, b, c=None):
+        if a.sign == 0:
+            return NULLRBIGINT
+        
         negativeOutput = False  # if x<0 return negative output
 
         # 5-ary values.  If the exponent is large enough, table is
