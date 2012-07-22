@@ -61,7 +61,9 @@ def autodetect():
                 model = 'x86-without-sse2'
     if model == 'arm':
             from pypy.jit.backend.arm.detect import detect_hardfloat, detect_float
-            assert not detect_hardfloat(), 'armhf is not supported yet'
+            if detect_hardfloat():
+                model = 'armhf'
+                raise AssertionError, 'disabled for now (ABI switching issues with libffi)'
             assert detect_float(), 'the JIT-compiler requires a vfp unit'
     return model
     
@@ -79,7 +81,9 @@ def getcpuclassname(backend_name="auto"):
     elif backend_name == 'llvm':
         return "pypy.jit.backend.llvm.runner", "LLVMCPU"
     elif backend_name == 'arm':
-        return "pypy.jit.backend.arm.runner", "ArmCPU"
+        return "pypy.jit.backend.arm.runner", "CPU_ARM"
+    elif backend_name == 'armhf':
+        return "pypy.jit.backend.arm.runner", "CPU_ARMHF"
     else:
         raise ProcessorAutodetectError, (
             "we have no JIT backend for this cpu: '%s'" % backend_name)

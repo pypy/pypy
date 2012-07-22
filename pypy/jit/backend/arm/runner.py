@@ -6,11 +6,13 @@ from pypy.rpython.lltypesystem import lltype, rffi, llmemory
 from pypy.jit.backend.arm.arch import FORCE_INDEX_OFS
 
 
-class ArmCPU(AbstractLLCPU):
+class AbstractARMCPU(AbstractLLCPU):
 
     supports_floats = True
     supports_longlong = False # XXX requires an implementation of
                               # read_timestamp that works in user mode
+    
+    use_hf_abi = False        # use hard float abi flag
 
     def __init__(self, rtyper, stats, opts=None, translate_support_code=False,
                  gcdescr=None):
@@ -139,3 +141,12 @@ class ArmCPU(AbstractLLCPU):
             mc.copy_to_raw_memory(jmp)
         # positions invalidated
         looptoken.compiled_loop_token.invalidate_positions = []
+
+class CPU_ARM(AbstractARMCPU):
+    """ARM v7 uses softfp ABI, requires vfp"""
+    pass
+ArmCPU = CPU_ARM
+
+class CPU_ARMHF(AbstractARMCPU):
+    """ARM v7 uses hardfp ABI, requires vfp"""
+    use_hf_abi = True
