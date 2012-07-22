@@ -327,7 +327,9 @@ STANDARD_DEFINES = '''
 /* Define on NetBSD to activate all library features */
 #define _NETBSD_SOURCE 1
 /* Define to activate features from IEEE Stds 1003.1-2001 */
-#define _POSIX_C_SOURCE 200112L
+#ifndef _POSIX_C_SOURCE
+#  define _POSIX_C_SOURCE 200112L
+#endif
 /* Define on FreeBSD to activate all library features */
 #define __BSD_VISIBLE 1
 #define __XSI_VISIBLE 700

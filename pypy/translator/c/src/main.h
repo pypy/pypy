@@ -59,9 +59,7 @@ int pypy_main_function(int argc, char *argv[])
 
     exitcode = STANDALONE_ENTRY_POINT(list);
 
-#ifdef RPY_ASSERT
     pypy_debug_alloc_results();
-#endif
 
     if (RPyExceptionOccurred()) {
         /* print the RPython traceback */
