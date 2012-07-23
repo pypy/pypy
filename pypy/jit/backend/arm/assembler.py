@@ -326,7 +326,6 @@ class AssemblerARM(ResOpAssembler):
                                     imm=descr.jit_wb_if_flag_byteofs)
             mc.TST_ri(r.ip.value, imm=0x80)
         #
-	print 'Withcars is %d' % withcards
 	mc.MOV_rr(r.pc.value, r.lr.value)
         #
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
