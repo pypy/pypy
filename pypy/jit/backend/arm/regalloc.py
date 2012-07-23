@@ -1090,16 +1090,8 @@ class Regalloc(object):
         args = op.getarglist()
         arglocs = [self._ensure_value_is_boxed(op.getarg(i), args)
 			 for i in range(N)]
-        descr = op.getdescr()
-        if(op.getopnum() == rop.COND_CALL_GC_WB_ARRAY 
-            and descr.jit_wb_cards_set != 0):
-            # check conditions for card marking
-            assert (descr.jit_wb_cards_set_byteofs ==
-                    descr.jit_wb_if_flag_byteofs)
-            assert descr.jit_wb_cards_set_singlebyte == -0x80
-            # allocate scratch register
-            tmp = self.get_scratch_reg(INT)
-            arglocs.append(tmp)
+        tmp = self.get_scratch_reg(INT)
+        arglocs.append(tmp)
         return arglocs
 
     prepare_op_cond_call_gc_wb_array = prepare_op_cond_call_gc_wb
