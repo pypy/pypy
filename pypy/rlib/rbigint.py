@@ -465,10 +465,10 @@ class rbigint(object):
 
     @jit.elidable
     def floordiv(self, other):
-        if other.numdigits() == 1 and other.sign == 1:
+        if self.sign == 1 and other.numdigits() == 1 and other.sign == 1:
             digit = other.digit(0)
             if digit == 1:
-                return rbigint(self._digits[:], other.sign * self.sign, self.size)
+                return rbigint(self._digits[:], 1, self.size)
             elif digit and digit & (digit - 1) == 0:
                 return self.rshift(ptwotable[digit])
             
@@ -476,6 +476,7 @@ class rbigint(object):
         if mod.sign * other.sign == -1:
             if div.sign == 0:
                 return ONENEGATIVERBIGINT
+            
             if div.sign == 1:
                 _v_isub(div, 0, div.numdigits(), ONERBIGINT, 1)
             else:
@@ -854,7 +855,7 @@ class rbigint(object):
         if self.numdigits() == 1 and self._digits[0] == NULLDIGIT:
             self.sign = 0
             self._digits = [NULLDIGIT]
-            
+
     _normalize._always_inline_ = True
     
     @jit.elidable
