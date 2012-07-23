@@ -545,7 +545,7 @@ class MiscOpAssembler(object):
         if adr.is_imm():
             self.mc.call(adr.value)
         elif adr.is_stack():
-            self.mc.load_from_addr(r.SCRATCH, adr)
+            self.regalloc_mov(adr, r.SCRATCH)
             self.mc.call_register(r.SCRATCH)
         elif adr.is_reg():
             self.mc.call_register(adr)
