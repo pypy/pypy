@@ -593,9 +593,9 @@ class rbigint(object):
             if a.sign < 0:
                 a = a.mod(c)
             
-        if b.sign == 0:
+        elif b.sign == 0:
             return ONERBIGINT
-        if a.sign == 0:
+        elif a.sign == 0:
             return NULLRBIGINT
             
         size_b = b.numdigits()
