@@ -475,11 +475,14 @@ class AssemblerARM(ResOpAssembler):
 
     def _build_malloc_slowpath(self):
         mc = ARMv7Builder()
-        assert self.cpu.supports_floats
+        if self.cpu.supports_floats:
+            vfp_regs = r.all_vfp_regs
+        else:
+            vfp_regs = []
         # We need to push two registers here because we are going to make a
         # call an therefore the stack needs to be 8-byte aligned
         mc.PUSH([r.ip.value, r.lr.value])
-        with saved_registers(mc, [], r.all_vfp_regs):
+        with saved_registers(mc, [], vfp_regs):
             # At this point we know that the values we need to compute the size
             # are stored in r0 and r1.
             mc.SUB_rr(r.r0.value, r.r1.value, r.r0.value)
