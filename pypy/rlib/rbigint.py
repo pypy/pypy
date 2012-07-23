@@ -23,7 +23,10 @@ if SUPPORT_INT128:
     SHIFT = 63
     BASE = long(1 << SHIFT)
     UDIGIT_TYPE = r_ulonglong
-    UDIGIT_MASK = longlongmask
+    if LONG_BIT >= 64:
+        UDIGIT_MASK = intmask
+    else:
+        UDIGIT_MASK = longlongmask
     LONG_TYPE = rffi.__INT128
     if LONG_BIT > SHIFT:
         STORE_TYPE = lltype.Signed
