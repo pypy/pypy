@@ -44,7 +44,7 @@ else:
     LONG_TYPE = rffi.LONGLONG
 
 MASK = BASE - 1
-FLOAT_MULTIPLIER = float(1 << LONG_BIT) # Because it works.
+FLOAT_MULTIPLIER = float(1 << SHIFT)
 
 # Debugging digit array access.
 #
