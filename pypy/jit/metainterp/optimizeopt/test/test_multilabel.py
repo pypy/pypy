@@ -459,6 +459,25 @@ class OptimizeoptTestMultiLabel(BaseTestMultiLabel):
         """
         self.optimize_loop(ops, expected)
 
+    def test_opaque_pointer_fails_to_close_loop(self):
+        ops = """
+        [p1, p11]
+        p2 = getfield_gc(p1, descr=nextdescr) 
+        guard_class(p2, ConstClass(node_vtable)) []
+        mark_opaque_ptr(p2)        
+        i3 = getfield_gc(p2, descr=otherdescr)
+        label(p1, p11)
+        p12 = getfield_gc(p1, descr=nextdescr) 
+        i13 = getfield_gc(p2, descr=otherdescr)
+        i14 = call(i13, descr=nonwritedescr)        
+        jump(p11, p1)
+        """
+        with raises(InvalidLoop):
+            self.optimize_loop(ops, ops)
+
+            
+
+
 class OptRenameStrlen(Optimization):
     def propagate_forward(self, op):
         dispatch_opt(self, op)

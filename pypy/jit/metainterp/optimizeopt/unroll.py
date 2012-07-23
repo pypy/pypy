@@ -343,7 +343,10 @@ class UnrollOptimizer(Optimization):
             self.optimizer.send_extra_operation(newop)
             if op.result in self.short_boxes.assumed_classes:
                 classbox = self.getvalue(newop.result).get_constant_class(self.optimizer.cpu)
-                assert classbox.same_constant(self.short_boxes.assumed_classes[op.result])
+                assumed_classbox = self.short_boxes.assumed_classes[op.result]
+                if not classbox or not classbox.same_constant(assumed_classbox):
+                    raise InvalidLoop('Class of opaque pointer needed in short ' +
+                                      'preamble unknown at en of loop')
             i += 1
 
         # Import boxes produced in the preamble but used in the loop
