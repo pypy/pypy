@@ -103,7 +103,6 @@ def _get_args(func):
     import inspect
 
     args, varargs, varkw, defaults = inspect.getargspec(func)
-    args = ["v%s" % (i, ) for i in range(len(args))]
     assert varargs is None and varkw is None
     assert not defaults
     return args
