@@ -117,7 +117,7 @@ def elidable_promote(promote_args='all'):
         argstring = ", ".join(args)
         code = ["def f(%s):\n" % (argstring, )]
         if promote_args != 'all':
-            args = [('v%d' % int(i)) for i in promote_args.split(",")]
+            args = [args[i] for i in promote_args.split(",")]
         for arg in args:
             code.append("    %s = hint(%s, promote=True)\n" % (arg, arg))
         code.append("    return func(%s)\n" % (argstring, ))
