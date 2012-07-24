@@ -117,11 +117,11 @@ def elidable_promote(promote_args='all'):
         argstring = ", ".join(args)
         code = ["def f(%s):\n" % (argstring, )]
         if promote_args != 'all':
-            args = [args[i] for i in promote_args.split(",")]
+            args = [args[int(i)] for i in promote_args.split(",")]
         for arg in args:
             code.append("    %s = hint(%s, promote=True)\n" % (arg, arg))
-        code.append("    return func(%s)\n" % (argstring, ))
-        d = {"func": func, "hint": hint}
+        code.append("    return _orig_func_unlikely_name(%s)\n" % (argstring, ))
+        d = {"_orig_func_unlikely_name": func, "hint": hint}
         exec py.code.Source("\n".join(code)).compile() in d
         result = d["f"]
         result.func_name = func.func_name + "_promote"
