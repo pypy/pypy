@@ -336,8 +336,8 @@ class AssemblerPPC(OpAssembler):
         # managed volatiles are saved below
         if self.cpu.supports_floats:
             for i in range(len(r.MANAGED_FP_REGS)):
-                mc.std(r.MANAGED_FP_REGS[i].value, r.SP.value,
-                       (BACKCHAIN_SIZE + MAX_REG_PARAMS + i) * WORD)
+                mc.stfd(r.MANAGED_FP_REGS[i].value, r.SP.value,
+                        (BACKCHAIN_SIZE + MAX_REG_PARAMS + i) * WORD)
         # Values to compute size stored in r3 and r4
         mc.subf(r.RES.value, r.RES.value, r.r4.value)
         addr = self.cpu.gc_ll_descr.get_malloc_slowpath_addr()
