@@ -277,6 +277,8 @@ class TestStandalone(StandaloneTests):
         assert "  ll_strtod.o" in makefile
 
     def test_debug_print_start_stop(self):
+        from pypy.rpython.lltypesystem import rffi
+        
         def entry_point(argv):
             x = "got:"
             debug_start  ("mycat")
@@ -291,6 +293,7 @@ class TestStandalone(StandaloneTests):
             debug_stop   ("mycat")
             if have_debug_prints(): x += "a"
             debug_print("toplevel")
+            debug_print("some int", rffi.cast(rffi.INT, 3))
             debug_flush()
             os.write(1, x + "." + str(debug_offset()) + '.\n')
             return 0
@@ -324,6 +327,7 @@ class TestStandalone(StandaloneTests):
         assert 'cat2}' in err
         assert 'baz' in err
         assert 'bok' in err
+        assert 'some int 3' in err
         # check with PYPYLOG=:somefilename
         path = udir.join('test_debug_xxx.log')
         out, err = cbuilder.cmdexec("", err=True,
