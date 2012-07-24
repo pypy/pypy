@@ -2185,7 +2185,7 @@ class LLtypeBackendTest(BaseBackendTest):
         funcbox = self.get_funcbox(self.cpu, func_ptr)
         class WriteBarrierDescr(AbstractDescr):
             jit_wb_if_flag = 4096
-            jit_wb_if_flag_byteofs = struct.pack("i", 4096).index('\x10')
+            jit_wb_if_flag_byteofs = struct.pack("l", 4096).index('\x10')
             jit_wb_if_flag_singlebyte = 0x10
             def get_write_barrier_fn(self, cpu):
                 return funcbox.getint()
@@ -2221,7 +2221,7 @@ class LLtypeBackendTest(BaseBackendTest):
         funcbox = self.get_funcbox(self.cpu, func_ptr)
         class WriteBarrierDescr(AbstractDescr):
             jit_wb_if_flag = 4096
-            jit_wb_if_flag_byteofs = struct.pack("i", 4096).index('\x10')
+            jit_wb_if_flag_byteofs = struct.pack("l", 4096).index('\x10')
             jit_wb_if_flag_singlebyte = 0x10
             jit_wb_cards_set = 0       # <= without card marking
             def get_write_barrier_fn(self, cpu):
@@ -2268,10 +2268,10 @@ class LLtypeBackendTest(BaseBackendTest):
         funcbox = self.get_funcbox(self.cpu, func_ptr)
         class WriteBarrierDescr(AbstractDescr):
             jit_wb_if_flag = 4096
-            jit_wb_if_flag_byteofs = struct.pack("i", 4096).index('\x10')
+            jit_wb_if_flag_byteofs = struct.pack("l", 4096).index('\x10')
             jit_wb_if_flag_singlebyte = 0x10
             jit_wb_cards_set = 32768
-            jit_wb_cards_set_byteofs = struct.pack("i", 32768).index('\x80')
+            jit_wb_cards_set_byteofs = struct.pack("l", 32768).index('\x80')
             jit_wb_cards_set_singlebyte = -0x80
             jit_wb_card_page_shift = 7
             def get_write_barrier_from_array_fn(self, cpu):
