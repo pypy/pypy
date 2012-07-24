@@ -89,11 +89,14 @@ class AssemblerPPC(OpAssembler):
                                                             failargs_limit)
         self.fail_boxes_ptr = values_array(llmemory.GCREF, failargs_limit)
         self.mc = None
-        self.datablockwrapper = None
         self.memcpy_addr = 0
+        self.pending_guards = None
         self.fail_boxes_count = 0
         self.current_clt = None
+        self.malloc_slowpath = 0
+        self.wb_slowpath = [0, 0, 0, 0]
         self._regalloc = None
+        self.datablockwrapper = None
         self.max_stack_params = 0
         self.propagate_exception_path = 0
         self.stack_check_slowpath = 0
@@ -497,6 +500,61 @@ class AssemblerPPC(OpAssembler):
             self.write_64_bit_func_descr(rawstart, rawstart+3*WORD)
         self.stack_check_slowpath = rawstart
 
+    def _build_wb_slowpath(self, withcards, withfloats=False):
+        descr = self.cpu.gc_ll_descr.write_barrier_descr
+        if descr is None:
+            return
+        if not withcards:
+            func = descr.get_write_barrier_fn(self.cpu)
+        else:
+            if descr.jit_wb_cards_set == 0:
+                return
+            func = descr.get_write_barrier_from_array_fn(self.cpu)
+            if func == 0:
+                return
+        #
+        # This builds a helper function called from the slow path of
+        # write barriers.  It must save all registers, and optionally
+        # all fp registers.
+        mc = PPCBuilder()
+        #
+        frame_size = ((len(r.VOLATILES) + len(r.VOLATILES_FLOAT)
+                      + BACKCHAIN_SIZE + MAX_REG_PARAMS) * WORD)
+        mc.make_function_prologue(frame_size)
+        for i in range(len(r.VOLATILES)):
+                       mc.store(r.VOLATILES[i].value, r.SP.value,
+                              (BACKCHAIN_SIZE + MAX_REG_PARAMS + i) * WORD)
+        if self.cpu.supports_floats:
+            for i in range(len(r.VOLATILES_FLOAT)):
+                           mc.stfd(r.VOLATILES_FLOAT[i].value, r.SP.value,
+                                  (len(r.VOLATILES) + BACKCHAIN_SIZE + MAX_REG_PARAMS + i) * WORD)
+
+        mc.call(rffi.cast(lltype.Signed, func))
+        if self.cpu.supports_floats:
+            for i in range(len(r.VOLATILES_FLOAT)):
+                           mc.lfd(r.VOLATILES_FLOAT[i].value, r.SP.value,
+                                  (len(r.VOLATILES) + BACKCHAIN_SIZE + MAX_REG_PARAMS + i) * WORD)
+        for i in range(len(r.VOLATILES)):
+                       mc.load(r.VOLATILES[i].value, r.SP.value,
+                              (BACKCHAIN_SIZE + MAX_REG_PARAMS + i) * WORD)
+        mc.restore_LR_from_caller_frame(frame_size)
+        #
+        if withcards:
+            # A final compare before the RET, for the caller.  Careful to
+            # not follow this instruction with another one that changes
+            # the status of the CPU flags!
+            mc.lbz(r.SCRATCH.value, r.r3.value,
+                   descr.jit_wb_if_flag_byteofs)
+            mc.extsb(r.SCRATCH.value, r.SCRATCH.value)
+            mc.cmpwi(0, r.SCRATCH.value, 0)
+        #
+        mc.addi(r.SP.value, r.SP.value, frame_size)
+        mc.blr()
+        #
+        mc.prepare_insts_blocks()
+        rawstart = mc.materialize(self.cpu.asmmemmgr, [])
+        self.wb_slowpath[withcards + 2 * withfloats] = rawstart
+
     def _build_propagate_exception_path(self):
         if self.cpu.propagate_exception_v < 0:
             return
@@ -662,6 +720,11 @@ class AssemblerPPC(OpAssembler):
     def setup_once(self):
         gc_ll_descr = self.cpu.gc_ll_descr
         gc_ll_descr.initialize()
+        self._build_wb_slowpath(False)
+        self._build_wb_slowpath(True)
+        if self.cpu.supports_floats:
+            self._build_wb_slowpath(False, withfloats=True)
+            self._build_wb_slowpath(True, withfloats=True)
         self._build_propagate_exception_path()
         if gc_ll_descr.get_malloc_slowpath_addr is not None:
             self._build_malloc_slowpath()

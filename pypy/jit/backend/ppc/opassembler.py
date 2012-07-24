@@ -1000,26 +1000,23 @@ class AllocOpAssembler(object):
 
         opnum = op.getopnum()
         card_marking = False
+        mask = descr.jit_wb_if_flag_singlebyte
         if opnum == rop.COND_CALL_GC_WB_ARRAY and descr.jit_wb_cards_set != 0:
-            N = 3
-            addr = descr.get_write_barrier_from_array_fn(self.cpu)
-            assert addr != 0
+            # assumptions the rest of the function depends on:
             assert (descr.jit_wb_cards_set_byteofs ==
                     descr.jit_wb_if_flag_byteofs)
             assert descr.jit_wb_cards_set_singlebyte == -0x80
             card_marking = True
-        else:
-            N = 2
-            addr = descr.get_write_barrier_fn(self.cpu)
+            mask = descr.jit_wb_if_flag_singlebyte | -0x80
+        #
         loc_base = arglocs[0]
         assert _check_imm_arg(descr.jit_wb_if_flag_byteofs)
         with scratch_reg(self.mc):
             self.mc.lbz(r.SCRATCH.value, loc_base.value,
                         descr.jit_wb_if_flag_byteofs)
-
             # test whether this bit is set
-            self.mc.andix(r.SCRATCH.value, r.SCRATCH.value,
-                          descr.jit_wb_if_flag_singlebyte)
+            mask &= 0xFF
+            self.mc.andix(r.SCRATCH.value, r.SCRATCH.value, mask)
 
         jz_location = self.mc.currpos()
         self.mc.nop()
@@ -1027,57 +1024,65 @@ class AllocOpAssembler(object):
         # for cond_call_gc_wb_array, also add another fast path:
         # if GCFLAG_CARDS_SET, then we can just set one bit and be done
         if card_marking:
-            assert _check_imm_arg(descr.jit_wb_cards_set_byteofs)
-            assert descr.jit_wb_cards_set_singlebyte == -0x80
             with scratch_reg(self.mc):
                 self.mc.lbz(r.SCRATCH.value, loc_base.value,
                             descr.jit_wb_if_flag_byteofs)
+                self.mc.extsb(r.SCRATCH.value, r.SCRATCH.value)
 
                 # test whether this bit is set
-                self.mc.andix(r.SCRATCH.value, r.SCRATCH.value,
-                              descr.jit_wb_cards_set_singlebyte)
+                self.mc.cmpwi(0, r.SCRATCH.value, 0)
 
-                jnz_location = self.mc.currpos()
+                js_location = self.mc.currpos()
                 self.mc.nop()
+                #self.mc.trap()
         else:
-            jnz_location = 0
+            js_location = 0
 
-        # the following is supposed to be the slow path, so whenever possible
-        # we choose the most compact encoding over the most efficient one.
-        with Saved_Volatiles(self.mc):
-            if N == 2:
-                callargs = [r.r3, r.r4]
-            else:
-                callargs = [r.r3, r.r4, r.r5]
-            remap_frame_layout(self, arglocs, callargs, r.SCRATCH)
-            func = rffi.cast(lltype.Signed, addr)
-            #
-            # misaligned stack in the call, but it's ok because the write
-            # barrier is not going to call anything more.  
-            self.mc.call(func)
+        # Write only a CALL to the helper prepared in advance, passing it as
+        # argument the address of the structure we are writing into
+        # (the first argument to COND_CALL_GC_WB).
+        helper_num = card_marking
+
+        if self._regalloc.fprm.reg_bindings:
+            helper_num += 2
+        if self.wb_slowpath[helper_num] == 0:    # tests only
+            assert not we_are_translated()
+            self.cpu.gc_ll_descr.write_barrier_descr = descr
+            self._build_wb_slowpath(card_marking,
+                                    bool(self._regalloc.fprm.reg_bindings))
+            assert self.wb_slowpath[helper_num] != 0
+        #
+        if loc_base is not r.r3:
+            remap_frame_layout(self, [loc_base], [r.r3], r.SCRATCH)
+        addr = self.wb_slowpath[helper_num]
+        func = rffi.cast(lltype.Signed, addr)
+        self.mc.bl_abs(func)
 
         # if GCFLAG_CARDS_SET, then we can do the whole thing that would
         # be done in the CALL above with just four instructions, so here
         # is an inline copy of them
         if card_marking:
             with scratch_reg(self.mc):
-                jmp_location = self.mc.currpos()
+                jns_location = self.mc.currpos()
                 self.mc.nop()  # jump to the exit, patched later
-                # patch the JNZ above
+                # patch the JS above
                 offset = self.mc.currpos()
-                pmc = OverwritingBuilder(self.mc, jnz_location, 1)
-                pmc.bc(12, 2, offset - jnz_location)     # jump on equality
+                pmc = OverwritingBuilder(self.mc, js_location, 1)
+                # Jump if JS comparison is less than (bit set)
+                pmc.bc(12, 0, offset - js_location)
                 pmc.overwrite()
                 #
+                # case GCFLAG_CARDS_SET: emit a few instructions to do
+                # directly the card flag setting
                 loc_index = arglocs[1]
                 assert loc_index.is_reg()
-                tmp1 = arglocs[-2]
-                tmp2 = arglocs[-1]
+                tmp1 = loc_index
+                tmp2 = arglocs[-2]
                 #byteofs
                 s = 3 + descr.jit_wb_card_page_shift
 
-                # use r20 as temporary register, save it in FORCE INDEX slot
-                temp_reg = r.r20
+                # use r11 as temporary register, save it in FORCE INDEX slot
+                temp_reg = r.r11
                 self.mc.store(temp_reg.value, r.SPP.value, FORCE_INDEX_OFS)
 
                 self.mc.srli_op(temp_reg.value, loc_index.value, s)
@@ -1097,24 +1102,21 @@ class AllocOpAssembler(object):
                 self.mc.stbx(r.SCRATCH.value, loc_base.value, temp_reg.value)
                 # done
 
-                # restore temporary register r20
+                # restore temporary register r11
                 self.mc.load(temp_reg.value, r.SPP.value, FORCE_INDEX_OFS)
 
-                # patch the JMP above
+                # patch the JNS above
                 offset = self.mc.currpos()
-                pmc = OverwritingBuilder(self.mc, jmp_location, 1)
-                pmc.b(offset - jmp_location)
+                pmc = OverwritingBuilder(self.mc, jns_location, 1)
+                # Jump if JNS comparison is not less than (bit not set)
+                pmc.bc(4, 0, offset - jns_location)
                 pmc.overwrite()
 
         # patch the JZ above
-        offset = self.mc.currpos() - jz_location
+        offset = self.mc.currpos()
         pmc = OverwritingBuilder(self.mc, jz_location, 1)
-        # We want to jump if the compared bits are not equal.
-        # This corresponds to the x86 backend, which uses
-        # the TEST operation. Hence, on first sight, it might
-        # seem that we use the wrong condition here. This is
-        # because TEST results in a 1 if the operands are different.
-        pmc.bc(4, 2, offset)
+        # Jump if JZ comparison is zero (CMP 0 is equal)
+        pmc.bc(12, 2, offset - jz_location)
         pmc.overwrite()
 
     emit_cond_call_gc_wb_array = emit_cond_call_gc_wb
