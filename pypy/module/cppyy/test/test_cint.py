@@ -132,7 +132,7 @@ class AppTestCINTTTree:
             import cppyy
             return cppyy.load_reflection_info(%r)""" % (iotypes_dct,))
 
-    def test01_write_stdvector( self ):
+    def test01_write_stdvector(self):
         """Test writing of a single branched TTree with an std::vector<double>"""
 
         from cppyy import gbl               # bootstraps, only needed for tests
@@ -168,6 +168,7 @@ class AppTestCINTTTree:
 
         i = 0
         for event in mytree:
+            assert len(event.mydata) == self.M
             for entry in event.mydata:
                 assert i == int(entry)
                 i += 1
@@ -209,16 +210,80 @@ class AppTestCINTTTree:
         f = TFile(self.fname)
         mytree = f.Get(self.tname)
 
+        j = 1
         for event in mytree:
             i = 0
+            assert len(event.data.get_floats()) == j*self.M
             for entry in event.data.get_floats():
                 assert i == int(entry)
                 i += 1
 
+            k = 1
+            assert len(event.data.get_tuples()) == j
             for mytuple in event.data.get_tuples():
                 i = 0
+                assert len(mytuple) == k*self.M
                 for entry in mytuple:
                     assert i == int(entry)
                     i += 1
+                k += 1
+            j += 1
+        assert j-1 == self.N
         #
         f.Close()
+
+    def test05_branch_activation(self):
+        """Test of automatic branch activation"""
+
+        from cppyy import gbl               # bootstraps, only needed for tests
+        from cppyy.gbl import TFile, TTree
+        from cppyy.gbl.std import vector
+
+        L = 5
+
+        # writing
+        f = TFile(self.fname, "RECREATE")
+        mytree = TTree(self.tname, self.title)
+        mytree._python_owns = False
+
+        for i in range(L):
+            v = vector("double")()
+            mytree.Branch("mydata_%d"%i, v.__class__.__name__, v)
+            mytree.__dict__["v_%d"%i] = v
+
+        for i in range(self.N):
+            for k in range(L):
+                v = mytree.__dict__["v_%d"%k]
+                for j in range(self.M):
+                    mytree.__dict__["v_%d"%k].push_back(i*self.M+j*L+k)
+            mytree.Fill()
+            for k in range(L):
+                v = mytree.__dict__["v_%d"%k]
+                v.clear()
+        f.Write()
+        f.Close()
+
+        del mytree, f
+        import gc
+        gc.collect()
+
+        # reading
+        f = TFile(self.fname)
+        mytree = f.Get(self.tname)
+
+        # force (initial) disabling of all branches
+        mytree.SetBranchStatus("*",0);
+
+        i = 0
+        for event in mytree:
+            for k in range(L):
+                j = 0
+                data = getattr(mytree, "mydata_%d"%k)
+                assert len(data) == self.M
+                for entry in data:
+                    assert entry == i*self.M+j*L+k
+                    j += 1
+                assert j == self.M
+            i += 1
+        assert i == self.N
+
