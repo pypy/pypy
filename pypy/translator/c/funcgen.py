@@ -11,6 +11,7 @@ from pypy.rpython.lltypesystem.lltype import UnsignedLongLong, Char, UniChar
 from pypy.rpython.lltypesystem.lltype import pyobjectptr, ContainerType
 from pypy.rpython.lltypesystem.lltype import Struct, Array, FixedSizeArray
 from pypy.rpython.lltypesystem.lltype import ForwardReference, FuncType
+from pypy.rpython.lltypesystem.rffi import INT
 from pypy.rpython.lltypesystem.llmemory import Address
 from pypy.translator.backendopt.ssa import SSI_to_SSA
 from pypy.translator.backendopt.innerloop import find_inner_loops
@@ -750,6 +751,8 @@ class FunctionCodeGenerator(object):
                 continue
             elif T == Signed:
                 format.append('%ld')
+            elif T == INT:
+                format.append('%d')
             elif T == Unsigned:
                 format.append('%lu')
             elif T == Float:
