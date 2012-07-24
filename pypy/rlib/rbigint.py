@@ -326,16 +326,6 @@ class rbigint(object):
 
     @jit.elidable
     def eq(self, other):
-        # This code is temp only. Just to raise some more specific asserts
-        # For a bug.
-        # One of the values sent to eq have not gone through normalize.
-        # Etc Aga x * p2 != x << n from test_long.py
-        if self.sign == 0 and other.sign == 0:
-            return True
-        assert not (self.numdigits() == 1 and self._digits[0] == NULLDIGIT)
-        assert not (other.numdigits() == 1 and other._digits[0] == NULLDIGIT)
-        
-        
         if (self.sign != other.sign or
             self.numdigits() != other.numdigits()):
             return False
@@ -715,16 +705,6 @@ class rbigint(object):
         ret = self.add(ONERBIGINT)
         ret.sign = -ret.sign
         return ret
-
-    def inplace_invert(self): # Used by rshift and bitwise to prevent a double allocation.
-        if self.sign == 0:
-            return ONENEGATIVERBIGINT
-        if self.sign == 1:
-            _v_iadd(self, 0, self.numdigits(), ONERBIGINT, 1)
-        else:
-             _v_isub(self, 0, self.numdigits(), ONERBIGINT, 1)
-        self.sign = -self.sign
-        return self
         
     @jit.elidable    
     def lshift(self, int_other):
@@ -738,6 +718,9 @@ class rbigint(object):
         remshift  = int_other - wordshift * SHIFT
 
         if not remshift:
+            # So we can avoid problems with eq, AND avoid the need for normalize.
+            if self.sign == 0:
+                return self
             return rbigint([NULLDIGIT] * wordshift + self._digits, self.sign, self.size + wordshift)
         
         oldsize = self.numdigits()
@@ -789,7 +772,7 @@ class rbigint(object):
         if self.sign == -1 and not dont_invert:
             a1 = self.invert()
             a2 = a1.rshift(int_other)
-            return a2.inplace_invert()
+            return a2.invert()
 
         wordshift = int_other // SHIFT
         newsize = self.numdigits() - wordshift
@@ -890,8 +873,9 @@ class rbigint(object):
         return bits
 
     def __repr__(self):
-        return "<rbigint digits=%s, sign=%s, %s>" % (self._digits,
-                                                     self.sign, self.str())
+        return "<rbigint digits=%s, sign=%s, size=%d, len=%d, %s>" % (self._digits,
+                                            self.sign, self.size, len(self._digits),
+                                            self.str())
 
 ONERBIGINT = rbigint([ONEDIGIT], 1, 1)
 ONENEGATIVERBIGINT = rbigint([ONEDIGIT], -1, 1)
@@ -2240,7 +2224,7 @@ def _bitwise(a, op, b): # '&', '|', '^'
     if negz == 0:
         return z
     
-    return z.inplace_invert()
+    return z.invert()
 _bitwise._annspecialcase_ = "specialize:arg(1)"
 
 

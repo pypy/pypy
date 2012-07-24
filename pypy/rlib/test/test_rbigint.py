@@ -442,6 +442,12 @@ class Test_rbigint(object):
                     res2 = getattr(operator, mod)(x, y)
                     assert res1 == res2
 
+    def test_mul_eq_shift(self):
+        p2 = rbigint.fromlong(1).lshift(63)
+        f1 = rbigint.fromlong(0).lshift(63)
+        f2 = rbigint.fromlong(0).mul(p2)
+        assert f1.eq(f2)
+            
     def test_tostring(self):
         z = rbigint.fromlong(0)
         assert z.str() == '0'
