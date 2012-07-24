@@ -326,6 +326,16 @@ class rbigint(object):
 
     @jit.elidable
     def eq(self, other):
+        # This code is temp only. Just to raise some more specific asserts
+        # For a bug.
+        # One of the values sent to eq have not gone through normalize.
+        # Etc Aga x * p2 != x << n from test_long.py
+        if self.sign == 0 and other.sign == 0:
+            return True
+        assert not (self.numdigits() == 1 and self._digits[0] == NULLDIGIT)
+        assert not (other.numdigits() == 1 and other._digits[0] == NULLDIGIT)
+        
+        
         if (self.sign != other.sign or
             self.numdigits() != other.numdigits()):
             return False
@@ -451,8 +461,8 @@ class rbigint(object):
                 
             if asize <= i:
                 result = _x_mul(a, b)
-            elif 2 * asize <= bsize:
-                result = _k_lopsided_mul(a, b)
+                """elif 2 * asize <= bsize:
+                    result = _k_lopsided_mul(a, b)"""
             else:
                 result = _k_mul(a, b)
         else:
@@ -571,6 +581,8 @@ class rbigint(object):
             # XXX failed to implement
             raise ValueError("bigint pow() too negative")
         
+        size_b = b.numdigits()
+        
         if c is not None:
             if c.sign == 0:
                 raise ValueError("pow() 3rd argument cannot be 0")
@@ -597,10 +609,7 @@ class rbigint(object):
             return ONERBIGINT
         elif a.sign == 0:
             return NULLRBIGINT
-            
-        size_b = b.numdigits()
-        
-        if size_b == 1:
+        elif size_b == 1:
             if b._digits[0] == NULLDIGIT:
                 return ONERBIGINT if a.sign == 1 else ONENEGATIVERBIGINT
             elif b._digits[0] == ONEDIGIT:
@@ -692,12 +701,12 @@ class rbigint(object):
         return z
 
     def neg(self):
-        return rbigint(self._digits[:], -self.sign, self.size)
+        return rbigint(self._digits, -self.sign, self.size)
 
     def abs(self):
         if self.sign != -1:
             return self
-        return rbigint(self._digits[:], abs(self.sign), self.size)
+        return rbigint(self._digits, 1, self.size)
 
     def invert(self): #Implement ~x as -(x + 1)
         if self.sign == 0:
@@ -1221,8 +1230,9 @@ def _kmul_split(n, size):
     size_n = n.numdigits()
     size_lo = min(size_n, size)
 
-    lo = rbigint(n._digits[:size_lo], 1)
-    hi = rbigint(n._digits[size_lo:], 1)
+    # We use "or" her to avoid having a check where list can be empty in _normalize.
+    lo = rbigint(n._digits[:size_lo] or [NULLDIGIT], 1)
+    hi = rbigint(n._digits[size_lo:n.size] or [NULLDIGIT], 1)
     lo._normalize()
     hi._normalize()
     return hi, lo
@@ -1246,7 +1256,10 @@ def _k_mul(a, b):
     # Split a & b into hi & lo pieces.
     shift = bsize >> 1
     ah, al = _kmul_split(a, shift)
-    assert ah.sign == 1    # the split isn't degenerate
+    if ah.sign == 0:
+        # This may happen now that _k_lopsided_mul ain't catching it.
+        return _x_mul(a, b)
+    #assert ah.sign == 1    # the split isn't degenerate
 
     if a is b:
         bh = ah
@@ -1274,6 +1287,7 @@ def _k_mul(a, b):
 
     # 2. t1 <- ah*bh, and copy into high digits of result.
     t1 = ah.mul(bh)
+
     assert t1.sign >= 0
     assert 2*shift + t1.numdigits() <= ret.numdigits()
     ret._digits[2*shift : 2*shift + t1.numdigits()] = t1._digits
@@ -1367,6 +1381,8 @@ ah*bh and al*bl too.
 """
 
 def _k_lopsided_mul(a, b):
+    # Not in use anymore, only account for like 1% performance. Perhaps if we
+    # Got rid of the extra list allocation this would be more effective.
     """
     b has at least twice the digits of a, and a is big enough that Karatsuba
     would pay off *if* the inputs had balanced sizes.  View b as a sequence
@@ -1582,30 +1598,27 @@ def _x_divrem(v1, w1):
     wm2 = w.widedigit(abs(size_w-2))
     j = size_v
     k = size_a - 1
+    carry = _widen_digit(0)
     while k >= 0:
-        assert j >= 2
+        assert j > 1
         if j >= size_v:
             vj = 0
         else:
             vj = v.widedigit(j)
-            
-        carry = 0
-        vj1 = v.widedigit(abs(j-1))
         
         if vj == wm1:
             q = MASK
-            r = 0
         else:
-            vv = ((vj << SHIFT) | vj1)
-            q = vv // wm1
-            r = _widen_digit(vv) - wm1 * q
-        
-        vj2 = v.widedigit(abs(j-2))
-        while wm2 * q > ((r << SHIFT) | vj2):
+            q = ((vj << SHIFT) + v.widedigit(abs(j-1))) // wm1
+
+        while (wm2 * q >
+                ((
+                    (vj << SHIFT)
+                    + v.widedigit(abs(j-1))
+                    - q * wm1
+                                ) << SHIFT)
+                + v.widedigit(abs(j-2))):
             q -= 1
-            r += wm1
-            if r > MASK:
-                break
         i = 0
         while i < size_w and i+k < size_v:
             z = w.widedigit(i) * q
@@ -1638,6 +1651,7 @@ def _x_divrem(v1, w1):
                 i += 1
         j -= 1
         k -= 1
+        carry = 0
 
     a._normalize()
     _inplace_divrem1(v, v, d, size_v)
