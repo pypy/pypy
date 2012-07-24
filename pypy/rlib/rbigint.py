@@ -479,11 +479,8 @@ class rbigint(object):
         if mod.sign * other.sign == -1:
             if div.sign == 0:
                 return ONENEGATIVERBIGINT
+            div = div.sub(ONERBIGINT)
             
-            if div.sign == 1:
-                _v_isub(div, 0, div.numdigits(), ONERBIGINT, 1)
-            else:
-                _v_iadd(div, 0, div.numdigits(), ONERBIGINT, 1)
         return div
 
     def div(self, other):
@@ -549,10 +546,7 @@ class rbigint(object):
             mod = mod.add(w)
             if div.sign == 0:
                 return ONENEGATIVERBIGINT, mod
-            if div.sign == 1:
-                _v_isub(div, 0, div.numdigits(), ONERBIGINT, 1)
-            else:
-                _v_iadd(div, 0, div.numdigits(), ONERBIGINT, 1)
+            div = div.sub(ONERBIGINT)
         return div, mod
 
     @jit.elidable
