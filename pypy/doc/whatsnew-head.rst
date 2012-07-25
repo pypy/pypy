@@ -20,6 +20,9 @@ Check that axis arg is valid in _numpypy
 Implement better JIT hooks
 .. branch: virtual-arguments
 Improve handling of **kwds greatly, making them virtual sometimes.
+.. branch: improve-rbigint
+Introduce __int128 on systems where it's supported and improve the speed of
+rlib/rbigint.py greatly.
 
 .. "uninteresting" branches that we should just ignore for the whatsnew:
 .. branch: slightly-shorter-c
