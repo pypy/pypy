@@ -3,10 +3,13 @@ from pypy.jit.codewriter.policy import StopAtXPolicy
 from pypy.rlib.jit import JitDriver
 from pypy.jit.metainterp.test import test_ajit
 from pypy.jit.backend.ppc.test.support import JitPPCMixin
+from pypy.jit.backend.detect_cpu import getcpuclass
+
+CPU = getcpuclass()
 
 class TestBasic(JitPPCMixin, test_ajit.BaseLLtypeTests):
     # for the individual tests see
-    # ====> ../../../metainterp/test/test_basic.py
+    # ====> ../../../metainterp/test/test_ajit.py
     def test_bug(self):
         jitdriver = JitDriver(greens = [], reds = ['n'])
         class X(object):
@@ -31,3 +34,7 @@ class TestBasic(JitPPCMixin, test_ajit.BaseLLtypeTests):
 
     def test_free_object(self):
         py.test.skip("issue of freeing, probably with ll2ctypes")
+
+    if not CPU.supports_longlong:
+        def test_read_timestamp(self):
+            py.test.skip('requires longlong')
