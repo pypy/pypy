@@ -282,6 +282,13 @@ int cppyy_has_complex_hierarchy(cppyy_type_t handle) {
 
 int cppyy_num_bases(cppyy_type_t handle) {
     Reflex::Type t = type_from_handle(handle);
+    std::string name = t.Name(Reflex::FINAL|Reflex::SCOPED);
+    if (5 < name.size() && name.substr(0, 5) == "std::") {
+        // special case: STL base classes are usually unnecessary,
+        // so either build all (i.e. if available) or none
+        for (int i=0; i < (int)t.BaseSize(); ++i)
+            if (!t.BaseAt(i)) return 0;
+    }
     return t.BaseSize();
 }
 
