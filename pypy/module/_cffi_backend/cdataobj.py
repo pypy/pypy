@@ -30,8 +30,17 @@ class W_CData(Wrappable):
         return extra
 
     def repr(self):
-        extra = self._repr_extra()
-        return self.space.wrap("<cdata '%s' %s>" % (self.ctype.name, extra))
+        extra2 = self._repr_extra()
+        extra1 = ''
+        if not isinstance(self, W_CDataApplevelOwning):
+            # it's slightly confusing to get "<cdata 'struct foo' 0x...>"
+            # because the struct foo is not owned.  Trying to make it
+            # clearer, write in this case "<cdata 'struct foo &' 0x...>".
+            from pypy.module._cffi_backend import ctypestruct
+            if isinstance(self.ctype, ctypestruct.W_CTypeStructOrUnion):
+                extra1 = ' &'
+        return self.space.wrap("<cdata '%s%s' %s>" % (
+            self.ctype.name, extra1, extra2))
 
     def nonzero(self):
         return self.space.wrap(bool(self._cdata))
