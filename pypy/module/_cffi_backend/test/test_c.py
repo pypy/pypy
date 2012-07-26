@@ -3,7 +3,7 @@ from __future__ import with_statement
 This file is OBSCURE.  Really.  The purpose is to avoid copying and changing
 'test_c.py' from cffi/c/.
 """
-import py, ctypes
+import py, sys, ctypes
 from pypy.tool.udir import udir
 from pypy.conftest import gettestobjspace
 from pypy.interpreter import gateway
@@ -45,12 +45,13 @@ class AppTestC(object):
 
         w_func = space.wrap(gateway.interp2app(find_and_load_library_for_test))
         w_testfunc = space.wrap(gateway.interp2app(testfunc_for_test))
-        space.appexec([space.wrap(str(tmpdir)), w_func, w_testfunc],
-        """(path, func, testfunc):
+        space.appexec([space.wrap(str(tmpdir)), w_func, w_testfunc,
+                       space.wrap(sys.version[:3])],
+        """(path, func, testfunc, underlying_version):
             import sys
             sys.path.append(path)
             import _all_test_c
-            _all_test_c.PY_DOT_PY = True
+            _all_test_c.PY_DOT_PY = underlying_version
             _all_test_c.find_and_load_library = func
             _all_test_c._testfunc = testfunc
         """)

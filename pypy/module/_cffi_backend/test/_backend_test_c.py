@@ -1569,10 +1569,15 @@ def test_errno():
     assert get_errno() == 65
     f(); f()
     assert get_errno() == 95
-    #
+
+def test_errno_callback():
+    if globals().get('PY_DOT_PY') == '2.5':
+        py.test.skip("cannot run this test on py.py with Python 2.5")
     def cb():
         e = get_errno()
         set_errno(e - 6)
+    BVoid = new_void_type()
+    BFunc5 = new_function_type((), BVoid)
     f = callback(BFunc5, cb)
     f()
     assert get_errno() == 89
