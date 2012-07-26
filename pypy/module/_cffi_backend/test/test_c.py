@@ -22,12 +22,13 @@ class AppTestC(object):
         testfuncs_w = []
         keepalive_funcs = []
 
-        def find_and_load_library_for_test(space, w_name):
+        def find_and_load_library_for_test(space, w_name, w_is_global=0):
             import ctypes.util
             path = ctypes.util.find_library(space.str_w(w_name))
-            return space.appexec([space.wrap(path)], """(path):
+            return space.appexec([space.wrap(path), w_is_global],
+            """(path, is_global):
                 import _cffi_backend
-                return _cffi_backend.load_library(path)""")
+                return _cffi_backend.load_library(path, is_global)""")
 
         test_lib_c = tmpdir.join('_test_lib.c')
         src_test_lib_c = py.path.local(__file__).dirpath().join('_test_lib.c')
