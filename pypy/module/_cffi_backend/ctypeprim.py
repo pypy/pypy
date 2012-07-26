@@ -58,9 +58,12 @@ class W_CTypePrimitive(W_CType):
                               "integer %s does not fit '%s'", s, self.name)
 
 
-class W_CTypePrimitiveChar(W_CTypePrimitive):
+class W_CTypePrimitiveCharOrUniChar(W_CTypePrimitive):
+    pass
+
+
+class W_CTypePrimitiveChar(W_CTypePrimitiveCharOrUniChar):
     cast_anything = True
-    #XXX WCHAR class PrimitiveUniChar
 
     def int(self, cdata):
         return self.space.wrap(ord(cdata[0]))
@@ -88,6 +91,38 @@ class W_CTypePrimitiveChar(W_CTypePrimitive):
     def convert_from_object(self, cdata, w_ob):
         value = self._convert_to_char(w_ob)
         cdata[0] = value
+
+
+class W_CTypePrimitiveUniChar(W_CTypePrimitiveCharOrUniChar):
+
+    def int(self, cdata):
+        XXX
+
+    def convert_to_object(self, cdata):
+        unichardata = rffi.cast(rffi.CWCHARP, cdata)
+        s = rffi.wcharpsize2unicode(unichardata, 1)
+        return self.space.wrap(s)
+
+    def unicode(self, cdataobj):
+        w_res = self.convert_to_object(cdataobj._cdata)
+        keepalive_until_here(cdataobj)
+        return w_res
+
+    def _convert_to_unichar(self, w_ob):
+        space = self.space
+        if space.isinstance_w(w_ob, space.w_unicode):
+            s = space.unicode_w(w_ob)
+            if len(s) == 1:
+                return s[0]
+        ob = space.interpclass_w(w_ob)
+        if (isinstance(ob, cdataobj.W_CData) and
+               isinstance(ob.ctype, W_CTypePrimitiveUniChar)):
+            return rffi.cast(rffi.CWCHARP, ob._cdata)[0]
+        raise self._convert_error("unicode string of length 1", w_ob)
+
+    def convert_from_object(self, cdata, w_ob):
+        value = self._convert_to_unichar(w_ob)
+        rffi.cast(rffi.CWCHARP, cdata)[0] = value
 
 
 class W_CTypePrimitiveSigned(W_CTypePrimitive):

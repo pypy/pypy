@@ -12,6 +12,7 @@ from pypy.rlib.rarithmetic import ovfcheck
 
 from pypy.module._cffi_backend.ctypeobj import W_CType
 from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveChar
+from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveUniChar
 from pypy.module._cffi_backend.ctypeptr import W_CTypePtrOrArray
 from pypy.module._cffi_backend import cdataobj
 
@@ -31,6 +32,14 @@ class W_CTypeArray(W_CTypePtrOrArray):
             return self.space.wrap(s)
         return W_CTypePtrOrArray.str(self, cdataobj)
 
+    def unicode(self, cdataobj):
+        if isinstance(self.ctitem, W_CTypePrimitiveUniChar):
+            XXX
+            s = rffi.charp2strn(cdataobj._cdata, cdataobj.get_array_length())
+            keepalive_until_here(cdataobj)
+            return self.space.wrap(s)
+        return W_CTypePtrOrArray.unicode(self, cdataobj)
+
     def _alignof(self):
         return self.ctitem.alignof()
 
@@ -42,7 +51,7 @@ class W_CTypeArray(W_CTypePtrOrArray):
             if (space.isinstance_w(w_init, space.w_list) or
                 space.isinstance_w(w_init, space.w_tuple)):
                 length = space.int_w(space.len(w_init))
-            elif space.isinstance_w(w_init, space.w_str):
+            elif space.isinstance_w(w_init, space.w_basestring):
                 # from a string, we add the null terminator
                 length = space.int_w(space.len(w_init)) + 1
             else:
@@ -109,7 +118,24 @@ class W_CTypeArray(W_CTypePtrOrArray):
                 cdata[i] = s[i]
             if n != self.length:
                 cdata[n] = '\x00'
-        #XXX WCHAR
+        elif isinstance(self.ctitem, W_CTypePrimitiveUniChar):
+            try:
+                s = space.unicode_w(w_ob)
+            except OperationError, e:
+                if not e.match(space, space.w_TypeError):
+                    raise
+                raise self._convert_error("unicode or list or tuple", w_ob)
+            n = len(s)
+            if self.length >= 0 and n > self.length:
+                raise operationerrfmt(space.w_IndexError,
+                              "initializer unicode string is too long for '%s'"
+                                      " (got %d characters)",
+                                      self.name, n)
+            unichardata = rffi.cast(rffi.CWCHARP, cdata)
+            for i in range(n):
+                unichardata[i] = s[i]
+            if n != self.length:
+                unichardata[n] = u'\x00'
         else:
             raise self._convert_error("list or tuple", w_ob)
 

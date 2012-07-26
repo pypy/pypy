@@ -13,6 +13,7 @@ class W_CType(Wrappable):
     #_immutable_ = True    XXX newtype.complete_struct_or_union()?
     cast_anything = False
     is_char_ptr_or_array = False
+    is_unichar_ptr_or_array = False
 
     def __init__(self, space, size, name, name_position):
         self.space = space
@@ -84,6 +85,9 @@ class W_CType(Wrappable):
 
     def str(self, cdataobj):
         return cdataobj.repr()
+
+    def unicode(self, cdataobj):
+        XXX
 
     def add(self, cdata, i):
         space = self.space

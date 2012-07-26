@@ -183,7 +183,7 @@ class W_CField(Wrappable):
         #
         if isinstance(ctype, ctypeprim.W_CTypePrimitiveUnsigned):
             value_fits_long = ctype.value_fits_long
-        elif isinstance(ctype, ctypeprim.W_CTypePrimitiveChar):
+        elif isinstance(ctype, ctypeprim.W_CTypePrimitiveCharOrUniChar):
             value_fits_long = True
         else:
             raise NotImplementedError

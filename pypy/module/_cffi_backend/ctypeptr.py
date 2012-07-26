@@ -15,6 +15,7 @@ class W_CTypePtrOrArray(W_CType):
     def __init__(self, space, size, extra, extra_position, ctitem,
                  could_cast_anything=True):
         from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveChar
+        from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveUniChar
         from pypy.module._cffi_backend.ctypestruct import W_CTypeStructOrUnion
         name, name_position = ctitem.insert_name(extra, extra_position)
         W_CType.__init__(self, space, size, name, name_position)
@@ -25,6 +26,7 @@ class W_CTypePtrOrArray(W_CType):
         self.ctitem = ctitem
         self.can_cast_anything = could_cast_anything and ctitem.cast_anything
         self.is_char_ptr_or_array = isinstance(ctitem, W_CTypePrimitiveChar)
+        self.is_unichar_ptr_or_array=isinstance(ctitem,W_CTypePrimitiveUniChar)
         self.is_struct_ptr = isinstance(ctitem, W_CTypeStructOrUnion)
 
     def cast(self, w_ob):
@@ -98,6 +100,9 @@ class W_CTypePointer(W_CTypePtrBase):
             return self.space.wrap(s)
         return W_CTypePtrOrArray.str(self, cdataobj)
 
+    def unicode(self, cdataobj):
+        XXX
+
     def newp(self, w_init):
         from pypy.module._cffi_backend import ctypeprim
         space = self.space
@@ -116,7 +121,7 @@ class W_CTypePointer(W_CTypePtrBase):
                                                        cdatastruct._cdata,
                                                        self, cdatastruct)
         else:
-            if self.is_char_ptr_or_array:
+            if self.is_char_ptr_or_array or self.is_unichar_ptr_or_array:
                 datasize *= 2       # forcefully add a null character
             cdata = cdataobj.W_CDataNewOwning(space, datasize, self)
         #

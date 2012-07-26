@@ -24,6 +24,7 @@ def eptype(name, TYPE, ctypecls):
     PRIMITIVE_TYPES[name] = ctypecls, rffi.sizeof(TYPE), alignment(TYPE)
 
 eptype("char",        lltype.Char,     ctypeprim.W_CTypePrimitiveChar)
+eptype("wchar_t",     lltype.UniChar,  ctypeprim.W_CTypePrimitiveUniChar)
 eptype("signed char", rffi.SIGNEDCHAR, ctypeprim.W_CTypePrimitiveSigned)
 eptype("short",       rffi.SHORT,      ctypeprim.W_CTypePrimitiveSigned)
 eptype("int",         rffi.INT,        ctypeprim.W_CTypePrimitiveSigned)
@@ -36,7 +37,6 @@ eptype("unsigned long",      rffi.LONG,     ctypeprim.W_CTypePrimitiveUnsigned)
 eptype("unsigned long long", rffi.LONGLONG, ctypeprim.W_CTypePrimitiveUnsigned)
 eptype("float",  rffi.FLOAT,  ctypeprim.W_CTypePrimitiveFloat)
 eptype("double", rffi.DOUBLE, ctypeprim.W_CTypePrimitiveFloat)
-#XXX WCHAR
 
 @unwrap_spec(name=str)
 def new_primitive_type(space, name):
@@ -148,8 +148,9 @@ def complete_struct_or_union(space, ctype, w_fields, w_ignored=None,
             custom_field_pos |= (offset != foffset)
             offset = foffset
         #
-        if fbitsize < 0 or (fbitsize == 8 * ftype.size and not
-                            isinstance(ftype, ctypeprim.W_CTypePrimitiveChar)):
+        if fbitsize < 0 or (
+                fbitsize == 8 * ftype.size and not
+                isinstance(ftype, ctypeprim.W_CTypePrimitiveCharOrUniChar)):
             fbitsize = -1
             bitshift = -1
             prev_bit_position = 0
@@ -159,7 +160,6 @@ def complete_struct_or_union(space, ctype, w_fields, w_ignored=None,
                      isinstance(ftype, ctypeprim.W_CTypePrimitiveChar)) or
                 fbitsize == 0 or
                 fbitsize > 8 * ftype.size):
-                #XXX WCHAR: reach here if ftype is PrimitiveUniChar
                 raise operationerrfmt(space.w_TypeError,
                                       "invalid bit field '%s'", fname)
             if prev_bit_position > 0:
