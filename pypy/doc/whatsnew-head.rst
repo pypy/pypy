@@ -28,3 +28,4 @@ rlib/rbigint.py greatly.
 .. branch: slightly-shorter-c
 .. branch: better-enforceargs
 .. branch: rpython-unicode-formatting
+.. branch: jit-opaque-licm
