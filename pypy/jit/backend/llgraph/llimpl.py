@@ -96,6 +96,7 @@ TYPES = {
     'int_add_ovf'     : (('int', 'int'), 'int'),
     'int_sub_ovf'     : (('int', 'int'), 'int'),
     'int_mul_ovf'     : (('int', 'int'), 'int'),
+    'int_force_ge_zero':(('int',), 'int'),
     'uint_add'        : (('int', 'int'), 'int'),
     'uint_sub'        : (('int', 'int'), 'int'),
     'uint_mul'        : (('int', 'int'), 'int'),
