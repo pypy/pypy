@@ -27,11 +27,13 @@ class W_CTypePtrOrArray(W_CType):
         self.is_char_ptr_or_array = isinstance(ctitem, W_CTypePrimitiveChar)
         self.is_struct_ptr = isinstance(ctitem, W_CTypeStructOrUnion)
 
-
-class W_CTypePtrBase(W_CTypePtrOrArray):
-    # base class for both pointers and pointers-to-functions
-
     def cast(self, w_ob):
+        # cast to a pointer, to a funcptr, or to an array.
+        # Note that casting to an array is an extension to the C language,
+        # which seems to be necessary in order to sanely get a
+        # <cdata 'int[3]'> at some address.
+        if self.size < 0:
+            return W_CType.cast(self, w_ob)
         space = self.space
         ob = space.interpclass_w(w_ob)
         if (isinstance(ob, cdataobj.W_CData) and
@@ -41,6 +43,10 @@ class W_CTypePtrBase(W_CTypePtrOrArray):
             value = misc.as_unsigned_long_long(space, w_ob, strict=False)
             value = rffi.cast(rffi.CCHARP, value)
         return cdataobj.W_CData(space, value, self)
+
+
+class W_CTypePtrBase(W_CTypePtrOrArray):
+    # base class for both pointers and pointers-to-functions
 
     def convert_to_object(self, cdata):
         ptrdata = rffi.cast(rffi.CCHARPP, cdata)[0]
