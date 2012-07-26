@@ -241,7 +241,7 @@ class TestMisc(BaseTestPyPyC):
             p17 = getarrayitem_gc(p16, i12, descr=<ArrayP .>)
             i19 = int_add(i12, 1)
             setfield_gc(p9, i19, descr=<FieldS .*W_AbstractSeqIterObject.inst_index .*>)
-            guard_nonnull_class(p17, 146982464, descr=...)
+            guard_nonnull_class(p17, ..., descr=...)
             i21 = getfield_gc(p17, descr=<FieldS .*W_Array.*.inst_len .*>)
             i23 = int_lt(0, i21)
             guard_true(i23, descr=...)
