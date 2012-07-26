@@ -38,7 +38,9 @@ class W_CType(Wrappable):
                              space.wrap("expected a pointer or array ctype"))
 
     def cast(self, w_ob):
-        raise NotImplementedError
+        space = self.space
+        raise operationerrfmt(space.w_TypeError,
+                              "cannot cast to '%s'", self.name)
 
     def int(self, cdata):
         space = self.space
