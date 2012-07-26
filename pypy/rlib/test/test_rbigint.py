@@ -3,7 +3,7 @@ import py
 import operator, sys, array
 from random import random, randint, sample
 from pypy.rlib.rbigint import rbigint, SHIFT, MASK, KARATSUBA_CUTOFF
-from pypy.rlib.rbigint import _store_digit, _mask_digit, _tc_mul
+from pypy.rlib.rbigint import _store_digit, _mask_digit
 from pypy.rlib import rbigint as lobj
 from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong, intmask
 from pypy.rpython.test.test_llinterp import interpret
@@ -462,12 +462,6 @@ class Test_rbigint(object):
         assert x.format('.!') == (
             '-!....!!..!!..!.!!.!......!...!...!!!........!')
         assert x.format('abcdefghijkl', '<<', '>>') == '-<<cakdkgdijffjf>>'
-
-    def test_tc_mul(self):
-        a = rbigint.fromlong(1<<200)
-        b = rbigint.fromlong(1<<300)
-        print _tc_mul(a, b)
-        assert _tc_mul(a, b).tolong() == ((1<<300)*(1<<200))
         
     def test_overzelous_assertion(self):
         a = rbigint.fromlong(-1<<10000)
@@ -536,17 +530,17 @@ class TestInternalFunctions(object):
     def test__x_divrem(self):
         x = 12345678901234567890L
         for i in range(100):
-            y = long(randint(0, 1 << 60))
+            y = long(randint(1, 1 << 60))
             y <<= 60
-            y += randint(0, 1 << 60)
+            y += randint(1, 1 << 60)
             f1 = rbigint.fromlong(x)
             f2 = rbigint.fromlong(y)
             div, rem = lobj._x_divrem(f1, f2)
             _div, _rem = divmod(x, y)
-            print div.tolong() == _div
-            print rem.tolong() == _rem
+            assert div.tolong() == _div
+            assert rem.tolong() == _rem
 
-    def test__divrem(self):
+    def test_divmod(self):
         x = 12345678901234567890L
         for i in range(100):
             y = long(randint(0, 1 << 60))
@@ -557,10 +551,10 @@ class TestInternalFunctions(object):
                 sy *= y
                 f1 = rbigint.fromlong(sx)
                 f2 = rbigint.fromlong(sy)
-                div, rem = lobj._x_divrem(f1, f2)
+                div, rem = f1.divmod(f2)
                 _div, _rem = divmod(sx, sy)
-                print div.tolong() == _div
-                print rem.tolong() == _rem
+                assert div.tolong() == _div
+                assert rem.tolong() == _rem
 
     # testing Karatsuba stuff
     def test__v_iadd(self):

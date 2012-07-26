@@ -66,9 +66,6 @@ else:
     
 KARATSUBA_SQUARE_CUTOFF = 2 * KARATSUBA_CUTOFF
 
-USE_TOOMCOCK = False
-TOOMCOOK_CUTOFF = 10000 # Smallest possible cutoff is 3. Ideal is probably around 150+
-
 # For exponentiation, use the binary left-to-right algorithm
 # unless the exponent contains more than FIVEARY_CUTOFF digits.
 # In that case, do 5 bits at a time.  The potential drawback is that
@@ -441,8 +438,6 @@ class rbigint(object):
                     return rbigint([_store_digit(res & MASK)], a.sign * b.sign, 1)
                 
             result =  _x_mul(a, b, a.digit(0))
-        elif USE_TOOMCOCK and asize >= TOOMCOOK_CUTOFF:
-            result = _tc_mul(a, b)
         elif USE_KARATSUBA:
             if a is b:
                 i = KARATSUBA_SQUARE_CUTOFF
@@ -1109,94 +1104,6 @@ def _x_mul(a, b, digit=0):
     return z
 
 
-def _tcmul_split(n):
-    """
-    A helper for Karatsuba multiplication (k_mul).
-    Takes a bigint "n" and an integer "size" representing the place to
-    split, and sets low and high such that abs(n) == (high << (size * 2) + (mid << size) + low,
-    viewing the shift as being by digits.  The sign bit is ignored, and
-    the return values are >= 0.
-    """
-    size_n = n.numdigits() // 3
-    lo = rbigint(n._digits[:size_n], 1)
-    mid = rbigint(n._digits[size_n:size_n * 2], 1)
-    hi = rbigint(n._digits[size_n *2:], 1)
-    lo._normalize()
-    mid._normalize()
-    hi._normalize()
-    return hi, mid, lo
-
-THREERBIGINT = rbigint.fromint(3)
-def _tc_mul(a, b):
-    """
-    Toom Cook
-    """
-    asize = a.numdigits()
-    bsize = b.numdigits()
-
-    # Split a & b into hi, mid and lo pieces.
-    shift = bsize // 3
-    ah, am, al = _tcmul_split(a)
-    assert ah.sign == 1    # the split isn't degenerate
-
-    if a is b:
-        bh = ah
-        bm = am
-        bl = al
-    else:
-        bh, bm, bl = _tcmul_split(b)
-        
-    # 2. ahl, bhl
-    ahl = al.add(ah)
-    bhl = bl.add(bh)
-
-    # Points
-    v0 = al.mul(bl)
-    v1 = ahl.add(bm).mul(bhl.add(bm))
-
-    vn1 = ahl.sub(bm).mul(bhl.sub(bm))
-    v2 = al.add(am.lqshift(1)).add(ah.lshift(2)).mul(bl.add(bm.lqshift(1)).add(bh.lqshift(2)))
-
-    vinf = ah.mul(bh)
-
-    # Construct
-    t1 = v0.mul(THREERBIGINT).add(vn1.lqshift(1)).add(v2)
-    _inplace_divrem1(t1, t1, 6)
-    t1 = t1.sub(vinf.lqshift(1))
-    t2 = v1
-    _v_iadd(t2, 0, t2.numdigits(), vn1, vn1.numdigits())
-    _v_rshift(t2, t2, t2.numdigits(), 1)
-
-    r1 = v1.sub(t1)
-    r2 = t2
-    _v_isub(r2, 0, r2.numdigits(), v0, v0.numdigits())
-    r2 = r2.sub(vinf)
-    r3 = t1
-    _v_isub(r3, 0, r3.numdigits(), t2, t2.numdigits())
-
-    # Now we fit t+ t2 + t4 into the new string.
-    # Now we got to add the r1 and r3 in the mid shift.
-    # Allocate result space.
-    ret = rbigint([NULLDIGIT] * (4 * shift + vinf.numdigits() + 1), 1)  # This is because of the size of vinf
-    
-    ret._digits[:v0.numdigits()] = v0._digits
-    assert t2.sign >= 0
-    assert 2*shift + t2.numdigits() < ret.numdigits()
-    ret._digits[shift * 2:shift * 2+r2.numdigits()] = r2._digits
-    assert vinf.sign >= 0
-    assert 4*shift + vinf.numdigits() <= ret.numdigits()
-    ret._digits[shift*4:shift*4+vinf.numdigits()] = vinf._digits
-
-
-    i = ret.numdigits() - shift
-    _v_iadd(ret, shift * 3, i, r3, r3.numdigits())
-    _v_iadd(ret, shift, i, r1, r1.numdigits())
-    
-
-    ret._normalize()
-    return ret
-
-
 def _kmul_split(n, size):
     """
     A helper for Karatsuba multiplication (k_mul).
@@ -1556,20 +1463,9 @@ def _x_divrem(v1, w1):
     size_v = v.numdigits()
     size_w = w.numdigits()
     assert size_w > 1 # (Assert checks by div()
-
-    """v = rbigint([NULLDIGIT] * (size_v + 1))
-    w = rbigint([NULLDIGIT] * (size_w))
-    
-    d = SHIFT - bits_in_digit(w1.digit(size_w-1))
-    carry = _v_lshift(w, w1, size_w, d)
-    assert carry == 0
-    carrt = _v_lshift(v, v1, size_v, d)
-    if carry != 0 or v.digit(size_v - 1) >= w.digit(size_w-1):
-        v.setdigit(size_v, carry)
-        size_v += 1"""
         
     size_a = size_v - size_w + 1
-    assert size_a >= 0
+    assert size_a > 0
     a = rbigint([NULLDIGIT] * size_a, 1, size_a)
 
     wm1 = w.widedigit(abs(size_w-1))
@@ -1635,95 +1531,6 @@ def _x_divrem(v1, w1):
     _inplace_divrem1(v, v, d, size_v)
     v._normalize()
     return a, v
-
-    """
-    Didn't work as expected. Someone want to look over this?
-    size_v = v1.numdigits()
-    size_w = w1.numdigits()
-    
-    assert size_v >= size_w and size_w >= 2
-    
-    v = rbigint([NULLDIGIT] * (size_v + 1))
-    w = rbigint([NULLDIGIT] * size_w)
-    
-    # Normalization
-    d = SHIFT - bits_in_digit(w1.digit(size_w-1))
-    carry = _v_lshift(w, w1, size_w, d)
-    assert carry == 0
-    carry = _v_lshift(v, v1, size_v, d)
-    if carry != 0 or v.digit(size_v-1) >= w.digit(size_w-1):
-        v.setdigit(size_v, carry)
-        size_v += 1
-        
-    # Now v->ob_digit[size_v-1] < w->ob_digit[size_w-1], so quotient has
-    # at most (and usually exactly) k = size_v - size_w digits.
-    
-    k = size_v - size_w
-    assert k >= 0
-    
-    a = rbigint([NULLDIGIT] * k)
-    
-    k -= 1
-    wm1 = w.digit(size_w-1)
-    wm2 = w.digit(size_w-2)
-    
-    j = size_v
-    
-    while k >= 0:
-        # inner loop: divide vk[0:size_w+1] by w[0:size_w], giving
-        # single-digit quotient q, remainder in vk[0:size_w].
-            
-        vtop = v.widedigit(size_w)
-        assert vtop <= wm1
-        
-        vv = vtop << SHIFT | v.digit(size_w-1)
-        
-        q = vv / wm1
-        r = vv - _widen_digit(wm1) * q
-        
-        # estimate quotient digit q; may overestimate by 1 (rare)
-        while wm2 * q > ((r << SHIFT) | v.digit(size_w-2)):
-            q -= 1
-            
-            r+= wm1
-            if r >= SHIFT:
-                break
-                
-        assert q <= BASE
-        
-        # subtract q*w0[0:size_w] from vk[0:size_w+1]
-        zhi = 0
-        for i in range(size_w):
-            #invariants: -BASE <= -q <= zhi <= 0;
-            #    -BASE * q <= z < ASE
-            z = v.widedigit(i+k) + zhi - (q * w.widedigit(i))
-            v.setdigit(i+k, z)
-            zhi = z >> SHIFT
-            
-        # add w back if q was too large (this branch taken rarely)
-        assert vtop + zhi == -1 or vtop + zhi == 0
-        if vtop + zhi < 0:
-            carry = 0
-            for i in range(size_w):
-                carry += v.digit(i+k) + w.digit(i)
-                v.setdigit(i+k, carry)
-                carry >>= SHIFT
-                
-            q -= 1
-           
-        assert q < BASE
-        
-        a.setdigit(k, q)
-
-        j -= 1
-        k -= 1
-        
-    carry = _v_rshift(w, v, size_w, d)
-    assert carry == 0
-    
-    a._normalize()
-    w._normalize()
-    return a, w"""
         
 def _divrem(a, b):
     """ Long division with remainder, top-level routine """
