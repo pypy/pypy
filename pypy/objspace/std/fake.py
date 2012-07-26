@@ -50,7 +50,7 @@ def wrap_exception(space):
     raise OperationError, OperationError(w_exc, w_value), tb
 
 def fake_type(cpy_type):
-    assert type(cpy_type) is type
+    assert isinstance(type(cpy_type), type)
     try:
         return _fake_type_cache[cpy_type]
     except KeyError:
@@ -100,12 +100,19 @@ def really_build_fake_type(cpy_type):
     fake__new__.func_name = "fake__new__" + cpy_type.__name__
 
     kw['__new__'] = gateway.interp2app(fake__new__)
-    if cpy_type.__base__ is not object and not issubclass(cpy_type, Exception):
-        assert cpy_type.__base__ is basestring, cpy_type
+    if cpy_type.__base__ is object or issubclass(cpy_type, Exception):
+        base = None
+    elif cpy_type.__base__ is basestring:
         from pypy.objspace.std.basestringtype import basestring_typedef
         base = basestring_typedef
+    elif cpy_type.__base__ is tuple:
+        from pypy.objspace.std.tupletype import tuple_typedef
+        base = tuple_typedef
+    elif cpy_type.__base__ is type:
+        from pypy.objspace.std.typetype import type_typedef
+        base = type_typedef
     else:
-        base = None
+        raise NotImplementedError(cpy_type, cpy_type.__base__)
     class W_Fake(W_Object):
         typedef = StdTypeDef(
             cpy_type.__name__, base, **kw)

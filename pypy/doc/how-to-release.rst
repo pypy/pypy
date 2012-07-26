@@ -23,7 +23,9 @@ Release Steps
   some of the next updates may be done before or after branching; make
   sure things are ported back to the trunk and to the branch as
   necessary
-* update pypy/doc/contributor.txt (and possibly LICENSE)
+* update pypy/doc/contributor.rst (and possibly LICENSE)
+* rename pypy/doc/whatsnew_head.rst to whatsnew_VERSION.rst
+  and create a fresh whatsnew_head.rst after the release
 * update README
 * change the tracker to have a new release tag to file bugs against
 * go to pypy/tool/release and run:

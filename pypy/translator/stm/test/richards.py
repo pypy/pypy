@@ -345,8 +345,6 @@ class WorkTask(Task):
 
 import time
 
-
-
 def prepare_schedule(taskWorkArea):
     t = taskWorkArea.taskList
     transaction.add(schedule_one, taskWorkArea, t)

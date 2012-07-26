@@ -713,6 +713,10 @@ def ll_dictiter(ITERPTR, d):
 
 def _make_ll_dictnext(kind):
     # make three versions of the following function: keys, values, items
+    @jit.look_inside_iff(lambda RETURNTYPE, iter: jit.isvirtual(iter)
+                         and (iter.dict is None or
+                              jit.isvirtual(iter.dict)))
+    @jit.oopspec("dictiter.next%s(iter)" % kind)
     def ll_dictnext(RETURNTYPE, iter):
         # note that RETURNTYPE is None for keys and values
         dict = iter.dict
@@ -740,7 +744,6 @@ def _make_ll_dictnext(kind):
             # clear the reference to the dict and prevent restarts
             iter.dict = lltype.nullptr(lltype.typeOf(iter).TO.dict.TO)
         raise StopIteration
-    ll_dictnext.oopspec = 'dictiter.next%s(iter)' % kind
     return ll_dictnext
 
 ll_dictnext_group = {'keys'  : _make_ll_dictnext('keys'),

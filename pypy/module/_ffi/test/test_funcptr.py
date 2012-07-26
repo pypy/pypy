@@ -627,4 +627,17 @@ class AppTestFFI(BaseAppTestFFI):
                             types.void, FUNCFLAG_STDCALL)
         sleep(10)
 
- 
+    def test_by_ordinal(self):
+        """
+            int DLLEXPORT AAA_first_ordinal_function()
+            {
+                return 42;
+            }
+        """
+        if not self.iswin32:
+            skip("windows specific")
+        from _ffi import CDLL, types
+        libfoo = CDLL(self.libfoo_name)
+        f_name = libfoo.getfunc('AAA_first_ordinal_function', [], types.sint)
+        f_ordinal = libfoo.getfunc(1, [], types.sint)
+        assert f_name.getaddr() == f_ordinal.getaddr()

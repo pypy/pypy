@@ -659,10 +659,11 @@ class GcLLDescr_framework(GcLLDescription):
 
     def _check_valid_gc(self):
         # we need the hybrid or minimark GC for rgc._make_sure_does_not_move()
-        # to work
-        if self.gcdescr.config.translation.gc not in ('hybrid', 'minimark'):
+        # to work.  Additionally, 'hybrid' is missing some stuff like
+        # jit_remember_young_pointer() for now.
+        if self.gcdescr.config.translation.gc not in ('minimark',):
             raise NotImplementedError("--gc=%s not implemented with the JIT" %
-                                      (gcdescr.config.translation.gc,))
+                                      (self.gcdescr.config.translation.gc,))
 
     def _make_gcrootmap(self):
         # to find roots in the assembler, make a GcRootMap

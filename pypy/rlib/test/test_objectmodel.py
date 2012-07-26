@@ -420,9 +420,45 @@ def test_specialize_decorator():
 def test_enforceargs_decorator():
     @enforceargs(int, str, None)
     def f(a, b, c):
-        pass
-
+        return a, b, c
+    f.foo = 'foo'
     assert f._annenforceargs_ == (int, str, None)
+    assert f.func_name == 'f'
+    assert f.foo == 'foo'
+    assert f(1, 'hello', 42) == (1, 'hello', 42)
+    exc = py.test.raises(TypeError, "f(1, 2, 3)")
+    assert exc.value.message == "f argument number 2 must be of type <type 'str'>"
+    py.test.raises(TypeError, "f('hello', 'world', 3)")
+    
+
+def test_enforceargs_defaults():
+    @enforceargs(int, int)
+    def f(a, b=40):
+        return a+b
+    assert f(2) == 42
+
+def test_enforceargs_int_float_promotion():
+    @enforceargs(float)
+    def f(x):
+        return x
+    # in RPython there is an implicit int->float promotion
+    assert f(42) == 42
+
+def test_enforceargs_no_typecheck():
+    @enforceargs(int, str, None, typecheck=False)
+    def f(a, b, c):
+        return a, b, c
+    assert f._annenforceargs_ == (int, str, None)
+    assert f(1, 2, 3) == (1, 2, 3) # no typecheck
+
+def test_enforceargs_translates():
+    from pypy.rpython.lltypesystem import lltype
+    @enforceargs(int, float)
+    def f(a, b):
+        return a, b
+    graph = getgraph(f, [int, int])
+    TYPES = [v.concretetype for v in graph.getargs()]
+    assert TYPES == [lltype.Signed, lltype.Float]
 
 def getgraph(f, argtypes):
     from pypy.translator.translator import TranslationContext, graphof

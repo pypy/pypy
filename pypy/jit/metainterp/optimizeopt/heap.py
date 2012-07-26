@@ -1,7 +1,7 @@
 import os
 
 from pypy.jit.metainterp.jitexc import JitException
-from pypy.jit.metainterp.optimizeopt.optimizer import Optimization, MODE_ARRAY
+from pypy.jit.metainterp.optimizeopt.optimizer import Optimization, MODE_ARRAY, LEVEL_KNOWNCLASS
 from pypy.jit.metainterp.history import ConstInt, Const
 from pypy.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from pypy.jit.metainterp.resoperation import rop, ResOperation
@@ -128,8 +128,12 @@ class CachedField(object):
             op = self._cached_fields_getfield_op[structvalue]
             if not op:
                 continue
-            if optimizer.getvalue(op.getarg(0)) in optimizer.opaque_pointers:
-                continue
+            value = optimizer.getvalue(op.getarg(0))
+            if value in optimizer.opaque_pointers:
+                if value.level < LEVEL_KNOWNCLASS:
+                    continue
+                if op.getopnum() != rop.SETFIELD_GC and op.getopnum() != rop.GETFIELD_GC:
+                    continue
             if structvalue in self._cached_fields:
                 if op.getopnum() == rop.SETFIELD_GC:
                     result = op.getarg(1)

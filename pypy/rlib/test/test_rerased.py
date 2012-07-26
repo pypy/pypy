@@ -1,5 +1,7 @@
 import py
 import sys
+import copy
+
 from pypy.rlib.rerased import *
 from pypy.annotation import model as annmodel
 from pypy.annotation.annrpython import RPythonAnnotator
@@ -58,6 +60,13 @@ def test_list():
     e = erase_list_X(l)
     #assert is_integer(e) is False
     assert unerase_list_X(e) is l
+
+def test_deepcopy():
+    x = "hello"
+    e = eraseX(x)
+    e2 = copy.deepcopy(e)
+    assert uneraseX(e) is x
+    assert uneraseX(e2) is x
 
 def test_annotate_1():
     def f():

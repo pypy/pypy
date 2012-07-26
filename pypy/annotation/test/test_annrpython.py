@@ -2138,6 +2138,15 @@ class TestAnnotateTestCase:
         assert isinstance(s, annmodel.SomeString)
         assert s.no_nul
 
+    def test_mul_str0(self):
+        def f(s):
+            return s*10
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [annmodel.SomeString(no_nul=True)])
+        assert isinstance(s, annmodel.SomeString)
+        assert s.no_nul
+        
+
     def test_non_none_and_none_with_isinstance(self):
         class A(object):
             pass
@@ -2737,20 +2746,6 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         s = a.build_types(f, [])
         assert s.knowntype == int
-
-    def test_helper_method_annotator(self):
-        def fun():
-            return 21
-
-        class A(object):
-            def helper(self):
-                return 42
-
-        a = self.RPythonAnnotator()
-        a.build_types(fun, [])
-        a.annotate_helper_method(A, "helper", [])
-        assert a.bookkeeper.getdesc(A.helper).getuniquegraph()
-        assert a.bookkeeper.getdesc(A().helper).getuniquegraph()
 
     def test_chr_out_of_bounds(self):
         def g(n, max):
@@ -3394,6 +3389,22 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [str])
         assert isinstance(s, annmodel.SomeString)
 
+    def test_unicodeformatting(self):
+        def f(x):
+            return u'%s' % x
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [unicode])
+        assert isinstance(s, annmodel.SomeUnicodeString)
+
+    def test_unicodeformatting_tuple(self):
+        def f(x):
+            return u'%s' % (x,)
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [unicode])
+        assert isinstance(s, annmodel.SomeUnicodeString)
+
 
     def test_negative_slice(self):
         def f(s, e):
@@ -3779,6 +3790,56 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         e = py.test.raises(Exception, a.build_types, f, [])
         assert 'object with a __call__ is not RPython' in str(e.value)
+
+    def test_os_getcwd(self):
+        import os
+        def fn():
+            return os.getcwd()
+        a = self.RPythonAnnotator()
+        s = a.build_types(fn, [])
+        assert isinstance(s, annmodel.SomeString)
+        assert s.no_nul
+
+    def test_os_getenv(self):
+        import os
+        def fn():
+            return os.environ.get('PATH')
+        a = self.RPythonAnnotator()
+        s = a.build_types(fn, [])
+        assert isinstance(s, annmodel.SomeString)
+        assert s.no_nul
+
+    def test_base_iter(self):
+        class A(object):
+            def __iter__(self):
+                return self
+        
+        def fn():
+            return iter(A())
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(fn, [])
+        assert isinstance(s, annmodel.SomeInstance)
+        assert s.classdef.name.endswith('.A')
+
+    def test_iter_next(self):
+        class A(object):
+            def __iter__(self):
+                return self
+
+            def next(self):
+                return 1
+        
+        def fn():
+            s = 0
+            for x in A():
+                s += x
+            return s
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(fn, [])
+        assert len(a.translator.graphs) == 3 # fn, __iter__, next
+        assert isinstance(s, annmodel.SomeInteger)
 
 def g(n):
     return [0,1,2,n]

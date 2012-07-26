@@ -7862,6 +7862,84 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    def test_only_strengthen_guard_if_class_matches(self):
+        ops = """
+        [p1]
+        guard_class(p1, ConstClass(node_vtable2)) []
+        guard_value(p1, ConstPtr(myptr)) []
+        jump(p1)
+        """
+        self.raises(InvalidLoop, self.optimize_loop,
+                       ops, ops)
+
+    def test_licm_boxed_opaque_getitem(self):
+        ops = """
+        [p1]
+        p2 = getfield_gc(p1, descr=nextdescr) 
+        mark_opaque_ptr(p2)        
+        guard_class(p2,  ConstClass(node_vtable)) []
+        i3 = getfield_gc(p2, descr=otherdescr)
+        i4 = call(i3, descr=nonwritedescr)
+        jump(p1)
+        """
+        expected = """
+        [p1, i3]
+        i4 = call(i3, descr=nonwritedescr)
+        jump(p1, i3)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_licm_boxed_opaque_getitem_unknown_class(self):
+        ops = """
+        [p1]
+        p2 = getfield_gc(p1, descr=nextdescr) 
+        mark_opaque_ptr(p2)        
+        i3 = getfield_gc(p2, descr=otherdescr)
+        i4 = call(i3, descr=nonwritedescr)
+        jump(p1)
+        """
+        expected = """
+        [p1, p2]
+        i3 = getfield_gc(p2, descr=otherdescr)
+        i4 = call(i3, descr=nonwritedescr)
+        jump(p1, p2)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_licm_unboxed_opaque_getitem(self):
+        ops = """
+        [p2]
+        mark_opaque_ptr(p2)        
+        guard_class(p2,  ConstClass(node_vtable)) []
+        i3 = getfield_gc(p2, descr=otherdescr)
+        i4 = call(i3, descr=nonwritedescr)
+        jump(p2)
+        """
+        expected = """
+        [p1, i3]
+        i4 = call(i3, descr=nonwritedescr)
+        jump(p1, i3)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_licm_unboxed_opaque_getitem_unknown_class(self):
+        ops = """
+        [p2]
+        mark_opaque_ptr(p2)        
+        i3 = getfield_gc(p2, descr=otherdescr)
+        i4 = call(i3, descr=nonwritedescr)
+        jump(p2)
+        """
+        expected = """
+        [p2]
+        i3 = getfield_gc(p2, descr=otherdescr) 
+        i4 = call(i3, descr=nonwritedescr)
+        jump(p2)
+        """
+        self.optimize_loop(ops, expected)
+
+
+
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass
 
