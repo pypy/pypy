@@ -15,7 +15,7 @@ public:
     ~cppyy_test_data();
 
 // special cases
-   enum what { kNothing=6, kSomething=111, kLots=42 };
+    enum what { kNothing=6, kSomething=111, kLots=42 };
 
 // helper
     void destroy_arrays();
