@@ -1595,6 +1595,13 @@ def test_cast_to_array():
     x = cast(BArray, 0)
     assert repr(x) == "<cdata 'int[3]' NULL>"
 
+def test_cast_invalid():
+    BStruct = new_struct_type("foo")
+    complete_struct_or_union(BStruct, [])
+    p = cast(new_pointer_type(BStruct), 123456)
+    s = p[0]
+    py.test.raises(TypeError, cast, BStruct, s)
+
 def test_bug_float_convertion():
     BDouble = new_primitive_type("double")
     BDoubleP = new_pointer_type(BDouble)
