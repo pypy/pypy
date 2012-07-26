@@ -338,7 +338,7 @@ bound using::
     $ genreflex example.h --deep --rootmap=libexampleDict.rootmap --rootmap-lib=libexampleDict.so
     $ g++ -fPIC -rdynamic -O2 -shared -I$ROOTSYS/include example_rflx.cpp -o libexampleDict.so -L$ROOTSYS/lib -lReflex
 
-.. _`example code`: example.h
+.. _`example code`: cppyy_example.html
 
 * **abstract classes**: Are represented as python classes, since they are
   needed to complete the inheritance hierarchies, but will raise an exception
