@@ -70,7 +70,7 @@ class W_CTypePrimitive(W_CType):
 
 
 class W_CTypePrimitiveCharOrUniChar(W_CTypePrimitive):
-    pass
+    is_primitive_integer = True
 
 
 class W_CTypePrimitiveChar(W_CTypePrimitiveCharOrUniChar):
@@ -138,6 +138,7 @@ class W_CTypePrimitiveUniChar(W_CTypePrimitiveCharOrUniChar):
 
 
 class W_CTypePrimitiveSigned(W_CTypePrimitive):
+    is_primitive_integer = True
 
     def __init__(self, *args):
         W_CTypePrimitive.__init__(self, *args)
@@ -173,6 +174,7 @@ class W_CTypePrimitiveSigned(W_CTypePrimitive):
 
 
 class W_CTypePrimitiveUnsigned(W_CTypePrimitive):
+    is_primitive_integer = True
 
     def __init__(self, *args):
         W_CTypePrimitive.__init__(self, *args)

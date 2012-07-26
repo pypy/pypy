@@ -2,6 +2,7 @@
 Function pointers.
 """
 
+import sys
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rlib import jit, clibffi
@@ -98,7 +99,7 @@ class W_CTypeFunc(W_CTypePtrBase):
             cif_descr = self.cif_descr
 
         size = cif_descr.exchange_size
-        mustfree_count_plus_1 = 0
+        mustfree_max_plus_1 = 0
         buffer = lltype.malloc(rffi.CCHARP.TO, size, flavor='raw')
         try:
             buffer_array = rffi.cast(rffi.VOIDPP, buffer)
@@ -120,7 +121,7 @@ class W_CTypeFunc(W_CTypePtrBase):
                         rffi.cast(rffi.CCHARPP, data)[0] = raw_string
                         # set the "must free" flag to 1
                         set_mustfree_flag(data, 1)
-                        mustfree_count_plus_1 = i + 1
+                        mustfree_max_plus_1 = i + 1
                         continue   # skip the convert_from_object()
 
                     # set the "must free" flag to 0
@@ -148,14 +149,24 @@ class W_CTypeFunc(W_CTypePtrBase):
                                buffer_array)
             cerrno.save_errno()
 
-            if isinstance(self.ctitem, W_CTypeVoid):
+            if self.ctitem.is_primitive_integer:
+                if BIG_ENDIAN:
+                    # For results of precisely these types, libffi has a
+                    # strange rule that they will be returned as a whole
+                    # 'ffi_arg' if they are smaller.  The difference
+                    # only matters on big-endian.
+                    if self.ctitem.size < SIZE_OF_FFI_ARG:
+                        diff = SIZE_OF_FFI_ARG - self.ctitem.size
+                        resultdata = rffi.ptradd(resultdata, diff)
+                w_res = self.ctitem.convert_to_object(resultdata)
+            elif isinstance(self.ctitem, W_CTypeVoid):
                 w_res = space.w_None
             elif isinstance(self.ctitem, W_CTypeStructOrUnion):
                 w_res = self.ctitem.copy_and_convert_to_object(resultdata)
             else:
                 w_res = self.ctitem.convert_to_object(resultdata)
         finally:
-            for i in range(mustfree_count_plus_1):
+            for i in range(mustfree_max_plus_1):
                 argtype = self.fargs[i]
                 if argtype.is_char_ptr_or_array:
                     data = rffi.ptradd(buffer, cif_descr.exchange_args[i])
@@ -203,7 +214,8 @@ FFI_CIF = clibffi.FFI_CIFP.TO
 FFI_TYPE = clibffi.FFI_TYPE_P.TO
 FFI_TYPE_P = clibffi.FFI_TYPE_P
 FFI_TYPE_PP = clibffi.FFI_TYPE_PP
-SIZE_OF_FFI_ARG = 8     # good enough
+SIZE_OF_FFI_ARG = rffi.sizeof(clibffi.ffi_arg)
+BIG_ENDIAN = sys.byteorder == 'big'
 
 CIF_DESCRIPTION = lltype.Struct(
     'CIF_DESCRIPTION',
@@ -355,7 +367,7 @@ class CifDescrBuilder(object):
         cif_descr.exchange_result = exchange_offset
 
         # then enough room for the result --- which means at least
-        # sizeof(ffi_arg), according to the ffi docs (this is 8).
+        # sizeof(ffi_arg), according to the ffi docs
         exchange_offset += max(rffi.getintfield(self.rtype, 'c_size'),
                                SIZE_OF_FFI_ARG)
 

@@ -14,6 +14,7 @@ class W_CType(Wrappable):
     cast_anything = False
     is_char_ptr_or_array = False
     is_unichar_ptr_or_array = False
+    is_primitive_integer = False
 
     def __init__(self, space, size, name, name_position):
         self.space = space

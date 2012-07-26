@@ -157,6 +157,7 @@ class CConfig:
 
     size_t = rffi_platform.SimpleType("size_t", rffi.ULONG)
     ffi_abi = rffi_platform.SimpleType("ffi_abi", rffi.USHORT)
+    ffi_arg = rffi_platform.SimpleType("ffi_arg", lltype.Signed)
 
     ffi_type = rffi_platform.Struct('ffi_type', [('size', rffi.ULONG),
                                                  ('alignment', rffi.USHORT),
@@ -202,6 +203,7 @@ for k, v in rffi_platform.configure(CConfig).items():
 FFI_TYPE_P.TO.become(cConfig.ffi_type)
 size_t = cConfig.size_t
 ffi_abi = cConfig.ffi_abi
+ffi_arg = cConfig.ffi_arg
 
 for name in type_names:
     locals()[name] = configure_simple_type(name)
