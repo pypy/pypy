@@ -3,13 +3,20 @@
 
 #define WITH_THREAD
 
+typedef void *PyThread_type_lock;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef void *PyThread_type_lock;
+PyAPI_FUNC(long) PyThread_get_thread_ident(void);
+
+PyAPI_FUNC(PyThread_type_lock) PyThread_allocate_lock(void);
+PyAPI_FUNC(void) PyThread_free_lock(PyThread_type_lock);
+PyAPI_FUNC(int) PyThread_acquire_lock(PyThread_type_lock, int);
 #define WAIT_LOCK	1
 #define NOWAIT_LOCK	0
+PyAPI_FUNC(void) PyThread_release_lock(PyThread_type_lock);
 
 /* Thread Local Storage (TLS) API */
 PyAPI_FUNC(int) PyThread_create_key(void);

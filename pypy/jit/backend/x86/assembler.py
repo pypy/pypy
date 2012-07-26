@@ -1375,6 +1375,11 @@ class Assembler386(object):
     genop_cast_ptr_to_int = genop_same_as
     genop_cast_int_to_ptr = genop_same_as
 
+    def genop_int_force_ge_zero(self, op, arglocs, resloc):
+        self.mc.TEST(arglocs[0], arglocs[0])
+        self.mov(imm0, resloc)
+        self.mc.CMOVNS(arglocs[0], resloc)
+
     def genop_int_mod(self, op, arglocs, resloc):
         if IS_X86_32:
             self.mc.CDQ()

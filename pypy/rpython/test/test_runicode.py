@@ -209,6 +209,18 @@ class BaseTestRUnicode(AbstractTestRstr):
         assert self.ll_to_string(res) == const(u'before None after')
         #
 
+    def test_strformat_unicode_and_str(self):
+        # test that we correctly specialize ll_constant when we pass both a
+        # string and an unicode to it
+        const = self.const
+        def percentS(ch):
+            x = "%s" % (ch + "bc")
+            y = u"%s" % (unichr(ord(ch)) + u"bc")
+            return len(x)+len(y)
+        #
+        res = self.interpret(percentS, ["a"])
+        assert res == 6
+
     def unsupported(self):
         py.test.skip("not supported")
 

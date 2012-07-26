@@ -1,5 +1,6 @@
 from pypy.tool.pairtype import pairtype
 from pypy.annotation import model as annmodel
+from pypy.rlib.objectmodel import specialize
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rpython.error import TyperError
 from pypy.rpython.rstr import AbstractStringRepr,AbstractCharRepr,\
@@ -84,7 +85,7 @@ class UnicodeRepr(BaseOOStringRepr, AbstractUnicodeRepr):
         if s:
             return s
         else:
-            return self.ll.ll_constant(u'None')
+            return self.ll.ll_constant_unicode(u'None')
 
     def ll_encode_latin1(self, value):
         sb = ootype.new(ootype.StringBuilder)
@@ -310,14 +311,13 @@ class LLHelpers(AbstractLLHelpers):
     def ll_build_finish(buf):
         return buf.ll_build()
 
+    @specialize.memo()
     def ll_constant(s):
-        if isinstance(s, str):
-            return ootype.make_string(s)
-        elif isinstance(s, unicode):
-            return ootype.make_unicode(s)
-        else:
-            assert False
-    ll_constant._annspecialcase_ = 'specialize:memo'
+        return ootype.make_string(s)
+
+    @specialize.memo()
+    def ll_constant_unicode(s):
+        return ootype.make_unicode(s)
 
     def do_stringformat(cls, hop, sourcevarsrepr):
         InstanceRepr = hop.rtyper.type_system.rclass.InstanceRepr

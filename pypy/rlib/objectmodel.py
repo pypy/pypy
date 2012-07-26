@@ -146,20 +146,20 @@ def enforceargs(*types, **kwds):
         # we cannot simply wrap the function using *args, **kwds, because it's
         # not RPython. Instead, we generate a function with exactly the same
         # argument list
-        argspec = inspect.getargspec(f)
-        assert len(argspec.args) == len(types), (
+        srcargs, srcvarargs, srckeywords, defaults = inspect.getargspec(f)
+        assert len(srcargs) == len(types), (
             'not enough types provided: expected %d, got %d' %
-            (len(types), len(argspec.args)))
-        assert not argspec.varargs, '*args not supported by enforceargs'
-        assert not argspec.keywords, '**kwargs not supported by enforceargs'
+            (len(types), len(srcargs)))
+        assert not srcvarargs, '*args not supported by enforceargs'
+        assert not srckeywords, '**kwargs not supported by enforceargs'
         #
-        arglist = ', '.join(argspec.args)
+        arglist = ', '.join(srcargs)
         src = py.code.Source("""
-            def {name}({arglist}):
+            def %(name)s(%(arglist)s):
                 if not we_are_translated():
-                    typecheck({arglist})
-                return {name}_original({arglist})
-        """.format(name=f.func_name, arglist=arglist))
+                    typecheck(%(arglist)s)
+                return %(name)s_original(%(arglist)s)
+        """ % dict(name=f.func_name, arglist=arglist))
         #
         mydict = {f.func_name + '_original': f,
                   'typecheck': typecheck,
