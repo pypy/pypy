@@ -286,7 +286,7 @@ class OpMatcher(object):
         line = line.strip()
         if not line:
             return None
-        if line == '...':
+        if line in ('...', '{{{', '}}}'):
             return line
         opname, _, args = line.partition('(')
         opname = opname.strip()
@@ -396,27 +396,54 @@ class OpMatcher(object):
             self._assert(not assert_raises, "operation list too long")
             return op
 
+    def try_match(self, op, exp_op):
+        try:
+            # try to match the op, but be sure not to modify the
+            # alpha-renaming map in case the match does not work
+            alpha_map = self.alpha_map.copy()
+            self.match_op(op, exp_op)
+        except InvalidMatch:
+            # it did not match: rollback the alpha_map
+            self.alpha_map = alpha_map
+            return False
+        else:
+            return True
+
     def match_until(self, until_op, iter_ops):
         while True:
             op = self._next_op(iter_ops)
-            try:
-                # try to match the op, but be sure not to modify the
-                # alpha-renaming map in case the match does not work
-                alpha_map = self.alpha_map.copy()
-                self.match_op(op, until_op)
-            except InvalidMatch:
-                # it did not match: rollback the alpha_map, and just skip this
-                # operation
-                self.alpha_map = alpha_map
-            else:
+            if self.try_match(op, until_op):
                 # it matched! The '...' operator ends here
                 return op
+
+    def match_any_order(self, iter_exp_ops, iter_ops, ignore_ops):
+        exp_ops = []
+        for exp_op in iter_exp_ops:
+            if exp_op == '}}}':
+                break
+            exp_ops.append(exp_op)
+        else:
+            assert 0, "'{{{' not followed by '}}}'"
+        while exp_ops:
+            op = self._next_op(iter_ops)
+            if op.name in ignore_ops:
+                continue
+            # match 'op' against any of the exp_ops; the first successful
+            # match is kept, and the exp_op gets removed from the list
+            for i, exp_op in enumerate(exp_ops):
+                if self.try_match(op, exp_op):
+                    del exp_ops[i]
+                    break
+            else:
+                self._assert(0,
+                    "operation %r not found within the {{{ }}} block" % (op,))
 
     def match_loop(self, expected_ops, ignore_ops):
         """
         A note about partial matching: the '...' operator is non-greedy,
         i.e. it matches all the operations until it finds one that matches
-        what is after the '...'
+        what is after the '...'.  The '{{{' and '}}}' operators mark a
+        group of lines that can match in any order.
         """
         iter_exp_ops = iter(expected_ops)
         iter_ops = RevertableIterator(self.ops)
@@ -431,6 +458,9 @@ class OpMatcher(object):
                         # return because it matches everything until the end
                         return
                     op = self.match_until(exp_op, iter_ops)
+                elif exp_op == '{{{':
+                    self.match_any_order(iter_exp_ops, iter_ops, ignore_ops)
+                    continue
                 else:
                     while True:
                         op = self._next_op(iter_ops)
@@ -438,7 +468,7 @@ class OpMatcher(object):
                             break
                 self.match_op(op, exp_op)
             except InvalidMatch, e:
-                if exp_op[4] is False:    # optional operation
+                if type(exp_op) is not str and exp_op[4] is False:    # optional operation
                     iter_ops.revert_one()
                     continue       # try to match with the next exp_op
                 e.opindex = iter_ops.index - 1

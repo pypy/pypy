@@ -297,6 +297,49 @@ class TestOpMatcher_(object):
         """
         assert self.match(loop, expected)
 
+    def test_match_any_order(self):
+        loop = """
+            [i0, i1]
+            i2 = int_add(i0, 1)
+            i3 = int_add(i1, 2)
+            jump(i2, i3, descr=...)
+        """
+        expected = """
+            {{{
+            i2 = int_add(i0, 1)
+            i3 = int_add(i1, 2)
+            }}}
+            jump(i2, i3, descr=...)
+        """
+        assert self.match(loop, expected)
+        #
+        expected = """
+            {{{
+            i3 = int_add(i1, 2)
+            i2 = int_add(i0, 1)
+            }}}
+            jump(i2, i3, descr=...)
+        """
+        assert self.match(loop, expected)
+        #
+        expected = """
+            {{{
+            i2 = int_add(i0, 1)
+            i3 = int_add(i1, 2)
+            i4 = int_add(i1, 3)
+            }}}
+            jump(i2, i3, descr=...)
+        """
+        assert not self.match(loop, expected)
+        #
+        expected = """
+            {{{
+            i2 = int_add(i0, 1)
+            }}}
+            jump(i2, i3, descr=...)
+        """
+        assert not self.match(loop, expected)
+
 
 class TestRunPyPyC(BaseTestPyPyC):
 
