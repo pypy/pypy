@@ -346,10 +346,21 @@ class OpMatcher(object):
     def is_const(cls, v1):
         return isinstance(v1, str) and v1.startswith('ConstClass(')
 
+    @staticmethod
+    def as_numeric_const(v1):
+        try:
+            return int(v1)
+        except (ValueError, TypeError):
+            return None
+
     def match_var(self, v1, exp_v2):
         assert v1 != '_'
         if exp_v2 == '_':
             return True
+        n1 = self.as_numeric_const(v1)
+        n2 = self.as_numeric_const(exp_v2)
+        if n1 is not None and n2 is not None:
+            return n1 == n2
         if self.is_const(v1) or self.is_const(exp_v2):
             return v1[:-1].startswith(exp_v2[:-1])
         if v1 not in self.alpha_map:

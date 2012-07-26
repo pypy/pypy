@@ -200,6 +200,12 @@ class TestOpMatcher_(object):
             # missing op at the end
         """
         assert not self.match(loop, expected)
+        #
+        expected = """
+            i5 = int_add(i2, 2)
+            jump(i5, descr=...)
+        """
+        assert not self.match(loop, expected)
 
     def test_match_descr(self):
         loop = """
