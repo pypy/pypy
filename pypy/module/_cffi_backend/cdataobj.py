@@ -316,6 +316,7 @@ W_CData.typedef = TypeDef(
     __float__ = interp2app(W_CData.float),
     __len__ = interp2app(W_CData.len),
     __str__ = interp2app(W_CData.str),
+    #XXX WCHAR __unicode__ =
     __lt__ = interp2app(W_CData.lt),
     __le__ = interp2app(W_CData.le),
     __eq__ = interp2app(W_CData.eq),

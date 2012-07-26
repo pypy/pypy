@@ -44,6 +44,7 @@ class W_CTypePrimitive(W_CType):
         elif space.isinstance_w(w_ob, space.w_str):
             value = self.cast_str(w_ob)
             value = r_ulonglong(value)
+        #XXX WCHAR space.w_unicode
         else:
             value = misc.as_unsigned_long_long(space, w_ob, strict=False)
         w_cdata = cdataobj.W_CDataCasted(space, self.size, self)
@@ -59,6 +60,7 @@ class W_CTypePrimitive(W_CType):
 
 class W_CTypePrimitiveChar(W_CTypePrimitive):
     cast_anything = True
+    #XXX WCHAR class PrimitiveUniChar
 
     def int(self, cdata):
         return self.space.wrap(ord(cdata[0]))

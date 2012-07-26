@@ -126,6 +126,8 @@ class W_CTypeFunc(W_CTypePtrBase):
                     # set the "must free" flag to 0
                     set_mustfree_flag(data, 0)
                 #
+                #XXX WCHAR unicode raises NotImplementedError
+                #
                 argtype.convert_from_object(data, w_obj)
             resultdata = rffi.ptradd(buffer, cif_descr.exchange_result)
 

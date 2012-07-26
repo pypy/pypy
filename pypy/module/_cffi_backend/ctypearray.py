@@ -109,6 +109,7 @@ class W_CTypeArray(W_CTypePtrOrArray):
                 cdata[i] = s[i]
             if n != self.length:
                 cdata[n] = '\x00'
+        #XXX WCHAR
         else:
             raise self._convert_error("list or tuple", w_ob)
 
