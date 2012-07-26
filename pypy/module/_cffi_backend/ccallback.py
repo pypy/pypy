@@ -6,9 +6,10 @@ from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rlib.objectmodel import compute_unique_id, keepalive_until_here
 from pypy.rlib import clibffi, rweakref, rgc
+from pypy.rlib.rarithmetic import r_ulonglong
 
 from pypy.module._cffi_backend.cdataobj import W_CData, W_CDataApplevelOwning
-from pypy.module._cffi_backend.ctypefunc import SIZE_OF_FFI_ARG
+from pypy.module._cffi_backend.ctypefunc import SIZE_OF_FFI_ARG, BIG_ENDIAN
 from pypy.module._cffi_backend import cerrno
 
 # ____________________________________________________________
@@ -32,10 +33,12 @@ class W_CDataCallback(W_CDataApplevelOwning):
         fresult = self.ctype.ctitem
         size = fresult.size
         if size > 0:
+            if fresult.is_primitive_integer and size < SIZE_OF_FFI_ARG:
+                size = SIZE_OF_FFI_ARG
             self.ll_error = lltype.malloc(rffi.CCHARP.TO, size, flavor='raw',
                                           zero=True)
         if not space.is_w(w_error, space.w_None):
-            fresult.convert_from_object(self.ll_error, w_error)
+            convert_from_object_fficallback(fresult, self.ll_error, w_error)
         #
         self.unique_id = compute_unique_id(self)
         global_callback_mapping.set(self.unique_id, self)
@@ -76,7 +79,7 @@ class W_CDataCallback(W_CDataApplevelOwning):
         w_res = space.call(self.w_callable, space.newtuple(args_w))
         #
         if fresult.size > 0:
-            fresult.convert_from_object(ll_res, w_res)
+            convert_from_object_fficallback(fresult, ll_res, w_res)
 
     def print_error(self, operr):
         space = self.space
@@ -95,6 +98,44 @@ class W_CDataCallback(W_CDataApplevelOwning):
 
 
 global_callback_mapping = rweakref.RWeakValueDictionary(int, W_CDataCallback)
+
+
+def convert_from_object_fficallback(fresult, ll_res, w_res):
+    if fresult.is_primitive_integer and fresult.size < SIZE_OF_FFI_ARG:
+        # work work work around a libffi irregularity: for integer return
+        # types we have to fill at least a complete 'ffi_arg'-sized result
+        # buffer.
+        from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveSigned
+        if type(fresult) is W_CTypePrimitiveSigned:
+            # It's probably fine to always zero-extend, but you never
+            # know: maybe some code somewhere expects a negative
+            # 'short' result to be returned into EAX as a 32-bit
+            # negative number.  Better safe than sorry.  This code
+            # is about that case.  Let's ignore this for enums.
+            #
+            # do a first conversion only to detect overflows.  This
+            # conversion produces stuff that is otherwise ignored.
+            fresult.convert_from_object(ll_res, w_res)
+            #
+            # manual inlining and tweaking of
+            # W_CTypePrimitiveSigned.convert_from_object() in order
+            # to write a whole 'ffi_arg'.
+            from pypy.module._cffi_backend import misc
+            value = misc.as_long_long(fresult.space, w_res)
+            value = r_ulonglong(value)
+            misc.write_raw_integer_data(ll_res, value, SIZE_OF_FFI_ARG)
+            return
+        else:
+            # zero extension: fill the '*result' with zeros, and (on big-
+            # endian machines) correct the 'result' pointer to write to
+            zero = llmemory.itemoffsetof(rffi.CCHARP.TO, 0)
+            llmemory.raw_memclear(llmemory.cast_ptr_to_adr(ll_res) + zero,
+                                SIZE_OF_FFI_ARG * llmemory.sizeof(lltype.Char))
+            if BIG_ENDIAN:
+                diff = SIZE_OF_FFI_ARG - fresult.size
+                ll_res = rffi.ptradd(ll_res, diff)
+    #
+    fresult.convert_from_object(ll_res, w_res)
 
 
 # ____________________________________________________________
@@ -122,8 +163,9 @@ def invoke_callback(ffi_cif, ll_res, ll_args, ll_userdata):
             pass
         # In this case, we don't even know how big ll_res is.  Let's assume
         # it is just a 'ffi_arg', and store 0 there.
-        llmemory.raw_memclear(llmemory.cast_ptr_to_adr(ll_res),
-                              SIZE_OF_FFI_ARG)
+        zero = llmemory.itemoffsetof(rffi.CCHARP.TO, 0)
+        llmemory.raw_memclear(llmemory.cast_ptr_to_adr(ll_res) + zero,
+                              SIZE_OF_FFI_ARG * llmemory.sizeof(lltype.Char))
         return
     #
     try:
