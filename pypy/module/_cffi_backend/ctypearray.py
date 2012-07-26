@@ -34,8 +34,8 @@ class W_CTypeArray(W_CTypePtrOrArray):
 
     def unicode(self, cdataobj):
         if isinstance(self.ctitem, W_CTypePrimitiveUniChar):
-            XXX
-            s = rffi.charp2strn(cdataobj._cdata, cdataobj.get_array_length())
+            s = rffi.wcharp2unicoden(rffi.cast(rffi.CWCHARP, cdataobj._cdata),
+                                     cdataobj.get_array_length())
             keepalive_until_here(cdataobj)
             return self.space.wrap(s)
         return W_CTypePtrOrArray.unicode(self, cdataobj)

@@ -126,7 +126,17 @@ class W_CTypeFunc(W_CTypePtrBase):
                     # set the "must free" flag to 0
                     set_mustfree_flag(data, 0)
                 #
-                #XXX WCHAR unicode raises NotImplementedError
+                if argtype.is_unichar_ptr_or_array:
+                    try:
+                        space.unicode_w(w_obj)
+                    except OperationError:
+                        if not e.match(space, space.w_TypeError):
+                            raise
+                    else:
+                        # passing a unicode raises NotImplementedError for now
+                        raise OperationError(space.w_NotImplementedError,
+                                    space.wrap("automatic unicode-to-"
+                                               "'wchar_t *' conversion"))
                 #
                 argtype.convert_from_object(data, w_obj)
             resultdata = rffi.ptradd(buffer, cif_descr.exchange_result)

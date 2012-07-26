@@ -1431,7 +1431,7 @@ def test_wchar():
     #assert f(u'a\u1234b') == 3    -- not implemented
     py.test.raises(NotImplementedError, f, u'a\u1234b')
     #
-    if wchar4:
+    if wchar4 and not pyuni4:
         # try out-of-range wchar_t values
         x = cast(BWChar, 1114112)
         py.test.raises(ValueError, unicode, x)

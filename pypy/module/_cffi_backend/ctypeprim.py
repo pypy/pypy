@@ -33,6 +33,15 @@ class W_CTypePrimitive(W_CType):
                                   len(s), self.name)
         return ord(s[0])
 
+    def cast_unicode(self, w_ob):
+        space = self.space
+        s = space.unicode_w(w_ob)
+        if len(s) != 1:
+            raise operationerrfmt(space.w_TypeError,
+                      "cannot cast unicode string of length %d to ctype '%s'",
+                                  len(s), self.name)
+        return ord(s[0])
+
     def cast(self, w_ob):
         from pypy.module._cffi_backend import ctypeptr
         space = self.space
@@ -44,7 +53,9 @@ class W_CTypePrimitive(W_CType):
         elif space.isinstance_w(w_ob, space.w_str):
             value = self.cast_str(w_ob)
             value = r_ulonglong(value)
-        #XXX WCHAR space.w_unicode
+        elif space.isinstance_w(w_ob, space.w_unicode):
+            value = self.cast_unicode(w_ob)
+            value = r_ulonglong(value)
         else:
             value = misc.as_unsigned_long_long(space, w_ob, strict=False)
         w_cdata = cdataobj.W_CDataCasted(space, self.size, self)
@@ -96,7 +107,8 @@ class W_CTypePrimitiveChar(W_CTypePrimitiveCharOrUniChar):
 class W_CTypePrimitiveUniChar(W_CTypePrimitiveCharOrUniChar):
 
     def int(self, cdata):
-        XXX
+        unichardata = rffi.cast(rffi.CWCHARP, cdata)
+        return self.space.wrap(ord(unichardata[0]))
 
     def convert_to_object(self, cdata):
         unichardata = rffi.cast(rffi.CWCHARP, cdata)

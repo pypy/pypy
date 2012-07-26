@@ -101,7 +101,16 @@ class W_CTypePointer(W_CTypePtrBase):
         return W_CTypePtrOrArray.str(self, cdataobj)
 
     def unicode(self, cdataobj):
-        XXX
+        if self.is_unichar_ptr_or_array:
+            if not cdataobj._cdata:
+                space = self.space
+                raise operationerrfmt(space.w_RuntimeError,
+                                      "cannot use unicode() on %s",
+                                      space.str_w(cdataobj.repr()))
+            s = rffi.wcharp2unicode(rffi.cast(rffi.CWCHARP, cdataobj._cdata))
+            keepalive_until_here(cdataobj)
+            return self.space.wrap(s)
+        return W_CTypePtrOrArray.unicode(self, cdataobj)
 
     def newp(self, w_init):
         from pypy.module._cffi_backend import ctypeprim
