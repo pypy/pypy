@@ -889,6 +889,9 @@ class FakeSpace:
         return W_DictMultiObject.allocate_and_init_instance(
                 self, module=module, instance=instance)
 
+    def view_as_kwargs(self, w_d):
+        return w_d.view_as_kwargs() # assume it's a multidict
+
     def finditem_str(self, w_dict, s):
         return w_dict.getitem_str(s) # assume it's a multidict
 
@@ -1104,6 +1107,10 @@ class TestStrDictImplementation(BaseTestRDictImplementation):
         s = FakeString(self.string)
         assert self.impl.getitem(s) == 1000
         assert s.unwrapped
+
+    def test_view_as_kwargs(self):
+        self.fill_impl()
+        assert self.fakespace.view_as_kwargs(self.impl) == (["fish", "fish2"], [1000, 2000])
 
 ## class TestMeasuringDictImplementation(BaseTestRDictImplementation):
 ##     ImplementionClass = MeasuringDictImplementation

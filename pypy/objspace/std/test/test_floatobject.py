@@ -441,6 +441,13 @@ class AppTestAppFloatTest:
         b = A(5).real
         assert type(b) is float
 
+    def test_invalid_literal_message(self):
+        try:
+            float('abcdef')
+        except ValueError, e:
+            assert 'abcdef' in e.message
+        else:
+            assert False, 'did not raise'
 
 class AppTestFloatHex:
     def w_identical(self, x, y):

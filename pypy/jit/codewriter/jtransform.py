@@ -1460,7 +1460,19 @@ class Transformer(object):
 
     def do_fixed_newlist(self, op, args, arraydescr):
         v_length = self._get_initial_newlist_length(op, args)
-        return SpaceOperation('new_array', [arraydescr, v_length], op.result)
+        assert v_length.concretetype is lltype.Signed
+        ops = []
+        if isinstance(v_length, Constant):
+            if v_length.value >= 0:
+                v = v_length
+            else:
+                v = Constant(0, lltype.Signed)
+        else:
+            v = Variable('new_length')
+            v.concretetype = lltype.Signed
+            ops.append(SpaceOperation('int_force_ge_zero', [v_length], v))
+        ops.append(SpaceOperation('new_array', [arraydescr, v], op.result))
+        return ops
 
     def do_fixed_list_len(self, op, args, arraydescr):
         if args[0] in self.vable_array_vars:     # virtualizable array

@@ -11,6 +11,7 @@ from pypy.rlib.objectmodel import r_dict, we_are_translated, specialize
 from pypy.rlib.debug import mark_dict_non_null
 
 from pypy.rlib import rerased
+from pypy.rlib import jit
 
 def _is_str(space, w_key):
     return space.is_w(space.type(w_key), space.w_str)
@@ -27,6 +28,18 @@ def _never_equal_to_string(space, w_lookup_type):
             space.is_w(w_lookup_type, space.w_bool) or
             space.is_w(w_lookup_type, space.w_float)
             )
+
+
+DICT_CUTOFF = 5
+
+@specialize.call_location()
+def w_dict_unrolling_heuristic(w_dct):
+    """ In which cases iterating over dict items can be unrolled.
+    Note that w_dct is an instance of W_DictMultiObject, not necesarilly
+    an actual dict
+    """
+    return jit.isvirtual(w_dct) or (jit.isconstant(w_dct) and
+                                    w_dct.length() <= DICT_CUTOFF)
 
 class W_DictMultiObject(W_Object):
     from pypy.objspace.std.dicttype import dict_typedef as typedef
@@ -48,8 +61,8 @@ class W_DictMultiObject(W_Object):
 
         elif kwargs:
             assert w_type is None
-            from pypy.objspace.std.kwargsdict import KwargsDictStrategy
-            strategy = space.fromcache(KwargsDictStrategy)
+            from pypy.objspace.std.kwargsdict import EmptyKwargsDictStrategy
+            strategy = space.fromcache(EmptyKwargsDictStrategy)
         else:
             strategy = space.fromcache(EmptyDictStrategy)
         if w_type is None:
@@ -90,13 +103,15 @@ class W_DictMultiObject(W_Object):
         for w_k, w_v in list_pairs_w:
             w_self.setitem(w_k, w_v)
 
+    def view_as_kwargs(self):
+        return self.strategy.view_as_kwargs(self)
+
 def _add_indirections():
     dict_methods = "setitem setitem_str getitem \
                     getitem_str delitem length \
                     clear w_keys values \
                     items iter setdefault \
-                    popitem listview_str listview_int \
-                    view_as_kwargs".split()
+                    popitem listview_str listview_int".split()
 
     def make_method(method):
         def f(self, *args):
@@ -508,6 +523,18 @@ class StringDictStrategy(AbstractTypedStrategy, DictStrategy):
     def w_keys(self, w_dict):
         return self.space.newlist_str(self.listview_str(w_dict))
 
+    @jit.look_inside_iff(lambda self, w_dict:
+                         w_dict_unrolling_heuristic(w_dict))
+    def view_as_kwargs(self, w_dict):
+        d = self.unerase(w_dict.dstorage)
+        l = len(d)
+        keys, values = [None] * l, [None] * l
+        i = 0
+        for key, val in d.iteritems():
+            keys[i] = key
+            values[i] = val
+            i += 1
+        return keys, values
 
 class _WrappedIteratorMixin(object):
     _mixin_ = True

@@ -483,6 +483,8 @@ class __extend__(AbstractUniCharRepr):
         # xxx suboptimal, maybe
         return str(unicode(ch))
 
+    def ll_unicode(self, ch):
+        return unicode(ch)
 
 class __extend__(AbstractCharRepr,
                  AbstractUniCharRepr):

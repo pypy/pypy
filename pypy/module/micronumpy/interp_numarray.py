@@ -402,6 +402,11 @@ class BaseArray(Wrappable):
                 i += 1
         return Chunks(result)
 
+    def descr_count_nonzero(self, space):
+        concr = self.get_concrete()
+        res = concr.count_all_true()
+        return space.wrap(res)
+
     def count_all_true(self):
         sig = self.find_sig()
         frame = sig.create_frame(self)
@@ -1486,6 +1491,7 @@ BaseArray.typedef = TypeDef(
     take = interp2app(BaseArray.descr_take),
     compress = interp2app(BaseArray.descr_compress),
     repeat = interp2app(BaseArray.descr_repeat),
+    count_nonzero = interp2app(BaseArray.descr_count_nonzero),
 )
 
 

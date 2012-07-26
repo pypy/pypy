@@ -443,6 +443,7 @@ _oplist = [
     'INT_IS_TRUE/1b',
     'INT_NEG/1',
     'INT_INVERT/1',
+    'INT_FORCE_GE_ZERO/1',
     #
     'SAME_AS/1',      # gets a Const or a Box, turns it into another Box
     'CAST_PTR_TO_INT/1',

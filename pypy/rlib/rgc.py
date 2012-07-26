@@ -138,8 +138,8 @@ class MallocNonMovingEntry(ExtRegistryEntry):
         return hop.genop(opname, vlist, resulttype = hop.r_result.lowleveltype)
 
 @jit.oopspec('list.ll_arraycopy(source, dest, source_start, dest_start, length)')
-@specialize.ll()
 @enforceargs(None, None, int, int, int)
+@specialize.ll()
 def ll_arraycopy(source, dest, source_start, dest_start, length):
     from pypy.rpython.lltypesystem.lloperation import llop
     from pypy.rlib.objectmodel import keepalive_until_here
