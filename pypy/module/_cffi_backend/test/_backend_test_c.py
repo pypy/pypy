@@ -852,7 +852,7 @@ def test_callback():
     assert repr(f).startswith(
         "<cdata 'int(*)(int)' calling <function cb at 0x")
     e = py.test.raises(TypeError, f)
-    assert str(e.value) == "%r expects 1 arguments, got 0" % (f,)
+    assert str(e.value) == "'int(*)(int)' expects 1 arguments, got 0"
 
 def test_callback_return_type():
     for rettype in ["signed char", "short", "int", "long", "long long",

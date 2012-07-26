@@ -92,7 +92,7 @@ class W_CTypeFunc(W_CTypePtrBase):
             # call of a variadic function
             if len(args_w) < nargs_declared:
                 raise operationerrfmt(space.w_TypeError,
-                                    "%s expects at least %d arguments, got %d",
+                                  "'%s' expects at least %d arguments, got %d",
                                       self.name, nargs_declared, len(args_w))
             self = self.new_ctypefunc_completing_argtypes(args_w)
             cif_descr = self.cif_descr
