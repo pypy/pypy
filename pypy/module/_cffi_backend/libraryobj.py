@@ -9,7 +9,6 @@ from pypy.rlib.rdynload import RTLD_GLOBAL
 
 from pypy.module._cffi_backend.cdataobj import W_CData
 from pypy.module._cffi_backend.ctypeobj import W_CType
-from pypy.module._cffi_backend.ctypefunc import W_CTypeFunc
 
 
 class W_Library(Wrappable):
@@ -40,15 +39,28 @@ class W_Library(Wrappable):
         space = self.space
         return space.wrap("<clibrary '%s'>" % self.name)
 
-    @unwrap_spec(ctypefunc=W_CTypeFunc, name=str)
-    def load_function(self, ctypefunc, name):
+    @unwrap_spec(ctype=W_CType, name=str)
+    def load_function(self, ctype, name):
+        from pypy.module._cffi_backend import ctypefunc, ctypeptr, ctypevoid
         space = self.space
+        #
+        ok = False
+        if isinstance(ctype, ctypefunc.W_CTypeFunc):
+            ok = True
+        if (isinstance(ctype, ctypeptr.W_CTypePointer) and
+            isinstance(ctype.ctitem, ctypevoid.W_CTypeVoid)):
+            ok = True
+        if not ok:
+            raise operationerrfmt(space.w_TypeError,
+                                  "function cdata expected, got '%s'",
+                                  ctype.name)
+        #
         cdata = dlsym(self.handle, name)
         if not cdata:
             raise operationerrfmt(space.w_KeyError,
                                   "function '%s' not found in library '%s'",
                                   name, self.name)
-        return W_CData(space, rffi.cast(rffi.CCHARP, cdata), ctypefunc)
+        return W_CData(space, rffi.cast(rffi.CCHARP, cdata), ctype)
 
     @unwrap_spec(ctype=W_CType, name=str)
     def read_variable(self, ctype, name):
