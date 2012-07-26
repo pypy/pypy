@@ -159,6 +159,11 @@ def get_mustfree_flag(data):
 def set_mustfree_flag(data, flag):
     rffi.ptradd(data, -1)[0] = chr(flag)
 
+def _get_abi(space, name):
+    abi = getattr(clibffi, name)
+    assert isinstance(abi, int)
+    return space.wrap(abi)
+
 # ____________________________________________________________
 
 # The "cif" is a block of raw memory describing how to do a call via libffi.

@@ -33,4 +33,7 @@ class Module(MixedModule):
 
         'get_errno': 'cerrno.get_errno',
         'set_errno': 'cerrno.set_errno',
+
+        'FFI_DEFAULT_ABI': 'ctypefunc._get_abi(space, "FFI_DEFAULT_ABI")',
+        'FFI_CDECL': 'ctypefunc._get_abi(space,"FFI_DEFAULT_ABI")',#win32 name
         }
