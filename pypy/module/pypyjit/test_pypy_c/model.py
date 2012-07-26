@@ -435,7 +435,7 @@ class OpMatcher(object):
                     del exp_ops[i]
                     break
             else:
-                self._assert(0,
+                self._assert(0, \
                     "operation %r not found within the {{{ }}} block" % (op,))
 
     def match_loop(self, expected_ops, ignore_ops):
