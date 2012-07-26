@@ -1,24 +1,29 @@
 from pypy.rlib import rposix
+from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.gateway import unwrap_spec
 
 
-class ErrnoContainer(object):
-    # XXXXXXXXXXXXXX! thread-safety
-    errno = 0
-
-errno_container = ErrnoContainer()
+ExecutionContext._cffi_saved_errno = 0
 
 
-def restore_errno():
-    rposix.set_errno(errno_container.errno)
+def get_errno_container(space):
+    return space.getexecutioncontext()
 
-def save_errno():
-    errno_container.errno = rposix.get_errno()
+get_real_errno = rposix.get_errno
+
+
+def restore_errno_from(ec):
+    rposix.set_errno(ec._cffi_saved_errno)
+
+def save_errno_into(ec, errno):
+    ec._cffi_saved_errno = errno
 
 
 def get_errno(space):
-    return space.wrap(errno_container.errno)
+    ec = get_errno_container(space)
+    return space.wrap(ec._cffi_saved_errno)
 
 @unwrap_spec(errno=int)
 def set_errno(space, errno):
-    errno_container.errno = errno
+    ec = get_errno_container(space)
+    ec._cffi_saved_errno = errno

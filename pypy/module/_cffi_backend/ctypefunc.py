@@ -142,12 +142,14 @@ class W_CTypeFunc(W_CTypePtrBase):
                 argtype.convert_from_object(data, w_obj)
             resultdata = rffi.ptradd(buffer, cif_descr.exchange_result)
 
-            cerrno.restore_errno()
+            ec = cerrno.get_errno_container(space)
+            cerrno.restore_errno_from(ec)
             clibffi.c_ffi_call(cif_descr.cif,
                                rffi.cast(rffi.VOIDP, funcaddr),
                                resultdata,
                                buffer_array)
-            cerrno.save_errno()
+            e = cerrno.get_real_errno()
+            cerrno.save_errno_into(ec, e)
 
             if self.ctitem.is_primitive_integer:
                 if BIG_ENDIAN:
