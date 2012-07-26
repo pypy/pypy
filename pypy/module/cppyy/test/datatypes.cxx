@@ -1,7 +1,5 @@
 #include "datatypes.h"
 
-#include <iostream>
-
 
 //===========================================================================
 cppyy_test_data::cppyy_test_data() : m_owns_arrays(false)
@@ -21,6 +19,7 @@ cppyy_test_data::cppyy_test_data() : m_owns_arrays(false)
     m_double = -77.;
     m_enum   = kNothing;
 
+    m_bool_array2   = new bool[N];
     m_short_array2  = new short[N];
     m_ushort_array2 = new unsigned short[N];
     m_int_array2    = new int[N];
@@ -32,6 +31,8 @@ cppyy_test_data::cppyy_test_data() : m_owns_arrays(false)
     m_double_array2 = new double[N];
 
     for (int i = 0; i < N; ++i) {
+        m_bool_array[i]    =  bool(i%2);
+        m_bool_array2[i]   =  bool((i+1)%2);
         m_short_array[i]   =  -1*i;
         m_short_array2[i]  =  -2*i;
         m_ushort_array[i]  =   3u*i;
@@ -66,6 +67,7 @@ cppyy_test_data::~cppyy_test_data()
 
 void cppyy_test_data::destroy_arrays() {
     if (m_owns_arrays == true) {
+        delete[] m_bool_array2;
         delete[] m_short_array2;
         delete[] m_ushort_array2;
         delete[] m_int_array2;
@@ -96,6 +98,8 @@ float          cppyy_test_data::get_float()  { return m_float; }
 double         cppyy_test_data::get_double() { return m_double; }
 cppyy_test_data::what cppyy_test_data::get_enum() { return m_enum; }
 
+bool*           cppyy_test_data::get_bool_array()    { return m_bool_array; }
+bool*           cppyy_test_data::get_bool_array2()   { return m_bool_array2; }
 short*          cppyy_test_data::get_short_array()   { return m_short_array; }
 short*          cppyy_test_data::get_short_array2()  { return m_short_array2; }
 unsigned short* cppyy_test_data::get_ushort_array()  { return m_ushort_array; }
@@ -151,8 +155,19 @@ void cppyy_test_data::set_pod_ptr_out(cppyy_test_pod* pp)      { *pp = m_pod; }
 void cppyy_test_data::set_pod_ref(const cppyy_test_pod& rp)    { m_pod = rp; }
 void cppyy_test_data::set_pod_ptrptr_in(cppyy_test_pod** ppp)  { m_pod = **ppp; }
 void cppyy_test_data::set_pod_void_ptrptr_in(void** pp)        { m_pod = **((cppyy_test_pod**)pp); }
-void cppyy_test_data::set_pod_ptrptr_out(cppyy_test_pod** ppp) { *ppp = &m_pod; }
-void cppyy_test_data::set_pod_void_ptrptr_out(void** pp)       { *((cppyy_test_pod**)pp) = &m_pod; }
+void cppyy_test_data::set_pod_ptrptr_out(cppyy_test_pod** ppp) { delete *ppp; *ppp = new cppyy_test_pod(m_pod); }
+void cppyy_test_data::set_pod_void_ptrptr_out(void** pp)       { delete *((cppyy_test_pod**)pp);
+                                                                 *((cppyy_test_pod**)pp) = new cppyy_test_pod(m_pod); }
+
+//- passers -----------------------------------------------------------------
+short*          cppyy_test_data::pass_array(short* a)          { return a; }
+unsigned short* cppyy_test_data::pass_array(unsigned short* a) { return a; }
+int*            cppyy_test_data::pass_array(int* a)            { return a; }
+unsigned int*   cppyy_test_data::pass_array(unsigned int* a)   { return a; }
+long*           cppyy_test_data::pass_array(long* a)           { return a; }
+unsigned long*  cppyy_test_data::pass_array(unsigned long* a)  { return a; }
+float*          cppyy_test_data::pass_array(float* a)          { return a; }
+double*         cppyy_test_data::pass_array(double* a)         { return a; }
 
 char                cppyy_test_data::s_char   = 's';
 unsigned char       cppyy_test_data::s_uchar  = 'u';

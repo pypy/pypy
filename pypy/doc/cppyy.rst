@@ -153,6 +153,7 @@ That's all there is to it!
 
 Automatic class loader
 ======================
+
 There is one big problem in the code above, that prevents its use in a (large
 scale) production setting: the explicit loading of the reflection library.
 Clearly, if explicit load statements such as these show up in code downstream
@@ -164,7 +165,9 @@ code never has to call ``load_reflection_info()`` directly.
 The class loader makes use of so-called rootmap files, which ``genreflex``
 can produce.
 These files contain the list of available C++ classes and specify the library
-that needs to be loaded for their use.
+that needs to be loaded for their use (as an aside, this listing allows for a
+cross-check to see whether reflection info is generated for all classes that
+you expect).
 By convention, the rootmap files should be located next to the reflection info
 libraries, so that they can be found through the normal shared library search
 path.
@@ -198,6 +201,7 @@ As a caveat, note that the class loader is currently limited to classes only.
 
 Advanced example
 ================
+
 The following snippet of C++ is very contrived, to allow showing that such
 pathological code can be handled and to show how certain features play out in
 practice::
@@ -253,6 +257,9 @@ header file.
 With the aid of a selection file, a large project can be easily managed:
 simply ``#include`` all relevant headers into a single header file that is
 handed to ``genreflex``.
+In fact, if you hand multiple header files to ``genreflex``, then a selection
+file is almost obligatory: without it, only classes from the last header will
+be selected.
 Then, apply a selection file to pick up all the relevant classes.
 For our purposes, the following rather straightforward selection will do
 (the name ``lcgdict`` for the root is historical, but required)::
@@ -325,15 +332,43 @@ It is not always possible to provide exact mapping between python and C++
 (active memory management is one such case), but by and large, if the use of a
 feature does not strike you as obvious, it is more likely to simply be a bug.
 That is a strong statement to make, but also a worthy goal.
+For the C++ side of the examples, refer to this `example code`_, which was
+bound using::
+
+    $ genreflex example.h --deep --rootmap=libexampleDict.rootmap --rootmap-lib=libexampleDict.so
+    $ g++ -fPIC -rdynamic -O2 -shared -I$ROOTSYS/include example_rflx.cpp -o libexampleDict.so -L$ROOTSYS/lib -lReflex
+
+.. _`example code`: example.h
 
 * **abstract classes**: Are represented as python classes, since they are
   needed to complete the inheritance hierarchies, but will raise an exception
   if an attempt is made to instantiate from them.
+  Example::
+
+    >>>> from cppyy.gbl import AbstractClass, ConcreteClass
+    >>>> a = AbstractClass()
+    Traceback (most recent call last):
+      File "<console>", line 1, in <module>
+    TypeError: cannot instantiate abstract class 'AbstractClass'
+    >>>> issubclass(ConcreteClass, AbstractClass)
+    True
+    >>>> c = ConcreteClass()
+    >>>> isinstance(c, AbstractClass)
+    True
+    >>>>
 
 * **arrays**: Supported for builtin data types only, as used from module
   ``array``.
   Out-of-bounds checking is limited to those cases where the size is known at
   compile time (and hence part of the reflection info).
+  Example::
+
+    >>>> from cppyy.gbl import ConcreteClass
+    >>>> from array import array
+    >>>> c = ConcreteClass()
+    >>>> c.array_method(array('d', [1., 2., 3., 4.]), 4)
+    1 2 3 4
+    >>>> 
 
 * **builtin data types**: Map onto the expected equivalent python types, with
   the caveat that there may be size differences, and thus it is possible that
@@ -344,23 +379,77 @@ That is a strong statement to make, but also a worthy goal.
   in the hierarchy of the object being returned.
   This is important to preserve object identity as well as to make casting,
   a pure C++ feature after all, superfluous.
+  Example::
+
+    >>>> from cppyy.gbl import AbstractClass, ConcreteClass
+    >>>> c = ConcreteClass()
+    >>>> ConcreteClass.show_autocast.__doc__
+    'AbstractClass* ConcreteClass::show_autocast()'
+    >>>> d = c.show_autocast()
+    >>>> type(d)
+    <class '__main__.ConcreteClass'>
+    >>>>
+
+  However, if need be, you can perform C++-style reinterpret_casts (i.e.
+  without taking offsets into account), by taking and rebinding the address
+  of an object::
+
+    >>>> from cppyy import addressof, bind_object
+    >>>> e = bind_object(addressof(d), AbstractClass)
+    >>>> type(e)
+    <class '__main__.AbstractClass'>
+    >>>>
 
 * **classes and structs**: Get mapped onto python classes, where they can be
   instantiated as expected.
   If classes are inner classes or live in a namespace, their naming and
   location will reflect that.
+  Example::
+
+    >>>> from cppyy.gbl import ConcreteClass, Namespace
+    >>>> ConcreteClass == Namespace.ConcreteClass
+    False
+    >>>> n = Namespace.ConcreteClass.NestedClass()
+    >>>> type(n)
+    <class '__main__.Namespace::ConcreteClass::NestedClass'>
+    >>>> 
 
 * **data members**: Public data members are represented as python properties
   and provide read and write access on instances as expected.
+  Private and protected data members are not accessible.
+  Example::
+
+    >>>> from cppyy.gbl import ConcreteClass
+    >>>> c = ConcreteClass()
+    >>>> c.m_int
+    42
+    >>>>
 
 * **default arguments**: C++ default arguments work as expected, but python
   keywords are not supported.
   It is technically possible to support keywords, but for the C++ interface,
   the formal argument names have no meaning and are not considered part of the
   API, hence it is not a good idea to use keywords.
+  Example::
+
+    >>>> from cppyy.gbl import ConcreteClass
+    >>>> c = ConcreteClass()       # uses default argument
+    >>>> c.m_int
+    42
+    >>>> c = ConcreteClass(13)
+    >>>> c.m_int
+    13
+    >>>>
 
 * **doc strings**: The doc string of a method or function contains the C++
   arguments and return types of all overloads of that name, as applicable.
+  Example::
+
+    >>>> from cppyy.gbl import ConcreteClass
+    >>>> print ConcreteClass.array_method.__doc__
+    void ConcreteClass::array_method(int*, int)
+    void ConcreteClass::array_method(double*, int)
+    >>>> 
 
 * **enums**: Are translated as ints with no further checking.
 
@@ -375,11 +464,40 @@ That is a strong statement to make, but also a worthy goal.
   This is a current, not a fundamental, limitation.
   The C++ side will not see any overridden methods on the python side, as
   cross-inheritance is planned but not yet supported.
+  Example::
+
+    >>>> from cppyy.gbl import ConcreteClass
+    >>>> help(ConcreteClass)
+    Help on class ConcreteClass in module __main__:
+
+    class ConcreteClass(AbstractClass)
+     |  Method resolution order:
+     |      ConcreteClass
+     |      AbstractClass
+     |      cppyy.CPPObject
+     |      __builtin__.CPPInstance
+     |      __builtin__.object
+     |  
+     |  Methods defined here:
+     |  
+     |  ConcreteClass(self, *args)
+     |      ConcreteClass::ConcreteClass(const ConcreteClass&)
+     |      ConcreteClass::ConcreteClass(int)
+     |      ConcreteClass::ConcreteClass()
+     |
+     etc. ....
 
 * **memory**: C++ instances created by calling their constructor from python
   are owned by python.
   You can check/change the ownership with the _python_owns flag that every
   bound instance carries.
+  Example::
+
+    >>>> from cppyy.gbl import ConcreteClass
+    >>>> c = ConcreteClass()
+    >>>> c._python_owns            # True: object created in Python
+    True
+    >>>> 
 
 * **methods**: Are represented as python methods and work as expected.
   They are first class objects and can be bound to an instance.
@@ -395,23 +513,34 @@ That is a strong statement to make, but also a worthy goal.
   Namespaces are more open-ended than classes, so sometimes initial access may
   result in updates as data and functions are looked up and constructed
   lazily.
-  Thus the result of ``dir()`` on a namespace should not be relied upon: it
-  only shows the already accessed members. (TODO: to be fixed by implementing
-  __dir__.)
+  Thus the result of ``dir()`` on a namespace shows the classes available,
+  even if they may not have been created yet.
+  It does not show classes that could potentially be loaded by the class
+  loader.
+  Once created, namespaces are registered as modules, to allow importing from
+  them.
+  Namespace currently do not work with the class loader.
+  Fixing these bootstrap problems is on the TODO list.
   The global namespace is ``cppyy.gbl``.
 
 * **operator conversions**: If defined in the C++ class and a python
   equivalent exists (i.e. all builtin integer and floating point types, as well
   as ``bool``), it will map onto that python conversion.
   Note that ``char*`` is mapped onto ``__str__``.
+  Example::
+
+    >>>> from cppyy.gbl import ConcreteClass
+    >>>> print ConcreteClass()
+    Hello operator const char*!
+    >>>> 
 
 * **operator overloads**: If defined in the C++ class and if a python
   equivalent is available (not always the case, think e.g. of ``operator||``),
   then they work as expected.
   Special care needs to be taken for global operator overloads in C++: first,
   make sure that they are actually reflected, especially for the global
-  overloads for ``operator==`` and ``operator!=`` of STL iterators in the case
-  of gcc.
+  overloads for ``operator==`` and ``operator!=`` of STL vector iterators in
+  the case of gcc (note that they are not needed to iterator over a vector).
   Second, make sure that reflection info is loaded in the proper order.
   I.e. that these global overloads are available before use.
 
@@ -441,17 +570,30 @@ That is a strong statement to make, but also a worthy goal.
   will be returned if the return type is ``const char*``.
 
 * **templated classes**: Are represented in a meta-class style in python.
-  This looks a little bit confusing, but conceptually is rather natural.
+  This may look a little bit confusing, but conceptually is rather natural.
   For example, given the class ``std::vector<int>``, the meta-class part would
-  be ``std.vector`` in python.
+  be ``std.vector``.
   Then, to get the instantiation on ``int``, do ``std.vector(int)`` and to
-  create an instance of that class, do ``std.vector(int)()``.
+  create an instance of that class, do ``std.vector(int)()``::
+
+    >>>> import cppyy
+    >>>> cppyy.load_reflection_info('libexampleDict.so')
+    >>>> cppyy.gbl.std.vector                # template metatype
+    <cppyy.CppyyTemplateType object at 0x00007fcdd330f1a0>
+    >>>> cppyy.gbl.std.vector(int)           # instantiates template -> class
+    <class '__main__.std::vector<int>'>
+    >>>> cppyy.gbl.std.vector(int)()         # instantiates class -> object
+    <__main__.std::vector<int> object at 0x00007fe480ba4bc0>
+    >>>> 
+
   Note that templates can be build up by handing actual types to the class
   instantiation (as done in this vector example), or by passing in the list of
   template arguments as a string.
   The former is a lot easier to work with if you have template instantiations
-  using classes that themselves are templates (etc.) in the arguments.
-  All classes must already exist in the loaded reflection info.
+  using classes that themselves are templates in  the arguments (think e.g a
+  vector of vectors).
+  All template classes must already exist in the loaded reflection info, they
+  do not work (yet) with the class loader.
 
 * **typedefs**: Are simple python references to the actual classes to which
   they refer.
@@ -502,11 +644,19 @@ The following example should make that clear::
 
 If you know for certain that all symbols will be linked in from other sources,
 you can also declare the explicit template instantiation ``extern``.
+An alternative is to add an object to an unnamed namespace::
 
-Unfortunately, this is not enough for gcc.
-The iterators, if they are going to be used, need to be instantiated as well,
-as do the comparison operators on those iterators, as these live in an
-internal namespace, rather than in the iterator classes.
+    namespace {
+        std::vector<MyClass> vmc;
+    } // unnamed namespace
+
+Unfortunately, this is not always enough for gcc.
+The iterators of vectors, if they are going to be used, need to be
+instantiated as well, as do the comparison operators on those iterators, as
+these live in an internal namespace, rather than in the iterator classes.
+Note that you do NOT need this iterators to iterator over a vector.
+You only need them if you plan to explicitly call e.g. ``begin`` and ``end``
+methods, and do comparisons of iterators.
 One way to handle this, is to deal with this once in a macro, then reuse that
 macro for all ``vector`` classes.
 Thus, the header above needs this (again protected with
@@ -533,8 +683,6 @@ well as the global overloads for comparisons for the iterators::
     <lcgdict>
         <class pattern="std::vector<*>" />
         <class pattern="std::vector<*>::iterator" />
-        <class pattern="std::_Vector_base<*>" />
-        <class pattern="std::_Vector_base<*>::_Vector_impl" />
         <function name="__gnu_cxx::operator=="/>
         <function name="__gnu_cxx::operator!="/>
 
@@ -549,7 +697,7 @@ Run the normal ``genreflex`` and compilation steps::
 Note: this is a dirty corner that clearly could do with some automation,
 even if the macro already helps.
 Such automation is planned.
-In fact, in the cling world, the backend can perform the template
+In fact, in the Cling world, the backend can perform the template
 instantations and generate the reflection info on the fly, and none of the
 above will any longer be necessary.
 
@@ -568,7 +716,8 @@ Note the meta-class style of "instantiating" the template::
     1 2 3
     >>>>
 
-Other templates work similarly.
+Other templates work similarly, but are typically simpler, as there are no
+similar issues with iterators for e.g. ``std::list``.
 The arguments to the template instantiation can either be a string with the
 full list of arguments, or the explicit classes.
 The latter makes for easier code writing if the classes passed to the
@@ -655,3 +804,15 @@ importing the ``cppyy`` or ``PyCintex`` modules directly.
 In that wrapper script you can rename methods exactly the way you need it.
 
 In the cling world, all these differences will be resolved.
+
+
+Python3
+=======
+
+To change versions of CPython (to Python3, another version of Python, or later
+to the `Py3k`_ version of PyPy), the only part that requires recompilation is
+the bindings module, be it ``cppyy`` or ``libPyROOT.so`` (in PyCintex).
+Although ``genreflex`` is indeed a Python tool, the generated reflection
+information is completely independent of Python.
+
+.. _`Py3k`: https://bitbucket.org/pypy/pypy/src/py3k
