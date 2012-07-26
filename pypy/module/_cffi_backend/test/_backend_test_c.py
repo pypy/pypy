@@ -292,6 +292,14 @@ def test_default_str():
     x = newp(BArray, None)
     assert str(x) == repr(x)
 
+def test_default_unicode():
+    BInt = new_primitive_type("int")
+    x = cast(BInt, 42)
+    assert unicode(x) == unicode(repr(x))
+    BArray = new_array_type(new_pointer_type(BInt), 10)
+    x = newp(BArray, None)
+    assert unicode(x) == unicode(repr(x))
+
 def test_cast_from_cdataint():
     BInt = new_primitive_type("int")
     x = cast(BInt, 0)

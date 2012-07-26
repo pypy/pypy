@@ -306,7 +306,7 @@ class CifDescrBuilder(object):
             elif size == 4: return _settype(ctype, clibffi.ffi_type_sint32)
             elif size == 8: return _settype(ctype, clibffi.ffi_type_sint64)
 
-        elif (isinstance(ctype, ctypeprim.W_CTypePrimitiveCharOrWChar) or
+        elif (isinstance(ctype, ctypeprim.W_CTypePrimitiveCharOrUniChar) or
               isinstance(ctype, ctypeprim.W_CTypePrimitiveUnsigned)):
             if   size == 1: return _settype(ctype, clibffi.ffi_type_uint8)
             elif size == 2: return _settype(ctype, clibffi.ffi_type_uint16)

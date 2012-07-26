@@ -87,7 +87,7 @@ class W_CType(Wrappable):
         return cdataobj.repr()
 
     def unicode(self, cdataobj):
-        XXX
+        return cdataobj.repr()
 
     def add(self, cdata, i):
         space = self.space
