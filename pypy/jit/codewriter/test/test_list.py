@@ -85,8 +85,11 @@ def test_newlist():
                  """new_array <ArrayDescr>, $0 -> %r0""")
     builtin_test('newlist', [Constant(5, lltype.Signed)], FIXEDLIST,
                  """new_array <ArrayDescr>, $5 -> %r0""")
+    builtin_test('newlist', [Constant(-2, lltype.Signed)], FIXEDLIST,
+                 """new_array <ArrayDescr>, $0 -> %r0""")
     builtin_test('newlist', [varoftype(lltype.Signed)], FIXEDLIST,
-                 """new_array <ArrayDescr>, %i0 -> %r0""")
+                 """int_force_ge_zero %i0 -> %i1\n"""
+                 """new_array <ArrayDescr>, %i1 -> %r0""")
     builtin_test('newlist', [Constant(5, lltype.Signed),
                              Constant(0, lltype.Signed)], FIXEDLIST,
                  """new_array <ArrayDescr>, $5 -> %r0""")
