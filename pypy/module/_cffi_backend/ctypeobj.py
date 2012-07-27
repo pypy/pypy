@@ -36,8 +36,9 @@ class W_CType(Wrappable):
 
     def newp(self, w_init):
         space = self.space
-        raise OperationError(space.w_TypeError,
-                             space.wrap("expected a pointer or array ctype"))
+        raise operationerrfmt(space.w_TypeError,
+                              "expected a pointer or array ctype, got '%s'",
+                              self.name)
 
     def cast(self, w_ob):
         space = self.space

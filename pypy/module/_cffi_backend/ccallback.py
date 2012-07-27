@@ -10,7 +10,9 @@ from pypy.rlib.rarithmetic import r_ulonglong
 
 from pypy.module._cffi_backend.cdataobj import W_CData, W_CDataApplevelOwning
 from pypy.module._cffi_backend.ctypefunc import SIZE_OF_FFI_ARG, BIG_ENDIAN
-from pypy.module._cffi_backend import cerrno
+from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveSigned
+from pypy.module._cffi_backend.ctypevoid import W_CTypeVoid
+from pypy.module._cffi_backend import cerrno, misc
 
 # ____________________________________________________________
 
@@ -78,8 +80,7 @@ class W_CDataCallback(W_CDataApplevelOwning):
         #
         w_res = space.call(self.w_callable, space.newtuple(args_w))
         #
-        if fresult.size > 0:
-            convert_from_object_fficallback(fresult, ll_res, w_res)
+        convert_from_object_fficallback(fresult, ll_res, w_res)
 
     def print_error(self, operr):
         space = self.space
@@ -101,11 +102,19 @@ global_callback_mapping = rweakref.RWeakValueDictionary(int, W_CDataCallback)
 
 
 def convert_from_object_fficallback(fresult, ll_res, w_res):
-    if fresult.is_primitive_integer and fresult.size < SIZE_OF_FFI_ARG:
+    space = fresult.space
+    small_result = fresult.size < SIZE_OF_FFI_ARG
+    if small_result and isinstance(fresult, W_CTypeVoid):
+        if not space.is_w(w_res, space.w_None):
+            raise OperationError(space.w_TypeError,
+                    space.wrap("callback with the return type 'void'"
+                               " must return None"))
+        return
+    #
+    if small_result and fresult.is_primitive_integer:
         # work work work around a libffi irregularity: for integer return
         # types we have to fill at least a complete 'ffi_arg'-sized result
         # buffer.
-        from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveSigned
         if type(fresult) is W_CTypePrimitiveSigned:
             # It's probably fine to always zero-extend, but you never
             # know: maybe some code somewhere expects a negative
@@ -120,8 +129,7 @@ def convert_from_object_fficallback(fresult, ll_res, w_res):
             # manual inlining and tweaking of
             # W_CTypePrimitiveSigned.convert_from_object() in order
             # to write a whole 'ffi_arg'.
-            from pypy.module._cffi_backend import misc
-            value = misc.as_long_long(fresult.space, w_res)
+            value = misc.as_long_long(space, w_res)
             value = r_ulonglong(value)
             misc.write_raw_integer_data(ll_res, value, SIZE_OF_FFI_ARG)
             return

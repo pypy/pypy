@@ -916,6 +916,17 @@ def test_callback_returning_struct():
     assert s.a == -10
     assert s.b == 1E-42
 
+def test_callback_returning_void():
+    BVoid = new_void_type()
+    BFunc = new_function_type((), BVoid, False)
+    def cb():
+        seen.append(42)
+    f = callback(BFunc, cb)
+    seen = []
+    f()
+    assert seen == [42]
+    py.test.raises(TypeError, callback, BFunc, cb, -42)
+
 def test_enum_type():
     BEnum = new_enum_type("foo", (), ())
     assert repr(BEnum) == "<ctype 'enum foo'>"
@@ -985,7 +996,8 @@ def test_callback_returning_wchar_t():
     assert f(0) == unichr(0)
     assert f(255) == unichr(255)
     assert f(0x1234) == u'\u1234'
-    assert f(-1) == u'\U00012345'
+    if sizeof(BWChar) == 4:
+        assert f(-1) == u'\U00012345'
 
 def test_struct_with_bitfields():
     BLong = new_primitive_type("long")
@@ -1360,7 +1372,7 @@ def test_wchar():
         s.a1 = u'\ud807\udf44'
         assert s.a1 == u'\U00011f44'
     else:
-        py.test.raises(ValueError, "s.a1 = u'\U00012345'")
+        py.test.raises(TypeError, "s.a1 = u'\U00012345'")
     #
     BWCharArray = new_array_type(BWCharP, None)
     a = newp(BWCharArray, u'hello \u1234 world')
