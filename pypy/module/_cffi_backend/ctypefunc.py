@@ -130,7 +130,7 @@ class W_CTypeFunc(W_CTypePtrBase):
                 if argtype.is_unichar_ptr_or_array:
                     try:
                         space.unicode_w(w_obj)
-                    except OperationError:
+                    except OperationError, e:
                         if not e.match(space, space.w_TypeError):
                             raise
                     else:
