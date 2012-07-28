@@ -10,7 +10,7 @@ from pypy.module._cffi_backend import cdataobj
 
 
 class W_CType(Wrappable):
-    _attrs_ = ['space', 'size', 'name', 'name_position']
+    _attrs_ = ['space', 'size?', 'name', 'name_position']
     _immutable_fields_ = _attrs_
 
     cast_anything = False
