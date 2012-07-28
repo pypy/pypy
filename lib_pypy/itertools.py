@@ -23,12 +23,22 @@ dropwhile(pred, seq) --> seq[n], seq[n+1], starting when pred fails
 groupby(iterable[, keyfunc]) --> sub-iterators grouped by value of keyfunc(v)
 """
 
-__all__ = ['chain', 'count', 'cycle', 'dropwhile', 'groupby', 'ifilter',
-           'ifilterfalse', 'imap', 'islice', 'izip', 'repeat', 'starmap',
-           'takewhile', 'tee', 'compress', 'product']
+import sys
+
+
+__all__ = ['chain', 'combinations', 'combinations_with_replacement',
+           'compress', 'count', 'cycle', 'dropwhile', 'groupby', 'ifilter',
+           'ifilterfalse', 'imap', 'islice', 'izip', 'izip_longest',
+           'permutations', 'product', 'repeat', 'starmap', 'takewhile', 'tee']
+
 
 try: from __pypy__ import builtinify
 except ImportError: builtinify = lambda f: f
+
+
+def check_number(n):
+    if not hasattr(n, '__add__') or isinstance(n, basestring):
+        raise TypeError('expected a number')
 
 
 class chain(object):
@@ -45,7 +55,7 @@ class chain(object):
                 yield element
     """
     def __init__(self, *iterables):
-        self._iterables_iter = iter(map(iter, iterables))
+        self._iterables_iter = iter(iterables)
         # little trick for the first chain.next() call
         self._cur_iterable_iter = iter([])
 
@@ -57,11 +67,101 @@ class chain(object):
             try:
                 return self._cur_iterable_iter.next()
             except StopIteration:
-                self._cur_iterable_iter = self._iterables_iter.next()
+                self._cur_iterable_iter = iter(self._iterables_iter.next())
             except AttributeError:
                 # CPython raises a TypeError when next() is not defined
                 raise TypeError('%s has no next() method' % \
                                 (self._cur_iterable_iter))
+
+    @classmethod
+    def from_iterable(cls, iterables):
+        c = cls()
+        c._iterables_iter = iter(iterables)
+        return c
+
+
+class combinations(object):
+    """combinations(iterable, r) --> combinations object
+
+    Return successive r-length combinations of elements in the iterable.
+
+    combinations(range(4), 3) --> (0,1,2), (0,1,3), (0,2,3), (1,2,3)
+    """
+    def __init__(self, iterable, r):
+        self.pool = list(iterable)
+        if r < 0:
+            raise ValueError('r must be non-negative')
+        self.r = r
+        self.indices = range(len(self.pool))
+        self.last_result = None
+        self.stopped = r > len(self.pool)
+
+    def __iter__(self):
+        return self
+
+    def get_maximum(self, i):
+        return i + len(self.pool) - self.r
+
+    def max_index(self, j):
+        return self.indices[j - 1] + 1
+
+    def next(self):
+        if self.stopped:
+            raise StopIteration()
+        if self.last_result is None:
+            # On the first pass, initialize result tuple using the indices
+            result = [None] * self.r
+            for i in xrange(self.r):
+                index = self.indices[i]
+                result[i] = self.pool[index]
+        else:
+            # Copy the previous result
+            result = self.last_result[:]
+            # Scan indices right-to-left until finding one that is not at its
+            # maximum
+            i = self.r - 1
+            while i >= 0 and self.indices[i] == self.get_maximum(i):
+                i -= 1
+
+            # If i is negative, then the indices are all at their maximum value
+            # and we're done
+            if i < 0:
+                self.stopped = True
+                raise StopIteration()
+
+            # Increment the current index which we know is not at its maximum.
+            # Then move back to the right setting each index to its lowest
+            # possible value
+            self.indices[i] += 1
+            for j in range(i + 1, self.r):
+                self.indices[j] = self.max_index(j)
+
+            # Update the result for the new indices starting with i, the
+            # leftmost index that changed
+            for i in range(i, self.r):
+                index = self.indices[i]
+                result[i] = self.pool[index]
+        self.last_result = result
+        return tuple(result)
+
+
+class combinations_with_replacement(combinations):
+    """combinations_with_replacement(iterable, r) --> combinations_with_replacement object
+
+    Return successive r-length combinations of elements in the iterable
+    allowing individual elements to have successive repeats.
+    combinations_with_replacement('ABC', 2) --> AA AB AC BB BC CC
+    """
+    def __init__(self, iterable, r):
+        super(combinations_with_replacement, self).__init__(iterable, r)
+        self.indices = [0] * r
+        self.stopped = len(self.pool) == 0 and r > 0
+
+    def get_maximum(self, i):
+        return len(self.pool) - 1
+
+    def max_index(self, j):
+        return self.indices[j - 1]
 
 
 class compress(object):
@@ -74,42 +174,59 @@ class compress(object):
 
     def next(self):
         while True:
-            next_item = self.data.next()
-            next_selector = self.selectors.next()
+            try:
+                next_item = self.data.next()
+            except AttributeError:
+                # CPython raises a TypeError when next() is not defined
+                raise TypeError('%s has no next() method' % (self.data))
+            try:
+                next_selector = self.selectors.next()
+            except AttributeError:
+                # CPython raises a TypeError when next() is not defined
+                raise TypeError('%s has no next() method' % (self.selectors))
             if bool(next_selector):
                 return next_item
 
 
 class count(object):
-    """Make an iterator that returns consecutive integers starting
-    with n.  If not specified n defaults to zero. Does not currently
-    support python long integers. Often used as an argument to imap()
-    to generate consecutive data points.  Also, used with izip() to
-    add sequence numbers.
+    """Make an iterator that returns evenly spaced values starting
+    with n.  If not specified n defaults to zero.  Often used as an
+    argument to imap() to generate consecutive data points.  Also,
+    used with izip() to add sequence numbers.
 
-    Equivalent to :
+    Equivalent to:
 
-    def count(n=0):
-        if not isinstance(n, int):
-            raise TypeError("%s is not a regular integer" % n)
+    def count(start=0, step=1):
+        n = start
         while True:
             yield n
-            n += 1
+            n += step
     """
-    def __init__(self, n=0):
-        if not isinstance(n, int):
-            raise TypeError('%s is not a regular integer' % n)
-        self.times = n-1
+    def __init__(self, start=0, step=1):
+        check_number(start)
+        check_number(step)
+        self.counter = start
+        self.step = step
 
     def __iter__(self):
         return self
 
     def next(self):
-        self.times += 1
-        return self.times
+        c = self.counter
+        self.counter += self.step
+        return c
+
+    def __reduce__(self):
+        if self.step is 1:
+            args = (self.counter,)
+        else:
+            args = (self.counter, self.step)
+        return (self.__class__, args)
 
     def __repr__(self):
-        return 'count(%d)' % (self.times + 1)
+        if self.step is 1:
+            return 'count(%r)' % (self.counter)
+        return 'count(%r, %r)' % (self.counter, self.step)
 
 
             
@@ -368,37 +485,35 @@ class islice(object):
     """ 
     def __init__(self, iterable, *args):
         s = slice(*args)
-        self.start, self.stop, self.step = s.start or 0, s.stop, s.step
-        if not isinstance(self.start, (int, long)):
-           raise ValueError("Start argument must be an integer")
-        if self.stop is not None and not isinstance(self.stop, (int,long)):
-           raise ValueError("Stop argument must be an integer or None")
-        if self.step is None:
-            self.step = 1
-        if self.start<0 or (self.stop is not None and self.stop<0
-           ) or self.step<=0:
-            raise ValueError, "indices for islice() must be positive"
-        self.it = iter(iterable)
-        self.donext = None
-        self.cnt = 0
+        for n, v in zip(['Start', 'Stop', 'Step'], [s.start, s.stop, s.step]):
+            if not (v is None or isinstance(v, int) and 0 <= v):
+                msg = ('%s for islice must be None or an integer: '
+                       '0 <= x <= maxint')
+                raise ValueError(msg % n)
+        start, stop, self.step = s.indices(sys.maxint)
+        self.iterable = iter(iterable)
+        self.pos = -1
+        self.next_pos = start
+        self.max_pos = stop - 1
 
     def __iter__(self):
         return self
 
-    def next(self): 
-        if self.donext is None:
+    def next(self):
+        i = self.pos
+        while i < self.next_pos:
+            if i >= self.max_pos:
+                raise StopIteration()
             try:
-                self.donext = self.it.next
+                item = self.iterable.next()
             except AttributeError:
-                raise TypeError
-        nextindex = self.start
-        if self.stop is not None and nextindex >= self.stop:
-            raise StopIteration
-        while self.cnt <= nextindex:
-            nextitem = self.donext()
-            self.cnt += 1
-        self.start += self.step 
-        return nextitem
+                # CPython raises a TypeError when next() is not defined
+                raise TypeError('%s has no next() method' % (self.iterable))
+            i += 1
+
+        self.pos = i
+        self.next_pos += self.step
+        return item
 
 class izip(object):
     """Make an iterator that aggregates elements from each of the
@@ -416,7 +531,6 @@ class izip(object):
     """
     def __init__(self, *iterables):
         self._iterators = map(iter, iterables)
-        self._result = [None] * len(self._iterators)
 
     def __iter__(self):
         return self
@@ -431,53 +545,169 @@ class izip(object):
             raise TypeError('%s has no next() method' % (i))
 
 
-class product(object):
-
-    def __init__(self, *args, **kw):
-        if len(kw) > 1:
-            raise TypeError("product() takes at most 1 argument (%d given)" %
-                             len(kw))
-        self.repeat = kw.get('repeat', 1)
-        self.gears = [x for x in args] * self.repeat
-        self.num_gears = len(self.gears)
-        # initialization of indicies to loop over
-        self.indicies = [(0, len(self.gears[x]))
-                         for x in range(0, self.num_gears)]
-        self.cont = True
-
-    def roll_gears(self):
-        # Starting from the end of the gear indicies work to the front
-        # incrementing the gear until the limit is reached. When the limit
-        # is reached carry operation to the next gear
-        should_carry = True
-        for n in range(0, self.num_gears):
-            nth_gear = self.num_gears - n - 1
-            if should_carry:
-                count, lim = self.indicies[nth_gear]
-                count += 1
-                if count == lim and nth_gear == 0:
-                    self.cont = False
-                if count == lim:
-                    should_carry = True
-                    count = 0
-                else:
-                    should_carry = False
-                self.indicies[nth_gear] = (count, lim)
-            else:
-                break
+class izip_longest(object):
+    """Return an izip_longest object whose .next() method returns a tuple where
+    the i-th element comes from the i-th iterable argument.  The .next()
+    method continues until the longest iterable in the argument sequence
+    is exhausted and then it raises StopIteration.  When the shorter iterables
+    are exhausted, the fillvalue is substituted in their place.  The fillvalue
+    defaults to None or can be specified by a keyword argument.
+    """
+    def __init__(self, *iterables, **kwargs):
+        self.fillvalue = kwargs.pop('fillvalue', None)
+        if kwargs:
+            msg = 'izip_longest() got unexpected keyword arguments'
+            raise TypeError(msg)
+        self.iterators = map(iter, iterables)
+        self.repeaters_left = len(self.iterators)
 
     def __iter__(self):
         return self
 
     def next(self):
-        if not self.cont:
-            raise StopIteration
-        l = []
-        for x in range(0, self.num_gears):
-            index, limit = self.indicies[x]
-            l.append(self.gears[x][index])
-        self.roll_gears()
-        return tuple(l)
+        if self.repeaters_left <= 0:
+            raise StopIteration()
+        result = [None] * len(self.iterators)
+        for i, iterator in enumerate(self.iterators):
+            try:
+                item = iterator.next()
+            except StopIteration:
+                self.repeaters_left -= 1
+                if self.repeaters_left <= 0:
+                    raise
+                self.iterators[i] = repeat(self.fillvalue)
+                item = self.fillvalue
+            except AttributeError:
+                # CPython raises a TypeError when next() is not defined
+                raise TypeError('%s has no next() method' % (iterator))
+            result[i] = item
+        return tuple(result)
+
+
+class permutations(object):
+    """permutations(iterable[, r]) --> permutations object
+
+    Return successive r-length permutations of elements in the iterable.
+
+    permutations(range(3), 2) --> (0,1), (0,2), (1,0), (1,2), (2,0), (2,1)
+    """
+    def __init__(self, iterable, r=None):
+        self.pool = list(iterable)
+        n = len(self.pool)
+        if r is None:
+            r = n
+        elif r < 0:
+            raise ValueError('r must be non-negative')
+        self.r = r
+        self.indices = range(n)
+        self.cycles = range(n, n - r, -1)
+        self.stopped = r > n
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        if self.stopped:
+            raise StopIteration()
+
+        r = self.r
+        indices = self.indices
+        cycles = self.cycles
+
+        result = tuple([self.pool[indices[i]] for i in range(r)])
+        i = r - 1
+        while i >= 0:
+            j = cycles[i] - 1
+            if j > 0:
+                cycles[i] = j
+                indices[i], indices[-j] = indices[-j], indices[i]
+                return result
+            cycles[i] = len(indices) - i
+            n1 = len(indices) - 1
+            assert n1 >= 0
+            num = indices[i]
+            for k in range(i, n1):
+                indices[k] = indices[k+1]
+            indices[n1] = num
+            i -= 1
+        self.stopped = True
+        return result
+
+
+class product(object):
+    """Cartesian product of input iterables.
+
+    Equivalent to nested for-loops in a generator expression. For example,
+    ``product(A, B)`` returns the same as ``((x,y) for x in A for y in B)``.
+
+    The nested loops cycle like an odometer with the rightmost element advancing
+    on every iteration.  This pattern creates a lexicographic ordering so that if
+    the input's iterables are sorted, the product tuples are emitted in sorted
+    order.
+
+    To compute the product of an iterable with itself, specify the number of
+    repetitions with the optional *repeat* keyword argument.  For example,
+    ``product(A, repeat=4)`` means the same as ``product(A, A, A, A)``.
+
+    This function is equivalent to the following code, except that the
+    actual implementation does not build up intermediate results in memory::
+
+        def product(*args, **kwds):
+            # product('ABCD', 'xy') --> Ax Ay Bx By Cx Cy Dx Dy
+            # product(range(2), repeat=3) --> 000 001 010 011 100 101 110 111
+            pools = map(tuple, args) * kwds.get('repeat', 1)
+            result = [[]]
+            for pool in pools:
+                result = [x+[y] for x in result for y in pool]
+            for prod in result:
+                yield tuple(prod)
+    """
+    def __init__(self, *args, **kw):
+        if len(kw) > 1:
+            raise TypeError("product() takes at most 1 argument (%d given)" %
+                             len(kw))
+        repeat = kw.get('repeat', 1)
+        self.sources = map(tuple, args) * repeat
+        self.indices = [0] * len(self.sources)
+        try:
+            self.next_result = [s[0] for s in self.sources]
+        except IndexError:
+            self.next_result = None
+
+    def next(self):
+        sources = self.sources
+        indices = self.indices
+
+        if self.next_result is None:
+            raise StopIteration()
+
+        result = tuple(self.next_result)
+
+        i = len(sources)
+        while True:
+            i -= 1
+            if i < 0:
+                self.next_result = None
+                return result
+            j = indices[i]
+            j += 1
+            if j < len(sources[i]):
+                break
+
+        self.next_result[i] = sources[i][j]
+        indices[i] = j
+
+        while True:
+            i += 1
+            if i >= len(sources):
+                break
+            indices[i] = 0
+            self.next_result[i] = sources[i][0]
+
+        return result
+
+    def __iter__(self):
+        return self
 
 
 class repeat(object):
@@ -497,8 +727,8 @@ class repeat(object):
             for i in xrange(times):
                 yield object
     """
-    def __init__(self, obj, times=None):
-        self._obj = obj
+    def __init__(self, object, times=None):
+        self._obj = object
         if times is not None:
             xrange(times) # Raise a TypeError
             if times < 0:
@@ -557,8 +787,6 @@ class starmap(object):
         except AttributeError:
             # CPython raises a TypeError when next() is not defined
             raise TypeError('%s has no next() method' % self._iter)
-        if not isinstance(t, tuple):
-            raise TypeError("iterator must return a tuple")
         return self._func(*t)
 
 
@@ -662,6 +890,8 @@ def tee(iterable, n=2):
         it = iter(iterable)
         return tuple([gen(it.next) for i in range(n)])
     """
+    if n < 0:
+        raise ValueError('n must be >= 0')
     if isinstance(iterable, TeeObject):
         # a,b = tee(range(10)) ; c,d = tee(a) ; self.assert_(a is c)
         return tuple([iterable] +
