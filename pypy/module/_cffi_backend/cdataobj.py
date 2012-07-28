@@ -117,21 +117,21 @@ class W_CData(Wrappable):
     def getitem(self, w_index):
         space = self.space
         i = space.getindex_w(w_index, space.w_IndexError)
-        self.ctype._check_subscript_index(self, i)
-        w_o = self._do_getitem(i)
+        ctype = self.ctype._check_subscript_index(self, i)
+        w_o = self._do_getitem(ctype, i)
         keepalive_until_here(self)
         return w_o
 
-    def _do_getitem(self, i):
-        ctitem = self.ctype.ctitem
+    def _do_getitem(self, ctype, i):
+        ctitem = ctype.ctitem
         return ctitem.convert_to_object(
             rffi.ptradd(self._cdata, i * ctitem.size))
 
     def setitem(self, w_index, w_value):
         space = self.space
         i = space.getindex_w(w_index, space.w_IndexError)
-        self.ctype._check_subscript_index(self, i)
-        ctitem = self.ctype.ctitem
+        ctype = self.ctype._check_subscript_index(self, i)
+        ctitem = ctype.ctitem
         ctitem.convert_from_object(
             rffi.ptradd(self._cdata, i * ctitem.size),
             w_value)
@@ -288,7 +288,8 @@ class W_CDataPtrToStructOrUnion(W_CDataApplevelOwning):
         W_CDataApplevelOwning.__init__(self, space, cdata, ctype)
         self.structobj = structobj
 
-    def _do_getitem(self, i):
+    def _do_getitem(self, ctype, i):
+        assert i == 0
         return self.structobj
 
 

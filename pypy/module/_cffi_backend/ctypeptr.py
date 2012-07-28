@@ -156,6 +156,7 @@ class W_CTypePointer(W_CTypePtrBase):
             raise operationerrfmt(space.w_IndexError,
                                   "cdata '%s' can only be indexed by 0",
                                   self.name)
+        return self
 
     def add(self, cdata, i):
         space = self.space

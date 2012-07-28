@@ -88,6 +88,7 @@ class W_CTypeArray(W_CTypePtrOrArray):
             raise operationerrfmt(space.w_IndexError,
                 "index too large for cdata '%s' (expected %d < %d)",
                 self.name, i, w_cdata.get_array_length())
+        return self
 
     def convert_from_object(self, cdata, w_ob):
         space = self.space
