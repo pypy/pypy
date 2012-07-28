@@ -6,6 +6,7 @@ from pypy.module._cffi_backend.ctypeobj import W_CType
 
 
 class W_CTypeVoid(W_CType):
+    _immutable_ = True
     cast_anything = True
 
     def __init__(self, space):

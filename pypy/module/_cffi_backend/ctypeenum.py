@@ -12,6 +12,7 @@ from pypy.module._cffi_backend import misc
 
 
 class W_CTypeEnum(W_CTypePrimitiveSigned):
+    _immutable_ = True
 
     def __init__(self, space, name, enumerators, enumvalues):
         from pypy.module._cffi_backend.newtype import alignment

@@ -18,6 +18,7 @@ from pypy.module._cffi_backend import cdataobj
 
 
 class W_CTypeArray(W_CTypePtrOrArray):
+    _immutable_ = True
 
     def __init__(self, space, ctptr, length, arraysize, extra):
         W_CTypePtrOrArray.__init__(self, space, arraysize, extra, 0,
@@ -151,6 +152,7 @@ class W_CTypeArray(W_CTypePtrOrArray):
 
 
 class W_CDataIter(Wrappable):
+    _immutable_fields_ = ['ctitem', 'cdata', '_stop']    # but not '_next'
 
     def __init__(self, space, ctitem, cdata):
         self.space = space

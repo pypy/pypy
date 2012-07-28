@@ -12,15 +12,19 @@ from pypy.rlib.objectmodel import keepalive_until_here
 from pypy.module._cffi_backend.ctypeobj import W_CType
 from pypy.module._cffi_backend.ctypeptr import W_CTypePtrBase
 from pypy.module._cffi_backend.ctypevoid import W_CTypeVoid
+from pypy.module._cffi_backend.ctypestruct import W_CTypeStruct
 from pypy.module._cffi_backend.ctypestruct import W_CTypeStructOrUnion
-from pypy.module._cffi_backend import ctypeprim, ctypestruct, ctypearray
-from pypy.module._cffi_backend import cdataobj, cerrno
+from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveSigned
+from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveUnsigned
+from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveCharOrUniChar
+from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveFloat
+from pypy.module._cffi_backend import ctypearray, cdataobj, cerrno
 
 
 class W_CTypeFunc(W_CTypePtrBase):
+    _immutable_ = True
 
     def __init__(self, space, fargs, fresult, ellipsis):
-        self.cif_descr = lltype.nullptr(CIF_DESCRIPTION)
         extra = self._compute_extra_text(fargs, fresult, ellipsis)
         size = rffi.sizeof(rffi.VOIDP)
         W_CTypePtrBase.__init__(self, space, size, extra, 2, fresult,
@@ -110,7 +114,7 @@ class W_CTypeFunc(W_CTypePtrBase):
                 argtype = self.fargs[i]
                 #
                 # special-case for strings.  xxx should avoid copying
-                if argtype.is_char_ptr_or_array:
+                if argtype.is_char_ptr_or_array():
                     try:
                         s = space.str_w(w_obj)
                     except OperationError, e:
@@ -127,7 +131,7 @@ class W_CTypeFunc(W_CTypePtrBase):
                     # set the "must free" flag to 0
                     set_mustfree_flag(data, 0)
                 #
-                if argtype.is_unichar_ptr_or_array:
+                if argtype.is_unichar_ptr_or_array():
                     try:
                         space.unicode_w(w_obj)
                     except OperationError, e:
@@ -170,7 +174,7 @@ class W_CTypeFunc(W_CTypePtrBase):
         finally:
             for i in range(mustfree_max_plus_1):
                 argtype = self.fargs[i]
-                if argtype.is_char_ptr_or_array:
+                if argtype.is_char_ptr_or_array():
                     data = rffi.ptradd(buffer, cif_descr.exchange_args[i])
                     if get_mustfree_flag(data):
                         raw_string = rffi.cast(rffi.CCHARPP, data)[0]
@@ -227,15 +231,64 @@ CIF_DESCRIPTION = lltype.Struct(
     ('exchange_args', rffi.CArray(lltype.Signed)))
 
 CIF_DESCRIPTION_P = lltype.Ptr(CIF_DESCRIPTION)
+W_CTypeFunc.cif_descr = lltype.nullptr(CIF_DESCRIPTION)     # default value
 
-# We attach (lazily or not) to the classes or instances a 'ffi_type' attribute
-W_CType.ffi_type = lltype.nullptr(FFI_TYPE_P.TO)
-W_CTypePtrBase.ffi_type = clibffi.ffi_type_pointer
-W_CTypeVoid.ffi_type = clibffi.ffi_type_void
 
-def _settype(ctype, ffi_type):
-    ctype.ffi_type = ffi_type
-    return ffi_type
+# ----------
+# We attach to the classes small methods that return a 'ffi_type'
+def _missing_ffi_type(self, cifbuilder):
+    space = self.space
+    if self.size < 0:
+        raise operationerrfmt(space.w_TypeError,
+                              "ctype '%s' has incomplete type",
+                              self.name)
+    raise operationerrfmt(space.w_NotImplementedError,
+                          "ctype '%s' (size %d) not supported as argument"
+                          " or return value",
+                          self.name, self.size)
+
+def _struct_ffi_type(self, cifbuilder):
+    if self.size >= 0:
+        return cifbuilder.fb_struct_ffi_type(self)
+    return _missing_ffi_type(self, cifbuilder)
+
+def _primsigned_ffi_type(self, cifbuilder):
+    size = self.size
+    if   size == 1: return clibffi.ffi_type_sint8
+    elif size == 2: return clibffi.ffi_type_sint16
+    elif size == 4: return clibffi.ffi_type_sint32
+    elif size == 8: return clibffi.ffi_type_sint64
+    return _missing_ffi_type(self, cifbuilder)
+
+def _primunsigned_ffi_type(self, cifbuilder):
+    size = self.size
+    if   size == 1: return clibffi.ffi_type_uint8
+    elif size == 2: return clibffi.ffi_type_uint16
+    elif size == 4: return clibffi.ffi_type_uint32
+    elif size == 8: return clibffi.ffi_type_uint64
+    return _missing_ffi_type(self, cifbuilder)
+
+def _primfloat_ffi_type(self, cifbuilder):
+    size = self.size
+    if   size == 4: return clibffi.ffi_type_float
+    elif size == 8: return clibffi.ffi_type_double
+    return _missing_ffi_type(self, cifbuilder)
+
+def _ptr_ffi_type(self, cifbuilder):
+    return clibffi.ffi_type_pointer
+
+def _void_ffi_type(self, cifbuilder):
+    return clibffi.ffi_type_void
+
+W_CType._get_ffi_type                       = _missing_ffi_type
+W_CTypeStruct._get_ffi_type                 = _struct_ffi_type
+W_CTypePrimitiveSigned._get_ffi_type        = _primsigned_ffi_type
+W_CTypePrimitiveCharOrUniChar._get_ffi_type = _primunsigned_ffi_type
+W_CTypePrimitiveUnsigned._get_ffi_type      = _primunsigned_ffi_type
+W_CTypePrimitiveFloat._get_ffi_type         = _primfloat_ffi_type
+W_CTypePtrBase._get_ffi_type                = _ptr_ffi_type
+W_CTypeVoid._get_ffi_type                   = _void_ffi_type
+# ----------
 
 
 class CifDescrBuilder(object):
@@ -257,84 +310,53 @@ class CifDescrBuilder(object):
 
 
     def fb_fill_type(self, ctype):
-        if ctype.ffi_type:   # common case: the ffi_type was already computed
-            return ctype.ffi_type
+        return ctype._get_ffi_type(self)
 
+    def fb_struct_ffi_type(self, ctype):
+        # We can't pass a struct that was completed by verify().
+        # Issue: assume verify() is given "struct { long b; ...; }".
+        # Then it will complete it in the same way whether it is actually
+        # "struct { long a, b; }" or "struct { double a; long b; }".
+        # But on 64-bit UNIX, these two structs are passed by value
+        # differently: e.g. on x86-64, "b" ends up in register "rsi" in
+        # the first case and "rdi" in the second case.
         space = self.space
-        size = ctype.size
-        if size < 0:
-            raise operationerrfmt(space.w_TypeError,
-                                  "ctype '%s' has incomplete type",
-                                  ctype.name)
+        if ctype.custom_field_pos:
+            raise OperationError(space.w_TypeError,
+                                 space.wrap(
+               "cannot pass as an argument a struct that was completed "
+               "with verify() (see pypy/module/_cffi_backend/ctypefunc.py "
+               "for details)"))
 
-        if isinstance(ctype, ctypestruct.W_CTypeStruct):
+        # allocate an array of (n + 1) ffi_types
+        n = len(ctype.fields_list)
+        elements = self.fb_alloc(rffi.sizeof(FFI_TYPE_P) * (n + 1))
+        elements = rffi.cast(FFI_TYPE_PP, elements)
 
-            # We can't pass a struct that was completed by verify().
-            # Issue: assume verify() is given "struct { long b; ...; }".
-            # Then it will complete it in the same way whether it is actually
-            # "struct { long a, b; }" or "struct { double a; long b; }".
-            # But on 64-bit UNIX, these two structs are passed by value
-            # differently: e.g. on x86-64, "b" ends up in register "rsi" in
-            # the first case and "rdi" in the second case.
-            if ctype.custom_field_pos:
-                raise OperationError(space.w_TypeError,
-                                     space.wrap(
-                   "cannot pass as an argument a struct that was completed "
-                   "with verify() (see pypy/module/_cffi_backend/ctypefunc.py "
-                   "for details)"))
-
-            # allocate an array of (n + 1) ffi_types
-            n = len(ctype.fields_list)
-            elements = self.fb_alloc(rffi.sizeof(FFI_TYPE_P) * (n + 1))
-            elements = rffi.cast(FFI_TYPE_PP, elements)
-
-            # fill it with the ffi types of the fields
-            for i, cf in enumerate(ctype.fields_list):
-                if cf.is_bitfield():
-                    raise OperationError(space.w_NotImplementedError,
-                        space.wrap("cannot pass as argument a struct "
-                                   "with bit fields"))
-                ffi_subtype = self.fb_fill_type(cf.ctype)
-                if elements:
-                    elements[i] = ffi_subtype
-
-            # zero-terminate the array
+        # fill it with the ffi types of the fields
+        for i, cf in enumerate(ctype.fields_list):
+            if cf.is_bitfield():
+                raise OperationError(space.w_NotImplementedError,
+                    space.wrap("cannot pass as argument a struct "
+                               "with bit fields"))
+            ffi_subtype = self.fb_fill_type(cf.ctype)
             if elements:
-                elements[n] = lltype.nullptr(FFI_TYPE_P.TO)
+                elements[i] = ffi_subtype
 
-            # allocate and fill an ffi_type for the struct itself
-            ffistruct = self.fb_alloc(rffi.sizeof(FFI_TYPE))
-            ffistruct = rffi.cast(FFI_TYPE_P, ffistruct)
-            if ffistruct:
-                rffi.setintfield(ffistruct, 'c_size', size)
-                rffi.setintfield(ffistruct, 'c_alignment', ctype.alignof())
-                rffi.setintfield(ffistruct, 'c_type', clibffi.FFI_TYPE_STRUCT)
-                ffistruct.c_elements = elements
+        # zero-terminate the array
+        if elements:
+            elements[n] = lltype.nullptr(FFI_TYPE_P.TO)
 
-            return ffistruct
+        # allocate and fill an ffi_type for the struct itself
+        ffistruct = self.fb_alloc(rffi.sizeof(FFI_TYPE))
+        ffistruct = rffi.cast(FFI_TYPE_P, ffistruct)
+        if ffistruct:
+            rffi.setintfield(ffistruct, 'c_size', ctype.size)
+            rffi.setintfield(ffistruct, 'c_alignment', ctype.alignof())
+            rffi.setintfield(ffistruct, 'c_type', clibffi.FFI_TYPE_STRUCT)
+            ffistruct.c_elements = elements
 
-        elif isinstance(ctype, ctypeprim.W_CTypePrimitiveSigned):
-            # compute lazily once the ffi_type
-            if   size == 1: return _settype(ctype, clibffi.ffi_type_sint8)
-            elif size == 2: return _settype(ctype, clibffi.ffi_type_sint16)
-            elif size == 4: return _settype(ctype, clibffi.ffi_type_sint32)
-            elif size == 8: return _settype(ctype, clibffi.ffi_type_sint64)
-
-        elif (isinstance(ctype, ctypeprim.W_CTypePrimitiveCharOrUniChar) or
-              isinstance(ctype, ctypeprim.W_CTypePrimitiveUnsigned)):
-            if   size == 1: return _settype(ctype, clibffi.ffi_type_uint8)
-            elif size == 2: return _settype(ctype, clibffi.ffi_type_uint16)
-            elif size == 4: return _settype(ctype, clibffi.ffi_type_uint32)
-            elif size == 8: return _settype(ctype, clibffi.ffi_type_uint64)
-
-        elif isinstance(ctype, ctypeprim.W_CTypePrimitiveFloat):
-            if   size == 4: return _settype(ctype, clibffi.ffi_type_float)
-            elif size == 8: return _settype(ctype, clibffi.ffi_type_double)
-
-        raise operationerrfmt(space.w_NotImplementedError,
-                              "ctype '%s' (size %d) not supported as argument"
-                              " or return value",
-                              ctype.name, size)
+        return ffistruct
 
 
     def fb_build(self):
@@ -375,7 +397,7 @@ class CifDescrBuilder(object):
 
         # loop over args
         for i, farg in enumerate(self.fargs):
-            if farg.is_char_ptr_or_array:
+            if farg.is_char_ptr_or_array():
                 exchange_offset += 1   # for the "must free" flag
             exchange_offset = self.align_arg(exchange_offset)
             cif_descr.exchange_args[i] = exchange_offset

@@ -6,6 +6,7 @@ from pypy.module._cffi_backend import cdataobj, ctypeptr, ctypearray
 
 
 class LLBuffer(RWBuffer):
+    _immutable_ = True
 
     def __init__(self, raw_cdata, size):
         self.raw_cdata = raw_cdata

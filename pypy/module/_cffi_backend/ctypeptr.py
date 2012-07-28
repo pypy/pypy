@@ -11,11 +11,10 @@ from pypy.module._cffi_backend import cdataobj, misc
 
 
 class W_CTypePtrOrArray(W_CType):
+    _immutable_ = True
 
     def __init__(self, space, size, extra, extra_position, ctitem,
                  could_cast_anything=True):
-        from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveChar
-        from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveUniChar
         from pypy.module._cffi_backend.ctypestruct import W_CTypeStructOrUnion
         name, name_position = ctitem.insert_name(extra, extra_position)
         W_CType.__init__(self, space, size, name, name_position)
@@ -25,9 +24,19 @@ class W_CTypePtrOrArray(W_CType):
         #  - for functions, it is the return type
         self.ctitem = ctitem
         self.can_cast_anything = could_cast_anything and ctitem.cast_anything
-        self.is_char_ptr_or_array = isinstance(ctitem, W_CTypePrimitiveChar)
-        self.is_unichar_ptr_or_array=isinstance(ctitem,W_CTypePrimitiveUniChar)
         self.is_struct_ptr = isinstance(ctitem, W_CTypeStructOrUnion)
+
+    def is_char_ptr_or_array(self):
+        from pypy.module._cffi_backend import ctypeprim
+        return isinstance(self.ctitem, ctypeprim.W_CTypePrimitiveChar)
+
+    def is_unichar_ptr_or_array(self):
+        from pypy.module._cffi_backend import ctypeprim
+        return isinstance(self.ctitem, ctypeprim.W_CTypePrimitiveUniChar)
+
+    def is_char_or_unichar_ptr_or_array(self):
+        from pypy.module._cffi_backend import ctypeprim
+        return isinstance(self.ctitem, ctypeprim.W_CTypePrimitiveCharOrUniChar)
 
     def cast(self, w_ob):
         # cast to a pointer, to a funcptr, or to an array.
@@ -49,6 +58,7 @@ class W_CTypePtrOrArray(W_CType):
 
 class W_CTypePtrBase(W_CTypePtrOrArray):
     # base class for both pointers and pointers-to-functions
+    _immutable_ = True
 
     def convert_to_object(self, cdata):
         ptrdata = rffi.cast(rffi.CCHARPP, cdata)[0]
@@ -78,6 +88,7 @@ class W_CTypePtrBase(W_CTypePtrOrArray):
 
 
 class W_CTypePointer(W_CTypePtrBase):
+    _immutable_ = True
 
     def __init__(self, space, ctitem):
         from pypy.module._cffi_backend import ctypearray
@@ -89,7 +100,7 @@ class W_CTypePointer(W_CTypePtrBase):
         W_CTypePtrBase.__init__(self, space, size, extra, 2, ctitem)
 
     def str(self, cdataobj):
-        if self.is_char_ptr_or_array:
+        if self.is_char_ptr_or_array():
             if not cdataobj._cdata:
                 space = self.space
                 raise operationerrfmt(space.w_RuntimeError,
@@ -101,7 +112,7 @@ class W_CTypePointer(W_CTypePtrBase):
         return W_CTypePtrOrArray.str(self, cdataobj)
 
     def unicode(self, cdataobj):
-        if self.is_unichar_ptr_or_array:
+        if self.is_unichar_ptr_or_array():
             if not cdataobj._cdata:
                 space = self.space
                 raise operationerrfmt(space.w_RuntimeError,
@@ -130,7 +141,7 @@ class W_CTypePointer(W_CTypePtrBase):
                                                        cdatastruct._cdata,
                                                        self, cdatastruct)
         else:
-            if self.is_char_ptr_or_array or self.is_unichar_ptr_or_array:
+            if self.is_char_or_unichar_ptr_or_array():
                 datasize *= 2       # forcefully add a null character
             cdata = cdataobj.W_CDataNewOwning(space, datasize, self)
         #

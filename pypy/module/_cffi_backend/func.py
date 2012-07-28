@@ -3,7 +3,7 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.rpython.lltypesystem import lltype, rffi
 
-from pypy.module._cffi_backend import ctypeobj, cdataobj, ctypefunc
+from pypy.module._cffi_backend import ctypeobj, cdataobj
 
 
 # ____________________________________________________________
@@ -20,7 +20,7 @@ def cast(space, ctype, w_ob):
 
 # ____________________________________________________________
 
-@unwrap_spec(ctype=ctypefunc.W_CTypeFunc)
+@unwrap_spec(ctype=ctypeobj.W_CType)
 def callback(space, ctype, w_callable, w_error=None):
     from pypy.module._cffi_backend.ccallback import W_CDataCallback
     return W_CDataCallback(space, ctype, w_callable, w_error)

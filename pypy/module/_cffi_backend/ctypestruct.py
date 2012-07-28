@@ -14,6 +14,7 @@ from pypy.module._cffi_backend import cdataobj, ctypeprim, misc
 
 
 class W_CTypeStructOrUnion(W_CType):
+    # not an _immutable_ class!
     # fields added by complete_struct_or_union():
     alignment = -1
     fields_list = None

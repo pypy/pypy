@@ -12,6 +12,7 @@ from pypy.module._cffi_backend.ctypeobj import W_CType
 
 
 class W_Library(Wrappable):
+    _immutable_ = True
     handle = rffi.cast(DLLHANDLE, 0)
 
     def __init__(self, space, filename, is_global):

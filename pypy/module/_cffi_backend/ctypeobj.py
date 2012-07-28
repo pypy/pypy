@@ -10,10 +10,10 @@ from pypy.module._cffi_backend import cdataobj
 
 
 class W_CType(Wrappable):
-    #_immutable_ = True    XXX newtype.complete_struct_or_union()?
+    _attrs_ = ['space', 'size', 'name', 'name_position']
+    _immutable_fields_ = _attrs_
+
     cast_anything = False
-    is_char_ptr_or_array = False
-    is_unichar_ptr_or_array = False
     is_primitive_integer = False
 
     def __init__(self, space, size, name, name_position):
@@ -33,6 +33,12 @@ class W_CType(Wrappable):
             return '0x%x' % rffi.cast(lltype.Unsigned, cdata)
         else:
             return 'NULL'
+
+    def is_char_ptr_or_array(self):
+        return False
+
+    def is_unichar_ptr_or_array(self):
+        return False
 
     def newp(self, w_init):
         space = self.space

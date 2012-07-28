@@ -10,6 +10,7 @@ from pypy.rlib.rarithmetic import r_ulonglong
 
 from pypy.module._cffi_backend.cdataobj import W_CData, W_CDataApplevelOwning
 from pypy.module._cffi_backend.ctypefunc import SIZE_OF_FFI_ARG, BIG_ENDIAN
+from pypy.module._cffi_backend.ctypefunc import W_CTypeFunc
 from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveSigned
 from pypy.module._cffi_backend.ctypevoid import W_CTypeVoid
 from pypy.module._cffi_backend import cerrno, misc
@@ -32,7 +33,7 @@ class W_CDataCallback(W_CDataApplevelOwning):
         self.w_callable = w_callable
         self.w_error = w_error
         #
-        fresult = self.ctype.ctitem
+        fresult = self.getfunctype().ctitem
         size = fresult.size
         if size > 0:
             if fresult.is_primitive_integer and size < SIZE_OF_FFI_ARG:
@@ -45,7 +46,7 @@ class W_CDataCallback(W_CDataApplevelOwning):
         self.unique_id = compute_unique_id(self)
         global_callback_mapping.set(self.unique_id, self)
         #
-        cif_descr = ctype.cif_descr
+        cif_descr = self.getfunctype().cif_descr
         if not cif_descr:
             raise OperationError(space.w_NotImplementedError,
                                  space.wrap("callbacks with '...'"))
@@ -69,9 +70,17 @@ class W_CDataCallback(W_CDataApplevelOwning):
         space = self.space
         return 'calling ' + space.str_w(space.repr(self.w_callable))
 
+    def getfunctype(self):
+        ctype = self.ctype
+        if not isinstance(ctype, W_CTypeFunc):
+            space = self.space
+            raise OperationError(space.w_TypeError,
+                                 space.wrap("expected a function ctype"))
+        return ctype
+
     def invoke(self, ll_args, ll_res):
         space = self.space
-        ctype = self.ctype
+        ctype = self.getfunctype()
         args_w = []
         for i, farg in enumerate(ctype.fargs):
             ll_arg = rffi.cast(rffi.CCHARP, ll_args[i])
@@ -87,7 +96,7 @@ class W_CDataCallback(W_CDataApplevelOwning):
         operr.write_unraisable(space, "in cffi callback", self.w_callable)
 
     def write_error_return_value(self, ll_res):
-        fresult = self.ctype.ctitem
+        fresult = self.getfunctype().ctitem
         if fresult.size > 0:
             # push push push at the llmemory interface (with hacks that
             # are all removed after translation)
