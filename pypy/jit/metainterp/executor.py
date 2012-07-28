@@ -186,7 +186,7 @@ def do_raw_store(cpu, _, addrbox, offsetbox, valuebox, arraydescr):
     if arraydescr.is_array_of_pointers():
         raise AssertionError("cannot store GC pointers in raw store")
     elif arraydescr.is_array_of_floats():
-        cpu.bh_raw_store_f(addr, offset, arraydescr, valuebox.getfloat())
+        cpu.bh_raw_store_f(addr, offset, arraydescr,valuebox.getfloatstorage())
     else:
         cpu.bh_raw_store_i(addr, offset, arraydescr, valuebox.getint())
 
