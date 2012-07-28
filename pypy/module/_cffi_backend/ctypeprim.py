@@ -12,7 +12,8 @@ from pypy.module._cffi_backend import cdataobj, misc
 
 
 class W_CTypePrimitive(W_CType):
-    _immutable_ = True
+    _attrs_            = ['align']
+    _immutable_fields_ = ['align']
 
     def __init__(self, space, size, name, name_position, align):
         W_CType.__init__(self, space, size, name, name_position)
@@ -71,12 +72,12 @@ class W_CTypePrimitive(W_CType):
 
 
 class W_CTypePrimitiveCharOrUniChar(W_CTypePrimitive):
-    _immutable_ = True
+    _attrs_ = []
     is_primitive_integer = True
 
 
 class W_CTypePrimitiveChar(W_CTypePrimitiveCharOrUniChar):
-    _immutable_ = True
+    _attrs_ = []
     cast_anything = True
 
     def int(self, cdata):
@@ -108,7 +109,7 @@ class W_CTypePrimitiveChar(W_CTypePrimitiveCharOrUniChar):
 
 
 class W_CTypePrimitiveUniChar(W_CTypePrimitiveCharOrUniChar):
-    _immutable_ = True
+    _attrs_ = []
 
     def int(self, cdata):
         unichardata = rffi.cast(rffi.CWCHARP, cdata)
@@ -142,7 +143,8 @@ class W_CTypePrimitiveUniChar(W_CTypePrimitiveCharOrUniChar):
 
 
 class W_CTypePrimitiveSigned(W_CTypePrimitive):
-    _immutable_ = True
+    _attrs_            = ['value_fits_long', 'vmin', 'vrangemax']
+    _immutable_fields_ = ['value_fits_long', 'vmin', 'vrangemax']
     is_primitive_integer = True
 
     def __init__(self, *args):
@@ -179,7 +181,8 @@ class W_CTypePrimitiveSigned(W_CTypePrimitive):
 
 
 class W_CTypePrimitiveUnsigned(W_CTypePrimitive):
-    _immutable_ = True
+    _attrs_            = ['value_fits_long', 'vrangemax']
+    _immutable_fields_ = ['value_fits_long', 'vrangemax']
     is_primitive_integer = True
 
     def __init__(self, *args):
@@ -208,7 +211,7 @@ class W_CTypePrimitiveUnsigned(W_CTypePrimitive):
 
 
 class W_CTypePrimitiveFloat(W_CTypePrimitive):
-    _immutable_ = True
+    _attrs_ = []
 
     def cast(self, w_ob):
         space = self.space

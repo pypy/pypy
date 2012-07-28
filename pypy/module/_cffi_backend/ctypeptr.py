@@ -11,7 +11,8 @@ from pypy.module._cffi_backend import cdataobj, misc
 
 
 class W_CTypePtrOrArray(W_CType):
-    _immutable_ = True
+    _attrs_            = ['ctitem', 'can_cast_anything', 'is_struct_ptr']
+    _immutable_fields_ = ['ctitem', 'can_cast_anything', 'is_struct_ptr']
 
     def __init__(self, space, size, extra, extra_position, ctitem,
                  could_cast_anything=True):
@@ -58,7 +59,7 @@ class W_CTypePtrOrArray(W_CType):
 
 class W_CTypePtrBase(W_CTypePtrOrArray):
     # base class for both pointers and pointers-to-functions
-    _immutable_ = True
+    _attrs_ = []
 
     def convert_to_object(self, cdata):
         ptrdata = rffi.cast(rffi.CCHARPP, cdata)[0]
@@ -88,7 +89,7 @@ class W_CTypePtrBase(W_CTypePtrOrArray):
 
 
 class W_CTypePointer(W_CTypePtrBase):
-    _immutable_ = True
+    _attrs_ = []
 
     def __init__(self, space, ctitem):
         from pypy.module._cffi_backend import ctypearray

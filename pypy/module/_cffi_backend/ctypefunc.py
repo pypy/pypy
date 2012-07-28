@@ -22,7 +22,8 @@ from pypy.module._cffi_backend import ctypearray, cdataobj, cerrno
 
 
 class W_CTypeFunc(W_CTypePtrBase):
-    _immutable_ = True
+    _attrs_            = ['fargs', 'ellipsis', 'cif_descr']
+    _immutable_fields_ = ['fargs', 'ellipsis', 'cif_descr']
 
     def __init__(self, space, fargs, fresult, ellipsis):
         extra = self._compute_extra_text(fargs, fresult, ellipsis)

@@ -19,7 +19,7 @@ from pypy.module._cffi_backend import cerrno, misc
 
 
 class W_CDataCallback(W_CDataApplevelOwning):
-    _immutable_ = True
+    #_immutable_fields_ = ...
     ll_error = lltype.nullptr(rffi.CCHARP.TO)
 
     def __init__(self, space, ctype, w_callable, w_error):

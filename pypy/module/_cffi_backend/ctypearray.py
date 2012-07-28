@@ -18,7 +18,8 @@ from pypy.module._cffi_backend import cdataobj
 
 
 class W_CTypeArray(W_CTypePtrOrArray):
-    _immutable_ = True
+    _attrs_            = ['length', 'ctptr']
+    _immutable_fields_ = ['length', 'ctptr']
 
     def __init__(self, space, ctptr, length, arraysize, extra):
         W_CTypePtrOrArray.__init__(self, space, arraysize, extra, 0,
