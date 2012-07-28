@@ -116,6 +116,10 @@ class W_CType(Wrappable):
             # obscure hack when untranslated, maybe, approximate, don't use
             if isinstance(align, llmemory.FieldOffset):
                 align = rffi.sizeof(align.TYPE.y)
+        else:
+            # a different hack when translated, to avoid seeing constants
+            # of a symbolic integer type
+            align = llmemory.raw_malloc_usage(align)
         return align
 
     def _alignof(self):
