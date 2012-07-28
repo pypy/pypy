@@ -1520,7 +1520,7 @@ def do_raw_load_float(struct, offset, descrofs):
     ll_p = rffi.cast(rffi.CCHARP, struct)
     ll_p = rffi.cast(lltype.Ptr(TYPE), rffi.ptradd(ll_p, offset))
     value = ll_p[0]
-    return rffi.cast(lltype.Float, value)
+    return rffi.cast(longlong.FLOATSTORAGE, value)
 
 def do_raw_store_int(struct, offset, descrofs, value):
     TYPE = symbolic.Size2Type[descrofs]
