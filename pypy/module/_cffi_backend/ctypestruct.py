@@ -3,7 +3,7 @@ Struct and unions.
 """
 
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.rpython.lltypesystem import lltype, llmemory, rffi
+from pypy.rpython.lltypesystem import rffi
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.rlib.objectmodel import keepalive_until_here
@@ -56,13 +56,8 @@ class W_CTypeStructOrUnion(W_CType):
         space = self.space
         self.check_complete()
         ob = cdataobj.W_CDataNewOwning(space, self.size, self)
-        # push push push at the llmemory interface (with hacks that
-        # are all removed after translation)
-        zero = llmemory.itemoffsetof(rffi.CCHARP.TO, 0)
-        llmemory.raw_memcopy(
-            llmemory.cast_ptr_to_adr(cdata) + zero,
-            llmemory.cast_ptr_to_adr(ob._cdata) + zero,
-            self.size * llmemory.sizeof(lltype.Char))
+        misc._raw_memcopy(cdata, ob._cdata, self.size)
+        keepalive_until_here(ob)
         return ob
 
     def offsetof(self, fieldname):
@@ -79,13 +74,7 @@ class W_CTypeStructOrUnion(W_CType):
         ob = space.interpclass_w(w_ob)
         if isinstance(ob, cdataobj.W_CData):
             if ob.ctype is self and self.size >= 0:
-                # push push push at the llmemory interface (with hacks that
-                # are all removed after translation)
-                zero = llmemory.itemoffsetof(rffi.CCHARP.TO, 0)
-                llmemory.raw_memcopy(
-                    llmemory.cast_ptr_to_adr(ob._cdata) + zero,
-                    llmemory.cast_ptr_to_adr(cdata) + zero,
-                    self.size * llmemory.sizeof(lltype.Char))
+                misc._raw_memcopy(ob._cdata, cdata, self.size)
                 keepalive_until_here(ob)
                 return True
         return False

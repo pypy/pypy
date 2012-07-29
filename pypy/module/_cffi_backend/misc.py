@@ -1,7 +1,8 @@
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rlib.rarithmetic import r_ulonglong
 from pypy.rlib.unroll import unrolling_iterable
+from pypy.rlib import jit
 
 # ____________________________________________________________
 
@@ -135,3 +136,33 @@ def as_unsigned_long_long(space, w_ob, strict):
 
 neg_msg = "can't convert negative number to unsigned"
 ovf_msg = "long too big to convert"
+
+# ____________________________________________________________
+
+def _raw_memcopy(source, dest, size):
+    if jit.isconstant(size):
+        # for the JIT: first handle the case where 'size' is known to be
+        # a constant equal to 1, 2, 4, 8
+        for TP, TPP in _prim_unsigned_types:
+            if size == rffi.sizeof(TP):
+                rffi.cast(TPP, dest)[0] = rffi.cast(TPP, source)[0]
+                return
+    _raw_memcopy_opaque(source, dest, size)
+
+@jit.dont_look_inside
+def _raw_memcopy_opaque(source, dest, size):
+    # push push push at the llmemory interface (with hacks that are all
+    # removed after translation)
+    zero = llmemory.itemoffsetof(rffi.CCHARP.TO, 0)
+    llmemory.raw_memcopy(
+        llmemory.cast_ptr_to_adr(source) + zero,
+        llmemory.cast_ptr_to_adr(dest) + zero,
+        size * llmemory.sizeof(lltype.Char))
+
+def _raw_memclear(dest, size):
+    # for now, only supports the cases of size = 1, 2, 4, 8
+    for TP, TPP in _prim_unsigned_types:
+        if size == rffi.sizeof(TP):
+            rffi.cast(TPP, dest)[0] = rffi.cast(TP, 0)
+            return
+    raise NotImplementedError("bad clear size")

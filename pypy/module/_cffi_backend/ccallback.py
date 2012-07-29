@@ -98,12 +98,7 @@ class W_CDataCallback(W_CDataApplevelOwning):
     def write_error_return_value(self, ll_res):
         fresult = self.getfunctype().ctitem
         if fresult.size > 0:
-            # push push push at the llmemory interface (with hacks that
-            # are all removed after translation)
-            zero = llmemory.itemoffsetof(rffi.CCHARP.TO, 0)
-            llmemory.raw_memcopy(llmemory.cast_ptr_to_adr(self.ll_error) +zero,
-                                 llmemory.cast_ptr_to_adr(ll_res) + zero,
-                                 fresult.size * llmemory.sizeof(lltype.Char))
+            misc._raw_memcopy(self.ll_error, ll_res, fresult.size)
             keepalive_until_here(self)
 
 
@@ -145,9 +140,7 @@ def convert_from_object_fficallback(fresult, ll_res, w_res):
         else:
             # zero extension: fill the '*result' with zeros, and (on big-
             # endian machines) correct the 'result' pointer to write to
-            zero = llmemory.itemoffsetof(rffi.CCHARP.TO, 0)
-            llmemory.raw_memclear(llmemory.cast_ptr_to_adr(ll_res) + zero,
-                                SIZE_OF_FFI_ARG * llmemory.sizeof(lltype.Char))
+            misc._raw_memclear(ll_res, SIZE_OF_FFI_ARG)
             if BIG_ENDIAN:
                 diff = SIZE_OF_FFI_ARG - fresult.size
                 ll_res = rffi.ptradd(ll_res, diff)
@@ -180,9 +173,7 @@ def invoke_callback(ffi_cif, ll_res, ll_args, ll_userdata):
             pass
         # In this case, we don't even know how big ll_res is.  Let's assume
         # it is just a 'ffi_arg', and store 0 there.
-        zero = llmemory.itemoffsetof(rffi.CCHARP.TO, 0)
-        llmemory.raw_memclear(llmemory.cast_ptr_to_adr(ll_res) + zero,
-                              SIZE_OF_FFI_ARG * llmemory.sizeof(lltype.Char))
+        misc._raw_memclear(ll_res, SIZE_OF_FFI_ARG)
         return
     #
     ec = None
