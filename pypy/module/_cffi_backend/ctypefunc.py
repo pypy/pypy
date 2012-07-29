@@ -84,25 +84,39 @@ class W_CTypeFunc(W_CTypePtrBase):
 
 
     def call(self, funcaddr, args_w):
-        space = self.space
-        cif_descr = self.cif_descr
-        nargs_declared = len(self.fargs)
-
-        if cif_descr:
+        if self.cif_descr:
             # regular case: this function does not take '...' arguments
+            nargs_declared = len(self.fargs)
             if len(args_w) != nargs_declared:
+                space = self.space
                 raise operationerrfmt(space.w_TypeError,
                                       "'%s' expects %d arguments, got %d",
                                       self.name, nargs_declared, len(args_w))
+            return self._call(funcaddr, args_w)
         else:
             # call of a variadic function
-            if len(args_w) < nargs_declared:
-                raise operationerrfmt(space.w_TypeError,
-                                  "'%s' expects at least %d arguments, got %d",
-                                      self.name, nargs_declared, len(args_w))
-            self = self.new_ctypefunc_completing_argtypes(args_w)
-            cif_descr = self.cif_descr
+            return self.call_varargs(funcaddr, args_w)
 
+    @jit.dont_look_inside
+    def call_varargs(self, funcaddr, args_w):
+        nargs_declared = len(self.fargs)
+        if len(args_w) < nargs_declared:
+            space = self.space
+            raise operationerrfmt(space.w_TypeError,
+                                  "'%s' expects at least %d arguments, got %d",
+                                  self.name, nargs_declared, len(args_w))
+        completed = self.new_ctypefunc_completing_argtypes(args_w)
+        return completed._call(funcaddr, args_w)
+
+    # The following is the core of function calls.  It is @unroll_safe,
+    # which means that the JIT is free to unroll the argument handling.
+    # But in case the function takes variable arguments, we don't unroll
+    # this (yet) for better safety: this is handled by @dont_look_inside
+    # in call_varargs.
+    @jit.unroll_safe
+    def _call(self, funcaddr, args_w):
+        space = self.space
+        cif_descr = self.cif_descr
         size = cif_descr.exchange_size
         mustfree_max_plus_1 = 0
         buffer = lltype.malloc(rffi.CCHARP.TO, size, flavor='raw')
@@ -229,7 +243,8 @@ CIF_DESCRIPTION = lltype.Struct(
     ('cif', FFI_CIF),
     ('exchange_size', lltype.Signed),
     ('exchange_result', lltype.Signed),
-    ('exchange_args', rffi.CArray(lltype.Signed)))
+    ('exchange_args', rffi.CArray(lltype.Signed)),
+    hints={'immutable': True})
 
 CIF_DESCRIPTION_P = lltype.Ptr(CIF_DESCRIPTION)
 W_CTypeFunc.cif_descr = lltype.nullptr(CIF_DESCRIPTION)     # default value
