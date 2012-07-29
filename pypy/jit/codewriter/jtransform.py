@@ -228,6 +228,9 @@ class Transformer(object):
                 return [None, # hack, do the right renaming from op.args[0] to op.result
                         SpaceOperation("record_known_class", [op.args[0], const_vtable], None)]
 
+    def rewrite_op_raw_malloc_usage(self, op):
+        pass
+
     def rewrite_op_jit_record_known_class(self, op):
         return SpaceOperation("record_known_class", [op.args[0], op.args[1]], None)
 
@@ -1258,6 +1261,8 @@ class Transformer(object):
                        ('uint_or', 'int_or'),
                        ('uint_lshift', 'int_lshift'),
                        ('uint_xor', 'int_xor'),
+
+                       ('adr_add', 'int_add'),
                        ]:
         assert _old not in locals()
         exec py.code.Source('''
