@@ -707,6 +707,16 @@ class Transformer(object):
                               [v_inst, descr, v_value],
                               None)
 
+    def rewrite_op_getsubstruct(self, op):
+        STRUCT = op.args[0].concretetype.TO
+        argname = getattr(STRUCT, '_gckind', 'gc')
+        if argname != 'raw':
+            raise Exception("%r: only supported for gckind=raw" % (op,))
+        ofs = llmemory.offsetof(STRUCT, 'exchange_args')
+        return SpaceOperation('int_add',
+                              [op.args[0], Constant(ofs, lltype.Signed)],
+                              op.result)
+
     def is_typeptr_getset(self, op):
         return (op.args[1].value == 'typeptr' and
                 op.args[0].concretetype.TO._hints.get('typeptr'))

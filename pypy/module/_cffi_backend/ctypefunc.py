@@ -165,7 +165,7 @@ class W_CTypeFunc(W_CTypePtrBase):
             cerrno.restore_errno_from(ec)
             clibffi.c_ffi_call(cif_descr.cif,
                                rffi.cast(rffi.VOIDP, funcaddr),
-                               resultdata,
+                               rffi.cast(rffi.VOIDP, resultdata),
                                buffer_array)
             e = cerrno.get_real_errno()
             cerrno.save_errno_into(ec, e)
