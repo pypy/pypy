@@ -1679,3 +1679,40 @@ def test_variable_length_struct():
     assert x.a1 == 0
     assert len(x.a2) == 2
     assert list(x.a2) == [4, 5]
+
+def test_autocast_int():
+    BInt = new_primitive_type("int")
+    BIntPtr = new_pointer_type(BInt)
+    BLongLong = new_primitive_type("long long")
+    BULongLong = new_primitive_type("unsigned long long")
+    BULongLongPtr = new_pointer_type(BULongLong)
+    x = newp(BIntPtr, cast(BInt, 42))
+    assert x[0] == 42
+    x = newp(BIntPtr, cast(BLongLong, 42))
+    assert x[0] == 42
+    x = newp(BIntPtr, cast(BULongLong, 42))
+    assert x[0] == 42
+    x = newp(BULongLongPtr, cast(BInt, 42))
+    assert x[0] == 42
+    py.test.raises(OverflowError, newp, BULongLongPtr, cast(BInt, -42))
+    x = cast(BInt, cast(BInt, 42))
+    assert int(x) == 42
+    x = cast(BInt, cast(BLongLong, 42))
+    assert int(x) == 42
+    x = cast(BInt, cast(BULongLong, 42))
+    assert int(x) == 42
+    x = cast(BULongLong, cast(BInt, 42))
+    assert int(x) == 42
+    x = cast(BULongLong, cast(BInt, -42))
+    assert int(x) == 2 ** 64 - 42
+    x = cast(BIntPtr, cast(BInt, 42))
+    assert int(cast(BInt, x)) == 42
+
+def test_autocast_float():
+    BFloat = new_primitive_type("float")
+    BDouble = new_primitive_type("float")
+    BFloatPtr = new_pointer_type(BFloat)
+    x = newp(BFloatPtr, cast(BDouble, 12.5))
+    assert x[0] == 12.5
+    x = cast(BFloat, cast(BDouble, 12.5))
+    assert float(x) == 12.5
