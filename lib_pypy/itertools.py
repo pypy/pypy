@@ -37,7 +37,7 @@ except ImportError: builtinify = lambda f: f
 
 
 def check_number(n):
-    if not hasattr(n, '__add__') or isinstance(n, basestring):
+    if not hasattr(n, '__int__') and not hasattr(n, '__float__'):
         raise TypeError('expected a number')
 
 
@@ -65,13 +65,9 @@ class chain(object):
     def next(self):
         while True:
             try:
-                return self._cur_iterable_iter.next()
+                return next(self._cur_iterable_iter)
             except StopIteration:
-                self._cur_iterable_iter = iter(self._iterables_iter.next())
-            except AttributeError:
-                # CPython raises a TypeError when next() is not defined
-                raise TypeError('%s has no next() method' % \
-                                (self._cur_iterable_iter))
+                self._cur_iterable_iter = iter(next(self._iterables_iter))
 
     @classmethod
     def from_iterable(cls, iterables):
@@ -165,6 +161,17 @@ class combinations_with_replacement(combinations):
 
 
 class compress(object):
+    """Make an iterator that filters elements from data returning
+    only those that have a corresponding element in selectors that
+    evaluates to True.  Stops when either the data or selectors
+    iterables has been exhausted.
+
+    Equivalent to:
+
+    def compress(data, selectors):
+        # compress('ABCDEF', [1,0,1,0,1,1]) --> A C E F
+        return (d for d, s in izip(data, selectors) if s)
+    """
     def __init__(self, data, selectors):
         self.data = iter(data)
         self.selectors = iter(selectors)
@@ -174,16 +181,8 @@ class compress(object):
 
     def next(self):
         while True:
-            try:
-                next_item = self.data.next()
-            except AttributeError:
-                # CPython raises a TypeError when next() is not defined
-                raise TypeError('%s has no next() method' % (self.data))
-            try:
-                next_selector = self.selectors.next()
-            except AttributeError:
-                # CPython raises a TypeError when next() is not defined
-                raise TypeError('%s has no next() method' % (self.selectors))
+            next_item = next(self.data)
+            next_selector = next(self.selectors)
             if bool(next_selector):
                 return next_item
 
@@ -247,28 +246,25 @@ class cycle(object):
                 yield element    
     """
     def __init__(self, iterable):
-        self._cur_iter = iter(iterable)
+        self._cur_iter = self._saving_iter(iter(iterable))
         self._saved = []
-        self._must_save = True
         
     def __iter__(self):
         return self
 
+    def _saving_iter(self, iterable):
+        while True:
+            item = next(iterable)
+            self._saved.append(item)
+            yield item
+
     def next(self):
-        # XXX Could probably be improved
         try:
-            next_elt = self._cur_iter.next()
-            if self._must_save:
-                self._saved.append(next_elt)
+            item = next(self._cur_iter)
         except StopIteration:
             self._cur_iter = iter(self._saved)
-            next_elt = self._cur_iter.next()
-            self._must_save = False
-        except AttributeError:
-            # CPython raises a TypeError when next() is not defined
-            raise TypeError('%s has no next() method' % \
-                            (self._cur_iter))
-        return next_elt
+            item = next(self._cur_iter)
+        return item
             
         
 class dropwhile(object):
@@ -297,16 +293,11 @@ class dropwhile(object):
         return self
 
     def next(self):
-        try:
-            value = self._iter.next()
-        except AttributeError:
-            # CPython raises a TypeError when next() is not defined
-            raise TypeError('%s has no next() method' % \
-                            (self._iter))
+        value = next(self._iter)
         if self._dropped:
             return value
         while self._predicate(value):
-            value = self._iter.next()
+            value = next(self._iter)
         self._dropped = True
         return value
 
@@ -341,12 +332,7 @@ class groupby(object):
 
     def next(self):
         while self.currkey == self.tgtkey:
-            try:
-                self.currvalue = self.it.next() # Exit on StopIteration
-            except AttributeError:
-                # CPython raises a TypeError when next() is not defined
-                raise TypeError('%s has no next() method' % \
-                                (self.it))            
+            self.currvalue = next(self.it) # Exit on StopIteration
             self.currkey = self.keyfunc(self.currvalue)
         self.tgtkey = self.currkey
         return (self.currkey, self._grouper(self.tgtkey))
@@ -354,7 +340,7 @@ class groupby(object):
     def _grouper(self, tgtkey):
         while self.currkey == tgtkey:
             yield self.currvalue
-            self.currvalue = self.it.next() # Exit on StopIteration
+            self.currvalue = next(self.it) # Exit on StopIteration
             self.currkey = self.keyfunc(self.currvalue)
 
 
@@ -387,16 +373,10 @@ class ifilter(_ifilter_base):
                 yield x
     """
     def next(self):
-        try:
-            next_elt = self._iter.next()
-        except AttributeError:
-            # CPython raises a TypeError when next() is not defined
-            raise TypeError('%s has no next() method' % \
-                            (self._iter))
         while True:
+            next_elt = next(self._iter)
             if self._predicate(next_elt):
                 return next_elt
-            next_elt = self._iter.next()
 
 class ifilterfalse(_ifilter_base):
     """Make an iterator that filters elements from iterable returning
@@ -413,16 +393,10 @@ class ifilterfalse(_ifilter_base):
                 yield x
     """
     def next(self):
-        try:
-            next_elt = self._iter.next()
-        except AttributeError:
-            # CPython raises a TypeError when next() is not defined
-            raise TypeError('%s has no next() method' % \
-                            (self._iter))
         while True:
+            next_elt = next(self._iter)
             if not self._predicate(next_elt):
                 return next_elt
-            next_elt = self._iter.next()
              
 
 
@@ -450,6 +424,8 @@ class imap(object):
     
     """
     def __init__(self, function, iterable, *other_iterables):
+        if function is None:
+            function = lambda *args: args
         self._func = function
         self._iters = map(iter, (iterable, ) + other_iterables)
 
@@ -457,16 +433,8 @@ class imap(object):
         return self
 
     def next(self):
-        try:
-            args = [it.next() for it in self._iters]
-        except AttributeError:
-            # CPython raises a TypeError when next() is not defined
-            raise TypeError('%s has no next() method' % \
-                            (it))
-        if self._func is None:
-            return tuple(args)
-        else:
-            return self._func(*args)
+        args = [next(it) for it in self._iters]
+        return self._func(*args)
 
 
 
@@ -504,11 +472,7 @@ class islice(object):
         while i < self.next_pos:
             if i >= self.max_pos:
                 raise StopIteration()
-            try:
-                item = self.iterable.next()
-            except AttributeError:
-                # CPython raises a TypeError when next() is not defined
-                raise TypeError('%s has no next() method' % (self.iterable))
+            item = next(self.iterable)
             i += 1
 
         self.pos = i
@@ -538,11 +502,7 @@ class izip(object):
     def next(self):
         if not self._iterators:
             raise StopIteration()
-        try:
-            return tuple([i.next() for i in self._iterators])
-        except AttributeError:
-            # CPython raises a TypeError when next() is not defined
-            raise TypeError('%s has no next() method' % (i))
+        return tuple([next(i) for i in self._iterators])
 
 
 class izip_longest(object):
@@ -556,7 +516,7 @@ class izip_longest(object):
     def __init__(self, *iterables, **kwargs):
         self.fillvalue = kwargs.pop('fillvalue', None)
         if kwargs:
-            msg = 'izip_longest() got unexpected keyword arguments'
+            msg = 'izip_longest() got unexpected keyword argument(s)'
             raise TypeError(msg)
         self.iterators = map(iter, iterables)
         self.repeaters_left = len(self.iterators)
@@ -570,16 +530,13 @@ class izip_longest(object):
         result = [None] * len(self.iterators)
         for i, iterator in enumerate(self.iterators):
             try:
-                item = iterator.next()
+                item = next(iterator)
             except StopIteration:
                 self.repeaters_left -= 1
                 if self.repeaters_left <= 0:
                     raise
                 self.iterators[i] = repeat(self.fillvalue)
                 item = self.fillvalue
-            except AttributeError:
-                # CPython raises a TypeError when next() is not defined
-                raise TypeError('%s has no next() method' % (iterator))
             result[i] = item
         return tuple(result)
 
@@ -663,10 +620,10 @@ class product(object):
                 yield tuple(prod)
     """
     def __init__(self, *args, **kw):
-        if len(kw) > 1:
-            raise TypeError("product() takes at most 1 argument (%d given)" %
-                             len(kw))
-        repeat = kw.get('repeat', 1)
+        repeat = kw.pop('repeat', 1)
+        if kw:
+            msg = 'product() got unexpected keyword argument(s)'
+            raise TypeError(msg)
         self.sources = map(tuple, args) * repeat
         self.indices = [0] * len(self.sources)
         try:
@@ -754,7 +711,7 @@ class repeat(object):
 
     def __len__(self):
         if self._times == -1 or self._times is None:
-            raise TypeError("len() of uniszed object")
+            raise TypeError("len() of unsized object")
         return self._times
     
 
@@ -781,12 +738,7 @@ class starmap(object):
         return self
 
     def next(self):
-        # CPython raises a TypeError when the iterator doesn't return a tuple
-        try:
-            t = self._iter.next()
-        except AttributeError:
-            # CPython raises a TypeError when next() is not defined
-            raise TypeError('%s has no next() method' % self._iter)
+        t = next(self._iter)
         return self._func(*t)
 
 
@@ -812,13 +764,9 @@ class takewhile(object):
         return self
 
     def next(self):
-        try:
-            value = self._iter.next()
-        except AttributeError:
-            # CPython raises a TypeError when next() is not defined
-            raise TypeError('%s has no next() method' % \
-                            (self._iter))
+        value = next(self._iter)
         if not self._predicate(value):
+            self._iter = iter([])
             raise StopIteration()
         return value
 
@@ -831,12 +779,9 @@ class TeeData(object):
 
     def __getitem__(self, i):
         # iterates until 'i' if not done yet
-        while i>= len(self.data):
-            try:
-                self.data.append( self._iter.next() )
-            except AttributeError:
-                # CPython raises a TypeError when next() is not defined
-                raise TypeError('%s has no next() method' % self._iter)
+        while i >= len(self.data):
+            value = next(self._iter)
+            self.data.append(value)
         return self.data[i]
 
 
@@ -894,7 +839,6 @@ def tee(iterable, n=2):
         raise ValueError('n must be >= 0')
     if isinstance(iterable, TeeObject):
         # a,b = tee(range(10)) ; c,d = tee(a) ; self.assert_(a is c)
-        return tuple([iterable] +
-        [TeeObject(tee_data=iterable.tee_data) for i in xrange(n-1)])
+        return tuple([iterable] + [TeeObject(iterable) for i in xrange(n-1)])
     tee_data = TeeData(iter(iterable))
     return tuple([TeeObject(tee_data=tee_data) for i in xrange(n)])
