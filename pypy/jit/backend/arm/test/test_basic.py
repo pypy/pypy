@@ -2,6 +2,9 @@ import py
 from pypy.jit.metainterp.test import test_ajit
 from pypy.rlib.jit import JitDriver
 from pypy.jit.backend.arm.test.support import JitARMMixin
+from pypy.jit.backend.detect_cpu import getcpuclass
+
+CPU = getcpuclass()
 
 class TestBasic(JitARMMixin, test_ajit.BaseLLtypeTests):
     # for the individual tests see
@@ -30,6 +33,13 @@ class TestBasic(JitARMMixin, test_ajit.BaseLLtypeTests):
 
     def test_free_object(self):
         py.test.skip("issue of freeing, probably with ll2ctypes")
+
+
+    if not CPU.supports_longlong:
+        for k in dir(test_ajit.BaseLLtypeTests):
+            if k.find('longlong') < 0:
+                continue
+            locals()[k] = lambda self: py.test.skip('requires longlong support')
 
     def test_read_timestamp(self):
         py.test.skip("The JIT on ARM does not support read_timestamp")
