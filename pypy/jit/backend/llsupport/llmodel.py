@@ -540,9 +540,34 @@ class AbstractLLCPU(AbstractCPU):
         # --- end of GC unsafe code ---
         return fval
 
-    bh_getfield_gc_i = _base_do_getfield_i
-    bh_getfield_gc_r = _base_do_getfield_r
-    bh_getfield_gc_f = _base_do_getfield_f
+    def bh_getfield_gc_i(self, struct, fielddescr):
+        if not self.gc_ll_descr.stm:
+            return self._base_do_getfield_i(struct, fielddescr)
+        else:
+            ofs, size, sign = self.unpack_fielddescr_size(fielddescr)
+            for STYPE, UTYPE, itemsize in unroll_basic_sizes:
+                if size == itemsize:
+                    if sign:
+                        return llop.stm_gc_load(STYPE, struct, ofs)
+                    else:
+                        return llop.stm_gc_load(UTYPE, struct, ofs)
+            else:
+                raise NotImplementedError("size = %d" % size)
+
+    def bh_getfield_gc_r(self, struct, fielddescr):
+        if not self.gc_ll_descr.stm:
+            return self._base_do_getfield_r(struct, fielddescr)
+        else:
+            ofs = self.unpack_fielddescr(fielddescr)
+            return llop.stm_gc_load(llmemory.GCREF, struct, ofs)
+
+    def bh_getfield_gc_f(self, struct, fielddescr):
+        if not self.gc_ll_descr.stm:
+            return self._base_do_getfield_f(struct, fielddescr)
+        else:
+            ofs = self.unpack_fielddescr(fielddescr)
+            return llop.stm_gc_load(longlong.FLOATSTORAGE, struct, ofs)
+
     bh_getfield_raw_i = _base_do_getfield_i
     bh_getfield_raw_r = _base_do_getfield_r
     bh_getfield_raw_f = _base_do_getfield_f
@@ -582,9 +607,33 @@ class AbstractLLCPU(AbstractCPU):
         fieldptr[0] = newvalue
         # --- end of GC unsafe code ---
 
-    bh_setfield_gc_i = _base_do_setfield_i
-    bh_setfield_gc_r = _base_do_setfield_r
-    bh_setfield_gc_f = _base_do_setfield_f
+    def bh_setfield_gc_i(self, struct, fielddescr, newvalue):
+        if not self.gc_ll_descr.stm:
+            self._base_do_setfield_i(struct, fielddescr, newvalue)
+        else:
+            ofs, size, sign = self.unpack_fielddescr_size(fielddescr)
+            for TYPE, _, itemsize in unroll_basic_sizes:
+                if size == itemsize:
+                    llop.stm_gc_store(lltype.Void, struct, ofs,
+                                      rffi.cast(TYPE, newvalue))
+                    return
+            else:
+                raise NotImplementedError("size = %d" % size)
+
+    def bh_setfield_gc_r(self, struct, fielddescr, newvalue):
+        if not self.gc_ll_descr.stm:
+            self._base_do_setfield_r(struct, fielddescr, newvalue)
+        else:
+            ofs = self.unpack_fielddescr(fielddescr)
+            llop.stm_gc_store(lltype.Void, struct, ofs, newvalue)
+
+    def bh_setfield_gc_f(self, struct, fielddescr, newvalue):
+        if not self.gc_ll_descr.stm:
+            self._base_do_setfield_f(struct, fielddescr, newvalue)
+        else:
+            ofs = self.unpack_fielddescr(fielddescr)
+            llop.stm_gc_store(lltype.Void, struct, ofs, newvalue)
+
     bh_setfield_raw_i = _base_do_setfield_i
     bh_setfield_raw_r = _base_do_setfield_r
     bh_setfield_raw_f = _base_do_setfield_f

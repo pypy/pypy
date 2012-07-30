@@ -637,6 +637,7 @@ class GcLLDescr_framework(GcLLDescription):
         GcLLDescription.__init__(self, gcdescr, translator, rtyper)
         self.translator = translator
         self.llop1 = llop1
+        self.stm = translator.config.translation.stm
         if really_not_translated:
             assert not self.translate_support_code  # but half does not work
             self._initialize_for_tests()
