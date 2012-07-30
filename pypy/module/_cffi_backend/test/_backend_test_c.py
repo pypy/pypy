@@ -753,12 +753,22 @@ def test_call_function_6():
     BFunc6bis = new_function_type((BIntArray,), BIntPtr, False)
     f = cast(BFunc6bis, _testfunc(6))
     #
-    py.test.raises(TypeError, f, [142])
+    res = f([142])
+    assert typeof(res) is BIntPtr
+    assert res[0] == 142 - 1000
+    #
+    res = f((143,))
+    assert typeof(res) is BIntPtr
+    assert res[0] == 143 - 1000
     #
     x = newp(BIntArray, [242])
     res = f(x)
     assert typeof(res) is BIntPtr
     assert res[0] == 242 - 1000
+    #
+    py.test.raises(TypeError, f, 123456)
+    py.test.raises(TypeError, f, "foo")
+    py.test.raises(TypeError, f, u"bar")
 
 def test_call_function_7():
     BChar = new_primitive_type("char")
@@ -1322,6 +1332,14 @@ def test_struct_return_in_func():
     assert repr(s) == "<cdata 'struct test17' owning 8 bytes>"
     assert s.a1 == 40
     assert s.a2 == 40.0 * 40.0
+    #
+    BStruct17Ptr = new_pointer_type(BStruct17)
+    BFunc18 = new_function_type((BStruct17Ptr,), BInt)
+    f = cast(BFunc18, _testfunc(18))
+    x = f([[40, 2.5]])
+    assert x == 42
+    x = f([{'a2': 43.1}])
+    assert x == 43
 
 def test_cast_with_functionptr():
     BFunc = new_function_type((), new_void_type())
@@ -1448,8 +1466,7 @@ def test_wchar():
         return len(unicode(p))
     BFunc = new_function_type((BWCharP,), BInt, False)
     f = callback(BFunc, cb, -42)
-    #assert f(u'a\u1234b') == 3    -- not implemented
-    py.test.raises(NotImplementedError, f, u'a\u1234b')
+    assert f(u'a\u1234b') == 3
     #
     if wchar4 and not pyuni4:
         # try out-of-range wchar_t values

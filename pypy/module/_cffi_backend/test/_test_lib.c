@@ -122,6 +122,11 @@ static struct _testfunc17_s _testfunc17(int n)
     return result;
 }
 
+static int _testfunc18(struct _testfunc17_s *ptr)
+{
+    return ptr->a1 + (int)ptr->a2;
+}
+
 void *gettestfunc(int num)
 {
     void *f;
@@ -144,6 +149,7 @@ void *gettestfunc(int num)
     case 15: f = &_testfunc15; break;
     case 16: f = &_testfunc16; break;
     case 17: f = &_testfunc17; break;
+    case 18: f = &_testfunc18; break;
     default:
         return NULL;
     }
