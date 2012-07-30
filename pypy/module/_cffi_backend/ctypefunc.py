@@ -10,7 +10,7 @@ from pypy.rlib.objectmodel import we_are_translated, instantiate
 from pypy.rlib.objectmodel import keepalive_until_here
 
 from pypy.module._cffi_backend.ctypeobj import W_CType
-from pypy.module._cffi_backend.ctypeptr import W_CTypePtrBase
+from pypy.module._cffi_backend.ctypeptr import W_CTypePtrBase, W_CTypePointer
 from pypy.module._cffi_backend.ctypevoid import W_CTypeVoid
 from pypy.module._cffi_backend.ctypestruct import W_CTypeStruct
 from pypy.module._cffi_backend.ctypestruct import W_CTypeStructOrUnion
@@ -127,38 +127,9 @@ class W_CTypeFunc(W_CTypePtrBase):
                 buffer_array[i] = data
                 w_obj = args_w[i]
                 argtype = self.fargs[i]
-                #
-                # special-case for strings.  xxx should avoid copying
-                if argtype.is_char_ptr_or_array():
-                    try:
-                        s = space.str_w(w_obj)
-                    except OperationError, e:
-                        if not e.match(space, space.w_TypeError):
-                            raise
-                    else:
-                        raw_string = rffi.str2charp(s)
-                        rffi.cast(rffi.CCHARPP, data)[0] = raw_string
-                        # set the "must free" flag to 1
-                        set_mustfree_flag(data, 1)
-                        mustfree_max_plus_1 = i + 1
-                        continue   # skip the convert_from_object()
-
-                    # set the "must free" flag to 0
-                    set_mustfree_flag(data, 0)
-                #
-                if argtype.is_unichar_ptr_or_array():
-                    try:
-                        space.unicode_w(w_obj)
-                    except OperationError, e:
-                        if not e.match(space, space.w_TypeError):
-                            raise
-                    else:
-                        # passing a unicode raises NotImplementedError for now
-                        raise OperationError(space.w_NotImplementedError,
-                                    space.wrap("automatic unicode-to-"
-                                               "'wchar_t *' conversion"))
-                #
-                argtype.convert_from_object(data, w_obj)
+                if argtype.convert_argument_from_object(data, w_obj):
+                    # argtype is a pointer type, and w_obj a list/tuple/str
+                    mustfree_max_plus_1 = i + 1
             resultdata = rffi.ptradd(buffer, cif_descr.exchange_result)
 
             ec = cerrno.get_errno_container(space)
@@ -189,7 +160,7 @@ class W_CTypeFunc(W_CTypePtrBase):
         finally:
             for i in range(mustfree_max_plus_1):
                 argtype = self.fargs[i]
-                if argtype.is_char_ptr_or_array():
+                if isinstance(argtype, W_CTypePointer):
                     data = rffi.ptradd(buffer, cif_descr.exchange_args[i])
                     if get_mustfree_flag(data):
                         raw_string = rffi.cast(rffi.CCHARPP, data)[0]
@@ -413,7 +384,7 @@ class CifDescrBuilder(object):
 
         # loop over args
         for i, farg in enumerate(self.fargs):
-            if farg.is_char_ptr_or_array():
+            if isinstance(farg, W_CTypePointer):
                 exchange_offset += 1   # for the "must free" flag
             exchange_offset = self.align_arg(exchange_offset)
             cif_descr.exchange_args[i] = exchange_offset

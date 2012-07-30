@@ -10,7 +10,6 @@ from pypy.rpython.lltypesystem import rffi
 from pypy.rlib.objectmodel import keepalive_until_here
 from pypy.rlib.rarithmetic import ovfcheck
 
-from pypy.module._cffi_backend.ctypeobj import W_CType
 from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveChar
 from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveUniChar
 from pypy.module._cffi_backend.ctypeptr import W_CTypePtrOrArray
@@ -18,8 +17,8 @@ from pypy.module._cffi_backend import cdataobj
 
 
 class W_CTypeArray(W_CTypePtrOrArray):
-    _attrs_            = ['length', 'ctptr']
-    _immutable_fields_ = ['length', 'ctptr']
+    _attrs_            = ['ctptr']
+    _immutable_fields_ = ['ctptr']
 
     def __init__(self, space, ctptr, length, arraysize, extra):
         W_CTypePtrOrArray.__init__(self, space, arraysize, extra, 0,
@@ -92,55 +91,7 @@ class W_CTypeArray(W_CTypePtrOrArray):
         return self
 
     def convert_from_object(self, cdata, w_ob):
-        space = self.space
-        if (space.isinstance_w(w_ob, space.w_list) or
-            space.isinstance_w(w_ob, space.w_tuple)):
-            lst_w = space.listview(w_ob)
-            if self.length >= 0 and len(lst_w) > self.length:
-                raise operationerrfmt(space.w_IndexError,
-                    "too many initializers for '%s' (got %d)",
-                                      self.name, len(lst_w))
-            ctitem = self.ctitem
-            for i in range(len(lst_w)):
-                ctitem.convert_from_object(cdata, lst_w[i])
-                cdata = rffi.ptradd(cdata, ctitem.size)
-        elif isinstance(self.ctitem, W_CTypePrimitiveChar):
-            try:
-                s = space.str_w(w_ob)
-            except OperationError, e:
-                if not e.match(space, space.w_TypeError):
-                    raise
-                raise self._convert_error("str or list or tuple", w_ob)
-            n = len(s)
-            if self.length >= 0 and n > self.length:
-                raise operationerrfmt(space.w_IndexError,
-                                      "initializer string is too long for '%s'"
-                                      " (got %d characters)",
-                                      self.name, n)
-            for i in range(n):
-                cdata[i] = s[i]
-            if n != self.length:
-                cdata[n] = '\x00'
-        elif isinstance(self.ctitem, W_CTypePrimitiveUniChar):
-            try:
-                s = space.unicode_w(w_ob)
-            except OperationError, e:
-                if not e.match(space, space.w_TypeError):
-                    raise
-                raise self._convert_error("unicode or list or tuple", w_ob)
-            n = len(s)
-            if self.length >= 0 and n > self.length:
-                raise operationerrfmt(space.w_IndexError,
-                              "initializer unicode string is too long for '%s'"
-                                      " (got %d characters)",
-                                      self.name, n)
-            unichardata = rffi.cast(rffi.CWCHARP, cdata)
-            for i in range(n):
-                unichardata[i] = s[i]
-            if n != self.length:
-                unichardata[n] = u'\x00'
-        else:
-            raise self._convert_error("list or tuple", w_ob)
+        self.convert_array_from_object(cdata, w_ob)
 
     def convert_to_object(self, cdata):
         return cdataobj.W_CData(self.space, cdata, self)

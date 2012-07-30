@@ -2,17 +2,21 @@
 Pointers.
 """
 
-from pypy.interpreter.error import operationerrfmt
-from pypy.rpython.lltypesystem import rffi
+from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.objectmodel import keepalive_until_here
+from pypy.rlib.rarithmetic import ovfcheck
 
 from pypy.module._cffi_backend.ctypeobj import W_CType
-from pypy.module._cffi_backend import cdataobj, misc
+from pypy.module._cffi_backend import cdataobj, misc, ctypeprim
 
 
 class W_CTypePtrOrArray(W_CType):
-    _attrs_            = ['ctitem', 'can_cast_anything', 'is_struct_ptr']
-    _immutable_fields_ = ['ctitem', 'can_cast_anything', 'is_struct_ptr']
+    _attrs_            = ['ctitem', 'can_cast_anything', 'is_struct_ptr',
+                          'length']
+    _immutable_fields_ = ['ctitem', 'can_cast_anything', 'is_struct_ptr',
+                          'length']
+    length = -1
 
     def __init__(self, space, size, extra, extra_position, ctitem,
                  could_cast_anything=True):
@@ -28,15 +32,12 @@ class W_CTypePtrOrArray(W_CType):
         self.is_struct_ptr = isinstance(ctitem, W_CTypeStructOrUnion)
 
     def is_char_ptr_or_array(self):
-        from pypy.module._cffi_backend import ctypeprim
         return isinstance(self.ctitem, ctypeprim.W_CTypePrimitiveChar)
 
     def is_unichar_ptr_or_array(self):
-        from pypy.module._cffi_backend import ctypeprim
         return isinstance(self.ctitem, ctypeprim.W_CTypePrimitiveUniChar)
 
     def is_char_or_unichar_ptr_or_array(self):
-        from pypy.module._cffi_backend import ctypeprim
         return isinstance(self.ctitem, ctypeprim.W_CTypePrimitiveCharOrUniChar)
 
     def cast(self, w_ob):
@@ -55,6 +56,57 @@ class W_CTypePtrOrArray(W_CType):
             value = misc.as_unsigned_long_long(space, w_ob, strict=False)
             value = rffi.cast(rffi.CCHARP, value)
         return cdataobj.W_CData(space, value, self)
+
+    def convert_array_from_object(self, cdata, w_ob):
+        space = self.space
+        if (space.isinstance_w(w_ob, space.w_list) or
+            space.isinstance_w(w_ob, space.w_tuple)):
+            lst_w = space.listview(w_ob)
+            if self.length >= 0 and len(lst_w) > self.length:
+                raise operationerrfmt(space.w_IndexError,
+                    "too many initializers for '%s' (got %d)",
+                                      self.name, len(lst_w))
+            ctitem = self.ctitem
+            for i in range(len(lst_w)):
+                ctitem.convert_from_object(cdata, lst_w[i])
+                cdata = rffi.ptradd(cdata, ctitem.size)
+        elif isinstance(self.ctitem, ctypeprim.W_CTypePrimitiveChar):
+            try:
+                s = space.str_w(w_ob)
+            except OperationError, e:
+                if not e.match(space, space.w_TypeError):
+                    raise
+                raise self._convert_error("str or list or tuple", w_ob)
+            n = len(s)
+            if self.length >= 0 and n > self.length:
+                raise operationerrfmt(space.w_IndexError,
+                                      "initializer string is too long for '%s'"
+                                      " (got %d characters)",
+                                      self.name, n)
+            for i in range(n):
+                cdata[i] = s[i]
+            if n != self.length:
+                cdata[n] = '\x00'
+        elif isinstance(self.ctitem, ctypeprim.W_CTypePrimitiveUniChar):
+            try:
+                s = space.unicode_w(w_ob)
+            except OperationError, e:
+                if not e.match(space, space.w_TypeError):
+                    raise
+                raise self._convert_error("unicode or list or tuple", w_ob)
+            n = len(s)
+            if self.length >= 0 and n > self.length:
+                raise operationerrfmt(space.w_IndexError,
+                              "initializer unicode string is too long for '%s'"
+                                      " (got %d characters)",
+                                      self.name, n)
+            unichardata = rffi.cast(rffi.CWCHARP, cdata)
+            for i in range(n):
+                unichardata[i] = s[i]
+            if n != self.length:
+                unichardata[n] = u'\x00'
+        else:
+            raise self._convert_error("list or tuple", w_ob)
 
 
 class W_CTypePtrBase(W_CTypePtrOrArray):
@@ -125,7 +177,6 @@ class W_CTypePointer(W_CTypePtrBase):
         return W_CTypePtrOrArray.unicode(self, cdataobj)
 
     def newp(self, w_init):
-        from pypy.module._cffi_backend import ctypeprim
         space = self.space
         ctitem = self.ctitem
         datasize = ctitem.size
@@ -168,3 +219,47 @@ class W_CTypePointer(W_CTypePtrBase):
                                   self.name)
         p = rffi.ptradd(cdata, i * self.ctitem.size)
         return cdataobj.W_CData(space, p, self)
+
+    def _prepare_pointer_call_argument(self, w_init):
+        space = self.space
+        if (space.isinstance_w(w_init, space.w_list) or
+            space.isinstance_w(w_init, space.w_tuple)):
+            length = space.int_w(space.len(w_init))
+        elif space.isinstance_w(w_init, space.w_basestring):
+            # from a string, we add the null terminator
+            length = space.int_w(space.len(w_init)) + 1
+        else:
+            return lltype.nullptr(rffi.CCHARP.TO)
+        if self.ctitem.size <= 0:
+            return lltype.nullptr(rffi.CCHARP.TO)
+        try:
+            datasize = ovfcheck(length * self.ctitem.size)
+        except OverflowError:
+            raise OperationError(space.w_OverflowError,
+                space.wrap("array size would overflow a ssize_t"))
+        result = lltype.malloc(rffi.CCHARP.TO, datasize,
+                               flavor='raw', zero=True)
+        try:
+            self.convert_array_from_object(result, w_init)
+        except Exception:
+            lltype.free(result, flavor='raw')
+            raise
+        return result
+
+    def convert_argument_from_object(self, cdata, w_ob):
+        from pypy.module._cffi_backend.ctypefunc import set_mustfree_flag
+        space = self.space
+        ob = space.interpclass_w(w_ob)
+        if isinstance(ob, cdataobj.W_CData):
+            buffer = lltype.nullptr(rffi.CCHARP.TO)
+        else:
+            buffer = self._prepare_pointer_call_argument(w_ob)
+        #
+        if buffer:
+            rffi.cast(rffi.CCHARPP, cdata)[0] = buffer
+            set_mustfree_flag(cdata, True)
+            return True
+        else:
+            set_mustfree_flag(cdata, False)
+            self.convert_from_object(cdata, w_ob)
+            return False

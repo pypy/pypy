@@ -73,6 +73,10 @@ class W_CType(Wrappable):
         raise operationerrfmt(space.w_TypeError,
                               "cannot initialize cdata '%s'", self.name)
 
+    def convert_argument_from_object(self, cdata, w_ob):
+        self.convert_from_object(cdata, w_ob)
+        return False
+
     def _convert_error(self, expected, w_got):
         space = self.space
         ob = space.interpclass_w(w_got)
