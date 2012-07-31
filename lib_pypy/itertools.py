@@ -36,7 +36,7 @@ try: from __pypy__ import builtinify
 except ImportError: builtinify = lambda f: f
 
 
-def check_number(n):
+def _check_number(n):
     if not hasattr(n, '__int__') and not hasattr(n, '__float__'):
         raise TypeError('expected a number')
 
@@ -84,60 +84,60 @@ class combinations(object):
     combinations(range(4), 3) --> (0,1,2), (0,1,3), (0,2,3), (1,2,3)
     """
     def __init__(self, iterable, r):
-        self.pool = list(iterable)
+        self._pool = list(iterable)
         if r < 0:
             raise ValueError('r must be non-negative')
-        self.r = r
-        self.indices = range(len(self.pool))
-        self.last_result = None
-        self.stopped = r > len(self.pool)
+        self._r = r
+        self._indices = range(len(self._pool))
+        self._last_result = None
+        self._stopped = r > len(self._pool)
 
     def __iter__(self):
         return self
 
-    def get_maximum(self, i):
-        return i + len(self.pool) - self.r
+    def _get_maximum(self, i):
+        return i + len(self._pool) - self._r
 
-    def max_index(self, j):
-        return self.indices[j - 1] + 1
+    def _max_index(self, j):
+        return self._indices[j - 1] + 1
 
     def next(self):
-        if self.stopped:
+        if self._stopped:
             raise StopIteration()
-        if self.last_result is None:
+        if self._last_result is None:
             # On the first pass, initialize result tuple using the indices
-            result = [None] * self.r
-            for i in xrange(self.r):
-                index = self.indices[i]
-                result[i] = self.pool[index]
+            result = [None] * self._r
+            for i in xrange(self._r):
+                index = self._indices[i]
+                result[i] = self._pool[index]
         else:
             # Copy the previous result
-            result = self.last_result[:]
+            result = self._last_result[:]
             # Scan indices right-to-left until finding one that is not at its
             # maximum
-            i = self.r - 1
-            while i >= 0 and self.indices[i] == self.get_maximum(i):
+            i = self._r - 1
+            while i >= 0 and self._indices[i] == self._get_maximum(i):
                 i -= 1
 
             # If i is negative, then the indices are all at their maximum value
             # and we're done
             if i < 0:
-                self.stopped = True
+                self._stopped = True
                 raise StopIteration()
 
             # Increment the current index which we know is not at its maximum.
             # Then move back to the right setting each index to its lowest
             # possible value
-            self.indices[i] += 1
-            for j in range(i + 1, self.r):
-                self.indices[j] = self.max_index(j)
+            self._indices[i] += 1
+            for j in range(i + 1, self._r):
+                self._indices[j] = self._max_index(j)
 
             # Update the result for the new indices starting with i, the
             # leftmost index that changed
-            for i in range(i, self.r):
-                index = self.indices[i]
-                result[i] = self.pool[index]
-        self.last_result = result
+            for i in range(i, self._r):
+                index = self._indices[i]
+                result[i] = self._pool[index]
+        self._last_result = result
         return tuple(result)
 
 
@@ -150,14 +150,14 @@ class combinations_with_replacement(combinations):
     """
     def __init__(self, iterable, r):
         super(combinations_with_replacement, self).__init__(iterable, r)
-        self.indices = [0] * r
-        self.stopped = len(self.pool) == 0 and r > 0
+        self._indices = [0] * r
+        self._stopped = len(self._pool) == 0 and r > 0
 
-    def get_maximum(self, i):
-        return len(self.pool) - 1
+    def _get_maximum(self, i):
+        return len(self._pool) - 1
 
-    def max_index(self, j):
-        return self.indices[j - 1]
+    def _max_index(self, j):
+        return self._indices[j - 1]
 
 
 class compress(object):
@@ -173,16 +173,16 @@ class compress(object):
         return (d for d, s in izip(data, selectors) if s)
     """
     def __init__(self, data, selectors):
-        self.data = iter(data)
-        self.selectors = iter(selectors)
+        self._data = iter(data)
+        self._selectors = iter(selectors)
 
     def __iter__(self):
         return self
 
     def next(self):
         while True:
-            next_item = next(self.data)
-            next_selector = next(self.selectors)
+            next_item = next(self._data)
+            next_selector = next(self._selectors)
             if bool(next_selector):
                 return next_item
 
@@ -202,30 +202,30 @@ class count(object):
             n += step
     """
     def __init__(self, start=0, step=1):
-        check_number(start)
-        check_number(step)
-        self.counter = start
-        self.step = step
+        _check_number(start)
+        _check_number(step)
+        self._counter = start
+        self._step = step
 
     def __iter__(self):
         return self
 
     def next(self):
-        c = self.counter
-        self.counter += self.step
+        c = self._counter
+        self._counter += self._step
         return c
 
     def __reduce__(self):
-        if self.step is 1:
-            args = (self.counter,)
+        if self._step is 1:
+            args = (self._counter,)
         else:
-            args = (self.counter, self.step)
+            args = (self._counter, self._step)
         return (self.__class__, args)
 
     def __repr__(self):
-        if self.step is 1:
-            return 'count(%r)' % (self.counter)
-        return 'count(%r, %r)' % (self.counter, self.step)
+        if self._step is 1:
+            return 'count(%r)' % (self._counter)
+        return 'count(%r, %r)' % (self._counter, self._step)
 
 
             
@@ -323,25 +323,25 @@ class groupby(object):
     def __init__(self, iterable, key=None):
         if key is None:
             key = lambda x: x
-        self.keyfunc = key
-        self.it = iter(iterable)
-        self.tgtkey = self.currkey = self.currvalue = xrange(0)
+        self._keyfunc = key
+        self._iter = iter(iterable)
+        self._tgtkey = self._currkey = self._currvalue = xrange(0)
 
     def __iter__(self):
         return self
 
     def next(self):
-        while self.currkey == self.tgtkey:
-            self.currvalue = next(self.it) # Exit on StopIteration
-            self.currkey = self.keyfunc(self.currvalue)
-        self.tgtkey = self.currkey
-        return (self.currkey, self._grouper(self.tgtkey))
+        while self._currkey == self._tgtkey:
+            self._currvalue = next(self._iter) # Exit on StopIteration
+            self._currkey = self._keyfunc(self._currvalue)
+        self._tgtkey = self._currkey
+        return (self._currkey, self._grouper(self._tgtkey))
 
     def _grouper(self, tgtkey):
-        while self.currkey == tgtkey:
-            yield self.currvalue
-            self.currvalue = next(self.it) # Exit on StopIteration
-            self.currkey = self.keyfunc(self.currvalue)
+        while self._currkey == tgtkey:
+            yield self._currvalue
+            self._currvalue = next(self._iter) # Exit on StopIteration
+            self._currkey = self._keyfunc(self._currvalue)
 
 
 
@@ -458,25 +458,25 @@ class islice(object):
                 msg = ('%s for islice must be None or an integer: '
                        '0 <= x <= maxint')
                 raise ValueError(msg % n)
-        start, stop, self.step = s.indices(sys.maxint)
-        self.iterable = iter(iterable)
-        self.pos = -1
-        self.next_pos = start
-        self.max_pos = stop - 1
+        start, stop, self._step = s.indices(sys.maxint)
+        self._iter = iter(iterable)
+        self._pos = -1
+        self._next_pos = start
+        self._max_pos = stop - 1
 
     def __iter__(self):
         return self
 
     def next(self):
-        i = self.pos
-        while i < self.next_pos:
-            if i >= self.max_pos:
+        i = self._pos
+        while i < self._next_pos:
+            if i >= self._max_pos:
                 raise StopIteration()
-            item = next(self.iterable)
+            item = next(self._iter)
             i += 1
 
-        self.pos = i
-        self.next_pos += self.step
+        self._pos = i
+        self._next_pos += self._step
         return item
 
 class izip(object):
@@ -514,29 +514,29 @@ class izip_longest(object):
     defaults to None or can be specified by a keyword argument.
     """
     def __init__(self, *iterables, **kwargs):
-        self.fillvalue = kwargs.pop('fillvalue', None)
+        self._fillvalue = kwargs.pop('fillvalue', None)
         if kwargs:
             msg = 'izip_longest() got unexpected keyword argument(s)'
             raise TypeError(msg)
-        self.iterators = map(iter, iterables)
-        self.repeaters_left = len(self.iterators)
+        self._iters = map(iter, iterables)
+        self._iters_yielding = len(self._iters)
 
     def __iter__(self):
         return self
 
     def next(self):
-        if self.repeaters_left <= 0:
+        if self._iters_yielding <= 0:
             raise StopIteration()
-        result = [None] * len(self.iterators)
-        for i, iterator in enumerate(self.iterators):
+        result = [None] * len(self._iters)
+        for i, iterator in enumerate(self._iters):
             try:
                 item = next(iterator)
             except StopIteration:
-                self.repeaters_left -= 1
-                if self.repeaters_left <= 0:
+                self._iters_yielding -= 1
+                if self._iters_yielding <= 0:
                     raise
-                self.iterators[i] = repeat(self.fillvalue)
-                item = self.fillvalue
+                self._iters[i] = repeat(self._fillvalue)
+                item = self._fillvalue
             result[i] = item
         return tuple(result)
 
@@ -549,29 +549,29 @@ class permutations(object):
     permutations(range(3), 2) --> (0,1), (0,2), (1,0), (1,2), (2,0), (2,1)
     """
     def __init__(self, iterable, r=None):
-        self.pool = list(iterable)
-        n = len(self.pool)
+        self._pool = list(iterable)
+        n = len(self._pool)
         if r is None:
             r = n
         elif r < 0:
             raise ValueError('r must be non-negative')
-        self.r = r
-        self.indices = range(n)
-        self.cycles = range(n, n - r, -1)
-        self.stopped = r > n
+        self._r = r
+        self._indices = range(n)
+        self._cycles = range(n, n - r, -1)
+        self._stopped = r > n
 
     def __iter__(self):
         return self
 
     def next(self):
-        if self.stopped:
+        if self._stopped:
             raise StopIteration()
 
-        r = self.r
-        indices = self.indices
-        cycles = self.cycles
+        r = self._r
+        indices = self._indices
+        cycles = self._cycles
 
-        result = tuple([self.pool[indices[i]] for i in range(r)])
+        result = tuple([self._pool[indices[i]] for i in range(r)])
         i = r - 1
         while i >= 0:
             j = cycles[i] - 1
@@ -587,7 +587,7 @@ class permutations(object):
                 indices[k] = indices[k+1]
             indices[n1] = num
             i -= 1
-        self.stopped = True
+        self._stopped = True
         return result
 
 
@@ -624,47 +624,47 @@ class product(object):
         if kw:
             msg = 'product() got unexpected keyword argument(s)'
             raise TypeError(msg)
-        self.sources = map(tuple, args) * repeat
-        self.indices = [0] * len(self.sources)
+        self._pools = map(tuple, args) * repeat
+        self._indices = [0] * len(self._pools)
         try:
-            self.next_result = [s[0] for s in self.sources]
+            self._next_result = [s[0] for s in self._pools]
         except IndexError:
-            self.next_result = None
+            self._next_result = None
+
+    def __iter__(self):
+        return self
 
     def next(self):
-        sources = self.sources
-        indices = self.indices
+        pools = self._pools
+        indices = self._indices
 
-        if self.next_result is None:
+        if self._next_result is None:
             raise StopIteration()
 
-        result = tuple(self.next_result)
+        result = tuple(self._next_result)
 
-        i = len(sources)
+        i = len(pools)
         while True:
             i -= 1
             if i < 0:
-                self.next_result = None
+                self._next_result = None
                 return result
             j = indices[i]
             j += 1
-            if j < len(sources[i]):
+            if j < len(pools[i]):
                 break
 
-        self.next_result[i] = sources[i][j]
+        self._next_result[i] = pools[i][j]
         indices[i] = j
 
         while True:
             i += 1
-            if i >= len(sources):
+            if i >= len(pools):
                 break
             indices[i] = 0
-            self.next_result[i] = sources[i][0]
+            self._next_result[i] = pools[i][0]
 
         return result
-
-    def __iter__(self):
-        return self
 
 
 class repeat(object):
@@ -771,7 +771,7 @@ class takewhile(object):
         return value
 
     
-class TeeData(object):
+class _TeeData(object):
     """Holds cached values for TeeObjects"""
     def __init__(self, iterator):
         self.data = []
@@ -785,18 +785,18 @@ class TeeData(object):
         return self.data[i]
 
 
-class TeeObject(object):
+class _TeeObject(object):
     """Iterables / Iterators as returned by the tee() function"""
     def __init__(self, iterable=None, tee_data=None):
         if tee_data:
             self.tee_data = tee_data
             self.pos = 0
         # <=> Copy constructor
-        elif isinstance(iterable, TeeObject):
+        elif isinstance(iterable, _TeeObject):
             self.tee_data = iterable.tee_data
             self.pos = iterable.pos
         else:
-            self.tee_data = TeeData(iter(iterable))
+            self.tee_data = _TeeData(iter(iterable))
             self.pos = 0
             
     def next(self):
@@ -837,8 +837,8 @@ def tee(iterable, n=2):
     """
     if n < 0:
         raise ValueError('n must be >= 0')
-    if isinstance(iterable, TeeObject):
+    if isinstance(iterable, _TeeObject):
         # a,b = tee(range(10)) ; c,d = tee(a) ; self.assert_(a is c)
-        return tuple([iterable] + [TeeObject(iterable) for i in xrange(n-1)])
-    tee_data = TeeData(iter(iterable))
-    return tuple([TeeObject(tee_data=tee_data) for i in xrange(n)])
+        return tuple([iterable] + [_TeeObject(iterable) for i in xrange(n-1)])
+    tee_data = _TeeData(iter(iterable))
+    return tuple([_TeeObject(tee_data=tee_data) for i in xrange(n)])
