@@ -509,6 +509,26 @@ class TestSpecialCases(_LLVMMixin):
         self.getcompiled(f)
         assert '@a = global %A' in self.genllvm.base_path.new(ext='.ll').read()
 
+    def test_export_struct_cast(self):
+        from pypy.rlib.exports import export_struct
+        use = rffi.llexternal('PYPY_NO_OP', [rffi.VOIDP], lltype.Void,
+                              sandboxsafe=True, _nowrapper=True,
+                              _callable=lambda: None)
+
+        A = lltype.Struct('A', ('x', rffi.INT), ('y', rffi.INT))
+        B = lltype.Struct('B', ('x', rffi.INT))
+        buf = lltype.malloc(rffi.VOIDP.TO, 8, flavor='raw', zero=True)
+        a = rffi.cast(lltype.Ptr(A), buf)
+        b = rffi.cast(lltype.Ptr(B), buf)
+        export_struct('a', a._obj)
+
+        def f():
+            use(rffi.cast(rffi.VOIDP, a))
+            use(rffi.cast(rffi.VOIDP, b))
+        self.getcompiled(f)
+        assert '@a = global %A' in self.genllvm.base_path.new(ext='.ll').read()
+        lltype.free(buf, 'raw')
+
 
 class TestLowLevelTypeLLVM(_LLVMMixin, test_lltyped.TestLowLevelType):
     def test_union(self):

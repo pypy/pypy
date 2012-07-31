@@ -60,7 +60,20 @@ class Type(object):
 
     def repr_ref(self, ptr_type, obj):
         if obj in EXPORTS_obj2name:
-            name = '@' + EXPORTS_obj2name[obj]
+            tmp = EXPORTS_obj2name[obj]
+            for key, value in EXPORTS_obj2name.iteritems():
+                if value == tmp:
+                    export_obj = key
+            if export_obj is obj:
+                name = '@' + tmp
+            else:
+                orig_ptr_type = lltype.Ptr(lltype.typeOf(export_obj))
+                orig_ptr = lltype._ptr(orig_ptr_type, export_obj)
+                orig_ptr_type_llvm = database.get_type(orig_ptr_type)
+                ptr_type.refs[obj] = 'bitcast({} to {}*)'.format(
+                        orig_ptr_type_llvm.repr_type_and_value(orig_ptr),
+                        self.repr_type())
+                return
         else:
             name = database.unique_name('@global')
         if self.varsize:
