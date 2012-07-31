@@ -65,3 +65,7 @@ class TestItertools(object):
         next(tw)
         raises(StopIteration, next, tw)
         raises(StopIteration, next, tw)
+
+    def test_count_repr(self):
+        c = itertools.count(10, 1.0)
+        assert repr(c) == 'count(10, 1.0)'

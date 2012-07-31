@@ -215,15 +215,18 @@ class count(object):
         self._counter += self._step
         return c
 
+    def _single_argument(self):
+        return self._step == 1 and isinstance(self._step, int)
+
     def __reduce__(self):
-        if self._step == 1:
+        if self._single_argument():
             args = (self._counter,)
         else:
             args = (self._counter, self._step)
         return (self.__class__, args)
 
     def __repr__(self):
-        if self._step == 1:
+        if self._single_argument():
             return 'count(%r)' % (self._counter)
         return 'count(%r, %r)' % (self._counter, self._step)
 
