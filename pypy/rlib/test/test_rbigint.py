@@ -533,6 +533,9 @@ class TestInternalFunctions(object):
             y = long(randint(1, 1 << 60))
             y <<= 60
             y += randint(1, 1 << 60)
+            if y > x:
+                x <<= 100
+                
             f1 = rbigint.fromlong(x)
             f2 = rbigint.fromlong(y)
             div, rem = lobj._x_divrem(f1, f2)
@@ -540,6 +543,21 @@ class TestInternalFunctions(object):
             assert div.tolong() == _div
             assert rem.tolong() == _rem
 
+    def test__x_divrem2(self):
+        Rx = 1 << 130
+        Rx2 = 1 << 150
+        Ry = 1 << 127
+        Ry2 = 1<< 130
+        for i in range(10):
+            x = long(randint(Rx, Rx2))
+            y = long(randint(Ry, Ry2))
+            f1 = rbigint.fromlong(x)
+            f2 = rbigint.fromlong(y)
+            div, rem = lobj._x_divrem(f1, f2)
+            _div, _rem = divmod(x, y)
+            assert div.tolong() == _div
+            assert rem.tolong() == _rem
+            
     def test_divmod(self):
         x = 12345678901234567890L
         for i in range(100):

@@ -109,6 +109,8 @@ class Entry(extregistry.ExtRegistryEntry):
         hop.exception_cannot_occur()
 
 class rbigint(object):
+    _immutable_ = True
+    _immutable_fields_ = ["_digits"]
     """This is a reimplementation of longs using a list of digits."""
 
     def __init__(self, digits=[NULLDIGIT], sign=0, size=0):
@@ -403,7 +405,7 @@ class rbigint(object):
         if other.sign == 0:
             return self
         if self.sign == 0:
-            return rbigint(other._digits[:], -other.sign, other.size)
+            return rbigint(other._digits[:other.size], -other.sign, other.size)
         if self.sign == other.sign:
             result = _x_sub(self, other)
         else:
@@ -428,7 +430,7 @@ class rbigint(object):
             if a._digits[0] == NULLDIGIT:
                 return NULLRBIGINT
             elif a._digits[0] == ONEDIGIT:
-                return rbigint(b._digits[:], a.sign * b.sign, b.size)
+                return rbigint(b._digits[:b.size], a.sign * b.sign, b.size)
             elif bsize == 1:
                 res = b.widedigit(0) * a.widedigit(0)
                 carry = res >> SHIFT
@@ -466,7 +468,7 @@ class rbigint(object):
         if self.sign == 1 and other.numdigits() == 1 and other.sign == 1:
             digit = other.digit(0)
             if digit == 1:
-                return rbigint(self._digits[:], 1, self.size)
+                return rbigint(self._digits[:self.size], 1, self.size)
             elif digit and digit & (digit - 1) == 0:
                 return self.rshift(ptwotable[digit])
             
@@ -491,7 +493,7 @@ class rbigint(object):
             if digit == 1:
                 return NULLRBIGINT
             elif digit == 2:
-                modm = self.digit(0) % digit
+                modm = self.digit(0) & 1
                 if modm:
                     return ONENEGATIVERBIGINT if other.sign == -1 else ONERBIGINT
                 return NULLRBIGINT
@@ -1329,12 +1331,12 @@ def _inplace_divrem1(pout, pin, n, size=0):
     size -= 1
     
     while size >= 0:
-        rem = (rem << SHIFT) + pin.widedigit(size)
+        rem = (rem << SHIFT) | pin.widedigit(size)
         hi = rem // n
         pout.setdigit(size, hi)
         rem -= hi * n
         size -= 1
-    return rem & MASK
+    return rffi.cast(lltype.Signed, rem)
 
 def _divrem1(a, n):
     """
@@ -1439,13 +1441,13 @@ def _v_rshift(z, a, m, d):
         * result in z[0:m], and return the d bits shifted out of the bottom.
     """
     
-    carry = 0
+    carry = _widen_digit(0)
     acc = _widen_digit(0)
     mask = (1 << d) - 1
     
     assert 0 <= d and d < SHIFT
     for i in range(m-1, 0, -1):
-        acc = carry << SHIFT | a.digit(i)
+        acc = (carry << SHIFT) | a.widedigit(i)
         carry = acc & mask
         z.setdigit(i, acc >> d)
         
@@ -1453,84 +1455,93 @@ def _v_rshift(z, a, m, d):
 
 def _x_divrem(v1, w1):
     """ Unsigned bigint division with remainder -- the algorithm """
-
+    size_v = v1.numdigits()
     size_w = w1.numdigits()
-    d = (UDIGIT_TYPE(MASK)+1) // (w1.udigit(abs(size_w-1)) + 1)
-    assert d <= MASK    # because the first digit of w1 is not zero
-    d = UDIGIT_MASK(d)
-    v = _muladd1(v1, d)
-    w = _muladd1(w1, d)
-    size_v = v.numdigits()
-    size_w = w.numdigits()
-    assert size_w > 1 # (Assert checks by div()
+    assert size_v >= size_w and size_w > 1
+    
+    v = rbigint([NULLDIGIT] * (size_v + 1), 1, size_v + 1)
+    w = rbigint([NULLDIGIT] * size_w, 1, size_w)
+    
+    """/normalize: shift w1 left so that its top digit is >= PyLong_BASE/2.
+        shift v1 left by the same amount. Results go into w and v. """
+        
+    d = SHIFT - bits_in_digit(w1.digit(size_w-1))
+    carry = _v_lshift(w, w1, size_w, d)
+    assert carry == 0
+    carry = _v_lshift(v, v1, size_v, d)
+    if carry != 0 or v.digit(abs(size_v-1)) >= w.digit(abs(size_w-1)):
+        v.setdigit(size_v, carry)
+        size_v += 1
+        
+    """ Now v->ob_digit[size_v-1] < w->ob_digit[size_w-1], so quotient has
+        at most (and usually exactly) k = size_v - size_w digits. """
         
     size_a = size_v - size_w + 1
-    assert size_a > 0
     a = rbigint([NULLDIGIT] * size_a, 1, size_a)
-
+    
     wm1 = w.widedigit(abs(size_w-1))
     wm2 = w.widedigit(abs(size_w-2))
+
     j = size_v
     k = size_a - 1
-    carry = _widen_digit(0)
+    assert k > 0
     while k >= 0:
-        assert j > 1
+        assert j >= 0
+        """ inner loop: divide vk[0:size_w+1] by w0[0:size_w], giving
+            single-digit quotient q, remainder in vk[0:size_w]. """
+            
+        # estimate quotient digit q; may overestimate by 1 (rare)
         if j >= size_v:
-            vj = 0
+            vtop = 0
         else:
-            vj = v.widedigit(j)
+            vtop = v.widedigit(j)
+        assert vtop <= wm1
+        vv = (vtop << SHIFT | v.widedigit(abs(j-1)))
+        q = vv / wm1
+        r = vv - (wm1 * q)
+        while wm2 * q > (r << SHIFT | v.widedigit(abs(j-2))):
+            q -= 1
+            r += wm1
+            if r > MASK:
+                break
+                
+        assert q < MASK
         
-        if vj == wm1:
-            q = MASK
-        else:
-            q = ((vj << SHIFT) + v.widedigit(abs(j-1))) // wm1
-
-        while (wm2 * q >
-                ((
-                    (vj << SHIFT)
-                    + v.widedigit(abs(j-1))
-                    - q * wm1
-                                ) << SHIFT)
-                + v.widedigit(abs(j-2))):
-            q -= 1
+        # subtract q*w0[0:size_w] from vk[0:size_w+1]
+        zhi = 0
         i = 0
-        while i < size_w and i+k < size_v:
-            z = w.widedigit(i) * q
-            zz = z >> SHIFT
-            carry += v.widedigit(i+k) - z + (zz << SHIFT)
-            v.setdigit(i+k, carry)
-            carry >>= SHIFT
-            carry -= zz
+        while i < size_w:
+            z = v.widedigit(k+i) + zhi - q * w.widedigit(i)
+            v.setdigit(k+i, z)
+            zhi = z >> SHIFT
             i += 1
-
-        if i+k < size_v:
-            carry += v.widedigit(i+k)
-            v.setdigit(i+k, 0)
-
-        if carry == 0:
-            a.setdigit(k, q)
-            assert not q >> SHIFT
-        else:
-            assert carry == -1
-            q -= 1
-            a.setdigit(k, q)
-            assert not q >> SHIFT
-
-            carry = 0
+        
+        # add w back if q was too large (this branch taken rarely)
+        assert vtop+zhi == -1 or vtop + zhi == 0
+        if vtop + zhi < 0:
+            carry = _widen_digit(0)
             i = 0
-            while i < size_w and i+k < size_v:
-                carry += v.udigit(i+k) + w.udigit(i)
-                v.setdigit(i+k, carry)
+            while i < size_w:
+                carry += v.widedigit(k+i) + w.widedigit(i)
+                v.setdigit(k+i, carry)
                 carry >>= SHIFT
                 i += 1
-        j -= 1
+            q -= 1
+            
+        # store quotient digit
+        a.setdigit(k, q)
         k -= 1
-        carry = 0
-
+        j -= 1
+        
+        
+    
+    carry = _v_rshift(w, v, size_w, d)
+    assert carry == 0
+    
     a._normalize()
-    _inplace_divrem1(v, v, d, size_v)
-    v._normalize()
-    return a, v
+    w._normalize()
+    
+    return a, w
         
 def _divrem(a, b):
     """ Long division with remainder, top-level routine """
