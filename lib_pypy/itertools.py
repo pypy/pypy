@@ -773,40 +773,56 @@ class takewhile(object):
             raise StopIteration()
         return value
 
-    
+
 class _TeeData(object):
-    """Holds cached values for TeeObjects"""
+    """Holds cached values shared by _TeeObjects
+
+    _TeeData instances form linked list where in any instance (node) at most
+    CHUNK_SIZE items are cached.
+    """
+    CHUNK_SIZE = 64
     def __init__(self, iterator):
-        self.data = []
-        self._iter = iterator
+        self.data = [None] * _TeeData.CHUNK_SIZE
+        self.iterator = iterator  # must be an iterator not an iterable
+        self.num_read = 0
+        self.next_link = None
 
     def __getitem__(self, i):
-        # iterates until 'i' if not done yet
-        while i >= len(self.data):
-            value = next(self._iter)
-            self.data.append(value)
+        if i == self.num_read:
+            item = next(self.iterator)
+            self.data[i] = item
+            self.num_read += 1
+        assert i < self.num_read
         return self.data[i]
+
+    def get_next_link(self):
+        assert self.num_read == _TeeData.CHUNK_SIZE
+        if self.next_link is None:
+            self.next_link = _TeeData(self.iterator)
+        return self.next_link
 
 
 class _TeeObject(object):
     """Iterables / Iterators as returned by the tee() function"""
-    def __init__(self, iterable=None, tee_data=None):
-        if tee_data:
-            self.tee_data = tee_data
-            self.pos = 0
-        # <=> Copy constructor
-        elif isinstance(iterable, _TeeObject):
+    def __init__(self, iterable):
+        if isinstance(iterable, _TeeObject):
             self.tee_data = iterable.tee_data
             self.pos = iterable.pos
         else:
             self.tee_data = _TeeData(iter(iterable))
             self.pos = 0
-            
+
     def next(self):
+        assert self.pos <= _TeeData.CHUNK_SIZE
+
+        if self.pos == _TeeData.CHUNK_SIZE:
+            self.tee_data = self.tee_data.get_next_link()
+            self.pos = 0
+
         data = self.tee_data[self.pos]
         self.pos += 1
         return data
-    
+
     def __iter__(self):
         return self
 
@@ -814,34 +830,38 @@ class _TeeObject(object):
 @builtinify
 def tee(iterable, n=2):
     """Return n independent iterators from a single iterable.
+
     Note : once tee() has made a split, the original iterable
     should not be used anywhere else; otherwise, the iterable could get
     advanced without the tee objects being informed.
-    
+
     Note : this member of the toolkit may require significant auxiliary
     storage (depending on how much temporary data needs to be stored).
     In general, if one iterator is going to use most or all of the
     data before the other iterator, it is faster to use list() instead
     of tee()
-    
+
     Equivalent to :
-    
+
     def tee(iterable, n=2):
-        def gen(next, data={}, cnt=[0]):
-            for i in count():
-                if i == cnt[0]:
-                    item = data[i] = next()
-                    cnt[0] += 1
-                else:
-                    item = data.pop(i)
-                yield item
         it = iter(iterable)
-        return tuple([gen(it.next) for i in range(n)])
+        deques = [collections.deque() for i in range(n)]
+        def gen(mydeque):
+            while True:
+                if not mydeque:             # when the local deque is empty
+                    newval = next(it)       # fetch a new value and
+                    for d in deques:        # load it to all the deques
+                        d.append(newval)
+                yield mydeque.popleft()
+        return tuple(gen(d) for d in deques)
     """
     if n < 0:
         raise ValueError('n must be >= 0')
+    if n == 0:
+        return ()
     if isinstance(iterable, _TeeObject):
         # a,b = tee(range(10)) ; c,d = tee(a) ; self.assert_(a is c)
-        return tuple([iterable] + [_TeeObject(iterable) for i in xrange(n-1)])
-    tee_data = _TeeData(iter(iterable))
-    return tuple([_TeeObject(tee_data=tee_data) for i in xrange(n)])
+        tee_obj = iterable
+    else:
+        tee_obj = _TeeObject(iterable)
+    return tuple([tee_obj] + [_TeeObject(tee_obj) for i in xrange(n-1)])
