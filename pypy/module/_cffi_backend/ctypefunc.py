@@ -24,7 +24,7 @@ from pypy.module._cffi_backend import ctypearray, cdataobj, cerrno
 
 class W_CTypeFunc(W_CTypePtrBase):
     _attrs_            = ['fargs', 'ellipsis', 'cif_descr']
-    _immutable_fields_ = ['fargs', 'ellipsis', 'cif_descr']
+    _immutable_fields_ = ['fargs[*]', 'ellipsis', 'cif_descr']
 
     def __init__(self, space, fargs, fresult, ellipsis):
         extra = self._compute_extra_text(fargs, fresult, ellipsis)
@@ -213,7 +213,8 @@ CIF_DESCRIPTION = lltype.Struct(
     ('cif', FFI_CIF),
     ('exchange_size', lltype.Signed),
     ('exchange_result', lltype.Signed),
-    ('exchange_args', rffi.CArray(lltype.Signed)),
+    ('exchange_args', lltype.Array(lltype.Signed,
+                          hints={'nolength': True, 'immutable': True})),
     hints={'immutable': True})
 
 CIF_DESCRIPTION_P = lltype.Ptr(CIF_DESCRIPTION)
