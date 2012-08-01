@@ -31,10 +31,24 @@ def read_raw_signed_data(target, size):
             return rffi.cast(lltype.SignedLongLong, rffi.cast(TPP, target)[0])
     raise NotImplementedError("bad integer size")
 
+def read_raw_long_data(target, size):
+    for TP, TPP in _prim_signed_types:
+        if size == rffi.sizeof(TP):
+            assert rffi.sizeof(TP) <= rffi.sizeof(lltype.Signed)
+            return rffi.cast(lltype.Signed, rffi.cast(TPP, target)[0])
+    raise NotImplementedError("bad integer size")
+
 def read_raw_unsigned_data(target, size):
     for TP, TPP in _prim_unsigned_types:
         if size == rffi.sizeof(TP):
             return rffi.cast(lltype.UnsignedLongLong, rffi.cast(TPP,target)[0])
+    raise NotImplementedError("bad integer size")
+
+def read_raw_ulong_data(target, size):
+    for TP, TPP in _prim_unsigned_types:
+        if size == rffi.sizeof(TP):
+            assert rffi.sizeof(TP) < rffi.sizeof(lltype.Signed)
+            return rffi.cast(lltype.Signed, rffi.cast(TPP,target)[0])
     raise NotImplementedError("bad integer size")
 
 def read_raw_float_data(target, size):

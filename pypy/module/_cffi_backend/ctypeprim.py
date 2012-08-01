@@ -4,7 +4,7 @@ Primitives.
 
 from pypy.interpreter.error import operationerrfmt
 from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.rlib.rarithmetic import intmask, r_ulonglong
+from pypy.rlib.rarithmetic import r_ulonglong
 from pypy.rlib.objectmodel import keepalive_until_here
 from pypy.rlib import jit
 
@@ -164,16 +164,17 @@ class W_CTypePrimitiveSigned(W_CTypePrimitive):
         if self.value_fits_long:
             # this case is to handle enums, but also serves as a slight
             # performance improvement for some other primitive types
-            value = intmask(misc.read_raw_signed_data(cdata, self.size))
+            value = misc.read_raw_long_data(cdata, self.size)
             return self.space.wrap(value)
         else:
             return self.convert_to_object(cdata)
 
     def convert_to_object(self, cdata):
-        value = misc.read_raw_signed_data(cdata, self.size)
         if self.value_fits_long:
-            return self.space.wrap(intmask(value))
+            value = misc.read_raw_long_data(cdata, self.size)
+            return self.space.wrap(value)
         else:
+            value = misc.read_raw_signed_data(cdata, self.size)
             return self.space.wrap(value)    # r_longlong => on 32-bit, 'long'
 
     def convert_from_object(self, cdata, w_ob):
@@ -214,10 +215,11 @@ class W_CTypePrimitiveUnsigned(W_CTypePrimitive):
         misc.write_raw_integer_data(cdata, value, self.size)
 
     def convert_to_object(self, cdata):
-        value = misc.read_raw_unsigned_data(cdata, self.size)
         if self.value_fits_long:
-            return self.space.wrap(intmask(value))
+            value = misc.read_raw_ulong_data(cdata, self.size)
+            return self.space.wrap(value)
         else:
+            value = misc.read_raw_unsigned_data(cdata, self.size)
             return self.space.wrap(value)    # r_ulonglong => 'long' object
 
     def get_vararg_type(self):
