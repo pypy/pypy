@@ -1129,9 +1129,9 @@ class BlackholeInterpreter(object):
     def bhimpl_getarrayitem_gc_f(cpu, array, arraydescr, index):
         return cpu.bh_getarrayitem_gc_f(arraydescr, array, index)
 
-    bhimpl_getarrayitem_gc_pure_i = bhimpl_getarrayitem_gc_i
-    bhimpl_getarrayitem_gc_pure_r = bhimpl_getarrayitem_gc_r
-    bhimpl_getarrayitem_gc_pure_f = bhimpl_getarrayitem_gc_f
+    bhimpl_getarrayitem_gc_i_pure = bhimpl_getarrayitem_gc_i
+    bhimpl_getarrayitem_gc_r_pure = bhimpl_getarrayitem_gc_r
+    bhimpl_getarrayitem_gc_f_pure = bhimpl_getarrayitem_gc_f
 
     @arguments("cpu", "i", "d", "i", returns="i")
     def bhimpl_getarrayitem_raw_i(cpu, array, arraydescr, index):
@@ -1139,6 +1139,9 @@ class BlackholeInterpreter(object):
     @arguments("cpu", "i", "d", "i", returns="f")
     def bhimpl_getarrayitem_raw_f(cpu, array, arraydescr, index):
         return cpu.bh_getarrayitem_raw_f(arraydescr, array, index)
+
+    bhimpl_getarrayitem_raw_i_pure = bhimpl_getarrayitem_raw_i
+    bhimpl_getarrayitem_raw_f_pure = bhimpl_getarrayitem_raw_f
 
     @arguments("cpu", "r", "d", "i", "i")
     def bhimpl_setarrayitem_gc_i(cpu, array, arraydescr, index, newvalue):

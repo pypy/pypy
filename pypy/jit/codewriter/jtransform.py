@@ -582,9 +582,14 @@ class Transformer(object):
                                    [v_base, arrayfielddescr, arraydescr,
                                     op.args[1]], op.result)]
         # normal case follows
+        pure = ''
+        immut = ARRAY._immutable_field(None)
+        if immut:
+            pure = '_pure'
         arraydescr = self.cpu.arraydescrof(ARRAY)
         kind = getkind(op.result.concretetype)
-        return SpaceOperation('getarrayitem_%s_%s' % (ARRAY._gckind, kind[0]),
+        return SpaceOperation('getarrayitem_%s_%s%s' % (ARRAY._gckind,
+                                                        kind[0], pure),
                               [op.args[0], arraydescr, op.args[1]],
                               op.result)
 
@@ -712,7 +717,7 @@ class Transformer(object):
         argname = getattr(STRUCT, '_gckind', 'gc')
         if argname != 'raw':
             raise Exception("%r: only supported for gckind=raw" % (op,))
-        ofs = llmemory.offsetof(STRUCT, 'exchange_args')
+        ofs = llmemory.offsetof(STRUCT, op.args[1].value)
         return SpaceOperation('int_add',
                               [op.args[0], Constant(ofs, lltype.Signed)],
                               op.result)
@@ -1514,7 +1519,7 @@ class Transformer(object):
                                                      'check_neg_index')
         extra = getkind(op.result.concretetype)[0]
         if pure:
-            extra = 'pure_' + extra
+            extra += '_pure'
         op = SpaceOperation('getarrayitem_gc_%s' % extra,
                             [args[0], arraydescr, v_index], op.result)
         return extraop + [op]

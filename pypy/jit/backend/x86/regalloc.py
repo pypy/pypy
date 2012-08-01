@@ -1136,6 +1136,7 @@ class RegAlloc(object):
 
     consider_getarrayitem_raw = consider_getarrayitem_gc
     consider_getarrayitem_gc_pure = consider_getarrayitem_gc
+    consider_getarrayitem_raw_pure = consider_getarrayitem_gc
     consider_raw_load = consider_getarrayitem_gc
 
     def consider_getinteriorfield_gc(self, op):

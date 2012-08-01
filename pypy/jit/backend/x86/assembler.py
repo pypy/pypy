@@ -1550,6 +1550,7 @@ class Assembler386(object):
 
     genop_getarrayitem_gc_pure = genop_getarrayitem_gc
     genop_getarrayitem_raw = genop_getarrayitem_gc
+    genop_getarrayitem_raw_pure = genop_getarrayitem_gc
 
     def genop_raw_load(self, op, arglocs, resloc):
         base_loc, ofs_loc, size_loc, ofs, sign_loc = arglocs

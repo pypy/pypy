@@ -540,6 +540,10 @@ class AddressAsInt(Symbolic):
         return self.adr != cast_int_to_adr(other)
     def __nonzero__(self):
         return bool(self.adr)
+    def __add__(self, ofs):
+        if isinstance(ofs, FieldOffset) and ofs.TYPE is self.adr.ptr._TYPE.TO:
+            return AddressAsInt(cast_ptr_to_adr(self.adr.ptr.b))
+        return NotImplemented
     def __repr__(self):
         try:
             return '<AddressAsInt %s>' % (self.adr.ptr,)

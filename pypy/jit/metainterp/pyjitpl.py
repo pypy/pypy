@@ -451,12 +451,20 @@ class MIFrame(object):
     opimpl_getarrayitem_raw_f = _opimpl_getarrayitem_raw_any
 
     @arguments("box", "descr", "box")
+    def _opimpl_getarrayitem_raw_pure_any(self, arraybox,arraydescr, indexbox):
+        return self.execute_with_descr(rop.GETARRAYITEM_RAW_PURE,
+                                       arraydescr, arraybox, indexbox)
+
+    opimpl_getarrayitem_raw_i_pure = _opimpl_getarrayitem_raw_pure_any
+    opimpl_getarrayitem_raw_f_pure = _opimpl_getarrayitem_raw_pure_any
+
+    @arguments("box", "descr", "box")
     def _opimpl_getarrayitem_gc_pure_any(self, arraybox, arraydescr, indexbox):
         return self._do_getarrayitem_gc_any(rop.GETARRAYITEM_GC_PURE, arraybox, arraydescr, indexbox)
 
-    opimpl_getarrayitem_gc_pure_i = _opimpl_getarrayitem_gc_pure_any
-    opimpl_getarrayitem_gc_pure_r = _opimpl_getarrayitem_gc_pure_any
-    opimpl_getarrayitem_gc_pure_f = _opimpl_getarrayitem_gc_pure_any
+    opimpl_getarrayitem_gc_i_pure = _opimpl_getarrayitem_gc_pure_any
+    opimpl_getarrayitem_gc_r_pure = _opimpl_getarrayitem_gc_pure_any
+    opimpl_getarrayitem_gc_f_pure = _opimpl_getarrayitem_gc_pure_any
 
     @arguments("box", "descr", "box", "box")
     def _opimpl_setarrayitem_gc_any(self, arraybox, arraydescr,

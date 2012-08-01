@@ -89,6 +89,42 @@ class ImmutableFieldsTests:
                             int_add=3)
 
 
+    def test_raw_field_and_array(self):
+        from pypy.rpython.lltypesystem import lltype
+        X = lltype.Struct('X',
+            ('a', lltype.Signed),
+            ('b', lltype.Array(lltype.Signed,
+                               hints={'nolength': True, 'immutable': True})),
+            hints={'immutable': True})
+
+        x = lltype.malloc(X, 4, flavor='raw', immortal=True)
+        x.a = 6
+        x.b[2] = 7
+        xlist = [x, lltype.nullptr(X)]
+        def g(num):
+            if num < 0:
+                num = 0
+            return num
+        g._dont_inline_ = True
+        def f(num):
+            num = g(num)
+            x = xlist[num]
+            return x.a * x.b[2]
+        #
+        res = self.interp_operations(f, [0], disable_optimizations=True)
+        assert res == 42
+        self.check_operations_history(getfield_raw_pure=1,
+                                      getarrayitem_raw_pure=1,
+                                      int_mul=1)
+        #
+        # second try, in which we get num=0 constant-folded through f()
+        res = self.interp_operations(f, [-1], disable_optimizations=True)
+        assert res == 42
+        self.check_operations_history(getfield_raw_pure=0,
+                                      getarrayitem_raw_pure=0,
+                                      int_mul=0)
+
+
 class TestLLtypeImmutableFieldsTests(ImmutableFieldsTests, LLJitMixin):
     pass
 
