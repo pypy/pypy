@@ -1,3 +1,7 @@
+# in default string_to_int accepts str, in py3k it accepts unicode. We use
+# __future__.unicode_literals here to minimize the diff
+from __future__ import unicode_literals
+
 import py, random
 from pypy.objspace.std.strutil import *
 from pypy.interpreter.error import OperationError
@@ -96,12 +100,12 @@ class TestStrUtil:
         import sys
         space = self.space
         raises(ParseStringOverflowError, string_to_int,
-               str(sys.maxint*17))
+               unicode(sys.maxint*17))
 
     def test_string_to_int_not_overflow(self):
         import sys
         for x in [-sys.maxint-1, sys.maxint]:
-            y = string_to_int(str(x))
+            y = string_to_int(unicode(x))
             assert y == x
 
     def test_string_to_int_base_error(self):
