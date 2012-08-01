@@ -23,6 +23,7 @@ from pypy.jit.backend.llsupport.regalloc import FrameManager, RegisterManager,\
      TempBox
 from pypy.jit.backend.x86.arch import WORD, FRAME_FIXED_SIZE
 from pypy.jit.backend.x86.arch import IS_X86_32, IS_X86_64, MY_COPY_OF_REGS
+from pypy.jit.backend.x86 import rx86
 from pypy.rlib.rarithmetic import r_longlong
 
 class X86RegisterManager(RegisterManager):
@@ -610,9 +611,33 @@ class RegAlloc(object):
         loc, argloc = self._consider_binop_part(op)
         self.Perform(op, [loc, argloc], loc)
 
-    consider_int_add = _consider_binop
+    def _consider_lea(self, op, loc):
+        argloc = self.loc(op.getarg(1))
+        self.rm.possibly_free_var(op.getarg(0))
+        resloc = self.force_allocate_reg(op.result)
+        self.Perform(op, [loc, argloc], resloc)
+
+    def _consider_binop_add(self, op):
+        loc = self.loc(op.getarg(0))
+        y = op.getarg(1)
+        if (isinstance(loc, RegLoc) and
+            isinstance(y, ConstInt) and rx86.fits_in_32bits(y.value)):
+            self._consider_lea(op, loc)
+        else:
+            self._consider_binop(op)
+
+    def _consider_binop_sub(self, op):
+        loc = self.loc(op.getarg(0))
+        y = op.getarg(1)
+        if (isinstance(loc, RegLoc) and
+            isinstance(y, ConstInt) and rx86.fits_in_32bits(-y.value)):
+            self._consider_lea(op, loc)
+        else:
+            self._consider_binop(op)
+
+    consider_int_add = _consider_binop_add
     consider_int_mul = _consider_binop
-    consider_int_sub = _consider_binop
+    consider_int_sub = _consider_binop_sub
     consider_int_and = _consider_binop
     consider_int_or  = _consider_binop
     consider_int_xor = _consider_binop

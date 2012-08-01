@@ -998,6 +998,22 @@ class Assembler386(object):
             getattr(self.mc, asmop)(arglocs[0], arglocs[1])
         return genop_binary
 
+    def _binaryop_or_lea(asmop, is_add):
+        def genop_binary_or_lea(self, op, arglocs, result_loc):
+            if result_loc is arglocs[0]:
+                getattr(self.mc, asmop)(arglocs[0], arglocs[1])
+            else:
+                loc = arglocs[0]
+                argloc = arglocs[1]
+                assert isinstance(loc, RegLoc)
+                assert isinstance(argloc, ImmedLoc)
+                assert isinstance(result_loc, RegLoc)
+                delta = argloc.value
+                if not is_add:    # subtraction
+                    delta = -delta
+                self.mc.LEA_rm(result_loc.value, (loc.value, delta))
+        return genop_binary_or_lea
+
     def _cmpop(cond, rev_cond):
         def genop_cmp(self, op, arglocs, result_loc):
             rl = result_loc.lowest8bits()
@@ -1224,8 +1240,8 @@ class Assembler386(object):
 
     genop_int_neg = _unaryop("NEG")
     genop_int_invert = _unaryop("NOT")
-    genop_int_add = _binaryop("ADD", True)
-    genop_int_sub = _binaryop("SUB")
+    genop_int_add = _binaryop_or_lea("ADD", True)
+    genop_int_sub = _binaryop_or_lea("SUB", False)
     genop_int_mul = _binaryop("IMUL", True)
     genop_int_and = _binaryop("AND", True)
     genop_int_or  = _binaryop("OR", True)
