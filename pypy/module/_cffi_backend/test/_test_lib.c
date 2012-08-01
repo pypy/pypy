@@ -127,6 +127,14 @@ static int _testfunc18(struct _testfunc17_s *ptr)
     return ptr->a1 + (int)ptr->a2;
 }
 
+static long double _testfunc19(long double x)
+{
+    int i;
+    for (i=0; i<28; i++)
+        x += x;
+    return x;
+}
+
 void *gettestfunc(int num)
 {
     void *f;
@@ -150,6 +158,7 @@ void *gettestfunc(int num)
     case 16: f = &_testfunc16; break;
     case 17: f = &_testfunc17; break;
     case 18: f = &_testfunc18; break;
+    case 19: f = &_testfunc19; break;
     default:
         return NULL;
     }

@@ -37,6 +37,7 @@ eptype("unsigned long",      rffi.LONG,     ctypeprim.W_CTypePrimitiveUnsigned)
 eptype("unsigned long long", rffi.LONGLONG, ctypeprim.W_CTypePrimitiveUnsigned)
 eptype("float",  rffi.FLOAT,  ctypeprim.W_CTypePrimitiveFloat)
 eptype("double", rffi.DOUBLE, ctypeprim.W_CTypePrimitiveFloat)
+eptype("long double", rffi.LONGDOUBLE, ctypeprim.W_CTypePrimitiveLongDouble)
 
 @unwrap_spec(name=str)
 def new_primitive_type(space, name):

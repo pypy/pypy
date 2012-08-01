@@ -1,3 +1,4 @@
+from __future__ import with_statement
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rlib.rarithmetic import r_ulonglong
@@ -42,6 +43,9 @@ def read_raw_float_data(target, size):
             return rffi.cast(lltype.Float, rffi.cast(TPP, target)[0])
     raise NotImplementedError("bad float size")
 
+def read_raw_longdouble_data(target):
+    return rffi.cast(rffi.LONGDOUBLEP, target)[0]
+
 def write_raw_integer_data(target, source, size):
     for TP, TPP in _prim_unsigned_types:
         if size == rffi.sizeof(TP):
@@ -55,6 +59,22 @@ def write_raw_float_data(target, source, size):
             rffi.cast(TPP, target)[0] = rffi.cast(TP, source)
             return
     raise NotImplementedError("bad float size")
+
+def write_raw_longdouble_data(target, source):
+    rffi.cast(rffi.LONGDOUBLEP, target)[0] = source
+
+# ____________________________________________________________
+
+sprintf_longdouble = rffi.llexternal(
+    "sprintf", [rffi.CCHARP, rffi.CCHARP, rffi.LONGDOUBLE], lltype.Void,
+    _nowrapper=True, sandboxsafe=True)
+
+FORMAT_LONGDOUBLE = rffi.str2charp("%LE")
+
+def longdouble2str(lvalue):
+    with lltype.scoped_alloc(rffi.CCHARP.TO, 128) as p:    # big enough
+        sprintf_longdouble(p, FORMAT_LONGDOUBLE, lvalue)
+        return rffi.charp2str(p)
 
 # ____________________________________________________________
 

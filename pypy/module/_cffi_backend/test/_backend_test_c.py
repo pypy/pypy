@@ -1733,3 +1733,34 @@ def test_autocast_float():
     assert x[0] == 12.5
     x = cast(BFloat, cast(BDouble, 12.5))
     assert float(x) == 12.5
+
+def test_longdouble():
+    BLongDouble = new_primitive_type("long double")
+    BLongDoublePtr = new_pointer_type(BLongDouble)
+    BLongDoubleArray = new_array_type(BLongDoublePtr, None)
+    a = newp(BLongDoubleArray, 1)
+    x = a[0]
+    assert repr(x).startswith("<cdata 'long double' 0.0")
+    assert float(x) == 0.0
+    assert int(x) == 0
+    #
+    b = newp(BLongDoubleArray, [1.23])
+    x = b[0]
+    assert repr(x).startswith("<cdata 'long double' 1.23")
+    assert float(x) == 1.23
+    assert int(x) == 1
+    #
+    BFunc19 = new_function_type((BLongDouble,), BLongDouble)
+    f = cast(BFunc19, _testfunc(19))
+    start = 8
+    for i in range(107):
+        start = f(start)
+    if sizeof(BLongDouble) > sizeof(new_primitive_type("double")):
+        if 'PY_DOT_PY' in globals(): py.test.skip('py.py: long double->double')
+        assert repr(start).startswith("<cdata 'long double' 6.15")
+        assert repr(start).endswith("E+902>")
+        #
+        c = newp(BLongDoubleArray, [start])
+        x = c[0]
+        assert repr(x).endswith("E+902>")
+        assert float(x) == float("inf")

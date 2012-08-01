@@ -209,6 +209,10 @@ class W_CData(Wrappable):
         misc.write_raw_float_data(self._cdata, source, self.ctype.size)
         keepalive_until_here(self)
 
+    def write_raw_longdouble_data(self, source):
+        misc.write_raw_longdouble_data(self._cdata, source)
+        keepalive_until_here(self)
+
     def convert_to_object(self):
         w_obj = self.ctype.convert_to_object(self._cdata)
         keepalive_until_here(self)

@@ -18,6 +18,7 @@ from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveSigned
 from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveUnsigned
 from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveCharOrUniChar
 from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveFloat
+from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveLongDouble
 from pypy.module._cffi_backend import ctypearray, cdataobj, cerrno
 
 
@@ -261,6 +262,9 @@ def _primfloat_ffi_type(self, cifbuilder):
     elif size == 8: return clibffi.ffi_type_double
     return _missing_ffi_type(self, cifbuilder)
 
+def _primlongdouble_ffi_type(self, cifbuilder):
+    return clibffi.ffi_type_longdouble
+
 def _ptr_ffi_type(self, cifbuilder):
     return clibffi.ffi_type_pointer
 
@@ -273,6 +277,7 @@ W_CTypePrimitiveSigned._get_ffi_type        = _primsigned_ffi_type
 W_CTypePrimitiveCharOrUniChar._get_ffi_type = _primunsigned_ffi_type
 W_CTypePrimitiveUnsigned._get_ffi_type      = _primunsigned_ffi_type
 W_CTypePrimitiveFloat._get_ffi_type         = _primfloat_ffi_type
+W_CTypePrimitiveLongDouble._get_ffi_type    = _primlongdouble_ffi_type
 W_CTypePtrBase._get_ffi_type                = _ptr_ffi_type
 W_CTypeVoid._get_ffi_type                   = _void_ffi_type
 # ----------

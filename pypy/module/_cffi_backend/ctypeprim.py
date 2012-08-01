@@ -228,7 +228,11 @@ class W_CTypePrimitiveFloat(W_CTypePrimitive):
         else:
             value = space.float_w(w_ob)
         w_cdata = cdataobj.W_CDataCasted(space, self.size, self)
-        w_cdata.write_raw_float_data(value)
+        if not isinstance(self, W_CTypePrimitiveLongDouble):
+            w_cdata.write_raw_float_data(value)
+        else:
+            lvalue = rffi.cast(rffi.LONGDOUBLE, value)
+            w_cdata.write_raw_longdouble_data(lvalue)
         return w_cdata
 
     def int(self, cdata):
@@ -246,3 +250,45 @@ class W_CTypePrimitiveFloat(W_CTypePrimitive):
         space = self.space
         value = space.float_w(space.float(w_ob))
         misc.write_raw_float_data(cdata, value, self.size)
+
+
+class W_CTypePrimitiveLongDouble(W_CTypePrimitiveFloat):
+    _attrs_ = []
+
+    def extra_repr(self, cdata):
+        lvalue = misc.read_raw_longdouble_data(cdata)
+        return misc.longdouble2str(lvalue)
+
+    def cast(self, w_ob):
+        space = self.space
+        ob = space.interpclass_w(w_ob)
+        if (isinstance(ob, cdataobj.W_CData) and
+                isinstance(ob.ctype, W_CTypePrimitiveLongDouble)):
+            w_cdata = self.convert_to_object(ob._cdata)
+            keepalive_until_here(ob)
+            return w_cdata
+        else:
+            return W_CTypePrimitiveFloat.cast(self, w_ob)
+
+    def float(self, cdata):
+        lvalue = misc.read_raw_longdouble_data(cdata)
+        value = rffi.cast(lltype.Float, lvalue)
+        return self.space.wrap(value)
+
+    def convert_to_object(self, cdata):
+        lvalue = misc.read_raw_longdouble_data(cdata)
+        w_cdata = cdataobj.W_CDataCasted(self.space, self.size, self)
+        w_cdata.write_raw_longdouble_data(lvalue)
+        return w_cdata
+
+    def convert_from_object(self, cdata, w_ob):
+        space = self.space
+        ob = space.interpclass_w(w_ob)
+        if (isinstance(ob, cdataobj.W_CData) and
+                isinstance(ob.ctype, W_CTypePrimitiveLongDouble)):
+            lvalue = misc.read_raw_longdouble_data(ob._cdata)
+            keepalive_until_here(ob)
+        else:
+            value = space.float_w(space.float(w_ob))
+            lvalue = rffi.cast(rffi.LONGDOUBLE, value)
+        misc.write_raw_longdouble_data(cdata, lvalue)
