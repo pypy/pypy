@@ -116,12 +116,14 @@ class W_CTypeStructOrUnion(W_CType):
             raise self._convert_error("list or tuple or dict or struct-cdata",
                                       w_ob)
 
-    @jit.elidable_promote()
+    @jit.elidable
     def _getcfield_const(self, attr):
         return self.fields_dict[attr]
 
     def getcfield(self, attr):
         if self.fields_dict is not None:
+            self = jit.promote(self)
+            attr = jit.promote_string(attr)
             try:
                 return self._getcfield_const(attr)
             except KeyError:
