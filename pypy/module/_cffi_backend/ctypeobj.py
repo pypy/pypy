@@ -156,6 +156,12 @@ class W_CType(Wrappable):
     def get_vararg_type(self):
         return self
 
+    def getcfield(self, attr):
+        space = self.space
+        raise operationerrfmt(space.w_AttributeError,
+                              "cdata '%s' has no attribute '%s'",
+                              self.name, attr)
+
 
 W_CType.typedef = TypeDef(
     'CTypeDescr',

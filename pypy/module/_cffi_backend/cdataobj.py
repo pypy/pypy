@@ -168,21 +168,7 @@ class W_CData(Wrappable):
         return self._add_or_sub(w_other, -1)
 
     def getcfield(self, w_attr):
-        from pypy.module._cffi_backend import ctypeptr, ctypestruct
-        space = self.space
-        ctype = self.ctype
-        attr = space.str_w(w_attr)
-        if isinstance(ctype, ctypeptr.W_CTypePointer):
-            ctype = ctype.ctitem
-        if (isinstance(ctype, ctypestruct.W_CTypeStructOrUnion) and
-                ctype.fields_dict is not None):
-            try:
-                return ctype.fields_dict[attr]
-            except KeyError:
-                pass
-        raise operationerrfmt(space.w_AttributeError,
-                              "cdata '%s' has no attribute '%s'",
-                              ctype.name, attr)
+        return self.ctype.getcfield(self.space.str_w(w_attr))
 
     def getattr(self, w_attr):
         w_res = self.getcfield(w_attr).read(self._cdata)

@@ -8,6 +8,7 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.rlib.objectmodel import keepalive_until_here
 from pypy.rlib.rarithmetic import r_ulonglong, r_longlong, intmask
+from pypy.rlib import jit
 
 from pypy.module._cffi_backend.ctypeobj import W_CType
 from pypy.module._cffi_backend import cdataobj, ctypeprim, misc
@@ -114,6 +115,18 @@ class W_CTypeStructOrUnion(W_CType):
         else:
             raise self._convert_error("list or tuple or dict or struct-cdata",
                                       w_ob)
+
+    @jit.elidable_promote()
+    def _getcfield_const(self, attr):
+        return self.fields_dict[attr]
+
+    def getcfield(self, attr):
+        if self.fields_dict is not None:
+            try:
+                return self._getcfield_const(attr)
+            except KeyError:
+                pass
+        return W_CType.getcfield(self, attr)
 
 
 class W_CTypeStruct(W_CTypeStructOrUnion):

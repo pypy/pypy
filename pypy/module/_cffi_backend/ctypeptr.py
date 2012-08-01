@@ -263,3 +263,6 @@ class W_CTypePointer(W_CTypePtrBase):
             set_mustfree_flag(cdata, False)
             self.convert_from_object(cdata, w_ob)
             return False
+
+    def getcfield(self, attr):
+        return self.ctitem.getcfield(attr)
