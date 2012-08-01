@@ -41,3 +41,12 @@ eci = ExternalCompilationInfo(
 
 def c_load_dictionary(name):
     return libffi.CDLL(name)
+
+
+# Reflex-specific pythonizations
+def register_pythonizations(space):
+    "NOT_RPYTHON"
+    pass
+
+def pythonize(space, name, w_pycppclass):
+    pass
