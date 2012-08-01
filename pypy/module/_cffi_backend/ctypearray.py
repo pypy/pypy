@@ -103,6 +103,9 @@ class W_CTypeArray(W_CTypePtrOrArray):
     def iter(self, cdata):
         return W_CDataIter(self.space, self.ctitem, cdata)
 
+    def get_vararg_type(self):
+        return self.ctptr
+
 
 class W_CDataIter(Wrappable):
     _immutable_fields_ = ['ctitem', 'cdata', '_stop']    # but not '_next'

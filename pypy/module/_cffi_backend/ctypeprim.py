@@ -75,6 +75,10 @@ class W_CTypePrimitiveCharOrUniChar(W_CTypePrimitive):
     _attrs_ = []
     is_primitive_integer = True
 
+    def get_vararg_type(self):
+        from pypy.module._cffi_backend import newtype
+        return newtype.new_primitive_type(self.space, "int")
+
 
 class W_CTypePrimitiveChar(W_CTypePrimitiveCharOrUniChar):
     _attrs_ = []
@@ -179,6 +183,12 @@ class W_CTypePrimitiveSigned(W_CTypePrimitive):
         value = r_ulonglong(value)
         misc.write_raw_integer_data(cdata, value, self.size)
 
+    def get_vararg_type(self):
+        if self.size < rffi.sizeof(rffi.INT):
+            from pypy.module._cffi_backend import newtype
+            return newtype.new_primitive_type(self.space, "int")
+        return self
+
 
 class W_CTypePrimitiveUnsigned(W_CTypePrimitive):
     _attrs_            = ['value_fits_long', 'vrangemax']
@@ -208,6 +218,12 @@ class W_CTypePrimitiveUnsigned(W_CTypePrimitive):
             return self.space.wrap(intmask(value))
         else:
             return self.space.wrap(value)    # r_ulonglong => 'long' object
+
+    def get_vararg_type(self):
+        if self.size < rffi.sizeof(rffi.INT):
+            from pypy.module._cffi_backend import newtype
+            return newtype.new_primitive_type(self.space, "int")
+        return self
 
 
 class W_CTypePrimitiveFloat(W_CTypePrimitive):

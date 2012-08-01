@@ -50,9 +50,7 @@ class W_CTypeFunc(W_CTypePtrBase):
         for i in range(nargs_declared, len(args_w)):
             w_obj = args_w[i]
             if isinstance(w_obj, cdataobj.W_CData):
-                ct = w_obj.ctype
-                if isinstance(ct, ctypearray.W_CTypeArray):
-                    ct = ct.ctptr
+                ct = w_obj.ctype.get_vararg_type()
             else:
                 raise operationerrfmt(space.w_TypeError,
                              "argument %d passed in the variadic part "

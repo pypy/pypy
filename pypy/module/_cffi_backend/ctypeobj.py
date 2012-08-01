@@ -153,6 +153,9 @@ class W_CType(Wrappable):
                               "cdata '%s' does not support iteration",
                               self.name)
 
+    def get_vararg_type(self):
+        return self
+
 
 W_CType.typedef = TypeDef(
     'CTypeDescr',
