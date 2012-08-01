@@ -6,6 +6,7 @@ from pypy.interpreter.error import operationerrfmt
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.rarithmetic import intmask, r_ulonglong
 from pypy.rlib.objectmodel import keepalive_until_here
+from pypy.rlib import jit
 
 from pypy.module._cffi_backend.ctypeobj import W_CType
 from pypy.module._cffi_backend import cdataobj, misc
@@ -247,8 +248,8 @@ class W_CTypePrimitiveFloat(W_CTypePrimitive):
         if not isinstance(self, W_CTypePrimitiveLongDouble):
             w_cdata.write_raw_float_data(value)
         else:
-            lvalue = rffi.cast(rffi.LONGDOUBLE, value)
-            w_cdata.write_raw_longdouble_data(lvalue)
+            self._to_longdouble_and_write(value, w_cdata._cdata)
+            keepalive_until_here(w_cdata)
         return w_cdata
 
     def int(self, cdata):
@@ -271,6 +272,7 @@ class W_CTypePrimitiveFloat(W_CTypePrimitive):
 class W_CTypePrimitiveLongDouble(W_CTypePrimitiveFloat):
     _attrs_ = []
 
+    @jit.dont_look_inside
     def extra_repr(self, cdata):
         lvalue = misc.read_raw_longdouble_data(cdata)
         return misc.longdouble2str(lvalue)
@@ -286,15 +288,30 @@ class W_CTypePrimitiveLongDouble(W_CTypePrimitiveFloat):
         else:
             return W_CTypePrimitiveFloat.cast(self, w_ob)
 
-    def float(self, cdata):
+    @jit.dont_look_inside
+    def _to_longdouble_and_write(self, value, cdata):
+        lvalue = rffi.cast(rffi.LONGDOUBLE, value)
+        misc.write_raw_longdouble_data(cdata, lvalue)
+
+    @jit.dont_look_inside
+    def _read_from_longdouble(self, cdata):
         lvalue = misc.read_raw_longdouble_data(cdata)
         value = rffi.cast(lltype.Float, lvalue)
+        return value
+
+    @jit.dont_look_inside
+    def _copy_longdouble(self, cdatasrc, cdatadst):
+        lvalue = misc.read_raw_longdouble_data(cdatasrc)
+        misc.write_raw_longdouble_data(cdatadst, lvalue)
+
+    def float(self, cdata):
+        value = self._read_from_longdouble(cdata)
         return self.space.wrap(value)
 
     def convert_to_object(self, cdata):
-        lvalue = misc.read_raw_longdouble_data(cdata)
         w_cdata = cdataobj.W_CDataCasted(self.space, self.size, self)
-        w_cdata.write_raw_longdouble_data(lvalue)
+        self._copy_longdouble(cdata, w_cdata._cdata)
+        keepalive_until_here(w_cdata)
         return w_cdata
 
     def convert_from_object(self, cdata, w_ob):
@@ -302,9 +319,8 @@ class W_CTypePrimitiveLongDouble(W_CTypePrimitiveFloat):
         ob = space.interpclass_w(w_ob)
         if (isinstance(ob, cdataobj.W_CData) and
                 isinstance(ob.ctype, W_CTypePrimitiveLongDouble)):
-            lvalue = misc.read_raw_longdouble_data(ob._cdata)
+            self._copy_longdouble(ob._cdata, cdata)
             keepalive_until_here(ob)
         else:
             value = space.float_w(space.float(w_ob))
-            lvalue = rffi.cast(rffi.LONGDOUBLE, value)
-        misc.write_raw_longdouble_data(cdata, lvalue)
+            self._to_longdouble_and_write(value, cdata)
