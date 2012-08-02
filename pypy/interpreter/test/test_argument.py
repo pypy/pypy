@@ -318,13 +318,13 @@ class TestArgumentsNormal(object):
     def test_unwrap_error(self):
         space = DummySpace()
         valuedummy = object()
-        def str_w(w):
+        def unicode_w(w):
             if w is None:
                 raise OperationError(TypeError, None)
             if w is valuedummy:
                 raise OperationError(ValueError, None)
             return str(w)
-        space.str_w = str_w
+        space.unicode_w = unicode_w
         excinfo = py.test.raises(OperationError, Arguments, space, [],
                                  ["a"], [1], w_starstararg={None: 1})
         assert excinfo.value.w_type is TypeError
