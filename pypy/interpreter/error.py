@@ -320,10 +320,12 @@ def decompose_valuefmt(valuefmt):
     return tuple(parts), tuple(formats)
 
 def get_operrcls2(valuefmt):
+    is_unicode = isinstance(valuefmt, unicode)
     strings, formats = decompose_valuefmt(valuefmt)
+    key = (is_unicode, formats)
     assert len(strings) == len(formats) + 1
     try:
-        OpErrFmt = _fmtcache2[formats]
+        OpErrFmt = _fmtcache2[key]
     except KeyError:
         from pypy.rlib.unroll import unrolling_iterable
         attrs = ['x%d' % i for i in range(len(formats))]
@@ -345,11 +347,17 @@ def get_operrcls2(valuefmt):
                     string = self.xstrings[i]
                     value = getattr(self, attr)
                     lst[i+i] = string
-                    lst[i+i+1] = str(value)
+                    if is_unicode:
+                        lst[i+i+1] = unicode(value)
+                    else:
+                        lst[i+i+1] = str(value)
                 lst[-1] = self.xstrings[-1]
-                return ''.join(lst)
+                if is_unicode:
+                    return u''.join(lst)
+                else:
+                    return ''.join(lst)
         #
-        _fmtcache2[formats] = OpErrFmt
+        _fmtcache2[key] = OpErrFmt
     return OpErrFmt, strings
 
 def get_operationerr_class(valuefmt):
