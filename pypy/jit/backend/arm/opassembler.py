@@ -1188,7 +1188,16 @@ class ResOpAssembler(object):
             floats = r.caller_vfp_resp
         else:
             floats = []
-        with saved_registers(self.mc, r.caller_resp[1:] + [r.ip], floats):
+        # in case the call has a result we do not need to save the
+        # corresponding result register because it was already allocated for
+        # the result
+        core = r.caller_resp
+        if op.result: 
+            if resloc.is_vfp_reg(): 
+                floats = r.caller_vfp_resp[1:]
+            else:
+                core = r.caller_resp[1:] + [r.ip] # keep alignment
+        with saved_registers(self.mc, core, floats):
             # result of previous call is in r0
             self.mov_loc_loc(arglocs[0], r.r1)
             self.mc.BL(asm_helper_adr)
