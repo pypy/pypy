@@ -15,7 +15,7 @@ public:
     ~cppyy_test_data();
 
 // special cases
-   enum what { kNothing=6, kSomething=111, kLots=42 };
+    enum what { kNothing=6, kSomething=111, kLots=42 };
 
 // helper
     void destroy_arrays();
@@ -36,6 +36,8 @@ public:
     double               get_double();
     what                 get_enum();
 
+    bool*           get_bool_array();
+    bool*           get_bool_array2();
     short*          get_short_array();
     short*          get_short_array2();
     unsigned short* get_ushort_array();
@@ -94,6 +96,25 @@ public:
     void set_pod_ptrptr_out(cppyy_test_pod**);
     void set_pod_void_ptrptr_out(void**);
 
+// passers
+    short*          pass_array(short*);
+    unsigned short* pass_array(unsigned short*);
+    int*            pass_array(int*);
+    unsigned int*   pass_array(unsigned int*);
+    long*           pass_array(long*);
+    unsigned long*  pass_array(unsigned long*);
+    float*          pass_array(float*);
+    double*         pass_array(double*);
+
+    short*          pass_void_array_h(void* a) { return pass_array((short*)a); }
+    unsigned short* pass_void_array_H(void* a) { return pass_array((unsigned short*)a); }
+    int*            pass_void_array_i(void* a) { return pass_array((int*)a); }
+    unsigned int*   pass_void_array_I(void* a) { return pass_array((unsigned int*)a); }
+    long*           pass_void_array_l(void* a) { return pass_array((long*)a); }
+    unsigned long*  pass_void_array_L(void* a) { return pass_array((unsigned long*)a); }
+    float*          pass_void_array_f(void* a) { return pass_array((float*)a); }
+    double*         pass_void_array_d(void* a) { return pass_array((double*)a); }
+
 public:
 // basic types
     bool                 m_bool;
@@ -112,6 +133,8 @@ public:
     what                 m_enum;
 
 // array types
+    bool            m_bool_array[N];
+    bool*           m_bool_array2;
     short           m_short_array[N];
     short*          m_short_array2;
     unsigned short  m_ushort_array[N];

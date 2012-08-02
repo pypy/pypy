@@ -43,7 +43,7 @@ def clean_type(name):
     if name.endswith("]"):                       # array type?
         idx = name.rfind("[")
         if 0 < idx:
-             name = name[:idx]
+            name = name[:idx]
     elif name.endswith(">"):                     # template type?
         idx = name.find("<")
         if 0 < idx:      # always true, but just so that the translater knows
@@ -90,10 +90,10 @@ def map_operator_name(cppname, nargs, result_type):
             return nargs and "__sub__" or "__neg__"
 
         if op == "++":  # prefix v.s. postfix increment (not python)
-            return nargs and "__postinc__" or "__preinc__";
+            return nargs and "__postinc__" or "__preinc__"
 
         if op == "--":  # prefix v.s. postfix decrement (not python)
-            return nargs and "__postdec__" or "__predec__";
+            return nargs and "__postdec__" or "__predec__"
 
         # operator could have been a conversion using a typedef (this lookup
         # is put at the end only as it is unlikely and may trigger unwanted
