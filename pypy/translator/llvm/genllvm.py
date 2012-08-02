@@ -1,6 +1,7 @@
 import __builtin__
 import ctypes
 from itertools import count
+import py
 import re
 
 from py.path import local
@@ -653,9 +654,10 @@ class FuncType(Type):
             else:
                 name = database.unique_name('@rpy_' + obj._name)
             ptr_type.refs[obj] = name
-            writer = FunctionWriter()
-            writer.write_graph(name, obj.graph)
-            database.f.writelines(writer.lines)
+            if hasattr(obj, 'graph'): # XXX: needs test
+                writer = FunctionWriter()
+                writer.write_graph(name, obj.graph)
+                database.f.writelines(writer.lines)
 
 
 class OpaqueType(Type):
@@ -1665,12 +1667,18 @@ class GenLLVM(object):
                 get_repr(getfunctionptr(export)).V
 
     def _compile(self, add_opts, outfile):
+        stub_code = py.code.Source(r'''
+        void pypy_debug_catch_fatal_exception(void) {
+            fprintf(stderr, "Fatal RPython error\n");
+            abort();
+        }
+        ''')
         eci = (ExternalCompilationInfo(
             include_dirs = [local(pypydir) / 'translator' / 'c'],
             includes = ['src/g_prerequisite.h']
         ).merge(*self.ecis)
          .convert_sources_to_files(being_main=True)
-         .merge(ExternalCompilationInfo(separate_module_sources=['']))
+         .merge(ExternalCompilationInfo(separate_module_sources=[stub_code]))
          .convert_sources_to_files(being_main=False))
         cmdexec('clang -O3 -pthread -Wall -Wno-unused {}{}{}{}{}{}{}.ll -o {}'
                 .format(
