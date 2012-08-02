@@ -653,7 +653,7 @@ class AppTestArgument:
         # "f() got an unexpected keyword argument 'ü'"
         def f(x): pass
         e = raises(TypeError, "f(**{'ü' : 19})")
-        assert "?" in str(e.value)
+        assert "'ü'" in str(e.value)
         """
 
 def make_arguments_for_translation(space, args_w, keywords_w={},

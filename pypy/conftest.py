@@ -205,7 +205,11 @@ def translation_test_so_skip_if_appdirect():
 def run_with_python(python, target):
     if python is None:
         py.test.skip("Cannot find the default python3 interpreter to run with -A")
-    helpers = r"""if 1:
+    # we assume that the source of target is in utf-8. Unfortunately, we don't
+    # have any easy/standard way to determine from here the original encoding
+    # of the source file
+    helpers = r"""# -*- encoding: utf-8 -*-
+if 1:
     import sys
     def skip(message):
         print(message)
@@ -232,7 +236,9 @@ def run_with_python(python, target):
 """
     source = py.code.Source(target)[1:].deindent()
     pyfile = udir.join('src.py')
-    pyfile.write(helpers + str(source))
+    source = helpers + str(source)
+    with pyfile.open('w') as f:
+        f.write(source)
     res, stdout, stderr = runsubprocess.run_subprocess(
         python, [str(pyfile)])
     print source
