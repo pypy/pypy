@@ -343,6 +343,8 @@ class TestTypeDef:
 
 class AppTestTypeDef:
 
+    spaceconfig = dict(usemodules=['array'])
+
     def setup_class(cls):
         path = udir.join('AppTestTypeDef.txt')
         path.write('hello world\n')
