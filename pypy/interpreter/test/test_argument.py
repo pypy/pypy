@@ -617,7 +617,7 @@ class TestErrorHandling(object):
                                 [True, False, True, True],
                                 [unichr(0x1234), u'b', u'c'])
         s = err.getmsg()
-        assert s == "got an unexpected keyword argument '\xe1\x88\xb4'"
+        assert s == "got an unexpected keyword argument '%s'" % unichr(0x1234)
 
     def test_multiple_values(self):
         err = ArgErrMultipleValues('bla')

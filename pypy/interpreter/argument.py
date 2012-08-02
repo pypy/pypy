@@ -771,13 +771,9 @@ class ArgErrUnknownKwds(ArgErr):
                             # note: negative-based indexing from the end
                             w_name = keyword_names_w[i - len(keywords)]
                         except IndexError:
-                            name = '?'
+                            name = u'?'
                         else:
-                            w_enc = space.wrap(space.sys.defaultencoding)
-                            w_err = space.wrap("replace")
-                            w_name = space.call_method(w_name, "encode", w_enc,
-                                                       w_err)
-                            name = space.str_w(w_name)
+                            name = space.unicode_w(w_name)
                     break
         self.kwd_name = name
 
