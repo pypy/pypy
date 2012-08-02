@@ -2,6 +2,7 @@
 Arguments objects.
 """
 
+from pypy.tool.sourcetools import with_unicode_literals
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.rlib.debug import make_sure_not_resized
 from pypy.rlib import jit
@@ -214,6 +215,7 @@ class Arguments(object):
         self._do_combine_starstarargs_wrapped(keys_w, w_starstararg)
         return True
 
+    @with_unicode_literals
     def _do_combine_starstarargs_wrapped(self, keys_w, w_starstararg):
         space = self.space
         keywords_w = [None] * len(keys_w)
@@ -221,7 +223,7 @@ class Arguments(object):
         i = 0
         for w_key in keys_w:
             try:
-                key = space.str_w(w_key)
+                key = space.unicode_w(w_key)
             except OperationError, e:
                 if e.match(space, space.w_TypeError):
                     raise OperationError(
@@ -471,7 +473,7 @@ class Arguments(object):
         return co_argcount + has_vararg + has_kwarg + co_kwonlyargcount
 
 
-
+    @with_unicode_literals
     def parse_into_scope(self, w_firstarg,
                          scope_w, fnname, signature, defaults_w=None,
                          w_kw_defs=None):
@@ -743,6 +745,7 @@ class ArgErrMultipleValues(ArgErr):
     def __init__(self, argname):
         self.argname = argname
 
+    @with_unicode_literals
     def getmsg(self):
         msg = "got multiple values for keyword argument '%s'" % (
             self.argname)
@@ -778,6 +781,7 @@ class ArgErrUnknownKwds(ArgErr):
                     break
         self.kwd_name = name
 
+    @with_unicode_literals
     def getmsg(self):
         if self.num_kwds == 1:
             msg = "got an unexpected keyword argument '%s'" % (

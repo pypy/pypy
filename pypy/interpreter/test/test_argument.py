@@ -648,12 +648,9 @@ class AppTestArgument:
             assert kwargs["美"] == 42
         f(**{"美" : 42})
         #
-        # XXX: the following test fails because we cannot have error messages
-        # with unicode characters yet, and it tries to build a message like:
-        # "f() got an unexpected keyword argument 'ü'"
         def f(x): pass
         e = raises(TypeError, "f(**{'ü' : 19})")
-        assert "'ü'" in str(e.value)
+        assert e.value.args[0] == "f() got an unexpected keyword argument 'ü'"
         """
 
 def make_arguments_for_translation(space, args_w, keywords_w={},
