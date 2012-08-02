@@ -617,7 +617,7 @@ class RegAlloc(object):
         resloc = self.force_allocate_reg(op.result)
         self.Perform(op, [loc, argloc], resloc)
 
-    def _consider_binop_add(self, op):
+    def consider_int_add(self, op):
         loc = self.loc(op.getarg(0))
         y = op.getarg(1)
         if (isinstance(loc, RegLoc) and
@@ -626,7 +626,7 @@ class RegAlloc(object):
         else:
             self._consider_binop(op)
 
-    def _consider_binop_sub(self, op):
+    def consider_int_sub(self, op):
         loc = self.loc(op.getarg(0))
         y = op.getarg(1)
         if (isinstance(loc, RegLoc) and
@@ -635,9 +635,7 @@ class RegAlloc(object):
         else:
             self._consider_binop(op)
 
-    consider_int_add = _consider_binop_add
     consider_int_mul = _consider_binop
-    consider_int_sub = _consider_binop_sub
     consider_int_and = _consider_binop
     consider_int_or  = _consider_binop
     consider_int_xor = _consider_binop

@@ -1000,6 +1000,8 @@ class Assembler386(object):
 
     def _binaryop_or_lea(asmop, is_add):
         def genop_binary_or_lea(self, op, arglocs, result_loc):
+            # use a regular ADD or SUB if result_loc is arglocs[0],
+            # and a LEA only if different.
             if result_loc is arglocs[0]:
                 getattr(self.mc, asmop)(arglocs[0], arglocs[1])
             else:
@@ -1727,15 +1729,15 @@ class Assembler386(object):
                             guard_op.getopname())
 
     def genop_guard_int_add_ovf(self, op, guard_op, guard_token, arglocs, result_loc):
-        self.genop_int_add(op, arglocs, result_loc)
+        self.mc.ADD(arglocs[0], arglocs[1])
         return self._gen_guard_overflow(guard_op, guard_token)
 
     def genop_guard_int_sub_ovf(self, op, guard_op, guard_token, arglocs, result_loc):
-        self.genop_int_sub(op, arglocs, result_loc)
+        self.mc.SUB(arglocs[0], arglocs[1])
         return self._gen_guard_overflow(guard_op, guard_token)
 
     def genop_guard_int_mul_ovf(self, op, guard_op, guard_token, arglocs, result_loc):
-        self.genop_int_mul(op, arglocs, result_loc)
+        self.mc.IMUL(arglocs[0], arglocs[1])
         return self._gen_guard_overflow(guard_op, guard_token)
 
     def genop_guard_guard_false(self, ign_1, guard_op, guard_token, locs, ign_2):
