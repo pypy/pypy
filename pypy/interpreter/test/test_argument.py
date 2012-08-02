@@ -97,6 +97,9 @@ class DummySpace(object):
     def str_w(self, s):
         return str(s)
 
+    def unicode_w(self, s):
+        return unicode(s)
+
     def len(self, x):
         return len(x)
 
