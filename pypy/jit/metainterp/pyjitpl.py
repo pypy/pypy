@@ -1383,6 +1383,8 @@ class MIFrame(object):
             if assembler_call:
                 vablebox = self.metainterp.direct_assembler_call(
                     assembler_call_jd)
+            elif effectinfo.oopspecindex == effectinfo.OS_LIBFFI_CALL:
+                xxxx
             if resbox is not None:
                 self.make_result_of_lastop(resbox)
             self.metainterp.vable_after_residual_call()
