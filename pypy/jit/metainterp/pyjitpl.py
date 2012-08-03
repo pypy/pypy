@@ -2558,8 +2558,8 @@ class MetaInterp(object):
         cif_description = llmemory.cast_int_to_adr(cif_description)
         cif_description = llmemory.cast_adr_to_ptr(cif_description,
                                                    CIF_DESCRIPTION_P)
-        calldescr = self.cpu.calldescrof_dynamic(cif_description,
-                                                 op.getdescr().extrainfo)
+        extrainfo = op.getdescr().get_extra_info()
+        calldescr = self.cpu.calldescrof_dynamic(cif_description, extrainfo)
         if calldescr is None:
             return
         #

@@ -46,7 +46,7 @@ def _get_ffi2descr_dict(cpu):
     if cpu.supports_floats:
         d[('f', 0)] = ('f', cpu.arraydescrof(rffi.CArray(lltype.Float)))
     if cpu.supports_singlefloats:
-        d[('S', 0)] = cpu.arraydescrof(rffi.CArray(lltype.SingleFloat))
+        d[('S', 0)] = ('i', cpu.arraydescrof(rffi.CArray(lltype.SingleFloat)))
     for SIGNED_TYPE in [rffi.SIGNEDCHAR,
                         rffi.SHORT,
                         rffi.INT,
