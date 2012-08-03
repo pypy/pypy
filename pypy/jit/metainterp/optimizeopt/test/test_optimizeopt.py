@@ -41,14 +41,6 @@ def test_build_opt_chain():
     #
     chain, _ = build_opt_chain(metainterp_sd, "aaa:bbb")
     check(chain, ["OptSimplify"])
-    #
-    chain, _ = build_opt_chain(metainterp_sd, "ffi")
-    check(chain, ["OptFfiCall", "OptSimplify"])
-    #
-    metainterp_sd.config = get_pypy_config(translating=True)
-    assert not metainterp_sd.config.translation.jit_ffi
-    chain, _ = build_opt_chain(metainterp_sd, "ffi")
-    check(chain, ["OptSimplify"])
 
 
 # ____________________________________________________________
