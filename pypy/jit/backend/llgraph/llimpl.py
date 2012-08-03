@@ -879,7 +879,7 @@ class Frame(object):
         if arraydescr.typeinfo == REF:
             raise NotImplementedError("setarrayitem_raw <- gcref")
         elif arraydescr.typeinfo == INT:
-            do_setarrayitem_raw_int(array, index, newvalue)
+            do_setarrayitem_raw_int(array, index, newvalue, arraydescr.ofs)
         elif arraydescr.typeinfo == FLOAT:
             do_setarrayitem_raw_float(array, index, newvalue)
         else:
@@ -1546,10 +1546,13 @@ def do_setarrayitem_gc_int(array, index, newvalue):
     newvalue = cast_from_int(ITEMTYPE, newvalue)
     array.setitem(index, newvalue)
 
-def do_setarrayitem_raw_int(array, index, newvalue):
+def do_setarrayitem_raw_int(array, index, newvalue, itemsize):
     array = array.adr.ptr
     ITEMTYPE = lltype.typeOf(array).TO.OF
-    newvalue = cast_from_int(ITEMTYPE, newvalue)
+    TYPE = symbolic.Size2Type[itemsize]
+    if TYPE.OF != ITEMTYPE:
+        array = rffi.cast(lltype.Ptr(TYPE), array)
+    newvalue = cast_from_int(TYPE.OF, newvalue)
     array._obj.setitem(index, newvalue)
 
 def do_setarrayitem_gc_float(array, index, newvalue):

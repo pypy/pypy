@@ -541,8 +541,12 @@ class AddressAsInt(Symbolic):
     def __nonzero__(self):
         return bool(self.adr)
     def __add__(self, ofs):
+        if (isinstance(ofs, int) and
+                getattr(self.adr.ptr._TYPE.TO, 'OF', None) == lltype.Char):
+            return AddressAsInt(self.adr + ItemOffset(lltype.Char, ofs))
         if isinstance(ofs, FieldOffset) and ofs.TYPE is self.adr.ptr._TYPE.TO:
-            return AddressAsInt(cast_ptr_to_adr(self.adr.ptr.b))
+            fieldadr = getattr(self.adr.ptr, ofs.fieldname)
+            return AddressAsInt(cast_ptr_to_adr(fieldadr))
         return NotImplemented
     def __repr__(self):
         try:

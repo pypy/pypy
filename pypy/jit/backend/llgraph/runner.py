@@ -507,7 +507,7 @@ class LLtypeCPU(BaseCPU):
 
     def bh_setarrayitem_raw_i(self, arraydescr, array, index, newvalue):
         assert isinstance(arraydescr, Descr)
-        llimpl.do_setarrayitem_raw_int(array, index, newvalue)
+        llimpl.do_setarrayitem_raw_int(array, index, newvalue, arraydescr.ofs)
 
     def bh_setarrayitem_gc_r(self, arraydescr, array, index, newvalue):
         assert isinstance(arraydescr, Descr)
