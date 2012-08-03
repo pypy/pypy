@@ -19,7 +19,6 @@ def get_description(atypes, rtype):
 
 @jit.oopspec("libffi_call(cif_description, func_addr, exchange_buffer)")
 def fake_call(cif_description, func_addr, exchange_buffer):
-    assert rffi.cast(lltype.Signed, func_addr) == 123
     assert rffi.cast(rffi.SIGNEDP, exchange_buffer)[0] == 456
     assert rffi.cast(rffi.SIGNEDP, exchange_buffer)[1] == 789
     rffi.cast(rffi.SIGNEDP, exchange_buffer)[2] = -42
@@ -29,8 +28,19 @@ class FfiCallTests(object):
 
     def test_call_simple(self):
         cif_description = get_description([types.signed]*2, types.signed)
-        func_addr = rffi.cast(rffi.VOIDP, 123)
+
+        def verify(x, y):
+            assert x == 456
+            assert y == 789
+            return -42
+        FUNC = lltype.FuncType([lltype.Signed]*2, lltype.Signed)
+        func = lltype.functionptr(FUNC, 'verify', _callable=verify)
+        func_addr = rffi.cast(rffi.VOIDP, func)
+
         SIZE_SIGNED = rffi.sizeof(rffi.SIGNED)
+        cif_description.exchange_args[1] = SIZE_SIGNED
+        cif_description.exchange_result = 2 * SIZE_SIGNED
+
         def f(n, m):
             exbuf = lltype.malloc(rffi.CCHARP.TO, 24, flavor='raw', zero=True)
             rffi.cast(rffi.SIGNEDP, exbuf)[0] = n
@@ -46,6 +56,8 @@ class FfiCallTests(object):
         assert res == -42
         res = self.interp_operations(f, [456, 789])
         assert res == -42
+        self.check_operations_history(call_may_force=0,
+                                      call_release_gil=1)
 
 
 class TestFfiCall(FfiCallTests, LLJitMixin):

@@ -1383,8 +1383,6 @@ class MIFrame(object):
             if assembler_call:
                 vablebox = self.metainterp.direct_assembler_call(
                     assembler_call_jd)
-            elif effectinfo.oopspecindex == effectinfo.OS_LIBFFI_CALL:
-                xxxx
             if resbox is not None:
                 self.make_result_of_lastop(resbox)
             self.metainterp.vable_after_residual_call()
@@ -1392,6 +1390,8 @@ class MIFrame(object):
             if vablebox is not None:
                 self.metainterp.history.record(rop.KEEPALIVE, [vablebox], None)
             self.metainterp.handle_possible_exception()
+            if effectinfo.oopspecindex == effectinfo.OS_LIBFFI_CALL:
+                self.metainterp.direct_libffi_call()
             return resbox
         else:
             effect = effectinfo.extraeffect
@@ -2534,6 +2534,85 @@ class MetaInterp(object):
             return args[jd.index_of_virtualizable]
         else:
             return None
+
+    def direct_libffi_call(self):
+        """Generate a direct call to C code, patching the CALL_MAY_FORCE
+        to jit_ffi_call() that occurred just now.
+        """
+        from pypy.rpython.lltypesystem import llmemory
+        from pypy.rlib.jit_libffi import CIF_DESCRIPTION_P
+        from pypy.jit.backend.llsupport.ffisupport import get_arg_descr
+        #
+        num_extra_guards = 0
+        while True:
+            op = self.history.operations[-1-num_extra_guards]
+            if op.getopnum() == rop.CALL_MAY_FORCE:
+                break
+            assert op.is_guard()
+            num_extra_guards += 1
+        #
+        box_cif_description = op.getarg(1)
+        if not isinstance(box_cif_description, ConstInt):
+            return
+        cif_description = box_cif_description.getint()
+        cif_description = llmemory.cast_int_to_adr(cif_description)
+        cif_description = llmemory.cast_adr_to_ptr(cif_description,
+                                                   CIF_DESCRIPTION_P)
+        calldescr = self.cpu.calldescrof_dynamic(cif_description,
+                                                 op.getdescr().extrainfo)
+        if calldescr is None:
+            return
+        #
+        extra_guards = []
+        for i in range(num_extra_guards):
+            extra_guards.append(self.history.operations.pop())
+        extra_guards.reverse()
+        #
+        box_exchange_buffer = op.getarg(3)
+        self.history.operations.pop()
+        arg_boxes = []
+        for i in range(cif_description.nargs):
+            kind, descr = get_arg_descr(self.cpu, cif_description.atypes[i])
+            if kind == 'i':
+                box_arg = history.BoxInt()
+            elif kind == 'f':
+                box_arg = history.BoxFloat()
+            else:
+                assert kind == 'v'
+                continue
+            ofs = cif_description.exchange_args[i]
+            box_argpos = history.BoxInt()
+            self.history.record(rop.INT_ADD,
+                                [box_exchange_buffer, ConstInt(ofs)],
+                                box_argpos)
+            self.history.record(rop.GETARRAYITEM_RAW,
+                                [box_argpos, ConstInt(0)],
+                                box_arg, descr)
+            arg_boxes.append(box_arg)
+        #
+        kind, descr = get_arg_descr(self.cpu, cif_description.rtype)
+        if kind == 'i':
+            box_result = history.BoxInt()
+        elif kind == 'f':
+            box_result = history.BoxFloat()
+        else:
+            assert kind == 'v'
+            box_result = None
+        self.history.record(rop.CALL_RELEASE_GIL,
+                            [op.getarg(2)] + arg_boxes,
+                            box_result, calldescr)
+        #
+        self.history.operations.extend(extra_guards)
+        #
+        if box_result is not None:
+            ofs = cif_description.exchange_result
+            box_resultpos = history.BoxInt()
+            self.history.record(rop.INT_ADD,
+                                [box_exchange_buffer, ConstInt(ofs)],
+                                box_resultpos)
+            self.history.record(rop.SETARRAYITEM_RAW,
+                                [box_resultpos, ConstInt(0), box_result],
+                                None, descr)
 
 # ____________________________________________________________
 

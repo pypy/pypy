@@ -1,5 +1,6 @@
 from pypy.rlib.rarithmetic import intmask
-from pypy.rpython.lltypesystem import rffi
+from pypy.rlib.objectmodel import specialize
+from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.jit.backend.llsupport.descr import CallDescr
 
 class UnsupportedKind(Exception):
@@ -38,3 +39,43 @@ def is_ffi_type_signed(ffi_type):
     from pypy.rlib.jit_libffi import types
     kind = types.getkind(ffi_type)
     return kind != 'u'
+
+@specialize.memo()
+def _get_ffi2descr_dict(cpu):
+    d = {('v', 0): ('v', None)}
+    if cpu.supports_floats:
+        d[('f', 0)] = ('f', cpu.arraydescrof(rffi.CArray(lltype.Float)))
+    if cpu.supports_singlefloats:
+        d[('S', 0)] = cpu.arraydescrof(rffi.CArray(lltype.SingleFloat))
+    for SIGNED_TYPE in [rffi.SIGNEDCHAR,
+                        rffi.SHORT,
+                        rffi.INT,
+                        rffi.LONG,
+                        rffi.LONGLONG]:
+        key = ('i', rffi.sizeof(SIGNED_TYPE))
+        kind = 'i'
+        if key[1] > rffi.sizeof(lltype.Signed):
+            if not cpu.supports_longlong:
+                continue
+            key = ('L', 0)
+            kind = 'f'
+        d[key] = (kind, cpu.arraydescrof(rffi.CArray(SIGNED_TYPE)))
+    for UNSIGNED_TYPE in [rffi.UCHAR,
+                          rffi.USHORT,
+                          rffi.UINT,
+                          rffi.ULONG,
+                          rffi.ULONGLONG]:
+        key = ('u', rffi.sizeof(UNSIGNED_TYPE))
+        if key[1] > rffi.sizeof(lltype.Signed):
+            continue
+        d[key] = ('i', cpu.arraydescrof(rffi.CArray(UNSIGNED_TYPE)))
+    return d
+
+def get_arg_descr(cpu, ffi_type):
+    from pypy.rlib.jit_libffi import types
+    kind = types.getkind(ffi_type)
+    if kind == 'i' or kind == 'u':
+        size = rffi.getintfield(ffi_type, 'c_size')
+    else:
+        size = 0
+    return _get_ffi2descr_dict(cpu)[kind, size]
