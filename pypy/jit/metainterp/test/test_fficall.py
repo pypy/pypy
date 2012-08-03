@@ -47,9 +47,12 @@ class FfiCallTests(object):
                 assert rffi.cast(lltype.Ptr(TYPE), data)[0] == avalue
                 ofs += 16
             if rvalue is not None:
-                TYPE = rffi.CArray(lltype.typeOf(rvalue))
-                data = rffi.ptradd(exchange_buffer, ofs)
-                rffi.cast(lltype.Ptr(TYPE), data)[0] = rvalue
+                write_rvalue = rvalue
+            else:
+                write_rvalue = 12923  # ignored
+            TYPE = rffi.CArray(lltype.typeOf(write_rvalue))
+            data = rffi.ptradd(exchange_buffer, ofs)
+            rffi.cast(lltype.Ptr(TYPE), data)[0] = write_rvalue
 
         def f():
             exbuf = lltype.malloc(rffi.CCHARP.TO, (len(avalues)+2) * 16,
@@ -64,7 +67,7 @@ class FfiCallTests(object):
             fake_call(cif_description, func_addr, exbuf)
 
             if rvalue is None:
-                res = None
+                res = 654321
             else:
                 TYPE = rffi.CArray(lltype.typeOf(rvalue))
                 data = rffi.ptradd(exbuf, ofs)
@@ -73,9 +76,9 @@ class FfiCallTests(object):
             return res
 
         res = f()
-        assert res == rvalue
+        assert res == rvalue or (res, rvalue) == (654321, None)
         res = self.interp_operations(f, [])
-        assert res == rvalue
+        assert res == rvalue or (res, rvalue) == (654321, None)
         self.check_operations_history(call_may_force=0,
                                       call_release_gil=1)
 
@@ -90,6 +93,9 @@ class FfiCallTests(object):
 
     def test_simple_call_float(self):
         self._run([types.double] * 2, types.double, [45.6, 78.9], -4.2)
+
+    def test_returns_none(self):
+        self._run([types.signed] * 2, types.void, [456, 789], None)
 
 
 class TestFfiCall(FfiCallTests, LLJitMixin):
