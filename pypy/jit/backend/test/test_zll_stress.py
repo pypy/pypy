@@ -1,12 +1,12 @@
 from pypy.jit.backend.test.test_random import check_random_function, Random
 from pypy.jit.backend.test.test_ll_random import LLtypeOperationBuilder
 from pypy.jit.backend.detect_cpu import getcpuclass
-import platform()
+import platform
 
 CPU = getcpuclass()
 
 iterations = 1000
-if platform.machine().startwith('arm'):
+if platform.machine().startswith('arm'):
     iterations = 100
 
 
