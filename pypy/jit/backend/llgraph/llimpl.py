@@ -63,7 +63,8 @@ def from_opaque_string(s):
 
 FLOAT_ARRAY_TP = lltype.Ptr(lltype.Array(lltype.Float, hints={"nolength": True}))
 def maybe_uncast(TP, array):
-    if array._TYPE.TO._hints.get("uncast_on_llgraph"):
+    if array._TYPE.TO.OF != lltype.Float:
+        # array._TYPE.TO._hints.get("uncast_on_llgraph"):
         array = rffi.cast(TP, array)
     return array
 

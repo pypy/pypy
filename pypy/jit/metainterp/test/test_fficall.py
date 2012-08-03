@@ -3,6 +3,7 @@ from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.jit.metainterp.test.support import LLJitMixin
 from pypy.rlib import jit
 from pypy.rlib.jit_libffi import types, CIF_DESCRIPTION, FFI_TYPE_PP
+from pypy.rlib.unroll import unrolling_iterable
 
 
 def get_description(atypes, rtype):
@@ -17,47 +18,78 @@ def get_description(atypes, rtype):
         p.atypes[i] = atypes[i]
     return p
 
-@jit.oopspec("libffi_call(cif_description, func_addr, exchange_buffer)")
-def fake_call(cif_description, func_addr, exchange_buffer):
-    assert rffi.cast(rffi.SIGNEDP, exchange_buffer)[0] == 456
-    assert rffi.cast(rffi.SIGNEDP, exchange_buffer)[1] == 789
-    rffi.cast(rffi.SIGNEDP, exchange_buffer)[2] = -42
-
 
 class FfiCallTests(object):
 
-    def test_call_simple(self):
-        cif_description = get_description([types.signed]*2, types.signed)
+    def _run(self, atypes, rtype, avalues, rvalue):
+        cif_description = get_description(atypes, rtype)
 
-        def verify(x, y):
-            assert x == 456
-            assert y == 789
-            return -42
-        FUNC = lltype.FuncType([lltype.Signed]*2, lltype.Signed)
+        def verify(*args):
+            assert args == tuple(avalues)
+            return rvalue
+        FUNC = lltype.FuncType([lltype.typeOf(avalue) for avalue in avalues],
+                               lltype.typeOf(rvalue))
         func = lltype.functionptr(FUNC, 'verify', _callable=verify)
         func_addr = rffi.cast(rffi.VOIDP, func)
 
-        SIZE_SIGNED = rffi.sizeof(rffi.SIGNED)
-        cif_description.exchange_args[1] = SIZE_SIGNED
-        cif_description.exchange_result = 2 * SIZE_SIGNED
+        for i in range(len(avalues)):
+            cif_description.exchange_args[i] = (i+1) * 16
+        cif_description.exchange_result = (len(avalues)+1) * 16
 
-        def f(n, m):
-            exbuf = lltype.malloc(rffi.CCHARP.TO, 24, flavor='raw', zero=True)
-            rffi.cast(rffi.SIGNEDP, exbuf)[0] = n
-            data = rffi.ptradd(exbuf, SIZE_SIGNED)
-            rffi.cast(rffi.SIGNEDP, data)[0] = m
+        unroll_avalues = unrolling_iterable(avalues)
+
+        @jit.oopspec("libffi_call(cif_description,func_addr,exchange_buffer)")
+        def fake_call(cif_description, func_addr, exchange_buffer):
+            ofs = 16
+            for avalue in unroll_avalues:
+                TYPE = rffi.CArray(lltype.typeOf(avalue))
+                data = rffi.ptradd(exchange_buffer, ofs)
+                assert rffi.cast(lltype.Ptr(TYPE), data)[0] == avalue
+                ofs += 16
+            if rvalue is not None:
+                TYPE = rffi.CArray(lltype.typeOf(rvalue))
+                data = rffi.ptradd(exchange_buffer, ofs)
+                rffi.cast(lltype.Ptr(TYPE), data)[0] = rvalue
+
+        def f():
+            exbuf = lltype.malloc(rffi.CCHARP.TO, (len(avalues)+2) * 16,
+                                  flavor='raw', zero=True)
+            ofs = 16
+            for avalue in unroll_avalues:
+                TYPE = rffi.CArray(lltype.typeOf(avalue))
+                data = rffi.ptradd(exbuf, ofs)
+                rffi.cast(lltype.Ptr(TYPE), data)[0] = avalue
+                ofs += 16
+
             fake_call(cif_description, func_addr, exbuf)
-            data = rffi.ptradd(exbuf, 2 * SIZE_SIGNED)
-            res = rffi.cast(rffi.SIGNEDP, data)[0]
+
+            if rvalue is None:
+                res = None
+            else:
+                TYPE = rffi.CArray(lltype.typeOf(rvalue))
+                data = rffi.ptradd(exbuf, ofs)
+                res = rffi.cast(lltype.Ptr(TYPE), data)[0]
             lltype.free(exbuf, flavor='raw')
             return res
 
-        res = f(456, 789)
-        assert res == -42
-        res = self.interp_operations(f, [456, 789])
-        assert res == -42
+        res = f()
+        assert res == rvalue
+        res = self.interp_operations(f, [])
+        assert res == rvalue
         self.check_operations_history(call_may_force=0,
                                       call_release_gil=1)
+
+    def test_simple_call(self):
+        self._run([types.signed] * 2, types.signed, [456, 789], -42)
+
+    def test_many_arguments(self):
+        for i in [0, 6, 20]:
+            self._run([types.signed] * i, types.signed,
+                      [-123456*j for j in range(i)],
+                      -42434445)
+
+    def test_simple_call_float(self):
+        self._run([types.double] * 2, types.double, [45.6, 78.9], -4.2)
 
 
 class TestFfiCall(FfiCallTests, LLJitMixin):
