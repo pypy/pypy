@@ -356,7 +356,6 @@ class CifDescrBuilder(object):
                                SIZE_OF_FFI_ARG)
 
         # loop over args
-        cif_descr.exchange_nb_args = len(self.fargs)
         for i, farg in enumerate(self.fargs):
             if isinstance(farg, W_CTypePointer):
                 exchange_offset += 1   # for the "must free" flag
@@ -367,6 +366,11 @@ class CifDescrBuilder(object):
         # store the exchange data size
         cif_descr.exchange_size = exchange_offset
 
+    def fb_extra_fields(self, cif_descr):
+        rffi.setintfield(cif_descr, 'abi', clibffi.FFI_DEFAULT_ABI)    # XXX
+        cif_descr.nargs = len(self.fargs)
+        cif_descr.rtype = self.rtype
+        cif_descr.atypes = self.atypes
 
     @jit.dont_look_inside
     def rawallocate(self, ctypefunc):
@@ -398,12 +402,14 @@ class CifDescrBuilder(object):
                                            self.nb_bytes)
 
         # fill in the 'exchange_*' fields
-        self.fb_build_exchange(ctypefunc.cif_descr)
+        self.fb_build_exchange(rawmem)
+
+        # fill in the extra fields
+        self.fb_extra_fields(rawmem)
 
         # call libffi's ffi_prep_cif() function
-        res = clibffi.c_ffi_prep_cif(rawmem.cif, clibffi.FFI_DEFAULT_ABI,
-                                     len(self.fargs),
-                                     self.rtype, self.atypes)
+        res = clibffi.c_ffi_prep_cif(rawmem.cif, rawmem.abi,
+                                     rawmem.nargs, rawmem.rtype, rawmem.atypes)
         if rffi.cast(lltype.Signed, res) != clibffi.FFI_OK:
             raise OperationError(space.w_SystemError,
                 space.wrap("libffi failed to build this function type"))
