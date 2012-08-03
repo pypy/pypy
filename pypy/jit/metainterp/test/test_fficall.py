@@ -97,6 +97,10 @@ class FfiCallTests(object):
     def test_returns_none(self):
         self._run([types.signed] * 2, types.void, [456, 789], None)
 
+    def test_returns_signedchar(self):
+        self._run([types.signed], types.sint8, [456],
+                  rffi.cast(rffi.SIGNEDCHAR, -42))
+
 
 class TestFfiCall(FfiCallTests, LLJitMixin):
     pass
