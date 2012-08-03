@@ -8,6 +8,7 @@ FFI_TYPE = clibffi.FFI_TYPE_P.TO
 FFI_TYPE_P = clibffi.FFI_TYPE_P
 FFI_TYPE_PP = clibffi.FFI_TYPE_PP
 FFI_ABI = clibffi.FFI_ABI
+FFI_TYPE_STRUCT = clibffi.FFI_TYPE_STRUCT
 SIZE_OF_FFI_ARG = rffi.sizeof(clibffi.ffi_arg)
 
 # "cif_description" is a block of raw memory describing how to do the call.
@@ -89,30 +90,30 @@ class types(object):
         'u' for unsigned integer, 'S' for singlefloat, 'L' for long long
         integer (signed or unsigned), or '*' for struct.
         """
-        if   ffi_type is types.void:    return 'v'
-        elif ffi_type is types.double:  return 'f'
-        elif ffi_type is types.float:   return 'S'
-        elif ffi_type is types.pointer: return 'i'
+        if   ffi_type == types.void:    return 'v'
+        elif ffi_type == types.double:  return 'f'
+        elif ffi_type == types.float:   return 'S'
+        elif ffi_type == types.pointer: return 'i'
         #
-        elif ffi_type is types.schar:   return 'i'
-        elif ffi_type is types.uchar:   return 'u'
-        elif ffi_type is types.sshort:  return 'i'
-        elif ffi_type is types.ushort:  return 'u'
-        elif ffi_type is types.sint:    return 'i'
-        elif ffi_type is types.uint:    return 'u'
-        elif ffi_type is types.slong:   return 'i'
-        elif ffi_type is types.ulong:   return 'u'
+        elif ffi_type == types.schar:   return 'i'
+        elif ffi_type == types.uchar:   return 'u'
+        elif ffi_type == types.sshort:  return 'i'
+        elif ffi_type == types.ushort:  return 'u'
+        elif ffi_type == types.sint:    return 'i'
+        elif ffi_type == types.uint:    return 'u'
+        elif ffi_type == types.slong:   return 'i'
+        elif ffi_type == types.ulong:   return 'u'
         #
-        elif ffi_type is types.sint8:   return 'i'
-        elif ffi_type is types.uint8:   return 'u'
-        elif ffi_type is types.sint16:  return 'i'
-        elif ffi_type is types.uint16:  return 'u'
-        elif ffi_type is types.sint32:  return 'i'
-        elif ffi_type is types.uint32:  return 'u'
-        ## (note that on 64-bit platforms, types.sint64 is types.slong and the
-        ## case is caught above)
-        elif ffi_type is types.sint64:  return 'L'
-        elif ffi_type is types.uint64:  return 'L'
+        elif ffi_type == types.sint8:   return 'i'
+        elif ffi_type == types.uint8:   return 'u'
+        elif ffi_type == types.sint16:  return 'i'
+        elif ffi_type == types.uint16:  return 'u'
+        elif ffi_type == types.sint32:  return 'i'
+        elif ffi_type == types.uint32:  return 'u'
+        ## (note that on 64-bit platforms, types.sint64 == types.slong and the
+        ## case == caught above)
+        elif ffi_type == types.sint64:  return 'L'
+        elif ffi_type == types.uint64:  return 'L'
         #
         elif types.is_struct(ffi_type): return '*'
         raise KeyError
@@ -120,6 +121,6 @@ class types(object):
     @staticmethod
     @jit.elidable
     def is_struct(ffi_type):
-        return intmask(ffi_type.c_type) == FFI_TYPE_STRUCT
+        return rffi.getintfield(ffi_type, 'c_type') == FFI_TYPE_STRUCT
 
 types._import()

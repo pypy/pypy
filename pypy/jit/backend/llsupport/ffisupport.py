@@ -11,8 +11,8 @@ def get_call_descr_dynamic(cpu, cif_description, extrainfo):
     ffi_result = cif_description.rtype
     try:
         reskind = get_ffi_type_kind(cpu, ffi_result)
-        argkinds = [get_ffi_type_kind(cpu, atype)
-                    for atype in cif_description.atypes]
+        argkinds = [get_ffi_type_kind(cpu, cif_description.atypes[i])
+                    for i in range(cif_description.nargs)]
     except UnsupportedKind:
         return None
     if reskind == 'v':
