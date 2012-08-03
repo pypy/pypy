@@ -63,7 +63,8 @@ def from_opaque_string(s):
 
 FLOAT_ARRAY_TP = lltype.Ptr(lltype.Array(lltype.Float, hints={"nolength": True}))
 def maybe_uncast(TP, array):
-    if array._TYPE.TO._hints.get("uncast_on_llgraph"):
+    if array._TYPE.TO.OF != lltype.Float:
+        # array._TYPE.TO._hints.get("uncast_on_llgraph"):
         array = rffi.cast(TP, array)
     return array
 
@@ -802,7 +803,7 @@ class Frame(object):
         if arraydescr.typeinfo == REF:
             raise NotImplementedError("getarrayitem_raw -> gcref")
         elif arraydescr.typeinfo == INT:
-            return do_getarrayitem_raw_int(array, index)
+            return do_getarrayitem_raw_int(array, index, arraydescr.ofs)
         elif arraydescr.typeinfo == FLOAT:
             return do_getarrayitem_raw_float(array, index)
         else:
@@ -879,7 +880,7 @@ class Frame(object):
         if arraydescr.typeinfo == REF:
             raise NotImplementedError("setarrayitem_raw <- gcref")
         elif arraydescr.typeinfo == INT:
-            do_setarrayitem_raw_int(array, index, newvalue)
+            do_setarrayitem_raw_int(array, index, newvalue, arraydescr.ofs)
         elif arraydescr.typeinfo == FLOAT:
             do_setarrayitem_raw_float(array, index, newvalue)
         else:
@@ -1448,9 +1449,13 @@ def do_getarrayitem_gc_int(array, index):
     array = array._obj.container
     return cast_to_int(array.getitem(index))
 
-def do_getarrayitem_raw_int(array, index):
-    array = array.adr.ptr._obj
-    return cast_to_int(array.getitem(index))
+def do_getarrayitem_raw_int(array, index, itemsize):
+    array = array.adr.ptr
+    ITEMTYPE = lltype.typeOf(array).TO.OF
+    TYPE = symbolic.Size2Type[itemsize]
+    if TYPE.OF != ITEMTYPE:
+        array = rffi.cast(lltype.Ptr(TYPE), array)
+    return cast_to_int(array._obj.getitem(index))
 
 def do_getarrayitem_gc_float(array, index):
     array = array._obj.container
@@ -1546,10 +1551,13 @@ def do_setarrayitem_gc_int(array, index, newvalue):
     newvalue = cast_from_int(ITEMTYPE, newvalue)
     array.setitem(index, newvalue)
 
-def do_setarrayitem_raw_int(array, index, newvalue):
+def do_setarrayitem_raw_int(array, index, newvalue, itemsize):
     array = array.adr.ptr
     ITEMTYPE = lltype.typeOf(array).TO.OF
-    newvalue = cast_from_int(ITEMTYPE, newvalue)
+    TYPE = symbolic.Size2Type[itemsize]
+    if TYPE.OF != ITEMTYPE:
+        array = rffi.cast(lltype.Ptr(TYPE), array)
+    newvalue = cast_from_int(TYPE.OF, newvalue)
     array._obj.setitem(index, newvalue)
 
 def do_setarrayitem_gc_float(array, index, newvalue):

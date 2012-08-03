@@ -202,7 +202,7 @@ for k, v in rffi_platform.configure(CConfig).items():
 
 FFI_TYPE_P.TO.become(cConfig.ffi_type)
 size_t = cConfig.size_t
-ffi_abi = cConfig.ffi_abi
+FFI_ABI = cConfig.ffi_abi
 ffi_arg = cConfig.ffi_arg
 
 for name in type_names:
@@ -333,7 +333,7 @@ FFI_CLOSUREP = lltype.Ptr(cConfig.ffi_closure)
 
 VOIDPP = rffi.CArrayPtr(rffi.VOIDP)
 
-c_ffi_prep_cif = external('ffi_prep_cif', [FFI_CIFP, ffi_abi, rffi.UINT,
+c_ffi_prep_cif = external('ffi_prep_cif', [FFI_CIFP, FFI_ABI, rffi.UINT,
                                            FFI_TYPE_P, FFI_TYPE_PP], rffi.INT)
 if _MSVC:
     c_ffi_call_return_type = rffi.INT

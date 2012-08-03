@@ -162,6 +162,9 @@ class W_CType(Wrappable):
                               "cdata '%s' has no attribute '%s'",
                               self.name, attr)
 
+    def copy_and_convert_to_object(self, cdata):
+        return self.convert_to_object(cdata)
+
 
 W_CType.typedef = TypeDef(
     'CTypeDescr',

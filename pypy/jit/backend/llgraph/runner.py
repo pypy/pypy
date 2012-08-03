@@ -360,21 +360,21 @@ class LLtypeCPU(BaseCPU):
         return self.getdescr(0, token[0], extrainfo=extrainfo,
                              arg_types=''.join(arg_types))
 
-    def calldescrof_dynamic(self, ffi_args, ffi_result, extrainfo, ffi_flags):
+    def calldescrof_dynamic(self, cif_description, extrainfo):
         from pypy.jit.backend.llsupport.ffisupport import get_ffi_type_kind
         from pypy.jit.backend.llsupport.ffisupport import UnsupportedKind
         arg_types = []
         try:
-            for arg in ffi_args:
+            for arg in cif_description.atypes:
                 kind = get_ffi_type_kind(self, arg)
                 if kind != history.VOID:
                     arg_types.append(kind)
-            reskind = get_ffi_type_kind(self, ffi_result)
+            reskind = get_ffi_type_kind(self, cif_description.rtype)
         except UnsupportedKind:
             return None
         return self.getdescr(0, reskind, extrainfo=extrainfo,
                              arg_types=''.join(arg_types),
-                             ffi_flags=ffi_flags)
+                             ffi_flags=cif_description.abi)
 
 
     def grab_exc_value(self):
@@ -411,7 +411,7 @@ class LLtypeCPU(BaseCPU):
         return llimpl.do_getarrayitem_gc_int(array, index)
     def bh_getarrayitem_raw_i(self, arraydescr, array, index):
         assert isinstance(arraydescr, Descr)
-        return llimpl.do_getarrayitem_raw_int(array, index)
+        return llimpl.do_getarrayitem_raw_int(array, index, arraydescr.ofs)
     def bh_getarrayitem_gc_r(self, arraydescr, array, index):
         assert isinstance(arraydescr, Descr)
         return llimpl.do_getarrayitem_gc_ptr(array, index)
@@ -507,7 +507,7 @@ class LLtypeCPU(BaseCPU):
 
     def bh_setarrayitem_raw_i(self, arraydescr, array, index, newvalue):
         assert isinstance(arraydescr, Descr)
-        llimpl.do_setarrayitem_raw_int(array, index, newvalue)
+        llimpl.do_setarrayitem_raw_int(array, index, newvalue, arraydescr.ofs)
 
     def bh_setarrayitem_gc_r(self, arraydescr, array, index, newvalue):
         assert isinstance(arraydescr, Descr)

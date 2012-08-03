@@ -5,7 +5,10 @@ Function pointers.
 import sys
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
-from pypy.rlib import jit, clibffi
+from pypy.rlib import jit, clibffi, jit_libffi
+from pypy.rlib.jit_libffi import CIF_DESCRIPTION, CIF_DESCRIPTION_P
+from pypy.rlib.jit_libffi import FFI_TYPE, FFI_TYPE_P, FFI_TYPE_PP
+from pypy.rlib.jit_libffi import SIZE_OF_FFI_ARG
 from pypy.rlib.objectmodel import we_are_translated, instantiate
 from pypy.rlib.objectmodel import keepalive_until_here
 
@@ -120,42 +123,24 @@ class W_CTypeFunc(W_CTypePtrBase):
         mustfree_max_plus_1 = 0
         buffer = lltype.malloc(rffi.CCHARP.TO, size, flavor='raw')
         try:
-            buffer_array = rffi.cast(rffi.VOIDPP, buffer)
             for i in range(len(args_w)):
                 data = rffi.ptradd(buffer, cif_descr.exchange_args[i])
-                buffer_array[i] = data
                 w_obj = args_w[i]
                 argtype = self.fargs[i]
                 if argtype.convert_argument_from_object(data, w_obj):
                     # argtype is a pointer type, and w_obj a list/tuple/str
                     mustfree_max_plus_1 = i + 1
-            resultdata = rffi.ptradd(buffer, cif_descr.exchange_result)
 
             ec = cerrno.get_errno_container(space)
             cerrno.restore_errno_from(ec)
-            clibffi.c_ffi_call(cif_descr.cif,
-                               rffi.cast(rffi.VOIDP, funcaddr),
-                               rffi.cast(rffi.VOIDP, resultdata),
-                               buffer_array)
+            jit_libffi.jit_ffi_call(cif_descr,
+                                    rffi.cast(rffi.VOIDP, funcaddr),
+                                    buffer)
             e = cerrno.get_real_errno()
             cerrno.save_errno_into(ec, e)
 
-            if self.ctitem.is_primitive_integer:
-                if BIG_ENDIAN:
-                    # For results of precisely these types, libffi has a
-                    # strange rule that they will be returned as a whole
-                    # 'ffi_arg' if they are smaller.  The difference
-                    # only matters on big-endian.
-                    if self.ctitem.size < SIZE_OF_FFI_ARG:
-                        diff = SIZE_OF_FFI_ARG - self.ctitem.size
-                        resultdata = rffi.ptradd(resultdata, diff)
-                w_res = self.ctitem.convert_to_object(resultdata)
-            elif isinstance(self.ctitem, W_CTypeVoid):
-                w_res = space.w_None
-            elif isinstance(self.ctitem, W_CTypeStructOrUnion):
-                w_res = self.ctitem.copy_and_convert_to_object(resultdata)
-            else:
-                w_res = self.ctitem.convert_to_object(resultdata)
+            resultdata = rffi.ptradd(buffer, cif_descr.exchange_result)
+            w_res = self.ctitem.copy_and_convert_to_object(resultdata)
         finally:
             for i in range(mustfree_max_plus_1):
                 argtype = self.fargs[i]
@@ -180,45 +165,10 @@ def _get_abi(space, name):
 
 # ____________________________________________________________
 
-# The "cif" is a block of raw memory describing how to do a call via libffi.
-# It starts with a block of memory of type FFI_CIF, which is used by libffi
-# itself.  Following it, we find _cffi_backend-specific information:
-#
-#  - 'exchange_size': an integer that tells how big a buffer we must
-#    allocate for the call; this buffer should start with an array of
-#    pointers to the actual argument values.
-#
-#  - 'exchange_result': the offset in that buffer for the result of the call.
-#
-#  - 'exchange_args[nargs]': the offset in that buffer for each argument.
-#
-# Following this, we have other data structures for libffi (with direct
-# pointers from the FFI_CIF to these data structures):
-#
-#  - the argument types, as an array of 'ffi_type *'.
-#
-#  - optionally, the result's and the arguments' ffi type data
-#    (this is used only for 'struct' ffi types; in other cases the
-#    'ffi_type *' just points to static data like 'ffi_type_sint32').
 
-FFI_CIF = clibffi.FFI_CIFP.TO
-FFI_TYPE = clibffi.FFI_TYPE_P.TO
-FFI_TYPE_P = clibffi.FFI_TYPE_P
-FFI_TYPE_PP = clibffi.FFI_TYPE_PP
-SIZE_OF_FFI_ARG = rffi.sizeof(clibffi.ffi_arg)
-BIG_ENDIAN = sys.byteorder == 'big'
-
-CIF_DESCRIPTION = lltype.Struct(
-    'CIF_DESCRIPTION',
-    ('cif', FFI_CIF),
-    ('exchange_size', lltype.Signed),
-    ('exchange_result', lltype.Signed),
-    ('exchange_args', lltype.Array(lltype.Signed,
-                          hints={'nolength': True, 'immutable': True})),
-    hints={'immutable': True})
-
-CIF_DESCRIPTION_P = lltype.Ptr(CIF_DESCRIPTION)
 W_CTypeFunc.cif_descr = lltype.nullptr(CIF_DESCRIPTION)     # default value
+
+BIG_ENDIAN = sys.byteorder == 'big'
 
 
 # ----------
@@ -351,6 +301,16 @@ class CifDescrBuilder(object):
 
 
     def fb_build(self):
+        # Build a CIF_DESCRIPTION.  Actually this computes the size and
+        # allocates a larger amount of data.  It starts with a
+        # CIF_DESCRIPTION and continues with data needed for the CIF:
+        #
+        #  - the argument types, as an array of 'ffi_type *'.
+        #
+        #  - optionally, the result's and the arguments' ffi type data
+        #    (this is used only for 'struct' ffi types; in other cases the
+        #    'ffi_type *' just points to static data like 'ffi_type_sint32').
+        #
         nargs = len(self.fargs)
 
         # start with a cif_description (cif and exchange_* fields)
@@ -380,13 +340,23 @@ class CifDescrBuilder(object):
         exchange_offset = rffi.sizeof(rffi.CCHARP) * nargs
         exchange_offset = self.align_arg(exchange_offset)
         cif_descr.exchange_result = exchange_offset
+        cif_descr.exchange_result_libffi = exchange_offset
 
-        # then enough room for the result --- which means at least
-        # sizeof(ffi_arg), according to the ffi docs
+        if BIG_ENDIAN and self.fresult.is_primitive_integer:
+            # For results of precisely these types, libffi has a
+            # strange rule that they will be returned as a whole
+            # 'ffi_arg' if they are smaller.  The difference
+            # only matters on big-endian.
+            if self.fresult.size < SIZE_OF_FFI_ARG:
+                diff = SIZE_OF_FFI_ARG - self.fresult.size
+                cif_descr.exchange_result += diff
+
+        # then enough room for the result, rounded up to sizeof(ffi_arg)
         exchange_offset += max(rffi.getintfield(self.rtype, 'c_size'),
                                SIZE_OF_FFI_ARG)
 
         # loop over args
+        cif_descr.exchange_nb_args = len(self.fargs)
         for i, farg in enumerate(self.fargs):
             if isinstance(farg, W_CTypePointer):
                 exchange_offset += 1   # for the "must free" flag
