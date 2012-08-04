@@ -97,11 +97,11 @@ class W_CType(Wrappable):
                               "cdata of type '%s' cannot be indexed",
                               self.name)
 
-    def str(self, cdataobj):
-        return cdataobj.repr()
-
-    def unicode(self, cdataobj):
-        return cdataobj.repr()
+    def string(self, cdataobj, maxlen):
+        space = self.space
+        raise operationerrfmt(space.w_TypeError,
+                              "string(): unexpected cdata '%s' argument",
+                              self.name)
 
     def add(self, cdata, i):
         space = self.space

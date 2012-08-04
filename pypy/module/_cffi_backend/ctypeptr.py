@@ -108,6 +108,41 @@ class W_CTypePtrOrArray(W_CType):
         else:
             raise self._convert_error("list or tuple", w_ob)
 
+    def string(self, cdataobj, maxlen):
+        space = self.space
+        if isinstance(self.ctitem, ctypeprim.W_CTypePrimitive):
+            cdata = cdataobj._cdata
+            if not cdata:
+                raise operationerrfmt(space.w_RuntimeError,
+                                      "cannot use string() on %s",
+                                      space.str_w(cdataobj.repr()))
+            #
+            from pypy.module._cffi_backend import ctypearray
+            length = maxlen
+            if length < 0 and isinstance(self, ctypearray.W_CTypeArray):
+                length = cdataobj.get_array_length()
+            #
+            # pointer to a primitive type of size 1: builds and returns a str
+            if self.ctitem.size == rffi.sizeof(lltype.Char):
+                if length < 0:
+                    s = rffi.charp2str(cdata)
+                else:
+                    s = rffi.charp2strn(cdata, length)
+                keepalive_until_here(cdataobj)
+                return space.wrap(s)
+            #
+            # pointer to a wchar_t: builds and returns a unicode
+            if self.is_unichar_ptr_or_array():
+                cdata = rffi.cast(rffi.CWCHARP, cdata)
+                if length < 0:
+                    u = rffi.wcharp2unicode(cdata)
+                else:
+                    u = rffi.wcharp2unicoden(cdata, length)
+                keepalive_until_here(cdataobj)
+                return space.wrap(u)
+        #
+        return W_CType.string(self, cdataobj, maxlen)
+
 
 class W_CTypePtrBase(W_CTypePtrOrArray):
     # base class for both pointers and pointers-to-functions
@@ -151,30 +186,6 @@ class W_CTypePointer(W_CTypePtrBase):
         else:
             extra = " *"
         W_CTypePtrBase.__init__(self, space, size, extra, 2, ctitem)
-
-    def str(self, cdataobj):
-        if self.is_char_ptr_or_array():
-            if not cdataobj._cdata:
-                space = self.space
-                raise operationerrfmt(space.w_RuntimeError,
-                                      "cannot use str() on %s",
-                                      space.str_w(cdataobj.repr()))
-            s = rffi.charp2str(cdataobj._cdata)
-            keepalive_until_here(cdataobj)
-            return self.space.wrap(s)
-        return W_CTypePtrOrArray.str(self, cdataobj)
-
-    def unicode(self, cdataobj):
-        if self.is_unichar_ptr_or_array():
-            if not cdataobj._cdata:
-                space = self.space
-                raise operationerrfmt(space.w_RuntimeError,
-                                      "cannot use unicode() on %s",
-                                      space.str_w(cdataobj.repr()))
-            s = rffi.wcharp2unicode(rffi.cast(rffi.CWCHARP, cdataobj._cdata))
-            keepalive_until_here(cdataobj)
-            return self.space.wrap(s)
-        return W_CTypePtrOrArray.unicode(self, cdataobj)
 
     def newp(self, w_init):
         space = self.space

@@ -69,3 +69,9 @@ def getcname(space, ctype, replace_with):
     p = ctype.name_position
     s = '%s%s%s' % (ctype.name[:p], replace_with, ctype.name[p:])
     return space.wrap(s)
+
+# ____________________________________________________________
+
+@unwrap_spec(cdata=cdataobj.W_CData, maxlen=int)
+def string(space, cdata, maxlen=-1):
+    return cdata.ctype.string(cdata, maxlen)

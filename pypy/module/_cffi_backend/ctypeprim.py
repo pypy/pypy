@@ -71,6 +71,13 @@ class W_CTypePrimitive(W_CType):
         raise operationerrfmt(space.w_OverflowError,
                               "integer %s does not fit '%s'", s, self.name)
 
+    def string(self, cdataobj, maxlen):
+        if self.size == 1:
+            s = cdataobj._cdata[0]
+            keepalive_until_here(cdataobj)
+            return self.space.wrap(s)
+        return W_CType.string(self, cdataobj, maxlen)
+
 
 class W_CTypePrimitiveCharOrUniChar(W_CTypePrimitive):
     _attrs_ = []
@@ -90,11 +97,6 @@ class W_CTypePrimitiveChar(W_CTypePrimitiveCharOrUniChar):
 
     def convert_to_object(self, cdata):
         return self.space.wrap(cdata[0])
-
-    def str(self, cdataobj):
-        w_res = self.convert_to_object(cdataobj._cdata)
-        keepalive_until_here(cdataobj)
-        return w_res
 
     def _convert_to_char(self, w_ob):
         space = self.space
@@ -125,7 +127,7 @@ class W_CTypePrimitiveUniChar(W_CTypePrimitiveCharOrUniChar):
         s = rffi.wcharpsize2unicode(unichardata, 1)
         return self.space.wrap(s)
 
-    def unicode(self, cdataobj):
+    def string(self, cdataobj, maxlen):
         w_res = self.convert_to_object(cdataobj._cdata)
         keepalive_until_here(cdataobj)
         return w_res

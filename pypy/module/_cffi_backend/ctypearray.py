@@ -26,21 +26,6 @@ class W_CTypeArray(W_CTypePtrOrArray):
         self.length = length
         self.ctptr = ctptr
 
-    def str(self, cdataobj):
-        if isinstance(self.ctitem, W_CTypePrimitiveChar):
-            s = rffi.charp2strn(cdataobj._cdata, cdataobj.get_array_length())
-            keepalive_until_here(cdataobj)
-            return self.space.wrap(s)
-        return W_CTypePtrOrArray.str(self, cdataobj)
-
-    def unicode(self, cdataobj):
-        if isinstance(self.ctitem, W_CTypePrimitiveUniChar):
-            s = rffi.wcharp2unicoden(rffi.cast(rffi.CWCHARP, cdataobj._cdata),
-                                     cdataobj.get_array_length())
-            keepalive_until_here(cdataobj)
-            return self.space.wrap(s)
-        return W_CTypePtrOrArray.unicode(self, cdataobj)
-
     def _alignof(self):
         return self.ctitem.alignof()
 

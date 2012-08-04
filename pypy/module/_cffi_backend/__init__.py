@@ -29,6 +29,7 @@ class Module(MixedModule):
         '_getfields': 'func._getfields',
         'getcname': 'func.getcname',
 
+        'string': 'func.string',
         'buffer': 'cbuffer.buffer',
 
         'get_errno': 'cerrno.get_errno',

@@ -71,12 +71,6 @@ class W_CData(Wrappable):
                               "cdata of type '%s' has no len()",
                               self.ctype.name)
 
-    def str(self):
-        return self.ctype.str(self)
-
-    def unicode(self):
-        return self.ctype.unicode(self)
-
     def _make_comparison(name):
         op = getattr(operator, name)
         requires_ordering = name not in ('eq', 'ne')
@@ -302,8 +296,6 @@ W_CData.typedef = TypeDef(
     __long__ = interp2app(W_CData.long),
     __float__ = interp2app(W_CData.float),
     __len__ = interp2app(W_CData.len),
-    __str__ = interp2app(W_CData.str),
-    __unicode__ = interp2app(W_CData.unicode),
     __lt__ = interp2app(W_CData.lt),
     __le__ = interp2app(W_CData.le),
     __eq__ = interp2app(W_CData.eq),

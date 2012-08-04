@@ -39,10 +39,10 @@ class W_CTypeEnum(W_CTypePrimitiveSigned):
         space.call_method(w_lst, 'sort')
         return w_lst
 
-    def str(self, cdataobj):
-        w_res = self.convert_to_object(cdataobj._cdata)
+    def string(self, cdataobj, maxlen):
+        w_result = self.convert_to_object(cdataobj._cdata)
         keepalive_until_here(cdataobj)
-        return w_res
+        return w_result
 
     def convert_to_object(self, cdata):
         value = intmask(misc.read_raw_signed_data(cdata, self.size))
