@@ -991,13 +991,13 @@ class AllocOpAssembler(object):
         # Write code equivalent to write_barrier() in the GC: it checks
         # a flag in the object at arglocs[0], and if set, it calls the
         # function remember_young_pointer() from the GC.  The two arguments
-        # to the call are in arglocs[:2].  The rest, arglocs[2:], contains
-        # registers that need to be saved and restored across the call.
+        # to the call are in arglocs[:2].  The latter saves registers as needed
+        # and call the function jit_remember_young_pointer() from the GC.
         descr = op.getdescr()
         if we_are_translated():
             cls = self.cpu.gc_ll_descr.has_write_barrier_class()
             assert cls is not None and isinstance(descr, cls)
-
+        #
         opnum = op.getopnum()
         card_marking = False
         mask = descr.jit_wb_if_flag_singlebyte
@@ -1034,7 +1034,6 @@ class AllocOpAssembler(object):
 
                 js_location = self.mc.currpos()
                 self.mc.nop()
-                #self.mc.trap()
         else:
             js_location = 0
 
@@ -1076,17 +1075,14 @@ class AllocOpAssembler(object):
                 # directly the card flag setting
                 loc_index = arglocs[1]
                 assert loc_index.is_reg()
-                tmp1 = loc_index
+                tmp1 = arglocs[-1]
                 tmp2 = arglocs[-2]
+                tmp3 = arglocs[-3]
                 #byteofs
                 s = 3 + descr.jit_wb_card_page_shift
 
-                # use r11 as temporary register, save it in FORCE INDEX slot
-                temp_reg = r.r11
-                self.mc.store(temp_reg.value, r.SPP.value, FORCE_INDEX_OFS)
-
-                self.mc.srli_op(temp_reg.value, loc_index.value, s)
-                self.mc.not_(temp_reg.value, temp_reg.value)
+                self.mc.srli_op(tmp3.value, loc_index.value, s)
+                self.mc.not_(tmp3.value, tmp3.value)
 
                 # byte_index
                 self.mc.li(r.SCRATCH.value, 7)
@@ -1096,14 +1092,11 @@ class AllocOpAssembler(object):
 
                 # set the bit
                 self.mc.li(tmp2.value, 1)
-                self.mc.lbzx(r.SCRATCH.value, loc_base.value, temp_reg.value)
+                self.mc.lbzx(r.SCRATCH.value, loc_base.value, tmp3.value)
                 self.mc.sl_op(tmp2.value, tmp2.value, tmp1.value)
                 self.mc.or_(r.SCRATCH.value, r.SCRATCH.value, tmp2.value)
-                self.mc.stbx(r.SCRATCH.value, loc_base.value, temp_reg.value)
+                self.mc.stbx(r.SCRATCH.value, loc_base.value, tmp3.value)
                 # done
-
-                # restore temporary register r11
-                self.mc.load(temp_reg.value, r.SPP.value, FORCE_INDEX_OFS)
 
                 # patch the JNS above
                 offset = self.mc.currpos()
