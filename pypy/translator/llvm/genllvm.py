@@ -9,8 +9,8 @@ from py.process import cmdexec
 
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import mkentrymap, Constant, Variable
+from pypy.rlib import exports
 from pypy.rlib.jit import _we_are_jitted
-from pypy.rlib.exports import EXPORTS_obj2name
 from pypy.rlib.objectmodel import (Symbolic, ComputedIntSymbolic,
      CDefinedIntSymbolic, malloc_zero_filled, running_on_llinterp)
 from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
@@ -60,9 +60,9 @@ class Type(object):
         return '{} {}'.format(self.repr_type(), self.repr_value(value))
 
     def repr_ref(self, ptr_type, obj):
-        if obj in EXPORTS_obj2name:
-            tmp = EXPORTS_obj2name[obj]
-            for key, value in EXPORTS_obj2name.iteritems():
+        if obj in exports.EXPORTS_obj2name:
+            tmp = exports.EXPORTS_obj2name[obj]
+            for key, value in exports.EXPORTS_obj2name.iteritems():
                 if value == tmp:
                     export_obj = key
             if export_obj is obj:
@@ -1665,6 +1665,7 @@ class GenLLVM(object):
                 self.wrapper = CTypesFuncWrapper(self, self.entry_point)
             for export in self.export:
                 get_repr(getfunctionptr(export)).V
+        exports.clear()
 
     def _compile(self, add_opts, outfile):
         stub_code = py.code.Source(r'''
