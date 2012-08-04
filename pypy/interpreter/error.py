@@ -321,6 +321,7 @@ def decompose_valuefmt(valuefmt):
     return tuple(parts), tuple(formats)
 
 def get_operrcls2(valuefmt):
+    valuefmt = valuefmt.decode('ascii')
     strings, formats = decompose_valuefmt(valuefmt)
     assert len(strings) == len(formats) + 1
     try:
@@ -372,7 +373,6 @@ def operationerrfmt(w_type, valuefmt, *args):
       1. in the py3k branch the exception message will always be unicode
       2. only %s and %d are supported
     """
-    valuefmt = valuefmt.decode('ascii')
     OpErrFmt, strings = get_operationerr_class(valuefmt)
     return OpErrFmt(w_type, strings, *args)
 operationerrfmt._annspecialcase_ = 'specialize:arg(1)'

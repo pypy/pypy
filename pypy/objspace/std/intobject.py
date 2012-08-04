@@ -34,7 +34,6 @@ class W_AbstractIntObject(W_Object):
         b = b.lshift(3).or_(rbigint.fromint(tag))
         return space.newlong_from_rbigint(b)
 
-
 class W_IntObject(W_AbstractIntObject):
     __slots__ = 'intval'
     _immutable_fields_ = ['intval']
