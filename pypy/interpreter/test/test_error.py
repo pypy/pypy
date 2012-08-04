@@ -1,4 +1,3 @@
-# -*- encoding: utf-8 -*-
 import py, os, errno
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.error import decompose_valuefmt, get_operrcls2
@@ -33,13 +32,6 @@ def test_operationerrfmt():
     assert operr2.__class__ is operr.__class__
     operr3 = operationerrfmt("w_type2", "a %s b %s c", "bar", "4b")
     assert operr3.__class__ is not operr.__class__
-
-def test_operationerrfmt_unicode():
-    operr = operationerrfmt("w_type", u"abc %s def %d", u"àèì", 42)
-    assert isinstance(operr, OperationError)
-    assert operr.w_type == "w_type"
-    assert operr._w_value is None
-    assert operr._compute_value() == u"abc àèì def 42"
 
 def test_operationerrfmt_empty():
     py.test.raises(AssertionError, operationerrfmt, "w_type", "foobar")
