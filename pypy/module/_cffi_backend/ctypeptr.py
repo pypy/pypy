@@ -272,7 +272,17 @@ class W_CTypePointer(W_CTypePtrBase):
             return True
         else:
             set_mustfree_flag(cdata, False)
-            self.convert_from_object(cdata, w_ob)
+            try:
+                self.convert_from_object(cdata, w_ob)
+            except OperationError:
+                if (self.is_struct_ptr and isinstance(ob, cdataobj.W_CData)
+                    and ob.ctype is self.ctitem):
+                    # special case to make the life of verifier.py easier:
+                    # if the formal argument type is 'struct foo *' but
+                    # we pass a 'struct foo', then get a pointer to it
+                    rffi.cast(rffi.CCHARPP, cdata)[0] = ob._cdata
+                else:
+                    raise
             return False
 
     def getcfield(self, attr):

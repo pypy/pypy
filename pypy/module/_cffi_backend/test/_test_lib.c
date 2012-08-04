@@ -135,6 +135,11 @@ static long double _testfunc19(long double x)
     return x;
 }
 
+static short _testfunc20(struct _testfunc7_s *ptr)
+{
+    return ptr->a1 + ptr->a2;
+}
+
 void *gettestfunc(int num)
 {
     void *f;
@@ -159,6 +164,7 @@ void *gettestfunc(int num)
     case 17: f = &_testfunc17; break;
     case 18: f = &_testfunc18; break;
     case 19: f = &_testfunc19; break;
+    case 20: f = &_testfunc20; break;
     default:
         return NULL;
     }

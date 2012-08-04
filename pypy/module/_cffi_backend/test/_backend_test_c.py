@@ -791,6 +791,22 @@ def test_call_function_7():
     res = f(x[0])
     assert res == -4042 + ord('A')
 
+def test_call_function_20():
+    BChar = new_primitive_type("char")
+    BShort = new_primitive_type("short")
+    BStruct = new_struct_type("foo")
+    BStructPtr = new_pointer_type(BStruct)
+    complete_struct_or_union(BStruct, [('a1', BChar, -1),
+                                       ('a2', BShort, -1)])
+    BFunc18 = new_function_type((BStructPtr,), BShort, False)
+    f = cast(BFunc18, _testfunc(20))
+    x = newp(BStructPtr, {'a1': 'A', 'a2': -4042})
+    # test the exception that allows us to pass a 'struct foo' where the
+    # function really expects a 'struct foo *'.
+    res = f(x[0])
+    assert res == -4042 + ord('A')
+    assert res == f(x)
+
 def test_call_function_9():
     BInt = new_primitive_type("int")
     BFunc9 = new_function_type((BInt,), BInt, True)    # vararg
