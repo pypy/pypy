@@ -353,12 +353,10 @@ def get_operrcls2(valuefmt):
     return OpErrFmt, strings
 
 def get_operationerr_class(valuefmt):
-    is_unicode = isinstance(valuefmt, unicode)
-    key = (is_unicode, valuefmt)
     try:
-        result = _fmtcache[key]
+        result = _fmtcache[valuefmt]
     except KeyError:
-        result = _fmtcache[key] = get_operrcls2(valuefmt)
+        result = _fmtcache[valuefmt] = get_operrcls2(valuefmt)
     return result
 get_operationerr_class._annspecialcase_ = 'specialize:memo'
 
