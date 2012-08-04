@@ -5,6 +5,8 @@ class Module(MixedModule):
     appleveldefs = {
         }
     interpleveldefs = {
+        '__version__': 'space.wrap("0.3")',
+
         'nonstandard_integer_types': 'misc.nonstandard_integer_types',
 
         'load_library': 'libraryobj.load_library',
