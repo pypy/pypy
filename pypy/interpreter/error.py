@@ -348,7 +348,7 @@ def get_operrcls2(valuefmt):
                     value = getattr(self, attr)
                     lst[i+i] = string
                     if fmt == 'd':
-                        lst[i+i+1] = str(value).encode('ascii')
+                        lst[i+i+1] = str(value).decode('ascii')
                     else:
                         lst[i+i+1] = unicode(value)
                 lst[-1] = self.xstrings[-1]
