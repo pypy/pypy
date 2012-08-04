@@ -1,4 +1,5 @@
 import os, sys
+import itertools
 from pypy.rlib import jit
 from pypy.rlib.objectmodel import we_are_translated
 from errno import EINTR
@@ -327,27 +328,30 @@ def get_operrcls2(valuefmt):
     except KeyError:
         from pypy.rlib.unroll import unrolling_iterable
         attrs = ['x%d' % i for i in range(len(formats))]
-        entries = unrolling_iterable(enumerate(attrs))
+        entries = unrolling_iterable(zip(itertools.count(), formats, attrs))
         #
         class OpErrFmt(OperationError):
             def __init__(self, w_type, strings, *args):
                 self.setup(w_type)
                 assert len(args) == len(strings) - 1
                 self.xstrings = strings
-                for i, attr in entries:
+                for i, fmt, attr in entries:
                     setattr(self, attr, args[i])
                 if not we_are_translated() and w_type is None:
                     from pypy.tool.error import FlowingError
                     raise FlowingError(self._compute_value())
             def _compute_value(self):
                 lst = [None] * (len(formats) + len(formats) + 1)
-                for i, attr in entries:
+                for i, fmt, attr in entries:
                     string = self.xstrings[i]
                     value = getattr(self, attr)
                     lst[i+i] = string
-                    lst[i+i+1] = str(value)
+                    if fmt == 'd':
+                        lst[i+i+1] = str(value).encode('ascii')
+                    else:
+                        lst[i+i+1] = unicode(value)
                 lst[-1] = self.xstrings[-1]
-                return ''.join(lst)
+                return u''.join(lst)
         #
         _fmtcache2[formats] = OpErrFmt
     return OpErrFmt, strings
@@ -363,7 +367,12 @@ get_operationerr_class._annspecialcase_ = 'specialize:memo'
 def operationerrfmt(w_type, valuefmt, *args):
     """Equivalent to OperationError(w_type, space.wrap(valuefmt % args)).
     More efficient in the (common) case where the value is not actually
-    needed."""
+    needed.
+    Note that:
+      1. in the py3k branch the exception message will always be unicode
+      2. only %s and %d are supported
+    """
+    valuefmt = valuefmt.decode('ascii')
     OpErrFmt, strings = get_operationerr_class(valuefmt)
     return OpErrFmt(w_type, strings, *args)
 operationerrfmt._annspecialcase_ = 'specialize:arg(1)'

@@ -1,3 +1,5 @@
+# -*- encoding: utf-8 -*-
+
 import py, os, errno
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.error import decompose_valuefmt, get_operrcls2
@@ -27,7 +29,9 @@ def test_operationerrfmt():
     assert isinstance(operr, OperationError)
     assert operr.w_type == "w_type"
     assert operr._w_value is None
-    assert operr._compute_value() == "abc foo def 42"
+    val = operr._compute_value()
+    assert val == u"abc foo def 42"
+    assert isinstance(val, unicode)
     operr2 = operationerrfmt("w_type2", "a %s b %d c", "bar", 43)
     assert operr2.__class__ is operr.__class__
     operr3 = operationerrfmt("w_type2", "a %s b %s c", "bar", "4b")
@@ -35,6 +39,11 @@ def test_operationerrfmt():
 
 def test_operationerrfmt_empty():
     py.test.raises(AssertionError, operationerrfmt, "w_type", "foobar")
+
+def test_operationerrfmt_unicode():
+    operr = operationerrfmt("w_type", "abc %s", u"àèìòù")
+    val = operr._compute_value()
+    assert val == u"abc àèìòù"
 
 def test_errorstr(space):
     operr = OperationError(space.w_ValueError, space.wrap("message"))
