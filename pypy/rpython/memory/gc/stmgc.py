@@ -233,6 +233,16 @@ class StmGC(MovingGCBase):
         tls = self.stm_operations.get_tls()
         return StmGCTLS.cast_address_to_tls_object(tls)
 
+    @staticmethod
+    def JIT_max_size_of_young_obj():
+        return None
+
+    @staticmethod
+    def JIT_minimal_size_in_nursery():
+        return 0
+
+    JIT_WB_IF_FLAG = GCFLAG_GLOBAL
+
     # ----------
 
     def malloc_fixedsize_clear(self, typeid, size,
@@ -387,7 +397,7 @@ class StmGC(MovingGCBase):
                 # should not really let the exception propagate.
                 # XXX do something slightly better, like abort the transaction
                 # and raise a MemoryError when retrying
-                fatalerror("MemoryError in _stm_write_barrier_global -- sorry")
+                fatalerror("FIXME: MemoryError in _stm_write_barrier_global")
                 return llmemory.NULL
             #
             # Initialize the copy by doing an stm raw copy of the bytes

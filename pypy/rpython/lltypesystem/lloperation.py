@@ -409,6 +409,9 @@ LL_OPERATIONS = {
     'stm_start_transaction':  LLOp(canrun=True, canmallocgc=True),
     'stm_stop_transaction':   LLOp(canrun=True, canmallocgc=True),
 
+    'stm_gc_load':            LLOp(sideeffects=False),
+    'stm_gc_store':           LLOp(),
+
     # __________ address operations __________
 
     'boehm_malloc':         LLOp(),

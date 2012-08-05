@@ -573,10 +573,19 @@ class GcRootMap_shadowstack(object):
         return rffi.cast(lltype.Signed, rst_addr)
 
 
+class GcRootMap_stm(GcRootMap_shadowstack):
+    pass
+
+
 class WriteBarrierDescr(AbstractDescr):
     def __init__(self, gc_ll_descr):
         self.llop1 = gc_ll_descr.llop1
-        self.WB_FUNCPTR = gc_ll_descr.WB_FUNCPTR
+        if not gc_ll_descr.stm:
+            self.WB_FUNCPTR = lltype.Ptr(lltype.FuncType(
+                [llmemory.Address], lltype.Void))
+        else:
+            self.WB_STM_FUNCPTR = lltype.Ptr(lltype.FuncType(
+                [llmemory.Address], llmemory.Address))
         self.fielddescr_tid = gc_ll_descr.fielddescr_tid
         #
         GCClass = gc_ll_descr.GCClass
@@ -662,7 +671,7 @@ class GcLLDescr_framework(GcLLDescription):
         # we need the hybrid or minimark GC for rgc._make_sure_does_not_move()
         # to work.  Additionally, 'hybrid' is missing some stuff like
         # jit_remember_young_pointer() for now.
-        if self.gcdescr.config.translation.gc not in ('minimark',):
+        if self.gcdescr.config.translation.gc not in ('minimark', 'stmgc'):
             raise NotImplementedError("--gc=%s not implemented with the JIT" %
                                       (self.gcdescr.config.translation.gc,))
 
@@ -704,8 +713,6 @@ class GcLLDescr_framework(GcLLDescription):
         self.fielddescr_tid = get_field_descr(self, self.GCClass.HDR, 'tid')
 
     def _setup_write_barrier(self):
-        self.WB_FUNCPTR = lltype.Ptr(lltype.FuncType(
-            [llmemory.Address], lltype.Void))
         self.write_barrier_descr = WriteBarrierDescr(self)
 
     def _make_functions(self, really_not_translated):
@@ -862,11 +869,13 @@ class GcLLDescr_framework(GcLLDescription):
             # get a pointer to the 'remember_young_pointer' function from
             # the GC, and call it immediately
             llop1 = self.llop1
-            funcptr = llop1.get_write_barrier_failing_case(self.WB_FUNCPTR)
+            funcptr = llop1.get_write_barrier_failing_case(
+                self.write_barrier_descr.WB_FUNCPTR)
             funcptr(llmemory.cast_ptr_to_adr(gcref_struct))
 
     def can_use_nursery_malloc(self, size):
-        return size < self.max_size_of_young_obj
+        return (self.max_size_of_young_obj is None or
+                size < self.max_size_of_young_obj)
 
     def has_write_barrier_class(self):
         return WriteBarrierDescr
