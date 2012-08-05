@@ -722,7 +722,11 @@ class TestStandalone(StandaloneTests):
     def test_inhibit_tail_call(self):
         # the point is to check that the f()->f() recursion stops
         from pypy.rlib.rstackovf import StackOverflow
+        class Glob:
+            pass
+        glob = Glob()
         def f(n):
+            glob.n = n
             if n <= 0:
                 return 42
             return f(n+1)
@@ -730,11 +734,14 @@ class TestStandalone(StandaloneTests):
             try:
                 return f(1)
             except StackOverflow:
-                print 'hi!'
+                print 'hi!', glob.n
                 return 0
         t, cbuilder = self.compile(entry_point, stackcheck=True)
         out = cbuilder.cmdexec("")
-        assert out.strip() == "hi!"
+        text = out.strip()
+        assert text.startswith("hi! ")
+        n = int(text[4:])
+        assert n > 500 and n < 5000000
 
     def test_set_length_fraction(self):
         # check for pypy.rlib.rstack._stack_set_length_fraction()
