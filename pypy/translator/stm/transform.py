@@ -243,6 +243,10 @@ class STMTransformer(object):
         if T._gckind == 'raw':
             newoperations.append(op)
             return
+        if ((isinstance(op.args[0], Constant) and not op.args[0].value) or
+            (isinstance(op.args[1], Constant) and not op.args[1].value)):
+            newoperations.append(op)     # comparison with NULL
+            return
         if self.localtracker.try_ensure_local(op.args[0], op.args[1]):   # both
             newoperations.append(op)
             return

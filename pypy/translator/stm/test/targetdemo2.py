@@ -3,7 +3,7 @@ from pypy.module.thread import ll_thread
 from pypy.rlib import rstm
 from pypy.rlib.objectmodel import invoke_around_extcall, we_are_translated
 from pypy.rlib.debug import ll_assert
-from pypy.rpython.lltypesystem import rffi
+from pypy.rpython.lltypesystem import lltype, rffi
 
 
 class Node:
@@ -20,6 +20,8 @@ class Global:
     othernode2  = Node(0)
     othernodes  = [Node(0) for i in range(1000)]
 glob = Global()
+
+STRUCT = lltype.GcStruct('STRUCT', ('x', lltype.Signed))
 
 def add_at_end_of_chained_list(node, value, threadindex):
     x = Node(value)
@@ -61,6 +63,8 @@ def check_chained_list(node):
 
 
 class ThreadRunner(object):
+    arg = None
+
     def __init__(self, i):
         self.index = i
         self.finished_lock = ll_thread.allocate_lock()
@@ -73,6 +77,7 @@ class ThreadRunner(object):
                                      ThreadRunner, self)
             self.value = 0
             self.arg = Arg()
+            self.glob_p = lltype.malloc(STRUCT)
             rstm.perform_transaction(ThreadRunner.check_ptr_equality,
                                      ThreadRunner, self)
             rstm.perform_transaction(ThreadRunner.run_really,
@@ -97,6 +102,7 @@ class ThreadRunner(object):
         return int(self.value < glob.LENGTH)
 
     def check_ptr_equality(self, retry_counter):
+        assert self.glob_p != lltype.nullptr(STRUCT)
         res = _check_pointer(self.arg)    # 'self.arg' reads a GLOBAL object
         ll_assert(res is self.arg, "ERROR: bogus pointer equality")
         raw1 = rffi.cast(rffi.CCHARP, retry_counter)
