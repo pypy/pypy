@@ -149,10 +149,14 @@ class W_CTypeUnion(W_CTypeStructOrUnion):
 
 class W_CField(Wrappable):
     _immutable_ = True
+
+    BS_REGULAR     = -1
+    BS_EMPTY_ARRAY = -2
+
     def __init__(self, ctype, offset, bitshift, bitsize):
         self.ctype = ctype
         self.offset = offset
-        self.bitshift = bitshift
+        self.bitshift = bitshift # >= 0: bitshift; or BS_REGULAR/BS_EMPTY_ARRAY
         self.bitsize = bitsize
 
     def is_bitfield(self):
@@ -160,10 +164,15 @@ class W_CField(Wrappable):
 
     def read(self, cdata):
         cdata = rffi.ptradd(cdata, self.offset)
-        if self.is_bitfield():
-            return self.convert_bitfield_to_object(cdata)
-        else:
+        if self.bitshift == self.BS_REGULAR:
             return self.ctype.convert_to_object(cdata)
+        elif self.bitshift == self.BS_EMPTY_ARRAY:
+            from pypy.module._cffi_backend import ctypearray
+            ctype = self.ctype
+            assert isinstance(ctype, ctypearray.W_CTypeArray)
+            return cdataobj.W_CData(ctype.space, cdata, ctype.ctptr)
+        else:
+            return self.convert_bitfield_to_object(cdata)
 
     def write(self, cdata, w_ob):
         cdata = rffi.ptradd(cdata, self.offset)

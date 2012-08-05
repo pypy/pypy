@@ -153,7 +153,10 @@ def complete_struct_or_union(space, ctype, w_fields, w_ignored=None,
                 fbitsize == 8 * ftype.size and not
                 isinstance(ftype, ctypeprim.W_CTypePrimitiveCharOrUniChar)):
             fbitsize = -1
-            bitshift = -1
+            if isinstance(ftype, ctypearray.W_CTypeArray) and ftype.length==0:
+                bitshift = ctypestruct.W_CField.BS_EMPTY_ARRAY
+            else:
+                bitshift = ctypestruct.W_CField.BS_REGULAR
             prev_bit_position = 0
         else:
             if (not (isinstance(ftype, ctypeprim.W_CTypePrimitiveSigned) or

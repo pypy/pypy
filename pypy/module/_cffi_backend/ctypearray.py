@@ -69,7 +69,7 @@ class W_CTypeArray(W_CTypePtrOrArray):
         if i < 0:
             raise OperationError(space.w_IndexError,
                                  space.wrap("negative index not supported"))
-        if self.length != 0 and i >= w_cdata.get_array_length():
+        if i >= w_cdata.get_array_length():
             raise operationerrfmt(space.w_IndexError,
                 "index too large for cdata '%s' (expected %d < %d)",
                 self.name, i, w_cdata.get_array_length())

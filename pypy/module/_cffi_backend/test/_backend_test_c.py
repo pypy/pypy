@@ -1828,15 +1828,16 @@ def test_longdouble():
             assert repr(x).endswith("E+902>")
             assert float(x) == float("inf")
 
-def test_array_of_length_zero():
-    p = new_pointer_type(new_primitive_type("int"))
-    p0 = new_array_type(p, 0)
-    p3 = new_array_type(p, 3)
-    a1 = newp(p3, [61, 62, 63])
-    a2 = cast(p0, a1)
-    assert a2[0] == 61
-    assert a2[1] == 62
-    assert a2[2] == 63
-    a2[2] = 64
-    assert list(a1) == [61, 62, 64]
-    assert list(a2) == []
+def test_get_array_of_length_zero():
+    for length in [0, 5, 10]:
+        BLong = new_primitive_type("long")
+        BLongP = new_pointer_type(BLong)
+        BArray0 = new_array_type(BLongP, length)
+        BStruct = new_struct_type("foo")
+        BStructPtr = new_pointer_type(BStruct)
+        complete_struct_or_union(BStruct, [('a1', BArray0, -1)])
+        p = newp(BStructPtr, None)
+        if length == 0:
+            assert repr(p.a1).startswith("<cdata 'long *' 0x")
+        else:
+            assert repr(p.a1).startswith("<cdata 'long[%d]' 0x" % length)
