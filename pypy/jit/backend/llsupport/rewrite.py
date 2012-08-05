@@ -274,8 +274,8 @@ class GcRewriterAssembler(object):
             v = op.getarg(1)
             if isinstance(v, BoxPtr) or (isinstance(v, ConstPtr) and
                                          bool(v.value)): # store a non-NULL
+                op = self.prepare_write_barrier(op, rop.SETFIELD_RAW)
                 self.gen_write_barrier(op.getarg(0), v)
-                op = op.copy_and_change(rop.SETFIELD_RAW)
         self.newops.append(op)
 
     def handle_write_barrier_setinteriorfield(self, op):
@@ -285,8 +285,8 @@ class GcRewriterAssembler(object):
             v = op.getarg(2)
             if isinstance(v, BoxPtr) or (isinstance(v, ConstPtr) and
                                          bool(v.value)): # store a non-NULL
+                op = self.prepare_write_barrier(op, rop.SETINTERIORFIELD_RAW)
                 self.gen_write_barrier(op.getarg(0), v)
-                op = op.copy_and_change(rop.SETINTERIORFIELD_RAW)
         self.newops.append(op)
 
     def handle_write_barrier_setarrayitem(self, op):
@@ -296,10 +296,20 @@ class GcRewriterAssembler(object):
             v = op.getarg(2)
             if isinstance(v, BoxPtr) or (isinstance(v, ConstPtr) and
                                          bool(v.value)): # store a non-NULL
+                op = self.prepare_write_barrier(op, rop.SETARRAYITEM_RAW)
                 self.gen_write_barrier_array(op.getarg(0),
                                              op.getarg(1), v)
-                op = op.copy_and_change(rop.SETARRAYITEM_RAW)
         self.newops.append(op)
+
+    def prepare_write_barrier(self, op, newopnum):
+        write_barrier_descr = self.gc_ll_descr.write_barrier_descr
+        args = op.getarglist()
+        if (write_barrier_descr.returns_modified_object and
+                isinstance(op.getarg(0), ConstPtr)):
+            v_box = BoxPtr()
+            self.newops.append(ResOperation(rop.SAME_AS, [args[0]], v_box))
+            args[0] = v_box
+        return op.copy_and_change(opnum=newopnum, args=args)
 
     def gen_write_barrier(self, v_base, v_value):
         write_barrier_descr = self.gc_ll_descr.write_barrier_descr
@@ -313,6 +323,7 @@ class GcRewriterAssembler(object):
             # If we know statically the length of 'v', and it is not too
             # big, then produce a regular write_barrier.  If it's unknown or
             # too big, produce instead a write_barrier_from_array.
+            assert not write_barrier_descr.returns_modified_object
             LARGE = 130
             length = self.known_lengths.get(v_base, LARGE)
             if length >= LARGE:

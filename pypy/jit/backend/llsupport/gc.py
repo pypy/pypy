@@ -22,6 +22,7 @@ from pypy.rpython.memory.gctransform import asmgcroot
 # ____________________________________________________________
 
 class GcLLDescription(GcCache):
+    stm = False
 
     def __init__(self, gcdescr, translator=None, rtyper=None):
         GcCache.__init__(self, translator is not None, rtyper)
@@ -580,11 +581,12 @@ class GcRootMap_stm(GcRootMap_shadowstack):
 class WriteBarrierDescr(AbstractDescr):
     def __init__(self, gc_ll_descr):
         self.llop1 = gc_ll_descr.llop1
-        if not gc_ll_descr.stm:
+        self.returns_modified_object = gc_ll_descr.stm
+        if not self.returns_modified_object:
             self.WB_FUNCPTR = lltype.Ptr(lltype.FuncType(
                 [llmemory.Address], lltype.Void))
         else:
-            self.WB_STM_FUNCPTR = lltype.Ptr(lltype.FuncType(
+            self.WB_FUNCPTR_MOD = lltype.Ptr(lltype.FuncType(
                 [llmemory.Address], llmemory.Address))
         self.fielddescr_tid = gc_ll_descr.fielddescr_tid
         #
@@ -618,9 +620,16 @@ class WriteBarrierDescr(AbstractDescr):
         while value[i] == '\x00': i += 1
         return (i, struct.unpack('b', value[i])[0])
 
-    def get_write_barrier_fn(self, cpu):
+    def get_write_barrier_fn(self, cpu, returns_modified_object=False):
+        # must pass in 'self.returns_modified_object', to make sure that
+        # the callers are fixed for this case
+        assert returns_modified_object == self.returns_modified_object
+        if returns_modified_object:
+            FUNCTYPE = self.WB_FUNCPTR_MOD
+        else:
+            FUNCTYPE = self.WB_FUNCPTR
         llop1 = self.llop1
-        funcptr = llop1.get_write_barrier_failing_case(self.WB_FUNCPTR)
+        funcptr = llop1.get_write_barrier_failing_case(FUNCTYPE)
         funcaddr = llmemory.cast_ptr_to_adr(funcptr)
         return cpu.cast_adr_to_int(funcaddr)
 
@@ -630,6 +639,7 @@ class WriteBarrierDescr(AbstractDescr):
         funcptr = llop1.get_write_barrier_from_array_failing_case(
             self.WB_FUNCPTR)
         funcaddr = llmemory.cast_ptr_to_adr(funcptr)
+        assert not (funcaddr and self.returns_modified_object)
         return cpu.cast_adr_to_int(funcaddr)    # this may return 0
 
     def has_write_barrier_from_array(self, cpu):
@@ -646,7 +656,10 @@ class GcLLDescr_framework(GcLLDescription):
         GcLLDescription.__init__(self, gcdescr, translator, rtyper)
         self.translator = translator
         self.llop1 = llop1
-        self.stm = translator.config.translation.stm
+        try:
+            self.stm = translator.config.translation.stm
+        except AttributeError:
+            pass      # keep the default of False
         if really_not_translated:
             assert not self.translate_support_code  # but half does not work
             self._initialize_for_tests()

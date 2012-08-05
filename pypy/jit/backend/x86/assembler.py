@@ -351,12 +351,17 @@ class Assembler386(object):
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
         self.stack_check_slowpath = rawstart
 
+    def _wb_returns_modified_object(self):
+        descr = self.cpu.gc_ll_descr.write_barrier_descr
+        return descr.returns_modified_object
+
     def _build_wb_slowpath(self, withcards, withfloats=False):
         descr = self.cpu.gc_ll_descr.write_barrier_descr
         if descr is None:
             return
         if not withcards:
-            func = descr.get_write_barrier_fn(self.cpu)
+            func = descr.get_write_barrier_fn(self.cpu,
+                                              descr.returns_modified_object)
         else:
             if descr.jit_wb_cards_set == 0:
                 return
@@ -402,6 +407,9 @@ class Assembler386(object):
             mc.MOV_rs(edi.value, (frame_size - 1) * WORD)
         mc.CALL(imm(func))
         #
+        if descr.returns_modified_object:
+            mc.MOV_sr(correct_esp_by, eax.value)
+        #
         if withcards:
             # A final TEST8 before the RET, for the caller.  Careful to
             # not follow this instruction with another one that changes
@@ -422,7 +430,10 @@ class Assembler386(object):
         # ADD esp, correct_esp_by --- but cannot use ADD, because
         # of its effects on the CPU flags
         mc.LEA_rs(esp.value, correct_esp_by)
-        mc.RET16_i(WORD)
+        if not descr.returns_modified_object:
+            mc.RET16_i(WORD)
+        else:
+            mc.RET()     # and leave the modified object in [ESP+0]
         #
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
         self.wb_slowpath[withcards + 2 * withfloats] = rawstart
@@ -2479,6 +2490,16 @@ class Assembler386(object):
         #
         self.mc.PUSH(loc_base)
         self.mc.CALL(imm(self.wb_slowpath[helper_num]))
+
+        if self._wb_returns_modified_object():
+            # the value at [ESP] is not popped in this case, but possibly
+            # updated.  We have to use it to update the register at loc_base
+            assert isinstance(loc_base, RegLoc)
+            self.mc.POP_r(loc_base.value)
+            # also update the copy of the same value in the stack, if any
+            loc_base_2 = self._regalloc.fm.get(op.getarg(0))
+            if loc_base_2 is not None:
+                self.regalloc_mov(loc_base, loc_base_2)
 
         if card_marking:
             # The helper ends again with a check of the flag in the object.
