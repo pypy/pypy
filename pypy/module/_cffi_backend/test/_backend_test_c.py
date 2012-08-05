@@ -1827,3 +1827,16 @@ def test_longdouble():
         if not py_py:
             assert repr(x).endswith("E+902>")
             assert float(x) == float("inf")
+
+def test_array_of_length_zero():
+    p = new_pointer_type(new_primitive_type("int"))
+    p0 = new_array_type(p, 0)
+    p3 = new_array_type(p, 3)
+    a1 = newp(p3, [61, 62, 63])
+    a2 = cast(p0, a1)
+    assert a2[0] == 61
+    assert a2[1] == 62
+    assert a2[2] == 63
+    a2[2] = 64
+    assert list(a1) == [61, 62, 64]
+    assert list(a2) == []
