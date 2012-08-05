@@ -394,8 +394,8 @@ class AbstractLLCPU(AbstractCPU):
             for TYPE, _, itemsize in unroll_basic_sizes:
                 if size == itemsize:
                     ofs += itemsize * itemindex
-                    llop.stm_gc_store(lltype.Void, gcref, ofs,
-                                      rffi.cast(TYPE, newvalue))
+                    llop.gc_store(lltype.Void, gcref, ofs,
+                                  rffi.cast(TYPE, newvalue))
                     return
             else:
                 raise NotImplementedError("size = %d" % size)
@@ -406,7 +406,7 @@ class AbstractLLCPU(AbstractCPU):
         else:
             ofs = self.unpack_arraydescr(arraydescr)
             ofs += llmemory.sizeof(llmemory.GCREF) * itemindex
-            llop.stm_gc_store(lltype.Void, gcref, ofs, newvalue)
+            llop.gc_store(lltype.Void, gcref, ofs, newvalue)
 
     def bh_setarrayitem_gc_f(self, arraydescr, gcref, itemindex, newvalue):
         if not self.gc_ll_descr.stm:
@@ -414,7 +414,7 @@ class AbstractLLCPU(AbstractCPU):
         else:
             ofs = self.unpack_arraydescr(arraydescr)
             ofs += llmemory.sizeof(longlong.FLOATSTORAGE) * itemindex
-            llop.stm_gc_store(lltype.Void, gcref, ofs, newvalue)
+            llop.gc_store(lltype.Void, gcref, ofs, newvalue)
 
     bh_setarrayitem_raw_i = _base_setarrayitem_i
     bh_setarrayitem_raw_f = _base_setarrayitem_f
@@ -428,10 +428,10 @@ class AbstractLLCPU(AbstractCPU):
                 if size == itemsize:
                     ofs += itemsize * itemindex
                     if sign:
-                        val = llop.stm_gc_load(STYPE, gcref, ofs)
+                        val = llop.gc_load(STYPE, gcref, ofs)
                         val = rffi.cast(lltype.Signed, val)
                     else:
-                        val = llop.stm_gc_load(UTYPE, gcref, ofs)
+                        val = llop.gc_load(UTYPE, gcref, ofs)
                         val = rffi.cast(lltype.Signed, val)
                     return val
             else:
@@ -443,7 +443,7 @@ class AbstractLLCPU(AbstractCPU):
         else:
             ofs = self.unpack_arraydescr(arraydescr)
             ofs += llmemory.sizeof(llmemory.GCREF) * itemindex
-            return llop.stm_gc_load(llmemory.GCREF, gcref, ofs)
+            return llop.gc_load(llmemory.GCREF, gcref, ofs)
 
     def bh_getarrayitem_gc_f(self, arraydescr, gcref, itemindex):
         if not self.gc_ll_descr.stm:
@@ -451,7 +451,7 @@ class AbstractLLCPU(AbstractCPU):
         else:
             ofs = self.unpack_arraydescr(arraydescr)
             ofs += llmemory.sizeof(longlong.FLOATSTORAGE) * itemindex
-            return llop.stm_gc_load(longlong.FLOATSTORAGE, gcref, ofs)
+            return llop.gc_load(longlong.FLOATSTORAGE, gcref, ofs)
 
     bh_getarrayitem_raw_i = _base_getarrayitem_i
     bh_getarrayitem_raw_f = _base_getarrayitem_f
@@ -469,10 +469,10 @@ class AbstractLLCPU(AbstractCPU):
             for STYPE, UTYPE, itemsize in unroll_basic_sizes:
                 if fieldsize == itemsize:
                     if sign:
-                        val = llop.stm_gc_load(STYPE, gcref, fullofs)
+                        val = llop.gc_load(STYPE, gcref, fullofs)
                         val = rffi.cast(lltype.Signed, val)
                     else:
-                        val = llop.stm_gc_load(UTYPE, gcref, fullofs)
+                        val = llop.gc_load(UTYPE, gcref, fullofs)
                         val = rffi.cast(lltype.Signed, val)
                     return val
             else:
@@ -501,7 +501,7 @@ class AbstractLLCPU(AbstractCPU):
         ofs += descr.fielddescr.offset + size * itemindex
         #
         if self.gc_ll_descr.stm:
-            return llop.stm_gc_load(llmemory.GCREF, gcref, ofs)
+            return llop.gc_load(llmemory.GCREF, gcref, ofs)
         # --- start of GC unsafe code (no GC operation!) ---
         items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
         items = rffi.cast(rffi.CArrayPtr(lltype.Signed), items)
@@ -516,7 +516,7 @@ class AbstractLLCPU(AbstractCPU):
         ofs += descr.fielddescr.offset + size * itemindex
         #
         if self.gc_ll_descr.stm:
-            return llop.stm_gc_load(longlong.FLOATSTORAGE, gcref, ofs)
+            return llop.gc_load(longlong.FLOATSTORAGE, gcref, ofs)
         # --- start of GC unsafe code (no GC operation!) ---
         items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
         items = rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), items)
@@ -535,8 +535,8 @@ class AbstractLLCPU(AbstractCPU):
         if self.gc_ll_descr.stm:
             for TYPE, _, itemsize in unroll_basic_sizes:
                 if fieldsize == itemsize:
-                    llop.stm_gc_store(lltype.Void, gcref, ofs,
-                                      rffi.cast(TYPE, value))
+                    llop.gc_store(lltype.Void, gcref, ofs,
+                                  rffi.cast(TYPE, value))
                     return
             else:
                 raise NotImplementedError("size = %d" % fieldsize)
@@ -558,7 +558,7 @@ class AbstractLLCPU(AbstractCPU):
         ofs += descr.fielddescr.offset + size * itemindex
         #
         if self.gc_ll_descr.stm:
-            llop.stm_gc_store(llmemory.GCREF, gcref, ofs, newvalue)
+            llop.gc_store(llmemory.GCREF, gcref, ofs, newvalue)
             return
         #
         self.gc_ll_descr.do_write_barrier(gcref, newvalue)
@@ -575,7 +575,7 @@ class AbstractLLCPU(AbstractCPU):
         ofs += descr.fielddescr.offset + size * itemindex
         #
         if self.gc_ll_descr.stm:
-            llop.stm_gc_store(longlong.FLOATSTORAGE, gcref, ofs, newvalue)
+            llop.gc_store(longlong.FLOATSTORAGE, gcref, ofs, newvalue)
             return
         # --- start of GC unsafe code (no GC operation!) ---
         items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
@@ -647,10 +647,10 @@ class AbstractLLCPU(AbstractCPU):
             for STYPE, UTYPE, itemsize in unroll_basic_sizes:
                 if size == itemsize:
                     if sign:
-                        val = llop.stm_gc_load(STYPE, struct, ofs)
+                        val = llop.gc_load(STYPE, struct, ofs)
                         val = rffi.cast(lltype.Signed, val)
                     else:
-                        val = llop.stm_gc_load(UTYPE, struct, ofs)
+                        val = llop.gc_load(UTYPE, struct, ofs)
                         val = rffi.cast(lltype.Signed, val)
                     return val
             else:
@@ -661,14 +661,14 @@ class AbstractLLCPU(AbstractCPU):
             return self._base_do_getfield_r(struct, fielddescr)
         else:
             ofs = self.unpack_fielddescr(fielddescr)
-            return llop.stm_gc_load(llmemory.GCREF, struct, ofs)
+            return llop.gc_load(llmemory.GCREF, struct, ofs)
 
     def bh_getfield_gc_f(self, struct, fielddescr):
         if not self.gc_ll_descr.stm:
             return self._base_do_getfield_f(struct, fielddescr)
         else:
             ofs = self.unpack_fielddescr(fielddescr)
-            return llop.stm_gc_load(longlong.FLOATSTORAGE, struct, ofs)
+            return llop.gc_load(longlong.FLOATSTORAGE, struct, ofs)
 
     bh_getfield_raw_i = _base_do_getfield_i
     bh_getfield_raw_f = _base_do_getfield_f
@@ -712,8 +712,8 @@ class AbstractLLCPU(AbstractCPU):
             ofs, size, sign = self.unpack_fielddescr_size(fielddescr)
             for TYPE, _, itemsize in unroll_basic_sizes:
                 if size == itemsize:
-                    llop.stm_gc_store(lltype.Void, struct, ofs,
-                                      rffi.cast(TYPE, newvalue))
+                    llop.gc_store(lltype.Void, struct, ofs,
+                                  rffi.cast(TYPE, newvalue))
                     return
             else:
                 raise NotImplementedError("size = %d" % size)
@@ -723,14 +723,14 @@ class AbstractLLCPU(AbstractCPU):
             self._base_do_setfield_r(struct, fielddescr, newvalue)
         else:
             ofs = self.unpack_fielddescr(fielddescr)
-            llop.stm_gc_store(lltype.Void, struct, ofs, newvalue)
+            llop.gc_store(lltype.Void, struct, ofs, newvalue)
 
     def bh_setfield_gc_f(self, struct, fielddescr, newvalue):
         if not self.gc_ll_descr.stm:
             self._base_do_setfield_f(struct, fielddescr, newvalue)
         else:
             ofs = self.unpack_fielddescr(fielddescr)
-            llop.stm_gc_store(lltype.Void, struct, ofs, newvalue)
+            llop.gc_store(lltype.Void, struct, ofs, newvalue)
 
     bh_setfield_raw_i = _base_do_setfield_i
     bh_setfield_raw_f = _base_do_setfield_f

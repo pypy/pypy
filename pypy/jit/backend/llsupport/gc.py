@@ -635,14 +635,16 @@ class WriteBarrierDescr(AbstractDescr):
 
     def get_write_barrier_from_array_fn(self, cpu):
         # returns a function with arguments [array, index, newvalue]
+        assert not self.returns_modified_object
         llop1 = self.llop1
         funcptr = llop1.get_write_barrier_from_array_failing_case(
             self.WB_FUNCPTR)
         funcaddr = llmemory.cast_ptr_to_adr(funcptr)
-        assert not (funcaddr and self.returns_modified_object)
         return cpu.cast_adr_to_int(funcaddr)    # this may return 0
 
     def has_write_barrier_from_array(self, cpu):
+        if self.returns_modified_object:
+            return False
         return self.get_write_barrier_from_array_fn(cpu) != 0
 
 

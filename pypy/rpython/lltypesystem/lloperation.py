@@ -409,8 +409,9 @@ LL_OPERATIONS = {
     'stm_start_transaction':  LLOp(canrun=True, canmallocgc=True),
     'stm_stop_transaction':   LLOp(canrun=True, canmallocgc=True),
 
+    'gc_load':                LLOp(sideeffects=False),   # so far, only if stm
+    'gc_store':               LLOp(),                    # so far, only if stm
     'stm_gc_load':            LLOp(sideeffects=False),
-    'stm_gc_store':           LLOp(),
 
     # __________ address operations __________
 

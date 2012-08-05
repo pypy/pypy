@@ -206,7 +206,7 @@ class ContainerType(LowLevelType):
                 assert isinstance(T, Struct)
                 T = getattr(T, fieldname)
             else:
-                assert isinstance(T, Array)
+                assert isinstance(T, (Array, FixedSizeArray))
                 T = T.OF
         return False
 

@@ -55,6 +55,16 @@ def stm_getinteriorfield(funcgen, op):
     access_info = (None, ptr, expr)
     return _stm_generic_get(funcgen, op, access_info)
 
+def stm_gc_load(funcgen, op):
+    ptr = funcgen.expr(op.args[0])
+    ofs = funcgen.expr(op.args[1])
+    T = funcgen.lltypemap(op.result)
+    resulttypename = funcgen.db.gettype(T)
+    cresulttypename_ptr = cdecl(resulttypename, ' *')
+    expr = '(*(%s)(((char *)(%s)) + (%s)))' % (cresulttypename_ptr, ptr, ofs)
+    access_info = (None, ptr, expr)
+    return _stm_generic_get(funcgen, op, access_info)
+
 
 def stm_become_inevitable(funcgen, op):
     try:

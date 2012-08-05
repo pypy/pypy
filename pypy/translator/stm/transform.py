@@ -203,6 +203,12 @@ class STMTransformer(object):
     def stt_setinteriorfield(self, newoperations, op):
         self.transform_set(newoperations, op)
 
+    def stt_gc_load(self, newoperations, op):
+        self.transform_get(newoperations, op, 'stm_gc_load')
+
+    def stt_gc_store(self, newoperations, op):
+        self.transform_set(newoperations, op)
+
     def stt_stm_writebarrier(self, newoperations, op):
         if self.localtracker.try_ensure_local(op.args[0]):
             op = SpaceOperation('same_as', op.args, op.result)
