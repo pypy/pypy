@@ -88,8 +88,20 @@ def enum_gc_dependencies(translator):
                         resultlist.append(('instantiate', op.result))
                         continue
                     #
-                    raise Exception("%r: unknown targets, passing GC "
-                                    "arguments or result" % (op,))
+                    # unknwon targets, passing GC arguments or result:
+                    # check that there is already a stm_writebarrier
+                    # protecting all GC arguments.  The stm_writebarrier
+                    # must be inserted manually.  Only for jit.backend's
+                    # bh_call_x().
+                    writebarriers = set()
+                    for op1 in block.operations:
+                        if op1.opname == 'stm_writebarrier':
+                            writebarriers.add(op1.result)
+                    for v in op.args[1:-1]:
+                        if is_gc(v) and v not in writebarriers:
+                            raise Exception("%r: unknown targets, passing "
+                                            "unprotected GC arguments" % (op,))
+                    # the result is listed in a normal dependency.
                 #
                 if is_gc(op.result):
                     resultlist.append((op, op.result))

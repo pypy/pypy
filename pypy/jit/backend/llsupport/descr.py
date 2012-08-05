@@ -353,6 +353,10 @@ class CallDescr(AbstractDescr):
         from pypy.rlib.clibffi import FFI_DEFAULT_ABI
         assert self.get_call_conv() == FFI_DEFAULT_ABI, (
             "%r: create_call_stub() with a non-default call ABI" % (self,))
+        if rtyper is not None:
+            stm = rtyper.annotator.translator.config.translation.stm
+        else:
+            stm = False
 
         def process(c):
             if c == 'L':
@@ -364,6 +368,8 @@ class CallDescr(AbstractDescr):
                 return 'longlong.int2singlefloat(%s)' % (process('i'),)
             arg = 'args_%s[%d]' % (c, seen[c])
             seen[c] += 1
+            if c == 'r' and stm:
+                arg = 'llop.stm_writebarrier(llmemory.GCREF, %s)' % arg
             return arg
 
         def TYPE(arg):
