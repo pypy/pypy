@@ -1,4 +1,5 @@
 import os, sys, py
+from lib_pypy import _rawffi
 
 class TestFfi:
     def prepare_c_example():
@@ -217,11 +218,9 @@ class TestFfi:
         cls.lib_name = cls.prepare_c_example()
 
     def test_libload(self):
-        import _rawffi
         _rawffi.CDLL(self.libc_name)
 
     def test_libload_fail(self):
-        import _rawffi
         try:
             _rawffi.CDLL("xxxxx_this_name_does_not_exist_xxxxx")
         except OSError, e:
@@ -234,7 +233,6 @@ class TestFfi:
         if self.iswin32:
             skip("unix specific")
         skip("XXX in-progress")
-        import _rawffi
         # this should return *all* loaded libs, dlopen(NULL)
         dll = _rawffi.CDLL(None)
         # Assume CPython, or PyPy compiled with cpyext
@@ -242,11 +240,9 @@ class TestFfi:
         assert res[0] == 1
 
     def test_libc_load(self):
-        import _rawffi
         _rawffi.get_libc()
 
     def test_getattr(self):
-        import _rawffi
         libc = _rawffi.get_libc()
         func = libc.ptr('rand', [], 'i')
         assert libc.ptr('rand', [], 'i') is func # caching
@@ -257,7 +253,6 @@ class TestFfi:
     def test_byordinal(self):
         if not self.iswin32:
             skip("win32 specific")
-        import _rawffi
         lib = _rawffi.CDLL(self.lib_name)
         # This will call the ordinal function numbered 1
         # my compiler seems to order them alphabetically:
@@ -265,7 +260,6 @@ class TestFfi:
         assert lib.ptr(1, [], 'i')()[0] == 42
 
     def test_getchar(self):
-        import _rawffi
         lib = _rawffi.CDLL(self.lib_name)
         get_char = lib.ptr('get_char', ['P', 'H'], 'c')
         A = _rawffi.Array('c')
@@ -283,7 +277,6 @@ class TestFfi:
 
     def test_chararray_as_bytebuffer(self):
         # a useful extension to arrays of shape 'c': buffer-like slicing
-        import _rawffi
         A = _rawffi.Array('c')
         buf = A(10, autofree=True)
         buf[0] = '*'
@@ -293,7 +286,6 @@ class TestFfi:
         assert buf[:8] == '*' + '\x00'*6 + 'a'
 
     def test_returning_str(self):
-        import _rawffi
         lib = _rawffi.CDLL(self.lib_name)
         char_check = lib.ptr('char_check', ['c', 'c'], 's')
         A = _rawffi.Array('c')
@@ -318,7 +310,6 @@ class TestFfi:
         a.free()
 
     def test_returning_unicode(self):
-        import _rawffi
         A = _rawffi.Array('u')
         a = A(6, u'xx\x00\x00xx')
         res = _rawffi.wcharp2unicode(a.buffer)
@@ -327,7 +318,6 @@ class TestFfi:
         a.free()
 
     def test_raw_callable(self):
-        import _rawffi
         lib = _rawffi.CDLL(self.lib_name)
         get_raw_pointer = lib.ptr('get_raw_pointer', [], 'P')
         ptr = get_raw_pointer()
@@ -347,7 +337,6 @@ class TestFfi:
         ptr.free()
 
     def test_short_addition(self):
-        import _rawffi
         lib = _rawffi.CDLL(self.lib_name)
         short_add = lib.ptr('add_shorts', ['h', 'h'], 'H')
         A = _rawffi.Array('h')
@@ -361,7 +350,6 @@ class TestFfi:
         arg2.free()
 
     def test_pow(self):
-        import _rawffi
         libm = _rawffi.CDLL(self.libm_name)
         pow = libm.ptr('pow', ['d', 'd'], 'd')
         A = _rawffi.Array('d')
@@ -376,7 +364,6 @@ class TestFfi:
         arg2.free()
 
     def test_time(self):
-        import _rawffi
         libc = _rawffi.get_libc()
         try:
             time = libc.ptr('time', ['z'], 'l')  # 'z' instead of 'P' just for test
@@ -392,7 +379,6 @@ class TestFfi:
     def test_gettimeofday(self):
         if self.iswin32:
             skip("No gettimeofday on win32")
-        import _rawffi
         struct_type = _rawffi.Structure([('tv_sec', 'l'), ('tv_usec', 'l')])
         structure = struct_type()
         libc = _rawffi.get_libc()
@@ -417,7 +403,6 @@ class TestFfi:
         arg2.free()
 
     def test_structreturn(self):
-        import _rawffi
         X = _rawffi.Structure([('x', 'l')])
         x = X()
         x.x = 121
@@ -447,7 +432,6 @@ class TestFfi:
         x.free()
 
     def test_nested_structures(self):
-        import _rawffi
         lib = _rawffi.CDLL(self.lib_name)
         inner = lib.ptr("inner_struct_elem", ['P'], 'c')
         X = _rawffi.Structure([('x1', 'i'), ('x2', 'h'), ('x3', 'c'), ('next', 'P')])
@@ -470,7 +454,6 @@ class TestFfi:
         free_double_struct(res)
 
     def test_structure_bitfields(self):
-        import _rawffi
         X = _rawffi.Structure([('A', 'I', 1),
                                ('B', 'I', 2),
                                ('C', 'i', 2)])
@@ -492,20 +475,17 @@ class TestFfi:
         y.free()
 
     def test_invalid_bitfields(self):
-        import _rawffi
         raises(TypeError, _rawffi.Structure, [('A', 'c', 1)])
         raises(ValueError, _rawffi.Structure, [('A', 'I', 129)])
         raises(ValueError, _rawffi.Structure, [('A', 'I', -1)])
         raises(ValueError, _rawffi.Structure, [('A', 'I', 0)])
 
     def test_packed_structure(self):
-        import _rawffi
         Y = _rawffi.Structure([('a', 'c'),
                                ('b', 'i')], pack=1)
         assert Y.size == 5
 
     def test_array(self):
-        import _rawffi
         lib = _rawffi.CDLL(self.lib_name)
         A = _rawffi.Array('i')
         get_array_elem = lib.ptr('get_array_elem', ['P', 'i'], 'i')
@@ -525,7 +505,6 @@ class TestFfi:
         a.free()
 
     def test_array_of_structure(self):
-        import _rawffi
         lib = _rawffi.CDLL(self.lib_name)
         A = _rawffi.Array('P')
         X = _rawffi.Structure([('x1', 'i'), ('x2', 'h'), ('x3', 'c'), ('next', 'P')])
@@ -548,7 +527,6 @@ class TestFfi:
         a.free()
 
     def test_bad_parameters(self):
-        import _rawffi
         lib = _rawffi.CDLL(self.lib_name)
         nothing = lib.ptr('nothing', [], None)
         assert nothing() is None
@@ -561,7 +539,6 @@ class TestFfi:
         raises(ValueError, "_rawffi.Array('xx')")
 
     def test_longs_ulongs(self):
-        import _rawffi
         lib = _rawffi.CDLL(self.lib_name)
         some_huge_value = lib.ptr('some_huge_value', [], 'q')
         res = some_huge_value()
@@ -577,7 +554,6 @@ class TestFfi:
         arg1.free()
     
     def test_callback(self):
-        import _rawffi
         import struct
         libc = _rawffi.get_libc()
         ll_to_sort = _rawffi.Array('i')(4)
@@ -613,7 +589,6 @@ class TestFfi:
         cb.free()
 
     def test_another_callback(self):
-        import _rawffi
         lib = _rawffi.CDLL(self.lib_name)
         runcallback = lib.ptr('runcallback', ['P'], 'q')
         def callback():
@@ -627,7 +602,6 @@ class TestFfi:
         cb.free()
 
     def test_void_returning_callback(self):
-        import _rawffi
         lib = _rawffi.CDLL(self.lib_name)
         runcallback = lib.ptr('runcallback', ['P'], None)
         called = []
@@ -643,7 +617,6 @@ class TestFfi:
         cb.free()
 
     def test_raising_callback(self):
-        import _rawffi, sys
         import StringIO
         lib = _rawffi.CDLL(self.lib_name)
         err = StringIO.StringIO()
@@ -668,7 +641,6 @@ class TestFfi:
 
 
     def test_setattr_struct(self):
-        import _rawffi
         X = _rawffi.Structure([('value1', 'i'), ('value2', 'i')])
         x = X()
         x.value1 = 1
@@ -682,13 +654,11 @@ class TestFfi:
         x.free()
 
     def test_sizes_and_alignments(self):
-        import _rawffi
         for k, (s, a) in self.sizes_and_alignments.iteritems():
             assert _rawffi.sizeof(k) == s
             assert _rawffi.alignment(k) == a
 
     def test_array_addressof(self):
-        import _rawffi
         lib = _rawffi.CDLL(self.lib_name)
         alloc = lib.ptr('allocate_array', [], 'P')
         A = _rawffi.Array('i')
@@ -698,7 +668,6 @@ class TestFfi:
         assert A.fromaddress(a.buffer, 1)[0] == 3
 
     def test_shape(self):
-        import _rawffi
         A = _rawffi.Array('i')
         a = A(1)
         assert a.shape is A
@@ -710,19 +679,16 @@ class TestFfi:
         s.free()
 
     def test_negative_pointers(self):
-        import _rawffi
         A = _rawffi.Array('P')
         a = A(1)
         a[0] = -1234
         a.free()
 
     def test_long_with_fromaddress(self):
-        import _rawffi
         addr = -1
         raises(ValueError, _rawffi.Array('u').fromaddress, addr, 100)
 
     def test_passing_raw_pointers(self):
-        import _rawffi
         lib = _rawffi.CDLL(self.lib_name)
         A = _rawffi.Array('i')
         get_array_elem = lib.ptr('get_array_elem', ['P', 'i'], 'i')
@@ -738,7 +704,7 @@ class TestFfi:
         a.free()
 
     def test_repr(self):
-        import _rawffi, struct
+        import struct
         isize = struct.calcsize("i")
         lsize = struct.calcsize("l")
         assert (repr(_rawffi.Array('i')) ==
@@ -761,7 +727,6 @@ class TestFfi:
         a.free()
 
     def test_wide_char(self):
-        import _rawffi, sys
         A = _rawffi.Array('u')
         a = A(3)
         a[0] = u'x'
@@ -784,7 +749,7 @@ class TestFfi:
         a.free()
 
     def test_truncate(self):
-        import _rawffi, struct
+        import struct
         a = _rawffi.Array('b')(1)
         a[0] = -5
         assert a[0] == -5
@@ -846,7 +811,6 @@ class TestFfi:
         a.free()
 
     def test_getaddressindll(self):
-        import _rawffi
         lib = _rawffi.CDLL(self.lib_name)
         def getprimitive(typecode, name):
             addr = lib.getaddressindll(name)
@@ -867,7 +831,6 @@ class TestFfi:
         raises(ValueError, getprimitive, 'zzz', 'static_int')
 
     def test_segfault_exception(self):
-        import _rawffi
         S = _rawffi.Structure([('x', 'i')])
         s = S()
         s.x = 3
@@ -886,7 +849,6 @@ class TestFfi:
 
         # Even if the call corresponds to the specified signature,
         # the STDCALL calling convention may detect some errors
-        import _rawffi
         lib = _rawffi.CDLL('kernel32')
 
         f = lib.ptr('SetLastError', [], 'i')
@@ -910,7 +872,6 @@ class TestFfi:
         arg.free()
 
     def test_struct_byvalue(self):
-        import _rawffi, sys
         X_Y = _rawffi.Structure([('x', 'l'), ('y', 'l')])
         x_y = X_Y()
         lib = _rawffi.CDLL(self.lib_name)
@@ -925,7 +886,6 @@ class TestFfi:
         x_y.free()
 
     def test_callback_struct_byvalue(self):
-        import _rawffi, sys
         X_Y = _rawffi.Structure([('x', 'l'), ('y', 'l')])
         lib = _rawffi.CDLL(self.lib_name)
         op_x_y = lib.ptr('op_x_y', [(X_Y, 1), 'P'], 'l')
@@ -947,7 +907,6 @@ class TestFfi:
         assert res[0] == 420
 
     def test_ret_struct(self):
-        import _rawffi
         S2H = _rawffi.Structure([('x', 'h'), ('y', 'h')])
         s2h = S2H()
         lib = _rawffi.CDLL(self.lib_name)
@@ -978,7 +937,6 @@ class TestFfi:
         s2h.free()
 
     def test_ret_struct_containing_array(self):
-        import _rawffi
         AoI = _rawffi.Array('i')
         S2A = _rawffi.Structure([('bah', (AoI, 2))])
         lib = _rawffi.CDLL(self.lib_name)
@@ -992,7 +950,6 @@ class TestFfi:
         assert ok[0] == 1
 
     def test_buffer(self):
-        import _rawffi
         S = _rawffi.Structure((40, 1))
         s = S(autofree=True)
         b = buffer(s)
@@ -1014,7 +971,6 @@ class TestFfi:
         assert a[4] == 't'
 
     def test_union(self):
-        import _rawffi
         longsize = _rawffi.sizeof('l')
         S = _rawffi.Structure([('x', 'h'), ('y', 'l')], union=True)
         s = S(autofree=False)
@@ -1026,7 +982,6 @@ class TestFfi:
         s.free()
 
     def test_ffi_type(self):
-        import _rawffi
         EMPTY = _rawffi.Structure([])
         S2E = _rawffi.Structure([('bah', (EMPTY, 1))])
         S2E.get_ffi_type()     # does not hang

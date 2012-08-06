@@ -19,11 +19,6 @@ cffi_type_double  = _cffi_backend.new_primitive_type("double")
 cffi_type_longdouble = _cffi_backend.new_primitive_type("long double")
 cffi_type_wchar_t = _cffi_backend.new_primitive_type("wchar_t")
 
-cffi_type_short_p  = _cffi_backend.new_pointer_type(cffi_type_short)
-cffi_type_ushort_p = _cffi_backend.new_pointer_type(cffi_type_ushort)
-cffi_type_long_p   = _cffi_backend.new_pointer_type(cffi_type_long)
-cffi_type_ulong_p  = _cffi_backend.new_pointer_type(cffi_type_ulong)
-
 cffi_types = {
     'c': cffi_type_char,
     'b': cffi_type_schar,
@@ -47,6 +42,20 @@ cffi_types = {
     'Z' : cffi_type_pointer,
     '?' : cffi_type_uchar,
     }
+
+cffi_cache_ptr = {cffi_type_void: cffi_type_pointer}
+cffi_cache_array = {}
+cffi_types_ptr = {}
+cffi_types_array = {}
+
+for _tp, _type in cffi_types.items():
+    if _type not in cffi_cache_ptr:
+        cffi_cache_ptr[_type] = _cffi_backend.new_pointer_type(_type)
+    if _type not in cffi_cache_array:
+        cffi_cache_array[_type] = _cffi_backend.new_array_type(
+            cffi_cache_ptr[_type], None)
+    cffi_types_ptr[_tp] = cffi_cache_ptr[_type]
+    cffi_types_array[_tp] = cffi_cache_array[_type]
 
 # ____________________________________________________________
 
@@ -83,14 +92,14 @@ class CDLL(object):
             return self._cache[key]
         except KeyError:
             pass
-        assert not argtypes
+        cffi_argtypes = [cffi_types[tp] for tp in argtypes]
         if restype is None:
             cffi_restype = cffi_type_void
         else:
             cffi_restype = cffi_types[restype]
         assert isinstance(name, str)
-        cffi_functype = _cffi_backend.new_function_type((), cffi_restype,
-                                                        False)  # XXX abi
+        cffi_functype = _cffi_backend.new_function_type(
+            tuple(cffi_argtypes), cffi_restype, False)  # XXX abi
         cfunc = self._cffi_library.load_function(cffi_functype, name)
         funcptr = FuncPtr(cfunc)
         self._cache[key] = funcptr
@@ -104,13 +113,66 @@ class DataInstance(object):
 
 class FuncPtr(object):
     def __init__(self, cfunc):
-        self.cfunc = cfunc
+        self._cfunc = cfunc
+
+    def __call__(self, *args):
+        return self._cfunc(*[arg._prepare_arg() for arg in args])
 
 # ____________________________________________________________
 
-class Array(DataInstance):
+class Array(object):
     def __init__(self, shape):
-        pass
+        self._cffi_item = cffi_types[shape]
+        self._cffi_ptr = cffi_types_ptr[shape]
+        self._cffi_array = cffi_types_array[shape]
+        self._shape = shape
+
+    def __call__(self, length, items=None, autofree=False):
+        # XXX cache 'array'?
+        array = _cffi_backend.new_array_type(self._cffi_ptr, length)
+        return ArrayInstance(_cffi_backend.newp(array, items), self._shape)
+
+_array_of_pointers = Array('P')
+
+class ArrayInstance(DataInstance):
+    def __init__(self, cdata, shape):
+        self._cdata = cdata
+        self._shape = shape
+
+    def byptr(self):
+        return _array_of_pointers(1, [self._cdata])
+
+    def __getitem__(self, index):
+        return self._cdata[index]
+
+    def __setitem__(self, index, value):
+        self._cdata[index] = value
+
+    def __getslice__(self, i, j):
+        if self._shape != 'c':
+            raise TypeError("only 'c' arrays support slicing")
+        if i < 0: i = 0
+        if j > len(self._cdata): j = len(self._cdata)
+        if i > j: j = i
+        return _cffi_backend.buffer(self._cdata + i, j - i)[:]
+
+    def __setslice__(self, i, j, value):
+        if self._shape != 'c':
+            raise TypeError("only 'c' arrays support slicing")
+        if i < 0: i = 0
+        if j > len(self._cdata): j = len(self._cdata)
+        if i > j: j = i
+        _cffi_backend.buffer(self._cdata + i, j - i)[:] = value
+
+    def _prepare_arg(self):
+        if len(self._cdata) != 1:
+            return TypeError("Argument should be an array of length 1, "
+                             "got length %d" % len(self._cdata))
+        # XXX check type
+        return self._cdata[0]
+
+    def free(self):
+        pass  # XXX
 
 # ____________________________________________________________
 
