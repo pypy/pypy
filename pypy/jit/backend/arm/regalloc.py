@@ -497,6 +497,11 @@ class Regalloc(object):
         res = self.force_allocate_reg(op.result)
         self.possibly_free_var(op.result)
         return [reg1, reg2, res]
+    
+    def prepare_op_int_force_ge_zero(self, op, fcond):
+        argloc = self._ensure_value_is_boxed(op.getarg(0))
+        resloc = self.force_allocate_reg(op.result, [op.getarg(0)])
+        return [argloc, resloc]
 
     def prepare_guard_int_mul_ovf(self, op, guard, fcond):
         boxes = op.getarglist()
