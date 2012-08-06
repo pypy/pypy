@@ -47,6 +47,7 @@ cffi_cache_ptr = {cffi_type_void: cffi_type_pointer}
 cffi_cache_array = {}
 cffi_types_ptr = {}
 cffi_types_array = {}
+cffi_types_array_1 = {}
 
 for _tp, _type in cffi_types.items():
     if _type not in cffi_cache_ptr:
@@ -56,6 +57,8 @@ for _tp, _type in cffi_types.items():
             cffi_cache_ptr[_type], None)
     cffi_types_ptr[_tp] = cffi_cache_ptr[_type]
     cffi_types_array[_tp] = cffi_cache_array[_type]
+    cffi_types_array_1[_tp] = _cffi_backend.new_array_type(
+        cffi_cache_ptr[_type], 1)
 
 # ____________________________________________________________
 
@@ -64,6 +67,9 @@ def sizeof(tp_letter):
 
 def alignment(tp_letter):
     return _cffi_backend.alignof(cffi_types[tp_letter])
+
+def charp2string(address, maxlength=-1):
+    xxxxxx
 
 FUNCFLAG_STDCALL   = 0    # on Windows: for WINAPI calls
 FUNCFLAG_CDECL     = 1    # on Windows: for __cdecl calls
@@ -95,13 +101,15 @@ class CDLL(object):
         cffi_argtypes = [cffi_types[tp] for tp in argtypes]
         if restype is None:
             cffi_restype = cffi_type_void
+            ResultArray = None
         else:
             cffi_restype = cffi_types[restype]
+            ResultArray = Array(restype)
         assert isinstance(name, str)
         cffi_functype = _cffi_backend.new_function_type(
             tuple(cffi_argtypes), cffi_restype, False)  # XXX abi
         cfunc = self._cffi_library.load_function(cffi_functype, name)
-        funcptr = FuncPtr(cfunc)
+        funcptr = FuncPtr(cfunc, ResultArray)
         self._cache[key] = funcptr
         return funcptr
 
@@ -112,11 +120,15 @@ class DataInstance(object):
     pass
 
 class FuncPtr(object):
-    def __init__(self, cfunc):
+    def __init__(self, cfunc, ResultArray):
         self._cfunc = cfunc
+        self._ResultArray = ResultArray
 
     def __call__(self, *args):
-        return self._cfunc(*[arg._prepare_arg() for arg in args])
+        result = self._cfunc(*[arg._prepare_arg() for arg in args])
+        if self._ResultArray is None:
+            return None
+        return self._ResultArray(1, [result])
 
 # ____________________________________________________________
 
@@ -125,19 +137,23 @@ class Array(object):
         self._cffi_item = cffi_types[shape]
         self._cffi_ptr = cffi_types_ptr[shape]
         self._cffi_array = cffi_types_array[shape]
+        self._cffi_array_1 = cffi_types_array_1[shape]
         self._shape = shape
 
     def __call__(self, length, items=None, autofree=False):
-        # XXX cache 'array'?
-        array = _cffi_backend.new_array_type(self._cffi_ptr, length)
-        return ArrayInstance(_cffi_backend.newp(array, items), self._shape)
+        if length == 1:
+            array = self._cffi_array_1
+        else:
+            # XXX cache 'array'?
+            array = _cffi_backend.new_array_type(self._cffi_ptr, length)
+        #
+        return ArrayInstance(_cffi_backend.newp(array, items))
 
 _array_of_pointers = Array('P')
 
 class ArrayInstance(DataInstance):
-    def __init__(self, cdata, shape):
+    def __init__(self, cdata):
         self._cdata = cdata
-        self._shape = shape
 
     def byptr(self):
         return _array_of_pointers(1, [self._cdata])
@@ -149,16 +165,16 @@ class ArrayInstance(DataInstance):
         self._cdata[index] = value
 
     def __getslice__(self, i, j):
-        if self._shape != 'c':
-            raise TypeError("only 'c' arrays support slicing")
+        #if ...
+        #    raise TypeError("only 'c' arrays support slicing")
         if i < 0: i = 0
         if j > len(self._cdata): j = len(self._cdata)
         if i > j: j = i
         return _cffi_backend.buffer(self._cdata + i, j - i)[:]
 
     def __setslice__(self, i, j, value):
-        if self._shape != 'c':
-            raise TypeError("only 'c' arrays support slicing")
+        #if ...
+        #    raise TypeError("only 'c' arrays support slicing")
         if i < 0: i = 0
         if j > len(self._cdata): j = len(self._cdata)
         if i > j: j = i
