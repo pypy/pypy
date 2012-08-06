@@ -317,9 +317,7 @@ class TestRx86_32(object):
                 # CALL_j is actually relative, so tricky to test
                 (instrname == 'CALL' and argmodes == 'j') or
                 # SET_ir must be tested manually
-                (instrname == 'SET' and argmodes == 'ir') or
-                # asm gets CMOVNS args the wrong way
-                (instrname.startswith('CMOV'))
+                (instrname == 'SET' and argmodes == 'ir')
         )
 
 
