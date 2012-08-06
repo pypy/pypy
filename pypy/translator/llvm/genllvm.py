@@ -134,14 +134,15 @@ class IntegralType(Type):
                     '{minsize.TV}, {basesize.TV})'
                             .format(minsize=get_repr(value.minsize),
                                     basesize=get_repr(value.basesize)))
-            return 'and(i64 add(i64 {}, i64 {}), i64 {})'.format(
-                    size, align-1, ~(align-1))
+            return 'and({T} add({T} {}, {T} {}), {T} {})'.format(
+                    size, align-1, ~(align-1), T=LLVMSigned.repr_type())
         elif isinstance(value, llmemory.GCHeaderOffset):
             return '0'
         elif isinstance(value, llmemory.CompositeOffset):
             x = self.repr_value(value.offsets[0])
             for offset in value.offsets[1:]:
-                x = 'add(i64 {}, i64 {})'.format(x, self.repr_value(offset))
+                x = 'add({} {}, {})'.format(self.repr_type(), x,
+                                            self.repr_type_and_value(offset))
             return x
         elif isinstance(value, llmemory.AddressOffset):
             if (isinstance(value, llmemory.ItemOffset) and
@@ -152,20 +153,23 @@ class IntegralType(Type):
             to = self.add_offset_indices(indices, value)
             if to is lltype.Void:
                 return '0'
-            return 'ptrtoint({}* getelementptr({}* null, {}) to i64)'.format(
+            return 'ptrtoint({}* getelementptr({}* null, {}) to {})'.format(
                     database.get_type(to).repr_type(),
                     database.get_type(value.TYPE).repr_type(),
-                    ', '.join(indices))
+                    ', '.join(indices), LLVMSigned.repr_type())
         elif isinstance(value, llgroup.GroupMemberOffset):
             grpptr = get_repr(value.grpptr)
             grpptr.type_.to.write_group(grpptr.value._obj)
             member = get_repr(value.member)
             return ('ptrtoint({member.T} getelementptr({grpptr.T} null, '
-                    'i64 0, i32 {value.index}) to i32)').format(**locals())
+                    '{} 0, i32 {value.index}) to {})'
+                    .format(LLVMSigned.repr_type(), LLVMHalfWord.repr_type(),
+                            **locals()))
         elif isinstance(value, llgroup.CombinedSymbolic):
+            T = LLVMSigned.repr_type()
             lp = get_repr(value.lowpart)
             rest = get_repr(value.rest)
-            return 'or(i64 sext({lp.TV} to i64), {rest.TV})'.format(**locals())
+            return 'or({T} sext({lp.TV} to {T}), {rest.TV})'.format(**locals())
         elif isinstance(value, CDefinedIntSymbolic):
             if value is malloc_zero_filled:
                 return '1'
@@ -174,7 +178,8 @@ class IntegralType(Type):
             elif value is running_on_llinterp:
                 return '0'
         elif isinstance(value, llmemory.AddressAsInt):
-            return 'ptrtoint({.TV} to i64)'.format(get_repr(value.adr.ptr))
+            return 'ptrtoint({.TV} to {})'.format(get_repr(value.adr.ptr),
+                                                  LLVMSigned.repr_type())
         elif isinstance(value, rffi.CConstant):
             # XXX HACK
             from pypy.rpython.tool import rffi_platform
@@ -357,7 +362,8 @@ class PtrType(BasePtrType):
     def repr_value(self, value, extra_len=None):
         obj = value._obj
         if isinstance(obj, int):
-            return 'inttoptr(i64 {} to {})'.format(obj, self.repr_type())
+            return 'inttoptr({} {} to {})'.format(LLVMSigned.repr_type(), obj,
+                                                  self.repr_type())
         try:
             return self.refs[obj]
         except KeyError:
@@ -826,10 +832,10 @@ class GEP(object):
     def __init__(self, func_writer, ptr):
         self.func_writer = func_writer
         self.ptr = ptr
-        self.indices = ['i64 0']
+        self.indices = ['{} 0'.format(LLVMSigned.repr_type())]
 
     def add_array_index(self, index):
-        self.indices.append('i64 {}'.format(index))
+        self.indices.append('{} {}'.format(LLVMSigned.repr_type(), index))
 
     def add_field_index(self, index):
         self.indices.append('i32 {}'.format(index))
@@ -1132,20 +1138,22 @@ class FunctionWriter(object):
             type_ = type_.add_indices(gep, field)
 
         if isinstance(type_, BareArrayType):
-            self.w('{result.V} = add i64 0, {type_.length}'.format(**locals()))
+            self.w('{result.V} = add {result.T} 0, {type_.length}'
+                    .format(**locals()))
         else:
             if type_.is_gc:
                 gep.add_field_index(1)
             else:
                 gep.add_field_index(0)
-            t = self._tmp()
+            t = self._tmp(PtrType(LLVMSigned))
             gep.assign(t)
-            self.w('{result.V} = load i64* {t.V}'.format(**locals()))
+            self.w('{result.V} = load {t.TV}'.format(**locals()))
     op_getinteriorarraysize = op_getarraysize
 
-    def op_int_is_true(self, result, var):
-        self.w('{result.V} = icmp ne i64 {var.V}, 0'.format(**locals()))
-    op_uint_is_true = op_int_is_true
+    def _is_true(self, result, var):
+        self.w('{result.V} = icmp ne {var.TV}, 0'.format(**locals()))
+    op_int_is_true = op_uint_is_true = _is_true
+    op_llong_is_true = op_ullong_is_true = _is_true
 
     def op_int_between(self, result, a, b, c):
         t1 = self._tmp()
@@ -1156,6 +1164,7 @@ class FunctionWriter(object):
 
     def op_int_neg(self, result, var):
         self.w('{result.V} = sub {var.T} 0, {var.V}'.format(**locals()))
+    op_llong_neg = op_int_neg
 
     def op_int_abs(self, result, var):
         ispos = self._tmp()
@@ -1164,11 +1173,13 @@ class FunctionWriter(object):
         self.w('{neg.V} = sub {var.T} 0, {var.V}'.format(**locals()))
         self.w('{result.V} = select i1 {ispos.V}, {var.TV}, {neg.TV}'
                 .format(**locals()))
+    op_llong_abs = op_int_abs
 
-    def op_int_invert(self, result, var):
+    def _invert(self, result, var):
         self.w('{result.V} = xor {var.TV}, -1'.format(**locals()))
-    op_uint_invert = op_int_invert
-    op_bool_not = op_int_invert
+    op_int_invert = op_uint_invert = _invert
+    op_llong_invert = op_ullong_invert = _invert
+    op_bool_not = _invert
 
     def op_ptr_iszero(self, result, var):
         self.w('{result.V} = icmp eq {var.TV}, null'.format(**locals()))
@@ -1177,20 +1188,20 @@ class FunctionWriter(object):
         self.w('{result.V} = icmp ne {var.TV}, null'.format(**locals()))
 
     def op_adr_delta(self, result, arg1, arg2):
-        t1 = self._tmp()
-        t2 = self._tmp()
-        self.w('{t1.V} = ptrtoint {arg1.TV} to i64'.format(**locals()))
-        self.w('{t2.V} = ptrtoint {arg2.TV} to i64'.format(**locals()))
-        self.w('{result.V} = sub i64 {t1.V}, {t2.V}'.format(**locals()))
+        t1 = self._tmp(LLVMSigned)
+        t2 = self._tmp(LLVMSigned)
+        self.w('{t1.V} = ptrtoint {arg1.TV} to {t1.T}'.format(**locals()))
+        self.w('{t2.V} = ptrtoint {arg2.TV} to {t2.T}'.format(**locals()))
+        self.w('{result.V} = sub {t1.TV}, {t2.V}'.format(**locals()))
 
     def _adr_op(int_op):
         def f(self, result, arg1, arg2):
-            t1 = self._tmp()
-            t2 = self._tmp()
-            self.w('{t1.V} = ptrtoint {arg1.TV} to i64'.format(**locals()))
+            t1 = self._tmp(LLVMSigned)
+            t2 = self._tmp(LLVMSigned)
+            self.w('{t1.V} = ptrtoint {arg1.TV} to {t1.T}'.format(**locals()))
             int_op # reference to include it in locals()
-            self.w('{t2.V} = {int_op} i64 {t1.V}, {arg2.V}'.format(**locals()))
-            self.w('{result.V} = inttoptr i64 {t2.V} to {result.T}'
+            self.w('{t2.V} = {int_op} {t1.TV}, {arg2.V}'.format(**locals()))
+            self.w('{result.V} = inttoptr {t2.TV} to {result.T}'
                     .format(**locals()))
         return f
     op_adr_add = _adr_op('add')
@@ -1251,24 +1262,24 @@ class FunctionWriter(object):
         self.w('{result.V} = or {t.TV}, {rest.V}'.format(**locals()))
 
     def op_get_group_member(self, result, groupptr, compactoffset):
-        t1 = self._tmp()
-        t2 = self._tmp()
-        self.w('{t1.V} = zext {compactoffset.TV} to i64'.format(**locals()))
-        self.w('{t2.V} = add i64 ptrtoint({groupptr.TV} to i64), {t1.V}'
+        t1 = self._tmp(LLVMSigned)
+        t2 = self._tmp(LLVMSigned)
+        self.w('{t1.V} = zext {compactoffset.TV} to {t1.T}'.format(**locals()))
+        self.w('{t2.V} = add {t1.TV}, ptrtoint({groupptr.TV} to {t1.T})'
                 .format(**locals()))
-        self.w('{result.V} = inttoptr i64 {t2.V} to {result.T}'
+        self.w('{result.V} = inttoptr {t2.TV} to {result.T}'
                 .format(**locals()))
 
     def op_get_next_group_member(self, result, groupptr, compactoffset,
                                  skipoffset):
-        t1 = self._tmp()
-        t2 = self._tmp()
-        t3 = self._tmp()
-        self.w('{t1.V} = zext {compactoffset.TV} to i64'.format(**locals()))
-        self.w('{t2.V} = add i64 ptrtoint({groupptr.TV} to i64), {t1.V}'
+        t1 = self._tmp(LLVMSigned)
+        t2 = self._tmp(LLVMSigned)
+        t3 = self._tmp(LLVMSigned)
+        self.w('{t1.V} = zext {compactoffset.TV} to {t1.T}'.format(**locals()))
+        self.w('{t2.V} = add {t1.TV}, ptrtoint({groupptr.TV} to {t1.T})'
                 .format(**locals()))
-        self.w('{t3.V} = add i64 {t2.V}, {skipoffset.V}'.format(**locals()))
-        self.w('{result.V} = inttoptr i64 {t3.V} to {result.T}'
+        self.w('{t3.V} = add {t2.TV}, {skipoffset.V}'.format(**locals()))
+        self.w('{result.V} = inttoptr {t3.TV} to {result.T}'
                 .format(**locals()))
 
     def op_gc_gettypeptr_group(self, result, obj, grpptr, skipoffset, vtinfo):
@@ -1595,11 +1606,13 @@ raw_free = lltype.functionptr(
 llvm_memcpy = lltype.functionptr(
         lltype.FuncType([llmemory.Address, llmemory.Address, lltype.Signed,
                          rffi.INT, lltype.Bool], lltype.Void),
-        'llvm.memcpy.p0i8.p0i8.i64', external='C', compilation_info=llvm_eci)
+        'llvm.memcpy.p0i8.p0i8.i' + str(LLVMSigned.bitwidth), external='C',
+        compilation_info=llvm_eci)
 llvm_memset = lltype.functionptr(
         lltype.FuncType([llmemory.Address, rffi.SIGNEDCHAR, lltype.Signed,
                          rffi.INT, lltype.Bool], lltype.Void),
-        'llvm.memset.p0i8.i64', external='C', compilation_info=llvm_eci)
+        'llvm.memset.p0i8.i' + str(LLVMSigned.bitwidth), external='C',
+        compilation_info=llvm_eci)
 llvm_frameaddress = lltype.functionptr(
         lltype.FuncType([rffi.INT], llmemory.Address),
         'llvm.frameaddress', external='C', compilation_info=llvm_eci)

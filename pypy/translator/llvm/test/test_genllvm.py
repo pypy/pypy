@@ -1,7 +1,7 @@
 from cStringIO import StringIO
 import py
 from pypy.objspace.flow.model import FunctionGraph, Block, Link
-from pypy.rlib.rarithmetic import r_singlefloat
+from pypy.rlib.rarithmetic import LONG_BIT, r_uint, r_singlefloat
 from pypy.rlib.test.test_longlong2float import enum_floats, fn, fnsingle
 from pypy.rpython.lltypesystem import lltype, rffi, llmemory, llgroup
 from pypy.rpython.lltypesystem.ll2ctypes import force_cast
@@ -26,17 +26,21 @@ class _Stub(object):
     def __call__(self, *args, **kwds):
         return None
 
+LONG = 'i{}'.format(LONG_BIT)
+def l(s):
+    return s.replace('LONG', LONG)
+
 class TestDatabase(object):
     def setup_method(self, meth):
         self.f = StringIO()
         genllvm.database = genllvm.Database(_Stub(), self.f)
 
     def test_repr_signed(self):
-        assert genllvm.get_repr(rffi.r_long(-1)).TV == 'i64 -1'
+        assert genllvm.get_repr(-1).TV == l('LONG -1')
         assert self.f.getvalue() == ''
 
     def test_repr_unsigned(self):
-        assert genllvm.get_repr(rffi.r_ulong(1)).TV == 'i64 1'
+        assert genllvm.get_repr(r_uint(1)).TV == l('LONG 1')
         assert self.f.getvalue() == ''
 
     def test_repr_char(self):
@@ -54,12 +58,12 @@ class TestDatabase(object):
 
     def test_repr_fixed_size_array(self):
         array = lltype.FixedSizeArray(lltype.Signed, 2)._container_example()
-        assert genllvm.get_repr(array).TV == '[2 x i64] zeroinitializer'
+        assert genllvm.get_repr(array).TV == l('[2 x LONG] zeroinitializer')
         array.setitem(0, 1)
         array.setitem(1, 2)
-        assert genllvm.get_repr(array).TV == ('[2 x i64] [\n'
-                                              '    i64 1, i64 2\n'
-                                              ']')
+        assert genllvm.get_repr(array).TV == l('[2 x LONG] [\n'
+                                               '    LONG 1, LONG 2\n'
+                                               ']')
         assert self.f.getvalue() == ''
 
     def test_repr_string(self):
@@ -74,12 +78,12 @@ class TestDatabase(object):
                 'spam', ('eggs', lltype.Signed))._container_example()
         assert genllvm.get_repr(struct).TV == '%spam zeroinitializer'
         struct.eggs = 1
-        assert genllvm.get_repr(struct).TV == ('%spam {\n'
-                                                 '    i64 1 ; eggs\n'
-                                                 '}')
-        assert self.f.getvalue() == ('%spam = type {\n'
-                                     '    i64 ; eggs\n'
-                                     '}\n')
+        assert genllvm.get_repr(struct).TV == l('%spam {\n'
+                                                '    LONG 1 ; eggs\n'
+                                                '}')
+        assert self.f.getvalue() == l('%spam = type {\n'
+                                      '    LONG ; eggs\n'
+                                      '}\n')
 
     def test_repr_struct_nested(self):
         struct = lltype.Struct(
@@ -87,111 +91,112 @@ class TestDatabase(object):
                         'foo', ('bar', lltype.Signed))))._container_example()
         assert genllvm.get_repr(struct).TV == '%spam zeroinitializer'
         struct.eggs.bar = 1
-        assert genllvm.get_repr(struct).TV == ('%spam {\n'
-                                                 '    %foo {\n'
-                                                 '        i64 1 ; bar\n'
-                                                 '    } ; eggs\n'
-                                                 '}')
-        assert self.f.getvalue() == ('%foo = type {\n'
-                                     '    i64 ; bar\n'
-                                     '}\n'
-                                     '%spam = type {\n'
-                                     '    %foo ; eggs\n'
-                                     '}\n')
+        assert genllvm.get_repr(struct).TV == l('%spam {\n'
+                                                '    %foo {\n'
+                                                '        LONG 1 ; bar\n'
+                                                '    } ; eggs\n'
+                                                '}')
+        assert self.f.getvalue() == l('%foo = type {\n'
+                                      '    LONG ; bar\n'
+                                      '}\n'
+                                      '%spam = type {\n'
+                                      '    %foo ; eggs\n'
+                                      '}\n')
 
     def test_repr_array(self):
         array = lltype.Array(lltype.Signed)._container_example()
-        assert genllvm.get_repr(array).TV == (
-                '%array_of_i64_plus_1 {\n'
-                '    i64 1, ; len\n'
-                '    [1 x i64] zeroinitializer ; items\n'
+        assert genllvm.get_repr(array).TV == l(
+                '%array_of_LONG_plus_1 {\n'
+                '    LONG 1, ; len\n'
+                '    [1 x LONG] zeroinitializer ; items\n'
                 '}')
         array.setitem(0, 1)
-        assert genllvm.get_repr(array).TV == (
-                '%array_of_i64_plus_1 {\n'
-                '    i64 1, ; len\n'
-                '    [1 x i64] [\n'
-                '        i64 1\n'
+        assert genllvm.get_repr(array).TV == l(
+                '%array_of_LONG_plus_1 {\n'
+                '    LONG 1, ; len\n'
+                '    [1 x LONG] [\n'
+                '        LONG 1\n'
                 '    ] ; items\n'
                 '}')
-        assert self.f.getvalue() == (
-                '%array_of_i64_varsize = type {\n'
-                '    i64, ; len\n'
-                '    [0 x i64] ; items\n'
+        assert self.f.getvalue() == l(
+                '%array_of_LONG_varsize = type {\n'
+                '    LONG, ; len\n'
+                '    [0 x LONG] ; items\n'
                 '}\n'
-                '%array_of_i64_plus_1 = type {\n'
-                '    i64, ; len\n'
-                '    [1 x i64] ; items\n'
+                '%array_of_LONG_plus_1 = type {\n'
+                '    LONG, ; len\n'
+                '    [1 x LONG] ; items\n'
                 '}\n')
 
     def test_repr_array_of_ptr(self):
         struct_ptr_type = lltype.Ptr(lltype.Struct('x', ('y', lltype.Signed)))
         array = lltype.Array(struct_ptr_type)._container_example()
-        assert genllvm.get_repr(array).TV == (
+        assert genllvm.get_repr(array).TV == l(
                 '%array_of_x_ptr_plus_1 {\n'
-                '    i64 1, ; len\n'
+                '    LONG 1, ; len\n'
                 '    [1 x %x*] zeroinitializer ; items\n'
                 '}')
         array.setitem(0, struct_ptr_type._example())
-        assert genllvm.get_repr(array).TV == (
+        assert genllvm.get_repr(array).TV == l(
                 '%array_of_x_ptr_plus_1 {\n'
-                '    i64 1, ; len\n'
+                '    LONG 1, ; len\n'
                 '    [1 x %x*] [\n'
                 '        %x* @global\n'
                 '    ] ; items\n'
                 '}')
-        assert self.f.getvalue() == (
+        assert self.f.getvalue() == l(
                 '%x = type {\n'
-                '    i64 ; y\n'
+                '    LONG ; y\n'
                 '}\n'
                 '%array_of_x_ptr_varsize = type {\n'
-                '    i64, ; len\n'
+                '    LONG, ; len\n'
                 '    [0 x %x*] ; items\n'
                 '}\n'
                 '%array_of_x_ptr_plus_1 = type {\n'
-                '    i64, ; len\n'
+                '    LONG, ; len\n'
                 '    [1 x %x*] ; items\n'
                 '}\n'
                 '@global = global %x zeroinitializer\n')
 
     def test_repr_func_type(self):
         func_type = lltype.FuncType([lltype.Signed], lltype.Void)
-        assert genllvm.database.get_type(func_type).repr_type() == 'void (i64)'
+        assert genllvm.database.get_type(func_type).repr_type() == l(
+                'void (LONG)')
 
     def test_repr_fixed_size_array_ptr(self):
         array_ptr = lltype.Ptr(
                 lltype.FixedSizeArray(lltype.Signed, 2))._example()
-        assert genllvm.get_repr(array_ptr).TV == '[2 x i64]* @global'
-        assert self.f.getvalue() == (
-                '@global = global [2 x i64] zeroinitializer\n')
+        assert genllvm.get_repr(array_ptr).TV == l('[2 x LONG]* @global')
+        assert self.f.getvalue() == l(
+                '@global = global [2 x LONG] zeroinitializer\n')
 
     def test_repr_struct_ptr(self):
         struct_ptr = lltype.Ptr(
                 lltype.Struct('spam', ('eggs', lltype.Signed)))._example()
         assert genllvm.get_repr(struct_ptr).TV == '%spam* @global'
-        assert self.f.getvalue() == (
+        assert self.f.getvalue() == l(
                 '%spam = type {\n'
-                '    i64 ; eggs\n'
+                '    LONG ; eggs\n'
                 '}\n'
                 '@global = global %spam zeroinitializer\n')
 
     def test_repr_array_ptr(self):
         array_ptr = lltype.Ptr(lltype.Array(lltype.Signed))._example()
-        assert genllvm.get_repr(array_ptr).TV == (
-                '%array_of_i64_varsize* bitcast(%array_of_i64_plus_1* '
-                '@global to %array_of_i64_varsize*)')
-        assert self.f.getvalue() == (
-                '%array_of_i64_varsize = type {\n'
-                '    i64, ; len\n'
-                '    [0 x i64] ; items\n'
+        assert genllvm.get_repr(array_ptr).TV == l(
+                '%array_of_LONG_varsize* bitcast(%array_of_LONG_plus_1* '
+                '@global to %array_of_LONG_varsize*)')
+        assert self.f.getvalue() == l(
+                '%array_of_LONG_varsize = type {\n'
+                '    LONG, ; len\n'
+                '    [0 x LONG] ; items\n'
                 '}\n'
-                '%array_of_i64_plus_1 = type {\n'
-                '    i64, ; len\n'
-                '    [1 x i64] ; items\n'
+                '%array_of_LONG_plus_1 = type {\n'
+                '    LONG, ; len\n'
+                '    [1 x LONG] ; items\n'
                 '}\n'
-                '@global = global %array_of_i64_plus_1 {\n'
-                '    i64 1, ; len\n'
-                '    [1 x i64] zeroinitializer ; items\n'
+                '@global = global %array_of_LONG_plus_1 {\n'
+                '    LONG 1, ; len\n'
+                '    [1 x LONG] zeroinitializer ; items\n'
                 '}\n')
 
     def test_repr_nested_array_ptr(self):
@@ -199,31 +204,31 @@ class TestDatabase(object):
                 'foo', ('bar', lltype.Array(lltype.Signed))))._example()
         assert genllvm.get_repr(nested_array_ptr).TV == (
                 '%foo_varsize* bitcast(%foo_plus_1* @global to %foo_varsize*)')
-        assert self.f.getvalue() == (
-                '%array_of_i64_varsize = type {\n'
-                '    i64, ; len\n'
-                '    [0 x i64] ; items\n'
+        assert self.f.getvalue() == l(
+                '%array_of_LONG_varsize = type {\n'
+                '    LONG, ; len\n'
+                '    [0 x LONG] ; items\n'
                 '}\n'
                 '%foo_varsize = type {\n'
-                '    %array_of_i64_varsize ; bar\n'
+                '    %array_of_LONG_varsize ; bar\n'
                 '}\n'
-                '%array_of_i64_plus_1 = type {\n'
-                '    i64, ; len\n'
-                '    [1 x i64] ; items\n'
+                '%array_of_LONG_plus_1 = type {\n'
+                '    LONG, ; len\n'
+                '    [1 x LONG] ; items\n'
                 '}\n'
                 '%foo_plus_1 = type {\n'
-                '    %array_of_i64_plus_1 ; bar\n'
+                '    %array_of_LONG_plus_1 ; bar\n'
                 '}\n'
                 '@global = global %foo_plus_1 {\n'
-                '    %array_of_i64_plus_1 {\n'
-                '        i64 1, ; len\n'
-                '        [1 x i64] zeroinitializer ; items\n'
+                '    %array_of_LONG_plus_1 {\n'
+                '        LONG 1, ; len\n'
+                '        [1 x LONG] zeroinitializer ; items\n'
                 '    } ; bar\n'
                 '}\n')
 
     def test_typedef(self):
         TD = lltype.Typedef(lltype.Signed, 'test')
-        assert genllvm.database.get_type(TD).repr_type() == 'i64'
+        assert genllvm.database.get_type(TD).repr_type() == l('LONG')
 
 
 class _LLVMMixin(test_typed.CompilationTestCase):
@@ -495,7 +500,7 @@ class TestSpecialCases(_LLVMMixin):
                         gcremovetypeptr=False)
         t.annotate()
         t.source_llvm()
-        assert 'define i64 @foobar' in t.driver.llvmgen.base_path.new(
+        assert l('define LONG @foobar') in t.driver.llvmgen.base_path.new(
                 ext='.ll').read()
 
     def test_export_struct(self):
