@@ -99,6 +99,7 @@ class ResOpAssembler(object):
         self.mc.CMP_ri(arg.value, 0)
         self.mc.MOV_ri(res.value, 0, cond=c.LT)
         self.mc.MOV_rr(res.value, arg.value, cond=c.GE)
+        return fcond
        
     #ref: http://blogs.arm.com/software-enablement/detecting-overflow-from-mul/
     def emit_guard_int_mul_ovf(self, op, guard, arglocs, regalloc, fcond):
