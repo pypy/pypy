@@ -184,8 +184,13 @@ class TestFfi:
                      AAA_first_ordinal_function
                      ret_un_func
                   """.split()
-        eci = ExternalCompilationInfo(export_symbols=symbols)
-        return str(platform.compile([c_file], eci, 'x', standalone=False))
+        #eci = ExternalCompilationInfo(export_symbols=symbols)
+        #return str(platform.compile([c_file], eci, 'x', standalone=False))
+        import subprocess
+        subprocess.check_call(
+            'gcc xlib.c -shared -fPIC -o testxlib.so',
+            cwd=str(c_file.dirpath()), shell=True)
+        return str(c_file.dirpath().join('testxlib.so'))
     prepare_c_example = staticmethod(prepare_c_example)
     
 ##    def setup_class(cls):
@@ -206,7 +211,10 @@ class TestFfi:
 ##        cls.w_sizes_and_alignments = space.wrap(dict(
 ##            [(k, (v.c_size, v.c_alignment)) for k,v in TYPEMAP.iteritems()]))
 
-    libc_name = 'libc.so.6'   # XXX
+    def setup_class(cls):
+        cls.libc_name = 'libc.so.6'   # XXX
+        cls.iswin32   = False         # XXX
+        cls.lib_name = cls.prepare_c_example()
 
     def test_libload(self):
         import _rawffi
@@ -218,13 +226,14 @@ class TestFfi:
             _rawffi.CDLL("xxxxx_this_name_does_not_exist_xxxxx")
         except OSError, e:
             print e
-            assert str(e).startswith("xxxxx_this_name_does_not_exist_xxxxx: ")
+            assert "xxxxx_this_name_does_not_exist_xxxxx" in str(e)
         else:
             raise AssertionError("did not fail??")
 
     def test_libload_None(self):
         if self.iswin32:
             skip("unix specific")
+        skip("XXX in-progress")
         import _rawffi
         # this should return *all* loaded libs, dlopen(NULL)
         dll = _rawffi.CDLL(None)
