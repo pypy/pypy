@@ -3206,6 +3206,20 @@ class LLtypeBackendTest(BaseBackendTest):
         res = self.cpu.get_latest_value_int(0)
         assert res == -10
 
+    def test_int_force_ge_zero(self):
+        ops = """
+        [i0]
+        i1 = int_force_ge_zero(i0)    # but forced to be in a register
+        finish(i1, descr=1)
+        """
+        loop = parse(ops, self.cpu, namespace=locals())
+        descr = loop.operations[-1].getdescr()
+        looptoken = JitCellToken()
+        self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+        for inp, outp in [(2,2), (-3, 0)]:
+            self.cpu.execute_token(looptoken, inp)
+            assert outp == self.cpu.get_latest_value_int(0)
+
     def test_compile_asmlen(self):
         from pypy.jit.backend.llsupport.llmodel import AbstractLLCPU
         if not isinstance(self.cpu, AbstractLLCPU):
