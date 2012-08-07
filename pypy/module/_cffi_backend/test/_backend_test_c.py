@@ -1290,7 +1290,8 @@ def test_string_byte():
     BArray = new_array_type(new_pointer_type(BByte), None)
     a = newp(BArray, [65, 66, 67])
     assert type(string(a)) is str and string(a) == 'ABC'
-    assert string(a, 8).startswith('ABC')   # may contain additional garbage
+    if 'PY_DOT_PY' not in globals():
+        assert string(a, 8).startswith('ABC')  # may contain additional garbage
 
 def test_string_wchar():
     BWChar = new_primitive_type("wchar_t")
@@ -1300,7 +1301,8 @@ def test_string_wchar():
     BArray = new_array_type(new_pointer_type(BWChar), None)
     a = newp(BArray, [u'A', u'B', u'C'])
     assert type(string(a)) is unicode and string(a) == u'ABC'
-    assert string(a, 8).startswith(u'ABC')  # may contain additional garbage
+    if 'PY_DOT_PY' not in globals():
+        assert string(a, 8).startswith(u'ABC') # may contain additional garbage
 
 def test_string_typeerror():
     BShort = new_primitive_type("short")
