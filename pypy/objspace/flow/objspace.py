@@ -263,7 +263,7 @@ class FlowObjSpace(ObjSpace):
         if func.func_closure is None:
             cl = None
         else:
-            cl = [extract_cell_content(c) for c in func.func_closure]
+            cl = [c.cell_contents for c in func.func_closure]
         # CallableFactory.pycall may add class_ to functions that are methods
         name = func.func_name
         class_ = getattr(func, 'class_', None)
@@ -484,28 +484,3 @@ class FlowObjSpace(ObjSpace):
                            "flow graph construction")
     w_RuntimeError = prebuilt_recursion_error = property(w_RuntimeError)
 operation.add_operations(FlowObjSpace)
-
-
-def extract_cell_content(c):
-    """Get the value contained in a CPython 'cell', as read through
-    the func_closure of a function object."""
-    try:
-        # This is simple on 2.5
-        return getattr(c, "cell_contents")
-    except AttributeError:
-        class X(object):
-            def __cmp__(self, other):
-                self.other = other
-                return 0
-            def __eq__(self, other):
-                self.other = other
-                return True
-        x = X()
-        x_cell, = (lambda: x).func_closure
-        x_cell == c
-        try:
-            return x.other    # crashes if the cell is actually empty
-        except AttributeError:
-            raise ValueError("empty cell")
-# ______________________________________________________________________
-# End of objspace.py
