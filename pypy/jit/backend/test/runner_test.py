@@ -2565,13 +2565,14 @@ class LLtypeBackendTest(BaseBackendTest):
         assert str.chars[4] == '/'
 
     def test_sorting_of_fields(self):
-        S = self.S
-        value = self.cpu.fielddescrof(S, 'value').sort_key()
+        S = lltype.GcStruct('S', ('parent', rclass.OBJECT),
+                                  ('value', lltype.Signed),
+                                  ('chr1', lltype.Char),
+                                  ('chr2', lltype.Char))
         chr1 = self.cpu.fielddescrof(S, 'chr1').sort_key()
+        value = self.cpu.fielddescrof(S, 'value').sort_key()
         chr2 = self.cpu.fielddescrof(S, 'chr2').sort_key()
-        assert (sorted([chr2, chr1, value]) ==
-                [value, chr1, chr2])
-        assert len(dict.fromkeys([value, chr1, chr2]).keys()) == 3
+        assert len(set([value, chr1, chr2])) == 3
 
     def test_guards_nongc(self):
         x = lltype.malloc(lltype.Struct('x'), flavor='raw')
