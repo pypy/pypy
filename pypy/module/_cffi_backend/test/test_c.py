@@ -5,7 +5,7 @@ This file is OBSCURE.  Really.  The purpose is to avoid copying and changing
 """
 import py, sys, ctypes
 from pypy.tool.udir import udir
-from pypy.conftest import gettestobjspace
+from pypy.conftest import gettestobjspace, option
 from pypy.interpreter import gateway
 from pypy.module._cffi_backend.test import _backend_test_c
 from pypy.module._cffi_backend import Module
@@ -40,11 +40,21 @@ class AppTestC(object):
         cdll.gettestfunc.restype = ctypes.c_void_p
 
         def testfunc_for_test(space, w_num):
-            addr = cdll.gettestfunc(space.int_w(w_num))
+            if hasattr(space, 'int_w'):
+                w_num = space.int_w(w_num)
+            addr = cdll.gettestfunc(w_num)
             return space.wrap(addr)
 
-        w_func = space.wrap(gateway.interp2app(find_and_load_library_for_test))
-        w_testfunc = space.wrap(gateway.interp2app(testfunc_for_test))
+        if option.runappdirect:
+            def interp2app(func):
+                def run(*args):
+                    return func(space, *args)
+                return run
+        else:
+            interp2app = gateway.interp2app
+
+        w_func = space.wrap(interp2app(find_and_load_library_for_test))
+        w_testfunc = space.wrap(interp2app(testfunc_for_test))
         space.appexec([space.wrap(str(tmpdir)), w_func, w_testfunc,
                        space.wrap(sys.version[:3])],
         """(path, func, testfunc, underlying_version):
