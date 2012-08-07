@@ -37,8 +37,6 @@ def get_layout(TYPE):
     elif isinstance(TYPE, lltype.Struct):
         curr = 0
         for name in TYPE._names:
-            align = fixed_align_estimate(TYPE._flds[name])
-            curr = (curr + align-1) & ~ (align-1)
             layout[name] = curr
             curr += get_fixed_size(TYPE._flds[name])
         layout["_size"] = curr
@@ -106,13 +104,6 @@ def sizeof(TYPE, i=None):
         return fixedsize
     else:
         return fixedsize + i * varsize
-
-def fixed_align_estimate(TYPE):
-    size = get_fixed_size(TYPE)
-    for i in [8, 4, 2]:
-        if i <= memory_alignment and (size % i) == 0:
-            return i
-    return 1
 
 def convert_offset_to_int(offset):
     if isinstance(offset, llmemory.FieldOffset):
