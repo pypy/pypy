@@ -31,7 +31,7 @@ SIZE_OF_FFI_ARG = rffi.sizeof(clibffi.ffi_arg)
 CIF_DESCRIPTION = lltype.Struct(
     'CIF_DESCRIPTION',
     ('cif', FFI_CIF),
-    ('abi', FFI_ABI),          # these 4 fields could also be read directly
+    ('abi', lltype.Signed),    # these 4 fields could also be read directly
     ('nargs', lltype.Signed),  # from 'cif', but doing so adds a dependency
     ('rtype', FFI_TYPE_P),     # on the exact fields available from ffi_cif.
     ('atypes', FFI_TYPE_PP),   #

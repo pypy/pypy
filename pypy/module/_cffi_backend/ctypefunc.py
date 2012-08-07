@@ -367,7 +367,7 @@ class CifDescrBuilder(object):
         cif_descr.exchange_size = exchange_offset
 
     def fb_extra_fields(self, cif_descr):
-        rffi.setintfield(cif_descr, 'abi', clibffi.FFI_DEFAULT_ABI)    # XXX
+        cif_descr.abi = clibffi.FFI_DEFAULT_ABI    # XXX
         cif_descr.nargs = len(self.fargs)
         cif_descr.rtype = self.rtype
         cif_descr.atypes = self.atypes

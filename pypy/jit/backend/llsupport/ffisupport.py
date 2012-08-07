@@ -87,7 +87,7 @@ def calldescr_dynamic_for_tests(cpu, atypes, rtype, abiname='FFI_DEFAULT_ABI'):
     #
     p = lltype.malloc(CIF_DESCRIPTION, len(atypes),
                       flavor='raw', immortal=True)
-    rffi.setintfield(p, 'abi', getattr(clibffi, abiname))
+    p.abi = getattr(clibffi, abiname)
     p.nargs = len(atypes)
     p.rtype = rtype
     p.atypes = lltype.malloc(FFI_TYPE_PP.TO, len(atypes),

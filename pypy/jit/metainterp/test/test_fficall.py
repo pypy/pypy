@@ -9,7 +9,7 @@ from pypy.rlib.unroll import unrolling_iterable
 def get_description(atypes, rtype):
     p = lltype.malloc(CIF_DESCRIPTION, len(atypes),
                       flavor='raw', immortal=True)
-    rffi.setintfield(p, 'abi', 42)
+    p.abi = 42
     p.nargs = len(atypes)
     p.rtype = rtype
     p.atypes = lltype.malloc(FFI_TYPE_PP.TO, len(atypes),
