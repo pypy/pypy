@@ -27,6 +27,7 @@ class Test__ffi(BaseTestPyPyC):
         log = self.run(main, [libm_name])
         pow_addr, res = log.result
         assert res == 8.0 * 300
+        py.test.skip("not optimized any more")
         loop, = log.loops_by_filename(self.filepath)
         if 'ConstClass(pow)' in repr(loop):   # e.g. OS/X
             pow_addr = 'ConstClass(pow)'
@@ -134,6 +135,7 @@ class Test__ffi(BaseTestPyPyC):
         ops = loop.allops()
         opnames = log.opnames(ops)
         assert opnames.count('new_with_vtable') == 1 # only the virtualref
+        py.test.skip("not optimized any more")
         assert opnames.count('call_release_gil') == 1
         idx = opnames.index('call_release_gil')
         call = ops[idx]
@@ -158,6 +160,7 @@ class Test__ffi(BaseTestPyPyC):
             return struct.getfield('x')
         #
         log = self.run(main, [])
+        py.test.skip("not optimized any more")
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match_by_id('getfield', """
             guard_not_invalidated(descr=...)
