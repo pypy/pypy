@@ -841,7 +841,7 @@ class Frame(object):
         elif arraydescr.typeinfo == INT:
             do_raw_store_int(addr, offset, arraydescr.ofs, value)
         elif arraydescr.typeinfo == FLOAT:
-            do_raw_store_float(addr, offset, arraydescr.ofs, value)
+            do_raw_store_float(addr, offset, value)
         else:
             raise NotImplementedError
 
@@ -851,7 +851,7 @@ class Frame(object):
         elif arraydescr.typeinfo == INT:
             return do_raw_load_int(addr, offset, arraydescr.ofs)
         elif arraydescr.typeinfo == FLOAT:
-            return do_raw_load_float(addr, offset, arraydescr.ofs)
+            return do_raw_load_float(addr, offset)
         else:
             raise NotImplementedError
 
@@ -1520,19 +1520,24 @@ def do_raw_load_int(struct, offset, descrofs):
     value = ll_p[0]
     return rffi.cast(lltype.Signed, value)
 
-def do_raw_load_float(struct, offset, descrofs):
-    TYPE = symbolic.Size2Type[descrofs]
+def do_raw_load_float(struct, offset):
     ll_p = rffi.cast(rffi.CCHARP, struct)
-    ll_p = rffi.cast(lltype.Ptr(TYPE), rffi.ptradd(ll_p, offset))
+    ll_p = rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE),
+                     rffi.ptradd(ll_p, offset))
     value = ll_p[0]
-    return rffi.cast(longlong.FLOATSTORAGE, value)
+    return value
 
 def do_raw_store_int(struct, offset, descrofs, value):
     TYPE = symbolic.Size2Type[descrofs]
     ll_p = rffi.cast(rffi.CCHARP, struct)
     ll_p = rffi.cast(lltype.Ptr(TYPE), rffi.ptradd(ll_p, offset))
     ll_p[0] = rffi.cast(TYPE.OF, value)
-do_raw_store_float = do_raw_store_int
+
+def do_raw_store_float(struct, offset, value):
+    ll_p = rffi.cast(rffi.CCHARP, struct)
+    ll_p = rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE),
+                     rffi.ptradd(ll_p, offset))
+    ll_p[0] = value
 
 def do_new(size):
     TYPE = symbolic.Size2Type[size]

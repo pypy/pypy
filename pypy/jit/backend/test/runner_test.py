@@ -3383,7 +3383,7 @@ class LLtypeBackendTest(BaseBackendTest):
             p = rawstorage.alloc_raw_storage(31)
             for i in range(31):
                 p[i] = '\xDD'
-            value = 0x4243444546474849
+            value = 0x4243444546474849 & sys.maxint
             loop = parse(ops, self.cpu, namespace=locals())
             looptoken = JitCellToken()
             self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
@@ -3412,7 +3412,8 @@ class LLtypeBackendTest(BaseBackendTest):
             looptoken = JitCellToken()
             self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
             self.cpu.execute_token(looptoken,
-                                   rffi.cast(lltype.Signed, p), 16, value)
+                                   rffi.cast(lltype.Signed, p), 16,
+                                   longlong.getfloatstorage(value))
             result = rawstorage.raw_storage_getitem(T, p, 16)
             assert result == rffi.cast(T, value)
             rawstorage.free_raw_storage(p)

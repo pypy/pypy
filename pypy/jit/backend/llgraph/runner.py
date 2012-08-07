@@ -470,13 +470,13 @@ class LLtypeCPU(BaseCPU):
         return llimpl.do_raw_store_int(struct, offset, descr.ofs, newvalue)
     def bh_raw_store_f(self, struct, offset, descr, newvalue):
         assert isinstance(descr, Descr)
-        return llimpl.do_raw_store_float(struct, offset, descr.ofs, newvalue)
+        return llimpl.do_raw_store_float(struct, offset, newvalue)
     def bh_raw_load_i(self, struct, offset, descr):
         assert isinstance(descr, Descr)
         return llimpl.do_raw_load_int(struct, offset, descr.ofs)
     def bh_raw_load_f(self, struct, offset, descr):
         assert isinstance(descr, Descr)
-        return llimpl.do_raw_load_float(struct, offset, descr.ofs)
+        return llimpl.do_raw_load_float(struct, offset)
 
     def bh_new(self, sizedescr):
         assert isinstance(sizedescr, Descr)
