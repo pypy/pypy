@@ -545,7 +545,7 @@ class AddressAsInt(Symbolic):
                 getattr(self.adr.ptr._TYPE.TO, 'OF', None) == lltype.Char):
             return AddressAsInt(self.adr + ItemOffset(lltype.Char, ofs))
         if isinstance(ofs, FieldOffset) and ofs.TYPE is self.adr.ptr._TYPE.TO:
-            fieldadr = getattr(self.adr.ptr, ofs.fieldname)
+            fieldadr = getattr(self.adr.ptr, ofs.fldname)
             return AddressAsInt(cast_ptr_to_adr(fieldadr))
         return NotImplemented
     def __repr__(self):
