@@ -129,14 +129,14 @@ def test_fixed_getitem_foldable():
     builtin_test('list.getitem_foldable/NONNEG',
                  [varoftype(FIXEDLIST), varoftype(lltype.Signed)],
                  lltype.Signed, """
-                     getarrayitem_gc_pure_i %r0, <ArrayDescr>, %i0 -> %i1
+                     getarrayitem_gc_i_pure %r0, <ArrayDescr>, %i0 -> %i1
                  """)
     builtin_test('list.getitem_foldable/NEG',
                  [varoftype(FIXEDLIST), varoftype(lltype.Signed)],
                  lltype.Signed, """
                      -live-
                      check_neg_index %r0, <ArrayDescr>, %i0 -> %i1
-                     getarrayitem_gc_pure_i %r0, <ArrayDescr>, %i1 -> %i2
+                     getarrayitem_gc_i_pure %r0, <ArrayDescr>, %i1 -> %i2
                  """)
 
 def test_fixed_setitem():
