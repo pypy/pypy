@@ -376,6 +376,11 @@ class LLtypeCPU(BaseCPU):
                              arg_types=''.join(arg_types),
                              ffi_flags=cif_description.abi)
 
+    def _calldescr_dynamic_for_tests(self, atypes, rtype,
+                                     abiname='FFI_DEFAULT_ABI'):
+        from pypy.jit.backend.llsupport import ffisupport
+        return ffisupport.calldescr_dynamic_for_tests(self, atypes, rtype,
+                                                      abiname)
 
     def grab_exc_value(self):
         return llimpl.grab_exc_value()

@@ -1,4 +1,5 @@
 from pypy.rlib.jit_libffi import types, CIF_DESCRIPTION, FFI_TYPE_PP
+from pypy.rlib.clibffi import FFI_DEFAULT_ABI
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.jit.codewriter.longlong import is_64_bit
 from pypy.jit.backend.llsupport.descr import *
@@ -13,61 +14,52 @@ class FakeCPU:
         self.supports_longlong = supports_longlong
         self.supports_singlefloats = supports_singlefloats
 
-def grab(cpu, atypes, rtype):
-    p = lltype.malloc(CIF_DESCRIPTION, len(atypes),
-                      flavor='raw', immortal=True)
-    rffi.setintfield(p, 'abi', 42)
-    p.nargs = len(atypes)
-    p.rtype = rtype
-    p.atypes = lltype.malloc(FFI_TYPE_PP.TO, len(atypes),
-                             flavor='raw', immortal=True)
-    for i in range(len(atypes)):
-        p.atypes[i] = atypes[i]
-    return get_call_descr_dynamic(cpu, p, None)
-
 def test_call_descr_dynamic():
     args = [types.sint, types.pointer]
-    descr = grab(FakeCPU(), args, types.sint)
+    descr = calldescr_dynamic_for_tests(FakeCPU(), args, types.sint)
     assert isinstance(descr, CallDescr)
     assert descr.result_type == 'i'
     assert descr.result_flag == FLAG_SIGNED
     assert descr.arg_classes == 'ii'
-    assert descr.get_ffi_flags() == 42
+    assert descr.get_ffi_flags() == FFI_DEFAULT_ABI
 
     args = [types.sint, types.double, types.pointer]
-    descr = grab(FakeCPU(), args, types.void)
+    descr = calldescr_dynamic_for_tests(FakeCPU(), args, types.void)
     assert descr is None    # missing floats
-    descr = grab(FakeCPU(supports_floats=True), args, types.void)
+    descr = calldescr_dynamic_for_tests(FakeCPU(supports_floats=True),
+                                        args, types.void)
     assert descr.result_type == 'v'
     assert descr.result_flag == FLAG_VOID
     assert descr.arg_classes == 'ifi'
-    assert descr.get_ffi_flags() == 42
+    assert descr.get_ffi_flags() == FFI_DEFAULT_ABI
 
-    descr = grab(FakeCPU(), [], types.sint8)
+    descr = calldescr_dynamic_for_tests(FakeCPU(), [], types.sint8)
     assert descr.get_result_size() == 1
     assert descr.result_flag == FLAG_SIGNED
     assert descr.is_result_signed() == True
 
-    descr = grab(FakeCPU(), [], types.uint8)
+    descr = calldescr_dynamic_for_tests(FakeCPU(), [], types.uint8)
     assert isinstance(descr, CallDescr)
     assert descr.get_result_size() == 1
     assert descr.result_flag == FLAG_UNSIGNED
     assert descr.is_result_signed() == False
 
     if not is_64_bit or is_emulated_long:
-        descr = grab(FakeCPU(), [], types.slonglong)
+        descr = calldescr_dynamic_for_tests(FakeCPU(), [], types.slonglong)
         assert descr is None   # missing longlongs
-        descr = grab(FakeCPU(supports_longlong=True), [], types.slonglong)
+        descr = calldescr_dynamic_for_tests(FakeCPU(supports_longlong=True),
+                                            [], types.slonglong)
         assert isinstance(descr, CallDescr)
         assert descr.result_flag == FLAG_FLOAT
         assert descr.result_type == 'L'
-        assert descr.get_ffi_flags() == 42
+        assert descr.get_ffi_flags() == FFI_DEFAULT_ABI
     else:
         assert types.slonglong is types.slong
 
-    descr = grab(FakeCPU(), [], types.float)
+    descr = calldescr_dynamic_for_tests(FakeCPU(), [], types.float)
     assert descr is None   # missing singlefloats
-    descr = grab(FakeCPU(supports_singlefloats=True), [], types.float)
+    descr = calldescr_dynamic_for_tests(FakeCPU(supports_singlefloats=True),
+                                        [], types.float)
     assert descr.result_flag == FLAG_UNSIGNED
     assert descr.result_type == 'S'
-    assert descr.get_ffi_flags() == 42
+    assert descr.get_ffi_flags() == FFI_DEFAULT_ABI

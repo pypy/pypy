@@ -285,6 +285,12 @@ class AbstractLLCPU(AbstractCPU):
         return ffisupport.get_call_descr_dynamic(self, cif_description,
                                                  extrainfo)
 
+    def _calldescr_dynamic_for_tests(self, atypes, rtype,
+                                     abiname='FFI_DEFAULT_ABI'):
+        from pypy.jit.backend.llsupport import ffisupport
+        return ffisupport.calldescr_dynamic_for_tests(self, atypes, rtype,
+                                                      abiname)
+
     def get_overflow_error(self):
         ovf_vtable = self.cast_adr_to_int(self._ovf_error_vtable)
         ovf_inst = lltype.cast_opaque_ptr(llmemory.GCREF,

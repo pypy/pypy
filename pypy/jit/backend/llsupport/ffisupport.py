@@ -79,3 +79,18 @@ def get_arg_descr(cpu, ffi_type):
     else:
         size = 0
     return _get_ffi2descr_dict(cpu)[kind, size]
+
+def calldescr_dynamic_for_tests(cpu, atypes, rtype, abiname='FFI_DEFAULT_ABI'):
+    from pypy.rlib import clibffi
+    from pypy.rlib.jit_libffi import CIF_DESCRIPTION, FFI_TYPE_PP
+    #
+    p = lltype.malloc(CIF_DESCRIPTION, len(atypes),
+                      flavor='raw', immortal=True)
+    rffi.setintfield(p, 'abi', getattr(clibffi, abiname))
+    p.nargs = len(atypes)
+    p.rtype = rtype
+    p.atypes = lltype.malloc(FFI_TYPE_PP.TO, len(atypes),
+                             flavor='raw', immortal=True)
+    for i in range(len(atypes)):
+        p.atypes[i] = atypes[i]
+    return cpu.calldescrof_dynamic(p, None)
