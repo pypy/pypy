@@ -26,6 +26,7 @@ from pypy.jit.backend.llsupport.regalloc import FrameManager, RegisterManager,\
      TempBox, compute_vars_longevity, is_comparison_or_ovf_op
 from pypy.jit.backend.x86.arch import WORD, FRAME_FIXED_SIZE
 from pypy.jit.backend.x86.arch import IS_X86_32, IS_X86_64, MY_COPY_OF_REGS
+from pypy.jit.backend.x86 import rx86
 from pypy.rlib.rarithmetic import r_longlong
 
 class X86RegisterManager(RegisterManager):
@@ -552,9 +553,31 @@ class RegAlloc(object):
         loc, argloc = self._consider_binop_part(op)
         self.Perform(op, [loc, argloc], loc)
 
-    consider_int_add = _consider_binop
+    def _consider_lea(self, op, loc):
+        argloc = self.loc(op.getarg(1))
+        self.rm.possibly_free_var(op.getarg(0))
+        resloc = self.force_allocate_reg(op.result)
+        self.Perform(op, [loc, argloc], resloc)
+
+    def consider_int_add(self, op):
+        loc = self.loc(op.getarg(0))
+        y = op.getarg(1)
+        if (isinstance(loc, RegLoc) and
+            isinstance(y, ConstInt) and rx86.fits_in_32bits(y.value)):
+            self._consider_lea(op, loc)
+        else:
+            self._consider_binop(op)
+
+    def consider_int_sub(self, op):
+        loc = self.loc(op.getarg(0))
+        y = op.getarg(1)
+        if (isinstance(loc, RegLoc) and
+            isinstance(y, ConstInt) and rx86.fits_in_32bits(-y.value)):
+            self._consider_lea(op, loc)
+        else:
+            self._consider_binop(op)
+
     consider_int_mul = _consider_binop
-    consider_int_sub = _consider_binop
     consider_int_and = _consider_binop
     consider_int_or  = _consider_binop
     consider_int_xor = _consider_binop
@@ -1109,6 +1132,12 @@ class RegAlloc(object):
         self.Perform(op, [argloc], resloc)
     consider_cast_ptr_to_int = consider_same_as
     consider_cast_int_to_ptr = consider_same_as
+
+    def consider_int_force_ge_zero(self, op):
+        argloc = self.make_sure_var_in_reg(op.getarg(0))
+        resloc = self.force_allocate_reg(op.result, [op.getarg(0)])
+        self.possibly_free_var(op.getarg(0))
+        self.Perform(op, [argloc], resloc)
 
     def consider_strlen(self, op):
         args = op.getarglist()

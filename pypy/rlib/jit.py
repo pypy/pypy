@@ -103,7 +103,6 @@ def _get_args(func):
     import inspect
 
     args, varargs, varkw, defaults = inspect.getargspec(func)
-    args = ["v%s" % (i, ) for i in range(len(args))]
     assert varargs is None and varkw is None
     assert not defaults
     return args
@@ -118,11 +117,11 @@ def elidable_promote(promote_args='all'):
         argstring = ", ".join(args)
         code = ["def f(%s):\n" % (argstring, )]
         if promote_args != 'all':
-            args = [('v%d' % int(i)) for i in promote_args.split(",")]
+            args = [args[int(i)] for i in promote_args.split(",")]
         for arg in args:
             code.append("    %s = hint(%s, promote=True)\n" % (arg, arg))
-        code.append("    return func(%s)\n" % (argstring, ))
-        d = {"func": func, "hint": hint}
+        code.append("    return _orig_func_unlikely_name(%s)\n" % (argstring, ))
+        d = {"_orig_func_unlikely_name": func, "hint": hint}
         exec py.code.Source("\n".join(code)).compile() in d
         result = d["f"]
         result.func_name = func.func_name + "_promote"
@@ -148,6 +147,8 @@ def look_inside_iff(predicate):
             thing._annspecialcase_ = "specialize:call_location"
 
         args = _get_args(func)
+        predicateargs = _get_args(predicate)
+        assert len(args) == len(predicateargs), "%s and predicate %s need the same numbers of arguments" % (func, predicate)
         d = {
             "dont_look_inside": dont_look_inside,
             "predicate": predicate,
@@ -600,7 +601,6 @@ def set_user_param(driver, text):
                 raise ValueError
 set_user_param._annspecialcase_ = 'specialize:arg(0)'
 
-
 # ____________________________________________________________
 #
 # Annotation and rtyping of some of the JitDriver methods
@@ -901,11 +901,6 @@ class JitHookInterface(object):
         instance, overwrite for custom behavior
         """
 
-    def get_stats(self):
-        """ Returns various statistics
-        """
-        raise NotImplementedError
-
 def record_known_class(value, cls):
     """
     Assure the JIT that value is an instance of cls. This is not a precise
@@ -932,3 +927,39 @@ class Entry(ExtRegistryEntry):
         v_cls = hop.inputarg(classrepr, arg=1)
         return hop.genop('jit_record_known_class', [v_inst, v_cls],
                          resulttype=lltype.Void)
+
+class Counters(object):
+    counters="""
+    TRACING
+    BACKEND
+    OPS
+    RECORDED_OPS
+    GUARDS
+    OPT_OPS
+    OPT_GUARDS
+    OPT_FORCINGS
+    ABORT_TOO_LONG
+    ABORT_BRIDGE
+    ABORT_BAD_LOOP
+    ABORT_ESCAPE
+    ABORT_FORCE_QUASIIMMUT
+    NVIRTUALS
+    NVHOLES
+    NVREUSED
+    TOTAL_COMPILED_LOOPS
+    TOTAL_COMPILED_BRIDGES
+    TOTAL_FREED_LOOPS
+    TOTAL_FREED_BRIDGES
+    """
+
+    counter_names = []
+
+    @staticmethod
+    def _setup():
+        names = Counters.counters.split()
+        for i, name in enumerate(names):
+            setattr(Counters, name, i)
+            Counters.counter_names.append(name)
+        Counters.ncounters = len(names)
+
+Counters._setup()

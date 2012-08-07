@@ -11,9 +11,13 @@ extern "C" {
     typedef cppyy_scope_t cppyy_type_t;
     typedef long cppyy_object_t;
     typedef long cppyy_method_t;
+    typedef long cppyy_index_t;
     typedef void* (*cppyy_methptrgetter_t)(cppyy_object_t);
 
     /* name to opaque C++ scope representation -------------------------------- */
+    int cppyy_num_scopes(cppyy_scope_t parent);
+    char* cppyy_scope_name(cppyy_scope_t parent, int iscope);
+
     char* cppyy_resolve_name(const char* cppitem_name);
     cppyy_scope_t cppyy_get_scope(const char* scope_name);
     cppyy_type_t cppyy_get_template(const char* template_name);
@@ -26,13 +30,13 @@ extern "C" {
 
     /* method/function dispatching -------------------------------------------- */
     void   cppyy_call_v(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
-    int    cppyy_call_b(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
+    unsigned char cppyy_call_b(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
     char   cppyy_call_c(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
     short  cppyy_call_h(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
     int    cppyy_call_i(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
     long   cppyy_call_l(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
     long long cppyy_call_ll(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
-    double cppyy_call_f(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
+    float  cppyy_call_f(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
     double cppyy_call_d(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
 
     void*  cppyy_call_r(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
@@ -41,7 +45,7 @@ extern "C" {
     void cppyy_constructor(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
     cppyy_object_t cppyy_call_o(cppyy_method_t method, cppyy_object_t self, int nargs, void* args, cppyy_type_t result_type);
 
-    cppyy_methptrgetter_t cppyy_get_methptr_getter(cppyy_scope_t scope, int method_index);
+    cppyy_methptrgetter_t cppyy_get_methptr_getter(cppyy_scope_t scope, cppyy_index_t idx);
 
     /* handling of function argument buffer ----------------------------------- */
     void*  cppyy_allocate_function_args(size_t nargs);
@@ -66,21 +70,24 @@ extern "C" {
 
     /* method/function reflection information --------------------------------- */
     int cppyy_num_methods(cppyy_scope_t scope);
-    char* cppyy_method_name(cppyy_scope_t scope, int method_index);
-    char* cppyy_method_result_type(cppyy_scope_t scope, int method_index);
-    int cppyy_method_num_args(cppyy_scope_t scope, int method_index);
-    int cppyy_method_req_args(cppyy_scope_t scope, int method_index);
-    char* cppyy_method_arg_type(cppyy_scope_t scope, int method_index, int arg_index);
-    char* cppyy_method_arg_default(cppyy_scope_t scope, int method_index, int arg_index);
-    char* cppyy_method_signature(cppyy_scope_t scope, int method_index);
+    cppyy_index_t cppyy_method_index_at(cppyy_scope_t scope, int imeth);
+    cppyy_index_t cppyy_method_index_from_name(cppyy_scope_t scope, const char* name);
 
-    int cppyy_method_index(cppyy_scope_t scope, const char* name);
+    char* cppyy_method_name(cppyy_scope_t scope, cppyy_index_t idx);
+    char* cppyy_method_result_type(cppyy_scope_t scope, cppyy_index_t idx);
+    int cppyy_method_num_args(cppyy_scope_t scope, cppyy_index_t idx);
+    int cppyy_method_req_args(cppyy_scope_t scope, cppyy_index_t idx);
+    char* cppyy_method_arg_type(cppyy_scope_t scope, cppyy_index_t idx, int arg_index);
+    char* cppyy_method_arg_default(cppyy_scope_t scope, cppyy_index_t idx, int arg_index);
+    char* cppyy_method_signature(cppyy_scope_t scope, cppyy_index_t idx);
 
-    cppyy_method_t cppyy_get_method(cppyy_scope_t scope, int method_index);
+    cppyy_method_t cppyy_get_method(cppyy_scope_t scope, cppyy_index_t idx);
+    cppyy_index_t cppyy_get_global_operator(
+        cppyy_scope_t scope, cppyy_scope_t lc, cppyy_scope_t rc, const char* op);
 
     /* method properties -----------------------------------------------------  */
-    int cppyy_is_constructor(cppyy_type_t type, int method_index);
-    int cppyy_is_staticmethod(cppyy_type_t type, int method_index);
+    int cppyy_is_constructor(cppyy_type_t type, cppyy_index_t idx);
+    int cppyy_is_staticmethod(cppyy_type_t type, cppyy_index_t idx);
 
     /* data member reflection information ------------------------------------  */
     int cppyy_num_datamembers(cppyy_scope_t scope);
@@ -95,9 +102,9 @@ extern "C" {
     int cppyy_is_staticdata(cppyy_type_t type, int datamember_index);
 
     /* misc helpers ----------------------------------------------------------- */
-    void cppyy_free(void* ptr);
     long long cppyy_strtoll(const char* str);
     unsigned long long cppyy_strtuoll(const char* str);
+    void cppyy_free(void* ptr);
 
     cppyy_object_t cppyy_charp2stdstring(const char* str);
     cppyy_object_t cppyy_stdstring2stdstring(cppyy_object_t ptr);

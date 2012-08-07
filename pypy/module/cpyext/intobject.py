@@ -6,7 +6,7 @@ from pypy.module.cpyext.api import (
     PyObject, PyObjectFields, CONST_STRING, CANNOT_FAIL, Py_ssize_t)
 from pypy.module.cpyext.pyobject import (
     make_typedescr, track_reference, RefcountState, from_ref)
-from pypy.rlib.rarithmetic import r_uint, intmask, LONG_TEST
+from pypy.rlib.rarithmetic import r_uint, intmask, LONG_TEST, r_ulonglong
 from pypy.objspace.std.intobject import W_IntObject
 import sys
 
@@ -82,6 +82,20 @@ def PyInt_AsUnsignedLongMask(space, w_obj):
     else:
         num = space.bigint_w(w_int)
         return num.uintmask()
+
+@cpython_api([PyObject], rffi.ULONGLONG, error=-1)
+def PyInt_AsUnsignedLongLongMask(space, w_obj):
+    """Will first attempt to cast the object to a PyIntObject or
+    PyLongObject, if it is not already one, and then return its value as
+    unsigned long long, without checking for overflow.
+    """
+    w_int = space.int(w_obj)
+    if space.is_true(space.isinstance(w_int, space.w_int)):
+        num = space.int_w(w_int)
+        return r_ulonglong(num)
+    else:
+        num = space.bigint_w(w_int)
+        return num.ulonglongmask()
 
 @cpython_api([PyObject], lltype.Signed, error=CANNOT_FAIL)
 def PyInt_AS_LONG(space, w_int):

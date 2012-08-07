@@ -60,10 +60,11 @@ public:        // instance data
 };
 
 
-// global functions
+// global functions and data
 int globalAddOneToInt(int a);
 namespace ns_example01 {
     int globalAddOneToInt(int a);
+    extern int gMyGlobalInt;
 }
 
 #define itypeValue(itype, tname) \
@@ -71,6 +72,7 @@ namespace ns_example01 {
 
 #define ftypeValue(ftype) \
    ftype ftype##Value(ftype arg0, int argn=0, ftype arg1=1., ftype arg2=2.)
+
 
 // argument passing
 class ArgPasser {        // use a class for now as methptrgetter not

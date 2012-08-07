@@ -97,6 +97,7 @@ TYPES = {
     'int_add_ovf'     : (('int', 'int'), 'int'),
     'int_sub_ovf'     : (('int', 'int'), 'int'),
     'int_mul_ovf'     : (('int', 'int'), 'int'),
+    'int_force_ge_zero':(('int',), 'int'),
     'uint_add'        : (('int', 'int'), 'int'),
     'uint_sub'        : (('int', 'int'), 'int'),
     'uint_mul'        : (('int', 'int'), 'int'),
@@ -1528,6 +1529,7 @@ def do_new(size):
 
 def do_new_array(arraynum, count):
     TYPE = symbolic.Size2Type[arraynum]
+    assert count >= 0 # explode if it's not
     x = lltype.malloc(TYPE, count, zero=True)
     return cast_to_ptr(x)
 
