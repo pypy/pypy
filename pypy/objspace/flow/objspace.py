@@ -11,7 +11,8 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.astcompiler.consts import CO_GENERATOR
 from pypy.interpreter import pyframe, argument
 from pypy.objspace.flow.model import *
-from pypy.objspace.flow import flowcontext, operation, specialcase
+from pypy.objspace.flow import flowcontext, operation
+from pypy.objspace.flow.specialcase import SPECIAL_CASES
 from pypy.rlib.unroll import unrolling_iterable, _unroller
 from pypy.rlib import rstackovf, rarithmetic
 from pypy.rlib.rarithmetic import is_valid_int
@@ -76,7 +77,7 @@ class FlowObjSpace(ObjSpace):
         for exc in [NameError, UnboundLocalError]:
             clsname = exc.__name__
             setattr(self, 'w_'+clsname, None)
-        self.specialcases = {}
+        self.specialcases = SPECIAL_CASES.copy()
         #self.make_builtins()
         #self.make_sys()
         # w_str is needed because cmp_exc_match of frames checks against it,
@@ -162,7 +163,7 @@ class FlowObjSpace(ObjSpace):
             if type(val) is not str:
                 raise TypeError("expected string: " + repr(w_obj))
             return val
-        return self.unwrap(w_obj)                                
+        return self.unwrap(w_obj)
 
     def float_w(self, w_obj):
         if isinstance(w_obj, Constant):
@@ -219,10 +220,6 @@ class FlowObjSpace(ObjSpace):
         # no parser/compiler needed - don't build one, it takes too much time
         # because it is done each time a FlowExecutionContext is built
         return None
-
-    def setup_executioncontext(self, ec):
-        self.executioncontext = ec
-        specialcase.setup(self)
 
     def exception_match(self, w_exc_type, w_check_class):
         try:
@@ -286,7 +283,7 @@ class FlowObjSpace(ObjSpace):
         # itself
         graph.signature = cpython_code_signature(code)
         graph.defaults = func.func_defaults or ()
-        self.setup_executioncontext(ec)
+        self.executioncontext = ec
 
         try:
             ec.build_flow()
@@ -325,7 +322,7 @@ class FlowObjSpace(ObjSpace):
                 e = OperationError(self.w_ValueError, self.w_None)
                 e.normalize_exception(self)
                 raise e
-            return [self.do_operation('getitem', w_iterable, self.wrap(i)) 
+            return [self.do_operation('getitem', w_iterable, self.wrap(i))
                         for i in range(expected_length)]
         return ObjSpace.unpackiterable(self, w_iterable, expected_length)
 
@@ -400,7 +397,7 @@ class FlowObjSpace(ObjSpace):
                 return self.w_None
             except UnwrapException:
                 pass
-        return self.do_operation_with_implicit_exceptions('setitem', w_obj, 
+        return self.do_operation_with_implicit_exceptions('setitem', w_obj,
                                                           w_key, w_val)
 
     def call_function(self, w_func, *args_w):

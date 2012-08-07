@@ -19,7 +19,7 @@ def sc_import(space, fn, args):
     if len(args_w) > 2:
         w_loc = args_w[2]
     if len(args_w) > 3:
-        w_frm = args_w[3]   
+        w_frm = args_w[3]
     if not isinstance(w_loc, Constant):
         # import * in a function gives us the locals as Variable
         # we always forbid it as a SyntaxError
@@ -89,6 +89,9 @@ def sc_applevel(space, app, name, args_w):
 # _________________________________________________________________________
 
 def sc_r_uint(space, r_uint, args):
+    # special case to constant-fold r_uint(32-bit-constant)
+    # (normally, the 32-bit constant is a long, and is not allowed to
+    # show up in the flow graphs at all)
     args_w, kwds_w = args.unpack()
     assert not kwds_w
     [w_value] = args_w
@@ -99,20 +102,8 @@ def sc_r_uint(space, r_uint, args):
 def sc_we_are_translated(space, we_are_translated, args):
     return Constant(True)
 
-def setup(space):
-    # fn = pyframe.normalize_exception.get_function(space)
-    # this is now routed through the objspace, directly.
-    # space.specialcases[fn] = sc_normalize_exception
-    space.specialcases[__import__] = sc_import
-    # redirect ApplevelClass for print et al.
-    space.specialcases[ApplevelClass] = sc_applevel
-    # turn calls to built-in functions to the corresponding operation,
-    # if possible
-    for fn in OperationName:
-        space.specialcases[fn] = sc_operator
-    # special case to constant-fold r_uint(32-bit-constant)
-    # (normally, the 32-bit constant is a long, and is not allowed to
-    # show up in the flow graphs at all)
-    space.specialcases[r_uint] = sc_r_uint
-    # special case we_are_translated() to return True
-    space.specialcases[we_are_translated] = sc_we_are_translated
+SPECIAL_CASES = {__import__: sc_import, ApplevelClass: sc_applevel,
+        r_uint: sc_r_uint, we_are_translated: sc_we_are_translated}
+for fn in OperationName:
+    SPECIAL_CASES[fn] = sc_operator
+
