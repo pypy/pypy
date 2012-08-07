@@ -54,7 +54,7 @@ class TestStaticSizeReport(CompilationTestCase):
 
         S = rffi.sizeof(lltype.Signed)
         P = rffi.sizeof(rffi.VOIDP)
-        B = S    # a bool, but rounded up, it makes a Signed
+        B = 1 # bool
         assert guess_size(self.builder.db, dictvalnode, set()) > 100
         assert guess_size(self.builder.db, dictvalnode2, set()) == 2 * S + 1 * P + 1 * S + 8 * (2*S + 1 * B)
         r_set = set()
