@@ -4,6 +4,8 @@ from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import pyframe, nestedscope
 from pypy.interpreter.argument import ArgumentsForTranslation
+from pypy.interpreter.astcompiler.consts import CO_GENERATOR
+from pypy.interpreter.pycode import PyCode, cpython_code_signature
 from pypy.objspace.flow import operation
 from pypy.objspace.flow.model import *
 from pypy.objspace.flow.framestate import FrameState
@@ -184,18 +186,19 @@ class ConcreteNoOp(Recorder):
 
 class FlowExecutionContext(ExecutionContext):
 
-    def __init__(self, space, code, globals, constargs={}, outer_func=None,
-                 name=None, is_generator=False):
+    def __init__(self, space, func, constargs={}):
         ExecutionContext.__init__(self, space)
+        code = PyCode._from_code(space, func.func_code)
+        self.is_generator = bool(code.co_flags & CO_GENERATOR)
         self.code = code
 
-        self.w_globals = w_globals = space.wrap(globals)
+        self.w_globals = space.wrap(func.func_globals)
 
         self.crnt_offset = -1
         self.crnt_frame = None
-        if outer_func and outer_func.closure:
-            self.closure = [nestedscope.Cell(Constant(value))
-                            for value in outer_func.closure]
+        if func.func_closure is not None:
+            cl = [c.cell_contents for c in func.func_closure]
+            self.closure = [nestedscope.Cell(Constant(value)) for value in cl]
         else:
             self.closure = None
         frame = self.create_frame()
@@ -207,8 +210,21 @@ class FlowExecutionContext(ExecutionContext):
         self.joinpoints = {}
         initialblock = SpamBlock(FrameState(frame).copy())
         self.pendingblocks = collections.deque([initialblock])
-        self.graph = FunctionGraph(name or code.co_name, initialblock)
-        self.is_generator = is_generator
+
+        # CallableFactory.pycall may add class_ to functions that are methods
+        name = func.func_name
+        class_ = getattr(func, 'class_', None)
+        if class_ is not None:
+            name = '%s.%s' % (class_.__name__, name)
+        for c in "<>&!":
+            name = name.replace(c, '_')
+        self.graph = graph = FunctionGraph(name, initialblock)
+        graph.func = func
+        # attach a signature and defaults to the graph
+        # so that it becomes even more interchangeable with the function
+        # itself
+        graph.signature = code.signature()
+        graph.defaults = func.func_defaults or ()
 
     make_link = Link # overridable for transition tracking
 

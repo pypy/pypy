@@ -5,10 +5,8 @@ import operator
 import types
 from pypy.tool import error
 from pypy.interpreter.baseobjspace import ObjSpace, Wrappable
-from pypy.interpreter.pycode import PyCode, cpython_code_signature
 from pypy.interpreter.module import Module
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.astcompiler.consts import CO_GENERATOR
 from pypy.interpreter import pyframe, argument
 from pypy.objspace.flow.model import *
 from pypy.objspace.flow import flowcontext, operation
@@ -257,32 +255,7 @@ class FlowObjSpace(ObjSpace):
         """
         if func.func_doc and func.func_doc.lstrip().startswith('NOT_RPYTHON'):
             raise Exception, "%r is tagged as NOT_RPYTHON" % (func,)
-        code = func.func_code
-        is_generator = bool(code.co_flags & CO_GENERATOR)
-        code = PyCode._from_code(self, code)
-        if func.func_closure is None:
-            cl = None
-        else:
-            cl = [c.cell_contents for c in func.func_closure]
-        # CallableFactory.pycall may add class_ to functions that are methods
-        name = func.func_name
-        class_ = getattr(func, 'class_', None)
-        if class_ is not None:
-            name = '%s.%s' % (class_.__name__, name)
-        for c in "<>&!":
-            name = name.replace(c, '_')
-        class outerfunc: # hack
-            closure = cl
-        ec = flowcontext.FlowExecutionContext(self, code, func.func_globals,
-                                              constargs, outerfunc, name,
-                                              is_generator)
-        graph = ec.graph
-        graph.func = func
-        # attach a signature and defaults to the graph
-        # so that it becomes even more interchangeable with the function
-        # itself
-        graph.signature = cpython_code_signature(code)
-        graph.defaults = func.func_defaults or ()
+        ec = flowcontext.FlowExecutionContext(self, func, constargs)
         self.executioncontext = ec
 
         try:
@@ -294,12 +267,12 @@ class FlowObjSpace(ObjSpace):
                                                  str(a))
             e = error.FlowingError(formated)
             raise error.FlowingError, e, tb
+
+        graph = ec.graph
         checkgraph(graph)
-        #
-        if is_generator and tweak_for_generator:
+        if ec.is_generator and tweak_for_generator:
             from pypy.translator.generator import tweak_generator_graph
             tweak_generator_graph(graph)
-        #
         return graph
 
     def fixedview(self, w_tuple, expected_length=None):
