@@ -309,7 +309,7 @@ class Regalloc(object):
         # The first inputargs are passed in registers r0-r3
         # we relly on the soft-float calling convention so we need to move
         # float params to the coprocessor.
-	if self.cpu.use_hf_abi:
+        if self.cpu.use_hf_abi:
             self._set_initial_bindings_hf(inputargs)
         else:
             self._set_initial_bindings_sf(inputargs)
@@ -1089,7 +1089,7 @@ class Regalloc(object):
         N = op.numargs()
         args = op.getarglist()
         arglocs = [self._ensure_value_is_boxed(op.getarg(i), args)
-			 for i in range(N)]
+                                                              for i in range(N)]
         tmp = self.get_scratch_reg(INT)
         arglocs.append(tmp)
         return arglocs

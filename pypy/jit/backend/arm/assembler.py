@@ -326,7 +326,7 @@ class AssemblerARM(ResOpAssembler):
                                     imm=descr.jit_wb_if_flag_byteofs)
             mc.TST_ri(r.ip.value, imm=0x80)
         #
-	mc.MOV_rr(r.pc.value, r.lr.value)
+        mc.MOV_rr(r.pc.value, r.lr.value)
         #
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
         self.wb_slowpath[withcards + 2 * withfloats] = rawstart

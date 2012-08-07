@@ -500,7 +500,7 @@ class ResOpAssembler(object):
         for arg in arglocs:
             if arg.type != FLOAT:
                 if len(non_float_regs) < len(r.argument_regs):
-		    reg = r.argument_regs[len(non_float_regs)]
+                    reg = r.argument_regs[len(non_float_regs)]
                     non_float_locs.append(arg)
                     non_float_regs.append(reg)
                 else: # non-float argument that needs to go on the stack 
@@ -508,16 +508,16 @@ class ResOpAssembler(object):
                     stack_args.append(arg)
             else:
                 if len(float_regs) < len(r.vfp_argument_regs): 
-		    reg = r.vfp_argument_regs[len(float_regs)]
+                    reg = r.vfp_argument_regs[len(float_regs)]
                     float_locs.append(arg)
                     float_regs.append(reg)
                 else: # float argument that needs to go on the stack
                     if count % 2 != 0:
                         stack_args.append(None)
-			count = 0
+                        count = 0
                     stack_args.append(arg)
         # align the stack
-	if count % 2 != 0:
+        if count % 2 != 0:
             stack_args.append(None)
         self._push_stack_args(stack_args)
         # Check that the address of the function we want to call is not
@@ -628,56 +628,56 @@ class ResOpAssembler(object):
         #
         if loc_base is not r.r0:
             # push two registers to keep stack aligned
-	    self.mc.PUSH([r.r0.value, loc_base.value])
+            self.mc.PUSH([r.r0.value, loc_base.value])
             remap_frame_layout(self, [loc_base], [r.r0], r.ip)
         self.mc.BL(self.wb_slowpath[helper_num])
         if loc_base is not r.r0:
-	    self.mc.POP([r.r0.value, loc_base.value])
+            self.mc.POP([r.r0.value, loc_base.value])
 
         if card_marking:
-	    # The helper ends again with a check of the flag in the object.  So
-	    # here, we can simply write again a conditional jump, which will be
-	    # taken if GCFLAG_CARDS_SET is still not set.
+            # The helper ends again with a check of the flag in the object.  So
+            # here, we can simply write again a conditional jump, which will be
+            # taken if GCFLAG_CARDS_SET is still not set.
             jns_location = self.mc.currpos()
             self.mc.BKPT()
             #
             # patch the JS above
             offset = self.mc.currpos()
             pmc = OverwritingBuilder(self.mc, js_location, WORD)
-	    pmc.B_offs(offset, c.NE) # We want to jump if the z flag is not set
+            pmc.B_offs(offset, c.NE) # We want to jump if the z flag is not set
             #
             # case GCFLAG_CARDS_SET: emit a few instructions to do
             # directly the card flag setting
             loc_index = arglocs[1]
             assert loc_index.is_reg()
-	    # must save the register loc_index before it is mutated
-	    self.mc.PUSH([loc_index.value])
-	    tmp1 = loc_index
-	    tmp2 = arglocs[2] 
-	    # lr = byteofs
-	    s = 3 + descr.jit_wb_card_page_shift
-	    self.mc.MVN_rr(r.lr.value, loc_index.value,
-	    		imm=s, shifttype=shift.LSR)
-	    
-	    # tmp1 = byte_index
-	    self.mc.MOV_ri(r.ip.value, imm=7)
-	    self.mc.AND_rr(tmp1.value, r.ip.value, loc_index.value,
-	        imm=descr.jit_wb_card_page_shift, shifttype=shift.LSR)
-	    
-	    # set the bit
-	    self.mc.MOV_ri(tmp2.value, imm=1)
-	    self.mc.LDRB_rr(r.ip.value, loc_base.value, r.lr.value)
-	    self.mc.ORR_rr_sr(r.ip.value, r.ip.value, tmp2.value,
-	    			tmp1.value, shifttype=shift.LSL)
-	    self.mc.STRB_rr(r.ip.value, loc_base.value, r.lr.value)
-	    # done
-	    self.mc.POP([loc_index.value])
-	    #
+            # must save the register loc_index before it is mutated
+            self.mc.PUSH([loc_index.value])
+            tmp1 = loc_index
+            tmp2 = arglocs[2] 
+            # lr = byteofs
+            s = 3 + descr.jit_wb_card_page_shift
+            self.mc.MVN_rr(r.lr.value, loc_index.value,
+                                       imm=s, shifttype=shift.LSR)
+            
+            # tmp1 = byte_index
+            self.mc.MOV_ri(r.ip.value, imm=7)
+            self.mc.AND_rr(tmp1.value, r.ip.value, loc_index.value,
+            imm=descr.jit_wb_card_page_shift, shifttype=shift.LSR)
+            
+            # set the bit
+            self.mc.MOV_ri(tmp2.value, imm=1)
+            self.mc.LDRB_rr(r.ip.value, loc_base.value, r.lr.value)
+            self.mc.ORR_rr_sr(r.ip.value, r.ip.value, tmp2.value,
+                                          tmp1.value, shifttype=shift.LSL)
+            self.mc.STRB_rr(r.ip.value, loc_base.value, r.lr.value)
+            # done
+            self.mc.POP([loc_index.value])
+            #
             #
             # patch the JNS above
             offset = self.mc.currpos()
             pmc = OverwritingBuilder(self.mc, jns_location, WORD)
-	    pmc.B_offs(offset, c.EQ) # We want to jump if the z flag is set
+            pmc.B_offs(offset, c.EQ) # We want to jump if the z flag is set
 
         offset = self.mc.currpos()
         pmc = OverwritingBuilder(self.mc, jz_location, WORD)
@@ -1423,7 +1423,7 @@ class ResOpAssembler(object):
     emit_op_convert_longlong_bytes_to_float = gen_emit_unary_float_op('longlong_bytes_to_float', 'VMOV_cc')
 
     def emit_op_read_timestamp(self, op, arglocs, regalloc, fcond):
-	assert 0, 'not supported'
+        assert 0, 'not supported'
         tmp = arglocs[0]
         res = arglocs[1]
         self.mc.MRC(15, 0, tmp.value, 15, 12, 1)
