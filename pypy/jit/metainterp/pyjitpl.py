@@ -1486,6 +1486,7 @@ class MetaInterpStaticData(object):
         self.jitdrivers_sd = codewriter.callcontrol.jitdrivers_sd
         self.virtualref_info = codewriter.callcontrol.virtualref_info
         self.callinfocollection = codewriter.callcontrol.callinfocollection
+        self.has_libffi_call = codewriter.callcontrol.has_libffi_call
         #
         # store this information for fastpath of call_assembler
         # (only the paths that can actually be taken)
@@ -2539,6 +2540,10 @@ class MetaInterp(object):
         """Generate a direct call to C code, patching the CALL_MAY_FORCE
         to jit_ffi_call() that occurred just now.
         """
+        # an 'assert' that constant-folds away the rest of this function
+        # if the codewriter didn't produce any OS_LIBFFI_CALL at all.
+        assert self.staticdata.has_libffi_call
+        #
         from pypy.rpython.lltypesystem import llmemory
         from pypy.rlib.jit_libffi import CIF_DESCRIPTION_P
         from pypy.jit.backend.llsupport.ffisupport import get_arg_descr

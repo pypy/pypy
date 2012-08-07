@@ -16,6 +16,7 @@ from pypy.translator.backendopt.writeanalyze import ReadWriteAnalyzer
 
 class CallControl(object):
     virtualref_info = None     # optionally set from outside
+    has_libffi_call = False    # default value
 
     def __init__(self, cpu=None, jitdrivers_sd=[]):
         assert isinstance(jitdrivers_sd, list)   # debugging

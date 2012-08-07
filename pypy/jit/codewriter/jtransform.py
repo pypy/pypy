@@ -1731,6 +1731,7 @@ class Transformer(object):
         if oopspec_name == 'libffi_call':
             oopspecindex = EffectInfo.OS_LIBFFI_CALL
             extraeffect = EffectInfo.EF_RANDOM_EFFECTS
+            self.callcontrol.has_libffi_call = True
         else:
             assert False, 'unsupported oopspec: %s' % oopspec_name
         return self._handle_oopspec_call(op, args, oopspecindex, extraeffect)
