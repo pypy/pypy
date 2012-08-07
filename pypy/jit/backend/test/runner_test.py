@@ -514,8 +514,23 @@ class BaseBackendTest(Runner):
                               [42], None, [longlong.getfloatstorage(3.5)])
             assert longlong.getrealfloat(x) == 3.5 - 42
 
+    def _calldescr_dynamic(self, atypes, rtype, abiname='FFI_DEFAULT_ABI'):
+        from pypy.rlib import clibffi
+        from pypy.rlib.jit_libffi import CIF_DESCRIPTION, FFI_TYPE_PP
+        #
+        p = lltype.malloc(CIF_DESCRIPTION, len(atypes),
+                          flavor='raw', immortal=True)
+        rffi.setintfield(p, 'abi', getattr(clibffi, abiname))
+        p.nargs = len(atypes)
+        p.rtype = rtype
+        p.atypes = lltype.malloc(FFI_TYPE_PP.TO, len(atypes),
+                                 flavor='raw', immortal=True)
+        for i in range(len(atypes)):
+            p.atypes[i] = atypes[i]
+        return self.cpu.calldescrof_dynamic(p, None)
+
     def test_call(self):
-        from pypy.rlib.libffi import types, FUNCFLAG_CDECL
+        from pypy.rlib.jit_libffi import types
 
         def func_int(a, b):
             return a + b
@@ -543,9 +558,8 @@ class BaseBackendTest(Runner):
                                          'int', descr=calldescr)
             assert res.value == 2 * num
             # then, try it with the dynamic calldescr
-            dyn_calldescr = cpu.calldescrof_dynamic([ffi_type, ffi_type], ffi_type,
-                                                    EffectInfo.MOST_GENERAL,
-                                                    ffi_flags=FUNCFLAG_CDECL)
+            dyn_calldescr = self._calldescr_dynamic([ffi_type, ffi_type],
+                                                    ffi_type)
             res = self.execute_operation(rop.CALL,
                                          [funcbox, BoxInt(num), BoxInt(num)],
                                          'int', descr=dyn_calldescr)
@@ -2167,9 +2181,7 @@ class LLtypeBackendTest(BaseBackendTest):
         cpu = self.cpu
         func_adr = llmemory.cast_ptr_to_adr(c_tolower.funcsym)
         funcbox = ConstInt(heaptracker.adr2int(func_adr))
-        calldescr = cpu.calldescrof_dynamic([types.uchar], types.sint,
-                                            EffectInfo.MOST_GENERAL,
-                                            ffi_flags=FUNCFLAG_CDECL)
+        calldescr = self._calldescr_dynamic([types.uchar], types.sint)
         i1 = BoxInt()
         i2 = BoxInt()
         tok = BoxInt()
@@ -2222,11 +2234,9 @@ class LLtypeBackendTest(BaseBackendTest):
         cpu = self.cpu
         func_adr = llmemory.cast_ptr_to_adr(c_qsort.funcsym)
         funcbox = ConstInt(heaptracker.adr2int(func_adr))
-        calldescr = cpu.calldescrof_dynamic([types.pointer, types_size_t,
+        calldescr = self._calldescr_dynamic([types.pointer, types_size_t,
                                              types_size_t, types.pointer],
-                                            types.void,
-                                            EffectInfo.MOST_GENERAL,
-                                            ffi_flags=clibffi.FUNCFLAG_CDECL)
+                                            types.void)
         i0 = BoxInt()
         i1 = BoxInt()
         i2 = BoxInt()
@@ -2275,10 +2285,9 @@ class LLtypeBackendTest(BaseBackendTest):
         cpu = self.cpu
         func_adr = llmemory.cast_ptr_to_adr(c_GetCurrentDir.funcsym)
         funcbox = ConstInt(heaptracker.adr2int(func_adr))
-        calldescr = cpu.calldescrof_dynamic([types.ulong, types.pointer],
+        calldescr = self._calldescr_dynamic([types.ulong, types.pointer],
                                             types.ulong,
-                                            EffectInfo.MOST_GENERAL,
-                                            ffi_flags=FUNCFLAG_STDCALL)
+                                            abiname='FFI_STDCALL')
         i1 = BoxInt()
         i2 = BoxInt()
         faildescr = BasicFailDescr(1)
