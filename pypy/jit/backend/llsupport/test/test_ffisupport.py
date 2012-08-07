@@ -13,6 +13,8 @@ class FakeCPU:
         self.supports_floats = supports_floats
         self.supports_longlong = supports_longlong
         self.supports_singlefloats = supports_singlefloats
+    def calldescrof_dynamic(self, cif_descr, effectinfo):
+        return get_call_descr_dynamic(self, cif_descr, effectinfo)
 
 def test_call_descr_dynamic():
     args = [types.sint, types.pointer]

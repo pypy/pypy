@@ -83,6 +83,7 @@ def get_arg_descr(cpu, ffi_type):
 def calldescr_dynamic_for_tests(cpu, atypes, rtype, abiname='FFI_DEFAULT_ABI'):
     from pypy.rlib import clibffi
     from pypy.rlib.jit_libffi import CIF_DESCRIPTION, FFI_TYPE_PP
+    from pypy.jit.codewriter.effectinfo import EffectInfo
     #
     p = lltype.malloc(CIF_DESCRIPTION, len(atypes),
                       flavor='raw', immortal=True)
@@ -93,4 +94,4 @@ def calldescr_dynamic_for_tests(cpu, atypes, rtype, abiname='FFI_DEFAULT_ABI'):
                              flavor='raw', immortal=True)
     for i in range(len(atypes)):
         p.atypes[i] = atypes[i]
-    return cpu.calldescrof_dynamic(p, None)
+    return cpu.calldescrof_dynamic(p, EffectInfo.MOST_GENERAL)
