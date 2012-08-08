@@ -27,32 +27,12 @@ class FrameState:
         elif isinstance(state, tuple):
             self.mergeable, self.nonmergeable = state
         else:
-            raise TypeError("can't get framestate for %r" % 
+            raise TypeError("can't get framestate for %r" %
                             state.__class__.__name__)
         self.next_instr = self.nonmergeable[1]
         for w1 in self.mergeable:
             assert isinstance(w1, (Variable, Constant)) or w1 is None, (
                 '%r found in frame state' % w1)
-
-    def restoreframe(self, frame):
-        if isinstance(frame, PyFrame):
-            data = self.mergeable[:]
-            recursively_unflatten(frame.space, data)
-            frame.restore_locals_stack(data[:-2])  # Nones == undefined locals
-            if data[-2] == Constant(None):
-                assert data[-1] == Constant(None)
-                frame.last_exception = None
-            else:
-                frame.last_exception = OperationError(data[-2], data[-1])
-            (
-                blocklist,
-                frame.last_instr,
-                frame.w_locals,
-            ) = self.nonmergeable
-            frame.set_blocklist(blocklist)
-        else:
-            raise TypeError("can't set framestate for %r" % 
-                            frame.__class__.__name__)
 
     def copy(self):
         "Make a copy of this state in which all Variables are fresh."

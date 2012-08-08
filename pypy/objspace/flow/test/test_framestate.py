@@ -8,7 +8,7 @@ from pypy.objspace.flow.objspace import FlowObjSpace
 
 class TestFrameState:
     def setup_class(cls):
-        cls.space = FlowObjSpace() 
+        cls.space = FlowObjSpace()
 
     def getframe(self, func):
         space = self.space
@@ -64,7 +64,7 @@ class TestFrameState:
         frame = self.getframe(self.func_simple)
         fs1 = FrameState(frame)
         frame.locals_stack_w[frame.pycode.co_nlocals-1] = Variable()
-        fs1.restoreframe(frame)
+        frame.setstate(fs1)
         assert fs1 == FrameState(frame)
 
     def test_copy(self):
@@ -77,7 +77,7 @@ class TestFrameState:
         frame = self.getframe(self.func_simple)
         fs1 = FrameState(frame)
         vars = fs1.getvariables()
-        assert len(vars) == 1 
+        assert len(vars) == 1
 
     def test_getoutputargs(self):
         frame = self.getframe(self.func_simple)
@@ -95,7 +95,7 @@ class TestFrameState:
         frame.locals_stack_w[frame.pycode.co_nlocals-1] = Constant(42)
         fs2 = FrameState(frame)
         fs3 = fs1.union(fs2)
-        fs3.restoreframe(frame)
+        frame.setstate(fs3)
         assert isinstance(frame.locals_stack_w[frame.pycode.co_nlocals-1],
                           Variable)   # generalized
 

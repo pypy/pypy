@@ -8,7 +8,7 @@ from pypy.interpreter.astcompiler.consts import CO_GENERATOR
 from pypy.interpreter.pycode import PyCode, cpython_code_signature
 from pypy.objspace.flow import operation
 from pypy.objspace.flow.model import *
-from pypy.objspace.flow.framestate import FrameState
+from pypy.objspace.flow.framestate import FrameState, recursively_unflatten
 from pypy.rlib import jit
 from pypy.tool.stdlib_opcode import host_bytecode_spec
 
@@ -33,7 +33,7 @@ class SpamBlock(Block):
     def patchframe(self, frame):
         if self.dead:
             raise StopFlowing
-        self.framestate.restoreframe(frame)
+        frame.setstate(self.framestate)
         return BlockRecorder(self)
 
 
@@ -436,6 +436,19 @@ class FlowExecutionContext(ExecutionContext):
                     break
 
 class FlowSpaceFrame(pyframe.CPythonFrame):
+
+    def setstate(self, state):
+        """ Reset the frame to the given state. """
+        data = state.mergeable[:]
+        recursively_unflatten(self.space, data)
+        self.restore_locals_stack(data[:-2])  # Nones == undefined locals
+        if data[-2] == Constant(None):
+            assert data[-1] == Constant(None)
+            self.last_exception = None
+        else:
+            self.last_exception = OperationError(data[-2], data[-1])
+        blocklist, self.last_instr, self.w_locals = state.nonmergeable
+        self.set_blocklist(blocklist)
 
     def SETUP_WITH(self, offsettoend, next_instr):
         # A simpler version than the 'real' 2.7 one:
