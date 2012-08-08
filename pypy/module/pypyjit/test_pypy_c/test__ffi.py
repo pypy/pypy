@@ -201,7 +201,11 @@ class Test__ffi(BaseTestPyPyC):
         loop, = log.loops_by_filename(self.filepath)
         if 'ConstClass(pow)' in repr(loop):   # e.g. OS/X
             pow_addr = 'ConstClass(pow)'
-        py.test.xfail()     # XXX currently too much code, fixme
         assert loop.match_by_id('cfficall', """
             ...
-        """ % pow_addr)
+            f1 = call_release_gil(..., descr=<Callf 8 ff EF=6 OS=62>)
+            ...
+        """)
+        # so far just check that call_release_gil() is produced.
+        # later, also check that the arguments to call_release_gil()
+        # are constants, and that the numerous raw_mallocs are removed
