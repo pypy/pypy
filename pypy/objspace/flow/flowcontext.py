@@ -31,13 +31,6 @@ class SpamBlock(Block):
         self.framestate = framestate
         self.dead = False
 
-    def patchframe(self, frame):
-        if self.dead:
-            raise StopFlowing
-        frame.setstate(self.framestate)
-        return BlockRecorder(self)
-
-
 class EggBlock(Block):
     # make slots optional, for debugging
     if hasattr(Block, '__slots__'):
@@ -47,21 +40,6 @@ class EggBlock(Block):
         Block.__init__(self, inputargs)
         self.prevblock = prevblock
         self.booloutcome = booloutcome
-
-    def patchframe(self, frame):
-        parentblocks = []
-        block = self
-        while isinstance(block, EggBlock):
-            block = block.prevblock
-            parentblocks.append(block)
-        # parentblocks = [Egg, Egg, ..., Egg, Spam] not including self
-        block.patchframe(frame)
-        recorder = BlockRecorder(self)
-        prevblock = self
-        for block in parentblocks:
-            recorder = Replayer(block, prevblock.booloutcome, recorder)
-            prevblock = block
-        return recorder
 
     def extravars(self, last_exception=None, last_exc_value=None):
         self.last_exception = last_exception
@@ -270,7 +248,7 @@ class FlowExecutionContext(ExecutionContext):
                                 self.w_globals, self)
             frame.last_instr = 0
             try:
-                self.recorder = block.patchframe(frame)
+                self.recorder = frame.recording(block)
             except StopFlowing:
                 continue   # restarting a dead SpamBlock
             try:
@@ -459,6 +437,24 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
             self.last_exception = OperationError(data[-2], data[-1])
         blocklist, self.last_instr, self.w_locals = state.nonmergeable
         self.set_blocklist(blocklist)
+
+    def recording(self, block):
+        """ Setup recording of the block and return the recorder. """
+        parentblocks = []
+        parent = block
+        while isinstance(parent, EggBlock):
+            parent = parent.prevblock
+            parentblocks.append(parent)
+        # parentblocks = [Egg, Egg, ..., Egg, Spam] not including block
+        if parent.dead:
+            raise StopFlowing
+        self.setstate(parent.framestate)
+        recorder = BlockRecorder(block)
+        prevblock = block
+        for parent in parentblocks:
+            recorder = Replayer(parent, prevblock.booloutcome, recorder)
+            prevblock = parent
+        return recorder
 
     def SETUP_WITH(self, offsettoend, next_instr):
         # A simpler version than the 'real' 2.7 one:
