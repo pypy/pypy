@@ -679,13 +679,15 @@ class TestRrangeLLVM(_LLVMMixin, test_rrange.TestLLtype):
     pass
 
 class TestRstrLLVM(_LLVMMixin, test_rstr.TestLLtype):
-    pass
+    def test_getitem_exc(self):
+        py.test.skip('Impossible to pass if not running on LLInterpreter.')
 
 class TestRtupleLLVM(_LLVMMixin, test_rtuple.TestLLtype):
     pass
 
 class TestRUnicodeLLVM(_LLVMMixin, test_runicode.TestLLtype):
-    pass
+    def test_getitem_exc(self):
+        py.test.skip('Impossible to pass if not running on LLInterpreter.')
 
 class TestRvirtualizableLLVM(_LLVMMixin, test_rvirtualizable2.TestLLtype):
     pass
