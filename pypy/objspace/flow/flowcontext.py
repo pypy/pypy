@@ -211,7 +211,9 @@ class FlowExecutionContext(ExecutionContext):
         self.joinpoints = {}
         initialblock = SpamBlock(frame.getstate().copy())
         self.pendingblocks = collections.deque([initialblock])
+        self._init_graph(func, initialblock)
 
+    def _init_graph(self, func, initialblock):
         # CallableFactory.pycall may add class_ to functions that are methods
         name = func.func_name
         class_ = getattr(func, 'class_', None)
@@ -224,7 +226,7 @@ class FlowExecutionContext(ExecutionContext):
         # attach a signature and defaults to the graph
         # so that it becomes even more interchangeable with the function
         # itself
-        graph.signature = code.signature()
+        graph.signature = self.code.signature()
         graph.defaults = func.func_defaults or ()
 
     make_link = Link # overridable for transition tracking
