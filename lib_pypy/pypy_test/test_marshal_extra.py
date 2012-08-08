@@ -142,4 +142,6 @@ def dump_to_cpython(case):
         f2.close()
     assert obj == case
 
-
+def test_load_truncated_string():
+    s = '(\x02\x00\x00\x00i\x03\x00\x00\x00sB\xf9\x00\x00\nabcd'
+    py.test.raises(EOFError, marshal.loads, s)
