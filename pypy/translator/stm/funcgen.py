@@ -55,15 +55,24 @@ def stm_getinteriorfield(funcgen, op):
     access_info = (None, ptr, expr)
     return _stm_generic_get(funcgen, op, access_info)
 
-def stm_gc_load(funcgen, op):
+def _gc_load_store_expr(funcgen, op, v_value):
     ptr = funcgen.expr(op.args[0])
     ofs = funcgen.expr(op.args[1])
-    T = funcgen.lltypemap(op.result)
+    T = funcgen.lltypemap(v_value)
     resulttypename = funcgen.db.gettype(T)
     cresulttypename_ptr = cdecl(resulttypename, ' *')
     expr = '(*(%s)(((char *)(%s)) + (%s)))' % (cresulttypename_ptr, ptr, ofs)
+    return expr
+
+def stm_gc_load(funcgen, op):
+    ptr = funcgen.expr(op.args[0])
+    expr = _gc_load_store_expr(funcgen, op, op.result)
     access_info = (None, ptr, expr)
     return _stm_generic_get(funcgen, op, access_info)
+
+def stm_gc_store(funcgen, op):
+    targetexpr = _gc_load_store_expr(funcgen, op, op.args[-1])
+    return funcgen.generic_set(op, targetexpr)
 
 
 def stm_become_inevitable(funcgen, op):
@@ -73,6 +82,9 @@ def stm_become_inevitable(funcgen, op):
         info = "rstm.become_inevitable"    # cannot insert it in 'llop'
     string_literal = c_string_constant(info)
     return 'stm_try_inevitable(STM_EXPLAIN1(%s));' % (string_literal,)
+
+def stm_jit_invoke_code(funcgen, op):
+    return funcgen.OP_DIRECT_CALL(op)
 
 
 def op_stm(funcgen, op):

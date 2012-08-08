@@ -86,6 +86,9 @@ class StmFrameworkGCTransformer(FrameworkGCTransformer):
         # (INSERT_STM_LOCAL_NOT_NEEDED=False in translator/stm/transform)
         self.vars_local_not_needed.update(hop.spaceop.args)
 
+    def gct_gc_store(self, hop):
+        hop.rename('stm_gc_store')
+
 
 class StmShadowStackRootWalker(BaseRootWalker):
     need_root_stack = True

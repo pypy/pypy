@@ -611,6 +611,8 @@ class FunctionCodeGenerator(object):
     OP_STM_SETINTERIORFIELD = _OP_STM
     OP_STM_BECOME_INEVITABLE = _OP_STM
     OP_STM_GC_LOAD = _OP_STM
+    OP_STM_GC_STORE = _OP_STM
+    OP_STM_JIT_INVOKE_CODE = _OP_STM
 
 
     def OP_PTR_NONZERO(self, op):

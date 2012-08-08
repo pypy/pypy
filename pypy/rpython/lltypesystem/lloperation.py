@@ -412,6 +412,7 @@ LL_OPERATIONS = {
     'gc_load':                LLOp(sideeffects=False),   # so far, only if stm
     'gc_store':               LLOp(),                    # so far, only if stm
     'stm_gc_load':            LLOp(sideeffects=False),
+    'stm_gc_store':           LLOp(),
 
     'stm_jit_invoke_code':    LLOp(canmallocgc=True),
 
