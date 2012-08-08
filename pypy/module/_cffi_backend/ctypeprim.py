@@ -61,7 +61,7 @@ class W_CTypePrimitive(W_CType):
             value = r_ulonglong(value)
         else:
             value = misc.as_unsigned_long_long(space, w_ob, strict=False)
-        w_cdata = cdataobj.W_CDataCasted(space, self.size, self)
+        w_cdata = cdataobj.W_CDataMem(space, self.size, self)
         w_cdata.write_raw_integer_data(value)
         return w_cdata
 
@@ -248,7 +248,7 @@ class W_CTypePrimitiveFloat(W_CTypePrimitive):
             value = self.cast_str(w_ob)
         else:
             value = space.float_w(w_ob)
-        w_cdata = cdataobj.W_CDataCasted(space, self.size, self)
+        w_cdata = cdataobj.W_CDataMem(space, self.size, self)
         if not isinstance(self, W_CTypePrimitiveLongDouble):
             w_cdata.write_raw_float_data(value)
         else:
@@ -313,7 +313,7 @@ class W_CTypePrimitiveLongDouble(W_CTypePrimitiveFloat):
         return self.space.wrap(value)
 
     def convert_to_object(self, cdata):
-        w_cdata = cdataobj.W_CDataCasted(self.space, self.size, self)
+        w_cdata = cdataobj.W_CDataMem(self.space, self.size, self)
         self._copy_longdouble(cdata, w_cdata._cdata)
         keepalive_until_here(w_cdata)
         return w_cdata

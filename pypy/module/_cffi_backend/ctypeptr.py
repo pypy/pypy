@@ -214,11 +214,13 @@ class W_CTypePointer(W_CTypePtrBase):
         return cdata
 
     def _check_subscript_index(self, w_cdata, i):
-        if isinstance(w_cdata, cdataobj.W_CDataApplevelOwning) and i != 0:
-            space = self.space
-            raise operationerrfmt(space.w_IndexError,
-                                  "cdata '%s' can only be indexed by 0",
-                                  self.name)
+        if (isinstance(w_cdata, cdataobj.W_CDataNewOwning) or
+            isinstance(w_cdata, cdataobj.W_CDataPtrToStructOrUnion)):
+            if i != 0:
+                space = self.space
+                raise operationerrfmt(space.w_IndexError,
+                                      "cdata '%s' can only be indexed by 0",
+                                      self.name)
         return self
 
     def add(self, cdata, i):

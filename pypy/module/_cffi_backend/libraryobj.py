@@ -22,6 +22,8 @@ class W_Library(Wrappable):
         else:
             mode = -1     # default value, corresponds to RTLD_LOCAL
         with rffi.scoped_str2charp(filename) as ll_libname:
+            if filename is None:
+                filename = "<None>"
             try:
                 self.handle = dlopen(ll_libname, mode)
             except DLOpenError, e:
@@ -56,8 +58,9 @@ class W_Library(Wrappable):
                                   "function cdata expected, got '%s'",
                                   ctype.name)
         #
-        cdata = dlsym(self.handle, name)
-        if not cdata:
+        try:
+            cdata = dlsym(self.handle, name)
+        except KeyError:
             raise operationerrfmt(space.w_KeyError,
                                   "function '%s' not found in library '%s'",
                                   name, self.name)
@@ -66,8 +69,9 @@ class W_Library(Wrappable):
     @unwrap_spec(ctype=W_CType, name=str)
     def read_variable(self, ctype, name):
         space = self.space
-        cdata = dlsym(self.handle, name)
-        if not cdata:
+        try:
+            cdata = dlsym(self.handle, name)
+        except KeyError:
             raise operationerrfmt(space.w_KeyError,
                                   "variable '%s' not found in library '%s'",
                                   name, self.name)
@@ -76,8 +80,9 @@ class W_Library(Wrappable):
     @unwrap_spec(ctype=W_CType, name=str)
     def write_variable(self, ctype, name, w_value):
         space = self.space
-        cdata = dlsym(self.handle, name)
-        if not cdata:
+        try:
+            cdata = dlsym(self.handle, name)
+        except KeyError:
             raise operationerrfmt(space.w_KeyError,
                                   "variable '%s' not found in library '%s'",
                                   name, self.name)
@@ -95,7 +100,7 @@ W_Library.typedef = TypeDef(
 W_Library.acceptable_as_base_class = False
 
 
-@unwrap_spec(filename=str, is_global=int)
+@unwrap_spec(filename="str_or_None", is_global=int)
 def load_library(space, filename, is_global=0):
     lib = W_Library(space, filename, is_global)
     return space.wrap(lib)

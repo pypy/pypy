@@ -8,7 +8,7 @@ from pypy.rlib.objectmodel import compute_unique_id, keepalive_until_here
 from pypy.rlib import clibffi, rweakref, rgc
 from pypy.rlib.rarithmetic import r_ulonglong
 
-from pypy.module._cffi_backend.cdataobj import W_CData, W_CDataApplevelOwning
+from pypy.module._cffi_backend.cdataobj import W_CData
 from pypy.module._cffi_backend.ctypefunc import SIZE_OF_FFI_ARG, BIG_ENDIAN
 from pypy.module._cffi_backend.ctypefunc import W_CTypeFunc
 from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveSigned
@@ -18,7 +18,7 @@ from pypy.module._cffi_backend import cerrno, misc
 # ____________________________________________________________
 
 
-class W_CDataCallback(W_CDataApplevelOwning):
+class W_CDataCallback(W_CData):
     #_immutable_fields_ = ...
     ll_error = lltype.nullptr(rffi.CCHARP.TO)
 

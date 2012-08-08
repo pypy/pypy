@@ -12,7 +12,7 @@ from pypy.module._cffi_backend import misc
 
 
 class W_CData(Wrappable):
-    _attrs_ = ['space', '_cdata', 'ctype']
+    _attrs_ = ['space', '_cdata', 'ctype', '_lifeline_']
     _immutable_fields_ = ['_cdata', 'ctype']
     _cdata = lltype.nullptr(rffi.CCHARP.TO)
 
@@ -29,10 +29,19 @@ class W_CData(Wrappable):
         keepalive_until_here(self)
         return extra
 
+    def _repr_extra_owning(self):
+        from pypy.module._cffi_backend.ctypeptr import W_CTypePointer
+        ctype = self.ctype
+        if isinstance(ctype, W_CTypePointer):
+            num_bytes = ctype.ctitem.size
+        else:
+            num_bytes = self._sizeof()
+        return 'owning %d bytes' % num_bytes
+
     def repr(self):
         extra2 = self._repr_extra()
         extra1 = ''
-        if not isinstance(self, W_CDataApplevelOwning):
+        if not isinstance(self, W_CDataNewOwning):
             # it's slightly confusing to get "<cdata 'struct foo' 0x...>"
             # because the struct foo is not owned.  Trying to make it
             # clearer, write in this case "<cdata 'struct foo &' 0x...>".
@@ -206,33 +215,28 @@ class W_CData(Wrappable):
         return self.ctype.size
 
 
-class W_CDataApplevelOwning(W_CData):
-    """This is the abstract base class for classes that are of the app-level
-    type '_cffi_backend.CDataOwn'.  These are weakrefable."""
-    _attrs_ = ['_lifeline_']    # for weakrefs
-
-    def _repr_extra(self):
-        from pypy.module._cffi_backend.ctypeptr import W_CTypePointer
-        ctype = self.ctype
-        if isinstance(ctype, W_CTypePointer):
-            num_bytes = ctype.ctitem.size
-        else:
-            num_bytes = self._sizeof()
-        return 'owning %d bytes' % num_bytes
-
-
-class W_CDataNewOwning(W_CDataApplevelOwning):
-    """This is the class used for the app-level type
-    '_cffi_backend.CDataOwn' created by newp()."""
+class W_CDataMem(W_CData):
+    """This is the base class used for cdata objects that own and free
+    their memory.  Used directly by the results of cffi.cast('int', x)
+    or other primitive explicitly-casted types.  It is further subclassed
+    by W_CDataNewOwning."""
     _attrs_ = []
 
     def __init__(self, space, size, ctype):
         cdata = lltype.malloc(rffi.CCHARP.TO, size, flavor='raw', zero=True)
-        W_CDataApplevelOwning.__init__(self, space, cdata, ctype)
+        W_CData.__init__(self, space, cdata, ctype)
 
     @rgc.must_be_light_finalizer
     def __del__(self):
         lltype.free(self._cdata, flavor='raw')
+
+
+class W_CDataNewOwning(W_CDataMem):
+    """This is the class used for the cata objects created by newp()."""
+    _attrs_ = []
+
+    def _repr_extra(self):
+        return self._repr_extra_owning()
 
 
 class W_CDataNewOwningLength(W_CDataNewOwning):
@@ -255,36 +259,25 @@ class W_CDataNewOwningLength(W_CDataNewOwning):
         return self.length
 
 
-class W_CDataPtrToStructOrUnion(W_CDataApplevelOwning):
+class W_CDataPtrToStructOrUnion(W_CData):
     """This subclass is used for the pointer returned by new('struct foo').
     It has a strong reference to a W_CDataNewOwning that really owns the
-    struct, which is the object returned by the app-level expression 'p[0]'."""
+    struct, which is the object returned by the app-level expression 'p[0]'.
+    But it is not itself owning any memory, although its repr says so;
+    it is merely a co-owner."""
     _attrs_ = ['structobj']
     _immutable_fields_ = ['structobj']
 
     def __init__(self, space, cdata, ctype, structobj):
-        W_CDataApplevelOwning.__init__(self, space, cdata, ctype)
+        W_CData.__init__(self, space, cdata, ctype)
         self.structobj = structobj
+
+    def _repr_extra(self):
+        return self._repr_extra_owning()
 
     def _do_getitem(self, ctype, i):
         assert i == 0
         return self.structobj
-
-
-class W_CDataCasted(W_CData):
-    """This subclass is used by the results of cffi.cast('int', x)
-    or other primitive explicitly-casted types.  Relies on malloc'ing
-    small bits of memory (e.g. just an 'int').  Its point is to not be
-    a subclass of W_CDataApplevelOwning."""
-    _attrs_ = []
-
-    def __init__(self, space, size, ctype):
-        cdata = lltype.malloc(rffi.CCHARP.TO, size, flavor='raw', zero=True)
-        W_CData.__init__(self, space, cdata, ctype)
-
-    @rgc.must_be_light_finalizer
-    def __del__(self):
-        lltype.free(self._cdata, flavor='raw')
 
 
 W_CData.typedef = TypeDef(
@@ -311,12 +304,6 @@ W_CData.typedef = TypeDef(
     __setattr__ = interp2app(W_CData.setattr),
     __call__ = interp2app(W_CData.call),
     __iter__ = interp2app(W_CData.iter),
+    __weakref__ = make_weakref_descr(W_CData),
     )
 W_CData.typedef.acceptable_as_base_class = False
-
-W_CDataApplevelOwning.typedef = TypeDef(
-    'CDataOwn', W_CData.typedef,    # base typedef
-    __module__ = '_cffi_backend',
-    __weakref__ = make_weakref_descr(W_CDataApplevelOwning),
-    )
-W_CDataApplevelOwning.typedef.acceptable_as_base_class = False

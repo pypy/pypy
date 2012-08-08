@@ -23,8 +23,11 @@ class AppTestC(object):
         keepalive_funcs = []
 
         def find_and_load_library_for_test(space, w_name, w_is_global=0):
-            import ctypes.util
-            path = ctypes.util.find_library(space.str_w(w_name))
+            if space.is_w(w_name, space.w_None):
+                path = None
+            else:
+                import ctypes.util
+                path = ctypes.util.find_library(space.str_w(w_name))
             return space.appexec([space.wrap(path), w_is_global],
             """(path, is_global):
                 import _cffi_backend

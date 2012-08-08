@@ -16,7 +16,10 @@ def size_of_ptr():
 
 def find_and_load_library(name, is_global=0):
     import ctypes.util
-    path = ctypes.util.find_library(name)
+    if name is None:
+        path = None
+    else:
+        path = ctypes.util.find_library(name)
     return load_library(path, is_global)
 
 def test_load_library():
@@ -286,6 +289,13 @@ def test_reading_pointer_to_pointer():
     assert p[0][0] == 43
     p = newp(BIntPtrPtr, q)
     assert p[0][0] == 43
+
+def test_load_standard_library():
+    x = find_and_load_library(None)
+    BVoidP = new_pointer_type(new_void_type())
+    assert x.load_function(BVoidP, 'strcpy')
+    py.test.raises(KeyError, x.load_function,
+                   BVoidP, 'xxx_this_function_does_not_exist')
 
 def test_hash_differences():
     BChar = new_primitive_type("char")
@@ -1137,8 +1147,8 @@ def test_weakref():
     BPtr = new_pointer_type(BInt)
     weakref.ref(BInt)
     weakref.ref(newp(BPtr, 42))
-    py.test.raises(TypeError, weakref.ref, cast(BPtr, 42))
-    py.test.raises(TypeError, weakref.ref, cast(BInt, 42))
+    weakref.ref(cast(BPtr, 42))
+    weakref.ref(cast(BInt, 42))
 
 def test_no_inheritance():
     BInt = new_primitive_type("int")
