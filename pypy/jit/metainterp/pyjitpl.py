@@ -460,6 +460,13 @@ class MIFrame(object):
 
     @arguments("box", "descr", "box")
     def _opimpl_getarrayitem_gc_pure_any(self, arraybox, arraydescr, indexbox):
+        if isinstance(arraybox, ConstPtr) and isinstance(indexbox, ConstInt):
+            # if the arguments are directly constants, bypass the heapcache
+            # completely
+            resbox = executor.execute(self.metainterp.cpu, self.metainterp,
+                                      rop.GETARRAYITEM_GC_PURE, arraydescr,
+                                      arraybox, indexbox)
+            return resbox.constbox()
         return self._do_getarrayitem_gc_any(rop.GETARRAYITEM_GC_PURE, arraybox, arraydescr, indexbox)
 
     opimpl_getarrayitem_gc_i_pure = _opimpl_getarrayitem_gc_pure_any
@@ -571,6 +578,11 @@ class MIFrame(object):
 
     @arguments("box", "descr")
     def _opimpl_getfield_gc_pure_any(self, box, fielddescr):
+        if isinstance(box, ConstPtr):
+            # if 'box' is directly a ConstPtr, bypass the heapcache completely
+            resbox = executor.execute(self.metainterp.cpu, self.metainterp,
+                                      rop.GETFIELD_GC_PURE, fielddescr, box)
+            return resbox.constbox()
         return self._opimpl_getfield_gc_any_pureornot(
                 rop.GETFIELD_GC_PURE, box, fielddescr)
     opimpl_getfield_gc_i_pure = _opimpl_getfield_gc_pure_any
