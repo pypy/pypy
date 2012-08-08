@@ -170,3 +170,38 @@ class Test__ffi(BaseTestPyPyC):
             setfield_raw(i44, i57, descr=<FieldS dynamic 0>)
         """)
 
+
+    def test__cffi_call(self):
+        from pypy.rlib.test.test_clibffi import get_libm_name
+        def main(libm_name):
+            try:
+                import _cffi_backend
+            except ImportError:
+                sys.stderr.write('SKIP: cannot import _cffi_backend\n')
+                return 0
+
+            libm = _cffi_backend.load_library(libm_name)
+            BDouble = _cffi_backend.new_primitive_type("double")
+            BPow = _cffi_backend.new_function_type([BDouble, BDouble], BDouble)
+            pow = libm.load_function(BPow, 'pow')
+            i = 0
+            res = 0
+            while i < 300:
+                tmp = pow(2, 3)   # ID: cfficall
+                res += tmp
+                i += 1
+            BLong = _cffi_backend.new_primitive_type("long")
+            pow_addr = int(_cffi_backend.cast(BLong, pow))
+            return pow_addr, res
+        #
+        libm_name = get_libm_name(sys.platform)
+        log = self.run(main, [libm_name])
+        pow_addr, res = log.result
+        assert res == 8.0 * 300
+        loop, = log.loops_by_filename(self.filepath)
+        if 'ConstClass(pow)' in repr(loop):   # e.g. OS/X
+            pow_addr = 'ConstClass(pow)'
+        py.test.xfail()     # XXX currently too much code, fixme
+        assert loop.match_by_id('cfficall', """
+            ...
+        """ % pow_addr)
