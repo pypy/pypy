@@ -441,10 +441,10 @@ class GcRootMap_shadowstack(object):
             def setcontext(iself, context):
                 iself.context = context
 
-            def nextleft(iself, gc, range_lowest, prev):
+            def nextleft(iself, gc, prev):
                 # Return the next valid GC object's address, in right-to-left
                 # order from the shadowstack array.  This usually means just
-                # returning "prev - sizeofaddr", until we reach "range_lowest",
+                # returning "prev - sizeofaddr", until we stop being called,
                 # except that we are skipping NULLs.  If "prev - sizeofaddr"
                 # contains a MARKER_FRAME instead, then we go into
                 # JIT-frame-lookup mode.
@@ -456,14 +456,12 @@ class GcRootMap_shadowstack(object):
                         #
                         # Look for the next shadowstack address that
                         # contains a valid pointer
-                        while prev != range_lowest:
+                        while True:
                             prev -= llmemory.sizeof(llmemory.Address)
                             if prev.signed[0] == self.MARKER_FRAME:
                                 break
                             if gc.points_to_valid_gc_object(prev):
                                 return prev
-                        else:
-                            return llmemory.NULL     # done
                         #
                         # It's a JIT frame.  Save away 'prev' for later, and
                         # go into JIT-frame-exploring mode.

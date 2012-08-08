@@ -423,6 +423,7 @@ class StmGC(MovingGCBase):
             stm_operations.tldict_add(obj, localobj)
             #
             return localobj
+        self._stm_write_barrier_global = _stm_write_barrier_global
         #
         def stm_normalize_global(obj):
             """Normalize a pointer for the purpose of equality

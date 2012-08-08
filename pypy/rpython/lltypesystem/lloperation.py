@@ -413,6 +413,8 @@ LL_OPERATIONS = {
     'gc_store':               LLOp(),                    # so far, only if stm
     'stm_gc_load':            LLOp(sideeffects=False),
 
+    'stm_jit_invoke_code':    LLOp(canmallocgc=True),
+
     # __________ address operations __________
 
     'boehm_malloc':         LLOp(),

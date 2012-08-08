@@ -34,6 +34,9 @@ class StmFrameworkGCTransformer(FrameworkGCTransformer):
         self.stm_normalize_global_ptr = getfn(
             self.gcdata.gc.stm_normalize_global,
             [annmodel.SomeAddress()], annmodel.SomeAddress())
+        self.write_barrier_failing_case_ptr = getfn(
+            self.gcdata.gc._stm_write_barrier_global,
+            [annmodel.SomeAddress()], annmodel.SomeAddress())
 
     def build_root_walker(self):
         return StmShadowStackRootWalker(self)

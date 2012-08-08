@@ -224,6 +224,7 @@ class FrameworkGCTransformer(GCTransformer):
             if inline:
                 self.graphs_to_inline[graph] = True
             return annhelper.graph2const(graph)
+        self._getfn = getfn
 
         self.frameworkgc_setup_ptr = getfn(frameworkgc_setup, [],
                                            annmodel.s_None)
@@ -905,6 +906,8 @@ class FrameworkGCTransformer(GCTransformer):
 
     def gct_get_write_barrier_failing_case(self, hop):
         op = hop.spaceop
+        assert (lltype.typeOf(self.write_barrier_failing_case_ptr.value) ==
+                op.result.concretetype)
         hop.genop("same_as",
                   [self.write_barrier_failing_case_ptr],
                   resultvar=op.result)

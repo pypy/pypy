@@ -132,7 +132,11 @@ class AbstractX86CPU(AbstractLLCPU):
                 prev_interpreter = LLInterpreter.current_interpreter
                 LLInterpreter.current_interpreter = self.debug_ll_interpreter
             try:
-                fail_index = func(*args)
+                if not self.gc_ll_descr.stm:
+                    fail_index = func(*args)
+                else:
+                    fail_index = llop.stm_jit_invoke_code(lltype.Signed,
+                                                          func, *args)
             finally:
                 if not self.translate_support_code:
                     LLInterpreter.current_interpreter = prev_interpreter

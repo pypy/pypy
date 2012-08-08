@@ -301,6 +301,8 @@ def is_immutable(op):
     if op.opname == 'setinteriorfield':
         OUTER = op.args[0].concretetype.TO
         return OUTER._immutable_interiorfield(unwraplist(op.args[1:-1]))
+    if op.opname in ('gc_load', 'gc_store'):
+        return False
     raise AssertionError(op)
 
 def pre_insert_stm_writebarrier(graph):
@@ -337,13 +339,13 @@ def pre_insert_stm_writebarrier(graph):
                 if gcsource.is_gc(op.result) and gcsource.is_gc(op.args[0]):
                     copies[op.result] = op
             elif (op.opname in ('getfield', 'getarrayitem',
-                                'getinteriorfield') and
+                                'getinteriorfield', 'gc_load') and
                   op.result.concretetype is not lltype.Void and
                   op.args[0].concretetype.TO._gckind == 'gc' and
                   not is_immutable(op)):
                 wants_a_writebarrier.setdefault(op, False)
             elif (op.opname in ('setfield', 'setarrayitem',
-                                'setinteriorfield') and
+                                'setinteriorfield', 'gc_store') and
                   op.args[-1].concretetype is not lltype.Void and
                   op.args[0].concretetype.TO._gckind == 'gc' and
                   not is_immutable(op)):
