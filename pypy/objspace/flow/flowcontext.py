@@ -10,7 +10,6 @@ from pypy.objspace.flow import operation
 from pypy.objspace.flow.model import *
 from pypy.objspace.flow.framestate import (FrameState, recursively_unflatten,
         recursively_flatten)
-from pypy.rlib import jit
 from pypy.tool.stdlib_opcode import host_bytecode_spec
 
 class StopFlowing(Exception):
@@ -74,7 +73,6 @@ class BlockRecorder(Recorder):
         self.crnt_block.operations.append(operation)
 
     def bytecode_trace(self, ec, frame):
-        assert frame is ec.crnt_frame, "seeing an unexpected frame!"
         ec.crnt_offset = frame.last_instr      # save offset for opcode
         if self.enterspamblock:
             # If we have a SpamBlock, the first call to bytecode_trace()
@@ -218,14 +216,12 @@ class FlowExecutionContext(ExecutionContext):
         self.w_globals = space.wrap(func.func_globals)
 
         self.crnt_offset = -1
-        self.crnt_frame = None
         if func.func_closure is not None:
             cl = [c.cell_contents for c in func.func_closure]
             self.closure = [nestedscope.Cell(Constant(value)) for value in cl]
         else:
             self.closure = None
-        self.recorder = []
-        frame = FlowSpaceFrame(self.space, self.code,
+        self.frame = frame = FlowSpaceFrame(self.space, self.code,
                                self.w_globals, self)
         frame.last_instr = 0
         formalargcount = code.getformalargcount()
@@ -234,7 +230,7 @@ class FlowExecutionContext(ExecutionContext):
             arg_list[position] = Constant(value)
         frame.setfastscope(arg_list)
         self.joinpoints = {}
-        initialblock = SpamBlock(frame.getstate().copy())
+        initialblock = SpamBlock(frame.getstate())
         self.pendingblocks = collections.deque([initialblock])
         self._init_graph(func, initialblock)
 
@@ -244,30 +240,20 @@ class FlowExecutionContext(ExecutionContext):
 
         while self.pendingblocks:
             block = self.pendingblocks.popleft()
-            frame = FlowSpaceFrame(self.space, self.code,
-                                self.w_globals, self)
-            frame.last_instr = 0
             try:
                 self.recorder = frame.recording(block)
             except StopFlowing:
                 continue   # restarting a dead SpamBlock
             try:
-                old_frameref = self.topframeref
-                self.topframeref = jit.non_virtual_ref(frame)
-                self.crnt_frame = frame
-                try:
-                    frame.frame_finished_execution = False
-                    while True:
-                        w_result = frame.dispatch(frame.pycode,
-                                                  frame.last_instr,
-                                                  self)
-                        if frame.frame_finished_execution:
-                            break
-                        else:
-                            self.generate_yield(frame, w_result)
-                finally:
-                    self.crnt_frame = None
-                    self.topframeref = old_frameref
+                frame.frame_finished_execution = False
+                while True:
+                    w_result = frame.dispatch(frame.pycode,
+                                                frame.last_instr,
+                                                self)
+                    if frame.frame_finished_execution:
+                        break
+                    else:
+                        self.generate_yield(frame, w_result)
 
             except operation.OperationThatShouldNotBePropagatedError, e:
                 raise Exception(
@@ -397,7 +383,7 @@ class FlowExecutionContext(ExecutionContext):
     # hack for unrolling iterables, don't use this
     def replace_in_stack(self, oldvalue, newvalue):
         w_new = Constant(newvalue)
-        f = self.crnt_frame
+        f = self.frame
         stack_items_w = f.locals_stack_w
         for i in range(f.valuestackdepth-1, f.pycode.co_nlocals-1, -1):
             w_v = stack_items_w[i]
