@@ -8,7 +8,8 @@ from pypy.interpreter.astcompiler.consts import CO_GENERATOR
 from pypy.interpreter.pycode import PyCode, cpython_code_signature
 from pypy.objspace.flow import operation
 from pypy.objspace.flow.model import *
-from pypy.objspace.flow.framestate import FrameState, recursively_unflatten
+from pypy.objspace.flow.framestate import (FrameState, recursively_unflatten,
+        recursively_flatten)
 from pypy.rlib import jit
 from pypy.tool.stdlib_opcode import host_bytecode_spec
 
@@ -112,7 +113,7 @@ class BlockRecorder(Recorder):
             # the same block.  We will continue, to figure out where the next
             # such operation *would* appear, and we make a join point just
             # before.
-            self.last_join_point = FrameState(frame)
+            self.last_join_point = frame.getstate()
 
     def guessbool(self, ec, w_condition, cases=[False,True],
                   replace_last_variable_except_in_first_case = None):
@@ -208,7 +209,7 @@ class FlowExecutionContext(ExecutionContext):
             arg_list[position] = Constant(value)
         frame.setfastscope(arg_list)
         self.joinpoints = {}
-        initialblock = SpamBlock(FrameState(frame).copy())
+        initialblock = SpamBlock(frame.getstate().copy())
         self.pendingblocks = collections.deque([initialblock])
 
         # CallableFactory.pycall may add class_ to functions that are methods
@@ -436,6 +437,21 @@ class FlowExecutionContext(ExecutionContext):
                     break
 
 class FlowSpaceFrame(pyframe.CPythonFrame):
+
+    def getstate(self):
+        # getfastscope() can return real None, for undefined locals
+        data = self.save_locals_stack()
+        if self.last_exception is None:
+            data.append(Constant(None))
+            data.append(Constant(None))
+        else:
+            data.append(self.last_exception.w_type)
+            data.append(self.last_exception.get_w_value(self.space))
+        recursively_flatten(self.space, data)
+        nonmergeable = (self.get_blocklist(),
+            self.last_instr,   # == next_instr when between bytecodes
+            self.w_locals,)
+        return FrameState(data, nonmergeable)
 
     def setstate(self, state):
         """ Reset the frame to the given state. """

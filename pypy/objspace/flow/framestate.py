@@ -1,34 +1,11 @@
-from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.pyopcode import SuspendedUnroller
-from pypy.interpreter.error import OperationError
 from pypy.rlib.unroll import SpecTag
 from pypy.objspace.flow.model import *
 
 class FrameState:
-    # XXX this class depends on the internal state of PyFrame objects
-
-    def __init__(self, state):
-        if isinstance(state, PyFrame):
-            # getfastscope() can return real None, for undefined locals
-            data = state.save_locals_stack()
-            if state.last_exception is None:
-                data.append(Constant(None))
-                data.append(Constant(None))
-            else:
-                data.append(state.last_exception.w_type)
-                data.append(state.last_exception.get_w_value(state.space))
-            recursively_flatten(state.space, data)
-            self.mergeable = data
-            self.nonmergeable = (
-                state.get_blocklist(),
-                state.last_instr,   # == next_instr when between bytecodes
-                state.w_locals,
-            )
-        elif isinstance(state, tuple):
-            self.mergeable, self.nonmergeable = state
-        else:
-            raise TypeError("can't get framestate for %r" %
-                            state.__class__.__name__)
+    def __init__(self, mergeable, nonmergeable):
+        self.mergeable = mergeable
+        self.nonmergeable = nonmergeable
         self.next_instr = self.nonmergeable[1]
         for w1 in self.mergeable:
             assert isinstance(w1, (Variable, Constant)) or w1 is None, (
@@ -41,7 +18,7 @@ class FrameState:
             if isinstance(w, Variable):
                 w = Variable()
             newstate.append(w)
-        return FrameState((newstate, self.nonmergeable))
+        return FrameState(newstate, self.nonmergeable)
 
     def getvariables(self):
         return [w for w in self.mergeable if isinstance(w, Variable)]
@@ -74,7 +51,7 @@ class FrameState:
                 newstate.append(union(w1, w2))
         except UnionError:
             return None
-        return FrameState((newstate, self.nonmergeable))
+        return FrameState(newstate, self.nonmergeable)
 
     def getoutputargs(self, targetstate):
         "Return the output arguments needed to link self to targetstate."
