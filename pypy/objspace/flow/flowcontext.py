@@ -187,32 +187,6 @@ class ConcreteNoOp(Recorder):
 
 class FlowExecutionContext(ExecutionContext):
 
-    def __init__(self, space, func, constargs={}):
-        ExecutionContext.__init__(self, space)
-        code = PyCode._from_code(space, func.func_code)
-        self.is_generator = bool(code.co_flags & CO_GENERATOR)
-        self.code = code
-
-        self.w_globals = space.wrap(func.func_globals)
-
-        self.crnt_offset = -1
-        self.crnt_frame = None
-        if func.func_closure is not None:
-            cl = [c.cell_contents for c in func.func_closure]
-            self.closure = [nestedscope.Cell(Constant(value)) for value in cl]
-        else:
-            self.closure = None
-        frame = self.create_frame()
-        formalargcount = code.getformalargcount()
-        arg_list = [Variable() for i in range(formalargcount)]
-        for position, value in constargs.items():
-            arg_list[position] = Constant(value)
-        frame.setfastscope(arg_list)
-        self.joinpoints = {}
-        initialblock = SpamBlock(frame.getstate().copy())
-        self.pendingblocks = collections.deque([initialblock])
-        self._init_graph(func, initialblock)
-
     def _init_graph(self, func, initialblock):
         # CallableFactory.pycall may add class_ to functions that are methods
         name = func.func_name
@@ -230,15 +204,6 @@ class FlowExecutionContext(ExecutionContext):
         graph.defaults = func.func_defaults or ()
 
     make_link = Link # overridable for transition tracking
-
-    def create_frame(self):
-        # create an empty frame suitable for the code object
-        # while ignoring any operation like the creation of the locals dict
-        self.recorder = []
-        frame = FlowSpaceFrame(self.space, self.code,
-                               self.w_globals, self)
-        frame.last_instr = 0
-        return frame
 
     def bytecode_trace(self, frame):
         self.recorder.bytecode_trace(self, frame)
@@ -266,12 +231,44 @@ class FlowExecutionContext(ExecutionContext):
                 w_exc_cls = egg.last_exception
         return outcome, w_exc_cls, w_exc_value
 
-    def build_flow(self):
+    def build_flow(self, func, constargs={}):
+        space = self.space
+        code = PyCode._from_code(space, func.func_code)
+        self.is_generator = bool(code.co_flags & CO_GENERATOR)
+        self.code = code
+
+        self.w_globals = space.wrap(func.func_globals)
+
+        self.crnt_offset = -1
+        self.crnt_frame = None
+        if func.func_closure is not None:
+            cl = [c.cell_contents for c in func.func_closure]
+            self.closure = [nestedscope.Cell(Constant(value)) for value in cl]
+        else:
+            self.closure = None
+        self.recorder = []
+        frame = FlowSpaceFrame(self.space, self.code,
+                               self.w_globals, self)
+        frame.last_instr = 0
+        formalargcount = code.getformalargcount()
+        arg_list = [Variable() for i in range(formalargcount)]
+        for position, value in constargs.items():
+            arg_list[position] = Constant(value)
+        frame.setfastscope(arg_list)
+        self.joinpoints = {}
+        initialblock = SpamBlock(frame.getstate().copy())
+        self.pendingblocks = collections.deque([initialblock])
+        self._init_graph(func, initialblock)
+
         if self.is_generator:
-            self.produce_generator_mark()
+            initialblock.operations.append(
+                SpaceOperation('generator_mark', [], Variable()))
+
         while self.pendingblocks:
             block = self.pendingblocks.popleft()
-            frame = self.create_frame()
+            frame = FlowSpaceFrame(self.space, self.code,
+                                self.w_globals, self)
+            frame.last_instr = 0
             try:
                 self.recorder = block.patchframe(frame)
             except StopFlowing:
@@ -334,11 +331,6 @@ class FlowExecutionContext(ExecutionContext):
 
             del self.recorder
         self.fixeggblocks()
-
-    def produce_generator_mark(self):
-        [initialblock] = self.pendingblocks
-        initialblock.operations.append(
-            SpaceOperation('generator_mark', [], Variable()))
 
     def generate_yield(self, frame, w_result):
         assert self.is_generator

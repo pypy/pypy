@@ -255,11 +255,11 @@ class FlowObjSpace(ObjSpace):
         """
         if func.func_doc and func.func_doc.lstrip().startswith('NOT_RPYTHON'):
             raise Exception, "%r is tagged as NOT_RPYTHON" % (func,)
-        ec = flowcontext.FlowExecutionContext(self, func, constargs)
+        ec = flowcontext.FlowExecutionContext(self)
         self.executioncontext = ec
 
         try:
-            ec.build_flow()
+            ec.build_flow(func, constargs)
         except error.FlowingError, a:
             # attach additional source info to AnnotatorError
             _, _, tb = sys.exc_info()
