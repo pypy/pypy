@@ -59,7 +59,8 @@ class _CDataMeta(type):
         'resbuffer' is a _rawffi array of length 1 containing the value,
         and this returns a general Python object that corresponds.
         """
-        res = self.__new__(self)
+        res = object.__new__(self)
+        res.__class__ = self
         res.__dict__['_buffer'] = resbuffer
         res.__dict__['_base'] = base
         res.__dict__['_index'] = index
