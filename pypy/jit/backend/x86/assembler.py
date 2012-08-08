@@ -122,7 +122,7 @@ class Assembler386(object):
             support.ensure_sse2_floats()
             self._build_float_constants()
         self._build_propagate_exception_path()
-        if gc_ll_descr.get_malloc_slowpath_addr is not None:
+        if gc_ll_descr.get_malloc_slowpath_addr() is not None:
             self._build_malloc_slowpath()
         self._build_stack_check_slowpath()
         if gc_ll_descr.gcrootmap:

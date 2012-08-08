@@ -41,7 +41,8 @@ class MockGcRootMap(object):
         return ['compressed'] + shape[1:]
 
 class MockGcDescr(GcCache):
-    get_malloc_slowpath_addr = None
+    get_malloc_slowpath_addr = lambda self: None
+    stm = False
     write_barrier_descr = None
     moving_gc = True
     gcrootmap = MockGcRootMap()

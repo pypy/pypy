@@ -1009,6 +1009,10 @@ class RegAlloc(object):
     consider_cond_call_gc_wb_array = consider_cond_call_gc_wb
 
     def consider_call_malloc_nursery(self, op):
+        gc_ll_descr = self.assembler.cpu.gc_ll_descr
+        assert gc_ll_descr.get_malloc_slowpath_addr() is not None
+        # ^^^ if this returns None, don't translate the rest of this function
+        #
         size_box = op.getarg(0)
         assert isinstance(size_box, ConstInt)
         size = size_box.getint()
@@ -1020,7 +1024,6 @@ class RegAlloc(object):
         self.rm.force_allocate_reg(tmp_box, selected_reg=edx)
         self.rm.possibly_free_var(tmp_box)
         #
-        gc_ll_descr = self.assembler.cpu.gc_ll_descr
         self.assembler.malloc_cond(
             gc_ll_descr.get_nursery_free_addr(),
             gc_ll_descr.get_nursery_top_addr(),

@@ -122,7 +122,6 @@ class GcLLDescr_boehm(GcLLDescription):
     fielddescr_tid        = None
     str_type_id           = 0
     unicode_type_id       = 0
-    get_malloc_slowpath_addr = None
 
     @classmethod
     def configure_boehm_once(cls):
@@ -198,6 +197,9 @@ class GcLLDescr_boehm(GcLLDescription):
         return self.malloc_array(arraydescr.basesize, num_elem,
                                  arraydescr.itemsize,
                                  arraydescr.lendescr.offset)
+
+    def get_malloc_slowpath_addr(self):
+        return None
 
 
 # ____________________________________________________________
@@ -897,6 +899,8 @@ class GcLLDescr_framework(GcLLDescription):
         self.gcrootmap.freeing_block(start, stop)
 
     def get_malloc_slowpath_addr(self):
+        if self.max_size_of_young_obj is None:    # stm
+            return None
         return self.get_malloc_fn_addr('malloc_nursery')
 
 # ____________________________________________________________
