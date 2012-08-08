@@ -88,6 +88,7 @@ class W_CTypeFunc(W_CTypePtrBase):
     def call(self, funcaddr, args_w):
         if self.cif_descr:
             # regular case: this function does not take '...' arguments
+            self = jit.promote(self)
             nargs_declared = len(self.fargs)
             if len(args_w) != nargs_declared:
                 space = self.space
