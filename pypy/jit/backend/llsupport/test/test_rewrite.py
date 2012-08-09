@@ -26,6 +26,7 @@ class RewriteTests(object):
         tdescr = get_size_descr(self.gc_ll_descr, T)
         tdescr.tid = 5678
         tzdescr = get_field_descr(self.gc_ll_descr, T, 'z')
+        tydescr = get_field_descr(self.gc_ll_descr, T, 'y')
         #
         A = lltype.GcArray(lltype.Signed)
         adescr = get_array_descr(self.gc_ll_descr, A)
@@ -209,6 +210,7 @@ class TestFramework(RewriteTests):
                 gcrootfinder = 'asmgcc'
                 gctransformer = 'framework'
                 gcremovetypeptr = False
+                stm = False
         gcdescr = get_description(config_)
         self.gc_ll_descr = GcLLDescr_framework(gcdescr, None, None, None,
                                                really_not_translated=True)

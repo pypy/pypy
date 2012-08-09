@@ -16,7 +16,6 @@ from pypy.jit.backend.llsupport.descr import SizeDescr, ArrayDescr
 from pypy.jit.backend.llsupport.descr import GcCache, get_field_descr
 from pypy.jit.backend.llsupport.descr import get_array_descr
 from pypy.jit.backend.llsupport.descr import get_call_descr
-from pypy.jit.backend.llsupport.rewrite import GcRewriterAssembler
 from pypy.rpython.memory.gctransform import asmgcroot
 
 # ____________________________________________________________
@@ -103,6 +102,11 @@ class GcLLDescription(GcCache):
                 gcrefs_output_list.append(p)
 
     def rewrite_assembler(self, cpu, operations, gcrefs_output_list):
+        if not self.stm:
+            from pypy.jit.backend.llsupport.rewrite import GcRewriterAssembler
+        else:
+            from pypy.jit.backend.llsupport import stmrewrite
+            GcRewriterAssembler = stmrewrite.GcStmReviewerAssembler
         rewriter = GcRewriterAssembler(self, cpu)
         newops = rewriter.rewrite(operations)
         # record all GCREFs, because the GC (or Boehm) cannot see them and
@@ -658,10 +662,10 @@ class GcLLDescr_framework(GcLLDescription):
         GcLLDescription.__init__(self, gcdescr, translator, rtyper)
         self.translator = translator
         self.llop1 = llop1
-        try:
-            self.stm = translator.config.translation.stm
-        except AttributeError:
-            pass      # keep the default of False
+        #try:
+        self.stm = gcdescr.config.translation.stm
+        #except AttributeError:
+        #    pass      # keep the default of False
         if really_not_translated:
             assert not self.translate_support_code  # but half does not work
             self._initialize_for_tests()
