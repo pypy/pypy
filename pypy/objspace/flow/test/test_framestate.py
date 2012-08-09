@@ -3,6 +3,7 @@ from pypy.objspace.flow.model import *
 from pypy.interpreter.pycode import PyCode
 from pypy.rlib.unroll import SpecTag
 from pypy.objspace.flow.objspace import FlowObjSpace
+from pypy.objspace.flow.flowcontext import FlowSpaceFrame
 
 class TestFrameState:
     def setup_class(cls):
@@ -17,14 +18,9 @@ class TestFrameState:
         code = func.func_code
         code = PyCode._from_code(self.space, code)
         w_globals = Constant({}) # space.newdict()
-        frame = self.space.createframe(code, w_globals)
-
-        formalargcount = code.getformalargcount()
-        dummy = Constant(None)
-        #dummy.dummy = True
-        arg_list = ([Variable() for i in range(formalargcount)] +
-                    [dummy] * (frame.pycode.co_nlocals - formalargcount))
-        frame.setfastscope(arg_list)
+        frame = FlowSpaceFrame(space, code, w_globals, func)
+        # hack the frame
+        frame.locals_stack_w[frame.pycode.co_nlocals-1] = Constant(None)
         return frame
 
     def func_simple(x):

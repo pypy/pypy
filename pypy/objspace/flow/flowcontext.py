@@ -216,19 +216,8 @@ class FlowExecutionContext(ExecutionContext):
         self.w_globals = space.wrap(func.func_globals)
 
         self.crnt_offset = -1
-        if func.func_closure is not None:
-            cl = [c.cell_contents for c in func.func_closure]
-            self.closure = [nestedscope.Cell(Constant(value)) for value in cl]
-        else:
-            self.closure = None
-        self.frame = frame = FlowSpaceFrame(self.space, self.code,
-                               self.w_globals, self)
-        frame.last_instr = 0
-        formalargcount = code.getformalargcount()
-        arg_list = [Variable() for i in range(formalargcount)]
-        for position, value in constargs.items():
-            arg_list[position] = Constant(value)
-        frame.setfastscope(arg_list)
+        self.frame = frame = FlowSpaceFrame(self.space, code,
+                               self.w_globals, func, constargs)
         self.joinpoints = {}
         initialblock = SpamBlock(frame.getstate())
         self.pendingblocks = collections.deque([initialblock])
@@ -395,6 +384,24 @@ class FlowExecutionContext(ExecutionContext):
                     break
 
 class FlowSpaceFrame(pyframe.CPythonFrame):
+
+    def __init__(self, space, code, w_globals, func, constargs=None):
+        class outerfunc: pass # hack
+        if func.func_closure is not None:
+            cl = [c.cell_contents for c in func.func_closure]
+            outerfunc.closure = [nestedscope.Cell(Constant(value)) for value in cl]
+        else:
+            outerfunc.closure = None
+        super(FlowSpaceFrame, self).__init__(space, code, w_globals, outerfunc)
+        self.last_instr = 0
+
+        if constargs is None:
+            constargs = {}
+        formalargcount = code.getformalargcount()
+        arg_list = [Variable() for i in range(formalargcount)]
+        for position, value in constargs.items():
+            arg_list[position] = Constant(value)
+        self.setfastscope(arg_list)
 
     def getstate(self):
         # getfastscope() can return real None, for undefined locals
