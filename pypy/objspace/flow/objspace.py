@@ -270,7 +270,7 @@ class FlowObjSpace(ObjSpace):
 
         graph = ec.graph
         checkgraph(graph)
-        if ec.is_generator and tweak_for_generator:
+        if graph.is_generator and tweak_for_generator:
             from pypy.translator.generator import tweak_generator_graph
             tweak_generator_graph(graph)
         return graph

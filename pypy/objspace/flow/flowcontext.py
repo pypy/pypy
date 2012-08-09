@@ -163,22 +163,6 @@ class ConcreteNoOp(Recorder):
 
 class FlowExecutionContext(ExecutionContext):
 
-    def _init_graph(self, func, initialblock):
-        # CallableFactory.pycall may add class_ to functions that are methods
-        name = func.func_name
-        class_ = getattr(func, 'class_', None)
-        if class_ is not None:
-            name = '%s.%s' % (class_.__name__, name)
-        for c in "<>&!":
-            name = name.replace(c, '_')
-        self.graph = graph = FunctionGraph(name, initialblock)
-        graph.func = func
-        # attach a signature and defaults to the graph
-        # so that it becomes even more interchangeable with the function
-        # itself
-        graph.signature = self.code.signature()
-        graph.defaults = func.func_defaults or ()
-
     make_link = Link # overridable for transition tracking
 
     def bytecode_trace(self, frame):
@@ -210,20 +194,15 @@ class FlowExecutionContext(ExecutionContext):
     def build_flow(self, func, constargs={}):
         space = self.space
         code = PyCode._from_code(space, func.func_code)
-        self.is_generator = bool(code.co_flags & CO_GENERATOR)
         self.code = code
 
         self.crnt_offset = -1
         self.frame = frame = FlowSpaceFrame(self.space, code,
                                func, constargs)
         self.joinpoints = {}
-        initialblock = SpamBlock(frame.getstate())
-        self.pendingblocks = collections.deque([initialblock])
-        self._init_graph(func, initialblock)
+        self.graph = frame._init_graph(func)
+        self.pendingblocks = collections.deque([self.graph.startblock])
 
-        if self.is_generator:
-            initialblock.operations.append(
-                SpaceOperation('generator_mark', [], Variable()))
 
         while self.pendingblocks:
             block = self.pendingblocks.popleft()
@@ -284,7 +263,7 @@ class FlowExecutionContext(ExecutionContext):
         self.fixeggblocks()
 
     def generate_yield(self, frame, w_result):
-        assert self.is_generator
+        assert frame.is_generator
         self.recorder.crnt_block.operations.append(
             SpaceOperation('yield', [w_result], Variable()))
         # we must push a dummy value that will be POPped: it's the .send()
@@ -384,6 +363,7 @@ class FlowExecutionContext(ExecutionContext):
 class FlowSpaceFrame(pyframe.CPythonFrame):
 
     def __init__(self, space, code, func, constargs=None):
+        self.is_generator = bool(code.co_flags & CO_GENERATOR)
         w_globals = Constant(func.func_globals)
         class outerfunc: pass # hack
         if func.func_closure is not None:
@@ -401,6 +381,29 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         for position, value in constargs.items():
             arg_list[position] = Constant(value)
         self.setfastscope(arg_list)
+
+    def _init_graph(self, func):
+        # CallableFactory.pycall may add class_ to functions that are methods
+        name = func.func_name
+        class_ = getattr(func, 'class_', None)
+        if class_ is not None:
+            name = '%s.%s' % (class_.__name__, name)
+        for c in "<>&!":
+            name = name.replace(c, '_')
+
+        initialblock = SpamBlock(self.getstate())
+        if self.is_generator:
+            initialblock.operations.append(
+                SpaceOperation('generator_mark', [], Variable()))
+        graph = FunctionGraph(name, initialblock)
+        graph.func = func
+        # attach a signature and defaults to the graph
+        # so that it becomes even more interchangeable with the function
+        # itself
+        graph.signature = self.pycode.signature()
+        graph.defaults = func.func_defaults or ()
+        graph.is_generator = self.is_generator
+        return graph
 
     def getstate(self):
         # getfastscope() can return real None, for undefined locals
