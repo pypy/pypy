@@ -127,9 +127,13 @@ class Assembler386(object):
         self._build_stack_check_slowpath()
         if gc_ll_descr.gcrootmap:
             self._build_release_gil(gc_ll_descr.gcrootmap)
-        debug_start('jit-backend-counts')
-        self.set_debug(have_debug_prints())
-        debug_stop('jit-backend-counts')
+        if not self._debug:
+            # if self._debug is already set it means that someone called
+            # set_debug by hand before initializing the assembler. Leave it
+            # as it is
+            debug_start('jit-backend-counts')
+            self.set_debug(have_debug_prints())
+            debug_stop('jit-backend-counts')
 
     def setup(self, looptoken):
         assert self.memcpy_addr != 0, "setup_once() not called?"
