@@ -17,8 +17,7 @@ class TestFrameState:
             pass
         code = func.func_code
         code = PyCode._from_code(self.space, code)
-        w_globals = Constant({}) # space.newdict()
-        frame = FlowSpaceFrame(space, code, w_globals, func)
+        frame = FlowSpaceFrame(space, code, func)
         # hack the frame
         frame.locals_stack_w[frame.pycode.co_nlocals-1] = Constant(None)
         return frame

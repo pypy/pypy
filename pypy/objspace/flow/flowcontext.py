@@ -213,11 +213,9 @@ class FlowExecutionContext(ExecutionContext):
         self.is_generator = bool(code.co_flags & CO_GENERATOR)
         self.code = code
 
-        self.w_globals = space.wrap(func.func_globals)
-
         self.crnt_offset = -1
         self.frame = frame = FlowSpaceFrame(self.space, code,
-                               self.w_globals, func, constargs)
+                               func, constargs)
         self.joinpoints = {}
         initialblock = SpamBlock(frame.getstate())
         self.pendingblocks = collections.deque([initialblock])
@@ -385,7 +383,8 @@ class FlowExecutionContext(ExecutionContext):
 
 class FlowSpaceFrame(pyframe.CPythonFrame):
 
-    def __init__(self, space, code, w_globals, func, constargs=None):
+    def __init__(self, space, code, func, constargs=None):
+        w_globals = Constant(func.func_globals)
         class outerfunc: pass # hack
         if func.func_closure is not None:
             cl = [c.cell_contents for c in func.func_closure]

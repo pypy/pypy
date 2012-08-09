@@ -363,7 +363,7 @@ class FlowObjSpace(ObjSpace):
     def setitem(self, w_obj, w_key, w_val):
         # protect us from globals write access
         ec = self.getexecutioncontext()
-        if ec and w_obj is ec.w_globals:
+        if ec and w_obj is ec.frame.w_globals:
             raise SyntaxError("attempt to modify global attribute %r in %r"
                             % (w_key, ec.graph.func))
         if self.concrete_mode:
