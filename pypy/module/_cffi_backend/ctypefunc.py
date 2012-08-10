@@ -409,8 +409,7 @@ class CifDescrBuilder(object):
         self.fb_extra_fields(rawmem)
 
         # call libffi's ffi_prep_cif() function
-        res = clibffi.c_ffi_prep_cif(rawmem.cif, rawmem.abi,
-                                     rawmem.nargs, rawmem.rtype, rawmem.atypes)
-        if rffi.cast(lltype.Signed, res) != clibffi.FFI_OK:
+        res = jit_libffi.jit_ffi_prep_cif(rawmem)
+        if res != clibffi.FFI_OK:
             raise OperationError(space.w_SystemError,
                 space.wrap("libffi failed to build this function type"))

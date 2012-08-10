@@ -11,16 +11,24 @@ FFI_ABI = clibffi.FFI_ABI
 FFI_TYPE_STRUCT = clibffi.FFI_TYPE_STRUCT
 SIZE_OF_FFI_ARG = rffi.sizeof(clibffi.ffi_arg)
 
-# "cif_description" is a block of raw memory describing how to do the call.
-# It starts with a block of memory of type FFI_CIF, which is used by libffi
-# itself.  Following it, we find jit_libffi-specific information:
+# Usage: for each C function, make one CIF_DESCRIPTION block of raw
+# memory.  Initialize it by filling all its fields apart from 'cif'.
+# The 'atypes' points to an array of ffi_type pointers; a reasonable
+# place to locate this array's memory is in the same block of raw
+# memory, by allocating more than sizeof(CIF_DESCRIPTION).
+#
+# The four fields 'abi', 'nargs', 'rtype', 'atypes' are the same as
+# the arguments to ffi_prep_cif().
+#
+# Following this, we find jit_libffi-specific information:
 #
 #  - 'exchange_size': an integer that tells how big a buffer we must
-#    allocate for the call; this buffer should have enough room at the
-#    beginning for an array of pointers to the actual argument values,
-#    which is initialized internally by jit_ffi_call().
+#    allocate to do the call; this buffer should have enough room at the
+#    beginning for an array of NARGS pointers which is initialized
+#    internally by jit_ffi_call().
 #
 #  - 'exchange_result': the offset in that buffer for the result of the call.
+#    (this and the other offsets must be at least NARGS * sizeof(void*).)
 #
 #  - 'exchange_result_libffi': the actual offset passed to ffi_call().
 #    Differs on big-endian machines if the result is an integer type smaller
@@ -43,6 +51,18 @@ CIF_DESCRIPTION = lltype.Struct(
     hints={'immutable': True})
 
 CIF_DESCRIPTION_P = lltype.Ptr(CIF_DESCRIPTION)
+
+
+def jit_ffi_prep_cif(cif_description):
+    """Minimal wrapper around ffi_prep_cif().  Call this after
+    cif_description is initialized, in order to fill the last field: 'cif'.
+    """
+    res = clibffi.c_ffi_prep_cif(cif_description.cif,
+                                 cif_description.abi,
+                                 cif_description.nargs,
+                                 cif_description.rtype,
+                                 cif_description.atypes)
+    return rffi.cast(lltype.Signed, res)
 
 
 @jit.oopspec("libffi_call(cif_description, func_addr, exchange_buffer)")
