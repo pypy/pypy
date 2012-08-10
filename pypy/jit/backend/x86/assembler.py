@@ -2667,13 +2667,13 @@ def addr_add(reg_or_imm1, reg_or_imm2, offset=0, scale=0):
     return AddressLoc(reg_or_imm1, reg_or_imm2, scale, offset)
 
 def addr_add_const(reg_or_imm1, offset):
-    return AddressLoc(reg_or_imm1, ImmedLoc(0), 0, offset)
+    return AddressLoc(reg_or_imm1, imm0, 0, offset)
 
 def mem(loc, offset):
-    return AddressLoc(loc, ImmedLoc(0), 0, offset)
+    return AddressLoc(loc, imm0, 0, offset)
 
 def heap(addr):
-    return AddressLoc(ImmedLoc(addr), ImmedLoc(0), 0, 0)
+    return AddressLoc(ImmedLoc(addr), imm0, 0, 0)
 
 def not_implemented(msg):
     os.write(2, '[x86/asm] %s\n' % msg)
