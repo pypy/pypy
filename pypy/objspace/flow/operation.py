@@ -378,45 +378,7 @@ def make_op(fs, name, symbol, arity, specialnames):
     setattr(fs, name, generic_operator)
 
 
-"""
-This is just a placeholder for some code I'm checking in elsewhere.
-It is provenly possible to determine constantness of certain expressions
-a little later. I introduced this a bit too early, together with tieing
-this to something being global, which was a bad idea.
-The concept is still valid, and it can  be used to force something to
-be evaluated immediately because it is supposed to be a constant.
-One good possible use of this is loop unrolling.
-This will be found in an 'experimental' folder with some use cases.
-"""
-
-def special_overrides(fs):
-    def getattr(self, w_obj, w_name):
-        # handling special things like sys
-        # unfortunately this will never vanish with a unique import logic :-(
-        if w_obj in self.not_really_const:
-            const_w = self.not_really_const[w_obj]
-            if w_name not in const_w:
-                return self.do_operation_with_implicit_exceptions('getattr',
-                                                                  w_obj, w_name)
-        return self.regular_getattr(w_obj, w_name)
-
-    fs.regular_getattr = fs.getattr
-    fs.getattr = getattr
-
-    # protect us from globals write access
-    def setitem(self, w_obj, w_key, w_val):
-        ec = self.getexecutioncontext()
-        if not (ec and w_obj is ec.w_globals):
-            return self.regular_setitem(w_obj, w_key, w_val)
-        raise SyntaxError("attempt to modify global attribute %r in %r"
-                          % (w_key, ec.graph.func))
-
-    fs.regular_setitem = fs.setitem
-    fs.setitem = setitem
-
-
 def add_operations(fs):
     """Add function operations to the flow space."""
     for line in ObjSpace.MethodTable:
         make_op(fs, *line)
-    special_overrides(fs)
