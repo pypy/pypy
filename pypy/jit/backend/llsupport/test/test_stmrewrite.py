@@ -24,6 +24,14 @@ class TestStm(RewriteTests):
                 return descr
         self.cpu = FakeCPU()
 
+    def check_rewrite(self, frm_operations, to_operations, **namespace):
+        inev = ("call(ConstClass(stm_try_inevitable),"
+                " descr=stm_try_inevitable_descr)")
+        frm_operations = frm_operations.replace('$INEV', inev)
+        to_operations  = to_operations .replace('$INEV', inev)
+        RewriteTests.check_rewrite(self, frm_operations, to_operations,
+                                   **namespace)
+
     def test_rewrite_one_setfield_gc(self):
         self.check_rewrite("""
             [p1, p2]
@@ -33,6 +41,19 @@ class TestStm(RewriteTests):
             [p1, p2]
             cond_call_gc_wb(p1, 0, descr=wbdescr)
             setfield_gc(p1, p2, descr=tzdescr)
+            jump()
+        """)
+
+    def test_rewrite_setfield_gc_const(self):
+        self.check_rewrite("""
+            [p1, p2]
+            setfield_gc(ConstPtr(t), p2, descr=tzdescr)
+            jump()
+        """, """
+            [p1, p2]
+            p3 = same_as(ConstPtr(t))
+            cond_call_gc_wb(p3, 0, descr=wbdescr)
+            setfield_gc(p3, p2, descr=tzdescr)
             jump()
         """)
 
@@ -171,17 +192,18 @@ class TestStm(RewriteTests):
     def test_rewrite_getinteriorfield_gc(self):
         self.check_rewrite("""
             [p1, i2]
-            i3 = getinteriorfield_gc(p1, ...)
+            i3 = getinteriorfield_gc(p1, i2, descr=adescr)
             jump(i3)
         """, """
             [p1, i2]
             stm_read_before()
-            i3 = getinteriorfield_gc(p1, ...)
+            i3 = getinteriorfield_gc(p1, i2, descr=adescr)
             stm_read_after()
             jump(i3)
         """)
 
     def test_rewrite_several_getfield_gcs(self):
+        py.test.skip("optimization")
         self.check_rewrite("""
             [p1]
             p2 = getfield_gc(p1, descr=tzdescr)
@@ -214,6 +236,7 @@ class TestStm(RewriteTests):
         """)
 
     def test_move_forward_getfield_gc(self):
+        py.test.skip("optimization")
         self.check_rewrite("""
             [p1]
             p2 = getfield_gc(p1, descr=tzdescr)
@@ -265,20 +288,21 @@ class TestStm(RewriteTests):
 
     def test_rewrite_getfield_gc_on_local_2(self):
         self.check_rewrite("""
-            [p1]
+            [p0]
             p1 = new(descr=tdescr)
             p2 = getfield_gc(p1, descr=tzdescr)
             jump(p2)
         """, """
-            [p1]
-            p1 = call_malloc_gc(ConstClass(malloc_fixedsize),    \
+            [p0]
+            p1 = call_malloc_gc(ConstClass(malloc_big_fixedsize),    \
                                 %(tdescr.size)d, %(tdescr.tid)d, \
-                                descr=malloc_fixedsize_descr)
+                                descr=malloc_big_fixedsize_descr)
             p2 = getfield_gc(p1, descr=tzdescr)
             jump(p2)
         """)
 
     def test_rewrite_getfield_gc_on_future_local(self):
+        py.test.skip("optimization")
         self.check_rewrite("""
             [p1]
             p2 = getfield_gc(p1, descr=tzdescr)
@@ -293,6 +317,7 @@ class TestStm(RewriteTests):
         """)
 
     def test_rewrite_getfield_gc_on_future_local_after_call(self):
+        py.test.skip("optimization")
         self.check_rewrite("""
             [p1]
             p2 = getfield_gc(p1, descr=tzdescr)
@@ -318,7 +343,7 @@ class TestStm(RewriteTests):
             jump(i3, i4)
         """, """
             [i1, i2]
-            call(521)     # stm_become_inevitable
+            $INEV
             i3 = getfield_raw(i1, descr=?)
             keepalive(i3)
             i4 = getfield_raw(i2, descr=?)
@@ -334,10 +359,10 @@ class TestStm(RewriteTests):
             jump(i3, i4)
         """, """
             [i1, i2]
-            call(521)     # stm_become_inevitable
+            $INEV
             i3 = getfield_raw(i1, descr=?)
             label(i1, i2, i3)
-            call(521)     # stm_become_inevitable
+            $INEV
             i4 = getfield_raw(i2, descr=?)
             jump(i3, i4)
         """)
@@ -350,7 +375,7 @@ class TestStm(RewriteTests):
             jump(i3, i4)
         """, """
             [i1, i2]
-            call(521)     # stm_become_inevitable
+            $INEV
             i3 = getarrayitem_raw(i1, 5, descr=?)
             i4 = getarrayitem_raw(i2, i3, descr=?)
             jump(i3, i4)
@@ -364,22 +389,10 @@ class TestStm(RewriteTests):
             jump(i3, i4)
         """, """
             [i1, i2]
-            call(521)     # stm_become_inevitable
+            $INEV
             i3 = getinteriorfield_raw(i1, 5, descr=?)
             i4 = getinteriorfield_raw(i2, i3, descr=?)
             jump(i3, i4)
-        """)
-
-    def test_new_turns_into_malloc(self):
-        self.check_rewrite("""
-            []
-            p0 = new(descr=sdescr)
-            jump(p0)
-        """, """
-            []
-            p0 = call_malloc_nursery(%(sdescr.size)d)
-            setfield_gc(p0, 1234, descr=tiddescr)
-            jump(p0)
         """)
 
     def test_rewrite_unrelated_setarrayitem_gcs(self):
@@ -399,31 +412,33 @@ class TestStm(RewriteTests):
 
     def test_rewrite_several_setarrayitem_gcs(self):
         self.check_rewrite("""
-            [p1, p2, i3, i2, i3]
-            setarrayitem_gc(p1, i2, p2, descr=?)
+            [p1, p2, i2, p3, i3]
+            setarrayitem_gc(p1, i2, p2, descr=adescr)
             i4 = read_timestamp()
-            setarrayitem_gc(p1, i3, i3, descr=?)
+            setarrayitem_gc(p1, i3, p3, descr=adescr)
             jump()
         """, """
-            [p1, p1, i3]
+            [p1, p2, i2, p3, i3]
             cond_call_gc_wb(p1, 0, descr=wbdescr)
-            setarrayitem_gc(p1, i2, p2, descr=?)
+            setarrayitem_gc(p1, i2, p2, descr=adescr)
             i4 = read_timestamp()
-            setarrayitem_gc(p1, i3, p3, descr=?)
+            setarrayitem_gc(p1, i3, p3, descr=adescr)
             jump()
         """)
 
     def test_rewrite_several_setinteriorfield_gc(self):
         self.check_rewrite("""
-            [p1, p2, i3, i2, i3]
-            setinteriorfield_gc(p1, i2, p2, descr=?)
-            setinteriorfield_gc(p1, i3, i3, descr=?)
+            [p1, p2, i2, p3, i3]
+            setinteriorfield_gc(p1, i2, p2, descr=adescr)
+            i4 = read_timestamp()
+            setinteriorfield_gc(p1, i3, p3, descr=adescr)
             jump()
         """, """
-            [p1, p1, i3]
+            [p1, p2, i2, p3, i3]
             cond_call_gc_wb(p1, 0, descr=wbdescr)
-            setinteriorfield_gc(p1, i2, p2, descr=?)
-            setinteriorfield_gc(p1, i3, p3, descr=?)
+            setinteriorfield_gc(p1, i2, p2, descr=adescr)
+            i4 = read_timestamp()
+            setinteriorfield_gc(p1, i3, p3, descr=adescr)
             jump()
         """)
 
@@ -434,7 +449,7 @@ class TestStm(RewriteTests):
             unicodesetitem(p1, i2, i3)
             jump()
         """, """
-            [p1, p2, i3]
+            [p1, i2, i3]
             cond_call_gc_wb(p1, 0, descr=wbdescr)
             strsetitem(p1, i2, i3)
             unicodesetitem(p1, i2, i3)
@@ -460,10 +475,10 @@ class TestStm(RewriteTests):
                 [i1, i2, i3, p7]
                 cond_call_gc_wb(p7, 0, descr=wbdescr)
                 setfield_gc(p7, 10, descr=tydescr)
-                call(521)     # stm_become_inevitable
+                $INEV
                 %s
                 cond_call_gc_wb(p7, 0, descr=wbdescr)
-                setfield_gc(p7, 10, descr=tydescr)
+                setfield_gc(p7, 20, descr=tydescr)
                 jump(i2, p7)
             """ % op)
 
@@ -473,8 +488,8 @@ class TestStm(RewriteTests):
             copystrcontent(p1, p2, i1, i2, i3)
             jump()
         """, """
-            [p1]
-            call_cond_gc_wb(p2, 0, descr=wbdescr)
+            [p1, p2, i1, i2, i3]
+            cond_call_gc_wb(p2, 0, descr=wbdescr)
             stm_read_before()
             copystrcontent(p1, p2, i1, i2, i3)
             stm_read_after()
@@ -482,6 +497,7 @@ class TestStm(RewriteTests):
         """)
 
     def test_call_dont_force(self):
+        py.test.skip("optimization")
         for op in ["call(123, descr=calldescr1)",
                    "call_may_force(123, descr=calldescr1)",
                    "call_loopinvariant(123, descr=calldescr1)",

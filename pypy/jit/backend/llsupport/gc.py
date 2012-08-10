@@ -821,6 +821,11 @@ class GcLLDescr_framework(GcLLDescription):
         self.generate_function('malloc_big_fixedsize', malloc_big_fixedsize,
                                [lltype.Signed] * 2)
 
+        if self.stm:
+            from pypy.rlib import rstm
+            self.generate_function('stm_try_inevitable',
+                                   rstm.become_inevitable, [])
+
     def _bh_malloc(self, sizedescr):
         from pypy.rpython.memory.gctypelayout import check_typeid
         llop1 = self.llop1
