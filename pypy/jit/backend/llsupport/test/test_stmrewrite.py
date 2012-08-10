@@ -116,6 +116,20 @@ class TestStm(RewriteTests):
             jump(p2)
         """)
 
+    def test_rewrite_getfield_gc_const(self):
+        self.check_rewrite("""
+            [p1]
+            p2 = getfield_gc(123456, descr=tzdescr)
+            jump(p2)
+        """, """
+            [p1]
+            p1 = same_as(123456)
+            stm_read_before()
+            p2 = getfield_gc(p1, descr=tzdescr)
+            stm_read_after()
+            jump(p2)
+        """)
+
     def test_rewrite_getarrayitem_gc(self):
         self.check_rewrite("""
             [p1, i2]
@@ -124,7 +138,7 @@ class TestStm(RewriteTests):
         """, """
             [p1, i2]
             stm_read_before()
-            i3 = stm_getarrayitem_gc(p1, i2, descr=adescr)
+            i3 = getarrayitem_gc(p1, i2, descr=adescr)
             stm_read_after()
             jump(i3)
         """)
@@ -137,7 +151,7 @@ class TestStm(RewriteTests):
         """, """
             [p1, i2]
             stm_read_before()
-            i3 = stm_getinteriorfield_gc(p1, ...)
+            i3 = getinteriorfield_gc(p1, ...)
             stm_read_after()
             jump(i3)
         """)
@@ -208,6 +222,51 @@ class TestStm(RewriteTests):
             i2 = getfield_gc(p1, descr=tydescr)
             stm_read_after()
             jump(p2, i2)
+        """)
+
+    def test_rewrite_getfield_gc_on_local(self):
+        self.check_rewrite("""
+            [p1]
+            setfield_gc(p1, 5, descr=tydescr)
+            p2 = getfield_gc(p1, descr=tzdescr)
+            jump(p2)
+        """, """
+            [p1]
+            cond_call_gc_wb(p1, 0, descr=wbdescr)
+            setfield_gc(p1, 5, descr=tydescr)
+            p2 = getfield_gc(p1, descr=tzdescr)
+            jump(p2)
+        """)
+
+    def test_rewrite_getfield_gc_on_future_local(self):
+        self.check_rewrite("""
+            [p1]
+            p2 = getfield_gc(p1, descr=tzdescr)
+            setfield_gc(p1, 5, descr=tydescr)
+            jump(p2)
+        """, """
+            [p1]
+            cond_call_gc_wb(p1, 0, descr=wbdescr)
+            p2 = getfield_gc(p1, descr=tzdescr)
+            setfield_gc(p1, 5, descr=tydescr)
+            jump(p2)
+        """)
+
+    def test_rewrite_getfield_gc_on_future_local_after_call(self):
+        self.check_rewrite("""
+            [p1]
+            p2 = getfield_gc(p1, descr=tzdescr)
+            call(p2)
+            setfield_gc(p1, 5, descr=tydescr)
+            jump(p2)
+        """, """
+            [p1]
+            cond_call_gc_wb(p1, 0, descr=wbdescr)
+            p2 = getfield_gc(p1, descr=tzdescr)
+            call(p2)
+            cond_call_gc_wb(p1, 0, descr=wbdescr)
+            setfield_gc(p1, 5, descr=tydescr)
+            jump(p2)
         """)
 
     def test_getfield_raw(self):
@@ -369,7 +428,18 @@ class TestStm(RewriteTests):
             """ % op)
 
     def test_copystrcontent(self):
-        xxx  #?
+        self.check_rewrite("""
+            [p1, p2, i1, i2, i3]
+            copystrcontent(p1, p2, i1, i2, i3)
+            jump()
+        """, """
+            [p1]
+            call_cond_gc_wb(p2, 0, descr=wbdescr)
+            stm_read_before()
+            copystrcontent(p1, p2, i1, i2, i3)
+            stm_read_after()
+            jump()
+        """)
 
     def test_call_dont_force(self):
         for op in ["call(123, descr=calldescr1)",
