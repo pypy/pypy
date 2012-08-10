@@ -475,3 +475,6 @@ class Entry(ExtRegistryEntry):
     def specialize_call(self, hop):
         hop.exception_is_here()
         return hop.genop('gc_typeids_z', [], resulttype = hop.r_result)
+
+def lltype_is_gc(TP):
+    return getattr(getattr(TP, "TO", None), "_gckind", "?") == 'gc'

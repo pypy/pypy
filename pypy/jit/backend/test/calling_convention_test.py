@@ -59,7 +59,6 @@ class TestCallingConv(Runner):
         return ConstInt(heaptracker.adr2int(addr))
 
     def test_call_aligned_with_spilled_values(self):
-        from pypy.rlib.libffi import types
         cpu = self.cpu
         if not cpu.supports_floats:
             py.test.skip('requires floats')
@@ -118,7 +117,6 @@ class TestCallingConv(Runner):
             assert abs(x - expected_result) < 0.0001
 
     def test_call_aligned_with_imm_values(self):
-        from pypy.rlib.libffi import types
         cpu = self.cpu
         if not cpu.supports_floats:
             py.test.skip('requires floats')
@@ -161,7 +159,6 @@ class TestCallingConv(Runner):
             assert abs(res.getfloat() - result) < 0.0001
 
     def test_call_aligned_with_args_on_the_stack(self):
-        from pypy.rlib.libffi import types
         cpu = self.cpu
         if not cpu.supports_floats:
             py.test.skip('requires floats')
@@ -204,7 +201,6 @@ class TestCallingConv(Runner):
             assert abs(res.getfloat() - result) < 0.0001
 
     def test_call_alignment_call_assembler(self):
-        from pypy.rlib.libffi import types
         cpu = self.cpu
         if not cpu.supports_floats:
             py.test.skip('requires floats')
@@ -303,7 +299,6 @@ class TestCallingConv(Runner):
             py.test.skip('requires floats and singlefloats')
 
         import random
-        from pypy.rlib.libffi import types
         from pypy.rlib.rarithmetic import r_singlefloat
 
         def func(*args):
