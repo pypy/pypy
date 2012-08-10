@@ -9,10 +9,12 @@ from pypy.rpython.extfunc import register_external
 from pypy.module._minimal_curses import interp_curses
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from sys import platform
+import os.path
 
 _CYGWIN = platform == 'cygwin'
+_NCURSES_CURSES = os.path.isfile("/usr/include/ncurses/curses.h") 
 
-if _CYGWIN:
+if _CYGWIN or _NCURSES_CURSES:
     eci = ExternalCompilationInfo(
         includes = ['ncurses/curses.h', 'ncurses/term.h'],
         libraries = ['curses'],

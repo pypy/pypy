@@ -176,7 +176,6 @@ class TestTranslationARM(CCompiledMixin):
         assert bound & (bound-1) == 0       # a power of two
 
     def test_jit_get_stats(self):
-        py.test.xfail()
         driver = JitDriver(greens = [], reds = ['i'])
         
         def f():
@@ -192,7 +191,8 @@ class TestTranslationARM(CCompiledMixin):
             return len(ll_times)
 
         res = self.meta_interp(main, [])
-        assert res == 1
+        assert res == 3
+        # one for loop, one for entry point and one for the prologue
 
 class TestTranslationRemoveTypePtrARM(CCompiledMixin):
     CPUClass = getcpuclass()

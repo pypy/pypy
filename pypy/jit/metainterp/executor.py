@@ -277,19 +277,6 @@ def do_keepalive(cpu, _, x):
 
 
 def _make_execute_list():
-    if 0:     # enable this to trace calls to do_xxx
-        def wrap(fn):
-            def myfn(*args):
-                print '<<<', fn.__name__
-                try:
-                    return fn(*args)
-                finally:
-                    print fn.__name__, '>>>'
-            return myfn
-    else:
-        def wrap(fn):
-            return fn
-    #
     execute_by_num_args = {}
     for key, value in rop.__dict__.items():
         if not key.startswith('_'):
