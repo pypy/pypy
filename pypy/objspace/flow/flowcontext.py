@@ -208,18 +208,7 @@ class FlowExecutionContext(ExecutionContext):
             block = self.pendingblocks.popleft()
             try:
                 self.recorder = frame.recording(block)
-            except StopFlowing:
-                continue   # restarting a dead SpamBlock
-            try:
-                frame.frame_finished_execution = False
-                while True:
-                    w_result = frame.dispatch(frame.pycode,
-                                                frame.last_instr,
-                                                self)
-                    if frame.frame_finished_execution:
-                        break
-                    else:
-                        self.generate_yield(frame, w_result)
+                w_result = frame.run(self)
 
             except operation.OperationThatShouldNotBePropagatedError, e:
                 raise Exception(
@@ -259,18 +248,9 @@ class FlowExecutionContext(ExecutionContext):
                 link = self.make_link([w_result], self.graph.returnblock)
                 self.recorder.crnt_block.closeblock(link)
 
-            del self.recorder
+        del self.recorder
         self.fixeggblocks()
 
-    def generate_yield(self, frame, w_result):
-        assert frame.is_generator
-        self.recorder.crnt_block.operations.append(
-            SpaceOperation('yield', [w_result], Variable()))
-        # we must push a dummy value that will be POPped: it's the .send()
-        # passed into the generator (2.5 feature)
-        assert sys.version_info >= (2, 5)
-        frame.pushvalue(None)
-        frame.last_instr += 1
 
     def fixeggblocks(self):
         # EggBlocks reuse the variables of their previous block,
@@ -450,6 +430,24 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
             recorder = Replayer(parent, prevblock.booloutcome, recorder)
             prevblock = parent
         return recorder
+
+    def run(self, ec):
+        self.frame_finished_execution = False
+        while True:
+            w_result = self.dispatch(self.pycode, self.last_instr, ec)
+            if self.frame_finished_execution:
+                return w_result
+            else:
+                self.generate_yield(ec, w_result)
+
+    def generate_yield(self, ec, w_result):
+        assert self.is_generator
+        ec.recorder.crnt_block.operations.append(
+            SpaceOperation('yield', [w_result], Variable()))
+        # we must push a dummy value that will be POPped: it's the .send()
+        # passed into the generator
+        self.pushvalue(None)
+        self.last_instr += 1
 
     def SETUP_WITH(self, offsettoend, next_instr):
         # A simpler version than the 'real' 2.7 one:
