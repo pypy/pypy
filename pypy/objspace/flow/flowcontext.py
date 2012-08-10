@@ -73,7 +73,6 @@ class BlockRecorder(Recorder):
         self.crnt_block.operations.append(operation)
 
     def bytecode_trace(self, ec, frame):
-        ec.crnt_offset = frame.last_instr      # save offset for opcode
         if self.enterspamblock:
             # If we have a SpamBlock, the first call to bytecode_trace()
             # occurs as soon as frame.resume() starts, before interpretation
@@ -196,13 +195,11 @@ class FlowExecutionContext(ExecutionContext):
         code = PyCode._from_code(space, func.func_code)
         self.code = code
 
-        self.crnt_offset = -1
         self.frame = frame = FlowSpaceFrame(self.space, code,
                                func, constargs)
         self.joinpoints = {}
         self.graph = frame._init_graph(func)
         self.pendingblocks = collections.deque([self.graph.startblock])
-
 
         while self.pendingblocks:
             block = self.pendingblocks.popleft()

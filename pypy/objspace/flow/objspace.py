@@ -263,7 +263,7 @@ class FlowObjSpace(ObjSpace):
         except error.FlowingError, a:
             # attach additional source info to AnnotatorError
             _, _, tb = sys.exc_info()
-            formated = error.format_global_error(ec.graph, ec.crnt_offset,
+            formated = error.format_global_error(ec.graph, ec.frame.last_instr,
                                                  str(a))
             e = error.FlowingError(formated)
             raise error.FlowingError, e, tb
@@ -303,7 +303,7 @@ class FlowObjSpace(ObjSpace):
     def do_operation(self, name, *args_w):
         spaceop = SpaceOperation(name, args_w, Variable())
         if hasattr(self, 'executioncontext'):  # not here during bootstrapping
-            spaceop.offset = self.executioncontext.crnt_offset
+            spaceop.offset = self.executioncontext.frame.last_instr
             self.executioncontext.recorder.append(spaceop)
         return spaceop.result
 
