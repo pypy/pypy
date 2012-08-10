@@ -6,6 +6,7 @@ from pypy.interpreter import pyframe, nestedscope
 from pypy.interpreter.argument import ArgumentsForTranslation
 from pypy.interpreter.astcompiler.consts import CO_GENERATOR
 from pypy.interpreter.pycode import PyCode, cpython_code_signature
+from pypy.interpreter.pyopcode import Return, Yield
 from pypy.objspace.flow import operation
 from pypy.objspace.flow.model import *
 from pypy.objspace.flow.framestate import (FrameState, recursively_unflatten,
@@ -431,20 +432,21 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
     def run(self, ec):
         self.frame_finished_execution = False
         while True:
-            w_result = self.dispatch(self.pycode, self.last_instr, ec)
-            if self.frame_finished_execution:
-                return w_result
-            else:
-                self.generate_yield(ec, w_result)
+            co_code = self.pycode.co_code
+            next_instr = self.last_instr
+            try:
+                while True:
+                    next_instr = self.handle_bytecode(co_code, next_instr, ec)
+            except Return:
+                return self.popvalue()
 
-    def generate_yield(self, ec, w_result):
+    def YIELD_VALUE(self, _, next_instr):
         assert self.is_generator
-        ec.recorder.crnt_block.operations.append(
-            SpaceOperation('yield', [w_result], Variable()))
-        # we must push a dummy value that will be POPped: it's the .send()
-        # passed into the generator
+        w_result = self.popvalue()
+        self.space.do_operation('yield', w_result)
+        # XXX yield expressions not supported. This will blow up if the value
+        # isn't popped straightaway.
         self.pushvalue(None)
-        self.last_instr += 1
 
     def SETUP_WITH(self, offsettoend, next_instr):
         # A simpler version than the 'real' 2.7 one:
