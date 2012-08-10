@@ -22,6 +22,9 @@ class AbstractARMCPU(AbstractLLCPU):
         AbstractLLCPU.__init__(self, rtyper, stats, opts,
                                translate_support_code, gcdescr)
 
+    def set_debug(self, flag):
+        return self.assembler.set_debug(flag)
+
     def setup(self):
         if self.opts is not None:
             failargs_limit = self.opts.failargs_limit

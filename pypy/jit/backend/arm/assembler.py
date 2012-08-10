@@ -70,7 +70,9 @@ class AssemblerARM(ResOpAssembler):
         self.debug_counter_descr = cpu.fielddescrof(DEBUG_COUNTER, 'i')
 
     def set_debug(self, v):
+        r = self._debug
         self._debug = v
+        return r
 
     def _compute_stack_size(self):
         self.STACK_FIXED_AREA = len(r.callee_saved_registers) * WORD
@@ -124,9 +126,13 @@ class AssemblerARM(ResOpAssembler):
         self._leave_jitted_hook_save_exc = \
                                     self._gen_leave_jitted_hook_code(True)
         self._leave_jitted_hook = self._gen_leave_jitted_hook_code(False)
-        debug_start('jit-backend-counts')
-        self.set_debug(have_debug_prints())
-        debug_stop('jit-backend-counts')
+        if not self._debug:
+            # if self._debug is already set it means that someone called
+            # set_debug by hand before initializing the assembler. Leave it
+            # as it is
+            debug_start('jit-backend-counts')
+            self.set_debug(have_debug_prints())
+            debug_stop('jit-backend-counts')
 
     def finish_once(self):
         if self._debug:
