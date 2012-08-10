@@ -448,8 +448,13 @@ class RegAlloc(object):
             if self.can_merge_with_next_guard(op, i, operations):
                 oplist_with_guard[op.getopnum()](self, op, operations[i + 1])
                 i += 1
-            elif not we_are_translated() and op.getopnum() == -124:
-                self._consider_force_spill(op)
+            elif not we_are_translated() and op.getopnum() < 0:
+                if op.getopnum() == -124:
+                    self._consider_force_spill(op)
+                elif op.getopnum() == -123:
+                    self._consider_escape(op)
+                else:
+                    assert 0, op
             else:
                 oplist[op.getopnum()](self, op)
             if op.result is not None:
@@ -1430,6 +1435,12 @@ class RegAlloc(object):
         # This operation is used only for testing
         self.force_spill_var(op.getarg(0))
 
+    def _consider_escape(self, op):
+        # This operation is used only for testing:
+        # it checks that op.getarg(0) is currently not in a reg
+        loc = self.loc(op.getarg(0))
+        assert not isinstance(loc, RegLoc)
+
     def get_mark_gc_roots(self, gcrootmap, use_copy_area=False):
         shape = gcrootmap.get_basic_shape()
         for v, val in self.fm.bindings.items():
@@ -1519,6 +1530,10 @@ class RegAlloc(object):
 
     def consider_keepalive(self, op):
         pass
+
+    def consider_stm_read_before(self, op):
+        self.xrm.before_call(save_all_regs=True)
+        self.rm.before_call(save_all_regs=True)
 
     def not_implemented_op(self, op):
         not_implemented("not implemented operation: %s" % op.getopname())
