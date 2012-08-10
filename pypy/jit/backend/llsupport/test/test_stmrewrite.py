@@ -1,3 +1,4 @@
+from pypy.jit.backend.llsupport.descr import *
 from pypy.jit.backend.llsupport.gc import *
 from pypy.jit.metainterp.gc import get_description
 from pypy.jit.backend.llsupport.test.test_rewrite import RewriteTests
@@ -29,10 +30,25 @@ class TestStm(RewriteTests):
             setfield_gc(p1, p2, descr=tzdescr)
             jump()
         """, """
-            [p1]
+            [p1, p2]
             cond_call_gc_wb(p1, 0, descr=wbdescr)
-            setfield_gc(p2, p2, descr=tzdescr)
+            setfield_gc(p1, p2, descr=tzdescr)
             jump()
+        """)
+
+    def test_rewrite_setfield_gc_on_local(self):
+        self.check_rewrite("""
+            [p1]
+            p2 = new(descr=tdescr)
+            setfield_gc(p2, p1, descr=tzdescr)
+            jump(p2)
+        """, """
+            [p1]
+            p2 = call_malloc_gc(ConstClass(malloc_big_fixedsize),    \
+                                %(tdescr.size)d, %(tdescr.tid)d, \
+                                descr=malloc_big_fixedsize_descr)
+            setfield_gc(p2, p1, descr=tzdescr)
+            jump(p2)
         """)
 
     def test_rewrite_unrelated_setfield_gcs(self):
@@ -81,6 +97,16 @@ class TestStm(RewriteTests):
             jump(p1)
         """)
 
+    def test_remove_debug_merge_point(self):
+        self.check_rewrite("""
+            [i1, i2]
+            debug_merge_point(i1, i2)
+            jump()
+        """, """
+            [i1, i2]
+            jump()
+        """)
+
     def test_ignore_some_operations(self):
         oplist = [
             "guard_true(i1) [i2]",    # all guards
@@ -90,7 +116,6 @@ class TestStm(RewriteTests):
             "i3 = force_token()",
             "i3 = read_timestamp()",
             "i3 = mark_opaque_ptr(p1)",
-            "debug_merge_point(i1, i2)",
             "jit_debug(i1, i2)",
             "keepalive(i1)",
             "i3 = int_sub_ovf(i1, i2)",   # is_ovf operations
@@ -234,6 +259,21 @@ class TestStm(RewriteTests):
             [p1]
             cond_call_gc_wb(p1, 0, descr=wbdescr)
             setfield_gc(p1, 5, descr=tydescr)
+            p2 = getfield_gc(p1, descr=tzdescr)
+            jump(p2)
+        """)
+
+    def test_rewrite_getfield_gc_on_local_2(self):
+        self.check_rewrite("""
+            [p1]
+            p1 = new(descr=tdescr)
+            p2 = getfield_gc(p1, descr=tzdescr)
+            jump(p2)
+        """, """
+            [p1]
+            p1 = call_malloc_gc(ConstClass(malloc_fixedsize),    \
+                                %(tdescr.size)d, %(tdescr.tid)d, \
+                                descr=malloc_fixedsize_descr)
             p2 = getfield_gc(p1, descr=tzdescr)
             jump(p2)
         """)

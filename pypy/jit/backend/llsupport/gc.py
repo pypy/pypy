@@ -106,7 +106,7 @@ class GcLLDescription(GcCache):
             from pypy.jit.backend.llsupport.rewrite import GcRewriterAssembler
         else:
             from pypy.jit.backend.llsupport import stmrewrite
-            GcRewriterAssembler = stmrewrite.GcStmReviewerAssembler
+            GcRewriterAssembler = stmrewrite.GcStmRewriterAssembler
         rewriter = GcRewriterAssembler(self, cpu)
         newops = rewriter.rewrite(operations)
         # record all GCREFs, because the GC (or Boehm) cannot see them and
@@ -683,7 +683,10 @@ class GcLLDescr_framework(GcLLDescription):
     def _initialize_for_tests(self):
         self.layoutbuilder = None
         self.fielddescr_tid = AbstractDescr()
-        self.max_size_of_young_obj = 1000
+        if self.stm:
+            self.max_size_of_young_obj = None
+        else:
+            self.max_size_of_young_obj = 1000
         self.GCClass = None
 
     def _check_valid_gc(self):
@@ -893,7 +896,7 @@ class GcLLDescr_framework(GcLLDescription):
             funcptr(llmemory.cast_ptr_to_adr(gcref_struct))
 
     def can_use_nursery_malloc(self, size):
-        return (self.max_size_of_young_obj is None or
+        return (self.max_size_of_young_obj is not None and
                 size < self.max_size_of_young_obj)
 
     def has_write_barrier_class(self):

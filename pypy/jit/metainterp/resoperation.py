@@ -149,11 +149,7 @@ class AbstractResOp(object):
         return rop._CANRAISE_FIRST <= self.getopnum() <= rop._CANRAISE_LAST
 
     def is_malloc(self):
-        # a slightly different meaning from can_malloc
         return rop._MALLOC_FIRST <= self.getopnum() <= rop._MALLOC_LAST
-
-    def can_malloc(self):
-        return self.is_call() or self.is_malloc()
 
     def is_call(self):
         return rop._CALL_FIRST <= self.getopnum() <= rop._CALL_LAST

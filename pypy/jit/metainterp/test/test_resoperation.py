@@ -62,12 +62,12 @@ def test_instantiate():
     assert op.result == 'c'
     assert op.getdescr() is mydescr
 
-def test_can_malloc():
+def test_is_malloc():
     mydescr = AbstractDescr()
-    assert rop.ResOperation(rop.rop.NEW, [], 'b').can_malloc()
+    assert rop.ResOperation(rop.rop.NEW, [], 'b').is_malloc()
     call = rop.ResOperation(rop.rop.CALL, ['a', 'b'], 'c', descr=mydescr)
-    assert call.can_malloc()
-    assert not rop.ResOperation(rop.rop.INT_ADD, ['a', 'b'], 'c').can_malloc()
+    assert not call.is_malloc()
+    assert not rop.ResOperation(rop.rop.INT_ADD, ['a', 'b'], 'c').is_malloc()
 
 def test_get_deep_immutable_oplist():
     ops = [rop.ResOperation(rop.rop.INT_ADD, ['a', 'b'], 'c')]

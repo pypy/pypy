@@ -31,7 +31,7 @@ class GcRewriterAssembler(object):
         self.cpu = cpu
         self.newops = []
         self.known_lengths = {}
-        self.recent_mallocs = {}     # set of variables
+        self.recent_mallocs = set()     # set of variables
 
     def rewrite(self, operations):
         # we can only remember one malloc since the next malloc can possibly
@@ -47,7 +47,7 @@ class GcRewriterAssembler(object):
             if op.is_malloc():
                 self.handle_malloc_operation(op)
                 continue
-            elif op.can_malloc():
+            elif op.is_call():
                 self.emitting_an_operation_that_can_collect()
             elif op.getopnum() == rop.LABEL:
                 self.emitting_an_operation_that_can_collect()
@@ -147,7 +147,7 @@ class GcRewriterAssembler(object):
         op = ResOperation(rop.CALL_MALLOC_GC, args, v_result, descr)
         self.newops.append(op)
         # mark 'v_result' as freshly malloced
-        self.recent_mallocs[v_result] = None
+        self.recent_mallocs.add(v_result)
 
     def gen_malloc_fixedsize(self, size, typeid, v_result):
         """Generate a CALL_MALLOC_GC(malloc_fixedsize_fn, ...).
@@ -247,7 +247,7 @@ class GcRewriterAssembler(object):
         self.newops.append(op)
         self._previous_size = size
         self._v_last_malloced_nursery = v_result
-        self.recent_mallocs[v_result] = None
+        self.recent_mallocs.add(v_result)
         return True
 
     def gen_initialize_tid(self, v_newgcobj, tid):
