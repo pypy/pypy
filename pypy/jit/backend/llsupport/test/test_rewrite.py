@@ -27,6 +27,8 @@ class RewriteTests(object):
         tdescr.tid = 5678
         tzdescr = get_field_descr(self.gc_ll_descr, T, 'z')
         tydescr = get_field_descr(self.gc_ll_descr, T, 'y')
+        t = lltype.cast_opaque_ptr(llmemory.GCREF,
+                                   lltype.malloc(T, immortal=True))
         #
         A = lltype.GcArray(lltype.Signed)
         adescr = get_array_descr(self.gc_ll_descr, A)

@@ -17,15 +17,21 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         for op in operations:
             if op.getopnum() == rop.DEBUG_MERGE_POINT:
                 continue
-            # ----------  mallocs  ----------
-            if op.is_malloc():
-                self.handle_malloc_operation(op)
+            # ----------  getfields  ----------
+            if op.getopnum() in (rop.GETFIELD_GC,
+                                 rop.GETARRAYITEM_GC,
+                                 rop.GETINTERIORFIELD_GC):
+                self.handle_getfield_operations(op)
                 continue
             # ----------  setfields  ----------
             if op.getopnum() in (rop.SETFIELD_GC,
                                  rop.SETARRAYITEM_GC,
                                  rop.SETINTERIORFIELD_GC):
-                self.handle_write_barrier(op)
+                self.handle_setfield_operations(op)
+                continue
+            # ----------  mallocs  ----------
+            if op.is_malloc():
+                self.handle_malloc_operation(op)
                 continue
             # ----------  calls, labels  ----------
             if op.is_call() or op.getopnum() == rop.LABEL:
@@ -54,10 +60,21 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         assert isinstance(v, BoxPtr)
         return v
 
-    def handle_write_barrier(self, op):
+    def handle_setfield_operations(self, op):
         self.gen_write_barrier(self.unconstifyptr(op.getarg(0)))
         self.newops.append(op)
 
     def handle_malloc_operation(self, op):
         GcRewriterAssembler.handle_malloc_operation(self, op)
         self.known_local.add(op.result)
+
+    def handle_getfield_operations(self, op):
+        lst = op.getarglist()
+        lst[0] = self.unconstifyptr(lst[0])
+        self.newops.append(OP_STM_READ_BEFORE)
+        self.newops.append(op.copy_and_change(op.getopnum(), args=lst))
+        self.newops.append(OP_STM_READ_AFTER)
+
+
+OP_STM_READ_BEFORE = ResOperation(rop.STM_READ_BEFORE, [], None)
+OP_STM_READ_AFTER  = ResOperation(rop.STM_READ_AFTER, [], None)

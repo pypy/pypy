@@ -144,13 +144,13 @@ class TestStm(RewriteTests):
     def test_rewrite_getfield_gc_const(self):
         self.check_rewrite("""
             [p1]
-            p2 = getfield_gc(123456, descr=tzdescr)
+            p2 = getfield_gc(ConstPtr(t), descr=tzdescr)
             jump(p2)
         """, """
             [p1]
-            p1 = same_as(123456)
+            p3 = same_as(ConstPtr(t))
             stm_read_before()
-            p2 = getfield_gc(p1, descr=tzdescr)
+            p2 = getfield_gc(p3, descr=tzdescr)
             stm_read_after()
             jump(p2)
         """)
