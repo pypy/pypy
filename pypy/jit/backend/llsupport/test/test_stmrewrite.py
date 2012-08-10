@@ -156,9 +156,9 @@ class TestStm(RewriteTests):
             jump(p2)
         """, """
             [p1]
-            stm_read_before()
+            stm_read_before(p1, descr=wbdescr)
             p2 = getfield_gc(p1, descr=tzdescr)
-            stm_read_after()
+            stm_read_after(p1)
             jump(p2)
         """)
 
@@ -170,9 +170,9 @@ class TestStm(RewriteTests):
         """, """
             [p1]
             p3 = same_as(ConstPtr(t))
-            stm_read_before()
+            stm_read_before(p3, descr=wbdescr)
             p2 = getfield_gc(p3, descr=tzdescr)
-            stm_read_after()
+            stm_read_after(p3)
             jump(p2)
         """)
 
@@ -183,9 +183,9 @@ class TestStm(RewriteTests):
             jump(i3)
         """, """
             [p1, i2]
-            stm_read_before()
+            stm_read_before(p1, descr=wbdescr)
             i3 = getarrayitem_gc(p1, i2, descr=adescr)
-            stm_read_after()
+            stm_read_after(p1)
             jump(i3)
         """)
 
@@ -196,9 +196,9 @@ class TestStm(RewriteTests):
             jump(i3)
         """, """
             [p1, i2]
-            stm_read_before()
+            stm_read_before(p1, descr=wbdescr)
             i3 = getinteriorfield_gc(p1, i2, descr=adescr)
-            stm_read_after()
+            stm_read_after(p1)
             jump(i3)
         """)
 
@@ -211,10 +211,10 @@ class TestStm(RewriteTests):
             jump(p2, i2)
         """, """
             [p1]
-            stm_read_before()
+            stm_read_before(p1, descr=wbdescr)
             p2 = getfield_gc(p1, descr=tzdescr)
             i2 = getfield_gc(p1, descr=tydescr)
-            stm_read_after()
+            stm_read_after(p1)
             jump(p2, i2)
         """)
 
@@ -226,12 +226,12 @@ class TestStm(RewriteTests):
             jump(p2, i2)
         """, """
             [p1]
-            stm_read_before()
+            stm_read_before(p1, descr=wbdescr)
             p2 = getfield_gc(p1, descr=tzdescr)
-            stm_read_after()
-            stm_read_before()
+            stm_read_after(p1)
+            stm_read_before(p2, descr=wbdescr)
             i2 = getfield_gc(p2, descr=tydescr)
-            stm_read_after()
+            stm_read_after(p2)
             jump(p2, i2)
         """)
 
@@ -245,10 +245,10 @@ class TestStm(RewriteTests):
             jump(p2, i2)
         """, """
             [p1]
-            stm_read_before()
+            stm_read_before(p1, descr=wbdescr)
             p2 = getfield_gc(p1, descr=tzdescr)
             i2 = getfield_gc(p1, descr=tydescr)
-            stm_read_after()
+            stm_read_after(p1)
             guard_nonnull(p2) [i1]
             jump(p2, i2)
         """)
@@ -262,13 +262,13 @@ class TestStm(RewriteTests):
             jump(p2, i2)
         """, """
             [p1]
-            stm_read_before()
+            stm_read_before(p1, descr=wbdescr)
             p2 = getfield_gc(p1, descr=tzdescr)
-            stm_read_after()
+            stm_read_after(p1)
             call(123)
-            stm_read_before()
+            stm_read_before(p1, descr=wbdescr)
             i2 = getfield_gc(p1, descr=tydescr)
-            stm_read_after()
+            stm_read_after(p1)
             jump(p2, i2)
         """)
 
@@ -490,9 +490,9 @@ class TestStm(RewriteTests):
         """, """
             [p1, p2, i1, i2, i3]
             cond_call_gc_wb(p2, 0, descr=wbdescr)
-            stm_read_before()
+            stm_read_before(p1, descr=wbdescr)
             copystrcontent(p1, p2, i1, i2, i3)
-            stm_read_after()
+            stm_read_after(p1)
             jump()
         """)
 

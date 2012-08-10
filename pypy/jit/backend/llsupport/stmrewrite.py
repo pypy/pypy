@@ -112,9 +112,13 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
             self.newops.append(op)
             return
         lst[0] = self.unconstifyptr(lst[0])
-        self.newops.append(OP_STM_READ_BEFORE)
+        write_barrier_descr = self.gc_ll_descr.write_barrier_descr
+        op_before = ResOperation(rop.STM_READ_BEFORE, [lst[0]], None,
+                                 descr=write_barrier_descr)
+        op_after  = ResOperation(rop.STM_READ_AFTER, [lst[0]], None)
+        self.newops.append(op_before)
         self.newops.append(op.copy_and_change(op.getopnum(), args=lst))
-        self.newops.append(OP_STM_READ_AFTER)
+        self.newops.append(op_after)
 
     def handle_copystrcontent(self, op):
         # first, a write barrier on the target string
@@ -133,7 +137,3 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
             self.newops.append(op1)
             self.always_inevitable = True
         self.newops.append(op)
-
-
-OP_STM_READ_BEFORE = ResOperation(rop.STM_READ_BEFORE, [], None)
-OP_STM_READ_AFTER  = ResOperation(rop.STM_READ_AFTER, [], None)

@@ -2557,6 +2557,49 @@ class Assembler386(object):
 
     genop_discard_cond_call_gc_wb_array = genop_discard_cond_call_gc_wb
 
+    def genop_discard_stm_read_before(self, op, arglocs):
+        descr = op.getdescr()
+        if we_are_translated():
+            cls = self.cpu.gc_ll_descr.has_write_barrier_class()
+            assert cls is not None and isinstance(descr, cls)
+        # 
+        loc, loc_version = arglocs
+        assert loc is edx
+        assert loc_version is eax
+        # XXX hard-coded for now: the version is the second WORD in objects
+        self.mc.MOV_rm(loc_version.value, (loc.value, WORD))
+        #
+        mask = descr.jit_wb_if_flag_singlebyte    # test GCFLAG_GLOBAL
+        self.mc.TEST8_mi((loc.value, descr.jit_wb_if_flag_byteofs), mask)
+        self.mc.J_il8(rx86.Conditions['Z'], 0) # patched later
+        jz_location = self.mc.get_relative_pos()
+
+        # call interface: 'loc' is passed in edx; 'loc_version' is
+        # returned in eax.
+        self.mc.CALL(imm(self.stm_read_before_slowpath))
+
+        # patch the JZ above
+        offset = self.mc.get_relative_pos() - jz_location
+        assert 0 < offset <= 127
+        self.mc.overwrite(jz_location-1, chr(offset))
+
+    def genop_discard_stm_read_after(self, op, arglocs):
+        loc, loc_version, loc_position = arglocs
+        assert isinstance(loc, RegLoc)
+        assert isinstance(loc_version, RegLoc)
+        assert isinstance(loc_position, ImmedLoc)
+        # XXX hard-coded for now: the version is the second WORD in objects
+        self.mc.CMP_rm(loc_version.value, (loc.value, WORD))
+        #
+        # the negative offset of the conditional jump
+        offset = loc_position.value - (self.mc.get_relative_pos() + 2)
+        assert offset < 0
+        if offset >= -128:
+            self.mc.J_il8(rx86.Conditions['NE'], offset)
+        else:
+            # doesn't fit in one byte, use the 4-bytes variant
+            XXX
+
     def not_implemented_op_discard(self, op, arglocs):
         not_implemented("not implemented operation: %s" % op.getopname())
 
