@@ -6,7 +6,8 @@ from pypy.interpreter import pyframe, nestedscope
 from pypy.interpreter.argument import ArgumentsForTranslation
 from pypy.interpreter.astcompiler.consts import CO_GENERATOR
 from pypy.interpreter.pycode import PyCode, cpython_code_signature
-from pypy.interpreter.pyopcode import Return, Yield
+from pypy.interpreter.pyopcode import (Return, Yield, SuspendedUnroller,
+        SReturnValue, BytecodeCorruption)
 from pypy.objspace.flow import operation
 from pypy.objspace.flow.model import *
 from pypy.objspace.flow.framestate import (FrameState, recursively_unflatten,
@@ -433,6 +434,69 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
             recorder = Replayer(parent, prevblock.booloutcome, recorder)
             prevblock = parent
         return recorder
+
+    def dispatch_bytecode(self, co_code, next_instr, ec):
+        space = self.space
+        while True:
+            self.last_instr = next_instr
+            ec.bytecode_trace(self)
+            opcode = ord(co_code[next_instr])
+            next_instr += 1
+
+            if opcode >= self.HAVE_ARGUMENT:
+                lo = ord(co_code[next_instr])
+                hi = ord(co_code[next_instr+1])
+                next_instr += 2
+                oparg = (hi * 256) | lo
+            else:
+                oparg = 0
+
+            while opcode == self.opcodedesc.EXTENDED_ARG.index:
+                opcode = ord(co_code[next_instr])
+                if opcode < self.HAVE_ARGUMENT:
+                    raise BytecodeCorruption
+                lo = ord(co_code[next_instr+1])
+                hi = ord(co_code[next_instr+2])
+                next_instr += 3
+                oparg = (oparg * 65536) | (hi * 256) | lo
+
+            if opcode == self.opcodedesc.RETURN_VALUE.index:
+                w_returnvalue = self.popvalue()
+                block = self.unrollstack(SReturnValue.kind)
+                if block is None:
+                    self.pushvalue(w_returnvalue)   # XXX ping pong
+                    raise Return
+                else:
+                    unroller = SReturnValue(w_returnvalue)
+                    next_instr = block.handle(self, unroller)
+                    return next_instr    # now inside a 'finally' block
+
+            if opcode == self.opcodedesc.END_FINALLY.index:
+                unroller = self.end_finally()
+                if isinstance(unroller, SuspendedUnroller):
+                    # go on unrolling the stack
+                    block = self.unrollstack(unroller.kind)
+                    if block is None:
+                        w_result = unroller.nomoreblocks()
+                        self.pushvalue(w_result)
+                        raise Return
+                    else:
+                        next_instr = block.handle(self, unroller)
+                return next_instr
+
+            if opcode == self.opcodedesc.JUMP_ABSOLUTE.index:
+                return self.jump_absolute(oparg, next_instr, ec)
+
+            methodname = self.opcode_method_names[opcode]
+            try:
+                meth = getattr(self, methodname)
+            except AttributeError:
+                raise BytecodeCorruption("unimplemented opcode, ofs=%d, "
+                        "code=%d, name=%s" %
+                        (self.last_instr, opcode, methodname))
+            res = meth(oparg, next_instr)
+            if res is not None:
+                next_instr = res
 
     def YIELD_VALUE(self, _, next_instr):
         assert self.is_generator
