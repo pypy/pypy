@@ -5,14 +5,13 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter import pyframe, nestedscope
 from pypy.interpreter.argument import ArgumentsForTranslation
 from pypy.interpreter.astcompiler.consts import CO_GENERATOR
-from pypy.interpreter.pycode import PyCode, cpython_code_signature
 from pypy.interpreter.pyopcode import (Return, Yield, SuspendedUnroller,
         SReturnValue, BytecodeCorruption)
 from pypy.objspace.flow import operation
 from pypy.objspace.flow.model import *
 from pypy.objspace.flow.framestate import (FrameState, recursively_unflatten,
         recursively_flatten)
-from pypy.tool.stdlib_opcode import host_bytecode_spec
+from pypy.objspace.flow.bytecode import HostCode
 
 class StopFlowing(Exception):
     pass
@@ -194,7 +193,7 @@ class FlowExecutionContext(ExecutionContext):
 
     def build_flow(self, func, constargs={}):
         space = self.space
-        code = PyCode._from_code(space, func.func_code)
+        code = HostCode._from_code(space, func.func_code)
         self.code = code
 
         self.frame = frame = FlowSpaceFrame(self.space, code,
@@ -210,7 +209,7 @@ class FlowExecutionContext(ExecutionContext):
                 frame.frame_finished_execution = False
                 next_instr = frame.last_instr
                 while True:
-                    next_instr = frame.handle_bytecode(code.co_code,
+                    next_instr = frame.handle_bytecode(code,
                             next_instr, self)
 
             except operation.OperationThatShouldNotBePropagatedError, e:
@@ -435,33 +434,11 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
             prevblock = parent
         return recorder
 
-    def dispatch_bytecode(self, co_code, next_instr, ec):
-        space = self.space
+    def dispatch_bytecode(self, code, next_instr, ec):
         while True:
             self.last_instr = next_instr
             ec.bytecode_trace(self)
-            opcode = ord(co_code[next_instr])
-            next_instr += 1
-
-            if opcode >= self.HAVE_ARGUMENT:
-                lo = ord(co_code[next_instr])
-                hi = ord(co_code[next_instr+1])
-                next_instr += 2
-                oparg = (hi * 256) | lo
-            else:
-                oparg = 0
-
-            while opcode == self.opcodedesc.EXTENDED_ARG.index:
-                opcode = ord(co_code[next_instr])
-                if opcode < self.HAVE_ARGUMENT:
-                    raise BytecodeCorruption
-                lo = ord(co_code[next_instr+1])
-                hi = ord(co_code[next_instr+2])
-                next_instr += 3
-                oparg = (oparg * 65536) | (hi * 256) | lo
-
-
-            methodname = self.opcode_method_names[opcode]
+            next_instr, methodname, oparg = code.read(next_instr)
             try:
                 meth = getattr(self, methodname)
             except AttributeError:
