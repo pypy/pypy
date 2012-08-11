@@ -4,6 +4,7 @@ Bytecode handling classes and functions for use by the flow space.
 from pypy.interpreter.pycode import PyCode, BytecodeCorruption
 from pypy.tool.stdlib_opcode import (host_bytecode_spec, EXTENDED_ARG,
         HAVE_ARGUMENT)
+from pypy.interpreter.astcompiler.consts import CO_GENERATOR
 
 class HostCode(PyCode):
     """
@@ -40,3 +41,7 @@ class HostCode(PyCode):
 
         opname = self.opnames[opcode]
         return next_instr, opname, oparg
+
+    @property
+    def is_generator(self):
+        return bool(self.co_flags & CO_GENERATOR)

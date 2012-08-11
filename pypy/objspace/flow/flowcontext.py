@@ -4,7 +4,6 @@ from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import pyframe, nestedscope
 from pypy.interpreter.argument import ArgumentsForTranslation
-from pypy.interpreter.astcompiler.consts import CO_GENERATOR
 from pypy.interpreter.pyopcode import (Return, Yield, SuspendedUnroller,
         SReturnValue, BytecodeCorruption)
 from pypy.objspace.flow import operation
@@ -346,7 +345,6 @@ class FlowExecutionContext(ExecutionContext):
 class FlowSpaceFrame(pyframe.CPythonFrame):
 
     def __init__(self, space, code, func, constargs=None):
-        self.is_generator = bool(code.co_flags & CO_GENERATOR)
         w_globals = Constant(func.func_globals)
         class outerfunc: pass # hack
         if func.func_closure is not None:
@@ -375,7 +373,7 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
             name = name.replace(c, '_')
 
         initialblock = SpamBlock(self.getstate())
-        if self.is_generator:
+        if self.pycode.is_generator:
             initialblock.operations.append(
                 SpaceOperation('generator_mark', [], Variable()))
         graph = FunctionGraph(name, initialblock)
@@ -385,7 +383,7 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         # itself
         graph.signature = self.pycode.signature()
         graph.defaults = func.func_defaults or ()
-        graph.is_generator = self.is_generator
+        graph.is_generator = self.pycode.is_generator
         return graph
 
     def getstate(self):
@@ -477,7 +475,7 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         return jumpto
 
     def YIELD_VALUE(self, _, next_instr):
-        assert self.is_generator
+        assert self.pycode.is_generator
         w_result = self.popvalue()
         self.space.do_operation('yield', w_result)
         # XXX yield expressions not supported. This will blow up if the value
