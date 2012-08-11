@@ -206,7 +206,7 @@ class FlowExecutionContext(ExecutionContext):
             block = self.pendingblocks.popleft()
             try:
                 self.recorder = frame.recording(block)
-                w_result = frame.run(self)
+                frame.run(self)
 
             except operation.OperationThatShouldNotBePropagatedError, e:
                 raise Exception(
@@ -241,7 +241,8 @@ class FlowExecutionContext(ExecutionContext):
             except MergeBlock, e:
                 self.mergeblock(e.block, e.currentstate)
 
-            else:
+            except Return:
+                w_result = frame.popvalue()
                 assert w_result is not None
                 link = self.make_link([w_result], self.graph.returnblock)
                 self.recorder.crnt_block.closeblock(link)
@@ -431,14 +432,10 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
 
     def run(self, ec):
         self.frame_finished_execution = False
+        co_code = self.pycode.co_code
+        next_instr = self.last_instr
         while True:
-            co_code = self.pycode.co_code
-            next_instr = self.last_instr
-            try:
-                while True:
-                    next_instr = self.handle_bytecode(co_code, next_instr, ec)
-            except Return:
-                return self.popvalue()
+            next_instr = self.handle_bytecode(co_code, next_instr, ec)
 
     def YIELD_VALUE(self, _, next_instr):
         assert self.is_generator
