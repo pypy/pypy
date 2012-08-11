@@ -460,32 +460,6 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
                 next_instr += 3
                 oparg = (oparg * 65536) | (hi * 256) | lo
 
-            if opcode == self.opcodedesc.RETURN_VALUE.index:
-                w_returnvalue = self.popvalue()
-                block = self.unrollstack(SReturnValue.kind)
-                if block is None:
-                    self.pushvalue(w_returnvalue)   # XXX ping pong
-                    raise Return
-                else:
-                    unroller = SReturnValue(w_returnvalue)
-                    next_instr = block.handle(self, unroller)
-                    return next_instr    # now inside a 'finally' block
-
-            if opcode == self.opcodedesc.END_FINALLY.index:
-                unroller = self.end_finally()
-                if isinstance(unroller, SuspendedUnroller):
-                    # go on unrolling the stack
-                    block = self.unrollstack(unroller.kind)
-                    if block is None:
-                        w_result = unroller.nomoreblocks()
-                        self.pushvalue(w_result)
-                        raise Return
-                    else:
-                        next_instr = block.handle(self, unroller)
-                return next_instr
-
-            if opcode == self.opcodedesc.JUMP_ABSOLUTE.index:
-                return self.jump_absolute(oparg, next_instr, ec)
 
             methodname = self.opcode_method_names[opcode]
             try:
@@ -497,6 +471,33 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
             res = meth(oparg, next_instr)
             if res is not None:
                 next_instr = res
+
+    def RETURN_VALUE(self, oparg, next_instr):
+        w_returnvalue = self.popvalue()
+        block = self.unrollstack(SReturnValue.kind)
+        if block is None:
+            self.pushvalue(w_returnvalue)   # XXX ping pong
+            raise Return
+        else:
+            unroller = SReturnValue(w_returnvalue)
+            next_instr = block.handle(self, unroller)
+            return next_instr    # now inside a 'finally' block
+
+    def END_FINALLY(self, oparg, next_instr):
+        unroller = self.end_finally()
+        if isinstance(unroller, SuspendedUnroller):
+            # go on unrolling the stack
+            block = self.unrollstack(unroller.kind)
+            if block is None:
+                w_result = unroller.nomoreblocks()
+                self.pushvalue(w_result)
+                raise Return
+            else:
+                next_instr = block.handle(self, unroller)
+        return next_instr
+
+    def JUMP_ABSOLUTE(self, jumpto, next_instr):
+        return jumpto
 
     def YIELD_VALUE(self, _, next_instr):
         assert self.is_generator
