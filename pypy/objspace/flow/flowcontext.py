@@ -206,7 +206,11 @@ class FlowExecutionContext(ExecutionContext):
             block = self.pendingblocks.popleft()
             try:
                 self.recorder = frame.recording(block)
-                frame.run(self)
+                frame.frame_finished_execution = False
+                next_instr = frame.last_instr
+                while True:
+                    next_instr = frame.handle_bytecode(code.co_code,
+                            next_instr, self)
 
             except operation.OperationThatShouldNotBePropagatedError, e:
                 raise Exception(
@@ -429,13 +433,6 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
             recorder = Replayer(parent, prevblock.booloutcome, recorder)
             prevblock = parent
         return recorder
-
-    def run(self, ec):
-        self.frame_finished_execution = False
-        co_code = self.pycode.co_code
-        next_instr = self.last_instr
-        while True:
-            next_instr = self.handle_bytecode(co_code, next_instr, ec)
 
     def YIELD_VALUE(self, _, next_instr):
         assert self.is_generator
