@@ -686,6 +686,31 @@ class BaseTestRlist(BaseRtypingTest):
                 res = self.interpret(fn, [i, case])
                 assert res is fn(i, case)
 
+    def test_constant_list_contains(self):
+        # a 'contains' operation on list containing only annotation-time
+        # constants should be optimized into the equivalent code of
+        # 'in prebuilt-dictionary'.  Hard to test directly...
+        def g():
+            return 16
+        def f(i):
+            return i in [1, 2, 4, 8, g()]
+        res = self.interpret(f, [2])
+        assert res is True
+        res = self.interpret(f, [15])
+        assert res is False
+        res = self.interpret(f, [16])
+        assert res is True
+
+    def test_nonconstant_list_contains(self):
+        def f(i):
+            return i in [1, -i, 2, 4, 8]
+        res = self.interpret(f, [2])
+        assert res is True
+        res = self.interpret(f, [15])
+        assert res is False
+        res = self.interpret(f, [0])
+        assert res is True
+
 
     def test_not_a_char_list_after_all(self):
         def fn():
