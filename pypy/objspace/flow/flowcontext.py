@@ -451,12 +451,7 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
             self.last_instr = next_instr
             ec.bytecode_trace(self)
             next_instr, methodname, oparg = code.read(next_instr)
-            try:
-                meth = getattr(self, methodname)
-            except AttributeError:
-                raise BytecodeCorruption("unimplemented opcode, ofs=%d, "
-                        "code=%d, name=%s" %
-                        (self.last_instr, opcode, methodname))
+            meth = getattr(self, methodname)
             res = meth(oparg, next_instr)
             if res is not None:
                 next_instr = res
