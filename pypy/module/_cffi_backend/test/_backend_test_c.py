@@ -940,6 +940,16 @@ def test_read_variable():
     stderr = ll.read_variable(BVoidP, "stderr")
     assert stderr == cast(BVoidP, _testfunc(8))
 
+def test_read_variable_as_unknown_length_array():
+    if sys.platform == 'win32':
+        py.test.skip("untested")
+    BCharP = new_pointer_type(new_primitive_type("char"))
+    BArray = new_array_type(BCharP, None)
+    ll = find_and_load_library('c')
+    stderr = ll.read_variable(BArray, "stderr")
+    assert repr(stderr).startswith("<cdata 'char *' 0x")
+    # ^^ and not 'char[]', which is basically not allowed and would crash
+
 def test_write_variable():
     if sys.platform == 'win32':
         py.test.skip("untested")

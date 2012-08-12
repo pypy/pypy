@@ -79,6 +79,12 @@ class W_CTypeArray(W_CTypePtrOrArray):
         self.convert_array_from_object(cdata, w_ob)
 
     def convert_to_object(self, cdata):
+        if self.length < 0:
+            # we can't return a <cdata 'int[]'> here, because we don't
+            # know the length to give it.  As a compromize, returns
+            # <cdata 'int *'> in this case.
+            self = self.ctptr
+        #
         return cdataobj.W_CData(self.space, cdata, self)
 
     def add(self, cdata, i):
