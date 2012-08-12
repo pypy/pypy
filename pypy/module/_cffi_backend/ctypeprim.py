@@ -246,6 +246,8 @@ class W_CTypePrimitiveFloat(W_CTypePrimitive):
         #
         if space.isinstance_w(w_ob, space.w_str):
             value = self.cast_str(w_ob)
+        elif space.isinstance_w(w_ob, space.w_unicode):
+            value = self.cast_unicode(w_ob)
         else:
             value = space.float_w(w_ob)
         w_cdata = cdataobj.W_CDataMem(space, self.size, self)

@@ -4,6 +4,9 @@ This file is OBSCURE.  Really.  The purpose is to avoid copying and changing
 'test_c.py' from cffi/c/.
 """
 import py, sys, ctypes
+if sys.version_info < (2, 6):
+    py.test.skip("requires the b'' literal syntax")
+
 from pypy.tool.udir import udir
 from pypy.conftest import gettestobjspace, option
 from pypy.interpreter import gateway
