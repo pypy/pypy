@@ -5,7 +5,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter import pyframe, nestedscope
 from pypy.interpreter.argument import ArgumentsForTranslation
 from pypy.interpreter.pyopcode import (Return, Yield, SuspendedUnroller,
-        SReturnValue, BytecodeCorruption)
+        SReturnValue, BytecodeCorruption, Reraise, RaiseWithExplicitTraceback)
 from pypy.objspace.flow import operation
 from pypy.objspace.flow.model import *
 from pypy.objspace.flow.framestate import (FrameState, recursively_unflatten,
@@ -431,6 +431,20 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
             recorder = Replayer(parent, prevblock.booloutcome, recorder)
             prevblock = parent
         return recorder
+
+    def handle_bytecode(self, code, next_instr, ec):
+        try:
+            next_instr = self.dispatch_bytecode(code, next_instr, ec)
+        except OperationError, operr:
+            next_instr = self.handle_operation_error(ec, operr)
+        except Reraise:
+            operr = self.last_exception
+            next_instr = self.handle_operation_error(ec, operr,
+                                                     attach_tb=False)
+        except RaiseWithExplicitTraceback, e:
+            next_instr = self.handle_operation_error(ec, e.operr,
+                                                     attach_tb=False)
+        return next_instr
 
     def dispatch_bytecode(self, code, next_instr, ec):
         while True:
