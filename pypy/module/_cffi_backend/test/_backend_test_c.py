@@ -1065,6 +1065,12 @@ def test_cast_to_enum():
     assert repr(cast(BEnum, '#-20')) == "<cdata 'enum foo' 'ab'>"
     assert repr(cast(BEnum, '#-21')) == "<cdata 'enum foo' '#-21'>"
 
+def test_enum_with_non_injective_mapping():
+    BEnum = new_enum_type("foo", ('ab', 'cd'), (7, 7))
+    e = cast(BEnum, 7)
+    assert repr(e) == "<cdata 'enum foo' 'ab'>"
+    assert string(e) == 'ab'
+
 def test_enum_in_struct():
     BEnum = new_enum_type("foo", ('def', 'c', 'ab'), (0, 1, -20))
     BStruct = new_struct_type("bar")

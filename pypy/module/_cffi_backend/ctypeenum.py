@@ -24,7 +24,7 @@ class W_CTypeEnum(W_CTypePrimitiveSigned):
                                         name, len(name), align)
         self.enumerators2values = {}   # str -> int
         self.enumvalues2erators = {}   # int -> str
-        for i in range(len(enumerators)):
+        for i in range(len(enumerators)-1, -1, -1):
             self.enumerators2values[enumerators[i]] = enumvalues[i]
             self.enumvalues2erators[enumvalues[i]] = enumerators[i]
 
