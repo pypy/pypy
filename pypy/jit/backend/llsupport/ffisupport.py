@@ -29,7 +29,7 @@ def get_ffi_type_kind(cpu, ffi_type):
     if ((not cpu.supports_floats and kind == 'f') or
         (not cpu.supports_longlong and kind == 'L') or
         (not cpu.supports_singlefloats and kind == 'S') or
-        kind == '*'):
+        kind == '*' or kind == '?'):
         raise UnsupportedKind("Unsupported kind '%s'" % kind)
     if kind == 'u':
         kind = 'i'

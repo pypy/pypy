@@ -108,7 +108,8 @@ class types(object):
     def getkind(ffi_type):
         """Returns 'v' for void, 'f' for float, 'i' for signed integer,
         'u' for unsigned integer, 'S' for singlefloat, 'L' for long long
-        integer (signed or unsigned), or '*' for struct.
+        integer (signed or unsigned), '*' for struct, or '?' for others
+        (e.g. long double).
         """
         if   ffi_type == types.void:    return 'v'
         elif ffi_type == types.double:  return 'f'
@@ -136,7 +137,7 @@ class types(object):
         elif ffi_type == types.uint64:  return 'L'
         #
         elif types.is_struct(ffi_type): return '*'
-        raise KeyError
+        return '?'
 
     @staticmethod
     @jit.elidable
