@@ -879,7 +879,7 @@ class ObjSpace(object):
         while True:
             unpackiterable_driver.jit_merge_point(tp=tp,
                                                   w_iterator=w_iterator,
-                                                  w_item=w_item,
+                                                  w_item=w_item, <-- why?
                                                   items=items)
             try:
                 w_item = self.next(w_iterator)
