@@ -1001,16 +1001,33 @@ class LLFrame(object):
 
     op_raw_memmove = op_raw_memcopy # this is essentially the same here
 
-    def op_raw_load(self, addr, typ, offset):
+    def op_raw_load(self, RESTYPE, addr, offset):
         checkadr(addr)
-        value = getattr(addr, str(typ).lower())[offset]
-        assert lltype.typeOf(value) == typ
+        if isinstance(offset, int):
+            from pypy.rpython.lltypesystem import rffi
+            ll_p = rffi.cast(rffi.CCHARP, addr)
+            ll_p = rffi.cast(rffi.CArrayPtr(RESTYPE),
+                             rffi.ptradd(ll_p, offset))
+            value = ll_p[0]
+        else:
+            assert offset.TYPE == RESTYPE
+            value = getattr(addr, str(RESTYPE).lower())[offset.repeat]
+        assert lltype.typeOf(value) == RESTYPE
         return value
+    op_raw_load.need_result_type = True
 
-    def op_raw_store(self, addr, typ, offset, value):
+    def op_raw_store(self, addr, offset, value):
         checkadr(addr)
-        assert lltype.typeOf(value) == typ
-        getattr(addr, str(typ).lower())[offset] = value
+        ARGTYPE = lltype.typeOf(value)
+        if isinstance(offset, int):
+            from pypy.rpython.lltypesystem import rffi
+            ll_p = rffi.cast(rffi.CCHARP, addr)
+            ll_p = rffi.cast(rffi.CArrayPtr(ARGTYPE),
+                             rffi.ptradd(ll_p, offset))
+            ll_p[0] = value
+        else:
+            assert offset.TYPE == ARGTYPE
+            getattr(addr, str(ARGTYPE).lower())[offset.repeat] = value
 
     def op_stack_malloc(self, size): # mmh
         raise NotImplementedError("backend only")

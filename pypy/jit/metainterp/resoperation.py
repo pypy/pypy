@@ -460,6 +460,7 @@ _oplist = [
     'GETFIELD_GC_PURE/1d',
     'GETFIELD_RAW_PURE/1d',
     'GETARRAYITEM_GC_PURE/2d',
+    'GETARRAYITEM_RAW_PURE/2d',
     'UNICODELEN/1',
     'UNICODEGETITEM/2',
     #
@@ -472,7 +473,7 @@ _oplist = [
     'GETARRAYITEM_GC/2d',
     'GETARRAYITEM_RAW/2d',
     'GETINTERIORFIELD_GC/2d',
-    'GETINTERIORFIELD_RAW/2d',
+    'RAW_LOAD/2d',
     'GETFIELD_GC/1d',
     'GETFIELD_RAW/1d',
     '_MALLOC_FIRST',
@@ -491,7 +492,8 @@ _oplist = [
     'SETARRAYITEM_GC/3d',
     'SETARRAYITEM_RAW/3d',
     'SETINTERIORFIELD_GC/3d',
-    'SETINTERIORFIELD_RAW/3d',
+    'SETINTERIORFIELD_RAW/3d',    # only used by llsupport/rewrite.py
+    'RAW_STORE/3d',
     'SETFIELD_GC/2d',
     'SETFIELD_RAW/2d',
     'STRSETITEM/3',

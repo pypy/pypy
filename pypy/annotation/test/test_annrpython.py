@@ -3841,6 +3841,14 @@ class TestAnnotateTestCase:
         assert len(a.translator.graphs) == 3 # fn, __iter__, next
         assert isinstance(s, annmodel.SomeInteger)
 
+    def test_no_attr_on_common_exception_classes(self):
+        for cls in [ValueError, Exception]:
+            def fn():
+                e = cls()
+                e.foo = "bar"
+            a = self.RPythonAnnotator()
+            py.test.raises(Exception, a.build_types, fn, [])
+
 def g(n):
     return [0,1,2,n]
 

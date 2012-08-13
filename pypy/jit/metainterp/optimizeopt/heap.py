@@ -255,6 +255,7 @@ class OptHeap(Optimization):
             opnum == rop.SETARRAYITEM_GC or      # handled specially
             opnum == rop.SETARRAYITEM_RAW or     # no effect on GC struct
             opnum == rop.SETINTERIORFIELD_RAW or # no effect on GC struct
+            opnum == rop.RAW_STORE or            # no effect on GC struct
             opnum == rop.STRSETITEM or           # no effect on GC struct/array
             opnum == rop.UNICODESETITEM or       # no effect on GC struct/array
             opnum == rop.DEBUG_MERGE_POINT or    # no effect whatsoever
