@@ -712,11 +712,26 @@ class BaseTestRlist(BaseRtypingTest):
         assert res is True
 
 
-    def test_not_a_char_list_after_all(self):
+    def test_not_a_char_list_after_all_1(self):
+        def fn(n):
+            l = ['h', 'e', 'l', 'l', '0']
+            return str(n) in l     # turns into: str(n) in {'h','e','l','0'}
+        res = self.interpret(fn, [5])
+        assert res is False
+        res = self.interpret(fn, [0])
+        assert res is True
+
         def fn():
-            l = ['h', 'e', 'l', 'l', 'o']
-            return 'world' in l
+            l = ['h', 'e', 'l', 'l', '0']
+            return 'hi' in l     # turns into: 'hi' in {'h','e','l','0'}
         res = self.interpret(fn, [])
+        assert res is False
+
+    def test_not_a_char_list_after_all_2(self):
+        def fn(n):
+            l = ['h', 'e', 'l', 'l', 'o', chr(n)]
+            return 'world' in l
+        res = self.interpret(fn, [0])
         assert res is False
 
     def test_list_index(self):

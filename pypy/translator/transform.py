@@ -134,6 +134,8 @@ def transform_list_contains(self, block_subset):
                 else:
                     # all arguments of the newlist are annotation constants
                     op.args[0] = Constant(items)
+                    s_dict = self.binding(op.args[0])
+                    s_dict.dictdef.generalize_key(self.binding(op.args[1]))
 
 
 def transform_dead_op_vars(self, block_subset):
