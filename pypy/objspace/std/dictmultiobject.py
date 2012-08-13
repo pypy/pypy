@@ -350,7 +350,7 @@ class BaseValueIterator(BaseIteratorImplementation):
 class BaseItemIterator(BaseIteratorImplementation):
     next_item = _new_next('item')
 
-def create_itertor_classes(dictimpl, override_next_item=None):
+def create_iterator_classes(dictimpl, override_next_item=None):
     if not hasattr(dictimpl, 'wrapkey'):
         wrapkey = lambda space, key : key
     else:
@@ -409,7 +409,7 @@ def create_itertor_classes(dictimpl, override_next_item=None):
     dictimpl.itervalues = itervalues
     dictimpl.iteritems = iteritems
 
-create_itertor_classes(EmptyDictStrategy)
+create_iterator_classes(EmptyDictStrategy)
 
 registerimplementation(W_DictMultiObject)
 
@@ -556,7 +556,7 @@ class ObjectDictStrategy(AbstractTypedStrategy, DictStrategy):
     def w_keys(self, w_dict):
         return self.space.newlist(self.unerase(w_dict.dstorage).keys())
 
-create_itertor_classes(ObjectDictStrategy)
+create_iterator_classes(ObjectDictStrategy)
 
 class StringDictStrategy(AbstractTypedStrategy, DictStrategy):
 
@@ -620,7 +620,7 @@ class StringDictStrategy(AbstractTypedStrategy, DictStrategy):
             i += 1
         return keys, values
 
-create_itertor_classes(StringDictStrategy)
+create_iterator_classes(StringDictStrategy)
 
 
 class IntDictStrategy(AbstractTypedStrategy, DictStrategy):
@@ -657,7 +657,7 @@ class IntDictStrategy(AbstractTypedStrategy, DictStrategy):
 
     # XXX there is no space.newlist_int yet to implement w_keys more efficiently
 
-create_itertor_classes(IntDictStrategy)
+create_iterator_classes(IntDictStrategy)
 
 init_signature = Signature(['seq_or_map'], None, 'kwargs')
 init_defaults = [None]

@@ -3,7 +3,7 @@
 
 from pypy.rlib import rerased, jit
 from pypy.objspace.std.dictmultiobject import (DictStrategy,
-                                               create_itertor_classes,
+                                               create_iterator_classes,
                                                EmptyDictStrategy,
                                                ObjectDictStrategy,
                                                StringDictStrategy)
@@ -174,4 +174,4 @@ def next_item(self):
     else:
         return None, None
 
-create_itertor_classes(KwargsDictStrategy, override_next_item=next_item)
+create_iterator_classes(KwargsDictStrategy, override_next_item=next_item)

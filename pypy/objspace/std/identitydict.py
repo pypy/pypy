@@ -5,7 +5,7 @@ from pypy.rlib import rerased
 from pypy.rlib.debug import mark_dict_non_null
 from pypy.objspace.std.dictmultiobject import (AbstractTypedStrategy,
                                                DictStrategy,
-                                               create_itertor_classes)
+                                               create_iterator_classes)
 
 
 # this strategy is selected by EmptyDictStrategy.switch_to_correct_strategy
@@ -79,4 +79,4 @@ class IdentityDictStrategy(AbstractTypedStrategy, DictStrategy):
     def w_keys(self, w_dict):
         return self.space.newlist(self.unerase(w_dict.dstorage).keys())
 
-create_itertor_classes(IdentityDictStrategy)
+create_iterator_classes(IdentityDictStrategy)

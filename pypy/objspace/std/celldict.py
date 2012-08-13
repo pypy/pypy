@@ -4,7 +4,7 @@ indirection is introduced to make the version tag change less often.
 """
 
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.objspace.std.dictmultiobject import create_itertor_classes
+from pypy.objspace.std.dictmultiobject import create_iterator_classes
 from pypy.objspace.std.dictmultiobject import DictStrategy, _never_equal_to_string
 from pypy.objspace.std.dictmultiobject import ObjectDictStrategy
 from pypy.rlib import jit, rerased
@@ -169,4 +169,4 @@ class ModuleDictStrategy(DictStrategy):
     def wrapvalue(space, value):
         return unwrap_cell(value)
 
-create_itertor_classes(ModuleDictStrategy)
+create_iterator_classes(ModuleDictStrategy)
