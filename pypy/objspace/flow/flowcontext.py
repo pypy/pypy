@@ -2,6 +2,7 @@ import collections
 import sys
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.error import OperationError
+from pypy.interpreter.pytraceback import record_application_traceback
 from pypy.interpreter import pyframe, nestedscope
 from pypy.interpreter.argument import ArgumentsForTranslation
 from pypy.interpreter.pyopcode import (Return, Yield, SuspendedUnroller,
@@ -325,9 +326,6 @@ class FlowExecutionContext(ExecutionContext):
             operr = OperationError(operr.w_type, w_value)
         return operr
 
-    def exception_trace(self, frame, operationerr):
-        pass    # overridden for performance only
-
     # hack for unrolling iterables, don't use this
     def replace_in_stack(self, oldvalue, newvalue):
         w_new = Constant(newvalue)
@@ -446,13 +444,32 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
                                                      attach_tb=False)
         return next_instr
 
+    def handle_operation_error(self, ec, operr, attach_tb=True):
+        # see test_propagate_attribute_error for why this is here
+        if isinstance(operr, operation.OperationThatShouldNotBePropagatedError):
+            raise operr
+        if attach_tb:
+            record_application_traceback(self.space, operr, self,
+                    self.last_instr)
+
+        block = self.unrollstack(SApplicationException.kind)
+        if block is None:
+            # no handler found for the OperationError
+            # try to preserve the CPython-level traceback
+            import sys
+            tb = sys.exc_info()[2]
+            raise OperationError, operr, tb
+        else:
+            unroller = SApplicationException(operr)
+            next_instr = block.handle(self, unroller)
+            return next_instr
+
     def dispatch_bytecode(self, code, next_instr, ec):
         while True:
             self.last_instr = next_instr
             ec.bytecode_trace(self)
             next_instr, methodname, oparg = code.read(next_instr)
-            meth = getattr(self, methodname)
-            res = meth(oparg, next_instr)
+            res = getattr(self, methodname)(oparg, next_instr)
             if res is not None:
                 next_instr = res
 
@@ -530,13 +547,6 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         return ArgumentsForTranslation(self.space, self.peekvalues(nargs))
     def argument_factory(self, *args):
         return ArgumentsForTranslation(self.space, *args)
-
-    def handle_operation_error(self, ec, operr, *args, **kwds):
-        # see test_propagate_attribute_error for why this is here
-        if isinstance(operr, operation.OperationThatShouldNotBePropagatedError):
-            raise operr
-        return pyframe.PyFrame.handle_operation_error(self, ec, operr,
-                                                      *args, **kwds)
 
     def call_contextmanager_exit_function(self, w_func, w_typ, w_val, w_tb):
         if w_typ is not self.space.w_None:
