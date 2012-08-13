@@ -6,7 +6,8 @@ from pypy.interpreter.pytraceback import record_application_traceback
 from pypy.interpreter import pyframe, nestedscope
 from pypy.interpreter.argument import ArgumentsForTranslation
 from pypy.interpreter.pyopcode import (Return, Yield, SuspendedUnroller,
-        SReturnValue, BytecodeCorruption, Reraise, RaiseWithExplicitTraceback)
+        SReturnValue, SApplicationException, BytecodeCorruption, Reraise,
+        RaiseWithExplicitTraceback)
 from pypy.objspace.flow import operation
 from pypy.objspace.flow.model import *
 from pypy.objspace.flow.framestate import (FrameState, recursively_unflatten,
