@@ -33,8 +33,8 @@ working_modules.update(dict.fromkeys(
      "struct", "_hashlib", "_md5", "_minimal_curses",
      "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array",
      "_bisect", "binascii", "_multiprocessing", '_warnings',
-     "_collections", "_multibytecodec", "micronumpy", "_ffi",
-     "_continuation"]
+     "_collections", "_multibytecodec", "_ffi",
+     "_continuation"] #"micronumpy"
 ))
 
 # Here is the list of modules known to not work yet
