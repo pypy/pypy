@@ -31,6 +31,11 @@ class AppTestFRAGILE:
         import cppyy
         raises(RuntimeError, cppyy.load_reflection_info, "does_not_exist.so")
 
+        try:
+            cppyy.load_reflection_info("does_not_exist.so")
+        except RuntimeError, e:
+            assert "does_not_exist.so" in str(e)
+
     def test02_missing_classes(self):
         """Test (non-)access to missing classes"""
 

@@ -22,7 +22,7 @@ def load_dictionary(space, name):
     try:
         cdll = capi.c_load_dictionary(name)
     except rdynload.DLOpenError, e:
-        raise OperationError(space.w_RuntimeError, space.wrap(str(e)))
+        raise OperationError(space.w_RuntimeError, space.wrap(str(e.msg)))
     return W_CPPLibrary(space, cdll)
 
 class State(object):
