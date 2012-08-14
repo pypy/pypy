@@ -951,7 +951,7 @@ class __extend__(pyframe.PyFrame):
                     break
                 w_value = self.popvalue()
                 w_key = self.popvalue()
-                key = self.space.str_w(w_key)
+                key = self.space.unicode_w(w_key)
                 keywords[n_keywords] = key
                 keywords_w[n_keywords] = w_value
         else:
