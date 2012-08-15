@@ -407,6 +407,16 @@ class FlowObjSpace(ObjSpace):
         return self.do_operation_with_implicit_exceptions('getattr',
                 w_obj, w_name)
 
+    def import_from(self, w_module, w_name):
+        try:
+            return self.getattr(w_module, w_name)
+        except OperationError, e:
+            if e.match(self, self.w_AttributeError):
+                raise OperationError(self.w_ImportError,
+                    self.wrap("cannot import name '%s'" % w_name.value))
+            else:
+                raise
+
     def call_function(self, w_func, *args_w):
         nargs = len(args_w)
         args = argument.ArgumentsForTranslation(self, list(args_w))

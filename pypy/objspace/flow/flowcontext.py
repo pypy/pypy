@@ -474,6 +474,11 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
             if res is not None:
                 next_instr = res
 
+    def IMPORT_FROM(self, nameindex, next_instr):
+        w_name = self.getname_w(nameindex)
+        w_module = self.peekvalue()
+        self.pushvalue(self.space.import_from(w_module, w_name))
+
     def RETURN_VALUE(self, oparg, next_instr):
         w_returnvalue = self.popvalue()
         block = self.unrollstack(SReturnValue.kind)
