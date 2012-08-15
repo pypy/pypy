@@ -2,13 +2,14 @@ import collections
 import sys
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.pytraceback import record_application_traceback
+from pypy.interpreter.pytraceback import PyTraceback
 from pypy.interpreter import pyframe, nestedscope
 from pypy.interpreter.argument import ArgumentsForTranslation
 from pypy.interpreter.pyopcode import (Return, Yield, SuspendedUnroller,
         SReturnValue, SApplicationException, BytecodeCorruption, Reraise,
         RaiseWithExplicitTraceback)
-from pypy.objspace.flow import operation
+from pypy.objspace.flow.operation import (ImplicitOperationError,
+        OperationThatShouldNotBePropagatedError)
 from pypy.objspace.flow.model import *
 from pypy.objspace.flow.framestate import (FrameState, recursively_unflatten,
         recursively_flatten)
@@ -213,13 +214,7 @@ class FlowExecutionContext(ExecutionContext):
                     next_instr = frame.handle_bytecode(code,
                             next_instr, self)
 
-            except operation.OperationThatShouldNotBePropagatedError, e:
-                raise Exception(
-                    'found an operation that always raises %s: %s' % (
-                        self.space.unwrap(e.w_type).__name__,
-                        self.space.unwrap(e.get_w_value(self.space))))
-
-            except operation.ImplicitOperationError, e:
+            except ImplicitOperationError, e:
                 if isinstance(e.w_type, Constant):
                     exc_cls = e.w_type.value
                 else:
@@ -321,7 +316,7 @@ class FlowExecutionContext(ExecutionContext):
             self.pendingblocks.append(newblock)
 
     def _convert_exc(self, operr):
-        if isinstance(operr, operation.ImplicitOperationError):
+        if isinstance(operr, ImplicitOperationError):
             # re-raising an implicit operation makes it an explicit one
             w_value = operr.get_w_value(self.space)
             operr = OperationError(operr.w_type, w_value)
@@ -434,25 +429,29 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
     def handle_bytecode(self, code, next_instr, ec):
         try:
             next_instr = self.dispatch_bytecode(code, next_instr, ec)
+        except OperationThatShouldNotBePropagatedError, e:
+            raise Exception(
+                'found an operation that always raises %s: %s' % (
+                    self.space.unwrap(e.w_type).__name__,
+                    self.space.unwrap(e.get_w_value(self.space))))
         except OperationError, operr:
+            self.attach_traceback(operr)
             next_instr = self.handle_operation_error(ec, operr)
         except Reraise:
             operr = self.last_exception
-            next_instr = self.handle_operation_error(ec, operr,
-                                                     attach_tb=False)
+            next_instr = self.handle_operation_error(ec, operr)
         except RaiseWithExplicitTraceback, e:
-            next_instr = self.handle_operation_error(ec, e.operr,
-                                                     attach_tb=False)
+            next_instr = self.handle_operation_error(ec, e.operr)
         return next_instr
 
-    def handle_operation_error(self, ec, operr, attach_tb=True):
-        # see test_propagate_attribute_error for why this is here
-        if isinstance(operr, operation.OperationThatShouldNotBePropagatedError):
-            raise operr
-        if attach_tb:
-            record_application_traceback(self.space, operr, self,
-                    self.last_instr)
+    def attach_traceback(self, operr):
+        if self.pycode.hidden_applevel:
+            return
+        tb = operr.get_traceback()
+        tb = PyTraceback(self.space, self, self.last_instr, tb)
+        operr.set_traceback(tb)
 
+    def handle_operation_error(self, ec, operr):
         block = self.unrollstack(SApplicationException.kind)
         if block is None:
             # no handler found for the OperationError
