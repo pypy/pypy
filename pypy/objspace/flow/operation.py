@@ -236,6 +236,7 @@ def setup():
         name = line[0]
         if hasattr(operator, name):
             Table.append((name, getattr(operator, name)))
+    Table.append(('next', __builtin__.next))
     # build the dictionaries
     for name, func in Table:
         if name not in FunctionByName:
