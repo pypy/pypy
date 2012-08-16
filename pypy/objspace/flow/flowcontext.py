@@ -341,17 +341,10 @@ class FlowExecutionContext(ExecutionContext):
 class FlowSpaceFrame(pyframe.CPythonFrame):
 
     def __init__(self, space, code, func, constargs=None):
-        w_globals = Constant(func.func_globals)
-        class outerfunc: pass # hack
-        if func.func_closure is not None:
-            cl = [c.cell_contents for c in func.func_closure]
-            outerfunc.closure = [Cell(Constant(value)) for value in cl]
-        else:
-            outerfunc.closure = []
         self.pycode = code
-        self.space      = space
-        self.w_globals  = w_globals  # wrapped dict of globals
-        self.w_locals   = None       # wrapped dict of locals
+        self.space = space
+        self.w_globals = Constant(func.func_globals)
+        self.w_locals = None
         self.locals_stack_w = [None] * (code.co_nlocals + code.co_stacksize)
         self.valuestackdepth = code.co_nlocals
         self.lastblock = None
@@ -359,7 +352,12 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
             self.builtin = space.builtin.pick_builtin(w_globals)
         # regular functions always have CO_OPTIMIZED and CO_NEWLOCALS.
         # class bodies only have CO_NEWLOCALS.
-        self.initialize_frame_scopes(outerfunc, code)
+        if func.func_closure is not None:
+            cl = [c.cell_contents for c in func.func_closure]
+            closure = [Cell(Constant(value)) for value in cl]
+        else:
+            closure = []
+        self.initialize_frame_scopes(closure, code)
         self.f_lineno = code.co_firstlineno
         self.last_instr = 0
 
@@ -371,7 +369,7 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
             arg_list[position] = Constant(value)
         self.setfastscope(arg_list)
 
-    def initialize_frame_scopes(self, outer_func, code):
+    def initialize_frame_scopes(self, closure, code):
         # CO_NEWLOCALS: make a locals dict unless optimized is also set
         # CO_OPTIMIZED: no locals dict needed at all
         flags = code.co_flags
@@ -382,13 +380,10 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         else:
             assert self.w_globals is not None
             self.w_locals = self.w_globals
-        ncellvars = len(code.co_cellvars)
-        nfreevars = len(code.co_freevars)
-        closure_size = len(outer_func.closure)
-        if closure_size != nfreevars:
+        if len(closure) != len(code.co_freevars):
             raise ValueError("code object received a closure with "
                                  "an unexpected number of free variables")
-        self.cells = [Cell() for i in range(ncellvars)] + outer_func.closure
+        self.cells = [Cell() for _ in code.co_cellvars] + closure
 
     def _init_graph(self, func):
         # CallableFactory.pycall may add class_ to functions that are methods
