@@ -39,7 +39,7 @@ def getkind(TYPE, supports_floats=True,
         # XXX fix this for oo...
         if (TYPE != llmemory.Address and
             rffi.sizeof(TYPE) > rffi.sizeof(lltype.Signed)):
-            if supports_longlong:
+            if supports_longlong and TYPE is not lltype.LongFloat:
                 assert rffi.sizeof(TYPE) == 8
                 return 'float'
             raise NotImplementedError("type %s is too large" % TYPE)

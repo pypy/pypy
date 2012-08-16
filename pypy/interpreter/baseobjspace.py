@@ -1033,6 +1033,10 @@ class ObjSpace(object):
         w_meth = self.getattr(w_obj, self.wrap(methname))
         return self.call_function(w_meth, *arg_w)
 
+    def raise_key_error(self, w_key):
+        e = self.call_function(self.w_KeyError, w_key)
+        raise OperationError(self.w_KeyError, e)
+
     def lookup(self, w_obj, name):
         w_type = self.type(w_obj)
         w_mro = self.getattr(w_type, self.wrap("__mro__"))

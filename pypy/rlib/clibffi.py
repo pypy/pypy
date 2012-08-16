@@ -157,12 +157,14 @@ class CConfig:
 
     size_t = rffi_platform.SimpleType("size_t", rffi.ULONG)
     ffi_abi = rffi_platform.SimpleType("ffi_abi", rffi.USHORT)
+    ffi_arg = rffi_platform.SimpleType("ffi_arg", lltype.Signed)
 
     ffi_type = rffi_platform.Struct('ffi_type', [('size', rffi.ULONG),
                                                  ('alignment', rffi.USHORT),
                                                  ('type', rffi.USHORT),
                                                  ('elements', FFI_TYPE_PP)])
 
+    ffi_cif = rffi_platform.Struct('ffi_cif', [])
     ffi_closure = rffi_platform.Struct('ffi_closure', [])
 
 def add_simple_type(type_name):
@@ -200,7 +202,8 @@ for k, v in rffi_platform.configure(CConfig).items():
 
 FFI_TYPE_P.TO.become(cConfig.ffi_type)
 size_t = cConfig.size_t
-ffi_abi = cConfig.ffi_abi
+FFI_ABI = cConfig.ffi_abi
+ffi_arg = cConfig.ffi_arg
 
 for name in type_names:
     locals()[name] = configure_simple_type(name)
@@ -324,13 +327,13 @@ FFI_DEFAULT_ABI = cConfig.FFI_DEFAULT_ABI
 if _WIN32 and not _WIN64:
     FFI_STDCALL = cConfig.FFI_STDCALL
 FFI_TYPE_STRUCT = cConfig.FFI_TYPE_STRUCT
-FFI_CIFP = rffi.COpaquePtr('ffi_cif', compilation_info=eci)
+FFI_CIFP = lltype.Ptr(cConfig.ffi_cif)
 
 FFI_CLOSUREP = lltype.Ptr(cConfig.ffi_closure)
 
 VOIDPP = rffi.CArrayPtr(rffi.VOIDP)
 
-c_ffi_prep_cif = external('ffi_prep_cif', [FFI_CIFP, ffi_abi, rffi.UINT,
+c_ffi_prep_cif = external('ffi_prep_cif', [FFI_CIFP, FFI_ABI, rffi.UINT,
                                            FFI_TYPE_P, FFI_TYPE_PP], rffi.INT)
 if _MSVC:
     c_ffi_call_return_type = rffi.INT

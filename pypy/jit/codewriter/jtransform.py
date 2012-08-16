@@ -11,6 +11,7 @@ from pypy.jit.metainterp.blackhole import BlackholeInterpreter
 from pypy.objspace.flow.model import SpaceOperation, Variable, Constant, c_last_exception
 from pypy.rlib import objectmodel
 from pypy.rlib.jit import _we_are_jitted
+from pypy.rlib.rgc import lltype_is_gc
 from pypy.rpython.lltypesystem import lltype, llmemory, rstr, rclass, rffi
 from pypy.rpython.rclass import IR_QUASIIMMUTABLE, IR_QUASIIMMUTABLE_ARRAY
 from pypy.translator.simplify import get_funcobj
@@ -208,6 +209,10 @@ class Transformer(object):
         if op.args[0] in self.vable_array_vars:
             self.vable_array_vars[op.result]= self.vable_array_vars[op.args[0]]
 
+    def rewrite_op_cast_ptr_to_adr(self, op):
+        if lltype_is_gc(op.args[0].concretetype):
+            raise Exception("cast_ptr_to_adr for GC types unsupported")
+
     def rewrite_op_cast_pointer(self, op):
         newop = self.rewrite_op_same_as(op)
         assert newop is None
@@ -222,6 +227,9 @@ class Transformer(object):
                 const_vtable = Constant(vtable, lltype.typeOf(vtable))
                 return [None, # hack, do the right renaming from op.args[0] to op.result
                         SpaceOperation("record_known_class", [op.args[0], const_vtable], None)]
+
+    def rewrite_op_raw_malloc_usage(self, op):
+        pass
 
     def rewrite_op_jit_record_known_class(self, op):
         return SpaceOperation("record_known_class", [op.args[0], op.args[1]], None)
@@ -520,9 +528,12 @@ class Transformer(object):
             name += '_add_memory_pressure'
         if not track_allocation:
             name += '_no_track_allocation'
-        return self._do_builtin_call(op, name, args,
-                                     extra = (TYPE,),
-                                     extrakey = TYPE)
+        op1 = self.prepare_builtin_call(op, name, args, (TYPE,), TYPE)
+        if name == 'raw_malloc_varsize':
+            return self._handle_oopspec_call(op1, args,
+                                             EffectInfo.OS_RAW_MALLOC_VARSIZE,
+                                             EffectInfo.EF_CAN_RAISE)
+        return self.rewrite_op_direct_call(op1)
 
     def rewrite_op_malloc_varsize(self, op):
         if op.args[1].value['flavor'] == 'raw':
@@ -550,8 +561,13 @@ class Transformer(object):
         name = 'raw_free'
         if not track_allocation:
             name += '_no_track_allocation'
-        return self._do_builtin_call(op, name, [op.args[0]],
-                                     extra = (STRUCT,), extrakey = STRUCT)
+        op1 = self.prepare_builtin_call(op, name, [op.args[0]], (STRUCT,),
+                                        STRUCT)
+        if name == 'raw_free':
+            return self._handle_oopspec_call(op1, [op.args[0]],
+                                             EffectInfo.OS_RAW_FREE,
+                                             EffectInfo.EF_CANNOT_RAISE)
+        return self.rewrite_op_direct_call(op1)
 
     def rewrite_op_getarrayitem(self, op):
         ARRAY = op.args[0].concretetype.TO
@@ -566,9 +582,14 @@ class Transformer(object):
                                    [v_base, arrayfielddescr, arraydescr,
                                     op.args[1]], op.result)]
         # normal case follows
+        pure = ''
+        immut = ARRAY._immutable_field(None)
+        if immut:
+            pure = '_pure'
         arraydescr = self.cpu.arraydescrof(ARRAY)
         kind = getkind(op.result.concretetype)
-        return SpaceOperation('getarrayitem_%s_%s' % (ARRAY._gckind, kind[0]),
+        return SpaceOperation('getarrayitem_%s_%s%s' % (ARRAY._gckind,
+                                                        kind[0], pure),
                               [op.args[0], arraydescr, op.args[1]],
                               op.result)
 
@@ -690,6 +711,16 @@ class Transformer(object):
         return SpaceOperation('setfield_%s_%s' % (argname, kind),
                               [v_inst, descr, v_value],
                               None)
+
+    def rewrite_op_getsubstruct(self, op):
+        STRUCT = op.args[0].concretetype.TO
+        argname = getattr(STRUCT, '_gckind', 'gc')
+        if argname != 'raw':
+            raise Exception("%r: only supported for gckind=raw" % (op,))
+        ofs = llmemory.offsetof(STRUCT, op.args[1].value)
+        return SpaceOperation('int_add',
+                              [op.args[0], Constant(ofs, lltype.Signed)],
+                              op.result)
 
     def is_typeptr_getset(self, op):
         return (op.args[1].value == 'typeptr' and
@@ -840,6 +871,23 @@ class Transformer(object):
             return SpaceOperation('setinteriorfield_gc_%s' % kind, args,
                                   op.result)
 
+    def rewrite_op_raw_store(self, op):
+        T = op.args[2].concretetype
+        kind = getkind(T)[0]
+        assert kind != 'r'
+        descr = self.cpu.arraydescrof(rffi.CArray(T))
+        return SpaceOperation('raw_store_%s' % kind,
+                              [op.args[0], op.args[1], descr, op.args[2]],
+                              None)
+
+    def rewrite_op_raw_load(self, op):
+        T = op.result.concretetype
+        kind = getkind(T)[0]
+        assert kind != 'r'
+        descr = self.cpu.arraydescrof(rffi.CArray(T))
+        return SpaceOperation('raw_load_%s' % kind,
+                              [op.args[0], op.args[1], descr], op.result)
+
     def _rewrite_equality(self, op, opname):
         arg0, arg1 = op.args
         if isinstance(arg0, Constant) and not arg0.value:
@@ -850,7 +898,7 @@ class Transformer(object):
             return self._rewrite_symmetric(op)
 
     def _is_gc(self, v):
-        return getattr(getattr(v.concretetype, "TO", None), "_gckind", "?") == 'gc'
+        return lltype_is_gc(v.concretetype)
 
     def _is_rclass_instance(self, v):
         return lltype._castdepth(v.concretetype.TO, rclass.OBJECT) >= 0
@@ -1228,6 +1276,8 @@ class Transformer(object):
                        ('uint_or', 'int_or'),
                        ('uint_lshift', 'int_lshift'),
                        ('uint_xor', 'int_xor'),
+
+                       ('adr_add', 'int_add'),
                        ]:
         assert _old not in locals()
         exec py.code.Source('''
@@ -1469,7 +1519,7 @@ class Transformer(object):
                                                      'check_neg_index')
         extra = getkind(op.result.concretetype)[0]
         if pure:
-            extra = 'pure_' + extra
+            extra += '_pure'
         op = SpaceOperation('getarrayitem_gc_%s' % extra,
                             [args[0], arraydescr, v_index], op.result)
         return extraop + [op]
@@ -1678,27 +1728,10 @@ class Transformer(object):
     # rlib.libffi
 
     def _handle_libffi_call(self, op, oopspec_name, args):
-        if oopspec_name == 'libffi_prepare_call':
-            oopspecindex = EffectInfo.OS_LIBFFI_PREPARE
-            extraeffect = EffectInfo.EF_CANNOT_RAISE
-        elif oopspec_name.startswith('libffi_push_'):
-            oopspecindex = EffectInfo.OS_LIBFFI_PUSH_ARG
-            extraeffect = EffectInfo.EF_CANNOT_RAISE
-        elif oopspec_name.startswith('libffi_call_'):
+        if oopspec_name == 'libffi_call':
             oopspecindex = EffectInfo.OS_LIBFFI_CALL
             extraeffect = EffectInfo.EF_RANDOM_EFFECTS
-        elif oopspec_name == 'libffi_struct_getfield':
-            oopspecindex = EffectInfo.OS_LIBFFI_STRUCT_GETFIELD
-            extraeffect = EffectInfo.EF_CANNOT_RAISE
-        elif oopspec_name == 'libffi_struct_setfield':
-            oopspecindex = EffectInfo.OS_LIBFFI_STRUCT_SETFIELD
-            extraeffect = EffectInfo.EF_CANNOT_RAISE
-        elif oopspec_name == 'libffi_array_getitem':
-            oopspecindex = EffectInfo.OS_LIBFFI_GETARRAYITEM
-            extraeffect = EffectInfo.EF_CANNOT_RAISE
-        elif oopspec_name == 'libffi_array_setitem':
-            oopspecindex = EffectInfo.OS_LIBFFI_SETARRAYITEM
-            extraeffect = EffectInfo.EF_CANNOT_RAISE
+            self.callcontrol.has_libffi_call = True
         else:
             assert False, 'unsupported oopspec: %s' % oopspec_name
         return self._handle_oopspec_call(op, args, oopspecindex, extraeffect)

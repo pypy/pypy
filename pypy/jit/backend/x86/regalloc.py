@@ -1045,6 +1045,7 @@ class RegAlloc(object):
                                  imm(itemsize), imm(ofs)])
 
     consider_setarrayitem_raw = consider_setarrayitem_gc
+    consider_raw_store = consider_setarrayitem_gc
 
     def consider_getfield_gc(self, op):
         ofs, size, sign = unpack_fielddescr(op.getdescr())
@@ -1080,6 +1081,8 @@ class RegAlloc(object):
 
     consider_getarrayitem_raw = consider_getarrayitem_gc
     consider_getarrayitem_gc_pure = consider_getarrayitem_gc
+    consider_getarrayitem_raw_pure = consider_getarrayitem_gc
+    consider_raw_load = consider_getarrayitem_gc
 
     def consider_getinteriorfield_gc(self, op):
         t = unpack_interiorfielddescr(op.getdescr())
@@ -1110,8 +1113,6 @@ class RegAlloc(object):
         self.rm.possibly_free_var(op.getarg(0))
         self.Perform(op, [base_loc, ofs, itemsize, fieldsize,
                           index_loc, temp_loc, sign_loc], result_loc)
-
-    consider_getinteriorfield_raw = consider_getinteriorfield_gc
 
     def consider_int_is_true(self, op, guard_op):
         # doesn't need arg to be in a register

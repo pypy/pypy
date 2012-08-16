@@ -1572,6 +1572,13 @@ class Assembler386(object):
 
     genop_getarrayitem_gc_pure = genop_getarrayitem_gc
     genop_getarrayitem_raw = genop_getarrayitem_gc
+    genop_getarrayitem_raw_pure = genop_getarrayitem_gc
+
+    def genop_raw_load(self, op, arglocs, resloc):
+        base_loc, ofs_loc, size_loc, ofs, sign_loc = arglocs
+        assert isinstance(ofs, ImmedLoc)
+        src_addr = addr_add(base_loc, ofs_loc, ofs.value, 0)
+        self.load_from_mem(resloc, src_addr, size_loc, sign_loc)
 
     def _get_interiorfield_addr(self, temp_loc, index_loc, itemsize_loc,
                                 base_loc, ofs_loc):
@@ -1598,9 +1605,6 @@ class Assembler386(object):
                                                 ofs_loc)
         self.load_from_mem(resloc, src_addr, fieldsize_loc, sign_loc)
 
-    genop_getinteriorfield_raw = genop_getinteriorfield_gc
-
-
     def genop_discard_setfield_gc(self, op, arglocs):
         base_loc, ofs_loc, size_loc, value_loc = arglocs
         assert isinstance(size_loc, ImmedLoc)
@@ -1623,6 +1627,12 @@ class Assembler386(object):
         assert isinstance(size_loc, ImmedLoc)
         scale = _get_scale(size_loc.value)
         dest_addr = AddressLoc(base_loc, ofs_loc, scale, baseofs.value)
+        self.save_into_mem(dest_addr, value_loc, size_loc)
+
+    def genop_discard_raw_store(self, op, arglocs):
+        base_loc, ofs_loc, value_loc, size_loc, baseofs = arglocs
+        assert isinstance(baseofs, ImmedLoc)
+        dest_addr = AddressLoc(base_loc, ofs_loc, 0, baseofs.value)
         self.save_into_mem(dest_addr, value_loc, size_loc)
 
     def genop_discard_strsetitem(self, op, arglocs):
@@ -2657,13 +2667,13 @@ def addr_add(reg_or_imm1, reg_or_imm2, offset=0, scale=0):
     return AddressLoc(reg_or_imm1, reg_or_imm2, scale, offset)
 
 def addr_add_const(reg_or_imm1, offset):
-    return AddressLoc(reg_or_imm1, ImmedLoc(0), 0, offset)
+    return AddressLoc(reg_or_imm1, imm0, 0, offset)
 
 def mem(loc, offset):
-    return AddressLoc(loc, ImmedLoc(0), 0, offset)
+    return AddressLoc(loc, imm0, 0, offset)
 
 def heap(addr):
-    return AddressLoc(ImmedLoc(addr), ImmedLoc(0), 0, 0)
+    return AddressLoc(ImmedLoc(addr), imm0, 0, 0)
 
 def not_implemented(msg):
     os.write(2, '[x86/asm] %s\n' % msg)
