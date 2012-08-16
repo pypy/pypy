@@ -2,6 +2,12 @@
 #include <stdarg.h>
 #include <errno.h>
 
+#ifdef _WIN32
+#define DLLEXPORT __declspec(dllexport)
+#else
+#define DLLEXPORT
+#endif
+
 static char _testfunc0(char a, char b)
 {
     return a + b;
@@ -140,7 +146,7 @@ static short _testfunc20(struct _testfunc7_s *ptr)
     return ptr->a1 + ptr->a2;
 }
 
-void *gettestfunc(int num)
+DLLEXPORT void *gettestfunc(int num)
 {
     void *f;
     switch (num) {
