@@ -348,7 +348,19 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
             outerfunc.closure = [Cell(Constant(value)) for value in cl]
         else:
             outerfunc.closure = []
-        super(FlowSpaceFrame, self).__init__(space, code, w_globals, outerfunc)
+        self.pycode = code
+        self.space      = space
+        self.w_globals  = w_globals  # wrapped dict of globals
+        self.w_locals   = None       # wrapped dict of locals
+        self.locals_stack_w = [None] * (code.co_nlocals + code.co_stacksize)
+        self.valuestackdepth = code.co_nlocals
+        self.lastblock = None
+        if space.config.objspace.honor__builtins__:
+            self.builtin = space.builtin.pick_builtin(w_globals)
+        # regular functions always have CO_OPTIMIZED and CO_NEWLOCALS.
+        # class bodies only have CO_NEWLOCALS.
+        self.initialize_frame_scopes(outerfunc, code)
+        self.f_lineno = code.co_firstlineno
         self.last_instr = 0
 
         if constargs is None:
