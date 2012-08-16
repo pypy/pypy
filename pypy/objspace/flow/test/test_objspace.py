@@ -987,6 +987,15 @@ class TestFlowObjSpace(Base):
                 pass
         py.test.raises(error.FlowingError, "self.codetest(f)")
 
+    def test_locals_dict(self):
+        def f():
+            x = 5
+            return x
+            exec "None"
+        graph = self.codetest(f)
+        assert len(graph.startblock.exits) == 1
+        assert graph.startblock.exits[0].target == graph.returnblock
+
 
 class TestFlowObjSpaceDelay(Base):
     def setup_class(cls):

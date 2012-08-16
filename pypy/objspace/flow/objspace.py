@@ -302,9 +302,8 @@ class FlowObjSpace(ObjSpace):
     # ____________________________________________________________
     def do_operation(self, name, *args_w):
         spaceop = SpaceOperation(name, args_w, Variable())
-        if hasattr(self, 'executioncontext'):  # not here during bootstrapping
-            spaceop.offset = self.executioncontext.frame.last_instr
-            self.executioncontext.recorder.append(spaceop)
+        spaceop.offset = self.executioncontext.frame.last_instr
+        self.executioncontext.recorder.append(spaceop)
         return spaceop.result
 
     def do_operation_with_implicit_exceptions(self, name, *args_w):

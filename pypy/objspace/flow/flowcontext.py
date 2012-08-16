@@ -3,7 +3,9 @@ import sys
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.pytraceback import PyTraceback
-from pypy.interpreter import pyframe, nestedscope
+from pypy.interpreter import pyframe
+from pypy.interpreter.nestedscope import Cell
+from pypy.interpreter.pycode import CO_OPTIMIZED, CO_NEWLOCALS
 from pypy.interpreter.argument import ArgumentsForTranslation
 from pypy.interpreter.pyopcode import (Return, Yield, SuspendedUnroller,
         SReturnValue, SApplicationException, BytecodeCorruption, Reraise,
@@ -343,9 +345,9 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         class outerfunc: pass # hack
         if func.func_closure is not None:
             cl = [c.cell_contents for c in func.func_closure]
-            outerfunc.closure = [nestedscope.Cell(Constant(value)) for value in cl]
+            outerfunc.closure = [Cell(Constant(value)) for value in cl]
         else:
-            outerfunc.closure = None
+            outerfunc.closure = []
         super(FlowSpaceFrame, self).__init__(space, code, w_globals, outerfunc)
         self.last_instr = 0
 
@@ -356,6 +358,25 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         for position, value in constargs.items():
             arg_list[position] = Constant(value)
         self.setfastscope(arg_list)
+
+    def initialize_frame_scopes(self, outer_func, code):
+        # CO_NEWLOCALS: make a locals dict unless optimized is also set
+        # CO_OPTIMIZED: no locals dict needed at all
+        flags = code.co_flags
+        if flags & CO_OPTIMIZED:
+            pass
+        elif flags & CO_NEWLOCALS:
+            self.w_locals = SpaceOperation('newdict', (), Variable()).result
+        else:
+            assert self.w_globals is not None
+            self.w_locals = self.w_globals
+        ncellvars = len(code.co_cellvars)
+        nfreevars = len(code.co_freevars)
+        closure_size = len(outer_func.closure)
+        if closure_size != nfreevars:
+            raise ValueError("code object received a closure with "
+                                 "an unexpected number of free variables")
+        self.cells = [Cell() for i in range(ncellvars)] + outer_func.closure
 
     def _init_graph(self, func):
         # CallableFactory.pycall may add class_ to functions that are methods
