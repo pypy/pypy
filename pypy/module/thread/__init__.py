@@ -5,6 +5,7 @@ from pypy.interpreter.mixedmodule import MixedModule
 class Module(MixedModule):
     appleveldefs = {
         'atomic':                 'app_atomic.atomic',
+        'exclusive_atomic':       'app_atomic.exclusive_atomic',
     }
 
     interpleveldefs = {
@@ -22,6 +23,7 @@ class Module(MixedModule):
         '_local':                 'os_local.Local',
         'error':                  'space.fromcache(error.Cache).w_error',
         '_atomic_enter':          'atomic.atomic_enter',
+        '_exclusive_atomic_enter': 'atomic.exclusive_atomic_enter',
         '_atomic_exit':           'atomic.atomic_exit',
     }
 

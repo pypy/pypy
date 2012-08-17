@@ -1,6 +1,21 @@
 from pypy.interpreter.error import OperationError
 from pypy.module.thread.error import wrap_thread_error
 
+
+
+def exclusive_atomic_enter(space):
+    if space.config.translation.stm:
+        from pypy.rlib.rstm import is_atomic
+        count = is_atomic()
+    else:
+        giltl = space.threadlocals
+        count = giltl.is_atomic
+    if count:
+        raise wrap_thread_error(space,
+            "exclusive_atomic block can't be entered inside another atomic block")
+
+    atomic_enter(space)
+
 def atomic_enter(space):
     if space.config.translation.stm:
         from pypy.rlib.rstm import increment_atomic
