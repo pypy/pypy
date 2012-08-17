@@ -9,4 +9,6 @@ re-enable IntDictStrategy
 
 re-enable StdObjSpace.listview_str
 
+re-enable the kwargs dict strategy in dictmultiobject.py
+
 unskip numpypy tests in module/test_lib_pypy/numpypy/
