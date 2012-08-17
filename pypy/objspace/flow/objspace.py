@@ -165,6 +165,17 @@ class FlowObjSpace(ObjSpace):
             return val
         return self.unwrap(w_obj)                                
 
+    def unicode_w(self, w_obj):
+        if isinstance(w_obj, Constant):
+            val = w_obj.value
+            if type(val) is str:
+                return val.decode('ascii')
+            elif type(val) is unicode:
+                return val
+            else:
+                raise TypeError("expected unicode: " + repr(w_obj))
+        return self.unwrap(w_obj)                                
+
     def float_w(self, w_obj):
         if isinstance(w_obj, Constant):
             val = w_obj.value
