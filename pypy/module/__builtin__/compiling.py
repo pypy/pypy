@@ -6,7 +6,7 @@ from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.astcompiler import consts, ast
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.interpreter.argument import Arguments
+from pypy.interpreter.argument import Arguments, assert_list_of_unicode
 from pypy.interpreter.nestedscope import Cell
 
 @unwrap_spec(filename=str, mode=str, flags=int, dont_inherit=int, optimize=int)
@@ -128,15 +128,19 @@ def build_class(space, w_func, w_name, __args__):
             raise
         w_namespace = space.newdict()
     else:
+        keywords = kwds_w.keys()
+        assert_list_of_unicode(keywords)
         args = Arguments(space, 
                          args_w=[w_name, w_bases],
-                         keywords=kwds_w.keys(),
+                         keywords=keywords,
                          keywords_w=kwds_w.values())
         w_namespace = space.call_args(w_prep, args)
     w_cell = space.call_function(w_func, w_namespace)
+    keywords = kwds_w.keys()
+    assert_list_of_unicode(keywords)
     args = Arguments(space,
                      args_w=[w_name, w_bases, w_namespace],
-                     keywords=kwds_w.keys(),
+                     keywords=keywords,
                      keywords_w=kwds_w.values())
     w_class = space.call_args(w_meta, args)
     if isinstance(w_cell, Cell):
