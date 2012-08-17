@@ -5,10 +5,11 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
 from pypy.interpreter.baseobjspace import Wrappable, W_Root
 
-from pypy.rpython.lltypesystem import rffi, lltype
+from pypy.rpython.lltypesystem import rffi, lltype, llmemory
 
-from pypy.rlib import libffi, rdynload, rweakref
-from pypy.rlib import jit, debug, objectmodel
+from pypy.rlib import jit, rdynload, rweakref
+from pypy.rlib import jit_libffi, clibffi
+from pypy.rlib.objectmodel import we_are_translated
 
 from pypy.module.cppyy import converter, executor, helper
 
@@ -117,7 +118,7 @@ class CPPMethod(object):
     also takes care of offset casting and recycling of known objects through
     the memory_regulator."""
     _immutable_ = True
-    
+
     def __init__(self, space, containing_scope, method_index, arg_defs, args_required):
         self.space = space
         self.scope = containing_scope
@@ -131,7 +132,9 @@ class CPPMethod(object):
         # the method is actually used.
         self.converters = None
         self.executor = None
-        self._libffifunc = None
+        self.cif_descr = lltype.nullptr(jit_libffi.CIF_DESCRIPTION)
+        self._funcaddr = lltype.nullptr(rffi.VOIDP.TO)
+        self.uses_local = False
 
     def _address_from_local_buffer(self, call_local, idx):
         if not call_local:
@@ -154,18 +157,21 @@ class CPPMethod(object):
 
         # initial setup of converters, executors, and libffi (if available)
         if self.converters is None:
-            self._setup(cppthis)
-
+            try:
+                self._setup(cppthis)
+            except Exception, e:
+                pass
+    
         # some calls, e.g. for ptr-ptr or reference need a local array to store data for
         # the duration of the call
-        if [conv for conv in self.converters if conv.uses_local]:
+        if self.uses_local:
             call_local = lltype.malloc(rffi.VOIDP.TO, 2*len(args_w), flavor='raw')
         else:
             call_local = lltype.nullptr(rffi.VOIDP.TO)
 
         try:
             # attempt to call directly through ffi chain
-            if self._libffifunc:
+            if self._funcaddr:
                 try:
                     return self.do_fast_call(cppthis, args_w, call_local)
                 except FastCallNotPossible:
@@ -184,37 +190,126 @@ class CPPMethod(object):
     @jit.unroll_safe
     def do_fast_call(self, cppthis, args_w, call_local):
         jit.promote(self)
-        argchain = libffi.ArgChain()
-        argchain.arg(cppthis)
-        i = len(self.arg_defs)
-        for i in range(len(args_w)):
-            conv = self.converters[i]
-            w_arg = args_w[i]
-            conv.convert_argument_libffi(self.space, w_arg, argchain, call_local)
-        for j in range(i+1, len(self.arg_defs)):
-            conv = self.converters[j]
-            conv.default_argument_libffi(self.space, argchain)
-        return self.executor.execute_libffi(self.space, self._libffifunc, argchain)
+        if self.cif_descr is None:
+            raise FastCallNotPossible
+        cif_descr = self.cif_descr
+        buffer = lltype.malloc(rffi.CCHARP.TO, cif_descr.exchange_size, flavor='raw')
+        try:
+            # this pointer
+            data = rffi.ptradd(buffer, cif_descr.exchange_args[0])
+            x = rffi.cast(rffi.LONGP, data)       # LONGP needed for test_zjit.py
+            x[0] = rffi.cast(rffi.LONG, cppthis)
+
+            # other arguments and defaults
+            i = len(self.arg_defs) + 1
+            for i in range(len(args_w)):
+                conv = self.converters[i]
+                w_arg = args_w[i]
+                data = rffi.ptradd(buffer, cif_descr.exchange_args[i+1])
+                conv.convert_argument_libffi(self.space, w_arg, data, call_local)
+            for j in range(i+1, len(self.arg_defs)):
+                conv = self.converters[j]
+                data = rffi.ptradd(buffer, cif_descr.exchange_args[j+1])
+                conv.default_argument_libffi(self.space, data)
+
+            w_res = self.executor.execute_libffi(
+                self.space, cif_descr, self._funcaddr, buffer)
+        finally:
+            lltype.free(buffer, flavor='raw')
+        return w_res
 
     def _setup(self, cppthis):
         self.converters = [converter.get_converter(self.space, arg_type, arg_dflt)
                                for arg_type, arg_dflt in self.arg_defs]
         self.executor = executor.get_executor(self.space, capi.c_method_result_type(self.scope, self.index))
 
+        for conv in self.converters:
+            if conv.uses_local:
+                self.uses_local = True
+                break
+
         # Each CPPMethod corresponds one-to-one to a C++ equivalent and cppthis
         # has been offset to the matching class. Hence, the libffi pointer is
         # uniquely defined and needs to be setup only once.
         methgetter = capi.c_get_methptr_getter(self.scope, self.index)
         if methgetter and cppthis:      # methods only for now
-            funcptr = methgetter(rffi.cast(capi.C_OBJECT, cppthis))
-            argtypes_libffi = [conv.libffitype for conv in self.converters if conv.libffitype]
-            if (len(argtypes_libffi) == len(self.converters) and
-                    self.executor.libffitype):
-                # add c++ this to the arguments
-                libffifunc = libffi.Func("XXX",
-                                         [libffi.types.pointer] + argtypes_libffi,
-                                         self.executor.libffitype, funcptr)
-                self._libffifunc = libffifunc
+            cif_descr = lltype.nullptr(jit_libffi.CIF_DESCRIPTION)
+            try:
+                funcaddr = methgetter(rffi.cast(capi.C_OBJECT, cppthis))
+                self._funcaddr = rffi.cast(rffi.VOIDP, funcaddr)
+
+                nargs = self.args_expected + 1                   # +1: cppthis
+
+                # memory block for CIF description (note: not tracked as the life
+                # time of methods is normally the duration of the application)
+                size = llmemory.sizeof(jit_libffi.CIF_DESCRIPTION, nargs)
+
+                # allocate the buffer
+                cif_descr = lltype.malloc(jit_libffi.CIF_DESCRIPTION_P.TO,
+                                          llmemory.raw_malloc_usage(size),
+                                          flavor='raw', track_allocation=False)
+
+                # array of 'ffi_type*' values, one per argument
+                size = rffi.sizeof(jit_libffi.FFI_TYPE_P) * nargs
+                atypes = lltype.malloc(rffi.CCHARP.TO, llmemory.raw_malloc_usage(size),
+                                       flavor='raw', track_allocation=False)
+                cif_descr.atypes = rffi.cast(jit_libffi.FFI_TYPE_PP, atypes)
+
+                # argument type specification
+                cif_descr.atypes[0] = jit_libffi.types.pointer   # cppthis
+                for i, conv in enumerate(self.converters):
+                    if not conv.libffitype:
+                        raise FastCallNotPossible
+                    cif_descr.atypes[i+1] = conv.libffitype
+
+                # result type specification
+                cif_descr.rtype = self.executor.libffitype
+
+                # exchange ---
+
+                # first, enough room for an array of 'nargs' pointers
+                exchange_offset = rffi.sizeof(rffi.CCHARP) * nargs
+                exchange_offset = (exchange_offset + 7) & ~7     # alignment
+                cif_descr.exchange_result = exchange_offset
+                cif_descr.exchange_result_libffi = exchange_offset
+
+                # TODO: left this out while testing (see ctypefunc.py)
+                # For results of precisely these types, libffi has a
+                # strange rule that they will be returned as a whole
+                # 'ffi_arg' if they are smaller.  The difference
+                # only matters on big-endian.
+
+                # then enough room for the result, rounded up to sizeof(ffi_arg)
+                exchange_offset += max(rffi.getintfield(cif_descr.rtype, 'c_size'),
+                                       jit_libffi.SIZE_OF_FFI_ARG)
+
+                # loop over args
+                for i in range(nargs):
+                    exchange_offset = (exchange_offset + 7) & ~7 # alignment
+                    cif_descr.exchange_args[i] = exchange_offset
+                    exchange_offset += rffi.getintfield(cif_descr.atypes[i], 'c_size')
+
+                # store the exchange data size
+                cif_descr.exchange_size = exchange_offset
+
+                # --- exchange
+
+                # extra
+                cif_descr.abi = clibffi.FFI_DEFAULT_ABI
+                cif_descr.nargs = self.args_expected + 1         # +1: cppthis
+
+                res = jit_libffi.jit_ffi_prep_cif(cif_descr)
+                if res != clibffi.FFI_OK:
+                    raise FastCallNotPossible
+
+            except Exception, e:
+                if cif_descr:
+                    lltype.free(cif_descr.atypes, flavor='raw', track_allocation=False)
+                    lltype.free(cif_descr, flavor='raw', track_allocation=False)
+                cif_descr = lltype.nullptr(jit_libffi.CIF_DESCRIPTION)
+                self._funcaddr = lltype.nullptr(rffi.VOIDP.TO)
+
+            self.cif_descr = cif_descr
 
     @jit.unroll_safe
     def prepare_arguments(self, args_w, call_local):
@@ -252,6 +347,11 @@ class CPPMethod(object):
 
     def signature(self):
         return capi.c_method_signature(self.scope, self.index)
+
+    def __del__(self):
+        if self.cif_descr:
+            lltype.free(self.cif_descr.atypes, flavor='raw')
+            lltype.free(self.cif_descr, flavor='raw')
 
     def __repr__(self):
         return "CPPMethod: %s" % self.signature()
@@ -317,6 +417,7 @@ class W_CPPOverload(Wrappable):
     def __init__(self, space, containing_scope, functions):
         self.space = space
         self.scope = containing_scope
+        from pypy.rlib import debug
         self.functions = debug.make_sure_not_resized(functions)
 
     def is_static(self):

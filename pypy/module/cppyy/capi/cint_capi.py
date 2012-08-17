@@ -65,10 +65,9 @@ _c_load_dictionary = rffi.llexternal(
 
 def c_load_dictionary(name):
     result = _c_load_dictionary(name)
-    if not result:
-        err = rdynload.dlerror()
-        raise rdynload.DLOpenError(err)
-    return libffi.CDLL(name)       # should return handle to already open file
+    # ignore result: libffi.CDLL(name) either returns a handle to the already
+    # open file, or will fail as well and produce a correctly formatted error
+    return libffi.CDLL(name)
 
 
 # CINT-specific pythonizations ===============================================

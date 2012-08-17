@@ -3,7 +3,7 @@ import sys
 from pypy.interpreter.error import OperationError
 
 from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.rlib import libffi, clibffi
+from pypy.rlib import jit_libffi
 
 from pypy.module._rawffi.interp_rawffi import unpack_simple_shape
 from pypy.module._rawffi.array import W_Array, W_ArrayInstance
@@ -24,7 +24,7 @@ from pypy.module.cppyy import helper, capi, ffitypes
 # exact match for the qualified type.
 
 
-NULL = lltype.nullptr(clibffi.FFI_TYPE_P.TO)
+NULL = lltype.nullptr(jit_libffi.FFI_TYPE_P.TO)
 
 class FunctionExecutor(object):
     _immutable_ = True
@@ -37,13 +37,14 @@ class FunctionExecutor(object):
         raise OperationError(space.w_TypeError,
                              space.wrap('return type not available or supported'))
 
-    def execute_libffi(self, space, libffifunc, argchain):
+    def execute_libffi(self, space, cif_descr, funcaddr, buffer):
         from pypy.module.cppyy.interp_cppyy import FastCallNotPossible
         raise FastCallNotPossible
 
 
 class PtrTypeExecutor(FunctionExecutor):
     _immutable_ = True
+    libffitype = jit_libffi.types.pointer
     typecode = 'P'
 
     def execute(self, space, cppmethod, cppthis, num_args, args):
@@ -65,14 +66,14 @@ class PtrTypeExecutor(FunctionExecutor):
 
 class VoidExecutor(FunctionExecutor):
     _immutable_ = True
-    libffitype = libffi.types.void
+    libffitype = jit_libffi.types.void
 
     def execute(self, space, cppmethod, cppthis, num_args, args):
         capi.c_call_v(cppmethod, cppthis, num_args, args)
         return space.w_None
 
-    def execute_libffi(self, space, libffifunc, argchain):
-        libffifunc.call(argchain, lltype.Void)
+    def execute_libffi(self, space, cif_descr, funcaddr, buffer):
+        jit_libffi.jit_ffi_call(cif_descr, funcaddr, buffer)
         return space.w_None
 
 
@@ -87,9 +88,11 @@ class NumericExecutorMixin(object):
         result = self.c_stubcall(cppmethod, cppthis, num_args, args)
         return self._wrap_object(space, rffi.cast(self.c_type, result))
 
-    def execute_libffi(self, space, libffifunc, argchain):
-        result = libffifunc.call(argchain, self.c_type)
-        return self._wrap_object(space, result)
+    def execute_libffi(self, space, cif_descr, funcaddr, buffer):
+        data = rffi.ptradd(buffer, cif_descr.exchange_args[1])
+        jit_libffi.jit_ffi_call(cif_descr, funcaddr, buffer)
+        result = rffi.ptradd(buffer, cif_descr.exchange_result)
+        return self._wrap_object(space, rffi.cast(self.c_ptrtype, result)[0])
 
 class NumericRefExecutorMixin(object):
     _mixin_ = True
@@ -117,9 +120,11 @@ class NumericRefExecutorMixin(object):
         result = capi.c_call_r(cppmethod, cppthis, num_args, args)
         return self._wrap_reference(space, rffi.cast(self.c_ptrtype, result))
 
-    def execute_libffi(self, space, libffifunc, argchain):
-        result = libffifunc.call(argchain, self.c_ptrtype)
-        return self._wrap_reference(space, result)
+    def execute_libffi(self, space, cif_descr, funcaddr, buffer):
+        jit_libffi.jit_ffi_call(cif_descr, funcaddr, buffer)
+        result = rffi.ptradd(buffer, cif_descr.exchange_result)
+        return self._wrap_reference(space,
+            rffi.cast(self.c_ptrtype, rffi.cast(rffi.VOIDPP, result)[0]))
 
 
 class CStringExecutor(FunctionExecutor):
@@ -142,7 +147,7 @@ class ConstructorExecutor(VoidExecutor):
 
 class InstancePtrExecutor(FunctionExecutor):
     _immutable_ = True
-    libffitype = libffi.types.pointer
+    libffitype = jit_libffi.types.pointer
 
     def __init__(self, space, cppclass):
         FunctionExecutor.__init__(self, space, cppclass)
@@ -155,9 +160,11 @@ class InstancePtrExecutor(FunctionExecutor):
         return interp_cppyy.wrap_cppobject(
             space, space.w_None, self.cppclass, ptr_result, isref=False, python_owns=False)
 
-    def execute_libffi(self, space, libffifunc, argchain):
+    def execute_libffi(self, space, cif_descr, funcaddr, buffer):
+        jit_libffi.jit_ffi_call(cif_descr, funcaddr, buffer)
+        result = rffi.ptradd(buffer, cif_descr.exchange_result)
         from pypy.module.cppyy import interp_cppyy
-        ptr_result = rffi.cast(capi.C_OBJECT, libffifunc.call(argchain, rffi.VOIDP))
+        ptr_result = rffi.cast(capi.C_OBJECT, rffi.cast(rffi.VOIDPP, result)[0])
         return interp_cppyy.wrap_cppobject(
             space, space.w_None, self.cppclass, ptr_result, isref=False, python_owns=False)
 
@@ -172,7 +179,7 @@ class InstancePtrPtrExecutor(InstancePtrExecutor):
         return interp_cppyy.wrap_cppobject(
             space, space.w_None, self.cppclass, ptr_result, isref=False, python_owns=False)
 
-    def execute_libffi(self, space, libffifunc, argchain):
+    def execute_libffi(self, space, cif_descr, funcaddr, buffer):
         from pypy.module.cppyy.interp_cppyy import FastCallNotPossible
         raise FastCallNotPossible
 
@@ -186,7 +193,7 @@ class InstanceExecutor(InstancePtrExecutor):
         return interp_cppyy.wrap_cppobject(
             space, space.w_None, self.cppclass, ptr_result, isref=False, python_owns=True)
 
-    def execute_libffi(self, space, libffifunc, argchain):
+    def execute_libffi(self, space, cif_descr, funcaddr, buffer):
         from pypy.module.cppyy.interp_cppyy import FastCallNotPossible
         raise FastCallNotPossible
 
@@ -198,7 +205,7 @@ class StdStringExecutor(InstancePtrExecutor):
         charp_result = capi.c_call_s(cppmethod, cppthis, num_args, args)
         return space.wrap(capi.charp2str_free(charp_result))
 
-    def execute_libffi(self, space, libffifunc, argchain):
+    def execute_libffi(self, space, cif_descr, funcaddr, buffer):
         from pypy.module.cppyy.interp_cppyy import FastCallNotPossible
         raise FastCallNotPossible
 
@@ -221,11 +228,12 @@ class PyObjectExecutor(PtrTypeExecutor):
         lresult = capi.c_call_l(cppmethod, cppthis, num_args, args)
         return self.wrap_result(space, lresult)
 
-    def execute_libffi(self, space, libffifunc, argchain):
+    def execute_libffi(self, space, cif_descr, funcaddr, buffer):
         if hasattr(space, "fake"):
             raise NotImplementedError
-        lresult = libffifunc.call(argchain, rffi.LONG)
-        return self.wrap_result(space, lresult)
+        jit_libffi.jit_ffi_call(cif_descr, funcaddr, buffer)
+        result = rffi.ptradd(buffer, cif_descr.exchange_result)
+        return self.wrap_result(space, rffi.cast(rffi.LONGP, result)[0])
 
 
 _executors = {}
@@ -322,7 +330,7 @@ def _build_basic_executors():
             c_stubcall  = staticmethod(stub)
         class BasicRefExecutor(ffitypes.typeid(c_type), NumericRefExecutorMixin, FunctionExecutor):
             _immutable_ = True
-            libffitype = libffi.types.pointer
+            libffitype = jit_libffi.types.pointer
         for name in names:
             _executors[name]              = BasicExecutor
             _executors[name+'&']          = BasicRefExecutor
