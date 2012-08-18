@@ -881,50 +881,60 @@ class ResOpAssembler(object):
     emit_op_setarrayitem_raw = emit_op_setarrayitem_gc
 
     def emit_op_getarrayitem_gc(self, op, arglocs, regalloc, fcond):
-        res, base_loc, ofs_loc, scale, ofs = arglocs
+        res_loc, base_loc, ofs_loc, scale, ofs = arglocs
         assert ofs_loc.is_reg()
         signed = op.getdescr().is_item_signed()
-        if scale.value > 0:
-            scale_loc = r.ip
-            self.mc.LSL_ri(r.ip.value, ofs_loc.value, scale.value)
-        else:
-            scale_loc = ofs_loc
 
+        # scale the offset as required
+        if scale.value > 0:
+            ofs_loc = r.ip
+            self.mc.LSL_ri(r.ip.value, ofs_loc.value, scale.value)
         # add the base offset
         if ofs.value > 0:
-            self.mc.ADD_ri(r.ip.value, scale_loc.value, imm=ofs.value)
-            scale_loc = r.ip
+            self.mc.ADD_ri(r.ip.value, ofs_loc.value, imm=ofs.value)
+            ofs_loc = r.ip
+        #
+        self._load_from_mem(res_loc, base_loc, ofs_loc, scale, signed)
+        return fcond
 
+    def _load_from_mem(self, res_loc, base_loc, ofs_loc, scale,
+                                            signed=False, fcond=c.AL):
         if scale.value == 3:
-            assert res.is_vfp_reg()
-            assert scale_loc.is_reg()
-            self.mc.ADD_rr(r.ip.value, base_loc.value, scale_loc.value)
-            self.mc.VLDR(res.value, r.ip.value, cond=fcond)
+            assert res_loc.is_vfp_reg()
+            assert ofs_loc.is_reg()
+            self.mc.ADD_rr(r.ip.value, base_loc.value, ofs_loc.value)
+            self.mc.VLDR(res_loc.value, r.ip.value, cond=fcond)
         elif scale.value == 2:
-            self.mc.LDR_rr(res.value, base_loc.value,
-                                 scale_loc.value, cond=fcond)
+            self.mc.LDR_rr(res_loc.value, base_loc.value,
+                                 ofs_loc.value, cond=fcond)
         elif scale.value == 1:
             if signed:
-                self.mc.LDRSH_rr(res.value, base_loc.value,
-                                 scale_loc.value, cond=fcond)
+                self.mc.LDRSH_rr(res_loc.value, base_loc.value,
+                                 ofs_loc.value, cond=fcond)
             else:
-                self.mc.LDRH_rr(res.value, base_loc.value,
-                                 scale_loc.value, cond=fcond)
+                self.mc.LDRH_rr(res_loc.value, base_loc.value,
+                                 ofs_loc.value, cond=fcond)
         elif scale.value == 0:
             if signed:
-                self.mc.LDRSB_rr(res.value, base_loc.value,
-                                 scale_loc.value, cond=fcond)
+                self.mc.LDRSB_rr(res_loc.value, base_loc.value,
+                                 ofs_loc.value, cond=fcond)
             else:
-                self.mc.LDRB_rr(res.value, base_loc.value,
-                                 scale_loc.value, cond=fcond)
+                self.mc.LDRB_rr(res_loc.value, base_loc.value,
+                                 ofs_loc.value, cond=fcond)
         else:
             assert 0
-
-        return fcond
 
     emit_op_getarrayitem_raw = emit_op_getarrayitem_gc
     emit_op_getarrayitem_gc_pure = emit_op_getarrayitem_gc
 
+    def emit_op_raw_load(self, op, arglocs, regalloc, fcond):
+        res_loc, base_loc, ofs_loc, scale, ofs = arglocs
+        assert ofs_loc.is_reg()
+        # no base offset
+        assert ofs.value == 0
+        signed = op.getdescr().is_item_signed()
+        self._load_from_mem(res_loc, base_loc, ofs_loc, scale, signed)
+        return fcond
 
     def emit_op_strlen(self, op, arglocs, regalloc, fcond):
         l0, l1, res = arglocs
