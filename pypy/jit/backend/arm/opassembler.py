@@ -849,8 +849,8 @@ class ResOpAssembler(object):
         value_loc, base_loc, ofs_loc, scale, ofs = arglocs
         assert ofs_loc.is_reg()
         if scale.value > 0:
-            ofs_loc = r.ip
             self.mc.LSL_ri(r.ip.value, ofs_loc.value, scale.value)
+            ofs_loc = r.ip
 
         # add the base offset
         if ofs.value > 0:
@@ -892,8 +892,8 @@ class ResOpAssembler(object):
 
         # scale the offset as required
         if scale.value > 0:
-            ofs_loc = r.ip
             self.mc.LSL_ri(r.ip.value, ofs_loc.value, scale.value)
+            ofs_loc = r.ip
         # add the base offset
         if ofs.value > 0:
             self.mc.ADD_ri(r.ip.value, ofs_loc.value, imm=ofs.value)
