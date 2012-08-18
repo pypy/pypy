@@ -811,7 +811,6 @@ class ResOpAssembler(object):
             assert 0
 
         return fcond
-    emit_op_getinteriorfield_raw = emit_op_getinteriorfield_gc
 
     def emit_op_setinteriorfield_gc(self, op, arglocs, regalloc, fcond):
         (base_loc, index_loc, value_loc,
