@@ -886,7 +886,6 @@ class Regalloc(object):
         result_loc = self.force_allocate_reg(op.result)
         return [base_loc, index_loc, result_loc, ofs_loc, imm(ofs),
                                     imm(itemsize), imm(fieldsize)]
-    prepare_op_getinteriorfield_raw = prepare_op_getinteriorfield_gc
 
     def prepare_op_setinteriorfield_gc(self, op, fcond):
         t = unpack_interiorfielddescr(op.getdescr())
@@ -926,6 +925,7 @@ class Regalloc(object):
         assert check_imm_arg(ofs)
         return [value_loc, base_loc, ofs_loc, imm(scale), imm(ofs)]
     prepare_op_setarrayitem_raw = prepare_op_setarrayitem_gc
+    prepare_op_raw_store = prepare_op_setarrayitem_gc
 
     def prepare_op_getarrayitem_gc(self, op, fcond):
         boxes = op.getarglist()
@@ -940,7 +940,9 @@ class Regalloc(object):
         return [res, base_loc, ofs_loc, imm(scale), imm(ofs)]
 
     prepare_op_getarrayitem_raw = prepare_op_getarrayitem_gc
+    prepare_op_getarrayitem_raw_pure = prepare_op_getarrayitem_gc
     prepare_op_getarrayitem_gc_pure = prepare_op_getarrayitem_gc
+    prepare_op_raw_load = prepare_op_getarrayitem_gc
 
     def prepare_op_strlen(self, op, fcond):
         args = op.getarglist()
