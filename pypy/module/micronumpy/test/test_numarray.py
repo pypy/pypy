@@ -2261,4 +2261,17 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         assert arr[1]['y']['y'] == 3.5
         assert arr[1]['y']['x'] == 0.0
         assert arr[1]['x'] == 15
-        
+
+    def test_string_record(self):
+        from _numpypy import dtype, array
+        d = dtype([('x', str), ('y', 'int32')])
+        assert d.fields['x'] == (dtype(str), 0)
+        assert d.fields['y'] == (dtype('int32'), 1)
+        d = dtype([('x', 'S1'), ('y', 'int32')])
+        assert d.fields['x'] == (dtype(str), 0)
+        assert d.fields['y'] == (dtype('int32'), 1)
+        a = array([('a', 2), ('c', 1)], dtype=d)
+        assert a[0]['x'] == 'a'
+        assert a[1]['y'] == 1
+
+       
