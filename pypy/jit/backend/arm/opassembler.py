@@ -849,35 +849,41 @@ class ResOpAssembler(object):
         value_loc, base_loc, ofs_loc, scale, ofs = arglocs
         assert ofs_loc.is_reg()
         if scale.value > 0:
-            scale_loc = r.ip
+            ofs_loc = r.ip
             self.mc.LSL_ri(r.ip.value, ofs_loc.value, scale.value)
-        else:
-            scale_loc = ofs_loc
 
         # add the base offset
         if ofs.value > 0:
-            self.mc.ADD_ri(r.ip.value, scale_loc.value, imm=ofs.value)
-            scale_loc = r.ip
+            self.mc.ADD_ri(r.ip.value, ofs_loc.value, imm=ofs.value)
+            ofs_loc = r.ip
+        self._write_to_mem(value_loc, base_loc, ofs_loc, scale, fcond)
+        return fcond
 
+    def _write_to_mem(self, value_loc, base_loc, ofs_loc, scale, fcond=c.AL):
         if scale.value == 3:
             assert value_loc.is_vfp_reg()
-            assert scale_loc.is_reg()
-            self.mc.ADD_rr(r.ip.value, base_loc.value, scale_loc.value)
+            assert ofs_loc.is_reg()
+            self.mc.ADD_rr(r.ip.value, base_loc.value, ofs_loc.value)
             self.mc.VSTR(value_loc.value, r.ip.value, cond=fcond)
         elif scale.value == 2:
-            self.mc.STR_rr(value_loc.value, base_loc.value, scale_loc.value,
+            self.mc.STR_rr(value_loc.value, base_loc.value, ofs_loc.value,
                                                                     cond=fcond)
         elif scale.value == 1:
-            self.mc.STRH_rr(value_loc.value, base_loc.value, scale_loc.value,
+            self.mc.STRH_rr(value_loc.value, base_loc.value, ofs_loc.value,
                                                                     cond=fcond)
         elif scale.value == 0:
-            self.mc.STRB_rr(value_loc.value, base_loc.value, scale_loc.value,
+            self.mc.STRB_rr(value_loc.value, base_loc.value, ofs_loc.value,
                                                                     cond=fcond)
         else:
             assert 0
-        return fcond
 
     emit_op_setarrayitem_raw = emit_op_setarrayitem_gc
+
+    def emit_op_raw_store(self, op, arglocs, regalloc, fcond):
+        value_loc, base_loc, ofs_loc, scale, ofs = arglocs
+        assert ofs_loc.is_reg()
+        self._write_to_mem(value_loc, base_loc, ofs_loc, scale, fcond)
+        return fcond
 
     def emit_op_getarrayitem_gc(self, op, arglocs, regalloc, fcond):
         res_loc, base_loc, ofs_loc, scale, ofs = arglocs
