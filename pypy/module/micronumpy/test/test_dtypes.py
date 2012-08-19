@@ -176,7 +176,6 @@ class AppTestDtypes(BaseNumpyAppTest):
 
     def test_cant_subclass(self):
         from _numpypy import dtype
-
         # You can't subclass dtype
         raises(TypeError, type, "Foo", (dtype,), {})
 
