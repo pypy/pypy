@@ -78,7 +78,7 @@ class BaseType(object):
     def __repr__(self):
         return self.__class__.__name__
 
-class Primitive(object):
+class BasePrimitive(object):
     _mixin_ = True
 
     def get_element_size(self):
@@ -139,6 +139,8 @@ class Primitive(object):
     def pack_str(self, box):
         return struct.pack(self.format_code, self.unbox(box))
 
+
+class Primitive(BasePrimitive):
     @simple_binary_op
     def add(self, v1, v2):
         return v1 + v2
@@ -890,17 +892,16 @@ class NonNativeFloat64(BaseType, NonNativeFloat):
     BoxType = interp_boxes.W_Float64Box
     format_code = "d"
 
-class BaseStringType(object):
-    _mixin_ = True
-
+class BaseStringType(BasePrimitive):
     def __init__(self, size=0):
         self.size = size
 
-    def get_element_size(self):
-        return self.size * rffi.sizeof(self.T)
-
 class StringType(BaseType, BaseStringType):
     T = lltype.Char
+    BoxType = interp_boxes.W_StringBox
+
+    def _coerce(self, space, w_item):
+        return self.box(space.str_w(space.call_function(space.w_str, w_item)))
 
 class VoidType(BaseType, BaseStringType):
     T = lltype.Char
