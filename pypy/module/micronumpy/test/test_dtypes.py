@@ -31,6 +31,8 @@ class AppTestDtypes(BaseNumpyAppTest):
         from _numpypy import dtype
 
         assert dtype(bool).num == 0
+        assert dtype('intp').num == 5
+        assert dtype('uintp').num == 6
         assert dtype(int).num == 7
         assert dtype(long).num == 9
         assert dtype(float).num == 12
@@ -233,6 +235,17 @@ class AppTestDtypes(BaseNumpyAppTest):
 
 
 class AppTestTypes(BaseNumpyAppTest):
+    def setup_class(cls):
+        BaseNumpyAppTest.setup_class.im_func(cls)
+        if option.runappdirect:
+            import platform
+            bits, linkage = platform.architecture()
+            ptr_size = int(bits[:-3]) // 8
+        else:
+            from pypy.rpython.lltypesystem import rffi
+            ptr_size = rffi.sizeof(rffi.CCHARP)
+        cls.w_ptr_size = cls.space.wrap(ptr_size)
+
     def test_abstract_types(self):
         import _numpypy as numpy
         raises(TypeError, numpy.generic, 0)
@@ -471,15 +484,16 @@ class AppTestTypes(BaseNumpyAppTest):
 
     def test_various_types(self):
         import _numpypy as numpy
-        import sys
 
         assert numpy.int16 is numpy.short
         assert numpy.int8 is numpy.byte
         assert numpy.bool_ is numpy.bool8
-        if sys.maxint == (1 << 63) - 1:
-            assert numpy.intp is numpy.int64
-        else:
+        if self.ptr_size == 4:
             assert numpy.intp is numpy.int32
+            assert numpy.uintp is numpy.uint32
+        elif self.ptr_size == 8:
+            assert numpy.intp is numpy.int64
+            assert numpy.uintp is numpy.uint64
 
     def test_mro(self):
         import _numpypy as numpy
