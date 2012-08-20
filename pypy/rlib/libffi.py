@@ -1,3 +1,6 @@
+"""
+This whole file is DEPRECATED.  Use jit_libffi.py instead.
+"""
 from __future__ import with_statement
 
 from pypy.rpython.lltypesystem import rffi, lltype
