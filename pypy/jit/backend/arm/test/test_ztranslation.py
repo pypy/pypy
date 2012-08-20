@@ -12,6 +12,7 @@ from pypy.translator.translator import TranslationContext
 from pypy.config.translationoption import DEFL_GC
 from pypy.rlib import rgc
 from pypy.jit.backend.arm.test.support import skip_unless_run_slow_tests
+skip_unless_run_slow_tests()
 
 class TestTranslationARM(CCompiledMixin):
     CPUClass = getcpuclass()
@@ -101,7 +102,6 @@ class TestTranslationARM(CCompiledMixin):
     def test_direct_assembler_call_translates(self):
         """Test CALL_ASSEMBLER and the recursion limit"""
         from pypy.rlib.rstackovf import StackOverflow
-        skip_unless_run_slow_tests()
 
         class Thing(object):
             def __init__(self, val):
@@ -206,7 +206,6 @@ class TestTranslationRemoveTypePtrARM(CCompiledMixin):
         return t
 
     def test_external_exception_handling_translates(self):
-        skip_unless_run_slow_tests()
         jitdriver = JitDriver(greens = [], reds = ['n', 'total'])
 
         class ImDone(Exception):
