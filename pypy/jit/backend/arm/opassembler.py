@@ -1216,7 +1216,7 @@ class ResOpAssembler(object):
             # result of previous call is in r0
             self.mov_loc_loc(arglocs[0], r.r1)
             self.mc.BL(asm_helper_adr)
-            if op.result and resloc.is_vfp_reg():
+            if not self.cpu.use_hf_abi and op.result and resloc.is_vfp_reg():
                 # move result to the allocated register
                 self.mov_to_vfp_loc(r.r0, r.r1, resloc)
 
