@@ -310,9 +310,9 @@ class TestCallingConv(Runner):
         F = lltype.Float
         S = lltype.SingleFloat
         I = lltype.Signed
-        floats = [random.random() - 0.5 for i in range(8)]
-        singlefloats = [r_singlefloat(random.random() - 0.5) for i in range(8)]
-        ints = [random.randrange(-99, 99) for i in range(8)]
+        floats = [random.random() - 0.5 for i in range(20)]
+        singlefloats = [r_singlefloat(random.random() - 0.5) for i in range(20)]
+        ints = [random.randrange(-99, 99) for i in range(20)]
         for repeat in range(100):
             args = []
             argvalues = []
@@ -320,7 +320,7 @@ class TestCallingConv(Runner):
             local_floats = list(floats)
             local_singlefloats = list(singlefloats)
             local_ints = list(ints)
-            for i in range(8):
+            for i in range(random.randrange(4, 20)):
                 case = random.randrange(0, 3)
                 if case == 0:
                     args.append(F)
