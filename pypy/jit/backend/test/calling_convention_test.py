@@ -321,19 +321,22 @@ class TestCallingConv(Runner):
             local_singlefloats = list(singlefloats)
             local_ints = list(ints)
             for i in range(random.randrange(4, 20)):
-                case = random.randrange(0, 3)
-                if case == 0:
+                case = random.randrange(0, 6)
+                if case & 1: boxme = BoxInt
+                else:        boxme = ConstInt
+                if case < 2:
                     args.append(F)
-                    arg = local_floats.pop()
-                    argslist.append(boxfloat(arg))
-                elif case == 1:
+                    arg = arg1 = local_floats.pop()
+                    if case & 1: boxme = boxfloat
+                    else:        boxme = constfloat
+                elif case < 4:
                     args.append(S)
                     arg = local_singlefloats.pop()
-                    argslist.append(BoxInt(longlong.singlefloat2int(arg)))
+                    arg1 = longlong.singlefloat2int(arg)
                 else:
                     args.append(I)
-                    arg = local_ints.pop()
-                    argslist.append(BoxInt(arg))
+                    arg = arg1 = local_ints.pop()
+                argslist.append(boxme(arg1))
                 argvalues.append(arg)
             FUNC = self.FuncType(args, F)
             FPTR = self.Ptr(FUNC)
