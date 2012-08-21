@@ -900,6 +900,10 @@ class StringType(BaseType, BaseStringType):
     T = lltype.Char
     BoxType = interp_boxes.W_StringBox
 
+    @specialize.argtype(1)
+    def box(self, value):
+        return self.BoxType(rffi.cast(self.T, value), 0, None)
+
     def _coerce(self, space, w_item):
         return self.box(space.str_w(space.call_function(space.w_str, w_item)))
 

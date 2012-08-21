@@ -209,13 +209,15 @@ class W_Float64Box(W_FloatingBox, PrimitiveBox):
 
 
 class W_FlexibleBox(W_GenericBox):
-    def __init__(self, arr, ofs, dtype):
-        self.arr = arr # we have to keep array alive
+    def __init__(self, arr, ofs=0, dtype=None):
+        self.value = arr # we have to keep array alive
         self.ofs = ofs
+        if not dtype:
+            dtype = arr.dtype
         self.dtype = dtype
 
     def get_dtype(self, space):
-        return self.arr.dtype
+        return self.value.dtype
 
 @unwrap_spec(self=W_GenericBox)
 def descr_index(space, self):
@@ -229,7 +231,7 @@ class W_VoidBox(W_FlexibleBox):
         except KeyError:
             raise OperationError(space.w_IndexError,
                                  space.wrap("Field %s does not exist" % item))
-        return dtype.itemtype.read(self.arr, self.ofs, ofs, dtype)
+        return dtype.itemtype.read(self.value, self.ofs, ofs, dtype)
 
     @unwrap_spec(item=str)
     def descr_setitem(self, space, item, w_value):
@@ -238,7 +240,7 @@ class W_VoidBox(W_FlexibleBox):
         except KeyError:
             raise OperationError(space.w_IndexError,
                                  space.wrap("Field %s does not exist" % item))
-        dtype.itemtype.store(self.arr, self.ofs, ofs,
+        dtype.itemtype.store(self.value, self.ofs, ofs,
                              dtype.coerce(space, w_value))
 
 class W_CharacterBox(W_FlexibleBox):
