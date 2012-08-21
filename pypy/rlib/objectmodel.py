@@ -125,19 +125,39 @@ def enforceargs(*types, **kwds):
             return f
         return decorator
     #
-    from pypy.annotation.signature import annotationoftype
-    from pypy.annotation.model import SomeObject
-    def decorator(f):
+    def decorator(f): 
         def get_annotation(t):
+            from pypy.annotation.signature import annotation
+            from pypy.annotation.model import SomeObject
             if isinstance(t, SomeObject):
                 return t
-            return annotationoftype(t)
+            return annotation(t)
+        def get_type_descr_of_argument(arg):
+            # we don't want to check *all* the items in list/dict: we assume
+            # they are already homogeneous, so we only check the first
+            # item. The case of empty list/dict is handled inside typecheck()
+            if isinstance(arg, list):
+                item = arg[0]
+                return [get_type_descr_of_argument(item)]
+            elif isinstance(arg, dict):
+                key, value = next(arg.iteritems())
+                return {get_type_descr_of_argument(key): get_type_descr_of_argument(value)}
+            else:
+                return type(arg)
         def typecheck(*args):
+            from pypy.annotation.model import SomeList, SomeDict
             for i, (expected_type, arg) in enumerate(zip(types, args)):
                 if expected_type is None:
                     continue
                 s_expected = get_annotation(expected_type)
-                s_argtype = get_annotation(type(arg))
+                # special case: if we expect a list or dict and the argument
+                # is an empty list/dict, the typecheck always pass
+                if isinstance(s_expected, SomeList) and arg == []:
+                    continue
+                if isinstance(s_expected, SomeDict) and arg == {}:
+                    continue
+                #
+                s_argtype = get_annotation(get_type_descr_of_argument(arg))
                 if not s_expected.contains(s_argtype):
                     msg = "%s argument number %d must be of type %s" % (
                         f.func_name, i+1, expected_type)
