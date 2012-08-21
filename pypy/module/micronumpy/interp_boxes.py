@@ -212,8 +212,6 @@ class W_FlexibleBox(W_GenericBox):
     def __init__(self, arr, ofs=0, dtype=None):
         self.value = arr # we have to keep array alive
         self.ofs = ofs
-        if not dtype:
-            dtype = arr.dtype
         self.dtype = dtype
 
     def get_dtype(self, space):

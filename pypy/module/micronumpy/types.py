@@ -900,10 +900,6 @@ class StringType(BaseType, BaseStringType):
     T = lltype.Char
     BoxType = interp_boxes.W_StringBox
 
-    @specialize.argtype(1)
-    def box(self, value):
-        return self.BoxType(rffi.cast(self.T, value), 0, None)
-
     def _coerce(self, space, w_item):
         return self.box(space.str_w(space.call_function(space.w_str, w_item)))
 
@@ -961,10 +957,10 @@ class RecordType(BaseType):
         return interp_boxes.W_VoidBox(arr, 0, arr.dtype)
 
     @jit.unroll_safe
-    def store(self, arr, i, ofs, box):
+    def store(self, value, i, ofs, box):
         assert isinstance(box, interp_boxes.W_VoidBox)
         for k in range(self.get_element_size()):
-            arr.storage[k + i] = box.arr.storage[k + box.ofs]
+            value.storage[k + i] = box.value.storage[k + box.ofs]
 
     @jit.unroll_safe
     def str_format(self, box):
@@ -976,7 +972,7 @@ class RecordType(BaseType):
                 first = False
             else:
                 pieces.append(", ")
-            pieces.append(tp.str_format(tp.read(box.arr, box.ofs, ofs)))
+            pieces.append(tp.str_format(tp.read(box.value, box.ofs, ofs)))
         pieces.append(")")
         return "".join(pieces)
 
