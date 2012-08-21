@@ -2,6 +2,13 @@ from __future__ import with_statement
 """
 This file is OBSCURE.  Really.  The purpose is to avoid copying and changing
 'test_c.py' from cffi/c/.
+Adding a test to _cffi_backend involves:
+1. add a test to cffi/_cffi_backend.c from the cffi module
+2. have it pass when you run test_c.py in cffi
+3. copy test_c.py into _backend_test.py here
+4. add the _testfunc from 1 into _test_lib.c here
+5. make the test pass in pypy
+
 """
 import py, sys, ctypes
 if sys.version_info < (2, 6):
