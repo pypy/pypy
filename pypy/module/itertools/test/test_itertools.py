@@ -93,7 +93,6 @@ class AppTestItertools:
 
         r = itertools.repeat('a', 15)
         r.next()
-        assert len(r) == 14     <-- no, python 2.7 does not have len(r)
         raises(TypeError, "len(itertools.repeat('xkcd'))")
 
     def test_takewhile(self):

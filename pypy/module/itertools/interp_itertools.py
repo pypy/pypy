@@ -112,11 +112,6 @@ class W_Repeat(Wrappable):
             s = 'repeat(%s)' % (objrepr,)
         return self.space.wrap(s)
 
-    def len(self, space):
-        if self.count == -1 or not self.counting:
-            raise OperationError(space.w_TypeError, space.wrap('len() of unsized object'))
-        return space.wrap(self.count)
-
 def W_Repeat___new__(space, w_subtype, w_object, w_times=None):
     r = space.allocate_instance(W_Repeat, w_subtype)
     r.__init__(space, w_object, w_times)
@@ -129,7 +124,6 @@ W_Repeat.typedef = TypeDef(
         __iter__ = interp2app(W_Repeat.iter_w),
         next     = interp2app(W_Repeat.next_w),
         __repr__ = interp2app(W_Repeat.repr_w),
-        __len__  = interp2app(W_Repeat.len),
         __doc__  = """Make an iterator that returns object over and over again.
     Runs indefinitely unless the times argument is specified.  Used
     as argument to imap() for invariant parameters to the called

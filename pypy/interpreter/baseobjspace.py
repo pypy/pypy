@@ -22,7 +22,7 @@ UINT_MAX_32_BITS = r_uint(4294967295)
 
 unpackiterable_driver = jit.JitDriver(name = 'unpackiterable',
                                       greens = ['tp'],
-                                      reds = ['items', 'w_item', 'w_iterator'])
+                                      reds = ['items', 'w_iterator'])
 
 class W_Root(object):
     """This is the abstract root class of all wrapped objects that live
@@ -875,11 +875,9 @@ class ObjSpace(object):
                 items = [] # it might have lied
         #
         tp = self.type(w_iterator)
-        w_item = None
         while True:
             unpackiterable_driver.jit_merge_point(tp=tp,
                                                   w_iterator=w_iterator,
-                                                  w_item=w_item, <-- why?
                                                   items=items)
             try:
                 w_item = self.next(w_iterator)
