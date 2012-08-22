@@ -487,8 +487,8 @@ class GcRootMap_shadowstack(object):
                         callshape = iself.callshape
                     #
                     # 'callshape' points to the next INT of the callshape.
-                    # If it's zero we are done with the JIT frame.
-                    while rffi.cast(lltype.Signed, callshape[0]) != 0:
+                    # If it's -1 we are done with the JIT frame.
+                    while rffi.cast(lltype.Signed, callshape[0]) != -1:
                         #
                         # Non-zero: it's an offset inside the JIT frame.
                         # Read it and increment 'callshape'.
@@ -542,7 +542,10 @@ class GcRootMap_shadowstack(object):
         p = rffi.cast(self.INTARRAYPTR, rawaddr)
         for i in range(length):
             p[i] = rffi.cast(rffi.INT, shape[i])
-        p[length] = rffi.cast(rffi.INT, 0)
+        # "-1" is added as an end marker.  It used to be 0, but that conflicts
+        # with legal values on the PPC backend :-/  -1 is never a legal value
+        # because it's not aligned to a multiple of 4.
+        p[length] = rffi.cast(rffi.INT, -1)
         return p
 
     def write_callshape(self, p, force_index):
