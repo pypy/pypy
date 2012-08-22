@@ -31,12 +31,6 @@ class AppTestFunctionIntrospection:
         f.__annotations__ = ann
         assert f.__annotations__ is ann
 
-    def test_foo(self):
-        """
-        def foo(*, kw=3): return kw
-        assert foo(kw=42) == 42
-        """
-
     def test_kwdefaults(self):
         """
         def f(*, kw=3): return kw
