@@ -5,6 +5,7 @@ Arguments objects.
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.rlib.debug import make_sure_not_resized
 from pypy.rlib import jit
+from pypy.rlib.debug import check_annotation
 from pypy.rlib.objectmodel import enforceargs
 
 class Signature(object):
@@ -92,15 +93,19 @@ class Signature(object):
         raise IndexError
 
 
-def assert_list_of_unicode(value):
-    from pypy.rlib.debug import check_annotation
-    def checker(ann, bk):
-        from pypy.annotation.model import SomeList, SomeUnicodeString
-        if not isinstance(ann, SomeList):
-            raise TypeError
-        if not isinstance(ann.listdef.listitem.s_value, SomeUnicodeString):
-            raise TypeError
-    check_annotation(value, checker)
+
+def check_list_of_unicode(ann, bk):
+    from pypy.annotation.model import (SomeList, SomeUnicodeString,
+                                       s_None, s_ImpossibleValue)
+    if ann is s_None:
+        return
+    if not isinstance(ann, SomeList):
+        raise TypeError
+    s_item = ann.listdef.listitem.s_value
+    if s_item is s_ImpossibleValue:
+        return
+    if not isinstance(s_item, SomeUnicodeString):
+        raise TypeError
 
 
 class Arguments(object):
@@ -121,7 +126,7 @@ class Arguments(object):
         self.space = space
         assert isinstance(args_w, list)
         self.arguments_w = args_w
-        assert_list_of_unicode(keywords)
+        check_annotation(keywords, check_list_of_unicode)
         
         self.keywords = keywords
         self.keywords_w = keywords_w
@@ -197,7 +202,7 @@ class Arguments(object):
         # unpack the ** arguments
         space = self.space
         keywords, values_w = space.view_as_kwargs(w_starstararg)
-        assert_list_of_unicode(keywords)
+        check_annotation(keywords, check_list_of_unicode)
         if keywords is not None: # this path also taken for empty dicts
             if self.keywords is None:
                 self.keywords = keywords
