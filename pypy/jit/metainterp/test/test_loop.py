@@ -871,6 +871,42 @@ class LoopTest(object):
         res = self.meta_interp(f, [20, 10, 1])
         assert res == f(20, 10, 1)
 
+    def test_boxed_unerased_pointers_in_short_preamble(self):
+        from pypy.rlib.rerased import new_erasing_pair
+        from pypy.rpython.lltypesystem import lltype
+        class A(object):
+            def __init__(self, val):
+                self.val = val
+            def tst(self):
+                return self.val
+
+        class Box(object):
+            def __init__(self, val):
+                self.val = val
+
+        erase_A, unerase_A = new_erasing_pair('A')
+        erase_TP, unerase_TP = new_erasing_pair('TP')
+        TP = lltype.GcArray(lltype.Signed)
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'm', 'i', 'sa', 'p'])
+        def f(n, m):
+            i = sa = 0
+            p = Box(erase_A(A(7)))
+            while i < n:
+                myjitdriver.jit_merge_point(n=n, m=m, i=i, sa=sa, p=p)
+                if i < m:
+                    sa += unerase_A(p.val).tst()
+                elif i == m:
+                    a = lltype.malloc(TP, 5)
+                    a[0] = 42
+                    p = Box(erase_TP(a))
+                else:
+                    sa += unerase_TP(p.val)[0]
+                sa -= A(i).val
+                i += 1
+            return sa
+        res = self.meta_interp(f, [20, 10])
+        assert res == f(20, 10)
+
 class TestOOtype(LoopTest, OOJitMixin):
     pass
 

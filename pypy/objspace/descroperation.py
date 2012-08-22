@@ -221,13 +221,15 @@ class DescrOperation(object):
         return space.get_and_call_function(w_descr, w_obj, w_name)
 
     def is_true(space, w_obj):
-        method = "__bool__"
-        w_descr = space.lookup(w_obj, method)
+        w_descr = space.lookup(w_obj, "__bool__")
         if w_descr is None:
-            method = "__len__"
-            w_descr = space.lookup(w_obj, method)
+            w_descr = space.lookup(w_obj, "__len__")
             if w_descr is None:
                 return True
+            # call __len__
+            w_res = space.get_and_call_function(w_descr, w_obj)
+            return space._check_len_result(w_res) != 0
+        # call __bool__
         w_res = space.get_and_call_function(w_descr, w_obj)
         # more shortcuts for common cases
         if space.is_w(w_res, space.w_False):
@@ -235,11 +237,13 @@ class DescrOperation(object):
         if space.is_w(w_res, space.w_True):
             return True
         w_restype = space.type(w_res)
-        if method == '__len__':
-            return space._check_len_result(w_res) != 0
+        # Note there is no check for bool here because the only possible
+        # instances of bool are w_False and w_True, which are checked above.
+        if space.is_w(w_restype, space.w_int):
+            return space.int_w(w_res) != 0
         else:
-            raise OperationError(space.w_TypeError, space.wrap(
-                    "__bool__ should return bool"))
+            msg = "__bool__ should return bool or integer"
+            raise OperationError(space.w_TypeError, space.wrap(msg))
 
     def nonzero(space, w_obj):
         if space.is_true(w_obj):

@@ -10,6 +10,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory, rffi, rstr
 from pypy.rpython import annlowlevel
 from pypy.rlib import rarithmetic, rstack
 from pypy.rlib.objectmodel import we_are_translated, specialize
+from pypy.rlib.objectmodel import compute_unique_id
 from pypy.rlib.debug import have_debug_prints, ll_assert
 from pypy.rlib.debug import debug_start, debug_stop, debug_print
 from pypy.jit.metainterp.optimize import InvalidLoop
@@ -493,7 +494,7 @@ class VirtualInfo(AbstractVirtualStructInfo):
         return self.setfields(decoder, struct)
 
     def debug_prints(self):
-        debug_print("\tvirtualinfo", self.known_class.repr_rpython())
+        debug_print("\tvirtualinfo", self.known_class.repr_rpython(), " at ",  compute_unique_id(self))
         AbstractVirtualStructInfo.debug_prints(self)
 
 
@@ -509,7 +510,7 @@ class VStructInfo(AbstractVirtualStructInfo):
         return self.setfields(decoder, struct)
 
     def debug_prints(self):
-        debug_print("\tvstructinfo", self.typedescr.repr_rpython())
+        debug_print("\tvstructinfo", self.typedescr.repr_rpython(), " at ",  compute_unique_id(self))
         AbstractVirtualStructInfo.debug_prints(self)
 
 class VArrayInfo(AbstractVirtualInfo):
@@ -539,7 +540,7 @@ class VArrayInfo(AbstractVirtualInfo):
         return array
 
     def debug_prints(self):
-        debug_print("\tvarrayinfo", self.arraydescr)
+        debug_print("\tvarrayinfo", self.arraydescr, " at ",  compute_unique_id(self))
         for i in self.fieldnums:
             debug_print("\t\t", str(untag(i)))
 
@@ -550,7 +551,7 @@ class VArrayStructInfo(AbstractVirtualInfo):
         self.fielddescrs = fielddescrs
 
     def debug_prints(self):
-        debug_print("\tvarraystructinfo", self.arraydescr)
+        debug_print("\tvarraystructinfo", self.arraydescr, " at ",  compute_unique_id(self))
         for i in self.fieldnums:
             debug_print("\t\t", str(untag(i)))
 
@@ -581,7 +582,7 @@ class VStrPlainInfo(AbstractVirtualInfo):
         return string
 
     def debug_prints(self):
-        debug_print("\tvstrplaininfo length", len(self.fieldnums))
+        debug_print("\tvstrplaininfo length", len(self.fieldnums), " at ",  compute_unique_id(self))
 
 
 class VStrConcatInfo(AbstractVirtualInfo):
@@ -599,7 +600,7 @@ class VStrConcatInfo(AbstractVirtualInfo):
         return string
 
     def debug_prints(self):
-        debug_print("\tvstrconcatinfo")
+        debug_print("\tvstrconcatinfo at ",  compute_unique_id(self))
         for i in self.fieldnums:
             debug_print("\t\t", str(untag(i)))
 
@@ -615,7 +616,7 @@ class VStrSliceInfo(AbstractVirtualInfo):
         return string
 
     def debug_prints(self):
-        debug_print("\tvstrsliceinfo")
+        debug_print("\tvstrsliceinfo at ",  compute_unique_id(self))
         for i in self.fieldnums:
             debug_print("\t\t", str(untag(i)))
 
@@ -636,7 +637,7 @@ class VUniPlainInfo(AbstractVirtualInfo):
         return string
 
     def debug_prints(self):
-        debug_print("\tvuniplaininfo length", len(self.fieldnums))
+        debug_print("\tvuniplaininfo length", len(self.fieldnums), " at ",  compute_unique_id(self))
 
 
 class VUniConcatInfo(AbstractVirtualInfo):
@@ -654,7 +655,7 @@ class VUniConcatInfo(AbstractVirtualInfo):
         return string
 
     def debug_prints(self):
-        debug_print("\tvuniconcatinfo")
+        debug_print("\tvuniconcatinfo at ",  compute_unique_id(self))
         for i in self.fieldnums:
             debug_print("\t\t", str(untag(i)))
 
@@ -671,7 +672,7 @@ class VUniSliceInfo(AbstractVirtualInfo):
         return string
 
     def debug_prints(self):
-        debug_print("\tvunisliceinfo")
+        debug_print("\tvunisliceinfo at ",  compute_unique_id(self))
         for i in self.fieldnums:
             debug_print("\t\t", str(untag(i)))
 
@@ -1280,7 +1281,6 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
 
 def dump_storage(storage, liveboxes):
     "For profiling only."
-    from pypy.rlib.objectmodel import compute_unique_id
     debug_start("jit-resume")
     if have_debug_prints():
         debug_print('Log storage', compute_unique_id(storage))
@@ -1313,4 +1313,13 @@ def dump_storage(storage, liveboxes):
                     debug_print('\t\t', 'None')
                 else:
                     virtual.debug_prints()
+        if storage.rd_pendingfields:
+            debug_print('\tpending setfields')
+            for i in range(len(storage.rd_pendingfields)):
+                lldescr  = storage.rd_pendingfields[i].lldescr
+                num      = storage.rd_pendingfields[i].num
+                fieldnum = storage.rd_pendingfields[i].fieldnum
+                itemindex= storage.rd_pendingfields[i].itemindex
+                debug_print("\t\t", str(lldescr), str(untag(num)), str(untag(fieldnum)), itemindex)
+
     debug_stop("jit-resume")

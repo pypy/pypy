@@ -18,14 +18,13 @@ class AppTestSTDStreams:
     def setup_class(cls):
         cls.space = space
         env = os.environ
-        cls.w_N = space.wrap(13)
         cls.w_test_dct  = space.wrap(test_dct)
-        cls.w_datatypes = cls.space.appexec([], """():
+        cls.w_streams = cls.space.appexec([], """():
             import cppyy
             return cppyy.load_reflection_info(%r)""" % (test_dct, ))
 
     def test01_std_ostream(self):
-        """Test access to an std::vector<int>"""
+        """Test availability of std::ostream"""
 
         import cppyy
 
@@ -34,3 +33,9 @@ class AppTestSTDStreams:
 
         assert callable(cppyy.gbl.std.ostream)
 
+    def test02_std_cout(self):
+        """Test access to std::cout"""
+
+        import cppyy
+
+        assert not (cppyy.gbl.std.cout is None)

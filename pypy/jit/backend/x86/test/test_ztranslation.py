@@ -181,12 +181,14 @@ class TestTranslationX86(CCompiledMixin):
                 i += 1
 
         def main():
+            jit_hooks.stats_set_debug(None, True)
             f()
             ll_times = jit_hooks.stats_get_loop_run_times(None)
             return len(ll_times)
 
         res = self.meta_interp(main, [])
-        assert res == 1
+        assert res == 3
+        # one for loop, one for entry point and one for the prologue
 
 class TestTranslationRemoveTypePtrX86(CCompiledMixin):
     CPUClass = getcpuclass()

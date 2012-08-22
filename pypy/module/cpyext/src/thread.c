@@ -1,6 +1,55 @@
 #include <Python.h>
 #include "pythread.h"
 
+/* With PYPY_NOT_MAIN_FILE only declarations are imported */
+#define PYPY_NOT_MAIN_FILE
+#include "src/thread.h"
+
+long
+PyThread_get_thread_ident(void)
+{
+    return RPyThreadGetIdent();
+}
+
+PyThread_type_lock
+PyThread_allocate_lock(void)
+{
+    struct RPyOpaque_ThreadLock *lock;
+    lock = malloc(sizeof(struct RPyOpaque_ThreadLock));
+    if (lock == NULL)
+        return NULL;
+
+    if (RPyThreadLockInit(lock) == 0) {
+        free(lock);
+        return NULL;
+    }
+
+    return (PyThread_type_lock)lock;
+}
+
+void
+PyThread_free_lock(PyThread_type_lock lock)
+{
+    struct RPyOpaque_ThreadLock *real_lock = lock;
+    RPyThreadAcquireLock(real_lock, 0);
+    RPyThreadReleaseLock(real_lock);
+    RPyOpaqueDealloc_ThreadLock(real_lock);
+    free(lock);
+}
+
+int
+PyThread_acquire_lock(PyThread_type_lock lock, int waitflag)
+{
+    return RPyThreadAcquireLock((struct RPyOpaqueThreadLock*)lock, waitflag);
+}
+
+void
+PyThread_release_lock(PyThread_type_lock lock)
+{
+    RPyThreadReleaseLock((struct RPyOpaqueThreadLock*)lock);
+}
+
+
 /* ------------------------------------------------------------------------
 Per-thread data ("key") support.
 

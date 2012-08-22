@@ -85,8 +85,11 @@ def test_newlist():
                  """new_array <ArrayDescr>, $0 -> %r0""")
     builtin_test('newlist', [Constant(5, lltype.Signed)], FIXEDLIST,
                  """new_array <ArrayDescr>, $5 -> %r0""")
+    builtin_test('newlist', [Constant(-2, lltype.Signed)], FIXEDLIST,
+                 """new_array <ArrayDescr>, $0 -> %r0""")
     builtin_test('newlist', [varoftype(lltype.Signed)], FIXEDLIST,
-                 """new_array <ArrayDescr>, %i0 -> %r0""")
+                 """int_force_ge_zero %i0 -> %i1\n"""
+                 """new_array <ArrayDescr>, %i1 -> %r0""")
     builtin_test('newlist', [Constant(5, lltype.Signed),
                              Constant(0, lltype.Signed)], FIXEDLIST,
                  """new_array <ArrayDescr>, $5 -> %r0""")
@@ -126,14 +129,14 @@ def test_fixed_getitem_foldable():
     builtin_test('list.getitem_foldable/NONNEG',
                  [varoftype(FIXEDLIST), varoftype(lltype.Signed)],
                  lltype.Signed, """
-                     getarrayitem_gc_pure_i %r0, <ArrayDescr>, %i0 -> %i1
+                     getarrayitem_gc_i_pure %r0, <ArrayDescr>, %i0 -> %i1
                  """)
     builtin_test('list.getitem_foldable/NEG',
                  [varoftype(FIXEDLIST), varoftype(lltype.Signed)],
                  lltype.Signed, """
                      -live-
                      check_neg_index %r0, <ArrayDescr>, %i0 -> %i1
-                     getarrayitem_gc_pure_i %r0, <ArrayDescr>, %i1 -> %i2
+                     getarrayitem_gc_i_pure %r0, <ArrayDescr>, %i1 -> %i2
                  """)
 
 def test_fixed_setitem():

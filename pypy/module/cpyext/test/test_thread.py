@@ -1,18 +1,21 @@
 import py
 
-import thread
-import threading
-
-from pypy.module.thread.ll_thread import allocate_ll_lock
-from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 
 
-class TestPyThread(BaseApiTest):
-    def test_get_thread_ident(self, space, api):
+class AppTestThread(AppTestCpythonExtensionBase):
+    def test_get_thread_ident(self):
+        module = self.import_extension('foo', [
+            ("get_thread_ident", "METH_NOARGS",
+             """
+                 /* Use the 'PyPy' prefix to ensure we access our functions */
+                 return PyInt_FromLong(PyPyThread_get_thread_ident());
+             """),
+            ])
+        import thread, threading
         results = []
         def some_thread():
-            res = api.PyThread_get_thread_ident()
+            res = module.get_thread_ident()
             results.append((res, thread.get_ident()))
 
         some_thread()
@@ -25,23 +28,46 @@ class TestPyThread(BaseApiTest):
 
         assert results[0][0] != results[1][0]
 
-    def test_acquire_lock(self, space, api):
-        assert hasattr(api, 'PyThread_acquire_lock')
-        lock = api.PyThread_allocate_lock()
-        assert api.PyThread_acquire_lock(lock, 1) == 1
-        assert api.PyThread_acquire_lock(lock, 0) == 0
-        api.PyThread_free_lock(lock)
+    def test_acquire_lock(self):
+        module = self.import_extension('foo', [
+            ("test_acquire_lock", "METH_NOARGS",
+             """
+                 /* Use the 'PyPy' prefix to ensure we access our functions */
+                 PyThread_type_lock lock = PyPyThread_allocate_lock();
+                 if (PyPyThread_acquire_lock(lock, 1) != 1) {
+                     PyErr_SetString(PyExc_AssertionError, "first acquire");
+                     return NULL;
+                 }
+                 if (PyPyThread_acquire_lock(lock, 0) != 0) {
+                     PyErr_SetString(PyExc_AssertionError, "second acquire");
+                     return NULL;
+                 }
+                 PyPyThread_free_lock(lock);
 
-    def test_release_lock(self, space, api):
-        assert hasattr(api, 'PyThread_acquire_lock')
-        lock = api.PyThread_allocate_lock()
-        api.PyThread_acquire_lock(lock, 1)
-        api.PyThread_release_lock(lock)
-        assert api.PyThread_acquire_lock(lock, 0) == 1
-        api.PyThread_free_lock(lock)
+                 Py_RETURN_NONE;
+             """),
+            ])
+        module.test_acquire_lock()
 
+    def test_release_lock(self):
+        module = self.import_extension('foo', [
+            ("test_release_lock", "METH_NOARGS",
+             """
+                 /* Use the 'PyPy' prefix to ensure we access our functions */
+                 PyThread_type_lock lock = PyPyThread_allocate_lock();
+                 PyPyThread_acquire_lock(lock, 1);
+                 PyPyThread_release_lock(lock);
+                 if (PyPyThread_acquire_lock(lock, 0) != 1) {
+                     PyErr_SetString(PyExc_AssertionError, "first acquire");
+                     return NULL;
+                 }
+                 PyPyThread_free_lock(lock);
 
-class AppTestThread(AppTestCpythonExtensionBase):
+                 Py_RETURN_NONE;
+             """),
+            ])
+        module.test_release_lock()
+
     def test_tls(self):
         module = self.import_extension('foo', [
             ("create_key", "METH_NOARGS",

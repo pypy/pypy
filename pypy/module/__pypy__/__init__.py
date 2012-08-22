@@ -43,6 +43,8 @@ class Module(MixedModule):
         'do_what_I_mean'            : 'interp_magic.do_what_I_mean',
         'list_strategy'             : 'interp_magic.list_strategy',
         'validate_fd'               : 'interp_magic.validate_fd',
+        'newdict'                   : 'interp_dict.newdict',
+        'dictstrategy'              : 'interp_dict.dictstrategy',
     }
     if sys.platform == 'win32':
         interpleveldefs['get_console_cp'] = 'interp_magic.get_console_cp'

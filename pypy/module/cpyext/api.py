@@ -47,8 +47,10 @@ ADDR = lltype.Signed
 pypydir = py.path.local(autopath.pypydir)
 include_dir = pypydir / 'module' / 'cpyext' / 'include'
 source_dir = pypydir / 'module' / 'cpyext' / 'src'
+translator_c_dir = pypydir / 'translator' / 'c'
 include_dirs = [
     include_dir,
+    translator_c_dir,
     udir,
     ]
 
@@ -371,6 +373,8 @@ SYMBOLS_C = [
     'PyObject_AsReadBuffer', 'PyObject_AsWriteBuffer', 'PyObject_CheckReadBuffer',
 
     'PyOS_getsig', 'PyOS_setsig',
+    'PyThread_get_thread_ident', 'PyThread_allocate_lock', 'PyThread_free_lock',
+    'PyThread_acquire_lock', 'PyThread_release_lock',
     'PyThread_create_key', 'PyThread_delete_key', 'PyThread_set_key_value',
     'PyThread_get_key_value', 'PyThread_delete_key_value',
     'PyThread_ReInitTLS',
@@ -712,7 +716,8 @@ def build_bridge(space):
             global_objects.append('%s %s = NULL;' % (typ, name))
     global_code = '\n'.join(global_objects)
 
-    prologue = "#include <Python.h>\n"
+    prologue = ("#include <Python.h>\n"
+                "#include <src/thread.h>\n")
     code = (prologue +
             struct_declaration_code +
             global_code +

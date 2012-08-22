@@ -25,6 +25,7 @@ class AppTestHashlib:
                                     'sha512': 64,
                                     }.items():
             h = hashlib.new(name)
+            assert h.name == name
             assert h.digest_size == expected_size
             #
             h.update(b'abc')

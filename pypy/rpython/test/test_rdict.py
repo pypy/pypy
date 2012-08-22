@@ -111,6 +111,16 @@ class BaseTestRdict(BaseRtypingTest):
         assert self.interpret(func, [42, 0]) == False
         assert self.interpret(func, [42, 42]) == True
 
+    def test_contains_2(self):
+        d = {'5': None, '7': None}
+        def func(x):
+            return chr(x) in d
+        #assert self.interpret(func, [ord('5')]) == True
+        #assert self.interpret(func, [ord('6')]) == False
+
+        def func(n):
+            return str(n) in d
+        assert self.interpret(func, [512]) == False
 
     def test_dict_iteration(self):
         def func(i, j):

@@ -34,7 +34,7 @@ working_modules.update(dict.fromkeys(
      "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array",
      "_bisect", "binascii", "_multiprocessing", '_warnings',
      "_collections", "_multibytecodec", "_ffi",
-     "_continuation"] #"micronumpy"
+     "_continuation",] #, "micronumpy", "_cffi_backend"]
 ))
 
 # Here is the list of modules known to not work yet
@@ -95,7 +95,6 @@ module_suggests = {
     "_rawffi": [("objspace.usemodules.struct", True)],
     "cpyext": [("translation.secondaryentrypoints", "cpyext"),
                ("translation.shared", sys.platform == "win32")],
-    "_ffi":    [("translation.jit_ffi", True)],
 }
 
 module_import_dependencies = {

@@ -512,10 +512,9 @@ class RangeListStrategy(ListStrategy):
         if is_W_IntObject(w_obj):
             start, step, length = self.unerase(w_list.lstorage)
             obj = self.unwrap(w_obj)
-            i = start
             if step > 0 and start <= obj <= start + (length - 1) * step and (start - obj) % step == 0:
                 return True
-            elif step < 0 and start + (length -1) * step <= obj <= start and (start - obj) % step == 0:
+            elif step < 0 and start + (length - 1) * step <= obj <= start and (start - obj) % step == 0:
                 return True
             else:
                 return False
@@ -555,7 +554,7 @@ class RangeListStrategy(ListStrategy):
         l = self.unerase(w_list.lstorage)
         start = l[0]
         step = l[1]
-        length  = l[2]
+        length = l[2]
         if wrap_items:
             r = [None] * length
         else:
@@ -581,9 +580,7 @@ class RangeListStrategy(ListStrategy):
 
     def getslice(self, w_list, start, stop, step, length):
         v = self.unerase(w_list.lstorage)
-        old_start = v[0]
         old_step = v[1]
-        old_length = v[2]
 
         new_start = self._getitem_unwrapped(w_list, start)
         new_step = old_step * step
@@ -595,7 +592,7 @@ class RangeListStrategy(ListStrategy):
             step = l[1]
             last_in_range = self._getitem_unwrapped(w_list, -1)
             if self.unwrap(w_item) - step == last_in_range:
-                new = self.erase((l[0],l[1],l[2]+1))
+                new = self.erase((l[0], l[1], l[2] + 1))
                 w_list.lstorage = new
                 return
 
@@ -715,13 +712,15 @@ class AbstractUnwrappedStrategy(object):
 
     def contains(self, w_list, w_obj):
         if self.is_correct_type(w_obj):
-            obj = self.unwrap(w_obj)
+            return self._safe_contains(w_list, self.unwrap(w_obj))
+        return ListStrategy.contains(self, w_list, w_obj)
+
+    def _safe_contains(self, w_list, obj):
             l = self.unerase(w_list.lstorage)
             for i in l:
                 if i == obj:
                     return True
             return False
-        return ListStrategy.contains(self, w_list, w_obj)
 
     def length(self, w_list):
         return len(self.unerase(w_list.lstorage))
@@ -840,7 +839,7 @@ class AbstractUnwrappedStrategy(object):
                 newsize = oldsize + delta
                 # XXX support this in rlist!
                 items += [self._none_value] * delta
-                lim = start+len2
+                lim = start + len2
                 i = newsize - 1
                 while i >= lim:
                     items[i] = items[i-delta]
@@ -867,7 +866,7 @@ class AbstractUnwrappedStrategy(object):
                 # having to make a shallow copy in the case where
                 # the source and destination lists are the same list.
                 i = len2 - 1
-                start += i*step
+                start += i * step
                 while i >= 0:
                     items[start] = other_items[i]
                     start -= step
@@ -884,11 +883,11 @@ class AbstractUnwrappedStrategy(object):
 
     def deleteslice(self, w_list, start, step, slicelength):
         items = self.unerase(w_list.lstorage)
-        if slicelength==0:
+        if slicelength == 0:
             return
 
         if step < 0:
-            start = start + step * (slicelength-1)
+            start = start + step * (slicelength - 1)
             step = -step
 
         if step == 1:
@@ -900,13 +899,13 @@ class AbstractUnwrappedStrategy(object):
             i = start
 
             for discard in range(1, slicelength):
-                j = i+1
+                j = i + 1
                 i += step
                 while j < i:
                     items[j-discard] = items[j]
                     j += 1
 
-            j = i+1
+            j = i + 1
             while j < n:
                 items[j-slicelength] = items[j]
                 j += 1
