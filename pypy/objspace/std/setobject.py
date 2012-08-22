@@ -1377,7 +1377,7 @@ def iter__Set(space, w_left):
 
 iter__Frozenset = iter__Set
 
-init_signature = Signature(['some_iterable'], None, None)
+init_signature = Signature([u'some_iterable'], None, None)
 init_defaults = [None]
 def init__Set(space, w_set, __args__):
     w_iterable, = __args__.parse_obj(

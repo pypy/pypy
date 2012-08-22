@@ -19,6 +19,11 @@ from pypy.rlib import jit
 from pypy.rlib.objectmodel import compute_hash, we_are_translated
 from pypy.tool.stdlib_opcode import opcodedesc, HAVE_ARGUMENT
 
+def to_unicode(s):
+    if s is None:
+        return None
+    return unicode(s)
+
 # helper
 
 def unpack_str_tuple(space,w_str_tuple):
@@ -61,6 +66,11 @@ def cpython_code_signature(code):
         argcount += 1
     else:
         kwargname = None
+
+    argnames = map(to_unicode, argnames)
+    varargname = to_unicode(varargname)
+    kwargname = to_unicode(kwargname)
+    kwonlyargs = map(to_unicode, kwonlyargs)
     return Signature(argnames, varargname, kwargname, kwonlyargs)
 
 class PyCode(eval.Code):

@@ -1059,7 +1059,7 @@ class UnicodeListStrategy(AbstractUnwrappedStrategy, ListStrategy):
 
 # _______________________________________________________
 
-init_signature = Signature(['sequence'], None, None)
+init_signature = Signature([u'sequence'], None, None)
 init_defaults = [None]
 
 def init__List(space, w_list, __args__):
