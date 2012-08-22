@@ -163,8 +163,8 @@ def enforceargs(*types_, **kwds):
                 #
                 s_argtype = get_annotation(get_type_descr_of_argument(arg))
                 if not s_expected.contains(s_argtype):
-                    msg = "%s argument number %d must be of type %s" % (
-                        f.func_name, i+1, expected_type)
+                    msg = "%s argument %r must be of type %s" % (
+                        f.func_name, srcargs[i], expected_type)
                     raise TypeError, msg
         #
         # we cannot simply wrap the function using *args, **kwds, because it's
