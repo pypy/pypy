@@ -444,6 +444,9 @@ class AssemblerPPC(OpAssembler):
         # stack still aligned
         mc.call(slowpathaddr)
 
+        XXX ^^^ the above call clobbers at least 48(r1), which
+        XXX     contains the mc.store(r3.value)
+
         with scratch_reg(mc):
             mc.load_imm(r.SCRATCH, self.cpu.pos_exception())
             mc.loadx(r.SCRATCH.value, 0, r.SCRATCH.value)
