@@ -5,6 +5,7 @@ Arguments objects.
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.rlib.debug import make_sure_not_resized
 from pypy.rlib import jit
+from pypy.rlib.objectmodel import enforceargs
 
 class Signature(object):
     _immutable_ = True
@@ -114,6 +115,7 @@ class Arguments(object):
     """
 
     ###  Construction  ###
+    @enforceargs(keywords=[unicode])
     def __init__(self, space, args_w, keywords=None, keywords_w=None,
                  w_stararg=None, w_starstararg=None, keyword_names_w=None):
         self.space = space

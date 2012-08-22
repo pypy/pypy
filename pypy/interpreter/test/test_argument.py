@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from __future__ import unicode_literals
 import py
 from pypy.interpreter.argument import (Arguments, ArgumentsForTranslation,
     ArgErr, ArgErrUnknownKwds, ArgErrMultipleValues, ArgErrCount, rawshape,
@@ -685,7 +686,7 @@ class AppTestArgument:
         assert exc.value.message == "<lambda>() takes exactly 2 non-keyword arguments (0 given)"
 
     def test_unicode_keywords(self):
-        """
+        b"""
         def f(**kwargs):
             assert kwargs["美"] == 42
         f(**{"美" : 42})
