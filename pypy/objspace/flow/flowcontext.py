@@ -11,6 +11,7 @@ from pypy.objspace.flow.model import *
 from pypy.objspace.flow.framestate import (FrameState, recursively_unflatten,
         recursively_flatten)
 from pypy.tool.stdlib_opcode import host_bytecode_spec
+from pypy.rlib import jit
 
 class StopFlowing(Exception):
     pass

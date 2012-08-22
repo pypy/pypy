@@ -120,7 +120,7 @@ class Arguments(object):
     """
 
     ###  Construction  ###
-    @enforceargs(keywords=[unicode])
+    #@enforceargs(keywords=[unicode])
     def __init__(self, space, args_w, keywords=None, keywords_w=None,
                  w_stararg=None, w_starstararg=None, keyword_names_w=None):
         self.space = space
