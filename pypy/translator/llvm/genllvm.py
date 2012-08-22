@@ -88,7 +88,7 @@ class Type(object):
         hash_ = database.genllvm.gcpolicy.get_prebuilt_hash(obj)
         if hash_ is not None:
             database.f.write('{}_hash = global {} {}\n'
-                    .format(name, LLVMSigned.repr_type(), hash_))
+                    .format(name, SIGNED_TYPE, hash_))
 
 
 class VoidType(Type):
@@ -135,7 +135,7 @@ class IntegralType(Type):
                             .format(minsize=get_repr(value.minsize),
                                     basesize=get_repr(value.basesize)))
             return 'and({T} add({T} {}, {T} {}), {T} {})'.format(
-                    size, align-1, ~(align-1), T=LLVMSigned.repr_type())
+                    size, align-1, ~(align-1), T=SIGNED_TYPE)
         elif isinstance(value, llmemory.GCHeaderOffset):
             return '0'
         elif isinstance(value, llmemory.CompositeOffset):
@@ -156,17 +156,17 @@ class IntegralType(Type):
             return 'ptrtoint({}* getelementptr({}* null, {}) to {})'.format(
                     database.get_type(to).repr_type(),
                     database.get_type(value.TYPE).repr_type(),
-                    ', '.join(indices), LLVMSigned.repr_type())
+                    ', '.join(indices), SIGNED_TYPE)
         elif isinstance(value, llgroup.GroupMemberOffset):
             grpptr = get_repr(value.grpptr)
             grpptr.type_.to.write_group(grpptr.value._obj)
             member = get_repr(value.member)
             return ('ptrtoint({member.T} getelementptr({grpptr.T} null, '
                     '{} 0, i32 {value.index}) to {})'
-                    .format(LLVMSigned.repr_type(), LLVMHalfWord.repr_type(),
+                    .format(SIGNED_TYPE, LLVMHalfWord.repr_type(),
                             **locals()))
         elif isinstance(value, llgroup.CombinedSymbolic):
-            T = LLVMSigned.repr_type()
+            T = SIGNED_TYPE
             lp = get_repr(value.lowpart)
             rest = get_repr(value.rest)
             return 'or({T} sext({lp.TV} to {T}), {rest.TV})'.format(**locals())
@@ -179,7 +179,7 @@ class IntegralType(Type):
                 return '0'
         elif isinstance(value, llmemory.AddressAsInt):
             return 'ptrtoint({.TV} to {})'.format(get_repr(value.adr.ptr),
-                                                  LLVMSigned.repr_type())
+                                                  SIGNED_TYPE)
         elif isinstance(value, rffi.CConstant):
             # XXX HACK
             from pypy.rpython.tool import rffi_platform
@@ -334,6 +334,7 @@ for type_ in rffi.NUMBER_TYPES + [lltype.Char, lltype.UniChar]:
         PRIMITIVES[type_] = IntegralType(rffi.sizeof(type_) * 8,
                                          rffi.is_unsigned(type_))
 LLVMSigned = PRIMITIVES[lltype.Signed]
+SIGNED_TYPE = LLVMSigned.repr_type()
 LLVMHalfWord = PRIMITIVES[llgroup.HALFWORD]
 LLVMInt = PRIMITIVES[rffi.INT]
 LLVMChar = PRIMITIVES[lltype.Char]
@@ -362,7 +363,7 @@ class PtrType(BasePtrType):
     def repr_value(self, value, extra_len=None):
         obj = value._obj
         if isinstance(obj, int):
-            return 'inttoptr({} {} to {})'.format(LLVMSigned.repr_type(), obj,
+            return 'inttoptr({} {} to {})'.format(SIGNED_TYPE, obj,
                                                   self.repr_type())
         try:
             return self.refs[obj]
@@ -832,10 +833,10 @@ class GEP(object):
     def __init__(self, func_writer, ptr):
         self.func_writer = func_writer
         self.ptr = ptr
-        self.indices = ['{} 0'.format(LLVMSigned.repr_type())]
+        self.indices = ['{} 0'.format(SIGNED_TYPE)]
 
     def add_array_index(self, index):
-        self.indices.append('{} {}'.format(LLVMSigned.repr_type(), index))
+        self.indices.append('{} {}'.format(SIGNED_TYPE, index))
 
     def add_field_index(self, index):
         self.indices.append('i32 {}'.format(index))
