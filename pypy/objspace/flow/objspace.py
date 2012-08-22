@@ -406,6 +406,26 @@ class FlowObjSpace(ObjSpace):
         return self.do_operation_with_implicit_exceptions('getattr',
                 w_obj, w_name)
 
+    def import_name(self, w_name, w_glob, w_loc, w_frm):
+        if not isinstance(w_loc, Constant):
+            # import * in a function gives us the locals as Variable
+            # we always forbid it as a SyntaxError
+            raise SyntaxError, "RPython: import * is not allowed in functions"
+
+        if self.do_imports_immediately:
+            name, glob, loc, frm = (self.unwrap(w_name), self.unwrap(w_glob),
+                                    self.unwrap(w_loc), self.unwrap(w_frm))
+            try:
+                mod = __import__(name, glob, loc, frm)
+            except ImportError, e:
+                raise OperationError(self.w_ImportError, self.wrap(str(e)))
+            return self.wrap(mod)
+
+        # redirect it, but avoid exposing the globals
+        w_glob = Constant({})
+        return self.do_operation('simple_call', Constant(__import__),
+                                w_name, w_glob, w_loc, w_frm)
+
     def import_from(self, w_module, w_name):
         try:
             return self.getattr(w_module, w_name)
