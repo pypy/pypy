@@ -5,7 +5,7 @@ from pypy.rlib import rerased
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.objspace.std.dictmultiobject import W_DictMultiObject, DictStrategy, ObjectDictStrategy
-from pypy.objspace.std.dictmultiobject import IteratorImplementation
+from pypy.objspace.std.dictmultiobject import BaseKeyIterator, BaseValueIterator, BaseItemIterator
 from pypy.objspace.std.dictmultiobject import _never_equal_to_string
 from pypy.objspace.std.objectobject import W_ObjectObject
 from pypy.objspace.std.typeobject import TypeCell
@@ -676,9 +676,6 @@ class MapDictStrategy(DictStrategy):
             res += 1
         return res
 
-    def iter(self, w_dict):
-        return MapDictIteratorImplementation(self.space, self, w_dict)
-
     def clear(self, w_dict):
         w_obj = self.unerase(w_dict.dstorage)
         new_obj = w_obj._get_mapdict_map().remove_dict_entries(w_obj)
@@ -696,32 +693,83 @@ class MapDictStrategy(DictStrategy):
 
     # XXX could implement a more efficient w_keys based on space.newlist_str
 
+    def iterkeys(self, w_dict):
+        return MapDictIteratorKeys(self.space, self, w_dict)
+    def itervalues(self, w_dict):
+        return MapDictIteratorValues(self.space, self, w_dict)
+    def iteritems(self, w_dict):
+        return MapDictIteratorItems(self.space, self, w_dict)
+    
+
 def materialize_r_dict(space, obj, dict_w):
     map = obj._get_mapdict_map()
     new_obj = map.materialize_r_dict(space, obj, dict_w)
     _become(obj, new_obj)
 
-class MapDictIteratorImplementation(IteratorImplementation):
-    def __init__(self, space, strategy, dictimplementation):
-        IteratorImplementation.__init__(
-            self, space, strategy, dictimplementation)
-        w_obj = strategy.unerase(dictimplementation.dstorage)
-        self.w_obj = w_obj
-        self.orig_map = self.curr_map = w_obj._get_mapdict_map()
+class MapDictIteratorKeys(BaseKeyIterator):
+     def __init__(self, space, strategy, dictimplementation):
+         BaseKeyIterator.__init__(
+             self, space, strategy, dictimplementation)
+         w_obj = strategy.unerase(dictimplementation.dstorage)
+         self.w_obj = w_obj
+         self.orig_map = self.curr_map = w_obj._get_mapdict_map()
 
-    def next_entry(self):
-        implementation = self.dictimplementation
-        assert isinstance(implementation.strategy, MapDictStrategy)
-        if self.orig_map is not self.w_obj._get_mapdict_map():
-            return None, None
-        if self.curr_map:
-            curr_map = self.curr_map.search(DICT)
-            if curr_map:
-                self.curr_map = curr_map.back
-                attr = curr_map.selector[0]
-                w_attr = self.space.wrap(attr)
-                return w_attr, self.w_obj.getdictvalue(self.space, attr)
-        return None, None
+     def next_key_entry(self):
+         implementation = self.dictimplementation
+         assert isinstance(implementation.strategy, MapDictStrategy)
+         if self.orig_map is not self.w_obj._get_mapdict_map():
+             return None
+         if self.curr_map:
+             curr_map = self.curr_map.search(DICT)
+             if curr_map:
+                 self.curr_map = curr_map.back
+                 attr = curr_map.selector[0]
+                 w_attr = self.space.wrap(attr)
+                 return w_attr
+         return None
+
+class MapDictIteratorValues(BaseValueIterator):
+     def __init__(self, space, strategy, dictimplementation):
+         BaseValueIterator.__init__(
+             self, space, strategy, dictimplementation)
+         w_obj = strategy.unerase(dictimplementation.dstorage)
+         self.w_obj = w_obj
+         self.orig_map = self.curr_map = w_obj._get_mapdict_map()
+
+     def next_value_entry(self):
+         implementation = self.dictimplementation
+         assert isinstance(implementation.strategy, MapDictStrategy)
+         if self.orig_map is not self.w_obj._get_mapdict_map():
+             return None
+         if self.curr_map:
+             curr_map = self.curr_map.search(DICT)
+             if curr_map:
+                 self.curr_map = curr_map.back
+                 attr = curr_map.selector[0]
+                 return self.w_obj.getdictvalue(self.space, attr)
+         return None
+
+class MapDictIteratorItems(BaseItemIterator):
+     def __init__(self, space, strategy, dictimplementation):
+         BaseItemIterator.__init__(
+             self, space, strategy, dictimplementation)
+         w_obj = strategy.unerase(dictimplementation.dstorage)
+         self.w_obj = w_obj
+         self.orig_map = self.curr_map = w_obj._get_mapdict_map()
+
+     def next_item_entry(self):
+         implementation = self.dictimplementation
+         assert isinstance(implementation.strategy, MapDictStrategy)
+         if self.orig_map is not self.w_obj._get_mapdict_map():
+             return None, None
+         if self.curr_map:
+             curr_map = self.curr_map.search(DICT)
+             if curr_map:
+                 self.curr_map = curr_map.back
+                 attr = curr_map.selector[0]
+                 w_attr = self.space.wrap(attr)
+                 return w_attr, self.w_obj.getdictvalue(self.space, attr)
+         return None, None
 
 # ____________________________________________________________
 # Magic caching
