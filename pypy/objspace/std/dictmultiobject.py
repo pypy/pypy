@@ -529,6 +529,7 @@ class StringDictStrategy(AbstractTypedStrategy, DictStrategy):
     @jit.look_inside_iff(lambda self, w_dict:
                          w_dict_unrolling_heuristic(w_dict))
     def view_as_kwargs(self, w_dict):
+        return (None, None) # XXX: fix me to return unicode keys
         d = self.unerase(w_dict.dstorage)
         l = len(d)
         keys, values = [None] * l, [None] * l
