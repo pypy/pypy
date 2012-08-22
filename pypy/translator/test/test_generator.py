@@ -111,7 +111,7 @@ class TestGenerator:
             graph.show()
         # XXX how to test directly that the graph is correct?  :-(
         assert len(graph.startblock.inputargs) == 1
-        assert graph.signature == Signature(['entry'])
+        assert graph.signature == Signature([u'entry'])
         assert graph.defaults == ()
 
     def test_tweak_generator_graph(self):
