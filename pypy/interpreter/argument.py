@@ -301,10 +301,7 @@ class Arguments(object):
         if num_kwds:
             # kwds_mapping maps target indexes in the scope (minus input_argcount)
             # to positions in the keywords_w list
-            cnt = (co_argcount - input_argcount)
-            if cnt < 0:
-                cnt = 0
-            kwds_mapping = [0] * cnt
+            kwds_mapping = [0] * (co_argcount - input_argcount)
             # initialize manually, for the JIT :-(
             for i in range(len(kwds_mapping)):
                 kwds_mapping[i] = -1
