@@ -129,10 +129,13 @@ def enforceargs(*types_, **kwds):
     def decorator(f):
         def get_annotation(t):
             from pypy.annotation.signature import annotation
-            from pypy.annotation.model import SomeObject
+            from pypy.annotation.model import SomeObject, SomeStringOrUnicode
             if isinstance(t, SomeObject):
                 return t
-            return annotation(t)
+            s_result = annotation(t)
+            if isinstance(s_result, SomeStringOrUnicode):
+                return s_result.__class__(can_be_None=True)
+            return s_result
         def get_type_descr_of_argument(arg):
             # we don't want to check *all* the items in list/dict: we assume
             # they are already homogeneous, so we only check the first
