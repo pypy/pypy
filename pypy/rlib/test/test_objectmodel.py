@@ -437,6 +437,12 @@ def test_enforceargs_defaults():
         return a+b
     assert f(2) == 42
 
+def test_enforceargs_keywords():
+    @enforceargs(b=int)
+    def f(a, b, c):
+        return a+b
+    assert f._annenforceargs_ == (None, int, None)
+
 def test_enforceargs_int_float_promotion():
     @enforceargs(float)
     def f(x):

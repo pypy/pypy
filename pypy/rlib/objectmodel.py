@@ -108,7 +108,7 @@ class _Specialize(object):
 
 specialize = _Specialize()
 
-def enforceargs(*types, **kwds):
+def enforceargs(*types_, **kwds):
     """ Decorate a function with forcing of RPython-level types on arguments.
     None means no enforcing.
 
@@ -117,15 +117,16 @@ def enforceargs(*types, **kwds):
     typechecking by passing ``typecheck=False`` to @enforceargs.
     """
     typecheck = kwds.pop('typecheck', True)
-    if kwds:
-        raise TypeError, 'got an unexpected keyword argument: %s' % kwds.keys()
+    if types_ and kwds:
+        raise TypeError, 'Cannot mix positional arguments and keywords'
+
     if not typecheck:
         def decorator(f):
-            f._annenforceargs_ = types
+            f._annenforceargs_ = types_
             return f
         return decorator
     #
-    def decorator(f): 
+    def decorator(f):
         def get_annotation(t):
             from pypy.annotation.signature import annotation
             from pypy.annotation.model import SomeObject
@@ -167,6 +168,10 @@ def enforceargs(*types, **kwds):
         # not RPython. Instead, we generate a function with exactly the same
         # argument list
         srcargs, srcvarargs, srckeywords, defaults = inspect.getargspec(f)
+        if kwds:
+            types = tuple([kwds.get(arg) for arg in srcargs])
+        else:
+            types = types_
         assert len(srcargs) == len(types), (
             'not enough types provided: expected %d, got %d' %
             (len(types), len(srcargs)))
