@@ -8,6 +8,11 @@ if sys.version_info < (3,):
     readbuf = str
     bufchar = lambda x: x
     bytechr = chr
+    class U(object):
+        def __add__(self, other):
+            return eval('u'+repr(other).replace(r'\\u', r'\u')
+                                       .replace(r'\\U', r'\U'))
+    u = U()
 else:
     type_or_class = "class"
     long = int
@@ -18,6 +23,7 @@ else:
     readbuf = lambda buf: buf.tobytes()
     bufchar = ord
     bytechr = lambda n: bytes([n])
+    u = ""
 
 def size_of_int():
     BInt = new_primitive_type("int")
@@ -92,7 +98,7 @@ def test_integer_types():
         py.test.raises(TypeError, cast, p, None)
         assert long(cast(p, min - 1)) == max
         assert int(cast(p, b'\x08')) == 8
-        assert int(cast(p, u'\x08')) == 8
+        assert int(cast(p, u+'\x08')) == 8
     for name in ['char', 'short', 'int', 'long', 'long long']:
         p = new_primitive_type('unsigned ' + name)
         size = sizeof(p)
@@ -103,7 +109,7 @@ def test_integer_types():
         assert int(cast(p, max + 1)) == 0
         assert long(cast(p, -1)) == max
         assert int(cast(p, b'\xFE')) == 254
-        assert int(cast(p, u'\xFE')) == 254
+        assert int(cast(p, u+'\xFE')) == 254
 
 def test_no_float_on_int_types():
     p = new_primitive_type('long')
@@ -136,7 +142,7 @@ def test_float_types():
         assert cast(p, -1.1) != cast(p, -1.1)
         assert repr(float(cast(p, -0.0))) == '-0.0'
         assert float(cast(p, b'\x09')) == 9.0
-        assert float(cast(p, u'\x09')) == 9.0
+        assert float(cast(p, u+'\x09')) == 9.0
         assert float(cast(p, True)) == 1.0
         py.test.raises(TypeError, cast, p, None)
 
@@ -286,12 +292,12 @@ def test_reading_pointer_to_char():
     assert p[0] == b'A'
     py.test.raises(TypeError, newp, BPtr, 65)
     py.test.raises(TypeError, newp, BPtr, b"foo")
-    py.test.raises(TypeError, newp, BPtr, u"foo")
+    py.test.raises(TypeError, newp, BPtr, u+"foo")
     c = cast(BChar, b'A')
     assert str(c) == repr(c)
     assert int(c) == ord(b'A')
     py.test.raises(TypeError, cast, BChar, b'foo')
-    py.test.raises(TypeError, cast, BChar, u'foo')
+    py.test.raises(TypeError, cast, BChar, u+'foo')
 
 def test_reading_pointer_to_pointer():
     BVoidP = new_pointer_type(new_void_type())
@@ -763,6 +769,11 @@ def test_function_void_result():
     BFunc = new_function_type((BInt, BInt), BVoid, False)
     assert repr(BFunc) == "<ctype 'void(*)(int, int)'>"
 
+def test_function_void_arg():
+    BVoid = new_void_type()
+    BInt = new_primitive_type("int")
+    py.test.raises(TypeError, new_function_type, (BVoid,), BInt, False)
+
 def test_call_function_0():
     BSignedChar = new_primitive_type("signed char")
     BFunc0 = new_function_type((BSignedChar, BSignedChar), BSignedChar, False)
@@ -846,7 +857,7 @@ def test_call_function_6():
     #
     py.test.raises(TypeError, f, 123456)
     py.test.raises(TypeError, f, "foo")
-    py.test.raises(TypeError, f, u"bar")
+    py.test.raises(TypeError, f, u+"bar")
 
 def test_call_function_7():
     BChar = new_primitive_type("char")
@@ -1106,7 +1117,7 @@ def test_callback_returning_char():
     assert f(255) == b'\xFF'
 
 def _hacked_pypy_uni4():
-    pyuni4 = {1: True, 2: False}[len(u'\U00012345')]
+    pyuni4 = {1: True, 2: False}[len(u+'\U00012345')]
     return 'PY_DOT_PY' in globals() and not pyuni4
 
 def test_callback_returning_wchar_t():
@@ -1114,7 +1125,7 @@ def test_callback_returning_wchar_t():
     BWChar = new_primitive_type("wchar_t")
     def cb(n):
         if n == -1:
-            return u'\U00012345'
+            return u+'\U00012345'
         if n == -2:
             raise ValueError
         return unichr(n)
@@ -1122,10 +1133,10 @@ def test_callback_returning_wchar_t():
     f = callback(BFunc, cb)
     assert f(0) == unichr(0)
     assert f(255) == unichr(255)
-    assert f(0x1234) == u'\u1234'
+    assert f(0x1234) == u+'\u1234'
     if sizeof(BWChar) == 4 and not _hacked_pypy_uni4():
-        assert f(-1) == u'\U00012345'
-    assert f(-2) == u'\x00'   # and an exception printed to stderr
+        assert f(-1) == u+'\U00012345'
+    assert f(-2) == u+'\x00'   # and an exception printed to stderr
 
 def test_struct_with_bitfields():
     BLong = new_primitive_type("long")
@@ -1358,14 +1369,14 @@ def test_string_byte():
 
 def test_string_wchar():
     BWChar = new_primitive_type("wchar_t")
-    assert string(cast(BWChar, 42)) == u'*'
-    assert string(cast(BWChar, 0x4253)) == u'\u4253'
-    assert string(cast(BWChar, 0)) == u'\x00'
+    assert string(cast(BWChar, 42)) == u+'*'
+    assert string(cast(BWChar, 0x4253)) == u+'\u4253'
+    assert string(cast(BWChar, 0)) == u+'\x00'
     BArray = new_array_type(new_pointer_type(BWChar), None)
-    a = newp(BArray, [u'A', u'B', u'C'])
-    assert type(string(a)) is unicode and string(a) == u'ABC'
+    a = newp(BArray, [u+'A', u+'B', u+'C'])
+    assert type(string(a)) is unicode and string(a) == u+'ABC'
     if 'PY_DOT_PY' not in globals() and sys.version_info < (3,):
-        assert string(a, 8).startswith(u'ABC') # may contain additional garbage
+        assert string(a, 8).startswith(u+'ABC') # may contain additional garbage
 
 def test_string_typeerror():
     BShort = new_primitive_type("short")
@@ -1516,7 +1527,7 @@ def test_cast_with_functionptr():
 def test_wchar():
     BWChar = new_primitive_type("wchar_t")
     BInt = new_primitive_type("int")
-    pyuni4 = {1: True, 2: False}[len(u'\U00012345')]
+    pyuni4 = {1: True, 2: False}[len(u+'\U00012345')]
     wchar4 = {2: False, 4: True}[sizeof(BWChar)]
     assert str(cast(BWChar, 0x45)) == "<cdata 'wchar_t' %s'E'>" % (
         mandatory_u_prefix,)
@@ -1537,44 +1548,44 @@ def test_wchar():
     complete_struct_or_union(BStruct, [('a1', BWChar, -1),
                                        ('a2', BWCharP, -1)])
     s = newp(BStructPtr)
-    s.a1 = u'\x00'
-    assert s.a1 == u'\x00'
+    s.a1 = u+'\x00'
+    assert s.a1 == u+'\x00'
     py.test.raises(TypeError, "s.a1 = b'a'")
     py.test.raises(TypeError, "s.a1 = bytechr(0xFF)")
-    s.a1 = u'\u1234'
-    assert s.a1 == u'\u1234'
+    s.a1 = u+'\u1234'
+    assert s.a1 == u+'\u1234'
     if pyuni4:
         assert wchar4
-        s.a1 = u'\U00012345'
-        assert s.a1 == u'\U00012345'
+        s.a1 = u+'\U00012345'
+        assert s.a1 == u+'\U00012345'
     elif wchar4:
         if not _hacked_pypy_uni4():
             s.a1 = cast(BWChar, 0x12345)
-            assert s.a1 == u'\ud808\udf45'
-            s.a1 = u'\ud807\udf44'
-            assert s.a1 == u'\U00011f44'
+            assert s.a1 == u+'\ud808\udf45'
+            s.a1 = u+'\ud807\udf44'
+            assert s.a1 == u+'\U00011f44'
     else:
-        py.test.raises(TypeError, "s.a1 = u'\U00012345'")
+        py.test.raises(TypeError, "s.a1 = u+'\U00012345'")
     #
     BWCharArray = new_array_type(BWCharP, None)
-    a = newp(BWCharArray, u'hello \u1234 world')
+    a = newp(BWCharArray, u+'hello \u1234 world')
     assert len(a) == 14   # including the final null
-    assert string(a) == u'hello \u1234 world'
-    a[13] = u'!'
-    assert string(a) == u'hello \u1234 world!'
+    assert string(a) == u+'hello \u1234 world'
+    a[13] = u+'!'
+    assert string(a) == u+'hello \u1234 world!'
     assert str(a) == repr(a)
-    assert a[6] == u'\u1234'
-    a[6] = u'-'
-    assert string(a) == u'hello - world!'
+    assert a[6] == u+'\u1234'
+    a[6] = u+'-'
+    assert string(a) == u+'hello - world!'
     assert str(a) == repr(a)
     #
     if wchar4 and not _hacked_pypy_uni4():
-        u = u'\U00012345\U00012346\U00012347'
-        a = newp(BWCharArray, u)
+        u1 = u+'\U00012345\U00012346\U00012347'
+        a = newp(BWCharArray, u1)
         assert len(a) == 4
-        assert string(a) == u
+        assert string(a) == u1
         assert len(list(a)) == 4
-        expected = [u'\U00012345', u'\U00012346', u'\U00012347', unichr(0)]
+        expected = [u+'\U00012345', u+'\U00012346', u+'\U00012347', unichr(0)]
         assert list(a) == expected
         got = [a[i] for i in range(4)]
         assert got == expected
@@ -1583,44 +1594,44 @@ def test_wchar():
     w = cast(BWChar, 'a')
     assert repr(w) == "<cdata 'wchar_t' %s'a'>" % mandatory_u_prefix
     assert str(w) == repr(w)
-    assert string(w) == u'a'
+    assert string(w) == u+'a'
     assert int(w) == ord('a')
     w = cast(BWChar, 0x1234)
     assert repr(w) == "<cdata 'wchar_t' %s'\u1234'>" % mandatory_u_prefix
     assert str(w) == repr(w)
-    assert string(w) == u'\u1234'
+    assert string(w) == u+'\u1234'
     assert int(w) == 0x1234
-    w = cast(BWChar, u'\u8234')
+    w = cast(BWChar, u+'\u8234')
     assert repr(w) == "<cdata 'wchar_t' %s'\u8234'>" % mandatory_u_prefix
     assert str(w) == repr(w)
-    assert string(w) == u'\u8234'
+    assert string(w) == u+'\u8234'
     assert int(w) == 0x8234
-    w = cast(BInt, u'\u1234')
+    w = cast(BInt, u+'\u1234')
     assert repr(w) == "<cdata 'int' 4660>"
     if wchar4 and not _hacked_pypy_uni4():
-        w = cast(BWChar, u'\U00012345')
+        w = cast(BWChar, u+'\U00012345')
         assert repr(w) == "<cdata 'wchar_t' %s'\U00012345'>" % (
             mandatory_u_prefix,)
         assert str(w) == repr(w)
-        assert string(w) == u'\U00012345'
+        assert string(w) == u+'\U00012345'
         assert int(w) == 0x12345
-        w = cast(BInt, u'\U00012345')
+        w = cast(BInt, u+'\U00012345')
         assert repr(w) == "<cdata 'int' 74565>"
-    py.test.raises(TypeError, cast, BInt, u'')
-    py.test.raises(TypeError, cast, BInt, u'XX')
-    assert int(cast(BInt, u'a')) == ord('a')
+    py.test.raises(TypeError, cast, BInt, u+'')
+    py.test.raises(TypeError, cast, BInt, u+'XX')
+    assert int(cast(BInt, u+'a')) == ord('a')
     #
-    a = newp(BWCharArray, u'hello - world')
+    a = newp(BWCharArray, u+'hello - world')
     p = cast(BWCharP, a)
-    assert string(p) == u'hello - world'
-    p[6] = u'\u2345'
-    assert string(p) == u'hello \u2345 world'
+    assert string(p) == u+'hello - world'
+    p[6] = u+'\u2345'
+    assert string(p) == u+'hello \u2345 world'
     #
-    s = newp(BStructPtr, [u'\u1234', p])
-    assert s.a1 == u'\u1234'
+    s = newp(BStructPtr, [u+'\u1234', p])
+    assert s.a1 == u+'\u1234'
     assert s.a2 == p
     assert str(s.a2) == repr(s.a2)
-    assert string(s.a2) == u'hello \u2345 world'
+    assert string(s.a2) == u+'hello \u2345 world'
     #
     q = cast(BWCharP, 0)
     assert str(q) == repr(q)
@@ -1631,7 +1642,7 @@ def test_wchar():
         return len(string(p))
     BFunc = new_function_type((BWCharP,), BInt, False)
     f = callback(BFunc, cb, -42)
-    assert f(u'a\u1234b') == 3
+    assert f(u+'a\u1234b') == 3
     #
     if wchar4 and not pyuni4 and not _hacked_pypy_uni4():
         # try out-of-range wchar_t values
