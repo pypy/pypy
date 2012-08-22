@@ -27,7 +27,7 @@ class TestARM(LLtypeBackendTest):
     # ====> ../../test/runner_test.py
 
     add_loop_instructions = ['nop', # this is the same as mov r0, r0
-			     'adds', 'cmp', 'beq', 'b']
+                             'adds', 'cmp', 'beq', 'b']
     bridge_loop_instructions = ['movw', 'movt', 'bx']
 
     def setup_method(self, meth):
