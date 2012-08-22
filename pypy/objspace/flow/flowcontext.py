@@ -344,14 +344,12 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         self.pycode = code
         self.space = space
         self.w_globals = Constant(func.func_globals)
-        self.w_locals = None
         self.locals_stack_w = [None] * (code.co_nlocals + code.co_stacksize)
         self.valuestackdepth = code.co_nlocals
         self.lastblock = None
         if space.config.objspace.honor__builtins__:
             self.builtin = space.builtin.pick_builtin(w_globals)
-        # regular functions always have CO_OPTIMIZED and CO_NEWLOCALS.
-        # class bodies only have CO_NEWLOCALS.
+
         if func.func_closure is not None:
             cl = [c.cell_contents for c in func.func_closure]
             closure = [Cell(Constant(value)) for value in cl]
@@ -369,17 +367,12 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
             arg_list[position] = Constant(value)
         self.setfastscope(arg_list)
 
+        self.w_locals = None # XXX: only for compatibility with PyFrame
+
     def initialize_frame_scopes(self, closure, code):
-        # CO_NEWLOCALS: make a locals dict unless optimized is also set
-        # CO_OPTIMIZED: no locals dict needed at all
-        flags = code.co_flags
-        if flags & CO_OPTIMIZED:
-            pass
-        elif flags & CO_NEWLOCALS:
-            self.w_locals = SpaceOperation('newdict', (), Variable()).result
-        else:
-            assert self.w_globals is not None
-            self.w_locals = self.w_globals
+        if not (code.co_flags & CO_NEWLOCALS):
+            raise ValueError("The code object for a function should have "
+                    "the flag CO_NEWLOCALS set.")
         if len(closure) != len(code.co_freevars):
             raise ValueError("code object received a closure with "
                                  "an unexpected number of free variables")
@@ -419,8 +412,7 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
             data.append(self.last_exception.get_w_value(self.space))
         recursively_flatten(self.space, data)
         nonmergeable = (self.get_blocklist(),
-            self.last_instr,   # == next_instr when between bytecodes
-            self.w_locals,)
+            self.last_instr)   # == next_instr when between bytecodes
         return FrameState(data, nonmergeable)
 
     def setstate(self, state):
@@ -433,7 +425,7 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
             self.last_exception = None
         else:
             self.last_exception = OperationError(data[-2], data[-1])
-        blocklist, self.last_instr, self.w_locals = state.nonmergeable
+        blocklist, self.last_instr = state.nonmergeable
         self.set_blocklist(blocklist)
 
     def recording(self, block):
