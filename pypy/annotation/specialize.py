@@ -37,7 +37,7 @@ def flatten_star_args(funcdesc, args_s):
             newstartblock.operations.append(newtup)
             newstartblock.closeblock(Link(argscopy, graph.startblock))
             graph.startblock = newstartblock
-            argnames = argnames + ['.star%d' % i for i in range(nb_extra_args)]
+            argnames = argnames + [u'.star%d' % i for i in range(nb_extra_args)]
             graph.signature = Signature(argnames)
             # note that we can mostly ignore defaults: if nb_extra_args > 0, 
             # then defaults aren't applied.  if nb_extra_args == 0, then this 
