@@ -187,7 +187,8 @@ class TestTranslationX86(CCompiledMixin):
             return len(ll_times)
 
         res = self.meta_interp(main, [])
-        assert res == 1
+        assert res == 3
+        # one for loop, one for entry point and one for the prologue
 
 class TestTranslationRemoveTypePtrX86(CCompiledMixin):
     CPUClass = getcpuclass()

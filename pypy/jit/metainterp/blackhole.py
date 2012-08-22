@@ -1129,9 +1129,9 @@ class BlackholeInterpreter(object):
     def bhimpl_getarrayitem_gc_f(cpu, array, arraydescr, index):
         return cpu.bh_getarrayitem_gc_f(arraydescr, array, index)
 
-    bhimpl_getarrayitem_gc_pure_i = bhimpl_getarrayitem_gc_i
-    bhimpl_getarrayitem_gc_pure_r = bhimpl_getarrayitem_gc_r
-    bhimpl_getarrayitem_gc_pure_f = bhimpl_getarrayitem_gc_f
+    bhimpl_getarrayitem_gc_i_pure = bhimpl_getarrayitem_gc_i
+    bhimpl_getarrayitem_gc_r_pure = bhimpl_getarrayitem_gc_r
+    bhimpl_getarrayitem_gc_f_pure = bhimpl_getarrayitem_gc_f
 
     @arguments("cpu", "i", "d", "i", returns="i")
     def bhimpl_getarrayitem_raw_i(cpu, array, arraydescr, index):
@@ -1139,6 +1139,9 @@ class BlackholeInterpreter(object):
     @arguments("cpu", "i", "d", "i", returns="f")
     def bhimpl_getarrayitem_raw_f(cpu, array, arraydescr, index):
         return cpu.bh_getarrayitem_raw_f(arraydescr, array, index)
+
+    bhimpl_getarrayitem_raw_i_pure = bhimpl_getarrayitem_raw_i
+    bhimpl_getarrayitem_raw_f_pure = bhimpl_getarrayitem_raw_f
 
     @arguments("cpu", "r", "d", "i", "i")
     def bhimpl_setarrayitem_gc_i(cpu, array, arraydescr, index, newvalue):
@@ -1273,6 +1276,20 @@ class BlackholeInterpreter(object):
     @arguments("cpu", "i", "d", "f")
     def bhimpl_setfield_raw_f(cpu, struct, fielddescr, newvalue):
         cpu.bh_setfield_raw_f(struct, fielddescr, newvalue)
+
+    @arguments("cpu", "i", "i", "d", "i")
+    def bhimpl_raw_store_i(cpu, addr, offset, arraydescr, newvalue):
+        cpu.bh_raw_store_i(addr, offset, arraydescr, newvalue)
+    @arguments("cpu", "i", "i", "d", "f")
+    def bhimpl_raw_store_f(cpu, addr, offset, arraydescr, newvalue):
+        cpu.bh_raw_store_f(addr, offset, arraydescr, newvalue)
+
+    @arguments("cpu", "i", "i", "d", returns="i")
+    def bhimpl_raw_load_i(cpu, addr, offset, arraydescr):
+        return cpu.bh_raw_load_i(addr, offset, arraydescr)
+    @arguments("cpu", "i", "i", "d", returns="f")
+    def bhimpl_raw_load_f(cpu, addr, offset, arraydescr):
+        return cpu.bh_raw_load_f(addr, offset, arraydescr)
 
     @arguments("r", "d", "d")
     def bhimpl_record_quasiimmut_field(struct, fielddescr, mutatefielddescr):

@@ -273,10 +273,10 @@ def ll_max(i1, i2):
     return i2
 
 def rtype_Exception__init__(hop):
-    pass
+    hop.exception_cannot_occur()
 
 def rtype_object__init__(hop):
-    pass
+    hop.exception_cannot_occur()
 
 def rtype_OSError__init__(hop):
     hop.exception_cannot_occur()

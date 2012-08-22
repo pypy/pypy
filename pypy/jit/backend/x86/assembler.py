@@ -127,9 +127,13 @@ class Assembler386(object):
         self._build_stack_check_slowpath()
         if gc_ll_descr.gcrootmap:
             self._build_release_gil(gc_ll_descr.gcrootmap)
-        debug_start('jit-backend-counts')
-        self.set_debug(have_debug_prints())
-        debug_stop('jit-backend-counts')
+        if not self._debug:
+            # if self._debug is already set it means that someone called
+            # set_debug by hand before initializing the assembler. Leave it
+            # as it is
+            debug_start('jit-backend-counts')
+            self.set_debug(have_debug_prints())
+            debug_stop('jit-backend-counts')
 
     def setup(self, looptoken):
         assert self.memcpy_addr != 0, "setup_once() not called?"
@@ -1167,11 +1171,13 @@ class Assembler386(object):
                     xmm_dst_locs.append(unused_xmm.pop())
                 else:
                     pass_on_stack.append(loc)
-            elif (argtypes is not None and argtypes[i-start] == 'S' and
-                  len(unused_xmm) > 0):
+            elif argtypes is not None and argtypes[i-start] == 'S':
                 # Singlefloat argument
-                if singlefloats is None: singlefloats = []
-                singlefloats.append((loc, unused_xmm.pop()))
+                if len(unused_xmm) > 0:
+                    if singlefloats is None: singlefloats = []
+                    singlefloats.append((loc, unused_xmm.pop()))
+                else:
+                    pass_on_stack.append(loc)
             else:
                 if len(unused_gpr) > 0:
                     src_locs.append(loc)
@@ -1205,6 +1211,9 @@ class Assembler386(object):
         # Load the singlefloat arguments from main regs or stack to xmm regs
         if singlefloats is not None:
             for src, dst in singlefloats:
+                if isinstance(src, ImmedLoc):
+                    self.mc.MOV(X86_64_SCRATCH_REG, src)
+                    src = X86_64_SCRATCH_REG
                 self.mc.MOVD(dst, src)
         # Finally remap the arguments in the main regs
         # If x is a register and is in dst_locs, then oups, it needs to
@@ -1568,6 +1577,13 @@ class Assembler386(object):
 
     genop_getarrayitem_gc_pure = genop_getarrayitem_gc
     genop_getarrayitem_raw = genop_getarrayitem_gc
+    genop_getarrayitem_raw_pure = genop_getarrayitem_gc
+
+    def genop_raw_load(self, op, arglocs, resloc):
+        base_loc, ofs_loc, size_loc, ofs, sign_loc = arglocs
+        assert isinstance(ofs, ImmedLoc)
+        src_addr = addr_add(base_loc, ofs_loc, ofs.value, 0)
+        self.load_from_mem(resloc, src_addr, size_loc, sign_loc)
 
     def _get_interiorfield_addr(self, temp_loc, index_loc, itemsize_loc,
                                 base_loc, ofs_loc):
@@ -1594,9 +1610,6 @@ class Assembler386(object):
                                                 ofs_loc)
         self.load_from_mem(resloc, src_addr, fieldsize_loc, sign_loc)
 
-    genop_getinteriorfield_raw = genop_getinteriorfield_gc
-
-
     def genop_discard_setfield_gc(self, op, arglocs):
         base_loc, ofs_loc, size_loc, value_loc = arglocs
         assert isinstance(size_loc, ImmedLoc)
@@ -1619,6 +1632,12 @@ class Assembler386(object):
         assert isinstance(size_loc, ImmedLoc)
         scale = _get_scale(size_loc.value)
         dest_addr = AddressLoc(base_loc, ofs_loc, scale, baseofs.value)
+        self.save_into_mem(dest_addr, value_loc, size_loc)
+
+    def genop_discard_raw_store(self, op, arglocs):
+        base_loc, ofs_loc, value_loc, size_loc, baseofs = arglocs
+        assert isinstance(baseofs, ImmedLoc)
+        dest_addr = AddressLoc(base_loc, ofs_loc, 0, baseofs.value)
         self.save_into_mem(dest_addr, value_loc, size_loc)
 
     def genop_discard_strsetitem(self, op, arglocs):
@@ -2653,13 +2672,13 @@ def addr_add(reg_or_imm1, reg_or_imm2, offset=0, scale=0):
     return AddressLoc(reg_or_imm1, reg_or_imm2, scale, offset)
 
 def addr_add_const(reg_or_imm1, offset):
-    return AddressLoc(reg_or_imm1, ImmedLoc(0), 0, offset)
+    return AddressLoc(reg_or_imm1, imm0, 0, offset)
 
 def mem(loc, offset):
-    return AddressLoc(loc, ImmedLoc(0), 0, offset)
+    return AddressLoc(loc, imm0, 0, offset)
 
 def heap(addr):
-    return AddressLoc(ImmedLoc(addr), ImmedLoc(0), 0, 0)
+    return AddressLoc(ImmedLoc(addr), imm0, 0, 0)
 
 def not_implemented(msg):
     os.write(2, '[x86/asm] %s\n' % msg)

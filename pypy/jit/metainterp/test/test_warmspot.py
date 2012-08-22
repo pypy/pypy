@@ -260,6 +260,33 @@ class WarmspotTests(object):
                     pass   # other case
         self.meta_interp(f1, [18])
 
+    def test_bug_constant_int(self):
+        py.test.skip("crashes because a is a constant")
+        from pypy.rpython.lltypesystem import lltype, rffi
+        mydriver = JitDriver(greens=['a'], reds=['m'])
+        def f1(m, a):
+            while m > 0:
+                mydriver.jit_merge_point(a=a, m=m)
+                m = m - 1
+        def entry(m):
+            f1(m, 42)
+        self.meta_interp(entry, [18])
+
+    def test_bug_constant_instance(self):
+        py.test.skip("crashes because a is a constant")
+        from pypy.rpython.lltypesystem import lltype, rffi
+        mydriver = JitDriver(greens=['a'], reds=['m'])
+        class A(object):
+            pass
+        a1 = A()
+        def f1(m, a):
+            while m > 0:
+                mydriver.jit_merge_point(a=a, m=m)
+                m = m - 1
+        def entry(m):
+            f1(m, a1)
+        self.meta_interp(entry, [18])
+
     def test_bug_constant_rawptrs(self):
         py.test.skip("crashes because a is a constant")
         from pypy.rpython.lltypesystem import lltype, rffi

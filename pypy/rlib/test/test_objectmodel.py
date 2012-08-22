@@ -444,6 +444,19 @@ def test_enforceargs_int_float_promotion():
     # in RPython there is an implicit int->float promotion
     assert f(42) == 42
 
+def test_enforceargs_complex_types():
+    @enforceargs([int], {str: int})
+    def f(a, b):
+        return a, b
+    x = [0, 1, 2]
+    y = {'a': 1, 'b': 2}
+    assert f(x, y) == (x, y)
+    assert f([], {}) == ([], {})
+    assert f(None, None) == (None, None)
+    py.test.raises(TypeError, "f(['hello'], y)")
+    py.test.raises(TypeError, "f(x, {'a': 'hello'})")
+    py.test.raises(TypeError, "f(x, {0: 42})")
+
 def test_enforceargs_no_typecheck():
     @enforceargs(int, str, None, typecheck=False)
     def f(a, b, c):

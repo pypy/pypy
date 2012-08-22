@@ -89,6 +89,92 @@ class ImmutableFieldsTests:
                             int_add=3)
 
 
+    def test_raw_field_and_array(self):
+        from pypy.rpython.lltypesystem import lltype
+        X = lltype.Struct('X',
+            ('a', lltype.Signed),
+            ('b', lltype.Array(lltype.Signed,
+                               hints={'nolength': True, 'immutable': True})),
+            hints={'immutable': True})
+
+        x = lltype.malloc(X, 4, flavor='raw', immortal=True)
+        x.a = 6
+        x.b[2] = 7
+        xlist = [x, lltype.nullptr(X)]
+        def g(num):
+            if num < 0:
+                num = 0
+            return num
+        g._dont_inline_ = True
+        def f(num):
+            num = g(num)
+            x = xlist[num]
+            return x.a * x.b[2]
+        #
+        res = self.interp_operations(f, [0], disable_optimizations=True)
+        assert res == 42
+        self.check_operations_history(getfield_raw_pure=1,
+                                      getarrayitem_raw_pure=1,
+                                      int_mul=1)
+        #
+        # second try, in which we get num=0 constant-folded through f()
+        res = self.interp_operations(f, [-1], disable_optimizations=True)
+        assert res == 42
+        self.check_operations_history(getfield_raw_pure=0,
+                                      getarrayitem_raw_pure=0,
+                                      int_mul=0)
+
+    def test_read_on_promoted(self):
+        # this test used to fail because the n = f.n was staying alive
+        # in a box (not a const, as it was read before promote), and
+        # thus the second f.n was returning the same box, although it
+        # could now return a const.
+        class Foo(object):
+            _immutable_fields_ = ['n']
+            def __init__(self, n):
+                self.n = n
+        f1 = Foo(42); f2 = Foo(43)
+        @jit.dont_look_inside
+        def some(m):
+            return [f1, f2][m]
+        @jit.dont_look_inside
+        def do_stuff_with(n):
+            print n
+        def main(m):
+            f = some(m)
+            n = f.n
+            f = jit.hint(f, promote=True)
+            res = f.n * 6
+            do_stuff_with(n)
+            return res
+        res = self.interp_operations(main, [1])
+        assert res == 43 * 6
+        self.check_operations_history(int_mul=0)   # constant-folded
+
+    def test_read_on_promoted_array(self):
+        class Foo(object):
+            _immutable_fields_ = ['lst[*]']
+            def __init__(self, lst):
+                self.lst = lst
+        f1 = Foo([42]); f2 = Foo([43])
+        @jit.dont_look_inside
+        def some(m):
+            return [f1, f2][m]
+        @jit.dont_look_inside
+        def do_stuff_with(n):
+            print n
+        def main(m):
+            f = some(m)
+            n = f.lst[0]
+            f = jit.hint(f, promote=True)
+            res = f.lst[0] * 6
+            do_stuff_with(n)
+            return res
+        res = self.interp_operations(main, [1])
+        assert res == 43 * 6
+        self.check_operations_history(int_mul=0)   # constant-folded
+
+
 class TestLLtypeImmutableFieldsTests(ImmutableFieldsTests, LLJitMixin):
     pass
 
