@@ -182,9 +182,26 @@ def complete_struct_or_union(space, ctype, w_fields, w_ignored=None,
             if not is_union:
                 prev_bit_position += fbitsize
         #
-        fld = ctypestruct.W_CField(ftype, offset, bitshift, fbitsize)
-        fields_list.append(fld)
-        fields_dict[fname] = fld
+        if (len(fname) == 0 and
+            isinstance(ftype, ctypestruct.W_CTypeStructOrUnion)):
+            # a nested anonymous struct or union
+            srcfield2names = {}
+            for name, srcfld in ftype.fields_dict.items():
+                srcfield2names[srcfld] = name
+            for srcfld in ftype.fields_list:
+                fld = srcfld.make_shifted(offset)
+                fields_list.append(fld)
+                try:
+                    fields_dict[srcfield2names[srcfld]] = fld
+                except KeyError:
+                    pass
+            # always forbid such structures from being passed by value
+            custom_field_pos = True
+        else:
+            # a regular field
+            fld = ctypestruct.W_CField(ftype, offset, bitshift, fbitsize)
+            fields_list.append(fld)
+            fields_dict[fname] = fld
         #
         if maxsize < ftype.size:
             maxsize = ftype.size

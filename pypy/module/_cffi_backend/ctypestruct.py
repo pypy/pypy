@@ -162,6 +162,10 @@ class W_CField(Wrappable):
     def is_bitfield(self):
         return self.bitshift >= 0
 
+    def make_shifted(self, offset):
+        return W_CField(self.ctype, offset + self.offset,
+                        self.bitshift, self.bitsize)
+
     def read(self, cdata):
         cdata = rffi.ptradd(cdata, self.offset)
         if self.bitshift == self.BS_REGULAR:

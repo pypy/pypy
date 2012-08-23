@@ -264,6 +264,11 @@ class CifDescrBuilder(object):
         # But on 64-bit UNIX, these two structs are passed by value
         # differently: e.g. on x86-64, "b" ends up in register "rsi" in
         # the first case and "rdi" in the second case.
+        #
+        # Another reason for 'custom_field_pos' would be anonymous
+        # nested structures: we lost the information about having it
+        # here, so better safe (and forbid it) than sorry (and maybe
+        # crash).
         space = self.space
         if ctype.custom_field_pos:
             raise OperationError(space.w_TypeError,
