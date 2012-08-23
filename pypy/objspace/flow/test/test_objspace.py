@@ -997,17 +997,6 @@ class TestFlowObjSpace(Base):
         assert graph.startblock.exits[0].target == graph.returnblock
 
 
-class TestFlowObjSpaceDelay(Base):
-    def setup_class(cls):
-        cls.space = FlowObjSpace()
-        cls.space.do_imports_immediately = False
-
-    def test_import_something(self):
-        def f():
-            from some.unknown.module import stuff
-        g = self.codetest(f)
-
-
 DATA = {'x': 5,
         'y': 6}
 

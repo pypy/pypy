@@ -47,7 +47,6 @@ class FlowObjSpace(ObjSpace):
     """
 
     full_exceptions = False
-    do_imports_immediately = True
     FrameClass = flowcontext.FlowSpaceFrame
 
     def initialize(self):
@@ -412,19 +411,13 @@ class FlowObjSpace(ObjSpace):
             # we always forbid it as a SyntaxError
             raise SyntaxError, "RPython: import * is not allowed in functions"
 
-        if self.do_imports_immediately:
-            name, glob, loc, frm = (self.unwrap(w_name), self.unwrap(w_glob),
-                                    self.unwrap(w_loc), self.unwrap(w_frm))
-            try:
-                mod = __import__(name, glob, loc, frm)
-            except ImportError, e:
-                raise OperationError(self.w_ImportError, self.wrap(str(e)))
-            return self.wrap(mod)
-
-        # redirect it, but avoid exposing the globals
-        w_glob = Constant({})
-        return self.do_operation('simple_call', Constant(__import__),
-                                w_name, w_glob, w_loc, w_frm)
+        name, glob, loc, frm = (self.unwrap(w_name), self.unwrap(w_glob),
+                                self.unwrap(w_loc), self.unwrap(w_frm))
+        try:
+            mod = __import__(name, glob, loc, frm)
+        except ImportError, e:
+            raise OperationError(self.w_ImportError, self.wrap(str(e)))
+        return self.wrap(mod)
 
     def import_from(self, w_module, w_name):
         try:

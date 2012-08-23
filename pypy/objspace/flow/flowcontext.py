@@ -228,11 +228,9 @@ class FlowExecutionContext(ExecutionContext):
                 self.recorder.crnt_block.closeblock(link)
 
             except OperationError, e:
-                #print "OE", e.w_type, e.get_w_value(self.space)
-                if (self.space.do_imports_immediately and
-                    e.w_type is self.space.w_ImportError):
-                    raise ImportError('import statement always raises %s' % (
-                        e,))
+                if e.w_type is self.space.w_ImportError:
+                    msg = 'import statement always raises %s' % e
+                    raise ImportError(msg)
                 w_value = e.get_w_value(self.space)
                 link = self.make_link([e.w_type, w_value], self.graph.exceptblock)
                 self.recorder.crnt_block.closeblock(link)
