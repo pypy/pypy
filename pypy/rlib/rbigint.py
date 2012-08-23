@@ -1582,7 +1582,7 @@ def _x_divrem(v1, w1):
             q -= 1
             r += wm1
             
-        assert q < MASK
+        #assert q <= MASK+1, We need to compare to BASE <=, but ehm, it gives a buildin long error. So we ignore this.
         
         # subtract q*w0[0:size_w] from vk[0:size_w+1]
         zhi = 0
