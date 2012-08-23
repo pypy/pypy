@@ -56,7 +56,7 @@ class Recorder:
     def append(self, operation):
         raise NotImplementedError
 
-    def bytecode_trace(self, ec, frame):
+    def bytecode_trace(self, frame):
         pass
 
     def guessbool(self, ec, w_condition, **kwds):
@@ -78,7 +78,7 @@ class BlockRecorder(Recorder):
             raise MergeBlock(self.crnt_block, self.last_join_point)
         self.crnt_block.operations.append(operation)
 
-    def bytecode_trace(self, ec, frame):
+    def bytecode_trace(self, frame):
         if self.enterspamblock:
             # If we have a SpamBlock, the first call to bytecode_trace()
             # occurs as soon as frame.resume() starts, before interpretation
@@ -170,8 +170,8 @@ class FlowExecutionContext(ExecutionContext):
 
     make_link = Link # overridable for transition tracking
 
-    def bytecode_trace(self, frame):
-        self.recorder.bytecode_trace(self, frame)
+    # disable superclass method
+    bytecode_trace = None
 
     def guessbool(self, w_condition, **kwds):
         return self.recorder.guessbool(self, w_condition, **kwds)
@@ -210,7 +210,7 @@ class FlowExecutionContext(ExecutionContext):
                 frame.frame_finished_execution = False
                 next_instr = frame.last_instr
                 while True:
-                    next_instr = frame.handle_bytecode(next_instr, self)
+                    next_instr = frame.handle_bytecode(next_instr)
 
             except ImplicitOperationError, e:
                 if isinstance(e.w_type, Constant):
@@ -441,9 +441,9 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
             prevblock = parent
         return recorder
 
-    def handle_bytecode(self, next_instr, ec):
+    def handle_bytecode(self, next_instr):
         try:
-            next_instr = self.dispatch_bytecode(next_instr, ec)
+            next_instr = self.dispatch_bytecode(next_instr)
         except OperationThatShouldNotBePropagatedError, e:
             raise Exception(
                 'found an operation that always raises %s: %s' % (
@@ -451,12 +451,12 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
                     self.space.unwrap(e.get_w_value(self.space))))
         except OperationError, operr:
             self.attach_traceback(operr)
-            next_instr = self.handle_operation_error(ec, operr)
+            next_instr = self.handle_operation_error(operr)
         except Reraise:
             operr = self.last_exception
-            next_instr = self.handle_operation_error(ec, operr)
+            next_instr = self.handle_operation_error(operr)
         except RaiseWithExplicitTraceback, e:
-            next_instr = self.handle_operation_error(ec, e.operr)
+            next_instr = self.handle_operation_error(e.operr)
         return next_instr
 
     def attach_traceback(self, operr):
@@ -466,7 +466,7 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         tb = PyTraceback(self.space, self, self.last_instr, tb)
         operr.set_traceback(tb)
 
-    def handle_operation_error(self, ec, operr):
+    def handle_operation_error(self, operr):
         block = self.unrollstack(SApplicationException.kind)
         if block is None:
             # no handler found for the OperationError
@@ -479,10 +479,13 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
             next_instr = block.handle(self, unroller)
             return next_instr
 
-    def dispatch_bytecode(self, next_instr, ec):
+    def enter_bytecode(self, next_instr):
+        self.last_instr = next_instr
+        self.space.executioncontext.recorder.bytecode_trace(self)
+
+    def dispatch_bytecode(self, next_instr):
         while True:
-            self.last_instr = next_instr
-            ec.bytecode_trace(self)
+            self.enter_bytecode(next_instr)
             next_instr, methodname, oparg = self.pycode.read(next_instr)
             res = getattr(self, methodname)(oparg, next_instr)
             if res is not None:
