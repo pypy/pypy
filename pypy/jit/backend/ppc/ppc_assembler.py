@@ -9,7 +9,7 @@ from pypy.jit.backend.ppc.arch import (IS_PPC_32, IS_PPC_64, WORD,
                                               FPR_SAVE_AREA, NONVOLATILES_FLOAT,
                                               FLOAT_INT_CONVERSION, FORCE_INDEX,
                                               SIZE_LOAD_IMM_PATCH_SP,
-                                              FORCE_INDEX_OFS)
+                                              FORCE_INDEX_OFS, LR_BC_OFFSET)
 from pypy.jit.backend.ppc.helper.assembler import Saved_Volatiles
 from pypy.jit.backend.ppc.helper.regalloc import _check_imm_arg
 import pypy.jit.backend.ppc.register as r
@@ -417,9 +417,12 @@ class AssemblerPPC(OpAssembler):
         mc = PPCBuilder()
         
         # make small frame to store data (parameter regs + LR + SCRATCH) in
-        # there
-        SAVE_AREA = len(r.PARAM_REGS)
-        frame_size = (BACKCHAIN_SIZE + SAVE_AREA) * WORD
+        # there.  Allocate additional fixed save area for PPC64.
+        PARAM_AREA = len(r.PARAM_REGS)
+        FIXED_AREA = BACKCHAIN_SIZE
+        if IS_PPC_64:
+            FIXED_AREA += MAX_REG_PARAMS
+        frame_size = (FIXED_AREA + PARAM_AREA) * WORD
 
         # align the SP
         MINIFRAME_SIZE = BACKCHAIN_SIZE * WORD
@@ -436,16 +439,13 @@ class AssemblerPPC(OpAssembler):
 
         # save parameter registers
         for i, reg in enumerate(r.PARAM_REGS):
-            mc.store(reg.value, r.SP.value, (i + BACKCHAIN_SIZE) * WORD)
+            mc.store(reg.value, r.SP.value, (i + FIXED_AREA) * WORD)
 
         # use SP as single parameter for the call
         mc.mr(r.r3.value, r.SP.value)
 
         # stack still aligned
         mc.call(slowpathaddr)
-
-        XXX ^^^ the above call clobbers at least 48(r1), which
-        XXX     contains the mc.store(r3.value)
 
         with scratch_reg(mc):
             mc.load_imm(r.SCRATCH, self.cpu.pos_exception())
@@ -459,7 +459,7 @@ class AssemblerPPC(OpAssembler):
 
         # restore parameter registers
         for i, reg in enumerate(r.PARAM_REGS):
-            mc.load(reg.value, r.SP.value, (i + BACKCHAIN_SIZE) * WORD)
+            mc.load(reg.value, r.SP.value, (i + FIXED_AREA) * WORD)
 
         # restore LR
         mc.restore_LR_from_caller_frame(frame_size)
@@ -484,9 +484,7 @@ class AssemblerPPC(OpAssembler):
         # are interrupting the function.
         
         # restore link register out of preprevious frame
-        offset_LR = frame_size + MINIFRAME_SIZE + WORD
-        if IS_PPC_64:
-            offset_LR += WORD
+        offset_LR = frame_size + MINIFRAME_SIZE + LR_BC_OFFSET
 
         with scratch_reg(mc):
             mc.load(r.SCRATCH.value, r.SP.value, offset_LR)
