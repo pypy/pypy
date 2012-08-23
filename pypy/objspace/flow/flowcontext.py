@@ -155,14 +155,6 @@ class Replayer(Recorder):
         ec.recorder = self.nextreplayer
         return self.booloutcome
 
-
-class ConcreteNoOp(Recorder):
-    # In "concrete mode", no SpaceOperations between Variables are allowed.
-    # Concrete mode is used to precompute lazily-initialized caches,
-    # when we don't want this precomputation to show up on the flow graph.
-    def append(self, operation):
-        raise AssertionError, "concrete mode: cannot perform %s" % operation
-
 # ____________________________________________________________
 
 

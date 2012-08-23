@@ -83,18 +83,9 @@ class FlowObjSpace(ObjSpace):
         # objects which should keep their SomeObjectness
         self.not_really_const = NOT_REALLY_CONST
 
-    def enter_cache_building_mode(self):
-        # when populating the caches, the flow space switches to
-        # "concrete mode".  In this mode, only Constants are allowed
-        # and no SpaceOperation is recorded.
-        previous_recorder = self.executioncontext.recorder
-        self.executioncontext.recorder = flowcontext.ConcreteNoOp()
-        self.concrete_mode += 1
-        return previous_recorder
-
-    def leave_cache_building_mode(self, previous_recorder):
-        self.executioncontext.recorder = previous_recorder
-        self.concrete_mode -= 1
+    # disable superclass methods
+    enter_cache_building_mode = None
+    leave_cache_building_mode = None
 
     def is_w(self, w_one, w_two):
         return self.is_true(self.is_(w_one, w_two))
