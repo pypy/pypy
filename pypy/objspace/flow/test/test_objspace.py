@@ -701,6 +701,15 @@ class TestFlowObjSpace(Base):
             from pypy import this_does_not_exist
         py.test.raises(ImportError, 'self.codetest(f)')
 
+    def test_relative_import(self):
+        def f():
+            from ..test.test_objspace import FlowObjSpace
+        # Check that the function works in Python
+        assert f() is None
+
+        with py.test.raises(error.FlowingError):
+            self.codetest(f)
+
     def test_mergeable(self):
         def myfunc(x):
             if x:

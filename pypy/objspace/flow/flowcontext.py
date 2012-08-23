@@ -1,5 +1,6 @@
 import collections
 import sys
+from pypy.tool.error import FlowingError
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.pytraceback import PyTraceback
@@ -490,6 +491,21 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
             res = getattr(self, methodname)(oparg, next_instr)
             if res is not None:
                 next_instr = res
+
+    def IMPORT_NAME(self, nameindex, next_instr):
+        space = self.space
+        modulename = self.getname_u(nameindex)
+        w_fromlist = self.popvalue()
+
+        level = self.popvalue().value
+        if level != -1:
+            raise FlowingError("Relative imports are not implemented in RPython")
+
+        w_locals = space.w_None
+        w_modulename = space.wrap(modulename)
+        w_globals = self.w_globals
+        w_obj = space.import_name(w_modulename, w_globals, w_locals, w_fromlist)
+        self.pushvalue(w_obj)
 
     def IMPORT_FROM(self, nameindex, next_instr):
         w_name = self.getname_w(nameindex)
