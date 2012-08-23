@@ -198,11 +198,7 @@ class FlowExecutionContext(ExecutionContext):
 
     def build_flow(self, func, constargs={}):
         space = self.space
-        code = HostCode._from_code(space, func.func_code)
-        self.code = code
-
-        self.frame = frame = FlowSpaceFrame(self.space, code,
-                               func, constargs)
+        self.frame = frame = FlowSpaceFrame(self.space, func, constargs)
         self.joinpoints = {}
         self.graph = frame._init_graph(func)
         self.pendingblocks = collections.deque([self.graph.startblock])
@@ -214,8 +210,7 @@ class FlowExecutionContext(ExecutionContext):
                 frame.frame_finished_execution = False
                 next_instr = frame.last_instr
                 while True:
-                    next_instr = frame.handle_bytecode(code,
-                            next_instr, self)
+                    next_instr = frame.handle_bytecode(next_instr, self)
 
             except ImplicitOperationError, e:
                 if isinstance(e.w_type, Constant):
@@ -339,7 +334,8 @@ class FlowExecutionContext(ExecutionContext):
 
 class FlowSpaceFrame(pyframe.CPythonFrame):
 
-    def __init__(self, space, code, func, constargs=None):
+    def __init__(self, space, func, constargs=None):
+        code = HostCode._from_code(space, func.func_code)
         self.pycode = code
         self.space = space
         self.w_globals = Constant(func.func_globals)
@@ -445,9 +441,9 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
             prevblock = parent
         return recorder
 
-    def handle_bytecode(self, code, next_instr, ec):
+    def handle_bytecode(self, next_instr, ec):
         try:
-            next_instr = self.dispatch_bytecode(code, next_instr, ec)
+            next_instr = self.dispatch_bytecode(next_instr, ec)
         except OperationThatShouldNotBePropagatedError, e:
             raise Exception(
                 'found an operation that always raises %s: %s' % (
@@ -483,11 +479,11 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
             next_instr = block.handle(self, unroller)
             return next_instr
 
-    def dispatch_bytecode(self, code, next_instr, ec):
+    def dispatch_bytecode(self, next_instr, ec):
         while True:
             self.last_instr = next_instr
             ec.bytecode_trace(self)
-            next_instr, methodname, oparg = code.read(next_instr)
+            next_instr, methodname, oparg = self.pycode.read(next_instr)
             res = getattr(self, methodname)(oparg, next_instr)
             if res is not None:
                 next_instr = res
