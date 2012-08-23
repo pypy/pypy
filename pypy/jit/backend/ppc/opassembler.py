@@ -18,6 +18,7 @@ from pypy.jit.backend.ppc.codebuilder import (OverwritingBuilder, scratch_reg,
                                               PPCBuilder)
 from pypy.jit.backend.ppc.regalloc import TempPtr, TempInt
 from pypy.jit.backend.llsupport import symbolic
+from pypy.jit.backend.llsupport.descr import InteriorFieldDescr
 from pypy.rpython.lltypesystem import rstr, rffi, lltype
 from pypy.jit.metainterp.resoperation import rop
 
@@ -457,17 +458,13 @@ class MiscOpAssembler(object):
         resloc = arglocs[0]
         adr = arglocs[1]
         arglist = arglocs[2:]
-        self._emit_call(force_index, adr, arglist, resloc)
         descr = op.getdescr()
-        #XXX Hack, Hack, Hack
-        if (op.result and not we_are_translated()):
-            #XXX check result type
-            loc = regalloc.rm.call_result_location(op.result)
-            size = descr.get_result_size()
-            signed = descr.is_result_signed()
-            self._ensure_result_bit_extension(loc, size, signed)
+        size = descr.get_result_size()
+        signed = descr.is_result_signed()
+        self._emit_call(force_index, adr, arglist, resloc, (size, signed))
 
-    def _emit_call(self, force_index, adr, arglocs, result=None):
+    def _emit_call(self, force_index, adr, arglocs,
+                   result=None, result_info=(-1,-1)):
         n_args = len(arglocs)
 
         # collect variables that need to go in registers
@@ -553,6 +550,10 @@ class MiscOpAssembler(object):
             assert 0, "should not reach here"
 
         self.mark_gc_roots(force_index)
+        # ensure the result is wellformed and stored in the correct location
+        if result is not None and result_info != (-1, -1):
+            self._ensure_result_bit_extension(result, result_info[0],
+                                                      result_info[1])
 
 class FieldOpAssembler(object):
 
@@ -622,9 +623,8 @@ class FieldOpAssembler(object):
         else:
             assert 0, "size not supported"
 
-        #XXX Hack, Hack, Hack
-        if not we_are_translated():
-            signed = op.getdescr().is_field_signed()
+        signed = op.getdescr().is_field_signed()
+        if signed:
             self._ensure_result_bit_extension(res, size.value, signed)
 
     emit_getfield_raw = emit_getfield_gc
@@ -637,6 +637,9 @@ class FieldOpAssembler(object):
         with scratch_reg(self.mc):
             self.mc.load_imm(r.SCRATCH, itemsize.value)
             self.mc.mullw(r.SCRATCH.value, index_loc.value, r.SCRATCH.value)
+            descr = op.getdescr()
+            assert isinstance(descr, InteriorFieldDescr)
+            signed = descr.fielddescr.is_field_signed()
             if ofs.value > 0:
                 if ofs_loc.is_imm():
                     self.mc.addic(r.SCRATCH.value, r.SCRATCH.value, ofs_loc.value)
@@ -650,17 +653,19 @@ class FieldOpAssembler(object):
                     self.mc.ldx(res_loc.value, base_loc.value, r.SCRATCH.value)
             elif fieldsize.value == 4:
                 self.mc.lwzx(res_loc.value, base_loc.value, r.SCRATCH.value)
+                if signed:
+                    self.mc.extsw(res_loc.value, res_loc.value)
             elif fieldsize.value == 2:
                 self.mc.lhzx(res_loc.value, base_loc.value, r.SCRATCH.value)
+                if signed:
+                    self.mc.extsh(res_loc.value, res_loc.value)
             elif fieldsize.value == 1:
                 self.mc.lbzx(res_loc.value, base_loc.value, r.SCRATCH.value)
+                if signed:
+                    self.mc.extsb(res_loc.value, res_loc.value)
             else:
                 assert 0
 
-        #XXX Hack, Hack, Hack
-        if not we_are_translated():
-            signed = op.getdescr().fielddescr.is_field_signed()
-            self._ensure_result_bit_extension(res_loc, fieldsize.value, signed)
     emit_getinteriorfield_raw = emit_getinteriorfield_gc
 
     def emit_setinteriorfield_gc(self, op, arglocs, regalloc):
@@ -686,6 +691,7 @@ class FieldOpAssembler(object):
             self.mc.stbx(value_loc.value, base_loc.value, r.SCRATCH.value)
         else:
             assert 0
+
     emit_setinteriorfield_raw = emit_setinteriorfield_gc
 
 class ArrayOpAssembler(object):
@@ -734,6 +740,7 @@ class ArrayOpAssembler(object):
     def emit_getarrayitem_gc(self, op, arglocs, regalloc):
         res, base_loc, ofs_loc, scratch_loc, scale, ofs = arglocs
         assert ofs_loc.is_reg()
+        signed = op.getdescr().is_item_signed()
 
         if scale.value > 0:
             scale_loc = scratch_loc
@@ -756,19 +763,18 @@ class ArrayOpAssembler(object):
                 self.mc.ldx(res.value, base_loc.value, scale_loc.value)
         elif scale.value == 2:
             self.mc.lwzx(res.value, base_loc.value, scale_loc.value)
+            if signed:
+                self.mc.extsw(res.value, res.value)
         elif scale.value == 1:
             self.mc.lhzx(res.value, base_loc.value, scale_loc.value)
+            if signed:
+                self.mc.extsh(res.value, res.value)
         elif scale.value == 0:
             self.mc.lbzx(res.value, base_loc.value, scale_loc.value)
+            if signed:
+                self.mc.extsb(res.value, res.value)
         else:
             assert 0
-
-        #XXX Hack, Hack, Hack
-        if not we_are_translated():
-            descr = op.getdescr()
-            size =  descr.itemsize
-            signed = descr.is_item_signed()
-            self._ensure_result_bit_extension(res, size, signed)
 
     emit_getarrayitem_raw = emit_getarrayitem_gc
     emit_getarrayitem_gc_pure = emit_getarrayitem_gc
@@ -1267,7 +1273,12 @@ class ForceOpAssembler(object):
         callargs = arglocs[2:numargs + 1]  # extract the arguments to the call
         adr = arglocs[1]
         resloc = arglocs[0]
-        self._emit_call(fail_index, adr, callargs, resloc)
+        #
+        descr = op.getdescr()
+        size = descr.get_result_size()
+        signed = descr.is_result_signed()
+        #
+        self._emit_call(fail_index, adr, callargs, resloc, (size, signed))
 
         with scratch_reg(self.mc):
             self.mc.load(r.SCRATCH.value, r.SPP.value, FORCE_INDEX_OFS)
@@ -1290,8 +1301,12 @@ class ForceOpAssembler(object):
         faildescr = guard_op.getdescr()
         fail_index = self.cpu.get_fail_descr_number(faildescr)
         self._write_fail_index(fail_index)
-
-        self._emit_call(fail_index, adr, callargs, resloc)
+        #
+        descr = op.getdescr()
+        size = descr.get_result_size()
+        signed = descr.is_result_signed()
+        #
+        self._emit_call(fail_index, adr, callargs, resloc, (size, signed))
         # then reopen the stack
         if gcrootmap:
             self.call_reacquire_gil(gcrootmap, resloc)
