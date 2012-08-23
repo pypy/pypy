@@ -21,7 +21,6 @@ SUPPORT_INT128 = rffi_platform.has('__int128', '')
 #SHIFT = (LONG_BIT // 2) - 1
 if SUPPORT_INT128:
     SHIFT = 63
-    BASE = long(1 << SHIFT)
     UDIGIT_TYPE = r_ulonglong
     if LONG_BIT >= 64:
         UDIGIT_MASK = intmask
@@ -36,14 +35,13 @@ if SUPPORT_INT128:
         UNSIGNED_TYPE = rffi.ULONGLONG
 else:
     SHIFT = 31
-    BASE = int(1 << SHIFT)
     UDIGIT_TYPE = r_uint
     UDIGIT_MASK = intmask
     STORE_TYPE = lltype.Signed
     UNSIGNED_TYPE = lltype.Unsigned
     LONG_TYPE = rffi.LONGLONG
 
-MASK = BASE - 1
+MASK = int((1 << SHIFT) - 1)
 FLOAT_MULTIPLIER = float(1 << SHIFT)
 
 # Debugging digit array access.
@@ -762,27 +760,24 @@ class rbigint(object):
         elif int_other == 0:
             return self
         if self.sign == -1 and not dont_invert:
-            a1 = self.invert()
-            a2 = a1.rshift(int_other)
-            return a2.invert()
+            a = self.invert().rshift(int_other)
+            return a.invert()
 
-        wordshift = int_other // SHIFT
+        wordshift = int_other / SHIFT
         newsize = self.numdigits() - wordshift
         if newsize <= 0:
             return NULLRBIGINT
 
         loshift = int_other % SHIFT
         hishift = SHIFT - loshift
-        # Not 100% sure here, but the reason why it won't be a problem is because
-        # int is max 63bit, same as our SHIFT now.
-        #lomask = UDIGIT_MASK((UDIGIT_TYPE(1) << hishift) - 1)
-        #himask = MASK ^ lomask
+        lomask = (1 << hishift) - 1
+        himask = MASK ^ lomask
         z = rbigint([NULLDIGIT] * newsize, self.sign, newsize)
         i = 0
         while i < newsize:
-            newdigit = (self.udigit(wordshift) >> loshift) #& lomask
+            newdigit = (self.digit(wordshift) >> loshift) & lomask
             if i+1 < newsize:
-                newdigit += (self.udigit(wordshift+1) << hishift) #& himask
+                newdigit |= (self.digit(wordshift+1) << hishift) & himask
             z.setdigit(i, newdigit)
             i += 1
             wordshift += 1
@@ -1408,7 +1403,6 @@ def _inplace_divrem1(pout, pin, n, size=0):
     if not size:
         size = pin.numdigits()
     size -= 1
-    
     while size >= 0:
         rem = (rem << SHIFT) | pin.widedigit(size)
         hi = rem // n
@@ -1438,7 +1432,7 @@ def _v_iadd(x, xofs, m, y, n):
     x[m-1], and the remaining carry (0 or 1) is returned.
     Python adaptation: x is addressed relative to xofs!
     """
-    carry = r_uint(0)
+    carry = UDIGIT_TYPE(0)
 
     assert m >= n
     i = _load_unsigned_digit(xofs)
@@ -1463,7 +1457,7 @@ def _v_isub(x, xofs, m, y, n):
     far as x[m-1], and the remaining borrow (0 or 1) is returned.
     Python adaptation: x is addressed relative to xofs!
     """
-    borrow = r_uint(0)
+    borrow = UDIGIT_TYPE(0)
 
     assert m >= n
     i = _load_unsigned_digit(xofs)
@@ -1559,13 +1553,17 @@ def _x_divrem(v1, w1):
     """ Now v->ob_digit[size_v-1] < w->ob_digit[size_w-1], so quotient has
         at most (and usually exactly) k = size_v - size_w digits. """
     k = size_v - size_w
+    if k == 0:
+        return NULLRBIGINT, v1
+    
     assert k > 0
     a = rbigint([NULLDIGIT] * k, 1, k)
     
-    wm1 = w.digit(abs(size_w-1))
+    wm1 = w.widedigit(abs(size_w-1))
     wm2 = w.widedigit(abs(size_w-2))
 
-    j = size_v
+    j = size_v - 1
+    k -= 1
     while k >= 0:
         assert j >= 0
         """ inner loop: divide vk[0:size_w+1] by w0[0:size_w], giving
@@ -1575,17 +1573,15 @@ def _x_divrem(v1, w1):
         if j >= size_v:
             vtop = 0
         else:
-            vtop = v.digit(j)
+            vtop = v.widedigit(j)
         assert vtop <= wm1
         vv = (vtop << SHIFT) | v.widedigit(abs(j-1))
-        q = UDIGIT_MASK(vv / wm1)
+        q = vv / wm1
         r = vv - wm1 * q
         while wm2 * q > ((r << SHIFT) | v.widedigit(abs(j-2))):
             q -= 1
             r += wm1
-            if r > MASK:
-                break
-                
+            
         assert q < MASK
         
         # subtract q*w0[0:size_w] from vk[0:size_w+1]
@@ -1609,9 +1605,10 @@ def _x_divrem(v1, w1):
             q -= 1
             
         # store quotient digit
+        a.setdigit(k, q)
         k -= 1
         j -= 1
-        a.setdigit(k, q)
+        
         
     carry = _v_rshift(w, v, size_w, d)
     assert carry == 0

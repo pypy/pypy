@@ -547,7 +547,7 @@ class TestInternalFunctions(object):
         Rx = 1 << 130
         Rx2 = 1 << 150
         Ry = 1 << 127
-        Ry2 = 1<< 130
+        Ry2 = 1<< 150
         for i in range(10):
             x = long(randint(Rx, Rx2))
             y = long(randint(Ry, Ry2))
