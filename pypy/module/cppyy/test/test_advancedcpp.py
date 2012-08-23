@@ -7,7 +7,7 @@ from pypy.module.cppyy import capi
 currpath = py.path.local(__file__).dirpath()
 test_dct = str(currpath.join("advancedcppDict.so"))
 
-space = gettestobjspace(usemodules=['cppyy'])
+space = gettestobjspace(usemodules=['cppyy', 'array'])
 
 def setup_module(mod):
     if sys.platform == 'win32':
@@ -31,31 +31,42 @@ class AppTestADVANCEDCPP:
         """Test usage of default arguments"""
 
         import cppyy
-        defaulter = cppyy.gbl.defaulter
+        def test_defaulter(n, t):
+            defaulter = getattr(cppyy.gbl, '%s_defaulter' % n)
 
-        d = defaulter()
-        assert d.m_a == 11
-        assert d.m_b == 22
-        assert d.m_c == 33
-        d.destruct()
+            d = defaulter()
+            assert d.m_a == t(11)
+            assert d.m_b == t(22)
+            assert d.m_c == t(33)
+            d.destruct()
 
-        d = defaulter(0)
-        assert d.m_a ==  0
-        assert d.m_b == 22
-        assert d.m_c == 33
-        d.destruct()
+            d = defaulter(0)
+            assert d.m_a ==  t(0)
+            assert d.m_b == t(22)
+            assert d.m_c == t(33)
+            d.destruct()
 
-        d = defaulter(1, 2)
-        assert d.m_a ==  1
-        assert d.m_b ==  2
-        assert d.m_c == 33
-        d.destruct()
+            d = defaulter(1, 2)
+            assert d.m_a ==  t(1)
+            assert d.m_b ==  t(2)
+            assert d.m_c == t(33)
+            d.destruct()
 
-        d = defaulter(3, 4, 5)
-        assert d.m_a ==  3
-        assert d.m_b ==  4
-        assert d.m_c ==  5
-        d.destruct()
+            d = defaulter(3, 4, 5)
+            assert d.m_a ==  t(3)
+            assert d.m_b ==  t(4)
+            assert d.m_c ==  t(5)
+            d.destruct()
+        test_defaulter('short', int)
+        test_defaulter('ushort', int)
+        test_defaulter('int', int)
+        test_defaulter('uint', int)
+        test_defaulter('long', long)
+        test_defaulter('ulong', long)
+        test_defaulter('llong', long)
+        test_defaulter('ullong', long)
+        test_defaulter('float', float)
+        test_defaulter('double', float)
 
     def test02_simple_inheritance(self):
         """Test binding of a basic inheritance structure"""
@@ -371,6 +382,20 @@ class AppTestADVANCEDCPP:
         assert cppyy.addressof(o) == pp.gime_address_ptr(o)
         assert cppyy.addressof(o) == pp.gime_address_ptr_ptr(o)
         assert cppyy.addressof(o) == pp.gime_address_ptr_ref(o)
+
+        import array
+        addressofo = array.array('l', [cppyy.addressof(o)])
+        assert addressofo.buffer_info()[0] == pp.gime_address_ptr_ptr(addressofo)
+
+        assert 0 == pp.gime_address_ptr(0)
+        assert 0 == pp.gime_address_ptr(None)
+
+        ptr = cppyy.bind_object(0, some_concrete_class)
+        assert cppyy.addressof(ptr) == 0
+        pp.set_address_ptr_ref(ptr)
+        assert cppyy.addressof(ptr) == 0x1234
+        pp.set_address_ptr_ptr(ptr)
+        assert cppyy.addressof(ptr) == 0x4321
 
     def test09_opaque_pointer_assing(self):
         """Test passing around of opaque pointers"""

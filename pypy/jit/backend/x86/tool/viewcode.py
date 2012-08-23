@@ -8,9 +8,9 @@ Try:
     ./viewcode.py log               # also includes a pygame viewer
 """
 
-import autopath
 import new
 import operator
+import os
 import py
 import re
 import sys
@@ -36,6 +36,17 @@ pypy.tool.udir = mod
 if sys.platform == "win32":
     pass   # lots more in Psyco
 
+def find_objdump():
+    exe = ('objdump', 'gobjdump')
+    path = os.environ['PATH'].split(os.pathsep)
+    for e in exe:
+        for p in path:
+            path_to = os.path.join(p, e)
+            if not os.path.exists(path_to):
+                continue
+            return e
+    raise AssertionError('(g)objdump was not found in PATH')
+
 def machine_code_dump(data, originaddr, backend_name, label_list=None):
     objdump_backend_option = {
         'x86': 'i386',
@@ -43,7 +54,8 @@ def machine_code_dump(data, originaddr, backend_name, label_list=None):
         'x86_64': 'x86-64',
         'i386': 'i386',
     }
-    objdump = ('objdump -M %(backend)s -b binary -m i386 '
+    cmd = find_objdump()
+    objdump = ('%(command)s -M %(backend)s -b binary -m i386 '
                '--disassembler-options=intel-mnemonics '
                '--adjust-vma=%(origin)d -D %(file)s')
     #
@@ -51,6 +63,7 @@ def machine_code_dump(data, originaddr, backend_name, label_list=None):
     f.write(data)
     f.close()
     p = subprocess.Popen(objdump % {
+        'command': cmd,
         'file': tmpfile,
         'origin': originaddr,
         'backend': objdump_backend_option[backend_name],

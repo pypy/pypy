@@ -2,13 +2,24 @@
 
 
 //===========================================================================
-class defaulter {                 // for testing of default arguments
-public:
-    defaulter(int a = 11, int b = 22, int c = 33 );
-
-public:
-    int m_a, m_b, m_c;
+#define DECLARE_DEFAULTER_CLASS(type, tname)                                \
+class tname##_defaulter {                                                   \
+public:                                                                     \
+    tname##_defaulter(type a = 11, type b = 22, type c = 33);               \
+                                                                            \
+public:                                                                     \
+    type m_a, m_b, m_c;                                                     \
 };
+DECLARE_DEFAULTER_CLASS(short, short)   // for testing of default arguments
+DECLARE_DEFAULTER_CLASS(unsigned short, ushort)
+DECLARE_DEFAULTER_CLASS(int, int)
+DECLARE_DEFAULTER_CLASS(unsigned, uint)
+DECLARE_DEFAULTER_CLASS(long, long)
+DECLARE_DEFAULTER_CLASS(unsigned long, ulong)
+DECLARE_DEFAULTER_CLASS(long long, llong)
+DECLARE_DEFAULTER_CLASS(unsigned long long, ullong)
+DECLARE_DEFAULTER_CLASS(float, float)
+DECLARE_DEFAULTER_CLASS(double, double)
 
 
 //===========================================================================
@@ -302,6 +313,16 @@ public:
 
     long gime_address_ptr_ref(void*& obj) {
         return (long)obj;
+    }
+
+    static long set_address_ptr_ptr(void** obj) {
+        (*(long**)obj) = (long*)0x4321;
+        return 42;
+    }
+
+    static long set_address_ptr_ref(void*& obj) {
+        obj = (void*)0x1234;
+        return 21;
     }
 };
 

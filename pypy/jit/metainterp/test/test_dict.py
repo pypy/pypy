@@ -161,6 +161,22 @@ class DictTests:
                            'guard_no_exception': 8, 'new': 2,
                            'guard_false': 2, 'int_is_true': 2})
 
+    def test_unrolling_of_dict_iter(self):
+        driver = JitDriver(greens = [], reds = ['n'])
+        
+        def f(n):
+            while n > 0:
+                driver.jit_merge_point(n=n)
+                d = {1: 1}
+                for elem in d:
+                    n -= elem
+            return n
+
+        res = self.meta_interp(f, [10], listops=True)
+        assert res == 0
+        self.check_simple_loop({'int_sub': 1, 'int_gt': 1, 'guard_true': 1,
+                                'jump': 1})
+
 
 class TestOOtype(DictTests, OOJitMixin):
     pass

@@ -3389,6 +3389,22 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [str])
         assert isinstance(s, annmodel.SomeString)
 
+    def test_unicodeformatting(self):
+        def f(x):
+            return u'%s' % x
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [unicode])
+        assert isinstance(s, annmodel.SomeUnicodeString)
+
+    def test_unicodeformatting_tuple(self):
+        def f(x):
+            return u'%s' % (x,)
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [unicode])
+        assert isinstance(s, annmodel.SomeUnicodeString)
+
 
     def test_negative_slice(self):
         def f(s, e):
@@ -3813,7 +3829,7 @@ class TestAnnotateTestCase:
 
             def next(self):
                 return 1
-        
+
         def fn():
             s = 0
             for x in A():
@@ -3824,6 +3840,24 @@ class TestAnnotateTestCase:
         s = a.build_types(fn, [])
         assert len(a.translator.graphs) == 3 # fn, __iter__, next
         assert isinstance(s, annmodel.SomeInteger)
+
+    def test_next_function(self):
+        def fn(n):
+            x = [0, 1, n]
+            i = iter(x)
+            return next(i) + next(i)
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(fn, [int])
+        assert isinstance(s, annmodel.SomeInteger)
+
+    def test_no_attr_on_common_exception_classes(self):
+        for cls in [ValueError, Exception]:
+            def fn():
+                e = cls()
+                e.foo = "bar"
+            a = self.RPythonAnnotator()
+            py.test.raises(Exception, a.build_types, fn, [])
 
 def g(n):
     return [0,1,2,n]

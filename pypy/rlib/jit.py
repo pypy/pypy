@@ -103,7 +103,6 @@ def _get_args(func):
     import inspect
 
     args, varargs, varkw, defaults = inspect.getargspec(func)
-    args = ["v%s" % (i, ) for i in range(len(args))]
     assert varargs is None and varkw is None
     assert not defaults
     return args
@@ -118,11 +117,11 @@ def elidable_promote(promote_args='all'):
         argstring = ", ".join(args)
         code = ["def f(%s):\n" % (argstring, )]
         if promote_args != 'all':
-            args = [('v%d' % int(i)) for i in promote_args.split(",")]
+            args = [args[int(i)] for i in promote_args.split(",")]
         for arg in args:
             code.append("    %s = hint(%s, promote=True)\n" % (arg, arg))
-        code.append("    return func(%s)\n" % (argstring, ))
-        d = {"func": func, "hint": hint}
+        code.append("    return _orig_func_unlikely_name(%s)\n" % (argstring, ))
+        d = {"_orig_func_unlikely_name": func, "hint": hint}
         exec py.code.Source("\n".join(code)).compile() in d
         result = d["f"]
         result.func_name = func.func_name + "_promote"
@@ -148,6 +147,8 @@ def look_inside_iff(predicate):
             thing._annspecialcase_ = "specialize:call_location"
 
         args = _get_args(func)
+        predicateargs = _get_args(predicate)
+        assert len(args) == len(predicateargs), "%s and predicate %s need the same numbers of arguments" % (func, predicate)
         d = {
             "dont_look_inside": dont_look_inside,
             "predicate": predicate,
@@ -401,7 +402,7 @@ class JitHintError(Exception):
     """Inconsistency in the JIT hints."""
 
 ENABLE_ALL_OPTS = (
-    'intbounds:rewrite:virtualize:string:earlyforce:pure:heap:ffi:unroll')
+    'intbounds:rewrite:virtualize:string:earlyforce:pure:heap:unroll')
 
 PARAMETER_DOCS = {
     'threshold': 'number of times a loop has to run for it to become hot',

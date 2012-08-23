@@ -548,6 +548,7 @@ class LocationCodeBuilder(object):
     # Avoid XCHG because it always implies atomic semantics, which is
     # slower and does not pair well for dispatch.
     #XCHG = _binaryop('XCHG')
+    CMOVNS = _binaryop('CMOVNS')
 
     PUSH = _unaryop('PUSH')
     POP = _unaryop('POP')

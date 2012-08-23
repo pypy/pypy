@@ -2,7 +2,7 @@
 from pypy.tool.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem.llmemory import NULL, Address, \
-     cast_adr_to_int, fakeaddress
+     cast_adr_to_int, fakeaddress, sizeof
 from pypy.rpython.rmodel import Repr, IntegerRepr
 from pypy.rpython.rptr import PtrRepr
 from pypy.rpython.lltypesystem import lltype
@@ -71,15 +71,19 @@ class TypedAddressAccessRepr(Repr):
 class __extend__(pairtype(TypedAddressAccessRepr, IntegerRepr)):
 
     def rtype_getitem((r_acc, r_int), hop):
-        c_type = hop.inputconst(lltype.Void, r_acc.type)
         v_addr, v_offs = hop.inputargs(hop.args_r[0], lltype.Signed)
-        return hop.genop('raw_load', [v_addr, c_type, v_offs],
+        c_size = hop.inputconst(lltype.Signed, sizeof(r_acc.type))
+        v_offs_mult = hop.genop('int_mul', [v_offs, c_size],
+                                resulttype=lltype.Signed)
+        return hop.genop('raw_load', [v_addr, v_offs_mult],
                          resulttype = r_acc.type)
 
     def rtype_setitem((r_acc, r_int), hop):
-        c_type = hop.inputconst(lltype.Void, r_acc.type)
         v_addr, v_offs, v_value = hop.inputargs(hop.args_r[0], lltype.Signed, r_acc.type)
-        return hop.genop('raw_store', [v_addr, c_type, v_offs, v_value])
+        c_size = hop.inputconst(lltype.Signed, sizeof(r_acc.type))
+        v_offs_mult = hop.genop('int_mul', [v_offs, c_size],
+                                resulttype=lltype.Signed)
+        return hop.genop('raw_store', [v_addr, v_offs_mult, v_value])
 
 
 class __extend__(pairtype(AddressRepr, IntegerRepr)):

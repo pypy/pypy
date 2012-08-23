@@ -309,6 +309,20 @@ class AppTestPYTHONIFY:
         assert hasattr(z, 'myint')
         assert z.gime_z_(z)
 
+    def test14_bound_unbound_calls(self):
+        """Test (un)bound method calls"""
+
+        import cppyy
+
+        raises(TypeError, cppyy.gbl.example01.addDataToInt, 1)
+
+        meth = cppyy.gbl.example01.addDataToInt
+        raises(TypeError, meth)
+        raises(TypeError, meth, 1)
+
+        e = cppyy.gbl.example01(2)
+        assert 5 == meth(e, 3)
+
 
 class AppTestPYTHONIFY_UI:
     def setup_class(cls):
@@ -345,3 +359,17 @@ class AppTestPYTHONIFY_UI:
 
         example01_pythonize = 1
         raises(TypeError, cppyy.add_pythonization, 'example01', example01_pythonize)
+
+    def test03_write_access_to_globals(self):
+        """Test overwritability of globals"""
+
+        import cppyy
+
+        oldval = cppyy.gbl.ns_example01.gMyGlobalInt
+        assert oldval == 99
+
+        proxy = cppyy.gbl.ns_example01.__class__.gMyGlobalInt
+        cppyy.gbl.ns_example01.gMyGlobalInt = 3
+        assert proxy.__get__(proxy) == 3
+
+        cppyy.gbl.ns_example01.gMyGlobalInt = oldval

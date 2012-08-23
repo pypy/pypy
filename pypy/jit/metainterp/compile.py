@@ -225,6 +225,8 @@ def compile_retrace(metainterp, greenkey, start,
     assert isinstance(target_token, TargetToken)
     assert loop_jitcell_token.target_tokens
     loop_jitcell_token.target_tokens.append(target_token)
+    if target_token.short_preamble:
+        metainterp_sd.logger_ops.log_short_preamble([], target_token.short_preamble)
 
     loop = partial_trace
     loop.operations = loop.operations[:-1] + part.operations

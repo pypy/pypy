@@ -1,6 +1,6 @@
 <lcgdict>
 
-  <class name="defaulter" />
+  <class pattern="*_defaulter" />
 
   <class name="base_class" />
   <class name="derived_class" />
