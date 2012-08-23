@@ -11,16 +11,8 @@ def sc_import(space, fn, args):
     args_w, kwds_w = args.unpack()
     assert kwds_w == {}, "should not call %r with keyword arguments" % (fn,)
     assert len(args_w) > 0 and len(args_w) <= 5, 'import needs 1 to 5 arguments'
-    w_name = args_w[0]
-    w_None = space.wrap(None)
-    w_glob, w_loc, w_frm = w_None, w_None, w_None
-    if len(args_w) > 1:
-        w_glob = args_w[1]
-    if len(args_w) > 2:
-        w_loc = args_w[2]
-    if len(args_w) > 3:
-        w_frm = args_w[3]
-    return space.import_name(w_name, w_glob, w_loc, w_frm)
+    args = [space.unwrap(arg) for arg in args_w]
+    return space.import_name(*args)
 
 def sc_operator(space, fn, args):
     args_w, kwds_w = args.unpack()

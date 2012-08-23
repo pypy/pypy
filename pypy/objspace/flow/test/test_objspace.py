@@ -706,9 +706,7 @@ class TestFlowObjSpace(Base):
             from ..test.test_objspace import FlowObjSpace
         # Check that the function works in Python
         assert f() is None
-
-        with py.test.raises(error.FlowingError):
-            self.codetest(f)
+        self.codetest(f)
 
     def test_mergeable(self):
         def myfunc(x):
