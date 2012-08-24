@@ -48,10 +48,11 @@ def calculate_broadcast_strides(strides, backstrides, orig_shape, res_shape):
     return rstrides, rbackstrides
 
 def is_single_elem(space, w_elem, is_rec_type):
+    from pypy.module.micronumpy.interp_numarray import BaseArray
     if (is_rec_type and space.isinstance_w(w_elem, space.w_tuple)):
         return True
     if (space.isinstance_w(w_elem, space.w_tuple) or
-        hasattr(w_elem, 'shape') or    
+        isinstance(w_elem, BaseArray) or    
         space.isinstance_w(w_elem, space.w_list)):
         return False
     return True
