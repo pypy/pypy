@@ -483,6 +483,16 @@ class FlowObjSpace(ObjSpace):
                 #pass
              raise operation.ImplicitOperationError(w_exc_cls, w_exc_value)
 
+    def find_global(self, w_globals, varname):
+        w_value = self.finditem_str(w_globals, varname)
+        if w_value is None:
+            # not in the globals, now look in the built-ins
+            w_value = self.builtin.getdictvalue(self, varname)
+            if w_value is None:
+                message = "global name '%s' is not defined" % varname
+                raise OperationError(self.w_NameError, self.wrap(message))
+        return w_value
+
     def w_KeyboardInterrupt(self):
         # the reason to do this is: if you interrupt the flowing of a function
         # with <Ctrl-C> the bytecode interpreter will raise an applevel

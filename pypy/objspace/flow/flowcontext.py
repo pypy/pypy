@@ -545,6 +545,10 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         self.lastblock = block
         self.pushvalue(w_result)
 
+    def LOAD_GLOBAL(self, nameindex, next_instr):
+        w_result = self.space.find_global(self.w_globals, self.getname_u(nameindex))
+        self.pushvalue(w_result)
+
     def BUILD_LIST_FROM_ARG(self, _, next_instr):
         # This opcode was added with pypy-1.8.  Here is a simpler
         # version, enough for annotation.
