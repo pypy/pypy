@@ -890,6 +890,54 @@ class AppTestArray(BaseArrayTests):
         a[::-1] = a
         assert a == self.array('b', [3, 2, 1, 0])
 
+    def test_array_multiply(self):
+        a = self.array('b', [0])
+        b = a * 13
+        assert b[12] == 0
+        b = 13 * a
+        assert b[12] == 0
+        a *= 13
+        assert a[12] == 0
+        a = self.array('b', [1])
+        b = a * 13
+        assert b[12] == 1
+        b = 13 * a
+        assert b[12] == 1
+        a *= 13
+        assert a[12] == 1
+        a = self.array('i', [0])
+        b = a * 13
+        assert b[12] == 0
+        b = 13 * a
+        assert b[12] == 0
+        a *= 13
+        assert a[12] == 0
+        a = self.array('i', [1])
+        b = a * 13
+        assert b[12] == 1
+        b = 13 * a
+        assert b[12] == 1
+        a *= 13
+        assert a[12] == 1
+        a = self.array('i', [0, 0])
+        b = a * 13
+        assert len(b) == 26
+        assert b[22] == 0
+        b = 13 * a
+        assert len(b) == 26
+        assert b[22] == 0
+        a *= 13
+        assert a[22] == 0
+        assert len(a) == 26
+        a = self.array('f', [-0.0])
+        b = a * 13
+        assert len(b) == 13
+        assert str(b[12]) == "-0.0"
+        a = self.array('d', [-0.0])
+        b = a * 13
+        assert len(b) == 13
+        assert str(b[12]) == "-0.0"
+
 
 class AppTestArrayBuiltinShortcut(AppTestArray):
     OPTIONS = {'objspace.std.builtinshortcut': True}

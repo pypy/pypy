@@ -4,7 +4,16 @@
 #pragma link off all classes;
 #pragma link off all functions;
 
-#pragma link C++ class defaulter;
+#pragma link C++ class short_defaulter;
+#pragma link C++ class ushort_defaulter;
+#pragma link C++ class int_defaulter;
+#pragma link C++ class uint_defaulter;
+#pragma link C++ class long_defaulter;
+#pragma link C++ class ulong_defaulter;
+#pragma link C++ class llong_defaulter;
+#pragma link C++ class ullong_defaulter;
+#pragma link C++ class float_defaulter;
+#pragma link C++ class double_defaulter;
 
 #pragma link C++ class base_class;
 #pragma link C++ class derived_class;

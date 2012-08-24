@@ -180,6 +180,26 @@ def do_setfield_raw(cpu, _, structbox, itembox, fielddescr):
     else:
         cpu.bh_setfield_raw_i(struct, fielddescr, itembox.getint())
 
+def do_raw_store(cpu, _, addrbox, offsetbox, valuebox, arraydescr):
+    addr = addrbox.getint()
+    offset = offsetbox.getint()
+    if arraydescr.is_array_of_pointers():
+        raise AssertionError("cannot store GC pointers in raw store")
+    elif arraydescr.is_array_of_floats():
+        cpu.bh_raw_store_f(addr, offset, arraydescr,valuebox.getfloatstorage())
+    else:
+        cpu.bh_raw_store_i(addr, offset, arraydescr, valuebox.getint())
+
+def do_raw_load(cpu, _, addrbox, offsetbox, arraydescr):
+    addr = addrbox.getint()
+    offset = offsetbox.getint()
+    if arraydescr.is_array_of_pointers():
+        raise AssertionError("cannot store GC pointers in raw store")
+    elif arraydescr.is_array_of_floats():
+        return BoxFloat(cpu.bh_raw_load_f(addr, offset, arraydescr))
+    else:
+        return BoxInt(cpu.bh_raw_load_i(addr, offset, arraydescr))
+
 def exec_new_with_vtable(cpu, clsbox):
     from pypy.jit.codewriter import heaptracker
     vtable = clsbox.getint()
@@ -277,19 +297,6 @@ def do_keepalive(cpu, _, x):
 
 
 def _make_execute_list():
-    if 0:     # enable this to trace calls to do_xxx
-        def wrap(fn):
-            def myfn(*args):
-                print '<<<', fn.__name__
-                try:
-                    return fn(*args)
-                finally:
-                    print fn.__name__, '>>>'
-            return myfn
-    else:
-        def wrap(fn):
-            return fn
-    #
     execute_by_num_args = {}
     for key, value in rop.__dict__.items():
         if not key.startswith('_'):
@@ -343,7 +350,6 @@ def _make_execute_list():
                          rop.DEBUG_MERGE_POINT,
                          rop.JIT_DEBUG,
                          rop.SETARRAYITEM_RAW,
-                         rop.GETINTERIORFIELD_RAW,
                          rop.SETINTERIORFIELD_RAW,
                          rop.CALL_RELEASE_GIL,
                          rop.QUASIIMMUT_FIELD,

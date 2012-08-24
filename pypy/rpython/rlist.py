@@ -20,8 +20,11 @@ ADTIFixedList = ADTInterface(None, {
     'll_setitem_fast': (['self', Signed, 'item'], Void),
 })
 ADTIList = ADTInterface(ADTIFixedList, {
+    # grow the length if needed, overallocating a bit
     '_ll_resize_ge':   (['self', Signed        ], Void),
+    # shrink the length, keeping it overallocated if useful
     '_ll_resize_le':   (['self', Signed        ], Void),
+    # resize to exactly the given size
     '_ll_resize':      (['self', Signed        ], Void),
 })
 
@@ -1018,6 +1021,8 @@ def ll_listremove(lst, obj, eqfn):
     ll_delitem_nonneg(dum_nocheck, lst, index)
 
 def ll_inplace_mul(l, factor):
+    if factor == 1:
+        return l
     length = l.ll_length()
     if factor < 0:
         factor = 0
@@ -1027,7 +1032,6 @@ def ll_inplace_mul(l, factor):
         raise MemoryError
     res = l
     res._ll_resize(resultlen)
-    #res._ll_resize_ge(resultlen)
     j = length
     while j < resultlen:
         i = 0

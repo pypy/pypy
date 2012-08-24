@@ -55,6 +55,21 @@ class AbstractCPU(object):
         """Called once by the front-end when the program stops."""
         pass
 
+    def get_all_loop_runs(self):
+        """ Function that will return number of times all the loops were run.
+        Requires earlier setting of set_debug(True), otherwise you won't
+        get the information.
+
+        Returns an instance of LOOP_RUN_CONTAINER from rlib.jit_hooks
+        """
+        raise NotImplementedError
+
+    def set_debug(self, value):
+        """ Enable or disable debugging info. Does nothing by default. Returns
+        the previous setting.
+        """
+        return False
+
     def compile_loop(self, inputargs, operations, looptoken, log=True, name=''):
         """Assemble the given loop.
         Should create and attach a fresh CompiledLoopToken to
@@ -191,10 +206,6 @@ class AbstractCPU(object):
         raise NotImplementedError
 
     def interiorfielddescrof(self, A, fieldname):
-        raise NotImplementedError
-
-    def interiorfielddescrof_dynamic(self, offset, width, fieldsize, is_pointer,
-        is_float, is_signed):
         raise NotImplementedError
 
     def arraydescrof(self, A):

@@ -4,6 +4,7 @@ Minimal-API wrapper around the llinterpreter to run operations.
 
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib.jit_hooks import LOOP_RUN_CONTAINER
 from pypy.rpython.lltypesystem import lltype, llmemory, rclass
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.llinterp import LLInterpreter
@@ -33,6 +34,10 @@ class Descr(history.AbstractDescr):
         self.arg_types = arg_types
         self.count_fields_if_immut = count_fields_if_immut
         self.ffi_flags = ffi_flags
+        self._debug = False
+
+    def set_debug(self, v):
+        self._debug = True
 
     def get_arg_types(self):
         return self.arg_types
@@ -334,34 +339,12 @@ class LLtypeCPU(BaseCPU):
         token = history.getkind(getattr(S, fieldname))
         return self.getdescr(ofs, token[0], name=fieldname)
 
-    def fielddescrof_dynamic(self, offset, fieldsize, is_pointer, is_float, is_signed):
-        if is_pointer:
-            typeinfo = REF
-        elif is_float:
-            typeinfo = FLOAT
-        else:
-            typeinfo = INT
-        # we abuse the arg_types field to distinguish dynamic and static descrs
-        return self.getdescr(offset, typeinfo, arg_types='dynamic', name='<dynamic field>')
-
     def interiorfielddescrof(self, A, fieldname):
         S = A.OF
         width = symbolic.get_size(A)
         ofs, size = symbolic.get_field_token(S, fieldname)
         token = history.getkind(getattr(S, fieldname))
         return self.getdescr(ofs, token[0], name=fieldname, width=width)
-
-    def interiorfielddescrof_dynamic(self, offset, width, fieldsize,
-        is_pointer, is_float, is_signed):
-
-        if is_pointer:
-            typeinfo = REF
-        elif is_float:
-            typeinfo = FLOAT
-        else:
-            typeinfo = INT
-        # we abuse the arg_types field to distinguish dynamic and static descrs
-        return Descr(offset, typeinfo, arg_types='dynamic', name='<dynamic interior field>', width=width)
 
     def calldescrof(self, FUNC, ARGS, RESULT, extrainfo):
         arg_types = []
@@ -377,22 +360,27 @@ class LLtypeCPU(BaseCPU):
         return self.getdescr(0, token[0], extrainfo=extrainfo,
                              arg_types=''.join(arg_types))
 
-    def calldescrof_dynamic(self, ffi_args, ffi_result, extrainfo, ffi_flags):
+    def calldescrof_dynamic(self, cif_description, extrainfo):
         from pypy.jit.backend.llsupport.ffisupport import get_ffi_type_kind
         from pypy.jit.backend.llsupport.ffisupport import UnsupportedKind
         arg_types = []
         try:
-            for arg in ffi_args:
+            for arg in cif_description.atypes:
                 kind = get_ffi_type_kind(self, arg)
                 if kind != history.VOID:
                     arg_types.append(kind)
-            reskind = get_ffi_type_kind(self, ffi_result)
+            reskind = get_ffi_type_kind(self, cif_description.rtype)
         except UnsupportedKind:
             return None
         return self.getdescr(0, reskind, extrainfo=extrainfo,
                              arg_types=''.join(arg_types),
-                             ffi_flags=ffi_flags)
+                             ffi_flags=cif_description.abi)
 
+    def _calldescr_dynamic_for_tests(self, atypes, rtype,
+                                     abiname='FFI_DEFAULT_ABI'):
+        from pypy.jit.backend.llsupport import ffisupport
+        return ffisupport.calldescr_dynamic_for_tests(self, atypes, rtype,
+                                                      abiname)
 
     def grab_exc_value(self):
         return llimpl.grab_exc_value()
@@ -428,7 +416,7 @@ class LLtypeCPU(BaseCPU):
         return llimpl.do_getarrayitem_gc_int(array, index)
     def bh_getarrayitem_raw_i(self, arraydescr, array, index):
         assert isinstance(arraydescr, Descr)
-        return llimpl.do_getarrayitem_raw_int(array, index)
+        return llimpl.do_getarrayitem_raw_int(array, index, arraydescr.ofs)
     def bh_getarrayitem_gc_r(self, arraydescr, array, index):
         assert isinstance(arraydescr, Descr)
         return llimpl.do_getarrayitem_gc_ptr(array, index)
@@ -482,6 +470,19 @@ class LLtypeCPU(BaseCPU):
         return llimpl.do_setinteriorfield_gc_float(array, index, descr.ofs,
                                                    value)
 
+    def bh_raw_store_i(self, struct, offset, descr, newvalue):
+        assert isinstance(descr, Descr)
+        return llimpl.do_raw_store_int(struct, offset, descr.ofs, newvalue)
+    def bh_raw_store_f(self, struct, offset, descr, newvalue):
+        assert isinstance(descr, Descr)
+        return llimpl.do_raw_store_float(struct, offset, newvalue)
+    def bh_raw_load_i(self, struct, offset, descr):
+        assert isinstance(descr, Descr)
+        return llimpl.do_raw_load_int(struct, offset, descr.ofs)
+    def bh_raw_load_f(self, struct, offset, descr):
+        assert isinstance(descr, Descr)
+        return llimpl.do_raw_load_float(struct, offset)
+
     def bh_new(self, sizedescr):
         assert isinstance(sizedescr, Descr)
         return llimpl.do_new(sizedescr.ofs)
@@ -511,7 +512,7 @@ class LLtypeCPU(BaseCPU):
 
     def bh_setarrayitem_raw_i(self, arraydescr, array, index, newvalue):
         assert isinstance(arraydescr, Descr)
-        llimpl.do_setarrayitem_raw_int(array, index, newvalue)
+        llimpl.do_setarrayitem_raw_int(array, index, newvalue, arraydescr.ofs)
 
     def bh_setarrayitem_gc_r(self, arraydescr, array, index, newvalue):
         assert isinstance(arraydescr, Descr)
@@ -582,6 +583,9 @@ class LLtypeCPU(BaseCPU):
         if args_f is not None:
             for x in args_f:
                 llimpl.do_call_pushfloat(x)
+
+    def get_all_loop_runs(self):
+        return lltype.malloc(LOOP_RUN_CONTAINER, 0)
 
     def force(self, force_token):
         token = llmemory.cast_int_to_adr(force_token)

@@ -652,6 +652,9 @@ DOUBLEP = lltype.Ptr(lltype.Array(DOUBLE, hints={'nolength': True}))
 # float *
 FLOATP = lltype.Ptr(lltype.Array(FLOAT, hints={'nolength': True}))
 
+# long double *
+LONGDOUBLEP = lltype.Ptr(lltype.Array(LONGDOUBLE, hints={'nolength': True}))
+
 # Signed, Signed *
 SIGNED = lltype.Signed
 SIGNEDP = lltype.Ptr(lltype.Array(SIGNED, hints={'nolength': True}))
@@ -913,6 +916,11 @@ def sizeof(tp):
         return 8
     if tp is lltype.SingleFloat:
         return 4
+    if tp is lltype.LongFloat:
+        if globals()['r_void*'].BITS == 32:
+            return 12
+        else:
+            return 16
     assert isinstance(tp, lltype.Number)
     if tp is lltype.Signed:
         return LONG_BIT/8

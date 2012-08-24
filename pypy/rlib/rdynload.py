@@ -114,6 +114,7 @@ if not _WIN32:
 
 if _WIN32:
     DLLHANDLE = rwin32.HMODULE
+    RTLD_GLOBAL = None
 
     def dlopen(name, mode=-1):
         # mode is unused on windows, but a consistant signature

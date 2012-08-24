@@ -33,8 +33,13 @@ def make_generatoriterator_class(graph):
         class Entry(AbstractPosition):
             _immutable_ = True
             varnames = get_variable_names(graph.startblock.inputargs)
+
         def __init__(self, entry):
             self.current = entry
+
+        def __iter__(self):
+            return self
+
     return GeneratorIterator
 
 def replace_graph_with_bootstrap(GeneratorIterator, graph):

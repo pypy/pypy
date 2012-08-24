@@ -601,10 +601,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
         else:
             return ObjSpace.call_method(self, w_obj, methname, *arg_w)
 
-    def raise_key_error(self, w_key):
-        e = self.call_function(self.w_KeyError, w_key)
-        raise OperationError(self.w_KeyError, e)
-
     def _type_issubtype(self, w_sub, w_type):
         if isinstance(w_sub, W_TypeObject) and isinstance(w_type, W_TypeObject):
             return self.wrap(w_sub.issubtype(w_type))

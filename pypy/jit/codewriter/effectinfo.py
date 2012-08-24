@@ -45,13 +45,7 @@ class EffectInfo(object):
     OS_UNIEQ_LENGTHOK           = 51   #
     _OS_offset_uni              = OS_UNI_CONCAT - OS_STR_CONCAT
     #
-    OS_LIBFFI_PREPARE           = 60
-    OS_LIBFFI_PUSH_ARG          = 61
     OS_LIBFFI_CALL              = 62
-    OS_LIBFFI_STRUCT_GETFIELD   = 63
-    OS_LIBFFI_STRUCT_SETFIELD   = 64
-    OS_LIBFFI_GETARRAYITEM      = 65
-    OS_LIBFFI_SETARRAYITEM      = 66
     #
     OS_LLONG_INVERT             = 69
     OS_LLONG_ADD                = 70
@@ -81,9 +75,13 @@ class EffectInfo(object):
     OS_LLONG_U_TO_FLOAT         = 94
     #
     OS_MATH_SQRT                = 100
+    #
+    OS_RAW_MALLOC_VARSIZE       = 110
+    OS_RAW_FREE                 = 111
 
     # for debugging:
-    _OS_CANRAISE = set([OS_NONE, OS_STR2UNICODE, OS_LIBFFI_CALL])
+    _OS_CANRAISE = set([OS_NONE, OS_STR2UNICODE, OS_LIBFFI_CALL,
+                        OS_RAW_MALLOC_VARSIZE])
 
     def __new__(cls, readonly_descrs_fields, readonly_descrs_arrays,
                 write_descrs_fields, write_descrs_arrays,

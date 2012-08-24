@@ -5,7 +5,6 @@ from pypy.jit.metainterp.optimizeopt.virtualize import OptVirtualize
 from pypy.jit.metainterp.optimizeopt.heap import OptHeap
 from pypy.jit.metainterp.optimizeopt.vstring import OptString
 from pypy.jit.metainterp.optimizeopt.unroll import optimize_unroll
-from pypy.jit.metainterp.optimizeopt.fficall import OptFfiCall
 from pypy.jit.metainterp.optimizeopt.simplify import OptSimplify
 from pypy.jit.metainterp.optimizeopt.pure import OptPure
 from pypy.jit.metainterp.optimizeopt.earlyforce import OptEarlyForce
@@ -21,7 +20,6 @@ ALL_OPTS = [('intbounds', OptIntBounds),
             ('earlyforce', OptEarlyForce),
             ('pure', OptPure),
             ('heap', OptHeap),
-            ('ffi', None),
             ('unroll', None)]
 # no direct instantiation of unroll
 unroll_all_opts = unrolling_iterable(ALL_OPTS)
@@ -42,11 +40,6 @@ def build_opt_chain(metainterp_sd, enable_opts):
             if opt is not None:
                 o = opt()
                 optimizations.append(o)
-            elif name == 'ffi' and config.translation.jit_ffi:
-                # we cannot put the class directly in the unrolling_iterable,
-                # because we do not want it to be seen at all (to avoid to
-                # introduce a dependency on libffi in case we do not need it)
-                optimizations.append(OptFfiCall())
 
     if ('rewrite' not in enable_opts or 'virtualize' not in enable_opts
         or 'heap' not in enable_opts or 'unroll' not in enable_opts
