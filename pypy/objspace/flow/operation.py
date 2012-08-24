@@ -210,7 +210,7 @@ Table = [
     ('coerce',          coerce),
     ('iter',            iter),
     ('next',            next),
-    ('next',            __builtin__.next),
+    ('next',            getattr(__builtin__, 'next', lambda x: x.__next__())),
     ('get',             get),
     ('set',             set),
     ('delete',          delete),
