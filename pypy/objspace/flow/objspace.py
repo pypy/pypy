@@ -49,7 +49,6 @@ class FlowObjSpace(ObjSpace):
     FrameClass = flowcontext.FlowSpaceFrame
 
     def initialize(self):
-        self.concrete_mode = 1
         self.w_None     = Constant(None)
         self.builtin = Constant(__builtin__)
         self.sys = Constant(sys)
@@ -57,7 +56,6 @@ class FlowObjSpace(ObjSpace):
         self.w_True     = Constant(True)
         self.w_type     = Constant(type)
         self.w_tuple    = Constant(tuple)
-        self.concrete_mode = 0
         for exc in [KeyError, ValueError, IndexError, StopIteration,
                     AssertionError, TypeError, AttributeError, ImportError]:
             clsname = exc.__name__
@@ -88,8 +86,6 @@ class FlowObjSpace(ObjSpace):
     id  = None     # real version added by add_operations()
 
     def newdict(self, module="ignored"):
-        if self.concrete_mode:
-            return Constant({})
         return self.do_operation('newdict')
 
     def newtuple(self, args_w):
@@ -101,16 +97,9 @@ class FlowObjSpace(ObjSpace):
             return Constant(tuple(content))
 
     def newlist(self, args_w, sizehint=None):
-        if self.concrete_mode:
-            content = [self.unwrap(w_arg) for w_arg in args_w]
-            return Constant(content)
         return self.do_operation('newlist', *args_w)
 
     def newslice(self, w_start, w_stop, w_step):
-        if self.concrete_mode:
-            return Constant(slice(self.unwrap(w_start),
-                                  self.unwrap(w_stop),
-                                  self.unwrap(w_step)))
         return self.do_operation('newslice', w_start, w_stop, w_step)
 
     def wrap(self, obj):
@@ -173,12 +162,8 @@ class FlowObjSpace(ObjSpace):
             hasattr(to_check, '__class__') and to_check.__class__.__module__ != '__builtin__'):
             frozen = hasattr(to_check, '_freeze_') and to_check._freeze_()
             if not frozen:
-                if self.concrete_mode:
-                    # xxx do we want some warning? notice that some stuff is harmless
-                    # like setitem(dict, 'n', mutable)
-                    pass
-                else: # cannot count on it not mutating at runtime!
-                    raise UnwrapException
+                # cannot count on it not mutating at runtime!
+                raise UnwrapException
         return obj
 
     def interpclass_w(self, w_obj):
@@ -349,15 +334,6 @@ class FlowObjSpace(ObjSpace):
         if ec and w_obj is ec.frame.w_globals:
             raise SyntaxError("attempt to modify global attribute %r in %r"
                             % (w_key, ec.graph.func))
-        if self.concrete_mode:
-            try:
-                obj = self.unwrap_for_computation(w_obj)
-                key = self.unwrap_for_computation(w_key)
-                val = self.unwrap_for_computation(w_val)
-                operator.setitem(obj, key, val)
-                return self.w_None
-            except UnwrapException:
-                pass
         return self.do_operation_with_implicit_exceptions('setitem', w_obj,
                                                           w_key, w_val)
 
