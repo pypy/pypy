@@ -484,14 +484,16 @@ class FlowObjSpace(ObjSpace):
              raise operation.ImplicitOperationError(w_exc_cls, w_exc_value)
 
     def find_global(self, w_globals, varname):
-        w_value = self.finditem_str(w_globals, varname)
-        if w_value is None:
+        try:
+            value = self.unwrap(w_globals)[varname]
+        except KeyError:
             # not in the globals, now look in the built-ins
-            w_value = self.builtin.getdictvalue(self, varname)
-            if w_value is None:
+            try:
+                value = self.unwrap(self.builtin.w_dict)[varname]
+            except KeyError:
                 message = "global name '%s' is not defined" % varname
                 raise OperationError(self.w_NameError, self.wrap(message))
-        return w_value
+        return self.wrap(value)
 
     def w_KeyboardInterrupt(self):
         # the reason to do this is: if you interrupt the flowing of a function
