@@ -5,7 +5,6 @@ import operator
 import types
 from pypy.tool import error
 from pypy.interpreter.baseobjspace import ObjSpace, Wrappable
-from pypy.interpreter.module import Module
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import pyframe, argument
 from pypy.objspace.flow.model import *
@@ -52,13 +51,8 @@ class FlowObjSpace(ObjSpace):
     def initialize(self):
         self.concrete_mode = 1
         self.w_None     = Constant(None)
-        self.builtin    = Module(self, Constant('__builtin__'),
-                                 Constant(__builtin__.__dict__))
-        def pick_builtin(w_globals):
-            return self.builtin
-        self.builtin.pick_builtin = pick_builtin
-        self.sys        = Module(self, Constant('sys'), Constant(sys.__dict__))
-        self.sys.recursionlimit = 100
+        self.builtin = Constant(__builtin__)
+        self.sys = Constant(sys)
         self.w_False    = Constant(False)
         self.w_True     = Constant(True)
         self.w_type     = Constant(type)
@@ -489,8 +483,8 @@ class FlowObjSpace(ObjSpace):
         except KeyError:
             # not in the globals, now look in the built-ins
             try:
-                value = self.unwrap(self.builtin.w_dict)[varname]
-            except KeyError:
+                value = getattr(self.unwrap(self.builtin), varname)
+            except AttributeError:
                 message = "global name '%s' is not defined" % varname
                 raise OperationError(self.w_NameError, self.wrap(message))
         return self.wrap(value)
