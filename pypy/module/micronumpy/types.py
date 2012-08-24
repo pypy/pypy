@@ -976,6 +976,22 @@ class ComplexFloating(object):
         assert isinstance(box, self.BoxType)
         return box.real, box.imag
 
+    def store(self, arr, i, offset, box):
+        real, imag = self.unbox(box)
+        raw_storage_setitem(arr.storage, i+offset, real)
+        raw_storage_setitem(arr.storage,
+                i+offset+rffi.sizeof(self._COMPONENTS_T), imag)
+
+    def _read(self, storage, i, offset):
+        real = raw_storage_getitem(self._COMPONENTS_T, storage, i + offset)
+        imag = raw_storage_getitem(self._COMPONENTS_T, storage,
+                              i + offset + rffi.sizeof(self._COMPONENTS_T))
+        return real, imag
+
+    def read(self, arr, i, offset, dtype=None):
+        real, imag = self._read(arr.storage, i, offset)
+        return self.box_complex(real, imag)
+
     @complex_binary_op
     def add(self, v1, v2):
         return rcomplex.c_add(v1, v2)
