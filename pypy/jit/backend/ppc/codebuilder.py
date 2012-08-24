@@ -1173,6 +1173,7 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
     def copy_to_raw_memory(self, addr):
         self._copy_to_raw_memory(addr)
         self.flush_cache(addr)
+        self._dump(addr, "jit-backend-dump", 'ppc')
 
     def cmp_op(self, block, a, b, imm=False, signed=True, fp=False):
         if fp == True:
