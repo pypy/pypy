@@ -751,7 +751,8 @@ class Regalloc(object):
         if _check_imm_arg(ofs):
             ofs_loc = imm(ofs)
         else:
-            ofs_loc = self._ensure_value_is_boxed(ConstInt(ofs), args)
+            ofs_loc = self.get_scratch_reg(INT, args)
+            self.assembler.load(ofs_loc, imm(ofs))
         self.possibly_free_vars_for_op(op)
         self.free_temp_vars()
         result_loc = self.force_allocate_reg(op.result)
@@ -770,7 +771,8 @@ class Regalloc(object):
         if _check_imm_arg(ofs):
             ofs_loc = imm(ofs)
         else:
-            ofs_loc = self._ensure_value_is_boxed(ConstInt(ofs), args)
+            ofs_loc = self.get_scratch_reg(INT, args)
+            self.assembler.load(ofs_loc, imm(ofs))
         return [base_loc, index_loc, value_loc, ofs_loc, imm(ofs),
                                         imm(itemsize), imm(fieldsize)]
     prepare_setinteriorfield_raw = prepare_setinteriorfield_gc
