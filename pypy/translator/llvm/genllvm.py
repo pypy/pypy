@@ -60,6 +60,7 @@ class Type(object):
         return '{} {}'.format(self.repr_type(), self.repr_value(value))
 
     def repr_ref(self, ptr_type, obj):
+        global_attrs = ''
         if obj in exports.EXPORTS_obj2name:
             tmp = exports.EXPORTS_obj2name[obj]
             for key, value in exports.EXPORTS_obj2name.iteritems():
@@ -76,6 +77,7 @@ class Type(object):
                         self.repr_type())
                 return
         else:
+            global_attrs += 'internal '
             name = database.unique_name('@global')
         if self.varsize:
             extra_len = self.get_extra_len(obj)
@@ -83,12 +85,18 @@ class Type(object):
                     self.repr_type(extra_len), name, self.repr_type(None))
         else:
             ptr_type.refs[obj] = name
-        database.f.write('{} = global {}\n'.format(
-                name, self.repr_type_and_value(obj)))
         hash_ = database.genllvm.gcpolicy.get_prebuilt_hash(obj)
+        if (obj._TYPE._hints.get('immutable', False) and
+            obj._TYPE._gckind != 'gc'):
+            global_attrs += 'constant'
+        else:
+            global_attrs += 'global'
+        database.f.write('{} = {} {}\n'.format(
+                name, global_attrs, self.repr_type_and_value(obj)))
         if hash_ is not None:
-            database.f.write('{}_hash = global {} {}\n'
-                    .format(name, SIGNED_TYPE, hash_))
+            database.f.write('{}_hash = {} {} {}\n'
+                    .format(name, global_attrs, SIGNED_TYPE, hash_))
+            database.hashes.append(name)
 
 
 class VoidType(Type):
@@ -709,6 +717,7 @@ class Database(object):
         self.names_counter = {}
         self.types = PRIMITIVES.copy()
         self.external_declared = {}
+        self.hashes = []
 
     def get_type(self, type_):
         try:
@@ -1679,6 +1688,14 @@ class GenLLVM(object):
                 self.wrapper = CTypesFuncWrapper(self, self.entry_point)
             for export in self.export:
                 get_repr(getfunctionptr(export)).V
+
+            if database.hashes:
+                items = ('i8* bitcast({}* {}_hash to i8*)'
+                        .format(SIGNED_TYPE, name) for name in database.hashes)
+                f.write('@llvm.used = appending global [{} x i8*] [ {} ], '
+                        'section "llvm.metadata"\n'
+                        .format(len(database.hashes), ', '.join(items)))
+
         exports.clear()
 
     def _compile(self, add_opts, outfile):

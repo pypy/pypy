@@ -156,7 +156,7 @@ class TestDatabase(object):
                 '    LONG, ; len\n'
                 '    [1 x %x*] ; items\n'
                 '}\n'
-                '@global = global %x zeroinitializer\n')
+                '@global = internal global %x zeroinitializer\n')
 
     def test_repr_func_type(self):
         func_type = lltype.FuncType([lltype.Signed], lltype.Void)
@@ -168,7 +168,7 @@ class TestDatabase(object):
                 lltype.FixedSizeArray(lltype.Signed, 2))._example()
         assert genllvm.get_repr(array_ptr).TV == l('[2 x LONG]* @global')
         assert self.f.getvalue() == l(
-                '@global = global [2 x LONG] zeroinitializer\n')
+                '@global = internal global [2 x LONG] zeroinitializer\n')
 
     def test_repr_struct_ptr(self):
         struct_ptr = lltype.Ptr(
@@ -178,7 +178,7 @@ class TestDatabase(object):
                 '%spam = type {\n'
                 '    LONG ; eggs\n'
                 '}\n'
-                '@global = global %spam zeroinitializer\n')
+                '@global = internal global %spam zeroinitializer\n')
 
     def test_repr_array_ptr(self):
         array_ptr = lltype.Ptr(lltype.Array(lltype.Signed))._example()
@@ -194,7 +194,7 @@ class TestDatabase(object):
                 '    LONG, ; len\n'
                 '    [1 x LONG] ; items\n'
                 '}\n'
-                '@global = global %array_of_LONG_plus_1 {\n'
+                '@global = internal global %array_of_LONG_plus_1 {\n'
                 '    LONG 1, ; len\n'
                 '    [1 x LONG] zeroinitializer ; items\n'
                 '}\n')
@@ -219,7 +219,7 @@ class TestDatabase(object):
                 '%foo_plus_1 = type {\n'
                 '    %array_of_LONG_plus_1 ; bar\n'
                 '}\n'
-                '@global = global %foo_plus_1 {\n'
+                '@global = internal global %foo_plus_1 {\n'
                 '    %array_of_LONG_plus_1 {\n'
                 '        LONG 1, ; len\n'
                 '        [1 x LONG] zeroinitializer ; items\n'
