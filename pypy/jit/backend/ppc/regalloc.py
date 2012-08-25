@@ -409,9 +409,9 @@ class Regalloc(object):
 
     prepare_int_add = prepare_binary_int_op_with_imm()
     prepare_int_sub = prepare_binary_int_op_with_imm()
-    prepare_int_floordiv = prepare_binary_int_op_with_imm()
+    prepare_int_mul = prepare_binary_int_op_with_imm()
 
-    prepare_int_mul = prepare_binary_int_op()
+    prepare_int_floordiv = prepare_binary_int_op()
     prepare_int_mod = prepare_binary_int_op()
     prepare_int_and = prepare_binary_int_op()
     prepare_int_or = prepare_binary_int_op()
