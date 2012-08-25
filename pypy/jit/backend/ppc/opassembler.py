@@ -66,11 +66,15 @@ class IntOpAssembler(object):
         self.mc.subfo(res.value, l1.value, l0.value)
 
     def emit_int_mul(self, op, arglocs, regalloc):
-        reg1, reg2, res = arglocs
-        if IS_PPC_32:
-            self.mc.mullw(res.value, reg1.value, reg2.value)
+        l0, l1, res = arglocs
+        if l0.is_imm():
+            self.mc.mulli(res.value, l1.value, l0.value)
+        elif l1.is_imm():
+            self.mc.mulli(res.value, l0.value, l1.value)
+        elif IS_PPC_32:
+            self.mc.mullw(res.value, l0.value, l1.value)
         else:
-            self.mc.mulld(res.value, reg1.value, reg2.value)
+            self.mc.mulld(res.value, l0.value, l1.value)
 
     def emit_int_mul_ovf(self, op, arglocs, regalloc):
         l0, l1, res = arglocs
@@ -82,18 +86,9 @@ class IntOpAssembler(object):
     def emit_int_floordiv(self, op, arglocs, regalloc):
         l0, l1, res = arglocs
         if IS_PPC_32:
-            div = self.mc.divw
+            self.mc.divw(res.value, l0.value, l1.value)
         else:
-            div = self.mc.divd
-
-        if l0.is_imm():
-            self.mc.load_imm(r.r0, l0.value)
-            div(res.value, r.r0.value, l1.value)
-        elif l1.is_imm():
-            self.mc.load_imm(r.r0, l1.value)
-            div(res.value, l0.value, r.r0.value)
-        else:
-            div(res.value, l0.value, l1.value)
+            self.mc.divd(res.value, l0.value, l1.value)
 
     def emit_int_mod(self, op, arglocs, regalloc):
         l0, l1, res = arglocs
@@ -635,8 +630,11 @@ class FieldOpAssembler(object):
         (base_loc, index_loc, res_loc,
             ofs_loc, ofs, itemsize, fieldsize) = arglocs
         with scratch_reg(self.mc):
-            self.mc.load_imm(r.SCRATCH, itemsize.value)
-            self.mc.mullw(r.SCRATCH.value, index_loc.value, r.SCRATCH.value)
+            if _check_imm_arg(itemsize.value):
+                self.mc.mulli(r.SCRATCH.value, index_loc.value, itemsize.value)
+            else:
+                self.mc.load_imm(r.SCRATCH, itemsize.value)
+                self.mc.mullw(r.SCRATCH.value, index_loc.value, r.SCRATCH.value)
             descr = op.getdescr()
             assert isinstance(descr, InteriorFieldDescr)
             signed = descr.fielddescr.is_field_signed()
@@ -671,26 +669,30 @@ class FieldOpAssembler(object):
     def emit_setinteriorfield_gc(self, op, arglocs, regalloc):
         (base_loc, index_loc, value_loc,
             ofs_loc, ofs, itemsize, fieldsize) = arglocs
-        self.mc.load_imm(r.SCRATCH, itemsize.value)
-        self.mc.mullw(r.SCRATCH.value, index_loc.value, r.SCRATCH.value)
-        if ofs.value > 0:
-            if ofs_loc.is_imm():
-                self.mc.addic(r.SCRATCH.value, r.SCRATCH.value, ofs_loc.value)
+        with scratch_reg(self.mc):
+            if _check_imm_arg(itemsize.value):
+                self.mc.mulli(r.SCRATCH.value, index_loc.value, itemsize.value)
             else:
-                self.mc.add(r.SCRATCH.value, r.SCRATCH.value, ofs_loc.value)
-        if fieldsize.value == 8:
-            if value_loc.is_fp_reg():
-                self.mc.stfdx(value_loc.value, base_loc.value, r.SCRATCH.value)
+                self.mc.load_imm(r.SCRATCH, itemsize.value)
+                self.mc.mullw(r.SCRATCH.value, index_loc.value, r.SCRATCH.value)
+            if ofs.value > 0:
+                if ofs_loc.is_imm():
+                    self.mc.addic(r.SCRATCH.value, r.SCRATCH.value, ofs_loc.value)
+                else:
+                    self.mc.add(r.SCRATCH.value, r.SCRATCH.value, ofs_loc.value)
+            if fieldsize.value == 8:
+                if value_loc.is_fp_reg():
+                    self.mc.stfdx(value_loc.value, base_loc.value, r.SCRATCH.value)
+                else:
+                    self.mc.stdx(value_loc.value, base_loc.value, r.SCRATCH.value)
+            elif fieldsize.value == 4:
+                self.mc.stwx(value_loc.value, base_loc.value, r.SCRATCH.value)
+            elif fieldsize.value == 2:
+                self.mc.sthx(value_loc.value, base_loc.value, r.SCRATCH.value)
+            elif fieldsize.value == 1:
+                self.mc.stbx(value_loc.value, base_loc.value, r.SCRATCH.value)
             else:
-                self.mc.stdx(value_loc.value, base_loc.value, r.SCRATCH.value)
-        elif fieldsize.value == 4:
-            self.mc.stwx(value_loc.value, base_loc.value, r.SCRATCH.value)
-        elif fieldsize.value == 2:
-            self.mc.sthx(value_loc.value, base_loc.value, r.SCRATCH.value)
-        elif fieldsize.value == 1:
-            self.mc.stbx(value_loc.value, base_loc.value, r.SCRATCH.value)
-        else:
-            assert 0
+                assert 0
 
     emit_setinteriorfield_raw = emit_setinteriorfield_gc
 
