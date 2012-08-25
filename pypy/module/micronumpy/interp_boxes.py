@@ -37,7 +37,7 @@ class PrimitiveBox(object):
 class ComplexBox(object):
     _mixin_ = True
 
-    def __init__(self, real, imag):
+    def __init__(self, real, imag=0.):
         self.real = real
         self.imag = imag
 
@@ -292,23 +292,23 @@ class W_ComplexFloatingBox(W_InexactBox):
 
 class W_Complex64Box(ComplexBox, W_ComplexFloatingBox):
     descr__new__, _get_dtype = new_dtype_getter("complex64")
-    _COMPONENTS_BOX = W_Float64Box
+    _COMPONENTS_BOX = W_Float32Box
 
     def descr_get_real(self, space):
         dtype = self._COMPONENTS_BOX._get_dtype(space)
         box = self.convert_real_to(dtype)
         assert isinstance(box, self._COMPONENTS_BOX)
-        return space.wrap(box.value)
+        return space.wrap(box)
 
     def descr_get_imag(self, space):
         dtype = self._COMPONENTS_BOX._get_dtype(space)
         box = self.convert_imag_to(dtype)
         assert isinstance(box, self._COMPONENTS_BOX)
-        return space.wrap(box.value)
+        return space.wrap(box)
 
 class W_Complex128Box(ComplexBox, W_ComplexFloatingBox):
     descr__new__, _get_dtype = new_dtype_getter("complex128")
-    _COMPONENTS_BOX = W_Float32Box
+    _COMPONENTS_BOX = W_Float64Box
 
     def descr_get_real(self, space):
         dtype = self._COMPONENTS_BOX._get_dtype(space)
