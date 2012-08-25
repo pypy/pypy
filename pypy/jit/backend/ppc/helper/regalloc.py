@@ -59,10 +59,14 @@ def prepare_unary_int_op():
 
 def prepare_binary_int_op_with_imm():
     def f(self, op):
+        a0 = op.getarg(0)
+        a1 = op.getarg(1)
         boxes = op.getarglist()
-        b0, b1 = boxes
-        l0 = self._ensure_value_is_boxed(b0, boxes)
-        l1 = self._ensure_value_is_boxed(b1, boxes)
+        l0 = self._ensure_value_is_boxed(a0, boxes)
+        if isinstance(a1, ConstInt) and _check_imm_arg(a1.getint()):
+            l1 = self.convert_to_imm(a1)
+        else:
+            l1 = self._ensure_value_is_boxed(a1, boxes)
         locs = [l0, l1]
         self.possibly_free_vars_for_op(op)
         self.free_temp_vars()
