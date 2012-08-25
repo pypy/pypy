@@ -174,7 +174,6 @@ def byref(cdata):
     # imports
     return pointer(cdata)
 
-@builtinify
 def cdata_from_address(self, address):
     # fix the address: turn it into as unsigned, in case it's a negative number
     address = address & (sys.maxint * 2 + 1)
