@@ -974,7 +974,9 @@ class ComplexFloating(object):
 
     def unbox(self, box):
         assert isinstance(box, self.BoxType)
-        return box.real, box.imag
+        # do this in two stages since real, imag are read only
+        real, imag = box.real, box.imag
+        return real, imag
 
     def store(self, arr, i, offset, box):
         real, imag = self.unbox(box)

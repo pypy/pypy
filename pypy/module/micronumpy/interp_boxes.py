@@ -41,14 +41,14 @@ class ComplexBox(object):
         self.real = real
         self.imag = imag
 
-    def descr_get_real(self, space):
-        return space.wrap(self._COMPONENTS_BOX(self.real))
-
-    def descr_get_imag(self, space):
-        return space.wrap(self._COMPONENTS_BOX(self.imag))
-
     def convert_to(self, dtype):
         return dtype.box_complex(self.real, self.imag)
+
+    def convert_real_to(self, dtype):
+        return dtype.box(self.real)
+
+    def convert_imag_to(self, dtype):
+        return dtype.box(self.imag)
 
 
 class W_GenericBox(Wrappable):
@@ -290,6 +290,18 @@ class W_UnicodeBox(W_CharacterBox):
 class W_ComplexFloatingBox(W_InexactBox):
     _attrs_ = ()
 
+    def descr_get_real(self, space):
+        dtype = self._COMPONENTS_BOX._get_dtype(space)
+        box = self.convert_real_to(dtype)
+        assert isinstance(box, self._COMPONENTS_BOX)
+        return space.wrap(box.value)
+
+    def descr_get_imag(self, space):
+        dtype = self._COMPONENTS_BOX._get_dtype(space)
+        box = self.convert_imag_to(dtype)
+        assert isinstance(box, self._COMPONENTS_BOX)
+        return space.wrap(box.value)
+
 class W_Complex64Box(ComplexBox, W_ComplexFloatingBox):
     descr__new__, _get_dtype = new_dtype_getter("complex64")
     _COMPONENTS_BOX = W_Float32Box
@@ -490,13 +502,13 @@ W_ComplexFloatingBox.typedef = TypeDef("complexfloating", W_InexactBox.typedef,
 W_Complex128Box.typedef = TypeDef("complex128", (W_ComplexFloatingBox.typedef, complex_typedef),
     __module__ = "numpypy",
     __new__ = interp2app(W_Complex128Box.descr__new__.im_func),
-    real = GetSetProperty(W_Complex128Box.descr_get_real),
-    imag = GetSetProperty(W_Complex128Box.descr_get_imag),
+    real = GetSetProperty(W_ComplexFloatingBox.descr_get_real),
+    imag = GetSetProperty(W_ComplexFloatingBox.descr_get_imag),
 )
 
 W_Complex64Box.typedef = TypeDef("complex64", (W_ComplexFloatingBox.typedef),
     __module__ = "numpypy",
     __new__ = interp2app(W_Complex64Box.descr__new__.im_func),
-    real = GetSetProperty(W_Complex64Box.descr_get_real),
-    imag = GetSetProperty(W_Complex64Box.descr_get_imag),
+    real = GetSetProperty(W_ComplexFloatingBox.descr_get_real),
+    imag = GetSetProperty(W_ComplexFloatingBox.descr_get_imag),
 )
