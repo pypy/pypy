@@ -1053,10 +1053,13 @@ class AllocOpAssembler(object):
             assert self.wb_slowpath[helper_num] != 0
         #
         if loc_base is not r.r3:
+            self.mc.store(r.r3.value, r.SP.value, 24)
             remap_frame_layout(self, [loc_base], [r.r3], r.SCRATCH)
         addr = self.wb_slowpath[helper_num]
         func = rffi.cast(lltype.Signed, addr)
         self.mc.bl_abs(func)
+        if loc_base is not r.r3:
+            self.mc.load(r.r3.value, r.SP.value, 24)
 
         # if GCFLAG_CARDS_SET, then we can do the whole thing that would
         # be done in the CALL above with just four instructions, so here
