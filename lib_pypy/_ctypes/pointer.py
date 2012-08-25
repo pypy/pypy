@@ -7,6 +7,9 @@ from _ctypes.basics import sizeof, byref, as_ffi_pointer
 from _ctypes.array import Array, array_get_slice_params, array_slice_getitem,\
      array_slice_setitem
 
+try: from __pypy__ import builtinify
+except ImportError: builtinify = lambda f: f
+
 # This cache maps types to pointers to them.
 _pointer_type_cache = {}
 
@@ -154,6 +157,7 @@ def _cast_addr(obj, _, tp):
 
     return result
 
+@builtinify
 def POINTER(cls):
     try:
         return _pointer_type_cache[cls]
@@ -173,6 +177,7 @@ def POINTER(cls):
         _pointer_type_cache[cls] = klass
     return klass
 
+@builtinify
 def pointer(inst):
     return POINTER(type(inst))(inst)
 
