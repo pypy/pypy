@@ -982,13 +982,6 @@ class AllocOpAssembler(object):
             size
             )
 
-    def set_vtable(self, box, vtable):
-        if self.cpu.vtable_offset is not None:
-            adr = rffi.cast(lltype.Signed, vtable)
-            with scratch_reg(self.mc):
-                self.mc.load_imm(r.SCRATCH, adr)
-                self.mc.store(r.SCRATCH.value, r.RES.value, self.cpu.vtable_offset)
-
     def emit_debug_merge_point(self, op, arglocs, regalloc):
         pass
 
