@@ -242,7 +242,7 @@ class TestGcRootMapShadowStack:
         gcrootmap.compress_callshape(shape, datablockwrapper)
         assert rffi.cast(lltype.Signed, p[0]) == 16
         assert rffi.cast(lltype.Signed, p[1]) == -24
-        assert rffi.cast(lltype.Signed, p[2]) == 0
+        assert rffi.cast(lltype.Signed, p[2]) == -1     # end marker
 
 
 class FakeLLOp(object):
