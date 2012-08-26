@@ -11,6 +11,7 @@
 
   <namespace name="ns_example01" />
   <function name="ns_example01::globalAddOneToInt" />
+  <variable name="ns_example01::gMyGlobalInt" />
 
   <class name="ArgPasser" />
 

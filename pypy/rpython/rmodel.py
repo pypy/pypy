@@ -339,7 +339,7 @@ class IntegerRepr(FloatRepr):
 
     def _get_opprefix(self):
         if self._opprefix is None:
-            raise TyperError("arithmetic not supported on %r, it's size is too small" %
+            raise TyperError("arithmetic not supported on %r, its size is too small" %
                              self.lowleveltype)
         return self._opprefix
 

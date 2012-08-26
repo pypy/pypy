@@ -16,7 +16,6 @@ from pypy.jit.backend.arm.helper.assembler import (gen_emit_op_by_helper_call,
                                                 gen_emit_unary_float_op,
                                                 saved_registers,
                                                 count_reg_args)
-from pypy.jit.backend.arm.helper.regalloc import check_imm_arg
 from pypy.jit.backend.arm.codebuilder import ARMv7Builder, OverwritingBuilder
 from pypy.jit.backend.arm.jump import remap_frame_layout
 from pypy.jit.backend.arm.regalloc import TempInt, TempPtr
@@ -28,7 +27,7 @@ from pypy.jit.metainterp.history import (Box, AbstractFailDescr,
 from pypy.jit.metainterp.history import JitCellToken, TargetToken
 from pypy.jit.metainterp.resoperation import rop
 from pypy.rlib.objectmodel import we_are_translated
-from pypy.rpython.lltypesystem import lltype, rffi, rstr
+from pypy.rpython.lltypesystem import rstr
 
 NO_FORCE_INDEX = -1
 
@@ -50,7 +49,7 @@ class ResOpAssembler(object):
 
     def emit_op_int_add(self, op, arglocs, regalloc, fcond):
         return self.int_add_impl(op, arglocs, regalloc, fcond)
- 
+
     def int_add_impl(self, op, arglocs, regalloc, fcond, flags=False):
         l0, l1, res = arglocs
         if flags:
@@ -92,6 +91,13 @@ class ResOpAssembler(object):
     def emit_op_int_mul(self, op, arglocs, regalloc, fcond):
         reg1, reg2, res = arglocs
         self.mc.MUL(res.value, reg1.value, reg2.value)
+        return fcond
+
+    def emit_op_int_force_ge_zero(self, op, arglocs, regalloc, fcond):
+        arg, res = arglocs
+        self.mc.CMP_ri(arg.value, 0)
+        self.mc.MOV_ri(res.value, 0, cond=c.LT)
+        self.mc.MOV_rr(res.value, arg.value, cond=c.GE)
         return fcond
 
     #ref: http://blogs.arm.com/software-enablement/detecting-overflow-from-mul/
@@ -166,7 +172,6 @@ class ResOpAssembler(object):
     emit_op_int_add_ovf = emit_op_int_add
     emit_op_int_sub_ovf = emit_op_int_sub
 
-
     emit_op_int_is_true = gen_emit_op_unary_cmp('int_is_true', c.NE)
     emit_op_int_is_zero = gen_emit_op_unary_cmp('int_is_zero', c.EQ)
 
@@ -183,7 +188,6 @@ class ResOpAssembler(object):
         l0, resloc = arglocs
         self.mc.RSB_ri(resloc.value, l0.value, imm=0)
         return fcond
-
 
     def _emit_guard(self, op, arglocs, fcond, save_exc,
                                     is_guard_not_invalidated=False):
@@ -287,7 +291,6 @@ class ResOpAssembler(object):
         return self._emit_guard(op, locs, fcond, save_exc=False,
                                             is_guard_not_invalidated=True)
 
-
     def emit_op_jump(self, op, arglocs, regalloc, fcond):
         # The backend's logic assumes that the target code is in a piece of
         # assembler that was also called with the same number of arguments,
@@ -355,7 +358,8 @@ class ResOpAssembler(object):
         self.gen_func_epilog()
         return fcond
 
-    def emit_op_call(self, op, arglocs, regalloc, fcond, force_index=NO_FORCE_INDEX):
+    def emit_op_call(self, op, arglocs, regalloc, fcond,
+                                        force_index=NO_FORCE_INDEX):
         if force_index == NO_FORCE_INDEX:
             force_index = self.write_new_force_index()
         resloc = arglocs[0]
@@ -364,16 +368,18 @@ class ResOpAssembler(object):
         descr = op.getdescr()
         size = descr.get_result_size()
         signed = descr.is_result_signed()
-        cond = self._emit_call(force_index, adr, arglist, 
+        cond = self._emit_call(force_index, adr, arglist,
                                             fcond, resloc, (size, signed))
         return cond
 
-    def _emit_call(self, force_index, adr, arglocs, fcond=c.AL, 
-                                                 resloc=None, result_info=(-1,-1)):
+    def _emit_call(self, force_index, adr, arglocs, fcond=c.AL,
+                                         resloc=None, result_info=(-1, -1)):
         if self.cpu.use_hf_abi:
-            stack_args, adr = self._setup_call_hf(force_index, adr, arglocs, fcond, resloc, result_info)
+            stack_args, adr = self._setup_call_hf(force_index, adr,
+                                        arglocs, fcond, resloc, result_info)
         else:
-            stack_args, adr = self._setup_call_sf(force_index, adr, arglocs, fcond, resloc, result_info)
+            stack_args, adr = self._setup_call_sf(force_index, adr,
+                                        arglocs, fcond, resloc, result_info)
 
         #the actual call
         #self.mc.BKPT()
@@ -409,7 +415,7 @@ class ResOpAssembler(object):
                 else:
                     n += DOUBLE_WORD
             self._adjust_sp(-n, fcond=fcond)
-            assert n % 8 == 0 # sanity check
+            assert n % 8 == 0  # sanity check
 
     def _collect_stack_args_sf(self, arglocs):
         n_args = len(arglocs)
@@ -441,9 +447,8 @@ class ResOpAssembler(object):
                 else:
                     self.regalloc_push(arg)
 
-    def _setup_call_sf(self, force_index, adr, arglocs, fcond=c.AL, 
-                                                 resloc=None, result_info=(-1,-1)):
-        n_args = len(arglocs)
+    def _setup_call_sf(self, force_index, adr, arglocs, fcond=c.AL,
+                                         resloc=None, result_info=(-1, -1)):
         reg_args = count_reg_args(arglocs)
         stack_args = self._collect_stack_args_sf(arglocs)
         self._push_stack_args(stack_args)
@@ -487,10 +492,8 @@ class ResOpAssembler(object):
             self.mov_from_vfp_loc(loc, reg, r.all_regs[reg.value + 1])
         return stack_args, adr
 
-
-    def _setup_call_hf(self, force_index, adr, arglocs, fcond=c.AL, 
-                                                 resloc=None, result_info=(-1,-1)):
-        n_reg_args = n_vfp_args = 0
+    def _setup_call_hf(self, force_index, adr, arglocs, fcond=c.AL,
+                                         resloc=None, result_info=(-1, -1)):
         non_float_locs = []
         non_float_regs = []
         float_locs = []
@@ -500,24 +503,24 @@ class ResOpAssembler(object):
         for arg in arglocs:
             if arg.type != FLOAT:
                 if len(non_float_regs) < len(r.argument_regs):
-		    reg = r.argument_regs[len(non_float_regs)]
+                    reg = r.argument_regs[len(non_float_regs)]
                     non_float_locs.append(arg)
                     non_float_regs.append(reg)
-                else: # non-float argument that needs to go on the stack 
+                else:  # non-float argument that needs to go on the stack
                     count += 1
                     stack_args.append(arg)
             else:
-                if len(float_regs) < len(r.vfp_argument_regs): 
-		    reg = r.vfp_argument_regs[len(float_regs)]
+                if len(float_regs) < len(r.vfp_argument_regs):
+                    reg = r.vfp_argument_regs[len(float_regs)]
                     float_locs.append(arg)
                     float_regs.append(reg)
-                else: # float argument that needs to go on the stack
+                else:  # float argument that needs to go on the stack
                     if count % 2 != 0:
                         stack_args.append(None)
-			count = 0
+                        count = 0
                     stack_args.append(arg)
         # align the stack
-	if count % 2 != 0:
+        if count % 2 != 0:
             stack_args.append(None)
         self._push_stack_args(stack_args)
         # Check that the address of the function we want to call is not
@@ -608,7 +611,7 @@ class ResOpAssembler(object):
             # GCFLAG_CARDS_SET is in this byte at 0x80
             self.mc.TST_ri(r.ip.value, imm=0x80)
 
-            js_location = self.mc.currpos() # 
+            js_location = self.mc.currpos()
             self.mc.BKPT()
         else:
             js_location = 0
@@ -628,56 +631,56 @@ class ResOpAssembler(object):
         #
         if loc_base is not r.r0:
             # push two registers to keep stack aligned
-	    self.mc.PUSH([r.r0.value, loc_base.value])
+            self.mc.PUSH([r.r0.value, loc_base.value])
             remap_frame_layout(self, [loc_base], [r.r0], r.ip)
         self.mc.BL(self.wb_slowpath[helper_num])
         if loc_base is not r.r0:
-	    self.mc.POP([r.r0.value, loc_base.value])
+            self.mc.POP([r.r0.value, loc_base.value])
 
         if card_marking:
-	    # The helper ends again with a check of the flag in the object.  So
-	    # here, we can simply write again a conditional jump, which will be
-	    # taken if GCFLAG_CARDS_SET is still not set.
+            # The helper ends again with a check of the flag in the object.  So
+            # here, we can simply write again a conditional jump, which will be
+            # taken if GCFLAG_CARDS_SET is still not set.
             jns_location = self.mc.currpos()
             self.mc.BKPT()
             #
             # patch the JS above
             offset = self.mc.currpos()
             pmc = OverwritingBuilder(self.mc, js_location, WORD)
-	    pmc.B_offs(offset, c.NE) # We want to jump if the z flag is not set
+            pmc.B_offs(offset, c.NE)  # We want to jump if the z flag isn't set
             #
             # case GCFLAG_CARDS_SET: emit a few instructions to do
             # directly the card flag setting
             loc_index = arglocs[1]
             assert loc_index.is_reg()
-	    # must save the register loc_index before it is mutated
-	    self.mc.PUSH([loc_index.value])
-	    tmp1 = loc_index
-	    tmp2 = arglocs[2] 
-	    # lr = byteofs
-	    s = 3 + descr.jit_wb_card_page_shift
-	    self.mc.MVN_rr(r.lr.value, loc_index.value,
-	    		imm=s, shifttype=shift.LSR)
-	    
-	    # tmp1 = byte_index
-	    self.mc.MOV_ri(r.ip.value, imm=7)
-	    self.mc.AND_rr(tmp1.value, r.ip.value, loc_index.value,
-	        imm=descr.jit_wb_card_page_shift, shifttype=shift.LSR)
-	    
-	    # set the bit
-	    self.mc.MOV_ri(tmp2.value, imm=1)
-	    self.mc.LDRB_rr(r.ip.value, loc_base.value, r.lr.value)
-	    self.mc.ORR_rr_sr(r.ip.value, r.ip.value, tmp2.value,
-	    			tmp1.value, shifttype=shift.LSL)
-	    self.mc.STRB_rr(r.ip.value, loc_base.value, r.lr.value)
-	    # done
-	    self.mc.POP([loc_index.value])
-	    #
+            # must save the register loc_index before it is mutated
+            self.mc.PUSH([loc_index.value])
+            tmp1 = loc_index
+            tmp2 = arglocs[2]
+            # lr = byteofs
+            s = 3 + descr.jit_wb_card_page_shift
+            self.mc.MVN_rr(r.lr.value, loc_index.value,
+                                       imm=s, shifttype=shift.LSR)
+
+            # tmp1 = byte_index
+            self.mc.MOV_ri(r.ip.value, imm=7)
+            self.mc.AND_rr(tmp1.value, r.ip.value, loc_index.value,
+            imm=descr.jit_wb_card_page_shift, shifttype=shift.LSR)
+
+            # set the bit
+            self.mc.MOV_ri(tmp2.value, imm=1)
+            self.mc.LDRB_rr(r.ip.value, loc_base.value, r.lr.value)
+            self.mc.ORR_rr_sr(r.ip.value, r.ip.value, tmp2.value,
+                                          tmp1.value, shifttype=shift.LSL)
+            self.mc.STRB_rr(r.ip.value, loc_base.value, r.lr.value)
+            # done
+            self.mc.POP([loc_index.value])
+            #
             #
             # patch the JNS above
             offset = self.mc.currpos()
             pmc = OverwritingBuilder(self.mc, jns_location, WORD)
-	    pmc.B_offs(offset, c.EQ) # We want to jump if the z flag is set
+            pmc.B_offs(offset, c.EQ)  # We want to jump if the z flag is set
 
         offset = self.mc.currpos()
         pmc = OverwritingBuilder(self.mc, jz_location, WORD)
@@ -685,7 +688,6 @@ class ResOpAssembler(object):
         return fcond
 
     emit_op_cond_call_gc_wb_array = emit_op_cond_call_gc_wb
-
 
     def emit_op_setfield_gc(self, op, arglocs, regalloc, fcond):
         value_loc, base_loc, ofs, size = arglocs
@@ -809,7 +811,6 @@ class ResOpAssembler(object):
             assert 0
 
         return fcond
-    emit_op_getinteriorfield_raw = emit_op_getinteriorfield_gc
 
     def emit_op_setinteriorfield_gc(self, op, arglocs, regalloc, fcond):
         (base_loc, index_loc, value_loc,
@@ -839,7 +840,6 @@ class ResOpAssembler(object):
         return fcond
     emit_op_setinteriorfield_raw = emit_op_setinteriorfield_gc
 
-
     def emit_op_arraylen_gc(self, op, arglocs, regalloc, fcond):
         res, base_loc, ofs = arglocs
         self.mc.LDR_ri(res.value, base_loc.value, ofs.value)
@@ -849,81 +849,97 @@ class ResOpAssembler(object):
         value_loc, base_loc, ofs_loc, scale, ofs = arglocs
         assert ofs_loc.is_reg()
         if scale.value > 0:
-            scale_loc = r.ip
             self.mc.LSL_ri(r.ip.value, ofs_loc.value, scale.value)
-        else:
-            scale_loc = ofs_loc
+            ofs_loc = r.ip
 
         # add the base offset
         if ofs.value > 0:
-            self.mc.ADD_ri(r.ip.value, scale_loc.value, imm=ofs.value)
-            scale_loc = r.ip
+            self.mc.ADD_ri(r.ip.value, ofs_loc.value, imm=ofs.value)
+            ofs_loc = r.ip
+        self._write_to_mem(value_loc, base_loc, ofs_loc, scale, fcond)
+        return fcond
 
+    def _write_to_mem(self, value_loc, base_loc, ofs_loc, scale, fcond=c.AL):
         if scale.value == 3:
             assert value_loc.is_vfp_reg()
-            assert scale_loc.is_reg()
-            self.mc.ADD_rr(r.ip.value, base_loc.value, scale_loc.value)
+            assert ofs_loc.is_reg()
+            self.mc.ADD_rr(r.ip.value, base_loc.value, ofs_loc.value)
             self.mc.VSTR(value_loc.value, r.ip.value, cond=fcond)
         elif scale.value == 2:
-            self.mc.STR_rr(value_loc.value, base_loc.value, scale_loc.value,
+            self.mc.STR_rr(value_loc.value, base_loc.value, ofs_loc.value,
                                                                     cond=fcond)
         elif scale.value == 1:
-            self.mc.STRH_rr(value_loc.value, base_loc.value, scale_loc.value,
+            self.mc.STRH_rr(value_loc.value, base_loc.value, ofs_loc.value,
                                                                     cond=fcond)
         elif scale.value == 0:
-            self.mc.STRB_rr(value_loc.value, base_loc.value, scale_loc.value,
+            self.mc.STRB_rr(value_loc.value, base_loc.value, ofs_loc.value,
                                                                     cond=fcond)
         else:
             assert 0
-        return fcond
 
     emit_op_setarrayitem_raw = emit_op_setarrayitem_gc
 
+    def emit_op_raw_store(self, op, arglocs, regalloc, fcond):
+        value_loc, base_loc, ofs_loc, scale, ofs = arglocs
+        assert ofs_loc.is_reg()
+        self._write_to_mem(value_loc, base_loc, ofs_loc, scale, fcond)
+        return fcond
+
     def emit_op_getarrayitem_gc(self, op, arglocs, regalloc, fcond):
-        res, base_loc, ofs_loc, scale, ofs = arglocs
+        res_loc, base_loc, ofs_loc, scale, ofs = arglocs
         assert ofs_loc.is_reg()
         signed = op.getdescr().is_item_signed()
-        if scale.value > 0:
-            scale_loc = r.ip
-            self.mc.LSL_ri(r.ip.value, ofs_loc.value, scale.value)
-        else:
-            scale_loc = ofs_loc
 
+        # scale the offset as required
+        if scale.value > 0:
+            self.mc.LSL_ri(r.ip.value, ofs_loc.value, scale.value)
+            ofs_loc = r.ip
         # add the base offset
         if ofs.value > 0:
-            self.mc.ADD_ri(r.ip.value, scale_loc.value, imm=ofs.value)
-            scale_loc = r.ip
+            self.mc.ADD_ri(r.ip.value, ofs_loc.value, imm=ofs.value)
+            ofs_loc = r.ip
+        #
+        self._load_from_mem(res_loc, base_loc, ofs_loc, scale, signed)
+        return fcond
 
+    def _load_from_mem(self, res_loc, base_loc, ofs_loc, scale,
+                                            signed=False, fcond=c.AL):
         if scale.value == 3:
-            assert res.is_vfp_reg()
-            assert scale_loc.is_reg()
-            self.mc.ADD_rr(r.ip.value, base_loc.value, scale_loc.value)
-            self.mc.VLDR(res.value, r.ip.value, cond=fcond)
+            assert res_loc.is_vfp_reg()
+            assert ofs_loc.is_reg()
+            self.mc.ADD_rr(r.ip.value, base_loc.value, ofs_loc.value)
+            self.mc.VLDR(res_loc.value, r.ip.value, cond=fcond)
         elif scale.value == 2:
-            self.mc.LDR_rr(res.value, base_loc.value,
-                                 scale_loc.value, cond=fcond)
+            self.mc.LDR_rr(res_loc.value, base_loc.value,
+                                 ofs_loc.value, cond=fcond)
         elif scale.value == 1:
             if signed:
-                self.mc.LDRSH_rr(res.value, base_loc.value,
-                                 scale_loc.value, cond=fcond)
+                self.mc.LDRSH_rr(res_loc.value, base_loc.value,
+                                 ofs_loc.value, cond=fcond)
             else:
-                self.mc.LDRH_rr(res.value, base_loc.value,
-                                 scale_loc.value, cond=fcond)
+                self.mc.LDRH_rr(res_loc.value, base_loc.value,
+                                 ofs_loc.value, cond=fcond)
         elif scale.value == 0:
             if signed:
-                self.mc.LDRSB_rr(res.value, base_loc.value,
-                                 scale_loc.value, cond=fcond)
+                self.mc.LDRSB_rr(res_loc.value, base_loc.value,
+                                 ofs_loc.value, cond=fcond)
             else:
-                self.mc.LDRB_rr(res.value, base_loc.value,
-                                 scale_loc.value, cond=fcond)
+                self.mc.LDRB_rr(res_loc.value, base_loc.value,
+                                 ofs_loc.value, cond=fcond)
         else:
             assert 0
-
-        return fcond
 
     emit_op_getarrayitem_raw = emit_op_getarrayitem_gc
     emit_op_getarrayitem_gc_pure = emit_op_getarrayitem_gc
 
+    def emit_op_raw_load(self, op, arglocs, regalloc, fcond):
+        res_loc, base_loc, ofs_loc, scale, ofs = arglocs
+        assert ofs_loc.is_reg()
+        # no base offset
+        assert ofs.value == 0
+        signed = op.getdescr().is_item_signed()
+        self._load_from_mem(res_loc, base_loc, ofs_loc, scale, signed)
+        return fcond
 
     def emit_op_strlen(self, op, arglocs, regalloc, fcond):
         l0, l1, res = arglocs
@@ -1010,7 +1026,8 @@ class ResOpAssembler(object):
         # need the box here
         if isinstance(args[4], Box):
             length_box = args[4]
-            length_loc = regalloc._ensure_value_is_boxed(args[4], forbidden_vars)
+            length_loc = regalloc._ensure_value_is_boxed(args[4],
+                                                        forbidden_vars)
         else:
             length_box = TempInt()
             length_loc = regalloc.force_allocate_reg(length_box,
@@ -1072,7 +1089,6 @@ class ResOpAssembler(object):
         else:
             raise AssertionError("bad unicode item size")
 
-
     emit_op_unicodelen = emit_op_strlen
 
     def emit_op_unicodegetitem(self, op, arglocs, regalloc, fcond):
@@ -1101,7 +1117,6 @@ class ResOpAssembler(object):
             assert 0, itemsize.value
 
         return fcond
-
 
     def emit_op_force_token(self, op, arglocs, regalloc, fcond):
         res_loc = arglocs[0]
@@ -1188,11 +1203,20 @@ class ResOpAssembler(object):
             floats = r.caller_vfp_resp
         else:
             floats = []
-        with saved_registers(self.mc, r.caller_resp[1:] + [r.ip], floats):
+        # in case the call has a result we do not need to save the
+        # corresponding result register because it was already allocated for
+        # the result
+        core = r.caller_resp
+        if op.result:
+            if resloc.is_vfp_reg():
+                floats = r.caller_vfp_resp[1:]
+            else:
+                core = r.caller_resp[1:] + [r.ip]  # keep alignment
+        with saved_registers(self.mc, core, floats):
             # result of previous call is in r0
             self.mov_loc_loc(arglocs[0], r.r1)
             self.mc.BL(asm_helper_adr)
-            if op.result and resloc.is_vfp_reg():
+            if not self.cpu.use_hf_abi and op.result and resloc.is_vfp_reg():
                 # move result to the allocated register
                 self.mov_to_vfp_loc(r.r0, r.r1, resloc)
 
@@ -1237,7 +1261,7 @@ class ResOpAssembler(object):
         size = descr.get_result_size()
         signed = descr.is_result_signed()
         #
-        self._emit_call(fail_index, adr, callargs, fcond, 
+        self._emit_call(fail_index, adr, callargs, fcond,
                                     resloc, (size, signed))
 
         self.mc.LDR_ri(r.ip.value, r.fp.value)
@@ -1266,7 +1290,7 @@ class ResOpAssembler(object):
         size = descr.get_result_size()
         signed = descr.is_result_signed()
         #
-        self._emit_call(fail_index, adr, callargs, fcond, 
+        self._emit_call(fail_index, adr, callargs, fcond,
                                     resloc, (size, signed))
         # then reopen the stack
         if gcrootmap:
@@ -1288,7 +1312,8 @@ class ResOpAssembler(object):
                 regs_to_save.append(reg)
         assert gcrootmap.is_shadow_stack
         with saved_registers(self.mc, regs_to_save):
-            self._emit_call(NO_FORCE_INDEX, imm(self.releasegil_addr), [], fcond)
+            self._emit_call(NO_FORCE_INDEX,
+                                imm(self.releasegil_addr), [], fcond)
 
     def call_reacquire_gil(self, gcrootmap, save_loc, fcond):
         # save the previous result into the stack temporarily.
@@ -1325,7 +1350,6 @@ class ResOpAssembler(object):
         self.mc.gen_load_int(r.ip.value, fail_index)
         self.mc.STR_ri(r.ip.value, r.fp.value)
 
-
     def emit_op_call_malloc_gc(self, op, arglocs, regalloc, fcond):
         self.emit_op_call(op, arglocs, regalloc, fcond)
         self.propagate_memoryerror_if_r0_is_null()
@@ -1354,7 +1378,6 @@ class ResOpAssembler(object):
         self.mc.MOV_rr(r.pc.value, r.pc.value, cond=c.EQ)
         self.mc.BKPT()
         self.mc.NOP()
-
 
     emit_op_float_add = gen_emit_float_op('float_add', 'VADD')
     emit_op_float_sub = gen_emit_float_op('float_sub', 'VSUB')
@@ -1410,11 +1433,13 @@ class ResOpAssembler(object):
         self.mc.VMOV_rc(res.value, r.ip.value, loc.value)
         return fcond
 
-    emit_op_convert_float_bytes_to_longlong = gen_emit_unary_float_op('float_bytes_to_longlong', 'VMOV_cc')
-    emit_op_convert_longlong_bytes_to_float = gen_emit_unary_float_op('longlong_bytes_to_float', 'VMOV_cc')
+    emit_op_convert_float_bytes_to_longlong = gen_emit_unary_float_op(
+                                    'float_bytes_to_longlong', 'VMOV_cc')
+    emit_op_convert_longlong_bytes_to_float = gen_emit_unary_float_op(
+                                    'longlong_bytes_to_float', 'VMOV_cc')
 
     def emit_op_read_timestamp(self, op, arglocs, regalloc, fcond):
-	assert 0, 'not supported'
+        assert 0, 'not supported'
         tmp = arglocs[0]
         res = arglocs[1]
         self.mc.MRC(15, 0, tmp.value, 15, 12, 1)

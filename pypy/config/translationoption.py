@@ -123,8 +123,6 @@ translation_optiondescription = OptionDescription(
     ChoiceOption("jit_profiler", "integrate profiler support into the JIT",
                  ["off", "oprofile"],
                  default="off"),
-    # jit_ffi is automatically turned on by withmod-_ffi (which is enabled by default)
-    BoolOption("jit_ffi", "optimize libffi calls", default=False, cmdline=None),
     BoolOption("check_str_without_nul",
                "Forbid NUL chars in strings in some external function calls",
                default=False, cmdline=None),

@@ -104,11 +104,10 @@ def setup_directory_structure(space):
         filename = str(p.join("x.py"))
         stream = streamio.open_file_as_stream(filename, "r")
         try:
-            importing.load_source_module(space,
-                                         w_modname,
-                                         w(importing.Module(space, w_modname)),
-                                         filename,
-                                         stream.readall())
+            importing.load_source_module(
+                space, w_modname, w(importing.Module(space, w_modname)),
+                filename, stream.readall(),
+                stream.try_to_find_file_descriptor())
         finally:
             stream.close()
         if space.config.objspace.usepycfiles:
@@ -618,6 +617,19 @@ class AppTestImport:
             sys.path.insert(0, sys.path.pop())
         del sys.modules['itertools']
 
+    def test_invalid_pathname(self):
+        import imp
+        import pkg
+        import os
+
+        info = ('.py', 'r', imp.PY_SOURCE)
+        pathname = os.path.join(os.path.dirname(pkg.__file__), 'a.py')
+        
+        module = imp.load_module('a', open(pathname),
+                                 'invalid_path_name', ('.py', 'r', imp.PY_SOURCE))
+        assert module.__name__ == 'a'
+        assert module.__file__ == 'invalid_path_name'
+
 
 class TestAbi:
     def test_abi_tag(self):
@@ -783,11 +795,10 @@ class TestPycStuff:
         pathname = _testfilesource()
         stream = streamio.open_file_as_stream(pathname, "r")
         try:
-            w_ret = importing.load_source_module(space,
-                                                 w_modulename,
-                                                 w_mod,
-                                                 pathname,
-                                                 stream.readall())
+            w_ret = importing.load_source_module(
+                space, w_modulename, w_mod,
+                pathname, stream.readall(),
+                stream.try_to_find_file_descriptor())
         finally:
             stream.close()
         assert w_mod is w_ret
@@ -806,12 +817,11 @@ class TestPycStuff:
         pathname = _testfilesource()
         stream = streamio.open_file_as_stream(pathname, "r")
         try:
-            w_ret = importing.load_source_module(space,
-                                                 w_modulename,
-                                                 w_mod,
-                                                 pathname,
-                                                 stream.readall(),
-                                                 write_pyc=False)
+            w_ret = importing.load_source_module(
+                space, w_modulename, w_mod,
+                pathname, stream.readall(),
+                stream.try_to_find_file_descriptor(),
+                write_pyc=False)
         finally:
             stream.close()
         cpathname = udir.join('test.pyc')
@@ -826,11 +836,10 @@ class TestPycStuff:
         try:
             space.setattr(space.sys, space.wrap('dont_write_bytecode'),
                           space.w_True)
-            w_ret = importing.load_source_module(space,
-                                                 w_modulename,
-                                                 w_mod,
-                                                 pathname,
-                                                 stream.readall())
+            w_ret = importing.load_source_module(
+                space, w_modulename, w_mod,
+                pathname, stream.readall(),
+                stream.try_to_find_file_descriptor())
         finally:
             space.setattr(space.sys, space.wrap('dont_write_bytecode'),
                           space.w_False)
@@ -846,11 +855,10 @@ class TestPycStuff:
         pathname = _testfilesource(source="<Syntax Error>")
         stream = streamio.open_file_as_stream(pathname, "r")
         try:
-            w_ret = importing.load_source_module(space,
-                                                 w_modulename,
-                                                 w_mod,
-                                                 pathname,
-                                                 stream.readall())
+            w_ret = importing.load_source_module(
+                space, w_modulename, w_mod,
+                pathname, stream.readall(),
+                stream.try_to_find_file_descriptor())
         except OperationError:
             # OperationError("Syntax Error")
             pass
@@ -867,11 +875,10 @@ class TestPycStuff:
         pathname = _testfilesource(source="a = unknown_name")
         stream = streamio.open_file_as_stream(pathname, "r")
         try:
-            w_ret = importing.load_source_module(space,
-                                                 w_modulename,
-                                                 w_mod,
-                                                 pathname,
-                                                 stream.readall())
+            w_ret = importing.load_source_module(
+                space, w_modulename, w_mod,
+                pathname, stream.readall(),
+                stream.try_to_find_file_descriptor())
         except OperationError:
             # OperationError("NameError", "global name 'unknown_name' is not defined")
             pass
@@ -989,8 +996,22 @@ def test_PYTHONPATH_takes_precedence(space):
 class AppTestImportHooks(object):
 
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=('struct',))
-    
+        space = cls.space = gettestobjspace(usemodules=('struct',))
+        mydir = os.path.dirname(__file__)
+        cls.w_hooktest = space.wrap(os.path.join(mydir, 'hooktest'))
+        space.appexec([space.wrap(mydir)], """
+            (mydir):
+                import sys
+                sys.path.append(mydir)
+        """)
+
+    def teardown_class(cls):
+        cls.space.appexec([], """
+            ():
+                import sys
+                sys.path.pop()
+        """)
+
     def test_meta_path(self):
         tried_imports = []
         class Importer(object):
@@ -1127,6 +1148,23 @@ class AppTestImportHooks(object):
             sys.meta_path.pop()
             sys.path_hooks.pop()
 
+    def test_path_hooks_module(self):
+        "Verify that non-sibling imports from module loaded by path hook works"
+
+        import sys
+        import hooktest
+
+        hooktest.__path__.append(self.hooktest) # Avoid importing os at applevel
+
+        sys.path_hooks.append(hooktest.Importer)
+
+        try:
+            import hooktest.foo
+            def import_nonexisting():
+                import hooktest.errno
+            raises(ImportError, import_nonexisting)
+        finally:
+            sys.path_hooks.pop()
 
 class AppTestPyPyExtension(object):
     def setup_class(cls):

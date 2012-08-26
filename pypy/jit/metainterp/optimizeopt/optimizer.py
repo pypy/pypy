@@ -401,7 +401,7 @@ class Optimizer(Optimization):
             o.turned_constant(value)
 
     def forget_numberings(self, virtualbox):
-        self.metainterp_sd.profiler.count(jitprof.OPT_FORCINGS)
+        self.metainterp_sd.profiler.count(jitprof.Counters.OPT_FORCINGS)
         self.resumedata_memo.forget_numberings(virtualbox)
 
     def getinterned(self, box):
@@ -535,9 +535,9 @@ class Optimizer(Optimization):
             else:
                 self.ensure_imported(value)
                 op.setarg(i, value.force_box(self))
-        self.metainterp_sd.profiler.count(jitprof.OPT_OPS)
+        self.metainterp_sd.profiler.count(jitprof.Counters.OPT_OPS)
         if op.is_guard():
-            self.metainterp_sd.profiler.count(jitprof.OPT_GUARDS)
+            self.metainterp_sd.profiler.count(jitprof.Counters.OPT_GUARDS)
             if self.replaces_guard and op in self.replaces_guard:
                 self.replace_op(self.replaces_guard[op], op)
                 del self.replaces_guard[op]

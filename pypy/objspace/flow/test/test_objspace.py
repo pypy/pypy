@@ -32,8 +32,8 @@ class Base:
         if conftest.option.view:
             graph.show()
 
-    def setup_class(cls): 
-        cls.space = FlowObjSpace() 
+    def setup_class(cls):
+        cls.space = FlowObjSpace()
 
     def all_operations(self, graph):
         result = {}
@@ -77,7 +77,7 @@ class TestFlowObjSpace(Base):
         if i < 0:
             i = j
         return user_defined_function(i) + 1
-    
+
     def test_ifthenelse(self):
         x = self.codetest(self.ifthenelse)
 
@@ -96,7 +96,7 @@ class TestFlowObjSpace(Base):
     #__________________________________________________________
     def print_(i):
         print i
-    
+
     def test_print(self):
         x = self.codetest(self.print_)
 
@@ -124,7 +124,7 @@ class TestFlowObjSpace(Base):
         if i:
             i = 5
         return i
-    
+
     def test_union_hard(self):
         x = self.codetest(self.union_hard)
 
@@ -135,7 +135,7 @@ class TestFlowObjSpace(Base):
             total += i
             i = i - 1
         return total
-    
+
     def test_while_union(self):
         x = self.codetest(self.while_union)
 
@@ -145,7 +145,7 @@ class TestFlowObjSpace(Base):
         for i in lst:
             total += i
         return total
-    
+
     def test_simple_for(self):
         x = self.codetest(self.simple_for)
 
@@ -311,7 +311,7 @@ class TestFlowObjSpace(Base):
                     else:
                         found[link.exitcase] = None
         assert found == {IndexError: True, KeyError: True, Exception: None}
-    
+
     def reraiseAnything(x):
         try:
             pow(x, 5)
@@ -354,7 +354,7 @@ class TestFlowObjSpace(Base):
     #__________________________________________________________
     def raise1(msg):
         raise IndexError
-    
+
     def test_raise1(self):
         x = self.codetest(self.raise1)
         simplify_graph(x)
@@ -371,7 +371,7 @@ class TestFlowObjSpace(Base):
     #__________________________________________________________
     def raise2(msg):
         raise IndexError, msg
-    
+
     def test_raise2(self):
         x = self.codetest(self.raise2)
         # XXX can't check the shape of the graph, too complicated...
@@ -379,7 +379,7 @@ class TestFlowObjSpace(Base):
     #__________________________________________________________
     def raise3(msg):
         raise IndexError(msg)
-    
+
     def test_raise3(self):
         x = self.codetest(self.raise3)
         # XXX can't check the shape of the graph, too complicated...
@@ -387,7 +387,7 @@ class TestFlowObjSpace(Base):
     #__________________________________________________________
     def raise4(stuff):
         raise stuff
-    
+
     def test_raise4(self):
         x = self.codetest(self.raise4)
 
@@ -405,7 +405,7 @@ class TestFlowObjSpace(Base):
         except IndexError:
             return -1
         return 0
-    
+
     def test_raise_and_catch_1(self):
         x = self.codetest(self.raise_and_catch_1)
 
@@ -416,7 +416,7 @@ class TestFlowObjSpace(Base):
         except IndexError:
             return -1
         return 0
-    
+
     def test_catch_simple_call(self):
         x = self.codetest(self.catch_simple_call)
 
@@ -427,7 +427,7 @@ class TestFlowObjSpace(Base):
         except (IndexError, OSError):
             return -1
         return 0
-    
+
     def test_multiple_catch_simple_call(self):
         graph = self.codetest(self.multiple_catch_simple_call)
         simplify_graph(graph)
@@ -447,7 +447,7 @@ class TestFlowObjSpace(Base):
         del x
         for i in range(10):
             pass
-    
+
     def test_dellocal(self):
         x = self.codetest(self.dellocal)
 
@@ -456,7 +456,7 @@ class TestFlowObjSpace(Base):
         x = DATA['x']
         z = DATA[name]
         return x, z
-    
+
     def test_globalconstdict(self):
         x = self.codetest(self.globalconstdict)
 
@@ -464,12 +464,12 @@ class TestFlowObjSpace(Base):
     def dictliteral(name):
         x = {'x': 1}
         return x
-    
+
     def test_dictliteral(self):
         x = self.codetest(self.dictliteral)
 
     #__________________________________________________________
-    
+
     def specialcases(x):
         operator.lt(x,3)
         operator.le(x,3)
@@ -488,7 +488,7 @@ class TestFlowObjSpace(Base):
         # the following ones are constant-folded
         operator.eq(2,3)
         operator.__gt__(2,3)
-    
+
     def test_specialcases(self):
         x = self.codetest(self.specialcases)
         from pypy.translator.simplify import join_blocks
@@ -765,7 +765,7 @@ class TestFlowObjSpace(Base):
                 raise
         graph = self.codetest(f)
         simplify_graph(graph)
-        assert self.all_operations(graph) == {'getitem_idx': 1}        
+        assert self.all_operations(graph) == {'getitem_idx': 1}
 
         def f(c, x):
             try:
@@ -775,7 +775,7 @@ class TestFlowObjSpace(Base):
         graph = self.codetest(f)
         simplify_graph(graph)
         assert self.all_operations(graph) == {'getitem_key': 1}
-        
+
         def f(c, x):
             try:
                 return c[x]
@@ -794,7 +794,7 @@ class TestFlowObjSpace(Base):
         simplify_graph(graph)
         self.show(graph)
         assert self.all_operations(graph) == {'getitem_idx_key': 1}
-        
+
         def f(c, x):
             try:
                 return c[x]
@@ -812,7 +812,7 @@ class TestFlowObjSpace(Base):
         graph = self.codetest(f)
         simplify_graph(graph)
         assert self.all_operations(graph) == {'getitem_key': 1}
-  
+
         def f(c, x):
             try:
                 return c[x]
@@ -1004,14 +1004,3 @@ DATA = {'x': 5,
 
 def user_defined_function():
     pass
-
-
-def test_extract_cell_content():
-    class Strange(object):
-        def __cmp__(self, other):
-            assert False, "should not be called"
-    strange = Strange()
-    def f():
-        return strange
-    res = objspace.extract_cell_content(f.func_closure[0])
-    assert res is strange

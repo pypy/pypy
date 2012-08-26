@@ -429,7 +429,12 @@ def _getimporter(space, w_pathitem):
 def find_in_path_hooks(space, w_modulename, w_pathitem):
     w_importer = _getimporter(space, w_pathitem)
     if w_importer is not None and space.is_true(w_importer):
-        w_loader = space.call_method(w_importer, "find_module", w_modulename)
+        try:
+            w_loader = space.call_method(w_importer, "find_module", w_modulename)
+        except OperationError, e:
+            if e.match(space, space.w_ImportError):
+                return None
+            raise
         if space.is_true(w_loader):
             return w_loader
 
@@ -597,8 +602,10 @@ def load_module(space, w_modulename, find_info, reuse=False):
 
         try:
             if find_info.modtype == PY_SOURCE:
-                load_source_module(space, w_modulename, w_mod, find_info.filename,
-                                   find_info.stream.readall())
+                load_source_module(
+                    space, w_modulename, w_mod, 
+                    find_info.filename, find_info.stream.readall(),
+                    find_info.stream.try_to_find_file_descriptor())
                 return w_mod
             elif find_info.modtype == PY_COMPILED:
                 magic = _r_long(find_info.stream)
@@ -873,7 +880,7 @@ def exec_code_module(space, w_mod, code_w):
 
 
 @jit.dont_look_inside
-def load_source_module(space, w_modulename, w_mod, pathname, source,
+def load_source_module(space, w_modulename, w_mod, pathname, source, fd,
                        write_pyc=True):
     """
     Load a source module from a given file and return its module
@@ -882,8 +889,8 @@ def load_source_module(space, w_modulename, w_mod, pathname, source,
     w = space.wrap
 
     if space.config.objspace.usepycfiles:
+        src_stat = os.fstat(fd)
         cpathname = pathname + 'c'
-        src_stat = os.stat(pathname)
         mtime = int(src_stat[stat.ST_MTIME])
         mode = src_stat[stat.ST_MODE]
         stream = check_compiled_module(space, cpathname, mtime)

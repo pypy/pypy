@@ -104,8 +104,8 @@ class VFPRegisterManager(RegisterManager):
         which is in variable v.
         """
         self._check_type(v)
-        r = self.force_allocate_reg(v)
-        return r
+        reg = self.force_allocate_reg(v, selected_reg=r.d0)
+        return reg
 
     def ensure_value_is_boxed(self, thing, forbidden_vars=[]):
         loc = None
@@ -309,11 +309,16 @@ class Regalloc(object):
         # The first inputargs are passed in registers r0-r3
         # we relly on the soft-float calling convention so we need to move
         # float params to the coprocessor.
+        if self.cpu.use_hf_abi:
+            self._set_initial_bindings_hf(inputargs)
+        else:
+            self._set_initial_bindings_sf(inputargs)
+
+    def _set_initial_bindings_sf(self, inputargs):
 
         arg_index = 0
         count = 0
         n_register_args = len(r.argument_regs)
-        cur_frame_pos = - (self.assembler.STACK_FIXED_AREA / WORD) + 1
         cur_frame_pos = 1 - (self.assembler.STACK_FIXED_AREA // WORD)
         for box in inputargs:
             assert isinstance(box, Box)
@@ -328,11 +333,42 @@ class Regalloc(object):
                     vfpreg = self.try_allocate_reg(box)
                     # move soft-float argument to vfp
                     self.assembler.mov_to_vfp_loc(loc, loc2, vfpreg)
-                    arg_index += 2  # this argument used to argument registers
+                    arg_index += 2  # this argument used two argument registers
                 else:
                     loc = r.argument_regs[arg_index]
                     self.try_allocate_reg(box, selected_reg=loc)
                     arg_index += 1
+            else:
+                # treat stack args as stack locations with a negative offset
+                if box.type == FLOAT:
+                    cur_frame_pos -= 2
+                    if count % 2 != 0: # Stack argument alignment
+                        cur_frame_pos -= 1
+                        count = 0
+                else:
+                    cur_frame_pos -= 1
+                    count += 1
+                loc = self.frame_manager.frame_pos(cur_frame_pos, box.type)
+                self.frame_manager.set_binding(box, loc)
+
+    def _set_initial_bindings_hf(self, inputargs):
+
+        arg_index = vfp_arg_index = 0
+        count = 0
+        n_reg_args = len(r.argument_regs)
+        n_vfp_reg_args = len(r.vfp_argument_regs)
+        cur_frame_pos = 1 - (self.assembler.STACK_FIXED_AREA // WORD)
+        for box in inputargs:
+            assert isinstance(box, Box)
+            # handle inputargs in argument registers
+            if box.type != FLOAT and arg_index < n_reg_args:
+                reg = r.argument_regs[arg_index]
+                self.try_allocate_reg(box, selected_reg=reg)
+                arg_index += 1
+            elif box.type == FLOAT and vfp_arg_index < n_vfp_reg_args:
+                reg = r.vfp_argument_regs[vfp_arg_index]
+                self.try_allocate_reg(box, selected_reg=reg)
+                vfp_arg_index += 1
             else:
                 # treat stack args as stack locations with a negative offset
                 if box.type == FLOAT:
@@ -459,6 +495,11 @@ class Regalloc(object):
         res = self.force_allocate_reg(op.result)
         self.possibly_free_var(op.result)
         return [reg1, reg2, res]
+    
+    def prepare_op_int_force_ge_zero(self, op, fcond):
+        argloc = self._ensure_value_is_boxed(op.getarg(0))
+        resloc = self.force_allocate_reg(op.result, [op.getarg(0)])
+        return [argloc, resloc]
 
     def prepare_guard_int_mul_ovf(self, op, guard, fcond):
         boxes = op.getarglist()
@@ -843,7 +884,6 @@ class Regalloc(object):
         result_loc = self.force_allocate_reg(op.result)
         return [base_loc, index_loc, result_loc, ofs_loc, imm(ofs),
                                     imm(itemsize), imm(fieldsize)]
-    prepare_op_getinteriorfield_raw = prepare_op_getinteriorfield_gc
 
     def prepare_op_setinteriorfield_gc(self, op, fcond):
         t = unpack_interiorfielddescr(op.getdescr())
@@ -883,6 +923,7 @@ class Regalloc(object):
         assert check_imm_arg(ofs)
         return [value_loc, base_loc, ofs_loc, imm(scale), imm(ofs)]
     prepare_op_setarrayitem_raw = prepare_op_setarrayitem_gc
+    prepare_op_raw_store = prepare_op_setarrayitem_gc
 
     def prepare_op_getarrayitem_gc(self, op, fcond):
         boxes = op.getarglist()
@@ -897,7 +938,9 @@ class Regalloc(object):
         return [res, base_loc, ofs_loc, imm(scale), imm(ofs)]
 
     prepare_op_getarrayitem_raw = prepare_op_getarrayitem_gc
+    prepare_op_getarrayitem_raw_pure = prepare_op_getarrayitem_gc
     prepare_op_getarrayitem_gc_pure = prepare_op_getarrayitem_gc
+    prepare_op_raw_load = prepare_op_getarrayitem_gc
 
     def prepare_op_strlen(self, op, fcond):
         args = op.getarglist()
@@ -1045,27 +1088,15 @@ class Regalloc(object):
 
     def prepare_op_cond_call_gc_wb(self, op, fcond):
         assert op.result is None
-        N = op.numargs()
         # we force all arguments in a reg because it will be needed anyway by
         # the following setfield_gc or setarrayitem_gc. It avoids loading it
         # twice from the memory.
-        arglocs = []
+        N = op.numargs()
         args = op.getarglist()
-        for i in range(N):
-            loc = self._ensure_value_is_boxed(op.getarg(i), args)
-            arglocs.append(loc)
-        card_marking = False
-        if op.getopnum() == rop.COND_CALL_GC_WB_ARRAY:
-            descr = op.getdescr()
-            if we_are_translated():
-                cls = self.cpu.gc_ll_descr.has_write_barrier_class()
-                assert cls is not None and isinstance(descr, cls)
-            card_marking = descr.jit_wb_cards_set != 0
-        if card_marking:  # allocate scratch registers
-            tmp1 = self.get_scratch_reg(INT)
-            tmp2 = self.get_scratch_reg(INT)
-            arglocs.append(tmp1)
-            arglocs.append(tmp2)
+        arglocs = [self._ensure_value_is_boxed(op.getarg(i), args)
+                                                              for i in range(N)]
+        tmp = self.get_scratch_reg(INT)
+        arglocs.append(tmp)
         return arglocs
 
     prepare_op_cond_call_gc_wb_array = prepare_op_cond_call_gc_wb

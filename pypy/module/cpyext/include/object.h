@@ -38,12 +38,14 @@ typedef struct {
 	PyObject_VAR_HEAD
 } PyVarObject;
 
-#ifndef PYPY_DEBUG_REFCOUNT
+#ifdef PYPY_DEBUG_REFCOUNT
+/* Slow version, but useful for debugging */
 #define Py_INCREF(ob)   (Py_IncRef((PyObject *)ob))
 #define Py_DECREF(ob)   (Py_DecRef((PyObject *)ob))
 #define Py_XINCREF(ob)  (Py_IncRef((PyObject *)ob))
 #define Py_XDECREF(ob)  (Py_DecRef((PyObject *)ob))
 #else
+/* Fast version */
 #define Py_INCREF(ob)   (((PyObject *)ob)->ob_refcnt++)
 #define Py_DECREF(ob)  ((((PyObject *)ob)->ob_refcnt > 1) ? \
 			((PyObject *)ob)->ob_refcnt-- : (Py_DecRef((PyObject *)ob)))

@@ -2042,6 +2042,12 @@ class AppTestMultiDim(BaseNumpyAppTest):
         raises(ValueError, "array(5).item(1)")
         assert array([1]).item() == 1
 
+    def test_count_nonzero(self):
+        from _numpypy import array
+        a = array([1,0,5,0,10])
+        assert a.count_nonzero() == 3
+ 
+
 class AppTestSupport(BaseNumpyAppTest):
     def setup_class(cls):
         import struct

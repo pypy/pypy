@@ -10,8 +10,11 @@ from pypy.jit.backend.detect_cpu import getcpuclass
 from pypy.jit.backend.x86.regalloc import X86RegisterManager, X86_64_RegisterManager, X86XMMRegisterManager, X86_64_XMMRegisterManager
 from pypy.jit.codewriter import longlong
 import ctypes
+import py
 
 ACTUAL_CPU = getcpuclass()
+if not hasattr(ACTUAL_CPU, 'NUM_REGS'):
+    py.test.skip('unsupported CPU')
 
 class FakeCPU:
     rtyper = None

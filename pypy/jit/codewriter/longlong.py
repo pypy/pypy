@@ -9,13 +9,14 @@ converting them back and forth.
 import sys
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib import rarithmetic, longlong2float
+from pypy.jit.backend.arm.detect import detect_hardfloat
+from pypy.rlib.objectmodel import compute_hash
 
 
 if sys.maxint > 2147483647:
     # ---------- 64-bit platform ----------
     # the type FloatStorage is just a float
 
-    from pypy.rlib.objectmodel import compute_hash
 
     is_64_bit = True
     supports_longlong = False
@@ -28,6 +29,22 @@ if sys.maxint > 2147483647:
     is_longlong     = lambda TYPE: False
 
     # -------------------------------------
+elif detect_hardfloat():
+    # ---------- ARM 32-bit platform ----------
+    # the type FloatStorage is float
+
+    is_64_bit = False
+    supports_longlong = False
+    r_float_storage = float
+    FLOATSTORAGE = lltype.Float
+
+    getfloatstorage = lambda x: x
+    getrealfloat    = lambda x: x
+    gethash         = compute_hash
+    is_longlong     = lambda TYPE: False
+
+    # -------------------------------------
+
 else:
     # ---------- 32-bit platform ----------
     # the type FloatStorage is r_longlong, and conversion is needed

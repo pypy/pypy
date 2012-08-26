@@ -190,7 +190,7 @@ else:
             lltype.free(now, flavor='raw')
 
     def handle_w(space, w_handle):
-        return rffi.cast(SEM_T, space.uint_w(w_handle))
+        return rffi.cast(SEM_T, space.int_w(w_handle))
 
 class CounterState:
     def __init__(self, space):

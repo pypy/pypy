@@ -458,10 +458,8 @@ class TestX86(LLtypeBackendTest):
                 mc.RET16_i(40)
             rawstart = mc.materialize(cpu.asmmemmgr, [])
             #
-            calldescr = cpu.calldescrof_dynamic([types.slong] * 10,
-                                                types.slong,
-                                                EffectInfo.MOST_GENERAL,
-                                                ffi_flags=-1)
+            calldescr = cpu._calldescr_dynamic_for_tests([types.slong] * 10,
+                                                         types.slong)
             calldescr.get_call_conv = lambda: ffi      # <==== hack
             # ^^^ we patch get_call_conv() so that the test also makes sense
             #     on Linux, because clibffi.get_call_conv() would always
