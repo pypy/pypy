@@ -484,6 +484,11 @@ class Regalloc(object):
     prepare_guard_float_ge = prepare_float_op(guard=True,
                             float_result=False, name='prepare_guard_float_ge')
 
+    def prepare_int_force_ge_zero(self, op):
+        argloc = self._ensure_value_is_boxed(op.getarg(0))
+        resloc = self.force_allocate_reg(op.result, [op.getarg(0)])
+        return [argloc, resloc]
+
     def prepare_math_sqrt(self, op):
         loc = self._ensure_value_is_boxed(op.getarg(1))
         self.possibly_free_vars_for_op(op)
@@ -759,6 +764,7 @@ class Regalloc(object):
         self.possibly_free_var(op.result)
         return [base_loc, index_loc, result_loc, ofs_loc, imm(ofs),
                                     imm(itemsize), imm(fieldsize)]
+
     prepare_getinteriorfield_raw = prepare_getinteriorfield_gc
 
     def prepare_setinteriorfield_gc(self, op):
@@ -775,6 +781,7 @@ class Regalloc(object):
             self.assembler.load(ofs_loc, imm(ofs))
         return [base_loc, index_loc, value_loc, ofs_loc, imm(ofs),
                                         imm(itemsize), imm(fieldsize)]
+
     prepare_setinteriorfield_raw = prepare_setinteriorfield_gc
 
     def prepare_arraylen_gc(self, op):
@@ -798,7 +805,18 @@ class Regalloc(object):
         scratch_loc = self.rm.get_scratch_reg(INT, args)
         assert _check_imm_arg(ofs)
         return [value_loc, base_loc, ofs_loc, scratch_loc, imm(scale), imm(ofs)]
+
     prepare_setarrayitem_raw = prepare_setarrayitem_gc
+
+    def prepare_raw_store(self, op):
+        size, ofs, _ = unpack_arraydescr(op.getdescr())
+        scale = get_scale(size)
+        args = op.getarglist()
+        base_loc = self._ensure_value_is_boxed(args[0], args)
+        ofs_loc = self._ensure_value_is_boxed(args[1], args)
+        value_loc = self._ensure_value_is_boxed(args[2], args)
+        assert _check_imm_arg(ofs)
+        return [value_loc, base_loc, ofs_loc, imm(scale), imm(ofs)]
 
     def prepare_getarrayitem_gc(self, op):
         boxes = op.getarglist()
@@ -815,6 +833,18 @@ class Regalloc(object):
 
     prepare_getarrayitem_raw = prepare_getarrayitem_gc
     prepare_getarrayitem_gc_pure = prepare_getarrayitem_gc
+
+    def prepare_raw_load(self, op):
+        boxes = op.getarglist()
+        size, ofs, _ = unpack_arraydescr(op.getdescr())
+        scale = get_scale(size)
+        base_loc = self._ensure_value_is_boxed(boxes[0], boxes)
+        ofs_loc = self._ensure_value_is_boxed(boxes[1], boxes)
+        self.possibly_free_vars_for_op(op)
+        self.free_temp_vars()
+        res = self.force_allocate_reg(op.result)
+        assert _check_imm_arg(ofs)
+        return [res, base_loc, ofs_loc, imm(scale), imm(ofs)]
 
     def prepare_strlen(self, op):
         args = op.getarglist()

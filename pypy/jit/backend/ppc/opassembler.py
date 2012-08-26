@@ -170,6 +170,17 @@ class IntOpAssembler(object):
         l0, res = arglocs
         self.mc.not_(res.value, l0.value)
 
+    def emit_int_force_ge_zero(self, op, arglocs, regalloc):
+        arg, res = arglocs
+        with scratch_reg(self.mc):
+            self.mc.nor(r.SCRATCH.value, arg.value, arg.value)
+            if IS_PPC_32:
+                self.mc.srawi(r.SCRATCH.value, r.SCRATCH.value, 31)
+            else:
+                # sradi (scratch, scratch, 63)
+                self.mc.sradi(r.SCRATCH.value, r.SCRATCH.value, 1, 31)
+            self.mc.and_(res.value, arg.value, r.SCRATCH.value)
+
 class FloatOpAssembler(object):
     _mixin_ = True
 
@@ -739,6 +750,26 @@ class ArrayOpAssembler(object):
 
     emit_setarrayitem_raw = emit_setarrayitem_gc
 
+    def _write_to_mem(self, value_loc, base_loc, ofs_loc, scale):
+        if scale.value == 3:
+            if value_loc.is_fp_reg():
+                self.mc.stfdx(value_loc.value, base_loc.value, ofs_loc.value)
+            else:
+                self.mc.stdx(value_loc.value, base_loc.value, ofs_loc.value)
+        elif scale.value == 2:
+            self.mc.stwx(value_loc.value, base_loc.value, ofs_loc.value)
+        elif scale.value == 1:
+            self.mc.sthx(value_loc.value, base_loc.value, ofs_loc.value)
+        elif scale.value == 0:
+            self.mc.stbx(value_loc.value, base_loc.value, ofs_loc.value)
+        else:
+            assert 0
+
+    def emit_raw_store(self, op, arglocs, regalloc):
+        value_loc, base_loc, ofs_loc, scale, ofs = arglocs
+        assert ofs_loc.is_reg()
+        self._write_to_mem(value_loc, base_loc, ofs_loc, scale)
+
     def emit_getarrayitem_gc(self, op, arglocs, regalloc):
         res, base_loc, ofs_loc, scratch_loc, scale, ofs = arglocs
         assert ofs_loc.is_reg()
@@ -781,6 +812,34 @@ class ArrayOpAssembler(object):
     emit_getarrayitem_raw = emit_getarrayitem_gc
     emit_getarrayitem_gc_pure = emit_getarrayitem_gc
 
+    def _load_from_mem(self, res_loc, base_loc, ofs_loc, scale, signed=False):
+        if scale.value == 3:
+            if res_loc.is_fp_reg():
+                self.mc.lfdx(res_loc.value, base_loc.value, ofs_loc.value)
+            else:
+                self.mc.ldx(res_loc.value, base_loc.value, ofs_loc.value)
+        elif scale.value == 2:
+            self.mc.lwzx(res_loc.value, base_loc.value, ofs_loc.value)
+            if signed:
+                self.mc.extsw(res_loc.value, res_loc.value)
+        elif scale.value == 1:
+            self.mc.lhzx(res_loc.value, base_loc.value, ofs_loc.value)
+            if signed:
+                self.mc.extsh(res_loc.value, res_loc.value)
+        elif scale.value == 0:
+            self.mc.lbzx(res_loc.value, base_loc.value, ofs_loc.value)
+            if signed:
+                self.mc.extsb(res_loc.value, res_loc.value)
+        else:
+            assert 0
+
+    def emit_raw_load(self, op, arglocs, regalloc):
+        res_loc, base_loc, ofs_loc, scale, ofs = arglocs
+        assert ofs_loc.is_reg()
+        # no base offset
+        assert ofs.value == 0
+        signed = op.getdescr().is_item_signed()
+        self._load_from_mem(res_loc, base_loc, ofs_loc, scale, signed)
 
 class StrOpAssembler(object):
 
