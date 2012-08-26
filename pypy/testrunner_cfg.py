@@ -11,7 +11,9 @@ DIRS_SPLIT = [
     'translator/c', 'translator/jvm', 'rlib',
     'rpython/memory', 'jit/metainterp', 'rpython/test',
 ]
-backend_tests = {'arm':'jit/backend/arm', 'x86':'jit/backend/x86'}
+backend_tests = {'arm':'jit/backend/arm',
+                 'ppc':'jit/backend/ppc',
+                 'x86':'jit/backend/x86'}
 
 def add_backend_tests():
     l = []
