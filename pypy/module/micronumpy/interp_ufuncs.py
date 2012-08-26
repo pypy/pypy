@@ -9,14 +9,15 @@ from pypy.tool.sourcetools import func_with_new_name
 from pypy.module.micronumpy.interp_support import unwrap_axis_arg
 
 class W_Ufunc(Wrappable):
-    _attrs_ = ["name", "promote_to_float", "promote_bools", "identity"]
-    _immutable_fields_ = ["promote_to_float", "promote_bools", "name"]
+    _attrs_ = ["name", "promote_to_float", "promote_bools", "identity", "allow_complex"]
+    _immutable_fields_ = ["promote_to_float", "promote_bools", "name", "allow_complex"]
 
     def __init__(self, name, promote_to_float, promote_bools, identity,
-                 int_only):
+                 int_only, allow_complex):
         self.name = name
         self.promote_to_float = promote_to_float
         self.promote_bools = promote_bools
+        self.allow_complex = allow_complex
 
         self.identity = identity
         self.int_only = int_only
@@ -217,10 +218,10 @@ class W_Ufunc1(W_Ufunc):
     _immutable_fields_ = ["func", "name"]
 
     def __init__(self, func, name, promote_to_float=False, promote_bools=False,
-        identity=None, bool_result=False, int_only=False):
+        identity=None, bool_result=False, int_only=False, allow_complex=True):
 
         W_Ufunc.__init__(self, name, promote_to_float, promote_bools, identity,
-                         int_only)
+                         int_only, allow_complex)
         self.func = func
         self.bool_result = bool_result
 
@@ -283,10 +284,10 @@ class W_Ufunc2(W_Ufunc):
     argcount = 2
 
     def __init__(self, func, name, promote_to_float=False, promote_bools=False,
-        identity=None, comparison_func=False, int_only=False):
+        identity=None, comparison_func=False, int_only=False, allow_complex=True):
 
         W_Ufunc.__init__(self, name, promote_to_float, promote_bools, identity,
-                         int_only)
+                         int_only, allow_complex)
         self.func = func
         self.comparison_func = comparison_func
 
@@ -301,14 +302,15 @@ class W_Ufunc2(W_Ufunc):
             w_out = None
         w_lhs = convert_to_array(space, w_lhs)
         w_rhs = convert_to_array(space, w_rhs)
+        calc_dtype = find_binop_result_dtype(space,
+            w_lhs.find_dtype(), w_rhs.find_dtype(),
+            int_only=self.int_only,
+            promote_to_float=self.promote_to_float,
+            promote_bools=self.promote_bools,
+            allow_complex=self.allow_complex,
+            )
         if space.is_w(w_out, space.w_None) or w_out is None:
             out = None
-            calc_dtype = find_binop_result_dtype(space,
-                w_lhs.find_dtype(), w_rhs.find_dtype(),
-                int_only=self.int_only,
-                promote_to_float=self.promote_to_float,
-                promote_bools=self.promote_bools,
-            )
         elif not isinstance(w_out, BaseArray):
             raise OperationError(space.w_TypeError, space.wrap(
                     'output must be an array'))
@@ -364,11 +366,13 @@ W_Ufunc.typedef = TypeDef("ufunc",
 
 
 def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
-    promote_bools=False, int_only=False):
+    promote_bools=False, int_only=False, allow_complex=True):
     # dt1.num should be <= dt2.num
     if dt1.num > dt2.num:
         dt1, dt2 = dt2, dt1
     if int_only and (not dt1.is_int_type() or not dt2.is_int_type()):
+        raise OperationError(space.w_TypeError, space.wrap("Unsupported types"))
+    if not allow_complex and (dt1.is_complex_type() or dt2.is_complex_type()):
         raise OperationError(space.w_TypeError, space.wrap("Unsupported types"))
     # Some operations promote op(bool, bool) to return int8, rather than bool
     if promote_bools and (dt1.kind == dt2.kind == interp_dtype.BOOLLTR):
@@ -509,7 +513,7 @@ class UfuncState(object):
             ("floor_divide", "floordiv", 2, {"promote_bools": True}),
             ("divide", "div", 2, {"promote_bools": True}),
             ("true_divide", "div", 2, {"promote_to_float": True}),
-            ("mod", "mod", 2, {"promote_bools": True}),
+            ("mod", "mod", 2, {"promote_bools": True, 'allow_complex': False}),
             ("power", "pow", 2, {"promote_bools": True}),
             ("left_shift", "lshift", 2, {"int_only": True}),
             ("right_shift", "rshift", 2, {"int_only": True}),
@@ -549,7 +553,7 @@ class UfuncState(object):
             ("fabs", "fabs", 1, {"promote_to_float": True}),
             ("fmax", "fmax", 2, {"promote_to_float": True}),
             ("fmin", "fmin", 2, {"promote_to_float": True}),
-            ("fmod", "fmod", 2, {"promote_to_float": True}),
+            ("fmod", "fmod", 2, {"promote_to_float": True, 'allow_complex': False}),
             ("floor", "floor", 1, {"promote_to_float": True}),
             ("ceil", "ceil", 1, {"promote_to_float": True}),
             ("trunc", "trunc", 1, {"promote_to_float": True}),

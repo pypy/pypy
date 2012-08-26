@@ -1113,9 +1113,10 @@ class ComplexFloating(object):
         except ZeroDivisionError:
             return rfloat.NAN, 0
 
-    @simple_binary_op
-    def mod(self, v1, v2):
-        return math.fmod(v1, v2)
+    #complex mod does not exist
+    #@simple_binary_op
+    #def mod(self, v1, v2):
+    #    return math.fmod(v1, v2)
 
     @simple_binary_op
     def pow(self, v1, v2):

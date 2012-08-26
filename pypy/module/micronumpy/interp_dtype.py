@@ -120,6 +120,9 @@ class W_Dtype(Wrappable):
     def is_signed(self):
         return self.kind == SIGNEDLTR
 
+    def is_complex_type(self):
+        return (self.num == 14 or self.num == 15)
+
     def is_bool_type(self):
         return self.kind == BOOLLTR
 
