@@ -855,9 +855,10 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
 
     def test_complex(self):
-        from _numpypy import (array, complex128, complex64, add, subtract as sub, multiply,
-            divide, negative, conjugate, conj, abs)
-        from _numpypy import equal, not_equal, greater, greater_equal, less, less_equal
+        from _numpypy import (array, complex128, complex64, add,
+            subtract as sub, multiply, divide, negative, conjugate,  abs, fmod)
+        from _numpypy import (equal, not_equal, greater, greater_equal, less,
+                less_equal)
 
         for complex_ in complex128, complex64:
 
@@ -909,7 +910,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
             assert abs(c0) == 2.5
             assert abs(c2) == 5
-
+            
+            raises (TypeError, fmod, c0, 3) 
 
 
     def test_complex_math(self):
