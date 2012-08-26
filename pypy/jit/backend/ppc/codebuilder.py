@@ -966,8 +966,8 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
             expected += 1<<32
         assert v == expected
 
-    def load_imm(self, rD, word):
-        rD = rD.value
+    def load_imm(self, dest_reg, word):
+        rD = dest_reg.value
         if word <= 32767 and word >= -32768:
             self.li(rD, word)
         elif IS_PPC_32 or (word <= 2147483647 and word >= -2147483648):
@@ -975,11 +975,12 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
             if word & 0xFFFF != 0:
                 self.ori(rD, rD, lo(word))
         else:
-            self.lis(rD, highest(word))
-            self.ori(rD, rD, higher(word))
+            self.load_imm(dest_reg, word>>32)
             self.sldi(rD, rD, 32)
-            self.oris(rD, rD, high(word))
-            self.ori(rD, rD, lo(word))
+            if word & 0xFFFF0000 != 0:
+                self.oris(rD, rD, high(word))
+            if word & 0xFFFF != 0:
+                self.ori(rD, rD, lo(word))
 
     def load_from_addr(self, rD, addr):
         self.load_imm(rD, addr)
