@@ -2035,3 +2035,21 @@ def test_nested_anonymous_struct():
     assert d[2][1].offset == sizeof(BInt) * 2
     assert d[2][1].bitshift == -1
     assert d[2][1].bitsize == -1
+
+def test_sizeof_union():
+    # a union has the largest alignment of its members, and a total size
+    # that is the largest of its items *possibly further aligned* if
+    # another smaller item has a larger alignment...
+    BChar = new_primitive_type("char")
+    BShort = new_primitive_type("short")
+    assert sizeof(BShort) == alignof(BShort) == 2
+    BStruct = new_struct_type("foo")
+    complete_struct_or_union(BStruct, [('a1', BChar),
+                                       ('a2', BChar),
+                                       ('a3', BChar)])
+    assert sizeof(BStruct) == 3 and alignof(BStruct) == 1
+    BUnion = new_union_type("u")
+    complete_struct_or_union(BUnion, [('s', BStruct),
+                                      ('i', BShort)])
+    assert sizeof(BUnion) == 4
+    assert alignof(BUnion) == 2
