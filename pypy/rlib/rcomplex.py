@@ -1,6 +1,9 @@
 import math
-from math import copysign
-from pypy.module.cmath.special_value import isfinite
+from math import copysign, fabs
+from pypy.module.cmath.special_value import (isfinite, sqrt_special_values,
+        cosh_special_values, sinh_special_values, exp_special_values,
+        special_type, )
+from pypy.rlib.rfloat import INFINITE as INF, NAN, isinf, DBL_MIN
 
 #binary
 
@@ -74,7 +77,7 @@ def c_neg(r, i):
     return (-r, -i)
 
 
-def c_sqrt(r, i):
+def c_sqrt(x, y):
     '''
     Method: use symmetries to reduce to the case when x = z.real and y
     = z.imag are nonnegative.  Then the real part of the result is
@@ -101,14 +104,14 @@ def c_sqrt(r, i):
     are normal.
     '''
 
-    if not isfinite(r) or not isfinite(i):
-        return sqrt_special_values[special_type(r)][special_type(i)]
+    if not isfinite(x) or not isfinite(y):
+        return sqrt_special_values[special_type(x)][special_type(y)]
 
-    if r == 0. and i == 0.:
+    if x == 0. and y == 0.:
         return (0., y)
 
-    ar = fabs(r)
-    ai = fabs(i)
+    ar = fabs(x)
+    ai = fabs(y)
 
     if ar < DBL_MIN and ai < DBL_MIN and (ar > 0. or ai > 0.):
         # here we catch cases where hypot(ar, ai) is subnormal
@@ -509,9 +512,9 @@ def c_abs(r, i):
     if not isfinite(r) or not isfinite(i):
         # C99 rules: if either the real or the imaginary part is an
         # infinity, return infinity, even if the other part is a NaN.
-        if isinf(r):
+        if not isfinite(r):
             return INF
-        if isinf(i):
+        if not isfinite(i):
             return INF
 
         # either the real or imaginary part is a NaN,

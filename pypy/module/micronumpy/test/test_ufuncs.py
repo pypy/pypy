@@ -855,8 +855,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
 
     def test_complex(self):
-        from _numpypy import (array, complex128, complex64, add,
-            subtract as sub, multiply, divide, negative, conjugate,  abs, fmod)
+        from _numpypy import (complex128, complex64, add,
+            subtract as sub, multiply, divide, negative, abs, fmod)
         from _numpypy import (equal, not_equal, greater, greater_equal, less,
                 less_equal)
 
@@ -912,6 +912,9 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert abs(c2) == 5
             
             raises (TypeError, fmod, c0, 3) 
+            inf_c = complex_(complex(float('inf'), 0.))
+            assert repr(abs(inf_c)) == 'inf'
+            assert repr(abs(n)) == 'nan'
 
 
     def test_complex_math(self):
