@@ -1554,7 +1554,10 @@ def _x_divrem(v1, w1):
         at most (and usually exactly) k = size_v - size_w digits. """
     k = size_v - size_w
     if k == 0:
-        return NULLRBIGINT, v1
+        # We can't use v1, nor NULLRBIGINT here as some function modify the result.
+        assert _v_rshift(w, v, size_w, d) == 0
+        w._normalize()
+        return rbigint([NULLDIGIT]), w
     
     assert k > 0
     a = rbigint([NULLDIGIT] * k, 1, k)
