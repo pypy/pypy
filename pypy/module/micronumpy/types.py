@@ -6,7 +6,7 @@ from pypy.interpreter.error import OperationError
 from pypy.module.micronumpy import interp_boxes
 from pypy.objspace.std.floatobject import float2string
 from pypy.objspace.std.complexobject import W_ComplexObject, str_format
-from pypy.rlib import rfloat, libffi, clibffi #, rcomplex
+from pypy.rlib import rfloat, libffi, clibffi, rcomplex
 from pypy.rlib.rawstorage import (alloc_raw_storage, raw_storage_setitem,
                                   raw_storage_getitem)
 from pypy.rlib.objectmodel import specialize, we_are_translated
@@ -35,8 +35,7 @@ def simple_unary_op(func):
         )
     return dispatcher
 
-complex_unary_op = simple_unary_op
-def _complex_unary_op(func):
+def complex_unary_op(func):
     specialize.argtype(1)(func)
     @functools.wraps(func)
     def dispatcher(self, v):
@@ -922,14 +921,19 @@ class NonNativeFloat64(BaseType, NonNativeFloat):
     BoxType = interp_boxes.W_Float64Box
     format_code = "d"
 
-class ComplexFloating(Primitive):
-    #_mixin_ = True
-    #_attrs_ = ()
+class ComplexFloating(object):
+    _mixin_ = True
+    _attrs_ = ()
 
     def _coerce(self, space, w_item):
         w_item = space.call_function(space.w_complex, w_item)
         real, imag = space.unpackcomplex(w_item)
         return self.box_complex(real, imag)
+
+    def coerce(self, space, dtype, w_item):
+        if isinstance(w_item, self.BoxType):
+            return w_item
+        return self.coerce_subtype(space, space.gettypefor(self.BoxType), w_item)
 
     def coerce_subtype(self, space, w_subtype, w_item):
         w_tmpobj = self._coerce(space, w_item)
@@ -939,8 +943,7 @@ class ComplexFloating(Primitive):
         return w_obj
 
     def str_format(self, box):
-        cval = self.for_computation(self.unbox(box))
-        real, imag =cval.real, cval.imag
+        real, imag = self.for_computation(self.unbox(box))
         imag_str = str_format(imag) + 'j'
         
         # (0+2j) => 2j
@@ -952,17 +955,13 @@ class ComplexFloating(Primitive):
         return ''.join(['(', real_str, op, imag_str, ')'])
 
     def for_computation(self, v):   
-        return complex(v[0], v[1])
+        return float(v[0]), float(v[1])
 
     def get_element_size(self):
         return 2 * rffi.sizeof(self._COMPONENTS_T)
 
     @specialize.argtype(1)
     def box(self, value):
-        if isinstance(value, complex):
-            return self.BoxType(
-                rffi.cast(self._COMPONENTS_T, value.real),
-                rffi.cast(self._COMPONENTS_T, value.imag))
         return self.BoxType(
             rffi.cast(self._COMPONENTS_T, value),
             rffi.cast(self._COMPONENTS_T, 0.0))
@@ -995,66 +994,67 @@ class ComplexFloating(Primitive):
         real, imag = self._read(arr.storage, i, offset)
         return self.box_complex(real, imag)
 
-    #@complex_binary_op
-    #def add(self, v1, v2):
-    #    return rcomplex.c_add(v1, v2)
+    @complex_binary_op
+    def add(self, v1, v2):
+        return rcomplex.c_add(v1, v2)
 
-    #@complex_binary_op
-    #def sub(self, v1, v2):
-    #    return rcomplex.c_sub(v1, v2)
+    @complex_binary_op
+    def sub(self, v1, v2):
+        return rcomplex.c_sub(v1, v2)
 
-    #@complex_binary_op
-    #def mul(self, v1, v2):
-    #    return rcomplex.c_mul(v1, v2)
+    @complex_binary_op
+    def mul(self, v1, v2):
+        return rcomplex.c_mul(v1, v2)
     
-    #@complex_binary_op
-    @simple_binary_op
+    @complex_binary_op
     def div(self, v1, v2):
         try:
-            return v1 / v2
+            return rcomplex.c_div(v1, v2)
         except ZeroDivisionError:
-            return complex(rfloat.NAN, rfloat.NAN)
+            return rfloat.NAN, rfloat.NAN
 
-    #@complex_unary_op
-    #def pos(self, v):
-    #    return v
 
-    #@complex_unary_op
-    #def neg(self, v):
-    #    return complex(-v.real, -v.imag)
 
-    #@complex_unary_op
-    #def conj(self, v):
-    #    return complex(v.real, -v.imag)
+    @complex_unary_op
+    def pos(self, v):
+        return v
+
+    @complex_unary_op
+    def neg(self, v):
+        return -v[0], -v[1]
+
+    @complex_unary_op
+    def conj(self, v):
+        return v[0], -v[1]
 
     @raw_unary_op
     def abs(self, v):
-        return abs(v)
+        return rcomplex.c_abs(v[0], v[1])
 
-    #@raw_unary_op
-    #def isnan(self, v):
-    #    '''a complex number is nan if one of the parts is nan'''
-    #    return rfloat.isnan(v[0]) or rfloat.isnan(v[1])
+    @raw_unary_op
+    def isnan(self, v):
+        '''a complex number is nan if one of the parts is nan'''
+        return rfloat.isnan(v[0]) or rfloat.isnan(v[1])
 
-    #@raw_unary_op
-    #def isinf(self, v):
-    #    '''a complex number is inf if one of the parts is inf'''
-    #    return rfloat.isinf(v[0]) or rfloat.isinf(v[1])
+    @raw_unary_op
+    def isinf(self, v):
+        '''a complex number is inf if one of the parts is inf'''
+        return rfloat.isinf(v[0]) or rfloat.isinf(v[1])
 
-    #def _eq(self, v1, v2):
-    #    return v1[0] == v2[0] and v1[1] == v2[1]
+    def _eq(self, v1, v2):
+        return v1[0] == v2[0] and v1[1] == v2[1]
 
-    #@raw_binary_op
-    #def eq(self, v1, v2):
-    #    #compare the parts, so nan == nan is False
-    #    return self._eq(v1, v2)
+    @raw_binary_op
+    def eq(self, v1, v2):
+        #compare the parts, so nan == nan is False
+        return self._eq(v1, v2)
 
-    #@raw_binary_op
-    #def ne(self, v1, v2):
-    #    return not self._eq(v1, v2)
+    @raw_binary_op
+    def ne(self, v1, v2):
+        return not self._eq(v1, v2)
 
     def _lt(self, v1, v2):
-        (r1, i1), (r2, i2) = (v1.real, v1.imag), (v2.real, v2.imag)
+        (r1, i1), (r2, i2) = v1, v2
         if r1 < r2:
             return True
         elif not r1 <= r2:
@@ -1067,7 +1067,7 @@ class ComplexFloating(Primitive):
 
     @raw_binary_op
     def le(self, v1, v2):
-        return self._lt(v1, v2) or v1 == v2 
+        return self._lt(v1, v2) or self._eq(v1, v2) 
 
     @raw_binary_op
     def gt(self, v1, v2):
@@ -1075,8 +1075,8 @@ class ComplexFloating(Primitive):
 
     @raw_binary_op
     def ge(self, v1, v2):
-        return self._lt(v2, v1) or v2 == v1 
-'''
+        return self._lt(v2, v1) or self._eq(v2, v1) 
+
     @raw_binary_op
     def logical_and(self, v1, v2):
         return bool(v1) and bool(v2)
@@ -1113,10 +1113,10 @@ class ComplexFloating(Primitive):
         except ZeroDivisionError:
             return rfloat.NAN, 0
 
-    complex mod does not exist
-    @simple_binary_op
-    def mod(self, v1, v2):
-        return math.fmod(v1, v2)
+    #complex mod does not exist
+    #@simple_binary_op
+    #def mod(self, v1, v2):
+    #    return math.fmod(v1, v2)
 
     @simple_binary_op
     def pow(self, v1, v2):
@@ -1379,8 +1379,6 @@ class ComplexFloating(Primitive):
             return v2 + self.npy_log2_1p(math.pow(2, tmp))
         else:
             return v1 + v2
-'''
-
 
 class Complex64(ComplexFloating, BaseType):
     _attrs_ = ()
