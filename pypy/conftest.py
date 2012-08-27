@@ -24,7 +24,9 @@ def braindead_deindent(self):
     """monkeypatch that wont end up doing stupid in the python tokenizer"""
     text = '\n'.join(self.lines)
     short = py.std.textwrap.dedent(text)
-    return short.splitlines()
+    newsource = py.code.Source()
+    newsource.lines[:] = short.splitlines()
+    return newsource
 
 py.code.Source.deindent = braindead_deindent
 
