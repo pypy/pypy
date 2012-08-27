@@ -13,6 +13,7 @@ import os.path
 
 _CYGWIN = platform == 'cygwin'
 _NCURSES_CURSES = os.path.isfile("/usr/include/ncurses/curses.h") 
+_LIBNCURSES = os.path.isfile("/usr/lib/libncurses.a") 
 
 if _CYGWIN or _NCURSES_CURSES:
     eci = ExternalCompilationInfo(
@@ -22,7 +23,7 @@ if _CYGWIN or _NCURSES_CURSES:
 else:
     eci = ExternalCompilationInfo(
         includes = ['curses.h', 'term.h'],
-        libraries = ['curses'],
+        libraries = ['ncurses' if _LIBNCURSES else 'curses'],
     )
 
 rffi_platform.verify_eci(eci)
