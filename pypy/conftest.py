@@ -19,6 +19,15 @@ rsyncignore = ['_cache']
 #
 option = None
 
+
+def braindead_deindent(self):
+    """monkeypatch that wont end up doing stupid in the python tokenizer"""
+    text = '\n'.join(self.lines)
+    short = py.std.textwrap.dedent(text)
+    return short.splitlines()
+
+py.code.Source.deindent = braindead_deindent
+
 def pytest_report_header():
     return "pytest-%s from %s" %(pytest.__version__, pytest.__file__)
 
