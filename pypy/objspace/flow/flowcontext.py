@@ -334,8 +334,6 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         self.locals_stack_w = [None] * (code.co_nlocals + code.co_stacksize)
         self.valuestackdepth = code.co_nlocals
         self.lastblock = None
-        if space.config.objspace.honor__builtins__:
-            self.builtin = space.builtin.pick_builtin(w_globals)
 
         if func.func_closure is not None:
             cl = [c.cell_contents for c in func.func_closure]
