@@ -20,6 +20,9 @@ __all__ = ['ObjSpace', 'OperationError', 'Wrappable', 'W_Root']
 
 UINT_MAX_32_BITS = r_uint(4294967295)
 
+unpackiterable_driver = jit.JitDriver(name = 'unpackiterable',
+                                      greens = ['tp'],
+                                      reds = ['items', 'w_iterator'])
 
 class W_Root(object):
     """This is the abstract root class of all wrapped objects that live
@@ -223,6 +226,23 @@ class Wrappable(W_Root):
 
     def __spacebind__(self, space):
         return self
+
+class W_InterpIterable(W_Root):
+    def __init__(self, space, w_iterable):
+        self.w_iter = space.iter(w_iterable)
+        self.space = space
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        space = self.space
+        try:
+            return space.next(self.w_iter)
+        except OperationError, e:
+            if not e.match(space, space.w_StopIteration):
+                raise
+            raise StopIteration
 
 class InternalSpaceCache(Cache):
     """A generic cache for an object space.  Arbitrary information can
@@ -831,6 +851,9 @@ class ObjSpace(object):
                                                       expected_length)
             return lst_w[:]     # make the resulting list resizable
 
+    def iteriterable(self, w_iterable):
+        return W_InterpIterable(self, w_iterable)
+
     @jit.dont_look_inside
     def _unpackiterable_unknown_length(self, w_iterator, w_iterable):
         # Unpack a variable-size list of unknown length.
@@ -851,7 +874,11 @@ class ObjSpace(object):
             except MemoryError:
                 items = [] # it might have lied
         #
+        tp = self.type(w_iterator)
         while True:
+            unpackiterable_driver.jit_merge_point(tp=tp,
+                                                  w_iterator=w_iterator,
+                                                  items=items)
             try:
                 w_item = self.next(w_iterator)
             except OperationError, e:

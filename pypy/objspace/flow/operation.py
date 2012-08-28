@@ -228,7 +228,9 @@ Table = [
     ('div_ovf',         div_ovf),
     ('mod_ovf',         mod_ovf),
     ('lshift_ovf',      lshift_ovf),
-    ]
+]
+if hasattr(__builtin__, 'next'):
+    Table.append(('next', __builtin__.next))
 
 def setup():
     # insert all operators

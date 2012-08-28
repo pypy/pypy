@@ -4,7 +4,7 @@ indirection is introduced to make the version tag change less often.
 """
 
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.objspace.std.dictmultiobject import IteratorImplementation
+from pypy.objspace.std.dictmultiobject import create_iterator_classes
 from pypy.objspace.std.dictmultiobject import DictStrategy, _never_equal_to_string
 from pypy.objspace.std.dictmultiobject import ObjectDictStrategy
 from pypy.rlib import jit, rerased
@@ -124,9 +124,6 @@ class ModuleDictStrategy(DictStrategy):
         w_res = self.getdictvalue_no_unwrapping(w_dict, key)
         return unwrap_cell(w_res)
 
-    def iter(self, w_dict):
-        return ModuleDictIteratorImplementation(self.space, self, w_dict)
-
     def w_keys(self, w_dict):
         space = self.space
         l = self.unerase(w_dict.dstorage).keys()
@@ -161,15 +158,15 @@ class ModuleDictStrategy(DictStrategy):
         w_dict.strategy = strategy
         w_dict.dstorage = strategy.erase(d_new)
 
-class ModuleDictIteratorImplementation(IteratorImplementation):
-    def __init__(self, space, strategy, dictimplementation):
-        IteratorImplementation.__init__(
-            self, space, strategy, dictimplementation)
-        dict_w = strategy.unerase(dictimplementation.dstorage)
-        self.iterator = dict_w.iteritems()
+    def getiterkeys(self, w_dict):
+        return self.unerase(w_dict.dstorage).iterkeys()
+    def getitervalues(self, w_dict):
+        return self.unerase(w_dict.dstorage).itervalues()
+    def getiteritems(self, w_dict):
+        return self.unerase(w_dict.dstorage).iteritems()
+    def wrapkey(space, key):
+        return space.wrap(key)
+    def wrapvalue(space, value):
+        return unwrap_cell(value)
 
-    def next_entry(self):
-        for key, cell in self.iterator:
-            return (self.space.wrap(key), unwrap_cell(cell))
-        else:
-            return None, None
+create_iterator_classes(ModuleDictStrategy)
