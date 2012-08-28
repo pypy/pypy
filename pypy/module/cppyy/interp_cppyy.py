@@ -880,22 +880,42 @@ class W_CPPInstance(Wrappable):
             ptrptr = rffi.cast(rffi.VOIDPP, self._rawobject)
             return rffi.cast(capi.C_OBJECT, ptrptr[0])
 
+    def _get_as_builtin(self):
+        try:
+            return self.space.call_method(self.space.wrap(self), "_cppyy_as_builtin")
+        except OperationError, e:
+            if not e.match(self.space, self.space.w_AttributeError):
+                raise
+        return None
+
     def instance__eq__(self, w_other):
-        other = self.space.interp_w(W_CPPInstance, w_other, can_be_None=False)
         # get here if no class-specific overloaded operator is available, try to
         # find a global overload in gbl, in __gnu_cxx (for iterators), or in the
-        # scopes of the argument classes (TODO: implement that last)
-        for name in ["", "__gnu_cxx"]:
-            nss = scope_byname(self.space, name)
-            meth_idx = capi.c_get_global_operator(nss, self.cppclass, other.cppclass, "==")
-            if meth_idx != -1:
-                f = nss._make_cppfunction("operator==", meth_idx)
-                ol = W_CPPOverload(self.space, nss, [f])
-                # TODO: cache this operator
-                return ol.call(self, [self, w_other])
-        
-        # fallback: direct pointer comparison (the class comparison is needed since the
-        # first data member in a struct and the struct have the same address)
+        # scopes of the argument classes (TODO: implement that last option)
+        try:
+            # TODO: expecting w_other to be an W_CPPInstance is too limiting
+            other = self.space.interp_w(W_CPPInstance, w_other, can_be_None=False)
+            for name in ["", "__gnu_cxx"]:
+                nss = scope_byname(self.space, name)
+                meth_idx = capi.c_get_global_operator(nss, self.cppclass, other.cppclass, "==")
+                if meth_idx != -1:
+                    f = nss._make_cppfunction("operator==", meth_idx)
+                    ol = W_CPPOverload(self.space, nss, [f])
+                    # TODO: cache this operator (not done yet, as the above does not
+                    # select all overloads)
+                    return ol.call(self, [self, w_other])
+        except OperationError, e:
+            if not e.match(self.space, self.space.w_TypeError):
+                raise
+
+        # fallback 1: convert the object to a builin equivalent
+        w_as_builtin = self._get_as_builtin()
+        if w_as_builtin is not None:
+            return self.space.eq(w_as_builtin, w_other)
+
+        # fallback 2: direct pointer comparison (the class comparison is needed since
+        # the first data member in a struct and the struct have the same address)
+        other = self.space.interp_w(W_CPPInstance, w_other, can_be_None=False)  # TODO: factor out
         iseq = (self._rawobject == other._rawobject) and (self.cppclass == other.cppclass)
         return self.space.wrap(iseq)
 
@@ -906,6 +926,29 @@ class W_CPPInstance(Wrappable):
         if not self._rawobject or (self.isref and not self.get_rawobject()):
             return self.space.w_False
         return self.space.w_True
+
+    def instance__len__(self):
+        w_as_builtin = self._get_as_builtin()
+        if w_as_builtin is not None:
+            return self.space.len(w_as_builtin)
+        raise OperationError(
+            self.space.w_TypeError,
+            self.space.wrap("'%s' has no length" % self.cppclass.name))
+
+    def instance__cmp__(self, w_other):
+        w_as_builtin = self._get_as_builtin()
+        if w_as_builtin is not None:
+            return self.space.cmp(w_as_builtin, w_other)
+        raise OperationError(
+            self.space.w_AttributeError,
+            self.space.wrap("'%s' has no attribute __cmp__" % self.cppclass.name))
+
+    def instance__repr__(self):
+        w_as_builtin = self._get_as_builtin()
+        if w_as_builtin is not None:
+            return self.space.repr(w_as_builtin)
+        return self.space.wrap("<%s object at 0x%x>" %
+                               (self.cppclass.name, rffi.cast(rffi.ULONG, self.get_rawobject())))
 
     def destruct(self):
         assert isinstance(self, W_CPPInstance)
@@ -926,6 +969,9 @@ W_CPPInstance.typedef = TypeDef(
     __eq__ = interp2app(W_CPPInstance.instance__eq__),
     __ne__ = interp2app(W_CPPInstance.instance__ne__),
     __nonzero__ = interp2app(W_CPPInstance.instance__nonzero__),
+    __len__ = interp2app(W_CPPInstance.instance__len__),
+    __cmp__ = interp2app(W_CPPInstance.instance__cmp__),
+    __repr__ = interp2app(W_CPPInstance.instance__repr__),
     destruct = interp2app(W_CPPInstance.destruct),
 )
 W_CPPInstance.typedef.acceptable_as_base_class = True
