@@ -23,6 +23,12 @@ Improve handling of **kwds greatly, making them virtual sometimes.
 .. branch: improve-rbigint
 Introduce __int128 on systems where it's supported and improve the speed of
 rlib/rbigint.py greatly.
+.. branch: translation-cleanup
+Start to clean up a bit the flow object space.
+.. branch: ffi-backend
+Support CFFI.  http://morepypy.blogspot.ch/2012/08/cffi-release-03.html
+.. branch: speedup-unpackiterable
+
 
 .. "uninteresting" branches that we should just ignore for the whatsnew:
 .. branch: slightly-shorter-c

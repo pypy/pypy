@@ -19,6 +19,10 @@ if _os.name in ("nt", "ce"):
     from _rawffi import FormatError
     from _rawffi import check_HRESULT as _check_HRESULT
 
+    try: from __pypy__ import builtinify
+    except ImportError: builtinify = lambda f: f
+
+    @builtinify
     def CopyComPointer(src, dst):
         from ctypes import c_void_p, cast
         if src:
@@ -27,6 +31,8 @@ if _os.name in ("nt", "ce"):
                 return hr
         dst[0] = cast(src, c_void_p).value
         return 0
+
+    del builtinify
 
     LoadLibrary = dlopen
 

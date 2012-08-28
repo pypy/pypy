@@ -14,6 +14,7 @@ from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.debug import fatalerror
 from pypy.rlib.rstackovf import StackOverflow
 from pypy.translator.simplify import get_functype
+from pypy.translator.backendopt import removenoops
 from pypy.translator.unsimplify import call_final_function
 
 from pypy.jit.metainterp import history, pyjitpl, gc, memmgr
@@ -260,6 +261,10 @@ class WarmRunnerDesc(object):
         graph = copygraph(graph)
         [jmpp] = find_jit_merge_points([graph])
         graph.startblock = support.split_before_jit_merge_point(*jmpp)
+        # XXX this is incredibly obscure, but this is sometiems necessary
+        #     so we don't explode in checkgraph. for reasons unknown this
+        #     is not contanied within simplify_graph
+        removenoops.remove_same_as(graph)
         # a crash in the following checkgraph() means that you forgot
         # to list some variable in greens=[] or reds=[] in JitDriver,
         # or that a jit_merge_point() takes a constant as an argument.

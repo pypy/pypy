@@ -1,7 +1,19 @@
 from __future__ import with_statement
 """
 This file is OBSCURE.  Really.  The purpose is to avoid copying and changing
-'test_c.py' from cffi/c/.
+'test_c.py' from cffi/c/ in the original CFFI repository:
+    https://bitbucket.org/cffi/cffi
+
+Adding a test here involves:
+1. add a test to cffi/c/test.py
+   - if you need a C function to call, add it into _cffi_backend.c
+     as a testfuncNN().
+2. have it pass when you run 'py.test test_c.py' in cffi
+3. check in and (if you can) push the changes
+4. copy test_c.py into _backend_test.py here, killing the few lines of header
+   - if you added a C function, it goes into _test_lib.c here
+   - if you could complete step 3, try running 'py.test test_file.py' here
+5. make the test pass in pypy ('py.test test_c.py')
 """
 import py, sys, ctypes
 if sys.version_info < (2, 6):

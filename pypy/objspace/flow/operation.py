@@ -228,7 +228,9 @@ Table = [
     ('div_ovf',         div_ovf),
     ('mod_ovf',         mod_ovf),
     ('lshift_ovf',      lshift_ovf),
-    ]
+]
+if hasattr(__builtin__, 'next'):
+    Table.append(('next', __builtin__.next))
 
 def setup():
     # insert all operators
@@ -236,7 +238,6 @@ def setup():
         name = line[0]
         if hasattr(operator, name):
             Table.append((name, getattr(operator, name)))
-    Table.append(('next', __builtin__.next))
     # build the dictionaries
     for name, func in Table:
         if name not in FunctionByName:
