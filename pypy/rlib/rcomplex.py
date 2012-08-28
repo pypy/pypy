@@ -1,5 +1,6 @@
 import math
 from math import copysign, fabs, pi, e
+from pypy.rlib.rfloat import copysign, asinh, log1p, isinf, isnan
 from pypy.rlib.constant import DBL_MIN, CM_SCALE_UP, CM_SCALE_DOWN
 from pypy.rlib.constant import CM_LARGE_DOUBLE, DBL_MANT_DIG
 from pypy.rlib.constant import M_LN2, M_LN10
@@ -116,54 +117,54 @@ def c_sqrt(x, y):
     x and y by a sufficiently large power of 2 to ensure that x and y
     are normal.
     '''
-
     if not isfinite(x) or not isfinite(y):
         return sqrt_special_values[special_type(x)][special_type(y)]
 
     if x == 0. and y == 0.:
         return (0., y)
 
-    ar = fabs(x)
-    ai = fabs(y)
+    ax = fabs(x)
+    ay = fabs(y)
 
-    if ar < DBL_MIN and ai < DBL_MIN and (ar > 0. or ai > 0.):
-        # here we catch cases where hypot(ar, ai) is subnormal
-        ar = math.ldexp(ar, CM_SCALE_UP)
-        ai1= math.ldexp(ai, CM_SCALE_UP)
-        s = math.ldexp(math.sqrt(ar + math.hypot(ar, ai1)),
+    if ax < DBL_MIN and ay < DBL_MIN and (ax > 0. or ay > 0.):
+        # here we catch cases where hypot(ax, ay) is subnormal
+        ax = math.ldexp(ax, CM_SCALE_UP)
+        ay1= math.ldexp(ay, CM_SCALE_UP)
+        s = math.ldexp(math.sqrt(ax + math.hypot(ax, ay1)),
                        CM_SCALE_DOWN)
     else:
-        ar /= 8.
-        s = 2.*math.sqrt(ar + math.hypot(ar, ai/8.))
+        ax /= 8.
+        s = 2.*math.sqrt(ax + math.hypot(ax, ay/8.))
 
-    d = ai/(2.*s)
+    d = ay/(2.*s)
 
     if x >= 0.:
-        return (s, copysign(d, i))
+        return (s, copysign(d, y))
     else:
-        return (d, copysign(s, i))
+        return (d, copysign(s, y))
 
 
-def c_acos(r, i):
-    if not isfinite(r) or not isfinite(i):
-        return acos_special_values[special_type(r)][special_type(i)]
 
-    if fabs(r) > CM_LARGE_DOUBLE or fabs(i) > CM_LARGE_DOUBLE:
+def c_acos(x, y):
+    if not isfinite(x) or not isfinite(y):
+        return acos_special_values[special_type(x)][special_type(y)]
+
+    if fabs(x) > CM_LARGE_DOUBLE or fabs(y) > CM_LARGE_DOUBLE:
         # avoid unnecessary overflow for large arguments
-        real = math.atan2(fabs(i), r)
+        real = math.atan2(fabs(y), x)
         # split into cases to make sure that the branch cut has the
         # correct continuity on systems with unsigned zeros
-        if r < 0.:
-            imag = -copysign(math.log(math.hypot(r/2., i/2.)) +
-                             M_LN2*2., i)
+        if x < 0.:
+            imag = -copysign(math.log(math.hypot(x/2., y/2.)) +
+                             M_LN2*2., y)
         else:
-            imag = copysign(math.log(math.hypot(r/2., i/2.)) +
-                            M_LN2*2., -i)
+            imag = copysign(math.log(math.hypot(x/2., y/2.)) +
+                            M_LN2*2., -y)
     else:
-        s1r, s1i = c_sqrt(1.-r, -i)
-        s2r, s2i = c_sqrt(1.+r, i)
-        real = 2.*math.atan2(s1r, s2r)
-        imag = asinh(s2r*s1i - s2i*s1r)
+        s1x, s1y = c_sqrt(1.-x, -y)
+        s2x, s2y = c_sqrt(1.+x, y)
+        real = 2.*math.atan2(s1x, s2x)
+        imag = asinh(s2x*s1y - s2y*s1x)
     return (real, imag)
 
 
