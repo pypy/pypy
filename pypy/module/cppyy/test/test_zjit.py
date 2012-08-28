@@ -21,27 +21,6 @@ def _opaque_direct_ptradd(ptr, offset):
     return rffi.cast(capi.C_OBJECT, lltype.direct_ptradd(address, offset))
 capi.direct_ptradd = _opaque_direct_ptradd
 
-# change the runner to use nargs in the loop, rather than rely on atypes
-# bounding, as atypes is actually of unknown size
-from pypy.jit.backend.llgraph import runner
-def _ranged_calldescrof_dynamic(self, cif_description, extrainfo):
-    from pypy.jit.backend.llsupport.ffisupport import get_ffi_type_kind
-    from pypy.jit.backend.llsupport.ffisupport import UnsupportedKind
-    arg_types = []
-    try:
-        for itp in range(cif_description.nargs):
-            arg = cif_description.atypes[itp]
-            kind = get_ffi_type_kind(self, arg)
-            if kind != runner.history.VOID:
-                arg_types.append(kind)
-        reskind = get_ffi_type_kind(self, cif_description.rtype)
-    except UnsupportedKind:
-        return None
-    return self.getdescr(0, reskind, extrainfo=extrainfo,
-                         arg_types=''.join(arg_types),
-                         ffi_flags=cif_description.abi)
-runner.LLtypeCPU.calldescrof_dynamic = _ranged_calldescrof_dynamic
-
 currpath = py.path.local(__file__).dirpath()
 test_dct = str(currpath.join("example01Dict.so"))
 
