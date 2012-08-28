@@ -526,9 +526,9 @@ def c_abs(r, i):
     if not isfinite(r) or not isfinite(i):
         # C99 rules: if either the real or the imaginary part is an
         # infinity, return infinity, even if the other part is a NaN.
-        if not isfinite(r):
+        if isinf(r):
             return INF
-        if not isfinite(i):
+        if isinf(i):
             return INF
 
         # either the real or imaginary part is a NaN,
