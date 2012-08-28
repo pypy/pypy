@@ -6,23 +6,23 @@ from pypy.tool.sourcetools import func_with_new_name
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import NoneNotWrapped
 from pypy.module.cmath import names_and_docstrings
-from pypy.module.cmath.constant import DBL_MIN, CM_SCALE_UP, CM_SCALE_DOWN
-from pypy.module.cmath.constant import CM_LARGE_DOUBLE, DBL_MANT_DIG
-from pypy.module.cmath.constant import M_LN2, M_LN10
-from pypy.module.cmath.constant import CM_SQRT_LARGE_DOUBLE, CM_SQRT_DBL_MIN
-from pypy.module.cmath.constant import CM_LOG_LARGE_DOUBLE
-from pypy.module.cmath.special_value import isfinite, special_type, INF, NAN
-from pypy.module.cmath.special_value import sqrt_special_values
-from pypy.module.cmath.special_value import acos_special_values
-from pypy.module.cmath.special_value import acosh_special_values
-from pypy.module.cmath.special_value import asinh_special_values
-from pypy.module.cmath.special_value import atanh_special_values
-from pypy.module.cmath.special_value import log_special_values
-from pypy.module.cmath.special_value import exp_special_values
-from pypy.module.cmath.special_value import cosh_special_values
-from pypy.module.cmath.special_value import sinh_special_values
-from pypy.module.cmath.special_value import tanh_special_values
-from pypy.module.cmath.special_value import rect_special_values
+from pypy.rlib.constant import DBL_MIN, CM_SCALE_UP, CM_SCALE_DOWN
+from pypy.rlib.constant import CM_LARGE_DOUBLE, DBL_MANT_DIG
+from pypy.rlib.constant import M_LN2, M_LN10
+from pypy.rlib.constant import CM_SQRT_LARGE_DOUBLE, CM_SQRT_DBL_MIN
+from pypy.rlib.constant import CM_LOG_LARGE_DOUBLE
+from pypy.rlib.special_value import isfinite, special_type, INF, NAN
+from pypy.rlib.special_value import sqrt_special_values
+from pypy.rlib.special_value import acos_special_values
+from pypy.rlib.special_value import acosh_special_values
+from pypy.rlib.special_value import asinh_special_values
+from pypy.rlib.special_value import atanh_special_values
+from pypy.rlib.special_value import log_special_values
+from pypy.rlib.special_value import exp_special_values
+from pypy.rlib.special_value import cosh_special_values
+from pypy.rlib.special_value import sinh_special_values
+from pypy.rlib.special_value import tanh_special_values
+from pypy.rlib.special_value import rect_special_values
 
 pi = math.pi
 e  = math.e

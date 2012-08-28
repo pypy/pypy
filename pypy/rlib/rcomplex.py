@@ -1,9 +1,22 @@
 import math
-from math import copysign, fabs
-from pypy.module.cmath.special_value import (isfinite, sqrt_special_values,
-        cosh_special_values, sinh_special_values, exp_special_values,
-        special_type, )
-from pypy.rlib.rfloat import INFINITE as INF, NAN, isinf, DBL_MIN
+from math import copysign, fabs, pi, e
+from pypy.rlib.constant import DBL_MIN, CM_SCALE_UP, CM_SCALE_DOWN
+from pypy.rlib.constant import CM_LARGE_DOUBLE, DBL_MANT_DIG
+from pypy.rlib.constant import M_LN2, M_LN10
+from pypy.rlib.constant import CM_SQRT_LARGE_DOUBLE, CM_SQRT_DBL_MIN
+from pypy.rlib.constant import CM_LOG_LARGE_DOUBLE
+from pypy.rlib.special_value import isfinite, special_type, INF, NAN
+from pypy.rlib.special_value import sqrt_special_values
+from pypy.rlib.special_value import acos_special_values
+from pypy.rlib.special_value import acosh_special_values
+from pypy.rlib.special_value import asinh_special_values
+from pypy.rlib.special_value import atanh_special_values
+from pypy.rlib.special_value import log_special_values
+from pypy.rlib.special_value import exp_special_values
+from pypy.rlib.special_value import cosh_special_values
+from pypy.rlib.special_value import sinh_special_values
+from pypy.rlib.special_value import tanh_special_values
+from pypy.rlib.special_value import rect_special_values
 
 #binary
 
