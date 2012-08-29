@@ -326,13 +326,11 @@ class StreamHolder(object):
             try:
                 space.call_method(w_iobase, 'flush')
             except OperationError, e:
-                # if it's an IOError or ValueError, ignore it (ValueError is
-                # raised if by chance we are trying to flush a file which has
-                # already been closed)
-                if not (e.match(space, space.w_IOError) or
-                        e.match(space, space.w_ValueError)):
-                    raise
-        
+                # Silencing all errors is bad, but getting randomly
+                # interrupted here is equally as bad, and potentially
+                # more frequent (because of shutdown issues).
+                pass 
+
 
 class AutoFlusher(object):
     

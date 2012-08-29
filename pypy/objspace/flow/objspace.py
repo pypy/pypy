@@ -5,13 +5,12 @@ import operator
 import types
 from pypy.tool import error
 from pypy.interpreter.baseobjspace import ObjSpace, Wrappable
-from pypy.interpreter.pycode import PyCode, cpython_code_signature
 from pypy.interpreter.module import Module
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.astcompiler.consts import CO_GENERATOR
 from pypy.interpreter import pyframe, argument
 from pypy.objspace.flow.model import *
-from pypy.objspace.flow import flowcontext, operation, specialcase
+from pypy.objspace.flow import flowcontext, operation
+from pypy.objspace.flow.specialcase import SPECIAL_CASES
 from pypy.rlib.unroll import unrolling_iterable, _unroller
 from pypy.rlib import rstackovf, rarithmetic
 from pypy.rlib.rarithmetic import is_valid_int
@@ -76,7 +75,7 @@ class FlowObjSpace(ObjSpace):
         for exc in [NameError, UnboundLocalError]:
             clsname = exc.__name__
             setattr(self, 'w_'+clsname, None)
-        self.specialcases = {}
+        self.specialcases = SPECIAL_CASES.copy()
         #self.make_builtins()
         #self.make_sys()
         # w_str is needed because cmp_exc_match of frames checks against it,
@@ -162,7 +161,7 @@ class FlowObjSpace(ObjSpace):
             if type(val) is not str:
                 raise TypeError("expected string: " + repr(w_obj))
             return val
-        return self.unwrap(w_obj)                                
+        return self.unwrap(w_obj)
 
     def float_w(self, w_obj):
         if isinstance(w_obj, Constant):
@@ -220,10 +219,6 @@ class FlowObjSpace(ObjSpace):
         # because it is done each time a FlowExecutionContext is built
         return None
 
-    def setup_executioncontext(self, ec):
-        self.executioncontext = ec
-        specialcase.setup(self)
-
     def exception_match(self, w_exc_type, w_check_class):
         try:
             check_class = self.unwrap(w_check_class)
@@ -260,36 +255,11 @@ class FlowObjSpace(ObjSpace):
         """
         if func.func_doc and func.func_doc.lstrip().startswith('NOT_RPYTHON'):
             raise Exception, "%r is tagged as NOT_RPYTHON" % (func,)
-        code = func.func_code
-        is_generator = bool(code.co_flags & CO_GENERATOR)
-        code = PyCode._from_code(self, code)
-        if func.func_closure is None:
-            cl = None
-        else:
-            cl = [extract_cell_content(c) for c in func.func_closure]
-        # CallableFactory.pycall may add class_ to functions that are methods
-        name = func.func_name
-        class_ = getattr(func, 'class_', None)
-        if class_ is not None:
-            name = '%s.%s' % (class_.__name__, name)
-        for c in "<>&!":
-            name = name.replace(c, '_')
-        class outerfunc: # hack
-            closure = cl
-        ec = flowcontext.FlowExecutionContext(self, code, func.func_globals,
-                                              constargs, outerfunc, name,
-                                              is_generator)
-        graph = ec.graph
-        graph.func = func
-        # attach a signature and defaults to the graph
-        # so that it becomes even more interchangeable with the function
-        # itself
-        graph.signature = cpython_code_signature(code)
-        graph.defaults = func.func_defaults or ()
-        self.setup_executioncontext(ec)
+        ec = flowcontext.FlowExecutionContext(self)
+        self.executioncontext = ec
 
         try:
-            ec.build_flow()
+            ec.build_flow(func, constargs)
         except error.FlowingError, a:
             # attach additional source info to AnnotatorError
             _, _, tb = sys.exc_info()
@@ -297,12 +267,12 @@ class FlowObjSpace(ObjSpace):
                                                  str(a))
             e = error.FlowingError(formated)
             raise error.FlowingError, e, tb
+
+        graph = ec.graph
         checkgraph(graph)
-        #
-        if is_generator and tweak_for_generator:
+        if ec.is_generator and tweak_for_generator:
             from pypy.translator.generator import tweak_generator_graph
             tweak_generator_graph(graph)
-        #
         return graph
 
     def fixedview(self, w_tuple, expected_length=None):
@@ -325,7 +295,7 @@ class FlowObjSpace(ObjSpace):
                 e = OperationError(self.w_ValueError, self.w_None)
                 e.normalize_exception(self)
                 raise e
-            return [self.do_operation('getitem', w_iterable, self.wrap(i)) 
+            return [self.do_operation('getitem', w_iterable, self.wrap(i))
                         for i in range(expected_length)]
         return ObjSpace.unpackiterable(self, w_iterable, expected_length)
 
@@ -391,6 +361,11 @@ class FlowObjSpace(ObjSpace):
             return w_item
 
     def setitem(self, w_obj, w_key, w_val):
+        # protect us from globals write access
+        ec = self.getexecutioncontext()
+        if ec and w_obj is ec.frame.w_globals:
+            raise SyntaxError("attempt to modify global attribute %r in %r"
+                            % (w_key, ec.graph.func))
         if self.concrete_mode:
             try:
                 obj = self.unwrap_for_computation(w_obj)
@@ -400,8 +375,37 @@ class FlowObjSpace(ObjSpace):
                 return self.w_None
             except UnwrapException:
                 pass
-        return self.do_operation_with_implicit_exceptions('setitem', w_obj, 
+        return self.do_operation_with_implicit_exceptions('setitem', w_obj,
                                                           w_key, w_val)
+
+    def getattr(self, w_obj, w_name):
+        # handling special things like sys
+        # unfortunately this will never vanish with a unique import logic :-(
+        if w_obj in self.not_really_const:
+            const_w = self.not_really_const[w_obj]
+            if w_name not in const_w:
+                return self.do_operation_with_implicit_exceptions('getattr',
+                                                                w_obj, w_name)
+        try:
+            obj = self.unwrap_for_computation(w_obj)
+            name = self.unwrap_for_computation(w_name)
+        except UnwrapException:
+            pass
+        else:
+            try:
+                result = getattr(obj, name)
+            except Exception, e:
+                etype = e.__class__
+                msg = "generated by a constant operation:\n\t%s%r" % (
+                    'getattr', (obj, name))
+                raise operation.OperationThatShouldNotBePropagatedError(
+                    self.wrap(etype), self.wrap(msg))
+            try:
+                return self.wrap(result)
+            except WrapException:
+                pass
+        return self.do_operation_with_implicit_exceptions('getattr',
+                w_obj, w_name)
 
     def call_function(self, w_func, *args_w):
         nargs = len(args_w)
@@ -487,28 +491,3 @@ class FlowObjSpace(ObjSpace):
                            "flow graph construction")
     w_RuntimeError = prebuilt_recursion_error = property(w_RuntimeError)
 operation.add_operations(FlowObjSpace)
-
-
-def extract_cell_content(c):
-    """Get the value contained in a CPython 'cell', as read through
-    the func_closure of a function object."""
-    try:
-        # This is simple on 2.5
-        return getattr(c, "cell_contents")
-    except AttributeError:
-        class X(object):
-            def __cmp__(self, other):
-                self.other = other
-                return 0
-            def __eq__(self, other):
-                self.other = other
-                return True
-        x = X()
-        x_cell, = (lambda: x).func_closure
-        x_cell == c
-        try:
-            return x.other    # crashes if the cell is actually empty
-        except AttributeError:
-            raise ValueError("empty cell")
-# ______________________________________________________________________
-# End of objspace.py

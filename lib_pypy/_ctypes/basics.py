@@ -3,6 +3,9 @@ import _rawffi
 import _ffi
 import sys
 
+try: from __pypy__ import builtinify
+except ImportError: builtinify = lambda f: f
+
 keepalive_key = str # XXX fix this when provided with test
 
 def ensure_objects(where):
@@ -59,7 +62,8 @@ class _CDataMeta(type):
         'resbuffer' is a _rawffi array of length 1 containing the value,
         and this returns a general Python object that corresponds.
         """
-        res = self.__new__(self)
+        res = object.__new__(self)
+        res.__class__ = self
         res.__dict__['_buffer'] = resbuffer
         res.__dict__['_base'] = base
         res.__dict__['_index'] = index
@@ -144,6 +148,7 @@ class _CData(object):
     _b_base_ = property(_get_b_base)
     _b_needsfree_ = False
 
+@builtinify
 def sizeof(tp):
     if not isinstance(tp, _CDataMeta):
         if isinstance(tp, _CData):
@@ -153,6 +158,7 @@ def sizeof(tp):
                 type(tp).__name__,))
     return tp._sizeofinstances()
 
+@builtinify
 def alignment(tp):
     if not isinstance(tp, _CDataMeta):
         if isinstance(tp, _CData):
@@ -162,6 +168,7 @@ def alignment(tp):
                 type(tp).__name__,))
     return tp._alignmentofinstances()
 
+@builtinify
 def byref(cdata):
     # "pointer" is imported at the end of this module to avoid circular
     # imports
@@ -175,6 +182,7 @@ def cdata_from_address(self, address):
     instance._buffer = self._ffiarray.fromaddress(address, lgt)
     return instance
 
+@builtinify
 def addressof(tp):
     return tp._buffer.buffer
 

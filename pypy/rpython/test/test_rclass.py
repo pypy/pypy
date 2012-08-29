@@ -958,6 +958,16 @@ class BaseTestRclass(BaseRtypingTest):
                 found.append(op.args[1].value)
         assert found == ['mutate_c']
 
+    def test_calling_object_init(self):
+        class A(object):
+            pass
+        class B(A):
+            def __init__(self):
+                A.__init__(self)
+        def f():
+            B()
+        self.gengraph(f, [])
+
 
 class TestLLtype(BaseTestRclass, LLRtypeMixin):
 

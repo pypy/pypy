@@ -374,11 +374,14 @@ def _sizeof_none(TYPE):
     return ItemOffset(TYPE)
 _sizeof_none._annspecialcase_ = 'specialize:memo'
 
+def _internal_array_field(TYPE):
+    return TYPE._arrayfld, TYPE._flds[TYPE._arrayfld]
+_internal_array_field._annspecialcase_ = 'specialize:memo'
+
 def _sizeof_int(TYPE, n):
-    "NOT_RPYTHON"
     if isinstance(TYPE, lltype.Struct):
-        return FieldOffset(TYPE, TYPE._arrayfld) + \
-               itemoffsetof(TYPE._flds[TYPE._arrayfld], n)
+        fldname, ARRAY = _internal_array_field(TYPE)
+        return offsetof(TYPE, fldname) + sizeof(ARRAY, n)
     else:
         raise Exception("don't know how to take the size of a %r"%TYPE)
 
@@ -537,6 +540,14 @@ class AddressAsInt(Symbolic):
         return self.adr != cast_int_to_adr(other)
     def __nonzero__(self):
         return bool(self.adr)
+    def __add__(self, ofs):
+        if (isinstance(ofs, int) and
+                getattr(self.adr.ptr._TYPE.TO, 'OF', None) == lltype.Char):
+            return AddressAsInt(self.adr + ItemOffset(lltype.Char, ofs))
+        if isinstance(ofs, FieldOffset) and ofs.TYPE is self.adr.ptr._TYPE.TO:
+            fieldadr = getattr(self.adr.ptr, ofs.fldname)
+            return AddressAsInt(cast_ptr_to_adr(fieldadr))
+        return NotImplemented
     def __repr__(self):
         try:
             return '<AddressAsInt %s>' % (self.adr.ptr,)
