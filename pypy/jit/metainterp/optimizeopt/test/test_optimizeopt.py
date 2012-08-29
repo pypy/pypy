@@ -7932,6 +7932,17 @@ class OptimizeOptTest(BaseTestWithUnroll):
 
 
 
+    def test_only_strengthen_guard_if_class_matches(self):
+        ops = """
+        [p1]
+        guard_class(p1, ConstClass(node_vtable2)) []
+        guard_value(p1, ConstPtr(myptr)) []
+        jump(p1)
+        """
+        self.raises(InvalidLoop, self.optimize_loop,
+                       ops, ops)
+
+
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass
 

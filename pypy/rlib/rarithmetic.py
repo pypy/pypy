@@ -87,6 +87,10 @@ while (1 << LONG_BIT_SHIFT) != LONG_BIT:
     LONG_BIT_SHIFT += 1
     assert LONG_BIT_SHIFT < 99, "LONG_BIT_SHIFT value not found?"
 
+LONGLONGLONG_BIT  = 128
+LONGLONGLONG_MASK = (2**LONGLONGLONG_BIT)-1
+LONGLONGLONG_TEST = 2**(LONGLONGLONG_BIT-1)
+
 """
 int is no longer necessarily the same size as the target int.
 We therefore can no longer use the int type as it is, but need
@@ -121,6 +125,11 @@ def longlongmask(n):
     if n >= LONGLONG_TEST:
         n -= 2*LONGLONG_TEST
     return r_longlong(n)
+
+def longlonglongmask(n):
+    # Assume longlonglong doesn't overflow. This is perfectly fine for rbigint.
+    # We deal directly with overflow there anyway.
+    return r_longlonglong(n)
 
 def widen(n):
     from pypy.rpython.lltypesystem import lltype
@@ -475,6 +484,7 @@ r_uint = build_int('r_uint', False, LONG_BIT)
 r_longlong = build_int('r_longlong', True, 64)
 r_ulonglong = build_int('r_ulonglong', False, 64)
 
+r_longlonglong = build_int('r_longlonglong', True, 128)
 longlongmax = r_longlong(LONGLONG_TEST - 1)
 
 if r_longlong is not r_int:

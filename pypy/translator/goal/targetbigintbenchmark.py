@@ -2,7 +2,7 @@
 
 import os, sys
 from time import time
-from pypy.rlib.rbigint import rbigint, _k_mul, _tc_mul
+from pypy.rlib.rbigint import rbigint, _k_mul
 
 # __________  Entry point  __________
 
