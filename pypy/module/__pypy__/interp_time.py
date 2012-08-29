@@ -1,5 +1,5 @@
 from __future__ import with_statement
-import os
+import sys
 
 from pypy.interpreter.error import exception_from_errno
 from pypy.interpreter.gateway import unwrap_spec
@@ -7,10 +7,11 @@ from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rpython.tool import rffi_platform
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
-if os.name == 'nt':
-    libraries = []
-else:
+if sys.platform == 'linux2':
     libraries = ["rt"]
+else:
+    libraries = []
+
 
 class CConfig:
     _compilation_info_ = ExternalCompilationInfo(

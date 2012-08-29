@@ -77,4 +77,14 @@ public:
 
 void fglobal(int, double, char);
 
+namespace nested1 {
+    class A {};
+    namespace nested2 {
+        class A {};
+        namespace nested3 {
+            class A {};
+        } // namespace nested3
+    } // namespace nested2
+} // namespace nested1
+
 } // namespace fragile

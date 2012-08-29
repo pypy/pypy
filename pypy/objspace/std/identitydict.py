@@ -5,8 +5,7 @@ from pypy.rlib import rerased
 from pypy.rlib.debug import mark_dict_non_null
 from pypy.objspace.std.dictmultiobject import (AbstractTypedStrategy,
                                                DictStrategy,
-                                               IteratorImplementation,
-                                               _UnwrappedIteratorMixin)
+                                               create_iterator_classes)
 
 
 # this strategy is selected by EmptyDictStrategy.switch_to_correct_strategy
@@ -77,12 +76,7 @@ class IdentityDictStrategy(AbstractTypedStrategy, DictStrategy):
     def _never_equal_to(self, w_lookup_type):
         return False
 
-    def iter(self, w_dict):
-        return IdentityDictIteratorImplementation(self.space, self, w_dict)
-
     def w_keys(self, w_dict):
         return self.space.newlist(self.unerase(w_dict.dstorage).keys())
 
-
-class IdentityDictIteratorImplementation(_UnwrappedIteratorMixin, IteratorImplementation):
-    pass
+create_iterator_classes(IdentityDictStrategy)

@@ -47,7 +47,7 @@ class Entry_ootype_string(ExtRegistryEntry):
     _type_ = ootype._string
 
     def compute_annotation(self):
-        return annmodel.SomeOOInstance(ootype=ootype.String)
+        return annmodel.SomeOOInstance(ootype=ootype.typeOf(self.instance))
 
 
 class Entry_ooparse_int(ExtRegistryEntry):

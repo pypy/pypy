@@ -1235,7 +1235,11 @@ def unicode_encode_unicode_escape(s, size, errors, errorhandler=None, quotes=Fal
             pos += 1
             continue
 
-        if MAXUNICODE < 65536 and 0xD800 <= oc < 0xDC00 and pos + 1 < size:
+        # The following logic is enabled only if MAXUNICODE == 0xffff, or
+        # for testing on top of a host CPython where sys.maxunicode == 0xffff
+        if ((MAXUNICODE < 65536 or
+                (not we_are_translated() and sys.maxunicode < 65536))
+            and 0xD800 <= oc < 0xDC00 and pos + 1 < size):
             # Map UTF-16 surrogate pairs to Unicode \UXXXXXXXX escapes
             pos += 1
             oc2 = ord(s[pos])

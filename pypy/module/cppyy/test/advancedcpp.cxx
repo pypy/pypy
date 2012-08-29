@@ -2,11 +2,20 @@
 
 
 // for testing of default arguments
-defaulter::defaulter(int a, int b, int c ) {
-   m_a = a;
-   m_b = b;
-   m_c = c;
+#define IMPLEMENT_DEFAULTER_CLASS(type, tname)                               \
+tname##_defaulter::tname##_defaulter(type a, type b, type c) {               \
+   m_a = a; m_b = b; m_c = c;                                                \
 }
+IMPLEMENT_DEFAULTER_CLASS(short, short)
+IMPLEMENT_DEFAULTER_CLASS(unsigned short, ushort)
+IMPLEMENT_DEFAULTER_CLASS(int, int)
+IMPLEMENT_DEFAULTER_CLASS(unsigned, uint)
+IMPLEMENT_DEFAULTER_CLASS(long, long)
+IMPLEMENT_DEFAULTER_CLASS(unsigned long, ulong)
+IMPLEMENT_DEFAULTER_CLASS(long long, llong)
+IMPLEMENT_DEFAULTER_CLASS(unsigned long long, ullong)
+IMPLEMENT_DEFAULTER_CLASS(float, float)
+IMPLEMENT_DEFAULTER_CLASS(double, double)
 
 
 // for esoteric inheritance testing

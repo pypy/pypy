@@ -4,7 +4,7 @@ from pypy.annotation import model as annmodel
 from pypy.rpython.error import TyperError
 from pypy.rlib.objectmodel import malloc_zero_filled, we_are_translated
 from pypy.rlib.objectmodel import _hash_string, enforceargs
-from pypy.rlib.objectmodel import keepalive_until_here
+from pypy.rlib.objectmodel import keepalive_until_here, specialize
 from pypy.rlib.debug import ll_assert
 from pypy.rlib import jit
 from pypy.rlib.rarithmetic import ovfcheck
@@ -174,7 +174,7 @@ class UnicodeRepr(BaseLLStringRepr, AbstractUnicodeRepr):
         if s:
             return s
         else:
-            return self.convert_const(u'None')
+            return self.ll.ll_constant_unicode(u'None')
 
     @jit.elidable
     def ll_encode_latin1(self, s):
@@ -963,9 +963,13 @@ class LLHelpers(AbstractLLHelpers):
     def ll_build_finish(builder):
         return LLHelpers.ll_join_strs(len(builder), builder)
 
+    @specialize.memo()
     def ll_constant(s):
         return string_repr.convert_const(s)
-    ll_constant._annspecialcase_ = 'specialize:memo'
+
+    @specialize.memo()
+    def ll_constant_unicode(s):
+        return unicode_repr.convert_const(s)
 
     def do_stringformat(cls, hop, sourcevarsrepr):
         s_str = hop.args_s[0]

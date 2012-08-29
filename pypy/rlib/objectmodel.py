@@ -108,7 +108,7 @@ class _Specialize(object):
 
 specialize = _Specialize()
 
-def enforceargs(*types, **kwds):
+def enforceargs(*types_, **kwds):
     """ Decorate a function with forcing of RPython-level types on arguments.
     None means no enforcing.
 
@@ -117,49 +117,77 @@ def enforceargs(*types, **kwds):
     typechecking by passing ``typecheck=False`` to @enforceargs.
     """
     typecheck = kwds.pop('typecheck', True)
-    if kwds:
-        raise TypeError, 'got an unexpected keyword argument: %s' % kwds.keys()
+    if types_ and kwds:
+        raise TypeError, 'Cannot mix positional arguments and keywords'
+
     if not typecheck:
         def decorator(f):
-            f._annenforceargs_ = types
+            f._annenforceargs_ = types_
             return f
         return decorator
     #
-    from pypy.annotation.signature import annotationoftype
-    from pypy.annotation.model import SomeObject
     def decorator(f):
         def get_annotation(t):
+            from pypy.annotation.signature import annotation
+            from pypy.annotation.model import SomeObject, SomeStringOrUnicode
             if isinstance(t, SomeObject):
                 return t
-            return annotationoftype(t)
+            s_result = annotation(t)
+            if isinstance(s_result, SomeStringOrUnicode):
+                return s_result.__class__(can_be_None=True)
+            return s_result
+        def get_type_descr_of_argument(arg):
+            # we don't want to check *all* the items in list/dict: we assume
+            # they are already homogeneous, so we only check the first
+            # item. The case of empty list/dict is handled inside typecheck()
+            if isinstance(arg, list):
+                item = arg[0]
+                return [get_type_descr_of_argument(item)]
+            elif isinstance(arg, dict):
+                key, value = next(arg.iteritems())
+                return {get_type_descr_of_argument(key): get_type_descr_of_argument(value)}
+            else:
+                return type(arg)
         def typecheck(*args):
+            from pypy.annotation.model import SomeList, SomeDict
             for i, (expected_type, arg) in enumerate(zip(types, args)):
                 if expected_type is None:
                     continue
                 s_expected = get_annotation(expected_type)
-                s_argtype = get_annotation(type(arg))
+                # special case: if we expect a list or dict and the argument
+                # is an empty list/dict, the typecheck always pass
+                if isinstance(s_expected, SomeList) and arg == []:
+                    continue
+                if isinstance(s_expected, SomeDict) and arg == {}:
+                    continue
+                #
+                s_argtype = get_annotation(get_type_descr_of_argument(arg))
                 if not s_expected.contains(s_argtype):
-                    msg = "%s argument number %d must be of type %s" % (
-                        f.func_name, i+1, expected_type)
+                    msg = "%s argument %r must be of type %s" % (
+                        f.func_name, srcargs[i], expected_type)
                     raise TypeError, msg
         #
         # we cannot simply wrap the function using *args, **kwds, because it's
         # not RPython. Instead, we generate a function with exactly the same
         # argument list
-        argspec = inspect.getargspec(f)
-        assert len(argspec.args) == len(types), (
+        srcargs, srcvarargs, srckeywords, defaults = inspect.getargspec(f)
+        if kwds:
+            types = tuple([kwds.get(arg) for arg in srcargs])
+        else:
+            types = types_
+        assert len(srcargs) == len(types), (
             'not enough types provided: expected %d, got %d' %
-            (len(types), len(argspec.args)))
-        assert not argspec.varargs, '*args not supported by enforceargs'
-        assert not argspec.keywords, '**kwargs not supported by enforceargs'
+            (len(types), len(srcargs)))
+        assert not srcvarargs, '*args not supported by enforceargs'
+        assert not srckeywords, '**kwargs not supported by enforceargs'
         #
-        arglist = ', '.join(argspec.args)
+        arglist = ', '.join(srcargs)
         src = py.code.Source("""
-            def {name}({arglist}):
+            def %(name)s(%(arglist)s):
                 if not we_are_translated():
-                    typecheck({arglist})
-                return {name}_original({arglist})
-        """.format(name=f.func_name, arglist=arglist))
+                    typecheck(%(arglist)s)
+                return %(name)s_original(%(arglist)s)
+        """ % dict(name=f.func_name, arglist=arglist))
         #
         mydict = {f.func_name + '_original': f,
                   'typecheck': typecheck,
