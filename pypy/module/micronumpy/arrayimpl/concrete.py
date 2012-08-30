@@ -81,6 +81,9 @@ class ConcreteArray(base.BaseArrayImplementation):
         impl = ConcreteArray(self.shape, self.dtype, self.order)
         return loop.setslice(impl, self)
 
+    def setslice(self, arr):
+        loop.setslice(self, arr)
+
     def get_size(self):
         return self.size // self.dtype.itemtype.get_element_size()
 
@@ -185,7 +188,7 @@ class ConcreteArray(base.BaseArrayImplementation):
             w_value = support.convert_to_array(space, w_value)
             chunks = self._prepare_slice_args(space, w_index)
             view = chunks.apply(self)
-            view.setslice(space, w_value)
+            view.implementation.setslice(w_value.implementation)
 
     def transpose(self):
         if len(self.shape) < 2:
@@ -209,5 +212,5 @@ class SliceArray(ConcreteArray):
         self.storage = parent.storage
         self.order = parent.order
         self.dtype = parent.dtype
-        self.size = support.product(shape)
+        self.size = support.product(shape) * self.dtype.itemtype.get_element_size()
         self.start = start

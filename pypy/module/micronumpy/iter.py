@@ -87,7 +87,7 @@ class Chunks(BaseChunk):
                                     arr.backstrides, self.l)
         _, start, strides, backstrides = r
         return slice_w(start, strides[:], backstrides[:],
-                       shape[:], arr)
+                           shape[:], arr)
 
 
 class Chunk(BaseChunk):
