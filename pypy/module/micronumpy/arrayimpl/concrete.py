@@ -1,6 +1,7 @@
 
 from pypy.module.micronumpy.arrayimpl import base
 from pypy.module.micronumpy import support, loop
+from pypy.module.micronumpy.strides import calc_new_strides
 from pypy.module.micronumpy.iter import Chunk, Chunks, NewAxisChunk, RecordChunk
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.rlib import jit
@@ -80,6 +81,24 @@ class ConcreteArray(base.BaseArrayImplementation):
     def get_size(self):
         return self.size // self.dtype.itemtype.get_element_size()
 
+
+    def reshape(self, space, new_shape):
+        # Since we got to here, prod(new_shape) == self.size
+        new_strides = None
+        if self.size > 0:
+            new_strides = calc_new_strides(new_shape, self.shape,
+                                           self.strides, self.order)
+        if new_strides:
+            # We can create a view, strides somehow match up.
+            ndims = len(new_shape)
+            new_backstrides = [0] * ndims
+            for nd in range(ndims):
+                new_backstrides[nd] = (new_shape[nd] - 1) * new_strides[nd]
+            return SliceArray(self.start, new_strides, new_backstrides,
+                              new_shape, self)
+        else:
+            return None
+
     # -------------------- applevel get/setitem -----------------------
 
     @jit.unroll_safe
@@ -90,7 +109,7 @@ class ConcreteArray(base.BaseArrayImplementation):
                 raise IndexError
             idx = int_w(space, w_index)
             if idx < 0:
-                idx = self.shape[i] + id
+                idx = self.shape[i] + idx
             if idx < 0 or idx >= self.shape[0]:
                 raise operationerrfmt(space.w_IndexError,
                       "index (%d) out of range (0<=index<%d", i, self.shape[i],

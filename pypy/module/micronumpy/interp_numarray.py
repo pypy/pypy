@@ -5,7 +5,8 @@ from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.module.micronumpy import interp_dtype, interp_ufuncs, support
 from pypy.module.micronumpy.arrayimpl import create_implementation, create_slice
-from pypy.module.micronumpy.strides import find_shape_and_elems
+from pypy.module.micronumpy.strides import find_shape_and_elems,\
+     get_shape_from_iterable
 from pypy.module.micronumpy.interp_support import unwrap_axis_arg
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib import jit
@@ -100,6 +101,34 @@ class W_NDimArray(Wrappable):
         arr = instantiate(W_NDimArray)
         arr.implementation = self.implementation.copy()
         return arr
+
+    def descr_reshape(self, space, args_w):
+        """reshape(...)
+        a.reshape(shape)
+
+        Returns an array containing the same data with a new shape.
+
+        Refer to `numpypy.reshape` for full documentation.
+
+        See Also
+        --------
+        numpypy.reshape : equivalent function
+        """
+        if len(args_w) == 1:
+            w_shape = args_w[0]
+        else:
+            w_shape = space.newtuple(args_w)
+        new_shape = get_shape_from_iterable(space, self.get_size(), w_shape)
+        new_impl = self.implementation.reshape(space, new_shape)
+        if new_impl is not None:
+            self.implementation = new_impl
+            return self
+        else:
+            # Create copy with contiguous data
+            arr = self.descr_copy(space)
+            arr.implementation = arr.implementation.reshape(space, new_shape)
+        return arr
+
 
     # --------------------- binary operations ----------------------------
 
@@ -210,6 +239,7 @@ W_NDimArray.typedef = TypeDef(
     #std = interp2app(W_NDimArray.descr_std),
 
     copy = interp2app(W_NDimArray.descr_copy),
+    reshape = interp2app(W_NDimArray.descr_reshape),
 )
 
 def decode_w_dtype(space, w_dtype):
