@@ -69,6 +69,9 @@ class W_NDimArray(Wrappable):
     def is_scalar(self):
         return self.implementation.is_scalar()
 
+    def fill(self, box):
+        self.implementation.fill(box)
+
     def descr_get_size(self, space):
         return space.wrap(support.product(self.implementation.get_shape()))
 
@@ -182,8 +185,19 @@ def zeros(space, w_shape, w_dtype=None, order='C'):
         return scalar_w(space, dtype, space.wrap(0))
     return space.wrap(W_NDimArray(shape, dtype=dtype, order=order))
 
-def ones(space):
-    pass
+@unwrap_spec(order=str)
+def ones(space, w_shape, w_dtype=None, order='C'):
+    dtype = space.interp_w(interp_dtype.W_Dtype,
+        space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)
+    )
+    shape = _find_shape(space, w_shape)
+    if not shape:
+        return scalar_w(space, dtype, space.wrap(0))
+    arr = W_NDimArray(shape, dtype=dtype, order=order)
+    one = dtype.box(1)
+    arr.fill(one)
+    return space.wrap(arr)
+
 
 def dot(space):
     pass

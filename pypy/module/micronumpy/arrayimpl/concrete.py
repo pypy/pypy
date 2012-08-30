@@ -68,6 +68,9 @@ class ConcreteArray(base.BaseArrayImplementation):
     def setitem(self, index, value):
         self.dtype.setitem(self, index, value)
 
+    def fill(self, box):
+        self.dtype.fill(self.storage, box, 0, self.size)
+
     # -------------------- applevel get/setitem -----------------------
 
     @jit.unroll_safe
