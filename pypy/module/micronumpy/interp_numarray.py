@@ -6,6 +6,7 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.module.micronumpy import interp_dtype, interp_ufuncs, support
 from pypy.module.micronumpy.arrayimpl import create_implementation, create_slice
 from pypy.module.micronumpy.strides import find_shape_and_elems
+from pypy.module.micronumpy.interp_support import unwrap_axis_arg
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib import jit
 from pypy.rlib.objectmodel import instantiate
@@ -87,7 +88,10 @@ class W_NDimArray(Wrappable):
         self.implementation.fill(box)
 
     def descr_get_size(self, space):
-        return space.wrap(support.product(self.implementation.get_shape()))
+        return space.wrap(self.get_size())
+
+    def get_size(self):
+        return self.implementation.get_size()
 
     def get_scalar_value(self):
         return self.implementation.get_scalar_value()
@@ -126,6 +130,39 @@ class W_NDimArray(Wrappable):
 
     descr_radd = _binop_right_impl("add")
 
+    # ----------------------- reduce -------------------------------
+
+    def _reduce_ufunc_impl(ufunc_name, promote_to_largest=False):
+        def impl(self, space, w_axis=None, w_out=None):
+            if space.is_w(w_out, space.w_None) or not w_out:
+                out = None
+            elif not isinstance(w_out, W_NDimArray):
+                raise OperationError(space.w_TypeError, space.wrap( 
+                        'output must be an array'))
+            else:
+                out = w_out
+            return getattr(interp_ufuncs.get(space), ufunc_name).reduce(space,
+                                        self, True, promote_to_largest, w_axis,
+                                                                   False, out)
+        return func_with_new_name(impl, "reduce_%s_impl" % ufunc_name)
+
+    descr_sum = _reduce_ufunc_impl("add")
+    descr_sum_promote = _reduce_ufunc_impl("add", True)
+    descr_prod = _reduce_ufunc_impl("multiply", True)
+    descr_max = _reduce_ufunc_impl("maximum")
+    descr_min = _reduce_ufunc_impl("minimum")
+    descr_all = _reduce_ufunc_impl('logical_and')
+    descr_any = _reduce_ufunc_impl('logical_or')
+
+    def descr_mean(self, space, w_axis=None, w_out=None):
+        if space.is_w(w_axis, space.w_None):
+            w_denom = space.wrap(support.product(self.shape))
+        else:
+            axis = unwrap_axis_arg(space, len(self.shape), w_axis)
+            w_denom = space.wrap(self.shape[axis])
+        return space.div(self.descr_sum_promote(space, w_axis, w_out), w_denom)
+
+
 @unwrap_spec(offset=int)
 def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
                     offset=0, w_strides=None, w_order=None):
@@ -158,6 +195,19 @@ W_NDimArray.typedef = TypeDef(
                            W_NDimArray.descr_set_shape),
     ndim = GetSetProperty(W_NDimArray.descr_get_ndim),
     size = GetSetProperty(W_NDimArray.descr_get_size),
+
+    mean = interp2app(W_NDimArray.descr_mean),
+    sum = interp2app(W_NDimArray.descr_sum),
+    prod = interp2app(W_NDimArray.descr_prod),
+    max = interp2app(W_NDimArray.descr_max),
+    min = interp2app(W_NDimArray.descr_min),
+    #argmax = interp2app(W_NDimArray.descr_argmax),
+    #argmin = interp2app(W_NDimArray.descr_argmin),
+    all = interp2app(W_NDimArray.descr_all),
+    any = interp2app(W_NDimArray.descr_any),
+    #dot = interp2app(W_NDimArray.descr_dot),
+    #var = interp2app(W_NDimArray.descr_var),
+    #std = interp2app(W_NDimArray.descr_std),
 
     copy = interp2app(W_NDimArray.descr_copy),
 )

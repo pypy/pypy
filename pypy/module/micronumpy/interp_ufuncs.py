@@ -10,6 +10,12 @@ from pypy.module.micronumpy.interp_support import unwrap_axis_arg
 from pypy.module.micronumpy.strides import shape_agreement
 from pypy.module.micronumpy.support import convert_to_array
 
+def done_if_true(dtype, val):
+    return dtype.itemtype.bool(val)
+
+def done_if_false(dtype, val):
+    return not dtype.itemtype.bool(val)
+
 class W_Ufunc(Wrappable):
     _attrs_ = ["name", "promote_to_float", "promote_bools", "identity"]
     _immutable_fields_ = ["promote_to_float", "promote_bools", "name"]
@@ -135,53 +141,54 @@ class W_Ufunc(Wrappable):
 
     def reduce(self, space, w_obj, multidim, promote_to_largest, w_axis,
                keepdims=False, out=None):
-        from pypy.module.micronumpy.interp_numarray import \
-                                             Scalar, ReduceArray, W_NDimArray
+        from pypy.module.micronumpy.interp_numarray import W_NDimArray
+
         if self.argcount != 2:
             raise OperationError(space.w_ValueError, space.wrap("reduce only "
                 "supported for binary functions"))
         assert isinstance(self, W_Ufunc2)
         obj = convert_to_array(space, w_obj)
-        if isinstance(obj, Scalar):
+        obj_shape = obj.get_shape()
+        if obj.is_scalar():
             raise OperationError(space.w_TypeError, space.wrap("cannot reduce "
                 "on a scalar"))
-        axis = unwrap_axis_arg(space, len(obj.shape), w_axis)    
+        shapelen = len(obj_shape)
+        axis = unwrap_axis_arg(space, shapelen, w_axis)    
         assert axis>=0
-        size = obj.size
+        size = obj.get_size()
         if self.comparison_func:
             dtype = interp_dtype.get_dtype_cache(space).w_booldtype
         else:
             dtype = find_unaryop_result_dtype(
-                space, obj.find_dtype(),
+                space, obj.get_dtype(),
                 promote_to_float=self.promote_to_float,
                 promote_to_largest=promote_to_largest,
                 promote_bools=True
             )
-        shapelen = len(obj.shape)
         if self.identity is None and size == 0:
             raise operationerrfmt(space.w_ValueError, "zero-size array to "
                     "%s.reduce without identity", self.name)
         if shapelen > 1 and axis < shapelen:
             if keepdims:
-                shape = obj.shape[:axis] + [1] + obj.shape[axis + 1:]
+                shape = obj_shape[:axis] + [1] + obj_shape[axis + 1:]
             else:
-                shape = obj.shape[:axis] + obj.shape[axis + 1:]
+                shape = obj_shape[:axis] + obj_shape[axis + 1:]
             if out:
                 #Test for shape agreement
-                if len(out.shape) > len(shape):
+                if len(out.get_shape()) > len(shape):
                     raise operationerrfmt(space.w_ValueError,
                         'output parameter for reduction operation %s' +
                         ' has too many dimensions', self.name)
-                elif len(out.shape) < len(shape):
+                elif len(out.get_shape()) < len(shape):
                     raise operationerrfmt(space.w_ValueError,
                         'output parameter for reduction operation %s' +
                         ' does not have enough dimensions', self.name)
-                elif out.shape != shape:
+                elif out.get_shape() != shape:
                     raise operationerrfmt(space.w_ValueError,
                         'output parameter shape mismatch, expecting [%s]' +
                         ' , got [%s]',
                         ",".join([str(x) for x in shape]),
-                        ",".join([str(x) for x in out.shape]),
+                        ",".join([str(x) for x in out.get_shape()]),
                         )
                 #Test for dtype agreement, perhaps create an itermediate
                 #if out.dtype != dtype:
@@ -192,19 +199,17 @@ class W_Ufunc(Wrappable):
                 result = W_NDimArray(shape, dtype)
                 return self.do_axis_reduce(obj, dtype, axis, result)
         if out:
-            if len(out.shape)>0:
+            if len(out.get_shape())>0:
                 raise operationerrfmt(space.w_ValueError, "output parameter "
                               "for reduction operation %s has too many"
                               " dimensions",self.name)
-            arr = ReduceArray(self.func, self.name, self.identity, obj,
-                                                            out.find_dtype())
-            val = loop.compute(arr)
-            assert isinstance(out, Scalar)
-            out.value = val
-        else:
-            arr = ReduceArray(self.func, self.name, self.identity, obj, dtype)
-            val = loop.compute(arr)
-        return val
+            dtype = out.get_dtype()
+        res = loop.compute_reduce(obj, dtype, self.func, self.done_func,
+                                  self.identity)
+        if out:
+            out.set_scalar_value(res)
+            return out
+        return res
 
     def do_axis_reduce(self, obj, dtype, axis, result):
         from pypy.module.micronumpy.interp_numarray import AxisReduce
@@ -287,6 +292,12 @@ class W_Ufunc2(W_Ufunc):
                          int_only)
         self.func = func
         self.comparison_func = comparison_func
+        if name == 'logical_and':
+            self.done_func = done_if_false
+        elif name == 'logical_or':
+            self.done_func = done_if_true
+        else:
+            self.done_func = None
 
     @jit.unroll_safe
     def call(self, space, args_w):

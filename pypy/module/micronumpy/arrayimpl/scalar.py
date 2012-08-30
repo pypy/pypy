@@ -41,4 +41,7 @@ class Scalar(base.BaseArrayImplementation):
         scalar = Scalar(self.dtype)
         scalar.value = self.value
         return scalar
+
+    def get_size(self):
+        return 1
     

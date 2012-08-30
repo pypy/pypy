@@ -77,6 +77,9 @@ class ConcreteArray(base.BaseArrayImplementation):
         impl = ConcreteArray(self.shape, self.dtype, self.order)
         return loop.setslice(impl, self)
 
+    def get_size(self):
+        return self.size // self.dtype.itemtype.get_element_size()
+
     # -------------------- applevel get/setitem -----------------------
 
     @jit.unroll_safe
