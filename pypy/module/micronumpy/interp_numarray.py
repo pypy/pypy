@@ -58,7 +58,7 @@ class W_NDimArray(Wrappable):
 
     def descr_setitem(self, space, w_idx, w_value):
         if (isinstance(w_idx, W_NDimArray) and w_idx.shape == self.shape and
-            w_idx.find_dtype().is_bool_type()):
+            w_idx.get_dtype().is_bool_type()):
             return self.setitem_filter(space, w_idx,
                                        support.convert_to_array(space, w_value))
         self.implementation.descr_setitem(space, w_idx, w_value)
@@ -75,6 +75,8 @@ class W_NDimArray(Wrappable):
     def get_scalar_value(self):
         return self.implementation.get_scalar_value()
 
+    # --------------------- binary operations ----------------------------
+
     def _binop_impl(ufunc_name):
         def impl(self, space, w_other, w_out=None):
             return getattr(interp_ufuncs.get(space), ufunc_name).call(space,
@@ -82,6 +84,18 @@ class W_NDimArray(Wrappable):
         return func_with_new_name(impl, "binop_%s_impl" % ufunc_name)
 
     descr_add = _binop_impl("add")
+
+    def _binop_right_impl(ufunc_name):
+        def impl(self, space, w_other, w_out=None):
+            w_other = scalar_w(space,
+                interp_ufuncs.find_dtype_for_scalar(space, w_other,
+                                                    self.get_dtype()),
+                w_other
+            )
+            return getattr(interp_ufuncs.get(space), ufunc_name).call(space, [w_other, self, w_out])
+        return func_with_new_name(impl, "binop_right_%s_impl" % ufunc_name)
+
+    descr_radd = _binop_right_impl("add")
 
 @unwrap_spec(offset=int)
 def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
@@ -96,6 +110,8 @@ W_NDimArray.typedef = TypeDef(
     __new__ = interp2app(descr_new_array),
 
     __add__ = interp2app(W_NDimArray.descr_add),
+
+    __radd__ = interp2app(W_NDimArray.descr_radd),
 
     __getitem__ = interp2app(W_NDimArray.descr_getitem),
     __setitem__ = interp2app(W_NDimArray.descr_setitem),

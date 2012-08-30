@@ -1,6 +1,22 @@
 
 from pypy.module.micronumpy.arrayimpl import base
 
+class ScalarIterator(base.BaseArrayIterator):
+    def __init__(self, v):
+        self.v = v
+
+    def next(self):
+        pass
+
+    def getitem(self):
+        return self.v
+
+    def setitem(self, v):
+        raise Exception("Don't call setitem on scalar iterators")
+
+    def done(self):
+        return False
+
 class Scalar(base.BaseArrayImplementation):
     def __init__(self, dtype):
         self.value = None
@@ -11,6 +27,9 @@ class Scalar(base.BaseArrayImplementation):
 
     def get_shape(self):
         return []
+
+    def create_iter(self):
+        return ScalarIterator(self.value)
 
     def set_scalar_value(self, value):
         self.value = value
