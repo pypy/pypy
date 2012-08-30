@@ -110,7 +110,7 @@ class ConcreteArray(base.BaseArrayImplementation):
             idx = int_w(space, w_index)
             if idx < 0:
                 idx = self.shape[i] + idx
-            if idx < 0 or idx >= self.shape[0]:
+            if idx < 0 or idx >= self.shape[i]:
                 raise operationerrfmt(space.w_IndexError,
                       "index (%d) out of range (0<=index<%d", i, self.shape[i],
                 )
