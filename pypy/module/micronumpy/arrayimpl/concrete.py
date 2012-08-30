@@ -184,6 +184,19 @@ class ConcreteArray(base.BaseArrayImplementation):
             view = chunks.apply(self)
             view.setslice(space, w_value)
 
+    def transpose(self):
+        if len(self.shape) < 2:
+            return self
+        strides = []
+        backstrides = []
+        shape = []
+        for i in range(len(self.shape) - 1, -1, -1):
+            strides.append(self.strides[i])
+            backstrides.append(self.backstrides[i])
+            shape.append(self.shape[i])
+        return SliceArray(self.start, strides,
+                          backstrides, shape, self)
+
 class SliceArray(ConcreteArray):
     def __init__(self, start, strides, backstrides, shape, parent):
         self.strides = strides

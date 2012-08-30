@@ -44,4 +44,6 @@ class Scalar(base.BaseArrayImplementation):
 
     def get_size(self):
         return 1
-    
+
+    def transpose(self):
+        return self

@@ -129,6 +129,10 @@ class W_NDimArray(Wrappable):
             arr.implementation = arr.implementation.reshape(space, new_shape)
         return arr
 
+    def descr_get_transpose(self, space):
+        arr = instantiate(W_NDimArray)
+        arr.implementation = self.implementation.transpose()
+        return arr
 
     # --------------------- binary operations ----------------------------
 
@@ -240,6 +244,7 @@ W_NDimArray.typedef = TypeDef(
 
     copy = interp2app(W_NDimArray.descr_copy),
     reshape = interp2app(W_NDimArray.descr_reshape),
+    T = GetSetProperty(W_NDimArray.descr_get_transpose),
 )
 
 def decode_w_dtype(space, w_dtype):
