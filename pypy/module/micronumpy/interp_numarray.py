@@ -63,7 +63,10 @@ class W_NDimArray(Wrappable):
         if (isinstance(w_idx, W_NDimArray) and w_idx.get_shape() == self.get_shape() and
             w_idx.get_dtype().is_bool_type()):
             return self.getitem_filter(space, w_idx)
-        return self.implementation.descr_getitem(space, w_idx)
+        try:
+            return self.implementation.descr_getitem(space, w_idx)
+        except OperationError:
+            raise OperationError(space.w_IndexError, space.wrap("wrong index"))
 
     def descr_setitem(self, space, w_idx, w_value):
         if (isinstance(w_idx, W_NDimArray) and w_idx.shape == self.shape and

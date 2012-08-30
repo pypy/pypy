@@ -11,7 +11,7 @@ class ConcreteArrayIterator(base.BaseArrayIterator):
         self.array = array
         self.offset = 0
         self.dtype = array.dtype
-        self.element_size = array.dtype.get_size()
+        self.skip = self.dtype.itemtype.get_element_size()
         self.size = array.size
 
     def setitem(self, elem):
@@ -21,10 +21,33 @@ class ConcreteArrayIterator(base.BaseArrayIterator):
         return self.array.getitem(self.offset)
 
     def next(self):
-        self.offset += self.element_size
+        self.offset += self.skip
 
     def done(self):
         return self.offset >= self.size
+
+class OneDimViewIterator(base.BaseArrayIterator):
+    def __init__(self, array):
+        self.array = array
+        self.offset = array.start
+        self.skip = array.strides[0]
+        self.dtype = array.dtype
+        self.index = 0
+        self.size = array.shape[0]
+
+    def setitem(self, elem):
+        self.array.setitem(self.offset, elem)
+
+    def getitem(self):
+        return self.array.getitem(self.offset)
+
+    def next(self):
+        self.offset += self.skip
+        self.index += 1
+
+    def done(self):
+        return self.index >= self.size
+
 
 def calc_strides(shape, dtype, order):
     strides = []
@@ -82,6 +105,8 @@ class ConcreteArray(base.BaseArrayImplementation):
         return loop.setslice(impl, self)
 
     def setslice(self, arr):
+        if arr.storage == self.storage:
+            arr = arr.copy()
         loop.setslice(self, arr)
 
     def get_size(self):
@@ -214,3 +239,11 @@ class SliceArray(ConcreteArray):
         self.dtype = parent.dtype
         self.size = support.product(shape) * self.dtype.itemtype.get_element_size()
         self.start = start
+
+    def fill(self, box):
+        xxx
+
+    def create_iter(self):
+        if len(self.shape) == 1:
+            return OneDimViewIterator(self)
+        xxx
