@@ -284,7 +284,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert x.ndim == 3
         # numpy actually raises an AttributeError, but _numpypy raises an
         # TypeError
-        raises(TypeError, 'x.ndim = 3')
+        raises((TypeError, AttributeError), 'x.ndim = 3')
 
     def test_init(self):
         from _numpypy import zeros
@@ -467,7 +467,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[1] == 0.
         assert a[3] == 1.
         b[::-1] = b
-        assert b[0] == 0.
+        assert b[0] == 1.
         assert b[1] == 0.
 
     def test_setslice_of_slice_array(self):
@@ -592,7 +592,7 @@ class AppTestNumArray(BaseNumpyAppTest):
     def test_set_shape(self):
         from _numpypy import array, zeros
         a = array([])
-        a.shape = []
+        raises(ValueError, "a.shape = []")
         a = array(range(12))
         a.shape = (3, 4)
         assert (a == [range(4), range(4, 8), range(8, 12)]).all()
