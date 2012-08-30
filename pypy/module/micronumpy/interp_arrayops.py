@@ -1,28 +1,6 @@
 
-from pypy.module.micronumpy.interp_numarray import convert_to_array,\
-     VirtualArray
-from pypy.module.micronumpy import signature
-
-class WhereArray(VirtualArray):
-    def __init__(self, space, arr, x, y):
-        self.arr = arr
-        self.x = x
-        self.y = y
-        VirtualArray.__init__(self, 'where', arr.shape[:],
-                              x.find_dtype())
-
-    def create_sig(self):
-        if self.forced_result is not None:
-            return self.forced_result.create_sig()
-        return signature.WhereSignature(self.res_dtype, self.arr.find_dtype(),
-                                        self.arr.create_sig(),
-                                        self.x.create_sig(),
-                                        self.y.create_sig())
-
-    def _del_sources(self):
-        self.arr = None
-        self.x = None
-        self.y = None
+from pypy.module.micronumpy.support import convert_to_array
+from pypy.module.micronumpy import loop
 
 def where(space, w_arr, w_x, w_y):
     """where(condition, [x, y])
@@ -87,4 +65,4 @@ def where(space, w_arr, w_x, w_y):
     arr = convert_to_array(space, w_arr)
     x = convert_to_array(space, w_x)
     y = convert_to_array(space, w_y)
-    return WhereArray(space, arr, x, y)
+    return loop.where(space, arr, x, y)
