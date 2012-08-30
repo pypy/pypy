@@ -1,4 +1,4 @@
-import py
+import py, sys
 from pypy.conftest import option
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 from pypy.interpreter.gateway import interp2app
@@ -508,13 +508,6 @@ class AppTestTypes(BaseNumpyAppTest):
         from _numpypy import dtype
         assert dtype('i4').alignment == 4
 
-    def test_typeinfo(self):
-        from _numpypy import typeinfo, void, number, int64, bool_
-        assert typeinfo['Number'] == number
-        assert typeinfo['LONGLONG'] == ('q', 9, 64, 8, 9223372036854775807L, -9223372036854775808L, int64)
-        assert typeinfo['VOID'] == ('V', 20, 0, 1, void)
-        assert typeinfo['BOOL'] == ('?', 0, 8, 1, 1, 0, bool_)
-
 class AppTestStrUnicodeDtypes(BaseNumpyAppTest):
     def test_str_unicode(self):
         from _numpypy import str_, unicode_, character, flexible, generic
@@ -602,3 +595,15 @@ class AppTestNotDirect(BaseNumpyAppTest):
         assert (a + a)[1] == 4
         self.check_non_native(a, array([1, 2, 3], 'i2'))
 
+class AppTestPyPyOnly(BaseNumpyAppTest):
+    def setup_class(cls):
+        if option.runappdirect and '__pypy__' not in sys.builtin_module_names:
+            py.test.skip("pypy only test")
+        BaseNumpyAppTest.setup_class(cls)
+
+    def test_typeinfo(self):
+        from _numpypy import typeinfo, void, number, int64, bool_
+        assert typeinfo['Number'] == number
+        assert typeinfo['LONGLONG'] == ('q', 9, 64, 8, 9223372036854775807L, -9223372036854775808L, int64)
+        assert typeinfo['VOID'] == ('V', 20, 0, 1, void)
+        assert typeinfo['BOOL'] == ('?', 0, 8, 1, 1, 0, bool_)
