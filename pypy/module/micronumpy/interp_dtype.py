@@ -49,8 +49,8 @@ class W_Dtype(Wrappable):
     def getitem_bool(self, arr, i):
         return self.itemtype.read_bool(arr, i, 0)
 
-    def setitem(self, storage, i, box):
-        self.itemtype.store(storage, i, 0, box)
+    def setitem(self, arr, i, box):
+        self.itemtype.store(arr, i, 0, box)
 
     def fill(self, storage, box, start, stop):
         self.itemtype.fill(storage, self.get_size(), box, start, stop, 0)

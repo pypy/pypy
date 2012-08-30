@@ -3,15 +3,18 @@ from pypy.module.micronumpy.arrayimpl import base
 from pypy.module.micronumpy import support
 
 class ConcreteArrayIterator(base.BaseArrayIterator):
-    def __init__(self, array, dtype):
+    def __init__(self, array):
         self.array = array
         self.offset = 0
-        self.dtype = dtype
-        self.element_size = dtype.get_size()
+        self.dtype = array.dtype
+        self.element_size = array.dtype.get_size()
         self.size = array.size
 
     def setitem(self, elem):
-        self.dtype.setitem(self.array.storage, self.offset, elem)
+        self.dtype.setitem(self.array, self.offset, elem)
+
+    def getitem(self):
+        return self.dtype.getitem(self.array, self.offset)
 
     def next(self):
         self.offset += self.element_size
@@ -42,9 +45,10 @@ class ConcreteArray(base.BaseArrayImplementation):
         self.storage = dtype.itemtype.malloc(self.size)
         self.strides, self.backstrides = calc_strides(shape, dtype, order)
         self.order = order
+        self.dtype = dtype
 
     def get_shape(self):
         return self.shape
 
-    def create_iter(self, dtype):
-        return ConcreteArrayIterator(self, dtype)
+    def create_iter(self):
+        return ConcreteArrayIterator(self)

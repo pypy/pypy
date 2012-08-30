@@ -41,7 +41,7 @@ class W_NDimArray(Wrappable):
         return self.dtype
 
     def create_iter(self):
-        return self.implementation.create_iter(self.dtype)
+        return self.implementation.create_iter()
 
     def is_scalar(self):
         return self.implementation.is_scalar
