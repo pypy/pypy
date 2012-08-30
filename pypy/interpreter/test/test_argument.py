@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals
 import py
 from pypy.interpreter.argument import (Arguments, ArgumentsForTranslation,
     ArgErr, ArgErrUnknownKwds, ArgErrMultipleValues, ArgErrCount, rawshape,
@@ -657,7 +656,7 @@ class TestErrorHandling(object):
                                 [0, 3, 2],
                                 [unichr(0x1234), u'b', u'c'])
         s = err.getmsg()
-        assert s == "got an unexpected keyword argument '%s'" % unichr(0x1234)
+        assert s == "got an unexpected keyword argument '%s'" % unichr(0x1234).encode('utf-8')
 
     def test_multiple_values(self):
         err = ArgErrMultipleValues('bla')
@@ -686,7 +685,7 @@ class AppTestArgument:
         assert exc.value.message == "<lambda>() takes exactly 2 non-keyword arguments (0 given)"
 
     def test_unicode_keywords(self):
-        b"""
+        """
         def f(**kwargs):
             assert kwargs["美"] == 42
         f(**{"美" : 42})
