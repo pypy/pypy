@@ -45,7 +45,10 @@ def calc_strides(shape, dtype, order):
 def int_w(space, w_obj):
     # a special version that respects both __index__ and __int__
     # XXX add __index__ support
-    return space.int_w(space.int(w_obj))
+    try:
+        return space.int_w(space.index(w_obj))
+    except OperationError:
+        return space.int_w(space.int(w_obj))
 
 class ConcreteArray(base.BaseArrayImplementation):
     start = 0
