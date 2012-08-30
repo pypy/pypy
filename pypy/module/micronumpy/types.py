@@ -125,8 +125,8 @@ class Primitive(object):
     def _write(self, storage, i, offset, value):
         raw_storage_setitem(storage, i + offset, value)
 
-    def store(self, arr, i, offset, box):
-        self._write(arr.storage, i, offset, self.unbox(box))
+    def store(self, storage, i, offset, box):
+        self._write(storage, i, offset, self.unbox(box))
 
     def fill(self, storage, width, box, start, stop, offset):
         value = self.unbox(box)
@@ -956,10 +956,10 @@ class RecordType(BaseType):
         return interp_boxes.W_VoidBox(arr, 0, arr.dtype)
 
     @jit.unroll_safe
-    def store(self, arr, i, ofs, box):
+    def store(self, storage, i, ofs, box):
         assert isinstance(box, interp_boxes.W_VoidBox)
         for k in range(self.get_element_size()):
-            arr.storage[k + i] = box.arr.storage[k + box.ofs]
+            storage[k + i] = box.arr.storage[k + box.ofs]
 
     @jit.unroll_safe
     def str_format(self, box):
