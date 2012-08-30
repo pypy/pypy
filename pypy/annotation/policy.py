@@ -27,11 +27,6 @@ class BasicAnnotatorPolicy(object):
             callback()
         del annotator.bookkeeper.pending_specializations[:]
 
-    def _adjust_space_config(self, space):
-        # allow to override space options.
-        if getattr(self, 'do_imports_immediately', None) is not None:
-            space.do_imports_immediately = self.do_imports_immediately
-
 class AnnotatorPolicy(BasicAnnotatorPolicy):
     """
     Possibly subclass and pass an instance to the annotator to control special casing during annotation
@@ -67,7 +62,7 @@ class AnnotatorPolicy(BasicAnnotatorPolicy):
                 def specialize_with_parms(funcdesc, args_s):
                     return specializer(funcdesc, args_s, *parms)
                 return specialize_with_parms
-        
+
     # common specializations
 
     default_specialize = staticmethod(default)
