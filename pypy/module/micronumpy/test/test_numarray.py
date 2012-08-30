@@ -5,7 +5,7 @@ from pypy.conftest import option
 from pypy.interpreter.error import OperationError
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
 from pypy.module.micronumpy.interp_iter import Chunk, Chunks
-from pypy.module.micronumpy.interp_numarray import W_NDimArray, shape_agreement
+from pypy.module.micronumpy.interp_numarray import W_NDimArray
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
 class MockDtype(object):
@@ -35,17 +35,17 @@ class TestNumArrayDirect(object):
         return self.space.newtuple(args_w)
 
     def test_strides_f(self):
-        a = W_NDimArray([10, 5, 3], MockDtype(), 'F')
+        a = W_NDimArray([10, 5, 3], MockDtype(), order='F')
         assert a.strides == [1, 10, 50]
         assert a.backstrides == [9, 40, 100]
 
     def test_strides_c(self):
-        a = W_NDimArray([10, 5, 3], MockDtype(), 'C')
+        a = W_NDimArray([10, 5, 3], MockDtype(), order='C')
         assert a.strides == [15, 3, 1]
         assert a.backstrides == [135, 12, 2]
 
     def test_create_slice_f(self):
-        a = W_NDimArray([10, 5, 3], MockDtype(), 'F')
+        a = W_NDimArray([10, 5, 3], MockDtype(), order='F')
         s = create_slice(a, [Chunk(3, 0, 0, 1)])
         assert s.start == 3
         assert s.strides == [10, 50]
@@ -63,7 +63,7 @@ class TestNumArrayDirect(object):
         assert s.shape == [10, 3]
 
     def test_create_slice_c(self):
-        a = W_NDimArray([10, 5, 3], MockDtype(), 'C')
+        a = W_NDimArray([10, 5, 3], MockDtype(), order='C')
         s = create_slice(a, [Chunk(3, 0, 0, 1)])
         assert s.start == 45
         assert s.strides == [3, 1]
@@ -83,7 +83,7 @@ class TestNumArrayDirect(object):
         assert s.shape == [10, 3]
 
     def test_slice_of_slice_f(self):
-        a = W_NDimArray([10, 5, 3], MockDtype(), 'F')
+        a = W_NDimArray([10, 5, 3], MockDtype(), order='F')
         s = create_slice(a, [Chunk(5, 0, 0, 1)])
         assert s.start == 5
         s2 = create_slice(s, [Chunk(3, 0, 0, 1)])
@@ -117,7 +117,7 @@ class TestNumArrayDirect(object):
         assert s2.start == 1 * 15 + 2 * 3
 
     def test_negative_step_f(self):
-        a = W_NDimArray([10, 5, 3], MockDtype(), 'F')
+        a = W_NDimArray([10, 5, 3], MockDtype(), order='F')
         s = create_slice(a, [Chunk(9, -1, -2, 5)])
         assert s.start == 9
         assert s.strides == [-2, 10, 50]
@@ -131,7 +131,7 @@ class TestNumArrayDirect(object):
         assert s.backstrides == [-120, 12, 2]
 
     def test_index_of_single_item_f(self):
-        a = W_NDimArray([10, 5, 3], MockDtype(), 'F')
+        a = W_NDimArray([10, 5, 3], MockDtype(), order='F')
         r = a._index_of_single_item(self.space, self.newtuple(1, 2, 2))
         assert r == 1 + 2 * 10 + 2 * 50
         s = create_slice(a, [Chunk(0, 10, 1, 10), Chunk(2, 0, 0, 1)])
@@ -141,7 +141,7 @@ class TestNumArrayDirect(object):
         assert r == a._index_of_single_item(self.space, self.newtuple(1, 2, 1))
 
     def test_index_of_single_item_c(self):
-        a = W_NDimArray([10, 5, 3], MockDtype(), 'C')
+        a = W_NDimArray([10, 5, 3], MockDtype(), order='C')
         r = a._index_of_single_item(self.space, self.newtuple(1, 2, 2))
         assert r == 1 * 3 * 5 + 2 * 3 + 2
         s = create_slice(a, [Chunk(0, 10, 1, 10), Chunk(2, 0, 0, 1)])
@@ -151,6 +151,7 @@ class TestNumArrayDirect(object):
         assert r == a._index_of_single_item(self.space, self.newtuple(1, 2, 1))
 
     def test_shape_agreement(self):
+        from pypy.module.micronumpy.interp_numarray import shape_agreement
         assert shape_agreement(self.space, [3], [3]) == [3]
         assert shape_agreement(self.space, [1, 2, 3], [1, 2, 3]) == [1, 2, 3]
         py.test.raises(OperationError, shape_agreement, self.space, [2], [3])
@@ -251,6 +252,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = ndarray(3, dtype=int)
         assert a.shape == (3,)
         assert a.dtype is dtype(int)
+        a = ndarray([], dtype=float)
+        assert a.shape == ()
 
     def test_ndmin(self):
         from _numpypy import array

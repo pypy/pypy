@@ -1,0 +1,3 @@
+
+class BaseArrayImplementation(object):
+    pass
