@@ -166,5 +166,4 @@ class Module(MixedModule):
         'eye': 'app_numpy.eye',
         'max': 'app_numpy.max',
         'arange': 'app_numpy.arange',
-        'count_nonzero': 'app_numpy.count_nonzero',
     }

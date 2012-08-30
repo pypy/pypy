@@ -1,5 +1,5 @@
 
-import py
+import py, sys
 
 from pypy.conftest import option
 from pypy.interpreter.error import OperationError
@@ -1120,7 +1120,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         d = array(0.)
         b = a.sum(out=d)
         assert b == d
-        assert isinstance(b, float)
+        assert b is d
 
     def test_reduce_nd(self):
         from numpypy import arange, array, multiply
@@ -1367,35 +1367,11 @@ class AppTestNumArray(BaseNumpyAppTest):
         from _numpypy import array
         a = array(range(5))
         a[::-1] = a
-        assert (a == [0, 1, 2, 1, 0]).all()
+        assert (a == [4, 3, 2, 1, 0]).all()
         # but we force intermediates
         a = array(range(5))
         a[::-1] = a + a
         assert (a == [8, 6, 4, 2, 0]).all()
-
-    def test_debug_repr(self):
-        from _numpypy import zeros, sin
-        from _numpypy.pypy import debug_repr
-        a = zeros(1)
-        assert debug_repr(a) == 'Array'
-        assert debug_repr(a + a) == 'Call2(add, Array, Array)'
-        assert debug_repr(a[::2]) == 'Slice'
-        assert debug_repr(a + 2) == 'Call2(add, Array, Scalar)'
-        assert debug_repr(a + a.flat) == 'Call2(add, Array, Flat)'
-        assert debug_repr(sin(a)) == 'Call1(sin, Array)'
-
-        b = a + a
-        b[0] = 3
-        assert debug_repr(b) == 'Array'
-
-    def test_remove_invalidates(self):
-        from _numpypy import array
-        from _numpypy.pypy import remove_invalidates
-        a = array([1, 2, 3])
-        b = a + a
-        remove_invalidates(a)
-        a[0] = 14
-        assert b[0] == 28
 
     def test_virtual_views(self):
         from _numpypy import arange
@@ -1487,16 +1463,16 @@ class AppTestNumArray(BaseNumpyAppTest):
         f = concatenate((f1, [2], f1, [7]))
         assert (f == [0,1,2,0,1,7]).all()
 
-        bad_axis = raises(ValueError, concatenate, (a1,a2), axis=1)
-        assert str(bad_axis.value) == "bad axis argument"
+        bad_axis = raises(IndexError, concatenate, (a1,a2), axis=1)
+        assert str(bad_axis.value) == "axis 1 out of bounds [0, 1)"
 
         concat_zero = raises(ValueError, concatenate, ())
         assert str(concat_zero.value) == \
-            "concatenation of zero-length sequences is impossible"
+            "need at least one array to concatenate"
 
         dims_disagree = raises(ValueError, concatenate, (a1, b1), axis=0)
         assert str(dims_disagree.value) == \
-            "array dimensions must agree except for axis being concatenated"
+            "all the input arrays must have same number of dimensions"
         a = array([1, 2, 3, 4, 5, 6])
         a = (a + a)[::2]
         b = concatenate((a[:3], a[-3:]))
@@ -1658,18 +1634,6 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert a[0][1][1] == 13
         assert a[1][2][1] == 15
 
-    def test_init_2(self):
-        import _numpypy
-        raises(ValueError, _numpypy.array, [[1], 2])
-        raises(ValueError, _numpypy.array, [[1, 2], [3]])
-        raises(ValueError, _numpypy.array, [[[1, 2], [3, 4], 5]])
-        raises(ValueError, _numpypy.array, [[[1, 2], [3, 4], [5]]])
-        a = _numpypy.array([[1, 2], [4, 5]])
-        assert a[0, 1] == 2
-        assert a[0][1] == 2
-        a = _numpypy.array(([[[1, 2], [3, 4], [5, 6]]]))
-        assert (a[0, 1] == [3, 4]).all()
-
     def test_setitem_slice(self):
         import _numpypy
         a = _numpypy.zeros((3, 4))
@@ -1792,8 +1756,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
         a = zeros((4, 3, 2))
         b = zeros((4, 2))
         exc = raises(ValueError, lambda: a + b)
-        assert str(exc.value) == "operands could not be broadcast" \
-            " together with shapes (4,3,2) (4,2)"
+        assert str(exc.value).startswith("operands could not be broadcast")
 
     def test_reduce(self):
         from _numpypy import array
@@ -1870,8 +1833,8 @@ class AppTestMultiDim(BaseNumpyAppTest):
         raises(IndexError, "b[11]")
         raises(IndexError, "b[-11]")
         raises(IndexError, 'b[0, 1]')
-        assert b.index == 3
-        assert b.coords == (0,3)
+        assert b.index == 0
+        assert b.coords == (0,0)
 
     def test_flatiter_setitem(self):
         from _numpypy import arange, array
@@ -1883,7 +1846,6 @@ class AppTestMultiDim(BaseNumpyAppTest):
         b[0:2] = [[[100]]]
         assert(a[0,0] == 100)
         assert(a[1,0] == 100)
-        raises(IndexError, 'b[array([10, 11])] == [-20, -40]')
 
     def test_flatiter_ops(self):
         from _numpypy import arange, array
@@ -1937,7 +1899,6 @@ class AppTestMultiDim(BaseNumpyAppTest):
         a = a[::2]
         i = a.__array_interface__
         assert isinstance(i['data'][0], int)
-        raises(TypeError, getattr, array(3), '__array_interface__')
 
     def test_array_indexing_one_elem(self):
         skip("not yet")
@@ -2009,12 +1970,6 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert array(x, copy=False) is x
         assert array(x, copy=True) is not x
 
-    def test_isna(self):
-        from _numpypy import isna, array
-        # XXX for now
-        assert not isna(3)
-        assert (isna(array([1, 2, 3, 4])) == [False, False, False, False]).all()
-
     def test_ravel(self):
         from _numpypy import arange
         assert (arange(3).ravel() == arange(3)).all()
@@ -2047,21 +2002,16 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert type(array(3).item()) is int
         assert type(array(True).item()) is bool
         assert type(array(3.5).item()) is float
-        raises((ValueError, IndexError), "array(3).item(15)")
-        raises(ValueError, "array([1, 2, 3]).item()")
+        raises(IndexError, "array(3).item(15)")
+        raises(IndexError, "array([1, 2, 3]).item()")
         assert array([3]).item(0) == 3
         assert type(array([3]).item(0)) is int
         assert array([1, 2, 3]).item(-1) == 3
         a = array([1, 2, 3])
         assert a[::2].item(1) == 3
         assert (a + a).item(1) == 4
-        raises(ValueError, "array(5).item(1)")
+        raises(IndexError, "array(5).item(1)")
         assert array([1]).item() == 1
-
-    def test_count_nonzero(self):
-        from _numpypy import array
-        a = array([1,0,5,0,10])
-        assert a.count_nonzero() == 3
  
 
 class AppTestSupport(BaseNumpyAppTest):
@@ -2130,7 +2080,7 @@ class AppTestSupport(BaseNumpyAppTest):
         r = fromstring("\x01\x00\x02", dtype='bool')
         assert (r == [True, False, True]).all()
         s = fromstring("1,2,3,,5", dtype=bool, sep=",")
-        assert (s == [True, True, True, False, True]).all()
+        assert (s == [True, True, True, True, True]).all()
         t = fromstring("", bool)
         assert (t == []).all()
         u = fromstring("\x01\x00\x00\x00\x00\x00\x00\x00", dtype=int)
@@ -2278,3 +2228,36 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         assert arr[1]['y']['x'] == 0.0
         assert arr[1]['x'] == 15
         
+class AppTestPyPy(BaseNumpyAppTest):
+    def setup_class(cls):
+        if option.runappdirect and '__pypy__' not in sys.builtin_module_names:
+            py.test.skip("pypy only test")
+        BaseNumpyAppTest.setup_class(cls)
+    
+    def test_debug_repr(self):
+        from _numpypy import zeros, sin
+        from _numpypy.pypy import debug_repr
+        a = zeros(1)
+        assert debug_repr(a) == 'Array'
+        assert debug_repr(a + a) == 'Call2(add, Array, Array)'
+        assert debug_repr(a[::2]) == 'Slice'
+        assert debug_repr(a + 2) == 'Call2(add, Array, Scalar)'
+        assert debug_repr(a + a.flat) == 'Call2(add, Array, Flat)'
+        assert debug_repr(sin(a)) == 'Call1(sin, Array)'
+
+        b = a + a
+        b[0] = 3
+        assert debug_repr(b) == 'Array'
+
+    def test_init_2(self):
+        # this test is pypy only since in numpy it becomes an object dtype
+        import _numpypy
+        raises(ValueError, _numpypy.array, [[1], 2])
+        raises(ValueError, _numpypy.array, [[1, 2], [3]])
+        raises(ValueError, _numpypy.array, [[[1, 2], [3, 4], 5]])
+        raises(ValueError, _numpypy.array, [[[1, 2], [3, 4], [5]]])
+        a = _numpypy.array([[1, 2], [4, 5]])
+        assert a[0, 1] == 2
+        assert a[0][1] == 2
+        a = _numpypy.array(([[[1, 2], [3, 4], [5, 6]]]))
+        assert (a[0, 1] == [3, 4]).all()
