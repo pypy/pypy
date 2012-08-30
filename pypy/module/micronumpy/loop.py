@@ -51,3 +51,9 @@ def compute_reduce(obj, calc_dtype, func, done_func, identity):
         cur_value = func(calc_dtype, cur_value, rval)
         obj_iter.next()
     return cur_value
+
+def fill(arr, box):
+    arr_iter = arr.create_iter()
+    while not arr_iter.done():
+        arr_iter.setitem(box)
+        arr_iter.next()

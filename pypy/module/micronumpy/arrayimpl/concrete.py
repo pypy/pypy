@@ -26,7 +26,7 @@ class ConcreteArrayIterator(base.BaseArrayIterator):
     def done(self):
         return self.offset >= self.size
 
-class OneDimViewIterator(base.BaseArrayIterator):
+class OneDimViewIterator(ConcreteArrayIterator):
     def __init__(self, array):
         self.array = array
         self.offset = array.start
@@ -35,18 +35,41 @@ class OneDimViewIterator(base.BaseArrayIterator):
         self.index = 0
         self.size = array.shape[0]
 
-    def setitem(self, elem):
-        self.array.setitem(self.offset, elem)
-
-    def getitem(self):
-        return self.array.getitem(self.offset)
-
     def next(self):
         self.offset += self.skip
         self.index += 1
 
     def done(self):
         return self.index >= self.size
+
+class MultiDimViewIterator(ConcreteArrayIterator):
+    def __init__(self, array):
+        self.indexes = [0] * len(array.shape)
+        self.array = array
+        self.shape = array.shape
+        self.offset = array.start
+        self.shapelen = len(self.shape)
+        self._done = False
+        self.strides = array.strides
+        self.backstrides = array.backstrides
+
+    @jit.unroll_safe
+    def next(self):
+        offset = self.offset
+        for i in range(self.shapelen - 1, -1, -1):
+            if self.indexes[i] < self.shape[i] - 1:
+                self.indexes[i] += 1
+                offset += self.strides[i]
+                break
+            else:
+                self.indexes[i] = 0
+                offset -= self.backstrides[i]
+        else:
+            self._done = True
+        self.offset = offset
+
+    def done(self):
+        return self._done
 
 
 def calc_strides(shape, dtype, order):
@@ -105,6 +128,10 @@ class ConcreteArray(base.BaseArrayImplementation):
         return loop.setslice(impl, self)
 
     def setslice(self, arr):
+        if arr.is_scalar():
+            self.fill(arr.get_scalar_value())
+            return
+        assert isinstance(arr, ConcreteArray)
         if arr.storage == self.storage:
             arr = arr.copy()
         loop.setslice(self, arr)
@@ -241,9 +268,9 @@ class SliceArray(ConcreteArray):
         self.start = start
 
     def fill(self, box):
-        xxx
+        loop.fill(self, box)
 
     def create_iter(self):
         if len(self.shape) == 1:
             return OneDimViewIterator(self)
-        xxx
+        return MultiDimViewIterator(self)
