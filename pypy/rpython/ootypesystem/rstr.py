@@ -60,6 +60,13 @@ class StringRepr(BaseOOStringRepr, AbstractStringRepr):
             sb.ll_append_char(cast_primitive(UniChar, c))
         return sb.ll_build()
 
+    def ll_decode_utf8(self, llvalue):
+        from pypy.rpython.annlowlevel import hlstr, oounicode
+        from pypy.rlib.runicode import str_decode_utf_8
+        value = hlstr(llvalue)
+        univalue, _ = str_decode_utf_8(value, len(value), 'strict')
+        return oounicode(univalue)
+
 
 class UnicodeRepr(BaseOOStringRepr, AbstractUnicodeRepr):
     lowleveltype = ootype.Unicode

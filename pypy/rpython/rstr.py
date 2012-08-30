@@ -309,6 +309,8 @@ class __extend__(AbstractStringRepr):
             return hop.gendirectcall(self.ll.ll_str2unicode, v_self)
         elif encoding == 'latin-1':
             return hop.gendirectcall(self.ll_decode_latin1, v_self)
+        elif encoding == 'utf-8':
+            return hop.gendirectcall(self.ll_decode_utf8, v_self)
         else:
             raise TyperError("encoding %s not implemented" % (encoding, ))
 

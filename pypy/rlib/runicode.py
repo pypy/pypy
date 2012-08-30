@@ -47,12 +47,10 @@ else:
 
 def raise_unicode_exception_decode(errors, encoding, msg, s,
                                    startingpos, endingpos):
-    assert isinstance(s, str)
     raise UnicodeDecodeError(encoding, s, startingpos, endingpos, msg)
 
 def raise_unicode_exception_encode(errors, encoding, msg, u,
                                    startingpos, endingpos):
-    assert isinstance(u, unicode)
     raise UnicodeEncodeError(encoding, u, startingpos, endingpos, msg)
 
 # ____________________________________________________________

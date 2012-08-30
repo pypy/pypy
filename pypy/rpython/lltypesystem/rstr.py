@@ -143,6 +143,13 @@ class StringRepr(BaseLLStringRepr, AbstractStringRepr):
             s.chars[i] = cast_primitive(UniChar, value.chars[i])
         return s
 
+    def ll_decode_utf8(self, llvalue):
+        from pypy.rpython.annlowlevel import hlstr, llunicode
+        from pypy.rlib.runicode import str_decode_utf_8
+        value = hlstr(llvalue)
+        univalue, _ = str_decode_utf_8(value, len(value), 'strict')
+        return llunicode(univalue)
+
 class UnicodeRepr(BaseLLStringRepr, AbstractUnicodeRepr):
     lowleveltype = Ptr(UNICODE)
     basetype = basestring

@@ -130,11 +130,14 @@ class BaseTestRUnicode(AbstractTestRstr):
         assert self.interpret(f, [300, False]) == f(300, False)
 
     def test_unicode_decode(self):
-        def f(x):
-            y = 'xxx'
-            return (y + chr(x)).decode('ascii') + chr(x).decode("latin-1") 
+        strings = ['xxx', u'àèì'.encode('latin-1'), u'美'.encode('utf-8')]
+        def f(n):
+            x = strings[n]
+            y = strings[n+1]
+            z = strings[n+2]
+            return x.decode('ascii') + y.decode('latin-1') + z.decode('utf-8')
 
-        assert self.ll_to_string(self.interpret(f, [38])) == f(38)
+        assert self.ll_to_string(self.interpret(f, [0])) == f(0)
 
     def test_unicode_decode_error(self):
         def f(x):
