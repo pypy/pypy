@@ -67,7 +67,10 @@ class W_NDimArray(Wrappable):
         return self.implementation.create_iter()
 
     def is_scalar(self):
-        return self.implementation.is_scalar
+        return self.implementation.is_scalar()
+
+    def descr_get_size(self, space):
+        return space.wrap(support.product(self.implementation.get_shape()))
 
     def get_scalar_value(self):
         return self.implementation.get_scalar_value()
@@ -101,6 +104,7 @@ W_NDimArray.typedef = TypeDef(
     shape = GetSetProperty(W_NDimArray.descr_get_shape,
                            W_NDimArray.descr_set_shape),
     ndim = GetSetProperty(W_NDimArray.descr_get_ndim),
+    size = GetSetProperty(W_NDimArray.descr_get_size),
 )
 
 def decode_w_dtype(space, w_dtype):

@@ -2,11 +2,12 @@
 from pypy.module.micronumpy.arrayimpl import base
 
 class Scalar(base.BaseArrayImplementation):
-    is_scalar = True
-    
     def __init__(self, dtype):
         self.value = None
         self.dtype = dtype
+
+    def is_scalar(self):
+        return True
 
     def get_shape(self):
         return []

@@ -1,6 +1,7 @@
 
 class BaseArrayImplementation(object):
-    is_scalar = False
+    def is_scalar(self):
+        return False
 
 class BaseArrayIterator(object):
     def next(self):
