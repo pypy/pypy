@@ -3,7 +3,7 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import operationerrfmt
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.module.micronumpy import interp_dtype, interp_ufuncs
+from pypy.module.micronumpy import interp_dtype, interp_ufuncs, support
 from pypy.module.micronumpy.arrayimpl import create_implementation
 from pypy.module.micronumpy.strides import find_shape_and_elems
 from pypy.tool.sourcetools import func_with_new_name
@@ -56,6 +56,13 @@ class W_NDimArray(Wrappable):
             return self.getitem_filter(space, w_idx)
         return self.implementation.descr_getitem(space, w_idx)
 
+    def descr_setitem(self, space, w_idx, w_value):
+        if (isinstance(w_idx, W_NDimArray) and w_idx.shape == self.shape and
+            w_idx.find_dtype().is_bool_type()):
+            return self.setitem_filter(space, w_idx,
+                                       support.convert_to_array(space, w_value))
+        self.implementation.descr_setitem(space, w_idx, w_value)
+
     def create_iter(self):
         return self.implementation.create_iter()
 
@@ -88,6 +95,7 @@ W_NDimArray.typedef = TypeDef(
     __add__ = interp2app(W_NDimArray.descr_add),
 
     __getitem__ = interp2app(W_NDimArray.descr_getitem),
+    __setitem__ = interp2app(W_NDimArray.descr_setitem),
 
     dtype = GetSetProperty(W_NDimArray.descr_get_dtype),
     shape = GetSetProperty(W_NDimArray.descr_get_shape,

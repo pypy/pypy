@@ -13,7 +13,7 @@ class ConcreteArrayIterator(base.BaseArrayIterator):
         self.size = array.size
 
     def setitem(self, elem):
-        self.dtype.setitem(self.array, self.offset, elem)
+        self.array.setitem(self.offset, elem)
 
     def getitem(self):
         return self.array.getitem(self.offset)
@@ -65,6 +65,9 @@ class ConcreteArray(base.BaseArrayImplementation):
     def getitem(self, index):
         return self.dtype.getitem(self, index)
 
+    def setitem(self, index, value):
+        self.dtype.setitem(self, index, value)
+
     # -------------------- applevel get/setitem -----------------------
 
     @jit.unroll_safe
@@ -114,4 +117,14 @@ class ConcreteArray(base.BaseArrayImplementation):
             # not a single result
             chunks = self._prepare_slice_args(space, w_index)
             return chunks.apply(self)
+
+    def descr_setitem(self, space, w_index, w_value):
+        try:
+            item = self._single_item_index(space, w_index)
+            self.setitem(item, self.dtype.coerce(space, w_value))
+        except IndexError:
+            w_value = support.convert_to_array(space, w_value)
+            chunks = self._prepare_slice_args(space, w_index)
+            view = chunks.apply(self)
+            view.setslice(space, w_value)
 
