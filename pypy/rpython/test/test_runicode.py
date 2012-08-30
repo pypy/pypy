@@ -98,9 +98,11 @@ class BaseTestRUnicode(AbstractTestRstr):
         self.interpret_raises(UnicodeEncodeError, f, [1234])
 
     def test_unicode_encode(self):
-        def f(x):
-            y = u'xxx'
-            return (y + unichr(x)).encode('ascii') + y.encode('latin-1') + y.encode('utf-8')
+        def f(n):
+            x = u'xxx' + unichr(n)
+            y = u'àèì' + unichr(n)
+            z = u'美' + unichr(n)
+            return x.encode('ascii') + y.encode('latin-1') + z.encode('utf-8')
 
         assert self.ll_to_string(self.interpret(f, [38])) == f(38)
 
