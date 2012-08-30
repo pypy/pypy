@@ -1,6 +1,6 @@
 
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.interpreter.error import operationerrfmt
+from pypy.interpreter.error import operationerrfmt, OperationError
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.module.micronumpy import interp_dtype, interp_ufuncs, support
@@ -8,6 +8,7 @@ from pypy.module.micronumpy.arrayimpl import create_implementation
 from pypy.module.micronumpy.strides import find_shape_and_elems
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib import jit
+from pypy.rlib.objectmodel import instantiate
 
 def _find_shape(space, w_size):
     if space.isinstance_w(w_size, space.w_int):
@@ -63,6 +64,13 @@ class W_NDimArray(Wrappable):
                                        support.convert_to_array(space, w_value))
         self.implementation.descr_setitem(space, w_idx, w_value)
 
+    def descr_len(self, space):
+        shape = self.get_shape()
+        if len(shape):
+            return space.wrap(shape[0])
+        raise OperationError(space.w_TypeError, space.wrap(
+            "len() of unsized object"))
+
     def create_iter(self):
         return self.implementation.create_iter()
 
@@ -78,6 +86,11 @@ class W_NDimArray(Wrappable):
     def get_scalar_value(self):
         return self.implementation.get_scalar_value()
 
+    def descr_copy(self, space):
+        arr = instantiate(W_NDimArray)
+        arr.implementation = self.implementation.copy()
+        return arr
+
     # --------------------- binary operations ----------------------------
 
     def _binop_impl(ufunc_name):
@@ -87,6 +100,13 @@ class W_NDimArray(Wrappable):
         return func_with_new_name(impl, "binop_%s_impl" % ufunc_name)
 
     descr_add = _binop_impl("add")
+    
+    descr_eq = _binop_impl("equal")
+    descr_ne = _binop_impl("not_equal")
+    descr_lt = _binop_impl("less")
+    descr_le = _binop_impl("less_equal")
+    descr_gt = _binop_impl("greater")
+    descr_ge = _binop_impl("greater_equal")
 
     def _binop_right_impl(ufunc_name):
         def impl(self, space, w_other, w_out=None):
@@ -112,18 +132,28 @@ W_NDimArray.typedef = TypeDef(
     "ndarray",
     __new__ = interp2app(descr_new_array),
 
+    __len__ = interp2app(W_NDimArray.descr_len),
+    __getitem__ = interp2app(W_NDimArray.descr_getitem),
+    __setitem__ = interp2app(W_NDimArray.descr_setitem),
+
     __add__ = interp2app(W_NDimArray.descr_add),
 
     __radd__ = interp2app(W_NDimArray.descr_radd),
 
-    __getitem__ = interp2app(W_NDimArray.descr_getitem),
-    __setitem__ = interp2app(W_NDimArray.descr_setitem),
+    __eq__ = interp2app(W_NDimArray.descr_eq),
+    __ne__ = interp2app(W_NDimArray.descr_ne),
+    __lt__ = interp2app(W_NDimArray.descr_lt),
+    __le__ = interp2app(W_NDimArray.descr_le),
+    __gt__ = interp2app(W_NDimArray.descr_gt),
+    __ge__ = interp2app(W_NDimArray.descr_ge),
 
     dtype = GetSetProperty(W_NDimArray.descr_get_dtype),
     shape = GetSetProperty(W_NDimArray.descr_get_shape,
                            W_NDimArray.descr_set_shape),
     ndim = GetSetProperty(W_NDimArray.descr_get_ndim),
     size = GetSetProperty(W_NDimArray.descr_get_size),
+
+    copy = interp2app(W_NDimArray.descr_copy),
 )
 
 def decode_w_dtype(space, w_dtype):

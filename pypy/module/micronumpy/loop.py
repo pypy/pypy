@@ -27,6 +27,16 @@ def call1(func, name , calc_dtype, res_dtype, w_obj, out):
         obj_iter.next()
     return out
 
+def setslice(target, source):
+    target_iter = target.create_iter()
+    dtype = target.dtype
+    source_iter = source.create_iter()
+    while not target_iter.done():
+        target_iter.setitem(source_iter.getitem().convert_to(dtype))
+        target_iter.next()
+        source_iter.next()
+    return target
+
 # from pypy.rlib.jit import JitDriver, hint, unroll_safe, promote
 # from pypy.module.micronumpy.interp_iter import ConstantIterator
 

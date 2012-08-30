@@ -36,3 +36,9 @@ class Scalar(base.BaseArrayImplementation):
 
     def get_scalar_value(self):
         return self.value
+
+    def copy(self):
+        scalar = Scalar(self.dtype)
+        scalar.value = self.value
+        return scalar
+    

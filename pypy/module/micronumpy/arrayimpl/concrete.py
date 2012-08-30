@@ -1,6 +1,6 @@
 
 from pypy.module.micronumpy.arrayimpl import base
-from pypy.module.micronumpy import support
+from pypy.module.micronumpy import support, loop
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.rlib import jit
 
@@ -70,6 +70,10 @@ class ConcreteArray(base.BaseArrayImplementation):
 
     def fill(self, box):
         self.dtype.fill(self.storage, box, 0, self.size)
+
+    def copy(self):
+        impl = ConcreteArray(self.shape, self.dtype, self.order)
+        return loop.setslice(impl, self)
 
     # -------------------- applevel get/setitem -----------------------
 
