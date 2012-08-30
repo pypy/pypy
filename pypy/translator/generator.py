@@ -178,7 +178,7 @@ def tweak_generator_body_graph(Entry, graph):
                            Constant(AssertionError("bad generator class"))],
                           graph.exceptblock))
     graph.startblock = regular_entry_block
-    graph.signature = Signature([u'entry'])
+    graph.signature = Signature(['entry'])
     graph.defaults = ()
     checkgraph(graph)
     eliminate_empty_blocks(graph)

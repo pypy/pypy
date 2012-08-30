@@ -182,7 +182,7 @@ class FunctionDesc(Desc):
         if signature is None:
             if hasattr(pyobj, '_generator_next_method_of_'):
                 from pypy.interpreter.argument import Signature
-                signature = Signature([u'entry'])     # haaaaaack
+                signature = Signature(['entry'])     # haaaaaack
                 defaults = ()
             else:
                 signature = cpython_code_signature(pyobj.func_code)
