@@ -8,12 +8,16 @@ class ConcreteArrayIterator(base.BaseArrayIterator):
         self.offset = 0
         self.dtype = dtype
         self.element_size = dtype.get_size()
+        self.size = array.size
 
     def setitem(self, elem):
         self.dtype.setitem(self.array.storage, self.offset, elem)
 
     def next(self):
         self.offset += self.element_size
+
+    def done(self):
+        return self.offset >= self.size
 
 def calc_strides(shape, dtype, order):
     strides = []

@@ -3,6 +3,16 @@
 signatures
 """
 
+def call2(func, name, shape, calc_dtype, res_dtype, w_lhs, w_rhs, out):
+    left_iter = w_lhs.create_iter()
+    right_iter = w_rhs.create_iter()
+    out_iter = out.create_iter()
+    while not out_iter.done():
+        #left_iter.getitem()
+        left_iter.next()
+        right_iter.next()
+        out_iter.next()
+
 from pypy.rlib.jit import JitDriver, hint, unroll_safe, promote
 from pypy.module.micronumpy.interp_iter import ConstantIterator
 

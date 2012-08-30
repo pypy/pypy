@@ -7,6 +7,8 @@ from pypy.rlib import jit
 from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.module.micronumpy.interp_support import unwrap_axis_arg
+from pypy.module.micronumpy.strides import shape_agreement
+from pypy.module.micronumpy.support import convert_to_array
 
 class W_Ufunc(Wrappable):
     _attrs_ = ["name", "promote_to_float", "promote_bools", "identity"]
@@ -292,8 +294,8 @@ class W_Ufunc2(W_Ufunc):
 
     @jit.unroll_safe
     def call(self, space, args_w):
-        from pypy.module.micronumpy.interp_numarray import (Call2,
-            convert_to_array, Scalar, shape_agreement, BaseArray)
+        from pypy.module.micronumpy.interp_numarray import W_NDimArray
+        
         if len(args_w) > 2:
             [w_lhs, w_rhs, w_out] = args_w
         else:
@@ -304,12 +306,12 @@ class W_Ufunc2(W_Ufunc):
         if space.is_w(w_out, space.w_None) or w_out is None:
             out = None
             calc_dtype = find_binop_result_dtype(space,
-                w_lhs.find_dtype(), w_rhs.find_dtype(),
+                w_lhs.dtype, w_rhs.dtype,
                 int_only=self.int_only,
                 promote_to_float=self.promote_to_float,
                 promote_bools=self.promote_bools,
             )
-        elif not isinstance(w_out, BaseArray):
+        elif not isinstance(w_out, W_NDimArray):
             raise OperationError(space.w_TypeError, space.wrap(
                     'output must be an array'))
         else:
@@ -319,19 +321,20 @@ class W_Ufunc2(W_Ufunc):
             res_dtype = interp_dtype.get_dtype_cache(space).w_booldtype
         else:
             res_dtype = calc_dtype
-        if isinstance(w_lhs, Scalar) and isinstance(w_rhs, Scalar):
+        if w_lhs.is_scalar() and w_rhs.is_scalar():
             arr = self.func(calc_dtype,
                 w_lhs.value.convert_to(calc_dtype),
                 w_rhs.value.convert_to(calc_dtype)
             )
-            if isinstance(out,Scalar):
-                out.value = arr
-            elif isinstance(out, BaseArray):
+            if out.is_scalar():
+                out.set_value(arr)
+            elif isinstance(out, W_NDimArray):
                 out.fill(space, arr)
             else:
                 out = arr
             return space.wrap(out)
-        new_shape = shape_agreement(space, w_lhs.shape, w_rhs.shape)
+        new_shape = shape_agreement(space, w_lhs.get_shape(),
+                                    w_rhs.get_shape())
         # Test correctness of out.shape
         if out and out.shape != shape_agreement(space, new_shape, out.shape):
             raise operationerrfmt(space.w_ValueError,
@@ -340,14 +343,11 @@ class W_Ufunc2(W_Ufunc):
                 ",".join([str(x) for x in new_shape]),
                 ",".join([str(x) for x in out.shape]),
                 )
-        w_res = Call2(self.func, self.name,
-                      new_shape, calc_dtype,
-                      res_dtype, w_lhs, w_rhs, out)
-        w_lhs.add_invalidates(space, w_res)
-        w_rhs.add_invalidates(space, w_res)
-        if out:
-            w_res.get_concrete()
-        return w_res
+        if out is None:
+            out = W_NDimArray(new_shape, res_dtype)
+        return loop.call2(self.func, self.name,
+                          new_shape, calc_dtype,
+                          res_dtype, w_lhs, w_rhs, out)
 
 
 W_Ufunc.typedef = TypeDef("ufunc",
