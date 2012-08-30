@@ -45,6 +45,12 @@ def test_operationerrfmt_unicode():
     val = operr._compute_value()
     assert val == u"abc àèìòù"
 
+def test_operationerrfmt_utf8():
+    arg = u"àèìòù".encode('utf-8')
+    operr = operationerrfmt("w_type", "abc %8", arg)
+    val = operr._compute_value()
+    assert val == u"abc àèìòù"
+
 def test_errorstr(space):
     operr = OperationError(space.w_ValueError, space.wrap("message"))
     assert operr.errorstr(space) == "ValueError: message"

@@ -308,7 +308,8 @@ def decompose_valuefmt(valuefmt):
     parts = valuefmt.split('%')
     i = 1
     while i < len(parts):
-        if parts[i].startswith('s') or parts[i].startswith('d'):
+        if (parts[i].startswith('s') or parts[i].startswith('d') or
+            parts[i].startswith('8')):
             formats.append(parts[i][0])
             parts[i] = parts[i][1:]
             i += 1
@@ -316,11 +317,12 @@ def decompose_valuefmt(valuefmt):
             parts[i-1] += '%' + parts[i+1]
             del parts[i:i+2]
         else:
-            raise ValueError("invalid format string (only %s or %d supported)")
+            raise ValueError("invalid format string (only %s, %d or %8 supported)")
     assert len(formats) > 0, "unsupported: no % command found"
     return tuple(parts), tuple(formats)
 
 def get_operrcls2(valuefmt):
+    from pypy.rlib.runicode import str_decode_utf_8
     valuefmt = valuefmt.decode('ascii')
     strings, formats = decompose_valuefmt(valuefmt)
     assert len(strings) == len(formats) + 1
@@ -349,6 +351,9 @@ def get_operrcls2(valuefmt):
                     lst[i+i] = string
                     if fmt == 'd':
                         lst[i+i+1] = str(value).decode('ascii')
+                    elif fmt == '8':
+                        univalue, _ = str_decode_utf_8(value, len(value), 'strict')
+                        lst[i+i+1] = univalue
                     else:
                         lst[i+i+1] = unicode(value)
                 lst[-1] = self.xstrings[-1]
