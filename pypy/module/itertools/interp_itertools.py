@@ -613,9 +613,9 @@ def W_ZipLongest___new__(space, w_subtype, __args__):
     arguments_w, kwds_w = __args__.unpack()
     w_fillvalue = space.w_None
     if kwds_w:
-        if u"fillvalue" in kwds_w:
-            w_fillvalue = kwds_w[u"fillvalue"]
-            del kwds_w[u"fillvalue"]
+        if "fillvalue" in kwds_w:
+            w_fillvalue = kwds_w["fillvalue"]
+            del kwds_w["fillvalue"]
         if kwds_w:
             raise OperationError(space.w_TypeError, space.wrap(
                 "zip_longest() got unexpected keyword argument(s)"))
@@ -1094,9 +1094,9 @@ def W_Product__new__(space, w_subtype, __args__):
     arguments_w, kwds_w = __args__.unpack()
     w_repeat = space.wrap(1)
     if kwds_w:
-        if u'repeat' in kwds_w:
-            w_repeat = kwds_w[u'repeat']
-            del kwds_w[u'repeat']
+        if 'repeat' in kwds_w:
+            w_repeat = kwds_w['repeat']
+            del kwds_w['repeat']
         if kwds_w:
             raise OperationError(space.w_TypeError, space.wrap(
                 "product() got unexpected keyword argument(s)"))
