@@ -12,7 +12,6 @@ class Signature(object):
     _immutable_fields_ = ["argnames[*]", "kwonlyargnames[*]"]
     __slots__ = ("argnames", "kwonlyargnames", "varargname", "kwargname")
 
-    @enforceargs(None, [unicode], unicode, unicode, [unicode])
     def __init__(self, argnames, varargname=None, kwargname=None, kwonlyargnames=None):
         self.argnames = argnames
         self.varargname = varargname

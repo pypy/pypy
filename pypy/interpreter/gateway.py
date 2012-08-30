@@ -171,8 +171,8 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
         argname = self.orig_arg()
         assert app_sig.varargname is None,(
             "built-in function %r has conflicting rest args specs" % self.func)
-        app_sig.varargname = u'args'
-        app_sig.kwargname = u'keywords'
+        app_sig.varargname = 'args'
+        app_sig.kwargname = 'keywords'
 
     def visit_args_w(self, el, app_sig):
         argname = self.orig_arg()

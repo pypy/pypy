@@ -147,7 +147,7 @@ class CPythonFakeCode(eval.Code):
         assert callable(cpy_callable), cpy_callable
 
     def signature(self):
-        return argument.Signature([], u'args', u'kwds')
+        return argument.Signature([], 'args', 'kwds')
 
     def funcrun(self, func, args):
         frame = func.space.createframe(self, func.w_func_globals,

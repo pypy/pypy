@@ -612,7 +612,7 @@ class IntIteratorImplementation(_WrappedIteratorMixin, IteratorImplementation):
 class ObjectIteratorImplementation(_UnwrappedIteratorMixin, IteratorImplementation):
     pass
 
-init_signature = Signature([u'seq_or_map'], None, u'kwargs')
+init_signature = Signature(['seq_or_map'], None, 'kwargs')
 init_defaults = [None]
 
 def update1(space, w_dict, w_data):
