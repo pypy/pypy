@@ -98,6 +98,13 @@ class UnicodeRepr(BaseOOStringRepr, AbstractUnicodeRepr):
             sb.ll_append_char(cast_primitive(Char, c))
         return sb.ll_build()
 
+    def ll_encode_utf8(self, ll_s):
+        from pypy.rpython.annlowlevel import hlunicode, oostr
+        from pypy.rlib.runicode import unicode_encode_utf_8
+        s = hlunicode(ll_s)
+        bytes = unicode_encode_utf_8(s, len(s), 'strict')
+        return oostr(bytes)
+
 class CharRepr(AbstractCharRepr, StringRepr):
     lowleveltype = Char
 

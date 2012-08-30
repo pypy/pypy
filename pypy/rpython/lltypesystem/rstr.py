@@ -187,6 +187,14 @@ class UnicodeRepr(BaseLLStringRepr, AbstractUnicodeRepr):
             result.chars[i] = cast_primitive(Char, c)
         return result
 
+    @jit.elidable
+    def ll_encode_utf8(self, ll_s):
+        from pypy.rpython.annlowlevel import hlunicode, llstr
+        from pypy.rlib.runicode import unicode_encode_utf_8
+        s = hlunicode(ll_s)
+        bytes = unicode_encode_utf_8(s, len(s), 'strict')
+        return llstr(bytes)
+
 class CharRepr(AbstractCharRepr, StringRepr):
     lowleveltype = Char
 

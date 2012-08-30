@@ -100,7 +100,7 @@ class BaseTestRUnicode(AbstractTestRstr):
     def test_unicode_encode(self):
         def f(x):
             y = u'xxx'
-            return (y + unichr(x)).encode('ascii') + y.encode('latin-1')
+            return (y + unichr(x)).encode('ascii') + y.encode('latin-1') + y.encode('utf-8')
 
         assert self.ll_to_string(self.interpret(f, [38])) == f(38)
 

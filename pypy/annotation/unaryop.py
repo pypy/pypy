@@ -530,7 +530,7 @@ class __extend__(SomeUnicodeString):
         if not s_enc.is_constant():
             raise TypeError("Non-constant encoding not supported")
         enc = s_enc.const
-        if enc not in ('ascii', 'latin-1'):
+        if enc not in ('ascii', 'latin-1', 'utf-8'):
             raise TypeError("Encoding %s not supported for unicode" % (enc,))
         return SomeString()
     method_encode.can_only_throw = [UnicodeEncodeError]
