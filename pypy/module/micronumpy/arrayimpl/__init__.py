@@ -6,3 +6,4 @@ def create_implementation(shape, dtype, order):
         return scalar.Scalar(dtype)
     else:
         return concrete.ConcreteArray(shape, dtype, order)
+

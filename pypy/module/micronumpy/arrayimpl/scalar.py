@@ -5,7 +5,10 @@ class Scalar(base.BaseArrayImplementation):
     is_scalar = True
     
     def __init__(self, dtype):
-        pass
+        self.value = None
 
     def get_shape(self):
         return []
+
+    def set_scalar_value(self, value):
+        self.value = value

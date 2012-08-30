@@ -306,7 +306,7 @@ class W_Ufunc2(W_Ufunc):
         if space.is_w(w_out, space.w_None) or w_out is None:
             out = None
             calc_dtype = find_binop_result_dtype(space,
-                w_lhs.dtype, w_rhs.dtype,
+                w_lhs.get_dtype(), w_rhs.get_dtype(),
                 int_only=self.int_only,
                 promote_to_float=self.promote_to_float,
                 promote_bools=self.promote_bools,

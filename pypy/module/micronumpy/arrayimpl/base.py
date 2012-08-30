@@ -8,3 +8,6 @@ class BaseArrayIterator(object):
 
     def setitem(self, elem):
         raise NotImplementedError
+
+    def set_scalar_object(self, value):
+        raise NotImplementedError # works only on scalars

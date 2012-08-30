@@ -17,13 +17,17 @@ def _find_shape(space, w_size):
         shape.append(space.int_w(w_item))
     return shape
 
+def scalar_w(space, dtype, w_object):
+    arr = W_NDimArray([], dtype)
+    arr.implementation.set_scalar_value(w_object)
+    return arr
+
 class W_NDimArray(Wrappable):
     def __init__(self, shape, dtype, buffer=0, offset=0, strides=None,
                  order='C'):
         if strides is not None or offset != 0 or buffer != 0:
             raise Exception("unsupported args")
         self.implementation = create_implementation(shape, dtype, order)
-        self.dtype = dtype
 
     @jit.unroll_safe
     def descr_get_shape(self, space):
@@ -37,8 +41,14 @@ class W_NDimArray(Wrappable):
         self.implementation = self.implementation.set_shape(
             _find_shape(space, w_new_shape))
 
+    def get_dtype(self):
+        return self.implementation.dtype
+
     def descr_get_dtype(self, space):
-        return self.dtype
+        return self.implementation.dtype
+
+    def descr_get_ndim(self, space):
+        return space.wrap(len(self.get_shape()))
 
     def create_iter(self):
         return self.implementation.create_iter()
@@ -71,11 +81,21 @@ W_NDimArray.typedef = TypeDef(
     dtype = GetSetProperty(W_NDimArray.descr_get_dtype),
     shape = GetSetProperty(W_NDimArray.descr_get_shape,
                            W_NDimArray.descr_set_shape),
+    ndim = GetSetProperty(W_NDimArray.descr_get_ndim),
 )
+
+def decode_w_dtype(space, w_dtype):
+    if w_dtype is None or space.is_w(w_dtype, space.w_None):
+        return None
+    return space.interp_w(interp_dtype.W_Dtype,
+          space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype))
 
 @unwrap_spec(ndmin=int, copy=bool, subok=bool)
 def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
           ndmin=0):
+    if not space.issequence_w(w_object):
+        dtype = decode_w_dtype(space, w_dtype)
+        return scalar_w(space, dtype, w_object)
     if w_order is None or space.is_w(w_order, space.w_None):
         order = 'C'
     else:
@@ -91,11 +111,7 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
         if copy:
             return w_object.copy(space)
         return w_object
-    if w_dtype is None or space.is_w(w_dtype, space.w_None):
-        dtype = None
-    else:
-        dtype = space.interp_w(interp_dtype.W_Dtype,
-           space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype))
+    dtype = decode_w_dtype(space, w_dtype)
     shape, elems_w = find_shape_and_elems(space, w_object, dtype)
     if dtype is None:
         for w_elem in elems_w:
