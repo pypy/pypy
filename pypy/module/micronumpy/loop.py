@@ -3,7 +3,7 @@
 signatures
 """
 
-def call2(func, name, shape, calc_dtype, res_dtype, w_lhs, w_rhs, out):
+def call2(func, name, calc_dtype, res_dtype, w_lhs, w_rhs, out):
     left_iter = w_lhs.create_iter()
     right_iter = w_rhs.create_iter()
     out_iter = out.create_iter()
@@ -15,6 +15,16 @@ def call2(func, name, shape, calc_dtype, res_dtype, w_lhs, w_rhs, out):
         left_iter.next()
         right_iter.next()
         out_iter.next()
+    return out
+
+def call1(func, name , calc_dtype, res_dtype, w_obj, out):
+    obj_iter = w_obj.create_iter()
+    out_iter = out.create_iter()
+    while not out_iter.done():
+        elem = obj_iter.getitem().convert_to(calc_dtype)
+        out_iter.setitem(func(calc_dtype, elem).convert_to(res_dtype))
+        out_iter.next()
+        obj_iter.next()
     return out
 
 # from pypy.rlib.jit import JitDriver, hint, unroll_safe, promote

@@ -135,7 +135,7 @@ class W_Ufunc(Wrappable):
 
     def reduce(self, space, w_obj, multidim, promote_to_largest, w_axis,
                keepdims=False, out=None):
-        from pypy.module.micronumpy.interp_numarray import convert_to_array, \
+        from pypy.module.micronumpy.interp_numarray import \
                                              Scalar, ReduceArray, W_NDimArray
         if self.argcount != 2:
             raise OperationError(space.w_ValueError, space.wrap("reduce only "
@@ -227,8 +227,7 @@ class W_Ufunc1(W_Ufunc):
         self.bool_result = bool_result
 
     def call(self, space, args_w):
-        from pypy.module.micronumpy.interp_numarray import (Call1, BaseArray,
-            convert_to_array, Scalar, shape_agreement)
+        from pypy.module.micronumpy.interp_numarray import W_NDimArray
         if len(args_w)<2:
             [w_obj] = args_w
             out = None
@@ -238,11 +237,11 @@ class W_Ufunc1(W_Ufunc):
                 out = None
         w_obj = convert_to_array(space, w_obj)
         calc_dtype = find_unaryop_result_dtype(space,
-                                  w_obj.find_dtype(),
+                                  w_obj.get_dtype(),
                                   promote_to_float=self.promote_to_float,
                                   promote_bools=self.promote_bools)
         if out:
-            if not isinstance(out, BaseArray):
+            if not isinstance(out, W_NDimArray):
                 raise OperationError(space.w_TypeError, space.wrap(
                                                 'output must be an array'))
             res_dtype = out.find_dtype()
@@ -250,7 +249,8 @@ class W_Ufunc1(W_Ufunc):
             res_dtype = interp_dtype.get_dtype_cache(space).w_booldtype
         else:
             res_dtype = calc_dtype
-        if isinstance(w_obj, Scalar):
+        if w_obj.is_scalar():
+            xxx
             arr = self.func(calc_dtype, w_obj.value.convert_to(calc_dtype))
             if isinstance(out,Scalar):
                 out.value = arr
@@ -259,25 +259,21 @@ class W_Ufunc1(W_Ufunc):
             else:
                 out = arr
             return space.wrap(out)
-        if out:
-            assert isinstance(out, BaseArray) # For translation
-            broadcast_shape =  shape_agreement(space, w_obj.shape, out.shape)
-            if not broadcast_shape or broadcast_shape != out.shape:
+        if not out:
+            out = W_NDimArray(w_obj.get_shape(), res_dtype)
+        else:
+            assert isinstance(out, W_NDimArray) # For translation
+            broadcast_shape =  shape_agreement(space, w_obj.get_shape(),
+                                               out.get_shape())
+            if not broadcast_shape or broadcast_shape != out.get_shape():
                 raise operationerrfmt(space.w_ValueError,
                     'output parameter shape mismatch, could not broadcast [%s]' +
                     ' to [%s]',
-                    ",".join([str(x) for x in w_obj.shape]),
-                    ",".join([str(x) for x in out.shape]),
+                    ",".join([str(x) for x in w_obj.get_shape()]),
+                    ",".join([str(x) for x in out.get_shape()]),
                     )
-            w_res = Call1(self.func, self.name, out.shape, calc_dtype,
-                                         res_dtype, w_obj, out)
-            #Force it immediately
-            w_res.get_concrete()
-        else:
-            w_res = Call1(self.func, self.name, w_obj.shape, calc_dtype,
-                                         res_dtype, w_obj)
-        w_obj.add_invalidates(space, w_res)
-        return w_res
+        return loop.call1(self.func, self.name, calc_dtype, res_dtype,
+                          w_obj, out)
 
 
 class W_Ufunc2(W_Ufunc):
@@ -346,8 +342,7 @@ class W_Ufunc2(W_Ufunc):
                 )
         if out is None:
             out = W_NDimArray(new_shape, res_dtype)
-        return loop.call2(self.func, self.name,
-                          new_shape, calc_dtype,
+        return loop.call2(self.func, self.name, calc_dtype,
                           res_dtype, w_lhs, w_rhs, out)
 
 
