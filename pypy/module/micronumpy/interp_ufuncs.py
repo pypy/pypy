@@ -32,7 +32,7 @@ class W_Ufunc(Wrappable):
         return self.identity
 
     def descr_call(self, space, __args__):
-        from interp_numarray import BaseArray
+        from interp_numarray import W_NDimArray
         args_w, kwds_w = __args__.unpack()
         # it occurs to me that we don't support any datatypes that
         # require casting, change it later when we do
@@ -61,7 +61,7 @@ class W_Ufunc(Wrappable):
             out = args_w[-1]
         else:
             args_w = args_w[:] + [out]
-        if out is not None and not isinstance(out, BaseArray):
+        if out is not None and not isinstance(out, W_NDimArray):
             raise OperationError(space.w_TypeError, space.wrap(
                                             'output must be an array'))
         return self.call(space, args_w)
