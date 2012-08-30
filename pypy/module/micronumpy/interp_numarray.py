@@ -19,7 +19,7 @@ def _find_shape(space, w_size):
 
 def scalar_w(space, dtype, w_object):
     arr = W_NDimArray([], dtype)
-    arr.implementation.set_scalar_value(w_object)
+    arr.implementation.set_scalar_value(dtype.coerce(space, w_object))
     return arr
 
 class W_NDimArray(Wrappable):
@@ -50,11 +50,20 @@ class W_NDimArray(Wrappable):
     def descr_get_ndim(self, space):
         return space.wrap(len(self.get_shape()))
 
+    def descr_getitem(self, space, w_idx):
+        if (isinstance(w_idx, W_NDimArray) and w_idx.get_shape() == self.get_shape() and
+            w_idx.get_dtype().is_bool_type()):
+            return self.getitem_filter(space, w_idx)
+        return self.implementation.descr_getitem(space, w_idx)
+
     def create_iter(self):
         return self.implementation.create_iter()
 
     def is_scalar(self):
         return self.implementation.is_scalar
+
+    def get_scalar_value(self):
+        return self.implementation.get_scalar_value()
 
     def _binop_impl(ufunc_name):
         def impl(self, space, w_other, w_out=None):
@@ -78,6 +87,8 @@ W_NDimArray.typedef = TypeDef(
 
     __add__ = interp2app(W_NDimArray.descr_add),
 
+    __getitem__ = interp2app(W_NDimArray.descr_getitem),
+
     dtype = GetSetProperty(W_NDimArray.descr_get_dtype),
     shape = GetSetProperty(W_NDimArray.descr_get_shape,
                            W_NDimArray.descr_set_shape),
@@ -94,7 +105,10 @@ def decode_w_dtype(space, w_dtype):
 def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
           ndmin=0):
     if not space.issequence_w(w_object):
-        dtype = decode_w_dtype(space, w_dtype)
+        if w_dtype is None or space.is_w(w_dtype, space.w_None):
+            w_dtype = interp_ufuncs.find_dtype_for_scalar(space, w_object)
+        dtype = space.interp_w(interp_dtype.W_Dtype,
+          space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype))
         return scalar_w(space, dtype, w_object)
     if w_order is None or space.is_w(w_order, space.w_None):
         order = 'C'
@@ -130,8 +144,15 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
         arr_iter.next()
     return arr
 
-def zeros(space):
-    pass
+@unwrap_spec(order=str)
+def zeros(space, w_shape, w_dtype=None, order='C'):
+    dtype = space.interp_w(interp_dtype.W_Dtype,
+        space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)
+    )
+    shape = _find_shape(space, w_shape)
+    if not shape:
+        return scalar_w(space, dtype, space.wrap(0))
+    return space.wrap(W_NDimArray(shape, dtype=dtype, order=order))
 
 def ones(space):
     pass

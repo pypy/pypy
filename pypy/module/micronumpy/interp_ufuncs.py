@@ -323,13 +323,14 @@ class W_Ufunc2(W_Ufunc):
             res_dtype = calc_dtype
         if w_lhs.is_scalar() and w_rhs.is_scalar():
             arr = self.func(calc_dtype,
-                w_lhs.value.convert_to(calc_dtype),
-                w_rhs.value.convert_to(calc_dtype)
+                w_lhs.get_scalar_value().convert_to(calc_dtype),
+                w_rhs.get_scalar_value().convert_to(calc_dtype)
             )
-            if out.is_scalar():
-                out.set_value(arr)
-            elif isinstance(out, W_NDimArray):
-                out.fill(space, arr)
+            if isinstance(out, W_NDimArray):
+                if out.is_scalar():
+                    out.set_scalar_value(arr)
+                else:
+                    out.fill(space, arr)
             else:
                 out = arr
             return space.wrap(out)
