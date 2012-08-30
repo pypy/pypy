@@ -5,7 +5,6 @@ Arguments objects.
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.rlib.debug import make_sure_not_resized
 from pypy.rlib import jit
-from pypy.rlib.debug import check_annotation
 from pypy.rlib.objectmodel import enforceargs
 
 class Signature(object):
@@ -93,22 +92,6 @@ class Signature(object):
             return self.kwargname
         raise IndexError
 
-
-
-def check_list_of_unicode(ann, bk):
-    from pypy.annotation.model import (SomeList, SomeUnicodeString,
-                                       s_None, s_ImpossibleValue)
-    if ann is s_None:
-        return
-    if not isinstance(ann, SomeList):
-        raise TypeError
-    s_item = ann.listdef.listitem.s_value
-    if s_item is s_ImpossibleValue:
-        return
-    if not isinstance(s_item, SomeUnicodeString):
-        raise TypeError
-
-
 class Arguments(object):
     """
     Collects the arguments of a function call.
@@ -127,7 +110,6 @@ class Arguments(object):
         self.space = space
         assert isinstance(args_w, list)
         self.arguments_w = args_w
-        check_annotation(keywords, check_list_of_unicode)
         
         self.keywords = keywords
         self.keywords_w = keywords_w
@@ -203,7 +185,6 @@ class Arguments(object):
         # unpack the ** arguments
         space = self.space
         keywords, values_w = space.view_as_kwargs(w_starstararg)
-        check_annotation(keywords, check_list_of_unicode)
         if keywords is not None: # this path also taken for empty dicts
             if self.keywords is None:
                 self.keywords = keywords
@@ -421,7 +402,7 @@ class Arguments(object):
                                   w_kw_defs, 0)
         except ArgErr, e:
             raise operationerrfmt(self.space.w_TypeError,
-                                  "%s() %s", fnname, e.getmsg())
+                                  "%s() %8", fnname, e.getmsg())
         return signature.scope_length()
 
     def _parse(self, w_firstarg, signature, defaults_w, w_kw_defs, blindargs=0):
@@ -446,7 +427,7 @@ class Arguments(object):
                                blindargs)
         except ArgErr, e:
             raise operationerrfmt(self.space.w_TypeError,
-                                  "%s() %s", fnname, e.getmsg())
+                                  "%s() %8", fnname, e.getmsg())
 
     @staticmethod
     def frompacked(space, w_args=None, w_kwds=None):
@@ -492,11 +473,10 @@ def _check_not_duplicate_kwargs(space, existingkeywords, keywords, keywords_w):
 
 def _do_combine_starstarargs_wrapped(space, keys_w, w_starstararg, keywords,
         keywords_w, existingkeywords):
-    
     i = 0
     for w_key in keys_w:
         try:
-            key = space.unicode_w(w_key)
+            key = space.unicode_w(w_key).encode('utf-8')
         except OperationError, e:
             if e.match(space, space.w_TypeError):
                 raise OperationError(
@@ -778,6 +758,7 @@ class ArgErrMultipleValues(ArgErr):
             self.argname)
         return msg
 
+
 class ArgErrUnknownKwds(ArgErr):
 
     def __init__(self, space, num_remainingkwds, keywords, kwds_mapping,
@@ -798,9 +779,9 @@ class ArgErrUnknownKwds(ArgErr):
                             # note: negative-based indexing from the end
                             w_name = keyword_names_w[i - len(keywords)]
                         except IndexError:
-                            name = u'?'
+                            name = '?'
                         else:
-                            name = space.unicode_w(w_name)
+                            name = space.unicode_w(w_name).encode('utf-8')
                     break
         self.kwd_name = name
 

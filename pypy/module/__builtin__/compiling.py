@@ -6,7 +6,7 @@ from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.astcompiler import consts, ast
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.interpreter.argument import Arguments, check_annotation, check_list_of_unicode
+from pypy.interpreter.argument import Arguments
 from pypy.interpreter.nestedscope import Cell
 
 @unwrap_spec(filename=str, mode=str, flags=int, dont_inherit=int, optimize=int)
@@ -114,7 +114,7 @@ def exec_(space, w_prog, w_globals=None, w_locals=None):
 def build_class(space, w_func, w_name, __args__):
     bases_w, kwds_w = __args__.unpack()
     w_bases = space.newtuple(bases_w)
-    w_meta = kwds_w.pop(u'metaclass', None)
+    w_meta = kwds_w.pop('metaclass', None)
     if w_meta is None:
         if bases_w:
             w_meta = space.type(bases_w[0])
@@ -129,7 +129,6 @@ def build_class(space, w_func, w_name, __args__):
         w_namespace = space.newdict()
     else:
         keywords = kwds_w.keys()
-        check_annotation(keywords, check_list_of_unicode)
         args = Arguments(space, 
                          args_w=[w_name, w_bases],
                          keywords=keywords,
@@ -137,7 +136,6 @@ def build_class(space, w_func, w_name, __args__):
         w_namespace = space.call_args(w_prep, args)
     w_cell = space.call_function(w_func, w_namespace)
     keywords = kwds_w.keys()
-    check_annotation(keywords, check_list_of_unicode)
     args = Arguments(space,
                      args_w=[w_name, w_bases, w_namespace],
                      keywords=keywords,
