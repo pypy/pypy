@@ -1,6 +1,7 @@
 
 from pypy.module.micronumpy.arrayimpl import base
 from pypy.module.micronumpy import support, loop
+from pypy.module.micronumpy.iter import Chunk, Chunks, NewAxisChunk, RecordChunk
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.rlib import jit
 
@@ -47,6 +48,7 @@ def int_w(space, w_obj):
 
 class ConcreteArray(base.BaseArrayImplementation):
     start = 0
+    parent = None
     
     def __init__(self, shape, dtype, order):
         self.shape = shape
@@ -116,6 +118,31 @@ class ConcreteArray(base.BaseArrayImplementation):
         idx = int_w(space, w_idx)
         return self._lookup_by_index(space, [space.wrap(idx)])
 
+    @jit.unroll_safe
+    def _prepare_slice_args(self, space, w_idx):
+        if space.isinstance_w(w_idx, space.w_str):
+            idx = space.str_w(w_idx)
+            dtype = self.find_dtype()
+            if not dtype.is_record_type() or idx not in dtype.fields:
+                raise OperationError(space.w_ValueError, space.wrap(
+                    "field named %s not defined" % idx))
+            return RecordChunk(idx)
+        if (space.isinstance_w(w_idx, space.w_int) or
+            space.isinstance_w(w_idx, space.w_slice)):
+            return Chunks([Chunk(*space.decode_index4(w_idx, self.shape[0]))])
+        elif space.is_w(w_idx, space.w_None):
+            return Chunks([NewAxisChunk()])
+        result = []
+        i = 0
+        for w_item in space.fixedview(w_idx):
+            if space.is_w(w_item, space.w_None):
+                result.append(NewAxisChunk())
+            else:
+                result.append(Chunk(*space.decode_index4(w_item,
+                                                         self.shape[i])))
+                i += 1
+        return Chunks(result)
+
     def descr_getitem(self, space, w_index):
         try:
             item = self._single_item_index(space, w_index)
@@ -135,3 +162,14 @@ class ConcreteArray(base.BaseArrayImplementation):
             view = chunks.apply(self)
             view.setslice(space, w_value)
 
+class SliceArray(ConcreteArray):
+    def __init__(self, start, strides, backstrides, shape, parent):
+        self.strides = strides
+        self.backstrides = backstrides
+        self.shape = shape
+        self.parent = parent
+        self.storage = parent.storage
+        self.order = parent.order
+        self.dtype = parent.dtype
+        self.size = support.product(shape)
+        self.start = start

@@ -4,7 +4,7 @@ from pypy.interpreter.error import operationerrfmt, OperationError
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.module.micronumpy import interp_dtype, interp_ufuncs, support
-from pypy.module.micronumpy.arrayimpl import create_implementation
+from pypy.module.micronumpy.arrayimpl import create_implementation, create_slice
 from pypy.module.micronumpy.strides import find_shape_and_elems
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib import jit
@@ -21,6 +21,12 @@ def _find_shape(space, w_size):
 def scalar_w(space, dtype, w_object):
     arr = W_NDimArray([], dtype)
     arr.implementation.set_scalar_value(dtype.coerce(space, w_object))
+    return arr
+
+def slice_w(start, strides, backstrides, shape, parent):
+    arr = instantiate(W_NDimArray)
+    arr.implementation = create_slice(start, strides, backstrides, shape,
+                                      parent)
     return arr
 
 class W_NDimArray(Wrappable):
