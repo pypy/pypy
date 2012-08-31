@@ -158,11 +158,19 @@ class BaseTestRUnicode(AbstractTestRstr):
 
     def test_utf_8_decoding_annotation(self):
         from pypy.rlib.runicode import str_decode_utf_8
+        def errorhandler(errors, encoding, msg, s,
+                         startingpos, endingpos):
+            raise UnicodeDecodeError(encoding, s, startingpos, endingpos, msg)
+        
         strings = [u'àèì'.encode('utf-8'), u'ìòéà'.encode('utf-8')]
         def f(n):
             x = strings[n]
+            if n:
+                errors = 'strict'
+            else:
+                errors = 'foo'
             # the annotation of y is SomeUnicodeString(can_be_None=False)
-            y, _ = str_decode_utf_8(x, len(x), 'strict')
+            y, _ = str_decode_utf_8(x, len(x), errors, errorhandler)
             return x.decode('utf-8') + y
 
         assert self.ll_to_string(self.interpret(f, [1])) == f(1)

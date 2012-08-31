@@ -132,11 +132,9 @@ class StringRepr(BaseLLStringRepr, AbstractStringRepr):
     CACHE = CONST_STR_CACHE
 
     def __init__(self, *args):
-        from pypy.rlib.runicode import str_decode_utf_8
         AbstractStringRepr.__init__(self, *args)
         self.ll = LLHelpers
         self.malloc = mallocstr
-        self.rstr_decode_utf_8 = func_with_new_name(str_decode_utf_8, 'rstr_decode_utf_8')
 
     def ll_decode_latin1(self, value):
         lgt = len(value.chars)
@@ -145,13 +143,6 @@ class StringRepr(BaseLLStringRepr, AbstractStringRepr):
             s.chars[i] = cast_primitive(UniChar, value.chars[i])
         return s
 
-    def ll_decode_utf8(self, llvalue):
-        from pypy.rpython.annlowlevel import hlstr, llunicode
-        value = hlstr(llvalue)
-        assert value is not None
-        univalue, _ = self.rstr_decode_utf_8(value, len(value), 'strict')
-        return llunicode(univalue)
-
 class UnicodeRepr(BaseLLStringRepr, AbstractUnicodeRepr):
     lowleveltype = Ptr(UNICODE)
     basetype = basestring
@@ -159,7 +150,6 @@ class UnicodeRepr(BaseLLStringRepr, AbstractUnicodeRepr):
     CACHE = CONST_UNICODE_CACHE
 
     def __init__(self, *args):
-        from pypy.rlib.runicode import unicode_encode_utf_8
         AbstractUnicodeRepr.__init__(self, *args)
         self.ll = LLHelpers
         self.malloc = mallocunicode
@@ -285,7 +275,7 @@ def bloom(mask, c):
 
 
 class LLHelpers(AbstractLLHelpers):
-    from pypy.rpython.annlowlevel import llstr
+    from pypy.rpython.annlowlevel import llstr, llunicode
 
     @jit.elidable
     def ll_str_mul(s, times):

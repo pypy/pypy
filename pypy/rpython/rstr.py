@@ -3,6 +3,7 @@ from pypy.tool.pairtype import pairtype, pair
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.annotation import model as annmodel
 from pypy.rlib import jit
+from pypy.rlib.nonconst import NonConstant
 from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import IntegerRepr, IteratorRepr
 from pypy.rpython.rmodel import inputconst, Repr
@@ -12,7 +13,22 @@ from pypy.rpython.lltypesystem.lltype import Signed, Bool, Void, UniChar,\
      cast_primitive, typeOf
 
 class AbstractStringRepr(Repr):
-    pass
+
+    def __init__(self, *args):
+        from pypy.rlib.runicode import str_decode_utf_8, raise_unicode_exception_decode
+        Repr.__init__(self, *args)
+        self.rstr_decode_utf_8 = func_with_new_name(str_decode_utf_8,
+                                                    'rstr_decode_utf_8')
+        self.rraise_unicode_exception_decode = func_with_new_name(
+            raise_unicode_exception_decode, 'rraise_unicode_exception_decode')
+        
+    @jit.elidable
+    def ll_decode_utf8(self, llvalue):
+        from pypy.rpython.annlowlevel import hlstr
+        value = hlstr(llvalue)
+        assert value is not None
+        univalue, _ = self.rstr_decode_utf_8(value, len(value), 'strict')
+        return self.ll.llunicode(univalue)
 
 class AbstractCharRepr(AbstractStringRepr):
     pass
