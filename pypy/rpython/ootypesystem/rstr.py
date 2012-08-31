@@ -109,6 +109,7 @@ class UnicodeRepr(BaseOOStringRepr, AbstractUnicodeRepr):
         from pypy.rpython.annlowlevel import hlunicode, oostr
         from pypy.rlib.runicode import unicode_encode_utf_8
         s = hlunicode(ll_s)
+        assert s is not None
         bytes = unicode_encode_utf_8(s, len(s), 'strict')
         return oostr(bytes)
 

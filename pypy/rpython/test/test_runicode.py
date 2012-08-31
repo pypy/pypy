@@ -106,6 +106,20 @@ class BaseTestRUnicode(AbstractTestRstr):
 
         assert self.ll_to_string(self.interpret(f, [38])) == f(38)
 
+    def test_utf_8_encoding_annotation(self):
+        from pypy.rlib.runicode import unicode_encode_utf_8
+        def f(n):
+            x = u'àèì' + unichr(n)
+            if x:
+                y = u'ìòé'
+            else:
+                y = u'òìàà'
+            # the annotation of y is SomeUnicodeString(can_be_None=False)
+            y = unicode_encode_utf_8(y, len(y), 'strict')
+            return x.encode('utf-8') + y
+
+        assert self.ll_to_string(self.interpret(f, [38])) == f(38)
+
     def test_unicode_encode_error(self):
         def f(x, which):
             if which:
