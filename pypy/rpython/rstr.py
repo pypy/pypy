@@ -1,6 +1,8 @@
 from pypy.tool.staticmethods import StaticMethods
 from pypy.tool.pairtype import pairtype, pair
+from pypy.tool.sourcetools import func_with_new_name
 from pypy.annotation import model as annmodel
+from pypy.rlib import jit
 from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import IntegerRepr, IteratorRepr
 from pypy.rpython.rmodel import inputconst, Repr
@@ -19,11 +21,26 @@ class AbstractUniCharRepr(AbstractStringRepr):
     pass
 
 class AbstractUnicodeRepr(AbstractStringRepr):
+
+    def __init__(self, *args):
+        from pypy.rlib.runicode import unicode_encode_utf_8
+        AbstractStringRepr.__init__(self, *args)
+        self.runicode_encode_utf_8 = func_with_new_name(unicode_encode_utf_8,
+                                                        'runicode_encode_utf_8')
+
     def rtype_method_upper(self, hop):
         raise TypeError("Cannot do toupper on unicode string")
 
     def rtype_method_lower(self, hop):
         raise TypeError("Cannot do tolower on unicode string")
+
+    @jit.elidable
+    def ll_encode_utf8(self, ll_s):
+        from pypy.rpython.annlowlevel import hlunicode
+        s = hlunicode(ll_s)
+        assert s is not None
+        bytes = self.runicode_encode_utf_8(s, len(s), 'strict')
+        return self.ll.llstr(bytes)
 
 class __extend__(annmodel.SomeString):
     def rtyper_makerepr(self, rtyper):
