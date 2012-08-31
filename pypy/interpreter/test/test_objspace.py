@@ -1,3 +1,4 @@
+# -*- encoding: utf-8 -*-
 from py.test import raises
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.function import Function
@@ -178,6 +179,12 @@ class TestObjSpace:
         exc = space.raises_w(space.w_TypeError, space.str0_w, w("123\x004"))
         assert space.unicode0_w(w(u"123")) == u"123"
         exc = space.raises_w(space.w_TypeError, space.unicode0_w, w(u"123\x004"))
+
+    def test_identifier_w(self):
+        space = self.space
+        x = u'àèì'
+        w_name = space.wrap(x)
+        assert space.identifier_w(w_name) == x.encode('utf-8')
 
     def test_getindex_w(self):
         w_instance1 = self.space.appexec([], """():

@@ -1371,6 +1371,14 @@ class ObjSpace(object):
                                  self.wrap('argument must be a unicode'))
         return self.unicode_w(w_obj)
 
+    def identifier_w(self, w_obj):
+        """
+        Unwrap an object which is used as an identifier (i.e. names of
+        variables, methdods, functions, classes etc.). In py3k, identifiers
+        are unicode strings and are unwrapped as UTF-8 encoded byte strings.
+        """
+        return self.unicode_w(w_obj).encode('utf-8')
+
     def bool_w(self, w_obj):
         # Unwraps a bool, also accepting an int for compatibility.
         # This is here mostly just for gateway.int_unwrapping_space_method().
