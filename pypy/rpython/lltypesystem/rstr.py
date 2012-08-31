@@ -147,6 +147,7 @@ class StringRepr(BaseLLStringRepr, AbstractStringRepr):
         from pypy.rpython.annlowlevel import hlstr, llunicode
         from pypy.rlib.runicode import str_decode_utf_8
         value = hlstr(llvalue)
+        assert value is not None
         univalue, _ = str_decode_utf_8(value, len(value), 'strict')
         return llunicode(univalue)
 
@@ -199,6 +200,7 @@ class UnicodeRepr(BaseLLStringRepr, AbstractUnicodeRepr):
         from pypy.rpython.annlowlevel import hlunicode, llstr
         from pypy.rlib.runicode import unicode_encode_utf_8
         s = hlunicode(ll_s)
+        assert s is not None
         bytes = unicode_encode_utf_8(s, len(s), 'strict')
         return llstr(bytes)
 
