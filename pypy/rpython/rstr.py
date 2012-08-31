@@ -19,9 +19,7 @@ class AbstractStringRepr(Repr):
         Repr.__init__(self, *args)
         self.rstr_decode_utf_8 = func_with_new_name(str_decode_utf_8,
                                                     'rstr_decode_utf_8')
-        self.rraise_unicode_exception_decode = func_with_new_name(
-            raise_unicode_exception_decode, 'rraise_unicode_exception_decode')
-        
+
     @jit.elidable
     def ll_decode_utf8(self, llvalue):
         from pypy.rpython.annlowlevel import hlstr
