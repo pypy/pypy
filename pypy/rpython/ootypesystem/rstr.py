@@ -60,6 +60,13 @@ class StringRepr(BaseOOStringRepr, AbstractStringRepr):
             sb.ll_append_char(cast_primitive(UniChar, c))
         return sb.ll_build()
 
+    def ll_decode_utf8(self, llvalue):
+        from pypy.rpython.annlowlevel import hlstr, oounicode
+        from pypy.rlib.runicode import str_decode_utf_8
+        value = hlstr(llvalue)
+        univalue, _ = str_decode_utf_8(value, len(value), 'strict')
+        return oounicode(univalue)
+
 
 class UnicodeRepr(BaseOOStringRepr, AbstractUnicodeRepr):
     lowleveltype = ootype.Unicode
@@ -97,6 +104,13 @@ class UnicodeRepr(BaseOOStringRepr, AbstractUnicodeRepr):
                 raise UnicodeEncodeError("%d > 255, not latin-1" % ord(c))
             sb.ll_append_char(cast_primitive(Char, c))
         return sb.ll_build()
+
+    def ll_encode_utf8(self, ll_s):
+        from pypy.rpython.annlowlevel import hlunicode, oostr
+        from pypy.rlib.runicode import unicode_encode_utf_8
+        s = hlunicode(ll_s)
+        bytes = unicode_encode_utf_8(s, len(s), 'strict')
+        return oostr(bytes)
 
 class CharRepr(AbstractCharRepr, StringRepr):
     lowleveltype = Char

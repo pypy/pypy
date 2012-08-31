@@ -1171,11 +1171,13 @@ class Assembler386(object):
                     xmm_dst_locs.append(unused_xmm.pop())
                 else:
                     pass_on_stack.append(loc)
-            elif (argtypes is not None and argtypes[i-start] == 'S' and
-                  len(unused_xmm) > 0):
+            elif argtypes is not None and argtypes[i-start] == 'S':
                 # Singlefloat argument
-                if singlefloats is None: singlefloats = []
-                singlefloats.append((loc, unused_xmm.pop()))
+                if len(unused_xmm) > 0:
+                    if singlefloats is None: singlefloats = []
+                    singlefloats.append((loc, unused_xmm.pop()))
+                else:
+                    pass_on_stack.append(loc)
             else:
                 if len(unused_gpr) > 0:
                     src_locs.append(loc)
@@ -1209,6 +1211,9 @@ class Assembler386(object):
         # Load the singlefloat arguments from main regs or stack to xmm regs
         if singlefloats is not None:
             for src, dst in singlefloats:
+                if isinstance(src, ImmedLoc):
+                    self.mc.MOV(X86_64_SCRATCH_REG, src)
+                    src = X86_64_SCRATCH_REG
                 self.mc.MOVD(dst, src)
         # Finally remap the arguments in the main regs
         # If x is a register and is in dst_locs, then oups, it needs to

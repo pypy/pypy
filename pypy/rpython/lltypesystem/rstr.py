@@ -143,6 +143,13 @@ class StringRepr(BaseLLStringRepr, AbstractStringRepr):
             s.chars[i] = cast_primitive(UniChar, value.chars[i])
         return s
 
+    def ll_decode_utf8(self, llvalue):
+        from pypy.rpython.annlowlevel import hlstr, llunicode
+        from pypy.rlib.runicode import str_decode_utf_8
+        value = hlstr(llvalue)
+        univalue, _ = str_decode_utf_8(value, len(value), 'strict')
+        return llunicode(univalue)
+
 class UnicodeRepr(BaseLLStringRepr, AbstractUnicodeRepr):
     lowleveltype = Ptr(UNICODE)
     basetype = basestring
@@ -186,6 +193,14 @@ class UnicodeRepr(BaseLLStringRepr, AbstractUnicodeRepr):
                 raise UnicodeEncodeError("character not in latin1 range")
             result.chars[i] = cast_primitive(Char, c)
         return result
+
+    @jit.elidable
+    def ll_encode_utf8(self, ll_s):
+        from pypy.rpython.annlowlevel import hlunicode, llstr
+        from pypy.rlib.runicode import unicode_encode_utf_8
+        s = hlunicode(ll_s)
+        bytes = unicode_encode_utf_8(s, len(s), 'strict')
+        return llstr(bytes)
 
 class CharRepr(AbstractCharRepr, StringRepr):
     lowleveltype = Char

@@ -427,7 +427,7 @@ def test_enforceargs_decorator():
     assert f.foo == 'foo'
     assert f(1, 'hello', 42) == (1, 'hello', 42)
     exc = py.test.raises(TypeError, "f(1, 2, 3)")
-    assert exc.value.message == "f argument number 2 must be of type <type 'str'>"
+    assert exc.value.message == "f argument 'b' must be of type <type 'str'>"
     py.test.raises(TypeError, "f('hello', 'world', 3)")
     
 

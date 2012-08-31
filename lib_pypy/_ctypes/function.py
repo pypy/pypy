@@ -10,6 +10,8 @@ import sys
 import traceback
 import warnings
 
+try: from __pypy__ import builtinify
+except ImportError: builtinify = lambda f: f
 
 # XXX this file needs huge refactoring I fear
 
@@ -34,6 +36,7 @@ def get_com_error(errcode, riid, pIunk):
     from _ctypes import COMError
     return COMError(errcode, None, None)
 
+@builtinify
 def call_function(func, args):
     "Only for debugging so far: So that we can call CFunction instances"
     funcptr = CFuncPtr(func)

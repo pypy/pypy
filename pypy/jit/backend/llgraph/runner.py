@@ -365,7 +365,8 @@ class LLtypeCPU(BaseCPU):
         from pypy.jit.backend.llsupport.ffisupport import UnsupportedKind
         arg_types = []
         try:
-            for arg in cif_description.atypes:
+            for itp in range(cif_description.nargs):
+                arg = cif_description.atypes[itp]
                 kind = get_ffi_type_kind(self, arg)
                 if kind != history.VOID:
                     arg_types.append(kind)

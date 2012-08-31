@@ -193,6 +193,19 @@ class TestNumArrayDirect(object):
         assert _to_coords(5, 'F') == [1, 2, 0]
         assert _to_coords(13, 'F') == [1, 0, 2]
 
+    def test_find_shape(self):
+        from pypy.module.micronumpy.strides import find_shape_and_elems
+
+        space = self.space
+        shape, elems = find_shape_and_elems(space,
+                                            space.newlist([space.wrap("a"),
+                                                           space.wrap("b")]),
+                                            None)
+        assert shape == [2]
+        assert space.str_w(elems[0]) == "a"
+        assert space.str_w(elems[1]) == "b"
+        
+
 class AppTestNumArray(BaseNumpyAppTest):
     def w_CustomIndexObject(self, index):
         class CustomIndexObject(object):
