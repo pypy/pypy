@@ -147,6 +147,7 @@ class StringRepr(BaseLLStringRepr, AbstractStringRepr):
         from pypy.rpython.annlowlevel import hlstr, llunicode
         from pypy.rlib.runicode import str_decode_utf_8
         value = hlstr(llvalue)
+        assert value is not None
         univalue, _ = str_decode_utf_8(value, len(value), 'strict')
         return llunicode(univalue)
 
