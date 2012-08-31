@@ -15,8 +15,11 @@ from pypy.rpython.lltypesystem.lltype import Signed, Bool, Void, UniChar,\
 class AbstractStringRepr(Repr):
 
     def __init__(self, *args):
-        from pypy.rlib.runicode import str_decode_utf_8, raise_unicode_exception_decode
         Repr.__init__(self, *args)
+        self.rstr_decode_utf_8 = None
+
+    def ensure_ll_decode_utf8(self):
+        from pypy.rlib.runicode import str_decode_utf_8, raise_unicode_exception_decode
         self.rstr_decode_utf_8 = func_with_new_name(str_decode_utf_8,
                                                     'rstr_decode_utf_8')
 
@@ -37,8 +40,11 @@ class AbstractUniCharRepr(AbstractStringRepr):
 class AbstractUnicodeRepr(AbstractStringRepr):
 
     def __init__(self, *args):
-        from pypy.rlib.runicode import unicode_encode_utf_8
         AbstractStringRepr.__init__(self, *args)
+        self.runicode_encode_utf_8 = None
+
+    def ensure_ll_encode_utf8(self):
+        from pypy.rlib.runicode import unicode_encode_utf_8
         self.runicode_encode_utf_8 = func_with_new_name(unicode_encode_utf_8,
                                                         'runicode_encode_utf_8')
 
@@ -341,6 +347,7 @@ class __extend__(AbstractStringRepr):
         elif encoding == 'latin-1':
             return hop.gendirectcall(self.ll_decode_latin1, v_self)
         elif encoding == 'utf-8':
+            self.ensure_ll_decode_utf8()
             return hop.gendirectcall(self.ll_decode_utf8, v_self)
         else:
             raise TyperError("encoding %s not implemented" % (encoding, ))
@@ -374,6 +381,7 @@ class __extend__(AbstractUnicodeRepr):
         elif encoding == "latin-1":
             return hop.gendirectcall(self.ll_encode_latin1, v_self)
         elif encoding == 'utf-8':
+            self.ensure_ll_encode_utf8()
             return hop.gendirectcall(self.ll_encode_utf8, v_self)
         else:
             raise TyperError("encoding %s not implemented" % (encoding, ))
