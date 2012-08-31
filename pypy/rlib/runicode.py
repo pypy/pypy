@@ -1,7 +1,7 @@
 import sys
 from pypy.rlib.bitmanipulation import splitter
 from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.rlib.objectmodel import we_are_translated, specialize
+from pypy.rlib.objectmodel import we_are_translated, specialize, enforceargs
 from pypy.rlib.rstring import StringBuilder, UnicodeBuilder
 from pypy.rlib.rarithmetic import r_uint, intmask
 

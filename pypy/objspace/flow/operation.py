@@ -388,7 +388,3 @@ def make_op(fs, name, symbol, arity, specialnames):
     setattr(fs, name, generic_operator)
 
 
-def add_operations(fs):
-    """Add function operations to the flow space."""
-    for line in MethodTable:
-        make_op(fs, *line)
