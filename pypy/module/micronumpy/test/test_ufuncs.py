@@ -2,6 +2,12 @@
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
 class AppTestUfuncs(BaseNumpyAppTest):
+    def setup_class(cls):
+        import os
+        BaseNumpyAppTest.setup_class.im_func(cls)
+        fname = os.path.join(os.path.dirname(__file__), 'complex_testcases.txt')
+        cls.w_testcases = cls.space.wrap(fname)
+
     def test_ufunc_instance(self):
         from _numpypy import add, ufunc
 
@@ -856,7 +862,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
     def test_complex(self):
         from _numpypy import (complex128, complex64, add,
-            subtract as sub, multiply, divide, negative, abs, fmod)
+            subtract as sub, multiply, divide, negative, abs, fmod, 
+            reciprocal)
         from _numpypy import (equal, not_equal, greater, greater_equal, less,
                 less_equal)
 
@@ -916,7 +923,147 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert repr(abs(inf_c)) == 'inf'
             assert repr(abs(n)) == 'nan'
 
+            assert False, 'untested: copysign, reciprocal, sign, floor_div, ' + \
+                     'signbit, fabs, fmax, fmin, floor, ceil, trunc, ' + \
+                     'exp2, expm1, isnan, isinf, isneginf, isposinf, ' + \
+                     'isfinite, radians, degrees, log2, log10, log1p, ' + \
+                     'logaddexp, npy_log2_1p, logaddexp2'
 
     def test_complex_math(self):
-        # from _numpypy import 
-        pass
+        import  _numpypy as np
+        from math import isnan, isinf, copysign
+        from sys import version_info
+        testcases = self.testcases
+        def parse_testfile(fname):
+            """Parse a file with test values
+
+            Empty lines or lines starting with -- are ignored
+            yields id, fn, arg_real, arg_imag, exp_real, exp_imag
+            """
+            with open(fname) as fp:
+                for line in fp:
+                    # skip comment lines and blank lines
+                    if line.startswith('--') or not line.strip():
+                        continue
+
+                    lhs, rhs = line.split('->')
+                    id, fn, arg_real, arg_imag = lhs.split()
+                    rhs_pieces = rhs.split()
+                    exp_real, exp_imag = rhs_pieces[0], rhs_pieces[1]
+                    flags = rhs_pieces[2:]
+
+                    yield (id, fn,
+                           float(arg_real), float(arg_imag),
+                           float(exp_real), float(exp_imag),
+                           flags
+                          )
+        def rAssertAlmostEqual(a, b, rel_err = 2e-15, abs_err = 5e-323, msg=''):
+            """Fail if the two floating-point numbers are not almost equal.
+
+            Determine whether floating-point values a and b are equal to within
+            a (small) rounding error.  The default values for rel_err and
+            abs_err are chosen to be suitable for platforms where a float is
+            represented by an IEEE 754 double.  They allow an error of between
+            9 and 19 ulps.
+            """
+
+            # special values testing
+            if isnan(a):
+                if isnan(b):
+                    return
+                raise AssertionError(msg + '%r should be nan' % (b,))
+
+            if isinf(a):
+                if a == b:
+                    return
+                raise AssertionError(msg + 'finite result where infinity expected: '
+                                           'expected %r, got %r' % (a, b))
+
+            # if both a and b are zero, check whether they have the same sign
+            # (in theory there are examples where it would be legitimate for a
+            # and b to have opposite signs; in practice these hardly ever
+            # occur).
+            if not a and not b:
+                # only check it if we are running on top of CPython >= 2.6
+                if version_info >= (2, 6) and copysign(1., a) != copysign(1., b):
+                    raise AssertionError(msg + 'zero has wrong sign: expected %r, '
+                                               'got %r' % (a, b))
+
+            # if a-b overflows, or b is infinite, return False.  Again, in
+            # theory there are examples where a is within a few ulps of the
+            # max representable float, and then b could legitimately be
+            # infinite.  In practice these examples are rare.
+            try:
+                absolute_error = abs(b-a)
+            except OverflowError:
+                pass
+            else:
+                # test passes if either the absolute error or the relative
+                # error is sufficiently small.  The defaults amount to an
+                # error of between 9 ulps and 19 ulps on an IEEE-754 compliant
+                # machine.
+                if absolute_error <= max(abs_err, rel_err * abs(a)):
+                    return
+            raise AssertionError(msg + '%r and %r are not sufficiently close' % (a, b))
+        tested_funcs=[]
+        for complex_, abs_err in ((np.complex128, 5e-323), (np.complex64, 5e-32)):
+            for id, fn, ar, ai, er, ei, flags in parse_testfile(testcases):
+                arg = complex_(complex(ar, ai))
+                expected = (er, ei)
+                if fn.startswith('acos'):
+                    fn = 'arc' + fn[1:]
+                elif fn.startswith('asin'):
+                    fn = 'arc' + fn[1:]
+                elif fn.startswith('atan'):
+                    fn = 'arc' + fn[1:]
+                function = getattr(np, fn)
+                #
+                #if 'divide-by-zero' in flags or 'invalid' in flags:
+                #    try:
+                #        _actual = function(arg)
+                #    except ValueError:
+                #        continue
+                #    else:
+                #        raise AssertionError('ValueError not raised in test '
+                #                '%s: %s(complex(%r, %r))' % (id, fn, ar, ai))
+                #if 'overflow' in flags:
+                #    try:
+                #        _actual = function(arg)
+                #    except OverflowError:
+                #        continue
+                #    else:
+                #        raise AssertionError('OverflowError not raised in test '
+                #               '%s: %s(complex(%r, %r))' % (id, fn, ar, ai))
+                _actual = function(arg)
+                actual = (_actual.real, _actual.imag)
+
+                if 'ignore-real-sign' in flags:
+                    actual = (abs(actual[0]), actual[1])
+                    expected = (abs(expected[0]), expected[1])
+                if 'ignore-imag-sign' in flags:
+                    actual = (actual[0], abs(actual[1]))
+                    expected = (expected[0], abs(expected[1]))
+
+                # for the real part of the log function, we allow an
+                # absolute error of up to 2e-15.
+                if fn in ('log', 'log10'):
+                    real_abs_err = 2e-15
+                else:
+                    real_abs_err = abs_err
+
+                error_message = (
+                    '%s: %s(complex(%r, %r))\n'
+                    'Expected: complex(%r, %r)\n'
+                    'Received: complex(%r, %r)\n'
+                    ) % (id, fn, ar, ai,
+                         expected[0], expected[1],
+                         actual[0], actual[1])
+                         
+                if not function in tested_funcs:        
+                    print 'fuction',function
+                    tested_funcs.append(function)
+                rAssertAlmostEqual(expected[0], actual[0],
+                                   abs_err=real_abs_err,
+                                   msg=error_message)
+                rAssertAlmostEqual(expected[1], actual[1],
+                                   msg=error_message)

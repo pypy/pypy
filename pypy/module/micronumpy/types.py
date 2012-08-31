@@ -5,8 +5,8 @@ import struct
 from pypy.interpreter.error import OperationError
 from pypy.module.micronumpy import interp_boxes
 from pypy.objspace.std.floatobject import float2string
-from pypy.objspace.std.complexobject import W_ComplexObject, str_format
-from pypy.rlib import rfloat, libffi, clibffi, rcomplex
+from pypy.objspace.std.complexobject import str_format
+from pypy.rlib import rfloat, clibffi, rcomplex
 from pypy.rlib.rawstorage import (alloc_raw_storage, raw_storage_setitem,
                                   raw_storage_getitem)
 from pypy.rlib.objectmodel import specialize, we_are_translated
@@ -15,7 +15,6 @@ from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.rstruct.runpack import runpack
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib import jit
-from pypy.module import cmath
 
 
 degToRad = math.pi / 180.0
@@ -39,12 +38,17 @@ def complex_unary_op(func):
     specialize.argtype(1)(func)
     @functools.wraps(func)
     def dispatcher(self, v):
-        return self.box_complex(
-            *func(
-                self,
-                self.for_computation(self.unbox(v))
+        try:
+            return self.box_complex(
+                *func(
+                    self,
+                    self.for_computation(self.unbox(v))
+                )
             )
-        )
+        except:
+            import sys
+            print >> sys.stderr, "Could not call",func
+            raise
     return dispatcher
 
 def raw_unary_op(func):
@@ -1113,22 +1117,14 @@ class ComplexFloating(object):
         except ZeroDivisionError:
             return rfloat.NAN, 0
 
-    #complex mod does not exist
+    #complex mod does not exist in numpy
     #@simple_binary_op
     #def mod(self, v1, v2):
     #    return math.fmod(v1, v2)
 
-    @simple_binary_op
+    @complex_binary_op
     def pow(self, v1, v2):
-        try:
-            return math.pow(v1, v2)
-        except ValueError:
-            return rfloat.NAN
-        except OverflowError:
-            if math.modf(v2)[0] == 0 and math.modf(v2 / 2)[0] != 0:
-                # Odd integer powers result in the same sign as the base
-                return rfloat.copysign(rfloat.INFINITY, v1)
-            return rfloat.INFINITY
+        return rcomplex.c_pow(v1, v2)
 
     @simple_binary_op
     def copysign(self, v1, v2):
@@ -1144,9 +1140,9 @@ class ComplexFloating(object):
     def signbit(self, v):
         return rfloat.copysign(1.0, v) < 0.0
 
-    @simple_unary_op
+    @complex_unary_op
     def fabs(self, v):
-        return math.fabs(v)
+        return rcomplex.abs(*v)
 
     @simple_binary_op
     def fmax(self, v1, v2):
@@ -1164,17 +1160,17 @@ class ComplexFloating(object):
             return v2
         return min(v1, v2)
 
-    @simple_binary_op
-    def fmod(self, v1, v2):
-        try:
-            return math.fmod(v1, v2)
-        except ValueError:
-            return rfloat.NAN
+    #@simple_binary_op
+    #def fmod(self, v1, v2):
+    #    try:
+    #        return math.fmod(v1, v2)
+    #    except ValueError:
+    #        return rfloat.NAN
 
     @simple_unary_op
     def reciprocal(self, v):
-        if v == 0.0:
-            return rfloat.copysign(rfloat.INFINITY, v)
+        if abs(v) == 0.0:
+            return self.copysign(rfloat.INFINITY, v)
         return 1.0 / v
 
     @simple_unary_op
@@ -1213,74 +1209,70 @@ class ComplexFloating(object):
         except OverflowError:
             return rfloat.INFINITY
 
-    @simple_unary_op
+    @complex_unary_op
     def sin(self, v):
-        return math.sin(v)
+        return rcomplex.c_sin(*v)
 
-    @simple_unary_op
+    @complex_unary_op
     def cos(self, v):
-        return math.cos(v)
+        return rcomplex.c_cos(*v)
 
-    @simple_unary_op
+    @complex_unary_op
     def tan(self, v):
-        return math.tan(v)
+        return rcomplex.c_tan(*v)
 
-    @simple_unary_op
+    @complex_unary_op
     def arcsin(self, v):
-        if not -1.0 <= v <= 1.0:
-            return rfloat.NAN
-        return math.asin(v)
+        return rcomplex.c_asin(*v)
 
-    @simple_unary_op
+    @complex_unary_op
     def arccos(self, v):
-        if not -1.0 <= v <= 1.0:
-            return rfloat.NAN
-        return math.acos(v)
+        return rcomplex.c_acos(*v)
 
-    @simple_unary_op
+    @complex_unary_op
     def arctan(self, v):
-        return math.atan(v)
+        if v[0]==0 and (v[1]==1 or v[1] == -1):
+            #This is the place to print a "runtime warning"
+            return rfloat.NAN, math.copysign(rfloat.INFINITY, v[1])
+        return rcomplex.c_atan(*v)
 
-    @simple_binary_op
+    @complex_binary_op
     def arctan2(self, v1, v2):
-        return math.atan2(v1, v2)
+        return rcomplex.c_atan2(v1, v2)
 
-    @simple_unary_op
+    @complex_unary_op
     def sinh(self, v):
-        return math.sinh(v)
+        return rcomplex.c_sinh(*v)
 
-    @simple_unary_op
+    @complex_unary_op
     def cosh(self, v):
-        return math.cosh(v)
+        return rcomplex.c_cosh(*v)
 
-    @simple_unary_op
+    @complex_unary_op
     def tanh(self, v):
-        return math.tanh(v)
+        return rcomplex.c_tanh(*v)
 
-    @simple_unary_op
+    @complex_unary_op
     def arcsinh(self, v):
-        return math.asinh(v)
+        return rcomplex.c_asinh(*v)
 
-    @simple_unary_op
+    @complex_unary_op
     def arccosh(self, v):
-        if v < 1.0:
-            return rfloat.NAN
-        return math.acosh(v)
+        return rcomplex.c_acosh(*v)
 
-    @simple_unary_op
+    @complex_unary_op
     def arctanh(self, v):
-        if v == 1.0 or v == -1.0:
-            return math.copysign(rfloat.INFINITY, v)
+        if v[1] == 0 and (v[0] == 1.0 or v[0] == -1.0):
+            return math.copysign(rfloat.INFINITY, v[0]), 0.
         if not -1.0 < v < 1.0:
-            return rfloat.NAN
-        return math.atanh(v)
+            return rfloat.NAN, 0.
+        return rcomplex.c_atanh(*v)
+            
+            
 
-    @simple_unary_op
+    @complex_unary_op
     def sqrt(self, v):
-        try:
-            return math.sqrt(v)
-        except ValueError:
-            return rfloat.NAN
+        return rcomplex.c_sqrt(*v)
 
     @simple_unary_op
     def square(self, v):
@@ -1315,27 +1307,13 @@ class ComplexFloating(object):
     def degrees(self, v):
         return v / degToRad
 
-    @simple_unary_op
+    @complex_unary_op
     def log(self, v):
-        try:
-            return math.log(v)
-        except ValueError:
-            if v == 0.0:
-                # CPython raises ValueError here, so we have to check
-                # the value to find the correct numpy return value
-                return -rfloat.INFINITY
-            return rfloat.NAN
+        return rcomplex.c_log(v)
 
     @simple_unary_op
     def log2(self, v):
-        try:
-            return math.log(v) / log2
-        except ValueError:
-            if v == 0.0:
-                # CPython raises ValueError here, so we have to check
-                # the value to find the correct numpy return value
-                return -rfloat.INFINITY
-            return rfloat.NAN
+        return self.log(v) / log2
 
     @simple_unary_op
     def log10(self, v):
