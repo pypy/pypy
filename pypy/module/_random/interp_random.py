@@ -73,7 +73,7 @@ class W_Random(Wrappable):
         w_item = space.getitem(w_state, space.newint(rrandom.N))
         self._rnd.index = space.int_w(w_item)
 
-    assert rbigint.SHIFT <= 32
+    #assert rbigint.SHIFT <= 32
     @unwrap_spec(k=int)
     def getrandbits(self, space, k):
         if k <= 0:

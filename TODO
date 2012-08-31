@@ -12,4 +12,7 @@ re-enable StdObjSpace.listview_str
 re-enable the kwargs dict strategy in dictmultiobject.py
 re-enable view_as_kwargs
 
+check the "assert rbigint.SHIFT <= 32" in module/_random/interp_random.py,
+which has been commented out for now
+
 unskip numpypy tests in module/test_lib_pypy/numpypy/
