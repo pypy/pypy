@@ -475,7 +475,7 @@ def _do_combine_starstarargs_wrapped(space, keys_w, w_starstararg, keywords,
     i = 0
     for w_key in keys_w:
         try:
-            key = space.unicode_w(w_key).encode('utf-8')
+            key = space.identifier_w(w_key)
         except OperationError, e:
             if e.match(space, space.w_TypeError):
                 raise OperationError(
@@ -780,7 +780,7 @@ class ArgErrUnknownKwds(ArgErr):
                         except IndexError:
                             name = '?'
                         else:
-                            name = space.unicode_w(w_name).encode('utf-8')
+                            name = space.identifier_w(w_name)
                     break
         self.kwd_name = name
 
