@@ -1188,21 +1188,22 @@ class ComplexFloating(object):
         else:
             return math.floor(v)
 
-    @simple_unary_op
+    @complex_unary_op
     def exp(self, v):
+        if math.isinf(v[1]):
+            return rfloat.NAN, rfloat.NAN
         try:
-            return math.exp(v)
+            return rcomplex.c_exp(*v)
         except OverflowError:
-            return rfloat.INFINITY
+            return rfloat.INFINITY, rfloat.NAN
 
-    @simple_unary_op
     def exp2(self, v):
         try:
-            return math.pow(2, v)
+            return self.pow(2, v)
         except OverflowError:
-            return rfloat.INFINITY
+            return rfloat.INFINITY, rfloat.NAN
 
-    @simple_unary_op
+    @complex_unary_op
     def expm1(self, v):
         try:
             return rfloat.expm1(v)
@@ -1263,9 +1264,8 @@ class ComplexFloating(object):
     @complex_unary_op
     def arctanh(self, v):
         if v[1] == 0 and (v[0] == 1.0 or v[0] == -1.0):
-            return math.copysign(rfloat.INFINITY, v[0]), 0.
-        if not -1.0 < v < 1.0:
-            return rfloat.NAN, 0.
+            return (math.copysign(rfloat.INFINITY, v[0]),
+                   math.copysign(0., v[1]))
         return rcomplex.c_atanh(*v)
             
             
@@ -1309,22 +1309,19 @@ class ComplexFloating(object):
 
     @complex_unary_op
     def log(self, v):
-        return rcomplex.c_log(v)
+        if v[0] == 0 and v[1] == 0:
+            return -rfloat.INFINITY, 0
+        return rcomplex.c_log(*v)
 
     @simple_unary_op
     def log2(self, v):
         return self.log(v) / log2
 
-    @simple_unary_op
+    @complex_unary_op
     def log10(self, v):
-        try:
-            return math.log10(v)
-        except ValueError:
-            if v == 0.0:
-                # CPython raises ValueError here, so we have to check
-                # the value to find the correct numpy return value
-                return -rfloat.INFINITY
-            return rfloat.NAN
+        if v[0] == 0 and v[1] == 0:
+            return -rfloat.INFINITY, 0
+        return rcomplex.c_log10(*v)
 
     @simple_unary_op
     def log1p(self, v):

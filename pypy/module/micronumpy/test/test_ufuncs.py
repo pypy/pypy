@@ -926,7 +926,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert False, 'untested: copysign, reciprocal, sign, floor_div, ' + \
                      'signbit, fabs, fmax, fmin, floor, ceil, trunc, ' + \
                      'exp2, expm1, isnan, isinf, isneginf, isposinf, ' + \
-                     'isfinite, radians, degrees, log2, log10, log1p, ' + \
+                     'isfinite, radians, degrees, log2, log1p, ' + \
                      'logaddexp, npy_log2_1p, logaddexp2'
 
     def test_complex_math(self):
