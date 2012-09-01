@@ -4,6 +4,7 @@ import struct
 
 from pypy.interpreter.error import OperationError
 from pypy.module.micronumpy import interp_boxes
+from pypy.module.micronumpy.support import create_array
 from pypy.objspace.std.floatobject import float2string
 from pypy.rlib import rfloat, clibffi
 from pypy.rlib.rawstorage import (alloc_raw_storage, raw_storage_setitem,
@@ -931,8 +932,6 @@ class RecordType(BaseType):
 
     @jit.unroll_safe
     def coerce(self, space, dtype, w_item):
-        from pypy.module.micronumpy.interp_numarray import W_NDimArray
-
         if isinstance(w_item, interp_boxes.W_VoidBox):
             return w_item
         # we treat every sequence as sequence, no special support
@@ -946,7 +945,7 @@ class RecordType(BaseType):
         items_w = space.fixedview(w_item)
         # XXX optimize it out one day, but for now we just allocate an
         #     array
-        arr = W_NDimArray([1], dtype)
+        arr = create_array([1], dtype)
         for i in range(len(items_w)):
             subdtype = dtype.fields[dtype.fieldnames[i]][1]
             ofs, itemtype = self.offsets_and_fields[i]

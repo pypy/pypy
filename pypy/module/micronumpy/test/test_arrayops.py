@@ -6,7 +6,17 @@ class AppTestNumSupport(BaseNumpyAppTest):
         from _numpypy import where, ones, zeros, array
         a = [1, 2, 3, 0, -3]
         a = where(array(a) > 0, ones(5), zeros(5))
+        print a
         assert (a == [1, 1, 1, 0, 0]).all()
+
+    def test_where_differing_dtypes(self):
+        xxx
+
+    def test_where_errors(self):
+        xxx
+
+    def test_where_1_arg(self):
+        xxx
 
     def test_where_invalidates(self):
         from _numpypy import where, ones, zeros, array

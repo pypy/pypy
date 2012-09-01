@@ -57,3 +57,20 @@ def fill(arr, box):
     while not arr_iter.done():
         arr_iter.setitem(box)
         arr_iter.next()
+
+def where(out, arr, x, y, dtype):
+    out_iter = out.create_iter()
+    arr_iter = arr.create_iter()
+    x_iter = x.create_iter()
+    y_iter = y.create_iter()
+    while not arr_iter.done():
+        w_cond = arr_iter.getitem()
+        if dtype.itemtype.bool(w_cond):
+            w_val = x_iter.getitem().convert_to(dtype)
+        else:
+            w_val = y_iter.getitem().convert_to(dtype)
+        out_iter.setitem(w_val)
+        arr_iter.next()
+        x_iter.next()
+        y_iter.next()
+    return out

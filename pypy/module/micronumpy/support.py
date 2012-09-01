@@ -22,3 +22,10 @@ def convert_to_array(space, w_obj):
         # If it's a scalar
         dtype = interp_ufuncs.find_dtype_for_scalar(space, w_obj)
         return scalar_w(space, dtype, w_obj)
+
+def create_array(shape, dtype):
+    """ Convinient shortcut to avoid circular imports
+    """
+    from pypy.module.micronumpy.interp_numarray import W_NDimArray
+    
+    return W_NDimArray(shape, dtype)

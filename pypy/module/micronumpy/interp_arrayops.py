@@ -1,8 +1,9 @@
 
-from pypy.module.micronumpy.support import convert_to_array
+from pypy.module.micronumpy.support import convert_to_array, create_array
 from pypy.module.micronumpy import loop
+from pypy.interpreter.error import OperationError
 
-def where(space, w_arr, w_x, w_y):
+def where(space, w_arr, w_x=None, w_y=None):
     """where(condition, [x, y])
 
     Return elements, either from `x` or `y`, depending on `condition`.
@@ -62,7 +63,12 @@ def where(space, w_arr, w_x, w_y):
     
     NOTE: support for not passing x and y is unsupported
     """
+    if space.is_w(w_x, space.w_None) or space.is_w(w_y, space.w_None):
+        raise OperationError(space.w_NotImplementedError, space.wrap(
+            "1-arg where unsupported right now"))
     arr = convert_to_array(space, w_arr)
     x = convert_to_array(space, w_x)
     y = convert_to_array(space, w_y)
-    return loop.where(space, arr, x, y)
+    dtype = arr.get_dtype()
+    out = create_array(arr.get_shape(), dtype)
+    return loop.where(out, arr, x, y, dtype)

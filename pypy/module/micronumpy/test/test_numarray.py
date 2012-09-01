@@ -35,17 +35,17 @@ class TestNumArrayDirect(object):
         return self.space.newtuple(args_w)
 
     def test_strides_f(self):
-        a = W_NDimArray([10, 5, 3], MockDtype(), order='F')
+        a = W_NDimArray([10, 5, 3], MockDtype(), order='F').implementation
         assert a.strides == [1, 10, 50]
         assert a.backstrides == [9, 40, 100]
 
     def test_strides_c(self):
-        a = W_NDimArray([10, 5, 3], MockDtype(), order='C')
+        a = W_NDimArray([10, 5, 3], MockDtype(), order='C').implementation
         assert a.strides == [15, 3, 1]
         assert a.backstrides == [135, 12, 2]
 
     def test_create_slice_f(self):
-        a = W_NDimArray([10, 5, 3], MockDtype(), order='F')
+        a = W_NDimArray([10, 5, 3], MockDtype(), order='F').implementation
         s = create_slice(a, [Chunk(3, 0, 0, 1)])
         assert s.start == 3
         assert s.strides == [10, 50]
