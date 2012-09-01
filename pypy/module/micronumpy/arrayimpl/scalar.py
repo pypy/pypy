@@ -1,5 +1,6 @@
 
 from pypy.module.micronumpy.arrayimpl import base
+from pypy.interpreter.error import OperationError
 
 class ScalarIterator(base.BaseArrayIterator):
     def __init__(self, v):
@@ -47,3 +48,12 @@ class Scalar(base.BaseArrayImplementation):
 
     def transpose(self):
         return self
+
+    def descr_getitem(self, space, w_idx):
+        raise OperationError(space.w_IndexError,
+                             space.wrap("scalars cannot be indexed"))
+
+    def descr_setitem(self, space, w_idx, w_val):
+        raise OperationError(space.w_IndexError,
+                             space.wrap("scalars cannot be indexed"))
+        
