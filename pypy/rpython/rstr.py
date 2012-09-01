@@ -19,17 +19,23 @@ class AbstractStringRepr(Repr):
         self.rstr_decode_utf_8 = None
 
     def ensure_ll_decode_utf8(self):
-        from pypy.rlib.runicode import str_decode_utf_8, raise_unicode_exception_decode
-        self.rstr_decode_utf_8 = func_with_new_name(str_decode_utf_8,
-                                                    'rstr_decode_utf_8')
+        from pypy.rlib.runicode import str_decode_utf_8_impl
+        self.rstr_decode_utf_8 = func_with_new_name(str_decode_utf_8_impl,
+                                                    'rstr_decode_utf_8_impl')
 
     @jit.elidable
     def ll_decode_utf8(self, llvalue):
         from pypy.rpython.annlowlevel import hlstr
         value = hlstr(llvalue)
         assert value is not None
-        univalue, _ = self.rstr_decode_utf_8(value, len(value), 'strict')
+        univalue, _ = self.rstr_decode_utf_8(value, len(value), 'strict',
+                                             False, self.ll_raise_unicode_exception_decode)
         return self.ll.llunicode(univalue)
+
+    def ll_raise_unicode_exception_decode(self, errors, encoding, msg, s,
+                                       startingpos, endingpos):
+        raise UnicodeDecodeError(encoding, s, startingpos, endingpos, msg)
+    
 
 class AbstractCharRepr(AbstractStringRepr):
     pass

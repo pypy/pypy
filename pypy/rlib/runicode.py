@@ -79,6 +79,9 @@ def str_decode_utf_8(s, size, errors, final=False,
                      errorhandler=None):
     if errorhandler is None:
         errorhandler = raise_unicode_exception_decode
+    return str_decode_utf_8_impl(s, size, errors, final, errorhandler)
+
+def str_decode_utf_8_impl(s, size, errors, final, errorhandler):
     if size == 0:
         return u'', 0
 
