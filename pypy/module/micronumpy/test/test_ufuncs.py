@@ -972,12 +972,16 @@ class AppTestUfuncs(BaseNumpyAppTest):
                 if isnan(b):
                     return
                 raise AssertionError(msg + '%r should be nan' % (b,))
+                #print msg + '%r should be nan' % (b,)
+                #return
 
             if isinf(a):
                 if a == b:
                     return
                 raise AssertionError(msg + 'finite result where infinity expected: '
-                                           'expected %r, got %r' % (a, b))
+                #print msg + 'finite result where infinity expected: ' +\
+                                           'expected %r, got %r' % (a, b)
+                #return                           
 
             # if both a and b are zero, check whether they have the same sign
             # (in theory there are examples where it would be legitimate for a
@@ -987,7 +991,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
                 # only check it if we are running on top of CPython >= 2.6
                 if version_info >= (2, 6) and copysign(1., a) != copysign(1., b):
                     raise AssertionError(msg + 'zero has wrong sign: expected %r, '
-                                               'got %r' % (a, b))
+                    #print msg + 'zero has wrong sign: expected %r, got %r' % (a, b)
+                    #return
 
             # if a-b overflows, or b is infinite, return False.  Again, in
             # theory there are examples where a is within a few ulps of the
@@ -1005,6 +1010,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
                 if absolute_error <= max(abs_err, rel_err * abs(a)):
                     return
             raise AssertionError(msg + '%r and %r are not sufficiently close' % (a, b))
+            #print msg + '%r and %r are not sufficiently close' % (a, b)
         tested_funcs=[]
         for complex_, abs_err in ((np.complex128, 5e-323), (np.complex64, 5e-32)):
             for id, fn, ar, ai, er, ei, flags in parse_testfile(testcases):

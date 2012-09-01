@@ -1190,7 +1190,7 @@ class ComplexFloating(object):
 
     @complex_unary_op
     def exp(self, v):
-        if math.isinf(v[1]):
+        if math.isinf(v[1]) or math.isnan(v[1]):
             return rfloat.NAN, rfloat.NAN
         try:
             return rcomplex.c_exp(*v)
@@ -1212,14 +1212,20 @@ class ComplexFloating(object):
 
     @complex_unary_op
     def sin(self, v):
+        if math.isnan(v[1]) or math.isnan(v[0]):
+            return rfloat.NAN, rfloat.NAN
         return rcomplex.c_sin(*v)
 
     @complex_unary_op
     def cos(self, v):
+        if math.isnan(v[1]) or math.isnan(v[0]):
+            return rfloat.NAN, rfloat.NAN
         return rcomplex.c_cos(*v)
 
     @complex_unary_op
     def tan(self, v):
+        if math.isnan(v[1]) or math.isnan(v[0]):
+            return rfloat.NAN, rfloat.NAN
         return rcomplex.c_tan(*v)
 
     @complex_unary_op
@@ -1243,14 +1249,20 @@ class ComplexFloating(object):
 
     @complex_unary_op
     def sinh(self, v):
+        if math.isinf(v[1]) or math.isnan(v[1]):
+            return rfloat.NAN, rfloat.NAN
         return rcomplex.c_sinh(*v)
 
     @complex_unary_op
     def cosh(self, v):
+        if math.isinf(v[1]) or math.isnan(v[1]):
+            return rfloat.NAN, rfloat.NAN
         return rcomplex.c_cosh(*v)
 
     @complex_unary_op
     def tanh(self, v):
+        if math.isinf(v[1]) or math.isnan(v[1]):
+            return rfloat.NAN, rfloat.NAN
         return rcomplex.c_tanh(*v)
 
     @complex_unary_op
