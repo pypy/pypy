@@ -8,9 +8,11 @@ from pypy.module.micronumpy.arrayimpl import create_implementation, create_slice
 from pypy.module.micronumpy.strides import find_shape_and_elems,\
      get_shape_from_iterable
 from pypy.module.micronumpy.interp_support import unwrap_axis_arg
+from pypy.module.micronumpy.appbridge import get_appbridge_cache
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib import jit
 from pypy.rlib.objectmodel import instantiate
+from pypy.rlib.rstring import StringBuilder
 
 def _find_shape(space, w_size):
     if space.isinstance_w(w_size, space.w_int):
@@ -82,6 +84,28 @@ class W_NDimArray(Wrappable):
         raise OperationError(space.w_TypeError, space.wrap(
             "len() of unsized object"))
 
+    def descr_repr(self, space):
+        #cache = get_appbridge_cache(space)
+        #if cache.w_array_repr is None:
+        return space.wrap(self.dump_data())
+        #return space.call_function(cache.w_array_repr, self)
+
+    def dump_data(self):
+        i = self.create_iter()
+        first = True
+        dtype = self.get_dtype()
+        s = StringBuilder()
+        s.append('array([')
+        while not i.done():
+            if first:
+                first = False
+            else:
+                s.append(', ')
+            s.append(dtype.itemtype.str_format(i.getitem()))
+            i.next()
+        s.append('])')
+        return s.build()
+
     def create_iter(self):
         return self.implementation.create_iter()
 
@@ -146,7 +170,24 @@ class W_NDimArray(Wrappable):
         return func_with_new_name(impl, "binop_%s_impl" % ufunc_name)
 
     descr_add = _binop_impl("add")
-    
+    descr_sub = _binop_impl("subtract")
+    descr_mul = _binop_impl("multiply")
+    descr_div = _binop_impl("divide")
+    descr_truediv = _binop_impl("true_divide")
+    descr_floordiv = _binop_impl("floor_divide")
+    descr_mod = _binop_impl("mod")
+    descr_pow = _binop_impl("power")
+    descr_lshift = _binop_impl("left_shift")
+    descr_rshift = _binop_impl("right_shift")
+    descr_and = _binop_impl("bitwise_and")
+    descr_or = _binop_impl("bitwise_or")
+    descr_xor = _binop_impl("bitwise_xor")
+
+    def descr_divmod(self, space, w_other):
+        w_quotient = self.descr_div(space, w_other)
+        w_remainder = self.descr_mod(space, w_other)
+        return space.newtuple([w_quotient, w_remainder])
+
     descr_eq = _binop_impl("equal")
     descr_ne = _binop_impl("not_equal")
     descr_lt = _binop_impl("less")
@@ -215,7 +256,21 @@ W_NDimArray.typedef = TypeDef(
     __getitem__ = interp2app(W_NDimArray.descr_getitem),
     __setitem__ = interp2app(W_NDimArray.descr_setitem),
 
+    __repr__ = interp2app(W_NDimArray.descr_repr),
+
     __add__ = interp2app(W_NDimArray.descr_add),
+    __mul__ = interp2app(W_NDimArray.descr_mul),
+    __div__ = interp2app(W_NDimArray.descr_div),
+    __truediv__ = interp2app(W_NDimArray.descr_truediv),
+    __floordiv__ = interp2app(W_NDimArray.descr_floordiv),
+    __mod__ = interp2app(W_NDimArray.descr_mod),
+    __divmod__ = interp2app(W_NDimArray.descr_divmod),
+    __pow__ = interp2app(W_NDimArray.descr_pow),
+    __lshift__ = interp2app(W_NDimArray.descr_lshift),
+    __rshift__ = interp2app(W_NDimArray.descr_rshift),
+    __and__ = interp2app(W_NDimArray.descr_and),
+    __or__ = interp2app(W_NDimArray.descr_or),
+    __xor__ = interp2app(W_NDimArray.descr_xor),
 
     __radd__ = interp2app(W_NDimArray.descr_radd),
 
@@ -278,7 +333,7 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
             raise operationerrfmt(space.w_NotImplementedError,
                                   "copying over different dtypes unsupported")
         if copy:
-            return w_object.copy(space)
+            return w_object.descr_copy(space)
         return w_object
     dtype = decode_w_dtype(space, w_dtype)
     shape, elems_w = find_shape_and_elems(space, w_object, dtype)

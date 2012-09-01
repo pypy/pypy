@@ -192,6 +192,13 @@ class ConcreteArray(base.BaseArrayImplementation):
             if len(view_w) < shape_len:
                 raise IndexError
             if len(view_w) > shape_len:
+                # we can allow for one extra None
+                count = len(view_w)
+                for w_item in view_w:
+                    if space.is_w(w_item, space.w_None):
+                        count -= 1
+                if count == shape_len:
+                    raise IndexError # but it's still not a single item
                 raise OperationError(space.w_IndexError,
                                      space.wrap("invalid index"))
             return self._lookup_by_index(space, view_w)
@@ -260,6 +267,8 @@ class SliceArray(ConcreteArray):
         self.strides = strides
         self.backstrides = backstrides
         self.shape = shape
+        if isinstance(parent, SliceArray):
+            parent = parent.parent # one level only
         self.parent = parent
         self.storage = parent.storage
         self.order = parent.order
