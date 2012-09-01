@@ -245,7 +245,7 @@ class W_Ufunc1(W_Ufunc):
                                   w_obj.get_dtype(),
                                   promote_to_float=self.promote_to_float,
                                   promote_bools=self.promote_bools)
-        if out:
+        if out is not None:
             if not isinstance(out, W_NDimArray):
                 raise OperationError(space.w_TypeError, space.wrap(
                                                 'output must be an array'))
@@ -264,20 +264,8 @@ class W_Ufunc1(W_Ufunc):
             else:
                 out = arr
             return space.wrap(out)
-        if not out:
-            out = W_NDimArray(w_obj.get_shape(), res_dtype)
-        else:
-            assert isinstance(out, W_NDimArray) # For translation
-            broadcast_shape =  shape_agreement(space, w_obj.get_shape(),
-                                               out.get_shape())
-            if not broadcast_shape or broadcast_shape != out.get_shape():
-                raise operationerrfmt(space.w_ValueError,
-                    'output parameter shape mismatch, could not broadcast [%s]' +
-                    ' to [%s]',
-                    ",".join([str(x) for x in w_obj.get_shape()]),
-                    ",".join([str(x) for x in out.get_shape()]),
-                    )
-        return loop.call1(self.func, self.name, calc_dtype, res_dtype,
+        shape =  shape_agreement(space, w_obj.get_shape(), out)
+        return loop.call1(shape, self.func, self.name, calc_dtype, res_dtype,
                           w_obj, out)
 
 
@@ -341,19 +329,9 @@ class W_Ufunc2(W_Ufunc):
             else:
                 out = arr
             return space.wrap(out)
-        new_shape = shape_agreement(space, w_lhs.get_shape(),
-                                    w_rhs.get_shape())
-        # Test correctness of out.shape
-        if out and out.shape != shape_agreement(space, new_shape, out.shape):
-            raise operationerrfmt(space.w_ValueError,
-                'output parameter shape mismatch, could not broadcast [%s]' +
-                ' to [%s]',
-                ",".join([str(x) for x in new_shape]),
-                ",".join([str(x) for x in out.shape]),
-                )
-        if out is None:
-            out = W_NDimArray(new_shape, res_dtype)
-        return loop.call2(self.func, self.name, calc_dtype,
+        new_shape = shape_agreement(space, w_lhs.get_shape(), w_rhs)
+        new_shape = shape_agreement(space, new_shape, out)
+        return loop.call2(new_shape, self.func, self.name, calc_dtype,
                           res_dtype, w_lhs, w_rhs, out)
 
 

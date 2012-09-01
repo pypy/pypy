@@ -91,7 +91,7 @@ class W_NDimArray(Wrappable):
         #return space.call_function(cache.w_array_repr, self)
 
     def dump_data(self):
-        i = self.create_iter()
+        i = self.create_iter(self.get_shape())
         first = True
         dtype = self.get_dtype()
         s = StringBuilder()
@@ -106,8 +106,8 @@ class W_NDimArray(Wrappable):
         s.append('])')
         return s.build()
 
-    def create_iter(self):
-        return self.implementation.create_iter()
+    def create_iter(self, shape):
+        return self.implementation.create_iter(shape)
 
     def is_scalar(self):
         return self.implementation.is_scalar()
@@ -348,7 +348,7 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
     if ndmin > len(shape):
         shape = [1] * (ndmin - len(shape)) + shape
     arr = W_NDimArray(shape, dtype, order=order)
-    arr_iter = arr.create_iter()
+    arr_iter = arr.create_iter(arr.get_shape())
     for w_elem in elems_w:
         arr_iter.setitem(dtype.coerce(space, w_elem))
         arr_iter.next()

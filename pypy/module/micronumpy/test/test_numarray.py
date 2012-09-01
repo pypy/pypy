@@ -138,15 +138,13 @@ class TestNumArrayDirect(object):
         assert s.backstrides == [-120, 12, 2]
 
     def test_shape_agreement(self):
-        from pypy.module.micronumpy.strides import shape_agreement
-        assert shape_agreement(self.space, [3], [3]) == [3]
-        assert shape_agreement(self.space, [1, 2, 3], [1, 2, 3]) == [1, 2, 3]
-        py.test.raises(OperationError, shape_agreement, self.space, [2], [3])
-        assert shape_agreement(self.space, [4, 4], []) == [4, 4]
-        assert shape_agreement(self.space,
-                [8, 1, 6, 1], [7, 1, 5]) == [8, 7, 6, 5]
-        assert shape_agreement(self.space,
-                [5, 2], [4, 3, 5, 2]) == [4, 3, 5, 2]
+        from pypy.module.micronumpy.strides import _shape_agreement
+        assert _shape_agreement([3], [3]) == [3]
+        assert _shape_agreement([1, 2, 3], [1, 2, 3]) == [1, 2, 3]
+        _shape_agreement([2], [3]) == 0
+        assert _shape_agreement([4, 4], []) == [4, 4]
+        assert _shape_agreement([8, 1, 6, 1], [7, 1, 5]) == [8, 7, 6, 5]
+        assert _shape_agreement([5, 2], [4, 3, 5, 2]) == [4, 3, 5, 2]
 
     def test_calc_new_strides(self):
         from pypy.module.micronumpy.strides import calc_new_strides

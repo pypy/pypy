@@ -28,7 +28,7 @@ class Scalar(base.BaseArrayImplementation):
     def get_shape(self):
         return []
 
-    def create_iter(self):
+    def create_iter(self, shape):
         return ScalarIterator(self.value)
 
     def set_scalar_value(self, value):

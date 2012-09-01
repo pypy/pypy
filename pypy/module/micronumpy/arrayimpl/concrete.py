@@ -1,7 +1,7 @@
 
 from pypy.module.micronumpy.arrayimpl import base
 from pypy.module.micronumpy import support, loop
-from pypy.module.micronumpy.strides import calc_new_strides
+from pypy.module.micronumpy.strides import calc_new_strides, shape_agreement
 from pypy.module.micronumpy.iter import Chunk, Chunks, NewAxisChunk, RecordChunk
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.rlib import jit
@@ -111,7 +111,8 @@ class ConcreteArray(base.BaseArrayImplementation):
     def get_shape(self):
         return self.shape
 
-    def create_iter(self):
+    def create_iter(self, shape):
+        assert shape == self.shape
         return ConcreteArrayIterator(self)
 
     def getitem(self, index):
@@ -125,16 +126,17 @@ class ConcreteArray(base.BaseArrayImplementation):
 
     def copy(self):
         impl = ConcreteArray(self.shape, self.dtype, self.order)
-        return loop.setslice(impl, self)
+        return loop.setslice(self.shape, impl, self)
 
-    def setslice(self, arr):
-        if arr.is_scalar():
-            self.fill(arr.get_scalar_value())
+    def setslice(self, space, arr):
+        impl = arr.implementation
+        if impl.is_scalar():
+            self.fill(impl.get_scalar_value())
             return
-        assert isinstance(arr, ConcreteArray)
-        if arr.storage == self.storage:
-            arr = arr.copy()
-        loop.setslice(self, arr)
+        shape = shape_agreement(space, self.shape, arr)
+        if impl.storage == self.storage:
+            impl = impl.copy()
+        loop.setslice(shape, self, impl)
 
     def get_size(self):
         return self.size // self.dtype.itemtype.get_element_size()
@@ -247,7 +249,7 @@ class ConcreteArray(base.BaseArrayImplementation):
             w_value = support.convert_to_array(space, w_value)
             chunks = self._prepare_slice_args(space, w_index)
             view = chunks.apply(self)
-            view.implementation.setslice(w_value.implementation)
+            view.implementation.setslice(space, w_value)
 
     def transpose(self):
         if len(self.shape) < 2:
@@ -279,7 +281,8 @@ class SliceArray(ConcreteArray):
     def fill(self, box):
         loop.fill(self, box)
 
-    def create_iter(self):
+    def create_iter(self, shape):
+        assert shape == self.shape
         if len(self.shape) == 1:
             return OneDimViewIterator(self)
         return MultiDimViewIterator(self)

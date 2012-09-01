@@ -3,10 +3,14 @@
 signatures
 """
 
-def call2(func, name, calc_dtype, res_dtype, w_lhs, w_rhs, out):
-    left_iter = w_lhs.create_iter()
-    right_iter = w_rhs.create_iter()
-    out_iter = out.create_iter()
+from pypy.module.micronumpy.support import create_array
+
+def call2(shape, func, name, calc_dtype, res_dtype, w_lhs, w_rhs, out):
+    if out is None:
+        out = create_array(shape, res_dtype)
+    left_iter = w_lhs.create_iter(shape)
+    right_iter = w_rhs.create_iter(shape)
+    out_iter = out.create_iter(shape)
     while not out_iter.done():
         w_left = left_iter.getitem().convert_to(calc_dtype)
         w_right = right_iter.getitem().convert_to(calc_dtype)
@@ -17,9 +21,11 @@ def call2(func, name, calc_dtype, res_dtype, w_lhs, w_rhs, out):
         out_iter.next()
     return out
 
-def call1(func, name , calc_dtype, res_dtype, w_obj, out):
-    obj_iter = w_obj.create_iter()
-    out_iter = out.create_iter()
+def call1(shape, func, name , calc_dtype, res_dtype, w_obj, out):
+    if out is None:
+        out = create_array(shape, res_dtype)
+    obj_iter = w_obj.create_iter(shape)
+    out_iter = out.create_iter(shape)
     while not out_iter.done():
         elem = obj_iter.getitem().convert_to(calc_dtype)
         out_iter.setitem(func(calc_dtype, elem).convert_to(res_dtype))
@@ -27,10 +33,12 @@ def call1(func, name , calc_dtype, res_dtype, w_obj, out):
         obj_iter.next()
     return out
 
-def setslice(target, source):
-    target_iter = target.create_iter()
+def setslice(shape, target, source):
+    # note that unlike everything else, target and source here are
+    # array implementations, not arrays
+    target_iter = target.create_iter(shape)
+    source_iter = source.create_iter(shape)
     dtype = target.dtype
-    source_iter = source.create_iter()
     while not target_iter.done():
         target_iter.setitem(source_iter.getitem().convert_to(dtype))
         target_iter.next()
@@ -38,7 +46,7 @@ def setslice(target, source):
     return target
 
 def compute_reduce(obj, calc_dtype, func, done_func, identity):
-    obj_iter = obj.create_iter()
+    obj_iter = obj.create_iter(obj.get_shape())
     if identity is None:
         cur_value = obj_iter.getitem().convert_to(calc_dtype)
         obj_iter.next()
@@ -53,7 +61,7 @@ def compute_reduce(obj, calc_dtype, func, done_func, identity):
     return cur_value
 
 def fill(arr, box):
-    arr_iter = arr.create_iter()
+    arr_iter = arr.create_iter(arr.get_shape())
     while not arr_iter.done():
         arr_iter.setitem(box)
         arr_iter.next()
