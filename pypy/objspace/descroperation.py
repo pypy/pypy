@@ -665,7 +665,7 @@ for targetname, specialname in [
             if space.is_true(space.isinstance(w_result, space.w_str)):
                 return w_result
             try:
-                result = space.str_w(w_result)
+                result = space.unicode_w(w_result)
             except OperationError, e:
                 if not e.match(space, space.w_TypeError):
                     raise

@@ -1,3 +1,4 @@
+# -*- encoding: utf-8 -*-
 
 from pypy.conftest import gettestobjspace
 
@@ -119,6 +120,10 @@ class AppTestExc(object):
         assert SystemExit().code is None
         assert SystemExit("x").code == "x"
         assert SystemExit(1, 2).code == (1, 2)
+
+    def test_str_unicode(self):
+        e = ValueError('àèì')
+        assert str(e) == 'àèì'
 
     def test_unicode_decode_error(self):
         ud = UnicodeDecodeError("x", b"y", 1, 5, "bah")

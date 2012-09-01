@@ -1,4 +1,4 @@
-
+# -*- encoding: utf-8 -*-
 
 class Test_DescrOperation:
 
@@ -288,6 +288,18 @@ class AppTest_Descroperation:
             answer = 42
             raises(TypeError, operate, A())
 
+    def test_string_results_unicode(self):
+        class A(object):
+            def __str__(self):
+                return 'àèì'
+            def __repr__(self):
+                return 'àèì'
+
+        for operate in (str, repr):
+            x = operate(A())
+            assert x == 'àèì'
+            assert type(x) is str
+            
     def test_missing_getattribute(self):
         class X(object): pass
 
