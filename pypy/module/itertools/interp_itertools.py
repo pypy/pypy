@@ -824,7 +824,8 @@ def tee(space, w_iterable, n=2):
         tee_state = myiter.tee_state
         iterators_w = [w_iterable] * n
         for i in range(1, n):
-            iterators_w[i] = space.wrap(W_TeeIterable(space, tee_state))
+            iterators_w[i] = space.wrap(W_TeeIterable(space, tee_state,
+                                                      myiter.index))
     else:
         tee_state = TeeState(space, w_iterable)
         iterators_w = [space.wrap(W_TeeIterable(space, tee_state)) for x in range(n)]
@@ -847,10 +848,10 @@ class TeeState(object):
             return self.saved_w[index]
 
 class W_TeeIterable(Wrappable):
-    def __init__(self, space, tee_state):
+    def __init__(self, space, tee_state, start_index=0):
         self.space = space
         self.tee_state = tee_state
-        self.index = 0
+        self.index = start_index
 
     def iter_w(self):
         return self.space.wrap(self)
