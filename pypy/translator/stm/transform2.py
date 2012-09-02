@@ -145,3 +145,7 @@ def pre_insert_stm_barrier(stmtransformer, graph):
                     category[op.result] = 'W'
 
             block.operations = newoperations
+            #
+            for link in block.exits:
+                for i, v in enumerate(link.args):
+                    link.args[i] = renamings.get(v, v)

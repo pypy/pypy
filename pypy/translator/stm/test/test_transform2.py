@@ -307,3 +307,16 @@ class TestTransform(BaseTestTransform):
         res = self.interpret(f1, [x, x])
         assert res == 0
         assert self.barriers == ['P2W', 'P2W']
+
+    def test_simple_loop(self):
+        X = lltype.GcStruct('X', ('foo', lltype.Signed))
+        def f1(x, i):
+            while i > 0:
+                x.foo = i
+                i -= 1
+            return i
+        x = lltype.malloc(X, immortal=True)
+        res = self.interpret(f1, [x, 5])
+        assert res == 0
+        # for now we get this.  Later, we could probably optimize it
+        assert self.barriers == ['P2W', 'p2w', 'p2w', 'p2w', 'p2w']
