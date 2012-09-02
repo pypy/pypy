@@ -71,9 +71,13 @@ def pre_insert_stm_barrier(translator, graph):
             for op in block.operations:
                 to = wants_a_barrier.get(op)
                 if to is not None:
-                    c_info = Constant('P2%s' % to, lltype.Void)
                     v = op.args[0]
                     v = renamings.get(v, v)
+                    if isinstance(v, Constant):
+                        frm = 'G'
+                    else:
+                        frm = 'P'   # XXX improve
+                    c_info = Constant('%s2%s' % (frm, to), lltype.Void)
                     w = varoftype(v.concretetype)
                     newop = SpaceOperation('stm_barrier', [c_info, v], w)
                     newoperations.append(newop)
