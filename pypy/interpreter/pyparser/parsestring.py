@@ -48,7 +48,7 @@ def parsestr(space, encoding, s):
                                         'unmatched triple quotes in literal')
         q -= 2
 
-    if unicode_literal: # XXX Py_UnicodeFlag is ignored for now
+    if unicode_literal and not rawmode: # XXX Py_UnicodeFlag is ignored for now
         if encoding is None or encoding == "iso-8859-1":
             # 'unicode_escape' expects latin-1 bytes, string is ready.
             buf = s
@@ -87,29 +87,19 @@ def parsestr(space, encoding, s):
             bufq = len(buf)
         assert 0 <= bufp <= bufq
         substr = buf[bufp:bufq]
-        if rawmode:
-            v = unicodehelper.PyUnicode_DecodeRawUnicodeEscape(space, substr)
-        else:
-            v = unicodehelper.PyUnicode_DecodeUnicodeEscape(space, substr)
+        v = unicodehelper.PyUnicode_DecodeUnicodeEscape(space, substr)
         return space.wrap(v)
 
-    need_encoding = (encoding is not None and
-                     encoding != "utf-8" and encoding != "utf8" and
-                     encoding != "iso-8859-1")
     assert 0 <= ps <= q
     substr = s[ps : q]
-    if rawmode or '\\' not in s[ps:]:
-        if need_encoding:
-            w_u = space.wrap(unicodehelper.PyUnicode_DecodeUTF8(space, substr))
-            w_v = unicodehelper.PyUnicode_AsEncodedString(space, w_u, space.wrap(encoding))
-            return w_v
-        else:
+    if rawmode or '\\' not in substr:
+        if not unicode_literal:
             return space.wrapbytes(substr)
+        else:
+            v = unicodehelper.PyUnicode_DecodeUTF8(space, substr)
+            return space.wrap(v)
 
-    enc = None
-    if need_encoding:
-         enc = encoding
-    v = PyString_DecodeEscape(space, substr, enc)
+    v = PyString_DecodeEscape(space, substr, encoding)
     return space.wrapbytes(v)
 
 def hexbyte(val):

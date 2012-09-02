@@ -62,6 +62,11 @@ class TestParsetring:
         w_ret = parsestring.parsestr(space, None, "r'hi'")
         assert space.isinstance_w(w_ret, space.w_unicode)
 
+    def test_raw_unicode_literals(self):
+        space = self.space
+        w_ret = parsestring.parsestr(space, None, "r'\u'")
+        assert space.int_w(space.len(w_ret)) == 2
+
     def test_bytes(self):
         space = self.space
         b = "b'hello'"
