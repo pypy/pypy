@@ -10,7 +10,7 @@ from pypy.tool.udir import udir
 from pypy.tool.autopath import pypydir
 from pypy.tool import leakfinder, runsubprocess
 
-PYTHON3 = py.path.local.sysfind('python3')
+PYTHON3 = os.getenv('PYTHON3') or py.path.local.sysfind('python3')
 if PYTHON3 is not None:
     PYTHON3 = str(PYTHON3)
 
