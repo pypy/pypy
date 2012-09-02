@@ -1,6 +1,7 @@
 from pypy.objspace.flow.model import Variable
 from pypy.translator.backendopt import graphanalyze
 from pypy.rpython.ootypesystem import ootype
+from pypy.translator.simplify import get_funcobj
 
 top_set = object()
 empty_set = frozenset()
@@ -42,7 +43,14 @@ class WriteAnalyzer(graphanalyze.GraphAnalyzer):
     def _array_result(self, TYPE):
         return frozenset([("array", TYPE)])
 
+    def analyze_external_call(self, op, seen=None):
+        funcobj = get_funcobj(op.args[0].value)
+        if funcobj.random_effects_on_gcobjs:
+            return self.top_result()
+        return graphanalyze.GraphAnalyzer.analyze_external_call(self, op, seen)
+
     def analyze_external_method(self, op, TYPE, meth):
+        # XXX random_effects_on_gcobjs
         if isinstance(TYPE, ootype.Array):
             methname = op.args[0].value
             if methname == 'll_setitem_fast':

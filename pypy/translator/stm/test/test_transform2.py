@@ -1,4 +1,4 @@
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rpython.llinterp import LLFrame
 from pypy.rpython.test.test_llinterp import get_interpreter, clear_tcache
 from pypy.objspace.flow.model import Constant
@@ -181,3 +181,37 @@ class TestTransform(BaseTestTransform):
         res = self.interpret(f1, [x, y])
         assert res == 36
         assert self.barriers == ['P2R', 'P2W']
+
+    def test_call_external_random_effects(self):
+        X = lltype.GcStruct('X', ('foo', lltype.Signed))
+        external_stuff = rffi.llexternal('external_stuff', [], lltype.Void,
+                                         _callable=lambda: None,
+                                         random_effects_on_gcobjs=True,
+                                         threadsafe=False)
+        def f1(p):
+            x1 = p.foo
+            external_stuff()
+            x2 = p.foo
+            return x1 * x2
+
+        x = lltype.malloc(X, immortal=True); x.foo = 6
+        res = self.interpret(f1, [x])
+        assert res == 36
+        assert self.barriers == ['P2R', 'P2R']
+
+    def test_call_external_no_random_effects(self):
+        X = lltype.GcStruct('X', ('foo', lltype.Signed))
+        external_stuff = rffi.llexternal('external_stuff2', [], lltype.Void,
+                                         _callable=lambda: None,
+                                         random_effects_on_gcobjs=False,
+                                         threadsafe=False)
+        def f1(p):
+            x1 = p.foo
+            external_stuff()
+            x2 = p.foo
+            return x1 * x2
+
+        x = lltype.malloc(X, immortal=True); x.foo = 6
+        res = self.interpret(f1, [x])
+        assert res == 36
+        assert self.barriers == ['P2R']
