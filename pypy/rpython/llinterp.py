@@ -50,7 +50,6 @@ class LLInterpreter(object):
     current_interpreter = None
 
     def __init__(self, typer, tracing=True, exc_data_ptr=None):
-        self.bindings = {}
         self.typer = typer
         # 'heap' is module or object that provides malloc, etc for lltype ops
         self.heap = llheap
