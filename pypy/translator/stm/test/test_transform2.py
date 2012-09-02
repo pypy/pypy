@@ -18,7 +18,6 @@ class _stmptr(lltype._ptr):
 
 
 class BaseTestTransform(object):
-    prebuilt = ()
 
     def build_state(self):
         self.writemode = set()
@@ -29,8 +28,8 @@ class BaseTestTransform(object):
             return p._category
         if not p:
             return 'N'
-        if p in self.prebuilt:
-            return 'G'
+        if p._solid:
+            return 'G'     # allocated with immortal=True
         raise AssertionError("unknown category on %r" % (p,))
 
     def interpret(self, fn, args):
@@ -92,7 +91,6 @@ class TestTransform(BaseTestTransform):
         x1.foo = 42
         x2 = lltype.malloc(X, immortal=True)
         x2.foo = 81
-        self.prebuilt = [x1, x2]
 
         def f1(n):
             if n > 1:
@@ -112,7 +110,6 @@ class TestTransform(BaseTestTransform):
         X = lltype.GcStruct('X', ('foo', lltype.Signed))
         x1 = lltype.malloc(X, immortal=True)
         x1.foo = 42
-        self.prebuilt = [x1]
 
         def f1(n):
             x1.foo = n
@@ -131,7 +128,6 @@ class TestTransform(BaseTestTransform):
         x2 = lltype.malloc(X, immortal=True)
         x2.foo = 81
         x2.bar = -1
-        self.prebuilt = [x1, x2]
 
         def f1(n):
             if n > 1:
@@ -153,3 +149,35 @@ class TestTransform(BaseTestTransform):
         self.interpret(f1, [4])
         assert len(self.writemode) == 1
         assert self.barriers == []
+
+    def test_write_may_alias(self):
+        X = lltype.GcStruct('X', ('foo', lltype.Signed))
+        def f1(p, q):
+            x1 = p.foo
+            q.foo = 7
+            x2 = p.foo
+            return x1 * x2
+
+        x = lltype.malloc(X, immortal=True); x.foo = 6
+        y = lltype.malloc(X, immortal=True)
+        res = self.interpret(f1, [x, y])
+        assert res == 36
+        assert self.barriers == ['P2R', 'P2W', 'O2R']
+        res = self.interpret(f1, [x, x])
+        assert res == 42
+        assert self.barriers == ['P2R', 'P2W', 'O2R']
+
+    def test_write_cannot_alias(self):
+        X = lltype.GcStruct('X', ('foo', lltype.Signed))
+        Y = lltype.GcStruct('Y', ('foo', lltype.Signed))
+        def f1(p, q):
+            x1 = p.foo
+            q.foo = 7
+            x2 = p.foo
+            return x1 * x2
+
+        x = lltype.malloc(X, immortal=True); x.foo = 6
+        y = lltype.malloc(Y, immortal=True)
+        res = self.interpret(f1, [x, y])
+        assert res == 36
+        assert self.barriers == ['P2R', 'P2W']

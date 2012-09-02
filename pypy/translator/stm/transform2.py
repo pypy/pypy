@@ -2,6 +2,7 @@ from pypy.objspace.flow.model import SpaceOperation, Constant, Variable
 from pypy.objspace.flow.model import checkgraph
 from pypy.translator.unsimplify import varoftype
 from pypy.rpython.lltypesystem import lltype
+from pypy.translator.backendopt.writeanalyze import WriteAnalyzer, top_set
 
 
 
@@ -9,12 +10,13 @@ class STMTransformer(object):
 
     def __init__(self, translator):
         self.translator = translator
+        self.write_analyzer = WriteAnalyzer(translator)
 
     def transform(self):
         assert not hasattr(self.translator, 'stm_transformation_applied')
         self.start_log()
         for graph in self.translator.graphs:
-            pre_insert_stm_barrier(self.translator, graph)
+            pre_insert_stm_barrier(self, graph)
         self.translator.stm_transformation_applied = True
         self.print_logs()
 
@@ -58,7 +60,10 @@ def is_immutable(op):
         return False
     raise AssertionError(op)
 
-def pre_insert_stm_barrier(translator, graph):
+
+def pre_insert_stm_barrier(stmtransformer, graph):
+    graphinfo = stmtransformer.write_analyzer.compute_graph_info(graph)
+
     for block in graph.iterblocks():
         if block.operations == ():
             continue
@@ -98,10 +103,23 @@ def pre_insert_stm_barrier(translator, graph):
                         newoperations.append(newop)
                         renamings[op.args[0]] = w
                         category[w] = to
-                elif op.opname in MALLOCS:
-                    category[op.result] = 'W'
                 newop = SpaceOperation(op.opname,
                                        [renamings.get(v, v) for v in op.args],
                                        op.result)
                 newoperations.append(newop)
+                #
+                effectinfo = stmtransformer.write_analyzer.analyze(
+                    op, graphinfo=graphinfo)
+                if effectinfo:
+                    if effectinfo is top_set:
+                        category.clear()
+                    else:
+                        types = set([entry[1] for entry in effectinfo])
+                        for v in category.keys():
+                            if v.concretetype in types and category[v] == 'R':
+                                category[v] = 'O'
+                #
+                if op.opname in MALLOCS:
+                    category[op.result] = 'W'
+
             block.operations = newoperations
