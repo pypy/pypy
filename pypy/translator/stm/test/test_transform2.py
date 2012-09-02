@@ -262,6 +262,20 @@ class TestTransform(BaseTestTransform):
         assert res == 1
         assert self.barriers == ['P2W', '=']
 
+    def test_pointer_compare_3(self):
+        X = lltype.GcStruct('X', ('foo', lltype.Signed))
+        def f1(x, y):
+            y.foo = 41
+            return x != y
+        x = lltype.malloc(X, immortal=True)
+        y = lltype.malloc(X, immortal=True)
+        res = self.interpret(f1, [x, y])
+        assert res == 1
+        assert self.barriers == ['P2W', '=']
+        res = self.interpret(f1, [x, x])
+        assert res == 0
+        assert self.barriers == ['P2W', '=']
+
     def test_pointer_compare_4(self):
         X = lltype.GcStruct('X', ('foo', lltype.Signed))
         def f1(x, y):
