@@ -1,5 +1,5 @@
 from pypy.objspace.flow.model import SpaceOperation, Constant, Variable
-from pypy.objspace.flow.model import checkgraph
+from pypy.objspace.flow.model import checkgraph, c_last_exception
 from pypy.translator.unsimplify import varoftype
 from pypy.rpython.lltypesystem import lltype
 from pypy.translator.backendopt.writeanalyze import WriteAnalyzer, top_set
@@ -72,6 +72,16 @@ def pre_insert_stm_barrier(stmtransformer, graph):
                 return 'N'     # NULL
         return category.get(v, 'P')
 
+    def renamings_get(v):
+        if v not in renamings:
+            return v
+        v2 = renamings[v][0]
+        if v2.concretetype == v.concretetype:
+            return v2
+        v3 = varoftype(v.concretetype)
+        newoperations.append(SpaceOperation('cast_pointer', [v2], v3))
+        return v3
+
     for block in graph.iterblocks():
         if block.operations == ():
             continue
@@ -96,25 +106,35 @@ def pre_insert_stm_barrier(stmtransformer, graph):
                 expand_comparison.add(op)
         #
         if wants_a_barrier or expand_comparison:
-            renamings = {}
-            category = {}
+            # note: 'renamings' maps old vars to new vars, but cast_pointers
+            # are done lazily.  It means that the two vars may not have
+            # exactly the same type.
+            renamings = {}   # {original-var: [var-in-newoperations] (len 1)}
+            category = {}    # {var-in-newoperations: LETTER}
             newoperations = []
             for op in block.operations:
+                #
+                if op.opname == 'cast_pointer':
+                    v = op.args[0]
+                    renamings[op.result] = renamings.setdefault(v, [v])
+                    continue
+                #
                 to = wants_a_barrier.get(op)
                 if to is not None:
                     v = op.args[0]
-                    v = renamings.get(v, v)
+                    v_holder = renamings.setdefault(v, [v])
+                    v = v_holder[0]
                     frm = get_category(v)
                     if frm not in MORE_PRECISE_CATEGORIES[to]:
                         c_info = Constant('%s2%s' % (frm, to), lltype.Void)
                         w = varoftype(v.concretetype)
                         newop = SpaceOperation('stm_barrier', [c_info, v], w)
                         newoperations.append(newop)
-                        renamings[op.args[0]] = w
+                        v_holder[0] = w
                         category[w] = to
                 #
                 newop = SpaceOperation(op.opname,
-                                       [renamings.get(v, v) for v in op.args],
+                                       [renamings_get(v) for v in op.args],
                                        op.result)
                 newoperations.append(newop)
                 #
@@ -146,6 +166,7 @@ def pre_insert_stm_barrier(stmtransformer, graph):
 
             block.operations = newoperations
             #
+            assert block.exitswitch != c_last_exception   # transformed already
             for link in block.exits:
                 for i, v in enumerate(link.args):
-                    link.args[i] = renamings.get(v, v)
+                    link.args[i] = renamings_get(v)

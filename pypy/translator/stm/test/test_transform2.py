@@ -349,7 +349,8 @@ class TestTransform(BaseTestTransform):
 
         res = self.interpret(f1, [10])
         assert res == 42 + 10
-        assert self.barriers == ['p2r']
+        assert self.barriers == ['p2r', 'p2r']  # from two blocks (could be
+                                                # optimized later)
         res = self.interpret(f1, [-10])
         assert res == 815
         assert self.barriers == ['p2r']
