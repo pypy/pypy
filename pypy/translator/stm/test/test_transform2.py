@@ -55,22 +55,35 @@ class BaseTestTransform(object):
 
 class LLSTMFrame(LLFrame):
 
+    def all_stm_ptrs(self):
+        for frame in self.llinterpreter.frame_stack:
+            for value in frame.bindings.values():
+                if isinstance(value, _stmptr):
+                    yield value
+
     def get_category(self, p):
         return self.llinterpreter.tester.get_category(p)
 
     def check_category(self, p, expected):
         cat = self.get_category(p)
         assert cat in MORE_PRECISE_CATEGORIES[expected]
+        return cat
 
     def op_stm_barrier(self, kind, obj):
         frm, middledigit, to = kind
         assert middledigit == '2'
-        self.check_category(obj, frm)
-        ptr2 = _stmptr(obj, to)
-        if to == 'W':
-            self.llinterpreter.tester.writemode.add(ptr2._obj)
-        self.llinterpreter.tester.barriers.append(kind)
-        return ptr2
+        cat = self.check_category(obj, frm)
+        if cat in MORE_PRECISE_CATEGORIES[to]:
+            # a barrier, but with no effect
+            self.llinterpreter.tester.barriers.append(kind.lower())
+            return obj
+        else:
+            # a barrier, calling a helper
+            ptr2 = _stmptr(obj, to)
+            if to == 'W':
+                self.llinterpreter.tester.writemode.add(ptr2._obj)
+            self.llinterpreter.tester.barriers.append(kind)
+            return ptr2
 
     def op_stm_ptr_eq(self, obj1, obj2):
         self.check_category(obj1, 'P')
@@ -84,6 +97,10 @@ class LLSTMFrame(LLFrame):
 
     def op_setfield(self, obj, fieldname, fieldvalue):
         self.check_category(obj, 'W')
+        # convert R -> O all other pointers to the same object we can find
+        for p in self.all_stm_ptrs():
+            if p._category == 'R' and p._T == obj._T and p == obj:
+                _stmptr._category.__set__(p, 'O')
         return LLFrame.op_setfield(self, obj, fieldname, fieldvalue)
 
     def op_malloc(self, obj, flags):
@@ -172,7 +189,7 @@ class TestTransform(BaseTestTransform):
         y = lltype.malloc(X, immortal=True)
         res = self.interpret(f1, [x, y])
         assert res == 36
-        assert self.barriers == ['P2R', 'P2W', 'O2R']
+        assert self.barriers == ['P2R', 'P2W', 'o2r']
         res = self.interpret(f1, [x, x])
         assert res == 42
         assert self.barriers == ['P2R', 'P2W', 'O2R']
@@ -207,7 +224,7 @@ class TestTransform(BaseTestTransform):
         x = lltype.malloc(X, immortal=True); x.foo = 6
         res = self.interpret(f1, [x])
         assert res == 36
-        assert self.barriers == ['P2R', 'P2R']
+        assert self.barriers == ['P2R', 'p2r']
 
     def test_call_external_no_random_effects(self):
         X = lltype.GcStruct('X', ('foo', lltype.Signed))
