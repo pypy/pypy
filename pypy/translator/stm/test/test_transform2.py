@@ -1,4 +1,4 @@
-from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.rpython.lltypesystem import lltype, rffi, opimpl
 from pypy.rpython.llinterp import LLFrame
 from pypy.rpython.test.test_llinterp import get_interpreter, clear_tcache
 from pypy.objspace.flow.model import Constant
@@ -92,16 +92,24 @@ class LLSTMFrame(LLFrame):
         return obj1 == obj2
 
     def op_getfield(self, obj, field):
-        self.check_category(obj, 'R')
+        if not obj._TYPE.TO._immutable_field(field):
+            self.check_category(obj, 'R')
         return LLFrame.op_getfield(self, obj, field)
 
     def op_setfield(self, obj, fieldname, fieldvalue):
-        self.check_category(obj, 'W')
-        # convert R -> O all other pointers to the same object we can find
-        for p in self.all_stm_ptrs():
-            if p._category == 'R' and p._T == obj._T and p == obj:
-                _stmptr._category.__set__(p, 'O')
+        if not obj._TYPE.TO._immutable_field(fieldname):
+            self.check_category(obj, 'W')
+            # convert R -> O all other pointers to the same object we can find
+            for p in self.all_stm_ptrs():
+                if p._category == 'R' and p._T == obj._T and p == obj:
+                    _stmptr._category.__set__(p, 'O')
         return LLFrame.op_setfield(self, obj, fieldname, fieldvalue)
+
+    def op_cast_pointer(self, RESTYPE, obj):
+        cat = self.check_category(obj, 'P')
+        p = opimpl.op_cast_pointer(RESTYPE, obj)
+        return _stmptr(p, cat)
+    op_cast_pointer.need_result_type = True
 
     def op_malloc(self, obj, flags):
         p = LLFrame.op_malloc(self, obj, flags)
@@ -211,10 +219,6 @@ class TestTransform(BaseTestTransform):
 
     def test_call_external_random_effects(self):
         X = lltype.GcStruct('X', ('foo', lltype.Signed))
-        external_stuff = rffi.llexternal('external_stuff', [], lltype.Void,
-                                         _callable=lambda: None,
-                                         random_effects_on_gcobjs=True,
-                                         threadsafe=False)
         def f1(p):
             x1 = p.foo
             external_stuff()
@@ -320,3 +324,38 @@ class TestTransform(BaseTestTransform):
         assert res == 0
         # for now we get this.  Later, we could probably optimize it
         assert self.barriers == ['P2W', 'p2w', 'p2w', 'p2w', 'p2w']
+
+    def test_subclassing(self):
+        class X:
+            __slots__ = ['foo']
+        class Y(X):
+            pass
+        class Z(X):
+            pass
+        def f1(i):
+            if i > 5:
+                x = Y()
+                x.foo = 42
+                x.ybar = i
+            else:
+                x = Z()
+                x.foo = 815
+                x.zbar = 'A'
+            external_stuff()
+            result = x.foo
+            if isinstance(x, Y):
+                result += x.ybar
+            return result
+
+        res = self.interpret(f1, [10])
+        assert res == 42 + 10
+        assert self.barriers == ['p2r']
+        res = self.interpret(f1, [-10])
+        assert res == 815
+        assert self.barriers == ['p2r']
+
+
+external_stuff = rffi.llexternal('external_stuff', [], lltype.Void,
+                                 _callable=lambda: None,
+                                 random_effects_on_gcobjs=True,
+                                 threadsafe=False)
