@@ -3,6 +3,7 @@ from pypy.rpython.llinterp import LLFrame
 from pypy.rpython.test.test_llinterp import get_interpreter, clear_tcache
 from pypy.objspace.flow.model import Constant
 from pypy.translator.stm.transform2 import STMTransformer
+from pypy.translator.stm.transform2 import MORE_PRECISE_CATEGORIES
 from pypy.conftest import option
 
 
@@ -50,21 +51,13 @@ class BaseTestTransform(object):
 
 
 class LLSTMFrame(LLFrame):
-    _MORE_PRECISE_CATEGORIES = {
-        'P': 'PGORLWN',
-        'G': 'GN',
-        'O': 'ORLWN',
-        'R': 'RLWN',
-        'L': 'LWN',
-        'W': 'WN',
-        'N': 'N'}
 
     def get_category(self, p):
         return self.llinterpreter.tester.get_category(p)
 
     def check_category(self, p, expected):
         cat = self.get_category(p)
-        assert cat in self._MORE_PRECISE_CATEGORIES[expected]
+        assert cat in MORE_PRECISE_CATEGORIES[expected]
 
     def op_stm_barrier(self, kind, obj):
         frm, middledigit, to = kind
@@ -143,4 +136,4 @@ class TestTransform(BaseTestTransform):
         res = self.interpret(f1, [4])
         assert res == -81
         assert len(self.writemode) == 0
-        assert self.barriers == ['G2R', 'P2R']    # XXX remove the 2nd one
+        assert self.barriers == ['G2R']

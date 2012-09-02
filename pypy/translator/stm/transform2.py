@@ -27,6 +27,14 @@ class STMTransformer(object):
         log.info("Software Transactional Memory transformation applied")
 
 
+MORE_PRECISE_CATEGORIES = {
+    'P': 'PGORLWN',
+    'G': 'GN',
+    'O': 'ORLWN',
+    'R': 'RLWN',
+    'L': 'LWN',
+    'W': 'WN',
+    'N': 'N'}
 
 def is_immutable(op):
     if op.opname in ('getfield', 'setfield'):
@@ -67,6 +75,7 @@ def pre_insert_stm_barrier(translator, graph):
         #
         if wants_a_barrier:
             renamings = {}
+            category = {}
             newoperations = []
             for op in block.operations:
                 to = wants_a_barrier.get(op)
@@ -76,12 +85,14 @@ def pre_insert_stm_barrier(translator, graph):
                     if isinstance(v, Constant):
                         frm = 'G'
                     else:
-                        frm = 'P'   # XXX improve
-                    c_info = Constant('%s2%s' % (frm, to), lltype.Void)
-                    w = varoftype(v.concretetype)
-                    newop = SpaceOperation('stm_barrier', [c_info, v], w)
-                    newoperations.append(newop)
-                    renamings[op.args[0]] = w
+                        frm = category.get(v, 'P')
+                    if frm not in MORE_PRECISE_CATEGORIES[to]:
+                        c_info = Constant('%s2%s' % (frm, to), lltype.Void)
+                        w = varoftype(v.concretetype)
+                        newop = SpaceOperation('stm_barrier', [c_info, v], w)
+                        newoperations.append(newop)
+                        renamings[op.args[0]] = w
+                        category[w] = to
                 newop = SpaceOperation(op.opname,
                                        [renamings.get(v, v) for v in op.args],
                                        op.result)
