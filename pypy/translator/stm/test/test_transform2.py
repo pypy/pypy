@@ -10,11 +10,15 @@ from pypy.conftest import option
 class _stmptr(lltype._ptr):
     """Like lltype._ptr, but also keeps a current category level"""
 
-    __slots__ = ['_category']
+    __slots__ = ['_category', '_original_ptr']
 
     def __init__(self, ptr, category):
         lltype._ptr.__init__(self, ptr._TYPE, ptr._obj0, ptr._solid)
         _stmptr._category.__set__(self, category)
+        _stmptr._original_ptr.__set__(self, ptr)
+
+    def __eq__(self, other):
+        return self._original_ptr == other
 
 
 class BaseTestTransform(object):
@@ -67,6 +71,12 @@ class LLSTMFrame(LLFrame):
             self.llinterpreter.tester.writemode.add(ptr2._obj)
         self.llinterpreter.tester.barriers.append(kind)
         return ptr2
+
+    def op_stm_ptr_eq(self, obj1, obj2):
+        self.check_category(obj1, 'P')
+        self.check_category(obj2, 'P')
+        self.llinterpreter.tester.barriers.append('=')
+        return obj1 == obj2
 
     def op_getfield(self, obj, field):
         self.check_category(obj, 'R')
@@ -215,3 +225,54 @@ class TestTransform(BaseTestTransform):
         res = self.interpret(f1, [x])
         assert res == 36
         assert self.barriers == ['P2R']
+
+    def test_pointer_compare_0(self):
+        X = lltype.GcStruct('X', ('foo', lltype.Signed))
+        def f1(x):
+            return x != lltype.nullptr(X)
+        x = lltype.malloc(X, immortal=True)
+        res = self.interpret(f1, [x])
+        assert res == 1
+        assert self.barriers == []
+
+    def test_pointer_compare_1(self):
+        X = lltype.GcStruct('X', ('foo', lltype.Signed))
+        def f1(x, y):
+            return x != y
+        x = lltype.malloc(X, immortal=True)
+        y = lltype.malloc(X, immortal=True)
+        res = self.interpret(f1, [x, y])
+        assert res == 1
+        assert self.barriers == ['=']
+        res = self.interpret(f1, [x, x])
+        assert res == 0
+        assert self.barriers == ['=']
+
+    def test_pointer_compare_2(self):
+        X = lltype.GcStruct('X', ('foo', lltype.Signed))
+        def f1(x, y):
+            x.foo = 41
+            return x == y
+        x = lltype.malloc(X, immortal=True)
+        y = lltype.malloc(X, immortal=True)
+        res = self.interpret(f1, [x, y])
+        assert res == 0
+        assert self.barriers == ['P2W', '=']
+        res = self.interpret(f1, [x, x])
+        assert res == 1
+        assert self.barriers == ['P2W', '=']
+
+    def test_pointer_compare_4(self):
+        X = lltype.GcStruct('X', ('foo', lltype.Signed))
+        def f1(x, y):
+            x.foo = 40
+            y.foo = 41
+            return x != y
+        x = lltype.malloc(X, immortal=True)
+        y = lltype.malloc(X, immortal=True)
+        res = self.interpret(f1, [x, y])
+        assert res == 1
+        assert self.barriers == ['P2W', 'P2W']
+        res = self.interpret(f1, [x, x])
+        assert res == 0
+        assert self.barriers == ['P2W', 'P2W']
