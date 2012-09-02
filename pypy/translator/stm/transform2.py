@@ -27,6 +27,11 @@ class STMTransformer(object):
         log.info("Software Transactional Memory transformation applied")
 
 
+MALLOCS = set([
+    'malloc', 'malloc_varsize',
+    'malloc_nonmovable', 'malloc_nonmovable_varsize',
+    ])
+
 MORE_PRECISE_CATEGORIES = {
     'P': 'PGORLWN',
     'G': 'GN',
@@ -93,6 +98,8 @@ def pre_insert_stm_barrier(translator, graph):
                         newoperations.append(newop)
                         renamings[op.args[0]] = w
                         category[w] = to
+                elif op.opname in MALLOCS:
+                    category[op.result] = 'W'
                 newop = SpaceOperation(op.opname,
                                        [renamings.get(v, v) for v in op.args],
                                        op.result)

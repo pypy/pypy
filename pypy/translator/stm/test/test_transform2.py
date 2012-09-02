@@ -77,6 +77,12 @@ class LLSTMFrame(LLFrame):
         self.check_category(obj, 'W')
         return LLFrame.op_setfield(self, obj, fieldname, fieldvalue)
 
+    def op_malloc(self, obj, flags):
+        p = LLFrame.op_malloc(self, obj, flags)
+        ptr2 = _stmptr(p, 'W')
+        self.llinterpreter.tester.writemode.add(ptr2._obj)
+        return ptr2
+
 
 class TestTransform(BaseTestTransform):
 
@@ -137,3 +143,13 @@ class TestTransform(BaseTestTransform):
         assert res == -81
         assert len(self.writemode) == 0
         assert self.barriers == ['G2R']
+
+    def test_malloc(self):
+        X = lltype.GcStruct('X', ('foo', lltype.Signed))
+        def f1(n):
+            p = lltype.malloc(X)
+            p.foo = n
+
+        self.interpret(f1, [4])
+        assert len(self.writemode) == 1
+        assert self.barriers == []
