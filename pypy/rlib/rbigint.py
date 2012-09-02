@@ -168,9 +168,14 @@ class rbigint(object):
         # waste of time and space given that 5*15 = 75 bits are rarely
         # needed.
         # XXX: Even better!
-        assert SHIFT == LONG_BIT - 1
-        return rbigint([_store_digit(ival)], sign, 1)
-        """   
+        if SHIFT >= 63:
+            carry = ival >> SHIFT
+            if carry:
+                return rbigint([_store_digit(ival & MASK),
+                    _store_digit(carry & MASK)], sign, 2)
+            else:
+                return rbigint([_store_digit(ival & MASK)], sign, 1)
+            
         t = ival
         ndigits = 0
         while t:
@@ -184,7 +189,7 @@ class rbigint(object):
             t >>= SHIFT
             p += 1
 
-        return v"""
+        return v
 
     @staticmethod
     def frombool(b):
