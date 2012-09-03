@@ -40,11 +40,12 @@ class W_AbstractUnicodeObject(W_Object):
 
 class W_UnicodeObject(W_AbstractUnicodeObject):
     from pypy.objspace.std.unicodetype import unicode_typedef as typedef
-    _immutable_fields_ = ['_value']
+    _immutable_fields_ = ['_value', '_utf8']
 
     def __init__(w_self, unistr):
         assert isinstance(unistr, unicode)
         w_self._value = unistr
+        w_self._utf8 = unistr.encode('utf-8')
 
     def __repr__(w_self):
         """ representation for debugging purposes """
@@ -61,6 +62,9 @@ class W_UnicodeObject(W_AbstractUnicodeObject):
 
     def unicode_w(self, space):
         return self._value
+
+    def identifier_w(self, space):
+        return self._utf8
 
 W_UnicodeObject.EMPTY = W_UnicodeObject(u'')
 

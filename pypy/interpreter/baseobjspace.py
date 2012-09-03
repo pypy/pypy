@@ -205,6 +205,10 @@ class W_Root(object):
         raise OperationError(space.w_TypeError,
                              typed_unwrap_error_msg(space, "string", self))
 
+    def identifier_w(self, space):
+        raise OperationError(space.w_TypeError,
+                             typed_unwrap_error_msg(space, "string", self))
+
     def int_w(self, space):
         raise OperationError(space.w_TypeError,
                              typed_unwrap_error_msg(space, "integer", self))
@@ -1332,12 +1336,15 @@ class ObjSpace(object):
         return self.str_w(w_obj)
 
     def str_w(self, w_obj):
+        """
+        if w_obj is unicode, call identifier_w() (i.e., return the UTF-8
+        encoded string). Else, call bytes_w().
+        
+        Maybe we should kill str_w completely and manually substitute it with
+        identifier_w/bytes_w at all call sites?
+        """
         if self.isinstance_w(w_obj, self.w_unicode):
-            try:
-                return self.unicode_w(w_obj).encode('ascii')
-            except UnicodeEncodeError:
-                w_bytes = self.call_method(w_obj, 'encode', self.wrap('utf-8'))
-                return self.bytes_w(w_bytes)
+            return w_obj.identifier_w(self)
         else:
             return w_obj.bytes_w(self)
 
@@ -1404,7 +1411,7 @@ class ObjSpace(object):
         variables, methdods, functions, classes etc.). In py3k, identifiers
         are unicode strings and are unwrapped as UTF-8 encoded byte strings.
         """
-        return self.unicode_w(w_obj).encode('utf-8')
+        return w_obj.identifier_w(self)
 
     def bool_w(self, w_obj):
         # Unwraps a bool, also accepting an int for compatibility.
