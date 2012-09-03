@@ -10,13 +10,14 @@ class STMTransformer(object):
 
     def __init__(self, translator):
         self.translator = translator
-        self.write_analyzer = WriteAnalyzer(translator)
 
     def transform(self):
         assert not hasattr(self.translator, 'stm_transformation_applied')
         self.start_log()
+        self.write_analyzer = WriteAnalyzer(self.translator)
         for graph in self.translator.graphs:
             pre_insert_stm_barrier(self, graph)
+        del self.write_analyzer
         self.translator.stm_transformation_applied = True
         self.print_logs()
 
