@@ -16,7 +16,6 @@ Adding a test here involves:
 5. make the test pass in pypy ('py.test test_c.py')
 """
 import py, sys, ctypes
-py.test.py3k_skip('not yet supported')
 
 if sys.version_info < (2, 6):
     py.test.skip("requires the b'' literal syntax")

@@ -125,8 +125,14 @@ def as_long_long(space, w_ob):
     # (possibly) convert and cast a Python object to a long long.
     # This version accepts a Python int too, and does convertions from
     # other types of objects.  It refuses floats.
-    if space.is_w(space.type(w_ob), space.w_int):   # shortcut
-        return space.int_w(w_ob)
+    try:
+        value = space.int_w(w_ob)
+    except OperationError, e:
+        if not (e.match(space, space.w_OverflowError) or
+                e.match(space, space.w_TypeError)):
+            raise
+    else:
+        return value
     try:
         bigint = space.bigint_w(w_ob)
     except OperationError, e:
@@ -145,8 +151,13 @@ def as_unsigned_long_long(space, w_ob, strict):
     # This accepts a Python int too, and does convertions from other types of
     # objects.  If 'strict', complains with OverflowError; if 'not strict',
     # mask the result and round floats.
-    if space.is_w(space.type(w_ob), space.w_int):   # shortcut
+    try:
         value = space.int_w(w_ob)
+    except OperationError, e:
+        if not (e.match(space, space.w_OverflowError) or
+                e.match(space, space.w_TypeError)):
+            raise
+    else:
         if strict and value < 0:
             raise OperationError(space.w_OverflowError, space.wrap(neg_msg))
         return r_ulonglong(value)

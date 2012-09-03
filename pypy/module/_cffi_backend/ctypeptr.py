@@ -129,7 +129,7 @@ class W_CTypePtrOrArray(W_CType):
                 else:
                     s = rffi.charp2strn(cdata, length)
                 keepalive_until_here(cdataobj)
-                return space.wrap(s)
+                return space.wrapbytes(s)
             #
             # pointer to a wchar_t: builds and returns a unicode
             if self.is_unichar_ptr_or_array():
@@ -238,7 +238,8 @@ class W_CTypePointer(W_CTypePtrBase):
         if (space.isinstance_w(w_init, space.w_list) or
             space.isinstance_w(w_init, space.w_tuple)):
             length = space.int_w(space.len(w_init))
-        elif space.isinstance_w(w_init, space.w_basestring):
+        elif (space.isinstance_w(w_init, space.w_unicode) or
+              space.isinstance_w(w_init, space.w_bytes)):
             # from a string, we add the null terminator
             length = space.int_w(space.len(w_init)) + 1
         else:

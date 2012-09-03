@@ -37,8 +37,9 @@ class W_CTypeArray(W_CTypePtrOrArray):
             if (space.isinstance_w(w_init, space.w_list) or
                 space.isinstance_w(w_init, space.w_tuple)):
                 length = space.int_w(space.len(w_init))
-            elif space.isinstance_w(w_init, space.w_basestring):
-                # from a string, we add the null terminator
+            elif (space.isinstance_w(w_init, space.w_unicode) or
+                  space.isinstance_w(w_init, space.w_bytes)):
+                # from a string, we add the null terminatorc
                 length = space.int_w(space.len(w_init)) + 1
             else:
                 length = space.getindex_w(w_init, space.w_OverflowError)
@@ -123,6 +124,6 @@ W_CDataIter.typedef = TypeDef(
     'CDataIter',
     __module__ = '_cffi_backend',
     __iter__ = interp2app(W_CDataIter.iter_w),
-    next = interp2app(W_CDataIter.next_w),
+    __next__ = interp2app(W_CDataIter.next_w),
     )
 W_CDataIter.typedef.acceptable_as_base_class = False

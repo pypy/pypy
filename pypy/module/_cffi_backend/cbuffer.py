@@ -3,6 +3,7 @@ from pypy.interpreter.buffer import RWBuffer
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.rpython.lltypesystem import rffi
 from pypy.module._cffi_backend import cdataobj, ctypeptr, ctypearray
+from pypy.module.__builtin__.interp_memoryview import W_MemoryView
 
 
 class LLBuffer(RWBuffer):
@@ -52,4 +53,5 @@ def buffer(space, cdata, size=-1):
         raise operationerrfmt(space.w_TypeError,
                               "don't know the size pointed to by '%s'",
                               ctype.name)
-    return space.wrap(LLBuffer(cdata._cdata, size))
+    buffer = LLBuffer(cdata._cdata, size)
+    return space.wrap(W_MemoryView(buffer))

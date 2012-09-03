@@ -51,7 +51,7 @@ class W_CData(Wrappable):
         return self.space.wrap("<cdata '%s%s' %s>" % (
             self.ctype.name, extra1, extra2))
 
-    def nonzero(self):
+    def bool(self):
         return self.space.wrap(bool(self._cdata))
 
     def int(self):
@@ -284,7 +284,7 @@ W_CData.typedef = TypeDef(
     'CData',
     __module__ = '_cffi_backend',
     __repr__ = interp2app(W_CData.repr),
-    __nonzero__ = interp2app(W_CData.nonzero),
+    __bool__ = interp2app(W_CData.bool),
     __int__ = interp2app(W_CData.int),
     __long__ = interp2app(W_CData.long),
     __float__ = interp2app(W_CData.float),

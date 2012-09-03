@@ -60,14 +60,14 @@ class W_CTypeEnum(W_CTypePrimitiveSigned):
         except OperationError, e:
             if not e.match(space, space.w_TypeError):
                 raise
-        if space.isinstance_w(w_ob, space.w_str):
+        if space.isinstance_w(w_ob, space.w_unicode):
             value = self.convert_enum_string_to_int(space.str_w(w_ob))
             value = r_ulonglong(value)
             misc.write_raw_integer_data(cdata, value, self.size)
         else:
             raise self._convert_error("str or int", w_ob)
 
-    def cast_str(self, w_ob):
+    def cast_unicode(self, w_ob):
         space = self.space
         return self.convert_enum_string_to_int(space.str_w(w_ob))
 
