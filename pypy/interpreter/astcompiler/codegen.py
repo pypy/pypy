@@ -35,6 +35,7 @@ name_ops_fast = misc.dict_to_switch({
 name_ops_deref = misc.dict_to_switch({
     ast.Load : ops.LOAD_DEREF,
     ast.Store : ops.STORE_DEREF,
+    ast.Del : ops.DELETE_DEREF,
 })
 
 name_ops_global = misc.dict_to_switch({
@@ -213,12 +214,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             op = name_ops_deref(ctx)
             container = self.free_vars
         elif scope == symtable.SCOPE_CELL:
-            try:
-                op = name_ops_deref(ctx)
-            except KeyError:
-                assert ctx == ast.Del
-                raise SyntaxError("Can't delete variable used in "
-                                  "nested scopes: '%s'" % (identifier,))
+            op = name_ops_deref(ctx)
             container = self.cell_vars
         elif scope == symtable.SCOPE_GLOBAL_IMPLICIT:
             if self.scope.optimized:

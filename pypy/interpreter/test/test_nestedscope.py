@@ -122,3 +122,27 @@ class AppTestNestedScope:
                 return x
             return m
         assert f()() == 12
+
+
+    def test_unbound_local_after_del(self):
+        """
+        # #4617: It is now legal to delete a cell variable.
+        # The following functions must obviously compile,
+        # and give the correct error when accessing the deleted name.
+        def errorInOuter():
+            y = 1
+            del y
+            print(y)
+            def inner():
+                return y
+
+        def errorInInner():
+            def inner():
+                return y
+            y = 1
+            del y
+            inner()
+
+        raises(UnboundLocalError, "errorInOuter()")
+        raises(NameError, "errorInInner()")
+        """

@@ -580,6 +580,7 @@ _static_opcode_stack_effects = {
     ops.LOAD_CLOSURE : 1,
     ops.LOAD_DEREF : 1,
     ops.STORE_DEREF : -1,
+    ops.DELETE_DEREF: 0,
 
     ops.LOAD_CONST : 1,
 

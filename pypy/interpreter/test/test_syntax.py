@@ -671,6 +671,18 @@ pass
         raises(SyntaxError, exec, program)
         '''
 
+    def test_exception_target_in_nested_scope(self):
+        # issue 4617: This used to raise a SyntaxError
+        # "can not delete variable 'e' referenced in nested scope"
+        def print_error():
+            e
+        try:
+            something
+        except Exception as e:
+            print_error()
+            # implicit "del e" here
+
+
 if __name__ == '__main__':
     # only to check on top of CPython (you need 2.4)
     from py.test import raises
@@ -690,3 +702,4 @@ if __name__ == '__main__':
             print s
             print '%s: %s' % (e.__class__, e)
             print '-'*60
+

@@ -202,15 +202,7 @@ class __extend__(pyframe.PyFrame):
         try:
             w_value = cell.get()
         except ValueError:
-            varname = self.getfreevarname(varindex)
-            if self.iscellvar(varindex):
-                message = "local variable '%s' referenced before assignment"%varname
-                w_exc_type = self.space.w_UnboundLocalError
-            else:
-                message = ("free variable '%s' referenced before assignment"
-                           " in enclosing scope"%varname)
-                w_exc_type = self.space.w_NameError
-            raise OperationError(w_exc_type, self.space.wrap(message))
+            self.raise_exc_unbound(varindex)
         else:
             self.pushvalue(w_value)
 
@@ -221,7 +213,24 @@ class __extend__(pyframe.PyFrame):
         cell.set(w_newvalue)
 
     def DELETE_DEREF(self, varindex, next_instr):
-        raise NotImplementedError
+        cell = self.cells[varindex]
+        try:
+            cell.get()
+        except ValueError:
+            self.raise_exc_unbound(varindex)
+        else:
+            cell.set(None)
+
+    def raise_exc_unbound(self, varindex):
+        varname = self.getfreevarname(varindex)
+        if self.iscellvar(varindex):
+            message = "local variable '%s' referenced before assignment"%varname
+            w_exc_type = self.space.w_UnboundLocalError
+        else:
+            message = ("free variable '%s' referenced before assignment"
+                       " in enclosing scope"%varname)
+            w_exc_type = self.space.w_NameError
+        raise OperationError(w_exc_type, self.space.wrap(message))
 
     @jit.unroll_safe
     def MAKE_CLOSURE(self, oparg, next_instr):
