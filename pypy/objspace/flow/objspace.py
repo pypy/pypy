@@ -137,6 +137,9 @@ class FlowObjSpace(ObjSpace):
             return val
         return self.unwrap(w_obj)
 
+    identifier_w = str_w # RPython interprets Python2, where identifier_w is
+                         # equivalent to str_w
+
     def unicode_w(self, w_obj):
         if isinstance(w_obj, Constant):
             val = w_obj.value
