@@ -73,14 +73,6 @@ static pthread_mutex_t mutex_inevitable = PTHREAD_MUTEX_INITIALIZER;
 
 /************************************************************/
 
-gcptr Allocate(size_t size, int gctid)
-{
-  gcptr W = malloc(size);
-  W->h_tid = gctid;
-  W->h_revision = REV_INITIAL;
-  return W;
-}
-
 static inline void PossiblyUpdateChain(
         struct tx_descriptor *d,
         gcptr G, gcptr R, gcptr R_Container, size_t offset)
@@ -223,6 +215,7 @@ static gcptr Localize(struct tx_descriptor *d, gcptr R)
   memcpy(L, R, size);
   L->h_tid &= ~(GCFLAG_GLOBAL | GCFLAG_POSSIBLY_OUTDATED);
   assert(L->h_tid & GCFLAG_NOT_WRITTEN);
+  L->h_tid |= GCFLAG_LOCAL_COPY;
   L->h_revision = (revision_t)R;     /* back-reference to the original */
   g2l_insert(&d->global_to_local, R, L);
   return L;
@@ -497,6 +490,8 @@ int _FakeReach(gcptr P)
   if (P->h_tid & GCFLAG_GLOBAL)
     return 0;
   P->h_tid |= GCFLAG_GLOBAL | GCFLAG_NOT_WRITTEN;
+  if ((P->h_tid & GCFLAG_LOCAL_COPY) == 0)
+    P->h_revision = 1;
   return 1;
 }
 
@@ -580,14 +575,14 @@ void BecomeInevitable(void)
 
 inline static gcptr GlobalizeForComparison(struct tx_descriptor *d, gcptr P)
 {
-  if (P == NULL)
-    return NULL;
-  else if (P->h_tid & GCFLAG_GLOBAL)
-    return LatestGlobalRevision(d, P, NULL, 0);
-  else if (P->h_revision != REV_INITIAL)
-    return (gcptr)P->h_revision;    // return the original global obj
-  else
-    return P;        // local, allocated during this transaction
+  if (P != NULL && (P->h_tid & (GCFLAG_GLOBAL | GCFLAG_LOCAL_COPY)))
+    {
+      if (P->h_tid & GCFLAG_GLOBAL)
+        P = LatestGlobalRevision(d, P, NULL, 0);
+      else
+        P = (gcptr)P->h_revision;    // return the original global obj
+    }
+  return P;
 }
 
 _Bool PtrEq(gcptr P1, gcptr P2)

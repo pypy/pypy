@@ -23,6 +23,7 @@ enum {
   GCFLAG_GLOBAL            = _first_gcflag << 0,
   GCFLAG_POSSIBLY_OUTDATED = _first_gcflag << 1,
   GCFLAG_NOT_WRITTEN       = _first_gcflag << 2,
+  GCFLAG_LOCAL_COPY        = _first_gcflag << 3,
 
   GCFLAG_PREBUILT          = GCFLAG_GLOBAL|GCFLAG_NOT_WRITTEN,
   REV_INITIAL              = 1
