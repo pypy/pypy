@@ -6,6 +6,16 @@
    non-volatiles */
 #define CFENCE          asm volatile ("":::"memory")
 
+#if defined(__amd64__) || defined(__i386__)
+#  define smp_wmb()       CFENCE
+#  define smp_spinloop()  asm volatile ("pause")
+#elif defined(__powerpc__)
+#  define smp_wmb()       asm volatile ("lwsync":::"memory")
+#  define smp_spinloop()  /* fill me? */
+#else
+#  error "Define smp_wmb() for your architecture"
+#endif
+
 
 #ifdef __llvm__
 #  define HAS_SYNC_BOOL_COMPARE_AND_SWAP
@@ -23,9 +33,16 @@
 #else
 /* x86 (32 bits and 64 bits) */
 static inline _Bool
-bool_cas(volatile unsigned long* ptr, unsigned long old, unsigned long _new)
+bool_cas(volatile revision_t *ptr, revision_t old, revision_t _new)
 {
-    unsigned long prev;
+    revision_t prev;
+#if defined(__amd64__)
+    assert(sizeof(revision_t) == 8);
+#elif defined(__i386__)
+    assert(sizeof(revision_t) == 4);
+#else
+#   error "the custom version of bool_cas() is only for x86 or x86-64"
+#endif
     asm volatile("lock;"
 #if defined(__amd64__)
                  "cmpxchgq %1, %2;"
@@ -43,9 +60,10 @@ bool_cas(volatile unsigned long* ptr, unsigned long old, unsigned long _new)
 
 static inline void spinloop(void)
 {
+  smp_spinloop();
   /* use "memory" here to make sure that gcc will reload the
      relevant data from memory after the spinloop */
-  asm volatile ("pause":::"memory");
+  CFENCE;
 }
 
 

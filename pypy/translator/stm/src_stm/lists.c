@@ -4,8 +4,8 @@
 
 /************************************************************/
 
-/* The redolog_xx functions are implemented as a tree, supporting
-   very high performance in REDOLOG_FIND in the common case where
+/* The g2l_xx functions ("global_to_local") are implemented as a tree,
+   supporting very high performance in G2L_FIND in the common case where
    there are no or few elements in the tree, but scaling correctly
    if the number of items becomes large. */
 
@@ -21,46 +21,47 @@
 #define TREE_MASK   ((TREE_ARITY - 1) * sizeof(void*))
 
 typedef struct {
-  void* addr;
-  void *val;
-  owner_version_t p;   // the previous version number (if locked)
+  gcptr addr;
+  gcptr val;
 } wlog_t;
 
 typedef struct {
   char *items[TREE_ARITY];
 } wlog_node_t;
 
-struct RedoLog {
+struct G2L {
   char *raw_start, *raw_current, *raw_end;
   wlog_node_t toplevel;
 };
 
-static void _redolog_clear_node(wlog_node_t *node)
+static void _g2l_clear_node(wlog_node_t *node)
 {
   memset(node, 0, sizeof(wlog_node_t));
 }
 
-static void redolog_clear(struct RedoLog *redolog)
+static void g2l_clear(struct G2L *g2l)
 {
-  if (redolog->raw_current != redolog->raw_start)
+  if (g2l->raw_current != g2l->raw_start)
     {
-      _redolog_clear_node(&redolog->toplevel);
-      redolog->raw_current = redolog->raw_start;
+      _g2l_clear_node(&g2l->toplevel);
+      g2l->raw_current = g2l->raw_start;
     }
 }
 
-static int redolog_any_entry(struct RedoLog *redolog)
+#if 0
+static int g2l_any_entry(struct G2L *g2l)
 {
-  return redolog->raw_current != redolog->raw_start;
+  return g2l->raw_current != g2l->raw_start;
 }
+#endif
 
-#define _REDOLOG_LOOP(redolog, item, INITIAL, _PLUS_)                   \
+#define _G2L_LOOP(g2l, item, INITIAL, _PLUS_)                           \
 {                                                                       \
   struct { char **next; char **end; } _stack[TREE_DEPTH_MAX], *_stackp; \
   char **_next, **_end, *_entry;                                        \
   /* initialization */                                                  \
   _stackp = _stack;      /* empty stack */                              \
-  _next = (redolog).toplevel.items + INITIAL;                           \
+  _next = (g2l).toplevel.items + INITIAL;                               \
   _end = _next _PLUS_ TREE_ARITY;                                       \
   /* loop */                                                            \
   while (1)                                                             \
@@ -91,25 +92,25 @@ static int redolog_any_entry(struct RedoLog *redolog)
       /* points to a wlog_t item */                                     \
       item = (wlog_t *)_entry;
 
-#define REDOLOG_LOOP_FORWARD(redolog, item)                             \
-                       _REDOLOG_LOOP(redolog, item, 0, +)
-#define REDOLOG_LOOP_BACKWARD(redolog, item)                            \
-                       _REDOLOG_LOOP(redolog, item, (TREE_ARITY-1), -)
-#define REDOLOG_LOOP_END     } }
+#define G2L_LOOP_FORWARD(g2l, item)                             \
+                       _G2L_LOOP(g2l, item, 0, +)
+#define G2L_LOOP_BACKWARD(g2l, item)                            \
+                       _G2L_LOOP(g2l, item, (TREE_ARITY-1), -)
+#define G2L_LOOP_END     } }
 
-#define REDOLOG_FIND(redolog, addr1, result, goto_not_found)    \
+#define G2L_FIND(g2l, addr1, result, goto_not_found)            \
 {                                                               \
   unsigned long _key = (unsigned long)(addr1);                  \
-  char *_p = (char *)((redolog).toplevel.items);                \
+  char *_p = (char *)((g2l).toplevel.items);                    \
   char *_entry = *(char **)(_p + (_key & TREE_MASK));           \
   if (__builtin_expect(_entry == NULL, 1))                      \
     goto_not_found;    /* common case, hopefully */             \
-  result = _redolog_find(_entry, addr1);                        \
+  result = _g2l_find(_entry, addr1);                            \
   if (result == NULL || result->addr != (addr1))                \
     goto_not_found;                                             \
 }
 
-static wlog_t *_redolog_find(char *entry, long* addr)
+static wlog_t *_g2l_find(char *entry, gcptr addr)
 {
   unsigned long key = (unsigned long)addr;
   while (((long)entry) & 1)
@@ -120,49 +121,48 @@ static wlog_t *_redolog_find(char *entry, long* addr)
   return (wlog_t *)entry;   /* may be NULL */
 }
 
-static void redolog_insert(struct RedoLog *redolog, void* addr, void *val);
+static void g2l_insert(struct G2L *g2l, gcptr addr, gcptr val);
 
-static void _redolog_grow(struct RedoLog *redolog, long extra)
+static void _g2l_grow(struct G2L *g2l, long extra)
 {
-  struct RedoLog newredolog;
-  wlog_t *item, *newitem;
-  long alloc = redolog->raw_end - redolog->raw_start;
+  struct G2L newg2l;
+  wlog_t *item;
+  long alloc = g2l->raw_end - g2l->raw_start;
   long newalloc = (alloc + extra + (alloc >> 2) + 31) & ~15;
   //fprintf(stderr, "growth: %ld\n", newalloc);
   char *newitems = malloc(newalloc);
-  newredolog.raw_start = newitems;
-  newredolog.raw_current = newitems;
-  newredolog.raw_end = newitems + newalloc;
-  _redolog_clear_node(&newredolog.toplevel);
-  REDOLOG_LOOP_FORWARD(*redolog, item)
+  newg2l.raw_start = newitems;
+  newg2l.raw_current = newitems;
+  newg2l.raw_end = newitems + newalloc;
+  _g2l_clear_node(&newg2l.toplevel);
+  G2L_LOOP_FORWARD(*g2l, item)
     {
-      assert(item->p == -1);
-      redolog_insert(&newredolog, item->addr, item->val);
-    } REDOLOG_LOOP_END;
-  free(redolog->raw_start);
-  *redolog = newredolog;
+      g2l_insert(&newg2l, item->addr, item->val);
+    } G2L_LOOP_END;
+  free(g2l->raw_start);
+  *g2l = newg2l;
 }
 
-static char *_redolog_grab(struct RedoLog *redolog, long size)
+static char *_g2l_grab(struct G2L *g2l, long size)
 {
   char *result;
-  result = redolog->raw_current;
-  redolog->raw_current += size;
-  if (redolog->raw_current > redolog->raw_end)
+  result = g2l->raw_current;
+  g2l->raw_current += size;
+  if (g2l->raw_current > g2l->raw_end)
     {
-      _redolog_grow(redolog, size);
+      _g2l_grow(g2l, size);
       return NULL;
     }
   return result;
 }
 
-static void redolog_insert(struct RedoLog *redolog, void* addr, void *val)
+static void g2l_insert(struct G2L *g2l, gcptr addr, gcptr val)
 {
  retry:;
   wlog_t *wlog;
   unsigned long key = (unsigned long)addr;
   int shift = 0;
-  char *p = (char *)(redolog->toplevel.items);
+  char *p = (char *)(g2l->toplevel.items);
   char *entry;
   assert((key & (sizeof(void*)-1)) == 0);   /* only for aligned keys */
   while (1)
@@ -183,9 +183,9 @@ static void redolog_insert(struct RedoLog *redolog, void* addr, void *val)
           assert(wlog1->addr != addr);
           /* collision: there is already a different wlog here */
           wlog_node_t *node = (wlog_node_t *)
-                _redolog_grab(redolog, sizeof(wlog_node_t));
+                _g2l_grab(g2l, sizeof(wlog_node_t));
           if (node == NULL) goto retry;
-          _redolog_clear_node(node);
+          _g2l_clear_node(node);
           unsigned long key1 = (unsigned long)(wlog1->addr);
           char *p1 = (char *)(node->items);
           *(wlog_t **)(p1 + ((key1 >> shift) & TREE_MASK)) = wlog1;
@@ -193,54 +193,114 @@ static void redolog_insert(struct RedoLog *redolog, void* addr, void *val)
           p = p1;
         }
     }
-  wlog = (wlog_t *)_redolog_grab(redolog, sizeof(wlog_t));
+  wlog = (wlog_t *)_g2l_grab(g2l, sizeof(wlog_t));
   if (wlog == NULL) goto retry;
   wlog->addr = addr;
   wlog->val = val;
-  wlog->p = -1;
   *(char **)p = (char *)wlog;
 }
 
 /************************************************************/
 
-/* The oreclist_xx functions are implemented as an array that grows
+/* The gcptrlist_xx functions are implemented as an array that grows
    as needed. */
 
-struct OrecList {
+struct GcPtrList {
   long size, alloc;
-  unsigned long locked;
-  orec_t **items;
+  gcptr *items;
 };
 
-static void _oreclist_grow(struct OrecList *oreclist)
+static void gcptrlist_clear(struct GcPtrList *gcptrlist)
 {
-  long newalloc = oreclist->alloc + (oreclist->alloc >> 1) + 16;
-  orec_t **newitems = malloc(newalloc * sizeof(orec_t *));
-  long i;
-  for (i=0; i<oreclist->size; i++)
-    newitems[i] = oreclist->items[i];
-  while (!bool_cas(&oreclist->locked, 0, 1))
-    /* rare case */ ;
-  free(oreclist->items);
-  oreclist->items = newitems;
-  oreclist->alloc = newalloc;
-  CFENCE;
-  oreclist->locked = 0;
+  gcptrlist->size = 0;
 }
 
-static void oreclist_insert(struct OrecList *oreclist, orec_t *newitem)
+static void _gcptrlist_grow(struct GcPtrList *gcptrlist)
 {
-  /* XXX it would be a good idea to try to compactify the list,
-     by removing duplicate entries.  We are only interested in
-     the set of entries present, and the order doesn't matter.
-     See for example if, in practice, there are many consecutive
-     duplicate entries; if so, add a check here.  Otherwise, or
-     in addition, we need a general de-duplicator logic called
-     at every local_collection().
-  */
-  if (__builtin_expect(oreclist->size == oreclist->alloc, 0))
-    _oreclist_grow(oreclist);
-  oreclist->items[oreclist->size++] = newitem;
+  long newalloc = gcptrlist->alloc + (gcptrlist->alloc >> 1) + 16;
+  gcptr *newitems = malloc(newalloc * sizeof(gcptr));
+  long i;
+  for (i=0; i<gcptrlist->size; i++)
+    newitems[i] = gcptrlist->items[i];
+  free(gcptrlist->items);
+  gcptrlist->items = newitems;
+  gcptrlist->alloc = newalloc;
+}
+
+static inline void gcptrlist_insert(struct GcPtrList *gcptrlist, gcptr newitem)
+{
+  if (__builtin_expect(gcptrlist->size == gcptrlist->alloc, 0))
+    _gcptrlist_grow(gcptrlist);
+  gcptrlist->items[gcptrlist->size++] = newitem;
+}
+
+static void gcptrlist_insert3(struct GcPtrList *gcptrlist, gcptr newitem1,
+                              gcptr newitem2, gcptr newitem3)
+{
+  gcptr *items;
+  long i = gcptrlist->size;
+  if (__builtin_expect((gcptrlist->alloc - i) < 3, 0))
+    _gcptrlist_grow(gcptrlist);
+  items = gcptrlist->items;
+  items[i+0] = newitem1;
+  items[i+1] = newitem2;
+  items[i+2] = newitem3;
+  gcptrlist->size = i + 3;
+}
+
+/************************************************************/
+
+/* The fxcache_xx functions implement a fixed-size set of gcptr's.
+   Moreover the gcptr's in the set are mapped to small integers.  In case
+   of collisions, old items are discarded.  The eviction logic is a bit
+   too simple for now. */
+
+#define FX_ENTRIES    32
+#define FX_SIZE       (FX_ENTRIES * sizeof(uintptr_t))
+#define FX_THRESHOLD  5
+
+#if FX_THRESHOLD >= FX_ENTRIES * 4   /* == lower bound on FX_SIZE */
+#  error "if you increase FX_THRESHOLD, you must also increase FX_ENTRIES"
+#endif
+
+struct FXCache {
+  uintptr_t cache[FX_ENTRIES];
+};
+
+static void fxcache_clear(struct FXCache *fxcache)
+{
+  memset(fxcache, 0, sizeof(struct FXCache));
+}
+
+static inline int fxcache_add(struct FXCache *fxcache, gcptr item)
+{
+  /* If 'item' is not in the cache, add it with the value 0 and returns 0.
+     If it is already, increment its value and returns 1.
+     If it we reach FX_THRESHOLD, returns 2.
+     */
+  uintptr_t uitem = (uintptr_t)item;
+  uintptr_t *entry = (uintptr_t *)
+    (((char *)fxcache->cache) + (uitem & (FX_SIZE-sizeof(uintptr_t))));
+  uintptr_t stored_key = uitem & -FX_SIZE;
+  uintptr_t value = stored_key ^ *entry;
+  if (value >= FX_SIZE)
+    {
+      /* not in the cache: evict the colliding item (no associativity) */
+      *entry = stored_key;
+      return 0;
+    }
+  else
+    {
+      /* already in the cache */
+      if (value < FX_THRESHOLD)
+        {
+          ++value;
+          ++*entry;
+          return 1;
+        }
+      else
+        return 2;
+    }
 }
 
 /************************************************************/
