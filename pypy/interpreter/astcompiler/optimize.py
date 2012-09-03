@@ -21,26 +21,20 @@ class __extend__(ast.AST):
 
     def as_constant_truth(self, space):
         """Return the truth of this node if known."""
-        raise AssertionError("only for expressions")
-
-    def as_constant(self):
-        """Return the value of this node as a wrapped constant if possible."""
-        raise AssertionError("only for expressions")
-
-    def accept_jump_if(self, gen, condition, target):
-        raise AssertionError("only for expressions")
-
-
-class __extend__(ast.expr):
-
-    def as_constant_truth(self, space):
         const = self.as_constant()
         if const is None:
             return CONST_NOT_CONST
         return int(space.is_true(const))
 
     def as_constant(self):
+        """Return the value of this node as a wrapped constant if possible."""
         return None
+
+    def accept_jump_if(self, gen, condition, target):
+        raise AssertionError("only for expressions")
+
+
+class __extend__(ast.expr):
 
     def accept_jump_if(self, gen, condition, target):
         self.walkabout(gen)

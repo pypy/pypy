@@ -259,7 +259,7 @@ testmap = [
     RegrTest('test_isinstance.py', core=True),
     RegrTest('test_iter.py', core=True),
     RegrTest('test_iterlen.py'),
-    RegrTest('test_itertools.py', core=True),
+    RegrTest('test_itertools.py', core=True, usemodules="itertools struct"),
     RegrTest('test_json.py'),
     RegrTest('test_keywordonlyarg.py'),
     RegrTest('test_kqueue.py'),
