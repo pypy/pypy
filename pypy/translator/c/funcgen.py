@@ -603,16 +603,9 @@ class FunctionCodeGenerator(object):
             from pypy.translator.stm.funcgen import op_stm
             self.__class__.op_stm = op_stm
         return self.op_stm(op)
-    OP_STM_GETFIELD = _OP_STM
-    OP_STM_SETFIELD = _OP_STM
-    OP_STM_GETARRAYITEM = _OP_STM
-    OP_STM_SETARRAYITEM = _OP_STM
-    OP_STM_GETINTERIORFIELD = _OP_STM
-    OP_STM_SETINTERIORFIELD = _OP_STM
     OP_STM_BECOME_INEVITABLE = _OP_STM
-    OP_STM_GC_LOAD = _OP_STM
-    OP_STM_GC_STORE = _OP_STM
-    OP_STM_JIT_INVOKE_CODE = _OP_STM
+    OP_STM_BARRIER = _OP_STM
+    OP_STM_PTR_EQ = _OP_STM
 
 
     def OP_PTR_NONZERO(self, op):
