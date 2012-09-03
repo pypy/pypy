@@ -12,6 +12,7 @@ from pypy.rpython.ootypesystem import ootype
 from pypy.rpython import extregistry
 from pypy.objspace.flow.model import Constant
 from pypy.translator.simplify import get_functype
+from pypy.rpython.rmodel import warning
 
 class KeyComp(object):
     def __init__(self, val):
@@ -483,6 +484,8 @@ def cast_object_to_ptr(PTR, object):
     """NOT_RPYTHON: hack. The object may be disguised as a PTR now.
     Limited to casting a given object to a single type.
     """
+    if hasattr(object, '_freeze_'):
+        warning("Trying to cast a frozen object to pointer")
     if isinstance(PTR, lltype.Ptr):
         TO = PTR.TO
     else:

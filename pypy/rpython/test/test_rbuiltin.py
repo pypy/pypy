@@ -540,6 +540,26 @@ class BaseTestRbuiltin(BaseRtypingTest):
         res = self.interpret(llfn, [0x12345678])
         assert res == 0x5678
 
+    def test_builtin_next(self):
+        def f(n):
+            x = [1, n, 2]
+            s = iter(x)
+            return next(s) + next(s)
+        res = self.interpret(f, [10])
+        assert res == 11
+
+    def test_builtin_next_stop_iteration(self):
+        def f(n):
+            x = [n]
+            s = iter(x)
+            try:
+                return next(s) + next(s)
+            except StopIteration:
+                return n + 500
+
+        res = self.interpret(f, [12])
+        assert res == 512
+
 
 class TestLLtype(BaseTestRbuiltin, LLRtypeMixin):
 

@@ -59,7 +59,7 @@ def scope_byname(space, name):
             cppscope = W_CPPClass(space, final_name, opaque_handle)
         state.cppscope_cache[name] = cppscope
 
-        cppscope._find_methods()
+        cppscope._build_methods()
         cppscope._find_datamembers()
         return cppscope
 
@@ -91,6 +91,9 @@ def set_class_generator(space, w_callback):
 def register_class(space, w_pycppclass):
     w_cppclass = space.findattr(w_pycppclass, space.wrap("_cpp_proxy"))
     cppclass = space.interp_w(W_CPPClass, w_cppclass, can_be_None=False)
+    # add back-end specific method pythonizations (doing this on the wrapped
+    # class allows simple aliasing of methods)
+    capi.pythonize(space, cppclass.name, w_pycppclass)
     state = space.fromcache(State)
     state.cppclass_registry[cppclass.handle] = w_pycppclass
 
@@ -109,7 +112,10 @@ W_CPPLibrary.typedef.acceptable_as_base_class = True
 
 
 class CPPMethod(object):
-    """ A concrete function after overloading has been resolved """
+    """Dispatcher of methods. Checks the arguments, find the corresponding FFI
+    function if available, makes the call, and returns the wrapped result. It
+    also takes care of offset casting and recycling of known objects through
+    the memory_regulator."""
     _immutable_ = True
     
     def __init__(self, space, containing_scope, method_index, arg_defs, args_required):
@@ -255,6 +261,9 @@ class CPPMethod(object):
 
 
 class CPPFunction(CPPMethod):
+    """Global (namespaced) function dispatcher. For now, the base class has
+    all the needed functionality, by allowing the C++ this pointer to be null
+    in the call. An optimization is expected there, however."""
     _immutable_ = True
 
     def __repr__(self):
@@ -262,6 +271,9 @@ class CPPFunction(CPPMethod):
 
 
 class CPPConstructor(CPPMethod):
+    """Method dispatcher that constructs new objects. In addition to the call,
+    it allocates memory for the newly constructed object and sets ownership
+    to Python."""
     _immutable_ = True
 
     def call(self, cppthis, args_w):
@@ -279,7 +291,27 @@ class CPPConstructor(CPPMethod):
         return "CPPConstructor: %s" % self.signature()
 
 
+class CPPSetItem(CPPMethod):
+    """Method dispatcher specific to Python's __setitem__ mapped onto C++'s
+    operator[](int). The former function takes an extra argument to assign to
+    the return type of the latter."""
+    _immutable_ = True
+
+    def call(self, cppthis, args_w):
+        end = len(args_w)-1
+        if 0 <= end:
+            w_item = args_w[end]
+            args_w = args_w[:end]
+            if self.converters is None:
+                self._setup(cppthis)
+            self.executor.set_item(self.space, w_item) # TODO: what about threads?
+        CPPMethod.call(self, cppthis, args_w)
+
+
 class W_CPPOverload(Wrappable):
+    """Dispatcher that is actually available at the app-level: it is a
+    collection of (possibly) overloaded methods or functions. It calls these
+    in order and deals with error handling and reporting."""
     _immutable_ = True
 
     def __init__(self, space, containing_scope, functions):
@@ -412,29 +444,43 @@ class W_CPPScope(Wrappable):
         assert lltype.typeOf(opaque_handle) == capi.C_SCOPE
         self.handle = opaque_handle
         self.methods = {}
-        # Do not call "self._find_methods()" here, so that a distinction can
+        # Do not call "self._build_methods()" here, so that a distinction can
         #  be made between testing for existence (i.e. existence in the cache
         #  of classes) and actual use. Point being that a class can use itself,
         #  e.g. as a return type or an argument to one of its methods.
 
         self.datamembers = {}
-        # Idem self.methods: a type could hold itself by pointer.
+        # Idem as for self.methods: a type could hold itself by pointer.
 
-    def _find_methods(self):
-        num_methods = capi.c_num_methods(self)
-        args_temp = {}
-        for i in range(num_methods):
-            method_name = capi.c_method_name(self, i)
-            pymethod_name = helper.map_operator_name(
-                    method_name, capi.c_method_num_args(self, i),
-                    capi.c_method_result_type(self, i))
-            if not pymethod_name in self.methods:
-                cppfunction = self._make_cppfunction(i)
-                overload = args_temp.setdefault(pymethod_name, [])
-                overload.append(cppfunction)
-        for name, functions in args_temp.iteritems():
-            overload = W_CPPOverload(self.space, self, functions[:])
-            self.methods[name] = overload
+    def _build_methods(self):
+        assert len(self.methods) == 0
+        methods_temp = {}
+        for i in range(capi.c_num_methods(self)):
+            idx = capi.c_method_index_at(self, i)
+            pyname = helper.map_operator_name(
+                capi.c_method_name(self, idx),
+                capi.c_method_num_args(self, idx),
+                capi.c_method_result_type(self, idx))
+            cppmethod = self._make_cppfunction(pyname, idx)
+            methods_temp.setdefault(pyname, []).append(cppmethod)
+        # the following covers the case where the only kind of operator[](idx)
+        # returns are the ones that produce non-const references; these can be
+        # used for __getitem__ just as much as for __setitem__, though
+        if not "__getitem__" in methods_temp:
+            try:
+                for m in methods_temp["__setitem__"]:
+                    cppmethod = self._make_cppfunction("__getitem__", m.index)
+                    methods_temp.setdefault("__getitem__", []).append(cppmethod)
+            except KeyError:
+                pass          # just means there's no __setitem__ either
+
+        # create the overload methods from the method sets
+        for pyname, methods in methods_temp.iteritems():
+            overload = W_CPPOverload(self.space, self, methods[:])
+            self.methods[pyname] = overload
+
+    def full_name(self):
+        return capi.c_scoped_final_name(self.handle)
 
     def get_method_names(self):
         return self.space.newlist([self.space.wrap(name) for name in self.methods])
@@ -479,6 +525,9 @@ class W_CPPScope(Wrappable):
     def __eq__(self, other):
         return self.handle == other.handle
 
+    def __ne__(self, other):
+        return self.handle != other.handle
+
 
 # For now, keep namespaces and classes separate as namespaces are extensible
 # with info from multiple dictionaries and do not need to bother with meta
@@ -488,15 +537,15 @@ class W_CPPNamespace(W_CPPScope):
     _immutable_ = True
     kind = "namespace"
 
-    def _make_cppfunction(self, method_index):
-        num_args = capi.c_method_num_args(self, method_index)
-        args_required = capi.c_method_req_args(self, method_index)
+    def _make_cppfunction(self, pyname, index):
+        num_args = capi.c_method_num_args(self, index)
+        args_required = capi.c_method_req_args(self, index)
         arg_defs = []
         for i in range(num_args):
-            arg_type = capi.c_method_arg_type(self, method_index, i)
-            arg_dflt = capi.c_method_arg_default(self, method_index, i)
+            arg_type = capi.c_method_arg_type(self, index, i)
+            arg_dflt = capi.c_method_arg_default(self, index, i)
             arg_defs.append((arg_type, arg_dflt))
-        return CPPFunction(self.space, self, method_index, arg_defs, args_required)
+        return CPPFunction(self.space, self, index, arg_defs, args_required)
 
     def _make_datamember(self, dm_name, dm_idx):
         type_name = capi.c_datamember_type(self, dm_idx)
@@ -516,10 +565,10 @@ class W_CPPNamespace(W_CPPScope):
 
     def find_overload(self, meth_name):
         # TODO: collect all overloads, not just the non-overloaded version
-        meth_idx = capi.c_method_index(self, meth_name)
-        if meth_idx < 0:
+        meth_idx = capi.c_method_index_from_name(self, meth_name)
+        if meth_idx == -1:
             raise self.missing_attribute_error(meth_name)
-        cppfunction = self._make_cppfunction(meth_idx)
+        cppfunction = self._make_cppfunction(meth_name, meth_idx)
         overload = W_CPPOverload(self.space, self, [cppfunction])
         return overload
 
@@ -530,21 +579,38 @@ class W_CPPNamespace(W_CPPScope):
         datamember = self._make_datamember(dm_name, dm_idx)
         return datamember
 
-    def update(self):
-        self._find_methods()
-        self._find_datamembers()
-
     def is_namespace(self):
         return self.space.w_True
 
+    def ns__dir__(self):
+        # Collect a list of everything (currently) available in the namespace.
+        # The backend can filter by returning empty strings. Special care is
+        # taken for functions, which need not be unique (overloading).
+        alldir = []
+        for i in range(capi.c_num_scopes(self)):
+            sname = capi.c_scope_name(self, i)
+            if sname: alldir.append(self.space.wrap(sname))
+        allmeth = {}
+        for i in range(capi.c_num_methods(self)):
+            idx = capi.c_method_index_at(self, i)
+            mname = capi.c_method_name(self, idx)
+            if mname: allmeth.setdefault(mname, 0)
+        for m in allmeth.keys():
+            alldir.append(self.space.wrap(m))
+        for i in range(capi.c_num_datamembers(self)):
+            dname = capi.c_datamember_name(self, i)
+            if dname: alldir.append(self.space.wrap(dname))
+        return self.space.newlist(alldir)
+        
+
 W_CPPNamespace.typedef = TypeDef(
     'CPPNamespace',
-    update = interp2app(W_CPPNamespace.update),
     get_method_names = interp2app(W_CPPNamespace.get_method_names),
     get_overload = interp2app(W_CPPNamespace.get_overload, unwrap_spec=['self', str]),
     get_datamember_names = interp2app(W_CPPNamespace.get_datamember_names),
     get_datamember = interp2app(W_CPPNamespace.get_datamember, unwrap_spec=['self', str]),
     is_namespace = interp2app(W_CPPNamespace.is_namespace),
+    __dir__ = interp2app(W_CPPNamespace.ns__dir__),
 )
 W_CPPNamespace.typedef.acceptable_as_base_class = False
 
@@ -553,21 +619,33 @@ class W_CPPClass(W_CPPScope):
     _immutable_ = True
     kind = "class"
 
-    def _make_cppfunction(self, method_index):
-        num_args = capi.c_method_num_args(self, method_index)
-        args_required = capi.c_method_req_args(self, method_index)
+    def __init__(self, space, name, opaque_handle):
+        W_CPPScope.__init__(self, space, name, opaque_handle)
+        self.default_constructor = None
+
+    def _make_cppfunction(self, pyname, index):
+        default_constructor = False
+        num_args = capi.c_method_num_args(self, index)
+        args_required = capi.c_method_req_args(self, index)
         arg_defs = []
         for i in range(num_args):
-            arg_type = capi.c_method_arg_type(self, method_index, i)
-            arg_dflt = capi.c_method_arg_default(self, method_index, i)
+            arg_type = capi.c_method_arg_type(self, index, i)
+            arg_dflt = capi.c_method_arg_default(self, index, i)
             arg_defs.append((arg_type, arg_dflt))
-        if capi.c_is_constructor(self, method_index):
+        if capi.c_is_constructor(self, index):
             cls = CPPConstructor
-        elif capi.c_is_staticmethod(self, method_index):
+            if args_required == 0:
+                default_constructor = True
+        elif capi.c_is_staticmethod(self, index):
             cls = CPPFunction
+        elif pyname == "__setitem__":
+            cls = CPPSetItem
         else:
             cls = CPPMethod
-        return cls(self.space, self, method_index, arg_defs, args_required)
+        cppfunction = cls(self.space, self, index, arg_defs, args_required)
+        if default_constructor:
+            self.default_constructor = cppfunction
+        return cppfunction
 
     def _find_datamembers(self):
         num_datamembers = capi.c_num_datamembers(self)
@@ -580,6 +658,11 @@ class W_CPPClass(W_CPPScope):
             is_static = bool(capi.c_is_staticdata(self, i))
             datamember = W_CPPDataMember(self.space, self, type_name, offset, is_static)
             self.datamembers[datamember_name] = datamember
+
+    def construct(self):
+        if self.default_constructor is not None:
+            return self.default_constructor.call(capi.C_NULL_OBJECT, [])
+        raise self.missing_attribute_error("default_constructor")
 
     def find_overload(self, name):
         raise self.missing_attribute_error(name)
@@ -698,7 +781,21 @@ class W_CPPInstance(Wrappable):
 
     def instance__eq__(self, w_other):
         other = self.space.interp_w(W_CPPInstance, w_other, can_be_None=False)
-        iseq = self._rawobject == other._rawobject
+        # get here if no class-specific overloaded operator is available, try to
+        # find a global overload in gbl, in __gnu_cxx (for iterators), or in the
+        # scopes of the argument classes (TODO: implement that last)
+        for name in ["", "__gnu_cxx"]:
+            nss = scope_byname(self.space, name)
+            meth_idx = capi.c_get_global_operator(nss, self.cppclass, other.cppclass, "==")
+            if meth_idx != -1:
+                f = nss._make_cppfunction("operator==", meth_idx)
+                ol = W_CPPOverload(self.space, nss, [f])
+                # TODO: cache this operator
+                return ol.call(self, [self, w_other])
+        
+        # fallback: direct pointer comparison (the class comparison is needed since the
+        # first data member in a struct and the struct have the same address)
+        iseq = (self._rawobject == other._rawobject) and (self.cppclass == other.cppclass)
         return self.space.wrap(iseq)
 
     def instance__ne__(self, w_other):
@@ -765,10 +862,12 @@ def get_pythonized_cppclass(space, handle):
         w_pycppclass = state.cppclass_registry[handle]
     except KeyError:
         final_name = capi.c_scoped_final_name(handle)
+        # the callback will cache the class by calling register_class
         w_pycppclass = space.call_function(state.w_clgen_callback, space.wrap(final_name))
     return w_pycppclass
 
 def wrap_new_cppobject_nocast(space, w_pycppclass, cppclass, rawobject, isref, python_owns):
+    rawobject = rffi.cast(capi.C_OBJECT, rawobject)
     if space.is_w(w_pycppclass, space.w_None):
         w_pycppclass = get_pythonized_cppclass(space, cppclass.handle)
     w_cppinstance = space.allocate_instance(W_CPPInstance, w_pycppclass)
@@ -778,12 +877,14 @@ def wrap_new_cppobject_nocast(space, w_pycppclass, cppclass, rawobject, isref, p
     return w_cppinstance
 
 def wrap_cppobject_nocast(space, w_pycppclass, cppclass, rawobject, isref, python_owns):
+    rawobject = rffi.cast(capi.C_OBJECT, rawobject)
     obj = memory_regulator.retrieve(rawobject)
-    if obj and obj.cppclass == cppclass:
+    if obj is not None and obj.cppclass is cppclass:
         return obj
     return wrap_new_cppobject_nocast(space, w_pycppclass, cppclass, rawobject, isref, python_owns)
 
 def wrap_cppobject(space, w_pycppclass, cppclass, rawobject, isref, python_owns):
+    rawobject = rffi.cast(capi.C_OBJECT, rawobject)
     if rawobject:
         actual = capi.c_actual_class(cppclass, rawobject)
         if actual != cppclass.handle:
@@ -796,11 +897,13 @@ def wrap_cppobject(space, w_pycppclass, cppclass, rawobject, isref, python_owns)
 
 @unwrap_spec(cppinstance=W_CPPInstance)
 def addressof(space, cppinstance):
-     address = rffi.cast(rffi.LONG, cppinstance.get_rawobject())
-     return space.wrap(address)
+    """Takes a bound C++ instance, returns the raw address."""
+    address = rffi.cast(rffi.LONG, cppinstance.get_rawobject())
+    return space.wrap(address)
 
 @unwrap_spec(address=int, owns=bool)
 def bind_object(space, address, w_pycppclass, owns=False):
+    """Takes an address and a bound C++ class proxy, returns a bound instance."""
     rawobject = rffi.cast(capi.C_OBJECT, address)
     w_cppclass = space.findattr(w_pycppclass, space.wrap("_cpp_proxy"))
     cppclass = space.interp_w(W_CPPClass, w_cppclass, can_be_None=False)

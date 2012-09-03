@@ -133,12 +133,11 @@ if sys.platform.startswith('win'):
     _WIN32 = True
 else:
     _WIN32 = False
+
 if _WIN32:
     underscore_on_windows = '_'
 else:
     underscore_on_windows = ''
-
-_DARWIN = sys.platform.startswith('darwin')
 
 includes = []
 if not _WIN32:
@@ -146,11 +145,6 @@ if not _WIN32:
     includes += ['dirent.h', 'sys/stat.h',
                  'sys/times.h', 'utime.h', 'sys/types.h', 'unistd.h',
                  'signal.h', 'sys/wait.h', 'fcntl.h']
-    if _DARWIN:
-        includes += ['util.h']
-    else:
-        includes += ['pty.h']
-
 else:
     includes += ['sys/utime.h']
 

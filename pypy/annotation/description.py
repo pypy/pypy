@@ -450,6 +450,12 @@ class ClassDesc(Desc):
                     attrs.update(self.basedesc.all_enforced_attrs)
                 self.all_enforced_attrs = attrs
 
+            if (self.is_builtin_exception_class() and
+                self.all_enforced_attrs is None):
+                from pypy.annotation import classdef
+                if self.pyobj not in classdef.FORCE_ATTRIBUTES_INTO_CLASSES:
+                    self.all_enforced_attrs = []    # no attribute allowed
+
     def add_source_attribute(self, name, value, mixin=False):
         if isinstance(value, types.FunctionType):
             # for debugging
@@ -514,9 +520,9 @@ class ClassDesc(Desc):
                     continue
                 self.add_source_attribute(name, value, mixin=True)
 
-    def add_sources_for_class(self, cls, mixin=False):
+    def add_sources_for_class(self, cls):
         for name, value in cls.__dict__.items():
-            self.add_source_attribute(name, value, mixin)
+            self.add_source_attribute(name, value)
 
     def getallclassdefs(self):
         return self._classdefs.values()

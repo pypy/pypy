@@ -1,5 +1,10 @@
 from cStringIO import StringIO
 from pypy.jit.backend.x86.tool.viewcode import format_code_dump_with_labels
+from pypy.jit.backend.x86.tool.viewcode import find_objdump
+import os
+import py
+import tempfile
+from pypy.tool.udir import udir
 
 def test_format_code_dump_with_labels():
     lines = StringIO("""
@@ -53,3 +58,16 @@ aa12: eight
     lines = format_code_dump_with_labels(0xAA00, lines, label_list=None)
     out = ''.join(lines)
     assert out.strip() == input
+
+def test_find_objdump():
+    old = os.environ['PATH']
+    os.environ['PATH'] = ''
+    py.test.raises(find_objdump)
+
+    #
+    path = udir.join('objdump')
+    print >>path, 'hello world'
+    os.environ['PATH'] = path.dirname
+    assert find_objdump() == 'objdump'
+    #
+    os.environ['PATH'] = old

@@ -71,9 +71,4 @@ def test_check_documentation():
         c = Config(descr)
         for path in c.getpaths(include_groups=True):
             fn = prefix + "." + path + ".txt"
-            yield check_file_exists, fn
-
-def test__ffi_opt():
-    config = get_pypy_config(translating=True)
-    config.objspace.usemodules._ffi = True
-    assert config.translation.jit_ffi
+            yield fn, check_file_exists, fn

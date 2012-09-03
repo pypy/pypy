@@ -7,7 +7,7 @@ import operator
 from pypy.tool.pairtype import pair, pairtype
 from pypy.annotation.model import SomeObject, SomeInteger, SomeBool, s_Bool
 from pypy.annotation.model import SomeString, SomeChar, SomeList, SomeDict
-from pypy.annotation.model import SomeUnicodeCodePoint
+from pypy.annotation.model import SomeUnicodeCodePoint, SomeStringOrUnicode
 from pypy.annotation.model import SomeTuple, SomeImpossibleValue, s_ImpossibleValue
 from pypy.annotation.model import SomeInstance, SomeBuiltin, SomeIterator
 from pypy.annotation.model import SomePBC, SomeFloat, s_None
@@ -470,30 +470,37 @@ class __extend__(pairtype(SomeString, SomeUnicodeString),
             "string formatting mixing strings and unicode not supported")
 
 
-class __extend__(pairtype(SomeString, SomeTuple)):
-    def mod((str, s_tuple)):
+class __extend__(pairtype(SomeString, SomeTuple),
+                 pairtype(SomeUnicodeString, SomeTuple)):
+    def mod((s_string, s_tuple)):
+        is_string = isinstance(s_string, SomeString)
+        is_unicode = isinstance(s_string, SomeUnicodeString)
+        assert is_string or is_unicode
         for s_item in s_tuple.items:
-            if isinstance(s_item, (SomeUnicodeCodePoint, SomeUnicodeString)):
+            if (is_unicode and isinstance(s_item, (SomeChar, SomeString)) or
+                is_string and isinstance(s_item, (SomeUnicodeCodePoint,
+                                                  SomeUnicodeString))):
                 raise NotImplementedError(
                     "string formatting mixing strings and unicode not supported")
-        getbookkeeper().count('strformat', str, s_tuple)
-        no_nul = str.no_nul
+        getbookkeeper().count('strformat', s_string, s_tuple)
+        no_nul = s_string.no_nul
         for s_item in s_tuple.items:
             if isinstance(s_item, SomeFloat):
                 pass   # or s_item is a subclass, like SomeInteger
-            elif isinstance(s_item, SomeString) and s_item.no_nul:
+            elif isinstance(s_item, SomeStringOrUnicode) and s_item.no_nul:
                 pass
             else:
                 no_nul = False
                 break
-        return SomeString(no_nul=no_nul)
+        return s_string.__class__(no_nul=no_nul)
 
 
-class __extend__(pairtype(SomeString, SomeObject)):
+class __extend__(pairtype(SomeString, SomeObject),
+                 pairtype(SomeUnicodeString, SomeObject)):
 
-    def mod((str, args)):
-        getbookkeeper().count('strformat', str, args)
-        return SomeString()
+    def mod((s_string, args)):
+        getbookkeeper().count('strformat', s_string, args)
+        return s_string.__class__()
 
 class __extend__(pairtype(SomeFloat, SomeFloat)):
     

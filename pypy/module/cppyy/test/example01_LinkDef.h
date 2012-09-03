@@ -16,4 +16,6 @@
 #pragma link C++ namespace ns_example01;
 #pragma link C++ function ns_example01::globalAddOneToInt(int);
 
+#pragma link C++ variable ns_example01::gMyGlobalInt;
+
 #endif

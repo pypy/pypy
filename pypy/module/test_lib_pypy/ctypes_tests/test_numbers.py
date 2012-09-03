@@ -187,6 +187,14 @@ class TestNumber(BaseCTypesTestChecker):
         # probably be changed:
         raises(TypeError, c_int, c_long(42))
 
+    def test_subclass(self):
+        class enum(c_int):
+            def __new__(cls, value):
+                dont_call_me
+        class S(Structure):
+            _fields_ = [('t', enum)]
+        assert isinstance(S().t, enum)
+
 ##    def test_perf(self):
 ##        check_perf()
 

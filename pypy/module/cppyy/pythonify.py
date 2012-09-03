@@ -1,6 +1,6 @@
 # NOT_RPYTHON
 import cppyy
-import types
+import types, sys
 
 
 # For now, keep namespaces and classes separate as namespaces are extensible
@@ -15,7 +15,8 @@ class CppyyScopeMeta(type):
             raise AttributeError("%s object has no attribute '%s'" % (self, name))
 
 class CppyyNamespaceMeta(CppyyScopeMeta):
-    pass
+    def __dir__(cls):
+        return cls._cpp_proxy.__dir__()
 
 class CppyyClass(CppyyScopeMeta):
     pass
@@ -124,6 +125,8 @@ def make_cppnamespace(scope, namespace_name, cppns, build_in_full=True):
             setattr(pycppns, dm, pydm)
             setattr(metans, dm, pydm)
 
+        modname = pycppns.__name__.replace('::', '.')
+        sys.modules['cppyy.gbl.'+modname] = pycppns
     return pycppns
 
 def _drop_cycles(bases):
@@ -196,8 +199,10 @@ def make_pycppclass(scope, class_name, final_class_name, cppclass):
         if cppdm.is_static():
             setattr(metacpp, dm_name, pydm)
 
-    _pythonize(pycppclass)
+    # the call to register will add back-end specific pythonizations and thus
+    # needs to run first, so that the generic pythonizations can use them
     cppyy._register_class(pycppclass)
+    _pythonize(pycppclass)
     return pycppclass
 
 def make_cpptemplatetype(scope, template_name):
@@ -251,7 +256,7 @@ def get_pycppitem(scope, name):
         except AttributeError:
             pass
 
-    if not (pycppitem is None):   # pycppitem could be a bound C++ NULL, so check explicitly for Py_None
+    if pycppitem is not None:      # pycppitem could be a bound C++ NULL, so check explicitly for Py_None
         return pycppitem
 
     raise AttributeError("'%s' has no attribute '%s'" % (str(scope), name))
@@ -318,21 +323,15 @@ def _pythonize(pyclass):
             return self
         pyclass.__iadd__ = __iadd__
 
-    # for STL iterators, whose comparison functions live globally for gcc
-    # TODO: this needs to be solved fundamentally for all classes
-    if 'iterator' in pyclass.__name__:
-        if hasattr(gbl, '__gnu_cxx'):
-            if hasattr(gbl.__gnu_cxx, '__eq__'):
-                setattr(pyclass, '__eq__', gbl.__gnu_cxx.__eq__)
-            if hasattr(gbl.__gnu_cxx, '__ne__'):
-                setattr(pyclass, '__ne__', gbl.__gnu_cxx.__ne__)
-
-    # map begin()/end() protocol to iter protocol
-    if hasattr(pyclass, 'begin') and hasattr(pyclass, 'end'):
-        # TODO: make gnu-independent
+    # map begin()/end() protocol to iter protocol on STL(-like) classes, but
+    # not on vector, for which otherwise the user has to make sure that the
+    # global == and != for its iterators are reflected, which is a hassle ...
+    if not 'vector' in pyclass.__name__[:11] and \
+            (hasattr(pyclass, 'begin') and hasattr(pyclass, 'end')):
+        # TODO: check return type of begin() and end() for existence
         def __iter__(self):
             iter = self.begin()
-            while gbl.__gnu_cxx.__ne__(iter, self.end()):
+            while iter != self.end():
                 yield iter.__deref__()
                 iter.__preinc__()
             iter.destruct()
@@ -357,32 +356,35 @@ def _pythonize(pyclass):
         pyclass.__eq__ = eq
         pyclass.__str__ = pyclass.c_str
 
-    # TODO: clean this up
-    # fixup lack of __getitem__ if no const return
-    if hasattr(pyclass, '__setitem__') and not hasattr(pyclass, '__getitem__'):
-        pyclass.__getitem__ = pyclass.__setitem__
-
 _loaded_dictionaries = {}
 def load_reflection_info(name):
+    """Takes the name of a library containing reflection info, returns a handle
+    to the loaded library."""
     try:
         return _loaded_dictionaries[name]
     except KeyError:
-        dct = cppyy._load_dictionary(name)
-        _loaded_dictionaries[name] = dct
-        return dct
+        lib = cppyy._load_dictionary(name)
+        _loaded_dictionaries[name] = lib
+        return lib
     
 
 # user interface objects (note the two-step of not calling scope_byname here:
 # creation of global functions may cause the creation of classes in the global
 # namespace, so gbl must exist at that point to cache them)
 gbl = make_cppnamespace(None, "::", None, False)   # global C++ namespace
+gbl.__doc__ = "Global C++ namespace."
+sys.modules['cppyy.gbl'] = gbl
 
 # mostly for the benefit of the CINT backend, which treats std as special
 gbl.std = make_cppnamespace(None, "std", None, False)
+sys.modules['cppyy.gbl.std'] = gbl.std
 
 # user-defined pythonizations interface
 _pythonizations = {}
 def add_pythonization(class_name, callback):
+    """Takes a class name and a callback. The callback should take a single
+    argument, the class proxy, and is called the first time the named class
+    is bound."""
     if not callable(callback):
         raise TypeError("given '%s' object is not callable" % str(callback))
     _pythonizations[class_name] = callback

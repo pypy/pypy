@@ -101,7 +101,8 @@ def load_source(space, w_modulename, w_filename, w_file=None):
     importing._prepare_module(space, w_mod, filename, None)
 
     importing.load_source_module(
-        space, w_modulename, w_mod, filename, stream.readall())
+        space, w_modulename, w_mod,
+        filename, stream.readall(), stream.try_to_find_file_descriptor())
     if space.is_w(w_file, space.w_None):
         stream.close()
     return w_mod

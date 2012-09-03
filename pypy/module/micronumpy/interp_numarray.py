@@ -13,10 +13,10 @@ from pypy.module.micronumpy.strides import (shape_agreement,
     find_shape_and_elems, get_shape_from_iterable, calc_new_strides, to_coords)
 from pypy.rlib import jit
 from pypy.rlib.rstring import StringBuilder
+from pypy.rlib.rawstorage import free_raw_storage
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.module.micronumpy.interp_support import unwrap_axis_arg
-
 
 count_driver = jit.JitDriver(
     greens=['shapelen'],
@@ -401,6 +401,11 @@ class BaseArray(Wrappable):
                                                          self.shape[i])))
                 i += 1
         return Chunks(result)
+
+    def descr_count_nonzero(self, space):
+        concr = self.get_concrete()
+        res = concr.count_all_true()
+        return space.wrap(res)
 
     def count_all_true(self):
         sig = self.find_sig()
@@ -1204,7 +1209,7 @@ class W_NDimArray(ConcreteArray):
         return signature.ArraySignature(self.dtype)
 
     def __del__(self):
-        lltype.free(self.storage, flavor='raw', track_allocation=False)
+        free_raw_storage(self.storage, track_allocation=False)
 
 def _find_shape(space, w_size):
     if space.isinstance_w(w_size, space.w_int):
@@ -1486,6 +1491,7 @@ BaseArray.typedef = TypeDef(
     take = interp2app(BaseArray.descr_take),
     compress = interp2app(BaseArray.descr_compress),
     repeat = interp2app(BaseArray.descr_repeat),
+    count_nonzero = interp2app(BaseArray.descr_count_nonzero),
 )
 
 
