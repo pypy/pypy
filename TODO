@@ -16,3 +16,6 @@ check the "assert rbigint.SHIFT <= 32" in module/_random/interp_random.py,
 which has been commented out for now
 
 unskip numpypy tests in module/test_lib_pypy/numpypy/
+
+optimize W_UnicodeObject, right now it stores both an unicode and an utf8
+version of the same string
