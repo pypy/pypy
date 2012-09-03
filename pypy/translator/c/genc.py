@@ -135,11 +135,11 @@ class CBuilder(object):
         translator = self.translator
 
         if self.config.translation.stm:
-            from pypy.translator.stm import transform
+            from pypy.translator.stm import transform2
             self.getentrypointptr()    # build the wrapper first
             # ^^ this is needed to make sure we see the no-GC wrapper function
             # calling the GC entrypoint function.
-            transformer = transform.STMTransformer(self.translator)
+            transformer = transform2.STMTransformer(self.translator)
             transformer.transform()
 
         gcpolicyclass = self.get_gcpolicyclass()

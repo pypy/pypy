@@ -399,22 +399,16 @@ LL_OPERATIONS = {
     # direct_calls and maybe several casts, but it looks less heavy-weight
     # to keep them as operations until the genc stage)
 
-    'stm_getfield':           LLOp(sideeffects=False, canrun=True),
-    'stm_getarrayitem':       LLOp(sideeffects=False, canrun=True),
-    'stm_getinteriorfield':   LLOp(sideeffects=False, canrun=True),
+    'stm_barrier':            LLOp(sideeffects=False),
     'stm_become_inevitable':  LLOp(),
-    'stm_writebarrier':       LLOp(),
-    'stm_local_not_needed':   LLOp(),
-    'stm_normalize_global':   LLOp(),
+    'stm_ptr_eq':             LLOp(sideeffects=False),
     'stm_start_transaction':  LLOp(canrun=True, canmallocgc=True),
     'stm_stop_transaction':   LLOp(canrun=True, canmallocgc=True),
 
     'gc_load':                LLOp(sideeffects=False),   # so far, only if stm
     'gc_store':               LLOp(),                    # so far, only if stm
-    'stm_gc_load':            LLOp(sideeffects=False),
-    'stm_gc_store':           LLOp(),
 
-    'stm_jit_invoke_code':    LLOp(canmallocgc=True),
+    #'stm_jit_invoke_code':    LLOp(canmallocgc=True),
 
     # __________ address operations __________
 

@@ -1,6 +1,6 @@
 from pypy.objspace.flow.model import SpaceOperation, Constant, Variable
-from pypy.objspace.flow.model import checkgraph, c_last_exception
-from pypy.translator.unsimplify import varoftype
+from pypy.objspace.flow.model import checkgraph, c_last_exception, Block, Link
+from pypy.translator.unsimplify import varoftype, insert_empty_block
 from pypy.rpython.lltypesystem import lltype
 from pypy.translator.backendopt.writeanalyze import WriteAnalyzer, top_set
 
@@ -43,6 +43,15 @@ MORE_PRECISE_CATEGORIES = {
     'L': 'LWN',
     'W': 'WN',
     'N': 'N'}
+
+def unwraplist(list_v):
+    for v in list_v: 
+        if isinstance(v, Constant):
+            yield v.value
+        elif isinstance(v, Variable):
+            yield None    # unknown
+        else:
+            raise AssertionError(v)
 
 def is_immutable(op):
     if op.opname in ('getfield', 'setfield'):
@@ -167,7 +176,12 @@ def pre_insert_stm_barrier(stmtransformer, graph):
 
             block.operations = newoperations
             #
-            assert block.exitswitch != c_last_exception   # transformed already
             for link in block.exits:
+                newoperations = []
                 for i, v in enumerate(link.args):
                     link.args[i] = renamings_get(v)
+                if newoperations:
+                    # must put them in a fresh block along the link
+                    annotator = stmtransformer.translator.annotator
+                    newblock = insert_empty_block(annotator, link,
+                                                  newoperations)
