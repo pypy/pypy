@@ -66,12 +66,6 @@ class TranslationContext(object):
                 log.start(nice_repr_for_func(func))
             from pypy.objspace.flow.objspace import FlowObjSpace
             space = FlowObjSpace(self.flowconfig)
-            if self.annotator:
-                # ZZZ
-                self.annotator.policy._adjust_space_config(space)
-            elif hasattr(self, 'no_annotator_but_do_imports_immediately'):
-                space.do_imports_immediately = (
-                    self.no_annotator_but_do_imports_immediately)
             graph = space.build_flow(func)
             if self.config.translation.simplifying:
                 simplify.simplify_graph(graph)

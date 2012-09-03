@@ -329,6 +329,30 @@ LL_OPERATIONS = {
     'ullong_rshift':        LLOp(canfold=True),  # args (r_ulonglong, int)
     'ullong_xor':           LLOp(canfold=True),
 
+    'lllong_is_true':        LLOp(canfold=True),
+    'lllong_neg':            LLOp(canfold=True),
+    'lllong_abs':            LLOp(canfold=True),
+    'lllong_invert':         LLOp(canfold=True),
+
+    'lllong_add':            LLOp(canfold=True),
+    'lllong_sub':            LLOp(canfold=True),
+    'lllong_mul':            LLOp(canfold=True),
+    'lllong_floordiv':       LLOp(canfold=True),
+    'lllong_floordiv_zer':   LLOp(canraise=(ZeroDivisionError,), tryfold=True),
+    'lllong_mod':            LLOp(canfold=True),
+    'lllong_mod_zer':        LLOp(canraise=(ZeroDivisionError,), tryfold=True),
+    'lllong_lt':             LLOp(canfold=True),
+    'lllong_le':             LLOp(canfold=True),
+    'lllong_eq':             LLOp(canfold=True),
+    'lllong_ne':             LLOp(canfold=True),
+    'lllong_gt':             LLOp(canfold=True),
+    'lllong_ge':             LLOp(canfold=True),
+    'lllong_and':            LLOp(canfold=True),
+    'lllong_or':             LLOp(canfold=True),
+    'lllong_lshift':         LLOp(canfold=True),  # args (r_longlonglong, int)
+    'lllong_rshift':         LLOp(canfold=True),  # args (r_longlonglong, int)
+    'lllong_xor':            LLOp(canfold=True),
+    
     'cast_primitive':       LLOp(canfold=True),
     'cast_bool_to_int':     LLOp(canfold=True),
     'cast_bool_to_uint':    LLOp(canfold=True),

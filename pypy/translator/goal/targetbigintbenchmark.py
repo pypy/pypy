@@ -1,8 +1,8 @@
 #! /usr/bin/env python
 
-import os, sys
+import sys
 from time import time
-from pypy.rlib.rbigint import rbigint, _k_mul, _tc_mul
+from pypy.rlib.rbigint import rbigint
 
 # __________  Entry point  __________
 
@@ -35,25 +35,26 @@ def entry_point(argv):
         Sum:  142.686547
         
         Pypy with improvements:
-        mod by 2:  0.006321
-        mod by 10000:  3.143117
-        mod by 1024 (power of two):  0.009611
-        Div huge number by 2**128: 2.138351
-        rshift: 2.247337
-        lshift: 1.334369
-        Floordiv by 2: 1.555604
-        Floordiv by 3 (not power of two): 4.275014
-        2**500000: 0.033836
-        (2**N)**5000000 (power of two): 0.049600
-        10000 ** BIGNUM % 100 1.326477
-        i = i * i: 3.924958
-        n**10000 (not power of two): 6.335759
-        Power of two ** power of two: 0.013380
-        v = v * power of two 3.497662
-        v = v * v 6.359251
-        v = v + v 2.785971
-        Sum:  39.036619
+        mod by 2:  0.007059
+        mod by 10000:  3.204295
+        mod by 1024 (power of two):  0.009401
+        Div huge number by 2**128: 1.368511
+        rshift: 2.345295
+        lshift: 1.339761
+        Floordiv by 2: 1.532028
+        Floordiv by 3 (not power of two): 4.005607
+        2**500000: 0.033466
+        (2**N)**5000000 (power of two): 0.047093
+        10000 ** BIGNUM % 100 1.207310
+        i = i * i: 3.998161
+        n**10000 (not power of two): 6.323250
+        Power of two ** power of two: 0.013258
+        v = v * power of two 3.567459
+        v = v * v 6.316683
+        v = v + v 2.757308
+        Sum:  38.075946
 
+        # Notice: This is slightly old!
         With SUPPORT_INT128 set to False
         mod by 2:  0.004103
         mod by 10000:  3.237434
@@ -76,33 +77,7 @@ def entry_point(argv):
 
     """
     sumTime = 0.0
-    
-    
-    """t = time()
-    by = rbigint.fromint(2**62).lshift(1030000)
-    for n in xrange(5000):
-        by2 = by.lshift(63)
-        _tc_mul(by, by2)
-        by = by2
-        
 
-    _time = time() - t
-    sumTime += _time
-    print "Toom-cook effectivity _Tcmul 1030000-1035000 digits:", _time
-    
-    t = time()
-    by = rbigint.fromint(2**62).lshift(1030000)
-    for n in xrange(5000):
-        by2 = by.lshift(63)
-        _k_mul(by, by2)
-        by = by2
-        
-
-    _time = time() - t
-    sumTime += _time
-    print "Toom-cook effectivity _kMul 1030000-1035000 digits:", _time"""
-    
-    
     V2 = rbigint.fromint(2)
     num = rbigint.pow(rbigint.fromint(100000000), rbigint.fromint(1024))
     t = time()
@@ -286,6 +261,5 @@ def target(*args):
     return entry_point, None
 
 if __name__ == '__main__':
-    import sys
     res = entry_point(sys.argv)
     sys.exit(res)
