@@ -2,9 +2,12 @@
 
 #define PYPY_LONG_BIT   (sizeof(long) * 8)
 
+typedef long Signed;
+typedef unsigned long Unsigned;
+
 struct pypy_header0 {
     long h_tid;
-    void *h_version;
+    Unsigned h_revision;
 };
 
 struct pypy_pypy_rlib_rstm_Transaction0 {
@@ -34,10 +37,10 @@ typedef char bool_t;
 #include "src_stm/et.c"
 
 
-long (*cb_getsize)(void *);
+long (*cb_getsize)(gcptr);
 void (*cb_enum_callback)(void *, void *, void *);
 
-long pypy_g__stm_getsize(void *a) {
+long pypy_g__stm_getsize(gcptr a) {
     assert(cb_getsize != NULL);
     return cb_getsize(a);
 }
@@ -196,6 +199,7 @@ void test_enum_tldict_nonempty(void) {
 
 /************************************************************/
 
+#if 0
 void test_read_main_thread(void)
 {
     S1 s1;
@@ -282,7 +286,7 @@ void size_getter(void)
         s2->last_16_bytes[i] = 'A' + i;
     stm_tldict_add(&sg_global, s2);
 }
-long size_getter_cb(void *x)
+long size_getter_cb(gcptr x)
 {
     return offsetof(S1, last_16_bytes) + 15;
 }
@@ -318,6 +322,7 @@ void copy_transactional_to_raw(void)
 void test_copy_transactional_to_raw(void) {
     run_in_transaction(copy_transactional_to_raw, '.');
 }
+#endif
 
 /************************************************************/
 
@@ -349,8 +354,8 @@ void should_break_transaction_2(void)
     S1 s1[15];
     int i;
     for (i=0; i<15; i++) {
-        s1[i].header.h_tid = GCFLAG_GLOBAL;
-        s1[i].header.h_version = NULL;
+        s1[i].header.h_tid = GCFLAG_PREBUILT;
+        s1[i].header.h_revision = REV_INITIAL;
         s1[i].value1 = 48+i;
     }
     for (i=0; i<15; i++) {

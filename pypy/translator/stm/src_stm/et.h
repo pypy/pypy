@@ -57,14 +57,7 @@ typedef struct pypy_header0 *gcptr;
     (__builtin_expect((((gcptr)(R))->h_tid & GCFLAG_NOT_WRITTEN) == 0, 1) ? \
      (R) : (typeof(R))_WriteBarrierFromReady((gcptr)(R)))
 
-/* declared in structdef.h:
-struct gcroot_s {
-    gcptr R, L;
-    Signed v;
-};*/
-
 void BeginTransaction(jmp_buf *);
-struct gcroot_s *FindRootsForLocalCollect(void);
 int _FakeReach(gcptr);
 void CommitTransaction(void);
 void BecomeInevitable(void);
@@ -82,7 +75,11 @@ gcptr _WriteBarrierFromReady(gcptr);
 //gcptr _NonTransactionalReadBarrier(gcptr);
 
 
-extern size_t pypy_g__stm_getsize(gcptr);
-
+extern Signed pypy_g__stm_getsize(gcptr);
+void stm_set_tls(void *newtls);
+void *stm_get_tls(void);
+void stm_del_tls(void);
+gcptr stm_tldict_lookup(gcptr);     /* for tests only */
+void stm_tldict_add(gcptr, gcptr);  /* for tests only */
 
 #endif  /* _ET_H */

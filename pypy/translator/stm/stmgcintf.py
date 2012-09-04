@@ -27,14 +27,6 @@ def smexternal(name, args, result):
 
 class StmOperations(object):
 
-    PRIMITIVE_SIZES   = {1: lltype.Char,
-                         2: rffi.SHORT,
-                         4: rffi.INT,
-                         8: lltype.SignedLongLong,
-                         '8f': rffi.DOUBLE,
-                         '4f': rffi.FLOAT}
-
-    INIT_DONE       = lltype.Ptr(lltype.FuncType([], lltype.Void))
     CALLBACK_TX     = lltype.Ptr(lltype.FuncType([rffi.VOIDP, lltype.Signed],
                                                  lltype.Signed))
     GETSIZE         = lltype.Ptr(lltype.FuncType([llmemory.Address],

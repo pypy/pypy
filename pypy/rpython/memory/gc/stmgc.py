@@ -15,11 +15,14 @@ NULL = llmemory.NULL
 
 first_gcflag = 1 << (LONG_BIT//2)
 
-# Terminology:
+# Documentation:
+# https://bitbucket.org/pypy/extradoc/raw/extradoc/talk/stm2012/stmimpl.rst
+#
+# Terminology used here:
 #
 #   - Objects can be LOCAL or GLOBAL.  This is what STM is based on.
 #     Local objects are not visible to any other transaction, whereas
-#     global objects are, and need care.
+#     global objects are, and are read-only.
 #
 #   - Each object lives either in the shared area, or in a thread-local
 #     nursery.  The shared area contains:
@@ -37,7 +40,7 @@ first_gcflag = 1 << (LONG_BIT//2)
 #     are in the shared area.  Getting the write barrier right for both
 #     this and the general STM mechanisms is tricky, so for now this GC
 #     is not actually generational (slow when running long transactions
-#     or before running transactions at all).
+#     or before running transactions at all).  (XXX fix me)
 #
 #   - So far, the GC is always running in "transactional" mode.  Later,
 #     it would be possible to speed it up in case there is only one
@@ -48,30 +51,21 @@ first_gcflag = 1 << (LONG_BIT//2)
 #   - GCFLAG_GLOBAL: identifies GLOBAL objects.  All prebuilt objects
 #     start as GLOBAL; conversely, all freshly allocated objects start
 #     as LOCAL, and become GLOBAL if they survive an end-of-transaction.
-#     All objects that are GLOBAL are immortal for now
+#     All objects that are GLOBAL are immortal and leaking for now
 #     (global_collect() will be done later).
 #
-#   - GCFLAG_WAS_COPIED: means that the object is either a LOCAL COPY
-#     or, if GLOBAL, then it has or had at least one LOCAL COPY.  See
-#     below.
+#   - GCFLAG_POSSIBLY_OUTDATED: see stmimpl.rst.  Used by C.
+#   - GCFLAG_NOT_WRITTEN: see stmimpl.rst.  Used by C.
+#   - GCFLAG_LOCAL_COPY: see stmimpl.rst.  Used by C.
 #
-#   - GCFLAG_VISITED: used during collections to flag objects found to be
-#     surviving.  Between collections, it must be set on the LOCAL COPY
-#     objects, and only on them.
+#   - GCFLAG_VISITED: used temporarily to mark local objects found to be
+#     surviving during a collection.
 #
 #   - GCFLAG_HAS_SHADOW: set on nursery objects whose id() or identityhash()
 #     was taken.  Means that we already have a corresponding object allocated
 #     outside the nursery.
 #
 #   - GCFLAG_FIXED_HASH: only on some prebuilt objects.  For identityhash().
-#
-# When the mutator (= the program outside the GC) wants to write to an
-# object, stm_writebarrier() does something special on GLOBAL objects:
-#
-#   - In transactional mode (always for now), the write barrier creates
-#     a LOCAL COPY of the object and returns it (or, if already created by
-#     the same transaction, finds it again).  The mapping from GLOBAL to
-#     LOCAL COPY objects is maintained by C code (see tldict_lookup()).
 #
 # Invariant: between two transactions, all objects visible from the current
 # thread are always GLOBAL.  In particular:
@@ -91,39 +85,42 @@ first_gcflag = 1 << (LONG_BIT//2)
 #     pointer to any LOCAL object at all.
 #
 #   - A special case is the end-of-transaction collection, done by the same
-#     local_collection() with a twist: all pointers to a LOCAL COPY object
-#     are replaced with pointers to the corresponding GLOBAL original.  When
-#     it is done, we mark all surviving LOCAL objects as GLOBAL too, and we
-#     are back to the situation where this thread sees only GLOBAL objects.
-#     What we leave to the C code to do "as the finishing touch" is to copy
-#     transactionally the content of the LOCAL COPY objects back over the
-#     GLOBAL originals; before this is done, the transaction can be aborted
-#     at any point with no visible side-effect on any object that other
-#     threads can see.
+#     local_collection() with a twist: all surviving objects (after being
+#     copied out of the nursery) receive the flags GLOBAL and NOT_WRITTEN.
+#     At the end, we are back to the situation where this thread sees only
+#     GLOBAL objects.  This is PerformLocalCollect() in stmimpl.rst.
+#     It is done just before CommitTransaction(), implemented in C.
 #
-# All objects have an address-sized 'version' field in their header.  On
-# GLOBAL objects, it is used as a version by C code to handle STM (it must
-# be set to 0 when the object first turns GLOBAL).   On the LOCAL objects,
-# though, it is abused here in the GC:
+# All objects have an address-sized 'revision' field in their header.
+# It is generally used by the C code (marked with (*) below), but it
+# is also (ab)used by the GC itself (marked with (!) below).
 #
-#   - if GCFLAG_WAS_COPIED, it points to the GLOBAL original.
+#   - for local objects with GCFLAG_LOCAL_COPY, it points to the GLOBAL
+#     original (*).
 #
-#   - if GCFLAG_HAS_SHADOW, to the shadow object outside the nursery.
-#     (It is not used on other nursery objects before collection.)
+#   - if GCFLAG_HAS_SHADOW, it points to the shadow object outside the
+#     nursery (!). (It is not used on other nursery objects before
+#     collection.)
 #
 #   - it contains the 'next' object of the 'sharedarea_tls.chained_list'
-#     list, which describes all LOCAL objects malloced outside the nursery.
+#     list, which describes all LOCAL objects malloced outside the
+#     nursery (!).
 #
-#   - for nursery objects, during collection, if they are copied outside
-#     the nursery, they grow GCFLAG_VISITED and their 'version' points
-#     to the fresh copy.
+#   - during collection, the nursery objects that are copied outside
+#     the nursery grow GCFLAG_VISITED and their 'revision' points
+#     to the new copy (!).
+#
+#   - on any GLOBAL object, 'revision' is managed by C code (*).
+#     It must be initialized to 1 when the GC code turns a LOCAL object
+#     into a GLOBAL one.
 #
 
-GCFLAG_GLOBAL     = first_gcflag << 0     # keep in sync with et.c
-GCFLAG_WAS_COPIED = first_gcflag << 1     # keep in sync with et.c
-GCFLAG_VISITED    = first_gcflag << 2
-GCFLAG_HAS_SHADOW = first_gcflag << 3
-GCFLAG_FIXED_HASH = first_gcflag << 4
+GCFLAG_GLOBAL            = first_gcflag << 0     # keep in sync with et.h
+GCFLAG_POSSIBLY_OUTDATED = first_gcflag << 1     # keep in sync with et.h
+GCFLAG_NOT_WRITTEN       = first_gcflag << 2     # keep in sync with et.h
+GCFLAG_LOCAL_COPY        = first_gcflag << 3     # keep in sync with et.h
+GCFLAG_HAS_SHADOW        = first_gcflag << 4
+GCFLAG_FIXED_HASH        = first_gcflag << 5
 
 
 def always_inline(fn):
@@ -138,12 +135,11 @@ class StmGC(MovingGCBase):
     _alloc_flavor_ = "raw"
     inline_simple_malloc = True
     inline_simple_malloc_varsize = True
-    #needs_write_barrier = "stm"
     prebuilt_gc_objects_are_static_roots = False
     malloc_zero_filled = True    # xxx?
 
     HDR = lltype.Struct('header', ('tid', lltype.Signed),
-                                  ('version', llmemory.Address))
+                                  ('revision', lltype.Unsigned))
     typeid_is_in_field = 'tid'
     withhash_flag_is_in_field = 'tid', GCFLAG_FIXED_HASH
 
@@ -182,8 +178,6 @@ class StmGC(MovingGCBase):
             return self.get_size(obj)
         self._stm_getsize = _stm_getsize
         #
-        ##for size, TYPE in PRIMITIVE_SIZES.items():
-        ##    self.declare_reader(size, TYPE)
         self.declare_write_barrier()
 
     def setup(self):

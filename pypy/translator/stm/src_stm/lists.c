@@ -256,7 +256,7 @@ static void gcptrlist_insert3(struct GcPtrList *gcptrlist, gcptr newitem1,
    too simple for now. */
 
 #define FX_ENTRIES    32
-#define FX_SIZE       (FX_ENTRIES * sizeof(uintptr_t))
+#define FX_SIZE       (FX_ENTRIES * sizeof(revision_t))
 #define FX_THRESHOLD  5
 
 #if FX_THRESHOLD >= FX_ENTRIES * 4   /* == lower bound on FX_SIZE */
@@ -264,7 +264,7 @@ static void gcptrlist_insert3(struct GcPtrList *gcptrlist, gcptr newitem1,
 #endif
 
 struct FXCache {
-  uintptr_t cache[FX_ENTRIES];
+  revision_t cache[FX_ENTRIES];
 };
 
 static void fxcache_clear(struct FXCache *fxcache)
@@ -278,11 +278,11 @@ static inline int fxcache_add(struct FXCache *fxcache, gcptr item)
      If it is already, increment its value and returns 1.
      If it we reach FX_THRESHOLD, returns 2.
      */
-  uintptr_t uitem = (uintptr_t)item;
-  uintptr_t *entry = (uintptr_t *)
-    (((char *)fxcache->cache) + (uitem & (FX_SIZE-sizeof(uintptr_t))));
-  uintptr_t stored_key = uitem & -FX_SIZE;
-  uintptr_t value = stored_key ^ *entry;
+  revision_t uitem = (revision_t)item;
+  revision_t *entry = (revision_t *)
+    (((char *)fxcache->cache) + (uitem & (FX_SIZE-sizeof(revision_t))));
+  revision_t stored_key = uitem & -FX_SIZE;
+  revision_t value = stored_key ^ *entry;
   if (value >= FX_SIZE)
     {
       /* not in the cache: evict the colliding item (no associativity) */

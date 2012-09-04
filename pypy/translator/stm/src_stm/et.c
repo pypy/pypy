@@ -18,13 +18,14 @@
 #define PYPY_DEBUG_FILE         stderr
 
 #include "et.h"
-#include "atomic_ops.h"
 
 /************************************************************/
 
+typedef Unsigned revision_t;
 #define INEVITABLE  ((revision_t)-1)
 #define LOCKED  ((revision_t)-0x10000)
 
+#include "atomic_ops.h"
 #include "lists.c"
 
 /************************************************************/
@@ -45,6 +46,11 @@ struct tx_descriptor {
   struct GcPtrList gcroots;
   struct G2L global_to_local;
   struct FXCache recent_reads_cache;
+};
+
+struct gcroot_s {
+    gcptr R, L;
+    revision_t v;
 };
 
 static volatile revision_t global_cur_time = 2;              /* always even */
@@ -495,7 +501,7 @@ int _FakeReach(gcptr P)
   return 1;
 }
 
-revision_t CommitTransaction(void)
+void CommitTransaction(void)
 {
   revision_t cur_time;
   struct tx_descriptor *d = thread_descriptor;
@@ -539,7 +545,6 @@ revision_t CommitTransaction(void)
 
   d->num_commits++;
   d->active = 0;
-  return cur_time;
 }
 
 /************************************************************/
@@ -593,7 +598,7 @@ _Bool PtrEq(gcptr P1, gcptr P2)
 
 /************************************************************/
 
-revision_t DescriptorInit(void)
+void DescriptorInit(void)
 {
   assert(thread_descriptor == NULL);
   if (1)
@@ -628,7 +633,6 @@ revision_t DescriptorInit(void)
                 (long)d->my_lock, (long)pthread_self());
       PYPY_DEBUG_STOP("stm-init");
 #endif
-      return d->my_lock;
     }
 }
 
@@ -673,3 +677,5 @@ void DescriptorDone(void)
 
   free(d);
 }
+
+#include "rpyintf.c"
