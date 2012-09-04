@@ -66,3 +66,7 @@ class Scalar(base.BaseArrayImplementation):
             return arr.implementation
         raise OperationError(space.w_ValueError, space.wrap(
             "total size of the array must be unchanged"))
+
+    def reshape(self, space, new_shape):
+        return self.set_shape(space, new_shape)
+        
