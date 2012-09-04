@@ -1,5 +1,7 @@
 
 from pypy.module.micronumpy.arrayimpl import base
+from pypy.module.micronumpy.base import W_NDimArray
+from pypy.module.micronumpy import support
 from pypy.interpreter.error import OperationError
 
 class ScalarIterator(base.BaseArrayIterator):
@@ -54,6 +56,13 @@ class Scalar(base.BaseArrayImplementation):
         raise OperationError(space.w_IndexError,
                              space.wrap("scalars cannot be indexed"))
         
-    def set_shape(self, new_shape):
-        import pdb
-        pdb.set_trace()
+    def set_shape(self, space, new_shape):
+        if not new_shape:
+            return self
+        if support.product(new_shape) == 1:
+            arr = W_NDimArray.from_shape(new_shape, self.dtype)
+            arr_iter = arr.create_iter(new_shape)
+            arr_iter.setitem(self.value)
+            return arr.implementation
+        raise OperationError(space.w_ValueError, space.wrap(
+            "total size of the array must be unchanged"))

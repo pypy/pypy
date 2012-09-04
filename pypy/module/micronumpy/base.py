@@ -10,13 +10,13 @@ class W_NDimArray(Wrappable):
         self.implementation = implementation
     
     @classmethod
-    def from_shape(cls, shape, dtype, order='C', storage=None):
+    def from_shape(cls, shape, dtype, order='C'):
         from pypy.module.micronumpy.arrayimpl import concrete
 
         assert shape
         strides, backstrides = calc_strides(shape, dtype, order)
         impl = concrete.ConcreteArray(shape, dtype, order, strides,
-                                      backstrides, storage)
+                                      backstrides)
         return W_NDimArray(impl)
 
     @classmethod

@@ -593,6 +593,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         a.shape = ()
         #numpy allows this
         a.shape = (1,)
+        assert a[0] == 3
         a = array(range(6)).reshape(2,3).T
         raises(AttributeError, 'a.shape = 6')
 
