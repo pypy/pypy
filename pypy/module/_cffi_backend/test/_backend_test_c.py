@@ -2057,3 +2057,9 @@ def test_sizeof_union():
                                       ('i', BShort)])
     assert sizeof(BUnion) == 4
     assert alignof(BUnion) == 2
+
+def test_unaligned_struct():
+    BInt = new_primitive_type("int")
+    BStruct = new_struct_type("foo")
+    complete_struct_or_union(BStruct, [('b', BInt, -1, 1)],
+                             None, 5, 1)
