@@ -1313,4 +1313,13 @@ def dump_storage(storage, liveboxes):
                     debug_print('\t\t', 'None')
                 else:
                     virtual.debug_prints()
+        if storage.rd_pendingfields:
+            debug_print('\tpending setfields')
+            for i in range(len(storage.rd_pendingfields)):
+                lldescr  = storage.rd_pendingfields[i].lldescr
+                num      = storage.rd_pendingfields[i].num
+                fieldnum = storage.rd_pendingfields[i].fieldnum
+                itemindex= storage.rd_pendingfields[i].itemindex
+                debug_print("\t\t", str(lldescr), str(untag(num)), str(untag(fieldnum)), itemindex)
+
     debug_stop("jit-resume")

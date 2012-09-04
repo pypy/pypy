@@ -21,7 +21,6 @@ from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.backend.llgraph import symbolic
 from pypy.jit.codewriter import longlong
 
-from pypy.rlib import libffi, clibffi
 from pypy.rlib.objectmodel import ComputedIntSymbolic, we_are_translated
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rlib.rarithmetic import r_longlong, r_ulonglong, r_uint
@@ -64,7 +63,8 @@ def from_opaque_string(s):
 
 FLOAT_ARRAY_TP = lltype.Ptr(lltype.Array(lltype.Float, hints={"nolength": True}))
 def maybe_uncast(TP, array):
-    if array._TYPE.TO._hints.get("uncast_on_llgraph"):
+    if array._TYPE.TO.OF != lltype.Float:
+        # array._TYPE.TO._hints.get("uncast_on_llgraph"):
         array = rffi.cast(TP, array)
     return array
 
@@ -96,6 +96,7 @@ TYPES = {
     'int_add_ovf'     : (('int', 'int'), 'int'),
     'int_sub_ovf'     : (('int', 'int'), 'int'),
     'int_mul_ovf'     : (('int', 'int'), 'int'),
+    'int_force_ge_zero':(('int',), 'int'),
     'uint_add'        : (('int', 'int'), 'int'),
     'uint_sub'        : (('int', 'int'), 'int'),
     'uint_mul'        : (('int', 'int'), 'int'),
@@ -802,7 +803,7 @@ class Frame(object):
         if arraydescr.typeinfo == REF:
             raise NotImplementedError("getarrayitem_raw -> gcref")
         elif arraydescr.typeinfo == INT:
-            return do_getarrayitem_raw_int(array, index)
+            return do_getarrayitem_raw_int(array, index, arraydescr.ofs)
         elif arraydescr.typeinfo == FLOAT:
             return do_getarrayitem_raw_float(array, index)
         else:
@@ -823,9 +824,7 @@ class Frame(object):
     op_getfield_gc_pure = op_getfield_gc
 
     def op_getfield_raw(self, fielddescr, struct):
-        if fielddescr.arg_types == 'dynamic': # abuse of .arg_types
-            return do_getfield_raw_dynamic(struct, fielddescr)
-        elif fielddescr.typeinfo == REF:
+        if fielddescr.typeinfo == REF:
             return do_getfield_raw_ptr(struct, fielddescr.ofs)
         elif fielddescr.typeinfo == INT:
             return do_getfield_raw_int(struct, fielddescr.ofs)
@@ -835,6 +834,26 @@ class Frame(object):
             raise NotImplementedError
 
     op_getfield_raw_pure = op_getfield_raw
+
+    def op_raw_store(self, arraydescr, addr, offset, value):
+        if arraydescr.typeinfo == REF:
+            raise AssertionError("cannot store GC pointer in raw storage")
+        elif arraydescr.typeinfo == INT:
+            do_raw_store_int(addr, offset, arraydescr.ofs, value)
+        elif arraydescr.typeinfo == FLOAT:
+            do_raw_store_float(addr, offset, value)
+        else:
+            raise NotImplementedError
+
+    def op_raw_load(self, arraydescr, addr, offset):
+        if arraydescr.typeinfo == REF: 
+            raise AssertionError("cannot store GC pointer in raw storage")
+        elif arraydescr.typeinfo == INT:
+            return do_raw_load_int(addr, offset, arraydescr.ofs)
+        elif arraydescr.typeinfo == FLOAT:
+            return do_raw_load_float(addr, offset)
+        else:
+            raise NotImplementedError
 
     def op_new(self, size):
         return do_new(size.ofs)
@@ -861,7 +880,7 @@ class Frame(object):
         if arraydescr.typeinfo == REF:
             raise NotImplementedError("setarrayitem_raw <- gcref")
         elif arraydescr.typeinfo == INT:
-            do_setarrayitem_raw_int(array, index, newvalue)
+            do_setarrayitem_raw_int(array, index, newvalue, arraydescr.ofs)
         elif arraydescr.typeinfo == FLOAT:
             do_setarrayitem_raw_float(array, index, newvalue)
         else:
@@ -921,9 +940,7 @@ class Frame(object):
             raise NotImplementedError
 
     def op_setfield_raw(self, fielddescr, struct, newvalue):
-        if fielddescr.arg_types == 'dynamic': # abuse of .arg_types
-            do_setfield_raw_dynamic(struct, fielddescr, newvalue)
-        elif fielddescr.typeinfo == REF:
+        if fielddescr.typeinfo == REF:
             do_setfield_raw_ptr(struct, fielddescr.ofs, newvalue)
         elif fielddescr.typeinfo == INT:
             do_setfield_raw_int(struct, fielddescr.ofs, newvalue)
@@ -1432,9 +1449,13 @@ def do_getarrayitem_gc_int(array, index):
     array = array._obj.container
     return cast_to_int(array.getitem(index))
 
-def do_getarrayitem_raw_int(array, index):
-    array = array.adr.ptr._obj
-    return cast_to_int(array.getitem(index))
+def do_getarrayitem_raw_int(array, index, itemsize):
+    array = array.adr.ptr
+    ITEMTYPE = lltype.typeOf(array).TO.OF
+    TYPE = symbolic.Size2Type[itemsize]
+    if TYPE.OF != ITEMTYPE:
+        array = rffi.cast(lltype.Ptr(TYPE), array)
+    return cast_to_int(array._obj.getitem(index))
 
 def do_getarrayitem_gc_float(array, index):
     array = array._obj.container
@@ -1478,18 +1499,6 @@ def do_getinteriorfield_gc_ptr(array, index, fieldnum):
     struct = array._obj.container.getitem(index)
     return cast_to_ptr(_getinteriorfield_gc(struct, fieldnum))
 
-def _getinteriorfield_raw(ffitype, array, index, width, ofs):
-    addr = rffi.cast(rffi.VOIDP, array)
-    return libffi.array_getitem(ffitype, width, addr, index, ofs)
-
-def do_getinteriorfield_raw_int(array, index, width, ofs):
-    res = _getinteriorfield_raw(libffi.types.slong, array, index, width, ofs)
-    return res
-
-def do_getinteriorfield_raw_float(array, index, width, ofs):
-    res = _getinteriorfield_raw(libffi.types.double, array, index, width, ofs)
-    return res
-
 def _getfield_raw(struct, fieldnum):
     STRUCT, fieldname = symbolic.TokenToField[fieldnum]
     ptr = cast_from_int(lltype.Ptr(STRUCT), struct)
@@ -1504,16 +1513,31 @@ def do_getfield_raw_float(struct, fieldnum):
 def do_getfield_raw_ptr(struct, fieldnum):
     return cast_to_ptr(_getfield_raw(struct, fieldnum))
 
-def do_getfield_raw_dynamic(struct, fielddescr):
-    from pypy.rlib import libffi
-    addr = cast_from_int(rffi.VOIDP, struct)
-    ofs = fielddescr.ofs
-    if fielddescr.is_pointer_field():
-        assert False, 'fixme'
-    elif fielddescr.is_float_field():
-        assert False, 'fixme'
-    else:
-        return libffi._struct_getfield(lltype.Signed, addr, ofs)
+def do_raw_load_int(struct, offset, descrofs):
+    TYPE = symbolic.Size2Type[descrofs]
+    ll_p = rffi.cast(rffi.CCHARP, struct)
+    ll_p = rffi.cast(lltype.Ptr(TYPE), rffi.ptradd(ll_p, offset))
+    value = ll_p[0]
+    return rffi.cast(lltype.Signed, value)
+
+def do_raw_load_float(struct, offset):
+    ll_p = rffi.cast(rffi.CCHARP, struct)
+    ll_p = rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE),
+                     rffi.ptradd(ll_p, offset))
+    value = ll_p[0]
+    return value
+
+def do_raw_store_int(struct, offset, descrofs, value):
+    TYPE = symbolic.Size2Type[descrofs]
+    ll_p = rffi.cast(rffi.CCHARP, struct)
+    ll_p = rffi.cast(lltype.Ptr(TYPE), rffi.ptradd(ll_p, offset))
+    ll_p[0] = rffi.cast(TYPE.OF, value)
+
+def do_raw_store_float(struct, offset, value):
+    ll_p = rffi.cast(rffi.CCHARP, struct)
+    ll_p = rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE),
+                     rffi.ptradd(ll_p, offset))
+    ll_p[0] = value
 
 def do_new(size):
     TYPE = symbolic.Size2Type[size]
@@ -1532,10 +1556,13 @@ def do_setarrayitem_gc_int(array, index, newvalue):
     newvalue = cast_from_int(ITEMTYPE, newvalue)
     array.setitem(index, newvalue)
 
-def do_setarrayitem_raw_int(array, index, newvalue):
+def do_setarrayitem_raw_int(array, index, newvalue, itemsize):
     array = array.adr.ptr
     ITEMTYPE = lltype.typeOf(array).TO.OF
-    newvalue = cast_from_int(ITEMTYPE, newvalue)
+    TYPE = symbolic.Size2Type[itemsize]
+    if TYPE.OF != ITEMTYPE:
+        array = rffi.cast(lltype.Ptr(TYPE), array)
+    newvalue = cast_from_int(TYPE.OF, newvalue)
     array._obj.setitem(index, newvalue)
 
 def do_setarrayitem_gc_float(array, index, newvalue):
@@ -1580,18 +1607,6 @@ do_setinteriorfield_gc_int = new_setinteriorfield_gc(cast_from_int)
 do_setinteriorfield_gc_float = new_setinteriorfield_gc(cast_from_floatstorage)
 do_setinteriorfield_gc_ptr = new_setinteriorfield_gc(cast_from_ptr)
 
-def new_setinteriorfield_raw(cast_func, ffitype):
-    def do_setinteriorfield_raw(array, index, newvalue, width, ofs):
-        addr = rffi.cast(rffi.VOIDP, array)
-        for TYPE, ffitype2 in clibffi.ffitype_map:
-            if ffitype2 is ffitype:
-                newvalue = cast_func(TYPE, newvalue)
-                break
-        return libffi.array_setitem(ffitype, width, addr, index, ofs, newvalue)
-    return do_setinteriorfield_raw
-do_setinteriorfield_raw_int = new_setinteriorfield_raw(cast_from_int, libffi.types.slong)
-do_setinteriorfield_raw_float = new_setinteriorfield_raw(cast_from_floatstorage, libffi.types.double)
-
 def do_setfield_raw_int(struct, fieldnum, newvalue):
     STRUCT, fieldname = symbolic.TokenToField[fieldnum]
     ptr = cast_from_int(lltype.Ptr(STRUCT), struct)
@@ -1612,17 +1627,6 @@ def do_setfield_raw_ptr(struct, fieldnum, newvalue):
     FIELDTYPE = getattr(STRUCT, fieldname)
     newvalue = cast_from_ptr(FIELDTYPE, newvalue)
     setattr(ptr, fieldname, newvalue)
-
-def do_setfield_raw_dynamic(struct, fielddescr, newvalue):
-    from pypy.rlib import libffi
-    addr = cast_from_int(rffi.VOIDP, struct)
-    ofs = fielddescr.ofs
-    if fielddescr.is_pointer_field():
-        assert False, 'fixme'
-    elif fielddescr.is_float_field():
-        assert False, 'fixme'
-    else:
-        libffi._struct_setfield(lltype.Signed, addr, ofs, newvalue)
 
 def do_newstr(length):
     x = rstr.mallocstr(length)
@@ -1922,6 +1926,7 @@ setannotation(do_getfield_raw_float, s_FloatStorage)
 setannotation(do_getinteriorfield_gc_int, annmodel.SomeInteger())
 setannotation(do_getinteriorfield_gc_ptr, annmodel.SomePtr(llmemory.GCREF))
 setannotation(do_getinteriorfield_gc_float, s_FloatStorage)
+setannotation(do_raw_load_int, annmodel.SomeInteger())
 setannotation(do_new, annmodel.SomePtr(llmemory.GCREF))
 setannotation(do_new_array, annmodel.SomePtr(llmemory.GCREF))
 setannotation(do_setarrayitem_gc_int, annmodel.s_None)
@@ -1938,6 +1943,7 @@ setannotation(do_setfield_raw_float, annmodel.s_None)
 setannotation(do_setinteriorfield_gc_int, annmodel.s_None)
 setannotation(do_setinteriorfield_gc_ptr, annmodel.s_None)
 setannotation(do_setinteriorfield_gc_float, annmodel.s_None)
+setannotation(do_raw_store_int, annmodel.s_None)
 setannotation(do_newstr, annmodel.SomePtr(llmemory.GCREF))
 setannotation(do_strsetitem, annmodel.s_None)
 setannotation(do_newunicode, annmodel.SomePtr(llmemory.GCREF))

@@ -5,6 +5,9 @@
 #pragma link off all functions;
 
 #pragma link C++ namespace fragile;
+#pragma link C++ namespace fragile::nested1;
+#pragma link C++ namespace fragile::nested1::nested2;
+#pragma link C++ namespace fragile::nested1::nested2::nested3;
 
 #pragma link C++ class fragile::A;
 #pragma link C++ class fragile::B;
@@ -16,6 +19,9 @@
 #pragma link C++ class fragile::H;
 #pragma link C++ class fragile::I;
 #pragma link C++ class fragile::J;
+#pragma link C++ class fragile::nested1::A;
+#pragma link C++ class fragile::nested1::nested2::A;
+#pragma link C++ class fragile::nested1::nested2::nested3::A;
 
 #pragma link C++ variable fragile::gI;
 

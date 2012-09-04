@@ -370,15 +370,17 @@ class TestCall(BaseTestPyPyC):
             # make sure that the "block" is not allocated
             ...
             i20 = force_token()
-            p22 = new_with_vtable(19511408)
+            p22 = new_with_vtable(...)
             p24 = new_array(1, descr=<ArrayP .>)
             p26 = new_with_vtable(ConstClass(W_ListObject))
+            {{{
             setfield_gc(p0, i20, descr=<FieldS .*PyFrame.vable_token .*>)
+            setfield_gc(p22, 1, descr=<FieldU pypy.interpreter.argument.Arguments.inst__jit_few_keywords .*>)
             setfield_gc(p26, ConstPtr(ptr22), descr=<FieldP pypy.objspace.std.listobject.W_ListObject.inst_strategy .*>)
             setarrayitem_gc(p24, 0, p26, descr=<ArrayP .>)
             setfield_gc(p22, p24, descr=<FieldP .*Arguments.inst_arguments_w .*>)
-            setfield_gc(p22, 1, descr=<FieldU .*Arguments.inst__jit_few_keywords .*>)
-            p32 = call_may_force(11376960, p18, p22, descr=<Callr . rr EF=6>)
+            }}}
+            p32 = call_may_force(..., p18, p22, descr=<Callr . rr EF=6>)
             ...
         """)
 

@@ -19,6 +19,17 @@ rsyncignore = ['_cache']
 #
 option = None
 
+
+def braindead_deindent(self):
+    """monkeypatch that wont end up doing stupid in the python tokenizer"""
+    text = '\n'.join(self.lines)
+    short = py.std.textwrap.dedent(text)
+    newsource = py.code.Source()
+    newsource.lines[:] = short.splitlines()
+    return newsource
+
+py.code.Source.deindent = braindead_deindent
+
 def pytest_report_header():
     return "pytest-%s from %s" %(pytest.__version__, pytest.__file__)
 
@@ -185,6 +196,9 @@ class TinyObjSpace(object):
 
     def delslice(self, obj, *args):
         obj.__delslice__(*args)
+
+    def is_w(self, obj1, obj2):
+        return obj1 is obj2
 
 def translation_test_so_skip_if_appdirect():
     if option.runappdirect:

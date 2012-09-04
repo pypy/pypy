@@ -3,8 +3,8 @@
 
 from pypy.rlib import rerased, jit
 from pypy.objspace.std.dictmultiobject import (DictStrategy,
+                                               create_iterator_classes,
                                                EmptyDictStrategy,
-                                               IteratorImplementation,
                                                ObjectDictStrategy,
                                                StringDictStrategy)
 
@@ -38,9 +38,6 @@ class KwargsDictStrategy(DictStrategy):
 
     def _never_equal_to(self, w_lookup_type):
         return False
-
-    def iter(self, w_dict):
-        return KwargsDictIterator(self.space, self, w_dict)
 
     def w_keys(self, w_dict):
         return self.space.newlist([self.space.wrap(key) for key in self.unerase(w_dict.dstorage)[0]])
@@ -157,19 +154,24 @@ class KwargsDictStrategy(DictStrategy):
         keys, values_w = self.unerase(w_dict.dstorage)
         return keys[:], values_w[:] # copy to make non-resizable
 
+    def getiterkeys(self, w_dict):
+        return iter(self.unerase(w_dict.dstorage)[0])
+    def getitervalues(self, w_dict):
+        return iter(self.unerase(w_dict.dstorage)[1])
+    def getiteritems(self, w_dict):
+        keys = self.unerase(w_dict.dstorage)[0]
+        return iter(range(len(keys)))
+    def wrapkey(space, key):
+        return space.wrap(key)
 
-class KwargsDictIterator(IteratorImplementation):
-    def __init__(self, space, strategy, dictimplementation):
-        IteratorImplementation.__init__(self, space, strategy, dictimplementation)
-        keys, values_w = strategy.unerase(self.dictimplementation.dstorage)
-        self.iterator = iter(range(len(keys)))
-        # XXX this potentially leaks
-        self.keys = keys
-        self.values_w = values_w
+def next_item(self):
+    strategy = self.strategy
+    assert isinstance(strategy, KwargsDictStrategy)
+    for i in self.iterator:
+        keys, values_w = strategy.unerase(
+            self.dictimplementation.dstorage)
+        return self.space.wrap(keys[i]), values_w[i]
+    else:
+        return None, None
 
-    def next_entry(self):
-        # note that this 'for' loop only runs once, at most
-        for i in self.iterator:
-            return self.space.wrap(self.keys[i]), self.values_w[i]
-        else:
-            return None, None
+create_iterator_classes(KwargsDictStrategy, override_next_item=next_item)

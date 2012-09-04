@@ -98,7 +98,7 @@
 						r = Py_ARITHMETIC_RIGHT_SHIFT(PY_LONG_LONG,x, (y))
 #define OP_ULLONG_RSHIFT(x,y,r) CHECK_SHIFT_RANGE(y, PYPY_LONGLONG_BIT); \
 						r = (x) >> (y)
-
+#define OP_LLLONG_RSHIFT(x,y,r)  r = x >> y
 
 #define OP_INT_LSHIFT(x,y,r)    CHECK_SHIFT_RANGE(y, PYPY_LONG_BIT); \
 							r = (x) << (y)
@@ -106,6 +106,7 @@
 							r = (x) << (y)
 #define OP_LLONG_LSHIFT(x,y,r)  CHECK_SHIFT_RANGE(y, PYPY_LONGLONG_BIT); \
 							r = (x) << (y)
+#define OP_LLLONG_LSHIFT(x,y,r)  r = x << y
 #define OP_ULLONG_LSHIFT(x,y,r) CHECK_SHIFT_RANGE(y, PYPY_LONGLONG_BIT); \
 							r = (x) << (y)
 
@@ -120,6 +121,7 @@
 #define OP_UINT_FLOORDIV(x,y,r)   r = (x) / (y)
 #define OP_LLONG_FLOORDIV(x,y,r)  r = (x) / (y)
 #define OP_ULLONG_FLOORDIV(x,y,r) r = (x) / (y)
+#define OP_LLLONG_FLOORDIV(x,y,r)  r = (x) / (y)
 
 #define OP_INT_FLOORDIV_OVF(x,y,r)                      \
 	if ((y) == -1 && (x) == SIGNED_MIN)               \
@@ -142,12 +144,19 @@
 	    { FAIL_ZER("integer division"); r=0; }      \
 	else                                            \
 	    r = (x) / (y)
+
 #define OP_ULLONG_FLOORDIV_ZER(x,y,r)                           \
 	if ((y) == 0)                                           \
 	    { FAIL_ZER("unsigned integer division"); r=0; }     \
 	else                                                    \
 	    r = (x) / (y)
-
+	    
+#define OP_LLLONG_FLOORDIV_ZER(x,y,r)                    \
+        if ((y) == 0)                                   \
+            { FAIL_ZER("integer division"); r=0; }      \
+        else                                            \
+            r = (x) / (y)
+            
 #define OP_INT_FLOORDIV_OVF_ZER(x,y,r)                  \
 	if ((y) == 0)                                   \
 	    { FAIL_ZER("integer division"); r=0; }      \
@@ -160,6 +169,7 @@
 #define OP_UINT_MOD(x,y,r)    r = (x) % (y)
 #define OP_LLONG_MOD(x,y,r)   r = (x) % (y)
 #define OP_ULLONG_MOD(x,y,r)  r = (x) % (y)
+#define OP_LLLONG_MOD(x,y,r)   r = (x) % (y)
 
 #define OP_INT_MOD_OVF(x,y,r)                           \
 	if ((y) == -1 && (x) == SIGNED_MIN)               \
@@ -187,6 +197,12 @@
 	else                                                    \
 	    r = (x) % (y)
 
+#define OP_LLLONG_MOD_ZER(x,y,r)                         \
+        if ((y) == 0)                                   \
+            { FAIL_ZER("integer modulo"); r=0; }        \
+        else                                            \
+            r = (x) % (y)
+            
 #define OP_INT_MOD_OVF_ZER(x,y,r)                       \
 	if ((y) == 0)                                   \
 	    { FAIL_ZER("integer modulo"); r=0; }        \
@@ -206,11 +222,13 @@
 #define OP_CAST_UINT_TO_INT(x,r)    r = (Signed)(x)
 #define OP_CAST_INT_TO_UINT(x,r)    r = (Unsigned)(x)
 #define OP_CAST_INT_TO_LONGLONG(x,r) r = (long long)(x)
+#define OP_CAST_INT_TO_LONGLONGLONG(x,r) r = (__int128)(x)
 #define OP_CAST_CHAR_TO_INT(x,r)    r = (Signed)((unsigned char)(x))
 #define OP_CAST_INT_TO_CHAR(x,r)    r = (char)(x)
 #define OP_CAST_PTR_TO_INT(x,r)     r = (Signed)(x)    /* XXX */
 
 #define OP_TRUNCATE_LONGLONG_TO_INT(x,r) r = (Signed)(x)
+#define OP_TRUNCATE_LONGLONGLONG_TO_INT(x,r) r = (Signed)(x)
 
 #define OP_CAST_UNICHAR_TO_INT(x,r)    r = (Signed)((Unsigned)(x)) /*?*/
 #define OP_CAST_INT_TO_UNICHAR(x,r)    r = (unsigned int)(x)
@@ -290,6 +308,11 @@ long long op_llong_mul_ovf(long long a, long long b)
 #define OP_LLONG_ABS     OP_INT_ABS
 #define OP_LLONG_INVERT  OP_INT_INVERT
 
+#define OP_LLLONG_IS_TRUE OP_INT_IS_TRUE
+#define OP_LLLONG_NEG     OP_INT_NEG
+#define OP_LLLONG_ABS     OP_INT_ABS
+#define OP_LLLONG_INVERT  OP_INT_INVERT
+
 #define OP_LLONG_ADD OP_INT_ADD
 #define OP_LLONG_SUB OP_INT_SUB
 #define OP_LLONG_MUL OP_INT_MUL
@@ -302,6 +325,19 @@ long long op_llong_mul_ovf(long long a, long long b)
 #define OP_LLONG_AND    OP_INT_AND
 #define OP_LLONG_OR     OP_INT_OR
 #define OP_LLONG_XOR    OP_INT_XOR
+
+#define OP_LLLONG_ADD OP_INT_ADD
+#define OP_LLLONG_SUB OP_INT_SUB
+#define OP_LLLONG_MUL OP_INT_MUL
+#define OP_LLLONG_LT  OP_INT_LT
+#define OP_LLLONG_LE  OP_INT_LE
+#define OP_LLLONG_EQ  OP_INT_EQ
+#define OP_LLLONG_NE  OP_INT_NE
+#define OP_LLLONG_GT  OP_INT_GT
+#define OP_LLLONG_GE  OP_INT_GE
+#define OP_LLLONG_AND    OP_INT_AND
+#define OP_LLLONG_OR     OP_INT_OR
+#define OP_LLLONG_XOR    OP_INT_XOR
 
 #define OP_ULLONG_IS_TRUE OP_LLONG_IS_TRUE
 #define OP_ULLONG_INVERT  OP_LLONG_INVERT

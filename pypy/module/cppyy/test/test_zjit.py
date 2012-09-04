@@ -6,6 +6,9 @@ from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.interpreter.baseobjspace import InternalSpaceCache, W_Root
 
 from pypy.module.cppyy import interp_cppyy, capi
+# These tests are for the backend that support the fast path only.
+if capi.identify() == 'CINT':
+    py.test.skip("CINT does not support fast path")
 
 # load cpyext early, or its global vars are counted as leaks in the test
 # (note that the module is not otherwise used in the test itself)
@@ -44,6 +47,12 @@ class FakeType(FakeBase):
         self.__name__ = name
     def getname(self, space, name):
         return self.name
+class FakeBuffer(FakeBase):
+    typedname = "buffer"
+    def __init__(self, val):
+        self.val = val
+    def get_raw_address(self):
+        raise ValueError("no raw buffer")
 class FakeException(FakeType):
     def __init__(self, name):
         FakeType.__init__(self, name)
@@ -117,6 +126,9 @@ class FakeSpace(object):
     def interpclass_w(self, w_obj):
         return w_obj
 
+    def buffer_w(self, w_obj):
+        return FakeBuffer(w_obj)
+
     def exception_match(self, typ, sub):
         return typ is sub
 
@@ -143,9 +155,15 @@ class FakeSpace(object):
     r_longlong_w = int_w
     r_ulonglong_w = uint_w
 
+    def is_(self, w_obj1, w_obj2):
+        return w_obj1 is w_obj2
+
     def isinstance_w(self, w_obj, w_type):
         assert isinstance(w_obj, FakeBase)
         return w_obj.typename == w_type.name
+
+    def is_true(self, w_obj):
+        return not not w_obj
 
     def type(self, w_obj):
         return FakeType("fake")
@@ -169,9 +187,6 @@ class FakeSpace(object):
 
 class TestFastPathJIT(LLJitMixin):
     def _run_zjit(self, method_name):
-        if capi.identify() == 'CINT':   # CINT does not support fast path
-            return
-
         space = FakeSpace()
         drv = jit.JitDriver(greens=[], reds=["i", "inst", "cppmethod"])
         def f():

@@ -65,6 +65,10 @@ class UnicodeRepr(BaseOOStringRepr, AbstractUnicodeRepr):
     lowleveltype = ootype.Unicode
     basetype = basestring
 
+    def __init__(self, *args):
+        BaseOOStringRepr.__init__(self, *args)
+        AbstractUnicodeRepr.__init__(self, *args)
+
     def make_string(self, value):
         return ootype.make_unicode(value)
 
@@ -113,6 +117,8 @@ class __extend__(pairtype(UniCharRepr, UnicodeRepr)):
         return NotImplemented
 
 class LLHelpers(AbstractLLHelpers):
+
+    from pypy.rpython.annlowlevel import oostr as llstr, oounicode as llunicode
 
     def ll_chr2str(ch):
         return ootype.oostring(ch, -1)
