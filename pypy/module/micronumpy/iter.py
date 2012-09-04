@@ -44,6 +44,7 @@ dimension, perhaps we could overflow times in one big step.
 
 from pypy.module.micronumpy.strides import enumerate_chunks,\
      calculate_slice_strides
+from pypy.module.micronumpy.base import W_NDimArray
 from pypy.rlib import jit
 
 # structures to describe slicing
@@ -56,13 +57,12 @@ class RecordChunk(BaseChunk):
         self.name = name
 
     def apply(self, arr):
-        from pypy.module.micronumpy.interp_numarray import slice_w
-
         arr = arr.get_concrete()
         ofs, subdtype = arr.dtype.fields[self.name]
         # strides backstrides are identical, ofs only changes start
-        return slice_w(arr.start + ofs, arr.strides[:], arr.backstrides[:],
-                       arr.shape[:], arr, subdtype)
+        return W_NDimArray.new_slice(arr.start + ofs, arr.strides[:],
+                                     arr.backstrides[:],
+                                     arr.shape[:], arr, subdtype)
 
 class Chunks(BaseChunk):
     def __init__(self, l):
@@ -80,14 +80,12 @@ class Chunks(BaseChunk):
         return shape[:] + old_shape[s:]
 
     def apply(self, arr):
-        from pypy.module.micronumpy.interp_numarray import slice_w
-
         shape = self.extend_shape(arr.shape)
         r = calculate_slice_strides(arr.shape, arr.start, arr.strides,
                                     arr.backstrides, self.l)
         _, start, strides, backstrides = r
-        return slice_w(start, strides[:], backstrides[:],
-                           shape[:], arr)
+        return W_NDimArray.new_slice(start, strides[:], backstrides[:],
+                                     shape[:], arr)
 
 
 class Chunk(BaseChunk):

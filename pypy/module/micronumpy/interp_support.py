@@ -5,12 +5,11 @@ from pypy.module.micronumpy import interp_dtype
 from pypy.objspace.std.strutil import strip_spaces
 from pypy.rlib import jit
 from pypy.rlib.rarithmetic import maxint
+from pypy.module.micronumpy.base import W_NDimArray
 
 FLOAT_SIZE = rffi.sizeof(lltype.Float)
 
 def _fromstring_text(space, s, count, sep, length, dtype):
-    from pypy.module.micronumpy.interp_numarray import W_NDimArray
-
     sep_stripped = strip_spaces(sep)
     skip_bad_vals = len(sep_stripped) == 0
 
@@ -52,7 +51,7 @@ def _fromstring_text(space, s, count, sep, length, dtype):
         raise OperationError(space.w_ValueError, space.wrap(
             "string is smaller than requested size"))
 
-    a = W_NDimArray([num_items], dtype=dtype)
+    a = W_NDimArray.from_shape([num_items], dtype=dtype)
     ai = a.create_iter()
     for val in items:
         a.dtype.setitem(a, ai.offset, val)
@@ -61,8 +60,6 @@ def _fromstring_text(space, s, count, sep, length, dtype):
     return space.wrap(a)
 
 def _fromstring_bin(space, s, count, length, dtype):
-    from pypy.module.micronumpy.interp_numarray import W_NDimArray
-    
     itemsize = dtype.itemtype.get_element_size()
     assert itemsize >= 0
     if count == -1:
@@ -75,7 +72,7 @@ def _fromstring_bin(space, s, count, length, dtype):
         raise OperationError(space.w_ValueError, space.wrap(
             "string is smaller than requested size"))
         
-    a = W_NDimArray([count], dtype=dtype)
+    a = W_NDimArray.from_shape([count], dtype=dtype)
     fromstring_loop(a, dtype, itemsize, s)
     return space.wrap(a)
 

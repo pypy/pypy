@@ -3,11 +3,11 @@
 signatures
 """
 
-from pypy.module.micronumpy.support import create_array
+from pypy.module.micronumpy.base import W_NDimArray
 
 def call2(shape, func, name, calc_dtype, res_dtype, w_lhs, w_rhs, out):
     if out is None:
-        out = create_array(shape, res_dtype)
+        out = W_NDimArray.from_shape(shape, res_dtype)
     left_iter = w_lhs.create_iter(shape)
     right_iter = w_rhs.create_iter(shape)
     out_iter = out.create_iter(shape)
@@ -23,7 +23,7 @@ def call2(shape, func, name, calc_dtype, res_dtype, w_lhs, w_rhs, out):
 
 def call1(shape, func, name , calc_dtype, res_dtype, w_obj, out):
     if out is None:
-        out = create_array(shape, res_dtype)
+        out = W_NDimArray.from_shape(shape, res_dtype)
     obj_iter = w_obj.create_iter(shape)
     out_iter = out.create_iter(shape)
     while not out_iter.done():

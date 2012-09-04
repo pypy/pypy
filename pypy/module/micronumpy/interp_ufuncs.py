@@ -8,7 +8,7 @@ from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.module.micronumpy.interp_support import unwrap_axis_arg
 from pypy.module.micronumpy.strides import shape_agreement
-from pypy.module.micronumpy.support import convert_to_array
+from pypy.module.micronumpy.base import convert_to_array, W_NDimArray
 
 def done_if_true(dtype, val):
     return dtype.itemtype.bool(val)
@@ -38,7 +38,6 @@ class W_Ufunc(Wrappable):
         return self.identity
 
     def descr_call(self, space, __args__):
-        from interp_numarray import W_NDimArray
         args_w, kwds_w = __args__.unpack()
         # it occurs to me that we don't support any datatypes that
         # require casting, change it later when we do
@@ -141,8 +140,6 @@ class W_Ufunc(Wrappable):
 
     def reduce(self, space, w_obj, multidim, promote_to_largest, w_axis,
                keepdims=False, out=None):
-        from pypy.module.micronumpy.interp_numarray import W_NDimArray
-
         if self.argcount != 2:
             raise OperationError(space.w_ValueError, space.wrap("reduce only "
                 "supported for binary functions"))
@@ -196,7 +193,7 @@ class W_Ufunc(Wrappable):
                 #        "mismatched  dtypes"))
                 return self.do_axis_reduce(obj, out.find_dtype(), axis, out)
             else:
-                result = W_NDimArray(shape, dtype)
+                result = W_NDimArray.from_shape(shape, dtype)
                 return self.do_axis_reduce(obj, dtype, axis, result)
         if out:
             if len(out.get_shape())>0:
@@ -232,7 +229,6 @@ class W_Ufunc1(W_Ufunc):
         self.bool_result = bool_result
 
     def call(self, space, args_w):
-        from pypy.module.micronumpy.interp_numarray import W_NDimArray
         if len(args_w)<2:
             [w_obj] = args_w
             out = None
@@ -289,8 +285,6 @@ class W_Ufunc2(W_Ufunc):
 
     @jit.unroll_safe
     def call(self, space, args_w):
-        from pypy.module.micronumpy.interp_numarray import W_NDimArray
-        
         if len(args_w) > 2:
             [w_lhs, w_rhs, w_out] = args_w
         else:

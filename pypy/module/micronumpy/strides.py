@@ -1,5 +1,6 @@
 from pypy.rlib import jit
 from pypy.interpreter.error import OperationError
+from pypy.module.micronumpy.base import W_NDimArray
 
 @jit.look_inside_iff(lambda chunks: jit.isconstant(len(chunks)))
 def enumerate_chunks(chunks):
@@ -48,7 +49,6 @@ def calculate_broadcast_strides(strides, backstrides, orig_shape, res_shape):
     return rstrides, rbackstrides
 
 def is_single_elem(space, w_elem, is_rec_type):
-    from pypy.module.micronumpy.interp_numarray import W_NDimArray
     if (is_rec_type and space.isinstance_w(w_elem, space.w_tuple)):
         return True
     if (space.isinstance_w(w_elem, space.w_tuple) or
@@ -105,8 +105,6 @@ def to_coords(space, shape, size, order, w_item_or_slice):
     return coords, step, lngth
 
 def shape_agreement(space, shape1, w_arr2):
-    from pypy.module.micronumpy.interp_numarray import W_NDimArray
-
     if w_arr2 is None:
         return shape1
     assert isinstance(w_arr2, W_NDimArray)
@@ -171,12 +169,6 @@ def get_shape_from_iterable(space, old_size, w_iterable):
         neg_dim = -1
         batch = space.listview(w_iterable)
         new_size = 1
-        if len(batch) < 1:
-            if old_size == 1:
-                # Scalars can have an empty size.
-                new_size = 1
-            else:
-                new_size = 0
         new_shape = []
         i = 0
         for elem in batch:

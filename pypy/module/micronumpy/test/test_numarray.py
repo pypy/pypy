@@ -26,7 +26,7 @@ def create_slice(a, chunks):
     return Chunks(chunks).apply(a).implementation
 
 def create_array(*args, **kwargs):
-    return W_NDimArray(*args, **kwargs).implementation
+    return W_NDimArray.from_shape(*args, **kwargs).implementation
 
 class TestNumArrayDirect(object):
     def newslice(self, *args):

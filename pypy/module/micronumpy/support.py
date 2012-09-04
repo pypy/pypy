@@ -8,24 +8,18 @@ def product(s):
         i *= x
     return i
 
-def convert_to_array(space, w_obj):
-    from pypy.module.micronumpy.interp_numarray import W_NDimArray, array,\
-         scalar_w
-    from pypy.module.micronumpy import interp_ufuncs
-    
-    if isinstance(w_obj, W_NDimArray):
-        return w_obj
-    elif space.issequence_w(w_obj):
-        # Convert to array.
-        return array(space, w_obj, w_order=None)
-    else:
-        # If it's a scalar
-        dtype = interp_ufuncs.find_dtype_for_scalar(space, w_obj)
-        return scalar_w(space, dtype, w_obj)
-
-def create_array(shape, dtype):
-    """ Convinient shortcut to avoid circular imports
-    """
-    from pypy.module.micronumpy.interp_numarray import W_NDimArray
-    
-    return W_NDimArray(shape, dtype)
+def calc_strides(shape, dtype, order):
+    strides = []
+    backstrides = []
+    s = 1
+    shape_rev = shape[:]
+    if order == 'C':
+        shape_rev.reverse()
+    for sh in shape_rev:
+        strides.append(s * dtype.get_size())
+        backstrides.append(s * (sh - 1) * dtype.get_size())
+        s *= sh
+    if order == 'C':
+        strides.reverse()
+        backstrides.reverse()
+    return strides, backstrides

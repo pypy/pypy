@@ -19,8 +19,8 @@ class ScalarIterator(base.BaseArrayIterator):
         return False
 
 class Scalar(base.BaseArrayImplementation):
-    def __init__(self, dtype):
-        self.value = None
+    def __init__(self, dtype, value=None):
+        self.value = value
         self.dtype = dtype
 
     def is_scalar(self):
@@ -31,9 +31,6 @@ class Scalar(base.BaseArrayImplementation):
 
     def create_iter(self, shape):
         return ScalarIterator(self.value)
-
-    def set_scalar_value(self, value):
-        self.value = value
 
     def get_scalar_value(self):
         return self.value
@@ -57,3 +54,6 @@ class Scalar(base.BaseArrayImplementation):
         raise OperationError(space.w_IndexError,
                              space.wrap("scalars cannot be indexed"))
         
+    def set_shape(self, new_shape):
+        import pdb
+        pdb.set_trace()

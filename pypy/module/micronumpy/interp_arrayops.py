@@ -1,5 +1,5 @@
 
-from pypy.module.micronumpy.support import convert_to_array, create_array
+from pypy.module.micronumpy.base import convert_to_array, W_NDimArray
 from pypy.module.micronumpy import loop
 from pypy.interpreter.error import OperationError
 
@@ -70,5 +70,5 @@ def where(space, w_arr, w_x=None, w_y=None):
     x = convert_to_array(space, w_x)
     y = convert_to_array(space, w_y)
     dtype = arr.get_dtype()
-    out = create_array(arr.get_shape(), dtype)
+    out = W_NDimArray.from_shape(arr.get_shape(), dtype)
     return loop.where(out, arr, x, y, dtype)

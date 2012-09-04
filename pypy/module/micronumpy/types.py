@@ -4,12 +4,11 @@ import struct
 
 from pypy.interpreter.error import OperationError
 from pypy.module.micronumpy import interp_boxes
-from pypy.module.micronumpy.support import create_array
 from pypy.objspace.std.floatobject import float2string
 from pypy.rlib import rfloat, clibffi
 from pypy.rlib.rawstorage import (alloc_raw_storage, raw_storage_setitem,
                                   raw_storage_getitem)
-from pypy.rlib.objectmodel import specialize, we_are_translated
+from pypy.rlib.objectmodel import specialize
 from pypy.rlib.rarithmetic import widen, byteswap
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.rstruct.runpack import runpack
