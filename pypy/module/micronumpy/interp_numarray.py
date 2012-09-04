@@ -140,7 +140,25 @@ class __extend__(W_NDimArray):
     def descr_get_transpose(self, space):
         return W_NDimArray(self.implementation.transpose())
 
-    # --------------------- binary operations ----------------------------
+    # --------------------- operations ----------------------------
+
+    def _unaryop_impl(ufunc_name):
+        def impl(self, space, w_out=None):
+            return getattr(interp_ufuncs.get(space), ufunc_name).call(space,
+                                                                [self, w_out])
+        return func_with_new_name(impl, "unaryop_%s_impl" % ufunc_name)
+
+    descr_pos = _unaryop_impl("positive")
+    descr_neg = _unaryop_impl("negative")
+    descr_abs = _unaryop_impl("absolute")
+    descr_invert = _unaryop_impl("invert")
+
+    def descr_nonzero(self, space):
+        if self.get_size() > 1:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()"))
+        iter = self.create_iter(self.shape)
+        return space.is_true(iter.getitem())
 
     def _binop_impl(ufunc_name):
         def impl(self, space, w_other, w_out=None):
@@ -185,6 +203,23 @@ class __extend__(W_NDimArray):
         return func_with_new_name(impl, "binop_right_%s_impl" % ufunc_name)
 
     descr_radd = _binop_right_impl("add")
+    descr_rsub = _binop_right_impl("subtract")
+    descr_rmul = _binop_right_impl("multiply")
+    descr_rdiv = _binop_right_impl("divide")
+    descr_rtruediv = _binop_right_impl("true_divide")
+    descr_rfloordiv = _binop_right_impl("floor_divide")
+    descr_rmod = _binop_right_impl("mod")
+    descr_rpow = _binop_right_impl("power")
+    descr_rlshift = _binop_right_impl("left_shift")
+    descr_rrshift = _binop_right_impl("right_shift")
+    descr_rand = _binop_right_impl("bitwise_and")
+    descr_ror = _binop_right_impl("bitwise_or")
+    descr_rxor = _binop_right_impl("bitwise_xor")
+
+    def descr_rdivmod(self, space, w_other):
+        w_quotient = self.descr_rdiv(space, w_other)
+        w_remainder = self.descr_rmod(space, w_other)
+        return space.newtuple([w_quotient, w_remainder])
 
     # ----------------------- reduce -------------------------------
 
@@ -244,7 +279,14 @@ W_NDimArray.typedef = TypeDef(
 
     __repr__ = interp2app(W_NDimArray.descr_repr),
 
+    __pos__ = interp2app(W_NDimArray.descr_pos),
+    __neg__ = interp2app(W_NDimArray.descr_neg),
+    __abs__ = interp2app(W_NDimArray.descr_abs),
+    __invert__ = interp2app(W_NDimArray.descr_invert),
+    __nonzero__ = interp2app(W_NDimArray.descr_nonzero),
+
     __add__ = interp2app(W_NDimArray.descr_add),
+    __sub__ = interp2app(W_NDimArray.descr_sub),
     __mul__ = interp2app(W_NDimArray.descr_mul),
     __div__ = interp2app(W_NDimArray.descr_div),
     __truediv__ = interp2app(W_NDimArray.descr_truediv),
@@ -259,6 +301,19 @@ W_NDimArray.typedef = TypeDef(
     __xor__ = interp2app(W_NDimArray.descr_xor),
 
     __radd__ = interp2app(W_NDimArray.descr_radd),
+    __rsub__ = interp2app(W_NDimArray.descr_rsub),
+    __rmul__ = interp2app(W_NDimArray.descr_rmul),
+    __rdiv__ = interp2app(W_NDimArray.descr_rdiv),
+    __rtruediv__ = interp2app(W_NDimArray.descr_rtruediv),
+    __rfloordiv__ = interp2app(W_NDimArray.descr_rfloordiv),
+    __rmod__ = interp2app(W_NDimArray.descr_rmod),
+    __rdivmod__ = interp2app(W_NDimArray.descr_rdivmod),
+    __rpow__ = interp2app(W_NDimArray.descr_rpow),
+    __rlshift__ = interp2app(W_NDimArray.descr_rlshift),
+    __rrshift__ = interp2app(W_NDimArray.descr_rrshift),
+    __rand__ = interp2app(W_NDimArray.descr_rand),
+    __ror__ = interp2app(W_NDimArray.descr_ror),
+    __rxor__ = interp2app(W_NDimArray.descr_rxor),
 
     __eq__ = interp2app(W_NDimArray.descr_eq),
     __ne__ = interp2app(W_NDimArray.descr_ne),
