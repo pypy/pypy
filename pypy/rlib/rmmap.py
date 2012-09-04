@@ -136,8 +136,9 @@ if _POSIX:
                                [PTR, size_t, size_t, rffi.ULONG], PTR)
 
     # this one is always safe
-    _, _get_page_size = external('getpagesize', [], rffi.INT)
-    _get_allocation_granularity = _get_page_size
+    _pagesize = rffi_platform.getintegerfunctionresult('getpagesize',
+                                                includes=includes)
+    _get_allocation_granularity = _get_page_size = lambda: _pagesize
 
 elif _MS_WINDOWS:
 
