@@ -256,6 +256,9 @@ def _encodeUCS4(result, ch):
 def unicode_encode_utf_8(s, size, errors, errorhandler=None):
     if errorhandler is None:
         errorhandler = raise_unicode_exception_encode
+    return unicode_encode_utf_8_impl(s, size, errors, errorhandler)
+
+def unicode_encode_utf_8_impl(s, size, errors, errorhandler):
     assert(size >= 0)
     result = StringBuilder(size)
     pos = 0

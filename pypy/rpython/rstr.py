@@ -50,9 +50,10 @@ class AbstractUnicodeRepr(AbstractStringRepr):
         self.runicode_encode_utf_8 = None
 
     def ensure_ll_encode_utf8(self):
-        from pypy.rlib.runicode import unicode_encode_utf_8
-        self.runicode_encode_utf_8 = func_with_new_name(unicode_encode_utf_8,
-                                                        'runicode_encode_utf_8')
+        from pypy.rlib.runicode import unicode_encode_utf_8_impl
+        self.runicode_encode_utf_8 = func_with_new_name(
+            unicode_encode_utf_8_impl,
+            'runicode_encode_utf_8_impl')
 
     def rtype_method_upper(self, hop):
         raise TypeError("Cannot do toupper on unicode string")
@@ -65,8 +66,14 @@ class AbstractUnicodeRepr(AbstractStringRepr):
         from pypy.rpython.annlowlevel import hlunicode
         s = hlunicode(ll_s)
         assert s is not None
-        bytes = self.runicode_encode_utf_8(s, len(s), 'strict')
+        bytes = self.runicode_encode_utf_8(s, len(s), 'strict',
+                                           self.ll_raise_unicode_exception_encode)
         return self.ll.llstr(bytes)
+
+    def ll_raise_unicode_exception_encode(self, errors, encoding, msg, u,
+                                          startingpos, endingpos):
+        raise UnicodeEncodeError(encoding, u, startingpos, endingpos, msg)
+    
 
 class __extend__(annmodel.SomeString):
     def rtyper_makerepr(self, rtyper):
