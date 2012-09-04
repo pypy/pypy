@@ -35,3 +35,5 @@ Support CFFI.  http://morepypy.blogspot.ch/2012/08/cffi-release-03.html
 .. branch: better-enforceargs
 .. branch: rpython-unicode-formatting
 .. branch: jit-opaque-licm
+.. branch: rpython-utf8
+Support for utf-8 encoding in RPython
