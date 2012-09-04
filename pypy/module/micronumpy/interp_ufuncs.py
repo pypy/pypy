@@ -209,6 +209,7 @@ class W_Ufunc(Wrappable):
         return res
 
     def do_axis_reduce(self, obj, dtype, axis, result):
+        xxx
         from pypy.module.micronumpy.interp_numarray import AxisReduce
         arr = AxisReduce(self.func, self.name, self.identity, obj.shape, dtype,
                          result, obj, axis)
@@ -251,15 +252,15 @@ class W_Ufunc1(W_Ufunc):
         else:
             res_dtype = calc_dtype
         if w_obj.is_scalar():
-            xxx
-            arr = self.func(calc_dtype, w_obj.value.convert_to(calc_dtype))
-            if isinstance(out,Scalar):
-                out.value = arr
-            elif isinstance(out, BaseArray):
-                out.fill(space, arr)
+            w_val = self.func(calc_dtype,
+                              w_obj.get_scalar_value().convert_to(calc_dtype))
+            if out is None:
+                return w_val
+            if out.is_scalar():
+                out.set_scalar_value(w_val)
             else:
-                out = arr
-            return space.wrap(out)
+                out.fill(space, w_val)
+            return out
         shape =  shape_agreement(space, w_obj.get_shape(), out)
         return loop.call1(shape, self.func, self.name, calc_dtype, res_dtype,
                           w_obj, out)

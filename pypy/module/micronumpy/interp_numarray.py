@@ -247,10 +247,10 @@ class __extend__(W_NDimArray):
 
     def descr_mean(self, space, w_axis=None, w_out=None):
         if space.is_w(w_axis, space.w_None):
-            w_denom = space.wrap(support.product(self.shape))
+            w_denom = space.wrap(self.get_size())
         else:
-            axis = unwrap_axis_arg(space, len(self.shape), w_axis)
-            w_denom = space.wrap(self.shape[axis])
+            axis = unwrap_axis_arg(space, len(self.get_shape()), w_axis)
+            w_denom = space.wrap(self.get_shape()[axis])
         return space.div(self.descr_sum_promote(space, w_axis, w_out), w_denom)
 
 
