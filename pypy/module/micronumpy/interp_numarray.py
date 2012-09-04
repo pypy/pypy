@@ -127,12 +127,14 @@ class __extend__(W_NDimArray):
         new_shape = get_shape_from_iterable(space, self.get_size(), w_shape)
         new_impl = self.implementation.reshape(space, new_shape)
         if new_impl is not None:
-            self.implementation = new_impl
-            return self
-        else:
-            # Create copy with contiguous data
-            arr = self.descr_copy(space)
+            return W_NDimArray(new_impl)
+        # Create copy with contiguous data
+        arr = self.descr_copy(space)
+        if arr.get_size() > 0:
             arr.implementation = arr.implementation.reshape(space, new_shape)
+            assert arr.implementation
+        else:
+            arr.implementation.shape = new_shape
         return arr
 
     def descr_get_transpose(self, space):
