@@ -31,7 +31,8 @@ def descr__new__(space, w_longtype, w_x=0, w_base=gateway.NoneNotWrapped):
                 from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
             return string_to_w_long(space, w_longtype,
                                     unicode_to_decimal_w(space, w_value))
-        elif space.isinstance_w(w_value, space.w_bytearray):
+        elif (space.isinstance_w(w_value, space.w_bytearray) or
+              space.isinstance_w(w_value, space.w_bytes)):
             strvalue = space.bufferstr_w(w_value)
             return string_to_w_long(space, w_longtype, strvalue.decode('latin-1'))
         else:

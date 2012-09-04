@@ -324,6 +324,9 @@ class AppTestLong:
         s = '\U0001D7CF\U0001D7CE' # 𝟏𝟎
         assert int(s) == 10
 
+    def test_long_from_bytes(self):
+        assert int(b'1234') == 1234
+
     def test_invalid_literal_message(self):
         try:
             int('hello àèìò')
