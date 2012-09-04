@@ -1,95 +1,142 @@
-==============================
-Cross-translating PyPy for ARM
-==============================
+=========================
+Cross-translating for ARM
+=========================
 
 
 Here we describe the setup required and the steps needed to follow to translate
-an interpreter using PyPy's translation toolchain to target ARM.
+an interpreter using the RPython translator to target ARM using a cross
+compilation toolchain.
 
-To translate an interpreter for an ARM based platform you can either cross
-translate, what we will describe below, or translate directly on the ARM based
-system following the normal translation steps, but this is not really feasible
-on most ARM powered devices.
+To translate an RPython program for ARM we can either
+translate directly on an ARM device following the normal translation steps. Unfortunately this is not really feasible on most ARM machines. The alternative is to cross-translate using a cross-compilation toolchain.
 
-To cross translate you run the translation toolchain on a more powerful
-machine and generate a binary for ARM using a cross compiler to compile the
-generated C code. There are several constraints when doing this. Specially we
-currently only support Linux as translation host and target platforms (tested
-with Ubuntu). Also you need a 32-bit PyPy or Python to run the translation
-toolchain.
+To cross-translate we run the translation on a more powerful (usually
+x86) machine and generate a binary for ARM using a cross-compiler to compile
+the generated C code. There are several constraints when doing this. In
+particular we currently only support Linux as translation host and target
+platforms (tested on Ubuntu). Also we need a 32-bit environment to run the
+translation. This can be done either on a 32bit host or in 32bit chroot.
 
 
 Requirements
 ------------
 
-The tools required to cross translate from Linux to a ARM based Linux are
+The tools required to cross translate from a Linux based host to an ARM based Linux target are:
 
 - A checkout of PyPy's arm-backend-2 branch.
-- The GCC arm cross compiler (on Ubuntu it is the gcc-arm-linux-gnueabi package) but other toolchains should also work.
-- Scratchbox 2, a cross-compilation engine (scratchbox2 Ubuntu package).
-- rootstock (rootstock Ubuntu package).
+- The GCC ARM cross compiler (on Ubuntu it is the ``gcc-arm-linux-gnueabi package``) but other toolchains should also work.
+- Scratchbox 2, a cross-compilation engine (``scratchbox2`` Ubuntu package).
 - A 32-bit PyPy or Python.
+- And the following (or corresponding) packages need to be installed to create an ARM based chroot:
 
-Setup
------
+  * ``debootstrap`` 
+  * ``schroot``
+  * ``binfmt-support``
+  * ``qemu-system``
+  * ``qemu-user-static``
 
-First we will need to create a rootfs image or tarball for the target distribution
-(Ubuntu natty in our case) containing the required packages to translate PyPy.
 
-::
+Creating a Qemu based ARM chroot
+--------------------------------
 
-  sudo rootstock --fqdn pypysb2 --login pypy --password pypy \
-                 --seed build-essential,libgc-dev,libffi-dev \
-                 --dist natty
+First we will need to create a rootfs containing the packages and dependencies
+required in order to translate PyPy or other interpreters. We are going to
+assume, that the files will be placed in ``/srv/chroot/precise_arm``.
 
-When the rootfs command finishes you should have an archive containing the
-created rootfs, create a directory and unpack the archive there. This directory
-is going to serve as the scratchbox2 environment.
-
-If you are using the gcc-arm-linux-gnueabi toolchain read the section
-Scracthbox 2 issues before continuing.
-
-Go into the directory containing the rootfs and create a Scratchbox 2 environment:
+Create the rootfs by calling:
 
 ::
 
-  sb2-init -n -c qemu-arm NAME /usr/bin/arm-linux-gnueabi-gcc or codesourcery compiler
+   mkdir -p /srv/chroot/precise_arm
+   qemu-debootstrap --variant=buildd --arch=armel precise /srv/chroot/precise_arm/  http://ports.ubuntu.com/ubuntu-ports/
 
-Where NAME is the name we choose for the sb2 environment.
+Next, copy the qemu-arm-static binary to the rootfs.
 
-Finally, using the newly created scratchbox run the sb2-built-libtool command. 
+:: 
+
+  cp /usr/bin/qemu-arm-static /srv/chroot/precise_arm/usr/bin/qemu-arm-static
+
+For easier configuration and management we will create a schroot pointing to
+the rootfs. We need to add a configuration block (like the one below) to the
+schroot configuration file in /etc/schroot/schroot.conf.
+
 
 ::
 
-  sb2 -t NAME /usr/bin/sb2-build-libtool  
+  [precise_arm]
+  directory=/srv/chroot/precise_arm
+  users=USERNAME
+  root-users=USERNAME
+  groups=users
+  aliases=default
+  type=directory
 
-Now you should have a working cross compilation toolchain in place
+
+To verify that everything is working in the chroot, running ``schroot -c
+precise_arm`` should start a shell running in the schroot environment using
+qemu-arm to execute the ARM binaries. Running ``uname -m`` in the chroot should 
+yeild a result like ``armv7l``. Showing that we are emulating an ARM system.
+
+Start the schroot as the user root in order to configure the apt sources and
+to install the following packages:
+
+
+::
+
+  schroot -c precise_arm -u root
+  echo "deb http://ports.ubuntu.com/ubuntu-ports/ precise main universe restricted" > /etc/apt/sources.list
+  apt-get update
+  apt-get install libffi-dev libgc-dev python-dev build-essential libncurses5-dev libbz2-dev
+
+
+Now all dependencies should be in place and we can exit the schroot environment.
+
+
+Configuring scratchbox2
+-----------------------
+
+To configure the scratchbox we need to cd into the root directory of the rootfs
+we created before. From there we can call the sb2 configuration tools which
+will take the current directory as the base directory for the scratchbox2
+environment.
+
+::
+
+  cd /srv/chroot/precise_arm
+  sb2-init -c `which qemu-arm` ARM `which arm-linux-gnueabi-gcc`
+
+This will create a scratchbox2 based environment called ARM that maps calls to
+gcc done within the scratchbox to the arm-linux-gnueabi-gcc outside the
+scratchbox. Now we should have a working cross compilation toolchain in place
+and can start cross-translating programs for ARM.
 
 Translation
 -----------
 
-Having performed all the preliminary steps you should now be able to cross
+Having performed all the preliminary steps we should now be able to cross
 translate a program for ARM.  You can use this_ minimal
 target to test your setup before applying it to a larger project.
 
-First you need to set two environment variables so the translator knows how to
-use the scratchbox environment. You need to set the **SB2** environment variable to point to
-the path of the unpacked rootfs and the **SB2OPT** should contain the command line
-options for the sb2 command. If our rootfs is in the folder /home/user/sb2 and the scratchbox
-environment is called "arm", the variables would be defined as follows.
+Before starting the translator we need to set two environment variables, so the
+translator knows how to use the scratchbox environment. We need to set the
+**SB2** environment variable to point to the rootfs and the **SB2OPT** should
+contain the command line options for the sb2 command. If our rootfs is in the
+folder /srv/chroot/precise_arm and the scratchbox environment is called "ARM",
+the variables would be defined as follows.
 
 
 ::
 
-  export SB2=~/sb2
-  export SB2OPT='-t arm'
-
+  export SB2=/srv/chroot/precise_arm
+  export SB2OPT='-t ARM'
 
 Once this is set, you can call the translator 
 
 ::
 
-  ~/path_to_pypy_checkout/pypy/translator/goal/translate.py -O1 --platform=arm target.py 
+  pypy ~/path_to_pypy_checkout/pypy/translator/goal/translate.py -O1 --platform=arm target.py
+
+If everything worked correctly this should yield an ARM binary. Running this binary in the ARM chroot or on an ARM device should produce the output ``"Hello World"``.
 
 .. _`this`:
 
@@ -101,45 +148,3 @@ Once this is set, you can call the translator
 
   def target(*args):
       return main, None
-
-
-Scracthbox 2 issues
--------------------
-
-At least on Ubuntu, compiling within the scratchbox will fail if you are using the 
-arm-linux-gnueabi-gcc compiler. There is a problem with Ubuntu's current version of
-scratchbox2, it is fixed in the upcoming release, but that does not help much right now. 
-This issue detects some configurations options wrong and adds some flags to the gcc calls that make them
-fail. To fix this there is the option to modify Scratchbox 2 itself. In this
-case you would need to change the file 
-
-::
-
-  /usr/share/scratchbox2/scripts/sb2-config-gcc-toolchain
-
-Find the line 
-
-::
-
-  echo "" | $GCC_FULLPATH -E - -Wno-poison-system-directories > /dev/null 2>&1
-
-and replace it with 
-
-::
-
-  echo "" | $GCC_FULLPATH -x c - -Wno-poison-system-directories > /dev/null 2>&1
-
-Alternatively after the call to sb2-build-libtool, mentioned above, fails you can edit the files  
-
-::
-
-  ~/.scratchbox2/NAME/sb2.config.d/gcc.config.(sh|lua) 
-
-removing every occurence of -Wno-poison-system-directories and then calling the command again
-
-::
-
-  sb2 -t NAME /usr/bin/sb2-build-libtool  
-
-Following one of the two approaches should yield a working setup.
-
