@@ -1237,19 +1237,22 @@ class FunctionWriter(object):
     def op_raw_free(self, result, ptr):
         self.op_direct_call(result, get_repr(raw_free), ptr)
 
-    def _get_addr(self, ptr_to, addr, incr):
-        t1 = self._tmp(PtrType(ptr_to))
-        t2 = self._tmp(PtrType(ptr_to))
+    def _get_addr(self, ptr_to, addr, offset):
+        t1 = self._tmp(PtrType(LLVMChar))
+        t2 = self._tmp(PtrType(LLVMChar))
+        t3 = self._tmp(PtrType(ptr_to))
         self.w('{t1.V} = bitcast {addr.TV} to {t1.T}'.format(**locals()))
-        self.w('{t2.V} = getelementptr {t1.TV}, {incr.TV}'.format(**locals()))
-        return t2
+        self.w('{t2.V} = getelementptr {t1.TV}, {offset.TV}'
+                .format(**locals()))
+        self.w('{t3.V} = bitcast {t2.TV} to {t3.T}'.format(**locals()))
+        return t3
 
-    def op_raw_load(self, result, addr, _, incr):
-        addr = self._get_addr(result.type_, addr, incr)
+    def op_raw_load(self, result, addr, offset):
+        addr = self._get_addr(result.type_, addr, offset)
         self.w('{result.V} = load {addr.TV}'.format(**locals()))
 
-    def op_raw_store(self, result, addr, _, incr, value):
-        addr = self._get_addr(value.type_, addr, incr)
+    def op_raw_store(self, result, addr, offset, value):
+        addr = self._get_addr(value.type_, addr, offset)
         self.w('store {value.TV}, {addr.TV}'.format(**locals()))
 
     def op_raw_memclear(self, result, ptr, size):
