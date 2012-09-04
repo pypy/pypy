@@ -2063,3 +2063,16 @@ def test_unaligned_struct():
     BStruct = new_struct_type("foo")
     complete_struct_or_union(BStruct, [('b', BInt, -1, 1)],
                              None, 5, 1)
+
+def test_CData_CType():
+    CData, CType = _get_types()
+    BChar = new_primitive_type("char")
+    BCharP = new_pointer_type(BChar)
+    nullchr = cast(BChar, 0)
+    chrref = newp(BCharP, None)
+    assert isinstance(nullchr, CData)
+    assert isinstance(chrref, CData)
+    assert not isinstance(BChar, CData)
+    assert not isinstance(nullchr, CType)
+    assert not isinstance(chrref, CType)
+    assert isinstance(BChar, CType)
