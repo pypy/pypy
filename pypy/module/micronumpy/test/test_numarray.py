@@ -1090,6 +1090,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (a.mean(axis=-1) == a.mean(axis=2)).all()
         raises(ValueError, a.mean, -4)
         raises(ValueError, a.mean, 3)
+        a = arange(10).reshape(5, 2)
+        assert (a.mean(1) == [0.5, 2.5, 4.5, 6.5, 8.5]).all()
 
     def test_sum(self):
         from _numpypy import array
