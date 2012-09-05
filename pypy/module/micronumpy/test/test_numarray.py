@@ -1752,6 +1752,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
         b = a[1:, 1::2]
         c = b + b
         assert c.sum() == (6 + 8 + 10 + 12) * 2
+        assert isinstance(c.sum(dtype='f8'), float)
 
     def test_transpose(self):
         from _numpypy import array

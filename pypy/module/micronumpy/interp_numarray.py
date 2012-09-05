@@ -272,7 +272,7 @@ class __extend__(W_NDimArray):
     # ----------------------- reduce -------------------------------
 
     def _reduce_ufunc_impl(ufunc_name, promote_to_largest=False):
-        def impl(self, space, w_axis=None, w_out=None):
+        def impl(self, space, w_axis=None, w_out=None, w_dtype=None):
             if space.is_w(w_out, space.w_None) or not w_out:
                 out = None
             elif not isinstance(w_out, W_NDimArray):
@@ -282,7 +282,7 @@ class __extend__(W_NDimArray):
                 out = w_out
             return getattr(interp_ufuncs.get(space), ufunc_name).reduce(space,
                                         self, True, promote_to_largest, w_axis,
-                                                                   False, out)
+                                                         False, out, w_dtype)
         return func_with_new_name(impl, "reduce_%s_impl" % ufunc_name)
 
     descr_sum = _reduce_ufunc_impl("add")
@@ -406,12 +406,6 @@ W_NDimArray.typedef = TypeDef(
     tolist = interp2app(W_NDimArray.descr_tolist),
 )
 
-def decode_w_dtype(space, w_dtype):
-    if w_dtype is None or space.is_w(w_dtype, space.w_None):
-        return None
-    return space.interp_w(interp_dtype.W_Dtype,
-          space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype))
-
 @unwrap_spec(ndmin=int, copy=bool, subok=bool)
 def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
           ndmin=0):
@@ -436,7 +430,7 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
         if copy:
             return w_object.descr_copy(space)
         return w_object
-    dtype = decode_w_dtype(space, w_dtype)
+    dtype = interp_dtype.decode_w_dtype(space, w_dtype)
     shape, elems_w = find_shape_and_elems(space, w_object, dtype)
     if dtype is None:
         for w_elem in elems_w:

@@ -136,10 +136,11 @@ class W_Ufunc(Wrappable):
                                                 'output must be an array'))
         else:
             out = w_out
-        return self.reduce(space, w_obj, False, False, w_axis, keepdims, out)
+        return self.reduce(space, w_obj, False, False, w_axis, keepdims, out,
+                           w_dtype)
 
     def reduce(self, space, w_obj, multidim, promote_to_largest, w_axis,
-               keepdims=False, out=None):
+               keepdims=False, out=None, dtype=None):
         if self.argcount != 2:
             raise OperationError(space.w_ValueError, space.wrap("reduce only "
                 "supported for binary functions"))
@@ -153,15 +154,17 @@ class W_Ufunc(Wrappable):
         axis = unwrap_axis_arg(space, shapelen, w_axis)    
         assert axis>=0
         size = obj.get_size()
-        if self.comparison_func:
-            dtype = interp_dtype.get_dtype_cache(space).w_booldtype
-        else:
-            dtype = find_unaryop_result_dtype(
-                space, obj.get_dtype(),
-                promote_to_float=self.promote_to_float,
-                promote_to_largest=promote_to_largest,
-                promote_bools=True
-            )
+        dtype = interp_dtype.decode_w_dtype(space, dtype)
+        if dtype is None:
+            if self.comparison_func:
+                dtype = interp_dtype.get_dtype_cache(space).w_booldtype
+            else:
+                dtype = find_unaryop_result_dtype(
+                    space, obj.get_dtype(),
+                    promote_to_float=self.promote_to_float,
+                    promote_to_largest=promote_to_largest,
+                    promote_bools=True
+                )
         if self.identity is None and size == 0:
             raise operationerrfmt(space.w_ValueError, "zero-size array to "
                     "%s.reduce without identity", self.name)
