@@ -30,13 +30,15 @@ typedef Unsigned revision_t;
 
 /************************************************************/
 
-#define ABORT_REASONS 4
+#define ABORT_REASONS 5
 #define SPINLOOP_REASONS 3
 
 struct tx_descriptor {
   jmp_buf *setjmp_buf;
   revision_t start_time;
   revision_t my_lock;
+  long atomic;   /* 0 = not atomic, > 0 atomic */
+  long reads_size_limit, reads_size_limit_nonatomic; /* see should_break_tr. */
   int active;    /* 0 = inactive, 1 = regular, 2 = inevitable */
   int readonly_updates;
   unsigned int num_commits;
@@ -186,6 +188,16 @@ gcptr _DirectReadBarrierFromR(gcptr G, gcptr R_Container, size_t offset)
   return _direct_read_barrier(G, R_Container, offset);
 }
 
+gcptr _RepeatReadBarrier(gcptr O)
+{
+  // LatestGlobalRevision(O) would either return O or abort
+  // the whole transaction, so omitting it is not wrong
+  struct tx_descriptor *d = thread_descriptor;
+  wlog_t *entry;
+  G2L_FIND(d->global_to_local, O, entry, return O);
+  return entry->val;
+}
+
 gcptr _NonTransactionalReadBarrier(gcptr P)
 {
   /* testing only: use this outside transactions to check the state */
@@ -210,15 +222,12 @@ static gcptr Localize(struct tx_descriptor *d, gcptr R)
 {
   wlog_t *entry;
   gcptr L;
-  size_t size;
   G2L_FIND(d->global_to_local, R, entry, goto not_found);
   L = entry->val;
   return L;
 
  not_found:
-  size = pypy_g__stm_getsize(R);
-  L = malloc(size);
-  memcpy(L, R, size);
+  L = pypy_g__stm_duplicate(R);
   L->h_tid &= ~(GCFLAG_GLOBAL | GCFLAG_POSSIBLY_OUTDATED);
   assert(L->h_tid & GCFLAG_NOT_WRITTEN);
   L->h_tid |= GCFLAG_LOCAL_COPY;
@@ -366,17 +375,30 @@ static void AbortTransaction(int num)
 
 /************************************************************/
 
-void BeginTransaction(jmp_buf* buf)
+static void update_reads_size_limit(struct tx_descriptor *d)
 {
-  struct tx_descriptor *d = thread_descriptor;
+  /* 'reads_size_limit' is set to LONG_MAX if we are atomic; else
+     we copy the value from reads_size_limit_nonatomic. */
+  d->reads_size_limit = d->atomic ? LONG_MAX : d->reads_size_limit_nonatomic;
+}
+
+static void init_transaction(struct tx_descriptor *d)
+{
   assert(d->active == 0);
-  d->active = 1;
-  d->setjmp_buf = buf;
   gcptrlist_clear(&d->list_of_read_objects);
   gcptrlist_clear(&d->gcroots);
   g2l_clear(&d->global_to_local);
   fxcache_clear(&d->recent_reads_cache);
+}
+
+void BeginTransaction(jmp_buf* buf)
+{
+  struct tx_descriptor *d = thread_descriptor;
+  init_transaction(d);
+  d->active = 1;
+  d->setjmp_buf = buf;
   d->start_time = GetGlobalCurTime(d);
+  update_reads_size_limit(d);
 }
 
 #if 0
@@ -471,7 +493,7 @@ static void UpdateChainHeads(struct tx_descriptor *d, revision_t cur_time)
     }
 }
 
-struct gcroot_s *FindRootsForLocalCollect(void)
+static struct gcroot_s *FindRootsForLocalCollect(void)
 {
   struct tx_descriptor *d = thread_descriptor;
   wlog_t *item;
@@ -506,6 +528,8 @@ void CommitTransaction(void)
   revision_t cur_time;
   struct tx_descriptor *d = thread_descriptor;
   assert(d->active != 0);
+  if (d->gcroots.size == 0)
+    FindRootsForLocalCollect();   /* for tests */
 
   AcquireLocks(d);
 
@@ -549,12 +573,30 @@ void CommitTransaction(void)
 
 /************************************************************/
 
-void BecomeInevitable(void)
+static void make_inevitable(struct tx_descriptor *d)
+{
+  d->setjmp_buf = NULL;
+  d->active = 2;
+  d->reads_size_limit_nonatomic = 0;
+  update_reads_size_limit(d);
+}
+
+void BecomeInevitable(const char *why)
 {
   revision_t cur_time;
   struct tx_descriptor *d = thread_descriptor;
-  if (is_inevitable(d))
-    return;
+  if (d == NULL || d->active != 1)
+    return;  /* I am already inevitable, or not in a transaction at all
+                (XXX statically we should know when we're outside
+                a transaction) */
+
+#ifdef RPY_STM_DEBUG_PRINT
+  PYPY_DEBUG_START("stm-inevitable");
+  if (PYPY_HAVE_DEBUG_PRINTS)
+    {
+      fprintf(PYPY_DEBUG_FILE, "%s\n", why);
+    }
+#endif
 
   inev_mutex_acquire();
   cur_time = global_cur_time;
@@ -572,8 +614,26 @@ void BecomeInevitable(void)
           AbortTransaction(3);
         }
     }
-  d->active = 2;
-  d->setjmp_buf = NULL;   /* cannot abort any more */
+  make_inevitable(d);    /* cannot abort any more */
+
+#ifdef RPY_STM_DEBUG_PRINT
+  PYPY_DEBUG_STOP("stm-inevitable");
+#endif
+}
+
+void BeginInevitableTransaction(void)
+{
+  struct tx_descriptor *d = thread_descriptor;
+  revision_t cur_time;
+
+  init_transaction(d);
+  inev_mutex_acquire();
+  cur_time = global_cur_time;
+  while (!bool_cas(&global_cur_time, cur_time, INEVITABLE))
+    cur_time = global_cur_time;     /* try again */
+  assert(cur_time != INEVITABLE);
+  d->start_time = cur_time;
+  make_inevitable(d);
 }
 
 /************************************************************/

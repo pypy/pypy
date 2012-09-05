@@ -43,6 +43,11 @@ typedef struct pypy_header0 *gcptr;
     (assert(((gcptr)(G))->h_tid & GCFLAG_GLOBAL),                   \
      (typeof(G))_DirectReadBarrier((gcptr)(G)))
 
+#define STM_BARRIER_O2R(O)                                              \
+    (__builtin_expect((((gcptr)(O))->h_tid & GCFLAG_POSSIBLY_OUTDATED) == 0, \
+                      1) ?                                              \
+     (O) : (typeof(O))_RepeatReadBarrier((gcptr)(O)))
+
 /*#define STM_READ_BARRIER_P_FROM_R(P, R_container, offset)             \
     (__builtin_expect((((gcptr)(P))->h_tid & GCFLAG_GLOBAL) == 0, 1) ?  \
      (P) : (typeof(P))_DirectReadBarrierFromR((gcptr)(P),               \
@@ -58,28 +63,42 @@ typedef struct pypy_header0 *gcptr;
      (R) : (typeof(R))_WriteBarrierFromReady((gcptr)(R)))
 
 void BeginTransaction(jmp_buf *);
-int _FakeReach(gcptr);
+void BeginInevitableTransaction(void);
+//int _FakeReach(gcptr);
 void CommitTransaction(void);
-void BecomeInevitable(void);
+void BecomeInevitable(const char *why);
 //void BeginInevitableTransaction(void);
 void DescriptorInit(void);
 void DescriptorDone(void);
+int _FakeReach(gcptr P);
 
 //gcptr Allocate(size_t size, int gctid);
 _Bool PtrEq(gcptr P1, gcptr P2);
 
 gcptr _DirectReadBarrier(gcptr);
 gcptr _DirectReadBarrierFromR(gcptr, gcptr, size_t);
+gcptr _RepeatReadBarrier(gcptr);
 gcptr _WriteBarrier(gcptr);
 gcptr _WriteBarrierFromReady(gcptr);
 //gcptr _NonTransactionalReadBarrier(gcptr);
 
 
-extern Signed pypy_g__stm_getsize(gcptr);
+extern gcptr pypy_g__stm_duplicate(gcptr);
+extern void pypy_g__stm_enum_callback(void *, gcptr, gcptr);
 void stm_set_tls(void *newtls);
 void *stm_get_tls(void);
 void stm_del_tls(void);
 gcptr stm_tldict_lookup(gcptr);     /* for tests only */
 void stm_tldict_add(gcptr, gcptr);  /* for tests only */
+void stm_tldict_enum(void);
+long stm_in_transaction(void);
+long stm_is_inevitable(void);
+void stm_add_atomic(long delta);
+long stm_get_atomic(void);
+long stm_should_break_transaction(void);
+void stm_set_transaction_length(long length_max);
+void stm_perform_transaction(long(*callback)(void*, long), void *arg,
+                             void *save_and_restore);
+void stm_abort_and_retry(void);
 
 #endif  /* _ET_H */
