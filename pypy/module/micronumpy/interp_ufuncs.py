@@ -171,7 +171,9 @@ class W_Ufunc(Wrappable):
             else:
                 shape = obj_shape[:axis] + obj_shape[axis + 1:]
             if out:
-                #Test for shape agreement
+                # Test for shape agreement
+                # XXX maybe we need to do broadcasting here, although I must
+                #     say I don't understand the details for axis reduce
                 if len(out.get_shape()) > len(shape):
                     raise operationerrfmt(space.w_ValueError,
                         'output parameter for reduction operation %s' +
@@ -187,14 +189,11 @@ class W_Ufunc(Wrappable):
                         ",".join([str(x) for x in shape]),
                         ",".join([str(x) for x in out.get_shape()]),
                         )
-                #Test for dtype agreement, perhaps create an itermediate
-                #if out.dtype != dtype:
-                #    raise OperationError(space.w_TypeError, space.wrap(
-                #        "mismatched  dtypes"))
-                return self.do_axis_reduce(obj, out.find_dtype(), axis, out)
+                dtype = out.get_dtype()
             else:
-                result = W_NDimArray.from_shape(shape, dtype)
-                return self.do_axis_reduce(obj, dtype, axis, result)
+                out = W_NDimArray.from_shape(shape, dtype)
+            return loop.do_axis_reduce(shape, self.func, obj, dtype, axis, out,
+                                       self.identity)
         if out:
             if len(out.get_shape())>0:
                 raise operationerrfmt(space.w_ValueError, "output parameter "
@@ -207,14 +206,6 @@ class W_Ufunc(Wrappable):
             out.set_scalar_value(res)
             return out
         return res
-
-    def do_axis_reduce(self, obj, dtype, axis, result):
-        xxx
-        from pypy.module.micronumpy.interp_numarray import AxisReduce
-        arr = AxisReduce(self.func, self.name, self.identity, obj.shape, dtype,
-                         result, obj, axis)
-        loop.compute(arr)
-        return arr.left
 
 class W_Ufunc1(W_Ufunc):
     argcount = 1

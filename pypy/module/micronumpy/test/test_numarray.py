@@ -2,7 +2,6 @@
 import py, sys
 
 from pypy.conftest import option
-from pypy.interpreter.error import OperationError
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
 from pypy.module.micronumpy.iter import Chunk, Chunks
 from pypy.module.micronumpy.interp_numarray import W_NDimArray
@@ -1083,7 +1082,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[:4].mean() == 1.5
         a = array(range(105)).reshape(3, 5, 7)
         b = a.mean(axis=0)
-        b[0, 0]==35.
+        assert b[0, 0] == 35.
         assert a.mean(axis=0)[0, 0] == 35
         assert (b == array(range(35, 70), dtype=float).reshape(5, 7)).all()
         assert (a.mean(2) == array(range(0, 15), dtype=float).reshape(3, 5) * 7 + 3).all()

@@ -90,6 +90,9 @@ class __extend__(W_NDimArray):
     def create_iter(self, shape):
         return self.implementation.create_iter(shape)
 
+    def create_axis_iter(self, shape, dim):
+        return self.implementation.create_axis_iter(shape, dim)
+
     def is_scalar(self):
         return self.implementation.is_scalar()
 

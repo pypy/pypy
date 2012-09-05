@@ -21,7 +21,7 @@ def call2(shape, func, name, calc_dtype, res_dtype, w_lhs, w_rhs, out):
         out_iter.next()
     return out
 
-def call1(shape, func, name , calc_dtype, res_dtype, w_obj, out):
+def call1(shape, func, name, calc_dtype, res_dtype, w_obj, out):
     if out is None:
         out = W_NDimArray.from_shape(shape, res_dtype)
     obj_iter = w_obj.create_iter(shape)
@@ -81,4 +81,24 @@ def where(out, arr, x, y, dtype):
         arr_iter.next()
         x_iter.next()
         y_iter.next()
+    return out
+
+def do_axis_reduce(shape, func, arr, dtype, axis, out, identity):
+    import pdb
+    pdb.set_trace()
+    out_iter = out.create_iter(shape)
+    arr_iter = arr.create_axis_iter(shape, axis)
+    if identity is not None:
+        identity = identity.convert_to(dtype)
+    while not out_iter.done():
+        w_val = arr_iter.getitem().convert_to(dtype)
+        if arr_iter.first_line:
+            if identity is not None:
+                w_val = func(dtype, identity, w_val)
+        else:
+            cur = out_iter.getitem()
+            w_val = func(dtype, cur, w_val)
+        out_iter.setitem(w_val)
+        arr_iter.next()
+        out_iter.next()
     return out

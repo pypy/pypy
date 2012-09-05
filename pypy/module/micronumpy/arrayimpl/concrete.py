@@ -74,6 +74,47 @@ class MultiDimViewIterator(ConcreteArrayIterator):
     def done(self):
         return self._done
 
+class AxisIterator(base.BaseArrayIterator):
+    def __init__(self, array, shape, dim):
+        self.shape = shape
+        strides = array.strides
+        backstrides = array.backstrides
+        if len(shape) == len(strides):
+            # keepdims = True
+            self.strides = strides[:dim] + [0] + strides[dim + 1:]
+            self.backstrides = backstrides[:dim] + [0] + backstrides[dim + 1:]
+        else:
+            self.strides = strides[:dim] + [0] + strides[dim:]
+            self.backstrides = backstrides[:dim] + [0] + backstrides[dim:]
+        self.first_line = True
+        self.indices = [0] * len(shape)
+        self._done = False
+        self.offset = array.start
+        self.dim = dim
+        self.array = array
+        
+    def setitem(self, elem):
+        self.array.setitem(self.offset, elem)
+
+    def getitem(self):
+        return self.array.getitem(self.offset)
+
+    @jit.unroll_safe
+    def next(self):
+        for i in range(len(self.shape) - 1, -1, -1):
+            if self.indices[i] < self.shape[i] - 1:
+                if i == self.dim:
+                    self.first_line = False
+                self.indices[i] += 1
+                self.offset += self.strides[i]
+                break
+            else:
+                if i == self.dim:
+                    self.first_line = True
+                self.indices[i] = 0
+                self.offset -= self.backstrides[i]
+        else:
+            self._done = True
 
 def int_w(space, w_obj):
     # a special version that respects both __index__ and __int__
@@ -237,6 +278,9 @@ class BaseConcreteArray(base.BaseArrayImplementation):
         impl = ConcreteArray(self.shape, self.dtype, self.order, strides,
                              backstrides)
         return loop.setslice(self.shape, impl, self)
+
+    def create_axis_iter(self, shape, dim):
+        return AxisIterator(self, shape, dim)
 
 class ConcreteArray(BaseConcreteArray):
     def __init__(self, shape, dtype, order, strides, backstrides):
