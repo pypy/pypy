@@ -31,5 +31,3 @@ void pypy_x86_check_sse2(void)
     }
 }
 #  endif
-
-#endif
