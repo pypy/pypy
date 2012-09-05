@@ -1,4 +1,5 @@
 import autopath
+import contextlib
 import py
 import sys, os
 from pypy.translator.c.database import LowLevelDatabase
@@ -669,8 +670,6 @@ class SourceGenerator:
                 funcnodes.append(node)
             else:
                 othernodes.append(node)
-        # for now, only split for stand-alone programs.
-        #if self.database.standalone:
         if split:
             self.one_source_file = False
         self.funcnodes = funcnodes
@@ -709,11 +708,14 @@ class SourceGenerator:
                         return relpypath.replace('.py', '.c')
             return None
         if hasattr(node.obj, 'graph'):
+            # Regular RPython functions
             name = invent_nice_name(node.obj.graph)
             if name is not None:
                 return name
         elif node._funccodegen_owner is not None:
-            name = invent_nice_name(node._funccodegen_owner.graph)
+            # Data nodes that belong to a known function
+            graph = getattr(node._funccodegen_owner, 'graph', None)
+            name = invent_nice_name(graph)
             if name is not None:
                 return "data_" + name
         return basecname
@@ -751,6 +753,27 @@ class SourceGenerator:
             while not done[0]:
                 yield self.uniquecname(basecname), subiter()
 
+    @contextlib.contextmanager
+    def write_on_maybe_included_file(self, f, name):
+        if self.one_source_file:
+            print >> f
+            yield f
+        else:
+            fi = self.makefile(name)
+            print >> f, '#include "%s"' % name
+            yield fi
+            fi.close()
+
+    @contextlib.contextmanager
+    def write_on_maybe_separate_source(self, f, name):
+        print >> f, '/* %s */' % name
+        if self.one_source_file:
+            yield f
+        else:
+            fi = self.makefile(name)
+            yield fi
+            fi.close()
+
     def gen_readable_parts_of_source(self, f):
         split_criteria_big = SPLIT_CRITERIA
         if py.std.sys.platform != "win32":
@@ -758,24 +781,14 @@ class SourceGenerator:
                 pass    # XXX gcc uses toooooons of memory???
             else:
                 split_criteria_big = SPLIT_CRITERIA * 4 
-        if self.one_source_file:
-            return gen_readable_parts_of_main_c_file(f, self.database,
-                                                     self.preimpl)
+
         #
         # All declarations
         #
-        database = self.database
-        structdeflist = database.getstructdeflist()
-        name = 'structdef.h'
-        fi = self.makefile(name)
-        print >> f, '#include "%s"' % name
-        gen_structdef(fi, database)
-        fi.close()
-        name = 'forwarddecl.h'
-        fi = self.makefile(name)
-        print >> f, '#include "%s"' % name
-        gen_forwarddecl(fi, database)
-        fi.close()
+        with self.write_on_maybe_included_file(f, 'structdef.h') as fi:
+            gen_structdef(fi, self.database)
+        with self.write_on_maybe_included_file(f, 'forwarddecl.h') as fi:
+            gen_forwarddecl(fi, self.database)
 
         #
         # Implementation of functions and global structures and arrays
@@ -784,75 +797,59 @@ class SourceGenerator:
         print >> f, '/***********************************************************/'
         print >> f, '/***  Implementations                                    ***/'
         print >> f
+
+        print >> f, '#define PYPY_FILE_NAME "%s"' % os.path.basename(f.name)
         for line in self.preimpl:
             print >> f, line
         print >> f, '#include "src/g_include.h"'
         print >> f
-        name = self.uniquecname('structimpl.c')
-        print >> f, '/* %s */' % name
-        fc = self.makefile(name)
-        print >> fc, '/***********************************************************/'
-        print >> fc, '/***  Structure Implementations                          ***/'
-        print >> fc
-        print >> fc, '#include "common_header.h"'
-        print >> fc, '#include "structdef.h"'
-        print >> fc, '#include "forwarddecl.h"'
-        print >> fc
-        print >> fc, '#include "src/g_include.h"'
-        print >> fc
-        print >> fc, MARKER
-
-        print >> fc, '/***********************************************************/'
-        fc.close()
 
         nextralines = 11 + 1
         for name, nodeiter in self.splitnodesimpl('nonfuncnodes.c',
                                                    self.othernodes,
                                                    nextralines, 1):
-            print >> f, '/* %s */' % name
-            fc = self.makefile(name)
-            print >> fc, '/***********************************************************/'
-            print >> fc, '/***  Non-function Implementations                       ***/'
-            print >> fc
-            print >> fc, '#include "common_header.h"'
-            print >> fc, '#include "structdef.h"'
-            print >> fc, '#include "forwarddecl.h"'
-            print >> fc
-            print >> fc, '#include "src/g_include.h"'
-            print >> fc
-            print >> fc, MARKER
-            for node, impl in nodeiter:
-                print >> fc, '\n'.join(impl)
+            with self.write_on_maybe_separate_source(f, name) as fc:
+                if fc is not f:
+                    print >> fc, '/***********************************************************/'
+                    print >> fc, '/***  Non-function Implementations                       ***/'
+                    print >> fc
+                    print >> fc, '#include "common_header.h"'
+                    print >> fc, '#include "structdef.h"'
+                    print >> fc, '#include "forwarddecl.h"'
+                    print >> fc
+                    print >> fc, '#include "src/g_include.h"'
+                    print >> fc
                 print >> fc, MARKER
-            print >> fc, '/***********************************************************/'
-            fc.close()
+                for node, impl in nodeiter:
+                    print >> fc, '\n'.join(impl)
+                    print >> fc, MARKER
+                print >> fc, '/***********************************************************/'
 
         nextralines = 8 + len(self.preimpl) + 4 + 1
         for name, nodeiter in self.splitnodesimpl('implement.c',
                                                    self.funcnodes,
                                                    nextralines, 1,
                                                    split_criteria_big):
-            print >> f, '/* %s */' % name
-            fc = self.makefile(name)
-            print >> fc, '/***********************************************************/'
-            print >> fc, '/***  Implementations                                    ***/'
-            print >> fc
-            print >> fc, '#define PYPY_FILE_NAME "%s"' % name
-            print >> fc, '#include "common_header.h"'
-            print >> fc, '#include "structdef.h"'
-            print >> fc, '#include "forwarddecl.h"'
-            print >> fc
-            for line in self.preimpl:
-                print >> fc, line
-            print >> fc
-            print >> fc, '#include "src/g_include.h"'
-            print >> fc
-            print >> fc, MARKER
-            for node, impl in nodeiter:
-                print >> fc, '\n'.join(impl)
+            with self.write_on_maybe_separate_source(f, name) as fc:
+                if fc is not f:
+                    print >> fc, '/***********************************************************/'
+                    print >> fc, '/***  Implementations                                    ***/'
+                    print >> fc
+                    print >> fc, '#define PYPY_FILE_NAME "%s"' % name
+                    print >> fc, '#include "common_header.h"'
+                    print >> fc, '#include "structdef.h"'
+                    print >> fc, '#include "forwarddecl.h"'
+                    print >> fc
+                    for line in self.preimpl:
+                        print >> fc, line
+                    print >> fc
+                    print >> fc, '#include "src/g_include.h"'
+                    print >> fc
                 print >> fc, MARKER
-            print >> fc, '/***********************************************************/'
-            fc.close()
+                for node, impl in nodeiter:
+                    print >> fc, '\n'.join(impl)
+                    print >> fc, MARKER
+                print >> fc, '/***********************************************************/'
         print >> f
 
 
@@ -879,43 +876,6 @@ def gen_forwarddecl(f, database):
     for node in database.globalcontainers():
         for line in node.forward_declaration():
             print >> f, line
-
-# this function acts as the fallback for small sources for now.
-# Maybe we drop this completely if source splitting is the way
-# to go. Currently, I'm quite fine with keeping a working fallback.
-# XXX but we need to reduce code duplication.
-
-def gen_readable_parts_of_main_c_file(f, database, preimplementationlines=[]):
-    #
-    # All declarations
-    #
-    print >> f
-    gen_structdef(f, database)
-    print >> f
-    gen_forwarddecl(f, database)
-
-    #
-    # Implementation of functions and global structures and arrays
-    #
-    print >> f
-    print >> f, '/***********************************************************/'
-    print >> f, '/***  Implementations                                    ***/'
-    print >> f
-    print >> f, '#define PYPY_FILE_NAME "%s"' % os.path.basename(f.name)
-    for line in preimplementationlines:
-        print >> f, line
-    print >> f, '#include "src/g_include.h"'
-    print >> f
-    blank = True
-    graphs = database.all_graphs()
-    database.gctransformer.prepare_inline_helpers(graphs)
-    for node in database.globalcontainers():
-        if blank:
-            print >> f
-            blank = False
-        for line in node.implementation():
-            print >> f, line
-            blank = True
 
 def gen_startupcode(f, database):
     # generate the start-up code and put it into a function
@@ -999,8 +959,7 @@ def gen_source(database, modulename, targetdir,
     #
     sg = SourceGenerator(database, preimplementationlines)
     sg.set_strategy(targetdir, split)
-    if split:
-        database.prepare_inline_helpers()
+    database.prepare_inline_helpers()
     sg.gen_readable_parts_of_source(f)
 
     gen_startupcode(f, database)
