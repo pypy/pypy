@@ -211,7 +211,7 @@ class UnrollOptimizer(Optimization):
                 exported_values[box] = self.optimizer.getvalue(box)
             
         target_token.exported_state = ExportedState(short_boxes, inputarg_setup_ops,
-                                                    exported_values)
+                                                    exported_values, jump_args)
 
     def import_state(self, targetop):
         if not targetop: # Trace did not start with a label
@@ -278,6 +278,28 @@ class UnrollOptimizer(Optimization):
                     
         self.optimizer.flush()
         self.optimizer.emitting_dissabled = False
+
+        if exported_state.generalize_virtual_state:
+            # XXX: Hack
+            # FIXME: Rearange stuff to emit label after this (but prior to inputarg_setup_ops)?
+            assert self.optimizer._newoperations[0].getopnum() == rop.LABEL
+            del self.optimizer._newoperations[0]
+
+            virtual_state = self.initial_virtual_state
+            values = [self.getvalue(arg) for arg in exported_state.jump_args]
+            virtual_state = virtual_state.make_generalization_of(exported_state.generalize_virtual_state,
+                                                                 exported_state.jump_args,
+                                                                 self.optimizer)
+            values = [self.getvalue(arg) for arg in exported_state.jump_args]            
+            self.initial_virtual_state = virtual_state
+            inputargs = virtual_state.make_inputargs(values, self.optimizer)
+            target_token.virtual_state = virtual_state 
+            op = ResOperation(rop.LABEL, inputargs, None, descr=target_token)
+            self.optimizer._newoperations.append(op)
+            self.inputargs = inputargs
+            short_inputargs = virtual_state.make_inputargs(values, self.optimizer, keyboxes=True)
+            self.short[0] = ResOperation(rop.LABEL, short_inputargs, None)
+
 
     def close_bridge(self, start_label):
         inputargs = self.inputargs
@@ -625,7 +647,9 @@ class ValueImporter(object):
         self.unroll.add_op_to_short(self.op, False, True)        
 
 class ExportedState(object):
-    def __init__(self, short_boxes, inputarg_setup_ops, exported_values):
+    def __init__(self, short_boxes, inputarg_setup_ops, exported_values, jump_args):
         self.short_boxes = short_boxes
         self.inputarg_setup_ops = inputarg_setup_ops
         self.exported_values = exported_values
+        self.jump_args = jump_args
+        self.generalize_virtual_state = None

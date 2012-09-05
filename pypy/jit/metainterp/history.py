@@ -1013,19 +1013,43 @@ class Stats(object):
         loops = self.get_all_loops()
         assert len(loops) == 1
         loop = loops[0]
-        jumpop = loop.operations[-1]
+        insns = self.sum_simple_loop(loop.operations, insns)
+        return self._check_insns(insns, expected, check)
+
+    def sum_simple_loop(self, operations, insns=None):
+        if insns is None:
+            insns = {}
+        jumpop = operations[-1]
         assert jumpop.getopnum() == rop.JUMP
-        labels = [op for op in loop.operations if op.getopnum() == rop.LABEL]
+        labels = [op for op in operations if op.getopnum() == rop.LABEL]
         targets = [op._descr_wref() for op in labels]
         assert None not in targets # TargetToken was freed, give up
         target = jumpop._descr_wref()
         assert target
         assert targets.count(target) == 1
-        i = loop.operations.index(labels[targets.index(target)])
-        insns = {}
-        for op in loop.operations[i:]:
+        i = operations.index(labels[targets.index(target)])
+        for op in operations[i:]:
             opname = op.getopname()
             insns[opname] = insns.get(opname, 0) + 1
+        return insns
+
+    def check_retraced_simple_loop(self, count, expected=None, **check):
+        """ Similar to check_simple_loop, but will also count ops found in retraces
+            located within the bridges found.
+        """
+        insns = {}
+        worklist = [loop.operations for loop in self.get_all_loops()]
+        simple_loops = 0
+        while worklist:
+            operations = worklist.pop()
+            if len([1 for op in operations if op.getopnum() == rop.LABEL]) > 0:
+                self.sum_simple_loop(operations, insns)
+                simple_loops += 1
+            for op in operations:
+                if op.is_guard() and op.getdescr():
+                    if hasattr(op.getdescr(), '_debug_suboperations'):
+                        worklist.append(op.getdescr()._debug_suboperations)
+        assert simple_loops == count
         return self._check_insns(insns, expected, check)
         
     def check_loops(self, expected=None, everywhere=False, **check):

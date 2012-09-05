@@ -159,6 +159,9 @@ class JitMixin:
         get_stats().check_resops(expected=expected, **check)
     def check_simple_loop(self, expected=None, **check):
         get_stats().check_simple_loop(expected=expected, **check)
+    def check_retraced_simple_loop(self, count, expected=None, **check):
+        get_stats().check_retraced_simple_loop(count, expected=expected, **check)
+
 
     
 

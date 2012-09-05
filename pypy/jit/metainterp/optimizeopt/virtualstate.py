@@ -23,6 +23,9 @@ class AbstractVirtualStateInfo(resume.AbstractVirtualInfo):
     def generalization_of(self, other, renum, bad):
         raise NotImplementedError
 
+    def make_generalization_of(self, other, value, optimizer):
+        pass
+
     def generate_guards(self, other, box, cpu, extra_guards, renum):
         if self.generalization_of(other, renum, {}):
             return
@@ -105,6 +108,28 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
                 return False
 
         return True
+
+    def make_generalization_of(self, other, value, optimizer):
+        if not self._generalization_of(other):
+            raise InvalidLoop
+        assert isinstance(other, AbstractVirtualStructStateInfo)
+        assert len(self.fielddescrs) == len(self.fieldstate)
+        assert len(other.fielddescrs) == len(other.fieldstate)
+        assert isinstance(value, virtualize.AbstractVirtualStructValue)
+        if len(self.fielddescrs) != len(other.fielddescrs):
+            raise InvalidLoop
+        for i in range(len(self.fielddescrs)):
+            if other.fielddescrs[i] is not self.fielddescrs[i]:
+                raise InvalidLoop
+            new_field_value = self.fieldstate[i].make_generalization_of(other.fieldstate[i],
+                                                                        value.getfield(self.fielddescrs[i], None),
+                                                                        optimizer)
+            if new_field_value:
+                value.setfield(self.fielddescrs[i], new_field_value)
+            #FIXME: default value of getfield
+
+
+
 
     def _generalization_of(self, other):
         raise NotImplementedError
@@ -349,6 +374,23 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
             return False
         return True
 
+    def make_generalization_of(self, other, value, optimizer):
+        if not self.generalization_of(other, {}, {}):
+            box = value.get_key_box()
+            try:
+                self._generate_guards(other, box, optimizer.cpu, [])
+                return # It is enough if we can generate guards to make states compatibe, FIXME: rename method
+            except InvalidLoop:
+                pass
+            if value.is_constant():
+                op = ResOperation(rop.SAME_AS, [box], box.clonebox())
+                optimizer._newoperations.append(op)
+                return optimizer.getvalue(op.result)
+            else:
+                v = OptValue(box)
+                optimizer.make_equal_to(box, v, True)
+                return v
+
     def _generate_guards(self, other, box, cpu, extra_guards):
         if not isinstance(other, NotVirtualStateInfo):
             raise InvalidLoop('The VirtualStates does not match as a ' +
@@ -475,6 +517,22 @@ class VirtualState(object):
             if not self.state[i].generalization_of(other.state[i], renum, bad):
                 return False
         return True
+
+    def make_generalization_of(self, other, jumpargs, optimizer):
+        assert len(self.state) == len(other.state) == len(jumpargs)
+        values = [optimizer.getvalue(arg) for arg in jumpargs]
+        for i in range(len(self.state)):
+            new_value = self.state[i].make_generalization_of(other.state[i], values[i], optimizer)
+            if new_value:
+                optimizer.make_equal_to(jumpargs[i], new_value, True)
+
+        modifier = VirtualStateAdder(optimizer)
+        virtual_state = modifier.get_virtual_state(jumpargs)
+        
+        # Only a few cases currently implemenetd, so we need to check if we succeeded
+        virtual_state.generate_guards(other, jumpargs, optimizer.cpu, []) # Will raise if not possible
+        virtual_state.generate_guards(self, jumpargs, optimizer.cpu, []) # Will raise if not possible
+        return virtual_state
 
     def generate_guards(self, other, args, cpu, extra_guards):
         assert len(self.state) == len(other.state) == len(args)

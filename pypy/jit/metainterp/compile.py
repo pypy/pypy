@@ -192,50 +192,72 @@ def compile_retrace(metainterp, greenkey, start,
     loop_jitcell_token = metainterp.get_procedure_token(greenkey)
     assert loop_jitcell_token
     assert partial_trace.operations[-1].getopnum() == rop.LABEL
-
-    part = create_empty_loop(metainterp)
-    part.inputargs = inputargs[:]
-    part.resume_at_jump_descr = resume_at_jump_descr
+    orignial_label = partial_trace.operations[-1].clone()
     h_ops = history.operations
 
-    part.operations = [partial_trace.operations[-1]] + \
-                      [h_ops[i].clone() for i in range(start, len(h_ops))] + \
-                      [ResOperation(rop.JUMP, jumpargs, None, descr=loop_jitcell_token)]
-    label = part.operations[0]
-    orignial_label = label.clone()
-    assert label.getopnum() == rop.LABEL
+    preamble = create_empty_loop(metainterp)
+    loop = create_empty_loop(metainterp)
     try:
-        optimize_trace(metainterp_sd, part, jitdriver_sd.warmstate.enable_opts)
+        preamble.inputargs = inputargs[:]
+        preamble.resume_at_jump_descr = resume_at_jump_descr
+        preamble.operations = [partial_trace.operations[-1]] + \
+                          [h_ops[i].clone() for i in range(start, len(h_ops))] + \
+                          [ResOperation(rop.LABEL, jumpargs, None, descr=loop_jitcell_token)]
+        optimize_trace(metainterp_sd, preamble, jitdriver_sd.warmstate.enable_opts)
+
+        label = preamble.operations[-1]
+        assert label.getopnum() == rop.LABEL
+        label.getdescr().exported_state.generalize_virtual_state = \
+                preamble.operations[0].getdescr().virtual_state
+
+        loop.inputargs = inputargs[:]
+        loop.resume_at_jump_descr = resume_at_jump_descr
+        inliner = Inliner(inputargs, jumpargs)
+        loop.operations = [label] + \
+                          [inliner.inline_op(h_ops[i]) for i in range(start, len(h_ops))] + \
+                          [ResOperation(rop.JUMP, [inliner.inline_arg(a) for a in jumpargs],
+                                        None, descr=loop_jitcell_token)]
+        optimize_trace(metainterp_sd, loop, jitdriver_sd.warmstate.enable_opts)
+
+        preamble.operations = preamble.operations[:-1]
+
     except InvalidLoop:
         # Fall back on jumping to preamble
         target_token = label.getdescr()
         assert isinstance(target_token, TargetToken)
         assert target_token.exported_state
-        part.operations = [orignial_label] + \
-                          [ResOperation(rop.JUMP, inputargs[:],
-                                        None, descr=loop_jitcell_token)]
+        target_token.exported_state.generalize_virtual_state = None
+        # FIXME: Test
+        preamble.operations = [orignial_label] + \
+                              [ResOperation(rop.JUMP, inputargs[:],
+                                            None, descr=loop_jitcell_token)]
+        loop.operations = []
         try:
-            optimize_trace(metainterp_sd, part, jitdriver_sd.warmstate.enable_opts,
+            optimize_trace(metainterp_sd, preamble, jitdriver_sd.warmstate.enable_opts,
                            inline_short_preamble=False)
             
         except InvalidLoop:
             return None
-    assert part.operations[-1].getopnum() != rop.LABEL
+
+    trace = partial_trace
+    trace.operations = partial_trace.operations[:-1] + preamble.operations + loop.operations
+    loop = trace # FIXME: rename
+
+    assert loop.operations[-1].getopnum() != rop.LABEL
     target_token = label.getdescr()
     assert isinstance(target_token, TargetToken)
     assert loop_jitcell_token.target_tokens
-    loop_jitcell_token.target_tokens.append(target_token)
+    loop_jitcell_token.target_tokens.append(target_token) # FIXME: register all labels
     if target_token.short_preamble:
         metainterp_sd.logger_ops.log_short_preamble([], target_token.short_preamble)
 
-    loop = partial_trace
-    loop.operations = loop.operations[:-1] + part.operations
 
     quasi_immutable_deps = {}
     if loop.quasi_immutable_deps:
         quasi_immutable_deps.update(loop.quasi_immutable_deps)
-    if part.quasi_immutable_deps:
-        quasi_immutable_deps.update(part.quasi_immutable_deps)
+    # FIXME
+    #if part.quasi_immutable_deps:
+    #    quasi_immutable_deps.update(part.quasi_immutable_deps)
     if quasi_immutable_deps:
         loop.quasi_immutable_deps = quasi_immutable_deps
 
