@@ -462,3 +462,31 @@ def get_call_descr(gccache, ARGS, RESULT, extrainfo=None):
         cache[key] = calldescr
     assert repr(calldescr.result_size) == repr(result_size)
     return calldescr
+
+
+def unpack_arraydescr(arraydescr):
+    assert isinstance(arraydescr, ArrayDescr)
+    ofs = arraydescr.basesize
+    size = arraydescr.itemsize
+    sign = arraydescr.is_item_signed()
+    return size, ofs, sign
+
+
+def unpack_fielddescr(fielddescr):
+    assert isinstance(fielddescr, FieldDescr)
+    ofs = fielddescr.offset
+    size = fielddescr.field_size
+    sign = fielddescr.is_field_signed()
+    return ofs, size, sign
+unpack_fielddescr._always_inline_ = True
+
+
+def unpack_interiorfielddescr(descr):
+    assert isinstance(descr, InteriorFieldDescr)
+    arraydescr = descr.arraydescr
+    ofs = arraydescr.basesize
+    itemsize = arraydescr.itemsize
+    fieldsize = descr.fielddescr.field_size
+    sign = descr.fielddescr.is_field_signed()
+    ofs += descr.fielddescr.offset
+    return ofs, itemsize, fieldsize, sign

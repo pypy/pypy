@@ -119,7 +119,7 @@ class TestExecuteTest(object):
                     'driver', 'darg',
                     '-p', 'resultlog',
                     '--resultlog=LOGFILE',
-                    '--junitxml=LOGFILE.junit',
+                    #'--junitxml=LOGFILE.junit',
 
                     'test_one']
 
@@ -138,7 +138,7 @@ class TestExecuteTest(object):
                     'driver', 'darg',
                     '-p', 'resultlog',
                     '--resultlog=LOGFILE',
-                    '--junitxml=LOGFILE.junit',
+                    #'--junitxml=LOGFILE.junit',
                     'test_one']
         assert self.called[0] == expected
         assert self.called == (expected, '/wd', 'out', 'secs')        
