@@ -215,6 +215,8 @@ class BaseConcreteArray(base.BaseArrayImplementation):
                 raise OperationError(space.w_IndexError,
                                      space.wrap("invalid index"))
             return self._lookup_by_index(space, view_w)
+        if shape_len > 1:
+            raise IndexError
         idx = int_w(space, w_idx)
         return self._lookup_by_index(space, [space.wrap(idx)])
 
