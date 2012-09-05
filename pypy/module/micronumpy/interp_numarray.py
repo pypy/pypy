@@ -151,6 +151,15 @@ class __extend__(W_NDimArray):
     def descr_get_transpose(self, space):
         return W_NDimArray(self.implementation.transpose())
 
+    def descr_tolist(self, space):
+        if len(self.get_shape()) == 0:
+            return self.get_scalar_value().item(space)
+        l_w = []
+        for i in range(self.get_shape()[0]):
+            l_w.append(space.call_method(self.descr_getitem(space,
+                                         space.wrap(i)), "tolist"))
+        return space.newlist(l_w)
+
     # --------------------- operations ----------------------------
 
     def _unaryop_impl(ufunc_name):
@@ -394,6 +403,7 @@ W_NDimArray.typedef = TypeDef(
     copy = interp2app(W_NDimArray.descr_copy),
     reshape = interp2app(W_NDimArray.descr_reshape),
     T = GetSetProperty(W_NDimArray.descr_get_transpose),
+    tolist = interp2app(W_NDimArray.descr_tolist),
 )
 
 def decode_w_dtype(space, w_dtype):
