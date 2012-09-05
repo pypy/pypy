@@ -8,7 +8,7 @@ from numpypy.core.arrayprint import array2string
 
 newaxis = None
 
-def asanyarray(a, dtype=None, order=None, maskna=None, ownmaskna=False):
+def asanyarray(a, dtype=None, order=None):
     """
     Convert the input to an ndarray, but pass ndarray subclasses through.
 
@@ -23,13 +23,6 @@ def asanyarray(a, dtype=None, order=None, maskna=None, ownmaskna=False):
     order : {'C', 'F'}, optional
         Whether to use row-major ('C') or column-major ('F') memory
         representation.  Defaults to 'C'.
-   maskna : bool or None, optional
-        If this is set to True, it forces the array to have an NA mask.
-        If this is set to False, it forces the array to not have an NA
-        mask.
-    ownmaskna : bool, optional
-        If this is set to True, forces the array to have a mask which
-        it owns.
 
     Returns
     -------
@@ -65,8 +58,7 @@ def asanyarray(a, dtype=None, order=None, maskna=None, ownmaskna=False):
     True
 
     """
-    return array(a, dtype, copy=False, order=order, subok=True,
-                                maskna=maskna, ownmaskna=ownmaskna)
+    return array(a, dtype, copy=False, order=order, subok=True)
 
 def base_repr(number, base=2, padding=0):
     """

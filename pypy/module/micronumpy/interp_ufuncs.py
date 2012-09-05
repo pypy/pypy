@@ -297,7 +297,7 @@ class W_Ufunc2(W_Ufunc):
                     'output must be an array'))
         else:
             out = w_out
-            calc_dtype = out.find_dtype()
+            calc_dtype = out.get_dtype()
         if self.comparison_func:
             res_dtype = interp_dtype.get_dtype_cache(space).w_booldtype
         else:
