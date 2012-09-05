@@ -35,10 +35,7 @@ class BaseLinux(BasePosix):
         # places where we need to look for libffi.a
         # XXX obscuuure!  only look for libffi.a if run with translate.py
         if 'translate' in sys.modules:
-            return self.library_dirs_for_libffi() + [
-                '/usr/lib',
-                '/usr/lib/x86_64-linux-gnu',
-                ]
+            return self.library_dirs_for_libffi() + ['/usr/lib']
         else:
             return []
 
