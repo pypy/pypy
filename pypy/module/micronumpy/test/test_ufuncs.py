@@ -1,12 +1,75 @@
 
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
+from math import isnan, isinf, copysign
+from sys import version_info
+from pypy.conftest import option
+
+def rAlmostEqual(a, b, rel_err = 2e-15, abs_err = 5e-323, msg=''):
+    """Fail if the two floating-point numbers are not almost equal.
+
+    Determine whether floating-point values a and b are equal to within
+    a (small) rounding error.  The default values for rel_err and
+    abs_err are chosen to be suitable for platforms where a float is
+    represented by an IEEE 754 double.  They allow an error of between
+    9 and 19 ulps.
+    """
+
+    # special values testing
+    if isnan(a):
+        if isnan(b):
+            return True,''
+        return False, msg + '%r should be nan' % (b,)
+
+    if isinf(a):
+        if a == b:
+            return True,''
+        return False, msg + 'finite result where infinity expected: '+ \
+                          'expected %r, got %r' % (a, b)
+
+    # if both a and b are zero, check whether they have the same sign
+    # (in theory there are examples where it would be legitimate for a
+    # and b to have opposite signs; in practice these hardly ever
+    # occur).
+    if not a and not b:
+        # only check it if we are running on top of CPython >= 2.6
+        if version_info >= (2, 6) and copysign(1., a) != copysign(1., b):
+            return False, msg + 'zero has wrong sign: expected %r, '+ \
+                                       'got %r' % (a, b)
+
+    # if a-b overflows, or b is infinite, return False.  Again, in
+    # theory there are examples where a is within a few ulps of the
+    # max representable float, and then b could legitimately be
+    # infinite.  In practice these examples are rare.
+    try:
+        absolute_error = abs(b-a)
+    except OverflowError:
+        pass
+    else:
+        # test passes if either the absolute error or the relative
+        # error is sufficiently small.  The defaults amount to an
+        # error of between 9 ulps and 19 ulps on an IEEE-754 compliant
+        # machine.
+        if absolute_error <= max(abs_err, rel_err * abs(a)):
+            return True,''
+    return False, msg + '%r and %r are not sufficiently close' % (a, b)
+
 class AppTestUfuncs(BaseNumpyAppTest):
     def setup_class(cls):
         import os
         BaseNumpyAppTest.setup_class.im_func(cls)
         fname = os.path.join(os.path.dirname(__file__), 'complex_testcases.txt')
         cls.w_testcases = cls.space.wrap(fname)
+        def cls_rAlmostEqual(self, *args, **kwargs):
+            return rAlmostEqual(*args, **kwargs)
+        cls.w_rAlmostEqual = cls.space.wrap(cls_rAlmostEqual)
+        if 1 or option.runappdirect:
+            #Continue test, fail after all cases are tested
+            cls.w_collect_all_failures = cls.space.wrap(True)
+        else:
+            #Fail at first subtest case failure
+            cls.w_collect_all_failures = cls.space.wrap(False)
+
 
     def test_ufunc_instance(self):
         from _numpypy import add, ufunc
@@ -120,6 +183,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
     def test_true_divide(self):
         from _numpypy import array, true_divide
+        import math
 
         a = array([0, 1, 2, 3, 4, 1, -1])
         b = array([4, 4, 4, 4, 4, 0,  0])
@@ -931,8 +995,6 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
     def test_complex_math(self):
         import  _numpypy as np
-        from math import isnan, isinf, copysign
-        from sys import version_info
         testcases = self.testcases
         def parse_testfile(fname):
             """Parse a file with test values
@@ -957,61 +1019,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
                            float(exp_real), float(exp_imag),
                            flags
                           )
-        def rAssertAlmostEqual(a, b, rel_err = 2e-15, abs_err = 5e-323, msg=''):
-            """Fail if the two floating-point numbers are not almost equal.
-
-            Determine whether floating-point values a and b are equal to within
-            a (small) rounding error.  The default values for rel_err and
-            abs_err are chosen to be suitable for platforms where a float is
-            represented by an IEEE 754 double.  They allow an error of between
-            9 and 19 ulps.
-            """
-
-            # special values testing
-            if isnan(a):
-                if isnan(b):
-                    return
-                #raise AssertionError(msg + '%r should be nan' % (b,))
-                print(msg + '%r should be nan' % (b,))
-
-            if isinf(a):
-                if a == b:
-                    return
-                #raise AssertionError(msg + 'finite result where infinity expected: '
-                #                           'expected %r, got %r' % (a, b))
-                print(msg + 'finite result where infinity expected: '
-                                           'expected %r, got %r' % (a, b))
-
-            # if both a and b are zero, check whether they have the same sign
-            # (in theory there are examples where it would be legitimate for a
-            # and b to have opposite signs; in practice these hardly ever
-            # occur).
-            if not a and not b:
-                # only check it if we are running on top of CPython >= 2.6
-                if version_info >= (2, 6) and copysign(1., a) != copysign(1., b):
-                    #raise AssertionError(msg + 'zero has wrong sign: expected %r, '
-                    #                           'got %r' % (a, b))
-                    print(msg + 'zero has wrong sign: expected %r, '
-                                               'got %r' % (a, b))
-
-            # if a-b overflows, or b is infinite, return False.  Again, in
-            # theory there are examples where a is within a few ulps of the
-            # max representable float, and then b could legitimately be
-            # infinite.  In practice these examples are rare.
-            try:
-                absolute_error = abs(b-a)
-            except OverflowError:
-                pass
-            else:
-                # test passes if either the absolute error or the relative
-                # error is sufficiently small.  The defaults amount to an
-                # error of between 9 ulps and 19 ulps on an IEEE-754 compliant
-                # machine.
-                if absolute_error <= max(abs_err, rel_err * abs(a)):
-                    return
-            #raise AssertionError(msg + '%r and %r are not sufficiently close' % (a, b))
-            print(msg + '%r and %r are not sufficiently close' % (a, b))
         tested_funcs=[]
+        fail_at_end = False
         for complex_, abs_err in ((np.complex128, 5e-323), (np.complex64, 5e-32)):
             for id, fn, ar, ai, er, ei, flags in parse_testfile(testcases):
                 arg = complex_(complex(ar, ai))
@@ -1051,8 +1060,22 @@ class AppTestUfuncs(BaseNumpyAppTest):
                 if not function in tested_funcs:        
                     print 'fuction',function
                     tested_funcs.append(function)
-                rAssertAlmostEqual(expected[0], actual[0],
-                                   abs_err=real_abs_err,
+                success,msg = self.rAlmostEqual(expected[0], actual[0],
+                               abs_err=real_abs_err, msg=error_message)
+                if not success:
+                    if self.collect_all_failures:
+                        print msg
+                        fail_at_end = True
+                    else:
+                        raise AssertionError(msg)
+                success,msg = self.rAlmostEqual(expected[1], actual[1],
                                    msg=error_message)
-                rAssertAlmostEqual(expected[1], actual[1],
-                                   msg=error_message)
+                if not success:
+                    if self.collect_all_failures:
+                        print msg
+                        fail_at_end = True
+                    else:
+                        raise AssertionError(msg)
+                    
+        if fail_at_end:
+            assert False,'at least one test failed, see stdout'

@@ -21,6 +21,8 @@ degToRad = math.pi / 180.0
 log2 = math.log(2)
 log2e = 1. / log2
 
+def isfinite(d):
+    return not math.isinf(d) and not math.isnan(d)
 
 def simple_unary_op(func):
     specialize.argtype(1)(func)
@@ -1191,10 +1193,18 @@ class ComplexFloating(object):
     @complex_unary_op
     def exp(self, v):
         if math.isinf(v[1]):
-            return rfloat.NAN, rfloat.NAN
+            if math.isinf(v[0]):
+                if v[0]<0:
+                    return 0., 0.
+                return rfloat.INFINITY, rfloat.NAN
+            elif (isfinite(v[0]) or \
+                                 (math.isinf(v[0]) and v[0] > 0)):
+                return rfloat.NAN, rfloat.NAN
         try:
             return rcomplex.c_exp(*v)
         except OverflowError:
+            if v[1]==0:
+                return rfloat.INFINITY, 0.0
             return rfloat.INFINITY, rfloat.NAN
 
     def exp2(self, v):
@@ -1212,14 +1222,26 @@ class ComplexFloating(object):
 
     @complex_unary_op
     def sin(self, v):
+        if math.isinf(v[0]):
+            if isfinite(v[1]):
+                return rfloat.NAN, rfloat.INFINITY
+            elif not math.isnan(v[1]):
+                return rfloat.INFINITY, rfloat.NAN
         return rcomplex.c_sin(*v)
 
     @complex_unary_op
     def cos(self, v):
+        if math.isinf(v[0]):
+            if isfinite(v[1]):
+                return rfloat.NAN, 0.0
+            elif not math.isnan(v[1]):
+                return rfloat.INFINITY, rfloat.NAN
         return rcomplex.c_cos(*v)
 
     @complex_unary_op
     def tan(self, v):
+        if isinf(v[0]) and isfinite(v[1]):
+            return rfloat.NAN, rfloat.NAN
         return rcomplex.c_tan(*v)
 
     @complex_unary_op
@@ -1243,14 +1265,30 @@ class ComplexFloating(object):
 
     @complex_unary_op
     def sinh(self, v):
+        if math.isinf(v[1]):
+            if isfinite(v[0]):
+                if v[0] == 0.0:
+                    return 0.0, rfloat.NAN
+                return rfloat.NAN, rfloat.NAN
+            elif not math.isnan(v[0]):
+                return rfloat.INFINITY, rfloat.NAN
         return rcomplex.c_sinh(*v)
 
     @complex_unary_op
     def cosh(self, v):
+        if math.isinf(v[1]):
+            if isfinite(v[0]):
+                if v[0] == 0.0:
+                    return rfloat.NAN, 0.0
+                return rfloat.NAN, rfloat.NAN
+            elif not math.isnan(v[0]):
+                return rfloat.INFINITY, rfloat.NAN
         return rcomplex.c_cosh(*v)
 
     @complex_unary_op
     def tanh(self, v):
+        if math.isinf(v[1]) and isfinite(v[0]):
+            return rfloat.NAN, rfloat.NAN
         return rcomplex.c_tanh(*v)
 
     @complex_unary_op
