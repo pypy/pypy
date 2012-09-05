@@ -275,9 +275,6 @@ class W_SRE_Pattern(Wrappable):
         if last_pos < ctx.end:
             sublist_w.append(slice_w(space, ctx, last_pos, ctx.end,
                                      space.w_None))
-        if n == 0:
-            # not just an optimization -- see test_sub_unicode
-            return w_string, n
 
         if space.is_true(space.isinstance(w_string, space.w_unicode)):
             w_emptystr = space.wrap(u'')
