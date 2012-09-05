@@ -62,6 +62,14 @@ def getdefinedinteger(macro, c_header_source):
         DEFINED = DefinedConstantInteger(macro)
     return configure(CConfig)['DEFINED']
 
+def getintegerfunctionresult(function, args=None, c_header_source='', includes=[]):
+    class CConfig:
+        _compilation_info_ = eci_from_header(c_header_source)
+        RESULT = IntegerFunctionResult(function, args)
+    if includes:
+        CConfig._compilation_info_.includes = includes
+    return configure(CConfig)['RESULT']
+
 def has(name, c_header_source, include_dirs=None):
     class CConfig:
         _compilation_info_ = eci_from_header(c_header_source, include_dirs)
@@ -385,6 +393,28 @@ class ConstantInteger(CConfigEntry):
         yield '} else {'
         yield '    unsigned long long x = (unsigned long long)(%s);' % (
                         self.name,)
+        yield '    printf("value: %llu\\n", x);'
+        yield '}'
+
+    def build_result(self, info, config_result):
+        return expose_value_as_rpython(info['value'])
+
+class IntegerFunctionResult(CConfigEntry):
+    """An entry in a CConfig class that stands for an externally
+    defined integer constant.
+    """
+    def __init__(self, name, args=None):
+        self.name = name
+        self.args = args if args else []
+
+    def prepare_code(self):
+        yield 'long int result = %s(%s);' % (self.name,
+                            ', '.join([str(s) for s in self.args]))
+        yield 'if ((result) <= 0) {'
+        yield '    long long x = (long long)(result);'
+        yield '    printf("value: %lld\\n", x);'
+        yield '} else {'
+        yield '    unsigned long long x = (unsigned long long)(result);'
         yield '    printf("value: %llu\\n", x);'
         yield '}'
 

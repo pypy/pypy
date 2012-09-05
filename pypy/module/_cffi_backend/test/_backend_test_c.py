@@ -21,7 +21,10 @@ else:
     mandatory_b_prefix = 'b'
     mandatory_u_prefix = ''
     readbuf = lambda buf: buf.tobytes()
-    bufchar = ord
+    if sys.version_info < (3, 3):
+        bufchar = lambda x: bytes([ord(x)])
+    else:
+        bufchar = ord
     bytechr = lambda n: bytes([n])
     u = ""
 
@@ -906,7 +909,7 @@ def test_call_function_21():
                                        ('j', BInt, -1)])
     BFunc21 = new_function_type((BStruct,), BInt, False)
     f = cast(BFunc21, _testfunc(21))
-    res = f(range(13, 3, -1))
+    res = f(list(range(13, 3, -1)))
     lst = [(n << i) for (i, n) in enumerate(range(13, 3, -1))]
     assert res == sum(lst)
 
@@ -1076,7 +1079,7 @@ def test_callback_returning_big_struct():
                                        ('i', BInt, -1),
                                        ('j', BInt, -1)])
     def cb():
-        return newp(BStructPtr, range(13, 3, -1))[0]
+        return newp(BStructPtr, list(range(13, 3, -1)))[0]
     BFunc = new_function_type((), BStruct)
     f = callback(BFunc, cb)
     s = f()
@@ -1810,11 +1813,12 @@ def test_buffer():
     c[2] = b'-'
     buf[:2] = b'HI'
     assert string(c) == b'HI-there'
-    assert buf[:4:2] == b'H-'
-    if '__pypy__' not in sys.builtin_module_names:
-        # XXX pypy doesn't support the following assignment so far
-        buf[:4:2] = b'XY'
-        assert string(c) == b'XIYthere'
+    if sys.version_info < (3,) or sys.version_info >= (3, 3):
+        assert buf[:4:2] == b'H-'
+        if '__pypy__' not in sys.builtin_module_names:
+            # XXX pypy doesn't support the following assignment so far
+            buf[:4:2] = b'XY'
+            assert string(c) == b'XIYthere'
 
 def test_getcname():
     BUChar = new_primitive_type("unsigned char")
@@ -2053,3 +2057,22 @@ def test_sizeof_union():
                                       ('i', BShort)])
     assert sizeof(BUnion) == 4
     assert alignof(BUnion) == 2
+
+def test_unaligned_struct():
+    BInt = new_primitive_type("int")
+    BStruct = new_struct_type("foo")
+    complete_struct_or_union(BStruct, [('b', BInt, -1, 1)],
+                             None, 5, 1)
+
+def test_CData_CType():
+    CData, CType = _get_types()
+    BChar = new_primitive_type("char")
+    BCharP = new_pointer_type(BChar)
+    nullchr = cast(BChar, 0)
+    chrref = newp(BCharP, None)
+    assert isinstance(nullchr, CData)
+    assert isinstance(chrref, CData)
+    assert not isinstance(BChar, CData)
+    assert not isinstance(nullchr, CType)
+    assert not isinstance(chrref, CType)
+    assert isinstance(BChar, CType)

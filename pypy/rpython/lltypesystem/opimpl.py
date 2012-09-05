@@ -20,7 +20,7 @@ ops_unary = {'is_true': True, 'neg': True, 'abs': True, 'invert': True}
 
 # global synonyms for some types
 from pypy.rlib.rarithmetic import intmask
-from pypy.rlib.rarithmetic import r_int, r_uint, r_longlong, r_ulonglong
+from pypy.rlib.rarithmetic import r_int, r_uint, r_longlong, r_ulonglong, r_longlonglong
 from pypy.rpython.lltypesystem.llmemory import AddressAsInt
 
 if r_longlong is r_int:
@@ -29,6 +29,10 @@ if r_longlong is r_int:
 else:
     r_longlong_arg = r_longlong
     r_longlong_result = r_longlong
+    
+    
+r_longlonglong_arg = r_longlonglong
+r_longlonglong_result = r_longlonglong
 
 argtype_by_name = {
     'int': (int, long),
@@ -36,6 +40,7 @@ argtype_by_name = {
     'uint': r_uint,
     'llong': r_longlong_arg,
     'ullong': r_ulonglong,
+    'lllong': r_longlonglong,
     }
 
 def no_op(x):
@@ -283,6 +288,22 @@ def op_llong_mod(x, y):
         r -= y
     return r
 
+def op_lllong_floordiv(x, y):
+    assert isinstance(x, r_longlonglong_arg)
+    assert isinstance(y, r_longlonglong_arg)
+    r = x//y
+    if x^y < 0 and x%y != 0:
+        r += 1
+    return r
+
+def op_lllong_mod(x, y):
+    assert isinstance(x, r_longlonglong_arg)
+    assert isinstance(y, r_longlonglong_arg)
+    r = x%y
+    if x^y < 0 and x%y != 0:
+        r -= y
+    return r
+
 def op_uint_lshift(x, y):
     assert isinstance(x, r_uint)
     assert is_valid_int(y)
@@ -302,6 +323,16 @@ def op_llong_rshift(x, y):
     assert isinstance(x, r_longlong_arg)
     assert is_valid_int(y)
     return r_longlong_result(x >> y)
+
+def op_lllong_lshift(x, y):
+    assert isinstance(x, r_longlonglong_arg)
+    assert is_valid_int(y)
+    return r_longlonglong_result(x << y)
+
+def op_lllong_rshift(x, y):
+    assert isinstance(x, r_longlonglong_arg)
+    assert is_valid_int(y)
+    return r_longlonglong_result(x >> y)
 
 def op_ullong_lshift(x, y):
     assert isinstance(x, r_ulonglong)
