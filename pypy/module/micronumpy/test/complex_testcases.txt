@@ -1004,7 +1004,7 @@ atan1003 atan -inf 0.0 -> -1.5707963267948966 0.0
 atan1004 atan -inf 2.2999999999999998 -> -1.5707963267948966 0.0
 atan1005 atan nan 2.2999999999999998 -> nan nan
 atan1006 atan -0.0 inf -> -1.5707963267948966 0.0
-atan1007 atan -2.2999999999999998 inf -> -1.5707963267948966 0.0
+infn100 7atan -2.2999999999999998 inf -> -1.5707963267948966 0.0
 atan1008 atan -inf inf -> -1.5707963267948966 0.0
 atan1009 atan nan inf -> nan 0.0
 atan1010 atan -0.0 nan -> nan nan
@@ -1609,7 +1609,7 @@ exp0045 exp -745.0 3.7 -> -0.0 -0.0
 exp0046 exp -745.0 5.3 -> 0.0 -0.0
 
 -- values for which exp(z) overflows
-exp0050 exp 710.0 0.0 -> inf nan                        overflow
+exp0050 exp 710.0 0.0 -> inf 0.0                        overflow
 exp0051 exp 711.0 0.7 -> inf nan                        overflow
 exp0052 exp 710.0 1.5 -> inf nan                        overflow
 exp0053 exp 710.0 1.6 -> inf nan                        overflow
