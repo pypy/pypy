@@ -1191,6 +1191,24 @@ class FunctionWriter(object):
     op_llong_invert = op_ullong_invert = _invert
     op_bool_not = _invert
 
+    def _ovf_op(int_op):
+        def f(self, result, x, y):
+            t1 = self._tmp()
+            t2 = self._tmp(LLVMBool)
+            int_op # reference to include it in locals()
+            T = SIGNED_TYPE
+            self.w('{t1.V} = call {{{T}, i1}} @llvm.{int_op}.with.overflow.{T}'
+                   '({x.TV}, {y.TV})'.format(**locals()))
+            self.w('{result.V} = extractvalue {{{T}, i1}} {t1.V}, 0'
+                    .format(**locals()))
+            self.w('{t2.V} = extractvalue {{{T}, i1}} {t1.V}, 1'
+                    .format(**locals()))
+            self.w('call void @_raise_ovf({t2.TV})'.format(**locals()))
+        return f
+    op_int_add_ovf = op_int_add_nonneg_ovf = _ovf_op('sadd')
+    op_int_sub_ovf = _ovf_op('ssub')
+    op_int_mul_ovf = _ovf_op('smul')
+
     def op_ptr_iszero(self, result, var):
         self.w('{result.V} = icmp eq {var.TV}, null'.format(**locals()))
 
@@ -1683,8 +1701,23 @@ class GenLLVM(object):
             align = int(tmp[3]) / 8
             f.write(output)
             f.write('declare void @abort() noreturn nounwind\n')
-
+            for op in ('sadd', 'ssub', 'smul'):
+                f.write('declare {{{T}, i1}} @llvm.{op}.with.overflow.{T}('
+                        '{T} %a, {T} %b)\n'.format(op=op, T=SIGNED_TYPE))
             database = Database(self, f)
+            exctrans = self.exctransformer
+            ll_exc_type, ll_exc = exctrans.get_builtin_exception(OverflowError)
+            f.write('define internal void @_raise_ovf(i1 %x) alwaysinline {{\n'
+                    '  block0:\n'
+                    '    br i1 %x, label %block1, label %block2\n'
+                    '  block1:\n'
+                    '    call void {raise_.V}({type_.TV}, {inst.TV})\n'
+                    '    ret void\n'
+                    '  block2:\n'
+                    '    ret void\n'
+                    '}}\n'.format(raise_=get_repr(exctrans.rpyexc_raise_ptr),
+                                  type_=get_repr(ll_exc_type),
+                                  inst=get_repr(ll_exc)))
 
             self.gcpolicy.add_startup_code()
             if not self.standalone:

@@ -534,6 +534,21 @@ class TestSpecialCases(_LLVMMixin):
         assert '@a = global %A' in self.genllvm.base_path.new(ext='.ll').read()
         lltype.free(buf, 'raw')
 
+    def test_ovf_op_in_loop(self):
+        from sys import maxint
+        from pypy.rlib.rarithmetic import ovfcheck
+        def f(x, y):
+            ret = 0
+            for i in range(y):
+                try:
+                    ret = ovfcheck(x + i)
+                except OverflowError:
+                    break
+            return ret
+        fc = self.getcompiled(f, [int, int])
+        assert fc(10, 10) == 19
+        assert fc(maxint, 10) == maxint
+
 
 class TestLowLevelTypeLLVM(_LLVMMixin, test_lltyped.TestLowLevelType):
     def test_union(self):
