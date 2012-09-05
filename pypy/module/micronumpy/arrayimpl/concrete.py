@@ -116,6 +116,9 @@ class AxisIterator(base.BaseArrayIterator):
         else:
             self._done = True
 
+    def done(self):
+        return self._done
+
 def int_w(space, w_obj):
     # a special version that respects both __index__ and __int__
     # XXX add __index__ support

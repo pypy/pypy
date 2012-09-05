@@ -163,8 +163,8 @@ class __extend__(W_NDimArray):
         if self.get_size() > 1:
             raise OperationError(space.w_ValueError, space.wrap(
                 "The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()"))
-        iter = self.create_iter(self.shape)
-        return space.is_true(iter.getitem())
+        iter = self.create_iter(self.get_shape())
+        return space.wrap(space.is_true(iter.getitem()))
 
     def _binop_impl(ufunc_name):
         def impl(self, space, w_other, w_out=None):

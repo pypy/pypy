@@ -84,15 +84,13 @@ def where(out, arr, x, y, dtype):
     return out
 
 def do_axis_reduce(shape, func, arr, dtype, axis, out, identity):
-    import pdb
-    pdb.set_trace()
-    out_iter = out.create_iter(shape)
-    arr_iter = arr.create_axis_iter(shape, axis)
+    out_iter = out.create_axis_iter(arr.get_shape(), axis)
+    arr_iter = arr.create_iter(arr.get_shape())
     if identity is not None:
         identity = identity.convert_to(dtype)
     while not out_iter.done():
         w_val = arr_iter.getitem().convert_to(dtype)
-        if arr_iter.first_line:
+        if out_iter.first_line:
             if identity is not None:
                 w_val = func(dtype, identity, w_val)
         else:
