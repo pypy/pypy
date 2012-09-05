@@ -96,6 +96,9 @@ class __extend__(W_NDimArray):
     def is_scalar(self):
         return self.implementation.is_scalar()
 
+    def set_scalar_value(self, w_val):
+        self.implementation.set_scalar_value(w_val)
+
     def fill(self, box):
         self.implementation.fill(box)
 
