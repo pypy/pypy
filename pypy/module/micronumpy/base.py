@@ -20,10 +20,6 @@ class W_NDimArray(Wrappable):
         return W_NDimArray(impl)
 
     @classmethod
-    def from_strides(cls):
-        xxx
-
-    @classmethod
     def new_slice(cls, offset, strides, backstrides, shape, parent):
         from pypy.module.micronumpy.arrayimpl import concrete
 

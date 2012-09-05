@@ -72,3 +72,9 @@ def where(space, w_arr, w_x=None, w_y=None):
     dtype = arr.get_dtype()
     out = W_NDimArray.from_shape(arr.get_shape(), dtype)
     return loop.where(out, arr, x, y, dtype)
+
+def dot(space, w_obj1, w_obj2):
+    w_arr = convert_to_array(space, w_obj1)
+    if w_arr.is_scalar():
+        return convert_to_array(space, w_obj2).descr_dot(space, w_arr)
+    return w_arr.descr_dot(space, w_obj2)

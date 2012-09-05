@@ -3,7 +3,7 @@ from pypy.module.micronumpy.arrayimpl import base
 from pypy.module.micronumpy import support, loop
 from pypy.module.micronumpy.base import convert_to_array
 from pypy.module.micronumpy.strides import calc_new_strides, shape_agreement,\
-     calculate_broadcast_strides
+     calculate_broadcast_strides, calculate_dot_strides
 from pypy.module.micronumpy.iter import Chunk, Chunks, NewAxisChunk, RecordChunk
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.rlib import jit
@@ -286,6 +286,11 @@ class BaseConcreteArray(base.BaseArrayImplementation):
 
     def create_axis_iter(self, shape, dim):
         return AxisIterator(self, shape, dim)
+
+    def create_dot_iter(self, shape, skip):
+        r = calculate_dot_strides(self.strides, self.backstrides,
+                                  shape, skip)
+        return MultiDimViewIterator(self, self.start, r[0], r[1], shape)
 
 class ConcreteArray(BaseConcreteArray):
     def __init__(self, shape, dtype, order, strides, backstrides):

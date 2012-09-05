@@ -2,13 +2,14 @@
 from pypy.interpreter.error import operationerrfmt, OperationError
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.module.micronumpy.base import W_NDimArray
+from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
 from pypy.module.micronumpy import interp_dtype, interp_ufuncs, support
 from pypy.module.micronumpy.strides import find_shape_and_elems,\
      get_shape_from_iterable
 from pypy.module.micronumpy.interp_support import unwrap_axis_arg
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
 from pypy.module.micronumpy import loop
+from pypy.module.micronumpy.dot import match_dot_shapes
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib import jit
 from pypy.rlib.rstring import StringBuilder
@@ -93,6 +94,9 @@ class __extend__(W_NDimArray):
 
     def create_axis_iter(self, shape, dim):
         return self.implementation.create_axis_iter(shape, dim)
+
+    def create_dot_iter(self, shape, skip):
+        return self.implementation.create_dot_iter(shape, skip)
 
     def is_scalar(self):
         return self.implementation.is_scalar()
@@ -228,6 +232,34 @@ class __extend__(W_NDimArray):
         w_remainder = self.descr_rmod(space, w_other)
         return space.newtuple([w_quotient, w_remainder])
 
+    def descr_dot(self, space, w_other):
+        other = convert_to_array(space, w_other)
+        if other.is_scalar():
+            #Note: w_out is not modified, this is numpy compliant.
+            return self.descr_mul(space, other)
+        elif len(self.get_shape()) < 2 and len(other.get_shape()) < 2:
+            w_res = self.descr_mul(space, other)
+            return w_res.descr_sum(space, space.wrap(-1))
+        dtype = interp_ufuncs.find_binop_result_dtype(space,
+                                     self.get_dtype(), other.get_dtype())
+        if self.get_size() < 1 and other.get_size() < 1:
+            # numpy compatability
+            return W_NDimArray.new_scalar(space, dtype, space.wrap(0))
+        # Do the dims match?
+        out_shape, other_critical_dim = match_dot_shapes(space, self, other)
+        result = W_NDimArray.from_shape(out_shape, dtype)
+        # This is the place to add fpypy and blas
+        return loop.multidim_dot(space, self, other,  result, dtype,
+                                 other_critical_dim)
+
+    def descr_var(self, space, w_axis=None):
+        return get_appbridge_cache(space).call_method(space, '_var', self,
+                                                      w_axis)
+
+    def descr_std(self, space, w_axis=None):
+        return get_appbridge_cache(space).call_method(space, '_std', self,
+                                                      w_axis)
+
     # ----------------------- reduce -------------------------------
 
     def _reduce_ufunc_impl(ufunc_name, promote_to_largest=False):
@@ -355,9 +387,9 @@ W_NDimArray.typedef = TypeDef(
     argmin = interp2app(W_NDimArray.descr_argmin),
     all = interp2app(W_NDimArray.descr_all),
     any = interp2app(W_NDimArray.descr_any),
-    #dot = interp2app(W_NDimArray.descr_dot),
-    #var = interp2app(W_NDimArray.descr_var),
-    #std = interp2app(W_NDimArray.descr_std),
+    dot = interp2app(W_NDimArray.descr_dot),
+    var = interp2app(W_NDimArray.descr_var),
+    std = interp2app(W_NDimArray.descr_std),
 
     copy = interp2app(W_NDimArray.descr_copy),
     reshape = interp2app(W_NDimArray.descr_reshape),
@@ -435,10 +467,6 @@ def ones(space, w_shape, w_dtype=None, order='C'):
     one = dtype.box(1)
     arr.fill(one)
     return space.wrap(arr)
-
-
-def dot(space):
-    pass
 
 def isna(space):
     pass

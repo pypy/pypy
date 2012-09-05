@@ -119,3 +119,39 @@ def argmin_argmax(op_name, arr):
         iter.next()
         idx += 1
     return result
+
+def multidim_dot(space, left, right, result, dtype, right_critical_dim):
+    ''' assumes left, right are concrete arrays
+    given left.shape == [3, 5, 7],
+          right.shape == [2, 7, 4]
+    then
+     result.shape == [3, 5, 2, 4]
+     broadcast shape should be [3, 5, 2, 7, 4]
+     result should skip dims 3 which is len(result_shape) - 1
+        (note that if right is 1d, result should 
+                  skip len(result_shape))
+     left should skip 2, 4 which is a.ndims-1 + range(right.ndims)
+          except where it==(right.ndims-2)
+     right should skip 0, 1
+    '''
+    left_shape = left.get_shape()
+    right_shape = right.get_shape()
+    broadcast_shape = left_shape[:-1] + right_shape
+    left_skip = [len(left_shape) - 1 + i for i in range(len(right_shape))
+                                         if i != right_critical_dim]
+    right_skip = range(len(left_shape) - 1)
+    result_skip = [len(result.get_shape()) - (len(right_shape) > 1)]
+    outi = result.create_dot_iter(broadcast_shape, result_skip)
+    lefti = left.create_dot_iter(broadcast_shape, left_skip)
+    righti = right.create_dot_iter(broadcast_shape, right_skip)
+    while not outi.done():
+        lval = lefti.getitem().convert_to(dtype) 
+        rval = righti.getitem().convert_to(dtype) 
+        outval = outi.getitem().convert_to(dtype) 
+        v = dtype.itemtype.mul(lval, rval)
+        value = dtype.itemtype.add(v, outval).convert_to(dtype)
+        outi.setitem(value)
+        outi.next()
+        righti.next()
+        lefti.next()
+    return result
