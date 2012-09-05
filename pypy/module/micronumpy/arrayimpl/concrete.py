@@ -1,7 +1,7 @@
 
 from pypy.module.micronumpy.arrayimpl import base
 from pypy.module.micronumpy import support, loop
-from pypy.module.micronumpy.base import convert_to_array
+from pypy.module.micronumpy.base import convert_to_array, W_NDimArray
 from pypy.module.micronumpy.strides import calc_new_strides, shape_agreement,\
      calculate_broadcast_strides, calculate_dot_strides
 from pypy.module.micronumpy.iter import Chunk, Chunks, NewAxisChunk, RecordChunk
@@ -291,6 +291,16 @@ class BaseConcreteArray(base.BaseArrayImplementation):
         r = calculate_dot_strides(self.strides, self.backstrides,
                                   shape, skip)
         return MultiDimViewIterator(self, self.start, r[0], r[1], shape)
+
+    def swapaxes(self, axis1, axis2):
+        shape = self.shape[:]
+        strides = self.strides[:]
+        backstrides = self.backstrides[:]
+        shape[axis1], shape[axis2] = shape[axis2], shape[axis1]   
+        strides[axis1], strides[axis2] = strides[axis2], strides[axis1]
+        backstrides[axis1], backstrides[axis2] = backstrides[axis2], backstrides[axis1] 
+        return W_NDimArray.new_slice(self.start, strides, 
+                                     backstrides, shape, self)
 
 class ConcreteArray(BaseConcreteArray):
     def __init__(self, shape, dtype, order, strides, backstrides):

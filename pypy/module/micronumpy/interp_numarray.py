@@ -158,6 +158,20 @@ class __extend__(W_NDimArray):
     def descr_get_transpose(self, space):
         return W_NDimArray(self.implementation.transpose())
 
+    @unwrap_spec(axis1=int, axis2=int)
+    def descr_swapaxes(self, space, axis1, axis2):
+        """a.swapaxes(axis1, axis2)
+    
+        Return a view of the array with `axis1` and `axis2` interchanged.
+    
+        Refer to `numpy.swapaxes` for full documentation.
+    
+        See Also
+        --------
+        numpy.swapaxes : equivalent function
+        """
+        return self.implementation.swapaxes(axis1, axis2)
+
     def descr_tolist(self, space):
         if len(self.get_shape()) == 0:
             return self.get_scalar_value().item(space)
@@ -439,6 +453,7 @@ W_NDimArray.typedef = TypeDef(
     flatten = interp2app(W_NDimArray.descr_flatten),
     ravel = interp2app(W_NDimArray.descr_ravel),
     repeat = interp2app(W_NDimArray.descr_repeat),
+    swapaxes = interp2app(W_NDimArray.descr_swapaxes),
 )
 
 @unwrap_spec(ndmin=int, copy=bool, subok=bool)
