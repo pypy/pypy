@@ -3,6 +3,7 @@
 signatures
 """
 
+from pypy.rlib.objectmodel import specialize
 from pypy.module.micronumpy.base import W_NDimArray
 
 def call2(shape, func, name, calc_dtype, res_dtype, w_lhs, w_rhs, out):
@@ -100,3 +101,21 @@ def do_axis_reduce(shape, func, arr, dtype, axis, out, identity):
         arr_iter.next()
         out_iter.next()
     return out
+
+@specialize.arg(0)
+def argmin_argmax(op_name, arr):
+    result = 0
+    idx = 1
+    dtype = arr.get_dtype()
+    iter = arr.create_iter(arr.get_shape())
+    cur_best = iter.getitem()
+    iter.next()
+    while not iter.done():
+        w_val = iter.getitem()
+        new_best = getattr(dtype.itemtype, op_name)(cur_best, w_val)
+        if dtype.itemtype.ne(new_best, cur_best):
+            result = idx
+            cur_best = new_best
+        iter.next()
+        idx += 1
+    return result

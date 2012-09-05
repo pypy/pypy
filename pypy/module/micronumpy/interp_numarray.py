@@ -8,6 +8,7 @@ from pypy.module.micronumpy.strides import find_shape_and_elems,\
      get_shape_from_iterable
 from pypy.module.micronumpy.interp_support import unwrap_axis_arg
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
+from pypy.module.micronumpy import loop
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib import jit
 from pypy.rlib.rstring import StringBuilder
@@ -259,6 +260,17 @@ class __extend__(W_NDimArray):
             w_denom = space.wrap(self.get_shape()[axis])
         return space.div(self.descr_sum_promote(space, w_axis, w_out), w_denom)
 
+    def _reduce_argmax_argmin_impl(op_name):
+        def impl(self, space):
+            if self.get_size() == 0:
+                raise OperationError(space.w_ValueError,
+                    space.wrap("Can't call %s on zero-size arrays" % op_name))
+            return space.wrap(loop.argmin_argmax(op_name, self))
+        return func_with_new_name(impl, "reduce_arg%s_impl" % op_name)
+
+    descr_argmax = _reduce_argmax_argmin_impl("max")
+    descr_argmin = _reduce_argmax_argmin_impl("min")
+
 
 @unwrap_spec(offset=int)
 def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
@@ -339,8 +351,8 @@ W_NDimArray.typedef = TypeDef(
     prod = interp2app(W_NDimArray.descr_prod),
     max = interp2app(W_NDimArray.descr_max),
     min = interp2app(W_NDimArray.descr_min),
-    #argmax = interp2app(W_NDimArray.descr_argmax),
-    #argmin = interp2app(W_NDimArray.descr_argmin),
+    argmax = interp2app(W_NDimArray.descr_argmax),
+    argmin = interp2app(W_NDimArray.descr_argmin),
     all = interp2app(W_NDimArray.descr_all),
     any = interp2app(W_NDimArray.descr_any),
     #dot = interp2app(W_NDimArray.descr_dot),
