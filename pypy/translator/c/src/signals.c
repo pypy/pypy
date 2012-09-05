@@ -37,6 +37,12 @@ static int volatile pypysig_occurred = 0;
    pypysig_flags could be set. */
 static int wakeup_fd = -1;
 
+#undef pypysig_getaddr_occurred
+void *pypysig_getaddr_occurred(void)
+{
+    return (void *)(&pypysig_counter); 
+}
+
 void pypysig_ignore(int signum)
 {
 #ifdef SA_RESTART

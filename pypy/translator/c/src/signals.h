@@ -22,7 +22,6 @@ extern struct pypysig_long_struct pypysig_counter;
 /* some C tricks to get/set the variable as efficiently as possible:
    use macros when compiling as a stand-alone program, but still
    export a function with the correct name for testing */
-#undef pypysig_getaddr_occurred
 void *pypysig_getaddr_occurred(void);
 #define pypysig_getaddr_occurred()   ((void *)(&pypysig_counter))
 
