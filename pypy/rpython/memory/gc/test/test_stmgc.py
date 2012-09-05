@@ -26,11 +26,10 @@ class FakeStmOperations:
     # any use of 'self._gc' is wrong here: it's stmgc.py that should call
     # et.c, and not the other way around.
 
-    PRIMITIVE_SIZES = {1: lltype.Char,
-                       WORD: lltype.Signed}
     CALLBACK_ENUM = lltype.Ptr(lltype.FuncType([llmemory.Address] * 3,
                                                lltype.Void))
-    GETSIZE  = lltype.Ptr(lltype.FuncType([llmemory.Address], lltype.Signed))
+    DUPLICATE = lltype.Ptr(lltype.FuncType([llmemory.Address],
+                                           llmemory.Address))
 
     threadnum = 0          # 0 = main thread; 1,2,3... = transactional threads
 

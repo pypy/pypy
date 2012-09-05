@@ -1,6 +1,6 @@
 from pypy.rpython.lltypesystem import lltype, llmemory, llarena, llgroup
 from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.rpython.lltypesystem.llmemory import raw_malloc_usage
+from pypy.rpython.lltypesystem.llmemory import raw_malloc_usage, raw_memcopy
 from pypy.rpython.memory.gc.base import GCBase, MovingGCBase
 from pypy.rpython.memory.support import mangle_hash
 from pypy.rpython.annlowlevel import llhelper
@@ -174,11 +174,9 @@ class StmGC(MovingGCBase):
         self.nursery_size = nursery_size
         self.sharedarea = stmshared.StmGCSharedArea(self)
         #
-        def _stm_getsize(obj):     # indirection to hide 'self'
-            return self.get_size(obj)
-        self._stm_getsize = _stm_getsize
-        #
-        self.declare_write_barrier()
+        def _stm_duplicate(obj):     # indirection to hide 'self'
+            return self.stm_duplicate(obj)
+        self._stm_duplicate = _stm_duplicate
 
     def setup(self):
         """Called at run-time to initialize the GC."""
@@ -307,134 +305,26 @@ class StmGC(MovingGCBase):
         flags |= GCFLAG_GLOBAL
         self.init_gc_object(addr, typeid16, flags)
 
-    # ----------
-
-##    TURNED OFF, maybe temporarily: the following logic is now entirely
-##    done by C macros and functions.
-##
-##    def declare_reader(self, size, TYPE):
-##        # Reading functions.  Defined here to avoid the extra burden of
-##        # passing 'self' explicitly.
-##        assert rffi.sizeof(TYPE) == size
-##        PTYPE = rffi.CArrayPtr(TYPE)
-##        stm_read_int = getattr(self.stm_operations, 'stm_read_int%d' % size)
-##        #
-##        @always_inline
-##        def reader(obj, offset):
-##            if self.header(obj).tid & GCFLAG_GLOBAL == 0:
-##                adr = rffi.cast(PTYPE, obj + offset)
-##                return adr[0]                      # local obj: read directly
-##            else:
-##                return stm_read_int(obj, offset)   # else: call a helper
-##        setattr(self, 'read_int%d' % size, reader)
-##        #
-##        @dont_inline
-##        def _read_word_global(obj, offset):
-##            hdr = self.header(obj)
-##            if hdr.tid & GCFLAG_WAS_COPIED != 0:
-##                #
-##                # Look up in the thread-local dictionary.
-##                localobj = stm_operations.tldict_lookup(obj)
-##                if localobj:
-##                    ll_assert(self.header(localobj).tid & GCFLAG_GLOBAL == 0,
-##                              "stm_read: tldict_lookup() -> GLOBAL obj")
-##                    return (localobj + offset).signed[0]
-##            #
-##            return stm_operations.stm_read_word(obj, offset)
-
-
-    def declare_write_barrier(self):
-        # Write barrier.  Defined here to avoid the extra burden of
-        # passing 'self' explicitly.
-        stm_operations = self.stm_operations
+    def stm_duplicate(self, obj):
+        size_gc_header = self.gcheaderbuilder.size_gc_header
+        size = self.get_size(obj)
+        totalsize = size_gc_header + size
+        tls = self.get_tls()
+        try:
+            localobj = tls.malloc_local_copy(totalsize)
+        except MemoryError:
+            # should not really let the exception propagate.
+            # XXX do something slightly better, like abort the transaction
+            # and raise a MemoryError when retrying
+            fatalerror("FIXME: MemoryError in stm_duplicate")
+            return llmemory.NULL
         #
-        @always_inline
-        def stm_writebarrier(obj):
-            """The write barrier must be called on any object that may be
-            a global.  It looks for, and possibly makes, a local copy of
-            this object.  The result of this call is the local copy ---
-            or 'obj' itself if it is already local.
-            """
-            if self.header(obj).tid & GCFLAG_GLOBAL != 0:
-                obj = _stm_write_barrier_global(obj)
-            return obj
-        self.stm_writebarrier = stm_writebarrier
-        #
-        @dont_inline
-        def _stm_write_barrier_global(obj):
-            # find or make a local copy of the global object
-            hdr = self.header(obj)
-            if hdr.tid & GCFLAG_WAS_COPIED == 0:
-                #
-                # in this case, we are sure that we don't have a copy
-                hdr.tid |= GCFLAG_WAS_COPIED
-                # ^^^ non-protected write, but concurrent writes should
-                #     have the same effect, so fine
-            else:
-                # in this case, we need to check first
-                localobj = stm_operations.tldict_lookup(obj)
-                if localobj:
-                    hdr = self.header(localobj)
-                    ll_assert(hdr.tid & GCFLAG_GLOBAL == 0,
-                              "stm_write: tldict_lookup() -> GLOBAL obj")
-                    ll_assert(hdr.tid & GCFLAG_WAS_COPIED != 0,
-                              "stm_write: tldict_lookup() -> non-COPIED obj")
-                    return localobj
-            #
-            # Here, we need to really make a local copy
-            size = self.get_size(obj)
-            totalsize = self.gcheaderbuilder.size_gc_header + size
-            tls = self.get_tls()
-            try:
-                localobj = tls.malloc_local_copy(totalsize)
-            except MemoryError:
-                # should not really let the exception propagate.
-                # XXX do something slightly better, like abort the transaction
-                # and raise a MemoryError when retrying
-                fatalerror("FIXME: MemoryError in _stm_write_barrier_global")
-                return llmemory.NULL
-            #
-            # Initialize the copy by doing an stm raw copy of the bytes
-            stm_operations.stm_copy_transactional_to_raw(obj, localobj, size)
-            #
-            # The raw copy done above does not include the header fields.
-            hdr = self.header(obj)
-            localhdr = self.header(localobj)
-            GCFLAGS = (GCFLAG_GLOBAL | GCFLAG_WAS_COPIED | GCFLAG_VISITED)
-            ll_assert(hdr.tid & GCFLAGS == (GCFLAG_GLOBAL | GCFLAG_WAS_COPIED),
-                      "stm_write: bogus flags on source object")
-            #
-            # Remove the GCFLAG_GLOBAL from the copy, and add GCFLAG_VISITED
-            localhdr.tid = hdr.tid + (GCFLAG_VISITED - GCFLAG_GLOBAL)
-            #
-            # Set the 'version' field of the local copy to be a pointer
-            # to the global obj.  (The field is called 'version' because
-            # of its use by the C STM library: on global objects (only),
-            # it is a version number.)
-            localhdr.version = obj
-            #
-            # Register the object as a valid copy
-            stm_operations.tldict_add(obj, localobj)
-            #
-            return localobj
-        self._stm_write_barrier_global = _stm_write_barrier_global
-        #
-        def stm_normalize_global(obj):
-            """Normalize a pointer for the purpose of equality
-            comparison with another pointer.  If 'obj' is the local
-            version of an existing global object, then returns the
-            global object.  Don't use for e.g. hashing, because if 'obj'
-            is a local object, it just returns 'obj' --- even for nursery
-            objects, which move at the next local collection.
-            """
-            if not obj:
-                return obj
-            tid = self.header(obj).tid
-            if tid & (GCFLAG_GLOBAL|GCFLAG_WAS_COPIED) != GCFLAG_WAS_COPIED:
-                return obj
-            # the only relevant case: it's the local copy of a global object
-            return self.header(obj).version
-        self.stm_normalize_global = stm_normalize_global
+        # Initialize the copy by doing a memcpy of the bytes.
+        # The object header of localobj will then be fixed by the C code.
+        llmemory.raw_memcopy(obj - size_gc_header,
+                             localobj - size_gc_header,
+                             totalsize)
+        return localobj
 
     # ----------
     # id() and identityhash() support

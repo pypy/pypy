@@ -83,8 +83,8 @@ gcptr _WriteBarrierFromReady(gcptr);
 //gcptr _NonTransactionalReadBarrier(gcptr);
 
 
-extern gcptr pypy_g__stm_duplicate(gcptr);
-extern void pypy_g__stm_enum_callback(void *, gcptr, gcptr);
+extern void *pypy_g__stm_duplicate(void *);
+extern void pypy_g__stm_enum_callback(void *, void *, void *);
 void stm_set_tls(void *newtls);
 void *stm_get_tls(void);
 void stm_del_tls(void);

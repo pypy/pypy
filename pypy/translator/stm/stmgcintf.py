@@ -29,8 +29,8 @@ class StmOperations(object):
 
     CALLBACK_TX     = lltype.Ptr(lltype.FuncType([rffi.VOIDP, lltype.Signed],
                                                  lltype.Signed))
-    GETSIZE         = lltype.Ptr(lltype.FuncType([llmemory.Address],
-                                                 lltype.Signed))
+    DUPLICATE       = lltype.Ptr(lltype.FuncType([llmemory.Address],
+                                                 llmemory.Address))
     CALLBACK_ENUM   = lltype.Ptr(lltype.FuncType([llmemory.Address]*3,
                                                  lltype.Void))
 
@@ -44,43 +44,24 @@ class StmOperations(object):
                                           [], lltype.Signed)
     add_atomic = smexternal('stm_add_atomic', [lltype.Signed], lltype.Void)
     get_atomic = smexternal('stm_get_atomic', [], lltype.Signed)
-    descriptor_init = smexternal('stm_descriptor_init', [], lltype.Signed)
-    descriptor_done = smexternal('stm_descriptor_done', [], lltype.Void)
+    descriptor_init = smexternal('DescriptorInit', [], lltype.Signed)
+    descriptor_done = smexternal('DescriptorDone', [], lltype.Void)
     begin_inevitable_transaction = smexternal(
-        'stm_begin_inevitable_transaction', [], lltype.Void)
+        'BeginInevitableTransaction', [], lltype.Void)
     commit_transaction = smexternal(
-        'stm_commit_transaction', [], lltype.Void)
+        'CommitTransaction', [], lltype.Void)
     perform_transaction = smexternal('stm_perform_transaction',
                                      [CALLBACK_TX, rffi.VOIDP, llmemory.Address],
                                      lltype.Void)
 
-    # for the GC: store and read a thread-local-storage field, as well
-    # as initialize and shut down the internal thread_descriptor
+    # for the GC: store and read a thread-local-storage field
     set_tls = smexternal('stm_set_tls', [llmemory.Address], lltype.Void)
     get_tls = smexternal('stm_get_tls', [], llmemory.Address)
     del_tls = smexternal('stm_del_tls', [], lltype.Void)
 
-    # lookup, add, and enumerate the content of the internal dictionary
-    # that maps GLOBAL objects to LOCAL objects
-    tldict_lookup = smexternal('stm_tldict_lookup', [llmemory.Address],
-                               llmemory.Address)
-    tldict_add = smexternal('stm_tldict_add', [llmemory.Address] * 2,
-                            lltype.Void)
+    # calls FindRootsForLocalCollect() and invokes for each such root
+    # the callback set in CALLBACK_ENUM.
     tldict_enum = smexternal('stm_tldict_enum', [], lltype.Void)
-
-    # reader functions, to call if the object is GLOBAL
-    for _size, _TYPE in PRIMITIVE_SIZES.items():
-        _name = 'stm_read_int%s' % _size
-        locals()[_name] = smexternal(_name, [llmemory.Address, lltype.Signed],
-                                     _TYPE)
-
-    # a special reader function that copies all the content of the object
-    # somewhere else
-    stm_copy_transactional_to_raw = smexternal('stm_copy_transactional_to_raw',
-                                               [llmemory.Address,
-                                                llmemory.Address,
-                                                lltype.Signed],
-                                               lltype.Void)
 
     # sets the transaction length, after which should_break_transaction()
     # returns True

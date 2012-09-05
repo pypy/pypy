@@ -645,7 +645,7 @@ inline static gcptr GlobalizeForComparison(struct tx_descriptor *d, gcptr P)
       if (P->h_tid & GCFLAG_GLOBAL)
         P = LatestGlobalRevision(d, P, NULL, 0);
       else
-        P = (gcptr)P->h_revision;    // return the original global obj
+        P = (gcptr)P->h_revision; // LOCAL_COPY: return the original global obj
     }
   return P;
 }

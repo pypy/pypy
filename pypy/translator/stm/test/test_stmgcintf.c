@@ -34,13 +34,13 @@ typedef char bool_t;
 gcptr (*cb_duplicate)(gcptr);
 void (*cb_enum_callback)(void *, gcptr, gcptr);
 
-gcptr pypy_g__stm_duplicate(gcptr a) {
+void *pypy_g__stm_duplicate(void *a) {
     assert(cb_duplicate != NULL);
-    return cb_duplicate(a);
+    return cb_duplicate((gcptr)a);
 }
-void pypy_g__stm_enum_callback(void *a, gcptr b, gcptr c) {
+void pypy_g__stm_enum_callback(void *a, void *b, void *c) {
     assert(cb_enum_callback != NULL);
-    cb_enum_callback(a, b, c);
+    cb_enum_callback(a, (gcptr)b, (gcptr)c);
 }
 
 
