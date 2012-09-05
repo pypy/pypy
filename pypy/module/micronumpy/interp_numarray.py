@@ -160,6 +160,25 @@ class __extend__(W_NDimArray):
                                          space.wrap(i)), "tolist"))
         return space.newlist(l_w)
 
+    def descr_ravel(self, space, w_order=None):
+        if w_order is None or space.is_w(w_order, space.w_None):
+            order = 'C'
+        else:
+            order = space.str_w(w_order)
+        if order != 'C':
+            raise OperationError(space.w_NotImplementedError, space.wrap(
+                "order not implemented"))
+        return self.descr_reshape(space, [space.wrap(-1)])
+
+    def descr_flatten(self, space, w_order=None):
+        if self.is_scalar():
+            # scalars have no storage
+            return self.descr_reshape(space, [space.wrap(1)])
+        w_res = self.descr_ravel(space, w_order)
+        if w_res.implementation.storage == self.implementation.storage:
+            return w_res.descr_copy(space)
+        return w_res
+
     # --------------------- operations ----------------------------
 
     def _unaryop_impl(ufunc_name):
@@ -404,6 +423,8 @@ W_NDimArray.typedef = TypeDef(
     reshape = interp2app(W_NDimArray.descr_reshape),
     T = GetSetProperty(W_NDimArray.descr_get_transpose),
     tolist = interp2app(W_NDimArray.descr_tolist),
+    flatten = interp2app(W_NDimArray.descr_flatten),
+    ravel = interp2app(W_NDimArray.descr_ravel),
 )
 
 @unwrap_spec(ndmin=int, copy=bool, subok=bool)
