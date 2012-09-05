@@ -44,6 +44,12 @@ class __extend__(W_NDimArray):
     def descr_get_ndim(self, space):
         return space.wrap(len(self.get_shape()))
 
+    def descr_get_itemsize(self, space):
+        return space.wrap(self.get_dtype().itemtype.get_element_size())
+
+    def descr_get_nbytes(self, space):
+        return space.wrap(self.get_size() * self.get_dtype().itemtype.get_element_size())
+
     def descr_getitem(self, space, w_idx):
         if (isinstance(w_idx, W_NDimArray) and w_idx.get_shape() == self.get_shape() and
             w_idx.get_dtype().is_bool_type()):
@@ -405,6 +411,8 @@ W_NDimArray.typedef = TypeDef(
                            W_NDimArray.descr_set_shape),
     ndim = GetSetProperty(W_NDimArray.descr_get_ndim),
     size = GetSetProperty(W_NDimArray.descr_get_size),
+    itemsize = GetSetProperty(W_NDimArray.descr_get_itemsize),
+    nbytes = GetSetProperty(W_NDimArray.descr_get_nbytes),
 
     mean = interp2app(W_NDimArray.descr_mean),
     sum = interp2app(W_NDimArray.descr_sum),
