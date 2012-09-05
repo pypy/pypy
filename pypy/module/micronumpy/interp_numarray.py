@@ -475,9 +475,6 @@ def ones(space, w_shape, w_dtype=None, order='C'):
 def isna(space):
     pass
 
-def concatenate(space):
-    pass
-
 def repeat(space):
     pass
 

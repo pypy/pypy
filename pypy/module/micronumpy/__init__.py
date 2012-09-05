@@ -29,7 +29,7 @@ class Module(MixedModule):
         'fromstring': 'interp_support.fromstring',
         'flatiter': 'interp_flatiter.W_FlatIterator',
         'isna': 'interp_numarray.isna',
-        'concatenate': 'interp_numarray.concatenate',
+        'concatenate': 'interp_arrayops.concatenate',
         'repeat': 'interp_numarray.repeat',
         'where': 'interp_arrayops.where',
 
