@@ -9,8 +9,8 @@ class CompiledSTMTests(StandaloneTests):
     def compile(self, entry_point, **kwds):
         from pypy.config.pypyoption import get_pypy_config
         self.config = get_pypy_config(translating=True)
-        self.config.translation.stm = True
         self.config.translation.gc = self.gc
+        self.config.translation.stm = True
         #
         # Prevent the RaiseAnalyzer from just emitting "WARNING: Unknown
         # operation".  We want instead it to crash.
@@ -22,3 +22,7 @@ class CompiledSTMTests(StandaloneTests):
         finally:
             RaiseAnalyzer.fail_on_unknown_operation = False
         return res
+
+
+class BoehmCompiledSTMTests(CompiledSTMTests):
+    gc = "boehm"

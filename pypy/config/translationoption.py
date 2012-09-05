@@ -107,8 +107,8 @@ translation_optiondescription = OptionDescription(
                default=False, cmdline="--thread"),
     BoolOption("stm", "enable use of Software Transactional Memory",
                default=False, cmdline="--stm",
-               requires=[("translation.gc", "stmgc"),
-                         ("translation.thread", True),
+               suggests=[("translation.gc", "stmgc")],   # Boehm works too
+               requires=[("translation.thread", True),
                          ("translation.continuation", False),  # XXX for now
                          ]),
     BoolOption("sandbox", "Produce a fully-sandboxed executable",

@@ -37,30 +37,34 @@ typedef struct pypy_header0 *gcptr;
 
 #define STM_BARRIER_P2R(P)                                              \
     (__builtin_expect((((gcptr)(P))->h_tid & GCFLAG_GLOBAL) == 0, 1) ?  \
-     (P) : (typeof(P))_DirectReadBarrier((gcptr)(P)))
+     (P) : (typeof(P))stm_DirectReadBarrier((gcptr)(P)))
 
 #define STM_BARRIER_G2R(G)                                          \
     (assert(((gcptr)(G))->h_tid & GCFLAG_GLOBAL),                   \
-     (typeof(G))_DirectReadBarrier((gcptr)(G)))
+     (typeof(G))stm_DirectReadBarrier((gcptr)(G)))
 
 #define STM_BARRIER_O2R(O)                                              \
     (__builtin_expect((((gcptr)(O))->h_tid & GCFLAG_POSSIBLY_OUTDATED) == 0, \
                       1) ?                                              \
-     (O) : (typeof(O))_RepeatReadBarrier((gcptr)(O)))
+     (O) : (typeof(O))stm_RepeatReadBarrier((gcptr)(O)))
 
 /*#define STM_READ_BARRIER_P_FROM_R(P, R_container, offset)             \
     (__builtin_expect((((gcptr)(P))->h_tid & GCFLAG_GLOBAL) == 0, 1) ?  \
-     (P) : (typeof(P))_DirectReadBarrierFromR((gcptr)(P),               \
+     (P) : (typeof(P))stm_DirectReadBarrierFromR((gcptr)(P),            \
                                               (gcptr)(R_container),     \
                                               offset))*/
 
 #define STM_BARRIER_P2W(P)                                                  \
     (__builtin_expect((((gcptr)(P))->h_tid & GCFLAG_NOT_WRITTEN) == 0, 1) ? \
-     (P) : (typeof(P))_WriteBarrier((gcptr)(P)))
+     (P) : (typeof(P))stm_WriteBarrier((gcptr)(P)))
 
 #define STM_BARRIER_R2W(R)                                                  \
     (__builtin_expect((((gcptr)(R))->h_tid & GCFLAG_NOT_WRITTEN) == 0, 1) ? \
-     (R) : (typeof(R))_WriteBarrierFromReady((gcptr)(R)))
+     (R) : (typeof(R))stm_WriteBarrierFromReady((gcptr)(R)))
+
+#define STM_PTR_EQ(P1, P2)                      \
+    stm_PtrEq((gcptr)(P1), (gcptr)(P2))
+
 
 void BeginTransaction(jmp_buf *);
 void BeginInevitableTransaction(void);
@@ -73,13 +77,13 @@ void DescriptorDone(void);
 int _FakeReach(gcptr P);
 
 //gcptr Allocate(size_t size, int gctid);
-_Bool PtrEq(gcptr P1, gcptr P2);
+_Bool stm_PtrEq(gcptr P1, gcptr P2);
 
-gcptr _DirectReadBarrier(gcptr);
-gcptr _DirectReadBarrierFromR(gcptr, gcptr, size_t);
-gcptr _RepeatReadBarrier(gcptr);
-gcptr _WriteBarrier(gcptr);
-gcptr _WriteBarrierFromReady(gcptr);
+gcptr stm_DirectReadBarrier(gcptr);
+gcptr stm_DirectReadBarrierFromR(gcptr, gcptr, size_t);
+gcptr stm_RepeatReadBarrier(gcptr);
+gcptr stm_WriteBarrier(gcptr);
+gcptr stm_WriteBarrierFromReady(gcptr);
 //gcptr _NonTransactionalReadBarrier(gcptr);
 
 

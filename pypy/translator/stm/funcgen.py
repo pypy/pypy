@@ -1,79 +1,18 @@
-from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.translator.c.support import cdecl, c_string_constant
+from pypy.translator.c.support import c_string_constant
 
 
-def _stm_generic_get(funcgen, op, (expr_type, expr_ptr, expr_field)):
-    T = funcgen.lltypemap(op.result)
-    resulttypename = funcgen.db.gettype(T)
-    cresulttypename = cdecl(resulttypename, '')
-    newvalue = funcgen.expr(op.result, special_case_void=False)
-    #
-    assert T is not lltype.Void
-    fieldsize = rffi.sizeof(T)
-    assert fieldsize in (1, 2, 4, 8)
-    if T == lltype.Float:
-        assert fieldsize == 8
-        fieldsize = '8f'
-    elif T == lltype.SingleFloat:
-        assert fieldsize == 4
-        fieldsize = '4f'
-    if expr_type is not None:     # optimization for the common case
-        return '%s = RPY_STM_FIELD(%s, %s, %s, %s, %s);' % (
-            newvalue, cresulttypename, fieldsize,
-            expr_type, expr_ptr, expr_field)
-    else:
-        return '%s = RPY_STM_ARRAY(%s, %s, %s, %s);' % (
-            newvalue, cresulttypename, fieldsize,
-            expr_ptr, expr_field)
+def stm_barrier(funcgen, op):
+    level = op.args[0].value
+    assert type(level) is str
+    arg = funcgen.expr(op.args[1])
+    result = funcgen.expr(op.result)
+    return '%s = STM_BARRIER_%s(%s);' % (result, level, arg)
 
-
-def field_expr(funcgen, args):
-    STRUCT = funcgen.lltypemap(args[0]).TO
-    structdef = funcgen.db.gettypedefnode(STRUCT)
-    fldname = structdef.c_struct_field_name(args[1].value)
-    ptr = funcgen.expr(args[0])
-    return ('%s %s' % (structdef.typetag, structdef.name), ptr, fldname)
-
-def stm_getfield(funcgen, op):
-    access_info = field_expr(funcgen, op.args)
-    return _stm_generic_get(funcgen, op, access_info)
-
-def array_expr(funcgen, args):
-    ARRAY = funcgen.lltypemap(args[0]).TO
-    ptr = funcgen.expr(args[0])
-    index = funcgen.expr(args[1])
-    arraydef = funcgen.db.gettypedefnode(ARRAY)
-    return (None, ptr, arraydef.itemindex_access_expr(ptr, index))
-
-def stm_getarrayitem(funcgen, op):
-    access_info = array_expr(funcgen, op.args)
-    return _stm_generic_get(funcgen, op, access_info)
-
-def stm_getinteriorfield(funcgen, op):
-    ptr = funcgen.expr(op.args[0])
-    expr = funcgen.interior_expr(op.args)
-    access_info = (None, ptr, expr)
-    return _stm_generic_get(funcgen, op, access_info)
-
-def _gc_load_store_expr(funcgen, op, v_value):
-    ptr = funcgen.expr(op.args[0])
-    ofs = funcgen.expr(op.args[1])
-    T = funcgen.lltypemap(v_value)
-    resulttypename = funcgen.db.gettype(T)
-    cresulttypename_ptr = cdecl(resulttypename, ' *')
-    expr = '(*(%s)(((char *)(%s)) + (%s)))' % (cresulttypename_ptr, ptr, ofs)
-    return expr
-
-def stm_gc_load(funcgen, op):
-    ptr = funcgen.expr(op.args[0])
-    expr = _gc_load_store_expr(funcgen, op, op.result)
-    access_info = (None, ptr, expr)
-    return _stm_generic_get(funcgen, op, access_info)
-
-def stm_gc_store(funcgen, op):
-    targetexpr = _gc_load_store_expr(funcgen, op, op.args[-1])
-    return funcgen.generic_set(op, targetexpr)
-
+def stm_ptr_eq(funcgen, op):
+    arg0 = funcgen.expr(op.args[0])
+    arg1 = funcgen.expr(op.args[1])
+    result = funcgen.expr(op.result)
+    return '%s = STM_PTR_EQ(%s, %s);' % (result, arg0, arg1)
 
 def stm_become_inevitable(funcgen, op):
     try:
@@ -81,9 +20,10 @@ def stm_become_inevitable(funcgen, op):
     except IndexError:
         info = "rstm.become_inevitable"    # cannot insert it in 'llop'
     string_literal = c_string_constant(info)
-    return 'stm_try_inevitable(STM_EXPLAIN1(%s));' % (string_literal,)
+    return 'stm_try_inevitable(%s);' % (string_literal,)
 
 def stm_jit_invoke_code(funcgen, op):
+    XXX
     return funcgen.OP_DIRECT_CALL(op)
 
 
