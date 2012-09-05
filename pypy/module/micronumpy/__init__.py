@@ -28,14 +28,11 @@ class Module(MixedModule):
         'dot': 'interp_arrayops.dot',
         'fromstring': 'interp_support.fromstring',
         'flatiter': 'interp_flatiter.W_FlatIterator',
-        'isna': 'interp_numarray.isna',
         'concatenate': 'interp_arrayops.concatenate',
-        'repeat': 'interp_numarray.repeat',
+        'repeat': 'interp_arrayops.repeat',
         'where': 'interp_arrayops.where',
 
         'set_string_function': 'appbridge.set_string_function',
-
-        'count_reduce_items': 'interp_numarray.count_reduce_items',
 
         'True_': 'types.Bool.True',
         'False_': 'types.Bool.False',

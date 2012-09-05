@@ -10,6 +10,7 @@ from pypy.module.micronumpy.interp_support import unwrap_axis_arg
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
 from pypy.module.micronumpy import loop
 from pypy.module.micronumpy.dot import match_dot_shapes
+from pypy.module.micronumpy.interp_arrayops import repeat
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib import jit
 from pypy.rlib.rstring import StringBuilder
@@ -184,6 +185,10 @@ class __extend__(W_NDimArray):
         if w_res.implementation.storage == self.implementation.storage:
             return w_res.descr_copy(space)
         return w_res
+
+    @unwrap_spec(repeats=int)
+    def descr_repeat(self, space, repeats, w_axis=None):
+        return repeat(space, self, repeats, w_axis)
 
     # --------------------- operations ----------------------------
 
@@ -433,6 +438,7 @@ W_NDimArray.typedef = TypeDef(
     tolist = interp2app(W_NDimArray.descr_tolist),
     flatten = interp2app(W_NDimArray.descr_flatten),
     ravel = interp2app(W_NDimArray.descr_ravel),
+    repeat = interp2app(W_NDimArray.descr_repeat),
 )
 
 @unwrap_spec(ndmin=int, copy=bool, subok=bool)
@@ -501,11 +507,3 @@ def ones(space, w_shape, w_dtype=None, order='C'):
     arr.fill(one)
     return space.wrap(arr)
 
-def isna(space):
-    pass
-
-def repeat(space):
-    pass
-
-def count_reduce_items(space):
-    pass

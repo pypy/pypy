@@ -112,3 +112,27 @@ def concatenate(space, w_args, axis=0):
         Chunks(chunks).apply(res.implementation).implementation.setslice(space, arr)
         axis_start += arr.get_shape()[axis]
     return res
+
+@unwrap_spec(repeats=int)
+def repeat(space, w_arr, repeats, w_axis=None):
+    arr = convert_to_array(space, w_arr)
+    if space.is_w(w_axis, space.w_None):
+        arr = arr.descr_flatten(space)
+        orig_size = arr.get_shape()[0]
+        shape = [arr.get_shape()[0] * repeats]
+        res = W_NDimArray.from_shape(shape, arr.get_dtype())
+        for i in range(repeats):
+            Chunks([Chunk(i, shape[0] - repeats + i, repeats,
+                          orig_size)]).apply(res.implementation).implementation.setslice(space, arr)
+    else:
+        axis = space.int_w(w_axis)
+        shape = arr.get_shape()[:]
+        chunks = [Chunk(0, i, 1, i) for i in shape]
+        orig_size = shape[axis]
+        shape[axis] *= repeats
+        res = W_NDimArray.from_shape(shape, arr.get_dtype())
+        for i in range(repeats):
+            chunks[axis] = Chunk(i, shape[axis] - repeats + i, repeats,
+                                 orig_size)
+            Chunks(chunks).apply(res.implementation).implementation.setslice(space, arr)
+    return res
