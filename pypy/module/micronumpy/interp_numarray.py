@@ -462,6 +462,7 @@ W_NDimArray.typedef = TypeDef(
     copy = interp2app(W_NDimArray.descr_copy),
     reshape = interp2app(W_NDimArray.descr_reshape),
     T = GetSetProperty(W_NDimArray.descr_get_transpose),
+    transpose = interp2app(W_NDimArray.descr_get_transpose),
     tolist = interp2app(W_NDimArray.descr_tolist),
     flatten = interp2app(W_NDimArray.descr_flatten),
     ravel = interp2app(W_NDimArray.descr_ravel),
