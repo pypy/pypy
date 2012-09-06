@@ -23,6 +23,9 @@ class ConcreteArrayIterator(base.BaseArrayIterator):
     def getitem(self):
         return self.array.getitem(self.offset)
 
+    def getitem_bool(self):
+        return self.dtype.getitem_bool(self.array, self.offset)
+
     def next(self):
         self.offset += self.skip
 
@@ -120,8 +123,6 @@ class AxisIterator(base.BaseArrayIterator):
         return self._done
 
 def int_w(space, w_obj):
-    # a special version that respects both __index__ and __int__
-    # XXX add __index__ support
     try:
         return space.int_w(space.index(w_obj))
     except OperationError:

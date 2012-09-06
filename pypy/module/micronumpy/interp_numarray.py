@@ -51,6 +51,17 @@ class __extend__(W_NDimArray):
     def descr_get_nbytes(self, space):
         return space.wrap(self.get_size() * self.get_dtype().itemtype.get_element_size())
 
+    def getitem_filter(self, space, arr):
+        if arr.get_size() > self.get_size():
+            raise OperationError(space.w_IndexError,
+                                 space.wrap("index out of range for array"))
+        size = loop.count_all_true(arr)
+        res = W_NDimArray.from_shape([size], self.get_dtype())
+        return loop.getitem_filter(res, self, arr)
+
+    def setitem_filter(self, space, idx, val):
+        loop.setitem_filter(self, idx, val)
+
     def descr_getitem(self, space, w_idx):
         if (isinstance(w_idx, W_NDimArray) and w_idx.get_shape() == self.get_shape() and
             w_idx.get_dtype().is_bool_type()):
@@ -61,10 +72,10 @@ class __extend__(W_NDimArray):
             raise OperationError(space.w_IndexError, space.wrap("wrong index"))
 
     def descr_setitem(self, space, w_idx, w_value):
-        if (isinstance(w_idx, W_NDimArray) and w_idx.shape == self.shape and
+        if (isinstance(w_idx, W_NDimArray) and w_idx.get_shape() == self.get_shape() and
             w_idx.get_dtype().is_bool_type()):
             return self.setitem_filter(space, w_idx,
-                                       support.convert_to_array(space, w_value))
+                                       convert_to_array(space, w_value))
         self.implementation.descr_setitem(space, w_idx, w_value)
 
     def descr_len(self, space):
@@ -96,7 +107,9 @@ class __extend__(W_NDimArray):
         s.append('])')
         return s.build()
 
-    def create_iter(self, shape):
+    def create_iter(self, shape=None):
+        if shape is None:
+            shape = self.get_shape()
         return self.implementation.create_iter(shape)
 
     def create_axis_iter(self, shape, dim):

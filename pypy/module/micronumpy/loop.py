@@ -155,3 +155,34 @@ def multidim_dot(space, left, right, result, dtype, right_critical_dim):
         righti.next()
         lefti.next()
     return result
+
+def count_all_true(arr):
+    s = 0
+    iter = arr.create_iter()
+    while not iter.done():
+        s += iter.getitem_bool()
+        iter.next()
+    return s
+
+def getitem_filter(res, arr, index):
+    res_iter = res.create_iter()
+    index_iter = index.create_iter()
+    arr_iter = arr.create_iter()
+    while not index_iter.done():
+        if index_iter.getitem_bool():
+            res_iter.setitem(arr_iter.getitem())
+            res_iter.next()
+        index_iter.next()
+        arr_iter.next()
+    return res
+
+def setitem_filter(arr, index, value):
+    arr_iter = arr.create_iter()
+    index_iter = index.create_iter()
+    value_iter = value.create_iter(arr.get_shape())
+    while not arr_iter.done():
+        if index_iter.getitem_bool():
+            arr_iter.setitem(value_iter.getitem())
+        arr_iter.next()
+        index_iter.next()
+        value_iter.next()
