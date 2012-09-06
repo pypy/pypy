@@ -931,7 +931,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         from _numpypy import (equal, not_equal, greater, greater_equal, less,
                 less_equal)
 
-        for complex_ in complex128, complex64:
+        for complex_ in complex64, complex128:
 
             O = complex(0, 0)
             c0 = complex_(complex(2.5, 0))
@@ -985,9 +985,9 @@ class AppTestUfuncs(BaseNumpyAppTest):
             raises (TypeError, fmod, c0, 3) 
             inf_c = complex_(complex(float('inf'), 0.))
             assert repr(abs(inf_c)) == 'inf'
-            assert repr(abs(n)) == 'nan'
+            assert repr(abs(complex(float('nan'), float('nan')))) == 'nan'
 
-            assert False, 'untested: copysign, reciprocal, sign, floor_div, ' + \
+        assert False, 'untested: copysign, reciprocal, sign, floor_div, ' + \
                      'signbit, fabs, fmax, fmin, floor, ceil, trunc, ' + \
                      'exp2, expm1, isnan, isinf, isneginf, isposinf, ' + \
                      'isfinite, radians, degrees, log2, log1p, ' + \

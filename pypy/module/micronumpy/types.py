@@ -1017,7 +1017,9 @@ class ComplexFloating(object):
         try:
             return rcomplex.c_div(v1, v2)
         except ZeroDivisionError:
-            return rfloat.NAN, rfloat.NAN
+            if rcomplex.c_abs(*v1) == 0:
+                return rfloat.NAN, rfloat.NAN
+            return rfloat.INFINITY, rfloat.INFINITY
 
 
 
