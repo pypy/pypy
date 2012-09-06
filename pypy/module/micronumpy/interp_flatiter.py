@@ -74,6 +74,13 @@ W_FlatIterator.typedef = TypeDef(
     __setitem__ = interp2app(W_FlatIterator.descr_setitem),
     __len__ = interp2app(W_FlatIterator.descr_len),
 
+#    __eq__ = interp2app(W_FlatIterator.descr_eq),
+#    __ne__ = interp2app(W_FlatIterator.descr_ne),
+#    __lt__ = interp2app(W_FlatIterator.descr_lt),
+#    __le__ = interp2app(W_FlatIterator.descr_le),
+#    __gt__ = interp2app(W_FlatIterator.descr_gt),
+#    __ge__ = interp2app(W_FlatIterator.descr_ge),
+
     next = interp2app(W_FlatIterator.descr_next),
     base = GetSetProperty(W_FlatIterator.descr_base),
     index = GetSetProperty(W_FlatIterator.descr_index),
