@@ -388,7 +388,7 @@ class PtrType(BasePtrType):
 
                 gep = GEP(None, None)
                 to = parent_type.add_indices(gep, child)
-                self.refs[obj] = 'bitcast({}* getelementptr({}, {}) to {})'\
+                self.refs[obj] = 'bitcast({}* getelementptr inbounds({}, {}) to {})'\
                         .format(to.repr_type(), parent_ref,
                                 ', '.join(gep.indices), self.repr_type())
             else:
@@ -620,7 +620,7 @@ class GroupType(Type):
             fields.append((database.get_type(member._TYPE), fldname))
             setattr(group, fldname, member)
             member_ptr_refs = database.get_type(lltype.Ptr(member._TYPE)).refs
-            member_ptr_refs[member] = 'getelementptr({}* {}, i64 0, i32 {})'\
+            member_ptr_refs[member] = 'getelementptr inbounds({}* {}, i64 0, i32 {})'\
                     .format(self.typestr, groupname, i)
         struct_type = StructType()
         struct_type.setup(self.typestr, fields)
@@ -851,7 +851,7 @@ class GEP(object):
         self.indices.append('i32 {}'.format(index))
 
     def assign(self, result):
-        self.func_writer.w('{result.V} = getelementptr {ptr.TV}, {gep}'.format(
+        self.func_writer.w('{result.V} = getelementptr inbounds {ptr.TV}, {gep}'.format(
                 result=result, ptr=self.ptr, gep=', '.join(self.indices)))
 
 
@@ -1137,7 +1137,7 @@ class FunctionWriter(object):
 
     def op_direct_ptradd(self, result, var, val):
         t = self._tmp(PtrType(result.type_.to.of))
-        self.w('{t.V} = getelementptr {var.TV}, i64 0, {val.TV}'
+        self.w('{t.V} = getelementptr inbounds {var.TV}, i64 0, {val.TV}'
                 .format(**locals()))
         self.w('{result.V} = bitcast {t.TV} to {result.T}'.format(**locals()))
 
@@ -1260,7 +1260,7 @@ class FunctionWriter(object):
         t2 = self._tmp(PtrType(LLVMChar))
         t3 = self._tmp(PtrType(ptr_to))
         self.w('{t1.V} = bitcast {addr.TV} to {t1.T}'.format(**locals()))
-        self.w('{t2.V} = getelementptr {t1.TV}, {offset.TV}'
+        self.w('{t2.V} = getelementptr inbounds {t1.TV}, {offset.TV}'
                 .format(**locals()))
         self.w('{t3.V} = bitcast {t2.TV} to {t3.T}'.format(**locals()))
         return t3
