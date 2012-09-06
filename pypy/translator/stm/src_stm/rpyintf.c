@@ -123,7 +123,9 @@ void stm_perform_transaction(long(*callback)(void*, long), void *arg,
   void **volatile v_saved_value;
   long volatile v_atomic = thread_descriptor->atomic;
   assert((!thread_descriptor->active) == (!v_atomic));
+#ifndef USING_BOEHM_GC
   v_saved_value = *(void***)save_and_restore;
+#endif
   /***/
   setjmp(_jmpbuf);
   /* After setjmp(), the local variables v_* are preserved because they
@@ -133,6 +135,7 @@ void stm_perform_transaction(long(*callback)(void*, long), void *arg,
   void **restore_value;
   counter = v_counter;
   d->atomic = v_atomic;
+#ifndef USING_BOEHM_GC
   restore_value = v_saved_value;
   if (!d->atomic)
     {
@@ -143,6 +146,7 @@ void stm_perform_transaction(long(*callback)(void*, long), void *arg,
       *restore_value++ = END_MARKER;
     }
   *(void***)save_and_restore = restore_value;
+#endif
 
   do
     {
@@ -169,7 +173,9 @@ void stm_perform_transaction(long(*callback)(void*, long), void *arg,
   if (d->atomic && d->setjmp_buf == &_jmpbuf)
     BecomeInevitable("perform_transaction left with atomic");
 
+#ifndef USING_BOEHM_GC
   *(void***)save_and_restore = v_saved_value;
+#endif
 }
 
 void stm_abort_and_retry(void)
@@ -181,32 +187,47 @@ void stm_abort_and_retry(void)
 static __thread gcptr stm_boehm_chained_list;
 void stm_boehm_start_transaction(void)
 {
+    GC_init();
     stm_boehm_chained_list = NULL;
 }
-void stm_boehm_allocated(gcptr W)
+gcptr stm_boehm_allocate(size_t size)
 {
+    gcptr W = GC_local_malloc(size);
+    memset((void*) W, 0, size);
+    W->h_size = size;
     W->h_revision = (revision_t)stm_boehm_chained_list;
     stm_boehm_chained_list = W;
+    return W;
 }
 void stm_boehm_stop_transaction(void)
 {
+    struct gcroot_s *gcroots;
     gcptr W = stm_boehm_chained_list;
     stm_boehm_chained_list = NULL;
     while (W) {
         gcptr W_next = (gcptr)W->h_revision;
-        assert(W->h_tid & (GCFLAG_GLOBAL |
-                           GCFLAG_NOT_WRITTEN |
-                           GCFLAG_LOCAL_COPY) == 0);
+        assert((W->h_tid & (GCFLAG_GLOBAL |
+                            GCFLAG_NOT_WRITTEN |
+                            GCFLAG_LOCAL_COPY)) == 0);
         W->h_tid |= GCFLAG_GLOBAL | GCFLAG_NOT_WRITTEN;
         W->h_revision = 1;
         W = W_next;
     }
-    FindRootsForLocalCollect();
+
+    gcroots = FindRootsForLocalCollect();
+    while (gcroots->R != NULL) {
+        W = gcroots->L;
+        assert((W->h_tid & (GCFLAG_GLOBAL |
+                            GCFLAG_NOT_WRITTEN |
+                            GCFLAG_LOCAL_COPY)) == GCFLAG_LOCAL_COPY);
+        W->h_tid |= GCFLAG_GLOBAL | GCFLAG_NOT_WRITTEN;
+        gcroots++;
+    }
 }
 void *pypy_g__stm_duplicate(void *src)
 {
-    size_t size = GC_size(src);
-    void *result = GC_MALLOC(size);
+    size_t size = ((gcptr)src)->h_size;
+    void *result = GC_local_malloc(size);
     memcpy(result, src, size);
     return result;
 }

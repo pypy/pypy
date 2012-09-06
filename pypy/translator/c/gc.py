@@ -207,9 +207,10 @@ class BoehmGcPolicy(BasicGcPolicy):
 
     def common_gcheader_initdata(self, defnode):
         if defnode.db.gctransformer is not None:
+            ptr = defnode.obj._as_ptr()
             hdr = lltype.malloc(defnode.db.gctransformer.HDR, immortal=True)
-            hdr.hash = lltype.identityhash_nocache(defnode.obj._as_ptr())
-            defnode.db.gctransformer.gcheader_initdata(hdr)
+            hdr.hash = lltype.identityhash_nocache(ptr)
+            defnode.db.gctransformer.gcheader_initdata(hdr, ptr)
             return hdr._obj
         return None
 

@@ -113,9 +113,10 @@ void stm_abort_and_retry(void);
 # define OP_GC_ADR_OF_ROOT_STACK_TOP(r)   r = NULL
 void stm_boehm_start_transaction(void);
 void stm_boehm_stop_transaction(void);
-void stm_boehm_allocated(gcptr);
-# undef _BOEHM_ALLOCATED
-# define _BOEHM_ALLOCATED(r) stm_boehm_allocated((gcptr)(r))
+gcptr stm_boehm_allocate(size_t);
+# undef OP_BOEHM_ZERO_MALLOC
+# define OP_BOEHM_ZERO_MALLOC(size, r, restype, is_atomic, is_varsize)  \
+    r = (restype) stm_boehm_allocate(size)
 #endif
 
 #endif  /* _ET_H */

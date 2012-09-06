@@ -57,7 +57,7 @@ class BoehmGCTransformer(GCTransformer):
             self.mixlevelannotator.finish()   # for now
             self.mixlevelannotator.backend_optimize()
 
-    def gcheader_initdata(self, hdr):
+    def gcheader_initdata(self, hdr, ptr):
         pass
 
     def push_alive_nopyobj(self, var, llops):

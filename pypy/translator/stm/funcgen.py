@@ -1,4 +1,5 @@
 from pypy.translator.c.support import c_string_constant
+from pypy.translator.stm.stmgcintf import StmOperations
 
 
 def stm_start_transaction(funcgen, op):
@@ -37,6 +38,11 @@ def stm_become_inevitable(funcgen, op):
 def stm_jit_invoke_code(funcgen, op):
     XXX
     return funcgen.OP_DIRECT_CALL(op)
+
+def _stm_init_function():
+    """Called at process start-up."""
+    StmOperations.descriptor_init()
+    StmOperations.begin_inevitable_transaction()
 
 
 def op_stm(funcgen, op):
