@@ -193,6 +193,19 @@ class TestNumArrayDirect(object):
         assert _to_coords(5, 'F') == [1, 2, 0]
         assert _to_coords(13, 'F') == [1, 0, 2]
 
+    def test_find_shape(self):
+        from pypy.module.micronumpy.strides import find_shape_and_elems
+
+        space = self.space
+        shape, elems = find_shape_and_elems(space,
+                                            space.newlist([space.wrap("a"),
+                                                           space.wrap("b")]),
+                                            None)
+        assert shape == [2]
+        assert space.str_w(elems[0]) == "a"
+        assert space.str_w(elems[1]) == "b"
+        
+
 class AppTestNumArray(BaseNumpyAppTest):
     def w_CustomIndexObject(self, index):
         class CustomIndexObject(object):
@@ -2041,6 +2054,12 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert (a + a).item(1) == 4
         raises(ValueError, "array(5).item(1)")
         assert array([1]).item() == 1
+
+    def test_count_nonzero(self):
+        from _numpypy import array
+        a = array([1,0,5,0,10])
+        assert a.count_nonzero() == 3
+ 
 
 class AppTestSupport(BaseNumpyAppTest):
     def setup_class(cls):

@@ -5,7 +5,7 @@ from pypy.conftest import gettestobjspace
 currpath = py.path.local(__file__).dirpath()
 test_dct = str(currpath.join("datatypesDict.so"))
 
-space = gettestobjspace(usemodules=['cppyy', 'array'])
+space = gettestobjspace(usemodules=['cppyy', 'array', '_rawffi'])
 
 def setup_module(mod):
     if sys.platform == 'win32':
@@ -63,6 +63,10 @@ class AppTestDATATYPES:
         # reding of array types
         for i in range(self.N):
             # reading of integer array types
+            assert c.m_bool_array[i]        ==   bool(i%2)
+            assert c.get_bool_array()[i]    ==   bool(i%2)
+            assert c.m_bool_array2[i]       ==   bool((i+1)%2)
+            assert c.get_bool_array2()[i]   ==   bool((i+1)%2)
             assert c.m_short_array[i]       ==  -1*i
             assert c.get_short_array()[i]   ==  -1*i
             assert c.m_short_array2[i]      ==  -2*i
@@ -194,16 +198,39 @@ class AppTestDATATYPES:
 
         c.destruct()
 
-    def test04_respect_privacy(self):
-        """Test that privacy settings are respected"""
+    def test04_array_passing(self):
+        """Test passing of array arguments"""
 
-        import cppyy
+        import cppyy, array, sys
         cppyy_test_data = cppyy.gbl.cppyy_test_data
 
         c = cppyy_test_data()
         assert isinstance(c, cppyy_test_data)
 
-        raises(AttributeError, getattr, c, 'm_owns_arrays')
+        a = range(self.N)
+        # test arrays in mixed order, to give overload resolution a workout
+        for t in ['d', 'i', 'f', 'H', 'I', 'h', 'L', 'l' ]:
+            b = array.array(t, a)
+
+            # typed passing
+            ca = c.pass_array(b)
+            assert type(ca[0]) == type(b[0])
+            assert len(b) == self.N
+            for i in range(self.N):
+                assert ca[i] == b[i]
+
+            # void* passing
+            ca = eval('c.pass_void_array_%s(b)' % t)
+            assert type(ca[0]) == type(b[0])
+            assert len(b) == self.N
+            for i in range(self.N):
+                assert ca[i] == b[i]
+
+        # NULL/None passing (will use short*)
+        assert not c.pass_array(0)
+        raises(Exception, c.pass_array(0).__getitem__, 0)    # raises SegfaultException
+        assert not c.pass_array(None)
+        raises(Exception, c.pass_array(None).__getitem__, 0) # id.
 
         c.destruct()
 
@@ -524,3 +551,38 @@ class AppTestDATATYPES:
         assert c.m_pod.m_double == 3.14
         assert p.m_int == 888
         assert p.m_double == 3.14
+
+    def test14_respect_privacy(self):
+        """Test that privacy settings are respected"""
+
+        import cppyy
+        cppyy_test_data = cppyy.gbl.cppyy_test_data
+
+        c = cppyy_test_data()
+        assert isinstance(c, cppyy_test_data)
+
+        raises(AttributeError, getattr, c, 'm_owns_arrays')
+
+        c.destruct()
+
+    def test15_buffer_reshaping(self):
+        """Test usage of buffer sizing"""
+
+        import cppyy
+        cppyy_test_data = cppyy.gbl.cppyy_test_data
+
+        c = cppyy_test_data()
+        for func in ['get_bool_array',   'get_bool_array2',
+                     'get_ushort_array', 'get_ushort_array2',
+                     'get_int_array',    'get_int_array2',
+                     'get_uint_array',   'get_uint_array2',
+                     'get_long_array',   'get_long_array2',
+                     'get_ulong_array',  'get_ulong_array2']:
+            arr = getattr(c, func)()
+            arr = arr.shape.fromaddress(arr.itemaddress(0), self.N)
+            assert len(arr) == self.N
+
+            l = list(arr)
+            for i in range(self.N):
+                assert arr[i] == l[i]
+

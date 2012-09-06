@@ -41,7 +41,19 @@ def remove_asserts(translator, graphs):
                 log.removeassert("removed %d asserts in %s" % (count, graph.name))
             checkgraph(graph)
             #transform_dead_op_vars(graph, translator)
-    log.removeassert("Could not remove %d asserts, but removed %d asserts." % tuple(total_count))
+    total_count = tuple(total_count)
+    if total_count[0] == 0:
+        if total_count[1] == 0:
+            msg = None
+        else:
+            msg = "Removed %d asserts" % (total_count[1],)
+    else:
+        if total_count[1] == 0:
+            msg = "Could not remove %d asserts" % (total_count[0],)
+        else:
+            msg = "Could not remove %d asserts, but removed %d asserts." % total_count
+    if msg is not None:
+        log.removeassert(msg)
 
 
 def kill_assertion_link(graph, link):

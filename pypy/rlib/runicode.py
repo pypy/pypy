@@ -1,7 +1,7 @@
 import sys
 from pypy.rlib.bitmanipulation import splitter
 from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.rlib.objectmodel import we_are_translated, specialize
+from pypy.rlib.objectmodel import we_are_translated, specialize, enforceargs
 from pypy.rlib.rstring import StringBuilder, UnicodeBuilder
 from pypy.rlib.rarithmetic import r_uint, intmask
 from pypy.module.unicodedata import unicodedb
@@ -48,12 +48,10 @@ else:
 
 def raise_unicode_exception_decode(errors, encoding, msg, s,
                                    startingpos, endingpos):
-    assert isinstance(s, str)
     raise UnicodeDecodeError(encoding, s, startingpos, endingpos, msg)
 
 def raise_unicode_exception_encode(errors, encoding, msg, u,
                                    startingpos, endingpos):
-    assert isinstance(u, unicode)
     raise UnicodeEncodeError(encoding, u, startingpos, endingpos, msg)
 
 # ____________________________________________________________
@@ -82,6 +80,9 @@ def str_decode_utf_8(s, size, errors, final=False,
                      errorhandler=None):
     if errorhandler is None:
         errorhandler = raise_unicode_exception_decode
+    return str_decode_utf_8_impl(s, size, errors, final, errorhandler)
+
+def str_decode_utf_8_impl(s, size, errors, final, errorhandler):
     if size == 0:
         return u'', 0
 
@@ -1230,7 +1231,11 @@ def unicode_encode_unicode_escape(s, size, errors, errorhandler=None, quotes=Fal
             pos += 1
             continue
 
-        if MAXUNICODE < 65536 and 0xD800 <= oc < 0xDC00 and pos + 1 < size:
+        # The following logic is enabled only if MAXUNICODE == 0xffff, or
+        # for testing on top of a host CPython where sys.maxunicode == 0xffff
+        if ((MAXUNICODE < 65536 or
+                (not we_are_translated() and sys.maxunicode < 65536))
+            and 0xD800 <= oc < 0xDC00 and pos + 1 < size):
             # Map UTF-16 surrogate pairs to Unicode \UXXXXXXXX escapes
             pos += 1
             oc2 = ord(s[pos])

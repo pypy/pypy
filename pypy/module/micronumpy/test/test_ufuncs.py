@@ -640,6 +640,13 @@ class AppTestUfuncs(BaseNumpyAppTest):
         raises(ValueError, count_reduce_items, a, -4)
         raises(ValueError, count_reduce_items, a, (0, 2, -4))
 
+    def test_count_nonzero(self):
+        from _numpypy import where, count_nonzero, arange
+        a = arange(10)
+        assert count_nonzero(a) == 9
+        a[9] = 0
+        assert count_nonzero(a) == 8
+
     def test_true_divide(self):
         from _numpypy import arange, array, true_divide
         assert (true_divide(arange(3), array([2, 2, 2])) == array([0, 0.5, 1])).all()

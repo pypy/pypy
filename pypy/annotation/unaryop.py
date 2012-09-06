@@ -530,7 +530,7 @@ class __extend__(SomeUnicodeString):
         if not s_enc.is_constant():
             raise TypeError("Non-constant encoding not supported")
         enc = s_enc.const
-        if enc not in ('ascii', 'latin-1'):
+        if enc not in ('ascii', 'latin-1', 'utf-8'):
             raise TypeError("Encoding %s not supported for unicode" % (enc,))
         return SomeString()
     method_encode.can_only_throw = [UnicodeEncodeError]
@@ -553,7 +553,7 @@ class __extend__(SomeString):
         if not s_enc.is_constant():
             raise TypeError("Non-constant encoding not supported")
         enc = s_enc.const
-        if enc not in ('ascii', 'latin-1'):
+        if enc not in ('ascii', 'latin-1', 'utf-8'):
             raise TypeError("Encoding %s not supported for strings" % (enc,))
         return SomeUnicodeString()
     method_decode.can_only_throw = [UnicodeDecodeError]
@@ -609,33 +609,36 @@ class __extend__(SomeIterator):
 
 class __extend__(SomeInstance):
 
+    def _true_getattr(ins, attr):
+        if attr == '__class__':
+            return ins.classdef.read_attr__class__()
+        attrdef = ins.classdef.find_attribute(attr)
+        position = getbookkeeper().position_key
+        attrdef.read_locations[position] = True
+        s_result = attrdef.getvalue()
+        # hack: if s_result is a set of methods, discard the ones
+        #       that can't possibly apply to an instance of ins.classdef.
+        # XXX do it more nicely
+        if isinstance(s_result, SomePBC):
+            s_result = ins.classdef.lookup_filter(s_result, attr,
+                                                  ins.flags)
+        elif isinstance(s_result, SomeImpossibleValue):
+            ins.classdef.check_missing_attribute_update(attr)
+            # blocking is harmless if the attribute is explicitly listed
+            # in the class or a parent class.
+            for basedef in ins.classdef.getmro():
+                if basedef.classdesc.all_enforced_attrs is not None:
+                    if attr in basedef.classdesc.all_enforced_attrs:
+                        raise HarmlesslyBlocked("get enforced attr")
+        elif isinstance(s_result, SomeList):
+            s_result = ins.classdef.classdesc.maybe_return_immutable_list(
+                attr, s_result)
+        return s_result
+
     def getattr(ins, s_attr):
         if s_attr.is_constant() and isinstance(s_attr.const, str):
             attr = s_attr.const
-            if attr == '__class__':
-                return ins.classdef.read_attr__class__()
-            attrdef = ins.classdef.find_attribute(attr)
-            position = getbookkeeper().position_key
-            attrdef.read_locations[position] = True
-            s_result = attrdef.getvalue()
-            # hack: if s_result is a set of methods, discard the ones
-            #       that can't possibly apply to an instance of ins.classdef.
-            # XXX do it more nicely
-            if isinstance(s_result, SomePBC):
-                s_result = ins.classdef.lookup_filter(s_result, attr,
-                                                      ins.flags)
-            elif isinstance(s_result, SomeImpossibleValue):
-                ins.classdef.check_missing_attribute_update(attr)
-                # blocking is harmless if the attribute is explicitly listed
-                # in the class or a parent class.
-                for basedef in ins.classdef.getmro():
-                    if basedef.classdesc.all_enforced_attrs is not None:
-                        if attr in basedef.classdesc.all_enforced_attrs:
-                            raise HarmlesslyBlocked("get enforced attr")
-            elif isinstance(s_result, SomeList):
-                s_result = ins.classdef.classdesc.maybe_return_immutable_list(
-                    attr, s_result)
-            return s_result
+            return ins._true_getattr(attr)
         return SomeObject()
     getattr.can_only_throw = []
 
@@ -657,6 +660,19 @@ class __extend__(SomeInstance):
         if not ins.can_be_None:
             s.const = True
 
+    def iter(ins):
+        s_iterable = ins._true_getattr('__iter__')
+        bk = getbookkeeper()
+        # record for calltables
+        bk.emulate_pbc_call(bk.position_key, s_iterable, [])
+        return s_iterable.call(bk.build_args("simple_call", []))
+
+    def next(ins):
+        s_next = ins._true_getattr('next')
+        bk = getbookkeeper()
+        # record for calltables
+        bk.emulate_pbc_call(bk.position_key, s_next, [])
+        return s_next.call(bk.build_args("simple_call", []))
 
 class __extend__(SomeBuiltin):
     def _can_only_throw(bltn, *args):

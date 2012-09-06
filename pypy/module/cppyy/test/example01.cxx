@@ -156,6 +156,8 @@ int ns_example01::globalAddOneToInt(int a) {
    return ::globalAddOneToInt(a);
 }
 
+int ns_example01::gMyGlobalInt = 99;
+
 
 // argument passing
 #define typeValueImp(itype, tname)                                            \

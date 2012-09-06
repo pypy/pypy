@@ -57,6 +57,9 @@ class dummy_wrapped_dict(dict):
     def __nonzero__(self):
         raise NotImplementedError
 
+class kwargsdict(dict):
+    pass
+
 class DummySpace(object):
     def newtuple(self, items):
         return tuple(items)
@@ -76,9 +79,13 @@ class DummySpace(object):
         return list(it)
 
     def view_as_kwargs(self, x):
+        if len(x) == 0:
+            return [], []
         return None, None
 
     def newdict(self, kwargs=False):
+        if kwargs:
+            return kwargsdict()
         return {}
 
     def newlist(self, l=[]):
@@ -298,6 +305,22 @@ class TestArgumentsNormal(object):
             l = [None, None, None, None]
             args._match_signature(None, l, Signature(["a", "b", "c"], None, "**"))
             assert l == [1, 2, 3, {'d': 4}]
+
+    def test_match_kwds_creates_kwdict(self):
+        space = DummySpace()
+        kwds = [("c", 3), ('d', 4)]
+        for i in range(4):
+            kwds_w = dict(kwds[:i])
+            keywords = kwds_w.keys()
+            keywords_w = kwds_w.values()
+            w_kwds = dummy_wrapped_dict(kwds[i:])
+            if i == 3:
+                w_kwds = None
+            args = Arguments(space, [1, 2], keywords, keywords_w, w_starstararg=w_kwds)
+            l = [None, None, None, None]
+            args._match_signature(None, l, Signature(["a", "b", "c"], None, "**"))
+            assert l == [1, 2, 3, {'d': 4}]
+            assert isinstance(l[-1], kwargsdict)
 
     def test_duplicate_kwds(self):
         space = DummySpace()
@@ -546,34 +569,47 @@ class TestErrorHandling(object):
     def test_missing_args(self):
         # got_nargs, nkwds, expected_nargs, has_vararg, has_kwarg,
         # defaults_w, missing_args
-        err = ArgErrCount(1, 0, 0, False, False, None, 0)
+        sig = Signature([], None, None)
+        err = ArgErrCount(1, 0, sig, None, 0)
         s = err.getmsg()
         assert s == "takes no arguments (1 given)"
-        err = ArgErrCount(0, 0, 1, False, False, [], 1)
+
+        sig = Signature(['a'], None, None)
+        err = ArgErrCount(0, 0, sig, [], 1)
         s = err.getmsg()
         assert s == "takes exactly 1 argument (0 given)"
-        err = ArgErrCount(3, 0, 2, False, False, [], 0)
+
+        sig = Signature(['a', 'b'], None, None)
+        err = ArgErrCount(3, 0, sig, [], 0)
         s = err.getmsg()
         assert s == "takes exactly 2 arguments (3 given)"
-        err = ArgErrCount(3, 0, 2, False, False, ['a'], 0)
+        err = ArgErrCount(3, 0, sig, ['a'], 0)
         s = err.getmsg()
         assert s == "takes at most 2 arguments (3 given)"
-        err = ArgErrCount(1, 0, 2, True, False, [], 1)
+
+        sig = Signature(['a', 'b'], '*', None)
+        err = ArgErrCount(1, 0, sig, [], 1)
         s = err.getmsg()
         assert s == "takes at least 2 arguments (1 given)"
-        err = ArgErrCount(0, 1, 2, True, False, ['a'], 1)
+        err = ArgErrCount(0, 1, sig, ['a'], 1)
         s = err.getmsg()
         assert s == "takes at least 1 non-keyword argument (0 given)"
-        err = ArgErrCount(2, 1, 1, False, True, [], 0)
+
+        sig = Signature(['a'], None, '**')
+        err = ArgErrCount(2, 1, sig, [], 0)
         s = err.getmsg()
         assert s == "takes exactly 1 non-keyword argument (2 given)"
-        err = ArgErrCount(0, 1, 1, False, True, [], 1)
+        err = ArgErrCount(0, 1, sig, [], 1)
         s = err.getmsg()
         assert s == "takes exactly 1 non-keyword argument (0 given)"
-        err = ArgErrCount(0, 1, 1, True, True, [], 1)
+
+        sig = Signature(['a'], '*', '**')
+        err = ArgErrCount(0, 1, sig, [], 1)
         s = err.getmsg()
         assert s == "takes at least 1 non-keyword argument (0 given)"
-        err = ArgErrCount(2, 1, 1, False, True, ['a'], 0)
+
+        sig = Signature(['a'], None, '**')
+        err = ArgErrCount(2, 1, sig, ['a'], 0)
         s = err.getmsg()
         assert s == "takes at most 1 non-keyword argument (2 given)"
 
@@ -596,11 +632,14 @@ class TestErrorHandling(object):
 
     def test_unknown_keywords(self):
         space = DummySpace()
-        err = ArgErrUnknownKwds(space, 1, ['a', 'b'], [True, False], None)
+        err = ArgErrUnknownKwds(space, 1, ['a', 'b'], [0], None)
         s = err.getmsg()
         assert s == "got an unexpected keyword argument 'b'"
+        err = ArgErrUnknownKwds(space, 1, ['a', 'b'], [1], None)
+        s = err.getmsg()
+        assert s == "got an unexpected keyword argument 'a'"
         err = ArgErrUnknownKwds(space, 2, ['a', 'b', 'c'],
-                                [True, False, False], None)
+                                [0], None)
         s = err.getmsg()
         assert s == "got 2 unexpected keyword arguments"
 
@@ -610,7 +649,7 @@ class TestErrorHandling(object):
                 defaultencoding = 'utf-8'
         space = DummySpaceUnicode()
         err = ArgErrUnknownKwds(space, 1, ['a', None, 'b', 'c'],
-                                [True, False, True, True],
+                                [0, 3, 2],
                                 [unichr(0x1234), u'b', u'c'])
         s = err.getmsg()
         assert s == "got an unexpected keyword argument '\xe1\x88\xb4'"

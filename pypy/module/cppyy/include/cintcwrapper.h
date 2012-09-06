@@ -7,7 +7,13 @@
 extern "C" {
 #endif // ifdef __cplusplus
 
+    /* misc helpers */
     void* cppyy_load_dictionary(const char* lib_name);
+
+    /* pythonization helpers */
+    cppyy_object_t cppyy_ttree_Branch(
+        void* vtree, const char* branchname, const char* classname,
+        void* addobj, int bufsize, int splitlevel);
 
 #ifdef __cplusplus
 }

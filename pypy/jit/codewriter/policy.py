@@ -63,11 +63,10 @@ class JitPolicy(object):
             contains_loop = contains_loop and not getattr(
                     func, '_jit_unroll_safe_', False)
 
-        unsupported = contains_unsupported_variable_type(graph,
+        res = see_function and not contains_unsupported_variable_type(graph,
                             self.supports_floats,
                             self.supports_longlong,
                             self.supports_singlefloats)
-        res = see_function and not unsupported
         if res and contains_loop:
             self.unsafe_loopy_graphs.add(graph)
         res = res and not contains_loop

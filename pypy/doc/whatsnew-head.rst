@@ -14,5 +14,26 @@ See doc/cppyy.rst for full details and functionality.
 .. branch: nupypy-axis-arg-check
 Check that axis arg is valid in _numpypy
 
+.. branch: iterator-in-rpython
+.. branch: numpypy_count_nonzero
+.. branch: even-more-jit-hooks
+Implement better JIT hooks
+.. branch: virtual-arguments
+Improve handling of **kwds greatly, making them virtual sometimes.
+.. branch: improve-rbigint
+Introduce __int128 on systems where it's supported and improve the speed of
+rlib/rbigint.py greatly.
+.. branch: translation-cleanup
+Start to clean up a bit the flow object space.
+.. branch: ffi-backend
+Support CFFI.  http://morepypy.blogspot.ch/2012/08/cffi-release-03.html
+.. branch: speedup-unpackiterable
+
+
 .. "uninteresting" branches that we should just ignore for the whatsnew:
 .. branch: slightly-shorter-c
+.. branch: better-enforceargs
+.. branch: rpython-unicode-formatting
+.. branch: jit-opaque-licm
+.. branch: rpython-utf8
+Support for utf-8 encoding in RPython

@@ -11,6 +11,7 @@ from pypy.rpython.lltypesystem.lltype import UnsignedLongLong, Char, UniChar
 from pypy.rpython.lltypesystem.lltype import pyobjectptr, ContainerType
 from pypy.rpython.lltypesystem.lltype import Struct, Array, FixedSizeArray
 from pypy.rpython.lltypesystem.lltype import ForwardReference, FuncType
+from pypy.rpython.lltypesystem.rffi import INT
 from pypy.rpython.lltypesystem.llmemory import Address
 from pypy.translator.backendopt.ssa import SSI_to_SSA
 from pypy.translator.backendopt.innerloop import find_inner_loops
@@ -699,19 +700,23 @@ class FunctionCodeGenerator(object):
     #address operations
     def OP_RAW_STORE(self, op):
         addr = self.expr(op.args[0])
-        TYPE = op.args[1].value
-        offset = self.expr(op.args[2])
-        value = self.expr(op.args[3])
+        offset = self.expr(op.args[1])
+        value = self.expr(op.args[2])
+        TYPE = op.args[2].concretetype
         typename = cdecl(self.db.gettype(TYPE).replace('@', '*@'), '')
-        return "((%(typename)s) %(addr)s)[%(offset)s] = %(value)s;" % locals()
+        return (
+           '((%(typename)s) (((char *)%(addr)s) + %(offset)s))[0] = %(value)s;'
+           % locals())
 
     def OP_RAW_LOAD(self, op):
         addr = self.expr(op.args[0])
-        TYPE = op.args[1].value
-        offset = self.expr(op.args[2])
+        offset = self.expr(op.args[1])
         result = self.expr(op.result)
+        TYPE = op.result.concretetype
         typename = cdecl(self.db.gettype(TYPE).replace('@', '*@'), '')
-        return "%(result)s = ((%(typename)s) %(addr)s)[%(offset)s];" % locals()
+        return (
+          "%(result)s = ((%(typename)s) (((char *)%(addr)s) + %(offset)s))[0];"
+          % locals())
 
     def OP_CAST_PRIMITIVE(self, op):
         TYPE = self.lltypemap(op.result)
@@ -750,6 +755,8 @@ class FunctionCodeGenerator(object):
                 continue
             elif T == Signed:
                 format.append('%ld')
+            elif T == INT:
+                format.append('%d')
             elif T == Unsigned:
                 format.append('%lu')
             elif T == Float:

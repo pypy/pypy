@@ -1,9 +1,6 @@
 #include "stltypes.h"
 
-#define STLTYPES_EXPLICIT_INSTANTIATION(STLTYPE, TTYPE)                         \
-template class std::STLTYPE< TTYPE >;                                           \
-template class __gnu_cxx::__normal_iterator<TTYPE*, std::STLTYPE< TTYPE > >;    \
-template class __gnu_cxx::__normal_iterator<const TTYPE*, std::STLTYPE< TTYPE > >;\
+#define STLTYPES_EXPLICIT_INSTANTIATION_WITH_COMPS(STLTYPE, TTYPE)              \
 namespace __gnu_cxx {                                                           \
 template bool operator==(const std::STLTYPE< TTYPE >::iterator&,                \
                          const std::STLTYPE< TTYPE >::iterator&);               \
@@ -11,10 +8,8 @@ template bool operator!=(const std::STLTYPE< TTYPE >::iterator&,                
                          const std::STLTYPE< TTYPE >::iterator&);               \
 }
 
-
-//- explicit instantiations of used types
-STLTYPES_EXPLICIT_INSTANTIATION(vector, int)
-STLTYPES_EXPLICIT_INSTANTIATION(vector, just_a_class)
+//- explicit instantiations of used comparisons
+STLTYPES_EXPLICIT_INSTANTIATION_WITH_COMPS(vector, int)
 
 //- class with lots of std::string handling
 stringy_class::stringy_class(const char* s) : m_string(s) {}

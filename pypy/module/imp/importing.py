@@ -606,8 +606,10 @@ def load_module(space, w_modulename, find_info, reuse=False):
 
         try:
             if find_info.modtype == PY_SOURCE:
-                load_source_module(space, w_modulename, w_mod, find_info.filename,
-                                   find_info.stream.readall())
+                load_source_module(
+                    space, w_modulename, w_mod, 
+                    find_info.filename, find_info.stream.readall(),
+                    find_info.stream.try_to_find_file_descriptor())
                 return w_mod
             elif find_info.modtype == PY_COMPILED:
                 magic = _r_long(find_info.stream)
@@ -882,7 +884,7 @@ def exec_code_module(space, w_mod, code_w):
 
 
 @jit.dont_look_inside
-def load_source_module(space, w_modulename, w_mod, pathname, source,
+def load_source_module(space, w_modulename, w_mod, pathname, source, fd,
                        write_pyc=True):
     """
     Load a source module from a given file and return its module
@@ -891,8 +893,8 @@ def load_source_module(space, w_modulename, w_mod, pathname, source,
     w = space.wrap
 
     if space.config.objspace.usepycfiles:
+        src_stat = os.fstat(fd)
         cpathname = pathname + 'c'
-        src_stat = os.stat(pathname)
         mtime = int(src_stat[stat.ST_MTIME])
         mode = src_stat[stat.ST_MODE]
         stream = check_compiled_module(space, cpathname, mtime)

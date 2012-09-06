@@ -343,8 +343,6 @@ class WorkTask(Task):
 
 import time
 
-
-
 def schedule():
     t = taskWorkArea.taskList
     while t is not None:
