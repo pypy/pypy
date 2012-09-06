@@ -7,12 +7,10 @@ from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.rlib import jit
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rpython import extregistry
-from pypy.rpython.tool import rffi_platform
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
 import math, sys
 
-SUPPORT_INT128 = rffi_platform.has('__int128_t', '')
+SUPPORT_INT128 = hasattr(rffi, '__INT128_T')
 
 # note about digit sizes:
 # In division, the native integer type must be able to hold

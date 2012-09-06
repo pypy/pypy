@@ -12,8 +12,7 @@ from pypy.rpython.lltypesystem.llmemory import Address, \
 from pypy.rpython.lltypesystem.llarena import RoundedUpForAllocation
 from pypy.translator.c.support import cdecl, barebonearray
 
-from pypy.rpython.tool import rffi_platform
-SUPPORT_INT128 = rffi_platform.has('__int128_t', '')
+SUPPORT_INT128 = hasattr(rffi, '__INT128_T')
 
 # ____________________________________________________________
 #
