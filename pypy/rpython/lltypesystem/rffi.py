@@ -440,8 +440,8 @@ TYPES += ['signed char', 'unsigned char',
           'void*']    # generic pointer type
 
 # This is a bit of a hack since we can't use rffi_platform here.
-try:          
-    sizeof_c_type('__int128')
+try:
+    sizeof_c_type('__int128', ignore_errors=True)
     TYPES += ['__int128']
 except CompilationError:
     pass
