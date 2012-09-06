@@ -209,6 +209,7 @@ class BoehmGcPolicy(BasicGcPolicy):
         if defnode.db.gctransformer is not None:
             hdr = lltype.malloc(defnode.db.gctransformer.HDR, immortal=True)
             hdr.hash = lltype.identityhash_nocache(defnode.obj._as_ptr())
+            defnode.db.gctransformer.gcheader_initdata(hdr)
             return hdr._obj
         return None
 

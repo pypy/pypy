@@ -178,10 +178,15 @@ PyObject* malloc_counters(PyObject* self, PyObject* args)
 /* #define BOEHM_MALLOC_0_1   GC_MALLOC_IGNORE_OFF_PAGE */
 /* #define BOEHM_MALLOC_1_1   GC_MALLOC_ATOMIC_IGNORE_OFF_PAGE */
 
+#ifndef _BOEHM_ALLOCATED
+#  define _BOEHM_ALLOCATED(r)    /* nothing */
+#endif
+
 #define OP_BOEHM_ZERO_MALLOC(size, r, restype, is_atomic, is_varsize)   {             \
 	r = (restype) BOEHM_MALLOC_ ## is_atomic ## _ ## is_varsize (size);    \
 	if (r && is_atomic)  /* the non-atomic versions return cleared memory */ \
                 memset((void*) r, 0, size);				\
+        _BOEHM_ALLOCATED(r);                                            \
   }
 
 #define OP_BOEHM_DISAPPEARING_LINK(link, obj, r)			   \

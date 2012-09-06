@@ -5,7 +5,7 @@ def stm_start_transaction(funcgen, op):
     # only for Boehm.  With stmgc, this operation should have been handled
     # already by gctransform.
     assert funcgen.db.translator.config.translation.gc == 'boehm'
-    return '/* stm_boehm_start_transaction(); */'
+    return 'stm_boehm_start_transaction();'
 
 def stm_stop_transaction(funcgen, op):
     # only for Boehm.  With stmgc, this operation should have been handled

@@ -17,7 +17,8 @@
 #include <setjmp.h>
 
 
-/* These are partly the same flags as defined in stmgc.py.  Keep in sync! */
+/* These are partly the same flags as defined in stmgc.py, as well as
+   boehmstm.py.  Keep in sync! */
 enum {
   _first_gcflag            = 1L << (PYPY_LONG_BIT / 2),
   GCFLAG_GLOBAL            = _first_gcflag << 0,
@@ -72,13 +73,12 @@ typedef struct pypy_header0 *gcptr;
 
 void BeginTransaction(jmp_buf *);
 void BeginInevitableTransaction(void);
-//int _FakeReach(gcptr);
+int _FakeReach(gcptr);
 void CommitTransaction(void);
 void BecomeInevitable(const char *why);
 //void BeginInevitableTransaction(void);
 int DescriptorInit(void);
 void DescriptorDone(void);
-int _FakeReach(gcptr P);
 
 //gcptr Allocate(size_t size, int gctid);
 _Bool stm_PtrEq(gcptr P1, gcptr P2);
@@ -111,7 +111,11 @@ void stm_abort_and_retry(void);
 
 #ifdef USING_BOEHM_GC
 # define OP_GC_ADR_OF_ROOT_STACK_TOP(r)   r = NULL
+void stm_boehm_start_transaction(void);
 void stm_boehm_stop_transaction(void);
+void stm_boehm_allocated(gcptr);
+# undef _BOEHM_ALLOCATED
+# define _BOEHM_ALLOCATED(r) stm_boehm_allocated((gcptr)(r))
 #endif
 
 #endif  /* _ET_H */

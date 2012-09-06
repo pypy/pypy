@@ -176,3 +176,42 @@ void stm_abort_and_retry(void)
 {
   AbortTransaction(4);    /* manual abort */
 }
+
+#ifdef USING_BOEHM_GC
+static __thread gcptr stm_boehm_chained_list;
+void stm_boehm_start_transaction(void)
+{
+    stm_boehm_chained_list = NULL;
+}
+void stm_boehm_allocated(gcptr W)
+{
+    W->h_revision = (revision_t)stm_boehm_chained_list;
+    stm_boehm_chained_list = W;
+}
+void stm_boehm_stop_transaction(void)
+{
+    gcptr W = stm_boehm_chained_list;
+    stm_boehm_chained_list = NULL;
+    while (W) {
+        gcptr W_next = (gcptr)W->h_revision;
+        assert(W->h_tid & (GCFLAG_GLOBAL |
+                           GCFLAG_NOT_WRITTEN |
+                           GCFLAG_LOCAL_COPY) == 0);
+        W->h_tid |= GCFLAG_GLOBAL | GCFLAG_NOT_WRITTEN;
+        W->h_revision = 1;
+        W = W_next;
+    }
+    FindRootsForLocalCollect();
+}
+void *pypy_g__stm_duplicate(void *src)
+{
+    size_t size = GC_size(src);
+    void *result = GC_MALLOC(size);
+    memcpy(result, src, size);
+    return result;
+}
+void pypy_g__stm_enum_callback(void *tlsaddr, void *R, void *L)
+{
+    abort();
+}
+#endif
