@@ -20,6 +20,9 @@ class ScalarIterator(base.BaseArrayIterator):
     def done(self):
         return False
 
+    def reset(self):
+        pass
+
 class Scalar(base.BaseArrayImplementation):
     def __init__(self, dtype, value=None):
         self.value = value

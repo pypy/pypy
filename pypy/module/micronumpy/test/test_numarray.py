@@ -1831,7 +1831,6 @@ class AppTestMultiDim(BaseNumpyAppTest):
         a = arange(12).reshape(3,4)
         b = a.T.flat
         b[6::2] = [-1, -2]
-        print a == [[0, 1, -1, 3], [4, 5, 6, -1], [8, 9, -2, 11]]
         assert (a == [[0, 1, -1, 3], [4, 5, 6, -1], [8, 9, -2, 11]]).all()
         b[0:2] = [[[100]]]
         assert(a[0,0] == 100)

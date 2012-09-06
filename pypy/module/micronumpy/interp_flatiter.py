@@ -1,5 +1,5 @@
 
-from pypy.module.micronumpy.base import W_NDimArray
+from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
 from pypy.module.micronumpy import loop
 from pypy.module.micronumpy.strides import to_coords
 from pypy.interpreter.baseobjspace import Wrappable
@@ -43,8 +43,6 @@ class W_FlatIterator(Wrappable):
         self.reset()
         base = self.base
         start, stop, step, length = space.decode_index4(w_idx, base.get_size())
-        # setslice would have been better, but flat[u:v] for arbitrary
-        # shapes of array a cannot be represented as a[x1:x2, y1:y2]
         base_iter = base.create_iter()
         base_iter.next_skip_x(start)
         if length == 1:
@@ -52,6 +50,16 @@ class W_FlatIterator(Wrappable):
         res = W_NDimArray.from_shape([length], base.get_dtype(),
                                      base.get_order())
         return loop.flatiter_getitem(res, base_iter, step)
+
+    def descr_setitem(self, space, w_idx, w_value):
+        if not (space.isinstance_w(w_idx, space.w_int) or
+            space.isinstance_w(w_idx, space.w_slice)):
+            raise OperationError(space.w_IndexError,
+                                 space.wrap('unsupported iterator index'))
+        base = self.base
+        start, stop, step, length = space.decode_index4(w_idx, base.get_size())
+        arr = convert_to_array(space, w_value)
+        loop.flatiter_setitem(self.base, arr, start, step, length)
 
     def descr_iter(self):
         return self
@@ -63,6 +71,7 @@ W_FlatIterator.typedef = TypeDef(
     'flatiter',
     __iter__ = interp2app(W_FlatIterator.descr_iter),
     __getitem__ = interp2app(W_FlatIterator.descr_getitem),
+    __setitem__ = interp2app(W_FlatIterator.descr_setitem),
     __len__ = interp2app(W_FlatIterator.descr_len),
 
     next = interp2app(W_FlatIterator.descr_next),

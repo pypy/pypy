@@ -35,6 +35,9 @@ class ConcreteArrayIterator(base.BaseArrayIterator):
     def done(self):
         return self.offset >= self.size
 
+    def reset(self):
+        self.offset %= self.size
+
 class OneDimViewIterator(ConcreteArrayIterator):
     def __init__(self, array):
         self.array = array
@@ -55,6 +58,9 @@ class OneDimViewIterator(ConcreteArrayIterator):
     def done(self):
         return self.index >= self.size
 
+    def reset(self):
+        self.offset %= self.size
+
 class MultiDimViewIterator(ConcreteArrayIterator):
     def __init__(self, array, start, strides, backstrides, shape):
         self.indexes = [0] * len(shape)
@@ -65,6 +71,7 @@ class MultiDimViewIterator(ConcreteArrayIterator):
         self._done = False
         self.strides = strides
         self.backstrides = backstrides
+        self.size = array.size
 
     @jit.unroll_safe
     def next(self):
@@ -99,6 +106,9 @@ class MultiDimViewIterator(ConcreteArrayIterator):
 
     def done(self):
         return self._done
+
+    def reset(self):
+        self.offset %= self.size
 
 class AxisIterator(base.BaseArrayIterator):
     def __init__(self, array, shape, dim):

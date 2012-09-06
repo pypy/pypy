@@ -194,3 +194,17 @@ def flatiter_getitem(res, base_iter, step):
         base_iter.next_skip_x(step)
         ri.next()
     return res
+
+def flatiter_setitem(arr, val, start, step, length):
+    dtype = arr.get_dtype()
+    arr_iter = arr.create_iter()
+    val_iter = val.create_iter()
+    arr_iter.next_skip_x(start)
+    while length > 0:
+        arr_iter.setitem(val_iter.getitem().convert_to(dtype))
+        # need to repeat i_nput values until all assignments are done
+        arr_iter.next_skip_x(step)
+        length -= 1
+        val_iter.next()
+        # WTF numpy?
+        val_iter.reset()
