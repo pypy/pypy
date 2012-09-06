@@ -346,7 +346,7 @@ class SliceArray(BaseConcreteArray):
         self.start = start
 
     def fill(self, box):
-        loop.fill(self, box)
+        loop.fill(self, box.convert_to(self.dtype))
 
     def create_iter(self, shape):
         if shape != self.shape:
