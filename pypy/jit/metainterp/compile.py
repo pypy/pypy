@@ -193,6 +193,8 @@ def compile_retrace(metainterp, greenkey, start,
     assert loop_jitcell_token
     assert partial_trace.operations[-1].getopnum() == rop.LABEL
     orignial_label = partial_trace.operations[-1].clone()
+    exported_state = orignial_label.getdescr().exported_state
+
     h_ops = history.operations
 
     preamble = create_empty_loop(metainterp)
@@ -219,7 +221,35 @@ def compile_retrace(metainterp, greenkey, start,
                                         None, descr=loop_jitcell_token)]
         optimize_trace(metainterp_sd, loop, jitdriver_sd.warmstate.enable_opts)
 
-        preamble.operations = preamble.operations[:-1]
+        label = loop.operations[0]
+        assert label.getopnum() == rop.LABEL
+
+        target_token = label.getdescr()
+        assert isinstance(target_token, TargetToken)
+        assert loop_jitcell_token.target_tokens
+        loop_jitcell_token.target_tokens.append(target_token)
+
+        orignial_label.getdescr().exported_state = exported_state # XXX: Hack
+        orignial_label.getdescr().short_preamble = None # XXX: Hack
+
+        preamble.operations = [orignial_label] + \
+                              [ResOperation(rop.JUMP, exported_state.jump_args,
+                                            None, descr=loop_jitcell_token)]
+        try:
+            optimize_trace(metainterp_sd, preamble, jitdriver_sd.warmstate.enable_opts)
+        except InvalidLoop:
+            assert False
+
+        assert loop.operations[0].getopnum() == rop.LABEL
+        assert preamble.operations[0].getopnum() == rop.LABEL
+        jumpop = preamble.operations[-1]
+        assert jumpop.getopnum() == rop.JUMP
+        preamble.operations = preamble.operations[1:-1]
+        for a1, a2 in zip(jumpop.getarglist(), loop.operations[0].getarglist()):
+            if a1 is not a2:
+                preamble.operations.append(ResOperation(rop.SAME_AS, [a1], a2))
+
+        #loop.operations = []
 
     except InvalidLoop:
         # Fall back on jumping to preamble
@@ -244,6 +274,7 @@ def compile_retrace(metainterp, greenkey, start,
     loop = trace # FIXME: rename
 
     assert loop.operations[-1].getopnum() != rop.LABEL
+    # FIXME: done above
     target_token = label.getdescr()
     assert isinstance(target_token, TargetToken)
     assert loop_jitcell_token.target_tokens

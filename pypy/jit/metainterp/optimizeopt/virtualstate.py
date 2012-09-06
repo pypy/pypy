@@ -384,7 +384,7 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
                 pass
             if value.is_constant():
                 op = ResOperation(rop.SAME_AS, [box], box.clonebox())
-                optimizer._newoperations.append(op)
+                #optimizer._newoperations.append(op) FIXME
                 return optimizer.getvalue(op.result)
             else:
                 v = OptValue(box)

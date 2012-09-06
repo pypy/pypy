@@ -232,7 +232,10 @@ class UnrollOptimizer(Optimization):
             self.initial_virtual_state = virtual_state
             return
         
-        self.short = target_token.short_preamble[:]
+        if target_token.short_preamble:
+            self.short = target_token.short_preamble[:]
+        else:
+            self.short = None
         self.short_seen = {}
         self.short_boxes = exported_state.short_boxes
         self.short_resume_at_jump_descr = target_token.resume_at_jump_descr
