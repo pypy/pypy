@@ -440,6 +440,7 @@ class ExceptionTests(unittest.TestCase):
         except MyException as e:
             pass
         obj = None
+        gc_collect()
         obj = wr()
         self.assertTrue(obj is None, "%s" % obj)
 
@@ -451,6 +452,7 @@ class ExceptionTests(unittest.TestCase):
         except MyException:
             pass
         obj = None
+        gc_collect()
         obj = wr()
         self.assertTrue(obj is None, "%s" % obj)
 
@@ -462,6 +464,7 @@ class ExceptionTests(unittest.TestCase):
         except:
             pass
         obj = None
+        gc_collect()
         obj = wr()
         self.assertTrue(obj is None, "%s" % obj)
 
@@ -474,6 +477,7 @@ class ExceptionTests(unittest.TestCase):
             except:
                 break
         obj = None
+        gc_collect() # XXX it seems it's not enough
         obj = wr()
         self.assertTrue(obj is None, "%s" % obj)
 
