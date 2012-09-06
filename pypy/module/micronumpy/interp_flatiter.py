@@ -2,13 +2,29 @@
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
 from pypy.module.micronumpy import loop
 from pypy.module.micronumpy.strides import to_coords
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.module.micronumpy.arrayimpl.base import BaseArrayImplementation
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.typedef import TypeDef, interp2app, GetSetProperty
 
-class W_FlatIterator(Wrappable):
+class FakeArrayImplementation(BaseArrayImplementation):
+    """ The sole purpose of this class is to W_FlatIterator can behave
+    like a real array for descr_eq and friends
+    """
+    def __init__(self, base):
+        self.base = base
+        self.dtype = base.get_dtype()
+        self.shape = [base.get_size()]
+
+    def get_shape(self):
+        return self.shape
+
+    def create_iter(self, shape=None):
+        return self.base.create_iter()
+
+class W_FlatIterator(W_NDimArray):
     def __init__(self, arr):
         self.base = arr
+        # this is needed to support W_NDimArray interface
+        self.implementation = FakeArrayImplementation(self.base)
         self.reset()
 
     def reset(self):
@@ -67,22 +83,4 @@ class W_FlatIterator(Wrappable):
     def descr_base(self, space):
         return space.wrap(self.base)
 
-W_FlatIterator.typedef = TypeDef(
-    'flatiter',
-    __iter__ = interp2app(W_FlatIterator.descr_iter),
-    __getitem__ = interp2app(W_FlatIterator.descr_getitem),
-    __setitem__ = interp2app(W_FlatIterator.descr_setitem),
-    __len__ = interp2app(W_FlatIterator.descr_len),
-
-#    __eq__ = interp2app(W_FlatIterator.descr_eq),
-#    __ne__ = interp2app(W_FlatIterator.descr_ne),
-#    __lt__ = interp2app(W_FlatIterator.descr_lt),
-#    __le__ = interp2app(W_FlatIterator.descr_le),
-#    __gt__ = interp2app(W_FlatIterator.descr_gt),
-#    __ge__ = interp2app(W_FlatIterator.descr_ge),
-
-    next = interp2app(W_FlatIterator.descr_next),
-    base = GetSetProperty(W_FlatIterator.descr_base),
-    index = GetSetProperty(W_FlatIterator.descr_index),
-    coords = GetSetProperty(W_FlatIterator.descr_coords),
-)
+# typedef is in interp_numarray, so we see the additional arguments
