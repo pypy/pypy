@@ -29,6 +29,10 @@ class ConcreteArrayIterator(base.BaseArrayIterator):
     def next(self):
         self.offset += self.skip
 
+    def next_skip_x(self, x):
+        self.offset += self.skip * x
+        self.index += x
+
     def done(self):
         return self.offset >= self.size
 
@@ -44,6 +48,10 @@ class OneDimViewIterator(ConcreteArrayIterator):
     def next(self):
         self.offset += self.skip
         self.index += 1
+
+    def next_skip_x(self, x):
+        self.offset += self.skip * x
+        self.index += x
 
     def done(self):
         return self.index >= self.size
@@ -73,6 +81,22 @@ class MultiDimViewIterator(ConcreteArrayIterator):
         else:
             self._done = True
         self.offset = offset
+
+    @jit.unroll_safe
+    def next_skip_x(self, step):
+        for i in range(len(self.shape) - 1, -1, -1):
+            if self.indexes[i] < self.shape[i] - step:
+                self.indexes[i] += step
+                self.offset += self.strides[i] * step
+                break
+            else:
+                remaining_step = (self.indexes[i] + step) // self.shape[i]
+                this_i_step = step - remaining_step * self.shape[i]
+                self.offset += self.strides[i] * this_i_step
+                self.indexes[i] = self.indexes[i] +  this_i_step
+                step = remaining_step
+        else:
+            self._done = True
 
     def done(self):
         return self._done
