@@ -733,7 +733,7 @@ class SourceGenerator:
 
         # produce a sequence of nodes, grouped into files
         # which have no more than SPLIT_CRITERIA lines
-        for basecname in nodes_by_base_cfile:
+        for basecname in sorted(nodes_by_base_cfile):
             iternodes = iter(nodes_by_base_cfile[basecname])
             done = [False]
             def subiter():
