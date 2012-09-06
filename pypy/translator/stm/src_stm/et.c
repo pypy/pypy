@@ -167,6 +167,7 @@ static inline gcptr _direct_read_barrier(gcptr G, gcptr R_Container,
           gcptr L;
           G2L_FIND(d->global_to_local, R, entry, goto not_found);
           L = entry->val;
+          assert(L->h_revision == (revision_t)R);
           if (R_Container && !(R_Container->h_tid & GCFLAG_GLOBAL))
             {    /* R_Container is a local object */
               gcptr *ref = (gcptr *)(((char *)R_Container) + offset);
@@ -196,9 +197,12 @@ gcptr stm_RepeatReadBarrier(gcptr O)
   // LatestGlobalRevision(O) would either return O or abort
   // the whole transaction, so omitting it is not wrong
   struct tx_descriptor *d = thread_descriptor;
+  gcptr L;
   wlog_t *entry;
   G2L_FIND(d->global_to_local, O, entry, return O);
-  return entry->val;
+  L = entry->val;
+  assert(L->h_revision == (revision_t)O);
+  return L;
 }
 
 #if 0
@@ -229,6 +233,7 @@ static gcptr Localize(struct tx_descriptor *d, gcptr R)
   gcptr L;
   G2L_FIND(d->global_to_local, R, entry, goto not_found);
   L = entry->val;
+  assert(L->h_revision == (revision_t)R);
   return L;
 
  not_found:
@@ -506,9 +511,9 @@ static struct gcroot_s *FindRootsForLocalCollect(void)
     {
       gcptr R = item->addr;
       gcptr L = item->val;
+      assert(L->h_revision == (revision_t)R);
       if (L->h_tid & GCFLAG_NOT_WRITTEN)
         {
-          assert(L->h_revision == (revision_t)R);
           L->h_tid |= GCFLAG_GLOBAL | GCFLAG_POSSIBLY_OUTDATED;
           continue;
         }
