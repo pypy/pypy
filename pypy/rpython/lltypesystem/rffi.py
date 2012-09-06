@@ -441,8 +441,8 @@ TYPES += ['signed char', 'unsigned char',
 
 # This is a bit of a hack since we can't use rffi_platform here.
 try:
-    sizeof_c_type('__int128', ignore_errors=True)
-    TYPES += ['__int128']
+    sizeof_c_type('__int128_t', ignore_errors=True)
+    TYPES += ['__int128_t']
 except CompilationError:
     pass
     
