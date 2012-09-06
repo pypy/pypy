@@ -298,13 +298,13 @@ class W_Complex64Box(ComplexBox, W_ComplexFloatingBox):
         dtype = self._COMPONENTS_BOX._get_dtype(space)
         box = self.convert_real_to(dtype)
         assert isinstance(box, self._COMPONENTS_BOX)
-        return space.wrap(box)
+        return space.wrap(box.value)
 
     def descr_get_imag(self, space):
         dtype = self._COMPONENTS_BOX._get_dtype(space)
         box = self.convert_imag_to(dtype)
         assert isinstance(box, self._COMPONENTS_BOX)
-        return space.wrap(box)
+        return space.wrap(box.value)
 
 class W_Complex128Box(ComplexBox, W_ComplexFloatingBox):
     descr__new__, _get_dtype = new_dtype_getter("complex128")

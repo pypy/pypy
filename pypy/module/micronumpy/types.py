@@ -1223,24 +1223,28 @@ class ComplexFloating(object):
     @complex_unary_op
     def sin(self, v):
         if math.isinf(v[0]):
+            if v[1] == 0.:
+                return rfloat.NAN, 0.
             if isfinite(v[1]):
-                return rfloat.NAN, rfloat.INFINITY
+                return rfloat.NAN, rfloat.NAN
             elif not math.isnan(v[1]):
-                return rfloat.INFINITY, rfloat.NAN
+                return rfloat.NAN, rfloat.INFINITY
         return rcomplex.c_sin(*v)
 
     @complex_unary_op
     def cos(self, v):
         if math.isinf(v[0]):
-            if isfinite(v[1]):
+            if v[1] == 0.:
                 return rfloat.NAN, 0.0
+            if isfinite(v[1]):
+                return rfloat.NAN, rfloat.NAN
             elif not math.isnan(v[1]):
                 return rfloat.INFINITY, rfloat.NAN
         return rcomplex.c_cos(*v)
 
     @complex_unary_op
     def tan(self, v):
-        if isinf(v[0]) and isfinite(v[1]):
+        if math.isinf(v[0]) and isfinite(v[1]):
             return rfloat.NAN, rfloat.NAN
         return rcomplex.c_tan(*v)
 

@@ -1021,7 +1021,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
                           )
         tested_funcs=[]
         fail_at_end = False
-        for complex_, abs_err in ((np.complex128, 5e-323), (np.complex64, 5e-32)):
+        for complex_, abs_err in ((np.complex64, 5e-32), (np.complex128, 5e-323), ):
             for id, fn, ar, ai, er, ei, flags in parse_testfile(testcases):
                 arg = complex_(complex(ar, ai))
                 expected = (er, ei)
@@ -1031,6 +1031,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
                     fn = 'arc' + fn[1:]
                 elif fn.startswith('atan'):
                     fn = 'arc' + fn[1:]
+                elif fn in ('rect', 'polar'):
+                    continue
                 function = getattr(np, fn)
                 _actual = function(arg)
                 actual = (_actual.real, _actual.imag)
