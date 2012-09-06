@@ -1,3 +1,5 @@
+#include "src/asm_ppc.h"
+
 #define __dcbst(base, index)    \
   __asm__ ("dcbst %0, %1" : /*no result*/ : "b%" (index), "r" (base) : "memory")
 #define __icbi(base, index)    \

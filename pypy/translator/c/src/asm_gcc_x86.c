@@ -2,6 +2,9 @@
  * It replaces some complex macros with native assembler instructions.
  */
 
+#include <stdio.h>
+#include <stdlib.h>
+
 #  if 0   /* disabled */
 void op_int_overflowed(void)
 {

@@ -1,5 +1,6 @@
 #include "common_header.h"
 #include "src/support.h"
+#include <stdlib.h>
 
 /***  tracking raw mallocs and frees for debugging ***/
 
