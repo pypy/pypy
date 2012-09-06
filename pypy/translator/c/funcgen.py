@@ -603,6 +603,8 @@ class FunctionCodeGenerator(object):
             from pypy.translator.stm.funcgen import op_stm
             self.__class__.op_stm = op_stm
         return self.op_stm(op)
+    OP_STM_START_TRANSACTION = _OP_STM
+    OP_STM_STOP_TRANSACTION = _OP_STM
     OP_STM_BECOME_INEVITABLE = _OP_STM
     OP_STM_BARRIER = _OP_STM
     OP_STM_PTR_EQ = _OP_STM

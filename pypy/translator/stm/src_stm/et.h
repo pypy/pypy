@@ -58,6 +58,10 @@ typedef struct pypy_header0 *gcptr;
     (__builtin_expect((((gcptr)(P))->h_tid & GCFLAG_NOT_WRITTEN) == 0, 1) ? \
      (P) : (typeof(P))stm_WriteBarrier((gcptr)(P)))
 
+#define STM_BARRIER_G2W(G)                              \
+    (assert(((gcptr)(G))->h_tid & GCFLAG_GLOBAL),       \
+     (typeof(G))stm_WriteBarrier((gcptr)(G)))
+
 #define STM_BARRIER_R2W(R)                                                  \
     (__builtin_expect((((gcptr)(R))->h_tid & GCFLAG_NOT_WRITTEN) == 0, 1) ? \
      (R) : (typeof(R))stm_WriteBarrierFromReady((gcptr)(R)))
@@ -72,7 +76,7 @@ void BeginInevitableTransaction(void);
 void CommitTransaction(void);
 void BecomeInevitable(const char *why);
 //void BeginInevitableTransaction(void);
-void DescriptorInit(void);
+int DescriptorInit(void);
 void DescriptorDone(void);
 int _FakeReach(gcptr P);
 
@@ -104,5 +108,10 @@ void stm_set_transaction_length(long length_max);
 void stm_perform_transaction(long(*callback)(void*, long), void *arg,
                              void *save_and_restore);
 void stm_abort_and_retry(void);
+
+#ifdef USING_BOEHM_GC
+# define OP_GC_ADR_OF_ROOT_STACK_TOP(r)   r = NULL
+void stm_boehm_stop_transaction(void);
+#endif
 
 #endif  /* _ET_H */

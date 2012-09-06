@@ -1,6 +1,18 @@
 from pypy.translator.c.support import c_string_constant
 
 
+def stm_start_transaction(funcgen, op):
+    # only for Boehm.  With stmgc, this operation should have been handled
+    # already by gctransform.
+    assert funcgen.db.translator.config.translation.gc == 'boehm'
+    return '/* stm_boehm_start_transaction(); */'
+
+def stm_stop_transaction(funcgen, op):
+    # only for Boehm.  With stmgc, this operation should have been handled
+    # already by gctransform.
+    assert funcgen.db.translator.config.translation.gc == 'boehm'
+    return 'stm_boehm_stop_transaction();'
+
 def stm_barrier(funcgen, op):
     level = op.args[0].value
     assert type(level) is str
@@ -20,7 +32,7 @@ def stm_become_inevitable(funcgen, op):
     except IndexError:
         info = "rstm.become_inevitable"    # cannot insert it in 'llop'
     string_literal = c_string_constant(info)
-    return 'stm_try_inevitable(%s);' % (string_literal,)
+    return 'BecomeInevitable(%s);' % (string_literal,)
 
 def stm_jit_invoke_code(funcgen, op):
     XXX

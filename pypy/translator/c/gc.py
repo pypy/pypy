@@ -199,6 +199,9 @@ class BoehmInfo:
 class BoehmGcPolicy(BasicGcPolicy):
 
     def gettransformer(self):
+        if self.db.translator.config.translation.stm:
+            from pypy.rpython.memory.gctransform import boehmstm
+            return boehmstm.BoehmSTMGCTransformer(self.db.translator)
         from pypy.rpython.memory.gctransform import boehm
         return boehm.BoehmGCTransformer(self.db.translator)
 
@@ -227,7 +230,7 @@ class BoehmGcPolicy(BasicGcPolicy):
         from pypy.rpython.tool.rffi_platform import configure_boehm
         eci = eci.merge(configure_boehm())
 
-        pre_include_bits = []
+        pre_include_bits = ['#define USING_BOEHM_GC']
         if sys.platform.startswith('linux'):
             pre_include_bits += ["#define _REENTRANT 1",
                                  "#define GC_LINUX_THREADS 1"]
@@ -237,7 +240,6 @@ class BoehmGcPolicy(BasicGcPolicy):
 
         eci = eci.merge(ExternalCompilationInfo(
             pre_include_bits=pre_include_bits,
-            post_include_bits=['#define USING_BOEHM_GC'],
             ))
 
         return eci

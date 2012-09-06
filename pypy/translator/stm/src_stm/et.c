@@ -11,11 +11,14 @@
 #include <assert.h>
 #include <pthread.h>
 
+#ifndef RPY_STM
+/* for tests, a few custom defines */
 #define RPY_STM_DEBUG_PRINT     1
 #define PYPY_DEBUG_START(s)     fprintf(stderr, "start: %s\n", s)
 #define PYPY_DEBUG_STOP(s)      fprintf(stderr, " stop: %s\n", s)
 #define PYPY_HAVE_DEBUG_PRINTS  1
 #define PYPY_DEBUG_FILE         stderr
+#endif
 
 #include "et.h"
 
@@ -178,17 +181,17 @@ static inline gcptr _direct_read_barrier(gcptr G, gcptr R_Container,
   return R;
 }
 
-gcptr _DirectReadBarrier(gcptr G)
+gcptr stm_DirectReadBarrier(gcptr G)
 {
   return _direct_read_barrier(G, NULL, 0);
 }
 
-gcptr _DirectReadBarrierFromR(gcptr G, gcptr R_Container, size_t offset)
+gcptr stm_DirectReadBarrierFromR(gcptr G, gcptr R_Container, size_t offset)
 {
   return _direct_read_barrier(G, R_Container, offset);
 }
 
-gcptr _RepeatReadBarrier(gcptr O)
+gcptr stm_RepeatReadBarrier(gcptr O)
 {
   // LatestGlobalRevision(O) would either return O or abort
   // the whole transaction, so omitting it is not wrong
@@ -198,6 +201,7 @@ gcptr _RepeatReadBarrier(gcptr O)
   return entry->val;
 }
 
+#if 0
 gcptr _NonTransactionalReadBarrier(gcptr P)
 {
   /* testing only: use this outside transactions to check the state */
@@ -217,6 +221,7 @@ gcptr _NonTransactionalReadBarrier(gcptr P)
     fprintf(stderr, "[---%p possibly outdated---]\n", P);
   return P;
 }
+#endif
 
 static gcptr Localize(struct tx_descriptor *d, gcptr R)
 {
@@ -236,7 +241,7 @@ static gcptr Localize(struct tx_descriptor *d, gcptr R)
   return L;
 }
 
-gcptr _WriteBarrier(gcptr P)
+gcptr stm_WriteBarrier(gcptr P)
 {
   gcptr R, W;
   if (!(P->h_tid & GCFLAG_GLOBAL))
@@ -259,7 +264,7 @@ gcptr _WriteBarrier(gcptr P)
   return W;
 }
 
-gcptr _WriteBarrierFromReady(gcptr R)
+gcptr stm_WriteBarrierFromReady(gcptr R)
 {
   gcptr W;
   if (!(R->h_tid & GCFLAG_GLOBAL))
@@ -650,7 +655,7 @@ inline static gcptr GlobalizeForComparison(struct tx_descriptor *d, gcptr P)
   return P;
 }
 
-_Bool PtrEq(gcptr P1, gcptr P2)
+_Bool stm_PtrEq(gcptr P1, gcptr P2)
 {
   struct tx_descriptor *d = thread_descriptor;
   return GlobalizeForComparison(d, P1) == GlobalizeForComparison(d, P2);
@@ -658,10 +663,9 @@ _Bool PtrEq(gcptr P1, gcptr P2)
 
 /************************************************************/
 
-void DescriptorInit(void)
+int DescriptorInit(void)
 {
-  assert(thread_descriptor == NULL);
-  if (1)
+  if (thread_descriptor == NULL)
     {
       struct tx_descriptor *d = malloc(sizeof(struct tx_descriptor));
       memset(d, 0, sizeof(struct tx_descriptor));
@@ -693,7 +697,10 @@ void DescriptorInit(void)
                 (long)d->my_lock, (long)pthread_self());
       PYPY_DEBUG_STOP("stm-init");
 #endif
+      return 1;
     }
+  else
+    return 0;
 }
 
 void DescriptorDone(void)
