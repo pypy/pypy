@@ -11,7 +11,7 @@ GCFLAG_PREBUILT          = GCFLAG_GLOBAL|GCFLAG_NOT_WRITTEN
 REV_INITIAL              = r_uint(1)
 
 
-class BoehmSTMGCTransformer(BoehmGCTransformer):
+class NoneSTMGCTransformer(BoehmGCTransformer):
     HDR = lltype.Struct("header", ("hash", lltype.Signed),
                                   ("size", lltype.Signed),
                                   ("tid", lltype.Signed),    # for flags only

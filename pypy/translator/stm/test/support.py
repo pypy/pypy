@@ -24,5 +24,5 @@ class CompiledSTMTests(StandaloneTests):
         return res
 
 
-class BoehmCompiledSTMTests(CompiledSTMTests):
-    gc = "boehm"
+class NoGcCompiledSTMTests(CompiledSTMTests):
+    gc = "none"

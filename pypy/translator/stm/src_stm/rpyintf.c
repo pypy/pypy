@@ -123,7 +123,7 @@ void stm_perform_transaction(long(*callback)(void*, long), void *arg,
   void **volatile v_saved_value;
   long volatile v_atomic = thread_descriptor->atomic;
   assert((!thread_descriptor->active) == (!v_atomic));
-#ifndef USING_BOEHM_GC
+#ifndef USING_NO_GC_AT_ALL
   v_saved_value = *(void***)save_and_restore;
 #endif
   /***/
@@ -135,7 +135,7 @@ void stm_perform_transaction(long(*callback)(void*, long), void *arg,
   void **restore_value;
   counter = v_counter;
   d->atomic = v_atomic;
-#ifndef USING_BOEHM_GC
+#ifndef USING_NO_GC_AT_ALL
   restore_value = v_saved_value;
   if (!d->atomic)
     {
@@ -173,7 +173,7 @@ void stm_perform_transaction(long(*callback)(void*, long), void *arg,
   if (d->atomic && d->setjmp_buf == &_jmpbuf)
     BecomeInevitable("perform_transaction left with atomic");
 
-#ifndef USING_BOEHM_GC
+#ifndef USING_NO_GC_AT_ALL
   *(void***)save_and_restore = v_saved_value;
 #endif
 }
@@ -183,27 +183,29 @@ void stm_abort_and_retry(void)
   AbortTransaction(4);    /* manual abort */
 }
 
-#ifdef USING_BOEHM_GC
-static __thread gcptr stm_boehm_chained_list;
-void stm_boehm_start_transaction(void)
+#ifdef USING_NO_GC_AT_ALL
+static __thread gcptr stm_nogc_chained_list;
+void stm_nogc_start_transaction(void)
 {
-    GC_init();
-    stm_boehm_chained_list = NULL;
+    stm_nogc_chained_list = NULL;
 }
-gcptr stm_boehm_allocate(size_t size)
+gcptr stm_nogc_allocate(size_t size)
 {
-    gcptr W = GC_local_malloc(size);
-    memset((void*) W, 0, size);
+    gcptr W = calloc(1, size);
+    if (!W) {
+        fprintf(stderr, "out of memory!\n");
+        abort();
+    }
     W->h_size = size;
-    W->h_revision = (revision_t)stm_boehm_chained_list;
-    stm_boehm_chained_list = W;
+    W->h_revision = (revision_t)stm_nogc_chained_list;
+    stm_nogc_chained_list = W;
     return W;
 }
-void stm_boehm_stop_transaction(void)
+void stm_nogc_stop_transaction(void)
 {
     struct gcroot_s *gcroots;
-    gcptr W = stm_boehm_chained_list;
-    stm_boehm_chained_list = NULL;
+    gcptr W = stm_nogc_chained_list;
+    stm_nogc_chained_list = NULL;
     while (W) {
         gcptr W_next = (gcptr)W->h_revision;
         assert((W->h_tid & (GCFLAG_GLOBAL |
@@ -227,7 +229,11 @@ void stm_boehm_stop_transaction(void)
 void *pypy_g__stm_duplicate(void *src)
 {
     size_t size = ((gcptr)src)->h_size;
-    void *result = GC_local_malloc(size);
+    void *result = malloc(size);
+    if (!result) {
+        fprintf(stderr, "out of memory!\n");
+        abort();
+    }
     memcpy(result, src, size);
     return result;
 }

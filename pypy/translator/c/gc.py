@@ -199,9 +199,6 @@ class BoehmInfo:
 class BoehmGcPolicy(BasicGcPolicy):
 
     def gettransformer(self):
-        if self.db.translator.config.translation.stm:
-            from pypy.rpython.memory.gctransform import boehmstm
-            return boehmstm.BoehmSTMGCTransformer(self.db.translator)
         from pypy.rpython.memory.gctransform import boehm
         return boehm.BoehmGCTransformer(self.db.translator)
 
@@ -232,7 +229,7 @@ class BoehmGcPolicy(BasicGcPolicy):
         from pypy.rpython.tool.rffi_platform import configure_boehm
         eci = eci.merge(configure_boehm())
 
-        pre_include_bits = ['#define USING_BOEHM_GC']
+        pre_include_bits = []
         if sys.platform.startswith('linux'):
             pre_include_bits += ["#define _REENTRANT 1",
                                  "#define GC_LINUX_THREADS 1"]
@@ -242,6 +239,7 @@ class BoehmGcPolicy(BasicGcPolicy):
 
         eci = eci.merge(ExternalCompilationInfo(
             pre_include_bits=pre_include_bits,
+            post_include_bits=['#define USING_BOEHM_GC'],
             ))
 
         return eci
@@ -306,10 +304,16 @@ class NoneGcPolicy(BoehmGcPolicy):
 
     gc_startup_code = RefcountingGcPolicy.gc_startup_code.im_func
 
+    def gettransformer(self):
+        if self.db.translator.config.translation.stm:
+            from pypy.rpython.memory.gctransform import nogcstm
+            return nogcstm.NoneSTMGCTransformer(self.db.translator)
+        return BoehmGcPolicy.gettransformer(self)
+
     def compilation_info(self):
         eci = BasicGcPolicy.compilation_info(self)
         eci = eci.merge(ExternalCompilationInfo(
-            post_include_bits=['#define USING_NO_GC_AT_ALL'],
+            pre_include_bits=['#define USING_NO_GC_AT_ALL'],
             ))
         return eci
 

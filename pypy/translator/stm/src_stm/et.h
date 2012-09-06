@@ -14,11 +14,12 @@
 #ifndef _ET_H
 #define _ET_H
 
+#include <stddef.h>
 #include <setjmp.h>
 
 
 /* These are partly the same flags as defined in stmgc.py, as well as
-   boehmstm.py.  Keep in sync! */
+   nogcstm.py.  Keep in sync! */
 enum {
   _first_gcflag            = 1L << (PYPY_LONG_BIT / 2),
   GCFLAG_GLOBAL            = _first_gcflag << 0,
@@ -109,14 +110,14 @@ void stm_perform_transaction(long(*callback)(void*, long), void *arg,
                              void *save_and_restore);
 void stm_abort_and_retry(void);
 
-#ifdef USING_BOEHM_GC
+#ifdef USING_NO_GC_AT_ALL
 # define OP_GC_ADR_OF_ROOT_STACK_TOP(r)   r = NULL
-void stm_boehm_start_transaction(void);
-void stm_boehm_stop_transaction(void);
-gcptr stm_boehm_allocate(size_t);
+void stm_nogc_start_transaction(void);
+void stm_nogc_stop_transaction(void);
+gcptr stm_nogc_allocate(size_t);
 # undef OP_BOEHM_ZERO_MALLOC
 # define OP_BOEHM_ZERO_MALLOC(size, r, restype, is_atomic, is_varsize)  \
-    r = (restype) stm_boehm_allocate(size)
+    r = (restype) stm_nogc_allocate(size)
 #endif
 
 #endif  /* _ET_H */
