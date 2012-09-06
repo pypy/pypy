@@ -186,3 +186,11 @@ def setitem_filter(arr, index, value):
         arr_iter.next()
         index_iter.next()
         value_iter.next()
+
+def flatiter_getitem(res, base_iter, step):
+    ri = res.create_iter()
+    while not ri.done():
+        ri.setitem(base_iter.getitem())
+        base_iter.next_skip_x(step)
+        ri.next()
+    return res

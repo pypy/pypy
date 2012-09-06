@@ -40,6 +40,9 @@ class __extend__(W_NDimArray):
     def get_dtype(self):
         return self.implementation.dtype
 
+    def get_order(self):
+        return self.implementation.order
+
     def descr_get_dtype(self, space):
         return self.implementation.dtype
 

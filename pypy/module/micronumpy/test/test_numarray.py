@@ -1814,6 +1814,8 @@ class AppTestMultiDim(BaseNumpyAppTest):
         b.next()
         b.next()
         b.next()
+        assert b.index == 3
+        assert b.coords == (0, 3)
         assert b[3] == 3
         assert (b[::3] == [0, 3, 6, 9]).all()
         assert (b[2::5] == [2, 7]).all()
@@ -1822,7 +1824,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
         raises(IndexError, "b[-11]")
         raises(IndexError, 'b[0, 1]')
         assert b.index == 0
-        assert b.coords == (0,0)
+        assert b.coords == (0, 0)
 
     def test_flatiter_setitem(self):
         from _numpypy import arange, array

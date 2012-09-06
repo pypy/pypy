@@ -31,7 +31,6 @@ class ConcreteArrayIterator(base.BaseArrayIterator):
 
     def next_skip_x(self, x):
         self.offset += self.skip * x
-        self.index += x
 
     def done(self):
         return self.offset >= self.size
