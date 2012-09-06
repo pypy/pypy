@@ -756,9 +756,12 @@ OPS = {
 for type_ in ['int', 'uint', 'llong', 'ullong']:
     OPS[type_ + '_lshift'] = 'shl'
     OPS[type_ + '_rshift'] = 'lshr' if type_[0] == 'u' else 'ashr'
+    OPS[type_ + '_add'] = 'add' if type_[0] == 'u' else 'add nsw'
+    OPS[type_ + '_sub'] = 'sub' if type_[0] == 'u' else 'sub nsw'
+    OPS[type_ + '_mul'] = 'mul' if type_[0] == 'u' else 'mul nsw'
     OPS[type_ + '_floordiv'] = 'udiv' if type_[0] == 'u' else 'sdiv'
     OPS[type_ + '_mod'] = 'urem' if type_[0] == 'u' else 'srem'
-    for op in ['add', 'sub', 'mul', 'and', 'or', 'xor']:
+    for op in ['and', 'or', 'xor']:
         OPS['{}_{}'.format(type_, op)] = op
 
 for type_ in ['float']:
