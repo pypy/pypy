@@ -3,9 +3,10 @@ from pypy.interpreter.error import operationerrfmt, OperationError
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
-from pypy.module.micronumpy import interp_dtype, interp_ufuncs, support
+from pypy.module.micronumpy import interp_dtype, interp_ufuncs
 from pypy.module.micronumpy.strides import find_shape_and_elems,\
      get_shape_from_iterable
+from pypy.module.micronumpy.interp_flatiter import W_FlatIterator
 from pypy.module.micronumpy.interp_support import unwrap_axis_arg
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
 from pypy.module.micronumpy import loop
@@ -216,6 +217,9 @@ class __extend__(W_NDimArray):
     @unwrap_spec(repeats=int)
     def descr_repeat(self, space, repeats, w_axis=None):
         return repeat(space, self, repeats, w_axis)
+
+    def descr_get_flatiter(self, space):
+        return space.wrap(W_FlatIterator(self))
 
     # --------------------- operations ----------------------------
 
@@ -468,6 +472,7 @@ W_NDimArray.typedef = TypeDef(
     ravel = interp2app(W_NDimArray.descr_ravel),
     repeat = interp2app(W_NDimArray.descr_repeat),
     swapaxes = interp2app(W_NDimArray.descr_swapaxes),
+    flat = GetSetProperty(W_NDimArray.descr_get_flatiter),
 )
 
 @unwrap_spec(ndmin=int, copy=bool, subok=bool)
