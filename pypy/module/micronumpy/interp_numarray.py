@@ -58,6 +58,9 @@ class __extend__(W_NDimArray):
     def descr_fill(self, space, w_value):
         self.fill(self.get_dtype().coerce(space, w_value))
 
+    def descr_tostring(self, space):
+        return space.wrap(loop.tostring(space, self))
+
     def getitem_filter(self, space, arr):
         if arr.get_size() > self.get_size():
             raise OperationError(space.w_IndexError,
@@ -508,7 +511,9 @@ W_NDimArray.typedef = TypeDef(
     size = GetSetProperty(W_NDimArray.descr_get_size),
     itemsize = GetSetProperty(W_NDimArray.descr_get_itemsize),
     nbytes = GetSetProperty(W_NDimArray.descr_get_nbytes),
+
     fill = interp2app(W_NDimArray.descr_fill),
+    tostring = interp2app(W_NDimArray.descr_tostring),
 
     mean = interp2app(W_NDimArray.descr_mean),
     sum = interp2app(W_NDimArray.descr_sum),

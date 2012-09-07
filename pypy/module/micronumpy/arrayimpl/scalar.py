@@ -18,7 +18,7 @@ class ScalarIterator(base.BaseArrayIterator):
         raise Exception("Don't call setitem on scalar iterators")
 
     def done(self):
-        return False
+        raise Exception("should not call done on scalars")
 
     def reset(self):
         pass

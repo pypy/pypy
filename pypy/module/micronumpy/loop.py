@@ -5,6 +5,8 @@ signatures
 
 from pypy.rlib.objectmodel import specialize
 from pypy.module.micronumpy.base import W_NDimArray
+from pypy.rlib.rstring import StringBuilder
+from pypy.rpython.lltypesystem import lltype, rffi
 
 def call2(shape, func, name, calc_dtype, res_dtype, w_lhs, w_rhs, out):
     if out is None:
@@ -217,3 +219,17 @@ def fromstring_loop(a, dtype, itemsize, s):
         ai.setitem(val)
         ai.next()
         i += 1
+
+def tostring(space, arr):
+    builder = StringBuilder()
+    iter = arr.create_iter()
+    res_str = W_NDimArray.from_shape([1], arr.get_dtype(), order='C')
+    itemsize = arr.get_dtype().itemtype.get_element_size()
+    res_str_casted = rffi.cast(rffi.CArrayPtr(lltype.Char),
+                               res_str.implementation.get_storage_as_int(space))
+    while not iter.done():
+        res_str.implementation.setitem(0, iter.getitem())
+        for i in range(itemsize):
+            builder.append(res_str_casted[i])
+        iter.next()
+    return builder.build()
