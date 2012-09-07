@@ -999,7 +999,7 @@ class Nonlocal(stmt):
         if w_list is not None:
             list_w = space.listview(w_list)
             if list_w:
-                self.names = [space.str_w(w_obj) for w_obj in list_w]
+                self.names = [space.realstr_w(w_obj) for w_obj in list_w]
             else:
                 self.names = None
 
@@ -3188,6 +3188,7 @@ def FunctionDef_set_returns(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'returns', w_new_value)
+        w_self.initialization_state &= ~64
         return
     w_self.deldictvalue(space, 'returns')
     w_self.initialization_state |= 64
@@ -3297,6 +3298,7 @@ def ClassDef_set_starargs(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'starargs', w_new_value)
+        w_self.initialization_state &= ~32
         return
     w_self.deldictvalue(space, 'starargs')
     w_self.initialization_state |= 32
@@ -3320,6 +3322,7 @@ def ClassDef_set_kwargs(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'kwargs', w_new_value)
+        w_self.initialization_state &= ~64
         return
     w_self.deldictvalue(space, 'kwargs')
     w_self.initialization_state |= 64
@@ -5855,11 +5858,12 @@ def Bytes_get_s(space, w_self):
 
 def Bytes_set_s(space, w_self, w_new_value):
     try:
-        w_self.s = w_new_value
+        w_self.s = check_string(space, w_new_value)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 's', w_new_value)
+        w_self.initialization_state &= ~4
         return
     w_self.deldictvalue(space, 's')
     w_self.initialization_state |= 4
@@ -6118,6 +6122,7 @@ def Starred_set_value(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'value', w_new_value)
+        w_self.initialization_state &= ~4
         return
     w_self.deldictvalue(space, 'value')
     w_self.initialization_state |= 4
@@ -6140,6 +6145,7 @@ def Starred_set_ctx(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'ctx', w_new_value)
+        w_self.initialization_state &= ~8
         return
     # need to save the original object too
     w_self.setdictvalue(space, 'ctx', w_new_value)
@@ -7073,7 +7079,7 @@ def ExceptHandler_set_name(space, w_self, w_new_value):
         if space.is_w(w_new_value, space.w_None):
             w_self.name = None
         else:
-            w_self.name = space.str_w(w_new_value)
+            w_self.name = space.realstr_w(w_new_value)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -7188,6 +7194,7 @@ def arguments_set_varargannotation(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'varargannotation', w_new_value)
+        w_self.initialization_state &= ~4
         return
     w_self.deldictvalue(space, 'varargannotation')
     w_self.initialization_state |= 4
@@ -7229,7 +7236,7 @@ def arguments_set_kwarg(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'kwarg', w_new_value)
-        w_self.initialization_state &= ~4
+        w_self.initialization_state &= ~16
         return
     w_self.deldictvalue(space, 'kwarg')
     w_self.initialization_state |= 16
@@ -7253,6 +7260,7 @@ def arguments_set_kwargannotation(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'kwargannotation', w_new_value)
+        w_self.initialization_state &= ~32
         return
     w_self.deldictvalue(space, 'kwargannotation')
     w_self.initialization_state |= 32
@@ -7338,11 +7346,12 @@ def arg_get_arg(space, w_self):
 
 def arg_set_arg(space, w_self, w_new_value):
     try:
-        w_self.arg = space.str_w(w_new_value)
+        w_self.arg = space.realstr_w(w_new_value)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'arg', w_new_value)
+        w_self.initialization_state &= ~1
         return
     w_self.deldictvalue(space, 'arg')
     w_self.initialization_state |= 1
@@ -7366,6 +7375,7 @@ def arg_set_annotation(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'annotation', w_new_value)
+        w_self.initialization_state &= ~2
         return
     w_self.deldictvalue(space, 'annotation')
     w_self.initialization_state |= 2
