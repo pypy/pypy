@@ -162,9 +162,9 @@ class StmGCTLS(object):
         debug_start("gc-local")
         #
         if end_of_transaction:
-            self.replace_pointers_following_revision = GCFLAG_LOCAL_COPY
+            self.detect_flag_combination = GCFLAG_LOCAL_COPY | GCFLAG_VISITED
         else:
-            self.replace_pointers_following_revision = 0
+            self.detect_flag_combination = -1
         #
         # Move away the previous sharedarea_tls and start a new one.
         from pypy.rpython.memory.gc.stmshared import StmGCThreadLocalAllocator
@@ -279,9 +279,11 @@ class StmGCTLS(object):
         while self.copied_local_objects.non_empty():
             obj = self.copied_local_objects.pop()
             hdr = self.gc.header(obj)
-            ll_assert(hdr.tid & GCFLAG_LOCAL_COPY != 0,"missing LOCAL_COPY [0]")
+            ll_assert(hdr.tid & GCFLAG_LOCAL_COPY, "missing LOCAL_COPY [0]")
             ll_assert(hdr.tid & GCFLAG_GLOBAL == 0, "already GLOBAL [0]")
+            ll_assert(hdr.tid & GCFLAG_VISITED, "missing VISITED [0]")
             hdr.tid |= GCFLAG_GLOBAL | GCFLAG_NOT_WRITTEN
+            hdr.tid &= ~(GCFLAG_VISITED | GCFLAG_LOCAL_COPY)
             # don't touch 'revision' in this case
 
     def _clear_version_for_global_object(self, hdr):
@@ -376,10 +378,10 @@ class StmGCTLS(object):
         if flag_combination == 0:
             return 0    # not marked as surviving, so far
 
-        if flag_combination & self.replace_pointers_following_revision:
-            # At a normal time, self.replace_pointers_following_revision
-            # is 0 and this case is never seen.  At end of transactions,
-            # detect_flag_combination is GCFLAG_LOCAL_COPY.
+        if flag_combination == self.detect_flag_combination:
+            # At a normal time, self.detect_flag_combination is -1
+            # and this case is never seen.  At end of transactions,
+            # detect_flag_combination is GCFLAG_LOCAL_COPY|GCFLAG_VISITED.
             # This case is to force pointers to the LOCAL copy to be
             # replaced with pointers to the GLOBAL copy.
             return 2
@@ -497,8 +499,8 @@ class StmGCTLS(object):
                   "in a root: unexpected GCFLAG_GLOBAL")
         ll_assert(localhdr.tid & GCFLAG_LOCAL_COPY != 0,
                   "in a root: missing GCFLAG_LOCAL_COPY")
-        # localhdr.tid & GCFLAG_VISITED may be set or not so far, with no
-        # particular consequence, but we force it to be set from now on (below)
+        ll_assert(localhdr.tid & GCFLAG_VISITED != 0,
+                  "in a root: missing GCFLAG_VISITED")
         globalhdr = self.gc.header(globalobj)
         ll_assert(globalhdr.tid & GCFLAG_GLOBAL != 0,
                   "in a root: GLOBAL: missing GCFLAG_GLOBAL")
@@ -512,8 +514,7 @@ class StmGCTLS(object):
                                    self.gc.get_type_id(globalobj))
         ll_assert(TL == TG, "in a root: type(LOCAL) != type(GLOBAL)")
         #
-        localhdr.tid |= GCFLAG_VISITED
-        self.pending.append(localobj)
+        self.trace_and_drag_out_of_nursery(localobj)
 
     def collect_flush_pending(self):
         # Follow the objects in the 'pending' stack and move the

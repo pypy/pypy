@@ -32,15 +32,15 @@ typedef char bool_t;
 
 
 gcptr (*cb_duplicate)(gcptr);
-void (*cb_enum_callback)(void *, gcptr, gcptr);
+void (*cb_enum_callback)(void *, gcptr);
 
 void *pypy_g__stm_duplicate(void *a) {
     assert(cb_duplicate != NULL);
     return cb_duplicate((gcptr)a);
 }
-void pypy_g__stm_enum_callback(void *a, void *b, void *c) {
+void pypy_g__stm_enum_callback(void *a, void *b) {
     assert(cb_enum_callback != NULL);
-    cb_enum_callback(a, (gcptr)b, (gcptr)c);
+    cb_enum_callback(a, (gcptr)b);
 }
 
 
@@ -159,14 +159,15 @@ void test_enum_tldict_empty(void) {
 /************************************************************/
 
 struct pypy_header0 etldn1 = {GCFLAG_PREBUILT, REV_INITIAL};
-struct pypy_header0 etldn2 = {0, 0};
+struct pypy_header0 etldn2 = {GCFLAG_LOCAL_COPY, (revision_t)&etldn1};
 struct pypy_header0 etldn3 = {GCFLAG_PREBUILT, REV_INITIAL};
-struct pypy_header0 etldn4 = {0, 0};
+struct pypy_header0 etldn4 = {GCFLAG_LOCAL_COPY, (revision_t)&etldn3};
 
 int check_enum_1_found;
-void check_enum_1(void *tls, gcptr a, gcptr b)
+void check_enum_1(void *tls, gcptr b)
 {
     int n;
+    gcptr a = (gcptr)b->h_revision;
     assert(tls == (void *)742);
     if (a == &etldn1 && b == &etldn2)
         n = 1;
@@ -277,9 +278,11 @@ void duplicator(void)
 }
 gcptr duplicator_cb(gcptr x)
 {
-    assert(x == &sg_global);
+    assert(x == &sg_global.header);
     sg_local = sg_global;
-    return &sg_local;
+    sg_local.header.h_tid &= ~(GCFLAG_GLOBAL | GCFLAG_POSSIBLY_OUTDATED);
+    sg_local.header.h_tid |= GCFLAG_LOCAL_COPY;
+    return &sg_local.header;
 }
 void test_duplicator(void)
 {

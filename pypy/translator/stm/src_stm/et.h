@@ -93,7 +93,7 @@ gcptr stm_WriteBarrierFromReady(gcptr);
 
 
 extern void *pypy_g__stm_duplicate(void *);
-extern void pypy_g__stm_enum_callback(void *, void *, void *);
+extern void pypy_g__stm_enum_callback(void *, void *);
 void stm_set_tls(void *newtls);
 void *stm_get_tls(void);
 void stm_del_tls(void);

@@ -39,12 +39,12 @@ void stm_tldict_enum(void)
   struct tx_descriptor *d = thread_descriptor;
   wlog_t *item;
   void *tls = stm_get_tls();
-  struct gcroot_s *gcroots = FindRootsForLocalCollect();
+  gcptr *gcroots = FindRootsForLocalCollect();
 
-  while (gcroots->R != NULL)
+  while (gcroots[0] != NULL)
     {
-      pypy_g__stm_enum_callback(tls, gcroots->R, gcroots->L);
-      gcroots++;
+      pypy_g__stm_enum_callback(tls, gcroots[0]);
+      gcroots += 2;
     }
 }
 
@@ -235,9 +235,11 @@ void *pypy_g__stm_duplicate(void *src)
         abort();
     }
     memcpy(result, src, size);
+    ((gcptr)result)->h_tid &= ~(GCFLAG_GLOBAL | GCFLAG_POSSIBLY_OUTDATED);
+    ((gcptr)result)->h_tid |= GCFLAG_LOCAL_COPY;
     return result;
 }
-void pypy_g__stm_enum_callback(void *tlsaddr, void *R, void *L)
+void pypy_g__stm_enum_callback(void *tlsaddr, void *L)
 {
     abort();
 }

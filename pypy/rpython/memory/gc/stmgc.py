@@ -59,8 +59,8 @@ first_gcflag = 1 << (LONG_BIT//2)
 #   - GCFLAG_LOCAL_COPY: see stmimpl.rst.  Used by C.
 #
 #   - GCFLAG_VISITED: used temporarily to mark local objects found to be
-#     surviving during a collection.  Between collections, it can remain
-#     set on the LOCAL COPY objects, but only on them.
+#     surviving during a collection.  Between collections, it is set on
+#     the LOCAL COPY objects, but only on them.
 #
 #   - GCFLAG_HAS_SHADOW: set on nursery objects whose id() or identityhash()
 #     was taken.  Means that we already have a corresponding object allocated
@@ -337,6 +337,7 @@ class StmGC(MovingGCBase):
         llmemory.raw_memcopy(obj - size_gc_header,
                              localobj - size_gc_header,
                              totalsize)
+        self.header(localobj).tid |= GCFLAG_VISITED
         return localobj
 
     # ----------

@@ -234,18 +234,17 @@ static inline void gcptrlist_insert(struct GcPtrList *gcptrlist, gcptr newitem)
   gcptrlist->items[gcptrlist->size++] = newitem;
 }
 
-static void gcptrlist_insert3(struct GcPtrList *gcptrlist, gcptr newitem1,
-                              gcptr newitem2, gcptr newitem3)
+static void gcptrlist_insert2(struct GcPtrList *gcptrlist, gcptr newitem1,
+                              gcptr newitem2)
 {
   gcptr *items;
   long i = gcptrlist->size;
-  if (__builtin_expect((gcptrlist->alloc - i) < 3, 0))
+  if (__builtin_expect((gcptrlist->alloc - i) < 2, 0))
     _gcptrlist_grow(gcptrlist);
   items = gcptrlist->items;
   items[i+0] = newitem1;
   items[i+1] = newitem2;
-  items[i+2] = newitem3;
-  gcptrlist->size = i + 3;
+  gcptrlist->size = i + 2;
 }
 
 /************************************************************/

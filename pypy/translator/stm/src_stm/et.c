@@ -53,11 +53,6 @@ struct tx_descriptor {
   struct FXCache recent_reads_cache;
 };
 
-struct gcroot_s {
-    gcptr R, L;
-    revision_t v;
-};
-
 static volatile revision_t global_cur_time = 2;              /* always even */
 static volatile revision_t next_locked_value = LOCKED + 3;   /* always odd */
 static __thread struct tx_descriptor *thread_descriptor = NULL;
@@ -238,9 +233,10 @@ static gcptr Localize(struct tx_descriptor *d, gcptr R)
 
  not_found:
   L = pypy_g__stm_duplicate(R);
-  L->h_tid &= ~(GCFLAG_GLOBAL | GCFLAG_POSSIBLY_OUTDATED);
-  assert(L->h_tid & GCFLAG_NOT_WRITTEN);
-  L->h_tid |= GCFLAG_LOCAL_COPY;
+  assert(!(L->h_tid & GCFLAG_GLOBAL));   /* must be removed by stm_duplicate */
+  assert(!(L->h_tid & GCFLAG_POSSIBLY_OUTDATED));    /* must be removed by ^ */
+  assert(L->h_tid & GCFLAG_LOCAL_COPY);    /* must be added by stm_duplicate */
+  assert(L->h_tid & GCFLAG_NOT_WRITTEN); /* must not be set in the 1st place */
   L->h_revision = (revision_t)R;     /* back-reference to the original */
   g2l_insert(&d->global_to_local, R, L);
   return L;
@@ -411,31 +407,15 @@ void BeginTransaction(jmp_buf* buf)
   update_reads_size_limit(d);
 }
 
-#if 0
-static int compare_by_R(const void *a, const void *b)
-{
-    gcptr Ra = *(const gcptr *)a;
-    gcptr Rb = *(const gcptr *)b;
-    if (Ra < Rb)
-        return -1;
-    else if (Ra == Rb)
-        return 0;
-    else
-        return 1;
-}
-#endif
-
 static void AcquireLocks(struct tx_descriptor *d)
 {
   revision_t my_lock = d->my_lock;
-  struct gcroot_s *item = (struct gcroot_s *)d->gcroots.items;
-#if 0
+  gcptr *item = d->gcroots.items;
   // gcroots should be sorted in some deterministic order by construction
-  qsort(item, d->gcroots.size / 3, sizeof(struct gcroot_s), &compare_by_R);
-#endif
-  while (item->R != NULL)
+
+  while (item[0] != NULL)
     {
-      gcptr R = item->R;
+      gcptr R = (gcptr)item[0]->h_revision;
       revision_t v;
     retry:
       v = R->h_revision;
@@ -452,49 +432,50 @@ static void AcquireLocks(struct tx_descriptor *d)
       if (!bool_cas((volatile revision_t *)&R->h_revision, v, my_lock))
         goto retry;
 
-      item->v = v;
-      item++;
+      item[1] = (gcptr)v;
+      item += 2;
     }
 }
 
 static void CancelLocks(struct tx_descriptor *d)
 {
-  long i, lastitem = d->gcroots.size - 3;
+  long i, lastitem = d->gcroots.size - 2;
   gcptr *items = d->gcroots.items;
-  for (i=0; i<=lastitem; i+=3)
+  for (i=0; i<=lastitem; i+=2)
     {
       gcptr R = items[i];
-      gcptr v = items[i+2];
+      revision_t v = (revision_t)items[i+1];
       if (v != 0)
         {
-          R->h_revision = (revision_t)v;
+          R->h_revision = v;
           // if we're going to retry later, and abort,
           // then we must not re-cancel the same entries
-          items[i+2] = 0;
+          items[i+1] = 0;
         }
     }
 }
 
 static void UpdateChainHeads(struct tx_descriptor *d, revision_t cur_time)
 {
-  struct gcroot_s *item, *itemstart = (struct gcroot_s *)d->gcroots.items;
+  gcptr *item, *itemstart = d->gcroots.items;
   revision_t new_revision = cur_time + 1;     // make an odd number
   assert(new_revision & 1);
 
-  for (item = itemstart; item->R != NULL; item++)
+  for (item = itemstart; item[0] != NULL; item += 2)
     {
-      gcptr L = item->L;
+      gcptr L = item[0];
       assert((L->h_tid & (GCFLAG_GLOBAL |
                           GCFLAG_NOT_WRITTEN |
                           GCFLAG_POSSIBLY_OUTDATED)) ==
               (GCFLAG_GLOBAL | GCFLAG_NOT_WRITTEN));
+      item[1] = (gcptr)L->h_revision;    /* old value: pointer to R */
       L->h_revision = new_revision;
     }
   smp_wmb();
-  for (item = itemstart; item->R != NULL; item++)
+  for (item = itemstart; item[0] != NULL; item += 2)
     {
-      gcptr L = item->L;
-      gcptr R = item->R;
+      gcptr L = item[0];
+      gcptr R = item[1];
       assert((R->h_tid & (GCFLAG_GLOBAL |
                           GCFLAG_NOT_WRITTEN |
                           GCFLAG_POSSIBLY_OUTDATED)) ==
@@ -503,7 +484,7 @@ static void UpdateChainHeads(struct tx_descriptor *d, revision_t cur_time)
     }
 }
 
-static struct gcroot_s *FindRootsForLocalCollect(void)
+static gcptr *FindRootsForLocalCollect(void)
 {
   struct tx_descriptor *d = thread_descriptor;
   wlog_t *item;
@@ -517,10 +498,10 @@ static struct gcroot_s *FindRootsForLocalCollect(void)
           L->h_tid |= GCFLAG_GLOBAL | GCFLAG_POSSIBLY_OUTDATED;
           continue;
         }
-      gcptrlist_insert3(&d->gcroots, R, L, (gcptr)0);
+      gcptrlist_insert2(&d->gcroots, L, (gcptr)0);
     } G2L_LOOP_END;
   gcptrlist_insert(&d->gcroots, NULL);
-  return (struct gcroot_s *)d->gcroots.items;
+  return d->gcroots.items;
 }
 
 int _FakeReach(gcptr P)
