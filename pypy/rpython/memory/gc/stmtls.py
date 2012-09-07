@@ -10,7 +10,9 @@ from pypy.rlib.debug import ll_assert, debug_start, debug_stop, fatalerror
 from pypy.rpython.memory.gc.stmgc import WORD, NULL
 from pypy.rpython.memory.gc.stmgc import always_inline, dont_inline
 from pypy.rpython.memory.gc.stmgc import GCFLAG_GLOBAL, GCFLAG_VISITED
-from pypy.rpython.memory.gc.stmgc import GCFLAG_WAS_COPIED, GCFLAG_HAS_SHADOW
+from pypy.rpython.memory.gc.stmgc import GCFLAG_LOCAL_COPY, GCFLAG_HAS_SHADOW
+from pypy.rpython.memory.gc.stmgc import GCFLAG_POSSIBLY_OUTDATED
+from pypy.rpython.memory.gc.stmgc import hdr_revision
 
 
 class StmGCTLS(object):
@@ -41,7 +43,9 @@ class StmGCTLS(object):
         # --- a thread-local allocator for the shared area
         from pypy.rpython.memory.gc.stmshared import StmGCThreadLocalAllocator
         self.sharedarea_tls = StmGCThreadLocalAllocator(self.gc.sharedarea)
-        # --- the LOCAL objects with GCFLAG_WAS_COPIED
+        # --- the GCFLAG_LOCAL_COPY objects are also allocated with
+        #     self.sharedarea_tls, but we need their 'revision', so we
+        #     can't do add_regular() on them.  They go here instead:
         self.copied_local_objects = self.AddressStack()
         # --- the LOCAL objects which are weakrefs.  They are also listed
         #     in the appropriate place, like sharedarea_tls, if needed.
@@ -122,7 +126,7 @@ class StmGCTLS(object):
         # malloced objects will be LOCAL.
         if self.gc.DEBUG:
             self.check_all_global_objects()
-        self.relocalize_from_stack()
+        #self.relocalize_from_stack()
 
     def stop_transaction(self):
         """Stop a transaction: do a local collection to empty the
@@ -157,9 +161,9 @@ class StmGCTLS(object):
         debug_start("gc-local")
         #
         if end_of_transaction:
-            self.detect_flag_combination = GCFLAG_WAS_COPIED | GCFLAG_VISITED
+            self.replace_pointers_following_revision = GCFLAG_LOCAL_COPY
         else:
-            self.detect_flag_combination = -1
+            self.replace_pointers_following_revision = 0
         #
         # Move away the previous sharedarea_tls and start a new one.
         from pypy.rpython.memory.gc.stmshared import StmGCThreadLocalAllocator
@@ -251,6 +255,7 @@ class StmGCTLS(object):
         return localobj
 
     def fresh_new_weakref(self, obj):
+        XXX  # review
         self.local_weakrefs.append(obj)
 
     # ------------------------------------------------------------
@@ -258,7 +263,8 @@ class StmGCTLS(object):
     def _promote_locals_to_globals(self):
         ll_assert(self.local_nursery_is_empty(), "nursery must be empty [1]")
         #
-        # Promote all objects in sharedarea_tls to global
+        # Promote all objects in sharedarea_tls to global.
+        # This is the "real" equivalent of _FakeReach() in et.c.
         obj = self.sharedarea_tls.chained_list
         self.sharedarea_tls.chained_list = NULL
         #
@@ -267,18 +273,19 @@ class StmGCTLS(object):
             obj = hdr.version
             ll_assert(hdr.tid & GCFLAG_GLOBAL == 0, "already GLOBAL [1]")
             ll_assert(hdr.tid & GCFLAG_VISITED == 0, "unexpected VISITED [1]")
-            hdr.tid |= GCFLAG_GLOBAL
-            self._clear_version_for_global_object(hdr)
+            hdr.tid |= GCFLAG_GLOBAL | GCFLAG_NOT_WRITTEN
+            if hdr.tid & GCFLAG_LOCAL_COPY == 0:
+                self._clear_version_for_global_object(hdr)
 
     def _clear_version_for_global_object(self, hdr):
         # Reset the 'version' to initialize a newly global object.
-        # When translated with C code, we set it to NULL (version 0).
+        # When translated with C code, we set it to 1.
         # When non-translated, we reset it instead to '_uninitialized'
         # to simulate the fact that the C code might change it.
         if we_are_translated():
-            hdr.version = NULL
+            hdr.revision = r_uint(1)
         else:
-            del hdr.version
+            del hdr.revision
 
     def _cleanup_state(self):
         #if self.rawmalloced_objects:
@@ -287,57 +294,50 @@ class StmGCTLS(object):
         # free the old unused local objects still allocated in the
         # StmGCThreadLocalAllocator
         self.sharedarea_tls.free_and_clear()
-        # free the local copies.  Note that commonly, they are leftovers
-        # from the previous transaction running in this thread.  The C code
-        # has just copied them over the corresponding GLOBAL objects at the
-        # very end of that transaction.
-        self._free_and_clear_list(self.copied_local_objects)
+        # free these ones too
+        self.sharedarea_tls.free_and_clear_list(self.copied_local_objects)
         # forget the local weakrefs.
         self.local_weakrefs.clear()
 
-    def _free_and_clear_list(self, lst):
-        while lst.non_empty():
-            self.sharedarea_tls.free_object(lst.pop())
-
 
     def collect_roots_from_stack(self, end_of_transaction):
-        if end_of_transaction:
-            # in this mode, we flag the reference to local objects in order
-            # to re-localize them when we later start the next transaction
-            # using this section of the shadowstack
-            self.gc.root_walker.walk_current_stack_roots(
-                StmGCTLS._trace_drag_out_and_flag_local, self)
-        else:
+##        if end_of_transaction:
+##            # in this mode, we flag the reference to local objects in order
+##            # to re-localize them when we later start the next transaction
+##            # using this section of the shadowstack
+##            self.gc.root_walker.walk_current_stack_roots(
+##                StmGCTLS._trace_drag_out_and_flag_local, self)
+##        else:
             self.gc.root_walker.walk_current_stack_roots(
                 StmGCTLS._trace_drag_out1, self)
 
-    def _trace_drag_out_and_flag_local(self, root):
-        x = llmemory.cast_adr_to_int(root.address[0])
-        if x & 2:
-            root.address[0] -= 2
-        old_tid = self.gc.header(root.address[0]).tid
-        #
-        self._trace_drag_out1(root)
-        #
-        # if root.address[0] used to point to a local object, then flag
-        # this by adding the bit of value 2.
-        if old_tid & GCFLAG_GLOBAL == 0:
-            obj = root.address[0]
-            x = llmemory.cast_adr_to_int(obj)
-            ll_assert(x & 3 == 0, "flag_local: misaligned obj")
-            obj = llarena.getfakearenaaddress(obj)
-            root.address[0] = obj + 2
+##    def _trace_drag_out_and_flag_local(self, root):
+##        x = llmemory.cast_adr_to_int(root.address[0])
+##        if x & 2:
+##            root.address[0] -= 2
+##        old_tid = self.gc.header(root.address[0]).tid
+##        #
+##        self._trace_drag_out1(root)
+##        #
+##        # if root.address[0] used to point to a local object, then flag
+##        # this by adding the bit of value 2.
+##        if old_tid & GCFLAG_GLOBAL == 0:
+##            obj = root.address[0]
+##            x = llmemory.cast_adr_to_int(obj)
+##            ll_assert(x & 3 == 0, "flag_local: misaligned obj")
+##            obj = llarena.getfakearenaaddress(obj)
+##            root.address[0] = obj + 2
 
-    def relocalize_from_stack(self):
-        self.gc.root_walker.walk_current_stack_roots(
-            StmGCTLS._relocalize_from_stack, self)
+##    def relocalize_from_stack(self):
+##        self.gc.root_walker.walk_current_stack_roots(
+##            StmGCTLS._relocalize_from_stack, self)
 
-    def _relocalize_from_stack(self, root):
-        x = llmemory.cast_adr_to_int(root.address[0])
-        if x & 2:
-            obj = root.address[0] - 2
-            localobj = self.gc.stm_writebarrier(obj)
-            root.address[0] = localobj
+##    def _relocalize_from_stack(self, root):
+##        x = llmemory.cast_adr_to_int(root.address[0])
+##        if x & 2:
+##            obj = root.address[0] - 2
+##            localobj = self.gc.stm_writebarrier(obj)
+##            root.address[0] = localobj
 
     def collect_from_raw_structures(self):
         self.gc.root_walker.walk_current_nongc_roots(
@@ -360,19 +360,19 @@ class StmGCTLS(object):
         """Return the current surviving state of the object:
             0: not marked as surviving, so far
             1: survives and does not move
-            2: survives, but moves to 'hdr.version'
+            2: survives, but moves to 'hdr.revision'
         """
         hdr = self.gc.header(obj)
         flag_combination = hdr.tid & (GCFLAG_GLOBAL |
-                                      GCFLAG_WAS_COPIED |
+                                      GCFLAG_LOCAL_COPY |
                                       GCFLAG_VISITED)
         if flag_combination == 0:
             return 0    # not marked as surviving, so far
 
-        if flag_combination == self.detect_flag_combination:
-            # At a normal time, self.detect_flag_combination is -1
-            # and this case is never seen.  At end of transactions,
-            # detect_flag_combination is GCFLAG_WAS_COPIED|GCFLAG_VISITED.
+        if flag_combination & self.replace_pointers_following_revision:
+            # At a normal time, self.replace_pointers_following_revision
+            # is 0 and this case is never seen.  At end of transactions,
+            # detect_flag_combination is GCFLAG_LOCAL_COPY.
             # This case is to force pointers to the LOCAL copy to be
             # replaced with pointers to the GLOBAL copy.
             return 2
@@ -484,19 +484,19 @@ class StmGCTLS(object):
     def _stm_enum_callback(tlsaddr, globalobj, localobj):
         self = StmGCTLS.cast_address_to_tls_object(tlsaddr)
         localhdr = self.gc.header(localobj)
-        ll_assert(localhdr.version == globalobj,
+        ll_assert(hdr_revision(localhdr) == globalobj,
                   "in a root: localobj.version != globalobj")
         ll_assert(localhdr.tid & GCFLAG_GLOBAL == 0,
                   "in a root: unexpected GCFLAG_GLOBAL")
-        ll_assert(localhdr.tid & GCFLAG_WAS_COPIED != 0,
-                  "in a root: missing GCFLAG_WAS_COPIED")
-        ll_assert(localhdr.tid & GCFLAG_VISITED != 0,
-                  "in a root: missing GCFLAG_VISITED")
+        ll_assert(localhdr.tid & GCFLAG_LOCAL_COPY != 0,
+                  "in a root: missing GCFLAG_LOCAL_COPY")
+        ll_assert(localhdr.tid & GCFLAG_VISITED == 0,
+                  "in a root: unexpected GCFLAG_VISITED")
         globalhdr = self.gc.header(globalobj)
         ll_assert(globalhdr.tid & GCFLAG_GLOBAL != 0,
                   "in a root: GLOBAL: missing GCFLAG_GLOBAL")
-        ll_assert(globalhdr.tid & GCFLAG_WAS_COPIED != 0,
-                  "in a root: GLOBAL: missing GCFLAG_WAS_COPIED")
+        ll_assert(globalhdr.tid & GCFLAG_POSSIBLY_OUTDATED != 0,
+                  "in a root: GLOBAL: missing GCFLAG_POSSIBLY_OUTDATED")
         ll_assert(globalhdr.tid & GCFLAG_VISITED == 0,
                   "in a root: GLOBAL: unexpected GCFLAG_VISITED")
         TL = lltype.cast_primitive(lltype.Signed,
@@ -505,7 +505,8 @@ class StmGCTLS(object):
                                    self.gc.get_type_id(globalobj))
         ll_assert(TL == TG, "in a root: type(LOCAL) != type(GLOBAL)")
         #
-        self.trace_and_drag_out_of_nursery(localobj)
+        localhdr.tid |= GCFLAG_VISITED
+        self.pending.append(localobj)
 
     def collect_flush_pending(self):
         # Follow the objects in the 'pending' stack and move the
@@ -566,8 +567,8 @@ class StmGCTLS(object):
 
     def _debug_check_all_global_from_stack_1(self, root):
         obj = root.address[0]
-        if llmemory.cast_adr_to_int(obj) & 2:
-            obj -= 2     # will be fixed by relocalize_from_stack()
+##        if llmemory.cast_adr_to_int(obj) & 2:
+##            obj -= 2     # will be fixed by relocalize_from_stack()
         self._debug_check_all_global_obj(obj)
 
     def _debug_check_all_global(self, root, ignored):

@@ -515,6 +515,13 @@ class fakeaddress(object):
         else:
             return 0
 
+    def _cast_to_uint(self, symbolic=False):
+        if self:
+            assert not isinstance(self.ptr._obj0, int)
+            return AddressAsUInt(self)
+        else:
+            return r_uint(0)
+
     def _fixup(self):
         if self.ptr is not None and self.ptr._was_freed():
             # hack to support llarena.test_replace_object_with_stub()
@@ -549,10 +556,18 @@ class AddressAsInt(Symbolic):
             return AddressAsInt(cast_ptr_to_adr(fieldadr))
         return NotImplemented
     def __repr__(self):
+        clsname = self.__class__.__name__
         try:
-            return '<AddressAsInt %s>' % (self.adr.ptr,)
+            return '<%s %s>' % (clsname, self.adr.ptr)
         except AttributeError:
-            return '<AddressAsInt at 0x%x>' % (uid(self),)
+            return '<%s at 0x%x>' % (clsname, uid(self))
+
+class AddressAsUInt(AddressAsInt):
+    def annotation(self):
+        from pypy.annotation import model
+        return model.SomeInteger(unsigned=True)
+    def lltype(self):
+        return lltype.Unsigned
 
 # ____________________________________________________________
 
@@ -677,6 +692,9 @@ def cast_adr_to_int(adr, mode="emulated"):
         from pypy.rpython.lltypesystem.rffi import cast
         res = cast(lltype.Signed, res)
     return res
+
+def cast_adr_to_uint_symbolic(adr):
+    return adr._cast_to_uint()
 
 _NONGCREF = lltype.Ptr(lltype.OpaqueType('NONGCREF'))
 def cast_int_to_adr(int):

@@ -119,8 +119,9 @@ GCFLAG_GLOBAL            = first_gcflag << 0     # keep in sync with et.h
 GCFLAG_POSSIBLY_OUTDATED = first_gcflag << 1     # keep in sync with et.h
 GCFLAG_NOT_WRITTEN       = first_gcflag << 2     # keep in sync with et.h
 GCFLAG_LOCAL_COPY        = first_gcflag << 3     # keep in sync with et.h
-GCFLAG_HAS_SHADOW        = first_gcflag << 4
-GCFLAG_FIXED_HASH        = first_gcflag << 5
+GCFLAG_VISITED           = first_gcflag << 4
+GCFLAG_HAS_SHADOW        = first_gcflag << 5
+GCFLAG_FIXED_HASH        = first_gcflag << 6
 
 
 def always_inline(fn):
@@ -188,8 +189,8 @@ class StmGC(MovingGCBase):
         # The following line causes the _stm_getsize() function to be
         # generated in the C source with a specific signature, where it
         # can be called by the C code.
-        llop.nop(lltype.Void, llhelper(self.stm_operations.GETSIZE,
-                                       self._stm_getsize))
+        llop.nop(lltype.Void, llhelper(self.stm_operations.DUPLICATE,
+                                       self._stm_duplicate))
         #
         self.sharedarea.setup()
         #
@@ -278,7 +279,7 @@ class StmGC(MovingGCBase):
     def collect(self, gen=1):
         self.get_tls().local_collection()
         if gen > 0:
-            debug_print("XXX not doing a global collect()")
+            debug_print("XXX not implemented: global collect()")
 
     def start_transaction(self):
         self.get_tls().start_transaction()
@@ -304,6 +305,12 @@ class StmGC(MovingGCBase):
     def init_gc_object_immortal(self, addr, typeid16, flags=0):
         flags |= GCFLAG_GLOBAL
         self.init_gc_object(addr, typeid16, flags)
+
+    def obj_revision(obj):
+        return hdr_revision(self.header(obj))
+
+    def set_obj_revision(obj, nrevision):
+        set_hdr_revision(self.header(obj), nrevision)
 
     def stm_duplicate(self, obj):
         size_gc_header = self.gcheaderbuilder.size_gc_header
@@ -357,11 +364,11 @@ class StmGC(MovingGCBase):
                 #
                 # Update the header of the local 'obj'
                 hdr.tid |= GCFLAG_HAS_SHADOW
-                hdr.version = fixedobj
+                set_hdr_revision(hdr, fixedobj)
                 #
             else:
                 # There is already a corresponding fixedobj
-                fixedobj = hdr.version
+                fixedobj = hdr_revision(hdr)
             #
             obj = fixedobj
             #
@@ -391,3 +398,13 @@ class StmGC(MovingGCBase):
 
     def identityhash(self, gcobj):
         return self.id_or_identityhash(gcobj, True)
+
+
+# ____________________________________________________________
+# helpers
+
+def hdr_revision(hdr):
+    return llmemory.cast_int_to_adr(hdr.revision)
+
+def set_hdr_revision(hdr, nrevision):
+    hdr.revision = llmemory.cast_adr_to_uint_symbolic(nrevision)

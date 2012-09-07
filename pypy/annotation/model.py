@@ -203,7 +203,6 @@ class SomeLongFloat(SomeObject):
 class SomeInteger(SomeFloat):
     "Stands for an object which is known to be an integer."
     knowntype = int
-    # size is in multiples of C's sizeof(long)!
     def __init__(self, nonneg=False, unsigned=None, knowntype=None):
         assert (knowntype is None or knowntype is int or
                 issubclass(knowntype, base_int))

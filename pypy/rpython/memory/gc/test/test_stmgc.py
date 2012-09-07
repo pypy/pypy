@@ -1,8 +1,10 @@
 import py
 from pypy.rpython.lltypesystem import lltype, llmemory, llarena, llgroup, rffi
 from pypy.rpython.memory.gc.stmgc import StmGC, WORD
-from pypy.rpython.memory.gc.stmgc import GCFLAG_GLOBAL, GCFLAG_WAS_COPIED
-from pypy.rpython.memory.gc.stmgc import GCFLAG_VISITED
+from pypy.rpython.memory.gc.stmgc import GCFLAG_GLOBAL, GCFLAG_NOT_WRITTEN
+from pypy.rpython.memory.gc.stmgc import GCFLAG_POSSIBLY_OUTDATED
+from pypy.rpython.memory.gc.stmgc import GCFLAG_LOCAL_COPY
+from pypy.rpython.memory.gc.stmgc import hdr_revision, set_hdr_revision
 from pypy.rpython.memory.support import mangle_hash
 
 
@@ -86,20 +88,20 @@ class FakeStmOperations:
         for key, value in self._tldicts[self.threadnum].iteritems():
             callback(tls, key, value)
 
-    def read_attribute(self, obj, name):
-        obj = llmemory.cast_ptr_to_adr(obj)
-        hdr = self._gc.header(obj)
-        localobj = self.tldict_lookup(obj)
-        if localobj == llmemory.NULL:
-            localobj = obj
-        else:
-            assert hdr.tid & GCFLAG_GLOBAL != 0
-        localobj = llmemory.cast_adr_to_ptr(localobj, lltype.Ptr(SR))
-        return getattr(localobj, name)
+##    def read_attribute(self, obj, name):
+##        obj = llmemory.cast_ptr_to_adr(obj)
+##        hdr = self._gc.header(obj)
+##        localobj = self.tldict_lookup(obj)
+##        if localobj == llmemory.NULL:
+##            localobj = obj
+##        else:
+##            assert hdr.tid & GCFLAG_GLOBAL != 0
+##        localobj = llmemory.cast_adr_to_ptr(localobj, lltype.Ptr(SR))
+##        return getattr(localobj, name)
 
-    def stm_copy_transactional_to_raw(self, srcobj, dstobj, size):
-        llmemory.raw_memcopy(srcobj, dstobj, size)
-        self._transactional_copies.append((srcobj, dstobj))
+##    def stm_copy_transactional_to_raw(self, srcobj, dstobj, size):
+##        llmemory.raw_memcopy(srcobj, dstobj, size)
+##        self._transactional_copies.append((srcobj, dstobj))
 
 
 def fake_get_size(obj):
@@ -179,7 +181,8 @@ class StmGCTests:
                                         1)
             llarena.arena_reserve(adr1, totalsize)
             addr = adr1 + self.gc.gcheaderbuilder.size_gc_header
-            self.gc.header(addr).tid = self.gc.combine(tid, GCFLAG_GLOBAL)
+            self.gc.header(addr).tid = self.gc.combine(
+                tid, GCFLAG_GLOBAL | GCFLAG_NOT_WRITTEN)
             realobj = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(STRUCT))
         else:
             gcref = self.gc.malloc_fixedsize_clear(tid, size,
@@ -205,9 +208,27 @@ class StmGCTests:
             assert (hdr.tid & GCFLAG_WAS_COPIED != 0) == must_have_was_copied
         if must_have_version != '?':
             assert hdr.version == must_have_version
-    def read_signed(self, obj, offset):
-        meth = getattr(self.gc, 'read_int%d' % WORD)
-        return meth(obj, offset)
+
+    def stm_writebarrier(self, P):
+        if lltype.typeOf(P) != llmemory.Address:
+            P = llmemory.cast_ptr_to_adr(P)
+        hdr = self.gc.header(P)
+        if hdr.tid & GCFLAG_NOT_WRITTEN == 0:
+            # already a local, written-to object
+            assert hdr.tid & GCFLAG_GLOBAL == 0
+            assert hdr.tid & GCFLAG_POSSIBLY_OUTDATED == 0
+            W = P
+        else:
+            # slow case of the write barrier
+            if hdr.tid & GCFLAG_GLOBAL == 0:
+                W = P
+                R = hdr_revision(hdr)
+            else:
+                R = P
+                W = self.gc.stm_operations.tldict_lookup(R)
+            self.gc.header(W).tid &= ~GCFLAG_NOT_WRITTEN
+            self.gc.header(R).tid |= GCFLAG_POSSIBLY_OUTDATED
+        return W
 
 
 class TestBasic(StmGCTests):
@@ -246,18 +267,20 @@ class TestBasic(StmGCTests):
     def test_write_barrier_exists(self):
         self.select_thread(1)
         t, t_adr = self.malloc(S)
-        obj = self.gc.stm_writebarrier(t_adr)     # local object
+        obj = self.stm_writebarrier(t_adr)     # local object
         assert obj == t_adr
         #
         self.select_thread(0)
         s, s_adr = self.malloc(S)
         #
         self.select_thread(1)
-        self.gc.header(s_adr).tid |= GCFLAG_WAS_COPIED
-        self.gc.header(t_adr).tid |= GCFLAG_WAS_COPIED | GCFLAG_VISITED
-        self.gc.header(t_adr).version = s_adr
+        assert self.gc.header(s_adr).tid & GCFLAG_GLOBAL != 0
+        assert self.gc.header(t_adr).tid & GCFLAG_GLOBAL == 0
+        self.gc.header(s_adr).tid |= GCFLAG_POSSIBLY_OUTDATED
+        self.gc.header(t_adr).tid |= GCFLAG_LOCAL_COPY
+        set_hdr_revision(self.gc.header(t_adr), s_adr)
         self.gc.stm_operations._tldicts[1][s_adr] = t_adr
-        obj = self.gc.stm_writebarrier(s_adr)     # global copied object
+        obj = self.stm_writebarrier(s_adr)     # global copied object
         assert obj == t_adr
         assert self.gc.stm_operations._transactional_copies == []
 

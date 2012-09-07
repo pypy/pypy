@@ -52,5 +52,9 @@ class StmGCThreadLocalAllocator(object):
             self.free_object(obj)
             obj = next
 
+    def free_and_clear_list(self, lst):
+        while lst.non_empty():
+            self.free_object(lst.pop())
+
     def delete(self):
         free_non_gc_object(self)
