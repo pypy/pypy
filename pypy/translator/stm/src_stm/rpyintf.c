@@ -39,7 +39,7 @@ void stm_tldict_enum(void)
   struct tx_descriptor *d = thread_descriptor;
   wlog_t *item;
   void *tls = stm_get_tls();
-  gcptr *gcroots = FindRootsForLocalCollect();
+  gcptr *gcroots = FindRootsForLocalCollect(d);
 
   while (gcroots[0] != NULL)
     {
@@ -203,7 +203,7 @@ gcptr stm_nogc_allocate(size_t size)
 }
 void stm_nogc_stop_transaction(void)
 {
-    struct gcroot_s *gcroots;
+    gcptr *gcroots;
     gcptr W = stm_nogc_chained_list;
     stm_nogc_chained_list = NULL;
     while (W) {
@@ -216,14 +216,14 @@ void stm_nogc_stop_transaction(void)
         W = W_next;
     }
 
-    gcroots = FindRootsForLocalCollect();
-    while (gcroots->R != NULL) {
-        W = gcroots->L;
+    gcroots = FindRootsForLocalCollect(thread_descriptor);
+    while (gcroots[0] != NULL) {
+        W = gcroots[0];
         assert((W->h_tid & (GCFLAG_GLOBAL |
                             GCFLAG_NOT_WRITTEN |
                             GCFLAG_LOCAL_COPY)) == GCFLAG_LOCAL_COPY);
         W->h_tid |= GCFLAG_GLOBAL | GCFLAG_NOT_WRITTEN;
-        gcroots++;
+        gcroots += 2;
     }
 }
 void *pypy_g__stm_duplicate(void *src)

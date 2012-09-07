@@ -364,6 +364,11 @@ static void AbortTransaction(int num)
 
   CancelLocks(d);
 
+  gcptrlist_clear(&d->list_of_read_objects);
+  gcptrlist_clear(&d->gcroots);
+  g2l_clear(&d->global_to_local);
+  fxcache_clear(&d->recent_reads_cache);
+
 #ifdef RPY_STM_DEBUG_PRINT
   PYPY_DEBUG_START("stm-abort");
   if (PYPY_HAVE_DEBUG_PRINTS)
@@ -391,10 +396,10 @@ static void update_reads_size_limit(struct tx_descriptor *d)
 static void init_transaction(struct tx_descriptor *d)
 {
   assert(d->active == 0);
-  gcptrlist_clear(&d->list_of_read_objects);
-  gcptrlist_clear(&d->gcroots);
-  g2l_clear(&d->global_to_local);
-  fxcache_clear(&d->recent_reads_cache);
+  assert(d->list_of_read_objects.size == 0);
+  assert(d->gcroots.size == 0);
+  assert(!g2l_any_entry(&d->global_to_local));
+  assert(fxcache_is_clear(&d->recent_reads_cache));
 }
 
 void BeginTransaction(jmp_buf* buf)
@@ -443,15 +448,14 @@ static void CancelLocks(struct tx_descriptor *d)
   gcptr *items = d->gcroots.items;
   for (i=0; i<=lastitem; i+=2)
     {
-      gcptr R = items[i];
+      gcptr R = items[i]->h_revision;
       revision_t v = (revision_t)items[i+1];
-      if (v != 0)
-        {
-          R->h_revision = v;
-          // if we're going to retry later, and abort,
-          // then we must not re-cancel the same entries
-          items[i+1] = 0;
-        }
+      if (v == 0)
+        break;
+      R->h_revision = v;
+      // if we're going to retry later, and abort,
+      // then we must not re-cancel the same entries
+      items[i+1] = (gcptr)0;
     }
 }
 
@@ -484,10 +488,12 @@ static void UpdateChainHeads(struct tx_descriptor *d, revision_t cur_time)
     }
 }
 
-static gcptr *FindRootsForLocalCollect(void)
+static gcptr *FindRootsForLocalCollect(struct tx_descriptor *d)
 {
-  struct tx_descriptor *d = thread_descriptor;
   wlog_t *item;
+  if (d->gcroots.size != 0)
+    return d->gcroots.items;
+
   G2L_LOOP_FORWARD(d->global_to_local, item)
     {
       gcptr R = item->addr;
@@ -520,7 +526,7 @@ void CommitTransaction(void)
   struct tx_descriptor *d = thread_descriptor;
   assert(d->active != 0);
   if (d->gcroots.size == 0)
-    FindRootsForLocalCollect();   /* for tests */
+    FindRootsForLocalCollect(d);   /* for tests */
 
   AcquireLocks(d);
 
@@ -556,8 +562,15 @@ void CommitTransaction(void)
         if (!ValidateDuringCommit(d))
           AbortTransaction(2);
     }
+  /* we cannot abort any more from here */
+  d->setjmp_buf = NULL;
+  gcptrlist_clear(&d->list_of_read_objects);
+  g2l_clear(&d->global_to_local);
+  fxcache_clear(&d->recent_reads_cache);
+
   UpdateChainHeads(d, cur_time);
 
+  gcptrlist_clear(&d->gcroots);
   d->num_commits++;
   d->active = 0;
 }

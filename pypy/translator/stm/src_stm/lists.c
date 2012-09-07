@@ -48,12 +48,10 @@ static void g2l_clear(struct G2L *g2l)
     }
 }
 
-#if 0
 static int g2l_any_entry(struct G2L *g2l)
 {
   return g2l->raw_current != g2l->raw_start;
 }
-#endif
 
 #define _G2L_LOOP(g2l, item, INITIAL, _PLUS_)                           \
 {                                                                       \
@@ -265,6 +263,15 @@ static void gcptrlist_insert2(struct GcPtrList *gcptrlist, gcptr newitem1,
 struct FXCache {
   revision_t cache[FX_ENTRIES];
 };
+
+static int fxcache_is_clear(struct FXCache *fxcache)
+{
+  int i;
+  for (i=0; i<FX_ENTRIES; i++)
+    if (fxcache->cache[i])
+      return 0;
+  return 1;
+}
 
 static void fxcache_clear(struct FXCache *fxcache)
 {
