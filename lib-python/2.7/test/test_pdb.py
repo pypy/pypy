@@ -3,6 +3,9 @@
 
 import imp
 import sys
+import os
+import unittest
+import subprocess
 
 from test import test_support
 # This little helper class is essential for testing pdb under doctest.
@@ -277,11 +280,36 @@ def test_pdb_continue_in_bottomframe():
     4
     """
 
+class ModuleInitTester(unittest.TestCase):
+
+    def test_filename_correct(self):
+        """
+        In issue 7750, it was found that if the filename has a sequence that
+        resolves to an escape character in a Python string (such as \t), it
+        will be treated as the escaped character.
+        """
+        # the test_fn must contain something like \t
+        # on Windows, this will create 'test_mod.py' in the current directory.
+        # on Unix, this will create '.\test_mod.py' in the current directory.
+        test_fn = '.\\test_mod.py'
+        code = 'print("testing pdb")'
+        with open(test_fn, 'w') as f:
+            f.write(code)
+        self.addCleanup(os.remove, test_fn)
+        cmd = [sys.executable, '-m', 'pdb', test_fn,]
+        proc = subprocess.Popen(cmd,
+            stdout=subprocess.PIPE,
+            stdin=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            )
+        stdout, stderr = proc.communicate('quit\n')
+        self.assertIn(code, stdout, "pdb munged the filename")
+
 
 def test_main():
     from test import test_pdb
     test_support.run_doctest(test_pdb, verbosity=True)
-
+    test_support.run_unittest(ModuleInitTester)
 
 if __name__ == '__main__':
     test_main()

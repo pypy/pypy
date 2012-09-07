@@ -212,6 +212,21 @@ class AppTestSreMatch:
             return None
         assert "acd" == re.sub("b", call_me, "abcd")
 
+    def test_sub_subclass_of_str(self):
+        import re
+        class MyString(str):
+            pass
+        class MyBytes(bytes):
+            pass
+        s1 = MyString('zz')
+        s2 = re.sub('aa', 'bb', s1)
+        assert s2 == s1
+        assert type(s2) is str       # and not MyString
+        u1 = MyBytes(b'zz')
+        u2 = re.sub(b'aa', b'bb', u1)
+        assert u2 == u1
+        assert type(u2) is bytes   # and not MyBytes
+
     def test_match_array(self):
         import re, array
         a = array.array('b', b'hello')

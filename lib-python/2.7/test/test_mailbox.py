@@ -174,6 +174,13 @@ class TestMailbox(TestBase):
         self.assertEqual(self._box.get_file(key1).read().replace(os.linesep, '\n'),
                          _sample_message)
 
+    def test_get_file_can_be_closed_twice(self):
+        # Issue 11700
+        key = self._box.add(_sample_message)
+        f = self._box.get_file(key)
+        f.close()
+        f.close()
+
     def test_iterkeys(self):
         # Get keys using iterkeys()
         self._check_iteration(self._box.iterkeys, do_keys=True, do_values=False)
@@ -676,6 +683,25 @@ class TestMaildir(TestMailbox):
                                           key1: os.path.join('new', key1),
                                           key2: os.path.join('new', key2)})
 
+    def test_refresh_after_safety_period(self):
+        # Issue #13254: Call _refresh after the "file system safety
+        # period" of 2 seconds has passed; _toc should still be
+        # updated because this is the first call to _refresh.
+        key0 = self._box.add(self._template % 0)
+        key1 = self._box.add(self._template % 1)
+
+        self._box = self._factory(self._path)
+        self.assertEqual(self._box._toc, {})
+
+        # Emulate sleeping. Instead of sleeping for 2 seconds, use the
+        # skew factor to make _refresh think that the filesystem
+        # safety period has passed and re-reading the _toc is only
+        # required if mtimes differ.
+        self._box._skewfactor = -3
+
+        self._box._refresh()
+        self.assertEqual(sorted(self._box._toc.keys()), sorted([key0, key1]))
+
     def test_lookup(self):
         # Look up message subpaths in the TOC
         self.assertRaises(KeyError, lambda: self._box._lookup('foo'))
@@ -751,6 +777,8 @@ class TestMaildir(TestMailbox):
         self.assertFalse((perms & 0111)) # Execute bits should all be off.
 
     def test_reread(self):
+        # Do an initial unconditional refresh
+        self._box._refresh()
 
         # Put the last modified times more than two seconds into the past
         # (because mtime may have only a two second granularity).
@@ -762,7 +790,12 @@ class TestMaildir(TestMailbox):
         # refresh is done unconditionally if called for within
         # two-second-plus-a-bit of the last one, just in case the mbox has
         # changed; so now we have to wait for that interval to expire.
-        time.sleep(2.01 + self._box._skewfactor)
+        #
+        # Because this is a test, emulate sleeping. Instead of
+        # sleeping for 2 seconds, use the skew factor to make _refresh
+        # think that 2 seconds have passed and re-reading the _toc is
+        # only required if mtimes differ.
+        self._box._skewfactor = -3
 
         # Re-reading causes the ._toc attribute to be assigned a new dictionary
         # object, so we'll check that the ._toc attribute isn't a different
@@ -775,7 +808,8 @@ class TestMaildir(TestMailbox):
         self.assertFalse(refreshed())
 
         # Now, write something into cur and remove it.  This changes
-        # the mtime and should cause a re-read.
+        # the mtime and should cause a re-read. Note that "sleep
+        # emulation" is still in effect, as skewfactor is -3.
         filename = os.path.join(self._path, 'cur', 'stray-file')
         f = open(filename, 'w')
         f.close()
@@ -831,26 +865,37 @@ class _TestMboxMMDF(TestMailbox):
             self.assertEqual(contents, f.read())
         self._box = self._factory(self._path)
 
+    @unittest.skipUnless(hasattr(os, 'fork'), "Test needs fork().")
+    @unittest.skipUnless(hasattr(socket, 'socketpair'), "Test needs socketpair().")
     def test_lock_conflict(self):
-        # Fork off a subprocess that will lock the file for 2 seconds,
-        # unlock it, and then exit.
-        if not hasattr(os, 'fork'):
-            return
+        # Fork off a child process that will lock the mailbox temporarily,
+        # unlock it and exit.
+        c, p = socket.socketpair()
+        self.addCleanup(c.close)
+        self.addCleanup(p.close)
+
         pid = os.fork()
         if pid == 0:
-            # In the child, lock the mailbox.
-            self._box.lock()
-            time.sleep(2)
-            self._box.unlock()
-            os._exit(0)
+            # child
+            try:
+                # lock the mailbox, and signal the parent it can proceed
+                self._box.lock()
+                c.send(b'c')
 
-        # In the parent, sleep a bit to give the child time to acquire
-        # the lock.
-        time.sleep(0.5)
+                # wait until the parent is done, and unlock the mailbox
+                c.recv(1)
+                self._box.unlock()
+            finally:
+                os._exit(0)
+
+        # In the parent, wait until the child signals it locked the mailbox.
+        p.recv(1)
         try:
             self.assertRaises(mailbox.ExternalClashError,
                               self._box.lock)
         finally:
+            # Signal the child it can now release the lock and exit.
+            p.send(b'p')
             # Wait for child to exit.  Locking should now succeed.
             exited_pid, status = os.waitpid(pid, 0)
 
@@ -1670,7 +1715,8 @@ class TestProxyFileBase(TestBase):
     def _test_close(self, proxy):
         # Close a file
         proxy.close()
-        self.assertRaises(AttributeError, lambda: proxy.close())
+        # Issue 11700 subsequent closes should be a no-op, not an error.
+        proxy.close()
 
 
 class TestProxyFile(TestProxyFileBase):

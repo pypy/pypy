@@ -856,6 +856,18 @@ class AppTestPosix:
         x = f.read(1)
         assert x == 'e'
 
+    def test_urandom(self):
+        os = self.posix
+        s = os.urandom(5)
+        assert isinstance(s, bytes)
+        assert len(s) == 5
+        for x in range(50):
+            if s != os.urandom(5):
+                break
+        else:
+            assert False, "urandom() always returns the same string"
+            # Or very unlucky
+
 
 class AppTestEnvironment(object):
     def setup_class(cls):
@@ -964,6 +976,7 @@ class TestPexpect(object):
 
     def _spawn(self, *args, **kwds):
         import pexpect
+        kwds.setdefault('timeout', 600)
         print 'SPAWN:', args, kwds
         child = pexpect.spawn(*args, maxread=5000, **kwds)
         child.logfile = sys.stdout

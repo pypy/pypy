@@ -104,5 +104,6 @@ class sysflags(metaclass=structseqtype):
     verbose = structseqfield(12)
     unicode = structseqfield(13)
     bytes_warning = structseqfield(14)
+    hash_randomization = structseqfield(15)
 
-null_sysflags = sysflags((0,)*15)
+null_sysflags = sysflags((0,)*16)

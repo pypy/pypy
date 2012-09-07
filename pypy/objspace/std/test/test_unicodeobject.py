@@ -463,16 +463,16 @@ class AppTestUnicodeString:
             ('+?', b'+-?'),
             (r'\\?', b'+AFwAXA?'),
             (r'\\\?', b'+AFwAXABc?'),
-            (r'++--', b'+-+---')
+            (r'++--', b'+-+---'),
         ]
 
         for (x, y) in utfTests:
             assert x.encode('utf-7') == y
 
-        # surrogates not supported
-        raises(UnicodeError, str, b'+3ADYAA-', 'utf-7')
+        # surrogates are supported
+        assert str(b'+3ADYAA-', 'utf-7') == '\udc00\ud800'
 
-        assert str(b'+3ADYAA-', 'utf-7', 'replace') == '\ufffd\ufffd'
+        assert str(b'+AB', 'utf-7', 'replace') == '\ufffd'
 
     def test_codecs_utf8(self):
         assert ''.encode('utf-8') == b''

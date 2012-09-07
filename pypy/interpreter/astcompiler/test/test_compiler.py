@@ -863,6 +863,13 @@ class AppTestCompiler:
             sys.stdout = save
         assert "0 ('hi')" not in output.getvalue()
 
+    def test_assert_with_tuple_arg(self):
+        try:
+            assert False, (3,)
+        except AssertionError as e:
+            assert str(e) == "(3,)"
+        
+
 class TestOptimizations:
     def count_instructions(self, source):
         code, blocks = generate_function_code(source, self.space)
