@@ -34,8 +34,8 @@ def rAlmostEqual(a, b, rel_err = 2e-15, abs_err = 5e-323, msg=''):
     if not a and not b:
         # only check it if we are running on top of CPython >= 2.6
         if version_info >= (2, 6) and copysign(1., a) != copysign(1., b):
-            return False, msg + 'zero has wrong sign: expected %r, '+ \
-                                       'got %r' % (a, b)
+            return (False, 
+                    msg + 'zero has wrong sign: expected %r, got %r' % (a, b))
 
     # if a-b overflows, or b is infinite, return False.  Again, in
     # theory there are examples where a is within a few ulps of the
@@ -313,14 +313,61 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert (signbit([float('nan'), float('-nan'), -float('nan')]) ==
             [False, True, True]).all()    
 
-    def test_reciporocal(self):
-        from _numpypy import array, reciprocal
+    def test_reciprocal(self):
+        from _numpypy import array, reciprocal, complex64, complex128
 
-        reference = [-0.2, float("inf"), float("-inf"), 2.0]
-        a = array([-5.0, 0.0, -0.0, 0.5])
+        inf = float('inf')
+        nan = float('nan')
+        reference = [-0.2, inf, -inf, 2.0, nan]
+        a = array([-5.0, 0.0, -0.0, 0.5, nan])
         b = reciprocal(a)
         for i in range(4):
             assert b[i] == reference[i]
+
+        #complex    
+        fail_at_end = False
+        orig = [2.+4.j, -2.+4.j, 2.-4.j, -2.-4.j, 
+                complex(inf, 3), complex(inf, -3), complex(inf, -inf), 
+                complex(nan, 3), 0+0j, 0-0j]
+        a2 = 2.**2 + 4.**2
+        r = 2. / a2
+        i = 4. / a2
+        cnan = complex(nan, nan)
+        expected = [complex(r, -i), complex(-r, -i), complex(r, i), 
+                    complex(-r, i), 
+                    -0j, 0j, cnan, 
+                    cnan, cnan, cnan]
+        for c, rel_err in ((complex64, 2e-7), (complex128, 2e-15), ):
+            actual = reciprocal(array(orig, dtype=c))
+            for b, a, e in zip(orig, actual, expected):
+                error_message = (
+                    'reciprocal(%r(%r, %r))\n'
+                    'Expected: complex(%r, %r)\n'
+                    'Received: complex(%r, %r)\n'
+                    ) % (c, b.real, b.imag,
+                         e.real, e.imag,
+                         a.real, a.imag)
+                         
+                success,msg = self.rAlmostEqual(e.real, a.real,
+                               rel_err=rel_err, msg=error_message)
+                if not success:
+                    if self.collect_all_failures:
+                        print msg
+                        fail_at_end = True
+                    else:
+                        raise AssertionError(msg)
+                success,msg = self.rAlmostEqual(e.imag, a.imag,
+                               rel_err=rel_err, msg=error_message)
+                if not success:
+                    if self.collect_all_failures:
+                        print msg
+                        fail_at_end = True
+                    else:
+                        raise AssertionError(msg)
+        if fail_at_end:
+            assert False,'at least one test failed, see stdout'
+
+
 
     def test_subtract(self):
         from _numpypy import array, subtract
@@ -344,7 +391,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert all([math.copysign(1, f(-abs(float("nan")))) == -1 for f in floor, ceil, trunc])
 
     def test_copysign(self):
-        from _numpypy import array, copysign
+        from _numpypy import array, copysign, complex64, complex128
 
         reference = [5.0, -0.0, 0.0, -6.0]
         a = array([-5.0, 0.0, 0.0, 6.0])
@@ -357,6 +404,17 @@ class AppTestUfuncs(BaseNumpyAppTest):
         c = copysign(a, b)
         for i in range(4):
             assert c[i] == abs(a[i])
+        for c in complex128, complex64:
+            ref  = complex(5., 5.)
+            a = c(complex(-5., 5.))
+            b = c(complex(0., 0.))
+            assert copysign(a,b) == ref
+            ref = complex(-5., 5.)
+            b = c(complex(-0., 0.))
+            assert copysign(a,b) == ref
+            a = c(complex(float('inf'), float('inf')))
+            ref = complex(-float('inf'), float('inf'))
+            assert copysign(a,b) == ref
 
     def test_exp(self):
         import math
@@ -987,7 +1045,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert repr(abs(inf_c)) == 'inf'
             assert repr(abs(complex(float('nan'), float('nan')))) == 'nan'
 
-        assert False, 'untested: copysign, reciprocal, sign, floor_div, ' + \
+        assert False, 'untested: sign, floor_div, ' + \
                      'signbit, fabs, fmax, fmin, floor, ceil, trunc, ' + \
                      'exp2, expm1, isnan, isinf, isneginf, isposinf, ' + \
                      'isfinite, radians, degrees, log2, log1p, ' + \
@@ -1019,7 +1077,6 @@ class AppTestUfuncs(BaseNumpyAppTest):
                            float(exp_real), float(exp_imag),
                            flags
                           )
-        tested_funcs=[]
         fail_at_end = False
         for complex_, abs_err in ((np.complex64, 5e-32), (np.complex128, 5e-323), ):
             for id, fn, ar, ai, er, ei, flags in parse_testfile(testcases):
@@ -1059,9 +1116,6 @@ class AppTestUfuncs(BaseNumpyAppTest):
                          expected[0], expected[1],
                          actual[0], actual[1])
                          
-                if not function in tested_funcs:        
-                    print 'fuction',function
-                    tested_funcs.append(function)
                 success,msg = self.rAlmostEqual(expected[0], actual[0],
                                abs_err=real_abs_err, msg=error_message)
                 if not success:

@@ -40,17 +40,12 @@ def complex_unary_op(func):
     specialize.argtype(1)(func)
     @functools.wraps(func)
     def dispatcher(self, v):
-        try:
-            return self.box_complex(
-                *func(
-                    self,
-                    self.for_computation(self.unbox(v))
-                )
+        return self.box_complex(
+            *func(
+                self,
+                self.for_computation(self.unbox(v))
             )
-        except:
-            import sys
-            print >> sys.stderr, "Could not call",func
-            raise
+        )
     return dispatcher
 
 def raw_unary_op(func):
@@ -1130,9 +1125,10 @@ class ComplexFloating(object):
     def pow(self, v1, v2):
         return rcomplex.c_pow(v1, v2)
 
-    @simple_binary_op
+    @complex_binary_op
     def copysign(self, v1, v2):
-        return math.copysign(v1, v2)
+        return (rfloat.copysign(v1[0], v2[0]),
+               rfloat.copysign(v1[1], v2[1]))
 
     @simple_unary_op
     def sign(self, v):
@@ -1171,11 +1167,18 @@ class ComplexFloating(object):
     #    except ValueError:
     #        return rfloat.NAN
 
-    @simple_unary_op
+    @complex_unary_op
     def reciprocal(self, v):
-        if abs(v) == 0.0:
-            return self.copysign(rfloat.INFINITY, v)
-        return 1.0 / v
+        if math.isinf(v[1]) and math.isinf(v[0]):
+            return rfloat.NAN, rfloat.NAN
+        if math.isinf(v[0]):
+            return (rfloat.copysign(0., v[0]),
+                    rfloat.copysign(0., -v[1]))
+        a2 = v[0]*v[0] + v[1]*v[1]
+        try:
+            return rcomplex.c_div((v[0], -v[1]), (a2, 0.))
+        except ZeroDivisionError:
+            return rfloat.NAN, rfloat.NAN
 
     @simple_unary_op
     def floor(self, v):
