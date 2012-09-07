@@ -193,7 +193,10 @@ def compile_retrace(metainterp, greenkey, start,
     assert loop_jitcell_token
     assert partial_trace.operations[-1].getopnum() == rop.LABEL
     orignial_label = partial_trace.operations[-1].clone()
-    exported_state = orignial_label.getdescr().exported_state
+    original_target_token = orignial_label.getdescr()
+    assert isinstance(original_target_token, TargetToken)
+    original_short_preamble = original_target_token.short_preamble
+    original_target_token.short_preamble = None
 
     h_ops = history.operations
 
@@ -209,8 +212,9 @@ def compile_retrace(metainterp, greenkey, start,
 
         label = preamble.operations[-1]
         assert label.getopnum() == rop.LABEL
-        label.getdescr().exported_state.generalize_virtual_state = \
-                preamble.operations[0].getdescr().virtual_state
+        target_token = label.getdescr()
+        assert isinstance(target_token, TargetToken)
+        target_token.exported_state.generalize_virtual_state = original_target_token.virtual_state
 
         loop.inputargs = inputargs[:]
         loop.resume_at_jump_descr = resume_at_jump_descr
@@ -229,11 +233,8 @@ def compile_retrace(metainterp, greenkey, start,
         assert loop_jitcell_token.target_tokens
         loop_jitcell_token.target_tokens.append(target_token)
 
-        orignial_label.getdescr().exported_state = exported_state # XXX: Hack
-        orignial_label.getdescr().short_preamble = None # XXX: Hack
-
         preamble.operations = [orignial_label] + \
-                              [ResOperation(rop.JUMP, exported_state.jump_args,
+                              [ResOperation(rop.JUMP, original_target_token.exported_state.jump_args,
                                             None, descr=loop_jitcell_token)]
         try:
             optimize_trace(metainterp_sd, preamble, jitdriver_sd.warmstate.enable_opts)
