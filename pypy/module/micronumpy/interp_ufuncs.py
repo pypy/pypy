@@ -65,7 +65,7 @@ class W_Ufunc(Wrappable):
         if len(args_w) > self.argcount:
             out = args_w[-1]
         else:
-            args_w = args_w[:] + [out]
+            args_w = args_w + [out]
         if out is not None and not isinstance(out, W_NDimArray):
             raise OperationError(space.w_TypeError, space.wrap(
                                             'output must be an array'))
@@ -224,13 +224,13 @@ class W_Ufunc1(W_Ufunc):
         self.bool_result = bool_result
 
     def call(self, space, args_w):
-        if len(args_w)<2:
-            [w_obj] = args_w
+        w_obj = args_w[0]
+        if len(args_w) > 1:
+            w_out = args_w[1]
+        if space.is_w(w_out, space.w_None):
             out = None
         else:
-            [w_obj, out] = args_w
-            if space.is_w(out, space.w_None):
-                out = None
+            out = w_out
         w_obj = convert_to_array(space, w_obj)
         calc_dtype = find_unaryop_result_dtype(space,
                                   w_obj.get_dtype(),
@@ -255,7 +255,8 @@ class W_Ufunc1(W_Ufunc):
             else:
                 out.fill(res_dtype.coerce(space, w_val))
             return out
-        shape =  shape_agreement(space, w_obj.get_shape(), out)
+        shape = shape_agreement(space, w_obj.get_shape(), out,
+                                broadcast_down=False)
         return loop.call1(shape, self.func, self.name, calc_dtype, res_dtype,
                           w_obj, out)
 
@@ -319,7 +320,7 @@ class W_Ufunc2(W_Ufunc):
                 out = arr
             return space.wrap(out)
         new_shape = shape_agreement(space, w_lhs.get_shape(), w_rhs)
-        new_shape = shape_agreement(space, new_shape, out)
+        new_shape = shape_agreement(space, new_shape, out, broadcast_down=False)
         return loop.call2(new_shape, self.func, self.name, calc_dtype,
                           res_dtype, w_lhs, w_rhs, out)
 

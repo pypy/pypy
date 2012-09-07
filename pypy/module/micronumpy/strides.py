@@ -104,7 +104,7 @@ def to_coords(space, shape, size, order, w_item_or_slice):
             i //= shape[s]
     return coords, step, lngth
 
-def shape_agreement(space, shape1, w_arr2):
+def shape_agreement(space, shape1, w_arr2, broadcast_down=True):
     if w_arr2 is None:
         return shape1
     assert isinstance(w_arr2, W_NDimArray)
@@ -113,6 +113,13 @@ def shape_agreement(space, shape1, w_arr2):
     if len(ret) < max(len(shape1), len(shape2)):
         raise OperationError(space.w_ValueError,
             space.wrap("operands could not be broadcast together with shapes (%s) (%s)" % (
+                ",".join([str(x) for x in shape1]),
+                ",".join([str(x) for x in shape2]),
+            ))
+        )
+    if not broadcast_down and len([x for x in ret if x != 1]) > len([x for x in shape2 if x != 1]):
+        raise OperationError(space.w_ValueError,
+            space.wrap("unbroadcastable shape (%s) cannot be broadcasted to (%s)" % (
                 ",".join([str(x) for x in shape1]),
                 ",".join([str(x) for x in shape2]),
             ))
