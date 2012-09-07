@@ -279,7 +279,7 @@ class Bool(BaseType, Primitive):
         return int(v)
 
     def default_fromstring(self, space):
-        return self.box(False)
+        return self.box(True)
 
     @simple_binary_op
     def bitwise_and(self, v1, v2):

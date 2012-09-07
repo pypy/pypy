@@ -208,3 +208,12 @@ def flatiter_setitem(arr, val, start, step, length):
         val_iter.next()
         # WTF numpy?
         val_iter.reset()
+
+def fromstring_loop(a, dtype, itemsize, s):
+    i = 0
+    ai = a.create_iter()
+    while not ai.done():
+        val = dtype.itemtype.runpack_str(s[i*itemsize:i*itemsize + itemsize])
+        ai.setitem(val)
+        ai.next()
+        i += 1
