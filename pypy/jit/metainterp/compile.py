@@ -246,7 +246,8 @@ def compile_retrace(metainterp, greenkey, start,
         jumpop = preamble.operations[-1]
         assert jumpop.getopnum() == rop.JUMP
         preamble.operations = preamble.operations[1:-1]
-        for a1, a2 in zip(jumpop.getarglist(), loop.operations[0].getarglist()):
+        for i in range(jumpop.numargs()):
+            a1, a2 = jumpop.getarg(i), loop.operations[0].getarg(i)
             if a1 is not a2:
                 preamble.operations.append(ResOperation(rop.SAME_AS, [a1], a2))
 
