@@ -19,13 +19,13 @@ def rAlmostEqual(a, b, rel_err = 2e-15, abs_err = 5e-323, msg=''):
     if isnan(a):
         if isnan(b):
             return True,''
-        return False, msg + '%r should be nan' % (b,)
+        raise AssertionError(msg + '%r should be nan' % (b,))
 
     if isinf(a):
         if a == b:
             return True,''
-        return False, msg + 'finite result where infinity expected: '+ \
-                          'expected %r, got %r' % (a, b)
+        raise AssertionError(msg + 'finite result where infinity expected: '+ \
+                          'expected %r, got %r' % (a, b))
 
     # if both a and b are zero, check whether they have the same sign
     # (in theory there are examples where it would be legitimate for a
@@ -34,8 +34,8 @@ def rAlmostEqual(a, b, rel_err = 2e-15, abs_err = 5e-323, msg=''):
     if not a and not b:
         # only check it if we are running on top of CPython >= 2.6
         if version_info >= (2, 6) and copysign(1., a) != copysign(1., b):
-            return (False, 
-                    msg + 'zero has wrong sign: expected %r, got %r' % (a, b))
+            raise AssertionError( msg + \
+                    'zero has wrong sign: expected %r, got %r' % (a, b))
 
     # if a-b overflows, or b is infinite, return False.  Again, in
     # theory there are examples where a is within a few ulps of the
@@ -52,7 +52,7 @@ def rAlmostEqual(a, b, rel_err = 2e-15, abs_err = 5e-323, msg=''):
         # machine.
         if absolute_error <= max(abs_err, rel_err * abs(a)):
             return True,''
-    return False, msg + '%r and %r are not sufficiently close' % (a, b)
+    raise AssertionError(msg + '%r and %r are not sufficiently close' % (a, b))
 
 class AppTestUfuncs(BaseNumpyAppTest):
     def setup_class(cls):
@@ -63,13 +63,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
         def cls_rAlmostEqual(self, *args, **kwargs):
             return rAlmostEqual(*args, **kwargs)
         cls.w_rAlmostEqual = cls.space.wrap(cls_rAlmostEqual)
-        if 1 or option.runappdirect:
-            #Continue test, fail after all cases are tested
-            cls.w_collect_all_failures = cls.space.wrap(True)
-        else:
-            #Fail at first subtest case failure
-            cls.w_collect_all_failures = cls.space.wrap(False)
-
+        cls.w_runAppDirect = cls.space.wrap(option.runappdirect)
+        cls.w_isWindows = cls.space.wrap(os.name == 'nt')
 
     def test_ufunc_instance(self):
         from _numpypy import add, ufunc
@@ -325,7 +320,6 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert b[i] == reference[i]
 
         #complex    
-        fail_at_end = False
         orig = [2.+4.j, -2.+4.j, 2.-4.j, -2.-4.j, 
                 complex(inf, 3), complex(inf, -3), complex(inf, -inf), 
                 complex(nan, 3), 0+0j, 0-0j]
@@ -348,26 +342,10 @@ class AppTestUfuncs(BaseNumpyAppTest):
                          e.real, e.imag,
                          a.real, a.imag)
                          
-                success,msg = self.rAlmostEqual(e.real, a.real,
+                self.rAlmostEqual(e.real, a.real,
                                rel_err=rel_err, msg=error_message)
-                if not success:
-                    if self.collect_all_failures:
-                        print msg
-                        fail_at_end = True
-                    else:
-                        raise AssertionError(msg)
-                success,msg = self.rAlmostEqual(e.imag, a.imag,
+                self.rAlmostEqual(e.imag, a.imag,
                                rel_err=rel_err, msg=error_message)
-                if not success:
-                    if self.collect_all_failures:
-                        print msg
-                        fail_at_end = True
-                    else:
-                        raise AssertionError(msg)
-        if fail_at_end:
-            assert False,'at least one test failed, see stdout'
-
-
 
     def test_subtract(self):
         from _numpypy import array, subtract
@@ -1052,6 +1030,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
                      'logaddexp, npy_log2_1p, logaddexp2'
 
     def test_complex_math(self):
+        if self.isWindows:
+            skip('windows does not support c99 complex')
         import  _numpypy as np
         testcases = self.testcases
         def parse_testfile(fname):
@@ -1077,7 +1057,6 @@ class AppTestUfuncs(BaseNumpyAppTest):
                            float(exp_real), float(exp_imag),
                            flags
                           )
-        fail_at_end = False
         for complex_, abs_err in ((np.complex64, 5e-32), (np.complex128, 5e-323), ):
             for id, fn, ar, ai, er, ei, flags in parse_testfile(testcases):
                 arg = complex_(complex(ar, ai))
@@ -1116,22 +1095,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
                          expected[0], expected[1],
                          actual[0], actual[1])
                          
-                success,msg = self.rAlmostEqual(expected[0], actual[0],
+                self.rAlmostEqual(expected[0], actual[0],
                                abs_err=real_abs_err, msg=error_message)
-                if not success:
-                    if self.collect_all_failures:
-                        print msg
-                        fail_at_end = True
-                    else:
-                        raise AssertionError(msg)
-                success,msg = self.rAlmostEqual(expected[1], actual[1],
+                self.rAlmostEqual(expected[1], actual[1],
                                    msg=error_message)
-                if not success:
-                    if self.collect_all_failures:
-                        print msg
-                        fail_at_end = True
-                    else:
-                        raise AssertionError(msg)
-                    
-        if fail_at_end:
-            assert False,'at least one test failed, see stdout'
