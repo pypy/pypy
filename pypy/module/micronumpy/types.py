@@ -1108,13 +1108,14 @@ class ComplexFloating(object):
         return min(v1, v2)
 
 
-    @simple_binary_op
+    @complex_binary_op
     def floordiv(self, v1, v2):
         try:
-            r, i = rcomplex.c_div(v1, v2)
-            return math.floor(r), 0
+            ab = v1[0]*v2[0] + v1[1]*v2[1]
+            bb = v2[0]*v2[0] + v2[1]*v2[1]
+            return math.floor(ab/bb), 0.
         except ZeroDivisionError:
-            return rfloat.NAN, 0
+            return rfloat.NAN, 0.
 
     #complex mod does not exist in numpy
     #@simple_binary_op
@@ -1130,11 +1131,21 @@ class ComplexFloating(object):
         return (rfloat.copysign(v1[0], v2[0]),
                rfloat.copysign(v1[1], v2[1]))
 
-    @simple_unary_op
+    @complex_unary_op
     def sign(self, v):
-        if v == 0.0:
-            return 0.0
-        return rfloat.copysign(1.0, v)
+        '''
+        sign of complex number could be either the point closest to the unit circle
+        or {-1,0,1}, for compatability with numpy we choose the latter
+        '''
+        if v[0] == 0.0:
+            if v[1] == 0:
+                return 0,0
+            if v[1] > 0:
+                return 1,0
+            return -1,0
+        if v[0] > 0:
+            return 1,0
+        return -1,0
 
     @raw_unary_op
     def signbit(self, v):

@@ -297,6 +297,10 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert a[0] == 1
         assert a[1] == 0
 
+        a = sign(array([10+10j, -10+10j, 0+10j, 0-10j, 0+0j, 0-0j], dtype=complex))
+        ref = [1, -1, 1, -1, 0, 0]
+        assert (a == ref).all()
+
     def test_signbit(self):
         from _numpypy import signbit
 
@@ -879,10 +883,24 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
     def test_floordiv(self):
         from _numpypy import floor_divide, array
+        import math
         a = array([1., 2., 3., 4., 5., 6., 6.01])
         b = floor_divide(a, 2.5)
         for i in range(len(a)):
             assert b[i] == a[i] // 2.5
+        
+        a = array([10+10j, -15-100j, 0+10j], dtype=complex)
+        b = floor_divide(a, 2.5)
+        for i in range(len(a)):
+            assert b[i] == a[i] // 2.5
+        b = floor_divide(a, 2.5+3j)
+        #numpy returns (a.real*b.real + a.imag*b.imag) / abs(b)**2
+        expect = [3., -23., 1.]
+        for i in range(len(a)):
+            assert b[i] == expect[i] 
+        b = floor_divide(a[0], 0.)
+        assert math.isnan(b.real)
+        assert b.imag == 0.
 
     def test_logaddexp(self):
         import math
@@ -1023,7 +1041,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert repr(abs(inf_c)) == 'inf'
             assert repr(abs(complex(float('nan'), float('nan')))) == 'nan'
 
-        assert False, 'untested: sign, floor_div, ' + \
+        assert False, 'untested: ' + \
                      'signbit, fabs, fmax, fmin, floor, ceil, trunc, ' + \
                      'exp2, expm1, isnan, isinf, isneginf, isposinf, ' + \
                      'isfinite, radians, degrees, log2, log1p, ' + \
