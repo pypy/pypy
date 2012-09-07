@@ -272,9 +272,17 @@ class StmGCTLS(object):
             obj = hdr_revision(hdr)
             ll_assert(hdr.tid & GCFLAG_GLOBAL == 0, "already GLOBAL [1]")
             ll_assert(hdr.tid & GCFLAG_VISITED == 0, "unexpected VISITED [1]")
+            ll_assert(hdr.tid & GCFLAG_LOCAL_COPY == 0,"already LOCAL_COPY [1]")
             hdr.tid |= GCFLAG_GLOBAL | GCFLAG_NOT_WRITTEN
-            if hdr.tid & GCFLAG_LOCAL_COPY == 0:
-                self._clear_version_for_global_object(hdr)
+            self._clear_version_for_global_object(hdr)
+        #
+        while self.copied_local_objects.non_empty():
+            obj = self.copied_local_objects.pop()
+            hdr = self.gc.header(obj)
+            ll_assert(hdr.tid & GCFLAG_LOCAL_COPY != 0,"missing LOCAL_COPY [0]")
+            ll_assert(hdr.tid & GCFLAG_GLOBAL == 0, "already GLOBAL [0]")
+            hdr.tid |= GCFLAG_GLOBAL | GCFLAG_NOT_WRITTEN
+            # don't touch 'revision' in this case
 
     def _clear_version_for_global_object(self, hdr):
         # Reset the 'version' to initialize a newly global object.
