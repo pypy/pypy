@@ -88,21 +88,6 @@ class FakeStmOperations:
         for key, value in self._tldicts[self.threadnum].iteritems():
             callback(tls, key, value)
 
-##    def read_attribute(self, obj, name):
-##        obj = llmemory.cast_ptr_to_adr(obj)
-##        hdr = self._gc.header(obj)
-##        localobj = self.tldict_lookup(obj)
-##        if localobj == llmemory.NULL:
-##            localobj = obj
-##        else:
-##            assert hdr.tid & GCFLAG_GLOBAL != 0
-##        localobj = llmemory.cast_adr_to_ptr(localobj, lltype.Ptr(SR))
-##        return getattr(localobj, name)
-
-##    def stm_copy_transactional_to_raw(self, srcobj, dstobj, size):
-##        llmemory.raw_memcopy(srcobj, dstobj, size)
-##        self._transactional_copies.append((srcobj, dstobj))
-
 
 def fake_get_size(obj):
     TYPE = obj.ptr._TYPE.TO
@@ -225,10 +210,26 @@ class StmGCTests:
                 R = hdr_revision(hdr)
             else:
                 R = P
-                W = self.gc.stm_operations.tldict_lookup(R)
+                W = self.stm_localize(R)
             self.gc.header(W).tid &= ~GCFLAG_NOT_WRITTEN
             self.gc.header(R).tid |= GCFLAG_POSSIBLY_OUTDATED
         return W
+
+    def stm_localize(self, R):
+        L = self.gc.stm_operations.tldict_lookup(R)
+        if L:
+            assert self.gc.header(R).tid & GCFLAG_POSSIBLY_OUTDATED
+        else:
+            L = self.gc._stm_duplicate(R)
+            hdr = self.gc.header(L)
+            assert hdr.tid & GCFLAG_GLOBAL
+            hdr.tid &= ~(GCFLAG_GLOBAL | GCFLAG_POSSIBLY_OUTDATED)
+            assert hdr.tid & GCFLAG_NOT_WRITTEN
+            hdr.tid |= GCFLAG_LOCAL_COPY
+            set_hdr_revision(hdr, R)     # back-reference to the original
+            self.gc.stm_operations.tldict_add(R, L)
+            self.gc.stm_operations._transactional_copies.append((R, L))
+        return L
 
 
 class TestBasic(StmGCTests):
@@ -291,17 +292,17 @@ class TestBasic(StmGCTests):
         s.b = 34
         #
         self.select_thread(1)                # global object, not copied so far
-        t_adr = self.gc.stm_writebarrier(s_adr)
+        t_adr = self.stm_writebarrier(s_adr)
         assert t_adr != s_adr
         t = t_adr.ptr
         assert t.a == 12
         assert t.b == 34
         assert self.gc.stm_operations._transactional_copies == [(s_adr, t_adr)]
         #
-        u_adr = self.gc.stm_writebarrier(s_adr)  # again
+        u_adr = self.stm_writebarrier(s_adr)  # again
         assert u_adr == t_adr
         #
-        u_adr = self.gc.stm_writebarrier(u_adr)  # local object
+        u_adr = self.stm_writebarrier(u_adr)  # local object
         assert u_adr == t_adr
 
     def test_write_barrier_main_thread(self):
