@@ -179,13 +179,13 @@ def getitem_filter(res, arr, index):
 def setitem_filter(arr, index, value):
     arr_iter = arr.create_iter()
     index_iter = index.create_iter()
-    value_iter = value.create_iter(arr.get_shape())
+    value_iter = value.create_iter()
     while not arr_iter.done():
         if index_iter.getitem_bool():
             arr_iter.setitem(value_iter.getitem())
+            value_iter.next()
         arr_iter.next()
         index_iter.next()
-        value_iter.next()
 
 def flatiter_getitem(res, base_iter, step):
     ri = res.create_iter()
