@@ -44,10 +44,7 @@ class StmGCTLS(object):
         # --- a thread-local allocator for the shared area
         from pypy.rpython.memory.gc.stmshared import StmGCThreadLocalAllocator
         self.sharedarea_tls = StmGCThreadLocalAllocator(self.gc.sharedarea)
-        # --- the GCFLAG_LOCAL_COPY objects are also allocated with
-        #     self.sharedarea_tls, but we need their 'revision', so we
-        #     can't do add_regular() on them.  They go here instead:
-        self.copied_local_objects = self.AddressStack()
+        self.copied_local_objects = self.AddressStack()   # XXX KILL
         # --- the LOCAL objects which are weakrefs.  They are also listed
         #     in the appropriate place, like sharedarea_tls, if needed.
         self.local_weakrefs = self.AddressStack()
@@ -251,7 +248,7 @@ class StmGCTLS(object):
         """Allocate an object that will be used as a LOCAL COPY of
         some GLOBAL object."""
         localobj = self.sharedarea_tls.malloc_object(totalsize)
-        self.copied_local_objects.append(localobj)
+        self.copied_local_objects.append(localobj)     # XXX KILL
         return localobj
 
     def fresh_new_weakref(self, obj):
@@ -490,11 +487,10 @@ class StmGCTLS(object):
         self.stm_operations.tldict_enum()
 
     @staticmethod
-    def _stm_enum_callback(tlsaddr, globalobj, localobj):
+    def _stm_enum_callback(tlsaddr, localobj):
         self = StmGCTLS.cast_address_to_tls_object(tlsaddr)
         localhdr = self.gc.header(localobj)
-        ll_assert(hdr_revision(localhdr) == globalobj,
-                  "in a root: localobj.version != globalobj")
+        globalobj = hdr_revision(localhdr)
         ll_assert(localhdr.tid & GCFLAG_GLOBAL == 0,
                   "in a root: unexpected GCFLAG_GLOBAL")
         ll_assert(localhdr.tid & GCFLAG_LOCAL_COPY != 0,

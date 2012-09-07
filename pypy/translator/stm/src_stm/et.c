@@ -448,7 +448,7 @@ static void CancelLocks(struct tx_descriptor *d)
   gcptr *items = d->gcroots.items;
   for (i=0; i<=lastitem; i+=2)
     {
-      gcptr R = items[i]->h_revision;
+      gcptr R = (gcptr)items[i]->h_revision;
       revision_t v = (revision_t)items[i+1];
       if (v == 0)
         break;

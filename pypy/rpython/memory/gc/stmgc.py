@@ -337,7 +337,9 @@ class StmGC(MovingGCBase):
         llmemory.raw_memcopy(obj - size_gc_header,
                              localobj - size_gc_header,
                              totalsize)
-        self.header(localobj).tid |= GCFLAG_VISITED
+        hdr = self.header(localobj)
+        hdr.tid &= ~(GCFLAG_GLOBAL | GCFLAG_POSSIBLY_OUTDATED)
+        hdr.tid |= (GCFLAG_VISITED | GCFLAG_LOCAL_COPY)
         return localobj
 
     # ----------

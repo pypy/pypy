@@ -31,7 +31,7 @@ class StmOperations(object):
                                                  lltype.Signed))
     DUPLICATE       = lltype.Ptr(lltype.FuncType([llmemory.Address],
                                                  llmemory.Address))
-    CALLBACK_ENUM   = lltype.Ptr(lltype.FuncType([llmemory.Address]*3,
+    CALLBACK_ENUM   = lltype.Ptr(lltype.FuncType([llmemory.Address]*2,
                                                  lltype.Void))
 
     def _freeze_(self):
