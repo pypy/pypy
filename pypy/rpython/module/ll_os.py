@@ -146,7 +146,7 @@ if not _WIN32:
                  'sys/times.h', 'utime.h', 'sys/types.h', 'unistd.h',
                  'signal.h', 'sys/wait.h', 'fcntl.h']
 else:
-    includes += ['sys/utime.h']
+    includes += ['sys/utime.h', 'sys/types.h']
 
 _CYGWIN = sys.platform == 'cygwin'
 
@@ -196,7 +196,8 @@ class RegisterOs(BaseLazyRegistering):
 
     def __init__(self):
         self.configure(CConfig)
-        assert self.OFF_T_SIZE == rffi.sizeof(rffi.LONGLONG)
+        if not _WIN32:
+            assert self.OFF_T_SIZE == rffi.sizeof(rffi.LONGLONG)
 
         if hasattr(os, 'getpgrp'):
             self.GETPGRP_HAVE_ARG = platform.checkcompiles(
