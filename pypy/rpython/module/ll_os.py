@@ -146,7 +146,7 @@ if not _WIN32:
                  'sys/times.h', 'utime.h', 'sys/types.h', 'unistd.h',
                  'signal.h', 'sys/wait.h', 'fcntl.h']
 else:
-    includes += ['sys/utime.h']
+    includes += ['sys/utime.h', 'sys/types.h']
 
 _CYGWIN = sys.platform == 'cygwin'
 
@@ -174,9 +174,14 @@ class CConfig:
                            ('tms_cutime', rffi.INT),
                            ('tms_cstime', rffi.INT)])
 
-        GID_T = platform.SimpleType('gid_t',rffi.INT)
+        GID_T = platform.SimpleType('gid_t', rffi.INT)
         #TODO right now is used only in getgroups, may need to update other
         #functions like setgid
+
+    # For now we require off_t to be the same size as LONGLONG, which is the
+    # interface required by callers of functions that thake an argument of type
+    # off_t
+    OFF_T_SIZE = platform.SizeOf('off_t')
 
     SEEK_SET = platform.DefinedConstantInteger('SEEK_SET')
     SEEK_CUR = platform.DefinedConstantInteger('SEEK_CUR')
@@ -191,6 +196,8 @@ class RegisterOs(BaseLazyRegistering):
 
     def __init__(self):
         self.configure(CConfig)
+        if not _WIN32:
+            assert self.OFF_T_SIZE == rffi.sizeof(rffi.LONGLONG)
 
         if hasattr(os, 'getpgrp'):
             self.GETPGRP_HAVE_ARG = platform.checkcompiles(
@@ -993,7 +1000,7 @@ class RegisterOs(BaseLazyRegistering):
     @registering_if(os, 'ftruncate')
     def register_os_ftruncate(self):
         os_ftruncate = self.llexternal('ftruncate',
-                                       [rffi.INT, rffi.LONGLONG], rffi.INT)
+                                       [rffi.INT, rffi.LONGLONG], rffi.INT, macro=True)
 
         def ftruncate_llimpl(fd, length):
             rposix.validate_fd(fd)

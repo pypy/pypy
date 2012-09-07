@@ -37,3 +37,5 @@ Support CFFI.  http://morepypy.blogspot.ch/2012/08/cffi-release-03.html
 .. branch: jit-opaque-licm
 .. branch: rpython-utf8
 Support for utf-8 encoding in RPython
+.. branch: arm-backend-2
+Support ARM in the JIT.

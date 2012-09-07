@@ -91,9 +91,14 @@ class ExternalCompilationInfo(object):
             assert isinstance(value, (list, tuple))
             setattr(self, name, tuple(value))
         self.use_cpp_linker = use_cpp_linker
-        if platform is None:
+        self._platform = platform
+
+    @property
+    def platform(self):
+        if self._platform is None:
             from pypy.translator.platform import platform
-        self.platform = platform
+            return platform
+        return self._platform
 
     def from_compiler_flags(cls, flags):
         """Returns a new ExternalCompilationInfo instance by parsing

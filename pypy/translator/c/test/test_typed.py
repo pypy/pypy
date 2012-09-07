@@ -896,6 +896,21 @@ class TestTypedTestCase(CompilationTestCase):
         res = f(-2000000000)
         assert res == -200000000000000
 
+    def test_int128(self):
+        from pypy.rpython.lltypesystem import rffi
+        if not hasattr(rffi, '__INT128_T'):
+            py.test.skip("no '__int128_t'")
+        def func(n):
+            x = rffi.cast(getattr(rffi, '__INT128_T'), n)
+            x *= x
+            x *= x
+            x *= x
+            x *= x
+            return intmask(x >> 96)
+        f = self.getcompiled(func, [int])
+        res = f(217)
+        assert res == 305123851
+
     def test_bool_2(self):
         from pypy.rpython.lltypesystem import lltype, rffi
         def func(n):

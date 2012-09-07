@@ -427,7 +427,8 @@ if sys.platform.startswith('linux'):
                                     sandboxsafe=True, _nowrapper=True,
                                     compilation_info=_eci)
     linux_getpagesize = rffi.llexternal('getpagesize', [], rffi.INT,
-                                        sandboxsafe=True, _nowrapper=True)
+                                        sandboxsafe=True, _nowrapper=True,
+                                        compilation_info=_eci)
 
     class LinuxPageSize:
         def __init__(self):
