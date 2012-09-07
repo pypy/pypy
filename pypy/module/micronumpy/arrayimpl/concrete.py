@@ -259,7 +259,7 @@ class BaseConcreteArray(base.BaseArrayImplementation):
     def _prepare_slice_args(self, space, w_idx):
         if space.isinstance_w(w_idx, space.w_str):
             idx = space.str_w(w_idx)
-            dtype = self.find_dtype()
+            dtype = self.dtype
             if not dtype.is_record_type() or idx not in dtype.fields:
                 raise OperationError(space.w_ValueError, space.wrap(
                     "field named %s not defined" % idx))
@@ -369,7 +369,7 @@ class ConcreteArray(BaseConcreteArray):
         return SliceArray(0, strides, backstrides, new_shape, self)
 
 class SliceArray(BaseConcreteArray):
-    def __init__(self, start, strides, backstrides, shape, parent):
+    def __init__(self, start, strides, backstrides, shape, parent, dtype=None):
         self.strides = strides
         self.backstrides = backstrides
         self.shape = shape
@@ -378,7 +378,9 @@ class SliceArray(BaseConcreteArray):
         self.parent = parent
         self.storage = parent.storage
         self.order = parent.order
-        self.dtype = parent.dtype
+        if dtype is None:
+            dtype = parent.dtype
+        self.dtype = dtype
         self.size = support.product(shape) * self.dtype.itemtype.get_element_size()
         self.start = start
 

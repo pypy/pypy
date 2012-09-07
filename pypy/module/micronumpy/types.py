@@ -4,6 +4,7 @@ import struct
 
 from pypy.interpreter.error import OperationError
 from pypy.module.micronumpy import interp_boxes
+from pypy.module.micronumpy.arrayimpl.voidbox import VoidBoxStorage
 from pypy.objspace.std.floatobject import float2string
 from pypy.rlib import rfloat, clibffi
 from pypy.rlib.rawstorage import (alloc_raw_storage, raw_storage_setitem,
@@ -942,16 +943,14 @@ class RecordType(BaseType):
             raise OperationError(space.w_ValueError, space.wrap(
                 "wrong length"))
         items_w = space.fixedview(w_item)
-        # XXX optimize it out one day, but for now we just allocate an
-        #     array
-        arr = create_array([1], dtype)
+        arr = VoidBoxStorage(self.size)
         for i in range(len(items_w)):
             subdtype = dtype.fields[dtype.fieldnames[i]][1]
             ofs, itemtype = self.offsets_and_fields[i]
             w_item = items_w[i]
             w_box = itemtype.coerce(space, subdtype, w_item)
             itemtype.store(arr, 0, ofs, w_box)
-        return interp_boxes.W_VoidBox(arr, 0, arr.dtype)
+        return interp_boxes.W_VoidBox(arr, 0, dtype)
 
     @jit.unroll_safe
     def store(self, arr, i, ofs, box):

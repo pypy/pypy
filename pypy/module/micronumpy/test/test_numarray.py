@@ -2184,8 +2184,8 @@ class AppTestRecordDtype(BaseNumpyAppTest):
     def test_views(self):
         from _numpypy import array
         a = array([(1, 2), (3, 4)], dtype=[('x', int), ('y', float)])
-        raises(ValueError, 'array([1])["x"]')
-        raises(ValueError, 'a["z"]')
+        raises((IndexError, ValueError), 'array([1])["x"]')
+        raises((IndexError, ValueError), 'a["z"]')
         assert a['x'][1] == 3
         assert a['y'][1] == 4
         a['x'][0] = 15

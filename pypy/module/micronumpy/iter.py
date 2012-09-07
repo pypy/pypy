@@ -57,12 +57,11 @@ class RecordChunk(BaseChunk):
         self.name = name
 
     def apply(self, arr):
-        arr = arr.get_concrete()
         ofs, subdtype = arr.dtype.fields[self.name]
         # strides backstrides are identical, ofs only changes start
-        return W_NDimArray.new_slice(arr.start + ofs, arr.strides[:],
-                                     arr.backstrides[:],
-                                     arr.shape[:], arr, subdtype)
+        return W_NDimArray.new_slice(arr.start + ofs, arr.strides,
+                                     arr.backstrides,
+                                     arr.shape, arr, subdtype)
 
 class Chunks(BaseChunk):
     def __init__(self, l):
