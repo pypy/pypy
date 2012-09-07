@@ -290,7 +290,7 @@ from __future__ import generators""")
 
     def test_invalid_identitifer(self):
         import ast
-        m = ast.Module([ast.Expr(ast.Name(u"x", ast.Load()))])
+        m = ast.Module([ast.Expr(ast.Name(b"x", ast.Load()))])
         ast.fix_missing_locations(m)
         exc = raises(TypeError, compile, m, "<test>", "exec")
 

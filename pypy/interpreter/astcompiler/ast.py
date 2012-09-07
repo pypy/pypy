@@ -971,7 +971,7 @@ class Global(stmt):
         if w_list is not None:
             list_w = space.listview(w_list)
             if list_w:
-                self.names = [space.realstr_w(w_obj) for w_obj in list_w]
+                self.names = [space.identifier_w(w_obj) for w_obj in list_w]
             else:
                 self.names = None
 
@@ -999,7 +999,7 @@ class Nonlocal(stmt):
         if w_list is not None:
             list_w = space.listview(w_list)
             if list_w:
-                self.names = [space.realstr_w(w_obj) for w_obj in list_w]
+                self.names = [space.identifier_w(w_obj) for w_obj in list_w]
             else:
                 self.names = None
 
@@ -3103,7 +3103,7 @@ def FunctionDef_get_name(space, w_self):
 
 def FunctionDef_set_name(space, w_self, w_new_value):
     try:
-        w_self.name = space.realstr_w(w_new_value)
+        w_self.name = space.identifier_w(w_new_value)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -3235,7 +3235,7 @@ def ClassDef_get_name(space, w_self):
 
 def ClassDef_set_name(space, w_self, w_new_value):
     try:
-        w_self.name = space.realstr_w(w_new_value)
+        w_self.name = space.identifier_w(w_new_value)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -4369,7 +4369,7 @@ def ImportFrom_set_module(space, w_self, w_new_value):
         if space.is_w(w_new_value, space.w_None):
             w_self.module = None
         else:
-            w_self.module = space.realstr_w(w_new_value)
+            w_self.module = space.identifier_w(w_new_value)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -5945,7 +5945,7 @@ def Attribute_get_attr(space, w_self):
 
 def Attribute_set_attr(space, w_self, w_new_value):
     try:
-        w_self.attr = space.realstr_w(w_new_value)
+        w_self.attr = space.identifier_w(w_new_value)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -6188,7 +6188,7 @@ def Name_get_id(space, w_self):
 
 def Name_set_id(space, w_self, w_new_value):
     try:
-        w_self.id = space.realstr_w(w_new_value)
+        w_self.id = space.identifier_w(w_new_value)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -7079,7 +7079,7 @@ def ExceptHandler_set_name(space, w_self, w_new_value):
         if space.is_w(w_new_value, space.w_None):
             w_self.name = None
         else:
-            w_self.name = space.realstr_w(w_new_value)
+            w_self.name = space.identifier_w(w_new_value)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -7165,7 +7165,7 @@ def arguments_set_vararg(space, w_self, w_new_value):
         if space.is_w(w_new_value, space.w_None):
             w_self.vararg = None
         else:
-            w_self.vararg = space.realstr_w(w_new_value)
+            w_self.vararg = space.identifier_w(w_new_value)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -7231,7 +7231,7 @@ def arguments_set_kwarg(space, w_self, w_new_value):
         if space.is_w(w_new_value, space.w_None):
             w_self.kwarg = None
         else:
-            w_self.kwarg = space.realstr_w(w_new_value)
+            w_self.kwarg = space.identifier_w(w_new_value)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -7346,7 +7346,7 @@ def arg_get_arg(space, w_self):
 
 def arg_set_arg(space, w_self, w_new_value):
     try:
-        w_self.arg = space.realstr_w(w_new_value)
+        w_self.arg = space.identifier_w(w_new_value)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -7417,7 +7417,7 @@ def keyword_get_arg(space, w_self):
 
 def keyword_set_arg(space, w_self, w_new_value):
     try:
-        w_self.arg = space.realstr_w(w_new_value)
+        w_self.arg = space.identifier_w(w_new_value)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -7488,7 +7488,7 @@ def alias_get_name(space, w_self):
 
 def alias_set_name(space, w_self, w_new_value):
     try:
-        w_self.name = space.realstr_w(w_new_value)
+        w_self.name = space.identifier_w(w_new_value)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -7513,7 +7513,7 @@ def alias_set_asname(space, w_self, w_new_value):
         if space.is_w(w_new_value, space.w_None):
             w_self.asname = None
         else:
-            w_self.asname = space.realstr_w(w_new_value)
+            w_self.asname = space.identifier_w(w_new_value)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise

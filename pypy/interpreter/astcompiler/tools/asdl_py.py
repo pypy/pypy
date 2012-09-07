@@ -295,7 +295,7 @@ asdl_type_map = {
     "object" : "%s",
     "int" : "space.int_w(%s)",
     "string": "check_string(space, %s)",
-    "identifier" : "space.realstr_w(%s)",
+    "identifier" : "space.identifier_w(%s)",
     "bool" : "space.bool_w(%s)"
 }
 
