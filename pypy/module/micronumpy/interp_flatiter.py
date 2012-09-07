@@ -1,7 +1,6 @@
 
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
 from pypy.module.micronumpy import loop
-from pypy.module.micronumpy.strides import to_coords
 from pypy.module.micronumpy.arrayimpl.base import BaseArrayImplementation
 from pypy.interpreter.error import OperationError
 
@@ -46,9 +45,7 @@ class W_FlatIterator(W_NDimArray):
         return space.wrap(self.index)
 
     def descr_coords(self, space):
-        coords, step, lngth = to_coords(space, self.base.get_shape(),
-                            self.base.get_size(), self.base.get_order(),
-                            space.wrap(self.index))
+        coords = self.base.to_coords(space, space.wrap(self.index))
         return space.newtuple([space.wrap(c) for c in coords])
 
     def descr_getitem(self, space, w_idx):

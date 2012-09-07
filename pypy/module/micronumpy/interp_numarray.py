@@ -3,9 +3,9 @@ from pypy.interpreter.error import operationerrfmt, OperationError
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
-from pypy.module.micronumpy import interp_dtype, interp_ufuncs
+from pypy.module.micronumpy import interp_dtype, interp_ufuncs, interp_boxes
 from pypy.module.micronumpy.strides import find_shape_and_elems,\
-     get_shape_from_iterable
+     get_shape_from_iterable, to_coords
 from pypy.module.micronumpy.interp_flatiter import W_FlatIterator
 from pypy.module.micronumpy.interp_support import unwrap_axis_arg
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
@@ -242,6 +242,34 @@ class __extend__(W_NDimArray):
 
     def descr_get_flatiter(self, space):
         return space.wrap(W_FlatIterator(self))
+
+    def to_coords(self, space, w_index):
+        coords, _, _ = to_coords(space, self.get_shape(),
+                                 self.get_size(), self.get_order(),
+                                 w_index)
+        return coords
+
+    def descr_item(self, space, w_arg=None):
+        if space.is_w(w_arg, space.w_None):
+            if self.is_scalar():
+                return self.get_scalar_value().item(space)
+            if self.get_size() == 1:
+                return self.descr_getitem(space,
+                                          space.newtuple([space.wrap(0) for i
+                            in range(len(self.get_shape()))])).item(space)
+            raise OperationError(space.w_IndexError,
+                                 space.wrap("index out of bounds"))
+        if space.isinstance_w(w_arg, space.w_int):
+            if self.is_scalar():
+                raise OperationError(space.w_IndexError,
+                                     space.wrap("index out of bounds"))
+            i = self.to_coords(space, w_arg)
+            item = self.descr_getitem(space, space.newtuple([space.wrap(x)
+                                             for x in i]))
+            assert isinstance(item, interp_boxes.W_GenericBox)
+            return item.item(space)
+        raise OperationError(space.w_NotImplementedError, space.wrap(
+            "non-int arg not supported"))
 
     def descr_array_iface(self, space):
         addr = self.implementation.get_storage_as_int(space)
@@ -507,6 +535,7 @@ W_NDimArray.typedef = TypeDef(
     repeat = interp2app(W_NDimArray.descr_repeat),
     swapaxes = interp2app(W_NDimArray.descr_swapaxes),
     flat = GetSetProperty(W_NDimArray.descr_get_flatiter),
+    item = interp2app(W_NDimArray.descr_item),
 
     __array_interface__ = GetSetProperty(W_NDimArray.descr_array_iface),
 )
