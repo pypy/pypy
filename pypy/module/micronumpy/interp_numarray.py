@@ -211,6 +211,22 @@ class __extend__(W_NDimArray):
                 "order not implemented"))
         return self.descr_reshape(space, [space.wrap(-1)])
 
+    def descr_take(self, space, w_obj, w_axis=None, w_out=None):
+        # if w_axis is None and w_out is Nont this is an equivalent to
+        # fancy indexing
+        raise Exception("unsupported for now")
+        if not space.is_w(w_axis, space.w_None):
+            raise OperationError(space.w_NotImplementedError,
+                                 space.wrap("axis unsupported for take"))
+        if not space.is_w(w_out, space.w_None):
+            raise OperationError(space.w_NotImplementedError,
+                                 space.wrap("out unsupported for take"))
+        return self.getitem_int(space, convert_to_array(space, w_obj))
+
+    def descr_compress(self, space, w_obj, w_axis=None):
+        index = convert_to_array(space, w_obj)
+        return self.getitem_filter(space, index)
+
     def descr_flatten(self, space, w_order=None):
         if self.is_scalar():
             # scalars have no storage
@@ -486,6 +502,8 @@ W_NDimArray.typedef = TypeDef(
     tolist = interp2app(W_NDimArray.descr_tolist),
     flatten = interp2app(W_NDimArray.descr_flatten),
     ravel = interp2app(W_NDimArray.descr_ravel),
+    take = interp2app(W_NDimArray.descr_take),
+    compress = interp2app(W_NDimArray.descr_compress),
     repeat = interp2app(W_NDimArray.descr_repeat),
     swapaxes = interp2app(W_NDimArray.descr_swapaxes),
     flat = GetSetProperty(W_NDimArray.descr_get_flatiter),
