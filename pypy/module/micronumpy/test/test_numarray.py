@@ -2222,23 +2222,8 @@ class AppTestPyPy(BaseNumpyAppTest):
     def setup_class(cls):
         if option.runappdirect and '__pypy__' not in sys.builtin_module_names:
             py.test.skip("pypy only test")
-        BaseNumpyAppTest.setup_class(cls)
+        BaseNumpyAppTest.setup_class.im_func(cls)
     
-    def test_debug_repr(self):
-        from _numpypy import zeros, sin
-        from _numpypy.pypy import debug_repr
-        a = zeros(1)
-        assert debug_repr(a) == 'Array'
-        assert debug_repr(a + a) == 'Call2(add, Array, Array)'
-        assert debug_repr(a[::2]) == 'Slice'
-        assert debug_repr(a + 2) == 'Call2(add, Array, Scalar)'
-        assert debug_repr(a + a.flat) == 'Call2(add, Array, Flat)'
-        assert debug_repr(sin(a)) == 'Call1(sin, Array)'
-
-        b = a + a
-        b[0] = 3
-        assert debug_repr(b) == 'Array'
-
     def test_init_2(self):
         # this test is pypy only since in numpy it becomes an object dtype
         import _numpypy

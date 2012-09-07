@@ -943,7 +943,7 @@ class RecordType(BaseType):
             raise OperationError(space.w_ValueError, space.wrap(
                 "wrong length"))
         items_w = space.fixedview(w_item)
-        arr = VoidBoxStorage(self.size)
+        arr = VoidBoxStorage(self.size, dtype)
         for i in range(len(items_w)):
             subdtype = dtype.fields[dtype.fieldnames[i]][1]
             ofs, itemtype = self.offsets_and_fields[i]

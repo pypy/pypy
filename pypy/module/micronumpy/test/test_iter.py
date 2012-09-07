@@ -1,5 +1,8 @@
 from pypy.module.micronumpy.arrayimpl.concrete import MultiDimViewIterator
 
+class MockArray(object):
+    size = 1
+
 class TestIterDirect(object):
     def test_C_viewiterator(self):
         #Let's get started, simple iteration in C order with
@@ -9,7 +12,7 @@ class TestIterDirect(object):
         strides = [5, 1]
         backstrides = [x * (y - 1) for x,y in zip(strides, shape)]
         assert backstrides == [10, 4]
-        i = MultiDimViewIterator(None, start, strides, backstrides, shape)
+        i = MultiDimViewIterator(MockArray, start, strides, backstrides, shape)
         i.next()
         i.next()
         i.next()
@@ -27,7 +30,7 @@ class TestIterDirect(object):
         strides = [1, 3]
         backstrides = [x * (y - 1) for x,y in zip(strides, shape)]
         assert backstrides == [2, 12]
-        i = MultiDimViewIterator(None, start, strides, backstrides, shape)
+        i = MultiDimViewIterator(MockArray, start, strides, backstrides, shape)
         i.next()
         i.next()
         i.next()
@@ -48,7 +51,7 @@ class TestIterDirect(object):
         strides = [5, 1]
         backstrides = [x * (y - 1) for x,y in zip(strides, shape)]
         assert backstrides == [10, 4]
-        i = MultiDimViewIterator(None, start, strides, backstrides, shape)
+        i = MultiDimViewIterator(MockArray, start, strides, backstrides, shape)
         i.next_skip_x(2)
         i.next_skip_x(2)
         i.next_skip_x(2)
@@ -71,7 +74,7 @@ class TestIterDirect(object):
         strides = [1, 3]
         backstrides = [x * (y - 1) for x,y in zip(strides, shape)]
         assert backstrides == [2, 12]
-        i = MultiDimViewIterator(None, start, strides, backstrides, shape)
+        i = MultiDimViewIterator(MockArray, start, strides, backstrides, shape)
         i.next_skip_x(2)
         i.next_skip_x(2)
         i.next_skip_x(2)

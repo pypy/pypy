@@ -240,7 +240,7 @@ class W_Ufunc1(W_Ufunc):
             if not isinstance(out, W_NDimArray):
                 raise OperationError(space.w_TypeError, space.wrap(
                                                 'output must be an array'))
-            res_dtype = out.find_dtype()
+            res_dtype = out.get_dtype()
         elif self.bool_result:
             res_dtype = interp_dtype.get_dtype_cache(space).w_booldtype
         else:
@@ -253,7 +253,7 @@ class W_Ufunc1(W_Ufunc):
             if out.is_scalar():
                 out.set_scalar_value(w_val)
             else:
-                out.fill(space, w_val)
+                out.fill(res_dtype.coerce(space, w_val))
             return out
         shape =  shape_agreement(space, w_obj.get_shape(), out)
         return loop.call1(shape, self.func, self.name, calc_dtype, res_dtype,

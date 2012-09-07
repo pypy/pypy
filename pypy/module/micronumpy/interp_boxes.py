@@ -8,7 +8,7 @@ from pypy.objspace.std.unicodetype import unicode_typedef, unicode_from_object
 from pypy.objspace.std.inttype import int_typedef
 from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.tool.sourcetools import func_with_new_name
-from pypy.module.micronumpy.base import W_NDimArray
+from pypy.module.micronumpy.arrayimpl.voidbox import VoidBoxStorage
 
 MIXIN_32 = (int_typedef,) if LONG_BIT == 32 else ()
 MIXIN_64 = (int_typedef,) if LONG_BIT == 64 else ()
@@ -250,7 +250,7 @@ class W_StringBox(W_CharacterBox):
         from pypy.module.micronumpy.interp_dtype import new_string_dtype
 
         arg = space.str_w(space.str(w_arg))
-        arr = W_NDimArray.from_shape([1], new_string_dtype(space, len(arg)))
+        arr = VoidBoxStorage(len(arg), new_string_dtype(space, len(arg)))
         for i in range(len(arg)):
             arr.storage[i] = arg[i]
         return W_StringBox(arr, 0, arr.dtype)
@@ -261,7 +261,8 @@ class W_UnicodeBox(W_CharacterBox):
         from pypy.module.micronumpy.interp_dtype import new_unicode_dtype
 
         arg = space.unicode_w(unicode_from_object(space, w_arg))
-        arr = W_NDimArray.from_shape([1], new_unicode_dtype(space, len(arg)))
+        # XXX size computations, we need tests anyway
+        arr = VoidBoxStorage(len(arg), new_unicode_dtype(space, len(arg)))
         # XXX not this way, we need store
         #for i in range(len(arg)):
         #    arr.storage[i] = arg[i]
