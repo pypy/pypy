@@ -4,7 +4,7 @@ from pypy.rpython.lltypesystem.llmemory import raw_malloc_usage, raw_memcopy
 from pypy.rpython.memory.gc.base import GCBase, MovingGCBase
 from pypy.rpython.memory.support import mangle_hash
 from pypy.rpython.annlowlevel import llhelper
-from pypy.rlib.rarithmetic import LONG_BIT
+from pypy.rlib.rarithmetic import LONG_BIT, r_uint
 from pypy.rlib.debug import ll_assert, debug_start, debug_stop, fatalerror
 from pypy.rlib.debug import debug_print
 from pypy.module.thread import ll_thread
@@ -123,6 +123,9 @@ GCFLAG_LOCAL_COPY        = first_gcflag << 3     # keep in sync with et.h
 GCFLAG_VISITED           = first_gcflag << 4
 GCFLAG_HAS_SHADOW        = first_gcflag << 5
 GCFLAG_FIXED_HASH        = first_gcflag << 6
+
+GCFLAG_PREBUILT          = GCFLAG_GLOBAL | GCFLAG_NOT_WRITTEN
+REV_INITIAL              = r_uint(1)
 
 
 def always_inline(fn):
@@ -304,8 +307,10 @@ class StmGC(MovingGCBase):
         hdr.tid = self.combine(typeid16, flags)
 
     def init_gc_object_immortal(self, addr, typeid16, flags=0):
-        flags |= GCFLAG_GLOBAL
+        flags |= GCFLAG_PREBUILT
         self.init_gc_object(addr, typeid16, flags)
+        hdr = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR))
+        hdr.revision = REV_INITIAL
 
     def obj_revision(self, obj):
         return hdr_revision(self.header(obj))

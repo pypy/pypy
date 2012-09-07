@@ -39,8 +39,8 @@ def stm_jit_invoke_code(funcgen, op):
     XXX
     return funcgen.OP_DIRECT_CALL(op)
 
-def _stm_init_function():
-    """Called at process start-up."""
+def _stm_nogc_init_function():
+    """Called at process start-up when running with no GC."""
     StmOperations.descriptor_init()
     StmOperations.begin_inevitable_transaction()
 
