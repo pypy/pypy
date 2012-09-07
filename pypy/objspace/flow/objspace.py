@@ -315,7 +315,7 @@ class FlowObjSpace(ObjSpace):
                 except IndexError:
                     raise OperationError(self.w_StopIteration, self.w_None)
                 else:
-                    context.replace_in_stack(it, next_unroller)
+                    context.frame.replace_in_stack(it, next_unroller)
                     return self.wrap(v)
         w_item = self.do_operation("next", w_iter)
         outcome, w_exc_cls, w_exc_value = context.guessexception(StopIteration,

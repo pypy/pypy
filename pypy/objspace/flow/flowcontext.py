@@ -310,19 +310,6 @@ class FlowExecutionContext(ExecutionContext):
             operr = OperationError(operr.w_type, w_value)
         return operr
 
-    # hack for unrolling iterables, don't use this
-    def replace_in_stack(self, oldvalue, newvalue):
-        w_new = Constant(newvalue)
-        f = self.frame
-        stack_items_w = f.locals_stack_w
-        for i in range(f.valuestackdepth-1, f.pycode.co_nlocals-1, -1):
-            w_v = stack_items_w[i]
-            if isinstance(w_v, Constant):
-                if w_v.value is oldvalue:
-                    # replace the topmost item of the stack that is equal
-                    # to 'oldvalue' with 'newvalue'.
-                    stack_items_w[i] = w_new
-                    break
 
 class FlowSpaceFrame(pyframe.CPythonFrame):
 
@@ -430,6 +417,19 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
             recorder = Replayer(parent, prevblock.booloutcome, recorder)
             prevblock = parent
         return recorder
+
+    # hack for unrolling iterables, don't use this
+    def replace_in_stack(self, oldvalue, newvalue):
+        w_new = Constant(newvalue)
+        stack_items_w = self.locals_stack_w
+        for i in range(self.valuestackdepth-1, self.pycode.co_nlocals-1, -1):
+            w_v = stack_items_w[i]
+            if isinstance(w_v, Constant):
+                if w_v.value is oldvalue:
+                    # replace the topmost item of the stack that is equal
+                    # to 'oldvalue' with 'newvalue'.
+                    stack_items_w[i] = w_new
+                    break
 
     def handle_bytecode(self, next_instr):
         try:
