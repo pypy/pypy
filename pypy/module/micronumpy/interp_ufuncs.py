@@ -241,6 +241,9 @@ class W_Ufunc1(W_Ufunc):
                 raise OperationError(space.w_TypeError, space.wrap(
                                                 'output must be an array'))
             res_dtype = out.get_dtype()
+            #if not w_obj.get_dtype().can_cast_to(res_dtype):
+            #    raise operationerrfmt(space.w_TypeError,
+            #        "Cannot cast ufunc %s output from dtype('%s') to dtype('%s') with casting rule 'same_kind'", self.name, w_obj.get_dtype().name, res_dtype.name)
         elif self.bool_result:
             res_dtype = interp_dtype.get_dtype_cache(space).w_booldtype
         else:
