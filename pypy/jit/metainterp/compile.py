@@ -272,30 +272,24 @@ def compile_retrace(metainterp, greenkey, start,
 
     trace = partial_trace
     trace.operations = partial_trace.operations[:-1] + preamble.operations + loop.operations
-    loop = trace # FIXME: rename
-
-    assert loop.operations[-1].getopnum() != rop.LABEL
-
+    assert trace.operations[-1].getopnum() != rop.LABEL
 
     quasi_immutable_deps = {}
+    if trace.quasi_immutable_deps:
+        quasi_immutable_deps.update(trace.quasi_immutable_deps)
+    if preamble.quasi_immutable_deps:
+        quasi_immutable_deps.update(preamble.quasi_immutable_deps)
     if loop.quasi_immutable_deps:
         quasi_immutable_deps.update(loop.quasi_immutable_deps)
-    # FIXME
-    #if part.quasi_immutable_deps:
-    #    quasi_immutable_deps.update(part.quasi_immutable_deps)
     if quasi_immutable_deps:
-        loop.quasi_immutable_deps = quasi_immutable_deps
+        trace.quasi_immutable_deps = quasi_immutable_deps
 
-    for box in loop.inputargs:
+    for box in trace.inputargs:
         assert isinstance(box, Box)
 
-    target_token = loop.operations[-1].getdescr()    
-    resumekey.compile_and_attach(metainterp, loop)
-    
-    target_token = label.getdescr()
-    assert isinstance(target_token, TargetToken)
-    record_loop_or_bridge(metainterp_sd, loop)
-    return target_token
+    resumekey.compile_and_attach(metainterp, trace)
+    record_loop_or_bridge(metainterp_sd, trace)
+    return original_target_token
 
 def patch_new_loop_to_load_virtualizable_fields(loop, jitdriver_sd):
     vinfo = jitdriver_sd.virtualizable_info
