@@ -55,6 +55,9 @@ class __extend__(W_NDimArray):
     def descr_get_nbytes(self, space):
         return space.wrap(self.get_size() * self.get_dtype().itemtype.get_element_size())
 
+    def descr_fill(self, space, w_value):
+        self.fill(self.get_dtype().coerce(space, w_value))
+
     def getitem_filter(self, space, arr):
         if arr.get_size() > self.get_size():
             raise OperationError(space.w_IndexError,
@@ -223,6 +226,15 @@ class __extend__(W_NDimArray):
 
     def descr_get_flatiter(self, space):
         return space.wrap(W_FlatIterator(self))
+
+    def descr_array_iface(self, space):
+        addr = self.implementation.get_storage_as_int(space)
+        # will explode if it can't
+        w_d = space.newdict()
+        space.setitem_str(w_d, 'data', space.newtuple([space.wrap(addr),
+                                                       space.w_False]))
+        return w_d
+
 
     # --------------------- operations ----------------------------
 
@@ -452,6 +464,7 @@ W_NDimArray.typedef = TypeDef(
     size = GetSetProperty(W_NDimArray.descr_get_size),
     itemsize = GetSetProperty(W_NDimArray.descr_get_itemsize),
     nbytes = GetSetProperty(W_NDimArray.descr_get_nbytes),
+    fill = interp2app(W_NDimArray.descr_fill),
 
     mean = interp2app(W_NDimArray.descr_mean),
     sum = interp2app(W_NDimArray.descr_sum),
@@ -476,6 +489,8 @@ W_NDimArray.typedef = TypeDef(
     repeat = interp2app(W_NDimArray.descr_repeat),
     swapaxes = interp2app(W_NDimArray.descr_swapaxes),
     flat = GetSetProperty(W_NDimArray.descr_get_flatiter),
+
+    __array_interface__ = GetSetProperty(W_NDimArray.descr_array_iface),
 )
 
 @unwrap_spec(ndmin=int, copy=bool, subok=bool)

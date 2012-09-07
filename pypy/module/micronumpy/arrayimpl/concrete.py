@@ -6,6 +6,7 @@ from pypy.module.micronumpy.strides import calc_new_strides, shape_agreement,\
      calculate_broadcast_strides, calculate_dot_strides
 from pypy.module.micronumpy.iter import Chunk, Chunks, NewAxisChunk, RecordChunk
 from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rlib import jit
 from pypy.rlib.rawstorage import free_raw_storage
 
@@ -335,6 +336,9 @@ class BaseConcreteArray(base.BaseArrayImplementation):
         backstrides[axis1], backstrides[axis2] = backstrides[axis2], backstrides[axis1] 
         return W_NDimArray.new_slice(self.start, strides, 
                                      backstrides, shape, self)
+
+    def get_storage_as_int(self, space):
+        return rffi.cast(lltype.Signed, self.storage)
 
 class ConcreteArray(BaseConcreteArray):
     def __init__(self, shape, dtype, order, strides, backstrides):

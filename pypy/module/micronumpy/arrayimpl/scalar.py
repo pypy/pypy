@@ -81,3 +81,10 @@ class Scalar(base.BaseArrayImplementation):
 
     def swapaxes(self, axis1, axis2):
         return self
+
+    def fill(self, w_value):
+        self.value = w_value
+
+    def get_storage_as_int(self, space):
+        raise OperationError(space.w_ValueError,
+                             space.wrap("scalars have no address"))
