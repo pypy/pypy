@@ -948,11 +948,8 @@ class FunctionWriter(object):
             self.w('br label %' + self.block_to_name[block.exits[0].target])
         elif block.exitswitch.concretetype is lltype.Bool:
             assert len(block.exits) == 2
-            for link in block.exits:
-                if link.llexitcase:
-                    true = self.block_to_name[link.target]
-                else:
-                    false = self.block_to_name[link.target]
+            true = self.block_to_name[block.exits[block.exits[1].llexitcase].target]
+            false = self.block_to_name[block.exits[block.exits[0].llexitcase].target]
             self.w('br i1 {}, label %{}, label %{}'.format(
                     get_repr(block.exitswitch).V, true, false))
         else:
