@@ -1013,7 +1013,7 @@ class Stats(object):
         loops = self.get_all_loops()
         assert len(loops) == 1
         loop = loops[0]
-        insns = self.sum_simple_loop(loop.operations, insns)
+        insns = self.sum_simple_loop(loop.operations)
         return self._check_insns(insns, expected, check)
 
     def sum_simple_loop(self, operations, insns=None):
