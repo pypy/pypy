@@ -232,6 +232,8 @@ def compile_retrace(metainterp, greenkey, start,
         assert isinstance(target_token, TargetToken)
         assert loop_jitcell_token.target_tokens
         loop_jitcell_token.target_tokens.append(target_token)
+        if target_token.short_preamble:
+            metainterp_sd.logger_ops.log_short_preamble([], target_token.short_preamble)
 
         preamble.operations = [orignial_label] + \
                               [ResOperation(rop.JUMP, original_target_token.exported_state.jump_args,
@@ -251,15 +253,8 @@ def compile_retrace(metainterp, greenkey, start,
             if a1 is not a2:
                 preamble.operations.append(ResOperation(rop.SAME_AS, [a1], a2))
 
-        #loop.operations = []
-
     except InvalidLoop:
-        # Fall back on jumping to preamble
-        target_token = label.getdescr()
-        assert isinstance(target_token, TargetToken)
-        assert target_token.exported_state
-        target_token.exported_state.generalize_virtual_state = None
-        # FIXME: Test
+        original_target_token.short_preamble = original_short_preamble
         preamble.operations = [orignial_label] + \
                               [ResOperation(rop.JUMP, inputargs[:],
                                             None, descr=loop_jitcell_token)]
@@ -267,22 +262,19 @@ def compile_retrace(metainterp, greenkey, start,
         try:
             optimize_trace(metainterp_sd, preamble, jitdriver_sd.warmstate.enable_opts,
                            inline_short_preamble=False)
-            
         except InvalidLoop:
             return None
+        else:
+            target_token = preamble.operations[0].getdescr()
+            assert isinstance(target_token, TargetToken)
+            assert loop_jitcell_token.target_tokens
+            loop_jitcell_token.target_tokens.append(target_token)
 
     trace = partial_trace
     trace.operations = partial_trace.operations[:-1] + preamble.operations + loop.operations
     loop = trace # FIXME: rename
 
     assert loop.operations[-1].getopnum() != rop.LABEL
-    # FIXME: done above
-    target_token = label.getdescr()
-    assert isinstance(target_token, TargetToken)
-    assert loop_jitcell_token.target_tokens
-    loop_jitcell_token.target_tokens.append(target_token) # FIXME: register all labels
-    if target_token.short_preamble:
-        metainterp_sd.logger_ops.log_short_preamble([], target_token.short_preamble)
 
 
     quasi_immutable_deps = {}

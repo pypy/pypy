@@ -3064,7 +3064,21 @@ class BasicTests:
         assert res == f(10)
         self.check_resops(new_with_vtable=0)
         self.check_retraced_simple_loop(2, getfield_gc=0)
+    
+    def test_retrace_failure_fallback(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'a', 'sa'])        
+        def f(n):
+            sa = a = 0
+            while n:
+                a = hint(a, promote=True)
+                myjitdriver.jit_merge_point(n=n, a=a, sa=sa)
+                sa += a
+                n = n - 1
+                if n < 5:
+                    a += 1
 
+        res = self.meta_interp(f, [10])
+        assert res == f(10)
 
 
 class TestOOtype(BasicTests, OOJitMixin):
