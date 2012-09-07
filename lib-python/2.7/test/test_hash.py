@@ -11,6 +11,7 @@ import unittest
 import subprocess
 
 from test import test_support
+from test.test_support import impl_detail
 from collections import Hashable
 
 IS_64BIT = (struct.calcsize('l') == 8)
@@ -150,6 +151,7 @@ class HashRandomizationTests(unittest.TestCase):
     def get_hash_command(self, repr_):
         return 'print(hash(%s))' % repr_
 
+    @impl_detail("PyPy does not support hash randomization", pypy=False)
     def get_hash(self, repr_, seed=None):
         env = os.environ.copy()
         if seed is not None:
