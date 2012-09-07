@@ -358,6 +358,9 @@ def llmemory_cast_adr_to_ptr(s, s_type):
 def llmemory_cast_adr_to_int(s, s_mode=None):
     return SomeInteger() # xxx
 
+def llmemory_cast_adr_to_uint_symbolic(s):
+    return SomeInteger(unsigned=True)
+
 def llmemory_cast_int_to_adr(s):
     return SomeAddress()
 
@@ -387,6 +390,7 @@ BUILTIN_ANALYZERS[pypy.rlib.objectmodel.keepalive_until_here] = robjmodel_keepal
 BUILTIN_ANALYZERS[pypy.rpython.lltypesystem.llmemory.cast_ptr_to_adr] = llmemory_cast_ptr_to_adr
 BUILTIN_ANALYZERS[pypy.rpython.lltypesystem.llmemory.cast_adr_to_ptr] = llmemory_cast_adr_to_ptr
 BUILTIN_ANALYZERS[pypy.rpython.lltypesystem.llmemory.cast_adr_to_int] = llmemory_cast_adr_to_int
+BUILTIN_ANALYZERS[pypy.rpython.lltypesystem.llmemory.cast_adr_to_uint_symbolic] = llmemory_cast_adr_to_uint_symbolic
 BUILTIN_ANALYZERS[pypy.rpython.lltypesystem.llmemory.cast_int_to_adr] = llmemory_cast_int_to_adr
 
 BUILTIN_ANALYZERS[getattr(OSError.__init__, 'im_func', OSError.__init__)] = (

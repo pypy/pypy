@@ -12,7 +12,8 @@ from pypy.rpython.memory.gc.stmgc import always_inline, dont_inline
 from pypy.rpython.memory.gc.stmgc import GCFLAG_GLOBAL, GCFLAG_VISITED
 from pypy.rpython.memory.gc.stmgc import GCFLAG_LOCAL_COPY, GCFLAG_HAS_SHADOW
 from pypy.rpython.memory.gc.stmgc import GCFLAG_POSSIBLY_OUTDATED
-from pypy.rpython.memory.gc.stmgc import hdr_revision
+from pypy.rpython.memory.gc.stmgc import GCFLAG_NOT_WRITTEN
+from pypy.rpython.memory.gc.stmgc import hdr_revision, set_hdr_revision
 
 
 class StmGCTLS(object):
@@ -184,8 +185,7 @@ class StmGCTLS(object):
         # Find the roots that are living in raw structures.
         self.collect_from_raw_structures()
         #
-        # Also find the roots that are the local copy of GCFLAG_WAS_COPIED
-        # objects.
+        # Also find the roots that are the local copy of global objects.
         self.collect_roots_from_tldict()
         #
         # Now repeatedly follow objects until 'pending' is empty.
@@ -204,7 +204,7 @@ class StmGCTLS(object):
         # don't have GCFLAG_VISITED.  As the newly allocated nursery
         # objects don't have it either, at the start of the next
         # collection, the only LOCAL objects that have it are the ones
-        # in the C tldict, together with GCFLAG_WAS_COPIED.
+        # in the C tldict, together with GCFLAG_LOCAL_COPY.
         #
         # All live nursery objects are out, and the rest dies.  Fill
         # the whole nursery with zero and reset the current nursery pointer.
@@ -255,7 +255,6 @@ class StmGCTLS(object):
         return localobj
 
     def fresh_new_weakref(self, obj):
-        XXX  # review
         self.local_weakrefs.append(obj)
 
     # ------------------------------------------------------------
@@ -270,7 +269,7 @@ class StmGCTLS(object):
         #
         while obj:
             hdr = self.gc.header(obj)
-            obj = hdr.version
+            obj = hdr_revision(hdr)
             ll_assert(hdr.tid & GCFLAG_GLOBAL == 0, "already GLOBAL [1]")
             ll_assert(hdr.tid & GCFLAG_VISITED == 0, "unexpected VISITED [1]")
             hdr.tid |= GCFLAG_GLOBAL | GCFLAG_NOT_WRITTEN
@@ -402,7 +401,7 @@ class StmGCTLS(object):
                 hdr.tid |= GCFLAG_VISITED
                 self.pending.append(obj)
             elif cat == 2:
-                root.address[0] = hdr.version
+                root.address[0] = hdr_revision(hdr)
             return
         #
         # If 'obj' was already forwarded, change it to its forwarding address.
@@ -412,21 +411,21 @@ class StmGCTLS(object):
         if hdr.tid & (GCFLAG_VISITED | GCFLAG_HAS_SHADOW):
             #
             if hdr.tid & GCFLAG_VISITED:
-                root.address[0] = hdr.version
+                root.address[0] = hdr_revision(hdr)
                 return
             #
             # Case of GCFLAG_HAS_SHADOW.  See comments below.
             size_gc_header = self.gc.gcheaderbuilder.size_gc_header
             totalsize = size_gc_header + size
             hdr.tid &= ~GCFLAG_HAS_SHADOW
-            newobj = hdr.version
+            newobj = hdr_revision(hdr)
             newhdr = self.gc.header(newobj)
             #
-            saved_version = newhdr.version
+            saved_version = hdr_revision(newhdr)
             llmemory.raw_memcopy(obj - size_gc_header,
                                  newobj - size_gc_header,
                                  totalsize)
-            newhdr.version = saved_version
+            set_hdr_revision(newhdr, saved_version)
             newhdr.tid = hdr.tid | GCFLAG_VISITED
             #
         else:
@@ -452,7 +451,7 @@ class StmGCTLS(object):
         # Set the YOUNG copy's GCFLAG_VISITED and set its version to
         # point to the OLD copy.
         hdr.tid |= GCFLAG_VISITED
-        hdr.version = newobj
+        set_hdr_revision(hdr, newobj)
         #
         # Change the original pointer to this object.
         root.address[0] = newobj
@@ -490,8 +489,8 @@ class StmGCTLS(object):
                   "in a root: unexpected GCFLAG_GLOBAL")
         ll_assert(localhdr.tid & GCFLAG_LOCAL_COPY != 0,
                   "in a root: missing GCFLAG_LOCAL_COPY")
-        ll_assert(localhdr.tid & GCFLAG_VISITED == 0,
-                  "in a root: unexpected GCFLAG_VISITED")
+        # localhdr.tid & GCFLAG_VISITED may be set or not so far, with no
+        # particular consequence, but we force it to be set from now on (below)
         globalhdr = self.gc.header(globalobj)
         ll_assert(globalhdr.tid & GCFLAG_GLOBAL != 0,
                   "in a root: GLOBAL: missing GCFLAG_GLOBAL")
@@ -522,13 +521,13 @@ class StmGCTLS(object):
         while old.non_empty():
             obj = old.pop()
             hdr = self.gc.header(obj)
-            ll_assert(hdr.tid & (GCFLAG_GLOBAL|GCFLAG_WAS_COPIED) == 0,
+            ll_assert(hdr.tid & (GCFLAG_GLOBAL|GCFLAG_LOCAL_COPY) == 0,
                       "local weakref: bad flags")
             if hdr.tid & GCFLAG_VISITED == 0:
                 continue # weakref itself dies
             #
             if self.is_in_nursery(obj):
-                obj = hdr.version
+                obj = hdr_revision(hdr)
                 #hdr = self.gc.header(obj) --- not needed any more
             offset = self.gc.weakpointer_offset(self.gc.get_type_id(obj))
             pointing_to = (obj + offset).address[0]
@@ -541,7 +540,7 @@ class StmGCTLS(object):
                 # the weakref points to an object that stays alive
                 if cat == 2:      # update the pointer if needed
                     pointing_hdr = self.gc.header(pointing_to)
-                    (obj + offset).address[0] = pointing_hdr.version
+                    (obj + offset).address[0] = hdr_revision(pointing_hdr)
                 new.append(obj)   # re-register in the new local_weakrefs list
         #
         self.local_weakrefs = new
@@ -552,7 +551,7 @@ class StmGCTLS(object):
         previous_sharedarea_tls.delete()
         while obj != NULL:
             hdr = self.gc.header(obj)
-            next = hdr.version
+            next = hdr_revision(hdr)
             if hdr.tid & GCFLAG_VISITED:
                 # survives: relink in the new sharedarea_tls
                 hdr.tid -= GCFLAG_VISITED
@@ -581,8 +580,8 @@ class StmGCTLS(object):
         hdr = self.gc.header(obj)
         ll_assert(hdr.tid & GCFLAG_GLOBAL != 0,
                   "debug_check: missing GLOBAL")
-        #ll_assert(hdr.tid & GCFLAG_WAS_COPIED == 0,
-        #          "debug_check: unexpected WAS_COPIED")
+        ll_assert(hdr.tid & GCFLAG_LOCAL_COPY == 0,
+                  "debug_check: unexpected LOCAL_COPY")
         ll_assert(hdr.tid & GCFLAG_VISITED == 0,
                   "debug_check: unexpected VISITED")
         ll_assert(hdr.tid & GCFLAG_HAS_SHADOW == 0,

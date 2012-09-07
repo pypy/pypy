@@ -190,7 +190,7 @@ class StmGCTests:
         hdr = self.gc.header(obj)
         assert (hdr.tid & GCFLAG_GLOBAL != 0) == must_have_global
         if must_have_was_copied != '?':
-            assert (hdr.tid & GCFLAG_WAS_COPIED != 0) == must_have_was_copied
+            assert (hdr.tid & GCFLAG_LOCAL_COPY != 0) == must_have_was_copied
         if must_have_version != '?':
             assert hdr.version == must_have_version
 

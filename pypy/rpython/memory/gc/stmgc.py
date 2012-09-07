@@ -59,7 +59,8 @@ first_gcflag = 1 << (LONG_BIT//2)
 #   - GCFLAG_LOCAL_COPY: see stmimpl.rst.  Used by C.
 #
 #   - GCFLAG_VISITED: used temporarily to mark local objects found to be
-#     surviving during a collection.
+#     surviving during a collection.  Between collections, it can remain
+#     set on the LOCAL COPY objects, but only on them.
 #
 #   - GCFLAG_HAS_SHADOW: set on nursery objects whose id() or identityhash()
 #     was taken.  Means that we already have a corresponding object allocated
@@ -306,10 +307,10 @@ class StmGC(MovingGCBase):
         flags |= GCFLAG_GLOBAL
         self.init_gc_object(addr, typeid16, flags)
 
-    def obj_revision(obj):
+    def obj_revision(self, obj):
         return hdr_revision(self.header(obj))
 
-    def set_obj_revision(obj, nrevision):
+    def set_obj_revision(self, obj, nrevision):
         set_hdr_revision(self.header(obj), nrevision)
 
     def stm_duplicate(self, obj):
@@ -349,12 +350,12 @@ class StmGC(MovingGCBase):
             # (It cannot be in the nursery of a different thread, because
             # such an object would not be visible to this thread at all.)
             #
-            ll_assert(hdr.tid & GCFLAG_WAS_COPIED == 0, "id: WAS_COPIED?")
+            ll_assert(hdr.tid & GCFLAG_LOCAL_COPY == 0, "id: LOCAL_COPY?")
             #
             if hdr.tid & GCFLAG_HAS_SHADOW == 0:
                 #
-                # We need to allocate a global object here.  We only allocate
-                # it for now; it is left completely uninitialized.
+                # We need to allocate a non-movable object here.  We only
+                # allocate it for now; it is left completely uninitialized.
                 size_gc_header = self.gcheaderbuilder.size_gc_header
                 size = self.get_size(obj)
                 totalsize = size_gc_header + size
@@ -372,10 +373,10 @@ class StmGC(MovingGCBase):
             #
             obj = fixedobj
             #
-        elif hdr.tid & (GCFLAG_GLOBAL|GCFLAG_WAS_COPIED) == GCFLAG_WAS_COPIED:
+        elif hdr.tid & (GCFLAG_GLOBAL|GCFLAG_LOCAL_COPY) == GCFLAG_LOCAL_COPY:
             #
             # The object is the local copy of a LOCAL-GLOBAL pair.
-            obj = hdr.version
+            obj = hdr_revision(hdr)
         #
         i = llmemory.cast_adr_to_int(obj)
         if is_hash:

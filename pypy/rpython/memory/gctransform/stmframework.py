@@ -9,15 +9,10 @@ from pypy.rlib.nonconst import NonConstant
 from pypy.rlib.objectmodel import specialize
 
 
-END_MARKER = -8      # keep in sync with src_stm/core.c
+END_MARKER = -8      # keep in sync with src_stm/rpyintf.c
 
 
 class StmFrameworkGCTransformer(FrameworkGCTransformer):
-
-    def transform_graph(self, graph):
-        self.vars_local_not_needed = set()
-        super(StmFrameworkGCTransformer, self).transform_graph(graph)
-        self.vars_local_not_needed = None
 
     def _declare_functions(self, GCClass, getfn, s_gc, *args):
         super(StmFrameworkGCTransformer, self)._declare_functions(
@@ -28,15 +23,15 @@ class StmFrameworkGCTransformer(FrameworkGCTransformer):
         self.stm_stop_ptr = getfn(
             self.gcdata.gc.stop_transaction.im_func,
             [s_gc], annmodel.s_None)
-        self.stm_writebarrier_ptr = getfn(
-            self.gcdata.gc.stm_writebarrier,
-            [annmodel.SomeAddress()], annmodel.SomeAddress())
-        self.stm_normalize_global_ptr = getfn(
-            self.gcdata.gc.stm_normalize_global,
-            [annmodel.SomeAddress()], annmodel.SomeAddress())
-        self.write_barrier_failing_case_ptr = getfn(
-            self.gcdata.gc._stm_write_barrier_global,
-            [annmodel.SomeAddress()], annmodel.SomeAddress())
+##        self.stm_writebarrier_ptr = getfn(
+##            self.gcdata.gc.stm_writebarrier,
+##            [annmodel.SomeAddress()], annmodel.SomeAddress())
+##        self.stm_normalize_global_ptr = getfn(
+##            self.gcdata.gc.stm_normalize_global,
+##            [annmodel.SomeAddress()], annmodel.SomeAddress())
+##        self.write_barrier_failing_case_ptr = getfn(
+##            self.gcdata.gc._stm_write_barrier_global,
+##            [annmodel.SomeAddress()], annmodel.SomeAddress())
 
     def build_root_walker(self):
         return StmShadowStackRootWalker(self)
@@ -52,23 +47,23 @@ class StmFrameworkGCTransformer(FrameworkGCTransformer):
                                  resulttype=llmemory.Address)
         hop.genop('adr_add', [v_gcdata_adr, c_ofs], resultvar=op.result)
 
-    def gct_stm_writebarrier(self, hop):
-        op = hop.spaceop
-        v_adr = hop.genop('cast_ptr_to_adr',
-                          [op.args[0]], resulttype=llmemory.Address)
-        v_localadr = hop.genop("direct_call",
-                               [self.stm_writebarrier_ptr, v_adr],
-                               resulttype=llmemory.Address)
-        hop.genop('cast_adr_to_ptr', [v_localadr], resultvar=op.result)
+##    def gct_stm_writebarrier(self, hop):
+##        op = hop.spaceop
+##        v_adr = hop.genop('cast_ptr_to_adr',
+##                          [op.args[0]], resulttype=llmemory.Address)
+##        v_localadr = hop.genop("direct_call",
+##                               [self.stm_writebarrier_ptr, v_adr],
+##                               resulttype=llmemory.Address)
+##        hop.genop('cast_adr_to_ptr', [v_localadr], resultvar=op.result)
 
-    def gct_stm_normalize_global(self, hop):
-        op = hop.spaceop
-        v_adr = hop.genop('cast_ptr_to_adr',
-                          [op.args[0]], resulttype=llmemory.Address)
-        v_globaladr = hop.genop("direct_call",
-                                [self.stm_normalize_global_ptr, v_adr],
-                                resulttype=llmemory.Address)
-        hop.genop('cast_adr_to_ptr', [v_globaladr], resultvar=op.result)
+##    def gct_stm_normalize_global(self, hop):
+##        op = hop.spaceop
+##        v_adr = hop.genop('cast_ptr_to_adr',
+##                          [op.args[0]], resulttype=llmemory.Address)
+##        v_globaladr = hop.genop("direct_call",
+##                                [self.stm_normalize_global_ptr, v_adr],
+##                                resulttype=llmemory.Address)
+##        hop.genop('cast_adr_to_ptr', [v_globaladr], resultvar=op.result)
 
     def gct_stm_start_transaction(self, hop):
         livevars = self.push_roots(hop)
@@ -80,14 +75,8 @@ class StmFrameworkGCTransformer(FrameworkGCTransformer):
         hop.genop("direct_call", [self.stm_stop_ptr, self.c_const_gc])
         self.pop_roots(hop, livevars)
 
-    def gct_stm_local_not_needed(self, hop):
-        # XXX make use of this info :-)
-        # for now, 'stm_local_not_needed' is not generated
-        # (INSERT_STM_LOCAL_NOT_NEEDED=False in translator/stm/transform)
-        self.vars_local_not_needed.update(hop.spaceop.args)
-
-    def gct_gc_store(self, hop):
-        hop.rename('stm_gc_store')
+##    def gct_gc_store(self, hop):
+##        hop.rename('stm_gc_store')
 
 
 class StmShadowStackRootWalker(BaseRootWalker):

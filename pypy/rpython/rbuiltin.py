@@ -675,6 +675,15 @@ def rtype_cast_adr_to_int(hop):
                      [adr, hop.inputconst(lltype.Void, mode)],
                      resulttype = lltype.Signed)
 
+def rtype_cast_adr_to_uint_symb(hop):
+    assert isinstance(hop.args_r[0], raddress.AddressRepr)
+    adr = hop.inputarg(hop.args_r[0], arg=0)
+    mode = "symbolic"
+    hop.exception_cannot_occur()
+    return hop.genop('cast_adr_to_int',
+                     [adr, hop.inputconst(lltype.Void, mode)],
+                     resulttype = lltype.Unsigned)
+
 def rtype_cast_int_to_adr(hop):
     v_input, = hop.inputargs(lltype.Signed)
     hop.exception_cannot_occur()
@@ -685,5 +694,5 @@ def rtype_cast_int_to_adr(hop):
 BUILTIN_TYPER[llmemory.cast_ptr_to_adr] = rtype_cast_ptr_to_adr
 BUILTIN_TYPER[llmemory.cast_adr_to_ptr] = rtype_cast_adr_to_ptr
 BUILTIN_TYPER[llmemory.cast_adr_to_int] = rtype_cast_adr_to_int
+BUILTIN_TYPER[llmemory.cast_adr_to_uint_symbolic] = rtype_cast_adr_to_uint_symb
 BUILTIN_TYPER[llmemory.cast_int_to_adr] = rtype_cast_int_to_adr
-

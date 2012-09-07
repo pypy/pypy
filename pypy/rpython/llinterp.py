@@ -781,9 +781,16 @@ class LLFrame(object):
         checkptr(ptr)
         return llmemory.cast_ptr_to_adr(ptr)
 
-    def op_cast_adr_to_int(self, adr, mode):
+    def op_cast_adr_to_int(self, RESTYPE, adr, mode):
         checkadr(adr)
-        return llmemory.cast_adr_to_int(adr, mode)
+        if RESTYPE is lltype.Signed:
+            return llmemory.cast_adr_to_int(adr, mode)
+        elif RESTYPE is lltype.Unsigned:
+            assert mode == "symbolic"
+            return llmemory.cast_adr_to_uint_symbolic(adr)
+        else:
+            raise TypeError('cast_adr_to_int -> %r' % (RESTYPE,))
+    op_cast_adr_to_int.need_result_type = True
 
     def op_convert_float_bytes_to_longlong(self, f):
         from pypy.rlib import longlong2float
