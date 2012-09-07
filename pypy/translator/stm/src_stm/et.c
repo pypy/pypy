@@ -498,6 +498,10 @@ static void FindRootsForLocalCollect(struct tx_descriptor *d)
       gcptr R = item->addr;
       gcptr L = item->val;
       assert(L->h_revision == (revision_t)R);
+      assert((L->h_tid & GCFLAG_GLOBAL) == 0);
+      assert(L->h_tid & GCFLAG_LOCAL_COPY);
+      assert((L->h_tid & GCFLAG_POSSIBLY_OUTDATED) == 0);
+
       L->h_tid &= ~GCFLAG_LOCAL_COPY;
       if (L->h_tid & GCFLAG_NOT_WRITTEN)
         {
@@ -508,6 +512,7 @@ static void FindRootsForLocalCollect(struct tx_descriptor *d)
           L->h_tid |= GCFLAG_GLOBAL | GCFLAG_NOT_WRITTEN;
           gcptrlist_insert2(&d->gcroots, L, (gcptr)0);
         }
+
     } G2L_LOOP_END;
   gcptrlist_insert(&d->gcroots, NULL);
   g2l_clear(&d->global_to_local);
