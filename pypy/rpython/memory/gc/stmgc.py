@@ -57,6 +57,7 @@ first_gcflag = 1 << (LONG_BIT//2)
 #   - GCFLAG_POSSIBLY_OUTDATED: see stmimpl.rst.  Used by C.
 #   - GCFLAG_NOT_WRITTEN: see stmimpl.rst.  Used by C.
 #   - GCFLAG_LOCAL_COPY: see stmimpl.rst.  Used by C.
+#     Note that GCFLAG_LOCAL_COPY and GCFLAG_GLOBAL are exclusive.
 #
 #   - GCFLAG_VISITED: used temporarily to mark local objects found to be
 #     surviving during a collection.  Between collections, it is set on
@@ -381,7 +382,7 @@ class StmGC(MovingGCBase):
             #
             obj = fixedobj
             #
-        elif hdr.tid & (GCFLAG_GLOBAL|GCFLAG_LOCAL_COPY) == GCFLAG_LOCAL_COPY:
+        elif hdr.tid & GCFLAG_LOCAL_COPY:
             #
             # The object is the local copy of a LOCAL-GLOBAL pair.
             obj = hdr_revision(hdr)

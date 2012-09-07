@@ -488,26 +488,29 @@ static void UpdateChainHeads(struct tx_descriptor *d, revision_t cur_time)
     }
 }
 
-static gcptr *FindRootsForLocalCollect(struct tx_descriptor *d)
+static void FindRootsForLocalCollect(struct tx_descriptor *d)
 {
   wlog_t *item;
-  if (d->gcroots.size != 0)
-    return d->gcroots.items;
+  assert(d->gcroots.size == 0);
 
   G2L_LOOP_FORWARD(d->global_to_local, item)
     {
       gcptr R = item->addr;
       gcptr L = item->val;
       assert(L->h_revision == (revision_t)R);
+      L->h_tid &= ~GCFLAG_LOCAL_COPY;
       if (L->h_tid & GCFLAG_NOT_WRITTEN)
         {
           L->h_tid |= GCFLAG_GLOBAL | GCFLAG_POSSIBLY_OUTDATED;
-          continue;
         }
-      gcptrlist_insert2(&d->gcroots, L, (gcptr)0);
+      else
+        {
+          L->h_tid |= GCFLAG_GLOBAL | GCFLAG_NOT_WRITTEN;
+          gcptrlist_insert2(&d->gcroots, L, (gcptr)0);
+        }
     } G2L_LOOP_END;
   gcptrlist_insert(&d->gcroots, NULL);
-  return d->gcroots.items;
+  g2l_clear(&d->global_to_local);
 }
 
 int _FakeReach(gcptr P)
@@ -517,6 +520,8 @@ int _FakeReach(gcptr P)
   P->h_tid |= GCFLAG_GLOBAL | GCFLAG_NOT_WRITTEN;
   if ((P->h_tid & GCFLAG_LOCAL_COPY) == 0)
     P->h_revision = 1;
+  else
+    P->h_tid &= ~GCFLAG_LOCAL_COPY;
   return 1;
 }
 
@@ -525,9 +530,8 @@ void CommitTransaction(void)
   revision_t cur_time;
   struct tx_descriptor *d = thread_descriptor;
   assert(d->active != 0);
-  if (d->gcroots.size == 0)
-    FindRootsForLocalCollect(d);   /* for tests */
 
+  FindRootsForLocalCollect(d);
   AcquireLocks(d);
 
   if (is_inevitable(d))
@@ -565,7 +569,6 @@ void CommitTransaction(void)
   /* we cannot abort any more from here */
   d->setjmp_buf = NULL;
   gcptrlist_clear(&d->list_of_read_objects);
-  g2l_clear(&d->global_to_local);
   fxcache_clear(&d->recent_reads_cache);
 
   UpdateChainHeads(d, cur_time);
