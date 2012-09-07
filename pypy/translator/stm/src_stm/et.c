@@ -502,7 +502,9 @@ static void FindRootsForLocalCollect(struct tx_descriptor *d)
       assert(L->h_tid & GCFLAG_LOCAL_COPY);
       assert((L->h_tid & GCFLAG_POSSIBLY_OUTDATED) == 0);
 
-      L->h_tid &= ~GCFLAG_LOCAL_COPY;
+      /* GCFLAG_VISITED is only used by stmgc, but it's convenient to
+       * remove that flag from here */
+      L->h_tid &= ~(GCFLAG_VISITED | GCFLAG_LOCAL_COPY);
       if (L->h_tid & GCFLAG_NOT_WRITTEN)
         {
           L->h_tid |= GCFLAG_GLOBAL | GCFLAG_POSSIBLY_OUTDATED;

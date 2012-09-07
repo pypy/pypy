@@ -123,7 +123,7 @@ class StmGCTLS(object):
         # At this point, all visible objects are GLOBAL, but newly
         # malloced objects will be LOCAL.
         if self.gc.DEBUG:
-            self.check_all_global_objects()
+            self.check_all_global_objects(False)
         #self.relocalize_from_stack()
 
     def stop_transaction(self):
@@ -137,7 +137,7 @@ class StmGCTLS(object):
         self._promote_locals_to_globals()
         self._disable_mallocs()
         if self.gc.DEBUG:
-            self.check_all_global_objects()
+            self.check_all_global_objects(True)
 
     def local_nursery_is_empty(self):
         ll_assert(bool(self.nursery_free),
@@ -273,15 +273,7 @@ class StmGCTLS(object):
             hdr.tid |= GCFLAG_GLOBAL | GCFLAG_NOT_WRITTEN
             self._clear_version_for_global_object(hdr)
         #
-        while self.copied_local_objects.non_empty():
-            obj = self.copied_local_objects.pop()
-            hdr = self.gc.header(obj)
-            ll_assert(hdr.tid & GCFLAG_LOCAL_COPY, "missing LOCAL_COPY [0]")
-            ll_assert(hdr.tid & GCFLAG_GLOBAL == 0, "already GLOBAL [0]")
-            ll_assert(hdr.tid & GCFLAG_VISITED, "missing VISITED [0]")
-            hdr.tid |= GCFLAG_GLOBAL | GCFLAG_NOT_WRITTEN
-            hdr.tid &= ~(GCFLAG_VISITED | GCFLAG_LOCAL_COPY)
-            # don't touch 'revision' in this case
+        self.copied_local_objects.clear()
 
     def _clear_version_for_global_object(self, hdr):
         # Reset the 'version' to initialize a newly global object.
@@ -583,10 +575,14 @@ class StmGCTLS(object):
         if self.debug_seen.contains(obj):
             return
         hdr = self.gc.header(obj)
-        ll_assert(hdr.tid & GCFLAG_GLOBAL != 0,
-                  "debug_check: missing GLOBAL")
-        ll_assert(hdr.tid & GCFLAG_LOCAL_COPY == 0,
-                  "debug_check: unexpected LOCAL_COPY")
+        is_global = hdr.tid & GCFLAG_GLOBAL != 0
+        is_local_copy = hdr.tid & GCFLAG_LOCAL_COPY != 0
+        if not self._allow_local_copy:
+            ll_assert(is_global, "debug_check: missing GLOBAL")
+        if is_global:
+            ll_assert(not is_local_copy, "debug_check: unexpected LOCAL_COPY")
+        else:
+            ll_assert(is_local_copy, "debug_check: missing LOCAL_COPY")
         ll_assert(hdr.tid & GCFLAG_VISITED == 0,
                   "debug_check: unexpected VISITED")
         ll_assert(hdr.tid & GCFLAG_HAS_SHADOW == 0,
@@ -595,9 +591,10 @@ class StmGCTLS(object):
         self.pending.append(obj)
         self.debug_seen.setitem(obj, obj)
 
-    def check_all_global_objects(self):
+    def check_all_global_objects(self, allow_local_copy):
         self.pending = self.AddressStack()
         self.debug_seen = self.AddressDict()
+        self._allow_local_copy = allow_local_copy
         self.gc.root_walker.walk_current_stack_roots(
             StmGCTLS._debug_check_all_global_from_stack_1, self)
         while self.pending.non_empty():

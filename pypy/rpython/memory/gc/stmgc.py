@@ -121,7 +121,7 @@ GCFLAG_GLOBAL            = first_gcflag << 0     # keep in sync with et.h
 GCFLAG_POSSIBLY_OUTDATED = first_gcflag << 1     # keep in sync with et.h
 GCFLAG_NOT_WRITTEN       = first_gcflag << 2     # keep in sync with et.h
 GCFLAG_LOCAL_COPY        = first_gcflag << 3     # keep in sync with et.h
-GCFLAG_VISITED           = first_gcflag << 4
+GCFLAG_VISITED           = first_gcflag << 4     # keep in sync with et.h
 GCFLAG_HAS_SHADOW        = first_gcflag << 5
 GCFLAG_FIXED_HASH        = first_gcflag << 6
 
