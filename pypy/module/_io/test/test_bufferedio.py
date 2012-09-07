@@ -1,3 +1,4 @@
+from __future__ import with_statement
 from pypy.conftest import gettestobjspace, option
 from pypy.interpreter.gateway import interp2app
 from pypy.tool.udir import udir
@@ -336,9 +337,14 @@ class AppTestBufferedWriter:
                     except ValueError:
                         pass
                     else:
-                        self._blocker_char = None
-                        self._write_stack.append(b[:n])
-                        raise _io.BlockingIOError(0, "test blocking", n)
+                        if n > 0:
+                            # write data up to the first blocker
+                            self._write_stack.append(b[:n])
+                            return n
+                        else:
+                            # cancel blocker and indicate would block
+                            self._blocker_char = None
+                            return None
                 self._write_stack.append(b)
                 return len(b)
 
@@ -366,6 +372,69 @@ class AppTestBufferedWriter:
         s = raw.pop_written()
         # Previously buffered bytes were flushed
         assert s.startswith("01234567A")
+
+    def test_nonblock_pipe_write_bigbuf(self):
+        self.test_nonblock_pipe_write(16*1024)
+
+    def test_nonblock_pipe_write_smallbuf(self):
+        self.test_nonblock_pipe_write(1024)
+
+    def w_test_nonblock_pipe_write(self, bufsize):
+        import _io as io
+        class NonBlockingPipe(io._BufferedIOBase):
+            "write() returns None when buffer is full"
+            def __init__(self, buffersize=4096):
+                self.buffersize = buffersize
+                self.buffer = b''
+            def readable(self): return True
+            def writable(self): return True
+
+            def write(self, data):
+                available = self.buffersize - len(self.buffer)
+                if available <= 0:
+                    return None
+                self.buffer += data[:available]
+                return min(len(data), available)
+            def read(self, size=-1):
+                if not self.buffer:
+                    return None
+                if size == -1:
+                    size = len(self.buffer)
+                data = self.buffer[:size]
+                self.buffer = self.buffer[size:]
+                return data
+
+        sent = []
+        received = []
+        pipe = NonBlockingPipe()
+        rf = io.BufferedReader(pipe, bufsize)
+        wf = io.BufferedWriter(pipe, bufsize)
+
+        for N in 9999, 7574:
+            try:
+                i = 0
+                while True:
+                    msg = chr(i % 26 + 97) * N
+                    sent.append(msg)
+                    wf.write(msg)
+                    i += 1
+            except io.BlockingIOError as e:
+                sent[-1] = sent[-1][:e.characters_written]
+                received.append(rf.read())
+                msg = b'BLOCKED'
+                wf.write(msg)
+                sent.append(msg)
+        while True:
+            try:
+                wf.flush()
+                break
+            except io.BlockingIOError as e:
+                received.append(rf.read())
+        received += iter(rf.read, None)
+        rf.close()
+        wf.close()
+        sent, received = b''.join(sent), b''.join(received)
+        assert sent == received
 
     def test_read_non_blocking(self):
         import _io
@@ -514,6 +583,44 @@ class AppTestBufferedRandom:
                 expected[i] = 1
                 assert raw.getvalue() == str(expected)
         
+    def test_interleaved_read_write(self):
+        import _io as io
+        # Test for issue #12213
+        with io.BytesIO(b'abcdefgh') as raw:
+            with io.BufferedRandom(raw, 100) as f:
+                f.write(b"1")
+                assert f.read(1) == b'b'
+                f.write(b'2')
+                assert f.read1(1) == b'd'
+                f.write(b'3')
+                buf = bytearray(1)
+                f.readinto(buf)
+                assert buf ==  b'f'
+                f.write(b'4')
+                assert f.peek(1) == b'h'
+                f.flush()
+                assert raw.getvalue() == b'1b2d3f4h'
+
+        with io.BytesIO(b'abc') as raw:
+            with io.BufferedRandom(raw, 100) as f:
+                assert f.read(1) == b'a'
+                f.write(b"2")
+                assert f.read(1) == b'c'
+                f.flush()
+                assert raw.getvalue() == b'a2c'
+
+    def test_interleaved_readline_write(self):
+        import _io as io
+        with io.BytesIO(b'ab\ncdef\ng\n') as raw:
+            with io.BufferedRandom(raw) as f:
+                f.write(b'1')
+                assert f.readline() == b'b\n'
+                f.write(b'2')
+                assert f.readline() == b'def\n'
+                f.write(b'3')
+                assert f.readline() == b'\n'
+                f.flush()
+                assert raw.getvalue() == b'1b\n2def\n3\n'
 
 class TestNonReentrantLock:
     def test_trylock(self):

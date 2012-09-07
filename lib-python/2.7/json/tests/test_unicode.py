@@ -86,6 +86,10 @@ class TestUnicode(object):
         self.assertEqual(self.dumps(['\xb1\xe6'], encoding='iso8859-2'),
                          '["\\u0105\\u0107"]')
 
+    def test_bad_encoding(self):
+        self.assertRaises(UnicodeEncodeError, self.loads, '"a"', u"rat\xe9")
+        self.assertRaises(TypeError, self.loads, '"a"', 1)
+
 
 class TestPyUnicode(TestUnicode, PyTest): pass
 class TestCUnicode(TestUnicode, CTest): pass

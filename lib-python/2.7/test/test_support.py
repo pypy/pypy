@@ -36,8 +36,8 @@ __all__ = ["Error", "TestFailed", "ResourceDenied", "import_module",
            "BasicTestRunner", "run_unittest", "run_doctest", "threading_setup",
            "threading_cleanup", "reap_children", "cpython_only",
            "check_impl_detail", "get_attribute", "py3k_bytes",
-           "import_fresh_module"]
-
+           "import_fresh_module", "threading_cleanup", "reap_children",
+           "strip_python_stderr"]
 
 class Error(Exception):
     """Base class for regression test exceptions."""
@@ -767,6 +767,8 @@ def transient_internet(resource_name, timeout=30.0, errnos=()):
         ('ETIMEDOUT', 110),
     ]
     default_gai_errnos = [
+        ('EAI_AGAIN', -3),
+        ('EAI_FAIL', -4),
         ('EAI_NONAME', -2),
         ('EAI_NODATA', -5),
     ]
@@ -836,6 +838,9 @@ def captured_stdout():
        self.assertEqual(s.getvalue(), "hello")
     """
     return captured_output("stdout")
+
+def captured_stderr():
+    return captured_output("stderr")
 
 def captured_stdin():
     return captured_output("stdin")

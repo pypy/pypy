@@ -31,9 +31,11 @@ class OsEnvironController(Controller):
 
     def delitem(self, obj, key):
         # in the RPython program, 'del os.environ[key]' is redirected here
-        if r_getenv(key) is None:
-            raise KeyError
+        absent = r_getenv(key) is None
+        # Always call unsetenv(), to get eventual OSErrors
         r_unsetenv(key)
+        if absent:
+            raise KeyError
 
     def get_keys(self, obj):
         # 'os.environ.keys' is redirected here - note that it's the getattr

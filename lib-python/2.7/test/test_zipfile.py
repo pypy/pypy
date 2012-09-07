@@ -335,6 +335,24 @@ class TestsWithSourceFile(unittest.TestCase):
             with zipfile.ZipFile(f, "r") as zipfp:
                 self.assertEqual(zipfp.namelist(), [TESTFN])
 
+    def test_ignores_newline_at_end(self):
+        with zipfile.ZipFile(TESTFN2, "w", zipfile.ZIP_STORED) as zipfp:
+            zipfp.write(TESTFN, TESTFN)
+        with open(TESTFN2, 'a') as f:
+            f.write("\r\n\00\00\00")
+        with zipfile.ZipFile(TESTFN2, "r") as zipfp:
+            self.assertIsInstance(zipfp, zipfile.ZipFile)
+
+    def test_ignores_stuff_appended_past_comments(self):
+        with zipfile.ZipFile(TESTFN2, "w", zipfile.ZIP_STORED) as zipfp:
+            zipfp.comment = b"this is a comment"
+            zipfp.write(TESTFN, TESTFN)
+        with open(TESTFN2, 'a') as f:
+            f.write("abcdef\r\n")
+        with zipfile.ZipFile(TESTFN2, "r") as zipfp:
+            self.assertIsInstance(zipfp, zipfile.ZipFile)
+            self.assertEqual(zipfp.comment, b"this is a comment")
+
     def test_write_default_name(self):
         """Check that calling ZipFile.write without arcname specified
         produces the expected result."""
@@ -458,6 +476,12 @@ class TestsWithSourceFile(unittest.TestCase):
                 raise zipfile.BadZipfile()
         except zipfile.BadZipfile:
             self.assertTrue(zipfp2.fp is None, 'zipfp is not closed')
+
+    def test_add_file_before_1980(self):
+        # Set atime and mtime to 1970-01-01
+        os.utime(TESTFN, (0, 0))
+        with zipfile.ZipFile(TESTFN2, "w") as zipfp:
+            self.assertRaises(ValueError, zipfp.write, TESTFN)
 
     def tearDown(self):
         unlink(TESTFN)
@@ -971,6 +995,10 @@ class OtherTests(unittest.TestCase):
         with open(TESTFN, 'w') as f:
             pass
         self.assertRaises(zipfile.BadZipfile, zipfile.ZipFile, TESTFN, 'r')
+
+    def test_create_zipinfo_before_1980(self):
+        self.assertRaises(ValueError,
+                          zipfile.ZipInfo, 'seventies', (1979, 1, 1, 0, 0, 0))
 
     def tearDown(self):
         unlink(TESTFN)
