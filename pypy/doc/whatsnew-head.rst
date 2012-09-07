@@ -28,6 +28,8 @@ Start to clean up a bit the flow object space.
 .. branch: ffi-backend
 Support CFFI.  http://morepypy.blogspot.ch/2012/08/cffi-release-03.html
 .. branch: speedup-unpackiterable
+.. branch: stdlib-2.7.3
+The stdlib was updated to version 2.7.3
 
 
 .. "uninteresting" branches that we should just ignore for the whatsnew:
