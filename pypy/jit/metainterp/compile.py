@@ -84,10 +84,7 @@ def record_loop_or_bridge(metainterp_sd, loop):
             if descr.original_jitcell_token is not original_jitcell_token:
                 assert descr.original_jitcell_token is not None
                 original_jitcell_token.record_jump_to(descr.original_jitcell_token)
-            # exported_state is clear by optimizeopt when the short preamble is
-            # constrcucted. if that did not happen the label should not show up
-            # in a trace that will be used
-            assert descr.exported_state is None 
+            descr.exported_state = None 
             if not we_are_translated():
                 op._descr_wref = weakref.ref(op._descr)
             op.cleardescr()    # clear reference to prevent the history.Stats
@@ -195,8 +192,6 @@ def compile_retrace(metainterp, greenkey, start,
     orignial_label = partial_trace.operations[-1].clone()
     original_target_token = orignial_label.getdescr()
     assert isinstance(original_target_token, TargetToken)
-    original_short_preamble = original_target_token.short_preamble
-    original_target_token.short_preamble = None
 
     h_ops = history.operations
 
@@ -254,7 +249,6 @@ def compile_retrace(metainterp, greenkey, start,
                 preamble.operations.append(ResOperation(rop.SAME_AS, [a1], a2))
 
     except InvalidLoop:
-        original_target_token.short_preamble = original_short_preamble
         preamble.operations = [orignial_label] + \
                               [ResOperation(rop.JUMP, inputargs[:],
                                             None, descr=loop_jitcell_token)]

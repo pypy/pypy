@@ -176,8 +176,6 @@ class UnrollOptimizer(Optimization):
             
         values = [self.getvalue(arg) for arg in jump_args]
         inputargs = virtual_state.make_inputargs(values, self.optimizer)
-        short_inputargs = virtual_state.make_inputargs(values, self.optimizer, keyboxes=True)
-
 
         if self.boxes_created_this_iteration is not None:
             for box in self.inputargs:
@@ -199,8 +197,6 @@ class UnrollOptimizer(Optimization):
         assert isinstance(target_token, TargetToken)
         targetop.initarglist(inputargs)
         target_token.virtual_state = virtual_state
-        target_token.short_preamble = [ResOperation(rop.LABEL, short_inputargs, None)]
-        target_token.resume_at_jump_descr = resume_at_jump_descr
 
         exported_values = {}
         for box in inputargs:
@@ -211,7 +207,7 @@ class UnrollOptimizer(Optimization):
                 exported_values[box] = self.optimizer.getvalue(box)
             
         target_token.exported_state = ExportedState(short_boxes, inputarg_setup_ops,
-                                                    exported_values, jump_args)
+                                                    exported_values, jump_args, resume_at_jump_descr)
 
     def import_state(self, targetop):
         if not targetop: # Trace did not start with a label
@@ -232,13 +228,9 @@ class UnrollOptimizer(Optimization):
             self.initial_virtual_state = virtual_state
             return
         
-        if target_token.short_preamble:
-            self.short = target_token.short_preamble[:]
-        else:
-            self.short = None
         self.short_seen = {}
         self.short_boxes = exported_state.short_boxes
-        self.short_resume_at_jump_descr = target_token.resume_at_jump_descr
+        self.short_resume_at_jump_descr = exported_state.resume_at_jump_descr
         self.initial_virtual_state = target_token.virtual_state
 
         seen = {}
@@ -281,6 +273,10 @@ class UnrollOptimizer(Optimization):
                     
         self.optimizer.flush()
         self.optimizer.emitting_dissabled = False
+
+        values = [self.getvalue(a) for a in exported_state.jump_args]
+        short_inputargs = self.initial_virtual_state.make_inputargs(values, self.optimizer, keyboxes=True)
+        self.short = [ResOperation(rop.LABEL, short_inputargs, None)]
 
         if exported_state.generalize_virtual_state:
             # XXX: Hack
@@ -447,7 +443,7 @@ class UnrollOptimizer(Optimization):
             if op.is_guard():
                 op = op.clone()
                 op.setfailargs(None)
-                descr = target_token.resume_at_jump_descr.clone_if_mutable()
+                descr = self.short_resume_at_jump_descr.clone_if_mutable()
                 op.setdescr(descr)
                 short[i] = op
 
@@ -470,7 +466,7 @@ class UnrollOptimizer(Optimization):
             if op.result and op.result in self.short_boxes.assumed_classes:
                 target_token.assumed_classes[newop.result] = self.short_boxes.assumed_classes[op.result]
             short[i] = newop
-        target_token.resume_at_jump_descr = target_token.resume_at_jump_descr.clone_if_mutable()
+        target_token.resume_at_jump_descr = self.short_resume_at_jump_descr.clone_if_mutable()
         inliner.inline_descr_inplace(target_token.resume_at_jump_descr)
 
         # Forget the values to allow them to be freed
@@ -480,7 +476,6 @@ class UnrollOptimizer(Optimization):
             if op.result:
                 op.result.forget_value()
         target_token.short_preamble = self.short
-        target_token.exported_state = None
 
     def ensure_short_op_emitted(self, op, optimizer, seen):
         if op is None:
@@ -650,9 +645,10 @@ class ValueImporter(object):
         self.unroll.add_op_to_short(self.op, False, True)        
 
 class ExportedState(object):
-    def __init__(self, short_boxes, inputarg_setup_ops, exported_values, jump_args):
+    def __init__(self, short_boxes, inputarg_setup_ops, exported_values, jump_args, resume_at_jump_descr):
         self.short_boxes = short_boxes
         self.inputarg_setup_ops = inputarg_setup_ops
         self.exported_values = exported_values
         self.jump_args = jump_args
         self.generalize_virtual_state = None
+        self.resume_at_jump_descr = resume_at_jump_descr
