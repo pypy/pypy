@@ -11,7 +11,7 @@ import unittest
 import subprocess
 
 from test import test_support
-from test.test_support import impl_detail
+from test.test_support import impl_detail, check_impl_detail
 from collections import Hashable
 
 IS_64BIT = (struct.calcsize('l') == 8)
@@ -173,6 +173,11 @@ class HashRandomizationTests(unittest.TestCase):
         self.assertNotEqual(run1, run2)
 
 class StringlikeHashRandomizationTests(HashRandomizationTests):
+    if check_impl_detail(pypy=True):
+        EMPTY_STRING_HASH = -1
+    else:
+        EMPTY_STRING_HASH = 0
+
     def test_null_hash(self):
         # PYTHONHASHSEED=0 disables the randomized hash
         if IS_64BIT:
@@ -205,19 +210,19 @@ class StrHashRandomizationTests(StringlikeHashRandomizationTests):
     repr_ = repr('abc')
 
     def test_empty_string(self):
-        self.assertEqual(hash(""), 0)
+        self.assertEqual(hash(""), self.EMPTY_STRING_HASH)
 
 class UnicodeHashRandomizationTests(StringlikeHashRandomizationTests):
     repr_ = repr(u'abc')
 
     def test_empty_string(self):
-        self.assertEqual(hash(u""), 0)
+        self.assertEqual(hash(u""), self.EMPTY_STRING_HASH)
 
 class BufferHashRandomizationTests(StringlikeHashRandomizationTests):
     repr_ = 'buffer("abc")'
 
     def test_empty_string(self):
-        self.assertEqual(hash(buffer("")), 0)
+        self.assertEqual(hash(buffer("")), self.EMPTY_STRING_HASH)
 
 class DatetimeTests(HashRandomizationTests):
     def get_hash_command(self, repr_):
