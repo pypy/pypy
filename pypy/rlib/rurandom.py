@@ -7,6 +7,9 @@ import errno
 
 if sys.platform == 'win32':
     from pypy.rlib import rwin32
+    from pypy.translator.tool.cbuild import ExternalCompilationInfo
+    from pypy.rpython.tool import rffi_platform
+    from pypy.rpython.lltypesystem import lltype, rffi
 
     eci = ExternalCompilationInfo(
         includes = ['windows.h', 'wincrypt.h'],
@@ -43,7 +46,7 @@ if sys.platform == 'win32':
         "Acquire context."
         # This handle is never explicitly released. The operating
         # system will release it when the process terminates.
-        with lltype.scoped_malloc(rffi.CArray(HCRYPTPROV), 1) as ptr:
+        with lltype.scoped_alloc(rffi.CArray(HCRYPTPROV), 1) as ptr:
             if not CryptAcquireContext(
                 ptr, None, None,
                 PROV_RSA_FULL, CRYPT_VERIFYCONTEXT):
