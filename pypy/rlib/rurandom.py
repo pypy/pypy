@@ -59,7 +59,7 @@ if sys.platform == 'win32':
         with lltype.scoped_alloc(rffi.CArray(rwin32.BYTE), n,
                                  zero=True, # zero seed
                                  ) as buf:
-            if not CryptGenRandom(provider, n, buf):
+            if not CryptGenRandom(rffi.cast(HCRYPTPROV, provider), n, buf):
                 raise rwin32.lastWindowsError("CryptGenRandom")
 
             return rffi.charpsize2str(rffi.cast(rffi.CCHARP, buf), n)
