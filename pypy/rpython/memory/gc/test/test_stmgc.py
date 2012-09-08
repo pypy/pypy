@@ -222,10 +222,10 @@ class StmGCTests:
         else:
             L = self.gc._stm_duplicate(R)
             hdr = self.gc.header(L)
-            assert hdr.tid & GCFLAG_GLOBAL
-            hdr.tid &= ~(GCFLAG_GLOBAL | GCFLAG_POSSIBLY_OUTDATED)
+            assert hdr.tid & GCFLAG_GLOBAL == 0
+            assert hdr.tid & GCFLAG_POSSIBLY_OUTDATED == 0
+            assert hdr.tid & GCFLAG_LOCAL_COPY
             assert hdr.tid & GCFLAG_NOT_WRITTEN
-            hdr.tid |= GCFLAG_LOCAL_COPY
             set_hdr_revision(hdr, R)     # back-reference to the original
             self.gc.stm_operations.tldict_add(R, L)
             self.gc.stm_operations._transactional_copies.append((R, L))
@@ -583,10 +583,12 @@ class TestBasic(StmGCTests):
         s, s_adr = self.malloc(S)
         i = self.gc.identityhash(s)
         assert i == mangle_hash(llmemory.cast_adr_to_int(s_adr))
+        self.gc.collect(0)
+        assert self.gc.identityhash(s) == i
 
     def test_hash_of_globallocal(self):
         s, s_adr = self.malloc(S, globl=True)
-        t_adr = self.gc.stm_writebarrier(s_adr)   # make a local copy
+        t_adr = self.stm_writebarrier(s_adr)   # make a local copy
         t = llmemory.cast_adr_to_ptr(t_adr, llmemory.GCREF)
         i = self.gc.identityhash(t)
         assert i == mangle_hash(llmemory.cast_adr_to_int(s_adr))

@@ -2,7 +2,6 @@ from pypy.rpython.lltypesystem import lltype, llmemory, llarena, llgroup
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.lltypesystem.llmemory import raw_malloc_usage, raw_memcopy
 from pypy.rpython.memory.gc.base import GCBase, MovingGCBase
-from pypy.rpython.memory.support import mangle_hash
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rlib.rarithmetic import LONG_BIT, r_uint
 from pypy.rlib.debug import ll_assert, debug_start, debug_stop, fatalerror
@@ -63,11 +62,7 @@ first_gcflag = 1 << (LONG_BIT//2)
 #     surviving during a collection.  Between collections, it is set on
 #     the LOCAL COPY objects, but only on them.
 #
-#   - GCFLAG_HAS_SHADOW: set on nursery objects whose id() or identityhash()
-#     was taken.  Means that we already have a corresponding object allocated
-#     outside the nursery.
-#
-#   - GCFLAG_FIXED_HASH: only on some prebuilt objects.  For identityhash().
+#   - GCFLAG_HASH01, GCFLAG_HASH02: to handle hashes
 #
 # Invariant: between two transactions, all objects visible from the current
 # thread are always GLOBAL.  In particular:
@@ -100,10 +95,6 @@ first_gcflag = 1 << (LONG_BIT//2)
 #   - for local objects with GCFLAG_LOCAL_COPY, it points to the GLOBAL
 #     original (*).
 #
-#   - if GCFLAG_HAS_SHADOW, it points to the shadow object outside the
-#     nursery (!). (It is not used on other nursery objects before
-#     collection.)
-#
 #   - it contains the 'next' object of the 'sharedarea_tls.chained_list'
 #     list, which describes all LOCAL objects malloced outside the
 #     nursery (!).
@@ -122,11 +113,22 @@ GCFLAG_POSSIBLY_OUTDATED = first_gcflag << 1     # keep in sync with et.h
 GCFLAG_NOT_WRITTEN       = first_gcflag << 2     # keep in sync with et.h
 GCFLAG_LOCAL_COPY        = first_gcflag << 3     # keep in sync with et.h
 GCFLAG_VISITED           = first_gcflag << 4     # keep in sync with et.h
-GCFLAG_HAS_SHADOW        = first_gcflag << 5
-GCFLAG_FIXED_HASH        = first_gcflag << 6
+GCFLAG_HASH01            = first_gcflag << 5
+GCFLAG_HASH02            = first_gcflag << 6
+GCFLAG_HASHMASK          = GCFLAG_HASH01 | GCFLAG_HASH02
 
-GCFLAG_PREBUILT          = GCFLAG_GLOBAL | GCFLAG_NOT_WRITTEN
+GCFLAG_PREBUILT          = GCFLAG_GLOBAL | GCFLAG_NOT_WRITTEN | GCFLAG_HASH01
 REV_INITIAL              = r_uint(1)
+
+# the two flags GCFLAG_HASH0n together give one of the following four cases:
+#   - nobody ever asked for the hash of the object
+GC_HASH_NOTTAKEN   = 0
+#   - someone asked, and we gave the address of the object + mangle_hash
+GC_HASH_TAKEN_ADDR = GCFLAG_HASH01
+#   - someone asked, and we gave the address + nursery_hash_base + mangle_hash
+GC_HASH_TAKEN_NURS = GCFLAG_HASH02
+#   - we have our own extra field to store the hash
+GC_HASH_HASFIELD   = GCFLAG_HASH01 | GCFLAG_HASH02
 
 
 def always_inline(fn):
@@ -147,7 +149,10 @@ class StmGC(MovingGCBase):
     HDR = lltype.Struct('header', ('tid', lltype.Signed),
                                   ('revision', lltype.Unsigned))
     typeid_is_in_field = 'tid'
-    withhash_flag_is_in_field = 'tid', GCFLAG_FIXED_HASH
+    withhash_flag_is_in_field = 'tid', GCFLAG_HASH02
+    # ^^^ prebuilt objects either have GC_HASH_TAKEN_ADDR or they
+    #     have GC_HASH_HASFIELD (and then they are one word longer).
+    #     The difference between the two cases is GCFLAG_HASH02.
 
     TRANSLATION_PARAMS = {
         'stm_operations': 'use_real_one',
@@ -298,6 +303,13 @@ class StmGC(MovingGCBase):
         tid = self.header(obj).tid
         return llop.extract_ushort(llgroup.HALFWORD, tid)
 
+    def get_size_incl_hash(self, obj):
+        size = self.get_size(obj)
+        hdr = self.header(obj)
+        if (hdr.tid & GCFLAG_HASHMASK) == GC_HASH_HASFIELD:
+            size += llmemory.sizeof(lltype.Signed)
+        return size
+
     @always_inline
     def combine(self, typeid16, flags):
         return llop.combine_ushort(lltype.Signed, typeid16, flags)
@@ -320,12 +332,10 @@ class StmGC(MovingGCBase):
         set_hdr_revision(self.header(obj), nrevision)
 
     def stm_duplicate(self, obj):
-        size_gc_header = self.gcheaderbuilder.size_gc_header
-        size = self.get_size(obj)
-        totalsize = size_gc_header + size
         tls = self.get_tls()
         try:
-            localobj = tls.malloc_local_copy(totalsize)
+            localobj = tls.duplicate_obj(obj, self.get_size(obj))
+            tls.copied_local_objects.append(localobj)     # XXX KILL
         except MemoryError:
             # should not really let the exception propagate.
             # XXX do something slightly better, like abort the transaction
@@ -333,11 +343,6 @@ class StmGC(MovingGCBase):
             fatalerror("FIXME: MemoryError in stm_duplicate")
             return llmemory.NULL
         #
-        # Initialize the copy by doing a memcpy of the bytes.
-        # The object header of localobj will then be fixed by the C code.
-        llmemory.raw_memcopy(obj - size_gc_header,
-                             localobj - size_gc_header,
-                             totalsize)
         hdr = self.header(localobj)
         hdr.tid &= ~(GCFLAG_GLOBAL | GCFLAG_POSSIBLY_OUTDATED)
         hdr.tid |= (GCFLAG_VISITED | GCFLAG_LOCAL_COPY)
@@ -346,69 +351,23 @@ class StmGC(MovingGCBase):
     # ----------
     # id() and identityhash() support
 
-    def id_or_identityhash(self, gcobj, is_hash):
-        """Implement the common logic of id() and identityhash()
-        of an object, given as a GCREF.
-        """
-        obj = llmemory.cast_ptr_to_adr(gcobj)
-        hdr = self.header(obj)
-        tls = self.get_tls()
-        if tls.is_in_nursery(obj):
-            #
-            # The object is still in the nursery of the current TLS.
-            # (It cannot be in the nursery of a different thread, because
-            # such an object would not be visible to this thread at all.)
-            #
-            ll_assert(hdr.tid & GCFLAG_LOCAL_COPY == 0, "id: LOCAL_COPY?")
-            #
-            if hdr.tid & GCFLAG_HAS_SHADOW == 0:
-                #
-                # We need to allocate a non-movable object here.  We only
-                # allocate it for now; it is left completely uninitialized.
-                size_gc_header = self.gcheaderbuilder.size_gc_header
-                size = self.get_size(obj)
-                totalsize = size_gc_header + size
-                fixedobj = tls.sharedarea_tls.malloc_object(totalsize)
-                tls.sharedarea_tls.add_regular(fixedobj)
-                self.header(fixedobj).tid = 0     # GCFLAG_VISITED is off
-                #
-                # Update the header of the local 'obj'
-                hdr.tid |= GCFLAG_HAS_SHADOW
-                set_hdr_revision(hdr, fixedobj)
-                #
-            else:
-                # There is already a corresponding fixedobj
-                fixedobj = hdr_revision(hdr)
-            #
-            obj = fixedobj
-            #
-        elif hdr.tid & GCFLAG_LOCAL_COPY:
-            #
-            # The object is the local copy of a LOCAL-GLOBAL pair.
-            obj = hdr_revision(hdr)
-        #
-        i = llmemory.cast_adr_to_int(obj)
-        if is_hash:
-            # For identityhash(), we need a special case for some
-            # prebuilt objects: their hash must be the same before
-            # and after translation.  It is stored as an extra word
-            # after the object.  But we cannot use it for id()
-            # because the stored value might clash with a real one.
-            if self.header(obj).tid & GCFLAG_FIXED_HASH:
-                size = self.get_size(obj)
-                i = (obj + size).signed[0]
-            else:
-                # mangle the hash value to increase the dispertion
-                # on the trailing bits, but only if !GCFLAG_FIXED_HASH
-                i = mangle_hash(i)
-        return i
-
     def id(self, gcobj):
-        return self.id_or_identityhash(gcobj, False)
+        """NOT IMPLEMENTED! XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"""
+        return self.identityhash(gcobj)
 
     def identityhash(self, gcobj):
-        return self.id_or_identityhash(gcobj, True)
-
+        stmtls = self.get_tls()
+        obj = llmemory.cast_ptr_to_adr(gcobj)
+        hdr = self.header(obj)
+        if hdr.tid & GCFLAG_HASHMASK == 0:
+            # set one of the GC_HASH_TAKEN_xxx flags.
+            if stmtls.is_in_nursery(obj):
+                hdr.tid |= GC_HASH_TAKEN_NURS
+            else:
+                hdr.tid |= GC_HASH_TAKEN_ADDR
+        # Compute and return the result
+        objsize = self.get_size(obj)
+        return stmtls._get_object_hash(obj, objsize, hdr.tid)
 
 # ____________________________________________________________
 # helpers

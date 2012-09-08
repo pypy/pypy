@@ -4,15 +4,18 @@ from pypy.rpython.annlowlevel import cast_instance_to_base_ptr, llhelper
 from pypy.rpython.annlowlevel import cast_base_ptr_to_instance, base_ptr_lltype
 from pypy.rlib.objectmodel import we_are_translated, free_non_gc_object
 from pypy.rlib.objectmodel import specialize
-from pypy.rlib.rarithmetic import r_uint
+from pypy.rlib.rarithmetic import r_uint, intmask
 from pypy.rlib.debug import ll_assert, debug_start, debug_stop, fatalerror
+from pypy.rpython.memory.support import mangle_hash
 
 from pypy.rpython.memory.gc.stmgc import WORD, NULL
 from pypy.rpython.memory.gc.stmgc import always_inline, dont_inline
 from pypy.rpython.memory.gc.stmgc import GCFLAG_GLOBAL, GCFLAG_VISITED
-from pypy.rpython.memory.gc.stmgc import GCFLAG_LOCAL_COPY, GCFLAG_HAS_SHADOW
+from pypy.rpython.memory.gc.stmgc import GCFLAG_LOCAL_COPY
 from pypy.rpython.memory.gc.stmgc import GCFLAG_POSSIBLY_OUTDATED
 from pypy.rpython.memory.gc.stmgc import GCFLAG_NOT_WRITTEN
+from pypy.rpython.memory.gc.stmgc import GCFLAG_HASHMASK, GC_HASH_TAKEN_ADDR
+from pypy.rpython.memory.gc.stmgc import GC_HASH_TAKEN_NURS, GC_HASH_HASFIELD
 from pypy.rpython.memory.gc.stmgc import hdr_revision, set_hdr_revision
 
 
@@ -23,6 +26,7 @@ class StmGCTLS(object):
     _alloc_flavor_ = 'raw'
 
     nontranslated_dict = {}
+    nursery_hash_base = -1
 
     def __init__(self, gc):
         self.gc = gc
@@ -209,8 +213,20 @@ class StmGCTLS(object):
         size_used = self.nursery_free - self.nursery_start
         llarena.arena_reset(self.nursery_start, size_used, 2)
         self.nursery_free = self.nursery_start
+        self.change_nursery_hash_base()    # the nursery is empty now
         #
         debug_stop("gc-local")
+
+    def change_nursery_hash_base(self):
+        # The following should be enough to ensure that young objects
+        # tend to always get a different hash.  It also makes sure that
+        # nursery_hash_base is not a multiple of 4, to avoid collisions
+        # with the hash of non-young objects.
+        hash_base = self.nursery_hash_base
+        hash_base += self.nursery_size - 1
+        if (hash_base & 3) == 0:
+            hash_base -= 1
+        self.nursery_hash_base = intmask(hash_base)
 
     # ------------------------------------------------------------
 
@@ -244,13 +260,6 @@ class StmGCTLS(object):
                   "odd-valued (i.e. tagged) pointer unexpected here")
         return self.nursery_start <= addr < self.nursery_top
 
-    def malloc_local_copy(self, totalsize):
-        """Allocate an object that will be used as a LOCAL COPY of
-        some GLOBAL object."""
-        localobj = self.sharedarea_tls.malloc_object(totalsize)
-        self.copied_local_objects.append(localobj)     # XXX KILL
-        return localobj
-
     def fresh_new_weakref(self, obj):
         self.local_weakrefs.append(obj)
 
@@ -271,12 +280,12 @@ class StmGCTLS(object):
             ll_assert(hdr.tid & GCFLAG_VISITED == 0, "unexpected VISITED [1]")
             ll_assert(hdr.tid & GCFLAG_LOCAL_COPY == 0,"already LOCAL_COPY [1]")
             hdr.tid |= GCFLAG_GLOBAL | GCFLAG_NOT_WRITTEN
-            self._clear_version_for_global_object(hdr)
+            self._clear_revision_for_global_object(hdr)
         #
         self.copied_local_objects.clear()
 
-    def _clear_version_for_global_object(self, hdr):
-        # Reset the 'version' to initialize a newly global object.
+    def _clear_revision_for_global_object(self, hdr):
+        # Reset the 'revision' to initialize a newly global object.
         # When translated with C code, we set it to 1.
         # When non-translated, we reset it instead to '_uninitialized'
         # to simulate the fact that the C code might change it.
@@ -404,50 +413,24 @@ class StmGCTLS(object):
             return
         #
         # If 'obj' was already forwarded, change it to its forwarding address.
-        # If 'obj' has already a shadow but isn't forwarded so far, use it.
-        # The common case is the "else" part, so we use only one test to
-        # know if we are in the common case or not.
-        if hdr.tid & (GCFLAG_VISITED | GCFLAG_HAS_SHADOW):
-            #
-            if hdr.tid & GCFLAG_VISITED:
-                root.address[0] = hdr_revision(hdr)
-                return
-            #
-            # Case of GCFLAG_HAS_SHADOW.  See comments below.
-            size_gc_header = self.gc.gcheaderbuilder.size_gc_header
-            totalsize = size_gc_header + size
-            hdr.tid &= ~GCFLAG_HAS_SHADOW
-            newobj = hdr_revision(hdr)
-            newhdr = self.gc.header(newobj)
-            #
-            saved_version = hdr_revision(newhdr)
-            llmemory.raw_memcopy(obj - size_gc_header,
-                                 newobj - size_gc_header,
-                                 totalsize)
-            set_hdr_revision(newhdr, saved_version)
-            newhdr.tid = hdr.tid | GCFLAG_VISITED
-            #
-        else:
-            #
-            # First visit to 'obj': we must move this YOUNG obj out of the
-            # nursery.
-            size_gc_header = self.gc.gcheaderbuilder.size_gc_header
-            totalsize = size_gc_header + size
-            #
-            # Common case: allocate a new nonmovable location for it.
-            newobj = self._malloc_out_of_nursery(totalsize)
-            #
-            # Copy it.  Note that references to other objects in the
-            # nursery are kept unchanged in this step.
-            llmemory.raw_memcopy(obj - size_gc_header,
-                                 newobj - size_gc_header,
-                                 totalsize)
-            #
-            # Register the object here, not before the memcopy() that would
-            # overwrite its 'version' field
-            self._register_newly_malloced_obj(newobj)
+        if hdr.tid & GCFLAG_VISITED:
+            root.address[0] = hdr_revision(hdr)
+            return
         #
-        # Set the YOUNG copy's GCFLAG_VISITED and set its version to
+        # First visit to 'obj': we must move this YOUNG obj out of the
+        # nursery.  This is the common case.  Allocate a new location
+        # for it outside the nursery.
+        newobj = self.duplicate_obj(obj, size)
+        #
+        # Note that references from 'obj' to other objects in the
+        # nursery are kept unchanged in this step: they are copied
+        # verbatim to 'newobj'.
+        #
+        # Register the object here, not before the memcopy() that would
+        # overwrite its 'revision' field
+        self._register_newly_malloced_obj(newobj)
+        #
+        # Set the YOUNG copy's GCFLAG_VISITED and set its revision to
         # point to the OLD copy.
         hdr.tid |= GCFLAG_VISITED
         set_hdr_revision(hdr, newobj)
@@ -461,8 +444,45 @@ class StmGCTLS(object):
         # walk 'pending_list'.
         self.pending.append(newobj)
 
-    def _malloc_out_of_nursery(self, totalsize):
-        return self.sharedarea_tls.malloc_object(totalsize)
+    def duplicate_obj(self, obj, objsize):
+        size_gc_header = self.gc.gcheaderbuilder.size_gc_header
+        totalsize_without_hash = size_gc_header + objsize
+        if self.gc.header(obj).tid & GCFLAG_HASHMASK:
+            newtotalsize = totalsize_without_hash + (
+                llmemory.sizeof(lltype.Signed))
+        else:
+            newtotalsize = totalsize_without_hash
+        #
+        newobj = self.sharedarea_tls.malloc_object(newtotalsize)
+        #
+        # Initialize the copy by doing a memcpy of the bytes.
+        # The object header of localobj will then be fixed by the C code.
+        llmemory.raw_memcopy(obj - size_gc_header,
+                             newobj - size_gc_header,
+                             totalsize_without_hash)
+        #
+        newhdr = self.gc.header(newobj)
+        if newhdr.tid & GCFLAG_HASHMASK:
+            hash = self._get_object_hash(obj, objsize, newhdr.tid)
+            newaddr = llarena.getfakearenaaddress(newobj)
+            (newaddr + objsize).signed[0] = hash
+            newhdr.tid |= GC_HASH_HASFIELD
+        #
+        return newobj
+
+    def _get_object_hash(self, obj, objsize, tid):
+        # Returns the hash of the object, which must not be GC_HASH_NOTTAKEN.
+        gc_hash = tid & GCFLAG_HASHMASK
+        if gc_hash == GC_HASH_HASFIELD:
+            obj = llarena.getfakearenaaddress(obj)
+            return (obj + objsize).signed[0]
+        elif gc_hash == GC_HASH_TAKEN_ADDR:
+            return mangle_hash(llmemory.cast_adr_to_int(obj))
+        elif gc_hash == GC_HASH_TAKEN_NURS:
+            return mangle_hash(intmask(llmemory.cast_adr_to_int(obj) +
+                                       self.nursery_hash_base))
+        else:
+            assert 0, "gc_hash == GC_HASH_NOTTAKEN"
 
     def _register_newly_malloced_obj(self, obj):
         self.sharedarea_tls.add_regular(obj)
