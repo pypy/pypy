@@ -1,6 +1,7 @@
 """The urandom() function, suitable for cryptographic use.
 """
 
+from __future__ import with_statement
 import os, sys
 import errno
 
@@ -84,7 +85,7 @@ else:  # Posix implementation
             while n > 0:
                 try:
                     data = os.read(fd, n)
-                except OSError as e:
+                except OSError, e:
                     if e.errno != errno.EINTR:
                         raise
                     data = ''
