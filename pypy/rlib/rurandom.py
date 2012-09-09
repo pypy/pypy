@@ -43,23 +43,28 @@ if sys.platform == 'win32':
         compilation_info=eci)
 
     def init_urandom():
-        "Acquire context."
-        # This handle is never explicitly released. The operating
-        # system will release it when the process terminates.
-        with lltype.scoped_alloc(rffi.CArray(HCRYPTPROV), 1) as ptr:
-            if not CryptAcquireContext(
-                ptr, None, None,
-                PROV_RSA_FULL, CRYPT_VERIFYCONTEXT):
-                raise rwin32.lastWindowsError("CryptAcquireContext")
-            return ptr[0]
+        """NOT_RPYTHON
+        Return an array of one HCRYPTPROV, initialized to NULL.
+        It is filled automatically the first time urandom() is called.
+        """
+        return lltype.malloc(rffi.CArray(HCRYPTPROV), 1,
+                             immortal=True, zero=True)
 
     def urandom(context, n):
-        provider = context
+        provider = context[0]
+        if not provider:
+            # This handle is never explicitly released. The operating
+            # system will release it when the process terminates.
+            if not CryptAcquireContext(
+                context, None, None,
+                PROV_RSA_FULL, CRYPT_VERIFYCONTEXT):
+                raise rwin32.lastWindowsError("CryptAcquireContext")
+            provider = context[0]
         # TODO(win64) This is limited to 2**31
         with lltype.scoped_alloc(rffi.CArray(rwin32.BYTE), n,
                                  zero=True, # zero seed
                                  ) as buf:
-            if not CryptGenRandom(rffi.cast(HCRYPTPROV, provider), n, buf):
+            if not CryptGenRandom(provider, n, buf):
                 raise rwin32.lastWindowsError("CryptGenRandom")
 
             return rffi.charpsize2str(rffi.cast(rffi.CCHARP, buf), n)

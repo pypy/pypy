@@ -500,7 +500,9 @@ class State:
     def _freeze_(self):
         # don't capture the environment in the translated pypy
         self.space.call_method(self.w_environ, 'clear')
-        self.random_context = None
+        # also reset random_context to a fresh new context (empty so far,
+        # to be filled at run-time by rurandom.urandom())
+        self.random_context = rurandom.init_urandom()
         return True
 
 def get(space):
