@@ -450,7 +450,7 @@ class AppTestTypes(BaseNumpyAppTest):
         real, imag, should = (1e100, 3e66, '(1e+100+3e+66j)')
         c128 = numpy.complex128(complex(real, imag))
         assert type(c128.real) is type(c128.imag)
-        assert type(c128.real) is float
+        assert type(c128.real) is numpy.float64
         assert c128.real == real
         assert c128.imag == imag
         assert repr(c128) == should
@@ -464,6 +464,7 @@ class AppTestTypes(BaseNumpyAppTest):
 
         assert numpy.complex128(1.2) == numpy.complex128(complex(1.2, 0))
         assert numpy.complex64(1.2) == numpy.complex64(complex(1.2, 0))
+        raises (TypeError, numpy.array, [3+4j], dtype=float)
 
     def test_complex(self):
         import _numpypy as numpy
