@@ -200,7 +200,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert isnan(fabs(float('nan')))
 
     def test_fmax(self):
-        from _numpypy import fmax
+        from _numpypy import fmax, array
         import math
 
         nnan, nan, inf, ninf = float('-nan'), float('nan'), float('inf'), float('-inf')
@@ -209,14 +209,38 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert (fmax(a, [ninf]*5) == a).all()
         assert (fmax(a, [inf]*5) == [inf]*5).all()
         assert (fmax(a, [1]*5) == [1, 1, 1, 5, inf]).all()
-        assert math.isnan(fmax(nan, 0))
-        assert math.isnan(fmax(0, nan))
+        assert fmax(nan, 0) == 0
+        assert fmax(0, nan) == 0
         assert math.isnan(fmax(nan, nan))
         # The numpy docs specify that the FIRST NaN should be used if both are NaN
         # Since comparisons with nnan and nan all return false,
         # use copysign on both sides to sidestep bug in nan representaion
         # on Microsoft win32
         assert math.copysign(1., fmax(nnan, nan)) == math.copysign(1., nnan)
+
+        a = array((complex(ninf, 10), complex(10, ninf), 
+                   complex( inf, 10), complex(10,  inf),
+                   5+5j, 5-5j, -5+5j, -5-5j,
+                   0+5j, 0-5j, 5, -5,
+                   complex(nan, 0), complex(0, nan)), dtype = complex)
+        b = [ninf]*a.size
+        res = [a[0 ], a[1 ], a[2 ], a[3 ], 
+               a[4 ], a[5 ], a[6 ], a[7 ],
+               a[8 ], a[9 ], a[10], a[11],
+               b[12], b[13]]
+        assert (fmax(a, b) == res).all()
+        b = [inf]*a.size
+        res = [b[0 ], b[1 ], a[2 ], b[3 ], 
+               b[4 ], b[5 ], b[6 ], b[7 ],
+               b[8 ], b[9 ], b[10], b[11],
+               b[12], b[13]]
+        assert (fmax(a, b) == res).all()
+        b = [0]*a.size
+        res = [b[0 ], a[1 ], a[2 ], a[3 ], 
+               a[4 ], a[5 ], b[6 ], b[7 ],
+               a[8 ], b[9 ], a[10], b[11],
+               b[12], b[13]]
+        assert (fmax(a, b) == res).all()
 
 
     def test_fmin(self):
@@ -308,6 +332,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             [False, False, False, False, False]).all()
         assert (signbit([-0, -0.0, -1, -1.0, float('-inf')]) ==
             [False,  True,  True,  True,  True]).all()
+
         skip('sign of nan is non-determinant')
         assert (signbit([float('nan'), float('-nan'), -float('nan')]) ==
             [False, True, True]).all()    
@@ -1042,7 +1067,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert repr(abs(complex(float('nan'), float('nan')))) == 'nan'
 
         assert False, 'untested: ' + \
-                     'signbit, fabs, fmax, fmin, floor, ceil, trunc, ' + \
+                     'fabs, fmax, fmin, floor, ceil, trunc, ' + \
                      'exp2, expm1, isnan, isinf, isneginf, isposinf, ' + \
                      'isfinite, radians, degrees, log2, log1p, ' + \
                      'logaddexp, npy_log2_1p, logaddexp2'

@@ -647,9 +647,9 @@ class Float(Primitive):
 
     @simple_binary_op
     def fmax(self, v1, v2):
-        if math.isnan(v1):
+        if math.isnan(v2):
             return v1
-        elif math.isnan(v2):
+        elif math.isnan(v1):
             return v2
         return max(v1, v2)
 
@@ -1147,29 +1147,23 @@ class ComplexFloating(object):
             return 1,0
         return -1,0
 
-    @raw_unary_op
-    def signbit(self, v):
-        return rfloat.copysign(1.0, v) < 0.0
-
-    @complex_unary_op
-    def fabs(self, v):
-        return rcomplex.abs(*v)
-
-    @simple_binary_op
     def fmax(self, v1, v2):
-        if math.isnan(v1):
+        if self.isnan(v2):
             return v1
-        elif math.isnan(v2):
+        elif self.isnan(v1):
             return v2
-        return max(v1, v2)
+        if v1 >= v2:
+            return v1
+        return v2
 
-    @simple_binary_op
     def fmin(self, v1, v2):
-        if math.isnan(v1):
+        if math.isnan(v2):
             return v1
-        elif math.isnan(v2):
+        elif math.isnan(v1):
             return v2
-        return min(v1, v2)
+        if v1 <= v2:
+            return v1
+        return v2
 
     #@simple_binary_op
     #def fmod(self, v1, v2):
