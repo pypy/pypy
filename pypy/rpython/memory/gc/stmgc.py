@@ -357,6 +357,15 @@ class StmGC(MovingGCBase):
             # XXX improve hash(nursery_object)
             return mangle_hash(llmemory.cast_adr_to_int(obj))
 
+    def can_move(self, obj):
+        tls = self.get_tls()
+        if tls.is_in_nursery(addr):
+            return True
+        else:
+            # XXX for now a pointer to a non-nursery object is
+            # always valid, as long as we don't have global collections
+            return False
+
 # ____________________________________________________________
 # helpers
 
