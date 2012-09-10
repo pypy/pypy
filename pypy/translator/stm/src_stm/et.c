@@ -18,6 +18,8 @@
 #define PYPY_DEBUG_STOP(s)      fprintf(stderr, " stop: %s\n", s)
 #define PYPY_HAVE_DEBUG_PRINTS  1
 #define PYPY_DEBUG_FILE         stderr
+#else
+#define RPY_STM_DEBUG_PRINT     1    /* for now */
 #endif
 
 #include "et.h"
