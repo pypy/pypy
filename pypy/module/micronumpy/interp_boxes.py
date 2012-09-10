@@ -34,6 +34,8 @@ class PrimitiveBox(object):
     def convert_to(self, dtype):
         return dtype.box(self.value)
 
+    def is_true(self):
+        return bool(self.value)
 
 class W_GenericBox(Wrappable):
     _attrs_ = ()
@@ -142,7 +144,6 @@ class W_GenericBox(Wrappable):
 
     def item(self, space):
         return self.get_dtype(space).itemtype.to_builtin_type(space, self)
-
 
 class W_BoolBox(W_GenericBox, PrimitiveBox):
     descr__new__, _get_dtype = new_dtype_getter("bool")

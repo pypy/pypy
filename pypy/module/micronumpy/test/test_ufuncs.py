@@ -113,6 +113,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert (divide(array([-10]), array([2])) == array([-5])).all()
 
     def test_true_divide(self):
+        import math
         from _numpypy import array, true_divide
 
         a = array([0, 1, 2, 3, 4, 1, -1])
@@ -626,14 +627,16 @@ class AppTestUfuncs(BaseNumpyAppTest):
             ]:
                 assert ufunc(a, b) == func(a, b)
 
-    def test_count_nonzero(self):
-        from _numpypy import where, count_nonzero, arange
-        a = arange(10)
-        assert count_nonzero(a) == 9
-        a[9] = 0
-        assert count_nonzero(a) == 8
 
-    def test_true_divide(self):
+    def test_count_nonzero(self):
+        from _numpypy import count_nonzero
+        assert count_nonzero(0) == 0
+        assert count_nonzero(1) == 1
+        assert count_nonzero([]) == 0
+        assert count_nonzero([1, 2, 0]) == 2
+        assert count_nonzero([[1, 2, 0], [1, 0, 2]]) == 4
+
+    def test_true_divide_2(self):
         from _numpypy import arange, array, true_divide
         assert (true_divide(arange(3), array([2, 2, 2])) == array([0, 0.5, 1])).all()
 

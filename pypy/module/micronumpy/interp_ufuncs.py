@@ -148,8 +148,7 @@ class W_Ufunc(Wrappable):
         obj = convert_to_array(space, w_obj)
         obj_shape = obj.get_shape()
         if obj.is_scalar():
-            raise OperationError(space.w_TypeError, space.wrap("cannot reduce "
-                "on a scalar"))
+            return obj.get_scalar_value()
         shapelen = len(obj_shape)
         axis = unwrap_axis_arg(space, shapelen, w_axis)    
         assert axis>=0

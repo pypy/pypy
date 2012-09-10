@@ -31,6 +31,7 @@ class Module(MixedModule):
         'concatenate': 'interp_arrayops.concatenate',
         'repeat': 'interp_arrayops.repeat',
         'where': 'interp_arrayops.where',
+        'count_nonzero': 'interp_arrayops.count_nonzero',
 
         'set_string_function': 'appbridge.set_string_function',
 

@@ -136,3 +136,6 @@ def repeat(space, w_arr, repeats, w_axis=None):
                                  orig_size)
             Chunks(chunks).apply(res.implementation).implementation.setslice(space, arr)
     return res
+
+def count_nonzero(space, w_obj):
+    return space.wrap(loop.count_all_true(convert_to_array(space, w_obj)))
