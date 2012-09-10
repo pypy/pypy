@@ -8,7 +8,7 @@ import weakref
 from pypy.rlib.objectmodel import Symbolic
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool.uid import uid
-from pypy.rlib.rarithmetic import is_valid_int
+from pypy.rlib.rarithmetic import is_valid_int, r_uint
 
 
 class AddressOffset(Symbolic):

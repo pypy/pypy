@@ -354,6 +354,7 @@ class StmGC(MovingGCBase):
             obj = llarena.getfakearenaaddress(obj)
             return (obj + objsize).signed[0]
         else:
+            # XXX improve hash(nursery_object)
             return mangle_hash(llmemory.cast_adr_to_int(obj))
 
 # ____________________________________________________________

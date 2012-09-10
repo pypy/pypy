@@ -16,6 +16,8 @@ from pypy.rpython.memory.gc.stmgc import GCFLAG_NOT_WRITTEN
 from pypy.rpython.memory.gc.stmgc import GCFLAG_HASH_FIELD, REV_FLAG_NEW_HASH
 from pypy.rpython.memory.gc.stmgc import hdr_revision, set_hdr_revision
 
+SIZE_OF_SIGNED = llmemory.sizeof(lltype.Signed)
+
 
 class StmGCTLS(object):
     """The thread-local structure: we have one instance of these per thread,
@@ -441,18 +443,21 @@ class StmGCTLS(object):
         else:
             newtotalsize = totalsize_without_hash
         #
-        newobj = self.sharedarea_tls.malloc_object(newtotalsize)
+        newaddr = self.sharedarea_tls.malloc_object(newtotalsize)
         #
         # Initialize the copy by doing a memcpy of the bytes.
         # The object header of localobj will then be fixed by the C code.
+        llarena.arena_reserve(newaddr, totalsize_without_hash)
         llmemory.raw_memcopy(obj - size_gc_header,
-                             newobj - size_gc_header,
+                             newaddr,
                              totalsize_without_hash)
+        newobj = newaddr + size_gc_header
         #
         if has_hash:
             hash = self.gc._get_object_hash(obj)
-            newaddr = llarena.getfakearenaaddress(newobj)
-            (newaddr + objsize).signed[0] = hash
+            hashaddr = llarena.getfakearenaaddress(newobj) + objsize
+            llarena.arena_reserve(hashaddr, SIZE_OF_SIGNED)
+            hashaddr.signed[0] = hash
             self.gc.header(newobj).tid |= GCFLAG_HASH_FIELD
         #
         return newobj

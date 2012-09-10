@@ -29,9 +29,7 @@ class StmGCThreadLocalAllocator(object):
     def malloc_object(self, totalsize):
         """Malloc.  You should also call add_regular() later, or keep it in
         some other data structure.  Note that it is not zero-filled."""
-        adr1 = llarena.arena_malloc(llmemory.raw_malloc_usage(totalsize), 0)
-        llarena.arena_reserve(adr1, totalsize)
-        return adr1 + self.gc.gcheaderbuilder.size_gc_header
+        return llarena.arena_malloc(llmemory.raw_malloc_usage(totalsize), 0)
 
     def add_regular(self, obj):
         """After malloc_object(), register the object in the internal chained
