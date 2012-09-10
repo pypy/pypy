@@ -655,9 +655,9 @@ class Float(Primitive):
 
     @simple_binary_op
     def fmin(self, v1, v2):
-        if math.isnan(v1):
+        if math.isnan(v2):
             return v1
-        elif math.isnan(v2):
+        elif math.isnan(v1):
             return v2
         return min(v1, v2)
 

@@ -190,7 +190,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert math.isnan(true_divide(0, 0))
 
     def test_fabs(self):
-        from _numpypy import array, fabs
+        from _numpypy import array, fabs, complex128
         from math import fabs as math_fabs, isnan
 
         a = array([-5.0, -0.0, 1.0])
@@ -200,6 +200,10 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert fabs(float('inf')) == float('inf')
         assert fabs(float('-inf')) == float('inf')
         assert isnan(fabs(float('nan')))
+
+        a = complex128(complex(-5., 5.))
+        raises(TypeError, fabs, a)
+
 
     def test_fmax(self):
         from _numpypy import fmax, array
@@ -246,7 +250,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
 
     def test_fmin(self):
-        from _numpypy import fmin
+        from _numpypy import fmin, array
         import math
 
         nnan, nan, inf, ninf = float('-nan'), float('nan'), float('inf'), float('-inf')
@@ -255,13 +259,38 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert (fmin(a, [ninf]*5) == [ninf]*5).all()
         assert (fmin(a, [inf]*5) == a).all()
         assert (fmin(a, [1]*5) == [ninf, -5, 0, 1, 1]).all()
-        assert math.isnan(fmin(nan, 0))
-        assert math.isnan(fmin(0, nan))
+        assert fmin(nan, 0) == 0
+        assert fmin(0, nan) == 0
         assert math.isnan(fmin(nan, nan))
         # The numpy docs specify that the FIRST NaN should be used if both are NaN
         # use copysign on both sides to sidestep bug in nan representaion
         # on Microsoft win32
         assert math.copysign(1., fmin(nnan, nan)) == math.copysign(1., nnan)
+
+        a = array((complex(ninf, 10), complex(10, ninf), 
+                   complex( inf, 10), complex(10,  inf),
+                   5+5j, 5-5j, -5+5j, -5-5j,
+                   0+5j, 0-5j, 5, -5,
+                   complex(nan, 0), complex(0, nan)), dtype = complex)
+        b = [inf]*a.size
+        res = [a[0 ], a[1 ], b[2 ], a[3 ], 
+               a[4 ], a[5 ], a[6 ], a[7 ],
+               a[8 ], a[9 ], a[10], a[11],
+               b[12], b[13]]
+        assert (fmin(a, b) == res).all()
+        b = [ninf]*a.size
+        res = [b[0 ], b[1 ], b[2 ], b[3 ], 
+               b[4 ], b[5 ], b[6 ], b[7 ],
+               b[8 ], b[9 ], b[10], b[11],
+               b[12], b[13]]
+        assert (fmin(a, b) == res).all()
+        b = [0]*a.size
+        res = [a[0 ], b[1 ], b[2 ], b[3 ], 
+               b[4 ], b[5 ], a[6 ], a[7 ],
+               b[8 ], a[9 ], b[10], a[11],
+               b[12], b[13]]
+        assert (fmin(a, b) == res).all()
+
 
     def test_fmod(self):
         from _numpypy import fmod
@@ -1062,7 +1091,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert repr(abs(complex(float('nan'), float('nan')))) == 'nan'
 
         assert False, 'untested: ' + \
-                     'fabs, fmax, fmin, floor, ceil, trunc, ' + \
+                     'floor, ceil, trunc, ' + \
                      'exp2, expm1, isnan, isinf, isneginf, isposinf, ' + \
                      'isfinite, radians, degrees, log2, log1p, ' + \
                      'logaddexp, npy_log2_1p, logaddexp2'
