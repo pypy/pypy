@@ -555,6 +555,7 @@ class AppTestFfi:
         raises(ValueError, "lib.ptr('get_char', [], 'x')")
         raises(ValueError, "_rawffi.Structure(['x1', 'xx'])")
         raises(ValueError, _rawffi.Structure, [('x1', 'xx')])
+        raises(TypeError, _rawffi.Structure, [(u'\xe9', 'l')])
         raises(ValueError, "_rawffi.Array('xx')")
 
     def test_longs_ulongs(self):

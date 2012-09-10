@@ -460,7 +460,7 @@ _active = []
 def _cleanup():
     for inst in _active[:]:
         res = inst._internal_poll(_deadstate=sys.maxint)
-        if res is not None and res >= 0:
+        if res is not None:
             try:
                 _active.remove(inst)
             except ValueError:
@@ -476,7 +476,7 @@ def _eintr_retry_call(func, *args):
     while True:
         try:
             return func(*args)
-        except OSError, e:
+        except (OSError, IOError) as e:
             if e.errno == errno.EINTR:
                 continue
             raise
@@ -707,7 +707,10 @@ class Popen(object):
 
 
     def __del__(self, _maxint=sys.maxint, _active=_active):
-        if not self._child_created:
+        # If __init__ hasn't had a chance to execute (e.g. if it
+        # was passed an undeclared keyword argument), we don't
+        # have a _child_created attribute at all.
+        if not getattr(self, '_child_created', False):
             # We didn't get to successfully create a child process.
             return
         # In case the child hasn't been waited on, check if it's done.
@@ -740,10 +743,10 @@ class Popen(object):
                             raise
                 self.stdin.close()
             elif self.stdout:
-                stdout = self.stdout.read()
+                stdout = _eintr_retry_call(self.stdout.read)
                 self.stdout.close()
             elif self.stderr:
-                stderr = self.stderr.read()
+                stderr = _eintr_retry_call(self.stderr.read)
                 self.stderr.close()
             self.wait()
             return (stdout, stderr)
@@ -1036,7 +1039,7 @@ class Popen(object):
             if stdin is None:
                 pass
             elif stdin == PIPE:
-                p2cread, p2cwrite = os.pipe()
+                p2cread, p2cwrite = self.pipe_cloexec()
             elif isinstance(stdin, int):
                 p2cread = stdin
             else:
@@ -1046,7 +1049,7 @@ class Popen(object):
             if stdout is None:
                 pass
             elif stdout == PIPE:
-                c2pread, c2pwrite = os.pipe()
+                c2pread, c2pwrite = self.pipe_cloexec()
             elif isinstance(stdout, int):
                 c2pwrite = stdout
             else:
@@ -1056,7 +1059,7 @@ class Popen(object):
             if stderr is None:
                 pass
             elif stderr == PIPE:
-                errread, errwrite = os.pipe()
+                errread, errwrite = self.pipe_cloexec()
             elif stderr == STDOUT:
                 errwrite = c2pwrite
             elif isinstance(stderr, int):
@@ -1081,6 +1084,18 @@ class Popen(object):
                 fcntl.fcntl(fd, fcntl.F_SETFD, old | cloexec_flag)
             else:
                 fcntl.fcntl(fd, fcntl.F_SETFD, old & ~cloexec_flag)
+
+
+        def pipe_cloexec(self):
+            """Create a pipe with FDs set CLOEXEC."""
+            # Pipes' FDs are set CLOEXEC by default because we don't want them
+            # to be inherited by other subprocesses: the CLOEXEC flag is removed
+            # from the child's FDs by _dup2(), between fork() and exec().
+            # This is not atomic: we would need the pipe2() syscall for that.
+            r, w = os.pipe()
+            self._set_cloexec_flag(r)
+            self._set_cloexec_flag(w)
+            return r, w
 
 
         def _close_fds(self, but):
@@ -1121,11 +1136,9 @@ class Popen(object):
             # For transferring possible exec failure from child to parent
             # The first char specifies the exception type: 0 means
             # OSError, 1 means some other error.
-            errpipe_read, errpipe_write = os.pipe()
+            errpipe_read, errpipe_write = self.pipe_cloexec()
             try:
                 try:
-                    self._set_cloexec_flag(errpipe_write)
-
                     gc_was_enabled = gc.isenabled()
                     # Disable gc to avoid bug where gc -> file_dealloc ->
                     # write to stderr -> hang.  http://bugs.python.org/issue1336
@@ -1148,6 +1161,14 @@ class Popen(object):
                             if errread is not None:
                                 os.close(errread)
                             os.close(errpipe_read)
+
+                            # When duping fds, if there arises a situation
+                            # where one of the fds is either 0, 1 or 2, it
+                            # is possible that it is overwritten (#12607).
+                            if c2pwrite == 0:
+                                c2pwrite = os.dup(c2pwrite)
+                            if errwrite == 0 or errwrite == 1:
+                                errwrite = os.dup(errwrite)
 
                             # Dup fds for child
                             def _dup2(a, b):
