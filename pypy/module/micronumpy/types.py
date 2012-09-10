@@ -1126,10 +1126,11 @@ class ComplexFloating(object):
     def pow(self, v1, v2):
         return rcomplex.c_pow(v1, v2)
 
-    @complex_binary_op
-    def copysign(self, v1, v2):
-        return (rfloat.copysign(v1[0], v2[0]),
-               rfloat.copysign(v1[1], v2[1]))
+    #complex copysign does not exist in numpy
+    #@complex_binary_op
+    #def copysign(self, v1, v2):
+    #    return (rfloat.copysign(v1[0], v2[0]),
+    #           rfloat.copysign(v1[1], v2[1]))
 
     @complex_unary_op
     def sign(self, v):

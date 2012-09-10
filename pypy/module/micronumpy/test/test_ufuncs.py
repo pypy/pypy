@@ -58,8 +58,10 @@ class AppTestUfuncs(BaseNumpyAppTest):
     def setup_class(cls):
         import os
         BaseNumpyAppTest.setup_class.im_func(cls)
-        fname = os.path.join(os.path.dirname(__file__), 'complex_testcases.txt')
-        cls.w_testcases = cls.space.wrap(fname)
+        fname128 = os.path.join(os.path.dirname(__file__), 'complex_testcases.txt')
+        fname64 = os.path.join(os.path.dirname(__file__), 'complex64_testcases.txt')
+        cls.w_testcases128 = cls.space.wrap(fname128)
+        cls.w_testcases64 = cls.space.wrap(fname64)
         def cls_rAlmostEqual(self, *args, **kwargs):
             return rAlmostEqual(*args, **kwargs)
         cls.w_rAlmostEqual = cls.space.wrap(cls_rAlmostEqual)
@@ -398,7 +400,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert all([math.copysign(1, f(-abs(float("nan")))) == -1 for f in floor, ceil, trunc])
 
     def test_copysign(self):
-        from _numpypy import array, copysign, complex64, complex128
+        from _numpypy import array, copysign, complex128
 
         reference = [5.0, -0.0, 0.0, -6.0]
         a = array([-5.0, 0.0, 0.0, 6.0])
@@ -411,17 +413,10 @@ class AppTestUfuncs(BaseNumpyAppTest):
         c = copysign(a, b)
         for i in range(4):
             assert c[i] == abs(a[i])
-        for c in complex128, complex64:
-            ref  = complex(5., 5.)
-            a = c(complex(-5., 5.))
-            b = c(complex(0., 0.))
-            assert copysign(a,b) == ref
-            ref = complex(-5., 5.)
-            b = c(complex(-0., 0.))
-            assert copysign(a,b) == ref
-            a = c(complex(float('inf'), float('inf')))
-            ref = complex(-float('inf'), float('inf'))
-            assert copysign(a,b) == ref
+
+        a = complex128(complex(-5., 5.))
+        b = complex128(complex(0., 0.))
+        raises(TypeError, copysign, a, b)
 
     def test_exp(self):
         import math
@@ -1076,7 +1071,6 @@ class AppTestUfuncs(BaseNumpyAppTest):
         if self.isWindows:
             skip('windows does not support c99 complex')
         import  _numpypy as np
-        testcases = self.testcases
         def parse_testfile(fname):
             """Parse a file with test values
 
@@ -1100,7 +1094,10 @@ class AppTestUfuncs(BaseNumpyAppTest):
                            float(exp_real), float(exp_imag),
                            flags
                           )
-        for complex_, abs_err in ((np.complex64, 5e-32), (np.complex128, 5e-323), ):
+        for complex_, abs_err, testcases in \
+                ((np.complex64,  5e-32,  self.testcases64), 
+                 (np.complex128, 5e-323, self.testcases128),
+                ):
             for id, fn, ar, ai, er, ei, flags in parse_testfile(testcases):
                 arg = complex_(complex(ar, ai))
                 expected = (er, ei)
