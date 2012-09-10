@@ -2,6 +2,7 @@ import time
 from pypy.module.thread import ll_thread
 from pypy.rlib import rstm
 from pypy.rlib.objectmodel import invoke_around_extcall, we_are_translated
+from pypy.rlib.objectmodel import compute_identity_hash
 from pypy.rlib.debug import ll_assert
 from pypy.rpython.lltypesystem import lltype, rffi
 
@@ -17,7 +18,9 @@ class Global:
     USE_MEMORY  = False
     anchor      = Node(-1)
     othernode1  = Node(0)
+    othernode1hash = compute_identity_hash(othernode1)
     othernode2  = Node(0)
+    othernode2hash = 0
     othernodes  = [Node(0) for i in range(1000)]
 glob = Global()
 
@@ -72,6 +75,10 @@ class ThreadRunner(object):
 
     def run(self):
         try:
+            self.value = 0
+            self.lst = []
+            rstm.perform_transaction(ThreadRunner.check_hash,
+                                     ThreadRunner, self)
             self.value = 0
             rstm.perform_transaction(ThreadRunner.check_inev,
                                      ThreadRunner, self)
@@ -128,6 +135,23 @@ class ThreadRunner(object):
         for n in glob.othernodes:   # lots of unrelated writes in-between
             n.value = new_value
         glob.othernode2.value = new_value
+        return int(self.value < glob.LENGTH)
+
+    def check_hash(self, retry_counter):
+        if self.value == 0:
+            glob.othernode2hash = compute_identity_hash(glob.othernode2)
+        assert glob.othernode1hash == compute_identity_hash(glob.othernode1)
+        assert glob.othernode2hash == compute_identity_hash(glob.othernode2)
+        x = Node(retry_counter)
+        lst = self.lst
+        lst.append((x, compute_identity_hash(x)))
+        for i in range(len(lst)):
+            x, expected_hash = lst[i]
+            assert compute_identity_hash(x) == expected_hash
+            if i % 7 == retry_counter:
+                x.value += 1
+            assert compute_identity_hash(x) == expected_hash
+        self.value += 20
         return int(self.value < glob.LENGTH)
 
 class Arg:

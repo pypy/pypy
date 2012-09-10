@@ -2,6 +2,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory, llarena, llgroup
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.lltypesystem.llmemory import raw_malloc_usage, raw_memcopy
 from pypy.rpython.memory.gc.base import GCBase, MovingGCBase
+from pypy.rpython.memory.support import mangle_hash
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rlib.rarithmetic import LONG_BIT, r_uint
 from pypy.rlib.debug import ll_assert, debug_start, debug_stop, fatalerror
@@ -62,7 +63,8 @@ first_gcflag = 1 << (LONG_BIT//2)
 #     surviving during a collection.  Between collections, it is set on
 #     the LOCAL COPY objects, but only on them.
 #
-#   - GCFLAG_HASH01, GCFLAG_HASH02: to handle hashes
+#   - GCFLAG_HASH_FIELD: the object contains an extra field added at the
+#     end, with the hash value
 #
 # Invariant: between two transactions, all objects visible from the current
 # thread are always GLOBAL.  In particular:
@@ -113,22 +115,11 @@ GCFLAG_POSSIBLY_OUTDATED = first_gcflag << 1     # keep in sync with et.h
 GCFLAG_NOT_WRITTEN       = first_gcflag << 2     # keep in sync with et.h
 GCFLAG_LOCAL_COPY        = first_gcflag << 3     # keep in sync with et.h
 GCFLAG_VISITED           = first_gcflag << 4     # keep in sync with et.h
-GCFLAG_HASH01            = first_gcflag << 5
-GCFLAG_HASH02            = first_gcflag << 6
-GCFLAG_HASHMASK          = GCFLAG_HASH01 | GCFLAG_HASH02
+GCFLAG_HASH_FIELD        = first_gcflag << 5     # keep in sync with et.h
 
-GCFLAG_PREBUILT          = GCFLAG_GLOBAL | GCFLAG_NOT_WRITTEN | GCFLAG_HASH01
+GCFLAG_PREBUILT          = GCFLAG_GLOBAL | GCFLAG_NOT_WRITTEN
 REV_INITIAL              = r_uint(1)
-
-# the two flags GCFLAG_HASH0n together give one of the following four cases:
-#   - nobody ever asked for the hash of the object
-GC_HASH_NOTTAKEN   = 0
-#   - someone asked, and we gave the address of the object + mangle_hash
-GC_HASH_TAKEN_ADDR = GCFLAG_HASH01
-#   - someone asked, and we gave the address + nursery_hash_base + mangle_hash
-GC_HASH_TAKEN_NURS = GCFLAG_HASH02
-#   - we have our own extra field to store the hash
-GC_HASH_HASFIELD   = GCFLAG_HASH01 | GCFLAG_HASH02
+REV_FLAG_NEW_HASH        = r_uint(2)
 
 
 def always_inline(fn):
@@ -144,15 +135,12 @@ class StmGC(MovingGCBase):
     inline_simple_malloc = True
     inline_simple_malloc_varsize = True
     prebuilt_gc_objects_are_static_roots = False
-    malloc_zero_filled = True    # xxx?
+    malloc_zero_filled = True
 
     HDR = lltype.Struct('header', ('tid', lltype.Signed),
                                   ('revision', lltype.Unsigned))
     typeid_is_in_field = 'tid'
-    withhash_flag_is_in_field = 'tid', GCFLAG_HASH02
-    # ^^^ prebuilt objects either have GC_HASH_TAKEN_ADDR or they
-    #     have GC_HASH_HASFIELD (and then they are one word longer).
-    #     The difference between the two cases is GCFLAG_HASH02.
+    withhash_flag_is_in_field = 'tid', GCFLAG_HASH_FIELD
 
     TRANSLATION_PARAMS = {
         'stm_operations': 'use_real_one',
@@ -306,7 +294,7 @@ class StmGC(MovingGCBase):
     def get_size_incl_hash(self, obj):
         size = self.get_size(obj)
         hdr = self.header(obj)
-        if (hdr.tid & GCFLAG_HASHMASK) == GC_HASH_HASFIELD:
+        if hdr.tid & GCFLAG_HASH_FIELD:
             size += llmemory.sizeof(lltype.Signed)
         return size
 
@@ -356,18 +344,17 @@ class StmGC(MovingGCBase):
         return self.identityhash(gcobj)
 
     def identityhash(self, gcobj):
-        stmtls = self.get_tls()
         obj = llmemory.cast_ptr_to_adr(gcobj)
-        hdr = self.header(obj)
-        if hdr.tid & GCFLAG_HASHMASK == 0:
-            # set one of the GC_HASH_TAKEN_xxx flags.
-            if stmtls.is_in_nursery(obj):
-                hdr.tid |= GC_HASH_TAKEN_NURS
-            else:
-                hdr.tid |= GC_HASH_TAKEN_ADDR
-        # Compute and return the result
-        objsize = self.get_size(obj)
-        return stmtls._get_object_hash(obj, objsize, hdr.tid)
+        obj = self.stm_operations.stm_HashObject(obj)
+        return self._get_object_hash(obj)
+
+    def _get_object_hash(self, obj):
+        if self.header(obj).tid & GCFLAG_HASH_FIELD:
+            objsize = self.get_size(obj)
+            obj = llarena.getfakearenaaddress(obj)
+            return (obj + objsize).signed[0]
+        else:
+            return mangle_hash(llmemory.cast_adr_to_int(obj))
 
 # ____________________________________________________________
 # helpers

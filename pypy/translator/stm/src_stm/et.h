@@ -27,9 +27,11 @@ enum {
   GCFLAG_NOT_WRITTEN       = _first_gcflag << 2,
   GCFLAG_LOCAL_COPY        = _first_gcflag << 3,
   GCFLAG_VISITED           = _first_gcflag << 4,
+  GCFLAG_HASH_FIELD        = _first_gcflag << 5,
 
   GCFLAG_PREBUILT          = GCFLAG_GLOBAL|GCFLAG_NOT_WRITTEN,
-  REV_INITIAL              = 1
+  REV_INITIAL              = 1,
+  REV_FLAG_NEW_HASH        = 2,
 };
 
 typedef struct pypy_header0 *gcptr;
@@ -84,6 +86,7 @@ void DescriptorDone(void);
 
 //gcptr Allocate(size_t size, int gctid);
 _Bool stm_PtrEq(gcptr P1, gcptr P2);
+gcptr stm_HashObject(gcptr P);
 
 gcptr stm_DirectReadBarrier(gcptr);
 gcptr stm_DirectReadBarrierFromR(gcptr, gcptr, size_t);

@@ -4,6 +4,7 @@ from pypy.rpython.memory.gc.stmgc import StmGC, WORD
 from pypy.rpython.memory.gc.stmgc import GCFLAG_GLOBAL, GCFLAG_NOT_WRITTEN
 from pypy.rpython.memory.gc.stmgc import GCFLAG_POSSIBLY_OUTDATED
 from pypy.rpython.memory.gc.stmgc import GCFLAG_LOCAL_COPY
+from pypy.rpython.memory.gc.stmgc import GCFLAG_HASH_FIELD, REV_FLAG_NEW_HASH
 from pypy.rpython.memory.gc.stmgc import hdr_revision, set_hdr_revision
 from pypy.rpython.memory.support import mangle_hash
 
@@ -87,6 +88,20 @@ class FakeStmOperations:
         tls = self.get_tls()
         for key, value in self._tldicts[self.threadnum].iteritems():
             callback(tls, key, value)
+
+    def stm_HashObject(self, P):
+        # see et.c
+        hdr = self._gc.header(P)
+        if hdr.tid & (GCFLAG_GLOBAL|GCFLAG_LOCAL_COPY) == 0:
+            hdr.revision |= REV_FLAG_NEW_HASH
+            return P
+
+        while True:
+            hdr = self._gc.header(P)
+            if hdr.tid & GCFLAG_HASH_FIELD:
+                return P
+            v = hdr_revision(hdr)     # back-reference to the original
+            XXX
 
 
 def fake_get_size(obj):

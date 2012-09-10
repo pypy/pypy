@@ -34,7 +34,7 @@ typedef Unsigned revision_t;
 /************************************************************/
 
 #define ABORT_REASONS 5
-#define SPINLOOP_REASONS 3
+#define SPINLOOP_REASONS 4
 
 struct tx_descriptor {
   jmp_buf *setjmp_buf;
@@ -53,7 +53,7 @@ struct tx_descriptor {
   struct FXCache recent_reads_cache;
 };
 
-static volatile revision_t global_cur_time = 2;              /* always even */
+static volatile revision_t global_cur_time = 4;        /* always mult of 4 */
 static volatile revision_t next_locked_value = LOCKED + 3;   /* always odd */
 static __thread struct tx_descriptor *thread_descriptor = NULL;
 
@@ -107,9 +107,14 @@ static gcptr LatestGlobalRevision(struct tx_descriptor *d, gcptr G,
 {
   gcptr R = G;
   revision_t v;
+  volatile revision_t *vp;
  retry:
-  while (!((v = R->h_revision) & 1))   // "is a pointer", i.e.
-    {                                  //   "has a more recent revision"
+  while (1)
+    {
+      vp = (volatile revision_t *)&R->h_revision;
+      v = *vp;
+      if (v & 1)  // "is not a pointer", i.e.
+        break;    //      "doesn't have a more recent revision"
       R = (gcptr)v;
     }
   if (__builtin_expect(v > d->start_time, 0))   // object too recent?
@@ -315,8 +320,10 @@ static void ValidateDuringTransaction(struct tx_descriptor *d)
     {
       gcptr R = items[i];
       revision_t v;
+      volatile revision_t *vp;
     retry:
-      v = R->h_revision;
+      vp = (volatile revision_t *)&R->h_revision;
+      v = *vp;
       if (!(v & 1))               // "is a pointer", i.e.
         AbortTransaction(1);      //   "has a more recent revision"
       if (v >= LOCKED)            // locked
@@ -333,7 +340,10 @@ static _Bool ValidateDuringCommit(struct tx_descriptor *d)
   for (i=0; i<size; i++)
     {
       gcptr R = items[i];
-      revision_t v = R->h_revision;
+      revision_t v;
+      volatile revision_t *vp;
+      vp = (volatile revision_t *)&R->h_revision;
+      v = *vp;
       if (!(v & 1))               // "is a pointer", i.e.
         return 0;                 //   "has a more recent revision"
       if (v >= LOCKED)            // locked
@@ -422,8 +432,10 @@ static void AcquireLocks(struct tx_descriptor *d)
     {
       gcptr R = (gcptr)item[0]->h_revision;
       revision_t v;
+      volatile revision_t *vp;
     retry:
-      v = R->h_revision;
+      vp = (volatile revision_t *)&R->h_revision;
+      v = *vp;
       if (!(v & 1))            // "is a pointer", i.e.
         AbortTransaction(0);   //   "has a more recent revision"
       if (v >= LOCKED)         // already locked by someone else
@@ -434,7 +446,7 @@ static void AcquireLocks(struct tx_descriptor *d)
           SpinLoop(2);
           goto retry;
         }
-      if (!bool_cas((volatile revision_t *)&R->h_revision, v, my_lock))
+      if (!bool_cas(vp, v, my_lock))
         goto retry;
 
       item[1] = (gcptr)v;
@@ -545,7 +557,7 @@ void CommitTransaction(void)
     {
       // no-one else can have changed global_cur_time if I'm inevitable
       cur_time = d->start_time;
-      if (!bool_cas(&global_cur_time, INEVITABLE, cur_time + 2))
+      if (!bool_cas(&global_cur_time, INEVITABLE, cur_time + 4))
         {
           assert(!"global_cur_time modified even though we are inev.");
           abort();
@@ -565,7 +577,7 @@ void CommitTransaction(void)
               AcquireLocks(d);
               continue;
             }
-          if (bool_cas(&global_cur_time, cur_time, cur_time + 2))
+          if (bool_cas(&global_cur_time, cur_time, cur_time + 4))
             break;
         }
       // validate (but skip validation if nobody else committed)
@@ -670,6 +682,56 @@ _Bool stm_PtrEq(gcptr P1, gcptr P2)
   return GlobalizeForComparison(d, P1) == GlobalizeForComparison(d, P2);
 }
 
+gcptr stm_HashObject(gcptr P)
+{
+  /* return one of the objects in the chained list following P out of
+     which the stmgc can determine the hash of P.  The first time we ask
+     for the hash of an object, we set REV_FLAG_NEW_HASH on the last
+     object of the chain.  The hash is then the address of this object.
+     When stm_duplicate further duplicates an object with
+     REV_FLAG_NEW_HASH, it adds an extra field remembering the hash.
+     From then on all stm_duplicates of this object have GCFLAG_HASH_FIELD
+     and the same hash, copied over and over into the extra field. */
+  revision_t v;
+  volatile revision_t *vp;
+
+  if ((P->h_tid & (GCFLAG_GLOBAL|GCFLAG_LOCAL_COPY)) == 0)
+    {
+      // a local object newly created in this transaction
+      P->h_revision |= REV_FLAG_NEW_HASH;
+      return P;
+    }
+
+  while (1)
+    {
+      if (P->h_tid & GCFLAG_HASH_FIELD)
+        {
+          return P;   /* any HASH_FIELD object is fine; we'll read the hash
+                         out of the field. */
+        }
+      vp = (volatile revision_t *)&P->h_revision;
+      v = *vp;
+      if (!(v & 1))  // "is a pointer", i.e. "has a more recent revision"
+        {
+          P = (gcptr)v;    // look into the next one in the chained list
+        }
+      else if (__builtin_expect(v >= LOCKED, 0))
+        {
+          SpinLoop(3);     // spinloop until it is no longer LOCKED, then retry
+        }
+      else if (v & REV_FLAG_NEW_HASH)
+        {
+          return P;        // already has the flag
+        }
+      else
+        {
+          // must add the flag
+          if (bool_cas(vp, v, v | REV_FLAG_NEW_HASH))
+            return P;
+        }
+    }
+}
+
 /************************************************************/
 
 int DescriptorInit(void)
@@ -690,7 +752,7 @@ int DescriptorInit(void)
           if (bool_cas(&next_locked_value, d->my_lock, d->my_lock + 2))
             break;
         }
-      if (d->my_lock < LOCKED)
+      if (d->my_lock < LOCKED || d->my_lock == INEVITABLE)
         {
           /* XXX fix this limitation */
           fprintf(stderr, "XXX error: too many threads ever created "
