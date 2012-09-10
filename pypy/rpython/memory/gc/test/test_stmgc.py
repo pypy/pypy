@@ -3,7 +3,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory, llarena, llgroup, rffi
 from pypy.rpython.memory.gc.stmgc import StmGC, WORD
 from pypy.rpython.memory.gc.stmgc import GCFLAG_GLOBAL, GCFLAG_NOT_WRITTEN
 from pypy.rpython.memory.gc.stmgc import GCFLAG_POSSIBLY_OUTDATED
-from pypy.rpython.memory.gc.stmgc import GCFLAG_LOCAL_COPY
+from pypy.rpython.memory.gc.stmgc import GCFLAG_LOCAL_COPY, GCFLAG_VISITED
 from pypy.rpython.memory.gc.stmgc import GCFLAG_HASH_FIELD, REV_FLAG_NEW_HASH
 from pypy.rpython.memory.gc.stmgc import hdr_revision, set_hdr_revision
 from pypy.rpython.memory.support import mangle_hash
@@ -87,7 +87,9 @@ class FakeStmOperations:
         callback = StmGCTLS._stm_enum_callback
         tls = self.get_tls()
         for key, value in self._tldicts[self.threadnum].iteritems():
-            callback(tls, key, value)
+            assert (llmemory.cast_int_to_adr(self._gc.header(value).revision)
+                    == key)
+            callback(tls, value)
 
     def stm_HashObject(self, P):
         # see et.c
@@ -293,7 +295,7 @@ class TestBasic(StmGCTests):
         assert self.gc.header(s_adr).tid & GCFLAG_GLOBAL != 0
         assert self.gc.header(t_adr).tid & GCFLAG_GLOBAL == 0
         self.gc.header(s_adr).tid |= GCFLAG_POSSIBLY_OUTDATED
-        self.gc.header(t_adr).tid |= GCFLAG_LOCAL_COPY
+        self.gc.header(t_adr).tid |= GCFLAG_LOCAL_COPY | GCFLAG_VISITED
         set_hdr_revision(self.gc.header(t_adr), s_adr)
         self.gc.stm_operations._tldicts[1][s_adr] = t_adr
         obj = self.stm_writebarrier(s_adr)     # global copied object
