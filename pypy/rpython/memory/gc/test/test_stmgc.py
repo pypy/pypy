@@ -330,7 +330,7 @@ class TestBasic(StmGCTests):
     def test_write_barrier_main_thread(self):
         t, t_adr = self.malloc(S, globl=False)
         self.checkflags(t_adr, False, False)
-        obj = self.gc.stm_writebarrier(t_adr)     # main thread, but not global
+        obj = self.stm_writebarrier(t_adr)     # main thread, but not global
         assert obj == t_adr
         self.checkflags(obj, False, False)
 
