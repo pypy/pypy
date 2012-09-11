@@ -497,7 +497,6 @@ class AppTestTypes(BaseNumpyAppTest):
         raises(TypeError, lambda: (1, 2, 3)[float64(1)])
 
     def test_int(self):
-        import sys
         from _numpypy import int32, int64, int_
         assert issubclass(int_, int)
         if sys.maxint == (1<<31) - 1:
@@ -509,15 +508,14 @@ class AppTestTypes(BaseNumpyAppTest):
 
     def test_various_types(self):
         import _numpypy as numpy
-        import sys
 
         assert numpy.int16 is numpy.short
         assert numpy.int8 is numpy.byte
         assert numpy.bool_ is numpy.bool8
         if sys.maxint == (1 << 63) - 1:
-            assert numpy.intp is numpy.int64
+            assert '%r' % numpy.intp == '%r' % numpy.int64
         else:
-            assert numpy.intp is numpy.int32
+            assert '%r' % numpy.intp == '%r' % numpy.int32
 
     def test_mro(self):
         import _numpypy as numpy
