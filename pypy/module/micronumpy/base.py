@@ -9,8 +9,8 @@ class W_NDimArray(Wrappable):
     def __init__(self, implementation):
         self.implementation = implementation
     
-    @classmethod
-    def from_shape(cls, shape, dtype, order='C'):
+    @staticmethod
+    def from_shape(shape, dtype, order='C'):
         from pypy.module.micronumpy.arrayimpl import concrete
 
         assert shape
@@ -19,16 +19,16 @@ class W_NDimArray(Wrappable):
                                       backstrides)
         return W_NDimArray(impl)
 
-    @classmethod
-    def new_slice(cls, offset, strides, backstrides, shape, parent, dtype=None):
+    @staticmethod
+    def new_slice(offset, strides, backstrides, shape, parent, dtype=None):
         from pypy.module.micronumpy.arrayimpl import concrete
 
         impl = concrete.SliceArray(offset, strides, backstrides, shape, parent,
                                    dtype)
         return W_NDimArray(impl)
 
-    @classmethod
-    def new_scalar(cls, space, dtype, w_val=None):
+    @staticmethod
+    def new_scalar(space, dtype, w_val=None):
         from pypy.module.micronumpy.arrayimpl import scalar
 
         if w_val is not None:
