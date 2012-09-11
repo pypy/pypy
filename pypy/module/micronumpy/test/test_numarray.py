@@ -1552,6 +1552,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         # test virtual
         assert ((x + x).swapaxes(0,1) == array([[[ 2,  4,  6], [14, 16, 18]], 
                                          [[ 8, 10, 12], [20, 22, 24]]])).all()
+        assert array(1).swapaxes(10, 12) == 1
 
     def test_filter_bug(self):
         from numpypy import array

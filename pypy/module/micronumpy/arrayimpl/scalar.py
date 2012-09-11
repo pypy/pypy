@@ -18,7 +18,7 @@ class ScalarIterator(base.BaseArrayIterator):
         raise Exception("Don't call setitem on scalar iterators")
 
     def done(self):
-        raise Exception("should not call done on scalars")
+        raise Exception("should not call done on scalar")
 
     def reset(self):
         pass
@@ -80,7 +80,7 @@ class Scalar(base.BaseArrayImplementation):
         raise Exception("axis iter should not happen on scalar")
 
     def swapaxes(self, axis1, axis2):
-        return self
+        raise Exception("should not be called")
 
     def fill(self, w_value):
         self.value = w_value

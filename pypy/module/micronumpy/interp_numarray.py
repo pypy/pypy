@@ -193,6 +193,8 @@ class __extend__(W_NDimArray):
         --------
         numpy.swapaxes : equivalent function
         """
+        if self.is_scalar():
+            return self
         return self.implementation.swapaxes(axis1, axis2)
 
     def descr_tolist(self, space):
