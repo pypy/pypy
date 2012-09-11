@@ -2080,7 +2080,7 @@ class LLtypeBackendTest(BaseBackendTest):
         record = []
         #
         S = lltype.GcStruct('S', ('tid', lltype.Signed))
-        FUNC = self.FuncType([lltype.Ptr(S)], lltype.Void)
+        FUNC = self.FuncType([lltype.Ptr(S)], lltype.Ptr(S))
         func_ptr = llhelper(lltype.Ptr(FUNC), func_void)
         funcbox = self.get_funcbox(self.cpu, func_ptr)
         class WriteBarrierDescr(WBDescrForTests):

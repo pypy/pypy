@@ -398,7 +398,7 @@ class Assembler386(object):
         mc.CALL(imm(func))
         #
         if descr.returns_modified_object:
-            mc.MOV_sr(correct_esp_by, eax.value)
+            mc.MOV_sr(correct_esp_by + WORD, eax.value)
         #
         if withcards:
             # A final TEST8 before the RET, for the caller.  Careful to
