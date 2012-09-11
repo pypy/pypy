@@ -1,17 +1,4 @@
-from pypy.module.micronumpy.strides import calculate_dot_strides
 from pypy.interpreter.error import OperationError
-from pypy.rlib import jit
-
-def dot_printable_location(shapelen):
-    return 'numpy dot [%d]' % shapelen
-
-dot_driver = jit.JitDriver(
-    greens=['shapelen'],
-    reds=['lefti', 'righti', 'outi', 'result', 'right', 'dtype',
-          'left'],
-    get_printable_location=dot_printable_location,
-    name='dot',
-)
 
 def match_dot_shapes(space, left, right):
     left_shape = left.get_shape()
