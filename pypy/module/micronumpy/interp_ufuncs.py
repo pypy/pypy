@@ -316,10 +316,10 @@ class W_Ufunc2(W_Ufunc):
                 if out.is_scalar():
                     out.set_scalar_value(arr)
                 else:
-                    out.fill(space, arr)
+                    out.fill(arr)
             else:
                 out = arr
-            return space.wrap(out)
+            return out
         new_shape = shape_agreement(space, w_lhs.get_shape(), w_rhs)
         new_shape = shape_agreement(space, new_shape, out, broadcast_down=False)
         return loop.call2(new_shape, self.func, self.name, calc_dtype,

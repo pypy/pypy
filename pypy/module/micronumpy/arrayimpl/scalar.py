@@ -25,8 +25,8 @@ class ScalarIterator(base.BaseArrayIterator):
 
 class Scalar(base.BaseArrayImplementation):
     def __init__(self, dtype, value=None):
-        self.value = value
         self.dtype = dtype
+        self.value = value
 
     def is_scalar(self):
         return True

@@ -259,9 +259,11 @@ class __extend__(W_NDimArray):
             if self.is_scalar():
                 return self.get_scalar_value().item(space)
             if self.get_size() == 1:
-                return self.descr_getitem(space,
-                                          space.newtuple([space.wrap(0) for i
-                            in range(len(self.get_shape()))])).item(space)
+                w_obj = self.descr_getitem(space,
+                                           space.newtuple([space.wrap(0) for i
+                                      in range(len(self.get_shape()))]))
+                assert isinstance(w_obj, interp_boxes.W_GenericBox)
+                return w_obj.item(space)
             raise OperationError(space.w_IndexError,
                                  space.wrap("index out of bounds"))
         if space.isinstance_w(w_arg, space.w_int):
@@ -339,11 +341,9 @@ class __extend__(W_NDimArray):
 
     def _binop_right_impl(ufunc_name):
         def impl(self, space, w_other, w_out=None):
-            w_other = W_NDimArray.new_scalar(space,
-                interp_ufuncs.find_dtype_for_scalar(space, w_other,
-                                                    self.get_dtype()),
-                w_other
-            )
+            dtype = interp_ufuncs.find_dtype_for_scalar(space, w_other,
+                                                        self.get_dtype())
+            w_other = W_NDimArray.new_scalar(space, dtype, w_other)
             return getattr(interp_ufuncs.get(space), ufunc_name).call(space, [w_other, self, w_out])
         return func_with_new_name(impl, "binop_right_%s_impl" % ufunc_name)
 
@@ -373,6 +373,7 @@ class __extend__(W_NDimArray):
             return self.descr_mul(space, other)
         elif len(self.get_shape()) < 2 and len(other.get_shape()) < 2:
             w_res = self.descr_mul(space, other)
+            assert isinstance(w_res, W_NDimArray)
             return w_res.descr_sum(space, space.wrap(-1))
         dtype = interp_ufuncs.find_binop_result_dtype(space,
                                      self.get_dtype(), other.get_dtype())
@@ -565,9 +566,9 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
                                   order)
     if isinstance(w_object, W_NDimArray):
         if (not space.is_w(w_dtype, space.w_None) and
-            w_object.dtype is not w_dtype):
-            raise operationerrfmt(space.w_NotImplementedError,
-                                  "copying over different dtypes unsupported")
+            w_object.get_dtype() is not w_dtype):
+            raise OperationError(space.w_NotImplementedError, space.wrap(
+                                  "copying over different dtypes unsupported"))
         if copy:
             return w_object.descr_copy(space)
         return w_object
