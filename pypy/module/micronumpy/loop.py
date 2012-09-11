@@ -161,7 +161,7 @@ def multidim_dot(space, left, right, result, dtype, right_critical_dim):
 def count_all_true(arr):
     s = 0
     if arr.is_scalar():
-        return arr.get_scalar_value().is_true()
+        return arr.find_dtype().itemtype.bool(arr.get_scalar_value())
     iter = arr.create_iter()
     while not iter.done():
         s += iter.getitem_bool()

@@ -34,9 +34,6 @@ class PrimitiveBox(object):
     def convert_to(self, dtype):
         return dtype.box(self.value)
 
-    def is_true(self):
-        return bool(self.value)
-
 class W_GenericBox(Wrappable):
     _attrs_ = ()
 
