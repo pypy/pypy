@@ -275,6 +275,8 @@ def bloom(mask, c):
 
 
 class LLHelpers(AbstractLLHelpers):
+    from pypy.rpython.annlowlevel import llstr, llunicode
+
     @jit.elidable
     def ll_str_mul(s, times):
         if times < 0:

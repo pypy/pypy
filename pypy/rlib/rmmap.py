@@ -14,6 +14,8 @@ _POSIX = os.name == "posix"
 _MS_WINDOWS = os.name == "nt"
 _LINUX = "linux" in sys.platform
 _64BIT = "64bit" in platform.architecture()[0]
+_ARM = platform.machine().startswith('arm')
+_PPC = platform.machine().startswith('ppc')
 _CYGWIN = "cygwin" == sys.platform
 
 class RValueError(Exception):
@@ -134,8 +136,9 @@ if _POSIX:
                                [PTR, size_t, size_t, rffi.ULONG], PTR)
 
     # this one is always safe
-    _, _get_page_size = external('getpagesize', [], rffi.INT)
-    _get_allocation_granularity = _get_page_size
+    _pagesize = rffi_platform.getintegerfunctionresult('getpagesize',
+                                                includes=includes)
+    _get_allocation_granularity = _get_page_size = lambda: _pagesize
 
 elif _MS_WINDOWS:
 

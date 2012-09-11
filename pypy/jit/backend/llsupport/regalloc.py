@@ -1,6 +1,7 @@
-
+import os
 from pypy.jit.metainterp.history import Const, Box, REF
 from pypy.rlib.objectmodel import we_are_translated
+from pypy.jit.metainterp.resoperation import rop
 
 class TempBox(Box):
     def __init__(self):
@@ -136,6 +137,7 @@ class RegisterManager(object):
     no_lower_byte_regs    = []
     save_around_call_regs = []
     frame_reg             = None
+    temp_boxes            = []
 
     def __init__(self, longevity, frame_manager=None, assembler=None):
         self.free_regs = self.all_regs[:]
@@ -188,6 +190,10 @@ class RegisterManager(object):
         for i in range(op.numargs()):
             self.possibly_free_var(op.getarg(i))
 
+    def free_temp_vars(self):
+        self.possibly_free_vars(self.temp_boxes)
+        self.temp_boxes = []
+
     def _check_invariants(self):
         if not we_are_translated():
             # make sure no duplicates
@@ -198,6 +204,7 @@ class RegisterManager(object):
             assert len(rev_regs) + len(self.free_regs) == len(self.all_regs)
         else:
             assert len(self.reg_bindings) + len(self.free_regs) == len(self.all_regs)
+        assert len(self.temp_boxes) == 0
         if self.longevity:
             for v in self.reg_bindings:
                 assert self.longevity[v][1] > self.position
@@ -453,6 +460,8 @@ class RegisterManager(object):
         """
         self._check_type(v)
         r = self.call_result_location(v)
+        if not we_are_translated():
+            assert r not in self.reg_bindings.values()
         self.reg_bindings[v] = r
         self.free_regs = [fr for fr in self.free_regs if fr is not r]
         return r
@@ -469,3 +478,75 @@ class RegisterManager(object):
         be stored by the cpu, according to the variable type
         """
         raise NotImplementedError("Abstract")
+
+    def get_scratch_reg(self, forbidden_vars=[]):
+        """ Platform specific - Allocates a temporary register """
+        raise NotImplementedError("Abstract")
+
+def compute_vars_longevity(inputargs, operations):
+    # compute a dictionary that maps variables to index in
+    # operations that is a "last-time-seen"
+
+    # returns a pair longevity/useful. Non-useful variables are ones that
+    # never appear in the assembler or it does not matter if they appear on
+    # stack or in registers. Main example is loop arguments that go
+    # only to guard operations or to jump or to finish
+    produced = {}
+    last_used = {}
+    last_real_usage = {}
+    for i in range(len(operations)-1, -1, -1):
+        op = operations[i]
+        if op.result:
+            if op.result not in last_used and op.has_no_side_effect():
+                continue
+            assert op.result not in produced
+            produced[op.result] = i
+        opnum = op.getopnum()
+        for j in range(op.numargs()):
+            arg = op.getarg(j)
+            if not isinstance(arg, Box):
+                continue
+            if arg not in last_used:
+                last_used[arg] = i
+            if opnum != rop.JUMP and opnum != rop.LABEL:
+                if arg not in last_real_usage:
+                    last_real_usage[arg] = i
+        if op.is_guard():
+            for arg in op.getfailargs():
+                if arg is None: # hole
+                    continue
+                assert isinstance(arg, Box)
+                if arg not in last_used:
+                    last_used[arg] = i
+    #
+    longevity = {}
+    for arg in produced:
+        if arg in last_used:
+            assert isinstance(arg, Box)
+            assert produced[arg] < last_used[arg]
+            longevity[arg] = (produced[arg], last_used[arg])
+            del last_used[arg]
+    for arg in inputargs:
+        assert isinstance(arg, Box)
+        if arg not in last_used:
+            longevity[arg] = (-1, -1)
+        else:
+            longevity[arg] = (0, last_used[arg])
+            del last_used[arg]
+    assert len(last_used) == 0
+    return longevity, last_real_usage
+
+def is_comparison_or_ovf_op(opnum):
+    from pypy.jit.metainterp.resoperation import opclasses
+    cls = opclasses[opnum]
+    # hack hack: in theory they are instance method, but they don't use
+    # any instance field, we can use a fake object
+    class Fake(cls):
+        pass
+    op = Fake(None)
+    return op.is_comparison() or op.is_ovf()
+
+
+def not_implemented(msg):
+    os.write(2, '[llsupport/regalloc] %s\n' % msg)
+    raise NotImplementedError(msg)

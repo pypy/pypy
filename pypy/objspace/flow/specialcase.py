@@ -11,31 +11,8 @@ def sc_import(space, fn, args):
     args_w, kwds_w = args.unpack()
     assert kwds_w == {}, "should not call %r with keyword arguments" % (fn,)
     assert len(args_w) > 0 and len(args_w) <= 5, 'import needs 1 to 5 arguments'
-    w_name = args_w[0]
-    w_None = space.wrap(None)
-    w_glob, w_loc, w_frm = w_None, w_None, w_None
-    if len(args_w) > 1:
-        w_glob = args_w[1]
-    if len(args_w) > 2:
-        w_loc = args_w[2]
-    if len(args_w) > 3:
-        w_frm = args_w[3]
-    if not isinstance(w_loc, Constant):
-        # import * in a function gives us the locals as Variable
-        # we always forbid it as a SyntaxError
-        raise SyntaxError, "RPython: import * is not allowed in functions"
-    if space.do_imports_immediately:
-        name, glob, loc, frm = (space.unwrap(w_name), space.unwrap(w_glob),
-                                space.unwrap(w_loc), space.unwrap(w_frm))
-        try:
-            mod = __import__(name, glob, loc, frm)
-        except ImportError, e:
-            raise OperationError(space.w_ImportError, space.wrap(str(e)))
-        return space.wrap(mod)
-    # redirect it, but avoid exposing the globals
-    w_glob = Constant({})
-    return space.do_operation('simple_call', Constant(__import__),
-                               w_name, w_glob, w_loc, w_frm)
+    args = [space.unwrap(arg) for arg in args_w]
+    return space.import_name(*args)
 
 def sc_operator(space, fn, args):
     args_w, kwds_w = args.unpack()

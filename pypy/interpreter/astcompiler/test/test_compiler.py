@@ -805,6 +805,13 @@ class AppTestCompiler:
          assert s.getvalue() == "hi lovely!"
          """ in {}
 
+    def test_assert_with_tuple_arg(self):
+        try:
+            assert False, (3,)
+        except AssertionError, e:
+            assert str(e) == "(3,)"
+        
+
 class TestOptimizations:
     def count_instructions(self, source):
         code, blocks = generate_function_code(source, self.space)

@@ -30,6 +30,7 @@ class Module(MixedModule):
         'offsetof': 'func.offsetof',
         '_getfields': 'func._getfields',
         'getcname': 'func.getcname',
+        '_get_types': 'func._get_types',
 
         'string': 'func.string',
         'buffer': 'cbuffer.buffer',

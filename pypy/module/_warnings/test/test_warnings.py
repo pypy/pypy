@@ -60,3 +60,10 @@ class AppTestWarnings:
 
         assert result.count('\n') == 2
         assert '  warnings.warn(message, ' in result
+
+    def test_filename_none(self):
+        import _warnings
+        globals()['__file__'] = 'test.pyc'
+        _warnings.warn('test', UserWarning)
+        globals()['__file__'] = None
+        _warnings.warn('test', UserWarning)
