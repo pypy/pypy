@@ -49,6 +49,31 @@ class EggBlock(Block):
     def extravars(self, last_exception=None, last_exc_value=None):
         self.last_exception = last_exception
 
+def fixeggblocks(graph):
+    # EggBlocks reuse the variables of their previous block,
+    # which is deemed not acceptable for simplicity of the operations
+    # that will be performed later on the flow graph.
+    for link in list(graph.iterlinks()):
+            block = link.target
+            if isinstance(block, EggBlock):
+                if (not block.operations and len(block.exits) == 1 and
+                    link.args == block.inputargs):   # not renamed
+                    # if the variables are not renamed across this link
+                    # (common case for EggBlocks) then it's easy enough to
+                    # get rid of the empty EggBlock.
+                    link2 = block.exits[0]
+                    link.args = list(link2.args)
+                    link.target = link2.target
+                    assert link2.exitcase is None
+                else:
+                    mapping = {}
+                    for a in block.inputargs:
+                        mapping[a] = Variable(a)
+                    block.renamevariables(mapping)
+    for block in graph.iterblocks():
+        if isinstance(link, SpamBlock):
+            del link.framestate     # memory saver
+
 # ____________________________________________________________
 
 class Recorder:
@@ -234,35 +259,7 @@ class FlowExecutionContext(ExecutionContext):
                 assert w_result is not None
                 link = self.make_link([w_result], self.graph.returnblock)
                 self.recorder.crnt_block.closeblock(link)
-
         del self.recorder
-        self.fixeggblocks()
-
-
-    def fixeggblocks(self):
-        # EggBlocks reuse the variables of their previous block,
-        # which is deemed not acceptable for simplicity of the operations
-        # that will be performed later on the flow graph.
-        for link in list(self.graph.iterlinks()):
-                block = link.target
-                if isinstance(block, EggBlock):
-                    if (not block.operations and len(block.exits) == 1 and
-                        link.args == block.inputargs):   # not renamed
-                        # if the variables are not renamed across this link
-                        # (common case for EggBlocks) then it's easy enough to
-                        # get rid of the empty EggBlock.
-                        link2 = block.exits[0]
-                        link.args = list(link2.args)
-                        link.target = link2.target
-                        assert link2.exitcase is None
-                    else:
-                        mapping = {}
-                        for a in block.inputargs:
-                            mapping[a] = Variable(a)
-                        block.renamevariables(mapping)
-        for block in self.graph.iterblocks():
-            if isinstance(link, SpamBlock):
-                del link.framestate     # memory saver
 
     def mergeblock(self, currentblock, currentstate):
         next_instr = currentstate.next_instr

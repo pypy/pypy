@@ -238,6 +238,7 @@ class FlowObjSpace(ObjSpace):
             raise error.FlowingError, e, tb
 
         graph = ec.graph
+        flowcontext.fixeggblocks(graph)
         checkgraph(graph)
         if graph.is_generator and tweak_for_generator:
             from pypy.translator.generator import tweak_generator_graph
