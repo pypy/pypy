@@ -2,6 +2,24 @@ from pypy.jit.backend.llsupport.rewrite import GcRewriterAssembler
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.metainterp.history import BoxPtr, ConstPtr, ConstInt
 
+#
+# STM Support
+# -----------    
+#
+# Any SETFIELD_GC, SETARRAYITEM_GC, SETINTERIORFIELD_GC must be done on a
+# W object.  The operation that forces an object p1 to be W is
+# COND_CALL_GC_WB(p1, 0, descr=x2Wdescr), for x in 'PGORL'.  This
+# COND_CALL_GC_WB is a bit special because if p1 is not W, it *replaces*
+# its value with the W copy (by changing the register's value and
+# patching the stack location if any).  It's still conceptually the same
+# object, but the pointer is different.
+#
+# The case of GETFIELD_GC & friends is similar, excepted that it goes to
+# a R or L object (at first, always a R object).
+#
+# The name "x2y" of write barriers is called the *category* or "cat".
+#
+
 
 class GcStmRewriterAssembler(GcRewriterAssembler):
     # This class performs the same rewrites as its base class,
@@ -76,12 +94,12 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         return self.newops
 
 
-    def gen_write_barrier(self, v_base):
+    def gen_write_barrier(self, v_base, cat):
         v_base = self.unconstifyptr(v_base)
         assert isinstance(v_base, BoxPtr)
         if v_base in self.known_local:
             return v_base    # no write barrier needed
-        write_barrier_descr = self.gc_ll_descr.write_barrier_descr
+        write_barrier_descr = getattr(self.gc_ll_descr, '%sdescr' % (cat,))
         args = [v_base, self.c_zero]
         self.newops.append(ResOperation(rop.COND_CALL_GC_WB, args, None,
                                         descr=write_barrier_descr))
@@ -99,7 +117,7 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
 
     def handle_setfield_operations(self, op):
         lst = op.getarglist()
-        lst[0] = self.gen_write_barrier(lst[0])
+        lst[0] = self.gen_write_barrier(lst[0], 'P2W')
         self.newops.append(op.copy_and_change(op.getopnum(), args=lst))
 
     def handle_malloc_operation(self, op):

@@ -583,9 +583,10 @@ class GcRootMap_stm(GcRootMap_shadowstack):
 
 
 class WriteBarrierDescr(AbstractDescr):
-    def __init__(self, gc_ll_descr):
+    def __init__(self, gc_ll_descr, stmcat=None):
         self.llop1 = gc_ll_descr.llop1
-        self.returns_modified_object = gc_ll_descr.stm
+        self.stmcat = stmcat
+        self.returns_modified_object = (stmcat is not None)
         if not self.returns_modified_object:
             self.WB_FUNCPTR = lltype.Ptr(lltype.FuncType(
                 [llmemory.Address], lltype.Void))
@@ -597,7 +598,10 @@ class WriteBarrierDescr(AbstractDescr):
         GCClass = gc_ll_descr.GCClass
         if GCClass is None:     # for tests
             return
-        self.jit_wb_if_flag = GCClass.JIT_WB_IF_FLAG
+        if self.stmcat is None:
+            self.jit_wb_if_flag = GCClass.JIT_WB_IF_FLAG
+        else:
+            self.jit_wb_if_flag, cat = self.stmcat
         self.jit_wb_if_flag_byteofs, self.jit_wb_if_flag_singlebyte = (
             self.extract_flag_byte(self.jit_wb_if_flag))
         #
@@ -614,9 +618,21 @@ class WriteBarrierDescr(AbstractDescr):
         else:
             self.jit_wb_cards_set = 0
 
+    def repr_of_descr(self):
+        if self.stmcat is None:
+            return 'wbdescr'
+        else:
+            _, cat = self.stmcat
+            return cat
+
+    def __repr__(self):
+        return '<WriteBarrierDescr %r>' % (self.repr_of_descr(),)
+
     def extract_flag_byte(self, flag_word):
         # if convenient for the backend, we compute the info about
         # the flag as (byte-offset, single-byte-flag).
+        if flag_word == 0:
+            return (0, 0)
         import struct
         value = struct.pack(lltype.SignedFmt, flag_word)
         assert value.count('\x00') == len(value) - 1    # only one byte is != 0
@@ -624,16 +640,20 @@ class WriteBarrierDescr(AbstractDescr):
         while value[i] == '\x00': i += 1
         return (i, struct.unpack('b', value[i])[0])
 
-    def get_write_barrier_fn(self, cpu, returns_modified_object=False):
-        # must pass in 'self.returns_modified_object', to make sure that
+    def get_write_barrier_fn(self, cpu, stm=False):
+        # must pass in 'self.stm', to make sure that
         # the callers are fixed for this case
-        assert returns_modified_object == self.returns_modified_object
-        if returns_modified_object:
+        assert stm == self.returns_modified_object
+        llop1 = self.llop1
+        if self.returns_modified_object:
             FUNCTYPE = self.WB_FUNCPTR_MOD
+            _, cat = self.stmcat
+            assert cat(stm) == 3 and cat[1] == '2'      # "x2y"
+            funcptr = llop1.get_write_barrier_failing_case(FUNCTYPE,
+                                                           cat[0], cat[2])
         else:
             FUNCTYPE = self.WB_FUNCPTR
-        llop1 = self.llop1
-        funcptr = llop1.get_write_barrier_failing_case(FUNCTYPE)
+            funcptr = llop1.get_write_barrier_failing_case(FUNCTYPE)
         funcaddr = llmemory.cast_ptr_to_adr(funcptr)
         return cpu.cast_adr_to_int(funcaddr)
 
@@ -735,7 +755,13 @@ class GcLLDescr_framework(GcLLDescription):
         self.fielddescr_tid = get_field_descr(self, self.GCClass.HDR, 'tid')
 
     def _setup_write_barrier(self):
-        self.write_barrier_descr = WriteBarrierDescr(self)
+        if self.stm:
+            from pypy.rpython.memory.gc import stmgc
+            self.P2Wdescr = WriteBarrierDescr(self,
+                                (stmgc.GCFLAG_NOT_WRITTEN, 'P2W'))
+            self.write_barrier_descr = "wbdescr: do not use"
+        else:
+            self.write_barrier_descr = WriteBarrierDescr(self)
 
     def _make_functions(self, really_not_translated):
         from pypy.rpython.memory.gctypelayout import check_typeid

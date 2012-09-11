@@ -29,6 +29,7 @@ class TestStm(RewriteTests):
                 " descr=stm_try_inevitable_descr)")
         frm_operations = frm_operations.replace('$INEV', inev)
         to_operations  = to_operations .replace('$INEV', inev)
+        namespace['P2Wdescr'] = self.gc_ll_descr.P2Wdescr
         RewriteTests.check_rewrite(self, frm_operations, to_operations,
                                    **namespace)
 
@@ -39,7 +40,7 @@ class TestStm(RewriteTests):
             jump()
         """, """
             [p1, p2]
-            cond_call_gc_wb(p1, 0, descr=wbdescr)
+            cond_call_gc_wb(p1, 0, descr=P2Wdescr)
             setfield_gc(p1, p2, descr=tzdescr)
             jump()
         """)

@@ -232,8 +232,6 @@ class StmGC(MovingGCBase):
     def JIT_minimal_size_in_nursery():
         return 0
 
-    JIT_WB_IF_FLAG = GCFLAG_GLOBAL
-
     # ----------
 
     def malloc_fixedsize_clear(self, typeid, size,
