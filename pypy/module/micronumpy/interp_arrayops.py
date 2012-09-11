@@ -2,6 +2,7 @@
 from pypy.module.micronumpy.base import convert_to_array, W_NDimArray
 from pypy.module.micronumpy import loop, interp_ufuncs
 from pypy.module.micronumpy.iter import Chunk, Chunks
+from pypy.module.micronumpy.strides import shape_agreement
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import unwrap_spec
 
@@ -65,15 +66,21 @@ def where(space, w_arr, w_x=None, w_y=None):
     
     NOTE: support for not passing x and y is unsupported
     """
-    if space.is_w(w_x, space.w_None) or space.is_w(w_y, space.w_None):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            "1-arg where unsupported right now"))
+    if space.is_w(w_y, space.w_None):
+        if space.is_w(w_x, space.w_None):
+            raise OperationError(space.w_NotImplementedError, space.wrap(
+                "1-arg where unsupported right now"))
+        raise OperationError(space.w_ValueError, space.wrap(
+            "Where should be called with either 1 or 3 arguments"))
     arr = convert_to_array(space, w_arr)
     x = convert_to_array(space, w_x)
     y = convert_to_array(space, w_y)
-    dtype = arr.get_dtype()
-    out = W_NDimArray.from_shape(arr.get_shape(), dtype)
-    return loop.where(out, arr, x, y, dtype)
+    dtype = interp_ufuncs.find_binop_result_dtype(space, x.get_dtype(),
+                                                  y.get_dtype())
+    shape = shape_agreement(space, arr.get_shape(), x)
+    shape = shape_agreement(space, shape, y)
+    out = W_NDimArray.from_shape(shape, dtype)
+    return loop.where(out, shape, arr, x, y, dtype)
 
 def dot(space, w_obj1, w_obj2):
     w_arr = convert_to_array(space, w_obj1)

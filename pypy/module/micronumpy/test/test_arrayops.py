@@ -6,17 +6,28 @@ class AppTestNumSupport(BaseNumpyAppTest):
         from _numpypy import where, ones, zeros, array
         a = [1, 2, 3, 0, -3]
         a = where(array(a) > 0, ones(5), zeros(5))
-        print a
         assert (a == [1, 1, 1, 0, 0]).all()
 
     def test_where_differing_dtypes(self):
-        xxx
+        from _numpypy import array, ones, zeros, where
+        a = [1, 2, 3, 0, -3]
+        a = where(array(a) > 0, ones(5, dtype=int), zeros(5, dtype=float))
+        assert (a == [1, 1, 1, 0, 0]).all()
+
+    def test_where_broadcast(self):
+        from _numpypy import array, where
+        a = where(array([[1, 2, 3], [4, 5, 6]]) > 3, [1, 1, 1], 2)
+        assert (a == [[2, 2, 2], [1, 1, 1]]).all()
+        a = where(True, [1, 1, 1], 2)
+        assert (a == [1, 1, 1]).all()
 
     def test_where_errors(self):
-        xxx
+        from _numpypy import where, array
+        raises(ValueError, "where([1, 2, 3], [3, 4, 5])")
+        raises(ValueError, "where([1, 2, 3], [3, 4, 5], [6, 7])")
 
-    def test_where_1_arg(self):
-        xxx
+    #def test_where_1_arg(self):
+    #    xxx
 
     def test_where_invalidates(self):
         from _numpypy import where, ones, zeros, array
