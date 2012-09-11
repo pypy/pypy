@@ -224,12 +224,11 @@ class W_Ufunc1(W_Ufunc):
 
     def call(self, space, args_w):
         w_obj = args_w[0]
+        out = None
         if len(args_w) > 1:
-            w_out = args_w[1]
-        if space.is_w(w_out, space.w_None):
-            out = None
-        else:
-            out = w_out
+            out = args_w[1]
+            if space.is_w(out, space.w_None):
+                out = None
         w_obj = convert_to_array(space, w_obj)
         calc_dtype = find_unaryop_result_dtype(space,
                                   w_obj.get_dtype(),
