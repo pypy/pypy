@@ -53,7 +53,7 @@ class TestStm(RewriteTests):
         """, """
             [p1, p2]
             p3 = same_as(ConstPtr(t))
-            cond_call_gc_wb(p3, 0, descr=wbdescr)
+            cond_call_gc_wb(p3, 0, descr=P2Wdescr)
             setfield_gc(p3, p2, descr=tzdescr)
             jump()
         """)
@@ -81,9 +81,9 @@ class TestStm(RewriteTests):
             jump()
         """, """
             [p1, p2, p3, p4]
-            cond_call_gc_wb(p1, 0, descr=wbdescr)
+            cond_call_gc_wb(p1, 0, descr=P2Wdescr)
             setfield_gc(p1, p2, descr=tzdescr)
-            cond_call_gc_wb(p3, 0, descr=wbdescr)
+            cond_call_gc_wb(p3, 0, descr=P2Wdescr)
             setfield_gc(p3, p4, descr=tzdescr)
             jump()
         """)
@@ -96,7 +96,7 @@ class TestStm(RewriteTests):
             jump()
         """, """
             [p1, p2, i3]
-            cond_call_gc_wb(p1, 0, descr=wbdescr)
+            cond_call_gc_wb(p1, 0, descr=P2Wdescr)
             setfield_gc(p1, p2, descr=tzdescr)
             setfield_gc(p1, i3, descr=tydescr)
             jump()
@@ -111,10 +111,10 @@ class TestStm(RewriteTests):
             jump(p1)
         """, """
             [p1, p2, i3]
-            cond_call_gc_wb(p1, 0, descr=wbdescr)
+            cond_call_gc_wb(p1, 0, descr=P2Wdescr)
             setfield_gc(p1, p2, descr=tzdescr)
             label(p1, i3)
-            cond_call_gc_wb(p1, 0, descr=wbdescr)
+            cond_call_gc_wb(p1, 0, descr=P2Wdescr)
             setfield_gc(p1, i3, descr=tydescr)
             jump(p1)
         """)

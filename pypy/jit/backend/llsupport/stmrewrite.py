@@ -27,8 +27,16 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
 
     def __init__(self, *args):
         GcRewriterAssembler.__init__(self, *args)
-        self.known_local = set()    # set of variables
+        self.known_category = {}    # variable: letter (R, W, ...)
         self.always_inevitable = False
+        self.more_precise_categories = {
+            'P': {#'R': self.gc_ll_descr.P2Rdescr,
+                  'W': self.gc_ll_descr.P2Wdescr,
+                 },
+            'R': {#'W': self.gc_ll_descr.R2Wdescr,
+                 },
+            'W': {},
+           }
 
     def rewrite(self, operations):
         # overridden method from parent class
@@ -60,7 +68,7 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
                 continue
             # ----------  calls  ----------
             if op.is_call():
-                self.known_local.clear()
+                self.known_category.clear()
                 if op.getopnum() == rop.CALL_RELEASE_GIL:
                     self.fallback_inevitable(op)
                 else:
@@ -73,7 +81,7 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
                 continue
             # ----------  labels  ----------
             if op.getopnum() == rop.LABEL:
-                self.known_local.clear()
+                self.known_category.clear()
                 self.always_inevitable = False
                 self.newops.append(op)
                 continue
@@ -94,16 +102,22 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         return self.newops
 
 
-    def gen_write_barrier(self, v_base, cat):
+    def gen_write_barrier(self, v):
+        raise NotImplementedError
+
+    def gen_barrier(self, v_base, target_category):
         v_base = self.unconstifyptr(v_base)
         assert isinstance(v_base, BoxPtr)
-        if v_base in self.known_local:
-            return v_base    # no write barrier needed
-        write_barrier_descr = getattr(self.gc_ll_descr, '%sdescr' % (cat,))
+        source_category = self.known_category.get(v_base, 'P')
+        mpcat = self.more_precise_categories[source_category]
+        try:
+            write_barrier_descr = mpcat[target_category]
+        except KeyError:
+            return v_base    # no barrier needed
         args = [v_base, self.c_zero]
         self.newops.append(ResOperation(rop.COND_CALL_GC_WB, args, None,
                                         descr=write_barrier_descr))
-        self.known_local.add(v_base)
+        self.known_category[v_base] = target_category
         return v_base
 
     def unconstifyptr(self, v):
@@ -117,12 +131,12 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
 
     def handle_setfield_operations(self, op):
         lst = op.getarglist()
-        lst[0] = self.gen_write_barrier(lst[0], 'P2W')
+        lst[0] = self.gen_barrier(lst[0], 'W')
         self.newops.append(op.copy_and_change(op.getopnum(), args=lst))
 
     def handle_malloc_operation(self, op):
         GcRewriterAssembler.handle_malloc_operation(self, op)
-        self.known_local.add(op.result)
+        self.known_category[op.result] = 'W'
 
     def handle_getfield_operations(self, op):
         lst = op.getarglist()
@@ -131,6 +145,7 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
             return
         lst[0] = self.unconstifyptr(lst[0])
         write_barrier_descr = self.gc_ll_descr.write_barrier_descr
+        XXX
         op_before = ResOperation(rop.STM_READ_BEFORE, [lst[0]], None,
                                  descr=write_barrier_descr)
         op_after  = ResOperation(rop.STM_READ_AFTER, [lst[0]], None)
