@@ -1,6 +1,7 @@
 from pypy.jit.backend.llsupport.rewrite import GcRewriterAssembler
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.metainterp.history import BoxPtr, ConstPtr, ConstInt
+from pypy.rlib.objectmodel import specialize
 
 #
 # STM Support
@@ -43,6 +44,11 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         #
         for op in operations:
             if op.getopnum() == rop.DEBUG_MERGE_POINT:
+                continue
+            # ----------  ptr_eq  ----------
+            if op.getopnum() in (rop.PTR_EQ, rop.INSTANCE_PTR_EQ,
+                                 rop.PTR_NE, rop.INSTANCE_PTR_NE):
+                self.handle_ptr_eq(op)
                 continue
             # ----------  pure operations, guards  ----------
             if op.is_always_pure() or op.is_guard() or op.is_ovf():
@@ -146,12 +152,31 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         # then a read barrier the source string
         self.handle_category_operations(op, 'R')
 
+    @specialize.arg(1)
+    def _do_stm_call(self, funcname, args, result):
+        addr = self.gc_ll_descr.get_malloc_fn_addr(funcname)
+        descr = getattr(self.gc_ll_descr, funcname + '_descr')
+        op1 = ResOperation(rop.CALL, [ConstInt(addr)] + args,
+                           result, descr=descr)
+        self.newops.append(op1)
+
     def fallback_inevitable(self, op):
         self.known_category.clear()
         if not self.always_inevitable:
-            addr = self.gc_ll_descr.get_malloc_fn_addr('stm_try_inevitable')
-            descr = self.gc_ll_descr.stm_try_inevitable_descr
-            op1 = ResOperation(rop.CALL, [ConstInt(addr)], None, descr=descr)
-            self.newops.append(op1)
+            self._do_stm_call('stm_try_inevitable', [], None)
             self.always_inevitable = True
         self.newops.append(op)
+
+    def _is_null(self, box):
+        return isinstance(box, ConstPtr) and not box.value
+
+    def handle_ptr_eq(self, op):
+        if self._is_null(op.getarg(0)) or self._is_null(op.getarg(1)):
+            self.newops.append(op)
+            return
+        args = op.getarglist()
+        result = op.result
+        if op.getopnum() in (rop.PTR_EQ, rop.INSTANCE_PTR_EQ):
+            self._do_stm_call('stm_ptr_eq', args, result)
+        else:
+            self._do_stm_call('stm_ptr_ne', args, result)

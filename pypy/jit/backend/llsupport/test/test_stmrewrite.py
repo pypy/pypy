@@ -136,7 +136,6 @@ class TestStm(RewriteTests):
             "guard_true(i1) [i2]",    # all guards
             "i3 = int_add(i1, i2)",   # all pure operations
             "f3 = float_abs(f1)",
-            "i3 = ptr_eq(p1, p2)",
             "i3 = force_token()",
             "i3 = read_timestamp()",
             "i3 = mark_opaque_ptr(p1)",
@@ -487,3 +486,58 @@ class TestStm(RewriteTests):
                 setfield_gc(p1, 20, descr=tydescr)
                 jump(p1)
             """ % op)
+
+    def test_ptr_eq_null(self):
+        self.check_rewrite("""
+            [p1, p2]
+            i1 = ptr_eq(p1, NULL)
+            jump(i1)
+        """, """
+            [p1, p2]
+            i1 = ptr_eq(p1, NULL)
+            jump(i1)
+        """)
+
+    def test_ptr_eq(self):
+        self.check_rewrite("""
+            [p1, p2]
+            i1 = ptr_eq(p1, p2)
+            jump(i1)
+        """, """
+            [p1, p2]
+            i1 = call(ConstClass(stm_ptr_eq), p1, p2, descr=stm_ptr_eq_descr)
+            jump(i1)
+        """)
+
+    def test_instance_ptr_eq(self):
+        self.check_rewrite("""
+            [p1, p2]
+            i1 = instance_ptr_eq(p1, p2)
+            jump(i1)
+        """, """
+            [p1, p2]
+            i1 = call(ConstClass(stm_ptr_eq), p1, p2, descr=stm_ptr_eq_descr)
+            jump(i1)
+        """)
+
+    def test_ptr_ne(self):
+        self.check_rewrite("""
+            [p1, p2]
+            i1 = ptr_ne(p1, p2)
+            jump(i1)
+        """, """
+            [p1, p2]
+            i1 = call(ConstClass(stm_ptr_ne), p1, p2, descr=stm_ptr_ne_descr)
+            jump(i1)
+        """)
+
+    def test_instance_ptr_ne(self):
+        self.check_rewrite("""
+            [p1, p2]
+            i1 = instance_ptr_ne(p1, p2)
+            jump(i1)
+        """, """
+            [p1, p2]
+            i1 = call(ConstClass(stm_ptr_ne), p1, p2, descr=stm_ptr_ne_descr)
+            jump(i1)
+        """)

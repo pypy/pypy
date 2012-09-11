@@ -860,9 +860,14 @@ class GcLLDescr_framework(GcLLDescription):
                                [lltype.Signed] * 2)
 
         if self.stm:
+            # XXX remove the indirections in the following calls
             from pypy.rlib import rstm
             self.generate_function('stm_try_inevitable',
                                    rstm.become_inevitable, [])
+            def ptr_eq(x, y): return x == y
+            def ptr_ne(x, y): return x != y
+            self.generate_function('stm_ptr_eq', ptr_eq, [llmemory.GCREF] * 2)
+            self.generate_function('stm_ptr_ne', ptr_ne, [llmemory.GCREF] * 2)
 
     def _bh_malloc(self, sizedescr):
         from pypy.rpython.memory.gctypelayout import check_typeid
