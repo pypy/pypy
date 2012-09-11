@@ -141,13 +141,13 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
     def handle_copystrcontent(self, op):
         # first, a write barrier on the target string
         lst = op.getarglist()
-        lst[1] = self.gen_write_barrier(lst[1])
+        lst[1] = self.gen_barrier(lst[1], 'W')
         op = op.copy_and_change(op.getopnum(), args=lst)
-        # then a normal STM_READ_BEFORE/AFTER pair on the source string
-        self.handle_getfield_operations(op)
+        # then a read barrier the source string
+        self.handle_category_operations(op, 'R')
 
     def fallback_inevitable(self, op):
-        self.known_local.clear()
+        self.known_category.clear()
         if not self.always_inevitable:
             addr = self.gc_ll_descr.get_malloc_fn_addr('stm_try_inevitable')
             descr = self.gc_ll_descr.stm_try_inevitable_descr

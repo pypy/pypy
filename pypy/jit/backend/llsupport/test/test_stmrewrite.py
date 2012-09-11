@@ -345,20 +345,6 @@ class TestStm(RewriteTests):
             jump(i3, i4)
         """)
 
-    def test_getinteriorfield_raw(self):
-        self.check_rewrite("""
-            [i1, i2]
-            i3 = getinteriorfield_raw(i1, 5, descr=?)
-            i4 = getinteriorfield_raw(i2, i3, descr=?)
-            jump(i3, i4)
-        """, """
-            [i1, i2]
-            $INEV
-            i3 = getinteriorfield_raw(i1, 5, descr=?)
-            i4 = getinteriorfield_raw(i2, i3, descr=?)
-            jump(i3, i4)
-        """)
-
     def test_rewrite_unrelated_setarrayitem_gcs(self):
         self.check_rewrite("""
             [p1, i1, p2, p3, i3, p4]
