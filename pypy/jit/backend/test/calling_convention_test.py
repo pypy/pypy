@@ -18,6 +18,7 @@ from pypy.jit.codewriter import heaptracker, longlong
 from pypy.rlib.rarithmetic import intmask
 from pypy.jit.backend.detect_cpu import getcpuclass
 from pypy.jit.backend.test.runner_test import Runner
+import py
 
 def boxfloat(x):
     return BoxFloat(longlong.getfloatstorage(x))
@@ -292,6 +293,34 @@ class TestCallingConv(Runner):
                 assert abs(x - expected_result) < 0.0001
             finally:
                 del self.cpu.done_with_this_frame_float_v
+
+
+    def test_call_with_imm_values_bug_constint0(self):
+            from pypy.rlib.libffi import types
+            cpu = self.cpu
+
+            I = lltype.Signed
+            ints = [7, 11, 23, 13, -42, 0, 0, 9]
+
+            def func(*args):
+                for i in range(len(args)):
+                    assert args[i] == ints[i]
+                return sum(args)
+
+            result = sum(ints)
+            args = [I] * len(ints)
+            argslist = [ConstInt(i) for i in ints]
+            FUNC = self.FuncType(args, I)
+            FPTR = self.Ptr(FUNC)
+            func_ptr = llhelper(FPTR, func)
+            calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, EffectInfo.MOST_GENERAL)
+            funcbox = self.get_funcbox(cpu, func_ptr)
+
+            res = self.execute_operation(rop.CALL,
+                                         [funcbox] + argslist,
+                                         'int', descr=calldescr)
+            assert res.value == result
+
 
     def test_call_with_singlefloats(self):
         cpu = self.cpu

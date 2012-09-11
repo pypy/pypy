@@ -5,7 +5,6 @@ import operator
 import types
 from pypy.tool import error
 from pypy.interpreter.baseobjspace import ObjSpace, Wrappable
-from pypy.interpreter.module import Module
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import pyframe, argument
 from pypy.objspace.flow.model import *
@@ -47,24 +46,16 @@ class FlowObjSpace(ObjSpace):
     """
 
     full_exceptions = False
-    do_imports_immediately = True
     FrameClass = flowcontext.FlowSpaceFrame
 
     def initialize(self):
-        self.concrete_mode = 1
         self.w_None     = Constant(None)
-        self.builtin    = Module(self, Constant('__builtin__'),
-                                 Constant(__builtin__.__dict__))
-        def pick_builtin(w_globals):
-            return self.builtin
-        self.builtin.pick_builtin = pick_builtin
-        self.sys        = Module(self, Constant('sys'), Constant(sys.__dict__))
-        self.sys.recursionlimit = 100
+        self.builtin = Constant(__builtin__)
+        self.sys = Constant(sys)
         self.w_False    = Constant(False)
         self.w_True     = Constant(True)
         self.w_type     = Constant(type)
         self.w_tuple    = Constant(tuple)
-        self.concrete_mode = 0
         for exc in [KeyError, ValueError, IndexError, StopIteration,
                     AssertionError, TypeError, AttributeError, ImportError]:
             clsname = exc.__name__
@@ -84,18 +75,9 @@ class FlowObjSpace(ObjSpace):
         # objects which should keep their SomeObjectness
         self.not_really_const = NOT_REALLY_CONST
 
-    def enter_cache_building_mode(self):
-        # when populating the caches, the flow space switches to
-        # "concrete mode".  In this mode, only Constants are allowed
-        # and no SpaceOperation is recorded.
-        previous_recorder = self.executioncontext.recorder
-        self.executioncontext.recorder = flowcontext.ConcreteNoOp()
-        self.concrete_mode += 1
-        return previous_recorder
-
-    def leave_cache_building_mode(self, previous_recorder):
-        self.executioncontext.recorder = previous_recorder
-        self.concrete_mode -= 1
+    # disable superclass methods
+    enter_cache_building_mode = None
+    leave_cache_building_mode = None
 
     def is_w(self, w_one, w_two):
         return self.is_true(self.is_(w_one, w_two))
@@ -104,8 +86,6 @@ class FlowObjSpace(ObjSpace):
     id  = None     # real version added by add_operations()
 
     def newdict(self, module="ignored"):
-        if self.concrete_mode:
-            return Constant({})
         return self.do_operation('newdict')
 
     def newtuple(self, args_w):
@@ -117,16 +97,9 @@ class FlowObjSpace(ObjSpace):
             return Constant(tuple(content))
 
     def newlist(self, args_w, sizehint=None):
-        if self.concrete_mode:
-            content = [self.unwrap(w_arg) for w_arg in args_w]
-            return Constant(content)
         return self.do_operation('newlist', *args_w)
 
     def newslice(self, w_start, w_stop, w_step):
-        if self.concrete_mode:
-            return Constant(slice(self.unwrap(w_start),
-                                  self.unwrap(w_stop),
-                                  self.unwrap(w_step)))
         return self.do_operation('newslice', w_start, w_stop, w_step)
 
     def wrap(self, obj):
@@ -189,12 +162,8 @@ class FlowObjSpace(ObjSpace):
             hasattr(to_check, '__class__') and to_check.__class__.__module__ != '__builtin__'):
             frozen = hasattr(to_check, '_freeze_') and to_check._freeze_()
             if not frozen:
-                if self.concrete_mode:
-                    # xxx do we want some warning? notice that some stuff is harmless
-                    # like setitem(dict, 'n', mutable)
-                    pass
-                else: # cannot count on it not mutating at runtime!
-                    raise UnwrapException
+                # cannot count on it not mutating at runtime!
+                raise UnwrapException
         return obj
 
     def interpclass_w(self, w_obj):
@@ -263,14 +232,14 @@ class FlowObjSpace(ObjSpace):
         except error.FlowingError, a:
             # attach additional source info to AnnotatorError
             _, _, tb = sys.exc_info()
-            formated = error.format_global_error(ec.graph, ec.crnt_offset,
+            formated = error.format_global_error(ec.graph, ec.frame.last_instr,
                                                  str(a))
             e = error.FlowingError(formated)
             raise error.FlowingError, e, tb
 
         graph = ec.graph
         checkgraph(graph)
-        if ec.is_generator and tweak_for_generator:
+        if graph.is_generator and tweak_for_generator:
             from pypy.translator.generator import tweak_generator_graph
             tweak_generator_graph(graph)
         return graph
@@ -302,9 +271,8 @@ class FlowObjSpace(ObjSpace):
     # ____________________________________________________________
     def do_operation(self, name, *args_w):
         spaceop = SpaceOperation(name, args_w, Variable())
-        if hasattr(self, 'executioncontext'):  # not here during bootstrapping
-            spaceop.offset = self.executioncontext.crnt_offset
-            self.executioncontext.recorder.append(spaceop)
+        spaceop.offset = self.executioncontext.frame.last_instr
+        self.executioncontext.recorder.append(spaceop)
         return spaceop.result
 
     def do_operation_with_implicit_exceptions(self, name, *args_w):
@@ -366,15 +334,6 @@ class FlowObjSpace(ObjSpace):
         if ec and w_obj is ec.frame.w_globals:
             raise SyntaxError("attempt to modify global attribute %r in %r"
                             % (w_key, ec.graph.func))
-        if self.concrete_mode:
-            try:
-                obj = self.unwrap_for_computation(w_obj)
-                key = self.unwrap_for_computation(w_key)
-                val = self.unwrap_for_computation(w_val)
-                operator.setitem(obj, key, val)
-                return self.w_None
-            except UnwrapException:
-                pass
         return self.do_operation_with_implicit_exceptions('setitem', w_obj,
                                                           w_key, w_val)
 
@@ -406,6 +365,23 @@ class FlowObjSpace(ObjSpace):
                 pass
         return self.do_operation_with_implicit_exceptions('getattr',
                 w_obj, w_name)
+
+    def import_name(self, name, glob=None, loc=None, frm=None, level=-1):
+        try:
+            mod = __import__(name, glob, loc, frm, level)
+        except ImportError, e:
+            raise OperationError(self.w_ImportError, self.wrap(str(e)))
+        return self.wrap(mod)
+
+    def import_from(self, w_module, w_name):
+        try:
+            return self.getattr(w_module, w_name)
+        except OperationError, e:
+            if e.match(self, self.w_AttributeError):
+                raise OperationError(self.w_ImportError,
+                    self.wrap("cannot import name '%s'" % w_name.value))
+            else:
+                raise
 
     def call_function(self, w_func, *args_w):
         nargs = len(args_w)
@@ -477,6 +453,18 @@ class FlowObjSpace(ObjSpace):
                 #pass
              raise operation.ImplicitOperationError(w_exc_cls, w_exc_value)
 
+    def find_global(self, w_globals, varname):
+        try:
+            value = self.unwrap(w_globals)[varname]
+        except KeyError:
+            # not in the globals, now look in the built-ins
+            try:
+                value = getattr(self.unwrap(self.builtin), varname)
+            except AttributeError:
+                message = "global name '%s' is not defined" % varname
+                raise OperationError(self.w_NameError, self.wrap(message))
+        return self.wrap(value)
+
     def w_KeyboardInterrupt(self):
         # the reason to do this is: if you interrupt the flowing of a function
         # with <Ctrl-C> the bytecode interpreter will raise an applevel
@@ -490,4 +478,82 @@ class FlowObjSpace(ObjSpace):
         raise RuntimeError("the interpreter raises RuntimeError during "
                            "flow graph construction")
     w_RuntimeError = prebuilt_recursion_error = property(w_RuntimeError)
-operation.add_operations(FlowObjSpace)
+
+def make_op(name, arity):
+    """Add function operation to the flow space."""
+    if getattr(FlowObjSpace, name, None) is not None:
+        return
+
+    op = None
+    skip = False
+    arithmetic = False
+
+    if (name.startswith('del') or
+        name.startswith('set') or
+        name.startswith('inplace_')):
+        # skip potential mutators
+        skip = True
+    elif name in ('id', 'hash', 'iter', 'userdel'):
+        # skip potential runtime context dependecies
+        skip = True
+    elif name in ('repr', 'str'):
+        rep = getattr(__builtin__, name)
+        def op(obj):
+            s = rep(obj)
+            if "at 0x" in s:
+                print >>sys.stderr, "Warning: captured address may be awkward"
+            return s
+    else:
+        op = operation.FunctionByName[name]
+        arithmetic = (name + '_ovf') in operation.FunctionByName
+
+    if not op and not skip:
+        raise ValueError("XXX missing operator: %s" % (name,))
+
+    def generic_operator(self, *args_w):
+        assert len(args_w) == arity, name + " got the wrong number of arguments"
+        if op:
+            args = []
+            for w_arg in args_w:
+                try:
+                    arg = self.unwrap_for_computation(w_arg)
+                except UnwrapException:
+                    break
+                else:
+                    args.append(arg)
+            else:
+                # All arguments are constants: call the operator now
+                try:
+                    result = op(*args)
+                except Exception, e:
+                    etype = e.__class__
+                    msg = "generated by a constant operation:\n\t%s%r" % (
+                        name, tuple(args))
+                    raise operation.OperationThatShouldNotBePropagatedError(
+                        self.wrap(etype), self.wrap(msg))
+                else:
+                    # don't try to constant-fold operations giving a 'long'
+                    # result.  The result is probably meant to be sent to
+                    # an intmask(), but the 'long' constant confuses the
+                    # annotator a lot.
+                    if arithmetic and type(result) is long:
+                        pass
+                    # don't constant-fold getslice on lists, either
+                    elif name == 'getslice' and type(result) is list:
+                        pass
+                    # otherwise, fine
+                    else:
+                        try:
+                            return self.wrap(result)
+                        except WrapException:
+                            # type cannot sanely appear in flow graph,
+                            # store operation with variable result instead
+                            pass
+        w_result = self.do_operation_with_implicit_exceptions(name, *args_w)
+        return w_result
+
+    setattr(FlowObjSpace, name, generic_operator)
+
+
+for (name, symbol, arity, specialnames) in ObjSpace.MethodTable:
+    make_op(name, arity)

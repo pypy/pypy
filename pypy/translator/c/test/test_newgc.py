@@ -1491,7 +1491,7 @@ class TestMiniMarkGC(TestSemiSpaceGC):
             def __del__(self):
                 ropenssl.EVP_MD_CTX_cleanup(self.ctx)
                 lltype.free(self.ctx, flavor='raw')
-        A()
+        #A() --- can't call it here?? get glibc crashes on tannit64
         def f():
             am1 = am2 = am3 = None
             for i in range(100000):

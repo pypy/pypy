@@ -664,6 +664,17 @@ class AppTestItertools:
         ref = weakref.ref(b)
         assert ref() is b
 
+    def test_tee_bug1(self):
+        import itertools
+        a, b = itertools.tee('abcde')
+        x = a.next()
+        assert x == 'a'
+        c, d = itertools.tee(a)
+        x = c.next()
+        assert x == 'b'
+        x = d.next()
+        assert x == 'b'
+
 
 class AppTestItertools26:
     def setup_class(cls):

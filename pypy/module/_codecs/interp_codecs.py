@@ -53,14 +53,8 @@ class CodecState(object):
                 raise operationerrfmt(
                     space.w_IndexError,
                     "position %d from error handler out of bounds", newpos)
-            if decode:
-                replace = space.unicode_w(w_replace)
-                return replace, newpos
-            else:
-                from pypy.objspace.std.unicodetype import encode_object
-                w_str = encode_object(space, w_replace, encoding, None)
-                replace = space.str_w(w_str)
-                return replace, newpos
+            replace = space.unicode_w(w_replace)
+            return replace, newpos
         return unicode_call_errorhandler
 
     def get_unicodedata_handler(self, space):

@@ -291,14 +291,16 @@ class GenericASTVisitorVisitor(ASDLVisitor):
 
 
 asdl_type_map = {
-    "int" : "int_w",
-    "identifier" : "str_w",
-    "bool" : "bool_w"
+    "object" : "%s",
+    "int" : "space.int_w(%s)",
+    "string": "check_string(space, %s)",
+    "identifier" : "space.realstr_w(%s)",
+    "bool" : "space.bool_w(%s)"
 }
 
 def get_unwrapper(tp, name, simple_types):
     if tp in asdl.builtin_types:
-        return "space.%s(%s)" % (asdl_type_map[tp], name)
+        return asdl_type_map[tp] % name
     elif tp in simple_types:
         return "space.interp_w(%s, %s).to_simple_int(space)" % (tp, name)
     else:
@@ -464,17 +466,15 @@ class AppExposeVisitor(ASDLVisitor):
                     self.emit("w_self.%s = None" % (field.name,), 3)
                     level += 1
                     self.emit("else:", 2)
-                if field.type.value in ("object", "string"):
-                    self.emit("w_self.%s = w_new_value" % (field.name,), level)
-                else:
-                    space_method = asdl_type_map[field.type.value]
-                    config = (field.name, space_method)
-                    self.emit("w_self.%s = space.%s(w_new_value)" % config, level)
+                value = asdl_type_map[field.type.value] % "w_new_value"
+                config = (field.name, value)
+                self.emit("w_self.%s = %s" % config, level)
             self.emit("except OperationError, e:", 1)
             self.emit("    if not e.match(space, space.w_TypeError):", 1)
             self.emit("        raise", 1)
             self.emit("    w_self.setdictvalue(space, '%s', w_new_value)"
                       % (field.name,), 1)
+            self.emit("    w_self.initialization_state &= ~%s" % (flag,), 1)
             self.emit("    return", 1)
             if save_original_object:
                 self.emit("# need to save the original object too", 1)
@@ -545,6 +545,14 @@ from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.tool.pairtype import extendabletype
 from pypy.tool.sourcetools import func_with_new_name
+
+
+def check_string(space, w_obj):
+    if not (space.isinstance_w(w_obj, space.w_str) or
+            space.isinstance_w(w_obj, space.w_unicode)):
+        raise OperationError(space.w_TypeError, space.wrap(
+                'AST string must be of type str or unicode'))
+    return w_obj
 
 
 class AST(Wrappable):

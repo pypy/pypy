@@ -298,6 +298,9 @@ def pick_platform(new_platform, cc):
     elif new_platform == 'maemo':
         from pypy.translator.platform.maemo import Maemo
         return Maemo(cc)
+    elif new_platform == 'arm':
+        from pypy.translator.platform.arm import ARM
+        return ARM(cc)
     elif new_platform == 'distutils':
         from pypy.translator.platform.distutils_platform import DistutilsPlatform
         return DistutilsPlatform()

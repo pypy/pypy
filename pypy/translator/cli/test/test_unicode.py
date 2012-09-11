@@ -24,3 +24,9 @@ class TestCliUnicode(CliTest, BaseTestRUnicode):
 
     def test_strformat_unicode_arg(self):
         py.test.skip('fixme!')
+
+    def test_unicode_decode(self):
+        py.test.skip('fixme!')
+
+    def test_unicode_encode(self):
+        py.test.skip('fixme!')

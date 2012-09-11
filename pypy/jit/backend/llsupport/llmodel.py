@@ -28,7 +28,7 @@ class AbstractLLCPU(AbstractCPU):
         self.rtyper = rtyper
         self.stats = stats
         self.translate_support_code = translate_support_code
-        if translate_support_code:
+        if translate_support_code and rtyper is not None:
             translator = rtyper.annotator.translator
         else:
             translator = None
@@ -191,7 +191,9 @@ class AbstractLLCPU(AbstractCPU):
         self.on_leave_jitted_memoryerr = on_leave_jitted_memoryerr
 
     def get_on_leave_jitted_hook(self):
-        return lambda : None
+        # this function needs to be overridden for things to work with
+        # our framework GCs
+        translation_time_error
 
     _ON_JIT_LEAVE_FUNC = lltype.Ptr(lltype.FuncType([], lltype.Void))
 
