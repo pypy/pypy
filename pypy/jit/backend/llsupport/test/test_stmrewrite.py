@@ -29,7 +29,9 @@ class TestStm(RewriteTests):
                 " descr=stm_try_inevitable_descr)")
         frm_operations = frm_operations.replace('$INEV', inev)
         to_operations  = to_operations .replace('$INEV', inev)
-        namespace['P2Wdescr'] = self.gc_ll_descr.P2Wdescr
+        for name, value in self.gc_ll_descr.__dict__.items():
+            if name.endswith('descr') and name[1] == '2' and len(name) == 8:
+                namespace[name] = value     # "X2Ydescr"
         RewriteTests.check_rewrite(self, frm_operations, to_operations,
                                    **namespace)
 
@@ -157,9 +159,8 @@ class TestStm(RewriteTests):
             jump(p2)
         """, """
             [p1]
-            stm_read_before(p1, descr=wbdescr)
+            cond_call_gc_wb(p1, 0, descr=P2Rdescr)
             p2 = getfield_gc(p1, descr=tzdescr)
-            stm_read_after(p1)
             jump(p2)
         """)
 
@@ -171,11 +172,11 @@ class TestStm(RewriteTests):
         """, """
             [p1]
             p3 = same_as(ConstPtr(t))
-            stm_read_before(p3, descr=wbdescr)
+            cond_call_gc_wb(p3, 0, descr=P2Rdescr)
             p2 = getfield_gc(p3, descr=tzdescr)
-            stm_read_after(p3)
             jump(p2)
         """)
+        # XXX could do better: G2Rdescr
 
     def test_rewrite_getarrayitem_gc(self):
         self.check_rewrite("""
@@ -184,9 +185,8 @@ class TestStm(RewriteTests):
             jump(i3)
         """, """
             [p1, i2]
-            stm_read_before(p1, descr=wbdescr)
+            cond_call_gc_wb(p1, 0, descr=P2Rdescr)
             i3 = getarrayitem_gc(p1, i2, descr=adescr)
-            stm_read_after(p1)
             jump(i3)
         """)
 
@@ -197,14 +197,12 @@ class TestStm(RewriteTests):
             jump(i3)
         """, """
             [p1, i2]
-            stm_read_before(p1, descr=wbdescr)
+            cond_call_gc_wb(p1, 0, descr=P2Rdescr)
             i3 = getinteriorfield_gc(p1, i2, descr=adescr)
-            stm_read_after(p1)
             jump(i3)
         """)
 
     def test_rewrite_several_getfield_gcs(self):
-        py.test.skip("optimization")
         self.check_rewrite("""
             [p1]
             p2 = getfield_gc(p1, descr=tzdescr)
@@ -212,10 +210,9 @@ class TestStm(RewriteTests):
             jump(p2, i2)
         """, """
             [p1]
-            stm_read_before(p1, descr=wbdescr)
+            cond_call_gc_wb(p1, 0, descr=P2Rdescr)
             p2 = getfield_gc(p1, descr=tzdescr)
             i2 = getfield_gc(p1, descr=tydescr)
-            stm_read_after(p1)
             jump(p2, i2)
         """)
 
@@ -227,62 +224,42 @@ class TestStm(RewriteTests):
             jump(p2, i2)
         """, """
             [p1]
-            stm_read_before(p1, descr=wbdescr)
+            cond_call_gc_wb(p1, 0, descr=P2Rdescr)
             p2 = getfield_gc(p1, descr=tzdescr)
-            stm_read_after(p1)
-            stm_read_before(p2, descr=wbdescr)
+            cond_call_gc_wb(p2, 0, descr=P2Rdescr)
             i2 = getfield_gc(p2, descr=tydescr)
-            stm_read_after(p2)
             jump(p2, i2)
         """)
 
-    def test_move_forward_getfield_gc(self):
-        py.test.skip("optimization")
+    def test_getfield_followed_by_setfield(self):
+        # XXX coalesce the two barriers into one if there are e.g. no
+        # calls inbetween
         self.check_rewrite("""
             [p1]
-            p2 = getfield_gc(p1, descr=tzdescr)
-            guard_nonnull(p2) [i1]
-            i2 = getfield_gc(p1, descr=tydescr)
-            jump(p2, i2)
+            i1 = getfield_gc(p1, descr=tydescr)
+            i2 = int_add(i1, 1)
+            setfield_gc(p1, i2, descr=tydescr)
+            jump(p1)
         """, """
             [p1]
-            stm_read_before(p1, descr=wbdescr)
-            p2 = getfield_gc(p1, descr=tzdescr)
-            i2 = getfield_gc(p1, descr=tydescr)
-            stm_read_after(p1)
-            guard_nonnull(p2) [i1]
-            jump(p2, i2)
+            cond_call_gc_wb(p1, 0, descr=P2Rdescr)
+            i1 = getfield_gc(p1, descr=tydescr)
+            i2 = int_add(i1, 1)
+            cond_call_gc_wb(p1, 0, descr=R2Wdescr)
+            setfield_gc(p1, i2, descr=tydescr)
+            jump(p1)
         """)
 
-    def test_dont_move_forward_over_sideeffect(self):
+    def test_setfield_followed_by_getfield(self):
         self.check_rewrite("""
             [p1]
-            p2 = getfield_gc(p1, descr=tzdescr)
-            call(123)
-            i2 = getfield_gc(p1, descr=tydescr)
-            jump(p2, i2)
-        """, """
-            [p1]
-            stm_read_before(p1, descr=wbdescr)
-            p2 = getfield_gc(p1, descr=tzdescr)
-            stm_read_after(p1)
-            call(123)
-            stm_read_before(p1, descr=wbdescr)
-            i2 = getfield_gc(p1, descr=tydescr)
-            stm_read_after(p1)
-            jump(p2, i2)
-        """)
-
-    def test_rewrite_getfield_gc_on_local(self):
-        self.check_rewrite("""
-            [p1]
-            setfield_gc(p1, 5, descr=tydescr)
+            setfield_gc(p1, 123, descr=tydescr)
             p2 = getfield_gc(p1, descr=tzdescr)
             jump(p2)
         """, """
             [p1]
-            cond_call_gc_wb(p1, 0, descr=wbdescr)
-            setfield_gc(p1, 5, descr=tydescr)
+            cond_call_gc_wb(p1, 0, descr=P2Wdescr)
+            setfield_gc(p1, 123, descr=tydescr)
             p2 = getfield_gc(p1, descr=tzdescr)
             jump(p2)
         """)
@@ -302,23 +279,9 @@ class TestStm(RewriteTests):
             jump(p2)
         """)
 
-    def test_rewrite_getfield_gc_on_future_local(self):
-        py.test.skip("optimization")
-        self.check_rewrite("""
-            [p1]
-            p2 = getfield_gc(p1, descr=tzdescr)
-            setfield_gc(p1, 5, descr=tydescr)
-            jump(p2)
-        """, """
-            [p1]
-            cond_call_gc_wb(p1, 0, descr=wbdescr)
-            p2 = getfield_gc(p1, descr=tzdescr)
-            setfield_gc(p1, 5, descr=tydescr)
-            jump(p2)
-        """)
-
     def test_rewrite_getfield_gc_on_future_local_after_call(self):
-        py.test.skip("optimization")
+        # XXX could detect CALLs that cannot interrupt the transaction
+        # and/or could use the L category
         self.check_rewrite("""
             [p1]
             p2 = getfield_gc(p1, descr=tzdescr)
@@ -327,10 +290,10 @@ class TestStm(RewriteTests):
             jump(p2)
         """, """
             [p1]
-            cond_call_gc_wb(p1, 0, descr=wbdescr)
+            cond_call_gc_wb(p1, 0, descr=P2Rdescr)
             p2 = getfield_gc(p1, descr=tzdescr)
             call(p2)
-            cond_call_gc_wb(p1, 0, descr=wbdescr)
+            cond_call_gc_wb(p1, 0, descr=P2Wdescr)
             setfield_gc(p1, 5, descr=tydescr)
             jump(p2)
         """)
@@ -404,9 +367,9 @@ class TestStm(RewriteTests):
             jump()
         """, """
             [p1, i1, p2, p3, i3, p4]
-            cond_call_gc_wb(p1, 0, descr=wbdescr)
+            cond_call_gc_wb(p1, 0, descr=P2Wdescr)
             setarrayitem_gc(p1, i1, p2, descr=?)
-            cond_call_gc_wb(p3, 0, descr=wbdescr)
+            cond_call_gc_wb(p3, 0, descr=P2Wdescr)
             setarrayitem_gc(p3, i3, p4, descr=?)
             jump()
         """)
@@ -420,7 +383,7 @@ class TestStm(RewriteTests):
             jump()
         """, """
             [p1, p2, i2, p3, i3]
-            cond_call_gc_wb(p1, 0, descr=wbdescr)
+            cond_call_gc_wb(p1, 0, descr=P2Wdescr)
             setarrayitem_gc(p1, i2, p2, descr=adescr)
             i4 = read_timestamp()
             setarrayitem_gc(p1, i3, p3, descr=adescr)
@@ -436,7 +399,7 @@ class TestStm(RewriteTests):
             jump()
         """, """
             [p1, p2, i2, p3, i3]
-            cond_call_gc_wb(p1, 0, descr=wbdescr)
+            cond_call_gc_wb(p1, 0, descr=P2Wdescr)
             setinteriorfield_gc(p1, i2, p2, descr=adescr)
             i4 = read_timestamp()
             setinteriorfield_gc(p1, i3, p3, descr=adescr)
@@ -451,7 +414,7 @@ class TestStm(RewriteTests):
             jump()
         """, """
             [p1, i2, i3]
-            cond_call_gc_wb(p1, 0, descr=wbdescr)
+            cond_call_gc_wb(p1, 0, descr=P2Wdescr)
             strsetitem(p1, i2, i3)
             unicodesetitem(p1, i2, i3)
             jump()
@@ -474,11 +437,11 @@ class TestStm(RewriteTests):
                 jump(i2, p7)
             """ % op, """
                 [i1, i2, i3, p7]
-                cond_call_gc_wb(p7, 0, descr=wbdescr)
+                cond_call_gc_wb(p7, 0, descr=P2Wdescr)
                 setfield_gc(p7, 10, descr=tydescr)
                 $INEV
                 %s
-                cond_call_gc_wb(p7, 0, descr=wbdescr)
+                cond_call_gc_wb(p7, 0, descr=P2Wdescr)
                 setfield_gc(p7, 20, descr=tydescr)
                 jump(i2, p7)
             """ % op)
@@ -490,10 +453,9 @@ class TestStm(RewriteTests):
             jump()
         """, """
             [p1, p2, i1, i2, i3]
-            cond_call_gc_wb(p2, 0, descr=wbdescr)
-            stm_read_before(p1, descr=wbdescr)
+            cond_call_gc_wb(p2, 0, descr=P2Wdescr)
+            cond_call_gc_wb(p1, 0, descr=P2Rdescr)
             copystrcontent(p1, p2, i1, i2, i3)
-            stm_read_after(p1)
             jump()
         """)
 
@@ -511,7 +473,7 @@ class TestStm(RewriteTests):
                 jump(p1)
             """ % op, """
                 [p1]
-                cond_call_gc_wb(p1, 0, descr=wbdescr)
+                cond_call_gc_wb(p1, 0, descr=P2Wdescr)
                 setfield_gc(p1, 10, descr=tydescr)
                 %s
                 setfield_gc(p1, 20, descr=tydescr)
@@ -532,10 +494,10 @@ class TestStm(RewriteTests):
                 jump(p1)
             """ % op, """
                 [p1]
-                cond_call_gc_wb(p1, 0, descr=wbdescr)
+                cond_call_gc_wb(p1, 0, descr=P2Wdescr)
                 setfield_gc(p1, 10, descr=tydescr)
                 %s
-                cond_call_gc_wb(p1, 0, descr=wbdescr)
+                cond_call_gc_wb(p1, 0, descr=P2Wdescr)
                 setfield_gc(p1, 20, descr=tydescr)
                 jump(p1)
             """ % op)

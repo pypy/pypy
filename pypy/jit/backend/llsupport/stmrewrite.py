@@ -30,10 +30,10 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         self.known_category = {}    # variable: letter (R, W, ...)
         self.always_inevitable = False
         self.more_precise_categories = {
-            'P': {#'R': self.gc_ll_descr.P2Rdescr,
+            'P': {'R': self.gc_ll_descr.P2Rdescr,
                   'W': self.gc_ll_descr.P2Wdescr,
                  },
-            'R': {#'W': self.gc_ll_descr.R2Wdescr,
+            'R': {'W': self.gc_ll_descr.R2Wdescr,
                  },
             'W': {},
            }
@@ -52,7 +52,7 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
             if op.getopnum() in (rop.GETFIELD_GC,
                                  rop.GETARRAYITEM_GC,
                                  rop.GETINTERIORFIELD_GC):
-                self.handle_getfield_operations(op)
+                self.handle_category_operations(op, 'R')
                 continue
             # ----------  setfields  ----------
             if op.getopnum() in (rop.SETFIELD_GC,
@@ -60,7 +60,7 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
                                  rop.SETINTERIORFIELD_GC,
                                  rop.STRSETITEM,
                                  rop.UNICODESETITEM):
-                self.handle_setfield_operations(op)
+                self.handle_category_operations(op, 'W')
                 continue
             # ----------  mallocs  ----------
             if op.is_malloc():
@@ -129,29 +129,14 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         assert isinstance(v, BoxPtr)
         return v
 
-    def handle_setfield_operations(self, op):
+    def handle_category_operations(self, op, target_category):
         lst = op.getarglist()
-        lst[0] = self.gen_barrier(lst[0], 'W')
+        lst[0] = self.gen_barrier(lst[0], target_category)
         self.newops.append(op.copy_and_change(op.getopnum(), args=lst))
 
     def handle_malloc_operation(self, op):
         GcRewriterAssembler.handle_malloc_operation(self, op)
         self.known_category[op.result] = 'W'
-
-    def handle_getfield_operations(self, op):
-        lst = op.getarglist()
-        if lst[0] in self.known_local:
-            self.newops.append(op)
-            return
-        lst[0] = self.unconstifyptr(lst[0])
-        write_barrier_descr = self.gc_ll_descr.write_barrier_descr
-        XXX
-        op_before = ResOperation(rop.STM_READ_BEFORE, [lst[0]], None,
-                                 descr=write_barrier_descr)
-        op_after  = ResOperation(rop.STM_READ_AFTER, [lst[0]], None)
-        self.newops.append(op_before)
-        self.newops.append(op.copy_and_change(op.getopnum(), args=lst))
-        self.newops.append(op_after)
 
     def handle_copystrcontent(self, op):
         # first, a write barrier on the target string

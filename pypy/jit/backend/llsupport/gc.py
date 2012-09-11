@@ -757,8 +757,10 @@ class GcLLDescr_framework(GcLLDescription):
     def _setup_write_barrier(self):
         if self.stm:
             from pypy.rpython.memory.gc import stmgc
-            self.P2Wdescr = WriteBarrierDescr(self,
-                                (stmgc.GCFLAG_NOT_WRITTEN, 'P2W'))
+            WBDescr = WriteBarrierDescr
+            self.P2Rdescr = WBDescr(self, (stmgc.GCFLAG_GLOBAL,      'P2R'))
+            self.P2Wdescr = WBDescr(self, (stmgc.GCFLAG_NOT_WRITTEN, 'P2W'))
+            self.R2Wdescr = WBDescr(self, (stmgc.GCFLAG_NOT_WRITTEN, 'R2W'))
             self.write_barrier_descr = "wbdescr: do not use"
         else:
             self.write_barrier_descr = WriteBarrierDescr(self)
