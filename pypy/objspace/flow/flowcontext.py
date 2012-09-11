@@ -141,7 +141,7 @@ class BlockRecorder(Recorder):
                     vars2.append(Variable())
             egg = EggBlock(vars2, block, case)
             ec.pendingblocks.append(egg)
-            link = ec.make_link(vars, egg, case)
+            link = Link(vars, egg, case)
             if attach:
                 link.extravars(**attach)
                 egg.extravars(**attach) # xxx
@@ -184,8 +184,6 @@ class Replayer(Recorder):
 
 
 class FlowExecutionContext(ExecutionContext):
-
-    make_link = Link # overridable for transition tracking
 
     # disable superclass method
     bytecode_trace = None
@@ -237,7 +235,7 @@ class FlowExecutionContext(ExecutionContext):
                 msg = "implicit %s shouldn't occur" % exc_cls.__name__
                 w_type = Constant(AssertionError)
                 w_value = Constant(AssertionError(msg))
-                link = self.make_link([w_type, w_value], self.graph.exceptblock)
+                link = Link([w_type, w_value], self.graph.exceptblock)
                 self.recorder.crnt_block.closeblock(link)
 
             except OperationError, e:
@@ -245,7 +243,7 @@ class FlowExecutionContext(ExecutionContext):
                     msg = 'import statement always raises %s' % e
                     raise ImportError(msg)
                 w_value = e.get_w_value(self.space)
-                link = self.make_link([e.w_type, w_value], self.graph.exceptblock)
+                link = Link([e.w_type, w_value], self.graph.exceptblock)
                 self.recorder.crnt_block.closeblock(link)
 
             except StopFlowing:
@@ -257,7 +255,7 @@ class FlowExecutionContext(ExecutionContext):
             except Return:
                 w_result = frame.popvalue()
                 assert w_result is not None
-                link = self.make_link([w_result], self.graph.returnblock)
+                link = Link([w_result], self.graph.returnblock)
                 self.recorder.crnt_block.closeblock(link)
         del self.recorder
 
@@ -284,7 +282,7 @@ class FlowExecutionContext(ExecutionContext):
             newblock = SpamBlock(newstate)
         # unconditionally link the current block to the newblock
         outputargs = currentstate.getoutputargs(newstate)
-        link = self.make_link(outputargs, newblock)
+        link = Link(outputargs, newblock)
         currentblock.closeblock(link)
         # phew
         if not finished:
@@ -295,7 +293,7 @@ class FlowExecutionContext(ExecutionContext):
                 block.operations = ()
                 block.exitswitch = None
                 outputargs = block.framestate.getoutputargs(newstate)
-                block.recloseblock(self.make_link(outputargs, newblock))
+                block.recloseblock(Link(outputargs, newblock))
                 candidates.remove(block)
             candidates.insert(0, newblock)
             self.pendingblocks.append(newblock)
