@@ -617,6 +617,8 @@ class WriteBarrierDescr(AbstractDescr):
             assert self.jit_wb_cards_set_singlebyte == -0x80
         else:
             self.jit_wb_cards_set = 0
+        #
+        self.wb_slowpath = [0, 0, 0, 0]
 
     def repr_of_descr(self):
         if self.stmcat is None:
@@ -670,6 +672,12 @@ class WriteBarrierDescr(AbstractDescr):
         if self.returns_modified_object:
             return False
         return self.get_write_barrier_from_array_fn(cpu) != 0
+
+    def get_wb_slowpath(self, withcards, withfloats):
+        return self.wb_slowpath[withcards + 2 * withfloats]
+
+    def set_wb_slowpath(self, withcards, withfloats, addr):
+        self.wb_slowpath[withcards + 2 * withfloats] = addr
 
 
 class GcLLDescr_framework(GcLLDescription):

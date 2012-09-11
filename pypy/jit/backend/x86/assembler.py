@@ -83,7 +83,6 @@ class Assembler386(object):
         self.float_const_abs_addr = 0
         self.malloc_slowpath1 = 0
         self.malloc_slowpath2 = 0
-        self.wb_slowpath = [0, 0, 0, 0]
         self.memcpy_addr = 0
         self.setup_failure_recovery()
         self._debug = False
@@ -112,13 +111,9 @@ class Assembler386(object):
         self.memcpy_addr = self.cpu.cast_ptr_to_int(support.memcpy_fn)
         self._build_failure_recovery(False)
         self._build_failure_recovery(True)
-        self._build_wb_slowpath(False)
-        self._build_wb_slowpath(True)
         if self.cpu.supports_floats:
             self._build_failure_recovery(False, withfloats=True)
             self._build_failure_recovery(True, withfloats=True)
-            self._build_wb_slowpath(False, withfloats=True)
-            self._build_wb_slowpath(True, withfloats=True)
             support.ensure_sse2_floats()
             self._build_float_constants()
         self._build_propagate_exception_path()
@@ -355,23 +350,14 @@ class Assembler386(object):
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
         self.stack_check_slowpath = rawstart
 
-    def _wb_returns_modified_object(self):
-        descr = self.cpu.gc_ll_descr.write_barrier_descr
-        return descr.returns_modified_object
-
-    def _build_wb_slowpath(self, withcards, withfloats=False):
-        descr = self.cpu.gc_ll_descr.write_barrier_descr
-        if descr is None:
-            return
+    def _build_wb_slowpath(self, descr, withcards, withfloats):
         if not withcards:
             func = descr.get_write_barrier_fn(self.cpu,
                                               descr.returns_modified_object)
         else:
-            if descr.jit_wb_cards_set == 0:
-                return
+            assert descr.jit_wb_cards_set != 0
             func = descr.get_write_barrier_from_array_fn(self.cpu)
-            if func == 0:
-                return
+            assert func != 0
         #
         # This builds a helper function called from the slow path of
         # write barriers.  It must save all registers, and optionally
@@ -440,7 +426,7 @@ class Assembler386(object):
             mc.RET()     # and leave the modified object in [ESP+0]
         #
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
-        self.wb_slowpath[withcards + 2 * withfloats] = rawstart
+        descr.set_wb_slowpath(withcards, withfloats, rawstart)
 
     @staticmethod
     @rgc.no_collect
@@ -2478,11 +2464,18 @@ class Assembler386(object):
             card_marking = True
             mask = descr.jit_wb_if_flag_singlebyte | -0x80
         #
-        loc_base = arglocs[0]
-        self.mc.TEST8(addr_add_const(loc_base, descr.jit_wb_if_flag_byteofs),
-                      imm(mask))
-        self.mc.J_il8(rx86.Conditions['Z'], 0) # patched later
-        jz_location = self.mc.get_relative_pos()
+        # If the 'descr' is for a conditional barrier (common case),
+        # then produce the condition here.  The fast-path that does not
+        # require any call is if some bit in the header of the object is
+        # *cleared*.
+        if mask != 0:
+            loc_base = arglocs[0]
+            byteaddr = addr_add_const(loc_base, descr.jit_wb_if_flag_byteofs)
+            self.mc.TEST8(byteaddr, imm(mask))
+            self.mc.J_il8(rx86.Conditions['Z'], 0) # patched later
+            jz_location = self.mc.get_relative_pos()
+        else:
+            jz_location = -1
 
         # for cond_call_gc_wb_array, also add another fast path:
         # if GCFLAG_CARDS_SET, then we can just set one bit and be done
@@ -2492,25 +2485,26 @@ class Assembler386(object):
             self.mc.J_il8(rx86.Conditions['S'], 0) # patched later
             js_location = self.mc.get_relative_pos()
         else:
-            js_location = 0
+            js_location = -1
 
         # Write only a CALL to the helper prepared in advance, passing it as
         # argument the address of the structure we are writing into
         # (the first argument to COND_CALL_GC_WB).
-        helper_num = card_marking
         if self._regalloc.xrm.reg_bindings:
-            helper_num += 2
-        if self.wb_slowpath[helper_num] == 0:    # tests only
-            assert not we_are_translated()
-            self.cpu.gc_ll_descr.write_barrier_descr = descr
-            self._build_wb_slowpath(card_marking,
-                                    bool(self._regalloc.xrm.reg_bindings))
-            assert self.wb_slowpath[helper_num] != 0
+            withfloats = True
+        else:
+            withfloats = False
+        wb_slowpath = descr.get_wb_slowpath(card_marking, withfloats)
+        if wb_slowpath == 0:
+            # must build the barrier's slow path
+            self._build_wb_slowpath(descr, card_marking, withfloats)
+            wb_slowpath = descr.get_wb_slowpath(card_marking, withfloats)
+            assert wb_slowpath != 0 
         #
         self.mc.PUSH(loc_base)
-        self.mc.CALL(imm(self.wb_slowpath[helper_num]))
+        self.mc.CALL(imm(wb_slowpath))
 
-        if self._wb_returns_modified_object():
+        if descr.returns_modified_object:
             # the value at [ESP] is not popped in this case, but possibly
             # updated.  We have to use it to update the register at loc_base
             assert isinstance(loc_base, RegLoc)
@@ -2570,9 +2564,10 @@ class Assembler386(object):
             self.mc.overwrite(jns_location-1, chr(offset))
 
         # patch the JZ above
-        offset = self.mc.get_relative_pos() - jz_location
-        assert 0 < offset <= 127
-        self.mc.overwrite(jz_location-1, chr(offset))
+        if jz_location != -1:
+            offset = self.mc.get_relative_pos() - jz_location
+            assert 0 < offset <= 127
+            self.mc.overwrite(jz_location-1, chr(offset))
 
     genop_discard_cond_call_gc_wb_array = genop_discard_cond_call_gc_wb
 

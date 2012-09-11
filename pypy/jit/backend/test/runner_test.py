@@ -2045,11 +2045,12 @@ class LLtypeBackendTest(BaseBackendTest):
         FUNC = self.FuncType([lltype.Ptr(S)], lltype.Void)
         func_ptr = llhelper(lltype.Ptr(FUNC), func_void)
         funcbox = self.get_funcbox(self.cpu, func_ptr)
-        class WriteBarrierDescr(AbstractDescr):
+        class WriteBarrierDescr(WBDescrForTests):
             jit_wb_if_flag = 4096
             jit_wb_if_flag_byteofs = struct.pack("i", 4096).index('\x10')
             jit_wb_if_flag_singlebyte = 0x10
-            def get_write_barrier_fn(self, cpu):
+            def get_write_barrier_fn(self, cpu, returns_modified_object):
+                assert self.returns_modified_object == returns_modified_object
                 return funcbox.getint()
         #
         for cond in [False, True]:
@@ -2072,6 +2073,56 @@ class LLtypeBackendTest(BaseBackendTest):
             else:
                 assert record == []
 
+    def test_cond_call_gc_wb_stm_returns_modified_object(self):
+        def func_void(a):
+            record.append(a)
+            return t
+        record = []
+        #
+        S = lltype.GcStruct('S', ('tid', lltype.Signed))
+        FUNC = self.FuncType([lltype.Ptr(S)], lltype.Void)
+        func_ptr = llhelper(lltype.Ptr(FUNC), func_void)
+        funcbox = self.get_funcbox(self.cpu, func_ptr)
+        class WriteBarrierDescr(WBDescrForTests):
+            returns_modified_object = True
+            jit_wb_if_flag = 4096
+            jit_wb_if_flag_byteofs = struct.pack("i", 4096).index('\x10')
+            jit_wb_if_flag_singlebyte = 0x10
+            def get_write_barrier_fn(self, cpu, returns_modified_object):
+                assert self.returns_modified_object == returns_modified_object
+                return funcbox.getint()
+        #
+        for cond in [False, True]:
+            value = random.randrange(-sys.maxint, sys.maxint)
+            if cond:
+                value |= 4096
+            else:
+                value &= ~4096
+            s = lltype.malloc(S)
+            s.tid = value
+            sgcref = lltype.cast_opaque_ptr(llmemory.GCREF, s)
+            t = lltype.malloc(S)
+            tgcref = lltype.cast_opaque_ptr(llmemory.GCREF, t)
+            del record[:]
+            p0 = BoxPtr()
+            operations = [
+                ResOperation(rop.COND_CALL_GC_WB, [p0, ConstInt(0)], None,
+                             descr=WriteBarrierDescr()),
+                ResOperation(rop.FINISH, [p0], None, descr=BasicFailDescr(1))
+                ]
+            inputargs = [p0]
+            looptoken = JitCellToken()
+            self.cpu.compile_loop(inputargs, operations, looptoken)
+            fail = self.cpu.execute_token(looptoken, sgcref)
+            assert fail.identifier == 1
+            res = self.cpu.get_latest_value_ref(0)
+            if cond:
+                assert record == [s]
+                assert res == tgcref
+            else:
+                assert record == []
+                assert res == sgcref
+
     def test_cond_call_gc_wb_array(self):
         def func_void(a):
             record.append(a)
@@ -2081,12 +2132,13 @@ class LLtypeBackendTest(BaseBackendTest):
         FUNC = self.FuncType([lltype.Ptr(S)], lltype.Void)
         func_ptr = llhelper(lltype.Ptr(FUNC), func_void)
         funcbox = self.get_funcbox(self.cpu, func_ptr)
-        class WriteBarrierDescr(AbstractDescr):
+        class WriteBarrierDescr(WBDescrForTests):
             jit_wb_if_flag = 4096
             jit_wb_if_flag_byteofs = struct.pack("i", 4096).index('\x10')
             jit_wb_if_flag_singlebyte = 0x10
             jit_wb_cards_set = 0       # <= without card marking
-            def get_write_barrier_fn(self, cpu):
+            def get_write_barrier_fn(self, cpu, returns_modified_object):
+                assert self.returns_modified_object == returns_modified_object
                 return funcbox.getint()
         #
         for cond in [False, True]:
@@ -2128,7 +2180,7 @@ class LLtypeBackendTest(BaseBackendTest):
         FUNC = self.FuncType([lltype.Ptr(S)], lltype.Void)
         func_ptr = llhelper(lltype.Ptr(FUNC), func_void)
         funcbox = self.get_funcbox(self.cpu, func_ptr)
-        class WriteBarrierDescr(AbstractDescr):
+        class WriteBarrierDescr(WBDescrForTests):
             jit_wb_if_flag = 4096
             jit_wb_if_flag_byteofs = struct.pack("i", 4096).index('\x10')
             jit_wb_if_flag_singlebyte = 0x10
@@ -3728,3 +3780,13 @@ class OOtypeBackendTest(BaseBackendTest):
     def alloc_unicode(self, unicode):
         py.test.skip("implement me")
 
+
+class WBDescrForTests(AbstractDescr):
+    returns_modified_object = False
+    wb_slowpath = (0, 0, 0, 0)
+    def get_wb_slowpath(self, c1, c2):
+        return self.wb_slowpath[c1+2*c2]
+    def set_wb_slowpath(self, c1, c2, addr):
+        i = c1+2*c2
+        self.wb_slowpath = (self.wb_slowpath[:i] + (addr,) +
+                            self.wb_slowpath[i+1:])
