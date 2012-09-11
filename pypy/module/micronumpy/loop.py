@@ -75,7 +75,14 @@ def where(out, shape, arr, x, y, dtype):
     arr_dtype = arr.get_dtype()
     x_iter = x.create_iter(shape)
     y_iter = y.create_iter(shape)
-    while not x_iter.done():
+    if x.is_scalar():
+        if y.is_scalar():
+            iter = arr_iter
+        else:
+            iter = y_iter
+    else:
+        iter = x_iter
+    while not iter.done():
         w_cond = arr_iter.getitem()
         if arr_dtype.itemtype.bool(w_cond):
             w_val = x_iter.getitem().convert_to(dtype)

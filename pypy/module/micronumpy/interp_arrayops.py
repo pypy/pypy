@@ -75,6 +75,10 @@ def where(space, w_arr, w_x=None, w_y=None):
     arr = convert_to_array(space, w_arr)
     x = convert_to_array(space, w_x)
     y = convert_to_array(space, w_y)
+    if x.is_scalar() and y.is_scalar() and arr.is_scalar():
+        if arr.get_dtype().itemtype.bool(arr.get_scalar_value()):
+            return x
+        return y
     dtype = interp_ufuncs.find_binop_result_dtype(space, x.get_dtype(),
                                                   y.get_dtype())
     shape = shape_agreement(space, arr.get_shape(), x)

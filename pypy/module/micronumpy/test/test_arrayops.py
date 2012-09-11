@@ -25,6 +25,11 @@ class AppTestNumSupport(BaseNumpyAppTest):
         from _numpypy import where, array
         raises(ValueError, "where([1, 2, 3], [3, 4, 5])")
         raises(ValueError, "where([1, 2, 3], [3, 4, 5], [6, 7])")
+        assert where(True, 1, 2) == array(1)
+        assert where(False, 1, 2) == array(2)
+        assert (where(True, [1, 2, 3], 2) == [1, 2, 3]).all()
+        assert (where(False, 1, [1, 2, 3]) == [1, 2, 3]).all()
+        assert (where([1, 2, 3], True, False) == [True, True, True]).all()
 
     #def test_where_1_arg(self):
     #    xxx
