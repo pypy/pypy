@@ -36,8 +36,6 @@ class WriteAnalyzer(graphanalyze.GraphAnalyzer):
         elif op.opname == ("setarrayitem", "setinteriorfield"):
             if graphinfo is None or not graphinfo.is_fresh_malloc(op.args[0]):
                 return self._array_result(op.args[0].concretetype)
-        elif op.opname == "gc_store":
-            return top_set    # xxx conservative
         return empty_set
 
     def _array_result(self, TYPE):

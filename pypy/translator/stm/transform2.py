@@ -66,8 +66,6 @@ def is_immutable(op):
     if op.opname == 'setinteriorfield':
         OUTER = op.args[0].concretetype.TO
         return OUTER._immutable_interiorfield(unwraplist(op.args[1:-1]))
-    if op.opname in ('gc_load', 'gc_store'):
-        return False
     raise AssertionError(op)
 
 
@@ -100,13 +98,13 @@ def pre_insert_stm_barrier(stmtransformer, graph):
         expand_comparison = set()
         for op in block.operations:
             if (op.opname in ('getfield', 'getarrayitem',
-                              'getinteriorfield', 'gc_load') and
+                              'getinteriorfield') and
                   op.result.concretetype is not lltype.Void and
                   op.args[0].concretetype.TO._gckind == 'gc' and
                   not is_immutable(op)):
                 wants_a_barrier.setdefault(op, 'R')
             elif (op.opname in ('setfield', 'setarrayitem',
-                                'setinteriorfield', 'gc_store') and
+                                'setinteriorfield') and
                   op.args[-1].concretetype is not lltype.Void and
                   op.args[0].concretetype.TO._gckind == 'gc' and
                   not is_immutable(op)):
