@@ -121,8 +121,32 @@ class BlockRecorder(Recorder):
             # before.
             self.last_join_point = frame.getstate()
 
-    def guessbool(self, ec, w_condition, cases=[False,True],
-                  replace_last_variable_except_in_first_case = None):
+    def guessbool(self, ec, w_condition, cases=[False,True]):
+        block = self.crnt_block
+        vars = block.getvariables()
+        links = []
+        for case in cases:
+            egg = EggBlock(vars, block, case)
+            ec.pendingblocks.append(egg)
+            link = Link(vars, egg, case)
+            links.append(link)
+
+        block.exitswitch = w_condition
+        block.closeblock(*links)
+        # forked the graph. Note that False comes before True by default
+        # in the exits tuple so that (just in case we need it) we
+        # actually have block.exits[False] = elseLink and
+        # block.exits[True] = ifLink.
+        raise StopFlowing
+
+    def guessexception(self, ec, cases):
+        def replace_exc_values(case):
+            if case is not Exception:
+                yield 'last_exception', Constant(case)
+                yield 'last_exc_value', Variable('last_exc_value')
+            else:
+                yield 'last_exception', Variable('last_exception')
+                yield 'last_exc_value', Variable('last_exc_value')
         block = self.crnt_block
         bvars = vars = vars2 = block.getvariables()
         links = []
@@ -131,11 +155,11 @@ class BlockRecorder(Recorder):
         for case in cases:
             if first:
                 first = False
-            elif replace_last_variable_except_in_first_case is not None:
+            else:
                 assert block.operations[-1].result is bvars[-1]
                 vars = bvars[:-1]
                 vars2 = bvars[:-1]
-                for name, newvar in replace_last_variable_except_in_first_case(case):
+                for name, newvar in replace_exc_values(case):
                     attach[name] = newvar
                     vars.append(newvar)
                     vars2.append(Variable())
@@ -147,12 +171,8 @@ class BlockRecorder(Recorder):
                 egg.extravars(**attach) # xxx
             links.append(link)
 
-        block.exitswitch = w_condition
+        block.exitswitch = c_last_exception
         block.closeblock(*links)
-        # forked the graph. Note that False comes before True by default
-        # in the exits tuple so that (just in case we need it) we
-        # actually have block.exits[False] = elseLink and
-        # block.exits[True] = ifLink.
         raise StopFlowing
 
 
@@ -175,10 +195,11 @@ class Replayer(Recorder):
                       [str(s) for s in self.listtoreplay[self.index:]]))
         self.index += 1
 
-    def guessbool(self, ec, w_condition, **kwds):
+    def guessbool(self, ec, *args, **kwds):
         assert self.index == len(self.listtoreplay)
         ec.recorder = self.nextreplayer
         return self.booloutcome
+    guessexception = guessbool
 
 # ____________________________________________________________
 
@@ -192,16 +213,7 @@ class FlowExecutionContext(ExecutionContext):
         return self.recorder.guessbool(self, w_condition, **kwds)
 
     def guessexception(self, *classes):
-        def replace_exc_values(case):
-            if case is not Exception:
-                yield 'last_exception', Constant(case)
-                yield 'last_exc_value', Variable('last_exc_value')
-            else:
-                yield 'last_exception', Variable('last_exception')
-                yield 'last_exc_value', Variable('last_exc_value')
-        outcome = self.guessbool(c_last_exception,
-                                 cases = [None] + list(classes),
-                                 replace_last_variable_except_in_first_case = replace_exc_values)
+        outcome = self.recorder.guessexception(self, cases=[None] + list(classes))
         if outcome is None:
             w_exc_cls, w_exc_value = None, None
         else:
