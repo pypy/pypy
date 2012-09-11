@@ -1,4 +1,5 @@
 import py
+py.test.skip("this is going away")
 
 from pypy.module.micronumpy.compile import (numpy_compile, Assignment,
     ArrayConstant, FloatConstant, Operator, Variable, RangeConstant, Execute,
