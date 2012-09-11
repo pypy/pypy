@@ -1532,28 +1532,6 @@ class RegAlloc(object):
     def consider_keepalive(self, op):
         pass
 
-    def consider_stm_read_before(self, op):
-        self.xrm.before_call(save_all_regs=True)
-        self.rm.before_call(save_all_regs=True)
-        self.stm_read_before_position = self.assembler.mc.get_relative_pos()
-        args = op.getarglist()
-        loc = self.rm.make_sure_var_in_reg(args[0], selected_reg=edx)
-        tmpbox_version = TempBox()
-        loc_version = self.rm.force_allocate_reg(tmpbox_version,
-                                                 selected_reg=eax)
-        self.PerformDiscard(op, [loc, loc_version])
-        # tmpbox_version freed only in stm_read_after
-        self.stm_tmpbox_version = tmpbox_version
-
-    def consider_stm_read_after(self, op):
-        tmpbox_version = self.stm_tmpbox_version
-        loc = self.rm.make_sure_var_in_reg(op.getarg(0))
-        loc_version = self.rm.make_sure_var_in_reg(tmpbox_version)
-        loc_position = imm(self.stm_read_before_position)
-        self.PerformDiscard(op, [loc, loc_version, loc_position])
-        self.rm.possibly_free_var(op.getarg(0))
-        self.rm.possibly_free_var(tmpbox_version)
-
     def not_implemented_op(self, op):
         not_implemented("not implemented operation: %s" % op.getopname())
 

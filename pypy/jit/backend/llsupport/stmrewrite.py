@@ -23,7 +23,7 @@ from pypy.jit.metainterp.history import BoxPtr, ConstPtr, ConstInt
 
 class GcStmRewriterAssembler(GcRewriterAssembler):
     # This class performs the same rewrites as its base class,
-    # plus the rewrites described in stm.txt.
+    # plus the rewrites described above.
 
     def __init__(self, *args):
         GcRewriterAssembler.__init__(self, *args)

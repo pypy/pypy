@@ -505,8 +505,6 @@ _oplist = [
     'QUASIIMMUT_FIELD/1d',    # [objptr], descr=SlowMutateDescr
     'RECORD_KNOWN_CLASS/2',   # [objptr, clsptr]
     'KEEPALIVE/1',
-    'STM_READ_BEFORE/1d',     # inserted by backend/llsupport/stmrewrite
-    'STM_READ_AFTER/1',       # inserted by backend/llsupport/stmrewrite
 
     '_CANRAISE_FIRST', # ----- start of can_raise operations -----
     '_CALL_FIRST',

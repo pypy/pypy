@@ -640,15 +640,15 @@ class WriteBarrierDescr(AbstractDescr):
         while value[i] == '\x00': i += 1
         return (i, struct.unpack('b', value[i])[0])
 
-    def get_write_barrier_fn(self, cpu, stm=False):
-        # must pass in 'self.stm', to make sure that
+    def get_write_barrier_fn(self, cpu, returns_modified_object=False):
+        # must pass in 'self.returns_modified_object', to make sure that
         # the callers are fixed for this case
-        assert stm == self.returns_modified_object
+        assert returns_modified_object == self.returns_modified_object
         llop1 = self.llop1
         if self.returns_modified_object:
             FUNCTYPE = self.WB_FUNCPTR_MOD
             _, cat = self.stmcat
-            assert cat(stm) == 3 and cat[1] == '2'      # "x2y"
+            assert len(cat) == 3 and cat[1] == '2'      # "x2y"
             funcptr = llop1.get_write_barrier_failing_case(FUNCTYPE,
                                                            cat[0], cat[2])
         else:
