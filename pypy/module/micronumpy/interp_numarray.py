@@ -96,10 +96,16 @@ class __extend__(W_NDimArray):
             "len() of unsized object"))
 
     def descr_repr(self, space):
-        #cache = get_appbridge_cache(space)
-        #if cache.w_array_repr is None:
-        return space.wrap(self.dump_data())
-        #return space.call_function(cache.w_array_repr, self)
+        cache = get_appbridge_cache(space)
+        if cache.w_array_repr is None:
+            return space.wrap(self.dump_data())
+        return space.call_function(cache.w_array_repr, self)
+
+    def descr_str(self, space):
+        cache = get_appbridge_cache(space)
+        if cache.w_array_str is None:
+            return space.wrap(self.dump_data())
+        return space.call_function(cache.w_array_str, self)
 
     def dump_data(self):
         i = self.create_iter(self.get_shape())
@@ -463,6 +469,7 @@ W_NDimArray.typedef = TypeDef(
     __setitem__ = interp2app(W_NDimArray.descr_setitem),
 
     __repr__ = interp2app(W_NDimArray.descr_repr),
+    __str__ = interp2app(W_NDimArray.descr_str),
 
     __pos__ = interp2app(W_NDimArray.descr_pos),
     __neg__ = interp2app(W_NDimArray.descr_neg),
