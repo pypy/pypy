@@ -541,3 +541,7 @@ class TestStm(RewriteTests):
             i1 = call(ConstClass(stm_ptr_ne), p1, p2, descr=stm_ptr_ne_descr)
             jump(i1)
         """)
+
+    def test_ptr_eq_other_direct_cases(self):
+        py.test.skip("can also keep ptr_eq if both args are L or W, "
+                     "or if one arg is freshly malloced")
