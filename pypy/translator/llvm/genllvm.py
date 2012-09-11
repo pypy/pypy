@@ -1000,7 +1000,7 @@ class FunctionWriter(object):
         self.w('{result.V} = bitcast i1 false to i1'.format(**locals()))
 
     def op_ll_read_timestamp(self, result):
-        self.w('{result.V} = bitcast i64 0 to i64'.format(**locals()))
+        self.op_direct_call(result, get_repr(llvm_readcyclecounter))
 
     def op_debug_print(self, result, *args):
         pass
@@ -1647,6 +1647,9 @@ llvm_memset = lltype.functionptr(
 llvm_frameaddress = lltype.functionptr(
         lltype.FuncType([rffi.INT], llmemory.Address),
         'llvm.frameaddress', external='C', compilation_info=llvm_eci)
+llvm_readcyclecounter = lltype.functionptr(
+        lltype.FuncType([], lltype.SignedLongLong),
+        'llvm.readcyclecounter', external='C', compilation_info=llvm_eci)
 null_int = ConstantRepr(LLVMInt, 0)
 null_char = ConstantRepr(LLVMChar, '\0')
 null_bool = ConstantRepr(LLVMBool, 0)
