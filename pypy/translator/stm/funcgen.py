@@ -35,9 +35,8 @@ def stm_become_inevitable(funcgen, op):
     string_literal = c_string_constant(info)
     return 'BecomeInevitable(%s);' % (string_literal,)
 
-def stm_jit_invoke_code(funcgen, op):
-    XXX
-    return funcgen.OP_DIRECT_CALL(op)
+##def stm_jit_invoke_code(funcgen, op):
+##    return funcgen.OP_DIRECT_CALL(op)
 
 def _stm_nogc_init_function():
     """Called at process start-up when running with no GC."""
