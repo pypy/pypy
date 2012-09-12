@@ -121,11 +121,11 @@ class BlockRecorder(Recorder):
             # before.
             self.last_join_point = frame.getstate()
 
-    def guessbool(self, ec, w_condition, cases=[False,True]):
+    def guessbool(self, ec, w_condition):
         block = self.crnt_block
         vars = block.getvariables()
         links = []
-        for case in cases:
+        for case in [False, True]:
             egg = EggBlock(vars, block, case)
             ec.pendingblocks.append(egg)
             link = Link(vars, egg, case)
@@ -139,36 +139,28 @@ class BlockRecorder(Recorder):
         # block.exits[True] = ifLink.
         raise StopFlowing
 
-    def guessexception(self, ec, cases):
-        def replace_exc_values(case):
-            if case is not Exception:
-                yield 'last_exception', Constant(case)
-                yield 'last_exc_value', Variable('last_exc_value')
-            else:
-                yield 'last_exception', Variable('last_exception')
-                yield 'last_exc_value', Variable('last_exc_value')
+    def guessexception(self, ec, *cases):
         block = self.crnt_block
         bvars = vars = vars2 = block.getvariables()
         links = []
-        first = True
-        attach = {}
-        for case in cases:
-            if first:
-                first = False
-            else:
+        for case in [None] + list(cases):
+            if case is not None:
                 assert block.operations[-1].result is bvars[-1]
                 vars = bvars[:-1]
                 vars2 = bvars[:-1]
-                for name, newvar in replace_exc_values(case):
-                    attach[name] = newvar
-                    vars.append(newvar)
-                    vars2.append(Variable())
+                if case is Exception:
+                    last_exc = Variable('last_exception')
+                else:
+                    last_exc = Constant(case)
+                last_exc_value = Variable('last_exc_value')
+                vars.extend([last_exc, last_exc_value])
+                vars2.extend([Variable(), Variable()])
             egg = EggBlock(vars2, block, case)
             ec.pendingblocks.append(egg)
             link = Link(vars, egg, case)
-            if attach:
-                link.extravars(**attach)
-                egg.extravars(**attach) # xxx
+            if case is not None:
+                link.extravars(last_exception=last_exc, last_exc_value=last_exc_value)
+                egg.extravars(last_exception=last_exc)
             links.append(link)
 
         block.exitswitch = c_last_exception
@@ -213,7 +205,7 @@ class FlowExecutionContext(ExecutionContext):
         return self.recorder.guessbool(self, w_condition, **kwds)
 
     def guessexception(self, *classes):
-        outcome = self.recorder.guessexception(self, cases=[None] + list(classes))
+        outcome = self.recorder.guessexception(self, *classes)
         if outcome is None:
             w_exc_cls, w_exc_value = None, None
         else:
