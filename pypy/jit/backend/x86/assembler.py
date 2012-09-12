@@ -2468,8 +2468,8 @@ class Assembler386(object):
         # then produce the condition here.  The fast-path that does not
         # require any call is if some bit in the header of the object is
         # *cleared*.
+        loc_base = arglocs[0]
         if mask != 0:
-            loc_base = arglocs[0]
             byteaddr = addr_add_const(loc_base, descr.jit_wb_if_flag_byteofs)
             self.mc.TEST8(byteaddr, imm(mask))
             self.mc.J_il8(rx86.Conditions['Z'], 0) # patched later

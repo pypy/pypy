@@ -315,6 +315,7 @@ class AbstractLLCPU(AbstractCPU):
     @specialize.argtype(2)
     def bh_getarrayitem_gc_i(self, arraydescr, gcref, itemindex):
         ofs, size, sign = self.unpack_arraydescr_size(arraydescr)
+        gcref = self.gc_ll_descr.do_stm_barrier(gcref, 'R')
         # --- start of GC unsafe code (no GC operation!) ---
         items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
         for STYPE, UTYPE, itemsize in unroll_basic_sizes:
@@ -334,6 +335,7 @@ class AbstractLLCPU(AbstractCPU):
 
     def bh_getarrayitem_gc_r(self, arraydescr, gcref, itemindex):
         ofs = self.unpack_arraydescr(arraydescr)
+        gcref = self.gc_ll_descr.do_stm_barrier(gcref, 'R')
         # --- start of GC unsafe code (no GC operation!) ---
         items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
         items = rffi.cast(rffi.CArrayPtr(lltype.Signed), items)
@@ -344,6 +346,7 @@ class AbstractLLCPU(AbstractCPU):
     @specialize.argtype(2)
     def bh_getarrayitem_gc_f(self, arraydescr, gcref, itemindex):
         ofs = self.unpack_arraydescr(arraydescr)
+        gcref = self.gc_ll_descr.do_stm_barrier(gcref, 'R')
         # --- start of GC unsafe code (no GC operation!) ---
         items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
         items = rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), items)
@@ -354,6 +357,7 @@ class AbstractLLCPU(AbstractCPU):
     @specialize.argtype(2)
     def bh_setarrayitem_gc_i(self, arraydescr, gcref, itemindex, newvalue):
         ofs, size, sign = self.unpack_arraydescr_size(arraydescr)
+        gcref = self.gc_ll_descr.do_stm_barrier(gcref, 'W')
         # --- start of GC unsafe code (no GC operation!) ---
         items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
         for TYPE, _, itemsize in unroll_basic_sizes:
@@ -367,6 +371,7 @@ class AbstractLLCPU(AbstractCPU):
 
     def bh_setarrayitem_gc_r(self, arraydescr, gcref, itemindex, newvalue):
         ofs = self.unpack_arraydescr(arraydescr)
+        gcref = self.gc_ll_descr.do_stm_barrier(gcref, 'W')
         self.gc_ll_descr.do_write_barrier(gcref, newvalue)
         # --- start of GC unsafe code (no GC operation!) ---
         items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
@@ -377,6 +382,7 @@ class AbstractLLCPU(AbstractCPU):
     @specialize.argtype(2)
     def bh_setarrayitem_gc_f(self, arraydescr, gcref, itemindex, newvalue):
         ofs = self.unpack_arraydescr(arraydescr)
+        gcref = self.gc_ll_descr.do_stm_barrier(gcref, 'W')
         # --- start of GC unsafe code (no GC operation!) ---
         items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
         items = rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), items)
@@ -397,6 +403,7 @@ class AbstractLLCPU(AbstractCPU):
         fieldsize = descr.fielddescr.field_size
         sign = descr.fielddescr.is_field_signed()
         fullofs = itemindex * size + ofs
+        gcref = self.gc_ll_descr.do_stm_barrier(gcref, 'R')
         # --- start of GC unsafe code (no GC operation!) ---
         items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), fullofs)
         for STYPE, UTYPE, itemsize in unroll_basic_sizes:
@@ -419,6 +426,7 @@ class AbstractLLCPU(AbstractCPU):
         arraydescr = descr.arraydescr
         ofs, size, _ = self.unpack_arraydescr_size(arraydescr)
         ofs += descr.fielddescr.offset
+        gcref = self.gc_ll_descr.do_stm_barrier(gcref, 'R')
         # --- start of GC unsafe code (no GC operation!) ---
         items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs +
                             size * itemindex)
@@ -432,6 +440,7 @@ class AbstractLLCPU(AbstractCPU):
         arraydescr = descr.arraydescr
         ofs, size, _ = self.unpack_arraydescr_size(arraydescr)
         ofs += descr.fielddescr.offset
+        gcref = self.gc_ll_descr.do_stm_barrier(gcref, 'R')
         # --- start of GC unsafe code (no GC operation!) ---
         items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs +
                             size * itemindex)
@@ -447,6 +456,7 @@ class AbstractLLCPU(AbstractCPU):
         ofs += descr.fielddescr.offset
         fieldsize = descr.fielddescr.field_size
         ofs = itemindex * size + ofs
+        gcref = self.gc_ll_descr.do_stm_barrier(gcref, 'W')
         # --- start of GC unsafe code (no GC operation!) ---
         items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
         for TYPE, _, itemsize in unroll_basic_sizes:
@@ -463,6 +473,7 @@ class AbstractLLCPU(AbstractCPU):
         arraydescr = descr.arraydescr
         ofs, size, _ = self.unpack_arraydescr_size(arraydescr)
         ofs += descr.fielddescr.offset
+        gcref = self.gc_ll_descr.do_stm_barrier(gcref, 'W')
         self.gc_ll_descr.do_write_barrier(gcref, newvalue)
         # --- start of GC unsafe code (no GC operation!) ---
         items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref),
@@ -476,6 +487,7 @@ class AbstractLLCPU(AbstractCPU):
         arraydescr = descr.arraydescr
         ofs, size, _ = self.unpack_arraydescr_size(arraydescr)
         ofs += descr.fielddescr.offset
+        gcref = self.gc_ll_descr.do_stm_barrier(gcref, 'W')
         # --- start of GC unsafe code (no GC operation!) ---
         items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref),
                             ofs + size * itemindex)
@@ -502,6 +514,7 @@ class AbstractLLCPU(AbstractCPU):
     @specialize.argtype(1)
     def _base_do_getfield_i(self, struct, fielddescr):
         ofs, size, sign = self.unpack_fielddescr_size(fielddescr)
+        struct = self.gc_ll_descr.do_stm_barrier(struct, 'R')
         # --- start of GC unsafe code (no GC operation!) ---
         fieldptr = rffi.ptradd(rffi.cast(rffi.CCHARP, struct), ofs)
         for STYPE, UTYPE, itemsize in unroll_basic_sizes:
@@ -523,6 +536,7 @@ class AbstractLLCPU(AbstractCPU):
     @specialize.argtype(1)
     def _base_do_getfield_r(self, struct, fielddescr):
         ofs = self.unpack_fielddescr(fielddescr)
+        struct = self.gc_ll_descr.do_stm_barrier(struct, 'R')
         # --- start of GC unsafe code (no GC operation!) ---
         fieldptr = rffi.ptradd(rffi.cast(rffi.CCHARP, struct), ofs)
         pval = rffi.cast(rffi.CArrayPtr(lltype.Signed), fieldptr)[0]
@@ -533,6 +547,7 @@ class AbstractLLCPU(AbstractCPU):
     @specialize.argtype(1)
     def _base_do_getfield_f(self, struct, fielddescr):
         ofs = self.unpack_fielddescr(fielddescr)
+        struct = self.gc_ll_descr.do_stm_barrier(struct, 'R')
         # --- start of GC unsafe code (no GC operation!) ---
         fieldptr = rffi.ptradd(rffi.cast(rffi.CCHARP, struct), ofs)
         fval = rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), fieldptr)[0]
@@ -549,6 +564,7 @@ class AbstractLLCPU(AbstractCPU):
     @specialize.argtype(1)
     def _base_do_setfield_i(self, struct, fielddescr, newvalue):
         ofs, size, sign = self.unpack_fielddescr_size(fielddescr)
+        struct = self.gc_ll_descr.do_stm_barrier(struct, 'W')
         # --- start of GC unsafe code (no GC operation!) ---
         fieldptr = rffi.ptradd(rffi.cast(rffi.CCHARP, struct), ofs)
         for TYPE, _, itemsize in unroll_basic_sizes:
@@ -565,6 +581,7 @@ class AbstractLLCPU(AbstractCPU):
         ofs = self.unpack_fielddescr(fielddescr)
         assert lltype.typeOf(struct) is not lltype.Signed, (
             "can't handle write barriers for setfield_raw")
+        struct = self.gc_ll_descr.do_stm_barrier(struct, 'W')
         self.gc_ll_descr.do_write_barrier(struct, newvalue)
         # --- start of GC unsafe code (no GC operation!) ---
         fieldptr = rffi.ptradd(rffi.cast(rffi.CCHARP, struct), ofs)
@@ -575,6 +592,7 @@ class AbstractLLCPU(AbstractCPU):
     @specialize.argtype(1)
     def _base_do_setfield_f(self, struct, fielddescr, newvalue):
         ofs = self.unpack_fielddescr(fielddescr)
+        struct = self.gc_ll_descr.do_stm_barrier(struct, 'W')
         # --- start of GC unsafe code (no GC operation!) ---
         fieldptr = rffi.ptradd(rffi.cast(rffi.CCHARP, struct), ofs)
         fieldptr = rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), fieldptr)

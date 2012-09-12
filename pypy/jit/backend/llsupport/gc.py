@@ -64,6 +64,9 @@ class GcLLDescription(GcCache):
         return True
     def initialize(self):
         pass
+    @specialize.argtype(1)
+    def do_stm_barrier(self, gcref, cat):
+        return gcref
     def do_write_barrier(self, gcref_struct, gcref_newptr):
         pass
     def can_use_nursery_malloc(self, size):
@@ -594,6 +597,8 @@ class WriteBarrierDescr(AbstractDescr):
             self.WB_FUNCPTR_MOD = lltype.Ptr(lltype.FuncType(
                 [llmemory.Address], llmemory.Address))
         self.fielddescr_tid = gc_ll_descr.fielddescr_tid
+        self.gcheaderbuilder = gc_ll_descr.gcheaderbuilder
+        self.HDRPTR = gc_ll_descr.HDRPTR
         #
         GCClass = gc_ll_descr.GCClass
         if GCClass is None:     # for tests
@@ -642,12 +647,10 @@ class WriteBarrierDescr(AbstractDescr):
         while value[i] == '\x00': i += 1
         return (i, struct.unpack('b', value[i])[0])
 
-    def get_write_barrier_fn(self, cpu, returns_modified_object=False):
-        # must pass in 'self.returns_modified_object', to make sure that
-        # the callers are fixed for this case
+    def get_barrier_funcptr(self, returns_modified_object):
         assert returns_modified_object == self.returns_modified_object
         llop1 = self.llop1
-        if self.returns_modified_object:
+        if returns_modified_object:
             FUNCTYPE = self.WB_FUNCPTR_MOD
             _, cat = self.stmcat
             assert len(cat) == 3 and cat[1] == '2'      # "x2y"
@@ -656,6 +659,12 @@ class WriteBarrierDescr(AbstractDescr):
         else:
             FUNCTYPE = self.WB_FUNCPTR
             funcptr = llop1.get_write_barrier_failing_case(FUNCTYPE)
+        return funcptr
+
+    def get_write_barrier_fn(self, cpu, returns_modified_object):
+        # must pass in 'self.returns_modified_object', to make sure that
+        # the callers are fixed for this case
+        funcptr = self.get_barrier_funcptr(returns_modified_object)
         funcaddr = llmemory.cast_ptr_to_adr(funcptr)
         return cpu.cast_adr_to_int(funcaddr)
 
@@ -678,6 +687,22 @@ class WriteBarrierDescr(AbstractDescr):
 
     def set_wb_slowpath(self, withcards, withfloats, addr):
         self.wb_slowpath[withcards + 2 * withfloats] = addr
+
+    def _do_write_barrier(self, gcref_struct, returns_modified_object):
+        assert self.returns_modified_object == returns_modified_object
+        hdr_addr = llmemory.cast_ptr_to_adr(gcref_struct)
+        hdr_addr -= self.gcheaderbuilder.size_gc_header
+        hdr = llmemory.cast_adr_to_ptr(hdr_addr, self.HDRPTR)
+        if self.jit_wb_if_flag == 0 or hdr.tid & self.jit_wb_if_flag:
+            # get a pointer to the 'remember_young_pointer' function from
+            # the GC, and call it immediately
+            funcptr = self.get_barrier_funcptr(returns_modified_object)
+            return funcptr(llmemory.cast_ptr_to_adr(gcref_struct))
+        else:
+            if returns_modified_object:
+                return gcref_struct
+            else:
+                return None
 
 
 class GcLLDescr_framework(GcLLDescription):
@@ -716,6 +741,8 @@ class GcLLDescr_framework(GcLLDescription):
         else:
             self.max_size_of_young_obj = 1000
         self.GCClass = None
+        self.gcheaderbuilder = None
+        self.HDRPTR = None
 
     def _check_valid_gc(self):
         # we need the hybrid or minimark GC for rgc._make_sure_does_not_move()
@@ -764,14 +791,28 @@ class GcLLDescr_framework(GcLLDescription):
 
     def _setup_write_barrier(self):
         if self.stm:
-            from pypy.rpython.memory.gc import stmgc
-            WBDescr = WriteBarrierDescr
-            self.P2Rdescr = WBDescr(self, (stmgc.GCFLAG_GLOBAL,      'P2R'))
-            self.P2Wdescr = WBDescr(self, (stmgc.GCFLAG_NOT_WRITTEN, 'P2W'))
-            self.R2Wdescr = WBDescr(self, (stmgc.GCFLAG_NOT_WRITTEN, 'R2W'))
-            self.write_barrier_descr = "wbdescr: do not use"
+            self._setup_barriers_for_stm()
         else:
             self.write_barrier_descr = WriteBarrierDescr(self)
+
+    def _setup_barriers_for_stm(self):
+        from pypy.rpython.memory.gc import stmgc
+        WBDescr = WriteBarrierDescr
+        self.P2Rdescr = WBDescr(self, (stmgc.GCFLAG_GLOBAL,      'P2R'))
+        self.P2Wdescr = WBDescr(self, (stmgc.GCFLAG_NOT_WRITTEN, 'P2W'))
+        self.R2Wdescr = WBDescr(self, (stmgc.GCFLAG_NOT_WRITTEN, 'R2W'))
+        self.write_barrier_descr = "wbdescr: do not use"
+        #
+        @specialize.argtype(0)
+        def do_stm_barrier(gcref, cat):
+            if lltype.typeOf(gcref) is lltype.Signed:   # ignore if 'raw'
+                return gcref
+            if cat == 'W':
+                descr = self.P2Wdescr
+            else:
+                descr = self.P2Rdescr
+            return descr._do_write_barrier(gcref, True)
+        self.do_stm_barrier = do_stm_barrier
 
     def _make_functions(self, really_not_translated):
         from pypy.rpython.memory.gctypelayout import check_typeid
@@ -932,16 +973,7 @@ class GcLLDescr_framework(GcLLDescription):
         hdr.tid = tid
 
     def do_write_barrier(self, gcref_struct, gcref_newptr):
-        hdr_addr = llmemory.cast_ptr_to_adr(gcref_struct)
-        hdr_addr -= self.gcheaderbuilder.size_gc_header
-        hdr = llmemory.cast_adr_to_ptr(hdr_addr, self.HDRPTR)
-        if hdr.tid & self.GCClass.JIT_WB_IF_FLAG:
-            # get a pointer to the 'remember_young_pointer' function from
-            # the GC, and call it immediately
-            llop1 = self.llop1
-            funcptr = llop1.get_write_barrier_failing_case(
-                self.write_barrier_descr.WB_FUNCPTR)
-            funcptr(llmemory.cast_ptr_to_adr(gcref_struct))
+        self.write_barrier_descr._do_write_barrier(gcref_struct, False)
 
     def can_use_nursery_malloc(self, size):
         return (self.max_size_of_young_obj is not None and

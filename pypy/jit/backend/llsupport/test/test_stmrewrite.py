@@ -404,6 +404,8 @@ class TestStm(RewriteTests):
             unicodesetitem(p1, i2, i3)
             jump()
         """)
+        py.test.skip("XXX not really right: should instead be an assert "
+                     "that p1 is already a W")
 
     def test_fallback_to_inevitable(self):
         oplist = [
