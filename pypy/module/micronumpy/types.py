@@ -1052,15 +1052,15 @@ class ComplexFloating(object):
 
     @complex_to_real_unary_op
     def real(self, v):
-        return self.RealBoxType(v.real)
+        return v.real
 
     @complex_to_real_unary_op
     def imag(self, v):
-        return self.RealBoxType(v.imag)
+        return v.imag
 
     @complex_to_real_unary_op
     def abs(self, v):
-        return self.RealBoxType(rcomplex.c_abs(v[0], v[1]))
+        return rcomplex.c_abs(v[0], v[1])
 
     @raw_unary_op
     def isnan(self, v):

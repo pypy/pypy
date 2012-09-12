@@ -1019,7 +1019,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert repr(abs(complex(float('nan'), float('nan')))) == 'nan'
 
         assert False, 'untested: ' + \
-                     'floor, ceil, trunc, ' + \
+                     'floor, ceil, trunc, numpy.real. numpy.imag' + \
                      'exp2, expm1, isnan, isinf, isneginf, isposinf, ' + \
                      'isfinite, radians, degrees, log2, log1p, ' + \
                      'logaddexp, npy_log2_1p, logaddexp2'
@@ -1103,9 +1103,9 @@ class AppTestUfuncs(BaseNumpyAppTest):
                            float(exp_real), float(exp_imag),
                            flags
                           )
-        for complex_, abs_err, testcases in \
-                ((np.complex64,  5e-32,  self.testcases64), 
+        for complex_, abs_err, testcases in (\
                  (np.complex128, 5e-323, self.testcases128),
+                 (np.complex64,  5e-32,  self.testcases64), 
                 ):
             for id, fn, ar, ai, er, ei, flags in parse_testfile(testcases):
                 arg = complex_(complex(ar, ai))
