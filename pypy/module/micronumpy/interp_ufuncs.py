@@ -234,7 +234,8 @@ class W_Ufunc1(W_Ufunc):
         calc_dtype = find_unaryop_result_dtype(space,
                                   w_obj.get_dtype(),
                                   promote_to_float=self.promote_to_float,
-                                  promote_bools=self.promote_bools)
+                                  promote_bools=self.promote_bools,
+                                  allow_complex=self.allow_complex)
         if out is not None:
             if not isinstance(out, W_NDimArray):
                 raise OperationError(space.w_TypeError, space.wrap(
@@ -299,7 +300,7 @@ class W_Ufunc2(W_Ufunc):
             )
         if space.is_w(w_out, space.w_None) or w_out is None:
             out = None
-        elif not isinstance(w_out, BaseArray):
+        elif not isinstance(w_out, W_NDimArray):
             raise OperationError(space.w_TypeError, space.wrap(
                     'output must be an array'))
         else:
@@ -395,9 +396,11 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
 
 
 def find_unaryop_result_dtype(space, dt, promote_to_float=False,
-    promote_bools=False, promote_to_largest=False):
+    promote_bools=False, promote_to_largest=False, allow_complex=True):
     if promote_bools and (dt.kind == interp_dtype.BOOLLTR):
         return interp_dtype.get_dtype_cache(space).w_int8dtype
+    if not allow_complex and (dt.is_complex_type()):
+        raise OperationError(space.w_TypeError, space.wrap("Unsupported types"))
     if promote_to_float:
         if dt.kind == interp_dtype.FLOATINGLTR:
             return dt
@@ -516,7 +519,8 @@ class UfuncState(object):
             ("maximum", "max", 2),
             ("minimum", "min", 2),
 
-            ("copysign", "copysign", 2, {"promote_to_float": True}),
+            ("copysign", "copysign", 2, {"promote_to_float": True,
+                                         "allow_complex": False}),
 
             ("positive", "pos", 1),
             ("negative", "neg", 1),
@@ -526,7 +530,8 @@ class UfuncState(object):
             ("reciprocal", "reciprocal", 1),
             ("conjugate", "conj", 1),
 
-            ("fabs", "fabs", 1, {"promote_to_float": True}),
+            ("fabs", "fabs", 1, {"promote_to_float": True,
+                                 "allow_complex": False}),
             ("fmax", "fmax", 2, {"promote_to_float": True}),
             ("fmin", "fmin", 2, {"promote_to_float": True}),
             ("fmod", "fmod", 2, {"promote_to_float": True, 'allow_complex': False}),

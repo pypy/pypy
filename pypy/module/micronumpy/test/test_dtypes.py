@@ -449,8 +449,7 @@ class AppTestTypes(BaseNumpyAppTest):
             
         real, imag, should = (1e100, 3e66, '(1e+100+3e+66j)')
         c128 = numpy.complex128(complex(real, imag))
-        assert type(c128.real) is type(c128.imag)
-        assert type(c128.real) is numpy.float64
+        assert type(c128.real) is type(c128.imag) is numpy.float64
         assert c128.real == real
         assert c128.imag == imag
         assert repr(c128) == should
@@ -498,6 +497,7 @@ class AppTestTypes(BaseNumpyAppTest):
 
     def test_int(self):
         from _numpypy import int32, int64, int_
+        import sys
         assert issubclass(int_, int)
         if sys.maxint == (1<<31) - 1:
             assert issubclass(int32, int)
@@ -508,6 +508,7 @@ class AppTestTypes(BaseNumpyAppTest):
 
     def test_various_types(self):
         import _numpypy as numpy
+        import sys
 
         assert numpy.int16 is numpy.short
         assert numpy.int8 is numpy.byte
