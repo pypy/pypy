@@ -344,10 +344,11 @@ class ExceptionTests(unittest.TestCase):
             self.fail("No exception raised")
 
     def testInvalidAttrs(self):
-        self.assertRaises(TypeError, setattr, Exception(), '__cause__', 1)
-        self.assertRaises(TypeError, delattr, Exception(), '__cause__')
-        self.assertRaises(TypeError, setattr, Exception(), '__context__', 1)
-        self.assertRaises(TypeError, delattr, Exception(), '__context__')
+        exc = (TypeError, AttributeError)
+        self.assertRaises(exc, setattr, Exception(), '__cause__', 1)
+        self.assertRaises(exc, delattr, Exception(), '__cause__')
+        self.assertRaises(exc, setattr, Exception(), '__context__', 1)
+        self.assertRaises(exc, delattr, Exception(), '__context__')
 
     def testNoneClearsTracebackAttr(self):
         try:
