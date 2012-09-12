@@ -355,7 +355,7 @@ class StmGC(MovingGCBase):
             # XXX improve hash(nursery_object)
             return mangle_hash(llmemory.cast_adr_to_int(obj))
 
-    def can_move(self, obj):
+    def can_move(self, addr):
         tls = self.get_tls()
         if tls.is_in_nursery(addr):
             return True
