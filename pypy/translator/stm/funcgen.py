@@ -15,11 +15,11 @@ def stm_stop_transaction(funcgen, op):
     return 'stm_nogc_stop_transaction();'
 
 def stm_barrier(funcgen, op):
-    level = op.args[0].value
-    assert type(level) is str
+    category_change = op.args[0].value
+    assert type(category_change) is str and len(category_change) == 3   # "x2y"
     arg = funcgen.expr(op.args[1])
     result = funcgen.expr(op.result)
-    return '%s = STM_BARRIER_%s(%s);' % (result, level, arg)
+    return '%s = STM_BARRIER_%s(%s);' % (result, category_change, arg)
 
 def stm_ptr_eq(funcgen, op):
     arg0 = funcgen.expr(op.args[0])
