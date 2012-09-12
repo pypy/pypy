@@ -188,6 +188,7 @@ class CallControl(object):
         NON_VOID_ARGS = [ARG for ARG in FUNC.ARGS if ARG is not lltype.Void]
         calldescr = self.cpu.calldescrof(FUNC, tuple(NON_VOID_ARGS),
                                          FUNC.RESULT, EffectInfo.MOST_GENERAL)
+        # XXX stm: record arg and result categories
         return (fnaddr, calldescr)
 
     def getcalldescr(self, op, oopspecindex=EffectInfo.OS_NONE,
@@ -255,6 +256,7 @@ class CallControl(object):
         #
         return self.cpu.calldescrof(FUNC, tuple(NON_VOID_ARGS), RESULT,
                                     effectinfo)
+        # XXX stm: record arg and result categories
 
     def _canraise(self, op):
         if op.opname == 'pseudo_call_cannot_raise':

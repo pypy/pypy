@@ -345,8 +345,9 @@ class CallDescr(AbstractDescr):
                 return 'longlong.int2singlefloat(%s)' % (process('i'),)
             arg = 'args_%s[%d]' % (c, seen[c])
             seen[c] += 1
-            if c == 'r' and stm:
-                arg = 'llop.stm_writebarrier(llmemory.GCREF, %s)' % arg
+            #if c == 'r' and stm:
+            #    arg = 'llop.stm_writebarrier(llmemory.GCREF, %s)' % arg
+            #    XXX stm: barrier on (some?) args
             return arg
 
         def TYPE(arg):
