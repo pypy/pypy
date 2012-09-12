@@ -87,14 +87,13 @@ static inline void PossiblyUpdateChain(
 {
   if (R != G && --d->readonly_updates < 0)
     {
+      volatile revision_t *vp;
       d->readonly_updates = 148;   /* XXX tweak */
-      // compress the chain
-      while ((gcptr)G->h_revision != R)
-        {
-          gcptr G_next = (gcptr)G->h_revision;
-          G->h_revision = (revision_t)R;
-          G = G_next;
-        }
+      // compress the chain one step (cannot compress the whole chain!)
+      // avoid emitting a pointless "write", too.
+      vp = (volatile revision_t *)&G->h_revision;
+      if (*vp != (revision_t)R)
+        *vp = (revision_t)R;
       // update the original field
       if (R_Container != NULL)
         {
