@@ -10,7 +10,7 @@ from pypy.rpython.rbuiltin import gen_cast
 
 
 class ShadowStackFrameworkGCTransformer(BaseFrameworkGCTransformer):
-    def get_shadowstack_functions(self, getfn):
+    def annotate_walker_functions(self, getfn):
         self.incr_stack_ptr = getfn(self.root_walker.incr_stack,
                                    [annmodel.SomeInteger()],
                                    annmodel.SomeAddress(),

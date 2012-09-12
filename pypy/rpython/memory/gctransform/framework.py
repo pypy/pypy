@@ -228,7 +228,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
         self.frameworkgc__teardown_ptr = getfn(frameworkgc__teardown, [],
                                                annmodel.s_None)
 
-        self.get_shadowstack_functions(getfn)
+        self.annotate_walker_functions(getfn)
         self.weakref_deref_ptr = self.inittime_helper(
             ll_weakref_deref, [llmemory.WeakRefPtr], llmemory.Address)
 
@@ -1198,7 +1198,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
         return super(BaseFrameworkGCTransformer, self).compute_borrowed_vars(
                 graph)
 
-    def get_shadowstack_functions(self, getfn):
+    def annotate_walker_functions(self, getfn):
         pass
 
     def build_root_walker(self):
