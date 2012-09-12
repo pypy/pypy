@@ -53,6 +53,7 @@ def complex_to_real_unary_op(func):
     specialize.argtype(1)(func)
     @functools.wraps(func)
     def dispatcher(self, v):
+        assert isinstance(v, Primitive)
         return self.RealBoxType(
             func(
                 self,
