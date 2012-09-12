@@ -966,6 +966,7 @@ class __extend__(pyframe.PyFrame):
                       isinstance(unroller, SApplicationException))
         if is_app_exc:
             operr = unroller.operr
+            self.last_exception = operr
             w_traceback = self.space.wrap(operr.get_traceback())
             w_suppress = self.call_contextmanager_exit_function(
                 w_exitfunc,
