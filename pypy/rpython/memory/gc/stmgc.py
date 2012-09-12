@@ -362,6 +362,10 @@ class StmGC(MovingGCBase):
         else:
             # XXX for now a pointer to a non-nursery object is
             # always valid, as long as we don't have global collections
+            # Later, we will need to remember that we answered False for
+            # this 'addr', and then no longer fix any pointer to it
+            # during global collections, so that the exact 'addr'
+            # remains valid as long as the object is reachable.
             return False
 
 # ____________________________________________________________
