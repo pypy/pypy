@@ -354,6 +354,14 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
     # Some operations promote op(bool, bool) to return int8, rather than bool
     if promote_bools and (dt1.kind == dt2.kind == interp_dtype.BOOLLTR):
         return interp_dtype.get_dtype_cache(space).w_int8dtype
+
+    # Everything promotes to complex
+    if dt2.num == 14 or dt2.num == 15 or dt1.num == 14 or dt2.num == 15:
+        if dt2.num == 15 or dt1.num == 15:
+            return interp_dtype.get_dtype_cache(space).w_complex128dtype
+        else:
+            return interp_dtype.get_dtype_cache(space).w_complex64dtype
+    
     if promote_to_float:
         return find_unaryop_result_dtype(space, dt2, promote_to_float=True)
     # If they're the same kind, choose the greater one.
@@ -428,7 +436,6 @@ def find_dtype_for_scalar(space, w_obj, current_guess=None):
     int64_dtype = interp_dtype.get_dtype_cache(space).w_int64dtype
     complex_type = interp_dtype.get_dtype_cache(space).w_complex128dtype
     float_type = interp_dtype.get_dtype_cache(space).w_float64dtype
-
     if isinstance(w_obj, interp_boxes.W_GenericBox):
         dtype = w_obj.get_dtype(space)
         if current_guess is None:
@@ -455,7 +462,8 @@ def find_dtype_for_scalar(space, w_obj, current_guess=None):
             current_guess is complex_type or current_guess is float_type):
             return complex_type
         return current_guess
-
+    if current_guess is complex_type:
+        return complex_type
     return interp_dtype.get_dtype_cache(space).w_float64dtype
 
 
@@ -529,6 +537,8 @@ class UfuncState(object):
             ("signbit", "signbit", 1, {"bool_result": True}),
             ("reciprocal", "reciprocal", 1),
             ("conjugate", "conj", 1),
+            ("real", "real", 1),
+            ("imag", "imag", 1),
 
             ("fabs", "fabs", 1, {"promote_to_float": True,
                                  "allow_complex": False}),

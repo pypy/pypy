@@ -49,6 +49,19 @@ def complex_unary_op(func):
         )
     return dispatcher
 
+def complex_to_real_unary_op(func):
+    specialize.argtype(1)(func)
+    @functools.wraps(func)
+    def dispatcher(self, v):
+        return self.RealBoxType(
+            func(
+                self,
+                self.for_computation(self.unbox(v))
+            )
+        )
+    return dispatcher
+
+
 def raw_unary_op(func):
     specialize.argtype(1)(func)
     @functools.wraps(func)
@@ -191,6 +204,14 @@ class Primitive(object):
     @simple_unary_op
     def conj(self, v):
         return v
+
+    @simple_unary_op
+    def real(self, v):
+        return v
+
+    @simple_unary_op
+    def imag(self, v):
+        return 0
 
     @simple_unary_op
     def abs(self, v):
@@ -1017,8 +1038,6 @@ class ComplexFloating(object):
                 return rfloat.NAN, rfloat.NAN
             return rfloat.INFINITY, rfloat.INFINITY
 
-
-
     @complex_unary_op
     def pos(self, v):
         return v
@@ -1031,9 +1050,17 @@ class ComplexFloating(object):
     def conj(self, v):
         return v[0], -v[1]
 
-    @raw_unary_op
+    @complex_to_real_unary_op
+    def real(self, v):
+        return self.RealBoxType(v.real)
+
+    @complex_to_real_unary_op
+    def imag(self, v):
+        return self.RealBoxType(v.imag)
+
+    @complex_to_real_unary_op
     def abs(self, v):
-        return rcomplex.c_abs(v[0], v[1])
+        return self.RealBoxType(rcomplex.c_abs(v[0], v[1]))
 
     @raw_unary_op
     def isnan(self, v):
@@ -1154,16 +1181,16 @@ class ComplexFloating(object):
             return v1
         elif self.isnan(v1):
             return v2
-        if v1 >= v2:
+        if self.ge(v1, v2):
             return v1
         return v2
 
     def fmin(self, v1, v2):
-        if math.isnan(v2):
+        if self.isnan(v2):
             return v1
-        elif math.isnan(v1):
+        elif self.isnan(v1):
             return v2
-        if v1 <= v2:
+        if self.le(v1, v2):
             return v1
         return v2
 
@@ -1334,7 +1361,7 @@ class ComplexFloating(object):
 
     @raw_unary_op
     def isnan(self, v):
-        return rfloat.isnan(v)
+        return rfloat.isnan(v[0]) or rfloat.isnan(v[1])
 
     @raw_unary_op
     def isinf(self, v):
@@ -1415,6 +1442,7 @@ class Complex64(ComplexFloating, BaseType):
     T = rffi.CHAR
     _COMPONENTS_T = rffi.FLOAT
     BoxType = interp_boxes.W_Complex64Box
+    RealBoxType = interp_boxes.W_Float32Box
 
 
 
@@ -1426,6 +1454,7 @@ class Complex128(ComplexFloating, BaseType):
     T = rffi.CHAR
     _COMPONENTS_T = rffi.DOUBLE
     BoxType = interp_boxes.W_Complex128Box
+    RealBoxType = interp_boxes.W_Float64Box
 
 
 NonNativeComplex128 = Complex128

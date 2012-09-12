@@ -2,57 +2,7 @@
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
 from math import isnan, isinf, copysign
-from sys import version_info
 from pypy.conftest import option
-
-def rAlmostEqual(a, b, rel_err = 2e-15, abs_err = 5e-323, msg=''):
-    """Fail if the two floating-point numbers are not almost equal.
-
-    Determine whether floating-point values a and b are equal to within
-    a (small) rounding error.  The default values for rel_err and
-    abs_err are chosen to be suitable for platforms where a float is
-    represented by an IEEE 754 double.  They allow an error of between
-    9 and 19 ulps.
-    """
-
-    # special values testing
-    if isnan(a):
-        if isnan(b):
-            return True,''
-        raise AssertionError(msg + '%r should be nan' % (b,))
-
-    if isinf(a):
-        if a == b:
-            return True,''
-        raise AssertionError(msg + 'finite result where infinity expected: '+ \
-                          'expected %r, got %r' % (a, b))
-
-    # if both a and b are zero, check whether they have the same sign
-    # (in theory there are examples where it would be legitimate for a
-    # and b to have opposite signs; in practice these hardly ever
-    # occur).
-    if not a and not b:
-        # only check it if we are running on top of CPython >= 2.6
-        if version_info >= (2, 6) and copysign(1., a) != copysign(1., b):
-            raise AssertionError( msg + \
-                    'zero has wrong sign: expected %r, got %r' % (a, b))
-
-    # if a-b overflows, or b is infinite, return False.  Again, in
-    # theory there are examples where a is within a few ulps of the
-    # max representable float, and then b could legitimately be
-    # infinite.  In practice these examples are rare.
-    try:
-        absolute_error = abs(b-a)
-    except OverflowError:
-        pass
-    else:
-        # test passes if either the absolute error or the relative
-        # error is sufficiently small.  The defaults amount to an
-        # error of between 9 ulps and 19 ulps on an IEEE-754 compliant
-        # machine.
-        if absolute_error <= max(abs_err, rel_err * abs(a)):
-            return True,''
-    raise AssertionError(msg + '%r and %r are not sufficiently close' % (a, b))
 
 class AppTestUfuncs(BaseNumpyAppTest):
     def setup_class(cls):
@@ -62,9 +12,6 @@ class AppTestUfuncs(BaseNumpyAppTest):
         fname64 = os.path.join(os.path.dirname(__file__), 'complex64_testcases.txt')
         cls.w_testcases128 = cls.space.wrap(fname128)
         cls.w_testcases64 = cls.space.wrap(fname64)
-        def cls_rAlmostEqual(self, *args, **kwargs):
-            return rAlmostEqual(*args, **kwargs)
-        cls.w_rAlmostEqual = cls.space.wrap(cls_rAlmostEqual)
         cls.w_runAppDirect = cls.space.wrap(option.runappdirect)
         cls.w_isWindows = cls.space.wrap(os.name == 'nt')
 
@@ -235,6 +182,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
                a[4 ], a[5 ], a[6 ], a[7 ],
                a[8 ], a[9 ], a[10], a[11],
                b[12], b[13]]
+        r2 = fmax(a,b)
+        r3 = (r2 == res)
         assert (fmax(a, b) == res).all()
         b = [inf]*a.size
         res = [b[0 ], b[1 ], a[2 ], b[3 ], 
@@ -388,20 +337,10 @@ class AppTestUfuncs(BaseNumpyAppTest):
                     -0j, 0j, cnan, 
                     cnan, cnan, cnan]
         for c, rel_err in ((complex64, 2e-7), (complex128, 2e-15), ):
-            actual = reciprocal(array(orig, dtype=c))
+            actual = reciprocal(array([orig], dtype=c))
             for b, a, e in zip(orig, actual, expected):
-                error_message = (
-                    'reciprocal(%r(%r, %r))\n'
-                    'Expected: complex(%r, %r)\n'
-                    'Received: complex(%r, %r)\n'
-                    ) % (c, b.real, b.imag,
-                         e.real, e.imag,
-                         a.real, a.imag)
-                         
-                self.rAlmostEqual(e.real, a.real,
-                               rel_err=rel_err, msg=error_message)
-                self.rAlmostEqual(e.imag, a.imag,
-                               rel_err=rel_err, msg=error_message)
+                assert (a[0].real - e.real) < rel_err
+                assert (a[0].imag - e.imag) < rel_err
 
     def test_subtract(self):
         from _numpypy import array, subtract
@@ -1089,6 +1028,58 @@ class AppTestUfuncs(BaseNumpyAppTest):
         if self.isWindows:
             skip('windows does not support c99 complex')
         import  _numpypy as np
+        from math import isnan, isinf, copysign
+        from sys import version_info
+
+        def rAlmostEqual(a, b, rel_err = 2e-15, abs_err = 5e-323, msg=''):
+            """Fail if the two floating-point numbers are not almost equal.
+
+            Determine whether floating-point values a and b are equal to within
+            a (small) rounding error.  The default values for rel_err and
+            abs_err are chosen to be suitable for platforms where a float is
+            represented by an IEEE 754 double.  They allow an error of between
+            9 and 19 ulps.
+            """
+
+            # special values testing
+            if isnan(a):
+                if isnan(b):
+                    return True,''
+                raise AssertionError(msg + '%r should be nan' % (b,))
+
+            if isinf(a):
+                if a == b:
+                    return True,''
+                raise AssertionError(msg + 'finite result where infinity expected: '+ \
+                                  'expected %r, got %r' % (a, b))
+
+            # if both a and b are zero, check whether they have the same sign
+            # (in theory there are examples where it would be legitimate for a
+            # and b to have opposite signs; in practice these hardly ever
+            # occur).
+            if not a and not b:
+                # only check it if we are running on top of CPython >= 2.6
+                if version_info >= (2, 6) and copysign(1., a) != copysign(1., b):
+                    raise AssertionError( msg + \
+                            'zero has wrong sign: expected %r, got %r' % (a, b))
+
+            # if a-b overflows, or b is infinite, return False.  Again, in
+            # theory there are examples where a is within a few ulps of the
+            # max representable float, and then b could legitimately be
+            # infinite.  In practice these examples are rare.
+            try:
+                absolute_error = abs(b-a)
+            except OverflowError:
+                pass
+            else:
+                # test passes if either the absolute error or the relative
+                # error is sufficiently small.  The defaults amount to an
+                # error of between 9 ulps and 19 ulps on an IEEE-754 compliant
+                # machine.
+                if absolute_error <= max(abs_err, rel_err * abs(a)):
+                    return True,''
+            raise AssertionError(msg + '%r and %r are not sufficiently close' % (a, b))
+
         def parse_testfile(fname):
             """Parse a file with test values
 
@@ -1153,7 +1144,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
                          expected[0], expected[1],
                          actual[0], actual[1])
                          
-                self.rAlmostEqual(expected[0], actual[0],
+                rAlmostEqual(expected[0], actual[0],
                                abs_err=real_abs_err, msg=error_message)
-                self.rAlmostEqual(expected[1], actual[1],
+                rAlmostEqual(expected[1], actual[1],
                                    msg=error_message)
