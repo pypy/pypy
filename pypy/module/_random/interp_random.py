@@ -73,7 +73,7 @@ class W_Random(Wrappable):
         w_item = space.getitem(w_state, space.newint(rrandom.N))
         self._rnd.index = space.int_w(w_item)
 
-    #assert rbigint.SHIFT <= 32
+    assert rbigint.SHIFT <= 64
     @unwrap_spec(k=int)
     def getrandbits(self, space, k):
         if k <= 0:
@@ -82,12 +82,17 @@ class W_Random(Wrappable):
         needed = (k - 1) // rbigint.SHIFT + 1
         result = rbigint.rbigint([rbigint.NULLDIGIT] * needed, 1)
         for i in range(needed):
+            if rbigint.SHIFT <= 32:
+                value = self._rnd.genrand32()
+            else:
+                value = self._rnd.genrand32() << 32 | self._rnd.genrand32()
             # This wastes some random digits, but not too many since SHIFT=31
-            value = self._rnd.genrand32() & rbigint.MASK
+            value = value & rbigint.MASK
             if i < needed - 1:
                 result.setdigit(i, value)
             else:
                 result.setdigit(i, value >> ((needed * rbigint.SHIFT) - k))
+        result._normalize()
         return space.newlong_from_rbigint(result)
 
 
