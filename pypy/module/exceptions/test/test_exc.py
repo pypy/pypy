@@ -126,19 +126,21 @@ class AppTestExc(object):
         assert str(e) == 'àèì'
 
     def test_unicode_decode_error(self):
-        ud = UnicodeDecodeError("x", b"y", 1, 5, "bah")
-        assert ud.encoding == 'x'
-        assert ud.object == b'y'
-        assert ud.start == 1
-        assert ud.end == 5
-        assert ud.reason == 'bah'
-        assert ud.args == ('x', b'y', 1, 5, 'bah')
-        assert ud.message == ''
-        ud.object = b'z9'
-        assert ud.object == b'z9'
-        assert str(ud) == "'x' codec can't decode bytes in position 1-4: bah"
-        ud.end = 2
-        assert str(ud) == "'x' codec can't decode byte 0x39 in position 1: bah"
+        for mybytes in (b'y', bytearray(b'y')):
+            ud = UnicodeDecodeError("x", mybytes, 1, 5, "bah")
+            assert ud.encoding == 'x'
+            assert ud.object == b'y'
+            assert type(ud.object) is bytes
+            assert ud.start == 1
+            assert ud.end == 5
+            assert ud.reason == 'bah'
+            assert ud.args == ('x', b'y', 1, 5, 'bah')
+            assert type(ud.args[1]) is type(mybytes)
+            ud.object = b'z9'
+            assert ud.object == b'z9'
+            assert str(ud) == "'x' codec can't decode bytes in position 1-4: bah"
+            ud.end = 2
+            assert str(ud) == "'x' codec can't decode byte 0x39 in position 1: bah"
 
     def test_unicode_encode_error(self):
         ue = UnicodeEncodeError("x", "y", 1, 5, "bah")
