@@ -478,6 +478,8 @@ class Assembler386(object):
                                                   lltype.Void))
 
     def _build_release_gil(self, gcrootmap):
+        if self.cpu.gc_ll_descr.stm:      # XXX FIXME
+            return
         if gcrootmap.is_shadow_stack:
             releasegil_func = llhelper(self._NOARG_FUNC,
                                        self._release_gil_shadowstack)
@@ -2262,6 +2264,8 @@ class Assembler386(object):
         # the XMM registers won't be modified.  We store them in
         # [ESP+4], [ESP+8], etc.; on x86-32 we leave enough room in [ESP]
         # for the single argument to closestack_addr below.
+        if self.cpu.gc_ll_descr.stm:                                # XXX FIXME
+            raise NotImplementedError("releasegil_addr can (and will) collect")
         if IS_X86_32:
             p = WORD
         elif IS_X86_64:

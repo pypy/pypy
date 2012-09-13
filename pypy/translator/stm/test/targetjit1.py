@@ -162,6 +162,11 @@ def entry_point(argv):
 
 # _____ Define and setup target ___
 
+from pypy.jit.codewriter.policy import JitPolicy
+
+def jitpolicy(driver):
+    return JitPolicy()
+
 def target(*args):
     return entry_point, None
 
