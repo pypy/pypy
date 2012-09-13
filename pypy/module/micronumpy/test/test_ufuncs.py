@@ -758,6 +758,16 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert (isinf(array([0.2, float('inf'), float('nan')])) == [False, True, False]).all()
         assert isinf(array([0.2])).dtype.kind == 'b'
 
+        assert (isnan(array([0.2+2j, complex(float('inf'),0), 
+                complex(0,float('inf')), complex(0,float('nan')),
+                complex(float('nan'), 0)], dtype=complex)) == \
+                [False, False, False, True, True]).all()
+
+        assert (isinf(array([0.2+2j, complex(float('inf'),0), 
+                complex(0,float('inf')), complex(0,float('nan')),
+                complex(float('nan'), 0)], dtype=complex)) == \
+                [False, True, True, False, False]).all()
+
     def test_isposinf_isneginf(self):
         from _numpypy import isneginf, isposinf, complex128
         assert isposinf(float('inf'))
@@ -776,10 +786,20 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
     def test_isfinite(self):
         from _numpypy import isfinite
+        inf = float('inf')
+        ninf = -float('inf')
+        nan = float('nan')
         assert (isfinite([0, 0.0, 1e50, -1e-50]) ==
             [True, True, True, True]).all()
-        assert (isfinite([float('-inf'), float('inf'), float('-nan'), float('nan')]) ==
+        assert (isfinite([ninf, inf, -nan, nan]) ==
             [False, False, False, False]).all()
+
+        a = [complex(0, 0), complex(1e50, -1e-50), complex(inf, 0),
+             complex(inf, inf), complex(inf, ninf), complex(0, inf),
+             complex(ninf, ninf), complex(nan, 0), complex(0, nan),
+             complex(nan, nan)]
+        assert (isfinite(a) == [True, True, False, False, False, 
+                        False, False, False, False, False]).all() 
 
     def test_logical_ops(self):
         from _numpypy import logical_and, logical_or, logical_xor, logical_not
@@ -1029,8 +1049,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
         assert False, 'untested: ' + \
                      'numpy.real. numpy.imag' + \
-                     'exp2, expm1, isnan, isinf, isneginf, isposinf, ' + \
-                     'isfinite, radians, degrees, log2, log1p, ' + \
+                     'exp2, expm1, ' + \
+                     'radians, degrees, log2, log1p, ' + \
                      'logaddexp, npy_log2_1p, logaddexp2'
 
     def test_complex_math(self):

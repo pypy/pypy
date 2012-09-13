@@ -1368,19 +1368,19 @@ class ComplexFloating(object):
 
     @raw_unary_op
     def isinf(self, v):
-        return rfloat.isinf(v)
+        return rfloat.isinf(v[0]) or rfloat.isinf(v[1])
 
-    @raw_unary_op
-    def isneginf(self, v):
-        return rfloat.isinf(v) and v < 0
+    #@raw_unary_op
+    #def isneginf(self, v):
+    #    return rfloat.isinf(v) and v < 0
 
-    @raw_unary_op
-    def isposinf(self, v):
-        return rfloat.isinf(v) and v > 0
+    #@raw_unary_op
+    #def isposinf(self, v):
+    #    return rfloat.isinf(v) and v > 0
 
     @raw_unary_op
     def isfinite(self, v):
-        return not (rfloat.isinf(v) or rfloat.isnan(v))
+        return isfinite(v[0]) and isfinite(v[1])
 
     @simple_unary_op
     def radians(self, v):
