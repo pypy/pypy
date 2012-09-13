@@ -198,9 +198,7 @@ def _standard_object_as_bool(space, w_ob):
 # hackish, but the most straightforward way to know if a LONGDOUBLE object
 # contains the value 0 or not.
 eci = ExternalCompilationInfo(post_include_bits=["""
-static bool_t pypy__is_nonnull_longdouble(long double x) {
-    return x != 0.0;
-}
+#define pypy__is_nonnull_longdouble(x)  ((x) != 0.0)
 """])
 is_nonnull_longdouble = rffi.llexternal(
     "pypy__is_nonnull_longdouble", [rffi.LONGDOUBLE], lltype.Bool,
