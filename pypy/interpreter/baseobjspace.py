@@ -7,8 +7,8 @@ from pypy.interpreter.argument import Arguments
 from pypy.interpreter.miscutils import ThreadLocals
 from pypy.tool.cache import Cache
 from pypy.tool.uid import HUGEVAL_BYTES
-from pypy.rlib.objectmodel import we_are_translated, newlist_hint,\
-     compute_unique_id
+from pypy.rlib.objectmodel import (compute_unique_id, resizelist_hint,
+                                   we_are_translated)
 from pypy.rlib.debug import make_sure_not_resized
 from pypy.rlib.timer import DummyTimer, Timer
 from pypy.rlib.rarithmetic import r_uint
@@ -837,34 +837,45 @@ class ObjSpace(object):
         """Unpack an iterable into a real (interpreter-level) list.
 
         Raise an OperationError(w_ValueError) if the length is wrong."""
-        w_iterator = self.iter(w_iterable)
         if expected_length == -1:
-            # xxx special hack for speed
-            from pypy.interpreter.generator import GeneratorIterator
-            if isinstance(w_iterator, GeneratorIterator):
-                lst_w = []
-                w_iterator.unpack_into(lst_w)
-                return lst_w
-            # /xxx
-            return self._unpackiterable_unknown_length(w_iterator, w_iterable)
-        else:
-            lst_w = self._unpackiterable_known_length(w_iterator,
-                                                      expected_length)
-            return lst_w[:]     # make the resulting list resizable
+            lst_w = []
+            self.unpackiterable_into(w_iterable, lst_w)
+            return lst_w
+
+        lst_w = self._unpackiterable_known_length(self.iter(w_iterable),
+                                                  expected_length)
+        return lst_w[:]     # make the resulting list resizable
+
+    def unpackiterable_into(self, w_iterable, lst_w):
+        """Unpack an iterable into a pre-existing real
+        (interpreter-level) list.
+        """
+        w_iterator = self.iter(w_iterable)
+        # xxx special hack for speed
+        from pypy.interpreter.generator import GeneratorIterator
+        if isinstance(w_iterator, GeneratorIterator):
+            # XXX: hint?
+            w_iterator.unpack_into(lst_w)
+            return
+        # /xxx
+        self._unpackiterable_into_unknown_length(w_iterator, w_iterable,
+                                                 lst_w)
 
     def iteriterable(self, w_iterable):
         return W_InterpIterable(self, w_iterable)
 
-    def _unpackiterable_unknown_length(self, w_iterator, w_iterable):
+    def _unpackiterable_into_unknown_length(self, w_iterator, w_iterable, items):
         """Unpack an iterable of unknown length into an interp-level
         list.
         """
         # If we can guess the expected length we can preallocate.
         from pypy.objspace.std.iterobject import length_hint
+        newlen = len(items) + length_hint(self, w_iterable, 0)
+        #newlen = len(items) + self.length_hint(w_iterable, 0)
         try:
-            items = newlist_hint(length_hint(self, w_iterable, 0))
+            resizelist_hint(items, newlen)
         except MemoryError:
-            items = [] # it might have lied
+            pass # it might have lied
 
         tp = self.type(w_iterator)
         while True:
@@ -879,6 +890,7 @@ class ObjSpace(object):
                 break  # done
             items.append(w_item)
         #
+        # XXX: resizelist_hint again if necessary
         return items
 
     @jit.dont_look_inside

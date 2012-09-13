@@ -459,8 +459,13 @@ class EmptyListStrategy(ListStrategy):
         assert index == 0
         self.append(w_list, w_item)
 
-    def extend(self, w_list, w_other):
-        w_other.copy_into(w_list)
+    def extend(self, w_list, w_any):
+        if isinstance(w_any, W_ListObject):
+            w_any.copy_into(w_list)
+            return
+
+        w_other = W_ListObject(self.space, self.space.listview(w_any))
+        self.extend(w_list, w_other)
 
     def reverse(self, w_list):
         pass
@@ -791,7 +796,22 @@ class AbstractUnwrappedStrategy(object):
         w_list.switch_to_object_strategy()
         w_list.insert(index, w_item)
 
-    def extend(self, w_list, w_other):
+    def extend(self, w_list, w_any):
+        if isinstance(w_any, W_ListObject):
+            self.extend_list(w_list, w_any)
+            return
+
+        if self is not self.space.fromcache(ObjectListStrategy):
+            # XXX: force ObjectListStrategy for now
+            w_list.switch_to_object_strategy()
+            w_list.extend(w_any)
+            return
+
+        # XXX:
+        l = self.unerase(w_list.lstorage)
+        self.space.unpackiterable_into(w_any, l)
+
+    def extend_list(self, w_list, w_other):
         l = self.unerase(w_list.lstorage)
         if self.list_is_correct_type(w_other):
             l += self.unerase(w_other.lstorage)
@@ -1068,6 +1088,8 @@ def init__List(space, w_list, __args__):
     w_iterable, = __args__.parse_obj(
             None, 'list', init_signature, init_defaults)
     w_list.clear(space)
+    # XXX: move all this into 'extend', then ideally this simply calls
+    # extend
     if w_iterable is not None:
         if type(w_iterable) is W_ListObject:
             w_iterable.copy_into(w_list)
@@ -1175,10 +1197,6 @@ def inplace_add__List_ANY(space, w_list1, w_iterable2):
         if e.match(space, space.w_TypeError):
             raise FailedToImplement
         raise
-    return w_list1
-
-def inplace_add__List_List(space, w_list1, w_list2):
-    list_extend__List_List(space, w_list1, w_list2)
     return w_list1
 
 def mul_list_times(space, w_list, w_times):
@@ -1329,12 +1347,7 @@ def list_append__List_ANY(space, w_list, w_any):
     w_list.append(w_any)
     return space.w_None
 
-def list_extend__List_List(space, w_list, w_other):
-    w_list.extend(w_other)
-    return space.w_None
-
-def list_extend__List_ANY(space, w_list, w_any):
-    w_other = W_ListObject(space, space.listview(w_any))
+def list_extend__List_ANY(space, w_list, w_other):
     w_list.extend(w_other)
     return space.w_None
 
