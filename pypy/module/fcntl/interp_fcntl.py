@@ -268,7 +268,7 @@ def ioctl(space, w_fd, op, w_arg=0, mutate_flag=-1):
         lltype.free(ll_arg, flavor='raw')
         if rv < 0:
             raise _get_error(space, "ioctl")
-        return space.wrap(arg)
+        return space.wrapbytes(arg)
 
     raise OperationError(space.w_TypeError,
                          space.wrap("int or string or buffer required"))

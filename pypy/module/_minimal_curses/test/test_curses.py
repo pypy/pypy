@@ -51,7 +51,7 @@ class TestCurses(object):
         source = py.code.Source("""
         import _minimal_curses
         _minimal_curses.setupterm()
-        assert _minimal_curses.tigetstr('cup') == '\x1b[%i%p1%d;%p2%dH'
+        assert _minimal_curses.tigetstr('cup') == b'\x1b[%i%p1%d;%p2%dH'
         print('ok!')
         """)
         f = udir.join("test_tigetstr.py")
@@ -63,7 +63,7 @@ class TestCurses(object):
         source = py.code.Source("""
         import _minimal_curses
         _minimal_curses.setupterm()
-        assert _minimal_curses.tparm(_minimal_curses.tigetstr('cup'), 5, 3) == '\033[6;4H'
+        assert _minimal_curses.tparm(_minimal_curses.tigetstr('cup'), 5, 3) == b'\033[6;4H'
         print('ok!')
         """)
         f = udir.join("test_tparm.py")
