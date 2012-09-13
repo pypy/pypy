@@ -71,6 +71,8 @@ typedef struct pypy_header0 *gcptr;
     (__builtin_expect((((gcptr)(R))->h_tid & GCFLAG_NOT_WRITTEN) == 0, 1) ? \
      (R) : (typeof(R))stm_WriteBarrierFromReady((gcptr)(R)))
 
+#define STM_BARRIER_O2W(R)  STM_BARRIER_R2W(R)   /* same logic works here */
+
 #define STM_PTR_EQ(P1, P2)                      \
     stm_PtrEq((gcptr)(P1), (gcptr)(P2))
 
