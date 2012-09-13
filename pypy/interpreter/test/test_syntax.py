@@ -567,6 +567,24 @@ if 1:
         import types
         assert isinstance(acontextfact.exit_params[2], types.TracebackType)
 
+    def test_with_reraise_exception(self):
+        class Context:
+            def __enter__(self):
+                self.calls = []
+            def __exit__(self, exc_type, exc_value, exc_tb):
+                self.calls.append('exit')
+                raise
+
+        c = Context()
+        try:
+            with c:
+                1 / 0
+        except ZeroDivisionError:
+            pass
+        else:
+            raise AssertionError('Should have reraised initial exception')
+        assert c.calls == ['exit']
+
     def test_with_break(self):
 
         s = """

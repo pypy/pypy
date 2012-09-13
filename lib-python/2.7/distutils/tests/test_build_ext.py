@@ -1,7 +1,5 @@
 import sys
 import os
-import tempfile
-import shutil
 from StringIO import StringIO
 import textwrap
 
@@ -9,7 +7,8 @@ from distutils.core import Extension, Distribution
 from distutils.command.build_ext import build_ext
 from distutils import sysconfig
 from distutils.tests import support
-from distutils.errors import DistutilsSetupError, CompileError
+from distutils.errors import (DistutilsSetupError, CompileError,
+                              DistutilsPlatformError)
 
 import unittest
 from test import test_support
@@ -18,71 +17,40 @@ from test import test_support
 # Don't load the xx module more than once.
 ALREADY_TESTED = False
 
-def _get_source_filename():
-    srcdir = sysconfig.get_config_var('srcdir')
-    if srcdir is None:
-        return os.path.join(sysconfig.project_base, 'Modules', 'xxmodule.c')
-    return os.path.join(srcdir, 'Modules', 'xxmodule.c')
-
-_XX_MODULE_PATH = _get_source_filename()
 
 class BuildExtTestCase(support.TempdirManager,
                        support.LoggingSilencer,
                        unittest.TestCase):
     def setUp(self):
-        # Create a simple test environment
-        # Note that we're making changes to sys.path
         super(BuildExtTestCase, self).setUp()
-        self.tmp_dir = tempfile.mkdtemp(prefix="pythontest_")
-        if os.path.exists(_XX_MODULE_PATH):
-            self.sys_path = sys.path[:]
-            sys.path.append(self.tmp_dir)
-            shutil.copy(_XX_MODULE_PATH, self.tmp_dir)
+        self.tmp_dir = self.mkdtemp()
+        self.xx_created = False
+        sys.path.append(self.tmp_dir)
+        self.addCleanup(sys.path.remove, self.tmp_dir)
+        if sys.version > "2.6":
+            import site
+            self.old_user_base = site.USER_BASE
+            site.USER_BASE = self.mkdtemp()
+            from distutils.command import build_ext
+            build_ext.USER_BASE = site.USER_BASE
 
     def tearDown(self):
-        # Get everything back to normal
-        if os.path.exists(_XX_MODULE_PATH):
+        if self.xx_created:
             test_support.unload('xx')
-            sys.path[:] = self.sys_path
             # XXX on Windows the test leaves a directory
             # with xx module in TEMP
-        shutil.rmtree(self.tmp_dir, os.name == 'nt' or
-                                    sys.platform == 'cygwin')
         super(BuildExtTestCase, self).tearDown()
 
-    def _fixup_command(self, cmd):
-        # When Python was build with --enable-shared, -L. is not good enough
-        # to find the libpython<blah>.so.  This is because regrtest runs it
-        # under a tempdir, not in the top level where the .so lives.  By the
-        # time we've gotten here, Python's already been chdir'd to the
-        # tempdir.
-        #
-        # To further add to the fun, we can't just add library_dirs to the
-        # Extension() instance because that doesn't get plumbed through to the
-        # final compiler command.
-        if (sysconfig.get_config_var('Py_ENABLE_SHARED') and
-            not sys.platform.startswith('win')):
-            runshared = sysconfig.get_config_var('RUNSHARED')
-            if runshared is None:
-                cmd.library_dirs = ['.']
-            else:
-                name, equals, value = runshared.partition('=')
-                cmd.library_dirs = value.split(os.pathsep)
-
-    @unittest.skipIf(not os.path.exists(_XX_MODULE_PATH),
-                     'xxmodule.c not found')
     def test_build_ext(self):
         global ALREADY_TESTED
+        support.copy_xxmodule_c(self.tmp_dir)
+        self.xx_created = True
         xx_c = os.path.join(self.tmp_dir, 'xxmodule.c')
         xx_ext = Extension('xx', [xx_c])
         dist = Distribution({'name': 'xx', 'ext_modules': [xx_ext]})
         dist.package_dir = self.tmp_dir
         cmd = build_ext(dist)
-        self._fixup_command(cmd)
-        if os.name == "nt":
-            # On Windows, we must build a debug version iff running
-            # a debug build of Python
-            cmd.debug = sys.executable.endswith("_d.exe")
+        support.fixup_build_ext(cmd)
         cmd.build_lib = self.tmp_dir
         cmd.build_temp = self.tmp_dir
 
@@ -135,6 +103,36 @@ class BuildExtTestCase(support.TempdirManager,
         # make sure we get some library dirs under solaris
         self.assertTrue(len(cmd.library_dirs) > 0)
 
+    def test_user_site(self):
+        # site.USER_SITE was introduced in 2.6
+        if sys.version < '2.6':
+            return
+
+        import site
+        dist = Distribution({'name': 'xx'})
+        cmd = build_ext(dist)
+
+        # making sure the user option is there
+        options = [name for name, short, label in
+                   cmd.user_options]
+        self.assertIn('user', options)
+
+        # setting a value
+        cmd.user = 1
+
+        # setting user based lib and include
+        lib = os.path.join(site.USER_BASE, 'lib')
+        incl = os.path.join(site.USER_BASE, 'include')
+        os.mkdir(lib)
+        os.mkdir(incl)
+
+        cmd.ensure_finalized()
+
+        # see if include_dirs and library_dirs were set
+        self.assertIn(lib, cmd.library_dirs)
+        self.assertIn(lib, cmd.rpath)
+        self.assertIn(incl, cmd.include_dirs)
+
     def test_finalize_options(self):
         # Make sure Python's include directories (for Python.h, pyconfig.h,
         # etc.) are in the include search path.
@@ -143,7 +141,6 @@ class BuildExtTestCase(support.TempdirManager,
         cmd = build_ext(dist)
         cmd.finalize_options()
 
-        from distutils import sysconfig
         py_include = sysconfig.get_python_inc()
         self.assertTrue(py_include in cmd.include_dirs)
 
@@ -153,21 +150,22 @@ class BuildExtTestCase(support.TempdirManager,
         # make sure cmd.libraries is turned into a list
         # if it's a string
         cmd = build_ext(dist)
-        cmd.libraries = 'my_lib'
+        cmd.libraries = 'my_lib, other_lib lastlib'
         cmd.finalize_options()
-        self.assertEqual(cmd.libraries, ['my_lib'])
+        self.assertEqual(cmd.libraries, ['my_lib', 'other_lib', 'lastlib'])
 
         # make sure cmd.library_dirs is turned into a list
         # if it's a string
         cmd = build_ext(dist)
-        cmd.library_dirs = 'my_lib_dir'
+        cmd.library_dirs = 'my_lib_dir%sother_lib_dir' % os.pathsep
         cmd.finalize_options()
-        self.assertTrue('my_lib_dir' in cmd.library_dirs)
+        self.assertIn('my_lib_dir', cmd.library_dirs)
+        self.assertIn('other_lib_dir', cmd.library_dirs)
 
         # make sure rpath is turned into a list
-        # if it's a list of os.pathsep's paths
+        # if it's a string
         cmd = build_ext(dist)
-        cmd.rpath = os.pathsep.join(['one', 'two'])
+        cmd.rpath = 'one%stwo' % os.pathsep
         cmd.finalize_options()
         self.assertEqual(cmd.rpath, ['one', 'two'])
 
@@ -271,12 +269,9 @@ class BuildExtTestCase(support.TempdirManager,
         dist = Distribution({'name': 'xx',
                              'ext_modules': [ext]})
         cmd = build_ext(dist)
-        self._fixup_command(cmd)
+        support.fixup_build_ext(cmd)
         cmd.ensure_finalized()
         self.assertEqual(len(cmd.get_outputs()), 1)
-
-        if os.name == "nt":
-            cmd.debug = sys.executable.endswith("_d.exe")
 
         cmd.build_lib = os.path.join(self.tmp_dir, 'build')
         cmd.build_temp = os.path.join(self.tmp_dir, 'tempt')
@@ -432,18 +427,43 @@ class BuildExtTestCase(support.TempdirManager,
         self.assertEqual(ext_path, wanted)
 
     @unittest.skipUnless(sys.platform == 'darwin', 'test only relevant for MacOSX')
-    def test_deployment_target(self):
-        self._try_compile_deployment_target()
+    def test_deployment_target_default(self):
+        # Issue 9516: Test that, in the absence of the environment variable,
+        # an extension module is compiled with the same deployment target as
+        #  the interpreter.
+        self._try_compile_deployment_target('==', None)
 
+    @unittest.skipUnless(sys.platform == 'darwin', 'test only relevant for MacOSX')
+    def test_deployment_target_too_low(self):
+        # Issue 9516: Test that an extension module is not allowed to be
+        # compiled with a deployment target less than that of the interpreter.
+        self.assertRaises(DistutilsPlatformError,
+            self._try_compile_deployment_target, '>', '10.1')
+
+    @unittest.skipUnless(sys.platform == 'darwin', 'test only relevant for MacOSX')
+    def test_deployment_target_higher_ok(self):
+        # Issue 9516: Test that an extension module can be compiled with a
+        # deployment target higher than that of the interpreter: the ext
+        # module may depend on some newer OS feature.
+        deptarget = sysconfig.get_config_var('MACOSX_DEPLOYMENT_TARGET')
+        if deptarget:
+            # increment the minor version number (i.e. 10.6 -> 10.7)
+            deptarget = [int(x) for x in deptarget.split('.')]
+            deptarget[-1] += 1
+            deptarget = '.'.join(str(i) for i in deptarget)
+            self._try_compile_deployment_target('<', deptarget)
+
+    def _try_compile_deployment_target(self, operator, target):
         orig_environ = os.environ
         os.environ = orig_environ.copy()
         self.addCleanup(setattr, os, 'environ', orig_environ)
 
-        os.environ['MACOSX_DEPLOYMENT_TARGET']='10.1'
-        self._try_compile_deployment_target()
+        if target is None:
+            if os.environ.get('MACOSX_DEPLOYMENT_TARGET'):
+                del os.environ['MACOSX_DEPLOYMENT_TARGET']
+        else:
+            os.environ['MACOSX_DEPLOYMENT_TARGET'] = target
 
-
-    def _try_compile_deployment_target(self):
         deptarget_c = os.path.join(self.tmp_dir, 'deptargetmodule.c')
 
         with open(deptarget_c, 'w') as fp:
@@ -452,16 +472,17 @@ class BuildExtTestCase(support.TempdirManager,
 
                 int dummy;
 
-                #if TARGET != MAC_OS_X_VERSION_MIN_REQUIRED
+                #if TARGET %s MAC_OS_X_VERSION_MIN_REQUIRED
+                #else
                 #error "Unexpected target"
-               #endif
+                #endif
 
-            '''))
+            ''' % operator))
 
+        # get the deployment target that the interpreter was built with
         target = sysconfig.get_config_var('MACOSX_DEPLOYMENT_TARGET')
         target = tuple(map(int, target.split('.')))
         target = '%02d%01d0' % target
-
         deptarget_ext = Extension(
             'deptarget',
             [deptarget_c],
@@ -477,10 +498,8 @@ class BuildExtTestCase(support.TempdirManager,
         cmd.build_temp = self.tmp_dir
 
         try:
-            old_stdout = sys.stdout
             cmd.ensure_finalized()
             cmd.run()
-
         except CompileError:
             self.fail("Wrong deployment target during compilation")
 

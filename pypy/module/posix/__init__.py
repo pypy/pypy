@@ -91,10 +91,8 @@ corresponding Unix manual entries for more information on calls."""
     '_statfields': 'interp_posix.getstatfields(space)',
     'kill'      : 'interp_posix.kill',
     'abort'     : 'interp_posix.abort',
+    'urandom'   : 'interp_posix.urandom',
     }
-
-    if os.name == 'nt':
-        interpleveldefs['urandom'] = 'interp_posix.win32_urandom'
 
     if hasattr(os, 'chown'):
         interpleveldefs['chown'] = 'interp_posix.chown'

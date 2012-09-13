@@ -17,7 +17,7 @@ WIN32 = os.name == "nt"
 
 if WIN32:
     eci = ExternalCompilationInfo(
-        includes = ['windows.h'],
+        includes = ['windows.h', 'stdio.h', 'stdlib.h'],
         libraries = ['kernel32'],
         )
 else:
@@ -76,7 +76,7 @@ class CConfig:
             "MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT)")
 
         defines = """FORMAT_MESSAGE_ALLOCATE_BUFFER FORMAT_MESSAGE_FROM_SYSTEM
-                       MAX_PATH
+                       MAX_PATH _MAX_ENV
                        WAIT_OBJECT_0 WAIT_TIMEOUT INFINITE
                        ERROR_INVALID_HANDLE
                        DELETE READ_CONTROL SYNCHRONIZE WRITE_DAC

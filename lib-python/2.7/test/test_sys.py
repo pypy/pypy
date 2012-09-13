@@ -224,6 +224,18 @@ class SysModuleTest(unittest.TestCase):
         self.assertEqual(sys.getrecursionlimit(), 10000)
         sys.setrecursionlimit(oldlimit)
 
+        self.assertRaises(OverflowError, sys.setrecursionlimit, 1 << 31)
+        try:
+            sys.setrecursionlimit((1 << 31) - 5)
+            try:
+                # issue13546: isinstance(e, ValueError) used to fail
+                # when the recursion limit is close to 1<<31
+                raise ValueError()
+            except ValueError, e:
+                pass
+        finally:
+            sys.setrecursionlimit(oldlimit)
+
     def test_getwindowsversion(self):
         # Raise SkipTest if sys doesn't have getwindowsversion attribute
         test.test_support.get_attribute(sys, "getwindowsversion")
@@ -430,7 +442,7 @@ class SysModuleTest(unittest.TestCase):
         attrs = ("debug", "py3k_warning", "division_warning", "division_new",
                  "inspect", "interactive", "optimize", "dont_write_bytecode",
                  "no_site", "ignore_environment", "tabcheck", "verbose",
-                 "unicode", "bytes_warning")
+                 "unicode", "bytes_warning", "hash_randomization")
         for attr in attrs:
             self.assertTrue(hasattr(sys.flags, attr), attr)
             self.assertEqual(type(getattr(sys.flags, attr)), int, attr)
@@ -464,6 +476,9 @@ class SysModuleTest(unittest.TestCase):
         self.assertRaises(TypeError, sys.call_tracing, str, 2)
 
     def test_executable(self):
+        # sys.executable should be absolute
+        self.assertEqual(os.path.abspath(sys.executable), sys.executable)
+
         # Issue #7774: Ensure that sys.executable is an empty string if argv[0]
         # has been set to an non existent program name and Python is unable to
         # retrieve the real program name

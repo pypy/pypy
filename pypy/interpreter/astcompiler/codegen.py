@@ -376,9 +376,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op_name(ops.LOAD_GLOBAL, self.names, "AssertionError")
         if asrt.msg:
             asrt.msg.walkabout(self)
-            self.emit_op_arg(ops.RAISE_VARARGS, 2)
-        else:
-            self.emit_op_arg(ops.RAISE_VARARGS, 1)
+            self.emit_op_arg(ops.CALL_FUNCTION, 1)
+        self.emit_op_arg(ops.RAISE_VARARGS, 1)
         self.use_next_block(end)
 
     def _binop(self, op):

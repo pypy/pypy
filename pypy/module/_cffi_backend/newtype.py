@@ -211,13 +211,13 @@ def complete_struct_or_union(space, ctype, w_fields, w_ignored=None,
     if is_union:
         assert offset == 0
         offset = maxsize
-    else:
-        if offset == 0:
-            offset = 1
-        offset = (offset + alignment - 1) & ~(alignment-1)
 
+    # Like C, if the size of this structure would be zero, we compute it
+    # as 1 instead.  But for ctypes support, we allow the manually-
+    # specified totalsize to be zero in this case.
     if totalsize < 0:
-        totalsize = offset
+        offset = (offset + alignment - 1) & ~(alignment-1)
+        totalsize = offset or 1
     elif totalsize < offset:
         raise operationerrfmt(space.w_TypeError,
                      "%s cannot be of size %d: there are fields at least "

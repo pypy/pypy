@@ -95,7 +95,7 @@ pypysig_getaddr_occurred = external('pypysig_getaddr_occurred', [],
                                     lltype.Ptr(LONG_STRUCT), _nowrapper=True,
                                     elidable_function=True)
 c_alarm = external('alarm', [rffi.INT], rffi.INT)
-c_pause = external('pause', [], rffi.INT)
+c_pause = external('pause', [], rffi.INT, threadsafe=True)
 c_siginterrupt = external('siginterrupt', [rffi.INT, rffi.INT], rffi.INT)
 
 if sys.platform != 'win32':

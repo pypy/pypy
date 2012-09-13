@@ -226,15 +226,15 @@ looks like this::
 
 The hierarchy shown above is relative to a PREFIX directory.  PREFIX is
 computed by starting from the directory where the executable resides, and
-"walking up" the filesystem until we find a directory containing ``lib_pypy``,
-``lib-python/2.7`` and ``lib-python/2.7.1``.
+"walking up" the filesystem until we find a directory containing ``lib_pypy``
+and ``lib-python/2.7``.
 
 The archives (.tar.bz2 or .zip) containing PyPy releases already contain the
 correct hierarchy, so to run PyPy it's enough to unpack the archive, and run
 the ``bin/pypy`` executable.
 
 To install PyPy system wide on unix-like systems, it is recommended to put the
-whole hierarchy alone (e.g. in ``/opt/pypy1.6``) and put a symlink to the
+whole hierarchy alone (e.g. in ``/opt/pypy1.9``) and put a symlink to the
 ``pypy`` executable into ``/usr/bin`` or ``/usr/local/bin``
 
 If the executable fails to find suitable libraries, it will report
