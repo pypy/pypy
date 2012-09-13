@@ -539,8 +539,8 @@ def test_resizelist_hint():
         if op.opname == 'direct_call':
             break
     call_name = op.args[0].value._obj.graph.name
-    call_arg2 = op.args[2].value
     assert call_name.startswith('_ll_list_resize_hint')
+    call_arg2 = op.args[2].value
     assert call_arg2 == 39
 
 def test_resizelist_hint_len():
