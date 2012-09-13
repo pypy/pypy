@@ -422,7 +422,7 @@ class W_XRangeIterator(Wrappable):
         raise OperationError(self.space.w_StopIteration, self.space.w_None)
 
     def descr_len(self):
-        return self.space.wrap(self.remaining)
+        return self.space.wrap(self.get_remaining())
 
     def descr_reduce(self):
         from pypy.interpreter.mixedmodule import MixedModule
@@ -441,8 +441,7 @@ class W_XRangeIterator(Wrappable):
 
 W_XRangeIterator.typedef = TypeDef("rangeiterator",
     __iter__        = interp2app(W_XRangeIterator.descr_iter),
-# XXX __length_hint__()
-##    __len__         = interp2app(W_XRangeIterator.descr_len),
+    __length_hint__ = interp2app(W_XRangeIterator.descr_len),
     next            = interp2app(W_XRangeIterator.descr_next),
     __reduce__      = interp2app(W_XRangeIterator.descr_reduce),
 )

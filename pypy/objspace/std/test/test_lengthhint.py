@@ -32,6 +32,12 @@ class TestLengthHint:
             space.call_method(w_reversed, '__length_hint__')) == self.SIZE
         self._test_length_hint(w_reversed)
 
+    def test_xrange(self):
+        space = self.space
+        w_xrange = space.call_method(space.builtin, 'xrange',
+                                     space.newint(self.SIZE))
+        self._test_length_hint(w_xrange)
+
     def test_default(self):
         space = self.space
         assert length_hint(space, space.w_False, 3) == 3
