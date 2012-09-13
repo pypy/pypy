@@ -1,7 +1,6 @@
 
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
-from math import isnan, isinf, copysign
 from pypy.conftest import option
 
 class AppTestUfuncs(BaseNumpyAppTest):
@@ -309,6 +308,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert (signbit([-0, -0.0, -1, -1.0, float('-inf')]) ==
             [False,  True,  True,  True,  True]).all()
 
+        raises(TypeError, signbit, complex(1,1))
+
         skip('sign of nan is non-determinant')
         assert (signbit([float('nan'), float('-nan'), -float('nan')]) ==
             [False, True, True]).all()    
@@ -352,7 +353,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert c[i] == a[i] - b[i]
 
     def test_floorceiltrunc(self):
-        from _numpypy import array, floor, ceil, trunc
+        from _numpypy import array, floor, ceil, trunc, complex128
         import math
         ninf, inf = float("-inf"), float("inf")
         a = array([ninf, -1.4, -1.5, -1.0, 0.0, 1.0, 1.4, 0.5, inf])
@@ -362,6 +363,11 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert all([math.isnan(f(float("nan"))) for f in floor, ceil, trunc])
         assert all([math.copysign(1, f(abs(float("nan")))) == 1 for f in floor, ceil, trunc])
         assert all([math.copysign(1, f(-abs(float("nan")))) == -1 for f in floor, ceil, trunc])
+
+        a = array([ complex(-1.4, -1.4), complex(-1.5, -1.5)]) 
+        raises(TypeError, floor, a)
+        raises(TypeError, ceil, a)
+        raises(TypeError, trunc, a)
 
     def test_copysign(self):
         from _numpypy import array, copysign, complex128
@@ -753,7 +759,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert isinf(array([0.2])).dtype.kind == 'b'
 
     def test_isposinf_isneginf(self):
-        from _numpypy import isneginf, isposinf
+        from _numpypy import isneginf, isposinf, complex128
         assert isposinf(float('inf'))
         assert not isposinf(float('-inf'))
         assert not isposinf(float('nan'))
@@ -764,6 +770,9 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert not isneginf(float('nan'))
         assert not isneginf(0)
         assert not isneginf(0.0)
+
+        raises(TypeError, isneginf, complex(1, 1))
+        raises(TypeError, isposinf, complex(1, 1))
 
     def test_isfinite(self):
         from _numpypy import isfinite
@@ -1019,7 +1028,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert repr(abs(complex(float('nan'), float('nan')))) == 'nan'
 
         assert False, 'untested: ' + \
-                     'floor, ceil, trunc, numpy.real. numpy.imag' + \
+                     'numpy.real. numpy.imag' + \
                      'exp2, expm1, isnan, isinf, isneginf, isposinf, ' + \
                      'isfinite, radians, degrees, log2, log1p, ' + \
                      'logaddexp, npy_log2_1p, logaddexp2'

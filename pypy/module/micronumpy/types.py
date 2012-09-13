@@ -53,7 +53,8 @@ def complex_to_real_unary_op(func):
     specialize.argtype(1)(func)
     @functools.wraps(func)
     def dispatcher(self, v):
-        assert isinstance(v, Primitive)
+        from pypy.module.micronumpy.interp_boxes import W_GenericBox
+        assert isinstance(v, W_GenericBox)
         return self.RealBoxType(
             func(
                 self,
@@ -1214,21 +1215,22 @@ class ComplexFloating(object):
             return rcomplex.c_div((v[0], -v[1]), (a2, 0.))
         except ZeroDivisionError:
             return rfloat.NAN, rfloat.NAN
+ 
+    # No floor, ceil, trunc in numpy for complex
+    #@simple_unary_op
+    #def floor(self, v):
+    #    return math.floor(v)
 
-    @simple_unary_op
-    def floor(self, v):
-        return math.floor(v)
+    #@simple_unary_op
+    #def ceil(self, v):
+    #    return math.ceil(v)
 
-    @simple_unary_op
-    def ceil(self, v):
-        return math.ceil(v)
-
-    @simple_unary_op
-    def trunc(self, v):
-        if v < 0:
-            return math.ceil(v)
-        else:
-            return math.floor(v)
+    #@simple_unary_op
+    #def trunc(self, v):
+    #    if v < 0:
+    #        return math.ceil(v)
+    #    else:
+    #        return math.floor(v)
 
     @complex_unary_op
     def exp(self, v):
