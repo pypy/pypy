@@ -2076,3 +2076,12 @@ def test_CData_CType():
     assert not isinstance(nullchr, CType)
     assert not isinstance(chrref, CType)
     assert isinstance(BChar, CType)
+
+def test_no_cdata_float():
+    BInt = new_primitive_type("int")
+    BIntP = new_pointer_type(BInt)
+    BUInt = new_primitive_type("unsigned int")
+    BUIntP = new_pointer_type(BUInt)
+    BFloat = new_primitive_type("float")
+    py.test.raises(TypeError, newp, BIntP, cast(BFloat, 0.0))
+    py.test.raises(TypeError, newp, BUIntP, cast(BFloat, 0.0))

@@ -121,6 +121,14 @@ def nonstandard_integer_types(space):
 
 # ____________________________________________________________
 
+def _is_a_float(space, w_ob):
+    from pypy.module._cffi_backend.cdataobj import W_CData
+    from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveFloat
+    ob = space.interpclass_w(w_ob)
+    if isinstance(ob, W_CData):
+        return isinstance(ob.ctype, W_CTypePrimitiveFloat)
+    return space.isinstance_w(w_ob, space.w_float)
+
 def as_long_long(space, w_ob):
     # (possibly) convert and cast a Python object to a long long.
     # This version accepts a Python int too, and does convertions from
@@ -132,7 +140,7 @@ def as_long_long(space, w_ob):
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
-        if space.isinstance_w(w_ob, space.w_float):
+        if _is_a_float(space, w_ob):
             raise
         bigint = space.bigint_w(space.int(w_ob))
     try:
@@ -155,7 +163,7 @@ def as_unsigned_long_long(space, w_ob, strict):
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
-        if strict and space.isinstance_w(w_ob, space.w_float):
+        if strict and _is_a_float(space, w_ob):
             raise
         bigint = space.bigint_w(space.int(w_ob))
     if strict:
