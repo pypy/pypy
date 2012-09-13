@@ -187,11 +187,23 @@ class Replayer(Recorder):
                       [str(s) for s in self.listtoreplay[self.index:]]))
         self.index += 1
 
-    def guessbool(self, ec, *args, **kwds):
+    def guessbool(self, ec, w_condition, **kwds):
         assert self.index == len(self.listtoreplay)
         ec.recorder = self.nextreplayer
         return self.booloutcome
-    guessexception = guessbool
+
+    def guessexception(self, ec, *classes):
+        assert self.index == len(self.listtoreplay)
+        ec.recorder = self.nextreplayer
+        outcome = self.booloutcome
+        if outcome is None:
+            w_exc_cls, w_exc_value = None, None
+        else:
+            egg = self.nextreplayer.crnt_block
+            w_exc_cls, w_exc_value = egg.inputargs[-2:]
+            if isinstance(egg.last_exception, Constant):
+                w_exc_cls = egg.last_exception
+        return outcome, w_exc_cls, w_exc_value
 
 # ____________________________________________________________
 
@@ -205,15 +217,7 @@ class FlowExecutionContext(ExecutionContext):
         return self.recorder.guessbool(self, w_condition, **kwds)
 
     def guessexception(self, *classes):
-        outcome = self.recorder.guessexception(self, *classes)
-        if outcome is None:
-            w_exc_cls, w_exc_value = None, None
-        else:
-            egg = self.recorder.crnt_block
-            w_exc_cls, w_exc_value = egg.inputargs[-2:]
-            if isinstance(egg.last_exception, Constant):
-                w_exc_cls = egg.last_exception
-        return outcome, w_exc_cls, w_exc_value
+        return self.recorder.guessexception(self, *classes)
 
     def build_flow(self, func, constargs={}):
         space = self.space
