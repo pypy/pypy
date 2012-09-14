@@ -1154,7 +1154,15 @@ class ComplexFloating(object):
 
     @complex_binary_op
     def pow(self, v1, v2):
-        return rcomplex.c_pow(v1, v2)
+        if not isfinite(v1[0]) or not isfinite(v1[1]):
+            return rfloat.NAN, rfloat.NAN
+        try:
+            return rcomplex.c_pow(v1, v2)
+        except ZeroDivisionError:
+            return rfloat.NAN, rfloat.NAN
+        except OverflowError:
+            return rfloat.INFINITY, rfloat.INFINITY
+
 
     #complex copysign does not exist in numpy
     #@complex_binary_op
@@ -1249,9 +1257,10 @@ class ComplexFloating(object):
                 return rfloat.INFINITY, 0.0
             return rfloat.INFINITY, rfloat.NAN
 
+    @complex_unary_op
     def exp2(self, v):
         try:
-            return self.pow(2, v)
+            return rcomplex.c_pow((2,0), v2)
         except OverflowError:
             return rfloat.INFINITY, rfloat.NAN
 
@@ -1382,14 +1391,14 @@ class ComplexFloating(object):
     def isfinite(self, v):
         return isfinite(v[0]) and isfinite(v[1])
 
-    @simple_unary_op
-    def radians(self, v):
-        return v * degToRad
-    deg2rad = radians
+    #@simple_unary_op
+    #def radians(self, v):
+    #    return v * degToRad
+    #deg2rad = radians
 
-    @simple_unary_op
-    def degrees(self, v):
-        return v / degToRad
+    #@simple_unary_op
+    #def degrees(self, v):
+    #    return v / degToRad
 
     @complex_unary_op
     def log(self, v):

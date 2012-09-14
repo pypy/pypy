@@ -1,7 +1,60 @@
 
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
+from math import isnan, isinf, copysign
+from sys import version_info, builtin_module_names
 
 from pypy.conftest import option
+
+def rAlmostEqual(a, b, rel_err = 2e-15, abs_err = 5e-323, msg='', isnumpy=False):
+    """Fail if the two floating-point numbers are not almost equal.
+
+    Determine whether floating-point values a and b are equal to within
+    a (small) rounding error.  The default values for rel_err and
+    abs_err are chosen to be suitable for platforms where a float is
+    represented by an IEEE 754 double.  They allow an error of between
+    9 and 19 ulps.
+    """
+
+    # special values testing
+    if isnan(a):
+        if isnan(b):
+            return True,''
+        raise AssertionError(msg + '%r should be nan' % (b,))
+
+    if isinf(a):
+        if a == b:
+            return True,''
+        raise AssertionError(msg + 'finite result where infinity expected: '+ \
+                          'expected %r, got %r' % (a, b))
+
+    # if both a and b are zero, check whether they have the same sign
+    # (in theory there are examples where it would be legitimate for a
+    # and b to have opposite signs; in practice these hardly ever
+    # occur).
+    if not a and not b and not isnumpy:
+        # only check it if we are running on top of CPython >= 2.6
+        if version_info >= (2, 6) and copysign(1., a) != copysign(1., b):
+            raise AssertionError( msg + \
+                    'zero has wrong sign: expected %r, got %r' % (a, b))
+
+    # if a-b overflows, or b is infinite, return False.  Again, in
+    # theory there are examples where a is within a few ulps of the
+    # max representable float, and then b could legitimately be
+    # infinite.  In practice these examples are rare.
+    try:
+        absolute_error = abs(b-a)
+    except OverflowError:
+        pass
+    else:
+        # test passes if either the absolute error or the relative
+        # error is sufficiently small.  The defaults amount to an
+        # error of between 9 ulps and 19 ulps on an IEEE-754 compliant
+        # machine.
+        if absolute_error <= max(abs_err, rel_err * abs(a)):
+            return True,''
+    raise AssertionError(msg + \
+            '%r and %r are not sufficiently close, %g > %g' %\
+            (a, b, absolute_error, max(abs_err, rel_err*abs(a))))
 
 class AppTestUfuncs(BaseNumpyAppTest):
     def setup_class(cls):
@@ -13,6 +66,12 @@ class AppTestUfuncs(BaseNumpyAppTest):
         cls.w_testcases64 = cls.space.wrap(fname64)
         cls.w_runAppDirect = cls.space.wrap(option.runappdirect)
         cls.w_isWindows = cls.space.wrap(os.name == 'nt')
+        def cls_rAlmostEqual(self, *args, **kwargs):
+            if '__pypy__' not in builtin_module_names:
+                kwargs['isnumpy'] = True
+            return rAlmostEqual(*args, **kwargs)
+        cls.w_rAlmostEqual = cls.space.wrap(cls_rAlmostEqual)
+
 
     def test_ufunc_instance(self):
         from _numpypy import add, ufunc
@@ -403,11 +462,14 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert b[i] == res
 
     def test_exp2(self):
-        import math
+        import math, cmath
         from _numpypy import array, exp2
+        inf = float('inf')
+        ninf = -float('inf')
+        nan = float('nan')
+        cmpl = complex
 
-        a = array([-5.0, -0.0, 0.0, 2, 12345678.0, float("inf"),
-                   -float('inf'), -12343424.0])
+        a = array([-5.0, -0.0, 0.0, 2, 12345678.0, inf, ninf, -12343424.0])
         b = exp2(a)
         for i in range(len(a)):
             try:
@@ -417,7 +479,24 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert b[i] == res
 
         assert exp2(3) == 8
-        assert math.isnan(exp2(float("nan")))
+        assert math.isnan(exp2(nan))
+
+        a = array([cmpl(-5., 0), cmpl(-5., -5.), cmpl(-5., 5.),
+                   cmpl(0., -5.), cmpl(0., 0.), cmpl(0., 5.),
+                   cmpl(-0., -5.), cmpl(-0., 0.), cmpl(-0., 5.),
+                   cmpl(-0., -0.), cmpl(inf, 0.), cmpl(inf, 5.),
+                   cmpl(inf, -0.), cmpl(ninf, 0.), cmpl(ninf, 5.),
+                   cmpl(ninf, -0.), cmpl(ninf, inf), cmpl(inf, inf),
+                   cmpl(ninf, ninf), cmpl(5., inf), cmpl(5., ninf),
+                   cmpl(nan, 5.), cmpl(5., nan), cmpl(nan, nan),
+                 ])
+        b = exp2(a)
+        for i in range(len(a)):
+            try:
+                res = cmath.pow(2,a[i])
+            except OverflowError:
+                res = cmpl(inf, nan)
+            assert b[i] == res
 
     def test_expm1(self):
         import math
@@ -614,6 +693,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
         for i in range(len(a)):
             assert b[i] == math.radians(a[i])
 
+        raises(TypeError, radians, complex(90,90))
+
     def test_deg2rad(self):
         import math
         from _numpypy import deg2rad, array
@@ -626,6 +707,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
         b = deg2rad(a)
         for i in range(len(a)):
             assert b[i] == math.radians(a[i])
+
+        raises(TypeError, deg2rad, complex(90,90))
 
     def test_degrees(self):
         import math
@@ -640,6 +723,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
         for i in range(len(a)):
             assert b[i] == math.degrees(a[i])
 
+        raises(TypeError, degrees, complex(90,90))
+
     def test_rad2deg(self):
         import math
         from _numpypy import rad2deg, array
@@ -652,6 +737,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
         b = rad2deg(a)
         for i in range(len(a)):
             assert b[i] == math.degrees(a[i])
+
+        raises(TypeError, rad2deg, complex(90,90))
 
     def test_reduce_errors(self):
         from _numpypy import sin, add
@@ -834,6 +921,43 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert log1p(v) == float("-inf")
         assert log1p(float('inf')) == float('inf')
         assert (log1p([0, 1e-50, math.e - 1]) == [0, 1e-50, 1]).all()
+
+    def test_power_complex(self):
+        import math, cmath
+        inf = float('inf')
+        ninf = -float('inf')
+        nan = float('nan')
+        cmpl = complex
+        from _numpypy import power, array, complex128, complex64
+        for c,rel_err in ((complex128, 5e-323), (complex64, 1e-7)):
+            a = array([cmpl(-5., 0), cmpl(-5., -5.), cmpl(-5., 5.),
+                       cmpl(0., -5.), cmpl(0., 0.), cmpl(0., 5.),
+                       cmpl(-0., -5.), cmpl(-0., 0.), cmpl(-0., 5.),
+                       cmpl(-0., -0.), cmpl(inf, 0.), cmpl(inf, 5.),
+                       cmpl(inf, -0.), cmpl(ninf, 0.), cmpl(ninf, 5.),
+                       cmpl(ninf, -0.), cmpl(ninf, inf), cmpl(inf, inf),
+                       cmpl(ninf, ninf), cmpl(5., inf), cmpl(5., ninf),
+                       cmpl(nan, 5.), cmpl(5., nan), cmpl(nan, nan),
+                     ], dtype=c)
+            got_err = False
+            for p in (3, -1, 10000, 2.3, -10000, 10+3j):
+                b = power(a, p)
+                for i in range(len(a)):
+                    r = a[i]**p
+                    msg = 'result of %r(%r)**%r got %r expected %r\n ' % \
+                            (c,a[i], p, b[i], r)
+                    try:        
+                        t1 = float(r.real)        
+                        t2 = float(b[i].real)        
+                        self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
+                        t1 = float(r.imag)        
+                        t2 = float(b[i].imag)        
+                        self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
+                    except AssertionError as e:
+                        print e.message
+                        got_err = True
+            if got_err:
+                raise AssertionError('Errors were printed to stdout')
 
     def test_power_float(self):
         import math
@@ -1050,64 +1174,14 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert False, 'untested: ' + \
                      'numpy.real. numpy.imag' + \
                      'exp2, expm1, ' + \
-                     'radians, degrees, log2, log1p, ' + \
+                     'log2, log1p, ' + \
                      'logaddexp, npy_log2_1p, logaddexp2'
 
     def test_complex_math(self):
         if self.isWindows:
             skip('windows does not support c99 complex')
         import  _numpypy as np
-        from math import isnan, isinf, copysign
-        from sys import version_info
-
-        def rAlmostEqual(a, b, rel_err = 2e-15, abs_err = 5e-323, msg=''):
-            """Fail if the two floating-point numbers are not almost equal.
-
-            Determine whether floating-point values a and b are equal to within
-            a (small) rounding error.  The default values for rel_err and
-            abs_err are chosen to be suitable for platforms where a float is
-            represented by an IEEE 754 double.  They allow an error of between
-            9 and 19 ulps.
-            """
-
-            # special values testing
-            if isnan(a):
-                if isnan(b):
-                    return True,''
-                raise AssertionError(msg + '%r should be nan' % (b,))
-
-            if isinf(a):
-                if a == b:
-                    return True,''
-                raise AssertionError(msg + 'finite result where infinity expected: '+ \
-                                  'expected %r, got %r' % (a, b))
-
-            # if both a and b are zero, check whether they have the same sign
-            # (in theory there are examples where it would be legitimate for a
-            # and b to have opposite signs; in practice these hardly ever
-            # occur).
-            if not a and not b:
-                # only check it if we are running on top of CPython >= 2.6
-                if version_info >= (2, 6) and copysign(1., a) != copysign(1., b):
-                    raise AssertionError( msg + \
-                            'zero has wrong sign: expected %r, got %r' % (a, b))
-
-            # if a-b overflows, or b is infinite, return False.  Again, in
-            # theory there are examples where a is within a few ulps of the
-            # max representable float, and then b could legitimately be
-            # infinite.  In practice these examples are rare.
-            try:
-                absolute_error = abs(b-a)
-            except OverflowError:
-                pass
-            else:
-                # test passes if either the absolute error or the relative
-                # error is sufficiently small.  The defaults amount to an
-                # error of between 9 ulps and 19 ulps on an IEEE-754 compliant
-                # machine.
-                if absolute_error <= max(abs_err, rel_err * abs(a)):
-                    return True,''
-            raise AssertionError(msg + '%r and %r are not sufficiently close' % (a, b))
+        rAlmostEqual = self.rAlmostEqual
 
         def parse_testfile(fname):
             """Parse a file with test values
@@ -1172,8 +1246,10 @@ class AppTestUfuncs(BaseNumpyAppTest):
                     ) % (id, fn, complex_, ar, ai,
                          expected[0], expected[1],
                          actual[0], actual[1])
-                         
-                rAlmostEqual(expected[0], actual[0],
+    
+                # since rAlmostEqual is a wrapped function,
+                # convert arguments to avoid boxed values
+                rAlmostEqual(float(expected[0]), float(actual[0]),
                                abs_err=real_abs_err, msg=error_message)
-                rAlmostEqual(expected[1], actual[1],
+                rAlmostEqual(float(expected[1]), float(actual[1]),
                                    msg=error_message)
