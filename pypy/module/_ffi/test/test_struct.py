@@ -172,15 +172,15 @@ class AppTestStruct(BaseAppTestFFI):
         struct.setfield('uint', 43)
         assert struct.getfield('uint') == 43
         struct.setfield('ulong', -1)
-        assert struct.getfield('ulong') == sys.maxint*2 + 1
-        struct.setfield('ulong', sys.maxint*2 + 2)
+        assert struct.getfield('ulong') == sys.maxsize*2 + 1
+        struct.setfield('ulong', sys.maxsize*2 + 2)
         assert struct.getfield('ulong') == 0
         struct.setfield('char', 'a')
         assert struct.getfield('char') == 'a'
-        struct.setfield('unichar', u'\u1234')
-        assert struct.getfield('unichar') == u'\u1234'
+        struct.setfield('unichar', '\u1234')
+        assert struct.getfield('unichar') == '\u1234'
         struct.setfield('ptr', -1)
-        assert struct.getfield('ptr') == sys.maxint*2 + 1
+        assert struct.getfield('ptr') == sys.maxsize*2 + 1
     
     def test_getfield_setfield_longlong(self):
         import sys
