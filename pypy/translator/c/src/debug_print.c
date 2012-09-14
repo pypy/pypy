@@ -21,8 +21,8 @@ __thread long pypy_have_debug_prints = -1;
 FILE *pypy_debug_file = NULL;   /* XXX make it thread-local too? */
 static unsigned char debug_ready = 0;
 static unsigned char debug_profile = 0;
-static char *debug_start_colors_1 = "";
-static char *debug_start_colors_2 = "";
+__thread char *debug_start_colors_1 = NULL;
+__thread char *debug_start_colors_2 = NULL;
 static char *debug_stop_colors = "";
 static char *debug_prefix = NULL;
 
@@ -61,8 +61,6 @@ static void pypy_debug_open(void)
       pypy_debug_file = stderr;
       if (isatty(2))
         {
-          debug_start_colors_1 = "\033[1m\033[31m";
-          debug_start_colors_2 = "\033[31m";
           debug_stop_colors = "\033[0m";
         }
     }
@@ -138,6 +136,41 @@ static void display_startstop(const char *prefix, const char *postfix,
           debug_stop_colors);
 }
 
+#ifdef RPY_STM
+typedef Unsigned revision_t;
+#include <src_stm/atomic_ops.h>
+static volatile revision_t threadcolor = 0;
+#endif
+
+static void _prepare_display_colors(void)
+{
+    if (debug_stop_colors[0] == 0) {
+        debug_start_colors_1 = "";
+        debug_start_colors_2 = "";
+    }
+    else {
+#ifndef RPY_STM
+        debug_start_colors_1 = "\033[1m\033[31m";
+        debug_start_colors_2 = "\033[31m";
+#else
+        revision_t color;
+        char *p;
+        while (1) {
+            color = threadcolor;
+            if (bool_cas(&threadcolor, color, color + 1))
+                break;
+        }
+        color = 31 + (color % 7);
+        p = malloc(20);    /* leak */
+        sprintf(p, "\033[1m\033[%dm", color);
+        debug_start_colors_1 = p;
+        p = malloc(16);
+        sprintf(p, "\033[%dm", color);
+        debug_start_colors_2 = p;
+#endif
+    }
+}
+
 void pypy_debug_start(const char *category)
 {
   pypy_debug_ensure_opened();
@@ -157,6 +190,8 @@ void pypy_debug_start(const char *category)
       /* else make this subsection active */
       pypy_have_debug_prints |= 1;
     }
+  if (!debug_start_colors_1)
+    _prepare_display_colors();
   display_startstop("{", "", category, debug_start_colors_1);
 }
 
