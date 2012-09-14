@@ -855,6 +855,7 @@ class ExceptionTests(unittest.TestCase):
             self.assertNotEqual(wr(), None)
         else:
             self.fail("RuntimeError not raised")
+        gc_collect()
         self.assertEqual(wr(), None)
 
     def test_errno_ENOTDIR(self):
