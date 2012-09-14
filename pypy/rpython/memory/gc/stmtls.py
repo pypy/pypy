@@ -5,7 +5,8 @@ from pypy.rpython.annlowlevel import cast_base_ptr_to_instance, base_ptr_lltype
 from pypy.rlib.objectmodel import we_are_translated, free_non_gc_object
 from pypy.rlib.objectmodel import specialize
 from pypy.rlib.rarithmetic import r_uint
-from pypy.rlib.debug import ll_assert, debug_start, debug_stop, fatalerror
+from pypy.rlib.debug import ll_assert, fatalerror
+from pypy.rlib.debug import debug_start, debug_stop, debug_print
 
 from pypy.rpython.memory.gc.stmgc import WORD, NULL
 from pypy.rpython.memory.gc.stmgc import always_inline, dont_inline
@@ -28,6 +29,7 @@ class StmGCTLS(object):
     nontranslated_dict = {}
 
     def __init__(self, gc):
+        debug_start("gc-init")
         self.gc = gc
         self.stm_operations = self.gc.stm_operations
         self.null_address_dict = self.gc.null_address_dict
@@ -53,6 +55,7 @@ class StmGCTLS(object):
         self.local_weakrefs = self.AddressStack()
         #
         self._register_with_C_code()
+        debug_stop("gc-init")
 
     def delete(self):
         self._cleanup_state()
@@ -65,6 +68,7 @@ class StmGCTLS(object):
 
     def _alloc_nursery(self, nursery_size):
         nursery = llarena.arena_malloc(nursery_size, 1)
+        debug_print("nursery is at", nursery, "size", nursery_size)
         if not nursery:
             raise MemoryError("cannot allocate nursery")
         return nursery
