@@ -8,7 +8,8 @@ from pypy.interpreter.baseobjspace import ObjSpace, Wrappable
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import pyframe, argument
 from pypy.objspace.flow.model import *
-from pypy.objspace.flow import flowcontext, operation
+from pypy.objspace.flow import operation
+from pypy.objspace.flow.flowcontext import FlowSpaceFrame, fixeggblocks
 from pypy.objspace.flow.specialcase import SPECIAL_CASES
 from pypy.rlib.unroll import unrolling_iterable, _unroller
 from pypy.rlib import rstackovf, rarithmetic
@@ -46,7 +47,7 @@ class FlowObjSpace(ObjSpace):
     """
 
     full_exceptions = False
-    FrameClass = flowcontext.FlowSpaceFrame
+    FrameClass = FlowSpaceFrame
 
     def initialize(self):
         self.w_None     = Constant(None)
@@ -182,7 +183,7 @@ class FlowObjSpace(ObjSpace):
                                         isinstance(w_obj.value, RequiredClass))
 
     def getexecutioncontext(self):
-        return getattr(self, 'executioncontext', None)
+        return self.frame
 
     def exception_match(self, w_exc_type, w_check_class):
         try:
@@ -220,21 +221,20 @@ class FlowObjSpace(ObjSpace):
         """
         if func.func_doc and func.func_doc.lstrip().startswith('NOT_RPYTHON'):
             raise Exception, "%r is tagged as NOT_RPYTHON" % (func,)
-        ec = flowcontext.FlowExecutionContext(self)
-        self.executioncontext = ec
+        frame = self.frame = FlowSpaceFrame(self, func, constargs)
 
         try:
-            ec.build_flow(func, constargs)
+            frame.build_flow()
         except error.FlowingError, a:
             # attach additional source info to AnnotatorError
             _, _, tb = sys.exc_info()
-            formated = error.format_global_error(ec.graph, self.frame.last_instr,
+            formated = error.format_global_error(frame.graph, self.frame.last_instr,
                                                  str(a))
             e = error.FlowingError(formated)
             raise error.FlowingError, e, tb
 
-        graph = ec.graph
-        flowcontext.fixeggblocks(graph)
+        graph = frame.graph
+        fixeggblocks(graph)
         checkgraph(graph)
         if graph.is_generator and tweak_for_generator:
             from pypy.translator.generator import tweak_generator_graph
@@ -269,7 +269,7 @@ class FlowObjSpace(ObjSpace):
     def do_operation(self, name, *args_w):
         spaceop = SpaceOperation(name, args_w, Variable())
         spaceop.offset = self.frame.last_instr
-        self.executioncontext.recorder.append(spaceop)
+        self.frame.recorder.append(spaceop)
         return spaceop.result
 
     def do_operation_with_implicit_exceptions(self, name, *args_w):
@@ -285,8 +285,7 @@ class FlowObjSpace(ObjSpace):
         else:
             return bool(obj)
         w_truthvalue = self.do_operation('is_true', w_obj)
-        context = self.getexecutioncontext()
-        return context.guessbool(w_truthvalue)
+        return self.frame.guessbool(w_truthvalue)
 
     def iter(self, w_iterable):
         try:
@@ -300,7 +299,7 @@ class FlowObjSpace(ObjSpace):
         return w_iter
 
     def next(self, w_iter):
-        context = self.getexecutioncontext()
+        frame = self.frame
         try:
             it = self.unwrap(w_iter)
         except UnwrapException:
@@ -312,10 +311,10 @@ class FlowObjSpace(ObjSpace):
                 except IndexError:
                     raise OperationError(self.w_StopIteration, self.w_None)
                 else:
-                    self.frame.replace_in_stack(it, next_unroller)
+                    frame.replace_in_stack(it, next_unroller)
                     return self.wrap(v)
         w_item = self.do_operation("next", w_iter)
-        outcome, w_exc_cls, w_exc_value = context.guessexception(StopIteration,
+        outcome, w_exc_cls, w_exc_value = frame.guessexception(StopIteration,
                                                                  RuntimeError)
         if outcome is StopIteration:
             raise OperationError(self.w_StopIteration, w_exc_value)
@@ -438,8 +437,7 @@ class FlowObjSpace(ObjSpace):
         # exception-raising return block in the flow graph.  Note that
         # even if the interpreter re-raises the exception, it will not
         # be the same ImplicitOperationError instance internally.
-        context = self.getexecutioncontext()
-        outcome, w_exc_cls, w_exc_value = context.guessexception(*exceptions)
+        outcome, w_exc_cls, w_exc_value = self.frame.guessexception(*exceptions)
         if outcome is not None:
             # we assume that the caught exc_cls will be exactly the
             # one specified by 'outcome', and not a subclass of it,
