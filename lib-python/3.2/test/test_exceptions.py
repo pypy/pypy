@@ -688,6 +688,7 @@ class ExceptionTests(unittest.TestCase):
             raise Exception(MyObject())
         except:
             pass
+        gc_collect()
         self.assertEqual(e, (None, None, None))
 
     def testUnicodeChangeAttributes(self):
