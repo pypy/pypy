@@ -338,7 +338,7 @@ class StmGC(MovingGCBase):
     # id() and identityhash() support
 
     def id(self, gcobj):
-        """NOT IMPLEMENTED! XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"""
+        debug_print("XXX: id() not implemented")
         return self.identityhash(gcobj)
 
     def identityhash(self, gcobj):

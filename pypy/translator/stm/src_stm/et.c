@@ -183,21 +183,22 @@ static inline gcptr _direct_read_barrier(gcptr G, gcptr R_Container,
   return R;
 }
 
-gcptr stm_DirectReadBarrier(gcptr G)
+void *stm_DirectReadBarrier(void *G1)
 {
-  return _direct_read_barrier(G, NULL, 0);
+  return _direct_read_barrier((gcptr)G1, NULL, 0);
 }
 
-gcptr stm_DirectReadBarrierFromR(gcptr G, gcptr R_Container, size_t offset)
+void *stm_DirectReadBarrierFromR(void *G1, void *R_Container1, size_t offset)
 {
-  return _direct_read_barrier(G, R_Container, offset);
+  return _direct_read_barrier((gcptr)G1, (gcptr)R_Container1, offset);
 }
 
-gcptr stm_RepeatReadBarrier(gcptr O)
+void *stm_RepeatReadBarrier(void *O1)
 {
   // LatestGlobalRevision(O) would either return O or abort
   // the whole transaction, so omitting it is not wrong
   struct tx_descriptor *d = thread_descriptor;
+  gcptr O = (gcptr)O1;
   gcptr L;
   wlog_t *entry;
   G2L_FIND(d->global_to_local, O, entry, return O);
@@ -248,8 +249,9 @@ static gcptr Localize(struct tx_descriptor *d, gcptr R)
   return L;
 }
 
-gcptr stm_WriteBarrier(gcptr P)
+void *stm_WriteBarrier(void *P1)
 {
+  gcptr P = (gcptr)P1;
   gcptr R, W;
   if (!(P->h_tid & GCFLAG_GLOBAL))
     {
@@ -271,8 +273,9 @@ gcptr stm_WriteBarrier(gcptr P)
   return W;
 }
 
-gcptr stm_WriteBarrierFromReady(gcptr R)
+void *stm_WriteBarrierFromReady(void *R1)
 {
+  gcptr R = (gcptr)R1;
   gcptr W;
   if (!(R->h_tid & GCFLAG_GLOBAL))
     {

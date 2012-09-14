@@ -42,34 +42,34 @@ typedef struct pypy_header0 *gcptr;
 
 #define STM_BARRIER_P2R(P)                                              \
     (__builtin_expect((((gcptr)(P))->h_tid & GCFLAG_GLOBAL) == 0, 1) ?  \
-     (P) : (typeof(P))stm_DirectReadBarrier((gcptr)(P)))
+     (P) : (typeof(P))stm_DirectReadBarrier(P))
 
 #define STM_BARRIER_G2R(G)                                          \
     (assert(((gcptr)(G))->h_tid & GCFLAG_GLOBAL),                   \
-     (typeof(G))stm_DirectReadBarrier((gcptr)(G)))
+     (typeof(G))stm_DirectReadBarrier(G))
 
 #define STM_BARRIER_O2R(O)                                              \
     (__builtin_expect((((gcptr)(O))->h_tid & GCFLAG_POSSIBLY_OUTDATED) == 0, \
                       1) ?                                              \
-     (O) : (typeof(O))stm_RepeatReadBarrier((gcptr)(O)))
+     (O) : (typeof(O))stm_RepeatReadBarrier(O))
 
 /*#define STM_READ_BARRIER_P_FROM_R(P, R_container, offset)             \
     (__builtin_expect((((gcptr)(P))->h_tid & GCFLAG_GLOBAL) == 0, 1) ?  \
-     (P) : (typeof(P))stm_DirectReadBarrierFromR((gcptr)(P),            \
-                                              (gcptr)(R_container),     \
+     (P) : (typeof(P))stm_DirectReadBarrierFromR((P),            \
+                                              (R_container),     \
                                               offset))*/
 
 #define STM_BARRIER_P2W(P)                                                  \
     (__builtin_expect((((gcptr)(P))->h_tid & GCFLAG_NOT_WRITTEN) == 0, 1) ? \
-     (P) : (typeof(P))stm_WriteBarrier((gcptr)(P)))
+     (P) : (typeof(P))stm_WriteBarrier(P))
 
 #define STM_BARRIER_G2W(G)                              \
     (assert(((gcptr)(G))->h_tid & GCFLAG_GLOBAL),       \
-     (typeof(G))stm_WriteBarrier((gcptr)(G)))
+     (typeof(G))stm_WriteBarrier(G))
 
 #define STM_BARRIER_R2W(R)                                                  \
     (__builtin_expect((((gcptr)(R))->h_tid & GCFLAG_NOT_WRITTEN) == 0, 1) ? \
-     (R) : (typeof(R))stm_WriteBarrierFromReady((gcptr)(R)))
+     (R) : (typeof(R))stm_WriteBarrierFromReady(R))
 
 #define STM_BARRIER_O2W(R)  STM_BARRIER_R2W(R)   /* same logic works here */
 
@@ -90,11 +90,11 @@ void DescriptorDone(void);
 _Bool stm_PtrEq(gcptr P1, gcptr P2);
 gcptr stm_HashObject(gcptr P);
 
-gcptr stm_DirectReadBarrier(gcptr);
-gcptr stm_DirectReadBarrierFromR(gcptr, gcptr, size_t);
-gcptr stm_RepeatReadBarrier(gcptr);
-gcptr stm_WriteBarrier(gcptr);
-gcptr stm_WriteBarrierFromReady(gcptr);
+void *stm_DirectReadBarrier(void *);
+void *stm_DirectReadBarrierFromR(void *, void *, size_t);
+void *stm_RepeatReadBarrier(void *);
+void *stm_WriteBarrier(void *);
+void *stm_WriteBarrierFromReady(void *);
 //gcptr _NonTransactionalReadBarrier(gcptr);
 
 
