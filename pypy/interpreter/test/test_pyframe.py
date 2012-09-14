@@ -461,3 +461,16 @@ class AppTestPyFrame:
         assert seen == [(1, f, firstline + 6, 'line', None),
                         (1, f, firstline + 7, 'line', None),
                         (1, f, firstline + 8, 'line', None)]
+
+    def test_preserve_exc_state_in_generators(self):
+        import sys
+        def yield_raise():
+            try:
+                raise KeyError("caught")
+            except KeyError:
+                yield sys.exc_info()[0]
+                yield sys.exc_info()[0]
+
+        it = yield_raise()
+        assert next(it) is KeyError
+        assert next(it) is KeyError

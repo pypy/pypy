@@ -132,9 +132,12 @@ class PyFrame(eval.Frame):
             assert self.w_globals is not None
             self.w_locals = self.w_globals
 
+    def is_generator(self):
+        return self.getcode().co_flags & pycode.CO_GENERATOR
+            
     def run(self):
         """Start this frame's execution."""
-        if self.getcode().co_flags & pycode.CO_GENERATOR:
+        if self.is_generator():
             from pypy.interpreter.generator import GeneratorIterator
             return self.space.wrap(GeneratorIterator(self))
         else:
@@ -179,7 +182,9 @@ class PyFrame(eval.Frame):
             executioncontext.return_trace(self, w_exitvalue)
             # clean up the exception, might be useful for not
             # allocating exception objects in some cases
-            self.last_exception = None
+            # if it's a generator, we have to preserve the exception state
+            if not self.is_generator():
+                self.last_exception = None
             got_exception = False
         finally:
             executioncontext.leave(self, w_exitvalue, got_exception)
