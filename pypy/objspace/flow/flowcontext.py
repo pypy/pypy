@@ -1,7 +1,6 @@
 import collections
 import sys
 from pypy.tool.error import FlowingError
-from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.pytraceback import PyTraceback
 from pypy.interpreter import pyframe
@@ -208,10 +207,9 @@ class Replayer(Recorder):
 # ____________________________________________________________
 
 
-class FlowExecutionContext(ExecutionContext):
-
-    # disable superclass method
-    bytecode_trace = None
+class FlowExecutionContext(object):
+    def __init__(self, space):
+        self.space = space
 
     def guessbool(self, w_condition, **kwds):
         return self.recorder.guessbool(self, w_condition, **kwds)

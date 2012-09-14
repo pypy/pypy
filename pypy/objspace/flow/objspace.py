@@ -78,6 +78,7 @@ class FlowObjSpace(ObjSpace):
     # disable superclass methods
     enter_cache_building_mode = None
     leave_cache_building_mode = None
+    createcompiler = None
 
     def is_w(self, w_one, w_two):
         return self.is_true(self.is_(w_one, w_two))
@@ -182,11 +183,6 @@ class FlowObjSpace(ObjSpace):
 
     def getexecutioncontext(self):
         return getattr(self, 'executioncontext', None)
-
-    def createcompiler(self):
-        # no parser/compiler needed - don't build one, it takes too much time
-        # because it is done each time a FlowExecutionContext is built
-        return None
 
     def exception_match(self, w_exc_type, w_check_class):
         try:
