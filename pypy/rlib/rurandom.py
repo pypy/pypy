@@ -1,11 +1,15 @@
 """The urandom() function, suitable for cryptographic use.
 """
 
+from __future__ import with_statement
 import os, sys
 import errno
 
 if sys.platform == 'win32':
     from pypy.rlib import rwin32
+    from pypy.translator.tool.cbuild import ExternalCompilationInfo
+    from pypy.rpython.tool import rffi_platform
+    from pypy.rpython.lltypesystem import lltype, rffi
 
     eci = ExternalCompilationInfo(
         includes = ['windows.h', 'wincrypt.h'],
@@ -39,18 +43,23 @@ if sys.platform == 'win32':
         compilation_info=eci)
 
     def init_urandom():
-        "Acquire context."
-        # This handle is never explicitly released. The operating
-        # system will release it when the process terminates.
-        with lltype.scoped_malloc(rffi.CArray(HCRYPTPROV), 1) as ptr:
-            if not CryptAcquireContext(
-                ptr, None, None,
-                PROV_RSA_FULL, CRYPT_VERIFYCONTEXT):
-                raise rwin32.lastWindowsError("CryptAcquireContext")
-            return ptr[0]
+        """NOT_RPYTHON
+        Return an array of one HCRYPTPROV, initialized to NULL.
+        It is filled automatically the first time urandom() is called.
+        """
+        return lltype.malloc(rffi.CArray(HCRYPTPROV), 1,
+                             immortal=True, zero=True)
 
     def urandom(context, n):
-        provider = context
+        provider = context[0]
+        if not provider:
+            # This handle is never explicitly released. The operating
+            # system will release it when the process terminates.
+            if not CryptAcquireContext(
+                context, None, None,
+                PROV_RSA_FULL, CRYPT_VERIFYCONTEXT):
+                raise rwin32.lastWindowsError("CryptAcquireContext")
+            provider = context[0]
         # TODO(win64) This is limited to 2**31
         with lltype.scoped_alloc(rffi.CArray(rwin32.BYTE), n,
                                  zero=True, # zero seed
@@ -84,7 +93,7 @@ else:  # Posix implementation
             while n > 0:
                 try:
                     data = os.read(fd, n)
-                except OSError as e:
+                except OSError, e:
                     if e.errno != errno.EINTR:
                         raise
                     data = ''

@@ -3,10 +3,12 @@ from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rpython.lltypesystem import lltype, rffi, llmemory
 from pypy.annotation import model as annmodel
 from pypy.rlib.rgc import lltype_is_gc
+from pypy.rlib.objectmodel import specialize
 
 RAW_STORAGE = rffi.CCHARP.TO
 RAW_STORAGE_PTR = rffi.CCHARP
 
+@specialize.arg(1, 2)
 def alloc_raw_storage(size, track_allocation=True, zero=False):
     return lltype.malloc(RAW_STORAGE, size, flavor='raw',
                          add_memory_pressure=True,
@@ -22,6 +24,7 @@ def raw_storage_setitem(storage, index, item):
     TP = rffi.CArrayPtr(lltype.typeOf(item))
     rffi.cast(TP, rffi.ptradd(storage, index))[0] = item
 
+@specialize.arg(1)
 def free_raw_storage(storage, track_allocation=True):
     lltype.free(storage, flavor='raw', track_allocation=track_allocation)
 

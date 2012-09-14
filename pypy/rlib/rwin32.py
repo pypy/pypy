@@ -17,7 +17,7 @@ WIN32 = os.name == "nt"
 
 if WIN32:
     eci = ExternalCompilationInfo(
-        includes = ['windows.h', 'stdio.h'],
+        includes = ['windows.h', 'stdio.h', 'stdlib.h'],
         libraries = ['kernel32'],
         )
 else:
