@@ -3,11 +3,13 @@ from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.objspace.std.inttype import wrapint
+from pypy.objspace.std.iterobject import length_hint
 from pypy.objspace.std.listtype import get_list_index
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway, baseobjspace
-from pypy.rlib.objectmodel import instantiate, specialize, newlist_hint
+from pypy.rlib.objectmodel import (instantiate, newlist_hint, specialize,
+                                   resizelist_hint)
 from pypy.rlib.listsort import make_timsort_class
 from pypy.rlib import rerased, jit, debug
 from pypy.interpreter.argument import Signature
@@ -798,20 +800,15 @@ class AbstractUnwrappedStrategy(object):
 
     def extend(self, w_list, w_any):
         if isinstance(w_any, W_ListObject):
-            self.extend_list(w_list, w_any)
-            return
+            self._extend_list(w_list, w_any)
+        else:
+            newlen = w_list.length() + length_hint(self.space, w_any, 0)
+            resizelist_hint(self.unerase(w_list.lstorage), newlen)
+            for item in self.space.iteriterable(w_any):
+                w_list.append(item)
+            # XXX: resizelist_hint again if necessary
 
-        if self is not self.space.fromcache(ObjectListStrategy):
-            # XXX: force ObjectListStrategy for now
-            w_list.switch_to_object_strategy()
-            w_list.extend(w_any)
-            return
-
-        # XXX:
-        l = self.unerase(w_list.lstorage)
-        self.space.unpackiterable_into(w_any, l)
-
-    def extend_list(self, w_list, w_other):
+    def _extend_list(self, w_list, w_other):
         l = self.unerase(w_list.lstorage)
         if self.list_is_correct_type(w_other):
             l += self.unerase(w_other.lstorage)
