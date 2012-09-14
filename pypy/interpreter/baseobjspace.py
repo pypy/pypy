@@ -945,9 +945,10 @@ class ObjSpace(object):
                     e.match(self, self.w_AttributeError)):
                 raise
             return default
+        if self.is_w(w_hint, self.w_NotImplemented):
+            return default
 
-        hint = self.int_w(w_hint)
-        return default if hint < 0 else hint
+        return max(self.int_w(w_hint), 0)
 
     def fixedview(self, w_iterable, expected_length=-1):
         """ A fixed list view of w_iterable. Don't modify the result

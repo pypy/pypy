@@ -39,6 +39,17 @@ class TestLengthHint:
         space = self.space
         assert space.length_hint(space.w_False, 3) == 3
 
+    def test_NotImplemented(self):
+        from pypy.interpreter.error import OperationError
+        space = self.space
+        w_foo = space.appexec([], """():
+            class Foo(object):
+                def __length_hint__(self):
+                    return NotImplemented
+            return Foo()
+        """)
+        assert space.length_hint(w_foo, 3) == 3
+
     def test_exc(self):
         from pypy.interpreter.error import OperationError
         space = self.space
