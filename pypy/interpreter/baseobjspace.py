@@ -860,9 +860,8 @@ class ObjSpace(object):
         list.
         """
         # If we can guess the expected length we can preallocate.
-        from pypy.objspace.std.iterobject import length_hint
         try:
-            items = newlist_hint(length_hint(self, w_iterable, 0))
+            items = newlist_hint(self.length_hint(w_iterable, 0))
         except MemoryError:
             items = [] # it might have lied
 
@@ -924,6 +923,31 @@ class ObjSpace(object):
         assert expected_length != -1
         return self._unpackiterable_known_length_jitlook(w_iterator,
                                                          expected_length)
+
+    def length_hint(self, w_obj, default):
+        """Return the length of an object, consulting its __length_hint__
+        method if necessary.
+        """
+        try:
+            return self.len_w(w_obj)
+        except OperationError, e:
+            if not (e.match(self, self.w_TypeError) or
+                    e.match(self, self.w_AttributeError)):
+                raise
+
+        w_descr = self.lookup(w_obj, '__length_hint__')
+        if w_descr is None:
+            return default
+        try:
+            w_hint = self.get_and_call_function(w_descr, w_obj)
+        except OperationError, e:
+            if not (e.match(self, self.w_TypeError) or
+                    e.match(self, self.w_AttributeError)):
+                raise
+            return default
+
+        hint = self.int_w(w_hint)
+        return default if hint < 0 else hint
 
     def fixedview(self, w_iterable, expected_length=-1):
         """ A fixed list view of w_iterable. Don't modify the result

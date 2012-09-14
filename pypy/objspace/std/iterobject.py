@@ -4,32 +4,6 @@ from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 
 
-def length_hint(space, w_obj, default):
-    """Return the length of an object, consulting its __length_hint__
-    method if necessary.
-    """
-    try:
-        return space.len_w(w_obj)
-    except OperationError, e:
-        if not (e.match(space, space.w_TypeError) or
-                e.match(space, space.w_AttributeError)):
-            raise
-
-    w_descr = space.lookup(w_obj, '__length_hint__')
-    if w_descr is None:
-        return default
-    try:
-        w_hint = space.get_and_call_function(w_descr, w_obj)
-    except OperationError, e:
-        if not (e.match(space, space.w_TypeError) or
-                e.match(space, space.w_AttributeError)):
-            raise
-        return default
-
-    hint = space.int_w(w_hint)
-    return default if hint < 0 else hint
-
-
 class W_AbstractIterObject(W_Object):
     __slots__ = ()
 

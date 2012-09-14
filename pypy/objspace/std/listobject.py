@@ -3,7 +3,6 @@ from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.objspace.std.inttype import wrapint
-from pypy.objspace.std.iterobject import length_hint
 from pypy.objspace.std.listtype import get_list_index
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import slicetype
@@ -802,7 +801,7 @@ class AbstractUnwrappedStrategy(object):
         if isinstance(w_any, W_ListObject):
             self._extend_list(w_list, w_any)
         else:
-            newlen = w_list.length() + length_hint(self.space, w_any, 0)
+            newlen = w_list.length() + self.space.length_hint(w_any, 0)
             resizelist_hint(self.unerase(w_list.lstorage), newlen)
             for item in self.space.iteriterable(w_any):
                 w_list.append(item)
