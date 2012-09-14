@@ -740,15 +740,13 @@ class Database(object):
             return ret
 
     def unique_name(self, name):
-        if self.identifier_regex.match(name) is None:
-            name = '{}"{}"'.format(name[0], name[1:])
         if name not in self.names_counter:
             self.names_counter[name] = 0
+            if self.identifier_regex.match(name) is None:
+                return '{}"{}"'.format(name[0], name[1:])
             return name
-        else:
-            ret = '{}_{}'.format(name, self.names_counter[name])
-            self.names_counter[name] += 1
-            return ret
+        self.names_counter[name] += 1
+        return self.unique_name('{}_{}'.format(name, self.names_counter[name]))
 
 
 OPS = {

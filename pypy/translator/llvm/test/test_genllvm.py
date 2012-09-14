@@ -230,6 +230,15 @@ class TestDatabase(object):
         TD = lltype.Typedef(lltype.Signed, 'test')
         assert genllvm.database.get_type(TD).repr_type() == l('LONG')
 
+    def test_unique_name(self):
+        assert genllvm.database.unique_name('@test') == '@test'
+        assert genllvm.database.unique_name('@test') == '@test_1'
+        assert genllvm.database.unique_name('@test_1') == '@test_1_1'
+        assert genllvm.database.unique_name('%test') == '%test'
+        assert genllvm.database.unique_name('%test') == '%test_1'
+        assert genllvm.database.unique_name('@test:') == '@"test:"'
+        assert genllvm.database.unique_name('@test:') == '@"test:_1"'
+
 
 class _LLVMMixin(test_typed.CompilationTestCase):
     _func = None
