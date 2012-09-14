@@ -23,7 +23,7 @@ RPyString *RPyString_FromString(char *buf);
 
 #ifndef PYPY_NOT_MAIN_FILE
 
-struct _RPyString_dump_t {
+__thread struct _RPyString_dump_t {
 	struct _RPyString_dump_t *next;
 	char data[1];
 } *_RPyString_dump = NULL;
