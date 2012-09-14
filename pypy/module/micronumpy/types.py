@@ -1260,9 +1260,11 @@ class ComplexFloating(object):
     @complex_unary_op
     def exp2(self, v):
         try:
-            return rcomplex.c_pow((2,0), v2)
+            return rcomplex.c_pow((2,0), v)
         except OverflowError:
             return rfloat.INFINITY, rfloat.NAN
+        except ValueError:
+            return rfloat.NAN, rfloat.NAN
 
     @complex_unary_op
     def expm1(self, v):

@@ -463,7 +463,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
     def test_exp2(self):
         import math, cmath
-        from _numpypy import array, exp2
+        from _numpypy import array, exp2, complex128, complex64
         inf = float('inf')
         ninf = -float('inf')
         nan = float('nan')
@@ -481,22 +481,41 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert exp2(3) == 8
         assert math.isnan(exp2(nan))
 
-        a = array([cmpl(-5., 0), cmpl(-5., -5.), cmpl(-5., 5.),
-                   cmpl(0., -5.), cmpl(0., 0.), cmpl(0., 5.),
-                   cmpl(-0., -5.), cmpl(-0., 0.), cmpl(-0., 5.),
-                   cmpl(-0., -0.), cmpl(inf, 0.), cmpl(inf, 5.),
-                   cmpl(inf, -0.), cmpl(ninf, 0.), cmpl(ninf, 5.),
-                   cmpl(ninf, -0.), cmpl(ninf, inf), cmpl(inf, inf),
-                   cmpl(ninf, ninf), cmpl(5., inf), cmpl(5., ninf),
-                   cmpl(nan, 5.), cmpl(5., nan), cmpl(nan, nan),
-                 ])
-        b = exp2(a)
-        for i in range(len(a)):
-            try:
-                res = cmath.pow(2,a[i])
-            except OverflowError:
-                res = cmpl(inf, nan)
-            assert b[i] == res
+        for c,rel_err in ((complex128, 5e-323), (complex64, 1e-7)):
+            a = array([cmpl(-5., 0), cmpl(-5., -5.), cmpl(-5., 5.),
+                       cmpl(0., -5.), cmpl(0., 0.), cmpl(0., 5.),
+                       cmpl(-0., -5.), cmpl(-0., 0.), cmpl(-0., 5.),
+                       cmpl(-0., -0.), cmpl(inf, 0.), cmpl(inf, 5.),
+                       cmpl(inf, -0.), cmpl(ninf, 0.), cmpl(ninf, 5.),
+                       cmpl(ninf, -0.), cmpl(ninf, inf), cmpl(inf, inf),
+                       cmpl(ninf, ninf), cmpl(5., inf), cmpl(5., ninf),
+                       cmpl(nan, 5.), cmpl(5., nan), cmpl(nan, nan),
+                     ], dtype=c)
+            b = exp2(a)
+            got_err = False
+            for i in range(len(a)):
+                try:
+                    res = 2 ** a[i]
+                    if a[i].imag == 0. and math.copysign(1., a[i].imag)<0:
+                        res = cmpl(res.real, -0.)
+                    elif a[i].imag == 0.:
+                        res = cmpl(res.real, 0.)
+                except OverflowError:
+                    res = cmpl(inf, nan)
+                msg = 'result of 2**%r(%r) got %r expected %r\n ' % \
+                            (c,a[i], b[i], res)
+                try:        
+                    t1 = float(res.real)        
+                    t2 = float(b[i].real)        
+                    self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
+                    t1 = float(res.imag)        
+                    t2 = float(b[i].imag)        
+                    self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
+                except AssertionError as e:
+                    print e.message
+                    got_err = True
+        if got_err:
+            raise AssertionError('Errors were printed to stdout')
 
     def test_expm1(self):
         import math
