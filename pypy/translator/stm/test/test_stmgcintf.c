@@ -269,19 +269,16 @@ void duplicator(void)
 
     s2 = STM_BARRIER_P2W(&sg_global);
     assert(s2 == &sg_local);
-    assert(s2->header.h_tid == GCFLAG_LOCAL_COPY);
+    assert(s2->header.h_tid == GCFLAG_LOCAL_COPY | GCFLAG_VISITED);
     assert(s2->header.h_revision == (revision_t)&sg_global);
     assert(s2->value1 == 123);
-
-    /* simulate PerformLocalCollect */
-    _FakeReach(&s2->header);
 }
 gcptr duplicator_cb(gcptr x)
 {
     assert(x == &sg_global.header);
     sg_local = sg_global;
     sg_local.header.h_tid &= ~(GCFLAG_GLOBAL | GCFLAG_POSSIBLY_OUTDATED);
-    sg_local.header.h_tid |= GCFLAG_LOCAL_COPY;
+    sg_local.header.h_tid |= GCFLAG_LOCAL_COPY | GCFLAG_VISITED;
     return &sg_local.header;
 }
 void test_duplicator(void)

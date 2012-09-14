@@ -536,6 +536,7 @@ static void FindRootsForLocalCollect(struct tx_descriptor *d)
   g2l_clear(&d->global_to_local);
 }
 
+#if 0
 int _FakeReach(gcptr P)
 {
   if (P->h_tid & GCFLAG_GLOBAL)
@@ -547,6 +548,7 @@ int _FakeReach(gcptr P)
     P->h_tid &= ~GCFLAG_LOCAL_COPY;
   return 1;
 }
+#endif
 
 void CommitTransaction(void)
 {

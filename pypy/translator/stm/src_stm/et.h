@@ -79,7 +79,7 @@ typedef struct pypy_header0 *gcptr;
 
 void BeginTransaction(jmp_buf *);
 void BeginInevitableTransaction(void);
-int _FakeReach(gcptr);
+//int _FakeReach(gcptr);
 void CommitTransaction(void);
 void BecomeInevitable(const char *why);
 //void BeginInevitableTransaction(void);
