@@ -228,7 +228,7 @@ class FlowObjSpace(ObjSpace):
         except error.FlowingError, a:
             # attach additional source info to AnnotatorError
             _, _, tb = sys.exc_info()
-            formated = error.format_global_error(ec.graph, ec.frame.last_instr,
+            formated = error.format_global_error(ec.graph, self.frame.last_instr,
                                                  str(a))
             e = error.FlowingError(formated)
             raise error.FlowingError, e, tb
@@ -268,7 +268,7 @@ class FlowObjSpace(ObjSpace):
     # ____________________________________________________________
     def do_operation(self, name, *args_w):
         spaceop = SpaceOperation(name, args_w, Variable())
-        spaceop.offset = self.executioncontext.frame.last_instr
+        spaceop.offset = self.frame.last_instr
         self.executioncontext.recorder.append(spaceop)
         return spaceop.result
 
@@ -312,7 +312,7 @@ class FlowObjSpace(ObjSpace):
                 except IndexError:
                     raise OperationError(self.w_StopIteration, self.w_None)
                 else:
-                    context.frame.replace_in_stack(it, next_unroller)
+                    self.frame.replace_in_stack(it, next_unroller)
                     return self.wrap(v)
         w_item = self.do_operation("next", w_iter)
         outcome, w_exc_cls, w_exc_value = context.guessexception(StopIteration,
@@ -327,8 +327,7 @@ class FlowObjSpace(ObjSpace):
 
     def setitem(self, w_obj, w_key, w_val):
         # protect us from globals write access
-        ec = self.getexecutioncontext()
-        if ec and w_obj is ec.frame.w_globals:
+        if w_obj is self.frame.w_globals:
             raise SyntaxError("attempt to modify global attribute %r in %r"
                             % (w_key, ec.graph.func))
         return self.do_operation_with_implicit_exceptions('setitem', w_obj,

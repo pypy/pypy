@@ -219,7 +219,7 @@ class FlowExecutionContext(object):
 
     def build_flow(self, func, constargs={}):
         space = self.space
-        self.frame = frame = FlowSpaceFrame(self.space, func, constargs)
+        space.frame = frame = FlowSpaceFrame(self.space, func, constargs)
         self.joinpoints = {}
         self.graph = frame._init_graph(func)
         self.pendingblocks = collections.deque([self.graph.startblock])
