@@ -590,10 +590,6 @@ class ObjSpace(object):
                 w_exc = self.getitem(w_dic, w_name)
                 exc_types_w[name] = w_exc
                 setattr(self, "w_" + excname, w_exc)
-        # Make a prebuilt recursion error
-        w_msg = self.wrap("maximum recursion depth exceeded")
-        self.prebuilt_recursion_error = OperationError(self.w_RuntimeError,
-                                                       w_msg)
         return exc_types_w
 
     def install_mixedmodule(self, mixedname, installed_builtin_modules):
