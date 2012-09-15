@@ -426,7 +426,13 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
 
     def handle_bytecode(self, next_instr):
         try:
-            next_instr = self.dispatch_bytecode(next_instr)
+            while True:
+                self.last_instr = next_instr
+                self.recorder.bytecode_trace(self)
+                next_instr, methodname, oparg = self.pycode.read(next_instr)
+                res = getattr(self, methodname)(oparg, next_instr)
+                if res is not None:
+                    next_instr = res
         except OperationThatShouldNotBePropagatedError, e:
             raise Exception(
                 'found an operation that always raises %s: %s' % (
@@ -461,18 +467,6 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
             unroller = SApplicationException(operr)
             next_instr = block.handle(self, unroller)
             return next_instr
-
-    def enter_bytecode(self, next_instr):
-        self.last_instr = next_instr
-        self.recorder.bytecode_trace(self)
-
-    def dispatch_bytecode(self, next_instr):
-        while True:
-            self.enter_bytecode(next_instr)
-            next_instr, methodname, oparg = self.pycode.read(next_instr)
-            res = getattr(self, methodname)(oparg, next_instr)
-            if res is not None:
-                next_instr = res
 
     def IMPORT_NAME(self, nameindex, next_instr):
         space = self.space
