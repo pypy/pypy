@@ -269,7 +269,7 @@ class FlowObjSpace(ObjSpace):
     def do_operation(self, name, *args_w):
         spaceop = SpaceOperation(name, args_w, Variable())
         spaceop.offset = self.frame.last_instr
-        self.frame.recorder.append(spaceop)
+        self.frame.record(spaceop)
         return spaceop.result
 
     def do_operation_with_implicit_exceptions(self, name, *args_w):

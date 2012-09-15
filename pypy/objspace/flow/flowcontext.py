@@ -20,11 +20,6 @@ from pypy.objspace.flow.bytecode import HostCode
 class StopFlowing(Exception):
     pass
 
-class MergeBlock(Exception):
-    def __init__(self, block, currentstate):
-        self.block = block
-        self.currentstate = currentstate
-
 class SpamBlock(Block):
     # make slots optional, for debugging
     if hasattr(Block, '__slots__'):
@@ -97,9 +92,6 @@ class BlockRecorder(Recorder):
         self.enterspamblock = isinstance(block, SpamBlock)
 
     def append(self, operation):
-        if self.last_join_point is not None:
-            # only add operations corresponding to the first bytecode
-            raise MergeBlock(self.crnt_block, self.last_join_point)
         self.crnt_block.operations.append(operation)
 
     def bytecode_trace(self, frame):
@@ -317,6 +309,14 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
             prevblock = parent
         return recorder
 
+    def record(self, spaceop):
+        """Record an operation into the active block"""
+        recorder = self.recorder
+        if getattr(recorder, 'last_join_point', None) is not None:
+            self.mergeblock(recorder.crnt_block, recorder.last_join_point)
+            raise StopFlowing
+        recorder.append(spaceop)
+
     def guessbool(self, w_condition, **kwds):
         return self.recorder.guessbool(self, w_condition, **kwds)
 
@@ -354,9 +354,6 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
 
             except StopFlowing:
                 pass
-
-            except MergeBlock, e:
-                self.mergeblock(e.block, e.currentstate)
 
             except Return:
                 w_result = self.popvalue()
