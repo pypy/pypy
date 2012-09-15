@@ -246,6 +246,8 @@ class Assembler386(object):
         jz_location = mc.get_relative_pos()
         #
         nursery_free_adr = self.cpu.gc_ll_descr.get_nursery_free_addr()
+        nursery_free_adr = self.stm_threadlocal(nursery_free_adr)
+        self.stm_SEGPREFIX(mc)
         mc.MOV(edx, heap(nursery_free_adr))   # load this in EDX
         mc.RET()
         #
@@ -313,7 +315,9 @@ class Assembler386(object):
         # esp is now aligned to a multiple of 16 again
         mc.CALL(imm(slowpathaddr))
         #
-        mc.MOV(eax, heap(self.cpu.pos_exception()))
+        exc = self.stm_threadlocal(self.cpu.pos_exception())
+        self.stm_SEGPREFIX(mc)
+        mc.MOV(eax, heap(exc))
         mc.TEST_rr(eax.value, eax.value)
         mc.J_il8(rx86.Conditions['NZ'], 0)
         jnz_location = mc.get_relative_pos()
@@ -428,6 +432,22 @@ class Assembler386(object):
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
         descr.set_wb_slowpath(withcards, withfloats, rawstart)
 
+    def with_stm(self):
+        return self.cpu.gc_ll_descr.stm
+
+    def stm_threadlocal(self, globaladdr):
+        if self.with_stm():
+            from pypy.jit.backend.x86 import stmtlocal
+            globaladdr -= stmtlocal.threadlocal_base()
+            assert 0 <= globaladdr < 0x10000   # estimate: "should be small"
+            # --- in particular, fits_in_32bits() must be true
+        return globaladdr
+
+    def stm_SEGPREFIX(self, mc):
+        if self.with_stm():
+            from pypy.jit.backend.x86 import stmtlocal
+            stmtlocal.tl_segment_prefix(mc)
+
     @staticmethod
     @rgc.no_collect
     def _release_gil_asmgcc(css):
@@ -478,7 +498,7 @@ class Assembler386(object):
                                                   lltype.Void))
 
     def _build_release_gil(self, gcrootmap):
-        if self.cpu.gc_ll_descr.stm:      # XXX FIXME
+        if self.with_stm():      # XXX FIXME
             return
         if gcrootmap.is_shadow_stack:
             releasegil_func = llhelper(self._NOARG_FUNC,
@@ -819,6 +839,8 @@ class Assembler386(object):
     def _call_header_with_stack_check(self):
         if self.stack_check_slowpath == 0:
             pass                # no stack check (e.g. not translated)
+        elif self.with_stm():
+            pass                # XXX fix me
         else:
             endaddr, lengthaddr, _ = self.cpu.insert_stack_check()
             self.mc.MOV(eax, heap(endaddr))             # MOV eax, [start]
@@ -851,7 +873,9 @@ class Assembler386(object):
         # we need to put two words into the shadowstack: the MARKER_FRAME
         # and the address of the frame (ebp, actually)
         rst = gcrootmap.get_root_stack_top_addr()
+        rst = self.stm_threadlocal(rst)
         if rx86.fits_in_32bits(rst):
+            self.stm_SEGPREFIX(self.mc)
             self.mc.MOV_rj(eax.value, rst)            # MOV eax, [rootstacktop]
         else:
             self.mc.MOV_ri(r13.value, rst)            # MOV r13, rootstacktop
@@ -863,13 +887,16 @@ class Assembler386(object):
         self.mc.MOV_mr((eax.value, 0), ebp.value)      # MOV [eax], ebp
         #
         if rx86.fits_in_32bits(rst):
+            self.stm_SEGPREFIX(self.mc)
             self.mc.MOV_jr(rst, ebx.value)            # MOV [rootstacktop], ebx
         else:
             self.mc.MOV_mr((r13.value, 0), ebx.value) # MOV [r13], ebx
 
     def _call_footer_shadowstack(self, gcrootmap):
         rst = gcrootmap.get_root_stack_top_addr()
+        rst = self.stm_threadlocal(rst)
         if rx86.fits_in_32bits(rst):
+            self.stm_SEGPREFIX(self.mc)
             self.mc.SUB_ji8(rst, 2*WORD)       # SUB [rootstacktop], 2*WORD
         else:
             self.mc.MOV_ri(ebx.value, rst)           # MOV ebx, rootstacktop
@@ -1715,7 +1742,9 @@ class Assembler386(object):
 
     def genop_guard_guard_no_exception(self, ign_1, guard_op, guard_token,
                                        locs, ign_2):
-        self.mc.CMP(heap(self.cpu.pos_exception()), imm0)
+        exc = self.stm_threadlocal(self.cpu.pos_exception())
+        self.stm_SEGPREFIX(self.mc)
+        self.mc.CMP(heap(exc), imm0)
         self.implement_guard(guard_token, 'NZ')
 
     def genop_guard_guard_not_invalidated(self, ign_1, guard_op, guard_token,
@@ -1728,13 +1757,19 @@ class Assembler386(object):
                                     locs, resloc):
         loc = locs[0]
         loc1 = locs[1]
-        self.mc.MOV(loc1, heap(self.cpu.pos_exception()))
+        exc = self.stm_threadlocal(self.cpu.pos_exception())
+        exv = self.stm_threadlocal(self.cpu.pos_exc_value())
+        self.stm_SEGPREFIX(self.mc)
+        self.mc.MOV(loc1, heap(exc))
         self.mc.CMP(loc1, loc)
         self.implement_guard(guard_token, 'NE')
         if resloc is not None:
-            self.mc.MOV(resloc, heap(self.cpu.pos_exc_value()))
-        self.mc.MOV(heap(self.cpu.pos_exception()), imm0)
-        self.mc.MOV(heap(self.cpu.pos_exc_value()), imm0)
+            self.stm_SEGPREFIX(self.mc)
+            self.mc.MOV(resloc, heap(exv))
+        self.stm_SEGPREFIX(self.mc)
+        self.mc.MOV(heap(exc), imm0)
+        self.stm_SEGPREFIX(self.mc)
+        self.mc.MOV(heap(exv), imm0)
 
     def _gen_guard_overflow(self, guard_op, guard_token):
         guard_opnum = guard_op.getopnum()
@@ -2264,7 +2299,7 @@ class Assembler386(object):
         # the XMM registers won't be modified.  We store them in
         # [ESP+4], [ESP+8], etc.; on x86-32 we leave enough room in [ESP]
         # for the single argument to closestack_addr below.
-        if self.cpu.gc_ll_descr.stm:                                # XXX FIXME
+        if self.with_stm():                                # XXX FIXME
             raise NotImplementedError("releasegil_addr can (and will) collect")
         if IS_X86_32:
             p = WORD
@@ -2622,8 +2657,12 @@ class Assembler386(object):
 
     def malloc_cond(self, nursery_free_adr, nursery_top_adr, size):
         assert size & (WORD-1) == 0     # must be correctly aligned
+        nursery_free_adr = self.stm_threadlocal(nursery_free_adr)
+        nursery_top_adr  = self.stm_threadlocal(nursery_top_adr)
+        self.stm_SEGPREFIX(self.mc)
         self.mc.MOV(eax, heap(nursery_free_adr))
         self.mc.LEA_rm(edx.value, (eax.value, size))
+        self.stm_SEGPREFIX(self.mc)
         self.mc.CMP(edx, heap(nursery_top_adr))
         self.mc.J_il8(rx86.Conditions['NA'], 0) # patched later
         jmp_adr = self.mc.get_relative_pos()
@@ -2657,6 +2696,7 @@ class Assembler386(object):
         offset = self.mc.get_relative_pos() - jmp_adr
         assert 0 < offset <= 127
         self.mc.overwrite(jmp_adr-1, chr(offset))
+        self.stm_SEGPREFIX(self.mc)
         self.mc.MOV(heap(nursery_free_adr), edx)
 
 genop_discard_list = [Assembler386.not_implemented_op_discard] * rop._LAST
