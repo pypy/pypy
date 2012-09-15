@@ -10,14 +10,18 @@ from pypy.interpreter.argument import ArgumentsForTranslation
 from pypy.interpreter.pyopcode import (Return, Yield, SuspendedUnroller,
         SReturnValue, SApplicationException, BytecodeCorruption, Reraise,
         RaiseWithExplicitTraceback)
-from pypy.objspace.flow.operation import (ImplicitOperationError,
-        OperationThatShouldNotBePropagatedError)
 from pypy.objspace.flow.model import *
 from pypy.objspace.flow.framestate import (FrameState, recursively_unflatten,
         recursively_flatten)
 from pypy.objspace.flow.bytecode import HostCode
 
 class StopFlowing(Exception):
+    pass
+
+class OperationThatShouldNotBePropagatedError(OperationError):
+    pass
+
+class ImplicitOperationError(OperationError):
     pass
 
 class SpamBlock(Block):
