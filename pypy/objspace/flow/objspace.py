@@ -274,7 +274,8 @@ class FlowObjSpace(ObjSpace):
 
     def do_operation_with_implicit_exceptions(self, name, *args_w):
         w_result = self.do_operation(name, *args_w)
-        self.handle_implicit_exceptions(operation.implicit_exceptions.get(name))
+        self.frame.handle_implicit_exceptions(
+                operation.implicit_exceptions.get(name))
         return w_result
 
     def is_true(self, w_obj):
@@ -314,15 +315,8 @@ class FlowObjSpace(ObjSpace):
                     frame.replace_in_stack(it, next_unroller)
                     return self.wrap(v)
         w_item = self.do_operation("next", w_iter)
-        outcome, w_exc_cls, w_exc_value = frame.guessexception(StopIteration,
-                                                                 RuntimeError)
-        if outcome is StopIteration:
-            raise OperationError(self.w_StopIteration, w_exc_value)
-        elif outcome is RuntimeError:
-            raise operation.ImplicitOperationError(Constant(RuntimeError),
-                                                    w_exc_value)
-        else:
-            return w_item
+        frame.handle_implicit_exceptions([StopIteration, RuntimeError])
+        return w_item
 
     def setitem(self, w_obj, w_key, w_val):
         # protect us from globals write access
@@ -426,26 +420,8 @@ class FlowObjSpace(ObjSpace):
                                types.TypeType)) and
                   c.__module__ in ['__builtin__', 'exceptions']):
                 exceptions = operation.implicit_exceptions.get(c)
-        self.handle_implicit_exceptions(exceptions)
+        self.frame.handle_implicit_exceptions(exceptions)
         return w_res
-
-    def handle_implicit_exceptions(self, exceptions):
-        if not exceptions:
-            return
-        # catch possible exceptions implicitly.  If the OperationError
-        # below is not caught in the same function, it will produce an
-        # exception-raising return block in the flow graph.  Note that
-        # even if the interpreter re-raises the exception, it will not
-        # be the same ImplicitOperationError instance internally.
-        outcome, w_exc_cls, w_exc_value = self.frame.guessexception(*exceptions)
-        if outcome is not None:
-            # we assume that the caught exc_cls will be exactly the
-            # one specified by 'outcome', and not a subclass of it,
-            # unless 'outcome' is Exception.
-            #if outcome is not Exception:
-                #w_exc_cls = Constant(outcome) Now done by guessexception itself
-                #pass
-             raise operation.ImplicitOperationError(w_exc_cls, w_exc_value)
 
     def find_global(self, w_globals, varname):
         try:

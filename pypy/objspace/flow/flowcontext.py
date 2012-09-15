@@ -187,14 +187,12 @@ class Replayer(Recorder):
         assert self.index == len(self.listtoreplay)
         frame.recorder = self.nextreplayer
         outcome = self.booloutcome
-        if outcome is None:
-            w_exc_cls, w_exc_value = None, None
-        else:
+        if outcome is not None:
             egg = self.nextreplayer.crnt_block
             w_exc_cls, w_exc_value = egg.inputargs[-2:]
             if isinstance(egg.last_exception, Constant):
                 w_exc_cls = egg.last_exception
-        return outcome, w_exc_cls, w_exc_value
+            raise ImplicitOperationError(w_exc_cls, w_exc_value)
 
 # ____________________________________________________________
 
@@ -320,8 +318,18 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
     def guessbool(self, w_condition, **kwds):
         return self.recorder.guessbool(self, w_condition, **kwds)
 
-    def guessexception(self, *classes):
-        return self.recorder.guessexception(self, *classes)
+    def handle_implicit_exceptions(self, exceptions):
+        """
+        Catch possible exceptions implicitly.
+
+        If the OperationError is not caught in the same function, it will
+        produce an exception-raising return block in the flow graph. Note that
+        even if the interpreter re-raises the exception, it will not be the
+        same ImplicitOperationError instance internally.
+        """
+        if not exceptions:
+            return
+        return self.recorder.guessexception(self, *exceptions)
 
     def build_flow(self):
         while self.pendingblocks:
