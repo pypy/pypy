@@ -217,6 +217,12 @@ class RunParam(object):
                 self.collect_testdirs(testdirs, p1)
 
 
+renamed_configs = {
+    'pypy/pytest-A.cfg': 'testrunner/apptests.cfg',
+    'pypy/testrunner_cfg.py': 'testrunner/owntests.cfg',
+}
+
+
 def main(opts, args, RunParamClass):
 
 
@@ -238,6 +244,7 @@ def main(opts, args, RunParamClass):
     # in that code function overriding method should not take self
     # though a self and self.__class__ are available if needed
     for config_py_file in opts.config:
+        config_py_file = renamed_configs.get(config_py_file, config_py_file)
         config_py_file = os.path.expanduser(config_py_file)
         if py.path.local(config_py_file).check(file=1):
             run_param.log("using config %s", config_py_file)
