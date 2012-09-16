@@ -480,6 +480,28 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
             next_instr = block.handle(self, unroller)
             return next_instr
 
+    def RAISE_VARARGS(self, nbargs, next_instr):
+        space = self.space
+        if nbargs == 0:
+            if self.last_exception is not None:
+                operror = self._convert_exc(self.last_exception)
+                self.last_exception = operror
+                raise Reraise
+            else:
+                raise OperationError(space.w_TypeError,
+                    space.wrap("raise: no active exception to re-raise"))
+
+        w_value = w_traceback = space.w_None
+        if nbargs >= 3:
+            w_traceback = self.popvalue()
+        if nbargs >= 2:
+            w_value = self.popvalue()
+        if 1:
+            w_type = self.popvalue()
+        operror = OperationError(w_type, w_value)
+        operror.normalize_exception(space)
+        raise operror
+
     def IMPORT_NAME(self, nameindex, next_instr):
         space = self.space
         modulename = self.getname_u(nameindex)
