@@ -1843,7 +1843,6 @@ class Assembler386(object):
         """Generate the initial code for handling a failure.  We try to
         keep it as compact as possible.
         """
-        assert guardtok.faildescr.index < 0    # must not have an index so far
         fail_index = self.cpu.get_fail_descr_number(guardtok.faildescr)
         mc = self.mc
         startpos = mc.get_relative_pos()
