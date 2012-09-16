@@ -544,6 +544,7 @@ class RandomLoop(object):
         self.startvars = startvars
         self.prebuilt_ptr_consts = []
         self.r = r
+        self.subloops = []
         self.build_random_loop(cpu, builder_factory, r, startvars, allow_delay)
 
     def build_random_loop(self, cpu, builder_factory, r, startvars, allow_delay):
@@ -710,6 +711,7 @@ class RandomLoop(object):
             return False
         # generate the branch: a sequence of operations that ends in a FINISH
         subloop = DummyLoop([])
+        self.subloops.append(subloop)   # keep around for debugging
         if guard_op.is_guard_exception():
             subloop.operations.append(exc_handling(guard_op))
         bridge_builder = self.builder.fork(self.builder.cpu, subloop,
@@ -746,9 +748,6 @@ class RandomLoop(object):
             args = [x.clonebox() for x in subset]
             rl = RandomLoop(self.builder.cpu, self.builder.fork,
                                      r, args)
-            dump(rl.loop)
-            self.cpu.compile_loop(rl.loop.inputargs, rl.loop.operations,
-                                  rl.loop._jitcelltoken)
             # done
             self.should_fail_by = rl.should_fail_by
             self.expected = rl.expected
