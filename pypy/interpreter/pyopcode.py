@@ -90,10 +90,6 @@ class __extend__(pyframe.PyFrame):
             next_instr = self.dispatch_bytecode(co_code, next_instr, ec)
         except OperationError, operr:
             next_instr = self.handle_operation_error(ec, operr)
-        except Reraise:
-            operr = self.last_exception
-            next_instr = self.handle_operation_error(ec, operr,
-                                                     attach_tb=False)
         except RaiseWithExplicitTraceback, e:
             next_instr = self.handle_operation_error(ec, e.operr,
                                                      attach_tb=False)
@@ -548,7 +544,7 @@ class __extend__(pyframe.PyFrame):
                     space.wrap("raise: no active exception to re-raise"))
             # re-raise, no new traceback obj will be attached
             self.last_exception = operror
-            raise Reraise
+            raise RaiseWithExplicitTraceback(operror)
 
         w_value = w_traceback = space.w_None
         if nbargs >= 3:
@@ -1165,10 +1161,8 @@ class Return(ExitFrame):
 class Yield(ExitFrame):
     """Raised when exiting a frame via a 'yield' statement."""
 
-class Reraise(Exception):
-    """Raised at interp-level by a bare 'raise' statement."""
 class RaiseWithExplicitTraceback(Exception):
-    """Raised at interp-level by a 3-arguments 'raise' statement."""
+    """Raised at interp-level by a 0- or 3-arguments 'raise' statement."""
     def __init__(self, operr):
         self.operr = operr
 

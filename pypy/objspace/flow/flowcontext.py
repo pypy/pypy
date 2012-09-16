@@ -8,7 +8,7 @@ from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.pycode import CO_OPTIMIZED, CO_NEWLOCALS
 from pypy.interpreter.argument import ArgumentsForTranslation
 from pypy.interpreter.pyopcode import (Return, Yield, SuspendedUnroller,
-        SReturnValue, SApplicationException, BytecodeCorruption, Reraise,
+        SReturnValue, SApplicationException, BytecodeCorruption,
         RaiseWithExplicitTraceback)
 from pypy.objspace.flow.model import *
 from pypy.objspace.flow.framestate import (FrameState, recursively_unflatten,
@@ -453,9 +453,6 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         except OperationError, operr:
             self.attach_traceback(operr)
             next_instr = self.handle_operation_error(operr)
-        except Reraise:
-            operr = self.last_exception
-            next_instr = self.handle_operation_error(operr)
         except RaiseWithExplicitTraceback, e:
             next_instr = self.handle_operation_error(e.operr)
         return next_instr
@@ -486,7 +483,7 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
             if self.last_exception is not None:
                 operror = self._convert_exc(self.last_exception)
                 self.last_exception = operror
-                raise Reraise
+                raise RaiseWithExplicitTraceback(operror)
             else:
                 raise OperationError(space.w_TypeError,
                     space.wrap("raise: no active exception to re-raise"))
