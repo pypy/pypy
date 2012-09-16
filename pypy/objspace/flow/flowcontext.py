@@ -18,10 +18,13 @@ from pypy.objspace.flow.bytecode import HostCode
 class StopFlowing(Exception):
     pass
 
-class OperationThatShouldNotBePropagatedError(OperationError):
+class FSException(OperationError):
     pass
 
-class ImplicitOperationError(OperationError):
+class OperationThatShouldNotBePropagatedError(FSException):
+    pass
+
+class ImplicitOperationError(FSException):
     pass
 
 class SpamBlock(Block):
@@ -289,7 +292,7 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
             assert data[-1] == Constant(None)
             self.last_exception = None
         else:
-            self.last_exception = OperationError(data[-2], data[-1])
+            self.last_exception = FSException(data[-2], data[-1])
         blocklist, self.last_instr = state.nonmergeable
         self.set_blocklist(blocklist)
 
@@ -326,7 +329,7 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         """
         Catch possible exceptions implicitly.
 
-        If the OperationError is not caught in the same function, it will
+        If the FSException is not caught in the same function, it will
         produce an exception-raising return block in the flow graph. Note that
         even if the interpreter re-raises the exception, it will not be the
         same ImplicitOperationError instance internally.
@@ -417,7 +420,7 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         if isinstance(operr, ImplicitOperationError):
             # re-raising an implicit operation makes it an explicit one
             w_value = operr.get_w_value(self.space)
-            operr = OperationError(operr.w_type, w_value)
+            operr = FSException(operr.w_type, w_value)
         return operr
 
     # hack for unrolling iterables, don't use this
@@ -467,11 +470,11 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
     def handle_operation_error(self, operr):
         block = self.unrollstack(SApplicationException.kind)
         if block is None:
-            # no handler found for the OperationError
+            # no handler found for the exception
             # try to preserve the CPython-level traceback
             import sys
             tb = sys.exc_info()[2]
-            raise OperationError, operr, tb
+            raise operr, None, tb
         else:
             unroller = SApplicationException(operr)
             next_instr = block.handle(self, unroller)

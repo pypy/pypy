@@ -5,12 +5,11 @@ import operator
 import types
 from pypy.tool import error
 from pypy.interpreter.baseobjspace import ObjSpace, Wrappable
-from pypy.interpreter.error import OperationError
 from pypy.interpreter import pyframe, argument
 from pypy.objspace.flow.model import *
 from pypy.objspace.flow import operation
 from pypy.objspace.flow.flowcontext import (FlowSpaceFrame, fixeggblocks,
-    OperationThatShouldNotBePropagatedError)
+    OperationThatShouldNotBePropagatedError, FSException)
 from pypy.objspace.flow.specialcase import SPECIAL_CASES
 from pypy.rlib.unroll import unrolling_iterable, _unroller
 from pypy.rlib import rstackovf, rarithmetic
@@ -259,7 +258,7 @@ class FlowObjSpace(ObjSpace):
             w_len = self.len(w_iterable)
             w_correct = self.eq(w_len, self.wrap(expected_length))
             if not self.is_true(w_correct):
-                e = OperationError(self.w_ValueError, self.w_None)
+                e = FSException(self.w_ValueError, self.w_None)
                 e.normalize_exception(self)
                 raise e
             return [self.do_operation('getitem', w_iterable, self.wrap(i))
@@ -311,7 +310,7 @@ class FlowObjSpace(ObjSpace):
                 try:
                     v, next_unroller = it.step()
                 except IndexError:
-                    raise OperationError(self.w_StopIteration, self.w_None)
+                    raise FSException(self.w_StopIteration, self.w_None)
                 else:
                     frame.replace_in_stack(it, next_unroller)
                     return self.wrap(v)
@@ -360,15 +359,15 @@ class FlowObjSpace(ObjSpace):
         try:
             mod = __import__(name, glob, loc, frm, level)
         except ImportError, e:
-            raise OperationError(self.w_ImportError, self.wrap(str(e)))
+            raise FSException(self.w_ImportError, self.wrap(str(e)))
         return self.wrap(mod)
 
     def import_from(self, w_module, w_name):
         try:
             return self.getattr(w_module, w_name)
-        except OperationError, e:
+        except FSException, e:
             if e.match(self, self.w_AttributeError):
-                raise OperationError(self.w_ImportError,
+                raise FSException(self.w_ImportError,
                     self.wrap("cannot import name '%s'" % w_name.value))
             else:
                 raise
@@ -433,7 +432,7 @@ class FlowObjSpace(ObjSpace):
                 value = getattr(self.unwrap(self.builtin), varname)
             except AttributeError:
                 message = "global name '%s' is not defined" % varname
-                raise OperationError(self.w_NameError, self.wrap(message))
+                raise FSException(self.w_NameError, self.wrap(message))
         return self.wrap(value)
 
     def w_KeyboardInterrupt(self):
