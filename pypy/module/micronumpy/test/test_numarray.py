@@ -1517,6 +1517,13 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = array([1.0,-1.0])
         a[a<0] = -a[a<0]
         assert (a == [1, 1]).all()
+
+    def test_int_array_index(self):
+        from numpypy import array, arange
+        assert (arange(10)[array([3, 2, 1, 5])] == [3, 2, 1, 5]).all()
+        raises(IndexError, "arange(10)[array([10])]")
+        assert (arange(10)[[-5, -3]] == [5, 7]).all()
+        raises(IndexError, "arange(10)[[-11]]")
                         
 class AppTestMultiDim(BaseNumpyAppTest):
     def test_init(self):
