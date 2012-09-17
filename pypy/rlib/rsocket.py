@@ -812,7 +812,7 @@ class RSocket(object):
                 timeout = self._select(True)
                 if timeout == 0:
                     res = self.getsockopt_int(_c.SOL_SOCKET, _c.SO_ERROR)
-                    if (res == _c.EISCONN):
+                    if res == _c.EISCONN:
                         res = 0
                     errno = res
                 elif timeout == -1:

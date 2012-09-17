@@ -332,6 +332,7 @@ def test_connect_with_timeout_fail():
     s.settimeout(0.1)
     with py.test.raises(SocketTimeout):
         s.connect(INETAddress('240.240.240.240', 12345))
+    s.close()
 
 def test_connect_with_timeout_succeed():
     s = RSocket()
