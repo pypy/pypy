@@ -26,6 +26,24 @@ def import_module_from_directory(dir, modname):
             file.close()
     return mod
 
+_CPYTHON_RE = py.std.re.compile('^Python 2.[567]')
+
+def get_recent_cpython_executable():
+
+    if sys.platform == 'win32':
+        python = sys.executable.replace('\\', '/') + ' '
+    else:
+        python = sys.executable + ' '
+
+    # Is there a command 'python' that runs python 2.5-2.7?
+    # If there is, then we can use it instead of sys.executable
+    returncode, stdout, stderr = runsubprocess.run_subprocess(
+        "python", "-V")
+    if _CPYTHON_RE.match(stdout) or _CPYTHON_RE.match(stderr):
+        python = 'python '
+    return python
+
+
 class ProfOpt(object):
     #XXX assuming gcc style flags for now
     name = "profopt"
@@ -574,18 +592,7 @@ class CStandaloneBuilder(CBuilder):
             else:
                 mk.definition('PYPY_MAIN_FUNCTION', "main")
 
-            if sys.platform == 'win32':
-                python = sys.executable.replace('\\', '/') + ' '
-            else:
-                python = sys.executable + ' '
-
-            # Is there a command 'python' that runs python 2.5-2.7?
-            # If there is, then we can use it instead of sys.executable
-            returncode, stdout, stderr = runsubprocess.run_subprocess(
-                "python", "-V")
-            if (stdout.startswith('Python 2.') or
-                stderr.startswith('Python 2.')):
-                python = 'python '
+            python = get_recent_cpython_executable()
 
             if self.translator.platform.name == 'msvc':
                 lblofiles = []
