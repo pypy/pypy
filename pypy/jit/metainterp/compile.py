@@ -5,7 +5,7 @@ from pypy.objspace.flow.model import Constant, Variable
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.debug import debug_start, debug_stop, debug_print
 from pypy.rlib import rstack
-from pypy.rlib.jit import JitDebugInfo
+from pypy.rlib.jit import JitDebugInfo, Counters
 from pypy.conftest import option
 from pypy.tool.sourcetools import func_with_new_name
 
@@ -22,8 +22,7 @@ from pypy.jit.codewriter import heaptracker, longlong
 
 def giveup():
     from pypy.jit.metainterp.pyjitpl import SwitchToBlackhole
-    from pypy.jit.metainterp.jitprof import ABORT_BRIDGE
-    raise SwitchToBlackhole(ABORT_BRIDGE)
+    raise SwitchToBlackhole(Counters.ABORT_BRIDGE)
 
 def show_procedures(metainterp_sd, procedure=None, error=None):
     # debugging
@@ -226,6 +225,8 @@ def compile_retrace(metainterp, greenkey, start,
     assert isinstance(target_token, TargetToken)
     assert loop_jitcell_token.target_tokens
     loop_jitcell_token.target_tokens.append(target_token)
+    if target_token.short_preamble:
+        metainterp_sd.logger_ops.log_short_preamble([], target_token.short_preamble)
 
     loop = partial_trace
     loop.operations = loop.operations[:-1] + part.operations

@@ -34,13 +34,14 @@ working_modules.update(dict.fromkeys(
      "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array",
      "_bisect", "binascii", "_multiprocessing", '_warnings',
      "_collections", "_multibytecodec", "micronumpy", "_ffi",
-     "_continuation"]
+     "_continuation", "_cffi_backend"]
 ))
 
 translation_modules = default_modules.copy()
 translation_modules.update(dict.fromkeys(
     ["fcntl", "rctime", "select", "signal", "_rawffi", "zlib",
      "struct", "_md5", "cStringIO", "array", "_ffi",
+     "binascii",
      # the following are needed for pyrepl (and hence for the
      # interactive prompt/pdb)
      "termios", "_minimal_curses",
@@ -88,7 +89,6 @@ module_suggests = {
     "_rawffi": [("objspace.usemodules.struct", True)],
     "cpyext": [("translation.secondaryentrypoints", "cpyext"),
                ("translation.shared", sys.platform == "win32")],
-    "_ffi":    [("translation.jit_ffi", True)],
 }
 
 module_import_dependencies = {

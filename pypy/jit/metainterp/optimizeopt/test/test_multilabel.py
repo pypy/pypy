@@ -431,7 +431,53 @@ class OptimizeoptTestMultiLabel(BaseTestMultiLabel):
         jump(i55, i81)
         """
         self.optimize_loop(ops, expected)
-        
+
+    def test_boxed_opaque_unknown_class(self):
+        ops = """
+        [p1]
+        p2 = getfield_gc(p1, descr=nextdescr) 
+        mark_opaque_ptr(p2)        
+        i3 = getfield_gc(p2, descr=otherdescr)
+        label(p1)
+        i4 = getfield_gc(p1, descr=otherdescr)
+        label(p1)
+        p5 = getfield_gc(p1, descr=nextdescr) 
+        mark_opaque_ptr(p5)        
+        i6 = getfield_gc(p5, descr=otherdescr)
+        i7 = call(i6, descr=nonwritedescr)
+        """
+        expected = """
+        [p1]
+        p2 = getfield_gc(p1, descr=nextdescr) 
+        i3 = getfield_gc(p2, descr=otherdescr)
+        label(p1)
+        i4 = getfield_gc(p1, descr=otherdescr)
+        label(p1)
+        p5 = getfield_gc(p1, descr=nextdescr) 
+        i6 = getfield_gc(p5, descr=otherdescr)
+        i7 = call(i6, descr=nonwritedescr)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_opaque_pointer_fails_to_close_loop(self):
+        ops = """
+        [p1, p11]
+        p2 = getfield_gc(p1, descr=nextdescr) 
+        guard_class(p2, ConstClass(node_vtable)) []
+        mark_opaque_ptr(p2)        
+        i3 = getfield_gc(p2, descr=otherdescr)
+        label(p1, p11)
+        p12 = getfield_gc(p1, descr=nextdescr) 
+        i13 = getfield_gc(p2, descr=otherdescr)
+        i14 = call(i13, descr=nonwritedescr)        
+        jump(p11, p1)
+        """
+        with raises(InvalidLoop):
+            self.optimize_loop(ops, ops)
+
+            
+
+
 class OptRenameStrlen(Optimization):
     def propagate_forward(self, op):
         dispatch_opt(self, op)

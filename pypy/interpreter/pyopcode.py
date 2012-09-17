@@ -8,7 +8,7 @@ import sys
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter import gateway, function, eval, pyframe, pytraceback
-from pypy.interpreter.pycode import PyCode
+from pypy.interpreter.pycode import PyCode, BytecodeCorruption
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib import jit, rstackovf
@@ -104,9 +104,11 @@ class __extend__(pyframe.PyFrame):
             next_instr = self.handle_asynchronous_error(ec,
                 self.space.w_MemoryError)
         except rstackovf.StackOverflow, e:
+            # Note that this case catches AttributeError!
             rstackovf.check_stack_overflow()
-            w_err = self.space.prebuilt_recursion_error
-            next_instr = self.handle_operation_error(ec, w_err)
+            next_instr = self.handle_asynchronous_error(ec,
+                self.space.w_RuntimeError,
+                self.space.wrap("maximum recursion depth exceeded"))
         return next_instr
 
     def handle_asynchronous_error(self, ec, w_type, w_value=None):
@@ -966,6 +968,7 @@ class __extend__(pyframe.PyFrame):
                       isinstance(unroller, SApplicationException))
         if is_app_exc:
             operr = unroller.operr
+            self.last_exception = operr
             w_traceback = self.space.wrap(operr.get_traceback())
             w_suppress = self.call_contextmanager_exit_function(
                 w_exitfunc,
@@ -1171,9 +1174,6 @@ class RaiseWithExplicitTraceback(Exception):
     """Raised at interp-level by a 3-arguments 'raise' statement."""
     def __init__(self, operr):
         self.operr = operr
-
-class BytecodeCorruption(Exception):
-    """Detected bytecode corruption.  Never caught; it's an error."""
 
 
 ### Frame Blocks ###

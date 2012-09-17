@@ -95,7 +95,7 @@ pypysig_getaddr_occurred = external('pypysig_getaddr_occurred', [],
                                     lltype.Ptr(LONG_STRUCT), _nowrapper=True,
                                     elidable_function=True)
 c_alarm = external('alarm', [rffi.INT], rffi.INT)
-c_pause = external('pause', [], rffi.INT)
+c_pause = external('pause', [], rffi.INT, threadsafe=True)
 c_siginterrupt = external('siginterrupt', [rffi.INT, rffi.INT], rffi.INT)
 
 if sys.platform != 'win32':
@@ -364,6 +364,15 @@ def get_itimer_error(space):
 @jit.dont_look_inside
 @unwrap_spec(which=int, first=float, interval=float)
 def setitimer(space, which, first, interval=0):
+    """setitimer(which, seconds[, interval])
+    
+    Sets given itimer (one of ITIMER_REAL, ITIMER_VIRTUAL
+    or ITIMER_PROF) to fire after value seconds and after
+    that every interval seconds.
+    The itimer can be cleared by setting seconds to zero.
+    
+    Returns old values as a tuple: (delay, interval).
+    """
     with lltype.scoped_alloc(itimervalP.TO, 1) as new:
 
         timeval_from_double(first, new[0].c_it_value)
@@ -381,6 +390,10 @@ def setitimer(space, which, first, interval=0):
 @jit.dont_look_inside
 @unwrap_spec(which=int)
 def getitimer(space, which):
+    """getitimer(which)
+    
+    Returns current value of given itimer.
+    """
     with lltype.scoped_alloc(itimervalP.TO, 1) as old:
 
         c_getitimer(which, old)

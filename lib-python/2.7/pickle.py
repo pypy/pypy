@@ -24,7 +24,7 @@ Misc variables:
 
 """
 
-__version__ = "$Revision$"       # Code version
+__version__ = "$Revision: 72223 $"       # Code version
 
 from types import *
 from copy_reg import dispatch_table
@@ -286,20 +286,20 @@ class Pickler(object):
             f(self, obj) # Call unbound method with explicit self
             return
 
-        # Check for a class with a custom metaclass; treat as regular class
-        try:
-            issc = issubclass(t, TypeType)
-        except TypeError: # t is not a class (old Boost; see SF #502085)
-            issc = 0
-        if issc:
-            self.save_global(obj)
-            return
-
         # Check copy_reg.dispatch_table
         reduce = dispatch_table.get(t)
         if reduce:
             rv = reduce(obj)
         else:
+            # Check for a class with a custom metaclass; treat as regular class
+            try:
+                issc = issubclass(t, TypeType)
+            except TypeError: # t is not a class (old Boost; see SF #502085)
+                issc = 0
+            if issc:
+                self.save_global(obj)
+                return
+
             # Check for a __reduce_ex__ method, fall back to __reduce__
             reduce = getattr(obj, "__reduce_ex__", None)
             if reduce:

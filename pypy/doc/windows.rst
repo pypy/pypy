@@ -135,6 +135,10 @@ gcc.exe must be on the PATH. If the -cc flag does not begin with "ming", it shou
 the name of a valid gcc-derivative compiler, i.e. x86_64-w64-mingw32-gcc for the 64 bit
 compiler creating a 64 bit target.
 
+You probably want to set the CPATH, LIBRARY_PATH, and PATH environment variable to
+the header files, lib or dlls, and dlls respectively of the locally installed packages 
+if they are not in the mingw directory heirarchy. 
+
 libffi for the mingw compiler
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -175,7 +179,7 @@ hacking on Pypy with the mingw compiler
 Since hacking on Pypy means running tests, you will need a way to specify
 the mingw compiler when hacking (as opposed to translating). As of
 March 2012, --cc is not a valid option for pytest.py. However if you set an
-environment variable CC it will allow you to choose a compiler.
+environment variable CC to the compliter exe, testing will use it.
 
 .. _'mingw32 build': http://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win32/Automated%20Builds
 .. _`mingw64 build`: http://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win64/Automated%20Builds

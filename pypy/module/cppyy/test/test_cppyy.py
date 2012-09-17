@@ -26,7 +26,7 @@ class TestCPPYYImplementation:
         func, = adddouble.functions
         assert func.executor is None
         func._setup(None)     # creates executor
-        assert isinstance(func.executor, executor.DoubleExecutor)
+        assert isinstance(func.executor, executor._executors['double'])
         assert func.arg_defs == [("double", "")]
 
 

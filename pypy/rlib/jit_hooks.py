@@ -13,7 +13,10 @@ def register_helper(s_result):
             _about_ = helper
 
             def compute_result_annotation(self, *args):
-                return s_result
+                if (isinstance(s_result, annmodel.SomeObject) or
+                    s_result is None):
+                    return s_result
+                return annmodel.lltype_to_annotation(s_result)
 
             def specialize_call(self, hop):
                 from pypy.rpython.lltypesystem import lltype
@@ -108,3 +111,26 @@ def box_nonconstbox(llbox):
 def box_isconst(llbox):
     from pypy.jit.metainterp.history import Const
     return isinstance(_cast_to_box(llbox), Const)
+
+# ------------------------- stats interface ---------------------------
+
+@register_helper(annmodel.SomeBool())
+def stats_set_debug(warmrunnerdesc, flag):
+    return warmrunnerdesc.metainterp_sd.cpu.set_debug(flag)
+
+@register_helper(annmodel.SomeInteger())
+def stats_get_counter_value(warmrunnerdesc, no):
+    return warmrunnerdesc.metainterp_sd.profiler.get_counter(no)
+
+@register_helper(annmodel.SomeFloat())
+def stats_get_times_value(warmrunnerdesc, no):
+    return warmrunnerdesc.metainterp_sd.profiler.times[no]
+
+LOOP_RUN_CONTAINER = lltype.GcArray(lltype.Struct('elem',
+                                                  ('type', lltype.Char),
+                                                  ('number', lltype.Signed),
+                                                  ('counter', lltype.Signed)))
+
+@register_helper(lltype.Ptr(LOOP_RUN_CONTAINER))
+def stats_get_loop_run_times(warmrunnerdesc):
+    return warmrunnerdesc.metainterp_sd.cpu.get_all_loop_runs()

@@ -6,6 +6,7 @@ from pypy.rpython.annlowlevel import llhelper, MixLevelHelperAnnotator,\
 from pypy.annotation import model as annmodel
 from pypy.rpython.llinterp import LLException
 from pypy.rpython.test.test_llinterp import get_interpreter, clear_tcache
+from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
 from pypy.objspace.flow.model import SpaceOperation, Variable, Constant
 from pypy.objspace.flow.model import checkgraph, Link, copygraph
 from pypy.rlib.objectmodel import we_are_translated
@@ -13,6 +14,7 @@ from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.debug import fatalerror
 from pypy.rlib.rstackovf import StackOverflow
 from pypy.translator.simplify import get_functype
+from pypy.translator.backendopt import removenoops
 from pypy.translator.unsimplify import call_final_function
 
 from pypy.jit.metainterp import history, pyjitpl, gc, memmgr
@@ -76,10 +78,6 @@ def jittify_and_run(interp, graph, args, repeat=1, graph_and_interp_only=False,
         pass
     try:
         translator.config.translation.list_comprehension_operations = True
-    except ConfigError:
-        pass
-    try:
-        translator.config.translation.jit_ffi = True
     except ConfigError:
         pass
     warmrunnerdesc = WarmRunnerDesc(translator, backendopt=backendopt, **kwds)
@@ -221,7 +219,7 @@ class WarmRunnerDesc(object):
         self.rewrite_access_helpers()
         self.codewriter.make_jitcodes(verbose=verbose)
         self.rewrite_can_enter_jits()
-        self.rewrite_set_param()
+        self.rewrite_set_param_and_get_stats()
         self.rewrite_force_virtual(vrefinfo)
         self.rewrite_force_quasi_immutable()
         self.add_finish()
@@ -263,6 +261,10 @@ class WarmRunnerDesc(object):
         graph = copygraph(graph)
         [jmpp] = find_jit_merge_points([graph])
         graph.startblock = support.split_before_jit_merge_point(*jmpp)
+        # XXX this is incredibly obscure, but this is sometiems necessary
+        #     so we don't explode in checkgraph. for reasons unknown this
+        #     is not contanied within simplify_graph
+        removenoops.remove_same_as(graph)
         # a crash in the following checkgraph() means that you forgot
         # to list some variable in greens=[] or reds=[] in JitDriver,
         # or that a jit_merge_point() takes a constant as an argument.
@@ -632,14 +634,22 @@ class WarmRunnerDesc(object):
             self.rewrite_access_helper(op)
 
     def rewrite_access_helper(self, op):
-        ARGS = [arg.concretetype for arg in op.args[2:]]
-        RESULT = op.result.concretetype
-        FUNCPTR = lltype.Ptr(lltype.FuncType(ARGS, RESULT))
         # make sure we make a copy of function so it no longer belongs
         # to extregistry
         func = op.args[1].value
-        func = func_with_new_name(func, func.func_name + '_compiled')
-        ptr = self.helper_func(FUNCPTR, func)
+        if func.func_name.startswith('stats_'):
+            # get special treatment since we rewrite it to a call that accepts
+            # jit driver
+            func = func_with_new_name(func, func.func_name + '_compiled')
+            def new_func(ignored, *args):
+                return func(self, *args)
+            ARGS = [lltype.Void] + [arg.concretetype for arg in op.args[3:]]
+        else:
+            ARGS = [arg.concretetype for arg in op.args[2:]]
+            new_func = func_with_new_name(func, func.func_name + '_compiled')
+        RESULT = op.result.concretetype
+        FUNCPTR = lltype.Ptr(lltype.FuncType(ARGS, RESULT))
+        ptr = self.helper_func(FUNCPTR, new_func)
         op.opname = 'direct_call'
         op.args = [Constant(ptr, FUNCPTR)] + op.args[2:]
 
@@ -859,7 +869,7 @@ class WarmRunnerDesc(object):
             call_final_function(self.translator, finish,
                                 annhelper = self.annhelper)
 
-    def rewrite_set_param(self):
+    def rewrite_set_param_and_get_stats(self):
         from pypy.rpython.lltypesystem.rstr import STR
 
         closures = {}

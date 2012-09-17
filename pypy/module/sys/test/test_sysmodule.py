@@ -359,6 +359,7 @@ class AppTestSysModulePortedFromCPython:
         sys.setrecursionlimit(10000)
         assert sys.getrecursionlimit() == 10000
         sys.setrecursionlimit(oldlimit)
+        raises(OverflowError, sys.setrecursionlimit, 1<<31)
 
     def test_getwindowsversion(self):
         import sys

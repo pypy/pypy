@@ -138,6 +138,9 @@ def _setup_ctypes_cache():
         llmemory.GCREF:    ctypes.c_void_p,
         llmemory.WeakRef:  ctypes.c_void_p, # XXX
         })
+        
+    if '__int128_t' in rffi.TYPES:
+        _ctypes_cache[rffi.__INT128_T] = ctypes.c_longlong # XXX: Not right at all. But for some reason, It started by while doing JIT compile after a merge with default. Can't extend ctypes, because thats a python standard, right?
 
     # for unicode strings, do not use ctypes.c_wchar because ctypes
     # automatically converts arrays into unicode strings.
@@ -331,7 +334,12 @@ def build_new_ctypes_type(T, delayed_builders):
                 restype = None
             else:
                 restype = get_ctypes_type(T.TO.RESULT)
-            return ctypes.CFUNCTYPE(restype, *argtypes)
+            try:
+                kwds = {'use_errno': True}
+                return ctypes.CFUNCTYPE(restype, *argtypes, **kwds)
+            except TypeError:
+                # unexpected 'use_errno' argument, old ctypes version
+                return ctypes.CFUNCTYPE(restype, *argtypes)
         elif isinstance(T.TO, lltype.OpaqueType):
             return ctypes.c_void_p
         else:
@@ -1226,6 +1234,8 @@ def force_cast(RESTYPE, value):
         cvalue = ord(cvalue)     # character -> integer
     elif hasattr(RESTYPE, "_type") and issubclass(RESTYPE._type, base_int):
         cvalue = int(cvalue)
+    elif isinstance(cvalue, r_longfloat):
+        cvalue = cvalue.value
 
     if not isinstance(cvalue, (int, long, float)):
         raise NotImplementedError("casting %r to %r" % (TYPE1, RESTYPE))

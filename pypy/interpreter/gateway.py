@@ -496,7 +496,12 @@ def build_unwrap_spec(func, argnames, self_type=None):
 
     # apply kw_spec
     for name, spec in kw_spec.items():
-        unwrap_spec[argnames.index(name)] = spec
+        try:
+            unwrap_spec[argnames.index(name)] = spec
+        except ValueError:
+            raise ValueError("unwrap_spec() got a keyword %r but it is not "
+                             "the name of an argument of the following "
+                             "function" % (name,))
 
     return unwrap_spec
 
@@ -646,7 +651,8 @@ class BuiltinCode(eval.Code):
             raise OperationError(space.w_MemoryError, space.w_None)
         except rstackovf.StackOverflow, e:
             rstackovf.check_stack_overflow()
-            raise space.prebuilt_recursion_error
+            raise OperationError(space.w_RuntimeError,
+                                space.wrap("maximum recursion depth exceeded"))
         except RuntimeError:   # not on top of py.py
             raise OperationError(space.w_RuntimeError, space.w_None)
 

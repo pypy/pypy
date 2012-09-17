@@ -196,12 +196,12 @@ class TestCase(object):
         # instances of said type in more detail to generate a more useful
         # error message.
         self._type_equality_funcs = {}
-        self.addTypeEqualityFunc(dict, self.assertDictEqual)
-        self.addTypeEqualityFunc(list, self.assertListEqual)
-        self.addTypeEqualityFunc(tuple, self.assertTupleEqual)
-        self.addTypeEqualityFunc(set, self.assertSetEqual)
-        self.addTypeEqualityFunc(frozenset, self.assertSetEqual)
-        self.addTypeEqualityFunc(unicode, self.assertMultiLineEqual)
+        self.addTypeEqualityFunc(dict, 'assertDictEqual')
+        self.addTypeEqualityFunc(list, 'assertListEqual')
+        self.addTypeEqualityFunc(tuple, 'assertTupleEqual')
+        self.addTypeEqualityFunc(set, 'assertSetEqual')
+        self.addTypeEqualityFunc(frozenset, 'assertSetEqual')
+        self.addTypeEqualityFunc(unicode, 'assertMultiLineEqual')
 
     def addTypeEqualityFunc(self, typeobj, function):
         """Add a type specific assertEqual style function to compare a type.
@@ -490,6 +490,8 @@ class TestCase(object):
         if type(first) is type(second):
             asserter = self._type_equality_funcs.get(type(first))
             if asserter is not None:
+                if isinstance(asserter, basestring):
+                    asserter = getattr(self, asserter)
                 return asserter
 
         return self._baseAssertEqual

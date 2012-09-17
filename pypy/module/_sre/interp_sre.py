@@ -7,7 +7,7 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError
 from pypy.rlib.rarithmetic import intmask
 from pypy.tool.pairtype import extendabletype
-
+from pypy.rlib import jit
 
 # ____________________________________________________________
 #
@@ -275,9 +275,6 @@ class W_SRE_Pattern(Wrappable):
         if last_pos < ctx.end:
             sublist_w.append(slice_w(space, ctx, last_pos, ctx.end,
                                      space.w_None))
-        if n == 0:
-            # not just an optimization -- see test_sub_unicode
-            return w_string, n
 
         if space.is_true(space.isinstance(w_string, space.w_unicode)):
             w_emptystr = space.wrap(u'')
@@ -344,6 +341,7 @@ class W_SRE_Match(Wrappable):
         raise OperationError(space.w_TypeError,
                              space.wrap("cannot copy this match object"))
 
+    @jit.look_inside_iff(lambda self, args_w: jit.isconstant(len(args_w)))
     def group_w(self, args_w):
         space = self.space
         ctx = self.ctx

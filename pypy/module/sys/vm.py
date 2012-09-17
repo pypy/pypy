@@ -45,7 +45,8 @@ purposes only."""
     f.mark_as_escaped()
     return space.wrap(f)
 
-def setrecursionlimit(space, w_new_limit):
+@unwrap_spec(new_limit="c_int")
+def setrecursionlimit(space, new_limit):
     """setrecursionlimit() sets the maximum number of nested calls that
 can occur before a RuntimeError is raised.  On PyPy the limit is
 approximative and checked at a lower level.  The default 1000
@@ -54,7 +55,6 @@ depending on the compiler settings) for ~1400 calls.  Setting the
 value to N reserves N/1000 times 768KB of stack space.
 """
     from pypy.rlib.rstack import _stack_set_length_fraction
-    new_limit = space.int_w(w_new_limit)
     if new_limit <= 0:
         raise OperationError(space.w_ValueError,
                              space.wrap("recursion limit must be positive"))

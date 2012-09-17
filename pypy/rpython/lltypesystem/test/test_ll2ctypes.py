@@ -464,12 +464,12 @@ class TestLL2Ctypes(object):
         FUNCTYPE = lltype.FuncType([lltype.Signed], lltype.Signed)
         cdummy = lltype2ctypes(llhelper(lltype.Ptr(FUNCTYPE), dummy))
         if not is_emulated_long:
-            assert isinstance(cdummy,
-                              ctypes.CFUNCTYPE(ctypes.c_long, ctypes.c_long))
+            assert cdummy.argtypes == (ctypes.c_long,)
+            assert cdummy.restype == ctypes.c_long
         else:
             # XXX maybe we skip this if it breaks on some platforms
-            assert isinstance(cdummy,
-                              ctypes.CFUNCTYPE(ctypes.c_longlong, ctypes.c_longlong))
+            assert cdummy.argtypes == (ctypes.c_longlong,)
+            assert cdummy.restype == ctypes.c_longlong
         res = cdummy(41)
         assert res == 42
         lldummy = ctypes2lltype(lltype.Ptr(FUNCTYPE), cdummy)

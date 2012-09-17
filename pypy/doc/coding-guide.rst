@@ -255,7 +255,12 @@ We are using
   code if the translator can prove that they are non-negative.  When
   slicing a string it is necessary to prove that the slice start and
   stop indexes are non-negative. There is no implicit str-to-unicode cast
-  anywhere.
+  anywhere. Simple string formatting using the ``%`` operator works, as long
+  as the format string is known at translation time; the only supported
+  formatting specifiers are ``%s``, ``%d``, ``%x``, ``%o``, ``%f``, plus
+  ``%r`` but only for user-defined instances. Modifiers such as conversion
+  flags, precision, length etc. are not supported. Moreover, it is forbidden
+  to mix unicode and strings when formatting.
 
 **tuples**
 
@@ -341,8 +346,8 @@ We are using
 
 **objects**
 
-  Normal rules apply. Special methods are not honoured, except ``__init__`` and
-  ``__del__``.
+  Normal rules apply. Special methods are not honoured, except ``__init__``,
+  ``__del__`` and ``__iter__``.
 
 This layout makes the number of types to take care about quite limited.
 
@@ -581,7 +586,7 @@ Modules in PyPy
 
 Modules visible from application programs are imported from
 interpreter or application level files.  PyPy reuses almost all python
-modules of CPython's standard library, currently from version 2.7.1.  We
+modules of CPython's standard library, currently from version 2.7.3.  We
 sometimes need to `modify modules`_ and - more often - regression tests
 because they rely on implementation details of CPython.
 

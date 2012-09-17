@@ -10,8 +10,8 @@ from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.backend.llsupport.symbolic import WORD, unroll_basic_sizes
 from pypy.jit.backend.llsupport.descr import (
     get_size_descr, get_field_descr, get_array_descr,
-    get_call_descr, get_interiorfield_descr, get_dynamic_interiorfield_descr,
-    FieldDescr, ArrayDescr, CallDescr, InteriorFieldDescr, get_dynamic_field_descr)
+    get_call_descr, get_interiorfield_descr,
+    FieldDescr, ArrayDescr, CallDescr, InteriorFieldDescr)
 from pypy.jit.backend.llsupport.asmmemmgr import AsmMemoryManager
 
 
@@ -28,7 +28,7 @@ class AbstractLLCPU(AbstractCPU):
         self.rtyper = rtyper
         self.stats = stats
         self.translate_support_code = translate_support_code
-        if translate_support_code:
+        if translate_support_code and rtyper is not None:
             translator = rtyper.annotator.translator
         else:
             translator = None
@@ -191,7 +191,9 @@ class AbstractLLCPU(AbstractCPU):
         self.on_leave_jitted_memoryerr = on_leave_jitted_memoryerr
 
     def get_on_leave_jitted_hook(self):
-        return lambda : None
+        # this function needs to be overridden for things to work with
+        # our framework GCs
+        translation_time_error
 
     _ON_JIT_LEAVE_FUNC = lltype.Ptr(lltype.FuncType([], lltype.Void))
 
@@ -245,9 +247,6 @@ class AbstractLLCPU(AbstractCPU):
     def fielddescrof(self, STRUCT, fieldname):
         return get_field_descr(self.gc_ll_descr, STRUCT, fieldname)
 
-    def fielddescrof_dynamic(self, offset, fieldsize, is_pointer, is_float, is_signed):
-        return get_dynamic_field_descr(offset, fieldsize, is_pointer, is_float, is_signed)
-
     def unpack_fielddescr(self, fielddescr):
         assert isinstance(fielddescr, FieldDescr)
         return fielddescr.offset
@@ -267,12 +266,6 @@ class AbstractLLCPU(AbstractCPU):
     def interiorfielddescrof(self, A, fieldname):
         return get_interiorfield_descr(self.gc_ll_descr, A, fieldname)
 
-    def interiorfielddescrof_dynamic(self, offset, width, fieldsize,
-                                     is_pointer, is_float, is_signed):
-        return get_dynamic_interiorfield_descr(self.gc_ll_descr,
-                                               offset, width, fieldsize,
-                                               is_pointer, is_float, is_signed)
-
     def unpack_arraydescr(self, arraydescr):
         assert isinstance(arraydescr, ArrayDescr)
         return arraydescr.basesize
@@ -289,10 +282,16 @@ class AbstractLLCPU(AbstractCPU):
     def calldescrof(self, FUNC, ARGS, RESULT, extrainfo):
         return get_call_descr(self.gc_ll_descr, ARGS, RESULT, extrainfo)
 
-    def calldescrof_dynamic(self, ffi_args, ffi_result, extrainfo, ffi_flags):
+    def calldescrof_dynamic(self, cif_description, extrainfo):
         from pypy.jit.backend.llsupport import ffisupport
-        return ffisupport.get_call_descr_dynamic(self, ffi_args, ffi_result,
-                                                 extrainfo, ffi_flags)
+        return ffisupport.get_call_descr_dynamic(self, cif_description,
+                                                 extrainfo)
+
+    def _calldescr_dynamic_for_tests(self, atypes, rtype,
+                                     abiname='FFI_DEFAULT_ABI'):
+        from pypy.jit.backend.llsupport import ffisupport
+        return ffisupport.calldescr_dynamic_for_tests(self, atypes, rtype,
+                                                      abiname)
 
     def get_overflow_error(self):
         ovf_vtable = self.cast_adr_to_int(self._ovf_error_vtable)
@@ -588,6 +587,32 @@ class AbstractLLCPU(AbstractCPU):
     bh_setfield_raw_i = _base_do_setfield_i
     bh_setfield_raw_r = _base_do_setfield_r
     bh_setfield_raw_f = _base_do_setfield_f
+
+    def bh_raw_store_i(self, addr, offset, descr, newvalue):
+        ofs, size, sign = self.unpack_arraydescr_size(descr)
+        items = addr + offset
+        for TYPE, _, itemsize in unroll_basic_sizes:
+            if size == itemsize:
+                items = rffi.cast(rffi.CArrayPtr(TYPE), items)
+                items[0] = rffi.cast(TYPE, newvalue)
+                break
+
+    def bh_raw_store_f(self, addr, offset, descr, newvalue):
+        items = rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), addr + offset)
+        items[0] = newvalue
+
+    def bh_raw_load_i(self, addr, offset, descr):
+        ofs, size, sign = self.unpack_arraydescr_size(descr)
+        items = addr + offset
+        for TYPE, _, itemsize in unroll_basic_sizes:
+            if size == itemsize:
+                items = rffi.cast(rffi.CArrayPtr(TYPE), items)
+                return rffi.cast(lltype.Signed, items[0])
+        assert False # unreachable code
+
+    def bh_raw_load_f(self, addr, offset, descr):
+        items = rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), addr + offset)
+        return items[0]
 
     def bh_new(self, sizedescr):
         return self.gc_ll_descr.gc_malloc(sizedescr)

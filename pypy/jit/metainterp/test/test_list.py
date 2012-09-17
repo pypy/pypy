@@ -251,6 +251,16 @@ class ListTests:
         self.meta_interp(f, [10], listops=True)
         self.check_resops(new_array=0, call=0)
 
+    def test_list_mul(self):
+        def f(i):
+            l = [0] * i
+            return len(l)
+
+        r = self.interp_operations(f, [3])
+        assert r == 3
+        r = self.interp_operations(f, [-1])
+        assert r == 0
+
 class TestOOtype(ListTests, OOJitMixin):
     pass
 

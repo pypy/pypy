@@ -237,29 +237,6 @@ def get_interiorfield_descr(gc_ll_descr, ARRAY, name):
         cache[(ARRAY, name)] = descr
         return descr
 
-def compute_flag(is_pointer, is_float, is_signed):
-    if is_pointer:
-        assert not is_float
-        return FLAG_POINTER
-    elif is_float:
-        return FLAG_FLOAT
-    elif is_signed:
-        return FLAG_SIGNED
-    else:
-        return FLAG_UNSIGNED
-
-def get_dynamic_field_descr(offset, fieldsize, is_pointer, is_float, is_signed):
-    flag = compute_flag(is_pointer, is_float, is_signed)
-    return FieldDescr('dynamic', offset, fieldsize, flag)
-
-def get_dynamic_interiorfield_descr(gc_ll_descr, offset, width, fieldsize,
-                                    is_pointer, is_float, is_signed):
-    arraydescr = ArrayDescr(0, width, None, FLAG_STRUCT)
-    flag = compute_flag(is_pointer, is_float, is_signed)
-    fielddescr = FieldDescr('dynamic', offset, fieldsize, flag)
-    return InteriorFieldDescr(arraydescr, fielddescr)
-
-
 # ____________________________________________________________
 # CallDescrs
 
@@ -485,3 +462,31 @@ def get_call_descr(gccache, ARGS, RESULT, extrainfo=None):
         cache[key] = calldescr
     assert repr(calldescr.result_size) == repr(result_size)
     return calldescr
+
+
+def unpack_arraydescr(arraydescr):
+    assert isinstance(arraydescr, ArrayDescr)
+    ofs = arraydescr.basesize
+    size = arraydescr.itemsize
+    sign = arraydescr.is_item_signed()
+    return size, ofs, sign
+
+
+def unpack_fielddescr(fielddescr):
+    assert isinstance(fielddescr, FieldDescr)
+    ofs = fielddescr.offset
+    size = fielddescr.field_size
+    sign = fielddescr.is_field_signed()
+    return ofs, size, sign
+unpack_fielddescr._always_inline_ = True
+
+
+def unpack_interiorfielddescr(descr):
+    assert isinstance(descr, InteriorFieldDescr)
+    arraydescr = descr.arraydescr
+    ofs = arraydescr.basesize
+    itemsize = arraydescr.itemsize
+    fieldsize = descr.fielddescr.field_size
+    sign = descr.fielddescr.is_field_signed()
+    ofs += descr.fielddescr.offset
+    return ofs, itemsize, fieldsize, sign
