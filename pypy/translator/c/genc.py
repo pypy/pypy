@@ -17,15 +17,6 @@ from pypy.tool.nullpath import NullPyPathLocal
 
 _CYGWIN = sys.platform == 'cygwin'
 
-def import_module_from_directory(dir, modname):
-    file, pathname, description = imp.find_module(modname, [str(dir)])
-    try:
-        mod = imp.load_module(modname, file, pathname, description)
-    finally:
-        if file:
-            file.close()
-    return mod
-
 _CPYTHON_RE = py.std.re.compile('^Python 2.[567]')
 
 def get_recent_cpython_executable():
