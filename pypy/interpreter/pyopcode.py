@@ -536,7 +536,7 @@ class __extend__(pyframe.PyFrame):
             ec = self.space.getexecutioncontext()
             while frame:
                 if frame.last_exception is not None:
-                    operror = ec._convert_exc(frame.last_exception)
+                    operror = frame.last_exception
                     break
                 frame = frame.f_backref()
             else:

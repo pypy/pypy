@@ -450,13 +450,6 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
             candidates.insert(0, newblock)
             self.pendingblocks.append(newblock)
 
-    def _convert_exc(self, operr):
-        if isinstance(operr, ImplicitOperationError):
-            # re-raising an implicit operation makes it an explicit one
-            w_value = operr.get_w_value(self.space)
-            operr = FSException(operr.w_type, w_value)
-        return operr
-
     # hack for unrolling iterables, don't use this
     def replace_in_stack(self, oldvalue, newvalue):
         w_new = Constant(newvalue)
@@ -515,9 +508,13 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         space = self.space
         if nbargs == 0:
             if self.last_exception is not None:
-                operror = self._convert_exc(self.last_exception)
-                self.last_exception = operror
-                raise RaiseWithExplicitTraceback(operror)
+                operr = self.last_exception
+                if isinstance(operr, ImplicitOperationError):
+                    # re-raising an implicit operation makes it an explicit one
+                    w_value = operr.get_w_value(self.space)
+                    operr = FSException(operr.w_type, w_value)
+                self.last_exception = operr
+                raise RaiseWithExplicitTraceback(operr)
             else:
                 raise FSException(space.w_TypeError,
                     space.wrap("raise: no active exception to re-raise"))
