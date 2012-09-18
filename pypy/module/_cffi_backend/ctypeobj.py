@@ -134,13 +134,18 @@ class W_CType(Wrappable):
                               "ctype '%s' is of unknown alignment",
                               self.name)
 
-    def offsetof(self, fieldname):
+    def typeoffsetof(self, fieldname):
         space = self.space
         raise OperationError(space.w_TypeError,
                              space.wrap("not a struct or union ctype"))
 
     def _getfields(self):
         return None
+
+    def rawaddressof(self, cdata, offset):
+        space = self.space
+        raise OperationError(space.w_TypeError,
+                             space.wrap("expected a pointer ctype"))
 
     def call(self, funcaddr, args_w):
         space = self.space
