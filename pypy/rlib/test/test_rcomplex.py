@@ -2,7 +2,7 @@ from __future__ import with_statement
 
 import pypy.rlib.rcomplex as c
 from pypy.rlib.rfloat import copysign, isnan, isinf
-import os, sys, math
+import os, sys, math, struct
 
 
 def test_add():
@@ -33,6 +33,47 @@ def test_mul():
         ]:
             assert c.c_mul(c1, c2) == result
 
+def parse_testfile2(fname):
+    """Parse a file with test values
+
+    Empty lines or lines starting with -- are ignored
+    yields id, fn, arg1_real, arg1_imag, arg2_real, arg2_imag,
+    exp_real, exp_imag where numbers in file may be expressed as     floating point or hex
+    """
+    fname = os.path.join(os.path.dirname(__file__), fname)
+    with open(fname) as fp:
+        for line in fp:
+            # skip comment lines and blank lines
+            if line.startswith('--') or not line.strip():
+                continue
+
+            lhs, rhs = line.split('->')
+            lhs_pieces = lhs.split()
+            rhs_pieces = rhs.split()
+            for i in range(2, len(lhs_pieces)):
+                if lhs_pieces[i].lower().startswith('0x'):
+                    lhs_pieces[i] = struct.unpack('d',
+                        struct.pack('q',int(lhs_pieces[i])))
+                else:
+                    lhs_pieces[i] = float(lhs_pieces[i])
+            for i in range(2):
+                if rhs_pieces[i].lower().startswith('0x'):
+                    rhs_pieces[i] = struct.unpack('d',
+                        struct.pack('l',int(rhs_pieces[i])))
+                else:
+                    rhs_pieces[i] = float(rhs_pieces[i])
+            #id, fn, arg1_real, arg1_imag arg2_real, arg2_imag = 
+            #exp_real, exp_imag = rhs_pieces[0], rhs_pieces[1]
+            flags = rhs_pieces[2:]
+            id_f, fn = lhs_pieces[:2]
+            if len(lhs_pieces)>4:
+                args = (lhs_pieces[2:4], lhs_pieces[4:])
+            else:
+                args = lhs_pieces[2:]
+            yield id_f, fn, args, rhs_pieces[:2], flags
+
+
+
 def parse_testfile(fname):
     """Parse a file with test values
 
@@ -58,6 +99,13 @@ def parse_testfile(fname):
                    flags
                   )
 
+def args_to_str(args):
+    if isinstance(args[0],(list, tuple)):
+        return '(complex(%r, %r), complex(%r, %r))' % \
+             (args[0][0], args[0][1], args[1][0], args[1][1])
+    else:
+        return '(complex(%r, %r))' % (args[0], args[1])
+            
 def rAssertAlmostEqual(a, b, rel_err = 2e-15, abs_err = 5e-323, msg=''):
     """Fail if the two floating-point numbers are not almost equal.
 
@@ -111,9 +159,7 @@ def test_specific_values():
     #if not float.__getformat__("double").startswith("IEEE"):
     #    return
 
-    for id, fn, ar, ai, er, ei, flags in parse_testfile('rcomplex_testcases.txt'):
-        arg = (ar, ai)
-        expected = (er, ei)
+    for id, fn, arg, expected, flags in parse_testfile2('rcomplex_testcases.txt'):
         function = getattr(c, 'c_' + fn)
         #
         if 'divide-by-zero' in flags or 'invalid' in flags:
@@ -123,8 +169,7 @@ def test_specific_values():
                 continue
             else:
                 raise AssertionError('ValueError not raised in test '
-                                     '%s: %s(complex(%r, %r))' % (id, fn,
-                                                                  ar, ai))
+                          '%s: %s%s' % (id, fn, args_to_str(arg)))
         if 'overflow' in flags:
             try:
                 actual = function(*arg)
@@ -132,8 +177,7 @@ def test_specific_values():
                 continue
             else:
                 raise AssertionError('OverflowError not raised in test '
-                                     '%s: %s(complex(%r, %r))' % (id, fn,
-                                                                  ar, ai))
+                          '%s: %s%s' % (id, fn, args_to_str(arg)))
         actual = function(*arg)
 
         if 'ignore-real-sign' in flags:
@@ -151,10 +195,10 @@ def test_specific_values():
             real_abs_err = 5e-323
 
         error_message = (
-            '%s: %s(complex(%r, %r))\n'
+            '%s: %s%s\n'
             'Expected: complex(%r, %r)\n'
             'Received: complex(%r, %r)\n'
-            ) % (id, fn, ar, ai,
+            ) % (id, fn, args_to_str(arg),
                  expected[0], expected[1],
                  actual[0], actual[1])
 
@@ -162,4 +206,54 @@ def test_specific_values():
                            abs_err=real_abs_err,
                            msg=error_message)
         rAssertAlmostEqual(expected[1], actual[1],
+                           abs_err=real_abs_err,
+                           msg=error_message)
+
+    for id, fn, a, expected, flags in parse_testfile2('rcomplex_testcases2.txt'):
+        function = getattr(c, 'c_' + fn)
+        #
+        if 'divide-by-zero' in flags or 'invalid' in flags:
+            try:
+                actual = function(*a)
+            except ValueError:
+                continue
+            else:
+                raise AssertionError('ValueError not raised in test '
+                            '%s: %s%s' % (id, fn, args_to_str(a)))
+        if 'overflow' in flags:
+            try:
+                actual = function(*a)
+            except OverflowError:
+                continue
+            else:
+                raise AssertionError('OverflowError not raised in test '
+                            '%s: %s%s' % (id, fn, args_to_str(a)))
+        actual = function(*a)
+
+        if 'ignore-real-sign' in flags:
+            actual = (abs(actual[0]), actual[1])
+            expected = (abs(expected[0]), expected[1])
+        if 'ignore-imag-sign' in flags:
+            actual = (actual[0], abs(actual[1]))
+            expected = (expected[0], abs(expected[1]))
+
+        # for the real part of the log function, we allow an
+        # absolute error of up to 2e-15.
+        if fn in ('log', 'log10'):
+            real_abs_err = 2e-15
+        else:
+            real_abs_err = 5e-323
+        error_message = (
+            '%s: %s%s\n'
+            'Expected: complex(%r, %r)\n'
+            'Received: complex(%r, %r)\n'
+            ) % (id, fn, args_to_str(a),
+                 expected[0], expected[1],
+                 actual[0], actual[1])
+
+        rAssertAlmostEqual(expected[0], actual[0],
+                           abs_err=real_abs_err,
+                           msg=error_message)
+        rAssertAlmostEqual(expected[1], actual[1],
+                           abs_err=real_abs_err,
                            msg=error_message)

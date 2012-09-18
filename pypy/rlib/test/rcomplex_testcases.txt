@@ -1,4 +1,4 @@
--- Testcases for functions in cmath.
+-- Testcases for functions in rcomplex, copied from cpython's cmath.
 --
 -- Each line takes the form:
 --
