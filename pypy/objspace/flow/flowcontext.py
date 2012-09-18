@@ -23,15 +23,21 @@ class FSException(OperationError):
         if w_type is None:
             raise FlowingError(w_value)
         self.w_type = w_type
-        self._w_value = w_value
+        self.w_value = w_value
         self._application_traceback = tb
+
+    def get_w_value(self, _):
+        return self.w_value
+
+    def __str__(self):
+        return '[%s: %s]' % (self.w_type, self.w_value)
 
     def normalize_exception(self, space):
         """Normalize the OperationError.  In other words, fix w_type and/or
         w_value to make sure that the __class__ of w_value is exactly w_type.
         """
         w_type  = self.w_type
-        w_value = self.get_w_value(space)
+        w_value = self.w_value
         if space.exception_is_valid_obj_as_class_w(w_type):
             # this is for all cases of the form (Class, something)
             if space.is_w(w_value, space.w_None):
@@ -59,8 +65,8 @@ class FSException(OperationError):
             w_value = w_inst
             w_type = w_instclass
 
-        self.w_type   = w_type
-        self._w_value = w_value
+        self.w_type = w_type
+        self.w_value = w_value
 
 class OperationThatShouldNotBePropagatedError(FSException):
     pass
@@ -318,7 +324,7 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
             data.append(Constant(None))
         else:
             data.append(self.last_exception.w_type)
-            data.append(self.last_exception.get_w_value(self.space))
+            data.append(self.last_exception.w_value)
         recursively_flatten(self.space, data)
         nonmergeable = (self.get_blocklist(),
             self.last_instr)   # == next_instr when between bytecodes
@@ -404,8 +410,7 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
                 if e.w_type is self.space.w_ImportError:
                     msg = 'import statement always raises %s' % e
                     raise ImportError(msg)
-                w_value = e.get_w_value(self.space)
-                link = Link([e.w_type, w_value], self.graph.exceptblock)
+                link = Link([e.w_type, e.w_value], self.graph.exceptblock)
                 self.recorder.crnt_block.closeblock(link)
 
             except StopFlowing:
@@ -483,7 +488,7 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
             raise Exception(
                 'found an operation that always raises %s: %s' % (
                     self.space.unwrap(e.w_type).__name__,
-                    self.space.unwrap(e.get_w_value(self.space))))
+                    self.space.unwrap(e.w_value)))
         except FSException, operr:
             self.attach_traceback(operr)
             next_instr = self.handle_operation_error(operr)
@@ -518,8 +523,7 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
                 operr = self.last_exception
                 if isinstance(operr, ImplicitOperationError):
                     # re-raising an implicit operation makes it an explicit one
-                    w_value = operr.get_w_value(self.space)
-                    operr = FSException(operr.w_type, w_value)
+                    operr = FSException(operr.w_type, operr.w_value)
                 self.last_exception = operr
                 raise RaiseWithExplicitTraceback(operr)
             else:
@@ -645,7 +649,7 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
 class SFlowException(SApplicationException):
     """Flowspace override for SApplicationException"""
     def state_unpack_variables(self, space):
-        return [self.operr.w_type, self.operr.get_w_value(space)]
+        return [self.operr.w_type, self.operr.w_value]
 
     @staticmethod
     def state_pack_variables(space, w_type, w_value):
