@@ -136,8 +136,11 @@ class W_CType(Wrappable):
 
     def typeoffsetof(self, fieldname):
         space = self.space
-        raise OperationError(space.w_TypeError,
-                             space.wrap("not a struct or union ctype"))
+        if fieldname is None:
+            msg = "expected a struct or union ctype"
+        else:
+            msg = "expected a struct or union ctype, or a pointer to one"
+        raise OperationError(space.w_TypeError, space.wrap(msg))
 
     def _getfields(self):
         return None
