@@ -19,7 +19,41 @@ class StopFlowing(Exception):
     pass
 
 class FSException(OperationError):
-    pass
+    def normalize_exception(self, space):
+        """Normalize the OperationError.  In other words, fix w_type and/or
+        w_value to make sure that the __class__ of w_value is exactly w_type.
+        """
+        w_type  = self.w_type
+        w_value = self.get_w_value(space)
+        if space.exception_is_valid_obj_as_class_w(w_type):
+            # this is for all cases of the form (Class, something)
+            if space.is_w(w_value, space.w_None):
+                # raise Type: we assume we have to instantiate Type
+                w_value = space.call_function(w_type)
+                w_type = self._exception_getclass(space, w_value)
+            else:
+                w_valuetype = space.exception_getclass(w_value)
+                if space.exception_issubclass_w(w_valuetype, w_type):
+                    # raise Type, Instance: let etype be the exact type of value
+                    w_type = w_valuetype
+                else:
+                    # raise Type, X: assume X is the constructor argument
+                    w_value = space.call_function(w_type, w_value)
+                    w_type = self._exception_getclass(space, w_value)
+
+        else:
+            # the only case left here is (inst, None), from a 'raise inst'.
+            w_inst = w_type
+            w_instclass = self._exception_getclass(space, w_inst)
+            if not space.is_w(w_value, space.w_None):
+                raise FSException(space.w_TypeError,
+                                     space.wrap("instance exception may not "
+                                                "have a separate value"))
+            w_value = w_inst
+            w_type = w_instclass
+
+        self.w_type   = w_type
+        self._w_value = w_value
 
 class OperationThatShouldNotBePropagatedError(FSException):
     pass
@@ -359,7 +393,7 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
                 link = Link([w_type, w_value], self.graph.exceptblock)
                 self.recorder.crnt_block.closeblock(link)
 
-            except OperationError, e:
+            except FSException, e:
                 if e.w_type is self.space.w_ImportError:
                     msg = 'import statement always raises %s' % e
                     raise ImportError(msg)
@@ -450,7 +484,7 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
                 'found an operation that always raises %s: %s' % (
                     self.space.unwrap(e.w_type).__name__,
                     self.space.unwrap(e.get_w_value(self.space))))
-        except OperationError, operr:
+        except FSException, operr:
             self.attach_traceback(operr)
             next_instr = self.handle_operation_error(operr)
         except RaiseWithExplicitTraceback, e:
@@ -465,7 +499,7 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         operr.set_traceback(tb)
 
     def handle_operation_error(self, operr):
-        block = self.unrollstack(SApplicationException.kind)
+        block = self.unrollstack(SFlowException.kind)
         if block is None:
             # no handler found for the exception
             # try to preserve the CPython-level traceback
@@ -473,7 +507,7 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
             tb = sys.exc_info()[2]
             raise operr, None, tb
         else:
-            unroller = SApplicationException(operr)
+            unroller = SFlowException(operr)
             next_instr = block.handle(self, unroller)
             return next_instr
 
@@ -485,7 +519,7 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
                 self.last_exception = operror
                 raise RaiseWithExplicitTraceback(operror)
             else:
-                raise OperationError(space.w_TypeError,
+                raise FSException(space.w_TypeError,
                     space.wrap("raise: no active exception to re-raise"))
 
         w_value = w_traceback = space.w_None
@@ -495,7 +529,7 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
             w_value = self.popvalue()
         if 1:
             w_type = self.popvalue()
-        operror = OperationError(w_type, w_value)
+        operror = FSException(w_type, w_value)
         operror.normalize_exception(space)
         raise operror
 
@@ -602,3 +636,13 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         # swallow the exception
         return self.space.w_None
 
+### Frame blocks ###
+
+class SFlowException(SApplicationException):
+    """Flowspace override for SApplicationException"""
+    def state_unpack_variables(self, space):
+        return [self.operr.w_type, self.operr.get_w_value(space)]
+
+    @staticmethod
+    def state_pack_variables(space, w_type, w_value):
+        return SFlowException(FSException(w_type, w_value))

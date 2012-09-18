@@ -1219,12 +1219,6 @@ class SApplicationException(SuspendedUnroller):
     def nomoreblocks(self):
         raise RaiseWithExplicitTraceback(self.operr)
 
-    def state_unpack_variables(self, space):
-        return [self.operr.w_type, self.operr.get_w_value(space)]
-    def state_pack_variables(space, w_type, w_value):
-        return SApplicationException(OperationError(w_type, w_value))
-    state_pack_variables = staticmethod(state_pack_variables)
-
 class SBreakLoop(SuspendedUnroller):
     """Signals a 'break' statement."""
     _immutable_ = True
