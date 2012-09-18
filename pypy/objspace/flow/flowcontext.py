@@ -19,6 +19,13 @@ class StopFlowing(Exception):
     pass
 
 class FSException(OperationError):
+    def __init__(self, w_type, w_value, tb=None):
+        if w_type is None:
+            raise FlowingError(w_value)
+        self.w_type = w_type
+        self._w_value = w_value
+        self._application_traceback = tb
+
     def normalize_exception(self, space):
         """Normalize the OperationError.  In other words, fix w_type and/or
         w_value to make sure that the __class__ of w_value is exactly w_type.
