@@ -992,6 +992,17 @@ class AppTestExceptions:
         else:
             raise Exception("DID NOT RAISE")
 
+    def test_taberror(self):
+        source = """if 1:
+        x
+    \ty
+        """
+        try:
+            exec(source)
+        except TabError as e:
+            pass
+        else:
+            raise Exception("DID NOT RAISE")
 
     def test_repr_vs_str(self):
         source1 = "x = (\n"

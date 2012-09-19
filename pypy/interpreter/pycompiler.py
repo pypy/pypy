@@ -145,6 +145,9 @@ class PythonAstCompiler(PyCodeCompiler):
         try:
             parse_tree = self.parser.parse_source(source, info)
             mod = astbuilder.ast_from_node(space, parse_tree, info)
+        except parseerror.TabError, e:
+            raise OperationError(space.w_TabError,
+                                 e.wrap_info(space))
         except parseerror.IndentationError, e:
             raise OperationError(space.w_IndentationError,
                                  e.wrap_info(space))
