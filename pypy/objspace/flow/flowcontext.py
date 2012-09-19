@@ -1,6 +1,6 @@
 import collections
 import sys
-from pypy.tool.error import FlowingError
+from pypy.tool.error import FlowingError, format_global_error
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.pytraceback import PyTraceback
 from pypy.interpreter import pyframe
@@ -421,6 +421,14 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
                 assert w_result is not None
                 link = Link([w_result], self.graph.returnblock)
                 self.recorder.crnt_block.closeblock(link)
+
+            except FlowingError, a:
+                # attach additional source info to AnnotatorError
+                _, _, tb = sys.exc_info()
+                formatted = format_global_error(self.graph, self.last_instr,
+                                                    str(a))
+                e = FlowingError(formatted)
+                raise FlowingError, e, tb
         del self.recorder
 
     def mergeblock(self, currentblock, currentstate):

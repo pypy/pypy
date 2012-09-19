@@ -3,13 +3,12 @@ import __builtin__
 import sys
 import operator
 import types
-from pypy.tool import error
 from pypy.interpreter.baseobjspace import ObjSpace, Wrappable
 from pypy.interpreter import pyframe, argument
 from pypy.objspace.flow.model import *
 from pypy.objspace.flow import operation
 from pypy.objspace.flow.flowcontext import (FlowSpaceFrame, fixeggblocks,
-    OperationThatShouldNotBePropagatedError, FSException)
+    OperationThatShouldNotBePropagatedError, FSException, FlowingError)
 from pypy.objspace.flow.specialcase import SPECIAL_CASES
 from pypy.rlib.unroll import unrolling_iterable, _unroller
 from pypy.rlib import rstackovf, rarithmetic
@@ -191,7 +190,7 @@ class FlowObjSpace(ObjSpace):
         except UnwrapException:
             raise Exception, "non-constant except guard"
         if check_class in (NotImplementedError, AssertionError):
-            raise error.FlowingError("Catching %s is not valid in RPython" %
+            raise FlowingError("Catching %s is not valid in RPython" %
                                      check_class.__name__)
         if not isinstance(check_class, tuple):
             # the simple case
@@ -222,17 +221,7 @@ class FlowObjSpace(ObjSpace):
         if func.func_doc and func.func_doc.lstrip().startswith('NOT_RPYTHON'):
             raise Exception, "%r is tagged as NOT_RPYTHON" % (func,)
         frame = self.frame = FlowSpaceFrame(self, func, constargs)
-
-        try:
-            frame.build_flow()
-        except error.FlowingError, a:
-            # attach additional source info to AnnotatorError
-            _, _, tb = sys.exc_info()
-            formated = error.format_global_error(frame.graph, self.frame.last_instr,
-                                                 str(a))
-            e = error.FlowingError(formated)
-            raise error.FlowingError, e, tb
-
+        frame.build_flow()
         graph = frame.graph
         fixeggblocks(graph)
         checkgraph(graph)
