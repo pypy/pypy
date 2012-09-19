@@ -1345,6 +1345,13 @@ class AppTestForRangeLists(AppTestW_ListObject):
         l.reverse()
         assert l == [2,1,0]
 
+    def test_issue1266(self):
+        l = range(1)
+        l.pop()
+        # would previously crash
+        l.append(1)
+        assert l == [1]
+
 class AppTestWithoutStrategies(object):
 
     def setup_class(cls):

@@ -589,12 +589,14 @@ class RangeListStrategy(ListStrategy):
     def append(self, w_list, w_item):
         if is_W_IntObject(w_item):
             l = self.unerase(w_list.lstorage)
-            step = l[1]
-            last_in_range = self._getitem_unwrapped(w_list, -1)
-            if self.unwrap(w_item) - step == last_in_range:
-                new = self.erase((l[0], l[1], l[2] + 1))
-                w_list.lstorage = new
-                return
+            length = l[2]
+            if length:
+                last_in_range = self._getitem_unwrapped(w_list, -1)
+                step = l[1]
+                if self.unwrap(w_item) - step == last_in_range:
+                    new = self.erase((l[0], step, length + 1))
+                    w_list.lstorage = new
+                    return
 
             self.switch_to_integer_strategy(w_list)
         else:
