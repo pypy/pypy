@@ -1,8 +1,8 @@
 from pypy.interpreter.pyparser import automata
 from pypy.interpreter.pyparser.pygram import tokens
 from pypy.interpreter.pyparser.pytoken import python_opmap
-from pypy.interpreter.pyparser.error import TokenError, TokenIndentationError
-from pypy.interpreter.pyparser.pytokenize import tabsize, whiteSpaceDFA, \
+from pypy.interpreter.pyparser.error import TokenError, TokenIndentationError, TabError
+from pypy.interpreter.pyparser.pytokenize import tabsize, alttabsize, whiteSpaceDFA, \
     triple_quoted, endDFAs, single_quoted, pseudoDFA
 from pypy.interpreter.astcompiler import consts
 
@@ -77,6 +77,7 @@ def generate_tokens(lines, flags):
     contstr, needcont = '', 0
     contline = None
     indents = [0]
+    altindents = [0]
     last_comment = ''
     parenlevstart = (0, 0, "")
 
@@ -123,11 +124,18 @@ def generate_tokens(lines, flags):
         elif parenlev == 0 and not continued:  # new statement
             if not line: break
             column = 0
+            altcolumn = 0
             while pos < max:                   # measure leading whitespace
-                if line[pos] == ' ': column = column + 1
-                elif line[pos] == '\t': column = (column/tabsize + 1)*tabsize
-                elif line[pos] == '\f': column = 0
-                else: break
+                if line[pos] == ' ':
+                    column = column + 1
+                    altcolumn = altcolumn + 1
+                elif line[pos] == '\t':
+                    column = (column/tabsize + 1)*tabsize
+                    altcolumn = (altcolumn/alttabsize + 1)*alttabsize
+                elif line[pos] == '\f':
+                    column = 0
+                else:
+                    break
                 pos = pos + 1
             if pos == max: break
 
@@ -135,17 +143,27 @@ def generate_tokens(lines, flags):
                 # skip comments or blank lines
                 continue
 
-            if column > indents[-1]:           # count indents or dedents
+            if column == indents[-1]:
+                if altcolumn != altindents[-1]:
+                    raise TabError(lnum, pos, line)
+            elif column > indents[-1]:           # count indents or dedents
+                if altcolumn <= altindents[-1]:
+                    raise TabError(lnum, pos, line)
                 indents.append(column)
+                altindents.append(altcolumn)
                 token_list.append((tokens.INDENT, line[:pos], lnum, 0, line))
                 last_comment = ''
-            while column < indents[-1]:
-                indents = indents[:-1]
-                token_list.append((tokens.DEDENT, '', lnum, pos, line))
-                last_comment = ''
-            if column != indents[-1]:
-                err = "unindent does not match any outer indentation level"
-                raise TokenIndentationError(err, line, lnum, 0, token_list)
+            else:
+                while column < indents[-1]:
+                    indents = indents[:-1]
+                    altindents = altindents[:-1]
+                    token_list.append((tokens.DEDENT, '', lnum, pos, line))
+                    last_comment = ''
+                if column != indents[-1]:
+                    err = "unindent does not match any outer indentation level"
+                    raise TokenIndentationError(err, line, lnum, 0, token_list)
+                if altcolumn != altindents[-1]:
+                    raise TabError(lnum, pos, line)
 
         else:                                  # continued statement
             if not line:

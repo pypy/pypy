@@ -2,7 +2,7 @@
 import py
 from pypy.interpreter.pyparser import pyparse
 from pypy.interpreter.pyparser.pygram import syms, tokens
-from pypy.interpreter.pyparser.error import SyntaxError, IndentationError
+from pypy.interpreter.pyparser.error import SyntaxError, IndentationError, TabError
 from pypy.interpreter.astcompiler import consts
 
 
@@ -85,6 +85,18 @@ pass"""
         exc = py.test.raises(IndentationError, parse, input).value
         assert exc.msg == "unindent does not match any outer indentation level"
         assert exc.lineno == 3
+
+    def test_taberror(self):
+        src = """
+if 1:
+        pass
+    \tpass
+"""
+        exc = py.test.raises(TabError, "self.parse(src)").value
+        assert exc.msg == "inconsistent use of tabs and spaces in indentation"
+        assert exc.lineno == 4
+        assert exc.offset == 5
+        assert exc.text == "    \tpass\n"
 
     def test_mac_newline(self):
         self.parse("this_is\ra_mac\rfile")

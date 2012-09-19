@@ -28,6 +28,12 @@ class SyntaxError(Exception):
 class IndentationError(SyntaxError):
     pass
 
+class TabError(IndentationError):
+    def __init__(self, lineno=0, offset=0, text=None, filename=None,
+                 lastlineno=0):
+        msg = "inconsistent use of tabs and spaces in indentation"
+        IndentationError.__init__(self, msg, lineno, offset, text, filename, lastlineno)
+
 class ASTError(Exception):
     def __init__(self, msg, ast_node ):
         self.msg = msg

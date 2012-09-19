@@ -57,6 +57,7 @@ for t in ("'", '"',
     single_quoted[t] = t
 
 tabsize = 8
+alttabsize = 1
 
 # PYPY MODIFICATION: removed TokenError class as it's not needed here
 
