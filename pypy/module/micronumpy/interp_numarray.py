@@ -94,6 +94,11 @@ class __extend__(W_NDimArray):
         res = W_NDimArray.from_shape(shape, self.get_dtype(), self.get_order())
         return loop.getitem_array_int(space, self, res, iter_shape, indexes)
 
+    def setitem_array_int(self, space, w_index, w_value):
+        val_arr = convert_to_array(space, w_value)
+        iter_shape, indexes = self._prepare_array_index(space, w_index)
+        return loop.setitem_array_int(space, self, iter_shape, indexes, val_arr)
+
     def descr_getitem(self, space, w_idx):
         if (isinstance(w_idx, W_NDimArray) and
             w_idx.get_dtype().is_bool_type()):
@@ -116,7 +121,10 @@ class __extend__(W_NDimArray):
             w_idx.get_dtype().is_bool_type()):
             return self.setitem_filter(space, w_idx,
                                        convert_to_array(space, w_value))
-        self.implementation.descr_setitem(space, w_idx, w_value)
+        try:
+            self.implementation.descr_setitem(space, w_idx, w_value)
+        except ArrayArgumentException:
+            self.setitem_array_int(space, w_idx, w_value)
 
     def descr_len(self, space):
         shape = self.get_shape()

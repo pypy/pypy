@@ -1521,11 +1521,20 @@ class AppTestNumArray(BaseNumpyAppTest):
     def test_int_array_index(self):
         from numpypy import array, arange
         b = arange(10)[array([3, 2, 1, 5])]
-        print b
         assert (b == [3, 2, 1, 5]).all()
         raises(IndexError, "arange(10)[array([10])]")
         assert (arange(10)[[-5, -3]] == [5, 7]).all()
         raises(IndexError, "arange(10)[[-11]]")
+
+    def test_int_array_index_setitem(self):
+        from numpypy import array, arange, zeros
+        a = arange(10)
+        a[[3, 2, 1, 5]] = zeros(4, dtype=int)
+        assert (a == [0, 0, 0, 0, 4, 0, 6, 7, 8, 9]).all()
+        a[[-9, -8]] = [1, 1]
+        assert (a == [0, 1, 1, 0, 4, 0, 6, 7, 8, 9]).all()
+        raises(IndexError, "arange(10)[array([10])] = 3")
+        raises(IndexError, "arange(10)[[-11]] = 3")
 
     def test_bool_array_index(self):
         from numpypy import arange, array

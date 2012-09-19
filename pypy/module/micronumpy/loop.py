@@ -256,3 +256,15 @@ def getitem_array_int(space, arr, res, iter_shape, indexes):
         index_iter.next()
         res_iter.next()
     return res
+
+def setitem_array_int(space, arr, iter_shape, indexes, val_arr):
+    assert len(indexes) == 1
+    assert len(iter_shape) == 1
+    index_iter = indexes[0].create_iter()
+    dtype = arr.get_dtype()
+    val_iter = val_arr.create_iter(iter_shape)
+    while not index_iter.done():
+        idx = space.int_w(index_iter.getitem())
+        arr.setitem(space, [idx], val_iter.getitem().convert_to(dtype))
+        val_iter.next()
+        index_iter.next()
