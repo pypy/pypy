@@ -1,6 +1,6 @@
 import collections
 import sys
-from pypy.tool.error import FlowingError, format_global_error
+from pypy.tool.error import format_global_error
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.pytraceback import PyTraceback
 from pypy.interpreter import pyframe
@@ -14,6 +14,9 @@ from pypy.objspace.flow.model import *
 from pypy.objspace.flow.framestate import (FrameState, recursively_unflatten,
         recursively_flatten)
 from pypy.objspace.flow.bytecode import HostCode
+
+class FlowingError(Exception):
+    pass
 
 class StopFlowing(Exception):
     pass

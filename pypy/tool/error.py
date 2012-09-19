@@ -65,9 +65,6 @@ def source_lines(graph, *args, **kwds):
     lines = source_lines1(graph, *args, **kwds)
     return ['In %r:' % (graph,)] + lines
 
-class FlowingError(Exception):
-    pass
-
 class AnnotatorError(Exception):
     pass
 

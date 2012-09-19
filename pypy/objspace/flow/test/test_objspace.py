@@ -1004,6 +1004,19 @@ class TestFlowObjSpace(Base):
         assert graph.startblock.exits[0].target == graph.returnblock
 
 
+    def test_global_variable(self):
+        def global_var_missing():
+            return a
+
+        with py.test.raises(FlowingError) as rex:
+            self.codetest(global_var_missing)
+        assert str(rex.exconly()).find("global variable 'a' undeclared")
+
+    def test_eval(self):
+        exec("def f(): return a")
+        with py.test.raises(FlowingError):
+            self.codetest(f)
+
 DATA = {'x': 5,
         'y': 6}
 
