@@ -101,7 +101,7 @@ class __extend__(W_NDimArray):
                     shape = shape_agreement(space, shape, w_item)
                 indexes_w[i] = w_item
                 if not arr_index_in_shape:
-                    res_shape.append(None)
+                    res_shape.append(-1)
                     arr_index_in_shape = True
             else:
                 if space.isinstance_w(w_item, space.w_slice):
@@ -112,7 +112,7 @@ class __extend__(W_NDimArray):
                 indexes_w[i] = w_item
         real_shape = []
         for i in res_shape:
-            if i is None:
+            if i == -1:
                 real_shape += shape
             else:
                 real_shape.append(i)
