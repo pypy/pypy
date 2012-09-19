@@ -2,7 +2,8 @@
 from pypy.interpreter.error import operationerrfmt, OperationError
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
+from pypy.module.micronumpy.base import W_NDimArray, convert_to_array,\
+     ArrayArgumentException
 from pypy.module.micronumpy import interp_dtype, interp_ufuncs, interp_boxes
 from pypy.module.micronumpy.strides import find_shape_and_elems,\
      get_shape_from_iterable, to_coords
@@ -72,14 +73,40 @@ class __extend__(W_NDimArray):
     def setitem_filter(self, space, idx, val):
         loop.setitem_filter(self, idx, val)
 
+    def _prepare_array_index(self, space, w_index):
+        if isinstance(w_index, W_NDimArray):
+            return w_index.get_shape(), [w_index]
+        w_lst = space.listview(w_index)
+        for w_item in w_lst:
+            if not space.isinstance_w(w_item, space.w_int):
+                break
+        else:
+            arr = convert_to_array(space, w_index)
+            return arr.get_shape(), [arr]
+        xxx
+
+    def getitem_array_int(self, space, w_index):
+        iter_shape, indexes = self._prepare_array_index(space, w_index)
+        shape = iter_shape + self.get_shape()[len(indexes):]
+        res = W_NDimArray.from_shape(shape, self.get_dtype(), self.get_order())
+        return loop.getitem_array_int(space, self, res, iter_shape, indexes)
+
     def descr_getitem(self, space, w_idx):
         if (isinstance(w_idx, W_NDimArray) and w_idx.get_shape() == self.get_shape() and
             w_idx.get_dtype().is_bool_type()):
             return self.getitem_filter(space, w_idx)
         try:
             return self.implementation.descr_getitem(space, w_idx)
+        except ArrayArgumentException:
+            return self.getitem_array_int(space, w_idx)
         except OperationError:
             raise OperationError(space.w_IndexError, space.wrap("wrong index"))
+
+    def getitem(self, space, index_list):
+        return self.implementation.getitem_index(space, index_list)
+
+    def setitem(self, space, index_list, w_value):
+        self.implementation.setitem_index(space, index_list, w_value)
 
     def descr_setitem(self, space, w_idx, w_value):
         if (isinstance(w_idx, W_NDimArray) and w_idx.get_shape() == self.get_shape() and
@@ -265,9 +292,8 @@ class __extend__(W_NDimArray):
             if self.is_scalar():
                 return self.get_scalar_value().item(space)
             if self.get_size() == 1:
-                w_obj = self.descr_getitem(space,
-                                           space.newtuple([space.wrap(0) for i
-                                      in range(len(self.get_shape()))]))
+                w_obj = self.getitem(space,
+                                     [0] * range(len(self.get_shape())))
                 assert isinstance(w_obj, interp_boxes.W_GenericBox)
                 return w_obj.item(space)
             raise OperationError(space.w_IndexError,
@@ -277,8 +303,7 @@ class __extend__(W_NDimArray):
                 raise OperationError(space.w_IndexError,
                                      space.wrap("index out of bounds"))
             i = self.to_coords(space, w_arg)
-            item = self.descr_getitem(space, space.newtuple([space.wrap(x)
-                                             for x in i]))
+            item = self.getitem(space, i)
             assert isinstance(item, interp_boxes.W_GenericBox)
             return item.item(space)
         raise OperationError(space.w_NotImplementedError, space.wrap(

@@ -1520,11 +1520,16 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_int_array_index(self):
         from numpypy import array, arange
-        assert (arange(10)[array([3, 2, 1, 5])] == [3, 2, 1, 5]).all()
+        b = arange(10)[array([3, 2, 1, 5])]
+        print b
+        assert (b == [3, 2, 1, 5]).all()
         raises(IndexError, "arange(10)[array([10])]")
         assert (arange(10)[[-5, -3]] == [5, 7]).all()
         raises(IndexError, "arange(10)[[-11]]")
-                        
+
+    def test_bool_array_index(self):
+        xxx
+
 class AppTestMultiDim(BaseNumpyAppTest):
     def test_init(self):
         import _numpypy

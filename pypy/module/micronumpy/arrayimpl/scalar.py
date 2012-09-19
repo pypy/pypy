@@ -58,10 +58,17 @@ class Scalar(base.BaseArrayImplementation):
         raise OperationError(space.w_IndexError,
                              space.wrap("scalars cannot be indexed"))
 
+    def getitem_index(self, space, idx):
+        raise OperationError(space.w_IndexError,
+                             space.wrap("scalars cannot be indexed"))
+
     def descr_setitem(self, space, w_idx, w_val):
         raise OperationError(space.w_IndexError,
                              space.wrap("scalars cannot be indexed"))
         
+    def setitem_index(self, space, idx, w_val):
+        raise OperationError(space.w_IndexError,
+                             space.wrap("scalars cannot be indexed"))
     def set_shape(self, space, new_shape):
         if not new_shape:
             return self

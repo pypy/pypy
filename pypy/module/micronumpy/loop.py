@@ -244,3 +244,15 @@ def tostring(space, arr):
             builder.append(res_str_casted[i])
         iter.next()
     return builder.build()
+
+def getitem_array_int(space, arr, res, iter_shape, indexes):
+    assert len(indexes) == 1
+    assert len(iter_shape) == 1
+    res_iter = res.create_iter() # this shape is whatever shape res comes in
+    index_iter = indexes[0].create_iter()
+    while not index_iter.done():
+        idx = space.int_w(index_iter.getitem())
+        res_iter.setitem(arr.getitem(space, [idx]))
+        index_iter.next()
+        res_iter.next()
+    return res
