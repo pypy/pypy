@@ -741,6 +741,8 @@ def test_array_in_struct():
     assert repr(s.a1).startswith("<cdata 'int[5]' 0x")
 
 def test_offsetof():
+    def offsetof(BType, fieldname):
+        return typeoffsetof(BType, fieldname)[1]
     BInt = new_primitive_type("int")
     BStruct = new_struct_type("foo")
     py.test.raises(TypeError, offsetof, BInt, "abc")
@@ -749,6 +751,7 @@ def test_offsetof():
     assert offsetof(BStruct, 'abc') == 0
     assert offsetof(BStruct, 'def') == size_of_int()
     py.test.raises(KeyError, offsetof, BStruct, "ghi")
+    assert offsetof(new_pointer_type(BStruct), "def") == size_of_int()
 
 def test_function_type():
     BInt = new_primitive_type("int")
@@ -888,11 +891,8 @@ def test_call_function_20():
     BFunc20 = new_function_type((BStructPtr,), BShort, False)
     f = cast(BFunc20, _testfunc(20))
     x = newp(BStructPtr, {'a1': b'A', 'a2': -4042})
-    # test the exception that allows us to pass a 'struct foo' where the
-    # function really expects a 'struct foo *'.
-    res = f(x[0])
-    assert res == -4042 + ord(b'A')
-    assert res == f(x)
+    # can't pass a 'struct foo'
+    py.test.raises(TypeError, f, x[0])
 
 def test_call_function_21():
     BInt = new_primitive_type("int")
@@ -2076,3 +2076,88 @@ def test_CData_CType():
     assert not isinstance(nullchr, CType)
     assert not isinstance(chrref, CType)
     assert isinstance(BChar, CType)
+
+def test_no_cdata_float():
+    BInt = new_primitive_type("int")
+    BIntP = new_pointer_type(BInt)
+    BUInt = new_primitive_type("unsigned int")
+    BUIntP = new_pointer_type(BUInt)
+    BFloat = new_primitive_type("float")
+    py.test.raises(TypeError, newp, BIntP, cast(BFloat, 0.0))
+    py.test.raises(TypeError, newp, BUIntP, cast(BFloat, 0.0))
+
+def test_bool():
+    BBool = new_primitive_type("_Bool")
+    BBoolP = new_pointer_type(BBool)
+    assert int(cast(BBool, False)) == 0
+    assert int(cast(BBool, True)) == 1
+    assert bool(cast(BBool, False)) is True    # warning!
+    assert int(cast(BBool, 3)) == 1
+    assert int(cast(BBool, long(3))) == 1
+    assert int(cast(BBool, long(10)**4000)) == 1
+    assert int(cast(BBool, -0.1)) == 1
+    assert int(cast(BBool, -0.0)) == 0
+    assert int(cast(BBool, '\x00')) == 0
+    assert int(cast(BBool, '\xff')) == 1
+    assert newp(BBoolP, False)[0] == 0
+    assert newp(BBoolP, True)[0] == 1
+    assert newp(BBoolP, 0)[0] == 0
+    assert newp(BBoolP, 1)[0] == 1
+    py.test.raises(TypeError, newp, BBoolP, 1.0)
+    py.test.raises(TypeError, newp, BBoolP, '\x00')
+    py.test.raises(OverflowError, newp, BBoolP, 2)
+    py.test.raises(OverflowError, newp, BBoolP, -1)
+    BCharP = new_pointer_type(new_primitive_type("char"))
+    p = newp(BCharP, 'X')
+    q = cast(BBoolP, p)
+    assert q[0] == ord('X')
+    py.test.raises(TypeError, string, cast(BBool, False))
+    BDouble = new_primitive_type("double")
+    assert int(cast(BBool, cast(BDouble, 0.1))) == 1
+    assert int(cast(BBool, cast(BDouble, 0.0))) == 0
+
+def test_typeoffsetof():
+    BChar = new_primitive_type("char")
+    BStruct = new_struct_type("foo")
+    BStructPtr = new_pointer_type(BStruct)
+    complete_struct_or_union(BStruct, [('a1', BChar, -1),
+                                       ('a2', BChar, -1),
+                                       ('a3', BChar, -1)])
+    py.test.raises(TypeError, typeoffsetof, BStructPtr, None)
+    assert typeoffsetof(BStruct, None) == (BStruct, 0)
+    assert typeoffsetof(BStructPtr, 'a1') == (BChar, 0)
+    assert typeoffsetof(BStruct, 'a1') == (BChar, 0)
+    assert typeoffsetof(BStructPtr, 'a2') == (BChar, 1)
+    assert typeoffsetof(BStruct, 'a3') == (BChar, 2)
+    py.test.raises(KeyError, typeoffsetof, BStructPtr, 'a4')
+    py.test.raises(KeyError, typeoffsetof, BStruct, 'a5')
+
+def test_typeoffsetof_no_bitfield():
+    BInt = new_primitive_type("int")
+    BStruct = new_struct_type("foo")
+    complete_struct_or_union(BStruct, [('a1', BInt, 4)])
+    py.test.raises(TypeError, typeoffsetof, BStruct, 'a1')
+
+def test_rawaddressof():
+    BChar = new_primitive_type("char")
+    BCharP = new_pointer_type(BChar)
+    BStruct = new_struct_type("foo")
+    BStructPtr = new_pointer_type(BStruct)
+    complete_struct_or_union(BStruct, [('a1', BChar, -1),
+                                       ('a2', BChar, -1),
+                                       ('a3', BChar, -1)])
+    p = newp(BStructPtr)
+    assert repr(p) == "<cdata 'struct foo *' owning 3 bytes>"
+    s = p[0]
+    assert repr(s) == "<cdata 'struct foo' owning 3 bytes>"
+    a = rawaddressof(BStructPtr, s)
+    assert repr(a).startswith("<cdata 'struct foo *' 0x")
+    py.test.raises(TypeError, rawaddressof, BStruct, s)
+    b = rawaddressof(BCharP, s)
+    assert b == cast(BCharP, p)
+    c = rawaddressof(BStructPtr, a)
+    assert c == a
+    py.test.raises(TypeError, rawaddressof, BStructPtr, cast(BChar, '?'))
+    #
+    d = rawaddressof(BCharP, s, 1)
+    assert d == cast(BCharP, p) + 1

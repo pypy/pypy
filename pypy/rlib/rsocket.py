@@ -810,23 +810,19 @@ class RSocket(object):
             errno = _c.geterrno()
             if self.timeout > 0.0 and res < 0 and errno == _c.EINPROGRESS:
                 timeout = self._select(True)
-                errno = _c.geterrno()
                 if timeout == 0:
-                    addr = address.lock()
-                    res = _c.socketconnect(self.fd, addr, address.addrlen)
-                    address.unlock()
-                    if res < 0:
-                        errno = _c.geterrno()
-                        if errno == _c.EISCONN:
-                            res = 0
+                    res = self.getsockopt_int(_c.SOL_SOCKET, _c.SO_ERROR)
+                    if res == _c.EISCONN:
+                        res = 0
+                    errno = res
                 elif timeout == -1:
-                    return (errno, False)
+                    return (_c.geterrno(), False)
                 else:
                     return (_c.EWOULDBLOCK, True)
 
-            if res == 0:
-                errno = 0
-            return (errno, False)
+            if res < 0:
+                res = errno
+            return (res, False)
         
     def connect(self, address):
         """Connect the socket to a remote address."""

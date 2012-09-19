@@ -159,6 +159,7 @@ def test_simple_tcp():
     assert addr.eq(sock.getsockname())
     sock.listen(1)
     s2 = RSocket(AF_INET, SOCK_STREAM)
+    s2.settimeout(10.0) # test one side with timeouts so select is used, shouldn't affect test
     def connecting():
         s2.connect(addr)
         lock.release()
@@ -209,6 +210,7 @@ def test_simple_udp():
     addr = INETAddress('127.0.0.1', port)
     assert addr.eq(s1.getsockname())
     s2 = RSocket(AF_INET, SOCK_DGRAM)
+    s2.settimeout(10.0) # test one side with timeouts so select is used, shouldn't affect test
     s2.bind(INETAddress('127.0.0.1', INADDR_ANY))
     addr2 = s2.getsockname()
 
@@ -325,6 +327,18 @@ def test_connect_ex():
     if errcodesok:
         assert err in (errno.ECONNREFUSED, errno.EADDRNOTAVAIL)
 
+def test_connect_with_timeout_fail():
+    s = RSocket()
+    s.settimeout(0.1)
+    with py.test.raises(SocketTimeout):
+        s.connect(INETAddress('240.240.240.240', 12345))
+    s.close()
+
+def test_connect_with_timeout_succeed():
+    s = RSocket()
+    s.settimeout(10.0)
+    s.connect(INETAddress('python.org', 80))
+    s.close()
 
 def test_getsetsockopt():
     import struct

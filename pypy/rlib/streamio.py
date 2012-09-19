@@ -295,12 +295,23 @@ class DiskFile(Stream):
 
     def read(self, n):
         assert isinstance(n, int)
-        return os.read(self.fd, n)
+        while True:
+            try:
+                return os.read(self.fd, n)
+            except OSError, e:
+                if e.errno != errno.EINTR:
+                    raise
+                # else try again
 
     def write(self, data):
         while data:
-            n = os.write(self.fd, data)
-            data = data[n:]
+            try:
+                n = os.write(self.fd, data)
+            except OSError, e:
+                if e.errno != errno.EINTR:
+                    raise
+            else:
+                data = data[n:]
 
     def close(self):
         os.close(self.fd)
