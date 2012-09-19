@@ -1,7 +1,8 @@
 
 from pypy.module.micronumpy.arrayimpl import base
 from pypy.module.micronumpy import support, loop
-from pypy.module.micronumpy.base import convert_to_array, W_NDimArray
+from pypy.module.micronumpy.base import convert_to_array, W_NDimArray,\
+     ArrayArgumentException
 from pypy.module.micronumpy.strides import calc_new_strides, shape_agreement,\
      calculate_broadcast_strides, calculate_dot_strides
 from pypy.module.micronumpy.iter import Chunk, Chunks, NewAxisChunk, RecordChunk
@@ -223,6 +224,26 @@ class BaseConcreteArray(base.BaseArrayImplementation):
             item += idx * self.strides[i]
         return item
 
+    @jit.unroll_safe
+    def _lookup_by_unwrapped_index(self, space, lst):
+        item = self.start
+        assert len(lst) == len(self.shape)
+        for i, idx in enumerate(lst):
+            if idx < 0:
+                idx = self.shape[i] + idx
+            if idx < 0 or idx >= self.shape[i]:
+                raise operationerrfmt(space.w_IndexError,
+                      "index (%d) out of range (0<=index<%d", i, self.shape[i],
+                )
+            item += idx * self.strides[i]
+        return item
+
+    def getitem_index(self, space, index):
+        return self.getitem(self._lookup_by_unwrapped_index(space, index))
+
+    def setitem_index(self, space, index, value):
+        self.setitem(self._lookup_by_unwrapped_index(space, index), value)
+
     def _single_item_index(self, space, w_idx):
         """ Return an index of single item if possible, otherwise raises
         IndexError
@@ -231,10 +252,16 @@ class BaseConcreteArray(base.BaseArrayImplementation):
             space.isinstance_w(w_idx, space.w_slice) or
             space.is_w(w_idx, space.w_None)):
             raise IndexError
+        if isinstance(w_idx, W_NDimArray):
+            raise ArrayArgumentException
         shape_len = len(self.shape)
         if shape_len == 0:
             raise OperationError(space.w_IndexError, space.wrap(
                 "0-d arrays can't be indexed"))
+        view_w = None
+        if (space.isinstance_w(w_idx, space.w_list) or
+            isinstance(w_idx, W_NDimArray)):
+            raise ArrayArgumentException
         if space.isinstance_w(w_idx, space.w_tuple):
             view_w = space.fixedview(w_idx)
             if len(view_w) < shape_len:
@@ -249,6 +276,11 @@ class BaseConcreteArray(base.BaseArrayImplementation):
                     raise IndexError # but it's still not a single item
                 raise OperationError(space.w_IndexError,
                                      space.wrap("invalid index"))
+            # check for arrays
+            for w_item in view_w:
+                if (isinstance(w_item, W_NDimArray) or
+                    space.isinstance_w(w_item, space.w_list)):
+                    raise ArrayArgumentException
             return self._lookup_by_index(space, view_w)
         if shape_len > 1:
             raise IndexError
