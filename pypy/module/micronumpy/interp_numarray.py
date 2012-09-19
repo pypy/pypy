@@ -64,13 +64,16 @@ class __extend__(W_NDimArray):
 
     def getitem_filter(self, space, arr):
         if arr.get_size() > self.get_size():
-            raise OperationError(space.w_IndexError,
+            raise OperationError(space.w_ValueError,
                                  space.wrap("index out of range for array"))
         size = loop.count_all_true(arr)
         res = W_NDimArray.from_shape([size], self.get_dtype())
         return loop.getitem_filter(res, self, arr)
 
     def setitem_filter(self, space, idx, val):
+        if idx.get_size() > self.get_size():
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("index out of range for array"))
         loop.setitem_filter(self, idx, val)
 
     def _prepare_array_index(self, space, w_index):
@@ -92,7 +95,7 @@ class __extend__(W_NDimArray):
         return loop.getitem_array_int(space, self, res, iter_shape, indexes)
 
     def descr_getitem(self, space, w_idx):
-        if (isinstance(w_idx, W_NDimArray) and w_idx.get_shape() == self.get_shape() and
+        if (isinstance(w_idx, W_NDimArray) and
             w_idx.get_dtype().is_bool_type()):
             return self.getitem_filter(space, w_idx)
         try:
@@ -109,7 +112,7 @@ class __extend__(W_NDimArray):
         self.implementation.setitem_index(space, index_list, w_value)
 
     def descr_setitem(self, space, w_idx, w_value):
-        if (isinstance(w_idx, W_NDimArray) and w_idx.get_shape() == self.get_shape() and
+        if (isinstance(w_idx, W_NDimArray) and
             w_idx.get_dtype().is_bool_type()):
             return self.setitem_filter(space, w_idx,
                                        convert_to_array(space, w_value))

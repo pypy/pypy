@@ -1528,7 +1528,17 @@ class AppTestNumArray(BaseNumpyAppTest):
         raises(IndexError, "arange(10)[[-11]]")
 
     def test_bool_array_index(self):
-        xxx
+        from numpypy import arange, array
+        b = arange(10)
+        assert (b[array([True, False, True])] == [0, 2]).all()
+        raises(ValueError, "array([1, 2])[array([True, True, True])]")
+
+    def test_bool_array_index_setitem(self):
+        from numpypy import arange, array
+        b = arange(5)
+        b[array([True, False, True])] = [20, 21]
+        assert (b == [20, 1, 21, 3, 4]).all() 
+        raises(ValueError, "array([1, 2])[array([True, False, True])] = [1, 2, 3]")
 
 class AppTestMultiDim(BaseNumpyAppTest):
     def test_init(self):
