@@ -1995,9 +1995,24 @@ class AppTestMultiDim(BaseNumpyAppTest):
 
     def test_int_array_index(self):
         from _numpypy import array
-        a = array([[1, 2], [3, 4]])
+        a = array([[1, 2], [3, 4], [5, 6]])
+        assert (a[slice(0, 3), [0, 0]] == [[1, 1], [3, 3], [5, 5]]).all()
+        assert (a[array([0, 2]), slice(0, 2)] == [[1, 2], [5, 6]]).all()
         b = a[array([0, 0])]
         assert (b == [[1, 2], [1, 2]]).all()
+        assert (a[[[0, 1], [0, 0]]] == array([1, 3])).all()
+        assert (a[array([0, 2])] == [[1, 2], [5, 6]]).all()
+        assert (a[array([0, 2]), 1] == [2, 6]).all()
+        assert (a[array([0, 2]), array([1])] == [2, 6]).all()
+
+    def test_int_array_index_setitem(self):
+        from _numpypy import array
+        a = array([[1, 2], [3, 4], [5, 6]])
+        a[slice(0, 3), [0, 0]] = [[0, 0], [0, 0], [0, 0]]
+        assert (a == [[0, 2], [0, 4], [0, 6]]).all()
+        a = array([[1, 2], [3, 4], [5, 6]])
+        a[array([0, 2]), slice(0, 2)] = [[10, 11], [12, 13]]
+        assert (a == [[10, 11], [3, 4], [12, 13]]).all()
 
 class AppTestSupport(BaseNumpyAppTest):
     def setup_class(cls):

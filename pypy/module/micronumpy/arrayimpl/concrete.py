@@ -272,13 +272,15 @@ class BaseConcreteArray(base.BaseArrayImplementation):
                 for w_item in view_w:
                     if space.is_w(w_item, space.w_None):
                         count -= 1
-                    if (space.isinstance_w(w_item, space.w_list) or
-                        isinstance(w_item, W_NDimArray)):
-                        raise ArrayArgumentException
                 if count == shape_len:
                     raise IndexError # but it's still not a single item
                 raise OperationError(space.w_IndexError,
                                      space.wrap("invalid index"))
+            # check for arrays
+            for w_item in view_w:
+                if (isinstance(w_item, W_NDimArray) or
+                    space.isinstance_w(w_item, space.w_list)):
+                    raise ArrayArgumentException
             return self._lookup_by_index(space, view_w)
         if shape_len > 1:
             raise IndexError

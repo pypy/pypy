@@ -6,7 +6,7 @@ from pypy.module.micronumpy.base import W_NDimArray, convert_to_array,\
      ArrayArgumentException
 from pypy.module.micronumpy import interp_dtype, interp_ufuncs, interp_boxes
 from pypy.module.micronumpy.strides import find_shape_and_elems,\
-     get_shape_from_iterable, to_coords
+     get_shape_from_iterable, to_coords, shape_agreement
 from pypy.module.micronumpy.interp_flatiter import W_FlatIterator
 from pypy.module.micronumpy.interp_support import unwrap_axis_arg
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
@@ -78,27 +78,60 @@ class __extend__(W_NDimArray):
 
     def _prepare_array_index(self, space, w_index):
         if isinstance(w_index, W_NDimArray):
-            return w_index.get_shape(), [w_index]
+            return [], w_index.get_shape(), w_index.get_shape(), [w_index]
         w_lst = space.listview(w_index)
         for w_item in w_lst:
             if not space.isinstance_w(w_item, space.w_int):
                 break
         else:
             arr = convert_to_array(space, w_index)
-            return arr.get_shape(), [arr]
-        xxx # determine shape
-        return w_lst
+            return [], arr.get_shape(), arr.get_shape(), [arr]
+        shape = None
+        indexes_w = [None] * len(w_lst)
+        res_shape = []
+        arr_index_in_shape = False
+        prefix = []
+        for i, w_item in enumerate(w_lst):
+            if (isinstance(w_item, W_NDimArray) or
+                space.isinstance_w(w_item, space.w_list)):
+                w_item = convert_to_array(space, w_item)
+                if shape is None:
+                    shape = w_item.get_shape()
+                else:
+                    shape = shape_agreement(space, shape, w_item)
+                indexes_w[i] = w_item
+                if not arr_index_in_shape:
+                    res_shape.append(None)
+                    arr_index_in_shape = True
+            else:
+                if space.isinstance_w(w_item, space.w_slice):
+                    _, _, _, lgt = space.decode_index4(w_item, self.get_shape()[i])
+                    if not arr_index_in_shape:
+                        prefix.append(w_item)
+                    res_shape.append(lgt)
+                indexes_w[i] = w_item
+        real_shape = []
+        for i in res_shape:
+            if i is None:
+                real_shape += shape
+            else:
+                real_shape.append(i)
+        return prefix, real_shape[:], shape, indexes_w
 
     def getitem_array_int(self, space, w_index):
-        iter_shape, indexes = self._prepare_array_index(space, w_index)
-        shape = iter_shape + self.get_shape()[len(indexes):]
+        prefix, res_shape, iter_shape, indexes = \
+                self._prepare_array_index(space, w_index)
+        shape = res_shape + self.get_shape()[len(indexes):]
         res = W_NDimArray.from_shape(shape, self.get_dtype(), self.get_order())
-        return loop.getitem_array_int(space, self, res, iter_shape, indexes)
+        return loop.getitem_array_int(space, self, res, iter_shape, indexes,
+                                      prefix)
 
     def setitem_array_int(self, space, w_index, w_value):
         val_arr = convert_to_array(space, w_value)
-        iter_shape, indexes = self._prepare_array_index(space, w_index)
-        return loop.setitem_array_int(space, self, iter_shape, indexes, val_arr)
+        prefix, _, iter_shape, indexes = \
+                self._prepare_array_index(space, w_index)
+        return loop.setitem_array_int(space, self, iter_shape, indexes, val_arr,
+                                      prefix)
 
     def descr_getitem(self, space, w_idx):
         if (isinstance(w_idx, W_NDimArray) and

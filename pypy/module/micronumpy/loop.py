@@ -275,34 +275,37 @@ class PureShapeIterator(object):
             self._done = True
 
     def get_index(self, space):
-        return space.newtuple([space.wrap(i) for i in self.indexes])
+        return [space.wrap(i) for i in self.indexes]
 
-def getitem_array_int(space, arr, res, iter_shape, indexes_w):
+def getitem_array_int(space, arr, res, iter_shape, indexes_w, prefix_w):
     iter = PureShapeIterator(iter_shape, indexes_w)
     while not iter.done():
         # prepare the index
-        index_w = [None] * len(iter_shape)
-        for i in range(len(iter_shape)):
+        index_w = [None] * len(indexes_w)
+        for i in range(len(indexes_w)):
             if iter.idx_w[i] is not None:
                 index_w[i] = iter.idx_w[i].getitem()
             else:
                 index_w[i] = indexes_w[i]
-        res.descr_setitem(space, iter.get_index(space),
+        res.descr_setitem(space, space.newtuple(prefix_w +
+                                                iter.get_index(space)),
                           arr.descr_getitem(space, space.newtuple(index_w)))
         iter.next()
     return res
 
-def setitem_array_int(space, arr, iter_shape, indexes_w, val_arr):
+def setitem_array_int(space, arr, iter_shape, indexes_w, val_arr,
+                      prefix_w):
     iter = PureShapeIterator(iter_shape, indexes_w)
     while not iter.done():
         # prepare the index
-        index_w = [None] * len(iter_shape)
-        for i in range(len(iter_shape)):
+        index_w = [None] * len(indexes_w)
+        for i in range(len(indexes_w)):
             if iter.idx_w[i] is not None:
                 index_w[i] = iter.idx_w[i].getitem()
             else:
                 index_w[i] = indexes_w[i]
+        w_idx = space.newtuple(prefix_w + iter.get_index(space))
         arr.descr_setitem(space, space.newtuple(index_w),
-                          val_arr.descr_getitem(space, iter.get_index(space)))
+                          val_arr.descr_getitem(space, w_idx))
         iter.next()
 
