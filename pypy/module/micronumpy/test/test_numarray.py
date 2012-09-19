@@ -1965,7 +1965,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert (a.compress([1, 0, 13.5]) == [0, 2]).all()
         a = arange(10).reshape(2, 5)
         assert (a.compress([True, False, True]) == [0, 2]).all()
-        raises(IndexError, "a.compress([1] * 100)")
+        raises((IndexError, ValueError), "a.compress([1] * 100)")
 
     def test_item(self):
         from _numpypy import array

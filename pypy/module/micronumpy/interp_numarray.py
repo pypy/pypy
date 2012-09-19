@@ -296,7 +296,7 @@ class __extend__(W_NDimArray):
                 return self.get_scalar_value().item(space)
             if self.get_size() == 1:
                 w_obj = self.getitem(space,
-                                     [0] * range(len(self.get_shape())))
+                                     [0] * len(self.get_shape()))
                 assert isinstance(w_obj, interp_boxes.W_GenericBox)
                 return w_obj.item(space)
             raise OperationError(space.w_IndexError,
