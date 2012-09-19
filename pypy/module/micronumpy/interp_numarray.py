@@ -86,7 +86,8 @@ class __extend__(W_NDimArray):
         else:
             arr = convert_to_array(space, w_index)
             return arr.get_shape(), [arr]
-        xxx
+        xxx # determine shape
+        return w_lst
 
     def getitem_array_int(self, space, w_index):
         iter_shape, indexes = self._prepare_array_index(space, w_index)

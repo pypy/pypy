@@ -227,6 +227,7 @@ class BaseConcreteArray(base.BaseArrayImplementation):
     @jit.unroll_safe
     def _lookup_by_unwrapped_index(self, space, lst):
         item = self.start
+        assert len(lst) == len(self.shape)
         for i, idx in enumerate(lst):
             if idx < 0:
                 idx = self.shape[i] + idx

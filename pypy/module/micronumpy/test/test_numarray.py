@@ -1992,7 +1992,12 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert (a + a).item(1) == 4
         raises(IndexError, "array(5).item(1)")
         assert array([1]).item() == 1
- 
+
+    def test_int_array_index(self):
+        from _numpypy import array
+        a = array([[1, 2], [3, 4]])
+        b = a[array([0, 0])]
+        assert (b == [[1, 2], [1, 2]]).all()
 
 class AppTestSupport(BaseNumpyAppTest):
     def setup_class(cls):
