@@ -27,9 +27,11 @@ class Module(MixedModule):
         'alignof': 'func.alignof',
         'sizeof': 'func.sizeof',
         'typeof': 'func.typeof',
-        'offsetof': 'func.offsetof',
+        'typeoffsetof': 'func.typeoffsetof',
+        'rawaddressof': 'func.rawaddressof',
         '_getfields': 'func._getfields',
         'getcname': 'func.getcname',
+        '_get_types': 'func._get_types',
 
         'string': 'func.string',
         'buffer': 'cbuffer.buffer',

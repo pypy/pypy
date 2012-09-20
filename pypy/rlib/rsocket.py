@@ -355,7 +355,7 @@ class INET6Address(IPAddress):
         makeipaddr(host, self)
         a = self.lock(_c.sockaddr_in6)
         rffi.setintfield(a, 'c_sin6_port', htons(port))
-        rffi.setintfield(a, 'c_sin6_flowinfo', flowinfo)
+        rffi.setintfield(a, 'c_sin6_flowinfo', htonl(flowinfo))
         rffi.setintfield(a, 'c_sin6_scope_id', scope_id)
         self.unlock()
 
@@ -376,7 +376,7 @@ class INET6Address(IPAddress):
 
     def get_flowinfo(self):
         a = self.lock(_c.sockaddr_in6)
-        flowinfo = a.c_sin6_flowinfo
+        flowinfo = ntohl(a.c_sin6_flowinfo)
         self.unlock()
         return rffi.cast(lltype.Unsigned, flowinfo)
 
@@ -408,10 +408,14 @@ class INET6Address(IPAddress):
         host = space.str_w(pieces_w[0])
         port = space.int_w(pieces_w[1])
         port = Address.make_ushort_port(space, port)
-        if len(pieces_w) > 2: flowinfo = space.uint_w(pieces_w[2])
+        if len(pieces_w) > 2: flowinfo = space.int_w(pieces_w[2])
         else:                 flowinfo = 0
         if len(pieces_w) > 3: scope_id = space.uint_w(pieces_w[3])
         else:                 scope_id = 0
+        if flowinfo < 0 or flowinfo > 0xfffff:
+            raise OperationError(space.w_OverflowError, space.wrap(
+                "flowinfo must be 0-1048575."))
+        flowinfo = rffi.cast(lltype.Unsigned, flowinfo)
         return INET6Address(host, port, flowinfo, scope_id)
     from_object = staticmethod(from_object)
 
@@ -424,13 +428,17 @@ class INET6Address(IPAddress):
                                "to 4, not %d" % len(pieces_w))
         port = space.int_w(pieces_w[1])
         port = self.make_ushort_port(space, port)
-        if len(pieces_w) > 2: flowinfo = space.uint_w(pieces_w[2])
+        if len(pieces_w) > 2: flowinfo = space.int_w(pieces_w[2])
         else:                 flowinfo = 0
         if len(pieces_w) > 3: scope_id = space.uint_w(pieces_w[3])
         else:                 scope_id = 0
+        if flowinfo < 0 or flowinfo > 0xfffff:
+            raise OperationError(space.w_OverflowError, space.wrap(
+                "flowinfo must be 0-1048575."))
+        flowinfo = rffi.cast(lltype.Unsigned, flowinfo)
         a = self.lock(_c.sockaddr_in6)
         rffi.setintfield(a, 'c_sin6_port', htons(port))
-        rffi.setintfield(a, 'c_sin6_flowinfo', flowinfo)
+        rffi.setintfield(a, 'c_sin6_flowinfo', htonl(flowinfo))
         rffi.setintfield(a, 'c_sin6_scope_id', scope_id)
         self.unlock()
 
@@ -802,23 +810,19 @@ class RSocket(object):
             errno = _c.geterrno()
             if self.timeout > 0.0 and res < 0 and errno == _c.EINPROGRESS:
                 timeout = self._select(True)
-                errno = _c.geterrno()
                 if timeout == 0:
-                    addr = address.lock()
-                    res = _c.socketconnect(self.fd, addr, address.addrlen)
-                    address.unlock()
-                    if res < 0:
-                        errno = _c.geterrno()
-                        if errno == _c.EISCONN:
-                            res = 0
+                    res = self.getsockopt_int(_c.SOL_SOCKET, _c.SO_ERROR)
+                    if res == _c.EISCONN:
+                        res = 0
+                    errno = res
                 elif timeout == -1:
-                    return (errno, False)
+                    return (_c.geterrno(), False)
                 else:
                     return (_c.EWOULDBLOCK, True)
 
-            if res == 0:
-                errno = 0
-            return (errno, False)
+            if res < 0:
+                res = errno
+            return (res, False)
         
     def connect(self, address):
         """Connect the socket to a remote address."""

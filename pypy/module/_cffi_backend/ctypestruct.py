@@ -61,14 +61,19 @@ class W_CTypeStructOrUnion(W_CType):
         keepalive_until_here(ob)
         return ob
 
-    def offsetof(self, fieldname):
+    def typeoffsetof(self, fieldname):
+        if fieldname is None:
+            return (self, 0)
         self.check_complete()
+        space = self.space
         try:
             cfield = self.fields_dict[fieldname]
         except KeyError:
-            space = self.space
             raise OperationError(space.w_KeyError, space.wrap(fieldname))
-        return cfield.offset
+        if cfield.bitshift >= 0:
+            raise OperationError(space.w_TypeError,
+                                 space.wrap("not supported for bitfields"))
+        return (cfield.ctype, cfield.offset)
 
     def _copy_from_same(self, cdata, w_ob):
         space = self.space

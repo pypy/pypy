@@ -717,6 +717,7 @@ class GcLLDescr_framework(GcLLDescription):
         def malloc_nursery_slowpath(size):
             """Allocate 'size' null bytes out of the nursery.
             Note that the fast path is typically inlined by the backend."""
+            assert size >= self.minimal_size_in_nursery
             if self.DEBUG:
                 self._random_usage_of_xmm_registers()
             type_id = rffi.cast(llgroup.HALFWORD, 0)    # missing here
@@ -729,6 +730,7 @@ class GcLLDescr_framework(GcLLDescription):
         def malloc_array(itemsize, tid, num_elem):
             """Allocate an array with a variable-size num_elem.
             Only works for standard arrays."""
+            assert num_elem >= 0, 'num_elem should be >= 0'
             type_id = llop.extract_ushort(llgroup.HALFWORD, tid)
             check_typeid(type_id)
             return llop1.do_malloc_varsize_clear(

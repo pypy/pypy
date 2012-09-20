@@ -8,6 +8,14 @@ from pypy.tool.pairtype import extendabletype
 from pypy.tool.sourcetools import func_with_new_name
 
 
+def check_string(space, w_obj):
+    if not (space.isinstance_w(w_obj, space.w_str) or
+            space.isinstance_w(w_obj, space.w_unicode)):
+        raise OperationError(space.w_TypeError, space.wrap(
+                'AST string must be of type str or unicode'))
+    return w_obj
+
+
 class AST(Wrappable):
 
     w_dict = None
@@ -1012,7 +1020,7 @@ class Global(stmt):
         if w_list is not None:
             list_w = space.listview(w_list)
             if list_w:
-                self.names = [space.str_w(w_obj) for w_obj in list_w]
+                self.names = [space.realstr_w(w_obj) for w_obj in list_w]
             else:
                 self.names = None
 
@@ -2886,6 +2894,7 @@ def Expression_set_body(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'body', w_new_value)
+        w_self.initialization_state &= ~1
         return
     w_self.deldictvalue(space, 'body')
     w_self.initialization_state |= 1
@@ -2973,6 +2982,7 @@ def stmt_set_lineno(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'lineno', w_new_value)
+        w_self.initialization_state &= ~1
         return
     w_self.deldictvalue(space, 'lineno')
     w_self.initialization_state |= 1
@@ -2994,6 +3004,7 @@ def stmt_set_col_offset(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'col_offset', w_new_value)
+        w_self.initialization_state &= ~2
         return
     w_self.deldictvalue(space, 'col_offset')
     w_self.initialization_state |= 2
@@ -3019,11 +3030,12 @@ def FunctionDef_get_name(space, w_self):
 
 def FunctionDef_set_name(space, w_self, w_new_value):
     try:
-        w_self.name = space.str_w(w_new_value)
+        w_self.name = space.realstr_w(w_new_value)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'name', w_new_value)
+        w_self.initialization_state &= ~4
         return
     w_self.deldictvalue(space, 'name')
     w_self.initialization_state |= 4
@@ -3045,6 +3057,7 @@ def FunctionDef_set_args(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'args', w_new_value)
+        w_self.initialization_state &= ~8
         return
     w_self.deldictvalue(space, 'args')
     w_self.initialization_state |= 8
@@ -3124,11 +3137,12 @@ def ClassDef_get_name(space, w_self):
 
 def ClassDef_set_name(space, w_self, w_new_value):
     try:
-        w_self.name = space.str_w(w_new_value)
+        w_self.name = space.realstr_w(w_new_value)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'name', w_new_value)
+        w_self.initialization_state &= ~4
         return
     w_self.deldictvalue(space, 'name')
     w_self.initialization_state |= 4
@@ -3233,6 +3247,7 @@ def Return_set_value(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'value', w_new_value)
+        w_self.initialization_state &= ~4
         return
     w_self.deldictvalue(space, 'value')
     w_self.initialization_state |= 4
@@ -3339,6 +3354,7 @@ def Assign_set_value(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'value', w_new_value)
+        w_self.initialization_state &= ~8
         return
     w_self.deldictvalue(space, 'value')
     w_self.initialization_state |= 8
@@ -3388,6 +3404,7 @@ def AugAssign_set_target(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'target', w_new_value)
+        w_self.initialization_state &= ~4
         return
     w_self.deldictvalue(space, 'target')
     w_self.initialization_state |= 4
@@ -3410,6 +3427,7 @@ def AugAssign_set_op(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'op', w_new_value)
+        w_self.initialization_state &= ~8
         return
     # need to save the original object too
     w_self.setdictvalue(space, 'op', w_new_value)
@@ -3434,6 +3452,7 @@ def AugAssign_set_value(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'value', w_new_value)
+        w_self.initialization_state &= ~16
         return
     w_self.deldictvalue(space, 'value')
     w_self.initialization_state |= 16
@@ -3483,6 +3502,7 @@ def Print_set_dest(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'dest', w_new_value)
+        w_self.initialization_state &= ~4
         return
     w_self.deldictvalue(space, 'dest')
     w_self.initialization_state |= 4
@@ -3521,6 +3541,7 @@ def Print_set_nl(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'nl', w_new_value)
+        w_self.initialization_state &= ~16
         return
     w_self.deldictvalue(space, 'nl')
     w_self.initialization_state |= 16
@@ -3571,6 +3592,7 @@ def For_set_target(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'target', w_new_value)
+        w_self.initialization_state &= ~4
         return
     w_self.deldictvalue(space, 'target')
     w_self.initialization_state |= 4
@@ -3594,6 +3616,7 @@ def For_set_iter(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'iter', w_new_value)
+        w_self.initialization_state &= ~8
         return
     w_self.deldictvalue(space, 'iter')
     w_self.initialization_state |= 8
@@ -3680,6 +3703,7 @@ def While_set_test(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'test', w_new_value)
+        w_self.initialization_state &= ~4
         return
     w_self.deldictvalue(space, 'test')
     w_self.initialization_state |= 4
@@ -3765,6 +3789,7 @@ def If_set_test(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'test', w_new_value)
+        w_self.initialization_state &= ~4
         return
     w_self.deldictvalue(space, 'test')
     w_self.initialization_state |= 4
@@ -3850,6 +3875,7 @@ def With_set_context_expr(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'context_expr', w_new_value)
+        w_self.initialization_state &= ~4
         return
     w_self.deldictvalue(space, 'context_expr')
     w_self.initialization_state |= 4
@@ -3873,6 +3899,7 @@ def With_set_optional_vars(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'optional_vars', w_new_value)
+        w_self.initialization_state &= ~8
         return
     w_self.deldictvalue(space, 'optional_vars')
     w_self.initialization_state |= 8
@@ -3940,6 +3967,7 @@ def Raise_set_type(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'type', w_new_value)
+        w_self.initialization_state &= ~4
         return
     w_self.deldictvalue(space, 'type')
     w_self.initialization_state |= 4
@@ -3963,6 +3991,7 @@ def Raise_set_inst(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'inst', w_new_value)
+        w_self.initialization_state &= ~8
         return
     w_self.deldictvalue(space, 'inst')
     w_self.initialization_state |= 8
@@ -3986,6 +4015,7 @@ def Raise_set_tback(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'tback', w_new_value)
+        w_self.initialization_state &= ~16
         return
     w_self.deldictvalue(space, 'tback')
     w_self.initialization_state |= 16
@@ -4176,6 +4206,7 @@ def Assert_set_test(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'test', w_new_value)
+        w_self.initialization_state &= ~4
         return
     w_self.deldictvalue(space, 'test')
     w_self.initialization_state |= 4
@@ -4199,6 +4230,7 @@ def Assert_set_msg(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'msg', w_new_value)
+        w_self.initialization_state &= ~8
         return
     w_self.deldictvalue(space, 'msg')
     w_self.initialization_state |= 8
@@ -4285,11 +4317,12 @@ def ImportFrom_set_module(space, w_self, w_new_value):
         if space.is_w(w_new_value, space.w_None):
             w_self.module = None
         else:
-            w_self.module = space.str_w(w_new_value)
+            w_self.module = space.realstr_w(w_new_value)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'module', w_new_value)
+        w_self.initialization_state &= ~4
         return
     w_self.deldictvalue(space, 'module')
     w_self.initialization_state |= 4
@@ -4328,6 +4361,7 @@ def ImportFrom_set_level(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'level', w_new_value)
+        w_self.initialization_state &= ~16
         return
     w_self.deldictvalue(space, 'level')
     w_self.initialization_state |= 16
@@ -4378,6 +4412,7 @@ def Exec_set_body(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'body', w_new_value)
+        w_self.initialization_state &= ~4
         return
     w_self.deldictvalue(space, 'body')
     w_self.initialization_state |= 4
@@ -4401,6 +4436,7 @@ def Exec_set_globals(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'globals', w_new_value)
+        w_self.initialization_state &= ~8
         return
     w_self.deldictvalue(space, 'globals')
     w_self.initialization_state |= 8
@@ -4424,6 +4460,7 @@ def Exec_set_locals(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'locals', w_new_value)
+        w_self.initialization_state &= ~16
         return
     w_self.deldictvalue(space, 'locals')
     w_self.initialization_state |= 16
@@ -4515,6 +4552,7 @@ def Expr_set_value(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'value', w_new_value)
+        w_self.initialization_state &= ~4
         return
     w_self.deldictvalue(space, 'value')
     w_self.initialization_state |= 4
@@ -4611,6 +4649,7 @@ def expr_set_lineno(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'lineno', w_new_value)
+        w_self.initialization_state &= ~1
         return
     w_self.deldictvalue(space, 'lineno')
     w_self.initialization_state |= 1
@@ -4632,6 +4671,7 @@ def expr_set_col_offset(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'col_offset', w_new_value)
+        w_self.initialization_state &= ~2
         return
     w_self.deldictvalue(space, 'col_offset')
     w_self.initialization_state |= 2
@@ -4663,6 +4703,7 @@ def BoolOp_set_op(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'op', w_new_value)
+        w_self.initialization_state &= ~4
         return
     # need to save the original object too
     w_self.setdictvalue(space, 'op', w_new_value)
@@ -4730,6 +4771,7 @@ def BinOp_set_left(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'left', w_new_value)
+        w_self.initialization_state &= ~4
         return
     w_self.deldictvalue(space, 'left')
     w_self.initialization_state |= 4
@@ -4752,6 +4794,7 @@ def BinOp_set_op(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'op', w_new_value)
+        w_self.initialization_state &= ~8
         return
     # need to save the original object too
     w_self.setdictvalue(space, 'op', w_new_value)
@@ -4776,6 +4819,7 @@ def BinOp_set_right(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'right', w_new_value)
+        w_self.initialization_state &= ~16
         return
     w_self.deldictvalue(space, 'right')
     w_self.initialization_state |= 16
@@ -4824,6 +4868,7 @@ def UnaryOp_set_op(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'op', w_new_value)
+        w_self.initialization_state &= ~4
         return
     # need to save the original object too
     w_self.setdictvalue(space, 'op', w_new_value)
@@ -4848,6 +4893,7 @@ def UnaryOp_set_operand(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'operand', w_new_value)
+        w_self.initialization_state &= ~8
         return
     w_self.deldictvalue(space, 'operand')
     w_self.initialization_state |= 8
@@ -4894,6 +4940,7 @@ def Lambda_set_args(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'args', w_new_value)
+        w_self.initialization_state &= ~4
         return
     w_self.deldictvalue(space, 'args')
     w_self.initialization_state |= 4
@@ -4917,6 +4964,7 @@ def Lambda_set_body(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'body', w_new_value)
+        w_self.initialization_state &= ~8
         return
     w_self.deldictvalue(space, 'body')
     w_self.initialization_state |= 8
@@ -4965,6 +5013,7 @@ def IfExp_set_test(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'test', w_new_value)
+        w_self.initialization_state &= ~4
         return
     w_self.deldictvalue(space, 'test')
     w_self.initialization_state |= 4
@@ -4988,6 +5037,7 @@ def IfExp_set_body(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'body', w_new_value)
+        w_self.initialization_state &= ~8
         return
     w_self.deldictvalue(space, 'body')
     w_self.initialization_state |= 8
@@ -5011,6 +5061,7 @@ def IfExp_set_orelse(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'orelse', w_new_value)
+        w_self.initialization_state &= ~16
         return
     w_self.deldictvalue(space, 'orelse')
     w_self.initialization_state |= 16
@@ -5163,6 +5214,7 @@ def ListComp_set_elt(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'elt', w_new_value)
+        w_self.initialization_state &= ~4
         return
     w_self.deldictvalue(space, 'elt')
     w_self.initialization_state |= 4
@@ -5229,6 +5281,7 @@ def SetComp_set_elt(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'elt', w_new_value)
+        w_self.initialization_state &= ~4
         return
     w_self.deldictvalue(space, 'elt')
     w_self.initialization_state |= 4
@@ -5295,6 +5348,7 @@ def DictComp_set_key(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'key', w_new_value)
+        w_self.initialization_state &= ~4
         return
     w_self.deldictvalue(space, 'key')
     w_self.initialization_state |= 4
@@ -5318,6 +5372,7 @@ def DictComp_set_value(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'value', w_new_value)
+        w_self.initialization_state &= ~8
         return
     w_self.deldictvalue(space, 'value')
     w_self.initialization_state |= 8
@@ -5385,6 +5440,7 @@ def GeneratorExp_set_elt(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'elt', w_new_value)
+        w_self.initialization_state &= ~4
         return
     w_self.deldictvalue(space, 'elt')
     w_self.initialization_state |= 4
@@ -5451,6 +5507,7 @@ def Yield_set_value(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'value', w_new_value)
+        w_self.initialization_state &= ~4
         return
     w_self.deldictvalue(space, 'value')
     w_self.initialization_state |= 4
@@ -5498,6 +5555,7 @@ def Compare_set_left(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'left', w_new_value)
+        w_self.initialization_state &= ~4
         return
     w_self.deldictvalue(space, 'left')
     w_self.initialization_state |= 4
@@ -5583,6 +5641,7 @@ def Call_set_func(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'func', w_new_value)
+        w_self.initialization_state &= ~4
         return
     w_self.deldictvalue(space, 'func')
     w_self.initialization_state |= 4
@@ -5640,6 +5699,7 @@ def Call_set_starargs(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'starargs', w_new_value)
+        w_self.initialization_state &= ~32
         return
     w_self.deldictvalue(space, 'starargs')
     w_self.initialization_state |= 32
@@ -5663,6 +5723,7 @@ def Call_set_kwargs(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'kwargs', w_new_value)
+        w_self.initialization_state &= ~64
         return
     w_self.deldictvalue(space, 'kwargs')
     w_self.initialization_state |= 64
@@ -5716,6 +5777,7 @@ def Repr_set_value(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'value', w_new_value)
+        w_self.initialization_state &= ~4
         return
     w_self.deldictvalue(space, 'value')
     w_self.initialization_state |= 4
@@ -5761,6 +5823,7 @@ def Num_set_n(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'n', w_new_value)
+        w_self.initialization_state &= ~4
         return
     w_self.deldictvalue(space, 'n')
     w_self.initialization_state |= 4
@@ -5801,11 +5864,12 @@ def Str_get_s(space, w_self):
 
 def Str_set_s(space, w_self, w_new_value):
     try:
-        w_self.s = w_new_value
+        w_self.s = check_string(space, w_new_value)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 's', w_new_value)
+        w_self.initialization_state &= ~4
         return
     w_self.deldictvalue(space, 's')
     w_self.initialization_state |= 4
@@ -5853,6 +5917,7 @@ def Attribute_set_value(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'value', w_new_value)
+        w_self.initialization_state &= ~4
         return
     w_self.deldictvalue(space, 'value')
     w_self.initialization_state |= 4
@@ -5869,11 +5934,12 @@ def Attribute_get_attr(space, w_self):
 
 def Attribute_set_attr(space, w_self, w_new_value):
     try:
-        w_self.attr = space.str_w(w_new_value)
+        w_self.attr = space.realstr_w(w_new_value)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'attr', w_new_value)
+        w_self.initialization_state &= ~8
         return
     w_self.deldictvalue(space, 'attr')
     w_self.initialization_state |= 8
@@ -5896,6 +5962,7 @@ def Attribute_set_ctx(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'ctx', w_new_value)
+        w_self.initialization_state &= ~16
         return
     # need to save the original object too
     w_self.setdictvalue(space, 'ctx', w_new_value)
@@ -5946,6 +6013,7 @@ def Subscript_set_value(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'value', w_new_value)
+        w_self.initialization_state &= ~4
         return
     w_self.deldictvalue(space, 'value')
     w_self.initialization_state |= 4
@@ -5969,6 +6037,7 @@ def Subscript_set_slice(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'slice', w_new_value)
+        w_self.initialization_state &= ~8
         return
     w_self.deldictvalue(space, 'slice')
     w_self.initialization_state |= 8
@@ -5991,6 +6060,7 @@ def Subscript_set_ctx(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'ctx', w_new_value)
+        w_self.initialization_state &= ~16
         return
     # need to save the original object too
     w_self.setdictvalue(space, 'ctx', w_new_value)
@@ -6034,11 +6104,12 @@ def Name_get_id(space, w_self):
 
 def Name_set_id(space, w_self, w_new_value):
     try:
-        w_self.id = space.str_w(w_new_value)
+        w_self.id = space.realstr_w(w_new_value)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'id', w_new_value)
+        w_self.initialization_state &= ~4
         return
     w_self.deldictvalue(space, 'id')
     w_self.initialization_state |= 4
@@ -6061,6 +6132,7 @@ def Name_set_ctx(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'ctx', w_new_value)
+        w_self.initialization_state &= ~8
         return
     # need to save the original object too
     w_self.setdictvalue(space, 'ctx', w_new_value)
@@ -6126,6 +6198,7 @@ def List_set_ctx(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'ctx', w_new_value)
+        w_self.initialization_state &= ~8
         return
     # need to save the original object too
     w_self.setdictvalue(space, 'ctx', w_new_value)
@@ -6192,6 +6265,7 @@ def Tuple_set_ctx(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'ctx', w_new_value)
+        w_self.initialization_state &= ~8
         return
     # need to save the original object too
     w_self.setdictvalue(space, 'ctx', w_new_value)
@@ -6240,6 +6314,7 @@ def Const_set_value(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'value', w_new_value)
+        w_self.initialization_state &= ~4
         return
     w_self.deldictvalue(space, 'value')
     w_self.initialization_state |= 4
@@ -6360,6 +6435,7 @@ def Slice_set_lower(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'lower', w_new_value)
+        w_self.initialization_state &= ~1
         return
     w_self.deldictvalue(space, 'lower')
     w_self.initialization_state |= 1
@@ -6383,6 +6459,7 @@ def Slice_set_upper(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'upper', w_new_value)
+        w_self.initialization_state &= ~2
         return
     w_self.deldictvalue(space, 'upper')
     w_self.initialization_state |= 2
@@ -6406,6 +6483,7 @@ def Slice_set_step(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'step', w_new_value)
+        w_self.initialization_state &= ~4
         return
     w_self.deldictvalue(space, 'step')
     w_self.initialization_state |= 4
@@ -6497,6 +6575,7 @@ def Index_set_value(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'value', w_new_value)
+        w_self.initialization_state &= ~1
         return
     w_self.deldictvalue(space, 'value')
     w_self.initialization_state |= 1
@@ -6768,6 +6847,7 @@ def comprehension_set_target(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'target', w_new_value)
+        w_self.initialization_state &= ~1
         return
     w_self.deldictvalue(space, 'target')
     w_self.initialization_state |= 1
@@ -6791,6 +6871,7 @@ def comprehension_set_iter(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'iter', w_new_value)
+        w_self.initialization_state &= ~2
         return
     w_self.deldictvalue(space, 'iter')
     w_self.initialization_state |= 2
@@ -6856,6 +6937,7 @@ def excepthandler_set_lineno(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'lineno', w_new_value)
+        w_self.initialization_state &= ~1
         return
     w_self.deldictvalue(space, 'lineno')
     w_self.initialization_state |= 1
@@ -6877,6 +6959,7 @@ def excepthandler_set_col_offset(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'col_offset', w_new_value)
+        w_self.initialization_state &= ~2
         return
     w_self.deldictvalue(space, 'col_offset')
     w_self.initialization_state |= 2
@@ -6909,6 +6992,7 @@ def ExceptHandler_set_type(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'type', w_new_value)
+        w_self.initialization_state &= ~4
         return
     w_self.deldictvalue(space, 'type')
     w_self.initialization_state |= 4
@@ -6932,6 +7016,7 @@ def ExceptHandler_set_name(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'name', w_new_value)
+        w_self.initialization_state &= ~8
         return
     w_self.deldictvalue(space, 'name')
     w_self.initialization_state |= 8
@@ -7012,11 +7097,12 @@ def arguments_set_vararg(space, w_self, w_new_value):
         if space.is_w(w_new_value, space.w_None):
             w_self.vararg = None
         else:
-            w_self.vararg = space.str_w(w_new_value)
+            w_self.vararg = space.realstr_w(w_new_value)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'vararg', w_new_value)
+        w_self.initialization_state &= ~2
         return
     w_self.deldictvalue(space, 'vararg')
     w_self.initialization_state |= 2
@@ -7036,11 +7122,12 @@ def arguments_set_kwarg(space, w_self, w_new_value):
         if space.is_w(w_new_value, space.w_None):
             w_self.kwarg = None
         else:
-            w_self.kwarg = space.str_w(w_new_value)
+            w_self.kwarg = space.realstr_w(w_new_value)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'kwarg', w_new_value)
+        w_self.initialization_state &= ~4
         return
     w_self.deldictvalue(space, 'kwarg')
     w_self.initialization_state |= 4
@@ -7103,11 +7190,12 @@ def keyword_get_arg(space, w_self):
 
 def keyword_set_arg(space, w_self, w_new_value):
     try:
-        w_self.arg = space.str_w(w_new_value)
+        w_self.arg = space.realstr_w(w_new_value)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'arg', w_new_value)
+        w_self.initialization_state &= ~1
         return
     w_self.deldictvalue(space, 'arg')
     w_self.initialization_state |= 1
@@ -7131,6 +7219,7 @@ def keyword_set_value(space, w_self, w_new_value):
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'value', w_new_value)
+        w_self.initialization_state &= ~2
         return
     w_self.deldictvalue(space, 'value')
     w_self.initialization_state |= 2
@@ -7172,11 +7261,12 @@ def alias_get_name(space, w_self):
 
 def alias_set_name(space, w_self, w_new_value):
     try:
-        w_self.name = space.str_w(w_new_value)
+        w_self.name = space.realstr_w(w_new_value)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'name', w_new_value)
+        w_self.initialization_state &= ~1
         return
     w_self.deldictvalue(space, 'name')
     w_self.initialization_state |= 1
@@ -7196,11 +7286,12 @@ def alias_set_asname(space, w_self, w_new_value):
         if space.is_w(w_new_value, space.w_None):
             w_self.asname = None
         else:
-            w_self.asname = space.str_w(w_new_value)
+            w_self.asname = space.realstr_w(w_new_value)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'asname', w_new_value)
+        w_self.initialization_state &= ~2
         return
     w_self.deldictvalue(space, 'asname')
     w_self.initialization_state |= 2

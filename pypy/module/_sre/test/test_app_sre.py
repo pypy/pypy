@@ -220,6 +220,24 @@ class AppTestSreMatch:
             return ''
         assert (u"bb\u3039b", 2) == re.subn("[aA]", call_me, "babAb")
 
+    def test_sub_subclass_of_str(self):
+        import re
+        class MyString(str):
+            pass
+        class MyUnicode(unicode):
+            pass
+        s1 = MyString('zz')
+        s2 = re.sub('aa', 'bb', s1)
+        assert s2 == s1
+        assert type(s2) is str       # and not MyString
+        s2 = re.sub(u'aa', u'bb', s1)
+        assert s2 == s1
+        assert type(s2) is str       # and not MyString
+        u1 = MyUnicode(u'zz')
+        u2 = re.sub(u'aa', u'bb', u1)
+        assert u2 == u1
+        assert type(u2) is unicode   # and not MyUnicode
+
     def test_match_array(self):
         import re, array
         a = array.array('c', 'hello')

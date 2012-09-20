@@ -547,7 +547,7 @@ def _get_peer_alt_names(space, certificate):
 
     try:
         alt_names_w = []
-        i = 0
+        i = -1
         while True:
             i = libssl_X509_get_ext_by_NID(
                 certificate, NID_subject_alt_name, i)

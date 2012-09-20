@@ -590,10 +590,6 @@ class ObjSpace(object):
                 w_exc = self.getitem(w_dic, w_name)
                 exc_types_w[name] = w_exc
                 setattr(self, "w_" + excname, w_exc)
-        # Make a prebuilt recursion error
-        w_msg = self.wrap("maximum recursion depth exceeded")
-        self.prebuilt_recursion_error = OperationError(self.w_RuntimeError,
-                                                       w_msg)
         return exc_types_w
 
     def install_mixedmodule(self, mixedname, installed_builtin_modules):
@@ -834,7 +830,8 @@ class ObjSpace(object):
         return isinstance(obj, RequiredClass)
 
     def unpackiterable(self, w_iterable, expected_length=-1):
-        """Unpack an iterable object into a real (interpreter-level) list.
+        """Unpack an iterable into a real (interpreter-level) list.
+
         Raise an OperationError(w_ValueError) if the length is wrong."""
         w_iterator = self.iter(w_iterable)
         if expected_length == -1:
@@ -854,12 +851,10 @@ class ObjSpace(object):
     def iteriterable(self, w_iterable):
         return W_InterpIterable(self, w_iterable)
 
-    @jit.dont_look_inside
     def _unpackiterable_unknown_length(self, w_iterator, w_iterable):
-        # Unpack a variable-size list of unknown length.
-        # The JIT does not look inside this function because it
-        # contains a loop (made explicit with the decorator above).
-        #
+        """Unpack an iterable of unknown length into an interp-level
+        list.
+        """
         # If we can guess the expected length we can preallocate.
         try:
             lgt_estimate = self.len_w(w_iterable)
