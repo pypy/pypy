@@ -12,11 +12,11 @@ class AppTestThread(AppTestCpythonExtensionBase):
                  return PyInt_FromLong(PyPyThread_get_thread_ident());
              """),
             ])
-        import thread, threading
+        import threading
         results = []
         def some_thread():
             res = module.get_thread_ident()
-            results.append((res, thread.get_ident()))
+            results.append((res, threading._get_ident()))
 
         some_thread()
         assert results[0][0] == results[0][1]
@@ -108,7 +108,7 @@ class AppTestThread(AppTestCpythonExtensionBase):
                 result.append(e)
             else:
                 result.append(True)
-                _thread.start_new_thread(in_thread, ())
+        _thread.start_new_thread(in_thread, ())
         while not result:
             print(".")
             time.sleep(.5)
