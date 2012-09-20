@@ -7,7 +7,7 @@ class AppTestSysModule(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
             ("get", "METH_VARARGS",
              """
-                 char *name = PyString_AsString(PyTuple_GetItem(args, 0));
+                 char *name = _PyUnicode_AsString(PyTuple_GetItem(args, 0));
                  PyObject *retval = PySys_GetObject(name);
                  return PyBool_FromLong(retval != NULL);
              """)])
@@ -21,9 +21,9 @@ class AppTestSysModule(AppTestCpythonExtensionBase):
                  PySys_WriteStdout("format: %d\\n", 42);
                  Py_RETURN_NONE;
              """)])
-        import sys, StringIO
+        import sys, io
         prev = sys.stdout
-        sys.stdout = StringIO.StringIO()
+        sys.stdout = io.StringIO()
         try:
             module.writestdout()
             assert sys.stdout.getvalue() == "format: 42\n"
