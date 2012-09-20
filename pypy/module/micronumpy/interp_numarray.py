@@ -63,6 +63,9 @@ class __extend__(W_NDimArray):
         return space.wrap(loop.tostring(space, self))
 
     def getitem_filter(self, space, arr):
+        if len(arr.get_shape()) > 1:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("boolean index array should have 1 dimension"))
         if arr.get_size() > self.get_size():
             raise OperationError(space.w_ValueError,
                                  space.wrap("index out of range for array"))
@@ -71,6 +74,9 @@ class __extend__(W_NDimArray):
         return loop.getitem_filter(res, self, arr)
 
     def setitem_filter(self, space, idx, val):
+        if len(idx.get_shape()) > 1:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("boolean index array should have 1 dimension"))
         if idx.get_size() > self.get_size():
             raise OperationError(space.w_ValueError,
                                  space.wrap("index out of range for array"))
