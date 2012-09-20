@@ -190,8 +190,8 @@ class FlowObjSpace(ObjSpace):
         except UnwrapException:
             raise Exception, "non-constant except guard"
         if check_class in (NotImplementedError, AssertionError):
-            raise FlowingError("Catching %s is not valid in RPython" %
-                                     check_class.__name__)
+            raise FlowingError(self.frame,
+                "Catching %s is not valid in RPython" % check_class.__name__)
         if not isinstance(check_class, tuple):
             # the simple case
             return ObjSpace.exception_match(self, w_exc_type, w_check_class)
@@ -421,7 +421,7 @@ class FlowObjSpace(ObjSpace):
                 value = getattr(self.unwrap(self.builtin), varname)
             except AttributeError:
                 message = "global name '%s' is not defined" % varname
-                raise FSException(self.w_NameError, self.wrap(message))
+                raise FlowingError(self.frame, self.wrap(message))
         return self.wrap(value)
 
     def w_KeyboardInterrupt(self):

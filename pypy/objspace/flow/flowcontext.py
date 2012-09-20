@@ -16,15 +16,22 @@ from pypy.objspace.flow.framestate import (FrameState, recursively_unflatten,
 from pypy.objspace.flow.bytecode import HostCode
 
 class FlowingError(Exception):
-    pass
+    """ Signals invalid RPython in the function being analysed"""
+    def __init__(self, frame, msg):
+        super(FlowingError, self).__init__(msg)
+        self.frame = frame
+
+    def __str__(self):
+        return format_global_error(self.frame.graph, self.frame.last_instr,
+                str(self.msg))
+
 
 class StopFlowing(Exception):
     pass
 
 class FSException(OperationError):
     def __init__(self, w_type, w_value, tb=None):
-        if w_type is None:
-            raise FlowingError(w_value)
+        assert w_type is not None
         self.w_type = w_type
         self.w_value = w_value
         self._application_traceback = tb
@@ -425,13 +432,6 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
                 link = Link([w_result], self.graph.returnblock)
                 self.recorder.crnt_block.closeblock(link)
 
-            except FlowingError, a:
-                # attach additional source info to AnnotatorError
-                _, _, tb = sys.exc_info()
-                formatted = format_global_error(self.graph, self.last_instr,
-                                                    str(a))
-                e = FlowingError(formatted)
-                raise FlowingError, e, tb
         del self.recorder
 
     def mergeblock(self, currentblock, currentstate):
