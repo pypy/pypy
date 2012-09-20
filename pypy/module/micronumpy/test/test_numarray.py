@@ -1549,7 +1549,7 @@ class AppTestNumArray(BaseNumpyAppTest):
     def test_bool_array_index_setitem(self):
         from numpypy import arange, array
         b = arange(5)
-        b[array([True, False, True])] = [20, 21]
+        b[array([True, False, True])] = [20, 21, 0, 0, 0, 0, 0]
         assert (b == [20, 1, 21, 3, 4]).all() 
         raises(ValueError, "array([1, 2])[array([True, False, True])] = [1, 2, 3]")
 

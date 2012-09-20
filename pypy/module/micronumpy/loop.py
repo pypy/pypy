@@ -194,7 +194,7 @@ def setitem_filter(arr, index, value):
     arr_iter = arr.create_iter()
     index_iter = index.create_iter()
     value_iter = value.create_iter()
-    while not arr_iter.done():
+    while not index_iter.done():
         if index_iter.getitem_bool():
             arr_iter.setitem(value_iter.getitem())
             value_iter.next()
