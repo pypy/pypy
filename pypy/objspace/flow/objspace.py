@@ -3,12 +3,12 @@ import __builtin__
 import sys
 import operator
 import types
-from pypy.tool import error
 from pypy.interpreter.baseobjspace import ObjSpace, Wrappable
-from pypy.interpreter.error import OperationError
 from pypy.interpreter import pyframe, argument
 from pypy.objspace.flow.model import *
-from pypy.objspace.flow import flowcontext, operation
+from pypy.objspace.flow import operation
+from pypy.objspace.flow.flowcontext import (FlowSpaceFrame, fixeggblocks,
+    OperationThatShouldNotBePropagatedError, FSException, FlowingError)
 from pypy.objspace.flow.specialcase import SPECIAL_CASES
 from pypy.rlib.unroll import unrolling_iterable, _unroller
 from pypy.rlib import rstackovf, rarithmetic
@@ -46,7 +46,7 @@ class FlowObjSpace(ObjSpace):
     """
 
     full_exceptions = False
-    FrameClass = flowcontext.FlowSpaceFrame
+    FrameClass = FlowSpaceFrame
 
     def initialize(self):
         self.w_None     = Constant(None)
@@ -78,6 +78,7 @@ class FlowObjSpace(ObjSpace):
     # disable superclass methods
     enter_cache_building_mode = None
     leave_cache_building_mode = None
+    createcompiler = None
 
     def is_w(self, w_one, w_two):
         return self.is_true(self.is_(w_one, w_two))
@@ -181,12 +182,7 @@ class FlowObjSpace(ObjSpace):
                                         isinstance(w_obj.value, RequiredClass))
 
     def getexecutioncontext(self):
-        return getattr(self, 'executioncontext', None)
-
-    def createcompiler(self):
-        # no parser/compiler needed - don't build one, it takes too much time
-        # because it is done each time a FlowExecutionContext is built
-        return None
+        return self.frame
 
     def exception_match(self, w_exc_type, w_check_class):
         try:
@@ -194,8 +190,8 @@ class FlowObjSpace(ObjSpace):
         except UnwrapException:
             raise Exception, "non-constant except guard"
         if check_class in (NotImplementedError, AssertionError):
-            raise error.FlowingError("Catching %s is not valid in RPython" %
-                                     check_class.__name__)
+            raise FlowingError(self.frame,
+                "Catching %s is not valid in RPython" % check_class.__name__)
         if not isinstance(check_class, tuple):
             # the simple case
             return ObjSpace.exception_match(self, w_exc_type, w_check_class)
@@ -224,20 +220,10 @@ class FlowObjSpace(ObjSpace):
         """
         if func.func_doc and func.func_doc.lstrip().startswith('NOT_RPYTHON'):
             raise Exception, "%r is tagged as NOT_RPYTHON" % (func,)
-        ec = flowcontext.FlowExecutionContext(self)
-        self.executioncontext = ec
-
-        try:
-            ec.build_flow(func, constargs)
-        except error.FlowingError, a:
-            # attach additional source info to AnnotatorError
-            _, _, tb = sys.exc_info()
-            formated = error.format_global_error(ec.graph, ec.frame.last_instr,
-                                                 str(a))
-            e = error.FlowingError(formated)
-            raise error.FlowingError, e, tb
-
-        graph = ec.graph
+        frame = self.frame = FlowSpaceFrame(self, func, constargs)
+        frame.build_flow()
+        graph = frame.graph
+        fixeggblocks(graph)
         checkgraph(graph)
         if graph.is_generator and tweak_for_generator:
             from pypy.translator.generator import tweak_generator_graph
@@ -261,7 +247,7 @@ class FlowObjSpace(ObjSpace):
             w_len = self.len(w_iterable)
             w_correct = self.eq(w_len, self.wrap(expected_length))
             if not self.is_true(w_correct):
-                e = OperationError(self.w_ValueError, self.w_None)
+                e = FSException(self.w_ValueError, self.w_None)
                 e.normalize_exception(self)
                 raise e
             return [self.do_operation('getitem', w_iterable, self.wrap(i))
@@ -271,13 +257,14 @@ class FlowObjSpace(ObjSpace):
     # ____________________________________________________________
     def do_operation(self, name, *args_w):
         spaceop = SpaceOperation(name, args_w, Variable())
-        spaceop.offset = self.executioncontext.frame.last_instr
-        self.executioncontext.recorder.append(spaceop)
+        spaceop.offset = self.frame.last_instr
+        self.frame.record(spaceop)
         return spaceop.result
 
     def do_operation_with_implicit_exceptions(self, name, *args_w):
         w_result = self.do_operation(name, *args_w)
-        self.handle_implicit_exceptions(operation.implicit_exceptions.get(name))
+        self.frame.handle_implicit_exceptions(
+                operation.implicit_exceptions.get(name))
         return w_result
 
     def is_true(self, w_obj):
@@ -288,8 +275,7 @@ class FlowObjSpace(ObjSpace):
         else:
             return bool(obj)
         w_truthvalue = self.do_operation('is_true', w_obj)
-        context = self.getexecutioncontext()
-        return context.guessbool(w_truthvalue)
+        return self.frame.guessbool(w_truthvalue)
 
     def iter(self, w_iterable):
         try:
@@ -303,7 +289,7 @@ class FlowObjSpace(ObjSpace):
         return w_iter
 
     def next(self, w_iter):
-        context = self.getexecutioncontext()
+        frame = self.frame
         try:
             it = self.unwrap(w_iter)
         except UnwrapException:
@@ -313,25 +299,17 @@ class FlowObjSpace(ObjSpace):
                 try:
                     v, next_unroller = it.step()
                 except IndexError:
-                    raise OperationError(self.w_StopIteration, self.w_None)
+                    raise FSException(self.w_StopIteration, self.w_None)
                 else:
-                    context.replace_in_stack(it, next_unroller)
+                    frame.replace_in_stack(it, next_unroller)
                     return self.wrap(v)
         w_item = self.do_operation("next", w_iter)
-        outcome, w_exc_cls, w_exc_value = context.guessexception(StopIteration,
-                                                                 RuntimeError)
-        if outcome is StopIteration:
-            raise OperationError(self.w_StopIteration, w_exc_value)
-        elif outcome is RuntimeError:
-            raise operation.ImplicitOperationError(Constant(RuntimeError),
-                                                    w_exc_value)
-        else:
-            return w_item
+        frame.handle_implicit_exceptions([StopIteration, RuntimeError])
+        return w_item
 
     def setitem(self, w_obj, w_key, w_val):
         # protect us from globals write access
-        ec = self.getexecutioncontext()
-        if ec and w_obj is ec.frame.w_globals:
+        if w_obj is self.frame.w_globals:
             raise SyntaxError("attempt to modify global attribute %r in %r"
                             % (w_key, ec.graph.func))
         return self.do_operation_with_implicit_exceptions('setitem', w_obj,
@@ -357,7 +335,7 @@ class FlowObjSpace(ObjSpace):
                 etype = e.__class__
                 msg = "generated by a constant operation:\n\t%s%r" % (
                     'getattr', (obj, name))
-                raise operation.OperationThatShouldNotBePropagatedError(
+                raise OperationThatShouldNotBePropagatedError(
                     self.wrap(etype), self.wrap(msg))
             try:
                 return self.wrap(result)
@@ -370,15 +348,15 @@ class FlowObjSpace(ObjSpace):
         try:
             mod = __import__(name, glob, loc, frm, level)
         except ImportError, e:
-            raise OperationError(self.w_ImportError, self.wrap(str(e)))
+            raise FSException(self.w_ImportError, self.wrap(str(e)))
         return self.wrap(mod)
 
     def import_from(self, w_module, w_name):
         try:
             return self.getattr(w_module, w_name)
-        except OperationError, e:
+        except FSException, e:
             if e.match(self, self.w_AttributeError):
-                raise OperationError(self.w_ImportError,
+                raise FSException(self.w_ImportError,
                     self.wrap("cannot import name '%s'" % w_name.value))
             else:
                 raise
@@ -431,27 +409,8 @@ class FlowObjSpace(ObjSpace):
                                types.TypeType)) and
                   c.__module__ in ['__builtin__', 'exceptions']):
                 exceptions = operation.implicit_exceptions.get(c)
-        self.handle_implicit_exceptions(exceptions)
+        self.frame.handle_implicit_exceptions(exceptions)
         return w_res
-
-    def handle_implicit_exceptions(self, exceptions):
-        if not exceptions:
-            return
-        # catch possible exceptions implicitly.  If the OperationError
-        # below is not caught in the same function, it will produce an
-        # exception-raising return block in the flow graph.  Note that
-        # even if the interpreter re-raises the exception, it will not
-        # be the same ImplicitOperationError instance internally.
-        context = self.getexecutioncontext()
-        outcome, w_exc_cls, w_exc_value = context.guessexception(*exceptions)
-        if outcome is not None:
-            # we assume that the caught exc_cls will be exactly the
-            # one specified by 'outcome', and not a subclass of it,
-            # unless 'outcome' is Exception.
-            #if outcome is not Exception:
-                #w_exc_cls = Constant(outcome) Now done by guessexception itself
-                #pass
-             raise operation.ImplicitOperationError(w_exc_cls, w_exc_value)
 
     def find_global(self, w_globals, varname):
         try:
@@ -462,7 +421,7 @@ class FlowObjSpace(ObjSpace):
                 value = getattr(self.unwrap(self.builtin), varname)
             except AttributeError:
                 message = "global name '%s' is not defined" % varname
-                raise OperationError(self.w_NameError, self.wrap(message))
+                raise FlowingError(self.frame, self.wrap(message))
         return self.wrap(value)
 
     def w_KeyboardInterrupt(self):
@@ -529,7 +488,7 @@ def make_op(name, arity):
                     etype = e.__class__
                     msg = "generated by a constant operation:\n\t%s%r" % (
                         name, tuple(args))
-                    raise operation.OperationThatShouldNotBePropagatedError(
+                    raise OperationThatShouldNotBePropagatedError(
                         self.wrap(etype), self.wrap(msg))
                 else:
                     # don't try to constant-fold operations giving a 'long'
