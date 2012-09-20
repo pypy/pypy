@@ -1,6 +1,6 @@
 import collections
 import sys
-from pypy.tool.error import format_global_error
+from pypy.tool.error import source_lines
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.pytraceback import PyTraceback
 from pypy.interpreter import pyframe
@@ -22,8 +22,10 @@ class FlowingError(Exception):
         self.frame = frame
 
     def __str__(self):
-        return format_global_error(self.frame.graph, self.frame.last_instr,
-                str(self.msg))
+        msg = ['-+' * 30]
+        msg += map(str, self.args)
+        msg += source_lines(self.frame.graph, None, offset=self.frame.last_instr)
+        return "\n".join(msg)
 
 
 class StopFlowing(Exception):

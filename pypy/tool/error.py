@@ -174,13 +174,6 @@ def format_someobject_error(annotator, position_key, what, s_value, called_from_
     msg.append("  " + str(binding))
     return "\n".join(msg)
 
-def format_global_error(graph, offset, message):
-    msg = []
-    msg.append('-+' * 30)
-    msg.append(message)
-    msg += source_lines(graph, None, offset=offset)
-    return "\n".join(msg)
-
 def debug(drv, use_pdb=True):
     # XXX unify some code with pypy.translator.goal.translate
     from pypy.translator.tool.pdbplus import PdbPlusShow
