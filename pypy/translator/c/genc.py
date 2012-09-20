@@ -1,19 +1,19 @@
 import autopath
 import py
 import sys, os
+from pypy.rlib import exports
+from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.typesystem import getfunctionptr
+from pypy.tool import isolate, runsubprocess
+from pypy.tool.nullpath import NullPyPathLocal
+from pypy.tool.udir import udir
+from pypy.translator.c import gc
 from pypy.translator.c.database import LowLevelDatabase
 from pypy.translator.c.extfunc import pre_include_code_lines
-from pypy.translator.llsupport.wrapper import new_wrapper
+from pypy.translator.c.support import log
 from pypy.translator.gensupp import uniquemodulename, NameManager
+from pypy.translator.llsupport.wrapper import new_wrapper
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.rpython.lltypesystem import lltype
-from pypy.tool.udir import udir
-from pypy.tool import isolate, runsubprocess
-from pypy.translator.c.support import log, c_string_constant
-from pypy.rpython.typesystem import getfunctionptr
-from pypy.translator.c import gc
-from pypy.rlib import exports
-from pypy.tool.nullpath import NullPyPathLocal
 
 _CYGWIN = sys.platform == 'cygwin'
 
@@ -46,7 +46,6 @@ class ProfOpt(object):
         platform = self.compiler.platform
         if platform.name.startswith('darwin'):
             # XXX incredible hack for darwin
-            cfiles = self.compiler.cfiles
             STR = '/*--no-profiling-for-this-file!--*/'
             no_prof = []
             prof = []
@@ -202,8 +201,8 @@ class CBuilder(object):
     def get_gcpolicyclass(self):
         if self.gcpolicy is None:
             name = self.config.translation.gctransformer
-            if self.config.translation.gcrootfinder == "asmgcc":
-                name = "%s+asmgcroot" % (name,)
+            if name == "framework":
+                name = "%s+%s" % (name, self.config.translation.gcrootfinder)
             return gc.name_to_gcpolicy[name]
         return self.gcpolicy
 
@@ -227,7 +226,6 @@ class CBuilder(object):
 
     def generate_source(self, db=None, defines={}, exe_name=None):
         assert self.c_source_filename is None
-        translator = self.translator
 
         if db is None:
             db = self.build_database()

@@ -5,7 +5,7 @@ from pypy.translator.c import gc
 from pypy.annotation import model as annmodel
 from pypy.annotation import policy as annpolicy
 from pypy.rpython.lltypesystem import lltype, llmemory, llarena, rffi, llgroup
-from pypy.rpython.memory.gctransform import framework
+from pypy.rpython.memory.gctransform import framework, shadowstack
 from pypy.rpython.lltypesystem.lloperation import llop, void
 from pypy.rlib.objectmodel import compute_unique_id, we_are_translated
 from pypy.rlib.debug import ll_assert
@@ -932,8 +932,8 @@ class GenericMovingGCTests(GenericGCTests):
 
 class TestMarkSweepGC(GenericGCTests):
     gcname = "marksweep"
-    class gcpolicy(gc.FrameworkGcPolicy):
-        class transformerclass(framework.FrameworkGCTransformer):
+    class gcpolicy(gc.BasicFrameworkGcPolicy):
+        class transformerclass(shadowstack.ShadowStackFrameworkGCTransformer):
             GC_PARAMS = {'start_heap_size': 1024*WORD,
                          'translated_to_c': False}
             root_stack_depth = 200
@@ -942,8 +942,8 @@ class TestMarkSweepGC(GenericGCTests):
 class TestPrintingGC(GenericGCTests):
     gcname = "statistics"
 
-    class gcpolicy(gc.FrameworkGcPolicy):
-        class transformerclass(framework.FrameworkGCTransformer):
+    class gcpolicy(gc.BasicFrameworkGcPolicy):
+        class transformerclass(shadowstack.ShadowStackFrameworkGCTransformer):
             from pypy.rpython.memory.gc.marksweep import PrintingMarkSweepGC as GCClass
             GC_PARAMS = {'start_heap_size': 1024*WORD,
                          'translated_to_c': False}
@@ -953,8 +953,8 @@ class TestSemiSpaceGC(GenericMovingGCTests):
     gcname = "semispace"
     GC_CAN_SHRINK_ARRAY = True
 
-    class gcpolicy(gc.FrameworkGcPolicy):
-        class transformerclass(framework.FrameworkGCTransformer):
+    class gcpolicy(gc.BasicFrameworkGcPolicy):
+        class transformerclass(shadowstack.ShadowStackFrameworkGCTransformer):
             from pypy.rpython.memory.gc.semispace import SemiSpaceGC as GCClass
             GC_PARAMS = {'space_size': 512*WORD,
                          'translated_to_c': False}
@@ -963,8 +963,8 @@ class TestSemiSpaceGC(GenericMovingGCTests):
 class TestMarkCompactGC(GenericMovingGCTests):
     gcname = 'markcompact'
 
-    class gcpolicy(gc.FrameworkGcPolicy):
-        class transformerclass(framework.FrameworkGCTransformer):
+    class gcpolicy(gc.BasicFrameworkGcPolicy):
+        class transformerclass(shadowstack.ShadowStackFrameworkGCTransformer):
             from pypy.rpython.memory.gc.markcompact import MarkCompactGC as GCClass
             GC_PARAMS = {'space_size': 4096*WORD,
                          'translated_to_c': False}
@@ -974,8 +974,8 @@ class TestGenerationGC(GenericMovingGCTests):
     gcname = "generation"
     GC_CAN_SHRINK_ARRAY = True
 
-    class gcpolicy(gc.FrameworkGcPolicy):
-        class transformerclass(framework.FrameworkGCTransformer):
+    class gcpolicy(gc.BasicFrameworkGcPolicy):
+        class transformerclass(shadowstack.ShadowStackFrameworkGCTransformer):
             from pypy.rpython.memory.gc.generation import GenerationGC as \
                                                           GCClass
             GC_PARAMS = {'space_size': 512*WORD,
@@ -1160,8 +1160,8 @@ class TestGenerationalNoFullCollectGC(GCTest):
 
     gcname = "generation"
 
-    class gcpolicy(gc.FrameworkGcPolicy):
-        class transformerclass(framework.FrameworkGCTransformer):
+    class gcpolicy(gc.BasicFrameworkGcPolicy):
+        class transformerclass(shadowstack.ShadowStackFrameworkGCTransformer):
             from pypy.rpython.memory.gc.generation import GenerationGC
             class GCClass(GenerationGC):
                 __ready = False
@@ -1205,8 +1205,8 @@ class TestHybridGC(TestGenerationGC):
     gcname = "hybrid"
     GC_CAN_MALLOC_NONMOVABLE = True
 
-    class gcpolicy(gc.FrameworkGcPolicy):
-        class transformerclass(framework.FrameworkGCTransformer):
+    class gcpolicy(gc.BasicFrameworkGcPolicy):
+        class transformerclass(shadowstack.ShadowStackFrameworkGCTransformer):
             from pypy.rpython.memory.gc.hybrid import HybridGC as GCClass
             GC_PARAMS = {'space_size': 512*WORD,
                          'nursery_size': 32*WORD,
@@ -1274,8 +1274,8 @@ class TestMiniMarkGC(TestHybridGC):
     gcname = "minimark"
     GC_CAN_TEST_ID = True
 
-    class gcpolicy(gc.FrameworkGcPolicy):
-        class transformerclass(framework.FrameworkGCTransformer):
+    class gcpolicy(gc.BasicFrameworkGcPolicy):
+        class transformerclass(shadowstack.ShadowStackFrameworkGCTransformer):
             from pypy.rpython.memory.gc.minimark import MiniMarkGC as GCClass
             GC_PARAMS = {'nursery_size': 32*WORD,
                          'page_size': 16*WORD,
@@ -1390,8 +1390,8 @@ class UnboxedObject(TaggedBase, UnboxedValue):
 
 class TestMarkSweepTaggedPointerGC(TaggedPointerGCTests):
     gcname = "marksweep"
-    class gcpolicy(gc.FrameworkGcPolicy):
-        class transformerclass(framework.FrameworkGCTransformer):
+    class gcpolicy(gc.BasicFrameworkGcPolicy):
+        class transformerclass(shadowstack.ShadowStackFrameworkGCTransformer):
             GC_PARAMS = {'start_heap_size': 1024*WORD,
                          'translated_to_c': False}
             root_stack_depth = 200
@@ -1399,8 +1399,8 @@ class TestMarkSweepTaggedPointerGC(TaggedPointerGCTests):
 class TestHybridTaggedPointerGC(TaggedPointerGCTests):
     gcname = "hybrid"
 
-    class gcpolicy(gc.FrameworkGcPolicy):
-        class transformerclass(framework.FrameworkGCTransformer):
+    class gcpolicy(gc.BasicFrameworkGcPolicy):
+        class transformerclass(shadowstack.ShadowStackFrameworkGCTransformer):
             from pypy.rpython.memory.gc.generation import GenerationGC as \
                                                           GCClass
             GC_PARAMS = {'space_size': 512*WORD,
@@ -1411,8 +1411,8 @@ class TestHybridTaggedPointerGC(TaggedPointerGCTests):
 class TestMarkCompactTaggedpointerGC(TaggedPointerGCTests):
     gcname = 'markcompact'
 
-    class gcpolicy(gc.FrameworkGcPolicy):
-        class transformerclass(framework.FrameworkGCTransformer):
+    class gcpolicy(gc.BasicFrameworkGcPolicy):
+        class transformerclass(shadowstack.ShadowStackFrameworkGCTransformer):
             from pypy.rpython.memory.gc.markcompact import MarkCompactGC as GCClass
             GC_PARAMS = {'space_size': 4096*WORD,
                          'translated_to_c': False}

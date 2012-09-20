@@ -1,13 +1,13 @@
-from pypy.rpython.memory.gctransform.framework import FrameworkGCTransformer
-from pypy.rpython.memory.gctransform.framework import BaseRootWalker
+from pypy.objspace.flow.model import (Constant, Variable, Block, Link,
+     copygraph, SpaceOperation)
+from pypy.rlib.debug import ll_assert
+from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.lltypesystem.lloperation import llop
+from pypy.rpython.memory.gctransform.framework import (
+     BaseFrameworkGCTransformer, BaseRootWalker)
 from pypy.rpython.rbuiltin import gen_cast
-from pypy.rpython.annlowlevel import llhelper
-from pypy.objspace.flow.model import Constant, Variable, Block, Link, copygraph
-from pypy.objspace.flow.model import SpaceOperation
 from pypy.translator.unsimplify import copyvar
-from pypy.rlib.debug import ll_assert
 import sys
 
 
@@ -20,7 +20,7 @@ import sys
 
 IS_64_BITS = sys.maxint > 2147483647
 
-class AsmGcRootFrameworkGCTransformer(FrameworkGCTransformer):
+class AsmGcRootFrameworkGCTransformer(BaseFrameworkGCTransformer):
     _asmgcc_save_restore_arguments = None
 
     def push_roots(self, hop, keep_current_args=False):
@@ -53,7 +53,7 @@ class AsmGcRootFrameworkGCTransformer(FrameworkGCTransformer):
         if close_stack:
             self.handle_call_with_close_stack(hop)
         else:
-            FrameworkGCTransformer.gct_direct_call(self, hop)
+            BaseFrameworkGCTransformer.gct_direct_call(self, hop)
 
     def handle_call_with_close_stack(self, hop):
         fnptr = hop.spaceop.args[0].value
