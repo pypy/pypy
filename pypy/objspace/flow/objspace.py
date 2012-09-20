@@ -310,8 +310,8 @@ class FlowObjSpace(ObjSpace):
     def setitem(self, w_obj, w_key, w_val):
         # protect us from globals write access
         if w_obj is self.frame.w_globals:
-            raise SyntaxError("attempt to modify global attribute %r in %r"
-                            % (w_key, ec.graph.func))
+            raise FlowingError(self.frame,
+                    "Attempting to modify global variable  %r." % (w_key))
         return self.do_operation_with_implicit_exceptions('setitem', w_obj,
                                                           w_key, w_val)
 

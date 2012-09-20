@@ -460,6 +460,15 @@ class TestFlowObjSpace(Base):
     def test_globalconstdict(self):
         x = self.codetest(self.globalconstdict)
 
+    def test_dont_write_globals(self):
+        def f():
+            global DATA
+            DATA = 5
+        with py.test.raises(FlowingError) as excinfo:
+            self.codetest(f)
+        assert "modify global" in str(excinfo.value)
+        assert DATA == {'x':5, 'y':6}
+
     #__________________________________________________________
     def dictliteral(name):
         x = {'x': 1}
