@@ -1315,7 +1315,7 @@ class ExceptHandlerBlock(FrameBlock):
     def handle(self, frame, unroller):
         assert False # never called
 
-    def cleanup(self, frame):
+    def cleanupstack(self, frame):
         frame.dropvaluesuntil(self.valuestackdepth+1)
         w_last_exception = frame.popvalue()
         if not isinstance(w_last_exception, W_OperationError):
@@ -1323,7 +1323,7 @@ class ExceptHandlerBlock(FrameBlock):
                 frame.space.str_w(w_last_exception))
             raise BytecodeCorruption(msg)
         frame.last_exception = w_last_exception.operr
-        FrameBlock.cleanup(self, frame)
+        FrameBlock.cleanupstack(self, frame)
 
 
 class ExceptBlock(FrameBlock):

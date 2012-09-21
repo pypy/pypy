@@ -295,3 +295,12 @@ class AppTestRaise:
                 raise ValueError
             except ValueError as e:
                 continue
+
+    def test_clear_last_exception_on_break(self):
+        import sys
+        for i in [0]:
+            try:
+                raise ValueError
+            except ValueError:
+                break
+        assert sys.exc_info() == (None, None, None)
