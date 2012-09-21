@@ -924,6 +924,7 @@ class __extend__(pyframe.PyFrame):
                       isinstance(unroller, SApplicationException))
         if is_app_exc:
             operr = unroller.operr
+            old_last_exception = self.last_exception
             self.last_exception = operr
             w_traceback = self.space.wrap(operr.get_traceback())
             w_suppress = self.call_contextmanager_exit_function(
@@ -931,6 +932,7 @@ class __extend__(pyframe.PyFrame):
                 operr.w_type,
                 operr.get_w_value(self.space),
                 w_traceback)
+            self.last_exception = old_last_exception
             if self.space.is_true(w_suppress):
                 # __exit__() returned True -> Swallow the exception.
                 self.settopvalue(self.space.w_None)
