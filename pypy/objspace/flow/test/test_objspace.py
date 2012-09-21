@@ -962,14 +962,23 @@ class TestFlowObjSpace(Base):
             return s[-3:]
         check(f3, 'llo')
 
-    def test_propagate_attribute_error(self):
+    def test_constfold_attribute_error(self):
         def f(x):
             try:
                 "".invalid
             finally:
                 if x and 0:
                     raise TypeError()
-        py.test.raises(Exception, self.codetest, f)
+        with py.test.raises(FlowingError) as excinfo:
+            self.codetest(f)
+        assert 'getattr' in str(excinfo.value)
+
+    def test_constfold_exception(self):
+        def f():
+            return (3 + 2)/(4 - 2*2)
+        with py.test.raises(FlowingError) as excinfo:
+            self.codetest(f)
+        assert 'div(5, 0)' in str(excinfo.value)
 
     def test__flowspace_rewrite_directly_as_(self):
         def g(x):

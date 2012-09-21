@@ -80,9 +80,6 @@ class FSException(OperationError):
         self.w_type = w_type
         self.w_value = w_value
 
-class OperationThatShouldNotBePropagatedError(FSException):
-    pass
-
 class ImplicitOperationError(FSException):
     pass
 
@@ -497,11 +494,6 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
                 res = getattr(self, methodname)(oparg, next_instr)
                 if res is not None:
                     next_instr = res
-        except OperationThatShouldNotBePropagatedError, e:
-            raise Exception(
-                'found an operation that always raises %s: %s' % (
-                    self.space.unwrap(e.w_type).__name__,
-                    self.space.unwrap(e.w_value)))
         except FSException, operr:
             self.attach_traceback(operr)
             next_instr = self.handle_operation_error(operr)
