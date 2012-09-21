@@ -67,8 +67,13 @@ def c_div(x, y): #x/y
 
 def c_pow(x, y):
     (r1, i1), (r2, i2) = x, y
-    if r2 == 0.0 and i2 == 0.0:
+    if i1 == 0 and i2 == 0:
+        rr = pow(r1, r2)
+        ir = 0.
+    elif r2 == 0.0 and i2 == 0.0:
         rr, ir = 1, 0
+    elif r1 == 1.0 and i1 == 0.0:
+        rr, ir = (1.0, 0.0)
     elif r1 == 0.0 and i1 == 0.0:
         if i2 != 0.0 or r2 < 0.0:
             raise ZeroDivisionError
