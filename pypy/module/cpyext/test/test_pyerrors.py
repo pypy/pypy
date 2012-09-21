@@ -10,21 +10,12 @@ from pypy.interpreter.gateway import interp2app
 
 class TestExceptions(BaseApiTest):
     def test_GivenExceptionMatches(self, space, api):
-        old_style_exception = space.appexec([], """():
-            class OldStyle:
-                pass
-            return OldStyle
-        """)
         exc_matches = api.PyErr_GivenExceptionMatches
 
         string_exception = space.wrap('exception')
         instance = space.call_function(space.w_ValueError)
-        old_style_instance = space.call_function(old_style_exception)
         assert exc_matches(string_exception, string_exception)
-        assert exc_matches(old_style_exception, old_style_exception)
-        assert not exc_matches(old_style_exception, space.w_Exception)
         assert exc_matches(instance, space.w_ValueError)
-        assert exc_matches(old_style_instance, old_style_exception)
         assert exc_matches(space.w_ValueError, space.w_ValueError)
         assert exc_matches(space.w_IndexError, space.w_LookupError)
         assert not exc_matches(space.w_ValueError, space.w_LookupError)
@@ -151,7 +142,7 @@ class AppTestFetch(AppTestCpythonExtensionBase):
              PyErr_Fetch(&type, &val, &tb);
              if (type != PyExc_TypeError)
                  Py_RETURN_FALSE;
-             if (!PyString_Check(val))
+             if (!PyUnicode_Check(val))
                  Py_RETURN_FALSE;
              /* Normalize */
              PyErr_NormalizeException(&type, &val, &tb);

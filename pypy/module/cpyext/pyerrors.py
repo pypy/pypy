@@ -186,7 +186,10 @@ def PyErr_GivenExceptionMatches(space, w_given, w_exc):
         w_given_type = space.type(w_given)
     else:
         w_given_type = w_given
-    return space.exception_match(w_given_type, w_exc)
+    try:
+        return space.exception_match(w_given_type, w_exc)
+    except:
+        return 0
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyErr_ExceptionMatches(space, w_exc):
