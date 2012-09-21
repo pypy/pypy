@@ -2,6 +2,7 @@
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 from math import isnan, isinf, copysign
 from sys import version_info, builtin_module_names
+from pypy.rlib.rcomplex import c_pow
 
 from pypy.conftest import option
 
@@ -64,6 +65,9 @@ class AppTestUfuncs(BaseNumpyAppTest):
         fname64 = os.path.join(os.path.dirname(__file__), 'complex64_testcases.txt')
         cls.w_testcases128 = cls.space.wrap(fname128)
         cls.w_testcases64 = cls.space.wrap(fname64)
+        def cls_c_pow(self, *args):
+            return c_pow(*args)
+        cls.w_c_pow = cls.space.wrap(cls_c_pow)
         cls.w_runAppDirect = cls.space.wrap(option.runappdirect)
         cls.w_isWindows = cls.space.wrap(os.name == 'nt')
         def cls_rAlmostEqual(self, *args, **kwargs):
@@ -462,7 +466,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert b[i] == res
 
     def test_exp2(self):
-        import math, cmath
+        import math 
         from _numpypy import array, exp2, complex128, complex64
         inf = float('inf')
         ninf = -float('inf')
@@ -482,7 +486,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert math.isnan(exp2(nan))
 
         for c,rel_err in ((complex128, 5e-323), (complex64, 1e-7)):
-            a = array([cmpl(-5., 0), cmpl(-5., -5.), cmpl(-5., 5.),
+            a = [cmpl(-5., 0), cmpl(-5., -5.), cmpl(-5., 5.),
                        cmpl(0., -5.), cmpl(0., 0.), cmpl(0., 5.),
                        cmpl(-0., -5.), cmpl(-0., 0.), cmpl(-0., 5.),
                        cmpl(-0., -0.), cmpl(inf, 0.), cmpl(inf, 5.),
@@ -490,25 +494,30 @@ class AppTestUfuncs(BaseNumpyAppTest):
                        cmpl(ninf, -0.), cmpl(ninf, inf), cmpl(inf, inf),
                        cmpl(ninf, ninf), cmpl(5., inf), cmpl(5., ninf),
                        cmpl(nan, 5.), cmpl(5., nan), cmpl(nan, nan),
-                     ], dtype=c)
-            b = exp2(a)
+                     ]
+            b = exp2(array(a,dtype=c))
             got_err = False
             for i in range(len(a)):
                 try:
-                    res = 2 ** a[i]
+                    res = self.c_pow((2,0), (a[i].real, a[i].imag))
+                    print a[i],'=>',res
                     if a[i].imag == 0. and math.copysign(1., a[i].imag)<0:
-                        res = cmpl(res.real, -0.)
+                        res = (res[0], -0.)
                     elif a[i].imag == 0.:
-                        res = cmpl(res.real, 0.)
+                        res = (res[0], 0.)
                 except OverflowError:
-                    res = cmpl(inf, nan)
+                    res = (inf, nan)
+                except ValueError:
+                    res = (nan, nan)
                 msg = 'result of 2**%r(%r) got %r expected %r\n ' % \
                             (c,a[i], b[i], res)
-                try:        
-                    t1 = float(res.real)        
+                try:
+                    # cast untranslated boxed results to float,
+                    # does no harm when translated
+                    t1 = float(res[0])        
                     t2 = float(b[i].real)        
                     self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
-                    t1 = float(res.imag)        
+                    t1 = float(res[1])        
                     t2 = float(b[i].imag)        
                     self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
                 except AssertionError as e:

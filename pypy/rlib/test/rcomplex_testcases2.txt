@@ -86,3 +86,5 @@ pow0029 pow -inf -inf 0.0 0.0 -> 1.0 0.0
 pow0030 pow nan 0.0  0.0 0.0 -> 1.0 0.0
 pow0031 pow 0.0 nan  0.0 0.0 -> 1.0 0.0
 pow0032 pow nan nan  0.0 0.0 -> 1.0 0.0
+
+pow0042 pow 2.0 0.0  inf 0.0 -> inf 0.0
