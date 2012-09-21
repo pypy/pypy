@@ -4,9 +4,10 @@ signatures
 """
 
 from pypy.rlib.objectmodel import specialize
-from pypy.module.micronumpy.base import W_NDimArray
 from pypy.rlib.rstring import StringBuilder
+from pypy.rlib import jit
 from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.module.micronumpy.base import W_NDimArray
 
 def call2(shape, func, name, calc_dtype, res_dtype, w_lhs, w_rhs, out):
     if out is None:
@@ -193,7 +194,7 @@ def setitem_filter(arr, index, value):
     arr_iter = arr.create_iter()
     index_iter = index.create_iter()
     value_iter = value.create_iter()
-    while not arr_iter.done():
+    while not index_iter.done():
         if index_iter.getitem_bool():
             arr_iter.setitem(value_iter.getitem())
             value_iter.next()
@@ -244,3 +245,67 @@ def tostring(space, arr):
             builder.append(res_str_casted[i])
         iter.next()
     return builder.build()
+
+class PureShapeIterator(object):
+    def __init__(self, shape, idx_w):
+        self.shape = shape
+        self.shapelen = len(shape)
+        self.indexes = [0] * len(shape)
+        self._done = False
+        self.idx_w = [None] * len(idx_w)
+        for i, w_idx in enumerate(idx_w):
+            if isinstance(w_idx, W_NDimArray):
+                self.idx_w[i] = w_idx.create_iter(shape)
+
+    def done(self):
+        return self._done
+
+    @jit.unroll_safe
+    def next(self):
+        for w_idx in self.idx_w:
+            if w_idx is not None:
+                w_idx.next()
+        for i in range(self.shapelen - 1, -1, -1):
+            if self.indexes[i] < self.shape[i] - 1:
+                self.indexes[i] += 1
+                break
+            else:
+                self.indexes[i] = 0
+        else:
+            self._done = True
+
+    def get_index(self, space):
+        return [space.wrap(i) for i in self.indexes]
+
+def getitem_array_int(space, arr, res, iter_shape, indexes_w, prefix_w):
+    iter = PureShapeIterator(iter_shape, indexes_w)
+    while not iter.done():
+        # prepare the index
+        index_w = [None] * len(indexes_w)
+        for i in range(len(indexes_w)):
+            if iter.idx_w[i] is not None:
+                index_w[i] = iter.idx_w[i].getitem()
+            else:
+                index_w[i] = indexes_w[i]
+        res.descr_setitem(space, space.newtuple(prefix_w +
+                                                iter.get_index(space)),
+                          arr.descr_getitem(space, space.newtuple(index_w)))
+        iter.next()
+    return res
+
+def setitem_array_int(space, arr, iter_shape, indexes_w, val_arr,
+                      prefix_w):
+    iter = PureShapeIterator(iter_shape, indexes_w)
+    while not iter.done():
+        # prepare the index
+        index_w = [None] * len(indexes_w)
+        for i in range(len(indexes_w)):
+            if iter.idx_w[i] is not None:
+                index_w[i] = iter.idx_w[i].getitem()
+            else:
+                index_w[i] = indexes_w[i]
+        w_idx = space.newtuple(prefix_w + iter.get_index(space))
+        arr.descr_setitem(space, space.newtuple(index_w),
+                          val_arr.descr_getitem(space, w_idx))
+        iter.next()
+

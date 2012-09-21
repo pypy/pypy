@@ -1213,6 +1213,36 @@ class AppTestW_ListObject(object):
         assert ([5] >= [N]) is False
 
 
+    def test_issue1266(self):
+        l = range(1)
+        l.pop()
+        # would previously crash
+        l.append(1)
+        assert l == [1]
+
+        l = range(1)
+        l.pop()
+        # would previously crash
+        l.reverse()
+        assert l == []
+
+    def test_issue1266_ovf(self):
+        import sys
+
+        l = range(0, sys.maxint, sys.maxint)
+        l.append(sys.maxint)
+        # -2 would be next in the range sequence if overflow were
+        # allowed
+        l.append(-2)
+        assert l == [0, sys.maxint, -2]
+        assert -2 in l
+
+        l = range(-sys.maxint, sys.maxint, sys.maxint // 10)
+        item11 = l[11]
+        assert l[::11] == [-sys.maxint, item11]
+        assert item11 in l[::11]
+
+
 class AppTestWithoutStrategies(object):
 
     def setup_class(cls):

@@ -169,13 +169,9 @@ class W_CTypePrimitiveSigned(W_CTypePrimitive):
             self.vrangemax = (r_ulonglong(1) << sh) - 1
 
     def int(self, cdata):
-        if self.value_fits_long:
-            # this case is to handle enums, but also serves as a slight
-            # performance improvement for some other primitive types
-            value = misc.read_raw_long_data(cdata, self.size)
-            return self.space.wrap(value)
-        else:
-            return self.convert_to_object(cdata)
+        # enums: really call convert_to_object() just below,
+        # and not the one overridden in W_CTypeEnum.
+        return W_CTypePrimitiveSigned.convert_to_object(self, cdata)
 
     def convert_to_object(self, cdata):
         if self.value_fits_long:

@@ -153,17 +153,13 @@ class ExecutionContext(object):
             self._trace(frame, 'exception', None, operationerr)
         #operationerr.print_detailed_traceback(self.space)
 
-    def _convert_exc(self, operr):
-        # Only for the flow object space
-        return operr
-
     def sys_exc_info(self): # attn: the result is not the wrapped sys.exc_info() !!!
         """Implements sys.exc_info().
         Return an OperationError instance or None."""
         frame = self.gettopframe_nohidden()
         while frame:
             if frame.last_exception is not None:
-                return self._convert_exc(frame.last_exception)
+                return frame.last_exception
             frame = self.getnextframe_nohidden(frame)
         return None
 

@@ -25,13 +25,6 @@ MethodTable.extend([
 ])
 
 
-class OperationThatShouldNotBePropagatedError(OperationError):
-    pass
-
-class ImplicitOperationError(OperationError):
-    pass
-
-
 FunctionByName = {}   # dict {"operation_name": <built-in function>}
 OperationName  = {}   # dict {<built-in function>: "operation_name"}
 Arity          = {}   # dict {"operation name": number of arguments}
