@@ -352,14 +352,19 @@ class FlowObjSpace(ObjSpace):
         return self.wrap(mod)
 
     def import_from(self, w_module, w_name):
+        assert isinstance(w_module, Constant)
+        assert isinstance(w_name, Constant)
+        # handle sys
+        if w_module in self.not_really_const:
+            const_w = self.not_really_const[w_obj]
+            if w_name not in const_w:
+                return self.do_operation_with_implicit_exceptions('getattr',
+                                                                w_obj, w_name)
         try:
-            return self.getattr(w_module, w_name)
-        except FSException, e:
-            if e.match(self, self.w_AttributeError):
-                raise FSException(self.w_ImportError,
-                    self.wrap("cannot import name '%s'" % w_name.value))
-            else:
-                raise
+            return self.wrap(getattr(w_module.value, w_name.value))
+        except AttributeError:
+            raise FSException(self.w_ImportError,
+                self.wrap("cannot import name '%s'" % w_name.value))
 
     def call_function(self, w_func, *args_w):
         nargs = len(args_w)
