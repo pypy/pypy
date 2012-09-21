@@ -126,7 +126,7 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
             PyBuffer_Release(&buf);
             return result;
             ''')
-        assert b'foo\0bar\0baz' == pybuffer('foo\0bar\0baz')
+        assert b'foo\0bar\0baz' == pybuffer(b'foo\0bar\0baz')
 
 
     def test_pyarg_parse_string_fails(self):
@@ -137,7 +137,6 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
         pybuffer = self.import_parser(
             '''
             Py_buffer buf1, buf2, buf3;
-            PyObject *result;
             if (!PyArg_ParseTuple(args, "s*s*s*", &buf1, &buf2, &buf3)) {
                 return NULL;
             }
@@ -145,12 +144,11 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
             return NULL;
             ''')
         freed = []
-        class freestring(str):
+        class freestring(bytes):
             def __del__(self):
                 freed.append('x')
         raises(TypeError, pybuffer,
-               freestring("string"), freestring("other string"), 42)
-        import gc; gc.collect()
+               freestring(b"string"), freestring(b"other string"), 42)
         assert freed == ['x', 'x']
 
 
@@ -169,4 +167,4 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
             return PyString_FromStringAndSize(buf, len);
             ''')
         raises(TypeError, "charbuf(10)")
-        assert b'foo\0bar\0baz' == charbuf('foo\0bar\0baz')
+        assert b'foo\0bar\0baz' == charbuf(b'foo\0bar\0baz')
