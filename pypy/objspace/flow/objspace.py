@@ -188,7 +188,7 @@ class FlowObjSpace(ObjSpace):
         try:
             check_class = self.unwrap(w_check_class)
         except UnwrapException:
-            raise Exception, "non-constant except guard"
+            raise FlowingError(self.frame, "Non-constant except guard.")
         if check_class in (NotImplementedError, AssertionError):
             raise FlowingError(self.frame,
                 "Catching %s is not valid in RPython" % check_class.__name__)

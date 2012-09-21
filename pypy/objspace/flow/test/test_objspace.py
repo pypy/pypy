@@ -980,6 +980,16 @@ class TestFlowObjSpace(Base):
             self.codetest(f)
         assert 'div(5, 0)' in str(excinfo.value)
 
+    @py.test.mark.xfail
+    def test_nonconstant_except(self):
+        def f(exc_cls):
+            try:
+                raise AttributeError
+            except exc_cls:
+                pass
+        with py.test.raises(FlowingError):
+            self.codetest(f)
+
     def test__flowspace_rewrite_directly_as_(self):
         def g(x):
             pass
