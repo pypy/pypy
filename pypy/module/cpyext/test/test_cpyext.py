@@ -508,15 +508,10 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         """
         module = self.import_module(name='foo', init=init, body=body)
         assert module.return_pi() == 3.14
-        print "A"
         module.drop_pi()
-        print "B"
         module.drop_pi()
-        print "C"
         assert module.return_pi() == 3.14
-        print "D"
         assert module.return_pi() == 3.14
-        print "E"
         module.drop_pi()
         skip("Hmm, how to check for the exception?")
         raises(api.InvalidPointerException, module.return_invalid_pointer)
@@ -738,12 +733,12 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
              char* name2 = Py_GetProgramName();
              if (name1 != name2)
                  Py_RETURN_FALSE;
-             return PyString_FromString(name1);
+             return PyUnicode_FromString(name1);
              '''
              ),
             ])
         p = mod.get_programname()
-        print p
+        print(p)
         assert 'py' in p
 
     def test_get_version(self):
@@ -754,12 +749,12 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
              char* name2 = Py_GetVersion();
              if (name1 != name2)
                  Py_RETURN_FALSE;
-             return PyString_FromString(name1);
+             return PyUnicode_FromString(name1);
              '''
              ),
             ])
         p = mod.get_version()
-        print p
+        print(p)
         assert 'PyPy' in p
 
     def test_no_double_imports(self):

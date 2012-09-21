@@ -125,17 +125,6 @@ typedef int(*ssizessizeobjargproc)(PyObject *, Py_ssize_t, Py_ssize_t, PyObject 
 typedef int(*objobjargproc)(PyObject *, PyObject *, PyObject *);
 
 
-/* int-based buffer interface */
-typedef int (*getreadbufferproc)(PyObject *, int, void **);
-typedef int (*getwritebufferproc)(PyObject *, int, void **);
-typedef int (*getsegcountproc)(PyObject *, int *);
-typedef int (*getcharbufferproc)(PyObject *, int, char **);
-/* ssize_t-based buffer interface */
-typedef Py_ssize_t (*readbufferproc)(PyObject *, Py_ssize_t, void **);
-typedef Py_ssize_t (*writebufferproc)(PyObject *, Py_ssize_t, void **);
-typedef Py_ssize_t (*segcountproc)(PyObject *, Py_ssize_t *);
-typedef Py_ssize_t (*charbufferproc)(PyObject *, Py_ssize_t, char **);
-
 /* Py3k buffer interface */
 typedef struct bufferinfo {
     void *buf;
@@ -274,12 +263,8 @@ typedef struct {
 } PyMappingMethods;
 
 typedef struct {
-	readbufferproc bf_getreadbuffer;
-	writebufferproc bf_getwritebuffer;
-	segcountproc bf_getsegcount;
-	charbufferproc bf_getcharbuffer;
-	getbufferproc bf_getbuffer;
-	releasebufferproc bf_releasebuffer;
+     getbufferproc bf_getbuffer;
+     releasebufferproc bf_releasebuffer;
 } PyBufferProcs;
 
 

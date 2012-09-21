@@ -45,7 +45,6 @@ import pypy.module.cpyext.longobject
 import pypy.module.cpyext.listobject
 import pypy.module.cpyext.sequence
 import pypy.module.cpyext.buffer
-import pypy.module.cpyext.bufferobject
 import pypy.module.cpyext.eval
 import pypy.module.cpyext.import_
 import pypy.module.cpyext.mapping

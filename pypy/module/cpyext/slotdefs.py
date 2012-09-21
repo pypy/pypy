@@ -4,13 +4,13 @@ import re
 
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
-    cpython_api, generic_cpy_call, PyObject, Py_ssize_t)
+    cpython_api, generic_cpy_call, PyObject, Py_ssize_t, Py_buffer)
 from pypy.module.cpyext.typeobjectdefs import (
     unaryfunc, wrapperfunc, ternaryfunc, PyTypeObjectPtr, binaryfunc,
     getattrfunc, getattrofunc, setattrofunc, lenfunc, ssizeargfunc, inquiry,
     ssizessizeargfunc, ssizeobjargproc, iternextfunc, initproc, richcmpfunc,
     cmpfunc, hashfunc, descrgetfunc, descrsetfunc, objobjproc, objobjargproc,
-    readbufferproc)
+    getbufferproc, releasebufferproc)
 from pypy.module.cpyext.pyobject import from_ref
 from pypy.module.cpyext.pyerrors import PyErr_Occurred
 from pypy.module.cpyext.state import State
@@ -242,14 +242,15 @@ class CPyBuffer(W_Buffer):
     def getitem(self, index):
         return self.ptr[index]
 
-def wrap_getreadbuffer(space, w_self, w_args, func):
-    func_target = rffi.cast(readbufferproc, func)
-    with lltype.scoped_alloc(rffi.VOIDPP.TO, 1) as ptr:
-        index = rffi.cast(Py_ssize_t, 0)
-        size = generic_cpy_call(space, func_target, w_self, index, ptr)
-        if size < 0:
+def wrap_getbuffer(space, w_self, w_args, func):
+    func_target = rffi.cast(getbufferproc, func)
+    with lltype.scoped_alloc(Py_buffer) as view:
+        flags = rffi.cast(rffi.INT_real, 0)
+        print "AFA CALL GETBUFFER"
+        ret = generic_cpy_call(space, func_target, w_self, view, flags)
+        if ret < 0:
             space.fromcache(State).check_and_raise_exception(always=True)
-        return space.wrap(CPyBuffer(ptr[0], size, w_self))
+        return space.wrap(CPyBuffer(view.c_buf, view.c_len, w_self))
 
 def get_richcmp_func(OP_CONST):
     def inner(space, w_self, w_args, func):
@@ -643,7 +644,7 @@ for regex, repl in slotdef_replacements:
 slotdefs = eval(slotdefs_str)
 # PyPy addition
 slotdefs += (
-    TPSLOT("__buffer__", "tp_as_buffer.c_bf_getreadbuffer", None, "wrap_getreadbuffer", ""),
+    TPSLOT("__buffer__", "tp_as_buffer.c_bf_getbuffer", None, "wrap_getbuffer", ""),
 )
 
 # partial sort to solve some slot conflicts:

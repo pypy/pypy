@@ -471,15 +471,3 @@ def PyBuffer_FillInfo(space, view, obj, buf, length, readonly, flags):
     view.c_internal = lltype.nullptr(rffi.VOIDP.TO)
 
     return 0
-
-
-@cpython_api([lltype.Ptr(Py_buffer)], lltype.Void, error=CANNOT_FAIL)
-def PyBuffer_Release(space, view):
-    """
-    Releases a Py_buffer obtained from getbuffer ParseTuple's s*.
-
-    This is not a complete re-implementation of the CPython API; it only
-    provides a subset of CPython's behavior.
-    """
-    Py_DecRef(space, view.c_obj)
-    view.c_obj = lltype.nullptr(PyObject.TO)

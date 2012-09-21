@@ -83,6 +83,7 @@ typedef long Py_ssize_t;
 #include "pyconfig.h"
 
 #include "object.h"
+#include "abstract.h"
 #include "pyport.h"
 #include "warnings.h"
 
@@ -117,7 +118,6 @@ typedef long Py_ssize_t;
 #include "pymem.h"
 #include "pycobject.h"
 #include "pycapsule.h"
-#include "bufferobject.h"
 #include "bytesobject.h"
 #include "sliceobject.h"
 #include "datetime.h"

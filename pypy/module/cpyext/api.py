@@ -186,6 +186,9 @@ class ApiFunction:
         self.argnames = argnames[1:]
         assert len(self.argnames) == len(self.argtypes)
 
+    def __repr__(self):
+        return "<cpyext function %s>" % (self.callable.__name__,)
+
     def _freeze_(self):
         return True
 
@@ -358,8 +361,7 @@ SYMBOLS_C = [
     'PyEval_CallFunction', 'PyEval_CallMethod', 'PyObject_CallFunction',
     'PyObject_CallMethod', 'PyObject_CallFunctionObjArgs', 'PyObject_CallMethodObjArgs',
 
-    'PyBuffer_FromMemory', 'PyBuffer_FromReadWriteMemory', 'PyBuffer_FromObject',
-    'PyBuffer_FromReadWriteObject', 'PyBuffer_New', 'PyBuffer_Type', 'init_bufferobject',
+    'PyObject_GetBuffer', 'PyBuffer_Release',
 
     'PyCObject_FromVoidPtr', 'PyCObject_FromVoidPtrAndDesc', 'PyCObject_AsVoidPtr',
     'PyCObject_GetDesc', 'PyCObject_Import', 'PyCObject_SetVoidPtr',
@@ -633,11 +635,9 @@ def setup_va_functions(eci):
         globals()['va_get_%s' % name_no_star] = func
 
 def setup_init_functions(eci):
-    init_buffer = rffi.llexternal('init_bufferobject', [], lltype.Void, compilation_info=eci)
     init_pycobject = rffi.llexternal('init_pycobject', [], lltype.Void, compilation_info=eci)
     init_capsule = rffi.llexternal('init_capsule', [], lltype.Void, compilation_info=eci)
     INIT_FUNCTIONS.extend([
-        lambda space: init_buffer(),
         lambda space: init_pycobject(),
         lambda space: init_capsule(),
     ])
@@ -954,7 +954,6 @@ def build_eci(building_bridge, export_symbols, code):
                                source_dir / "mysnprintf.c",
                                source_dir / "pythonrun.c",
                                source_dir / "sysmodule.c",
-                               source_dir / "bufferobject.c",
                                source_dir / "cobject.c",
                                source_dir / "structseq.c",
                                source_dir / "capsule.c",

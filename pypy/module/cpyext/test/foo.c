@@ -115,7 +115,7 @@ foo_repr(PyObject *self)
 {
     PyObject *format;
 
-    format = PyString_FromString("<Foo>");
+    format = PyUnicode_FromString("<Foo>");
     if (format == NULL) return NULL;
     return format;
 }
@@ -131,11 +131,11 @@ static int
 foo_setattro(fooobject *self, PyObject *name, PyObject *value)
 {
     char *name_str;
-    if (!PyString_Check(name)) {
+    if (!PyUnicode_Check(name)) {
         PyErr_SetObject(PyExc_AttributeError, name);
         return -1;
     }
-    name_str = PyString_AsString(name);
+    name_str = _PyUnicode_AsString(name);
     if (strcmp(name_str, "set_foo") == 0)
     {
         long v = PyInt_AsLong(value);
