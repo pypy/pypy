@@ -31,7 +31,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert not "im_func" in dir(module.fooType.copy)
         assert module.fooType.copy.__objclass__ is module.fooType
         assert "copy" in repr(module.fooType.copy)
-        assert repr(module.fooType) == "<type 'foo.foo'>"
+        assert repr(module.fooType) == "<class 'foo.foo'>"
         assert repr(obj2) == "<Foo>"
         assert repr(module.fooType.__call__) == "<slot wrapper '__call__' of 'foo' objects>"
         assert obj2(foo=1, bar=2) == dict(foo=1, bar=2)
@@ -187,8 +187,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         m = re.search("xyz", "xyzxyz")
         assert m
         assert "groupdict" in dir(m)
-        re._cache.clear()
-        re._cache_repl.clear()
+        re.purge()
         del prog, m
 
     def test_init_error(self):
