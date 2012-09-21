@@ -6,8 +6,7 @@ from pypy.module.cpyext.api import ADDR, PyObjectP, cpython_api
 from pypy.module.cpyext.intobject import PyInt_AsLong, PyInt_AsUnsignedLong
 from pypy.module.cpyext.pyerrors import PyErr_Occurred
 from pypy.module.cpyext.pyobject import PyObject, Py_DecRef, from_ref, make_ref
-from pypy.module.cpyext.stringobject import (
-    PyString_FromString, PyString_FromStringAndSize)
+from pypy.module.cpyext.unicodeobject import PyUnicode_FromString
 from pypy.module.cpyext.floatobject import PyFloat_AsDouble
 from pypy.module.cpyext.longobject import (
     PyLong_AsLongLong, PyLong_AsUnsignedLongLong, PyLong_AsSsize_t)
@@ -60,7 +59,7 @@ def PyMember_GetOne(space, obj, w_member):
             w_result = space.w_None
     elif member_type == T_STRING_INPLACE:
         result = rffi.cast(rffi.CCHARP, addr)
-        w_result = PyString_FromString(space, result)
+        w_result = PyUnicode_FromString(space, result)
     elif member_type == T_CHAR:
         result = rffi.cast(rffi.CCHARP, addr)
         w_result = space.wrap(result[0])
