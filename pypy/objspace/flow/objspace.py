@@ -205,6 +205,38 @@ class FlowObjSpace(ObjSpace):
                 return True
         return False
 
+    def exc_from_raise(self, w_type, w_value):
+        """
+        Create a wrapped exception from the arguments of a raise statement.
+
+        Returns an FSException object whose w_value is an instance of w_type.
+        """
+        if self.exception_is_valid_obj_as_class_w(w_type):
+            # this is for all cases of the form (Class, something)
+            if self.is_w(w_value, self.w_None):
+                # raise Type: we assume we have to instantiate Type
+                w_value = self.call_function(w_type)
+                w_type = self.type(w_value)
+            else:
+                w_valuetype = self.type(w_value)
+                if self.exception_issubclass_w(w_valuetype, w_type):
+                    # raise Type, Instance: let etype be the exact type of value
+                    w_type = w_valuetype
+                else:
+                    # raise Type, X: assume X is the constructor argument
+                    w_value = self.call_function(w_type, w_value)
+                    w_type = self.type(w_value)
+        else:
+            # the only case left here is (inst, None), from a 'raise inst'.
+            w_inst = w_type
+            w_instclass = self.type(w_inst)
+            if not self.is_w(w_value, self.w_None):
+                raise FSException(self.w_TypeError, self.wrap(
+                    "instance exception may not have a separate value"))
+            w_value = w_inst
+            w_type = w_instclass
+        return FSException(w_type, w_value)
+
     def getconstclass(space, w_cls):
         try:
             ecls = space.unwrap(w_cls)
@@ -247,8 +279,7 @@ class FlowObjSpace(ObjSpace):
             w_len = self.len(w_iterable)
             w_correct = self.eq(w_len, self.wrap(expected_length))
             if not self.is_true(w_correct):
-                e = FSException(self.w_ValueError, self.w_None)
-                e.normalize_exception(self)
+                e = self.exc_from_raise(self.w_ValueError, self.w_None)
                 raise e
             return [self.do_operation('getitem', w_iterable, self.wrap(i))
                         for i in range(expected_length)]

@@ -1,7 +1,7 @@
 import collections
 import sys
 from pypy.tool.error import source_lines
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError
 from pypy.interpreter.pytraceback import PyTraceback
 from pypy.interpreter import pyframe
 from pypy.interpreter.nestedscope import Cell
@@ -43,42 +43,6 @@ class FSException(OperationError):
 
     def __str__(self):
         return '[%s: %s]' % (self.w_type, self.w_value)
-
-    def normalize_exception(self, space):
-        """Normalize the OperationError.  In other words, fix w_type and/or
-        w_value to make sure that the __class__ of w_value is exactly w_type.
-        """
-        w_type  = self.w_type
-        w_value = self.w_value
-        if space.exception_is_valid_obj_as_class_w(w_type):
-            # this is for all cases of the form (Class, something)
-            if space.is_w(w_value, space.w_None):
-                # raise Type: we assume we have to instantiate Type
-                w_value = space.call_function(w_type)
-                w_type = space.type(w_value)
-            else:
-                w_valuetype = space.type(w_value)
-                if space.exception_issubclass_w(w_valuetype, w_type):
-                    # raise Type, Instance: let etype be the exact type of value
-                    w_type = w_valuetype
-                else:
-                    # raise Type, X: assume X is the constructor argument
-                    w_value = space.call_function(w_type, w_value)
-                    w_type = space.type(w_value)
-
-        else:
-            # the only case left here is (inst, None), from a 'raise inst'.
-            w_inst = w_type
-            w_instclass = space.type(w_inst)
-            if not space.is_w(w_value, space.w_None):
-                raise FSException(space.w_TypeError,
-                                     space.wrap("instance exception may not "
-                                                "have a separate value"))
-            w_value = w_inst
-            w_type = w_instclass
-
-        self.w_type = w_type
-        self.w_value = w_value
 
 class ImplicitOperationError(FSException):
     pass
@@ -542,8 +506,7 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
             w_value = self.popvalue()
         if 1:
             w_type = self.popvalue()
-        operror = FSException(w_type, w_value)
-        operror.normalize_exception(space)
+        operror = space.exc_from_raise(w_type, w_value)
         raise operror
 
     def IMPORT_NAME(self, nameindex, next_instr):
