@@ -2180,3 +2180,12 @@ def test_newp_signed_unsigned_char():
     p = newp(BSCharArray, b"fo\xff")
     assert len(p) == 4
     assert list(p) == [ord("f"), ord("o"), -1, 0]
+
+def test_newp_from_bytearray_doesnt_work():
+    BCharArray = new_array_type(
+        new_pointer_type(new_primitive_type("char")), None)
+    py.test.raises(TypeError, newp, BCharArray, bytearray(b"foo"))
+    p = newp(BCharArray, 4)
+    buffer(p)[:] = bytearray(b"foo\x00")
+    assert len(p) == 4
+    assert list(p) == [b"f", b"o", b"o", b"\x00"]
