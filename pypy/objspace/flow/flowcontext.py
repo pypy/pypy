@@ -32,11 +32,10 @@ class StopFlowing(Exception):
     pass
 
 class FSException(OperationError):
-    def __init__(self, w_type, w_value, tb=None):
+    def __init__(self, w_type, w_value):
         assert w_type is not None
         self.w_type = w_type
         self.w_value = w_value
-        self._application_traceback = tb
 
     def get_w_value(self, _):
         return self.w_value
@@ -459,27 +458,15 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
                 if res is not None:
                     next_instr = res
         except FSException, operr:
-            self.attach_traceback(operr)
             next_instr = self.handle_operation_error(operr)
         except RaiseWithExplicitTraceback, e:
             next_instr = self.handle_operation_error(e.operr)
         return next_instr
 
-    def attach_traceback(self, operr):
-        if self.pycode.hidden_applevel:
-            return
-        tb = operr.get_traceback()
-        tb = PyTraceback(self.space, self, self.last_instr, tb)
-        operr.set_traceback(tb)
-
     def handle_operation_error(self, operr):
         block = self.unrollstack(SFlowException.kind)
         if block is None:
-            # no handler found for the exception
-            # try to preserve the CPython-level traceback
-            import sys
-            tb = sys.exc_info()[2]
-            raise operr, None, tb
+            raise operr
         else:
             unroller = SFlowException(operr)
             next_instr = block.handle(self, unroller)
