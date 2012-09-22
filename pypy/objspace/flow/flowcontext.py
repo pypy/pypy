@@ -646,36 +646,6 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
 
     # opcodes removed or heavily changed in python 3
 
-    @jit.unroll_safe
-    def RAISE_VARARGS(self, nbargs, next_instr):
-        space = self.space
-        if nbargs == 0:
-            frame = self
-            ec = self.space.getexecutioncontext()
-            while frame:
-                if frame.last_exception is not None:
-                    operror = ec._convert_exc(frame.last_exception)
-                    break
-                frame = frame.f_backref()
-            else:
-                raise OperationError(space.w_TypeError,
-                    space.wrap("raise: no active exception to re-raise"))
-            # re-raise, no new traceback obj will be attached
-            self.last_exception = operror
-            from pypy.interpreter.pyopcode import Reraise
-            raise Reraise
-
-        w_value = w_traceback = space.w_None
-        if nbargs >= 3:
-            w_traceback = self.popvalue()
-        if nbargs >= 2:
-            w_value = self.popvalue()
-        if 1:
-            w_type = self.popvalue()
-        operror = OperationError(w_type, w_value)
-        operror.normalize_exception(space)
-        raise operror
-
     def slice(self, w_start, w_end):
         w_obj = self.popvalue()
         w_result = self.space.getslice(w_obj, w_start, w_end)
