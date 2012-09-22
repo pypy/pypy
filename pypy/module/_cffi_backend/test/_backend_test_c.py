@@ -2161,3 +2161,22 @@ def test_rawaddressof():
     #
     d = rawaddressof(BCharP, s, 1)
     assert d == cast(BCharP, p) + 1
+
+def test_newp_signed_unsigned_char():
+    BCharArray = new_array_type(
+        new_pointer_type(new_primitive_type("char")), None)
+    p = newp(BCharArray, b"foo")
+    assert len(p) == 4
+    assert list(p) == [b"f", b"o", b"o", b"\x00"]
+    #
+    BUCharArray = new_array_type(
+        new_pointer_type(new_primitive_type("unsigned char")), None)
+    p = newp(BUCharArray, b"fo\xff")
+    assert len(p) == 4
+    assert list(p) == [ord("f"), ord("o"), 0xff, 0]
+    #
+    BSCharArray = new_array_type(
+        new_pointer_type(new_primitive_type("signed char")), None)
+    p = newp(BSCharArray, b"fo\xff")
+    assert len(p) == 4
+    assert list(p) == [ord("f"), ord("o"), -1, 0]
