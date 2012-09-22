@@ -205,11 +205,11 @@ class W_Root(object):
     def int_w(self, space):
         raise OperationError(space.w_TypeError,
                              typed_unwrap_error_msg(space, "integer", self))
-    
+
     def uint_w(self, space):
         raise OperationError(space.w_TypeError,
                              typed_unwrap_error_msg(space, "integer", self))
-    
+
     def bigint_w(self, space):
         raise OperationError(space.w_TypeError,
                              typed_unwrap_error_msg(space, "integer", self))
@@ -1107,8 +1107,6 @@ class ObjSpace(object):
         return self.is_true(self.issubtype(w_obj, self.w_BaseException))
 
     def exception_is_valid_class_w(self, w_cls):
-        if not self.full_exceptions:
-            return True
         return self.is_true(self.issubtype(w_cls, self.w_BaseException))
 
     def exception_getclass(self, w_obj):
@@ -1359,7 +1357,7 @@ class ObjSpace(object):
         if not self.is_true(self.isinstance(w_obj, self.w_str)):
             raise OperationError(self.w_TypeError,
                                  self.wrap('argument must be a string'))
-        return self.str_w(w_obj)            
+        return self.str_w(w_obj)
 
     def unicode_w(self, w_obj):
         return w_obj.unicode_w(self)
@@ -1680,7 +1678,7 @@ ObjSpace.ExceptionTable = [
     'ValueError',
     'ZeroDivisionError',
     ]
-    
+
 if sys.platform.startswith("win"):
     ObjSpace.ExceptionTable += ['WindowsError']
 

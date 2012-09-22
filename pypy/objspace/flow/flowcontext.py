@@ -1,7 +1,7 @@
 import collections
 import sys
 from pypy.tool.error import source_lines
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.pytraceback import PyTraceback
 from pypy.interpreter import pyframe
 from pypy.interpreter.nestedscope import Cell
@@ -55,21 +55,21 @@ class FSException(OperationError):
             if space.is_w(w_value, space.w_None):
                 # raise Type: we assume we have to instantiate Type
                 w_value = space.call_function(w_type)
-                w_type = self._exception_getclass(space, w_value)
+                w_type = space.type(w_value)
             else:
-                w_valuetype = space.exception_getclass(w_value)
+                w_valuetype = space.type(w_value)
                 if space.exception_issubclass_w(w_valuetype, w_type):
                     # raise Type, Instance: let etype be the exact type of value
                     w_type = w_valuetype
                 else:
                     # raise Type, X: assume X is the constructor argument
                     w_value = space.call_function(w_type, w_value)
-                    w_type = self._exception_getclass(space, w_value)
+                    w_type = space.type(w_value)
 
         else:
             # the only case left here is (inst, None), from a 'raise inst'.
             w_inst = w_type
-            w_instclass = self._exception_getclass(space, w_inst)
+            w_instclass = space.type(w_inst)
             if not space.is_w(w_value, space.w_None):
                 raise FSException(space.w_TypeError,
                                      space.wrap("instance exception may not "
