@@ -80,5 +80,5 @@ SETTINGS:
 
         'Dialect': 'interp_csv.W_Dialect',
 
-        'Reader': 'interp_reader.W_Reader',
+        'reader': 'interp_reader.csv_reader',
         }

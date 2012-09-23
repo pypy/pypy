@@ -9,8 +9,17 @@ QUOTE_MINIMAL, QUOTE_ALL, QUOTE_NONNUMERIC, QUOTE_NONE = range(4)
 
 
 class W_Dialect(Wrappable):
-    pass
-
+    _immutable_fields_ = [
+        "dialect",
+        "delimiter",
+        "doublequote",
+        "escapechar",
+        "lineterminator",
+        "quotechar",
+        "quoting",
+        "skipinitialspace",
+        "strict",
+        ]
 
 def _fetch(space, w_dialect, name):
     return space.findattr(w_dialect, space.wrap(name))
@@ -43,31 +52,25 @@ def _get_char(space, w_src, default, name):
     raise operationerrfmt(space.w_TypeError,
                           '"%s" must be a 1-character string', name)
 
-def W_Dialect___new__(space, w_subtype, w_dialect = NoneNotWrapped,
-                      w_delimiter        = NoneNotWrapped,
-                      w_doublequote      = NoneNotWrapped,
-                      w_escapechar       = NoneNotWrapped,
-                      w_lineterminator   = NoneNotWrapped,
-                      w_quotechar        = NoneNotWrapped,
-                      w_quoting          = NoneNotWrapped,
-                      w_skipinitialspace = NoneNotWrapped,
-                      w_strict           = NoneNotWrapped,
-                      ):
+def _build_dialect(space, w_dialect, w_delimiter, w_doublequote,
+                   w_escapechar, w_lineterminator, w_quotechar, w_quoting,
+                   w_skipinitialspace, w_strict):
     if w_dialect is not None:
         if space.isinstance_w(w_dialect, space.w_basestring):
             w_module = space.getbuiltinmodule('_csv')
             w_dialect = space.call_method(w_module, 'get_dialect', w_dialect)
 
-        if (w_delimiter is None and
+        dialect = space.interpclass_w(w_dialect)
+        if (isinstance(dialect, W_Dialect) and
+            w_delimiter is None and
             w_doublequote is None and
             w_escapechar is None and
             w_lineterminator is None and
             w_quotechar is None and
             w_quoting is None and
             w_skipinitialspace is None and
-            w_strict is None and
-            space.is_w(w_subtype, space.type(w_dialect))):
-            return w_dialect
+            w_strict is None):
+            return dialect
 
         if w_delimiter is None:
             w_delimiter = _fetch(space, w_dialect, 'delimiter')
@@ -86,7 +89,7 @@ def W_Dialect___new__(space, w_subtype, w_dialect = NoneNotWrapped,
         if w_strict is None:
             w_strict = _fetch(space, w_dialect, 'strict')
 
-    dialect = space.allocate_instance(W_Dialect, w_subtype)
+    dialect = W_Dialect()
     dialect.delimiter = _get_char(space, w_delimiter, ',', 'delimiter')
     dialect.doublequote = _get_bool(space, w_doublequote, True)
     dialect.escapechar = _get_char(space, w_escapechar, '\0', 'escapechar')
@@ -111,8 +114,34 @@ def W_Dialect___new__(space, w_subtype, w_dialect = NoneNotWrapped,
         raise OperationError(space.w_TypeError,
                         space.wrap('quotechar must be set if quoting enabled'))
     dialect.quoting = tmp_quoting
+    return dialect
 
-    return space.wrap(dialect)
+def W_Dialect___new__(space, w_subtype, w_dialect = NoneNotWrapped,
+                      w_delimiter        = NoneNotWrapped,
+                      w_doublequote      = NoneNotWrapped,
+                      w_escapechar       = NoneNotWrapped,
+                      w_lineterminator   = NoneNotWrapped,
+                      w_quotechar        = NoneNotWrapped,
+                      w_quoting          = NoneNotWrapped,
+                      w_skipinitialspace = NoneNotWrapped,
+                      w_strict           = NoneNotWrapped,
+                      ):
+    dialect = _build_dialect(space, w_dialect, w_delimiter, w_doublequote,
+                             w_escapechar, w_lineterminator, w_quotechar,
+                             w_quoting, w_skipinitialspace, w_strict)
+    if space.is_w(w_subtype, space.gettypeobject(W_Dialect.typedef)):
+        return space.wrap(dialect)
+    else:
+        subdialect = space.allocate_instance(W_Dialect, w_subtype)
+        subdialect.delimiter        = dialect.delimiter
+        subdialect.doublequote      = dialect.doublequote
+        subdialect.escapechar       = dialect.escapechar
+        subdialect.lineterminator   = dialect.lineterminator
+        subdialect.quotechar        = dialect.quotechar
+        subdialect.quoting          = dialect.quoting
+        subdialect.skipinitialspace = dialect.skipinitialspace
+        subdialect.strict           = dialect.strict
+        return space.wrap(subdialect)
 
 
 def _get_escapechar(space, dialect):
