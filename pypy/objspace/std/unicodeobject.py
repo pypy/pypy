@@ -12,8 +12,7 @@ from pypy.rlib.rarithmetic import intmask, ovfcheck
 from pypy.rlib.objectmodel import compute_hash, specialize
 from pypy.rlib.objectmodel import compute_unique_id
 from pypy.rlib.rstring import UnicodeBuilder
-from pypy.rlib.runicode import (
-    unicode_encode_unicode_escape, unicode_escape_nonprintable)
+from pypy.rlib.runicode import unicode_escape_nonprintable
 from pypy.module.unicodedata import unicodedb
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib import jit
