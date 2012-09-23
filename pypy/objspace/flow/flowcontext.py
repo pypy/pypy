@@ -2,14 +2,12 @@ import collections
 import sys
 from pypy.tool.error import source_lines
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.pytraceback import PyTraceback
 from pypy.interpreter import pyframe
 from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.pycode import CO_OPTIMIZED, CO_NEWLOCALS
 from pypy.interpreter.argument import ArgumentsForTranslation
 from pypy.interpreter.pyopcode import (Return, Yield, SuspendedUnroller,
-        SReturnValue, SApplicationException, BytecodeCorruption,
-        RaiseWithExplicitTraceback)
+        SReturnValue, SApplicationException, BytecodeCorruption)
 from pypy.objspace.flow.model import *
 from pypy.objspace.flow.framestate import (FrameState, recursively_unflatten,
         recursively_flatten)
@@ -459,8 +457,6 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
                     next_instr = res
         except FSException, operr:
             next_instr = self.handle_operation_error(operr)
-        except RaiseWithExplicitTraceback, e:
-            next_instr = self.handle_operation_error(e.operr)
         return next_instr
 
     def handle_operation_error(self, operr):
@@ -481,7 +477,7 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
                     # re-raising an implicit operation makes it an explicit one
                     operr = FSException(operr.w_type, operr.w_value)
                 self.last_exception = operr
-                raise RaiseWithExplicitTraceback(operr)
+                raise operr
             else:
                 raise FSException(space.w_TypeError,
                     space.wrap("raise: no active exception to re-raise"))
@@ -603,6 +599,9 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
 
 class SFlowException(SApplicationException):
     """Flowspace override for SApplicationException"""
+    def nomoreblocks(self):
+        raise self.operr
+
     def state_unpack_variables(self, space):
         return [self.operr.w_type, self.operr.w_value]
 
