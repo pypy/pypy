@@ -808,6 +808,10 @@ class TestCompiler:
             return y"""
         yield self.st, test, "f()", 4
 
+    def test_lots_of_loops(self):
+        source = "for x in y: pass\n" * 1000
+        compile_with_astcompiler(source, 'exec', self.space)
+
     def test_raise_from(self):
         test = """if 1:
         def f():

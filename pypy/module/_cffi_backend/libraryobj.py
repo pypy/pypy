@@ -28,7 +28,7 @@ class W_Library(Wrappable):
                 self.handle = dlopen(ll_libname, mode)
             except DLOpenError, e:
                 raise operationerrfmt(space.w_OSError,
-                                      "cannot load '%s': %s",
+                                      "cannot load library %s: %s",
                                       filename, e.msg)
         self.name = filename
 

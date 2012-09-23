@@ -363,9 +363,7 @@ class Reader(object):
                             (self.dialect.delimiter, self.dialect.quotechar))
 
         elif self.state == self.EAT_CRNL:
-            if c in '\r\n':
-                pass
-            else:
+            if c not in '\r\n':
                 raise Error("new-line character seen in unquoted field - "
                             "do you need to open the file "
                             "in universal-newline mode?")
