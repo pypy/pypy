@@ -942,21 +942,9 @@ class __extend__(pyframe.PyFrame):
 
     def WITH_CLEANUP(self, oparg, next_instr):
         # see comment in END_FINALLY for stack state
-        # This opcode changed a lot between CPython versions
-        if (self.pycode.magic >= 0xa0df2ef
-            # Implementation since 2.7a0: 62191 (introduce SETUP_WITH)
-            or self.pycode.magic >= 0xa0df2d1):
-            # implementation since 2.6a1: 62161 (WITH_CLEANUP optimization)
-            w_unroller = self.popvalue()
-            w_exitfunc = self.popvalue()
-            self.pushvalue(w_unroller)
-        elif self.pycode.magic >= 0xa0df28c:
-            # Implementation since 2.5a0: 62092 (changed WITH_CLEANUP opcode)
-            w_exitfunc = self.popvalue()
-            w_unroller = self.peekvalue(0)
-        else:
-            raise NotImplementedError("WITH_CLEANUP for CPython <= 2.4")
-
+        w_unroller = self.popvalue()
+        w_exitfunc = self.popvalue()
+        self.pushvalue(w_unroller)
         unroller = self.space.interpclass_w(w_unroller)
         is_app_exc = (unroller is not None and
                       isinstance(unroller, SApplicationException))
