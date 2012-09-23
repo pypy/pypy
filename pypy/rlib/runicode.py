@@ -1210,28 +1210,37 @@ def str_decode_unicode_escape(s, size, errors, final=False,
 
     return builder.build(), pos
 
-def make_unicode_escape_function():
+def make_unicode_escape_function(for_repr=False):
     # Python3 has two similar escape functions: One to implement
     # encode('unicode_escape') and which outputs bytes, and unicode.__repr__
     # which outputs unicode.  They cannot share RPython code, so we generate
     # them with the template below.
-    # Python2 does not really need this, but it reduces diffs between branches.
+
+    if for_repr:
+        STRING_BUILDER = UnicodeBuilder
+        STR = unicode
+        CHR = UNICHR
+    else:
+        STRING_BUILDER = StringBuilder
+        STR = str
+        CHR = chr
+
     def unicode_escape(s, size, errors, errorhandler=None, quotes=False):
         # errorhandler is not used: this function cannot cause Unicode errors
-        result = StringBuilder(size)
+        result = STRING_BUILDER(size)
 
         if quotes:
             if s.find(u'\'') != -1 and s.find(u'\"') == -1:
                 quote = ord('\"')
-                result.append('"')
+                result.append(STR('"'))
             else:
                 quote = ord('\'')
-                result.append('\'')
+                result.append(STR('\''))
         else:
             quote = 0
 
             if size == 0:
-                return ''
+                return STR('')
 
         pos = 0
         while pos < size:
@@ -1240,8 +1249,8 @@ def make_unicode_escape_function():
 
             # Escape quotes
             if quotes and (oc == quote or ch == '\\'):
-                result.append('\\')
-                result.append(chr(oc))
+                result.append(STR('\\'))
+                result.append(CHR(oc))
                 pos += 1
                 continue
 
@@ -1256,7 +1265,7 @@ def make_unicode_escape_function():
 
                 if 0xDC00 <= oc2 <= 0xDFFF:
                     ucs = (((oc & 0x03FF) << 10) | (oc2 & 0x03FF)) + 0x00010000
-                    raw_unicode_escape_helper(result, ucs)
+                    char_escape_helper(result, ucs)
                     pos += 1
                     continue
                 # Fall through: isolated surrogates are copied as-is
@@ -1264,48 +1273,54 @@ def make_unicode_escape_function():
 
             # Map special whitespace to '\t', \n', '\r'
             if ch == '\t':
-                result.append('\\t')
+                result.append(STR('\\t'))
             elif ch == '\n':
-                result.append('\\n')
+                result.append(STR('\\n'))
             elif ch == '\r':
-                result.append('\\r')
+                result.append(STR('\\r'))
             elif ch == '\\':
-                result.append('\\\\')
+                result.append(STR('\\\\'))
 
             # Map non-printable or non-ascii to '\xhh' or '\uhhhh'
-            elif oc < 32 or oc >= 0x7F:
-                raw_unicode_escape_helper(result, oc)
+            elif for_repr and not unicodedb.isprintable(oc):
+                char_escape_helper(result, oc)
+            elif not for_repr and (oc < 32 or oc >= 0x7F):
+                char_escape_helper(result, oc)
 
             # Copy everything else as-is
             else:
-                result.append(chr(oc))
+                result.append(CHR(oc))
             pos += 1
 
         if quotes:
-            result.append(chr(quote))
+            result.append(CHR(quote))
         return result.build()
 
     def char_escape_helper(result, char):
         num = hex(char)
+        if STR is unicode:
+            num = num.decode('ascii')
         if char >= 0x10000:
-            result.append("\\U")
+            result.append(STR("\\U"))
             zeros = 8
         elif char >= 0x100:
-            result.append("\\u")
+            result.append(STR("\\u"))
             zeros = 4
         else:
-            result.append("\\x")
+            result.append(STR("\\x"))
             zeros = 2
         lnum = len(num)
         nb = zeros + 2 - lnum # num starts with '0x'
         if nb > 0:
-            result.append_multiple_char('0', nb)
+            result.append_multiple_char(STR('0'), nb)
         result.append_slice(num, 2, lnum)
 
     return unicode_escape, char_escape_helper
 
 (unicode_encode_unicode_escape, raw_unicode_escape_helper
  ) = make_unicode_escape_function()
+(unicode_escape_nonprintable, _
+ ) = make_unicode_escape_function(for_repr=True)
 
 # ____________________________________________________________
 # Raw unicode escape

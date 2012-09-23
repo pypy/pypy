@@ -556,9 +556,8 @@ class AppTestUnicodeString:
         raises(UnicodeError, b"\xc2".decode, "utf-8")
         assert b'\xe1\x80'.decode('utf-8', 'replace') == "\ufffd"
 
-    def test_repr_bug(self):
-        # we need to implement PEP 3138 for this to work
-        # http://www.python.org/dev/peps/pep-3138/
+    def test_repr_printable(self):
+        # PEP 3138: __repr__ respects printable characters.
         x = '\u027d'
         y = "'\u027d'"
         assert (repr(x) == y)

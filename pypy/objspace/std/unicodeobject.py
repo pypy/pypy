@@ -12,7 +12,8 @@ from pypy.rlib.rarithmetic import intmask, ovfcheck
 from pypy.rlib.objectmodel import compute_hash, specialize
 from pypy.rlib.objectmodel import compute_unique_id
 from pypy.rlib.rstring import UnicodeBuilder
-from pypy.rlib.runicode import unicode_encode_unicode_escape
+from pypy.rlib.runicode import (
+    unicode_encode_unicode_escape, unicode_escape_nonprintable)
 from pypy.module.unicodedata import unicodedb
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib import jit
@@ -857,7 +858,7 @@ def unicode_translate__Unicode_ANY(space, w_self, w_table):
 def repr__Unicode(space, w_unicode):
     chars = w_unicode._value
     size = len(chars)
-    s = unicode_encode_unicode_escape(chars, size, "strict", quotes=True)
+    s = unicode_escape_nonprintable(chars, size, "strict", quotes=True)
     return space.wrap(s)
 
 def mod__Unicode_ANY(space, w_format, w_values):
