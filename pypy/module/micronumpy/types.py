@@ -1268,10 +1268,24 @@ class ComplexFloating(object):
 
     @complex_unary_op
     def expm1(self, v):
+	#Duplicate exp() so in the future it will be easier
+	# to implement seterr
+        if math.isinf(v[1]):
+            if math.isinf(v[0]):
+                if v[0]<0:
+                    return -1., 0.
+                return rfloat.NAN, rfloat.NAN
+            elif (isfinite(v[0]) or \
+                                 (math.isinf(v[0]) and v[0] > 0)):
+                return rfloat.NAN, rfloat.NAN
         try:
-            return rfloat.expm1(v)
+            res = rcomplex.c_exp(*v)
+	    res = (res[0]-1, res[1])
+	    return res
         except OverflowError:
-            return rfloat.INFINITY
+            if v[1]==0:
+                return rfloat.INFINITY, 0.0
+            return rfloat.INFINITY, rfloat.NAN
 
     @complex_unary_op
     def sin(self, v):

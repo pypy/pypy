@@ -496,11 +496,9 @@ class AppTestUfuncs(BaseNumpyAppTest):
                        cmpl(nan, 5.), cmpl(5., nan), cmpl(nan, nan),
                      ]
             b = exp2(array(a,dtype=c))
-            got_err = False
             for i in range(len(a)):
                 try:
                     res = self.c_pow((2,0), (a[i].real, a[i].imag))
-                    print a[i],'=>',res
                     if a[i].imag == 0. and math.copysign(1., a[i].imag)<0:
                         res = (res[0], -0.)
                     elif a[i].imag == 0.:
@@ -511,24 +509,22 @@ class AppTestUfuncs(BaseNumpyAppTest):
                     res = (nan, nan)
                 msg = 'result of 2**%r(%r) got %r expected %r\n ' % \
                             (c,a[i], b[i], res)
-                try:
-                    # cast untranslated boxed results to float,
-                    # does no harm when translated
-                    t1 = float(res[0])        
-                    t2 = float(b[i].real)        
-                    self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
-                    t1 = float(res[1])        
-                    t2 = float(b[i].imag)        
-                    self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
-                except AssertionError as e:
-                    print e.message
-                    got_err = True
-        if got_err:
-            raise AssertionError('Errors were printed to stdout')
+                # cast untranslated boxed results to float,
+                # does no harm when translated
+                t1 = float(res[0])        
+                t2 = float(b[i].real)        
+                self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
+                t1 = float(res[1])        
+                t2 = float(b[i].imag)        
+                self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
 
     def test_expm1(self):
-        import math
-        from _numpypy import array, expm1
+        import math, cmath
+        from _numpypy import array, expm1, complex128, complex64
+        inf = float('inf')
+        ninf = -float('inf')
+        nan = float('nan')
+        cmpl = complex
 
         a = array([-5.0, -0.0, 0.0, 12345678.0, float("inf"),
                    -float('inf'), -12343424.0])
@@ -541,6 +537,47 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert b[i] == res
 
         assert expm1(1e-50) == 1e-50
+
+        for c,rel_err in ((complex128, 5e-323), (complex64, 1e-7)):
+            a = [cmpl(-5., 0), cmpl(-5., -5.), cmpl(-5., 5.),
+                       cmpl(0., -5.), cmpl(0., 0.), cmpl(0., 5.),
+                       cmpl(-0., -5.), cmpl(-0., 0.), cmpl(-0., 5.),
+                       cmpl(-0., -0.), cmpl(inf, 0.), cmpl(inf, 5.),
+                       cmpl(inf, -0.), cmpl(ninf, 0.), cmpl(ninf, 5.),
+                       cmpl(ninf, -0.), cmpl(ninf, inf), cmpl(inf, inf),
+                       cmpl(ninf, ninf), cmpl(5., inf), cmpl(5., ninf),
+                       cmpl(nan, 5.), cmpl(5., nan), cmpl(nan, nan),
+                     ]
+            b = expm1(array(a,dtype=c))
+            got_err = False
+            for i in range(len(a)):
+                try:
+                    res = cmath.exp(a[i]) - 1.
+                    if a[i].imag == 0. and math.copysign(1., a[i].imag)<0:
+                        res = cmpl(res.real, -0.)
+                    elif a[i].imag == 0.:
+                        res = cmpl(res.real, 0.)
+                except OverflowError:
+                    res = cmpl(inf, nan)
+                except ValueError:
+                    res = cmpl(nan, nan)
+                msg = 'result of expm1(%r(%r)) got %r expected %r\n ' % \
+                            (c,a[i], b[i], res)
+                try:
+                    # cast untranslated boxed results to float,
+                    # does no harm when translated
+                    t1 = float(res.real)        
+                    t2 = float(b[i].real)        
+                    self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
+                    t1 = float(res.imag)        
+                    t2 = float(b[i].imag)        
+                    self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
+                except AssertionError as e:
+                    print e.message
+                    got_err = True
+        if got_err:
+            raise AssertionError('Errors were printed to stdout')
+
 
     def test_sin(self):
         import math
@@ -1201,7 +1238,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
         assert False, 'untested: ' + \
                      'numpy.real. numpy.imag' + \
-                     'exp2, expm1, ' + \
+                     'expm1, ' + \
                      'log2, log1p, ' + \
                      'logaddexp, npy_log2_1p, logaddexp2'
 
