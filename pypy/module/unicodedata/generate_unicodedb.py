@@ -282,6 +282,8 @@ def writeDbRecord(outfile, table):
     IS_MIRRORED = 512
     IS_XID_START = 1024
     IS_XID_CONTINUE = 2048
+    IS_PRINTABLE = 4096 # PEP 3138
+
     # Create the records
     db_records = {}
     for code in range(len(table)):
@@ -307,6 +309,8 @@ def writeDbRecord(outfile, table):
             flags |= IS_LOWER
         if char.mirrored:
             flags |= IS_MIRRORED
+        if code == ord(" ") or char.category[0] not in ("C", "Z"):
+            flags |= IS_PRINTABLE
         if "XID_Start" in char.properties:
             flags |= IS_XID_START
         if "XID_Continue" in char.properties:
@@ -366,6 +370,7 @@ def _get_record(code):
     print >> outfile, 'def iscased(code): return _get_record(code)[3] & %d != 0'% (IS_UPPER | IS_TITLE | IS_LOWER)
     print >> outfile, 'def isxidstart(code): return _get_record(code)[3] & %d != 0'% (IS_XID_START)
     print >> outfile, 'def isxidcontinue(code): return _get_record(code)[3] & %d != 0'% (IS_XID_CONTINUE)
+    print >> outfile, 'def isprintable(code): return _get_record(code)[3] & %d != 0'% IS_PRINTABLE
     print >> outfile, 'def mirrored(code): return _get_record(code)[3] & %d != 0'% IS_MIRRORED
     print >> outfile, 'def combining(code): return _get_record(code)[4]'
 
