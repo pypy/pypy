@@ -194,6 +194,21 @@ class AppTestUnicodeString:
         assert ('\u019b\u1d00\u1d86\u0221\u1fb7'.capitalize() ==
                 '\u019b\u1d00\u1d86\u0221\u1fb7')
 
+    def test_isprintable(self):
+        assert "".isprintable()
+        assert " ".isprintable()
+        assert "abcdefg".isprintable()
+        assert not "abcdefg\n".isprintable()
+        # some defined Unicode character
+        assert "\u0374".isprintable()
+        # undefined character
+        assert not "\u0378".isprintable()
+        # single surrogate character
+        assert not "\ud800".isprintable()
+
+        assert '\U0001F46F'.isprintable()  # Since unicode 6.0
+        assert not '\U000E0020'.isprintable()
+
     def test_rjust(self):
         s = "abc"
         assert s.rjust(2) == s

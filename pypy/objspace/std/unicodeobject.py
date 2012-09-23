@@ -315,6 +315,12 @@ def unicode_isidentifier__Unicode(space, w_unicode):
             return space.w_False
     return space.w_True
 
+def unicode_isprintable__Unicode(space, w_unicode):
+    for uchar in w_unicode._value:
+        if not unicodedb.isprintable(ord(uchar)):
+            return space.w_False
+    return space.w_True
+
 def _strip(space, w_self, w_chars, left, right):
     "internal function called by str_xstrip methods"
     u_self = w_self._value

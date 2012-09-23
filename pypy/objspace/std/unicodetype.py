@@ -111,6 +111,10 @@ unicode_isidentifier = SMM('isidentifier', 1,
                          doc='S.isidentifier() -> bool\n\nReturn True if S is'
                              ' a valid identifier according\nto the language'
                              ' definition.')
+unicode_isprintable  = SMM('isprintable', 1,
+                           doc='S.isprintable() -> bool\n\nReturn True if all'
+                               ' characters in S are considered printable in'
+                               ' repr or S is empty, False otherwise')
 unicode_join       = SMM('join', 2,
                          doc='S.join(sequence) -> unicode\n\nReturn a string'
                              ' which is the concatenation of the strings in'
