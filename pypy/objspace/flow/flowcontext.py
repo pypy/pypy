@@ -555,7 +555,8 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         self.pushvalue(w_result)
 
     def WITH_CLEANUP(self, oparg, next_instr):
-        # see comment in END_FINALLY for stack state
+        # Note: RPython context managers receive None in lieu of tracebacks
+        # and cannot suppress the exception.
         # This opcode changed a lot between CPython versions
         if (self.pycode.magic >= 0xa0df2ef
             # Implementation since 2.7a0: 62191 (introduce SETUP_WITH)
@@ -572,25 +573,17 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
             raise NotImplementedError("WITH_CLEANUP for CPython <= 2.4")
 
         unroller = self.space.interpclass_w(w_unroller)
+        w_None = self.space.w_None
         is_app_exc = (unroller is not None and
                       isinstance(unroller, SApplicationException))
         if is_app_exc:
             operr = unroller.operr
-            w_traceback = self.space.wrap(operr.get_traceback())
-            w_suppress = self.call_contextmanager_exit_function(
-                w_exitfunc,
-                operr.w_type,
-                operr.get_w_value(self.space),
-                w_traceback)
-            if self.space.is_true(w_suppress):
-                # __exit__() returned True -> Swallow the exception.
-                self.settopvalue(self.space.w_None)
+            # The annotator won't allow to merge exception types with None.
+            # Replace it with the exception value...
+            self.space.call_function(w_exitfunc,
+                    operr.w_value, operr.w_value, w_None)
         else:
-            self.call_contextmanager_exit_function(
-                w_exitfunc,
-                self.space.w_None,
-                self.space.w_None,
-                self.space.w_None)
+            self.space.call_function(w_exitfunc, w_None, w_None, w_None)
 
     def LOAD_GLOBAL(self, nameindex, next_instr):
         w_result = self.space.find_global(self.w_globals, self.getname_u(nameindex))
@@ -622,16 +615,6 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         return ArgumentsForTranslation(self.space, self.peekvalues(nargs))
     def argument_factory(self, *args):
         return ArgumentsForTranslation(self.space, *args)
-
-    def call_contextmanager_exit_function(self, w_func, w_typ, w_val, w_tb):
-        if w_typ is not self.space.w_None:
-            # The annotator won't allow to merge exception types with None.
-            # Replace it with the exception value...
-            w_typ = w_val
-        self.space.call_function(w_func, w_typ, w_val, w_tb)
-        # Return None so that the flow space statically knows that we didn't
-        # swallow the exception
-        return self.space.w_None
 
 ### Frame blocks ###
 
