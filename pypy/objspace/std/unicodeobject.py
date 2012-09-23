@@ -45,7 +45,7 @@ class W_UnicodeObject(W_AbstractUnicodeObject):
     def __init__(w_self, unistr):
         assert isinstance(unistr, unicode)
         w_self._value = unistr
-        w_self._utf8 = unistr.encode('utf-8')
+        w_self._utf8 = None
 
     def __repr__(w_self):
         """ representation for debugging purposes """
@@ -64,6 +64,13 @@ class W_UnicodeObject(W_AbstractUnicodeObject):
         return self._value
 
     def identifier_w(self, space):
+        if self._utf8 is None:
+            from pypy.objspace.std.unicodetype import encode_error_handler
+            from pypy.rlib.runicode import unicode_encode_utf_8
+            u = self._value
+            eh = encode_error_handler(space)
+            self._utf8 = unicode_encode_utf_8(u, len(u), None,
+                                              errorhandler=eh)
         return self._utf8
 
 W_UnicodeObject.EMPTY = W_UnicodeObject(u'')
