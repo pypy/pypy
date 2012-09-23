@@ -1276,8 +1276,28 @@ def make_unicode_escape_function():
         if quotes:
             result.append(chr(quote))
         return result.build()
-    return unicode_escape
-unicode_encode_unicode_escape = make_unicode_escape_function()
+
+    def char_escape_helper(result, char):
+        num = hex(char)
+        if char >= 0x10000:
+            result.append("\\U")
+            zeros = 8
+        elif char >= 0x100:
+            result.append("\\u")
+            zeros = 4
+        else:
+            result.append("\\x")
+            zeros = 2
+        lnum = len(num)
+        nb = zeros + 2 - lnum # num starts with '0x'
+        if nb > 0:
+            result.append_multiple_char('0', nb)
+        result.append_slice(num, 2, lnum)
+
+    return unicode_escape, char_escape_helper
+
+(unicode_encode_unicode_escape, raw_unicode_escape_helper
+ ) = make_unicode_escape_function()
 
 # ____________________________________________________________
 # Raw unicode escape
@@ -1333,23 +1353,6 @@ def str_decode_raw_unicode_escape(s, size, errors, final=False,
                         "rawunicodeescape", errorhandler, message, errors)
 
     return result.build(), pos
-
-def raw_unicode_escape_helper(result, char):
-    num = hex(char)
-    if char >= 0x10000:
-        result.append("\\U")
-        zeros = 8
-    elif char >= 0x100:
-        result.append("\\u")
-        zeros = 4
-    else:
-        result.append("\\x")
-        zeros = 2
-    lnum = len(num)
-    nb = zeros + 2 - lnum # num starts with '0x'
-    if nb > 0:
-        result.append_multiple_char('0', nb)
-    result.append_slice(num, 2, lnum)
 
 def unicode_encode_raw_unicode_escape(s, size, errors, errorhandler=None):
     # errorhandler is not used: this function cannot cause Unicode errors
