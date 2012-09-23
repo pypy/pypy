@@ -554,6 +554,44 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         self.lastblock = block
         self.pushvalue(w_result)
 
+    def WITH_CLEANUP(self, oparg, next_instr):
+        # see comment in END_FINALLY for stack state
+        # This opcode changed a lot between CPython versions
+        if (self.pycode.magic >= 0xa0df2ef
+            # Implementation since 2.7a0: 62191 (introduce SETUP_WITH)
+            or self.pycode.magic >= 0xa0df2d1):
+            # implementation since 2.6a1: 62161 (WITH_CLEANUP optimization)
+            w_unroller = self.popvalue()
+            w_exitfunc = self.popvalue()
+            self.pushvalue(w_unroller)
+        elif self.pycode.magic >= 0xa0df28c:
+            # Implementation since 2.5a0: 62092 (changed WITH_CLEANUP opcode)
+            w_exitfunc = self.popvalue()
+            w_unroller = self.peekvalue(0)
+        else:
+            raise NotImplementedError("WITH_CLEANUP for CPython <= 2.4")
+
+        unroller = self.space.interpclass_w(w_unroller)
+        is_app_exc = (unroller is not None and
+                      isinstance(unroller, SApplicationException))
+        if is_app_exc:
+            operr = unroller.operr
+            w_traceback = self.space.wrap(operr.get_traceback())
+            w_suppress = self.call_contextmanager_exit_function(
+                w_exitfunc,
+                operr.w_type,
+                operr.get_w_value(self.space),
+                w_traceback)
+            if self.space.is_true(w_suppress):
+                # __exit__() returned True -> Swallow the exception.
+                self.settopvalue(self.space.w_None)
+        else:
+            self.call_contextmanager_exit_function(
+                w_exitfunc,
+                self.space.w_None,
+                self.space.w_None,
+                self.space.w_None)
+
     def LOAD_GLOBAL(self, nameindex, next_instr):
         w_result = self.space.find_global(self.w_globals, self.getname_u(nameindex))
         self.pushvalue(w_result)
