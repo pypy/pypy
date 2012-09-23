@@ -345,8 +345,19 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert a[0] == b[0]
             assert a[1] == b[1]
 
+    def test_logn(self):
+        import math
+        # log and log10 are tested in math (1:1 from rcomplex)
+        from _numpypy import log2
+        for v in [float('-nan'), float('-inf'), -1, float('nan')]:
+            assert math.isnan(log2(v))
+        for v in [-0.0, 0.0]:
+            assert log2(v) == float("-inf")
+        assert log2(float('inf')) == float('inf')
+        assert (log2([1, 2.]) == [0, 1]).all()
 
-    def test_complex(self):
+
+    def test_basic(self):
         from _numpypy import (complex128, complex64, add,
             subtract as sub, multiply, divide, negative, abs, fmod, 
             reciprocal)
@@ -414,7 +425,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
                      'log2, log1p, ' + \
                      'logaddexp, npy_log2_1p, logaddexp2'
 
-    def test_complex_math(self):
+    def test_math(self):
         if self.isWindows:
             skip('windows does not support c99 complex')
         import  _numpypy as np

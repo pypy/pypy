@@ -1639,7 +1639,7 @@ exp1019 exp inf 4.2 -> -inf -inf
 exp1020 exp inf 5.6 -> inf -inf
 exp1021 exp inf 7.0 -> inf inf
 exp1022 exp -inf inf -> 0.0 0.0         ignore-real-sign ignore-imag-sign
-exp1023 exp inf inf -> inf nan          invalid ignore-real-sign
+exp1023 exp inf inf -> nan nan          invalid ignore-real-sign
 exp1024 exp -inf nan -> 0.0 0.0         ignore-real-sign ignore-imag-sign
 exp1025 exp inf nan -> inf nan          ignore-real-sign
 exp1026 exp nan 0.0 -> nan 0.0
