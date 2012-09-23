@@ -481,6 +481,7 @@ class AppTestUnicodeString:
         assert '\ud84d\udc56'.encode('utf-8') == b'\xf0\xa3\x91\x96'
         raises(UnicodeEncodeError, '\ud800'.encode, 'utf-8')
         raises(UnicodeEncodeError, '\udc00'.encode, 'utf-8')
+        raises(UnicodeEncodeError, '\udc00!'.encode, 'utf-8')
         assert ('\ud800\udc02'*1000).encode('utf-8') == b'\xf0\x90\x80\x82'*1000
         assert (
             '\u6b63\u78ba\u306b\u8a00\u3046\u3068\u7ffb\u8a33\u306f'
@@ -505,6 +506,18 @@ class AppTestUnicodeString:
         assert str(b'\xf0\xa3\x91\x96', 'utf-8') == '\U00023456' 
         assert str(b'\xf0\x90\x80\x82', 'utf-8') == '\U00010002' 
         assert str(b'\xe2\x82\xac', 'utf-8') == '\u20ac' 
+        # Invalid Continuation Bytes, EOF
+        raises(UnicodeDecodeError, b'\xc4\x00'.decode, 'utf-8')
+        raises(UnicodeDecodeError, b'\xe2\x82'.decode, 'utf-8')
+        # Non-Canonical Forms
+        raises(UnicodeDecodeError, b'\xc0\x80'.decode, 'utf-8')
+        raises(UnicodeDecodeError, b'\xc1\xbf'.decode, 'utf-8')
+        raises(UnicodeDecodeError, b'\xe0\x9f\xbf'.decode, 'utf-8')
+        raises(UnicodeDecodeError, b'\xf0\x8f\x8f\x84'.decode, 'utf-8')
+        raises(UnicodeDecodeError, b'\xf5\x80\x81\x82'.decode, 'utf-8')
+        raises(UnicodeDecodeError, b'\xf4\x90\x80\x80'.decode, 'utf-8')
+        # CESU-8
+        raises(UnicodeDecodeError, b'\xed\xa0\xbc\xed\xb2\xb1'.decode, 'utf-8') 
 
     def test_codecs_errors(self):
         # Error handling (encoding)
@@ -706,6 +719,8 @@ class AppTestUnicodeString:
     def test_encode_raw_unicode_escape(self):
         u = str(b'\\', 'raw_unicode_escape')
         assert u == '\\'
+        s = '\u05d1\u05d3\u05d9\u05e7\u05d4'.encode('raw_unicode_escape')
+        assert s == b'\\u05d1\\u05d3\\u05d9\\u05e7\\u05d4'
 
     def test_decode_from_buffer(self):
         buf = b'character buffers are decoded to unicode'

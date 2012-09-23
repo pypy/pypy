@@ -184,8 +184,7 @@ def str_decode_utf_8_impl(s, size, errors, final, errorhandler):
             if (ordch2>>6 != 0x2 or    # 0b10
                 (ordch1 == 0xe0 and ordch2 < 0xa0)
                 # surrogates shouldn't be valid UTF-8!
-                # Uncomment the line below to make them invalid.
-                # or (ordch1 == 0xed and ordch2 > 0x9f)
+                or (ordch1 == 0xed and ordch2 > 0x9f)
                 ):
                 r, pos = errorhandler(errors, 'utf-8',
                                       'invalid continuation byte',
@@ -277,15 +276,16 @@ def unicode_encode_utf_8_impl(s, size, errors, errorhandler):
             # Encode UCS2 Unicode ordinals
             if ch < 0x10000:
                 # Special case: check for high surrogate
-                if 0xD800 <= ch <= 0xDFFF and pos != size:
-                    ch2 = ord(s[pos])
-                    # Check for low surrogate and combine the two to
-                    # form a UCS4 value
-                    if ch <= 0xDBFF and 0xDC00 <= ch2 <= 0xDFFF:
-                        ch3 = ((ch - 0xD800) << 10 | (ch2 - 0xDC00)) + 0x10000
-                        pos += 1
-                        _encodeUCS4(result, ch3)
-                        continue
+                if 0xD800 <= ch <= 0xDFFF:
+                    if pos != size:
+                        ch2 = ord(s[pos])
+                        # Check for low surrogate and combine the two to
+                        # form a UCS4 value
+                        if ch <= 0xDBFF and 0xDC00 <= ch2 <= 0xDFFF:
+                            ch3 = ((ch - 0xD800) << 10 | (ch2 - 0xDC00)) + 0x10000
+                            pos += 1
+                            _encodeUCS4(result, ch3)
+                            continue
                     r, pos = errorhandler(errors, 'utf-8',
                                           'surrogates not allowed',
                                           s, pos-1, pos)
