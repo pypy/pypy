@@ -1202,74 +1202,82 @@ def str_decode_unicode_escape(s, size, errors, final=False,
 
     return builder.build(), pos
 
-def unicode_encode_unicode_escape(s, size, errors, errorhandler=None, quotes=False):
-    # errorhandler is not used: this function cannot cause Unicode errors
-    result = StringBuilder(size)
+def make_unicode_escape_function():
+    # Python3 has two similar escape functions: One to implement
+    # encode('unicode_escape') and which outputs bytes, and unicode.__repr__
+    # which outputs unicode.  They cannot share RPython code, so we generate
+    # them with the template below.
+    # Python2 does not really need this, but it reduces diffs between branches.
+    def unicode_escape(s, size, errors, errorhandler=None, quotes=False):
+        # errorhandler is not used: this function cannot cause Unicode errors
+        result = StringBuilder(size)
 
-    if quotes:
-        if s.find(u'\'') != -1 and s.find(u'\"') == -1:
-            quote = ord('\"')
-            result.append('u"')
+        if quotes:
+            if s.find(u'\'') != -1 and s.find(u'\"') == -1:
+                quote = ord('\"')
+                result.append('u"')
+            else:
+                quote = ord('\'')
+                result.append('u\'')
         else:
-            quote = ord('\'')
-            result.append('u\'')
-    else:
-        quote = 0
+            quote = 0
 
-        if size == 0:
-            return ''
+            if size == 0:
+                return ''
 
-    pos = 0
-    while pos < size:
-        ch = s[pos]
-        oc = ord(ch)
+        pos = 0
+        while pos < size:
+            ch = s[pos]
+            oc = ord(ch)
 
-        # Escape quotes
-        if quotes and (oc == quote or ch == '\\'):
-            result.append('\\')
-            result.append(chr(oc))
-            pos += 1
-            continue
-
-        # The following logic is enabled only if MAXUNICODE == 0xffff, or
-        # for testing on top of a host CPython where sys.maxunicode == 0xffff
-        if ((MAXUNICODE < 65536 or
-                (not we_are_translated() and sys.maxunicode < 65536))
-            and 0xD800 <= oc < 0xDC00 and pos + 1 < size):
-            # Map UTF-16 surrogate pairs to Unicode \UXXXXXXXX escapes
-            pos += 1
-            oc2 = ord(s[pos])
-
-            if 0xDC00 <= oc2 <= 0xDFFF:
-                ucs = (((oc & 0x03FF) << 10) | (oc2 & 0x03FF)) + 0x00010000
-                raw_unicode_escape_helper(result, ucs)
+            # Escape quotes
+            if quotes and (oc == quote or ch == '\\'):
+                result.append('\\')
+                result.append(chr(oc))
                 pos += 1
                 continue
-            # Fall through: isolated surrogates are copied as-is
-            pos -= 1
 
-        # Map special whitespace to '\t', \n', '\r'
-        if ch == '\t':
-            result.append('\\t')
-        elif ch == '\n':
-            result.append('\\n')
-        elif ch == '\r':
-            result.append('\\r')
-        elif ch == '\\':
-            result.append('\\\\')
+            # The following logic is enabled only if MAXUNICODE == 0xffff, or
+            # for testing on top of a host Python where sys.maxunicode == 0xffff
+            if ((MAXUNICODE < 65536 or
+                    (not we_are_translated() and sys.maxunicode < 65536))
+                and 0xD800 <= oc < 0xDC00 and pos + 1 < size):
+                # Map UTF-16 surrogate pairs to Unicode \UXXXXXXXX escapes
+                pos += 1
+                oc2 = ord(s[pos])
 
-        # Map non-printable or non-ascii to '\xhh' or '\uhhhh'
-        elif oc < 32 or oc >= 0x7F:
-            raw_unicode_escape_helper(result, oc)
+                if 0xDC00 <= oc2 <= 0xDFFF:
+                    ucs = (((oc & 0x03FF) << 10) | (oc2 & 0x03FF)) + 0x00010000
+                    raw_unicode_escape_helper(result, ucs)
+                    pos += 1
+                    continue
+                # Fall through: isolated surrogates are copied as-is
+                pos -= 1
 
-        # Copy everything else as-is
-        else:
-            result.append(chr(oc))
-        pos += 1
+            # Map special whitespace to '\t', \n', '\r'
+            if ch == '\t':
+                result.append('\\t')
+            elif ch == '\n':
+                result.append('\\n')
+            elif ch == '\r':
+                result.append('\\r')
+            elif ch == '\\':
+                result.append('\\\\')
 
-    if quotes:
-        result.append(chr(quote))
-    return result.build()
+            # Map non-printable or non-ascii to '\xhh' or '\uhhhh'
+            elif oc < 32 or oc >= 0x7F:
+                raw_unicode_escape_helper(result, oc)
+
+            # Copy everything else as-is
+            else:
+                result.append(chr(oc))
+            pos += 1
+
+        if quotes:
+            result.append(chr(quote))
+        return result.build()
+    return unicode_escape
+unicode_encode_unicode_escape = make_unicode_escape_function()
 
 # ____________________________________________________________
 # Raw unicode escape
