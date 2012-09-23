@@ -541,6 +541,20 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         # isn't popped straightaway.
         self.pushvalue(None)
 
+    def FOR_ITER(self, jumpby, next_instr):
+        w_iterator = self.peekvalue()
+        try:
+            w_nextitem = self.space.next(w_iterator)
+        except FSException, e:
+            if not self.space.exception_match(e.w_type, self.space.w_StopIteration):
+                raise
+            # iterator exhausted
+            self.popvalue()
+            next_instr += jumpby
+        else:
+            self.pushvalue(w_nextitem)
+        return next_instr
+
     def SETUP_WITH(self, offsettoend, next_instr):
         # A simpler version than the 'real' 2.7 one:
         # directly call manager.__enter__(), don't use special lookup functions
