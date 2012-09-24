@@ -584,8 +584,10 @@ class UfuncState(object):
             ("log2", "log2", 1, {"promote_to_float": True}),
             ("log10", "log10", 1, {"promote_to_float": True}),
             ("log1p", "log1p", 1, {"promote_to_float": True}),
-            ("logaddexp", "logaddexp", 2, {"promote_to_float": True}),
-            ("logaddexp2", "logaddexp2", 2, {"promote_to_float": True}),
+            ("logaddexp", "logaddexp", 2, {"promote_to_float": True,
+                                       "allow_complex": False}),
+            ("logaddexp2", "logaddexp2", 2, {"promote_to_float": True,
+                                       "allow_complex": False}),
         ]:
             self.add_ufunc(space, *ufunc_def)
 

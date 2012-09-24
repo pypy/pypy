@@ -1422,9 +1422,12 @@ class ComplexFloating(object):
             return -rfloat.INFINITY, 0
         return rcomplex.c_log(*v)
 
-    @simple_unary_op
+    @complex_unary_op
     def log2(self, v):
-        return self.log(v) / log2
+        if v[0] == 0 and v[1] == 0:
+            return -rfloat.INFINITY, 0
+        r = rcomplex.c_log(*v)
+        return r[0] / log2, r[1] / log2
 
     @complex_unary_op
     def log10(self, v):
@@ -1432,37 +1435,14 @@ class ComplexFloating(object):
             return -rfloat.INFINITY, 0
         return rcomplex.c_log10(*v)
 
-    @simple_unary_op
+    @complex_unary_op
     def log1p(self, v):
         try:
-            return rfloat.log1p(v)
+            return rcomplex.c_log(v[0]+1, v[1])
         except OverflowError:
-            return -rfloat.INFINITY
+            return -rfloat.INFINITY, 0
         except ValueError:
-            return rfloat.NAN
-
-    @simple_binary_op
-    def logaddexp(self, v1, v2):
-        tmp = v1 - v2
-        if tmp > 0:
-            return v1 + rfloat.log1p(math.exp(-tmp))
-        elif tmp <= 0:
-            return v2 + rfloat.log1p(math.exp(tmp))
-        else:
-            return v1 + v2
-
-    def npy_log2_1p(self, v):
-        return log2e * rfloat.log1p(v)
-
-    @simple_binary_op
-    def logaddexp2(self, v1, v2):
-        tmp = v1 - v2
-        if tmp > 0:
-            return v1 + self.npy_log2_1p(math.pow(2, -tmp))
-        if tmp <= 0:
-            return v2 + self.npy_log2_1p(math.pow(2, tmp))
-        else:
-            return v1 + v2
+            return rfloat.NAN, rfloat.NAN
 
 class Complex64(ComplexFloating, BaseType):
     _attrs_ = ()

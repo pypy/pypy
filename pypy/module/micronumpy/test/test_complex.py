@@ -198,10 +198,6 @@ class AppTestUfuncs(BaseNumpyAppTest):
             for i in range(len(a)):
                 try:
                     res = self.c_pow((2,0), (a[i].real, a[i].imag))
-                    if a[i].imag == 0. and math.copysign(1., a[i].imag)<0:
-                        res = (res[0], -0.)
-                    elif a[i].imag == 0.:
-                        res = (res[0], 0.)
                 except OverflowError:
                     res = (inf, nan)
                 except ValueError:
@@ -266,13 +262,16 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
     def test_not_complex(self):
         from _numpypy import (radians, deg2rad, degrees, rad2deg,
-                      isneginf, isposinf)
+                  isneginf, isposinf, logaddexp, logaddexp2, fmod)
         raises(TypeError, radians, complex(90,90))
         raises(TypeError, deg2rad, complex(90,90))
         raises(TypeError, degrees, complex(90,90))
         raises(TypeError, rad2deg, complex(90,90))
         raises(TypeError, isneginf, complex(1, 1))
         raises(TypeError, isposinf, complex(1, 1))
+        raises(TypeError, logaddexp, complex(1, 1), complex(3, 3))
+        raises(TypeError, logaddexp2, complex(1, 1), complex(3, 3))
+        raises (TypeError, fmod, complex(90,90), 3) 
 
     def test_isnan_isinf(self):
         from _numpypy import isnan, isinf, array
@@ -287,7 +286,6 @@ class AppTestUfuncs(BaseNumpyAppTest):
                 [False, True, True, False, False]).all()
 
     def test_power_complex(self):
-        import math, cmath
         inf = float('inf')
         ninf = -float('inf')
         nan = float('nan')
@@ -346,20 +344,79 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert a[1] == b[1]
 
     def test_logn(self):
-        import math
+        import math, cmath
         # log and log10 are tested in math (1:1 from rcomplex)
-        from _numpypy import log2
-        for v in [float('-nan'), float('-inf'), -1, float('nan')]:
-            assert math.isnan(log2(v))
-        for v in [-0.0, 0.0]:
-            assert log2(v) == float("-inf")
-        assert log2(float('inf')) == float('inf')
-        assert (log2([1, 2.]) == [0, 1]).all()
-
+        from _numpypy import log2, array, complex128, complex64, log1p
+        inf = float('inf')
+        ninf = -float('inf')
+        nan = float('nan')
+        cmpl = complex
+        log_2 = math.log(2)
+        a = [cmpl(-5., 0), cmpl(-5., -5.), cmpl(-5., 5.),
+             cmpl(0., -5.), cmpl(0., 0.), cmpl(0., 5.),
+             cmpl(-0., -5.), cmpl(-0., 0.), cmpl(-0., 5.),
+             cmpl(-0., -0.), cmpl(inf, 0.), cmpl(inf, 5.),
+             cmpl(inf, -0.), cmpl(ninf, 0.), cmpl(ninf, 5.),
+             cmpl(ninf, -0.), cmpl(ninf, inf), cmpl(inf, inf),
+             cmpl(ninf, ninf), cmpl(5., inf), cmpl(5., ninf),
+             cmpl(nan, 5.), cmpl(5., nan), cmpl(nan, nan),
+            ]
+        for c,rel_err in ((complex128, 5e-323), (complex64, 1e-7)):
+            b = log2(array(a,dtype=c))
+            got_err = False
+            for i in range(len(a)):
+                try:
+                    _res = cmath.log(a[i])
+                    res = cmpl(_res.real / log_2, _res.imag / log_2)
+                except OverflowError:
+                    res = cmpl(inf, nan)
+                except ValueError:
+                    res = cmpl(ninf, 0)
+                msg = 'result of log2(%r(%r)) got %r expected %r\n ' % \
+                            (c,a[i], b[i], res)
+                try:
+                    # cast untranslated boxed results to float,
+                    # does no harm when translated
+                    t1 = float(res.real)        
+                    t2 = float(b[i].real)        
+                    self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
+                    t1 = float(res.imag)        
+                    t2 = float(b[i].imag)        
+                    self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
+                except AssertionError as e:
+                    print e.message
+                    got_err = True
+        for c,rel_err in ((complex128, 5e-323), (complex64, 1e-7)):
+            b = log1p(array(a,dtype=c))
+            got_err = False
+            for i in range(len(a)):
+                try:
+                    #be careful, normal addition wipes out +-0j
+                    res = cmath.log(cmpl(a[i].real+1, a[i].imag))
+                except OverflowError:
+                    res = cmpl(inf, nan)
+                except ValueError:
+                    res = cmpl(ninf, 0)
+                msg = 'result of log1p(%r(%r)) got %r expected %r\n ' % \
+                            (c,a[i], b[i], res)
+                try:
+                    # cast untranslated boxed results to float,
+                    # does no harm when translated
+                    t1 = float(res.real)        
+                    t2 = float(b[i].real)        
+                    self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
+                    t1 = float(res.imag)        
+                    t2 = float(b[i].imag)        
+                    self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
+                except AssertionError as e:
+                    print e.message
+                    got_err = True
+        if got_err:
+            raise AssertionError('Errors were printed to stdout')
 
     def test_basic(self):
         from _numpypy import (complex128, complex64, add,
-            subtract as sub, multiply, divide, negative, abs, fmod, 
+            subtract as sub, multiply, divide, negative, abs, 
             reciprocal)
         from _numpypy import (equal, not_equal, greater, greater_equal, less,
                 less_equal)
@@ -415,15 +472,11 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert abs(c0) == 2.5
             assert abs(c2) == 5
             
-            raises (TypeError, fmod, c0, 3) 
             inf_c = complex_(complex(float('inf'), 0.))
             assert repr(abs(inf_c)) == 'inf'
             assert repr(abs(complex(float('nan'), float('nan')))) == 'nan'
-
-        assert False, 'untested: ' + \
-                     'numpy.real. numpy.imag' + \
-                     'log2, log1p, ' + \
-                     'logaddexp, npy_log2_1p, logaddexp2'
+            raises(AttributeError, 'c2.real = 10.')
+            raises(AttributeError, 'c2.imag = 10.')
 
     def test_math(self):
         if self.isWindows:
