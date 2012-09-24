@@ -4,12 +4,11 @@ from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter import gateway
 from pypy.objspace.std.stringobject import W_StringObject
-from pypy.objspace.std.unicodeobject import _normalize_index
+from pypy.objspace.std.unicodeobject import _normalize_index, _repr_function
 from pypy.objspace.std.ropeobject import W_RopeObject
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.rlib import rope
 from pypy.rlib.rstring import StringBuilder
-from pypy.rlib.runicode import unicode_escape_nonprintable
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import unicodeobject, slicetype, iterobject
 from pypy.objspace.std.tupleobject import W_TupleObject
@@ -813,7 +812,7 @@ def repr__RopeUnicode(space, w_unicode):
     node = w_unicode._node
     chars = node.flatten_unicode()
     size = node.length()
-    s = unicode_escape_nonprintable(chars, size, "strict", quotes=True)
+    s = _repr_function(chars, size, "strict")
     return space.wrap(s)
 
 def mod__RopeUnicode_ANY(space, w_format, w_values):

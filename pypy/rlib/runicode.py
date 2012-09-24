@@ -1337,8 +1337,6 @@ def make_unicode_escape_function(pass_printable=False, unicode_output=False,
 # This function is also used by _codecs/interp_codecs.py
 (unicode_encode_unicode_escape, raw_unicode_escape_helper
  ) = make_unicode_escape_function()
-(unicode_escape_nonprintable, _
- ) = make_unicode_escape_function(for_repr=True)
 
 # ____________________________________________________________
 # Raw unicode escape
