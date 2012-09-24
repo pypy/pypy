@@ -64,14 +64,17 @@ class W_UnicodeObject(W_AbstractUnicodeObject):
         return self._value
 
     def identifier_w(self, space):
-        if self._utf8 is None:
-            from pypy.objspace.std.unicodetype import encode_error_handler
-            from pypy.rlib.runicode import unicode_encode_utf_8
-            u = self._value
-            eh = encode_error_handler(space)
-            self._utf8 = unicode_encode_utf_8(u, len(u), None,
-                                              errorhandler=eh)
-        return self._utf8
+        identifier = self._utf8
+        if identifier is not None:
+            return identifier
+        from pypy.objspace.std.unicodetype import encode_error_handler
+        from pypy.rlib.runicode import unicode_encode_utf_8
+        u = self._value
+        eh = encode_error_handler(space)
+        identifier = unicode_encode_utf_8(u, len(u), None,
+                                          errorhandler=eh)
+        self._utf8 = identifier
+        return identifier
 
 W_UnicodeObject.EMPTY = W_UnicodeObject(u'')
 
