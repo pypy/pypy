@@ -83,3 +83,16 @@ class AppTestReader(object):
             raises(TypeError, csv.field_size_limit, 1, None)
         finally:
             csv.field_size_limit(limit)
+
+    def test_read_linenum(self):
+        import _csv as csv
+        r = csv.reader(['line,1', 'line,2', 'line,3'])
+        assert r.line_num == 0
+        r.next()
+        assert r.line_num == 1
+        r.next()
+        assert r.line_num == 2
+        r.next()
+        assert r.line_num == 3
+        raises(StopIteration, r.next)
+        assert r.line_num == 3
