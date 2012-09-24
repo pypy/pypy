@@ -259,6 +259,11 @@ def unicode_encode_utf_8(s, size, errors, errorhandler=None,
                          allow_surrogates=False):
     if errorhandler is None:
         errorhandler = raise_unicode_exception_encode
+    return unicode_encode_utf_8_impl(s, size, errors, errorhandler,
+                                     allow_surrogates=allow_surrogates)
+
+def unicode_encode_utf_8_impl(s, size, errors, errorhandler,
+                              allow_surrogates=False):
     assert(size >= 0)
     result = StringBuilder(size)
     pos = 0
