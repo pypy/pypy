@@ -1,7 +1,6 @@
 import collections
 import sys
 from pypy.tool.error import source_lines
-from pypy.interpreter.error import OperationError
 from pypy.interpreter import pyframe
 from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.pycode import CO_OPTIMIZED, CO_NEWLOCALS
@@ -29,7 +28,7 @@ class FlowingError(Exception):
 class StopFlowing(Exception):
     pass
 
-class FSException(OperationError):
+class FSException(Exception):
     def __init__(self, w_type, w_value):
         assert w_type is not None
         self.w_type = w_type
