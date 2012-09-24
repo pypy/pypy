@@ -34,7 +34,7 @@ working_modules.update(dict.fromkeys(
      "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array",
      "_bisect", "binascii", "_multiprocessing", '_warnings',
      "_collections", "_multibytecodec", "micronumpy", "_ffi",
-     "_continuation", "_cffi_backend"]
+     "_continuation", "_cffi_backend", "_csv"]
 ))
 
 translation_modules = default_modules.copy()
