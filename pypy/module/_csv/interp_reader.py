@@ -13,15 +13,6 @@ from pypy.module._csv.interp_csv import (QUOTE_MINIMAL, QUOTE_ALL,
  EAT_CRNL) = range(8)
 
 
-def error(space, msg):
-    w_module = space.getbuiltinmodule('_csv')
-    w_error = space.getattr(w_module, space.wrap('Error'))
-    raise OperationError(w_error, space.wrap(msg))
-
-def new_field_builder():
-    return StringBuilder(64)
-
-
 class W_Reader(Wrappable):
 
     def __init__(self, space, dialect, w_iter):
@@ -32,6 +23,13 @@ class W_Reader(Wrappable):
 
     def iter_w(self):
         return self.space.wrap(self)
+
+    def error(self, msg):
+        space = self.space
+        msg = 'line %d: %s' % (self.line_num, msg)
+        w_module = space.getbuiltinmodule('_csv')
+        w_error = space.getattr(w_module, space.wrap('Error'))
+        raise OperationError(w_error, space.wrap(msg))
 
     def save_field(self, field_builder):
         field = field_builder.build()
@@ -63,13 +61,13 @@ class W_Reader(Wrappable):
             except OperationError, e:
                 if e.match(space, space.w_StopIteration):
                     if field_builder is not None:
-                        raise error("newline inside string")
+                        raise self.error("newline inside string")
                 raise
             self.line_num += 1
             line = space.str_w(w_line)
             for c in line:
                 if c == '\0':
-                    raise error("line contains NULL byte")
+                    raise self.error("line contains NULL byte")
 
                 if state == START_RECORD:
                     if c == '\n' or c == '\r':
@@ -80,7 +78,7 @@ class W_Reader(Wrappable):
                     # fall-through to the next case
 
                 if state == START_FIELD:
-                    field_builder = new_field_builder()
+                    field_builder = StringBuilder(64)
                     # expecting field
                     if c == '\n' or c == '\r':
                         # save empty field
@@ -168,20 +166,19 @@ class W_Reader(Wrappable):
                         state = IN_FIELD
                     else:
                         # illegal
-                        raise error("'%s' expected after '%s'" %
-                                    dialect.delimiter,
-                                    dialect.quotechar)
+                        raise self.error("'%s' expected after '%s'" % (
+                            dialect.delimiter, dialect.quotechar))
 
                 elif state == EAT_CRNL:
                     if not (c == '\n' or c == '\r'):
-                        raise error("new-line character seen in unquoted "
-                                    "field - do you need to open the file "
-                                    "in universal-newline mode?")
+                        raise self.error("new-line character seen in unquoted "
+                                        "field - do you need to open the file "
+                                        "in universal-newline mode?")
 
             if (state == START_FIELD or
                   state == IN_FIELD or
                   state == QUOTE_IN_QUOTED_FIELD):
-                self.save_field()
+                self.save_field(field_builder)
                 break
             elif state == ESCAPED_CHAR:
                 field_builder.append('\n')
