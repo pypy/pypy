@@ -59,7 +59,8 @@ class Test_Csv(unittest.TestCase):
         self.assertRaises((TypeError, AttributeError), setattr, obj.dialect,
                           'delimiter', ':')
         self.assertRaises(AttributeError, delattr, obj.dialect, 'quoting')
-        self.assertRaises(AttributeError, setattr, obj.dialect,
+        # PyPy gets a TypeError instead of an AttributeError
+        self.assertRaises((AttributeError, TypeError), setattr, obj.dialect,
                           'quoting', None)
 
     def test_reader_attrs(self):
@@ -133,7 +134,8 @@ class Test_Csv(unittest.TestCase):
             os.unlink(name)
 
     def test_write_arg_valid(self):
-        self.assertRaises(csv.Error, self._write_test, None, '')
+        # PyPy gets a TypeError instead of a csv.Error for "not a sequence"
+        self.assertRaises((csv.Error, TypeError), self._write_test, None, '')
         self._write_test((), '')
         self._write_test([None], '""')
         self.assertRaises(csv.Error, self._write_test,
