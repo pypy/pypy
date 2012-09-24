@@ -79,6 +79,7 @@ class FlowObjSpace(ObjSpace):
     enter_cache_building_mode = None
     leave_cache_building_mode = None
     createcompiler = None
+    interpclass_w = None
 
     def is_w(self, w_one, w_two):
         return self.is_true(self.is_(w_one, w_two))
@@ -166,12 +167,6 @@ class FlowObjSpace(ObjSpace):
                 # cannot count on it not mutating at runtime!
                 raise UnwrapException
         return obj
-
-    def interpclass_w(self, w_obj):
-        obj = self.unwrap(w_obj)
-        if isinstance(obj, Wrappable):
-            return obj
-        return None
 
     def getexecutioncontext(self):
         return self.frame

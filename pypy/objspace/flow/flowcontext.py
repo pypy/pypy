@@ -609,11 +609,9 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         else:
             raise NotImplementedError("WITH_CLEANUP for CPython <= 2.4")
 
-        unroller = self.space.interpclass_w(w_unroller)
+        unroller = self.space.unwrap(w_unroller)
         w_None = self.space.w_None
-        is_app_exc = (unroller is not None and
-                      isinstance(unroller, SApplicationException))
-        if is_app_exc:
+        if isinstance(unroller, SApplicationException):
             operr = unroller.operr
             # The annotator won't allow to merge exception types with None.
             # Replace it with the exception value...
