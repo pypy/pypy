@@ -32,9 +32,11 @@ class W_Reader(Wrappable):
         raise OperationError(w_error, space.wrap(msg))
     error._dont_inline_ = True
 
-    def check_limit(self, field_builder):
+    def add_char(self, field_builder, c):
+        assert field_builder is not None
         if field_builder.getlength() >= field_limit.limit:
             raise self.error("field larger than field limit")
+        field_builder.append(c)
 
     def save_field(self, field_builder):
         field = field_builder.build()
@@ -106,12 +108,11 @@ class W_Reader(Wrappable):
                         # begin new unquoted field
                         if dialect.quoting == QUOTE_NONNUMERIC:
                             self.numeric_field = True
-                        field_builder.append(c)
+                        self.add_char(field_builder, c)
                         state = IN_FIELD
 
                 elif state == ESCAPED_CHAR:
-                    self.check_limit(field_builder)
-                    field_builder.append(c)
+                    self.add_char(field_builder, c)
                     state = IN_FIELD
 
                 elif state == IN_FIELD:
@@ -129,8 +130,7 @@ class W_Reader(Wrappable):
                         state = START_FIELD
                     else:
                         # normal character - save in field
-                        self.check_limit(field_builder)
-                        field_builder.append(c)
+                        self.add_char(field_builder, c)
 
                 elif state == IN_QUOTED_FIELD:
                     # in quoted field
@@ -147,12 +147,10 @@ class W_Reader(Wrappable):
                             state = IN_FIELD
                     else:
                         # normal character - save in field
-                        self.check_limit(field_builder)
-                        field_builder.append(c)
+                        self.add_char(field_builder, c)
 
                 elif state == ESCAPE_IN_QUOTED_FIELD:
-                    self.check_limit(field_builder)
-                    field_builder.append(c)
+                    self.add_char(field_builder, c)
                     state = IN_QUOTED_FIELD
 
                 elif state == QUOTE_IN_QUOTED_FIELD:
@@ -160,8 +158,7 @@ class W_Reader(Wrappable):
                     if (dialect.quoting != QUOTE_NONE and
                             c == dialect.quotechar):
                         # save "" as "
-                        self.check_limit(field_builder)
-                        field_builder.append(c)
+                        self.add_char(field_builder, c)
                         state = IN_QUOTED_FIELD
                     elif c == dialect.delimiter:
                         # save field - wait for new field
@@ -172,8 +169,7 @@ class W_Reader(Wrappable):
                         self.save_field(field_builder)
                         state = EAT_CRNL
                     elif not dialect.strict:
-                        self.check_limit(field_builder)
-                        field_builder.append(c)
+                        self.add_char(field_builder, c)
                         state = IN_FIELD
                     else:
                         # illegal
@@ -192,14 +188,12 @@ class W_Reader(Wrappable):
                 self.save_field(field_builder)
                 break
             elif state == ESCAPED_CHAR:
-                self.check_limit(field_builder)
-                field_builder.append('\n')
+                self.add_char(field_builder, '\n')
                 state = IN_FIELD
             elif state == IN_QUOTED_FIELD:
                 pass
             elif state == ESCAPE_IN_QUOTED_FIELD:
-                self.check_limit(field_builder)
-                field_builder.append('\n')
+                self.add_char(field_builder, '\n')
                 state = IN_QUOTED_FIELD
             else:
                 break
