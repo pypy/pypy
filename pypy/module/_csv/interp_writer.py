@@ -29,6 +29,8 @@ class W_Writer(Wrappable):
     error._dont_inline_ = True
 
     def writerow(self, w_fields):
+        """Construct and write a CSV record from a sequence of fields.
+        Non-string elements will be converted to string."""
         space = self.space
         fields_w = space.listview(w_fields)
         dialect = self.dialect
@@ -48,7 +50,7 @@ class W_Writer(Wrappable):
                     space.float_w(w_field)    # is it an int/long/float?
                     quoted = False
                 except OperationError, e:
-                    if e.async(self):
+                    if e.async(space):
                         raise
                     quoted = True
             elif dialect.quoting == QUOTE_ALL:
@@ -114,6 +116,20 @@ class W_Writer(Wrappable):
         line = rec.build()
         return space.call_function(self.w_filewrite, space.wrap(line))
 
+    def writerows(self, w_seqseq):
+        """Construct and write a series of sequences to a csv file.
+        Non-string elements will be converted to string."""
+        space = self.space
+        w_iter = space.iter(w_seqseq)
+        while True:
+            try:
+                w_seq = space.next(w_iter)
+            except OperationError, e:
+                if e.match(space, space.w_StopIteration):
+                    break
+                raise
+            self.writerow(w_seq)
+
 
 def csv_writer(space, w_fileobj, w_dialect=NoneNotWrapped,
                   w_delimiter        = NoneNotWrapped,
@@ -148,6 +164,7 @@ W_Writer.typedef = TypeDef(
         __module__ = '_csv',
         dialect = interp_attrproperty_w('dialect', W_Writer),
         writerow = interp2app(W_Writer.writerow),
+        writerows = interp2app(W_Writer.writerows),
         __doc__ = """CSV writer
 
 Writer objects are responsible for generating tabular data
