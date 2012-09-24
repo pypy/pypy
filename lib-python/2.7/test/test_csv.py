@@ -20,7 +20,8 @@ class Test_Csv(unittest.TestCase):
     """
     def _test_arg_valid(self, ctor, arg):
         self.assertRaises(TypeError, ctor)
-        self.assertRaises(TypeError, ctor, None)
+        # PyPy gets an AttributeError instead of a TypeError
+        self.assertRaises((TypeError, AttributeError), ctor, None)
         self.assertRaises(TypeError, ctor, arg, bad_attr = 0)
         self.assertRaises(TypeError, ctor, arg, delimiter = 0)
         self.assertRaises(TypeError, ctor, arg, delimiter = 'XX')
