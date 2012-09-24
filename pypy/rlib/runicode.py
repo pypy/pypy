@@ -77,12 +77,14 @@ utf8_code_length = [
 ]
 
 def str_decode_utf_8(s, size, errors, final=False,
-                     errorhandler=None):
+                     errorhandler=None, allow_surrogates=False):
     if errorhandler is None:
         errorhandler = raise_unicode_exception_decode
-    return str_decode_utf_8_impl(s, size, errors, final, errorhandler)
+    return str_decode_utf_8_impl(s, size, errors, final, errorhandler,
+                                 allow_surrogates=allow_surrogates)
 
-def str_decode_utf_8_impl(s, size, errors, final, errorhandler):
+def str_decode_utf_8_impl(s, size, errors, final, errorhandler,
+                          allow_surrogates):
     if size == 0:
         return u'', 0
 
@@ -184,7 +186,7 @@ def str_decode_utf_8_impl(s, size, errors, final, errorhandler):
             if (ordch2>>6 != 0x2 or    # 0b10
                 (ordch1 == 0xe0 and ordch2 < 0xa0)
                 # surrogates shouldn't be valid UTF-8!
-                or (ordch1 == 0xed and ordch2 > 0x9f)
+                or (not allow_surrogates and ordch1 == 0xed and ordch2 > 0x9f)
                 ):
                 r, pos = errorhandler(errors, 'utf-8',
                                       'invalid continuation byte',
@@ -253,12 +255,15 @@ def _encodeUCS4(result, ch):
     result.append((chr((0x80 | ((ch >> 6) & 0x3f)))))
     result.append((chr((0x80 | (ch & 0x3f)))))
 
-def unicode_encode_utf_8(s, size, errors, errorhandler=None):
+def unicode_encode_utf_8(s, size, errors, errorhandler=None,
+                         allow_surrogates=False):
     if errorhandler is None:
         errorhandler = raise_unicode_exception_encode
-    return unicode_encode_utf_8_impl(s, size, errors, errorhandler)
+    return unicode_encode_utf_8_impl(s, size, errors, errorhandler,
+                                     allow_surrogates=allow_surrogates)
 
-def unicode_encode_utf_8_impl(s, size, errors, errorhandler):
+def unicode_encode_utf_8_impl(s, size, errors, errorhandler,
+                              allow_surrogates=False):
     assert(size >= 0)
     result = StringBuilder(size)
     pos = 0
@@ -286,11 +291,19 @@ def unicode_encode_utf_8_impl(s, size, errors, errorhandler):
                             pos += 1
                             _encodeUCS4(result, ch3)
                             continue
-                    r, pos = errorhandler(errors, 'utf-8',
-                                          'surrogates not allowed',
-                                          s, pos-1, pos)
-                    result.append(r)
-                    continue
+                    if not allow_surrogates:
+                        r, pos = errorhandler(errors, 'utf-8',
+                                              'surrogates not allowed',
+                                              s, pos-1, pos)
+                        for ch in r:
+                            if ord(ch) < 0x80:
+                                result.append(chr(ord(ch)))
+                            else:
+                                errorhandler('strict', 'utf-8',
+                                             'surrogates not allowed',
+                                             s, pos-1, pos)
+                        continue
+                    # else: Fall through and handles isolated high surrogates
                 result.append((chr((0xe0 | (ch >> 12)))))
                 result.append((chr((0x80 | ((ch >> 6) & 0x3f)))))
                 result.append((chr((0x80 | (ch & 0x3f)))))
@@ -1210,13 +1223,15 @@ def str_decode_unicode_escape(s, size, errors, final=False,
 
     return builder.build(), pos
 
-def make_unicode_escape_function(for_repr=False):
+def make_unicode_escape_function(pass_printable=False, unicode_output=False,
+                                 quotes=False, prefix=None):
     # Python3 has two similar escape functions: One to implement
     # encode('unicode_escape') and which outputs bytes, and unicode.__repr__
     # which outputs unicode.  They cannot share RPython code, so we generate
     # them with the template below.
+    # Python2 does not really need this, but it reduces diffs between branches.
 
-    if for_repr:
+    if unicode_output:
         STRING_BUILDER = UnicodeBuilder
         STR = unicode
         CHR = UNICHR
@@ -1225,11 +1240,13 @@ def make_unicode_escape_function(for_repr=False):
         STR = str
         CHR = chr
 
-    def unicode_escape(s, size, errors, errorhandler=None, quotes=False):
+    def unicode_escape(s, size, errors, errorhandler=None):
         # errorhandler is not used: this function cannot cause Unicode errors
         result = STRING_BUILDER(size)
 
         if quotes:
+            if prefix:
+                result.append(STR(prefix))
             if s.find(u'\'') != -1 and s.find(u'\"') == -1:
                 quote = ord('\"')
                 result.append(STR('"'))
@@ -1282,9 +1299,9 @@ def make_unicode_escape_function(for_repr=False):
                 result.append(STR('\\\\'))
 
             # Map non-printable or non-ascii to '\xhh' or '\uhhhh'
-            elif for_repr and not unicodedb.isprintable(oc):
+            elif pass_printable and not unicodedb.isprintable(oc):
                 char_escape_helper(result, oc)
-            elif not for_repr and (oc < 32 or oc >= 0x7F):
+            elif not pass_printable and (oc < 32 or oc >= 0x7F):
                 char_escape_helper(result, oc)
 
             # Copy everything else as-is
@@ -1317,6 +1334,7 @@ def make_unicode_escape_function(for_repr=False):
 
     return unicode_escape, char_escape_helper
 
+# This function is also used by _codecs/interp_codecs.py
 (unicode_encode_unicode_escape, raw_unicode_escape_helper
  ) = make_unicode_escape_function()
 (unicode_escape_nonprintable, _
