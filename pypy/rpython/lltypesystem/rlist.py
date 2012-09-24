@@ -223,9 +223,7 @@ def _ll_list_resize_hint(l, newsize):
     guess lied).
     """
     allocated = len(l.items)
-    if allocated < newsize:
-        _ll_list_resize_hint_really(l, newsize, True)
-    elif newsize < (allocated >> 1) - 5:
+    if allocated < newsize or newsize < (allocated >> 1) - 5:
         _ll_list_resize_hint_really(l, newsize, False)
 
 @enforceargs(None, int, None)
