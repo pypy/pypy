@@ -495,7 +495,7 @@ def utf_8_encode(space, uni, errors="strict"):
     result = runicode.unicode_encode_utf_8(
         uni, len(uni), errors, state.encode_error_handler,
         allow_surrogates=True)
-    return space.newtuple([space.wrap(result), space.wrap(len(uni))])
+    return space.newtuple([space.wrapbytes(result), space.wrap(len(uni))])
 
 @unwrap_spec(string='bufferstr', errors='str_or_None')
 def utf_8_decode(space, string, errors="strict", w_final=False):
