@@ -517,7 +517,27 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
             return next_instr    # now inside a 'finally' block
 
     def END_FINALLY(self, oparg, next_instr):
-        unroller = self.end_finally()
+        # unlike CPython, there are two statically distinct cases: the
+        # END_FINALLY might be closing an 'except' block or a 'finally'
+        # block.  In the first case, the stack contains three items:
+        #   [exception type we are now handling]
+        #   [exception value we are now handling]
+        #   [wrapped SApplicationException]
+        # In the case of a finally: block, the stack contains only one
+        # item (unlike CPython which can have 1, 2 or 3 items):
+        #   [wrapped subclass of SuspendedUnroller]
+        w_top = self.popvalue()
+        # the following logic is a mess for the flow objspace,
+        # so we hide it specially in the space :-/
+        if self.space._check_constant_interp_w_or_w_None(SuspendedUnroller, w_top):
+            # case of a finally: block
+            unroller = self.space.interpclass_w(w_top)
+        else:
+            # case of an except: block.  We popped the exception type
+            self.popvalue()        #     Now we pop the exception value
+            unroller = self.space.interpclass_w(self.popvalue())
+            assert unroller is not None
+
         if isinstance(unroller, SuspendedUnroller):
             # go on unrolling the stack
             block = self.unrollstack(unroller.kind)
