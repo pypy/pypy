@@ -219,6 +219,20 @@ def csv_reader(space, w_iterator, w_dialect=NoneNotWrapped,
                   w_skipinitialspace = NoneNotWrapped,
                   w_strict           = NoneNotWrapped,
                   ):
+    """
+    csv_reader = reader(iterable [, dialect='excel']
+                       [optional keyword args])
+    for row in csv_reader:
+        process(row)
+
+    The "iterable" argument can be any object that returns a line
+    of input for each iteration, such as a file object or a list.  The
+    optional \"dialect\" parameter is discussed below.  The function
+    also accepts optional keyword arguments which override settings
+    provided by the dialect.
+
+    The returned object is an iterator.  Each iteration returns a row
+    of the CSV file (which can span multiple input lines)"""
     w_iter = space.iter(w_iterator)
     dialect = _build_dialect(space, w_dialect, w_delimiter, w_doublequote,
                              w_escapechar, w_lineterminator, w_quotechar,

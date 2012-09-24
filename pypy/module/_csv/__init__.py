@@ -82,4 +82,6 @@ SETTINGS:
 
         'reader': 'interp_reader.csv_reader',
         'field_size_limit': 'interp_reader.csv_field_size_limit',
+
+        'writer': 'interp_writer.csv_writer',
         }

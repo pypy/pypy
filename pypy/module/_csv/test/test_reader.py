@@ -70,7 +70,7 @@ class AppTestReader(object):
         import _csv as csv
         limit = csv.field_size_limit()
         try:
-            size = 50
+            size = 150
             bigstring = 'X' * size
             bigline = '%s,%s' % (bigstring, bigstring)
             self._read_test([bigline], [[bigstring, bigstring]])
