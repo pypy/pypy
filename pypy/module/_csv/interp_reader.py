@@ -40,8 +40,8 @@ class W_Reader(Wrappable):
             try:
                 ff = string_to_float(field)
             except ParseStringError, e:
-                raise OperationError(space.w_ValueError,
-                                     space.wrap(e.msg))
+                raise OperationError(self.space.w_ValueError,
+                                     self.space.wrap(e.msg))
             w_obj = self.space.wrap(ff)
         else:
             w_obj = self.space.wrap(field)
