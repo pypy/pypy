@@ -527,27 +527,31 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         # item (unlike CPython which can have 1, 2 or 3 items):
         #   [wrapped subclass of SuspendedUnroller]
         w_top = self.popvalue()
-        # the following logic is a mess for the flow objspace,
-        # so we hide it specially in the space :-/
-        if self.space._check_constant_interp_w_or_w_None(SuspendedUnroller, w_top):
-            # case of a finally: block
-            unroller = self.space.interpclass_w(w_top)
+        if w_top == self.space.w_None:
+            # finally: block with no unroller active
+            return
+        try:
+            unroller = self.space.unwrap(w_top)
+        except UnwrapException:
+            pass
         else:
-            # case of an except: block.  We popped the exception type
-            self.popvalue()        #     Now we pop the exception value
-            unroller = self.space.interpclass_w(self.popvalue())
-            assert unroller is not None
+            if isinstance(unroller, SuspendedUnroller):
+                # case of a finally: block
+                return self.unroll_finally(unroller)
+        # case of an except: block.  We popped the exception type
+        self.popvalue()        #     Now we pop the exception value
+        unroller = self.space.unwrap(self.popvalue())
+        return self.unroll_finally(unroller)
 
-        if isinstance(unroller, SuspendedUnroller):
-            # go on unrolling the stack
-            block = self.unrollstack(unroller.kind)
-            if block is None:
-                w_result = unroller.nomoreblocks()
-                self.pushvalue(w_result)
-                raise Return
-            else:
-                next_instr = block.handle(self, unroller)
-        return next_instr
+    def unroll_finally(self, unroller):
+        # go on unrolling the stack
+        block = self.unrollstack(unroller.kind)
+        if block is None:
+            w_result = unroller.nomoreblocks()
+            self.pushvalue(w_result)
+            raise Return
+        else:
+            return block.handle(self, unroller)
 
     def JUMP_ABSOLUTE(self, jumpto, next_instr):
         return jumpto

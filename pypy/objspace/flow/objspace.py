@@ -173,14 +173,6 @@ class FlowObjSpace(ObjSpace):
             return obj
         return None
 
-    def _check_constant_interp_w_or_w_None(self, RequiredClass, w_obj):
-        """
-        WARNING: this implementation is not complete at all. It's just enough
-        to be used by end_finally() inside pyopcode.py.
-        """
-        return w_obj == self.w_None or (isinstance(w_obj, Constant) and
-                                        isinstance(w_obj.value, RequiredClass))
-
     def getexecutioncontext(self):
         return self.frame
 
