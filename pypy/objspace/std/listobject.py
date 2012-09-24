@@ -585,23 +585,11 @@ class RangeListStrategy(ListStrategy):
     _getitems_range_unroll = jit.unroll_safe(func_with_new_name(_getitems_range, "_getitems_range_unroll"))
 
     def getslice(self, w_list, start, stop, step, length):
-        v = self.unerase(w_list.lstorage)
-        old_step = v[1]
-
-        new_start = self._getitem_unwrapped(w_list, start)
-        new_step = old_step * step
-        return make_range_list(self.space, new_start, new_step, length)
+        self.switch_to_integer_strategy(w_list)
+        return w_list.getslice(start, stop, step, length)
 
     def append(self, w_list, w_item):
         if is_W_IntObject(w_item):
-            l = self.unerase(w_list.lstorage)
-            step = l[1]
-            last_in_range = self._getitem_unwrapped(w_list, -1)
-            if self.unwrap(w_item) - step == last_in_range:
-                new = self.erase((l[0], l[1], l[2] + 1))
-                w_list.lstorage = new
-                return
-
             self.switch_to_integer_strategy(w_list)
         else:
             w_list.switch_to_object_strategy()
@@ -647,13 +635,10 @@ class RangeListStrategy(ListStrategy):
         w_list.setslice(start, step, slicelength, sequence_w)
 
     def sort(self, w_list, reverse):
-        start, step, length = self.unerase(w_list.lstorage)
+        step = self.unerase(w_list.lstorage)[1]
         if step > 0 and reverse or step < 0 and not reverse:
-            start = start + step * (length - 1)
-            step = step * (-1)
-        else:
-            return
-        w_list.lstorage = self.erase((start, step, length))
+            self.switch_to_integer_strategy(w_list)
+            w_list.sort(reverse)
 
     def insert(self, w_list, index, w_item):
         self.switch_to_integer_strategy(w_list)
@@ -664,12 +649,8 @@ class RangeListStrategy(ListStrategy):
         w_list.extend(items_w)
 
     def reverse(self, w_list):
-        v = self.unerase(w_list.lstorage)
-        last = self._getitem_unwrapped(w_list, -1)
-        length = v[2]
-        skip = v[1]
-        new = self.erase((last, -skip, length))
-        w_list.lstorage = new
+        self.switch_to_integer_strategy(w_list)
+        w_list.reverse()
 
 class AbstractUnwrappedStrategy(object):
     _mixin_ = True
@@ -722,11 +703,11 @@ class AbstractUnwrappedStrategy(object):
         return ListStrategy.contains(self, w_list, w_obj)
 
     def _safe_contains(self, w_list, obj):
-            l = self.unerase(w_list.lstorage)
-            for i in l:
-                if i == obj:
-                    return True
-            return False
+        l = self.unerase(w_list.lstorage)
+        for i in l:
+            if i == obj:
+                return True
+        return False
 
     def length(self, w_list):
         return len(self.unerase(w_list.lstorage))
@@ -757,7 +738,6 @@ class AbstractUnwrappedStrategy(object):
         items = self.unerase(w_list.lstorage)[:]
         return self.erase(items)
 
-
     def getslice(self, w_list, start, stop, step, length):
         if step == 1 and 0 <= start <= stop:
             l = self.unerase(w_list.lstorage)
@@ -779,7 +759,6 @@ class AbstractUnwrappedStrategy(object):
             return W_ListObject.from_storage_and_strategy(self.space, storage, self)
 
     def append(self,  w_list, w_item):
-
         if self.is_correct_type(w_item):
             self.unerase(w_list.lstorage).append(self.unwrap(w_item))
             return

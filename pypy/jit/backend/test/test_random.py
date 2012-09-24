@@ -465,6 +465,16 @@ OperationBuilder.OPERATIONS = OPERATIONS
 
 # ____________________________________________________________
 
+def do_assert(condition, error_message):
+    if condition:
+        return
+    seed = pytest.config.option.randomseed
+    message = "%s\nPython: %s\nRandom seed: %r" % (
+        error_message,
+        sys.executable,
+        seed)
+    raise AssertionError(message)
+
 def Random():
     import random
     seed = pytest.config.option.randomseed
@@ -544,6 +554,7 @@ class RandomLoop(object):
         self.startvars = startvars
         self.prebuilt_ptr_consts = []
         self.r = r
+        self.subloops = []
         self.build_random_loop(cpu, builder_factory, r, startvars, allow_delay)
 
     def build_random_loop(self, cpu, builder_factory, r, startvars, allow_delay):
@@ -668,13 +679,15 @@ class RandomLoop(object):
 
         arguments = [box.value for box in self.loop.inputargs]
         fail = cpu.execute_token(self.runjitcelltoken(), *arguments)
-        assert fail is self.should_fail_by.getdescr()
+        do_assert(fail is self.should_fail_by.getdescr(),
+                  "Got %r, expected %r" % (fail,
+                                           self.should_fail_by.getdescr()))
         for i, v in enumerate(self.get_fail_args()):
             if isinstance(v, (BoxFloat, ConstFloat)):
                 value = cpu.get_latest_value_float(i)
             else:
                 value = cpu.get_latest_value_int(i)
-            assert value == self.expected[v], (
+            do_assert(value == self.expected[v],
                 "Got %r, expected %r for value #%d" % (value,
                                                        self.expected[v],
                                                        i)
@@ -683,9 +696,11 @@ class RandomLoop(object):
         if (self.guard_op is not None and
             self.guard_op.is_guard_exception()):
             if self.guard_op.getopnum() == rop.GUARD_NO_EXCEPTION:
-                assert exc
+                do_assert(exc,
+                          "grab_exc_value() should not be %r" % (exc,))
         else:
-            assert not exc
+            do_assert(not exc,
+                      "unexpected grab_exc_value(): %r" % (exc,))
 
     def build_bridge(self):
         def exc_handling(guard_op):
@@ -710,6 +725,7 @@ class RandomLoop(object):
             return False
         # generate the branch: a sequence of operations that ends in a FINISH
         subloop = DummyLoop([])
+        self.subloops.append(subloop)   # keep around for debugging
         if guard_op.is_guard_exception():
             subloop.operations.append(exc_handling(guard_op))
         bridge_builder = self.builder.fork(self.builder.cpu, subloop,
@@ -746,9 +762,6 @@ class RandomLoop(object):
             args = [x.clonebox() for x in subset]
             rl = RandomLoop(self.builder.cpu, self.builder.fork,
                                      r, args)
-            dump(rl.loop)
-            self.cpu.compile_loop(rl.loop.inputargs, rl.loop.operations,
-                                  rl.loop._jitcelltoken)
             # done
             self.should_fail_by = rl.should_fail_by
             self.expected = rl.expected

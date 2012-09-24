@@ -741,6 +741,8 @@ def test_array_in_struct():
     assert repr(s.a1).startswith("<cdata 'int[5]' 0x")
 
 def test_offsetof():
+    def offsetof(BType, fieldname):
+        return typeoffsetof(BType, fieldname)[1]
     BInt = new_primitive_type("int")
     BStruct = new_struct_type("foo")
     py.test.raises(TypeError, offsetof, BInt, "abc")
@@ -749,6 +751,7 @@ def test_offsetof():
     assert offsetof(BStruct, 'abc') == 0
     assert offsetof(BStruct, 'def') == size_of_int()
     py.test.raises(KeyError, offsetof, BStruct, "ghi")
+    assert offsetof(new_pointer_type(BStruct), "def") == size_of_int()
 
 def test_function_type():
     BInt = new_primitive_type("int")
@@ -888,11 +891,8 @@ def test_call_function_20():
     BFunc20 = new_function_type((BStructPtr,), BShort, False)
     f = cast(BFunc20, _testfunc(20))
     x = newp(BStructPtr, {'a1': b'A', 'a2': -4042})
-    # test the exception that allows us to pass a 'struct foo' where the
-    # function really expects a 'struct foo *'.
-    res = f(x[0])
-    assert res == -4042 + ord(b'A')
-    assert res == f(x)
+    # can't pass a 'struct foo'
+    py.test.raises(TypeError, f, x[0])
 
 def test_call_function_21():
     BInt = new_primitive_type("int")
@@ -2115,3 +2115,77 @@ def test_bool():
     BDouble = new_primitive_type("double")
     assert int(cast(BBool, cast(BDouble, 0.1))) == 1
     assert int(cast(BBool, cast(BDouble, 0.0))) == 0
+
+def test_typeoffsetof():
+    BChar = new_primitive_type("char")
+    BStruct = new_struct_type("foo")
+    BStructPtr = new_pointer_type(BStruct)
+    complete_struct_or_union(BStruct, [('a1', BChar, -1),
+                                       ('a2', BChar, -1),
+                                       ('a3', BChar, -1)])
+    py.test.raises(TypeError, typeoffsetof, BStructPtr, None)
+    assert typeoffsetof(BStruct, None) == (BStruct, 0)
+    assert typeoffsetof(BStructPtr, 'a1') == (BChar, 0)
+    assert typeoffsetof(BStruct, 'a1') == (BChar, 0)
+    assert typeoffsetof(BStructPtr, 'a2') == (BChar, 1)
+    assert typeoffsetof(BStruct, 'a3') == (BChar, 2)
+    py.test.raises(KeyError, typeoffsetof, BStructPtr, 'a4')
+    py.test.raises(KeyError, typeoffsetof, BStruct, 'a5')
+
+def test_typeoffsetof_no_bitfield():
+    BInt = new_primitive_type("int")
+    BStruct = new_struct_type("foo")
+    complete_struct_or_union(BStruct, [('a1', BInt, 4)])
+    py.test.raises(TypeError, typeoffsetof, BStruct, 'a1')
+
+def test_rawaddressof():
+    BChar = new_primitive_type("char")
+    BCharP = new_pointer_type(BChar)
+    BStruct = new_struct_type("foo")
+    BStructPtr = new_pointer_type(BStruct)
+    complete_struct_or_union(BStruct, [('a1', BChar, -1),
+                                       ('a2', BChar, -1),
+                                       ('a3', BChar, -1)])
+    p = newp(BStructPtr)
+    assert repr(p) == "<cdata 'struct foo *' owning 3 bytes>"
+    s = p[0]
+    assert repr(s) == "<cdata 'struct foo' owning 3 bytes>"
+    a = rawaddressof(BStructPtr, s)
+    assert repr(a).startswith("<cdata 'struct foo *' 0x")
+    py.test.raises(TypeError, rawaddressof, BStruct, s)
+    b = rawaddressof(BCharP, s)
+    assert b == cast(BCharP, p)
+    c = rawaddressof(BStructPtr, a)
+    assert c == a
+    py.test.raises(TypeError, rawaddressof, BStructPtr, cast(BChar, '?'))
+    #
+    d = rawaddressof(BCharP, s, 1)
+    assert d == cast(BCharP, p) + 1
+
+def test_newp_signed_unsigned_char():
+    BCharArray = new_array_type(
+        new_pointer_type(new_primitive_type("char")), None)
+    p = newp(BCharArray, b"foo")
+    assert len(p) == 4
+    assert list(p) == [b"f", b"o", b"o", b"\x00"]
+    #
+    BUCharArray = new_array_type(
+        new_pointer_type(new_primitive_type("unsigned char")), None)
+    p = newp(BUCharArray, b"fo\xff")
+    assert len(p) == 4
+    assert list(p) == [ord("f"), ord("o"), 0xff, 0]
+    #
+    BSCharArray = new_array_type(
+        new_pointer_type(new_primitive_type("signed char")), None)
+    p = newp(BSCharArray, b"fo\xff")
+    assert len(p) == 4
+    assert list(p) == [ord("f"), ord("o"), -1, 0]
+
+def test_newp_from_bytearray_doesnt_work():
+    BCharArray = new_array_type(
+        new_pointer_type(new_primitive_type("char")), None)
+    py.test.raises(TypeError, newp, BCharArray, bytearray(b"foo"))
+    p = newp(BCharArray, 4)
+    buffer(p)[:] = bytearray(b"foo\x00")
+    assert len(p) == 4
+    assert list(p) == [b"f", b"o", b"o", b"\x00"]

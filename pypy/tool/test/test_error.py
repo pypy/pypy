@@ -3,7 +3,7 @@
 """
 
 from pypy.translator.translator import TranslationContext
-from pypy.tool.error import FlowingError, AnnotatorError, NoSuchAttrError
+from pypy.tool.error import AnnotatorError, NoSuchAttrError
 from pypy.annotation.policy import BasicAnnotatorPolicy
 
 import py
@@ -15,20 +15,13 @@ def compile_function(function, annotation=[]):
     t = TranslationContext()
     t.buildannotator(policy=Policy()).build_types(function, annotation)
 
-def test_global_variable():
-    def global_var_missing():
-        return a
-    
-    rex = py.test.raises(FlowingError, compile_function, global_var_missing)
-    assert str(rex.exconly()).find("global variable 'a' undeclared")
-
 class AAA(object):
     pass
 
 def test_blocked_inference1():
     def blocked_inference():
         return AAA().m()
-    
+
     py.test.raises(AnnotatorError, compile_function, blocked_inference)
 
 def test_blocked_inference2():
@@ -36,7 +29,7 @@ def test_blocked_inference2():
         a = AAA()
         b = a.x
         return b
-    
+
     py.test.raises(AnnotatorError, compile_function, blocked_inference)
 
 def test_someobject():
@@ -59,14 +52,9 @@ def test_someobject2():
 
     py.test.raises(AnnotatorError, compile_function, someobject_deg, [int])
 
-def test_eval():
-    exec("def f(): return a")
-    
-    py.test.raises(FlowingError, compile_function, f)
-
 def test_eval_someobject():
     exec("def f(n):\n if n == 2:\n  return 'a'\n else:\n  return 3")
-    
+
     py.test.raises(AnnotatorError, compile_function, f, [int])
 
 def test_someobject_from_call():

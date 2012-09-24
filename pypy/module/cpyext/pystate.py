@@ -23,10 +23,10 @@ def PyEval_SaveThread(space):
     the current thread must have acquired it.  (This function is available even
     when thread support is disabled at compile time.)"""
     state = space.fromcache(InterpreterState)
-    if rffi.aroundstate.before:
-        rffi.aroundstate.before()
     tstate = state.swap_thread_state(
         space, lltype.nullptr(PyThreadState.TO))
+    if rffi.aroundstate.before:
+        rffi.aroundstate.before()
     return tstate
 
 @cpython_api([PyThreadState], lltype.Void)

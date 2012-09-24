@@ -576,7 +576,7 @@ class AbstractX86CodeBuilder(object):
     J_il8 = insn(immediate(1, 'o'), '\x70', immediate(2, 'b'))
     J_il = insn('\x0F', immediate(1,'o'), '\x80', relative(2))
 
-    SET_ir = insn(rex_w, '\x0F', immediate(1,'o'),'\x90', byte_register(2), '\xC0')
+    SET_ir = insn(rex_fw, '\x0F', immediate(1,'o'),'\x90', byte_register(2), '\xC0')
 
     # The 64-bit version of this, CQO, is defined in X86_64_CodeBuilder
     CDQ = insn(rex_nw, '\x99')
