@@ -2,6 +2,7 @@ from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.generator import GeneratorIterator
 from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.listtype import get_list_index
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
@@ -62,6 +63,29 @@ def get_strategy_from_list_objects(space, list_w, sizehint):
         return space.fromcache(FloatListStrategy)
 
     return space.fromcache(ObjectListStrategy)
+
+_do_extend_jitdriver = jit.JitDriver(
+    name='list__do_extend_from_iterable',
+    greens=['w_type'],
+    reds=['i', 'w_iterator', 'w_list'])
+
+def _do_extend_from_iterable(space, w_list, w_iterable):
+    w_iterator = space.iter(w_iterable)
+    w_type = space.type(w_iterator)
+    i = 0
+    while True:
+        _do_extend_jitdriver.jit_merge_point(w_type=w_type,
+                                             i=i,
+                                             w_iterator=w_iterator,
+                                             w_list=w_list)
+        try:
+            w_list.append(space.next(w_iterator))
+        except OperationError, e:
+            if not e.match(space, space.w_StopIteration):
+                raise
+            break
+        i += 1
+    return i
 
 def is_W_IntObject(w_object):
     from pypy.objspace.std.intobject import W_IntObject
@@ -154,6 +178,11 @@ class W_ListObject(W_AbstractListObject):
         """Returns a clone by creating a new listobject
         with the same strategy and a copy of the storage"""
         return self.strategy.clone(self)
+
+    def _resize_hint(self, hint):
+        """Ensure the underlying list has room for at least hint
+        elements without changing the len() of the list"""
+        return self.strategy._resize_hint(self, hint)
 
     def copy_into(self, other):
         """Used only when extending an EmptyList. Sets the EmptyLists
@@ -289,6 +318,9 @@ class ListStrategy(object):
     def copy_into(self, w_list, w_other):
         raise NotImplementedError
 
+    def _resize_hint(self, w_list, hint):
+        raise NotImplementedError
+
     def contains(self, w_list, w_obj):
         # needs to be safe against eq_w() mutating the w_list behind our back
         i = 0
@@ -351,8 +383,29 @@ class ListStrategy(object):
     def insert(self, w_list, index, w_item):
         raise NotImplementedError
 
-    def extend(self, w_list, items_w):
+    def extend(self, w_list, w_any):
+        if type(w_any) is W_ListObject or (isinstance(w_any, W_ListObject) and
+                                           self.space._uses_list_iter(w_any)):
+            self._extend_from_list(w_list, w_any)
+        elif isinstance(w_any, GeneratorIterator):
+            w_any.unpack_into_w(w_list)
+        else:
+            self._extend_from_iterable(w_list, w_any)
+
+    def _extend_from_list(self, w_list, w_other):
         raise NotImplementedError
+
+    def _extend_from_iterable(self, w_list, w_iterable):
+        """Extend w_list from a generic iterable"""
+        length_hint = self.space.length_hint(w_iterable, 0)
+        if length_hint:
+            w_list._resize_hint(w_list.length() + length_hint)
+
+        extended = _do_extend_from_iterable(self.space, w_list, w_iterable)
+
+        # cut back if the length hint was too large
+        if extended < length_hint:
+            w_list._resize_hint(w_list.length())
 
     def reverse(self, w_list):
         raise NotImplementedError
@@ -389,6 +442,10 @@ class EmptyListStrategy(ListStrategy):
 
     def copy_into(self, w_list, w_other):
         pass
+
+    def _resize_hint(self, w_list, hint):
+        if hint:
+            w_list.strategy = SizeListStrategy(self.space, hint)
 
     def contains(self, w_list, w_obj):
         return False
@@ -460,13 +517,8 @@ class EmptyListStrategy(ListStrategy):
         assert index == 0
         self.append(w_list, w_item)
 
-    def extend(self, w_list, w_any):
-        if isinstance(w_any, W_ListObject):
-            w_any.copy_into(w_list)
-            return
-
-        w_other = W_ListObject(self.space, self.space.listview(w_any))
-        self.extend(w_list, w_other)
+    def _extend_from_list(self, w_list, w_other):
+        w_other.copy_into(w_list)
 
     def reverse(self, w_list):
         pass
@@ -477,6 +529,9 @@ class SizeListStrategy(EmptyListStrategy):
     def __init__(self, space, sizehint):
         self.sizehint = sizehint
         ListStrategy.__init__(self, space)
+
+    def _resize_hint(self, w_list, hint):
+        self.sizehint = hint
 
 class RangeListStrategy(ListStrategy):
     """RangeListStrategy is used when a list is created using the range method.
@@ -509,6 +564,10 @@ class RangeListStrategy(ListStrategy):
         storage = w_list.lstorage # lstorage is tuple, no need to clone
         w_clone = W_ListObject.from_storage_and_strategy(self.space, storage, self)
         return w_clone
+
+    def _resize_hint(self, w_list, hint):
+        # XXX: this could be supported
+        pass
 
     def copy_into(self, w_list, w_other):
         w_other.strategy = self
@@ -692,6 +751,9 @@ class AbstractUnwrappedStrategy(object):
         w_clone = W_ListObject.from_storage_and_strategy(self.space, storage, self)
         return w_clone
 
+    def _resize_hint(self, w_list, hint):
+        resizelist_hint(self.unerase(w_list.lstorage), hint)
+
     def copy_into(self, w_list, w_other):
         w_other.strategy = self
         items = self.unerase(w_list.lstorage)[:]
@@ -776,17 +838,7 @@ class AbstractUnwrappedStrategy(object):
         w_list.switch_to_object_strategy()
         w_list.insert(index, w_item)
 
-    def extend(self, w_list, w_any):
-        if isinstance(w_any, W_ListObject):
-            self._extend_list(w_list, w_any)
-        else:
-            newlen = w_list.length() + self.space.length_hint(w_any, 0)
-            resizelist_hint(self.unerase(w_list.lstorage), newlen)
-            for item in self.space.iteriterable(w_any):
-                w_list.append(item)
-            # XXX: resizelist_hint again if necessary
-
-    def _extend_list(self, w_list, w_other):
+    def _extend_from_list(self, w_list, w_other):
         l = self.unerase(w_list.lstorage)
         if self.list_is_correct_type(w_other):
             l += self.unerase(w_other.lstorage)
@@ -1058,54 +1110,12 @@ init_signature = Signature(['sequence'], None, None)
 init_defaults = [None]
 
 def init__List(space, w_list, __args__):
-    from pypy.objspace.std.tupleobject import W_AbstractTupleObject
     # this is on the silly side
     w_iterable, = __args__.parse_obj(
             None, 'list', init_signature, init_defaults)
     w_list.clear(space)
-    # XXX: move all this into 'extend', then ideally this simply calls
-    # extend
     if w_iterable is not None:
-        if type(w_iterable) is W_ListObject:
-            w_iterable.copy_into(w_list)
-            return
-        elif isinstance(w_iterable, W_AbstractTupleObject):
-            w_list.__init__(space, w_iterable.getitems_copy())
-            return
-
-        intlist = space.listview_int(w_iterable)
-        if intlist is not None:
-            w_list.strategy = strategy = space.fromcache(IntegerListStrategy)
-             # need to copy because intlist can share with w_iterable
-            w_list.lstorage = strategy.erase(intlist[:])
-            return
-
-        strlist = space.listview_str(w_iterable)
-        if strlist is not None:
-            w_list.strategy = strategy = space.fromcache(StringListStrategy)
-             # need to copy because intlist can share with w_iterable
-            w_list.lstorage = strategy.erase(strlist[:])
-            return
-
-        # xxx special hack for speed
-        from pypy.interpreter.generator import GeneratorIterator
-        if isinstance(w_iterable, GeneratorIterator):
-            w_iterable.unpack_into_w(w_list)
-            return
-        # /xxx
-        _init_from_iterable(space, w_list, w_iterable)
-
-def _init_from_iterable(space, w_list, w_iterable):
-    # in its own function to make the JIT look into init__List
-    w_iterator = space.iter(w_iterable)
-    while True:
-        try:
-            w_item = space.next(w_iterator)
-        except OperationError, e:
-            if not e.match(space, space.w_StopIteration):
-                raise
-            break  # done
-        w_list.append(w_item)
+        w_list.extend(w_iterable)
 
 def len__List(space, w_list):
     result = w_list.length()

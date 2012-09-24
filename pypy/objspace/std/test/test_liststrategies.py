@@ -491,7 +491,6 @@ class TestW_ListStrategies(TestW_ListObject):
 
         w_set = W_SetObject(self.space)
         _initialize_set(self.space, w_set, w_l)
-        w_set.iter = None # make sure fast path is used
 
         w_l2 = W_ListObject(space, [])
         space.call_method(w_l2, "__init__", w_set)

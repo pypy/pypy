@@ -1196,7 +1196,16 @@ class AppTestW_ListObject(object):
             class SubClass(base):
                 def __iter__(self):
                     return iter("foobar")
-            assert list(SubClass(arg)) == ['f', 'o', 'o', 'b', 'a', 'r']
+            sub = SubClass(arg)
+            assert list(sub) == ['f', 'o', 'o', 'b', 'a', 'r']
+            l = []
+            l.extend(sub)
+            assert l == ['f', 'o', 'o', 'b', 'a', 'r']
+            # test another list strategy
+            l = ['Z']
+            l.extend(sub)
+            assert l == ['Z', 'f', 'o', 'o', 'b', 'a', 'r']
+
             class Sub2(base):
                 pass
             assert list(Sub2(arg)) == list(base(arg))
