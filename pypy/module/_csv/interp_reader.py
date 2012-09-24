@@ -1,7 +1,7 @@
 from pypy.rlib.rstring import StringBuilder
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import NoneNotWrapped
+from pypy.interpreter.gateway import NoneNotWrapped, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, interp2app
 from pypy.interpreter.typedef import interp_attrproperty_w, interp_attrproperty
 from pypy.module._csv.interp_csv import _build_dialect
@@ -30,6 +30,11 @@ class W_Reader(Wrappable):
         w_module = space.getbuiltinmodule('_csv')
         w_error = space.getattr(w_module, space.wrap('Error'))
         raise OperationError(w_error, space.wrap(msg))
+    error._dont_inline_ = True
+
+    def check_limit(self, field_builder):
+        if field_builder.getlength() >= field_limit.limit:
+            raise self.error("field larger than field limit")
 
     def save_field(self, field_builder):
         field = field_builder.build()
@@ -105,6 +110,7 @@ class W_Reader(Wrappable):
                         state = IN_FIELD
 
                 elif state == ESCAPED_CHAR:
+                    self.check_limit(field_builder)
                     field_builder.append(c)
                     state = IN_FIELD
 
@@ -123,6 +129,7 @@ class W_Reader(Wrappable):
                         state = START_FIELD
                     else:
                         # normal character - save in field
+                        self.check_limit(field_builder)
                         field_builder.append(c)
 
                 elif state == IN_QUOTED_FIELD:
@@ -140,9 +147,11 @@ class W_Reader(Wrappable):
                             state = IN_FIELD
                     else:
                         # normal character - save in field
+                        self.check_limit(field_builder)
                         field_builder.append(c)
 
                 elif state == ESCAPE_IN_QUOTED_FIELD:
+                    self.check_limit(field_builder)
                     field_builder.append(c)
                     state = IN_QUOTED_FIELD
 
@@ -151,6 +160,7 @@ class W_Reader(Wrappable):
                     if (dialect.quoting != QUOTE_NONE and
                             c == dialect.quotechar):
                         # save "" as "
+                        self.check_limit(field_builder)
                         field_builder.append(c)
                         state = IN_QUOTED_FIELD
                     elif c == dialect.delimiter:
@@ -162,6 +172,7 @@ class W_Reader(Wrappable):
                         self.save_field(field_builder)
                         state = EAT_CRNL
                     elif not dialect.strict:
+                        self.check_limit(field_builder)
                         field_builder.append(c)
                         state = IN_FIELD
                     else:
@@ -181,11 +192,13 @@ class W_Reader(Wrappable):
                 self.save_field(field_builder)
                 break
             elif state == ESCAPED_CHAR:
+                self.check_limit(field_builder)
                 field_builder.append('\n')
                 state = IN_FIELD
             elif state == IN_QUOTED_FIELD:
                 pass
             elif state == ESCAPE_IN_QUOTED_FIELD:
+                self.check_limit(field_builder)
                 field_builder.append('\n')
                 state = IN_QUOTED_FIELD
             else:
@@ -224,3 +237,16 @@ W_Reader.typedef = TypeDef(
 Reader objects are responsible for reading and parsing tabular data
 in CSV format.""")
 W_Reader.typedef.acceptable_as_base_class = False
+
+# ____________________________________________________________
+
+class FieldLimit:
+    limit = 128 * 1024   # max parsed field size
+field_limit = FieldLimit()
+
+@unwrap_spec(new_limit=int)
+def csv_field_size_limit(space, new_limit=-1):
+    old_limit = field_limit.limit
+    if new_limit >= 0:
+        field_limit.limit = new_limit
+    return space.wrap(old_limit)
