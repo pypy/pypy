@@ -236,13 +236,14 @@ def encode_object(space, w_object, encoding, errors):
             if encoding == 'ascii':
                 u = space.unicode_w(w_object)
                 eh = encode_error_handler(space)
-                return space.wrap(unicode_encode_ascii(u, len(u), None,
-                                                       errorhandler=eh))
+                return space.wrap(unicode_encode_ascii(
+                        u, len(u), None, errorhandler=eh))
             if encoding == 'utf-8':
                 u = space.unicode_w(w_object)
                 eh = encode_error_handler(space)
-                return space.wrap(unicode_encode_utf_8(u, len(u), None,
-                                                       errorhandler=eh))
+                return space.wrap(unicode_encode_utf_8(
+                        u, len(u), None, errorhandler=eh,
+                        allow_surrogates=True))
         from pypy.module._codecs.interp_codecs import lookup_codec
         w_encoder = space.getitem(lookup_codec(space, encoding), space.wrap(0))
     if errors is None:
@@ -265,15 +266,14 @@ def decode_object(space, w_obj, encoding, errors):
             # XXX error handling
             s = space.bufferstr_w(w_obj)
             eh = decode_error_handler(space)
-            return space.wrap(str_decode_ascii(s, len(s), None,
-                                               final=True,
-                                               errorhandler=eh)[0])
+            return space.wrap(str_decode_ascii(
+                    s, len(s), None, final=True, errorhandler=eh)[0])
         if encoding == 'utf-8':
             s = space.bufferstr_w(w_obj)
             eh = decode_error_handler(space)
-            return space.wrap(str_decode_utf_8(s, len(s), None,
-                                               final=True,
-                                               errorhandler=eh)[0])
+            return space.wrap(str_decode_utf_8(
+                    s, len(s), None, final=True, errorhandler=eh,
+                    allow_surrogates=True)[0])
     w_codecs = space.getbuiltinmodule("_codecs")
     w_decode = space.getattr(w_codecs, space.wrap("decode"))
     if errors is None:
