@@ -182,9 +182,7 @@ class W_Reader(Wrappable):
                                         "field - do you need to open the file "
                                         "in universal-newline mode?")
 
-            if (state == START_FIELD or
-                  state == IN_FIELD or
-                  state == QUOTE_IN_QUOTED_FIELD):
+            if state == IN_FIELD or state == QUOTE_IN_QUOTED_FIELD:
                 self.save_field(field_builder)
                 break
             elif state == ESCAPED_CHAR:
@@ -195,6 +193,11 @@ class W_Reader(Wrappable):
             elif state == ESCAPE_IN_QUOTED_FIELD:
                 self.add_char(field_builder, '\n')
                 state = IN_QUOTED_FIELD
+            elif state == START_FIELD:
+                # save empty field
+                field_builder = StringBuilder(1)
+                self.save_field(field_builder)
+                break
             else:
                 break
         #

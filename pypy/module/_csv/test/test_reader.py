@@ -96,3 +96,6 @@ class AppTestReader(object):
         assert r.line_num == 3
         raises(StopIteration, r.next)
         assert r.line_num == 3
+
+    def test_dubious_quote(self):
+        self._read_test(['12,12,1",'], [['12', '12', '1"', '']])
