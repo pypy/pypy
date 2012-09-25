@@ -526,8 +526,8 @@ class UfuncState(object):
             ('logical_xor', 'logical_xor', 2, {'comparison_func': True}),
             ('logical_not', 'logical_not', 1, {'bool_result': True}),
 
-            ("maximum", "max", 2),
-            ("minimum", "min", 2),
+            ("maximum", "max", 2, {"allow_complex": False}),
+            ("minimum", "min", 2, {"allow_complex": False}),
 
             ("copysign", "copysign", 2, {"promote_to_float": True,
                                          "allow_complex": False}),

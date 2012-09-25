@@ -55,7 +55,7 @@ def complex_to_real_unary_op(func):
     def dispatcher(self, v):
         from pypy.module.micronumpy.interp_boxes import W_GenericBox
         assert isinstance(v, W_GenericBox)
-        return self.RealBoxType(
+        return self.box_component(
             func(
                 self,
                 self.for_computation(self.unbox(v))
@@ -991,6 +991,11 @@ class ComplexFloating(object):
             rffi.cast(self._COMPONENTS_T, value),
             rffi.cast(self._COMPONENTS_T, 0.0))
 
+    @specialize.argtype(1)
+    def box_component(self, value):
+        return self.ComponentBoxType(
+            rffi.cast(self._COMPONENTS_T, value))
+
     @specialize.argtype(1, 2)
     def box_complex(self, real, imag):
         return self.BoxType(
@@ -1112,31 +1117,22 @@ class ComplexFloating(object):
 
     @raw_binary_op
     def logical_and(self, v1, v2):
-        return bool(v1) and bool(v2)
+        return self.bool(v1) and self.bool(v2)
 
     @raw_binary_op
     def logical_or(self, v1, v2):
-        return bool(v1) or bool(v2)
+        return self.bool(v1) or self.bool(v2)
 
     @raw_unary_op
     def logical_not(self, v):
-        return not bool(v)
+        return not self.bool(v)
 
     @raw_binary_op
     def logical_xor(self, v1, v2):
-        return bool(v1) ^ bool(v2)
+        return self.bool(v1) ^ self.bool(v2)
 
     def bool(self, v):
-        return bool(self.for_computation(self.unbox(v)))
-
-    @simple_binary_op
-    def max(self, v1, v2):
-        return max(v1, v2)
-
-    @simple_binary_op
-    def min(self, v1, v2):
-        return min(v1, v2)
-
+        return bool(v[0]) or bool(v[1])
 
     @complex_binary_op
     def floordiv(self, v1, v2):
@@ -1244,7 +1240,7 @@ class ComplexFloating(object):
     def exp(self, v):
         if math.isinf(v[1]):
             if math.isinf(v[0]):
-                if v[0]<0:
+                if v[0] < 0:
                     return 0., 0.
                 return rfloat.INFINITY, rfloat.NAN
             elif (isfinite(v[0]) or \
@@ -1253,7 +1249,7 @@ class ComplexFloating(object):
         try:
             return rcomplex.c_exp(*v)
         except OverflowError:
-            if v[1]==0:
+            if v[1] == 0:
                 return rfloat.INFINITY, 0.0
             return rfloat.INFINITY, rfloat.NAN
 
@@ -1272,7 +1268,7 @@ class ComplexFloating(object):
 	# to implement seterr
         if math.isinf(v[1]):
             if math.isinf(v[0]):
-                if v[0]<0:
+                if v[0] < 0:
                     return -1., 0.
                 return rfloat.NAN, rfloat.NAN
             elif (isfinite(v[0]) or \
@@ -1283,7 +1279,7 @@ class ComplexFloating(object):
 	    res = (res[0]-1, res[1])
 	    return res
         except OverflowError:
-            if v[1]==0:
+            if v[1] == 0:
                 return rfloat.INFINITY, 0.0
             return rfloat.INFINITY, rfloat.NAN
 
@@ -1325,7 +1321,7 @@ class ComplexFloating(object):
 
     @complex_unary_op
     def arctan(self, v):
-        if v[0]==0 and (v[1]==1 or v[1] == -1):
+        if v[0] == 0 and (v[1] == 1 or v[1] == -1):
             #This is the place to print a "runtime warning"
             return rfloat.NAN, math.copysign(rfloat.INFINITY, v[1])
         return rcomplex.c_atan(*v)
@@ -1438,7 +1434,7 @@ class ComplexFloating(object):
     @complex_unary_op
     def log1p(self, v):
         try:
-            return rcomplex.c_log(v[0]+1, v[1])
+            return rcomplex.c_log(v[0] + 1, v[1])
         except OverflowError:
             return -rfloat.INFINITY, 0
         except ValueError:
@@ -1450,7 +1446,7 @@ class Complex64(ComplexFloating, BaseType):
     T = rffi.CHAR
     _COMPONENTS_T = rffi.FLOAT
     BoxType = interp_boxes.W_Complex64Box
-    RealBoxType = interp_boxes.W_Float32Box
+    ComponentBoxType = interp_boxes.W_Float32Box
 
 
 
@@ -1462,7 +1458,7 @@ class Complex128(ComplexFloating, BaseType):
     T = rffi.CHAR
     _COMPONENTS_T = rffi.DOUBLE
     BoxType = interp_boxes.W_Complex128Box
-    RealBoxType = interp_boxes.W_Float64Box
+    ComponentBoxType = interp_boxes.W_Float64Box
 
 
 NonNativeComplex128 = Complex128
