@@ -559,6 +559,10 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         else:
             return block.handle(self, unroller)
 
+    def POP_BLOCK(self, oparg, next_instr):
+        block = self.pop_block()
+        block.cleanupstack(self)  # the block knows how to clean up the value stack
+
     def JUMP_ABSOLUTE(self, jumpto, next_instr):
         return jumpto
 
@@ -778,16 +782,6 @@ class FrameBlock(object):
     def cleanupstack(self, frame):
         frame.dropvaluesuntil(self.valuestackdepth)
 
-    def cleanup(self, frame):
-        "Clean up a frame when we normally exit the block."
-        self.cleanupstack(frame)
-
-    # internal pickling interface, not using the standard protocol
-    def _get_state_(self, space):
-        w = space.wrap
-        return space.newtuple([w(self._opname), w(self.handlerposition),
-                               w(self.valuestackdepth)])
-
     def handle(self, frame, unroller):
         raise NotImplementedError
 
@@ -803,12 +797,11 @@ class LoopBlock(FrameBlock):
             # and jump to the beginning of the loop, stored in the
             # exception's argument
             frame.append_block(self)
-            return r_uint(unroller.jump_to)
+            return unroller.jump_to
         else:
             # jump to the end of the loop
             self.cleanupstack(frame)
-            return r_uint(self.handlerposition)
-
+            return self.handlerposition
 
 class ExceptBlock(FrameBlock):
     """An try:except: block.  Stores the position of the exception handler."""
@@ -822,8 +815,6 @@ class ExceptBlock(FrameBlock):
         self.cleanupstack(frame)
         assert isinstance(unroller, SApplicationException)
         operationerr = unroller.operr
-        if frame.space.full_exceptions:
-            operationerr.normalize_exception(frame.space)
         # the stack setup is slightly different than in CPython:
         # instead of the traceback, we store the unroller object,
         # wrapped.
@@ -831,8 +822,7 @@ class ExceptBlock(FrameBlock):
         frame.pushvalue(operationerr.get_w_value(frame.space))
         frame.pushvalue(operationerr.w_type)
         frame.last_exception = operationerr
-        return r_uint(self.handlerposition)   # jump to the handler
-
+        return self.handlerposition   # jump to the handler
 
 class FinallyBlock(FrameBlock):
     """A try:finally: block.  Stores the position of the exception handler."""
@@ -843,16 +833,12 @@ class FinallyBlock(FrameBlock):
     def handle(self, frame, unroller):
         # any abnormal reason for unrolling a finally: triggers the end of
         # the block unrolling and the entering the finally: handler.
-        # see comments in cleanup().
         self.cleanupstack(frame)
         frame.pushvalue(frame.space.wrap(unroller))
-        return r_uint(self.handlerposition)   # jump to the handler
+        return self.handlerposition   # jump to the handler
 
 
 class WithBlock(FinallyBlock):
 
     def handle(self, frame, unroller):
-        if (frame.space.full_exceptions and
-            isinstance(unroller, SApplicationException)):
-            unroller.operr.normalize_exception(frame.space)
         return FinallyBlock.handle(self, frame, unroller)
