@@ -417,10 +417,11 @@ class AppTestUfuncs(BaseNumpyAppTest):
     def test_basic(self):
         from _numpypy import (complex128, complex64, add,
             subtract as sub, multiply, divide, negative, abs, 
-            reciprocal)
+            reciprocal, real, imag)
         from _numpypy import (equal, not_equal, greater, greater_equal, less,
                 less_equal)
-
+        assert real(4.0) == 4.0
+        assert imag(0.0) == 0.0
         for complex_ in complex64, complex128:
 
             O = complex(0, 0)
@@ -479,6 +480,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
             # but _numpypy raises a TypeError
             raises((TypeError, AttributeError), 'c2.real = 10.')
             raises((TypeError, AttributeError), 'c2.imag = 10.')
+            assert(real(c2) == 3.0)
+            assert(imag(c2) == 4.0)
 
     def test_math(self):
         if self.isWindows:

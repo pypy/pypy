@@ -147,6 +147,8 @@ class Module(MixedModule):
         ('floor_divide', 'floor_divide'),
         ('logaddexp', 'logaddexp'),
         ('logaddexp2', 'logaddexp2'),
+        ('real', 'real'),
+        ('imag', 'imag'),
     ]:
         interpleveldefs[exposed] = "interp_ufuncs.get(space).%s" % impl
 

@@ -1054,11 +1054,11 @@ class ComplexFloating(object):
 
     @complex_to_real_unary_op
     def real(self, v):
-        return v.real
+        return v[0]
 
     @complex_to_real_unary_op
     def imag(self, v):
-        return v.imag
+        return v[1]
 
     @complex_to_real_unary_op
     def abs(self, v):
