@@ -1393,9 +1393,9 @@ app = gateway.applevel("""
         if set_id in currently_in_repr:
             return '%s(...)' % (s.__class__.__name__,)
         currently_in_repr[set_id] = 1
-        if not s:
-            return '%s()' % (s.__class__.__name__,)
         try:
+            if not s:
+                return '%s()' % (s.__class__.__name__,)
             listrepr = repr([x for x in s])
             if type(s) is set:
                 return '{%s}' % (listrepr[1:-1],)
