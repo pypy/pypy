@@ -12,7 +12,7 @@ from pypy.rlib.objectmodel import instantiate
 from pypy.interpreter.generator import GeneratorIterator
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.intobject import W_IntObject
-from pypy.objspace.std.stringobject import W_StringObject
+from pypy.objspace.std.unicodeobject import W_UnicodeObject
 
 class W_BaseSetObject(W_Object):
     typedef = None
@@ -291,8 +291,8 @@ class EmptySetStrategy(SetStrategy):
     def add(self, w_set, w_key):
         if type(w_key) is W_IntObject:
             strategy = self.space.fromcache(IntegerSetStrategy)
-        elif type(w_key) is W_StringObject:
-            strategy = self.space.fromcache(StringSetStrategy)
+        elif type(w_key) is W_UnicodeObject:
+            strategy = self.space.fromcache(UnicodeSetStrategy)
         else:
             strategy = self.space.fromcache(ObjectSetStrategy)
         w_set.strategy = strategy
@@ -670,8 +670,8 @@ class AbstractUnwrappedSetStrategy(object):
                             self.space.wrap('pop from an empty set'))
         return self.wrap(result[0])
 
-class StringSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
-    erase, unerase = rerased.new_erasing_pair("string")
+class UnicodeSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
+    erase, unerase = rerased.new_erasing_pair("unicode")
     erase = staticmethod(erase)
     unerase = staticmethod(unerase)
 
@@ -685,7 +685,7 @@ class StringSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
         return self.unerase(w_set.sstorage).keys()
 
     def is_correct_type(self, w_key):
-        return type(w_key) is W_StringObject
+        return type(w_key) is W_UnicodeObject
 
     def may_contain_equal_elements(self, strategy):
         if strategy is self.space.fromcache(IntegerSetStrategy):
@@ -701,7 +701,7 @@ class StringSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
         return self.space.wrap(item)
 
     def iter(self, w_set):
-        return StringIteratorImplementation(self.space, self, w_set)
+        return UnicodeIteratorImplementation(self.space, self, w_set)
 
 class IntegerSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
     erase, unerase = rerased.new_erasing_pair("integer")
@@ -722,7 +722,7 @@ class IntegerSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
         return type(w_key) is W_IntObject
 
     def may_contain_equal_elements(self, strategy):
-        if strategy is self.space.fromcache(StringSetStrategy):
+        if strategy is self.space.fromcache(UnicodeSetStrategy):
             return False
         if strategy is self.space.fromcache(EmptySetStrategy):
             return False
@@ -830,7 +830,7 @@ class EmptyIteratorImplementation(IteratorImplementation):
         return None
 
 
-class StringIteratorImplementation(IteratorImplementation):
+class UnicodeIteratorImplementation(IteratorImplementation):
     def __init__(self, space, strategy, w_set):
         IteratorImplementation.__init__(self, space, strategy, w_set)
         d = strategy.unerase(w_set.sstorage)
@@ -916,7 +916,7 @@ def set_strategy_and_setdata(space, w_set, w_iterable):
 
     stringlist = space.listview_str(w_iterable)
     if stringlist is not None:
-        strategy = space.fromcache(StringSetStrategy)
+        strategy = space.fromcache(UnicodeSetStrategy)
         w_set.strategy = strategy
         w_set.sstorage = strategy.get_storage_from_unwrapped_list(stringlist)
         return
@@ -949,10 +949,10 @@ def _pick_correct_strategy(space, w_set, iterable_w):
 
     # check for strings
     for w_item in iterable_w:
-        if type(w_item) is not W_StringObject:
+        if type(w_item) is not W_UnicodeObject:
             break
     else:
-        w_set.strategy = space.fromcache(StringSetStrategy)
+        w_set.strategy = space.fromcache(UnicodeSetStrategy)
         w_set.sstorage = w_set.strategy.get_storage_from_list(iterable_w)
         return
 
@@ -1397,6 +1397,7 @@ app = gateway.applevel("""
             if not s:
                 return '%s()' % (s.__class__.__name__,)
             listrepr = repr([x for x in s])
+            print('XXX', listrepr)
             if type(s) is set:
                 return '{%s}' % (listrepr[1:-1],)
             else:

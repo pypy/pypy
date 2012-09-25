@@ -57,7 +57,7 @@ class TestW_SetObject:
         assert self.space.str_w(self.space.repr(s)) == 'set()'
         # check that the second time we don't get 'set(...)'
         assert self.space.str_w(self.space.repr(s)) == 'set()'
-        
+
     def test_intersection_order(self):
         # theses tests make sure that intersection is done in the correct order
         # (smallest first)
@@ -87,7 +87,7 @@ class TestW_SetObject:
         assert space.is_true(self.space.eq(result, W_SetObject(space, self.space.wrap(""))))
 
     def test_create_set_from_list(self):
-        from pypy.objspace.std.setobject import ObjectSetStrategy, StringSetStrategy
+        from pypy.objspace.std.setobject import ObjectSetStrategy, UnicodeSetStrategy
         from pypy.objspace.std.floatobject import W_FloatObject
         from pypy.objspace.std.model import W_Object
 
@@ -106,7 +106,7 @@ class TestW_SetObject:
         w_list = W_ListObject(self.space, [w("1"), w("2"), w("3")])
         w_set = W_SetObject(self.space)
         _initialize_set(self.space, w_set, w_list)
-        assert w_set.strategy is self.space.fromcache(StringSetStrategy)
+        assert w_set.strategy is self.space.fromcache(UnicodeSetStrategy)
         assert w_set.strategy.unerase(w_set.sstorage) == {"1":None, "2":None, "3":None}
 
         w_list = W_ListObject(self.space, [w("1"), w(2), w("3")])
@@ -341,6 +341,10 @@ class AppTestAppSetTest:
         d = a.union()
         assert d == a
 
+    def test_bytes_items(self):
+        s = set([b'hello'])
+        assert s.pop() == b'hello'
+
     def test_compare(self):
         assert set('abc') != 'abc'
         raises(TypeError, "set('abc') < 42")
@@ -457,7 +461,7 @@ class AppTestAppSetTest:
         assert therepr.endswith("})")
         inner = set(therepr[11:-2].split(", "))
         assert inner == set(["1", "2", "3", "frozenset(...)"])
-        
+
     def test_keyerror_has_key(self):
         s = set()
         try:
