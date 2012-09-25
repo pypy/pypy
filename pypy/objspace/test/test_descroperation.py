@@ -601,14 +601,6 @@ class AppTest_Descroperation:
             method = A.method
         assert Dict().method() == 42
 
-    def test_truth_of_int(self):
-        class X(object):
-            def __len__(self): return 1
-            __bool__ = __len__
-        raises(TypeError, bool, X())
-        del X.__bool__
-        assert X()
-
     def test_len_overflow(self):
         import sys
         class X(object):
@@ -674,7 +666,7 @@ class AppTest_Descroperation:
         class MyError(Exception):
             pass
         class CannotConvertToBool(object):
-            def __nonzero__(self):
+            def __bool__(self):
                 raise MyError
         class X(object):
             def __contains__(self, item):
