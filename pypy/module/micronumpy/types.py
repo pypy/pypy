@@ -1115,24 +1115,24 @@ class ComplexFloating(object):
     def ge(self, v1, v2):
         return self._lt(v2, v1) or self._eq(v2, v1) 
 
+    def _bool(self, v):
+        return bool(v[0]) or bool(v[1])
+
     @raw_binary_op
     def logical_and(self, v1, v2):
-        return self.bool(v1) and self.bool(v2)
+        return self._bool(v1) and self._bool(v2)
 
     @raw_binary_op
     def logical_or(self, v1, v2):
-        return self.bool(v1) or self.bool(v2)
+        return self._bool(v1) or self._bool(v2)
 
     @raw_unary_op
     def logical_not(self, v):
-        return not self.bool(v)
+        return not self._bool(v)
 
     @raw_binary_op
     def logical_xor(self, v1, v2):
-        return self.bool(v1) ^ self.bool(v2)
-
-    def bool(self, v):
-        return bool(v[0]) or bool(v[1])
+        return self._bool(v1) ^ self._bool(v2)
 
     @complex_binary_op
     def floordiv(self, v1, v2):
