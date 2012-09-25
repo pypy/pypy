@@ -287,9 +287,9 @@ class W_ListObject(W_AbstractListObject):
         index not."""
         self.strategy.insert(self, index, w_item)
 
-    def extend(self, items_w):
+    def extend(self, w_any):
         """Appends the given list of wrapped items."""
-        self.strategy.extend(self, items_w)
+        self.strategy.extend(self, w_any)
 
     def reverse(self):
         """Reverses the list."""
@@ -703,9 +703,9 @@ class RangeListStrategy(ListStrategy):
         self.switch_to_integer_strategy(w_list)
         w_list.insert(index, w_item)
 
-    def extend(self, w_list, items_w):
+    def extend(self, w_list, w_any):
         self.switch_to_integer_strategy(w_list)
-        w_list.extend(items_w)
+        w_list.extend(w_any)
 
     def reverse(self, w_list):
         self.switch_to_integer_strategy(w_list)
@@ -1332,8 +1332,8 @@ def list_append__List_ANY(space, w_list, w_any):
     w_list.append(w_any)
     return space.w_None
 
-def list_extend__List_ANY(space, w_list, w_other):
-    w_list.extend(w_other)
+def list_extend__List_ANY(space, w_list, w_any):
+    w_list.extend(w_any)
     return space.w_None
 
 # default of w_idx is space.w_None (see listtype.py)
