@@ -309,6 +309,7 @@ class TestJointOps(unittest.TestCase):
             fo.close()
             support.unlink(support.TESTFN)
 
+    @support.impl_detail(pypy=False)
     def test_do_not_rehash_dict_keys(self):
         n = 10
         d = dict.fromkeys(map(HashCountingInt, range(n)))
@@ -566,6 +567,7 @@ class TestSet(TestJointOps):
         p = weakref.proxy(s)
         self.assertEqual(str(p), str(s))
         s = None
+        support.gc_collect()
         self.assertRaises(ReferenceError, str, p)
 
     def test_rich_compare(self):
@@ -635,6 +637,7 @@ class TestFrozenSet(TestJointOps):
         s.__init__(self.otherword)
         self.assertEqual(s, set(self.word))
 
+    @support.impl_detail()
     def test_singleton_empty_frozenset(self):
         f = frozenset()
         efs = [frozenset(), frozenset([]), frozenset(()), frozenset(''),
@@ -827,9 +830,10 @@ class TestBasicOps(unittest.TestCase):
         for v in self.set:
             self.assertIn(v, self.values)
         setiter = iter(self.set)
-        # note: __length_hint__ is an internal undocumented API,
-        # don't rely on it in your own programs
-        self.assertEqual(setiter.__length_hint__(), len(self.set))
+        if support.check_impl_detail():
+            # note: __length_hint__ is an internal undocumented API,
+            # don't rely on it in your own programs
+            self.assertEqual(setiter.__length_hint__(), len(self.set))
 
     def test_pickling(self):
         p = pickle.dumps(self.set)
