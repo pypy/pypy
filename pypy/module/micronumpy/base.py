@@ -3,6 +3,9 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.tool.pairtype import extendabletype
 from pypy.module.micronumpy.support import calc_strides
 
+class ArrayArgumentException(Exception):
+    pass
+
 class W_NDimArray(Wrappable):
     __metaclass__ = extendabletype
 

@@ -1003,14 +1003,18 @@ class RegAlloc(object):
         # If 'index_loc' is not an immediate, then we need a 'temp_loc' that
         # is a register whose value will be destroyed.  It's fine to destroy
         # the same register as 'index_loc', but not the other ones.
-        self.rm.possibly_free_var(box_index)
         if not isinstance(index_loc, ImmedLoc):
+            # ...that is, except in a corner case where 'index_loc' would be
+            # in the same register as 'value_loc'...
+            if index_loc is not value_loc:
+                self.rm.possibly_free_var(box_index)
             tempvar = TempBox()
             temp_loc = self.rm.force_allocate_reg(tempvar, [box_base,
                                                             box_value])
             self.rm.possibly_free_var(tempvar)
         else:
             temp_loc = None
+        self.rm.possibly_free_var(box_index)
         self.rm.possibly_free_var(box_base)
         self.possibly_free_var(box_value)
         self.PerformDiscard(op, [base_loc, ofs, itemsize, fieldsize,

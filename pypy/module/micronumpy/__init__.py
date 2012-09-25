@@ -1,20 +1,8 @@
 from pypy.interpreter.mixedmodule import MixedModule
 
 
-class PyPyModule(MixedModule):
-    interpleveldefs = {
-        'debug_repr': 'interp_extras.debug_repr',
-        'remove_invalidates': 'interp_extras.remove_invalidates',
-        'set_invalidation': 'interp_extras.set_invalidation',
-    }
-    appleveldefs = {}
-
 class Module(MixedModule):
     applevel_name = '_numpypy'
-
-    submodules = {
-        'pypy': PyPyModule
-    }
 
     interpleveldefs = {
         'ndarray': 'interp_numarray.W_NDimArray',
