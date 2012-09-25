@@ -431,6 +431,24 @@ class AppTestUfuncs(BaseNumpyAppTest):
                 == [False, True, True, False]).all()
         assert (logical_not([c1, c0]) == [False, True]).all()
 
+    def test_minimum(self):
+        from _numpypy import array, minimum
+
+        a = array([-5.0+5j, -5.0-5j, -0.0-10j, 1.0+10j])
+        b = array([ 3.0+10.0j, 3.0, -2.0+2.0j, -3.0+4.0j])
+        c = minimum(a, b)
+        for i in range(4):
+            assert c[i] == min(a[i], b[i])
+
+    def test_maximum(self):
+        from _numpypy import array, maximum
+
+        a = array([-5.0+5j, -5.0-5j, -0.0-10j, 1.0+10j])
+        b = array([ 3.0+10.0j, 3.0, -2.0+2.0j, -3.0+4.0j])
+        c = maximum(a, b)
+        for i in range(4):
+            assert c[i] == max(a[i], b[i])
+
     def test_basic(self):
         from _numpypy import (complex128, complex64, add,
             subtract as sub, multiply, divide, negative, abs, 

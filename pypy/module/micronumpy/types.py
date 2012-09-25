@@ -1134,6 +1134,12 @@ class ComplexFloating(object):
     def logical_xor(self, v1, v2):
         return self._bool(v1) ^ self._bool(v2)
 
+    def min(self, v1, v2):
+        return self.fmin(v1, v2)
+
+    def max(self, v1, v2):
+        return self.fmax(v1, v2)
+
     @complex_binary_op
     def floordiv(self, v1, v2):
         try:
