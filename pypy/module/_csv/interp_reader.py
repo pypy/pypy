@@ -67,8 +67,14 @@ class W_Reader(Wrappable):
                 w_line = space.next(self.w_iter)
             except OperationError, e:
                 if e.match(space, space.w_StopIteration):
-                    if field_builder is not None:
-                        raise self.error("newline inside string")
+                    if (state != START_RECORD and state != EAT_CRNL and
+                            (len(field_builder.build()) > 0 or
+                             state == IN_QUOTED_FIELD)):
+                        if dialect.strict:
+                            raise self.error("newline inside string")
+                        else:
+                            self.save_field(field_builder)
+                            break
                 raise
             self.line_num += 1
             line = space.str_w(w_line)
