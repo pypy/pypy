@@ -45,7 +45,6 @@ class FlowObjSpace(ObjSpace):
     (the bytecode of) some function.
     """
 
-    full_exceptions = False
     FrameClass = FlowSpaceFrame
 
     def initialize(self):
@@ -198,7 +197,7 @@ class FlowObjSpace(ObjSpace):
 
         Returns an FSException object whose w_value is an instance of w_type.
         """
-        if self.exception_is_valid_obj_as_class_w(w_type):
+        if self.isinstance_w(w_type, self.w_type):
             # this is for all cases of the form (Class, something)
             if self.is_w(w_value, self.w_None):
                 # raise Type: we assume we have to instantiate Type

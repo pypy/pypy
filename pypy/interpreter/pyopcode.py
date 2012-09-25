@@ -555,7 +555,7 @@ class __extend__(pyframe.PyFrame):
             w_type = self.popvalue()
         operror = OperationError(w_type, w_value)
         operror.normalize_exception(space)
-        if not space.full_exceptions or space.is_w(w_traceback, space.w_None):
+        if space.is_w(w_traceback, space.w_None):
             # common case
             raise operror
         else:

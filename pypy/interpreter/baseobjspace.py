@@ -272,8 +272,6 @@ class ObjSpace(object):
     """Base class for the interpreter-level implementations of object spaces.
     http://pypy.readthedocs.org/en/latest/objspace.html"""
 
-    full_exceptions = True  # full support for exceptions (normalization & more)
-
     def __init__(self, config=None):
         "NOT_RPYTHON: Basic initialization of objects."
         self.fromcache = InternalSpaceCache(self).getorbuild
@@ -1102,8 +1100,6 @@ class ObjSpace(object):
     def exception_is_valid_obj_as_class_w(self, w_obj):
         if not self.isinstance_w(w_obj, self.w_type):
             return False
-        if not self.full_exceptions:
-            return True
         return self.is_true(self.issubtype(w_obj, self.w_BaseException))
 
     def exception_is_valid_class_w(self, w_cls):
