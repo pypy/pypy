@@ -221,7 +221,8 @@ common_descrs = {
 }
 
 W_InputType.typedef = TypeDef(
-    "cStringIO.StringI",
+    "StringI",
+    __module__   = "cStringIO",
     __doc__      = "Simple type for treating strings as input file streams",
     closed       = GetSetProperty(descr_closed, cls=W_InputType),
     softspace    = GetSetProperty(descr_softspace,
@@ -232,7 +233,8 @@ W_InputType.typedef = TypeDef(
     )
 
 W_OutputType.typedef = TypeDef(
-    "cStringIO.StringO",
+    "StringO",
+    __module__   = "cStringIO",
     __doc__      = "Simple type for output to strings.",
     truncate     = interp2app(W_OutputType.descr_truncate),
     write        = interp2app(W_OutputType.descr_write),

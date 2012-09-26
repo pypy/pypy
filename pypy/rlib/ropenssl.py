@@ -6,6 +6,8 @@ from pypy.translator.tool.cbuild import ExternalCompilationInfo
 import sys, os
 
 link_files = []
+testonly_libraries = []
+include_dirs = []
 if sys.platform == 'win32' and platform.name != 'mingw32':
     libraries = ['libeay32', 'ssleay32',
                  'user32', 'advapi32', 'gdi32', 'msvcrt', 'ws2_32']
@@ -27,6 +29,16 @@ else:
         # amount of troubles due to symbol versions
         # and 0.9.8/1.0.0
         link_files += ['/usr/lib/libssl.a', '/usr/lib/libcrypto.a']
+        testonly_libraries += ['ssl', 'crypto']
+    elif (sys.platform.startswith('linux') and
+        os.path.exists('/usr/local/ssl/lib/libssl.a') and
+        os.path.exists('/usr/local/ssl/lib/libcrypto.a')):
+        # use static linking, 2nd version
+        include_dirs += ['/usr/local/ssl/include']
+        link_files += ['/usr/local/ssl/lib/libssl.a',
+                       '/usr/local/ssl/lib/libcrypto.a',
+                       '-ldl']
+        testonly_libraries += ['ssl', 'crypto']
     else:
         libraries += ['ssl', 'crypto']
 
@@ -41,7 +53,9 @@ includes += [
 eci = ExternalCompilationInfo(
     libraries = libraries,
     link_files = link_files,
+    testonly_libraries = testonly_libraries,
     includes = includes,
+    include_dirs = include_dirs,
     export_symbols = [],
     post_include_bits = [
         # Unnamed structures are not supported by rffi_platform.
@@ -256,6 +270,7 @@ ssl_external('SSL_CIPHER_get_version', [SSL_CIPHER], rffi.CCHARP)
 ssl_external('SSL_CIPHER_get_bits', [SSL_CIPHER, rffi.INTP], rffi.INT)
 
 ssl_external('ERR_get_error', [], rffi.INT)
+ssl_external('ERR_peek_last_error', [], rffi.INT)
 ssl_external('ERR_error_string', [rffi.ULONG, rffi.CCHARP], rffi.CCHARP)
 
 ssl_external('SSL_free', [SSL], lltype.Void)

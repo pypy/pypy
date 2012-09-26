@@ -1,13 +1,15 @@
 
-from pypy.rlib.jit import JitDriver, JitHookInterface
+from pypy.rlib.jit import JitDriver, JitHookInterface, Counters
 from pypy.rlib import jit_hooks
 from pypy.jit.metainterp.test.support import LLJitMixin
 from pypy.jit.codewriter.policy import JitPolicy
-from pypy.jit.metainterp.jitprof import ABORT_FORCE_QUASIIMMUT
 from pypy.jit.metainterp.resoperation import rop
 from pypy.rpython.annlowlevel import hlstr
+from pypy.jit.metainterp.jitprof import Profiler
 
-class TestJitHookInterface(LLJitMixin):
+class JitHookInterfaceTests(object):
+    # !!!note!!! - don't subclass this from the backend. Subclass the LL
+    # class later instead
     def test_abort_quasi_immut(self):
         reasons = []
         
@@ -41,7 +43,7 @@ class TestJitHookInterface(LLJitMixin):
         assert f(100, 7) == 721
         res = self.meta_interp(f, [100, 7], policy=JitPolicy(iface))
         assert res == 721
-        assert reasons == [ABORT_FORCE_QUASIIMMUT] * 2
+        assert reasons == [Counters.ABORT_FORCE_QUASIIMMUT] * 2
 
     def test_on_compile(self):
         called = []
@@ -146,3 +148,74 @@ class TestJitHookInterface(LLJitMixin):
             assert jit_hooks.resop_getresult(op) == box5
 
         self.meta_interp(main, [])
+
+    def test_get_stats(self):
+        driver = JitDriver(greens = [], reds = ['i', 's'])
+
+        def loop(i):
+            s = 0
+            while i > 0:
+                driver.jit_merge_point(i=i, s=s)
+                if i % 2:
+                    s += 1
+                i -= 1
+                s+= 2
+            return s
+
+        def main():
+            loop(30)
+            assert jit_hooks.stats_get_counter_value(None,
+                                           Counters.TOTAL_COMPILED_LOOPS) == 1
+            assert jit_hooks.stats_get_counter_value(None,
+                                           Counters.TOTAL_COMPILED_BRIDGES) == 1
+            assert jit_hooks.stats_get_counter_value(None,
+                                                     Counters.TRACING) == 2
+            assert jit_hooks.stats_get_times_value(None, Counters.TRACING) >= 0
+
+        self.meta_interp(main, [], ProfilerClass=Profiler)
+
+class LLJitHookInterfaceTests(JitHookInterfaceTests):
+    # use this for any backend, instead of the super class
+    
+    def test_ll_get_stats(self):
+        driver = JitDriver(greens = [], reds = ['i', 's'])
+
+        def loop(i):
+            s = 0
+            while i > 0:
+                driver.jit_merge_point(i=i, s=s)
+                if i % 2:
+                    s += 1
+                i -= 1
+                s+= 2
+            return s
+
+        def main(b):
+            jit_hooks.stats_set_debug(None, b)
+            loop(30)
+            l = jit_hooks.stats_get_loop_run_times(None)
+            if b:
+                assert len(l) == 4
+                # completely specific test that would fail each time
+                # we change anything major. for now it's 4
+                # (loop, bridge, 2 entry points)
+                assert l[0].type == 'e'
+                assert l[0].number == 0
+                assert l[0].counter == 4
+                assert l[1].type == 'l'
+                assert l[1].counter == 4
+                assert l[2].type == 'l'
+                assert l[2].counter == 23
+                assert l[3].type == 'b'
+                assert l[3].number == 4
+                assert l[3].counter == 11
+            else:
+                assert len(l) == 0
+        self.meta_interp(main, [True], ProfilerClass=Profiler)
+        # this so far does not work because of the way setup_once is done,
+        # but fine, it's only about untranslated version anyway
+        #self.meta_interp(main, [False], ProfilerClass=Profiler)
+        
+
+class TestJitHookInterface(JitHookInterfaceTests, LLJitMixin):
+    pass

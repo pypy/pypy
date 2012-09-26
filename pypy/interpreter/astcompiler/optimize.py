@@ -21,26 +21,20 @@ class __extend__(ast.AST):
 
     def as_constant_truth(self, space):
         """Return the truth of this node if known."""
-        raise AssertionError("only for expressions")
-
-    def as_constant(self):
-        """Return the value of this node as a wrapped constant if possible."""
-        raise AssertionError("only for expressions")
-
-    def accept_jump_if(self, gen, condition, target):
-        raise AssertionError("only for expressions")
-
-
-class __extend__(ast.expr):
-
-    def as_constant_truth(self, space):
         const = self.as_constant()
         if const is None:
             return CONST_NOT_CONST
         return int(space.is_true(const))
 
     def as_constant(self):
+        """Return the value of this node as a wrapped constant if possible."""
         return None
+
+    def accept_jump_if(self, gen, condition, target):
+        raise AssertionError("only for expressions")
+
+
+class __extend__(ast.expr):
 
     def accept_jump_if(self, gen, condition, target):
         self.walkabout(gen)
@@ -304,14 +298,19 @@ class OptimizingVisitor(ast.ASTVisitor):
                     # produce compatible pycs.
                     if (self.space.isinstance_w(w_obj, self.space.w_unicode) and
                         self.space.isinstance_w(w_const, self.space.w_unicode)):
-                        unistr = self.space.unicode_w(w_const)
-                        if len(unistr) == 1:
-                            ch = ord(unistr[0])
-                        else:
-                            ch = 0
-                        if (ch > 0xFFFF or
-                            (MAXUNICODE == 0xFFFF and 0xD800 <= ch <= 0xDFFF)):
-                            return subs
+                        #unistr = self.space.unicode_w(w_const)
+                        #if len(unistr) == 1:
+                        #    ch = ord(unistr[0])
+                        #else:
+                        #    ch = 0
+                        #if (ch > 0xFFFF or
+                        #    (MAXUNICODE == 0xFFFF and 0xD800 <= ch <= 0xDFFF)):
+                        # --XXX-- for now we always disable optimization of
+                        # u'...'[constant] because the tests above are not
+                        # enough to fix issue5057 (CPython has the same
+                        # problem as of April 24, 2012).
+                        # See test_const_fold_unicode_subscr
+                        return subs
 
                     return ast.Const(w_const, subs.lineno, subs.col_offset)
 

@@ -491,7 +491,8 @@ class AbstractUnwrappedSetStrategy(object):
             storage = self._difference_unwrapped(w_set, w_other)
         elif not w_set.strategy.may_contain_equal_elements(w_other.strategy):
             strategy = w_set.strategy
-            storage = w_set.sstorage
+            d = self.unerase(w_set.sstorage)
+            storage = self.erase(d.copy())
         else:
             strategy = self.space.fromcache(ObjectSetStrategy)
             storage = self._difference_wrapped(w_set, w_other)
@@ -776,6 +777,13 @@ class ObjectSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
 
     def update(self, w_set, w_other):
         d_obj = self.unerase(w_set.sstorage)
+
+        # optimization only
+        if w_other.strategy is self:
+            d_other = self.unerase(w_other.sstorage)
+            d_obj.update(d_other)
+            return
+
         w_iterator = w_other.iter()
         while True:
             w_item = w_iterator.next_entry()

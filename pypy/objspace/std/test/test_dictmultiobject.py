@@ -454,6 +454,8 @@ class AppTest_DictObject:
         class E(dict):
             pass
         assert isinstance(D.fromkeys([1, 2]), E)
+        assert dict.fromkeys({"a": 2, "b": 3}) == {"a": None, "b": None}
+        assert dict.fromkeys({"a": 2, 1: 3}) == {"a": None, 1: None}
 
     def test_str_uses_repr(self):
         class D(dict):
@@ -889,6 +891,9 @@ class FakeSpace:
         return W_DictMultiObject.allocate_and_init_instance(
                 self, module=module, instance=instance)
 
+    def view_as_kwargs(self, w_d):
+        return w_d.view_as_kwargs() # assume it's a multidict
+
     def finditem_str(self, w_dict, s):
         return w_dict.getitem_str(s) # assume it's a multidict
 
@@ -1035,10 +1040,10 @@ class BaseTestRDictImplementation:
 
     def test_iter(self):
         self.fill_impl()
-        iteratorimplementation = self.impl.iter()
+        iteratorimplementation = self.impl.iteritems()
         items = []
         while 1:
-            item = iteratorimplementation.next()
+            item = iteratorimplementation.next_item()
             if item == (None, None):
                 break
             items.append(item)
@@ -1104,6 +1109,10 @@ class TestStrDictImplementation(BaseTestRDictImplementation):
         s = FakeString(self.string)
         assert self.impl.getitem(s) == 1000
         assert s.unwrapped
+
+    def test_view_as_kwargs(self):
+        self.fill_impl()
+        assert self.fakespace.view_as_kwargs(self.impl) == (["fish", "fish2"], [1000, 2000])
 
 ## class TestMeasuringDictImplementation(BaseTestRDictImplementation):
 ##     ImplementionClass = MeasuringDictImplementation

@@ -253,7 +253,7 @@ class W_DataShape(Wrappable):
         # XXX: this assumes that you have the _ffi module enabled. In the long
         # term, probably we will move the code for build structures and arrays
         # from _rawffi to _ffi
-        from pypy.module._ffi.interp_ffi import W_FFIType
+        from pypy.module._ffi.interp_ffitype import W_FFIType
         return W_FFIType('<unknown>', self.get_basic_ffi_type(), self)
 
     @unwrap_spec(n=int)
@@ -539,11 +539,19 @@ def get_errno(space):
 def set_errno(space, w_errno):
     rposix.set_errno(space.int_w(w_errno))
 
-def get_last_error(space):
-    from pypy.rlib.rwin32 import GetLastError
-    return space.wrap(GetLastError())
-
-@unwrap_spec(error=int)
-def set_last_error(space, error):
-    from pypy.rlib.rwin32 import SetLastError
-    SetLastError(error)
+if sys.platform == 'win32':
+    def get_last_error(space):
+        from pypy.rlib.rwin32 import GetLastError
+        return space.wrap(GetLastError())
+    @unwrap_spec(error=int)
+    def set_last_error(space, error):
+        from pypy.rlib.rwin32 import SetLastError
+        SetLastError(error)
+else:
+    # always have at least a dummy version of these functions
+    # (https://bugs.pypy.org/issue1242)
+    def get_last_error(space):
+        return space.wrap(0)
+    @unwrap_spec(error=int)
+    def set_last_error(space, error):
+        pass

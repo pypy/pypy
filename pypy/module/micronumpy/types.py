@@ -4,20 +4,23 @@ import struct
 
 from pypy.interpreter.error import OperationError
 from pypy.module.micronumpy import interp_boxes
+from pypy.module.micronumpy.arrayimpl.voidbox import VoidBoxStorage
 from pypy.objspace.std.floatobject import float2string
-from pypy.rlib import rfloat, libffi, clibffi
-from pypy.rlib.objectmodel import specialize, we_are_translated
+from pypy.rlib import rfloat, clibffi
+from pypy.rlib.rawstorage import (alloc_raw_storage, raw_storage_setitem,
+                                  raw_storage_getitem)
+from pypy.rlib.objectmodel import specialize
 from pypy.rlib.rarithmetic import widen, byteswap
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.rstruct.runpack import runpack
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib import jit
 
-VOID_STORAGE = lltype.Array(lltype.Char, hints={'nolength': True,
-                                                'render_as_void': True})
+
 degToRad = math.pi / 180.0
 log2 = math.log(2)
-log2e = 1./log2
+log2e = 1. / log2
+
 
 def simple_unary_op(func):
     specialize.argtype(1)(func)
@@ -66,15 +69,12 @@ def raw_binary_op(func):
 
 class BaseType(object):
     _attrs_ = ()
-    
+
     def _unimplemented_ufunc(self, *args):
         raise NotImplementedError
 
     def malloc(self, size):
-        # XXX find out why test_zjit explodes with tracking of allocations
-        return lltype.malloc(VOID_STORAGE, size,
-                             zero=True, flavor="raw",
-                             track_allocation=False, add_memory_pressure=True)
+        return alloc_raw_storage(size, track_allocation=False, zero=True)
 
     def __repr__(self):
         return self.__class__.__name__
@@ -114,34 +114,25 @@ class Primitive(object):
     def default_fromstring(self, space):
         raise NotImplementedError
 
-    def _read(self, storage, width, i, offset):
-        if we_are_translated():
-            return libffi.array_getitem(clibffi.cast_type_to_ffitype(self.T),
-                                        width, storage, i, offset)
-        else:
-            return libffi.array_getitem_T(self.T, width, storage, i, offset)
+    def _read(self, storage, i, offset):
+        return raw_storage_getitem(self.T, storage, i + offset)
 
-    def read(self, arr, width, i, offset, dtype=None):
-        return self.box(self._read(arr.storage, width, i, offset))
+    def read(self, arr, i, offset, dtype=None):
+        return self.box(self._read(arr.storage, i, offset))
 
-    def read_bool(self, arr, width, i, offset):
-        return bool(self.for_computation(self._read(arr.storage, width, i, offset)))
+    def read_bool(self, arr, i, offset):
+        return bool(self.for_computation(self._read(arr.storage, i, offset)))
 
-    def _write(self, storage, width, i, offset, value):
-        if we_are_translated():
-            libffi.array_setitem(clibffi.cast_type_to_ffitype(self.T),
-                                 width, storage, i, offset, value)
-        else:
-            libffi.array_setitem_T(self.T, width, storage, i, offset, value)
-        
+    def _write(self, storage, i, offset, value):
+        raw_storage_setitem(storage, i + offset, value)
 
-    def store(self, arr, width, i, offset, box):
-        self._write(arr.storage, width, i, offset, self.unbox(box))
+    def store(self, arr, i, offset, box):
+        self._write(arr.storage, i, offset, self.unbox(box))
 
     def fill(self, storage, width, box, start, stop, offset):
         value = self.unbox(box)
         for i in xrange(start, stop, width):
-            self._write(storage, 1, i, offset, value)
+            self._write(storage, i, offset, value)
 
     def runpack_str(self, s):
         return self.box(runpack(self.format_code, s))
@@ -242,22 +233,14 @@ class Primitive(object):
 
 class NonNativePrimitive(Primitive):
     _mixin_ = True
-    
-    def _read(self, storage, width, i, offset):
-        if we_are_translated():
-            res = libffi.array_getitem(clibffi.cast_type_to_ffitype(self.T),
-                                        width, storage, i, offset)
-        else:
-            res = libffi.array_getitem_T(self.T, width, storage, i, offset)
+
+    def _read(self, storage, i, offset):
+        res = raw_storage_getitem(self.T, storage, i + offset)
         return byteswap(res)
 
-    def _write(self, storage, width, i, offset, value):
+    def _write(self, storage, i, offset, value):
         value = byteswap(value)
-        if we_are_translated():
-            libffi.array_setitem(clibffi.cast_type_to_ffitype(self.T),
-                                 width, storage, i, offset, value)
-        else:
-            libffi.array_setitem_T(self.T, width, storage, i, offset, value)
+        raw_storage_setitem(storage, i + offset, value)
 
     def pack_str(self, box):
         return struct.pack(self.format_code, byteswap(self.unbox(box)))
@@ -297,7 +280,7 @@ class Bool(BaseType, Primitive):
         return int(v)
 
     def default_fromstring(self, space):
-        return self.box(False)
+        return self.box(True)
 
     @simple_binary_op
     def bitwise_and(self, v1, v2):
@@ -528,7 +511,7 @@ class NonNativeInt64(BaseType, NonNativeInteger):
 
     T = rffi.LONGLONG
     BoxType = interp_boxes.W_Int64Box
-    format_code = "q"    
+    format_code = "q"
 
     _coerce = func_with_new_name(_int64_coerce, '_coerce')
 
@@ -634,17 +617,21 @@ class Float(Primitive):
     @simple_binary_op
     def fmax(self, v1, v2):
         if math.isnan(v1):
-            return v1
-        elif math.isnan(v2):
+            if math.isnan(v2):
+                return v1
             return v2
+        elif math.isnan(v2):
+            return v1
         return max(v1, v2)
 
     @simple_binary_op
     def fmin(self, v1, v2):
         if math.isnan(v1):
-            return v1
-        elif math.isnan(v2):
+            if math.isnan(v2):
+                return v1
             return v2
+        elif math.isnan(v2):
+            return v1
         return min(v1, v2)
 
     @simple_binary_op
@@ -866,22 +853,14 @@ class Float(Primitive):
 class NonNativeFloat(NonNativePrimitive, Float):
     _mixin_ = True
 
-    def _read(self, storage, width, i, offset):
-        if we_are_translated():
-            res = libffi.array_getitem(clibffi.cast_type_to_ffitype(self.T),
-                                        width, storage, i, offset)
-        else:
-            res = libffi.array_getitem_T(self.T, width, storage, i, offset)
-        #return byteswap(res)
+    def _read(self, storage, i, offset):
+        res = raw_storage_getitem(self.T, storage, i + offset)
+        #return byteswap(res) XXX
         return res
 
-    def _write(self, storage, width, i, offset, value):
+    def _write(self, storage, i, offset, value):
         #value = byteswap(value) XXX
-        if we_are_translated():
-            libffi.array_setitem(clibffi.cast_type_to_ffitype(self.T),
-                                 width, storage, i, offset, value)
-        else:
-            libffi.array_setitem_T(self.T, width, storage, i, offset, value)
+        raw_storage_setitem(storage, i + offset, value)
 
     def pack_str(self, box):
         # XXX byteswap
@@ -900,7 +879,7 @@ class NonNativeFloat32(BaseType, NonNativeFloat):
 
     T = rffi.FLOAT
     BoxType = interp_boxes.W_Float32Box
-    format_code = "f"    
+    format_code = "f"
 
 class Float64(BaseType, Float):
     _attrs_ = ()
@@ -918,7 +897,7 @@ class NonNativeFloat64(BaseType, NonNativeFloat):
 
 class BaseStringType(object):
     _mixin_ = True
-    
+
     def __init__(self, size=0):
         self.size = size
 
@@ -949,16 +928,14 @@ class RecordType(BaseType):
 
     def get_element_size(self):
         return self.size
-    
-    def read(self, arr, width, i, offset, dtype=None):
+
+    def read(self, arr, i, offset, dtype=None):
         if dtype is None:
             dtype = arr.dtype
         return interp_boxes.W_VoidBox(arr, i + offset, dtype)
 
     @jit.unroll_safe
-    def coerce(self, space, dtype, w_item): 
-        from pypy.module.micronumpy.interp_numarray import W_NDimArray
-
+    def coerce(self, space, dtype, w_item):
         if isinstance(w_item, interp_boxes.W_VoidBox):
             return w_item
         # we treat every sequence as sequence, no special support
@@ -970,19 +947,17 @@ class RecordType(BaseType):
             raise OperationError(space.w_ValueError, space.wrap(
                 "wrong length"))
         items_w = space.fixedview(w_item)
-        # XXX optimize it out one day, but for now we just allocate an
-        #     array
-        arr = W_NDimArray([1], dtype)
+        arr = VoidBoxStorage(self.size, dtype)
         for i in range(len(items_w)):
             subdtype = dtype.fields[dtype.fieldnames[i]][1]
             ofs, itemtype = self.offsets_and_fields[i]
             w_item = items_w[i]
             w_box = itemtype.coerce(space, subdtype, w_item)
-            itemtype.store(arr, 1, 0, ofs, w_box)
-        return interp_boxes.W_VoidBox(arr, 0, arr.dtype)
+            itemtype.store(arr, 0, ofs, w_box)
+        return interp_boxes.W_VoidBox(arr, 0, dtype)
 
     @jit.unroll_safe
-    def store(self, arr, _, i, ofs, box):
+    def store(self, arr, i, ofs, box):
         assert isinstance(box, interp_boxes.W_VoidBox)
         for k in range(self.get_element_size()):
             arr.storage[k + i] = box.arr.storage[k + box.ofs]
@@ -997,7 +972,7 @@ class RecordType(BaseType):
                 first = False
             else:
                 pieces.append(", ")
-            pieces.append(tp.str_format(tp.read(box.arr, 1, box.ofs, ofs)))
+            pieces.append(tp.str_format(tp.read(box.arr, box.ofs, ofs)))
         pieces.append(")")
         return "".join(pieces)
 

@@ -10,6 +10,7 @@ from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rpython.tool import rffi_platform
 from pypy.rlib._rsocket_rffi import socketclose, FD_SETSIZE
 from pypy.rlib.rposix import get_errno
+from pypy.rlib.rarithmetic import intmask
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
 
@@ -29,11 +30,11 @@ CConfig.epoll_event = rffi_platform.Struct("struct epoll_event", [
     ("data", CConfig.epoll_data)
 ])
 
-public_symbols = [
+public_symbols = dict.fromkeys([
     "EPOLLIN", "EPOLLOUT", "EPOLLPRI", "EPOLLERR", "EPOLLHUP",
     "EPOLLET", "EPOLLONESHOT", "EPOLLRDNORM", "EPOLLRDBAND",
     "EPOLLWRNORM", "EPOLLWRBAND", "EPOLLMSG"
-    ]
+    ])
 for symbol in public_symbols:
     setattr(CConfig, symbol, rffi_platform.DefinedConstantInteger(symbol))
 
@@ -41,6 +42,10 @@ for symbol in ["EPOLL_CTL_ADD", "EPOLL_CTL_MOD", "EPOLL_CTL_DEL"]:
     setattr(CConfig, symbol, rffi_platform.ConstantInteger(symbol))
 
 cconfig = rffi_platform.configure(CConfig)
+
+for symbol in public_symbols:
+    public_symbols[symbol] = intmask(cconfig[symbol])
+
 
 epoll_event = cconfig["epoll_event"]
 EPOLL_CTL_ADD = cconfig["EPOLL_CTL_ADD"]

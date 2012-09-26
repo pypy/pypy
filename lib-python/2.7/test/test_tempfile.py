@@ -1,6 +1,7 @@
 # tempfile.py unit tests.
 import tempfile
 import os
+import signal
 import sys
 import re
 import warnings
@@ -23,8 +24,8 @@ has_spawnl = hasattr(os, 'spawnl')
 
 # TEST_FILES may need to be tweaked for systems depending on the maximum
 # number of files that can be opened at one time (see ulimit -n)
-if sys.platform in ('openbsd3', 'openbsd4'):
-    TEST_FILES = 48
+if sys.platform.startswith("openbsd"):
+    TEST_FILES = 64 # ulimit -n defaults to 128 for normal users
 else:
     TEST_FILES = 100
 
@@ -125,6 +126,37 @@ class test__RandomNameSequence(TC):
                     break
         except:
             self.failOnException("iteration")
+
+    @unittest.skipUnless(hasattr(os, 'fork'),
+        "os.fork is required for this test")
+    def test_process_awareness(self):
+        # ensure that the random source differs between
+        # child and parent.
+        read_fd, write_fd = os.pipe()
+        pid = None
+        try:
+            pid = os.fork()
+            if not pid:
+                os.close(read_fd)
+                os.write(write_fd, next(self.r).encode("ascii"))
+                os.close(write_fd)
+                # bypass the normal exit handlers- leave those to
+                # the parent.
+                os._exit(0)
+            parent_value = next(self.r)
+            child_value = os.read(read_fd, len(parent_value)).decode("ascii")
+        finally:
+            if pid:
+                # best effort to ensure the process can't bleed out
+                # via any bugs above
+                try:
+                    os.kill(pid, signal.SIGKILL)
+                except EnvironmentError:
+                    pass
+            os.close(read_fd)
+            os.close(write_fd)
+        self.assertNotEqual(child_value, parent_value)
+
 
 test_classes.append(test__RandomNameSequence)
 
@@ -244,6 +276,7 @@ class test__mkstemp_inner(TC):
         dir = tempfile.mkdtemp()
         try:
             self.do_create(dir=dir).write("blat")
+            test_support.gc_collect()
         finally:
             os.rmdir(dir)
 
@@ -528,12 +561,15 @@ class test_mktemp(TC):
         self.do_create(suf="b")
         self.do_create(pre="a", suf="b")
         self.do_create(pre="aa", suf=".txt")
+        test_support.gc_collect()
 
     def test_many(self):
         # mktemp can choose many usable file names (stochastic)
         extant = range(TEST_FILES)
         for i in extant:
             extant[i] = self.do_create(pre="aa")
+        del extant
+        test_support.gc_collect()
 
 ##     def test_warning(self):
 ##         # mktemp issues a warning when used

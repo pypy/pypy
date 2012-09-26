@@ -1,6 +1,7 @@
 
 from pypy.rlib.rsre import rsre_char
 from pypy.rlib.rsre.rsre_core import match
+from pypy.rlib.rarithmetic import intmask
 
 def get_hacked_sre_compile(my_compile):
     """Return a copy of the sre_compile module for which the _sre
@@ -33,7 +34,7 @@ def get_hacked_sre_compile(my_compile):
 class GotIt(Exception):
     pass
 def my_compile(pattern, flags, code, *args):
-    raise GotIt(code, flags, args)
+    raise GotIt([intmask(i) for i in code], flags, args)
 sre_compile_hacked = get_hacked_sre_compile(my_compile)
 
 def get_code(regexp, flags=0, allargs=False):

@@ -243,10 +243,17 @@ def test_unknown_addr_as_object():
 def test_addr_raw_packet():
     if not hasattr(rsocket._c, 'sockaddr_ll'):
         py.test.skip("posix specific test")
+    # HACK: To get the correct interface numer of lo, which in most cases is 1,
+    # but can be anything (i.e. 39), we need to call the libc function
+    # if_nametoindex to get the correct index
+    import ctypes
+    libc = ctypes.CDLL(ctypes.util.find_library('c'))
+    ifnum = libc.if_nametoindex('lo')
+
     c_addr_ll = lltype.malloc(rsocket._c.sockaddr_ll, flavor='raw')
     addrlen = rffi.sizeof(rsocket._c.sockaddr_ll)
     c_addr = rffi.cast(lltype.Ptr(rsocket._c.sockaddr), c_addr_ll)
-    rffi.setintfield(c_addr_ll, 'c_sll_ifindex', 1)
+    rffi.setintfield(c_addr_ll, 'c_sll_ifindex', ifnum)
     rffi.setintfield(c_addr_ll, 'c_sll_protocol', 8)
     rffi.setintfield(c_addr_ll, 'c_sll_pkttype', 13)
     rffi.setintfield(c_addr_ll, 'c_sll_hatype', 0)
@@ -611,13 +618,19 @@ class AppTestSocketTCP:
         buf = t.recv(1)
         assert buf == '?'
         # test send() timeout
+        count = 0
         try:
             while 1:
-                cli.send('foobar' * 70)
+                count += cli.send('foobar' * 70)
         except timeout:
             pass
+        t.recv(count)    
         # test sendall() timeout
-        raises(timeout, cli.sendall, 'foobar' * 70)
+        try:
+            while 1:
+                cli.sendall('foobar' * 70)
+        except timeout:
+            pass
         # done
         cli.close()
         t.close()

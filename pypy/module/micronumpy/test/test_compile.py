@@ -1,4 +1,5 @@
 import py
+py.test.skip("this is going away")
 
 from pypy.module.micronumpy.compile import (numpy_compile, Assignment,
     ArrayConstant, FloatConstant, Operator, Variable, RangeConstant, Execute,
@@ -270,3 +271,13 @@ class TestRunner(object):
         b -> 2
         """)
         assert interp.results[0].value == 3
+
+    def test_where(self):
+        interp = self.run('''
+        a = [1, 0, 3, 0]
+        b = [1, 1, 1, 1]
+        c = [0, 0, 0, 0]
+        d = where(a, b, c)
+        d -> 1
+        ''')
+        assert interp.results[0].value == 0

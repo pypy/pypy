@@ -376,9 +376,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op_name(ops.LOAD_GLOBAL, self.names, "AssertionError")
         if asrt.msg:
             asrt.msg.walkabout(self)
-            self.emit_op_arg(ops.RAISE_VARARGS, 2)
-        else:
-            self.emit_op_arg(ops.RAISE_VARARGS, 1)
+            self.emit_op_arg(ops.CALL_FUNCTION, 1)
+        self.emit_op_arg(ops.RAISE_VARARGS, 1)
         self.use_next_block(end)
 
     def _binop(self, op):
@@ -564,7 +563,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.visit_sequence(handler.body)
             self.emit_jump(ops.JUMP_FORWARD, end)
             self.use_next_block(next_except)
-        self.emit_op(ops.END_FINALLY)
+        self.emit_op(ops.END_FINALLY)   # this END_FINALLY will always re-raise
+        self.is_dead_code()
         self.use_next_block(otherwise)
         self.visit_sequence(te.orelse)
         self.use_next_block(end)

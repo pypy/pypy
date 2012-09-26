@@ -21,6 +21,11 @@ class AbstractCPU(object):
     total_freed_loops = 0
     total_freed_bridges = 0
 
+    # for heaptracker
+    # _all_size_descrs_with_vtable = None
+    _vtable_to_descr_dict = None
+
+
     def __init__(self):
         self.fail_descr_list = []
         self.fail_descr_free_list = []
@@ -54,6 +59,21 @@ class AbstractCPU(object):
     def finish_once(self):
         """Called once by the front-end when the program stops."""
         pass
+
+    def get_all_loop_runs(self):
+        """ Function that will return number of times all the loops were run.
+        Requires earlier setting of set_debug(True), otherwise you won't
+        get the information.
+
+        Returns an instance of LOOP_RUN_CONTAINER from rlib.jit_hooks
+        """
+        raise NotImplementedError
+
+    def set_debug(self, value):
+        """ Enable or disable debugging info. Does nothing by default. Returns
+        the previous setting.
+        """
+        return False
 
     def compile_loop(self, inputargs, operations, looptoken, log=True, name=''):
         """Assemble the given loop.
@@ -191,10 +211,6 @@ class AbstractCPU(object):
         raise NotImplementedError
 
     def interiorfielddescrof(self, A, fieldname):
-        raise NotImplementedError
-
-    def interiorfielddescrof_dynamic(self, offset, width, fieldsize, is_pointer,
-        is_float, is_signed):
         raise NotImplementedError
 
     def arraydescrof(self, A):

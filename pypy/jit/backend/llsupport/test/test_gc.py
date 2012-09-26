@@ -276,8 +276,8 @@ class FakeLLOp(object):
                             repr(offset_to_length), p))
         return p
 
-    def _write_barrier_failing_case(self, adr_struct, adr_newptr):
-        self.record.append(('barrier', adr_struct, adr_newptr))
+    def _write_barrier_failing_case(self, adr_struct):
+        self.record.append(('barrier', adr_struct))
 
     def get_write_barrier_failing_case(self, FPTRTYPE):
         return llhelper(FPTRTYPE, self._write_barrier_failing_case)
@@ -296,7 +296,7 @@ class FakeLLOp(object):
 
 
 class TestFramework(object):
-    gc = 'hybrid'
+    gc = 'minimark'
 
     def setup_method(self, meth):
         class config_(object):
@@ -402,7 +402,7 @@ class TestFramework(object):
         #
         s_hdr.tid |= gc_ll_descr.GCClass.JIT_WB_IF_FLAG
         gc_ll_descr.do_write_barrier(s_gcref, r_gcref)
-        assert self.llop1.record == [('barrier', s_adr, r_adr)]
+        assert self.llop1.record == [('barrier', s_adr)]
 
     def test_gen_write_barrier(self):
         gc_ll_descr = self.gc_ll_descr

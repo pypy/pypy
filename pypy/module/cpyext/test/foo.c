@@ -19,6 +19,7 @@ typedef struct {
     double foo_double;
     long long foo_longlong;
     unsigned long long foo_ulonglong;
+    Py_ssize_t foo_ssizet;
 } fooobject;
 
 static PyTypeObject footype;
@@ -172,7 +173,8 @@ static PyMemberDef foo_members[] = {
     {"float_member", T_FLOAT, offsetof(fooobject, foo_float), 0, NULL},
     {"double_member", T_DOUBLE, offsetof(fooobject, foo_double), 0, NULL},
     {"longlong_member", T_LONGLONG, offsetof(fooobject, foo_longlong), 0, NULL},
-    {"ulonglong_member", T_ULONGLONG, offsetof(fooobject, foo_ulonglong), 0, NULL},
+    {"ulonglong_member", T_ULONGLONG, offsetof(fooobject, foo_ulonglong), 0, NULL},  
+    {"ssizet_member", T_PYSSIZET, offsetof(fooobject, foo_ssizet), 0, NULL},
     {NULL}  /* Sentinel */
 };
 

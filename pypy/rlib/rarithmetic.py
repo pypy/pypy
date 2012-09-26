@@ -71,7 +71,7 @@ def get_long_pattern(x):
 
 # used in tests for ctypes and for genc and friends
 # to handle the win64 special case:
-is_emulated_long = _long_typecode <> 'l'
+is_emulated_long = _long_typecode != 'l'
     
 LONG_BIT = _get_long_bit()
 LONG_MASK = (2**LONG_BIT)-1
@@ -87,6 +87,10 @@ while (1 << LONG_BIT_SHIFT) != LONG_BIT:
     LONG_BIT_SHIFT += 1
     assert LONG_BIT_SHIFT < 99, "LONG_BIT_SHIFT value not found?"
 
+LONGLONGLONG_BIT  = 128
+LONGLONGLONG_MASK = (2**LONGLONGLONG_BIT)-1
+LONGLONGLONG_TEST = 2**(LONGLONGLONG_BIT-1)
+
 """
 int is no longer necessarily the same size as the target int.
 We therefore can no longer use the int type as it is, but need
@@ -97,6 +101,9 @@ to use long everywhere.
 # XXX TODO: replace all int(n) by long(n) and fix everything that breaks.
 # XXX       Then relax it and replace int(n) by n.
 def intmask(n):
+    """
+    NOT_RPYTHON
+    """
     if isinstance(n, objectmodel.Symbolic):
         return n        # assume Symbolics don't overflow
     assert not isinstance(n, float)
@@ -109,12 +116,20 @@ def intmask(n):
     return int(n)
 
 def longlongmask(n):
+    """
+    NOT_RPYTHON
+    """
     assert isinstance(n, (int, long))
     n = long(n)
     n &= LONGLONG_MASK
     if n >= LONGLONG_TEST:
         n -= 2*LONGLONG_TEST
     return r_longlong(n)
+
+def longlonglongmask(n):
+    # Assume longlonglong doesn't overflow. This is perfectly fine for rbigint.
+    # We deal directly with overflow there anyway.
+    return r_longlonglong(n)
 
 def widen(n):
     from pypy.rpython.lltypesystem import lltype
@@ -469,6 +484,7 @@ r_uint = build_int('r_uint', False, LONG_BIT)
 r_longlong = build_int('r_longlong', True, 64)
 r_ulonglong = build_int('r_ulonglong', False, 64)
 
+r_longlonglong = build_int('r_longlonglong', True, 128)
 longlongmax = r_longlong(LONGLONG_TEST - 1)
 
 if r_longlong is not r_int:

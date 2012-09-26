@@ -2,7 +2,6 @@ import math
 
 import _numpypy
 
-
 def average(a):
     # This implements a weighted average, for now we don't implement the
     # weighting, just the average part!
@@ -14,6 +13,26 @@ def identity(n, dtype=None):
     a = _numpypy.zeros((n, n), dtype=dtype)
     for i in range(n):
         a[i][i] = 1
+    return a
+
+def eye(n, m=None, k=0, dtype=None):
+    if m is None:
+        m = n
+    a = _numpypy.zeros((n, m), dtype=dtype)
+    ni = 0
+    mi = 0
+
+    if k < 0:
+        p = n + k
+        ni = -k
+    else:
+        p = n - k
+        mi = k
+
+    while ni < n and mi < m:
+        a[ni][mi] = 1
+        ni += 1
+        mi += 1
     return a
 
 def sum(a,axis=None, out=None):

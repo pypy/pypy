@@ -502,8 +502,6 @@ def ll_dict_delitem(d, key):
         raise KeyError
     _ll_dict_del(d, i)
 
-# XXX: Move the size checking and resize into a single call which is opauqe to
-# the JIT when the dict isn't virtual, to avoid extra branches.
 @jit.look_inside_iff(lambda d, i: jit.isvirtual(d) and jit.isconstant(i))
 def _ll_dict_del(d, i):
     d.entries.mark_deleted(i)
@@ -516,18 +514,32 @@ def _ll_dict_del(d, i):
         entry.key = lltype.nullptr(ENTRY.key.TO)
     if ENTRIES.must_clear_value:
         entry.value = lltype.nullptr(ENTRY.value.TO)
-    num_entries = len(d.entries)
-    if num_entries > DICT_INITSIZE and d.num_items < num_entries / 4:
-        ll_dict_resize(d)
+    #
+    # The rest is commented out: like CPython we no longer shrink the
+    # dictionary here.  It may shrink later if we try to append a number
+    # of new items to it.  Unsure if this behavior was designed in
+    # CPython or is accidental.  A design reason would be that if you
+    # delete all items in a dictionary (e.g. with a series of
+    # popitem()), then CPython avoids shrinking the table several times.
+    #num_entries = len(d.entries)
+    #if num_entries > DICT_INITSIZE and d.num_items <= num_entries / 4:
+    #    ll_dict_resize(d)
+    # A previous xxx: move the size checking and resize into a single
+    # call which is opaque to the JIT when the dict isn't virtual, to
+    # avoid extra branches.
 
 def ll_dict_resize(d):
     old_entries = d.entries
     old_size = len(old_entries)
     # make a 'new_size' estimate and shrink it if there are many
-    # deleted entry markers
-    new_size = old_size * 2
-    while new_size > DICT_INITSIZE and d.num_items < new_size / 4:
-        new_size /= 2
+    # deleted entry markers.  See CPython for why it is a good idea to
+    # quadruple the dictionary size as long as it's not too big.
+    if d.num_items > 50000: new_estimate = d.num_items * 2
+    else:                   new_estimate = d.num_items * 4
+    new_size = DICT_INITSIZE
+    while new_size <= new_estimate:
+        new_size *= 2
+    #
     d.entries = lltype.typeOf(old_entries).TO.allocate(new_size)
     d.num_items = 0
     d.resize_counter = new_size * 2
@@ -701,6 +713,10 @@ def ll_dictiter(ITERPTR, d):
 
 def _make_ll_dictnext(kind):
     # make three versions of the following function: keys, values, items
+    @jit.look_inside_iff(lambda RETURNTYPE, iter: jit.isvirtual(iter)
+                         and (iter.dict is None or
+                              jit.isvirtual(iter.dict)))
+    @jit.oopspec("dictiter.next%s(iter)" % kind)
     def ll_dictnext(RETURNTYPE, iter):
         # note that RETURNTYPE is None for keys and values
         dict = iter.dict
@@ -728,7 +744,6 @@ def _make_ll_dictnext(kind):
             # clear the reference to the dict and prevent restarts
             iter.dict = lltype.nullptr(lltype.typeOf(iter).TO.dict.TO)
         raise StopIteration
-    ll_dictnext.oopspec = 'dictiter.next%s(iter)' % kind
     return ll_dictnext
 
 ll_dictnext_group = {'keys'  : _make_ll_dictnext('keys'),

@@ -4,6 +4,7 @@
 """
 
 import unittest
+import warnings
 from test import test_support
 from weakref import proxy
 import array, cStringIO
@@ -295,9 +296,10 @@ class BaseTest(unittest.TestCase):
         )
 
         b = array.array(self.badtypecode())
-        self.assertRaises(TypeError, a.__add__, b)
-
-        self.assertRaises(TypeError, a.__add__, "bad")
+        with self.assertRaises(TypeError):
+            a + b
+        with self.assertRaises(TypeError):
+            a + 'bad'
 
     def test_iadd(self):
         a = array.array(self.typecode, self.example[::-1])
@@ -316,9 +318,10 @@ class BaseTest(unittest.TestCase):
         )
 
         b = array.array(self.badtypecode())
-        self.assertRaises(TypeError, a.__add__, b)
-
-        self.assertRaises(TypeError, a.__iadd__, "bad")
+        with self.assertRaises(TypeError):
+            a += b
+        with self.assertRaises(TypeError):
+            a += 'bad'
 
     def test_mul(self):
         a = 5*array.array(self.typecode, self.example)
@@ -345,7 +348,8 @@ class BaseTest(unittest.TestCase):
             array.array(self.typecode)
         )
 
-        self.assertRaises(TypeError, a.__mul__, "bad")
+        with self.assertRaises(TypeError):
+            a * 'bad'
 
     def test_imul(self):
         a = array.array(self.typecode, self.example)
@@ -374,7 +378,8 @@ class BaseTest(unittest.TestCase):
         a *= -1
         self.assertEqual(a, array.array(self.typecode))
 
-        self.assertRaises(TypeError, a.__imul__, "bad")
+        with self.assertRaises(TypeError):
+            a *= 'bad'
 
     def test_getitem(self):
         a = array.array(self.typecode, self.example)
@@ -769,6 +774,7 @@ class BaseTest(unittest.TestCase):
         p = proxy(s)
         self.assertEqual(p.tostring(), s.tostring())
         s = None
+        test_support.gc_collect()
         self.assertRaises(ReferenceError, len, p)
 
     def test_bug_782369(self):
@@ -783,7 +789,9 @@ class BaseTest(unittest.TestCase):
 
     def test_subclass_with_kwargs(self):
         # SF bug #1486663 -- this used to erroneously raise a TypeError
-        ArraySubclassWithKwargs('b', newarg=1)
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", '', DeprecationWarning)
+            ArraySubclassWithKwargs('b', newarg=1)
 
 
 class StringTest(BaseTest):

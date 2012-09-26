@@ -120,8 +120,10 @@ class QuasiImmutDescr(AbstractDescr):
                                     self.fielddescr, self.structbox)
         return fieldbox.constbox()
 
-    def is_still_valid(self):
+    def is_still_valid_for(self, structconst):
         assert self.structbox is not None
+        if not self.structbox.constbox().same_constant(structconst):
+            return False
         cpu = self.cpu
         gcref = self.structbox.getref_base()
         qmut = get_current_qmut_instance(cpu, gcref, self.mutatefielddescr)

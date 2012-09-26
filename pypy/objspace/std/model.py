@@ -102,7 +102,9 @@ class StdTypeModel:
             tupleobject.W_TupleObject: [],
             listobject.W_ListObject: [],
             dictmultiobject.W_DictMultiObject: [],
-            dictmultiobject.W_DictMultiIterObject: [],
+            dictmultiobject.W_DictMultiIterKeysObject: [],
+            dictmultiobject.W_DictMultiIterValuesObject: [],
+            dictmultiobject.W_DictMultiIterItemsObject: [],
             stringobject.W_StringObject: [],
             bytearrayobject.W_BytearrayObject: [],
             typeobject.W_TypeObject: [],
@@ -128,7 +130,9 @@ class StdTypeModel:
 
         self.imported_but_not_registered = {
             dictmultiobject.W_DictMultiObject: True, # XXXXXX
-            dictmultiobject.W_DictMultiIterObject: True,
+            dictmultiobject.W_DictMultiIterKeysObject: True,
+            dictmultiobject.W_DictMultiIterValuesObject: True,
+            dictmultiobject.W_DictMultiIterItemsObject: True,
             listobject.W_ListObject: True,
             stringobject.W_StringObject: True,
             tupleobject.W_TupleObject: True,
@@ -378,7 +382,10 @@ class W_Object(W_Root):
     __slots__ = ()
 
     def __repr__(self):
-        s = '%s(%s)' % (self.__class__.__name__, getattr(self, 'name', ''))
+        name = getattr(self, 'name', '')
+        if not isinstance(name, str):
+            name = ''
+        s = '%s(%s)' % (self.__class__.__name__, name)
         w_cls = getattr(self, 'w__class__', None)
         if w_cls is not None and w_cls is not self:
             s += ' instance of %s' % self.w__class__

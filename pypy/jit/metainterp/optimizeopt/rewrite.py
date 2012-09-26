@@ -208,7 +208,8 @@ class OptRewrite(Optimization):
             box = value.box
             assert isinstance(box, Const)
             if not box.same_constant(constbox):
-                raise InvalidLoop
+                raise InvalidLoop('A GUARD_{VALUE,TRUE,FALSE} was proven to' +
+                                  'always fail')
             return
         if emit_operation:
             self.emit_operation(op)
@@ -220,7 +221,7 @@ class OptRewrite(Optimization):
         if value.is_null():
             return
         elif value.is_nonnull():
-            raise InvalidLoop
+            raise InvalidLoop('A GUARD_ISNULL was proven to always fail')
         self.emit_operation(op)
         value.make_constant(self.optimizer.cpu.ts.CONST_NULL)
 
@@ -229,7 +230,7 @@ class OptRewrite(Optimization):
         if value.is_nonnull():
             return
         elif value.is_null():
-            raise InvalidLoop
+            raise InvalidLoop('A GUARD_NONNULL was proven to always fail')
         self.emit_operation(op)
         value.make_nonnull(op)
 
@@ -240,6 +241,16 @@ class OptRewrite(Optimization):
             # guard_nonnull_class on this value, which is rather silly.
             # replace the original guard with a guard_value
             old_guard_op = value.last_guard
+            if old_guard_op.getopnum() != rop.GUARD_NONNULL:
+                # This is only safe if the class of the guard_value matches the
+                # class of the guard_*_class, otherwise the intermediate ops might
+                # be executed with wrong classes.
+                previous_classbox = value.get_constant_class(self.optimizer.cpu)            
+                expected_classbox = self.optimizer.cpu.ts.cls_of_box(op.getarg(1))
+                assert previous_classbox is not None
+                assert expected_classbox is not None
+                if not previous_classbox.same_constant(expected_classbox):
+                    raise InvalidLoop('A GUARD_VALUE was proven to always fail')
             op = old_guard_op.copy_and_change(rop.GUARD_VALUE,
                                       args = [old_guard_op.getarg(0), op.getarg(1)])
             self.optimizer.replaces_guard[op] = old_guard_op
@@ -250,6 +261,8 @@ class OptRewrite(Optimization):
             assert isinstance(descr, compile.ResumeGuardDescr)
             descr.guard_opnum = rop.GUARD_VALUE
             descr.make_a_counter_per_value(op)
+            # to be safe
+            value.last_guard = None
         constbox = op.getarg(1)
         assert isinstance(constbox, Const)
         self.optimize_guard(op, constbox)
@@ -278,7 +291,7 @@ class OptRewrite(Optimization):
         if realclassbox is not None:
             if realclassbox.same_constant(expectedclassbox):
                 return
-            raise InvalidLoop
+            raise InvalidLoop('A GUARD_CLASS was proven to always fail')
         if value.last_guard:
             # there already has been a guard_nonnull or guard_class or
             # guard_nonnull_class on this value.
@@ -301,7 +314,8 @@ class OptRewrite(Optimization):
     def optimize_GUARD_NONNULL_CLASS(self, op):
         value = self.getvalue(op.getarg(0))
         if value.is_null():
-            raise InvalidLoop
+            raise InvalidLoop('A GUARD_NONNULL_CLASS was proven to always ' +
+                              'fail')
         self.optimize_GUARD_CLASS(op)
 
     def optimize_CALL_LOOPINVARIANT(self, op):
@@ -478,10 +492,6 @@ class OptRewrite(Optimization):
                 op = op.copy_and_change(rop.INT_RSHIFT,
                                         args = [op.getarg(0), ConstInt(highest_bit(val))])
         self.emit_operation(op)
-
-    def optimize_MARK_OPAQUE_PTR(self, op):
-        value = self.getvalue(op.getarg(0))
-        self.optimizer.opaque_pointers[value] = True
 
     def optimize_CAST_PTR_TO_INT(self, op):
         self.pure(rop.CAST_INT_TO_PTR, [op.result], op.getarg(0))

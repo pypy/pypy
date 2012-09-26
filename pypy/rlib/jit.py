@@ -103,7 +103,6 @@ def _get_args(func):
     import inspect
 
     args, varargs, varkw, defaults = inspect.getargspec(func)
-    args = ["v%s" % (i, ) for i in range(len(args))]
     assert varargs is None and varkw is None
     assert not defaults
     return args
@@ -118,11 +117,11 @@ def elidable_promote(promote_args='all'):
         argstring = ", ".join(args)
         code = ["def f(%s):\n" % (argstring, )]
         if promote_args != 'all':
-            args = [('v%d' % int(i)) for i in promote_args.split(",")]
+            args = [args[int(i)] for i in promote_args.split(",")]
         for arg in args:
             code.append("    %s = hint(%s, promote=True)\n" % (arg, arg))
-        code.append("    return func(%s)\n" % (argstring, ))
-        d = {"func": func, "hint": hint}
+        code.append("    return _orig_func_unlikely_name(%s)\n" % (argstring, ))
+        d = {"_orig_func_unlikely_name": func, "hint": hint}
         exec py.code.Source("\n".join(code)).compile() in d
         result = d["f"]
         result.func_name = func.func_name + "_promote"
@@ -148,6 +147,8 @@ def look_inside_iff(predicate):
             thing._annspecialcase_ = "specialize:call_location"
 
         args = _get_args(func)
+        predicateargs = _get_args(predicate)
+        assert len(args) == len(predicateargs), "%s and predicate %s need the same numbers of arguments" % (func, predicate)
         d = {
             "dont_look_inside": dont_look_inside,
             "predicate": predicate,
@@ -401,7 +402,7 @@ class JitHintError(Exception):
     """Inconsistency in the JIT hints."""
 
 ENABLE_ALL_OPTS = (
-    'intbounds:rewrite:virtualize:string:earlyforce:pure:heap:ffi:unroll')
+    'intbounds:rewrite:virtualize:string:earlyforce:pure:heap:unroll')
 
 PARAMETER_DOCS = {
     'threshold': 'number of times a loop has to run for it to become hot',
@@ -413,8 +414,8 @@ PARAMETER_DOCS = {
     'retrace_limit': 'how many times we can try retracing before giving up',
     'max_retrace_guards': 'number of extra guards a retrace can cause',
     'max_unroll_loops': 'number of extra unrollings a loop can cause',
-    'enable_opts': 'INTERNAL USE ONLY: optimizations to enable, or all = %s' %
-                       ENABLE_ALL_OPTS,
+    'enable_opts': 'INTERNAL USE ONLY (MAY NOT WORK OR LEAD TO CRASHES): '
+                   'optimizations to enable, or all = %s' % ENABLE_ALL_OPTS,
     }
 
 PARAMETERS = {'threshold': 1039, # just above 1024, prime
@@ -425,7 +426,7 @@ PARAMETERS = {'threshold': 1039, # just above 1024, prime
               'loop_longevity': 1000,
               'retrace_limit': 5,
               'max_retrace_guards': 15,
-              'max_unroll_loops': 4,
+              'max_unroll_loops': 0,
               'enable_opts': 'all',
               }
 unroll_parameters = unrolling_iterable(PARAMETERS.items())
@@ -599,7 +600,6 @@ def set_user_param(driver, text):
             else:
                 raise ValueError
 set_user_param._annspecialcase_ = 'specialize:arg(0)'
-
 
 # ____________________________________________________________
 #
@@ -901,11 +901,6 @@ class JitHookInterface(object):
         instance, overwrite for custom behavior
         """
 
-    def get_stats(self):
-        """ Returns various statistics
-        """
-        raise NotImplementedError
-
 def record_known_class(value, cls):
     """
     Assure the JIT that value is an instance of cls. This is not a precise
@@ -932,3 +927,39 @@ class Entry(ExtRegistryEntry):
         v_cls = hop.inputarg(classrepr, arg=1)
         return hop.genop('jit_record_known_class', [v_inst, v_cls],
                          resulttype=lltype.Void)
+
+class Counters(object):
+    counters="""
+    TRACING
+    BACKEND
+    OPS
+    RECORDED_OPS
+    GUARDS
+    OPT_OPS
+    OPT_GUARDS
+    OPT_FORCINGS
+    ABORT_TOO_LONG
+    ABORT_BRIDGE
+    ABORT_BAD_LOOP
+    ABORT_ESCAPE
+    ABORT_FORCE_QUASIIMMUT
+    NVIRTUALS
+    NVHOLES
+    NVREUSED
+    TOTAL_COMPILED_LOOPS
+    TOTAL_COMPILED_BRIDGES
+    TOTAL_FREED_LOOPS
+    TOTAL_FREED_BRIDGES
+    """
+
+    counter_names = []
+
+    @staticmethod
+    def _setup():
+        names = Counters.counters.split()
+        for i, name in enumerate(names):
+            setattr(Counters, name, i)
+            Counters.counter_names.append(name)
+        Counters.ncounters = len(names)
+
+Counters._setup()

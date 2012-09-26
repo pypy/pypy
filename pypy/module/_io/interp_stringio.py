@@ -128,7 +128,7 @@ class W_StringIO(W_TextIOBase):
     def write_w(self, space, w_obj):
         if not space.isinstance_w(w_obj, space.w_unicode):
             raise operationerrfmt(space.w_TypeError,
-                                  "string argument expected, got '%s'",
+                                  "unicode argument expected, got '%s'",
                                   space.type(w_obj).getname(space))
         self._check_closed(space)
 

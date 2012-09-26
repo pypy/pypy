@@ -20,6 +20,9 @@ __all__ = ['ObjSpace', 'OperationError', 'Wrappable', 'W_Root']
 
 UINT_MAX_32_BITS = r_uint(4294967295)
 
+unpackiterable_driver = jit.JitDriver(name = 'unpackiterable',
+                                      greens = ['tp'],
+                                      reds = ['items', 'w_iterator'])
 
 class W_Root(object):
     """This is the abstract root class of all wrapped objects that live
@@ -223,6 +226,23 @@ class Wrappable(W_Root):
 
     def __spacebind__(self, space):
         return self
+
+class W_InterpIterable(W_Root):
+    def __init__(self, space, w_iterable):
+        self.w_iter = space.iter(w_iterable)
+        self.space = space
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        space = self.space
+        try:
+            return space.next(self.w_iter)
+        except OperationError, e:
+            if not e.match(space, space.w_StopIteration):
+                raise
+            raise StopIteration
 
 class InternalSpaceCache(Cache):
     """A generic cache for an object space.  Arbitrary information can
@@ -570,10 +590,6 @@ class ObjSpace(object):
                 w_exc = self.getitem(w_dic, w_name)
                 exc_types_w[name] = w_exc
                 setattr(self, "w_" + excname, w_exc)
-        # Make a prebuilt recursion error
-        w_msg = self.wrap("maximum recursion depth exceeded")
-        self.prebuilt_recursion_error = OperationError(self.w_RuntimeError,
-                                                       w_msg)
         return exc_types_w
 
     def install_mixedmodule(self, mixedname, installed_builtin_modules):
@@ -801,8 +817,21 @@ class ObjSpace(object):
         return obj
     interp_w._annspecialcase_ = 'specialize:arg(1)'
 
+    def _check_constant_interp_w_or_w_None(self, RequiredClass, w_obj):
+        """
+        This method should NOT be called unless you are really sure about
+        it. It is used inside the implementation of end_finally() in
+        pyopcode.py, and it's there so that it can be overridden by the
+        FlowObjSpace.
+        """
+        if self.is_w(w_obj, self.w_None):
+            return True
+        obj = self.interpclass_w(w_obj)
+        return isinstance(obj, RequiredClass)
+
     def unpackiterable(self, w_iterable, expected_length=-1):
-        """Unpack an iterable object into a real (interpreter-level) list.
+        """Unpack an iterable into a real (interpreter-level) list.
+
         Raise an OperationError(w_ValueError) if the length is wrong."""
         w_iterator = self.iter(w_iterable)
         if expected_length == -1:
@@ -819,12 +848,13 @@ class ObjSpace(object):
                                                       expected_length)
             return lst_w[:]     # make the resulting list resizable
 
-    @jit.dont_look_inside
+    def iteriterable(self, w_iterable):
+        return W_InterpIterable(self, w_iterable)
+
     def _unpackiterable_unknown_length(self, w_iterator, w_iterable):
-        # Unpack a variable-size list of unknown length.
-        # The JIT does not look inside this function because it
-        # contains a loop (made explicit with the decorator above).
-        #
+        """Unpack an iterable of unknown length into an interp-level
+        list.
+        """
         # If we can guess the expected length we can preallocate.
         try:
             lgt_estimate = self.len_w(w_iterable)
@@ -839,7 +869,11 @@ class ObjSpace(object):
             except MemoryError:
                 items = [] # it might have lied
         #
+        tp = self.type(w_iterator)
         while True:
+            unpackiterable_driver.jit_merge_point(tp=tp,
+                                                  w_iterator=w_iterator,
+                                                  items=items)
             try:
                 w_item = self.next(w_iterator)
             except OperationError, e:
@@ -1020,6 +1054,10 @@ class ObjSpace(object):
     def call_method(self, w_obj, methname, *arg_w):
         w_meth = self.getattr(w_obj, self.wrap(methname))
         return self.call_function(w_meth, *arg_w)
+
+    def raise_key_error(self, w_key):
+        e = self.call_function(self.w_KeyError, w_key)
+        raise OperationError(self.w_KeyError, e)
 
     def lookup(self, w_obj, name):
         w_type = self.type(w_obj)
@@ -1438,7 +1476,7 @@ class ObjSpace(object):
                                  self.wrap("expected a 32-bit integer"))
         return value
 
-    def truncatedint(self, w_obj):
+    def truncatedint_w(self, w_obj):
         # Like space.gateway_int_w(), but return the integer truncated
         # instead of raising OverflowError.  For obscure cases only.
         try:
@@ -1448,6 +1486,17 @@ class ObjSpace(object):
                 raise
             from pypy.rlib.rarithmetic import intmask
             return intmask(self.bigint_w(w_obj).uintmask())
+
+    def truncatedlonglong_w(self, w_obj):
+        # Like space.gateway_r_longlong_w(), but return the integer truncated
+        # instead of raising OverflowError.
+        try:
+            return self.r_longlong_w(w_obj)
+        except OperationError, e:
+            if not e.match(self, self.w_OverflowError):
+                raise
+            from pypy.rlib.rarithmetic import longlongmask
+            return longlongmask(self.bigint_w(w_obj).ulonglongmask())
 
     def c_filedescriptor_w(self, w_fd):
         # This is only used sometimes in CPython, e.g. for os.fsync() but
@@ -1652,8 +1701,6 @@ ObjSpace.ExceptionTable = [
     'UnicodeTranslateError',
     'ValueError',
     'ZeroDivisionError',
-    'UnicodeEncodeError',
-    'UnicodeDecodeError',
     ]
     
 if sys.platform.startswith("win"):

@@ -11,6 +11,7 @@ from pypy.rpython.lltypesystem.lltype import UnsignedLongLong, Char, UniChar
 from pypy.rpython.lltypesystem.lltype import pyobjectptr, ContainerType
 from pypy.rpython.lltypesystem.lltype import Struct, Array, FixedSizeArray
 from pypy.rpython.lltypesystem.lltype import ForwardReference, FuncType
+from pypy.rpython.lltypesystem.rffi import INT
 from pypy.rpython.lltypesystem.llmemory import Address
 from pypy.translator.backendopt.ssa import SSI_to_SSA
 from pypy.translator.backendopt.innerloop import find_inner_loops
@@ -214,6 +215,10 @@ class FunctionCodeGenerator(object):
             myblocknum = self.blocknum[block]
             yield ''
             yield 'block%d:' % myblocknum
+            if block in self.innerloops:
+                for line in self.gen_while_loop_hack(block):
+                    yield line
+                continue
             for i, op in enumerate(block.operations):
                 for line in self.gen_op(op):
                     yield line
@@ -236,9 +241,6 @@ class FunctionCodeGenerator(object):
                 assert len(block.exits) == 1
                 for op in self.gen_link(block.exits[0]):
                     yield op
-            elif block in self.innerloops:
-                for line in self.gen_while_loop_hack(block):
-                    yield line
             else:
                 assert block.exitswitch != c_last_exception
                 # block ending in a switch on a value
@@ -341,11 +343,11 @@ class FunctionCodeGenerator(object):
         # decision is) we produce code like this:
         #
         #             headblock:
-        #               ...headblock operations...
-        #               while (cond) {
-        #                   goto firstbodyblock;
-        #                 headblock_back:
+        #               while (1) {
         #                   ...headblock operations...
+        #                   if (!cond) break;
+        #                   goto firstbodyblock;
+        #                 headblock_back: ;
         #               }
         #
         # The real body of the loop is not syntactically within the
@@ -366,19 +368,19 @@ class FunctionCodeGenerator(object):
         i = list(headblock.exits).index(enterlink)
         exitlink = headblock.exits[1 - i]
 
+        yield 'while (1) {'
+
+        for i, op in enumerate(headblock.operations):
+            for line in self.gen_op(op):
+                yield '\t' + line
+
         expr = self.expr(headblock.exitswitch)
-        if enterlink.exitcase == False:
+        if enterlink.exitcase == True:
             expr = '!' + expr
-        yield 'while (%s) {' % expr
+        yield '\tif (%s) break;' % expr
         for op in self.gen_link(enterlink):
             yield '\t' + op
-        # the semicolon after the colon is needed in case no operation
-        # produces any code after the label
-        yield '\t  block%d_back: ;' % self.blocknum[headblock]
-        if headblock.operations:
-            for i, op in enumerate(headblock.operations):
-                for line in self.gen_op(op):
-                    yield '\t' + line
+        yield '  block%d_back: ;' % self.blocknum[headblock]
         yield '}'
         for op in self.gen_link(exitlink):
             yield op
@@ -698,29 +700,35 @@ class FunctionCodeGenerator(object):
     #address operations
     def OP_RAW_STORE(self, op):
         addr = self.expr(op.args[0])
-        TYPE = op.args[1].value
-        offset = self.expr(op.args[2])
-        value = self.expr(op.args[3])
+        offset = self.expr(op.args[1])
+        value = self.expr(op.args[2])
+        TYPE = op.args[2].concretetype
         typename = cdecl(self.db.gettype(TYPE).replace('@', '*@'), '')
-        return "((%(typename)s) %(addr)s)[%(offset)s] = %(value)s;" % locals()
+        return (
+           '((%(typename)s) (((char *)%(addr)s) + %(offset)s))[0] = %(value)s;'
+           % locals())
 
     def OP_RAW_LOAD(self, op):
         addr = self.expr(op.args[0])
-        TYPE = op.args[1].value
-        offset = self.expr(op.args[2])
+        offset = self.expr(op.args[1])
         result = self.expr(op.result)
+        TYPE = op.result.concretetype
         typename = cdecl(self.db.gettype(TYPE).replace('@', '*@'), '')
-        return "%(result)s = ((%(typename)s) %(addr)s)[%(offset)s];" % locals()
+        return (
+          "%(result)s = ((%(typename)s) (((char *)%(addr)s) + %(offset)s))[0];"
+          % locals())
 
     def OP_CAST_PRIMITIVE(self, op):
         TYPE = self.lltypemap(op.result)
         val =  self.expr(op.args[0])
+        result = self.expr(op.result)
+        if TYPE == Bool:
+            return "%(result)s = !!%(val)s;" % locals()
         ORIG = self.lltypemap(op.args[0])
         if ORIG is Char:
             val = "(unsigned char)%s" % val
         elif ORIG is UniChar:
             val = "(unsigned long)%s" % val
-        result = self.expr(op.result)
         typename = cdecl(self.db.gettype(TYPE), '')        
         return "%(result)s = (%(typename)s)(%(val)s);" % locals()
 
@@ -747,6 +755,8 @@ class FunctionCodeGenerator(object):
                 continue
             elif T == Signed:
                 format.append('%ld')
+            elif T == INT:
+                format.append('%d')
             elif T == Unsigned:
                 format.append('%lu')
             elif T == Float:

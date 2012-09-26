@@ -194,8 +194,8 @@ class StructureTestCase(unittest.TestCase):
         self.assertEqual(X.b.offset, min(8, longlong_align))
 
 
-        d = {"_fields_": [("a", "b"),
-                          ("b", "q")],
+        d = {"_fields_": [("a", c_byte),
+                          ("b", c_longlong)],
              "_pack_": -1}
         self.assertRaises(ValueError, type(Structure), "X", (Structure,), d)
 
@@ -238,6 +238,14 @@ class StructureTestCase(unittest.TestCase):
         class POINT(Structure):
             pass
         self.assertRaises(TypeError, setattr, POINT, "_fields_", [("x", 1), ("y", 2)])
+
+    def test_invalid_name(self):
+        # field name must be string
+        def declare_with_name(name):
+            class S(Structure):
+                _fields_ = [(name, c_int)]
+
+        self.assertRaises(TypeError, declare_with_name, u"x\xe9")
 
     def test_intarray_fields(self):
         class SomeInts(Structure):
@@ -324,6 +332,18 @@ class StructureTestCase(unittest.TestCase):
         else:
             self.assertEqual(msg, "(Phone) exceptions.TypeError: too many initializers")
 
+    def test_huge_field_name(self):
+        # issue12881: segfault with large structure field names
+        def create_class(length):
+            class S(Structure):
+                _fields_ = [('x' * length, c_int)]
+
+        for length in [10 ** i for i in range(0, 8)]:
+            try:
+                create_class(length)
+            except MemoryError:
+                # MemoryErrors are OK, we just don't want to segfault
+                pass
 
     def get_except(self, func, *args):
         try:

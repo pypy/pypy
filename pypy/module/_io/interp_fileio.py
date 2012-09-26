@@ -333,6 +333,8 @@ class W_FileIO(W_RawIOBase):
         try:
             n = os.write(self.fd, data)
         except OSError, e:
+            if e.errno == errno.EAGAIN:
+                return space.w_None
             raise wrap_oserror(space, e,
                                exception_name='w_IOError')
 

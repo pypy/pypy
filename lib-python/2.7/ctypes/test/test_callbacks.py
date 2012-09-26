@@ -1,5 +1,6 @@
 import unittest
 from ctypes import *
+from ctypes.test import xfail
 import _ctypes_test
 
 class Callbacks(unittest.TestCase):
@@ -98,6 +99,7 @@ class Callbacks(unittest.TestCase):
 ##        self.check_type(c_char_p, "abc")
 ##        self.check_type(c_char_p, "def")
 
+    @xfail
     def test_pyobject(self):
         o = ()
         from sys import getrefcount as grc
@@ -139,6 +141,14 @@ class Callbacks(unittest.TestCase):
         live = [x for x in gc.get_objects()
                 if isinstance(x, X)]
         self.assertEqual(len(live), 0)
+
+    def test_issue12483(self):
+        import gc
+        class Nasty:
+            def __del__(self):
+                gc.collect()
+        CFUNCTYPE(None)(lambda x=Nasty(): None)
+
 
 try:
     WINFUNCTYPE

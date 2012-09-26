@@ -198,7 +198,10 @@ class AppTestFfi:
         import nt
         r = ExpandEnvironmentStrings(u"%windir%\\test")
         assert isinstance(r, unicode)
-        assert r == nt.environ["WINDIR"] + "\\test"
+        if 'WINDIR' in nt.environ.keys():
+            assert r == nt.environ["WINDIR"] + "\\test"
+        else:
+            assert r == nt.environ["windir"] + "\\test"
 
     def test_long_key(self):
         from _winreg import (
@@ -218,7 +221,14 @@ class AppTestFfi:
 
     def test_dynamic_key(self):
         from _winreg import EnumValue, QueryValueEx, HKEY_PERFORMANCE_DATA
-        EnumValue(HKEY_PERFORMANCE_DATA, 0)
+        try:
+            EnumValue(HKEY_PERFORMANCE_DATA, 0)
+        except WindowsError, e:
+            import errno
+            if e.errno in (errno.EPERM, errno.EACCES):
+                skip("access denied to registry key "
+                     "(are you running in a non-interactive session?)")
+            raise
         QueryValueEx(HKEY_PERFORMANCE_DATA, None)
 
     def test_reflection_unsupported(self):

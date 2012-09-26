@@ -1,4 +1,4 @@
-import py
+import py, sys
 from pypy.conftest import option
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 from pypy.interpreter.gateway import interp2app
@@ -185,8 +185,49 @@ class AppTestDtypes(BaseNumpyAppTest):
 
         assert dtype("float") is dtype(float)
 
+    def test_index_int8(self):
+        from _numpypy import array, int8
 
-class AppTestTypes(BaseNumpyAppTest):    
+        a = array(range(10), dtype=int8)
+        b = array([0] * 10, dtype=int8)
+        for idx in b: a[idx] += 1
+
+    def test_index_int16(self):
+        from _numpypy import array, int16
+
+        a = array(range(10), dtype=int16)
+        b = array([0] * 10, dtype=int16)
+        for idx in b: a[idx] += 1
+
+    def test_index_int32(self):
+        from _numpypy import array, int32
+
+        a = array(range(10), dtype=int32)
+        b = array([0] * 10, dtype=int32)
+        for idx in b: a[idx] += 1
+
+    def test_index_int64(self):
+        from _numpypy import array, int64
+
+        a = array(range(10), dtype=int64)
+        b = array([0] * 10, dtype=int64)
+        for idx in b:
+            a[idx] += 1
+
+    def test_hash(self):
+        import _numpypy as numpy
+        for tp, value in [
+            (numpy.int8, 4),
+            (numpy.int16, 5),
+            (numpy.uint32, 7),
+            (numpy.int64, 3),
+            (numpy.float32, 2.0),
+            (numpy.float64, 4.32),
+        ]:
+            assert hash(tp(value)) == hash(value)
+
+
+class AppTestTypes(BaseNumpyAppTest):
     def test_abstract_types(self):
         import _numpypy as numpy
         raises(TypeError, numpy.generic, 0)
@@ -410,7 +451,7 @@ class AppTestTypes(BaseNumpyAppTest):
     def test_various_types(self):
         import _numpypy as numpy
         import sys
-        
+
         assert numpy.int16 is numpy.short
         assert numpy.int8 is numpy.byte
         assert numpy.bool_ is numpy.bool8
@@ -421,7 +462,7 @@ class AppTestTypes(BaseNumpyAppTest):
 
     def test_mro(self):
         import _numpypy as numpy
-        
+
         assert numpy.int16.__mro__ == (numpy.int16, numpy.signedinteger,
                                        numpy.integer, numpy.number,
                                        numpy.generic, object)
@@ -467,17 +508,10 @@ class AppTestTypes(BaseNumpyAppTest):
         from _numpypy import dtype
         assert dtype('i4').alignment == 4
 
-    def test_typeinfo(self):
-        from _numpypy import typeinfo, void, number, int64, bool_
-        assert typeinfo['Number'] == number
-        assert typeinfo['LONGLONG'] == ('q', 9, 64, 8, 9223372036854775807L, -9223372036854775808L, int64)
-        assert typeinfo['VOID'] == ('V', 20, 0, 1, void)
-        assert typeinfo['BOOL'] == ('?', 0, 8, 1, 1, 0, bool_)
-
 class AppTestStrUnicodeDtypes(BaseNumpyAppTest):
     def test_str_unicode(self):
         from _numpypy import str_, unicode_, character, flexible, generic
-        
+
         assert str_.mro() == [str_, str, basestring, character, flexible, generic, object]
         assert unicode_.mro() == [unicode_, unicode, basestring, character, flexible, generic, object]
 
@@ -537,19 +571,21 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
         from _numpypy import dtype
         d = dtype({'names': ['a', 'b', 'c'],
                    })
-        
+
 class AppTestNotDirect(BaseNumpyAppTest):
     def setup_class(cls):
         BaseNumpyAppTest.setup_class.im_func(cls)
         def check_non_native(w_obj, w_obj2):
-            assert w_obj.storage[0] == w_obj2.storage[1]
-            assert w_obj.storage[1] == w_obj2.storage[0]
-            if w_obj.storage[0] == '\x00':
-                assert w_obj2.storage[1] == '\x00'
-                assert w_obj2.storage[0] == '\x01'
+            stor1 = w_obj.implementation.storage
+            stor2 = w_obj2.implementation.storage
+            assert stor1[0] == stor2[1]
+            assert stor1[1] == stor2[0]
+            if stor1[0] == '\x00':
+                assert stor2[1] == '\x00'
+                assert stor2[0] == '\x01'
             else:
-                assert w_obj2.storage[1] == '\x01'
-                assert w_obj2.storage[0] == '\x00'
+                assert stor2[1] == '\x01'
+                assert stor2[0] == '\x00'
         cls.w_check_non_native = cls.space.wrap(interp2app(check_non_native))
         if option.runappdirect:
             py.test.skip("not a direct test")
@@ -561,3 +597,15 @@ class AppTestNotDirect(BaseNumpyAppTest):
         assert (a + a)[1] == 4
         self.check_non_native(a, array([1, 2, 3], 'i2'))
 
+class AppTestPyPyOnly(BaseNumpyAppTest):
+    def setup_class(cls):
+        if option.runappdirect and '__pypy__' not in sys.builtin_module_names:
+            py.test.skip("pypy only test")
+        BaseNumpyAppTest.setup_class.im_func(cls)
+
+    def test_typeinfo(self):
+        from _numpypy import typeinfo, void, number, int64, bool_
+        assert typeinfo['Number'] == number
+        assert typeinfo['LONGLONG'] == ('q', 9, 64, 8, 9223372036854775807L, -9223372036854775808L, int64)
+        assert typeinfo['VOID'] == ('V', 20, 0, 1, void)
+        assert typeinfo['BOOL'] == ('?', 0, 8, 1, 1, 0, bool_)

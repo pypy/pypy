@@ -59,7 +59,7 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
 
     @classmethod
     def ll_new(cls, init_size):
-        if init_size < 0 or init_size > MAX:
+        if init_size < 0:
             init_size = MAX
         ll_builder = lltype.malloc(cls.lowleveltype.TO)
         ll_builder.allocated = init_size

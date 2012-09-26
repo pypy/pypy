@@ -238,7 +238,7 @@ hours and uses huge amounts of RAM and is not recommended.
 To run CPython regression tests you can point to the ``lib-python``
 directory::
 
-    py.test lib-python/2.7.0/test/test_datetime.py
+    py.test lib-python/2.7/test/test_datetime.py
 
 This will usually take a long time because this will run
 the PyPy Python interpreter on top of CPython.  On the plus

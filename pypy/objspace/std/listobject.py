@@ -512,10 +512,9 @@ class RangeListStrategy(ListStrategy):
         if is_W_IntObject(w_obj):
             start, step, length = self.unerase(w_list.lstorage)
             obj = self.unwrap(w_obj)
-            i = start
             if step > 0 and start <= obj <= start + (length - 1) * step and (start - obj) % step == 0:
                 return True
-            elif step < 0 and start + (length -1) * step <= obj <= start and (start - obj) % step == 0:
+            elif step < 0 and start + (length - 1) * step <= obj <= start and (start - obj) % step == 0:
                 return True
             else:
                 return False
@@ -555,7 +554,7 @@ class RangeListStrategy(ListStrategy):
         l = self.unerase(w_list.lstorage)
         start = l[0]
         step = l[1]
-        length  = l[2]
+        length = l[2]
         if wrap_items:
             r = [None] * length
         else:
@@ -580,25 +579,11 @@ class RangeListStrategy(ListStrategy):
     _getitems_range_unroll = jit.unroll_safe(func_with_new_name(_getitems_range, "_getitems_range_unroll"))
 
     def getslice(self, w_list, start, stop, step, length):
-        v = self.unerase(w_list.lstorage)
-        old_start = v[0]
-        old_step = v[1]
-        old_length = v[2]
-
-        new_start = self._getitem_unwrapped(w_list, start)
-        new_step = old_step * step
-        return make_range_list(self.space, new_start, new_step, length)
+        self.switch_to_integer_strategy(w_list)
+        return w_list.getslice(start, stop, step, length)
 
     def append(self, w_list, w_item):
         if is_W_IntObject(w_item):
-            l = self.unerase(w_list.lstorage)
-            step = l[1]
-            last_in_range = self._getitem_unwrapped(w_list, -1)
-            if self.unwrap(w_item) - step == last_in_range:
-                new = self.erase((l[0],l[1],l[2]+1))
-                w_list.lstorage = new
-                return
-
             self.switch_to_integer_strategy(w_list)
         else:
             w_list.switch_to_object_strategy()
@@ -644,13 +629,10 @@ class RangeListStrategy(ListStrategy):
         w_list.setslice(start, step, slicelength, sequence_w)
 
     def sort(self, w_list, reverse):
-        start, step, length = self.unerase(w_list.lstorage)
+        step = self.unerase(w_list.lstorage)[1]
         if step > 0 and reverse or step < 0 and not reverse:
-            start = start + step * (length - 1)
-            step = step * (-1)
-        else:
-            return
-        w_list.lstorage = self.erase((start, step, length))
+            self.switch_to_integer_strategy(w_list)
+            w_list.sort(reverse)
 
     def insert(self, w_list, index, w_item):
         self.switch_to_integer_strategy(w_list)
@@ -661,12 +643,8 @@ class RangeListStrategy(ListStrategy):
         w_list.extend(items_w)
 
     def reverse(self, w_list):
-        v = self.unerase(w_list.lstorage)
-        last = self._getitem_unwrapped(w_list, -1)
-        length = v[2]
-        skip = v[1]
-        new = self.erase((last, -skip, length))
-        w_list.lstorage = new
+        self.switch_to_integer_strategy(w_list)
+        w_list.reverse()
 
 class AbstractUnwrappedStrategy(object):
     _mixin_ = True
@@ -715,13 +693,15 @@ class AbstractUnwrappedStrategy(object):
 
     def contains(self, w_list, w_obj):
         if self.is_correct_type(w_obj):
-            obj = self.unwrap(w_obj)
-            l = self.unerase(w_list.lstorage)
-            for i in l:
-                if i == obj:
-                    return True
-            return False
+            return self._safe_contains(w_list, self.unwrap(w_obj))
         return ListStrategy.contains(self, w_list, w_obj)
+
+    def _safe_contains(self, w_list, obj):
+        l = self.unerase(w_list.lstorage)
+        for i in l:
+            if i == obj:
+                return True
+        return False
 
     def length(self, w_list):
         return len(self.unerase(w_list.lstorage))
@@ -752,7 +732,6 @@ class AbstractUnwrappedStrategy(object):
         items = self.unerase(w_list.lstorage)[:]
         return self.erase(items)
 
-
     def getslice(self, w_list, start, stop, step, length):
         if step == 1 and 0 <= start <= stop:
             l = self.unerase(w_list.lstorage)
@@ -774,7 +753,6 @@ class AbstractUnwrappedStrategy(object):
             return W_ListObject.from_storage_and_strategy(self.space, storage, self)
 
     def append(self,  w_list, w_item):
-
         if self.is_correct_type(w_item):
             self.unerase(w_list.lstorage).append(self.unwrap(w_item))
             return
@@ -840,7 +818,7 @@ class AbstractUnwrappedStrategy(object):
                 newsize = oldsize + delta
                 # XXX support this in rlist!
                 items += [self._none_value] * delta
-                lim = start+len2
+                lim = start + len2
                 i = newsize - 1
                 while i >= lim:
                     items[i] = items[i-delta]
@@ -867,7 +845,7 @@ class AbstractUnwrappedStrategy(object):
                 # having to make a shallow copy in the case where
                 # the source and destination lists are the same list.
                 i = len2 - 1
-                start += i*step
+                start += i * step
                 while i >= 0:
                     items[start] = other_items[i]
                     start -= step
@@ -884,11 +862,11 @@ class AbstractUnwrappedStrategy(object):
 
     def deleteslice(self, w_list, start, step, slicelength):
         items = self.unerase(w_list.lstorage)
-        if slicelength==0:
+        if slicelength == 0:
             return
 
         if step < 0:
-            start = start + step * (slicelength-1)
+            start = start + step * (slicelength - 1)
             step = -step
 
         if step == 1:
@@ -900,13 +878,13 @@ class AbstractUnwrappedStrategy(object):
             i = start
 
             for discard in range(1, slicelength):
-                j = i+1
+                j = i + 1
                 i += step
                 while j < i:
                     items[j-discard] = items[j]
                     j += 1
 
-            j = i+1
+            j = i + 1
             while j < n:
                 items[j-slicelength] = items[j]
                 j += 1
@@ -1221,41 +1199,29 @@ def eq__List_List(space, w_list1, w_list2):
         i += 1
     return space.w_True
 
-def lessthan_unwrappeditems(space, w_list1, w_list2):
-    # needs to be safe against eq_w() mutating the w_lists behind our back
-    # Search for the first index where items are different
-    i = 0
-    # XXX in theory, this can be implemented more efficiently as well. let's
-    # not care for now
-    while i < w_list1.length() and i < w_list2.length():
-        w_item1 = w_list1.getitem(i)
-        w_item2 = w_list2.getitem(i)
-        if not space.eq_w(w_item1, w_item2):
-            return space.lt(w_item1, w_item2)
-        i += 1
-    # No more items to compare -- compare sizes
-    return space.newbool(w_list1.length() < w_list2.length())
+def _make_list_comparison(name):
+    import operator
+    op = getattr(operator, name)
+    def compare_unwrappeditems(space, w_list1, w_list2):
+        # needs to be safe against eq_w() mutating the w_lists behind our back
+        # Search for the first index where items are different
+        i = 0
+        # XXX in theory, this can be implemented more efficiently as well.
+        # let's not care for now
+        while i < w_list1.length() and i < w_list2.length():
+            w_item1 = w_list1.getitem(i)
+            w_item2 = w_list2.getitem(i)
+            if not space.eq_w(w_item1, w_item2):
+                return getattr(space, name)(w_item1, w_item2)
+            i += 1
+        # No more items to compare -- compare sizes
+        return space.newbool(op(w_list1.length(), w_list2.length()))
+    return func_with_new_name(compare_unwrappeditems, name + '__List_List')
 
-def greaterthan_unwrappeditems(space, w_list1, w_list2):
-    # needs to be safe against eq_w() mutating the w_lists behind our back
-    # Search for the first index where items are different
-    i = 0
-    # XXX in theory, this can be implemented more efficiently as well. let's
-    # not care for now
-    while i < w_list1.length() and i < w_list2.length():
-        w_item1 = w_list1.getitem(i)
-        w_item2 = w_list2.getitem(i)
-        if not space.eq_w(w_item1, w_item2):
-            return space.gt(w_item1, w_item2)
-        i += 1
-    # No more items to compare -- compare sizes
-    return space.newbool(w_list1.length() > w_list2.length())
-
-def lt__List_List(space, w_list1, w_list2):
-    return lessthan_unwrappeditems(space, w_list1, w_list2)
-
-def gt__List_List(space, w_list1, w_list2):
-    return greaterthan_unwrappeditems(space, w_list1, w_list2)
+lt__List_List = _make_list_comparison('lt')
+le__List_List = _make_list_comparison('le')
+gt__List_List = _make_list_comparison('gt')
+ge__List_List = _make_list_comparison('ge')
 
 def delitem__List_ANY(space, w_list, w_idx):
     idx = get_list_index(space, w_idx)

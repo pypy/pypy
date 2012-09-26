@@ -8,18 +8,22 @@ from pypy.objspace.std.unicodetype import unicode_typedef, unicode_from_object
 from pypy.objspace.std.inttype import int_typedef
 from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.tool.sourcetools import func_with_new_name
+from pypy.module.micronumpy.arrayimpl.voidbox import VoidBoxStorage
 
 MIXIN_32 = (int_typedef,) if LONG_BIT == 32 else ()
 MIXIN_64 = (int_typedef,) if LONG_BIT == 64 else ()
+
 
 def new_dtype_getter(name):
     def _get_dtype(space):
         from pypy.module.micronumpy.interp_dtype import get_dtype_cache
         return getattr(get_dtype_cache(space), "w_%sdtype" % name)
+
     def new(space, w_subtype, w_value):
         dtype = _get_dtype(space)
         return dtype.itemtype.coerce_subtype(space, w_subtype, w_value)
     return func_with_new_name(new, name + "_box_new"), staticmethod(_get_dtype)
+
 
 class PrimitiveBox(object):
     _mixin_ = True
@@ -71,7 +75,7 @@ class W_GenericBox(Wrappable):
     def _binop_right_impl(ufunc_name):
         def impl(self, space, w_other, w_out=None):
             from pypy.module.micronumpy import interp_ufuncs
-            return getattr(interp_ufuncs.get(space), ufunc_name).call(space, 
+            return getattr(interp_ufuncs.get(space), ufunc_name).call(space,
                                                             [w_other, self, w_out])
         return func_with_new_name(impl, "binop_right_%s_impl" % ufunc_name)
 
@@ -132,9 +136,11 @@ class W_GenericBox(Wrappable):
         w_remainder = self.descr_rmod(space, w_other)
         return space.newtuple([w_quotient, w_remainder])
 
+    def descr_hash(self, space):
+        return space.hash(self.item(space))
+
     def item(self, space):
         return self.get_dtype(space).itemtype.to_builtin_type(space, self)
-
 
 class W_BoolBox(W_GenericBox, PrimitiveBox):
     descr__new__, _get_dtype = new_dtype_getter("bool")
@@ -222,7 +228,7 @@ class W_VoidBox(W_FlexibleBox):
         except KeyError:
             raise OperationError(space.w_IndexError,
                                  space.wrap("Field %s does not exist" % item))
-        return dtype.itemtype.read(self.arr, 1, self.ofs, ofs, dtype)
+        return dtype.itemtype.read(self.arr, self.ofs, ofs, dtype)
 
     @unwrap_spec(item=str)
     def descr_setitem(self, space, item, w_value):
@@ -231,7 +237,7 @@ class W_VoidBox(W_FlexibleBox):
         except KeyError:
             raise OperationError(space.w_IndexError,
                                  space.wrap("Field %s does not exist" % item))
-        dtype.itemtype.store(self.arr, 1, self.ofs, ofs,
+        dtype.itemtype.store(self.arr, self.ofs, ofs,
                              dtype.coerce(space, w_value))
 
 class W_CharacterBox(W_FlexibleBox):
@@ -239,11 +245,10 @@ class W_CharacterBox(W_FlexibleBox):
 
 class W_StringBox(W_CharacterBox):
     def descr__new__string_box(space, w_subtype, w_arg):
-        from pypy.module.micronumpy.interp_numarray import W_NDimArray
         from pypy.module.micronumpy.interp_dtype import new_string_dtype
 
         arg = space.str_w(space.str(w_arg))
-        arr = W_NDimArray([1], new_string_dtype(space, len(arg)))
+        arr = VoidBoxStorage(len(arg), new_string_dtype(space, len(arg)))
         for i in range(len(arg)):
             arr.storage[i] = arg[i]
         return W_StringBox(arr, 0, arr.dtype)
@@ -251,11 +256,11 @@ class W_StringBox(W_CharacterBox):
 
 class W_UnicodeBox(W_CharacterBox):
     def descr__new__unicode_box(space, w_subtype, w_arg):
-        from pypy.module.micronumpy.interp_numarray import W_NDimArray
         from pypy.module.micronumpy.interp_dtype import new_unicode_dtype
 
         arg = space.unicode_w(unicode_from_object(space, w_arg))
-        arr = W_NDimArray([1], new_unicode_dtype(space, len(arg)))
+        # XXX size computations, we need tests anyway
+        arr = VoidBoxStorage(len(arg), new_unicode_dtype(space, len(arg)))
         # XXX not this way, we need store
         #for i in range(len(arg)):
         #    arr.storage[i] = arg[i]
@@ -314,6 +319,8 @@ W_GenericBox.typedef = TypeDef("generic",
     __neg__ = interp2app(W_GenericBox.descr_neg),
     __abs__ = interp2app(W_GenericBox.descr_abs),
     __invert__ = interp2app(W_GenericBox.descr_invert),
+
+    __hash__ = interp2app(W_GenericBox.descr_hash),
 
     tolist = interp2app(W_GenericBox.item),
 )
@@ -440,4 +447,4 @@ W_UnicodeBox.typedef = TypeDef("unicode_", (unicode_typedef, W_CharacterBox.type
     __module__ = "numpypy",
     __new__ = interp2app(W_UnicodeBox.descr__new__unicode_box.im_func),
 )
-                                          
+

@@ -194,8 +194,11 @@ class ImpImporter:
 
         yielded = {}
         import inspect
-
-        filenames = os.listdir(self.path)
+        try:
+            filenames = os.listdir(self.path)
+        except OSError:
+            # ignore unreadable directories like import does
+            filenames = []
         filenames.sort()  # handle packages before same-named modules
 
         for fn in filenames:
@@ -208,7 +211,12 @@ class ImpImporter:
 
             if not modname and os.path.isdir(path) and '.' not in fn:
                 modname = fn
-                for fn in os.listdir(path):
+                try:
+                    dircontents = os.listdir(path)
+                except OSError:
+                    # ignore unreadable directories like import does
+                    dircontents = []
+                for fn in dircontents:
                     subname = inspect.getmodulename(fn)
                     if subname=='__init__':
                         ispkg = True
@@ -244,7 +252,8 @@ class ImpLoader:
         return mod
 
     def get_data(self, pathname):
-        return open(pathname, "rb").read()
+        with open(pathname, "rb") as f:
+            return f.read()
 
     def _reopen(self):
         if self.file and self.file.closed:

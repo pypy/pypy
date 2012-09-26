@@ -7,6 +7,7 @@ import os as _os, sys as _sys
 
 __version__ = "1.1.0"
 
+import _ffi
 from _ctypes import Union, Structure, Array
 from _ctypes import _Pointer
 from _ctypes import CFuncPtr as _CFuncPtr
@@ -262,6 +263,22 @@ class c_bool(_SimpleCData):
 
 from _ctypes import POINTER, pointer, _pointer_type_cache
 
+def _reset_cache():
+    _pointer_type_cache.clear()
+    _c_functype_cache.clear()
+    if _os.name in ("nt", "ce"):
+        _win_functype_cache.clear()
+    # _SimpleCData.c_wchar_p_from_param
+    POINTER(c_wchar).from_param = c_wchar_p.from_param
+    # _SimpleCData.c_char_p_from_param
+    POINTER(c_char).from_param = c_char_p.from_param
+    _pointer_type_cache[None] = c_void_p
+    # XXX for whatever reasons, creating the first instance of a callback
+    # function is needed for the unittests on Win64 to succeed.  This MAY
+    # be a compiler bug, since the problem occurs only when _ctypes is
+    # compiled with the MS SDK compiler.  Or an uninitialized variable?
+    CFUNCTYPE(c_int)(lambda: None)
+
 try:
     from _ctypes import set_conversion_mode
 except ImportError:
@@ -277,8 +294,6 @@ else:
 
     class c_wchar(_SimpleCData):
         _type_ = "u"
-
-    POINTER(c_wchar).from_param = c_wchar_p.from_param #_SimpleCData.c_wchar_p_from_param
 
     def create_unicode_buffer(init, size=None):
         """create_unicode_buffer(aString) -> character array
@@ -297,8 +312,6 @@ else:
             buf = buftype()
             return buf
         raise TypeError(init)
-
-POINTER(c_char).from_param = c_char_p.from_param #_SimpleCData.c_char_p_from_param
 
 # XXX Deprecated
 def SetPointerType(pointer, cls):
@@ -350,15 +363,19 @@ class CDLL(object):
         self._FuncPtr = _FuncPtr
 
         if handle is None:
-            self._handle = _dlopen(self._name, mode)
+            if flags & _FUNCFLAG_CDECL:
+                self._handle = _ffi.CDLL(name, mode)
+            else:
+                self._handle = _ffi.WinDLL(name, mode)
         else:
             self._handle = handle
 
     def __repr__(self):
-        return "<%s '%s', handle %x at %x>" % \
+        return "<%s '%s', handle %r at %x>" % \
                (self.__class__.__name__, self._name,
-                (self._handle & (_sys.maxint*2 + 1)),
+                (self._handle),
                 id(self) & (_sys.maxint*2 + 1))
+
 
     def __getattr__(self, name):
         if name.startswith('__') and name.endswith('__'):
@@ -458,8 +475,6 @@ if _os.name in ("nt", "ce"):
             descr = FormatError(code).strip()
         return WindowsError(code, descr)
 
-_pointer_type_cache[None] = c_void_p
-
 if sizeof(c_uint) == sizeof(c_void_p):
     c_size_t = c_uint
     c_ssize_t = c_int
@@ -487,9 +502,12 @@ def PYFUNCTYPE(restype, *argtypes):
         _flags_ = _FUNCFLAG_CDECL | _FUNCFLAG_PYTHONAPI
     return CFunctionType
 
-_cast = PYFUNCTYPE(py_object, c_void_p, py_object, py_object)(_cast_addr)
 def cast(obj, typ):
-    return _cast(obj, obj, typ)
+    try:
+        c_void_p.from_param(obj)
+    except TypeError, e:
+        raise ArgumentError(str(e))
+    return _cast_addr(obj, obj, typ)
 
 _string_at = PYFUNCTYPE(py_object, c_void_p, c_int)(_string_at_addr)
 def string_at(ptr, size=-1):
@@ -542,8 +560,4 @@ for kind in [c_ushort, c_uint, c_ulong, c_ulonglong]:
     elif sizeof(kind) == 8: c_uint64 = kind
 del(kind)
 
-# XXX for whatever reasons, creating the first instance of a callback
-# function is needed for the unittests on Win64 to succeed.  This MAY
-# be a compiler bug, since the problem occurs only when _ctypes is
-# compiled with the MS SDK compiler.  Or an uninitialized variable?
-CFUNCTYPE(c_int)(lambda: None)
+_reset_cache()

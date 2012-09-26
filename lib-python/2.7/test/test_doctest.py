@@ -258,6 +258,21 @@ unless it's `None`:
     >>> e = doctest.Example('raise X()', '', exc_msg)
     >>> e.exc_msg
     '\n'
+
+Compare `Example`:
+    >>> example = doctest.Example('print 1', '1\n')
+    >>> same_example = doctest.Example('print 1', '1\n')
+    >>> other_example = doctest.Example('print 42', '42\n')
+    >>> example == same_example
+    True
+    >>> example != same_example
+    False
+    >>> hash(example) == hash(same_example)
+    True
+    >>> example == other_example
+    False
+    >>> example != other_example
+    True
 """
 
 def test_DocTest(): r"""
@@ -346,6 +361,50 @@ will raise a ValueError:
     >>> parser.get_doctest(docstring, globs, 'some_test', 'filename', 0)
     Traceback (most recent call last):
     ValueError: line 2 of the docstring for some_test lacks blank after ...: '...print 1'
+
+Compare `DocTest`:
+
+    >>> docstring = '''
+    ...     >>> print 12
+    ...     12
+    ... '''
+    >>> test = parser.get_doctest(docstring, globs, 'some_test',
+    ...                           'some_test', 20)
+    >>> same_test = parser.get_doctest(docstring, globs, 'some_test',
+    ...                                'some_test', 20)
+    >>> test == same_test
+    True
+    >>> test != same_test
+    False
+    >>> hash(test) == hash(same_test)
+    True
+    >>> docstring = '''
+    ...     >>> print 42
+    ...     42
+    ... '''
+    >>> other_test = parser.get_doctest(docstring, globs, 'other_test',
+    ...                                 'other_file', 10)
+    >>> test == other_test
+    False
+    >>> test != other_test
+    True
+
+Compare `DocTestCase`:
+
+    >>> DocTestCase = doctest.DocTestCase
+    >>> test_case = DocTestCase(test)
+    >>> same_test_case = DocTestCase(same_test)
+    >>> other_test_case = DocTestCase(other_test)
+    >>> test_case == same_test_case
+    True
+    >>> test_case != same_test_case
+    False
+    >>> hash(test_case) == hash(same_test_case)
+    True
+    >>> test == other_test_case
+    False
+    >>> test != other_test_case
+    True
 
 """
 
@@ -782,7 +841,7 @@ replaced with any other string:
     ...     >>> x = 12
     ...     >>> print x//0
     ...     Traceback (most recent call last):
-    ...     ZeroDivisionError: integer division or modulo by zero
+    ...     ZeroDivisionError: integer division by zero
     ...     '''
     >>> test = doctest.DocTestFinder().find(f)[0]
     >>> doctest.DocTestRunner(verbose=False).run(test)
@@ -799,7 +858,7 @@ unexpected exception:
     ...     >>> print 'pre-exception output', x//0
     ...     pre-exception output
     ...     Traceback (most recent call last):
-    ...     ZeroDivisionError: integer division or modulo by zero
+    ...     ZeroDivisionError: integer division by zero
     ...     '''
     >>> test = doctest.DocTestFinder().find(f)[0]
     >>> doctest.DocTestRunner(verbose=False).run(test)
@@ -810,7 +869,7 @@ unexpected exception:
         print 'pre-exception output', x//0
     Exception raised:
         ...
-        ZeroDivisionError: integer division or modulo by zero
+        ZeroDivisionError: integer division by zero
     TestResults(failed=1, attempted=2)
 
 Exception messages may contain newlines:
@@ -978,7 +1037,7 @@ unexpected exception:
     Exception raised:
         Traceback (most recent call last):
         ...
-        ZeroDivisionError: integer division or modulo by zero
+        ZeroDivisionError: integer division by zero
     TestResults(failed=1, attempted=1)
 """
     def displayhook(): r"""
@@ -1924,7 +1983,7 @@ def test_pdb_set_trace_nested():
     > <doctest foo-bär@baz[1]>(1)<module>()
     -> calls_set_trace()
     (Pdb) print foo
-    *** NameError: name 'foo' is not defined
+    *** NameError: global name 'foo' is not defined
     (Pdb) continue
     TestResults(failed=0, attempted=2)
 """
@@ -2229,7 +2288,7 @@ def test_unittest_reportflags():
           favorite_color
       Exception raised:
           ...
-          NameError: name 'favorite_color' is not defined
+          NameError: global name 'favorite_color' is not defined
       <BLANKLINE>
       <BLANKLINE>
 
@@ -2289,7 +2348,7 @@ We don't want `-v` in sys.argv for these tests.
         favorite_color
     Exception raised:
         ...
-        NameError: name 'favorite_color' is not defined
+        NameError: global name 'favorite_color' is not defined
     **********************************************************************
     1 items had failures:
        1 of   2 in test_doctest.txt
@@ -2382,7 +2441,7 @@ parameter:
         favorite_color
     Exception raised:
         ...
-        NameError: name 'favorite_color' is not defined
+        NameError: global name 'favorite_color' is not defined
     TestResults(failed=1, attempted=2)
     >>> doctest.master = None  # Reset master.
 

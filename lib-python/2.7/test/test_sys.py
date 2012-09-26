@@ -224,6 +224,18 @@ class SysModuleTest(unittest.TestCase):
         self.assertEqual(sys.getrecursionlimit(), 10000)
         sys.setrecursionlimit(oldlimit)
 
+        self.assertRaises(OverflowError, sys.setrecursionlimit, 1 << 31)
+        try:
+            sys.setrecursionlimit((1 << 31) - 5)
+            try:
+                # issue13546: isinstance(e, ValueError) used to fail
+                # when the recursion limit is close to 1<<31
+                raise ValueError()
+            except ValueError, e:
+                pass
+        finally:
+            sys.setrecursionlimit(oldlimit)
+
     def test_getwindowsversion(self):
         # Raise SkipTest if sys doesn't have getwindowsversion attribute
         test.test_support.get_attribute(sys, "getwindowsversion")
@@ -264,6 +276,7 @@ class SysModuleTest(unittest.TestCase):
             self.assertEqual(sys.getdlopenflags(), oldflags+1)
             sys.setdlopenflags(oldflags)
 
+    @test.test_support.impl_detail("reference counting")
     def test_refcount(self):
         # n here must be a global in order for this test to pass while
         # tracing with a python function.  Tracing calls PyFrame_FastToLocals
@@ -287,7 +300,7 @@ class SysModuleTest(unittest.TestCase):
             is sys._getframe().f_code
         )
 
-    # sys._current_frames() is a CPython-only gimmick.
+    @test.test_support.impl_detail("current_frames")
     def test_current_frames(self):
         have_threads = True
         try:
@@ -383,7 +396,10 @@ class SysModuleTest(unittest.TestCase):
         self.assertEqual(len(sys.float_info), 11)
         self.assertEqual(sys.float_info.radix, 2)
         self.assertEqual(len(sys.long_info), 2)
-        self.assertTrue(sys.long_info.bits_per_digit % 5 == 0)
+        if test.test_support.check_impl_detail(cpython=True):
+            self.assertTrue(sys.long_info.bits_per_digit % 5 == 0)
+        else:
+            self.assertTrue(sys.long_info.bits_per_digit >= 1)
         self.assertTrue(sys.long_info.sizeof_digit >= 1)
         self.assertEqual(type(sys.long_info.bits_per_digit), int)
         self.assertEqual(type(sys.long_info.sizeof_digit), int)
@@ -426,12 +442,13 @@ class SysModuleTest(unittest.TestCase):
         attrs = ("debug", "py3k_warning", "division_warning", "division_new",
                  "inspect", "interactive", "optimize", "dont_write_bytecode",
                  "no_site", "ignore_environment", "tabcheck", "verbose",
-                 "unicode", "bytes_warning")
+                 "unicode", "bytes_warning", "hash_randomization")
         for attr in attrs:
             self.assertTrue(hasattr(sys.flags, attr), attr)
             self.assertEqual(type(getattr(sys.flags, attr)), int, attr)
         self.assertTrue(repr(sys.flags))
 
+    @test.test_support.impl_detail("sys._clear_type_cache")
     def test_clear_type_cache(self):
         sys._clear_type_cache()
 
@@ -459,6 +476,9 @@ class SysModuleTest(unittest.TestCase):
         self.assertRaises(TypeError, sys.call_tracing, str, 2)
 
     def test_executable(self):
+        # sys.executable should be absolute
+        self.assertEqual(os.path.abspath(sys.executable), sys.executable)
+
         # Issue #7774: Ensure that sys.executable is an empty string if argv[0]
         # has been set to an non existent program name and Python is unable to
         # retrieve the real program name
@@ -473,6 +493,7 @@ class SysModuleTest(unittest.TestCase):
         p.wait()
         self.assertIn(executable, ["''", repr(sys.executable)])
 
+@unittest.skipUnless(test.test_support.check_impl_detail(), "sys.getsizeof()")
 class SizeofTest(unittest.TestCase):
 
     TPFLAGS_HAVE_GC = 1<<14

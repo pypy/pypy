@@ -1,5 +1,6 @@
 from pypy.rlib import jit
 from pypy.interpreter.error import OperationError
+from pypy.module.micronumpy.base import W_NDimArray
 
 @jit.look_inside_iff(lambda chunks: jit.isconstant(len(chunks)))
 def enumerate_chunks(chunks):
@@ -50,7 +51,9 @@ def calculate_broadcast_strides(strides, backstrides, orig_shape, res_shape):
 def is_single_elem(space, w_elem, is_rec_type):
     if (is_rec_type and space.isinstance_w(w_elem, space.w_tuple)):
         return True
-    if space.issequence_w(w_elem):
+    if (space.isinstance_w(w_elem, space.w_tuple) or
+        isinstance(w_elem, W_NDimArray) or    
+        space.isinstance_w(w_elem, space.w_list)):
         return False
     return True
 
@@ -101,11 +104,22 @@ def to_coords(space, shape, size, order, w_item_or_slice):
             i //= shape[s]
     return coords, step, lngth
 
-def shape_agreement(space, shape1, shape2):
+def shape_agreement(space, shape1, w_arr2, broadcast_down=True):
+    if w_arr2 is None:
+        return shape1
+    assert isinstance(w_arr2, W_NDimArray)
+    shape2 = w_arr2.get_shape()
     ret = _shape_agreement(shape1, shape2)
     if len(ret) < max(len(shape1), len(shape2)):
         raise OperationError(space.w_ValueError,
             space.wrap("operands could not be broadcast together with shapes (%s) (%s)" % (
+                ",".join([str(x) for x in shape1]),
+                ",".join([str(x) for x in shape2]),
+            ))
+        )
+    if not broadcast_down and len([x for x in ret if x != 1]) > len([x for x in shape2 if x != 1]):
+        raise OperationError(space.w_ValueError,
+            space.wrap("unbroadcastable shape (%s) cannot be broadcasted to (%s)" % (
                 ",".join([str(x) for x in shape1]),
                 ",".join([str(x) for x in shape2]),
             ))
@@ -162,12 +176,6 @@ def get_shape_from_iterable(space, old_size, w_iterable):
         neg_dim = -1
         batch = space.listview(w_iterable)
         new_size = 1
-        if len(batch) < 1:
-            if old_size == 1:
-                # Scalars can have an empty size.
-                new_size = 1
-            else:
-                new_size = 0
         new_shape = []
         i = 0
         for elem in batch:

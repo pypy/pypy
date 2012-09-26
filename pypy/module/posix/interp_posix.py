@@ -1,5 +1,5 @@
 from pypy.interpreter.gateway import unwrap_spec, NoneNotWrapped
-from pypy.rlib import rposix, objectmodel
+from pypy.rlib import rposix, objectmodel, rurandom
 from pypy.rlib.objectmodel import specialize
 from pypy.rlib.rarithmetic import r_longlong
 from pypy.rlib.unroll import unrolling_iterable
@@ -13,8 +13,11 @@ from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.module.sys.interp_encoding import getfilesystemencoding
 
 import os, sys
-_WIN = sys.platform == 'win32'
 
+_WIN32 = sys.platform == 'win32'
+if _WIN32:
+    from pypy.rlib.rwin32 import _MAX_ENV
+    
 c_int = "c_int"
 
 # CPython 2.7 semantics are too messy to follow exactly,
@@ -418,7 +421,7 @@ def getcwd(space):
     else:
         return space.wrap(cur)
 
-if sys.platform == 'win32':
+if _WIN32:
     def getcwdu(space):
         """Return the current working directory as a unicode string."""
         try:
@@ -491,17 +494,15 @@ class State:
     def __init__(self, space):
         self.space = space
         self.w_environ = space.newdict()
-        if _WIN:
-            self.cryptProviderPtr = lltype.malloc(
-                rffi.CArray(HCRYPTPROV), 1, zero=True,
-                flavor='raw', immortal=True)
+        self.random_context = rurandom.init_urandom()
     def startup(self, space):
         _convertenviron(space, self.w_environ)
     def _freeze_(self):
         # don't capture the environment in the translated pypy
         self.space.call_method(self.w_environ, 'clear')
-        if _WIN:
-            self.cryptProviderPtr[0] = HCRYPTPROV._default
+        # also reset random_context to a fresh new context (empty so far,
+        # to be filled at run-time by rurandom.urandom())
+        self.random_context = rurandom.init_urandom()
         return True
 
 def get(space):
@@ -515,6 +516,9 @@ def _convertenviron(space, w_env):
 @unwrap_spec(name='str0', value='str0')
 def putenv(space, name, value):
     """Change or add an environment variable."""
+    if _WIN32 and len(name) > _MAX_ENV:
+        raise OperationError(space.w_ValueError, space.wrap(
+                "the environment variable is longer than %d bytes" % _MAX_ENV))
     try:
         os.environ[name] = value
     except OSError, e:
@@ -623,7 +627,7 @@ def getpid(space):
 def kill(space, pid, sig):
     "Kill a process with a signal."
     try:
-        os.kill(pid, sig)
+        rposix.os_kill(pid, sig)
     except OSError, e:
         raise wrap_oserror(space, e)
 
@@ -639,7 +643,7 @@ def abort(space):
     """Abort the interpreter immediately.  This 'dumps core' or otherwise fails
 in the hardest way possible on the hosting operating system."""
     import signal
-    os.kill(os.getpid(), signal.SIGABRT)
+    rposix.os_kill(os.getpid(), signal.SIGABRT)
 
 @unwrap_spec(src='str0', dst='str0')
 def link(space, src, dst):
@@ -749,22 +753,7 @@ Execute an executable path with arguments, replacing current process.
         path: path of executable file
         args: iterable of strings
     """
-    command = fsencode_w(space, w_command)
-    try:
-        args_w = space.unpackiterable(w_args)
-        if len(args_w) < 1:
-            w_msg = space.wrap("execv() must have at least one argument")
-            raise OperationError(space.w_ValueError, w_msg)
-        args = [fsencode_w(space, w_arg) for w_arg in args_w]
-    except OperationError, e:
-        if not e.match(space, space.w_TypeError):
-            raise
-        msg = "execv() arg 2 must be an iterable of strings"
-        raise OperationError(space.w_TypeError, space.wrap(str(msg)))
-    try:
-        os.execv(command, args)
-    except OSError, e:
-        raise wrap_oserror(space, e)
+    execve(space, w_command, w_args, None)
 
 def _env2interp(space, w_env):
     env = {}
@@ -784,12 +773,29 @@ Execute a path with arguments and environment, replacing current process.
         env: dictionary of strings mapping to strings
     """
     command = fsencode_w(space, w_command)
-    args = [fsencode_w(space, w_arg) for w_arg in space.unpackiterable(w_args)]
-    env = _env2interp(space, w_env)
     try:
-        os.execve(command, args, env)
-    except OSError, e:
-        raise wrap_oserror(space, e)
+        args_w = space.unpackiterable(w_args)
+        if len(args_w) < 1:
+            w_msg = space.wrap("execv() must have at least one argument")
+            raise OperationError(space.w_ValueError, w_msg)
+        args = [fsencode_w(space, w_arg) for w_arg in args_w]
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        msg = "execv() arg 2 must be an iterable of strings"
+        raise OperationError(space.w_TypeError, space.wrap(str(msg)))
+    #
+    if w_env is None:    # when called via execv() above
+        try:
+            os.execv(command, args)
+        except OSError, e:
+            raise wrap_oserror(space, e)
+    else:
+        env = _env2interp(space, w_env)
+        try:
+            os.execve(command, args, env)
+        except OSError, e:
+            raise wrap_oserror(space, e)
 
 @unwrap_spec(mode=int, path='str0')
 def spawnv(space, mode, path, w_args):
@@ -1163,72 +1169,14 @@ def nice(space, inc):
         raise wrap_oserror(space, e)
     return space.wrap(res)
 
-if _WIN:
-    from pypy.rlib import rwin32
+@unwrap_spec(n=int)
+def urandom(space, n):
+    """urandom(n) -> str
 
-    eci = ExternalCompilationInfo(
-        includes = ['windows.h', 'wincrypt.h'],
-        libraries = ['advapi32'],
-        )
-
-    class CConfig:
-        _compilation_info_ = eci
-        PROV_RSA_FULL = rffi_platform.ConstantInteger(
-            "PROV_RSA_FULL")
-        CRYPT_VERIFYCONTEXT = rffi_platform.ConstantInteger(
-            "CRYPT_VERIFYCONTEXT")
-
-    globals().update(rffi_platform.configure(CConfig))
-
-    HCRYPTPROV = rwin32.ULONG_PTR
-
-    CryptAcquireContext = rffi.llexternal(
-        'CryptAcquireContextA',
-        [rffi.CArrayPtr(HCRYPTPROV),
-         rwin32.LPCSTR, rwin32.LPCSTR, rwin32.DWORD, rwin32.DWORD],
-        rwin32.BOOL,
-        calling_conv='win',
-        compilation_info=eci)
-
-    CryptGenRandom = rffi.llexternal(
-        'CryptGenRandom',
-        [HCRYPTPROV, rwin32.DWORD, rffi.CArrayPtr(rwin32.BYTE)],
-        rwin32.BOOL,
-        calling_conv='win',
-        compilation_info=eci)
-
-    @unwrap_spec(n=int)
-    def win32_urandom(space, n):
-        """urandom(n) -> str
-
-        Return a string of n random bytes suitable for cryptographic use.
-        """
-
-        if n < 0:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("negative argument not allowed"))
-
-        provider = get(space).cryptProviderPtr[0]
-        if not provider:
-            # Acquire context.
-            # This handle is never explicitly released. The operating
-            # system will release it when the process terminates.
-            if not CryptAcquireContext(
-                get(space).cryptProviderPtr, None, None,
-                PROV_RSA_FULL, CRYPT_VERIFYCONTEXT):
-                raise rwin32.lastWindowsError("CryptAcquireContext")
-
-            provider = get(space).cryptProviderPtr[0]
-
-        # Get random data
-        buf = lltype.malloc(rffi.CArray(rwin32.BYTE), n,
-                            zero=True, # zero seed
-                            flavor='raw')
-        try:
-            if not CryptGenRandom(provider, n, buf):
-                raise rwin32.lastWindowsError("CryptGenRandom")
-
-            return space.wrap(
-                rffi.charpsize2str(rffi.cast(rffi.CCHARP, buf), n))
-        finally:
-            lltype.free(buf, flavor='raw')
+    Return a string of n random bytes suitable for cryptographic use.
+    """
+    context = get(space).random_context
+    try:
+        return space.wrap(rurandom.urandom(context, n))
+    except OSError, e:
+        raise wrap_oserror(space, e)

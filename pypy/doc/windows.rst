@@ -24,7 +24,8 @@ was used to build the Python interpreter doing the
 translation.  Failing that, they will pick the most recent Visual Studio
 compiler they can find.  In addition, the target architecture
 (32 bits, 64 bits) is automatically selected.  A 32 bit build can only be built
-using a 32 bit Python and vice versa.
+using a 32 bit Python and vice versa. By default pypy is built using the 
+Multi-threaded DLL (/MD) runtime environment.
 
 **Note:** PyPy is currently not supported for 64 bit Windows, and translation
 will fail in this case.
@@ -102,10 +103,12 @@ The expat XML parser
 
 Download the source code of expat on sourceforge:
 http://sourceforge.net/projects/expat/ and extract it in the base
-directory.  Then open the project file ``expat.dsw`` with Visual
+directory.  Version 2.1.0 is known to pass tests. Then open the project 
+file ``expat.dsw`` with Visual
 Studio; follow the instruction for converting the project files,
-switch to the "Release" configuration, and build the solution (the
-``expat`` project is actually enough for pypy).
+switch to the "Release" configuration, reconfigure the runtime for 
+Multi-threaded DLL (/MD) and build the solution (the ``expat`` project 
+is actually enough for pypy).
 
 Then, copy the file ``win32\bin\release\libexpat.dll`` somewhere in
 your PATH.
@@ -131,6 +134,10 @@ You can compile pypy with the mingw compiler, using the --cc=mingw32 option;
 gcc.exe must be on the PATH. If the -cc flag does not begin with "ming", it should be
 the name of a valid gcc-derivative compiler, i.e. x86_64-w64-mingw32-gcc for the 64 bit
 compiler creating a 64 bit target.
+
+You probably want to set the CPATH, LIBRARY_PATH, and PATH environment variable to
+the header files, lib or dlls, and dlls respectively of the locally installed packages 
+if they are not in the mingw directory heirarchy. 
 
 libffi for the mingw compiler
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -172,7 +179,7 @@ hacking on Pypy with the mingw compiler
 Since hacking on Pypy means running tests, you will need a way to specify
 the mingw compiler when hacking (as opposed to translating). As of
 March 2012, --cc is not a valid option for pytest.py. However if you set an
-environment variable CC it will allow you to choose a compiler.
+environment variable CC to the compliter exe, testing will use it.
 
 .. _'mingw32 build': http://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win32/Automated%20Builds
 .. _`mingw64 build`: http://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win64/Automated%20Builds

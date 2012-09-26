@@ -255,7 +255,12 @@ We are using
   code if the translator can prove that they are non-negative.  When
   slicing a string it is necessary to prove that the slice start and
   stop indexes are non-negative. There is no implicit str-to-unicode cast
-  anywhere.
+  anywhere. Simple string formatting using the ``%`` operator works, as long
+  as the format string is known at translation time; the only supported
+  formatting specifiers are ``%s``, ``%d``, ``%x``, ``%o``, ``%f``, plus
+  ``%r`` but only for user-defined instances. Modifiers such as conversion
+  flags, precision, length etc. are not supported. Moreover, it is forbidden
+  to mix unicode and strings when formatting.
 
 **tuples**
 
@@ -341,8 +346,8 @@ We are using
 
 **objects**
 
-  Normal rules apply. Special methods are not honoured, except ``__init__`` and
-  ``__del__``.
+  Normal rules apply. Special methods are not honoured, except ``__init__``,
+  ``__del__`` and ``__iter__``.
 
 This layout makes the number of types to take care about quite limited.
 
@@ -581,7 +586,7 @@ Modules in PyPy
 
 Modules visible from application programs are imported from
 interpreter or application level files.  PyPy reuses almost all python
-modules of CPython's standard library, currently from version 2.7.1.  We
+modules of CPython's standard library, currently from version 2.7.3.  We
 sometimes need to `modify modules`_ and - more often - regression tests
 because they rely on implementation details of CPython.
 
@@ -610,10 +615,6 @@ here are examples for the possible locations::
     >>>> cPickle.__file__
     '/home/hpk/pypy-dist/lib_pypy/cPickle..py'
 
-    >>>> import opcode
-    >>>> opcode.__file__
-    '/home/hpk/pypy-dist/lib-python/modified-2.7/opcode.py'
-
     >>>> import os
     >>>> os.__file__
     '/home/hpk/pypy-dist/lib-python/2.7/os.py'
@@ -639,13 +640,9 @@ Here is the order in which PyPy looks up Python modules:
 
     contains pure Python reimplementation of modules.
 
-*lib-python/modified-2.7/*
-
-    The files and tests that we have modified from the CPython library.
-
 *lib-python/2.7/*
 
-    The unmodified CPython library. **Never ever check anything in there**.
+    The modified CPython library.
 
 .. _`modify modules`:
 
@@ -658,16 +655,9 @@ often due to the fact that PyPy works with all new-style classes
 by default and CPython has a number of places where it relies
 on some classes being old-style.
 
-If you want to change a module or test contained in ``lib-python/2.7``
-then make sure that you copy the file to our ``lib-python/modified-2.7``
-directory first.  In mercurial commandline terms this reads::
-
-    $ hg cp lib-python/2.7/somemodule.py lib-python/modified-2.7/
-
-and subsequently you edit and commit
-``lib-python/modified-2.7/somemodule.py``.  This copying operation is
-important because it keeps the original CPython tree clean and makes it
-obvious what we had to change.
+We just maintain those changes in place,
+to see what is changed we have a branch called `vendot/stdlib`
+wich contains the unmodified cpython stdlib
 
 .. _`mixed module mechanism`:
 .. _`mixed modules`:

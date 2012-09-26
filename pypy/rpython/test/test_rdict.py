@@ -111,6 +111,16 @@ class BaseTestRdict(BaseRtypingTest):
         assert self.interpret(func, [42, 0]) == False
         assert self.interpret(func, [42, 42]) == True
 
+    def test_contains_2(self):
+        d = {'5': None, '7': None}
+        def func(x):
+            return chr(x) in d
+        #assert self.interpret(func, [ord('5')]) == True
+        #assert self.interpret(func, [ord('6')]) == False
+
+        def func(n):
+            return str(n) in d
+        assert self.interpret(func, [512]) == False
 
     def test_dict_iteration(self):
         def func(i, j):
@@ -749,13 +759,20 @@ class TestLLtype(BaseTestRdict, LLRtypeMixin):
         assert count_frees >= 3
 
     def test_dict_resize(self):
+        # XXX we no longer automatically resize on 'del'.  We need to
+        # hack a bit in this test to trigger a resize by continuing to
+        # fill the dict's table while keeping the actual size very low
+        # in order to force a resize to shrink the table back
         def func(want_empty):
             d = {}
-            for i in range(rdict.DICT_INITSIZE):
+            for i in range(rdict.DICT_INITSIZE << 1):
                 d[chr(ord('a') + i)] = i
             if want_empty:
-                for i in range(rdict.DICT_INITSIZE):
+                for i in range(rdict.DICT_INITSIZE << 1):
                     del d[chr(ord('a') + i)]
+                for i in range(rdict.DICT_INITSIZE << 3):
+                    d[chr(ord('A') - i)] = i
+                    del d[chr(ord('A') - i)]
             return d
         res = self.interpret(func, [0])
         assert len(res.entries) > rdict.DICT_INITSIZE

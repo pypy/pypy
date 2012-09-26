@@ -8,11 +8,22 @@ from pypy.rpython.tool import rffi_platform
 from pypy.rpython.extfunc import register_external
 from pypy.module._minimal_curses import interp_curses
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from sys import platform
+import os.path
 
-eci = ExternalCompilationInfo(
-    includes = ['curses.h', 'term.h'],
-    libraries = ['curses'],
-)
+_CYGWIN = platform == 'cygwin'
+_NCURSES_CURSES = os.path.isfile("/usr/include/ncurses/curses.h") 
+
+if _CYGWIN or _NCURSES_CURSES:
+    eci = ExternalCompilationInfo(
+        includes = ['ncurses/curses.h', 'ncurses/term.h'],
+        libraries = ['curses'],
+    )
+else:
+    eci = ExternalCompilationInfo(
+        includes = ['curses.h', 'term.h'],
+        libraries = ['curses'],
+    )
 
 rffi_platform.verify_eci(eci)
 

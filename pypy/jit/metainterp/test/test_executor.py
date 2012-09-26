@@ -286,6 +286,7 @@ def _float_unary_operations():
     yield (rop.CAST_FLOAT_TO_INT, [-5.9], 'int', -5)
     yield (rop.CAST_FLOAT_TO_INT, [5.9], 'int', 5)
     yield (rop.CAST_INT_TO_FLOAT, [123], 'float', 123.0)
+    yield (rop.CAST_INT_TO_FLOAT, [-123], 'float', -123.0)
 
 def get_float_tests(cpu):
     if not cpu.supports_floats:

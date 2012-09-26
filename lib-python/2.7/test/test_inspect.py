@@ -4,11 +4,11 @@ import types
 import unittest
 import inspect
 import linecache
-import datetime
 from UserList import UserList
 from UserDict import UserDict
 
 from test.test_support import run_unittest, check_py3k_warnings
+from test.test_support import check_impl_detail
 
 with check_py3k_warnings(
         ("tuple parameter unpacking has been removed", SyntaxWarning),
@@ -74,7 +74,8 @@ class TestPredicates(IsTestBase):
 
     def test_excluding_predicates(self):
         self.istest(inspect.isbuiltin, 'sys.exit')
-        self.istest(inspect.isbuiltin, '[].append')
+        if check_impl_detail():
+            self.istest(inspect.isbuiltin, '[].append')
         self.istest(inspect.iscode, 'mod.spam.func_code')
         self.istest(inspect.isframe, 'tb.tb_frame')
         self.istest(inspect.isfunction, 'mod.spam')
@@ -92,9 +93,9 @@ class TestPredicates(IsTestBase):
         else:
             self.assertFalse(inspect.isgetsetdescriptor(type(tb.tb_frame).f_locals))
         if hasattr(types, 'MemberDescriptorType'):
-            self.istest(inspect.ismemberdescriptor, 'datetime.timedelta.days')
+            self.istest(inspect.ismemberdescriptor, 'type(lambda: None).func_globals')
         else:
-            self.assertFalse(inspect.ismemberdescriptor(datetime.timedelta.days))
+            self.assertFalse(inspect.ismemberdescriptor(type(lambda: None).func_globals))
 
     def test_isroutine(self):
         self.assertTrue(inspect.isroutine(mod.spam))
@@ -295,6 +296,23 @@ class TestRetrievingSourceCode(GetSourceBase):
         del sys.modules[name]
         inspect.getmodule(compile('a=10','','single'))
 
+    def test_proceed_with_fake_filename(self):
+        '''doctest monkeypatches linecache to enable inspection'''
+        fn, source = '<test>', 'def x(): pass\n'
+        getlines = linecache.getlines
+        def monkey(filename, module_globals=None):
+            if filename == fn:
+                return source.splitlines(True)
+            else:
+                return getlines(filename, module_globals)
+        linecache.getlines = monkey
+        try:
+            ns = {}
+            exec compile(source, fn, 'single') in ns
+            inspect.getsource(ns["x"])
+        finally:
+            linecache.getlines = getlines
+
 class TestDecorators(GetSourceBase):
     fodderFile = mod2
 
@@ -387,9 +405,36 @@ class TestBuggyCases(GetSourceBase):
         self.assertEqual(inspect.findsource(co), (lines,0))
         self.assertEqual(inspect.getsource(co), lines[0])
 
+
+class _BrokenDataDescriptor(object):
+    """
+    A broken data descriptor. See bug #1785.
+    """
+    def __get__(*args):
+        raise AssertionError("should not __get__ data descriptors")
+
+    def __set__(*args):
+        raise RuntimeError
+
+    def __getattr__(*args):
+        raise AssertionError("should not __getattr__ data descriptors")
+
+
+class _BrokenMethodDescriptor(object):
+    """
+    A broken method descriptor. See bug #1785.
+    """
+    def __get__(*args):
+        raise AssertionError("should not __get__ method descriptors")
+
+    def __getattr__(*args):
+        raise AssertionError("should not __getattr__ method descriptors")
+
+
 # Helper for testing classify_class_attrs.
 def attrs_wo_objs(cls):
     return [t[:3] for t in inspect.classify_class_attrs(cls)]
+
 
 class TestClassesAndFunctions(unittest.TestCase):
     def test_classic_mro(self):
@@ -477,6 +522,9 @@ class TestClassesAndFunctions(unittest.TestCase):
 
             datablob = '1'
 
+            dd = _BrokenDataDescriptor()
+            md = _BrokenMethodDescriptor()
+
         attrs = attrs_wo_objs(A)
         self.assertIn(('s', 'static method', A), attrs, 'missing static method')
         self.assertIn(('c', 'class method', A), attrs, 'missing class method')
@@ -484,6 +532,8 @@ class TestClassesAndFunctions(unittest.TestCase):
         self.assertIn(('m', 'method', A), attrs, 'missing plain method')
         self.assertIn(('m1', 'method', A), attrs, 'missing plain method')
         self.assertIn(('datablob', 'data', A), attrs, 'missing data')
+        self.assertIn(('md', 'method', A), attrs, 'missing method descriptor')
+        self.assertIn(('dd', 'data', A), attrs, 'missing data descriptor')
 
         class B(A):
             def m(self): pass
@@ -495,6 +545,8 @@ class TestClassesAndFunctions(unittest.TestCase):
         self.assertIn(('m', 'method', B), attrs, 'missing plain method')
         self.assertIn(('m1', 'method', A), attrs, 'missing plain method')
         self.assertIn(('datablob', 'data', A), attrs, 'missing data')
+        self.assertIn(('md', 'method', A), attrs, 'missing method descriptor')
+        self.assertIn(('dd', 'data', A), attrs, 'missing data descriptor')
 
 
         class C(A):
@@ -508,6 +560,8 @@ class TestClassesAndFunctions(unittest.TestCase):
         self.assertIn(('m', 'method', C), attrs, 'missing plain method')
         self.assertIn(('m1', 'method', A), attrs, 'missing plain method')
         self.assertIn(('datablob', 'data', A), attrs, 'missing data')
+        self.assertIn(('md', 'method', A), attrs, 'missing method descriptor')
+        self.assertIn(('dd', 'data', A), attrs, 'missing data descriptor')
 
         class D(B, C):
             def m1(self): pass
@@ -522,6 +576,8 @@ class TestClassesAndFunctions(unittest.TestCase):
         self.assertIn(('m', 'method', B), attrs, 'missing plain method')
         self.assertIn(('m1', 'method', D), attrs, 'missing plain method')
         self.assertIn(('datablob', 'data', A), attrs, 'missing data')
+        self.assertIn(('md', 'method', A), attrs, 'missing method descriptor')
+        self.assertIn(('dd', 'data', A), attrs, 'missing data descriptor')
 
 
     def test_classify_oldstyle(self):
@@ -537,6 +593,38 @@ class TestClassesAndFunctions(unittest.TestCase):
         """
         self._classify_test(True)
 
+    def test_classify_builtin_types(self):
+        # Simple sanity check that all built-in types can have their
+        # attributes classified.
+        for name in dir(__builtin__):
+            builtin = getattr(__builtin__, name)
+            if isinstance(builtin, type):
+                inspect.classify_class_attrs(builtin)
+
+    def test_getmembers_method(self):
+        # Old-style classes
+        class B:
+            def f(self):
+                pass
+
+        self.assertIn(('f', B.f), inspect.getmembers(B))
+        # contrary to spec, ismethod() is also True for unbound methods
+        # (see #1785)
+        self.assertIn(('f', B.f), inspect.getmembers(B, inspect.ismethod))
+        b = B()
+        self.assertIn(('f', b.f), inspect.getmembers(b))
+        self.assertIn(('f', b.f), inspect.getmembers(b, inspect.ismethod))
+
+        # New-style classes
+        class B(object):
+            def f(self):
+                pass
+
+        self.assertIn(('f', B.f), inspect.getmembers(B))
+        self.assertIn(('f', B.f), inspect.getmembers(B, inspect.ismethod))
+        b = B()
+        self.assertIn(('f', b.f), inspect.getmembers(b))
+        self.assertIn(('f', b.f), inspect.getmembers(b, inspect.ismethod))
 
 
 class TestGetcallargsFunctions(unittest.TestCase):
@@ -567,7 +655,8 @@ class TestGetcallargsFunctions(unittest.TestCase):
         else:
             self.fail('Exception not raised')
         self.assertIs(type(ex1), type(ex2))
-        self.assertEqual(str(ex1), str(ex2))
+        if check_impl_detail():
+            self.assertEqual(str(ex1), str(ex2))
 
     def makeCallable(self, signature):
         """Create a function that returns its locals(), excluding the

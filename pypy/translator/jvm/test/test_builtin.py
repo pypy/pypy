@@ -47,6 +47,9 @@ class TestJavaBuiltin(JvmTest, BaseTestBuiltin):
         res = self.interpret(fn, [])
         assert stat.S_ISREG(res)
 
+    def test_longlongmask(self):
+        py.test.skip("fix me")
+
 class TestJvmTime(JvmTest, BaseTestTime):
 
     pass

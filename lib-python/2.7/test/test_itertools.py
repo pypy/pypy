@@ -137,6 +137,8 @@ class TestBasicOps(unittest.TestCase):
                 self.assertEqual(result, list(combinations2(values, r))) # matches second pure python version
                 self.assertEqual(result, list(combinations3(values, r))) # matches second pure python version
 
+    @test_support.impl_detail("tuple reuse is specific to CPython")
+    def test_combinations_tuple_reuse(self):
         # Test implementation detail:  tuple re-use
         self.assertEqual(len(set(map(id, combinations('abcde', 3)))), 1)
         self.assertNotEqual(len(set(map(id, list(combinations('abcde', 3))))), 1)
@@ -207,7 +209,10 @@ class TestBasicOps(unittest.TestCase):
                 self.assertEqual(result, list(cwr1(values, r)))         # matches first pure python version
                 self.assertEqual(result, list(cwr2(values, r)))         # matches second pure python version
 
+    @test_support.impl_detail("tuple reuse is specific to CPython")
+    def test_combinations_with_replacement_tuple_reuse(self):
         # Test implementation detail:  tuple re-use
+        cwr = combinations_with_replacement
         self.assertEqual(len(set(map(id, cwr('abcde', 3)))), 1)
         self.assertNotEqual(len(set(map(id, list(cwr('abcde', 3))))), 1)
 
@@ -271,6 +276,8 @@ class TestBasicOps(unittest.TestCase):
                     self.assertEqual(result, list(permutations(values, None))) # test r as None
                     self.assertEqual(result, list(permutations(values)))       # test default r
 
+    @test_support.impl_detail("tuple reuse is specific to CPython")
+    def test_permutations_tuple_reuse(self):
         # Test implementation detail:  tuple re-use
         self.assertEqual(len(set(map(id, permutations('abcde', 3)))), 1)
         self.assertNotEqual(len(set(map(id, list(permutations('abcde', 3))))), 1)
@@ -526,11 +533,13 @@ class TestBasicOps(unittest.TestCase):
         self.assertEqual(list(izip()), zip())
         self.assertRaises(TypeError, izip, 3)
         self.assertRaises(TypeError, izip, range(3), 3)
-        # Check tuple re-use (implementation detail)
+
         self.assertEqual([tuple(list(pair)) for pair in izip('abc', 'def')],
                          zip('abc', 'def'))
         self.assertEqual([pair for pair in izip('abc', 'def')],
                          zip('abc', 'def'))
+    @test_support.impl_detail("tuple reuse is specific to CPython")
+    def test_izip_tuple_reuse(self):
         ids = map(id, izip('abc', 'def'))
         self.assertEqual(min(ids), max(ids))
         ids = map(id, list(izip('abc', 'def')))
@@ -575,11 +584,12 @@ class TestBasicOps(unittest.TestCase):
             else:
                 self.fail('Did not raise Type in:  ' + stmt)
 
-        # Check tuple re-use (implementation detail)
         self.assertEqual([tuple(list(pair)) for pair in izip_longest('abc', 'def')],
                          zip('abc', 'def'))
         self.assertEqual([pair for pair in izip_longest('abc', 'def')],
                          zip('abc', 'def'))
+    @test_support.impl_detail("tuple reuse is specific to CPython")
+    def test_izip_longest_tuple_reuse(self):
         ids = map(id, izip_longest('abc', 'def'))
         self.assertEqual(min(ids), max(ids))
         ids = map(id, list(izip_longest('abc', 'def')))
@@ -683,7 +693,8 @@ class TestBasicOps(unittest.TestCase):
             args = map(iter, args)
             self.assertEqual(len(list(product(*args))), expected_len)
 
-        # Test implementation detail:  tuple re-use
+    @test_support.impl_detail("tuple reuse is specific to CPython")
+    def test_product_tuple_reuse(self):
         self.assertEqual(len(set(map(id, product('abc', 'def')))), 1)
         self.assertNotEqual(len(set(map(id, list(product('abc', 'def'))))), 1)
 
@@ -771,11 +782,11 @@ class TestBasicOps(unittest.TestCase):
         self.assertRaises(ValueError, islice, xrange(10), 1, -5, -1)
         self.assertRaises(ValueError, islice, xrange(10), 1, 10, -1)
         self.assertRaises(ValueError, islice, xrange(10), 1, 10, 0)
-        self.assertRaises(ValueError, islice, xrange(10), 'a')
-        self.assertRaises(ValueError, islice, xrange(10), 'a', 1)
-        self.assertRaises(ValueError, islice, xrange(10), 1, 'a')
-        self.assertRaises(ValueError, islice, xrange(10), 'a', 1, 1)
-        self.assertRaises(ValueError, islice, xrange(10), 1, 'a', 1)
+        self.assertRaises((ValueError, TypeError), islice, xrange(10), 'a')
+        self.assertRaises((ValueError, TypeError), islice, xrange(10), 'a', 1)
+        self.assertRaises((ValueError, TypeError), islice, xrange(10), 1, 'a')
+        self.assertRaises((ValueError, TypeError), islice, xrange(10), 'a', 1, 1)
+        self.assertRaises((ValueError, TypeError), islice, xrange(10), 1, 'a', 1)
         self.assertEqual(len(list(islice(count(), 1, 10, maxsize))), 1)
 
         # Issue #10323:  Less islice in a predictable state
@@ -855,9 +866,17 @@ class TestBasicOps(unittest.TestCase):
         self.assertRaises(TypeError, tee, [1,2], 3, 'x')
 
         # tee object should be instantiable
-        a, b = tee('abc')
-        c = type(a)('def')
-        self.assertEqual(list(c), list('def'))
+        if test_support.check_impl_detail():
+            # XXX I (arigo) would argue that 'type(a)(iterable)' has
+            # ill-defined semantics: it always return a fresh tee object,
+            # but depending on whether 'iterable' is itself a tee object
+            # or not, it is ok or not to continue using 'iterable' after
+            # the call.  I cannot imagine why 'type(a)(non_tee_object)'
+            # would be useful, as 'iter(non_tee_obect)' is equivalent
+            # as far as I can see.
+            a, b = tee('abc')
+            c = type(a)('def')
+            self.assertEqual(list(c), list('def'))
 
         # test long-lagged and multi-way split
         a, b, c = tee(xrange(2000), 3)
@@ -895,6 +914,7 @@ class TestBasicOps(unittest.TestCase):
         p = proxy(a)
         self.assertEqual(getattr(p, '__class__'), type(b))
         del a
+        test_support.gc_collect()
         self.assertRaises(ReferenceError, getattr, p, '__class__')
 
     def test_StopIteration(self):
@@ -1317,6 +1337,7 @@ class TestVariousIteratorArgs(unittest.TestCase):
 
 class LengthTransparency(unittest.TestCase):
 
+    @test_support.impl_detail("__length_hint__() API is undocumented")
     def test_repeat(self):
         from test.test_iterlen import len
         self.assertEqual(len(repeat(None, 50)), 50)

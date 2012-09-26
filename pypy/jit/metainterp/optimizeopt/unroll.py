@@ -120,9 +120,9 @@ class UnrollOptimizer(Optimization):
                 limit = self.optimizer.metainterp_sd.warmrunnerdesc.memory_manager.retrace_limit
                 if cell_token.retraced_count < limit:
                     cell_token.retraced_count += 1
-                    #debug_print('Retracing (%d/%d)' % (cell_token.retraced_count, limit))
+                    debug_print('Retracing (%d/%d)' % (cell_token.retraced_count, limit))
                 else:
-                    #debug_print("Retrace count reached, jumping to preamble")
+                    debug_print("Retrace count reached, jumping to preamble")
                     assert cell_token.target_tokens[0].virtual_state is None
                     jumpop.setdescr(cell_token.target_tokens[0])
                     self.optimizer.send_extra_operation(jumpop)
@@ -315,7 +315,10 @@ class UnrollOptimizer(Optimization):
         try:
             jumpargs = virtual_state.make_inputargs(values, self.optimizer)
         except BadVirtualState:
-            raise InvalidLoop
+            raise InvalidLoop('The state of the optimizer at the end of ' +
+                              'peeled loop is inconsistent with the ' +
+                              'VirtualState at the begining of the peeled ' +
+                              'loop')
         jumpop.initarglist(jumpargs)
 
         # Inline the short preamble at the end of the loop
@@ -325,12 +328,26 @@ class UnrollOptimizer(Optimization):
         for i in range(len(short_inputargs)):
             if short_inputargs[i] in args:
                 if args[short_inputargs[i]] != jmp_to_short_args[i]:
-                    raise InvalidLoop
+                    raise InvalidLoop('The short preamble wants the ' +
+                                      'same box passed to multiple of its ' +
+                                      'inputargs, but the jump at the ' +
+                                      'end of this bridge does not do that.')
+                                      
             args[short_inputargs[i]] = jmp_to_short_args[i]
         self.short_inliner = Inliner(short_inputargs, jmp_to_short_args)
-        for op in self.short[1:]:
+        i = 1
+        while i < len(self.short):
+            # Note that self.short might be extended during this loop
+            op = self.short[i]
             newop = self.short_inliner.inline_op(op)
             self.optimizer.send_extra_operation(newop)
+            if op.result in self.short_boxes.assumed_classes:
+                classbox = self.getvalue(newop.result).get_constant_class(self.optimizer.cpu)
+                assumed_classbox = self.short_boxes.assumed_classes[op.result]
+                if not classbox or not classbox.same_constant(assumed_classbox):
+                    raise InvalidLoop('Class of opaque pointer needed in short ' +
+                                      'preamble unknown at end of loop')
+            i += 1
 
         # Import boxes produced in the preamble but used in the loop
         newoperations = self.optimizer.get_newoperations()
@@ -378,7 +395,10 @@ class UnrollOptimizer(Optimization):
             #final_virtual_state.debug_print("Bad virtual state at end of loop, ",
             #                                bad)
             #debug_stop('jit-log-virtualstate')
-            raise InvalidLoop
+            raise InvalidLoop('The virtual state at the end of the peeled ' +
+                              'loop is not compatible with the virtual ' +
+                              'state at the start of the loop which makes ' +
+                              'it impossible to close the loop')
             
         #debug_stop('jit-log-virtualstate')
 
@@ -418,9 +438,13 @@ class UnrollOptimizer(Optimization):
                 newargs[i] = a.clonebox()
                 boxmap[a] = newargs[i]
         inliner = Inliner(short_inputargs, newargs)
+        target_token.assumed_classes = {}
         for i in range(len(short)):
-            short[i] = inliner.inline_op(short[i])
-
+            op = short[i]
+            newop = inliner.inline_op(op)
+            if op.result and op.result in self.short_boxes.assumed_classes:
+                target_token.assumed_classes[newop.result] = self.short_boxes.assumed_classes[op.result]
+            short[i] = newop
         target_token.resume_at_jump_descr = target_token.resume_at_jump_descr.clone_if_mutable()
         inliner.inline_descr_inplace(target_token.resume_at_jump_descr)
 
@@ -526,8 +550,8 @@ class UnrollOptimizer(Optimization):
         args = jumpop.getarglist()
         modifier = VirtualStateAdder(self.optimizer)
         virtual_state = modifier.get_virtual_state(args)
-        #debug_start('jit-log-virtualstate')
-        #virtual_state.debug_print("Looking for ")
+        debug_start('jit-log-virtualstate')
+        virtual_state.debug_print("Looking for ")
 
         for target in cell_token.target_tokens:
             if not target.virtual_state:
@@ -536,10 +560,10 @@ class UnrollOptimizer(Optimization):
             extra_guards = []
 
             bad = {}
-            #debugmsg = 'Did not match '
+            debugmsg = 'Did not match '
             if target.virtual_state.generalization_of(virtual_state, bad):
                 ok = True
-                #debugmsg = 'Matched '
+                debugmsg = 'Matched '
             else:
                 try:
                     cpu = self.optimizer.cpu
@@ -548,13 +572,13 @@ class UnrollOptimizer(Optimization):
                                                          extra_guards)
 
                     ok = True
-                    #debugmsg = 'Guarded to match '
+                    debugmsg = 'Guarded to match '
                 except InvalidLoop:
                     pass
-            #target.virtual_state.debug_print(debugmsg, bad)
+            target.virtual_state.debug_print(debugmsg, bad)
 
             if ok:
-                #debug_stop('jit-log-virtualstate')
+                debug_stop('jit-log-virtualstate')
 
                 values = [self.getvalue(arg)
                           for arg in jumpop.getarglist()]
@@ -574,6 +598,12 @@ class UnrollOptimizer(Optimization):
                     for shop in target.short_preamble[1:]:
                         newop = inliner.inline_op(shop)
                         self.optimizer.send_extra_operation(newop)
+                        if shop.result in target.assumed_classes:
+                            classbox = self.getvalue(newop.result).get_constant_class(self.optimizer.cpu)
+                            if not classbox or not classbox.same_constant(target.assumed_classes[shop.result]):
+                                raise InvalidLoop('The class of an opaque pointer at the end ' +
+                                                  'of the bridge does not mach the class ' + 
+                                                  'it has at the start of the target loop')
                 except InvalidLoop:
                     #debug_print("Inlining failed unexpectedly",
                     #            "jumping to preamble instead")
@@ -581,7 +611,7 @@ class UnrollOptimizer(Optimization):
                     jumpop.setdescr(cell_token.target_tokens[0])
                     self.optimizer.send_extra_operation(jumpop)
                 return True
-        #debug_stop('jit-log-virtualstate')
+        debug_stop('jit-log-virtualstate')
         return False
 
 class ValueImporter(object):

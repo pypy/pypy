@@ -170,8 +170,8 @@ class FixedSizeListRepr(AbstractFixedSizeListRepr, BaseListRepr):
 
 # adapted C code
 
-@enforceargs(None, int)
-def _ll_list_resize_really(l, newsize):
+@enforceargs(None, int, None)
+def _ll_list_resize_really(l, newsize, overallocate):
     """
     Ensure l.items has room for at least newsize elements, and set
     l.length to newsize.  Note that l.items may change, and even if
@@ -188,13 +188,15 @@ def _ll_list_resize_really(l, newsize):
         l.length = 0
         l.items = _ll_new_empty_item_array(typeOf(l).TO)
         return
-    else:
+    elif overallocate:
         if newsize < 9:
             some = 3
         else:
             some = 6
         some += newsize >> 3
         new_allocated = newsize + some
+    else:
+        new_allocated = newsize
     # new_allocated is a bit more than newsize, enough to ensure an amortized
     # linear complexity for e.g. repeated usage of l.append().  In case
     # it overflows sys.maxint, it is guaranteed negative, and the following
@@ -214,31 +216,36 @@ def _ll_list_resize_really(l, newsize):
 # this common case was factored out of _ll_list_resize
 # to see if inlining it gives some speed-up.
 
+@jit.dont_look_inside
 def _ll_list_resize(l, newsize):
-    # Bypass realloc() when a previous overallocation is large enough
-    # to accommodate the newsize.  If the newsize falls lower than half
-    # the allocated size, then proceed with the realloc() to shrink the list.
-    allocated = len(l.items)
-    if allocated >= newsize and newsize >= ((allocated >> 1) - 5):
-        l.length = newsize
-    else:
-        _ll_list_resize_really(l, newsize)
+    """Called only in special cases.  Forces the allocated and actual size
+    of the list to be 'newsize'."""
+    _ll_list_resize_really(l, newsize, False)
 
 @jit.look_inside_iff(lambda l, newsize: jit.isconstant(len(l.items)) and jit.isconstant(newsize))
 @jit.oopspec("list._resize_ge(l, newsize)")
 def _ll_list_resize_ge(l, newsize):
+    """This is called with 'newsize' larger than the current length of the
+    list.  If the list storage doesn't have enough space, then really perform
+    a realloc().  In the common case where we already overallocated enough,
+    then this is a very fast operation.
+    """
     if len(l.items) >= newsize:
         l.length = newsize
     else:
-        _ll_list_resize_really(l, newsize)
+        _ll_list_resize_really(l, newsize, True)
 
 @jit.look_inside_iff(lambda l, newsize: jit.isconstant(len(l.items)) and jit.isconstant(newsize))
 @jit.oopspec("list._resize_le(l, newsize)")
 def _ll_list_resize_le(l, newsize):
+    """This is called with 'newsize' smaller than the current length of the
+    list.  If 'newsize' falls lower than half the allocated size, proceed
+    with the realloc() to shrink the list.
+    """
     if newsize >= (len(l.items) >> 1) - 5:
         l.length = newsize
     else:
-        _ll_list_resize_really(l, newsize)
+        _ll_list_resize_really(l, newsize, False)
 
 def ll_append_noresize(l, newitem):
     length = l.length

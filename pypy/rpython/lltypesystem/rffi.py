@@ -11,7 +11,7 @@ from pypy.rlib.objectmodel import keepalive_until_here
 from pypy.rlib import rarithmetic, rgc
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rlib.unroll import unrolling_iterable
-from pypy.rpython.tool.rfficache import platform
+from pypy.rpython.tool.rfficache import platform, sizeof_c_type
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rlib.objectmodel import we_are_translated
@@ -19,6 +19,7 @@ from pypy.rlib.rstring import StringBuilder, UnicodeBuilder, assert_str0
 from pypy.rlib import jit
 from pypy.rpython.lltypesystem import llmemory
 from pypy.rlib.rarithmetic import maxint, LONG_BIT
+from pypy.translator.platform import CompilationError
 import os, sys
 
 class CConstant(Symbolic):
@@ -435,7 +436,17 @@ for _name in 'short int long'.split():
 TYPES += ['signed char', 'unsigned char',
           'long long', 'unsigned long long',
           'size_t', 'time_t', 'wchar_t',
-          'uintptr_t', 'intptr_t']
+          'uintptr_t', 'intptr_t',
+          'void*']    # generic pointer type
+
+# This is a bit of a hack since we can't use rffi_platform here.
+try:
+    sizeof_c_type('__int128_t', ignore_errors=True)
+    TYPES += ['__int128_t']
+except CompilationError:
+    pass
+    
+_TYPES_ARE_UNSIGNED = set(['size_t', 'uintptr_t'])   # plus "unsigned *"
 if os.name != 'nt':
     TYPES.append('mode_t')
     TYPES.append('pid_t')
@@ -454,7 +465,7 @@ def populate_inttypes():
             name = 'u' + name[9:]
             signed = False
         else:
-            signed = (name != 'size_t')
+            signed = (name not in _TYPES_ARE_UNSIGNED)
         name = name.replace(' ', '')
         names.append(name)
         populatelist.append((name.upper(), c_name, signed))
@@ -649,6 +660,9 @@ DOUBLEP = lltype.Ptr(lltype.Array(DOUBLE, hints={'nolength': True}))
 
 # float *
 FLOATP = lltype.Ptr(lltype.Array(FLOAT, hints={'nolength': True}))
+
+# long double *
+LONGDOUBLEP = lltype.Ptr(lltype.Array(LONGDOUBLE, hints={'nolength': True}))
 
 # Signed, Signed *
 SIGNED = lltype.Signed
@@ -902,7 +916,7 @@ def sizeof(tp):
             size = llmemory.sizeof(tp)    # a symbolic result in this case
         return size
     if isinstance(tp, lltype.Ptr) or tp is llmemory.Address:
-        tp = lltype.Signed
+        return globals()['r_void*'].BITS/8
     if tp is lltype.Char or tp is lltype.Bool:
         return 1
     if tp is lltype.UniChar:
@@ -911,6 +925,11 @@ def sizeof(tp):
         return 8
     if tp is lltype.SingleFloat:
         return 4
+    if tp is lltype.LongFloat:
+        if globals()['r_void*'].BITS == 32:
+            return 12
+        else:
+            return 16
     assert isinstance(tp, lltype.Number)
     if tp is lltype.Signed:
         return LONG_BIT/8
@@ -933,11 +952,16 @@ def offsetof(STRUCT, fieldname):
 offsetof._annspecialcase_ = 'specialize:memo'
 
 # check that we have a sane configuration
-assert maxint == (1 << (8 * sizeof(lltype.Signed) - 1)) - 1, (
+assert maxint == (1 << (8 * sizeof(llmemory.Address) - 1)) - 1, (
     "Mixed configuration of the word size of the machine:\n\t"
     "the underlying Python was compiled with maxint=%d,\n\t"
-    "but the C compiler says that 'long' is %d bytes" % (
-    maxint, sizeof(lltype.Signed)))
+    "but the C compiler says that 'void *' is %d bytes" % (
+    maxint, sizeof(llmemory.Address)))
+assert sizeof(lltype.Signed) == sizeof(llmemory.Address), (
+    "Bad configuration: we should manage to get lltype.Signed "
+    "be an integer type of the same size as llmemory.Address, "
+    "but we got %s != %s" % (sizeof(lltype.Signed),
+                             sizeof(llmemory.Address)))
 
 # ********************** some helpers *******************
 

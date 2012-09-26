@@ -183,7 +183,7 @@ def libc_ver(executable=sys.executable,lib='',version='',
         elif so:
             if lib != 'glibc':
                 lib = 'libc'
-                if soversion > version:
+                if soversion and soversion > version:
                     version = soversion
                 if threads and version[-len(threads):] != threads:
                     version = version + threads
@@ -554,7 +554,7 @@ def win32_ver(release='',version='',csd='',ptype=''):
 
     """ Get additional version information from the Windows Registry
         and return a tuple (version,csd,ptype) referring to version
-        number, CSD level and OS type (multi/single
+        number, CSD level (service pack), and OS type (multi/single
         processor).
 
         As a hint: ptype returns 'Uniprocessor Free' on single
@@ -765,6 +765,7 @@ def _mac_ver_gestalt():
                    0x2: 'PowerPC',
                    0xa: 'i386'}.get(sysa,'')
 
+    versioninfo=('', '', '')
     return release,versioninfo,machine
 
 def _mac_ver_xml():

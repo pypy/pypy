@@ -161,6 +161,7 @@ class ThreadTests(BaseTestCase):
 
     # PyThreadState_SetAsyncExc() is a CPython-only gimmick, not (currently)
     # exposed at the Python level.  This test relies on ctypes to get at it.
+    @test.test_support.cpython_only
     def test_PyThreadState_SetAsyncExc(self):
         try:
             import ctypes
@@ -266,6 +267,7 @@ class ThreadTests(BaseTestCase):
         finally:
             threading._start_new_thread = _start_new_thread
 
+    @test.test_support.cpython_only
     def test_finalize_runnning_thread(self):
         # Issue 1402: the PyGILState_Ensure / _Release functions may be called
         # very late on python exit: on deallocation of a running thread for
@@ -383,6 +385,7 @@ class ThreadTests(BaseTestCase):
         finally:
             sys.setcheckinterval(old_interval)
 
+    @test.test_support.cpython_only
     def test_no_refcycle_through_target(self):
         class RunSelfFunction(object):
             def __init__(self, should_raise):
@@ -417,6 +420,13 @@ class ThreadTests(BaseTestCase):
 
 class ThreadJoinOnShutdown(BaseTestCase):
 
+    # Between fork() and exec(), only async-safe functions are allowed (issues
+    # #12316 and #11870), and fork() from a worker thread is known to trigger
+    # problems with some operating systems (issue #3863): skip problematic tests
+    # on platforms known to behave badly.
+    platforms_to_skip = ('freebsd4', 'freebsd5', 'freebsd6', 'netbsd5',
+                         'os2emx')
+
     def _run_and_join(self, script):
         script = """if 1:
             import sys, os, time, threading
@@ -425,6 +435,9 @@ class ThreadJoinOnShutdown(BaseTestCase):
             def joiningfunc(mainthread):
                 mainthread.join()
                 print 'end of thread'
+                # stdout is fully buffered because not a tty, we have to flush
+                # before exit.
+                sys.stdout.flush()
         \n""" + script
 
         p = subprocess.Popen([sys.executable, "-c", script], stdout=subprocess.PIPE)
@@ -448,11 +461,10 @@ class ThreadJoinOnShutdown(BaseTestCase):
         self._run_and_join(script)
 
 
+    @unittest.skipUnless(hasattr(os, 'fork'), "needs os.fork()")
+    @unittest.skipIf(sys.platform in platforms_to_skip, "due to known OS bug")
     def test_2_join_in_forked_process(self):
         # Like the test above, but from a forked interpreter
-        import os
-        if not hasattr(os, 'fork'):
-            return
         script = """if 1:
             childpid = os.fork()
             if childpid != 0:
@@ -466,19 +478,11 @@ class ThreadJoinOnShutdown(BaseTestCase):
             """
         self._run_and_join(script)
 
+    @unittest.skipUnless(hasattr(os, 'fork'), "needs os.fork()")
+    @unittest.skipIf(sys.platform in platforms_to_skip, "due to known OS bug")
     def test_3_join_in_forked_from_thread(self):
         # Like the test above, but fork() was called from a worker thread
         # In the forked process, the main Thread object must be marked as stopped.
-        import os
-        if not hasattr(os, 'fork'):
-            return
-        # Skip platforms with known problems forking from a worker thread.
-        # See http://bugs.python.org/issue3863.
-        if sys.platform in ('freebsd4', 'freebsd5', 'freebsd6', 'netbsd5',
-                           'os2emx'):
-            print >>sys.stderr, ('Skipping test_3_join_in_forked_from_thread'
-                                 ' due to known OS bugs on'), sys.platform
-            return
         script = """if 1:
             main_thread = threading.current_thread()
             def worker():
@@ -507,14 +511,10 @@ class ThreadJoinOnShutdown(BaseTestCase):
         self.assertEqual(data, expected_output)
 
     @unittest.skipUnless(hasattr(os, 'fork'), "needs os.fork()")
+    @unittest.skipIf(sys.platform in platforms_to_skip, "due to known OS bug")
     def test_4_joining_across_fork_in_worker_thread(self):
         # There used to be a possible deadlock when forking from a child
         # thread.  See http://bugs.python.org/issue6643.
-
-        # Skip platforms with known problems forking from a worker thread.
-        # See http://bugs.python.org/issue3863.
-        if sys.platform in ('freebsd4', 'freebsd5', 'freebsd6', 'os2emx'):
-            raise unittest.SkipTest('due to known OS bugs on ' + sys.platform)
 
         # The script takes the following steps:
         # - The main thread in the parent process starts a new thread and then
@@ -584,6 +584,7 @@ class ThreadJoinOnShutdown(BaseTestCase):
         self.assertScriptHasOutput(script, "end of main\n")
 
     @unittest.skipUnless(hasattr(os, 'fork'), "needs os.fork()")
+    @unittest.skipIf(sys.platform in platforms_to_skip, "due to known OS bug")
     def test_5_clear_waiter_locks_to_avoid_crash(self):
         # Check that a spawned thread that forks doesn't segfault on certain
         # platforms, namely OS X.  This used to happen if there was a waiter
@@ -596,10 +597,6 @@ class ThreadJoinOnShutdown(BaseTestCase):
         # lock will be acquired, we can't know if the internal mutex will be
         # acquired at the time of the fork.
 
-        # Skip platforms with known problems forking from a worker thread.
-        # See http://bugs.python.org/issue3863.
-        if sys.platform in ('freebsd4', 'freebsd5', 'freebsd6', 'os2emx'):
-            raise unittest.SkipTest('due to known OS bugs on ' + sys.platform)
         script = """if True:
             import os, time, threading
 
@@ -643,6 +640,30 @@ class ThreadJoinOnShutdown(BaseTestCase):
             """
         output = "end of worker thread\nend of main thread\n"
         self.assertScriptHasOutput(script, output)
+
+    @unittest.skipUnless(hasattr(os, 'fork'), "needs os.fork()")
+    @unittest.skipIf(sys.platform in platforms_to_skip, "due to known OS bug")
+    def test_reinit_tls_after_fork(self):
+        # Issue #13817: fork() would deadlock in a multithreaded program with
+        # the ad-hoc TLS implementation.
+
+        def do_fork_and_wait():
+            # just fork a child process and wait it
+            pid = os.fork()
+            if pid > 0:
+                os.waitpid(pid, 0)
+            else:
+                os._exit(0)
+
+        # start a bunch of threads that will fork() child processes
+        threads = []
+        for i in range(16):
+            t = threading.Thread(target=do_fork_and_wait)
+            threads.append(t)
+            t.start()
+
+        for t in threads:
+            t.join()
 
 
 class ThreadingExceptionTests(BaseTestCase):

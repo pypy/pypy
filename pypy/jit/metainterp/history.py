@@ -39,7 +39,7 @@ def getkind(TYPE, supports_floats=True,
         # XXX fix this for oo...
         if (TYPE != llmemory.Address and
             rffi.sizeof(TYPE) > rffi.sizeof(lltype.Signed)):
-            if supports_longlong:
+            if supports_longlong and TYPE is not lltype.LongFloat:
                 assert rffi.sizeof(TYPE) == 8
                 return 'float'
             raise NotImplementedError("type %s is too large" % TYPE)
@@ -706,6 +706,7 @@ class TargetToken(AbstractDescr):
 
         self.virtual_state = None
         self.exported_state = None
+        self.short_preamble = None
 
     def repr_of_descr(self):
         return 'TargetToken(%d)' % compute_unique_id(self)

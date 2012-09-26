@@ -1,4 +1,4 @@
-from test.test_support import verbose, TESTFN
+from test.test_support import verbose, TESTFN, check_impl_detail
 import random
 import os
 
@@ -137,10 +137,16 @@ def test_one(n):
     while dict1 and len(dict1) == len(dict2):
         if verbose:
             print ".",
-        if random.random() < 0.5:
-            c = cmp(dict1, dict2)
-        else:
-            c = dict1 == dict2
+        try:
+            if random.random() < 0.5:
+                c = cmp(dict1, dict2)
+            else:
+                c = dict1 == dict2
+        except RuntimeError:
+            # CPython never raises RuntimeError here, but other implementations
+            # might, and it's fine.
+            if check_impl_detail(cpython=True):
+                raise
     if verbose:
         print
 

@@ -1,9 +1,5 @@
-"""Tests for 'site'.
+"""Tests for sysconfig."""
 
-Tests assume the initial paths in sys.path once the interpreter has begun
-executing have not been removed.
-
-"""
 import unittest
 import sys
 import os
@@ -209,13 +205,22 @@ class TestSysConfig(unittest.TestCase):
 
         self.assertEqual(get_platform(), 'macosx-10.4-fat64')
 
-        for arch in ('ppc', 'i386', 'x86_64', 'ppc64'):
+        for arch in ('ppc', 'i386', 'ppc64', 'x86_64'):
             get_config_vars()['CFLAGS'] = ('-arch %s -isysroot '
                                            '/Developer/SDKs/MacOSX10.4u.sdk  '
                                            '-fno-strict-aliasing -fno-common '
                                            '-dynamic -DNDEBUG -g -O3'%(arch,))
 
             self.assertEqual(get_platform(), 'macosx-10.4-%s'%(arch,))
+        
+        # macosx with ARCHFLAGS set and empty _CONFIG_VARS
+        os.environ['ARCHFLAGS'] = '-arch i386'
+        sysconfig._CONFIG_VARS = None
+        
+        # this will attempt to recreate the _CONFIG_VARS based on environment 
+        # variables; used to check a problem with the PyPy's _init_posix
+        # implementation; see: issue 705
+        get_config_vars() 
 
         # linux debian sarge
         os.name = 'posix'
@@ -235,7 +240,7 @@ class TestSysConfig(unittest.TestCase):
 
     def test_get_scheme_names(self):
         wanted = ('nt', 'nt_user', 'os2', 'os2_home', 'osx_framework_user',
-                  'posix_home', 'posix_prefix', 'posix_user')
+                  'posix_home', 'posix_prefix', 'posix_user', 'pypy')
         self.assertEqual(get_scheme_names(), wanted)
 
     def test_symlink(self):
@@ -255,14 +260,21 @@ class TestSysConfig(unittest.TestCase):
             unlink(link)
 
     def test_user_similar(self):
-        # Issue 8759 : make sure the posix scheme for the users
+        # Issue #8759: make sure the posix scheme for the users
         # is similar to the global posix_prefix one
         base = get_config_var('base')
         user = get_config_var('userbase')
+        # the global scheme mirrors the distinction between prefix and
+        # exec-prefix but not the user scheme, so we have to adapt the paths
+        # before comparing (issue #9100)
+        adapt = sys.prefix != sys.exec_prefix
         for name in ('stdlib', 'platstdlib', 'purelib', 'platlib'):
             global_path = get_path(name, 'posix_prefix')
+            if adapt:
+                global_path = global_path.replace(sys.exec_prefix, sys.prefix)
+                base = base.replace(sys.exec_prefix, sys.prefix)
             user_path = get_path(name, 'posix_user')
-            self.assertEqual(user_path, global_path.replace(base, user))
+            self.assertEqual(user_path, global_path.replace(base, user, 1))
 
     @unittest.skipUnless(sys.platform == "darwin", "test only relevant on MacOSX")
     def test_platform_in_subprocess(self):

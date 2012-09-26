@@ -1,3 +1,4 @@
+# -*- encoding: utf-8 -*-
 
 from pypy.rpython.lltypesystem.lltype import malloc
 from pypy.rpython.lltypesystem.rstr import LLHelpers, UNICODE
@@ -97,9 +98,28 @@ class BaseTestRUnicode(AbstractTestRstr):
         self.interpret_raises(UnicodeEncodeError, f, [1234])
 
     def test_unicode_encode(self):
-        def f(x):
-            y = u'xxx'
-            return (y + unichr(x)).encode('ascii') + y.encode('latin-1')
+        def f(n):
+            x = u'xxx' + unichr(n)
+            y = u'àèì' + unichr(n)
+            z = u'美' + unichr(n)
+            return x.encode('ascii') + y.encode('latin-1') + z.encode('utf-8')
+
+        assert self.ll_to_string(self.interpret(f, [38])) == f(38)
+
+    def test_utf_8_encoding_annotation(self):
+        from pypy.rlib.runicode import unicode_encode_utf_8
+        def errorhandler(errors, encoding, msg, u,
+                         startingpos, endingpos):
+            raise UnicodeEncodeError(encoding, u, startingpos, endingpos, msg)
+        def f(n):
+            x = u'àèì' + unichr(n)
+            if x:
+                y = u'ìòé'
+            else:
+                y = u'òìàà'
+            # the annotation of y is SomeUnicodeString(can_be_None=False)
+            y = unicode_encode_utf_8(y, len(y), 'strict', errorhandler)
+            return x.encode('utf-8') + y
 
         assert self.ll_to_string(self.interpret(f, [38])) == f(38)
 
@@ -127,11 +147,33 @@ class BaseTestRUnicode(AbstractTestRstr):
         assert self.interpret(f, [300, False]) == f(300, False)
 
     def test_unicode_decode(self):
-        def f(x):
-            y = 'xxx'
-            return (y + chr(x)).decode('ascii') + chr(x).decode("latin-1") 
+        strings = ['xxx', u'àèì'.encode('latin-1'), u'美'.encode('utf-8')]
+        def f(n):
+            x = strings[n]
+            y = strings[n+1]
+            z = strings[n+2]
+            return x.decode('ascii') + y.decode('latin-1') + z.decode('utf-8')
 
-        assert self.ll_to_string(self.interpret(f, [38])) == f(38)
+        assert self.ll_to_string(self.interpret(f, [0])) == f(0)
+
+    def test_utf_8_decoding_annotation(self):
+        from pypy.rlib.runicode import str_decode_utf_8
+        def errorhandler(errors, encoding, msg, s,
+                         startingpos, endingpos):
+            raise UnicodeDecodeError(encoding, s, startingpos, endingpos, msg)
+        
+        strings = [u'àèì'.encode('utf-8'), u'ìòéà'.encode('utf-8')]
+        def f(n):
+            x = strings[n]
+            if n:
+                errors = 'strict'
+            else:
+                errors = 'foo'
+            # the annotation of y is SomeUnicodeString(can_be_None=False)
+            y, _ = str_decode_utf_8(x, len(x), errors, errorhandler)
+            return x.decode('utf-8') + y
+
+        assert self.ll_to_string(self.interpret(f, [1])) == f(1)
 
     def test_unicode_decode_error(self):
         def f(x):
@@ -194,7 +236,32 @@ class BaseTestRUnicode(AbstractTestRstr):
         assert self.interpret(fn, [u'(']) == False
         assert self.interpret(fn, [u'\u1058']) == False
         assert self.interpret(fn, [u'X']) == True
-    
+
+    def test_strformat_unicode_arg(self):
+        const = self.const
+        def percentS(s, i):
+            s = [s, None][i]
+            return const("before %s after") % (s,)
+        #
+        res = self.interpret(percentS, [const(u'à'), 0])
+        assert self.ll_to_string(res) == const(u'before à after')
+        #
+        res = self.interpret(percentS, [const(u'à'), 1])
+        assert self.ll_to_string(res) == const(u'before None after')
+        #
+
+    def test_strformat_unicode_and_str(self):
+        # test that we correctly specialize ll_constant when we pass both a
+        # string and an unicode to it
+        const = self.const
+        def percentS(ch):
+            x = "%s" % (ch + "bc")
+            y = u"%s" % (unichr(ord(ch)) + u"bc")
+            return len(x)+len(y)
+        #
+        res = self.interpret(percentS, ["a"])
+        assert res == 6
+
     def unsupported(self):
         py.test.skip("not supported")
 
@@ -202,12 +269,6 @@ class BaseTestRUnicode(AbstractTestRstr):
     test_upper = unsupported
     test_lower = unsupported
     test_splitlines = unsupported
-    test_strformat = unsupported
-    test_strformat_instance = unsupported
-    test_strformat_nontuple = unsupported
-    test_percentformat_instance = unsupported
-    test_percentformat_tuple = unsupported
-    test_percentformat_list = unsupported
     test_int = unsupported
     test_int_valueerror = unsupported
     test_float = unsupported

@@ -135,3 +135,32 @@ def test_rpython_merge_RWeakKeyDictionary2():
             d = RWeakKeyDictionary(KX, VY)
         d.set(KX(), VX())
     py.test.raises(Exception, interpret, g, [1])
+
+
+def test_rpython_free_values():
+    import py; py.test.skip("XXX not implemented, messy")
+    class VXDel:
+        def __del__(self):
+            state.freed.append(1)
+    class State:
+        pass
+    state = State()
+    state.freed = []
+    #
+    def add_me():
+        k = KX()
+        v = VXDel()
+        d = RWeakKeyDictionary(KX, VXDel)
+        d.set(k, v)
+        return d
+    def f():
+        del state.freed[:]
+        d = add_me()
+        rgc.collect()
+        # we want the dictionary to be really empty here.  It's hard to
+        # ensure in the current implementation after just one collect(),
+        # but at least two collects should be enough.
+        rgc.collect()
+        return len(state.freed)
+    assert f() == 1
+    assert interpret(f, []) == 1

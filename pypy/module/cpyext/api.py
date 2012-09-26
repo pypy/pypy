@@ -26,6 +26,7 @@ from pypy.module.__builtin__.descriptor import W_Property
 from pypy.module.__builtin__.interp_classobj import W_ClassObject
 from pypy.module.__builtin__.interp_memoryview import W_MemoryView
 from pypy.rlib.entrypoint import entrypoint
+from pypy.rlib.rposix import is_valid_fd, validate_fd
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.objectmodel import specialize
 from pypy.rlib.exports import export_struct
@@ -47,8 +48,10 @@ ADDR = lltype.Signed
 pypydir = py.path.local(autopath.pypydir)
 include_dir = pypydir / 'module' / 'cpyext' / 'include'
 source_dir = pypydir / 'module' / 'cpyext' / 'src'
+translator_c_dir = pypydir / 'translator' / 'c'
 include_dirs = [
     include_dir,
+    translator_c_dir,
     udir,
     ]
 
@@ -79,19 +82,38 @@ assert CONST_WSTRING == rffi.CWCHARP
 
 # FILE* interface
 FILEP = rffi.COpaquePtr('FILE')
-fopen = rffi.llexternal('fopen', [CONST_STRING, CONST_STRING], FILEP)
-fclose = rffi.llexternal('fclose', [FILEP], rffi.INT)
-fwrite = rffi.llexternal('fwrite',
-                         [rffi.VOIDP, rffi.SIZE_T, rffi.SIZE_T, FILEP],
-                         rffi.SIZE_T)
-fread = rffi.llexternal('fread',
-                        [rffi.VOIDP, rffi.SIZE_T, rffi.SIZE_T, FILEP],
-                        rffi.SIZE_T)
-feof = rffi.llexternal('feof', [FILEP], rffi.INT)
+
 if sys.platform == 'win32':
     fileno = rffi.llexternal('_fileno', [FILEP], rffi.INT)
 else:
     fileno = rffi.llexternal('fileno', [FILEP], rffi.INT)
+
+fopen = rffi.llexternal('fopen', [CONST_STRING, CONST_STRING], FILEP)
+
+_fclose = rffi.llexternal('fclose', [FILEP], rffi.INT)
+def fclose(fp):
+    if not is_valid_fd(fileno(fp)):
+        return -1
+    return _fclose(fp)
+
+_fwrite = rffi.llexternal('fwrite',
+                         [rffi.VOIDP, rffi.SIZE_T, rffi.SIZE_T, FILEP],
+                         rffi.SIZE_T)
+def fwrite(buf, sz, n, fp):
+    validate_fd(fileno(fp))
+    return _fwrite(buf, sz, n, fp)
+
+_fread = rffi.llexternal('fread',
+                        [rffi.VOIDP, rffi.SIZE_T, rffi.SIZE_T, FILEP],
+                        rffi.SIZE_T)
+def fread(buf, sz, n, fp):
+    validate_fd(fileno(fp))
+    return _fread(buf, sz, n, fp)
+
+_feof = rffi.llexternal('feof', [FILEP], rffi.INT)
+def feof(fp):
+    validate_fd(fileno(fp))
+    return _feof(fp)
 
 
 constant_names = """
@@ -103,8 +125,8 @@ Py_LT Py_LE Py_EQ Py_NE Py_GT Py_GE
 """.split()
 for name in constant_names:
     setattr(CConfig_constants, name, rffi_platform.ConstantInteger(name))
-udir.join('pypy_decl.h').write("/* Will be filled later */")
-udir.join('pypy_macros.h').write("/* Will be filled later */")
+udir.join('pypy_decl.h').write("/* Will be filled later */\n")
+udir.join('pypy_macros.h').write("/* Will be filled later */\n")
 globals().update(rffi_platform.configure(CConfig_constants))
 
 def copy_header_files(dstdir):
@@ -352,6 +374,8 @@ SYMBOLS_C = [
     'PyObject_AsReadBuffer', 'PyObject_AsWriteBuffer', 'PyObject_CheckReadBuffer',
 
     'PyOS_getsig', 'PyOS_setsig',
+    'PyThread_get_thread_ident', 'PyThread_allocate_lock', 'PyThread_free_lock',
+    'PyThread_acquire_lock', 'PyThread_release_lock',
     'PyThread_create_key', 'PyThread_delete_key', 'PyThread_set_key_value',
     'PyThread_get_key_value', 'PyThread_delete_key_value',
     'PyThread_ReInitTLS',
@@ -612,9 +636,12 @@ def setup_va_functions(eci):
         globals()['va_get_%s' % name_no_star] = func
 
 def setup_init_functions(eci):
-    init_buffer = rffi.llexternal('init_bufferobject', [], lltype.Void, compilation_info=eci)
-    init_pycobject = rffi.llexternal('init_pycobject', [], lltype.Void, compilation_info=eci)
-    init_capsule = rffi.llexternal('init_capsule', [], lltype.Void, compilation_info=eci)
+    init_buffer = rffi.llexternal('init_bufferobject', [], lltype.Void,
+                                  compilation_info=eci, _nowrapper=True)
+    init_pycobject = rffi.llexternal('init_pycobject', [], lltype.Void,
+                                     compilation_info=eci, _nowrapper=True)
+    init_capsule = rffi.llexternal('init_capsule', [], lltype.Void,
+                                   compilation_info=eci, _nowrapper=True)
     INIT_FUNCTIONS.extend([
         lambda space: init_buffer(),
         lambda space: init_pycobject(),
@@ -695,7 +722,8 @@ def build_bridge(space):
             global_objects.append('%s %s = NULL;' % (typ, name))
     global_code = '\n'.join(global_objects)
 
-    prologue = "#include <Python.h>\n"
+    prologue = ("#include <Python.h>\n"
+                "#include <src/thread.h>\n")
     code = (prologue +
             struct_declaration_code +
             global_code +
@@ -927,12 +955,12 @@ def build_eci(building_bridge, export_symbols, code):
                                source_dir / "pyerrors.c",
                                source_dir / "modsupport.c",
                                source_dir / "getargs.c",
+                               source_dir / "abstract.c",
                                source_dir / "stringobject.c",
                                source_dir / "mysnprintf.c",
                                source_dir / "pythonrun.c",
                                source_dir / "sysmodule.c",
                                source_dir / "bufferobject.c",
-                               source_dir / "object.c",
                                source_dir / "cobject.c",
                                source_dir / "structseq.c",
                                source_dir / "capsule.c",
