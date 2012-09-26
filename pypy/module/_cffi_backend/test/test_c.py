@@ -22,7 +22,6 @@ if sys.version_info < (2, 6):
 from pypy.tool.udir import udir
 from pypy.conftest import gettestobjspace, option
 from pypy.interpreter import gateway
-from pypy.module._cffi_backend.test import _backend_test_c
 from pypy.module._cffi_backend import Module
 from pypy.translator.platform import host
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
@@ -87,20 +86,24 @@ class AppTestC(object):
 
 all_names = ', '.join(Module.interpleveldefs.keys())
 
+backend_test_c = py.path.local(__file__).join('..', '_backend_test_c.py')
+
 lst = []
-for name, value in _backend_test_c.__dict__.items():
-    if name.startswith('test_'):
-        lst.append(value)
-lst.sort(key=lambda func: func.func_code.co_firstlineno)
+with backend_test_c.open('r') as f:
+    for line in f:
+        if line.startswith('def test_'):
+            line = line[4:]
+            line = line[:line.index('():')]
+            lst.append(line)
 
 tmpdir = udir.join('test_c').ensure(dir=1)
 
 tmpname = tmpdir.join('_test_c.py')
 with tmpname.open('w') as f:
     for func in lst:
-        print >> f, 'def %s(self):' % (func.__name__,)
+        print >> f, 'def %s(self):' % (func,)
         print >> f, '    import _all_test_c'
-        print >> f, '    _all_test_c.%s()' % (func.__name__,)
+        print >> f, '    _all_test_c.%s()' % (func,)
 
 tmpname2 = tmpdir.join('_all_test_c.py')
 with tmpname2.open('w') as f:
@@ -110,7 +113,7 @@ with tmpname2.open('w') as f:
     print >> f, '    class test:'
     print >> f, '        raises = staticmethod(raises)'
     print >> f, '        skip = staticmethod(skip)'
-    print >> f, py.path.local(__file__).join('..', '_backend_test_c.py').read()
+    print >> f, backend_test_c.read()
 
 
 mod = tmpname.pyimport()

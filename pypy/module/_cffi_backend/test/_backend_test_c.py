@@ -42,19 +42,34 @@ def size_of_ptr():
     return sizeof(BPtr)
 
 
-def find_and_load_library(name, is_global=0):
+def find_and_load_library(name, flags=RTLD_NOW):
     import ctypes.util
     if name is None:
         path = None
     else:
         path = ctypes.util.find_library(name)
-    return load_library(path, is_global)
+    return load_library(path, flags)
 
 def test_load_library():
     x = find_and_load_library('c')
     assert repr(x).startswith("<clibrary '")
-    x = find_and_load_library('c', 1)
+    x = find_and_load_library('c', RTLD_NOW | RTLD_GLOBAL)
     assert repr(x).startswith("<clibrary '")
+    x = find_and_load_library('c', RTLD_LAZY)
+    assert repr(x).startswith("<clibrary '")
+
+def test_all_rtld_symbols():
+    import sys
+    FFI_DEFAULT_ABI        # these symbols must be defined
+    FFI_CDECL
+    RTLD_LAZY
+    RTLD_NOW
+    RTLD_GLOBAL
+    RTLD_LOCAL
+    if sys.platform.startswith("linux"):
+        RTLD_NODELETE
+        RTLD_NOLOAD
+        RTLD_DEEPBIND
 
 def test_nonstandard_integer_types():
     d = nonstandard_integer_types()

@@ -118,6 +118,9 @@ class TestDecoding(UnicodeTests):
         for i in range(10000):
             for encoding in ("utf-7 utf-8 utf-16 utf-16-be utf-16-le "
                              "utf-32 utf-32-be utf-32-le").split():
+                if encoding == 'utf-8' and 0xd800 <= i <= 0xdfff:
+                    # Don't try to encode lone surrogates
+                    continue
                 self.checkdecode(unichr(i), encoding)
 
     def test_random(self):
@@ -242,9 +245,8 @@ class TestUTF8Decoding(UnicodeTests):
             self.checkdecode(s, "utf-8")
 
     def test_utf8_surrogate(self):
-        # A surrogate should not be valid utf-8, but python 2.x accepts them.
-        # This test will raise an error with python 3.x
-        self.checkdecode(u"\ud800", "utf-8")
+        # surrogates used to be allowed by python 2.x
+        raises(UnicodeDecodeError, self.checkdecode, u"\ud800", "utf-8")
 
     def test_invalid_start_byte(self):
         """
@@ -691,12 +693,16 @@ class TestEncoding(UnicodeTests):
             self.checkencode(s, "utf-8")
 
     def test_utf8_surrogates(self):
-        # check replacing of two surrogates by single char while encoding
         # make sure that the string itself is not marshalled
         u = u"\ud800"
         for i in range(4):
             u += u"\udc00"
-        self.checkencode(u, "utf-8")
+        if runicode.MAXUNICODE < 65536:
+            # Check replacing of two surrogates by single char while encoding
+            self.checkencode(u, "utf-8")
+        else:
+            # This is not done in wide unicode builds
+            raises(UnicodeEncodeError, self.checkencode, u, "utf-8")
 
     def test_ascii_error(self):
         self.checkencodeerror(u"abc\xFF\xFF\xFFcde", "ascii", 3, 6)

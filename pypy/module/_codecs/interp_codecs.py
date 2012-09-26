@@ -405,7 +405,6 @@ for encoders in [
          "ascii_encode",
          "latin_1_encode",
          "utf_7_encode",
-         "utf_8_encode",
          "utf_16_encode",
          "utf_16_be_encode",
          "utf_16_le_encode",
@@ -422,7 +421,6 @@ for decoders in [
          "ascii_decode",
          "latin_1_decode",
          "utf_7_decode",
-         "utf_8_decode",
          "utf_16_decode",
          "utf_16_be_decode",
          "utf_16_le_decode",
@@ -436,6 +434,30 @@ for decoders in [
 if hasattr(runicode, 'str_decode_mbcs'):
     make_encoder_wrapper('mbcs_encode')
     make_decoder_wrapper('mbcs_decode')
+
+# utf-8 functions are not regular, because we have to pass
+# "allow_surrogates=True"
+@unwrap_spec(uni=unicode, errors='str_or_None')
+def utf_8_encode(space, uni, errors="strict"):
+    if errors is None:
+        errors = 'strict'
+    state = space.fromcache(CodecState)
+    result = runicode.unicode_encode_utf_8(
+        uni, len(uni), errors, state.encode_error_handler,
+        allow_surrogates=True)
+    return space.newtuple([space.wrap(result), space.wrap(len(uni))])
+
+@unwrap_spec(string='bufferstr', errors='str_or_None')
+def utf_8_decode(space, string, errors="strict", w_final=False):
+    if errors is None:
+        errors = 'strict'
+    final = space.is_true(w_final)
+    state = space.fromcache(CodecState)
+    result, consumed = runicode.str_decode_utf_8(
+        string, len(string), errors,
+        final, state.decode_error_handler,
+        allow_surrogates=True)
+    return space.newtuple([space.wrap(result), space.wrap(consumed)])
 
 @unwrap_spec(data=str, errors='str_or_None', byteorder=int)
 def utf_16_ex_decode(space, data, errors='strict', byteorder=0, w_final=False):

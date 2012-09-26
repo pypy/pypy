@@ -286,8 +286,8 @@ class CifDescrBuilder(object):
         for i, cf in enumerate(ctype.fields_list):
             if cf.is_bitfield():
                 raise OperationError(space.w_NotImplementedError,
-                    space.wrap("cannot pass as argument a struct "
-                               "with bit fields"))
+                    space.wrap("cannot pass as argument or return value "
+                               "a struct with bit fields"))
             ffi_subtype = self.fb_fill_type(cf.ctype, False)
             if elements:
                 elements[i] = ffi_subtype

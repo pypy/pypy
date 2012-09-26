@@ -609,9 +609,11 @@ class RSocket(object):
     """
     _mixin_ = True        # for interp_socket.py
     fd = _c.INVALID_SOCKET
-    def __init__(self, family=AF_INET, type=SOCK_STREAM, proto=0):
+    def __init__(self, family=AF_INET, type=SOCK_STREAM, proto=0,
+                 fd=_c.INVALID_SOCKET):
         """Create a new socket."""
-        fd = _c.socket(family, type, proto)
+        if _c.invalid_socket(fd):
+            fd = _c.socket(family, type, proto)
         if _c.invalid_socket(fd):
             raise self.error_handler()
         # PLAT RISCOS
@@ -717,11 +719,9 @@ class RSocket(object):
         addrlen_p[0] = rffi.cast(_c.socklen_t, maxlen)
         return addr, addr.addr_p, addrlen_p
 
-    def accept(self, SocketClass=None):
+    def accept(self):
         """Wait for an incoming connection.
-        Return (new socket object, client address)."""
-        if SocketClass is None:
-            SocketClass = RSocket
+        Return (new socket fd, client address)."""
         if self._select(False) == 1:
             raise SocketTimeout
         address, addr_p, addrlen_p = self._addrbuf()
@@ -734,9 +734,7 @@ class RSocket(object):
         if _c.invalid_socket(newfd):
             raise self.error_handler()
         address.addrlen = rffi.cast(lltype.Signed, addrlen)
-        sock = make_socket(newfd, self.family, self.type, self.proto,
-                           SocketClass)
-        return (sock, address)
+        return (newfd, address)
 
     def bind(self, address):
         """Bind the socket to a local address."""
@@ -754,6 +752,11 @@ class RSocket(object):
             res = _c.socketclose(fd)
             if res != 0:
                 raise self.error_handler()
+
+    def detach(self):
+        fd = self.fd
+        self.fd = _c.INVALID_SOCKET
+        return fd
 
     if _c.WIN32:
         def _connect(self, address):
