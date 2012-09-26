@@ -274,10 +274,10 @@ class FlowObjSpace(ObjSpace):
             if expected_length is not None and len(l) != expected_length:
                 raise ValueError
             return [self.wrap(x) for x in l]
-        if isinstance(w_iterable, Variable) and expected_length is None:
-            raise UnwrapException, ("cannot unpack a Variable iterable"
+        elif expected_length is None:
+            raise UnwrapException("cannot unpack a Variable iterable "
                                     "without knowing its length")
-        elif expected_length is not None:
+        else:
             w_len = self.len(w_iterable)
             w_correct = self.eq(w_len, self.wrap(expected_length))
             if not self.is_true(w_correct):
@@ -285,7 +285,6 @@ class FlowObjSpace(ObjSpace):
                 raise e
             return [self.do_operation('getitem', w_iterable, self.wrap(i))
                         for i in range(expected_length)]
-        return ObjSpace.unpackiterable(self, w_iterable, expected_length)
 
     # ____________________________________________________________
     def do_operation(self, name, *args_w):
