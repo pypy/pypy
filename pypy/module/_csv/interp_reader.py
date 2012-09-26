@@ -67,7 +67,8 @@ class W_Reader(Wrappable):
                 w_line = space.next(self.w_iter)
             except OperationError, e:
                 if e.match(space, space.w_StopIteration):
-                    if (state != START_RECORD and state != EAT_CRNL and
+                    if (field_builder is not None and
+                            state != START_RECORD and state != EAT_CRNL and
                             (len(field_builder.build()) > 0 or
                              state == IN_QUOTED_FIELD)):
                         if dialect.strict:
