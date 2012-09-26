@@ -3,10 +3,9 @@ Test the integration with PyPy.
 """
 
 import py, sys
-from dotviewer.conftest import option
 
 def setup_module(mod):
-    if not option.pygame:
+    if not py.test.config.option.pygame:
         py.test.skip("--pygame not enabled")
     try:
         import pypy

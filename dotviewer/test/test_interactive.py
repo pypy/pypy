@@ -1,6 +1,5 @@
 import py
 import sys, os, signal, thread, time
-from dotviewer.conftest import option
 
 SOURCE1 = r'''digraph _generated__graph {
 subgraph _generated__ {
@@ -35,7 +34,7 @@ _generated____4 -> _generated____7
 '''
 
 def setup_module(mod):
-    if not option.pygame:
+    if not py.test.config.option.pygame:
         py.test.skip("--pygame not enabled")
     udir = py.path.local.make_numbered_dir(prefix='usession-dot-', keep=3)
     udir.join('graph1.dot').write(SOURCE1)
