@@ -46,6 +46,33 @@ class FlowObjSpace(ObjSpace):
     """
 
     FrameClass = FlowSpaceFrame
+    def __init__(self, config=None):
+        "NOT_RPYTHON: Basic initialization of objects."
+        self.fromcache = None
+        self.threadlocals = None
+        # set recursion limit
+        # sets all the internal descriptors
+        if config is None:
+            from pypy.config.pypyoption import get_pypy_config
+            config = get_pypy_config(translating=False)
+        self.config = config
+
+        self.builtin_modules = {}
+        self.reloading_modules = {}
+
+        # import extra modules for side-effects
+        import pypy.interpreter.nestedscope     # register *_DEREF bytecodes
+
+        self.interned_strings = {}
+        self.actionflag = None
+        self.check_signal_action = None
+        self.user_del_action = None
+        self.frame_trace_action = None
+        self._code_of_sys_exc_info = None
+
+        self.timer = None
+
+        self.initialize()
 
     def initialize(self):
         self.w_None     = Constant(None)
