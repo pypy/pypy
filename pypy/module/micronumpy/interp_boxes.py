@@ -430,6 +430,7 @@ W_FlexibleBox.typedef = TypeDef("flexible", W_GenericBox.typedef,
 
 W_VoidBox.typedef = TypeDef("void", W_FlexibleBox.typedef,
     __module__ = "numpypy",
+    __new__ = interp2app(W_VoidBox.descr__new__.im_func),
     __getitem__ = interp2app(W_VoidBox.descr_getitem),
     __setitem__ = interp2app(W_VoidBox.descr_setitem),
 )
