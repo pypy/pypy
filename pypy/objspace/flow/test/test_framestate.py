@@ -10,14 +10,11 @@ class TestFrameState:
         cls.space = FlowObjSpace()
 
     def getframe(self, func):
-        space = self.space
         try:
             func = func.im_func
         except AttributeError:
             pass
-        code = func.func_code
-        code = PyCode._from_code(self.space, code)
-        frame = FlowSpaceFrame(space, code, func)
+        frame = FlowSpaceFrame(self.space, func)
         # hack the frame
         frame.locals_stack_w[frame.pycode.co_nlocals-1] = Constant(None)
         return frame

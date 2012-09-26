@@ -19,6 +19,10 @@ from pypy.rlib import jit
 from pypy.rlib.objectmodel import compute_hash
 from pypy.tool.stdlib_opcode import opcodedesc, HAVE_ARGUMENT
 
+
+class BytecodeCorruption(Exception):
+    """Detected bytecode corruption.  Never caught; it's an error."""
+
 # helper
 
 def unpack_str_tuple(space,w_str_tuple):

@@ -1,4 +1,4 @@
-import py
+import py, sys
 from pypy.conftest import option
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 from pypy.interpreter.gateway import interp2app
@@ -548,13 +548,6 @@ class AppTestTypes(BaseNumpyAppTest):
         from _numpypy import dtype
         assert dtype('i4').alignment == 4
 
-    def test_typeinfo(self):
-        from _numpypy import typeinfo, void, number, int64, bool_
-        assert typeinfo['Number'] == number
-        assert typeinfo['LONGLONG'] == ('q', 9, 64, 8, 9223372036854775807L, -9223372036854775808L, int64)
-        assert typeinfo['VOID'] == ('V', 20, 0, 1, void)
-        assert typeinfo['BOOL'] == ('?', 0, 8, 1, 1, 0, bool_)
-
 class AppTestStrUnicodeDtypes(BaseNumpyAppTest):
     def test_str_unicode(self):
         from _numpypy import str_, unicode_, character, flexible, generic
@@ -623,14 +616,16 @@ class AppTestNotDirect(BaseNumpyAppTest):
     def setup_class(cls):
         BaseNumpyAppTest.setup_class.im_func(cls)
         def check_non_native(w_obj, w_obj2):
-            assert w_obj.storage[0] == w_obj2.storage[1]
-            assert w_obj.storage[1] == w_obj2.storage[0]
-            if w_obj.storage[0] == '\x00':
-                assert w_obj2.storage[1] == '\x00'
-                assert w_obj2.storage[0] == '\x01'
+            stor1 = w_obj.implementation.storage
+            stor2 = w_obj2.implementation.storage
+            assert stor1[0] == stor2[1]
+            assert stor1[1] == stor2[0]
+            if stor1[0] == '\x00':
+                assert stor2[1] == '\x00'
+                assert stor2[0] == '\x01'
             else:
-                assert w_obj2.storage[1] == '\x01'
-                assert w_obj2.storage[0] == '\x00'
+                assert stor2[1] == '\x01'
+                assert stor2[0] == '\x00'
         cls.w_check_non_native = cls.space.wrap(interp2app(check_non_native))
         if option.runappdirect:
             py.test.skip("not a direct test")
@@ -642,3 +637,15 @@ class AppTestNotDirect(BaseNumpyAppTest):
         assert (a + a)[1] == 4
         self.check_non_native(a, array([1, 2, 3], 'i2'))
 
+class AppTestPyPyOnly(BaseNumpyAppTest):
+    def setup_class(cls):
+        if option.runappdirect and '__pypy__' not in sys.builtin_module_names:
+            py.test.skip("pypy only test")
+        BaseNumpyAppTest.setup_class.im_func(cls)
+
+    def test_typeinfo(self):
+        from _numpypy import typeinfo, void, number, int64, bool_
+        assert typeinfo['Number'] == number
+        assert typeinfo['LONGLONG'] == ('q', 9, 64, 8, 9223372036854775807L, -9223372036854775808L, int64)
+        assert typeinfo['VOID'] == ('V', 20, 0, 1, void)
+        assert typeinfo['BOOL'] == ('?', 0, 8, 1, 1, 0, bool_)

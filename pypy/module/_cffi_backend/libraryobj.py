@@ -5,7 +5,6 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.rdynload import DLLHANDLE, dlopen, dlsym, dlclose, DLOpenError
-from pypy.rlib.rdynload import RTLD_GLOBAL
 
 from pypy.module._cffi_backend.cdataobj import W_CData
 from pypy.module._cffi_backend.ctypeobj import W_CType
@@ -15,20 +14,16 @@ class W_Library(Wrappable):
     _immutable_ = True
     handle = rffi.cast(DLLHANDLE, 0)
 
-    def __init__(self, space, filename, is_global):
+    def __init__(self, space, filename, flags):
         self.space = space
-        if is_global and RTLD_GLOBAL is not None:
-            mode = RTLD_GLOBAL
-        else:
-            mode = -1     # default value, corresponds to RTLD_LOCAL
         with rffi.scoped_str2charp(filename) as ll_libname:
             if filename is None:
                 filename = "<None>"
             try:
-                self.handle = dlopen(ll_libname, mode)
+                self.handle = dlopen(ll_libname, flags)
             except DLOpenError, e:
                 raise operationerrfmt(space.w_OSError,
-                                      "cannot load '%s': %s",
+                                      "cannot load library %s: %s",
                                       filename, e.msg)
         self.name = filename
 
@@ -100,7 +95,7 @@ W_Library.typedef = TypeDef(
 W_Library.acceptable_as_base_class = False
 
 
-@unwrap_spec(filename="str_or_None", is_global=int)
-def load_library(space, filename, is_global=0):
-    lib = W_Library(space, filename, is_global)
+@unwrap_spec(filename="str_or_None", flags=int)
+def load_library(space, filename, flags=0):
+    lib = W_Library(space, filename, flags)
     return space.wrap(lib)

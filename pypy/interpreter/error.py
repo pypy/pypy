@@ -21,9 +21,7 @@ class OperationError(Exception):
     _application_traceback = None
 
     def __init__(self, w_type, w_value, tb=None):
-        if not we_are_translated() and w_type is None:
-            from pypy.tool.error import FlowingError
-            raise FlowingError(w_value)
+        assert w_type is not None
         self.setup(w_type)
         self._w_value = w_value
         self._application_traceback = tb
@@ -327,9 +325,7 @@ def get_operrcls2(valuefmt):
                 self.xstrings = strings
                 for i, attr in entries:
                     setattr(self, attr, args[i])
-                if not we_are_translated() and w_type is None:
-                    from pypy.tool.error import FlowingError
-                    raise FlowingError(self._compute_value())
+                assert w_type is not None
             def _compute_value(self):
                 lst = [None] * (len(formats) + len(formats) + 1)
                 for i, attr in entries:
@@ -393,7 +389,7 @@ else:
         return OperationError(exc, w_error)
 
 def wrap_oserror2(space, e, w_filename=None, exception_name='w_OSError',
-                  w_exception_class=None): 
+                  w_exception_class=None):
     assert isinstance(e, OSError)
 
     if _WINDOWS and isinstance(e, WindowsError):

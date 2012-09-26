@@ -1,6 +1,7 @@
 """Support for Linux."""
 
 import os
+import platform
 import sys
 from pypy.translator.platform.posix import BasePosix
 
@@ -41,8 +42,11 @@ class BaseLinux(BasePosix):
 
 
 class Linux(BaseLinux):
-    shared_only = ()    # it seems that on 32-bit linux, compiling with -fPIC
-                        # gives assembler that asmgcc is not happy about.
+    if platform.machine().startswith('arm'):
+        shared_only = ('-fPIC',) # ARM requires compiling with -fPIC
+    else:
+        shared_only = () # it seems that on 32-bit linux, compiling with -fPIC
+                         # gives assembler that asmgcc is not happy about.
 
 class Linux64(BaseLinux):
     pass

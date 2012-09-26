@@ -1,5 +1,5 @@
 from pypy.objspace.flow.model import FunctionGraph, Constant, Variable, c_last_exception
-from pypy.rlib.rarithmetic import intmask, r_uint, ovfcheck, r_longlong
+from pypy.rlib.rarithmetic import intmask, r_uint, ovfcheck, r_longlong, r_longlonglong
 from pypy.rlib.rarithmetic import r_ulonglong, is_valid_int
 from pypy.rpython.lltypesystem import lltype, llmemory, lloperation, llheap
 from pypy.rpython.lltypesystem import rclass
@@ -1120,6 +1120,9 @@ class LLFrame(object):
     _makefunc2('op_ullong_floordiv_zer',  '//', 'r_ulonglong')
     _makefunc2('op_ullong_mod_zer',       '%',  'r_ulonglong')
 
+    _makefunc2('op_lllong_floordiv_zer',   '//', 'r_longlonglong')
+    _makefunc2('op_lllong_mod_zer',        '%',  'r_longlonglong')
+    
     def op_int_add_nonneg_ovf(self, x, y):
         if isinstance(y, int):
             assert y >= 0

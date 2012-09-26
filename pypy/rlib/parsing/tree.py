@@ -53,7 +53,10 @@ class Nonterminal(Node):
         self.symbol = symbol
 
     def getsourcepos(self):
-        return self.children[0].getsourcepos()
+        try:
+            return self.children[0].getsourcepos()
+        except IndexError:
+            raise
 
     def __str__(self):
         return "%s(%s)" % (self.symbol, ", ".join([str(c) for c in self.children]))

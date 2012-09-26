@@ -118,6 +118,9 @@ class TestDecoding(UnicodeTests):
         for i in range(10000):
             for encoding in ("utf-7 utf-8 utf-16 utf-16-be utf-16-le "
                              "utf-32 utf-32-be utf-32-le").split():
+                if encoding == 'utf-8' and 0xd800 <= i <= 0xdfff:
+                    # Don't try to encode lone surrogates
+                    continue
                 self.checkdecode(unichr(i), encoding)
 
     def test_random(self):
@@ -209,12 +212,19 @@ class TestDecoding(UnicodeTests):
         u = u'\U000abcde'
         assert encode(u, len(u), None) == '+2m/c3g-'
         decode = self.getdecoder('utf-7')
-        s = '+3ADYAA-'
-        raises(UnicodeError, decode, s, len(s), None)
-        def replace_handler(errors, codec, message, input, start, end):
-            return u'?', end
-        assert decode(s, len(s), None, final=True,
-                      errorhandler = replace_handler) == (u'??', len(s))
+
+        # Unpaired surrogates are passed through
+        assert encode(u'\uD801', 1, None) == '+2AE-'
+        assert encode(u'\uD801x', 2, None) == '+2AE-x'
+        assert encode(u'\uDC01', 1, None) == '+3AE-'
+        assert encode(u'\uDC01x', 2, None) == '+3AE-x'
+        assert decode('+2AE-', 5, None) == (u'\uD801', 5)
+        assert decode('+2AE-x', 6, None) == (u'\uD801x', 6)
+        assert decode('+3AE-', 5, None) == (u'\uDC01', 5)
+        assert decode('+3AE-x', 6, None) == (u'\uDC01x', 6)
+
+        assert encode(u'\uD801\U000abcde', 2, None) == '+2AHab9ze-'
+        assert decode('+2AHab9ze-', 10, None) == (u'\uD801\U000abcde', 10)
 
 
 class TestUTF8Decoding(UnicodeTests):
@@ -235,9 +245,8 @@ class TestUTF8Decoding(UnicodeTests):
             self.checkdecode(s, "utf-8")
 
     def test_utf8_surrogate(self):
-        # A surrogate should not be valid utf-8, but python 2.x accepts them.
-        # This test will raise an error with python 3.x
-        self.checkdecode(u"\ud800", "utf-8")
+        # surrogates used to be allowed by python 2.x
+        raises(UnicodeDecodeError, self.checkdecode, u"\ud800", "utf-8")
 
     def test_invalid_start_byte(self):
         """
@@ -628,8 +637,13 @@ class TestUTF8Decoding(UnicodeTests):
             assert decoder(seq, len(seq), None, final=True,
                            errorhandler=self.ignore_handler) == (res, len(seq))
 
-
 class TestEncoding(UnicodeTests):
+    def replace_handler(self, errors, codec, message, input, start, end):
+        if errors=='strict':
+            runicode.raise_unicode_exception_encode(errors, codec, message,
+                                                    input, start, end)
+        return u'?', end
+
     def test_all_ascii(self):
         for i in range(128):
             if sys.version >= "2.7":
@@ -679,12 +693,16 @@ class TestEncoding(UnicodeTests):
             self.checkencode(s, "utf-8")
 
     def test_utf8_surrogates(self):
-        # check replacing of two surrogates by single char while encoding
         # make sure that the string itself is not marshalled
         u = u"\ud800"
         for i in range(4):
             u += u"\udc00"
-        self.checkencode(u, "utf-8")
+        if runicode.MAXUNICODE < 65536:
+            # Check replacing of two surrogates by single char while encoding
+            self.checkencode(u, "utf-8")
+        else:
+            # This is not done in wide unicode builds
+            raises(UnicodeEncodeError, self.checkencode, u, "utf-8")
 
     def test_ascii_error(self):
         self.checkencodeerror(u"abc\xFF\xFF\xFFcde", "ascii", 3, 6)
@@ -700,6 +718,12 @@ class TestEncoding(UnicodeTests):
         # XXX test this on a non-western Windows installation
         self.checkencode(u"\N{GREEK CAPITAL LETTER PHI}", "mbcs") # a F
         self.checkencode(u"\N{GREEK CAPITAL LETTER PSI}", "mbcs") # a ?
+
+    def test_encode_decimal(self):
+        encoder = self.getencoder('decimal')
+        assert encoder(u' 12, 34 ', 8, None) == ' 12, 34 '
+        raises(UnicodeEncodeError, encoder, u' 12, \u1234 ', 7, None)
+        assert encoder(u'u\u1234', 2, 'replace', self.replace_handler) == 'u?'
 
 class TestTranslation(object):
     def setup_class(cls):

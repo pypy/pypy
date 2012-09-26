@@ -446,6 +446,23 @@ class DetectReadTest(unittest.TestCase):
     def test_detect_fileobj(self):
         self._test_modes(self._testfunc_fileobj)
 
+    def test_detect_stream_bz2(self):
+        # Originally, tarfile's stream detection looked for the string
+        # "BZh91" at the start of the file. This is incorrect because
+        # the '9' represents the blocksize (900kB). If the file was
+        # compressed using another blocksize autodetection fails.
+        if not bz2:
+            return
+
+        with open(tarname, "rb") as fobj:
+            data = fobj.read()
+
+        # Compress with blocksize 100kB, the file starts with "BZh11".
+        with bz2.BZ2File(tmpname, "wb", compresslevel=1) as fobj:
+            fobj.write(data)
+
+        self._testfunc_file(tmpname, "r|*")
+
 
 class MemberReadTest(ReadTest):
 
@@ -990,6 +1007,13 @@ class StreamWriteTest(WriteTestBase):
             self.assertEqual(mode, 0644, "wrong file permissions")
         finally:
             os.umask(original_umask)
+
+    def test_issue13639(self):
+        try:
+            with tarfile.open(unicode(tmpname, sys.getfilesystemencoding()), self.mode):
+                pass
+        except UnicodeDecodeError:
+            self.fail("_Stream failed to write unicode filename")
 
 
 class GNUWriteTest(unittest.TestCase):

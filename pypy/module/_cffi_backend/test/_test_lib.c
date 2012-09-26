@@ -146,6 +146,21 @@ static short _testfunc20(struct _testfunc7_s *ptr)
     return ptr->a1 + ptr->a2;
 }
 
+struct _testfunc21_s { int a, b, c, d, e, f, g, h, i, j; };
+static int _testfunc21(struct _testfunc21_s inlined)
+{
+    return ((inlined.a << 0) +
+            (inlined.b << 1) +
+            (inlined.c << 2) +
+            (inlined.d << 3) +
+            (inlined.e << 4) +
+            (inlined.f << 5) +
+            (inlined.g << 6) +
+            (inlined.h << 7) +
+            (inlined.i << 8) +
+            (inlined.j << 9));
+}
+
 DLLEXPORT void *gettestfunc(int num)
 {
     void *f;
@@ -171,6 +186,7 @@ DLLEXPORT void *gettestfunc(int num)
     case 18: f = &_testfunc18; break;
     case 19: f = &_testfunc19; break;
     case 20: f = &_testfunc20; break;
+    case 21: f = &_testfunc21; break;
     default:
         return NULL;
     }

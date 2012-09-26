@@ -135,8 +135,6 @@ def _group(s, monetary=False):
     grouping = conv[monetary and 'mon_grouping' or 'grouping']
     if not grouping:
         return (s, 0)
-    result = ""
-    seps = 0
     if s[-1] == ' ':
         stripped = s.rstrip()
         right_spaces = s[len(stripped):]
@@ -331,6 +329,13 @@ def _test():
 # overridden below)
 _setlocale = setlocale
 
+# Avoid relying on the locale-dependent .lower() method
+# (see issue #1813).
+_ascii_lower_map = ''.join(
+    chr(x + 32 if x >= ord('A') and x <= ord('Z') else x)
+    for x in range(256)
+)
+
 def normalize(localename):
 
     """ Returns a normalized locale code for the given locale
@@ -348,7 +353,9 @@ def normalize(localename):
 
     """
     # Normalize the locale name and extract the encoding
-    fullname = localename.lower()
+    if isinstance(localename, unicode):
+        localename = localename.encode('ascii')
+    fullname = localename.translate(_ascii_lower_map)
     if ':' in fullname:
         # ':' is sometimes used as encoding delimiter.
         fullname = fullname.replace(':', '.')
@@ -517,9 +524,10 @@ def getlocale(category=LC_CTYPE):
 def setlocale(category, locale=None):
 
     """ Set the locale for the given category.  The locale can be
-        a string, a locale tuple (language code, encoding), or None.
+        a string, an iterable of two strings (language code and encoding),
+        or None.
 
-        Locale tuples are converted to strings the locale aliasing
+        Iterables are converted to strings using the locale aliasing
         engine.  Locale strings are passed directly to the C lib.
 
         category may be given as one of the LC_* values.

@@ -534,13 +534,12 @@ class TestBasicOps(unittest.TestCase):
         self.assertRaises(TypeError, izip, 3)
         self.assertRaises(TypeError, izip, range(3), 3)
 
-    @test_support.impl_detail("tuple reuse is specific to CPython")
-    def test_izip_tuple_reuse(self):
-        # Check tuple re-use (implementation detail)
         self.assertEqual([tuple(list(pair)) for pair in izip('abc', 'def')],
                          zip('abc', 'def'))
         self.assertEqual([pair for pair in izip('abc', 'def')],
                          zip('abc', 'def'))
+    @test_support.impl_detail("tuple reuse is specific to CPython")
+    def test_izip_tuple_reuse(self):
         ids = map(id, izip('abc', 'def'))
         self.assertEqual(min(ids), max(ids))
         ids = map(id, list(izip('abc', 'def')))
@@ -585,13 +584,12 @@ class TestBasicOps(unittest.TestCase):
             else:
                 self.fail('Did not raise Type in:  ' + stmt)
 
-    @test_support.impl_detail("tuple reuse is specific to CPython")
-    def test_iziplongest_tuple_reuse(self):
-        # Check tuple re-use (implementation detail)
         self.assertEqual([tuple(list(pair)) for pair in izip_longest('abc', 'def')],
                          zip('abc', 'def'))
         self.assertEqual([pair for pair in izip_longest('abc', 'def')],
                          zip('abc', 'def'))
+    @test_support.impl_detail("tuple reuse is specific to CPython")
+    def test_izip_longest_tuple_reuse(self):
         ids = map(id, izip_longest('abc', 'def'))
         self.assertEqual(min(ids), max(ids))
         ids = map(id, list(izip_longest('abc', 'def')))
@@ -697,7 +695,6 @@ class TestBasicOps(unittest.TestCase):
 
     @test_support.impl_detail("tuple reuse is specific to CPython")
     def test_product_tuple_reuse(self):
-        # Test implementation detail:  tuple re-use
         self.assertEqual(len(set(map(id, product('abc', 'def')))), 1)
         self.assertNotEqual(len(set(map(id, list(product('abc', 'def'))))), 1)
 

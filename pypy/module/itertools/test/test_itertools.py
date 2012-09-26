@@ -88,6 +88,13 @@ class AppTestItertools:
         list(it)
         assert repr(it) == "repeat('foobar', 0)"
 
+    def test_repeat_len(self):
+        import itertools
+
+        r = itertools.repeat('a', 15)
+        r.next()
+        raises(TypeError, "len(itertools.repeat('xkcd'))")
+
     def test_takewhile(self):
         import itertools
 
@@ -656,6 +663,17 @@ class AppTestItertools:
         a, b = itertools.tee(iter('abc'))
         ref = weakref.ref(b)
         assert ref() is b
+
+    def test_tee_bug1(self):
+        import itertools
+        a, b = itertools.tee('abcde')
+        x = a.next()
+        assert x == 'a'
+        c, d = itertools.tee(a)
+        x = c.next()
+        assert x == 'b'
+        x = d.next()
+        assert x == 'b'
 
 
 class AppTestItertools26:

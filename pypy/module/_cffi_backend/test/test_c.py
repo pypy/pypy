@@ -1,7 +1,19 @@
 from __future__ import with_statement
 """
 This file is OBSCURE.  Really.  The purpose is to avoid copying and changing
-'test_c.py' from cffi/c/.
+'test_c.py' from cffi/c/ in the original CFFI repository:
+    https://bitbucket.org/cffi/cffi
+
+Adding a test here involves:
+1. add a test to cffi/c/test.py
+   - if you need a C function to call, add it into _cffi_backend.c
+     as a testfuncNN().
+2. have it pass when you run 'py.test test_c.py' in cffi
+3. check in and (if you can) push the changes
+4. copy test_c.py into _backend_test.py here, killing the few lines of header
+   - if you added a C function, it goes into _test_lib.c here
+   - if you could complete step 3, try running 'py.test test_file.py' here
+5. make the test pass in pypy ('py.test test_c.py')
 """
 import py, sys, ctypes
 if sys.version_info < (2, 6):
@@ -10,7 +22,6 @@ if sys.version_info < (2, 6):
 from pypy.tool.udir import udir
 from pypy.conftest import gettestobjspace, option
 from pypy.interpreter import gateway
-from pypy.module._cffi_backend.test import _backend_test_c
 from pypy.module._cffi_backend import Module
 from pypy.translator.platform import host
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
@@ -75,20 +86,24 @@ class AppTestC(object):
 
 all_names = ', '.join(Module.interpleveldefs.keys())
 
+backend_test_c = py.path.local(__file__).join('..', '_backend_test_c.py')
+
 lst = []
-for name, value in _backend_test_c.__dict__.items():
-    if name.startswith('test_'):
-        lst.append(value)
-lst.sort(key=lambda func: func.func_code.co_firstlineno)
+with backend_test_c.open('r') as f:
+    for line in f:
+        if line.startswith('def test_'):
+            line = line[4:]
+            line = line[:line.index('():')]
+            lst.append(line)
 
 tmpdir = udir.join('test_c').ensure(dir=1)
 
 tmpname = tmpdir.join('_test_c.py')
 with tmpname.open('w') as f:
     for func in lst:
-        print >> f, 'def %s(self):' % (func.__name__,)
+        print >> f, 'def %s(self):' % (func,)
         print >> f, '    import _all_test_c'
-        print >> f, '    _all_test_c.%s()' % (func.__name__,)
+        print >> f, '    _all_test_c.%s()' % (func,)
 
 tmpname2 = tmpdir.join('_all_test_c.py')
 with tmpname2.open('w') as f:
@@ -98,7 +113,7 @@ with tmpname2.open('w') as f:
     print >> f, '    class test:'
     print >> f, '        raises = staticmethod(raises)'
     print >> f, '        skip = staticmethod(skip)'
-    print >> f, py.path.local(__file__).join('..', '_backend_test_c.py').read()
+    print >> f, backend_test_c.read()
 
 
 mod = tmpname.pyimport()

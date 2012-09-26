@@ -18,6 +18,7 @@ from pypy.jit.codewriter import heaptracker, longlong
 from pypy.rlib.rarithmetic import intmask
 from pypy.jit.backend.detect_cpu import getcpuclass
 from pypy.jit.backend.test.runner_test import Runner
+import py
 
 def boxfloat(x):
     return BoxFloat(longlong.getfloatstorage(x))
@@ -293,6 +294,34 @@ class TestCallingConv(Runner):
             finally:
                 del self.cpu.done_with_this_frame_float_v
 
+
+    def test_call_with_imm_values_bug_constint0(self):
+            from pypy.rlib.libffi import types
+            cpu = self.cpu
+
+            I = lltype.Signed
+            ints = [7, 11, 23, 13, -42, 0, 0, 9]
+
+            def func(*args):
+                for i in range(len(args)):
+                    assert args[i] == ints[i]
+                return sum(args)
+
+            result = sum(ints)
+            args = [I] * len(ints)
+            argslist = [ConstInt(i) for i in ints]
+            FUNC = self.FuncType(args, I)
+            FPTR = self.Ptr(FUNC)
+            func_ptr = llhelper(FPTR, func)
+            calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, EffectInfo.MOST_GENERAL)
+            funcbox = self.get_funcbox(cpu, func_ptr)
+
+            res = self.execute_operation(rop.CALL,
+                                         [funcbox] + argslist,
+                                         'int', descr=calldescr)
+            assert res.value == result
+
+
     def test_call_with_singlefloats(self):
         cpu = self.cpu
         if not cpu.supports_floats or not cpu.supports_singlefloats:
@@ -310,9 +339,9 @@ class TestCallingConv(Runner):
         F = lltype.Float
         S = lltype.SingleFloat
         I = lltype.Signed
-        floats = [random.random() - 0.5 for i in range(8)]
-        singlefloats = [r_singlefloat(random.random() - 0.5) for i in range(8)]
-        ints = [random.randrange(-99, 99) for i in range(8)]
+        floats = [random.random() - 0.5 for i in range(20)]
+        singlefloats = [r_singlefloat(random.random() - 0.5) for i in range(20)]
+        ints = [random.randrange(-99, 99) for i in range(20)]
         for repeat in range(100):
             args = []
             argvalues = []
@@ -320,20 +349,23 @@ class TestCallingConv(Runner):
             local_floats = list(floats)
             local_singlefloats = list(singlefloats)
             local_ints = list(ints)
-            for i in range(8):
-                case = random.randrange(0, 3)
-                if case == 0:
+            for i in range(random.randrange(4, 20)):
+                case = random.randrange(0, 6)
+                if case & 1: boxme = BoxInt
+                else:        boxme = ConstInt
+                if case < 2:
                     args.append(F)
-                    arg = local_floats.pop()
-                    argslist.append(boxfloat(arg))
-                elif case == 1:
+                    arg = arg1 = local_floats.pop()
+                    if case & 1: boxme = boxfloat
+                    else:        boxme = constfloat
+                elif case < 4:
                     args.append(S)
                     arg = local_singlefloats.pop()
-                    argslist.append(BoxInt(longlong.singlefloat2int(arg)))
+                    arg1 = longlong.singlefloat2int(arg)
                 else:
                     args.append(I)
-                    arg = local_ints.pop()
-                    argslist.append(BoxInt(arg))
+                    arg = arg1 = local_ints.pop()
+                argslist.append(boxme(arg1))
                 argvalues.append(arg)
             FUNC = self.FuncType(args, F)
             FPTR = self.Ptr(FUNC)

@@ -126,6 +126,17 @@ def test_defined_constant_float():
     value = rffi_platform.getdefineddouble('BLAH', '#define BLAH (double)0/0')
     assert isnan(value)
 
+def test_getintegerfunctionresult():
+    func = 'int sum(int a, int b) {return a + b;}'
+    value = rffi_platform.getintegerfunctionresult('sum', [6, 7], func)
+    assert value == 13
+    value = rffi_platform.getintegerfunctionresult('lround', [6.7],
+                                                        '#include <math.h>')
+    assert value == 7
+    value = rffi_platform.getintegerfunctionresult('lround', [9.1],
+                                                    includes=['math.h'])
+    assert value == 9
+
 def test_configure():
     test_h = udir.join('test_ctypes_platform.h')
     test_h.write('#define XYZZY 42\n')
@@ -147,6 +158,19 @@ def test_configure():
     assert res == {'FILE': res['FILE'],
                    'ushort': rffi.USHORT,
                    'XYZZY': 42}
+
+def test_integer_function_result():
+    class CConfig:
+        _compilation_info_ = ExternalCompilationInfo(
+            pre_include_bits = ["""int sum(int a, int b){ return a+b;}"""],
+        )
+        SUM = rffi_platform.IntegerFunctionResult('sum', [12, 34])
+        SUM2 = rffi_platform.IntegerFunctionResult('sum', [-12, -34])
+
+
+    res = rffi_platform.configure(CConfig)
+    assert res['SUM'] == 46
+    assert res['SUM2'] == -46
 
 def test_ifdef():
     class CConfig:
