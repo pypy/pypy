@@ -433,6 +433,14 @@ class TestStructure(BaseCTypesTestChecker):
         obj = X()
         assert isinstance(obj.items, Array)
 
+    def test_b_base(self):
+        # _b_base_ used to be None here in PyPy
+        class X(Structure):
+            _fields_ = [('x', c_int)]
+        obj = X()
+        p = pointer(obj)
+        assert p.contents._b_base_ is p
+
 class TestPointerMember(BaseCTypesTestChecker):
 
     def test_1(self):

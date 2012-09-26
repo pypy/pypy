@@ -53,14 +53,18 @@ def alignof(space, ctype):
     align = ctype.alignof()
     return space.wrap(align)
 
-@unwrap_spec(ctype=ctypeobj.W_CType, fieldname=str)
-def offsetof(space, ctype, fieldname):
-    ofs = ctype.offsetof(fieldname)
-    return space.wrap(ofs)
+@unwrap_spec(ctype=ctypeobj.W_CType, fieldname="str_or_None")
+def typeoffsetof(space, ctype, fieldname):
+    ctype, offset = ctype.typeoffsetof(fieldname)
+    return space.newtuple([space.wrap(ctype), space.wrap(offset)])
 
 @unwrap_spec(ctype=ctypeobj.W_CType)
 def _getfields(space, ctype):
     return ctype._getfields()
+
+@unwrap_spec(ctype=ctypeobj.W_CType, cdata=cdataobj.W_CData, offset=int)
+def rawaddressof(space, ctype, cdata, offset=0):
+    return ctype.rawaddressof(cdata, offset)
 
 # ____________________________________________________________
 

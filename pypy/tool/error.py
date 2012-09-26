@@ -65,9 +65,6 @@ def source_lines(graph, *args, **kwds):
     lines = source_lines1(graph, *args, **kwds)
     return ['In %r:' % (graph,)] + lines
 
-class FlowingError(Exception):
-    pass
-
 class AnnotatorError(Exception):
     pass
 
@@ -175,13 +172,6 @@ def format_someobject_error(annotator, position_key, what, s_value, called_from_
             annotator.whereami(s_value.origin),))
     msg.append("Previous annotation:")
     msg.append("  " + str(binding))
-    return "\n".join(msg)
-
-def format_global_error(graph, offset, message):
-    msg = []
-    msg.append('-+' * 30)
-    msg.append(message)
-    msg += source_lines(graph, None, offset=offset)
     return "\n".join(msg)
 
 def debug(drv, use_pdb=True):

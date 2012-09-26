@@ -4,6 +4,7 @@ good assembler
 """
 
 import py
+py.test.skip("this is going away")
 
 from pypy.jit.metainterp import pyjitpl
 from pypy.jit.metainterp.test.support import LLJitMixin

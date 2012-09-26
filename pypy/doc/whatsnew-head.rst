@@ -16,6 +16,10 @@ Check that axis arg is valid in _numpypy
 
 .. branch: iterator-in-rpython
 .. branch: numpypy_count_nonzero
+.. branch: numpy-refactor
+Remove numpy lazy evaluation and simplify everything
+.. branch: numpy-fancy-indexing
+Support for array[array-of-ints] in numpy
 .. branch: even-more-jit-hooks
 Implement better JIT hooks
 .. branch: virtual-arguments

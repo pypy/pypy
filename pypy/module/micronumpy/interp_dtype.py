@@ -18,6 +18,12 @@ VOIDLTR = 'V'
 STRINGLTR = 'S'
 UNICODELTR = 'U'
 
+def decode_w_dtype(space, w_dtype):
+    if w_dtype is None or space.is_w(w_dtype, space.w_None):
+        return None
+    return space.interp_w(W_Dtype,
+          space.call_function(space.gettypefor(W_Dtype), w_dtype))
+
 class W_Dtype(Wrappable):
     _immutable_fields_ = ["itemtype", "num", "kind"]
 
