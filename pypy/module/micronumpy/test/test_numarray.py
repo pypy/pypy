@@ -2244,6 +2244,11 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         assert a[0]['x'] == 'a'
         assert a[1]['y'] == 1
 
+    def test_stringarray(self):
+        from _numpypy import array
+        a = array(['abc'])
+        assert str(a) == "['abc']"
+        assert a.dtype == '|S3'
        
 class AppTestPyPy(BaseNumpyAppTest):
     def setup_class(cls):

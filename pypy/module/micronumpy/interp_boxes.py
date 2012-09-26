@@ -228,7 +228,7 @@ class W_VoidBox(W_FlexibleBox):
         except KeyError:
             raise OperationError(space.w_IndexError,
                                  space.wrap("Field %s does not exist" % item))
-        return dtype.itemtype.read(self.arr, self.ofs, ofs, dtype)
+        return space.wrap(dtype.itemtype.read(self.arr, self.ofs, ofs, dtype))
 
     @unwrap_spec(item=str)
     def descr_setitem(self, space, item, w_value):

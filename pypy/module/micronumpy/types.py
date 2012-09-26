@@ -907,6 +907,20 @@ class BaseStringType(object):
 class StringType(BaseType, BaseStringType):
     T = lltype.Char
 
+    def coerce(self, space, dtype, w_item):
+        if space.isinstance_w(w_item, space.w_str):
+            return space.unwrap(w_item)
+        print 'w_item',type(w_item)
+        xxx
+
+    def store(self, arr, i, offset, box):
+        assert isinstance(box, str)
+        for k in range(min(self.size-i, len(box)-offset)):
+            arr.storage[k + i] = box[k + offset]
+
+    def read(self, arr, i, offset, dtype=None):
+        return arr.storage[i+offset]
+
 class VoidType(BaseType, BaseStringType):
     T = lltype.Char
 
