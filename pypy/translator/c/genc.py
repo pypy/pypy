@@ -22,16 +22,15 @@ _CPYTHON_RE = py.std.re.compile('^Python 2.[567]')
 def get_recent_cpython_executable():
 
     if sys.platform == 'win32':
-        python = sys.executable.replace('\\', '/') + ' '
+        python = sys.executable.replace('\\', '/')
     else:
-        python = sys.executable + ' '
-
+        python = sys.executable
     # Is there a command 'python' that runs python 2.5-2.7?
     # If there is, then we can use it instead of sys.executable
     returncode, stdout, stderr = runsubprocess.run_subprocess(
         "python", "-V")
     if _CPYTHON_RE.match(stdout) or _CPYTHON_RE.match(stderr):
-        python = 'python '
+        python = 'python'
     return python
 
 
@@ -559,6 +558,7 @@ class CStandaloneBuilder(CBuilder):
         for rule in rules:
             mk.rule(*rule)
 
+        #XXX: this conditional part is not tested at all
         if self.config.translation.gcrootfinder == 'asmgcc':
             trackgcfiles = [cfile[:cfile.rfind('.')] for cfile in mk.cfiles]
             if self.translator.platform.name == 'msvc':
@@ -581,7 +581,7 @@ class CStandaloneBuilder(CBuilder):
             else:
                 mk.definition('PYPY_MAIN_FUNCTION', "main")
 
-            python = get_recent_cpython_executable()
+            mk.definition('PYTHON', get_recent_cpython_executable())
 
             if self.translator.platform.name == 'msvc':
                 lblofiles = []
@@ -603,22 +603,22 @@ class CStandaloneBuilder(CBuilder):
                         'cmd /c $(MASM) /nologo /Cx /Cp /Zm /coff /Fo$@ /c $< $(INCLUDEDIRS)')
                 mk.rule('.c.gcmap', '',
                         ['$(CC) /nologo $(ASM_CFLAGS) /c /FAs /Fa$*.s $< $(INCLUDEDIRS)',
-                         'cmd /c ' + python + '$(PYPYDIR)/translator/c/gcc/trackgcroot.py -fmsvc -t $*.s > $@']
+                         'cmd /c $(PYTHON) $(PYPYDIR)/translator/c/gcc/trackgcroot.py -fmsvc -t $*.s > $@']
                         )
                 mk.rule('gcmaptable.c', '$(GCMAPFILES)',
-                        'cmd /c ' + python + '$(PYPYDIR)/translator/c/gcc/trackgcroot.py -fmsvc $(GCMAPFILES) > $@')
+                        'cmd /c $(PYTHON) $(PYPYDIR)/translator/c/gcc/trackgcroot.py -fmsvc $(GCMAPFILES) > $@')
 
             else:
                 mk.definition('OBJECTS', '$(ASMLBLFILES) gcmaptable.s')
                 mk.rule('%.s', '%.c', '$(CC) $(CFLAGS) $(CFLAGSEXTRA) -frandom-seed=$< -o $@ -S $< $(INCLUDEDIRS)')
                 mk.rule('%.lbl.s %.gcmap', '%.s',
-                        [python +
-                             '$(PYPYDIR)/translator/c/gcc/trackgcroot.py '
+                        [
+                             '$(PYTHON) $(PYPYDIR)/translator/c/gcc/trackgcroot.py '
                              '-t $< > $*.gctmp',
                          'mv $*.gctmp $*.gcmap'])
                 mk.rule('gcmaptable.s', '$(GCMAPFILES)',
-                        [python +
-                             '$(PYPYDIR)/translator/c/gcc/trackgcroot.py '
+                        [
+                             '$(PYTHON) $(PYPYDIR)/translator/c/gcc/trackgcroot.py '
                              '$(GCMAPFILES) > $@.tmp',
                          'mv $@.tmp $@'])
                 mk.rule('.PRECIOUS', '%.s', "# don't remove .s files if Ctrl-C'ed")
