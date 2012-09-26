@@ -28,8 +28,10 @@ class AbstractStringRepr(Repr):
         from pypy.rpython.annlowlevel import hlstr
         value = hlstr(llvalue)
         assert value is not None
-        univalue, _ = self.rstr_decode_utf_8(value, len(value), 'strict',
-                                             False, self.ll_raise_unicode_exception_decode)
+        univalue, _ = self.rstr_decode_utf_8(
+            value, len(value), 'strict', final=False,
+            errorhandler=self.ll_raise_unicode_exception_decode,
+            allow_surrogates=False)
         return self.ll.llunicode(univalue)
 
     def ll_raise_unicode_exception_decode(self, errors, encoding, msg, s,
@@ -52,8 +54,7 @@ class AbstractUnicodeRepr(AbstractStringRepr):
     def ensure_ll_encode_utf8(self):
         from pypy.rlib.runicode import unicode_encode_utf_8_impl
         self.runicode_encode_utf_8 = func_with_new_name(
-            unicode_encode_utf_8_impl,
-            'runicode_encode_utf_8_impl')
+            unicode_encode_utf_8_impl, 'runicode_encode_utf_8')
 
     def rtype_method_upper(self, hop):
         raise TypeError("Cannot do toupper on unicode string")
@@ -66,8 +67,10 @@ class AbstractUnicodeRepr(AbstractStringRepr):
         from pypy.rpython.annlowlevel import hlunicode
         s = hlunicode(ll_s)
         assert s is not None
-        bytes = self.runicode_encode_utf_8(s, len(s), 'strict',
-                                           self.ll_raise_unicode_exception_encode)
+        bytes = self.runicode_encode_utf_8(
+            s, len(s), 'strict',
+            errorhandler=self.ll_raise_unicode_exception_encode,
+            allow_surrogates=False)
         return self.ll.llstr(bytes)
 
     def ll_raise_unicode_exception_encode(self, errors, encoding, msg, u,

@@ -697,11 +697,11 @@ class AbstractUnwrappedStrategy(object):
         return ListStrategy.contains(self, w_list, w_obj)
 
     def _safe_contains(self, w_list, obj):
-            l = self.unerase(w_list.lstorage)
-            for i in l:
-                if i == obj:
-                    return True
-            return False
+        l = self.unerase(w_list.lstorage)
+        for i in l:
+            if i == obj:
+                return True
+        return False
 
     def length(self, w_list):
         return len(self.unerase(w_list.lstorage))
@@ -732,7 +732,6 @@ class AbstractUnwrappedStrategy(object):
         items = self.unerase(w_list.lstorage)[:]
         return self.erase(items)
 
-
     def getslice(self, w_list, start, stop, step, length):
         if step == 1 and 0 <= start <= stop:
             l = self.unerase(w_list.lstorage)
@@ -754,7 +753,6 @@ class AbstractUnwrappedStrategy(object):
             return W_ListObject.from_storage_and_strategy(self.space, storage, self)
 
     def append(self,  w_list, w_item):
-
         if self.is_correct_type(w_item):
             self.unerase(w_list.lstorage).append(self.unwrap(w_item))
             return

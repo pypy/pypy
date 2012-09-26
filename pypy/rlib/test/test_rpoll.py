@@ -25,7 +25,8 @@ def test_simple():
     assert events[0][0] == serv.fd
     assert events[0][1] & POLLIN
 
-    servconn, cliaddr = serv.accept()
+    servconn_fd, cliaddr = serv.accept()
+    servconn = RSocket(AF_INET, fd=servconn_fd)
 
     events = poll({serv.fd: POLLIN,
                    cli.fd: POLLOUT}, timeout=500)
