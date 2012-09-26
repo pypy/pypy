@@ -64,10 +64,15 @@ def get_strategy_from_list_objects(space, list_w, sizehint):
 
     return space.fromcache(ObjectListStrategy)
 
+def _get_printable_location(w_type):
+    return ('list__do_extend_from_iterable [w_type=%s]' %
+            w_type.getname(w_type.space))
+
 _do_extend_jitdriver = jit.JitDriver(
     name='list__do_extend_from_iterable',
     greens=['w_type'],
-    reds=['i', 'w_iterator', 'w_list'])
+    reds=['i', 'w_iterator', 'w_list'],
+    get_printable_location=_get_printable_location)
 
 def _do_extend_from_iterable(space, w_list, w_iterable):
     w_iterator = space.iter(w_iterable)
