@@ -44,37 +44,12 @@ class FlowObjSpace(object):
     the space operations that the interpreter generates when it interprets
     (the bytecode of) some function.
     """
-
-    FrameClass = FlowSpaceFrame
     def __init__(self, config=None):
-        "NOT_RPYTHON: Basic initialization of objects."
-        self.fromcache = None
-        self.threadlocals = None
-        # set recursion limit
-        # sets all the internal descriptors
         if config is None:
             from pypy.config.pypyoption import get_pypy_config
             config = get_pypy_config(translating=False)
         self.config = config
 
-        self.builtin_modules = {}
-        self.reloading_modules = {}
-
-        # import extra modules for side-effects
-        import pypy.interpreter.nestedscope     # register *_DEREF bytecodes
-
-        self.interned_strings = {}
-        self.actionflag = None
-        self.check_signal_action = None
-        self.user_del_action = None
-        self.frame_trace_action = None
-        self._code_of_sys_exc_info = None
-
-        self.timer = None
-
-        self.initialize()
-
-    def initialize(self):
         self.w_None     = Constant(None)
         self.builtin = Constant(__builtin__)
         self.sys = Constant(sys)
@@ -93,19 +68,11 @@ class FlowObjSpace(object):
             clsname = exc.__name__
             setattr(self, 'w_'+clsname, None)
         self.specialcases = SPECIAL_CASES.copy()
-        #self.make_builtins()
-        #self.make_sys()
         # w_str is needed because cmp_exc_match of frames checks against it,
         # as string exceptions are deprecated
         self.w_str = Constant(str)
         # objects which should keep their SomeObjectness
         self.not_really_const = NOT_REALLY_CONST
-
-    # disable superclass methods
-    enter_cache_building_mode = None
-    leave_cache_building_mode = None
-    createcompiler = None
-    interpclass_w = None
 
     def is_w(self, w_one, w_two):
         return self.is_true(self.is_(w_one, w_two))
@@ -200,9 +167,6 @@ class FlowObjSpace(object):
                 raise UnwrapException
         return obj
 
-    def getexecutioncontext(self):
-        return self.frame
-
     def exception_issubclass_w(self, w_cls1, w_cls2):
         return self.is_true(self.issubtype(w_cls1, w_cls2))
 
@@ -274,16 +238,6 @@ class FlowObjSpace(object):
             w_value = w_inst
             w_type = w_instclass
         return FSException(w_type, w_value)
-
-    def getconstclass(space, w_cls):
-        try:
-            ecls = space.unwrap(w_cls)
-        except UnwrapException:
-            pass
-        else:
-            if isinstance(ecls, (type, types.ClassType)):
-                return ecls
-        return None
 
     def build_flow(self, func, constargs={}, tweak_for_generator=True):
         """
@@ -516,20 +470,6 @@ class FlowObjSpace(object):
                 message = "global name '%s' is not defined" % varname
                 raise FlowingError(self.frame, self.wrap(message))
         return self.wrap(value)
-
-    def w_KeyboardInterrupt(self):
-        # the reason to do this is: if you interrupt the flowing of a function
-        # with <Ctrl-C> the bytecode interpreter will raise an applevel
-        # KeyboardInterrupt and you will get an AttributeError: space does not
-        # have w_KeyboardInterrupt, which is not very helpful
-        raise KeyboardInterrupt
-    w_KeyboardInterrupt = property(w_KeyboardInterrupt)
-
-    def w_RuntimeError(self):
-        # XXX same as w_KeyboardInterrupt()
-        raise RuntimeError("the interpreter raises RuntimeError during "
-                           "flow graph construction")
-    w_RuntimeError = prebuilt_recursion_error = property(w_RuntimeError)
 
 def make_op(name, arity):
     """Add function operation to the flow space."""
