@@ -81,4 +81,11 @@ Build an unordered collection.""",
 
 set_typedef.registermethods(globals())
 
-setiter_typedef = StdTypeDef("setiterator")
+def descr_setiterator__length_hint__(space, w_self):
+    from pypy.objspace.std.setobject import W_SetIterObject
+    assert isinstance(w_self, W_SetIterObject)
+    return space.wrap(w_self.iterimplementation.length())
+
+setiter_typedef = StdTypeDef("setiterator",
+    __length_hint__ = gateway.interp2app(descr_setiterator__length_hint__),
+    )

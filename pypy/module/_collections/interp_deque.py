@@ -517,6 +517,9 @@ class W_DequeIter(Wrappable):
     def iter(self):
         return self.space.wrap(self)
 
+    def length(self):
+        return self.space.wrap(self.counter)
+
     def next(self):
         self.deque.checklock(self.lock)
         if self.counter == 0:
@@ -532,8 +535,9 @@ class W_DequeIter(Wrappable):
         return w_x
 
 W_DequeIter.typedef = TypeDef("deque_iterator",
-    __iter__ = interp2app(W_DequeIter.iter),
-    next = interp2app(W_DequeIter.next),
+    __iter__        = interp2app(W_DequeIter.iter),
+    __length_hint__ = interp2app(W_DequeIter.length),
+    next            = interp2app(W_DequeIter.next),
 )
 W_DequeIter.typedef.acceptable_as_base_class = False
 
@@ -552,6 +556,9 @@ class W_DequeRevIter(Wrappable):
     def iter(self):
         return self.space.wrap(self)
 
+    def length(self):
+        return self.space.wrap(self.counter)
+
     def next(self):
         self.deque.checklock(self.lock)
         if self.counter == 0:
@@ -567,8 +574,9 @@ class W_DequeRevIter(Wrappable):
         return w_x
 
 W_DequeRevIter.typedef = TypeDef("deque_reverse_iterator",
-    __iter__ = interp2app(W_DequeRevIter.iter),
-    next = interp2app(W_DequeRevIter.next),
+    __iter__        = interp2app(W_DequeRevIter.iter),
+    __length_hint__ = interp2app(W_DequeRevIter.length),
+    next            = interp2app(W_DequeRevIter.next),
 )
 W_DequeRevIter.typedef.acceptable_as_base_class = False
 
