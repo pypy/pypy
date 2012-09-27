@@ -10,7 +10,8 @@ from pypy.objspace.flow.model import *
 from pypy.objspace.flow.framestate import (FrameState, recursively_unflatten,
         recursively_flatten)
 from pypy.objspace.flow.bytecode import HostCode
-from pypy.objspace.flow.specialcase import sc_applevel
+from pypy.objspace.flow.specialcase import (rpython_print_item,
+        rpython_print_newline)
 
 class FlowingError(Exception):
     """ Signals invalid RPython in the function being analysed"""
@@ -588,10 +589,8 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
 
     def PRINT_ITEM(self, oparg, next_instr):
         w_item = self.popvalue()
-        self.print_item(w_item)
-
-    def print_item(self, *args):
-        return sc_applevel(self.space, 'print_item', args)
+        w_s = self.space.do_operation('str', w_item)
+        self.space.appcall(rpython_print_item, w_s)
 
     def PRINT_NEWLINE_TO(self, oparg, next_instr):
         w_stream = self.popvalue()
@@ -600,10 +599,7 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         print_newline_to(self.space, w_stream)
 
     def PRINT_NEWLINE(self, oparg, next_instr):
-        self.print_newline()
-
-    def print_newline(self):
-        return sc_applevel(self.space, 'print_newline', [])
+        self.space.appcall(rpython_print_newline)
 
     def FOR_ITER(self, jumpby, next_instr):
         w_iterator = self.peekvalue()

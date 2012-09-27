@@ -451,9 +451,13 @@ class FlowObjSpace(object):
         return self.call_function(w_meth, *arg_w)
 
     def call_function(self, w_func, *args_w):
-        nargs = len(args_w)
         args = argument.ArgumentsForTranslation(self, list(args_w))
         return self.call_args(w_func, args)
+
+    def appcall(self, func, *args_w):
+        """Call an app-level RPython function directly"""
+        w_func = self.wrap(func)
+        return self.do_operation('simple_call', w_func, *args_w)
 
     def call_args(self, w_callable, args):
         try:
