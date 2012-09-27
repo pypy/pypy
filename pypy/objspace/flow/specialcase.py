@@ -51,12 +51,12 @@ def rpython_print_newline():
     import os
     os.write(1, s)
 
-def sc_applevel(space, app, name, args_w):
+def sc_applevel(space, name, args_w):
     # special case only for print_item and print_newline
-    if 'pyopcode' in app.filename and name == 'print_item':
+    if name == 'print_item':
         w_s = space.do_operation('str', *args_w)
         args_w = (w_s,)
-    elif 'pyopcode' in app.filename and name == 'print_newline':
+    elif name == 'print_newline':
         pass
     else:
         raise Exception("not RPython: calling %r from %r" % (name, app))

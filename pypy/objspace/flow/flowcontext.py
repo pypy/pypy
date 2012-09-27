@@ -10,6 +10,7 @@ from pypy.objspace.flow.model import *
 from pypy.objspace.flow.framestate import (FrameState, recursively_unflatten,
         recursively_flatten)
 from pypy.objspace.flow.bytecode import HostCode
+from pypy.objspace.flow.specialcase import sc_applevel
 
 class FlowingError(Exception):
     """ Signals invalid RPython in the function being analysed"""
@@ -573,6 +574,36 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         # XXX yield expressions not supported. This will blow up if the value
         # isn't popped straightaway.
         self.pushvalue(None)
+
+    def PRINT_EXPR(self, oparg, next_instr):
+        w_expr = self.popvalue()
+        print_expr(self.space, w_expr)
+
+    def PRINT_ITEM_TO(self, oparg, next_instr):
+        w_stream = self.popvalue()
+        w_item = self.popvalue()
+        if self.space.is_w(w_stream, self.space.w_None):
+            w_stream = sys_stdout(self.space)   # grumble grumble special cases
+        print_item_to(self.space, w_item, w_stream)
+
+    def PRINT_ITEM(self, oparg, next_instr):
+        w_item = self.popvalue()
+        self.print_item(w_item)
+
+    def print_item(self, *args):
+        return sc_applevel(self.space, 'print_item', args)
+
+    def PRINT_NEWLINE_TO(self, oparg, next_instr):
+        w_stream = self.popvalue()
+        if self.space.is_w(w_stream, self.space.w_None):
+            w_stream = sys_stdout(self.space)   # grumble grumble special cases
+        print_newline_to(self.space, w_stream)
+
+    def PRINT_NEWLINE(self, oparg, next_instr):
+        self.print_newline()
+
+    def print_newline(self):
+        return sc_applevel(self.space, 'print_newline', [])
 
     def FOR_ITER(self, jumpby, next_instr):
         w_iterator = self.peekvalue()
