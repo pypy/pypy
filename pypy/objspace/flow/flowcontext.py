@@ -468,6 +468,9 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
             next_instr = block.handle(self, unroller)
             return next_instr
 
+    def BAD_OPCODE(self, _, next_instr):
+        raise FlowingError(self, "This operation is not RPython")
+
     def BREAK_LOOP(self, oparg, next_instr):
         return self.unrollstack_and_jump(SBreakLoop.singleton)
 
@@ -576,27 +579,14 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         # isn't popped straightaway.
         self.pushvalue(None)
 
-    def PRINT_EXPR(self, oparg, next_instr):
-        w_expr = self.popvalue()
-        print_expr(self.space, w_expr)
-
-    def PRINT_ITEM_TO(self, oparg, next_instr):
-        w_stream = self.popvalue()
-        w_item = self.popvalue()
-        if self.space.is_w(w_stream, self.space.w_None):
-            w_stream = sys_stdout(self.space)   # grumble grumble special cases
-        print_item_to(self.space, w_item, w_stream)
+    PRINT_EXPR = BAD_OPCODE
+    PRINT_ITEM_TO = BAD_OPCODE
+    PRINT_NEWLINE_TO = BAD_OPCODE
 
     def PRINT_ITEM(self, oparg, next_instr):
         w_item = self.popvalue()
         w_s = self.space.do_operation('str', w_item)
         self.space.appcall(rpython_print_item, w_s)
-
-    def PRINT_NEWLINE_TO(self, oparg, next_instr):
-        w_stream = self.popvalue()
-        if self.space.is_w(w_stream, self.space.w_None):
-            w_stream = sys_stdout(self.space)   # grumble grumble special cases
-        print_newline_to(self.space, w_stream)
 
     def PRINT_NEWLINE(self, oparg, next_instr):
         self.space.appcall(rpython_print_newline)

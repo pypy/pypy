@@ -100,6 +100,11 @@ class TestFlowObjSpace(Base):
     def test_print(self):
         x = self.codetest(self.print_)
 
+    def test_bad_print(self):
+        def f(x):
+            print >> x, "Hello"
+        with py.test.raises(FlowingError):
+            self.codetest(f)
     #__________________________________________________________
     def while_(i):
         while i > 0:
