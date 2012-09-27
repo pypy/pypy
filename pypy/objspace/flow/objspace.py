@@ -335,6 +335,9 @@ class FlowObjSpace(object):
                 operation.implicit_exceptions.get(name))
         return w_result
 
+    def not_(self, w_obj):
+        return self.wrap(not self.is_true(w_obj))
+
     def is_true(self, w_obj):
         try:
             obj = self.unwrap_for_computation(w_obj)

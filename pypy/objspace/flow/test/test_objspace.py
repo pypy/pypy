@@ -509,6 +509,12 @@ class TestFlowObjSpace(Base):
             assert len(op.args) == 2
             assert op.args[1].value == 3
 
+    def test_unary_ops(self):
+        def f(x):
+            return not ~-x
+        graph = self.codetest(f)
+        assert self.all_operations(graph) == {'is_true':1, 'invert':1, 'neg':1}
+
     #__________________________________________________________
 
     def wearetranslated(x):
