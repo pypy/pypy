@@ -38,7 +38,7 @@ NOT_REALLY_CONST = {
     }
 
 # ______________________________________________________________________
-class FlowObjSpace(ObjSpace):
+class FlowObjSpace(object):
     """NOT_RPYTHON.
     The flow objspace space is used to produce a flow graph by recording
     the space operations that the interpreter generates when it interprets
@@ -130,6 +130,12 @@ class FlowObjSpace(ObjSpace):
     def newslice(self, w_start, w_stop, w_step):
         return self.do_operation('newslice', w_start, w_stop, w_step)
 
+    def newbool(self, b):
+        if b:
+            return self.w_True
+        else:
+            return self.w_False
+
     def wrap(self, obj):
         if isinstance(obj, (Variable, Constant)):
             raise TypeError("already wrapped: " + repr(obj))
@@ -196,6 +202,9 @@ class FlowObjSpace(ObjSpace):
 
     def getexecutioncontext(self):
         return self.frame
+
+    def exception_issubclass_w(self, w_cls1, w_cls2):
+        return self.is_true(self.issubtype(w_cls1, w_cls2))
 
     def _exception_match(self, w_exc_type, w_check_class):
         """Helper for exception_match
@@ -293,7 +302,7 @@ class FlowObjSpace(ObjSpace):
 
     def fixedview(self, w_tuple, expected_length=None):
         return self.unpackiterable(w_tuple, expected_length)
-    listview = fixedview
+    listview = fixedview_unroll = fixedview
 
     def unpackiterable(self, w_iterable, expected_length=None):
         if not isinstance(w_iterable, Variable):
@@ -374,6 +383,9 @@ class FlowObjSpace(ObjSpace):
         return self.do_operation_with_implicit_exceptions('setitem', w_obj,
                                                           w_key, w_val)
 
+    def setitem_str(self, w_obj, key, w_value):
+        return self.setitem(w_obj, self.wrap(key), w_value)
+
     def getattr(self, w_obj, w_name):
         # handling special things like sys
         # unfortunately this will never vanish with a unique import logic :-(
@@ -402,6 +414,9 @@ class FlowObjSpace(ObjSpace):
         return self.do_operation_with_implicit_exceptions('getattr',
                 w_obj, w_name)
 
+    def isinstance_w(self, w_obj, w_type):
+        return self.is_true(self.isinstance(w_obj, w_type))
+
     def import_name(self, name, glob=None, loc=None, frm=None, level=-1):
         try:
             mod = __import__(name, glob, loc, frm, level)
@@ -423,6 +438,14 @@ class FlowObjSpace(ObjSpace):
         except AttributeError:
             raise FSException(self.w_ImportError,
                 self.wrap("cannot import name '%s'" % w_name.value))
+
+    def call_valuestack(self, w_func, nargs, frame):
+        args = frame.make_arguments(nargs)
+        return self.call_args(w_func, args)
+
+    def call_method(self, w_obj, methname, *arg_w):
+        w_meth = self.getattr(w_obj, self.wrap(methname))
+        return self.call_function(w_meth, *arg_w)
 
     def call_function(self, w_func, *args_w):
         nargs = len(args_w)
