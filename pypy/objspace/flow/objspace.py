@@ -45,11 +45,6 @@ class FlowObjSpace(object):
     (the bytecode of) some function.
     """
     def __init__(self, config=None):
-        if config is None:
-            from pypy.config.pypyoption import get_pypy_config
-            config = get_pypy_config(translating=False)
-        self.config = config
-
         self.w_None     = Constant(None)
         self.builtin = Constant(__builtin__)
         self.sys = Constant(sys)

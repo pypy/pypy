@@ -714,6 +714,14 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         w_result = self.space.find_global(self.w_globals, self.getname_u(nameindex))
         self.pushvalue(w_result)
 
+    def LOAD_ATTR(self, nameindex, next_instr):
+        "obj.attributename"
+        w_obj = self.popvalue()
+        w_attributename = self.getname_w(nameindex)
+        w_value = self.space.getattr(w_obj, w_attributename)
+        self.pushvalue(w_value)
+    LOOKUP_METHOD = LOAD_ATTR
+
     def BUILD_LIST_FROM_ARG(self, _, next_instr):
         # This opcode was added with pypy-1.8.  Here is a simpler
         # version, enough for annotation.
