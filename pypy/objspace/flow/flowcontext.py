@@ -25,7 +25,6 @@ class FlowingError(Exception):
         msg += source_lines(self.frame.graph, None, offset=self.frame.last_instr)
         return "\n".join(msg)
 
-
 class StopFlowing(Exception):
     pass
 
@@ -219,6 +218,20 @@ class Replayer(Recorder):
             raise ImplicitOperationError(w_exc_cls, w_exc_value)
 
 # ____________________________________________________________
+
+compare_method = [
+    "cmp_lt",   # "<"
+    "cmp_le",   # "<="
+    "cmp_eq",   # "=="
+    "cmp_ne",   # "!="
+    "cmp_gt",   # ">"
+    "cmp_ge",   # ">="
+    "cmp_in",
+    "cmp_not_in",
+    "cmp_is",
+    "cmp_is_not",
+    "cmp_exc_match",
+    ]
 
 class FlowSpaceFrame(pyframe.CPythonFrame):
 
@@ -477,6 +490,45 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
     def CONTINUE_LOOP(self, startofloop, next_instr):
         unroller = SContinueLoop(startofloop)
         return self.unrollstack_and_jump(unroller)
+
+    def cmp_lt(self, w_1, w_2):
+        return self.space.lt(w_1, w_2)
+
+    def cmp_le(self, w_1, w_2):
+        return self.space.le(w_1, w_2)
+
+    def cmp_eq(self, w_1, w_2):
+        return self.space.eq(w_1, w_2)
+
+    def cmp_ne(self, w_1, w_2):
+        return self.space.ne(w_1, w_2)
+
+    def cmp_gt(self, w_1, w_2):
+        return self.space.gt(w_1, w_2)
+
+    def cmp_ge(self, w_1, w_2):
+        return self.space.ge(w_1, w_2)
+
+    def cmp_in(self, w_1, w_2):
+        return self.space.contains(w_2, w_1)
+
+    def cmp_not_in(self, w_1, w_2):
+        return self.space.not_(self.space.contains(w_2, w_1))
+
+    def cmp_is(self, w_1, w_2):
+        return self.space.is_(w_1, w_2)
+
+    def cmp_is_not(self, w_1, w_2):
+        return self.space.not_(self.space.is_(w_1, w_2))
+
+    def cmp_exc_match(self, w_1, w_2):
+        return self.space.newbool(self.space.exception_match(w_1, w_2))
+
+    def COMPARE_OP(self, testnum, next_instr):
+        w_2 = self.popvalue()
+        w_1 = self.popvalue()
+        w_result = getattr(self, compare_method[testnum])(w_1, w_2)
+        self.pushvalue(w_result)
 
     def RAISE_VARARGS(self, nbargs, next_instr):
         space = self.space

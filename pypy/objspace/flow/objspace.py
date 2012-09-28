@@ -68,9 +68,6 @@ class FlowObjSpace(object):
             clsname = exc.__name__
             setattr(self, 'w_'+clsname, None)
         self.specialcases = SPECIAL_CASES.copy()
-        # w_str is needed because cmp_exc_match of frames checks against it,
-        # as string exceptions are deprecated
-        self.w_str = Constant(str)
         # objects which should keep their SomeObjectness
         self.not_really_const = NOT_REALLY_CONST
 

@@ -991,7 +991,6 @@ class TestFlowObjSpace(Base):
             self.codetest(f)
         assert 'div(5, 0)' in str(excinfo.value)
 
-    @py.test.mark.xfail
     def test_nonconstant_except(self):
         def f(exc_cls):
             try:
