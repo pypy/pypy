@@ -44,7 +44,7 @@ class FlowObjSpace(object):
     the space operations that the interpreter generates when it interprets
     (the bytecode of) some function.
     """
-    def __init__(self, config=None):
+    def __init__(self):
         self.w_None     = Constant(None)
         self.builtin = Constant(__builtin__)
         self.sys = Constant(sys)
