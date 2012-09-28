@@ -118,7 +118,7 @@ Importantly, note that this is not issue with the `high-level
 interface`_, but only if you use ``thread.atomic`` directly.  In the
 high-level interface, the running code is either single-threaded
 (outside ``transaction.run()``) or systematically running in
-``thred.atomic`` blocks.
+``thread.atomic`` blocks.
 
 If you *are* using ``thread.atomic`` directly, then a common way for
 this issue to show up is using ``print`` statements: this is due to the
@@ -241,6 +241,14 @@ Implementation
 ==============
 
 XXX
+
+
+See also
+========
+
+See also
+https://bitbucket.org/pypy/pypy/raw/default/pypy/doc/project-ideas.rst
+(section about STM).
 
 
 .. include:: _ref.txt
