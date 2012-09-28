@@ -5,7 +5,7 @@ from pypy.conftest import gettestobjspace
 currpath = py.path.local(__file__).dirpath()
 test_dct = str(currpath.join("overloadsDict.so"))
 
-space = gettestobjspace(usemodules=['cppyy'])
+space = gettestobjspace(usemodules=['cppyy', 'array'])
 
 def setup_module(mod):
     if sys.platform == 'win32':
@@ -133,3 +133,16 @@ class AppTestOVERLOADS:
 #        assert more_overloads().call(1.)  == "double"
         assert more_overloads().call1(1)  == "int"
         assert more_overloads().call1(1.) == "double"
+
+    def test07_mean_overloads(self):
+        """Adapted test for array overloading"""
+
+        import cppyy, array
+        cmean = cppyy.gbl.calc_mean
+
+        numbers = [8, 2, 4, 2, 4, 2, 4, 4, 1, 5, 6, 3, 7]
+        mean, median = 4.0, 4.0
+
+        for l in ['f', 'd', 'i', 'h', 'l']:
+            a = array.array(l, numbers)
+            assert(round(cmean(len(a), a) - mean, 8), 0)

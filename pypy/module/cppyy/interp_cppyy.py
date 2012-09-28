@@ -665,12 +665,14 @@ class W_CPPNamespace(W_CPPScope):
                 self._make_datamember(datamember_name, i)
 
     def find_overload(self, meth_name):
-        # TODO: collect all overloads, not just the non-overloaded version
-        meth_idx = capi.c_method_index_from_name(self, meth_name)
-        if meth_idx == -1:
+        indices = capi.c_method_indices_from_name(self, meth_name)
+        if not indices:
             raise self.missing_attribute_error(meth_name)
-        cppfunction = self._make_cppfunction(meth_name, meth_idx)
-        overload = W_CPPOverload(self.space, self, [cppfunction])
+        cppfunctions = []
+        for meth_idx in indices:
+            f = self._make_cppfunction(meth_name, meth_idx)
+            cppfunctions.append(f)
+        overload = W_CPPOverload(self.space, self, cppfunctions)
         return overload
 
     def find_datamember(self, dm_name):
