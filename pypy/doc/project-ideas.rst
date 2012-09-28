@@ -115,13 +115,16 @@ JIT-less pypy-stm version:
   which data structures would be more appropriate?  For example, a dict
   implemented as a hash table will suffer "stm collisions" in all threads
   whenever one thread writes anything to it; but there could be other
-  implementations.
+  implementations.  Maybe alternate strategies can be implemented at the
+  level of the Python interpreter (see list/dict strategies,
+  ``pypy/objspace/std/{list,dict}object.py``).
 
 * More generally, there is the idea that we would need some kind of
   "debugger"-like tool to "debug" things that are not bugs, but stm
   conflicts.  How would this tool look like to the end Python
   programmers?  Like a profiler?  Or like a debugger with breakpoints
-  on aborted transactions?
+  on aborted transactions?  It would probably be all app-level, with
+  a few hooks e.g. for transaction conflicts.
 
 * Find good ways to have libraries using internally threads and atomics,
   but not exposing threads to the user.  Right now there is a rough draft
