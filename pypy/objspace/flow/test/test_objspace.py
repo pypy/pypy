@@ -471,7 +471,7 @@ class TestFlowObjSpace(Base):
         with py.test.raises(FlowingError) as excinfo:
             self.codetest(f)
         assert "modify global" in str(excinfo.value)
-        assert DATA == {'x':5, 'y':6}
+        assert DATA == {'x': 5, 'y': 6}
 
     #__________________________________________________________
     def dictliteral(name):
@@ -517,7 +517,7 @@ class TestFlowObjSpace(Base):
         def f(x):
             return not ~-x
         graph = self.codetest(f)
-        assert self.all_operations(graph) == {'is_true':1, 'invert':1, 'neg':1}
+        assert self.all_operations(graph) == {'is_true': 1, 'invert': 1, 'neg': 1}
 
     #__________________________________________________________
 
@@ -985,7 +985,7 @@ class TestFlowObjSpace(Base):
 
     def test_constfold_exception(self):
         def f():
-            return (3 + 2)/(4 - 2*2)
+            return (3 + 2) / (4 - 2 * 2)
         with py.test.raises(FlowingError) as excinfo:
             self.codetest(f)
         assert 'div(5, 0)' in str(excinfo.value)
