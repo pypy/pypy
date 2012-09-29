@@ -239,23 +239,34 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         self.pycode = code
         self.space = space
         self.w_globals = Constant(func.func_globals)
-        self.locals_stack_w = [None] * (code.co_nlocals + code.co_stacksize)
-        self.valuestackdepth = code.co_nlocals
         self.lastblock = None
 
         self.cells = code.make_cells(func.func_closure)
         self.f_lineno = code.co_firstlineno
         self.last_instr = 0
 
-        formalargcount = code.getformalargcount()
-        arg_list = [Variable() for i in range(formalargcount)]
-        self.setfastscope(arg_list)
-
+        self.init_locals_stack(code)
         self.w_locals = None # XXX: only for compatibility with PyFrame
 
         self.joinpoints = {}
         self._init_graph(func)
         self.pendingblocks = collections.deque([self.graph.startblock])
+
+    def init_locals_stack(self, code):
+        """
+        Initialize the locals and the stack.
+
+        The locals are ordered according to self.pycode.signature().
+        """
+        self.valuestackdepth = code.co_nlocals
+        formalargcount = code.getformalargcount()
+        n_uninitialised_locals = code.co_nlocals - formalargcount
+        if n_uninitialised_locals < 0:
+            raise ValueError, "new fastscope is longer than the allocated area"
+        arg_list = [Variable() for i in range(formalargcount)]
+        self.locals_stack_w = (arg_list +
+                [None] * (code.co_stacksize + n_uninitialised_locals))
+        self.init_cells()
 
     def _init_graph(self, func):
         # CallableFactory.pycall may add class_ to functions that are methods
