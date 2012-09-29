@@ -367,14 +367,15 @@ def flatiter_setitem(arr, val, start, step, length):
         val_iter.reset()
 
 fromstring_driver = jit.JitDriver(name = 'numpy_fromstring',
-                                  greens = ['dtype'],
+                                  greens = ['itemsize', 'dtype'],
                                   reds = ['i', 's', 'ai'])
 
 def fromstring_loop(a, dtype, itemsize, s):
     i = 0
     ai = a.create_iter()
     while not ai.done():
-        fromstring_driver.jit_merge_point(dtype=dtype, s=s, ai=ai, i=i)
+        fromstring_driver.jit_merge_point(dtype=dtype, s=s, ai=ai, i=i,
+                                          itemsize=itemsize)
         val = dtype.itemtype.runpack_str(s[i*itemsize:i*itemsize + itemsize])
         ai.setitem(val)
         ai.next()
