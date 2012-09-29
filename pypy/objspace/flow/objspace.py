@@ -44,27 +44,26 @@ class FlowObjSpace(object):
     the space operations that the interpreter generates when it interprets
     (the bytecode of) some function.
     """
-    def __init__(self):
-        self.w_None     = Constant(None)
-        self.builtin = Constant(__builtin__)
-        self.sys = Constant(sys)
-        self.w_False    = Constant(False)
-        self.w_True     = Constant(True)
-        self.w_type     = Constant(type)
-        self.w_tuple    = Constant(tuple)
-        for exc in [KeyError, ValueError, IndexError, StopIteration,
-                    AssertionError, TypeError, AttributeError, ImportError]:
-            clsname = exc.__name__
-            setattr(self, 'w_'+clsname, Constant(exc))
-        # the following exceptions are the ones that should not show up
-        # during flow graph construction; they are triggered by
-        # non-R-Pythonic constructs or real bugs like typos.
-        for exc in [NameError, UnboundLocalError]:
-            clsname = exc.__name__
-            setattr(self, 'w_'+clsname, None)
-        self.specialcases = SPECIAL_CASES.copy()
-        # objects which should keep their SomeObjectness
-        self.not_really_const = NOT_REALLY_CONST
+    w_None = Constant(None)
+    builtin = Constant(__builtin__)
+    sys = Constant(sys)
+    w_False = Constant(False)
+    w_True = Constant(True)
+    w_type = Constant(type)
+    w_tuple = Constant(tuple)
+    for exc in [KeyError, ValueError, IndexError, StopIteration,
+                AssertionError, TypeError, AttributeError, ImportError]:
+        clsname = exc.__name__
+        locals()['w_' + clsname] = Constant(exc)
+
+    # the following exceptions should not show up
+    # during flow graph construction
+    w_NameError = None
+    w_UnboundLocalError = None
+
+    specialcases = SPECIAL_CASES
+    # objects which should keep their SomeObjectness
+    not_really_const = NOT_REALLY_CONST
 
     def is_w(self, w_one, w_two):
         return self.is_true(self.is_(w_one, w_two))
