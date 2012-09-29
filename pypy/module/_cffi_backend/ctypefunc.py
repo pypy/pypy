@@ -229,7 +229,7 @@ W_CTypePrimitiveUnsigned._get_ffi_type      = _primunsigned_ffi_type
 W_CTypePrimitiveFloat._get_ffi_type         = _primfloat_ffi_type
 W_CTypePrimitiveLongDouble._get_ffi_type    = _primlongdouble_ffi_type
 W_CTypePtrBase._get_ffi_type                = _ptr_ffi_type
-W_CTypeVoid._get_ffi_type                   = _void_ffi_type
+#W_CTypeVoid._get_ffi_type                  = _void_ffi_type -- special-cased
 # ----------
 
 
@@ -251,7 +251,9 @@ class CifDescrBuilder(object):
             return result
 
 
-    def fb_fill_type(self, ctype):
+    def fb_fill_type(self, ctype, is_result_type):
+        if is_result_type and isinstance(ctype, W_CTypeVoid):
+            return clibffi.ffi_type_void
         return ctype._get_ffi_type(self)
 
     def fb_struct_ffi_type(self, ctype):
@@ -262,6 +264,11 @@ class CifDescrBuilder(object):
         # But on 64-bit UNIX, these two structs are passed by value
         # differently: e.g. on x86-64, "b" ends up in register "rsi" in
         # the first case and "rdi" in the second case.
+        #
+        # Another reason for 'custom_field_pos' would be anonymous
+        # nested structures: we lost the information about having it
+        # here, so better safe (and forbid it) than sorry (and maybe
+        # crash).
         space = self.space
         if ctype.custom_field_pos:
             raise OperationError(space.w_TypeError,
@@ -279,9 +286,9 @@ class CifDescrBuilder(object):
         for i, cf in enumerate(ctype.fields_list):
             if cf.is_bitfield():
                 raise OperationError(space.w_NotImplementedError,
-                    space.wrap("cannot pass as argument a struct "
-                               "with bit fields"))
-            ffi_subtype = self.fb_fill_type(cf.ctype)
+                    space.wrap("cannot pass as argument or return value "
+                               "a struct with bit fields"))
+            ffi_subtype = self.fb_fill_type(cf.ctype, False)
             if elements:
                 elements[i] = ffi_subtype
 
@@ -322,11 +329,11 @@ class CifDescrBuilder(object):
         self.atypes = rffi.cast(FFI_TYPE_PP, atypes)
 
         # next comes the result type data
-        self.rtype = self.fb_fill_type(self.fresult)
+        self.rtype = self.fb_fill_type(self.fresult, True)
 
         # next comes each argument's type data
         for i, farg in enumerate(self.fargs):
-            atype = self.fb_fill_type(farg)
+            atype = self.fb_fill_type(farg, False)
             if self.atypes:
                 self.atypes[i] = atype
 

@@ -369,6 +369,15 @@ class AppTestImport:
     def test__import__empty_string(self):
         raises(ValueError, __import__, "")
 
+    def test_py_directory(self):
+        import imp, os, sys
+        source = os.path.join(sys.path[0], 'foo.py')
+        os.mkdir(source)
+        try:
+            raises(ImportError, imp.find_module, 'foo')
+        finally:
+            os.rmdir(source)
+
     def test_invalid__name__(self):
         glob = {}
         exec "__name__ = None; import sys" in glob

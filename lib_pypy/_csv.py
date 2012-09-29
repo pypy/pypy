@@ -363,9 +363,7 @@ class Reader(object):
                             (self.dialect.delimiter, self.dialect.quotechar))
 
         elif self.state == self.EAT_CRNL:
-            if c in '\r\n':
-                pass
-            else:
+            if c not in '\r\n':
                 raise Error("new-line character seen in unquoted field - "
                             "do you need to open the file "
                             "in universal-newline mode?")
@@ -504,9 +502,12 @@ class Writer(object):
                 quoted = True
 
             if field is None:
-                self._join_append("", quoted, rowlen == 1)
+                value = ""
+            elif isinstance(field, float):
+                value = repr(field)
             else:
-                self._join_append(str(field), quoted, rowlen == 1)
+                value = str(field)
+            self._join_append(value, quoted, rowlen == 1)
 
         # add line terminator
         self.rec.append(dialect.lineterminator)

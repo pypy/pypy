@@ -2,8 +2,9 @@
 import os
 
 DIRS_SPLIT = [
-    'translator/c', 'translator/jvm', 'rlib', 'rpython/memory',
-    'jit/backend/x86', 'jit/metainterp', 'rpython/test',
+    'translator/c', 'translator/jvm', 'rlib',
+    'rpython/memory', 'jit/metainterp', 'rpython/test',
+    'jit/backend/arm', 'jit/backend/x86',
 ]
 
 def collect_one_testdir(testdirs, reldir, tests):

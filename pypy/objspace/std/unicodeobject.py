@@ -13,7 +13,7 @@ from pypy.rlib.rarithmetic import intmask, ovfcheck
 from pypy.rlib.objectmodel import compute_hash, specialize
 from pypy.rlib.objectmodel import compute_unique_id
 from pypy.rlib.rstring import UnicodeBuilder
-from pypy.rlib.runicode import unicode_encode_unicode_escape
+from pypy.rlib.runicode import make_unicode_escape_function
 from pypy.module.unicodedata import unicodedb
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib import jit
@@ -918,10 +918,13 @@ def unicode_translate__Unicode_ANY(space, w_self, w_table):
                     space.wrap("character mapping must return integer, None or unicode"))
     return W_UnicodeObject(u''.join(result))
 
+_repr_function, _ = make_unicode_escape_function(
+    pass_printable=False, unicode_output=False, quotes=True, prefix='u')
+
 def repr__Unicode(space, w_unicode):
     chars = w_unicode._value
     size = len(chars)
-    s = unicode_encode_unicode_escape(chars, size, "strict", quotes=True)
+    s = _repr_function(chars, size, "strict")
     return space.wrap(s)
 
 def mod__Unicode_ANY(space, w_format, w_values):

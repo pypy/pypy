@@ -427,7 +427,7 @@ def test_enforceargs_decorator():
     assert f.foo == 'foo'
     assert f(1, 'hello', 42) == (1, 'hello', 42)
     exc = py.test.raises(TypeError, "f(1, 2, 3)")
-    assert exc.value.message == "f argument number 2 must be of type <type 'str'>"
+    assert exc.value.message == "f argument 'b' must be of type <type 'str'>"
     py.test.raises(TypeError, "f('hello', 'world', 3)")
     
 
@@ -437,12 +437,24 @@ def test_enforceargs_defaults():
         return a+b
     assert f(2) == 42
 
+def test_enforceargs_keywords():
+    @enforceargs(b=int)
+    def f(a, b, c):
+        return a+b
+    assert f._annenforceargs_ == (None, int, None)
+
 def test_enforceargs_int_float_promotion():
     @enforceargs(float)
     def f(x):
         return x
     # in RPython there is an implicit int->float promotion
     assert f(42) == 42
+
+def test_enforceargs_None_string():
+    @enforceargs(str, unicode)
+    def f(a, b):
+        return a, b
+    assert f(None, None) == (None, None)
 
 def test_enforceargs_complex_types():
     @enforceargs([int], {str: int})

@@ -196,6 +196,39 @@ class TestUnicode(BaseApiTest):
         assert space.unwrap(w_s) == u'späm'.encode('utf-8')
         rffi.free_wcharp(u)
 
+    def test_encode_decimal(self, space, api):
+        with rffi.scoped_unicode2wcharp(u' (12, 35 ABC)') as u:
+            with rffi.scoped_alloc_buffer(20) as buf:
+                res = api.PyUnicode_EncodeDecimal(u, 13, buf.raw, None)
+                s = rffi.charp2str(buf.raw)
+        assert res == 0
+        assert s == ' (12, 35 ABC)'
+
+        with rffi.scoped_unicode2wcharp(u' (12, \u1234\u1235)') as u:
+            with rffi.scoped_alloc_buffer(20) as buf:
+                res = api.PyUnicode_EncodeDecimal(u, 9, buf.raw, None)
+        assert res == -1
+        api.PyErr_Clear()
+
+        with rffi.scoped_unicode2wcharp(u' (12, \u1234\u1235)') as u:
+            with rffi.scoped_alloc_buffer(20) as buf:
+                with rffi.scoped_str2charp("replace") as errors:
+                    res = api.PyUnicode_EncodeDecimal(u, 9, buf.raw,
+                                                      errors)
+                s = rffi.charp2str(buf.raw)
+        assert res == 0
+        assert s == " (12, ??)"
+
+        with rffi.scoped_unicode2wcharp(u'12\u1234') as u:
+            with rffi.scoped_alloc_buffer(20) as buf:
+                with rffi.scoped_str2charp("xmlcharrefreplace") as errors:
+                    res = api.PyUnicode_EncodeDecimal(u, 3, buf.raw,
+                                                      errors)
+                s = rffi.charp2str(buf.raw)
+        assert res == 0
+        assert s == "12&#4660;"
+
+
     def test_IS(self, space, api):
         for char in [0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x1c, 0x1d, 0x1e, 0x1f,
                      0x20, 0x85, 0xa0, 0x1680, 0x2000, 0x2001, 0x2002,

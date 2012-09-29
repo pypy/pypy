@@ -108,7 +108,7 @@ class _Specialize(object):
 
 specialize = _Specialize()
 
-def enforceargs(*types, **kwds):
+def enforceargs(*types_, **kwds):
     """ Decorate a function with forcing of RPython-level types on arguments.
     None means no enforcing.
 
@@ -117,21 +117,25 @@ def enforceargs(*types, **kwds):
     typechecking by passing ``typecheck=False`` to @enforceargs.
     """
     typecheck = kwds.pop('typecheck', True)
-    if kwds:
-        raise TypeError, 'got an unexpected keyword argument: %s' % kwds.keys()
+    if types_ and kwds:
+        raise TypeError, 'Cannot mix positional arguments and keywords'
+
     if not typecheck:
         def decorator(f):
-            f._annenforceargs_ = types
+            f._annenforceargs_ = types_
             return f
         return decorator
     #
-    def decorator(f): 
+    def decorator(f):
         def get_annotation(t):
             from pypy.annotation.signature import annotation
-            from pypy.annotation.model import SomeObject
+            from pypy.annotation.model import SomeObject, SomeStringOrUnicode
             if isinstance(t, SomeObject):
                 return t
-            return annotation(t)
+            s_result = annotation(t)
+            if isinstance(s_result, SomeStringOrUnicode):
+                return s_result.__class__(can_be_None=True)
+            return s_result
         def get_type_descr_of_argument(arg):
             # we don't want to check *all* the items in list/dict: we assume
             # they are already homogeneous, so we only check the first
@@ -159,14 +163,18 @@ def enforceargs(*types, **kwds):
                 #
                 s_argtype = get_annotation(get_type_descr_of_argument(arg))
                 if not s_expected.contains(s_argtype):
-                    msg = "%s argument number %d must be of type %s" % (
-                        f.func_name, i+1, expected_type)
+                    msg = "%s argument %r must be of type %s" % (
+                        f.func_name, srcargs[i], expected_type)
                     raise TypeError, msg
         #
         # we cannot simply wrap the function using *args, **kwds, because it's
         # not RPython. Instead, we generate a function with exactly the same
         # argument list
         srcargs, srcvarargs, srckeywords, defaults = inspect.getargspec(f)
+        if kwds:
+            types = tuple([kwds.get(arg) for arg in srcargs])
+        else:
+            types = types_
         assert len(srcargs) == len(types), (
             'not enough types provided: expected %d, got %d' %
             (len(types), len(srcargs)))

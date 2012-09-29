@@ -101,9 +101,8 @@ def setup_context(space, stacklevel):
     # setup filename
     try:
         w_filename = space.getitem(w_globals, space.wrap("__file__"))
+        filename = space.str_w(w_filename)
     except OperationError, e:
-        if not e.match(space, space.w_KeyError):
-            raise
         if space.str_w(w_module) == '__main__':
             w_argv = space.sys.getdictvalue(space, 'argv')
             if w_argv and space.len_w(w_argv) > 0:
@@ -116,12 +115,11 @@ def setup_context(space, stacklevel):
         else:
             w_filename = w_module
     else:
-        # if filename.lower().endswith((".pyc", ".pyo"))
-        if space.is_true(space.call_method(
-            w_filename, "endswith",
-            space.newtuple([space.wrap(".pyc"), space.wrap(".pyo")]))):
+        lc_filename = filename.lower()
+        if (lc_filename.endswith(".pyc") or 
+            lc_filename.endswith(".pyo")):
             # strip last character
-            w_filename = space.wrap(space.str_w(w_filename)[:-1])
+            w_filename = space.wrap(filename[:-1])
 
     return (w_filename, lineno, w_module, w_registry)
 

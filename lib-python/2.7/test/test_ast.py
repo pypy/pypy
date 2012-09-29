@@ -83,7 +83,7 @@ exec_tests = [
     "[(a,b) for a,b in c]",
     "((a,b) for a,b in c)",
     "((a,b) for (a,b) in c)",
-    # Multiline generator expression
+    # Multiline generator expression (test for .lineno & .col_offset)
     """(
     (
     Aa
@@ -131,7 +131,7 @@ eval_tests = [
   "{}",
   # Set
   "{None,}",
-  # Multiline dict
+  # Multiline dict (test for .lineno & .col_offset)
   """{
       1
         :
@@ -195,33 +195,25 @@ class AST_Tests(unittest.TestCase):
                 self._assertTrueorder(value, parent_pos)
 
     def test_AST_objects(self):
-        if test_support.check_impl_detail():
+        if not test_support.check_impl_detail():
             # PyPy also provides a __dict__ to the ast.AST base class.
+            return
 
-            x = ast.AST()
-            try:
-                x.foobar = 21
-            except AttributeError, e:
-                self.assertEquals(e.args[0],
-                                  "'_ast.AST' object has no attribute 'foobar'")
-            else:
-                self.assert_(False)
+        x = ast.AST()
+        self.assertEqual(x._fields, ())
 
-            try:
-                ast.AST(lineno=2)
-            except AttributeError, e:
-                self.assertEquals(e.args[0],
-                                  "'_ast.AST' object has no attribute 'lineno'")
-            else:
-                self.assert_(False)
+        with self.assertRaises(AttributeError):
+            x.vararg
 
-        try:
+        with self.assertRaises(AttributeError):
+            x.foobar = 21
+
+        with self.assertRaises(AttributeError):
+            ast.AST(lineno=2)
+
+        with self.assertRaises(TypeError):
+            # "_ast.AST constructor takes 0 positional arguments"
             ast.AST(2)
-        except TypeError, e:
-            self.assertEquals(e.args[0],
-                              "_ast.AST constructor takes 0 positional arguments")
-        else:
-            self.assert_(False)
 
     def test_snippets(self):
         for input, output, kind in ((exec_tests, exec_results, "exec"),
@@ -256,67 +248,47 @@ class AST_Tests(unittest.TestCase):
             if isinstance(item, type) and name != 'AST' and name[0].isupper(): # XXX: pypy does not allow abstract ast class instanciation
                 x = item()
                 if isinstance(x, ast.AST):
-                    self.assertEquals(type(x._fields), tuple)
+                    self.assertEqual(type(x._fields), tuple)
 
     def test_arguments(self):
         x = ast.arguments()
-        self.assertEquals(x._fields, ('args', 'vararg', 'kwarg', 'defaults'))
-        try:
+        self.assertEqual(x._fields, ('args', 'vararg', 'kwarg', 'defaults'))
+
+        with self.assertRaises(AttributeError):
             x.vararg
-        except AttributeError, e:
-            self.assertEquals(e.args[0],
-                              "'arguments' object has no attribute 'vararg'")
-        else:
-            self.assert_(False)
+
         x = ast.arguments(1, 2, 3, 4)
-        self.assertEquals(x.vararg, 2)
+        self.assertEqual(x.vararg, 2)
 
     def test_field_attr_writable(self):
         x = ast.Num()
         # We can assign to _fields
         x._fields = 666
-        self.assertEquals(x._fields, 666)
+        self.assertEqual(x._fields, 666)
 
     def test_classattrs(self):
         x = ast.Num()
-        self.assertEquals(x._fields, ('n',))
-        try:
+        self.assertEqual(x._fields, ('n',))
+
+        with self.assertRaises(AttributeError):
             x.n
-        except AttributeError, e:
-            self.assertEquals(e.args[0],
-                              "'Num' object has no attribute 'n'")
-        else:
-            self.assert_(False)
 
         x = ast.Num(42)
-        self.assertEquals(x.n, 42)
-        try:
+        self.assertEqual(x.n, 42)
+
+        with self.assertRaises(AttributeError):
             x.lineno
-        except AttributeError, e:
-            self.assertEquals(e.args[0],
-                              "'Num' object has no attribute 'lineno'")
-        else:
-            self.assert_(False)
 
-        y = ast.Num()
-        x.lineno = y
-        self.assertEquals(x.lineno, y)
-
-        try:
+        with self.assertRaises(AttributeError):
             x.foobar
-        except AttributeError, e:
-            self.assertEquals(e.args[0],
-                              "'Num' object has no attribute 'foobar'")
-        else:
-            self.assert_(False)
 
         x = ast.Num(lineno=2)
-        self.assertEquals(x.lineno, 2)
+        self.assertEqual(x.lineno, 2)
 
         x = ast.Num(42, lineno=0)
-        self.assertEquals(x.lineno, 0)
-        self.assertEquals(x._fields, ('n',))
-        self.assertEquals(x.n, 42)
+        self.assertEqual(x.lineno, 0)
+        self.assertEqual(x._fields, ('n',))
+        self.assertEqual(x.n, 42)
 
         self.assertRaises(TypeError, ast.Num, 1, 2)
         self.assertRaises(TypeError, ast.Num, 1, 2, lineno=0)
@@ -324,42 +296,30 @@ class AST_Tests(unittest.TestCase):
     def test_module(self):
         body = [ast.Num(42)]
         x = ast.Module(body)
-        self.assertEquals(x.body, body)
+        self.assertEqual(x.body, body)
 
-    def test_nodeclass(self):
-        x = ast.BinOp()
-        self.assertEquals(x._fields, ('left', 'op', 'right'))
-
+    def test_nodeclasses(self):
         # Zero arguments constructor explicitely allowed
         x = ast.BinOp()
+        self.assertEqual(x._fields, ('left', 'op', 'right'))
+
         # Random attribute allowed too
         x.foobarbaz = 5
-        self.assertEquals(x.foobarbaz, 5)
+        self.assertEqual(x.foobarbaz, 5)
 
         n1 = ast.Num(1)
         n3 = ast.Num(3)
         addop = ast.Add()
         x = ast.BinOp(n1, addop, n3)
-        self.assertEquals(x.left, n1)
-        self.assertEquals(x.op, addop)
-        self.assertEquals(x.right, n3)
-        
+        self.assertEqual(x.left, n1)
+        self.assertEqual(x.op, addop)
+        self.assertEqual(x.right, n3)
+
         x = ast.BinOp(1, 2, 3)
-        self.assertEquals(x.left, 1)
-        self.assertEquals(x.op, 2)
-        self.assertEquals(x.right, 3)
+        self.assertEqual(x.left, 1)
+        self.assertEqual(x.op, 2)
+        self.assertEqual(x.right, 3)
 
-        x = ast.BinOp(1, 2, 3, lineno=0)
-        self.assertEquals(x.lineno, 0)
-
-    def test_nodeclasses(self):
-        x = ast.BinOp(1, 2, 3, lineno=0)
-        self.assertEquals(x.left, 1)
-        self.assertEquals(x.op, 2)
-        self.assertEquals(x.right, 3)
-        self.assertEquals(x.lineno, 0)
-
-    def test_nodeclasses(self):
         x = ast.BinOp(1, 2, 3, lineno=0)
         self.assertEqual(x.left, 1)
         self.assertEqual(x.op, 2)
@@ -384,12 +344,12 @@ class AST_Tests(unittest.TestCase):
 
         # Random kwargs also allowed
         x = ast.BinOp(1, 2, 3, foobarbaz=42)
-        self.assertEquals(x.foobarbaz, 42)
+        self.assertEqual(x.foobarbaz, 42)
 
     def test_no_fields(self):
         # this used to fail because Sub._fields was None
         x = ast.Sub()
-        self.assertEquals(x._fields, ())
+        self.assertEqual(x._fields, ())
 
     def test_pickling(self):
         import pickle
@@ -405,6 +365,22 @@ class AST_Tests(unittest.TestCase):
                 for ast in (compile(i, "?", "exec", 0x400) for i in exec_tests):
                     ast2 = mod.loads(mod.dumps(ast, protocol))
                     self.assertEqual(to_tuple(ast2), to_tuple(ast))
+
+    def test_invalid_identitifer(self):
+        m = ast.Module([ast.Expr(ast.Name(u"x", ast.Load()))])
+        ast.fix_missing_locations(m)
+        with self.assertRaises(TypeError) as cm:
+            compile(m, "<test>", "exec")
+        if test_support.check_impl_detail():
+            self.assertIn("identifier must be of type str", str(cm.exception))
+
+    def test_invalid_string(self):
+        m = ast.Module([ast.Expr(ast.Str(43))])
+        ast.fix_missing_locations(m)
+        with self.assertRaises(TypeError) as cm:
+            compile(m, "<test>", "exec")
+        if test_support.check_impl_detail():
+            self.assertIn("string must be of type str or uni", str(cm.exception))
 
 
 class ASTHelpers_Test(unittest.TestCase):

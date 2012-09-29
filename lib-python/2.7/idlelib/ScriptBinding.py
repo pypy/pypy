@@ -101,7 +101,7 @@ class ScriptBinding:
             try:
                 # If successful, return the compiled code
                 return compile(source, filename, "exec")
-            except (SyntaxError, OverflowError), err:
+            except (SyntaxError, OverflowError, ValueError), err:
                 try:
                     msg, (errorfilename, lineno, offset, line) = err
                     if not errorfilename:
@@ -146,10 +146,9 @@ class ScriptBinding:
             return 'break'
         if not self.tabnanny(filename):
             return 'break'
-        shell = self.shell
-        interp = shell.interp
+        interp = self.shell.interp
         if PyShell.use_subprocess:
-            shell.restart_shell()
+            interp.restart_subprocess(with_cwd=False)
         dirname = os.path.dirname(filename)
         # XXX Too often this discards arguments the user just set...
         interp.runcommand("""if 1:

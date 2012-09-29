@@ -71,22 +71,22 @@ def fixeggblocks(graph):
     # which is deemed not acceptable for simplicity of the operations
     # that will be performed later on the flow graph.
     for link in list(graph.iterlinks()):
-            block = link.target
-            if isinstance(block, EggBlock):
-                if (not block.operations and len(block.exits) == 1 and
-                    link.args == block.inputargs):   # not renamed
-                    # if the variables are not renamed across this link
-                    # (common case for EggBlocks) then it's easy enough to
-                    # get rid of the empty EggBlock.
-                    link2 = block.exits[0]
-                    link.args = list(link2.args)
-                    link.target = link2.target
-                    assert link2.exitcase is None
-                else:
-                    mapping = {}
-                    for a in block.inputargs:
-                        mapping[a] = Variable(a)
-                    block.renamevariables(mapping)
+        block = link.target
+        if isinstance(block, EggBlock):
+            if (not block.operations and len(block.exits) == 1 and
+                link.args == block.inputargs):   # not renamed
+                # if the variables are not renamed across this link
+                # (common case for EggBlocks) then it's easy enough to
+                # get rid of the empty EggBlock.
+                link2 = block.exits[0]
+                link.args = list(link2.args)
+                link.target = link2.target
+                assert link2.exitcase is None
+            else:
+                mapping = {}
+                for a in block.inputargs:
+                    mapping[a] = Variable(a)
+                block.renamevariables(mapping)
     for block in graph.iterblocks():
         if isinstance(link, SpamBlock):
             del link.framestate     # memory saver

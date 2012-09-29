@@ -65,24 +65,44 @@ class Block(object):
         self.marked = False
         self.have_return = False
 
-    def _post_order(self, blocks):
-        if self.marked:
-            return
-        self.marked = True
-        if self.next_block is not None:
-            self.next_block._post_order(blocks)
-        for instr in self.instructions:
-            if instr.has_jump:
-                instr.jump[0]._post_order(blocks)
-        blocks.append(self)
-        self.marked = True
+    def _post_order_see(self, stack, nextblock):
+        if nextblock.marked == 0:
+            nextblock.marked = 1
+            stack.append(nextblock)
 
     def post_order(self):
-        """Return this block and its children in post order."""
-        blocks = []
-        self._post_order(blocks)
-        blocks.reverse()
-        return blocks
+        """Return this block and its children in post order.
+        This means that the graph of blocks is first cleaned up to
+        ignore back-edges, thus turning it into a DAG.  Then the DAG
+        is linearized.  For example:
+
+                   A --> B -\           =>     [A, D, B, C]
+                     \-> D ---> C
+        """
+        resultblocks = []
+        stack = [self]
+        self.marked = 1
+        while stack:
+            current = stack[-1]
+            if current.marked == 1:
+                current.marked = 2
+                if current.next_block is not None:
+                    self._post_order_see(stack, current.next_block)
+            else:
+                i = current.marked - 2
+                assert i >= 0
+                while i < len(current.instructions):
+                    instr = current.instructions[i]
+                    i += 1
+                    if instr.has_jump:
+                        current.marked = i + 2
+                        self._post_order_see(stack, instr.jump[0])
+                        break
+                else:
+                    resultblocks.append(current)
+                    stack.pop()
+        resultblocks.reverse()
+        return resultblocks
 
     def code_size(self):
         """Return the encoded size of all the instructions in this block."""
@@ -353,20 +373,26 @@ class PythonCodeMaker(ast.ASTVisitor):
     def _stacksize(self, blocks):
         """Compute co_stacksize."""
         for block in blocks:
-            block.marked = False
-            block.initial_depth = -1000
-        return self._recursive_stack_depth_walk(blocks[0], 0, 0)
+            block.initial_depth = 0
+        # Assumes that it is sufficient to walk the blocks in 'post-order'.
+        # This means we ignore all back-edges, but apart from that, we only
+        # look into a block when all the previous blocks have been done.
+        self._max_depth = 0
+        for block in blocks:
+            self._do_stack_depth_walk(block)
+        return self._max_depth
 
-    def _recursive_stack_depth_walk(self, block, depth, max_depth):
-        if block.marked or block.initial_depth >= depth:
-            return max_depth
-        block.marked = True
-        block.initial_depth = depth
+    def _next_stack_depth_walk(self, nextblock, depth):
+        if depth > nextblock.initial_depth:
+            nextblock.initial_depth = depth
+
+    def _do_stack_depth_walk(self, block):
+        depth = block.initial_depth
         done = False
         for instr in block.instructions:
             depth += _opcode_stack_effect(instr.opcode, instr.arg)
-            if depth >= max_depth:
-                max_depth = depth
+            if depth >= self._max_depth:
+                self._max_depth = depth
             if instr.has_jump:
                 target_depth = depth
                 jump_op = instr.opcode
@@ -376,20 +402,15 @@ class PythonCodeMaker(ast.ASTVisitor):
                       jump_op == ops.SETUP_EXCEPT or
                       jump_op == ops.SETUP_WITH):
                     target_depth += 3
-                    if target_depth > max_depth:
-                        max_depth = target_depth
-                max_depth = self._recursive_stack_depth_walk(instr.jump[0],
-                                                             target_depth,
-                                                             max_depth)
+                    if target_depth > self._max_depth:
+                        self._max_depth = target_depth
+                self._next_stack_depth_walk(instr.jump[0], target_depth)
                 if jump_op == ops.JUMP_ABSOLUTE or jump_op == ops.JUMP_FORWARD:
                     # Nothing more can occur.
                     done = True
                     break
         if block.next_block and not done:
-            max_depth = self._recursive_stack_depth_walk(block.next_block,
-                                                         depth, max_depth)
-        block.marked = False
-        return max_depth
+            max_depth = self._next_stack_depth_walk(block.next_block, depth)
 
     def _build_lnotab(self, blocks):
         """Build the line number table for tracebacks and tracing."""

@@ -9,7 +9,7 @@ RFC2396_BASE = "http://a/b/c/d;p?q"
 RFC3986_BASE = 'http://a/b/c/d;p?q'
 SIMPLE_BASE  = 'http://a/b/c/d'
 
-# A list of test cases.  Each test case is a a two-tuple that contains
+# A list of test cases.  Each test case is a two-tuple that contains
 # a string with the query and a dictionary with the expected result.
 
 parse_qsl_test_cases = [
@@ -82,7 +82,12 @@ class UrlParseTestCase(unittest.TestCase):
     def test_qsl(self):
         for orig, expect in parse_qsl_test_cases:
             result = urlparse.parse_qsl(orig, keep_blank_values=True)
-            self.assertEqual(result, expect, "Error parsing %s" % repr(orig))
+            self.assertEqual(result, expect, "Error parsing %r" % orig)
+            expect_without_blanks = [v for v in expect if len(v[1])]
+            result = urlparse.parse_qsl(orig, keep_blank_values=False)
+            self.assertEqual(result, expect_without_blanks,
+                    "Error parsing %r" % orig)
+
 
     def test_roundtrips(self):
         testcases = [
@@ -331,6 +336,11 @@ class UrlParseTestCase(unittest.TestCase):
         self.checkJoin(SIMPLE_BASE, 'http:?y','http://a/b/c/d?y')
         self.checkJoin(SIMPLE_BASE, 'http:g?y','http://a/b/c/g?y')
         self.checkJoin(SIMPLE_BASE, 'http:g?y/./x','http://a/b/c/g?y/./x')
+        self.checkJoin('http:///', '..','http:///')
+        self.checkJoin('', 'http://a/b/c/g?y/./x','http://a/b/c/g?y/./x')
+        self.checkJoin('', 'http://a/./g', 'http://a/./g')
+        self.checkJoin('svn://pathtorepo/dir1','dir2','svn://pathtorepo/dir2')
+        self.checkJoin('svn+ssh://pathtorepo/dir1','dir2','svn+ssh://pathtorepo/dir2')
 
     def test_RFC2732(self):
         for url, hostname, port in [
@@ -504,7 +514,6 @@ class UrlParseTestCase(unittest.TestCase):
         self.assertEqual(urlparse.urlparse("https:"),('https','','','','',''))
         self.assertEqual(urlparse.urlparse("http://www.python.org:80"),
                 ('http','www.python.org:80','','','',''))
-
 
 def test_main():
     test_support.run_unittest(UrlParseTestCase)

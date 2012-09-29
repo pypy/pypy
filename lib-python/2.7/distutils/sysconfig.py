@@ -26,4 +26,5 @@ else:
     from distutils.sysconfig_cpython import _config_vars # needed by setuptools
     from distutils.sysconfig_cpython import _variable_rx # read_setup_file()
 
+_USE_CLANG = None
 
