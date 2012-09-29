@@ -209,8 +209,8 @@ def _new_argmin_argmax(op_name):
             idx += 1
         return result
     return argmin_argmax
-argmin = _new_argmin_argmax('argmin')
-argmax = _new_argmin_argmax('argmax')
+argmin = _new_argmin_argmax('min')
+argmax = _new_argmin_argmax('max')
 
 # note that shapelen == 2 always
 dot_driver = jit.JitDriver(name = 'numpy_dot',
@@ -368,7 +368,7 @@ def flatiter_setitem(arr, val, start, step, length):
 
 fromstring_driver = jit.JitDriver(name = 'numpy_fromstring',
                                   greens = ['dtype'],
-                                  reds = ['s', 'ai', 'i'])
+                                  reds = ['i', 's', 'ai'])
 
 def fromstring_loop(a, dtype, itemsize, s):
     i = 0
