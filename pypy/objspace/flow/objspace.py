@@ -230,12 +230,12 @@ class FlowObjSpace(object):
             w_type = w_instclass
         return FSException(w_type, w_value)
 
-    def build_flow(self, func, constargs={}, tweak_for_generator=True):
+    def build_flow(self, func, tweak_for_generator=True):
         """
         """
         if func.func_doc and func.func_doc.lstrip().startswith('NOT_RPYTHON'):
             raise Exception, "%r is tagged as NOT_RPYTHON" % (func,)
-        frame = self.frame = FlowSpaceFrame(self, func, constargs)
+        frame = self.frame = FlowSpaceFrame(self, func)
         frame.build_flow()
         graph = frame.graph
         fixeggblocks(graph)

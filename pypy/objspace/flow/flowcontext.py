@@ -235,7 +235,7 @@ compare_method = [
 
 class FlowSpaceFrame(pyframe.CPythonFrame):
 
-    def __init__(self, space, func, constargs=None):
+    def __init__(self, space, func):
         code = HostCode._from_code(space, func.func_code)
         self.pycode = code
         self.space = space
@@ -253,12 +253,8 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         self.f_lineno = code.co_firstlineno
         self.last_instr = 0
 
-        if constargs is None:
-            constargs = {}
         formalargcount = code.getformalargcount()
         arg_list = [Variable() for i in range(formalargcount)]
-        for position, value in constargs.items():
-            arg_list[position] = Constant(value)
         self.setfastscope(arg_list)
 
         self.w_locals = None # XXX: only for compatibility with PyFrame
