@@ -6,13 +6,9 @@ built-in functions (or type constructors) implementing them.
 import __builtin__
 import __future__
 import operator
-import types
-import sys
 from pypy.interpreter.baseobjspace import ObjSpace
-from pypy.interpreter.error import OperationError
 from pypy.tool.sourcetools import compile2
 from pypy.rlib.rarithmetic import ovfcheck
-from pypy.objspace.flow import model
 
 
 FunctionByName = {}   # dict {"operation_name": <built-in function>}

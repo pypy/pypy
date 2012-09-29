@@ -1,11 +1,11 @@
 # ______________________________________________________________________
 import __builtin__
 import sys
-import operator
 import types
 from pypy.interpreter.baseobjspace import ObjSpace
-from pypy.interpreter import pyframe, argument
-from pypy.objspace.flow.model import *
+from pypy.interpreter.argument import ArgumentsForTranslation
+from pypy.objspace.flow.model import (Constant, Variable, WrapException,
+    UnwrapException, checkgraph, SpaceOperation)
 from pypy.objspace.flow import operation
 from pypy.objspace.flow.flowcontext import (FlowSpaceFrame, fixeggblocks,
     FSException, FlowingError)
@@ -396,7 +396,7 @@ class FlowObjSpace(object):
         return self.call_function(w_meth, *arg_w)
 
     def call_function(self, w_func, *args_w):
-        args = argument.ArgumentsForTranslation(self, list(args_w))
+        args = ArgumentsForTranslation(self, list(args_w))
         return self.call_args(w_func, args)
 
     def appcall(self, func, *args_w):

@@ -1,10 +1,7 @@
-from pypy.objspace.flow.model import Constant, UnwrapException
+from pypy.objspace.flow.model import Constant
 from pypy.objspace.flow.operation import OperationName, Arity
-from pypy.interpreter.error import OperationError
-from pypy.tool.cache import Cache
 from pypy.rlib.rarithmetic import r_uint
 from pypy.rlib.objectmodel import we_are_translated
-import py
 
 def sc_import(space, fn, args):
     args_w, kwds_w = args.unpack()

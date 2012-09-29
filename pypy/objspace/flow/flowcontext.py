@@ -1,12 +1,12 @@
 import collections
-import sys
 from pypy.tool.error import source_lines
 from pypy.interpreter import pyframe
 from pypy.interpreter.nestedscope import Cell
-from pypy.interpreter.pycode import CO_OPTIMIZED, CO_NEWLOCALS
+from pypy.interpreter.pycode import CO_NEWLOCALS
 from pypy.interpreter.argument import ArgumentsForTranslation
-from pypy.interpreter.pyopcode import Return, Yield, BytecodeCorruption
-from pypy.objspace.flow.model import *
+from pypy.interpreter.pyopcode import Return, BytecodeCorruption
+from pypy.objspace.flow.model import (Constant, Variable, Block, Link,
+    UnwrapException, SpaceOperation, FunctionGraph, c_last_exception)
 from pypy.objspace.flow.framestate import (FrameState, recursively_unflatten,
         recursively_flatten)
 from pypy.objspace.flow.bytecode import HostCode

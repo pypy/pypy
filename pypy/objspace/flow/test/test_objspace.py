@@ -1,9 +1,8 @@
 from __future__ import with_statement
 import new
 import py, sys
-from pypy.objspace.flow.model import Constant, Block, Link, Variable
+from pypy.objspace.flow.model import Constant
 from pypy.objspace.flow.model import mkentrymap, c_last_exception
-from pypy.interpreter.argument import Arguments
 from pypy.translator.simplify import simplify_graph
 from pypy.objspace.flow.objspace import FlowObjSpace
 from pypy.objspace.flow.flowcontext import FlowingError, FlowSpaceFrame
