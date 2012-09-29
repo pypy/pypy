@@ -276,7 +276,8 @@ class Bool(BaseType, Primitive):
     def str_format(self, box):
         return "True" if self.unbox(box) else "False"
 
-    def for_computation(self, v):
+    @staticmethod
+    def for_computation(v):
         return int(v)
 
     def default_fromstring(self, space):
@@ -311,7 +312,8 @@ class Integer(Primitive):
     def str_format(self, box):
         return str(self.for_computation(self.unbox(box)))
 
-    def for_computation(self, v):
+    @staticmethod
+    def for_computation(v):
         return widen(v)
 
     def default_fromstring(self, space):
@@ -556,7 +558,8 @@ class Float(Primitive):
         return float2string(self.for_computation(self.unbox(box)), "g",
                             rfloat.DTSF_STR_PRECISION)
 
-    def for_computation(self, v):
+    @staticmethod
+    def for_computation(v):
         return float(v)
 
     def default_fromstring(self, space):
