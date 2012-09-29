@@ -232,11 +232,11 @@ def PyThreadState_New(space, interp):
     object.  The global interpreter lock need not be held, but may be held if
     it is necessary to serialize calls to this function."""
     ll_thread.gc_thread_prepare()
-    ll_thread.gc_thread_start()
     # PyThreadState_Get will allocate a new execution context,
     # we need to protect gc and other globals with the GIL.
     rffi.aroundstate.after()
     try:
+        ll_thread.gc_thread_start()
         return PyThreadState_Get(space)
     finally:
         rffi.aroundstate.before()
@@ -249,17 +249,17 @@ def PyThreadState_Clear(space, tstate):
     tstate.c_dict = lltype.nullptr(PyObject.TO)
     space.threadlocals.leave_thread(space)
     space.getexecutioncontext().cleanup_cpyext_state()
+    ll_thread.gc_thread_die()
 
 @cpython_api([PyThreadState], lltype.Void)
 def PyThreadState_Delete(space, tstate):
     """Destroy a thread state object.  The global interpreter lock need not
     be held.  The thread state must have been reset with a previous call to
     PyThreadState_Clear()."""
-    ll_thread.gc_thread_die()
 
 @cpython_api([], lltype.Void)
 def PyThreadState_DeleteCurrent(space):
     """Destroy a thread state object.  The global interpreter lock need not
     be held.  The thread state must have been reset with a previous call to
     PyThreadState_Clear()."""
-    ll_thread.gc_thread_die()
+
