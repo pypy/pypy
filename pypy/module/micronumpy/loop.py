@@ -115,7 +115,10 @@ def fill(arr, box):
         arr_iter.setitem(box)
         arr_iter.next()
 
-#where_driver = jit.JitDriver()
+where_driver = jit.JitDriver(name='numpy_where',
+                             greens = ['shapelen', 'dtype', 'arr_dtype'],
+                             reds = ['shape', 'arr', 'x', 'y','arr_iter',
+                                     'x_iter', 'y_iter', 'iter'])
 
 def where(out, shape, arr, x, y, dtype):
     out_iter = out.create_iter(shape)
@@ -130,7 +133,12 @@ def where(out, shape, arr, x, y, dtype):
             iter = y_iter
     else:
         iter = x_iter
+    shapelen = len(shape)
     while not iter.done():
+        where_driver.jit_merge_point(shapelen=shapelen, shape=shape,
+                                     dtype=dtype, iter=iter, x_iter=x_iter,
+                                     y_iter=y_iter, arr_iter=arr_iter,
+                                     arr=arr, x=x, y=y, arr_dtype=arr_dtype)
         w_cond = arr_iter.getitem()
         if arr_dtype.itemtype.bool(w_cond):
             w_val = x_iter.getitem().convert_to(dtype)
@@ -143,12 +151,24 @@ def where(out, shape, arr, x, y, dtype):
         y_iter.next()
     return out
 
+axis_reduce__driver = jit.JitDriver(name='numpy_axis_reduce',
+                                    greens=['shapelen', 'func', 'dtype',
+                                            'identity'],
+                                    reds=['axis', 'arr', 'out', 'shape',
+                                          'out_iter', 'arr_iter'])
+
 def do_axis_reduce(shape, func, arr, dtype, axis, out, identity):
     out_iter = out.create_axis_iter(arr.get_shape(), axis)
     arr_iter = arr.create_iter(arr.get_shape())
     if identity is not None:
         identity = identity.convert_to(dtype)
+    shapelen = len(shape)
     while not out_iter.done():
+        axis_reduce__driver.jit_merge_point(shapelen=shapelen, func=func,
+                                            dtype=dtype, identity=identity,
+                                            axis=axis, arr=arr, out=out,
+                                            shape=shape, out_iter=out_iter,
+                                            arr_iter=arr_iter)
         w_val = arr_iter.getitem().convert_to(dtype)
         if out_iter.first_line:
             if identity is not None:
