@@ -616,7 +616,8 @@ cppyy_index_t cppyy_method_index_at(cppyy_scope_t handle, int imeth) {
     return (cppyy_index_t)&g_globalfuncs[imeth];
 }
 
-cppyy_index_t cppyy_method_index_from_name(cppyy_scope_t handle, const char* name) {
+cppyy_index_t* cppyy_method_indices_from_name(cppyy_scope_t handle, const char* name) {
+    std::vector<cppyy_index_t> result;
     TClassRef cr = type_from_handle(handle);
     if (cr.GetClass()) {
         gInterpreter->UpdateListOfMethods(cr.GetClass());
@@ -626,18 +627,31 @@ cppyy_index_t cppyy_method_index_from_name(cppyy_scope_t handle, const char* nam
         while ((func = (TFunction*)next())) {
             if (strcmp(name, func->GetName()) == 0) {
                 if (func->Property() & G__BIT_ISPUBLIC)
-                    return (cppyy_index_t)imeth;
-                return (cppyy_index_t)-1;
+                    result.push_back((cppyy_index_t)imeth);
             }
             ++imeth;
         }
     }
-    TFunction* func = gROOT->GetGlobalFunction(name, NULL, kTRUE);
-    if (!func)
-        return (cppyy_index_t)-1;  // (void*)-1 is in kernel space, so invalid
-    int idx = g_globalfuncs.size();
-    g_globalfuncs.push_back(*func);
-    return (cppyy_index_t)func;
+
+    if (result.empty()) {
+        TCollection* funcs = gROOT->GetListOfGlobalFunctions(kTRUE);
+        TFunction* func = 0;
+        TIter ifunc(funcs);
+        while ((func = (TFunction*)ifunc.Next())) {
+            if (strcmp(func->GetName(), name) == 0) {
+                g_globalfuncs.push_back(*func);
+                result.push_back((cppyy_index_t)func); 
+            }
+        }
+    }
+
+    if (result.empty())
+        return (cppyy_index_t*)0;
+
+    cppyy_index_t* llresult = (cppyy_index_t*)malloc(sizeof(cppyy_index_t)*result.size()+1);
+    for (int i = 0; i < (int)result.size(); ++i) llresult[i] = result[i];
+    llresult[result.size()] = -1;
+    return llresult;
 }
 
 
