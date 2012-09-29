@@ -514,7 +514,7 @@ class __extend__(W_NDimArray):
             if self.get_size() == 0:
                 raise OperationError(space.w_ValueError,
                     space.wrap("Can't call %s on zero-size arrays" % op_name))
-            return space.wrap(loop.argmin_argmax(op_name, self))
+            return space.wrap(getattr(loop, 'arg' + op_name)(self))
         return func_with_new_name(impl, "reduce_arg%s_impl" % op_name)
 
     descr_argmax = _reduce_argmax_argmin_impl("max")
