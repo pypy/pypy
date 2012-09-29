@@ -29,6 +29,12 @@ static void *thread_function(void* ptr) {
     else
 	Py_DECREF(result);
 
+    Py_DECREF(data->callback);
+
+    /* XXX Python examples don't mention it, but docs say that
+     * PyThreadState_Delete requires it. */
+    PyThreadState_Clear(tstate);
+
     /* Release the thread. No Python API allowed beyond this point. */
     PyEval_ReleaseThread(tstate);
 
@@ -36,7 +42,6 @@ static void *thread_function(void* ptr) {
        until you need it the next time. */
     PyThreadState_Delete(tstate);
 
-    Py_DECREF(data->callback);
     free(data);
     return NULL;
 }
