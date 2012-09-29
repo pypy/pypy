@@ -224,6 +224,8 @@ def descr__new__(space, w_subtype, w_dtype):
                 return dtype
             if w_dtype is dtype.w_box_type:
                 return dtype
+    import pdb
+    pdb.set_trace()
     raise OperationError(space.w_TypeError, space.wrap("data type not understood"))
 
 W_Dtype.typedef = TypeDef("dtype",
@@ -349,6 +351,7 @@ class DtypeCache(object):
             char="l",
             w_box_type=space.gettypefor(interp_boxes.W_LongBox),
             alternate_constructors=[space.w_int],
+            aliases=['int'],
         )
         self.w_ulongdtype = W_Dtype(
             types.ULong(),

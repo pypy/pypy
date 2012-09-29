@@ -1,10 +1,12 @@
 
-from pypy.rpython.lltypesystem import rffi
+from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rlib.listsort import make_timsort_class
 from pypy.rlib.objectmodel import specialize
 from pypy.rlib.rawstorage import raw_storage_getitem, raw_storage_setitem
 from pypy.module.micronumpy.base import W_NDimArray
 from pypy.module.micronumpy import interp_dtype
+
+INT_SIZE = rffi.sizeof(lltype.Signed)
 
 @specialize.memo()
 def make_sort_classes(space, TP):
@@ -16,14 +18,14 @@ def make_sort_classes(space, TP):
             self.indexes = indexes
 
         def getitem(self, item):
-            idx = item * self.itemsize
-            return (raw_storage_getitem(TP, self.values, idx),
-                    raw_storage_getitem(TP, self.indexes, idx))
+            return (raw_storage_getitem(TP, self.values, item * self.itemsize),
+                    raw_storage_getitem(lltype.Signed, self.indexes,
+                                        item * INT_SIZE))
 
         def setitem(self, idx, item):
-            idx *= self.itemsize
-            raw_storage_setitem(self.values, idx, rffi.cast(TP, item[0]))
-            raw_storage_setitem(self.indexes, idx, item[1])
+            raw_storage_setitem(self.values, idx * self.itemsize,
+                                rffi.cast(TP, item[0]))
+            raw_storage_setitem(self.indexes, idx * INT_SIZE, item[1])
 
     def arg_getitem(lst, item):
         return lst.getitem(item)
@@ -52,7 +54,7 @@ def sort_array(arr, space):
     indexes = W_NDimArray.from_shape([arr.get_size()], dtype)
     storage = indexes.implementation.get_storage()
     for i in range(arr.get_size()):
-        raw_storage_setitem(storage, i * itemsize, i)
+        raw_storage_setitem(storage, i * INT_SIZE, i)
     Repr, Sort = make_sort_classes(space, arr.dtype.itemtype.T)
     r = Repr(itemsize, arr.get_size(), arr.get_storage(),
              indexes.implementation.get_storage())

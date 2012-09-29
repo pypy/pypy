@@ -1551,13 +1551,14 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_argsort(self):
         from _numpypy import array, arange
-        a = array([6, 4, 1, 3, 8, 3])
         assert array(2.0).argsort() == 0
-        res = a.argsort()
-        assert (res == [2, 3, 5, 1, 0, 4]).all()
-        assert (a == [6, 4, 1, 3, 8, 3]).all() # not modified
-        a = arange(100)
-        assert (a.argsort() == a).all()
+        for dtype in ['int', 'float', 'int8', 'int16', 'float32']:
+            a = array([6, 4, 1, 3, 8, 3], dtype=dtype)
+            res = a.argsort()
+            assert (res == [2, 3, 5, 1, 0, 4]).all()
+            assert (a == [6, 4, 1, 3, 8, 3]).all() # not modified
+            a = arange(100)
+            assert (a.argsort() == a).all()
 
 class AppTestMultiDim(BaseNumpyAppTest):
     def test_init(self):
