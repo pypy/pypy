@@ -423,6 +423,7 @@ class PureShapeIterator(object):
         else:
             self._done = True
 
+    @jit.unroll_safe
     def get_index(self, space):
         return [space.wrap(i) for i in self.indexes]
 
