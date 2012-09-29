@@ -208,11 +208,11 @@ class W_Root(object):
     def int_w(self, space):
         raise OperationError(space.w_TypeError,
                              typed_unwrap_error_msg(space, "integer", self))
-    
+
     def uint_w(self, space):
         raise OperationError(space.w_TypeError,
                              typed_unwrap_error_msg(space, "integer", self))
-    
+
     def bigint_w(self, space):
         raise OperationError(space.w_TypeError,
                              typed_unwrap_error_msg(space, "integer", self))
@@ -291,8 +291,6 @@ wrappable_class_name._annspecialcase_ = 'specialize:memo'
 class ObjSpace(object):
     """Base class for the interpreter-level implementations of object spaces.
     http://pypy.readthedocs.org/en/latest/objspace.html"""
-
-    full_exceptions = True  # full support for exceptions (normalization & more)
 
     def __init__(self, config=None):
         "NOT_RPYTHON: Basic initialization of objects."
@@ -1124,13 +1122,9 @@ class ObjSpace(object):
     def exception_is_valid_obj_as_class_w(self, w_obj):
         if not self.isinstance_w(w_obj, self.w_type):
             return False
-        if not self.full_exceptions:
-            return True
         return self.is_true(self.issubtype(w_obj, self.w_BaseException))
 
     def exception_is_valid_class_w(self, w_cls):
-        if not self.full_exceptions:
-            return True
         return self.is_true(self.issubtype(w_cls, self.w_BaseException))
 
     def exception_getclass(self, w_obj):
@@ -1381,7 +1375,7 @@ class ObjSpace(object):
         if not self.is_true(self.isinstance(w_obj, self.w_str)):
             raise OperationError(self.w_TypeError,
                                  self.wrap('argument must be a string'))
-        return self.str_w(w_obj)            
+        return self.str_w(w_obj)
 
     def unicode_w(self, w_obj):
         return w_obj.unicode_w(self)
@@ -1702,7 +1696,7 @@ ObjSpace.ExceptionTable = [
     'ValueError',
     'ZeroDivisionError',
     ]
-    
+
 if sys.platform.startswith("win"):
     ObjSpace.ExceptionTable += ['WindowsError']
 

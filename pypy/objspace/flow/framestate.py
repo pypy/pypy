@@ -1,4 +1,3 @@
-from pypy.interpreter.pyopcode import SuspendedUnroller
 from pypy.rlib.unroll import SpecTag
 from pypy.objspace.flow.model import *
 
@@ -106,6 +105,7 @@ PICKLE_TAGS = {}
 UNPICKLE_TAGS = {}
 
 def recursively_flatten(space, lst):
+    from pypy.objspace.flow.flowcontext import SuspendedUnroller
     i = 0
     while i < len(lst):
         item = lst[i]

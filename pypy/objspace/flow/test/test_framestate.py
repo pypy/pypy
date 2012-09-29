@@ -1,6 +1,4 @@
-from py.test import raises
 from pypy.objspace.flow.model import *
-from pypy.interpreter.pycode import PyCode
 from pypy.rlib.unroll import SpecTag
 from pypy.objspace.flow.objspace import FlowObjSpace
 from pypy.objspace.flow.flowcontext import FlowSpaceFrame

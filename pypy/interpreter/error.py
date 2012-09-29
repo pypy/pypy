@@ -45,11 +45,6 @@ class OperationError(Exception):
 
     def async(self, space):
         "Check if this is an exception that should better not be caught."
-        if not space.full_exceptions:
-            # flow objspace does not support such exceptions and more
-            # importantly, raises KeyboardInterrupt if you try to access
-            # space.w_KeyboardInterrupt
-            return False
         return (self.match(space, space.w_SystemExit) or
                 self.match(space, space.w_KeyboardInterrupt))
 
@@ -166,9 +161,7 @@ class OperationError(Exception):
         # Or 'Class' can also be an old-style class and 'inst' an old-style
         # instance of it.
         #
-        # Note that 'space.full_exceptions' is set to False by the flow
-        # object space; in this case we must assume that we are in a
-        # non-advanced case, and ignore the advanced cases.  Old-style
+        # The flow object space only deals with non-advanced case. Old-style
         # classes and instances *are* advanced.
         #
         #  input (w_type, w_value)... becomes...                advanced case?
@@ -183,9 +176,8 @@ class OperationError(Exception):
         #
         w_type  = self.w_type
         w_value = self.get_w_value(space)
-        if space.full_exceptions:
-            while space.is_true(space.isinstance(w_type, space.w_tuple)):
-                w_type = space.getitem(w_type, space.wrap(0))
+        while space.is_true(space.isinstance(w_type, space.w_tuple)):
+            w_type = space.getitem(w_type, space.wrap(0))
 
         if space.exception_is_valid_obj_as_class_w(w_type):
             # this is for all cases of the form (Class, something)
@@ -199,8 +191,7 @@ class OperationError(Exception):
                     # raise Type, Instance: let etype be the exact type of value
                     w_type = w_valuetype
                 else:
-                    if space.full_exceptions and space.is_true(
-                        space.isinstance(w_value, space.w_tuple)):
+                    if space.is_true(space.isinstance(w_value, space.w_tuple)):
                         # raise Type, tuple: assume the tuple contains the
                         #                    constructor args
                         w_value = space.call(w_type, w_value)
