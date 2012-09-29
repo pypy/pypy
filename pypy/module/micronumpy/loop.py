@@ -1,6 +1,7 @@
 
 """ This file is the main run loop as well as evaluation loops for various
-signatures
+operations. This is the place to look for all the computations that iterate
+over all the array elements.
 """
 
 from pypy.rlib.objectmodel import specialize
@@ -9,13 +10,26 @@ from pypy.rlib import jit
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.module.micronumpy.base import W_NDimArray
 
-def call2(shape, func, name, calc_dtype, res_dtype, w_lhs, w_rhs, out):
+call2_driver = jit.JitDriver(name='numpy_call2',
+                             greens = ['shapelen', 'func', 'calc_dtype',
+                                       'res_dtype'],
+                             reds = ['shape', 'w_lhs', 'w_rhs', 'out',
+                                     'left_iter', 'right_iter', 'out_iter'])
+
+def call2(shape, func, calc_dtype, res_dtype, w_lhs, w_rhs, out):
     if out is None:
         out = W_NDimArray.from_shape(shape, res_dtype)
     left_iter = w_lhs.create_iter(shape)
     right_iter = w_rhs.create_iter(shape)
     out_iter = out.create_iter(shape)
+    shapelen = len(shape)
     while not out_iter.done():
+        call2_driver.jit_merge_point(shapelen=shapelen, func=func,
+                                     calc_dtype=calc_dtype, res_dtype=res_dtype,
+                                     shape=shape, w_lhs=w_lhs, w_rhs=w_rhs,
+                                     out=out,
+                                     left_iter=left_iter, right_iter=right_iter,
+                                     out_iter=out_iter)
         w_left = left_iter.getitem().convert_to(calc_dtype)
         w_right = right_iter.getitem().convert_to(calc_dtype)
         out_iter.setitem(func(calc_dtype, w_left, w_right).convert_to(
@@ -25,17 +39,33 @@ def call2(shape, func, name, calc_dtype, res_dtype, w_lhs, w_rhs, out):
         out_iter.next()
     return out
 
-def call1(shape, func, name, calc_dtype, res_dtype, w_obj, out):
+call1_driver = jit.JitDriver(name='numpy_call1',
+                             greens = ['shapelen', 'func', 'calc_dtype',
+                                       'res_dtype'],
+                             reds = ['shape', 'w_obj', 'out', 'obj_iter',
+                                     'out_iter'])
+
+def call1(shape, func, calc_dtype, res_dtype, w_obj, out):
     if out is None:
         out = W_NDimArray.from_shape(shape, res_dtype)
     obj_iter = w_obj.create_iter(shape)
     out_iter = out.create_iter(shape)
+    shapelen = len(shape)
     while not out_iter.done():
+        call1_driver.jit_merge_point(shapelen=shapelen, func=func,
+                                     calc_dtype=calc_dtype, res_dtype=res_dtype,
+                                     shape=shape, w_obj=w_obj, out=out,
+                                     obj_iter=obj_iter, out_iter=out_iter)
         elem = obj_iter.getitem().convert_to(calc_dtype)
         out_iter.setitem(func(calc_dtype, elem).convert_to(res_dtype))
         out_iter.next()
         obj_iter.next()
     return out
+
+setslice_driver = jit.JitDriver(name='numpy_setslice',
+                                greens = ['shapelen', 'dtype'],
+                                reds = ['target', 'source', 'target_iter',
+                                        'source_iter'])
 
 def setslice(shape, target, source):
     # note that unlike everything else, target and source here are
@@ -43,11 +73,21 @@ def setslice(shape, target, source):
     target_iter = target.create_iter(shape)
     source_iter = source.create_iter(shape)
     dtype = target.dtype
+    shapelen = len(shape)
     while not target_iter.done():
+        setslice_driver.jit_merge_point(shapelen=shapelen, dtype=dtype,
+                                        target=target, source=source,
+                                        target_iter=target_iter,
+                                        source_iter=source_iter)
         target_iter.setitem(source_iter.getitem().convert_to(dtype))
         target_iter.next()
         source_iter.next()
     return target
+
+reduce_driver = jit.JitDriver(name='numpy_reduce',
+                              greens = ['shapelen', 'func', 'calc_dtype',
+                                        'identity', 'done_func'],
+                              reds = ['obj', 'obj_iter', 'cur_value'])
 
 def compute_reduce(obj, calc_dtype, func, done_func, identity):
     obj_iter = obj.create_iter(obj.get_shape())
@@ -56,7 +96,12 @@ def compute_reduce(obj, calc_dtype, func, done_func, identity):
         obj_iter.next()
     else:
         cur_value = identity.convert_to(calc_dtype)
+    shapelen = len(obj.get_shape())
     while not obj_iter.done():
+        reduce_driver.jit_merge_point(shapelen=shapelen, func=func,
+                                      calc_dtype=calc_dtype, identity=identity,
+                                      done_func=done_func, obj=obj,
+                                      obj_iter=obj_iter, cur_value=cur_value)
         rval = obj_iter.getitem().convert_to(calc_dtype)
         if done_func is not None and done_func(calc_dtype, rval):
             return rval
@@ -69,6 +114,8 @@ def fill(arr, box):
     while not arr_iter.done():
         arr_iter.setitem(box)
         arr_iter.next()
+
+#where_driver = jit.JitDriver()
 
 def where(out, shape, arr, x, y, dtype):
     out_iter = out.create_iter(shape)
