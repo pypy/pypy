@@ -2,7 +2,6 @@ import collections
 from pypy.tool.error import source_lines
 from pypy.interpreter import pyframe
 from pypy.interpreter.nestedscope import Cell
-from pypy.interpreter.pycode import CO_NEWLOCALS
 from pypy.interpreter.argument import ArgumentsForTranslation
 from pypy.interpreter.pyopcode import Return, BytecodeCorruption
 from pypy.objspace.flow.model import (Constant, Variable, Block, Link,
@@ -244,12 +243,7 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         self.valuestackdepth = code.co_nlocals
         self.lastblock = None
 
-        if func.func_closure is not None:
-            cl = [c.cell_contents for c in func.func_closure]
-            closure = [Cell(Constant(value)) for value in cl]
-        else:
-            closure = []
-        self.initialize_frame_scopes(closure, code)
+        self.cells = code.make_cells(func.func_closure)
         self.f_lineno = code.co_firstlineno
         self.last_instr = 0
 
@@ -262,15 +256,6 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         self.joinpoints = {}
         self._init_graph(func)
         self.pendingblocks = collections.deque([self.graph.startblock])
-
-    def initialize_frame_scopes(self, closure, code):
-        if not (code.co_flags & CO_NEWLOCALS):
-            raise ValueError("The code object for a function should have "
-                    "the flag CO_NEWLOCALS set.")
-        if len(closure) != len(code.co_freevars):
-            raise ValueError("code object received a closure with "
-                                 "an unexpected number of free variables")
-        self.cells = [Cell() for _ in code.co_cellvars] + closure
 
     def _init_graph(self, func):
         # CallableFactory.pycall may add class_ to functions that are methods

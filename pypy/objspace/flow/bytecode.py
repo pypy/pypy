@@ -5,7 +5,9 @@ from pypy.interpreter.pycode import (PyCode, BytecodeCorruption, cpython_magic,
         cpython_code_signature)
 from pypy.tool.stdlib_opcode import (host_bytecode_spec, EXTENDED_ARG,
         HAVE_ARGUMENT)
-from pypy.interpreter.astcompiler.consts import CO_GENERATOR
+from pypy.interpreter.astcompiler.consts import CO_GENERATOR, CO_NEWLOCALS
+from pypy.interpreter.nestedscope import Cell
+from pypy.objspace.flow.model import Constant
 
 class HostCode(PyCode):
     """
@@ -63,6 +65,21 @@ class HostCode(PyCode):
                         while len(self._args_as_cellvars) <= i:
                             self._args_as_cellvars.append(-1)   # pad
                         self._args_as_cellvars[i] = j
+
+    def make_cells(self, closure):
+        """Convert a Python closure object into a list of Cells"""
+        if closure is not None:
+            closure = [Cell(Constant(c.cell_contents)) for c in closure]
+        else:
+            closure = []
+        if not (self.co_flags & CO_NEWLOCALS):
+            raise ValueError("The code object for a function should have "
+                    "the flag CO_NEWLOCALS set.")
+        if len(closure) != len(self.co_freevars):
+            raise ValueError("code object received a closure with "
+                                 "an unexpected number of free variables")
+        return [Cell() for _ in self.co_cellvars] + closure
+
 
     def read(self, pos):
         """
