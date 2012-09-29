@@ -85,8 +85,8 @@ def setslice(shape, target, source):
     return target
 
 reduce_driver = jit.JitDriver(name='numpy_reduce',
-                              greens = ['shapelen', 'func', 'calc_dtype',
-                                        'identity', 'done_func'],
+                              greens = ['shapelen', 'func', 'done_func',
+                                        'calc_dtype', 'identity'],
                               reds = ['obj', 'obj_iter', 'cur_value'])
 
 def compute_reduce(obj, calc_dtype, func, done_func, identity):
@@ -117,8 +117,8 @@ def fill(arr, box):
 
 where_driver = jit.JitDriver(name='numpy_where',
                              greens = ['shapelen', 'dtype', 'arr_dtype'],
-                             reds = ['shape', 'arr', 'x', 'y','arr_iter',
-                                     'x_iter', 'y_iter', 'iter'])
+                             reds = ['shape', 'arr', 'x', 'y','arr_iter', 'out',
+                                     'x_iter', 'y_iter', 'iter', 'out_iter'])
 
 def where(out, shape, arr, x, y, dtype):
     out_iter = out.create_iter(shape)
@@ -138,7 +138,8 @@ def where(out, shape, arr, x, y, dtype):
         where_driver.jit_merge_point(shapelen=shapelen, shape=shape,
                                      dtype=dtype, iter=iter, x_iter=x_iter,
                                      y_iter=y_iter, arr_iter=arr_iter,
-                                     arr=arr, x=x, y=y, arr_dtype=arr_dtype)
+                                     arr=arr, x=x, y=y, arr_dtype=arr_dtype,
+                                     out_iter=out_iter, out=out)
         w_cond = arr_iter.getitem()
         if arr_dtype.itemtype.bool(w_cond):
             w_val = x_iter.getitem().convert_to(dtype)

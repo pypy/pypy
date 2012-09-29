@@ -147,7 +147,8 @@ class FakeSpace(object):
 
     def is_true(self, w_obj):
         assert isinstance(w_obj, BoolObject)
-        return w_obj.boolval
+        return False
+        #return w_obj.boolval
 
     def is_w(self, w_obj, w_what):
         return w_obj is w_what
@@ -439,13 +440,14 @@ class FunctionCall(Node):
             elif self.name == "unegative":
                 neg = interp_ufuncs.get(interp.space).negative
                 w_res = neg.call(interp.space, [arr])
+            elif self.name == "cos":
+                cos = interp_ufuncs.get(interp.space).cos
+                w_res = cos.call(interp.space, [arr])                
             elif self.name == "flat":
                 w_res = arr.descr_get_flatiter(interp.space)
             elif self.name == "tostring":
                 arr.descr_tostring(interp.space)
                 w_res = None
-            elif self.name == "count_nonzero":
-                w_res = arr.descr_count_nonzero(interp.space)
             else:
                 assert False # unreachable code
         elif self.name in TWO_ARG_FUNCTIONS:

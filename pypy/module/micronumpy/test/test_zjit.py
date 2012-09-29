@@ -3,19 +3,12 @@
 good assembler
 """
 
-import py
-py.test.skip("this is going away")
-
 from pypy.jit.metainterp import pyjitpl
 from pypy.jit.metainterp.test.support import LLJitMixin
 from pypy.jit.metainterp.warmspot import reset_stats
 from pypy.module.micronumpy import interp_boxes
-from pypy.module.micronumpy.compile import (FakeSpace,
-    IntObject, Parser, InterpreterState)
-from pypy.module.micronumpy.interp_numarray import (W_NDimArray,
-     BaseArray, W_FlatIterator)
-from pypy.rlib.nonconst import NonConstant
-
+from pypy.module.micronumpy.compile import FakeSpace, Parser, InterpreterState
+from pypy.module.micronumpy.base import W_NDimArray
 
 class TestNumpyJIt(LLJitMixin):
     graph = None
@@ -51,11 +44,8 @@ class TestNumpyJIt(LLJitMixin):
             if not len(interp.results):
                 raise Exception("need results")
             w_res = interp.results[-1]
-            if isinstance(w_res, BaseArray):
-                concr = w_res.get_concrete_or_scalar()
-                sig = concr.find_sig()
-                frame = sig.create_frame(concr)
-                w_res = sig.eval(frame, concr)
+            if isinstance(w_res, W_NDimArray):
+                w_res = w_res.create_iter().getitem()
             if isinstance(w_res, interp_boxes.W_Float64Box):
                 return w_res.value
             if isinstance(w_res, interp_boxes.W_Int64Box):
