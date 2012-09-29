@@ -362,9 +362,11 @@ class __extend__(W_NDimArray):
                                                        space.w_False]))
         return w_d
 
-    def descr_argsort(self, space, w_axis=-1, w_kind='quicksort', w_order=None):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            "argsort not implemented yet"))
+    def descr_argsort(self, space, w_axis=None, w_kind=None, w_order=None):
+        # happily ignore the kind
+        # create a contiguous copy of the array
+        contig = self.descr_copy(space)
+        return contig.implementation.argsort(space)
 
     def descr_astype(self, space, w_type):
         raise OperationError(space.w_NotImplementedError, space.wrap(
@@ -764,6 +766,8 @@ W_NDimArray.typedef = TypeDef(
     swapaxes = interp2app(W_NDimArray.descr_swapaxes),
     flat = GetSetProperty(W_NDimArray.descr_get_flatiter),
     item = interp2app(W_NDimArray.descr_item),
+
+    argsort = interp2app(W_NDimArray.descr_argsort),
 
     __array_interface__ = GetSetProperty(W_NDimArray.descr_array_iface),
 )

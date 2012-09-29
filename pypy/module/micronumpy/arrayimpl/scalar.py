@@ -95,3 +95,6 @@ class Scalar(base.BaseArrayImplementation):
     def get_storage_as_int(self, space):
         raise OperationError(space.w_ValueError,
                              space.wrap("scalars have no address"))
+
+    def argsort(self, space):
+        return space.wrap(0)

@@ -10,6 +10,7 @@ from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rlib import jit
 from pypy.rlib.rawstorage import free_raw_storage
+from pypy.module.micronumpy.arrayimpl.sort import sort_array
 
 class ConcreteArrayIterator(base.BaseArrayIterator):
     def __init__(self, array):
@@ -372,6 +373,9 @@ class BaseConcreteArray(base.BaseArrayImplementation):
     def get_storage_as_int(self, space):
         return rffi.cast(lltype.Signed, self.storage)
 
+    def get_storage(self):
+        return self.storage
+
 class ConcreteArray(BaseConcreteArray):
     def __init__(self, shape, dtype, order, strides, backstrides):
         self.shape = shape
@@ -399,6 +403,9 @@ class ConcreteArray(BaseConcreteArray):
         strides, backstrides = support.calc_strides(new_shape, self.dtype,
                                                     self.order)
         return SliceArray(0, strides, backstrides, new_shape, self)
+
+    def argsort(self, space):
+        return sort_array(self, space)
 
 class SliceArray(BaseConcreteArray):
     def __init__(self, start, strides, backstrides, shape, parent, dtype=None):

@@ -1549,6 +1549,16 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (b == [20, 1, 21, 3, 4]).all() 
         raises(ValueError, "array([1, 2])[array([True, False, True])] = [1, 2, 3]")
 
+    def test_argsort(self):
+        from _numpypy import array, arange
+        a = array([6, 4, 1, 3, 8, 3])
+        assert array(2.0).argsort() == 0
+        res = a.argsort()
+        assert (res == [2, 3, 5, 1, 0, 4]).all()
+        assert (a == [6, 4, 1, 3, 8, 3]).all() # not modified
+        a = arange(100)
+        assert (a.argsort() == a).all()
+
 class AppTestMultiDim(BaseNumpyAppTest):
     def test_init(self):
         import _numpypy
