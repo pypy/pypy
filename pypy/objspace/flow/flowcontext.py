@@ -66,6 +66,14 @@ class EggBlock(Block):
         self.last_exception = last_exception
 
 def fixeggblocks(graph):
+    varnames = graph.func.func_code.co_varnames
+    for block in graph.iterblocks():
+        if isinstance(block, SpamBlock):
+            for name, w_value in zip(varnames, block.framestate.mergeable):
+                if isinstance(w_value, Variable):
+                    w_value.rename(name)
+            del block.framestate     # memory saver
+
     # EggBlocks reuse the variables of their previous block,
     # which is deemed not acceptable for simplicity of the operations
     # that will be performed later on the flow graph.
@@ -86,9 +94,6 @@ def fixeggblocks(graph):
                 for a in block.inputargs:
                     mapping[a] = Variable(a)
                 block.renamevariables(mapping)
-    for block in graph.iterblocks():
-        if isinstance(link, SpamBlock):
-            del link.framestate     # memory saver
 
 # ____________________________________________________________
 
@@ -118,13 +123,6 @@ class BlockRecorder(Recorder):
 
     def bytecode_trace(self, frame):
         if self.enterspamblock:
-            # If we have a SpamBlock, the first call to bytecode_trace()
-            # occurs as soon as frame.resume() starts, before interpretation
-            # really begins.
-            varnames = frame.pycode.getvarnames()
-            for name, w_value in zip(varnames, frame.getfastscope()):
-                if isinstance(w_value, Variable):
-                    w_value.rename(name)
             self.enterspamblock = False
         else:
             # At this point, we progress to the next bytecode.  When this
