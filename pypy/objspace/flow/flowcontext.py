@@ -102,9 +102,6 @@ class Recorder:
     def append(self, operation):
         raise NotImplementedError
 
-    def bytecode_trace(self, frame):
-        pass
-
     def guessbool(self, frame, w_condition, **kwds):
         raise AssertionError, "cannot guessbool(%s)" % (w_condition,)
 
@@ -114,23 +111,12 @@ class BlockRecorder(Recorder):
 
     def __init__(self, block):
         self.crnt_block = block
-        # saved state at the join point most recently seen
-        self.last_join_point = None
-        self.enterspamblock = isinstance(block, SpamBlock)
+        # Final frame state after the operations in the block
+        # If this is set, no new space op may be recorded.
+        self.final_state = None
 
     def append(self, operation):
         self.crnt_block.operations.append(operation)
-
-    def bytecode_trace(self, frame):
-        if self.enterspamblock:
-            self.enterspamblock = False
-        else:
-            # At this point, we progress to the next bytecode.  When this
-            # occurs, we no longer allow any more operations to be recorded in
-            # the same block.  We will continue, to figure out where the next
-            # such operation *would* appear, and we make a join point just
-            # before.
-            self.last_join_point = frame.getstate()
 
     def guessbool(self, frame, w_condition):
         block = self.crnt_block
@@ -337,8 +323,8 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
     def record(self, spaceop):
         """Record an operation into the active block"""
         recorder = self.recorder
-        if getattr(recorder, 'last_join_point', None) is not None:
-            self.mergeblock(recorder.crnt_block, recorder.last_join_point)
+        if getattr(recorder, 'final_state', None) is not None:
+            self.mergeblock(recorder.crnt_block, recorder.final_state)
             raise StopFlowing
         recorder.append(spaceop)
 
@@ -366,6 +352,7 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
                 self.frame_finished_execution = False
                 while True:
                     self.last_instr = self.handle_bytecode(self.last_instr)
+                    self.recorder.final_state = self.getstate()
 
             except ImplicitOperationError, e:
                 if isinstance(e.w_type, Constant):
@@ -447,7 +434,6 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
                     break
 
     def handle_bytecode(self, next_instr):
-        self.recorder.bytecode_trace(self)
         next_instr, methodname, oparg = self.pycode.read(next_instr)
         try:
             res = getattr(self, methodname)(oparg, next_instr)
