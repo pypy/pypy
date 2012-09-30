@@ -913,6 +913,7 @@ def add_extra_files(eci):
         srcdir / 'thread.c',
         srcdir / 'asm.c',
         srcdir / 'instrument.c',
+        srcdir / 'll_strtod.c',
     ]
     if _CYGWIN:
         files.append(srcdir / 'cygwin_wait.c')
