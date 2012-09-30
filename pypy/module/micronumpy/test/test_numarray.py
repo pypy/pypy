@@ -2249,6 +2249,10 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         a = array(['abc'],'S3')
         assert repr(a) == "array(['abc'])"
         assert str(a.dtype) == '|S3'
+        a = array(['abc'])
+        assert repr(a) == "array(['abc'])"
+        assert str(a.dtype) == '|S3'
+
        
 class AppTestPyPy(BaseNumpyAppTest):
     def setup_class(cls):
