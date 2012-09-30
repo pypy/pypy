@@ -101,11 +101,11 @@ class TestStandalone(StandaloneTests):
         cbuilder.compile()
 
         counters_fname = udir.join("_counters_")
-        os.environ['_INSTRUMENT_COUNTERS'] = str(counters_fname)
+        os.environ['PYPY_INSTRUMENT_COUNTERS'] = str(counters_fname)
         try:
             data = cbuilder.cmdexec()
         finally:
-            del os.environ['_INSTRUMENT_COUNTERS']
+            del os.environ['PYPY_INSTRUMENT_COUNTERS']
 
         f = counters_fname.open('rb')
         counters_data = f.read()

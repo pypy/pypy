@@ -252,7 +252,7 @@ class CBuilder(object):
         else:
             defines['PYPY_STANDALONE'] = db.get(pf)
             if self.config.translation.instrument:
-                defines['INSTRUMENT'] = 1
+                defines['PYPY_INSTRUMENT'] = 1
             if CBuilder.have___thread:
                 if not self.config.translation.no__thread:
                     defines['USE___THREAD'] = 1
@@ -912,6 +912,7 @@ def add_extra_files(eci):
         srcdir / 'debug_print.c',
         srcdir / 'thread.c',
         srcdir / 'asm.c',
+        srcdir / 'instrument.c',
     ]
     if _CYGWIN:
         files.append(srcdir / 'cygwin_wait.c')
@@ -961,10 +962,10 @@ def gen_source(database, modulename, targetdir,
     gen_startupcode(f, database)
     f.close()
 
-    if 'INSTRUMENT' in defines:
+    if 'PYPY_INSTRUMENT' in defines:
         fi = incfilename.open('a')
         n = database.instrument_ncounter
-        print >>fi, "#define INSTRUMENT_NCOUNTER %d" % n
+        print >>fi, "#define PYPY_INSTRUMENT_NCOUNTER %d" % n
         fi.close()
 
     eci = add_extra_files(eci)
