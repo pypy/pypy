@@ -43,7 +43,7 @@ def test_terminate_process():
                         ) 
     print proc.pid
     handle = rwin32.OpenProcess(rwin32.PROCESS_ALL_ACCESS, False, proc.pid)
-    assert rwin32.TerminateProcess(handle, signal.SIGTERM) == 0
+    assert rwin32.TerminateProcess(handle, signal.SIGTERM) == 1
     rwin32.CloseHandle(handle)
     assert proc.wait() == signal.SIGTERM
  

@@ -5,8 +5,8 @@ from pypy.objspace.flow.model import Constant, Block, Link, Variable
 from pypy.objspace.flow.model import mkentrymap, c_last_exception
 from pypy.interpreter.argument import Arguments
 from pypy.translator.simplify import simplify_graph
-from pypy.objspace.flow.objspace import FlowObjSpace, error
-from pypy.objspace.flow import objspace, flowcontext
+from pypy.objspace.flow.objspace import FlowObjSpace
+from pypy.objspace.flow.flowcontext import FlowingError, FlowSpaceFrame
 from pypy import conftest
 from pypy.tool.stdlib_opcode import bytecode_spec
 from pypy.interpreter.pyframe import PyFrame
@@ -857,7 +857,7 @@ class TestFlowObjSpace(Base):
                         c.co_lnotab)
 
     def patch_opcodes(self, *opcodes):
-        flow_meth_names = flowcontext.FlowSpaceFrame.opcode_method_names
+        flow_meth_names = FlowSpaceFrame.opcode_method_names
         pyframe_meth_names = PyFrame.opcode_method_names
         for name in opcodes:
             num = bytecode_spec.opmap[name]
@@ -865,7 +865,7 @@ class TestFlowObjSpace(Base):
             flow_meth_names[num] = pyframe_meth_names[num]
 
     def unpatch_opcodes(self, *opcodes):
-        flow_meth_names = flowcontext.FlowSpaceFrame.opcode_method_names
+        flow_meth_names = FlowSpaceFrame.opcode_method_names
         for name in opcodes:
             num = bytecode_spec.opmap[name]
             flow_meth_names[num] = getattr(self, 'old_' + name)
@@ -985,14 +985,14 @@ class TestFlowObjSpace(Base):
                 f()
             except NotImplementedError:
                 pass
-        py.test.raises(error.FlowingError, "self.codetest(f)")
+        py.test.raises(FlowingError, "self.codetest(f)")
         #
         def f():
             try:
                 f()
             except AssertionError:
                 pass
-        py.test.raises(error.FlowingError, "self.codetest(f)")
+        py.test.raises(FlowingError, "self.codetest(f)")
 
     def test_locals_dict(self):
         def f():
@@ -1003,6 +1003,19 @@ class TestFlowObjSpace(Base):
         assert len(graph.startblock.exits) == 1
         assert graph.startblock.exits[0].target == graph.returnblock
 
+
+    def test_global_variable(self):
+        def global_var_missing():
+            return a
+
+        with py.test.raises(FlowingError) as rex:
+            self.codetest(global_var_missing)
+        assert str(rex.exconly()).find("global variable 'a' undeclared")
+
+    def test_eval(self):
+        exec("def f(): return a")
+        with py.test.raises(FlowingError):
+            self.codetest(f)
 
 DATA = {'x': 5,
         'y': 6}

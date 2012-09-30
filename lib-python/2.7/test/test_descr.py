@@ -3128,7 +3128,8 @@ order (MRO) for bases """
         # Issue5283: when __class__ changes in __del__, the wrong
         # type gets DECREF'd.
         class O(object):
-            pass
+            def __del__(self):
+                pass
         class A(object):
             def __del__(self):
                 self.__class__ = O
@@ -4599,6 +4600,17 @@ order (MRO) for bases """
         else:
             self.assertEqual(r, NotImplemented)
 
+    def test_repr_as_str(self):
+        # Issue #11603: crash or infinite loop when rebinding __str__ as
+        # __repr__.
+        class Foo(object):
+            pass
+        Foo.__repr__ = Foo.__str__
+        foo = Foo()
+        # Behavior will change in CPython 2.7.4.
+        # PyPy already does the right thing here.
+        self.assertRaises(RuntimeError, str, foo)
+        self.assertRaises(RuntimeError, repr, foo)
 
 class DictProxyTests(unittest.TestCase):
     def setUp(self):
@@ -4606,6 +4618,11 @@ class DictProxyTests(unittest.TestCase):
             def meth(self):
                 pass
         self.C = C
+
+    def test_repr(self):
+        if test_support.check_impl_detail():
+            self.assertIn('dict_proxy({', repr(vars(self.C)))
+        self.assertIn("'meth':", repr(vars(self.C)))
 
     def test_iter_keys(self):
         # Testing dict-proxy iterkeys...

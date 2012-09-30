@@ -2,11 +2,6 @@ import math
 
 import _numpypy
 
-def count_nonzero(a):
-    if not hasattr(a, 'count_nonzero'):
-        a = _numpypy.array(a)
-    return a.count_nonzero()
-
 def average(a):
     # This implements a weighted average, for now we don't implement the
     # weighting, just the average part!

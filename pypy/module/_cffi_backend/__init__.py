@@ -1,11 +1,13 @@
 from pypy.interpreter.mixedmodule import MixedModule
+from pypy.rlib import rdynload
+
 
 class Module(MixedModule):
 
     appleveldefs = {
         }
     interpleveldefs = {
-        '__version__': 'space.wrap("0.3")',
+        '__version__': 'space.wrap("0.4")',
 
         'nonstandard_integer_types': 'misc.nonstandard_integer_types',
 
@@ -27,7 +29,8 @@ class Module(MixedModule):
         'alignof': 'func.alignof',
         'sizeof': 'func.sizeof',
         'typeof': 'func.typeof',
-        'offsetof': 'func.offsetof',
+        'typeoffsetof': 'func.typeoffsetof',
+        'rawaddressof': 'func.rawaddressof',
         '_getfields': 'func._getfields',
         'getcname': 'func.getcname',
         '_get_types': 'func._get_types',
@@ -41,3 +44,12 @@ class Module(MixedModule):
         'FFI_DEFAULT_ABI': 'ctypefunc._get_abi(space, "FFI_DEFAULT_ABI")',
         'FFI_CDECL': 'ctypefunc._get_abi(space,"FFI_DEFAULT_ABI")',#win32 name
         }
+
+for _name in ["RTLD_LAZY", "RTLD_NOW", "RTLD_GLOBAL", "RTLD_LOCAL",
+              "RTLD_NODELETE", "RTLD_NOLOAD", "RTLD_DEEPBIND"]:
+    if getattr(rdynload.cConfig, _name) is not None:
+        Module.interpleveldefs[_name] = 'space.wrap(%d)' % (
+            getattr(rdynload.cConfig, _name),)
+
+for _name in ["RTLD_LAZY", "RTLD_NOW", "RTLD_GLOBAL", "RTLD_LOCAL"]:
+    Module.interpleveldefs.setdefault(_name, 'space.wrap(0)')

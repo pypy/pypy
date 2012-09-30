@@ -797,9 +797,11 @@ class TestLowLevelType(test_typed.CompilationTestCase):
             assert res == 5
 
     def test_round_up_for_allocation(self):
+        import platform
         from pypy.rpython.lltypesystem import llmemory, llarena
         S = Struct('S', ('x', Char), ('y', Char))
         M = Struct('M', ('x', Char), ('y', Signed))
+        is_arm = platform.machine().startswith('arm')
         #
         def g():
             ssize = llarena.round_up_for_allocation(llmemory.sizeof(S))
@@ -813,7 +815,13 @@ class TestLowLevelType(test_typed.CompilationTestCase):
         glob_sizes = g()
         #
         def check((ssize, msize, smsize, mssize)):
-            assert ssize == llmemory.sizeof(Signed)
+            if is_arm:
+                # ARM has stronger rules about aligned memory access
+                # so according to the rules for round_up_for_allocation
+                # we get two words here
+                assert ssize == llmemory.sizeof(Signed) * 2
+            else:
+                assert ssize == llmemory.sizeof(Signed)
             assert msize == llmemory.sizeof(Signed) * 2
             assert smsize == msize
             assert mssize == msize

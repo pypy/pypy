@@ -3,7 +3,9 @@ from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rlib.rarithmetic import r_ulonglong
 from pypy.rlib.unroll import unrolling_iterable
+from pypy.rlib.objectmodel import keepalive_until_here
 from pypy.rlib import jit
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
 # ____________________________________________________________
 
@@ -121,6 +123,14 @@ def nonstandard_integer_types(space):
 
 # ____________________________________________________________
 
+def _is_a_float(space, w_ob):
+    from pypy.module._cffi_backend.cdataobj import W_CData
+    from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveFloat
+    ob = space.interpclass_w(w_ob)
+    if isinstance(ob, W_CData):
+        return isinstance(ob.ctype, W_CTypePrimitiveFloat)
+    return space.isinstance_w(w_ob, space.w_float)
+
 def as_long_long(space, w_ob):
     # (possibly) convert and cast a Python object to a long long.
     # This version accepts a Python int too, and does convertions from
@@ -132,7 +142,7 @@ def as_long_long(space, w_ob):
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
-        if space.isinstance_w(w_ob, space.w_float):
+        if _is_a_float(space, w_ob):
             raise
         bigint = space.bigint_w(space.int(w_ob))
     try:
@@ -155,7 +165,7 @@ def as_unsigned_long_long(space, w_ob, strict):
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
-        if strict and space.isinstance_w(w_ob, space.w_float):
+        if strict and _is_a_float(space, w_ob):
             raise
         bigint = space.bigint_w(space.int(w_ob))
     if strict:
@@ -170,6 +180,61 @@ def as_unsigned_long_long(space, w_ob, strict):
 
 neg_msg = "can't convert negative number to unsigned"
 ovf_msg = "long too big to convert"
+
+# ____________________________________________________________
+
+class _NotStandardObject(Exception):
+    pass
+
+def _standard_object_as_bool(space, w_ob):
+    if space.isinstance_w(w_ob, space.w_int):
+        return space.int_w(w_ob) != 0
+    if space.isinstance_w(w_ob, space.w_long):
+        return space.bigint_w(w_ob).tobool()
+    if space.isinstance_w(w_ob, space.w_float):
+        return space.float_w(w_ob) != 0.0
+    raise _NotStandardObject
+
+# hackish, but the most straightforward way to know if a LONGDOUBLE object
+# contains the value 0 or not.
+eci = ExternalCompilationInfo(post_include_bits=["""
+#define pypy__is_nonnull_longdouble(x)  ((x) != 0.0)
+"""])
+is_nonnull_longdouble = rffi.llexternal(
+    "pypy__is_nonnull_longdouble", [rffi.LONGDOUBLE], lltype.Bool,
+    compilation_info=eci, _nowrapper=True, elidable_function=True,
+    sandboxsafe=True)
+
+def object_as_bool(space, w_ob):
+    # convert and cast a Python object to a boolean.  Accept an integer
+    # or a float object, up to a CData 'long double'.
+    try:
+        return _standard_object_as_bool(space, w_ob)
+    except _NotStandardObject:
+        pass
+    #
+    from pypy.module._cffi_backend.cdataobj import W_CData
+    from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveFloat
+    from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveLongDouble
+    ob = space.interpclass_w(w_ob)
+    is_cdata = isinstance(ob, W_CData)
+    if is_cdata and isinstance(ob.ctype, W_CTypePrimitiveFloat):
+        if isinstance(ob.ctype, W_CTypePrimitiveLongDouble):
+            result = is_nonnull_longdouble(read_raw_longdouble_data(ob._cdata))
+        else:
+            result = read_raw_float_data(ob._cdata, ob.ctype.size) != 0.0
+        keepalive_until_here(ob)
+        return result
+    #
+    if not is_cdata and space.lookup(w_ob, '__float__') is not None:
+        w_io = space.float(w_ob)
+    else:
+        w_io = space.int(w_ob)
+    try:
+        return _standard_object_as_bool(space, w_io)
+    except _NotStandardObject:
+        raise OperationError(space.w_TypeError,
+                             space.wrap("integer/float expected"))
 
 # ____________________________________________________________
 

@@ -1,11 +1,10 @@
 import sys
 from pypy.objspace.flow.model import Constant
-from pypy.translator.c.support import cdecl
+from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem.lltype import (typeOf, RttiStruct,
+     RuntimeTypeInfo, top_container)
 from pypy.translator.c.node import ContainerNode
-from pypy.rpython.lltypesystem.lltype import \
-     typeOf, Ptr, ContainerType, RttiStruct, \
-     RuntimeTypeInfo, getRuntimeTypeInfo, top_container
-from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.translator.c.support import cdecl
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
 class BasicGcPolicy(object):
@@ -105,8 +104,6 @@ class BasicGcPolicy(object):
 
 class RefcountingInfo:
     static_deallocator = None
-
-from pypy.rlib.objectmodel import CDefinedIntSymbolic
 
 class RefcountingGcPolicy(BasicGcPolicy):
 
@@ -310,13 +307,12 @@ class NoneGcPolicy(BoehmGcPolicy):
         return eci
 
 
-class FrameworkGcPolicy(BasicGcPolicy):
+class BasicFrameworkGcPolicy(BasicGcPolicy):
 
     def gettransformer(self):
         if hasattr(self, 'transformerclass'):    # for rpython/memory tests
             return self.transformerclass(self.db.translator)
-        from pypy.rpython.memory.gctransform import framework
-        return framework.FrameworkGCTransformer(self.db.translator)
+        raise NotImplementedError
 
     def struct_setup(self, structdefnode, rtti):
         if rtti is not None and hasattr(rtti._obj, 'destructor_funcptr'):
@@ -348,12 +344,12 @@ class FrameworkGcPolicy(BasicGcPolicy):
         yield '%s();' % (self.db.get(fnptr),)
 
     def get_real_weakref_type(self):
-        from pypy.rpython.memory.gctransform import framework
-        return framework.WEAKREF
+        from pypy.rpython.memory.gctypelayout import WEAKREF
+        return WEAKREF
 
     def convert_weakref_to(self, ptarget):
-        from pypy.rpython.memory.gctransform import framework
-        return framework.convert_weakref_to(ptarget)
+        from pypy.rpython.memory.gctypelayout import convert_weakref_to
+        return convert_weakref_to(ptarget)
 
     def OP_GC_RELOAD_POSSIBLY_MOVED(self, funcgen, op):
         if isinstance(op.args[1], Constant):
@@ -407,7 +403,13 @@ class FrameworkGcPolicy(BasicGcPolicy):
     def OP_GC_ASSUME_YOUNG_POINTERS(self, funcgen, op):
         raise Exception("the FramewokGCTransformer should handle this")
 
-class AsmGcRootFrameworkGcPolicy(FrameworkGcPolicy):
+class ShadowStackFrameworkGcPolicy(BasicFrameworkGcPolicy):
+
+    def gettransformer(self):
+        from pypy.rpython.memory.gctransform import shadowstack
+        return shadowstack.ShadowStackFrameworkGCTransformer(self.db.translator)
+
+class AsmGcRootFrameworkGcPolicy(BasicFrameworkGcPolicy):
 
     def gettransformer(self):
         from pypy.rpython.memory.gctransform import asmgcroot
@@ -424,8 +426,8 @@ name_to_gcpolicy = {
     'boehm': BoehmGcPolicy,
     'ref': RefcountingGcPolicy,
     'none': NoneGcPolicy,
-    'framework': FrameworkGcPolicy,
-    'framework+asmgcroot': AsmGcRootFrameworkGcPolicy,
+    'framework+shadowstack': ShadowStackFrameworkGcPolicy,
+    'framework+asmgcc': AsmGcRootFrameworkGcPolicy
 }
 
 

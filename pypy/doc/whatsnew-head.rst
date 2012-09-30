@@ -16,6 +16,10 @@ Check that axis arg is valid in _numpypy
 
 .. branch: iterator-in-rpython
 .. branch: numpypy_count_nonzero
+.. branch: numpy-refactor
+Remove numpy lazy evaluation and simplify everything
+.. branch: numpy-fancy-indexing
+Support for array[array-of-ints] in numpy
 .. branch: even-more-jit-hooks
 Implement better JIT hooks
 .. branch: virtual-arguments
@@ -28,6 +32,8 @@ Start to clean up a bit the flow object space.
 .. branch: ffi-backend
 Support CFFI.  http://morepypy.blogspot.ch/2012/08/cffi-release-03.html
 .. branch: speedup-unpackiterable
+.. branch: stdlib-2.7.3
+The stdlib was updated to version 2.7.3
 
 
 .. "uninteresting" branches that we should just ignore for the whatsnew:
@@ -37,3 +43,5 @@ Support CFFI.  http://morepypy.blogspot.ch/2012/08/cffi-release-03.html
 .. branch: jit-opaque-licm
 .. branch: rpython-utf8
 Support for utf-8 encoding in RPython
+.. branch: arm-backend-2
+Support ARM in the JIT.

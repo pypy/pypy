@@ -298,6 +298,7 @@ sys_flags = (
     "verbose",
     "unicode",
     "bytes_warning",
+    "hash_randomization",
 )
 
 
@@ -370,6 +371,7 @@ if PYTHON26:
         'B': (simple_option, 'dont_write_bytecode'),
         's': (simple_option, 'no_user_site'),
         'b': (simple_option, 'bytes_warning'),
+        'R': (simple_option, 'hash_randomization'),
         })
 
 
@@ -441,6 +443,10 @@ def parse_command_line(argv):
     if (options["interactive"] or
         (not options["ignore_environment"] and os.getenv('PYTHONINSPECT'))):
         options["inspect"] = 1
+
+    if (options["hash_randomization"] or os.getenv('PYTHONHASHSEED')):
+        print >> sys.stderr, (
+            "Warning: pypy does not implement hash randomization")
 
     if PYTHON26 and we_are_translated():
         flags = [options[flag] for flag in sys_flags]

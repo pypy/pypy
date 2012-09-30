@@ -2,30 +2,38 @@ import autopath
 import contextlib
 import py
 import sys, os
+from pypy.rlib import exports
+from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.typesystem import getfunctionptr
+from pypy.tool import isolate, runsubprocess
+from pypy.tool.nullpath import NullPyPathLocal
+from pypy.tool.udir import udir
+from pypy.translator.c import gc
 from pypy.translator.c.database import LowLevelDatabase
 from pypy.translator.c.extfunc import pre_include_code_lines
-from pypy.translator.llsupport.wrapper import new_wrapper
+from pypy.translator.c.support import log
 from pypy.translator.gensupp import uniquemodulename, NameManager
+from pypy.translator.llsupport.wrapper import new_wrapper
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.rpython.lltypesystem import lltype
-from pypy.tool.udir import udir
-from pypy.tool import isolate, runsubprocess
-from pypy.translator.c.support import log, c_string_constant
-from pypy.rpython.typesystem import getfunctionptr
-from pypy.translator.c import gc
-from pypy.rlib import exports
-from pypy.tool.nullpath import NullPyPathLocal
 
 _CYGWIN = sys.platform == 'cygwin'
 
-def import_module_from_directory(dir, modname):
-    file, pathname, description = imp.find_module(modname, [str(dir)])
-    try:
-        mod = imp.load_module(modname, file, pathname, description)
-    finally:
-        if file:
-            file.close()
-    return mod
+_CPYTHON_RE = py.std.re.compile('^Python 2.[567]')
+
+def get_recent_cpython_executable():
+
+    if sys.platform == 'win32':
+        python = sys.executable.replace('\\', '/')
+    else:
+        python = sys.executable
+    # Is there a command 'python' that runs python 2.5-2.7?
+    # If there is, then we can use it instead of sys.executable
+    returncode, stdout, stderr = runsubprocess.run_subprocess(
+        "python", "-V")
+    if _CPYTHON_RE.match(stdout) or _CPYTHON_RE.match(stderr):
+        python = 'python'
+    return python
+
 
 class ProfOpt(object):
     #XXX assuming gcc style flags for now
@@ -38,7 +46,6 @@ class ProfOpt(object):
         platform = self.compiler.platform
         if platform.name.startswith('darwin'):
             # XXX incredible hack for darwin
-            cfiles = self.compiler.cfiles
             STR = '/*--no-profiling-for-this-file!--*/'
             no_prof = []
             prof = []
@@ -194,8 +201,8 @@ class CBuilder(object):
     def get_gcpolicyclass(self):
         if self.gcpolicy is None:
             name = self.config.translation.gctransformer
-            if self.config.translation.gcrootfinder == "asmgcc":
-                name = "%s+asmgcroot" % (name,)
+            if name == "framework":
+                name = "%s+%s" % (name, self.config.translation.gcrootfinder)
             return gc.name_to_gcpolicy[name]
         return self.gcpolicy
 
@@ -219,7 +226,6 @@ class CBuilder(object):
 
     def generate_source(self, db=None, defines={}, exe_name=None):
         assert self.c_source_filename is None
-        translator = self.translator
 
         if db is None:
             db = self.build_database()
@@ -553,6 +559,7 @@ class CStandaloneBuilder(CBuilder):
         for rule in rules:
             mk.rule(*rule)
 
+        #XXX: this conditional part is not tested at all
         if self.config.translation.gcrootfinder == 'asmgcc':
             trackgcfiles = [cfile[:cfile.rfind('.')] for cfile in mk.cfiles]
             if self.translator.platform.name == 'msvc':
@@ -575,18 +582,7 @@ class CStandaloneBuilder(CBuilder):
             else:
                 mk.definition('PYPY_MAIN_FUNCTION', "main")
 
-            if sys.platform == 'win32':
-                python = sys.executable.replace('\\', '/') + ' '
-            else:
-                python = sys.executable + ' '
-
-            # Is there a command 'python' that runs python 2.5-2.7?
-            # If there is, then we can use it instead of sys.executable
-            returncode, stdout, stderr = runsubprocess.run_subprocess(
-                "python", "-V")
-            if (stdout.startswith('Python 2.') or
-                stderr.startswith('Python 2.')):
-                python = 'python '
+            mk.definition('PYTHON', get_recent_cpython_executable())
 
             if self.translator.platform.name == 'msvc':
                 lblofiles = []
@@ -608,22 +604,22 @@ class CStandaloneBuilder(CBuilder):
                         'cmd /c $(MASM) /nologo /Cx /Cp /Zm /coff /Fo$@ /c $< $(INCLUDEDIRS)')
                 mk.rule('.c.gcmap', '',
                         ['$(CC) /nologo $(ASM_CFLAGS) /c /FAs /Fa$*.s $< $(INCLUDEDIRS)',
-                         'cmd /c ' + python + '$(PYPYDIR)/translator/c/gcc/trackgcroot.py -fmsvc -t $*.s > $@']
+                         'cmd /c $(PYTHON) $(PYPYDIR)/translator/c/gcc/trackgcroot.py -fmsvc -t $*.s > $@']
                         )
                 mk.rule('gcmaptable.c', '$(GCMAPFILES)',
-                        'cmd /c ' + python + '$(PYPYDIR)/translator/c/gcc/trackgcroot.py -fmsvc $(GCMAPFILES) > $@')
+                        'cmd /c $(PYTHON) $(PYPYDIR)/translator/c/gcc/trackgcroot.py -fmsvc $(GCMAPFILES) > $@')
 
             else:
                 mk.definition('OBJECTS', '$(ASMLBLFILES) gcmaptable.s')
                 mk.rule('%.s', '%.c', '$(CC) $(CFLAGS) $(CFLAGSEXTRA) -frandom-seed=$< -o $@ -S $< $(INCLUDEDIRS)')
                 mk.rule('%.lbl.s %.gcmap', '%.s',
-                        [python +
-                             '$(PYPYDIR)/translator/c/gcc/trackgcroot.py '
+                        [
+                             '$(PYTHON) $(PYPYDIR)/translator/c/gcc/trackgcroot.py '
                              '-t $< > $*.gctmp',
                          'mv $*.gctmp $*.gcmap'])
                 mk.rule('gcmaptable.s', '$(GCMAPFILES)',
-                        [python +
-                             '$(PYPYDIR)/translator/c/gcc/trackgcroot.py '
+                        [
+                             '$(PYTHON) $(PYPYDIR)/translator/c/gcc/trackgcroot.py '
                              '$(GCMAPFILES) > $@.tmp',
                          'mv $@.tmp $@'])
                 mk.rule('.PRECIOUS', '%.s', "# don't remove .s files if Ctrl-C'ed")

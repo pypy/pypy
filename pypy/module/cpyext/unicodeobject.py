@@ -12,6 +12,7 @@ from pypy.module.cpyext.pyobject import (
     make_typedescr, get_typedescr)
 from pypy.module.cpyext.stringobject import PyString_Check
 from pypy.module.sys.interp_encoding import setdefaultencoding
+from pypy.module._codecs.interp_codecs import CodecState
 from pypy.objspace.std import unicodeobject, unicodetype, stringtype
 from pypy.rlib import runicode
 from pypy.tool.sourcetools import func_renamer
@@ -609,6 +610,38 @@ def PyUnicode_DecodeUTF32(space, s, size, llerrors, pbyteorder):
         pbyteorder[0] = rffi.cast(rffi.INT, byteorder)
 
     return space.wrap(result)
+
+@cpython_api([rffi.CWCHARP, Py_ssize_t, rffi.CCHARP, rffi.CCHARP],
+             rffi.INT_real, error=-1)
+def PyUnicode_EncodeDecimal(space, s, length, output, llerrors):
+    """Takes a Unicode string holding a decimal value and writes it
+    into an output buffer using standard ASCII digit codes.
+
+    The output buffer has to provide at least length+1 bytes of
+    storage area. The output string is 0-terminated.
+
+    The encoder converts whitespace to ' ', decimal characters to
+    their corresponding ASCII digit and all other Latin-1 characters
+    except \0 as-is. Characters outside this range (Unicode ordinals
+    1-256) are treated as errors. This includes embedded NULL bytes.
+
+    Returns 0 on success, -1 on failure.
+    """
+    u = rffi.wcharpsize2unicode(s, length)
+    if llerrors:
+        errors = rffi.charp2str(llerrors)
+    else:
+        errors = None
+    state = space.fromcache(CodecState)
+    result = runicode.unicode_encode_decimal(u, length, errors,
+                                             state.encode_error_handler)
+    i = len(result)
+    output[i] = '\0'
+    i -= 1
+    while i >= 0:
+        output[i] = result[i]
+        i -= 1
+    return 0
 
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=-2)
 def PyUnicode_Compare(space, w_left, w_right):
