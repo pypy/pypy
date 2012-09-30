@@ -405,37 +405,35 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         candidates = self.joinpoints.setdefault(next_instr, [])
         for block in candidates:
             newstate = block.framestate.union(currentstate)
-            if newstate is not None:
-                # yes
-                finished = newstate == block.framestate
+            if newstate is None:
+                continue
+            elif newstate == block.framestate:
+                outputargs = currentstate.getoutputargs(newstate)
+                currentblock.closeblock(Link(outputargs, block))
+                return
+            else:
                 break
         else:
-            # no
             newstate = currentstate.copy()
-            finished = False
             block = None
 
-        if finished:
-            newblock = block
-        else:
-            newblock = SpamBlock(newstate)
+        newblock = SpamBlock(newstate)
         # unconditionally link the current block to the newblock
         outputargs = currentstate.getoutputargs(newstate)
         link = Link(outputargs, newblock)
         currentblock.closeblock(link)
-        # phew
-        if not finished:
-            if block is not None:
-                # to simplify the graph, we patch the old block to point
-                # directly at the new block which is its generalization
-                block.dead = True
-                block.operations = ()
-                block.exitswitch = None
-                outputargs = block.framestate.getoutputargs(newstate)
-                block.recloseblock(Link(outputargs, newblock))
-                candidates.remove(block)
-            candidates.insert(0, newblock)
-            self.pendingblocks.append(newblock)
+
+        if block is not None:
+            # to simplify the graph, we patch the old block to point
+            # directly at the new block which is its generalization
+            block.dead = True
+            block.operations = ()
+            block.exitswitch = None
+            outputargs = block.framestate.getoutputargs(newstate)
+            block.recloseblock(Link(outputargs, newblock))
+            candidates.remove(block)
+        candidates.insert(0, newblock)
+        self.pendingblocks.append(newblock)
 
     # hack for unrolling iterables, don't use this
     def replace_in_stack(self, oldvalue, newvalue):
