@@ -2241,14 +2241,14 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         assert d.fields['x'] == (dtype(str), 0)
         assert d.fields['y'] == (dtype('int32'), 1)
         a = array([('a', 2), ('c', 1)], dtype=d)
-        assert a[0]['x'] == 'a'
         assert a[1]['y'] == 1
+        assert a[0]['x'] == 'a'
 
     def test_stringarray(self):
         from _numpypy import array
-        a = array(['abc'])
-        assert str(a) == "['abc']"
-        assert a.dtype == '|S3'
+        a = array(['abc'],'S3')
+        assert repr(a) == "array(['abc'])"
+        assert str(a.dtype) == '|S3'
        
 class AppTestPyPy(BaseNumpyAppTest):
     def setup_class(cls):

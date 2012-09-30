@@ -64,11 +64,16 @@ class W_Dtype(Wrappable):
     def fill(self, storage, box, start, stop):
         self.itemtype.fill(storage, self.get_size(), box, start, stop, 0)
 
+    def get_name(self):
+        if self.char == 'S':
+            return '|S' + str(self.get_size())
+        return self.name
+
     def descr_str(self, space):
-        return space.wrap(self.name)
+        return space.wrap(self.get_name())
 
     def descr_repr(self, space):
-        return space.wrap("dtype('%s')" % self.name)
+        return space.wrap("dtype('%s')" % self.get_name())
 
     def descr_get_itemsize(self, space):
         return space.wrap(self.itemtype.get_element_size())

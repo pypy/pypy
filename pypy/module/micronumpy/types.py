@@ -15,6 +15,7 @@ from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.rstruct.runpack import runpack
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib import jit
+from pypy.rlib.rstring import StringBuilder
 
 
 degToRad = math.pi / 180.0
@@ -908,18 +909,47 @@ class StringType(BaseType, BaseStringType):
     T = lltype.Char
 
     def coerce(self, space, dtype, w_item):
-        if space.isinstance_w(w_item, space.w_str):
-            return space.unwrap(w_item)
-        print 'w_item',type(w_item)
-        xxx
+        from pypy.module.micronumpy.interp_dtype import new_string_dtype
+        arg = space.str_w(space.str(w_item))
+        arr = interp_boxes.VoidBoxStorage(len(arg), new_string_dtype(space, len(arg)))
+        for i in range(len(arg)):
+            arr.storage[i] = arg[i]
+        return interp_boxes.W_StringBox(arr,  0, None)
 
     def store(self, arr, i, offset, box):
-        assert isinstance(box, str)
-        for k in range(min(self.size-i, len(box)-offset)):
-            arr.storage[k + i] = box[k + offset]
+        assert isinstance(box, interp_boxes.W_StringBox)
+        for k in range(min(self.size-i, box.arr.size-offset)):
+            arr.storage[k + i] = box.arr.storage[k + offset]
 
     def read(self, arr, i, offset, dtype=None):
-        return arr.storage[i+offset]
+        if dtype is None:
+            dtype = arr.dtype
+        return interp_boxes.W_StringBox(arr, i + offset, dtype)
+        #print 'read',arr, arr.dtype
+        #xxx
+        #builder = StringBuilder()
+        #i = 0
+        #while i < self.size:
+        #    assert isinstance(arr.storage[i], str)
+        #    builder.append(arr.storage[i])
+        #    i += 1
+        #return builder.build()
+    def to_str(self, item):    
+        builder = StringBuilder()
+        assert isinstance(item, interp_boxes.W_StringBox)
+        i = 0
+        while i < self.size:
+            assert isinstance(item.arr.storage[i], str)
+            builder.append(item.arr.storage[i])
+            i += 1
+        return builder.build()
+
+    def str_format(self, item):
+        builder = StringBuilder()
+        builder.append("'")
+        builder.append(self.to_str(item))
+        builder.append("'")
+        return builder.build()
 
 class VoidType(BaseType, BaseStringType):
     T = lltype.Char

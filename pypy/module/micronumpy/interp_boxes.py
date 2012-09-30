@@ -228,7 +228,11 @@ class W_VoidBox(W_FlexibleBox):
         except KeyError:
             raise OperationError(space.w_IndexError,
                                  space.wrap("Field %s does not exist" % item))
-        return space.wrap(dtype.itemtype.read(self.arr, self.ofs, ofs, dtype))
+        read_val = dtype.itemtype.read(self.arr, self.ofs, ofs, dtype)
+        if isinstance (read_val, W_StringBox):
+            # StringType returns a str
+            return space.wrap(dtype.itemtype.to_str(read_val))
+        return read_val
 
     @unwrap_spec(item=str)
     def descr_setitem(self, space, item, w_value):
@@ -252,7 +256,6 @@ class W_StringBox(W_CharacterBox):
         for i in range(len(arg)):
             arr.storage[i] = arg[i]
         return W_StringBox(arr, 0, arr.dtype)
-
 
 class W_UnicodeBox(W_CharacterBox):
     def descr__new__unicode_box(space, w_subtype, w_arg):
