@@ -366,9 +366,8 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
             try:
                 self.recorder = self.recording(block)
                 self.frame_finished_execution = False
-                next_instr = self.last_instr
                 while True:
-                    next_instr = self.handle_bytecode(next_instr)
+                    self.last_instr = self.handle_bytecode(self.last_instr)
 
             except ImplicitOperationError, e:
                 if isinstance(e.w_type, Constant):
@@ -452,17 +451,13 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
                     break
 
     def handle_bytecode(self, next_instr):
+        self.recorder.bytecode_trace(self)
+        next_instr, methodname, oparg = self.pycode.read(next_instr)
         try:
-            while True:
-                self.last_instr = next_instr
-                self.recorder.bytecode_trace(self)
-                next_instr, methodname, oparg = self.pycode.read(next_instr)
-                res = getattr(self, methodname)(oparg, next_instr)
-                if res is not None:
-                    next_instr = res
+            res = getattr(self, methodname)(oparg, next_instr)
+            return res if res is not None else next_instr
         except FSException, operr:
-            next_instr = self.handle_operation_error(operr)
-        return next_instr
+            return self.handle_operation_error(operr)
 
     def handle_operation_error(self, operr):
         block = self.unrollstack(SApplicationException.kind)
