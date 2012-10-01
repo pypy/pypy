@@ -223,7 +223,7 @@ class __extend__(pyframe.PyFrame):
                 return next_instr
 
             if opcode == self.opcodedesc.JUMP_ABSOLUTE.index:
-                return self.jump_absolute(oparg, next_instr, ec)
+                return self.jump_absolute(oparg, ec)
 
             if we_are_translated():
                 for opdesc in unrolling_all_opcode_descs:
@@ -858,7 +858,8 @@ class __extend__(pyframe.PyFrame):
     def YIELD_VALUE(self, oparg, next_instr):
         raise Yield
 
-    def jump_absolute(self, jumpto, next_instr, ec):
+    def jump_absolute(self, jumpto, ec):
+        # this function is overridden by pypy.module.pypyjit.interp_jit
         check_nonneg(jumpto)
         return jumpto
 
@@ -1268,7 +1269,9 @@ class LoopBlock(FrameBlock):
             # and jump to the beginning of the loop, stored in the
             # exception's argument
             frame.append_block(self)
-            return r_uint(unroller.jump_to)
+            jumpto = unroller.jump_to
+            ec = frame.space.getexecutioncontext()
+            return r_uint(frame.jump_absolute(jumpto, ec))
         else:
             # jump to the end of the loop
             self.cleanupstack(frame)
