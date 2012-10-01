@@ -262,7 +262,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
     def test_not_complex(self):
         from _numpypy import (radians, deg2rad, degrees, rad2deg,
-                  isneginf, isposinf, logaddexp, logaddexp2, fmod)
+                  isneginf, isposinf, logaddexp, logaddexp2, fmod,
+                  max, min)
         raises(TypeError, radians, complex(90,90))
         raises(TypeError, deg2rad, complex(90,90))
         raises(TypeError, degrees, complex(90,90))
@@ -272,6 +273,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
         raises(TypeError, logaddexp, complex(1, 1), complex(3, 3))
         raises(TypeError, logaddexp2, complex(1, 1), complex(3, 3))
         raises (TypeError, fmod, complex(90,90), 3) 
+        raises (TypeError, min, complex(90,90), 3) 
+        raises (TypeError, max, complex(90,90), 3) 
 
     def test_isnan_isinf(self):
         from _numpypy import isnan, isinf, array
@@ -413,6 +416,38 @@ class AppTestUfuncs(BaseNumpyAppTest):
                     got_err = True
         if got_err:
             raise AssertionError('Errors were printed to stdout')
+
+    def test_logical_ops(self):
+        from _numpypy import logical_and, logical_or, logical_xor, logical_not
+
+        c1 = complex(1, 1)
+        c3 = complex(3, 0)
+        c0 = complex(0, 0)
+        assert (logical_and([True, False , True, True], [c1, c1, c3, c0])
+                == [True, False, True, False]).all()
+        assert (logical_or([True, False, True, False], [c1, c3, c0, c0])
+                == [True, True, True, False]).all()
+        assert (logical_xor([True, False, True, False], [c1, c3, c0, c0])
+                == [False, True, True, False]).all()
+        assert (logical_not([c1, c0]) == [False, True]).all()
+
+    def test_minimum(self):
+        from _numpypy import array, minimum
+
+        a = array([-5.0+5j, -5.0-5j, -0.0-10j, 1.0+10j])
+        b = array([ 3.0+10.0j, 3.0, -2.0+2.0j, -3.0+4.0j])
+        c = minimum(a, b)
+        for i in range(4):
+            assert c[i] == min(a[i], b[i])
+
+    def test_maximum(self):
+        from _numpypy import array, maximum
+
+        a = array([-5.0+5j, -5.0-5j, -0.0-10j, 1.0+10j])
+        b = array([ 3.0+10.0j, 3.0, -2.0+2.0j, -3.0+4.0j])
+        c = maximum(a, b)
+        for i in range(4):
+            assert c[i] == max(a[i], b[i])
 
     def test_basic(self):
         from _numpypy import (complex128, complex64, add,
