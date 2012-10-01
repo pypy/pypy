@@ -233,7 +233,7 @@ class FlowObjSpace(object):
             w_type = w_instclass
         return FSException(w_type, w_value)
 
-    def build_flow(self, func, tweak_for_generator=True):
+    def build_flow(self, func):
         """
         """
         if func.func_doc and func.func_doc.lstrip().startswith('NOT_RPYTHON'):
@@ -244,7 +244,7 @@ class FlowObjSpace(object):
         frame.build_flow()
         fixeggblocks(graph)
         checkgraph(graph)
-        if graph.is_generator and tweak_for_generator:
+        if graph.is_generator:
             tweak_generator_graph(graph)
         return graph
 

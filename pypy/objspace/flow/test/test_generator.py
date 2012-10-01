@@ -69,11 +69,7 @@ class TestGenerator:
             yield n
             yield n
         #
-        space = FlowObjSpace()
-        graph = space.build_flow(func, tweak_for_generator=False)
-        assert graph.startblock.operations[0].opname == 'generator_mark'
-        GeneratorIterator = make_generatoriterator_class(graph)
-        replace_graph_with_bootstrap(GeneratorIterator, graph)
+        graph = FlowObjSpace().build_flow(func)
         if option.view:
             graph.show()
         block = graph.startblock
@@ -93,24 +89,6 @@ class TestGenerator:
         assert len(block.exits) == 1
         assert block.exits[0].target is graph.returnblock
 
-    def test_tweak_generator_body_graph(self):
-        def f(n, x, y, z=3):
-            z *= 10
-            yield n + 1
-            z -= 10
-        #
-        space = FlowObjSpace()
-        graph = space.build_flow(f, tweak_for_generator=False)
-        class Entry:
-            varnames = ['g_n', 'g_x', 'g_y', 'g_z']
-        tweak_generator_body_graph(Entry, graph)
-        if option.view:
-            graph.show()
-        # XXX how to test directly that the graph is correct?  :-(
-        assert len(graph.startblock.inputargs) == 1
-        assert graph.signature == Signature(['entry'])
-        assert graph.defaults == ()
-
     def test_tweak_generator_graph(self):
         def f(n, x, y, z):
             z *= 10
@@ -118,7 +96,7 @@ class TestGenerator:
             z -= 10
         #
         space = FlowObjSpace()
-        graph = space.build_flow(f, tweak_for_generator=False)
+        graph = space.build_flow(f)
         GeneratorIterator = make_generatoriterator_class(graph)
         replace_graph_with_bootstrap(GeneratorIterator, graph)
         func1 = attach_next_method(GeneratorIterator, graph)
@@ -133,8 +111,7 @@ class TestGenerator:
         if option.view:
             graph_next.show()
         #
-        graph1 = space.build_flow(func1, tweak_for_generator=False)
-        tweak_generator_body_graph(GeneratorIterator.Entry, graph1)
+        graph1 = space.build_flow(func1)
         if option.view:
             graph1.show()
 
@@ -144,8 +121,7 @@ class TestGenerator:
             yield n + 1
             z -= 10
         #
-        space = FlowObjSpace()
-        graph = space.build_flow(f)   # tweak_for_generator=True
+        graph = FlowObjSpace().build_flow(f)
         if option.view:
             graph.show()
         block = graph.startblock
