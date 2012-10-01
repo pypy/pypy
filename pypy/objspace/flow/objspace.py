@@ -10,6 +10,7 @@ from pypy.objspace.flow.bytecode import HostCode
 from pypy.objspace.flow import operation
 from pypy.objspace.flow.flowcontext import (FlowSpaceFrame, fixeggblocks,
     FSException, FlowingError)
+from pypy.objspace.flow.generator import tweak_generator_graph
 from pypy.objspace.flow.pygraph import PyGraph
 from pypy.objspace.flow.specialcase import SPECIAL_CASES
 from pypy.rlib.unroll import unrolling_iterable, _unroller
@@ -244,7 +245,6 @@ class FlowObjSpace(object):
         fixeggblocks(graph)
         checkgraph(graph)
         if graph.is_generator and tweak_for_generator:
-            from pypy.translator.generator import tweak_generator_graph
             tweak_generator_graph(graph)
         return graph
 
