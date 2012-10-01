@@ -273,8 +273,6 @@ class AppTestUfuncs(BaseNumpyAppTest):
         raises(TypeError, logaddexp, complex(1, 1), complex(3, 3))
         raises(TypeError, logaddexp2, complex(1, 1), complex(3, 3))
         raises (TypeError, fmod, complex(90,90), 3) 
-        raises (TypeError, min, complex(90,90), 3) 
-        raises (TypeError, max, complex(90,90), 3) 
 
     def test_isnan_isinf(self):
         from _numpypy import isnan, isinf, array
