@@ -1999,6 +1999,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
 
     def test_int_array_index(self):
         from _numpypy import array
+        assert (array([])[[]] == []).all()
         a = array([[1, 2], [3, 4], [5, 6]])
         assert (a[slice(0, 3), [0, 0]] == [[1, 1], [3, 3], [5, 5]]).all()
         assert (a[array([0, 2]), slice(0, 2)] == [[1, 2], [5, 6]]).all()
