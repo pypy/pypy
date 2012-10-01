@@ -6,9 +6,11 @@ from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.interpreter.argument import ArgumentsForTranslation
 from pypy.objspace.flow.model import (Constant, Variable, WrapException,
     UnwrapException, checkgraph, SpaceOperation)
+from pypy.objspace.flow.bytecode import HostCode
 from pypy.objspace.flow import operation
 from pypy.objspace.flow.flowcontext import (FlowSpaceFrame, fixeggblocks,
     FSException, FlowingError)
+from pypy.objspace.flow.pygraph import PyGraph
 from pypy.objspace.flow.specialcase import SPECIAL_CASES
 from pypy.rlib.unroll import unrolling_iterable, _unroller
 from pypy.rlib import rstackovf, rarithmetic
@@ -235,9 +237,10 @@ class FlowObjSpace(object):
         """
         if func.func_doc and func.func_doc.lstrip().startswith('NOT_RPYTHON'):
             raise Exception, "%r is tagged as NOT_RPYTHON" % (func,)
-        frame = self.frame = FlowSpaceFrame(self, func)
+        code = HostCode._from_code(self, func.func_code)
+        graph = PyGraph(func, code)
+        frame = self.frame = FlowSpaceFrame(self, graph, code)
         frame.build_flow()
-        graph = frame.graph
         fixeggblocks(graph)
         checkgraph(graph)
         if graph.is_generator and tweak_for_generator:

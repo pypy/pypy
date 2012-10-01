@@ -219,8 +219,9 @@ compare_method = [
 
 class FlowSpaceFrame(pyframe.CPythonFrame):
 
-    def __init__(self, space, func):
-        code = HostCode._from_code(space, func.func_code)
+    def __init__(self, space, graph, code):
+        self.graph = graph
+        func = graph.func
         self.pycode = code
         self.space = space
         self.w_globals = Constant(func.func_globals)
@@ -234,9 +235,6 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         self.w_locals = None # XXX: only for compatibility with PyFrame
 
         self.joinpoints = {}
-        self.graph = PyGraph(func, code)
-        self.pendingblocks = collections.deque([self.graph.startblock])
-        self.setstate(self.graph.startblock.framestate) # for testing
 
     def init_locals_stack(self, code):
         """
@@ -315,6 +313,8 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         return self.recorder.guessexception(self, *exceptions)
 
     def build_flow(self):
+        graph = self.graph
+        self.pendingblocks = collections.deque([graph.startblock])
         while self.pendingblocks:
             block = self.pendingblocks.popleft()
             try:
@@ -332,14 +332,14 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
                 msg = "implicit %s shouldn't occur" % exc_cls.__name__
                 w_type = Constant(AssertionError)
                 w_value = Constant(AssertionError(msg))
-                link = Link([w_type, w_value], self.graph.exceptblock)
+                link = Link([w_type, w_value], graph.exceptblock)
                 self.recorder.crnt_block.closeblock(link)
 
             except FSException, e:
                 if e.w_type is self.space.w_ImportError:
                     msg = 'import statement always raises %s' % e
                     raise ImportError(msg)
-                link = Link([e.w_type, e.w_value], self.graph.exceptblock)
+                link = Link([e.w_type, e.w_value], graph.exceptblock)
                 self.recorder.crnt_block.closeblock(link)
 
             except StopFlowing:
@@ -348,7 +348,7 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
             except Return:
                 w_result = self.popvalue()
                 assert w_result is not None
-                link = Link([w_result], self.graph.returnblock)
+                link = Link([w_result], graph.returnblock)
                 self.recorder.crnt_block.closeblock(link)
 
         del self.recorder
