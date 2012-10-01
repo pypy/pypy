@@ -235,6 +235,7 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         self.joinpoints = {}
         self._init_graph(func)
         self.pendingblocks = collections.deque([self.graph.startblock])
+        self.setstate(self.graph.startblock.framestate) # for testing
 
     def init_locals_stack(self, code):
         """
@@ -243,14 +244,7 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         The locals are ordered according to self.pycode.signature().
         """
         self.valuestackdepth = code.co_nlocals
-        formalargcount = code.getformalargcount()
-        n_uninitialised_locals = code.co_nlocals - formalargcount
-        if n_uninitialised_locals < 0:
-            raise ValueError, "new fastscope is longer than the allocated area"
-        arg_list = [Variable() for i in range(formalargcount)]
-        self.locals_stack_w = (arg_list +
-                [None] * (code.co_stacksize + n_uninitialised_locals))
-        self.init_cells()
+        self.locals_stack_w = [None] * (code.co_stacksize + code.co_nlocals)
 
     def _init_graph(self, func):
         # CallableFactory.pycall may add class_ to functions that are methods
@@ -261,7 +255,12 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         for c in "<>&!":
             name = name.replace(c, '_')
 
-        initialblock = SpamBlock(self.getstate())
+        code = self.pycode
+        data = [None] * code.co_nlocals
+        for i in range(code.getformalargcount()):
+            data[i] = Variable()
+        state = FrameState(data + [Constant(None), Constant(None)], [], 0)
+        initialblock = SpamBlock(state)
         if self.pycode.is_generator:
             initialblock.operations.append(
                 SpaceOperation('generator_mark', [], Variable()))
