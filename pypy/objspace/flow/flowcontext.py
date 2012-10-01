@@ -9,6 +9,7 @@ from pypy.objspace.flow.model import (Constant, Variable, Block, Link,
 from pypy.objspace.flow.framestate import (FrameState, recursively_unflatten,
         recursively_flatten)
 from pypy.objspace.flow.bytecode import HostCode
+from pypy.objspace.flow.pygraph import PyGraph
 from pypy.objspace.flow.specialcase import (rpython_print_item,
         rpython_print_newline)
 
@@ -233,7 +234,7 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         self.w_locals = None # XXX: only for compatibility with PyFrame
 
         self.joinpoints = {}
-        self._init_graph(func)
+        self.graph = PyGraph(func, code)
         self.pendingblocks = collections.deque([self.graph.startblock])
         self.setstate(self.graph.startblock.framestate) # for testing
 
@@ -245,34 +246,6 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         """
         self.valuestackdepth = code.co_nlocals
         self.locals_stack_w = [None] * (code.co_stacksize + code.co_nlocals)
-
-    def _init_graph(self, func):
-        # CallableFactory.pycall may add class_ to functions that are methods
-        name = func.func_name
-        class_ = getattr(func, 'class_', None)
-        if class_ is not None:
-            name = '%s.%s' % (class_.__name__, name)
-        for c in "<>&!":
-            name = name.replace(c, '_')
-
-        code = self.pycode
-        data = [None] * code.co_nlocals
-        for i in range(code.getformalargcount()):
-            data[i] = Variable()
-        state = FrameState(data + [Constant(None), Constant(None)], [], 0)
-        initialblock = SpamBlock(state)
-        if self.pycode.is_generator:
-            initialblock.operations.append(
-                SpaceOperation('generator_mark', [], Variable()))
-        graph = FunctionGraph(name, initialblock)
-        graph.func = func
-        # attach a signature and defaults to the graph
-        # so that it becomes even more interchangeable with the function
-        # itself
-        graph.signature = self.pycode.signature()
-        graph.defaults = func.func_defaults or ()
-        graph.is_generator = self.pycode.is_generator
-        self.graph = graph
 
     def getstate(self):
         # getfastscope() can return real None, for undefined locals
