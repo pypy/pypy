@@ -649,9 +649,8 @@ MARKER = '/*/*/' # provide an easy way to split after generating
 class SourceGenerator:
     one_source_file = True
 
-    def __init__(self, database, preimplementationlines=[]):
+    def __init__(self, database):
         self.database = database
-        self.preimpl = preimplementationlines
         self.extrafiles = []
         self.path = None
         self.namespace = NameManager()
@@ -785,6 +784,8 @@ class SourceGenerator:
             gen_structdef(fi, self.database)
         with self.write_on_maybe_included_file(f, 'forwarddecl.h') as fi:
             gen_forwarddecl(fi, self.database)
+        with self.write_on_maybe_included_file(f, 'preimpl.h') as fi:
+            gen_preimpl(fi, self.database)
 
         #
         # Implementation of functions and global structures and arrays
@@ -795,8 +796,6 @@ class SourceGenerator:
         print >> f
 
         print >> f, '#define PYPY_FILE_NAME "%s"' % os.path.basename(f.name)
-        for line in self.preimpl:
-            print >> f, line
         print >> f, '#include "src/g_include.h"'
         print >> f
 
@@ -812,6 +811,7 @@ class SourceGenerator:
                     print >> fc, '#include "common_header.h"'
                     print >> fc, '#include "structdef.h"'
                     print >> fc, '#include "forwarddecl.h"'
+                    print >> fc, '#include "preimpl.h"'
                     print >> fc
                     print >> fc, '#include "src/g_include.h"'
                     print >> fc
@@ -821,7 +821,7 @@ class SourceGenerator:
                     print >> fc, MARKER
                 print >> fc, '/***********************************************************/'
 
-        nextralines = 8 + len(self.preimpl) + 4 + 1
+        nextralines = 12
         for name, nodeiter in self.splitnodesimpl('implement.c',
                                                    self.funcnodes,
                                                    nextralines, 1,
@@ -835,10 +835,7 @@ class SourceGenerator:
                     print >> fc, '#include "common_header.h"'
                     print >> fc, '#include "structdef.h"'
                     print >> fc, '#include "forwarddecl.h"'
-                    print >> fc
-                    for line in self.preimpl:
-                        print >> fc, line
-                    print >> fc
+                    print >> fc, '#include "preimpl.h"'
                     print >> fc, '#include "src/g_include.h"'
                     print >> fc
                 print >> fc, MARKER
@@ -872,6 +869,14 @@ def gen_forwarddecl(f, database):
     for node in database.globalcontainers():
         for line in node.forward_declaration():
             print >> f, line
+
+def gen_preimpl(f, database):
+    if database.translator is None or database.translator.rtyper is None:
+        return
+    preimplementationlines = pre_include_code_lines(
+        database, database.translator.rtyper)
+    for line in preimplementationlines:
+        print >> f, line
 
 def gen_startupcode(f, database):
     # generate the start-up code and put it into a function
@@ -945,17 +950,11 @@ def gen_source(database, modulename, targetdir,
 
     fi.close()
 
-    if database.translator is None or database.translator.rtyper is None:
-        preimplementationlines = []
-    else:
-        preimplementationlines = list(
-            pre_include_code_lines(database, database.translator.rtyper))
-
     #
     # 1) All declarations
     # 2) Implementation of functions and global structures and arrays
     #
-    sg = SourceGenerator(database, preimplementationlines)
+    sg = SourceGenerator(database)
     sg.set_strategy(targetdir, split)
     database.prepare_inline_helpers()
     sg.gen_readable_parts_of_source(f)
