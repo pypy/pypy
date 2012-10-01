@@ -547,7 +547,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
                           )
         for complex_, abs_err, testcases in (\
                  (np.complex128, 5e-323, self.testcases128),
-                 (np.complex64,  5e-32,  self.testcases64), 
+                 # (np.complex64,  5e-32,  self.testcases64), 
                 ):
             for id, fn, ar, ai, er, ei, flags in parse_testfile(testcases):
                 arg = complex_(complex(ar, ai))
