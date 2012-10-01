@@ -477,13 +477,6 @@ class IntInstanceCollector(py.test.collect.Instance):
 class IntClassCollector(PyPyClassCollector):
     Instance = IntInstanceCollector
 
-    def _haskeyword(self, keyword):
-        return keyword == 'interplevel' or \
-               super(IntClassCollector, self)._haskeyword(keyword)
-
-    def _keywords(self):
-        return super(IntClassCollector, self)._keywords() + ['interplevel']
-
 class AppClassInstance(py.test.collect.Instance):
     Function = AppTestMethod
 
@@ -499,13 +492,6 @@ class AppClassInstance(py.test.collect.Instance):
 
 class AppClassCollector(PyPyClassCollector):
     Instance = AppClassInstance
-
-    def _haskeyword(self, keyword):
-        return keyword == 'applevel' or \
-               super(AppClassCollector, self)._haskeyword(keyword)
-
-    def _keywords(self):
-        return super(AppClassCollector, self)._keywords() + ['applevel']
 
     def setup(self):
         super(AppClassCollector, self).setup()
