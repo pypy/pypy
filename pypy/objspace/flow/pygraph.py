@@ -36,4 +36,5 @@ class PyGraph(FunctionGraph):
             name = '%s.%s' % (class_.__name__, name)
         for c in "<>&!":
             name = name.replace(c, '_')
+        return name
 
