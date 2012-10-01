@@ -1519,7 +1519,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (a == [1, 1]).all()
 
     def test_int_array_index(self):
-        from numpypy import array, arange
+        from numpypy import array, arange, zeros
         b = arange(10)[array([3, 2, 1, 5])]
         assert (b == [3, 2, 1, 5]).all()
         raises(IndexError, "arange(10)[array([10])]")
@@ -1528,6 +1528,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = arange(1)
         a[[0, 0]] += 1
         assert a[0] == 1
+        assert (zeros(1)[[]] == []).all()
 
     def test_int_array_index_setitem(self):
         from numpypy import array, arange, zeros

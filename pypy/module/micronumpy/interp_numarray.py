@@ -129,7 +129,7 @@ class __extend__(W_NDimArray):
                 self._prepare_array_index(space, w_index)
         shape = res_shape + self.get_shape()[len(indexes):]
         res = W_NDimArray.from_shape(shape, self.get_dtype(), self.get_order())
-        if not self.get_size() and not res.get_size():
+        if not res.get_size():
             return res
         return loop.getitem_array_int(space, self, res, iter_shape, indexes,
                                       prefix)
