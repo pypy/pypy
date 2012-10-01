@@ -5,7 +5,8 @@ from pypy.interpreter.pycode import (PyCode, BytecodeCorruption, cpython_magic,
         cpython_code_signature)
 from pypy.tool.stdlib_opcode import (host_bytecode_spec, EXTENDED_ARG,
         HAVE_ARGUMENT)
-from pypy.interpreter.astcompiler.consts import CO_GENERATOR, CO_NEWLOCALS
+from pypy.interpreter.astcompiler.consts import (CO_GENERATOR, CO_NEWLOCALS,
+        CO_VARARGS, CO_VARKEYWORDS)
 from pypy.interpreter.nestedscope import Cell
 from pypy.objspace.flow.model import Constant
 
