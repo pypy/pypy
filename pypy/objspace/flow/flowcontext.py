@@ -285,9 +285,7 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
             data.append(self.last_exception.w_type)
             data.append(self.last_exception.w_value)
         recursively_flatten(self.space, data)
-        nonmergeable = (self.get_blocklist(),
-            self.last_instr)   # == next_instr when between bytecodes
-        return FrameState(data, nonmergeable)
+        return FrameState(data, self.get_blocklist(), self.last_instr)
 
     def setstate(self, state):
         """ Reset the frame to the given state. """
@@ -299,8 +297,8 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
             self.last_exception = None
         else:
             self.last_exception = FSException(data[-2], data[-1])
-        blocklist, self.last_instr = state.nonmergeable
-        self.set_blocklist(blocklist)
+        self.last_instr = state.next_instr
+        self.set_blocklist(state.blocklist)
 
     def recording(self, block):
         """ Setup recording of the block and return the recorder. """
