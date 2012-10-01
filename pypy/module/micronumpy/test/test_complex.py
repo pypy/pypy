@@ -304,7 +304,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
                      ], dtype=c)
             got_err = False
             for p in (3, -1, 10000, 2.3, -10000, 10+3j):
-                b = power(a, p)
+                b = self.c_pow(a, p)
                 for i in range(len(a)):
                     r = a[i]**p
                     msg = 'result of %r(%r)**%r got %r expected %r\n ' % \
