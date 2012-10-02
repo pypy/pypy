@@ -1031,6 +1031,24 @@ def generate_setops():
         """.format(opname=opname, methodname=methodname))
         exec src.compile() in globals()
 
+
+    for opname in ['lt', 'le', 'eq', 'ne', 'ge', 'gt']:
+        src = py.code.Source("""
+        def {opname}__DictViewKeys_ANY(space, w_dictview, w_other):
+            w_left = space.call_function(space.w_set, w_dictview)
+            w_right = space.call_function(space.w_set, w_other)
+            return space.{opname}(w_left, w_right)
+
+        def {opname}__ANY_DictViewKeys(space, w_other, w_dictview):
+            w_left = space.call_function(space.w_set, w_other)
+            w_right = space.call_function(space.w_set, w_dictview)
+            return space.{opname}(w_left, w_right)
+
+        {opname}__DictViewItems_ANY = {opname}__DictViewKeys_ANY
+        {opname}__ANY_DictViewItems = {opname}__ANY_DictViewKeys
+        """.format(opname=opname))
+        exec src.compile() in globals()
+
 generate_setops()
 
 
