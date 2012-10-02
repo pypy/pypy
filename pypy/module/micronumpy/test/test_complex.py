@@ -263,7 +263,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
     def test_not_complex(self):
         from _numpypy import (radians, deg2rad, degrees, rad2deg,
                   isneginf, isposinf, logaddexp, logaddexp2, fmod,
-                  max, min)
+                  arctan2)
         raises(TypeError, radians, complex(90,90))
         raises(TypeError, deg2rad, complex(90,90))
         raises(TypeError, degrees, complex(90,90))
@@ -272,6 +272,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         raises(TypeError, isposinf, complex(1, 1))
         raises(TypeError, logaddexp, complex(1, 1), complex(3, 3))
         raises(TypeError, logaddexp2, complex(1, 1), complex(3, 3))
+        raises(TypeError, arctan2, complex(1, 1), complex(3, 3))
         raises (TypeError, fmod, complex(90,90), 3) 
 
     def test_isnan_isinf(self):
@@ -291,6 +292,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         ninf = -float('inf')
         nan = float('nan')
         cmpl = complex
+        from math import copysign
         from _numpypy import power, array, complex128, complex64
         for c,rel_err in ((complex128, 5e-323), (complex64, 1e-7)):
             a = array([cmpl(-5., 0), cmpl(-5., -5.), cmpl(-5., 5.),
@@ -304,17 +306,24 @@ class AppTestUfuncs(BaseNumpyAppTest):
                      ], dtype=c)
             got_err = False
             for p in (3, -1, 10000, 2.3, -10000, 10+3j):
-                b = self.c_pow(a, p)
+                b = power(a, p)
                 for i in range(len(a)):
-                    r = a[i]**p
+                    print a[i],p,p.real,p.imag
+                    try:
+                        r = self.c_pow((float(a[i].real), float(a[i].imag)), 
+                                (float(p.real), float(p.imag)))
+                    except ZeroDivisionError:
+                        r = (nan, nan)
+                    except OverflowError:
+                        r = (inf, -copysign(inf, a[i].imag))
                     msg = 'result of %r(%r)**%r got %r expected %r\n ' % \
                             (c,a[i], p, b[i], r)
                     try:        
-                        t1 = float(r.real)        
+                        t1 = float(r[0])        
                         t2 = float(b[i].real)        
                         self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
-                        t1 = float(r.imag)        
-                        t2 = float(b[i].imag)        
+                        t1 = float(r[1])        
+                        t2 = float(b[i].imag)
                         self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
                     except AssertionError as e:
                         print e.message

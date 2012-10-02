@@ -1156,14 +1156,16 @@ class ComplexFloating(object):
 
     @complex_binary_op
     def pow(self, v1, v2):
-        if not isfinite(v1[0]) or not isfinite(v1[1]):
-            return rfloat.NAN, rfloat.NAN
+        if v1[1] == 0 and v2[1] == 0 and v1[0] > 0:
+            return math.pow(v1[0], v2[0]), 0
+        #if not isfinite(v1[0]) or not isfinite(v1[1]):
+        #    return rfloat.NAN, rfloat.NAN
         try:
             return rcomplex.c_pow(v1, v2)
         except ZeroDivisionError:
             return rfloat.NAN, rfloat.NAN
         except OverflowError:
-            return rfloat.INFINITY, rfloat.INFINITY
+            return rfloat.INFINITY, -math.copysign(rfloat.INFINITY, v1[1])
 
 
     #complex copysign does not exist in numpy
@@ -1332,9 +1334,9 @@ class ComplexFloating(object):
             return rfloat.NAN, math.copysign(rfloat.INFINITY, v[1])
         return rcomplex.c_atan(*v)
 
-    @complex_binary_op
-    def arctan2(self, v1, v2):
-        return rcomplex.c_atan2(v1, v2)
+    #@complex_binary_op
+    #def arctan2(self, v1, v2):
+    #    return rcomplex.c_atan2(v1, v2)
 
     @complex_unary_op
     def sinh(self, v):

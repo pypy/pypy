@@ -67,7 +67,7 @@ def c_div(x, y): #x/y
 
 def c_pow(x, y):
     (r1, i1), (r2, i2) = x, y
-    if i1 == 0 and i2 == 0 and r1>=0:
+    if i1 == 0 and i2 == 0 and r1 > 0:
         rr = math.pow(r1, r2)
         ir = 0.
     elif r2 == 0.0 and i2 == 0.0:

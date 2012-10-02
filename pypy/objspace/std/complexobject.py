@@ -229,6 +229,8 @@ def pow__Complex_Complex_ANY(space, w_complex, w_exponent, thirdArg):
         raise OperationError(space.w_ZeroDivisionError, space.wrap("0.0 to a negative or complex power"))
     except OverflowError:
         raise OperationError(space.w_OverflowError, space.wrap("complex exponentiation"))
+    except ValueError as e:
+        raise OperationError(space.w_ValueError, space.wrap(e.message))
     return w_p
 
 def neg__Complex(space, w_complex):
