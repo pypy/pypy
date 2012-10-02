@@ -1397,7 +1397,6 @@ app = gateway.applevel("""
             if not s:
                 return '%s()' % (s.__class__.__name__,)
             listrepr = repr([x for x in s])
-            print('XXX', listrepr)
             if type(s) is set:
                 return '{%s}' % (listrepr[1:-1],)
             else:
