@@ -10,7 +10,8 @@ from pypy.objspace.flow.bytecode import HostCode
 from pypy.objspace.flow import operation
 from pypy.objspace.flow.flowcontext import (FlowSpaceFrame, fixeggblocks,
     FSException, FlowingError)
-from pypy.objspace.flow.generator import tweak_generator_graph
+from pypy.objspace.flow.generator import (tweak_generator_graph,
+        bootstrap_generator)
 from pypy.objspace.flow.pygraph import PyGraph
 from pypy.objspace.flow.specialcase import SPECIAL_CASES
 from pypy.rlib.unroll import unrolling_iterable, _unroller
@@ -239,6 +240,14 @@ class FlowObjSpace(object):
         if func.func_doc and func.func_doc.lstrip().startswith('NOT_RPYTHON'):
             raise Exception, "%r is tagged as NOT_RPYTHON" % (func,)
         code = HostCode._from_code(self, func.func_code)
+        if (code.is_generator and
+                not hasattr(func, '_generator_next_method_of_')):
+            graph = PyGraph(func, code)
+            block = graph.startblock
+            for name, w_value in zip(code.co_varnames, block.framestate.mergeable):
+                if isinstance(w_value, Variable):
+                    w_value.rename(name)
+            return bootstrap_generator(graph)
         graph = PyGraph(func, code)
         frame = self.frame = FlowSpaceFrame(self, graph, code)
         frame.build_flow()
