@@ -1,4 +1,4 @@
-from pypy.rlib.rstring import StringBuilder
+from pypy.rlib.rstring import UnicodeBuilder
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import NoneNotWrapped
@@ -34,16 +34,16 @@ class W_Writer(Wrappable):
         space = self.space
         fields_w = space.listview(w_fields)
         dialect = self.dialect
-        rec = StringBuilder(80)
+        rec = UnicodeBuilder(80)
         #
         for field_index in range(len(fields_w)):
             w_field = fields_w[field_index]
             if space.is_w(w_field, space.w_None):
                 field = ""
             elif space.isinstance_w(w_field, space.w_float):
-                field = space.str_w(space.repr(w_field))
+                field = space.unicode_w(space.repr(w_field))
             else:
-                field = space.str_w(space.str(w_field))
+                field = space.unicode_w(space.str(w_field))
             #
             if dialect.quoting == QUOTE_NONNUMERIC:
                 try:
@@ -97,7 +97,7 @@ class W_Writer(Wrappable):
                             else:
                                 want_escape = True
                     if want_escape:
-                        if dialect.escapechar == '\0':
+                        if dialect.escapechar == u'\0':
                             raise self.error("need to escape, "
                                              "but no escapechar set")
                         rec.append(dialect.escapechar)

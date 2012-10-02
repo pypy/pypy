@@ -8,7 +8,7 @@ _dialects = {}
 
 def register_dialect(name, dialect=None, **kwargs):
     """Create a mapping from a string name to a dialect class."""
-    if not isinstance(name, basestring):
+    if not isinstance(name, str):
         raise TypeError("dialect name must be a string or unicode")
 
     dialect = _csv.Dialect(dialect, **kwargs)
