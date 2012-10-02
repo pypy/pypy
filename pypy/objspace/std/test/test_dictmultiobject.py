@@ -784,7 +784,16 @@ class AppTestDictViews:
         assert d1.items() - d2.items() == set([('a', 1)])
         assert d1.items() - d3.items() == set([('a', 1), ('b', 2)])
 
-
+    def test_keys_items_set_operations_any_type(self):
+        d = {1: 'a', 2: 'b', 3: 'c'}
+        assert d.keys() & {1} == {1}
+        assert d.keys() & {1: 'foo'} == {1}
+        assert d.keys() & [1, 2] == {1, 2}
+        #
+        assert {1} & d.keys() == {1}
+        assert {1: 'foo'} & d.keys() == {1}
+        assert [1, 2] & d.keys() == {1, 2}
+        
 class AppTestStrategies(object):
     def setup_class(cls):
         if option.runappdirect:
