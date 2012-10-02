@@ -23,7 +23,7 @@ Requirements
 
 The tools required to cross translate from a Linux based host to an ARM based Linux target are:
 
-- A checkout of PyPy's arm-backend-2 branch.
+- A checkout of PyPy (default branch).
 - The GCC ARM cross compiler (on Ubuntu it is the ``gcc-arm-linux-gnueabi package``) but other toolchains should also work.
 - Scratchbox 2, a cross-compilation engine (``scratchbox2`` Ubuntu package).
 - A 32-bit PyPy or Python.

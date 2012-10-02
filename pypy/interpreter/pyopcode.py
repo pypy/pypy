@@ -223,7 +223,7 @@ class __extend__(pyframe.PyFrame):
                 return next_instr
 
             if opcode == self.opcodedesc.JUMP_ABSOLUTE.index:
-                return self.jump_absolute(oparg, next_instr, ec)
+                return self.jump_absolute(oparg, ec)
 
             if we_are_translated():
                 for opdesc in unrolling_all_opcode_descs:
@@ -557,7 +557,7 @@ class __extend__(pyframe.PyFrame):
             w_type = self.popvalue()
         operror = OperationError(w_type, w_value)
         operror.normalize_exception(space)
-        if not space.full_exceptions or space.is_w(w_traceback, space.w_None):
+        if space.is_w(w_traceback, space.w_None):
             # common case
             raise operror
         else:
@@ -858,7 +858,8 @@ class __extend__(pyframe.PyFrame):
     def YIELD_VALUE(self, oparg, next_instr):
         raise Yield
 
-    def jump_absolute(self, jumpto, next_instr, ec):
+    def jump_absolute(self, jumpto, ec):
+        # this function is overridden by pypy.module.pypyjit.interp_jit
         check_nonneg(jumpto)
         return jumpto
 
@@ -944,21 +945,9 @@ class __extend__(pyframe.PyFrame):
 
     def WITH_CLEANUP(self, oparg, next_instr):
         # see comment in END_FINALLY for stack state
-        # This opcode changed a lot between CPython versions
-        if (self.pycode.magic >= 0xa0df2ef
-            # Implementation since 2.7a0: 62191 (introduce SETUP_WITH)
-            or self.pycode.magic >= 0xa0df2d1):
-            # implementation since 2.6a1: 62161 (WITH_CLEANUP optimization)
-            w_unroller = self.popvalue()
-            w_exitfunc = self.popvalue()
-            self.pushvalue(w_unroller)
-        elif self.pycode.magic >= 0xa0df28c:
-            # Implementation since 2.5a0: 62092 (changed WITH_CLEANUP opcode)
-            w_exitfunc = self.popvalue()
-            w_unroller = self.peekvalue(0)
-        else:
-            raise NotImplementedError("WITH_CLEANUP for CPython <= 2.4")
-
+        w_unroller = self.popvalue()
+        w_exitfunc = self.popvalue()
+        self.pushvalue(w_unroller)
         unroller = self.space.interpclass_w(w_unroller)
         is_app_exc = (unroller is not None and
                       isinstance(unroller, SApplicationException))
@@ -1192,10 +1181,6 @@ class SuspendedUnroller(Wrappable):
     def nomoreblocks(self):
         raise BytecodeCorruption("misplaced bytecode - should not return")
 
-    # NB. for the flow object space, the state_(un)pack_variables methods
-    # give a way to "pickle" and "unpickle" the SuspendedUnroller by
-    # enumerating the Variables it contains.
-
 class SReturnValue(SuspendedUnroller):
     """Signals a 'return' statement.
     Argument is the wrapped object to return."""
@@ -1205,12 +1190,6 @@ class SReturnValue(SuspendedUnroller):
         self.w_returnvalue = w_returnvalue
     def nomoreblocks(self):
         return self.w_returnvalue
-
-    def state_unpack_variables(self, space):
-        return [self.w_returnvalue]
-    def state_pack_variables(space, w_returnvalue):
-        return SReturnValue(w_returnvalue)
-    state_pack_variables = staticmethod(state_pack_variables)
 
 class SApplicationException(SuspendedUnroller):
     """Signals an application-level exception
@@ -1226,13 +1205,6 @@ class SBreakLoop(SuspendedUnroller):
     """Signals a 'break' statement."""
     _immutable_ = True
     kind = 0x04
-
-    def state_unpack_variables(self, space):
-        return []
-    def state_pack_variables(space):
-        return SBreakLoop.singleton
-    state_pack_variables = staticmethod(state_pack_variables)
-
 SBreakLoop.singleton = SBreakLoop()
 
 class SContinueLoop(SuspendedUnroller):
@@ -1242,12 +1214,6 @@ class SContinueLoop(SuspendedUnroller):
     kind = 0x08
     def __init__(self, jump_to):
         self.jump_to = jump_to
-
-    def state_unpack_variables(self, space):
-        return [space.wrap(self.jump_to)]
-    def state_pack_variables(space, w_jump_to):
-        return SContinueLoop(space.int_w(w_jump_to))
-    state_pack_variables = staticmethod(state_pack_variables)
 
 
 class FrameBlock(object):
@@ -1303,7 +1269,9 @@ class LoopBlock(FrameBlock):
             # and jump to the beginning of the loop, stored in the
             # exception's argument
             frame.append_block(self)
-            return r_uint(unroller.jump_to)
+            jumpto = unroller.jump_to
+            ec = frame.space.getexecutioncontext()
+            return r_uint(frame.jump_absolute(jumpto, ec))
         else:
             # jump to the end of the loop
             self.cleanupstack(frame)
@@ -1323,8 +1291,7 @@ class ExceptBlock(FrameBlock):
         self.cleanupstack(frame)
         assert isinstance(unroller, SApplicationException)
         operationerr = unroller.operr
-        if frame.space.full_exceptions:
-            operationerr.normalize_exception(frame.space)
+        operationerr.normalize_exception(frame.space)
         # the stack setup is slightly different than in CPython:
         # instead of the traceback, we store the unroller object,
         # wrapped.
@@ -1356,8 +1323,7 @@ class WithBlock(FinallyBlock):
     _immutable_ = True
 
     def handle(self, frame, unroller):
-        if (frame.space.full_exceptions and
-            isinstance(unroller, SApplicationException)):
+        if isinstance(unroller, SApplicationException):
             unroller.operr.normalize_exception(frame.space)
         return FinallyBlock.handle(self, frame, unroller)
 

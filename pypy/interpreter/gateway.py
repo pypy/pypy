@@ -944,14 +944,6 @@ class ApplevelClass:
         def appcaller(space, *args_w):
             if not isinstance(space, ObjSpace):
                 raise TypeError("first argument must be a space instance.")
-            # redirect if the space handles this specially
-            # XXX can this be factored a bit less flow space dependently?
-            if hasattr(space, 'specialcases'):
-                sc = space.specialcases
-                if ApplevelClass in sc:
-                    ret_w = sc[ApplevelClass](space, self, name, args_w)
-                    if ret_w is not None: # it was RPython
-                        return ret_w
             # the last argument can be an Arguments
             w_func = self.wget(space, name)
             if not args_w:

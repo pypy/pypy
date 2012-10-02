@@ -18,6 +18,7 @@ Check that axis arg is valid in _numpypy
 .. branch: numpypy_count_nonzero
 .. branch: numpy-refactor
 Remove numpy lazy evaluation and simplify everything
+.. branch: numpy-reintroduce-jit-drivers
 .. branch: numpy-fancy-indexing
 Support for array[array-of-ints] in numpy
 .. branch: even-more-jit-hooks
