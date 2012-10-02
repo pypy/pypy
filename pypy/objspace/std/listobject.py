@@ -1189,6 +1189,10 @@ def inplace_add__List_ANY(space, w_list1, w_iterable2):
         raise
     return w_list1
 
+def inplace_add__List_List(space, w_list1, w_list2):
+    list_extend__List_ANY(space, w_list1, w_list2)
+    return w_list1
+
 def mul_list_times(space, w_list, w_times):
     try:
         times = space.getindex_w(w_times, space.w_OverflowError)
