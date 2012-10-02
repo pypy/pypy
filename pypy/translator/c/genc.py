@@ -911,6 +911,7 @@ def add_extra_files(eci):
         srcdir / 'mem.c',
         srcdir / 'profiling.c',
         srcdir / 'debug_print.c',
+        srcdir / 'debug_traceback.c',
         srcdir / 'thread.c',
         srcdir / 'asm.c',
         srcdir / 'instrument.c',
