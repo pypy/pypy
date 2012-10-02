@@ -238,7 +238,7 @@ class ExternalCompilationInfo(object):
             d[attr] = getattr(self, attr)
         return d
 
-    def convert_sources_to_files(self, cache_dir=None, being_main=False):
+    def convert_sources_to_files(self, cache_dir=None):
         if not self.separate_module_sources:
             return self
         if cache_dir is None:
@@ -252,11 +252,6 @@ class ExternalCompilationInfo(object):
                 if not filename.check():
                     break
             f = filename.open("w")
-            if not being_main:
-                # This eci is being built independently from a larger
-                # target, so it has to include a copy of the C RPython
-                # helper functions when needed.
-                f.write("#define PYPY_MAIN_IMPLEMENTATION_FILE\n")
             self.write_c_header(f)
             source = str(source)
             f.write(source)

@@ -942,7 +942,6 @@ def gen_source(database, modulename, targetdir,
     #
     # Header
     #
-    print >> f, '#define PYPY_MAIN_IMPLEMENTATION_FILE'
     print >> f, '#include "common_header.h"'
     print >> f
     commondefs(defines)
@@ -973,6 +972,6 @@ def gen_source(database, modulename, targetdir,
         fi.close()
 
     eci = add_extra_files(eci)
-    eci = eci.convert_sources_to_files(being_main=True)
+    eci = eci.convert_sources_to_files()
     files, eci = eci.get_module_files()
     return eci, filename, sg.getextrafiles() + list(files)
