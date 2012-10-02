@@ -73,7 +73,7 @@ the items of the sequence (or a list of tuples if more than one sequence)."""
         # this can be eliminated if we could unroll that loop that creates
         # `args` based on whether or not len(collections) was constant
         seq = collections[0]
-        with _managed_newlist_hint(operator._length_hint(seq, 0)) as result:
+        with _ManagedNewlistHint(operator._length_hint(seq, 0)) as result:
             for item in seq:
                 result.append(func(item))
             return result
@@ -86,7 +86,7 @@ the items of the sequence (or a list of tuples if more than one sequence)."""
         iterators.append((iter(seq), False))
         max_hint = max(max_hint, operator._length_hint(seq, 0))
 
-    with _managed_newlist_hint(max_hint) as result:
+    with _ManagedNewlistHint(max_hint) as result:
         while True:
             cont = False
             args = []
@@ -115,23 +115,27 @@ def _newlist_hint(length_hint):
     resizelist_hint(result, length_hint)
     return result
 
-def _managed_newlist_hint(length_hint):
+class _ManagedNewlistHint(object):
+
     """Context manager returning a _newlist_hint upon entry.
 
     Upon exit the list's underlying capacity will be cut back to match
     its length if necessary (incase the initial length_hint was too
     large).
     """
-    # hack: can't import contextlib.contextmanager at the global level
-    from contextlib import contextmanager
-    @contextmanager
-    def _do_managed_newlist_hint(length_hint):
-        result = _newlist_hint(length_hint)
-        yield result
-        extended = len(result)
-        if extended < length_hint:
-            resizelist_hint(result, extended)
-    return _do_managed_newlist_hint(length_hint)
+
+    def __init__(self, length_hint):
+        self.length_hint = length_hint
+        self.list = _newlist_hint(length_hint)
+
+    def __enter__(self):
+        return self.list
+
+    def __exit__(self, type, value, tb):
+        if type is None:
+            extended = len(self.list)
+            if extended < self.length_hint:
+                resizelist_hint(self.list, extended)
 
 sentinel = object()
 
@@ -169,7 +173,7 @@ or string, return the same type, else return a list."""
         return _filter_string(func, seq, unicode)
     elif isinstance(seq, tuple):
         return _filter_tuple(func, seq)
-    with _managed_newlist_hint(operator._length_hint(seq, 0)) as result:
+    with _ManagedNewlistHint(operator._length_hint(seq, 0)) as result:
         for item in seq:
             if func(item):
                 result.append(item)
@@ -219,7 +223,7 @@ in length to the length of the shortest argument sequence."""
         if min_hint == -1 or hint < min_hint:
             min_hint = hint
 
-    with _managed_newlist_hint(min_hint) as result:
+    with _ManagedNewlistHint(min_hint) as result:
         while True:
             try:
                 items = [next(it) for it in iterators]
