@@ -1,3 +1,4 @@
+from __future__ import unicode_literals
 from pypy.conftest import gettestobjspace
 
 
@@ -23,6 +24,11 @@ class AppTestReader(object):
 
     def test_simple_reader(self):
         self._read_test(['foo:bar\n'], [['foo', 'bar']], delimiter=':')
+
+    def test_cannot_read_bytes(self):
+        import _csv
+        reader = _csv.reader([b'foo'])
+        raises(TypeError, "next(reader)")
 
     def test_read_oddinputs(self):
         self._read_test([], [])
@@ -88,13 +94,13 @@ class AppTestReader(object):
         import _csv as csv
         r = csv.reader(['line,1', 'line,2', 'line,3'])
         assert r.line_num == 0
-        r.next()
+        next(r)
         assert r.line_num == 1
-        r.next()
+        next(r)
         assert r.line_num == 2
-        r.next()
+        next(r)
         assert r.line_num == 3
-        raises(StopIteration, r.next)
+        raises(StopIteration, "next(r)")
         assert r.line_num == 3
 
     def test_dubious_quote(self):

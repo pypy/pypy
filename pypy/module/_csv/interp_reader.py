@@ -1,4 +1,4 @@
-from pypy.rlib.rstring import StringBuilder
+from pypy.rlib.rstring import UnicodeBuilder
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import NoneNotWrapped, unwrap_spec
@@ -78,13 +78,13 @@ class W_Reader(Wrappable):
                             break
                 raise
             self.line_num += 1
-            line = space.str_w(w_line)
+            line = space.unicode_w(w_line)
             for c in line:
-                if c == '\0':
+                if c == u'\0':
                     raise self.error("line contains NULL byte")
 
                 if state == START_RECORD:
-                    if c == '\n' or c == '\r':
+                    if c == u'\n' or c == u'\r':
                         state = EAT_CRNL
                         continue
                     # normal character - handle as START_FIELD
@@ -92,9 +92,9 @@ class W_Reader(Wrappable):
                     # fall-through to the next case
 
                 if state == START_FIELD:
-                    field_builder = StringBuilder(64)
+                    field_builder = UnicodeBuilder(64)
                     # expecting field
-                    if c == '\n' or c == '\r':
+                    if c == u'\n' or c == u'\r':
                         # save empty field
                         self.save_field(field_builder)
                         state = EAT_CRNL
@@ -105,7 +105,7 @@ class W_Reader(Wrappable):
                     elif c == dialect.escapechar:
                         # possible escaped character
                         state = ESCAPED_CHAR
-                    elif c == ' ' and dialect.skipinitialspace:
+                    elif c == u' ' and dialect.skipinitialspace:
                         # ignore space at start of field
                         pass
                     elif c == dialect.delimiter:
@@ -124,7 +124,7 @@ class W_Reader(Wrappable):
 
                 elif state == IN_FIELD:
                     # in unquoted field
-                    if c == '\n' or c == '\r':
+                    if c == u'\n' or c == u'\r':
                         # end of line
                         self.save_field(field_builder)
                         state = EAT_CRNL
@@ -171,7 +171,7 @@ class W_Reader(Wrappable):
                         # save field - wait for new field
                         self.save_field(field_builder)
                         state = START_FIELD
-                    elif c == '\n' or c == '\r':
+                    elif c == u'\n' or c == u'\r':
                         # end of line
                         self.save_field(field_builder)
                         state = EAT_CRNL
@@ -184,7 +184,7 @@ class W_Reader(Wrappable):
                             dialect.delimiter, dialect.quotechar))
 
                 elif state == EAT_CRNL:
-                    if not (c == '\n' or c == '\r'):
+                    if not (c == u'\n' or c == u'\r'):
                         raise self.error("new-line character seen in unquoted "
                                         "field - do you need to open the file "
                                         "in universal-newline mode?")
@@ -193,16 +193,16 @@ class W_Reader(Wrappable):
                 self.save_field(field_builder)
                 break
             elif state == ESCAPED_CHAR:
-                self.add_char(field_builder, '\n')
+                self.add_char(field_builder, u'\n')
                 state = IN_FIELD
             elif state == IN_QUOTED_FIELD:
                 pass
             elif state == ESCAPE_IN_QUOTED_FIELD:
-                self.add_char(field_builder, '\n')
+                self.add_char(field_builder, u'\n')
                 state = IN_QUOTED_FIELD
             elif state == START_FIELD:
                 # save empty field
-                field_builder = StringBuilder(1)
+                field_builder = UnicodeBuilder(1)
                 self.save_field(field_builder)
                 break
             else:
@@ -249,7 +249,7 @@ W_Reader.typedef = TypeDef(
         dialect = interp_attrproperty_w('dialect', W_Reader),
         line_num = interp_attrproperty('line_num', W_Reader),
         __iter__ = interp2app(W_Reader.iter_w),
-        next = interp2app(W_Reader.next_w),
+        __next__ = interp2app(W_Reader.next_w),
         __doc__ = """CSV reader
 
 Reader objects are responsible for reading and parsing tabular data
