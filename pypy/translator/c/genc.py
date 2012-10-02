@@ -907,7 +907,7 @@ def commondefs(defines):
 def add_extra_files(eci):
     srcdir = py.path.local(autopath.pypydir).join('translator', 'c', 'src')
     files = [
-        srcdir / 'main.c',             # ifdef PYPY_STANDALONE
+        srcdir / 'entrypoint.c',       # ifdef PYPY_STANDALONE
         srcdir / 'allocator.c',        # ifdef PYPY_STANDALONE
         srcdir / 'mem.c',
         srcdir / 'exception.c',

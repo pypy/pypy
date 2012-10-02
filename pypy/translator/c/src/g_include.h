@@ -50,7 +50,7 @@
 
 #ifdef PYPY_STANDALONE
 #  include "src/allocator.h"
-#  include "src/main.h"
+#  include "src/entrypoint.h"
 #endif
 
 /* suppress a few warnings in the generated code */

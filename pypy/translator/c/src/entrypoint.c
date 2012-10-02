@@ -3,7 +3,7 @@
 #include "structdef.h"
 #include "forwarddecl.h"
 #include "preimpl.h"
-#include <src/main.h>
+#include <src/entrypoint.h>
 #include <src/commondefs.h>
 #include <src/mem.h>
 #include <src/instrument.h>

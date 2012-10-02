@@ -217,6 +217,12 @@
 #define OP_NEWDICT(args,r)     if (!(r=PyDict_Pack args)) CFAIL()
 #define OP_NEWTUPLE(args,r)    if (!(r=PyTuple_Pack args)) CFAIL()
 
+#if (PY_VERSION_HEX < 0x02040000)
+unsigned long RPyLong_AsUnsignedLong(PyObject *v);
+#else
+#define RPyLong_AsUnsignedLong PyLong_AsUnsignedLong
+#endif
+
 unsigned long long RPyLong_AsUnsignedLongLong(PyObject *v);
 long long RPyLong_AsLongLong(PyObject *v);
 
