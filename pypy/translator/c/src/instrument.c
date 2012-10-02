@@ -32,7 +32,7 @@ void instrument_setup() {
         fd = open(fname, O_CREAT|O_TRUNC|O_RDWR, 0744);
         if (sz > 0) {
             lseek(fd, sz-1, SEEK_SET);
-            write(fd, "", 1);
+            (void)write(fd, "", 1);
 #ifndef _WIN32
             buf = mmap(NULL, sz, PROT_WRITE|PROT_READ, MAP_SHARED,
                        fd, 0);
