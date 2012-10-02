@@ -26,7 +26,7 @@ class W_Reader(Wrappable):
 
     def error(self, msg):
         space = self.space
-        msg = 'line %d: %s' % (self.line_num, msg)
+        msg = u'line %d: %s' % (self.line_num, msg)
         w_module = space.getbuiltinmodule('_csv')
         w_error = space.getattr(w_module, space.wrap('Error'))
         raise OperationError(w_error, space.wrap(msg))
@@ -35,7 +35,7 @@ class W_Reader(Wrappable):
     def add_char(self, field_builder, c):
         assert field_builder is not None
         if field_builder.getlength() >= field_limit.limit:
-            raise self.error("field larger than field limit")
+            raise self.error(u"field larger than field limit")
         field_builder.append(c)
 
     def save_field(self, field_builder):
@@ -72,7 +72,7 @@ class W_Reader(Wrappable):
                             (len(field_builder.build()) > 0 or
                              state == IN_QUOTED_FIELD)):
                         if dialect.strict:
-                            raise self.error("newline inside string")
+                            raise self.error(u"newline inside string")
                         else:
                             self.save_field(field_builder)
                             break
@@ -81,7 +81,7 @@ class W_Reader(Wrappable):
             line = space.unicode_w(w_line)
             for c in line:
                 if c == u'\0':
-                    raise self.error("line contains NULL byte")
+                    raise self.error(u"line contains NULL byte")
 
                 if state == START_RECORD:
                     if c == u'\n' or c == u'\r':
@@ -180,14 +180,14 @@ class W_Reader(Wrappable):
                         state = IN_FIELD
                     else:
                         # illegal
-                        raise self.error("'%s' expected after '%s'" % (
+                        raise self.error(u"'%s' expected after '%s'" % (
                             dialect.delimiter, dialect.quotechar))
 
                 elif state == EAT_CRNL:
                     if not (c == u'\n' or c == u'\r'):
-                        raise self.error("new-line character seen in unquoted "
-                                        "field - do you need to open the file "
-                                        "in universal-newline mode?")
+                        raise self.error(u"new-line character seen in unquoted "
+                                         u"field - do you need to open the file "
+                                         u"in universal-newline mode?")
 
             if state == IN_FIELD or state == QUOTE_IN_QUOTED_FIELD:
                 self.save_field(field_builder)
