@@ -12,7 +12,8 @@
     * putting "-p pypy.tool.pytest.viewerplugin"
       into pytest.ini
 """
-
+import sys
+import pytest
 
 def pytest_addoption(parser):
 
@@ -24,3 +25,13 @@ def pytest_addoption(parser):
     group.addoption('--viewloops', action="store_true",
            default=False, dest="viewloops",
            help="show only the compiled loops")
+
+
+@pytest.mark.tryfirst
+def pytest_runtest_teardown(__multicall__, item):
+    __multicall__.execute()
+
+    if 'pygame' in sys.modules:
+        assert item.config.option.view, ("should not invoke Pygame "
+                             "if view option is False")
+

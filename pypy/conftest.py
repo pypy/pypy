@@ -356,12 +356,6 @@ def pytest_runtest_teardown(__multicall__, item):
         if getattr(item, '_success', False) and item._pypytest_leaks:
             raise leakfinder.MallocMismatch(item._pypytest_leaks)
 
-    if 'pygame' in sys.modules:
-        assert option.view, ("should not invoke Pygame "
-                             "if conftest.option.view is False")
-
-_pygame_imported = False
-
 class IntTestFunction(py.test.collect.Function):
     def __init__(self, *args, **kwargs):
         super(IntTestFunction, self).__init__(*args, **kwargs)
