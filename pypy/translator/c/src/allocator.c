@@ -1,5 +1,6 @@
 /* allocation functions */
 #include "common_header.h"
+#ifdef PYPY_STANDALONE
 #include <malloc.h>
 #include <stdlib.h>
 
@@ -24,3 +25,5 @@
 #  include "src/obmalloc.c"
 
 #endif
+
+#endif  /* PYPY_STANDALONE */

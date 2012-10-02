@@ -907,21 +907,21 @@ def commondefs(defines):
 def add_extra_files(eci):
     srcdir = py.path.local(autopath.pypydir).join('translator', 'c', 'src')
     files = [
-        srcdir / 'main.c',
-        srcdir / 'allocator.c',
+        srcdir / 'main.c',             # ifdef PYPY_STANDALONE
+        srcdir / 'allocator.c',        # ifdef PYPY_STANDALONE
         srcdir / 'mem.c',
         srcdir / 'exception.c',
-        srcdir / 'rtyper.c',
+        srcdir / 'rtyper.c',           # ifdef HAVE_RTYPER
         srcdir / 'support.c',
         srcdir / 'pyobj.c',
         srcdir / 'profiling.c',
         srcdir / 'debug_print.c',
-        srcdir / 'debug_traceback.c',
+        srcdir / 'debug_traceback.c',  # ifdef HAVE_RTYPER
         srcdir / 'stack.c',
         srcdir / 'thread.c',
         srcdir / 'asm.c',
         srcdir / 'instrument.c',
-        srcdir / 'll_strtod.c',
+        srcdir / 'll_strtod.c',        # ifdef HAVE_RTYPER
         srcdir / 'int.c',
     ]
     if _CYGWIN:
