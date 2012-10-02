@@ -2,6 +2,8 @@
 /************************************************************/
 /***  C header subsection: operations on LowLevelTypes    ***/
 
+#include <string.h>
+
 /* used by pypy.rlib.rstack, but also by asmgcc */
 #define OP_STACK_CURRENT(r)  r = (Signed)&r
 
