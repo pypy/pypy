@@ -34,6 +34,7 @@
 #define RPyThreadStaticTLS_Create(key) RPyThreadTLS_Create(key)
 #define RPyThreadStaticTLS_Get(key)    RPyThreadTLS_Get(key)
 #define RPyThreadStaticTLS_Set(key, value) RPyThreadTLS_Set(key, value)
+char *RPyThreadTLS_Create(RPyThreadTLS *result);
 
 #endif
 
