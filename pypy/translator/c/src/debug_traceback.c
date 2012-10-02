@@ -4,6 +4,7 @@
 #include "preimpl.h"
 #include "src/debug_traceback.h"
 #include <stdio.h>
+#include <stdlib.h>
 
 int pypydtcount = 0;
 struct pypydtentry_s pypy_debug_tracebacks[PYPY_DEBUG_TRACEBACK_DEPTH];
