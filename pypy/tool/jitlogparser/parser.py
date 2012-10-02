@@ -390,7 +390,7 @@ def import_log(logname, ParserCls=SimpleParser):
         if comm.startswith('# bridge'):
             m = re.search('guard \d+', comm)
             name = m.group(0)
-        elif "(" in name:
+        elif "(" in comm:
             name = comm[2:comm.find('(')-1]
         else:
             name = " ".join(comm[2:].split(" ", 2)[:2])
