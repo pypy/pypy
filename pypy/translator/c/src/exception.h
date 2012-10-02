@@ -1,10 +1,6 @@
 
 /************************************************************/
- /***  C header subsection: exceptions                     ***/
-
-#if defined(PYPY_CPYTHON_EXTENSION) && defined(PYPY_MAIN_IMPLEMENTATION_FILE)
-   PyObject *RPythonError;
-#endif 
+/***  C header subsection: exceptions                     ***/
 
 /* just a renaming, unless DO_LOG_EXC is set */
 #define RPyExceptionOccurred RPyExceptionOccurred1
@@ -32,28 +28,11 @@
     ? (RPyDebugReturnShowException(msg, __FILE__, __LINE__, __FUNCTION__), 1) \
     : 0                                                                 \
   )
+#endif
+/* !DO_LOG_EXC: define the function anyway, so that we can shut
+   off the prints of a debug_exc by remaking only testing_1.o */
 void RPyDebugReturnShowException(const char *msg, const char *filename,
                                  long lineno, const char *functionname);
-#ifdef PYPY_MAIN_IMPLEMENTATION_FILE
-void RPyDebugReturnShowException(const char *msg, const char *filename,
-                                 long lineno, const char *functionname)
-{
-  fprintf(stderr, "%s %s: %s:%ld %s\n", msg,
-          RPyFetchExceptionType()->ov_name->items,
-          filename, lineno, functionname);
-}
-#endif
-#else   /* !DO_LOG_EXC: define the function anyway, so that we can shut
-           off the prints of a debug_exc by remaking only testing_1.o */
-void RPyDebugReturnShowException(const char *msg, const char *filename,
-                                 long lineno, const char *functionname);
-#ifdef PYPY_MAIN_IMPLEMENTATION_FILE
-void RPyDebugReturnShowException(const char *msg, const char *filename,
-                                 long lineno, const char *functionname)
-{
-}
-#endif
-#endif  /* DO_LOG_EXC */
 
 /* Hint: functions and macros not defined here, like RPyRaiseException,
    come from exctransformer via the table in extfunc.py. */
@@ -73,70 +52,6 @@ void _RPyRaiseSimpleException(RPYTHON_EXCEPTION rexc);
 void RPyConvertExceptionFromCPython(void);
 void RPyConvertExceptionToCPython(void);
 #endif
-
-/* implementations */
-
-#ifdef PYPY_MAIN_IMPLEMENTATION_FILE
-
-void _RPyRaiseSimpleException(RPYTHON_EXCEPTION rexc)
-{
-	/* XXX msg is ignored */
-	RPyRaiseException(RPYTHON_TYPE_OF_EXC_INST(rexc), rexc);
-}
-
-#ifdef PYPY_CPYTHON_EXTENSION
-void RPyConvertExceptionFromCPython(void)
-{
-	/* convert the CPython exception to an RPython one */
-	PyObject *exc_type, *exc_value, *exc_tb;
-	RPYTHON_EXCEPTION rexc;
-
-	assert(PyErr_Occurred());
-	assert(!RPyExceptionOccurred());
-	PyErr_Fetch(&exc_type, &exc_value, &exc_tb);
-
-	/* XXX losing the error message here */	
-	rexc = RPYTHON_PYEXCCLASS2EXC(exc_type);
-	RPyRaiseException(RPYTHON_TYPE_OF_EXC_INST(rexc), rexc);
-}
-
-void RPyConvertExceptionToCPython(void)
-{
-	/* XXX 1. uses officially bad fishing */
-	/* XXX 2. looks for exception classes by name, fragile */
-	char* clsname;
-	PyObject *pycls, *v, *tb;
-	assert(RPyExceptionOccurred());
-	assert(!PyErr_Occurred());
-	clsname = RPyFetchExceptionType()->ov_name->items;
-	v = NULL;
-	if (strcmp(clsname, "AssertionError") == 0) {
-		/* workaround against the py lib's BuiltinAssertionError */
-		pycls = PyExc_AssertionError;
-	}
-	else if (strcmp(clsname, "StackOverflow") == 0) {
-		pycls = PyExc_RuntimeError;
-	}
-	else {
-		pycls = PyDict_GetItemString(PyEval_GetBuiltins(), clsname);
-		if (pycls == NULL || !PyExceptionClass_Check(pycls) ||
-		    !PyObject_IsSubclass(pycls, PyExc_Exception)) {
-			pycls = PyExc_Exception; /* XXX RPythonError */
-			v = PyString_FromString(clsname);
-		}
-	}
-	Py_INCREF(pycls);
-	tb = NULL;
-	RPyClearException();
-
-	PyErr_NormalizeException(&pycls, &v, &tb);
-	PyErr_Restore(pycls, v, tb);
-}
-#endif   /* !PYPY_STANDALONE */
-
-#endif /* PYPY_MAIN_IMPLEMENTATION_FILE */
-
-
 
 /******************************************************************/
 #else    /* non-RPython version of exceptions, using CPython only */
