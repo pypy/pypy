@@ -1166,6 +1166,8 @@ class ComplexFloating(object):
             return rfloat.NAN, rfloat.NAN
         except OverflowError:
             return rfloat.INFINITY, -math.copysign(rfloat.INFINITY, v1[1])
+        except ValueError:
+            return rfloat.NAN, rfloat.NAN
 
 
     #complex copysign does not exist in numpy

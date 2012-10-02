@@ -2,6 +2,7 @@ from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 from math import isnan, isinf, copysign
 from sys import version_info, builtin_module_names
 from pypy.rlib.rcomplex import c_pow
+from pypy.interpreter.error import OperationError
 
 from pypy.conftest import option
 
@@ -65,7 +66,12 @@ class AppTestUfuncs(BaseNumpyAppTest):
         cls.w_testcases128 = cls.space.wrap(fname128)
         cls.w_testcases64 = cls.space.wrap(fname64)
         def cls_c_pow(self, *args):
-            return c_pow(*args)
+            try:
+                retVal = c_pow(*args)
+                return retVal
+            except ValueError as e:
+                raise OperationError(cls.space.w_ValueError,
+                        cls.space.wrap(e.message))
         cls.w_c_pow = cls.space.wrap(cls_c_pow)
         cls.w_runAppDirect = cls.space.wrap(option.runappdirect)
         cls.w_isWindows = cls.space.wrap(os.name == 'nt')
@@ -299,7 +305,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         cmpl = complex
         from math import copysign
         from _numpypy import power, array, complex128, complex64
-        for c,rel_err in ((complex128, 5e-323), (complex64, 1e-7)):
+        for c,rel_err in ((complex128, 5e-323), (complex64, 4e-7)):
             a = array([cmpl(-5., 0), cmpl(-5., -5.), cmpl(-5., 5.),
                        cmpl(0., -5.), cmpl(0., 0.), cmpl(0., 5.),
                        cmpl(-0., -5.), cmpl(-0., 0.), cmpl(-0., 5.),
@@ -313,7 +319,6 @@ class AppTestUfuncs(BaseNumpyAppTest):
             for p in (3, -1, 10000, 2.3, -10000, 10+3j):
                 b = power(a, p)
                 for i in range(len(a)):
-                    print a[i],p,p.real,p.imag
                     try:
                         r = self.c_pow((float(a[i].real), float(a[i].imag)), 
                                 (float(p.real), float(p.imag)))
@@ -321,6 +326,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
                         r = (nan, nan)
                     except OverflowError:
                         r = (inf, -copysign(inf, a[i].imag))
+                    except ValueError:
+                        r = (nan, nan)
                     msg = 'result of %r(%r)**%r got %r expected %r\n ' % \
                             (c,a[i], p, b[i], r)
                     try:        
