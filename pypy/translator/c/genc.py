@@ -910,6 +910,7 @@ def add_extra_files(eci):
         srcdir / 'allocator.c',
         srcdir / 'mem.c',
         srcdir / 'exception.c',
+        srcdir / 'support.c',
         srcdir / 'profiling.c',
         srcdir / 'debug_print.c',
         srcdir / 'debug_traceback.c',
