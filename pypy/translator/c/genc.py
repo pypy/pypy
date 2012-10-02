@@ -749,15 +749,11 @@ class SourceGenerator:
                 yield self.uniquecname(basecname), subiter()
 
     @contextlib.contextmanager
-    def write_on_maybe_included_file(self, f, name):
-        if self.one_source_file:
-            print >> f
-            yield f
-        else:
-            fi = self.makefile(name)
-            print >> f, '#include "%s"' % name
-            yield fi
-            fi.close()
+    def write_on_included_file(self, f, name):
+        fi = self.makefile(name)
+        print >> f, '#include "%s"' % name
+        yield fi
+        fi.close()
 
     @contextlib.contextmanager
     def write_on_maybe_separate_source(self, f, name):
@@ -780,11 +776,11 @@ class SourceGenerator:
         #
         # All declarations
         #
-        with self.write_on_maybe_included_file(f, 'structdef.h') as fi:
+        with self.write_on_included_file(f, 'structdef.h') as fi:
             gen_structdef(fi, self.database)
-        with self.write_on_maybe_included_file(f, 'forwarddecl.h') as fi:
+        with self.write_on_included_file(f, 'forwarddecl.h') as fi:
             gen_forwarddecl(fi, self.database)
-        with self.write_on_maybe_included_file(f, 'preimpl.h') as fi:
+        with self.write_on_included_file(f, 'preimpl.h') as fi:
             gen_preimpl(fi, self.database)
 
         #
@@ -919,6 +915,7 @@ def add_extra_files(eci):
         srcdir / 'asm.c',
         srcdir / 'instrument.c',
         srcdir / 'll_strtod.c',
+        srcdir / 'int.c',
     ]
     if _CYGWIN:
         files.append(srcdir / 'cygwin_wait.c')

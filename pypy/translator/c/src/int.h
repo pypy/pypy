@@ -1,11 +1,8 @@
-
 /************************************************************/
- /***  C header subsection: operations between ints        ***/
+/***  C header subsection: operations between ints        ***/
 
 
-/*** unary operations ***/
-
-/************ win64 support:
+/* Note for win64:
 
    'Signed' must be defined as
 
@@ -17,6 +14,8 @@
        LLONG_MIN        in case of win64
        LONG_MIN         in all other cases
  */
+
+/*** unary operations ***/
 
 #define OP_INT_IS_TRUE(x,r)   r = ((x) != 0)
 #define OP_INT_INVERT(x,r)    r = ~(x)
@@ -237,56 +236,9 @@
 
 #define OP_BOOL_NOT(x, r) r = !(x)
 
-/* _________________ certain implementations __________________ */
-
-/* adjusted from intobject.c, Python 2.3.3 */
-
-/* prototypes */
-
 long long op_llong_mul_ovf(long long a, long long b);
 
-/* implementations */
-
-#ifdef PYPY_MAIN_IMPLEMENTATION_FILE
-
-long long op_llong_mul_ovf(long long a, long long b)
-{
-	double doubled_longprod;	/* (double)longprod */
-	double doubleprod;		/* (double)a * (double)b */
-	long long longprod;
-
-	longprod = a * b;
-	doubleprod = (double)a * (double)b;
-	doubled_longprod = (double)longprod;
-
-	/* Fast path for normal case:  small multiplicands, and no info
-	   is lost in either method. */
-	if (doubled_longprod == doubleprod)
-		return longprod;
-
-	/* Somebody somewhere lost info.  Close enough, or way off?  Note
-	   that a != 0 and b != 0 (else doubled_longprod == doubleprod == 0).
-	   The difference either is or isn't significant compared to the
-	   true value (of which doubleprod is a good approximation).
-	*/
-	{
-		const double diff = doubled_longprod - doubleprod;
-		const double absdiff = diff >= 0.0 ? diff : -diff;
-		const double absprod = doubleprod >= 0.0 ? doubleprod :
-							  -doubleprod;
-		/* absdiff/absprod <= 1/32 iff
-		   32 * absdiff <= absprod -- 5 good bits is "close enough" */
-		if (32.0 * absdiff <= absprod)
-			return longprod;
-
-		FAIL_OVF("integer multiplication");
-		return -1;
-	}
-}
-
-#endif /* PYPY_MAIN_IMPLEMENTATION_FILE */
-
-/* implementations */
+/* The definitions above can be used with various types */ 
 
 #define OP_UINT_IS_TRUE OP_INT_IS_TRUE
 #define OP_UINT_INVERT OP_INT_INVERT
