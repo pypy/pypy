@@ -365,7 +365,7 @@ _pygame_imported = False
 class IntTestFunction(py.test.collect.Function):
     def __init__(self, *args, **kwargs):
         super(IntTestFunction, self).__init__(*args, **kwargs)
-        self.keywords['interplevel'] = True
+        self.applymarker(pytest.mark.interplevel)
 
     def runtest(self):
         try:
@@ -386,7 +386,7 @@ class IntTestFunction(py.test.collect.Function):
 class AppTestFunction(py.test.collect.Function):
     def __init__(self, *args, **kwargs):
         super(AppTestFunction, self).__init__(*args, **kwargs)
-        self.keywords['applevel'] = True
+        self.applymarker(pytest.mark.applevel)
 
     def _prunetraceback(self, traceback):
         return traceback
