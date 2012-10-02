@@ -1,7 +1,8 @@
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.interpreter.error import OperationError, wrap_oserror
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib.objectmodel import resizelist_hint, we_are_translated
+from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.typeobject import MethodCache
 from pypy.objspace.std.mapdict import IndexCache
 from pypy.rlib import rposix
@@ -75,7 +76,6 @@ def do_what_I_mean(space):
     return space.wrap(42)
 
 def list_strategy(space, w_list):
-    from pypy.objspace.std.listobject import W_ListObject
     if isinstance(w_list, W_ListObject):
         return space.wrap(w_list.strategy._applevel_repr)
     else:
@@ -95,3 +95,10 @@ def get_console_cp(space):
         space.wrap('cp%d' % rwin32.GetConsoleCP()),
         space.wrap('cp%d' % rwin32.GetConsoleOutputCP()),
         ])
+
+@unwrap_spec(sizehint=int)
+def resizelist_hint(space, w_iterable, sizehint):
+    if not isinstance(w_iterable, W_ListObject):
+        raise OperationError(space.w_TypeError,
+                             space.wrap("arg 1 must be a 'list'"))
+    w_iterable._resize_hint(sizehint)
