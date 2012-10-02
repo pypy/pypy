@@ -13,7 +13,7 @@ class HostCode(PyCode):
     """
     opnames = host_bytecode_spec.method_names
 
-    def __init__(self, space,  argcount, nlocals, stacksize, flags,
+    def __init__(self, space,  argcount, kwonlyargcount, nlocals, stacksize, flags,
                      code, consts, names, varnames, filename,
                      name, firstlineno, lnotab, freevars, cellvars,
                      hidden_applevel=False, magic=cpython_magic):
@@ -22,6 +22,8 @@ class HostCode(PyCode):
         self.co_name = name
         assert nlocals >= 0
         self.co_argcount = argcount
+        # note that this is ignored, as HostCode represents a python2 bytecode
+        self.co_kwonlyargcount = kwonlyargcount
         self.co_nlocals = nlocals
         self.co_stacksize = stacksize
         self.co_flags = flags
