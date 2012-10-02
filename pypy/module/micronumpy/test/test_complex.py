@@ -287,6 +287,11 @@ class AppTestUfuncs(BaseNumpyAppTest):
                 complex(float('nan'), 0)], dtype=complex)) == \
                 [False, True, True, False, False]).all()
 
+
+    def test_square(self):
+        from _numpypy import square
+        assert square(complex(3, 4)) == complex(3,4) * complex(3, 4)
+
     def test_power_complex(self):
         inf = float('inf')
         ninf = -float('inf')

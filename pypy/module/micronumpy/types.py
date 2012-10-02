@@ -1380,32 +1380,14 @@ class ComplexFloating(object):
             return (math.copysign(rfloat.INFINITY, v[0]),
                    math.copysign(0., v[1]))
         return rcomplex.c_atanh(*v)
-            
-            
 
     @complex_unary_op
     def sqrt(self, v):
         return rcomplex.c_sqrt(*v)
 
-    @simple_unary_op
+    @complex_unary_op
     def square(self, v):
-        return v*v
-
-    @raw_unary_op
-    def isnan(self, v):
-        return rfloat.isnan(v[0]) or rfloat.isnan(v[1])
-
-    @raw_unary_op
-    def isinf(self, v):
-        return rfloat.isinf(v[0]) or rfloat.isinf(v[1])
-
-    #@raw_unary_op
-    #def isneginf(self, v):
-    #    return rfloat.isinf(v) and v < 0
-
-    #@raw_unary_op
-    #def isposinf(self, v):
-    #    return rfloat.isinf(v) and v > 0
+        return rcomplex.c_mul(v,v)
 
     @raw_unary_op
     def isfinite(self, v):
