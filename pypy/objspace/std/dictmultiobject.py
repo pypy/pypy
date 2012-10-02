@@ -1029,6 +1029,14 @@ xor__DictViewKeys_settypedef = xor__DictViewKeys_DictViewKeys
 xor__DictViewItems_DictViewItems = xor__DictViewKeys_DictViewKeys
 xor__DictViewItems_settypedef = xor__DictViewKeys_DictViewKeys
 
+def sub__DictViewKeys_DictViewKeys(space, w_dictview, w_otherview):
+    w_set = space.call_function(space.w_set, w_dictview)
+    space.call_method(w_set, "difference_update", w_otherview)
+    return w_set
+sub__DictViewKeys_settypedef = sub__DictViewKeys_DictViewKeys
+sub__DictViewItems_DictViewItems = sub__DictViewKeys_DictViewKeys
+sub__DictViewItems_settypedef = sub__DictViewKeys_DictViewKeys
+
 # ____________________________________________________________
 
 from pypy.objspace.std import dicttype
