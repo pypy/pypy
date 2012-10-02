@@ -912,6 +912,7 @@ def add_extra_files(eci):
         srcdir / 'exception.c',
         srcdir / 'rtyper.c',
         srcdir / 'support.c',
+        srcdir / 'pyobj.c',
         srcdir / 'profiling.c',
         srcdir / 'debug_print.c',
         srcdir / 'debug_traceback.c',
