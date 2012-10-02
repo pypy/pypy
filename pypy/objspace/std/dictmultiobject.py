@@ -1022,8 +1022,8 @@ def generate_setops():
             return w_set
 
         def {opname}__ANY_DictViewKeys(space, w_other, w_dictview):
-            w_set = space.call_function(space.w_set, w_dictview)
-            space.call_method(w_set, '{methodname}', w_other)
+            w_set = space.call_function(space.w_set, w_other)
+            space.call_method(w_set, '{methodname}', w_dictview)
             return w_set
 
         {opname}__DictViewItems_ANY = {opname}__DictViewKeys_ANY

@@ -793,6 +793,9 @@ class AppTestDictViews:
         assert {1} & d.keys() == {1}
         assert {1: 'foo'} & d.keys() == {1}
         assert [1, 2] & d.keys() == {1, 2}
+        #
+        assert d.keys() - {1} == {2, 3}
+        assert {1, 4} - d.keys() == {4}
         
 class AppTestStrategies(object):
     def setup_class(cls):
