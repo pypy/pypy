@@ -45,7 +45,6 @@
 #ifdef HAVE_RTYPER      /* only if we have an RTyper */
 #  include "src/rtyper.h"
 #  include "src/debug_traceback.h"
-#  include "src/ll_strtod.h"
 #endif
 
 #ifdef PYPY_STANDALONE

@@ -921,7 +921,6 @@ def add_extra_files(eci):
         srcdir / 'thread.c',
         srcdir / 'asm.c',
         srcdir / 'instrument.c',
-        srcdir / 'll_strtod.c',        # ifdef HAVE_RTYPER
         srcdir / 'int.c',
     ]
     if _CYGWIN:
