@@ -39,7 +39,7 @@ class W_Writer(Wrappable):
         for field_index in range(len(fields_w)):
             w_field = fields_w[field_index]
             if space.is_w(w_field, space.w_None):
-                field = ""
+                field = u""
             elif space.isinstance_w(w_field, space.w_float):
                 field = space.unicode_w(space.repr(w_field))
             else:
