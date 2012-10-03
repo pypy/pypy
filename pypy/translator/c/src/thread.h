@@ -1,6 +1,3 @@
-
-/* #ifdef logic from CPython */
-
 #ifndef __PYPY_THREAD_H
 #define __PYPY_THREAD_H
 #include <assert.h>
@@ -18,25 +15,6 @@
 #include "thread_pthread.h"
 
 #endif /* !_WIN32 */
-
-#ifdef USE___THREAD
-
-#define RPyThreadStaticTLS                  __thread void *
-#define RPyThreadStaticTLS_Create(tls)      NULL
-#define RPyThreadStaticTLS_Get(tls)         tls
-#define RPyThreadStaticTLS_Set(tls, value)  tls = value
-
-#endif
-
-#ifndef RPyThreadStaticTLS
-
-#define RPyThreadStaticTLS             RPyThreadTLS
-#define RPyThreadStaticTLS_Create(key) RPyThreadTLS_Create(key)
-#define RPyThreadStaticTLS_Get(key)    RPyThreadTLS_Get(key)
-#define RPyThreadStaticTLS_Set(key, value) RPyThreadTLS_Set(key, value)
-char *RPyThreadTLS_Create(RPyThreadTLS *result);
-
-#endif
 
 long RPyGilAllocate(void);
 long RPyGilYieldThread(void);

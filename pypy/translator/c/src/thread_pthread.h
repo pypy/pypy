@@ -75,11 +75,3 @@ void RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock);
 long RPyThreadGetStackSize(void);
 long RPyThreadSetStackSize(long);
 void RPyThreadAfterFork(void);
-
-
-/* implementations */
-
-/* Thread-local storage */
-typedef pthread_key_t RPyThreadTLS;
-#define RPyThreadTLS_Get(key)		pthread_getspecific(key)
-#define RPyThreadTLS_Set(key, value)	pthread_setspecific(key, value)

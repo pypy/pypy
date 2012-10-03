@@ -377,17 +377,6 @@ void RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock)
 /************************************************************/
 
 
-/* Thread-local storage */
-
-char *RPyThreadTLS_Create(RPyThreadTLS *result)
-{
-	if (pthread_key_create(result, NULL) != 0)
-		return "out of thread-local storage keys";
-	else
-		return NULL;
-}
-
-
 /************************************************************/
 /* GIL code                                                 */
 /************************************************************/

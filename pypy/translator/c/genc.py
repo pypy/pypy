@@ -918,7 +918,7 @@ def add_extra_files(eci):
         srcdir / 'debug_print.c',
         srcdir / 'debug_traceback.c',  # ifdef HAVE_RTYPER
         srcdir / 'stack.c',
-        srcdir / 'thread.c',
+        srcdir / 'threadlocal.c',
         srcdir / 'asm.c',
         srcdir / 'instrument.c',
         srcdir / 'int.c',

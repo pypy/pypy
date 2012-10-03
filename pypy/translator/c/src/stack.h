@@ -9,7 +9,7 @@
 /* This include must be done in any case to initialise
  * the header dependencies early (winsock2, before windows.h).
  * It is needed to have RPyThreadStaticTLS, too. */
-#include "thread.h"
+#include "threadlocal.h"
 
 extern char *_LLstacktoobig_stack_end;
 extern long _LLstacktoobig_stack_length;

@@ -181,17 +181,6 @@ void RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock)
 }
 
 /************************************************************/
-
-char *RPyThreadTLS_Create(RPyThreadTLS *result)
-{
-	*result = TlsAlloc();
-	if (*result == TLS_OUT_OF_INDEXES)
-		return "out of thread-local storage indexes";
-	else
-		return NULL;
-}
-
-/************************************************************/
 /* GIL code                                                 */
 /************************************************************/
 
