@@ -33,5 +33,5 @@ def pytest_runtest_teardown(__multicall__, item):
 
     if 'pygame' in sys.modules:
         assert item.config.option.view, ("should not invoke Pygame "
-                             "if view option is False")
+                                         "if view option is False")
 
