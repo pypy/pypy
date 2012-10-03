@@ -434,7 +434,7 @@ class Assembler386(object):
         if self.with_stm():
             from pypy.jit.backend.x86 import stmtlocal
             globaladdr -= stmtlocal.threadlocal_base()
-            assert 0 <= globaladdr < 0x10000   # estimate: "should be small"
+            assert -0x10000 <= globaladdr < 0x10000 #estimate: "should be small"
             # --- in particular, fits_in_32bits() must be true
         return globaladdr
 
