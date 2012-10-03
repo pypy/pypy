@@ -10,7 +10,7 @@ from pypy.jit.backend.x86.assembler import Assembler386
 from pypy.jit.backend.x86.arch import FORCE_INDEX_OFS, IS_X86_32
 from pypy.jit.backend.x86.profagent import ProfileAgent
 from pypy.jit.backend.llsupport.llmodel import AbstractLLCPU
-from pypy.jit.backend.x86 import regloc
+from pypy.jit.backend.x86 import regloc, stmtlocal
 import sys
 
 from pypy.tool.ansi_print import ansi_log
@@ -50,11 +50,8 @@ class AbstractX86CPU(AbstractLLCPU):
 
     def setup(self):
         if self.opts is not None:
-            failargs_limit = self.opts.failargs_limit
-        else:
-            failargs_limit = 1000
-        self.assembler = Assembler386(self, self.translate_support_code,
-                                            failargs_limit)
+            assert self.opts.failargs_limit == stmtlocal.FAILARGS_LIMIT
+        self.assembler = Assembler386(self, self.translate_support_code)
 
     def get_on_leave_jitted_hook(self):
         return self.assembler.leave_jitted_hook
@@ -96,31 +93,32 @@ class AbstractX86CPU(AbstractLLCPU):
                                               original_loop_token, log=log)
 
     def get_latest_value_int(self, index):
-        return self.assembler.fail_boxes_int.getitem(index)
+        return stmtlocal.get_asm_tlocal(self).fail_boxes_int[index]
 
     def get_latest_value_float(self, index):
-        return self.assembler.fail_boxes_float.getitem(index)
+        return stmtlocal.get_asm_tlocal(self).fail_boxes_float[index]
 
     def get_latest_value_ref(self, index):
-        return self.assembler.fail_boxes_ptr.getitem(index)
+        return stmtlocal.get_asm_tlocal(self).fail_boxes_ptr[index]
 
     def get_latest_value_count(self):
-        return self.assembler.fail_boxes_count
+        return stmtlocal.get_asm_tlocal(self).fail_boxes_count
 
     def clear_latest_values(self, count):
-        setitem = self.assembler.fail_boxes_ptr.setitem
+        asmtlocal = stmtlocal.get_asm_tlocal(self)
         null = lltype.nullptr(llmemory.GCREF.TO)
         for index in range(count):
-            setitem(index, null)
+            asmtlocal.fail_boxes_ptr[index] = null
 
     def get_latest_force_token(self):
         # the FORCE_TOKEN operation and this helper both return 'ebp'.
-        return self.assembler.fail_ebp
+        return stmtlocal.get_asm_tlocal(self).fail_ebp
 
     def make_execute_token(self, *ARGS):
         FUNCPTR = lltype.Ptr(lltype.FuncType(ARGS, lltype.Signed))
         #
         def execute_token(executable_token, *args):
+            stmtlocal.prepare_asm_tlocal(self)
             clt = executable_token.compiled_loop_token
             assert len(args) == clt._debug_nbargs
             #

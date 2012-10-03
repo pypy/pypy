@@ -30,7 +30,6 @@ from pypy.jit.backend.x86.regloc import (eax, ecx, edx, ebx,
 from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.jit.backend.x86 import rx86, regloc, codebuf
 from pypy.jit.metainterp.resoperation import rop, ResOperation
-from pypy.jit.backend.x86.support import values_array
 from pypy.jit.backend.x86 import support
 from pypy.rlib.debug import (debug_print, debug_start, debug_stop,
                              have_debug_prints)
@@ -41,6 +40,7 @@ from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.codewriter import longlong
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.objectmodel import compute_unique_id
+from pypy.jit.backend.x86 import stmtlocal
 
 # darwin requires the stack to be 16 bytes aligned on calls. Same for gcc 4.5.0,
 # better safe than sorry
@@ -68,16 +68,11 @@ class Assembler386(object):
     _regalloc = None
     _output_loop_log = None
 
-    def __init__(self, cpu, translate_support_code=False,
-                            failargs_limit=1000):
+    def __init__(self, cpu, translate_support_code=False):
         self.cpu = cpu
         self.verbose = False
         self.rtyper = cpu.rtyper
-        self.fail_boxes_int = values_array(lltype.Signed, failargs_limit)
-        self.fail_boxes_ptr = values_array(llmemory.GCREF, failargs_limit)
-        self.fail_boxes_float = values_array(longlong.FLOATSTORAGE,
-                                             failargs_limit)
-        self.fail_ebp = 0
+        self.asmtlocals = {}
         self.loop_run_counters = []
         self.float_const_neg_addr = 0
         self.float_const_abs_addr = 0
@@ -87,7 +82,6 @@ class Assembler386(object):
         self.setup_failure_recovery()
         self._debug = False
         self.debug_counter_descr = cpu.fielddescrof(DEBUG_COUNTER, 'i')
-        self.fail_boxes_count = 0
         self.datablockwrapper = None
         self.stack_check_slowpath = 0
         self.propagate_exception_path = 0
@@ -95,7 +89,7 @@ class Assembler386(object):
         self.teardown()
 
     def leave_jitted_hook(self):
-        ptrs = self.fail_boxes_ptr.ar
+        ptrs = stmtlocal.get_asm_tlocal(self.cpu)
         llop.gc_assume_young_pointers(lltype.Void,
                                       llmemory.cast_ptr_to_adr(ptrs))
 
@@ -140,9 +134,9 @@ class Assembler386(object):
         self.mc = codebuf.MachineCodeBlockWrapper()
         #assert self.datablockwrapper is None --- but obscure case
         # possible, e.g. getting MemoryError and continuing
-        allblocks = self.get_asmmemmgr_blocks(looptoken)
+        self.allblocks = self.get_asmmemmgr_blocks(looptoken)
         self.datablockwrapper = MachineDataBlockWrapper(self.cpu.asmmemmgr,
-                                                        allblocks)
+                                                        self.allblocks)
         self.target_tokens_currently_compiling = {}
 
     def teardown(self):
@@ -151,6 +145,7 @@ class Assembler386(object):
             self.pending_memoryerror_trampoline_from = None
         self.mc = None
         self.current_clt = None
+        self.allblocks = None
 
     def finish_once(self):
         if self._debug:
@@ -554,7 +549,7 @@ class Assembler386(object):
         self.write_pending_failure_recoveries()
         full_size = self.mc.get_relative_pos()
         #
-        rawstart = self.materialize_loop(looptoken)
+        rawstart = self.materialize_loop()
         debug_start("jit-backend-addr")
         debug_print("Loop %d (%s) has address %x to %x (bootstrap %x)" % (
             looptoken.number, loopname,
@@ -613,7 +608,7 @@ class Assembler386(object):
         self.write_pending_failure_recoveries()
         fullsize = self.mc.get_relative_pos()
         #
-        rawstart = self.materialize_loop(original_loop_token)
+        rawstart = self.materialize_loop()
         debug_start("jit-backend-addr")
         debug_print("bridge out of Guard %d has address %x to %x" %
                     (descr_number, rawstart, rawstart + codeendpos))
@@ -692,11 +687,10 @@ class Assembler386(object):
             clt.asmmemmgr_blocks = []
         return clt.asmmemmgr_blocks
 
-    def materialize_loop(self, looptoken):
+    def materialize_loop(self):
         self.datablockwrapper.done()      # finish using cpu.asmmemmgr
         self.datablockwrapper = None
-        allblocks = self.get_asmmemmgr_blocks(looptoken)
-        return self.mc.materialize(self.cpu.asmmemmgr, allblocks,
+        return self.mc.materialize(self.cpu.asmmemmgr, self.allblocks,
                                    self.cpu.gc_ll_descr.gcrootmap)
 
     def _register_counter(self, tp, number, token):
@@ -1900,12 +1894,9 @@ class Assembler386(object):
             assert mc.get_relative_pos() == start + 13
         # write tight data that describes the failure recovery
         self.write_failure_recovery_description(mc, guardtok.failargs,
-                                                guardtok.fail_locs)
-        # write the fail_index too
-        mc.writeimm32(fail_index)
-        # for testing the decoding, write a final byte 0xCC
+                                                guardtok.fail_locs,
+                                                fail_index)
         if not we_are_translated():
-            mc.writechar('\xCC')
             faillocs = [loc for loc in guardtok.fail_locs if loc is not None]
             guardtok.faildescr._x86_debug_faillocs = faillocs
         return startpos
@@ -1919,7 +1910,8 @@ class Assembler386(object):
     CODE_HOLE       = 4 | DESCR_SPECIAL
     CODE_INPUTARG   = 8 | DESCR_SPECIAL
 
-    def write_failure_recovery_description(self, mc, failargs, locs):
+    def write_failure_recovery_description(self, mc, failargs, locs,
+                                           fail_index):
         for i in range(len(failargs)):
             arg = failargs[i]
             if arg is not None:
@@ -1950,7 +1942,12 @@ class Assembler386(object):
             mc.writechar(chr(n))
         mc.writechar(chr(self.CODE_STOP))
         # assert that the fail_boxes lists are big enough
-        assert len(failargs) <= self.fail_boxes_int.SIZE
+        assert len(failargs) <= stmtlocal.FAILARGS_LIMIT
+        # write the fail_index too
+        mc.writeimm32(fail_index)
+        # for testing the decoding, write a final byte 0xCC
+        if not we_are_translated():
+            mc.writechar('\xCC')
 
     def rebuild_faillocs_from_descr(self, bytecode):
         from pypy.jit.backend.x86.regalloc import X86FrameManager
@@ -2001,7 +1998,8 @@ class Assembler386(object):
     @rgc.no_collect
     def grab_frame_values(self, bytecode, frame_addr, allregisters):
         # no malloc allowed here!!
-        self.fail_ebp = allregisters[16 + ebp.value]
+        asmtlocal = stmtlocal.get_asm_tlocal(self.cpu)
+        asmtlocal.fail_ebp = allregisters[16 + ebp.value]
         code_inputarg = False
         num = 0
         value_hi = 0
@@ -2055,11 +2053,11 @@ class Assembler386(object):
 
             # store the loaded value into fail_boxes_<type>
             if kind == self.DESCR_INT:
-                tgt = self.fail_boxes_int.get_addr_for_num(num)
+                tgt = stmtlocal.fail_boxes_int_addr(asmtlocal, num)
             elif kind == self.DESCR_REF:
-                tgt = self.fail_boxes_ptr.get_addr_for_num(num)
+                tgt = stmtlocal.fail_boxes_ptr_addr(asmtlocal, num)
             elif kind == self.DESCR_FLOAT:
-                tgt = self.fail_boxes_float.get_addr_for_num(num)
+                tgt = stmtlocal.fail_boxes_float_addr(asmtlocal, num)
                 if WORD == 4:
                     rffi.cast(rffi.LONGP, tgt)[1] = value_hi
             else:
@@ -2069,7 +2067,7 @@ class Assembler386(object):
         #
         if not we_are_translated():
             assert bytecode[4] == 0xCC
-        self.fail_boxes_count = num
+        asmtlocal.fail_boxes_count = num
         fail_index = rffi.cast(rffi.INTP, bytecode)[0]
         fail_index = rffi.cast(lltype.Signed, fail_index)
         return fail_index
@@ -2152,7 +2150,45 @@ class Assembler386(object):
         self.failure_recovery_code[exc + 2 * withfloats] = rawstart
         self.mc = None
 
-    def generate_failure(self, fail_index, locs, exc, locs_are_ref):
+    def generate_failure(self, fail_index, locs, boxes):
+        mc2 = codebuf.MachineCodeBlockWrapper()
+        self.write_failure_recovery_description(mc2, boxes, locs, fail_index)
+        bytecode = mc2.materialize(self.cpu.asmmemmgr, self.allblocks)
+        #
+        failure_recovery_func = llhelper(self._FAILURE_RECOVERY_FUNC,
+                                         self.failure_recovery_func)
+        failure_recovery_func = rffi.cast(lltype.Signed,
+                                          failure_recovery_func)
+        mc = self.mc
+        # Push the address of the recovery bytecode
+        mc.PUSH(imm(bytecode))
+        # Reserve space for all general purpose registers
+        mc.ADD_ri(esp.value, -self.cpu.NUM_REGS * WORD)
+        # Save the surviving registers in there
+        for loc in locs:
+            if isinstance(loc, RegLoc):
+                assert not loc.is_xmm, "XXX returning an xmm reg: fixme"
+                mc.MOV_sr(loc.value * WORD, loc.value)
+        # ebx/rbx is callee-save in both i386 and x86-64
+        mc.MOV_rr(ebx.value, esp.value)
+
+        addr = self.cpu.get_on_leave_jitted_int(save_exception=False)
+        self.mc.CALL(imm(addr))
+
+        if IS_X86_32:
+            mc.PUSH_r(ebx.value)
+        elif IS_X86_64:
+            mc.MOV_rr(edi.value, ebx.value)
+        else:
+            raise AssertionError("Shouldn't happen")
+        mc.CALL(imm(failure_recovery_func))
+        # returns in eax the fail_index
+        self._call_footer()
+        return
+
+        # ---------- below, the original code, more efficient but not
+        # ---------- ready to handle stm thread-locals
+        xxxxxxxx
         self.mc.begin_reuse_scratch_register()
         for i in range(len(locs)):
             loc = locs[i]
