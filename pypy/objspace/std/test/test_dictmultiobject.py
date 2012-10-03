@@ -828,6 +828,14 @@ class AppTestDictViews:
         assert not d.items() != frozenset({(1, 'a'), (2, 'b'), (3, 'c')})
         assert not frozenset({(1, 'a'), (2, 'b'), (3, 'c')}) != d.items()
 
+    def test_dictviewset_unshasable_values(self):
+        class C:
+            def __eq__(self, other):
+                return True
+        d = {1: C()}
+        assert d.items() <= d.items()
+
+
     def test_keys_items_contained(self):
         def helper(fn):
             empty = fn(dict())
