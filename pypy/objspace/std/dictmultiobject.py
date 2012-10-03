@@ -982,6 +982,13 @@ eq__DictViewItems_DictViewItems = eq__DictViewKeys_DictViewKeys
 eq__DictViewItems_settypedef = eq__DictViewItems_DictViewItems
 eq__DictViewItems_frozensettypedef = eq__DictViewItems_DictViewItems
 
+def ne__DictViewKeys_settypedef(space, w_dict, w_set):
+    return space.not_(eq__DictViewItems_settypedef(space, w_dict, w_set))
+ne__DictViewKeys_frozensettypedef = ne__DictViewKeys_settypedef
+
+def ne__DictViewItems_settypedef(space, w_dict, w_set):
+    return space.not_(eq__DictViewItems_settypedef(space, w_dict, w_set))
+ne__DictViewItems_frozensettypedef = ne__DictViewItems_settypedef
 
 def repr__DictViewKeys(space, w_dictview):
     w_seq = space.call_function(space.w_list, w_dictview)

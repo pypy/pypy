@@ -784,7 +784,7 @@ class AppTestDictViews:
         assert d1.items() - d2.items() == set([('a', 1)])
         assert d1.items() - d3.items() == set([('a', 1), ('b', 2)])
 
-    def test_keys_items_set_operations_any_type(self):
+    def test_keys_set_operations_any_type(self):
         d = {1: 'a', 2: 'b', 3: 'c'}
         assert d.keys() & {1} == {1}
         assert d.keys() & {1: 'foo'} == {1}
@@ -799,9 +799,35 @@ class AppTestDictViews:
         #
         assert d.keys() == {1, 2, 3}
         assert {1, 2, 3} == d.keys()
+        assert d.keys() == frozenset({1, 2, 3})
+        assert frozenset({1, 2, 3}) == d.keys()
         assert not d.keys() != {1, 2, 3}
         assert not {1, 2, 3} != d.keys()
-        
+        assert not d.keys() != frozenset({1, 2, 3})
+        assert not frozenset({1, 2, 3}) != d.keys()
+
+    def test_items_set_operations_any_type(self):
+        d = {1: 'a', 2: 'b', 3: 'c'}
+        assert d.items() & {(1, 'a')} == {(1, 'a')}
+        assert d.items() & {(1, 'a'): 'foo'} == {(1, 'a')}
+        assert d.items() & [(1, 'a'), (2, 'b')] == {(1, 'a'), (2, 'b')}
+        #
+        assert {(1, 'a')} & d.items() == {(1, 'a')}
+        assert {(1, 'a'): 'foo'} & d.items() == {(1, 'a')}
+        assert [(1, 'a'), (2, 'b')] & d.items() == {(1, 'a'), (2, 'b')}
+        #
+        assert d.items() - {(1, 'a')} == {(2, 'b'), (3, 'c')}
+        assert {(1, 'a'), 4} - d.items() == {4}
+        #
+        assert d.items() == {(1, 'a'), (2, 'b'), (3, 'c')}
+        assert {(1, 'a'), (2, 'b'), (3, 'c')} == d.items()
+        assert d.items() == frozenset({(1, 'a'), (2, 'b'), (3, 'c')})
+        assert frozenset({(1, 'a'), (2, 'b'), (3, 'c')}) == d.items()
+        assert not d.items() != {(1, 'a'), (2, 'b'), (3, 'c')}
+        assert not {(1, 'a'), (2, 'b'), (3, 'c')} != d.items()
+        assert not d.items() != frozenset({(1, 'a'), (2, 'b'), (3, 'c')})
+        assert not frozenset({(1, 'a'), (2, 'b'), (3, 'c')}) != d.items()
+
     def test_keys_items_contained(self):
         def helper(fn):
             empty = fn(dict())
