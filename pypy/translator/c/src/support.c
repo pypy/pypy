@@ -1,5 +1,6 @@
 #include "common_header.h"
 #include <src/support.h>
+#include <src/exception.h>
 
 /************************************************************/
 /***  C header subsection: support functions              ***/
