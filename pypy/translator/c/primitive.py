@@ -31,6 +31,11 @@ def name_signed(value, db):
     if isinstance(value, Symbolic):
         if isinstance(value, FieldOffset):
             structnode = db.gettypedefnode(value.TYPE)
+            if isinstance(value.TYPE, FixedSizeArray):
+                assert value.fldname.startswith('item')
+                repeat = value.fldname[4:]
+                size = 'sizeof(%s)' % (cdecl(db.gettype(value.TYPE.OF), ''),)
+                return '(%s * %s)' % (size, repeat)
             return 'offsetof(%s, %s)'%(
                 cdecl(db.gettype(value.TYPE), ''),
                 structnode.c_struct_field_name(value.fldname))

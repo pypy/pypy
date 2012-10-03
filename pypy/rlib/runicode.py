@@ -77,12 +77,14 @@ utf8_code_length = [
 ]
 
 def str_decode_utf_8(s, size, errors, final=False,
-                     errorhandler=None):
+                     errorhandler=None, allow_surrogates=False):
     if errorhandler is None:
         errorhandler = raise_unicode_exception_decode
-    return str_decode_utf_8_impl(s, size, errors, final, errorhandler)
+    return str_decode_utf_8_impl(s, size, errors, final, errorhandler,
+                                 allow_surrogates=allow_surrogates)
 
-def str_decode_utf_8_impl(s, size, errors, final, errorhandler):
+def str_decode_utf_8_impl(s, size, errors, final, errorhandler,
+                          allow_surrogates):
     if size == 0:
         return u'', 0
 
@@ -184,8 +186,7 @@ def str_decode_utf_8_impl(s, size, errors, final, errorhandler):
             if (ordch2>>6 != 0x2 or    # 0b10
                 (ordch1 == 0xe0 and ordch2 < 0xa0)
                 # surrogates shouldn't be valid UTF-8!
-                # Uncomment the line below to make them invalid.
-                # or (ordch1 == 0xed and ordch2 > 0x9f)
+                or (not allow_surrogates and ordch1 == 0xed and ordch2 > 0x9f)
                 ):
                 r, pos = errorhandler(errors, 'utf-8',
                                       'invalid continuation byte',
@@ -254,13 +255,21 @@ def _encodeUCS4(result, ch):
     result.append((chr((0x80 | ((ch >> 6) & 0x3f)))))
     result.append((chr((0x80 | (ch & 0x3f)))))
 
-def unicode_encode_utf_8(s, size, errors, errorhandler=None):
+def unicode_encode_utf_8(s, size, errors, errorhandler=None,
+                         allow_surrogates=False):
+    if errorhandler is None:
+        errorhandler = raise_unicode_exception_encode
+    return unicode_encode_utf_8_impl(s, size, errors, errorhandler,
+                                     allow_surrogates=allow_surrogates)
+
+def unicode_encode_utf_8_impl(s, size, errors, errorhandler,
+                              allow_surrogates=False):
     assert(size >= 0)
     result = StringBuilder(size)
-    i = 0
-    while i < size:
-        ch = ord(s[i])
-        i += 1
+    pos = 0
+    while pos < size:
+        ch = ord(s[pos])
+        pos += 1
         if ch < 0x80:
             # Encode ASCII
             result.append(chr(ch))
@@ -272,20 +281,32 @@ def unicode_encode_utf_8(s, size, errors, errorhandler=None):
             # Encode UCS2 Unicode ordinals
             if ch < 0x10000:
                 # Special case: check for high surrogate
-                if 0xD800 <= ch <= 0xDBFF and i != size:
-                    ch2 = ord(s[i])
-                    # Check for low surrogate and combine the two to
-                    # form a UCS4 value
-                    if 0xDC00 <= ch2 <= 0xDFFF:
-                        ch3 = ((ch - 0xD800) << 10 | (ch2 - 0xDC00)) + 0x10000
-                        i += 1
-                        _encodeUCS4(result, ch3)
+                if 0xD800 <= ch <= 0xDFFF:
+                    if pos != size:
+                        ch2 = ord(s[pos])
+                        # Check for low surrogate and combine the two to
+                        # form a UCS4 value
+                        if ch <= 0xDBFF and 0xDC00 <= ch2 <= 0xDFFF:
+                            ch3 = ((ch - 0xD800) << 10 | (ch2 - 0xDC00)) + 0x10000
+                            pos += 1
+                            _encodeUCS4(result, ch3)
+                            continue
+                    if not allow_surrogates:
+                        r, pos = errorhandler(errors, 'utf-8',
+                                              'surrogates not allowed',
+                                              s, pos-1, pos)
+                        for ch in r:
+                            if ord(ch) < 0x80:
+                                result.append(chr(ord(ch)))
+                            else:
+                                errorhandler('strict', 'utf-8',
+                                             'surrogates not allowed',
+                                             s, pos-1, pos)
                         continue
-                # Fall through: handles isolated high surrogates
+                    # else: Fall through and handles isolated high surrogates
                 result.append((chr((0xe0 | (ch >> 12)))))
                 result.append((chr((0x80 | ((ch >> 6) & 0x3f)))))
                 result.append((chr((0x80 | (ch & 0x3f)))))
-                continue
             else:
                 _encodeUCS4(result, ch)
     return result.build()
@@ -1202,74 +1223,120 @@ def str_decode_unicode_escape(s, size, errors, final=False,
 
     return builder.build(), pos
 
-def unicode_encode_unicode_escape(s, size, errors, errorhandler=None, quotes=False):
-    # errorhandler is not used: this function cannot cause Unicode errors
-    result = StringBuilder(size)
+def make_unicode_escape_function(pass_printable=False, unicode_output=False,
+                                 quotes=False, prefix=None):
+    # Python3 has two similar escape functions: One to implement
+    # encode('unicode_escape') and which outputs bytes, and unicode.__repr__
+    # which outputs unicode.  They cannot share RPython code, so we generate
+    # them with the template below.
+    # Python2 does not really need this, but it reduces diffs between branches.
 
-    if quotes:
-        if s.find(u'\'') != -1 and s.find(u'\"') == -1:
-            quote = ord('\"')
-            result.append('u"')
-        else:
-            quote = ord('\'')
-            result.append('u\'')
+    if unicode_output:
+        STRING_BUILDER = UnicodeBuilder
+        STR = unicode
+        CHR = UNICHR
     else:
-        quote = 0
+        STRING_BUILDER = StringBuilder
+        STR = str
+        CHR = chr
 
-        if size == 0:
-            return ''
+    def unicode_escape(s, size, errors, errorhandler=None):
+        # errorhandler is not used: this function cannot cause Unicode errors
+        result = STRING_BUILDER(size)
 
-    pos = 0
-    while pos < size:
-        ch = s[pos]
-        oc = ord(ch)
+        if quotes:
+            if prefix:
+                result.append(STR(prefix))
+            if s.find(u'\'') != -1 and s.find(u'\"') == -1:
+                quote = ord('\"')
+                result.append(STR('"'))
+            else:
+                quote = ord('\'')
+                result.append(STR('\''))
+        else:
+            quote = 0
 
-        # Escape quotes
-        if quotes and (oc == quote or ch == '\\'):
-            result.append('\\')
-            result.append(chr(oc))
-            pos += 1
-            continue
+            if size == 0:
+                return STR('')
 
-        # The following logic is enabled only if MAXUNICODE == 0xffff, or
-        # for testing on top of a host CPython where sys.maxunicode == 0xffff
-        if ((MAXUNICODE < 65536 or
-                (not we_are_translated() and sys.maxunicode < 65536))
-            and 0xD800 <= oc < 0xDC00 and pos + 1 < size):
-            # Map UTF-16 surrogate pairs to Unicode \UXXXXXXXX escapes
-            pos += 1
-            oc2 = ord(s[pos])
+        pos = 0
+        while pos < size:
+            ch = s[pos]
+            oc = ord(ch)
 
-            if 0xDC00 <= oc2 <= 0xDFFF:
-                ucs = (((oc & 0x03FF) << 10) | (oc2 & 0x03FF)) + 0x00010000
-                raw_unicode_escape_helper(result, ucs)
+            # Escape quotes
+            if quotes and (oc == quote or ch == '\\'):
+                result.append(STR('\\'))
+                result.append(CHR(oc))
                 pos += 1
                 continue
-            # Fall through: isolated surrogates are copied as-is
-            pos -= 1
 
-        # Map special whitespace to '\t', \n', '\r'
-        if ch == '\t':
-            result.append('\\t')
-        elif ch == '\n':
-            result.append('\\n')
-        elif ch == '\r':
-            result.append('\\r')
-        elif ch == '\\':
-            result.append('\\\\')
+            # The following logic is enabled only if MAXUNICODE == 0xffff, or
+            # for testing on top of a host Python where sys.maxunicode == 0xffff
+            if ((MAXUNICODE < 65536 or
+                    (not we_are_translated() and sys.maxunicode < 65536))
+                and 0xD800 <= oc < 0xDC00 and pos + 1 < size):
+                # Map UTF-16 surrogate pairs to Unicode \UXXXXXXXX escapes
+                pos += 1
+                oc2 = ord(s[pos])
 
-        # Map non-printable or non-ascii to '\xhh' or '\uhhhh'
-        elif oc < 32 or oc >= 0x7F:
-            raw_unicode_escape_helper(result, oc)
+                if 0xDC00 <= oc2 <= 0xDFFF:
+                    ucs = (((oc & 0x03FF) << 10) | (oc2 & 0x03FF)) + 0x00010000
+                    char_escape_helper(result, ucs)
+                    pos += 1
+                    continue
+                # Fall through: isolated surrogates are copied as-is
+                pos -= 1
 
-        # Copy everything else as-is
+            # Map special whitespace to '\t', \n', '\r'
+            if ch == '\t':
+                result.append(STR('\\t'))
+            elif ch == '\n':
+                result.append(STR('\\n'))
+            elif ch == '\r':
+                result.append(STR('\\r'))
+            elif ch == '\\':
+                result.append(STR('\\\\'))
+
+            # Map non-printable or non-ascii to '\xhh' or '\uhhhh'
+            elif pass_printable and not unicodedb.isprintable(oc):
+                char_escape_helper(result, oc)
+            elif not pass_printable and (oc < 32 or oc >= 0x7F):
+                char_escape_helper(result, oc)
+
+            # Copy everything else as-is
+            else:
+                result.append(CHR(oc))
+            pos += 1
+
+        if quotes:
+            result.append(CHR(quote))
+        return result.build()
+
+    def char_escape_helper(result, char):
+        num = hex(char)
+        if STR is unicode:
+            num = num.decode('ascii')
+        if char >= 0x10000:
+            result.append(STR("\\U"))
+            zeros = 8
+        elif char >= 0x100:
+            result.append(STR("\\u"))
+            zeros = 4
         else:
-            result.append(chr(oc))
-        pos += 1
+            result.append(STR("\\x"))
+            zeros = 2
+        lnum = len(num)
+        nb = zeros + 2 - lnum # num starts with '0x'
+        if nb > 0:
+            result.append_multiple_char(STR('0'), nb)
+        result.append_slice(num, 2, lnum)
 
-    if quotes:
-        result.append(chr(quote))
-    return result.build()
+    return unicode_escape, char_escape_helper
+
+# This function is also used by _codecs/interp_codecs.py
+(unicode_encode_unicode_escape, raw_unicode_escape_helper
+ ) = make_unicode_escape_function()
 
 # ____________________________________________________________
 # Raw unicode escape
@@ -1325,23 +1392,6 @@ def str_decode_raw_unicode_escape(s, size, errors, final=False,
                         "rawunicodeescape", errorhandler, message, errors)
 
     return result.build(), pos
-
-def raw_unicode_escape_helper(result, char):
-    num = hex(char)
-    if char >= 0x10000:
-        result.append("\\U")
-        zeros = 8
-    elif char >= 0x100:
-        result.append("\\u")
-        zeros = 4
-    else:
-        result.append("\\x")
-        zeros = 2
-    lnum = len(num)
-    nb = zeros + 2 - lnum # num starts with '0x'
-    if nb > 0:
-        result.append_multiple_char('0', nb)
-    result.append_slice(num, 2, lnum)
 
 def unicode_encode_raw_unicode_escape(s, size, errors, errorhandler=None):
     # errorhandler is not used: this function cannot cause Unicode errors

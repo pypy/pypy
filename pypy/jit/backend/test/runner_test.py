@@ -994,6 +994,7 @@ class BaseBackendTest(Runner):
                              ('p', lltype.Ptr(TP)))
         a_box, A = self.alloc_array_of(ITEM, 15)
         s_box, S = self.alloc_instance(TP)
+        vsdescr = self.cpu.interiorfielddescrof(A, 'vs')
         kdescr = self.cpu.interiorfielddescrof(A, 'k')
         pdescr = self.cpu.interiorfielddescrof(A, 'p')
         self.execute_operation(rop.SETINTERIORFIELD_GC, [a_box, BoxInt(3),
@@ -1045,6 +1046,13 @@ class BaseBackendTest(Runner):
         r = self.execute_operation(rop.GETINTERIORFIELD_GC, [a_box, BoxInt(3)],
                                    'ref', descr=pdescr)
         assert r.getref_base() == s_box.getref_base()
+        #
+        # test a corner case that used to fail on x86
+        i4 = BoxInt(4)
+        self.execute_operation(rop.SETINTERIORFIELD_GC, [a_box, i4, i4],
+                               'void', descr=vsdescr)
+        r = self.cpu.bh_getinteriorfield_gc_i(a_box.getref_base(), 4, vsdescr)
+        assert r == 4
 
     def test_string_basic(self):
         s_box = self.alloc_string("hello\xfe")

@@ -1,15 +1,58 @@
-from pypy.rpython.memory.gctransform.framework import BaseRootWalker
-from pypy.rpython.memory.gctransform.framework import sizeofaddr
-from pypy.rpython.annlowlevel import llhelper
-from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.annotation import model as annmodel
 from pypy.rlib.debug import ll_assert
 from pypy.rlib.nonconst import NonConstant
-from pypy.annotation import model as annmodel
+from pypy.rpython import rmodel
+from pypy.rpython.annlowlevel import llhelper
+from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.memory.gctransform.framework import (
+     BaseFrameworkGCTransformer, BaseRootWalker, sizeofaddr)
+from pypy.rpython.rbuiltin import gen_cast
+
+
+class ShadowStackFrameworkGCTransformer(BaseFrameworkGCTransformer):
+    def annotate_walker_functions(self, getfn):
+        self.incr_stack_ptr = getfn(self.root_walker.incr_stack,
+                                   [annmodel.SomeInteger()],
+                                   annmodel.SomeAddress(),
+                                   inline = True)
+        self.decr_stack_ptr = getfn(self.root_walker.decr_stack,
+                                   [annmodel.SomeInteger()],
+                                   annmodel.SomeAddress(),
+                                   inline = True)
+
+    def build_root_walker(self):
+        return ShadowStackRootWalker(self)
+
+    def push_roots(self, hop, keep_current_args=False):
+        livevars = self.get_livevars_for_roots(hop, keep_current_args)
+        self.num_pushs += len(livevars)
+        if not livevars:
+            return []
+        c_len = rmodel.inputconst(lltype.Signed, len(livevars) )
+        base_addr = hop.genop("direct_call", [self.incr_stack_ptr, c_len ],
+                              resulttype=llmemory.Address)
+        for k,var in enumerate(livevars):
+            c_k = rmodel.inputconst(lltype.Signed, k * sizeofaddr)
+            v_adr = gen_cast(hop.llops, llmemory.Address, var)
+            hop.genop("raw_store", [base_addr, c_k, v_adr])
+        return livevars
+
+    def pop_roots(self, hop, livevars):
+        if not livevars:
+            return
+        c_len = rmodel.inputconst(lltype.Signed, len(livevars) )
+        base_addr = hop.genop("direct_call", [self.decr_stack_ptr, c_len ],
+                              resulttype=llmemory.Address)
+        if self.gcdata.gc.moving_gc:
+            # for moving collectors, reload the roots into the local variables
+            for k,var in enumerate(livevars):
+                c_k = rmodel.inputconst(lltype.Signed, k * sizeofaddr)
+                v_newaddr = hop.genop("raw_load", [base_addr, c_k],
+                                      resulttype=llmemory.Address)
+                hop.genop("gc_reload_possibly_moved", [v_newaddr, var])
 
 
 class ShadowStackRootWalker(BaseRootWalker):
-    need_root_stack = True
-
     def __init__(self, gctransformer):
         BaseRootWalker.__init__(self, gctransformer)
         # NB. 'self' is frozen, but we can use self.gcdata to store state
@@ -63,8 +106,6 @@ class ShadowStackRootWalker(BaseRootWalker):
 
     def need_thread_support(self, gctransformer, getfn):
         from pypy.module.thread import ll_thread    # xxx fish
-        from pypy.rpython.memory.support import AddressDict
-        from pypy.rpython.memory.support import copy_without_null_values
         gcdata = self.gcdata
         # the interfacing between the threads and the GC is done via
         # two completely ad-hoc operations at the moment:

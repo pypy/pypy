@@ -1,20 +1,8 @@
 from pypy.interpreter.mixedmodule import MixedModule
 
 
-class PyPyModule(MixedModule):
-    interpleveldefs = {
-        'debug_repr': 'interp_extras.debug_repr',
-        'remove_invalidates': 'interp_extras.remove_invalidates',
-        'set_invalidation': 'interp_extras.set_invalidation',
-    }
-    appleveldefs = {}
-
 class Module(MixedModule):
     applevel_name = '_numpypy'
-
-    submodules = {
-        'pypy': PyPyModule
-    }
 
     interpleveldefs = {
         'ndarray': 'interp_numarray.W_NDimArray',
@@ -25,17 +13,15 @@ class Module(MixedModule):
         'zeros': 'interp_numarray.zeros',
         'empty': 'interp_numarray.zeros',
         'ones': 'interp_numarray.ones',
-        'dot': 'interp_numarray.dot',
+        'dot': 'interp_arrayops.dot',
         'fromstring': 'interp_support.fromstring',
-        'flatiter': 'interp_numarray.W_FlatIterator',
-        'isna': 'interp_numarray.isna',
-        'concatenate': 'interp_numarray.concatenate',
-        'repeat': 'interp_numarray.repeat',
+        'flatiter': 'interp_flatiter.W_FlatIterator',
+        'concatenate': 'interp_arrayops.concatenate',
+        'repeat': 'interp_arrayops.repeat',
         'where': 'interp_arrayops.where',
+        'count_nonzero': 'interp_arrayops.count_nonzero',
 
         'set_string_function': 'appbridge.set_string_function',
-
-        'count_reduce_items': 'interp_numarray.count_reduce_items',
 
         'True_': 'types.Bool.True',
         'False_': 'types.Bool.False',
@@ -166,5 +152,4 @@ class Module(MixedModule):
         'eye': 'app_numpy.eye',
         'max': 'app_numpy.max',
         'arange': 'app_numpy.arange',
-        'count_nonzero': 'app_numpy.count_nonzero',
     }

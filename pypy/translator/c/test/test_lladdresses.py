@@ -52,6 +52,19 @@ def test_memory_float():
     res = fc(42.42)
     assert res == f(42.42)
 
+def test_offset_inside_fixed_array():
+    S = lltype.FixedSizeArray(lltype.Signed, 10)
+    offset = FieldOffset(S, 'item4')
+    def f(value):
+        s = lltype.malloc(S, flavor='raw')
+        s[4] = value
+        res = (cast_ptr_to_adr(s) + offset).signed[0]
+        lltype.free(s, flavor='raw')
+        return res
+    fc = compile(f, [int])
+    res = fc(42)
+    assert res == 42
+
 def test_pointer_arithmetic():
     def f(offset, char):
         addr = raw_malloc(10000)

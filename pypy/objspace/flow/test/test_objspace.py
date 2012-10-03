@@ -1,12 +1,11 @@
 from __future__ import with_statement
 import new
 import py, sys
-from pypy.objspace.flow.model import Constant, Block, Link, Variable
+from pypy.objspace.flow.model import Constant
 from pypy.objspace.flow.model import mkentrymap, c_last_exception
-from pypy.interpreter.argument import Arguments
 from pypy.translator.simplify import simplify_graph
-from pypy.objspace.flow.objspace import FlowObjSpace, error
-from pypy.objspace.flow import objspace, flowcontext
+from pypy.objspace.flow.objspace import FlowObjSpace
+from pypy.objspace.flow.flowcontext import FlowingError, FlowSpaceFrame
 from pypy import conftest
 from pypy.tool.stdlib_opcode import bytecode_spec
 from pypy.interpreter.pyframe import PyFrame
@@ -100,6 +99,11 @@ class TestFlowObjSpace(Base):
     def test_print(self):
         x = self.codetest(self.print_)
 
+    def test_bad_print(self):
+        def f(x):
+            print >> x, "Hello"
+        with py.test.raises(FlowingError):
+            self.codetest(f)
     #__________________________________________________________
     def while_(i):
         while i > 0:
@@ -460,6 +464,15 @@ class TestFlowObjSpace(Base):
     def test_globalconstdict(self):
         x = self.codetest(self.globalconstdict)
 
+    def test_dont_write_globals(self):
+        def f():
+            global DATA
+            DATA = 5
+        with py.test.raises(FlowingError) as excinfo:
+            self.codetest(f)
+        assert "modify global" in str(excinfo.value)
+        assert DATA == {'x': 5, 'y': 6}
+
     #__________________________________________________________
     def dictliteral(name):
         x = {'x': 1}
@@ -499,6 +512,12 @@ class TestFlowObjSpace(Base):
                                        'gt', 'ge', 'is_', 'xor']
             assert len(op.args) == 2
             assert op.args[1].value == 3
+
+    def test_unary_ops(self):
+        def f(x):
+            return not ~-x
+        graph = self.codetest(f)
+        assert self.all_operations(graph) == {'is_true': 1, 'invert': 1, 'neg': 1}
 
     #__________________________________________________________
 
@@ -857,7 +876,7 @@ class TestFlowObjSpace(Base):
                         c.co_lnotab)
 
     def patch_opcodes(self, *opcodes):
-        flow_meth_names = flowcontext.FlowSpaceFrame.opcode_method_names
+        flow_meth_names = FlowSpaceFrame.opcode_method_names
         pyframe_meth_names = PyFrame.opcode_method_names
         for name in opcodes:
             num = bytecode_spec.opmap[name]
@@ -865,7 +884,7 @@ class TestFlowObjSpace(Base):
             flow_meth_names[num] = pyframe_meth_names[num]
 
     def unpatch_opcodes(self, *opcodes):
-        flow_meth_names = flowcontext.FlowSpaceFrame.opcode_method_names
+        flow_meth_names = FlowSpaceFrame.opcode_method_names
         for name in opcodes:
             num = bytecode_spec.opmap[name]
             flow_meth_names[num] = getattr(self, 'old_' + name)
@@ -953,14 +972,32 @@ class TestFlowObjSpace(Base):
             return s[-3:]
         check(f3, 'llo')
 
-    def test_propagate_attribute_error(self):
+    def test_constfold_attribute_error(self):
         def f(x):
             try:
                 "".invalid
             finally:
                 if x and 0:
                     raise TypeError()
-        py.test.raises(Exception, self.codetest, f)
+        with py.test.raises(FlowingError) as excinfo:
+            self.codetest(f)
+        assert 'getattr' in str(excinfo.value)
+
+    def test_constfold_exception(self):
+        def f():
+            return (3 + 2) / (4 - 2 * 2)
+        with py.test.raises(FlowingError) as excinfo:
+            self.codetest(f)
+        assert 'div(5, 0)' in str(excinfo.value)
+
+    def test_nonconstant_except(self):
+        def f(exc_cls):
+            try:
+                raise AttributeError
+            except exc_cls:
+                pass
+        with py.test.raises(FlowingError):
+            self.codetest(f)
 
     def test__flowspace_rewrite_directly_as_(self):
         def g(x):
@@ -985,14 +1022,14 @@ class TestFlowObjSpace(Base):
                 f()
             except NotImplementedError:
                 pass
-        py.test.raises(error.FlowingError, "self.codetest(f)")
+        py.test.raises(FlowingError, "self.codetest(f)")
         #
         def f():
             try:
                 f()
             except AssertionError:
                 pass
-        py.test.raises(error.FlowingError, "self.codetest(f)")
+        py.test.raises(FlowingError, "self.codetest(f)")
 
     def test_locals_dict(self):
         def f():
@@ -1003,6 +1040,19 @@ class TestFlowObjSpace(Base):
         assert len(graph.startblock.exits) == 1
         assert graph.startblock.exits[0].target == graph.returnblock
 
+
+    def test_global_variable(self):
+        def global_var_missing():
+            return a
+
+        with py.test.raises(FlowingError) as rex:
+            self.codetest(global_var_missing)
+        assert str(rex.exconly()).find("global variable 'a' undeclared")
+
+    def test_eval(self):
+        exec("def f(): return a")
+        with py.test.raises(FlowingError):
+            self.codetest(f)
 
 DATA = {'x': 5,
         'y': 6}

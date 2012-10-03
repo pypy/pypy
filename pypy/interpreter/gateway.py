@@ -651,7 +651,8 @@ class BuiltinCode(eval.Code):
             raise OperationError(space.w_MemoryError, space.w_None)
         except rstackovf.StackOverflow, e:
             rstackovf.check_stack_overflow()
-            raise space.prebuilt_recursion_error
+            raise OperationError(space.w_RuntimeError,
+                                space.wrap("maximum recursion depth exceeded"))
         except RuntimeError:   # not on top of py.py
             raise OperationError(space.w_RuntimeError, space.w_None)
 
@@ -943,14 +944,6 @@ class ApplevelClass:
         def appcaller(space, *args_w):
             if not isinstance(space, ObjSpace):
                 raise TypeError("first argument must be a space instance.")
-            # redirect if the space handles this specially
-            # XXX can this be factored a bit less flow space dependently?
-            if hasattr(space, 'specialcases'):
-                sc = space.specialcases
-                if ApplevelClass in sc:
-                    ret_w = sc[ApplevelClass](space, self, name, args_w)
-                    if ret_w is not None: # it was RPython
-                        return ret_w
             # the last argument can be an Arguments
             w_func = self.wget(space, name)
             if not args_w:

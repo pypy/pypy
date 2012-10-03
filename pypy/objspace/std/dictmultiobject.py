@@ -874,7 +874,7 @@ def dict_popitem__DictMulti(space, w_dict):
 # Iteration
 
 
-class W_DictMultiIterKeysObject(W_Object):
+class W_BaseDictMultiIterObject(W_Object):
     from pypy.objspace.std.dicttype import dictiter_typedef as typedef
 
     _immutable_fields_ = ["iteratorimplementation"]
@@ -884,33 +884,18 @@ class W_DictMultiIterKeysObject(W_Object):
     def __init__(w_self, space, iteratorimplementation):
         w_self.space = space
         w_self.iteratorimplementation = iteratorimplementation
+
+class W_DictMultiIterKeysObject(W_BaseDictMultiIterObject):
+    pass
+
+class W_DictMultiIterValuesObject(W_BaseDictMultiIterObject):
+    pass
+
+class W_DictMultiIterItemsObject(W_BaseDictMultiIterObject):
+    pass
 
 registerimplementation(W_DictMultiIterKeysObject)
-
-class W_DictMultiIterValuesObject(W_Object):
-    from pypy.objspace.std.dicttype import dictiter_typedef as typedef
-
-    _immutable_fields_ = ["iteratorimplementation"]
-
-    ignore_for_isinstance_cache = True
-
-    def __init__(w_self, space, iteratorimplementation):
-        w_self.space = space
-        w_self.iteratorimplementation = iteratorimplementation
-
 registerimplementation(W_DictMultiIterValuesObject)
-
-class W_DictMultiIterItemsObject(W_Object):
-    from pypy.objspace.std.dicttype import dictiter_typedef as typedef
-
-    _immutable_fields_ = ["iteratorimplementation"]
-
-    ignore_for_isinstance_cache = True
-
-    def __init__(w_self, space, iteratorimplementation):
-        w_self.space = space
-        w_self.iteratorimplementation = iteratorimplementation
-
 registerimplementation(W_DictMultiIterItemsObject)
 
 def iter__DictMultiIterKeysObject(space, w_dictiter):

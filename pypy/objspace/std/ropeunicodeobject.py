@@ -71,7 +71,7 @@ def encode_unicode(space, w_unistr, encoding, errors):
             if result is not None:
                 return W_RopeObject(result)
         elif encoding == "utf-8":
-            result = rope.unicode_encode_utf8(node)
+            result = rope.unicode_encode_utf8(node, allow_surrogates=True)
             if result is not None:
                 return W_RopeObject(result)
     return encode_object(space, w_unistr, encoding, errors)

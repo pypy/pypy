@@ -52,18 +52,24 @@ class W_CTypePrimitive(W_CType):
         if (isinstance(ob, cdataobj.W_CData) and
                isinstance(ob.ctype, ctypeptr.W_CTypePtrOrArray)):
             value = rffi.cast(lltype.Signed, ob._cdata)
-            value = r_ulonglong(value)
+            value = self._cast_result(value)
         elif space.isinstance_w(w_ob, space.w_str):
             value = self.cast_str(w_ob)
-            value = r_ulonglong(value)
+            value = self._cast_result(value)
         elif space.isinstance_w(w_ob, space.w_unicode):
             value = self.cast_unicode(w_ob)
-            value = r_ulonglong(value)
+            value = self._cast_result(value)
         else:
-            value = misc.as_unsigned_long_long(space, w_ob, strict=False)
+            value = self._cast_generic(w_ob)
         w_cdata = cdataobj.W_CDataMem(space, self.size, self)
         w_cdata.write_raw_integer_data(value)
         return w_cdata
+
+    def _cast_result(self, intvalue):
+        return r_ulonglong(intvalue)
+
+    def _cast_generic(self, w_ob):
+        return misc.as_unsigned_long_long(self.space, w_ob, strict=False)
 
     def _overflow(self, w_ob):
         space = self.space
@@ -163,13 +169,9 @@ class W_CTypePrimitiveSigned(W_CTypePrimitive):
             self.vrangemax = (r_ulonglong(1) << sh) - 1
 
     def int(self, cdata):
-        if self.value_fits_long:
-            # this case is to handle enums, but also serves as a slight
-            # performance improvement for some other primitive types
-            value = misc.read_raw_long_data(cdata, self.size)
-            return self.space.wrap(value)
-        else:
-            return self.convert_to_object(cdata)
+        # enums: really call convert_to_object() just below,
+        # and not the one overridden in W_CTypeEnum.
+        return W_CTypePrimitiveSigned.convert_to_object(self, cdata)
 
     def convert_to_object(self, cdata):
         if self.value_fits_long:
@@ -203,8 +205,11 @@ class W_CTypePrimitiveUnsigned(W_CTypePrimitive):
         W_CTypePrimitive.__init__(self, *args)
         self.value_fits_long = self.size < rffi.sizeof(lltype.Signed)
         if self.size < rffi.sizeof(lltype.SignedLongLong):
-            sh = self.size * 8
-            self.vrangemax = (r_ulonglong(1) << sh) - 1
+            self.vrangemax = self._compute_vrange_max()
+
+    def _compute_vrange_max(self):
+        sh = self.size * 8
+        return (r_ulonglong(1) << sh) - 1
 
     def int(self, cdata):
         return self.convert_to_object(cdata)
@@ -229,6 +234,23 @@ class W_CTypePrimitiveUnsigned(W_CTypePrimitive):
             from pypy.module._cffi_backend import newtype
             return newtype.new_primitive_type(self.space, "int")
         return self
+
+
+class W_CTypePrimitiveBool(W_CTypePrimitiveUnsigned):
+    _attrs_ = []
+
+    def _compute_vrange_max(self):
+        return r_ulonglong(1)
+
+    def _cast_result(self, intvalue):
+        return r_ulonglong(intvalue != 0)
+
+    def _cast_generic(self, w_ob):
+        return misc.object_as_bool(self.space, w_ob)
+
+    def string(self, cdataobj, maxlen):
+        # bypass the method 'string' implemented in W_CTypePrimitive
+        return W_CType.string(self, cdataobj, maxlen)
 
 
 class W_CTypePrimitiveFloat(W_CTypePrimitive):
