@@ -253,7 +253,7 @@ class FlowObjSpace(object):
         frame.build_flow()
         fixeggblocks(graph)
         checkgraph(graph)
-        if graph.is_generator:
+        if code.is_generator:
             tweak_generator_graph(graph)
         return graph
 

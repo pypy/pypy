@@ -25,7 +25,6 @@ class PyGraph(FunctionGraph):
         self.func = func
         self.signature = code.signature()
         self.defaults = func.func_defaults or ()
-        self.is_generator = code.is_generator
 
     @staticmethod
     def _sanitize_funcname(func):
