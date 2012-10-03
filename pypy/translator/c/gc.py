@@ -429,7 +429,7 @@ class AsmGcRootFrameworkGcPolicy(BasicFrameworkGcPolicy):
     def OP_GC_STACK_BOTTOM(self, funcgen, op):
         return 'pypy_asm_stack_bottom();'
 
-class StmFrameworkGcPolicy(FrameworkGcPolicy):
+class StmFrameworkGcPolicy(BasicFrameworkGcPolicy):
     
     def gettransformer(self):
         from pypy.rpython.memory.gctransform import stmframework
@@ -441,6 +441,6 @@ name_to_gcpolicy = {
     'ref': RefcountingGcPolicy,
     'none': NoneGcPolicy,
     'framework+shadowstack': ShadowStackFrameworkGcPolicy,
-    'framework+asmgcc': AsmGcRootFrameworkGcPolicy
+    'framework+asmgcc': AsmGcRootFrameworkGcPolicy,
     'framework+stm': StmFrameworkGcPolicy,
 }

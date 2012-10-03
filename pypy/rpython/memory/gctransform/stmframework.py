@@ -1,4 +1,4 @@
-from pypy.rpython.memory.gctransform.framework import FrameworkGCTransformer
+from pypy.rpython.memory.gctransform import shadowstack
 from pypy.rpython.memory.gctransform.framework import BaseRootWalker
 from pypy.rpython.memory.gctransform.framework import sizeofaddr
 from pypy.rpython.lltypesystem import lltype, llmemory
@@ -12,7 +12,7 @@ from pypy.rlib.objectmodel import specialize
 END_MARKER = -8      # keep in sync with src_stm/rpyintf.c
 
 
-class StmFrameworkGCTransformer(FrameworkGCTransformer):
+class StmFrameworkGCTransformer(shadowstack.ShadowStackFrameworkGCTransformer):
 
     def _declare_functions(self, GCClass, getfn, s_gc, *args):
         super(StmFrameworkGCTransformer, self)._declare_functions(
