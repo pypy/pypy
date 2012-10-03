@@ -154,11 +154,6 @@ class TestCompiler:
             expected = eval("0 %s 11" % operator)
             yield self.simple_test, "x = 0 %s 11" % operator, "x", expected
     
-    def test_pow(self):
-        expected = eval("complex(float('inf'), 0.) ** complex(10., 3.0)")
-        yield self.simple_test, \
-           "x = complex(float('inf'), 0.) ** complex(10., 3.0)", "x",  expected
-
     def test_compare(self):
         yield self.st, "x = 2; y = 5; y; h = 1 < x >= 3 < x", "h", False
 
