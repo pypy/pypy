@@ -2465,10 +2465,12 @@ class Assembler386(object):
                 value = self.cpu.done_with_this_frame_float_v
             else:
                 raise AssertionError(kind)
-        self.mc.CMP_ri(eax.value, value)
-        # patched later
-        self.mc.J_il8(rx86.Conditions['E'], 0) # goto B if we get 'done_with_this_frame'
-        je_location = self.mc.get_relative_pos()
+
+##        # XXX killed temporarily
+##        self.mc.CMP_ri(eax.value, value)
+##        # patched later
+##        self.mc.J_il8(rx86.Conditions['E'], 0) # goto B if we get 'done_with_this_frame'
+##        je_location = self.mc.get_relative_pos()
         #
         # Path A: use assembler_helper_adr
         jd = descr.outermost_jitdriver_sd
@@ -2479,48 +2481,48 @@ class Assembler386(object):
         if IS_X86_32 and isinstance(result_loc, StackLoc) and result_loc.type == FLOAT:
             self.mc.FSTPL_b(result_loc.value)
         #else: result_loc is already either eax or None, checked below
-        self.mc.JMP_l8(0) # jump to done, patched later
-        jmp_location = self.mc.get_relative_pos()
-        #
-        # Path B: fast path.  Must load the return value, and reset the token
-        offset = jmp_location - je_location
-        assert 0 < offset <= 127
-        self.mc.overwrite(je_location - 1, chr(offset))
-        #
-        # Reset the vable token --- XXX really too much special logic here:-(
-        if jd.index_of_virtualizable >= 0:
-            from pypy.jit.backend.llsupport.descr import FieldDescr
-            fielddescr = jd.vable_token_descr
-            assert isinstance(fielddescr, FieldDescr)
-            ofs = fielddescr.offset
-            self.mc.MOV(eax, arglocs[1])
-            self.mc.MOV_mi((eax.value, ofs), 0)
-            # in the line above, TOKEN_NONE = 0
-        #
-        if op.result is not None:
-            # load the return value from fail_boxes_xxx[0]
-            kind = op.result.type
-            if kind == FLOAT:
-                xmmtmp = xmm0
-                adr = self.fail_boxes_float.get_addr_for_num(0)
-                self.mc.MOVSD(xmmtmp, heap(adr))
-                self.mc.MOVSD(result_loc, xmmtmp)
-            else:
-                assert result_loc is eax
-                if kind == INT:
-                    adr = self.fail_boxes_int.get_addr_for_num(0)
-                    self.mc.MOV(eax, heap(adr))
-                elif kind == REF:
-                    adr = self.fail_boxes_ptr.get_addr_for_num(0)
-                    self.mc.MOV(eax, heap(adr))
-                    self.mc.MOV(heap(adr), imm0)
-                else:
-                    raise AssertionError(kind)
-        #
-        # Here we join Path A and Path B again
-        offset = self.mc.get_relative_pos() - jmp_location
-        assert 0 <= offset <= 127
-        self.mc.overwrite(jmp_location - 1, chr(offset))
+##        self.mc.JMP_l8(0) # jump to done, patched later
+##        jmp_location = self.mc.get_relative_pos()
+##        #
+##        # Path B: fast path.  Must load the return value, and reset the token
+##        offset = jmp_location - je_location
+##        assert 0 < offset <= 127
+##        self.mc.overwrite(je_location - 1, chr(offset))
+##        #
+##        # Reset the vable token --- XXX really too much special logic here:-(
+##        if jd.index_of_virtualizable >= 0:
+##            from pypy.jit.backend.llsupport.descr import FieldDescr
+##            fielddescr = jd.vable_token_descr
+##            assert isinstance(fielddescr, FieldDescr)
+##            ofs = fielddescr.offset
+##            self.mc.MOV(eax, arglocs[1])
+##            self.mc.MOV_mi((eax.value, ofs), 0)
+##            # in the line above, TOKEN_NONE = 0
+##        #
+##        if op.result is not None:
+##            # load the return value from fail_boxes_xxx[0]
+##            kind = op.result.type
+##            if kind == FLOAT:
+##                xmmtmp = xmm0
+##                adr = self.fail_boxes_float.get_addr_for_num(0)
+##                self.mc.MOVSD(xmmtmp, heap(adr))
+##                self.mc.MOVSD(result_loc, xmmtmp)
+##            else:
+##                assert result_loc is eax
+##                if kind == INT:
+##                    adr = self.fail_boxes_int.get_addr_for_num(0)
+##                    self.mc.MOV(eax, heap(adr))
+##                elif kind == REF:
+##                    adr = self.fail_boxes_ptr.get_addr_for_num(0)
+##                    self.mc.MOV(eax, heap(adr))
+##                    self.mc.MOV(heap(adr), imm0)
+##                else:
+##                    raise AssertionError(kind)
+##        #
+##        # Here we join Path A and Path B again
+##        offset = self.mc.get_relative_pos() - jmp_location
+##        assert 0 <= offset <= 127
+##        self.mc.overwrite(jmp_location - 1, chr(offset))
         self.mc.CMP_bi(FORCE_INDEX_OFS, 0)
         self.implement_guard(guard_token, 'L')
 
