@@ -1058,13 +1058,6 @@ eq__Set_frozensettypedef = eq__Set_settypedef
 eq__Frozenset_settypedef = eq__Set_settypedef
 eq__Frozenset_frozensettypedef = eq__Set_settypedef
 
-def eq__Set_ANY(space, w_left, w_other):
-    # workaround to have "set() == 42" return False instead of falling
-    # back to cmp(set(), 42) because the latter raises a TypeError
-    return space.w_False
-
-eq__Frozenset_ANY = eq__Set_ANY
-
 def ne__Set_Set(space, w_left, w_other):
     return space.wrap(not w_left.equals(w_other))
 
@@ -1080,13 +1073,6 @@ def ne__Set_settypedef(space, w_left, w_other):
 ne__Set_frozensettypedef = ne__Set_settypedef
 ne__Frozenset_settypedef = ne__Set_settypedef
 ne__Frozenset_frozensettypedef = ne__Set_settypedef
-
-
-def ne__Set_ANY(space, w_left, w_other):
-    # more workarounds
-    return space.w_True
-
-ne__Frozenset_ANY = ne__Set_ANY
 
 def contains__Set_ANY(space, w_left, w_other):
     try:

@@ -1017,7 +1017,7 @@ def generate_setops():
         exec src.compile() in globals()
 
 
-    for opname in ['lt', 'le', 'eq', 'ne', 'ge', 'gt']:
+    for opname in ['lt', 'le', 'ne', 'ge', 'gt']:
         src = py.code.Source("""
         def {opname}__DictViewKeys_ANY(space, w_dictview, w_other):
             w_left = space.call_function(space.w_set, w_dictview)

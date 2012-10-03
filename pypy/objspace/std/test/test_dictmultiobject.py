@@ -796,7 +796,12 @@ class AppTestDictViews:
         #
         assert d.keys() - {1} == {2, 3}
         assert {1, 4} - d.keys() == {4}
-
+        #
+        assert d.keys() == {1, 2, 3}
+        assert {1, 2, 3} == d.keys()
+        assert not d.keys() != {1, 2, 3}
+        assert not {1, 2, 3} != d.keys()
+        
     def test_keys_items_contained(self):
         def helper(fn):
             empty = fn(dict())
