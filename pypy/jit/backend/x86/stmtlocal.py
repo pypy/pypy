@@ -55,21 +55,28 @@ ASSEMBLER_THREAD_LOCAL = lltype.GcStruct(
                                                FAILARGS_LIMIT)),
     )
 
+def get_thread_ident(cpu):
+    if cpu.with_threads:
+        return get_ident()
+    else:
+        return 0
+
 @rgc.no_collect
 def get_asm_tlocal(cpu):
-    id = get_ident()
+    id = get_thread_ident(cpu)
     return cpu.assembler.asmtlocals[id]
 
 def prepare_asm_tlocal(cpu):
-    id = get_ident()
+    id = get_thread_ident(cpu)
     if id not in cpu.assembler.asmtlocals:
         cpu.assembler.asmtlocals[id] = lltype.malloc(ASSEMBLER_THREAD_LOCAL)
 
 def fail_boxes_int_addr(tlocal, num):
     tgt = llmemory.cast_ptr_to_adr(tlocal)
     tgt += rffi.offsetof(ASSEMBLER_THREAD_LOCAL, 'fail_boxes_int')
+    tgt = rffi.cast(lltype.Signed, tgt)
     tgt += num * rffi.sizeof(lltype.Signed)
-    return rffi.cast(lltype.Signed, tgt)
+    return tgt
 
 def fail_boxes_ptr_addr(tlocal, num):
     tgt = llmemory.cast_ptr_to_adr(tlocal)
@@ -81,5 +88,6 @@ def fail_boxes_ptr_addr(tlocal, num):
 def fail_boxes_float_addr(tlocal, num):
     tgt = llmemory.cast_ptr_to_adr(tlocal)
     tgt += rffi.offsetof(ASSEMBLER_THREAD_LOCAL, 'fail_boxes_float')
+    tgt = rffi.cast(lltype.Signed, tgt)
     tgt += num * rffi.sizeof(longlong.FLOATSTORAGE)
-    return rffi.cast(lltype.Signed, tgt)
+    return tgt
