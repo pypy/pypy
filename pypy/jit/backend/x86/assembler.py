@@ -2151,6 +2151,11 @@ class Assembler386(object):
         self.mc = None
 
     def generate_failure(self, fail_index, locs, boxes):
+        # XXX temporary
+        if len(boxes) == 1 and isinstance(boxes[0], Const):
+            self.mc.MOV_ri(eax.value, boxes[0].getint())
+            locs[0] = regloc.REGLOCS[0]
+        #
         mc2 = codebuf.MachineCodeBlockWrapper()
         self.write_failure_recovery_description(mc2, boxes, locs, fail_index)
         bytecode = mc2.materialize(self.cpu.asmmemmgr, self.allblocks)
@@ -2165,6 +2170,7 @@ class Assembler386(object):
         # Reserve space for all general purpose registers
         mc.ADD_ri(esp.value, -self.cpu.NUM_REGS * WORD)
         # Save the surviving registers in there
+        mc.MOV_sr(ebp.value * WORD, ebp.value)
         for loc in locs:
             if isinstance(loc, RegLoc):
                 assert not loc.is_xmm, "XXX returning an xmm reg: fixme"
