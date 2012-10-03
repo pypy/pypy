@@ -970,25 +970,51 @@ def all_contained_in(space, w_dictview, w_otherview):
 
     return space.w_True
 
-def eq__DictViewKeys_DictViewKeys(space, w_dictview, w_otherview):
-    if space.eq_w(space.len(w_dictview), space.len(w_otherview)):
-        return all_contained_in(space, w_dictview, w_otherview)
+def comparison_impl(fn):
+    opname = fn.func_name
+    types = ['DictViewKeys', 'DictViewItems', 'settypedef', 'frozensettypedef']
+    for lefttype in types:
+        for righttype in types:
+            fnname = '%s__%s_%s' % (opname, lefttype, righttype)
+            globals()[fnname] = fn
+    return fn
+
+@comparison_impl
+def eq(space, w_left, w_right):
+    if space.eq_w(space.len(w_left), space.len(w_right)):
+        return all_contained_in(space, w_left, w_right)
     return space.w_False
-eq__DictViewKeys_settypedef = eq__DictViewKeys_DictViewKeys
-eq__DictViewKeys_frozensettypedef = eq__DictViewKeys_DictViewKeys
 
-eq__DictViewKeys_DictViewItems = eq__DictViewKeys_DictViewKeys
-eq__DictViewItems_DictViewItems = eq__DictViewKeys_DictViewKeys
-eq__DictViewItems_settypedef = eq__DictViewItems_DictViewItems
-eq__DictViewItems_frozensettypedef = eq__DictViewItems_DictViewItems
+@comparison_impl
+def ne(space, w_left, w_right):
+    if not space.eq_w(space.len(w_left), space.len(w_right)):
+        return space.w_True
+    return space.not_(all_contained_in(space, w_left, w_right))
 
-def ne__DictViewKeys_settypedef(space, w_dict, w_set):
-    return space.not_(eq__DictViewItems_settypedef(space, w_dict, w_set))
-ne__DictViewKeys_frozensettypedef = ne__DictViewKeys_settypedef
+@comparison_impl
+def lt(space, w_left, w_right):
+    if space.len_w(w_left) < space.len_w(w_right):
+        return all_contained_in(space, w_left, w_right)
+    return space.w_False
 
-def ne__DictViewItems_settypedef(space, w_dict, w_set):
-    return space.not_(eq__DictViewItems_settypedef(space, w_dict, w_set))
-ne__DictViewItems_frozensettypedef = ne__DictViewItems_settypedef
+@comparison_impl
+def le(space, w_left, w_right):
+    if space.len_w(w_left) <= space.len_w(w_right):
+        return all_contained_in(space, w_left, w_right)
+    return space.w_False
+
+@comparison_impl
+def gt(space, w_left, w_right):
+    if space.len_w(w_left) > space.len_w(w_right):
+        return all_contained_in(space, w_right, w_left)
+    return space.w_False
+
+@comparison_impl
+def ge(space, w_left, w_right):
+    if space.len_w(w_left) >= space.len_w(w_right):
+        return all_contained_in(space, w_right, w_left)
+    return space.w_False
+
 
 def repr__DictViewKeys(space, w_dictview):
     w_seq = space.call_function(space.w_list, w_dictview)
@@ -1022,24 +1048,6 @@ def generate_setops():
         {opname}__DictViewItems_ANY = {opname}__DictViewKeys_ANY
         {opname}__ANY_DictViewItems = {opname}__ANY_DictViewKeys
         """.format(opname=opname, methodname=methodname))
-        exec src.compile() in globals()
-
-
-    for opname in ['lt', 'le', 'ge', 'gt']:
-        src = py.code.Source("""
-        def {opname}__DictViewKeys_ANY(space, w_dictview, w_other):
-            w_left = space.call_function(space.w_set, w_dictview)
-            w_right = space.call_function(space.w_set, w_other)
-            return space.{opname}(w_left, w_right)
-
-        def {opname}__ANY_DictViewKeys(space, w_other, w_dictview):
-            w_left = space.call_function(space.w_set, w_other)
-            w_right = space.call_function(space.w_set, w_dictview)
-            return space.{opname}(w_left, w_right)
-
-        {opname}__DictViewItems_ANY = {opname}__DictViewKeys_ANY
-        {opname}__ANY_DictViewItems = {opname}__ANY_DictViewKeys
-        """.format(opname=opname))
         exec src.compile() in globals()
 
 generate_setops()

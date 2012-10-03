@@ -835,6 +835,10 @@ class AppTestDictViews:
         d = {1: C()}
         assert d.items() <= d.items()
 
+    def test_compare_keys_and_items(self):
+        d1 = {1: 2}
+        d2 = {(1, 2): 'foo'}
+        assert d1.items() == d2.keys()
 
     def test_keys_items_contained(self):
         def helper(fn):
