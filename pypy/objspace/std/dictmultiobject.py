@@ -982,6 +982,7 @@ eq__DictViewItems_DictViewItems = eq__DictViewKeys_DictViewKeys
 eq__DictViewItems_settypedef = eq__DictViewItems_DictViewItems
 eq__DictViewItems_frozensettypedef = eq__DictViewItems_DictViewItems
 
+
 def repr__DictViewKeys(space, w_dictview):
     w_seq = space.call_function(space.w_list, w_dictview)
     w_repr = space.repr(w_seq)
@@ -1017,7 +1018,7 @@ def generate_setops():
         exec src.compile() in globals()
 
 
-    for opname in ['lt', 'le', 'ne', 'ge', 'gt']:
+    for opname in ['lt', 'le', 'ge', 'gt']:
         src = py.code.Source("""
         def {opname}__DictViewKeys_ANY(space, w_dictview, w_other):
             w_left = space.call_function(space.w_set, w_dictview)
