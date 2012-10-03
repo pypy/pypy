@@ -287,7 +287,11 @@ def descr_fromaddr(space, w_cls, addr, name, w_argtypes,
                                                                w_restype)
     addr = rffi.cast(rffi.VOIDP, addr)
     func = libffi.Func(name, argtypes, restype, addr, flags)
-    return W_FuncPtr(func, argtypes_w, w_restype)
+    try:
+        return W_FuncPtr(func, argtypes_w, w_restype)
+    except OSError:
+        raise OperationError(space.w_SystemError,
+                         space.wrap("internal error building the Func object"))
 
 
 W_FuncPtr.typedef = TypeDef(

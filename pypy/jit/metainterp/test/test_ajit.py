@@ -2028,6 +2028,7 @@ class BasicTests:
                 y -= 1
             return res
         def g(x, y):
+            set_param(myjitdriver, 'max_unroll_loops', 5)
             a1 = f(A(x), y)
             a2 = f(A(x), y)
             b1 = f(B(x), y)

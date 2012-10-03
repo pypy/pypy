@@ -153,7 +153,7 @@ class TestCompiler:
             yield self.simple_test, "x = 17 %s 5" % operator, "x", expected
             expected = eval("0 %s 11" % operator)
             yield self.simple_test, "x = 0 %s 11" % operator, "x", expected
-    
+
     def test_compare(self):
         yield self.st, "x = 2; y = 5; y; h = 1 < x >= 3 < x", "h", False
 

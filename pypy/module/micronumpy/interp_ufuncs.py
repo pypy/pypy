@@ -260,7 +260,7 @@ class W_Ufunc1(W_Ufunc):
             return out
         shape = shape_agreement(space, w_obj.get_shape(), out,
                                 broadcast_down=False)
-        return loop.call1(shape, self.func, self.name, calc_dtype, res_dtype,
+        return loop.call1(shape, self.func, calc_dtype, res_dtype,
                           w_obj, out)
 
 
@@ -325,7 +325,7 @@ class W_Ufunc2(W_Ufunc):
             return out
         new_shape = shape_agreement(space, w_lhs.get_shape(), w_rhs)
         new_shape = shape_agreement(space, new_shape, out, broadcast_down=False)
-        return loop.call2(new_shape, self.func, self.name, calc_dtype,
+        return loop.call2(new_shape, self.func, calc_dtype,
                           res_dtype, w_lhs, w_rhs, out)
 
 
