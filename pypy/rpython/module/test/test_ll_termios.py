@@ -1,12 +1,8 @@
-import py
+import pytest
 # tests here are run as snippets through a pexpected python subprocess
 
 def setup_module(mod):
-    try:
-        import termios
-        mod.termios = termios
-    except ImportError:
-        py.test.skip("termios not found")
+    pytest.importorskip('termios')
 
 class ExpectTestLLTermios(object):
     def test_tcgetattr(self):
