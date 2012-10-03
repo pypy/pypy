@@ -162,10 +162,10 @@ static void _prepare_display_colors(void)
         }
         color = 31 + (color % 7);
         p = malloc(20);    /* leak */
-        sprintf(p, "\033[1m\033[%dm", color);
+        sprintf(p, "\033[1m\033[%dm", (int)color);
         debug_start_colors_1 = p;
         p = malloc(16);
-        sprintf(p, "\033[%dm", color);
+        sprintf(p, "\033[%dm", (int)color);
         debug_start_colors_2 = p;
 #endif
     }
