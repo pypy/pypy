@@ -138,7 +138,7 @@ def string_to_bigint(s, base=10, parser=None):
         if (s.endswith(u'l') or s.endswith(u'L')) and base < 22:
             # in base 22 and above, 'L' is a valid digit!  try: long('L',22)
             s = s[:-1]
-        p = NumberStringParser(s, literal, base, u'long')
+        p = NumberStringParser(s, literal, base, u'int')
     else:
         p = parser
     return parse_digit_string(p)
