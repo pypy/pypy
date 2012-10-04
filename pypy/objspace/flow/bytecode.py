@@ -1,6 +1,7 @@
 """
 Bytecode handling classes and functions for use by the flow space.
 """
+from types import CodeType
 from pypy.interpreter.pycode import (PyCode, BytecodeCorruption, cpython_magic,
         cpython_code_signature)
 from pypy.tool.stdlib_opcode import (host_bytecode_spec, EXTENDED_ARG,
@@ -66,6 +67,33 @@ class HostCode(PyCode):
                         while len(self._args_as_cellvars) <= i:
                             self._args_as_cellvars.append(-1)   # pad
                         self._args_as_cellvars[i] = j
+
+    @classmethod
+    def _from_code(cls, space, code, hidden_applevel=False):
+        """Initialize the code object from a real (CPython) one.
+        """
+        newconsts_w = []
+        for num, const in enumerate(code.co_consts):
+            if isinstance(const, CodeType):
+                const = cls._from_code(space, const, hidden_applevel)
+            newconsts_w.append(space.wrap(const))
+        # stick the underlying CPython magic value, if the code object
+        # comes from there
+        return cls(space, code.co_argcount,
+                      code.co_nlocals,
+                      code.co_stacksize,
+                      code.co_flags,
+                      code.co_code,
+                      newconsts_w[:],
+                      list(code.co_names),
+                      list(code.co_varnames),
+                      code.co_filename,
+                      code.co_name,
+                      code.co_firstlineno,
+                      code.co_lnotab,
+                      list(code.co_freevars),
+                      list(code.co_cellvars),
+                      hidden_applevel, cpython_magic)
 
     def make_cells(self, closure):
         """Convert a Python closure object into a list of Cells"""
