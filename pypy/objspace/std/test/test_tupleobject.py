@@ -330,6 +330,8 @@ class AppTestW_TupleObject:
         assert repr((1,)) == '(1,)'
         assert repr(()) == '()'
         assert repr((1,2,3)) == '(1, 2, 3)'
+        assert repr(('\xe9',)) == "('\xe9',)"
+        assert repr(('\xe9', 1)) == "('\xe9', 1)"
 
     def test_getslice(self):
         assert ('a', 'b', 'c')[-17: 2] == ('a', 'b')

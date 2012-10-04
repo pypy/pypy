@@ -161,10 +161,11 @@ def repr__Tuple(space, w_tuple):
     # XXX this is quite innefficient, still better than calling
     #     it via applevel
     if len(items) == 1:
-        return space.wrap("(" + space.str_w(space.repr(items[0])) + ",)")
-    return space.wrap("(" +
-                 (", ".join([space.str_w(space.repr(item)) for item in items]))
-                      + ")")
+        return space.wrap(u"(" + space.unicode_w(space.repr(items[0])) + u",)")
+    return space.wrap(u"(" +
+                 (u", ".join([space.unicode_w(space.repr(item))
+                              for item in items]))
+                      + u")")
 
 def hash__Tuple(space, w_tuple):
     return space.wrap(hash_tuple(space, w_tuple.wrappeditems))
