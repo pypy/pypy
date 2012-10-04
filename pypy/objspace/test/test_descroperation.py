@@ -440,6 +440,10 @@ class AppTest_Descroperation:
         assert B(1) == A(1)
         assert not(A(1) == B(2))
         assert not(B(1) == A(2))
+        assert A(1) != B(2)
+        assert B(1) != A(2)
+        assert not(A(1) != B(1))
+        assert not(B(1) != A(1))
 
     def test_partial_ordering(self):
         class A(object):
