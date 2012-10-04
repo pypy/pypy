@@ -13,7 +13,7 @@ class PyGraph(FunctionGraph):
     def __init__(self, func, code):
         from pypy.objspace.flow.flowcontext import SpamBlock
         data = [None] * code.co_nlocals
-        for i in range(code.getformalargcount()):
+        for i in range(code.formalargcount):
             data[i] = Variable()
         state = FrameState(data + [Constant(None), Constant(None)], [], 0)
         initialblock = SpamBlock(state)
@@ -23,7 +23,7 @@ class PyGraph(FunctionGraph):
 
         super(PyGraph, self).__init__(self._sanitize_funcname(func), initialblock)
         self.func = func
-        self.signature = code.signature()
+        self.signature = code.signature
         self.defaults = func.func_defaults or ()
 
     @staticmethod

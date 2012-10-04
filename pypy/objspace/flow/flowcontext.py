@@ -240,7 +240,7 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         """
         Initialize the locals and the stack.
 
-        The locals are ordered according to self.pycode.signature().
+        The locals are ordered according to self.pycode.signature.
         """
         self.valuestackdepth = code.co_nlocals
         self.locals_stack_w = [None] * (code.co_stacksize + code.co_nlocals)

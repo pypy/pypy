@@ -2,7 +2,7 @@
 Bytecode handling classes and functions for use by the flow space.
 """
 from types import CodeType
-from pypy.interpreter.pycode import (PyCode, BytecodeCorruption, cpython_magic,
+from pypy.interpreter.pycode import (BytecodeCorruption, cpython_magic,
         cpython_code_signature)
 from pypy.tool.stdlib_opcode import (host_bytecode_spec, EXTENDED_ARG,
         HAVE_ARGUMENT)
@@ -11,7 +11,7 @@ from pypy.interpreter.astcompiler.consts import (CO_GENERATOR, CO_NEWLOCALS,
 from pypy.interpreter.nestedscope import Cell
 from pypy.objspace.flow.model import Constant
 
-class HostCode(PyCode):
+class HostCode(object):
     """
     A wrapper around a native code object of the host interpreter
     """
@@ -41,7 +41,7 @@ class HostCode(PyCode):
         self.co_lnotab = lnotab
         self.hidden_applevel = hidden_applevel
         self.magic = magic
-        self._signature = cpython_code_signature(self)
+        self.signature = cpython_code_signature(self)
         self._initialize()
 
     def _initialize(self):
@@ -94,6 +94,12 @@ class HostCode(PyCode):
                       list(code.co_freevars),
                       list(code.co_cellvars),
                       hidden_applevel, cpython_magic)
+
+    @property
+    def formalargcount(self):
+        """Total number of arguments passed into the frame, including *vararg
+        and **varkwarg, if they exist."""
+        return self.signature.scope_length()
 
     def make_cells(self, closure):
         """Convert a Python closure object into a list of Cells"""
