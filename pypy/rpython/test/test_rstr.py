@@ -1026,6 +1026,19 @@ class BaseTestRstr(AbstractTestRstr):
     const = str
     constchar = chr
 
+    def test_lower_char(self):
+        def fn(i):
+            return chr(i).lower()
+        for c in ["a", "A", "1"]:
+            assert self.interpret(fn, [ord(c)]) == c.lower()
+
+    def test_upper_char(self):
+        def fn(i):
+            return chr(i).upper()
+        for c in ["a", "A", "1"]:
+            assert self.interpret(fn, [ord(c)]) == c.upper()
+
+
 class TestLLtype(BaseTestRstr, LLRtypeMixin):
 
     def test_ll_find_rfind(self):
@@ -1056,4 +1069,8 @@ class TestLLtype(BaseTestRstr, LLRtypeMixin):
 
 
 class TestOOtype(BaseTestRstr, OORtypeMixin):
-    pass
+    def test_lower_char(self):
+        py.test.skip()
+
+    def test_upper_char(self):
+        py.test.skip()
