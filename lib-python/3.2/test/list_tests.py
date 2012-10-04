@@ -48,7 +48,7 @@ class CommonTest(seq_tests.CommonTest):
         self.assertEqual(repr(a2), "[0, 1, 2, [...], 3]")
 
         l0 = []
-        for i in range(sys.getrecursionlimit() + 100):
+        for i in range(sys.getrecursionlimit() + 10000):
             l0 = [l0]
         self.assertRaises(RuntimeError, repr, l0)
 
@@ -482,7 +482,7 @@ class CommonTest(seq_tests.CommonTest):
         u += "eggs"
         self.assertEqual(u, self.type2test("spameggs"))
 
-        self.assertRaises(TypeError, u.__iadd__, None)
+        self.assertRaises(TypeError, "u += None")
 
     def test_imul(self):
         u = self.type2test([0, 1])
