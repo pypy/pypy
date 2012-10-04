@@ -130,7 +130,7 @@ class AppTestMath:
 
     def test_mtestfile(self):
         import math
-        import abc
+        import zipfile
         import os
         import struct
         def _parse_mtestfile(fname):
@@ -207,7 +207,7 @@ class AppTestMath:
         fail_fmt = "{}:{}({!r}): expected {!r}, got {!r}"
 
         failures = []
-        math_testcases = os.path.join(os.path.dirname(abc.__file__), "test",
+        math_testcases = os.path.join(os.path.dirname(zipfile.__file__), "test",
                                       "math_testcases.txt")
         for id, fn, arg, expected, flags in _parse_mtestfile(math_testcases):
             func = getattr(math, fn)
