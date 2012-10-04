@@ -17,12 +17,11 @@ class HostCode(object):
     """
     opnames = host_bytecode_spec.method_names
 
-    def __init__(self, space,  argcount, nlocals, stacksize, flags,
+    def __init__(self, argcount, nlocals, stacksize, flags,
                      code, consts, names, varnames, filename,
                      name, firstlineno, lnotab, freevars, cellvars,
                      hidden_applevel=False, magic=cpython_magic):
         """Initialize a new code object"""
-        self.space = space
         self.co_name = name
         assert nlocals >= 0
         self.co_argcount = argcount
@@ -69,17 +68,17 @@ class HostCode(object):
                         self._args_as_cellvars[i] = j
 
     @classmethod
-    def _from_code(cls, space, code, hidden_applevel=False):
+    def _from_code(cls, code, hidden_applevel=False):
         """Initialize the code object from a real (CPython) one.
         """
         newconsts = []
         for const in code.co_consts:
             if isinstance(const, CodeType):
-                const = cls._from_code(space, const, hidden_applevel)
+                const = cls._from_code(const, hidden_applevel)
             newconsts.append(const)
         # stick the underlying CPython magic value, if the code object
         # comes from there
-        return cls(space, code.co_argcount,
+        return cls(code.co_argcount,
                       code.co_nlocals,
                       code.co_stacksize,
                       code.co_flags,

@@ -239,7 +239,7 @@ class FlowObjSpace(object):
         """
         if func.func_doc and func.func_doc.lstrip().startswith('NOT_RPYTHON'):
             raise Exception, "%r is tagged as NOT_RPYTHON" % (func,)
-        code = HostCode._from_code(self, func.func_code)
+        code = HostCode._from_code(func.func_code)
         if (code.is_generator and
                 not hasattr(func, '_generator_next_method_of_')):
             graph = PyGraph(func, code)

@@ -14,7 +14,7 @@ class TestFrameState:
             func = func.im_func
         except AttributeError:
             pass
-        code = HostCode._from_code(self.space, func.func_code)
+        code = HostCode._from_code(func.func_code)
         graph = PyGraph(func, code)
         frame = FlowSpaceFrame(self.space, graph, code)
         # hack the frame
