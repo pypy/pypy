@@ -30,8 +30,8 @@ class HostCode(PyCode):
         self.co_stacksize = stacksize
         self.co_flags = flags
         self.co_code = code
-        self.co_consts_w = consts
-        self.co_names_w = [space.wrap(aname) for aname in names]
+        self.consts = consts
+        self.names = names
         self.co_varnames = varnames
         self.co_freevars = freevars
         self.co_cellvars = cellvars
@@ -72,11 +72,11 @@ class HostCode(PyCode):
     def _from_code(cls, space, code, hidden_applevel=False):
         """Initialize the code object from a real (CPython) one.
         """
-        newconsts_w = []
-        for num, const in enumerate(code.co_consts):
+        newconsts = []
+        for const in code.co_consts:
             if isinstance(const, CodeType):
                 const = cls._from_code(space, const, hidden_applevel)
-            newconsts_w.append(space.wrap(const))
+            newconsts.append(const)
         # stick the underlying CPython magic value, if the code object
         # comes from there
         return cls(space, code.co_argcount,
@@ -84,7 +84,7 @@ class HostCode(PyCode):
                       code.co_stacksize,
                       code.co_flags,
                       code.co_code,
-                      newconsts_w[:],
+                      newconsts,
                       list(code.co_names),
                       list(code.co_varnames),
                       code.co_filename,

@@ -420,6 +420,18 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
             next_instr = block.handle(self, unroller)
             return next_instr
 
+    def getlocalvarname(self, index):
+        return self.pycode.co_varnames[index]
+
+    def getconstant_w(self, index):
+        return self.space.wrap(self.pycode.consts[index])
+
+    def getname_u(self, index):
+        return self.pycode.names[index]
+
+    def getname_w(self, index):
+        return Constant(self.pycode.names[index])
+
     def BAD_OPCODE(self, _, next_instr):
         raise FlowingError(self, "This operation is not RPython")
 
