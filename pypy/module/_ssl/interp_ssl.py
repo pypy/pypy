@@ -266,6 +266,8 @@ class SSLContext(Wrappable):
 SSLContext.typedef = TypeDef(
     "_SSLContext",
     __new__ = interp2app(SSLContext.descr_new.im_func),
+    options = GetSetProperty(SSLContext.get_options_w,
+                             SSLContext.set_options_w),
     verify_mode = GetSetProperty(SSLContext.get_verify_mode_w,
                                  SSLContext.set_verify_mode_w),
     _wrap_socket = interp2app(SSLContext.wrap_socket_w),
