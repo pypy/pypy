@@ -137,6 +137,10 @@ class CallControl(object):
             if (hasattr(targetgraph, 'func') and
                 hasattr(targetgraph.func, 'oopspec')):
                 return 'builtin'
+            if (hasattr(targetgraph, 'func') and
+                getattr(targetgraph.func, '_gctransformer_hint_close_stack_',
+                    False)):
+                return 'residual'
         elif op.opname == 'oosend':
             SELFTYPE, methname, opargs = support.decompose_oosend(op)
             if SELFTYPE.oopspec_name is not None:
