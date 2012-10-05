@@ -247,6 +247,21 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         self.valuestackdepth = code.co_nlocals
         self.locals_stack_w = [None] * (code.co_stacksize + code.co_nlocals)
 
+    def save_locals_stack(self):
+        return self.locals_stack_w[:self.valuestackdepth]
+
+    def restore_locals_stack(self, items_w):
+        self.locals_stack_w[:len(items_w)] = items_w
+        self.init_cells()
+        self.dropvaluesuntil(len(items_w))
+
+    def init_cells(self):
+        if self.cells is None:
+            return
+        args_to_copy = self.pycode._args_as_cellvars
+        for cellnum, argnum in args_to_copy.iteritems():
+            self.cells[cellnum].set(self.locals_stack_w[argnum])
+
     def getstate(self):
         # getfastscope() can return real None, for undefined locals
         data = self.save_locals_stack()

@@ -1054,7 +1054,7 @@ class TestFlowObjSpace(Base):
         with py.test.raises(FlowingError):
             self.codetest(f)
 
-    def test_cellvar(self):
+    def test_cellvar_store(self):
         def f():
             x = 5
             return x
@@ -1062,6 +1062,18 @@ class TestFlowObjSpace(Base):
         graph = self.codetest(f)
         assert len(graph.startblock.exits) == 1
         assert graph.startblock.exits[0].target == graph.returnblock
+
+    def test_arg_as_cellvar(self):
+        def f(x, y, z):
+            a, b, c = 1, 2, 3
+            z = b
+            return z
+            lambda: (a, b, x, z) # make cell variables
+        graph = self.codetest(f)
+        assert len(graph.startblock.exits) == 1
+        assert graph.startblock.exits[0].target == graph.returnblock
+        assert not graph.startblock.operations
+        assert graph.startblock.exits[0].args[0].value == 2
 
     def test_lambda(self):
         def f():

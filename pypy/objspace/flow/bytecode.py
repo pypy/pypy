@@ -42,26 +42,18 @@ class HostCode(object):
 
     def _initialize(self):
         # Precompute what arguments need to be copied into cellvars
-        self._args_as_cellvars = []
+        self._args_as_cellvars = {}
 
         if self.co_cellvars:
-            argcount = self.co_argcount
-            assert argcount >= 0     # annotator hint
-            if self.co_flags & CO_VARARGS:
-                argcount += 1
-            if self.co_flags & CO_VARKEYWORDS:
-                argcount += 1
             # Cell vars could shadow already-set arguments.
             # See comment in PyCode._initialize()
             argvars  = self.co_varnames
             cellvars = self.co_cellvars
             for i in range(len(cellvars)):
                 cellname = cellvars[i]
-                for j in range(argcount):
+                for j in range(self.formalargcount):
                     if cellname == argvars[j]:
                         # argument j has the same name as the cell var i
-                        while len(self._args_as_cellvars) <= i:
-                            self._args_as_cellvars.append(-1)   # pad
                         self._args_as_cellvars[i] = j
 
     @classmethod
