@@ -73,6 +73,15 @@ class GraphAnalyzer(object):
         if op.opname == "direct_call":
             graph = get_graph(op.args[0], self.translator)
             if graph is None:
+                try:   # detect calls to DelayedPointers
+                    op.args[0].value._obj
+                except AttributeError:
+                    pass    # ootype
+                except lltype.DelayedPointer:
+                    x = self.top_result()
+                    if self.verbose:
+                        print '\tdelayed pointer %s: %r' % (op, x)
+                    return x
                 x = self.analyze_external_call(op, seen)
                 if self.verbose and x:
                     print '\tanalyze_external_call %s: %r' % (op, x)

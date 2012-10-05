@@ -21,9 +21,9 @@ def get_funcobj(func):
     Return an object which is supposed to have attributes such as graph and
     _callable
     """
-    if hasattr(func, '_obj'): 
+    try:
         return func._obj # lltypesystem
-    else:
+    except AttributeError:
         return func # ootypesystem
 
 def get_functype(TYPE):
