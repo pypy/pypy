@@ -222,6 +222,7 @@ def _ll_list_resize_hint(l, newsize):
     list to the newsize (and after the operation incase the initial
     guess lied).
     """
+    assert newsize >= 0, "negative list length"
     allocated = len(l.items)
     if allocated < newsize or newsize < (allocated >> 1) - 5:
         _ll_list_resize_hint_really(l, newsize, False)

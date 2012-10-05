@@ -222,6 +222,8 @@ in length to the length of the shortest argument sequence."""
         hint = operator._length_hint(seq, min_hint)
         if min_hint == -1 or hint < min_hint:
             min_hint = hint
+    if min_hint == -1:
+        min_hint = 0
 
     with _ManagedNewlistHint(min_hint) as result:
         while True:

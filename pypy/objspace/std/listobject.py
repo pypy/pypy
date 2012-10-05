@@ -449,6 +449,7 @@ class EmptyListStrategy(ListStrategy):
         pass
 
     def _resize_hint(self, w_list, hint):
+        assert hint >= 0
         if hint:
             w_list.strategy = SizeListStrategy(self.space, hint)
 
@@ -536,6 +537,7 @@ class SizeListStrategy(EmptyListStrategy):
         ListStrategy.__init__(self, space)
 
     def _resize_hint(self, w_list, hint):
+        assert hint >= 0
         self.sizehint = hint
 
 class RangeListStrategy(ListStrategy):
@@ -572,7 +574,7 @@ class RangeListStrategy(ListStrategy):
 
     def _resize_hint(self, w_list, hint):
         # XXX: this could be supported
-        pass
+        assert hint >= 0
 
     def copy_into(self, w_list, w_other):
         w_other.strategy = self
