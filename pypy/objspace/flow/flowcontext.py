@@ -1,4 +1,6 @@
+import sys
 import collections
+
 from pypy.tool.error import source_lines
 from pypy.interpreter import pyframe
 from pypy.interpreter.nestedscope import Cell
@@ -636,19 +638,13 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         # Note: RPython context managers receive None in lieu of tracebacks
         # and cannot suppress the exception.
         # This opcode changed a lot between CPython versions
-        if (self.pycode.magic >= 0xa0df2ef
-            # Implementation since 2.7a0: 62191 (introduce SETUP_WITH)
-            or self.pycode.magic >= 0xa0df2d1):
-            # implementation since 2.6a1: 62161 (WITH_CLEANUP optimization)
+        if sys.version_info >= (2, 6):
             w_unroller = self.popvalue()
             w_exitfunc = self.popvalue()
             self.pushvalue(w_unroller)
-        elif self.pycode.magic >= 0xa0df28c:
-            # Implementation since 2.5a0: 62092 (changed WITH_CLEANUP opcode)
+        else:
             w_exitfunc = self.popvalue()
             w_unroller = self.peekvalue(0)
-        else:
-            raise NotImplementedError("WITH_CLEANUP for CPython <= 2.4")
 
         unroller = self.space.unwrap(w_unroller)
         w_None = self.space.w_None

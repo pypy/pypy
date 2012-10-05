@@ -38,7 +38,6 @@ class HostCode(object):
         self.co_name = name
         self.co_firstlineno = firstlineno
         self.co_lnotab = lnotab
-        self.magic = magic
         self.signature = cpython_code_signature(self)
         self._initialize()
 
