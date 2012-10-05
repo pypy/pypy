@@ -19,8 +19,7 @@ class HostCode(object):
 
     def __init__(self, argcount, nlocals, stacksize, flags,
                      code, consts, names, varnames, filename,
-                     name, firstlineno, lnotab, freevars, cellvars,
-                     magic=cpython_magic):
+                     name, firstlineno, lnotab, freevars, cellvars):
         """Initialize a new code object"""
         self.co_name = name
         assert nlocals >= 0
@@ -69,19 +68,12 @@ class HostCode(object):
     def _from_code(cls, code):
         """Initialize the code object from a real (CPython) one.
         """
-        newconsts = []
-        for const in code.co_consts:
-            if isinstance(const, CodeType):
-                const = cls._from_code(const)
-            newconsts.append(const)
-        # stick the underlying CPython magic value, if the code object
-        # comes from there
         return cls(code.co_argcount,
                       code.co_nlocals,
                       code.co_stacksize,
                       code.co_flags,
                       code.co_code,
-                      newconsts,
+                      list(code.co_consts),
                       list(code.co_names),
                       list(code.co_varnames),
                       code.co_filename,
@@ -89,8 +81,7 @@ class HostCode(object):
                       code.co_firstlineno,
                       code.co_lnotab,
                       list(code.co_freevars),
-                      list(code.co_cellvars),
-                      cpython_magic)
+                      list(code.co_cellvars))
 
     @property
     def formalargcount(self):

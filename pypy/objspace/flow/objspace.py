@@ -98,6 +98,17 @@ class FlowObjSpace(object):
         else:
             return self.w_False
 
+    def newfunction(self, w_code, w_globals, defaults_w):
+        try:
+            code = self.unwrap(w_code)
+            globals = self.unwrap(w_globals)
+            defaults = tuple([self.unwrap(value) for value in defaults_w])
+        except UnwrapException:
+            raise FlowingError(self.frame, "Dynamically created function must"
+                    " have constant default values.")
+        fn = types.FunctionType(code, globals, code.co_name, defaults)
+        return Constant(fn)
+
     def wrap(self, obj):
         if isinstance(obj, (Variable, Constant)):
             raise TypeError("already wrapped: " + repr(obj))

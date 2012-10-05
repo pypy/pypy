@@ -1063,6 +1063,32 @@ class TestFlowObjSpace(Base):
         assert len(graph.startblock.exits) == 1
         assert graph.startblock.exits[0].target == graph.returnblock
 
+    def test_lambda(self):
+        def f():
+            g = lambda m, n: n*m
+            return g
+        graph = self.codetest(f)
+        assert len(graph.startblock.exits) == 1
+        assert graph.startblock.exits[0].target == graph.returnblock
+        g = graph.startblock.exits[0].args[0].value
+        assert g(4, 4) == 16
+
+    def test_lambda_with_defaults(self):
+        def f():
+            g = lambda m, n=5: n*m
+            return g
+        graph = self.codetest(f)
+        assert len(graph.startblock.exits) == 1
+        assert graph.startblock.exits[0].target == graph.returnblock
+        g = graph.startblock.exits[0].args[0].value
+        assert g(4) == 20
+
+        def f2(x):
+            g = lambda m, n=x: n*m
+            return g
+        with py.test.raises(FlowingError):
+            self.codetest(f2)
+
 DATA = {'x': 5,
         'y': 6}
 

@@ -676,6 +676,12 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         self.pushvalue(self.space.newlist([]))
         self.pushvalue(last_val)
 
+    def MAKE_FUNCTION(self, numdefaults, next_instr):
+        w_codeobj = self.popvalue()
+        defaults = self.popvalues(numdefaults)
+        fn = self.space.newfunction(w_codeobj, self.w_globals, defaults)
+        self.pushvalue(fn)
+
     # XXX Unimplemented 2.7 opcodes ----------------
 
     # Set literals, set comprehensions
