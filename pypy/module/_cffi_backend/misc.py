@@ -1,7 +1,7 @@
 from __future__ import with_statement
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
-from pypy.rlib.rarithmetic import r_ulonglong
+from pypy.rlib.rarithmetic import r_uint, r_ulonglong
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.objectmodel import keepalive_until_here
 from pypy.rlib import jit
@@ -180,6 +180,20 @@ def as_unsigned_long_long(space, w_ob, strict):
 
 neg_msg = "can't convert negative number to unsigned"
 ovf_msg = "long too big to convert"
+
+def as_unsigned_long_nonstrict(space, w_ob):
+    # optimized version of as_unsigned_long_long(strict=False) if we're
+    # only interested in an Unsigned value
+    if space.is_w(space.type(w_ob), space.w_int):   # shortcut
+        value = space.int_w(w_ob)
+        return r_uint(value)
+    try:
+        bigint = space.bigint_w(w_ob)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        bigint = space.bigint_w(space.int(w_ob))
+    return bigint.uintmask()
 
 # ____________________________________________________________
 
