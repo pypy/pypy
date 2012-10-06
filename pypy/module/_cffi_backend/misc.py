@@ -46,7 +46,7 @@ def read_raw_unsigned_data(target, size):
             return rffi.cast(lltype.UnsignedLongLong, rffi.cast(TPP,target)[0])
     raise NotImplementedError("bad integer size")
 
-def read_raw_ulong_data(target, size):
+def read_raw_uint_data(target, size):
     # only for types smaller than Unsigned
     for TP, TPP in _prim_unsigned_types:
         if size == rffi.sizeof(TP):

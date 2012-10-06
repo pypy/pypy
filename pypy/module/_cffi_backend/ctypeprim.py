@@ -223,7 +223,7 @@ class W_CTypePrimitiveUnsigned(W_CTypePrimitive):
 
     def convert_to_object(self, cdata):
         if self.value_fits_long:
-            value = misc.read_raw_ulong_data(cdata, self.size)
+            value = misc.read_raw_uint_data(cdata, self.size)
             return self.space.wrap(value)
         else:
             value = misc.read_raw_unsigned_data(cdata, self.size)

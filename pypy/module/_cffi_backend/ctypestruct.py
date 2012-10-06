@@ -7,7 +7,7 @@ from pypy.rpython.lltypesystem import rffi
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.rlib.objectmodel import keepalive_until_here
-from pypy.rlib.rarithmetic import r_ulonglong, r_longlong, intmask
+from pypy.rlib.rarithmetic import r_uint, r_ulonglong, r_longlong, intmask
 from pypy.rlib import jit
 
 from pypy.module._cffi_backend.ctypeobj import W_CType
@@ -195,14 +195,19 @@ class W_CField(Wrappable):
         space = ctype.space
         #
         if isinstance(ctype, ctypeprim.W_CTypePrimitiveSigned):
-            value = r_ulonglong(misc.read_raw_signed_data(cdata, ctype.size))
-            valuemask = (r_ulonglong(1) << self.bitsize) - 1
-            shiftforsign = r_ulonglong(1) << (self.bitsize - 1)
-            value = ((value >> self.bitshift) + shiftforsign) & valuemask
-            result = r_longlong(value) - r_longlong(shiftforsign)
             if ctype.value_fits_long:
-                return space.wrap(intmask(result))
+                value = r_uint(misc.read_raw_long_data(cdata, ctype.size))
+                valuemask = (r_uint(1) << self.bitsize) - 1
+                shiftforsign = r_uint(1) << (self.bitsize - 1)
+                value = ((value >> self.bitshift) + shiftforsign) & valuemask
+                result = intmask(value) - intmask(shiftforsign)
+                return space.wrap(result)
             else:
+                value = misc.read_raw_unsigned_data(cdata, ctype.size)
+                valuemask = (r_ulonglong(1) << self.bitsize) - 1
+                shiftforsign = r_ulonglong(1) << (self.bitsize - 1)
+                value = ((value >> self.bitshift) + shiftforsign) & valuemask
+                result = r_longlong(value) - r_longlong(shiftforsign)
                 return space.wrap(result)
         #
         if isinstance(ctype, ctypeprim.W_CTypePrimitiveUnsigned):
@@ -212,12 +217,15 @@ class W_CField(Wrappable):
         else:
             raise NotImplementedError
         #
-        value = misc.read_raw_unsigned_data(cdata, ctype.size)
-        valuemask = (r_ulonglong(1) << self.bitsize) - 1
-        value = (value >> self.bitshift) & valuemask
         if value_fits_long:
+            value = r_uint(misc.read_raw_uint_data(cdata, ctype.size))
+            valuemask = (r_uint(1) << self.bitsize) - 1
+            value = (value >> self.bitshift) & valuemask
             return space.wrap(intmask(value))
         else:
+            value = misc.read_raw_unsigned_data(cdata, ctype.size)
+            valuemask = (r_ulonglong(1) << self.bitsize) - 1
+            value = (value >> self.bitshift) & valuemask
             return space.wrap(value)
 
     def convert_bitfield_from_object(self, cdata, w_ob):
