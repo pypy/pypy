@@ -3,7 +3,7 @@ Struct and unions.
 """
 
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.rpython.lltypesystem import rffi
+from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.rlib.objectmodel import keepalive_until_here
@@ -212,21 +212,26 @@ class W_CField(Wrappable):
         #
         if isinstance(ctype, ctypeprim.W_CTypePrimitiveUnsigned):
             value_fits_long = ctype.value_fits_long
+            value_fits_ulong = ctype.value_fits_ulong
         elif isinstance(ctype, ctypeprim.W_CTypePrimitiveCharOrUniChar):
             value_fits_long = True
+            value_fits_ulong = True
         else:
             raise NotImplementedError
         #
-        if value_fits_long:
-            value = r_uint(misc.read_raw_uint_data(cdata, ctype.size))
+        if value_fits_ulong:
+            value = misc.read_raw_ulong_data(cdata, ctype.size)
             valuemask = (r_uint(1) << self.bitsize) - 1
             value = (value >> self.bitshift) & valuemask
-            return space.wrap(intmask(value))
+            if value_fits_long:
+                return space.wrap(intmask(value))
+            else:
+                return space.wrap(value)    # uint => wrapped long object
         else:
             value = misc.read_raw_unsigned_data(cdata, ctype.size)
             valuemask = (r_ulonglong(1) << self.bitsize) - 1
             value = (value >> self.bitshift) & valuemask
-            return space.wrap(value)
+            return space.wrap(value)      # ulonglong => wrapped long object
 
     def convert_bitfield_from_object(self, cdata, w_ob):
         ctype = self.ctype

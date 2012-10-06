@@ -53,7 +53,7 @@ class W_CTypePtrOrArray(W_CType):
                 isinstance(ob.ctype, W_CTypePtrOrArray)):
             value = ob._cdata
         else:
-            value = misc.as_unsigned_long_nonstrict(space, w_ob)
+            value = misc.as_unsigned_long(space, w_ob, strict=False)
             value = rffi.cast(rffi.CCHARP, value)
         return cdataobj.W_CData(space, value, self)
 
