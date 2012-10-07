@@ -1,6 +1,5 @@
 from pypy.rpython.memory.gctransform.transform import BaseGCTransformer
 from pypy.objspace.flow.model import c_last_exception, Variable
-from pypy.rpython.memory.gctransform.support import var_ispyobj
 from pypy.translator.backendopt.support import var_needsgc
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.translator.exceptiontransform import ExceptionTransformer
@@ -110,22 +109,13 @@ def checkblock(block, is_borrowed, is_start_block):
                                                   and not is_borrowed(v)])
     push_alives = len([op for op in block.operations
                        if op.opname == 'gc_push_alive'])
-    pyobj_push_alives = len([op for op in block.operations
-                             if op.opname == 'gc_push_alive_pyobj'])
 
-    # implicit_pyobj_pushalives included calls to things that return pyobject*
-    implicit_pyobj_pushalives = len([op for op in block.operations
-                                     if var_ispyobj(op.result)
-                                     and op.opname not in ('getfield', 'getarrayitem', 'same_as')])
-    nonpyobj_gc_returning_calls = len([op for op in block.operations
-                                       if op.opname in ('direct_call', 'indirect_call')
-                                       and var_needsgc(op.result)
-                                       and not var_ispyobj(op.result)])
+    gc_returning_calls = len([op for op in block.operations
+                              if op.opname in ('direct_call', 'indirect_call')
+                              and var_needsgc(op.result)])
 
     pop_alives = len([op for op in block.operations
                       if op.opname == 'gc_pop_alive'])
-    pyobj_pop_alives = len([op for op in block.operations
-                            if op.opname == 'gc_pop_alive_pyobj'])
     if pop_alives == len(block.operations):
         # it's a block we inserted
         return
@@ -135,9 +125,8 @@ def checkblock(block, is_borrowed, is_start_block):
         for v2 in link.target.inputargs:
             if var_needsgc(v2) and not is_borrowed(v2):
                 refs_out += 1
-        pyobj_pushes = pyobj_push_alives + implicit_pyobj_pushalives
-        nonpyobj_pushes = push_alives + nonpyobj_gc_returning_calls
-        assert refs_in + pyobj_pushes + nonpyobj_pushes == pop_alives + pyobj_pop_alives + refs_out
+        pushes = push_alives + gc_returning_calls
+        assert refs_in + pushes == pop_alives + refs_out
 
 def rtype(func, inputtypes, specialize=True):
     t = TranslationContext()
@@ -228,55 +217,6 @@ def test_multiply_passed_var():
             b.x = 2
         return a.x + b.x
     t, transformer = rtype_and_transform(f, [int], _TestGCTransformer)
-
-def test_pyobj():
-    def f(x):
-        if x:
-            a = 1
-        else:
-            a = "1"
-        return int(a)
-    t, transformer = rtype_and_transform(f, [int], _TestGCTransformer)
-    fgraph = graphof(t, f)
-    gcops = [op for op in fgraph.startblock.exits[0].target.operations
-                 if op.opname.startswith("gc_")]
-    for op in gcops:
-        assert op.opname.endswith("_pyobj")
-
-def test_call_return_pyobj():
-    def g(factory):
-        return factory()
-    def f(factory):
-        g(factory)
-    t, transformer = rtype_and_transform(f, [object], _TestGCTransformer)
-    fgraph = graphof(t, f)
-    ops = getops(fgraph)
-    calls = ops['direct_call']
-    for call in calls:
-        if call.result.concretetype is not lltype.Bool: #RPyExceptionOccurred()
-            assert var_ispyobj(call.result)
-
-def test_getfield_pyobj():
-    class S:
-        pass
-    def f(thing):
-        s = S()
-        s.x = thing
-        return s.x
-    t, transformer = rtype_and_transform(f, [object], _TestGCTransformer)
-    fgraph = graphof(t, f)
-    pyobj_getfields = 0
-    pyobj_setfields = 0
-    for b in fgraph.iterblocks():
-        for op in b.operations:
-            if op.opname == 'getfield' and var_ispyobj(op.result):
-                pyobj_getfields += 1
-            elif op.opname == 'bare_setfield' and var_ispyobj(op.args[2]):
-                pyobj_setfields += 1
-    # although there's only one explicit getfield in the code, a
-    # setfield on a pyobj must get the old value out and decref it
-    assert pyobj_getfields >= 2
-    assert pyobj_setfields >= 1
 
 def test_pass_gc_pointer():
     S = lltype.GcStruct("S", ('x', lltype.Signed))
