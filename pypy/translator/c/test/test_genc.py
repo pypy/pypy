@@ -44,19 +44,11 @@ def compile(fn, argtypes, view=False, gcpolicy="ref", backendopt=True,
 def test_simple():
     def f(x):
         return x*2
-    t = TranslationContext()
-    t.buildannotator().build_types(f, [int])
-    t.buildrtyper().specialize()
 
-    t.config.translation.countmallocs = True
-    builder = genc.CExtModuleBuilder(t, f, config=t.config)
-    builder.generate_source()
-    builder.compile()
-    f1 = builder.get_entry_point()
+    f1 = compile(f, [int])
 
     assert f1(5) == 10
     assert f1(-123) == -246
-    assert builder.get_malloc_counters()() == (0, 0)
 
     py.test.raises(Exception, f1, "world")  # check that it's really typed
 

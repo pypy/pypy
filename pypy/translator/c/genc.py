@@ -276,44 +276,6 @@ class CBuilder(object):
             extrafiles.append(fn)
         return extrafiles
 
-class ModuleWithCleanup(object):
-    def __init__(self, mod):
-        self.__dict__['mod'] = mod
-
-    def __getattr__(self, name):
-        mod = self.__dict__['mod']
-        obj = getattr(mod, name)
-        parentself = self
-        if callable(obj) and getattr(obj, '__module__', None) == mod.__name__:
-            # The module must be kept alive with the function.
-            # This wrapper avoids creating a cycle.
-            class Wrapper:
-                def __init__(self, obj):
-                    self.myself = parentself
-                    self.func = obj
-                def __call__(self, *args, **kwargs):
-                    return self.func(*args, **kwargs)
-            obj = Wrapper(obj)
-        return obj
-
-    def __setattr__(self, name, val):
-        mod = self.__dict__['mod']
-        setattr(mod, name, val)
-
-    def __del__(self):
-        import sys
-        if sys.platform == "win32":
-            from _ctypes import FreeLibrary as dlclose
-        else:
-            from _ctypes import dlclose
-        # XXX fish fish fish
-        mod = self.__dict__['mod']
-        dlclose(mod._lib._handle)
-        try:
-            del sys.modules[mod.__name__]
-        except KeyError:
-            pass
-
 
 class CStandaloneBuilder(CBuilder):
     standalone = True
