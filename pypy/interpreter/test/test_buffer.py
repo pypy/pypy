@@ -19,7 +19,9 @@ class TestBuffer:
         assert space.bufferstr_w(w_hello) == 'hello world'
         assert space.bufferstr_w(space.buffer(w_hello)) == 'hello world'
         space.raises_w(space.w_TypeError, space.buffer_w, space.wrap(5))
-        space.raises_w(space.w_TypeError, space.buffer, space.wrap(5))
+        e = space.raises_w(space.w_TypeError, space.buffer, space.wrap(5))
+        message = space.unwrap(e.value.get_w_value(space))
+        assert "'int' does not support the buffer interface" == message
 
     def test_file_write(self):
         space = self.space
