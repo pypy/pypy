@@ -47,6 +47,7 @@ class SomeObject(object):
     for an arbitrary object about which nothing is known."""
     __metaclass__ = extendabletype
     immutable = False
+    knowntype = object
 
     def __init__(self):
         assert type(self) is not SomeObject
@@ -505,7 +506,6 @@ from pypy.rpython.lltypesystem import llmemory
 
 class SomeAddress(SomeObject):
     immutable = True
-    knowntype = llmemory.Address
 
     def can_be_none(self):
         return False
