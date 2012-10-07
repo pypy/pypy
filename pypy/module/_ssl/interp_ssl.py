@@ -160,10 +160,11 @@ class SSLContext(Wrappable):
     def get_options_w(self, space):
         return space.wrap(libssl_SSL_CTX_get_options(self.ctx))
 
-    def set_options_w(self, space, value):
+    def set_options_w(self, space, w_value):
+        value = space.int_w(w_value)
         opts = libssl_SSL_CTX_get_options(self.ctx)
-        clear = opts & ~new_opts
-        set = ~opts & new_opts
+        clear = opts & ~value
+        set = ~opts & value
         if clear:
             if HAVE_SSL_CTX_CLEAR_OPTIONS:
                 libssl_SSL_CTX_clear_options(self.ctx, clear)

@@ -183,6 +183,7 @@ GENERAL_NAME = rffi.CArrayPtr(GENERAL_NAME_st)
 OBJ_NAME = rffi.CArrayPtr(OBJ_NAME_st)
 
 HAVE_OPENSSL_RAND = OPENSSL_VERSION_NUMBER >= 0x0090500f
+HAVE_SSL_CTX_CLEAR_OPTIONS = OPENSSL_VERSION_NUMBER >= 0x009080df
 
 def external(name, argtypes, restype, **kw):
     kw['compilation_info'] = eci
@@ -218,7 +219,9 @@ ssl_external('SSLv3_method', [], SSL_METHOD)
 ssl_external('SSLv23_method', [], SSL_METHOD)
 ssl_external('SSL_CTX_use_PrivateKey_file', [SSL_CTX, rffi.CCHARP, rffi.INT], rffi.INT)
 ssl_external('SSL_CTX_use_certificate_chain_file', [SSL_CTX, rffi.CCHARP], rffi.INT)
+ssl_external('SSL_CTX_get_options', [SSL_CTX], rffi.INT, macro=True)
 ssl_external('SSL_CTX_set_options', [SSL_CTX, rffi.INT], rffi.INT, macro=True)
+ssl_external('SSL_CTX_clear_options', [SSL_CTX, rffi.INT], rffi.INT, macro=True)
 ssl_external('SSL_CTX_ctrl', [SSL_CTX, rffi.INT, rffi.INT, rffi.VOIDP], rffi.INT)
 ssl_external('SSL_CTX_set_verify', [SSL_CTX, rffi.INT, rffi.VOIDP], lltype.Void)
 ssl_external('SSL_CTX_get_verify_mode', [SSL_CTX], rffi.INT)
