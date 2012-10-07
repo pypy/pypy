@@ -172,14 +172,19 @@ class TranslationDriver(SimpleTaskEngine):
     def _maybe_skip(self):
         maybe_skip = []
         if self._disabled:
-             for goal in self.backend_select_goals(self._disabled):
+             for goal in  self.backend_select_goals(self._disabled):
                  maybe_skip.extend(self._depending_on_closure(goal))
         return dict.fromkeys(maybe_skip).keys()
 
+
     def setup(self, entry_point, inputtypes, policy=None, extra={}, empty_translator=None):
-        assert inputtypes is None
-        # the 'argv' parameter
-        self.inputtypes = [s_list_of_strings]
+        standalone = inputtypes is None
+        self.standalone = standalone
+
+        if standalone:
+            # the 'argv' parameter
+            inputtypes = [s_list_of_strings]
+        self.inputtypes = inputtypes
 
         if policy is None:
             policy = annpolicy.AnnotatorPolicy()
@@ -317,7 +322,7 @@ class TranslationDriver(SimpleTaskEngine):
             s = None
 
         self.sanity_check_annotation()
-        if self.entry_point and s.knowntype != int:
+        if self.entry_point and self.standalone and s.knowntype != int:
             raise Exception("stand-alone program entry point must return an "
                             "int (and not, e.g., None or always raise an "
                             "exception).")
@@ -464,10 +469,15 @@ class TranslationDriver(SimpleTaskEngine):
 
         if self.libdef is not None:
             cbuilder = self.libdef.getcbuilder(self.translator, self.config)
+            self.standalone = False
             standalone = False
         else:
-            from pypy.translator.c.genc import CStandaloneBuilder as CBuilder
-            standalone = True
+            standalone = self.standalone
+
+            if standalone:
+                from pypy.translator.c.genc import CStandaloneBuilder as CBuilder
+            else:
+                from pypy.translator.c.genc import CExtModuleBuilder as CBuilder
             cbuilder = CBuilder(self.translator, self.entry_point,
                                 config=self.config,
                                 secondary_entrypoints=self.secondary_entrypoints)
@@ -541,13 +551,17 @@ class TranslationDriver(SimpleTaskEngine):
         """
         cbuilder = self.cbuilder
         kwds = {}
-        if self.exe_name is not None:
+        if self.standalone and self.exe_name is not None:
             kwds['exe_name'] = self.compute_exe_name().basename
         cbuilder.compile(**kwds)
 
-        self.c_entryp = cbuilder.executable_name
-        self.create_exe()
-
+        if self.standalone:
+            self.c_entryp = cbuilder.executable_name
+            self.create_exe()
+        else:
+            isolated = self._backend_extra_options.get('c_isolated', False)
+            self.c_entryp = cbuilder.get_entry_point(isolated=isolated)
+    #
     task_compile_c = taskdef(task_compile_c, ['source_c'], "Compiling c source")
 
     def task_llinterpret_lltype(self):
@@ -597,7 +611,7 @@ class TranslationDriver(SimpleTaskEngine):
             unpatch_os(self.old_cli_defs)
         
         self.log.info("Compiled %s" % filename)
-        if self.exe_name:
+        if self.standalone and self.exe_name:
             self.copy_cli_exe()
     task_compile_cli = taskdef(task_compile_cli, ['source_cli'],
                               'Compiling CLI source')
@@ -664,7 +678,8 @@ $LEDIT $MONO "$(dirname $EXE)/$(basename $EXE)-data/%s" "$@" # XXX doesn't work 
         from pypy.translator.jvm.node import EntryPoint
 
         entry_point_graph = self.translator.graphs[0]
-        entry_point = EntryPoint(entry_point_graph, False, False)
+        is_func = not self.standalone
+        entry_point = EntryPoint(entry_point_graph, is_func, is_func)
         self.gen = GenJvm(udir, self.translator, entry_point)
         self.jvmsource = self.gen.generate_source()
         self.log.info("Wrote JVM code")
@@ -680,7 +695,7 @@ $LEDIT $MONO "$(dirname $EXE)/$(basename $EXE)-data/%s" "$@" # XXX doesn't work 
         if hasattr(self, 'old_cli_defs'):
             unpatch_os(self.old_cli_defs)
         self.log.info("Compiled JVM source")
-        if self.exe_name:
+        if self.standalone and self.exe_name:
             self.copy_jvm_jar()
     task_compile_jvm = taskdef(task_compile_jvm, ['source_jvm'],
                               'Compiling JVM source')
