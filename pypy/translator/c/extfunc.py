@@ -105,8 +105,6 @@ def predeclare_exception_data(db, rtyper):
     yield ('RPYTHON_EXCEPTION_MATCH',  exceptiondata.fn_exception_match)
     yield ('RPYTHON_TYPE_OF_EXC_INST', exceptiondata.fn_type_of_exc_inst)
     yield ('RPYTHON_RAISE_OSERROR',    exceptiondata.fn_raise_OSError)
-    if db.cpython_extension:
-        yield ('RPYTHON_PYEXCCLASS2EXC', exceptiondata.fn_pyexcclass2exc)
 
     yield ('RPyExceptionOccurred1',    exctransformer.rpyexc_occured_ptr.value)
     yield ('RPyFetchExceptionType',    exctransformer.rpyexc_fetch_type_ptr.value)
