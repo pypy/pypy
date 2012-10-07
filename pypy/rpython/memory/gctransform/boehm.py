@@ -57,12 +57,6 @@ class BoehmGCTransformer(GCTransformer):
             self.mixlevelannotator.finish()   # for now
             self.mixlevelannotator.backend_optimize()
 
-    def push_alive_nopyobj(self, var, llops):
-        pass
-
-    def pop_alive_nopyobj(self, var, llops):
-        pass
-
     def gct_fv_gc_malloc(self, hop, flags, TYPE, c_size):
         # XXX same behavior for zero=True: in theory that's wrong
         if TYPE._is_atomic():

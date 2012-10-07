@@ -5,22 +5,19 @@ from pypy.translator.backendopt.support import var_needsgc
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.translator.exceptiontransform import ExceptionTransformer
 from pypy.rpython.lltypesystem import lltype
-from pypy.objspace.flow.model import Variable
-from pypy.annotation import model as annmodel
-from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy import conftest
+
 
 class LLInterpedTranformerTests:
 
     def llinterpreter_for_transformed_graph(self, f, args_s):
         from pypy.rpython.llinterp import LLInterpreter
         from pypy.translator.c.genc import CStandaloneBuilder
-        from pypy.translator.c import gc
 
         t = rtype(f, args_s)
         # XXX we shouldn't need an actual gcpolicy here.
         cbuild = CStandaloneBuilder(t, f, t.config, gcpolicy=self.gcpolicy)
-        db = cbuild.generate_graphs_for_llinterp()
+        cbuild.generate_graphs_for_llinterp()
         graph = cbuild.getentrypointptr()._obj.graph
         # arguments cannot be GC objects because nobody would put a
         # proper header on them
@@ -31,7 +28,6 @@ class LLInterpedTranformerTests:
         if conftest.option.view:
             t.view()
         return llinterp, graph
-
 
     def test_simple(self):
         from pypy.annotation.model import SomeInteger
@@ -67,7 +63,6 @@ class LLInterpedTranformerTests:
                     r.append(x)
             return len(r)
 
-
         llinterp, graph = self.llinterpreter_for_transformed_graph(f, [SomeInteger()])
 
         res = llinterp.eval_graph(graph, [0])
@@ -85,7 +80,6 @@ class LLInterpedTranformerTests:
                 x = 'brrrrrrr'
             return len(x + 'a')
 
-
         llinterp, graph = self.llinterpreter_for_transformed_graph(f, [SomeBool()])
 
         res = llinterp.eval_graph(graph, [True])
@@ -93,12 +87,13 @@ class LLInterpedTranformerTests:
         res = llinterp.eval_graph(graph, [False])
         assert res == f(False)
 
+
 class _TestGCTransformer(BaseGCTransformer):
 
-    def push_alive_nopyobj(self, var, llops):
+    def push_alive(self, var, llops):
         llops.genop("gc_push_alive", [var])
 
-    def pop_alive_nopyobj(self, var, llops):
+    def pop_alive(self, var, llops):
         llops.genop("gc_pop_alive", [var])
 
 
@@ -151,7 +146,7 @@ def rtype(func, inputtypes, specialize=True):
         t.buildrtyper().specialize()
     if conftest.option.view:
         t.view()
-    return t    
+    return t
 
 def rtype_and_transform(func, inputtypes, transformcls, specialize=True, check=True):
     t = rtype(func, inputtypes, specialize)
@@ -199,7 +194,7 @@ def test_return_gcpointer():
         c.x = 1
         return c
     t, transformer = rtype_and_transform(f, [], _TestGCTransformer)
-    
+
 def test_call_function():
     class C:
         pass
@@ -323,7 +318,7 @@ def test_except_block2():
         except ValueError:
             return 0
     t, transformer = rtype_and_transform(g, [int], _TestGCTransformer)
-    
+
 def test_no_livevars_with_exception():
     def g():
         raise TypeError
@@ -338,7 +333,8 @@ def test_no_livevars_with_exception():
 def test_bare_setfield():
     from pypy.rpython.lltypesystem.lloperation import llop
     class A:
-        def __init__(self, obj): self.x = obj
+        def __init__(self, obj):
+            self.x = obj
     def f(v):
         inst = A(v)
         llop.setfield(lltype.Void, inst, 'x', v)

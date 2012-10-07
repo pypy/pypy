@@ -312,15 +312,9 @@ class BaseGCTransformer(object):
         self.pop_alive(v_old, hop.llops)
 
     def push_alive(self, var, llops):
-        self.push_alive_nopyobj(var, llops)
-
-    def pop_alive(self, var, llops):
-        self.pop_alive_nopyobj(var, llops)
-
-    def push_alive_nopyobj(self, var, llops):
         pass
 
-    def pop_alive_nopyobj(self, var, llops):
+    def pop_alive(self, var, llops):
         pass
 
     def var_needs_set_transform(self, var):
