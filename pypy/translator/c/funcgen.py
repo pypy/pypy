@@ -3,14 +3,11 @@ from pypy.translator.c.support import USESLOTS # set to False if necessary while
 from pypy.translator.c.support import cdecl
 from pypy.translator.c.support import llvalue_from_constant, gen_assignments
 from pypy.translator.c.support import c_string_constant, barebonearray
-from pypy.objspace.flow.model import Variable, Constant, Block
+from pypy.objspace.flow.model import Variable, Constant
 from pypy.objspace.flow.model import c_last_exception, copygraph
-from pypy.rpython.lltypesystem.lltype import Ptr, PyObject, Void, Bool, Signed
-from pypy.rpython.lltypesystem.lltype import Unsigned, SignedLongLong, Float
-from pypy.rpython.lltypesystem.lltype import UnsignedLongLong, Char, UniChar
-from pypy.rpython.lltypesystem.lltype import pyobjectptr, ContainerType
-from pypy.rpython.lltypesystem.lltype import Struct, Array, FixedSizeArray
-from pypy.rpython.lltypesystem.lltype import ForwardReference, FuncType
+from pypy.rpython.lltypesystem.lltype import (Ptr, Void, Bool, Signed, Unsigned,
+    SignedLongLong, Float, UnsignedLongLong, Char, UniChar, ContainerType,
+    Array, FixedSizeArray, ForwardReference, FuncType)
 from pypy.rpython.lltypesystem.rffi import INT
 from pypy.rpython.lltypesystem.llmemory import Address
 from pypy.translator.backendopt.ssa import SSI_to_SSA
@@ -18,7 +15,6 @@ from pypy.translator.backendopt.innerloop import find_inner_loops
 from pypy.tool.identity_dict import identity_dict
 
 
-PyObjPtr = Ptr(PyObject)
 LOCALVAR = 'l_%s'
 
 KEEP_INLINED_GRAPHS = False

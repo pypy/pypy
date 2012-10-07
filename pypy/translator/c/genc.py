@@ -2,9 +2,8 @@ import autopath
 import py
 import sys, os
 from pypy.rlib import exports
-from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.typesystem import getfunctionptr
-from pypy.tool import isolate, runsubprocess
+from pypy.tool import runsubprocess
 from pypy.tool.nullpath import NullPyPathLocal
 from pypy.tool.udir import udir
 from pypy.translator.c import gc
@@ -12,7 +11,6 @@ from pypy.translator.c.database import LowLevelDatabase
 from pypy.translator.c.extfunc import pre_include_code_lines
 from pypy.translator.c.support import log
 from pypy.translator.gensupp import uniquemodulename, NameManager
-from pypy.translator.llsupport.wrapper import new_wrapper
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
 _CYGWIN = sys.platform == 'cygwin'
@@ -316,118 +314,6 @@ class ModuleWithCleanup(object):
         except KeyError:
             pass
 
-
-class CExtModuleBuilder(CBuilder):
-    standalone = False
-    cpython_extension = True
-    _module = None
-    _wrapper = None
-
-    def get_eci(self):
-        from distutils import sysconfig
-        python_inc = sysconfig.get_python_inc()
-        eci = ExternalCompilationInfo(
-            include_dirs=[python_inc],
-            includes=["Python.h",
-                      ],
-            )
-        return eci.merge(CBuilder.get_eci(self))
-
-    def getentrypointptr(self): # xxx
-        if self._wrapper is None:
-            self._wrapper = new_wrapper(self.entrypoint, self.translator)
-        return self._wrapper
-
-    def compile(self):
-        assert self.c_source_filename 
-        assert not self._compiled
-        export_symbols = [self.db.get(self.getentrypointptr()),
-                          'RPython_StartupCode',
-                          ]
-        if self.config.translation.countmallocs:
-            export_symbols.append('malloc_counters')
-        extsymeci = ExternalCompilationInfo(export_symbols=export_symbols)
-        self.eci = self.eci.merge(extsymeci)
-
-        if sys.platform == 'win32':
-            self.eci = self.eci.merge(ExternalCompilationInfo(
-                library_dirs = [py.path.local(sys.exec_prefix).join('LIBs'),
-                                py.path.local(sys.executable).dirpath(),
-                                ],
-                ))
-
-
-        files = [self.c_source_filename] + self.extrafiles
-        self.translator.platform.compile(files, self.eci, standalone=False)
-        self._compiled = True
-
-    def _make_wrapper_module(self):
-        fname = 'wrap_' + self.c_source_filename.purebasename
-        modfile = self.c_source_filename.new(purebasename=fname, ext=".py")
-
-        entrypoint_ptr = self.getentrypointptr()
-        wrapped_entrypoint_c_name = self.db.get(entrypoint_ptr)
-        
-        CODE = """
-import ctypes
-
-_lib = ctypes.PyDLL(r"%(so_name)s")
-
-_entry_point = getattr(_lib, "%(c_entrypoint_name)s")
-_entry_point.restype = ctypes.py_object
-_entry_point.argtypes = %(nargs)d*(ctypes.py_object,)
-
-def entrypoint(*args):
-    return _entry_point(*args)
-
-try:
-    _malloc_counters = _lib.malloc_counters
-except AttributeError:
-    pass
-else:
-    _malloc_counters.restype = ctypes.py_object
-    _malloc_counters.argtypes = 2*(ctypes.py_object,)
-
-    def malloc_counters():
-        return _malloc_counters(None, None)
-
-_rpython_startup = _lib.RPython_StartupCode
-_rpython_startup()
-""" % {'so_name': self.c_source_filename.new(ext=self.translator.platform.so_ext),
-       'c_entrypoint_name': wrapped_entrypoint_c_name,
-       'nargs': len(lltype.typeOf(entrypoint_ptr).TO.ARGS)}
-        modfile.write(CODE)
-        self._module_path = modfile
-       
-    def _import_module(self, isolated=False):
-        if self._module is not None:
-            return self._module
-        assert self._compiled
-        assert not self._module
-        self._make_wrapper_module()
-        if not isolated:
-            mod = ModuleWithCleanup(self._module_path.pyimport())
-        else:
-            mod = isolate.Isolate((str(self._module_path.dirpath()),
-                                   self._module_path.purebasename))
-        self._module = mod
-        return mod
-        
-    def get_entry_point(self, isolated=False):
-        self._import_module(isolated=isolated)
-        return getattr(self._module, "entrypoint")
-
-    def get_malloc_counters(self, isolated=False):
-        self._import_module(isolated=isolated)
-        return self._module.malloc_counters
-                       
-    def cleanup(self):
-        #assert self._module
-        if isinstance(self._module, isolate.Isolate):
-            isolate.close_isolate(self._module)
-
-    def gen_makefile(self, targetdir, exe_name=None):
-        pass
 
 class CStandaloneBuilder(CBuilder):
     standalone = True

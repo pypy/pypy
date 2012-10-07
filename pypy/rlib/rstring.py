@@ -199,25 +199,25 @@ class UnicodeBuilderEntry(BaseEntry, ExtRegistryEntry):
 class __extend__(pairtype(SomeStringBuilder, SomePBC)):
     def union((sb, p)):
         assert p.const is None
-        return SomeStringBuilder(can_be_None=True)
+        return SomeStringBuilder()
 
 
 class __extend__(pairtype(SomePBC, SomeStringBuilder)):
     def union((p, sb)):
         assert p.const is None
-        return SomeStringBuilder(can_be_None=True)
+        return SomeStringBuilder()
 
 
 class __extend__(pairtype(SomeUnicodeBuilder, SomePBC)):
     def union((sb, p)):
         assert p.const is None
-        return SomeUnicodeBuilder(can_be_None=True)
+        return SomeUnicodeBuilder()
 
 
 class __extend__(pairtype(SomePBC, SomeUnicodeBuilder)):
     def union((p, sb)):
         assert p.const is None
-        return SomeUnicodeBuilder(can_be_None=True)
+        return SomeUnicodeBuilder()
 
 #___________________________________________________________________
 # Support functions for SomeString.no_nul
