@@ -641,11 +641,7 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
             self.bookkeeper._jit_annotation_cache[driver] = cache
         for key, s_value in kwds_s.items():
             s_previous = cache.get(key, annmodel.s_ImpossibleValue)
-            s_value = annmodel.unionof(s_previous, s_value)
-            if annmodel.isdegenerated(s_value):
-                raise JitHintError("mixing incompatible types in argument %s"
-                                   " of jit_merge_point/can_enter_jit" %
-                                   key[2:])
+            s_value = annmodel.unionof(s_previous, s_value)  # where="mixing incompatible types in argument %s of jit_merge_point/can_enter_jit" % key[2:]
             cache[key] = s_value
 
         # add the attribute _dont_reach_me_in_del_ (see pypy.rpython.rclass)
