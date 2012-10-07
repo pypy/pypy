@@ -505,6 +505,7 @@ from pypy.rpython.lltypesystem import llmemory
 
 class SomeAddress(SomeObject):
     immutable = True
+    knowntype = llmemory.Address
 
     def can_be_none(self):
         return False
