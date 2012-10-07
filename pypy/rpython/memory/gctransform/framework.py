@@ -1174,12 +1174,6 @@ class BaseFrameworkGCTransformer(GCTransformer):
     def var_needs_set_transform(self, var):
         return var_needsgc(var)
 
-    def push_alive_nopyobj(self, var, llops):
-        pass
-
-    def pop_alive_nopyobj(self, var, llops):
-        pass
-
     def get_livevars_for_roots(self, hop, keep_current_args=False):
         if self.gcdata.gc.moving_gc and not keep_current_args:
             # moving GCs don't borrow, so the caller does not need to keep

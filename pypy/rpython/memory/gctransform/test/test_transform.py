@@ -5,10 +5,8 @@ from pypy.translator.backendopt.support import var_needsgc
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.translator.exceptiontransform import ExceptionTransformer
 from pypy.rpython.lltypesystem import lltype
-from pypy.objspace.flow.model import Variable
-from pypy.annotation import model as annmodel
-from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy import conftest
+
 
 class LLInterpedTranformerTests:
 
@@ -93,12 +91,13 @@ class LLInterpedTranformerTests:
         res = llinterp.eval_graph(graph, [False])
         assert res == f(False)
 
+
 class _TestGCTransformer(BaseGCTransformer):
 
-    def push_alive_nopyobj(self, var, llops):
+    def push_alive(self, var, llops):
         llops.genop("gc_push_alive", [var])
 
-    def pop_alive_nopyobj(self, var, llops):
+    def pop_alive(self, var, llops):
         llops.genop("gc_pop_alive", [var])
 
 
