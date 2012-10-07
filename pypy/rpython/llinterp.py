@@ -846,12 +846,6 @@ class LLFrame(object):
     def op_gc_deallocate(self, TYPE, addr):
         raise NotImplementedError("gc_deallocate")
 
-    def op_gc_push_alive_pyobj(self, pyobj):
-        raise NotImplementedError("gc_push_alive_pyobj")
-
-    def op_gc_pop_alive_pyobj(self, pyobj):
-        raise NotImplementedError("gc_pop_alive_pyobj")
-
     def op_gc_reload_possibly_moved(self, v_newaddr, v_ptr):
         assert v_newaddr.concretetype is llmemory.Address
         assert isinstance(v_ptr.concretetype, lltype.Ptr)
@@ -938,28 +932,6 @@ class LLFrame(object):
     def op_stack_current(self):
         return 0
 
-    # operations on pyobjects!
-    for opname in lloperation.opimpls.keys():
-        exec py.code.Source("""
-        def op_%(opname)s(self, *pyobjs):
-            for pyo in pyobjs:
-                assert lltype.typeOf(pyo) == lltype.Ptr(lltype.PyObject)
-            func = lloperation.opimpls[%(opname)r]
-            try:
-                pyo = func(*[pyo._obj.value for pyo in pyobjs])
-            except Exception:
-                self.make_llexception()
-            return self.heap.pyobjectptr(pyo)
-        """ % locals()).compile()
-    del opname
-
-    def op_simple_call(self, f, *args):
-        assert lltype.typeOf(f) == lltype.Ptr(lltype.PyObject)
-        for pyo in args:
-            assert lltype.typeOf(pyo) == lltype.Ptr(lltype.PyObject)
-        res = f._obj.value(*[pyo._obj.value for pyo in args])
-        return self.heap.pyobjectptr(res)
-
     # __________________________________________________________
     # operations on addresses
 
@@ -980,7 +952,7 @@ class LLFrame(object):
         return llmemory.raw_malloc_usage(size)
 
     def op_raw_free(self, addr):
-        checkadr(addr) 
+        checkadr(addr)
         llmemory.raw_free(addr)
 
     def op_raw_memclear(self, addr, size):

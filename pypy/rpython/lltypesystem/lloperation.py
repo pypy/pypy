@@ -8,7 +8,7 @@ from pypy.rpython.extregistry import ExtRegistryEntry
 class LLOp(object):
 
     def __init__(self, sideeffects=True, canfold=False, canraise=(),
-                 pyobj=False, canmallocgc=False, canrun=False, oo=False,
+                 canmallocgc=False, canrun=False, oo=False,
                  tryfold=False):
         # self.opname = ... (set afterwards)
 
@@ -31,9 +31,6 @@ class LLOp(object):
         assert isinstance(canraise, tuple)
 
         assert not canraise or not canfold
-
-        # The operation manipulates PyObjects
-        self.pyobj = pyobj
 
         # The operation can go a GC malloc
         self.canmallocgc = canmallocgc
@@ -476,8 +473,6 @@ LL_OPERATIONS = {
     'gc_restore_exception': LLOp(),
     'gc_call_rtti_destructor': LLOp(),
     'gc_deallocate':        LLOp(),
-    'gc_push_alive_pyobj':  LLOp(),
-    'gc_pop_alive_pyobj':   LLOp(),
     'gc_reload_possibly_moved': LLOp(),
     # see rlib/objectmodel for gc_identityhash and gc_id
     'gc_identityhash':      LLOp(sideeffects=False, canmallocgc=True),
@@ -601,17 +596,6 @@ LL_OPERATIONS = {
     'oounicode':            LLOp(oo=True, canraise=(UnicodeDecodeError,)),
 }
 # ***** Run test_lloperation after changes. *****
-
-
-    # __________ operations on PyObjects __________
-
-from pypy.objspace.flow.operation import FunctionByName
-opimpls = FunctionByName.copy()
-opimpls['is_true'] = bool
-for opname in opimpls:
-    LL_OPERATIONS[opname] = LLOp(canraise=(Exception,), pyobj=True)
-LL_OPERATIONS['simple_call'] = LLOp(canraise=(Exception,), pyobj=True)
-del opname, FunctionByName
 
 # ____________________________________________________________
 # Post-processing

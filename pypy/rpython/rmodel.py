@@ -172,16 +172,15 @@ class Repr(object):
             isinstance(T.TO, (lltype.Struct,
                               lltype.Array,
                               lltype.ForwardReference))):
-            assert T.TO._gckind != 'cpy'
             return DummyValueBuilder(rtyper, T.TO)
         else:
             return None
 
     def rtype_bltn_list(self, hop):
-        raise TyperError, 'no list() support for %r' % self
+        raise TyperError('no list() support for %r' % self)
 
     def rtype_unichr(self, hop):
-        raise TyperError, 'no unichr() support for %r' % self
+        raise TyperError('no unichr() support for %r' % self)
 
     # default implementation of some operations
 

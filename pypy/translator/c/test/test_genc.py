@@ -1,10 +1,7 @@
-import sys
-
 import py
 import ctypes
 
 from pypy.rpython.lltypesystem.lltype import *
-from pypy.annotation import model as annmodel
 from pypy.translator.translator import TranslationContext
 from pypy.translator.c import genc
 from pypy.translator.interactive import Translation
@@ -93,16 +90,6 @@ def test_rptr():
     assert f1(-1) == -42
     assert f1(-5) == -42
 
-
-def test_rptr_array():
-    A = GcArray(Ptr(PyObject))
-    def f(i, x):
-        p = malloc(A, i)
-        p[1] = x
-        return p[1]
-    f1 = compile(f, [int, annmodel.SomePtr(Ptr(PyObject))])
-    assert f1(5, 123) == 123
-    assert f1(12, "hello") == "hello"
 
 def test_empty_string():
     A = Array(Char, hints={'nolength': True})
@@ -304,60 +291,11 @@ def test_keepalive():
     def f():
         x = [1]
         y = ['b']
-        objectmodel.keepalive_until_here(x,y)
+        objectmodel.keepalive_until_here(x, y)
         return 1
 
     f1 = compile(f, [])
     assert f1() == 1
-
-def test_refcount_pyobj():
-    def prob_with_pyobj(b):
-        return 3, b
-
-    f = compile(prob_with_pyobj, [object])
-    from sys import getrefcount as g
-    obj = None
-    import gc; gc.collect()
-    before = g(obj)
-    f(obj)
-    after = g(obj)
-    assert before == after
-
-def test_refcount_pyobj_setfield():
-    import weakref, gc
-    class S(object):
-        def __init__(self):
-            self.p = None
-    def foo(wref, objfact):
-        s = S()
-        b = objfact()
-        s.p = b
-        wr = wref(b)
-        s.p = None
-        return wr
-    f = compile(foo, [object, object], backendopt=False)
-    class C(object):
-        pass
-    wref = f(weakref.ref, C)
-    gc.collect()
-    assert not wref()
-
-def test_refcount_pyobj_setfield_increfs():
-    class S(object):
-        def __init__(self):
-            self.p = None
-    def goo(objfact):
-        s = S()
-        b = objfact()
-        s.p = b
-        return s
-    def foo(objfact):
-        s = goo(objfact)
-        return s.p
-    f = compile(foo, [object], backendopt=False)
-    class C(object):
-        pass
-    print f(C)
 
 def test_print():
     def f():
@@ -375,7 +313,7 @@ def test_name():
 
     t = Translation(f, [], backend="c")
     t.annotate()
-    compiled_fn = t.compile_c()
+    t.compile_c()
     if py.test.config.option.view:
         t.view()
     assert 'pypy_xyz_f' in t.driver.cbuilder.c_source_filename.read()
@@ -391,7 +329,7 @@ def test_entrypoints():
 
     t = Translation(f, [], backend="c", secondaryentrypoints="test_entrypoints42")
     t.annotate()
-    compiled_fn = t.compile_c()
+    t.compile_c()
     if py.test.config.option.view:
         t.view()
     assert 'foobar' in t.driver.cbuilder.c_source_filename.read()
@@ -406,7 +344,7 @@ def test_exportstruct():
     export_struct("BarStruct", foo._obj)
     t = Translation(f, [], backend="c")
     t.annotate()
-    compiled_fn = t.compile_c()
+    t.compile_c()
     if py.test.config.option.view:
         t.view()
     assert ' BarStruct ' in t.driver.cbuilder.c_source_filename.read()
@@ -416,7 +354,6 @@ def test_recursive_llhelper():
     from pypy.rpython.annlowlevel import llhelper
     from pypy.rpython.lltypesystem import lltype
     from pypy.rlib.objectmodel import specialize
-    from pypy.rlib.nonconst import NonConstant
     FT = lltype.ForwardReference()
     FTPTR = lltype.Ptr(FT)
     STRUCT = lltype.Struct("foo", ("bar", FTPTR))
@@ -464,7 +401,6 @@ def test_recursive_llhelper():
     assert fn(True)
 
 def test_inhibit_tail_call():
-    from pypy.rpython.lltypesystem import lltype
     def foobar_fn(n):
         return 42
     foobar_fn._dont_inline_ = True
