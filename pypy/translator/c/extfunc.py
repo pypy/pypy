@@ -112,13 +112,14 @@ def predeclare_exception_data(db, rtyper):
     yield ('RPyClearException',        exctransformer.rpyexc_clear_ptr.value)
     yield ('RPyRaiseException',        exctransformer.rpyexc_raise_ptr.value)
 
-    for pyexccls in exceptiondata.standardexceptions:
-        exc_llvalue = exceptiondata
+    for exccls in exceptiondata.standardexceptions:
+        exc_llvalue = exceptiondata.get_standard_ll_exc_instance_by_class(
+            exccls)
         # strange naming here because the macro name must be
         # a substring of PyExc_%s
-        name = pyexccls.__name__
-        if pyexccls.__module__ != 'exceptions':
-            name = '%s_%s' % (pyexccls.__module__.replace('.', '__'), name)
+        name = exccls.__name__
+        if exccls.__module__ != 'exceptions':
+            name = '%s_%s' % (exccls.__module__.replace('.', '__'), name)
         yield ('RPyExc_%s' % name, exc_llvalue)
 
 

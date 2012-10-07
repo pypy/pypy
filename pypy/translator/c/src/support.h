@@ -91,5 +91,3 @@ void RPyAbort(void) {
 #  define RPyNLenItem(array, index)          ((array)->items[index])
 #  define RPyBareItem(array, index)          ((array)[index])
 #endif
-
-#endif /* PYPY_NOT_MAIN_FILE */

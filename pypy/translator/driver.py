@@ -563,8 +563,7 @@ class TranslationDriver(SimpleTaskEngine):
             self.c_entryp = cbuilder.executable_name
             self.create_exe()
         else:
-            isolated = self._backend_extra_options.get('c_isolated', False)
-            self.c_entryp = cbuilder.get_entry_point(isolated=isolated)
+            self.c_entryp = cbuilder.get_entry_point()
     #
     task_compile_c = taskdef(task_compile_c, ['source_c'], "Compiling c source")
 

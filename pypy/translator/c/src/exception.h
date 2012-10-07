@@ -2,6 +2,8 @@
 /************************************************************/
  /***  C header subsection: exceptions                     ***/
 
+#ifdef HAVE_RTYPER // shrug, hopefully dies with PYPY_NOT_MAIN_FILE
+
 /* just a renaming, unless DO_LOG_EXC is set */
 #define RPyExceptionOccurred RPyExceptionOccurred1
 #define RPY_DEBUG_RETURN()   /* nothing */
@@ -64,3 +66,5 @@ void _RPyRaiseSimpleException(RPYTHON_EXCEPTION rexc)
 	RPyRaiseException(RPYTHON_TYPE_OF_EXC_INST(rexc), rexc);
 }
 #endif /* PYPY_NOT_MAIN_FILE */
+
+#endif

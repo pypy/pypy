@@ -1,6 +1,7 @@
 import sys
 
 import py
+import ctypes
 
 from pypy.rpython.lltypesystem.lltype import *
 from pypy.annotation import model as annmodel
@@ -9,7 +10,6 @@ from pypy.translator.c import genc
 from pypy.translator.interactive import Translation
 from pypy.rlib.entrypoint import entrypoint
 from pypy.tool.nullpath import NullPyPathLocal
-
 
 def compile(fn, argtypes, view=False, gcpolicy="ref", backendopt=True,
             annotatorpolicy=None):
@@ -20,26 +20,20 @@ def compile(fn, argtypes, view=False, gcpolicy="ref", backendopt=True,
     t.annotate()
     # XXX fish
     t.driver.config.translation.countmallocs = True
-    compiled_fn = t.compile_c()
+    so_name = t.compile_c()
     try:
         if py.test.config.option.view:
             t.view()
     except AttributeError:
         pass
-    malloc_counters = t.driver.cbuilder.get_malloc_counters()
-    def checking_fn(*args, **kwds):
-        if 'expected_extra_mallocs' in kwds:
-            expected_extra_mallocs = kwds.pop('expected_extra_mallocs')
-        else:
-            expected_extra_mallocs = 0
-        res = compiled_fn(*args, **kwds)
-        mallocs, frees = malloc_counters()
-        if isinstance(expected_extra_mallocs, int):
-            assert mallocs - frees == expected_extra_mallocs
-        else:
-            assert mallocs - frees in expected_extra_mallocs
-        return res
-    return checking_fn
+    def f(*args):
+        assert len(args) == len(argtypes)
+        for arg, argtype in zip(args, argtypes):
+            assert isinstance(arg, argtype)
+        dll = ctypes.CDLL(str(so_name))
+        return getattr(dll, 'pypy_g_' + fn.__name__)(*args)
+    f.__name__ = fn.__name__
+    return f
 
 def test_simple():
     def f(x):
@@ -62,45 +56,12 @@ def test_dont_write_source_files():
 
     t.config.translation.countmallocs = True
     t.config.translation.dont_write_c_files = True
-    builder = genc.CExtModuleBuilder(t, f, config=t.config)
+    builder = genc.CStandaloneBuilder(t, f, config=t.config)
     builder.generate_source()
     assert isinstance(builder.targetdir, NullPyPathLocal)
-    assert builder.targetdir.listdir() == []
+    for f in builder.targetdir.listdir():
+        assert not str(f).endswith('.c')
 
-
-def test_simple_lambda():
-    f = lambda x: x*2
-    t = TranslationContext()
-    t.buildannotator().build_types(f, [int])
-    t.buildrtyper().specialize()
-
-    t.config.translation.countmallocs = True
-    builder = genc.CExtModuleBuilder(t, f, config=t.config)
-    builder.generate_source()
-    builder.compile()
-    f1 = builder.get_entry_point()
-
-    assert f1(5) == 10
-
-def test_py_capi_exc():
-    def f(x):
-        if x:
-            l = None
-        else:
-            l = [2]
-        x = x*2
-        return l[0]
-    t = TranslationContext()
-    t.buildannotator().build_types(f, [int])
-    t.buildrtyper().specialize()
-
-    builder = genc.CExtModuleBuilder(t, f, config=t.config)
-    builder.generate_source()
-    builder.compile()
-    f1 = builder.get_entry_point(isolated=True)
-
-    x = py.test.raises(Exception, f1, "world")
-    assert not isinstance(x.value, EOFError) # EOFError === segfault
 
 def test_rlist():
     def f(x):
