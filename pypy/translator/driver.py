@@ -172,7 +172,7 @@ class TranslationDriver(SimpleTaskEngine):
     def _maybe_skip(self):
         maybe_skip = []
         if self._disabled:
-             for goal in  self.backend_select_goals(self._disabled):
+             for goal in self.backend_select_goals(self._disabled):
                  maybe_skip.extend(self._depending_on_closure(goal))
         return dict.fromkeys(maybe_skip).keys()
 
@@ -475,12 +475,16 @@ class TranslationDriver(SimpleTaskEngine):
             standalone = self.standalone
 
             if standalone:
-                from pypy.translator.c.genc import CStandaloneBuilder as CBuilder
+                from pypy.translator.c.genc import CStandaloneBuilder
+                cbuilder = CStandaloneBuilder(self.translator, self.entry_point,
+                                              config=self.config,
+                          secondary_entrypoints=self.secondary_entrypoints)
             else:
-                from pypy.translator.c.genc import CExtModuleBuilder as CBuilder
-            cbuilder = CBuilder(self.translator, self.entry_point,
-                                config=self.config,
-                                secondary_entrypoints=self.secondary_entrypoints)
+                from pypy.translator.c.dlltool import CLibraryBuilder
+                cbuilder = CLibraryBuilder(self.translator, self.entry_point,
+                                           functions=[(self.entry_point, None)],
+                                           name='lib',
+                                           config=self.config)
         if not standalone:     # xxx more messy
             cbuilder.modulename = self.extmod_name
         database = cbuilder.build_database()

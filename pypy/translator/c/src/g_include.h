@@ -23,10 +23,6 @@
 #define PY_LONG_LONG long long
 #endif
 
-#ifndef PYPY_STANDALONE
-#  include "src/pyobj.h"
-#endif
-
 #include "src/int.h"
 #include "src/char.h"
 #include "src/float.h"
