@@ -430,7 +430,6 @@ PARAMETERS = {'threshold': 1039, # just above 1024, prime
               'enable_opts': 'all',
               }
 unroll_parameters = unrolling_iterable(PARAMETERS.items())
-DEFAULT = object()
 
 # ____________________________________________________________
 
@@ -552,7 +551,7 @@ class JitDriver(object):
 def _set_param(driver, name, value):
     # special-cased by ExtRegistryEntry
     # (internal, must receive a constant 'name')
-    # if value is DEFAULT, sets the default value.
+    # if value is None, sets the default value.
     assert name in PARAMETERS
 
 @specialize.arg(0, 1)
@@ -564,7 +563,7 @@ def set_param(driver, name, value):
 @specialize.arg(0, 1)
 def set_param_to_default(driver, name):
     """Reset one of the tunable JIT parameters to its default value."""
-    _set_param(driver, name, DEFAULT)
+    _set_param(driver, name, None)
 
 def set_user_param(driver, text):
     """Set the tunable JIT parameters from a user-supplied string
@@ -771,7 +770,7 @@ class ExtSetParam(ExtRegistryEntry):
     def compute_result_annotation(self, s_driver, s_name, s_value):
         from pypy.annotation import model as annmodel
         assert s_name.is_constant()
-        if not self.bookkeeper.immutablevalue(DEFAULT).contains(s_value):
+        if annmodel.s_None.contains(s_value):
             if s_name.const == 'enable_opts':
                 assert annmodel.SomeString(can_be_None=True).contains(s_value)
             else:
@@ -791,7 +790,7 @@ class ExtSetParam(ExtRegistryEntry):
         else:
             repr = lltype.Signed
         if (isinstance(hop.args_v[2], Constant) and
-            hop.args_v[2].value is DEFAULT):
+            hop.args_v[2].value is None):
             value = PARAMETERS[name]
             v_value = hop.inputconst(repr, value)
         else:
