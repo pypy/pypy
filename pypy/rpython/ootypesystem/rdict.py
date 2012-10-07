@@ -7,6 +7,8 @@ from pypy.rpython.rpbc import (MethodOfFrozenPBCRepr, AbstractFunctionsPBCRepr,
 from pypy.rpython.ootypesystem import ootype
 from pypy.rlib import objectmodel
 from pypy.rpython import rmodel, llinterp
+# This is needed by other things, don't remove!
+from pypy.rpython.rdict import rtype_newdict
 
 
 class DictRepr(AbstractDictRepr):

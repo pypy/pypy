@@ -1,10 +1,5 @@
-from pypy.tool.pairtype import pairtype
 from pypy.annotation import model as annmodel
-from pypy.objspace.flow.model import Constant
 from pypy.rpython.lltypesystem import lltype
-from pypy.rlib.rarithmetic import r_uint
-from pypy.rlib.objectmodel import hlinvoke
-from pypy.rlib import objectmodel
 from pypy.rpython import rmodel
 
 
@@ -58,9 +53,6 @@ class AbstractDictRepr(rmodel.Repr):
 def rtype_newdict(hop):
     hop.inputargs()    # no arguments expected
     r_dict = hop.r_result
-    if r_dict == robject.pyobj_repr: # special case: SomeObject: SomeObject dicts!
-        cdict = hop.inputconst(robject.pyobj_repr, dict)
-        return hop.genop('simple_call', [cdict], resulttype = robject.pyobj_repr)
     cDICT = hop.inputconst(lltype.Void, r_dict.DICT)
     v_result = hop.gendirectcall(hop.rtyper.type_system.rdict.ll_newdict, cDICT)
     return v_result
