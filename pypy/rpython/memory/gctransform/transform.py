@@ -505,7 +505,6 @@ class GCTransformer(BaseGCTransformer):
         if add_flags:
             flags.update(add_flags)
         flavor = flags['flavor']
-        assert flavor != 'cpy', "cannot malloc CPython objects directly"
         meth = getattr(self, 'gct_fv_%s_malloc_varsize' % flavor, None)
         assert meth, "%s has no support for malloc_varsize with flavor %r" % (self, flavor) 
         return self.varsize_malloc_helper(hop, flags, meth, [])
@@ -583,7 +582,6 @@ class GCTransformer(BaseGCTransformer):
         flags = op.args[1].value
         flavor = flags['flavor']
         v = op.args[0]
-        assert flavor != 'cpy', "cannot free CPython objects directly"
         if flavor == 'raw':
             v = hop.genop("cast_ptr_to_adr", [v], resulttype=llmemory.Address)
             if flags.get('track_allocation', True):
