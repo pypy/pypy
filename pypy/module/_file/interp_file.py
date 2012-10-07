@@ -185,7 +185,7 @@ class W_File(W_AbstractStream):
             return stream.readline()
         else:
             # very inefficient unless there is a peek()
-            result = []
+            result = StringBuilder()
             while size > 0:
                 # "peeks" on the underlying stream to see how many chars
                 # we can safely read without reading past an end-of-line
@@ -200,7 +200,7 @@ class W_File(W_AbstractStream):
                 if c.endswith('\n'):
                     break
                 size -= len(c)
-            return ''.join(result)
+            return result.build()
 
     @unwrap_spec(size=int)
     def direct_readlines(self, size=0):
