@@ -3,7 +3,7 @@ from pypy.translator.translator import TranslationContext
 from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 from pypy.rpython.llinterp import LLException
-from pypy.rpython.error import MissingRTypeOperation 
+from pypy.rpython.error import MissingRTypeOperation
 
 class MyException(Exception):
     pass
@@ -31,31 +31,6 @@ def test_simple():
 
     rtype(dummyfn)
 
-
-
-def test_exception_data():
-    def f(n):
-        raise OverflowError()
-
-    t = rtype(f, [int])
-
-    excdata = t.rtyper.getexceptiondata()
-    getcdef = t.annotator.bookkeeper.getuniqueclassdef
-
-    #t.view()
-    ovferr_inst = excdata.fn_pyexcclass2exc(pyobjectptr(OverflowError))
-    classdef = getcdef(OverflowError)
-    assert ovferr_inst.typeptr == t.rtyper.class_reprs[classdef].getvtable()
-
-    taberr_inst = excdata.fn_pyexcclass2exc(pyobjectptr(TabError))
-    classdef = getcdef(StandardError) # most precise class seen
-    assert taberr_inst.typeptr == t.rtyper.class_reprs[classdef].getvtable()
-
-    myerr_inst = excdata.fn_pyexcclass2exc(pyobjectptr(MyException))
-    assert myerr_inst.typeptr == t.rtyper.class_reprs[None].getvtable()
-
-    strgerr_inst = excdata.fn_pyexcclass2exc(pyobjectptr(MyStrangeException))
-    assert strgerr_inst.typeptr == t.rtyper.class_reprs[None].getvtable()
 
 class BaseTestException(BaseRtypingTest):
     def test_exception_with_arg(self):

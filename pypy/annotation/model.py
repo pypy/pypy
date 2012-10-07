@@ -116,9 +116,10 @@ class SomeObject(object):
 
     def can_be_none(self):
         return True
-        
+
     def nonnoneify(self):
         return self
+
 
 class SomeType(SomeObject):
     "Stands for a type.  We might not be sure which one it is."
