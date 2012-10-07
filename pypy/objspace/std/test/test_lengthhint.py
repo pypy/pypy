@@ -65,6 +65,24 @@ class TestLengthHint:
         self._test_length_hint(self.space.newtuple(self.ITEMS))
 
     def test_reversed(self):
+        # test the generic reversed iterator (w_foo lacks __reversed__)
+        space = self.space
+        w_foo = space.appexec([], """():
+            class Foo(object):
+                def __len__(self):
+                    return %r
+                def __getitem__(self, index):
+                    if 0 <= index < %r:
+                        return index
+                    raise IndexError()
+            return Foo()
+        """ % (self.SIZE, self.SIZE))
+        w_reversed = space.call_method(space.builtin, 'reversed', w_foo)
+        assert space.int_w(
+            space.call_method(w_reversed, '__length_hint__')) == self.SIZE
+        self._test_length_hint(w_reversed)
+
+    def test_reversedsequenceiterator(self):
         space = self.space
         w_reversed = space.call_method(space.builtin, 'reversed',
                                        space.wrap(self.ITEMS))
