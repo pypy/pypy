@@ -1,4 +1,3 @@
-from pypy.interpreter.error import OperationError
 from pypy.module._collections.interp_deque import W_Deque
 from pypy.module.itertools.interp_itertools import W_Repeat
 
@@ -131,12 +130,7 @@ class TestLengthHint:
                     return -1
             return Foo()
         """)
-        try:
-            space.length_hint(w_foo, 3)
-        except OperationError, e:
-            assert e.match(space, space.w_ValueError)
-        else:
-            assert False, 'ValueError expected'
+        space.raises_w(space.w_ValueError, space.length_hint, w_foo, 3)
 
     def test_exc(self):
         space = self.space
@@ -146,9 +140,4 @@ class TestLengthHint:
                     1 / 0
             return Foo()
         """)
-        try:
-            space.length_hint(w_foo, 3)
-        except OperationError, e:
-            assert e.match(space, space.w_ZeroDivisionError)
-        else:
-            assert False, 'ZeroDivisionError expected'
+        space.raises_w(space.w_ZeroDivisionError, space.length_hint, w_foo, 3)
