@@ -260,6 +260,13 @@ elif sys.platform == 'darwin':
         host_factory = Darwin_i386
     else:
         host_factory = Darwin_x86_64
+elif "gnukfreebsd" in sys.platform:
+    from pypy.translator.platform.freebsd import GNUkFreebsd, GNUkFreebsd_64
+    import platform
+    if platform.architecture()[0] == '32bit':
+        host_factory = GNUkFreebsd
+    else:
+        host_factory = GNUkFreebsd_64
 elif "freebsd" in sys.platform:
     from pypy.translator.platform.freebsd import Freebsd, Freebsd_64
     import platform
