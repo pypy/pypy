@@ -92,7 +92,7 @@ class W_Repeat(Wrappable):
             self.count = 0
         else:
             self.counting = True
-            self.count = self.space.int_w(w_times)
+            self.count = max(self.space.int_w(w_times), 0)
 
     def next_w(self):
         if self.counting:
