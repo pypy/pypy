@@ -28,4 +28,4 @@ class TestDLLTool(object):
         d = DLLDef('lib', [(f, [int]), (b, [int])])
         so = d.compile()
         dirpath = py.path.local(so).dirpath()
-        assert dirpath.join('translator_c_test_test_dlltool.c').check()
+        assert dirpath.join('pypy_translator_c_test_test_dlltool.c').check()
