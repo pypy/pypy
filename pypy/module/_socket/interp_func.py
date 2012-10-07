@@ -244,14 +244,15 @@ def inet_ntop(space, family, packed):
                   space.wrap(str(e)))
     return space.wrap(ip)
 
-@unwrap_spec(family=int, socktype=int, proto=int, flags=int)
+@unwrap_spec(family=int, type=int, proto=int, flags=int)
 def getaddrinfo(space, w_host, w_port,
-                family=rsocket.AF_UNSPEC, socktype=0, proto=0, flags=0):
-    """getaddrinfo(host, port [, family, socktype, proto, flags])
-        -> list of (family, socktype, proto, canonname, sockaddr)
+                family=rsocket.AF_UNSPEC, type=0, proto=0, flags=0):
+    """getaddrinfo(host, port [, family, type, proto, flags])
+        -> list of (family, type, proto, canonname, sockaddr)
 
     Resolve host and port into addrinfo struct.
     """
+    socktype = type
     # host can be None, string or unicode
     if space.is_w(w_host, space.w_None):
         host = None
