@@ -459,13 +459,11 @@ class LLFrame(object):
         exdata = typer.getexceptiondata()
         if isinstance(exc, OSError):
             self.op_direct_call(exdata.fn_raise_OSError, exc.errno)
-            assert False, "op_direct_call above should have raised"
         else:
-            exc_class = exc.__class__
-            evalue = self.op_direct_call(exdata.fn_pyexcclass2exc,
-                                         self.heap.pyobjectptr(exc_class))
-            etype = self.op_direct_call(exdata.fn_type_of_exc_inst, evalue)
-        raise LLException(etype, evalue, *extraargs)
+            exc_class = exc.__class__.__name__
+            llname = typer.type_system.rstr.string_repr.convert_const(exc_class)
+            self.op_direct_call(exdata.fn_raise_noarg, llname)
+        assert False, "op_direct_call above should have raised"
 
     def invoke_callable_with_pyexceptions(self, fptr, *args):
         obj = self.llinterpreter.typer.type_system.deref(fptr)

@@ -444,7 +444,8 @@ class Bookkeeper(object):
         elif isinstance(x, (ootype._object)):
             result = SomeOOObject()
         elif tp is type:
-            if x is type(None):   # add cases here if needed
+            if (x is type(None) or      # add cases here if needed
+                x.__module__ == 'pypy.rpython.lltypesystem.lltype'):
                 result = SomeType()
             else:
                 result = SomePBC([self.getdesc(x)])

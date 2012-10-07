@@ -80,14 +80,14 @@ def annotationoftype(t, bookkeeper=False):
         return SomeUnicodeString()
     elif t is types.NoneType:
         return s_None
-    elif t is type:
-        return SomeType()
     elif bookkeeper and extregistry.is_registered_type(t, bookkeeper.policy):
         entry = extregistry.lookup_type(t, bookkeeper.policy)
         return entry.compute_annotation_bk(bookkeeper)
     elif bookkeeper and t.__module__ != '__builtin__' and t not in bookkeeper.pbctypes:
         classdef = bookkeeper.getuniqueclassdef(t)
         return SomeInstance(classdef)
+    elif t is type:
+        return SomeType()
     else:
         raise AssertionError("annotationoftype(%r)" % (t,))
 

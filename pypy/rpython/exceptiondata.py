@@ -51,6 +51,18 @@ class AbstractExceptionData:
             classdef = bk.getuniqueclassdef(cls)
             rclass.getclassrepr(rtyper, classdef).setup()
 
+    def make_raise_noarg(self, rtyper):
+        def ll_raise_noarg(classname):
+            if classname == 'OverflowError':
+                raise OverflowError
+            if classname == 'ValueError':
+                raise ValueError
+            if classname == 'ZeroDivisionError':
+                raise ZeroDivisionError
+            raise NotImplementedError   # we did not special-case this so far
+        helper_fn = rtyper.annotate_helper_fn(ll_raise_noarg, [annmodel.SomeString()])
+        return helper_fn
+
     def make_raise_OSError(self, rtyper):
         # ll_raise_OSError(errno)
         def ll_raise_OSError(errno):

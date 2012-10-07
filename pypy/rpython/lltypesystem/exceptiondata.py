@@ -14,6 +14,7 @@ class ExceptionData(AbstractExceptionData):
         self.fn_exception_match  = self.make_exception_matcher(rtyper)
         self.fn_type_of_exc_inst = self.make_type_of_exc_inst(rtyper)
         self.fn_raise_OSError    = self.make_raise_OSError(rtyper)
+        self.fn_raise_noarg      = self.make_raise_noarg(rtyper)
 
     def make_exception_matcher(self, rtyper):
         # ll_exception_matcher(real_exception_vtable, match_exception_vtable)

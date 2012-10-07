@@ -106,22 +106,14 @@ class FlowGraphPage(GraphPage):
             name = 'no_graph'
         self.source = make_dot_graphs(name, gs, target=None)
         # make the dictionary of links -- one per annotated variable
-        self.binding_history = {}
         self.current_value = {}
-        self.caused_by = {}
         if self.annotator:
             for var, s_value in self.annotator.bindings.items():
                 info = '%s: %s' % (var.name, s_value)
                 annotationcolor = getattr(s_value, 'annotationcolor', None)
                 self.links[var.name] = info, annotationcolor
                 self.current_value[var.name] = s_value
-                self.caused_by[var.name] = (
-                    self.annotator.binding_caused_by.get(var))
-            for var, history in self.annotator.bindingshistory.items():
-                cause_history = (
-                    self.annotator.binding_cause_history.get(var, []))
-                self.binding_history[var.name] = zip(history, cause_history)
-                    
+
         #from pypy.jit.hintannotator.annotator import HintAnnotator
         #if isinstance(self.annotator, HintAnnotator):
         #    return
@@ -144,15 +136,6 @@ class FlowGraphPage(GraphPage):
                 if info == 'Void':     # gray out Void variables
                     info = info, (160,160,160)
                 self.links[var.name] = info
-
-    def followlink(self, varname):
-        # clicking on a variable name shows its binding history
-        cur_value = self.current_value[varname]
-        caused_by = self.caused_by[varname]
-        history = list(self.binding_history.get(varname, []))
-        history.reverse()
-        return VariableHistoryGraphPage(self.translator, varname, cur_value,
-                                          caused_by, history, self.func_names)
 
 
 class SingleGraphPage(FlowGraphPage):
