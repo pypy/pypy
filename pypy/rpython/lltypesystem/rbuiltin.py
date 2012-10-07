@@ -5,18 +5,12 @@ from pypy.rpython.lltypesystem import rclass
 from pypy.rpython.lltypesystem.rdict import rtype_r_dict
 from pypy.rlib import objectmodel
 from pypy.rpython.rmodel import TyperError, Constant
-from pypy.rpython.robject import pyobj_repr
 from pypy.rpython.rbool import bool_repr
 
 def rtype_builtin_isinstance(hop):
     hop.exception_cannot_occur()
     if hop.s_result.is_constant():
         return hop.inputconst(lltype.Bool, hop.s_result.const)
-    if hop.args_r[0] == pyobj_repr or hop.args_r[1] == pyobj_repr:
-        v_obj, v_typ = hop.inputargs(pyobj_repr, pyobj_repr)
-        c = hop.inputconst(pyobj_repr, isinstance)
-        v = hop.genop('simple_call', [c, v_obj, v_typ], resulttype = pyobj_repr)
-        return hop.llops.convertvar(v, pyobj_repr, bool_repr)
 
     if hop.args_s[1].is_constant() and hop.args_s[1].const == list:
         if hop.args_s[0].knowntype != list:
@@ -51,12 +45,8 @@ def rtype_builtin_hasattr(hop):
     hop.exception_cannot_occur()
     if hop.s_result.is_constant():
         return hop.inputconst(lltype.Bool, hop.s_result.const)
-    if hop.args_r[0] == pyobj_repr:
-        v_obj, v_name = hop.inputargs(pyobj_repr, pyobj_repr)
-        c = hop.inputconst(pyobj_repr, hasattr)
-        v = hop.genop('simple_call', [c, v_obj, v_name], resulttype = pyobj_repr)
-        return hop.llops.convertvar(v, pyobj_repr, bool_repr)
-    raise TyperError("hasattr is only suported on a constant or on PyObject")
+
+    raise TyperError("hasattr is only suported on a constant")
 
 BUILTIN_TYPER = {}
 BUILTIN_TYPER[objectmodel.instantiate] = rtype_instantiate

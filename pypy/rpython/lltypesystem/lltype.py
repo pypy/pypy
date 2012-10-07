@@ -268,7 +268,7 @@ class Struct(ContainerType):
         if self._names:
             first = self._names[0]
             FIRSTTYPE = self._flds[first]
-            if (isinstance(FIRSTTYPE, (Struct, PyObjectType)) and
+            if (isinstance(FIRSTTYPE, Struct) and
                 self._gckind == FIRSTTYPE._gckind):
                 return first, FIRSTTYPE
         return None, None
@@ -587,19 +587,6 @@ class GcOpaqueType(OpaqueType):
     def _inline_is_varsize(self, last):
         raise TypeError, "%r cannot be inlined in structure" % self
 
-class PyObjectType(ContainerType):
-    _gckind = 'cpy'
-    __name__ = 'PyObject'
-    def __str__(self):
-        return "PyObject"
-    def _inline_is_varsize(self, last):
-        return False
-    def _defl(self, parent=None, parentindex=None):
-        return _pyobject(None)
-    def _allocate(self, initialization, parent=None, parentindex=None):
-        return self._defl(parent=parent, parentindex=parentindex)
-
-PyObject = PyObjectType()
 
 class ForwardReference(ContainerType):
     _gckind = 'raw'
@@ -912,8 +899,8 @@ def castable(PTRTYPE, CURTYPE):
                         % (CURTYPE, PTRTYPE))
     if CURTYPE == PTRTYPE:
         return 0
-    if (not isinstance(CURTYPE.TO, (Struct, PyObjectType)) or
-        not isinstance(PTRTYPE.TO, (Struct, PyObjectType))):
+    if (not isinstance(CURTYPE.TO, Struct) or
+        not isinstance(PTRTYPE.TO, Struct)):
         raise InvalidCast(CURTYPE, PTRTYPE)
     CURSTRUC = CURTYPE.TO
     PTRSTRUC = PTRTYPE.TO
@@ -1958,21 +1945,6 @@ class _opaque(_parentable):
             return _parentable._normalizedcontainer(self)
 
 
-class _pyobject(Hashable, _container):
-    __slots__ = []   # or we get in trouble with pickling
-
-    _TYPE = PyObject
-
-    def __repr__(self):
-        return '<%s>' % (self,)
-
-    def __str__(self):
-        return "pyobject %s" % (Hashable.__str__(self),)
-
-    def _getid(self):
-        return id(self.value)
-
-
 def malloc(T, n=None, flavor='gc', immortal=False, zero=False,
            track_allocation=True, add_memory_pressure=False):
     assert flavor in ('gc', 'raw')
@@ -2063,9 +2035,6 @@ def opaqueptr(TYPE, name, **attrs):
     o = _opaque(TYPE, _name=name, **attrs)
     return _ptr(Ptr(TYPE), o, solid=True)
 
-def pyobjectptr(obj):
-    o = _pyobject(obj)
-    return _ptr(Ptr(PyObject), o) 
 
 def cast_ptr_to_int(ptr):
     return ptr._cast_to_int()

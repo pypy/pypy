@@ -79,6 +79,3 @@ class AnnotatorPolicy(BasicAnnotatorPolicy):
     def specialize__ll_and_arg(pol, *args):
         from pypy.rpython.annlowlevel import LowLevelAnnotatorPolicy
         return LowLevelAnnotatorPolicy.specialize__ll_and_arg(*args)
-
-class StrictAnnotatorPolicy(AnnotatorPolicy):
-    allow_someobjects = False

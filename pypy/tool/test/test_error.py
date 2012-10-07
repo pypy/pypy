@@ -3,17 +3,14 @@
 """
 
 from pypy.translator.translator import TranslationContext
-from pypy.tool.error import AnnotatorError, NoSuchAttrError
-from pypy.annotation.policy import BasicAnnotatorPolicy
+from pypy.tool.error import AnnotatorError
 
 import py
 
-class Policy(BasicAnnotatorPolicy):
-    allow_someobjects = False
 
 def compile_function(function, annotation=[]):
     t = TranslationContext()
-    t.buildannotator(policy=Policy()).build_types(function, annotation)
+    t.buildannotator().build_types(function, annotation)
 
 class AAA(object):
     pass

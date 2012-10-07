@@ -6,7 +6,6 @@ from pypy.rpython.rmodel import Repr, IteratorRepr, IntegerRepr
 from pypy.rpython.rstr import AbstractStringRepr, AbstractCharRepr
 from pypy.rpython.lltypesystem.lltype import typeOf, Ptr, Void, Signed, Bool
 from pypy.rpython.lltypesystem.lltype import nullptr, Char, UniChar, Number
-from pypy.rpython import robject
 from pypy.rlib.objectmodel import malloc_zero_filled
 from pypy.rlib.debug import ll_assert
 from pypy.rlib.rarithmetic import ovfcheck, widen, r_uint, intmask
@@ -40,8 +39,6 @@ class __extend__(annmodel.SomeList):
         if (listitem.range_step is not None and not listitem.mutated and
             not isinstance(s_value, annmodel.SomeImpossibleValue)):
             return rtyper.type_system.rrange.RangeRepr(listitem.range_step)
-        elif (s_value.__class__ is annmodel.SomeObject and s_value.knowntype == object):
-            return robject.pyobj_repr
         else:
             # cannot do the rtyper.getrepr() call immediately, for the case
             # of recursive structures -- i.e. if the listdef contains itself
@@ -351,15 +348,6 @@ class __extend__(pairtype(AbstractBaseListRepr, AbstractBaseListRepr)):
 def rtype_newlist(hop, v_sizehint=None):
     nb_args = hop.nb_args
     r_list = hop.r_result
-    if r_list == robject.pyobj_repr: # special case: SomeObject lists!
-        clist = hop.inputconst(robject.pyobj_repr, list)
-        v_result = hop.genop('simple_call', [clist], resulttype = robject.pyobj_repr)
-        cname = hop.inputconst(robject.pyobj_repr, 'append')
-        v_meth = hop.genop('getattr', [v_result, cname], resulttype = robject.pyobj_repr)
-        for i in range(nb_args):
-            v_item = hop.inputarg(robject.pyobj_repr, arg=i)
-            hop.genop('simple_call', [v_meth, v_item], resulttype = robject.pyobj_repr)
-        return v_result
     r_listitem = r_list.item_repr
     items_v = [hop.inputarg(r_listitem, arg=i) for i in range(nb_args)]
     return hop.rtyper.type_system.rlist.newlist(hop.llops, r_list, items_v,

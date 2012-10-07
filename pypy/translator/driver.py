@@ -188,8 +188,6 @@ class TranslationDriver(SimpleTaskEngine):
 
         if policy is None:
             policy = annpolicy.AnnotatorPolicy()
-        if standalone:
-            policy.allow_someobjects = False
         self.policy = policy
 
         self.extra = extra
@@ -344,22 +342,6 @@ class TranslationDriver(SimpleTaskEngine):
 
         lost = query.qoutput(query.check_methods_qgen(translator))
         assert not lost, "lost methods, something gone wrong with the annotation of method defs"
-
-        so = query.qoutput(query.polluted_qgen(translator))
-        tot = len(translator.graphs)
-        percent = int(tot and (100.0*so / tot) or 0)
-        # if there are a few SomeObjects even if the policy doesn't allow
-        # them, it means that they were put there in a controlled way
-        # and then it's not a warning.
-        if not translator.annotator.policy.allow_someobjects:
-            pr = self.log.info
-        elif percent == 0:
-            pr = self.log.info
-        else:
-            pr = log.WARNING
-        pr("-- someobjectness %2d%% (%d of %d functions polluted by SomeObjects)" % (percent, so, tot))
-
-
 
     def task_rtype_lltype(self):
         """ RTyping - lltype version

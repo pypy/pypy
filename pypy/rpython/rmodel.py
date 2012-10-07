@@ -4,7 +4,7 @@ from pypy.annotation import description
 from pypy.objspace.flow.model import Constant
 from pypy.rpython.lltypesystem.lltype import \
      Void, Bool, Float, Signed, Char, UniChar, \
-     typeOf, LowLevelType, Ptr, PyObject, isCompatibleType
+     typeOf, LowLevelType, Ptr, isCompatibleType
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.error import TyperError, MissingRTypeOperation 
@@ -426,7 +426,6 @@ def mangle(prefix, name):
         return '%s_%s' % (prefix, name)
 
 # __________ utilities __________
-PyObjPtr = Ptr(PyObject)
 
 def getgcflavor(classdef):
     classdesc = classdef.classdesc

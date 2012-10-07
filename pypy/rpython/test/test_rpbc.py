@@ -1660,8 +1660,6 @@ class BaseTestRPBCExtra(BaseRtypingTest):
             return -1
 
         class P(policy.AnnotatorPolicy):
-            allow_someobjects = False
-
             def specialize__w(pol, funcdesc, args_s):
                 typ = args_s[1].knowntype
                 if args_s[0].is_constant() and args_s[1].is_constant():

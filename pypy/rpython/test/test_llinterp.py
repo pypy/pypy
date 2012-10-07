@@ -1,21 +1,18 @@
 from __future__ import with_statement
 import py
 import sys
-from pypy.rpython.lltypesystem.lltype import typeOf, pyobjectptr, Ptr,\
-     PyObject, Void, malloc, free
-from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.rpython.llinterp import LLInterpreter, LLException, log
+from pypy.rpython.lltypesystem.lltype import typeOf, Void, malloc, free
+from pypy.rpython.llinterp import LLInterpreter, LLException
 from pypy.rpython.rmodel import inputconst
 from pypy.rpython.annlowlevel import hlstr
 from pypy.translator.translator import TranslationContext, graphof
-from pypy.rpython.rint import signed_repr
-from pypy.rpython.lltypesystem import rstr, lltype
+from pypy.rpython.lltypesystem import lltype
 from pypy.annotation import model as annmodel
 from pypy.annotation.model import lltype_to_annotation
 from pypy.rlib.rarithmetic import r_uint, ovfcheck
-from pypy.rpython.ootypesystem import ootype
 from pypy.tool import leakfinder
 from pypy import conftest
+
 
 # switch on logging of interp to show more info on failing tests
 
@@ -71,27 +68,23 @@ def clear_tcache():
     _tcache.clear()
 
 def get_interpreter(func, values, view='auto', viewbefore='auto', policy=None,
-                    someobjects=False, type_system="lltype", backendopt=False,
-                    config=None, **extraconfigopts):
+                    type_system="lltype", backendopt=False, config=None,
+                    **extraconfigopts):
     extra_key = [(key, value) for key, value in extraconfigopts.iteritems()]
     extra_key.sort()
     extra_key = tuple(extra_key)
     key = ((func,) + tuple([typeOf(x) for x in values]) +
-            (someobjects, backendopt, extra_key))
-    try: 
+            (backendopt, extra_key))
+    try:
         (t, interp, graph) = _tcache[key]
     except KeyError:
         def annotation(x):
             T = typeOf(x)
-            if T == Ptr(PyObject) and someobjects:
-                return object
-            else:
-                return lltype_to_annotation(T)
+            return lltype_to_annotation(T)
 
-        if policy is None and not someobjects:
+        if policy is None:
             from pypy.annotation.policy import AnnotatorPolicy
             policy = AnnotatorPolicy()
-            policy.allow_someobjects = False
 
         t, typer, graph = gengraph(func, [annotation(x) for x in values],
                                    viewbefore, policy, type_system=type_system,
@@ -110,10 +103,10 @@ def get_interpreter(func, values, view='auto', viewbefore='auto', policy=None,
     return interp, graph
 
 def interpret(func, values, view='auto', viewbefore='auto', policy=None,
-              someobjects=False, type_system="lltype", backendopt=False,
-              config=None, malloc_check=True, **kwargs):
+              type_system="lltype", backendopt=False, config=None,
+              malloc_check=True, **kwargs):
     interp, graph = get_interpreter(func, values, view, viewbefore, policy,
-                                    someobjects, type_system=type_system,
+                                    type_system=type_system,
                                     backendopt=backendopt, config=config,
                                     **kwargs)
     if not malloc_check:
@@ -129,10 +122,10 @@ def interpret(func, values, view='auto', viewbefore='auto', policy=None,
     return result
 
 def interpret_raises(exc, func, values, view='auto', viewbefore='auto',
-                     policy=None, someobjects=False, type_system="lltype",
+                     policy=None, type_system="lltype",
                      backendopt=False):
     interp, graph  = get_interpreter(func, values, view, viewbefore, policy,
-                                     someobjects, type_system=type_system,
+                                     type_system=type_system,
                                      backendopt=backendopt)
     info = py.test.raises(LLException, "interp.eval_graph(graph, values)")
     try:
@@ -269,21 +262,6 @@ def test_list_multiply():
     res = interpret(f, [3])
     assert res == 3
 
-##def test_unicode():
-##    def f():
-##        return u'Hello world'
-##    res = interpret(f, [], someobjects=True)
-    
-##    assert res._obj.value == u'Hello world'
-    
-##def test_unicode_split():
-##    def f():
-##        res = u'Hello world'.split()
-##        return u' '.join(res)
-##    res = interpret(f,[],True)
-##    
-##    assert res == u'Hello world'
-
 def test_list_reverse():
     def f():
         l = [1,2,3]
@@ -304,14 +282,6 @@ def test_list_pop():
         return [l1,l2,l3]
     res = interpret(f,[])
     assert len(res.ll_items()) == 3
-
-def test_obj_obj_add():
-    def f(x,y):
-        return x+y
-    _1L = pyobjectptr(1L)
-    _2L = pyobjectptr(2L)
-    res = interpret(f, [_1L, _2L], someobjects=True)
-    assert res._obj.value == 3L
 
 def test_ovf():
     def f(x):
@@ -366,14 +336,6 @@ def test_mod_ovf_zer():
     res = interpret(f, [30])
     assert res == (-sys.maxint - 1) % 30
 
-
-def test_obj_obj_is():
-    def f(x,y):
-        return x is y
-    o = pyobjectptr(object())
-    res = interpret(f, [o, o], someobjects=True)
-    assert res is True
-    
 
 def test_funny_links():
     from pypy.objspace.flow.model import Block, FunctionGraph, \

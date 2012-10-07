@@ -3000,7 +3000,6 @@ class TestAnnotateTestCase:
                 v = -maxint
             return intmask(v * 10)
         P = policy.AnnotatorPolicy()
-        P.allow_someobjects = False
         a = self.RPythonAnnotator(policy=P)
         s = a.build_types(fun, [bool])
         assert isinstance(s, annmodel.SomeInteger)

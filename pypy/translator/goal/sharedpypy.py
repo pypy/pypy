@@ -6,7 +6,6 @@ from pypy.rpython.lltypesystem.rffi import charp2str, CCHARP, VOIDP
 from pypy.tool.option import make_objspace
 from pypy.interpreter.error import OperationError
 from pypy.config.pypyoption import pypy_optiondescription, set_pypy_opt_level
-from pypy.interpreter.pyopcode import prepare_exec
 from pypy.translator.goal.ann_override import PyPyAnnotatorPolicy
 from pypy.config.translationoption import set_opt_level
 from pypy.config.pypyoption import enable_allworkingmodules
@@ -26,8 +25,7 @@ def main(argv):
     enable_allworkingmodules(config)
 
     space = make_objspace(config)
-    policy = PyPyAnnotatorPolicy(single_space = space)
-    policy.allow_someobjects = False
+    policy = PyPyAnnotatorPolicy(single_space=space)
 
     def interpret(source, context):
         source = charp2str(source)

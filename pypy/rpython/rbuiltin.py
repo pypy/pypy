@@ -10,7 +10,6 @@ from pypy.rpython.rrange import rtype_builtin_range, rtype_builtin_xrange
 from pypy.rpython.rrange import rtype_builtin_enumerate
 from pypy.rpython import rstr
 from pypy.rpython import rptr
-from pypy.rpython.robject import pyobj_repr
 from pypy.tool import sourcetools
 from pypy.rpython import extregistry
 
@@ -25,10 +24,7 @@ class __extend__(annmodel.SomeBuiltin):
             # built-in method case
             assert self.methodname is not None
             result = BuiltinMethodRepr(rtyper, self.s_self, self.methodname)
-            if result.self_repr == pyobj_repr:
-                return pyobj_repr   # special case: methods of 'PyObject*'
-            else:
-                return result
+            return result
     def rtyper_makekey(self):
         if self.s_self is None:
             # built-in function case
