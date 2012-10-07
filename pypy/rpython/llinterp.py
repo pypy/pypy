@@ -144,13 +144,8 @@ class LLInterpreter(object):
     def find_exception(self, exc):
         assert isinstance(exc, LLException)
         klass, inst = exc.args[0], exc.args[1]
-        exdata = self.typer.getexceptiondata()
-        frame = self.frame_class(None, [], self)
         for cls in enumerate_exceptions_top_down():
-            evalue = frame.op_direct_call(exdata.fn_pyexcclass2exc,
-                    lltype.pyobjectptr(cls))
-            etype = frame.op_direct_call(exdata.fn_type_of_exc_inst, evalue)
-            if etype == klass:
+            if "".join(klass.name).rstrip("\0") == cls.__name__:
                 return cls
         raise ValueError("couldn't match exception, maybe it"
                       " has RPython attributes like OSError?")
@@ -427,7 +422,7 @@ class LLFrame(object):
                 if exc_data:
                     etype = e.args[0]
                     evalue = e.args[1]
-                    exc_data.exc_type  = etype
+                    exc_data.exc_type = etype
                     exc_data.exc_value = evalue
                     from pypy.translator import exceptiontransform
                     retval = exceptiontransform.error_value(
