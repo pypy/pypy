@@ -59,6 +59,16 @@ class AbstractExceptionData:
                 raise ValueError
             if classname == 'ZeroDivisionError':
                 raise ZeroDivisionError
+            if classname == 'MemoryError':
+                raise MemoryError
+            if classname == 'IOError':
+                raise IOError
+            if classname == 'StopIteration':
+                raise StopIteration
+            if classname == 'KeyError':
+                raise KeyError
+            if classname == 'IndexError':
+                raise IndexError
             raise NotImplementedError   # we did not special-case this so far
         helper_fn = rtyper.annotate_helper_fn(ll_raise_noarg, [annmodel.SomeString()])
         return helper_fn
