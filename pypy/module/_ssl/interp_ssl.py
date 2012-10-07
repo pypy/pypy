@@ -219,7 +219,7 @@ class SSLContext(Wrappable):
         else:
             capath = space.str_w(w_capath)
         if cafile is None and capath is None:
-            raise OperationError(space.w_ValueError, space.wrap(
+            raise OperationError(space.w_TypeError, space.wrap(
                     "cafile and capath cannot be both omitted"))
         ret = libssl_SSL_CTX_load_verify_locations(
             self.ctx, cafile, capath)
