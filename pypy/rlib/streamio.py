@@ -141,8 +141,11 @@ def decode_mode(mode):
 def construct_stream_tower(stream, buffering, universal, reading, writing,
                            binary):
     if buffering == 0:   # no buffering
-        if reading:      # force some minimal buffering for readline()
-            stream = ReadlineInputStream(stream)
+        # XXX we cannot really use ReadlineInputStream: see module/_file/
+        # test/test_file.py:test_readline_unbuffered_should_read_one_line_only
+        pass
+        #if reading:      # force some minimal buffering for readline()
+        #    stream = ReadlineInputStream(stream)
     elif buffering == 1:   # line-buffering
         if writing:
             stream = LineBufferingOutputStream(stream)
