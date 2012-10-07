@@ -1,3 +1,4 @@
+from pypy.interpreter.error import OperationError
 from pypy.module._collections.interp_deque import W_Deque
 from pypy.module.itertools.interp_itertools import W_Repeat
 
@@ -122,8 +123,22 @@ class TestLengthHint:
         """)
         assert space.length_hint(w_foo, 3) == 3
 
+    def test_invalid_hint(self):
+        space = self.space
+        w_foo = space.appexec([], """():
+            class Foo(object):
+                def __length_hint__(self):
+                    return -1
+            return Foo()
+        """)
+        try:
+            space.length_hint(w_foo, 3)
+        except OperationError, e:
+            assert e.match(space, space.w_ValueError)
+        else:
+            assert False, 'ValueError expected'
+
     def test_exc(self):
-        from pypy.interpreter.error import OperationError
         space = self.space
         w_foo = space.appexec([], """():
             class Foo(object):

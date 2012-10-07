@@ -942,7 +942,11 @@ class ObjSpace(object):
         if self.is_w(w_hint, self.w_NotImplemented):
             return default
 
-        return max(self.int_w(w_hint), 0)
+        hint = self.int_w(w_hint)
+        if hint < 0:
+            raise OperationError(self.w_ValueError, self.wrap(
+                    "__length_hint__() should return >= 0"))
+        return hint
 
     def fixedview(self, w_iterable, expected_length=-1):
         """ A fixed list view of w_iterable. Don't modify the result
