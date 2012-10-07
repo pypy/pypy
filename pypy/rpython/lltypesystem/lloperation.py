@@ -3,7 +3,6 @@ The table of all LL operations.
 """
 
 from pypy.rpython.extregistry import ExtRegistryEntry
-from pypy.tool.descriptor import roproperty
 
 
 class LLOp(object):
@@ -65,7 +64,10 @@ class LLOp(object):
             val = lltype.enforce(RESULTTYPE, val)
         return val
 
-    def get_fold_impl(self):
+    @property
+    def fold(self):
+        if hasattr(self, "_fold"):
+            return self._fold
         global lltype                 #  <- lazy import hack, worth an XXX
         from pypy.rpython.lltypesystem import lltype
         if self.canrun:
@@ -80,9 +82,8 @@ class LLOp(object):
             def op_impl(*args):
                 raise error
         # cache the implementation function into 'self'
-        self.fold = op_impl
+        self._fold = op_impl
         return op_impl
-    fold = roproperty(get_fold_impl)
 
     def is_pure(self, args_v):
         if self.canfold:                # canfold => pure operation

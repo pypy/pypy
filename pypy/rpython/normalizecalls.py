@@ -12,6 +12,7 @@ from pypy.rpython.rmodel import getgcflavor
 from pypy.rlib.objectmodel import instantiate, ComputedIntSymbolic
 from pypy.interpreter.argument import Signature
 
+
 def normalize_call_familes(annotator):
     for callfamily in annotator.bookkeeper.pbc_maximal_call_families.infos():
         if not callfamily.modified:
@@ -105,7 +106,6 @@ def normalize_calltable_row_signature(annotator, shape, row):
     call_nbargs = shape_cnt + len(shape_keys)
 
     did_something = False
-    NODEFAULT = object()
 
     for graph in graphs:
         argnames, varargname, kwargname = graph.signature
@@ -123,7 +123,7 @@ def normalize_calltable_row_signature(annotator, shape, row):
             inlist = []
             defaults = graph.defaults or ()
             num_nondefaults = len(inputargs_s) - len(defaults)
-            defaults = [NODEFAULT] * num_nondefaults + list(defaults)
+            defaults = [description.NODEFAULT] * num_nondefaults + list(defaults)
             newdefaults = []
             for j in argorder:
                 v = Variable(graph.getargs()[j])
@@ -141,7 +141,7 @@ def normalize_calltable_row_signature(annotator, shape, row):
                     v = inlist[i]
                 except ValueError:
                     default = defaults[j]
-                    if default is NODEFAULT:
+                    if default is description.NODEFAULT:
                         raise TyperError(
                             "call pattern has %d positional arguments, "
                             "but %r takes at least %d arguments" % (
@@ -151,7 +151,7 @@ def normalize_calltable_row_signature(annotator, shape, row):
             newblock.closeblock(Link(outlist, oldblock))
             graph.startblock = newblock
             for i in range(len(newdefaults)-1,-1,-1):
-                if newdefaults[i] is NODEFAULT:
+                if newdefaults[i] is description.NODEFAULT:
                     newdefaults = newdefaults[i:]
                     break
             graph.defaults = tuple(newdefaults)

@@ -167,9 +167,6 @@ class Bookkeeper(object):
 
         self.stats = Stats(self)
 
-        # used in SomeObject.__new__ for keeping debugging info
-        self._isomeobject_coming_from = identity_dict()
-
         delayed_imports()
 
     def count(self, category, *args):
@@ -477,11 +474,11 @@ class Bookkeeper(object):
         elif x is None:
             return s_None
         else:
-            result = SomeObject()
+            raise Exception("Don't know how to represent %r" % (x,))
         if need_const:
             result.const = x
         return result
-    
+
     def getdesc(self, pyobj):
         # get the XxxDesc wrapper for the given Python object, which must be
         # one of:
