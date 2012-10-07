@@ -39,21 +39,8 @@ class RPythonAnnotator(object):
         self.notify = {}        # {block: {positions-to-reflow-from-when-done}}
         self.fixed_graphs = {}  # set of graphs not to annotate again
         self.blocked_blocks = {} # set of {blocked_block: graph}
-        # --- the following information is recorded for debugging only ---
-        # --- and only if annotation.model.DEBUG is kept to True
-        self.why_not_annotated = {} # {block: (exc_type, exc_value, traceback)}
-                                    # records the location of BlockedInference
-                                    # exceptions that blocked some blocks.
+        # --- the following information is recorded for debugging ---
         self.blocked_graphs = {} # set of graphs that have blocked blocks
-        self.bindingshistory = {}# map Variables to lists of SomeValues
-        self.binding_caused_by = {}     # map Variables to position_keys
-               # records the caller position that caused bindings of inputargs
-               # to be updated
-        self.binding_cause_history = {} # map Variables to lists of positions
-                # history of binding_caused_by, kept in sync with
-                # bindingshistory
-        self.reflowcounter = {}
-        self.return_bindings = {} # map return Variables to their graphs
         # --- end of debugging information ---
         self.frozen = False
         if policy is None:
@@ -76,10 +63,6 @@ class RPythonAnnotator(object):
                     (key, self.__class__.__name__))
                 ret[key] = {}
         return ret
-
-    def _register_returnvar(self, flowgraph):
-        if annmodel.DEBUG:
-            self.return_bindings[flowgraph.getreturnvar()] = flowgraph
 
     #___ convenience high-level interface __________________
 
@@ -182,10 +165,9 @@ class RPythonAnnotator(object):
     #___ medium-level interface ____________________________
 
     def addpendinggraph(self, flowgraph, inputcells):
-        self._register_returnvar(flowgraph)
         self.addpendingblock(flowgraph, flowgraph.startblock, inputcells)
 
-    def addpendingblock(self, graph, block, cells, called_from_graph=None):
+    def addpendingblock(self, graph, block, cells):
         """Register an entry point into block with the given input cells."""
         if graph in self.fixed_graphs:
             # special case for annotating/rtyping in several phases: calling
@@ -200,9 +182,9 @@ class RPythonAnnotator(object):
             for a in cells:
                 assert isinstance(a, annmodel.SomeObject)
             if block not in self.annotated:
-                self.bindinputargs(graph, block, cells, called_from_graph)
+                self.bindinputargs(graph, block, cells)
             else:
-                self.mergeinputargs(graph, block, cells, called_from_graph)
+                self.mergeinputargs(graph, block, cells)
             if not self.annotated[block]:
                 self.pendingblocks[block] = graph
 
@@ -211,8 +193,6 @@ class RPythonAnnotator(object):
         while True:
             while self.pendingblocks:
                 block, graph = self.pendingblocks.popitem()
-                if annmodel.DEBUG:
-                    self.flowin_block = block # we need to keep track of block
                 self.processblock(graph, block)
             self.policy.no_more_blocks_to_annotate(self)
             if not self.pendingblocks:
@@ -263,60 +243,14 @@ class RPythonAnnotator(object):
     def typeannotation(self, t):
         return signature.annotation(t, self.bookkeeper)
 
-    def ondegenerated(self, what, s_value, where=None, called_from_graph=None):
-        if self.policy.allow_someobjects:
-            return
-        # is the function itself tagged with allow_someobjects?
-        position_key = where or getattr(self.bookkeeper, 'position_key', None)
-        if position_key is not None:
-            graph, block, i = position_key
-            try:
-                if graph.func.allow_someobjects:
-                    return
-            except AttributeError:
-                pass
-
-        msgstr = format_someobject_error(self, position_key, what, s_value,
-                                         called_from_graph,
-                                         self.bindings.get(what, "(none)"))
-
-        raise AnnotatorError(msgstr)
-
-    def setbinding(self, arg, s_value, called_from_graph=None, where=None):
+    def setbinding(self, arg, s_value):
         if arg in self.bindings:
             assert s_value.contains(self.bindings[arg])
-            # for debugging purposes, record the history of bindings that
-            # have been given to this variable
-            if annmodel.DEBUG:
-                history = self.bindingshistory.setdefault(arg, [])
-                history.append(self.bindings[arg])
-                cause_history = self.binding_cause_history.setdefault(arg, [])
-                cause_history.append(self.binding_caused_by[arg])
-
-        degenerated = annmodel.isdegenerated(s_value)
-
-        if degenerated:
-            self.ondegenerated(arg, s_value, where=where,
-                               called_from_graph=called_from_graph)
-
         self.bindings[arg] = s_value
-        if annmodel.DEBUG:
-            if arg in self.return_bindings:
-                log.event("%s -> %s" % 
-                    (self.whereami((self.return_bindings[arg], None, None)), 
-                     s_value)) 
-
-            if arg in self.return_bindings and degenerated:
-                self.warning("result degenerated to SomeObject",
-                             (self.return_bindings[arg],None, None))
-                
-            self.binding_caused_by[arg] = called_from_graph
 
     def transfer_binding(self, v_target, v_source):
         assert v_source in self.bindings
         self.bindings[v_target] = self.bindings[v_source]
-        if annmodel.DEBUG:
-            self.binding_caused_by[v_target] = None
 
     def warning(self, msg, pos=None):
         if pos is None:
@@ -332,14 +266,11 @@ class RPythonAnnotator(object):
 
     #___ interface for annotator.bookkeeper _______
 
-    def recursivecall(self, graph, whence, inputcells): # whence = position_key|callback taking the annotator, graph 
+    def recursivecall(self, graph, whence, inputcells):
         if isinstance(whence, tuple):
-            parent_graph, parent_block, parent_index = position_key = whence
+            parent_graph, parent_block, parent_index = whence
             tag = parent_block, parent_index
             self.translator.update_call_graph(parent_graph, graph, tag)
-        else:
-            position_key = None
-        self._register_returnvar(graph)
         # self.notify[graph.returnblock] is a dictionary of call
         # points to this func which triggers a reflow whenever the
         # return block of this graph has been analysed.
@@ -353,8 +284,7 @@ class RPythonAnnotator(object):
             callpositions[callback] = True
 
         # generalize the function's input arguments
-        self.addpendingblock(graph, graph.startblock, inputcells,
-                             position_key)
+        self.addpendingblock(graph, graph.startblock, inputcells)
 
         # get the (current) return value
         v = graph.getreturnvar()
@@ -404,9 +334,6 @@ class RPythonAnnotator(object):
         #      input variables).
 
         #print '* processblock', block, cells
-        if annmodel.DEBUG:
-            self.reflowcounter.setdefault(block, 0)
-            self.reflowcounter[block] += 1
         self.annotated[block] = graph
         if block in self.blocked_blocks:
             del self.blocked_blocks[block]
@@ -435,23 +362,22 @@ class RPythonAnnotator(object):
         self.annotated[block] = False  # must re-flow
         self.blocked_blocks[block] = graph
 
-    def bindinputargs(self, graph, block, inputcells, called_from_graph=None):
+    def bindinputargs(self, graph, block, inputcells):
         # Create the initial bindings for the input args of a block.
         assert len(block.inputargs) == len(inputcells)
-        where = (graph, block, None)
         for a, cell in zip(block.inputargs, inputcells):
-            self.setbinding(a, cell, called_from_graph, where=where)
+            self.setbinding(a, cell)
         self.annotated[block] = False  # must flowin.
         self.blocked_blocks[block] = graph
 
-    def mergeinputargs(self, graph, block, inputcells, called_from_graph=None):
+    def mergeinputargs(self, graph, block, inputcells):
         # Merge the new 'cells' with each of the block's existing input
         # variables.
         oldcells = [self.binding(a) for a in block.inputargs]
         unions = [annmodel.unionof(c1,c2) for c1, c2 in zip(oldcells,inputcells)]
         # if the merged cells changed, we must redo the analysis
         if unions != oldcells:
-            self.bindinputargs(graph, block, unions, called_from_graph)
+            self.bindinputargs(graph, block, unions)
 
     def whereami(self, position_key):
         graph, block, i = position_key
@@ -476,9 +402,6 @@ class RPythonAnnotator(object):
                     self.bookkeeper.leave()
 
         except BlockedInference, e:
-            if annmodel.DEBUG:
-                self.why_not_annotated[block] = sys.exc_info()
-
             if (e.op is block.operations[-1] and
                 block.exitswitch == c_last_exception):
                 # this is the case where the last operation of the block will
@@ -562,8 +485,7 @@ class RPythonAnnotator(object):
                    and issubclass(link.exitcase, py.builtin.BaseException):
                 assert last_exception_var and last_exc_value_var
                 last_exc_value_object = self.bookkeeper.valueoftype(link.exitcase)
-                last_exception_object = annmodel.SomeObject()
-                last_exception_object.knowntype = type
+                last_exception_object = annmodel.SomeType()
                 if isinstance(last_exception_var, Constant):
                     last_exception_object.const = last_exception_var.value
                 last_exception_object.is_type_of = [last_exc_value_var]
@@ -573,8 +495,7 @@ class RPythonAnnotator(object):
                 if isinstance(last_exc_value_var, Variable):
                     self.setbinding(last_exc_value_var, last_exc_value_object)
 
-                last_exception_object = annmodel.SomeObject()
-                last_exception_object.knowntype = type
+                last_exception_object = annmodel.SomeType()
                 if isinstance(last_exception_var, Constant):
                     last_exception_object.const = last_exception_var.value
                 #if link.exitcase is Exception:
@@ -610,9 +531,8 @@ class RPythonAnnotator(object):
                         for v in cell.is_type_of:
                             new_vs = renaming.get(v,[])
                             renamed_is_type_of += new_vs
-                        newcell = annmodel.SomeObject()
-                        if cell.knowntype == type:
-                            newcell.knowntype = type
+                        assert cell.knowntype is type
+                        newcell = annmodel.SomeType()
                         if cell.is_constant():
                             newcell.const = cell.const
                         cell = newcell

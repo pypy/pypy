@@ -2,20 +2,19 @@
 import autopath
 import py
 from pypy.annotation.model import *
-from pypy.annotation.listdef import ListDef, MOST_GENERAL_LISTDEF
+from pypy.annotation.listdef import ListDef
 from pypy.rpython.ootypesystem.ootype import ROOT
 
 
 listdef1 = ListDef(None, SomeTuple([SomeInteger(nonneg=True), SomeString()]))
 listdef2 = ListDef(None, SomeTuple([SomeInteger(nonneg=False), SomeString()]))
 
-s1 = SomeObject()
 s2 = SomeInteger(nonneg=True)
 s3 = SomeInteger(nonneg=False)
 s4 = SomeList(listdef1)
 s5 = SomeList(listdef2)
 s6 = SomeImpossibleValue()
-slist = [s1,s2,s3,s4,s6]  # not s5 -- unionof(s4,s5) modifies s4 and s5
+slist = [s2,s3,s4,s6]  # not s5 -- unionof(s4,s5) modifies s4 and s5
 
 
 class C(object):
@@ -100,7 +99,8 @@ def test_list_union():
 def test_list_contains():
     listdef1 = ListDef(None, SomeInteger(nonneg=True))
     s1 = SomeList(listdef1)
-    s2 = SomeList(MOST_GENERAL_LISTDEF)
+    listdef2 = ListDef(None, SomeInteger(nonneg=False))
+    s2 = SomeList(listdef2)
     assert s1 != s2
     assert s2.contains(s1)
     assert s1 != s2

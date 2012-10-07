@@ -158,18 +158,12 @@ def builtin_isinstance(s_obj, s_type, variables=None):
         else:
             if typ == long:
                 getbookkeeper().warning("isinstance(., long) is not RPython")
-                if s_obj.is_constant():
-                    r.const = isinstance(s_obj.const, long)
-                else:
-                    if type(s_obj) is not SomeObject: # only SomeObjects could be longs
-                        # type(s_obj) < SomeObject -> SomeBool(False)
-                        # type(s_obj) == SomeObject -> SomeBool()
-                        r.const = False
+                r.const = False
                 return r
-                
+
             assert not issubclass(typ, (int, long)) or typ in (bool, int, long), (
                 "for integers only isinstance(.,int|r_uint) are supported")
- 
+
             if s_obj.is_constant():
                 r.const = isinstance(s_obj.const, typ)
             elif our_issubclass(s_obj.knowntype, typ):
@@ -195,8 +189,7 @@ def builtin_isinstance(s_obj, s_type, variables=None):
         for variable in variables:
             assert bk.annotator.binding(variable) == s_obj
         r.knowntypedata = {}
-        if (not isinstance(s_type, SomeBuiltin)
-            or typ.__module__ == '__builtin__'):
+        if not isinstance(s_type, SomeBuiltin):
             add_knowntypedata(r.knowntypedata, True, variables, bk.valueoftype(typ))
     return r
 

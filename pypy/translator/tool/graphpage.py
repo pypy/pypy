@@ -27,9 +27,6 @@ class VariableHistoryGraphPage(GraphPage):
             label += "\\n" + self.createlink(info.origin, 'Originated at')
         if caused_by is not None:
             label += '\\n' + self.createlink(caused_by)
-        if info.caused_by_merge is not None:
-            data = 'unionof%r' % (info.caused_by_merge,)
-            label += '\\n%s' % nottoowide(data)
         
         dotgen.emit_node('0', shape="box", color="red", label=label)
         for n, (data, caused_by) in zip(range(len(history)), history):

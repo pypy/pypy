@@ -7,7 +7,7 @@ from pypy.annotation.model import \
      SomeObject, SomeInteger, SomeBool, SomeString, SomeChar, SomeList, \
      SomeDict, SomeTuple, SomeImpossibleValue, SomeUnicodeCodePoint, \
      SomeInstance, SomeBuiltin, SomeFloat, SomeIterator, SomePBC, \
-     SomeExternalObject, SomeTypedAddressAccess, SomeAddress, \
+     SomeExternalObject, SomeTypedAddressAccess, SomeAddress, SomeType, \
      s_ImpossibleValue, s_Bool, s_None, \
      unionof, missing_operation, add_knowntypedata, HarmlesslyBlocked, \
      SomeGenericCallable, SomeWeakRef, SomeUnicodeString
@@ -45,8 +45,7 @@ class __extend__(SomeObject):
             else:
                 r = immutablevalue(obj.knowntype)
         else:
-            r = SomeObject()
-            r.knowntype = type
+            r = SomeType()
         bk = getbookkeeper()
         fn, block, i = bk.position_key
         annotator = bk.annotator

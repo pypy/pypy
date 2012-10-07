@@ -10,7 +10,6 @@ from pypy.annotation.signature import Sig
 
 
 class BasicAnnotatorPolicy(object):
-    allow_someobjects = True
 
     def event(pol, bookkeeper, what, *args):
         pass

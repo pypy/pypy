@@ -309,7 +309,6 @@ class TranslationDriver(SimpleTaskEngine):
         policy = self.policy
         self.log.info('with policy: %s.%s' % (policy.__class__.__module__, policy.__class__.__name__))
 
-        annmodel.DEBUG = self.config.translation.debug
         annotator = translator.buildannotator(policy=policy)
 
         if self.secondary_entrypoints is not None:

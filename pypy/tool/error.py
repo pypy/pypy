@@ -72,6 +72,7 @@ class NoSuchAttrError(Exception):
     pass
 
 def gather_error(annotator, block, graph):
+    XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
     msg = [""]
     msg.append('-+' * 30)
     from pypy.annotation import model
@@ -147,6 +148,7 @@ def format_simple_call(annotator, oper, what, msg):
         msg.append("")
 
 def format_someobject_error(annotator, position_key, what, s_value, called_from_graph, binding=""):
+    XXXXXXXXXXXXXXXXXXXXXX
     #block = getattr(annotator, 'flowin_block', None) or block
     msg = ["annotation of %r degenerated to SomeObject()" % (what,)]
     if position_key is not None:
@@ -167,9 +169,6 @@ def format_someobject_error(annotator, position_key, what, s_value, called_from_
 
     if called_from_graph is not None:
         msg.append(".. called from %r" % (called_from_graph,))
-    if s_value.origin is not None:
-        msg.append(".. SomeObject() origin: %s" % (
-            annotator.whereami(s_value.origin),))
     msg.append("Previous annotation:")
     msg.append("  " + str(binding))
     return "\n".join(msg)

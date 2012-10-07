@@ -10,7 +10,7 @@ from pypy.annotation.model import SomeString, SomeChar, SomeFloat, \
      SomeUnicodeCodePoint, SomeOOStaticMeth, s_None, s_ImpossibleValue, \
      SomeLLADTMeth, SomeBool, SomeTuple, SomeOOClass, SomeImpossibleValue, \
      SomeUnicodeString, SomeList, SomeObject, HarmlesslyBlocked, \
-     SomeWeakRef, lltype_to_annotation
+     SomeWeakRef, lltype_to_annotation, SomeType
 from pypy.annotation.classdef import InstanceSource, ClassDef
 from pypy.annotation.listdef import ListDef, ListItem
 from pypy.annotation.dictdef import DictDef
@@ -325,8 +325,6 @@ class Bookkeeper(object):
         if hasattr(x, 'im_self') and x.im_self is None:
             x = x.im_func
             assert not hasattr(x, 'im_self')
-        if x is sys: # special case constant sys to someobject
-            return SomeObject()
         tp = type(x)
         if issubclass(tp, Symbolic): # symbolic constants support
             result = x.annotation()
@@ -445,6 +443,11 @@ class Bookkeeper(object):
             result = SomeOOInstance(ootype.typeOf(x))
         elif isinstance(x, (ootype._object)):
             result = SomeOOObject()
+        elif tp is type:
+            if x is type(None):   # add cases here if needed
+                result = SomeType()
+            else:
+                result = SomePBC([self.getdesc(x)])
         elif callable(x):
             if hasattr(x, 'im_self') and hasattr(x, 'im_func'):
                 # on top of PyPy, for cases like 'l.append' where 'l' is a
@@ -455,19 +458,11 @@ class Bookkeeper(object):
                 # for cases like 'l.append' where 'l' is a global constant list
                 s_self = self.immutablevalue(x.__self__, need_const)
                 result = s_self.find_method(x.__name__)
-                if result is None:
-                    result = SomeObject()
+                assert result is not None
             else:
                 result = None
             if result is None:
-                if (self.annotator.policy.allow_someobjects
-                    and getattr(x, '__module__', None) == '__builtin__'
-                    # XXX note that the print support functions are __builtin__
-                    and tp not in (types.FunctionType, types.MethodType)):
-                    result = SomeObject()
-                    result.knowntype = tp # at least for types this needs to be correct
-                else:
-                    result = SomePBC([self.getdesc(x)])
+                result = SomePBC([self.getdesc(x)])
         elif hasattr(x, '_freeze_') and x._freeze_():
             # user-defined classes can define a method _freeze_(), which
             # is called when a prebuilt instance is found.  If the method
