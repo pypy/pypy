@@ -2,10 +2,10 @@ import py
 from pypy.translator.translator import TranslationContext
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.rpython.memory.test import snippet
 from pypy.translator.c.genc import CExtModuleBuilder
 from pypy.rlib.objectmodel import keepalive_until_here
 from pypy import conftest
+
 
 def setup_module(mod):
     from pypy.rpython.tool.rffi_platform import configure_boehm
@@ -69,7 +69,6 @@ class TestUsingBoehm(AbstractGCTestClass):
         fn()
 
     def test__del__(self):
-        from pypy.rpython.lltypesystem.lloperation import llop
         class State:
             pass
         s = State()
@@ -105,7 +104,6 @@ class TestUsingBoehm(AbstractGCTestClass):
 
     def test_id_is_weak(self):
         # test that compute_unique_id(obj) does not keep obj alive
-        from pypy.rpython.lltypesystem.lloperation import llop
         from pypy.rlib.objectmodel import compute_unique_id
         class State:
             pass
@@ -155,7 +153,6 @@ class TestUsingBoehm(AbstractGCTestClass):
         assert 0 < res2 <= 5
 
     def test_del_raises(self):
-        from pypy.rpython.lltypesystem.lloperation import llop
         class A(object):
             def __del__(self):
                 s.dels += 1
@@ -199,31 +196,6 @@ class TestUsingBoehm(AbstractGCTestClass):
         fn = self.getcompiled(f)
         res = fn()
         assert res == 10
-        
-    # this test shows if we have a problem with refcounting PyObject
-    def test_refcount_pyobj(self):
-        from pypy.rpython.lltypesystem.lloperation import llop
-        def prob_with_pyobj(b):
-            return 3, b
-        def collect():
-            llop.gc__collect(lltype.Void)
-        f = self.getcompiled(prob_with_pyobj, [object])
-        c = self.getcompiled(collect, [])
-        from sys import getrefcount as g
-        obj = None
-        before = g(obj)
-        f(obj)
-        f(obj)
-        f(obj)
-        f(obj)
-        f(obj)
-        c()
-        c()
-        c()
-        c()
-        c()
-        after = g(obj)
-        assert abs(before - after) < 5
 
     def test_zero_malloc(self):
         T = lltype.GcStruct("C", ('x', lltype.Signed))
