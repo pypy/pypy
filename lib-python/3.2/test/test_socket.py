@@ -273,6 +273,7 @@ class GeneralModuleTests(unittest.TestCase):
         self.assertEqual(p.fileno(), s.fileno())
         s.close()
         s = None
+        support.gc_collect()
         try:
             p.fileno()
         except ReferenceError:
