@@ -1,23 +1,18 @@
-import autopath, sys, os, py
+import sys
+
+import py
+
 from pypy.rpython.lltypesystem.lltype import *
 from pypy.annotation import model as annmodel
 from pypy.translator.translator import TranslationContext
-from pypy.translator.c.database import LowLevelDatabase
 from pypy.translator.c import genc
-from pypy.translator.c.gc import NoneGcPolicy
-from pypy.objspace.flow.model import Constant, Variable, SpaceOperation
-from pypy.objspace.flow.model import Block, Link, FunctionGraph
-from pypy.tool.udir import udir
-from pypy.translator.gensupp import uniquemodulename
-from pypy.translator.backendopt.all import backend_optimizations
 from pypy.translator.interactive import Translation
 from pypy.rlib.entrypoint import entrypoint
 from pypy.tool.nullpath import NullPyPathLocal
 
+
 def compile(fn, argtypes, view=False, gcpolicy="ref", backendopt=True,
             annotatorpolicy=None):
-    if argtypes is not None and "__pypy__" in sys.builtin_module_names:
-        py.test.skip("requires building cpython extension modules")
     t = Translation(fn, argtypes, gc=gcpolicy, backend="c",
                     policy=annotatorpolicy)
     if not backendopt:
@@ -49,19 +44,11 @@ def compile(fn, argtypes, view=False, gcpolicy="ref", backendopt=True,
 def test_simple():
     def f(x):
         return x*2
-    t = TranslationContext()
-    t.buildannotator().build_types(f, [int])
-    t.buildrtyper().specialize()
 
-    t.config.translation.countmallocs = True
-    builder = genc.CExtModuleBuilder(t, f, config=t.config)
-    builder.generate_source()
-    builder.compile()
-    f1 = builder.get_entry_point()
+    f1 = compile(f, [int])
 
     assert f1(5) == 10
     assert f1(-123) == -246
-    assert builder.get_malloc_counters()() == (0, 0)
 
     py.test.raises(Exception, f1, "world")  # check that it's really typed
 

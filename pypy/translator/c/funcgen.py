@@ -53,7 +53,7 @@ class FunctionCodeGenerator(object):
         self.collect_var_and_types()
 
         for v in self.vars:
-            T = getattr(v, 'concretetype', PyObjPtr)
+            T = v.concretetype
             # obscure: skip forward references and hope for the best
             # (needed for delayed function pointers)
             if isinstance(T, Ptr) and T.TO.__class__ == ForwardReference:
@@ -121,7 +121,7 @@ class FunctionCodeGenerator(object):
         db = self.db
         lltypes = identity_dict()
         for v in self.vars:
-            T = getattr(v, 'concretetype', PyObjPtr)
+            T = v.concretetype
             typename = db.gettype(T)
             lltypes[v] = T, typename
         self.illtypes = lltypes
@@ -221,12 +221,6 @@ class FunctionCodeGenerator(object):
             if len(block.exits) == 0:
                 assert len(block.inputargs) == 1
                 # regular return block
-                if self.exception_policy == "CPython":
-                    assert self.lltypemap(self.graph.getreturnvar()) == PyObjPtr
-                    yield 'if (RPyExceptionOccurred()) {'
-                    yield '\tRPyConvertExceptionToCPython();'
-                    yield '\treturn NULL;'
-                    yield '}'
                 retval = self.expr(block.inputargs[0])
                 if self.exception_policy != "exc_helper":
                     yield 'RPY_DEBUG_RETURN();'
@@ -241,20 +235,12 @@ class FunctionCodeGenerator(object):
                 assert block.exitswitch != c_last_exception
                 # block ending in a switch on a value
                 TYPE = self.lltypemap(block.exitswitch)
-                if TYPE in (Bool, PyObjPtr):
+                if TYPE == Bool:
                     expr = self.expr(block.exitswitch)
                     for link in block.exits[:0:-1]:
                         assert link.exitcase in (False, True)
-                        if TYPE == Bool:
-                            if not link.exitcase:
-                                expr = '!' + expr
-                        elif TYPE == PyObjPtr:
-                            yield 'assert(%s == Py_True || %s == Py_False);' % (
-                                expr, expr)
-                            if link.exitcase:
-                                expr = '%s == Py_True' % expr
-                            else:
-                                expr = '%s == Py_False' % expr
+                        if not link.exitcase:
+                            expr = '!' + expr
                         yield 'if (%s) {' % expr
                         for op in self.gen_link(link):
                             yield '\t' + op

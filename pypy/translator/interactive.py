@@ -1,8 +1,6 @@
-import optparse
-
-import autopath
 from pypy.translator.translator import TranslationContext
 from pypy.translator import driver
+
 
 DEFAULTS = {
   'translation.backend': None,
@@ -44,7 +42,7 @@ class Translation(object):
              self.ensure_setup()
         elif kind == 'post':
             pass
-            
+
     def ensure_setup(self, argtypes=None, policy=None, standalone=False):
         if not self.driver_setup:
             if standalone:
@@ -74,7 +72,8 @@ class Translation(object):
         kwds.pop('policy', None)
         kwds.pop('standalone', None)
         gc = kwds.pop('gc', None)
-        if gc: self.config.translation.gc = gc
+        if gc:
+            self.config.translation.gc = gc
         self.config.translation.set(**kwds)
 
     def ensure_opt(self, name, value=None, fallback=None):
@@ -88,13 +87,13 @@ class Translation(object):
         if val is not None:
             return val
         raise Exception(
-                    "the %r option should have been specified at this point" %name)
+                    "the %r option should have been specified at this point" % name)
 
     def ensure_type_system(self, type_system=None):
         if self.config.translation.backend is not None:
             return self.ensure_opt('type_system')
         return self.ensure_opt('type_system', type_system, 'lltype')
-        
+
     def ensure_backend(self, backend=None):
         backend = self.ensure_opt('backend', backend)
         self.ensure_type_system()
@@ -121,20 +120,20 @@ class Translation(object):
     def rtype(self, argtypes=None, **kwds):
         self.update_options(argtypes, kwds)
         ts = self.ensure_type_system()
-        return getattr(self.driver, 'rtype_'+ts)()        
+        return getattr(self.driver, 'rtype_' + ts)()
 
     def backendopt(self, argtypes=None, **kwds):
         self.update_options(argtypes, kwds)
         ts = self.ensure_type_system('lltype')
-        return getattr(self.driver, 'backendopt_'+ts)()                
-            
+        return getattr(self.driver, 'backendopt_' + ts)()
+
     # backend depedent
 
     def source(self, argtypes=None, **kwds):
         self.update_options(argtypes, kwds)
         backend = self.ensure_backend()
-        getattr(self.driver, 'source_'+backend)()
-       
+        getattr(self.driver, 'source_' + backend)()
+
     def source_c(self, argtypes=None, **kwds):
         self.update_options(argtypes, kwds)
         self.ensure_backend('c')
@@ -148,15 +147,15 @@ class Translation(object):
     def compile(self, argtypes=None, **kwds):
         self.update_options(argtypes, kwds)
         backend = self.ensure_backend()
-        getattr(self.driver, 'compile_'+backend)()
+        getattr(self.driver, 'compile_' + backend)()
         return self.driver.c_entryp
-       
+
     def compile_c(self, argtypes=None, **kwds):
         self.update_options(argtypes, kwds)
         self.ensure_backend('c')
         self.driver.compile_c()
         return self.driver.c_entryp
-  
+
     def compile_cli(self, argtypes=None, **kwds):
         self.update_options(argtypes, kwds)
         self.ensure_backend('cli')
