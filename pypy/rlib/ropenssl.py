@@ -234,7 +234,7 @@ SSL_CTX_STATS_NAMES = """
     number connect connect_good connect_renegotiate accept accept_good
     accept_renegotiate hits misses timeouts cache_full""".split()
 SSL_CTX_STATS = unrolling_iterable(
-    (name, external('SSL_CTX_sess_' + name, [SSL_CTX], rffi.LONG))
+    (name, external('SSL_CTX_sess_' + name, [SSL_CTX], rffi.LONG, macro=True))
     for name in SSL_CTX_STATS_NAMES)
 
 ssl_external('SSL_new', [SSL_CTX], SSL)
