@@ -121,14 +121,19 @@ class AppTestRange:
       # test again, to make sure that range() is not its own iterator
       assert iter(x).__next__() == 2
 
-   def test_range_object_with___int__(self):
+   def test_range_object_with___index__(self):
        class A(object):
-          def __int__(self):
+          def __index__(self):
              return 5
 
        assert list(range(A())) == [0, 1, 2, 3, 4]
        assert list(range(0, A())) == [0, 1, 2, 3, 4]
        assert list(range(0, 10, A())) == [0, 5]
+
+       class A2(object):
+          def __index__(self):
+             return 'quux'
+       raises(TypeError, range, A2())
 
    def test_range_float(self):
       raises(TypeError, "range(0.1, 2.0, 1.1)")
