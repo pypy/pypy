@@ -2,7 +2,6 @@ import py
 from pypy.translator.translator import TranslationContext
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.translator.c.genc import CExtModuleBuilder
 from pypy.rlib.objectmodel import keepalive_until_here
 from pypy import conftest
 
@@ -15,20 +14,21 @@ def setup_module(mod):
     except CompilationError:
         py.test.skip("Boehm GC not present")
 
+
 class AbstractGCTestClass(object):
     gcpolicy = "boehm"
     use_threads = False
-   
+
     # deal with cleanups
     def setup_method(self, meth):
         self._cleanups = []
+
     def teardown_method(self, meth):
         while self._cleanups:
             #print "CLEANUP"
             self._cleanups.pop()()
 
-    def getcompiled(self, func, argstypelist = [],
-                    annotatorpolicy=None):
+    def getcompiled(self, func, argstypelist=[], annotatorpolicy=None):
         from pypy.config.pypyoption import get_pypy_config
         config = get_pypy_config(translating=True)
         config.translation.gc = self.gcpolicy
