@@ -1,15 +1,19 @@
 from __future__ import with_statement
-import autopath
-import sys
+
 import math
+import sys
+
 import py
 
 from py.test import raises
 
 from pypy import conftest
+from pypy.rlib.objectmodel import compute_hash, current_object_addr_as_int
+from pypy.rlib.rarithmetic import r_uint, r_ulonglong, r_longlong, intmask, longlongmask
+from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.translator.test import snippet
 from pypy.translator.translator import TranslationContext
-from pypy.rlib.rarithmetic import r_uint, r_ulonglong, r_longlong, intmask
+
 
 class CompilationTestCase:
 
@@ -78,7 +82,7 @@ class TestTypedTestCase(CompilationTestCase):
 
     def test_nested_whiles(self):
         nested_whiles = self.getcompiled(snippet.nested_whiles, [int, int])
-        assert nested_whiles(5,3) == '!!!!!'
+        assert nested_whiles(5, 3) == '!!!!!'
 
     def test_call_unpack_56(self):
         call_unpack_56 = self.getcompiled(snippet.call_unpack_56, [])
@@ -99,10 +103,10 @@ class TestTypedTestCase(CompilationTestCase):
         def tuple_repr(x, y):
             z = x, y
             while x:
-                x = x-1
+                x = x - 1
             return z
         fn = self.getcompiled(tuple_repr, [int, str])
-        assert fn(6,'a') == (6,'a')
+        assert fn(6, 'a') == (6, 'a')
 
     def test_classattribute(self):
         fn = self.getcompiled(snippet.classattribute, [int])
@@ -117,7 +121,7 @@ class TestTypedTestCase(CompilationTestCase):
         def type_conversion(n):
             if n > 3:
                 while n > 0:
-                    n = n-1
+                    n = n - 1
                     if n == 5:
                         n += 3.1416
             return n
@@ -129,15 +133,15 @@ class TestTypedTestCase(CompilationTestCase):
     def test_do_try_raise_choose(self):
         fn = self.getcompiled(snippet.try_raise_choose, [int])
         result = []
-        for n in [-1,0,1,2]:
+        for n in [-1, 0, 1, 2]:
             result.append(fn(n))
-        assert result == [-1,0,1,2]
+        assert result == [-1, 0, 1, 2]
 
     def test_is_perfect_number(self):
         fn = self.getcompiled(snippet.is_perfect_number, [int])
         for i in range(1, 33):
             perfect = fn(i)
-            assert perfect is (i in (6,28))
+            assert perfect is (i in (6, 28))
 
     def test_prime(self):
         fn = self.getcompiled(snippet.prime, [int])
@@ -172,13 +176,13 @@ class TestTypedTestCase(CompilationTestCase):
 
     def test_memoryerror(self):
         def f(i):
-            lst = [0]*i
+            lst = [0] * i
             lst[-1] = 5
             return lst[0]
         fn = self.getcompiled(f, [int])
         assert fn(1) == 5
         assert fn(2) == 0
-        py.test.raises(MemoryError, fn, sys.maxint//2+1)
+        py.test.raises(MemoryError, fn, sys.maxint // 2 + 1)
         py.test.raises(MemoryError, fn, sys.maxint)
 
     def test_chr(self):
@@ -231,14 +235,14 @@ class TestTypedTestCase(CompilationTestCase):
 
     def test_long_long(self):
         def f(i):
-            return 4*i
+            return 4 * i
         fn = self.getcompiled(f, [r_ulonglong], view=False)
-        assert fn(2147483647) == 4*2147483647
+        assert fn(2147483647) == 4 * 2147483647
 
         def g(i):
-            return 4*i
+            return 4 * i
         gn = self.getcompiled(g, [r_longlong], view=False)
-        assert gn(2147483647) == 4*2147483647
+        assert gn(2147483647) == 4 * 2147483647
 
         def g(i):
             return i << 12
@@ -253,7 +257,7 @@ class TestTypedTestCase(CompilationTestCase):
         def g(i):
             return i >> 12
         gn = self.getcompiled(g, [r_ulonglong])
-        assert gn(2**64 - 12345678) == (2**64 - 12345678) >> 12
+        assert gn(2 ** 64 - 12345678) == (2 ** 64 - 12345678) >> 12
 
     def test_specializing_int_functions(self):
         def f(i):
@@ -266,8 +270,8 @@ class TestTypedTestCase(CompilationTestCase):
                 return f(0)
 
         fn = self.getcompiled(g, [int])
-        assert g(0) == 1
-        assert g(1) == 1
+        assert fn(0) == 1
+        assert fn(1) == 1
 
     def test_downcast_int(self):
         def f(i):
@@ -276,7 +280,6 @@ class TestTypedTestCase(CompilationTestCase):
         assert fn(0) == 0
 
     def test_upcast_int(self):
-        from pypy.rpython.lltypesystem import rffi
         def f(v):
             v = rffi.cast(rffi.USHORT, v)
             return intmask(v)
@@ -312,7 +315,7 @@ class TestTypedTestCase(CompilationTestCase):
         def get_set_del_nonneg_slice(): # no neg slices for now!
             l = [ord('a'), ord('b'), ord('c'), ord('d'), ord('e'), ord('f'), ord('g'), ord('h'), ord('i'), ord('j')]
             del l[:1]
-            bound = len(l)-1
+            bound = len(l) - 1
             if bound >= 0:
                 del l[bound:]
             del l[2:4]
@@ -321,7 +324,7 @@ class TestTypedTestCase(CompilationTestCase):
             #assert bound >= 0
             #l[bound:] = [9]    no setting slice into lists for now
             #l[2:4] = [8,11]
-            l[0], l[-1], l[2], l[3] =3, 9, 8, 11
+            l[0], l[-1], l[2], l[3] = 3, 9, 8, 11
 
             list_3_c = l[:2]
             list_9 = l[5:]
@@ -371,7 +374,7 @@ class TestTypedTestCase(CompilationTestCase):
             for j in range(6):
                 res = fn(i, j)
                 assert res is testfn(i, j)
-                
+
         def testfn(i, j):
             s1 = ['one', 'two']
             s2 = ['one', 'two', 'o', 'on', 'twos', 'foobar']
@@ -381,7 +384,7 @@ class TestTypedTestCase(CompilationTestCase):
             for j in range(6):
                 res = fn(i, j)
                 assert res is testfn(i, j)
-                
+
         def testfn(i, j):
             s1 = ['one', 'two']
             s2 = ['one', 'two', 'o', 'on', 'twos', 'foobar']
@@ -391,7 +394,7 @@ class TestTypedTestCase(CompilationTestCase):
             for j in range(6):
                 res = fn(i, j)
                 assert res is testfn(i, j)
-                
+
         def testfn(i, j):
             s1 = ['one', 'two']
             s2 = ['one', 'two', 'o', 'on', 'twos', 'foobar']
@@ -401,7 +404,7 @@ class TestTypedTestCase(CompilationTestCase):
             for j in range(6):
                 res = fn(i, j)
                 assert res is testfn(i, j)
-                
+
         def testfn(i, j):
             s1 = ['one', 'two']
             s2 = ['one', 'two', 'o', 'on', 'twos', 'foobar']
@@ -411,7 +414,7 @@ class TestTypedTestCase(CompilationTestCase):
             for j in range(6):
                 res = fn(i, j)
                 assert res is testfn(i, j)
-                
+
     def test_str_methods(self):
         def testfn(i, j):
             s1 = ['one', 'two']
@@ -434,15 +437,15 @@ class TestTypedTestCase(CompilationTestCase):
 
     def test_str_join(self):
         def testfn(i, j):
-            s1 = [ '', ',', ' and ']
-            s2 = [ [], ['foo'], ['bar', 'baz', 'bazz']]
+            s1 = ['', ',', ' and ']
+            s2 = [[], ['foo'], ['bar', 'baz', 'bazz']]
             return s1[i].join(s2[j])
         fn = self.getcompiled(testfn, [int, int])
         for i in range(3):
             for j in range(3):
                 res = fn(i, j)
                 assert res == fn(i, j)
-    
+
     def test_unichr_eq(self):
         l = list(u'Hello world')
         def f(i, j):
@@ -450,9 +453,9 @@ class TestTypedTestCase(CompilationTestCase):
         fn = self.getcompiled(f, [int, int])
         for i in range(len(l)):
             for j in range(len(l)):
-                res = fn(i,j)
-                assert res == f(i,j) 
-    
+                res = fn(i, j)
+                assert res == f(i, j)
+
     def test_unichr_ne(self):
         l = list(u'Hello world')
         def f(i, j):
@@ -460,8 +463,8 @@ class TestTypedTestCase(CompilationTestCase):
         fn = self.getcompiled(f, [int, int])
         for i in range(len(l)):
             for j in range(len(l)):
-                res = fn(i,j)
-                assert res == f(i,j)
+                res = fn(i, j)
+                assert res == f(i, j)
 
     def test_unichr_ord(self):
         l = list(u'Hello world')
@@ -512,14 +515,13 @@ class TestTypedTestCase(CompilationTestCase):
 
     def test_int_unary_ovf(self):
         fn = self.getcompiled(snippet.unary_func, [int])
-        for i in range(-3,3):
-            assert fn(i) == (-(i), abs(i-1))
-        raises (OverflowError, fn, -sys.maxint-1)
-        raises (OverflowError, fn, -sys.maxint)
+        for i in range(-3, 3):
+            assert fn(i) == (-(i), abs(i - 1))
+        raises(OverflowError, fn, -sys.maxint - 1)
+        raises(OverflowError, fn, -sys.maxint)
 
-    # floats 
+    # floats
     def test_float_operations(self):
-        import math
         def func(x, y):
             z = x + y / 2.1 * x
             z = math.fmod(z, 60.0)
@@ -551,10 +553,9 @@ class TestTypedTestCase(CompilationTestCase):
         res = self.getcompiled(fn)()
         assert res == 0
 
-
     def test_stringformatting(self):
         def fn(i):
-            return "you said %d, you did"%i
+            return "you said %d, you did" % i
         f = self.getcompiled(fn, [int])
         assert f(1) == fn(1)
 
@@ -570,11 +571,11 @@ class TestTypedTestCase(CompilationTestCase):
         f = self.getcompiled(fn, [float])
         res = f(1.0)
         assert type(res) is str and float(res) == 1.0
-        
+
     def test_uint_arith(self):
         def fn(i):
             try:
-                return ~(i*(i+1))/(i-1)
+                return ~(i * (i + 1)) / (i - 1)
             except ZeroDivisionError:
                 return r_uint(91872331)
         f = self.getcompiled(fn, [r_uint])
@@ -589,8 +590,6 @@ class TestTypedTestCase(CompilationTestCase):
         assert f(255) == 255
 
     def test_hash_preservation(self):
-        from pypy.rlib.objectmodel import compute_hash
-        from pypy.rlib.objectmodel import current_object_addr_as_int
         class C:
             pass
         class D(C):
@@ -606,7 +605,7 @@ class TestTypedTestCase(CompilationTestCase):
                     compute_hash(c),
                     compute_hash(d),
                     compute_hash(("Hi", None, (7.5, 2, d))))
-        
+
         f = self.getcompiled(fn)
         res = f()
 
@@ -618,20 +617,20 @@ class TestTypedTestCase(CompilationTestCase):
 
     def test_list_basic_ops(self):
         def list_basic_ops(i, j):
-            l = [1,2,3]
+            l = [1, 2, 3]
             l.insert(0, 42)
             del l[1]
             l.append(i)
             listlen = len(l)
-            l.extend(l) 
+            l.extend(l)
             del l[listlen:]
-            l += [5,6] 
+            l += [5, 6]
             l[1] = i
             return l[j]
         f = self.getcompiled(list_basic_ops, [int, int])
-        for i in range(6): 
-            for j in range(6): 
-                assert f(i,j) == list_basic_ops(i,j)
+        for i in range(6):
+            for j in range(6):
+                assert f(i, j) == list_basic_ops(i, j)
 
     def test_range2list(self):
         def fn():
@@ -646,7 +645,8 @@ class TestTypedTestCase(CompilationTestCase):
             r = range(10, 37, 4)
             try:
                 return r[idx]
-            except: raise
+            except:
+                raise
         f = self.getcompiled(fn, [int])
         assert f(0) == fn(0)
         assert f(-1) == fn(-1)
@@ -697,7 +697,7 @@ class TestTypedTestCase(CompilationTestCase):
                     if len(self.l):
                         break
                 return did_loop
-            
+
         a1 = A()
         def f():
             for ii in range(1):
@@ -711,7 +711,7 @@ class TestTypedTestCase(CompilationTestCase):
             if n == 0:
                 return 1
             else:
-                return n*f(n-1)
+                return n * f(n - 1)
         fn = self.getcompiled(f, [int])
         assert fn(7) == 5040
         assert fn(7) == 5040    # detection must work several times, too
@@ -721,7 +721,7 @@ class TestTypedTestCase(CompilationTestCase):
     def test_infinite_recursion(self):
         def f(x):
             if x:
-                return 1+f(x)
+                return 1 + f(x)
             return 1
         def g(x):
             try:
@@ -735,7 +735,7 @@ class TestTypedTestCase(CompilationTestCase):
 
     def test_r_dict_exceptions(self):
         from pypy.rlib.objectmodel import r_dict
-        
+
         def raising_hash(obj):
             if obj.startswith("bla"):
                 raise TypeError
@@ -786,7 +786,7 @@ class TestTypedTestCase(CompilationTestCase):
                 return float(s)
             except ValueError:
                 return -999.0
-        
+
         fn = self.getcompiled(f, [int])
 
         for i in range(len(ex)):
@@ -799,14 +799,14 @@ class TestTypedTestCase(CompilationTestCase):
             a = []
             b = range(10)
             while b:
-                item = b.pop()
+                b.pop()
                 a.extend(b)
                 tmp = a
                 a = b
                 b = tmp
                 del a[:]
-    
-        f = self.getcompiled(func_swap, [])
+
+        self.getcompiled(func_swap, [])
 
     def test_returns_unicode(self):
         def func(i):
@@ -838,13 +838,13 @@ class TestTypedTestCase(CompilationTestCase):
                 x += 1
             assert f(x - frac) == -666
 
-            x = -sys.maxint-1
-            while int(x - frac) < -sys.maxint-1:
+            x = -sys.maxint - 1
+            while int(x - frac) < -sys.maxint - 1:
                 x += 1
             assert f(x - frac) == int(x - frac)
 
-            x = -sys.maxint-1
-            while int(x + frac) >= -sys.maxint-1:
+            x = -sys.maxint - 1
+            while int(x + frac) >= -sys.maxint- 1:
                 x -= 1
             assert f(x + frac) == -666
 
@@ -887,7 +887,6 @@ class TestTypedTestCase(CompilationTestCase):
         assert res == 'acquire, hello, raised, release'
 
     def test_longlongmask(self):
-        from pypy.rlib.rarithmetic import longlongmask, r_ulonglong
         def func(n):
             m = r_ulonglong(n)
             m *= 100000
@@ -897,7 +896,6 @@ class TestTypedTestCase(CompilationTestCase):
         assert res == -200000000000000
 
     def test_int128(self):
-        from pypy.rpython.lltypesystem import rffi
         if not hasattr(rffi, '__INT128_T'):
             py.test.skip("no '__int128_t'")
         def func(n):
@@ -912,7 +910,6 @@ class TestTypedTestCase(CompilationTestCase):
         assert res == 305123851
 
     def test_bool_2(self):
-        from pypy.rpython.lltypesystem import lltype, rffi
         def func(n):
             x = rffi.cast(lltype.Bool, n)
             return int(x)
