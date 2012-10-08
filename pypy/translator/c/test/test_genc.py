@@ -13,20 +13,25 @@ from pypy.translator.c import genc
 from pypy.translator.interactive import Translation
 from pypy.translator.translator import TranslationContext, graphof
 
+signed_ffffffff = r_longlong(0xffffffff)
+unsigned_ffffffff = r_ulonglong(0xffffffff)
+
 def llrepr(v):
     if isinstance(v, r_ulonglong):
-        return "%d:%d" % (intmask(v >> 32), intmask(v & 0xffffffff))
+        return "%d:%d" % (intmask(v >> 32), intmask(v & unsigned_ffffffff))
     elif isinstance(v, r_longlong):
-        return "%d:%d" % (intmask(v >> 32), intmask(v & 0xffffffff))
+        return "%d:%d" % (intmask(v >> 32), intmask(v & signed_ffffffff))
     return str(v)
 
 def parse_longlong(a):
     p0, p1 = a.split(":")
-    return (r_longlong(int(p0)) << 32) + (r_longlong(int(p1)) & 0xffffffff)
+    return (r_longlong(int(p0)) << 32) + (r_longlong(int(p1)) &
+                                          signed_ffffffff)
 
 def parse_ulonglong(a):
     p0, p1 = a.split(":")
-    return (r_ulonglong(int(p0)) << 32) + (r_ulonglong(int(p1)) & 0xffffffff)
+    return (r_ulonglong(int(p0)) << 32) + (r_ulonglong(int(p1)) &
+                                           unsigned_ffffffff)
 
 def compile(fn, argtypes, view=False, gcpolicy="none", backendopt=True,
             annotatorpolicy=None, thread=False):
@@ -77,6 +82,7 @@ def compile(fn, argtypes, view=False, gcpolicy="none", backendopt=True,
         for arg, argtype in zip(args, argtypes):
             assert isinstance(arg, argtype)
         stdout = t.driver.cbuilder.cmdexec(" ".join([llrepr(arg) for arg in args]))
+        print stdout
         assert stdout.endswith(' ;\n')
         pos = stdout.rindex('THE RESULT IS: ')
         res = stdout[pos + len('THE RESULT IS: '):-3]
