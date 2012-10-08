@@ -1,6 +1,6 @@
 # The model produced by the flowobjspace
 # this is to be used by the translator mainly.
-# 
+#
 # the below object/attribute model evolved from
 # a discussion in Berlin, 4th of october 2003
 import py
@@ -19,7 +19,7 @@ from pypy.rlib.rarithmetic import is_valid_int, r_longlong, r_ulonglong, r_uint
     Var/Const/SpaceOp   205 MB      325 MB
     + Link              189 MB      311 MB
     + Block             185 MB      304 MB
-    
+
     Dropping Variable.instances and using
     just an instancenames dict brought
     annotation down to 160 MB.
@@ -55,12 +55,18 @@ class FunctionGraph(object):
 
     @property
     def source(self):
+        if hasattr(self, "_source"):
+            return self._source
         from pypy.tool.sourcetools import getsource
-        func = self.func    # can raise AttributeError
+        self.func    # can raise AttributeError
         src = getsource(self.func)
         if src is None:
             raise AttributeError('source not found')
         return src
+
+    @source.setter
+    def source(self, value):
+        self._source = value
 
     @property
     def startline(self):

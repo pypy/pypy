@@ -57,7 +57,7 @@ def test_graphattributes():
     assert graph.returnblock is pieces.headerblock.exits[0].target
     assert graph.getargs() == [pieces.i]
     assert [graph.getreturnvar()] == graph.returnblock.inputargs
-    assert graph.getsource() == inspect.getsource(sample_function)
+    assert graph.source == inspect.getsource(sample_function)
 
 def test_iterblocks():
     assert list(graph.iterblocks()) == [pieces.startblock,
