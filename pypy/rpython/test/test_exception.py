@@ -1,9 +1,10 @@
 import py
+
 from pypy.translator.translator import TranslationContext
-from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 from pypy.rpython.llinterp import LLException
 from pypy.rpython.error import MissingRTypeOperation
+
 
 class MyException(Exception):
     pass

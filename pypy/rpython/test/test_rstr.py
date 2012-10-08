@@ -1,18 +1,21 @@
 import random
-from pypy.rpython.lltypesystem.lltype import *
-from pypy.rpython.rstr import AbstractLLHelpers
-from pypy.rpython.lltypesystem.rstr import LLHelpers, STR
-from pypy.rpython.ootypesystem.ootype import make_string
-from pypy.rpython.rtyper import RPythonTyper, TyperError
-from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
-from pypy.rpython.llinterp import LLException
+
+import py
+
 from pypy.objspace.flow.model import summary
+from pypy.rpython.lltypesystem.lltype import typeOf, Signed, malloc
+from pypy.rpython.lltypesystem.rstr import LLHelpers, STR
+from pypy.rpython.rstr import AbstractLLHelpers
+from pypy.rpython.rtyper import TyperError
+from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+
 
 def test_parse_fmt():
     parse = AbstractLLHelpers.parse_fmt_string
     assert parse('a') == ['a']
     assert parse('%s') == [('s',)]
     assert parse("name '%s' is not defined") == ["name '", ("s",), "' is not defined"]
+
 
 class AbstractTestRstr(BaseRtypingTest):
     def test_simple(self):
