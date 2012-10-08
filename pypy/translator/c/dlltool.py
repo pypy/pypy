@@ -1,5 +1,4 @@
 
-from pypy.translator.driver import TranslationDriver
 from pypy.translator.c.genc import CBuilder
 from pypy.rpython.typesystem import getfunctionptr
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
@@ -39,18 +38,3 @@ class CLibraryBuilder(CBuilder):
     def get_entry_point(self, isolated=False):
         return self.so_name
 
-
-class DLLDef(object):
-    def __init__(self, name, functions=[], policy=None, config=None):
-        self.name = name
-        self.functions = functions # [(function, annotation), ...]
-        self.driver = TranslationDriver(config=config)
-        self.driver.setup_library(self, policy=policy)
-
-    def compile(self):
-        self.driver.proceed(['compile_c'])
-        return self.driver.c_entryp
-
-    def getcbuilder(self, translator, config):
-        return CLibraryBuilder(translator, None, config,
-                               functions=self.functions, name=self.name)
