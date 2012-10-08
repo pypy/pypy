@@ -303,7 +303,7 @@ class FakeObjSpace(ObjSpace):
 def setup():
     for name in (ObjSpace.ConstantTable +
                  ObjSpace.ExceptionTable +
-                 ['int', 'str', 'float', 'long', 'tuple', 'list',
+                 ['int', 'str', 'float', 'tuple', 'list',
                   'dict', 'bytes', 'complex', 'slice', 'bool',
                   'text', 'object', 'unicode']):
         setattr(FakeObjSpace, 'w_' + name, w_some_obj())
