@@ -14,7 +14,7 @@ from pypy.translator.translator import TranslationContext, graphof
 
 
 def compile(fn, argtypes, view=False, gcpolicy="none", backendopt=True,
-            annotatorpolicy=None):
+            annotatorpolicy=None, thread=False):
     argtypes_unroll = unrolling_iterable(enumerate(argtypes))
 
     for argtype in argtypes:
@@ -41,7 +41,7 @@ def compile(fn, argtypes, view=False, gcpolicy="none", backendopt=True,
         return 0
 
     t = Translation(entry_point, None, gc=gcpolicy, backend="c",
-                    policy=annotatorpolicy)
+                    policy=annotatorpolicy, thread=thread)
     if not backendopt:
         t.disable(["backendopt_lltype"])
     t.annotate()
@@ -77,9 +77,10 @@ def compile(fn, argtypes, view=False, gcpolicy="none", backendopt=True,
     f.__name__ = fn.__name__
     return f
 
+
 def test_simple():
     def f(x):
-        return x*2
+        return x * 2
 
     f1 = compile(f, [int])
 

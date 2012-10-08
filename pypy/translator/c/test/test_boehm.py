@@ -2,14 +2,13 @@ import weakref
 
 import py
 
-from pypy import conftest
 from pypy.rlib import rgc
 from pypy.rlib.objectmodel import (keepalive_until_here, compute_unique_id,
     compute_hash, current_object_addr_as_int)
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.lltypesystem.rstr import STR
-from pypy.translator.translator import TranslationContext
+from pypy.translator.c.test.test_genc import compile
 
 
 def setup_module(mod):
@@ -35,27 +34,7 @@ class AbstractGCTestClass(object):
             self._cleanups.pop()()
 
     def getcompiled(self, func, argstypelist=[], annotatorpolicy=None):
-        from pypy.config.pypyoption import get_pypy_config
-        config = get_pypy_config(translating=True)
-        config.translation.gc = self.gcpolicy
-        config.translation.thread = self.use_threads
-        config.translation.simplifying = True
-        t = TranslationContext(config=config)
-        self.t = t
-        a = t.buildannotator(policy=annotatorpolicy)
-        a.build_types(func, argstypelist)
-        t.buildrtyper().specialize()
-        t.checkgraphs()
-        def compile():
-            cbuilder = CExtModuleBuilder(t, func, config=config)
-            c_source_filename = cbuilder.generate_source(
-                defines = cbuilder.DEBUG_DEFINES)
-            if conftest.option.view:
-                t.view()
-            cbuilder.compile()
-            self._cleanups.append(cbuilder.cleanup) # schedule cleanup after test
-            return cbuilder.get_entry_point(isolated=True)
-        return compile()
+        return compile(func, argstypelist, gcpolicy=self.gcpolicy, thread=self.use_threads)
 
 
 class TestUsingBoehm(AbstractGCTestClass):
