@@ -1,11 +1,10 @@
-from pypy.translator.translator import TranslationContext
-from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.lltypesystem import rtupletype
-from pypy.rpython.ootypesystem import ootype
-from pypy.rpython.rint import signed_repr
+from pypy.rpython.lltypesystem.lltype import Signed, Bool
 from pypy.rpython.rbool import bool_repr
+from pypy.rpython.rint import signed_repr
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
-import py
+from pypy.translator.translator import TranslationContext
+
 
 def test_rtuple():
     from pypy.rpython.lltypesystem.rtuple import TupleRepr
@@ -18,9 +17,9 @@ class BaseTestRtuple(BaseRtypingTest):
 
     def test_simple(self):
         def dummyfn(x):
-            l = (10,x,30)
+            l = (10, x, 30)
             return l[2]
-        res = self.interpret(dummyfn,[4])
+        res = self.interpret(dummyfn, [4])
         assert res == 30
 
     def test_len(self):
