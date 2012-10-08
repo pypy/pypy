@@ -467,24 +467,20 @@ class TranslationDriver(SimpleTaskEngine):
         if translator.annotator is not None:
             translator.frozen = True
 
-        if self.libdef is not None:
-            cbuilder = self.libdef.getcbuilder(self.translator, self.config)
-            self.standalone = False
-            standalone = False
-        else:
-            standalone = self.standalone
+        standalone = self.standalone
 
-            if standalone:
-                from pypy.translator.c.genc import CStandaloneBuilder
-                cbuilder = CStandaloneBuilder(self.translator, self.entry_point,
-                                              config=self.config,
-                          secondary_entrypoints=self.secondary_entrypoints)
-            else:
-                from pypy.translator.c.dlltool import CLibraryBuilder
-                cbuilder = CLibraryBuilder(self.translator, self.entry_point,
-                                           functions=[(self.entry_point, None)],
-                                           name='lib',
-                                           config=self.config)
+        if standalone:
+            from pypy.translator.c.genc import CStandaloneBuilder
+            cbuilder = CStandaloneBuilder(self.translator, self.entry_point,
+                                          config=self.config,
+                      secondary_entrypoints=self.secondary_entrypoints)
+        else:
+            from pypy.translator.c.dlltool import CLibraryBuilder
+            functions = [(self.entry_point, None)] + self.secondary_entrypoints
+            cbuilder = CLibraryBuilder(self.translator, self.entry_point,
+                                       functions=functions,
+                                       name='libtesting',
+                                       config=self.config)
         if not standalone:     # xxx more messy
             cbuilder.modulename = self.extmod_name
         database = cbuilder.build_database()
