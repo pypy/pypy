@@ -41,9 +41,6 @@ RPython language
   llexternal functions. For a typical usage, see
   `pypy.rlib.rsocket.RSocket.getsockopt_int`.
 
-- Support context managers and the `with` statement. This could be a workaround
-  before the previous point is available.
-
 Extensible type system for llexternal
 -------------------------------------
 
