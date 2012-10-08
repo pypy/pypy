@@ -1,6 +1,7 @@
+from __future__ import with_statement
+import sys
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
-from math import isnan, isinf, copysign
-from sys import version_info, builtin_module_names
+from pypy.rlib.rfloat import isnan, isinf, copysign
 from pypy.rlib.rcomplex import c_pow
 from pypy.interpreter.error import OperationError
 
@@ -34,7 +35,7 @@ def rAlmostEqual(a, b, rel_err = 2e-15, abs_err = 5e-323, msg='', isnumpy=False)
     # occur).
     if not a and not b and not isnumpy:
         # only check it if we are running on top of CPython >= 2.6
-        if version_info >= (2, 6) and copysign(1., a) != copysign(1., b):
+        if sys.version_info >= (2, 6) and copysign(1., a) != copysign(1., b):
             raise AssertionError( msg + \
                     'zero has wrong sign: expected %r, got %r' % (a, b))
 
@@ -57,26 +58,50 @@ def rAlmostEqual(a, b, rel_err = 2e-15, abs_err = 5e-323, msg='', isnumpy=False)
             '%r and %r are not sufficiently close, %g > %g' %\
             (a, b, absolute_error, max(abs_err, rel_err*abs(a))))
 
+def parse_testfile(fname):
+    """Parse a file with test values
+
+    Empty lines or lines starting with -- are ignored
+    yields id, fn, arg_real, arg_imag, exp_real, exp_imag
+    """
+    with open(fname) as fp:
+        for line in fp:
+            # skip comment lines and blank lines
+            if line.startswith('--') or not line.strip():
+                continue
+
+            lhs, rhs = line.split('->')
+            id, fn, arg_real, arg_imag = lhs.split()
+            rhs_pieces = rhs.split()
+            exp_real, exp_imag = rhs_pieces[0], rhs_pieces[1]
+            flags = rhs_pieces[2:]
+
+            yield (id, fn,
+                   float(arg_real), float(arg_imag),
+                   float(exp_real), float(exp_imag),
+                   flags
+                  )
+
 class AppTestUfuncs(BaseNumpyAppTest):
     def setup_class(cls):
         import os
         BaseNumpyAppTest.setup_class.im_func(cls)
         fname128 = os.path.join(os.path.dirname(__file__), 'complex_testcases.txt')
         fname64 = os.path.join(os.path.dirname(__file__), 'complex64_testcases.txt')
-        cls.w_testcases128 = cls.space.wrap(fname128)
-        cls.w_testcases64 = cls.space.wrap(fname64)
+        cls.w_testcases128 = cls.space.wrap(list(parse_testfile(fname128)))
+        cls.w_testcases64 = cls.space.wrap(list(parse_testfile(fname64)))
         def cls_c_pow(self, *args):
             try:
                 retVal = c_pow(*args)
                 return retVal
-            except ValueError as e:
+            except ValueError, e:
                 raise OperationError(cls.space.w_ValueError,
                         cls.space.wrap(e.message))
         cls.w_c_pow = cls.space.wrap(cls_c_pow)
         cls.w_runAppDirect = cls.space.wrap(option.runappdirect)
         cls.w_isWindows = cls.space.wrap(os.name == 'nt')
         def cls_rAlmostEqual(self, *args, **kwargs):
-            if '__pypy__' not in builtin_module_names:
+            if '__pypy__' not in sys.builtin_module_names:
                 kwargs['isnumpy'] = True
             return rAlmostEqual(*args, **kwargs)
         cls.w_rAlmostEqual = cls.space.wrap(cls_rAlmostEqual)
@@ -237,7 +262,6 @@ class AppTestUfuncs(BaseNumpyAppTest):
                        cmpl(nan, 5.), cmpl(5., nan), cmpl(nan, nan),
                      ]
             b = expm1(array(a,dtype=c))
-            got_err = False
             for i in range(len(a)):
                 try:
                     res = cmath.exp(a[i]) - 1.
@@ -251,20 +275,14 @@ class AppTestUfuncs(BaseNumpyAppTest):
                     res = cmpl(nan, nan)
                 msg = 'result of expm1(%r(%r)) got %r expected %r\n ' % \
                             (c,a[i], b[i], res)
-                try:
-                    # cast untranslated boxed results to float,
-                    # does no harm when translated
-                    t1 = float(res.real)        
-                    t2 = float(b[i].real)        
-                    self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
-                    t1 = float(res.imag)        
-                    t2 = float(b[i].imag)        
-                    self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
-                except AssertionError as e:
-                    print e.message
-                    got_err = True
-        if got_err:
-            raise AssertionError('Errors were printed to stdout')
+                # cast untranslated boxed results to float,
+                # does no harm when translated
+                t1 = float(res.real)        
+                t2 = float(b[i].real)        
+                self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
+                t1 = float(res.imag)        
+                t2 = float(b[i].imag)        
+                self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
 
     def test_not_complex(self):
         from _numpypy import (radians, deg2rad, degrees, rad2deg,
@@ -315,7 +333,6 @@ class AppTestUfuncs(BaseNumpyAppTest):
                        cmpl(ninf, ninf), cmpl(5., inf), cmpl(5., ninf),
                        cmpl(nan, 5.), cmpl(5., nan), cmpl(nan, nan),
                      ], dtype=c)
-            got_err = False
             for p in (3, -1, 10000, 2.3, -10000, 10+3j):
                 b = power(a, p)
                 for i in range(len(a)):
@@ -330,18 +347,12 @@ class AppTestUfuncs(BaseNumpyAppTest):
                         r = (nan, nan)
                     msg = 'result of %r(%r)**%r got %r expected %r\n ' % \
                             (c,a[i], p, b[i], r)
-                    try:        
-                        t1 = float(r[0])        
-                        t2 = float(b[i].real)        
-                        self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
-                        t1 = float(r[1])        
-                        t2 = float(b[i].imag)
-                        self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
-                    except AssertionError as e:
-                        print e.message
-                        got_err = True
-            if got_err:
-                raise AssertionError('Errors were printed to stdout')
+                    t1 = float(r[0])        
+                    t2 = float(b[i].real)        
+                    self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
+                    t1 = float(r[1])        
+                    t2 = float(b[i].imag)
+                    self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
 
     def test_conjugate(self):
         from _numpypy import conj, conjugate, complex128, complex64
@@ -385,7 +396,6 @@ class AppTestUfuncs(BaseNumpyAppTest):
             ]
         for c,rel_err in ((complex128, 5e-323), (complex64, 1e-7)):
             b = log2(array(a,dtype=c))
-            got_err = False
             for i in range(len(a)):
                 try:
                     _res = cmath.log(a[i])
@@ -396,21 +406,16 @@ class AppTestUfuncs(BaseNumpyAppTest):
                     res = cmpl(ninf, 0)
                 msg = 'result of log2(%r(%r)) got %r expected %r\n ' % \
                             (c,a[i], b[i], res)
-                try:
-                    # cast untranslated boxed results to float,
-                    # does no harm when translated
-                    t1 = float(res.real)        
-                    t2 = float(b[i].real)        
-                    self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
-                    t1 = float(res.imag)        
-                    t2 = float(b[i].imag)        
-                    self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
-                except AssertionError as e:
-                    print e.message
-                    got_err = True
+                # cast untranslated boxed results to float,
+                # does no harm when translated
+                t1 = float(res.real)        
+                t2 = float(b[i].real)        
+                self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
+                t1 = float(res.imag)        
+                t2 = float(b[i].imag)        
+                self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
         for c,rel_err in ((complex128, 5e-323), (complex64, 1e-7)):
             b = log1p(array(a,dtype=c))
-            got_err = False
             for i in range(len(a)):
                 try:
                     #be careful, normal addition wipes out +-0j
@@ -421,20 +426,14 @@ class AppTestUfuncs(BaseNumpyAppTest):
                     res = cmpl(ninf, 0)
                 msg = 'result of log1p(%r(%r)) got %r expected %r\n ' % \
                             (c,a[i], b[i], res)
-                try:
-                    # cast untranslated boxed results to float,
-                    # does no harm when translated
-                    t1 = float(res.real)        
-                    t2 = float(b[i].real)        
-                    self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
-                    t1 = float(res.imag)        
-                    t2 = float(b[i].imag)        
-                    self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
-                except AssertionError as e:
-                    print e.message
-                    got_err = True
-        if got_err:
-            raise AssertionError('Errors were printed to stdout')
+                # cast untranslated boxed results to float,
+                # does no harm when translated
+                t1 = float(res.real)        
+                t2 = float(b[i].real)        
+                self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
+                t1 = float(res.imag)        
+                t2 = float(b[i].imag)        
+                self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
 
     def test_logical_ops(self):
         from _numpypy import logical_and, logical_or, logical_xor, logical_not
@@ -540,37 +539,15 @@ class AppTestUfuncs(BaseNumpyAppTest):
     def test_math(self):
         if self.isWindows:
             skip('windows does not support c99 complex')
-        import  _numpypy as np
+        import sys
+        import _numpypy as np
         rAlmostEqual = self.rAlmostEqual
 
-        def parse_testfile(fname):
-            """Parse a file with test values
-
-            Empty lines or lines starting with -- are ignored
-            yields id, fn, arg_real, arg_imag, exp_real, exp_imag
-            """
-            with open(fname) as fp:
-                for line in fp:
-                    # skip comment lines and blank lines
-                    if line.startswith('--') or not line.strip():
-                        continue
-
-                    lhs, rhs = line.split('->')
-                    id, fn, arg_real, arg_imag = lhs.split()
-                    rhs_pieces = rhs.split()
-                    exp_real, exp_imag = rhs_pieces[0], rhs_pieces[1]
-                    flags = rhs_pieces[2:]
-
-                    yield (id, fn,
-                           float(arg_real), float(arg_imag),
-                           float(exp_real), float(exp_imag),
-                           flags
-                          )
         for complex_, abs_err, testcases in (\
                  (np.complex128, 5e-323, self.testcases128),
                  # (np.complex64,  5e-32,  self.testcases64), 
                 ):
-            for id, fn, ar, ai, er, ei, flags in parse_testfile(testcases):
+            for id, fn, ar, ai, er, ei, flags in testcases:
                 arg = complex_(complex(ar, ai))
                 expected = (er, ei)
                 if fn.startswith('acos'):
@@ -613,5 +590,5 @@ class AppTestUfuncs(BaseNumpyAppTest):
                                abs_err=real_abs_err, msg=error_message)
                 rAlmostEqual(float(expected[1]), float(actual[1]),
                                    msg=error_message)
-
-
+                sys.stderr.write('.')
+            sys.stderr.write('\n')
