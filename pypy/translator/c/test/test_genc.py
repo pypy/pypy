@@ -1,31 +1,39 @@
 import py
 import ctypes
 
-from pypy.annotation import model, signature
 from pypy.rpython.lltypesystem.lltype import *
-from pypy.rpython.lltypesystem import ll2ctypes
-from pypy.translator.translator import TranslationContext
+from pypy.translator.translator import TranslationContext, graphof
 from pypy.translator.c import genc
 from pypy.translator.interactive import Translation
 from pypy.rlib.entrypoint import entrypoint
 from pypy.tool.nullpath import NullPyPathLocal
+from pypy.rlib.unroll import unrolling_iterable
 
-
-def cast_to_ctypes(type):
-    s_tp = signature.annotation(type)
-    ll_tp = model.annotation_to_lltype(s_tp)
-    return ll2ctypes.get_ctypes_type(ll_tp)
-
-def compile(fn, argtypes, view=False, gcpolicy="ref", backendopt=True,
+def compile(fn, argtypes, view=False, gcpolicy="none", backendopt=True,
             annotatorpolicy=None):
-    t = Translation(fn, argtypes, gc=gcpolicy, backend="c",
+    argtypes_unroll = unrolling_iterable(enumerate(argtypes))
+    
+    def entry_point(argv):
+        args = ()
+        for i, argtype in argtypes_unroll:
+            if argtype is int:
+                args = args + (int(argv[i + 1]),)
+            elif argtype is float:
+                args = args + (float(argv[i + 1]),)
+            else:
+                assert argtype is str
+                args = args + (argv[i + 1],)
+        res = fn(*args)
+        print "THE RESULT IS:", res, ";"
+        return 0
+    
+    t = Translation(entry_point, None, gc=gcpolicy, backend="c",
                     policy=annotatorpolicy)
     if not backendopt:
         t.disable(["backendopt_lltype"])
-    s_res = t.annotate()
-    # XXX fish
-    t.driver.config.translation.countmallocs = True
-    so_name = t.compile_c()
+    t.annotate()
+    t.compile_c()
+    ll_res = graphof(t.context, fn).getreturnvar().concretetype
     try:
         if py.test.config.option.view:
             t.view()
@@ -35,11 +43,20 @@ def compile(fn, argtypes, view=False, gcpolicy="ref", backendopt=True,
         assert len(args) == len(argtypes)
         for arg, argtype in zip(args, argtypes):
             assert isinstance(arg, argtype)
-        dll = ctypes.CDLL(str(so_name))
-        func = getattr(dll, 'pypy_g_' + fn.__name__)
-        func.argtypes = [cast_to_ctypes(arg) for arg in argtypes]
-        func.restype = cast_to_ctypes(s_res)
-        return func(*args)
+        stdout = t.driver.cbuilder.cmdexec(" ".join([str(arg) for arg in args]))
+        assert stdout.endswith(' ;\n')
+        pos = stdout.rindex('THE RESULT IS: ')
+        res = stdout[pos + len('THE RESULT IS: '):-3]
+        if ll_res == Signed:
+            return int(res)
+        elif ll_res == Char:
+            assert len(res) == 1
+            return res
+        elif ll_res == Float:
+            return float(res)
+        elif ll_res == Void:
+            return None
+        raise NotImplementedError("parsing %s" % (ll_res,))
     f.__name__ = fn.__name__
     return f
 
@@ -109,50 +126,6 @@ def test_empty_string():
         return p[0]
     f1 = compile(f, [])
     assert f1() == '\x00'
-
-def test_runtime_type_info():
-    S = GcStruct('s', ('is_actually_s1', Bool), rtti=True)
-    S1 = GcStruct('s1', ('sub', S), rtti=True)
-    def rtti_S(p):
-        if p.is_actually_s1:
-            return getRuntimeTypeInfo(S1)
-        else:
-            return getRuntimeTypeInfo(S)
-    def rtti_S1(p):
-        return getRuntimeTypeInfo(S1)
-    def does_stuff():
-        p = malloc(S)
-        p.is_actually_s1 = False
-        p1 = malloc(S1)
-        p1.sub.is_actually_s1 = True
-        # and no crash when p and p1 are decref'ed
-        return None
-    t = TranslationContext()
-    t.buildannotator().build_types(does_stuff, [])
-    rtyper = t.buildrtyper()
-    rtyper.attachRuntimeTypeInfoFunc(S,  rtti_S)
-    rtyper.attachRuntimeTypeInfoFunc(S1, rtti_S1)
-    rtyper.specialize()
-    #t.view()
-
-    from pypy.translator.c import genc
-    t.config.translation.countmallocs = True
-    builder = genc.CExtModuleBuilder(t, does_stuff, config=t.config)
-    builder.generate_source()
-    builder.compile()
-    f1 = builder.get_entry_point()
-    f1()
-    mallocs, frees = builder.get_malloc_counters()()
-    assert mallocs == frees
-
-
-def test_str():
-    def call_str(o):
-        return str(o)
-    f1 = compile(call_str, [object])
-    lst = (1, [5], "'hello'", lambda x: x+1)
-    res = f1(lst)
-    assert res == str(lst)
 
 
 def test_rstr():
@@ -287,15 +260,19 @@ def test_long_strings():
     s1 = 'hello'
     s2 = ''.join([chr(i) for i in range(256)])
     s3 = 'abcd'*17
-    s4 = open(__file__, 'rb').read()
+    s4 = open(__file__, 'rb').read(2049)
     choices = [s1, s2, s3, s4]
     def f(i, j):
         return choices[i][j]
     f1 = compile(f, [int, int])
     for i, s in enumerate(choices):
-        for j, c in enumerate(s):
+        j = 0
+        while j < len(s):
+            c = s[j]
             assert f1(i, j) == c
-
+            j += 1
+            if j > 100:
+                j += 10
 
 def test_keepalive():
     from pypy.rlib import objectmodel
@@ -314,7 +291,7 @@ def test_print():
             print "xxx"
 
     fn = compile(f, [])
-    fn(expected_extra_mallocs=1)
+    fn()
 
 def test_name():
     def f():
@@ -327,7 +304,7 @@ def test_name():
     t.compile_c()
     if py.test.config.option.view:
         t.view()
-    assert 'pypy_xyz_f' in t.driver.cbuilder.c_source_filename.read()
+    assert hasattr(ctypes.CDLL(str(t.driver.c_entryp)), 'pypy_xyz_f')
 
 def test_entrypoints():
     def f():
@@ -343,7 +320,7 @@ def test_entrypoints():
     t.compile_c()
     if py.test.config.option.view:
         t.view()
-    assert 'foobar' in t.driver.cbuilder.c_source_filename.read()
+    assert hasattr(ctypes.CDLL(str(t.driver.c_entryp)), 'foobar')
 
 def test_exportstruct():
     from pypy.rlib.exports import export_struct

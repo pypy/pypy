@@ -18,14 +18,10 @@ class Translation(object):
         self.context = TranslationContext(config=self.config)
 
         # hook into driver events
-        driver_own_event = self.driver._event
-        def _event(kind, goal, func):
-            self.driver_event(kind, goal, func)
-            driver_own_event(kind, goal, func)
-        self.driver._event = _event
         self.driver_setup = False
 
         self.update_options(argtypes, kwds)
+        self.ensure_setup(argtypes, kwds.pop('policy', None))
         # for t.view() to work just after construction
         graph = self.context.buildflowgraph(entry_point)
         self.context._prebuilt_graphs[entry_point] = graph
@@ -36,14 +32,8 @@ class Translation(object):
     def viewcg(self):
         self.context.viewcg()
 
-    def driver_event(self, kind, goal, func):
-        if kind == 'pre':
-             #print goal
-             self.ensure_setup()
-        elif kind == 'post':
-            pass
-
-    def ensure_setup(self, argtypes=None, policy=None, standalone=False):
+    def ensure_setup(self, argtypes=None, policy=None):
+        standalone = argtypes is None
         if not self.driver_setup:
             if standalone:
                 assert argtypes is None
@@ -66,11 +56,6 @@ class Translation(object):
                 raise Exception("inconsistent annotation polish supplied")
 
     def update_options(self, argtypes, kwds):
-        if argtypes or kwds.get('policy') or kwds.get('standalone'):
-            self.ensure_setup(argtypes, kwds.get('policy'),
-                                        kwds.get('standalone'))
-        kwds.pop('policy', None)
-        kwds.pop('standalone', None)
         gc = kwds.pop('gc', None)
         if gc:
             self.config.translation.gc = gc
