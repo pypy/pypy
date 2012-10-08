@@ -20,8 +20,9 @@ class Translation(object):
         # hook into driver events
         self.driver_setup = False
 
+        policy = kwds.pop('policy', None)
         self.update_options(argtypes, kwds)
-        self.ensure_setup(argtypes, kwds.pop('policy', None))
+        self.ensure_setup(argtypes, policy)
         # for t.view() to work just after construction
         graph = self.context.buildflowgraph(entry_point)
         self.context._prebuilt_graphs[entry_point] = graph
