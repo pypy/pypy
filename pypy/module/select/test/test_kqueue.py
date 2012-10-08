@@ -26,6 +26,7 @@ class AppTestKqueue(object):
     def test_create_event(self):
         import select
         import sys
+        from operator import lt, le, gt, ge
 
         fd = sys.stderr.fileno()
         ev = select.kevent(fd)
@@ -38,12 +39,12 @@ class AppTestKqueue(object):
         assert ev.udata == 0
         assert ev == ev
         assert ev != other
-        assert cmp(ev, other) == -1
         assert ev < other
         assert other >= ev
-        raises(TypeError, cmp, ev, None)
-        raises(TypeError, cmp, ev, 1)
-        raises(TypeError, cmp, ev, "ev")
+        for op in lt, le, gt, ge:
+            raises(TypeError, op, ev, None)
+            raises(TypeError, op, ev, 1)
+            raises(TypeError, op, ev, "ev")
 
         ev = select.kevent(fd, select.KQ_FILTER_WRITE)
         assert ev.ident == fd
@@ -100,7 +101,7 @@ class AppTestKqueue(object):
         client.setblocking(False)
         try:
             client.connect(("127.0.0.1", server_socket.getsockname()[1]))
-        except socket.error, e:
+        except socket.error as e:
             if 'bsd' in sys.platform:
                 assert e.args[0] == errno.ENOENT
             else:
@@ -131,10 +132,10 @@ class AppTestKqueue(object):
             (client.fileno(), select.KQ_FILTER_WRITE, flags),
             (server.fileno(), select.KQ_FILTER_WRITE, flags),
         ]
-        client.send("Hello!")
-        server.send("world!!!")
+        client.send(b"Hello!")
+        server.send(b"world!!!")
 
-        for i in xrange(10):
+        for i in range(10):
             events = kq1.control(None, 4, 1)
             if len(events) == 4:
                 break
@@ -176,14 +177,14 @@ class AppTestKqueue(object):
         kq = select.kqueue()
         a, b = socket.socketpair()
 
-        a.send('foo')
+        a.send(b'foo')
         event1 = select.kevent(a, select.KQ_FILTER_READ, select.KQ_EV_ADD | select.KQ_EV_ENABLE)
         event2 = select.kevent(b, select.KQ_FILTER_READ, select.KQ_EV_ADD | select.KQ_EV_ENABLE)
         r = kq.control([event1, event2], 1, 1)
         assert r
         assert r[0].flags & select.KQ_EV_ERROR == 0
         data = b.recv(r[0].data)
-        assert data == 'foo'
+        assert data == b'foo'
 
         a.close()
         b.close()
