@@ -1,5 +1,5 @@
 from pypy.rlib.parsing.deterministic import *
-from pypy.translator.interactive import Translation
+from pypy.translator.c.test.test_genc import compile
 
 
 def test_DFA_simple():
@@ -35,9 +35,7 @@ def test_compile_recognizer():
     a[s0, "b"] = s2
     a[s1, "b"] = s2
     recognize = a.make_code()
-    t = Translation(recognize)
-    t.backendopt([str], backend="c")
-    cfn = t.compile_c()
+    cfn = compile(recognize, [str])
     assert cfn("aaaaaaaaaab")
     assert cfn("b")
     assert cfn("aaaacb")
@@ -69,6 +67,7 @@ def test_NFA_simple():
     assert not r.recognize("")
     assert not r.recognize("100101101111")
 
+
 def test_NFA_with_epsilon():
     a = NFA()
     z0 = a.add_state("z0", start=True)
@@ -87,6 +86,7 @@ def test_NFA_with_epsilon():
     assert not r.recognize("cab")
     fda = a.make_deterministic()
     r = fda.get_runner()
+
 
 def test_NFA_to_DFA_simple():
     a = NFA()
@@ -107,8 +107,8 @@ def test_NFA_to_DFA_simple():
     assert not r.recognize("")
     assert not r.recognize("100101101111")
 
+
 def test_simplify():
-    #py.test.skip("optimize not working yet")
     a = DFA()
     z0 = a.add_state("z0")
     z1 = a.add_state("z1")
@@ -140,6 +140,7 @@ def test_simplify():
     assert r.recognize("00")
     assert not r.recognize("111111011111111")
 
+
 def test_something():
     a = NFA()
     z0 = a.add_state("z0", start=True, final=True)
@@ -150,8 +151,8 @@ def test_something():
     a.add_transition(z1, z1, "a")
     a.add_transition(z1, z1, "b")
     a.add_transition(z1, z2, "a")
-    fda = a.make_deterministic()
-    
+    a.make_deterministic()
+
 def test_compress_char_set():
     import string
     assert compress_char_set("ace") == [('a', 1), ('c', 1), ('e', 1)]
@@ -160,7 +161,7 @@ def test_compress_char_set():
     assert compress_char_set("zycba") == [('a',3), ('y',2)]
     assert compress_char_set(string.ascii_letters) == [('A', 26), ('a', 26)]
     assert compress_char_set(string.printable) == [(' ', 95), ('\t', 5)]
-    
+
 def test_make_nice_charset_repr():
     import string
     assert make_nice_charset_repr("ace") == 'ace'
@@ -168,7 +169,7 @@ def test_make_nice_charset_repr():
     assert make_nice_charset_repr("ABCabc") == 'A-Ca-c'
     assert make_nice_charset_repr("zycba") == 'a-cyz'
     assert make_nice_charset_repr(string.ascii_letters) == 'A-Za-z'
-    
+
     # this next one is ugly because it's being generated from a dict, so the order is not stable
     nice = make_nice_charset_repr(string.printable)
     chunks = ['A-Z','a-z','0-9','\\t','\\x0b','\\n','\\r','\\x0c','\\\\','\\-']
