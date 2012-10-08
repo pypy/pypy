@@ -83,11 +83,6 @@ translate_optiondescr = OptionDescription("translate", "XXX", [
                       goal_options()),        
 ])
 
-    
-OVERRIDES = {
-    'translation.debug': False,
-}
-
 import optparse
 from pypy.tool.ansi_print import ansi_log
 log = py.log.Producer("translation")
