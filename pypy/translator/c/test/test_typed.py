@@ -7,11 +7,11 @@ import py
 
 from py.test import raises
 
-from pypy import conftest
 from pypy.rlib.objectmodel import compute_hash, current_object_addr_as_int
 from pypy.rlib.rarithmetic import r_uint, r_ulonglong, r_longlong, intmask, longlongmask
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.translator.test import snippet
+from pypy.translator.c.test.test_genc import compile
 from pypy.translator.translator import TranslationContext
 
 
@@ -39,15 +39,8 @@ class CompilationTestCase:
         builder.compile()
         return builder.get_entry_point()
 
-    def getcompiled(self, func, argtypes=None, view=False):
-        from pypy.translator.transform import insert_ll_stackcheck
-        t = self.annotatefunc(func, argtypes)
-        self.process(t)
-        if view or conftest.option.view:
-            t.view()
-        t.checkgraphs()
-        insert_ll_stackcheck(t)
-        return self.compilefunc(t, func)
+    def getcompiled(self, func, argtypes=[], view=False):
+        return compile(func, argtypes, view=view)
 
     def process(self, t):
         t.buildrtyper().specialize()

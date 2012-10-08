@@ -1,5 +1,6 @@
-import py
 import ctypes
+
+import py
 
 from pypy.rpython.lltypesystem.lltype import *
 from pypy.translator.translator import TranslationContext, graphof
@@ -9,6 +10,7 @@ from pypy.rlib.entrypoint import entrypoint
 from pypy.tool.nullpath import NullPyPathLocal
 from pypy.rlib.unroll import unrolling_iterable
 
+
 def compile(fn, argtypes, view=False, gcpolicy="none", backendopt=True,
             annotatorpolicy=None):
     argtypes_unroll = unrolling_iterable(enumerate(argtypes))
@@ -16,26 +18,26 @@ def compile(fn, argtypes, view=False, gcpolicy="none", backendopt=True,
     for argtype in argtypes:
         if argtype not in [int, float, str, bool]:
             raise Exception("Unsupported argtype, %r" % (argtype,))
-    
+
     def entry_point(argv):
         args = ()
         for i, argtype in argtypes_unroll:
             if argtype is int:
-                args = args + (int(argv[i + 1]),)
-            if argtype is bool:
+                args += (int(argv[i + 1]),)
+            elif argtype is bool:
                 if argv[i + 1] == 'True':
-                    args = args + (True,)
+                    args += (True,)
                 else:
                     assert argv[i + 1] == 'False'
-                    args = args + (False,)
+                    args += (False,)
             elif argtype is float:
-                args = args + (float(argv[i + 1]),)
+                args += (float(argv[i + 1]),)
             else:
-                args = args + (argv[i + 1],)
+                args += (argv[i + 1],)
         res = fn(*args)
         print "THE RESULT IS:", res, ";"
         return 0
-    
+
     t = Translation(entry_point, None, gc=gcpolicy, backend="c",
                     policy=annotatorpolicy)
     if not backendopt:
