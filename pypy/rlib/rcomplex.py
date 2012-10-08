@@ -86,8 +86,12 @@ def c_pow(x, y):
         if i2 != 0.0:
             len /= math.exp(at * i2)
             phase += i2 * math.log(vabs)
-        rr = len * math.cos(phase)
-        ir = len * math.sin(phase)
+        try:
+            rr = len * math.cos(phase)
+            ir = len * math.sin(phase)
+        except ValueError:
+            rr = NAN
+            ir = NAN
     return (rr, ir)
 
 #unary
