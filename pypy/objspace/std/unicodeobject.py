@@ -40,7 +40,7 @@ class W_AbstractUnicodeObject(W_Object):
 
 class W_UnicodeObject(W_AbstractUnicodeObject):
     from pypy.objspace.std.unicodetype import unicode_typedef as typedef
-    _immutable_fields_ = ['_value', '_utf8']
+    _immutable_fields_ = ['_value']
 
     def __init__(w_self, unistr):
         assert isinstance(unistr, unicode)
