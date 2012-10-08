@@ -150,6 +150,16 @@ class AbstractTestRstr(BaseRtypingTest):
                                                         const('a')])
         assert res is False
 
+    def test_char_string_compare(self):
+        const = self.const
+        lst = [const('a'), const('abc')]
+        res = self.interpret(lambda i1, c2: (lst[i1],) == (c2,),
+                             [1, const('b')])
+        assert res is False
+        res = self.interpret(lambda i1, c2: (c2,) == (lst[i1],),
+                             [1, const('b')])
+        assert res is False
+
     def test_char_mul(self):
         const = self.const
         def fn(c, mul):

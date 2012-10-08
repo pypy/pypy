@@ -301,6 +301,16 @@ class BaseTestRtuple(BaseRtypingTest):
         res = self.interpret(f, [53])
         assert res is True
 
+    def test_compare_list_char_str(self):
+        def fn(i, j):
+            t1 = ([str(i)],)
+            t2 = ([chr(j)],)
+            return t1 == t2
+        res = self.interpret(fn, [65, 65])
+        assert res is False
+        res = self.interpret(fn, [1, 49])
+        assert res is True
+
     TUPLES = [
         ((1,2),  (2,3),   -1),
         ((1,2),  (1,3),   -1),

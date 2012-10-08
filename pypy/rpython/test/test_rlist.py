@@ -622,6 +622,16 @@ class BaseTestRlist(BaseRtypingTest):
                     res = self.interpret(fn, [i,j,case])
                     assert res is fn(i, j, case)
 
+    def test_list_compare_char_str(self):
+        def fn(i, j):
+            l1 = [str(i)]
+            l2 = [chr(j)]
+            return l1 == l2
+        res = self.interpret(fn, [65, 65])
+        assert res is False
+        res = self.interpret(fn, [1, 49])
+        assert res is True
+
 
     def test_list_compareinst(self):
         def fn(i, j, neg=False):
