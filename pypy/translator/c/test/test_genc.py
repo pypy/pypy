@@ -2,13 +2,15 @@ import ctypes
 
 import py
 
+from pypy.rlib.entrypoint import entrypoint
+from pypy.rlib.unroll import unrolling_iterable
+from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.lltypesystem.lltype import *
-from pypy.translator.translator import TranslationContext, graphof
+from pypy.rpython.lltypesystem.rstr import STR
+from pypy.tool.nullpath import NullPyPathLocal
 from pypy.translator.c import genc
 from pypy.translator.interactive import Translation
-from pypy.rlib.entrypoint import entrypoint
-from pypy.tool.nullpath import NullPyPathLocal
-from pypy.rlib.unroll import unrolling_iterable
+from pypy.translator.translator import TranslationContext, graphof
 
 
 def compile(fn, argtypes, view=False, gcpolicy="none", backendopt=True,
@@ -58,14 +60,18 @@ def compile(fn, argtypes, view=False, gcpolicy="none", backendopt=True,
         assert stdout.endswith(' ;\n')
         pos = stdout.rindex('THE RESULT IS: ')
         res = stdout[pos + len('THE RESULT IS: '):-3]
-        if ll_res == Signed:
+        if ll_res == lltype.Signed:
             return int(res)
-        elif ll_res == Char:
+        elif ll_res == lltype.Bool:
+            return bool(int(res))
+        elif ll_res == lltype.Char:
             assert len(res) == 1
             return res
-        elif ll_res == Float:
+        elif ll_res == lltype.Float:
             return float(res)
-        elif ll_res == Void:
+        elif ll_res == lltype.Ptr(STR):
+            return res
+        elif ll_res == lltype.Void:
             return None
         raise NotImplementedError("parsing %s" % (ll_res,))
     f.__name__ = fn.__name__

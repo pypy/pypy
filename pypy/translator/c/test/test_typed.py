@@ -54,8 +54,11 @@ class TestTypedTestCase(CompilationTestCase):
         assert set_attr() == 2
 
     def test_inheritance2(self):
-        inheritance2 = self.getcompiled(snippet.inheritance2)
-        assert inheritance2() == ((-12, -12.0), (3, 12.3))
+        def wrap():
+            res = snippet.inheritance2()
+            return res == ((-12, -12.0), (3, 12.3))
+        fn = self.getcompiled(wrap)
+        assert fn()
 
     def test_factorial2(self):
         factorial2 = self.getcompiled(snippet.factorial2, [int])
@@ -78,9 +81,11 @@ class TestTypedTestCase(CompilationTestCase):
         assert nested_whiles(5, 3) == '!!!!!'
 
     def test_call_unpack_56(self):
-        call_unpack_56 = self.getcompiled(snippet.call_unpack_56, [])
-        result = call_unpack_56()
-        assert result == (2, 5, 6)
+        def wrap():
+            res = snippet.call_unpack_56()
+            return res == (2, 5, 6)
+        fn = self.getcompiled(wrap)
+        assert fn()
 
     def test_class_defaultattr(self):
         class K:
@@ -97,9 +102,9 @@ class TestTypedTestCase(CompilationTestCase):
             z = x, y
             while x:
                 x = x - 1
-            return z
+            return z == (6, 'a')
         fn = self.getcompiled(tuple_repr, [int, str])
-        assert fn(6, 'a') == (6, 'a')
+        assert fn()
 
     def test_classattribute(self):
         fn = self.getcompiled(snippet.classattribute, [int])
