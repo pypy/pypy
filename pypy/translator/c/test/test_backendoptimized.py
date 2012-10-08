@@ -2,16 +2,11 @@ from pypy import conftest
 from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
 from pypy.translator.backendopt.all import backend_optimizations
 from pypy.translator.c.test.test_typed import TestTypedTestCase as _TestTypedTestCase
+from pypy.translator.c.test.test_genc import compile
 
 
 class TestTypedOptimizedTestCase(_TestTypedTestCase):
-
-    def process(self, t):
-        _TestTypedTestCase.process(self, t)
-        self.t = t
-        backend_optimizations(t, merge_if_blocks=False)
-        if conftest.option.view:
-            t.view()
+    getcompiled = staticmethod(compile)
 
     def test_remove_same_as(self):
         def f(n):

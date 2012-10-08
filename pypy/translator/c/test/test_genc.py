@@ -4,6 +4,7 @@ import py
 
 from pypy.rlib.entrypoint import entrypoint
 from pypy.rlib.unroll import unrolling_iterable
+from pypy.rlib.rarithmetic import r_longlong, r_ulonglong, intmask
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.lltypesystem.rstr import STR
@@ -12,30 +13,49 @@ from pypy.translator.c import genc
 from pypy.translator.interactive import Translation
 from pypy.translator.translator import TranslationContext, graphof
 
+def llrepr(v):
+    if isinstance(v, r_ulonglong):
+        return "%d:%d" % (intmask(v >> 32), intmask(v & 0xffffffff))
+    elif isinstance(v, r_longlong):
+        return "%d:%d" % (intmask(v >> 32), intmask(v & 0xffffffff))
+    return str(v)
+
+def parse_longlong(a):
+    p0, p1 = a.split(":")
+    return (r_longlong(int(p0)) << 32) + (r_longlong(int(p1)) & 0xffffffff)
+
+def parse_ulonglong(a):
+    p0, p1 = a.split(":")
+    return (r_ulonglong(int(p0)) << 32) + (r_ulonglong(int(p1)) & 0xffffffff)
 
 def compile(fn, argtypes, view=False, gcpolicy="none", backendopt=True,
             annotatorpolicy=None, thread=False):
     argtypes_unroll = unrolling_iterable(enumerate(argtypes))
 
     for argtype in argtypes:
-        if argtype not in [int, float, str, bool]:
+        if argtype not in [int, float, str, bool, r_ulonglong, r_longlong]:
             raise Exception("Unsupported argtype, %r" % (argtype,))
 
     def entry_point(argv):
         args = ()
         for i, argtype in argtypes_unroll:
+            a = argv[i + 1]
             if argtype is int:
-                args += (int(argv[i + 1]),)
+                args += (int(a),)
+            elif argtype is r_longlong:
+                args += (parse_longlong(a),)
+            elif argtype is r_ulonglong:
+                args += (parse_ulonglong(a),)
             elif argtype is bool:
-                if argv[i + 1] == 'True':
+                if a == 'True':
                     args += (True,)
                 else:
-                    assert argv[i + 1] == 'False'
+                    assert a == 'False'
                     args += (False,)
             elif argtype is float:
-                args += (float(argv[i + 1]),)
+                args += (float(a),)
             else:
-                args += (argv[i + 1],)
+                args += (a,)
         res = fn(*args)
         print "THE RESULT IS:", res, ";"
         return 0
@@ -56,11 +76,12 @@ def compile(fn, argtypes, view=False, gcpolicy="none", backendopt=True,
         assert len(args) == len(argtypes)
         for arg, argtype in zip(args, argtypes):
             assert isinstance(arg, argtype)
-        stdout = t.driver.cbuilder.cmdexec(" ".join([str(arg) for arg in args]))
+        stdout = t.driver.cbuilder.cmdexec(" ".join([llrepr(arg) for arg in args]))
         assert stdout.endswith(' ;\n')
         pos = stdout.rindex('THE RESULT IS: ')
         res = stdout[pos + len('THE RESULT IS: '):-3]
-        if ll_res == lltype.Signed:
+        if ll_res in [lltype.Signed, lltype.Unsigned, lltype.SignedLongLong,
+                      lltype.UnsignedLongLong]:
             return int(res)
         elif ll_res == lltype.Bool:
             return bool(int(res))

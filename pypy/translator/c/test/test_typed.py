@@ -12,42 +12,11 @@ from pypy.rlib.rarithmetic import r_uint, r_ulonglong, r_longlong, intmask, long
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.translator.test import snippet
 from pypy.translator.c.test.test_genc import compile
-from pypy.translator.translator import TranslationContext
 
 
-class CompilationTestCase:
-
-    def annotatefunc(self, func, argtypes=None):
-        from pypy.config.pypyoption import get_pypy_config
-        config = get_pypy_config(translating=True)
-        config.translation.gc = "ref"
-        config.translation.simplifying = True
-        t = TranslationContext(config=config)
-        if argtypes is None:
-            argtypes = []
-        a = t.buildannotator()
-        a.build_types(func, argtypes)
-        a.simplify()
-        return t
-
-    def compilefunc(self, t, func):
-        from pypy.translator.c import genc
-        self.builder = builder = genc.CExtModuleBuilder(t, func, config=t.config)
-        if hasattr(self, 'include_also_eci'):
-            builder.merge_eci(self.include_also_eci)
-        builder.generate_source()
-        builder.compile()
-        return builder.get_entry_point()
-
-    def getcompiled(self, func, argtypes=[], view=False):
-        return compile(func, argtypes, view=view)
-
-    def process(self, t):
-        t.buildrtyper().specialize()
-        #raisingop2direct_call(t)
-
-
-class TestTypedTestCase(CompilationTestCase):
+class TestTypedTestCase(object):
+    def getcompiled(self, func, argtypes):
+        return compile(func, argtypes, backendopt=False)
 
     def test_set_attr(self):
         set_attr = self.getcompiled(snippet.set_attr)
@@ -104,7 +73,8 @@ class TestTypedTestCase(CompilationTestCase):
                 x = x - 1
             return z == (6, 'a')
         fn = self.getcompiled(tuple_repr, [int, str])
-        assert fn()
+        assert fn(6, "a")
+        assert not fn(6, "xyz")
 
     def test_classattribute(self):
         fn = self.getcompiled(snippet.classattribute, [int])
@@ -162,7 +132,7 @@ class TestTypedTestCase(CompilationTestCase):
             g2.next = g1
             g3.next = g2
             return g3.next.next.value
-        fn = self.getcompiled(do_things)
+        fn = self.getcompiled(do_things, [])
         assert fn() == 1
 
     def test_float_ops(self):
@@ -173,15 +143,21 @@ class TestTypedTestCase(CompilationTestCase):
         assert fn(4.5) == 90.125
 
     def test_memoryerror(self):
+        def g(i):
+            return [0] * i
+        
         def f(i):
-            lst = [0] * i
-            lst[-1] = 5
-            return lst[0]
+            try:
+                lst = g(i)
+                lst[-1] = 5
+                return lst[0]
+            except MemoryError:
+                return -1
         fn = self.getcompiled(f, [int])
         assert fn(1) == 5
         assert fn(2) == 0
-        py.test.raises(MemoryError, fn, sys.maxint // 2 + 1)
-        py.test.raises(MemoryError, fn, sys.maxint)
+        assert fn(sys.maxint // 2 + 1) == -1
+        assert fn(sys.maxint) == -1
 
     def test_chr(self):
         def f(x):
@@ -235,27 +211,27 @@ class TestTypedTestCase(CompilationTestCase):
         def f(i):
             return 4 * i
         fn = self.getcompiled(f, [r_ulonglong], view=False)
-        assert fn(2147483647) == 4 * 2147483647
+        assert fn(r_ulonglong(2147483647)) == 4 * 2147483647
 
         def g(i):
             return 4 * i
         gn = self.getcompiled(g, [r_longlong], view=False)
-        assert gn(2147483647) == 4 * 2147483647
+        assert gn(r_longlong(2147483647)) == 4 * 2147483647
 
         def g(i):
             return i << 12
         gn = self.getcompiled(g, [r_longlong])
-        assert gn(2147483647) == 2147483647 << 12
+        assert gn(r_longlong(2147483647)) == 2147483647 << 12
 
         def g(i):
             return i >> 12
         gn = self.getcompiled(g, [r_longlong])
-        assert gn(-2147483647) == (-2147483647) >> 12
+        assert gn(r_longlong(-2147483647)) == (-2147483647) >> 12
 
         def g(i):
             return i >> 12
         gn = self.getcompiled(g, [r_ulonglong])
-        assert gn(2 ** 64 - 12345678) == (2 ** 64 - 12345678) >> 12
+        assert gn(r_ulonglong(2 ** 64 - 12345678)) == (2 ** 64 - 12345678) >> 12
 
     def test_specializing_int_functions(self):
         def f(i):
@@ -275,7 +251,7 @@ class TestTypedTestCase(CompilationTestCase):
         def f(i):
             return int(i)
         fn = self.getcompiled(f, [r_longlong])
-        assert fn(0) == 0
+        assert fn(r_longlong(0)) == 0
 
     def test_upcast_int(self):
         def f(v):
@@ -305,7 +281,7 @@ class TestTypedTestCase(CompilationTestCase):
         def wrapper():
             lst = snippet.call_five()
             return (len(lst), lst[0]) == (1, 5)
-        call_five = self.getcompiled(wrapper)
+        call_five = self.getcompiled(wrapper, [])
         result = call_five()
         assert result
 
@@ -327,28 +303,28 @@ class TestTypedTestCase(CompilationTestCase):
             list_3_c = l[:2]
             list_9 = l[5:]
             list_11_h = l[3:5]
-            return (len(l), l[0], l[1], l[2], l[3], l[4], l[5],
+            return str((len(l), l[0], l[1], l[2], l[3], l[4], l[5],
                     len(list_3_c),  list_3_c[0],  list_3_c[1],
                     len(list_9),    list_9[0],
-                    len(list_11_h), list_11_h[0], list_11_h[1])
-        fn = self.getcompiled(get_set_del_nonneg_slice)
+                    len(list_11_h), list_11_h[0], list_11_h[1]))
+        fn = self.getcompiled(get_set_del_nonneg_slice, [])
         result = fn()
-        assert result == (6, 3, ord('c'), 8, 11, ord('h'), 9,
-                          2, 3, ord('c'),
-                          1, 9,
-                          2, 11, ord('h'))
+        assert result == str((6, 3, ord('c'), 8, 11, ord('h'), 9,
+                              2, 3, ord('c'),
+                              1, 9,
+                              2, 11, ord('h')))
 
     def test_is(self):
         def testfn():
             l1 = []
             return l1 is l1
-        fn = self.getcompiled(testfn)
+        fn = self.getcompiled(testfn, [])
         result = fn()
         assert result is True
         def testfn():
             l1 = []
             return l1 is None
-        fn = self.getcompiled(testfn)
+        fn = self.getcompiled(testfn, [])
         result = fn()
         assert result is False
 
@@ -538,7 +514,7 @@ class TestTypedTestCase(CompilationTestCase):
         m = r.meth
         def fn():
             return m()
-        res = self.getcompiled(fn)()
+        res = self.getcompiled(fn, [])()
         assert res == 0
 
     def test_constant_return_disagreement(self):
@@ -548,7 +524,7 @@ class TestTypedTestCase(CompilationTestCase):
         r = R()
         def fn():
             return r.meth()
-        res = self.getcompiled(fn)()
+        res = self.getcompiled(fn, [])()
         assert res == 0
 
     def test_stringformatting(self):
@@ -604,7 +580,7 @@ class TestTypedTestCase(CompilationTestCase):
                     compute_hash(d),
                     compute_hash(("Hi", None, (7.5, 2, d))))
 
-        f = self.getcompiled(fn)
+        f = self.getcompiled(fn, [])
         res = f()
 
         # xxx the next line is too precise, checking the exact implementation
@@ -635,7 +611,7 @@ class TestTypedTestCase(CompilationTestCase):
             r = range(10, 37, 4)
             r.reverse()
             return r[0]
-        f = self.getcompiled(fn)
+        f = self.getcompiled(fn, [])
         assert f() == fn()
 
     def test_range_idx(self):
@@ -701,7 +677,7 @@ class TestTypedTestCase(CompilationTestCase):
             for ii in range(1):
                 a1.append_to_list(X())
             return a1.check_list_is_true()
-        fn = self.getcompiled(f)
+        fn = self.getcompiled(f, [])
         assert fn() == 1
 
     def test_recursion_detection(self):
@@ -748,7 +724,7 @@ class TestTypedTestCase(CompilationTestCase):
             except Exception:
                 return 42
             return x
-        fn = self.getcompiled(f)
+        fn = self.getcompiled(f, [])
         res = fn()
         assert res == 42
 
@@ -760,7 +736,7 @@ class TestTypedTestCase(CompilationTestCase):
             except TypeError:
                 return 42
             return x
-        fn = self.getcompiled(f)
+        fn = self.getcompiled(f, [])
         res = fn()
         assert res == 42
 
@@ -772,7 +748,7 @@ class TestTypedTestCase(CompilationTestCase):
             except TypeError:
                 return 42
             return 0
-        fn = self.getcompiled(f)
+        fn = self.getcompiled(f, [])
         res = fn()
         assert res == 42
 

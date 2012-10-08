@@ -396,7 +396,7 @@ class __extend__(IntegerRepr):
     # version picked by specialisation based on which
     # type system rtyping is using, from <type_system>.ll_str module
     def ll_str(self, i):
-        pass
+        raise NotImplementedError
     ll_str._annspecialcase_ = "specialize:ts('ll_str.ll_int_str')"
 
     def rtype_hex(self, hop):
