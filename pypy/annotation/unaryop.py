@@ -132,9 +132,6 @@ class __extend__(SomeObject):
     def float(obj):
         return SomeFloat()
 
-    def long(obj):
-        return SomeObject()   # XXX
-
     def delattr(obj, s_attr):
         if obj.__class__ != SomeObject or obj.knowntype != object:
             getbookkeeper().warning(
@@ -153,18 +150,17 @@ class __extend__(SomeObject):
     def getattr(obj, s_attr):
         # get a SomeBuiltin if the SomeObject has
         # a corresponding method to handle it
-        if s_attr.is_constant() and isinstance(s_attr.const, str):
-            attr = s_attr.const
-            s_method = obj.find_method(attr)
-            if s_method is not None:
-                return s_method
-            # if the SomeObject is itself a constant, allow reading its attrs
-            if obj.is_immutable_constant() and hasattr(obj.const, attr):
-                return immutablevalue(getattr(obj.const, attr))
-        else:
-            getbookkeeper().warning('getattr(%r, %r) is not RPythonic enough' %
-                                    (obj, s_attr))
-        return SomeObject()
+        if not s_attr.is_constant() or not isinstance(s_attr.const, str):
+            raise AnnotatorError("getattr(%r, %r) has non-constant argument"
+                                 % (obj, s_attr))
+        attr = s_attr.const
+        s_method = obj.find_method(attr)
+        if s_method is not None:
+            return s_method
+        # if the SomeObject is itself a constant, allow reading its attrs
+        if obj.is_immutable_constant() and hasattr(obj.const, attr):
+            return immutablevalue(getattr(obj.const, attr))
+        raise AnnotatorError("Cannot find attribute %r on %r" % (attr, obj))
     getattr.can_only_throw = []
 
     def bind_callables_under(obj, classdef, name):
