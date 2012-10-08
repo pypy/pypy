@@ -1,7 +1,7 @@
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Constant
 from pypy.rlib import rarithmetic, objectmodel
-from pypy.rpython import raddress, rptr, extregistry
+from pypy.rpython import raddress, rptr, extregistry, rrange
 from pypy.rpython.error import TyperError
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.rmodel import Repr
@@ -324,6 +324,10 @@ def rtype_hlinvoke(hop):
     hop.r_result = rresult
 
     return hop.dispatch()
+
+rtype_builtin_range = rrange.rtype_builtin_range
+rtype_builtin_xrange = rrange.rtype_builtin_xrange
+rtype_builtin_enumerate = rrange.rtype_builtin_enumerate
 
 
 # collect all functions
