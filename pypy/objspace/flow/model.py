@@ -118,6 +118,8 @@ class FunctionGraph(object):
         from pypy.translator.tool.graphpage import FlowGraphPage
         FlowGraphPage(t, [self]).display()
 
+    view = show
+
 
 class Link(object):
 
@@ -171,6 +173,8 @@ class Link(object):
     def show(self):
         from pypy.translator.tool.graphpage import try_show
         try_show(self)
+
+    view = show
 
 
 class Block(object):
@@ -246,6 +250,8 @@ class Block(object):
     def show(self):
         from pypy.translator.tool.graphpage import try_show
         try_show(self)
+
+    view = show
 
 
 class Variable(object):
