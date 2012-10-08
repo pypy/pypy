@@ -550,13 +550,29 @@ class __extend__(pairtype(SomeTuple, SomeTuple)):
 
     def union((tup1, tup2)):
         if len(tup1.items) != len(tup2.items):
-            return SomeObject()
+            raise Exception("cannot take the union of a tuple of length %d "
+                            "and a tuple of length %d" % (len(tup1.items),
+                                                          len(tup2.items)))
         else:
             unions = [unionof(x,y) for x,y in zip(tup1.items, tup2.items)]
             return SomeTuple(items = unions)
 
     def add((tup1, tup2)):
         return SomeTuple(items = tup1.items + tup2.items)
+
+    def eq(tup1tup2):
+        tup1tup2.union()
+        return s_Bool
+    ne = eq
+
+    def lt((tup1, tup2)):
+        raise Exception("unsupported: (...) < (...)")
+    def le((tup1, tup2)):
+        raise Exception("unsupported: (...) <= (...)")
+    def gt((tup1, tup2)):
+        raise Exception("unsupported: (...) > (...)")
+    def ge((tup1, tup2)):
+        raise Exception("unsupported: (...) >= (...)")
 
 
 class __extend__(pairtype(SomeDict, SomeDict)):
