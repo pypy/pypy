@@ -697,15 +697,18 @@ class TestTypedTestCase(object):
         assert fn() == 1
 
     def test_recursion_detection(self):
-        def f(n):
+        def g(n):
             try:
-                if n == 0:
-                    return 1
-                else:
-                    return n * f(n - 1)
+                return f(n)
             except StackOverflow:
                 return -42
-        fn = self.getcompiled(f, [int])
+        
+        def f(n):
+            if n == 0:
+                return 1
+            else:
+                return n * f(n - 1)
+        fn = self.getcompiled(g, [int])
         assert fn(7) == 5040
         assert fn(7) == 5040    # detection must work several times, too
         assert fn(7) == 5040
@@ -800,12 +803,6 @@ class TestTypedTestCase(object):
                 del a[:]
 
         self.getcompiled(func_swap, [])
-
-    def test_returns_unicode(self):
-        def func(i):
-            return u'hello' + unichr(i)
-        f = self.getcompiled(func, [int])
-        assert f(0x1234) == u'hello\u1234'
 
     def test_ovfcheck_float_to_int(self):
         from pypy.rlib.rarithmetic import ovfcheck_float_to_int
