@@ -1,9 +1,15 @@
+import weakref
+
 import py
-from pypy.translator.translator import TranslationContext
+
+from pypy import conftest
+from pypy.rlib import rgc
+from pypy.rlib.objectmodel import (keepalive_until_here, compute_unique_id,
+    compute_hash, current_object_addr_as_int)
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.rlib.objectmodel import keepalive_until_here
-from pypy import conftest
+from pypy.rpython.lltypesystem.rstr import STR
+from pypy.translator.translator import TranslationContext
 
 
 def setup_module(mod):
@@ -104,7 +110,6 @@ class TestUsingBoehm(AbstractGCTestClass):
 
     def test_id_is_weak(self):
         # test that compute_unique_id(obj) does not keep obj alive
-        from pypy.rlib.objectmodel import compute_unique_id
         class State:
             pass
         s = State()
@@ -232,9 +237,6 @@ class TestUsingBoehm(AbstractGCTestClass):
         assert res == 2
 
     def test_weakref(self):
-        import weakref
-        from pypy.rlib import rgc
-
         class A:
             pass
 
@@ -268,8 +270,6 @@ class TestUsingBoehm(AbstractGCTestClass):
         assert 3500 <= res <= 6000
 
     def test_prebuilt_weakref(self):
-        import weakref
-        from pypy.rlib import rgc
         class A:
             pass
         a = A()
@@ -296,8 +296,6 @@ class TestUsingBoehm(AbstractGCTestClass):
         assert res == -5
 
     def test_weakref_to_prebuilt(self):
-        import weakref
-        from pypy.rlib import rgc
         class A:
             pass
         a = A()
@@ -311,7 +309,6 @@ class TestUsingBoehm(AbstractGCTestClass):
         c_fn(100)
 
     def test_nested_finalizers(self):
-        from pypy.rlib import rgc
         class State:
             pass
         state = State()
@@ -345,7 +342,6 @@ class TestUsingBoehm(AbstractGCTestClass):
         assert res == 0
 
     def test_can_move(self):
-        from pypy.rlib import rgc
         class A:
             pass
         def fn():
@@ -355,8 +351,6 @@ class TestUsingBoehm(AbstractGCTestClass):
         assert c_fn() == False
 
     def test_heap_stats(self):
-        from pypy.rlib import rgc
-        
         def fn():
             return bool(rgc._heap_stats())
 
@@ -367,23 +361,19 @@ class TestUsingBoehm(AbstractGCTestClass):
         TP = lltype.GcArray(lltype.Char)
         def func():
             try:
-                from pypy.rlib import rgc
                 a = rgc.malloc_nonmovable(TP, 3)
                 rgc.collect()
                 if a:
                     assert not rgc.can_move(a)
                     return 0
                 return 1
-            except Exception, e:
+            except Exception:
                 return 2
 
         run = self.getcompiled(func)
         assert run() == 0
 
     def test_shrink_array(self):
-        from pypy.rpython.lltypesystem.rstr import STR
-        from pypy.rlib import rgc
-
         def f():
             ptr = lltype.malloc(STR, 3)
             ptr.hash = 0x62
@@ -409,11 +399,9 @@ class TestUsingBoehm(AbstractGCTestClass):
                                           llmemory.cast_ptr_to_adr(s))
             return True
         run = self.getcompiled(f)
-        assert run() == True        
+        assert run() == True
 
     def test_hash_preservation(self):
-        from pypy.rlib.objectmodel import compute_hash
-        from pypy.rlib.objectmodel import current_object_addr_as_int
         class C:
             pass
         class D(C):
@@ -429,7 +417,7 @@ class TestUsingBoehm(AbstractGCTestClass):
                     compute_hash(c),
                     compute_hash(d),
                     compute_hash(("Hi", None, (7.5, 2, d))))
-        
+
         f = self.getcompiled(fn)
         res = f()
 
