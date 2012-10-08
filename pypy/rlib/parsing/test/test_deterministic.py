@@ -1,6 +1,6 @@
 from pypy.rlib.parsing.deterministic import *
+from pypy.translator.interactive import Translation
 
-from sets import Set
 
 def test_DFA_simple():
     a = DFA()
@@ -24,11 +24,8 @@ def test_DFA_simple():
     assert py.test.raises(LexerError, "recognize('xzya')")
     assert recognize("aaaacb")
 
+
 def test_compile_recognizer():
-    try:
-        from pypy.translator.interactive import Translation
-    except ImportError:
-        py.test.skip("pypy not found on path")
     a = DFA()
     s0 = a.add_state("start")
     s1 = a.add_state()
@@ -44,6 +41,7 @@ def test_compile_recognizer():
     assert cfn("aaaaaaaaaab")
     assert cfn("b")
     assert cfn("aaaacb")
+
 
 def test_NFA_simple():
     a = NFA()

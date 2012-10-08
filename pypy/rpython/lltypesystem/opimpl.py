@@ -1,9 +1,8 @@
-from pypy.tool.sourcetools import func_with_new_name
-from pypy.rpython.lltypesystem import lltype, llmemory
-from pypy.rpython.lltypesystem.lloperation import FunctionByName
+from pypy.objspace.flow.operation import FunctionByName
 from pypy.rlib import debug
 from pypy.rlib.rarithmetic import is_valid_int
-
+from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.tool.sourcetools import func_with_new_name
 
 # ____________________________________________________________
 # Implementation of the 'canfold' operations
@@ -27,8 +26,8 @@ if r_longlong is r_int:
 else:
     r_longlong_arg = r_longlong
     r_longlong_result = r_longlong
-    
-    
+
+
 r_longlonglong_arg = r_longlonglong
 r_longlonglong_result = r_longlonglong
 
