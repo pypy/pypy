@@ -39,7 +39,6 @@ class TestUsingFramework(object):
             return 0
 
         t = Translation(main, standalone=True, gc=cls.gcpolicy,
-                        policy=annpolicy.StrictAnnotatorPolicy(),
                         taggedpointers=cls.taggedpointers,
                         gcremovetypeptr=cls.removetypeptr)
         t.disable(['backendopt'])
