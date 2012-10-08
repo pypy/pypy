@@ -5,8 +5,7 @@ import sys
 
 import py
 
-from py.test import raises
-
+from pypy.rlib.rstackovf import StackOverflow
 from pypy.rlib.objectmodel import compute_hash, current_object_addr_as_int
 from pypy.rlib.rarithmetic import r_uint, r_ulonglong, r_longlong, intmask, longlongmask
 from pypy.rpython.lltypesystem import rffi, lltype
@@ -18,15 +17,25 @@ class TestTypedTestCase(object):
     def getcompiled(self, func, argtypes):
         return compile(func, argtypes, backendopt=False)
 
+    def get_wrapper(self, func):
+        def wrapper(*args):
+            try:
+                return func(*args)
+            except OverflowError:
+                return -1
+            except ZeroDivisionError:
+                return -2
+        return wrapper
+
     def test_set_attr(self):
-        set_attr = self.getcompiled(snippet.set_attr)
+        set_attr = self.getcompiled(snippet.set_attr, [])
         assert set_attr() == 2
 
     def test_inheritance2(self):
         def wrap():
             res = snippet.inheritance2()
             return res == ((-12, -12.0), (3, 12.3))
-        fn = self.getcompiled(wrap)
+        fn = self.getcompiled(wrap, [])
         assert fn()
 
     def test_factorial2(self):
@@ -42,7 +51,8 @@ class TestTypedTestCase(object):
         assert simple_method(55) == 55
 
     def test_sieve_of_eratosthenes(self):
-        sieve_of_eratosthenes = self.getcompiled(snippet.sieve_of_eratosthenes)
+        sieve_of_eratosthenes = self.getcompiled(snippet.sieve_of_eratosthenes,
+                                                 [])
         assert sieve_of_eratosthenes() == 1028
 
     def test_nested_whiles(self):
@@ -53,7 +63,7 @@ class TestTypedTestCase(object):
         def wrap():
             res = snippet.call_unpack_56()
             return res == (2, 5, 6)
-        fn = self.getcompiled(wrap)
+        fn = self.getcompiled(wrap, [])
         assert fn()
 
     def test_class_defaultattr(self):
@@ -63,7 +73,7 @@ class TestTypedTestCase(object):
             k = K()
             k.n += " world"
             return k.n
-        fn = self.getcompiled(class_defaultattr)
+        fn = self.getcompiled(class_defaultattr, [])
         assert fn() == "hello world"
 
     def test_tuple_repr(self):
@@ -210,12 +220,12 @@ class TestTypedTestCase(object):
     def test_long_long(self):
         def f(i):
             return 4 * i
-        fn = self.getcompiled(f, [r_ulonglong], view=False)
+        fn = self.getcompiled(f, [r_ulonglong])
         assert fn(r_ulonglong(2147483647)) == 4 * 2147483647
 
         def g(i):
             return 4 * i
-        gn = self.getcompiled(g, [r_longlong], view=False)
+        gn = self.getcompiled(g, [r_longlong])
         assert gn(r_longlong(2147483647)) == 4 * 2147483647
 
         def g(i):
@@ -460,39 +470,45 @@ class TestTypedTestCase(object):
                 assert res == f(i, ord(l[j]))
 
     def test_int_overflow(self):
-        fn = self.getcompiled(snippet.add_func, [int])
-        raises(OverflowError, fn, sys.maxint)
+        fn = self.getcompiled(self.get_wrapper(snippet.add_func), [int])
+        assert fn(sys.maxint) == -1
 
     def test_int_floordiv_ovf_zer(self):
-        fn = self.getcompiled(snippet.div_func, [int])
-        raises(OverflowError, fn, -1)
-        raises(ZeroDivisionError, fn, 0)
+        fn = self.getcompiled(self.get_wrapper(snippet.div_func), [int])
+        assert fn(-1) == -1
+        assert fn(0) == -2
 
     def test_int_mul_ovf(self):
-        fn = self.getcompiled(snippet.mul_func, [int, int])
+        fn = self.getcompiled(self.get_wrapper(snippet.mul_func), [int, int])
         for y in range(-5, 5):
             for x in range(-5, 5):
                 assert fn(x, y) == snippet.mul_func(x, y)
         n = sys.maxint / 4
         assert fn(n, 3) == snippet.mul_func(n, 3)
         assert fn(n, 4) == snippet.mul_func(n, 4)
-        raises(OverflowError, fn, n, 5)
+        assert fn(n, 5) == -1
 
     def test_int_mod_ovf_zer(self):
-        fn = self.getcompiled(snippet.mod_func, [int])
-        raises(OverflowError, fn, -1)
-        raises(ZeroDivisionError, fn, 0)
+        fn = self.getcompiled(self.get_wrapper(snippet.mod_func), [int])
+        assert fn(-1) == -1
+        assert fn(0) == -2
 
     def test_int_lshift_ovf(self):
-        fn = self.getcompiled(snippet.lshift_func, [int])
-        raises(OverflowError, fn, 1)
+        fn = self.getcompiled(self.get_wrapper(snippet.lshift_func), [int])
+        assert fn(1) == -1
 
     def test_int_unary_ovf(self):
-        fn = self.getcompiled(snippet.unary_func, [int])
+        def w(a, b):
+            if not b:
+                return snippet.unary_func(a)[0]
+            else:
+                return snippet.unary_func(a)[1]
+        fn = self.getcompiled(self.get_wrapper(w), [int, int])
         for i in range(-3, 3):
-            assert fn(i) == (-(i), abs(i - 1))
-        raises(OverflowError, fn, -sys.maxint - 1)
-        raises(OverflowError, fn, -sys.maxint)
+            assert fn(i, 0) == -(i)
+            assert fn(i, 1) == abs(i - 1)
+        assert fn(-sys.maxint - 1, 0) == -1
+        assert fn(-sys.maxint, 0) == -1
 
     # floats
     def test_float_operations(self):
@@ -574,17 +590,19 @@ class TestTypedTestCase(object):
         #
         def fn():
             d2 = D()
-            return (compute_hash(d2),
-                    current_object_addr_as_int(d2),
-                    compute_hash(c),
-                    compute_hash(d),
-                    compute_hash(("Hi", None, (7.5, 2, d))))
+            return str((compute_hash(d2),
+                        current_object_addr_as_int(d2),
+                        compute_hash(c),
+                        compute_hash(d),
+                        compute_hash(("Hi", None, (7.5, 2, d)))))
 
         f = self.getcompiled(fn, [])
         res = f()
 
         # xxx the next line is too precise, checking the exact implementation
-        assert res[0] == res[1]
+        res = [int(a) for a in res[1:-1].split(",")]
+        if res[0] != res[1]:
+            assert res[0] == -res[1] - 1
         assert res[2] != compute_hash(c)     # likely
         assert res[3] == compute_hash(d)
         assert res[4] == compute_hash(("Hi", None, (7.5, 2, d)))
@@ -619,22 +637,20 @@ class TestTypedTestCase(object):
             r = range(10, 37, 4)
             try:
                 return r[idx]
-            except:
-                raise
+            except IndexError:
+                return -1
         f = self.getcompiled(fn, [int])
         assert f(0) == fn(0)
         assert f(-1) == fn(-1)
-        raises(IndexError, f, 42)
+        assert f(42) == -1
 
     def test_range_step(self):
         def fn(step):
             r = range(10, 37, step)
-            # we always raise on step = 0
             return r[-2]
         f = self.getcompiled(fn, [int])
         assert f(1) == fn(1)
         assert f(3) == fn(3)
-        raises(ValueError, f, 0)
 
     def test_range_iter(self):
         def fn(start, stop, step):
@@ -682,15 +698,18 @@ class TestTypedTestCase(object):
 
     def test_recursion_detection(self):
         def f(n):
-            if n == 0:
-                return 1
-            else:
-                return n * f(n - 1)
+            try:
+                if n == 0:
+                    return 1
+                else:
+                    return n * f(n - 1)
+            except StackOverflow:
+                return -42
         fn = self.getcompiled(f, [int])
         assert fn(7) == 5040
         assert fn(7) == 5040    # detection must work several times, too
         assert fn(7) == 5040
-        py.test.raises(RuntimeError, fn, -1)
+        assert fn(-1) == -42
 
     def test_infinite_recursion(self):
         def f(x):

@@ -15,8 +15,8 @@ class TestTypedOptimizedTestCase(_TestTypedTestCase):
             else:
                 return 456
         fn = self.getcompiled(f, [bool])
-        assert f(True) == 123
-        assert f(False) == 456
+        assert fn(True) == 123
+        assert fn(False) == 456
 
     def test__del__(self):
         class B(object):
