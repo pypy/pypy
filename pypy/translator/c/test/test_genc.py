@@ -12,16 +12,25 @@ from pypy.rlib.unroll import unrolling_iterable
 def compile(fn, argtypes, view=False, gcpolicy="none", backendopt=True,
             annotatorpolicy=None):
     argtypes_unroll = unrolling_iterable(enumerate(argtypes))
+
+    for argtype in argtypes:
+        if argtype not in [int, float, str, bool]:
+            raise Exception("Unsupported argtype, %r" % (argtype,))
     
     def entry_point(argv):
         args = ()
         for i, argtype in argtypes_unroll:
             if argtype is int:
                 args = args + (int(argv[i + 1]),)
+            if argtype is bool:
+                if argv[i + 1] == 'True':
+                    args = args + (True,)
+                else:
+                    assert argv[i + 1] == 'False'
+                    args = args + (False,)
             elif argtype is float:
                 args = args + (float(argv[i + 1]),)
             else:
-                assert argtype is str
                 args = args + (argv[i + 1],)
         res = fn(*args)
         print "THE RESULT IS:", res, ";"
@@ -335,7 +344,7 @@ def test_exportstruct():
     t.compile_c()
     if py.test.config.option.view:
         t.view()
-    assert ' BarStruct ' in t.driver.cbuilder.c_source_filename.read()
+    assert hasattr(ctypes.CDLL(str(t.driver.c_entryp)), 'BarStruct')
     free(foo, flavor="raw")
 
 def test_recursive_llhelper():
@@ -399,7 +408,8 @@ def test_inhibit_tail_call():
     t.rtype()
     t.context._graphof(foobar_fn).inhibit_tail_call = True
     t.source_c()
-    lines = t.driver.cbuilder.c_source_filename.readlines()
+    lines = t.driver.cbuilder.c_source_filename.join('..',
+                              'pypy_translator_c_test_test_genc.c').readlines()
     for i, line in enumerate(lines):
         if '= pypy_g_foobar_fn' in line:
             break
