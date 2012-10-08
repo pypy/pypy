@@ -36,6 +36,10 @@ Support CFFI.  http://morepypy.blogspot.ch/2012/08/cffi-release-03.html
 .. branch: stdlib-2.7.3
 The stdlib was updated to version 2.7.3
 
+.. branch: numpypy-complex2
+Complex dtype support for numpy
+
+
 
 .. "uninteresting" branches that we should just ignore for the whatsnew:
 .. branch: slightly-shorter-c
