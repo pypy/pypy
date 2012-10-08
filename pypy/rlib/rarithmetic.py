@@ -63,7 +63,7 @@ def _get_long_bit():
     # whatever size a long has, make it big enough for a pointer.
     return _get_bitsize(_long_typecode)
 
-# exported for now for testing array values. 
+# exported for now for testing array values.
 # might go into its own module.
 def get_long_pattern(x):
     """get the bit pattern for a long, adjusted to pointer size"""
@@ -72,7 +72,7 @@ def get_long_pattern(x):
 # used in tests for ctypes and for genc and friends
 # to handle the win64 special case:
 is_emulated_long = _long_typecode != 'l'
-    
+
 LONG_BIT = _get_long_bit()
 LONG_MASK = (2**LONG_BIT)-1
 LONG_TEST = 2**(LONG_BIT-1)
@@ -289,7 +289,7 @@ class base_int(long):
         y = long(other)
         return self._widen(other, x + y)
     __radd__ = __add__
-    
+
     def __sub__(self, other):
         x = long(self)
         y = long(other)
@@ -299,7 +299,7 @@ class base_int(long):
         y = long(self)
         x = long(other)
         return self._widen(other, x - y)
-    
+
     def __mul__(self, other):
         x = long(self)
         if not isinstance(other, (int, long)):
@@ -454,7 +454,7 @@ def build_int(name, sign, bits, force_creation=False):
         def compute_annotation(self):
             from pypy.annotation import model as annmodel
             return annmodel.SomeInteger(knowntype=int_type)
-            
+
     class ForTypeEntry(extregistry.ExtRegistryEntry):
         _about_ = int_type
 
@@ -466,7 +466,7 @@ def build_int(name, sign, bits, force_creation=False):
             v_result, = hop.inputargs(hop.r_result.lowleveltype)
             hop.exception_cannot_occur()
             return v_result
-            
+
     return int_type
 
 class BaseIntValueEntry(extregistry.ExtRegistryEntry):
@@ -475,7 +475,7 @@ class BaseIntValueEntry(extregistry.ExtRegistryEntry):
     def compute_annotation(self):
         from pypy.annotation import model as annmodel
         return annmodel.SomeInteger(knowntype=r_ulonglong)
-        
+
 class BaseIntTypeEntry(extregistry.ExtRegistryEntry):
     _about_ = base_int
 
@@ -595,7 +595,7 @@ def byteswap(arg):
     """ Convert little->big endian and the opposite
     """
     from pypy.rpython.lltypesystem import lltype, rffi
-    
+
     T = lltype.typeOf(arg)
     # XXX we cannot do arithmetics on small ints
     if isinstance(arg, base_int):
