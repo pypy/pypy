@@ -242,10 +242,7 @@ class W_Kevent(Wrappable):
 
     @unwrap_spec(filter=int, flags='c_uint', fflags='c_uint', data=int, udata=r_uint)
     def descr__init__(self, space, w_ident, filter=KQ_FILTER_READ, flags=KQ_EV_ADD, fflags=0, data=0, udata=r_uint(0)):
-        if space.isinstance_w(w_ident, space.w_long):
-            ident = space.uint_w(w_ident)
-        else:
-            ident = r_uint(space.c_filedescriptor_w(w_ident))
+        ident = r_uint(space.c_filedescriptor_w(w_ident))
 
         self.event = lltype.malloc(kevent, flavor="raw")
         rffi.setintfield(self.event, "c_ident", ident)
