@@ -1,8 +1,8 @@
-import py
-from pypy.translator.c.test.test_typed import TestTypedTestCase as _TestTypedTestCase
-from pypy.translator.backendopt.all import backend_optimizations
-from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
 from pypy import conftest
+from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
+from pypy.translator.backendopt.all import backend_optimizations
+from pypy.translator.c.test.test_typed import TestTypedTestCase as _TestTypedTestCase
+
 
 class TestTypedOptimizedTestCase(_TestTypedTestCase):
 
@@ -24,7 +24,6 @@ class TestTypedOptimizedTestCase(_TestTypedTestCase):
         assert f(False) == 456
 
     def test__del__(self):
-        import os
         class B(object):
             pass
         b = B()
@@ -50,7 +49,7 @@ class TestTypedOptimizedTestCase(_TestTypedTestCase):
         res = fn(5)
         # translated function loses its last reference earlier
         assert res == 6
-    
+
     def test_del_inheritance(self):
         class State:
             pass

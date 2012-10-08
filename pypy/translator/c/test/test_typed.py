@@ -304,10 +304,10 @@ class TestTypedTestCase(CompilationTestCase):
         #     that can't be converted to a PyListObject
         def wrapper():
             lst = snippet.call_five()
-            return len(lst), lst[0]
+            return (len(lst), lst[0]) == (1, 5)
         call_five = self.getcompiled(wrapper)
         result = call_five()
-        assert result == (1, 5)
+        assert result
 
     def test_get_set_del_slice(self):
         def get_set_del_nonneg_slice(): # no neg slices for now!
