@@ -1,11 +1,9 @@
-from pypy.tool.pairtype import pairtype
 from pypy.annotation import model as annmodel
-from pypy.rpython.lltypesystem import lltype
-from pypy.rpython.lltypesystem import rclass
-from pypy.rpython.lltypesystem.rdict import rtype_r_dict
 from pypy.rlib import objectmodel
-from pypy.rpython.rmodel import TyperError, Constant
-from pypy.rpython.rbool import bool_repr
+from pypy.rpython.lltypesystem import lltype, rclass
+from pypy.rpython.lltypesystem.rdict import rtype_r_dict
+from pypy.rpython.rmodel import TyperError
+
 
 def rtype_builtin_isinstance(hop):
     hop.exception_cannot_occur()
@@ -87,6 +85,6 @@ def rtype_cast_weakrefptr_to_ptr(hop):
 
 BUILTIN_TYPER[weakref.ref] = rtype_weakref_create
 BUILTIN_TYPER[llmemory.weakref_create] = rtype_weakref_create
-BUILTIN_TYPER[llmemory.weakref_deref ] = rtype_weakref_deref
+BUILTIN_TYPER[llmemory.weakref_deref] = rtype_weakref_deref
 BUILTIN_TYPER[llmemory.cast_ptr_to_weakrefptr] = rtype_cast_ptr_to_weakrefptr
 BUILTIN_TYPER[llmemory.cast_weakrefptr_to_ptr] = rtype_cast_weakrefptr_to_ptr
