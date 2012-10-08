@@ -403,22 +403,26 @@ class base_int(long):
         res = pow(x, y, m)
         return self._widen(other, res)
 
+
 class signed_int(base_int):
     SIGNED = True
+
     def __new__(klass, val=0):
-        if type(val) is float:
+        if isinstance(val, (float, str)):
             val = long(val)
-        if val > klass.MASK>>1 or val < -(klass.MASK>>1)-1:
-            raise OverflowError("%s does not fit in signed %d-bit integer"%(val, klass.BITS))
+        if val > klass.MASK >> 1 or val < -(klass.MASK >> 1) - 1:
+            raise OverflowError("%s does not fit in signed %d-bit integer" % (val, klass.BITS))
         if val < 0:
             val = ~ ((~val) & klass.MASK)
         return super(signed_int, klass).__new__(klass, val)
     typemap = {}
 
+
 class unsigned_int(base_int):
     SIGNED = False
+
     def __new__(klass, val=0):
-        if isinstance(val, (float, long)):
+        if isinstance(val, (float, long, str)):
             val = long(val)
         return super(unsigned_int, klass).__new__(klass, val & klass.MASK)
     typemap = {}
