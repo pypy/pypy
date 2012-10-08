@@ -56,7 +56,8 @@ class FakeSpace(object):
     w_slice = "slice"
     w_str = "str"
     w_unicode = "unicode"
-
+    w_complex = "complex"
+    
     def __init__(self):
         """NOT_RPYTHON"""
         self.fromcache = InternalSpaceCache(self).getorbuild

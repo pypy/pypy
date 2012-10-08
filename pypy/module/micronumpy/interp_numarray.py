@@ -383,6 +383,8 @@ class __extend__(W_NDimArray):
     descr_neg = _unaryop_impl("negative")
     descr_abs = _unaryop_impl("absolute")
     descr_invert = _unaryop_impl("invert")
+    descr_get_real = _unaryop_impl("real")
+    descr_get_imag = _unaryop_impl("imag")
 
     def descr_nonzero(self, space):
         if self.get_size() > 1:
@@ -629,6 +631,8 @@ W_NDimArray.typedef = TypeDef(
     swapaxes = interp2app(W_NDimArray.descr_swapaxes),
     flat = GetSetProperty(W_NDimArray.descr_get_flatiter),
     item = interp2app(W_NDimArray.descr_item),
+    real = GetSetProperty(W_NDimArray.descr_get_real),
+    imag = GetSetProperty(W_NDimArray.descr_get_imag),
 
     __array_interface__ = GetSetProperty(W_NDimArray.descr_array_iface),
 )
@@ -663,8 +667,9 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
         for w_elem in elems_w:
             dtype = interp_ufuncs.find_dtype_for_scalar(space, w_elem,
                                                         dtype)
-            if dtype is interp_dtype.get_dtype_cache(space).w_float64dtype:
-                break
+            #if dtype is interp_dtype.get_dtype_cache(space).w_float64dtype:
+            #    break
+            
         if dtype is None:
             dtype = interp_dtype.get_dtype_cache(space).w_float64dtype
     if ndmin > len(shape):
