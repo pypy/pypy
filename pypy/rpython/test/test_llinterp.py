@@ -4,7 +4,8 @@ import sys
 from pypy.rpython.lltypesystem.lltype import typeOf, Void, malloc, free
 from pypy.rpython.llinterp import LLInterpreter, LLException
 from pypy.rpython.rmodel import inputconst
-from pypy.rpython.annlowlevel import hlstr
+from pypy.rpython.annlowlevel import hlstr, llhelper
+from pypy.rpython.exceptiondata import UnknownException
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.lltypesystem import lltype
 from pypy.annotation import model as annmodel
@@ -645,3 +646,15 @@ def test_raising_llimpl():
 
     res = interpret(f, [])
     assert not res
+
+def test_userdefined_exception():
+    class FooError(Exception):
+        pass
+    def g():
+        raise FooError
+    g_func = llhelper(lltype.Ptr(lltype.FuncType([], lltype.Void)), g)
+    def f():
+        g_func()
+
+    e = py.test.raises(UnknownException, interpret, f, [])
+    assert e.value.args[0] is FooError
