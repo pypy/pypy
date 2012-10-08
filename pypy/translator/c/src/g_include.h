@@ -2,19 +2,9 @@
 /************************************************************/
 /***  C header file for code produced by genc.py          ***/
 
-#ifdef PYPY_CPYTHON_EXTENSION
-#  include "Python.h"
-#  include "compile.h"
-#  include "frameobject.h"
-#  include "structmember.h"
-#  include "traceback.h"
-#  include "marshal.h"
-#  include "eval.h"
-#else
-#  include <stdlib.h>
-#  include <assert.h>
-#  include <math.h>
-#endif
+#include <stdlib.h>
+#include <assert.h>
+#include <math.h>
 
 #include "src/mem.h"
 #include "src/exception.h"
@@ -46,8 +36,8 @@
 #  include "src/ll_strtod.h"
 #endif
 
-#ifdef PYPY_STANDALONE
 #  include "src/allocator.h"
+#ifdef PYPY_STANDALONE
 #  include "src/main.h"
 #endif
 
