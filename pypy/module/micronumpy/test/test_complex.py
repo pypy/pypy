@@ -469,10 +469,10 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
     def test_basic(self):
         from _numpypy import (complex128, complex64, add,
-            subtract as sub, multiply, divide, negative, abs, 
-            reciprocal, real, imag)
+            subtract as sub, multiply, divide, negative, abs, floor_divide,
+            reciprocal, real, imag, sign)
         from _numpypy import (equal, not_equal, greater, greater_equal, less,
-                less_equal)
+                less_equal, isnan)
         assert real(4.0) == 4.0
         assert imag(0.0) == 0.0
         for complex_ in complex64, complex128:
@@ -523,9 +523,22 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert abs(res.real-2.2) < 0.001
             assert abs(res.imag+0.4) < 0.001
 
+            assert floor_divide(c0, c0) == complex(1, 0)
+            assert isnan(floor_divide(c0, complex(0, 0)).real)
+            assert floor_divide(c0, complex(0, 0)).imag == 0.0
+
             assert abs(c0) == 2.5
             assert abs(c2) == 5
-            
+            assert sign(complex(0, 0)) == 0
+            assert sign(complex(-42, 0)) == -1
+            assert sign(complex(42, 0)) == 1
+            assert sign(complex(-42, 2)) == -1
+            assert sign(complex(42, 2)) == 1
+            assert sign(complex(-42, -3)) == -1
+            assert sign(complex(42, -3)) == 1
+            assert sign(complex(0, -42)) == -1
+            assert sign(complex(0, 42)) == 1
+
             inf_c = complex_(complex(float('inf'), 0.))
             assert repr(abs(inf_c)) == 'inf'
             assert repr(abs(complex(float('nan'), float('nan')))) == 'nan'
