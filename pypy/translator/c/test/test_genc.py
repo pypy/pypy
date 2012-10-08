@@ -21,6 +21,8 @@ def llrepr(v):
         return "%d:%d" % (intmask(v >> 32), intmask(v & unsigned_ffffffff))
     elif isinstance(v, r_longlong):
         return "%d:%d" % (intmask(v >> 32), intmask(v & signed_ffffffff))
+    elif isinstance(v, float):
+        return repr(v)    # extra precision than str(v)
     return str(v)
 
 def parse_longlong(a):
