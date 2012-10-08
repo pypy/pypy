@@ -311,51 +311,6 @@ class BaseTestRtuple(BaseRtypingTest):
         res = self.interpret(fn, [1, 49])
         assert res is True
 
-    TUPLES = [
-        ((1,2),  (2,3),   -1),
-        ((1,2),  (1,3),   -1),
-        ((1,2),  (1,1),    1),
-        ((1,2),  (1,2),    0),
-        ((1.,2.),(2.,3.), -1),
-        ((1.,2.),(1.,3.), -1),
-        ((1.,2.),(1.,1.),  1),
-        ((1.,2.),(1.,2.),  0),
-        ((1,2.),(2,3.), -1),
-        ((1,2.),(1,3.), -1),
-        ((1,2.),(1,1.),  1),
-        ((1,2.),(1,2.),  0),
-##         ((1,"def"),(1,"abc"), -1),
-##         ((1.,"abc"),(1.,"abc"), 0),
-        ]
-
-    def test_tuple_comparison(self):
-        def f_lt( a, b, c, d ):
-            return (a,b) < (c,d)
-        def f_le( a, b, c, d ):
-            return (a,b) <= (c,d)
-        def f_gt( a, b, c, d ):
-            return (a,b) > (c,d)
-        def f_ge( a, b, c, d ):
-            return (a,b) >= (c,d)
-        def test_lt( a,b,c,d,resu ):
-            res = self.interpret(f_lt,[a,b,c,d])
-            assert res == (resu == -1), "Error (%s,%s)<(%s,%s) is %s(%s)" % (a,b,c,d,res,resu)
-        def test_le( a,b,c,d,resu ):
-            res = self.interpret(f_le,[a,b,c,d])
-            assert res == (resu <= 0), "Error (%s,%s)<=(%s,%s) is %s(%s)" % (a,b,c,d,res,resu)
-        def test_gt( a,b,c,d,resu ):
-            res = self.interpret(f_gt,[a,b,c,d])
-            assert res == ( resu == 1 ), "Error (%s,%s)>(%s,%s) is %s(%s)" % (a,b,c,d,res,resu)
-        def test_ge( a,b,c,d,resu ):
-            res = self.interpret(f_ge,[a,b,c,d])
-            assert res == ( resu >= 0 ), "Error (%s,%s)>=(%s,%s) is %s(%s)" % (a,b,c,d,res,resu)
-
-        for (a,b),(c,d),resu in self.TUPLES:
-            yield test_lt, a,b,c,d, resu
-            yield test_gt, a,b,c,d, resu
-            yield test_le, a,b,c,d, resu
-            yield test_ge, a,b,c,d, resu
-
     def test_tuple_hash_2(self):
         from pypy.rlib.objectmodel import compute_hash
         def f(n):
