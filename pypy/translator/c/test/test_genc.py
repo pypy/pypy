@@ -1,12 +1,20 @@
 import py
 import ctypes
 
+from pypy.annotation import model, signature
 from pypy.rpython.lltypesystem.lltype import *
+from pypy.rpython.lltypesystem import ll2ctypes
 from pypy.translator.translator import TranslationContext
 from pypy.translator.c import genc
 from pypy.translator.interactive import Translation
 from pypy.rlib.entrypoint import entrypoint
 from pypy.tool.nullpath import NullPyPathLocal
+
+
+def cast_to_ctypes(type):
+    s_tp = signature.annotation(type)
+    ll_tp = model.annotation_to_lltype(s_tp)
+    return ll2ctypes.get_ctypes_type(ll_tp)
 
 def compile(fn, argtypes, view=False, gcpolicy="ref", backendopt=True,
             annotatorpolicy=None):
@@ -14,7 +22,7 @@ def compile(fn, argtypes, view=False, gcpolicy="ref", backendopt=True,
                     policy=annotatorpolicy)
     if not backendopt:
         t.disable(["backendopt_lltype"])
-    t.annotate()
+    s_res = t.annotate()
     # XXX fish
     t.driver.config.translation.countmallocs = True
     so_name = t.compile_c()
@@ -28,7 +36,10 @@ def compile(fn, argtypes, view=False, gcpolicy="ref", backendopt=True,
         for arg, argtype in zip(args, argtypes):
             assert isinstance(arg, argtype)
         dll = ctypes.CDLL(str(so_name))
-        return getattr(dll, 'pypy_g_' + fn.__name__)(*args)
+        func = getattr(dll, 'pypy_g_' + fn.__name__)
+        func.argtypes = [cast_to_ctypes(arg) for arg in argtypes]
+        func.restype = cast_to_ctypes(s_res)
+        return func(*args)
     f.__name__ = fn.__name__
     return f
 
