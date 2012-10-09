@@ -4,7 +4,8 @@ import py
 
 from pypy.rlib.entrypoint import entrypoint
 from pypy.rlib.unroll import unrolling_iterable
-from pypy.rlib.rarithmetic import r_longlong, r_ulonglong, intmask
+from pypy.rlib.rarithmetic import r_longlong, r_ulonglong, r_uint, intmask
+from pypy.rlib.objectmodel import specialize
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.lltypesystem.rstr import STR
@@ -16,7 +17,7 @@ from pypy.translator.translator import TranslationContext, graphof
 signed_ffffffff = r_longlong(0xffffffff)
 unsigned_ffffffff = r_ulonglong(0xffffffff)
 
-def llrepr(v):
+def llrepr_in(v):
     if isinstance(v, r_ulonglong):
         return "%d:%d" % (intmask(v >> 32), intmask(v & unsigned_ffffffff))
     elif isinstance(v, r_longlong):
@@ -24,6 +25,13 @@ def llrepr(v):
     elif isinstance(v, float):
         return repr(v)    # extra precision than str(v)
     return str(v)
+
+@specialize.argtype(0)
+def llrepr_out(v):
+    if isinstance(v, float):
+        from pypy.rlib.rfloat import formatd, DTSF_ADD_DOT_0
+        return formatd(v, 'r', 0, DTSF_ADD_DOT_0)
+    return v
 
 def parse_longlong(a):
     p0, p1 = a.split(":")
@@ -40,7 +48,8 @@ def compile(fn, argtypes, view=False, gcpolicy="none", backendopt=True,
     argtypes_unroll = unrolling_iterable(enumerate(argtypes))
 
     for argtype in argtypes:
-        if argtype not in [int, float, str, bool, r_ulonglong, r_longlong]:
+        if argtype not in [int, float, str, bool, r_ulonglong, r_longlong,
+                           r_uint]:
             raise Exception("Unsupported argtype, %r" % (argtype,))
 
     def entry_point(argv):
@@ -49,6 +58,8 @@ def compile(fn, argtypes, view=False, gcpolicy="none", backendopt=True,
             a = argv[i + 1]
             if argtype is int:
                 args += (int(a),)
+            elif argtype is r_uint:
+                args += (r_uint(int(a)),)
             elif argtype is r_longlong:
                 args += (parse_longlong(a),)
             elif argtype is r_ulonglong:
@@ -64,10 +75,7 @@ def compile(fn, argtypes, view=False, gcpolicy="none", backendopt=True,
             else:
                 args += (a,)
         res = fn(*args)
-        if isinstance(res, float):
-            from pypy.rlib.rfloat import formatd, DTSF_ADD_DOT_0
-            res = formatd(res, 'r', 0, DTSF_ADD_DOT_0)
-        print "THE RESULT IS:", res, ";"
+        print "THE RESULT IS:", llrepr_out(res), ";"
         return 0
 
     t = Translation(entry_point, None, gc=gcpolicy, backend="c",
@@ -93,7 +101,7 @@ def compile(fn, argtypes, view=False, gcpolicy="none", backendopt=True,
         assert len(args) == len(argtypes)
         for arg, argtype in zip(args, argtypes):
             assert isinstance(arg, argtype)
-        stdout = t.driver.cbuilder.cmdexec(" ".join([llrepr(arg) for arg in args]))
+        stdout = t.driver.cbuilder.cmdexec(" ".join([llrepr_in(arg) for arg in args]))
         print stdout
         stdout, lastline, empty = stdout.rsplit('\n', 2)
         assert empty == ''
