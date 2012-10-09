@@ -778,6 +778,10 @@ class TestCompiler:
             raise AssertionError("attribute not removed")"""
         yield self.st, test, "X.__name__", "X"
 
+    def test_lots_of_loops(self):
+        source = "for x in y: pass\n" * 1000
+        compile_with_astcompiler(source, 'exec', self.space)
+
 
 class AppTestCompiler:
 

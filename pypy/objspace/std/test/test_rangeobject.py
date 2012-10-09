@@ -32,7 +32,7 @@ class AppTestRangeListObject(object):
         for i in r[10:15]:
             result.append(i)
         assert result == [21, 23, 25, 27, 29]
-        assert self.not_forced(r)
+        assert not self.not_forced(r)
 
     def test_getitem_extended_slice(self):
         result = []
@@ -40,7 +40,7 @@ class AppTestRangeListObject(object):
         for i in r[40:30:-2]:
             result.append(i)
         assert result == [81, 77, 73, 69, 65]
-        assert self.not_forced(r)
+        assert not self.not_forced(r)
 
     def test_empty_range(self):
         r = range(10, 10)
@@ -62,7 +62,7 @@ class AppTestRangeListObject(object):
     def test_reverse(self):
         r = range(10)
         r.reverse()
-        assert self.not_forced(r)
+        assert not self.not_forced(r)
         assert r == range(9, -1, -1)
         r = range(3)
         r[0] = 1

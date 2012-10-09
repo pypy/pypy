@@ -3859,6 +3859,14 @@ class TestAnnotateTestCase:
             a = self.RPythonAnnotator()
             py.test.raises(Exception, a.build_types, fn, [])
 
+    def test_lower_char(self):
+        def fn(c):
+            return c.lower()
+        a = self.RPythonAnnotator()
+        s = a.build_types(fn, [annmodel.SomeChar()])
+        assert s == annmodel.SomeChar()
+
+
 def g(n):
     return [0,1,2,n]
 

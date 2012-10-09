@@ -21,7 +21,7 @@ Make big integers faster
 -------------------------
 
 PyPy's implementation of the Python ``long`` type is slower than CPython's.
-Find out why and optimize them.
+Find out why and optimize them.  **UPDATE:** this was done (thanks stian).
 
 Make bytearray type fast
 ------------------------
@@ -103,13 +103,35 @@ experiments can be done for the general purpose. Examples
 
 * A concurrent garbage collector (a lot of work)
 
-STM, a.k.a. "remove the GIL"
-----------------------------
+STM (Software Transactional Memory)
+-----------------------------------
 
-Removing the GIL --- or more precisely, a GIL-less thread-less solution ---
-is `now work in progress.`__  Contributions welcome.
+This is work in progress.  Besides the main development path, whose goal is
+to make a (relatively fast) version of pypy which includes STM, there are
+independent topics that can already be experimented with on the existing,
+JIT-less pypy-stm version:
+  
+* What kind of conflicts do we get in real use cases?  And, sometimes,
+  which data structures would be more appropriate?  For example, a dict
+  implemented as a hash table will suffer "stm collisions" in all threads
+  whenever one thread writes anything to it; but there could be other
+  implementations.  Maybe alternate strategies can be implemented at the
+  level of the Python interpreter (see list/dict strategies,
+  ``pypy/objspace/std/{list,dict}object.py``).
 
-.. __: http://pypy.org/tmdonate.html
+* More generally, there is the idea that we would need some kind of
+  "debugger"-like tool to "debug" things that are not bugs, but stm
+  conflicts.  How would this tool look like to the end Python
+  programmers?  Like a profiler?  Or like a debugger with breakpoints
+  on aborted transactions?  It would probably be all app-level, with
+  a few hooks e.g. for transaction conflicts.
+
+* Find good ways to have libraries using internally threads and atomics,
+  but not exposing threads to the user.  Right now there is a rough draft
+  in ``lib_pypy/transaction.py``, but much better is possible.  For example
+  we could probably have an iterator-like concept that allows each loop
+  iteration to run in parallel.
+
 
 Introduce new benchmarks
 ------------------------

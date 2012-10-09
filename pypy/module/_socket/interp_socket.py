@@ -29,7 +29,9 @@ class W_RSocket(Wrappable, RSocket):
         info is a pair (hostaddr, port).
         """
         try:
-            sock, addr = self.accept(W_RSocket)
+            fd, addr = self.accept()
+            sock = rsocket.make_socket(
+                fd, self.family, self.type, self.proto, W_RSocket)
             return space.newtuple([space.wrap(sock),
                                    addr.as_object(sock.fd, space)])
         except SocketError, e:

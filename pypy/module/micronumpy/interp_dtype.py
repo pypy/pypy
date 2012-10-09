@@ -46,6 +46,11 @@ class W_Dtype(Wrappable):
     def box(self, value):
         return self.itemtype.box(value)
 
+    @specialize.argtype(1, 2)
+    def box_complex(self, real, imag):
+        return self.itemtype.box_complex(real, imag)
+
+
     def coerce(self, space, w_item):
         return self.itemtype.coerce(space, self, w_item)
 
@@ -120,6 +125,9 @@ class W_Dtype(Wrappable):
 
     def is_signed(self):
         return self.kind == SIGNEDLTR
+
+    def is_complex_type(self):
+        return (self.num == 14 or self.num == 15)
 
     def is_bool_type(self):
         return self.kind == BOOLLTR
@@ -393,6 +401,31 @@ class DtypeCache(object):
             alternate_constructors=[space.w_float],
             aliases=["float"],
         )
+        # self.w_float128dtype = W_Dtype(
+        #     types.Float128(),
+        #     num=13,
+        #     kind=FLOATINGLTR,
+        #     name="float128",
+        #     ...
+        # )
+        self.w_complex64dtype = W_Dtype(
+            types.Complex64(),
+            num=14,
+            kind=FLOATINGLTR,
+            name="complex64",
+            char="F",
+            w_box_type = space.gettypefor(interp_boxes.W_Complex64Box),
+        )
+        self.w_complex128dtype = W_Dtype(
+            types.Complex128(),
+            num=15,
+            kind=FLOATINGLTR,
+            name="complex128",
+            char="D",
+            w_box_type = space.gettypefor(interp_boxes.W_Complex128Box),
+            alternate_constructors=[space.w_complex],
+            aliases=["complex"],
+        )
         self.w_stringdtype = W_Dtype(
             types.StringType(1),
             num=18,
@@ -426,8 +459,9 @@ class DtypeCache(object):
             self.w_int16dtype, self.w_uint16dtype, self.w_int32dtype,
             self.w_uint32dtype, self.w_longdtype, self.w_ulongdtype,
             self.w_int64dtype, self.w_uint64dtype,
-            self.w_float32dtype,
-            self.w_float64dtype, self.w_stringdtype, self.w_unicodedtype,
+            self.w_float32dtype, self.w_float64dtype, self.w_complex64dtype,
+            self.w_complex128dtype,
+            self.w_stringdtype, self.w_unicodedtype,
             self.w_voiddtype,
         ]
         self.float_dtypes_by_num_bytes = sorted(

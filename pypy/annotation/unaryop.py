@@ -586,6 +586,12 @@ class __extend__(SomeChar):
     def method_isupper(chr):
         return s_Bool
 
+    def method_lower(chr):
+        return chr
+
+    def method_upper(chr):
+        return chr
+
 class __extend__(SomeIterator):
 
     def iter(itr):

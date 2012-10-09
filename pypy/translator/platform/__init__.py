@@ -240,12 +240,15 @@ class Platform(object):
 
 
 if sys.platform.startswith('linux'):
-    from pypy.translator.platform.linux import Linux, Linux64
+    from pypy.translator.platform.linux import Linux, LinuxPIC
     import platform
-    if platform.architecture()[0] == '32bit':
-        host_factory = Linux
+    # Only required on armhf and mips{,el}, not armel. But there's no way to
+    # detect armhf without shelling out
+    if (platform.architecture()[0] == '64bit'
+            or platform.machine().startswith(('arm', 'mips'))):
+        host_factory = LinuxPIC
     else:
-        host_factory = Linux64
+        host_factory = Linux
 elif sys.platform == 'darwin':
     from pypy.translator.platform.darwin import Darwin_i386, Darwin_x86_64, Darwin_PowerPC
     import platform
@@ -257,6 +260,13 @@ elif sys.platform == 'darwin':
         host_factory = Darwin_i386
     else:
         host_factory = Darwin_x86_64
+elif "gnukfreebsd" in sys.platform:
+    from pypy.translator.platform.freebsd import GNUkFreebsd, GNUkFreebsd_64
+    import platform
+    if platform.architecture()[0] == '32bit':
+        host_factory = GNUkFreebsd
+    else:
+        host_factory = GNUkFreebsd_64
 elif "freebsd" in sys.platform:
     from pypy.translator.platform.freebsd import Freebsd, Freebsd_64
     import platform

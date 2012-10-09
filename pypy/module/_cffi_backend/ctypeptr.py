@@ -53,7 +53,7 @@ class W_CTypePtrOrArray(W_CType):
                 isinstance(ob.ctype, W_CTypePtrOrArray)):
             value = ob._cdata
         else:
-            value = misc.as_unsigned_long_long(space, w_ob, strict=False)
+            value = misc.as_unsigned_long(space, w_ob, strict=False)
             value = rffi.cast(rffi.CCHARP, value)
         return cdataobj.W_CData(space, value, self)
 
@@ -70,7 +70,8 @@ class W_CTypePtrOrArray(W_CType):
             for i in range(len(lst_w)):
                 ctitem.convert_from_object(cdata, lst_w[i])
                 cdata = rffi.ptradd(cdata, ctitem.size)
-        elif isinstance(self.ctitem, ctypeprim.W_CTypePrimitiveChar):
+        elif (self.ctitem.is_primitive_integer and
+              self.ctitem.size == rffi.sizeof(lltype.Char)):
             try:
                 s = space.str_w(w_ob)
             except OperationError, e:

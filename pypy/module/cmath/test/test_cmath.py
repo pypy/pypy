@@ -6,7 +6,7 @@ import os, sys, math
 
 
 def test_special_values():
-    from pypy.module.cmath.special_value import sqrt_special_values
+    from pypy.rlib.special_value import sqrt_special_values
     assert len(sqrt_special_values) == 7
     assert len(sqrt_special_values[4]) == 7
     assert isinstance(sqrt_special_values[5][1], tuple)
@@ -115,7 +115,6 @@ def parse_testfile(fname):
     Empty lines or lines starting with -- are ignored
     yields id, fn, arg_real, arg_imag, exp_real, exp_imag
     """
-    fname = os.path.join(os.path.dirname(__file__), fname)
     with open(fname) as fp:
         for line in fp:
             # skip comment lines and blank lines
@@ -186,8 +185,10 @@ def rAssertAlmostEqual(a, b, rel_err = 2e-15, abs_err = 5e-323, msg=''):
 def test_specific_values():
     #if not float.__getformat__("double").startswith("IEEE"):
     #    return
-
-    for id, fn, ar, ai, er, ei, flags in parse_testfile('cmath_testcases.txt'):
+    
+    # too fragile...
+    fname = os.path.join(os.path.dirname(__file__), '../../../rlib/test', 'rcomplex_testcases.txt')
+    for id, fn, ar, ai, er, ei, flags in parse_testfile(fname):
         arg = (ar, ai)
         expected = (er, ei)
         function = getattr(interp_cmath, 'c_' + fn)

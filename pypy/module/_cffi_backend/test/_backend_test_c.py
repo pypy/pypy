@@ -42,19 +42,34 @@ def size_of_ptr():
     return sizeof(BPtr)
 
 
-def find_and_load_library(name, is_global=0):
+def find_and_load_library(name, flags=RTLD_NOW):
     import ctypes.util
     if name is None:
         path = None
     else:
         path = ctypes.util.find_library(name)
-    return load_library(path, is_global)
+    return load_library(path, flags)
 
 def test_load_library():
     x = find_and_load_library('c')
     assert repr(x).startswith("<clibrary '")
-    x = find_and_load_library('c', 1)
+    x = find_and_load_library('c', RTLD_NOW | RTLD_GLOBAL)
     assert repr(x).startswith("<clibrary '")
+    x = find_and_load_library('c', RTLD_LAZY)
+    assert repr(x).startswith("<clibrary '")
+
+def test_all_rtld_symbols():
+    import sys
+    FFI_DEFAULT_ABI        # these symbols must be defined
+    FFI_CDECL
+    RTLD_LAZY
+    RTLD_NOW
+    RTLD_GLOBAL
+    RTLD_LOCAL
+    if sys.platform.startswith("linux"):
+        RTLD_NODELETE
+        RTLD_NOLOAD
+        RTLD_DEEPBIND
 
 def test_nonstandard_integer_types():
     d = nonstandard_integer_types()
@@ -966,7 +981,7 @@ def test_load_and_call_function():
     assert strlenaddr == cast(BVoidP, strlen)
 
 def test_read_variable():
-    if sys.platform == 'win32':
+    if sys.platform == 'win32' or sys.platform == 'darwin':
         py.test.skip("untested")
     BVoidP = new_pointer_type(new_void_type())
     ll = find_and_load_library('c')
@@ -974,7 +989,7 @@ def test_read_variable():
     assert stderr == cast(BVoidP, _testfunc(8))
 
 def test_read_variable_as_unknown_length_array():
-    if sys.platform == 'win32':
+    if sys.platform == 'win32' or sys.platform == 'darwin':
         py.test.skip("untested")
     BCharP = new_pointer_type(new_primitive_type("char"))
     BArray = new_array_type(BCharP, None)
@@ -984,7 +999,7 @@ def test_read_variable_as_unknown_length_array():
     # ^^ and not 'char[]', which is basically not allowed and would crash
 
 def test_write_variable():
-    if sys.platform == 'win32':
+    if sys.platform == 'win32' or sys.platform == 'darwin':
         py.test.skip("untested")
     BVoidP = new_pointer_type(new_void_type())
     ll = find_and_load_library('c')
@@ -2161,3 +2176,31 @@ def test_rawaddressof():
     #
     d = rawaddressof(BCharP, s, 1)
     assert d == cast(BCharP, p) + 1
+
+def test_newp_signed_unsigned_char():
+    BCharArray = new_array_type(
+        new_pointer_type(new_primitive_type("char")), None)
+    p = newp(BCharArray, b"foo")
+    assert len(p) == 4
+    assert list(p) == [b"f", b"o", b"o", b"\x00"]
+    #
+    BUCharArray = new_array_type(
+        new_pointer_type(new_primitive_type("unsigned char")), None)
+    p = newp(BUCharArray, b"fo\xff")
+    assert len(p) == 4
+    assert list(p) == [ord("f"), ord("o"), 0xff, 0]
+    #
+    BSCharArray = new_array_type(
+        new_pointer_type(new_primitive_type("signed char")), None)
+    p = newp(BSCharArray, b"fo\xff")
+    assert len(p) == 4
+    assert list(p) == [ord("f"), ord("o"), -1, 0]
+
+def test_newp_from_bytearray_doesnt_work():
+    BCharArray = new_array_type(
+        new_pointer_type(new_primitive_type("char")), None)
+    py.test.raises(TypeError, newp, BCharArray, bytearray(b"foo"))
+    p = newp(BCharArray, 4)
+    buffer(p)[:] = bytearray(b"foo\x00")
+    assert len(p) == 4
+    assert list(p) == [b"f", b"o", b"o", b"\x00"]
