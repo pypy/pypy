@@ -64,6 +64,9 @@ def compile(fn, argtypes, view=False, gcpolicy="none", backendopt=True,
             else:
                 args += (a,)
         res = fn(*args)
+        if isinstance(res, float):
+            from pypy.rlib.rfloat import formatd, DTSF_ADD_DOT_0
+            res = formatd(res, 'r', 0, DTSF_ADD_DOT_0)
         print "THE RESULT IS:", res, ";"
         return 0
 
