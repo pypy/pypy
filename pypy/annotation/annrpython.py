@@ -1,9 +1,8 @@
-import sys
 import types
-from pypy.tool.ansi_print import ansi_log, raise_nicer_exception
+from pypy.tool.ansi_print import ansi_log
 from pypy.tool.pairtype import pair
 from pypy.tool.error import (format_blocked_annotation_error,
-                             format_someobject_error, AnnotatorError)
+                             AnnotatorError, gather_error)
 from pypy.objspace.flow.model import (Variable, Constant, FunctionGraph,
                                       c_last_exception, checkgraph)
 from pypy.translator import simplify, transform
@@ -38,7 +37,7 @@ class RPythonAnnotator(object):
         self.links_followed = {} # set of links that have ever been followed
         self.notify = {}        # {block: {positions-to-reflow-from-when-done}}
         self.fixed_graphs = {}  # set of graphs not to annotate again
-        self.blocked_blocks = {} # set of {blocked_block: graph}
+        self.blocked_blocks = {} # set of {blocked_block: (graph, index)}
         # --- the following information is recorded for debugging ---
         self.blocked_graphs = {} # set of graphs that have blocked blocks
         # --- end of debugging information ---
@@ -341,7 +340,7 @@ class RPythonAnnotator(object):
             self.flowin(graph, block)
         except BlockedInference, e:
             self.annotated[block] = False   # failed, hopefully temporarily
-            self.blocked_blocks[block] = graph
+            self.blocked_blocks[block] = (graph, e.opindex)
         except Exception, e:
             # hack for debug tools only
             if not hasattr(e, '__annotator_block'):
@@ -360,7 +359,7 @@ class RPythonAnnotator(object):
         self.pendingblocks[block] = graph
         assert block in self.annotated
         self.annotated[block] = False  # must re-flow
-        self.blocked_blocks[block] = graph
+        self.blocked_blocks[block] = (graph, None)
 
     def bindinputargs(self, graph, block, inputcells):
         # Create the initial bindings for the input args of a block.
@@ -368,7 +367,7 @@ class RPythonAnnotator(object):
         for a, cell in zip(block.inputargs, inputcells):
             self.setbinding(a, cell)
         self.annotated[block] = False  # must flowin.
-        self.blocked_blocks[block] = graph
+        self.blocked_blocks[block] = (graph, None)
 
     def mergeinputargs(self, graph, block, inputcells):
         # Merge the new 'cells' with each of the block's existing input
@@ -397,7 +396,7 @@ class RPythonAnnotator(object):
             for i in range(len(block.operations)):
                 try:
                     self.bookkeeper.enter((graph, block, i))
-                    self.consider_op(block.operations[i])
+                    self.consider_op(block, i)
                 finally:
                     self.bookkeeper.leave()
 
@@ -573,7 +572,8 @@ class RPythonAnnotator(object):
 
     #___ creating the annotations based on operations ______
 
-    def consider_op(self, op):
+    def consider_op(self, block, opindex):
+        op = block.operations[opindex]
         argcells = [self.binding(a) for a in op.args]
         consider_meth = getattr(self,'consider_op_'+op.opname,
                                 None)
@@ -588,16 +588,17 @@ class RPythonAnnotator(object):
         # boom -- in the assert of setbinding()
         for arg in argcells:
             if isinstance(arg, annmodel.SomeImpossibleValue):
-                raise BlockedInference(self, op)
+                raise BlockedInference(self, op, opindex)
         try:
             resultcell = consider_meth(*argcells)
-        except Exception:
+        except Exception, e:
             graph = self.bookkeeper.position_key[0]
-            raise_nicer_exception(op, str(graph))
+            e.args = e.args + (gather_error(self, graph, block, opindex),)
+            raise
         if resultcell is None:
             resultcell = self.noreturnvalue(op)
         elif resultcell == annmodel.s_ImpossibleValue:
-            raise BlockedInference(self, op) # the operation cannot succeed
+            raise BlockedInference(self, op, opindex) # the operation cannot succeed
         assert isinstance(resultcell, annmodel.SomeObject)
         assert isinstance(op.result, Variable)
         self.setbinding(op.result, resultcell)  # bind resultcell to op.result
@@ -648,13 +649,14 @@ class BlockedInference(Exception):
     """This exception signals the type inference engine that the situation
     is currently blocked, and that it should try to progress elsewhere."""
 
-    def __init__(self, annotator, op):
+    def __init__(self, annotator, op, opindex):
         self.annotator = annotator
         try:
             self.break_at = annotator.bookkeeper.position_key
         except AttributeError:
             self.break_at = None
         self.op = op
+        self.opindex = opindex
 
     def __repr__(self):
         if not self.break_at:
