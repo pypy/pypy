@@ -71,6 +71,7 @@ def compile(fn, argtypes, view=False, gcpolicy="none", backendopt=True,
                     policy=annotatorpolicy, thread=thread)
     if not backendopt:
         t.disable(["backendopt_lltype"])
+    t.driver.config.translation.countmallocs = True
     t.annotate()
     t.compile_c()
     ll_res = graphof(t.context, fn).getreturnvar().concretetype
@@ -79,15 +80,31 @@ def compile(fn, argtypes, view=False, gcpolicy="none", backendopt=True,
             t.view()
     except AttributeError:
         pass
-    def f(*args):
+
+    def f(*args, **kwds):
+        if 'expected_extra_mallocs' in kwds:
+            expected_extra_mallocs = kwds.pop('expected_extra_mallocs')
+        else:
+            expected_extra_mallocs = 0
+        assert not kwds
         assert len(args) == len(argtypes)
         for arg, argtype in zip(args, argtypes):
             assert isinstance(arg, argtype)
         stdout = t.driver.cbuilder.cmdexec(" ".join([llrepr(arg) for arg in args]))
         print stdout
-        assert stdout.endswith(' ;\n')
+        stdout, lastline, empty = stdout.rsplit('\n', 2)
+        assert empty == ''
+        assert lastline.startswith('MALLOC COUNTERS: ')
+        mallocs, frees = map(int, lastline.split()[2:])
+        assert stdout.endswith(' ;')
         pos = stdout.rindex('THE RESULT IS: ')
-        res = stdout[pos + len('THE RESULT IS: '):-3]
+        res = stdout[pos + len('THE RESULT IS: '):-2]
+        #
+        if isinstance(expected_extra_mallocs, int):
+            assert mallocs - frees == expected_extra_mallocs
+        else:
+            assert mallocs - frees in expected_extra_mallocs
+        #
         if ll_res in [lltype.Signed, lltype.Unsigned, lltype.SignedLongLong,
                       lltype.UnsignedLongLong]:
             return int(res)
