@@ -119,17 +119,17 @@ class TestUsingBoehm(AbstractGCTestClass):
             a3, b3, c3 = run_once()
             a4, b4, c4 = run_once()
             a5, b5, c5 = run_once()
-            return (s.a_dels, s.b_dels,
-                    a1, b1, c1,
-                    a2, b2, c2,
-                    a3, b3, c3,
-                    a4, b4, c4,
-                    a5, b5, c5)
+            return str((s.a_dels, s.b_dels,
+                        a1, b1, c1,
+                        a2, b2, c2,
+                        a3, b3, c3,
+                        a4, b4, c4,
+                        a5, b5, c5))
         fn = self.getcompiled(f, [int])
         # we can't demand that boehm has collected all of the objects,
         # even with the gc__collect call.
         res = fn(50)
-        res1, res2 = res[:2]
+        res1, res2 = eval(res)[:2]
         # if res1 or res2 is still 0, then we haven't tested anything so fail.
         # it might be the test's fault though.
         print res1, res2
@@ -391,14 +391,15 @@ class TestUsingBoehm(AbstractGCTestClass):
         #
         def fn():
             d2 = D()
-            return (compute_hash(d2),
-                    current_object_addr_as_int(d2),
-                    compute_hash(c),
-                    compute_hash(d),
-                    compute_hash(("Hi", None, (7.5, 2, d))))
+            return str((compute_hash(d2),
+                        current_object_addr_as_int(d2),
+                        compute_hash(c),
+                        compute_hash(d),
+                        compute_hash(("Hi", None, (7.5, 2, d)))))
 
         f = self.getcompiled(fn)
         res = f()
+        res = eval(res)
 
         # xxx the next line is too precise, checking the exact implementation
         assert res[0] == ~res[1]
