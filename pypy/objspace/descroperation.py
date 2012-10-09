@@ -673,20 +673,12 @@ for targetname, specialname in [
                       "unsupported operand type for %(targetname)s(): '%%s'",
                                       typename)
             w_result = space.get_and_call_function(w_impl, w_obj)
-
-            if space.is_true(space.isinstance(w_result, space.w_str)):
+            if space.isinstance_w(w_result, space.w_unicode):
                 return w_result
-            try:
-                result = space.unicode_w(w_result)
-            except OperationError, e:
-                if not e.match(space, space.w_TypeError):
-                    raise
-                typename = space.type(w_result).getname(space)
-                msg = "%(specialname)s returned non-%(targetname)s (type '%%s')"
-                raise operationerrfmt(space.w_TypeError, msg, typename)
-            else:
-                # re-wrap the result as a real string
-                return space.wrap(result)
+
+            typename = space.type(w_result).getname(space)
+            msg = "%(specialname)s returned non-%(targetname)s (type '%%s')"
+            raise operationerrfmt(space.w_TypeError, msg, typename)
         assert not hasattr(DescrOperation, %(targetname)r)
         DescrOperation.%(targetname)s = %(targetname)s
         del %(targetname)s

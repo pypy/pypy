@@ -300,6 +300,17 @@ class AppTest_Descroperation:
             assert x == 'àèì'
             assert type(x) is str
             
+
+    def test_byte_results_unicode(self):
+        class A(object):
+            def __str__(self):
+                return b'foo'
+            def __repr__(self):
+                return b'bar'
+
+        for operate in (str, repr):
+            raises(TypeError, operate, A())
+
     def test_missing_getattribute(self):
         class X(object): pass
 
