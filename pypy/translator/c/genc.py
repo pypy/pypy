@@ -191,6 +191,11 @@ class CBuilder(object):
             eci = node.compilation_info()
             if eci:
                 all.append(eci)
+        for node in self.db.getstructdeflist():
+            try:
+                all.append(node.STRUCT._hints['eci'])
+            except (AttributeError, KeyError):
+                pass
         self.merge_eci(*all)
 
     def get_gcpolicyclass(self):

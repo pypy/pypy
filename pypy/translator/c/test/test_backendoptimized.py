@@ -38,7 +38,7 @@ class TestTypedOptimizedTestCase(_TestTypedTestCase):
                 a = A()
             return b.num_deleted
 
-        fn = self.getcompiled(f, [int])
+        fn = self.getcompiled(f, [int], gcpolicy='ref')
         res = f(5)
         assert res == 5
         res = fn(5)
@@ -70,7 +70,7 @@ class TestTypedOptimizedTestCase(_TestTypedTestCase):
                 return s.a_dels * 10 + s.b_dels
             else:
                 return -1
-        fn = self.getcompiled(f, [int])
+        fn = self.getcompiled(f, [int], gcpolicy='ref')
         res = f(1)
         assert res == 42
         res = fn(1)
@@ -138,7 +138,7 @@ class TestTypedOptimizedSwitchTestCase:
         codegenerator = self.CodeGenerator()
         fn = codegenerator.getcompiled(f, [r_uint])
         for x in (0,1,2,3,9,27,48):
-            assert fn(x) == f(x)
+            assert fn(r_uint(x)) == f(r_uint(x))
 
     def test_longlong_switch(self):
         def f(x):
@@ -152,7 +152,7 @@ class TestTypedOptimizedSwitchTestCase:
         codegenerator = self.CodeGenerator()
         fn = codegenerator.getcompiled(f, [r_longlong])
         for x in (0,1,2,3,9,27,48, -9):
-            assert fn(x) == f(x)
+            assert fn(r_longlong(x)) == f(r_longlong(x))
 
     def test_ulonglong_switch(self):
         def f(x):
@@ -166,7 +166,7 @@ class TestTypedOptimizedSwitchTestCase:
         codegenerator = self.CodeGenerator()
         fn = codegenerator.getcompiled(f, [r_ulonglong])
         for x in (0,1,2,3,9,27,48, r_ulonglong(-9)):
-            assert fn(x) == f(x)
+            assert fn(r_ulonglong(x)) == f(r_ulonglong(x))
 
     def test_chr_switch(self):
         def f(y):
