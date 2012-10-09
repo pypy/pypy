@@ -17,11 +17,8 @@ class Translation(object):
         self.entry_point = entry_point
         self.context = TranslationContext(config=self.config)
 
-        # hook into driver events
-        self.driver_setup = False
-
         policy = kwds.pop('policy', None)
-        self.update_options(argtypes, kwds)
+        self.update_options(kwds)
         self.ensure_setup(argtypes, policy)
         # for t.view() to work just after construction
         graph = self.context.buildflowgraph(entry_point)
@@ -35,28 +32,17 @@ class Translation(object):
 
     def ensure_setup(self, argtypes=None, policy=None):
         standalone = argtypes is None
-        if not self.driver_setup:
-            if standalone:
-                assert argtypes is None
-            else:
-                if argtypes is None:
-                    argtypes = []
-            self.driver.setup(self.entry_point, argtypes, policy,
-                              empty_translator=self.context)
-            self.ann_argtypes = argtypes
-            self.ann_policy = policy
-            self.driver_setup = True
+        if standalone:
+            assert argtypes is None
         else:
-            # check consistency
-            if standalone:
-                assert argtypes is None
-                assert self.ann_argtypes is None
-            elif argtypes is not None and argtypes != self.ann_argtypes:
-                raise Exception("inconsistent argtype supplied")
-            if policy is not None and policy != self.ann_policy:
-                raise Exception("inconsistent annotation polish supplied")
+            if argtypes is None:
+                argtypes = []
+        self.driver.setup(self.entry_point, argtypes, policy,
+                          empty_translator=self.context)
+        self.ann_argtypes = argtypes
+        self.ann_policy = policy
 
-    def update_options(self, argtypes, kwds):
+    def update_options(self, kwds):
         gc = kwds.pop('gc', None)
         if gc:
             self.config.translation.gc = gc
@@ -64,11 +50,11 @@ class Translation(object):
 
     def ensure_opt(self, name, value=None, fallback=None):
         if value is not None:
-            self.update_options(None, {name: value})
+            self.update_options({name: value})
             return value
         val = getattr(self.config.translation, name, None)
         if fallback is not None and val is None:
-            self.update_options(None, {name: fallback})
+            self.update_options({name: fallback})
             return fallback
         if val is not None:
             return val
@@ -97,69 +83,69 @@ class Translation(object):
 
     # backend independent
 
-    def annotate(self, argtypes=None, **kwds):
-        self.update_options(argtypes, kwds)
+    def annotate(self, **kwds):
+        self.update_options(kwds)
         return self.driver.annotate()
 
     # type system dependent
 
-    def rtype(self, argtypes=None, **kwds):
-        self.update_options(argtypes, kwds)
+    def rtype(self, **kwds):
+        self.update_options(kwds)
         ts = self.ensure_type_system()
         return getattr(self.driver, 'rtype_' + ts)()
 
-    def backendopt(self, argtypes=None, **kwds):
-        self.update_options(argtypes, kwds)
+    def backendopt(self, **kwds):
+        self.update_options(kwds)
         ts = self.ensure_type_system('lltype')
         return getattr(self.driver, 'backendopt_' + ts)()
 
     # backend depedent
 
-    def source(self, argtypes=None, **kwds):
-        self.update_options(argtypes, kwds)
+    def source(self, **kwds):
+        self.update_options(kwds)
         backend = self.ensure_backend()
         getattr(self.driver, 'source_' + backend)()
 
-    def source_c(self, argtypes=None, **kwds):
-        self.update_options(argtypes, kwds)
+    def source_c(self, **kwds):
+        self.update_options(kwds)
         self.ensure_backend('c')
         self.driver.source_c()
 
-    def source_cl(self, argtypes=None, **kwds):
-        self.update_options(argtypes, kwds)
+    def source_cl(self, **kwds):
+        self.update_options(kwds)
         self.ensure_backend('cl')
         self.driver.source_cl()
 
-    def compile(self, argtypes=None, **kwds):
-        self.update_options(argtypes, kwds)
+    def compile(self, **kwds):
+        self.update_options(kwds)
         backend = self.ensure_backend()
         getattr(self.driver, 'compile_' + backend)()
         return self.driver.c_entryp
 
-    def compile_c(self, argtypes=None, **kwds):
-        self.update_options(argtypes, kwds)
+    def compile_c(self, **kwds):
+        self.update_options(kwds)
         self.ensure_backend('c')
         self.driver.compile_c()
         return self.driver.c_entryp
 
-    def compile_cli(self, argtypes=None, **kwds):
-        self.update_options(argtypes, kwds)
+    def compile_cli(self, **kwds):
+        self.update_options(kwds)
         self.ensure_backend('cli')
         self.driver.compile_cli()
         return self.driver.c_entryp
 
-    def source_cli(self, argtypes=None, **kwds):
-        self.update_options(argtypes, kwds)
+    def source_cli(self, **kwds):
+        self.update_options(kwds)
         self.ensure_backend('cli')
         self.driver.source_cli()
 
-    def compile_jvm(self, argtypes=None, **kwds):
-        self.update_options(argtypes, kwds)
+    def compile_jvm(self, **kwds):
+        self.update_options(kwds)
         self.ensure_backend('jvm')
         self.driver.compile_jvm()
         return self.driver.c_entryp
 
-    def source_jvm(self, argtypes=None, **kwds):
-        self.update_options(argtypes, kwds)
+    def source_jvm(self, **kwds):
+        self.update_options(kwds)
         self.ensure_backend('jvm')
         self.driver.source_jvm()
