@@ -124,8 +124,8 @@ def _issubtype(space, w_cls1, w_cls2):
 NDIGITS_MAX = int((rfloat.DBL_MANT_DIG - rfloat.DBL_MIN_EXP) * 0.30103)
 NDIGITS_MIN = -int((rfloat.DBL_MAX_EXP + 1) * 0.30103)
 
-@unwrap_spec(number=float)
-def round(space, number, w_ndigits=0):
+@unwrap_spec(number=float, w_ndigits = (W_Root, 'space.wrap(0)'))
+def round(space, number, w_ndigits):
     """round(number[, ndigits]) -> floating point number
 
 Round a number to a given precision in decimal digits (default 0 digits).
@@ -234,6 +234,7 @@ def callable(space, w_object):
 function).  Note that classes are callable."""
     return space.callable(w_object)
 
-def format(space, w_obj, w_format_spec=""):
+@unwrap_spec(w_format_spec = (W_Root, 'space.wrap("")'))
+def format(space, w_obj, w_format_spec):
     """Format a obj according to format_spec"""
     return space.format(w_obj, w_format_spec)

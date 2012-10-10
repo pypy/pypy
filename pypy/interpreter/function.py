@@ -205,11 +205,11 @@ class Function(Wrappable):
         code = space.interp_w(Code, w_code)
         if not space.is_true(space.isinstance(w_globals, space.w_dict)):
             raise OperationError(space.w_TypeError, space.wrap("expected dict"))
-        if not space.is_w(w_name, space.w_None):
+        if not space.is_none(w_name):
             name = space.str_w(w_name)
         else:
             name = None
-        if not space.is_w(w_argdefs, space.w_None):
+        if not space.is_none(w_argdefs):
             defs_w = space.fixedview(w_argdefs)
         else:
             defs_w = []
@@ -217,7 +217,7 @@ class Function(Wrappable):
         from pypy.interpreter.pycode import PyCode
         if isinstance(code, PyCode):
             nfreevars = len(code.co_freevars)
-        if space.is_w(w_closure, space.w_None) and nfreevars == 0:
+        if space.is_none(w_closure) and nfreevars == 0:
             closure = None
         elif not space.is_w(space.type(w_closure), space.w_tuple):
             raise OperationError(space.w_TypeError, space.wrap("invalid closure"))
@@ -428,8 +428,8 @@ def descr_function_get(space, w_function, w_obj, w_cls=None):
     """functionobject.__get__(obj[, type]) -> method"""
     # this is not defined as a method on Function because it's generally
     # useful logic: w_function can be any callable.  It is used by Method too.
-    asking_for_bound = (space.is_w(w_cls, space.w_None) or
-                        not space.is_w(w_obj, space.w_None) or
+    asking_for_bound = (space.is_none(w_cls) or
+                        not space.is_none(w_obj) or
                         space.is_w(w_cls, space.type(space.w_None)))
     if asking_for_bound:
         return space.wrap(Method(space, w_function, w_obj, w_cls))
@@ -445,12 +445,15 @@ class Method(Wrappable):
         self.space = space
         self.w_function = w_function
         self.w_instance = w_instance   # or None
+        if w_class is None:
+            w_class = space.w_None
         self.w_class = w_class         # possibly space.w_None
 
-    def descr_method__new__(space, w_subtype, w_function, w_instance, w_class=None):
+    def descr_method__new__(space, w_subtype, w_function, w_instance,
+                            w_class=None):
         if space.is_w(w_instance, space.w_None):
             w_instance = None
-        if w_instance is None and space.is_w(w_class, space.w_None):
+        if w_instance is None and space.is_none(w_class):
             raise OperationError(space.w_TypeError,
                                  space.wrap("unbound methods must have class"))
         method = space.allocate_instance(Method, w_subtype)
