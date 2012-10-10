@@ -4,18 +4,19 @@ import autopath
 class AppTestMap:
 
    def test_trivial_map_one_seq(self):
-      assert map(lambda x: x+2, [1, 2, 3, 4]) == [3, 4, 5, 6]
+      assert list(map(lambda x: x+2, [1, 2, 3, 4])) == [3, 4, 5, 6]
 
    def test_trivial_map_one_seq_2(self):
-      assert map(str, [1, 2, 3, 4]) == ['1', '2', '3', '4']
+      assert list(map(str, [1, 2, 3, 4])) == ['1', '2', '3', '4']
 
    def test_trivial_map_two_seq(self):
-      assert map(lambda x,y: x+y,
-                           [1, 2, 3, 4],[1, 2, 3, 4]) == (
+      assert list(map(lambda x,y: x+y,
+                           [1, 2, 3, 4],[1, 2, 3, 4])) == (
                        [2, 4, 6, 8])
 
-   def test_trivial_map_sizes_dont_match_and_should(self):
-      raises(TypeError, map, lambda x,y: x+y, [1, 2, 3, 4], [1, 2, 3])
+   def test_trivial_map_sizes_dont_match(self):
+      assert list(map(lambda x,y: x+y, [1, 2, 3, 4], [1, 2, 3])) == (
+         [2, 4, 6])
 
    def test_trivial_map_no_arguments(self):
       raises(TypeError, map)
@@ -23,43 +24,29 @@ class AppTestMap:
    def test_trivial_map_no_function_no_seq(self):
       raises(TypeError, map, None)
 
-   def test_trivial_map_no_fuction_one_seq(self):
-      assert map(None, [1, 2, 3]) == [1, 2, 3]
-
-   def test_trivial_map_no_function(self):
-      assert map(None, [1,2,3], [4,5,6], [7,8], [1]) == (
-                       [(1, 4, 7, 1), (2, 5, 8, None), (3, 6, None, None)])
+   def test_trivial_map_no_fuction(self):
+      m = map(None, [1, 2, 3])    # Don't crash here...
+      raises(TypeError, next, m)  # ...but only on first item.
 
    def test_map_identity1(self):
       a = ['1', 2, 3, 'b', None]
       b = a[:]
-      assert map(lambda x: x, a) == a
-      assert a == b
-
-   def test_map_None(self):
-      a = ['1', 2, 3, 'b', None]
-      b = a[:]
-      assert map(None, a) == a
+      assert list(map(lambda x: x, a)) == a
       assert a == b
 
    def test_map_badoperation(self):
       a = ['1', 2, 3, 'b', None]
-      raises(TypeError, map, lambda x: x+1, a)
-
-   def test_map_multiply_identity(self):
-      a = ['1', 2, 3, 'b', None]
-      b = [ 2, 3, 4, 5, 6]
-      assert map(None, a, b) == [('1', 2), (2, 3), (3, 4), ('b', 5), (None, 6)]
+      raises(TypeError, list, map, lambda x: x+1, a)
 
    def test_map_add(self):
       a = [1, 2, 3, 4]
       b = [0, 1, 1, 1]
-      assert map(lambda x, y: x+y, a, b) == [1, 3, 4, 5]
+      assert list(map(lambda x, y: x+y, a, b)) == [1, 3, 4, 5]
 
    def test_map_first_item(self):
       a = [1, 2, 3, 4, 5]
-      b = []
-      assert map(lambda x, y: x, a, b) == a
+      b = [6, 7, 8, 9, 10]
+      assert list(map(lambda x, y: x, a, b)) == a
 
    def test_map_iterables(self):
       class A(object):
@@ -74,18 +61,23 @@ class AppTestMap:
             self.n -= 1
             if self.n == 0: raise StopIteration
             return self.n
-      result = map(None, A(3), A(8))
+      result = map(lambda *x:x, A(3), A(8))
       # this also checks that B.next() is not called any more after it
       # raised StopIteration once
-      assert result == [(2, 7), (1, 6), (None, 5), (None, 4),
-                        (None, 3), (None, 2), (None, 1)]
+      assert list(result) == [(2, 7), (1, 6)]
+
+   def test_repr(self):
+      assert repr(map(1, [2])).startswith('<map object ')
 
 class AppTestZip:
    def test_one_list(self):
-      assert zip([1,2,3]) == [(1,), (2,), (3,)]
+      assert list(zip([1,2,3])) == [(1,), (2,), (3,)]
 
    def test_three_lists(self):
-      assert zip([1,2,3], [1,2], [1,2,3]) == [(1,1,1), (2,2,2)]
+      assert list(zip([1,2,3], [1,2], [1,2,3])) == [(1,1,1), (2,2,2)]
+
+   def test_repr(self):
+      assert repr(zip([1,2,3], [1,2], [1,2,3])).startswith('<zip object ')
 
 class AppTestFilter:
    def test_None(self):

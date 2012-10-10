@@ -298,7 +298,7 @@ class AppTestBuiltinApp:
         raises(TypeError, enumerate, 1)
         raises(TypeError, enumerate, None)
         enum = enumerate(range(5), 2)
-        assert list(enum) == zip(range(2, 7), range(5))
+        assert list(enum) == list(zip(range(2, 7), range(5)))
 
     def test_next(self):
         x = iter(['a', 'b', 'c'])
@@ -340,7 +340,7 @@ class AppTestBuiltinApp:
         raises(ValueError, range, 0, 1, 0)
 
     def test_range_repr(self): 
-        assert repr(range(1)) == 'range(1)'
+        assert repr(range(1)) == 'range(0, 1)'
         assert repr(range(1,2)) == 'range(1, 2)'
         assert repr(range(1,2,3)) == 'range(1, 2, 3)'
 
@@ -506,7 +506,7 @@ class AppTestBuiltinApp:
 
     def test_unicode_encoding_compile(self):
         code = "# -*- coding: utf-8 -*-\npass\n"
-        raises(SyntaxError, compile, code, "tmp", "exec")
+        compile(code, "tmp", "exec")
 
     def test_bytes_compile(self):
         code = b"# -*- coding: utf-8 -*-\npass\n"
@@ -641,9 +641,11 @@ def fn(): pass
         raises(TypeError, pr, sep=42)
 
     def test_round(self):
-        assert round(11.234) == 11.0
-        assert round(11.234, -1) == 10.0
-        assert round(11.234, 0) == 11.0
+        assert round(11.234) == 11
+        assert type(round(11.234)) is int
+        assert round(11.234, -1) == 10
+        assert type(round(11.234, -1)) is float
+        assert round(11.234, 0) == 11
         assert round(11.234, 1) == 11.2
         #
         assert round(5e15-1) == 5e15-1
@@ -652,11 +654,10 @@ def fn(): pass
         assert round(-5e15) == -5e15
         #
         inf = 1e200 * 1e200
-        assert round(inf) == inf
-        assert round(-inf) == -inf
+        raises(OverflowError, round, inf)
+        raises(OverflowError, round, -inf)
         nan = inf / inf
-        assert repr(round(nan)) == repr(nan)
-        #
+        raises(ValueError, round, nan)
         raises(OverflowError, round, 1.6e308, -308)
         #
         assert round(562949953421312.5, 1) == 562949953421312.5
