@@ -569,6 +569,7 @@ if hasattr(os, 'killpg'):
         import signal
         from pypy.module.signal import interp_signal
         def does_stuff():
+            os.setpgid(0, 0)     # become its own separated process group
             interp_signal.pypysig_setflag(signal.SIGUSR1)
             os.killpg(os.getpgrp(), signal.SIGUSR1)
             interp_signal.pypysig_ignore(signal.SIGUSR1)
