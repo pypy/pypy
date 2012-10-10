@@ -1163,6 +1163,7 @@ class TestOrderedDict(unittest.TestCase):
         with self.assertRaises(KeyError):
             od.move_to_end('x')
 
+    @support.impl_detail(pypy=False)
     def test_sizeof(self):
         # Wimpy test: Just verify the reported size is larger than a regular dict
         d = dict(a=1)
