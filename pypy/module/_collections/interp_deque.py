@@ -3,7 +3,7 @@ from pypy.interpreter import gateway
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.interpreter.typedef import GetSetProperty
-from pypy.interpreter.gateway import interp2app, unwrap_spec, NoneNotWrapped
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError
 from pypy.rlib.debug import check_nonneg
 
@@ -80,7 +80,7 @@ class W_Deque(Wrappable):
                 self.space.w_RuntimeError,
                 self.space.wrap("deque mutated during iteration"))
 
-    def init(self, w_iterable=NoneNotWrapped, w_maxlen=None):
+    def init(self, w_iterable=None, w_maxlen=None):
         space = self.space
         if space.is_w(w_maxlen, space.w_None):
             maxlen = sys.maxint

@@ -343,7 +343,7 @@ class Function(Wrappable):
     def fget_func_defaults(self, space):
         values_w = self.defs_w
         # the `None in values_w` check here is to ensure that interp-level
-        # functions with a default of NoneNotWrapped do not get their defaults
+        # functions with a default of None do not get their defaults
         # exposed at applevel
         if not values_w or None in values_w:
             return space.w_None

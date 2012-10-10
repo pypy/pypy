@@ -5,7 +5,7 @@ import sys
 
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import unwrap_spec
+from pypy.interpreter.gateway import unwrap_spec, W_Root
 from pypy.rlib import jit
 from pypy.rlib.runicode import MAXUNICODE
 
@@ -20,7 +20,8 @@ def setbuiltinmodule(w_module, name):
             "trying to change the builtin-in module %r" % (name,))
     space.setitem(w_modules, space.wrap(name), w_module)
 
-def _getframe(space, w_depth=0):
+@unwrap_spec(w_depth = (W_Root, 'space.wrap(0)'))
+def _getframe(space, w_depth):
     """Return a frame object from the call stack.  If optional integer depth is
 given, return the frame object that many calls below the top of the stack.
 If that is deeper than the call stack, ValueError is raised.  The default

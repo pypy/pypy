@@ -2,7 +2,6 @@ import math
 from pypy.rlib.objectmodel import specialize
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import NoneNotWrapped
 from pypy.module.cmath import names_and_docstrings
 from pypy.rlib import rcomplex
 
@@ -75,7 +74,7 @@ def c_log(x, y):
 
 _inner_wrapped_log = wrapped_log
 
-def wrapped_log(space, w_z, w_base=NoneNotWrapped):
+def wrapped_log(space, w_z, w_base=None):
     w_logz = _inner_wrapped_log(space, w_z)
     if w_base is not None:
         w_logbase = _inner_wrapped_log(space, w_base)

@@ -388,8 +388,9 @@ def make_encoder_wrapper(name):
 def make_decoder_wrapper(name):
     rname = "str_decode_%s" % (name.replace("_decode", ""), )
     assert hasattr(runicode, rname)
-    @unwrap_spec(string='bufferstr', errors='str_or_None')
-    def wrap_decoder(space, string, errors="strict", w_final=False):
+    @unwrap_spec(string='bufferstr', errors='str_or_None',
+                 w_final=(W_Root, 'space.w_False'))
+    def wrap_decoder(space, string, errors="strict", w_final=None):
         if errors is None:
             errors = 'strict'
         final = space.is_true(w_final)
@@ -447,8 +448,9 @@ def utf_8_encode(space, uni, errors="strict"):
         allow_surrogates=True)
     return space.newtuple([space.wrap(result), space.wrap(len(uni))])
 
-@unwrap_spec(string='bufferstr', errors='str_or_None')
-def utf_8_decode(space, string, errors="strict", w_final=False):
+@unwrap_spec(string='bufferstr', errors='str_or_None',
+             w_final = (W_Root, 'space.w_False'))
+def utf_8_decode(space, string, errors="strict", w_final=None):
     if errors is None:
         errors = 'strict'
     final = space.is_true(w_final)
@@ -459,8 +461,9 @@ def utf_8_decode(space, string, errors="strict", w_final=False):
         allow_surrogates=True)
     return space.newtuple([space.wrap(result), space.wrap(consumed)])
 
-@unwrap_spec(data=str, errors='str_or_None', byteorder=int)
-def utf_16_ex_decode(space, data, errors='strict', byteorder=0, w_final=False):
+@unwrap_spec(data=str, errors='str_or_None', byteorder=int,
+             w_final=(W_Root, 'space.w_False'))
+def utf_16_ex_decode(space, data, errors='strict', byteorder=0, w_final=None):
     if errors is None:
         errors = 'strict'
     final = space.is_true(w_final)
@@ -479,8 +482,9 @@ def utf_16_ex_decode(space, data, errors='strict', byteorder=0, w_final=False):
     return space.newtuple([space.wrap(res), space.wrap(consumed),
                            space.wrap(byteorder)])
 
-@unwrap_spec(data=str, errors='str_or_None', byteorder=int)
-def utf_32_ex_decode(space, data, errors='strict', byteorder=0, w_final=False):
+@unwrap_spec(data=str, errors='str_or_None', byteorder=int,
+             w_final=(W_Root, 'space.w_False'))
+def utf_32_ex_decode(space, data, errors='strict', byteorder=0, w_final=None):
     final = space.is_true(w_final)
     state = space.fromcache(CodecState)
     if byteorder == 0:
@@ -660,13 +664,13 @@ class UnicodeData_Handler:
             return -1
         return space.int_w(w_code)
 
-@unwrap_spec(string='bufferstr', errors='str_or_None')
-def unicode_escape_decode(space, string, errors="strict", w_final=False):
+@unwrap_spec(string='bufferstr', errors='str_or_None',
+             w_final=(W_Root, 'space.w_False'))
+def unicode_escape_decode(space, string, errors="strict", w_final=None):
     if errors is None:
         errors = 'strict'
     final = space.is_true(w_final)
     state = space.fromcache(CodecState)
-    errorhandler=state.decode_error_handler
 
     unicode_name_handler = state.get_unicodedata_handler(space)
 
