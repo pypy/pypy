@@ -38,8 +38,6 @@ class HostCode(object):
         self.co_firstlineno = firstlineno
         self.co_lnotab = lnotab
         self.signature = cpython_code_signature(self)
-        if self.co_cellvars:
-            raise ValueError("RPython functions cannot create closures")
 
     @classmethod
     def _from_code(cls, code):
@@ -72,9 +70,6 @@ class HostCode(object):
             closure = [Cell(Constant(c.cell_contents)) for c in closure]
         else:
             closure = []
-        if not (self.co_flags & CO_NEWLOCALS):
-            raise ValueError("The code object for a function should have "
-                    "the flag CO_NEWLOCALS set.")
         if len(closure) != len(self.co_freevars):
             raise ValueError("code object received a closure with "
                                  "an unexpected number of free variables")

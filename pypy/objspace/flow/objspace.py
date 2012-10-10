@@ -2,6 +2,8 @@
 import __builtin__
 import sys
 import types
+from inspect import CO_NEWLOCALS
+
 from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.interpreter.argument import ArgumentsForTranslation
 from pypy.objspace.flow.model import (Constant, Variable, WrapException,
@@ -40,6 +42,17 @@ NOT_REALLY_CONST = {
         # might be considered for special objects.
         }
     }
+
+def _assert_rpythonic(func):
+    """Raise ValueError if ``func`` is obviously not RPython"""
+    if func.func_doc and func.func_doc.lstrip().startswith('NOT_RPYTHON'):
+        raise ValueError("%r is tagged as NOT_RPYTHON" % (func,))
+    if func.func_code.co_cellvars:
+        raise ValueError("RPython functions cannot create closures")
+    if not (func.func_code.co_flags & CO_NEWLOCALS):
+        raise ValueError("The code object for a RPython function should have "
+                "the flag CO_NEWLOCALS set.")
+
 
 # ______________________________________________________________________
 class FlowObjSpace(object):
@@ -248,8 +261,7 @@ class FlowObjSpace(object):
     def build_flow(self, func):
         """
         """
-        if func.func_doc and func.func_doc.lstrip().startswith('NOT_RPYTHON'):
-            raise Exception, "%r is tagged as NOT_RPYTHON" % (func,)
+        _assert_rpythonic(func)
         code = HostCode._from_code(func.func_code)
         if (code.is_generator and
                 not hasattr(func, '_generator_next_method_of_')):
