@@ -43,9 +43,6 @@ class ComplexBox(object):
         self.imag = imag
 
     def convert_to(self, dtype):
-        from pypy.module.micronumpy.types import ComplexFloating
-        if not isinstance(dtype.itemtype, ComplexFloating):
-            raise TypeError('cannot convert %r to complex' % dtype)
         return dtype.box_complex(self.real, self.imag)
 
     def convert_real_to(self, dtype):
@@ -77,12 +74,7 @@ class W_GenericBox(Wrappable):
         return space.wrap(box.value)
 
     def descr_float(self, space):
-        try:
-            box = self.convert_to(W_Float64Box._get_dtype(space))
-        except TypeError:
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("Cannot convert %s to float" % self._get_dtype(space).name))
-
+        box = self.convert_to(W_Float64Box._get_dtype(space))
         assert isinstance(box, W_Float64Box)
         return space.wrap(box.value)
 

@@ -468,13 +468,16 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert c[i] == max(a[i], b[i])
 
     def test_basic(self):
-        from _numpypy import (complex128, complex64, add,
+        from _numpypy import (complex128, complex64, add, array, dtype,
             subtract as sub, multiply, divide, negative, abs, floor_divide,
-            reciprocal, real, imag, sign)
+            real, imag, sign)
         from _numpypy import (equal, not_equal, greater, greater_equal, less,
                 less_equal, isnan)
         assert real(4.0) == 4.0
         assert imag(0.0) == 0.0
+        a = array([complex(3.0, 4.0)])
+        b = a.real
+        assert b.dtype == dtype(float)
         for complex_ in complex64, complex128:
 
             O = complex(0, 0)
