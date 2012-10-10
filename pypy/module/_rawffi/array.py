@@ -3,7 +3,7 @@
 to app-level with apropriate interface
 """
 
-from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.gateway import interp2app, unwrap_spec, is_none
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.interpreter.error import OperationError
@@ -48,7 +48,7 @@ class W_Array(W_DataShape):
     @unwrap_spec(length=int, autofree=bool)
     def descr_call(self, space, length, w_items=None, autofree=False):
         result = self.allocate(space, length, autofree)
-        if not space.is_w(w_items, space.w_None):
+        if is_none(space, w_items):
             items_w = space.unpackiterable(w_items)
             iterlength = len(items_w)
             if iterlength > length:

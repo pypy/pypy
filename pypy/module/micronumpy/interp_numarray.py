@@ -1,7 +1,8 @@
 
 from pypy.interpreter.error import operationerrfmt, OperationError
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.interpreter.gateway import interp2app, unwrap_spec, is_none
+from pypy.interpreter.gateway import interp2app, unwrap_spec, is_none,\
+     W_Root
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array,\
      ArrayArgumentException
 from pypy.module.micronumpy import interp_dtype, interp_ufuncs, interp_boxes
@@ -18,6 +19,8 @@ from pypy.rlib import jit
 from pypy.rlib.rstring import StringBuilder
 
 def _find_shape(space, w_size):
+    if is_none(space, w_size):
+        return []
     if space.isinstance_w(w_size, space.w_int):
         return [space.int_w(w_size)]
     shape = []
@@ -476,11 +479,13 @@ class __extend__(W_NDimArray):
         return loop.multidim_dot(space, self, other,  result, dtype,
                                  other_critical_dim)
 
-    def descr_var(self, space, w_axis=None):
+    @unwrap_spec(w_axis = (W_Root, 'space.w_None'))
+    def descr_var(self, space, w_axis):
         return get_appbridge_cache(space).call_method(space, '_var', self,
                                                       w_axis)
 
-    def descr_std(self, space, w_axis=None):
+    @unwrap_spec(w_axis = (W_Root, 'space.w_None'))
+    def descr_std(self, space, w_axis):
         return get_appbridge_cache(space).call_method(space, '_std', self,
                                                       w_axis)
 
@@ -488,7 +493,7 @@ class __extend__(W_NDimArray):
 
     def _reduce_ufunc_impl(ufunc_name, promote_to_largest=False):
         def impl(self, space, w_axis=None, w_out=None, w_dtype=None):
-            if space.is_w(w_out, space.w_None) or not w_out:
+            if is_none(space, w_out):
                 out = None
             elif not isinstance(w_out, W_NDimArray):
                 raise OperationError(space.w_TypeError, space.wrap( 
@@ -509,7 +514,7 @@ class __extend__(W_NDimArray):
     descr_any = _reduce_ufunc_impl('logical_or')
 
     def descr_mean(self, space, w_axis=None, w_out=None):
-        if space.is_w(w_axis, space.w_None):
+        if is_none(space, w_axis):
             w_denom = space.wrap(self.get_size())
         else:
             axis = unwrap_axis_arg(space, len(self.get_shape()), w_axis)
@@ -531,9 +536,9 @@ class __extend__(W_NDimArray):
 @unwrap_spec(offset=int)
 def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
                     offset=0, w_strides=None, w_order=None):
-    if (offset != 0 or not space.is_w(w_strides, space.w_None) or
-        not space.is_w(w_order, space.w_None) or
-        not space.is_w(w_buffer, space.w_None)):
+    if (offset != 0 or is_none(space, w_strides) or
+        not is_none(space, w_order) or
+        not is_none(space, w_buffer)):
         raise OperationError(space.w_NotImplementedError,
                              space.wrap("unsupported param"))
     dtype = space.interp_w(interp_dtype.W_Dtype,
@@ -644,12 +649,12 @@ W_NDimArray.typedef = TypeDef(
 def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
           ndmin=0):
     if not space.issequence_w(w_object):
-        if w_dtype is None or space.is_w(w_dtype, space.w_None):
+        if is_none(space, w_dtype):
             w_dtype = interp_ufuncs.find_dtype_for_scalar(space, w_object)
         dtype = space.interp_w(interp_dtype.W_Dtype,
           space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype))
         return W_NDimArray.new_scalar(space, dtype, w_object)
-    if w_order is None or space.is_w(w_order, space.w_None):
+    if is_none(space, w_order):
         order = 'C'
     else:
         order = space.str_w(w_order)

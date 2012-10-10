@@ -4,9 +4,10 @@ from pypy.module.micronumpy import loop, interp_ufuncs
 from pypy.module.micronumpy.iter import Chunk, Chunks
 from pypy.module.micronumpy.strides import shape_agreement
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.gateway import unwrap_spec, is_none
+from pypy.interpreter.gateway import unwrap_spec, is_none, W_Root
 
-def where(space, w_arr, w_x=None, w_y=None):
+@unwrap_spec(w_x = (W_Root, 'space.w_None'), w_y = (W_Root, 'space.w_None'))
+def where(space, w_arr, w_x, w_y):
     """where(condition, [x, y])
 
     Return elements, either from `x` or `y`, depending on `condition`.
