@@ -50,8 +50,8 @@ def checkattrname(space, w_name):
     # Note that if w_name is already a string (or a subclass of str),
     # it must be returned unmodified (and not e.g. unwrapped-rewrapped).
     if not space.is_w(space.type(w_name), space.w_text):
-        name = space.str_w(w_name)    # typecheck
-        w_name = space.wrap(name)     # rewrap as a real string
+        name = space.unicode_w(w_name)  # typecheck
+        w_name = space.wrap(name)  # rewrap as a real string
     return w_name
 
 def delattr(space, w_object, w_name):
