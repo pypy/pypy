@@ -866,6 +866,7 @@ class interp2app(Wrappable):
                 argname = code._argnames[i]
                 if isinstance(spec, tuple) and spec[0] is W_Root:
                     w_default = eval(spec[1], {'space': space})
+                    assert isinstance(w_default, W_Root)
                     assert argname.startswith('w_')
                     argname = argname[2:]
                     j = self._code.sig[0].index(argname)
