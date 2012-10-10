@@ -288,15 +288,7 @@ def unicode_from_object(space, w_obj):
         return w_obj
 
     w_unicode_method = space.lookup(w_obj, "__str__")
-    if w_unicode_method is None:
-        return space.repr(w_obj)
-
-    w_res = space.get_and_call_function(w_unicode_method, w_obj)
-    if not space.isinstance_w(w_res, space.w_unicode):
-        typename = space.type(w_res).getname(space)
-        msg = "__str__ returned non-string (type %s)" % typename
-        raise OperationError(space.w_TypeError, space.wrap(msg))
-    return w_res
+    return space.repr(w_obj) if w_unicode_method is None else space.str(w_obj)
 
 def descr_new_(space, w_unicodetype, w_object=u'', w_encoding=None, w_errors=None):
     # NB. the default value of w_obj is really a *wrapped* empty string:
