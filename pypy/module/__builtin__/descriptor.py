@@ -1,7 +1,7 @@
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.function import StaticMethod, ClassMethod
-from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.gateway import interp2app, unwrap_spec, W_Root
 from pypy.interpreter.typedef import (TypeDef, interp_attrproperty_w,
     generic_new_descr)
 from pypy.objspace.descroperation import object_getattribute
@@ -48,7 +48,7 @@ class W_Super(Wrappable):
                                    w(self), w(name))
 
 def descr_new_super(space, w_subtype, w_starttype, w_obj_or_type=None):
-    if space.is_w(w_obj_or_type, space.w_None):
+    if space.is_none(w_obj_or_type):
         w_type = None  # unbound super object
     else:
         w_objtype = space.type(w_obj_or_type)
@@ -96,6 +96,10 @@ class W_Property(Wrappable):
     def __init__(self, space):
         pass
 
+    @unwrap_spec(w_fget = (W_Root, 'space.w_None'),
+                 w_fset = (W_Root, 'space.w_None'),
+                 w_fdel = (W_Root, 'space.w_None'),
+                 w_doc = (W_Root, 'space.w_None'))
     def init(self, space, w_fget=None, w_fset=None, w_fdel=None, w_doc=None):
         self.w_fget = w_fget
         self.w_fset = w_fset

@@ -4,7 +4,7 @@ Interp-level implementation of the basic space operations.
 
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import unwrap_spec
+from pypy.interpreter.gateway import unwrap_spec, W_Root
 from pypy.rlib.runicode import UNICHR
 from pypy.rlib.rfloat import isnan, isinf, round_double
 from pypy.rlib import rfloat
@@ -59,7 +59,7 @@ delattr(x, 'y') is equivalent to ``del x.y''."""
     space.delattr(w_object, w_name)
     return space.w_None
 
-def getattr(space, w_object, w_name, w_defvalue=NoneNotWrapped):
+def getattr(space, w_object, w_name, w_defvalue=None):
     """Get a named attribute from an object.
 getattr(x, 'y') is equivalent to ``x.y''."""
     w_name = checkattrname(space, w_name)
@@ -176,7 +176,7 @@ iter_sentinel = gateway.applevel('''
 
 ''', filename=__file__).interphook("iter_sentinel")
 
-def iter(space, w_collection_or_callable, w_sentinel=NoneNotWrapped):
+def iter(space, w_collection_or_callable, w_sentinel=None):
     """iter(collection) -> iterator over the elements of the collection.
 
 iter(callable, sentinel) -> iterator calling callable() until it returns
@@ -187,7 +187,7 @@ iter(callable, sentinel) -> iterator calling callable() until it returns
     else:
         return iter_sentinel(space, w_collection_or_callable, w_sentinel)
 
-def next(space, w_iterator, w_default=NoneNotWrapped):
+def next(space, w_iterator, w_default=None):
     """next(iterator[, default])
 Return the next item from the iterator. If default is given and the iterator
 is exhausted, it is returned instead of raising StopIteration."""
@@ -202,7 +202,8 @@ def ord(space, w_val):
     """Return the integer ordinal of a character."""
     return space.ord(w_val)
 
-def pow(space, w_base, w_exponent, w_modulus=None):
+@unwrap_spec(w_modulus = (W_Root, 'space.w_None'))
+def pow(space, w_base, w_exponent, w_modulus):
     """With two arguments, equivalent to ``base**exponent''.
 With three arguments, equivalent to ``(base**exponent) % modulus'',
 but much more efficient for large exponents."""
