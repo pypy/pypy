@@ -41,7 +41,7 @@ class TestUsingFramework(object):
                 print res
             return 0
 
-        t = Translation(main, standalone=True, gc=cls.gcpolicy,
+        t = Translation(main, gc=cls.gcpolicy,
                         taggedpointers=cls.taggedpointers,
                         gcremovetypeptr=cls.removetypeptr)
         t.disable(['backendopt'])
