@@ -93,16 +93,24 @@ def compile(fn, argtypes, view=False, gcpolicy="none", backendopt=True,
         pass
 
     def f(*args, **kwds):
-        if 'expected_extra_mallocs' in kwds:
-            expected_extra_mallocs = kwds.pop('expected_extra_mallocs')
-        else:
-            expected_extra_mallocs = 0
+        expected_extra_mallocs = kwds.pop('expected_extra_mallocs', 0)
+        expected_exception_name = kwds.pop('expected_exception_name', None)
         assert not kwds
         assert len(args) == len(argtypes)
         for arg, argtype in zip(args, argtypes):
             assert isinstance(arg, argtype)
-        stdout = t.driver.cbuilder.cmdexec(" ".join([llrepr_in(arg) for arg in args]))
+
+        stdout = t.driver.cbuilder.cmdexec(
+            " ".join([llrepr_in(arg) for arg in args]),
+            expect_crash=(expected_exception_name is not None))
         print stdout
+        if expected_exception_name is not None:
+            stdout, stderr = stdout
+            stderr, lastline, empty = stderr.rsplit('\n', 2)
+            assert empty == ''
+            assert lastline == ('Fatal RPython error: ' +
+                                expected_exception_name)
+            return None
         stdout, lastline, empty = stdout.rsplit('\n', 2)
         assert empty == ''
         assert lastline.startswith('MALLOC COUNTERS: ')
