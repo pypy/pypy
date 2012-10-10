@@ -884,8 +884,10 @@ class W_GroupBy(Wrappable):
     def __init__(self, space, w_iterable, w_fun):
         self.space = space
         self.w_iterable = self.space.iter(w_iterable)
-        self.identity_fun = self.space.is_w(w_fun, self.space.w_None)
-        self.w_fun = w_fun
+        if space.is_none(w_fun):
+            self.w_fun = None
+        else:
+            self.w_fun = w_fun
         self.index = 0
         self.lookahead = False
         self.exhausted = False
@@ -915,7 +917,7 @@ class W_GroupBy(Wrappable):
                 raise
             else:
                 self.w_lookahead = w_obj
-                if self.identity_fun:
+                if self.w_fun is None:
                     self.w_key = w_obj
                 else:
                     self.w_key = self.space.call_function(self.w_fun, w_obj)
@@ -952,7 +954,7 @@ class W_GroupBy(Wrappable):
                 else:
                     raise
             else:
-                if self.identity_fun:
+                if self.w_fun is None:
                     w_new_key = w_obj
                 else:
                     w_new_key = self.space.call_function(self.w_fun, w_obj)
@@ -966,8 +968,7 @@ class W_GroupBy(Wrappable):
                     self.new_group = True #new group
                     raise StopIteration
 
-@unwrap_spec(w_key = (W_Root, 'space.w_None'))
-def W_GroupBy___new__(space, w_subtype, w_iterable, w_key):
+def W_GroupBy___new__(space, w_subtype, w_iterable, w_key=None):
     r = space.allocate_instance(W_GroupBy, w_subtype)
     r.__init__(space, w_iterable, w_key)
     return space.wrap(r)
@@ -1337,10 +1338,9 @@ class W_Permutations(Wrappable):
         self.stopped = True
         return w_result
 
-@unwrap_spec(w_r = (W_Root, 'space.w_None'))
-def W_Permutations__new__(space, w_subtype, w_iterable, w_r):
+def W_Permutations__new__(space, w_subtype, w_iterable, w_r=None):
     pool_w = space.fixedview(w_iterable)
-    if space.is_w(w_r, space.w_None):
+    if space.is_none(w_r):
         r = len(pool_w)
     else:
         r = space.gateway_nonnegint_w(w_r)

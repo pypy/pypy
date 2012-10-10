@@ -1,6 +1,6 @@
 from pypy.interpreter.typedef import (
     TypeDef, generic_new_descr, GetSetProperty)
-from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.gateway import interp2app, unwrap_spec, W_Root
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.module._io.interp_textio import W_TextIOBase, W_IncrementalNewlineDecoder
 from pypy.module._io.interp_iobase import convert_size
@@ -12,7 +12,8 @@ class W_StringIO(W_TextIOBase):
         self.buf = []
         self.pos = 0
 
-    def descr_init(self, space, w_initvalue=None, w_newline="\n"):
+    @unwrap_spec(w_newline = (W_Root, 'space.wrap("\\n")'))
+    def descr_init(self, space, w_initvalue=None, w_newline=None):
         # In case __init__ is called multiple times
         self.buf = []
         self.pos = 0
@@ -47,7 +48,7 @@ class W_StringIO(W_TextIOBase):
                 space.wrap(int(self.readtranslate))
             )
 
-        if not space.is_w(w_initvalue, space.w_None):
+        if not space.is_none(w_initvalue):
             self.write_w(space, w_initvalue)
             self.pos = 0
 
@@ -225,7 +226,7 @@ class W_StringIO(W_TextIOBase):
 
     def truncate_w(self, space, w_size=None):
         self._check_closed(space)
-        if space.is_w(w_size, space.w_None):
+        if space.is_none(w_size):
             size = self.pos
         else:
             size = space.int_w(w_size)

@@ -719,7 +719,15 @@ class ObjSpace(object):
         # done by a method call on w_two (and not on w_one, because of the
         # expected programming style where we say "if x is None" or
         # "if x is object").
+        assert w_two is not None
+        assert w_one is not None
         return w_two.is_w(self, w_one)
+
+    def is_none(self, w_obj):
+        """ mostly for checking inputargs that have unwrap_spec and
+        can accept both w_None and None
+        """
+        return w_obj is None or self.is_w(w_obj, self.w_None)
 
     def id(self, w_obj):
         w_result = w_obj.immutable_unique_id(self)

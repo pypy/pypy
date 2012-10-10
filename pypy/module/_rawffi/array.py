@@ -3,7 +3,7 @@
 to app-level with apropriate interface
 """
 
-from pypy.interpreter.gateway import interp2app, unwrap_spec, is_none
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.interpreter.error import OperationError
@@ -13,7 +13,7 @@ from pypy.module._rawffi.interp_rawffi import unwrap_value, wrap_value
 from pypy.module._rawffi.interp_rawffi import TYPEMAP
 from pypy.module._rawffi.interp_rawffi import size_alignment
 from pypy.module._rawffi.interp_rawffi import unpack_shape_with_length
-from pypy.rlib.rarithmetic import intmask, r_uint
+from pypy.rlib.rarithmetic import r_uint
 
 def push_elem(ll_array, pos, value):
     TP = lltype.typeOf(value)
@@ -48,7 +48,7 @@ class W_Array(W_DataShape):
     @unwrap_spec(length=int, autofree=bool)
     def descr_call(self, space, length, w_items=None, autofree=False):
         result = self.allocate(space, length, autofree)
-        if is_none(space, w_items):
+        if not space.is_none(w_items):
             items_w = space.unpackiterable(w_items)
             iterlength = len(items_w)
             if iterlength > length:

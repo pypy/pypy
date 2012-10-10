@@ -267,7 +267,7 @@ def lookup_error(space, errors):
 
 
 @unwrap_spec(errors=str)
-def encode(space, w_obj, w_encoding=NoneNotWrapped, errors='strict'):
+def encode(space, w_obj, w_encoding=None, errors='strict'):
     """encode(obj, [encoding[,errors]]) -> object
 
     Encodes obj using the codec registered for encoding. encoding defaults
@@ -290,7 +290,7 @@ def buffer_encode(space, s, errors='strict'):
     return space.newtuple([space.wrap(s), space.wrap(len(s))])
 
 @unwrap_spec(errors=str)
-def decode(space, w_obj, w_encoding=NoneNotWrapped, errors='strict'):
+def decode(space, w_obj, w_encoding=None, errors='strict'):
     """decode(obj, [encoding[,errors]]) -> object
 
     Decodes obj using the codec registered for encoding. encoding defaults
@@ -598,15 +598,14 @@ class Charmap_Encode:
         raise OperationError(space.w_TypeError, space.wrap("invalid mapping"))
 
 
-@unwrap_spec(string=str, errors='str_or_None',
-             w_mapping = (W_Root, 'space.w_None'))
+@unwrap_spec(string=str, errors='str_or_None')
 def charmap_decode(space, string, errors="strict", w_mapping=None):
     if errors is None:
         errors = 'strict'
     if len(string) == 0:
         return space.newtuple([space.wrap(u''), space.wrap(0)])
 
-    if space.is_w(w_mapping, space.w_None):
+    if space.is_none(w_mapping):
         mapping = None
     else:
         mapping = Charmap_Decode(space, w_mapping)
@@ -618,12 +617,11 @@ def charmap_decode(space, string, errors="strict", w_mapping=None):
         final, state.decode_error_handler, mapping)
     return space.newtuple([space.wrap(result), space.wrap(consumed)])
 
-@unwrap_spec(uni=unicode, errors='str_or_None',
-             w_mapping = (W_Root, 'space.w_None'))
+@unwrap_spec(uni=unicode, errors='str_or_None')
 def charmap_encode(space, uni, errors="strict", w_mapping=None):
     if errors is None:
         errors = 'strict'
-    if space.is_w(w_mapping, space.w_None):
+    if space.is_none(w_mapping):
         mapping = None
     else:
         mapping = Charmap_Encode(space, w_mapping)

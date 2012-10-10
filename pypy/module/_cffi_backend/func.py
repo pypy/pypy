@@ -1,15 +1,12 @@
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.baseobjspace import Wrappable
-from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.rpython.lltypesystem import lltype, rffi
-
+from pypy.interpreter.gateway import unwrap_spec, W_Root
 from pypy.module._cffi_backend import ctypeobj, cdataobj
 
 
 # ____________________________________________________________
 
-@unwrap_spec(ctype=ctypeobj.W_CType)
-def newp(space, ctype, w_init=None):
+@unwrap_spec(ctype=ctypeobj.W_CType, w_init=(W_Root, 'space.w_None'))
+def newp(space, ctype, w_init):
     return ctype.newp(w_init)
 
 # ____________________________________________________________

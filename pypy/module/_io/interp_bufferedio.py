@@ -1,7 +1,7 @@
 from __future__ import with_statement
 from pypy.interpreter.typedef import (
     TypeDef, GetSetProperty, generic_new_descr, interp_attrproperty_w)
-from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.gateway import interp2app, unwrap_spec, W_Root
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.buffer import RWBuffer
 from pypy.rlib.rstring import StringBuilder
@@ -387,7 +387,8 @@ class BufferedMixin:
         self._check_init(space)
         return space.call_method(self.w_raw, "fileno")
 
-    def truncate_w(self, space, w_size=None):
+    @unwrap_spec(w_size = (W_Root, 'space.w_None'))
+    def truncate_w(self, space, w_size):
         self._check_init(space)
         with self.lock:
             if self.writable:

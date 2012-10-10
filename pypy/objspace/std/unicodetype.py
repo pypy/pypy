@@ -216,11 +216,11 @@ def getdefaultencoding(space):
     return space.sys.defaultencoding
 
 def _get_encoding_and_errors(space, w_encoding, w_errors):
-    if space.is_w(w_encoding, space.w_None):
+    if space.is_none(w_encoding):
         encoding = None
     else:
         encoding = space.str_w(w_encoding)
-    if space.is_w(w_errors, space.w_None):
+    if space.is_none(w_errors):
         errors = None
     else:
         errors = space.str_w(w_errors)
@@ -335,10 +335,8 @@ def unicode_decode__unitypedef_ANY_ANY(space, w_unicode, w_encoding=None,
                              w_encoding, w_errors)
 
 
-@unwrap_spec(w_string   = (W_Root, 'space.wrap("")'),
-             w_encoding = (W_Root, 'space.w_None'),
-             w_errors   = (W_Root, 'space.w_None'))
-def descr_new_(space, w_unicodetype, w_string, w_encoding, w_errors):
+@unwrap_spec(w_string   = (W_Root, 'space.wrap("")'))
+def descr_new_(space, w_unicodetype, w_string, w_encoding=None, w_errors=None):
     # NB. the default value of w_obj is really a *wrapped* empty string:
     #     there is gateway magic at work
     from pypy.objspace.std.unicodeobject import W_UnicodeObject

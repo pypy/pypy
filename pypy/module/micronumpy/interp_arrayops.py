@@ -4,10 +4,9 @@ from pypy.module.micronumpy import loop, interp_ufuncs
 from pypy.module.micronumpy.iter import Chunk, Chunks
 from pypy.module.micronumpy.strides import shape_agreement
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.gateway import unwrap_spec, is_none, W_Root
+from pypy.interpreter.gateway import unwrap_spec
 
-@unwrap_spec(w_x = (W_Root, 'space.w_None'), w_y = (W_Root, 'space.w_None'))
-def where(space, w_arr, w_x, w_y):
+def where(space, w_arr, w_x=None, w_y=None):
     """where(condition, [x, y])
 
     Return elements, either from `x` or `y`, depending on `condition`.
@@ -67,10 +66,13 @@ def where(space, w_arr, w_x, w_y):
     
     NOTE: support for not passing x and y is unsupported
     """
-    if space.is_w(w_y, space.w_None):
-        if space.is_w(w_x, space.w_None):
+    if space.is_none(w_y):
+        if space.is_none(w_x):
             raise OperationError(space.w_NotImplementedError, space.wrap(
                 "1-arg where unsupported right now"))
+        raise OperationError(space.w_ValueError, space.wrap(
+            "Where should be called with either 1 or 3 arguments"))
+    if space.is_none(w_x):
         raise OperationError(space.w_ValueError, space.wrap(
             "Where should be called with either 1 or 3 arguments"))
     arr = convert_to_array(space, w_arr)
@@ -128,7 +130,7 @@ def concatenate(space, w_args, axis=0):
 @unwrap_spec(repeats=int)
 def repeat(space, w_arr, repeats, w_axis=None):
     arr = convert_to_array(space, w_arr)
-    if is_none(space, w_axis):
+    if space.is_none(w_axis):
         arr = arr.descr_flatten(space)
         orig_size = arr.get_shape()[0]
         shape = [arr.get_shape()[0] * repeats]

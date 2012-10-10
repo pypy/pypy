@@ -1,7 +1,6 @@
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.gateway import interp2app, unwrap_spec,\
-     is_none
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
 from pypy.module.micronumpy import interp_boxes, interp_dtype, loop
 from pypy.rlib import jit
@@ -131,7 +130,7 @@ class W_Ufunc(Wrappable):
         from pypy.module.micronumpy.interp_numarray import W_NDimArray
         if w_axis is None:
             w_axis = space.wrap(0)
-        if is_none(space, w_out):
+        if space.is_none(w_out):
             out = None
         elif not isinstance(w_out, W_NDimArray):
             raise OperationError(space.w_TypeError, space.wrap(
@@ -299,7 +298,7 @@ class W_Ufunc2(W_Ufunc):
             promote_bools=self.promote_bools,
             allow_complex=self.allow_complex,
             )
-        if is_none(space, w_out):
+        if space.is_none(w_out):
             out = None
         elif not isinstance(w_out, W_NDimArray):
             raise OperationError(space.w_TypeError, space.wrap(

@@ -1,8 +1,7 @@
 
 from pypy.interpreter.error import operationerrfmt, OperationError
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.interpreter.gateway import interp2app, unwrap_spec, is_none,\
-     W_Root
+from pypy.interpreter.gateway import interp2app, unwrap_spec, W_Root
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array,\
      ArrayArgumentException
 from pypy.module.micronumpy import interp_dtype, interp_ufuncs, interp_boxes
@@ -19,7 +18,7 @@ from pypy.rlib import jit
 from pypy.rlib.rstring import StringBuilder
 
 def _find_shape(space, w_size):
-    if is_none(space, w_size):
+    if space.is_none(w_size):
         return []
     if space.isinstance_w(w_size, space.w_int):
         return [space.int_w(w_size)]
@@ -296,7 +295,7 @@ class __extend__(W_NDimArray):
         return space.newlist(l_w)
 
     def descr_ravel(self, space, w_order=None):
-        if is_none(space, w_order):
+        if space.is_none(w_order):
             order = 'C'
         else:
             order = space.str_w(w_order)
@@ -309,16 +308,16 @@ class __extend__(W_NDimArray):
         # if w_axis is None and w_out is Nont this is an equivalent to
         # fancy indexing
         raise Exception("unsupported for now")
-        if not is_none(space, w_axis):
+        if not space.is_none(w_axis):
             raise OperationError(space.w_NotImplementedError,
                                  space.wrap("axis unsupported for take"))
-        if not is_none(space, w_out):
+        if not space.is_none(w_out):
             raise OperationError(space.w_NotImplementedError,
                                  space.wrap("out unsupported for take"))
         return self.getitem_int(space, convert_to_array(space, w_obj))
 
     def descr_compress(self, space, w_obj, w_axis=None):
-        if not is_none(space, w_axis):
+        if not space.is_none(w_axis):
             raise OperationError(space.w_NotImplementedError,
                                  space.wrap("axis unsupported for compress"))
         index = convert_to_array(space, w_obj)
@@ -347,7 +346,7 @@ class __extend__(W_NDimArray):
         return coords
 
     def descr_item(self, space, w_arg=None):
-        if is_none(space, w_arg):
+        if space.is_none(w_arg):
             if self.is_scalar():
                 return self.get_scalar_value().item(space)
             if self.get_size() == 1:
@@ -493,7 +492,7 @@ class __extend__(W_NDimArray):
 
     def _reduce_ufunc_impl(ufunc_name, promote_to_largest=False):
         def impl(self, space, w_axis=None, w_out=None, w_dtype=None):
-            if is_none(space, w_out):
+            if space.is_none(w_out):
                 out = None
             elif not isinstance(w_out, W_NDimArray):
                 raise OperationError(space.w_TypeError, space.wrap( 
@@ -514,7 +513,7 @@ class __extend__(W_NDimArray):
     descr_any = _reduce_ufunc_impl('logical_or')
 
     def descr_mean(self, space, w_axis=None, w_out=None):
-        if is_none(space, w_axis):
+        if space.is_none(w_axis):
             w_denom = space.wrap(self.get_size())
         else:
             axis = unwrap_axis_arg(space, len(self.get_shape()), w_axis)
@@ -536,9 +535,8 @@ class __extend__(W_NDimArray):
 @unwrap_spec(offset=int)
 def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
                     offset=0, w_strides=None, w_order=None):
-    if (offset != 0 or is_none(space, w_strides) or
-        not is_none(space, w_order) or
-        not is_none(space, w_buffer)):
+    if (offset != 0 or space.is_none(w_strides) or not space.is_none(w_order) or
+        not space.is_none(w_buffer)):
         raise OperationError(space.w_NotImplementedError,
                              space.wrap("unsupported param"))
     dtype = space.interp_w(interp_dtype.W_Dtype,
@@ -649,12 +647,12 @@ W_NDimArray.typedef = TypeDef(
 def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
           ndmin=0):
     if not space.issequence_w(w_object):
-        if is_none(space, w_dtype):
+        if space.is_none(w_dtype):
             w_dtype = interp_ufuncs.find_dtype_for_scalar(space, w_object)
         dtype = space.interp_w(interp_dtype.W_Dtype,
           space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype))
         return W_NDimArray.new_scalar(space, dtype, w_object)
-    if is_none(space, w_order):
+    if space.is_none(w_order):
         order = 'C'
     else:
         order = space.str_w(w_order)

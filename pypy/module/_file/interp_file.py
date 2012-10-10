@@ -239,7 +239,7 @@ class W_File(W_AbstractStream):
     def direct_truncate(self, w_size=None):  # note: a wrapped size!
         stream = self.getstream()
         space = self.space
-        if w_size is None or space.is_w(w_size, space.w_None):
+        if space.is_none(w_size):
             size = stream.tell()
         else:
             size = space.r_longlong_w(w_size)

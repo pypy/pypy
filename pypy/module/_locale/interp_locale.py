@@ -48,7 +48,7 @@ def _fixup_ulcase(space):
 def setlocale(space, category, w_locale=None):
     "(integer,string=None) -> string. Activates/queries locale processing."
 
-    if w_locale is None or space.is_w(w_locale, space.w_None):
+    if space.is_none(w_locale):
         locale = None
     else:
         locale = space.str_w(w_locale)

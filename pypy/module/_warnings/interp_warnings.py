@@ -311,7 +311,7 @@ def warn(space, w_message, w_category=None, stacklevel=1):
 
 
 def get_source_line(space, w_globals, lineno):
-    if space.is_w(w_globals, space.w_None):
+    if space.is_none(w_globals):
         return None
 
     # Check/get the requisite pieces needed for the loader.

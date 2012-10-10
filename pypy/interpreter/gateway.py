@@ -96,9 +96,6 @@ class UnwrapSpecEmit(UnwrapSpecRecipe):
         return name
 
 
-def is_none(space, w_obj):
-    return w_obj is None or space.is_w(w_obj, space.w_None)
-
 #________________________________________________________________
 
 
