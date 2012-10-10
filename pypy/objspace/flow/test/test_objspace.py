@@ -1054,6 +1054,7 @@ class TestFlowObjSpace(Base):
         with py.test.raises(FlowingError):
             self.codetest(f)
 
+    @py.test.mark.xfail(reason="closures aren't supported")
     def test_cellvar_store(self):
         def f():
             x = 5
@@ -1063,6 +1064,7 @@ class TestFlowObjSpace(Base):
         assert len(graph.startblock.exits) == 1
         assert graph.startblock.exits[0].target == graph.returnblock
 
+    @py.test.mark.xfail(reason="closures aren't supported")
     def test_arg_as_cellvar(self):
         def f(x, y, z):
             a, b, c = 1, 2, 3
@@ -1100,6 +1102,25 @@ class TestFlowObjSpace(Base):
             return g
         with py.test.raises(FlowingError):
             self.codetest(f2)
+
+    @py.test.mark.xfail(reason="closures aren't supported")
+    def test_closure(self):
+        def f():
+            m = 5
+            return lambda n: m * n
+        graph = self.codetest(f)
+        assert len(graph.startblock.exits) == 1
+        assert graph.startblock.exits[0].target == graph.returnblock
+        g = graph.startblock.exits[0].args[0].value
+        assert g(4) == 20
+
+    def test_closure_error(self):
+        def f():
+            m = 5
+            return lambda n: m * n
+        with py.test.raises(ValueError) as excinfo:
+            self.codetest(f)
+        assert "closure" in str(excinfo.value)
 
 DATA = {'x': 5,
         'y': 6}

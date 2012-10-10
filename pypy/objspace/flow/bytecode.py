@@ -38,23 +38,8 @@ class HostCode(object):
         self.co_firstlineno = firstlineno
         self.co_lnotab = lnotab
         self.signature = cpython_code_signature(self)
-        self._initialize()
-
-    def _initialize(self):
-        # Precompute what arguments need to be copied into cellvars
-        self._args_as_cellvars = {}
-
         if self.co_cellvars:
-            # Cell vars could shadow already-set arguments.
-            # See comment in PyCode._initialize()
-            argvars  = self.co_varnames
-            cellvars = self.co_cellvars
-            for i in range(len(cellvars)):
-                cellname = cellvars[i]
-                for j in range(self.formalargcount):
-                    if cellname == argvars[j]:
-                        # argument j has the same name as the cell var i
-                        self._args_as_cellvars[i] = j
+            raise ValueError("RPython functions cannot create closures")
 
     @classmethod
     def _from_code(cls, code):
