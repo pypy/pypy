@@ -8,25 +8,15 @@ from pypy.translator.c.test.test_genc import compile
 from pypy.translator.c.test.test_standalone import StandaloneTests
 posix = __import__(os.name)
 
-# note: clock synchronizes itself!
 def test_time_clock():
     def does_stuff():
-        return time.clock()
+        t1 = t2 = time.clock()
+        while abs(t2 - t1) < 0.01:
+            t2 = time.clock()
+        return t2 - t1
     f1 = compile(does_stuff, [])
-    t0 = time.clock()
-    t1 = f1()
-    t2 = time.clock()
-    t3 = f1()
-    t4 = time.clock()
-    t5 = f1()
-    t6 = time.clock()
-    # time.clock() and t1() might have a different notion of zero, so
-    # we can only subtract two numbers returned by the same function.
-    assert 0 <= t2-t0
-    assert 0 <= t3-t1 <= t4-t0
-    assert 0 <= t4-t2 <= t5-t1 <= t6-t0
-    assert 0 <= t5-t3 <= t6-t2
-    assert 0 <= t6-t4
+    t = f1()
+    assert 0 < t < 1.5
 
 def test_time_sleep():
     def does_nothing():
