@@ -1,7 +1,7 @@
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr,\
      interp_attrproperty
-from pypy.interpreter.gateway import NoneNotWrapped, interp2app, unwrap_spec
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib import rsocket
 from pypy.rlib.rsocket import RSocket, AF_INET, SOCK_STREAM
@@ -121,7 +121,7 @@ class W_RSocket(Wrappable, RSocket):
             raise converted_error(space, e)
 
     @unwrap_spec(level=int, optname=int)
-    def getsockopt_w(self, space, level, optname, w_buflen=NoneNotWrapped):
+    def getsockopt_w(self, space, level, optname, w_buflen=None):
         """getsockopt(level, option[, buffersize]) -> value
 
         Get a socket option.  See the Unix manual for level and option.
@@ -228,7 +228,7 @@ class W_RSocket(Wrappable, RSocket):
             raise converted_error(space, e)
 
     @unwrap_spec(data='bufferstr')
-    def sendto_w(self, space, data, w_param2, w_param3=NoneNotWrapped):
+    def sendto_w(self, space, data, w_param2, w_param3=None):
         """sendto(data[, flags], address) -> count
 
         Like send(data, flags) but allows specifying the destination address.

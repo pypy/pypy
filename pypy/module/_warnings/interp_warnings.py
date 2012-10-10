@@ -1,4 +1,4 @@
-from pypy.interpreter.gateway import unwrap_spec
+from pypy.interpreter.gateway import unwrap_spec, W_Root
 from pypy.interpreter.error import OperationError
 
 def create_filter(space, w_category, action):
@@ -343,7 +343,9 @@ def get_source_line(space, w_globals, lineno):
     w_source_line = space.getitem(w_source_list, space.wrap(lineno - 1))
     return w_source_line
 
-@unwrap_spec(lineno=int)
+@unwrap_spec(lineno=int, w_module = (W_Root, 'space.w_None'),
+             w_registry = (W_Root, 'space.w_None'),
+             w_module_globals = (W_Root, 'space.w_None'))
 def warn_explicit(space, w_message, w_category, w_filename, lineno,
                   w_module=None, w_registry=None, w_module_globals=None):
 

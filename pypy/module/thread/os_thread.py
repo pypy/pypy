@@ -5,7 +5,7 @@ Thread support based on OS-level threads.
 from pypy.module.thread import ll_thread as thread
 from pypy.module.thread.error import wrap_thread_error
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.gateway import unwrap_spec, NoneNotWrapped, Arguments
+from pypy.interpreter.gateway import unwrap_spec, Arguments
 
 # Here are the steps performed to start a new thread:
 #
@@ -152,7 +152,7 @@ def reinit_threads(space):
         space.call_method(w_threading, "_after_fork")
 
 
-def start_new_thread(space, w_callable, w_args, w_kwargs=NoneNotWrapped):
+def start_new_thread(space, w_callable, w_args, w_kwargs=None):
     """Start a new thread and return its identifier.  The thread will call the
 function with positional arguments from the tuple args and keyword arguments
 taken from the optional dictionary kwargs.  The thread exits when the
