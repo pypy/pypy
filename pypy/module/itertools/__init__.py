@@ -14,7 +14,6 @@ class Module(MixedModule):
     ifilterfalse(pred, seq) --> elements of seq where pred(elem) is False
     islice(seq, [start,] stop [, step]) --> elements from
            seq[start:stop:step]
-    imap(fun, p, q, ...) --> fun(p0, q0), fun(p1, q1), ...
     starmap(fun, seq) --> fun(*seq[0]), fun(*seq[1]), ...
     tee(it, n=2) --> (it1, it2 , ... itn) splits one iterator into n
     chain(p, q, ...) --> p0, p1, ... plast, q0, q1, ... 
@@ -32,9 +31,7 @@ class Module(MixedModule):
         'cycle'         : 'interp_itertools.W_Cycle',
         'dropwhile'     : 'interp_itertools.W_DropWhile',
         'groupby'       : 'interp_itertools.W_GroupBy',
-        'ifilter'       : 'interp_itertools.W_IFilter',
-        'ifilterfalse'  : 'interp_itertools.W_IFilterFalse',
-        'imap'          : 'interp_itertools.W_IMap',
+        'filterfalse'   : 'interp_itertools.W_FilterFalse',
         'islice'        : 'interp_itertools.W_ISlice',
         'permutations'  : 'interp_itertools.W_Permutations',
         'product'       : 'interp_itertools.W_Product',

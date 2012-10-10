@@ -19,9 +19,6 @@ class Module(MixedModule):
         'any'           : 'app_functional.any',
         'all'           : 'app_functional.all',
         'sum'           : 'app_functional.sum',
-        'map'           : 'app_functional.map',
-        'filter'        : 'app_functional.filter',
-        'zip'           : 'app_functional.zip',
         'vars'          : 'app_inspect.vars',
         'dir'           : 'app_inspect.dir',
 
@@ -75,6 +72,9 @@ class Module(MixedModule):
 
         'range'         : 'functional.W_Range',
         'enumerate'     : 'functional.W_Enumerate',
+        'map'           : 'functional.W_Map',
+        'filter'        : 'functional.W_Filter',
+        'zip'           : 'functional.W_Zip',
         'min'           : 'functional.min',
         'max'           : 'functional.max',
         'reversed'      : 'functional.reversed',

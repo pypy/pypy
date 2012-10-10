@@ -69,6 +69,45 @@ class AppTestMap:
    def test_repr(self):
       assert repr(map(1, [2])).startswith('<map object ')
 
+class AppTestMap2:
+
+    def test_map(self):
+        obj_list = [object(), object(), object()]
+        it = map(lambda *x:x, obj_list)
+        for x in obj_list:
+            assert next(it) == (x, )
+        raises(StopIteration, next, it)
+
+        it = map(lambda *x:x, [1, 2, 3], [4], [5, 6])
+        assert next(it) == (1, 4, 5)
+        raises(StopIteration, next, it)
+
+        it = map(lambda *x:x, [], [], [1], [])
+        raises(StopIteration, next, it)
+
+        it = map(str, [0, 1, 0, 1])
+        for x in ['0', '1', '0', '1']:
+            assert next(it) == x
+        raises(StopIteration, next, it)
+
+        import operator
+        it = map(operator.add, [1, 2, 3], [4, 5, 6])
+        for x in [5, 7, 9]:
+            assert next(it) == x
+        raises(StopIteration, next, it)
+
+    def test_map_wrongargs(self):
+        # Duplicate python 2.4 behaviour for invalid arguments
+        it = map(0, [])
+        raises(StopIteration, next, it)
+        it = map(0, [0])
+        raises(TypeError, next, it)
+        raises(TypeError, map, None, 0)
+
+        raises(TypeError, map, None)
+        raises(TypeError, map, bool)
+        raises(TypeError, map, 42)
+
 class AppTestZip:
    def test_one_list(self):
       assert list(zip([1,2,3])) == [(1,), (2,), (3,)]
@@ -92,6 +131,33 @@ class AppTestFilter:
    def test_function(self):
        assert list(filter(lambda x: x != "a", "a small text")) == list(" smll text")
        assert list(filter(lambda x: x < 20, [3, 33, 5, 55])) == [3, 5]
+
+class AppTestFilter2:
+    def test_filter(self):
+        it = filter(None, [])
+        raises(StopIteration, next, it)
+
+        it = filter(None, [1, 0, 2, 3, 0])
+        for x in [1, 2, 3]:
+            assert next(it) == x
+        raises(StopIteration, next, it)
+
+        def is_odd(arg):
+            return (arg % 2 == 1)
+
+        it = filter(is_odd, [1, 2, 3, 4, 5, 6])
+        for x in [1, 3, 5]:
+            assert next(it) == x
+        raises(StopIteration, next, it)
+
+    def test_filter_wrongargs(self):
+        import itertools
+
+        it = filter(0, [1])
+        raises(TypeError, next, it)
+
+        raises(TypeError, filter, bool, None)
+
 
 class AppTestRange:
    def test_range(self):

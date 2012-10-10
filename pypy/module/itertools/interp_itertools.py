@@ -3,6 +3,8 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 
+from pypy.module.__builtin__.functional import W_Filter, W_Map
+
 class W_Count(Wrappable):
 
     def __init__(self, space, w_firstval, w_step):
@@ -240,81 +242,27 @@ W_DropWhile.typedef = TypeDef(
             yield x
     """)
 
-class _IFilterBase(Wrappable):
-
-    def __init__(self, space, w_predicate, w_iterable):
-        self.space = space
-        if space.is_w(w_predicate, space.w_None):
-            self.no_predicate = True
-        else:
-            self.no_predicate = False
-            self.w_predicate = w_predicate
-        self.iterable = space.iter(w_iterable)
-
-    def iter_w(self):
-        return self.space.wrap(self)
-
-    def next_w(self):
-        while True:
-            w_obj = self.space.next(self.iterable)  # may raise w_StopIteration
-            if self.no_predicate:
-                pred = self.space.is_true(w_obj)
-            else:
-                w_pred = self.space.call_function(self.w_predicate, w_obj)
-                pred = self.space.is_true(w_pred)
-            if pred ^ self.reverse:
-                return w_obj
-
-
-class W_IFilter(_IFilterBase):
-    reverse = False
-
-def W_IFilter___new__(space, w_subtype, w_predicate, w_iterable):
-    r = space.allocate_instance(W_IFilter, w_subtype)
-    r.__init__(space, w_predicate, w_iterable)
-    return space.wrap(r)
-
-W_IFilter.typedef = TypeDef(
-        'ifilter',
-        __module__ = 'itertools',
-        __new__  = interp2app(W_IFilter___new__),
-        __iter__ = interp2app(W_IFilter.iter_w),
-        __next__ = interp2app(W_IFilter.next_w),
-        __doc__  = """Make an iterator that filters elements from iterable returning
-    only those for which the predicate is True.  If predicate is
-    None, return the items that are true.
-
-    Equivalent to :
-
-    def ifilter:
-        if predicate is None:
-            predicate = bool
-        for x in iterable:
-            if predicate(x):
-                yield x
-    """)
-
-class W_IFilterFalse(_IFilterBase):
+class W_FilterFalse(W_Filter):
     reverse = True
 
-def W_IFilterFalse___new__(space, w_subtype, w_predicate, w_iterable):
-    r = space.allocate_instance(W_IFilterFalse, w_subtype)
+def W_FilterFalse___new__(space, w_subtype, w_predicate, w_iterable):
+    r = space.allocate_instance(W_FilterFalse, w_subtype)
     r.__init__(space, w_predicate, w_iterable)
     return space.wrap(r)
 
-W_IFilterFalse.typedef = TypeDef(
+W_FilterFalse.typedef = TypeDef(
         'ifilterfalse',
         __module__ = 'itertools',
-        __new__  = interp2app(W_IFilterFalse___new__),
-        __iter__ = interp2app(W_IFilterFalse.iter_w),
-        __next__ = interp2app(W_IFilterFalse.next_w),
+        __new__  = interp2app(W_FilterFalse___new__),
+        __iter__ = interp2app(W_FilterFalse.iter_w),
+        __next__ = interp2app(W_FilterFalse.next_w),
         __doc__  = """Make an iterator that filters elements from iterable returning
     only those for which the predicate is False.  If predicate is
     None, return the items that are false.
 
     Equivalent to :
 
-    def ifilterfalse(predicate, iterable):
+    def filterfalse(predicate, iterable):
         if predicate is None:
             predicate = bool
         for x in iterable:
@@ -489,97 +437,8 @@ W_Chain.typedef = TypeDef(
                 yield element
     """)
 
-class W_IMap(Wrappable):
-    _error_name = "imap"
-    _immutable_fields_ = ["w_fun", "iterators_w"]
 
-    def __init__(self, space, w_fun, args_w):
-        self.space = space
-        if self.space.is_w(w_fun, space.w_None):
-            self.w_fun = None
-        else:
-            self.w_fun = w_fun
-
-        iterators_w = []
-        i = 0
-        for iterable_w in args_w:
-            try:
-                iterator_w = space.iter(iterable_w)
-            except OperationError, e:
-                if e.match(self.space, self.space.w_TypeError):
-                    raise OperationError(space.w_TypeError, space.wrap(self._error_name + " argument #" + str(i + 1) + " must support iteration"))
-                else:
-                    raise
-            else:
-                iterators_w.append(iterator_w)
-
-            i += 1
-
-        self.iterators_w = iterators_w
-
-    def iter_w(self):
-        return self.space.wrap(self)
-
-    def next_w(self):
-        # common case: 1 or 2 arguments
-        iterators_w = self.iterators_w
-        length = len(iterators_w)
-        if length == 1:
-            objects = [self.space.next(iterators_w[0])]
-        elif length == 2:
-            objects = [self.space.next(iterators_w[0]),
-                       self.space.next(iterators_w[1])]
-        else:
-            objects = self._get_objects()
-        w_objects = self.space.newtuple(objects)
-        if self.w_fun is None:
-            return w_objects
-        else:
-            return self.space.call(self.w_fun, w_objects)
-
-    def _get_objects(self):
-        # the loop is out of the way of the JIT
-        return [self.space.next(w_elem) for w_elem in self.iterators_w]
-
-
-def W_IMap___new__(space, w_subtype, w_fun, args_w):
-    if len(args_w) == 0:
-        raise OperationError(space.w_TypeError,
-                  space.wrap("imap() must have at least two arguments"))
-    r = space.allocate_instance(W_IMap, w_subtype)
-    r.__init__(space, w_fun, args_w)
-    return space.wrap(r)
-
-W_IMap.typedef = TypeDef(
-        'imap',
-        __module__ = 'itertools',
-        __new__  = interp2app(W_IMap___new__),
-        __iter__ = interp2app(W_IMap.iter_w),
-        __next__ = interp2app(W_IMap.next_w),
-        __doc__  = """Make an iterator that computes the function using arguments
-    from each of the iterables. If function is set to None, then
-    imap() returns the arguments as a tuple. Like map() but stops
-    when the shortest iterable is exhausted instead of filling in
-    None for shorter iterables. The reason for the difference is that
-    infinite iterator arguments are typically an error for map()
-    (because the output is fully evaluated) but represent a common
-    and useful way of supplying arguments to imap().
-
-    Equivalent to :
-
-    def imap(function, *iterables):
-        iterables = map(iter, iterables)
-        while True:
-            args = [i.next() for i in iterables]
-            if function is None:
-                yield tuple(args)
-            else:
-                yield function(*args)
-
-    """)
-
-
-class W_ZipLongest(W_IMap):
+class W_ZipLongest(W_Map):
     _error_name = "zip_longest"
 
     def next_w(self):

@@ -44,55 +44,6 @@ empty, returns start."""
         last = last + x
     return last
 
-def map(func, *collections):
-    """map(function, sequence[, sequence, ...]) -> list
-
-Return a list of the results of applying the function to the items of
-the argument sequence(s).  If more than one sequence is given, the
-function is called with an argument list consisting of the corresponding
-item of each sequence, substituting None for missing values when not all
-sequences have the same length.  If the function is None, return a list of
-the items of the sequence (or a list of tuples if more than one sequence)."""
-    if not collections:
-        raise TypeError("map() requires at least two arguments")
-    num_collections = len(collections)
-    none_func = func is None
-    if num_collections == 1:
-        if none_func:
-            return list(collections[0])
-        else:
-            # Special case for the really common case of a single collection,
-            # this can be eliminated if we could unroll that loop that creates
-            # `args` based on whether or not len(collections) was constant
-            result = []
-            for item in collections[0]:
-                result.append(func(item))
-            return result
-    result = []
-    # Pair of (iterator, has_finished)
-    iterators = [(iter(seq), False) for seq in collections]
-    while True:
-        cont = False
-        args = []
-        for idx, (iterator, has_finished) in enumerate(iterators):
-            val = None
-            if not has_finished:
-                try:
-                    val = next(iterator)
-                except StopIteration:
-                    iterators[idx] = (None, True)
-                else:
-                    cont = True
-            args.append(val)
-        args = tuple(args)
-        if cont:
-            if none_func:
-                result.append(args)
-            else:
-                result.append(func(*args))
-        else:
-            return result
-
 def filter(func, seq):
     """filter(function or None, sequence) -> list, tuple, or string
 
@@ -107,20 +58,3 @@ def _filter(func, iterator):
     for item in iterator:
         if func(item):
             yield item
-
-def zip(*sequences):
-    """zip(seq1 [, seq2 [...]]) -> [(seq1[0], seq2[0] ...), (...)]
-
-Return a list of tuples, where each tuple contains the i-th element
-from each of the argument sequences.  The returned list is truncated
-in length to the length of the shortest argument sequence."""
-    if not sequences:
-        return []
-    result = []
-    iterators = [iter(seq) for seq in sequences]
-    while True:
-        try:
-            items = [next(it) for it in iterators]
-        except StopIteration:
-            return result
-        result.append(tuple(items))

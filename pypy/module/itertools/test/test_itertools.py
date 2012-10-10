@@ -71,7 +71,7 @@ class AppTestItertools:
         import itertools
         import sys
 
-        raises(OverflowError, itertools.repeat, None, sys.maxint + 1)
+        raises(OverflowError, itertools.repeat, None, sys.maxsize + 1)
 
     def test_repeat_repr(self):
         import itertools
@@ -144,40 +144,13 @@ class AppTestItertools:
 
         raises(TypeError, itertools.dropwhile, bool, None)
 
-    def test_ifilter(self):
+    def test_filterfalse(self):
         import itertools
 
-        it = itertools.ifilter(None, [])
+        it = itertools.filterfalse(None, [])
         raises(StopIteration, next, it)
 
-        it = itertools.ifilter(None, [1, 0, 2, 3, 0])
-        for x in [1, 2, 3]:
-            assert next(it) == x
-        raises(StopIteration, next, it)
-
-        def is_odd(arg):
-            return (arg % 2 == 1)
-
-        it = itertools.ifilter(is_odd, [1, 2, 3, 4, 5, 6])
-        for x in [1, 3, 5]:
-            assert next(it) == x
-        raises(StopIteration, next, it)
-
-    def test_ifilter_wrongargs(self):
-        import itertools
-
-        it = itertools.ifilter(0, [1])
-        raises(TypeError, next, it)
-
-        raises(TypeError, itertools.ifilter, bool, None)
-
-    def test_ifilterfalse(self):
-        import itertools
-
-        it = itertools.ifilterfalse(None, [])
-        raises(StopIteration, next, it)
-
-        it = itertools.ifilterfalse(None, [1, 0, 2, 3, 0])
+        it = itertools.filterfalse(None, [1, 0, 2, 3, 0])
         for x in [0, 0]:
             assert next(it) == x
         raises(StopIteration, next, it)
@@ -185,18 +158,18 @@ class AppTestItertools:
         def is_odd(arg):
             return (arg % 2 == 1)
 
-        it = itertools.ifilterfalse(is_odd, [1, 2, 3, 4, 5, 6])
+        it = itertools.filterfalse(is_odd, [1, 2, 3, 4, 5, 6])
         for x in [2, 4, 6]:
             assert next(it) == x
         raises(StopIteration, next, it)
 
-    def test_ifilterfalse_wrongargs(self):
+    def test_filterfalse_wrongargs(self):
         import itertools
 
-        it = itertools.ifilterfalse(0, [1])
+        it = itertools.filterfalse(0, [1])
         raises(TypeError, next, it)
 
-        raises(TypeError, itertools.ifilterfalse, bool, None)
+        raises(TypeError, itertools.filterfalse, bool, None)
 
     def test_islice(self):
         import itertools
@@ -284,7 +257,7 @@ class AppTestItertools:
         import itertools
         import sys
         raises((OverflowError, ValueError),    # ValueError on top of CPython
-               itertools.islice, [], sys.maxint + 1)
+               itertools.islice, [], sys.maxsize + 1)
 
     def test_islice_wrongargs(self):
         import itertools
@@ -321,47 +294,6 @@ class AppTestItertools:
         it = itertools.chain([], [], [1], [])
         assert next(it) == 1
         raises(StopIteration, next, it)
-
-    def test_imap(self):
-        import itertools
-
-        obj_list = [object(), object(), object()]
-        it = itertools.imap(None, obj_list)
-        for x in obj_list:
-            assert next(it) == (x, )
-        raises(StopIteration, next, it)
-
-        it = itertools.imap(None, [1, 2, 3], [4], [5, 6])
-        assert next(it) == (1, 4, 5)
-        raises(StopIteration, next, it)
-
-        it = itertools.imap(None, [], [], [1], [])
-        raises(StopIteration, next, it)
-
-        it = itertools.imap(str, [0, 1, 0, 1])
-        for x in ['0', '1', '0', '1']:
-            assert next(it) == x
-        raises(StopIteration, next, it)
-
-        import operator
-        it = itertools.imap(operator.add, [1, 2, 3], [4, 5, 6])
-        for x in [5, 7, 9]:
-            assert next(it) == x
-        raises(StopIteration, next, it)
-
-    def test_imap_wrongargs(self):
-        import itertools
-        
-        # Duplicate python 2.4 behaviour for invalid arguments
-        it = itertools.imap(0, [])
-        raises(StopIteration, next, it)
-        it = itertools.imap(0, [0])
-        raises(TypeError, next, it)
-        raises(TypeError, itertools.imap, None, 0)
-
-        raises(TypeError, itertools.imap, None)
-        raises(TypeError, itertools.imap, bool)
-        raises(TypeError, itertools.imap, 42)
 
     def test_cycle(self):
         import itertools
@@ -569,9 +501,7 @@ class AppTestItertools:
             itertools.cycle([]),
             itertools.dropwhile(bool, []),
             itertools.groupby([]),
-            itertools.ifilter(None, []),
-            itertools.ifilterfalse(None, []),
-            itertools.imap(None, []),
+            itertools.filterfalse(None, []),
             itertools.islice([], 0),
             itertools.repeat(None),
             itertools.starmap(bool, []),
@@ -596,9 +526,7 @@ class AppTestItertools:
             itertools.cycle,
             itertools.dropwhile,
             itertools.groupby,
-            itertools.ifilter,
-            itertools.ifilterfalse,
-            itertools.imap,
+            itertools.filterfalse,
             itertools.islice,
             itertools.repeat,
             itertools.starmap,
@@ -637,26 +565,26 @@ class AppTestItertools26:
 
     def test_count_overflow(self):
         import itertools, sys
-        it = itertools.count(sys.maxint - 1)
-        assert next(it) == sys.maxint - 1
-        assert next(it) == sys.maxint
-        assert next(it) == sys.maxint + 1
-        it = itertools.count(sys.maxint + 1)
-        assert next(it) == sys.maxint + 1
-        assert next(it) == sys.maxint + 2
-        it = itertools.count(-sys.maxint-2)
-        assert next(it) == -sys.maxint - 2
-        assert next(it) == -sys.maxint - 1
-        assert next(it) == -sys.maxint
-        assert next(it) == -sys.maxint + 1
-        it = itertools.count(0, sys.maxint)
-        assert next(it) == sys.maxint * 0
-        assert next(it) == sys.maxint * 1
-        assert next(it) == sys.maxint * 2
-        it = itertools.count(0, sys.maxint + 1)
-        assert next(it) == (sys.maxint + 1) * 0
-        assert next(it) == (sys.maxint + 1) * 1
-        assert next(it) == (sys.maxint + 1) * 2
+        it = itertools.count(sys.maxsize - 1)
+        assert next(it) == sys.maxsize - 1
+        assert next(it) == sys.maxsize
+        assert next(it) == sys.maxsize + 1
+        it = itertools.count(sys.maxsize + 1)
+        assert next(it) == sys.maxsize + 1
+        assert next(it) == sys.maxsize + 2
+        it = itertools.count(-sys.maxsize-2)
+        assert next(it) == -sys.maxsize - 2
+        assert next(it) == -sys.maxsize - 1
+        assert next(it) == -sys.maxsize
+        assert next(it) == -sys.maxsize + 1
+        it = itertools.count(0, sys.maxsize)
+        assert next(it) == sys.maxsize * 0
+        assert next(it) == sys.maxsize * 1
+        assert next(it) == sys.maxsize * 2
+        it = itertools.count(0, sys.maxsize + 1)
+        assert next(it) == (sys.maxsize + 1) * 0
+        assert next(it) == (sys.maxsize + 1) * 1
+        assert next(it) == (sys.maxsize + 1) * 2
 
     def test_chain_fromiterable(self):
         import itertools
@@ -695,14 +623,14 @@ class AppTestItertools26:
 
         # take 3 from infinite input
         assert (list(islice(zip_longest('abcdef', count()),3)) ==
-                zip('abcdef', range(3)))
+                list(zip('abcdef', range(3))))
 
-        assert list(zip_longest()) == zip()
-        assert list(zip_longest([])) ==  zip([])
-        assert list(zip_longest('abcdef')) ==  zip('abcdef')
+        assert list(zip_longest()) == list(zip())
+        assert list(zip_longest([])) ==  list(zip([]))
+        assert list(zip_longest('abcdef')) ==  list(zip('abcdef'))
 
         assert (list(zip_longest('abc', 'defg', **{})) ==
-                zip(list('abc') + [None], 'defg'))  # empty keyword dict
+                list(zip(list('abc') + [None], 'defg')))  # empty keyword dict
         raises(TypeError, zip_longest, 3)
         raises(TypeError, zip_longest, range(3), 3)
 
@@ -945,17 +873,13 @@ class AppTestItertools27:
         assert type(A(lambda x: True, [])) is A
         class A(itertools.dropwhile): pass
         assert type(A(lambda x: True, [])) is A
-        class A(itertools.ifilter): pass
-        assert type(A(lambda x: True, [])) is A
-        class A(itertools.ifilterfalse): pass
+        class A(itertools.filterfalse): pass
         assert type(A(lambda x: True, [])) is A
         class A(itertools.islice): pass
         assert type(A([], 0)) is A
         class A(itertools.chain): pass
         assert type(A([], [])) is A
         assert type(A.from_iterable([])) is A
-        class A(itertools.imap): pass
-        assert type(A(lambda: 5, [])) is A
         class A(itertools.zip_longest): pass
         assert type(A([], [])) is A
         class A(itertools.cycle): pass
@@ -975,8 +899,8 @@ class AppTestItertools27:
 
     def test_copy_pickle(self):
         import itertools, copy, pickle, sys
-        for value in [42, -sys.maxint*99]:
-            for step in [1, sys.maxint*42, 5.5]:
+        for value in [42, -sys.maxsize*99]:
+            for step in [1, sys.maxsize*42, 5.5]:
                 expected = [value, value+step, value+2*step]
                 c = itertools.count(value, step)
                 assert list(itertools.islice(c, 3)) == expected

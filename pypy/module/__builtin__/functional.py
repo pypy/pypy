@@ -471,3 +471,142 @@ W_RangeIterator.typedef = TypeDef("rangeiterator",
     __next__        = interp2app(W_RangeIterator.descr_next),
     __reduce__      = interp2app(W_RangeIterator.descr_reduce),
 )
+
+
+class W_Map(Wrappable):
+    _error_name = "map"
+    _immutable_fields_ = ["w_fun", "iterators_w"]
+
+    def __init__(self, space, w_fun, args_w):
+        self.space = space
+        self.w_fun = w_fun
+
+        iterators_w = []
+        i = 0
+        for iterable_w in args_w:
+            try:
+                iterator_w = space.iter(iterable_w)
+            except OperationError, e:
+                if e.match(self.space, self.space.w_TypeError):
+                    raise OperationError(space.w_TypeError, space.wrap(self._error_name + " argument #" + str(i + 1) + " must support iteration"))
+                else:
+                    raise
+            else:
+                iterators_w.append(iterator_w)
+
+            i += 1
+
+        self.iterators_w = iterators_w
+
+    def iter_w(self):
+        return self.space.wrap(self)
+
+    def next_w(self):
+        # common case: 1 or 2 arguments
+        iterators_w = self.iterators_w
+        length = len(iterators_w)
+        if length == 1:
+            objects = [self.space.next(iterators_w[0])]
+        elif length == 2:
+            objects = [self.space.next(iterators_w[0]),
+                       self.space.next(iterators_w[1])]
+        else:
+            objects = self._get_objects()
+        w_objects = self.space.newtuple(objects)
+        if self.w_fun is None:
+            return w_objects
+        else:
+            return self.space.call(self.w_fun, w_objects)
+
+    def _get_objects(self):
+        # the loop is out of the way of the JIT
+        return [self.space.next(w_elem) for w_elem in self.iterators_w]
+
+
+def W_Map___new__(space, w_subtype, w_fun, args_w):
+    if len(args_w) == 0:
+        raise OperationError(space.w_TypeError,
+                  space.wrap("map() must have at least two arguments"))
+    r = space.allocate_instance(W_Map, w_subtype)
+    r.__init__(space, w_fun, args_w)
+    return space.wrap(r)
+
+W_Map.typedef = TypeDef(
+        'map',
+        __new__  = interp2app(W_Map___new__),
+        __iter__ = interp2app(W_Map.iter_w),
+        __next__ = interp2app(W_Map.next_w),
+        __doc__ = """\ 
+Make an iterator that computes the function using arguments from
+each of the iterables.  Stops when the shortest iterable is exhausted.""")
+
+class W_Filter(Wrappable):
+    reverse = False
+
+    def __init__(self, space, w_predicate, w_iterable):
+        self.space = space
+        if space.is_w(w_predicate, space.w_None):
+            self.no_predicate = True
+        else:
+            self.no_predicate = False
+            self.w_predicate = w_predicate
+        self.iterable = space.iter(w_iterable)
+
+    def iter_w(self):
+        return self.space.wrap(self)
+
+    def next_w(self):
+        while True:
+            w_obj = self.space.next(self.iterable)  # may raise w_StopIteration
+            if self.no_predicate:
+                pred = self.space.is_true(w_obj)
+            else:
+                w_pred = self.space.call_function(self.w_predicate, w_obj)
+                pred = self.space.is_true(w_pred)
+            if pred ^ self.reverse:
+                return w_obj
+
+
+def W_Filter___new__(space, w_subtype, w_predicate, w_iterable):
+    r = space.allocate_instance(W_Filter, w_subtype)
+    r.__init__(space, w_predicate, w_iterable)
+    return space.wrap(r)
+
+W_Filter.typedef = TypeDef(
+        'filter',
+        __new__  = interp2app(W_Filter___new__),
+        __iter__ = interp2app(W_Filter.iter_w),
+        __next__ = interp2app(W_Filter.next_w),
+        __doc__  = """\
+Return an iterator yielding those items of iterable for which function(item)
+is true. If function is None, return the items that are true.""")
+
+
+class W_Zip(W_Map):
+    _error_name = "zip"
+
+    def next_w(self):
+        # argh.  zip(*args) is almost like map(None, *args) except
+        # that the former needs a special case for len(args)==0
+        # while the latter just raises a TypeError in this situation.
+        if len(self.iterators_w) == 0:
+            raise OperationError(self.space.w_StopIteration, self.space.w_None)
+        return W_Map.next_w(self)
+
+def W_Zip___new__(space, w_subtype, args_w):
+    r = space.allocate_instance(W_Zip, w_subtype)
+    r.__init__(space, None, args_w)
+    return space.wrap(r)
+
+W_Zip.typedef = TypeDef(
+        'zip',
+        __new__  = interp2app(W_Zip___new__),
+        __iter__ = interp2app(W_Zip.iter_w),
+        __next__ = interp2app(W_Zip.next_w),
+        __doc__  = """\
+Return a zip object whose .__next__() method returns a tuple where
+the i-th element comes from the i-th iterable argument.  The .__next__()
+method continues until the shortest iterable in the argument sequence
+is exhausted and then it raises StopIteration.""")
+
+
