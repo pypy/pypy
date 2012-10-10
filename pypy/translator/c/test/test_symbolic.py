@@ -4,8 +4,8 @@ from pypy.rpython.lltypesystem import llmemory, lltype
 from pypy.rlib.objectmodel import ComputedIntSymbolic
 
 def getcompiled(f, args):
-    t = Translation(f)
-    fn = t.compile_c(args)
+    t = Translation(f, args)
+    fn = t.compile_c()
     if conftest.option.view:
         t.view()
     return fn, t
