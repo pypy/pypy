@@ -209,6 +209,10 @@ class AppTestTextIO:
         t = _io.TextIOWrapper(b, encoding="utf-8")
         b.name = "dummy"
         assert repr(t) == "<_io.TextIOWrapper name='dummy' encoding='utf-8'>"
+        t.mode = "r"
+        assert repr(t) == "<_io.TextIOWrapper name='dummy' mode='r' encoding='utf-8'>"
+        b.name = b"dummy"
+        assert repr(t) == "<_io.TextIOWrapper name=b'dummy' mode='r' encoding='utf-8'>"
 
     def test_rawio(self):
         # Issue #12591: TextIOWrapper must work with raw I/O objects, so

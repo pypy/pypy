@@ -441,15 +441,18 @@ class W_TextIOWrapper(W_TextIOBase):
         self._check_init(space)
         W_TextIOBase._check_closed(self, space, message)
 
+    def __w_attr_repr(self, space, name):
+        w_attr = space.findattr(self, space.wrap(name))
+        if w_attr is None:
+            return space.wrap("")
+        return space.mod(space.wrap("%s=%%r " % name), w_attr)
+
     def descr_repr(self, space):
-        w_name = space.findattr(self, space.wrap("name"))
-        if w_name is None:
-            w_name_str = space.wrap("")
-        else:
-            w_name_str = space.mod(space.wrap("name=%r "), w_name)
-        w_args = space.newtuple([w_name_str, self.w_encoding])
+        w_args = space.newtuple([self.__w_attr_repr(space, 'name'),
+                                 self.__w_attr_repr(space, 'mode'),
+                                 self.w_encoding])
         return space.mod(
-            space.wrap("<_io.TextIOWrapper %sencoding=%r>"), w_args
+            space.wrap("<_io.TextIOWrapper %s%sencoding=%r>"), w_args
         )
 
     def isatty_w(self, space):
