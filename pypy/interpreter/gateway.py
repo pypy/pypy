@@ -13,7 +13,7 @@ import types
 
 import py
 
-from pypy.interpreter import eval
+from pypy.interpreter.eval import Code
 from pypy.interpreter.argument import Arguments, Signature
 from pypy.interpreter.baseobjspace import (W_Root, ObjSpace, Wrappable,
     SpaceCache, DescrMismatch)
@@ -501,7 +501,7 @@ def build_unwrap_spec(func, argnames, self_type=None):
     return unwrap_spec
 
 
-class BuiltinCode(eval.Code):
+class BuiltinCode(Code):
     "The code object implementing a built-in (interpreter-level) hook."
     _immutable_ = True
     hidden_applevel = True
@@ -515,7 +515,7 @@ class BuiltinCode(eval.Code):
         "NOT_RPYTHON"
         # 'implfunc' is the interpreter-level function.
         # Note that this uses a lot of (construction-time) introspection.
-        eval.Code.__init__(self, func.__name__)
+        Code.__init__(self, func.__name__)
         self.docstring = func.__doc__
 
         self.identifier = "%s-%s-%s" % (func.__module__, func.__name__,
@@ -536,6 +536,7 @@ class BuiltinCode(eval.Code):
         # First extract the signature from the (CPython-level) code object
         from pypy.interpreter import pycode
         argnames, varargname, kwargname = pycode.cpython_code_signature(func.func_code)
+        self._argnames = argnames
 
         if unwrap_spec is None:
             unwrap_spec = build_unwrap_spec(func, argnames, self_type)
@@ -671,7 +672,7 @@ class BuiltinCodePassThroughArguments0(BuiltinCode):
 
 class BuiltinCodePassThroughArguments1(BuiltinCode):
     _immutable_ = True
-    fast_natural_arity = eval.Code.PASSTHROUGHARGS1
+    fast_natural_arity = Code.PASSTHROUGHARGS1
 
     def funcrun_obj(self, func, w_obj, args):
         space = func.space
@@ -834,9 +835,8 @@ class interp2app(Wrappable):
         if not f.func_defaults:
             self._staticdefs = []
         else:
-            from pypy.interpreter import pycode
+            argnames = self._code._argnames
             defaults = f.func_defaults
-            argnames, _, _ = pycode.cpython_code_signature(f.func_code)
             self._staticdefs = zip(argnames[-len(defaults):], defaults)
         return self
 
@@ -852,6 +852,31 @@ class interp2app(Wrappable):
                 defs_w.append(None)
             else:
                 defs_w.append(space.wrap(defaultval))
+        if self._code._unwrap_spec:
+            UNDEFINED = object()
+            alldefs_w = [UNDEFINED] * len(self._code.sig[0])
+            if defs_w:
+                alldefs_w[-len(defs_w):] = defs_w
+            code = self._code
+            assert isinstance(code._unwrap_spec, (list, tuple))
+            assert isinstance(code._argnames, list)
+            assert len(code._unwrap_spec) == len(code._argnames)
+            for i in range(len(code._unwrap_spec)-1, -1, -1):
+                spec = code._unwrap_spec[i]
+                argname = code._argnames[i]
+                if isinstance(spec, tuple) and spec[0] is W_Root:
+                    w_default = eval(spec[1], {'space': space})
+                    assert argname.startswith('w_')
+                    argname = argname[2:]
+                    j = self._code.sig[0].index(argname)
+                    assert alldefs_w[j] in (UNDEFINED, None)
+                    alldefs_w[j] = w_default
+            first_defined = 0
+            while (first_defined < len(alldefs_w) and
+                   alldefs_w[first_defined] is UNDEFINED):
+                first_defined += 1
+            defs_w = alldefs_w[first_defined:]
+            assert UNDEFINED not in defs_w
         return defs_w
 
     # lazy binding to space
