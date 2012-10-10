@@ -720,7 +720,6 @@ class ObjSpace(object):
         # expected programming style where we say "if x is None" or
         # "if x is object").
         assert w_two is not None
-        assert w_one is not None
         return w_two.is_w(self, w_one)
 
     def is_none(self, w_obj):
