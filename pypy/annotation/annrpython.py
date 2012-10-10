@@ -2,7 +2,7 @@ import types
 from pypy.tool.ansi_print import ansi_log
 from pypy.tool.pairtype import pair
 from pypy.tool.error import (format_blocked_annotation_error,
-                             AnnotatorError, gather_error)
+                             AnnotatorError, gather_error, ErrorWrapper)
 from pypy.objspace.flow.model import (Variable, Constant, FunctionGraph,
                                       c_last_exception, checkgraph)
 from pypy.translator import simplify, transform
@@ -593,7 +593,8 @@ class RPythonAnnotator(object):
             resultcell = consider_meth(*argcells)
         except Exception, e:
             graph = self.bookkeeper.position_key[0]
-            e.args = e.args + (gather_error(self, graph, block, opindex),)
+            e.args = e.args + (
+                ErrorWrapper(gather_error(self, graph, block, opindex)),)
             raise
         if resultcell is None:
             resultcell = self.noreturnvalue(op)

@@ -70,6 +70,13 @@ class AnnotatorError(Exception):
 class NoSuchAttrError(Exception):
     pass
 
+class ErrorWrapper(object):
+    def __init__(self, msg):
+        self.msg = msg
+
+    def __repr__(self):
+        return '<%s>' % (self.msg,)
+
 def gather_error(annotator, graph, block, operindex):
     msg = [""]
 
@@ -101,7 +108,7 @@ def format_blocked_annotation_error(annotator, blocked_blocks):
     return '\n'.join(text)
 
 def format_simple_call(annotator, oper, msg):
-    msg.append("Simple call of incompatible family:")
+    msg.append("Occurred processing the following simple_call:")
     try:
         descs = annotator.bindings[oper.args[0]].descriptions
     except (KeyError, AttributeError), e:
@@ -124,13 +131,6 @@ def format_simple_call(annotator, oper, msg):
             except (AttributeError, TypeError):
                 r = repr(desc)
         msg.append("  %s returning" % (r,))
-        if hasattr(desc, 'getuniquegraph'):
-            graph = desc.getuniquegraph()
-            r = annotator.binding(graph.returnblock.inputargs[0],
-                                  "(no annotation)")
-        else:
-            r = '?'
-        msg.append("      %s" % (r,))
         msg.append("")
 
 def debug(drv, use_pdb=True):
