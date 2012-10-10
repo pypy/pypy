@@ -5,7 +5,7 @@ import sys
 
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import unwrap_spec, NoneNotWrapped
+from pypy.interpreter.gateway import unwrap_spec
 from pypy.rlib import jit
 from pypy.rlib.runicode import MAXUNICODE
 
@@ -252,7 +252,7 @@ def _get_dllhandle(space):
     cdll = RawCDLL(handle)
     return space.wrap(W_CDLL(space, "python api", cdll))
 
-def getsizeof(space, w_object, w_default=NoneNotWrapped):
+def getsizeof(space, w_object, w_default=None):
     """Not implemented on PyPy."""
     if w_default is None:
         raise OperationError(space.w_TypeError,

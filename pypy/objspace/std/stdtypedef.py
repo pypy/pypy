@@ -186,10 +186,11 @@ def make_perform_trampoline(prefix, exprargs, expr, miniglobals,  multimethod, s
     app_defaults = multimethod.extras.get('defaults', ())
     i = len(argnames) - len(app_defaults)
     wrapper_signature = wrapper_arglist[:]
+    unwrap_spec_kwds = {}
     for app_default in app_defaults:
         name = wrapper_signature[i]
-        wrapper_signature[i] = '%s=%s' % (name, name)
-        miniglobals[name] = app_default
+        unwrap_spec_kwds[name] = (gateway.W_Root,
+                                  'space.wrap(%r)' % (app_default,))
         i += 1
 
     wrapper_signature.insert(0, wrapper_signature.pop(selfindex))
@@ -239,7 +240,10 @@ def make_perform_trampoline(prefix, exprargs, expr, miniglobals,  multimethod, s
 """        % (prefix, wrapper_sig, renaming, expr,
               multimethod.operatorsymbol, ', '.join(solid_arglist))
     exec compile2(code, '', 'exec') in miniglobals 
-    return miniglobals["%s_perform_call" % prefix]
+    func = miniglobals["%s_perform_call" % prefix]
+    if unwrap_spec_kwds:
+        func = gateway.unwrap_spec(**unwrap_spec_kwds)(func)
+    return func
 
 def wrap_trampoline_in_gateway(func, methname, multimethod):
     """NOT_RPYTHON"""

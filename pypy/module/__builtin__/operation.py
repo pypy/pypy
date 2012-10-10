@@ -9,7 +9,6 @@ from pypy.rlib.runicode import UNICHR
 from pypy.rlib.rfloat import isnan, isinf, round_double
 from pypy.rlib import rfloat
 import __builtin__
-NoneNotWrapped = gateway.NoneNotWrapped
 
 def abs(space, w_val):
     "abs(number) -> number\n\nReturn the absolute value of the argument."

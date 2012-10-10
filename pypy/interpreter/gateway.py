@@ -448,6 +448,7 @@ def unwrap_spec(*spec, **kwargs):
     - positional arguments must be as many as the function parameters
     - keywords arguments allow to change only some parameter specs
     """
+    assert spec or kwargs
     def decorator(func):
         if kwargs:
             if spec:
@@ -829,18 +830,28 @@ class interp2app(Wrappable):
         self.__name__ = f.func_name
         self.name = app_name
         self.as_classmethod = as_classmethod
-        self._staticdefs = list(f.func_defaults or ())
+
+        if not f.func_defaults:
+            self._staticdefs = []
+        else:
+            from pypy.interpreter import pycode
+            defaults = f.func_defaults
+            argnames, _, _ = pycode.cpython_code_signature(f.func_code)
+            self._staticdefs = zip(argnames[-len(defaults):], defaults)
         return self
 
     def _getdefaults(self, space):
         "NOT_RPYTHON"
-        import pdb; pdb.set_trace()
         defs_w = []
-        for val in self._staticdefs:
-            if val is NoneNotWrapped:
+        for name, defaultval in self._staticdefs:
+            if name.startswith('w_'):
+                assert defaultval is None, (
+                    "%s: default value for '%s' can only be None; "
+                    "use unwrap_spec(...=(W_Root, 'default_expr'))" % (
+                    self._code.identifier, name))
                 defs_w.append(None)
             else:
-                defs_w.append(space.wrap(val))
+                defs_w.append(space.wrap(defaultval))
         return defs_w
 
     # lazy binding to space

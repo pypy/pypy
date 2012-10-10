@@ -571,6 +571,46 @@ class TestGateway:
         unwrap_spec = gateway.BuiltinCode(f)._unwrap_spec
         assert unwrap_spec == [ObjSpace, W_Root, int]
 
+    def test_unwrap_spec_default_applevel(self):
+        space = self.space
+        @gateway.unwrap_spec(w_x = (W_Root, 'space.wrap(42)'))
+        def g(space, w_x):
+            return w_x
+        w_g = space.wrap(gateway.interp2app_temp(g))
+        args = argument.Arguments(space, [])
+        w_res = space.call_args(w_g, args)
+        assert space.eq_w(w_res, space.wrap(42))
+        #
+        args = argument.Arguments(space, [space.wrap(84)])
+        w_res = space.call_args(w_g, args)
+        assert space.eq_w(w_res, space.wrap(84))
+
+    def test_unwrap_spec_default_applevel_2(self):
+        space = self.space
+        @gateway.unwrap_spec(w_x = (W_Root, 'space.wrap(42)'), y=int)
+        def g(space, w_x, y=10):
+            return space.add(w_x, space.wrap(y))
+        w_g = space.wrap(gateway.interp2app_temp(g))
+        args = argument.Arguments(space, [])
+        w_res = space.call_args(w_g, args)
+        assert space.eq_w(w_res, space.wrap(52))
+        #
+        args = argument.Arguments(space, [space.wrap(84)])
+        w_res = space.call_args(w_g, args)
+        assert space.eq_w(w_res, space.wrap(94))
+        #
+        args = argument.Arguments(space, [space.wrap(84), space.wrap(-1)])
+        w_res = space.call_args(w_g, args)
+        assert space.eq_w(w_res, space.wrap(83))
+
+    def test_unwrap_spec_default_applevel_bogus(self):
+        space = self.space
+        @gateway.unwrap_spec(w_x = (W_Root, 'space.wrap(42)'), y=int)
+        def g(space, w_x, y):
+            never_called
+        py.test.raises(AssertionError, space.wrap, gateway.interp2app_temp(g))
+
+
 class AppTestPyTestMark:
     @py.test.mark.unlikely_to_exist
     def test_anything(self):

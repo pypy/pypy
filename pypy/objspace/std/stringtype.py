@@ -1,4 +1,4 @@
-from pypy.interpreter import gateway
+from pypy.interpreter.gateway import interp2app, unwrap_spec, W_Root
 from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 from pypy.objspace.std.basestringtype import basestring_typedef
 from pypy.objspace.std.register_all import register_all
@@ -290,7 +290,8 @@ register_all(vars(), globals())
 
 # ____________________________________________________________
 
-def descr__new__(space, w_stringtype, w_object=''):
+@unwrap_spec(w_object = (W_Root, 'space.wrap("")'))
+def descr__new__(space, w_stringtype, w_object):
     # NB. the default value of w_object is really a *wrapped* empty string:
     #     there is gateway magic at work
     from pypy.objspace.std.stringobject import W_StringObject
@@ -311,7 +312,7 @@ def descr__new__(space, w_stringtype, w_object=''):
 # ____________________________________________________________
 
 str_typedef = StdTypeDef("str", basestring_typedef,
-    __new__ = gateway.interp2app(descr__new__),
+    __new__ = interp2app(descr__new__),
     __doc__ = '''str(object) -> string
 
 Return a nice string representation of the object.

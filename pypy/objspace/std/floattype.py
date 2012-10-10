@@ -2,7 +2,8 @@ import math
 import sys
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib import rfloat, rarithmetic
-from pypy.interpreter import gateway, typedef
+from pypy.interpreter import typedef
+from pypy.interpreter.gateway import interp2app, unwrap_spec, W_Root
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.register_all import register_all
@@ -21,7 +22,8 @@ def descr_conjugate(space, w_float):
 register_all(vars(), globals())
 
 
-def descr__new__(space, w_floattype, w_x=0.0):
+@unwrap_spec(w_x = (W_Root, 'space.wrap(0.0)'))
+def descr__new__(space, w_floattype, w_x):
     from pypy.objspace.std.floatobject import W_FloatObject
     w_value = w_x     # 'x' is the keyword argument name in CPython
     w_special = space.lookup(w_value, "__float__")
@@ -86,7 +88,7 @@ def detect_floatformat():
 
 _double_format, _float_format = detect_floatformat()
 
-@gateway.unwrap_spec(kind=str)
+@unwrap_spec(kind=str)
 def descr___getformat__(space, w_cls, kind):
     if kind == "float":
         return space.wrap(_float_format)
@@ -111,7 +113,7 @@ def _hex_digit(s, j, co_end, float_digits):
         i = co_end - 1 - j
     return _hex_from_char(s[i])
 
-@gateway.unwrap_spec(s=str)
+@unwrap_spec(s=str)
 def descr_fromhex(space, w_cls, s):
     length = len(s)
     i = 0
@@ -274,12 +276,10 @@ float_typedef = StdTypeDef("float",
     __doc__ = '''float(x) -> floating point number
 
 Convert a string or number to a floating point number, if possible.''',
-    __new__ = gateway.interp2app(descr__new__),
-    __getformat__ = gateway.interp2app(descr___getformat__,
-                                       as_classmethod=True),
-    fromhex = gateway.interp2app(descr_fromhex,
-                                 as_classmethod=True),
-    conjugate = gateway.interp2app(descr_conjugate),
+    __new__ = interp2app(descr__new__),
+    __getformat__ = interp2app(descr___getformat__, as_classmethod=True),
+    fromhex = interp2app(descr_fromhex, as_classmethod=True),
+    conjugate = interp2app(descr_conjugate),
     real = typedef.GetSetProperty(descr_get_real),
     imag = typedef.GetSetProperty(descr_get_imag),
 )
