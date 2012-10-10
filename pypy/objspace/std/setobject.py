@@ -695,7 +695,7 @@ class UnicodeSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
         return True
 
     def unwrap(self, w_item):
-        return self.space.str_w(w_item)
+        return self.space.unicode_w(w_item)
 
     def wrap(self, item):
         return self.space.wrap(item)

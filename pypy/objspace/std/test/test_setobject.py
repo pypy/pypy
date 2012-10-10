@@ -1,3 +1,4 @@
+# -*- encoding: utf-8 -*-
 """
 The main test for the set implementation is located
 in the stdlibs test/test_set.py which is located in lib-python
@@ -961,3 +962,17 @@ class AppTestAppSetTest:
         # getting a RuntimeError because iterating over the old storage
         # gives us 1, but 1 is not in the set any longer.
         raises(RuntimeError, list, it)
+
+    def test_unicodestrategy(self):
+        s = 'àèìòù'
+        myset = {s}
+        s2 = myset.pop()
+        assert s2 == s
+
+    def test_preserve_identity_of_strings(self):
+        s = 'hello'
+        myset = {s}
+        s2 = myset.pop()
+        assert s2 == s
+        assert s2 is s
+        
