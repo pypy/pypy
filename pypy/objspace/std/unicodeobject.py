@@ -99,6 +99,9 @@ def unicode_to_decimal_w(space, w_unistr):
     for i in xrange(len(unistr)):
         uchr = ord(unistr[i])
         if uchr > 127:
+            if unicodedb.isspace(uchr):
+                result[i] = ' '
+                continue
             try:
                 uchr = ord(u'0') + unicodedb.decimal(uchr)
             except KeyError:
