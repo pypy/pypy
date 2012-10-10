@@ -439,25 +439,6 @@ class TestGateway:
         raises(gateway.OperationError, space.call_function, w_app_g3_u,
                w(42))
 
-
-    def test_interp2app_unwrap_spec_func(self):
-        space = self.space
-        w = space.wrap
-        def g_id(space, w_x):
-            return w_x
-        l =[]
-        def checker(w_x):
-            l.append(w_x)
-            return w_x
-
-        app_g_id = gateway.interp2app_temp(g_id,
-                                           unwrap_spec=[gateway.ObjSpace,
-                                                        (checker, gateway.W_Root)])
-        w_app_g_id = space.wrap(app_g_id)
-        assert space.eq_w(space.call_function(w_app_g_id,w("foo")),w("foo"))
-        assert len(l) == 1
-        assert space.eq_w(l[0], w("foo"))
-
     def test_interp2app_classmethod(self):
         space = self.space
         w = space.wrap

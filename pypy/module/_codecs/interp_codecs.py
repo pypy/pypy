@@ -1,5 +1,5 @@
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.gateway import interp2app, unwrap_spec, W_Root
 from pypy.rlib.rstring import UnicodeBuilder
 from pypy.rlib.objectmodel import we_are_translated
 

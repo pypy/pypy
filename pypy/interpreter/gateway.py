@@ -58,10 +58,12 @@ class UnwrapSpecRecipe(object):
         if isinstance(el, str):
             getattr(self, "visit_%s" % (el,))(el, *args)
         elif isinstance(el, tuple):
-            if el[0] == 'self':
+            if el[0] == 'INTERNAL:self':
                 self.visit_self(el[1], *args)
             else:
-                self.visit_function(el, *args)
+                assert len(el) == 2    # 2nd arg is str that evals to 'default'
+                assert el[0] is W_Root    # for now
+                self.visit__W_Root(W_Root, *args)
         elif isinstance(el, type):
             for typ in self.bases_order:
                 if issubclass(el, typ):
@@ -106,9 +108,6 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
     def __init__(self, original_sig):
         self.func = original_sig.func
         self.orig_arg = iter(original_sig.argnames).next
-
-    def visit_function(self, (func, cls), app_sig):
-        self.dispatch(cls, app_sig)
 
     def visit_self(self, cls, app_sig):
         self.visit__Wrappable(cls, app_sig)
@@ -206,10 +205,6 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
 
     def scopenext(self):
         return "scope_w[%d]" % self.succ()
-
-    def visit_function(self, (func, cls)):
-        self.run_args.append("%s(%s)" % (self.use(func),
-                                         self.scopenext()))
 
     def visit_self(self, typ):
         self.run_args.append("space.descr_self_interp_w(%s, %s)" %
@@ -345,9 +340,6 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
         arg = "w%d" % self.succ()
         self.args.append(arg)
         return arg
-
-    def visit_function(self, (func, cls)):
-        raise FastFuncNotSupported
 
     def visit_self(self, typ):
         self.unwrap.append("space.descr_self_interp_w(%s, %s)" %
@@ -552,7 +544,7 @@ class BuiltinCode(eval.Code):
             unwrap_spec = list(unwrap_spec)
             if descrmismatch is not None:
                 assert issubclass(self_type, Wrappable)
-                unwrap_spec[0] = ('self', self_type)
+                unwrap_spec[0] = ('INTERNAL:self', self_type)
                 self.descrmismatch_op = descrmismatch
                 self.descr_reqcls = self_type
             else:
