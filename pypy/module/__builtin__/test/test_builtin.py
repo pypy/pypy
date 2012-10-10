@@ -116,11 +116,11 @@ class AppTestBuiltinApp:
         assert chr(0x9876) == '\u9876'
         if sys.maxunicode > 0xFFFF:
             assert chr(sys.maxunicode) == '\U0010FFFF'
-            assert chr(0x10000) == '\U00010000'
         else:
             assert chr(sys.maxunicode) == '\uFFFF'
+        assert chr(0x00010000) == '\U00010000'
+        assert chr(0x0010ffff) == '\U0010FFFF'
         raises(ValueError, chr, -1)
-        raises(ValueError, chr, sys.maxunicode+1)
 
     def test_globals(self):
         d = {"foo":"bar"}
