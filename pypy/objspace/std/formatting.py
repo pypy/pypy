@@ -500,7 +500,7 @@ FORMATTER_CHARS = unrolling_iterable(
     [_name[-1] for _name in dir(StringFormatter)
                if len(_name) == 5 and _name.startswith('fmt_')])
 
-def format(space, w_fmt, values_w, w_valuedict=None, do_unicode=False):
+def format(space, w_fmt, values_w, w_valuedict, do_unicode):
     "Entry point"
     if not do_unicode:
         fmt = space.str_w(w_fmt)

@@ -1,6 +1,5 @@
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import NoneNotWrapped
 from pypy.interpreter.pyopcode import LoopBlock
 from pypy.rlib import jit
 from pypy.rlib.objectmodel import specialize

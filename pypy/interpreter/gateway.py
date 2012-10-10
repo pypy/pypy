@@ -13,8 +13,6 @@ import types
 
 import py
 
-NoneNotWrapped = object()
-
 from pypy.interpreter import eval
 from pypy.interpreter.argument import Arguments, Signature
 from pypy.interpreter.baseobjspace import (W_Root, ObjSpace, Wrappable,
@@ -96,6 +94,10 @@ class UnwrapSpecEmit(UnwrapSpecRecipe):
         name = obj.__name__
         self.miniglobals[name] = obj
         return name
+
+
+def is_none(space, w_obj):
+    return w_obj is None or space.is_w(w_obj, space.w_None)
 
 #________________________________________________________________
 
@@ -519,8 +521,6 @@ class BuiltinCode(eval.Code):
     # When a BuiltinCode is stored in a Function object,
     # you get the functionality of CPython's built-in function type.
 
-    NOT_RPYTHON_ATTRIBUTES = ['_bltin', '_unwrap_spec']
-
     def __init__(self, func, unwrap_spec=None, self_type=None, descrmismatch=None):
         "NOT_RPYTHON"
         # 'implfunc' is the interpreter-level function.
@@ -802,16 +802,7 @@ class BuiltinCode4(BuiltinCode):
 class interp2app(Wrappable):
     """Build a gateway that calls 'f' at interp-level."""
 
-    # NOTICE interp2app defaults are stored and passed as
-    # wrapped values, this to avoid having scope_w be of mixed
-    # wrapped and unwrapped types;
-    # an exception is made for the NoneNotWrapped special value
-    # which is passed around as default as an unwrapped None,
-    # unwrapped None and wrapped types are compatible
-    #
     # Takes optionally an unwrap_spec, see BuiltinCode
-
-    NOT_RPYTHON_ATTRIBUTES = ['_staticdefs']
 
     instancecache = {}
 
@@ -854,6 +845,7 @@ class interp2app(Wrappable):
 
     def _getdefaults(self, space):
         "NOT_RPYTHON"
+        import pdb; pdb.set_trace()
         defs_w = []
         for val in self._staticdefs:
             if val is NoneNotWrapped:

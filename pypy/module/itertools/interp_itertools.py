@@ -87,7 +87,7 @@ class W_Repeat(Wrappable):
         self.space = space
         self.w_obj = w_obj
 
-        if space.is_w(w_times, space.w_None):
+        if w_times is None:
             self.counting = False
             self.count = 0
         else:
@@ -966,7 +966,8 @@ class W_GroupBy(Wrappable):
                     self.new_group = True #new group
                     raise StopIteration
 
-def W_GroupBy___new__(space, w_subtype, w_iterable, w_key=None):
+@unwrap_spec(w_key = (W_Root, 'space.w_None'))
+def W_GroupBy___new__(space, w_subtype, w_iterable, w_key):
     r = space.allocate_instance(W_GroupBy, w_subtype)
     r.__init__(space, w_iterable, w_key)
     return space.wrap(r)
@@ -1336,7 +1337,8 @@ class W_Permutations(Wrappable):
         self.stopped = True
         return w_result
 
-def W_Permutations__new__(space, w_subtype, w_iterable, w_r=None):
+@unwrap_spec(w_r = (W_Root, 'space.w_None'))
+def W_Permutations__new__(space, w_subtype, w_iterable, w_r):
     pool_w = space.fixedview(w_iterable)
     if space.is_w(w_r, space.w_None):
         r = len(pool_w)

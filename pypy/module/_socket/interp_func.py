@@ -61,8 +61,8 @@ def gethostbyaddr(space, host):
         raise converted_error(space, e)
     return common_wrapgethost(space, res)
 
-@unwrap_spec(name=str)
-def getservbyname(space, name, w_proto=None):
+@unwrap_spec(name=str, w_proto = (W_Root, 'space.w_None'))
+def getservbyname(space, name, w_proto):
     """getservbyname(servicename[, protocolname]) -> integer
 
     Return a port number from a service name and protocol name.
@@ -79,8 +79,8 @@ def getservbyname(space, name, w_proto=None):
         raise converted_error(space, e)
     return space.wrap(port)
 
-@unwrap_spec(port=int)
-def getservbyport(space, port, w_proto=None):
+@unwrap_spec(port=int, w_proto = (W_Root, 'space.w_None'))
+def getservbyport(space, port, w_proto):
     """getservbyport(port[, protocolname]) -> string
 
     Return the service name from a port number and protocol name.

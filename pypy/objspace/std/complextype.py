@@ -1,4 +1,4 @@
-from pypy.interpreter import gateway
+from pypy.interpreter.gateway import interp2app, unwrap_spec, W_Root
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.strutil import string_to_float, ParseStringError
@@ -115,14 +115,15 @@ def _split_complex(s):
     return realpart, imagpart
 
 
-def descr__new__(space, w_complextype, w_real=0.0, w_imag=None):
+@unwrap_spec(w_real = (W_Root, 'space.wrap("0.0")'))
+def descr__new__(space, w_complextype, w_real, w_imag=None):
     from pypy.objspace.std.complexobject import W_ComplexObject
 
     # if w_real is already a complex number and there is no second
     # argument, return it.  Note that we cannot return w_real if
     # it is an instance of a *subclass* of complex, or if w_complextype
     # is itself a subclass of complex.
-    noarg2 = space.is_w(w_imag, space.w_None)
+    noarg2 = w_imag is None
     if (noarg2 and space.is_w(w_complextype, space.w_complex)
                and space.is_w(space.type(w_real), space.w_complex)):
         return w_real
@@ -232,8 +233,8 @@ complex_typedef = StdTypeDef("complex",
 
 Create a complex number from a real part and an optional imaginary part.
 This is equivalent to (real + imag*1j) where imag defaults to 0.""",
-    __new__ = gateway.interp2app(descr__new__),
-    __getnewargs__ = gateway.interp2app(descr___getnewargs__),
+    __new__ = interp2app(descr__new__),
+    __getnewargs__ = interp2app(descr___getnewargs__),
     real = complexwprop('realval'),
     imag = complexwprop('imagval'),
     )

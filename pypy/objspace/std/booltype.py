@@ -1,8 +1,9 @@
-from pypy.interpreter import gateway
+from pypy.interpreter.gateway import interp2app, unwrap_spec, W_Root
 from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.inttype import int_typedef
 
-def descr__new__(space, w_booltype, w_obj=None):
+@unwrap_spec(w_obj = (W_Root, 'space.w_False'))
+def descr__new__(space, w_booltype, w_obj):
     space.w_bool.check_user_subclass(w_booltype)
     if space.is_true(w_obj):
         return space.w_True
@@ -17,6 +18,6 @@ bool_typedef = StdTypeDef("bool", int_typedef,
 Returns True when the argument x is true, False otherwise.
 The builtins True and False are the only two instances of the class bool.
 The class bool is a subclass of the class int, and cannot be subclassed.''',
-    __new__ = gateway.interp2app(descr__new__),
+    __new__ = interp2app(descr__new__),
     )
 bool_typedef.acceptable_as_base_class = False

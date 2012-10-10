@@ -8,9 +8,6 @@ import os, sys
 import inspect
 
 class MixedModule(Module):
-
-    NOT_RPYTHON_ATTRIBUTES = ['loaders']
-
     applevel_name = None
     expose__file__attribute = True
 

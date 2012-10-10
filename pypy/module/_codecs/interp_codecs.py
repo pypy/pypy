@@ -1,5 +1,5 @@
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.gateway import NoneNotWrapped, interp2app, unwrap_spec
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.rlib.rstring import UnicodeBuilder
 from pypy.rlib.objectmodel import we_are_translated
 
@@ -598,7 +598,8 @@ class Charmap_Encode:
         raise OperationError(space.w_TypeError, space.wrap("invalid mapping"))
 
 
-@unwrap_spec(string=str, errors='str_or_None')
+@unwrap_spec(string=str, errors='str_or_None',
+             w_mapping = (W_Root, 'space.w_None'))
 def charmap_decode(space, string, errors="strict", w_mapping=None):
     if errors is None:
         errors = 'strict'
@@ -617,7 +618,8 @@ def charmap_decode(space, string, errors="strict", w_mapping=None):
         final, state.decode_error_handler, mapping)
     return space.newtuple([space.wrap(result), space.wrap(consumed)])
 
-@unwrap_spec(uni=unicode, errors='str_or_None')
+@unwrap_spec(uni=unicode, errors='str_or_None',
+             w_mapping = (W_Root, 'space.w_None'))
 def charmap_encode(space, uni, errors="strict", w_mapping=None):
     if errors is None:
         errors = 'strict'

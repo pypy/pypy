@@ -143,8 +143,8 @@ class W_Kqueue(Wrappable):
     def descr_close(self, space):
         self.close()
 
-    @unwrap_spec(max_events=int)
-    def descr_control(self, space, w_changelist, max_events, w_timeout=None):
+    @unwrap_spec(max_events=int, w_timeout = (W_Root, 'space.w_None'))
+    def descr_control(self, space, w_changelist, max_events, w_timeout):
 
         self.check_closed(space)
 

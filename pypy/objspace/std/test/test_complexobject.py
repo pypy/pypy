@@ -570,3 +570,6 @@ class AppTestAppComplexTest:
         assert '{0:F}'.format(complex(NAN, 0)) == 'NAN+0.000000j'
         assert '{0:f}'.format(complex(NAN, NAN)) == 'nan+nanj'
         assert '{0:F}'.format(complex(NAN, NAN)) == 'NAN+NANj'
+
+    def test_complex_two_arguments(self):
+        raises(TypeError, complex, 5, None)

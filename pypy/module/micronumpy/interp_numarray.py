@@ -1,7 +1,7 @@
 
 from pypy.interpreter.error import operationerrfmt, OperationError
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.gateway import interp2app, unwrap_spec, is_none
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array,\
      ArrayArgumentException
 from pypy.module.micronumpy import interp_dtype, interp_ufuncs, interp_boxes
@@ -293,7 +293,7 @@ class __extend__(W_NDimArray):
         return space.newlist(l_w)
 
     def descr_ravel(self, space, w_order=None):
-        if w_order is None or space.is_w(w_order, space.w_None):
+        if is_none(space, w_order):
             order = 'C'
         else:
             order = space.str_w(w_order)
@@ -306,15 +306,18 @@ class __extend__(W_NDimArray):
         # if w_axis is None and w_out is Nont this is an equivalent to
         # fancy indexing
         raise Exception("unsupported for now")
-        if not space.is_w(w_axis, space.w_None):
+        if not is_none(space, w_axis):
             raise OperationError(space.w_NotImplementedError,
                                  space.wrap("axis unsupported for take"))
-        if not space.is_w(w_out, space.w_None):
+        if not is_none(space, w_out):
             raise OperationError(space.w_NotImplementedError,
                                  space.wrap("out unsupported for take"))
         return self.getitem_int(space, convert_to_array(space, w_obj))
 
     def descr_compress(self, space, w_obj, w_axis=None):
+        if not is_none(space, w_axis):
+            raise OperationError(space.w_NotImplementedError,
+                                 space.wrap("axis unsupported for compress"))
         index = convert_to_array(space, w_obj)
         return self.getitem_filter(space, index)
 
@@ -341,7 +344,7 @@ class __extend__(W_NDimArray):
         return coords
 
     def descr_item(self, space, w_arg=None):
-        if space.is_w(w_arg, space.w_None):
+        if is_none(space, w_arg):
             if self.is_scalar():
                 return self.get_scalar_value().item(space)
             if self.get_size() == 1:

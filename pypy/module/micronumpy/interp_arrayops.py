@@ -4,7 +4,7 @@ from pypy.module.micronumpy import loop, interp_ufuncs
 from pypy.module.micronumpy.iter import Chunk, Chunks
 from pypy.module.micronumpy.strides import shape_agreement
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.gateway import unwrap_spec
+from pypy.interpreter.gateway import unwrap_spec, is_none
 
 def where(space, w_arr, w_x=None, w_y=None):
     """where(condition, [x, y])
@@ -127,7 +127,7 @@ def concatenate(space, w_args, axis=0):
 @unwrap_spec(repeats=int)
 def repeat(space, w_arr, repeats, w_axis=None):
     arr = convert_to_array(space, w_arr)
-    if space.is_w(w_axis, space.w_None):
+    if is_none(space, w_axis):
         arr = arr.descr_flatten(space)
         orig_size = arr.get_shape()[0]
         shape = [arr.get_shape()[0] * repeats]
