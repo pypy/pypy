@@ -668,6 +668,12 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         else:
             self.space.call_function(w_exitfunc, w_None, w_None, w_None)
 
+    def LOAD_FAST(self, varindex, next_instr):
+        w_value = self.locals_stack_w[varindex]
+        if w_value is None:
+            raise FlowingError(self, "Local variable referenced before assignment")
+        self.pushvalue(w_value)
+
     def LOAD_GLOBAL(self, nameindex, next_instr):
         w_result = self.space.find_global(self.w_globals, self.getname_u(nameindex))
         self.pushvalue(w_result)

@@ -1122,6 +1122,12 @@ class TestFlowObjSpace(Base):
             self.codetest(f)
         assert "closure" in str(excinfo.value)
 
+    def test_unbound_local(self):
+        def f():
+            x += 1
+        with py.test.raises(FlowingError):
+            self.codetest(f)
+
 DATA = {'x': 5,
         'y': 6}
 
