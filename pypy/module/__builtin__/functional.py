@@ -309,9 +309,6 @@ class W_Range(Wrappable):
             return space.mod(space.wrap("range(%d, %d, %d)"),
                              space.newtuple([self.w_start, self.w_stop, 
                                              self.w_step]))
-        elif space.is_true(space.eq(self.w_start, space.newint(0))):
-            return space.mod(space.wrap("range(%d)"),
-                             space.newtuple([self.w_stop]))
         else:
             return space.mod(space.wrap("range(%d, %d)"),
                              space.newtuple([self.w_start, self.w_stop]))
