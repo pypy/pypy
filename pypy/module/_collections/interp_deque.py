@@ -82,7 +82,7 @@ class W_Deque(Wrappable):
 
     def init(self, w_iterable=None, w_maxlen=None):
         space = self.space
-        if space.is_w(w_maxlen, space.w_None):
+        if space.is_none(w_maxlen):
             maxlen = sys.maxint
         else:
             maxlen = space.gateway_nonnegint_w(w_maxlen)

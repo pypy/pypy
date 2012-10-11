@@ -811,7 +811,7 @@ class ObjSpace(object):
         interpreter class (a subclass of Wrappable).
         """
         assert RequiredClass is not None
-        if can_be_None and self.is_w(w_obj, self.w_None):
+        if can_be_None and self.is_none(w_obj):
             return None
         obj = self.interpclass_w(w_obj)
         if not isinstance(obj, RequiredClass):   # or obj is None
