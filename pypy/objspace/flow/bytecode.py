@@ -1,14 +1,11 @@
 """
 Bytecode handling classes and functions for use by the flow space.
 """
-from types import CodeType
-from pypy.interpreter.pycode import (BytecodeCorruption, cpython_magic,
+from pypy.interpreter.pycode import (BytecodeCorruption,
         cpython_code_signature)
 from pypy.tool.stdlib_opcode import (host_bytecode_spec, EXTENDED_ARG,
         HAVE_ARGUMENT)
-from pypy.interpreter.astcompiler.consts import (CO_GENERATOR, CO_NEWLOCALS,
-        CO_VARARGS, CO_VARKEYWORDS)
-from pypy.objspace.flow.model import Constant
+from pypy.interpreter.astcompiler.consts import CO_GENERATOR
 
 class HostCode(object):
     """

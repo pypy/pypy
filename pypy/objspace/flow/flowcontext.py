@@ -6,11 +6,9 @@ from pypy.interpreter import pyframe
 from pypy.interpreter.argument import ArgumentsForTranslation
 from pypy.interpreter.pyopcode import Return, BytecodeCorruption
 from pypy.objspace.flow.model import (Constant, Variable, Block, Link,
-    UnwrapException, SpaceOperation, FunctionGraph, c_last_exception)
+    UnwrapException, c_last_exception)
 from pypy.objspace.flow.framestate import (FrameState, recursively_unflatten,
         recursively_flatten)
-from pypy.objspace.flow.bytecode import HostCode
-from pypy.objspace.flow.pygraph import PyGraph
 from pypy.objspace.flow.specialcase import (rpython_print_item,
         rpython_print_newline)
 

@@ -1,10 +1,8 @@
 from pypy.conftest import option
 from pypy.objspace.flow.objspace import FlowObjSpace
 from pypy.objspace.flow.model import Variable
-from pypy.interpreter.argument import Signature
 from pypy.objspace.flow.generator import (make_generatoriterator_class,
-        replace_graph_with_bootstrap, get_variable_names,
-        tweak_generator_body_graph, attach_next_method)
+        replace_graph_with_bootstrap, get_variable_names, attach_next_method)
 from pypy.translator.simplify import join_blocks
 
 

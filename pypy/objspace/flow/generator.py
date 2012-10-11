@@ -1,5 +1,5 @@
 from pypy.objspace.flow.model import Block, Link, SpaceOperation, checkgraph
-from pypy.objspace.flow.model import Variable, Constant, FunctionGraph
+from pypy.objspace.flow.model import Variable, Constant
 from pypy.translator.unsimplify import insert_empty_startblock
 from pypy.translator.unsimplify import split_block
 from pypy.translator.simplify import eliminate_empty_blocks, simplify_graph
