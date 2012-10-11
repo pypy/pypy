@@ -3790,6 +3790,24 @@ class TestAnnotateTestCase:
         s = a.build_types(fn, [annmodel.SomeChar()])
         assert s == annmodel.SomeChar()
 
+    def test_isinstance_double_const(self):
+        class X(object):
+            def _freeze_(self):
+                return True
+
+        x = X()
+        
+        def f(i):
+            if i:
+                x1 = x
+            else:
+                x1 = None
+            print "hello" # this is to force the merge of blocks
+            return isinstance(x1, X)
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [annmodel.SomeInteger()])
+        assert isinstance(s, annmodel.SomeBool)
 
 def g(n):
     return [0,1,2,n]
