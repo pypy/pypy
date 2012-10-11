@@ -4,7 +4,6 @@ from pypy.tool.sourcetools import func_with_new_name
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import NoneNotWrapped
 from pypy.module.cmath import names_and_docstrings
-from pypy.rlib.rfloat import isfinite
 from pypy.rlib import rcomplex
 
 pi = math.pi
@@ -171,7 +170,7 @@ def wrapped_isnan(space, w_z):
 wrapped_isnan.func_doc = names_and_docstrings['isnan']
 
 def c_isfinite(x, y):
-    return isfinite(x) and isfinite(y)
+    return rcomplex.c_isfinite(x, y)
 
 def wrapped_isfinite(space, w_z):
     x, y = space.unpackcomplex(w_z)
