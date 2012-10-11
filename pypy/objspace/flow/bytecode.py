@@ -19,7 +19,7 @@ class HostCode(object):
 
     def __init__(self, argcount, nlocals, stacksize, flags,
                      code, consts, names, varnames, filename,
-                     name, firstlineno, lnotab, freevars, cellvars):
+                     name, firstlineno, lnotab, freevars):
         """Initialize a new code object"""
         self.co_name = name
         assert nlocals >= 0
@@ -32,7 +32,6 @@ class HostCode(object):
         self.names = names
         self.co_varnames = varnames
         self.co_freevars = freevars
-        self.co_cellvars = cellvars
         self.co_filename = filename
         self.co_name = name
         self.co_firstlineno = firstlineno
@@ -55,8 +54,7 @@ class HostCode(object):
                       code.co_name,
                       code.co_firstlineno,
                       code.co_lnotab,
-                      list(code.co_freevars),
-                      list(code.co_cellvars))
+                      list(code.co_freevars))
 
     @property
     def formalargcount(self):
@@ -73,7 +71,7 @@ class HostCode(object):
         if len(closure) != len(self.co_freevars):
             raise ValueError("code object received a closure with "
                                  "an unexpected number of free variables")
-        return [Cell() for _ in self.co_cellvars] + closure
+        return closure
 
 
     def read(self, pos):
