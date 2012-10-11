@@ -1336,7 +1336,7 @@ class AppTestMultithreadedImp(object):
         cls.w_tmppath = cls.space.wrap(str(udir))
 
     def test_multithreaded_import(self):
-        import sys, thread, time
+        import sys, _thread, time
         oldpath = sys.path[:]
         try:
             sys.path.insert(0, self.tmppath)
@@ -1347,7 +1347,7 @@ class AppTestMultithreadedImp(object):
                 got.append(getattr(test_multithreaded_imp, 'x', '?'))
 
             for i in range(5):
-                thread.start_new_thread(check, ())
+                _thread.start_new_thread(check, ())
 
             for n in range(100):
                 for i in range(105): time.sleep(0.001)
