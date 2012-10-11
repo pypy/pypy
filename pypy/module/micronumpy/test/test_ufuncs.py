@@ -1,7 +1,20 @@
 
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
+from pypy.rlib.rcomplex import c_pow
+
+from pypy.conftest import option
+
 
 class AppTestUfuncs(BaseNumpyAppTest):
+    def setup_class(cls):
+        import os
+        BaseNumpyAppTest.setup_class.im_func(cls)
+        def cls_c_pow(self, *args):
+            return c_pow(*args)
+        cls.w_c_pow = cls.space.wrap(cls_c_pow)
+        cls.w_runAppDirect = cls.space.wrap(option.runappdirect)
+        cls.w_isWindows = cls.space.wrap(os.name == 'nt')
+
     def test_ufunc_instance(self):
         from _numpypy import add, ufunc
 
@@ -115,6 +128,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
     def test_true_divide(self):
         import math
         from _numpypy import array, true_divide
+        import math
 
         a = array([0, 1, 2, 3, 4, 1, -1])
         b = array([4, 4, 4, 4, 4, 0,  0])
@@ -124,7 +138,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert math.isnan(true_divide(0, 0))
 
     def test_fabs(self):
-        from _numpypy import array, fabs
+        from _numpypy import array, fabs, complex128
         from math import fabs as math_fabs, isnan
 
         a = array([-5.0, -0.0, 1.0])
@@ -135,8 +149,9 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert fabs(float('-inf')) == float('inf')
         assert isnan(fabs(float('nan')))
 
+
     def test_fmax(self):
-        from _numpypy import fmax
+        from _numpypy import fmax, array
         import math
 
         nnan, nan, inf, ninf = float('-nan'), float('nan'), float('inf'), float('-inf')
@@ -156,7 +171,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
 
     def test_fmin(self):
-        from _numpypy import fmin
+        from _numpypy import fmin, array
         import math
 
         nnan, nan, inf, ninf = float('-nan'), float('nan'), float('inf'), float('-inf')
@@ -172,6 +187,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         # use copysign on both sides to sidestep bug in nan representaion
         # on Microsoft win32
         assert math.copysign(1., fmin(nnan, nan)) == math.copysign(1., nnan)
+
 
     def test_fmod(self):
         from _numpypy import fmod
@@ -228,6 +244,10 @@ class AppTestUfuncs(BaseNumpyAppTest):
         for i in range(10):
             assert a[i] == ref[i]
 
+        a = sign(array([10+10j, -10+10j, 0+10j, 0-10j, 0+0j, 0-0j], dtype=complex))
+        ref = [1, -1, 1, -1, 0, 0]
+        assert (a == ref).all()
+
     def test_signbit(self):
         from _numpypy import signbit
 
@@ -235,15 +255,18 @@ class AppTestUfuncs(BaseNumpyAppTest):
             [False, False, False, False, False]).all()
         assert (signbit([-0, -0.0, -1, -1.0, float('-inf')]) ==
             [False,  True,  True,  True,  True]).all()
+
         skip('sign of nan is non-determinant')
         assert (signbit([float('nan'), float('-nan'), -float('nan')]) ==
             [False, True, True]).all()    
 
-    def test_reciporocal(self):
-        from _numpypy import array, reciprocal
+    def test_reciprocal(self):
+        from _numpypy import array, reciprocal, complex64, complex128
 
-        reference = [-0.2, float("inf"), float("-inf"), 2.0]
-        a = array([-5.0, 0.0, -0.0, 0.5])
+        inf = float('inf')
+        nan = float('nan')
+        reference = [-0.2, inf, -inf, 2.0, nan]
+        a = array([-5.0, 0.0, -0.0, 0.5, nan])
         b = reciprocal(a)
         for i in range(4):
             assert b[i] == reference[i]
@@ -258,7 +281,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert c[i] == a[i] - b[i]
 
     def test_floorceiltrunc(self):
-        from _numpypy import array, floor, ceil, trunc
+        from _numpypy import array, floor, ceil, trunc, complex128
         import math
         ninf, inf = float("-inf"), float("inf")
         a = array([ninf, -1.4, -1.5, -1.0, 0.0, 1.0, 1.4, 0.5, inf])
@@ -299,11 +322,13 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert b[i] == res
 
     def test_exp2(self):
-        import math
+        import math 
         from _numpypy import array, exp2
+        inf = float('inf')
+        ninf = -float('inf')
+        nan = float('nan')
 
-        a = array([-5.0, -0.0, 0.0, 2, 12345678.0, float("inf"),
-                   -float('inf'), -12343424.0])
+        a = array([-5.0, -0.0, 0.0, 2, 12345678.0, inf, ninf, -12343424.0])
         b = exp2(a)
         for i in range(len(a)):
             try:
@@ -313,11 +338,14 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert b[i] == res
 
         assert exp2(3) == 8
-        assert math.isnan(exp2(float("nan")))
+        assert math.isnan(exp2(nan))
 
     def test_expm1(self):
-        import math
+        import math, cmath
         from _numpypy import array, expm1
+        inf = float('inf')
+        ninf = -float('inf')
+        nan = float('nan')
 
         a = array([-5.0, -0.0, 0.0, 12345678.0, float("inf"),
                    -float('inf'), -12343424.0])
@@ -330,6 +358,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert b[i] == res
 
         assert expm1(1e-50) == 1e-50
+
 
     def test_sin(self):
         import math
@@ -669,10 +698,20 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
     def test_isfinite(self):
         from _numpypy import isfinite
+        inf = float('inf')
+        ninf = -float('inf')
+        nan = float('nan')
         assert (isfinite([0, 0.0, 1e50, -1e-50]) ==
             [True, True, True, True]).all()
-        assert (isfinite([float('-inf'), float('inf'), float('-nan'), float('nan')]) ==
+        assert (isfinite([ninf, inf, -nan, nan]) ==
             [False, False, False, False]).all()
+
+        a = [complex(0, 0), complex(1e50, -1e-50), complex(inf, 0),
+             complex(inf, inf), complex(inf, ninf), complex(0, inf),
+             complex(ninf, ninf), complex(nan, 0), complex(0, nan),
+             complex(nan, nan)]
+        assert (isfinite(a) == [True, True, False, False, False, 
+                        False, False, False, False, False]).all() 
 
     def test_logical_ops(self):
         from _numpypy import logical_and, logical_or, logical_xor, logical_not
@@ -762,10 +801,24 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
     def test_floordiv(self):
         from _numpypy import floor_divide, array
+        import math
         a = array([1., 2., 3., 4., 5., 6., 6.01])
         b = floor_divide(a, 2.5)
         for i in range(len(a)):
             assert b[i] == a[i] // 2.5
+        
+        a = array([10+10j, -15-100j, 0+10j], dtype=complex)
+        b = floor_divide(a, 2.5)
+        for i in range(len(a)):
+            assert b[i] == a[i] // 2.5
+        b = floor_divide(a, 2.5+3j)
+        #numpy returns (a.real*b.real + a.imag*b.imag) / abs(b)**2
+        expect = [3., -23., 1.]
+        for i in range(len(a)):
+            assert b[i] == expect[i] 
+        b = floor_divide(a[0], 0.)
+        assert math.isnan(b.real)
+        assert b.imag == 0.
 
     def test_logaddexp(self):
         import math
@@ -819,3 +872,5 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert logaddexp2(float('-inf'), float('inf')) == float('inf')
         assert logaddexp2(float('inf'), float('-inf')) == float('inf')
         assert logaddexp2(float('inf'), float('inf')) == float('inf')
+
+

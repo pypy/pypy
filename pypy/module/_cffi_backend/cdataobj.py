@@ -4,7 +4,7 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.rlib.objectmodel import keepalive_until_here
+from pypy.rlib.objectmodel import keepalive_until_here, specialize
 from pypy.rlib import objectmodel, rgc
 from pypy.tool.sourcetools import func_with_new_name
 
@@ -190,6 +190,7 @@ class W_CData(Wrappable):
     def iter(self):
         return self.ctype.iter(self)
 
+    @specialize.argtype(1)
     def write_raw_integer_data(self, source):
         misc.write_raw_integer_data(self._cdata, source, self.ctype.size)
         keepalive_until_here(self)

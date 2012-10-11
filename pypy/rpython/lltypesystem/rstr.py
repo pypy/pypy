@@ -405,12 +405,14 @@ class LLHelpers(AbstractLLHelpers):
         result = mallocstr(s_len)
         #        ^^^^^^^^^ specifically to explode on unicode
         while i < s_len:
-            ch = s_chars[i]
-            if 'a' <= ch <= 'z':
-                ch = chr(ord(ch) - 32)
-            result.chars[i] = ch
+            result.chars[i] = LLHelpers.ll_upper_char(s_chars[i])
             i += 1
         return result
+
+    def ll_upper_char(ch):
+        if 'a' <= ch <= 'z':
+            ch = chr(ord(ch) - 32)
+        return ch
 
     @jit.elidable
     def ll_lower(s):
@@ -422,12 +424,14 @@ class LLHelpers(AbstractLLHelpers):
         result = mallocstr(s_len)
         #        ^^^^^^^^^ specifically to explode on unicode
         while i < s_len:
-            ch = s_chars[i]
-            if 'A' <= ch <= 'Z':
-                ch = chr(ord(ch) + 32)
-            result.chars[i] = ch
+            result.chars[i] = LLHelpers.ll_lower_char(s_chars[i])
             i += 1
         return result
+
+    def ll_lower_char(ch):
+        if 'A' <= ch <= 'Z':
+            ch = chr(ord(ch) + 32)
+        return ch
 
     def ll_join(s, length, items):
         s_chars = s.chars

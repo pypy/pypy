@@ -701,7 +701,7 @@ class SourceGenerator:
                     localpath = py.path.local(g.filename)
                     pypkgpath = localpath.pypkgpath()
                     if pypkgpath:
-                        relpypath =  localpath.relto(pypkgpath)
+                        relpypath = localpath.relto(pypkgpath.dirname)
                         return relpypath.replace('.py', '.c')
             return None
         if hasattr(node.obj, 'graph'):

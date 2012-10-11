@@ -40,7 +40,18 @@ class AbstractStringRepr(Repr):
     
 
 class AbstractCharRepr(AbstractStringRepr):
-    pass
+    def rtype_method_lower(self, hop):
+        char_repr = hop.args_r[0].char_repr
+        v_chr, = hop.inputargs(char_repr)
+        hop.exception_cannot_occur()
+        return hop.gendirectcall(self.ll.ll_lower_char, v_chr)
+
+    def rtype_method_upper(self, hop):
+        char_repr = hop.args_r[0].char_repr
+        v_chr, = hop.inputargs(char_repr)
+        hop.exception_cannot_occur()
+        return hop.gendirectcall(self.ll.ll_upper_char, v_chr)
+
 
 class AbstractUniCharRepr(AbstractStringRepr):
     pass

@@ -67,7 +67,7 @@ class W_UnicodeObject(W_AbstractUnicodeObject):
         identifier = self._utf8
         if identifier is not None:
             return identifier
-        from pypy.objspace.std.unicodetype import encode_error_handler
+        from pypy.interpreter.unicodehelper import encode_error_handler
         from pypy.rlib.runicode import unicode_encode_utf_8
         u = self._value
         eh = encode_error_handler(space)

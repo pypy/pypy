@@ -396,6 +396,14 @@ class Test_rbigint(object):
             v = two.pow(t, rbigint.fromint(n))
             assert v.toint() == pow(2, t.tolong(), n)
 
+    def test_pow_lll_bug2(self):
+        x = rbigint.fromlong(2)
+        y = rbigint.fromlong(5100894665148900058249470019412564146962964987365857466751243988156579407594163282788332839328303748028644825680244165072186950517295679131100799612871613064597)
+        z = rbigint.fromlong(538564)
+        expected = rbigint.fromlong(163464)
+        got = x.pow(y, z)
+        assert got.eq(expected)
+
     def test_pow_lln(self):
         x = 10L
         y = 2L
