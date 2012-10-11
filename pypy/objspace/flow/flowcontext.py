@@ -3,7 +3,6 @@ import collections
 
 from pypy.tool.error import source_lines
 from pypy.interpreter import pyframe
-from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.argument import ArgumentsForTranslation
 from pypy.interpreter.pyopcode import Return, BytecodeCorruption
 from pypy.objspace.flow.model import (Constant, Variable, Block, Link,
@@ -229,7 +228,7 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         self.w_globals = Constant(func.func_globals)
         self.lastblock = None
 
-        self.cells = code.make_cells(func.func_closure)
+        self.init_closure(func.func_closure)
         self.f_lineno = code.co_firstlineno
         self.last_instr = 0
 
@@ -237,6 +236,13 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         self.w_locals = None # XXX: only for compatibility with PyFrame
 
         self.joinpoints = {}
+
+    def init_closure(self, closure):
+        if closure is None:
+            self.closure = []
+        else:
+            self.closure = [self.space.wrap(c.cell_contents) for c in closure]
+        assert len(self.closure) == len(self.pycode.co_freevars)
 
     def init_locals_stack(self, code):
         """
@@ -675,6 +681,9 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         w_value = self.space.getattr(w_obj, w_attributename)
         self.pushvalue(w_value)
     LOOKUP_METHOD = LOAD_ATTR
+
+    def LOAD_DEREF(self, varindex, next_instr):
+        self.pushvalue(self.closure[varindex])
 
     def BUILD_LIST_FROM_ARG(self, _, next_instr):
         # This opcode was added with pypy-1.8.  Here is a simpler

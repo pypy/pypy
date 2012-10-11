@@ -8,7 +8,6 @@ from pypy.tool.stdlib_opcode import (host_bytecode_spec, EXTENDED_ARG,
         HAVE_ARGUMENT)
 from pypy.interpreter.astcompiler.consts import (CO_GENERATOR, CO_NEWLOCALS,
         CO_VARARGS, CO_VARKEYWORDS)
-from pypy.interpreter.nestedscope import Cell
 from pypy.objspace.flow.model import Constant
 
 class HostCode(object):
@@ -61,18 +60,6 @@ class HostCode(object):
         """Total number of arguments passed into the frame, including *vararg
         and **varkwarg, if they exist."""
         return self.signature.scope_length()
-
-    def make_cells(self, closure):
-        """Convert a Python closure object into a list of Cells"""
-        if closure is not None:
-            closure = [Cell(Constant(c.cell_contents)) for c in closure]
-        else:
-            closure = []
-        if len(closure) != len(self.co_freevars):
-            raise ValueError("code object received a closure with "
-                                 "an unexpected number of free variables")
-        return closure
-
 
     def read(self, pos):
         """
