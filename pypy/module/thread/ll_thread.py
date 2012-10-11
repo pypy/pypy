@@ -17,9 +17,9 @@ eci = ExternalCompilationInfo(
     separate_module_sources = [''],
     include_dirs = [str(py.path.local(autopath.pypydir).join('translator', 'c'))],
     export_symbols = ['RPyThreadGetIdent', 'RPyThreadLockInit',
-                      'RPyThreadAcquireLock', 'RPyThreadReleaseLock',
-                      'RPyGilAllocate', 'RPyGilYieldThread',
-                      'RPyGilRelease', 'RPyGilAcquire',
+                      'RPyThreadAcquireLock', 'RPyThreadAcquireLockTimed',
+                      'RPyThreadReleaseLock', 'RPyGilAllocate',
+                      'RPyGilYieldThread', 'RPyGilRelease', 'RPyGilAcquire',
                       'RPyThreadGetStackSize', 'RPyThreadSetStackSize',
                       'RPyOpaqueDealloc_ThreadLock',
                       'RPyThreadAfterFork']
