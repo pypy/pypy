@@ -50,6 +50,7 @@ class W_Super(Wrappable):
 def descr_new_super(space, w_subtype, w_starttype, w_obj_or_type=None):
     if space.is_none(w_obj_or_type):
         w_type = None  # unbound super object
+        w_obj_or_type = space.w_None
     else:
         w_objtype = space.type(w_obj_or_type)
         if space.is_true(space.issubtype(w_objtype, space.w_type)) and \

@@ -424,12 +424,13 @@ class Function(Wrappable):
             w_res = space.w_None
         return w_res
 
+
 def descr_function_get(space, w_function, w_obj, w_cls=None):
     """functionobject.__get__(obj[, type]) -> method"""
     # this is not defined as a method on Function because it's generally
     # useful logic: w_function can be any callable.  It is used by Method too.
     asking_for_bound = (space.is_none(w_cls) or
-                        not space.is_none(w_obj) or
+                        not space.is_w(w_obj, space.w_None) or
                         space.is_w(w_cls, space.type(space.w_None)))
     if asking_for_bound:
         return space.wrap(Method(space, w_function, w_obj, w_cls))
@@ -613,7 +614,7 @@ class ClassMethod(Wrappable):
         self.w_function = w_function
 
     def descr_classmethod_get(self, space, w_obj, w_klass=None):
-        if space.is_w(w_klass, space.w_None):
+        if space.is_none(w_klass):
             w_klass = space.type(w_obj)
         return space.wrap(Method(space, self.w_function, w_klass, space.w_None))
 
