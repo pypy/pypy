@@ -51,12 +51,10 @@ def PyUnicode_DecodeRawUnicodeEscape(space, string):
 def PyUnicode_DecodeUTF8(space, string):
     result, consumed = runicode.str_decode_utf_8(
         string, len(string), "strict",
-        final=True, errorhandler=decode_error_handler(space),
-        allow_surrogates=True)
+        final=True, errorhandler=decode_error_handler(space))
     return result
 
 def PyUnicode_EncodeUTF8(space, uni):
     return runicode.unicode_encode_utf_8(
         uni, len(uni), "strict",
-        errorhandler=encode_error_handler(space),
-        allow_surrogates=True)
+        errorhandler=encode_error_handler(space))
