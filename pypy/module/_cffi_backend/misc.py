@@ -209,11 +209,6 @@ def as_unsigned_long_long(space, w_ob, strict):
 
 def as_unsigned_long(space, w_ob, strict):
     # same as as_unsigned_long_long(), but returning just an Unsigned
-    if space.is_w(space.type(w_ob), space.w_int):   # shortcut
-        value = space.int_w(w_ob)
-        if strict and value < 0:
-            raise OperationError(space.w_OverflowError, space.wrap(neg_msg))
-        return r_uint(value)
     try:
         bigint = space.bigint_w(w_ob)
     except OperationError, e:
@@ -242,8 +237,6 @@ class _NotStandardObject(Exception):
 
 def _standard_object_as_bool(space, w_ob):
     if space.isinstance_w(w_ob, space.w_int):
-        return space.int_w(w_ob) != 0
-    if space.isinstance_w(w_ob, space.w_long):
         return space.bigint_w(w_ob).tobool()
     if space.isinstance_w(w_ob, space.w_float):
         return space.float_w(w_ob) != 0.0
