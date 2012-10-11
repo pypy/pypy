@@ -496,7 +496,7 @@ class LLFrame(object):
             vars.append(op.result)
 
         for v in vars:
-            TYPE = getattr(v, 'concretetype', None)
+            TYPE = v.concretetype
             if isinstance(TYPE, lltype.Ptr) and TYPE.TO._gckind == 'gc':
                 roots.append(_address_of_local_var(self, v))
 
