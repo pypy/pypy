@@ -1,6 +1,6 @@
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.gateway import interp2app, unwrap_spec, NoneNotWrapped
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
 from pypy.module.micronumpy import interp_boxes, interp_dtype, loop
 from pypy.rlib import jit
@@ -76,7 +76,7 @@ class W_Ufunc(Wrappable):
         return self.call(space, args_w)
 
     @unwrap_spec(skipna=bool, keepdims=bool)
-    def descr_reduce(self, space, w_obj, w_axis=NoneNotWrapped, w_dtype=None,
+    def descr_reduce(self, space, w_obj, w_axis=None, w_dtype=None,
                      skipna=False, keepdims=False, w_out=None):
         """reduce(...)
         reduce(a, axis=0)
@@ -133,7 +133,7 @@ class W_Ufunc(Wrappable):
         from pypy.module.micronumpy.interp_numarray import W_NDimArray
         if w_axis is None:
             w_axis = space.wrap(0)
-        if space.is_w(w_out, space.w_None):
+        if space.is_none(w_out):
             out = None
         elif not isinstance(w_out, W_NDimArray):
             raise OperationError(space.w_TypeError, space.wrap(
@@ -308,7 +308,7 @@ class W_Ufunc2(W_Ufunc):
             promote_bools=self.promote_bools,
             allow_complex=self.allow_complex,
             )
-        if space.is_w(w_out, space.w_None) or w_out is None:
+        if space.is_none(w_out):
             out = None
         elif not isinstance(w_out, W_NDimArray):
             raise OperationError(space.w_TypeError, space.wrap(

@@ -4,12 +4,11 @@ Interp-level implementation of the basic space operations.
 
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import unwrap_spec
+from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from pypy.rlib.runicode import UNICHR
 from pypy.rlib.rfloat import isnan, isinf, round_double
 from pypy.rlib import rfloat
 import __builtin__
-NoneNotWrapped = gateway.NoneNotWrapped
 
 def abs(space, w_val):
     "abs(number) -> number\n\nReturn the absolute value of the argument."
@@ -59,7 +58,7 @@ delattr(x, 'y') is equivalent to ``del x.y''."""
     space.delattr(w_object, w_name)
     return space.w_None
 
-def getattr(space, w_object, w_name, w_defvalue=NoneNotWrapped):
+def getattr(space, w_object, w_name, w_defvalue=None):
     """Get a named attribute from an object.
 getattr(x, 'y') is equivalent to ``x.y''."""
     w_name = checkattrname(space, w_name)
@@ -125,8 +124,8 @@ def _issubtype(space, w_cls1, w_cls2):
 NDIGITS_MAX = int((rfloat.DBL_MANT_DIG - rfloat.DBL_MIN_EXP) * 0.30103)
 NDIGITS_MIN = -int((rfloat.DBL_MAX_EXP + 1) * 0.30103)
 
-@unwrap_spec(number=float)
-def round(space, number, w_ndigits=0):
+@unwrap_spec(number=float, w_ndigits = WrappedDefault(0))
+def round(space, number, w_ndigits):
     """round(number[, ndigits]) -> floating point number
 
 Round a number to a given precision in decimal digits (default 0 digits).
@@ -176,7 +175,7 @@ iter_sentinel = gateway.applevel('''
 
 ''', filename=__file__).interphook("iter_sentinel")
 
-def iter(space, w_collection_or_callable, w_sentinel=NoneNotWrapped):
+def iter(space, w_collection_or_callable, w_sentinel=None):
     """iter(collection) -> iterator over the elements of the collection.
 
 iter(callable, sentinel) -> iterator calling callable() until it returns
@@ -187,7 +186,7 @@ iter(callable, sentinel) -> iterator calling callable() until it returns
     else:
         return iter_sentinel(space, w_collection_or_callable, w_sentinel)
 
-def next(space, w_iterator, w_default=NoneNotWrapped):
+def next(space, w_iterator, w_default=None):
     """next(iterator[, default])
 Return the next item from the iterator. If default is given and the iterator
 is exhausted, it is returned instead of raising StopIteration."""
@@ -202,7 +201,8 @@ def ord(space, w_val):
     """Return the integer ordinal of a character."""
     return space.ord(w_val)
 
-def pow(space, w_base, w_exponent, w_modulus=None):
+@unwrap_spec(w_modulus = WrappedDefault(None))
+def pow(space, w_base, w_exponent, w_modulus):
     """With two arguments, equivalent to ``base**exponent''.
 With three arguments, equivalent to ``(base**exponent) % modulus'',
 but much more efficient for large exponents."""
@@ -234,6 +234,7 @@ def callable(space, w_object):
 function).  Note that classes are callable."""
     return space.callable(w_object)
 
-def format(space, w_obj, w_format_spec=""):
+@unwrap_spec(w_format_spec = WrappedDefault(""))
+def format(space, w_obj, w_format_spec):
     """Format a obj according to format_spec"""
     return space.format(w_obj, w_format_spec)

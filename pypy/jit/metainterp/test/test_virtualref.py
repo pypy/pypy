@@ -1,6 +1,6 @@
 import py
 from pypy.rpython.lltypesystem import lltype, llmemory, lloperation
-from pypy.rpython.llinterp import LLException
+from pypy.rpython.exceptiondata import UnknownException
 from pypy.rlib.jit import JitDriver, dont_look_inside, vref_None
 from pypy.rlib.jit import virtual_ref, virtual_ref_finish, InvalidVirtualRef
 from pypy.rlib.jit import non_virtual_ref
@@ -564,7 +564,7 @@ class VRefTests:
             return res
         #
         py.test.raises(InvalidVirtualRef, "fn(10)")
-        py.test.raises(LLException, "self.meta_interp(fn, [10])")
+        py.test.raises(UnknownException, "self.meta_interp(fn, [10])")
 
     def test_call_virtualref_already_forced(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'res'])

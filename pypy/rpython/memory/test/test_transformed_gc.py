@@ -1,10 +1,9 @@
 import py
-import sys
 import inspect
+
 from pypy.translator.c import gc
 from pypy.annotation import model as annmodel
-from pypy.annotation import policy as annpolicy
-from pypy.rpython.lltypesystem import lltype, llmemory, llarena, rffi, llgroup
+from pypy.rpython.lltypesystem import lltype, llmemory, rffi, llgroup
 from pypy.rpython.memory.gctransform import framework, shadowstack
 from pypy.rpython.lltypesystem.lloperation import llop, void
 from pypy.rlib.objectmodel import compute_unique_id, we_are_translated
@@ -25,7 +24,7 @@ def rtype(func, inputtypes, specialize=True, gcname='ref',
     t.config.translation.gc = gcname
     t.config.translation.gcremovetypeptr = True
     t.config.set(**extraconfigopts)
-    ann = t.buildannotator(policy=annpolicy.StrictAnnotatorPolicy())
+    ann = t.buildannotator()
     ann.build_types(func, inputtypes)
 
     if specialize:

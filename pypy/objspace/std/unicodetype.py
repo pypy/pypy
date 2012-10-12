@@ -1,5 +1,6 @@
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter import gateway, unicodehelper
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
+from pypy.interpreter import unicodehelper
 from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.basestringtype import basestring_typedef
@@ -190,11 +191,11 @@ def getdefaultencoding(space):
     return space.sys.defaultencoding
 
 def _get_encoding_and_errors(space, w_encoding, w_errors):
-    if space.is_w(w_encoding, space.w_None):
+    if space.is_none(w_encoding):
         encoding = None
     else:
         encoding = space.str_w(w_encoding)
-    if space.is_w(w_errors, space.w_None):
+    if space.is_none(w_errors):
         errors = None
     else:
         errors = space.str_w(w_errors)
@@ -309,7 +310,8 @@ def unicode_decode__unitypedef_ANY_ANY(space, w_unicode, w_encoding=None,
                              w_encoding, w_errors)
 
 
-def descr_new_(space, w_unicodetype, w_string='', w_encoding=None, w_errors=None):
+@unwrap_spec(w_string = WrappedDefault(""))
+def descr_new_(space, w_unicodetype, w_string, w_encoding=None, w_errors=None):
     # NB. the default value of w_obj is really a *wrapped* empty string:
     #     there is gateway magic at work
     from pypy.objspace.std.unicodeobject import W_UnicodeObject
@@ -349,7 +351,7 @@ def descr_new_(space, w_unicodetype, w_string='', w_encoding=None, w_errors=None
 # ____________________________________________________________
 
 unicode_typedef = StdTypeDef("unicode", basestring_typedef,
-    __new__ = gateway.interp2app(descr_new_),
+    __new__ = interp2app(descr_new_),
     __doc__ = '''unicode(string [, encoding[, errors]]) -> object
 
 Create a new Unicode object from the given encoded string.

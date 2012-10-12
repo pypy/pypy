@@ -65,6 +65,9 @@ class FakeSpace(object):
     def _freeze_(self):
         return True
 
+    def is_none(self, w_obj):
+        return w_obj is None or w_obj is self.w_None
+
     def issequence_w(self, w_obj):
         return isinstance(w_obj, ListObject) or isinstance(w_obj, W_NDimArray)
 

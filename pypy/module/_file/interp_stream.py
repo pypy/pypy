@@ -58,12 +58,11 @@ class W_AbstractStream(Wrappable):
                                  self.space.wrap("stream lock is not held"))
         self._release_lock()
 
-    def _freeze_(self):
+    def _cleanup_(self):
         # remove the lock object, which will be created again as needed at
         # run-time.
         self.slock = None
         assert self.slockowner is None
-        return False
 
     def stream_read(self, n):
         """

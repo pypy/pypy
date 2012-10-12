@@ -1,11 +1,15 @@
+import weakref
+
 import py
-from pypy.translator.translator import TranslationContext
+
+from pypy.rlib import rgc
+from pypy.rlib.objectmodel import (keepalive_until_here, compute_unique_id,
+    compute_hash, current_object_addr_as_int)
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.rpython.memory.test import snippet
-from pypy.translator.c.genc import CExtModuleBuilder
-from pypy.rlib.objectmodel import keepalive_until_here
-from pypy import conftest
+from pypy.rpython.lltypesystem.rstr import STR
+from pypy.translator.c.test.test_genc import compile
+
 
 def setup_module(mod):
     from pypy.rpython.tool.rffi_platform import configure_boehm
@@ -15,41 +19,22 @@ def setup_module(mod):
     except CompilationError:
         py.test.skip("Boehm GC not present")
 
+
 class AbstractGCTestClass(object):
     gcpolicy = "boehm"
     use_threads = False
-   
+
     # deal with cleanups
     def setup_method(self, meth):
         self._cleanups = []
+
     def teardown_method(self, meth):
         while self._cleanups:
             #print "CLEANUP"
             self._cleanups.pop()()
 
-    def getcompiled(self, func, argstypelist = [],
-                    annotatorpolicy=None):
-        from pypy.config.pypyoption import get_pypy_config
-        config = get_pypy_config(translating=True)
-        config.translation.gc = self.gcpolicy
-        config.translation.thread = self.use_threads
-        config.translation.simplifying = True
-        t = TranslationContext(config=config)
-        self.t = t
-        a = t.buildannotator(policy=annotatorpolicy)
-        a.build_types(func, argstypelist)
-        t.buildrtyper().specialize()
-        t.checkgraphs()
-        def compile():
-            cbuilder = CExtModuleBuilder(t, func, config=config)
-            c_source_filename = cbuilder.generate_source(
-                defines = cbuilder.DEBUG_DEFINES)
-            if conftest.option.view:
-                t.view()
-            cbuilder.compile()
-            self._cleanups.append(cbuilder.cleanup) # schedule cleanup after test
-            return cbuilder.get_entry_point(isolated=True)
-        return compile()
+    def getcompiled(self, func, argstypelist=[], annotatorpolicy=None):
+        return compile(func, argstypelist, gcpolicy=self.gcpolicy, thread=self.use_threads)
 
 
 class TestUsingBoehm(AbstractGCTestClass):
@@ -69,7 +54,6 @@ class TestUsingBoehm(AbstractGCTestClass):
         fn()
 
     def test__del__(self):
-        from pypy.rpython.lltypesystem.lloperation import llop
         class State:
             pass
         s = State()
@@ -105,8 +89,6 @@ class TestUsingBoehm(AbstractGCTestClass):
 
     def test_id_is_weak(self):
         # test that compute_unique_id(obj) does not keep obj alive
-        from pypy.rpython.lltypesystem.lloperation import llop
-        from pypy.rlib.objectmodel import compute_unique_id
         class State:
             pass
         s = State()
@@ -137,17 +119,17 @@ class TestUsingBoehm(AbstractGCTestClass):
             a3, b3, c3 = run_once()
             a4, b4, c4 = run_once()
             a5, b5, c5 = run_once()
-            return (s.a_dels, s.b_dels,
-                    a1, b1, c1,
-                    a2, b2, c2,
-                    a3, b3, c3,
-                    a4, b4, c4,
-                    a5, b5, c5)
+            return str((s.a_dels, s.b_dels,
+                        a1, b1, c1,
+                        a2, b2, c2,
+                        a3, b3, c3,
+                        a4, b4, c4,
+                        a5, b5, c5))
         fn = self.getcompiled(f, [int])
         # we can't demand that boehm has collected all of the objects,
         # even with the gc__collect call.
         res = fn(50)
-        res1, res2 = res[:2]
+        res1, res2 = eval(res)[:2]
         # if res1 or res2 is still 0, then we haven't tested anything so fail.
         # it might be the test's fault though.
         print res1, res2
@@ -155,7 +137,6 @@ class TestUsingBoehm(AbstractGCTestClass):
         assert 0 < res2 <= 5
 
     def test_del_raises(self):
-        from pypy.rpython.lltypesystem.lloperation import llop
         class A(object):
             def __del__(self):
                 s.dels += 1
@@ -199,31 +180,6 @@ class TestUsingBoehm(AbstractGCTestClass):
         fn = self.getcompiled(f)
         res = fn()
         assert res == 10
-        
-    # this test shows if we have a problem with refcounting PyObject
-    def test_refcount_pyobj(self):
-        from pypy.rpython.lltypesystem.lloperation import llop
-        def prob_with_pyobj(b):
-            return 3, b
-        def collect():
-            llop.gc__collect(lltype.Void)
-        f = self.getcompiled(prob_with_pyobj, [object])
-        c = self.getcompiled(collect, [])
-        from sys import getrefcount as g
-        obj = None
-        before = g(obj)
-        f(obj)
-        f(obj)
-        f(obj)
-        f(obj)
-        f(obj)
-        c()
-        c()
-        c()
-        c()
-        c()
-        after = g(obj)
-        assert abs(before - after) < 5
 
     def test_zero_malloc(self):
         T = lltype.GcStruct("C", ('x', lltype.Signed))
@@ -260,9 +216,6 @@ class TestUsingBoehm(AbstractGCTestClass):
         assert res == 2
 
     def test_weakref(self):
-        import weakref
-        from pypy.rlib import rgc
-
         class A:
             pass
 
@@ -296,8 +249,6 @@ class TestUsingBoehm(AbstractGCTestClass):
         assert 3500 <= res <= 6000
 
     def test_prebuilt_weakref(self):
-        import weakref
-        from pypy.rlib import rgc
         class A:
             pass
         a = A()
@@ -324,8 +275,6 @@ class TestUsingBoehm(AbstractGCTestClass):
         assert res == -5
 
     def test_weakref_to_prebuilt(self):
-        import weakref
-        from pypy.rlib import rgc
         class A:
             pass
         a = A()
@@ -339,7 +288,6 @@ class TestUsingBoehm(AbstractGCTestClass):
         c_fn(100)
 
     def test_nested_finalizers(self):
-        from pypy.rlib import rgc
         class State:
             pass
         state = State()
@@ -373,7 +321,6 @@ class TestUsingBoehm(AbstractGCTestClass):
         assert res == 0
 
     def test_can_move(self):
-        from pypy.rlib import rgc
         class A:
             pass
         def fn():
@@ -383,8 +330,6 @@ class TestUsingBoehm(AbstractGCTestClass):
         assert c_fn() == False
 
     def test_heap_stats(self):
-        from pypy.rlib import rgc
-        
         def fn():
             return bool(rgc._heap_stats())
 
@@ -395,23 +340,19 @@ class TestUsingBoehm(AbstractGCTestClass):
         TP = lltype.GcArray(lltype.Char)
         def func():
             try:
-                from pypy.rlib import rgc
                 a = rgc.malloc_nonmovable(TP, 3)
                 rgc.collect()
                 if a:
                     assert not rgc.can_move(a)
                     return 0
                 return 1
-            except Exception, e:
+            except Exception:
                 return 2
 
         run = self.getcompiled(func)
         assert run() == 0
 
     def test_shrink_array(self):
-        from pypy.rpython.lltypesystem.rstr import STR
-        from pypy.rlib import rgc
-
         def f():
             ptr = lltype.malloc(STR, 3)
             ptr.hash = 0x62
@@ -437,11 +378,9 @@ class TestUsingBoehm(AbstractGCTestClass):
                                           llmemory.cast_ptr_to_adr(s))
             return True
         run = self.getcompiled(f)
-        assert run() == True        
+        assert run() == True
 
     def test_hash_preservation(self):
-        from pypy.rlib.objectmodel import compute_hash
-        from pypy.rlib.objectmodel import current_object_addr_as_int
         class C:
             pass
         class D(C):
@@ -452,14 +391,15 @@ class TestUsingBoehm(AbstractGCTestClass):
         #
         def fn():
             d2 = D()
-            return (compute_hash(d2),
-                    current_object_addr_as_int(d2),
-                    compute_hash(c),
-                    compute_hash(d),
-                    compute_hash(("Hi", None, (7.5, 2, d))))
-        
+            return str((compute_hash(d2),
+                        current_object_addr_as_int(d2),
+                        compute_hash(c),
+                        compute_hash(d),
+                        compute_hash(("Hi", None, (7.5, 2, d)))))
+
         f = self.getcompiled(fn)
         res = f()
+        res = eval(res)
 
         # xxx the next line is too precise, checking the exact implementation
         assert res[0] == ~res[1]

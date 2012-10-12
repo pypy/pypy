@@ -1,7 +1,7 @@
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
-from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 
 class W_Count(Wrappable):
 
@@ -49,7 +49,8 @@ def check_number(space, w_obj):
         raise OperationError(space.w_TypeError,
                              space.wrap("expected a number"))
 
-def W_Count___new__(space, w_subtype, w_start=0, w_step=1):
+@unwrap_spec(w_start=WrappedDefault(0), w_step=WrappedDefault(1))
+def W_Count___new__(space, w_subtype, w_start, w_step):
     check_number(space, w_start)
     check_number(space, w_step)
     r = space.allocate_instance(W_Count, w_subtype)
@@ -87,7 +88,7 @@ class W_Repeat(Wrappable):
         self.space = space
         self.w_obj = w_obj
 
-        if space.is_w(w_times, space.w_None):
+        if w_times is None:
             self.counting = False
             self.count = 0
         else:
@@ -884,8 +885,10 @@ class W_GroupBy(Wrappable):
     def __init__(self, space, w_iterable, w_fun):
         self.space = space
         self.w_iterable = self.space.iter(w_iterable)
-        self.identity_fun = self.space.is_w(w_fun, self.space.w_None)
-        self.w_fun = w_fun
+        if space.is_none(w_fun):
+            self.w_fun = None
+        else:
+            self.w_fun = w_fun
         self.index = 0
         self.lookahead = False
         self.exhausted = False
@@ -915,7 +918,7 @@ class W_GroupBy(Wrappable):
                 raise
             else:
                 self.w_lookahead = w_obj
-                if self.identity_fun:
+                if self.w_fun is None:
                     self.w_key = w_obj
                 else:
                     self.w_key = self.space.call_function(self.w_fun, w_obj)
@@ -952,7 +955,7 @@ class W_GroupBy(Wrappable):
                 else:
                     raise
             else:
-                if self.identity_fun:
+                if self.w_fun is None:
                     w_new_key = w_obj
                 else:
                     w_new_key = self.space.call_function(self.w_fun, w_obj)
@@ -1338,7 +1341,7 @@ class W_Permutations(Wrappable):
 
 def W_Permutations__new__(space, w_subtype, w_iterable, w_r=None):
     pool_w = space.fixedview(w_iterable)
-    if space.is_w(w_r, space.w_None):
+    if space.is_none(w_r):
         r = len(pool_w)
     else:
         r = space.gateway_nonnegint_w(w_r)

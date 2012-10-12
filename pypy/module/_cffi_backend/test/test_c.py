@@ -36,7 +36,9 @@ class AppTestC(object):
         testfuncs_w = []
         keepalive_funcs = []
 
-        def find_and_load_library_for_test(space, w_name, w_is_global=0):
+        def find_and_load_library_for_test(space, w_name, w_is_global=None):
+            if w_is_global is None:
+                w_is_global = space.wrap(0)
             if space.is_w(w_name, space.w_None):
                 path = None
             else:

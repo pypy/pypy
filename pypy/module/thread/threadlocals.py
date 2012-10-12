@@ -9,14 +9,13 @@ class OSThreadLocals:
 
     def __init__(self):
         self._valuedict = {}   # {thread_ident: ExecutionContext()}
-        self._freeze_()
+        self._cleanup_()
 
-    def _freeze_(self):
+    def _cleanup_(self):
         self._valuedict.clear()
         self._mainthreadident = 0
         self._mostrecentkey = 0        # fast minicaching for the common case
         self._mostrecentvalue = None   # fast minicaching for the common case
-        return False
 
     def getvalue(self):
         ident = thread.get_ident()

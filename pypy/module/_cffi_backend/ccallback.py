@@ -31,7 +31,6 @@ class W_CDataCallback(W_CData):
                                   "expected a callable object, not %s",
                                   space.type(w_callable).getname(space))
         self.w_callable = w_callable
-        self.w_error = w_error
         #
         fresult = self.getfunctype().ctitem
         size = fresult.size
@@ -40,7 +39,7 @@ class W_CDataCallback(W_CData):
                 size = SIZE_OF_FFI_ARG
             self.ll_error = lltype.malloc(rffi.CCHARP.TO, size, flavor='raw',
                                           zero=True)
-        if not space.is_w(w_error, space.w_None):
+        if not space.is_none(w_error):
             convert_from_object_fficallback(fresult, self.ll_error, w_error)
         #
         self.unique_id = compute_unique_id(self)

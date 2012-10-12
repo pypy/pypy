@@ -1,26 +1,26 @@
-from pypy.annotation import model as annmodel
-from pypy.objspace.flow.model import Constant
-from pypy.translator.translator import TranslationContext, graphof
-from pypy.annotation import annrpython
-from pypy.rpython.lltypesystem.lltype import *
-from pypy.rpython.test.test_llinterp import interpret 
-from pypy.rpython.rtyper import RPythonTyper
-from pypy.rpython import rmodel
 import py
 
+from pypy.annotation import model as annmodel, annrpython
+from pypy.objspace.flow.model import Constant
+from pypy.rpython import rmodel
+from pypy.rpython.lltypesystem.lltype import Signed, Void
+from pypy.rpython.rtyper import RPythonTyper
+from pypy.rpython.test.test_llinterp import interpret
+from pypy.translator.translator import TranslationContext, graphof
 
-def setup_module(mod): 
+
+def setup_module(mod):
     mod.logstate = py.log._getstate()
     py.log.setconsumer("rtyper", py.log.STDOUT)
-    py.log.setconsumer("annrpython", None)   
+    py.log.setconsumer("annrpython", None)
 
-def teardown_module(mod): 
-    py.log._setstate(mod.logstate) 
+def teardown_module(mod):
+    py.log._setstate(mod.logstate)
 
 def test_reprkeys_dont_clash():
-    stup1 = annmodel.SomeTuple((annmodel.SomeFloat(), 
+    stup1 = annmodel.SomeTuple((annmodel.SomeFloat(),
                                 annmodel.SomeInteger()))
-    stup2 = annmodel.SomeTuple((annmodel.SomeString(), 
+    stup2 = annmodel.SomeTuple((annmodel.SomeString(),
                                 annmodel.SomeInteger()))
     rtyper = RPythonTyper(annrpython.RPythonAnnotator(None))
     key1 = rtyper.makekey(stup1)
@@ -41,7 +41,7 @@ def test_function_call():
         return g(1, x)
 
     res = interpret(f, [4])
-    assert res == -3 
+    assert res == -3
 
 def test_retval():
     def f(x):
@@ -82,7 +82,7 @@ def test_ll_calling_ll2():
     rt = RPythonTyper(a)
     rt.specialize()
     assert [vT.concretetype for vT in vTs] == [Void] * 3
-    
+
 
 def test_getgcflavor():
     class A:
@@ -111,7 +111,7 @@ def test_getgcflavor():
                     raise
                 else:
                     return default
-            
+
     assert rmodel.getgcflavor(DummyClsDescDef(A)) == 'gc'
     assert rmodel.getgcflavor(DummyClsDescDef(B)) == 'gc'
     assert rmodel.getgcflavor(DummyClsDescDef(R)) == 'raw'

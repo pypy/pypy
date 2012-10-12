@@ -1,4 +1,5 @@
-from pypy.interpreter import gateway, typedef
+from pypy.interpreter import typedef
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.buffer import Buffer
 from pypy.objspace.std.register_all import register_all
@@ -88,7 +89,8 @@ def retry_to_w_long(space, parser, base=0):
     from pypy.objspace.std.longobject import newlong
     return newlong(space, bigint)
 
-def descr__new__(space, w_inttype, w_x=0, w_base=gateway.NoneNotWrapped):
+@unwrap_spec(w_x = WrappedDefault(0))
+def descr__new__(space, w_inttype, w_x, w_base=None):
     from pypy.objspace.std.intobject import W_IntObject
     w_longval = None
     w_value = w_x     # 'x' is the keyword argument name in CPython
@@ -198,9 +200,9 @@ representation of a floating point number!)  When converting a string, use
 the optional base.  It is an error to supply a base when converting a
 non-string. If the argument is outside the integer range a long object
 will be returned instead.''',
-    __new__ = gateway.interp2app(descr__new__),
-    conjugate = gateway.interp2app(descr_conjugate),
-    bit_length = gateway.interp2app(descr_bit_length),
+    __new__ = interp2app(descr__new__),
+    conjugate = interp2app(descr_conjugate),
+    bit_length = interp2app(descr_bit_length),
     numerator = typedef.GetSetProperty(descr_get_numerator),
     denominator = typedef.GetSetProperty(descr_get_denominator),
     real = typedef.GetSetProperty(descr_get_real),
