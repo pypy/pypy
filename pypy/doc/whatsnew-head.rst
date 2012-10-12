@@ -38,7 +38,8 @@ The stdlib was updated to version 2.7.3
 
 .. branch: numpypy-complex2
 Complex dtype support for numpy
-
+.. branch: kill-someobject
+major cleanups including killing some object support
 
 
 .. "uninteresting" branches that we should just ignore for the whatsnew:
