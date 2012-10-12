@@ -1,6 +1,6 @@
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.interpreter.gateway import interp2app, unwrap_spec, W_Root
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError
 from pypy.rlib import rgc
 from pypy.rpython.lltypesystem import rffi, lltype
@@ -444,7 +444,8 @@ XML_PARAM_ENTITY_PARSING_ALWAYS. Returns true if setting the flag
 was successful."""
         XML_SetParamEntityParsing(self.itself, flag)
 
-    def UseForeignDTD(self, space, w_flag=True):
+    @unwrap_spec(w_flag=WrappedDefault(True))
+    def UseForeignDTD(self, space, w_flag):
         """UseForeignDTD([flag])
 Allows the application to provide an artificial external subset if one is
 not specified as part of the document instance.  This readily allows the
