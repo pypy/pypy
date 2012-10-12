@@ -535,7 +535,8 @@ class __extend__(W_NDimArray):
 @unwrap_spec(offset=int)
 def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
                     offset=0, w_strides=None, w_order=None):
-    if (offset != 0 or space.is_none(w_strides) or not space.is_none(w_order) or
+    if (offset != 0 or not space.is_none(w_strides) or
+        not space.is_none(w_order) or
         not space.is_none(w_buffer)):
         raise OperationError(space.w_NotImplementedError,
                              space.wrap("unsupported param"))
