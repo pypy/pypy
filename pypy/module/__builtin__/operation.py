@@ -4,7 +4,7 @@ Interp-level implementation of the basic space operations.
 
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import unwrap_spec, W_Root
+from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from pypy.rlib.runicode import UNICHR
 from pypy.rlib.rfloat import isnan, isinf, round_double
 from pypy.rlib import rfloat
@@ -124,7 +124,7 @@ def _issubtype(space, w_cls1, w_cls2):
 NDIGITS_MAX = int((rfloat.DBL_MANT_DIG - rfloat.DBL_MIN_EXP) * 0.30103)
 NDIGITS_MIN = -int((rfloat.DBL_MAX_EXP + 1) * 0.30103)
 
-@unwrap_spec(number=float, w_ndigits = (W_Root, 'space.wrap(0)'))
+@unwrap_spec(number=float, w_ndigits = WrappedDefault(0))
 def round(space, number, w_ndigits):
     """round(number[, ndigits]) -> floating point number
 
@@ -201,7 +201,7 @@ def ord(space, w_val):
     """Return the integer ordinal of a character."""
     return space.ord(w_val)
 
-@unwrap_spec(w_modulus = (W_Root, 'space.w_None'))
+@unwrap_spec(w_modulus = WrappedDefault(None))
 def pow(space, w_base, w_exponent, w_modulus):
     """With two arguments, equivalent to ``base**exponent''.
 With three arguments, equivalent to ``(base**exponent) % modulus'',
@@ -234,7 +234,7 @@ def callable(space, w_object):
 function).  Note that classes are callable."""
     return space.callable(w_object)
 
-@unwrap_spec(w_format_spec = (W_Root, 'space.wrap("")'))
+@unwrap_spec(w_format_spec = WrappedDefault(""))
 def format(space, w_obj, w_format_spec):
     """Format a obj according to format_spec"""
     return space.format(w_obj, w_format_spec)

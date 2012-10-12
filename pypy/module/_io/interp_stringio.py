@@ -1,6 +1,6 @@
 from pypy.interpreter.typedef import (
     TypeDef, generic_new_descr, GetSetProperty)
-from pypy.interpreter.gateway import interp2app, unwrap_spec, W_Root
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.module._io.interp_textio import W_TextIOBase, W_IncrementalNewlineDecoder
 from pypy.module._io.interp_iobase import convert_size
@@ -12,7 +12,7 @@ class W_StringIO(W_TextIOBase):
         self.buf = []
         self.pos = 0
 
-    @unwrap_spec(w_newline = (W_Root, 'space.wrap("\\n")'))
+    @unwrap_spec(w_newline = WrappedDefault("\n"))
     def descr_init(self, space, w_initvalue=None, w_newline=None):
         # In case __init__ is called multiple times
         self.buf = []

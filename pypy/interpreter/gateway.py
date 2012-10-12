@@ -61,9 +61,9 @@ class UnwrapSpecRecipe(object):
             if el[0] == 'INTERNAL:self':
                 self.visit_self(el[1], *args)
             else:
-                assert len(el) == 2    # 2nd arg is str that evals to 'default'
-                assert el[0] is W_Root    # for now
-                self.visit__W_Root(W_Root, *args)
+                assert False, "not supported any more, use WrappedDefault"
+        elif isinstance(el, WrappedDefault):
+            self.visit__W_Root(W_Root, *args)
         elif isinstance(el, type):
             for typ in self.bases_order:
                 if issubclass(el, typ):
@@ -278,6 +278,8 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
                 if isinstance(el, tuple):
                     parts.append(''.join([getattr(subel, '__name__', subel)
                                           for subel in el]))
+                elif isinstance(el, WrappedDefault):
+                    parts.append('W_Root')
                 else:
                     parts.append(getattr(el, '__name__', el))
             label = '_'.join(parts)
@@ -460,6 +462,13 @@ def unwrap_spec(*spec, **kwargs):
         return func
     return decorator
 
+class WrappedDefault(object):
+    """ Can be used inside unwrap_spec as WrappedDefault(3) which means
+    it'll be treated as W_Root, but fed with default which will be a wrapped
+    argument to constructor.
+    """
+    def __init__(self, default_value):
+        self.default_value = default_value
 
 def build_unwrap_spec(func, argnames, self_type=None):
     """build the list of parameter unwrap spec for the function.
@@ -865,7 +874,10 @@ class interp2app(Wrappable):
                 spec = code._unwrap_spec[i]
                 argname = code._argnames[i]
                 if isinstance(spec, tuple) and spec[0] is W_Root:
-                    w_default = eval(spec[1], {'space': space})
+                    assert False, "use WrappedDefault"
+                if isinstance(spec, WrappedDefault):
+                    w_default = eval('space.wrap(%r)' % (spec.default_value,),
+                                     {'space': space})
                     assert isinstance(w_default, W_Root)
                     assert argname.startswith('w_')
                     argname = argname[2:]

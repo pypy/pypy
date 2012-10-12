@@ -1,7 +1,7 @@
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr,\
      interp_attrproperty
-from pypy.interpreter.gateway import interp2app, unwrap_spec, W_Root
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib import rsocket
 from pypy.rlib.rsocket import RSocket, AF_INET, SOCK_STREAM
@@ -160,8 +160,8 @@ class W_RSocket(Wrappable, RSocket):
         except SocketError, e:
             raise converted_error(space, e)
 
-    @unwrap_spec(w_mode = (W_Root, 'space.wrap("r")'),
-                 w_buffsize = (W_Root, 'space.wrap(-1)'))
+    @unwrap_spec(w_mode = WrappedDefault("r"),
+                 w_buffsize = WrappedDefault(-1))
     def makefile_w(self, space, w_mode=None, w_buffsize=None):
         """makefile([mode[, buffersize]]) -> file object
 

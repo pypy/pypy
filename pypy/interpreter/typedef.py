@@ -4,7 +4,7 @@
 """
 import py
 from pypy.interpreter.gateway import interp2app, BuiltinCode, unwrap_spec,\
-     W_Root
+     WrappedDefault
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.baseobjspace import Wrappable, DescrMismatch
 from pypy.interpreter.error import OperationError, operationerrfmt
@@ -457,7 +457,7 @@ class GetSetProperty(Wrappable):
         self.objclass_getter = objclass_getter
         self.use_closure = use_closure
 
-    @unwrap_spec(w_cls = (W_Root, 'space.w_None'))
+    @unwrap_spec(w_cls = WrappedDefault(None))
     def descr_property_get(self, space, w_obj, w_cls=None):
         """property.__get__(obj[, type]) -> value
         Read the value of the property of the given obj."""

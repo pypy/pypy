@@ -1,5 +1,5 @@
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.gateway import unwrap_spec, is_none, W_Root
+from pypy.interpreter.gateway import unwrap_spec, is_none, WrappedDefault
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.module.micronumpy import interp_dtype, loop
 from pypy.objspace.std.strutil import strip_spaces
@@ -75,7 +75,7 @@ def _fromstring_bin(space, s, count, length, dtype):
     loop.fromstring_loop(a, dtype, itemsize, s)
     return space.wrap(a)
 
-@unwrap_spec(s=str, count=int, sep=str, w_dtype=(W_Root, 'space.w_None'))
+@unwrap_spec(s=str, count=int, sep=str, w_dtype=WrappedDefault(None))
 def fromstring(space, s, w_dtype=None, count=-1, sep=''):
     dtype = space.interp_w(interp_dtype.W_Dtype,
         space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)

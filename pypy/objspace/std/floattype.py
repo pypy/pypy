@@ -3,7 +3,7 @@ import sys
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib import rfloat, rarithmetic
 from pypy.interpreter import typedef
-from pypy.interpreter.gateway import interp2app, unwrap_spec, W_Root
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.register_all import register_all
@@ -22,7 +22,7 @@ def descr_conjugate(space, w_float):
 register_all(vars(), globals())
 
 
-@unwrap_spec(w_x = (W_Root, 'space.wrap(0.0)'))
+@unwrap_spec(w_x = WrappedDefault(0.0))
 def descr__new__(space, w_floattype, w_x):
     from pypy.objspace.std.floatobject import W_FloatObject
     w_value = w_x     # 'x' is the keyword argument name in CPython

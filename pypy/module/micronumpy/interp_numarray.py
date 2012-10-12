@@ -1,7 +1,7 @@
 
 from pypy.interpreter.error import operationerrfmt, OperationError
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.interpreter.gateway import interp2app, unwrap_spec, W_Root
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array,\
      ArrayArgumentException
 from pypy.module.micronumpy import interp_dtype, interp_ufuncs, interp_boxes
@@ -478,12 +478,12 @@ class __extend__(W_NDimArray):
         return loop.multidim_dot(space, self, other,  result, dtype,
                                  other_critical_dim)
 
-    @unwrap_spec(w_axis = (W_Root, 'space.w_None'))
+    @unwrap_spec(w_axis = WrappedDefault(None))
     def descr_var(self, space, w_axis):
         return get_appbridge_cache(space).call_method(space, '_var', self,
                                                       w_axis)
 
-    @unwrap_spec(w_axis = (W_Root, 'space.w_None'))
+    @unwrap_spec(w_axis = WrappedDefault(None))
     def descr_std(self, space, w_axis):
         return get_appbridge_cache(space).call_method(space, '_std', self,
                                                       w_axis)

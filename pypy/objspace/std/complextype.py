@@ -1,4 +1,4 @@
-from pypy.interpreter.gateway import interp2app, unwrap_spec, W_Root
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.strutil import string_to_float, ParseStringError
@@ -115,7 +115,7 @@ def _split_complex(s):
     return realpart, imagpart
 
 
-@unwrap_spec(w_real = (W_Root, 'space.wrap("0.0")'))
+@unwrap_spec(w_real = WrappedDefault(0.0))
 def descr__new__(space, w_complextype, w_real, w_imag=None):
     from pypy.objspace.std.complexobject import W_ComplexObject
 

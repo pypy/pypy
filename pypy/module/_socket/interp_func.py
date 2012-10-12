@@ -1,4 +1,4 @@
-from pypy.interpreter.gateway import unwrap_spec, W_Root
+from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from pypy.module._socket.interp_socket import converted_error, W_RSocket
 from pypy.rlib import rsocket
 from pypy.rlib.rsocket import SocketError, INVALID_SOCKET
@@ -61,7 +61,7 @@ def gethostbyaddr(space, host):
         raise converted_error(space, e)
     return common_wrapgethost(space, res)
 
-@unwrap_spec(name=str, w_proto = (W_Root, 'space.w_None'))
+@unwrap_spec(name=str, w_proto = WrappedDefault(None))
 def getservbyname(space, name, w_proto):
     """getservbyname(servicename[, protocolname]) -> integer
 
@@ -79,7 +79,7 @@ def getservbyname(space, name, w_proto):
         raise converted_error(space, e)
     return space.wrap(port)
 
-@unwrap_spec(port=int, w_proto = (W_Root, 'space.w_None'))
+@unwrap_spec(port=int, w_proto = WrappedDefault(None))
 def getservbyport(space, port, w_proto):
     """getservbyport(port[, protocolname]) -> string
 

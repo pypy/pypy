@@ -1,6 +1,6 @@
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, wrap_oserror
 from pypy.rlib import rpoll
 import errno
@@ -41,7 +41,7 @@ class Poll(Wrappable):
             raise OperationError(space.w_KeyError,
                                  space.wrap(fd)) # XXX should this maybe be w_fd?
 
-    @unwrap_spec(w_timeout = (W_Root, 'space.w_None'))
+    @unwrap_spec(w_timeout = WrappedDefault(None))
     def poll(self, space, w_timeout):
         if space.is_w(w_timeout, space.w_None):
             timeout = -1
@@ -101,7 +101,7 @@ def _unbuild_fd_set(space, list_w, fdlist, ll_list, reslist_w):
             reslist_w.append(list_w[i])
 
 
-@unwrap_spec(w_timeout = (W_Root, 'space.w_None'))
+@unwrap_spec(w_timeout = WrappedDefault(None))
 def select(space, w_iwtd, w_owtd, w_ewtd, w_timeout):
     """Wait until one or more file descriptors are ready for some kind of I/O.
 The first three arguments are sequences of file descriptors to be waited for:

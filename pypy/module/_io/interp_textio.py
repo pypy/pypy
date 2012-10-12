@@ -2,7 +2,7 @@ from pypy.module._io.interp_iobase import W_IOBase
 from pypy.interpreter.typedef import (
     TypeDef, GetSetProperty, interp_attrproperty_w, interp_attrproperty,
     generic_new_descr)
-from pypy.interpreter.gateway import interp2app, unwrap_spec, W_Root
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError
 from pypy.rlib.rarithmetic import intmask, r_ulonglong, r_uint
@@ -483,7 +483,7 @@ class W_TextIOWrapper(W_TextIOBase):
         self._writeflush(space)
         space.call_method(self.w_buffer, "flush")
 
-    @unwrap_spec(w_pos = (W_Root, 'space.w_None'))
+    @unwrap_spec(w_pos = WrappedDefault(None))
     def truncate_w(self, space, w_pos=None):
         self._check_init(space)
 

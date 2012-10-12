@@ -3,7 +3,7 @@
 
 from pypy.conftest import gettestobjspace
 from pypy.interpreter import gateway, argument
-from pypy.interpreter.gateway import ObjSpace, W_Root
+from pypy.interpreter.gateway import ObjSpace, W_Root, WrappedDefault
 import py
 import sys
 
@@ -573,7 +573,7 @@ class TestGateway:
 
     def test_unwrap_spec_default_applevel(self):
         space = self.space
-        @gateway.unwrap_spec(w_x = (W_Root, 'space.wrap(42)'))
+        @gateway.unwrap_spec(w_x = WrappedDefault(42))
         def g(space, w_x):
             return w_x
         w_g = space.wrap(gateway.interp2app_temp(g))
@@ -587,7 +587,7 @@ class TestGateway:
 
     def test_unwrap_spec_default_applevel_2(self):
         space = self.space
-        @gateway.unwrap_spec(w_x = (W_Root, 'space.wrap(42)'), y=int)
+        @gateway.unwrap_spec(w_x = (WrappedDefault(42)), y=int)
         def g(space, w_x, y=10):
             return space.add(w_x, space.wrap(y))
         w_g = space.wrap(gateway.interp2app_temp(g))
@@ -605,7 +605,7 @@ class TestGateway:
 
     def test_unwrap_spec_default_applevel_bogus(self):
         space = self.space
-        @gateway.unwrap_spec(w_x = (W_Root, 'space.wrap(42)'), y=int)
+        @gateway.unwrap_spec(w_x = WrappedDefault(42), y=int)
         def g(space, w_x, y):
             never_called
         py.test.raises(AssertionError, space.wrap, gateway.interp2app_temp(g))

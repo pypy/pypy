@@ -1,7 +1,7 @@
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.function import StaticMethod, ClassMethod
-from pypy.interpreter.gateway import interp2app, unwrap_spec, W_Root
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.typedef import (TypeDef, interp_attrproperty_w,
     generic_new_descr)
 from pypy.objspace.descroperation import object_getattribute
@@ -97,10 +97,10 @@ class W_Property(Wrappable):
     def __init__(self, space):
         pass
 
-    @unwrap_spec(w_fget = (W_Root, 'space.w_None'),
-                 w_fset = (W_Root, 'space.w_None'),
-                 w_fdel = (W_Root, 'space.w_None'),
-                 w_doc = (W_Root, 'space.w_None'))
+    @unwrap_spec(w_fget = WrappedDefault(None),
+                 w_fset = WrappedDefault(None),
+                 w_fdel = WrappedDefault(None),
+                 w_doc = WrappedDefault(None))
     def init(self, space, w_fget=None, w_fset=None, w_fdel=None, w_doc=None):
         self.w_fget = w_fget
         self.w_fset = w_fset

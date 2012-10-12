@@ -1,6 +1,6 @@
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError, operationerrfmt, exception_from_errno
-from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.typedef import TypeDef, generic_new_descr, GetSetProperty
 from pypy.rlib._rsocket_rffi import socketclose
 from pypy.rlib.rarithmetic import r_uint
@@ -143,7 +143,7 @@ class W_Kqueue(Wrappable):
     def descr_close(self, space):
         self.close()
 
-    @unwrap_spec(max_events=int, w_timeout = (W_Root, 'space.w_None'))
+    @unwrap_spec(max_events=int, w_timeout = WrappedDefault(None))
     def descr_control(self, space, w_changelist, max_events, w_timeout):
 
         self.check_closed(space)

@@ -1,8 +1,8 @@
-from pypy.interpreter.gateway import interp2app, unwrap_spec, W_Root
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.inttype import int_typedef
 
-@unwrap_spec(w_obj = (W_Root, 'space.w_False'))
+@unwrap_spec(w_obj = WrappedDefault(False))
 def descr__new__(space, w_booltype, w_obj):
     space.w_bool.check_user_subclass(w_booltype)
     if space.is_true(w_obj):

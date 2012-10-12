@@ -3,7 +3,7 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import GetSetProperty, TypeDef
 from pypy.interpreter.typedef import interp_attrproperty, interp_attrproperty_w
 from pypy.interpreter.typedef import make_weakref_descr
-from pypy.interpreter.gateway import interp2app, unwrap_spec, W_Root
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError
 from pypy.rlib.rarithmetic import intmask
 from pypy.tool.pairtype import extendabletype
@@ -387,15 +387,15 @@ class W_SRE_Match(Wrappable):
         return space.call_method(w_re, '_expand', space.wrap(self.srepat),
                                  space.wrap(self), w_template)
 
-    @unwrap_spec(w_groupnum = (W_Root, 'space.wrap(0)'))
+    @unwrap_spec(w_groupnum = WrappedDefault(0))
     def start_w(self, w_groupnum):
         return self.space.wrap(self.do_span(w_groupnum)[0])
 
-    @unwrap_spec(w_groupnum = (W_Root, 'space.wrap(0)'))
+    @unwrap_spec(w_groupnum = WrappedDefault(0))
     def end_w(self, w_groupnum):
         return self.space.wrap(self.do_span(w_groupnum)[1])
 
-    @unwrap_spec(w_groupnum = (W_Root, 'space.wrap(0)'))
+    @unwrap_spec(w_groupnum = WrappedDefault(0))
     def span_w(self, w_groupnum):
         start, end = self.do_span(w_groupnum)
         return self.space.newtuple([self.space.wrap(start),

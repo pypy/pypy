@@ -189,8 +189,7 @@ def make_perform_trampoline(prefix, exprargs, expr, miniglobals,  multimethod, s
     unwrap_spec_kwds = {}
     for app_default in app_defaults:
         name = wrapper_signature[i]
-        unwrap_spec_kwds[name] = (gateway.W_Root,
-                                  'space.wrap(%r)' % (app_default,))
+        unwrap_spec_kwds[name] = gateway.WrappedDefault(app_default)
         i += 1
 
     wrapper_signature.insert(0, wrapper_signature.pop(selfindex))

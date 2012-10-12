@@ -1,11 +1,11 @@
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.gateway import unwrap_spec, W_Root
+from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from pypy.module._cffi_backend import ctypeobj, cdataobj
 
 
 # ____________________________________________________________
 
-@unwrap_spec(ctype=ctypeobj.W_CType, w_init=(W_Root, 'space.w_None'))
+@unwrap_spec(ctype=ctypeobj.W_CType, w_init=WrappedDefault(None))
 def newp(space, ctype, w_init):
     return ctype.newp(w_init)
 

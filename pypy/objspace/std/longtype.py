@@ -1,6 +1,6 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import typedef
-from pypy.interpreter.gateway import interp2app, unwrap_spec, W_Root
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 from pypy.objspace.std.strutil import string_to_bigint, ParseStringError
@@ -9,7 +9,7 @@ def descr_conjugate(space, w_int):
     return space.long(w_int)
 
 
-@unwrap_spec(w_x = (W_Root, 'space.wrap(0)'))
+@unwrap_spec(w_x = WrappedDefault(0))
 def descr__new__(space, w_longtype, w_x, w_base=None):
     from pypy.objspace.std.longobject import W_LongObject
     from pypy.rlib.rbigint import rbigint

@@ -1,5 +1,5 @@
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.gateway import interp2app, unwrap_spec, W_Root
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.basestringtype import basestring_typedef
@@ -335,7 +335,7 @@ def unicode_decode__unitypedef_ANY_ANY(space, w_unicode, w_encoding=None,
                              w_encoding, w_errors)
 
 
-@unwrap_spec(w_string   = (W_Root, 'space.wrap("")'))
+@unwrap_spec(w_string = WrappedDefault(""))
 def descr_new_(space, w_unicodetype, w_string, w_encoding=None, w_errors=None):
     # NB. the default value of w_obj is really a *wrapped* empty string:
     #     there is gateway magic at work

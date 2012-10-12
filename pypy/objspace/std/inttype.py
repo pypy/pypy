@@ -1,5 +1,5 @@
 from pypy.interpreter import typedef
-from pypy.interpreter.gateway import interp2app, unwrap_spec, W_Root
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.buffer import Buffer
 from pypy.objspace.std.register_all import register_all
@@ -89,7 +89,7 @@ def retry_to_w_long(space, parser, base=0):
     from pypy.objspace.std.longobject import newlong
     return newlong(space, bigint)
 
-@unwrap_spec(w_x = (W_Root, 'space.wrap(0)'))
+@unwrap_spec(w_x = WrappedDefault(0))
 def descr__new__(space, w_inttype, w_x, w_base=None):
     from pypy.objspace.std.intobject import W_IntObject
     w_longval = None

@@ -5,7 +5,7 @@ Interp-level definition of frequently used functionals.
 
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import interp2app, unwrap_spec, W_Root
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.typedef import TypeDef
 from pypy.rlib import jit
 from pypy.rlib.objectmodel import specialize
@@ -47,7 +47,7 @@ def get_len_of_range(space, lo, hi, step):
         n = 0
     return n
 
-@unwrap_spec(w_step = (W_Root, 'space.wrap(1)'))
+@unwrap_spec(w_step = WrappedDefault(1))
 def range_int(space, w_x, w_y=None, w_step=None):
     """Return a list of integers in arithmetic position from start (defaults
 to zero) to stop - 1 by step (defaults to 1).  Use a negative step to
