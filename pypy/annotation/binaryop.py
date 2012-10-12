@@ -550,9 +550,9 @@ class __extend__(pairtype(SomeTuple, SomeTuple)):
 
     def union((tup1, tup2)):
         if len(tup1.items) != len(tup2.items):
-            raise Exception("cannot take the union of a tuple of length %d "
-                            "and a tuple of length %d" % (len(tup1.items),
-                                                          len(tup2.items)))
+            raise UnionError("cannot take the union of a tuple of length %d "
+                             "and a tuple of length %d" % (len(tup1.items),
+                                                           len(tup2.items)))
         else:
             unions = [unionof(x,y) for x,y in zip(tup1.items, tup2.items)]
             return SomeTuple(items = unions)
