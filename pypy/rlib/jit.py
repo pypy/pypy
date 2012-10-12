@@ -770,11 +770,11 @@ class ExtSetParam(ExtRegistryEntry):
     def compute_result_annotation(self, s_driver, s_name, s_value):
         from pypy.annotation import model as annmodel
         assert s_name.is_constant()
-        if annmodel.s_None.contains(s_value):
-            if s_name.const == 'enable_opts':
-                assert annmodel.SomeString(can_be_None=True).contains(s_value)
-            else:
-                assert annmodel.SomeInteger().contains(s_value)
+        if s_name.const == 'enable_opts':
+            assert annmodel.SomeString(can_be_None=True).contains(s_value)
+        else: 
+            assert (s_value == annmodel.s_None or
+                    annmodel.SomeInteger().contains(s_value))
         return annmodel.s_None
 
     def specialize_call(self, hop):
