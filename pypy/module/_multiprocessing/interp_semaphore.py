@@ -318,7 +318,7 @@ else:
     def semlock_acquire(self, space, block, w_timeout):
         if not block:
             deadline = lltype.nullptr(TIMESPECP.TO)
-        elif space.is_w(w_timeout, space.w_None):
+        elif space.is_none(w_timeout):
             deadline = lltype.nullptr(TIMESPECP.TO)
         else:
             timeout = space.float_w(w_timeout)
