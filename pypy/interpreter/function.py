@@ -244,7 +244,7 @@ class Function(Wrappable):
     # delicate
     _all = {'': None}
 
-    def _freeze_(self):
+    def _cleanup_(self):
         from pypy.interpreter.gateway import BuiltinCode
         if isinstance(self.code, BuiltinCode):
             # we have been seen by other means so rtyping should not choke

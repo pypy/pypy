@@ -148,7 +148,6 @@ class Bookkeeper(object):
         self.descs = {}          # map Python objects to their XxxDesc wrappers
         self.methoddescs = {}    # map (funcdesc, classdef) to the MethodDesc
         self.classdefs = []      # list of all ClassDefs
-        self.pbctypes = {}
         self.seen_mutable = {}
         self.listdefs = {}       # map position_keys to ListDefs
         self.dictdefs = {}       # map position_keys to DictDefs
@@ -461,7 +460,8 @@ class Bookkeeper(object):
                 result = None
             if result is None:
                 result = SomePBC([self.getdesc(x)])
-        elif hasattr(x, '_freeze_') and x._freeze_():
+        elif hasattr(x, '_freeze_'):
+            assert x._freeze_() is True
             # user-defined classes can define a method _freeze_(), which
             # is called when a prebuilt instance is found.  If the method
             # returns True, the instance is considered immutable and becomes
@@ -469,6 +469,8 @@ class Bookkeeper(object):
             result = SomePBC([self.getdesc(x)])
         elif hasattr(x, '__class__') \
                  and x.__class__.__module__ != '__builtin__':
+            if hasattr(x, '_cleanup_'):
+                x._cleanup_()
             self.see_mutable(x)
             result = SomeInstance(self.getuniqueclassdef(x.__class__))
         elif x is None:
@@ -502,8 +504,10 @@ class Bookkeeper(object):
             elif isinstance(pyobj, types.MethodType):
                 if pyobj.im_self is None:   # unbound
                     return self.getdesc(pyobj.im_func)
-                elif (hasattr(pyobj.im_self, '_freeze_') and
-                      pyobj.im_self._freeze_()):  # method of frozen
+                if hasattr(pyobj.im_self, '_cleanup_'):
+                    pyobj.im_self._cleanup_()
+                if hasattr(pyobj.im_self, '_freeze_'):  # method of frozen
+                    assert pyobj.im_self._freeze_() is True
                     result = description.MethodOfFrozenDesc(self,
                         self.getdesc(pyobj.im_func),            # funcdesc
                         self.getdesc(pyobj.im_self))            # frozendesc
@@ -522,9 +526,9 @@ class Bookkeeper(object):
                         name)
             else:
                 # must be a frozen pre-built constant, but let's check
-                try:
-                    assert pyobj._freeze_()
-                except AttributeError:
+                if hasattr(pyobj, '_freeze_'):
+                    assert pyobj._freeze_() is True
+                else:
                     if hasattr(pyobj, '__call__'):
                         msg = "object with a __call__ is not RPython"
                     else:
@@ -544,11 +548,7 @@ class Bookkeeper(object):
             return False
         
     def getfrozen(self, pyobj):
-        result = description.FrozenDesc(self, pyobj)
-        cls = result.knowntype
-        if cls not in self.pbctypes:
-            self.pbctypes[cls] = True
-        return result
+        return description.FrozenDesc(self, pyobj)
 
     def getmethoddesc(self, funcdesc, originclassdef, selfclassdef, name,
                       flags={}):

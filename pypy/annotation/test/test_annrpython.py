@@ -763,19 +763,25 @@ class TestAnnotateTestCase:
 
     def test_freeze_protocol(self):
         class Stuff:
-            def __init__(self, flag):
+            def __init__(self):
                 self.called = False
-                self.flag = flag
             def _freeze_(self):
                 self.called = True
-                return self.flag
-        myobj = Stuff(True)
+                return True
+        myobj = Stuff()
         a = self.RPythonAnnotator()
         s = a.build_types(lambda: myobj, [])
         assert myobj.called
         assert isinstance(s, annmodel.SomePBC)
         assert s.const == myobj
-        myobj = Stuff(False)
+
+    def test_cleanup_protocol(self): 
+        class Stuff:
+            def __init__(self):
+                self.called = False
+            def _cleanup_(self):
+                self.called = True
+        myobj = Stuff()
         a = self.RPythonAnnotator()
         s = a.build_types(lambda: myobj, [])
         assert myobj.called

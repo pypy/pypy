@@ -196,7 +196,7 @@ class CounterState:
     def __init__(self, space):
         self.counter = 0
 
-    def _freeze_(self):
+    def _cleanup_(self):
         self.counter = 0
 
     def getCount(self):

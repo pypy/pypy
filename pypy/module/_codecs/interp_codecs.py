@@ -69,9 +69,8 @@ class CodecState(object):
             self.unicodedata_handler = UnicodeData_Handler(space, w_getcode)
             return self.unicodedata_handler
 
-    def _freeze_(self):
+    def _cleanup_(self):
         assert not self.codec_search_path
-        return False
 
 def register_codec(space, w_search_function):
     """register(search_function)

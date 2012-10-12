@@ -87,7 +87,7 @@ if _WIN:
         def __init__(self, space):
             self.main_thread = 0
 
-        def _freeze_(self):
+        def _cleanup_(self):
             self.main_thread = 0
             globalState.init()
 

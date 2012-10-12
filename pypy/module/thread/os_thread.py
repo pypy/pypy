@@ -75,9 +75,8 @@ class Bootstrapper(object):
         bootstrapper.w_callable = None
         bootstrapper.args = None
 
-    def _freeze_(self):
+    def _cleanup_(self):
         self.reinit()
-        return False
 
     def bootstrap():
         # Note that when this runs, we already hold the GIL.  This is ensured

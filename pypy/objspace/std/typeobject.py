@@ -318,7 +318,7 @@ class W_TypeObject(W_Object):
 
     def deldictvalue(w_self, space, key):
         if w_self.lazyloaders:
-            w_self._freeze_()    # force un-lazification
+            w_self._cleanup_()    # force un-lazification
         if (not space.config.objspace.std.mutable_builtintypes
                 and not w_self.is_heaptype()):
             msg = "can't delete attributes on type object '%s'"
@@ -457,19 +457,18 @@ class W_TypeObject(W_Object):
                 w_self.name, w_subtype.name, w_subtype.name)
         return w_subtype
 
-    def _freeze_(w_self):
+    def _cleanup_(w_self):
         "NOT_RPYTHON.  Forces the lazy attributes to be computed."
         if 'lazyloaders' in w_self.__dict__:
             for attr in w_self.lazyloaders.keys():
                 w_self.getdictvalue(w_self.space, attr)
             del w_self.lazyloaders
-        return False
 
     def getdict(w_self, space): # returning a dict-proxy!
         from pypy.objspace.std.dictproxyobject import DictProxyStrategy
         from pypy.objspace.std.dictmultiobject import W_DictMultiObject
         if w_self.lazyloaders:
-            w_self._freeze_()    # force un-lazification
+            w_self._cleanup_()    # force un-lazification
         strategy = space.fromcache(DictProxyStrategy)
         storage = strategy.erase(w_self)
         return W_DictMultiObject(space, strategy, storage)
