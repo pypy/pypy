@@ -39,13 +39,7 @@ class __extend__(SomeObject):
     def type(obj, *moreargs):
         if moreargs:
             raise Exception, 'type() called with more than one argument'
-        if obj.is_constant():
-            if isinstance(obj, SomeInstance):
-                r = SomePBC([obj.classdef.classdesc])
-            else:
-                r = immutablevalue(obj.knowntype)
-        else:
-            r = SomeType()
+        r = SomeType()
         bk = getbookkeeper()
         fn, block, i = bk.position_key
         annotator = bk.annotator
