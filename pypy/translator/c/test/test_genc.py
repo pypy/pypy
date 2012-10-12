@@ -159,8 +159,17 @@ def compile(fn, argtypes, view=False, gcpolicy="none", backendopt=True,
         elif ll_res == lltype.Void:
             return None
         raise NotImplementedError("parsing %s" % (ll_res,))
-    f.__name__ = fn.__name__
-    return f
+
+    class CompilationResult(object):
+        def __repr__(self):
+            return 'CompilationResult(%s)' % (fn.__name__,)
+        def __call__(self, *args, **kwds):
+            return f(*args, **kwds)
+
+    cr = CompilationResult()
+    cr.t = t
+    cr.builder = t.driver.cbuilder
+    return cr
 
 
 def test_simple():
