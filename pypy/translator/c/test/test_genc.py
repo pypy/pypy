@@ -138,10 +138,8 @@ def compile(fn, argtypes, view=False, gcpolicy="none", backendopt=True,
             print '--------------'
             stderr, prevline, lastline, empty = stderr.rsplit('\n', 3)
             assert empty == ''
-            if lastline == 'Aborted':
-                lastline = prevline
-            assert lastline == ('Fatal RPython error: ' +
-                                expected_exception_name)
+            expected = 'Fatal RPython error: ' + expected_exception_name
+            assert lastline == expected or prevline == expected
             return None
 
         output(stdout)
