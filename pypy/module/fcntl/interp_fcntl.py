@@ -250,6 +250,9 @@ def ioctl(space, w_fd, op, w_arg, mutate_flag=-1):
     else:
         intarg = rffi.cast(rffi.INT, intarg)   # C long => C int
         rv = ioctl_int(fd, op, intarg)
+        if rv < 0:
+            raise _get_error(space, "ioctl")
+        return space.wrap(rv)
 
     try:
         arg = space.bufferstr_w(w_arg)
