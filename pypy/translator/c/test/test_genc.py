@@ -2,6 +2,7 @@ import ctypes
 
 import py
 
+from pypy.rlib.rfloat import NAN, INFINITY
 from pypy.rlib.entrypoint import entrypoint
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.rarithmetic import r_longlong, r_ulonglong, r_uint, intmask
@@ -71,7 +72,14 @@ def compile(fn, argtypes, view=False, gcpolicy="none", backendopt=True,
                     assert a == 'False'
                     args += (False,)
             elif argtype is float:
-                args += (float(a),)
+                if a == 'inf':
+                    args += (INFINITY,)
+                elif a == '-inf':
+                    args += (-INFINITY,)
+                elif a == 'nan':
+                    args += (NAN,)
+                else:
+                    args += (float(a),)
             else:
                 args += (a,)
         res = fn(*args)
@@ -84,13 +92,19 @@ def compile(fn, argtypes, view=False, gcpolicy="none", backendopt=True,
         t.disable(["backendopt_lltype"])
     t.driver.config.translation.countmallocs = True
     t.annotate()
-    t.compile_c()
-    ll_res = graphof(t.context, fn).getreturnvar().concretetype
     try:
         if py.test.config.option.view:
             t.view()
     except AttributeError:
         pass
+    t.rtype()
+    try:
+        if py.test.config.option.view:
+            t.view()
+    except AttributeError:
+        pass
+    t.compile_c()
+    ll_res = graphof(t.context, fn).getreturnvar().concretetype
 
     def f(*args, **kwds):
         expected_extra_mallocs = kwds.pop('expected_extra_mallocs', 0)
