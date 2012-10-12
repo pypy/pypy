@@ -1,5 +1,4 @@
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.interpreter.gateway import NoneNotWrapped
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.typedef import interp_attrproperty, interp_attrproperty_w
 from pypy.interpreter.gateway import interp2app, unwrap_spec
