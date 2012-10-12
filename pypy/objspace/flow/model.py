@@ -257,13 +257,6 @@ class Block(object):
 class Variable(object):
     __slots__ = ["_name", "_nr", "concretetype"]
 
-##    def getter(x): return x._ct
-##    def setter(x, ct):
-##        if repr(ct) == '<* PyObject>':
-##            import pdb; pdb.set_trace()
-##        x._ct = ct
-##    concretetype = property(getter, setter)
-
     dummyname = 'v'
     namesdict = {dummyname : (dummyname, 0)}
 
