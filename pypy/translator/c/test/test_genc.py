@@ -117,7 +117,13 @@ def compile(fn, argtypes, view=False, gcpolicy="none", backendopt=True,
         stdout = t.driver.cbuilder.cmdexec(
             " ".join([llrepr_in(arg) for arg in args]),
             expect_crash=(expected_exception_name is not None))
-        print stdout
+        #
+        for line in stdout.splitlines(False):
+            if len(repr(line)) == len(line) + 2:   # no escaped char
+                print line
+            else:
+                print 'REPR:', repr(line)
+        #
         if expected_exception_name is not None:
             stdout, stderr = stdout
             stderr, lastline, empty = stderr.rsplit('\n', 2)
