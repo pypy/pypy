@@ -278,6 +278,20 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
     def set_blocklist(self, lst):
         self.blockstack = list(lst)
 
+    def unrollstack(self, unroller_kind):
+        while self.blockstack_non_empty():
+            block = self.pop_block()
+            if (block.handling_mask & unroller_kind) != 0:
+                return block
+            block.cleanupstack(self)
+        return None
+
+    def unrollstack_and_jump(self, unroller):
+        block = self.unrollstack(unroller.kind)
+        if block is None:
+            raise BytecodeCorruption("misplaced bytecode - should not return")
+        return block.handle(self, unroller)
+
     def getstate(self):
         # getfastscope() can return real None, for undefined locals
         data = self.save_locals_stack()
@@ -352,7 +366,6 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
             block = self.pendingblocks.popleft()
             try:
                 self.recorder = self.recording(block)
-                self.frame_finished_execution = False
                 while True:
                     self.last_instr = self.handle_bytecode(self.last_instr)
                     self.recorder.final_state = self.getstate()
