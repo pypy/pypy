@@ -876,8 +876,7 @@ class interp2app(Wrappable):
                 if isinstance(spec, tuple) and spec[0] is W_Root:
                     assert False, "use WrappedDefault"
                 if isinstance(spec, WrappedDefault):
-                    w_default = eval('space.wrap(%r)' % (spec.default_value,),
-                                     {'space': space})
+                    w_default = space.wrap(spec.default_value)
                     assert isinstance(w_default, W_Root)
                     assert argname.startswith('w_')
                     argname = argname[2:]
