@@ -262,25 +262,9 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         self.locals_stack_w[:len(items_w)] = items_w
         self.dropvaluesuntil(len(items_w))
 
-    def append_block(self, block):
-        self.blockstack.append(block)
-
-    def pop_block(self):
-        return self.blockstack.pop()
-
-    def blockstack_non_empty(self):
-        return bool(self.blockstack)
-
-    def get_blocklist(self):
-        """Returns a list containing all the blocks in the frame"""
-        return list(self.blockstack)
-
-    def set_blocklist(self, lst):
-        self.blockstack = list(lst)
-
     def unrollstack(self, unroller_kind):
-        while self.blockstack_non_empty():
-            block = self.pop_block()
+        while self.blockstack:
+            block = self.blockstack.pop()
             if (block.handling_mask & unroller_kind) != 0:
                 return block
             block.cleanupstack(self)
@@ -302,7 +286,7 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
             data.append(self.last_exception.w_type)
             data.append(self.last_exception.w_value)
         recursively_flatten(self.space, data)
-        return FrameState(data, self.get_blocklist(), self.last_instr)
+        return FrameState(data, self.blockstack[:], self.last_instr)
 
     def setstate(self, state):
         """ Reset the frame to the given state. """
@@ -315,7 +299,7 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         else:
             self.last_exception = FSException(data[-2], data[-1])
         self.last_instr = state.next_instr
-        self.set_blocklist(state.blocklist)
+        self.blockstack = state.blocklist[:]
 
     def recording(self, block):
         """ Setup recording of the block and return the recorder. """
@@ -614,7 +598,7 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
             return block.handle(self, unroller)
 
     def POP_BLOCK(self, oparg, next_instr):
-        block = self.pop_block()
+        block = self.blockstack.pop()
         block.cleanupstack(self)  # the block knows how to clean up the value stack
 
     def JUMP_ABSOLUTE(self, jumpto, next_instr):
@@ -656,15 +640,15 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
 
     def SETUP_LOOP(self, offsettoend, next_instr):
         block = LoopBlock(self, next_instr + offsettoend)
-        self.append_block(block)
+        self.blockstack.append(block)
 
     def SETUP_EXCEPT(self, offsettoend, next_instr):
         block = ExceptBlock(self, next_instr + offsettoend)
-        self.append_block(block)
+        self.blockstack.append(block)
 
     def SETUP_FINALLY(self, offsettoend, next_instr):
         block = FinallyBlock(self, next_instr + offsettoend)
-        self.append_block(block)
+        self.blockstack.append(block)
 
     def SETUP_WITH(self, offsettoend, next_instr):
         # A simpler version than the 'real' 2.7 one:
@@ -675,7 +659,7 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         self.settopvalue(w_exit)
         w_result = self.space.call_method(w_manager, "__enter__")
         block = WithBlock(self, next_instr + offsettoend)
-        self.append_block(block)
+        self.blockstack.append(block)
         self.pushvalue(w_result)
 
     def WITH_CLEANUP(self, oparg, next_instr):
@@ -884,7 +868,7 @@ class LoopBlock(FrameBlock):
             # re-push the loop block without cleaning up the value stack,
             # and jump to the beginning of the loop, stored in the
             # exception's argument
-            frame.append_block(self)
+            frame.blockstack.append(self)
             return unroller.jump_to
         else:
             # jump to the end of the loop
