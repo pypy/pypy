@@ -125,11 +125,10 @@ class PyCode(eval.Code):
             from pypy.objspace.std.mapdict import init_mapdict_cache
             init_mapdict_cache(self)
 
-    def _freeze_(self):
+    def _cleanup_(self):
         if (self.magic == cpython_magic and
             '__pypy__' not in sys.builtin_module_names):
             raise Exception("CPython host codes should not be rendered")
-        return False
 
     def _init_flags(self):
         co_code = self.co_code
