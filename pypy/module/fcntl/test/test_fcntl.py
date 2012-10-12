@@ -171,6 +171,17 @@ class AppTestFcntl:
         res = fcntl.ioctl(0, TIOCGPGRP, "\x00\x00")
         assert res == expected
 
+    def test_ioctl_int(self):
+        import os
+        import fcntl
+        #from termios import TCFLSH, TCIOFLUSH
+        TCFLSH = 0x540b
+        TCIOFLUSH = 2
+
+        if not os.isatty(0):
+            skip("stdin is not a tty")
+        assert fcntl.ioctl(0, TCFLSH, TCIOFLUSH) == 0
+
     def test_lockf_with_ex(self):
         import fcntl
         f = open(self.tmp, "w")
