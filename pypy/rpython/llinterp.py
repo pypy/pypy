@@ -145,8 +145,12 @@ class LLInterpreter(object):
         assert isinstance(exc, LLException)
         klass, inst = exc.args[0], exc.args[1]
         for cls in enumerate_exceptions_top_down():
-            if "".join(klass.name).rstrip("\0") == cls.__name__:
-                return cls
+            if hasattr(klass, 'name'):   # lltype
+                if "".join(klass.name).rstrip("\0") == cls.__name__:
+                    return cls
+            else:                        # ootype
+                if klass._INSTANCE._name.split('.')[-1] == cls.__name__:
+                    return cls
         raise ValueError("couldn't match exception, maybe it"
                       " has RPython attributes like OSError?")
 
