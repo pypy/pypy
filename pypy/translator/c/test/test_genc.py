@@ -25,6 +25,8 @@ def llrepr_in(v):
         return "%d:%d" % (intmask(v >> 32), intmask(v & signed_ffffffff))
     elif isinstance(v, float):
         return repr(v)    # extra precision than str(v)
+    elif isinstance(v, str):
+        return v + '.'
     return str(v)
 
 @specialize.argtype(0)
@@ -81,7 +83,7 @@ def compile(fn, argtypes, view=False, gcpolicy="none", backendopt=True,
                 else:
                     args += (float(a),)
             else:
-                args += (a,)
+                args += (a[:-1],)
         res = fn(*args)
         print "THE RESULT IS:", llrepr_out(res), ";"
         return 0

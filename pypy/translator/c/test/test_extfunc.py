@@ -47,7 +47,7 @@ def test_failing_os_open():
         return fd
 
     f1 = compile(does_stuff, [])
-    py.test.raises(OSError, f1)
+    f1(expected_exception_name='OSError')
     assert not os.path.exists(tmpfile)
 
 def test_open_read_write_seek_close():
@@ -143,7 +143,7 @@ def test_os_access():
     filename = str(py.path.local(__file__))
     def call_access(path, mode):
         return os.access(path, mode)
-    f = compile(call_access, [annmodel.s_Str0, int])
+    f = compile(call_access, [str, int])
     for mode in os.R_OK, os.W_OK, os.X_OK, (os.R_OK | os.W_OK | os.X_OK):
         assert f(filename, mode) == os.access(filename, mode)
 
@@ -157,14 +157,14 @@ def test_os_stat():
         res = (st[0], st.st_ino, st.st_ctime)
         if has_blksize: res += (st.st_blksize,)
         if has_blocks: res += (st.st_blocks,)
-        return res
+        return str(res)
     f = compile(call_stat, [])
-    res = f()
+    res = eval(f())
     assert res[0] == os.stat(filename).st_mode
     assert res[1] == os.stat(filename).st_ino
     st_ctime = res[2]
     if isinstance(st_ctime, float):
-        assert st_ctime == os.stat(filename).st_ctime
+        assert (st_ctime - os.stat(filename).st_ctime) < 0.1
     else:
         assert st_ctime == int(os.stat(filename).st_ctime)
     if has_blksize:
@@ -193,15 +193,15 @@ def test_os_fstat():
         fd = os.open(filename, os.O_RDONLY, 0777)
         st = os.fstat(fd)
         os.close(fd)
-        return (st.st_mode, st[1], st.st_mtime)
+        return str((st.st_mode, st[1], st.st_mtime))
     f = compile(call_fstat, [])
     osstat = os.stat(filename)
-    st_mode, st_ino, st_mtime = f()
+    st_mode, st_ino, st_mtime = eval(f())
     assert st_mode  == osstat.st_mode
     if sys.platform != 'win32':
         assert st_ino  == osstat.st_ino
     if isinstance(st_mtime, float):
-        assert st_mtime == osstat.st_mtime
+        assert (st_mtime - osstat.st_mtime) < 0.1
     else:
         assert st_mtime == int(osstat.st_mtime)
 
@@ -223,7 +223,7 @@ def test_getcwd():
 def test_system():
     def does_stuff(cmd):
         return os.system(cmd)
-    f1 = compile(does_stuff, [annmodel.s_Str0])
+    f1 = compile(does_stuff, [str])
     res = f1("echo hello")
     assert res == 0
 
@@ -309,7 +309,7 @@ def test_os_unlink():
 def test_chdir():
     def does_stuff(path):
         os.chdir(path)
-    f1 = compile(does_stuff, [annmodel.s_Str0])
+    f1 = compile(does_stuff, [str])
     curdir = os.getcwd()
     try:
         os.chdir('..')
@@ -323,7 +323,7 @@ def test_mkdir_rmdir():
             os.rmdir(path)
         else:
             os.mkdir(path, 0777)
-    f1 = compile(does_stuff, [annmodel.s_Str0, bool])
+    f1 = compile(does_stuff, [str, bool])
     dirname = str(udir.join('test_mkdir_rmdir'))
     f1(dirname, False)
     assert os.path.exists(dirname) and os.path.isdir(dirname)
@@ -627,7 +627,7 @@ def test_dictlike_environ_getitem():
             return os.environ[s]
         except KeyError:
             return '--missing--'
-    func = compile(fn, [annmodel.s_Str0])
+    func = compile(fn, [str])
     os.environ.setdefault('USER', 'UNNAMED_USER')
     result = func('USER')
     assert result == os.environ['USER']
@@ -639,7 +639,7 @@ def test_dictlike_environ_get():
         res = os.environ.get(s)
         if res is None: res = '--missing--'
         return res
-    func = compile(fn, [annmodel.s_Str0])
+    func = compile(fn, [str])
     os.environ.setdefault('USER', 'UNNAMED_USER')
     result = func('USER')
     assert result == os.environ['USER']
@@ -653,7 +653,7 @@ def test_dictlike_environ_setitem():
         os.environ[s] = t3
         os.environ[s] = t4
         os.environ[s] = t5
-    func = compile(fn, [annmodel.s_Str0] * 6)
+    func = compile(fn, [str] * 6)
     func('PYPY_TEST_DICTLIKE_ENVIRON', 'a', 'b', 'c', 'FOOBAR', '42',
          expected_extra_mallocs = (2, 3, 4))   # at least two, less than 5
     assert _real_getenv('PYPY_TEST_DICTLIKE_ENVIRON') == '42'
@@ -677,7 +677,7 @@ def test_dictlike_environ_delitem():
             else:
                 raise Exception("should have raised!")
             # os.environ[s5] stays
-    func = compile(fn, [annmodel.s_Str0] * 5)
+    func = compile(fn, [str] * 5)
     if hasattr(__import__(os.name), 'unsetenv'):
         expected_extra_mallocs = range(2, 10)
         # at least 2, less than 10: memory for s1, s2, s3, s4 should be freed
@@ -742,7 +742,7 @@ def test_listdir():
             raise AssertionError("should have failed!")
         result = os.listdir(s)
         return '/'.join(result)
-    func = compile(mylistdir, [annmodel.s_Str0])
+    func = compile(mylistdir, [str])
     for testdir in [str(udir), os.curdir]:
         result = func(testdir)
         result = result.split('/')
@@ -773,7 +773,7 @@ if hasattr(posix, 'execv') and hasattr(posix, 'fork'):
             os.execv(l[0], l)
 
         func = compile(does_stuff, [])
-        py.test.raises(OSError, "func()")
+        func(expected_exception_name='OSError')
 
     def test_execve():
         filename = str(udir.join('test_execve.txt'))
