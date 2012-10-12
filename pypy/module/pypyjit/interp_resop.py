@@ -2,7 +2,7 @@
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
      interp_attrproperty, interp_attrproperty_w)
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.interpreter.gateway import unwrap_spec, interp2app, NoneNotWrapped
+from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.error import OperationError
 from pypy.rpython.lltypesystem import lltype, llmemory

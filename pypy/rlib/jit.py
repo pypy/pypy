@@ -502,7 +502,7 @@ class JitDriver(object):
                     elif (hasattr(value, '__class__')
                           and value.__class__.__module__ != '__builtin__'):
                         if hasattr(value, '_freeze_'):
-                            kind = "1:INT"
+                            continue   # value._freeze_() is better not called
                         elif getattr(value, '_alloc_flavor_', 'gc') == 'gc':
                             kind = '2:REF'
                         else:
