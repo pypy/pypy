@@ -327,6 +327,7 @@ class SomeInstance(SomeObject):
     "Stands for an instance of a (user-defined) class."
 
     def __init__(self, classdef, can_be_None=False, flags={}):
+        assert classdef is not None
         self.classdef = classdef
         self.knowntype = classdef or object
         self.can_be_None = can_be_None

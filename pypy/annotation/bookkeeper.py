@@ -271,8 +271,7 @@ class Bookkeeper(object):
         """Get the ClassDef associated with the given user cls.
         Avoid using this!  It breaks for classes that must be specialized.
         """
-        if cls is object:
-            return None
+        assert cls is not object
         desc = self.getdesc(cls)
         return desc.getuniqueclassdef()
 
