@@ -1,4 +1,7 @@
-# ______________________________________________________________________
+"""Implements the core parts of flow graph creation, in tandem
+with pypy.objspace.flow.flowcontext.
+"""
+
 import __builtin__
 import sys
 import types

@@ -1,3 +1,5 @@
+"""Flow graph building for generators"""
+
 from pypy.objspace.flow.model import Block, Link, SpaceOperation, checkgraph
 from pypy.objspace.flow.model import Variable, Constant
 from pypy.translator.unsimplify import insert_empty_startblock

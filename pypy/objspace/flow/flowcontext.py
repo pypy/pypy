@@ -1,3 +1,7 @@
+"""Implements the core parts of flow graph creation, in tandem
+with pypy.objspace.flow.objspace.
+"""
+
 import sys
 import collections
 
