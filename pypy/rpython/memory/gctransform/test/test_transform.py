@@ -143,7 +143,7 @@ def rtype_and_transform(func, inputtypes, transformcls, specialize=True, check=T
     etrafo = ExceptionTransformer(t)
     etrafo.transform_completely()
     graphs_borrowed = {}
-    for graph in t.graphs:
+    for graph in t.graphs[:]:
         graphs_borrowed[graph] = transformer.transform_graph(graph)
     if conftest.option.view:
         t.view()
