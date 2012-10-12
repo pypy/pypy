@@ -26,7 +26,10 @@ def llrepr_in(v):
     elif isinstance(v, float):
         return repr(v)    # extra precision than str(v)
     elif isinstance(v, str):
-        return v + '.'
+        if v.isalnum():
+            return v
+        else:   # escape the string
+            return '/' + ','.join([str(ord(c)) for c in v])
     return str(v)
 
 @specialize.argtype(0)
@@ -83,7 +86,13 @@ def compile(fn, argtypes, view=False, gcpolicy="none", backendopt=True,
                 else:
                     args += (float(a),)
             else:
-                args += (a[:-1],)
+                if a.startswith('/'):     # escaped string
+                    if len(a) == 1:
+                        a = ''
+                    else:
+                        l = a[1:].split(',')
+                        a = ''.join([chr(int(x)) for x in l])
+                args += (a,)
         res = fn(*args)
         print "THE RESULT IS:", llrepr_out(res), ";"
         return 0
@@ -194,6 +203,20 @@ def test_simple():
     assert f1(-123) == -246
 
     py.test.raises(Exception, f1, "world")  # check that it's really typed
+
+
+def test_string_arg():
+    def f(s):
+        total = 0
+        for c in s:
+            total += ord(c)
+        return total + len(s)
+
+    f1 = compile(f, [str])
+
+    for check in ['x', '', '\x00', '\x01', '\n', '\x7f', '\xff',
+                  '\x00\x00', '\x00\x01']:
+        assert f1(check) == len(check) + sum(map(ord, check))
 
 
 def test_dont_write_source_files():
