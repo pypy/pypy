@@ -7,8 +7,6 @@ from pypy.translator.gensupp import NameManager
 #
 USESLOTS = True
 
-PyObjPtr = lltype.Ptr(lltype.PyObject)
-
 def barebonearray(ARRAY):
     """Check if ARRAY is a 'simple' array type,
     i.e. doesn't need a length nor GC headers."""
@@ -59,23 +57,17 @@ def is_pointer_to_forward_ref(T):
     return isinstance(T.TO, lltype.ForwardReference)
 
 def llvalue_from_constant(c):
-    try:
-        T = c.concretetype
-    except AttributeError:
-        T = PyObjPtr
-    if T == PyObjPtr and not isinstance(c.value, lltype._ptr):
-        return lltype.pyobjectptr(c.value)
+    T = c.concretetype
+    if T == lltype.Void:
+        return None
     else:
-        if T == lltype.Void:
-            return None
-        else:
-            ACTUAL_TYPE = lltype.typeOf(c.value)
-            # If the type is still uncomputed, we can't make this
-            # check.  Something else will blow up instead, probably
-            # very confusingly.
-            if not is_pointer_to_forward_ref(ACTUAL_TYPE):
-                assert ACTUAL_TYPE == T
-            return c.value
+        ACTUAL_TYPE = lltype.typeOf(c.value)
+        # If the type is still uncomputed, we can't make this
+        # check.  Something else will blow up instead, probably
+        # very confusingly.
+        if not is_pointer_to_forward_ref(ACTUAL_TYPE):
+            assert ACTUAL_TYPE == T
+        return c.value
 
 
 class CNameManager(NameManager):

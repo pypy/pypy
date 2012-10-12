@@ -1,8 +1,8 @@
-
 from pypy.rpython.rmodel import Repr
 from pypy.rpython.lltypesystem import lltype
 from pypy.rlib.rstring import INIT_SIZE
 from pypy.annotation.model import SomeChar, SomeUnicodeCodePoint
+
 
 class AbstractStringBuilderRepr(Repr):
     def rtyper_new(self, hop):
@@ -53,7 +53,7 @@ class AbstractStringBuilderRepr(Repr):
         vlist = hop.inputargs(self)
         hop.exception_cannot_occur()
         return hop.gendirectcall(self.ll_is_true, *vlist)
-        
+
     def convert_const(self, value):
         if not value is None:
             raise TypeError("Prebuilt builedrs that are not none unsupported")

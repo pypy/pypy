@@ -1,6 +1,6 @@
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
-    PyObjectFields, generic_cpy_call, CONST_STRING, CANNOT_FAIL,
+    PyObjectFields, generic_cpy_call, CONST_STRING, CANNOT_FAIL, Py_ssize_t,
     cpython_api, bootstrap_function, cpython_struct, build_type_checkers)
 from pypy.module.cpyext.pyobject import (
     PyObject, make_ref, from_ref, Py_DecRef, make_typedescr, borrow_from)
@@ -168,7 +168,7 @@ def PyCode_NewEmpty(space, filename, funcname, firstlineno):
                              freevars=[],
                              cellvars=[]))
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([PyCodeObject], Py_ssize_t, error=CANNOT_FAIL)
 def PyCode_GetNumFree(space, w_co):
     """Return the number of free variables in co."""
     co = space.interp_w(PyCode, w_co)

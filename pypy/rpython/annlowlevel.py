@@ -38,8 +38,6 @@ class KeyComp(object):
     __repr__ = __str__
 
 class LowLevelAnnotatorPolicy(AnnotatorPolicy):
-    allow_someobjects = False
-
     def __init__(pol, rtyper=None):
         pol.rtyper = rtyper
 

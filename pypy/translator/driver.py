@@ -172,7 +172,7 @@ class TranslationDriver(SimpleTaskEngine):
     def _maybe_skip(self):
         maybe_skip = []
         if self._disabled:
-             for goal in  self.backend_select_goals(self._disabled):
+             for goal in self.backend_select_goals(self._disabled):
                  maybe_skip.extend(self._depending_on_closure(goal))
         return dict.fromkeys(maybe_skip).keys()
 
@@ -188,8 +188,6 @@ class TranslationDriver(SimpleTaskEngine):
 
         if policy is None:
             policy = annpolicy.AnnotatorPolicy()
-        if standalone:
-            policy.allow_someobjects = False
         self.policy = policy
 
         self.extra = extra
@@ -309,7 +307,6 @@ class TranslationDriver(SimpleTaskEngine):
         policy = self.policy
         self.log.info('with policy: %s.%s' % (policy.__class__.__module__, policy.__class__.__name__))
 
-        annmodel.DEBUG = self.config.translation.debug
         annotator = translator.buildannotator(policy=policy)
 
         if self.secondary_entrypoints is not None:
@@ -345,22 +342,6 @@ class TranslationDriver(SimpleTaskEngine):
 
         lost = query.qoutput(query.check_methods_qgen(translator))
         assert not lost, "lost methods, something gone wrong with the annotation of method defs"
-
-        so = query.qoutput(query.polluted_qgen(translator))
-        tot = len(translator.graphs)
-        percent = int(tot and (100.0*so / tot) or 0)
-        # if there are a few SomeObjects even if the policy doesn't allow
-        # them, it means that they were put there in a controlled way
-        # and then it's not a warning.
-        if not translator.annotator.policy.allow_someobjects:
-            pr = self.log.info
-        elif percent == 0:
-            pr = self.log.info
-        else:
-            pr = log.WARNING
-        pr("-- someobjectness %2d%% (%d of %d functions polluted by SomeObjects)" % (percent, so, tot))
-
-
 
     def task_rtype_lltype(self):
         """ RTyping - lltype version
@@ -486,20 +467,20 @@ class TranslationDriver(SimpleTaskEngine):
         if translator.annotator is not None:
             translator.frozen = True
 
-        if self.libdef is not None:
-            cbuilder = self.libdef.getcbuilder(self.translator, self.config)
-            self.standalone = False
-            standalone = False
-        else:
-            standalone = self.standalone
+        standalone = self.standalone
 
-            if standalone:
-                from pypy.translator.c.genc import CStandaloneBuilder as CBuilder
-            else:
-                from pypy.translator.c.genc import CExtModuleBuilder as CBuilder
-            cbuilder = CBuilder(self.translator, self.entry_point,
-                                config=self.config,
-                                secondary_entrypoints=self.secondary_entrypoints)
+        if standalone:
+            from pypy.translator.c.genc import CStandaloneBuilder
+            cbuilder = CStandaloneBuilder(self.translator, self.entry_point,
+                                          config=self.config,
+                      secondary_entrypoints=self.secondary_entrypoints)
+        else:
+            from pypy.translator.c.dlltool import CLibraryBuilder
+            functions = [(self.entry_point, None)] + self.secondary_entrypoints
+            cbuilder = CLibraryBuilder(self.translator, self.entry_point,
+                                       functions=functions,
+                                       name='libtesting',
+                                       config=self.config)
         if not standalone:     # xxx more messy
             cbuilder.modulename = self.extmod_name
         database = cbuilder.build_database()
@@ -578,8 +559,7 @@ class TranslationDriver(SimpleTaskEngine):
             self.c_entryp = cbuilder.executable_name
             self.create_exe()
         else:
-            isolated = self._backend_extra_options.get('c_isolated', False)
-            self.c_entryp = cbuilder.get_entry_point(isolated=isolated)
+            self.c_entryp = cbuilder.get_entry_point()
     #
     task_compile_c = taskdef(task_compile_c, ['source_c'], "Compiling c source")
 

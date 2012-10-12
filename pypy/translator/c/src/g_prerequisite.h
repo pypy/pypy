@@ -3,9 +3,7 @@
 /***  this is included before any code produced by genc.py  ***/
 
 
-#ifdef PYPY_STANDALONE
-#  include "src/commondefs.h"
-#endif
+#include "src/commondefs.h"
 
 #ifdef _WIN32
 #  include <io.h>   /* needed, otherwise _lseeki64 truncates to 32-bits (??) */

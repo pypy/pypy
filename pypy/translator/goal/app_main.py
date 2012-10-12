@@ -226,17 +226,18 @@ else:
 def setup_and_fix_paths(ignore_environment=False, **extra):
     import os
     newpath = sys.path[:]
+    del sys.path[:]
+    # first prepend PYTHONPATH
     readenv = not ignore_environment
     path = readenv and os.getenv('PYTHONPATH')
     if path:
-        newpath = path.split(os.pathsep) + newpath
-    # remove duplicates
-    _seen = {}
-    del sys.path[:]
+        sys.path.extend(path.split(os.pathsep))
+    # then add again the original entries, ignoring duplicates
+    _seen = set()
     for dir in newpath:
         if dir not in _seen:
             sys.path.append(dir)
-            _seen[dir] = True
+            _seen.add(dir)
 
 def set_stdio_encodings(ignore_environment):
     import os

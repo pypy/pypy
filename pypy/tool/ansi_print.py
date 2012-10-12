@@ -72,23 +72,3 @@ class AnsiLog:
                        file=self.file, newline=newline, flush=flush)
 
 ansi_log = AnsiLog()
-
-# ____________________________________________________________
-# Nice helper
-
-def raise_nicer_exception(*extraargs):
-    cls, e, tb = sys.exc_info()
-    str_e = str(e)
-    class ExcSubclass(cls):
-        def __str__(self):
-            lines = [str_e]
-            for extra in extraargs:
-                lines.append('\t.. %r' % (extra,))
-            return '\n'.join(lines)
-    ExcSubclass.__name__ = cls.__name__ + "'"
-    ExcSubclass.__module__ = cls.__module__
-    try:
-        e.__class__ = ExcSubclass
-    except TypeError:   # doesn't work any more on 2.5 :-(
-        pass
-    raise ExcSubclass, e, tb

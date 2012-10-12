@@ -62,23 +62,20 @@ def test_myexception():
             return 5
         else:
             return 2
-    f1 = getcompiled(f)
+    f1 = getcompiled(f, [])
     assert f1() == 5
 
 def test_raise_outside_testfn():
     def testfn(n):
         if n < 0:
             raise ValueError("hello")
-        else:
+        elif n > 0:
             raise MyException("world")
+        else:
+            return 0
     f1 = getcompiled(testfn, [int])
-    assert py.test.raises(ValueError, f1, -1)
-    try:
-        f1(1)
-    except Exception, e:
-        assert str(e) == 'MyException'   # which is genc's best effort
-    else:
-        py.test.fail("f1(1) did not raise anything")
+    f1(-1, expected_exception_name='ValueError')
+    f1(1, expected_exception_name='MyException')
 
 def test_memoryerror():
     # in rev 30717 this test causes a segfault on some Linux, but usually
@@ -113,7 +110,7 @@ def test_memoryerror():
     assert f1(10) == 42
     assert f1(sys.maxint) == 1000
     for i in range(20):
-        assert f1((sys.maxint+1) // 2 - i) == 1000
+        assert f1(int((sys.maxint+1) // 2 - i)) == 1000
     assert f1(sys.maxint // 2 - 16384) == 1000
     assert f1(sys.maxint // 2 + 16384) == 1000
 
@@ -126,11 +123,7 @@ def test_assert():
     assert res is None, repr(res)
     res = f1(42)
     assert res is None, repr(res)
-    e = py.test.raises(Exception, f1, -2)
-    assert e.type.__name__ == 'AssertionError'
-    # ^^^ indirection, because we really want
-    # the original AssertionError and not the
-    # one patched by the py lib
+    f1(-2, expected_exception_name='AssertionError')
 
 
 def test_reraise_exception():

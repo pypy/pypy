@@ -62,10 +62,9 @@ class GILReleaseAction(PeriodicAsyncAction):
 
 class SpaceState:
 
-    def _freeze_(self):
+    def _cleanup_(self):
         self.action_after_thread_switch = None
         # ^^^ set by AsyncAction.fire_after_thread_switch()
-        return False
 
     def after_thread_switch(self):
         # this is support logic for the signal module, to help it deliver
@@ -76,7 +75,7 @@ class SpaceState:
             action.fire()
 
 spacestate = SpaceState()
-spacestate._freeze_()
+spacestate._cleanup_()
 
 # Fragile code below.  We have to preserve the C-level errno manually...
 

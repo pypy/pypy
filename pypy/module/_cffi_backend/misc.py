@@ -1,9 +1,9 @@
 from __future__ import with_statement
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
-from pypy.rlib.rarithmetic import r_ulonglong
+from pypy.rlib.rarithmetic import r_uint, r_ulonglong
 from pypy.rlib.unroll import unrolling_iterable
-from pypy.rlib.objectmodel import keepalive_until_here
+from pypy.rlib.objectmodel import keepalive_until_here, specialize
 from pypy.rlib import jit
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
@@ -49,8 +49,8 @@ def read_raw_unsigned_data(target, size):
 def read_raw_ulong_data(target, size):
     for TP, TPP in _prim_unsigned_types:
         if size == rffi.sizeof(TP):
-            assert rffi.sizeof(TP) < rffi.sizeof(lltype.Signed)
-            return rffi.cast(lltype.Signed, rffi.cast(TPP,target)[0])
+            assert rffi.sizeof(TP) <= rffi.sizeof(lltype.Unsigned)
+            return rffi.cast(lltype.Unsigned, rffi.cast(TPP,target)[0])
     raise NotImplementedError("bad integer size")
 
 def read_raw_float_data(target, size):
@@ -62,6 +62,7 @@ def read_raw_float_data(target, size):
 def read_raw_longdouble_data(target):
     return rffi.cast(rffi.LONGDOUBLEP, target)[0]
 
+@specialize.argtype(1)
 def write_raw_integer_data(target, source, size):
     for TP, TPP in _prim_unsigned_types:
         if size == rffi.sizeof(TP):
@@ -150,6 +151,23 @@ def as_long_long(space, w_ob):
     except OverflowError:
         raise OperationError(space.w_OverflowError, space.wrap(ovf_msg))
 
+def as_long(space, w_ob):
+    # Same as as_long_long(), but returning an int instead.
+    if space.is_w(space.type(w_ob), space.w_int):   # shortcut
+        return space.int_w(w_ob)
+    try:
+        bigint = space.bigint_w(w_ob)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        if _is_a_float(space, w_ob):
+            raise
+        bigint = space.bigint_w(space.int(w_ob))
+    try:
+        return bigint.toint()
+    except OverflowError:
+        raise OperationError(space.w_OverflowError, space.wrap(ovf_msg))
+
 def as_unsigned_long_long(space, w_ob, strict):
     # (possibly) convert and cast a Python object to an unsigned long long.
     # This accepts a Python int too, and does convertions from other types of
@@ -177,6 +195,31 @@ def as_unsigned_long_long(space, w_ob, strict):
             raise OperationError(space.w_OverflowError, space.wrap(ovf_msg))
     else:
         return bigint.ulonglongmask()
+
+def as_unsigned_long(space, w_ob, strict):
+    # same as as_unsigned_long_long(), but returning just an Unsigned
+    if space.is_w(space.type(w_ob), space.w_int):   # shortcut
+        value = space.int_w(w_ob)
+        if strict and value < 0:
+            raise OperationError(space.w_OverflowError, space.wrap(neg_msg))
+        return r_uint(value)
+    try:
+        bigint = space.bigint_w(w_ob)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        if strict and _is_a_float(space, w_ob):
+            raise
+        bigint = space.bigint_w(space.int(w_ob))
+    if strict:
+        try:
+            return bigint.touint()
+        except ValueError:
+            raise OperationError(space.w_OverflowError, space.wrap(neg_msg))
+        except OverflowError:
+            raise OperationError(space.w_OverflowError, space.wrap(ovf_msg))
+    else:
+        return bigint.uintmask()
 
 neg_msg = "can't convert negative number to unsigned"
 ovf_msg = "long too big to convert"

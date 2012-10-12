@@ -1,7 +1,7 @@
 from pypy.rpython.tool import rffi_platform as platform
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.interpreter.error import OperationError, wrap_oserror
-from pypy.interpreter.gateway import unwrap_spec
+from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from pypy.rlib import rposix
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 import sys
@@ -89,8 +89,8 @@ def _check_flock_op(space, op):
     l.c_l_type = rffi.cast(rffi.SHORT, l_type)
     return l
 
-@unwrap_spec(op=int)
-def fcntl(space, w_fd, op, w_arg=0):
+@unwrap_spec(op=int, w_arg=WrappedDefault(0))
+def fcntl(space, w_fd, op, w_arg):
     """fcntl(fd, op, [arg])
 
     Perform the requested operation on file descriptor fd.  The operation
@@ -206,8 +206,8 @@ def lockf(space, w_fd, op, length=0, start=0, whence=0):
     finally:
         lltype.free(l, flavor='raw')
 
-@unwrap_spec(op=int, mutate_flag=int)
-def ioctl(space, w_fd, op, w_arg=0, mutate_flag=-1):
+@unwrap_spec(op=int, mutate_flag=int, w_arg=WrappedDefault(0))
+def ioctl(space, w_fd, op, w_arg, mutate_flag=-1):
     """ioctl(fd, opt[, arg[, mutate_flag]])
 
     Perform the requested operation on file descriptor fd.  The operation is

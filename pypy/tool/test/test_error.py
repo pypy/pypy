@@ -3,17 +3,15 @@
 """
 
 from pypy.translator.translator import TranslationContext
-from pypy.tool.error import AnnotatorError, NoSuchAttrError
-from pypy.annotation.policy import BasicAnnotatorPolicy
+from pypy.tool.error import AnnotatorError
+from pypy.annotation.model import UnionError
 
 import py
 
-class Policy(BasicAnnotatorPolicy):
-    allow_someobjects = False
 
 def compile_function(function, annotation=[]):
     t = TranslationContext()
-    t.buildannotator(policy=Policy()).build_types(function, annotation)
+    t.buildannotator().build_types(function, annotation)
 
 class AAA(object):
     pass
@@ -40,7 +38,7 @@ def test_someobject():
             a = 9
         return a
 
-    py.test.raises(AnnotatorError, compile_function, someobject_degeneration, [int])
+    py.test.raises(UnionError, compile_function, someobject_degeneration, [int])
 
 def test_someobject2():
     def someobject_deg(n):
@@ -50,12 +48,12 @@ def test_someobject2():
             return AAA()
         return a
 
-    py.test.raises(AnnotatorError, compile_function, someobject_deg, [int])
+    py.test.raises(UnionError, compile_function, someobject_deg, [int])
 
 def test_eval_someobject():
     exec("def f(n):\n if n == 2:\n  return 'a'\n else:\n  return 3")
 
-    py.test.raises(AnnotatorError, compile_function, f, [int])
+    py.test.raises(UnionError, compile_function, f, [int])
 
 def test_someobject_from_call():
     def one(x):
@@ -73,6 +71,6 @@ def test_someobject_from_call():
 
     try:
         compile_function(fn, [int])
-    except AnnotatorError, e:
-        assert 'function one' in e.args[0]
-        assert 'function two' in e.args[0]
+    except UnionError, e:
+        assert 'function one' in str(e)
+        assert 'function two' in str(e)

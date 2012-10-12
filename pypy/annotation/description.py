@@ -247,13 +247,16 @@ class FunctionDesc(Desc):
         defs_s = []
         if graph is None:
             signature = self.signature
-            defaults  = self.defaults
+            defaults = self.defaults
         else:
             signature = graph.signature
-            defaults  = graph.defaults
+            defaults = graph.defaults
         if defaults:
             for x in defaults:
-                defs_s.append(self.bookkeeper.immutablevalue(x))
+                if x is NODEFAULT:
+                    defs_s.append(None)
+                else:
+                    defs_s.append(self.bookkeeper.immutablevalue(x))
         try:
             inputcells = args.match_signature(signature, defs_s)
         except ArgErr, e:

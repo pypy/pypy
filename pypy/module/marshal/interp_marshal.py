@@ -1,4 +1,5 @@
 from pypy.interpreter.error import OperationError
+from pypy.interpreter.gateway import WrappedDefault, unwrap_spec
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib import rstackovf
 from pypy.module._file.interp_file import W_File
@@ -6,7 +7,8 @@ from pypy.module._file.interp_file import W_File
 
 Py_MARSHAL_VERSION = 2
 
-def dump(space, w_data, w_f, w_version=Py_MARSHAL_VERSION):
+@unwrap_spec(w_version = WrappedDefault(Py_MARSHAL_VERSION))
+def dump(space, w_data, w_f, w_version):
     """Write the 'data' object into the open file 'f'."""
     # special case real files for performance
     file = space.interpclass_w(w_f)
@@ -23,7 +25,8 @@ def dump(space, w_data, w_f, w_version=Py_MARSHAL_VERSION):
     finally:
         writer.finished()
 
-def dumps(space, w_data, w_version=Py_MARSHAL_VERSION):
+@unwrap_spec(w_version = WrappedDefault(Py_MARSHAL_VERSION))
+def dumps(space, w_data, w_version):
     """Return the string that would have been written to a file
 by dump(data, file)."""
     m = StringMarshaller(space, space.int_w(w_version))

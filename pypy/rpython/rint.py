@@ -3,11 +3,10 @@ from pypy.tool.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow.operation import op_appendices
 from pypy.rpython.lltypesystem.lltype import Signed, Unsigned, Bool, Float, \
-     Void, Char, UniChar, malloc, pyobjectptr, UnsignedLongLong, \
+     Void, Char, UniChar, malloc, UnsignedLongLong, \
      SignedLongLong, build_number, Number, cast_primitive, typeOf, \
      SignedLongLongLong
 from pypy.rpython.rmodel import IntegerRepr, inputconst
-from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rlib.rarithmetic import intmask, r_int, r_uint, r_ulonglong, \
      r_longlong, is_emulated_long
 from pypy.rpython.error import TyperError, MissingRTypeOperation
@@ -397,7 +396,7 @@ class __extend__(IntegerRepr):
     # version picked by specialisation based on which
     # type system rtyping is using, from <type_system>.ll_str module
     def ll_str(self, i):
-        pass
+        raise NotImplementedError
     ll_str._annspecialcase_ = "specialize:ts('ll_str.ll_int_str')"
 
     def rtype_hex(self, hop):
@@ -411,7 +410,7 @@ class __extend__(IntegerRepr):
         self = self.as_int
         varg = hop.inputarg(self, 0)
         true = inputconst(Bool, True)
-        fn = hop.rtyper.type_system.ll_str.ll_int2oct        
+        fn = hop.rtyper.type_system.ll_str.ll_int2oct
         return hop.gendirectcall(fn, varg, true)
 
 def ll_hash_int(n):
@@ -432,46 +431,3 @@ def ll_check_unichr(n):
         return
     else:
         raise ValueError
-
-#
-# _________________________ Conversions _________________________
-
-
-py_to_ll_conversion_functions = {
-    UnsignedLongLong: ('RPyLong_AsUnsignedLongLong', lambda pyo: r_ulonglong(pyo._obj.value)),
-    SignedLongLong: ('RPyLong_AsLongLong', lambda pyo: r_longlong(pyo._obj.value)),
-    Unsigned: ('RPyLong_AsUnsignedLong', lambda pyo: r_uint(pyo._obj.value)),
-    Signed: ('PyInt_AsLong', lambda pyo: int(pyo._obj.value))
-}
-if is_emulated_long: # win64
-    py_to_ll_conversion_functions.update( {
-        Unsigned: ('RPyLong_AsUnsignedLongLong', lambda pyo: r_ulonglong(pyo._obj.value)),
-        Signed: ('RPyLong_AsLongLong', lambda pyo: r_longlong(pyo._obj.value)),
-    } )    
-
-ll_to_py_conversion_functions = {
-    UnsignedLongLong: ('PyLong_FromUnsignedLongLong', lambda i: pyobjectptr(i)),
-    SignedLongLong: ('PyLong_FromLongLong', lambda i: pyobjectptr(i)),
-    Unsigned: ('PyLong_FromUnsignedLong', lambda i: pyobjectptr(i)),
-    Signed: ('PyInt_FromLong', lambda i: pyobjectptr(i)),
-}
-if is_emulated_long: # win64
-    ll_to_py_conversion_functions.update( {
-        Unsigned: ('PyLong_FromUnsignedLongLong', lambda i: pyobjectptr(i)),
-        Signed: ('PyLong_FromLongLong', lambda i: pyobjectptr(i)),
-    } )
-    
-
-class __extend__(pairtype(PyObjRepr, IntegerRepr)):
-    def convert_from_to((r_from, r_to), v, llops):
-        tolltype = r_to.lowleveltype
-        fnname, callable = py_to_ll_conversion_functions[tolltype]
-        return llops.gencapicall(fnname, [v],
-                                 resulttype=r_to, _callable=callable)
-
-class __extend__(pairtype(IntegerRepr, PyObjRepr)):
-    def convert_from_to((r_from, r_to), v, llops):
-        fromlltype = r_from.lowleveltype
-        fnname, callable = ll_to_py_conversion_functions[fromlltype]
-        return llops.gencapicall(fnname, [v],
-                                 resulttype=pyobj_repr, _callable=callable)

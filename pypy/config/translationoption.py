@@ -129,8 +129,6 @@ translation_optiondescription = OptionDescription(
 
     # misc
     BoolOption("verbose", "Print extra information", default=False),
-    BoolOption("debug", "Record extra annotation information",
-               cmdline="-d --debug", default=True),
     BoolOption("insist", "Try hard to go on RTyping", default=False,
                cmdline="--insist"),
     StrOption("cc", "Specify compiler to use for compiling generated C", cmdline="--cc"),

@@ -48,5 +48,5 @@ class Linux(BaseLinux):
         shared_only = () # it seems that on 32-bit linux, compiling with -fPIC
                          # gives assembler that asmgcc is not happy about.
 
-class Linux64(BaseLinux):
+class LinuxPIC(BaseLinux):
     pass

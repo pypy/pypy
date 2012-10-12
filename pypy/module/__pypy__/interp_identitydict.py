@@ -34,6 +34,8 @@ class W_IdentityDict(Wrappable):
             raise OperationError(space.w_KeyError, w_key)
 
     def get(self, space, w_key, w_default=None):
+        if w_default is None:
+            w_default = space.w_None
         return self.dict.get(w_key, w_default)
 
     def keys(self, space):

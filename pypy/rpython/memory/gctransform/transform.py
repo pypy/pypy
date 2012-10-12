@@ -1,4 +1,3 @@
-import py
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.objspace.flow.model import SpaceOperation, Variable, Constant, \
      c_last_exception, checkgraph
@@ -7,24 +6,18 @@ from pypy.translator.unsimplify import insert_empty_startblock
 from pypy.translator.unsimplify import starts_with_empty_block
 from pypy.translator.backendopt.support import var_needsgc
 from pypy.translator.backendopt import inline
-from pypy.translator.backendopt import graphanalyze
 from pypy.translator.backendopt.canraise import RaiseAnalyzer
 from pypy.translator.backendopt.ssa import DataFlowFamilyBuilder
 from pypy.translator.backendopt.constfold import constant_fold_graph
 from pypy.annotation import model as annmodel
 from pypy.rpython import rmodel
-from pypy.rpython.memory import gc
-from pypy.rpython.memory.gctransform.support import var_ispyobj
 from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
 from pypy.rpython.rtyper import LowLevelOpList
 from pypy.rpython.rbuiltin import gen_cast
 from pypy.rlib.rarithmetic import ovfcheck
-import sys
-import os
 from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.translator.simplify import join_blocks, cleanup_graph
+from pypy.translator.simplify import cleanup_graph
 
-PyObjPtr = lltype.Ptr(lltype.PyObject)
 
 class GcHighLevelOp(object):
     def __init__(self, gct, op, index, llops):
@@ -55,16 +48,8 @@ class GcHighLevelOp(object):
 
         if var_needsgc(v_result):
             gct.livevars.append(v_result)
-            if var_ispyobj(v_result):
-                if opname in ('getfield', 'getarrayitem', 'same_as',
-                                 'cast_pointer', 'getsubstruct',
-                                 'getinteriorfield'):
-                    # XXX more operations?
-                    gct.push_alive(v_result, self.llops)
-            elif opname not in ('direct_call', 'indirect_call'):
+            if opname not in ('direct_call', 'indirect_call'):
                 gct.push_alive(v_result, self.llops)
-
-
 
     def rename(self, newopname):
         self.llops.append(
@@ -85,8 +70,8 @@ class GcHighLevelOp(object):
 
     def cast_result(self, var):
         v_result = self.spaceop.result
-        resulttype = getattr(v_result, 'concretetype', PyObjPtr)
-        curtype = getattr(var, 'concretetype', PyObjPtr)
+        resulttype = v_result.concretetype
+        curtype = var.concretetype
         if curtype == resulttype:
             self.genop('same_as', [var], resultvar=v_result)
         else:
@@ -120,11 +105,8 @@ class BaseGCTransformer(object):
             self.minimalgctransformer = None
 
     def get_lltype_of_exception_value(self):
-        if self.translator is not None:
-            exceptiondata = self.translator.rtyper.getexceptiondata()
-            return exceptiondata.lltype_of_exception_value
-        else:
-            return lltype.Ptr(lltype.PyObject)
+        exceptiondata = self.translator.rtyper.getexceptiondata()
+        return exceptiondata.lltype_of_exception_value
 
     def need_minimal_transform(self, graph):
         self.seen_graphs[graph] = True
@@ -329,37 +311,14 @@ class BaseGCTransformer(object):
         hop.rename('bare_' + opname)
         self.pop_alive(v_old, hop.llops)
 
-
     def push_alive(self, var, llops):
-        if var_ispyobj(var):
-            self.push_alive_pyobj(var, llops)
-        else:
-            self.push_alive_nopyobj(var, llops)
-
-    def pop_alive(self, var, llops):
-        if var_ispyobj(var):
-            self.pop_alive_pyobj(var, llops)
-        else:
-            self.pop_alive_nopyobj(var, llops)
-
-    def push_alive_pyobj(self, var, llops):
-        if hasattr(var, 'concretetype') and var.concretetype != PyObjPtr:
-            var = gen_cast(llops, PyObjPtr, var)
-        llops.genop("gc_push_alive_pyobj", [var])
-
-    def pop_alive_pyobj(self, var, llops):
-        if hasattr(var, 'concretetype') and var.concretetype != PyObjPtr:
-            var = gen_cast(llops, PyObjPtr, var)
-        llops.genop("gc_pop_alive_pyobj", [var])
-
-    def push_alive_nopyobj(self, var, llops):
         pass
 
-    def pop_alive_nopyobj(self, var, llops):
+    def pop_alive(self, var, llops):
         pass
 
     def var_needs_set_transform(self, var):
-        return var_ispyobj(var)
+        return False
 
     def default(self, hop):
         hop.llops.append(hop.spaceop)
@@ -546,7 +505,6 @@ class GCTransformer(BaseGCTransformer):
         if add_flags:
             flags.update(add_flags)
         flavor = flags['flavor']
-        assert flavor != 'cpy', "cannot malloc CPython objects directly"
         meth = getattr(self, 'gct_fv_%s_malloc_varsize' % flavor, None)
         assert meth, "%s has no support for malloc_varsize with flavor %r" % (self, flavor) 
         return self.varsize_malloc_helper(hop, flags, meth, [])
@@ -624,7 +582,6 @@ class GCTransformer(BaseGCTransformer):
         flags = op.args[1].value
         flavor = flags['flavor']
         v = op.args[0]
-        assert flavor != 'cpy', "cannot free CPython objects directly"
         if flavor == 'raw':
             v = hop.genop("cast_ptr_to_adr", [v], resulttype=llmemory.Address)
             if flags.get('track_allocation', True):

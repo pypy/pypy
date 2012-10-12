@@ -56,13 +56,17 @@ class FakeSpace(object):
     w_slice = "slice"
     w_str = "str"
     w_unicode = "unicode"
-
+    w_complex = "complex"
+    
     def __init__(self):
         """NOT_RPYTHON"""
         self.fromcache = InternalSpaceCache(self).getorbuild
 
     def _freeze_(self):
         return True
+
+    def is_none(self, w_obj):
+        return w_obj is None or w_obj is self.w_None
 
     def issequence_w(self, w_obj):
         return isinstance(w_obj, ListObject) or isinstance(w_obj, W_NDimArray)
@@ -107,6 +111,9 @@ class FakeSpace(object):
     def newlist(self, items):
         return ListObject(items)
 
+    def newcomplex(self, r, i):
+        return ComplexObject(r, i)
+
     def listview(self, obj):
         assert isinstance(obj, ListObject)
         return obj.items
@@ -129,6 +136,11 @@ class FakeSpace(object):
             return int(w_obj.floatval)
         elif isinstance(w_obj, SliceObject):
             raise OperationError(self.w_TypeError, self.wrap("slice."))
+        raise NotImplementedError
+
+    def unpackcomplex(self, w_obj):
+        if isinstance(w_obj, ComplexObject):
+            return w_obj.r, w_obj.i
         raise NotImplementedError
 
     def index(self, w_obj):
@@ -225,6 +237,12 @@ class StringObject(W_Root):
     tp = FakeSpace.w_str
     def __init__(self, v):
         self.v = v
+
+class ComplexObject(W_Root):
+    tp = FakeSpace.w_complex
+    def __init__(self, r, i):
+        self.r = r
+        self.i = i
 
 class InterpreterState(object):
     def __init__(self, code):
@@ -343,6 +361,20 @@ class FloatConstant(Node):
     def execute(self, interp):
         return interp.space.wrap(self.v)
 
+class ComplexConstant(Node):
+    def __init__(self, r, i):
+        self.r = float(r)
+        self.i = float(i)
+
+    def __repr__(self):
+        return 'ComplexConst(%s, %s)' % (self.r, self.i)
+
+    def wrap(self, space):
+        return space.newcomplex(self.r, self.i)
+
+    def execute(self, interp):
+        return self.wrap(interp.space)
+
 class RangeConstant(Node):
     def __init__(self, v):
         self.v = int(v)
@@ -373,8 +405,7 @@ class ArrayConstant(Node):
 
     def execute(self, interp):
         w_list = self.wrap(interp.space)
-        dtype = get_dtype_cache(interp.space).w_float64dtype
-        return array(interp.space, w_list, w_dtype=dtype, w_order=None)
+        return array(interp.space, w_list)
 
     def __repr__(self):
         return "[" + ", ".join([repr(item) for item in self.items]) + "]"
@@ -607,6 +638,8 @@ class Parser(object):
                 stack.append(RangeConstant(tokens.pop().v))
                 end = tokens.pop()
                 assert end.name == 'pipe'
+            elif token.name == 'paren_left':
+                stack.append(self.parse_complex_constant(tokens))
             elif accept_comma and token.name == 'comma':
                 continue
             else:
@@ -630,6 +663,15 @@ class Parser(object):
             args += self.parse_expression(tokens, accept_comma=True)
         return FunctionCall(name, args)
 
+    def parse_complex_constant(self, tokens):
+        r = tokens.pop()
+        assert r.name == 'number'
+        assert tokens.pop().name == 'comma'
+        i = tokens.pop()
+        assert i.name == 'number'
+        assert tokens.pop().name == 'paren_right'
+        return ComplexConstant(r.v, i.v)
+
     def parse_array_const(self, tokens):
         elems = []
         while True:
@@ -638,6 +680,8 @@ class Parser(object):
                 elems.append(FloatConstant(token.v))
             elif token.name == 'array_left':
                 elems.append(ArrayConstant(self.parse_array_const(tokens)))
+            elif token.name == 'paren_left':
+                elems.append(self.parse_complex_constant(tokens))
             else:
                 raise BadToken()
             token = tokens.pop()
