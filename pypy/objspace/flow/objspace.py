@@ -58,8 +58,8 @@ class FlowObjSpace(object):
 
     # the following exceptions should not show up
     # during flow graph construction
-    w_NameError = None
-    w_UnboundLocalError = None
+    w_NameError = 'NameError'
+    w_UnboundLocalError = 'UnboundLocalError'
 
     specialcases = SPECIAL_CASES
     # objects which should keep their SomeObjectness
