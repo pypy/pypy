@@ -19,7 +19,7 @@ signed_ffffffff = r_longlong(0xffffffff)
 unsigned_ffffffff = r_ulonglong(0xffffffff)
 
 def llrepr_in(v):
-    if isinstance(v, r_ulonglong):
+    if r_uint is not r_ulonglong and isinstance(v, r_ulonglong):
         return "%d:%d" % (intmask(v >> 32), intmask(v & unsigned_ffffffff))
     elif isinstance(v, r_longlong):
         return "%d:%d" % (intmask(v >> 32), intmask(v & signed_ffffffff))
@@ -98,6 +98,8 @@ def compile(fn, argtypes, view=False, gcpolicy="none", backendopt=True,
     except AttributeError:
         pass
     t.rtype()
+    if backendopt:
+        t.backendopt()
     try:
         if py.test.config.option.view:
             t.view()
@@ -132,8 +134,10 @@ def compile(fn, argtypes, view=False, gcpolicy="none", backendopt=True,
             print '--- stderr ---'
             output(stderr)
             print '--------------'
-            stderr, lastline, empty = stderr.rsplit('\n', 2)
+            stderr, prevline, lastline, empty = stderr.rsplit('\n', 3)
             assert empty == ''
+            if lastline == 'Aborted':
+                lastline = prevline
             assert lastline == ('Fatal RPython error: ' +
                                 expected_exception_name)
             return None

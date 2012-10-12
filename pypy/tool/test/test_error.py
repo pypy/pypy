@@ -72,5 +72,5 @@ def test_someobject_from_call():
     try:
         compile_function(fn, [int])
     except UnionError, e:
-        assert 'function one' in e.args[2]
-        assert 'function two' in e.args[2]
+        assert 'function one' in str(e)
+        assert 'function two' in str(e)
