@@ -1,7 +1,7 @@
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
-from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 
 class W_Count(Wrappable):
 
@@ -49,7 +49,8 @@ def check_number(space, w_obj):
         raise OperationError(space.w_TypeError,
                              space.wrap("expected a number"))
 
-def W_Count___new__(space, w_subtype, w_start=0, w_step=1):
+@unwrap_spec(w_start=WrappedDefault(0), w_step=WrappedDefault(1))
+def W_Count___new__(space, w_subtype, w_start, w_step):
     check_number(space, w_start)
     check_number(space, w_step)
     r = space.allocate_instance(W_Count, w_subtype)

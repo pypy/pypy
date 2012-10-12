@@ -285,7 +285,8 @@ class W_SRE_Pattern(Wrappable):
         return w_item, n
 
 
-@unwrap_spec(flags=int, groups=int)
+@unwrap_spec(flags=int, groups=int, w_groupindex=WrappedDefault(None),
+             w_indexgroup=WrappedDefault(None))
 def SRE_Pattern__new__(space, w_subtype, w_pattern, flags, w_code,
               groups=0, w_groupindex=None, w_indexgroup=None):
     n = space.len_w(w_code)
@@ -358,11 +359,13 @@ class W_SRE_Match(Wrappable):
                 results[i] = slice_w(space, ctx, start, end, space.w_None)
             return space.newtuple(results)
 
+    @unwrap_spec(w_default=WrappedDefault(None))
     def groups_w(self, w_default=None):
         fmarks = self.flatten_marks()
         num_groups = self.srepat.num_groups
         return allgroups_w(self.space, self.ctx, fmarks, num_groups, w_default)
 
+    @unwrap_spec(w_default=WrappedDefault(None))
     def groupdict_w(self, w_default=None):
         space = self.space
         w_dict = space.newdict()

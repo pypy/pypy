@@ -856,7 +856,7 @@ class interp2app(Wrappable):
             if name.startswith('w_'):
                 assert defaultval is None, (
                     "%s: default value for '%s' can only be None; "
-                    "use unwrap_spec(...=(W_Root, 'default_expr'))" % (
+                    "use unwrap_spec(...=WrappedDefault(default))" % (
                     self._code.identifier, name))
                 defs_w.append(None)
             else:

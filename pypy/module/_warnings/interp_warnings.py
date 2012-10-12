@@ -57,7 +57,7 @@ def get_category(space, w_message, w_category):
     # Get category
     if space.isinstance_w(w_message, space.w_Warning):
         w_category = space.type(w_message)
-    elif space.is_w(w_category, space.w_None):
+    elif space.is_none(w_category):
         w_category = space.w_UserWarning
 
     # Validate category
