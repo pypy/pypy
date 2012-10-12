@@ -1,14 +1,8 @@
 from pypy.translator.interactive import Translation
+from pypy.translator.c.test.test_genc import compile
 from pypy import conftest
 from pypy.rpython.lltypesystem import llmemory, lltype
 from pypy.rlib.objectmodel import ComputedIntSymbolic
-
-def getcompiled(f, args):
-    t = Translation(f, args)
-    fn = t.compile_c()
-    if conftest.option.view:
-        t.view()
-    return fn, t
 
 def test_offsetof():
     STRUCT = lltype.GcStruct("s", ("x", lltype.Signed), ("y", lltype.Signed))
@@ -21,7 +15,7 @@ def test_offsetof():
         result = (adr + offsetx).signed[0]
         (adr + offsety).signed[0] = 2
         return result * 10 + s.y
-    fn, t = getcompiled(f, [])
+    fn = compile(f, [])
     res = fn()
     assert res == 12
 
@@ -31,7 +25,7 @@ def test_sizeof_array_with_no_length():
     signedsize = llmemory.sizeof(lltype.Signed)
     def f():
         return arraysize-signedsize*10
-    fn, t = getcompiled(f, [])
+    fn = compile(f, [])
     res = fn()
     assert res == 0
 
@@ -51,7 +45,7 @@ def test_itemoffsetof():
         for i in range(5):
             result = 10 * result + a[i]
         return result
-    fn, t = getcompiled(f, [])
+    fn = compile(f, [])
     res = fn()
     assert res == 1234501234
 
@@ -71,7 +65,7 @@ def test_itemoffsetof_fixedsizearray():
         for i in range(5):
             result = 10 * result + a[i]
         return result
-    fn, t = getcompiled(f, [])
+    fn = compile(f, [])
     res = fn()
     assert res == 1234501234
 
@@ -88,7 +82,7 @@ def test_sizeof_constsize_struct():
         result = (adr + offsety).signed[0] * 10 + int(offsety < sizeofs)
         llmemory.raw_free(adr)
         return result
-    fn, t = getcompiled(f, [])
+    fn = compile(f, [])
     res = fn()
     assert res == 51
 
@@ -98,7 +92,7 @@ def test_computed_int_symbolic():
         assert not too_early
         return 7
     k = ComputedIntSymbolic(compute_fn)
-    def f():
+    def f(ignored):
         return k*6
 
     t = Translation(f)
@@ -106,6 +100,6 @@ def test_computed_int_symbolic():
     if conftest.option.view:
         t.view()
     too_early = False
-    fn = t.compile_c()
-    res = fn()
+    fn = compile(f, [int])
+    res = fn(0)
     assert res == 42
