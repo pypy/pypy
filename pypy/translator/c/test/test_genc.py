@@ -106,6 +106,13 @@ def compile(fn, argtypes, view=False, gcpolicy="none", backendopt=True,
     t.compile_c()
     ll_res = graphof(t.context, fn).getreturnvar().concretetype
 
+    def output(stdout):
+        for line in stdout.splitlines(False):
+            if len(repr(line)) == len(line) + 2:   # no escaped char
+                print line
+            else:
+                print 'REPR:', repr(line)
+
     def f(*args, **kwds):
         expected_extra_mallocs = kwds.pop('expected_extra_mallocs', 0)
         expected_exception_name = kwds.pop('expected_exception_name', None)
@@ -118,19 +125,20 @@ def compile(fn, argtypes, view=False, gcpolicy="none", backendopt=True,
             " ".join([llrepr_in(arg) for arg in args]),
             expect_crash=(expected_exception_name is not None))
         #
-        for line in stdout.splitlines(False):
-            if len(repr(line)) == len(line) + 2:   # no escaped char
-                print line
-            else:
-                print 'REPR:', repr(line)
-        #
         if expected_exception_name is not None:
             stdout, stderr = stdout
+            print '--- stdout ---'
+            output(stdout)
+            print '--- stderr ---'
+            output(stderr)
+            print '--------------'
             stderr, lastline, empty = stderr.rsplit('\n', 2)
             assert empty == ''
             assert lastline == ('Fatal RPython error: ' +
                                 expected_exception_name)
             return None
+
+        output(stdout)
         stdout, lastline, empty = stdout.rsplit('\n', 2)
         assert empty == ''
         assert lastline.startswith('MALLOC COUNTERS: ')
