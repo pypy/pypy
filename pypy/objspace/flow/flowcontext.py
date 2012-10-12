@@ -228,7 +228,7 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         self.pycode = code
         self.space = space
         self.w_globals = Constant(func.func_globals)
-        self.lastblock = None
+        self.blockstack = []
 
         self.init_closure(func.func_closure)
         self.f_lineno = code.co_firstlineno
@@ -261,6 +261,22 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
     def restore_locals_stack(self, items_w):
         self.locals_stack_w[:len(items_w)] = items_w
         self.dropvaluesuntil(len(items_w))
+
+    def append_block(self, block):
+        self.blockstack.append(block)
+
+    def pop_block(self):
+        return self.blockstack.pop()
+
+    def blockstack_non_empty(self):
+        return bool(self.blockstack)
+
+    def get_blocklist(self):
+        """Returns a list containing all the blocks in the frame"""
+        return list(self.blockstack)
+
+    def set_blocklist(self, lst):
+        self.blockstack = list(lst)
 
     def getstate(self):
         # getfastscope() can return real None, for undefined locals
@@ -626,16 +642,16 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         return next_instr
 
     def SETUP_LOOP(self, offsettoend, next_instr):
-        block = LoopBlock(self, next_instr + offsettoend, self.lastblock)
-        self.lastblock = block
+        block = LoopBlock(self, next_instr + offsettoend)
+        self.append_block(block)
 
     def SETUP_EXCEPT(self, offsettoend, next_instr):
-        block = ExceptBlock(self, next_instr + offsettoend, self.lastblock)
-        self.lastblock = block
+        block = ExceptBlock(self, next_instr + offsettoend)
+        self.append_block(block)
 
     def SETUP_FINALLY(self, offsettoend, next_instr):
-        block = FinallyBlock(self, next_instr + offsettoend, self.lastblock)
-        self.lastblock = block
+        block = FinallyBlock(self, next_instr + offsettoend)
+        self.append_block(block)
 
     def SETUP_WITH(self, offsettoend, next_instr):
         # A simpler version than the 'real' 2.7 one:
@@ -645,8 +661,8 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         w_exit = self.space.getattr(w_manager, self.space.wrap("__exit__"))
         self.settopvalue(w_exit)
         w_result = self.space.call_method(w_manager, "__enter__")
-        block = WithBlock(self, next_instr + offsettoend, self.lastblock)
-        self.lastblock = block
+        block = WithBlock(self, next_instr + offsettoend)
+        self.append_block(block)
         self.pushvalue(w_result)
 
     def WITH_CLEANUP(self, oparg, next_instr):
@@ -823,10 +839,9 @@ class FrameBlock(object):
     """Abstract base class for frame blocks from the blockstack,
     used by the SETUP_XXX and POP_BLOCK opcodes."""
 
-    def __init__(self, frame, handlerposition, previous):
+    def __init__(self, frame, handlerposition):
         self.handlerposition = handlerposition
         self.valuestackdepth = frame.valuestackdepth
-        self.previous = previous   # this makes a linked list of blocks
 
     def __eq__(self, other):
         return (self.__class__ is other.__class__ and
