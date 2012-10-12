@@ -1,12 +1,12 @@
 import math
 from math import fabs, pi, e
-from pypy.rlib.rfloat import copysign, asinh, log1p, isinf, isnan
+from pypy.rlib.rfloat import copysign, asinh, log1p, isfinite, isinf, isnan
 from pypy.rlib.constant import DBL_MIN, CM_SCALE_UP, CM_SCALE_DOWN
 from pypy.rlib.constant import CM_LARGE_DOUBLE, DBL_MANT_DIG
 from pypy.rlib.constant import M_LN2, M_LN10
 from pypy.rlib.constant import CM_SQRT_LARGE_DOUBLE, CM_SQRT_DBL_MIN
 from pypy.rlib.constant import CM_LOG_LARGE_DOUBLE
-from pypy.rlib.special_value import isfinite, special_type, INF, NAN
+from pypy.rlib.special_value import special_type, INF, NAN
 from pypy.rlib.special_value import sqrt_special_values
 from pypy.rlib.special_value import acos_special_values
 from pypy.rlib.special_value import acosh_special_values

@@ -1,5 +1,6 @@
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
+from pypy.interpreter import unicodehelper
 from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.basestringtype import basestring_typedef
@@ -186,32 +187,6 @@ from pypy.objspace.std.stringtype import str_decode as unicode_decode
 
 # ____________________________________________________________
 
-def decode_error_handler(space):
-    def raise_unicode_exception_decode(errors, encoding, msg, s,
-                                       startingpos, endingpos):
-        raise OperationError(space.w_UnicodeDecodeError,
-                             space.newtuple([space.wrap(encoding),
-                                             space.wrap(s),
-                                             space.wrap(startingpos),
-                                             space.wrap(endingpos),
-                                             space.wrap(msg)]))
-    return raise_unicode_exception_decode
-decode_error_handler._annspecialcase_ = 'specialize:memo'
-
-def encode_error_handler(space):
-    def raise_unicode_exception_encode(errors, encoding, msg, u,
-                                       startingpos, endingpos):
-        raise OperationError(space.w_UnicodeEncodeError,
-                             space.newtuple([space.wrap(encoding),
-                                             space.wrap(u),
-                                             space.wrap(startingpos),
-                                             space.wrap(endingpos),
-                                             space.wrap(msg)]))
-    return raise_unicode_exception_encode
-encode_error_handler._annspecialcase_ = 'specialize:memo'
-
-# ____________________________________________________________
-
 def getdefaultencoding(space):
     return space.sys.defaultencoding
 
@@ -235,12 +210,12 @@ def encode_object(space, w_object, encoding, errors):
         if errors is None or errors == 'strict':
             if encoding == 'ascii':
                 u = space.unicode_w(w_object)
-                eh = encode_error_handler(space)
+                eh = unicodehelper.encode_error_handler(space)
                 return space.wrap(unicode_encode_ascii(
                         u, len(u), None, errorhandler=eh))
             if encoding == 'utf-8':
                 u = space.unicode_w(w_object)
-                eh = encode_error_handler(space)
+                eh = unicodehelper.encode_error_handler(space)
                 return space.wrap(unicode_encode_utf_8(
                         u, len(u), None, errorhandler=eh,
                         allow_surrogates=True))
@@ -265,12 +240,12 @@ def decode_object(space, w_obj, encoding, errors):
         if encoding == 'ascii':
             # XXX error handling
             s = space.bufferstr_w(w_obj)
-            eh = decode_error_handler(space)
+            eh = unicodehelper.decode_error_handler(space)
             return space.wrap(str_decode_ascii(
                     s, len(s), None, final=True, errorhandler=eh)[0])
         if encoding == 'utf-8':
             s = space.bufferstr_w(w_obj)
-            eh = decode_error_handler(space)
+            eh = unicodehelper.decode_error_handler(space)
             return space.wrap(str_decode_utf_8(
                     s, len(s), None, final=True, errorhandler=eh,
                     allow_surrogates=True)[0])

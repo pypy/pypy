@@ -44,8 +44,8 @@ def checkattrname(space, w_name):
     # string to the rest of the code.  XXX not entirely sure if these three
     # functions are the only way for non-string objects to reach
     # space.{get,set,del}attr()...
-    # Note that if w_name is already a string (or a subclass of str),
-    # it must be returned unmodified (and not e.g. unwrapped-rewrapped).
+    # Note that if w_name is already an exact string it must be returned
+    # unmodified (and not e.g. unwrapped-rewrapped).
     if not space.is_w(space.type(w_name), space.w_str):
         name = space.str_w(w_name)    # typecheck
         w_name = space.wrap(name)     # rewrap as a real string

@@ -811,7 +811,7 @@ def architecture(executable=sys.executable,bits='',linkage='',
                  split=re.compile('[\s,]').split):
 
     """ Queries the given executable (defaults to the Python interpreter
-        binary) for various architecture informations.
+        binary) for various architecture information.
 
         Returns a tuple (bits,linkage) which contain information about
         the bit architecture and the linkage format used for the

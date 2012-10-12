@@ -338,38 +338,6 @@ def register_error(space, errors, w_handler):
 
 from pypy.rlib import runicode
 
-def make_raw_encoder(name):
-    rname = "unicode_encode_%s" % (name.replace("_encode", ""), )
-    assert hasattr(runicode, rname)
-    def raw_encoder(space, uni):
-        state = space.fromcache(CodecState)
-        func = getattr(runicode, rname)
-        errors = "strict"
-        return func(uni, len(uni), errors, state.encode_error_handler)
-    raw_encoder.func_name = rname
-    return raw_encoder
-
-def make_raw_decoder(name):
-    rname = "str_decode_%s" % (name.replace("_decode", ""), )
-    assert hasattr(runicode, rname)
-    def raw_decoder(space, string):
-        final = True
-        errors = "strict"
-        state = space.fromcache(CodecState)
-        func = getattr(runicode, rname)
-        kwargs = {}
-        if name == 'unicode_escape':
-            unicodedata_handler = state.get_unicodedata_handler(space)
-            result, consumed = func(string, len(string), errors,
-                                    final, state.decode_error_handler,
-                                    unicodedata_handler=unicodedata_handler)
-        else:
-            result, consumed = func(string, len(string), errors,
-                                    final, state.decode_error_handler)
-        return result
-    raw_decoder.func_name = rname
-    return raw_decoder
-
 def make_encoder_wrapper(name):
     rname = "unicode_encode_%s" % (name.replace("_encode", ""), )
     assert hasattr(runicode, rname)

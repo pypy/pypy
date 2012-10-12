@@ -215,7 +215,7 @@ class Platform(object):
         largs = self._link_args_from_eci(eci, standalone)
         return self._link(cc_link, ofiles, largs, standalone, exe_name)
 
-    # below are some detailed informations for platforms
+    # below are some detailed information for platforms
 
     def include_dirs_for_libffi(self):
         dirs = self._include_dirs_for_libffi()
