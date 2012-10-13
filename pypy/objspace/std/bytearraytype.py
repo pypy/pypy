@@ -1,7 +1,6 @@
-import sys
-from pypy.interpreter import gateway
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.interpreter.error import OperationError
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 
@@ -62,9 +61,8 @@ def new_bytearray(space, w_bytearraytype, data):
 def descr__new__(space, w_bytearraytype, __args__):
     return new_bytearray(space,w_bytearraytype, [])
 
-@gateway.unwrap_spec(encoding='str_or_None', errors='str_or_None')
-def descr__init__(space, w_self, w_source=gateway.NoneNotWrapped,
-                  encoding=None, errors=None):
+@unwrap_spec(encoding='str_or_None', errors='str_or_None')
+def descr__init__(space, w_self, w_source=None, encoding=None, errors=None):
     from pypy.objspace.std.bytearrayobject import W_BytearrayObject
     assert isinstance(w_self, W_BytearrayObject)
     data = makebytesdata_w(space, w_source, encoding, errors)
@@ -141,10 +139,10 @@ bytearray_typedef = StdTypeDef("bytearray",
 bytearray(sequence) -> bytearray initialized from sequence\'s items
 
 If the argument is a bytearray, the return value is the same object.''',
-    __new__ = gateway.interp2app(descr__new__),
-    __init__ = gateway.interp2app(descr__init__),
+    __new__ = interp2app(descr__new__),
+    __init__ = interp2app(descr__init__),
     __hash__ = None,
-    __reduce__ = gateway.interp2app(descr_bytearray__reduce__),
-    fromhex = gateway.interp2app(descr_fromhex, as_classmethod=True)
+    __reduce__ = interp2app(descr_bytearray__reduce__),
+    fromhex = interp2app(descr_fromhex, as_classmethod=True)
     )
 bytearray_typedef.registermethods(globals())
