@@ -5,7 +5,7 @@ Interp-level definition of frequently used functionals.
 
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import NoneNotWrapped, interp2app, unwrap_spec
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.typedef import TypeDef
 from pypy.rlib import jit
 from pypy.rlib.objectmodel import specialize
@@ -178,7 +178,7 @@ class W_Enumerate(Wrappable):
         self.w_iter = w_iter
         self.w_index = w_start
 
-    def descr___new__(space, w_subtype, w_iterable, w_start=NoneNotWrapped):
+    def descr___new__(space, w_subtype, w_iterable, w_start=None):
         self = space.allocate_instance(W_Enumerate, w_subtype)
         if w_start is None:
             w_start = space.wrap(0)
@@ -284,9 +284,10 @@ class W_Range(Wrappable):
         self.w_step  = w_step
         self.w_length = w_length
 
-    def descr_new(space, w_subtype, w_start, w_stop=None, w_step=1):
+    @unwrap_spec(w_step = WrappedDefault(1))
+    def descr_new(space, w_subtype, w_start, w_stop=None, w_step=None):
         w_start = space.index(w_start)
-        if space.is_w(w_stop, space.w_None):  # only 1 argument provided
+        if space.is_none(w_stop):  # only 1 argument provided
             w_start, w_stop = space.newint(0), w_start
         else:
             w_stop = space.index(w_stop)

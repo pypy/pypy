@@ -1,4 +1,4 @@
-from pypy.interpreter import gateway
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 from pypy.objspace.std.register_all import register_all
@@ -324,9 +324,9 @@ def makebytesdata_w(space, w_source, encoding=None, errors=None):
         data.append(value)
     return data
 
-@gateway.unwrap_spec(encoding='str_or_None', errors='str_or_None')
-def descr__new__(space, w_stringtype, w_source=gateway.NoneNotWrapped,
-                 encoding=None, errors=None):
+@unwrap_spec(encoding='str_or_None', errors='str_or_None')
+def descr__new__(space, w_stringtype, w_source=None, encoding=None,
+                 errors=None):
     if (w_source and space.is_w(space.type(w_source), space.w_bytes) and
         space.is_w(w_stringtype, space.w_bytes)):
         return w_source
@@ -400,7 +400,7 @@ def descr_maketrans(space, w_type, w_from, w_to):
 # ____________________________________________________________
 
 str_typedef = StdTypeDef("bytes",
-    __new__ = gateway.interp2app(descr__new__),
+    __new__ = interp2app(descr__new__),
     __doc__ = 'bytes(iterable_of_ints) -> bytes\n'
               'bytes(string, encoding[, errors]) -> bytes\n'
               'bytes(bytes_or_buffer) -> immutable copy of bytes_or_buffer\n'
@@ -410,8 +410,8 @@ str_typedef = StdTypeDef("bytes",
               '    - a text string encoded using the specified encoding\n'
               '    - a bytes or a buffer object\n'
               '    - any object implementing the buffer API.',
-    fromhex = gateway.interp2app(descr_fromhex, as_classmethod=True),
-    maketrans = gateway.interp2app(descr_maketrans, as_classmethod=True),
+    fromhex = interp2app(descr_fromhex, as_classmethod=True),
+    maketrans = interp2app(descr_maketrans, as_classmethod=True),
     )
 
 str_typedef.registermethods(globals())

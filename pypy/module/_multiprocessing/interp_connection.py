@@ -1,7 +1,7 @@
 from __future__ import with_statement
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import (
     OperationError, wrap_oserror, operationerrfmt)
 from pypy.rpython.lltypesystem import rffi, lltype
@@ -163,7 +163,8 @@ class W_BaseConnection(Wrappable):
 
         return w_unpickled
 
-    def poll(self, space, w_timeout=0.0):
+    @unwrap_spec(w_timeout=WrappedDefault(0.0))
+    def poll(self, space, w_timeout):
         self._check_readable(space)
         if space.is_w(w_timeout, space.w_None):
             timeout = -1.0 # block forever

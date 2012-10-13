@@ -96,7 +96,7 @@ def compile(f, gc, enable_opts='', **kwds):
         t.config.translation.gcremovetypeptr = True
     for name, value in kwds.items():
         setattr(t.config.translation, name, value)
-    ann = t.buildannotator(policy=annpolicy.StrictAnnotatorPolicy())
+    ann = t.buildannotator()
     ann.build_types(f, [s_list_of_strings], main_entry_point=True)
     t.buildrtyper().specialize()
 

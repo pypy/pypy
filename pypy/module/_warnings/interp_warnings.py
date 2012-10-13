@@ -1,4 +1,4 @@
-from pypy.interpreter.gateway import unwrap_spec
+from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError
 
 def create_filter(space, w_category, action):
@@ -57,7 +57,7 @@ def get_category(space, w_message, w_category):
     # Get category
     if space.isinstance_w(w_message, space.w_Warning):
         w_category = space.type(w_message)
-    elif space.is_w(w_category, space.w_None):
+    elif space.is_none(w_category):
         w_category = space.w_UserWarning
 
     # Validate category
@@ -311,7 +311,7 @@ def warn(space, w_message, w_category=None, stacklevel=1):
 
 
 def get_source_line(space, w_globals, lineno):
-    if space.is_w(w_globals, space.w_None):
+    if space.is_none(w_globals):
         return None
 
     # Check/get the requisite pieces needed for the loader.
@@ -343,7 +343,9 @@ def get_source_line(space, w_globals, lineno):
     w_source_line = space.getitem(w_source_list, space.wrap(lineno - 1))
     return w_source_line
 
-@unwrap_spec(lineno=int)
+@unwrap_spec(lineno=int, w_module = WrappedDefault(None),
+             w_registry = WrappedDefault(None),
+             w_module_globals = WrappedDefault(None))
 def warn_explicit(space, w_message, w_category, w_filename, lineno,
                   w_module=None, w_registry=None, w_module_globals=None):
 

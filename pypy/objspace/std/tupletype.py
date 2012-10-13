@@ -45,7 +45,7 @@ tuple_index = SMM("index", 4, defaults=(0, sys.maxint),
                   "appears in the tuple")
 
 
-def descr__new__(space, w_tupletype, w_sequence=gateway.NoneNotWrapped):
+def descr__new__(space, w_tupletype, w_sequence=None):
     from pypy.objspace.std.tupleobject import W_TupleObject
     if w_sequence is None:
         tuple_w = []

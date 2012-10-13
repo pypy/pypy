@@ -2,7 +2,7 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.typedef import GetSetProperty
-from pypy.interpreter.gateway import interp2app, unwrap_spec, NoneNotWrapped
+from pypy.interpreter.gateway import interp2app
 
 
 QUOTE_MINIMAL, QUOTE_ALL, QUOTE_NONNUMERIC, QUOTE_NONE = range(4)
@@ -116,15 +116,15 @@ def _build_dialect(space, w_dialect, w_delimiter, w_doublequote,
     dialect.quoting = tmp_quoting
     return dialect
 
-def W_Dialect___new__(space, w_subtype, w_dialect = NoneNotWrapped,
-                      w_delimiter        = NoneNotWrapped,
-                      w_doublequote      = NoneNotWrapped,
-                      w_escapechar       = NoneNotWrapped,
-                      w_lineterminator   = NoneNotWrapped,
-                      w_quotechar        = NoneNotWrapped,
-                      w_quoting          = NoneNotWrapped,
-                      w_skipinitialspace = NoneNotWrapped,
-                      w_strict           = NoneNotWrapped,
+def W_Dialect___new__(space, w_subtype, w_dialect = None,
+                      w_delimiter        = None,
+                      w_doublequote      = None,
+                      w_escapechar       = None,
+                      w_lineterminator   = None,
+                      w_quotechar        = None,
+                      w_quoting          = None,
+                      w_skipinitialspace = None,
+                      w_strict           = None,
                       ):
     dialect = _build_dialect(space, w_dialect, w_delimiter, w_doublequote,
                              w_escapechar, w_lineterminator, w_quotechar,

@@ -828,7 +828,7 @@ def new_sslobject(space, ctx, w_sock, side, server_hostname):
 
     sock_fd = space.int_w(space.call_method(w_sock, "fileno"))
     w_timeout = space.call_method(w_sock, "gettimeout")
-    if space.is_w(w_timeout, space.w_None):
+    if space.is_none(w_timeout):
         has_timeout = False
     else:
         has_timeout = True

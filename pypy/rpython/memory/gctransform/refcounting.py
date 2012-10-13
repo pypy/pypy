@@ -142,11 +142,11 @@ class RefcountingGCTransformer(GCTransformer):
     def var_needs_set_transform(self, var):
         return var_needsgc(var)
 
-    def push_alive_nopyobj(self, var, llops):
+    def push_alive(self, var, llops):
         v_adr = gen_cast(llops, llmemory.Address, var)
         llops.genop("direct_call", [self.increfptr, v_adr])
 
-    def pop_alive_nopyobj(self, var, llops):
+    def pop_alive(self, var, llops):
         PTRTYPE = var.concretetype
         v_adr = gen_cast(llops, llmemory.Address, var)
 
@@ -201,9 +201,7 @@ class RefcountingGCTransformer(GCTransformer):
             return self.static_deallocator_funcptrs[TYPE]
         #print_call_chain(self)
 
-        if TYPE._gckind == 'cpy':
-            return # you don't really have an RPython deallocator for PyObjects
-        rtti = get_rtti(TYPE) 
+        rtti = get_rtti(TYPE)
         if rtti is not None and hasattr(rtti._obj, 'destructor_funcptr'):
             destrptr = rtti._obj.destructor_funcptr
             DESTR_ARG = lltype.typeOf(destrptr).TO.ARGS[0]
@@ -266,7 +264,6 @@ def ll_deallocator(addr):
         return fptr
 
     def dynamic_deallocation_funcptr_for_type(self, TYPE):
-        assert TYPE._gckind != 'cpy'
         if TYPE in self.dynamic_deallocator_funcptrs:
             return self.dynamic_deallocator_funcptrs[TYPE]
         #print_call_chain(self)

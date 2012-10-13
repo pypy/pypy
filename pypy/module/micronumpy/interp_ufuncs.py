@@ -1,6 +1,6 @@
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.gateway import interp2app, unwrap_spec, NoneNotWrapped
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
 from pypy.module.micronumpy import interp_boxes, interp_dtype, loop
 from pypy.rlib import jit
@@ -17,15 +17,18 @@ def done_if_false(dtype, val):
     return not dtype.itemtype.bool(val)
 
 class W_Ufunc(Wrappable):
-    _attrs_ = ["name", "promote_to_float", "promote_bools", "identity", "allow_complex"]
-    _immutable_fields_ = ["promote_to_float", "promote_bools", "name", "allow_complex"]
+    _attrs_ = ["name", "promote_to_float", "promote_bools", "identity", 
+               "allow_complex", "complex_to_float"]
+    _immutable_fields_ = ["promote_to_float", "promote_bools", "name", 
+            "allow_complex", "complex_to_float"]
 
     def __init__(self, name, promote_to_float, promote_bools, identity,
-                 int_only, allow_complex):
+                 int_only, allow_complex, complex_to_float):
         self.name = name
         self.promote_to_float = promote_to_float
         self.promote_bools = promote_bools
         self.allow_complex = allow_complex
+        self.complex_to_float = complex_to_float
 
         self.identity = identity
         self.int_only = int_only
@@ -73,7 +76,7 @@ class W_Ufunc(Wrappable):
         return self.call(space, args_w)
 
     @unwrap_spec(skipna=bool, keepdims=bool)
-    def descr_reduce(self, space, w_obj, w_axis=NoneNotWrapped, w_dtype=None,
+    def descr_reduce(self, space, w_obj, w_axis=None, w_dtype=None,
                      skipna=False, keepdims=False, w_out=None):
         """reduce(...)
         reduce(a, axis=0)
@@ -130,7 +133,7 @@ class W_Ufunc(Wrappable):
         from pypy.module.micronumpy.interp_numarray import W_NDimArray
         if w_axis is None:
             w_axis = space.wrap(0)
-        if space.is_w(w_out, space.w_None):
+        if space.is_none(w_out):
             out = None
         elif not isinstance(w_out, W_NDimArray):
             raise OperationError(space.w_TypeError, space.wrap(
@@ -216,10 +219,11 @@ class W_Ufunc1(W_Ufunc):
     _immutable_fields_ = ["func", "name"]
 
     def __init__(self, func, name, promote_to_float=False, promote_bools=False,
-        identity=None, bool_result=False, int_only=False, allow_complex=True):
+        identity=None, bool_result=False, int_only=False,
+        allow_complex=True, complex_to_float=False):
 
         W_Ufunc.__init__(self, name, promote_to_float, promote_bools, identity,
-                         int_only, allow_complex)
+                         int_only, allow_complex, complex_to_float)
         self.func = func
         self.bool_result = bool_result
 
@@ -248,6 +252,11 @@ class W_Ufunc1(W_Ufunc):
             res_dtype = interp_dtype.get_dtype_cache(space).w_booldtype
         else:
             res_dtype = calc_dtype
+            if self.complex_to_float and calc_dtype.is_complex_type():
+                if calc_dtype.name == 'complex64':
+                    res_dtype = interp_dtype.get_dtype_cache(space).w_float32dtype
+                else:    
+                    res_dtype = interp_dtype.get_dtype_cache(space).w_float64dtype
         if w_obj.is_scalar():
             w_val = self.func(calc_dtype,
                               w_obj.get_scalar_value().convert_to(calc_dtype))
@@ -269,10 +278,11 @@ class W_Ufunc2(W_Ufunc):
     argcount = 2
 
     def __init__(self, func, name, promote_to_float=False, promote_bools=False,
-        identity=None, comparison_func=False, int_only=False, allow_complex=True):
+        identity=None, comparison_func=False, int_only=False, 
+        allow_complex=True, complex_to_float=False):
 
         W_Ufunc.__init__(self, name, promote_to_float, promote_bools, identity,
-                         int_only, allow_complex)
+                         int_only, allow_complex, complex_to_float)
         self.func = func
         self.comparison_func = comparison_func
         if name == 'logical_and':
@@ -298,7 +308,7 @@ class W_Ufunc2(W_Ufunc):
             promote_bools=self.promote_bools,
             allow_complex=self.allow_complex,
             )
-        if space.is_w(w_out, space.w_None) or w_out is None:
+        if space.is_none(w_out):
             out = None
         elif not isinstance(w_out, W_NDimArray):
             raise OperationError(space.w_TypeError, space.wrap(
@@ -529,14 +539,14 @@ class UfuncState(object):
 
             ("positive", "pos", 1),
             ("negative", "neg", 1),
-            ("absolute", "abs", 1),
+            ("absolute", "abs", 1, {"complex_to_float": True}),
             ("sign", "sign", 1, {"promote_bools": True}),
             ("signbit", "signbit", 1, {"bool_result": True, 
                                        "allow_complex": False}),
             ("reciprocal", "reciprocal", 1),
             ("conjugate", "conj", 1),
-            ("real", "real", 1),
-            ("imag", "imag", 1),
+            ("real", "real", 1, {"complex_to_float": True}),
+            ("imag", "imag", 1, {"complex_to_float": True}),
 
             ("fabs", "fabs", 1, {"promote_to_float": True,
                                  "allow_complex": False}),

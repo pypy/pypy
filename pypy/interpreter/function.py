@@ -207,11 +207,11 @@ class Function(Wrappable):
         code = space.interp_w(Code, w_code)
         if not space.is_true(space.isinstance(w_globals, space.w_dict)):
             raise OperationError(space.w_TypeError, space.wrap("expected dict"))
-        if not space.is_w(w_name, space.w_None):
+        if not space.is_none(w_name):
             name = space.str_w(w_name)
         else:
             name = None
-        if not space.is_w(w_argdefs, space.w_None):
+        if not space.is_none(w_argdefs):
             defs_w = space.fixedview(w_argdefs)
         else:
             defs_w = []
@@ -219,7 +219,7 @@ class Function(Wrappable):
         from pypy.interpreter.pycode import PyCode
         if isinstance(code, PyCode):
             nfreevars = len(code.co_freevars)
-        if space.is_w(w_closure, space.w_None) and nfreevars == 0:
+        if space.is_none(w_closure) and nfreevars == 0:
             closure = None
         elif not space.is_w(space.type(w_closure), space.w_tuple):
             raise OperationError(space.w_TypeError, space.wrap("invalid closure"))
@@ -247,7 +247,7 @@ class Function(Wrappable):
     # delicate
     _all = {'': None}
 
-    def _freeze_(self):
+    def _cleanup_(self):
         from pypy.interpreter.gateway import BuiltinCode
         if isinstance(self.code, BuiltinCode):
             # we have been seen by other means so rtyping should not choke
@@ -346,7 +346,7 @@ class Function(Wrappable):
     def fget_func_defaults(self, space):
         values_w = self.defs_w
         # the `None in values_w` check here is to ensure that interp-level
-        # functions with a default of NoneNotWrapped do not get their defaults
+        # functions with a default of None do not get their defaults
         # exposed at applevel
         if not values_w or None in values_w:
             return space.w_None
@@ -459,6 +459,7 @@ class Function(Wrappable):
     def fdel_func_annotations(self, space):
         self.w_ann = None
 
+
 def descr_function_get(space, w_function, w_obj, w_cls=None):
     """functionobject.__get__(obj[, type]) -> method"""
     # this is not defined as a method on Function because it's generally
@@ -476,7 +477,7 @@ class Method(Wrappable):
     def __init__(self, space, w_function, w_instance):
         self.space = space
         self.w_function = w_function
-        self.w_instance = w_instance
+        self.w_instance = w_instance   # or None
 
     def descr_method__new__(space, w_subtype, w_function, w_instance):
         if space.is_w(w_instance, space.w_None):
@@ -577,7 +578,7 @@ class ClassMethod(Wrappable):
         self.w_function = w_function
 
     def descr_classmethod_get(self, space, w_obj, w_klass=None):
-        if space.is_w(w_klass, space.w_None):
+        if space.is_none(w_klass):
             w_klass = space.type(w_obj)
         return space.wrap(Method(space, self.w_function, w_klass))
 

@@ -4,7 +4,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef
-from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.pyframe import PyFrame
 
@@ -90,16 +90,21 @@ class W_Continulet(Wrappable):
         h = sthread.switch(global_state.destination.h)
         return post_switch(sthread, h)
 
+    @unwrap_spec(w_value = WrappedDefault(None),
+                 w_to = WrappedDefault(None))
     def descr_switch(self, w_value=None, w_to=None):
         global_state.w_value = w_value
         return self.switch(w_to)
 
+    @unwrap_spec(w_val = WrappedDefault(None),
+                 w_tb = WrappedDefault(None),
+                 w_to = WrappedDefault(None))
     def descr_throw(self, w_type, w_val=None, w_tb=None, w_to=None):
         from pypy.interpreter.pytraceback import check_traceback
         space = self.space
         #
         msg = "throw() third argument must be a traceback object"
-        if space.is_w(w_tb, space.w_None):
+        if space.is_none(w_tb):
             tb = None
         else:
             tb = check_traceback(space, w_tb, msg)

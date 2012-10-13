@@ -10,7 +10,7 @@ from pypy.annotation.model import SomeString, SomeChar, SomeFloat, \
      SomeUnicodeCodePoint, SomeOOStaticMeth, s_None, s_ImpossibleValue, \
      SomeLLADTMeth, SomeBool, SomeTuple, SomeOOClass, SomeImpossibleValue, \
      SomeUnicodeString, SomeList, SomeObject, HarmlesslyBlocked, \
-     SomeWeakRef, lltype_to_annotation
+     SomeWeakRef, lltype_to_annotation, SomeType
 from pypy.annotation.classdef import InstanceSource, ClassDef
 from pypy.annotation.listdef import ListDef, ListItem
 from pypy.annotation.dictdef import DictDef
@@ -148,7 +148,6 @@ class Bookkeeper(object):
         self.descs = {}          # map Python objects to their XxxDesc wrappers
         self.methoddescs = {}    # map (funcdesc, classdef) to the MethodDesc
         self.classdefs = []      # list of all ClassDefs
-        self.pbctypes = {}
         self.seen_mutable = {}
         self.listdefs = {}       # map position_keys to ListDefs
         self.dictdefs = {}       # map position_keys to DictDefs
@@ -166,9 +165,6 @@ class Bookkeeper(object):
         self.needs_generic_instantiate = {}
 
         self.stats = Stats(self)
-
-        # used in SomeObject.__new__ for keeping debugging info
-        self._isomeobject_coming_from = identity_dict()
 
         delayed_imports()
 
@@ -275,8 +271,7 @@ class Bookkeeper(object):
         """Get the ClassDef associated with the given user cls.
         Avoid using this!  It breaks for classes that must be specialized.
         """
-        if cls is object:
-            return None
+        assert cls is not object
         desc = self.getdesc(cls)
         return desc.getuniqueclassdef()
 
@@ -325,8 +320,6 @@ class Bookkeeper(object):
         if hasattr(x, 'im_self') and x.im_self is None:
             x = x.im_func
             assert not hasattr(x, 'im_self')
-        if x is sys: # special case constant sys to someobject
-            return SomeObject()
         tp = type(x)
         if issubclass(tp, Symbolic): # symbolic constants support
             result = x.annotation()
@@ -445,6 +438,12 @@ class Bookkeeper(object):
             result = SomeOOInstance(ootype.typeOf(x))
         elif isinstance(x, (ootype._object)):
             result = SomeOOObject()
+        elif tp is type:
+            if (x is type(None) or      # add cases here if needed
+                x.__module__ == 'pypy.rpython.lltypesystem.lltype'):
+                result = SomeType()
+            else:
+                result = SomePBC([self.getdesc(x)])
         elif callable(x):
             if hasattr(x, 'im_self') and hasattr(x, 'im_func'):
                 # on top of PyPy, for cases like 'l.append' where 'l' is a
@@ -455,20 +454,13 @@ class Bookkeeper(object):
                 # for cases like 'l.append' where 'l' is a global constant list
                 s_self = self.immutablevalue(x.__self__, need_const)
                 result = s_self.find_method(x.__name__)
-                if result is None:
-                    result = SomeObject()
+                assert result is not None
             else:
                 result = None
             if result is None:
-                if (self.annotator.policy.allow_someobjects
-                    and getattr(x, '__module__', None) == '__builtin__'
-                    # XXX note that the print support functions are __builtin__
-                    and tp not in (types.FunctionType, types.MethodType)):
-                    result = SomeObject()
-                    result.knowntype = tp # at least for types this needs to be correct
-                else:
-                    result = SomePBC([self.getdesc(x)])
-        elif hasattr(x, '_freeze_') and x._freeze_():
+                result = SomePBC([self.getdesc(x)])
+        elif hasattr(x, '_freeze_'):
+            assert x._freeze_() is True
             # user-defined classes can define a method _freeze_(), which
             # is called when a prebuilt instance is found.  If the method
             # returns True, the instance is considered immutable and becomes
@@ -476,16 +468,18 @@ class Bookkeeper(object):
             result = SomePBC([self.getdesc(x)])
         elif hasattr(x, '__class__') \
                  and x.__class__.__module__ != '__builtin__':
+            if hasattr(x, '_cleanup_'):
+                x._cleanup_()
             self.see_mutable(x)
             result = SomeInstance(self.getuniqueclassdef(x.__class__))
         elif x is None:
             return s_None
         else:
-            result = SomeObject()
+            raise Exception("Don't know how to represent %r" % (x,))
         if need_const:
             result.const = x
         return result
-    
+
     def getdesc(self, pyobj):
         # get the XxxDesc wrapper for the given Python object, which must be
         # one of:
@@ -509,8 +503,10 @@ class Bookkeeper(object):
             elif isinstance(pyobj, types.MethodType):
                 if pyobj.im_self is None:   # unbound
                     return self.getdesc(pyobj.im_func)
-                elif (hasattr(pyobj.im_self, '_freeze_') and
-                      pyobj.im_self._freeze_()):  # method of frozen
+                if hasattr(pyobj.im_self, '_cleanup_'):
+                    pyobj.im_self._cleanup_()
+                if hasattr(pyobj.im_self, '_freeze_'):  # method of frozen
+                    assert pyobj.im_self._freeze_() is True
                     result = description.MethodOfFrozenDesc(self,
                         self.getdesc(pyobj.im_func),            # funcdesc
                         self.getdesc(pyobj.im_self))            # frozendesc
@@ -529,9 +525,9 @@ class Bookkeeper(object):
                         name)
             else:
                 # must be a frozen pre-built constant, but let's check
-                try:
-                    assert pyobj._freeze_()
-                except AttributeError:
+                if hasattr(pyobj, '_freeze_'):
+                    assert pyobj._freeze_() is True
+                else:
                     if hasattr(pyobj, '__call__'):
                         msg = "object with a __call__ is not RPython"
                     else:
@@ -551,11 +547,7 @@ class Bookkeeper(object):
             return False
         
     def getfrozen(self, pyobj):
-        result = description.FrozenDesc(self, pyobj)
-        cls = result.knowntype
-        if cls not in self.pbctypes:
-            self.pbctypes[cls] = True
-        return result
+        return description.FrozenDesc(self, pyobj)
 
     def getmethoddesc(self, funcdesc, originclassdef, selfclassdef, name,
                       flags={}):

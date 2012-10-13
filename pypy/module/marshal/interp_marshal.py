@@ -1,11 +1,13 @@
 from pypy.interpreter.error import OperationError
+from pypy.interpreter.gateway import WrappedDefault, unwrap_spec
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib import rstackovf
 
 
 Py_MARSHAL_VERSION = 2
 
-def dump(space, w_data, w_f, w_version=Py_MARSHAL_VERSION):
+@unwrap_spec(w_version = WrappedDefault(Py_MARSHAL_VERSION))
+def dump(space, w_data, w_f, w_version):
     """Write the 'data' object into the open file 'f'."""
     # XXX: before py3k, we special-cased W_File to use a more performant
     # FileWriter class. Should we do the same for py3k? Look also at
@@ -20,7 +22,8 @@ def dump(space, w_data, w_f, w_version=Py_MARSHAL_VERSION):
     finally:
         writer.finished()
 
-def dumps(space, w_data, w_version=Py_MARSHAL_VERSION):
+@unwrap_spec(w_version = WrappedDefault(Py_MARSHAL_VERSION))
+def dumps(space, w_data, w_version):
     """Return the string that would have been written to a file
 by dump(data, file)."""
     m = StringMarshaller(space, space.int_w(w_version))

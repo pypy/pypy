@@ -410,7 +410,7 @@ class W_FileIO(W_RawIOBase):
     def truncate_w(self, space, w_size=None):
         self._check_closed(space)
         self._check_writable(space)
-        if space.is_w(w_size, space.w_None):
+        if space.is_none(w_size):
             w_size = self.tell_w(space)
 
         try:

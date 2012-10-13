@@ -1,6 +1,5 @@
 import py, sys
 from pypy.rpython.lltypesystem.llmemory import *
-from pypy.annotation.model import SomeAddress, SomeChar
 from pypy.translator.c.test.test_genc import compile
 from pypy.rlib.objectmodel import free_non_gc_object
 
@@ -67,20 +66,22 @@ def test_offset_inside_fixed_array():
 
 def test_pointer_arithmetic():
     def f(offset, char):
+        char = chr(char)
         addr = raw_malloc(10000)
         same_offset = (addr + 2 * offset - offset) - addr 
         addr.char[offset] = char
         result = (addr + same_offset).char[0]
         raw_free(addr)
         return result
-    fc = compile(f, [int, SomeChar()])
-    res = fc(10, "c")
+    fc = compile(f, [int, int])
+    res = fc(10, ord("c"))
     assert res == "c"
-    res = fc(12, "x")
+    res = fc(12, ord("x"))
     assert res == "x"
 
 def test_pointer_arithmetic_inplace():
     def f(offset, char):
+        char = chr(char)
         addr = raw_malloc(10000)
         addr += offset
         addr.char[-offset] = char
@@ -88,8 +89,8 @@ def test_pointer_arithmetic_inplace():
         result = addr.char[0]
         raw_free(addr)
         return result
-    fc = compile(f, [int, SomeChar()])
-    res = fc(10, "c")
+    fc = compile(f, [int, int])
+    res = fc(10, ord("c"))
     assert res == "c"
 
 def test_raw_memcopy():

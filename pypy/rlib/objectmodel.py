@@ -149,7 +149,7 @@ def enforceargs(*types_, **kwds):
             else:
                 return type(arg)
         def typecheck(*args):
-            from pypy.annotation.model import SomeList, SomeDict
+            from pypy.annotation.model import SomeList, SomeDict, SomeChar
             for i, (expected_type, arg) in enumerate(zip(types, args)):
                 if expected_type is None:
                     continue
@@ -159,6 +159,9 @@ def enforceargs(*types_, **kwds):
                 if isinstance(s_expected, SomeList) and arg == []:
                     continue
                 if isinstance(s_expected, SomeDict) and arg == {}:
+                    continue
+                if isinstance(s_expected, SomeChar) and (
+                        isinstance(arg, str) and len(arg) == 1):   # a char
                     continue
                 #
                 s_argtype = get_annotation(get_type_descr_of_argument(arg))

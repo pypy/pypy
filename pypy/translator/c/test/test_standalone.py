@@ -131,14 +131,14 @@ class TestStandalone(StandaloneTests):
             os.write(1, str(tot))
             return 0
         from pypy.translator.interactive import Translation
-        t = Translation(entry_point, backend='c', standalone=True)
+        t = Translation(entry_point, backend='c')
         # no counters
         t.backendopt(inline_threshold=100, profile_based_inline="500")
         exe = t.compile()
         out = py.process.cmdexec("%s 500" % exe)
         assert int(out) == 500*501/2
 
-        t = Translation(entry_point, backend='c', standalone=True)
+        t = Translation(entry_point, backend='c')
         # counters
         t.backendopt(inline_threshold=all.INLINE_THRESHOLD_FOR_TEST*0.5,
                      profile_based_inline="500")
@@ -171,13 +171,13 @@ class TestStandalone(StandaloneTests):
             return 0
         from pypy.translator.interactive import Translation
         # XXX this is mostly a "does not crash option"
-        t = Translation(entry_point, backend='c', standalone=True, profopt="100")
+        t = Translation(entry_point, backend='c', profopt="100")
         # no counters
         t.backendopt()
         exe = t.compile()
         out = py.process.cmdexec("%s 500" % exe)
         assert int(out) == 500*501/2
-        t = Translation(entry_point, backend='c', standalone=True, profopt="100",
+        t = Translation(entry_point, backend='c', profopt="100",
                         noprofopt=True)
         # no counters
         t.backendopt()
@@ -208,12 +208,12 @@ class TestStandalone(StandaloneTests):
             return 0
         from pypy.translator.interactive import Translation
         # XXX this is mostly a "does not crash option"
-        t = Translation(entry_point, backend='c', standalone=True, profopt="")
+        t = Translation(entry_point, backend='c', profopt="")
         # no counters
         t.backendopt()
         exe = t.compile()
         #py.process.cmdexec(exe)
-        t = Translation(entry_point, backend='c', standalone=True, profopt="",
+        t = Translation(entry_point, backend='c', profopt="",
                         noprofopt=True)
         # no counters
         t.backendopt()

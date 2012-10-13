@@ -172,8 +172,8 @@ class TestMixedModule:
         # Uncomment this line for a workaround
         # space.getattr(w_ssl, space.wrap('SSLError'))
 
-        w_socket._freeze_()
+        w_socket._cleanup_()
         assert w_socket.startup_called == False
-        w_ssl._freeze_() # w_ssl.appleveldefs['SSLError'] imports _socket
+        w_ssl._cleanup_() # w_ssl.appleveldefs['SSLError'] imports _socket
         assert w_socket.startup_called == False
 

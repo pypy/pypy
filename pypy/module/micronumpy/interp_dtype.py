@@ -19,7 +19,7 @@ STRINGLTR = 'S'
 UNICODELTR = 'U'
 
 def decode_w_dtype(space, w_dtype):
-    if w_dtype is None or space.is_w(w_dtype, space.w_None):
+    if space.is_none(w_dtype):
         return None
     return space.interp_w(W_Dtype,
           space.call_function(space.gettypefor(W_Dtype), w_dtype))
@@ -208,7 +208,7 @@ def dtype_from_spec(space, name):
 def descr__new__(space, w_subtype, w_dtype):
     cache = get_dtype_cache(space)
 
-    if space.is_w(w_dtype, space.w_None):
+    if space.is_none(w_dtype):
         return cache.w_float64dtype
     elif space.isinstance_w(w_dtype, w_subtype):
         return w_dtype

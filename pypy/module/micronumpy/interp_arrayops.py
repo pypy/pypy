@@ -66,10 +66,13 @@ def where(space, w_arr, w_x=None, w_y=None):
     
     NOTE: support for not passing x and y is unsupported
     """
-    if space.is_w(w_y, space.w_None):
-        if space.is_w(w_x, space.w_None):
+    if space.is_none(w_y):
+        if space.is_none(w_x):
             raise OperationError(space.w_NotImplementedError, space.wrap(
                 "1-arg where unsupported right now"))
+        raise OperationError(space.w_ValueError, space.wrap(
+            "Where should be called with either 1 or 3 arguments"))
+    if space.is_none(w_x):
         raise OperationError(space.w_ValueError, space.wrap(
             "Where should be called with either 1 or 3 arguments"))
     arr = convert_to_array(space, w_arr)
@@ -127,7 +130,7 @@ def concatenate(space, w_args, axis=0):
 @unwrap_spec(repeats=int)
 def repeat(space, w_arr, repeats, w_axis=None):
     arr = convert_to_array(space, w_arr)
-    if space.is_w(w_axis, space.w_None):
+    if space.is_none(w_axis):
         arr = arr.descr_flatten(space)
         orig_size = arr.get_shape()[0]
         shape = [arr.get_shape()[0] * repeats]

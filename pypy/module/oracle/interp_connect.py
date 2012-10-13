@@ -1,12 +1,10 @@
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.interpreter.gateway import unwrap_spec, NoneNotWrapped
+from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.typedef import (TypeDef, interp_attrproperty_w,
                                       GetSetProperty)
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.error import OperationError
 from pypy.rpython.lltypesystem import rffi, lltype
-
-Null = NoneNotWrapped
 
 from pypy.module.oracle import roci, interp_error
 from pypy.module.oracle.config import string_w, StringBuffer, MAX_STRING_CHARS
@@ -35,18 +33,18 @@ class W_Connection(Wrappable):
                  threaded=bool, twophase=bool, events=bool,
                  purity=bool)
     def descr_new(space, w_subtype,
-                  w_user=NoneNotWrapped,
-                  w_password=NoneNotWrapped,
-                  w_dsn=NoneNotWrapped,
+                  w_user=None,
+                  w_password=None,
+                  w_dsn=None,
                   mode=roci.OCI_DEFAULT,
                   handle=0,         # XXX should be a ptr type
-                  w_pool=Null,
+                  w_pool=None,
                   threaded=False,
                   twophase=False,
                   events=False,
-                  w_cclass=Null,
+                  w_cclass=None,
                   purity=0,
-                  w_newpassword=Null):
+                  w_newpassword=None):
         self = space.allocate_instance(W_Connection, w_subtype)
         W_Connection.__init__(self)
 

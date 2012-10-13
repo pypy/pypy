@@ -1,5 +1,6 @@
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter import gateway, unicodehelper
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
+from pypy.interpreter import unicodehelper
 from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 from pypy.objspace.std.register_all import register_all
 from pypy.rlib.runicode import str_decode_utf_8, str_decode_ascii,\
@@ -183,11 +184,11 @@ def getdefaultencoding(space):
     return space.sys.defaultencoding
 
 def _get_encoding_and_errors(space, w_encoding, w_errors):
-    if space.is_w(w_encoding, space.w_None):
+    if space.is_none(w_encoding):
         encoding = None
     else:
         encoding = space.str_w(w_encoding)
-    if space.is_w(w_errors, space.w_None):
+    if space.is_none(w_errors):
         errors = None
     else:
         errors = space.str_w(w_errors)
@@ -265,7 +266,9 @@ def unicode_from_object(space, w_obj):
     w_unicode_method = space.lookup(w_obj, "__str__")
     return space.repr(w_obj) if w_unicode_method is None else space.str(w_obj)
 
-def descr_new_(space, w_unicodetype, w_object=u'', w_encoding=None, w_errors=None):
+@unwrap_spec(w_object = WrappedDefault(u''))
+def descr_new_(space, w_unicodetype, w_object=None, w_encoding=None,
+               w_errors=None):
     # NB. the default value of w_obj is really a *wrapped* empty string:
     #     there is gateway magic at work
     from pypy.objspace.std.unicodeobject import W_UnicodeObject
@@ -379,13 +382,13 @@ def descr_maketrans(space, w_type, w_x, w_y=None, w_z=None):
 # ____________________________________________________________
 
 unicode_typedef = StdTypeDef("str",
-    __new__ = gateway.interp2app(descr_new_),
+    __new__ = interp2app(descr_new_),
     __doc__ = '''str(string [, encoding[, errors]]) -> object
 
 Create a new string object from the given encoded string.
 encoding defaults to the current default string encoding.
 errors can be 'strict', 'replace' or 'ignore' and defaults to 'strict'.''',
-    maketrans = gateway.interp2app(descr_maketrans, as_classmethod=True),
+    maketrans = interp2app(descr_maketrans, as_classmethod=True),
     )
 
 unicode_typedef.registermethods(globals())

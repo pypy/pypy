@@ -130,12 +130,15 @@ class TranslationContext(object):
         from pypy.translator.tool.graphpage import FlowGraphPage
         FlowGraphPage(self).display()
 
+    show = view
+
     def viewcg(self, center_graph=None, huge=100):
         """Shows the whole call graph and the class hierarchy, based on
         the computed annotations."""
         from pypy.translator.tool.graphpage import TranslatorPage
         TranslatorPage(self, center_graph=center_graph, huge=huge).display()
 
+    showcg = viewcg
 
 
 # _______________________________________________________________
