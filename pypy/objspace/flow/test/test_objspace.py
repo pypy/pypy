@@ -1054,6 +1054,80 @@ class TestFlowObjSpace(Base):
         with py.test.raises(FlowingError):
             self.codetest(f)
 
+    @py.test.mark.xfail(reason="closures aren't supported")
+    def test_cellvar_store(self):
+        def f():
+            x = 5
+            return x
+            lambda: x # turn x into a cell variable
+        graph = self.codetest(f)
+        assert len(graph.startblock.exits) == 1
+        assert graph.startblock.exits[0].target == graph.returnblock
+
+    @py.test.mark.xfail(reason="closures aren't supported")
+    def test_arg_as_cellvar(self):
+        def f(x, y, z):
+            a, b, c = 1, 2, 3
+            z = b
+            return z
+            lambda: (a, b, x, z) # make cell variables
+        graph = self.codetest(f)
+        assert len(graph.startblock.exits) == 1
+        assert graph.startblock.exits[0].target == graph.returnblock
+        assert not graph.startblock.operations
+        assert graph.startblock.exits[0].args[0].value == 2
+
+    def test_lambda(self):
+        def f():
+            g = lambda m, n: n*m
+            return g
+        graph = self.codetest(f)
+        assert len(graph.startblock.exits) == 1
+        assert graph.startblock.exits[0].target == graph.returnblock
+        g = graph.startblock.exits[0].args[0].value
+        assert g(4, 4) == 16
+
+    def test_lambda_with_defaults(self):
+        def f():
+            g = lambda m, n=5: n*m
+            return g
+        graph = self.codetest(f)
+        assert len(graph.startblock.exits) == 1
+        assert graph.startblock.exits[0].target == graph.returnblock
+        g = graph.startblock.exits[0].args[0].value
+        assert g(4) == 20
+
+        def f2(x):
+            g = lambda m, n=x: n*m
+            return g
+        with py.test.raises(FlowingError):
+            self.codetest(f2)
+
+    @py.test.mark.xfail(reason="closures aren't supported")
+    def test_closure(self):
+        def f():
+            m = 5
+            return lambda n: m * n
+        graph = self.codetest(f)
+        assert len(graph.startblock.exits) == 1
+        assert graph.startblock.exits[0].target == graph.returnblock
+        g = graph.startblock.exits[0].args[0].value
+        assert g(4) == 20
+
+    def test_closure_error(self):
+        def f():
+            m = 5
+            return lambda n: m * n
+        with py.test.raises(ValueError) as excinfo:
+            self.codetest(f)
+        assert "closure" in str(excinfo.value)
+
+    def test_unbound_local(self):
+        def f():
+            x += 1
+        with py.test.raises(FlowingError):
+            self.codetest(f)
+
 DATA = {'x': 5,
         'y': 6}
 
