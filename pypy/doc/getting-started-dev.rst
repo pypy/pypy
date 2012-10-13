@@ -27,7 +27,7 @@ Test snippets of translatable code are provided in the file
 ``pypy/translator/test/snippet.py``, which is imported under the name
 ``snippet``.  For example::
 
-    >>> t = Translation(snippet.is_perfect_number)
+    >>> t = Translation(snippet.is_perfect_number, [int])
     >>> t.view()
         
 After that, the graph viewer pops up, that lets you interactively inspect the
@@ -40,7 +40,7 @@ Trying out the type annotator
 We have a type annotator that can completely infer types for functions like
 ``is_perfect_number`` (as well as for much larger examples)::
 
-    >>> t.annotate([int])
+    >>> t.annotate()
     >>> t.view()
 
 Move the mouse over variable names (in red) to see their inferred types.
@@ -74,8 +74,8 @@ from the interactive translator shells as follows::
 
     >>> def myfunc(a, b): return a+b
     ... 
-    >>> t = Translation(myfunc)
-    >>> t.annotate([int, int])
+    >>> t = Translation(myfunc, [int, int])
+    >>> t.annotate()
     >>> f = t.compile_cli() # or compile_jvm()
     >>> f(4, 5)
     9

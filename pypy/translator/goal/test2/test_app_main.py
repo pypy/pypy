@@ -397,6 +397,15 @@ class TestInteraction:
         finally:
             del os.environ['PYTHONINSPECT_']
 
+    def test_python_path_keeps_duplicates(self):
+        old = os.environ.get('PYTHONPATH', '')
+        try:
+            os.environ['PYTHONPATH'] = 'foobarbaz:foobarbaz'
+            child = self.spawn(['-c', 'import sys; print sys.path'])
+            child.expect(r"\['', 'foobarbaz', 'foobarbaz', ")
+        finally:
+            os.environ['PYTHONPATH'] = old
+
     def test_ignore_python_path(self):
         old = os.environ.get('PYTHONPATH', '')
         try:

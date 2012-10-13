@@ -97,7 +97,7 @@ class AbstractCPU(object):
         The FailDescr is the descr of the original guard that failed.
 
         Optionally, return a ``ops_offset`` dictionary.  See the docstring of
-        ``compiled_loop`` for more informations about it.
+        ``compiled_loop`` for more information about it.
         """
         raise NotImplementedError
 
@@ -131,13 +131,13 @@ class AbstractCPU(object):
     def get_latest_value_float(self, index):
         """Returns the value for the index'th argument to the
         last executed operation (from 'fail_args' if it was a guard,
-        or from 'args' if it was a FINISH).  Returns a float."""
+        or from 'args' if it was a FINISH).  Returns a FLOATSTORAGE."""
         raise NotImplementedError
 
     def get_latest_value_ref(self, index):
         """Returns the value for the index'th argument to the
         last executed operation (from 'fail_args' if it was a guard,
-        or from 'args' if it was a FINISH).  Returns a ptr or an obj."""
+        or from 'args' if it was a FINISH).  Returns a GCREF."""
         raise NotImplementedError
 
     def get_latest_value_count(self):

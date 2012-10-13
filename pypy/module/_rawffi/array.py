@@ -13,7 +13,7 @@ from pypy.module._rawffi.interp_rawffi import unwrap_value, wrap_value
 from pypy.module._rawffi.interp_rawffi import TYPEMAP
 from pypy.module._rawffi.interp_rawffi import size_alignment
 from pypy.module._rawffi.interp_rawffi import unpack_shape_with_length
-from pypy.rlib.rarithmetic import intmask, r_uint
+from pypy.rlib.rarithmetic import r_uint
 
 def push_elem(ll_array, pos, value):
     TP = lltype.typeOf(value)
@@ -48,7 +48,7 @@ class W_Array(W_DataShape):
     @unwrap_spec(length=int, autofree=bool)
     def descr_call(self, space, length, w_items=None, autofree=False):
         result = self.allocate(space, length, autofree)
-        if not space.is_w(w_items, space.w_None):
+        if not space.is_none(w_items):
             items_w = space.unpackiterable(w_items)
             iterlength = len(items_w)
             if iterlength > length:

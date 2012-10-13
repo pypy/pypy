@@ -1,16 +1,15 @@
 import py
+
 from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.lltypesystem.llarena import (arena_malloc, arena_reset,
+    arena_reserve, arena_free, round_up_for_allocation, ArenaError,
+    arena_new_view, arena_shrink_obj, arena_protect, has_protect)
 from pypy.rpython.lltypesystem.llmemory import cast_adr_to_ptr
-from pypy.rpython.lltypesystem.llarena import arena_malloc, arena_reset
-from pypy.rpython.lltypesystem.llarena import arena_reserve, arena_free
-from pypy.rpython.lltypesystem.llarena import round_up_for_allocation
-from pypy.rpython.lltypesystem.llarena import ArenaError, arena_new_view
-from pypy.rpython.lltypesystem.llarena import arena_shrink_obj
-from pypy.rpython.lltypesystem.llarena import arena_protect, has_protect
 from pypy.translator.c.test import test_genc, test_standalone
 
+
 def test_arena():
-    S = lltype.Struct('S', ('x',lltype.Signed))
+    S = lltype.Struct('S', ('x', lltype.Signed))
     SPTR = lltype.Ptr(S)
     ssize = llmemory.raw_malloc_usage(llmemory.sizeof(S))
     myarenasize = 2*ssize+1
@@ -303,8 +302,6 @@ def test_arena_protect():
 
 class TestStandalone(test_standalone.StandaloneTests):
     def test_compiled_arena_protect(self):
-        import os
-        from pypy.translator.c.test.test_genc import compile
         S = lltype.Struct('S', ('x', lltype.Signed))
         #
         def fn(argv):

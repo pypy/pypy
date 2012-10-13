@@ -1,5 +1,4 @@
 import operator
-import sys
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std import model, newformat
@@ -13,7 +12,6 @@ from pypy.rlib.rfloat import (
     isinf, isnan, isfinite, INFINITY, NAN, copysign, formatd,
     DTSF_ADD_DOT_0, DTSF_STR_PRECISION)
 from pypy.rlib.rbigint import rbigint
-from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib import rfloat
 from pypy.tool.sourcetools import func_with_new_name
 
@@ -292,8 +290,6 @@ def hash__Float(space, w_value):
     return space.wrap(_hash_float(space, w_value.floatval))
 
 def _hash_float(space, v):
-    from pypy.objspace.std.longobject import hash__Long
-
     if isnan(v):
         return 0
 

@@ -220,6 +220,9 @@ class AppTestAppComplexTest:
         b = 5.1+2.3j
         raises(ValueError, pow, a, b, 0)
 
+        b = complex(float('inf'), 0.0) ** complex(10., 3.)
+        assert repr(b) == "(nan+nanj)"
+
     def test_boolcontext(self):
         from random import random
         for i in xrange(100):
@@ -567,3 +570,6 @@ class AppTestAppComplexTest:
         assert '{0:F}'.format(complex(NAN, 0)) == 'NAN+0.000000j'
         assert '{0:f}'.format(complex(NAN, NAN)) == 'nan+nanj'
         assert '{0:F}'.format(complex(NAN, NAN)) == 'NAN+NANj'
+
+    def test_complex_two_arguments(self):
+        raises(TypeError, complex, 5, None)

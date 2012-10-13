@@ -644,8 +644,7 @@ class rbigint(object):
             # j  = (m+) % SHIFT = (m+) - (i * SHIFT)
             # (computed without doing "i * SHIFT", which might overflow)
             j = size_b % 5
-            if j != 0:
-                j = 5 - j
+            j = _jmapping[j]
             if not we_are_translated():
                 assert j == (size_b*SHIFT+4)//5*5 - size_b*SHIFT
             #
@@ -865,6 +864,12 @@ class rbigint(object):
 ONERBIGINT = rbigint([ONEDIGIT], 1, 1)
 ONENEGATIVERBIGINT = rbigint([ONEDIGIT], -1, 1)
 NULLRBIGINT = rbigint()
+
+_jmapping = [(5 * SHIFT) % 5,
+             (4 * SHIFT) % 5,
+             (3 * SHIFT) % 5,
+             (2 * SHIFT) % 5,
+             (1 * SHIFT) % 5]
 
 #_________________________________________________________________
 

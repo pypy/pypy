@@ -78,8 +78,8 @@ class FlowObjSpace(object):
 
     # the following exceptions should not show up
     # during flow graph construction
-    w_NameError = None
-    w_UnboundLocalError = None
+    w_NameError = 'NameError'
+    w_UnboundLocalError = 'UnboundLocalError'
 
     specialcases = SPECIAL_CASES
     # objects which should keep their SomeObjectness
@@ -183,8 +183,10 @@ class FlowObjSpace(object):
         if (not isinstance(to_check, (type, types.ClassType, types.ModuleType)) and
             # classes/types/modules are assumed immutable
             hasattr(to_check, '__class__') and to_check.__class__.__module__ != '__builtin__'):
-            frozen = hasattr(to_check, '_freeze_') and to_check._freeze_()
-            if not frozen:
+            frozen = hasattr(to_check, '_freeze_')
+            if frozen:
+                assert to_check._freeze_() is True
+            else:
                 # cannot count on it not mutating at runtime!
                 raise UnwrapException
         return obj

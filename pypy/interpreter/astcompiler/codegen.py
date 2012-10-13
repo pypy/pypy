@@ -474,7 +474,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 if f_type == F_BLOCK_LOOP:
                     self.emit_jump(ops.CONTINUE_LOOP, block, True)
                     break
-                if self.frame_blocks[i][0] == F_BLOCK_FINALLY_END:
+                if f_type == F_BLOCK_FINALLY_END:
                     self.error("'continue' not supported inside 'finally' " \
                                    "clause",
                                cont)

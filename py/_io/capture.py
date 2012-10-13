@@ -176,7 +176,7 @@ class Capture(object):
 
 
 class StdCaptureFD(Capture):
-    """ This class allows to capture writes to FD1 and FD2
+    """ This class allows capturing writes to FD1 and FD2
         and may connect a NULL file to FD0 (and prevent
         reads from sys.stdin).  If any of the 0,1,2 file descriptors
         is invalid it will not be captured.
@@ -267,8 +267,8 @@ class StdCaptureFD(Capture):
         return l
 
 class StdCapture(Capture):
-    """ This class allows to capture writes to sys.stdout|stderr "in-memory"
-        and will raise errors on tries to read from sys.stdin. It only
+    """ This class allows capturing writes to sys.stdout|stderr "in-memory"
+        and will raise errors on read attempts from sys.stdin. It only
         modifies sys.stdout|stderr|stdin attributes and does not
         touch underlying File Descriptors (use StdCaptureFD for that).
     """
