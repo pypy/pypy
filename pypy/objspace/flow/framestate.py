@@ -6,9 +6,6 @@ class FrameState:
         self.mergeable = mergeable
         self.blocklist = blocklist
         self.next_instr = next_instr
-        for w1 in self.mergeable:
-            assert isinstance(w1, (Variable, Constant)) or w1 is None, (
-                '%r found in frame state' % w1)
 
     def copy(self):
         "Make a copy of this state in which all Variables are fresh."
@@ -109,12 +106,10 @@ def recursively_flatten(space, lst):
     from pypy.objspace.flow.flowcontext import SuspendedUnroller
     i = 0
     while i < len(lst):
-        item = lst[i]
-        if not (isinstance(item, Constant) and
-                isinstance(item.value, SuspendedUnroller)):
+        unroller = lst[i]
+        if not isinstance(unroller, SuspendedUnroller):
             i += 1
         else:
-            unroller = item.value
             vars = unroller.state_unpack_variables(space)
             key = unroller.__class__, len(vars)
             try:
@@ -132,4 +127,4 @@ def recursively_unflatten(space, lst):
             arguments = lst[i+1: i+1+argcount]
             del lst[i+1: i+1+argcount]
             unroller = unrollerclass.state_pack_variables(space, *arguments)
-            lst[i] = space.wrap(unroller)
+            lst[i] = unroller

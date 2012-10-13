@@ -574,18 +574,14 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         if w_top == self.space.w_None:
             # finally: block with no unroller active
             return
-        try:
-            unroller = self.space.unwrap(w_top)
-        except UnwrapException:
-            pass
+        elif isinstance(w_top, SuspendedUnroller):
+            # case of a finally: block
+            return self.unroll_finally(w_top)
         else:
-            if isinstance(unroller, SuspendedUnroller):
-                # case of a finally: block
-                return self.unroll_finally(unroller)
-        # case of an except: block.  We popped the exception type
-        self.popvalue()        #     Now we pop the exception value
-        unroller = self.space.unwrap(self.popvalue())
-        return self.unroll_finally(unroller)
+            # case of an except: block.  We popped the exception type
+            self.popvalue()        #     Now we pop the exception value
+            unroller = self.popvalue()
+            return self.unroll_finally(unroller)
 
     def unroll_finally(self, unroller):
         # go on unrolling the stack
@@ -667,14 +663,13 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         # and cannot suppress the exception.
         # This opcode changed a lot between CPython versions
         if sys.version_info >= (2, 6):
-            w_unroller = self.popvalue()
+            unroller = self.popvalue()
             w_exitfunc = self.popvalue()
-            self.pushvalue(w_unroller)
+            self.pushvalue(unroller)
         else:
             w_exitfunc = self.popvalue()
-            w_unroller = self.peekvalue(0)
+            unroller = self.peekvalue(0)
 
-        unroller = self.space.unwrap(w_unroller)
         w_None = self.space.w_None
         if isinstance(unroller, SApplicationException):
             operr = unroller.operr
@@ -890,7 +885,7 @@ class ExceptBlock(FrameBlock):
         # the stack setup is slightly different than in CPython:
         # instead of the traceback, we store the unroller object,
         # wrapped.
-        frame.pushvalue(frame.space.wrap(unroller))
+        frame.pushvalue(unroller)
         frame.pushvalue(operationerr.get_w_value(frame.space))
         frame.pushvalue(operationerr.w_type)
         frame.last_exception = operationerr
@@ -906,7 +901,7 @@ class FinallyBlock(FrameBlock):
         # any abnormal reason for unrolling a finally: triggers the end of
         # the block unrolling and the entering the finally: handler.
         self.cleanupstack(frame)
-        frame.pushvalue(frame.space.wrap(unroller))
+        frame.pushvalue(unroller)
         return self.handlerposition   # jump to the handler
 
 
