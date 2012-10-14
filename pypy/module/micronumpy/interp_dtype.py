@@ -498,6 +498,7 @@ class DtypeCache(object):
             self.w_int64dtype, self.w_uint64dtype,
             self.w_float32dtype, self.w_float64dtype, self.w_complex64dtype,
             self.w_complex128dtype,
+            self.w_stringdtype, self.w_unicodedtype,
             self.w_voiddtype, self.w_intpdtype, self.w_uintpdtype,
         ]
         self.float_dtypes_by_num_bytes = sorted(
