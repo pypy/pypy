@@ -9,8 +9,8 @@ from pypy.interpreter.baseobjspace import InternalSpaceCache, W_Root
 from pypy.interpreter.error import OperationError
 from pypy.module.micronumpy import interp_boxes
 from pypy.module.micronumpy.interp_dtype import get_dtype_cache
-from pypy.module.micronumpy.interp_numarray import (Scalar, BaseArray,
-     scalar_w, W_NDimArray, array)
+from pypy.module.micronumpy.base import W_NDimArray
+from pypy.module.micronumpy.interp_numarray import array
 from pypy.module.micronumpy.interp_arrayops import where
 from pypy.module.micronumpy import interp_ufuncs
 from pypy.rlib.objectmodel import specialize, instantiate
@@ -56,13 +56,17 @@ class FakeSpace(object):
     w_slice = "slice"
     w_str = "str"
     w_unicode = "unicode"
-
+    w_complex = "complex"
+    
     def __init__(self):
         """NOT_RPYTHON"""
         self.fromcache = InternalSpaceCache(self).getorbuild
 
     def _freeze_(self):
         return True
+
+    def is_none(self, w_obj):
+        return w_obj is None or w_obj is self.w_None
 
     def issequence_w(self, w_obj):
         return isinstance(w_obj, ListObject) or isinstance(w_obj, W_NDimArray)
@@ -107,6 +111,9 @@ class FakeSpace(object):
     def newlist(self, items):
         return ListObject(items)
 
+    def newcomplex(self, r, i):
+        return ComplexObject(r, i)
+
     def listview(self, obj):
         assert isinstance(obj, ListObject)
         return obj.items
@@ -131,6 +138,11 @@ class FakeSpace(object):
             raise OperationError(self.w_TypeError, self.wrap("slice."))
         raise NotImplementedError
 
+    def unpackcomplex(self, w_obj):
+        if isinstance(w_obj, ComplexObject):
+            return w_obj.r, w_obj.i
+        raise NotImplementedError
+
     def index(self, w_obj):
         return self.wrap(self.int_w(w_obj))
 
@@ -147,7 +159,8 @@ class FakeSpace(object):
 
     def is_true(self, w_obj):
         assert isinstance(w_obj, BoolObject)
-        return w_obj.boolval
+        return False
+        #return w_obj.boolval
 
     def is_w(self, w_obj, w_what):
         return w_obj is w_what
@@ -225,6 +238,12 @@ class StringObject(W_Root):
     def __init__(self, v):
         self.v = v
 
+class ComplexObject(W_Root):
+    tp = FakeSpace.w_complex
+    def __init__(self, r, i):
+        self.r = r
+        self.i = i
+
 class InterpreterState(object):
     def __init__(self, code):
         self.code = code
@@ -274,7 +293,7 @@ class ArrayAssignment(Node):
         if isinstance(w_index, FloatObject):
             w_index = IntObject(int(w_index.floatval))
         w_val = self.expr.execute(interp)
-        assert isinstance(arr, BaseArray)
+        assert isinstance(arr, W_NDimArray)
         arr.descr_setitem(interp.space, w_index, w_val)
 
     def __repr__(self):
@@ -302,11 +321,11 @@ class Operator(Node):
             w_rhs = self.rhs.wrap(interp.space)
         else:
             w_rhs = self.rhs.execute(interp)
-        if not isinstance(w_lhs, BaseArray):
+        if not isinstance(w_lhs, W_NDimArray):
             # scalar
             dtype = get_dtype_cache(interp.space).w_float64dtype
-            w_lhs = scalar_w(interp.space, dtype, w_lhs)
-        assert isinstance(w_lhs, BaseArray)
+            w_lhs = W_NDimArray.new_scalar(interp.space, dtype, w_lhs)
+        assert isinstance(w_lhs, W_NDimArray)
         if self.name == '+':
             w_res = w_lhs.descr_add(interp.space, w_rhs)
         elif self.name == '*':
@@ -314,17 +333,16 @@ class Operator(Node):
         elif self.name == '-':
             w_res = w_lhs.descr_sub(interp.space, w_rhs)
         elif self.name == '->':
-            assert not isinstance(w_rhs, Scalar)
             if isinstance(w_rhs, FloatObject):
                 w_rhs = IntObject(int(w_rhs.floatval))
-            assert isinstance(w_lhs, BaseArray)
+            assert isinstance(w_lhs, W_NDimArray)
             w_res = w_lhs.descr_getitem(interp.space, w_rhs)
         else:
             raise NotImplementedError
-        if (not isinstance(w_res, BaseArray) and
+        if (not isinstance(w_res, W_NDimArray) and
             not isinstance(w_res, interp_boxes.W_GenericBox)):
             dtype = get_dtype_cache(interp.space).w_float64dtype
-            w_res = scalar_w(interp.space, dtype, w_res)
+            w_res = W_NDimArray.new_scalar(interp.space, dtype, w_res)
         return w_res
 
     def __repr__(self):
@@ -342,6 +360,20 @@ class FloatConstant(Node):
 
     def execute(self, interp):
         return interp.space.wrap(self.v)
+
+class ComplexConstant(Node):
+    def __init__(self, r, i):
+        self.r = float(r)
+        self.i = float(i)
+
+    def __repr__(self):
+        return 'ComplexConst(%s, %s)' % (self.r, self.i)
+
+    def wrap(self, space):
+        return space.newcomplex(self.r, self.i)
+
+    def execute(self, interp):
+        return self.wrap(interp.space)
 
 class RangeConstant(Node):
     def __init__(self, v):
@@ -373,8 +405,7 @@ class ArrayConstant(Node):
 
     def execute(self, interp):
         w_list = self.wrap(interp.space)
-        dtype = get_dtype_cache(interp.space).w_float64dtype
-        return array(interp.space, w_list, w_dtype=dtype, w_order=None)
+        return array(interp.space, w_list)
 
     def __repr__(self):
         return "[" + ", ".join([repr(item) for item in self.items]) + "]"
@@ -416,7 +447,7 @@ class FunctionCall(Node):
 
     def execute(self, interp):
         arr = self.args[0].execute(interp)
-        if not isinstance(arr, BaseArray):
+        if not isinstance(arr, W_NDimArray):
             raise ArgumentNotAnArray
         if self.name in SINGLE_ARG_FUNCTIONS:
             if len(self.args) != 1 and self.name != 'sum':
@@ -440,20 +471,21 @@ class FunctionCall(Node):
             elif self.name == "unegative":
                 neg = interp_ufuncs.get(interp.space).negative
                 w_res = neg.call(interp.space, [arr])
+            elif self.name == "cos":
+                cos = interp_ufuncs.get(interp.space).cos
+                w_res = cos.call(interp.space, [arr])                
             elif self.name == "flat":
                 w_res = arr.descr_get_flatiter(interp.space)
             elif self.name == "tostring":
                 arr.descr_tostring(interp.space)
                 w_res = None
-            elif self.name == "count_nonzero":
-                w_res = arr.descr_count_nonzero(interp.space)
             else:
                 assert False # unreachable code
         elif self.name in TWO_ARG_FUNCTIONS:
             if len(self.args) != 2:
                 raise ArgumentMismatch
             arg = self.args[1].execute(interp)
-            if not isinstance(arg, BaseArray):
+            if not isinstance(arg, W_NDimArray):
                 raise ArgumentNotAnArray
             if self.name == "dot":
                 w_res = arr.descr_dot(interp.space, arg)
@@ -466,9 +498,9 @@ class FunctionCall(Node):
                 raise ArgumentMismatch
             arg1 = self.args[1].execute(interp)
             arg2 = self.args[2].execute(interp)
-            if not isinstance(arg1, BaseArray):
+            if not isinstance(arg1, W_NDimArray):
                 raise ArgumentNotAnArray
-            if not isinstance(arg2, BaseArray):
+            if not isinstance(arg2, W_NDimArray):
                 raise ArgumentNotAnArray
             if self.name == "where":
                 w_res = where(interp.space, arr, arg1, arg2)
@@ -476,7 +508,7 @@ class FunctionCall(Node):
                 assert False
         else:
             raise WrongFunctionName
-        if isinstance(w_res, BaseArray):
+        if isinstance(w_res, W_NDimArray):
             return w_res
         if isinstance(w_res, FloatObject):
             dtype = get_dtype_cache(interp.space).w_float64dtype
@@ -488,7 +520,7 @@ class FunctionCall(Node):
             dtype = w_res.get_dtype(interp.space)
         else:
             dtype = None
-        return scalar_w(interp.space, dtype, w_res)
+        return W_NDimArray.new_scalar(interp.space, dtype, w_res)
 
 _REGEXES = [
     ('-?[\d\.]+', 'number'),
@@ -606,6 +638,8 @@ class Parser(object):
                 stack.append(RangeConstant(tokens.pop().v))
                 end = tokens.pop()
                 assert end.name == 'pipe'
+            elif token.name == 'paren_left':
+                stack.append(self.parse_complex_constant(tokens))
             elif accept_comma and token.name == 'comma':
                 continue
             else:
@@ -629,6 +663,15 @@ class Parser(object):
             args += self.parse_expression(tokens, accept_comma=True)
         return FunctionCall(name, args)
 
+    def parse_complex_constant(self, tokens):
+        r = tokens.pop()
+        assert r.name == 'number'
+        assert tokens.pop().name == 'comma'
+        i = tokens.pop()
+        assert i.name == 'number'
+        assert tokens.pop().name == 'paren_right'
+        return ComplexConstant(r.v, i.v)
+
     def parse_array_const(self, tokens):
         elems = []
         while True:
@@ -637,6 +680,8 @@ class Parser(object):
                 elems.append(FloatConstant(token.v))
             elif token.name == 'array_left':
                 elems.append(ArrayConstant(self.parse_array_const(tokens)))
+            elif token.name == 'paren_left':
+                elems.append(self.parse_complex_constant(tokens))
             else:
                 raise BadToken()
             token = tokens.pop()

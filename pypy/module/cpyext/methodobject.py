@@ -188,7 +188,7 @@ def cmethod_descr_call(space, w_self, __args__):
     return ret
 
 def cmethod_descr_get(space, w_function, w_obj, w_cls=None):
-    asking_for_bound = (space.is_w(w_cls, space.w_None) or
+    asking_for_bound = (space.is_none(w_cls) or
                         not space.is_w(w_obj, space.w_None) or
                         space.is_w(w_cls, space.type(space.w_None)))
     if asking_for_bound:

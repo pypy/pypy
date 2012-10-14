@@ -1,19 +1,20 @@
-import collections
+"""Implements the core parts of flow graph creation, in tandem
+with pypy.objspace.flow.objspace.
+"""
+
 import sys
+import collections
+
 from pypy.tool.error import source_lines
-from pypy.interpreter.error import OperationError
-from pypy.interpreter.pytraceback import PyTraceback
 from pypy.interpreter import pyframe
-from pypy.interpreter.nestedscope import Cell
-from pypy.interpreter.pycode import CO_OPTIMIZED, CO_NEWLOCALS
 from pypy.interpreter.argument import ArgumentsForTranslation
-from pypy.interpreter.pyopcode import (Return, Yield, SuspendedUnroller,
-        SReturnValue, SApplicationException, BytecodeCorruption,
-        RaiseWithExplicitTraceback)
-from pypy.objspace.flow.model import *
+from pypy.interpreter.pyopcode import Return, BytecodeCorruption
+from pypy.objspace.flow.model import (Constant, Variable, Block, Link,
+    UnwrapException, c_last_exception)
 from pypy.objspace.flow.framestate import (FrameState, recursively_unflatten,
         recursively_flatten)
-from pypy.objspace.flow.bytecode import HostCode
+from pypy.objspace.flow.specialcase import (rpython_print_item,
+        rpython_print_newline)
 
 class FlowingError(Exception):
     """ Signals invalid RPython in the function being analysed"""
@@ -27,61 +28,20 @@ class FlowingError(Exception):
         msg += source_lines(self.frame.graph, None, offset=self.frame.last_instr)
         return "\n".join(msg)
 
-
 class StopFlowing(Exception):
     pass
 
-class FSException(OperationError):
-    def __init__(self, w_type, w_value, tb=None):
+class FSException(Exception):
+    def __init__(self, w_type, w_value):
         assert w_type is not None
         self.w_type = w_type
         self.w_value = w_value
-        self._application_traceback = tb
 
     def get_w_value(self, _):
         return self.w_value
 
     def __str__(self):
         return '[%s: %s]' % (self.w_type, self.w_value)
-
-    def normalize_exception(self, space):
-        """Normalize the OperationError.  In other words, fix w_type and/or
-        w_value to make sure that the __class__ of w_value is exactly w_type.
-        """
-        w_type  = self.w_type
-        w_value = self.w_value
-        if space.exception_is_valid_obj_as_class_w(w_type):
-            # this is for all cases of the form (Class, something)
-            if space.is_w(w_value, space.w_None):
-                # raise Type: we assume we have to instantiate Type
-                w_value = space.call_function(w_type)
-                w_type = self._exception_getclass(space, w_value)
-            else:
-                w_valuetype = space.exception_getclass(w_value)
-                if space.exception_issubclass_w(w_valuetype, w_type):
-                    # raise Type, Instance: let etype be the exact type of value
-                    w_type = w_valuetype
-                else:
-                    # raise Type, X: assume X is the constructor argument
-                    w_value = space.call_function(w_type, w_value)
-                    w_type = self._exception_getclass(space, w_value)
-
-        else:
-            # the only case left here is (inst, None), from a 'raise inst'.
-            w_inst = w_type
-            w_instclass = self._exception_getclass(space, w_inst)
-            if not space.is_w(w_value, space.w_None):
-                raise FSException(space.w_TypeError,
-                                     space.wrap("instance exception may not "
-                                                "have a separate value"))
-            w_value = w_inst
-            w_type = w_instclass
-
-        self.w_type = w_type
-        self.w_value = w_value
-
-class OperationThatShouldNotBePropagatedError(FSException):
-    pass
 
 class ImplicitOperationError(FSException):
     pass
@@ -110,6 +70,14 @@ class EggBlock(Block):
         self.last_exception = last_exception
 
 def fixeggblocks(graph):
+    varnames = graph.func.func_code.co_varnames
+    for block in graph.iterblocks():
+        if isinstance(block, SpamBlock):
+            for name, w_value in zip(varnames, block.framestate.mergeable):
+                if isinstance(w_value, Variable):
+                    w_value.rename(name)
+            del block.framestate     # memory saver
+
     # EggBlocks reuse the variables of their previous block,
     # which is deemed not acceptable for simplicity of the operations
     # that will be performed later on the flow graph.
@@ -130,9 +98,6 @@ def fixeggblocks(graph):
                 for a in block.inputargs:
                     mapping[a] = Variable(a)
                 block.renamevariables(mapping)
-    for block in graph.iterblocks():
-        if isinstance(link, SpamBlock):
-            del link.framestate     # memory saver
 
 # ____________________________________________________________
 
@@ -140,9 +105,6 @@ class Recorder:
 
     def append(self, operation):
         raise NotImplementedError
-
-    def bytecode_trace(self, frame):
-        pass
 
     def guessbool(self, frame, w_condition, **kwds):
         raise AssertionError, "cannot guessbool(%s)" % (w_condition,)
@@ -153,30 +115,12 @@ class BlockRecorder(Recorder):
 
     def __init__(self, block):
         self.crnt_block = block
-        # saved state at the join point most recently seen
-        self.last_join_point = None
-        self.enterspamblock = isinstance(block, SpamBlock)
+        # Final frame state after the operations in the block
+        # If this is set, no new space op may be recorded.
+        self.final_state = None
 
     def append(self, operation):
         self.crnt_block.operations.append(operation)
-
-    def bytecode_trace(self, frame):
-        if self.enterspamblock:
-            # If we have a SpamBlock, the first call to bytecode_trace()
-            # occurs as soon as frame.resume() starts, before interpretation
-            # really begins.
-            varnames = frame.pycode.getvarnames()
-            for name, w_value in zip(varnames, frame.getfastscope()):
-                if isinstance(w_value, Variable):
-                    w_value.rename(name)
-            self.enterspamblock = False
-        else:
-            # At this point, we progress to the next bytecode.  When this
-            # occurs, we no longer allow any more operations to be recorded in
-            # the same block.  We will continue, to figure out where the next
-            # such operation *would* appear, and we make a join point just
-            # before.
-            self.last_join_point = frame.getstate()
 
     def guessbool(self, frame, w_condition):
         block = self.crnt_block
@@ -262,71 +206,61 @@ class Replayer(Recorder):
 
 # ____________________________________________________________
 
+compare_method = [
+    "cmp_lt",   # "<"
+    "cmp_le",   # "<="
+    "cmp_eq",   # "=="
+    "cmp_ne",   # "!="
+    "cmp_gt",   # ">"
+    "cmp_ge",   # ">="
+    "cmp_in",
+    "cmp_not_in",
+    "cmp_is",
+    "cmp_is_not",
+    "cmp_exc_match",
+    ]
+
 class FlowSpaceFrame(pyframe.CPythonFrame):
 
-    def __init__(self, space, func, constargs=None):
-        code = HostCode._from_code(space, func.func_code)
+    def __init__(self, space, graph, code):
+        self.graph = graph
+        func = graph.func
         self.pycode = code
         self.space = space
         self.w_globals = Constant(func.func_globals)
-        self.locals_stack_w = [None] * (code.co_nlocals + code.co_stacksize)
-        self.valuestackdepth = code.co_nlocals
         self.lastblock = None
 
-        if func.func_closure is not None:
-            cl = [c.cell_contents for c in func.func_closure]
-            closure = [Cell(Constant(value)) for value in cl]
-        else:
-            closure = []
-        self.initialize_frame_scopes(closure, code)
+        self.init_closure(func.func_closure)
         self.f_lineno = code.co_firstlineno
         self.last_instr = 0
 
-        if constargs is None:
-            constargs = {}
-        formalargcount = code.getformalargcount()
-        arg_list = [Variable() for i in range(formalargcount)]
-        for position, value in constargs.items():
-            arg_list[position] = Constant(value)
-        self.setfastscope(arg_list)
-
+        self.init_locals_stack(code)
         self.w_locals = None # XXX: only for compatibility with PyFrame
 
         self.joinpoints = {}
-        self._init_graph(func)
-        self.pendingblocks = collections.deque([self.graph.startblock])
 
-    def initialize_frame_scopes(self, closure, code):
-        if not (code.co_flags & CO_NEWLOCALS):
-            raise ValueError("The code object for a function should have "
-                    "the flag CO_NEWLOCALS set.")
-        if len(closure) != len(code.co_freevars):
-            raise ValueError("code object received a closure with "
-                                 "an unexpected number of free variables")
-        self.cells = [Cell() for _ in code.co_cellvars] + closure
+    def init_closure(self, closure):
+        if closure is None:
+            self.closure = []
+        else:
+            self.closure = [self.space.wrap(c.cell_contents) for c in closure]
+        assert len(self.closure) == len(self.pycode.co_freevars)
 
-    def _init_graph(self, func):
-        # CallableFactory.pycall may add class_ to functions that are methods
-        name = func.func_name
-        class_ = getattr(func, 'class_', None)
-        if class_ is not None:
-            name = '%s.%s' % (class_.__name__, name)
-        for c in "<>&!":
-            name = name.replace(c, '_')
+    def init_locals_stack(self, code):
+        """
+        Initialize the locals and the stack.
 
-        initialblock = SpamBlock(self.getstate())
-        if self.pycode.is_generator:
-            initialblock.operations.append(
-                SpaceOperation('generator_mark', [], Variable()))
-        graph = FunctionGraph(name, initialblock)
-        graph.func = func
-        # attach a signature and defaults to the graph
-        # so that it becomes even more interchangeable with the function
-        # itself
-        graph.signature = self.pycode.signature()
-        graph.defaults = func.func_defaults or ()
-        graph.is_generator = self.pycode.is_generator
-        self.graph = graph
+        The locals are ordered according to self.pycode.signature.
+        """
+        self.valuestackdepth = code.co_nlocals
+        self.locals_stack_w = [None] * (code.co_stacksize + code.co_nlocals)
+
+    def save_locals_stack(self):
+        return self.locals_stack_w[:self.valuestackdepth]
+
+    def restore_locals_stack(self, items_w):
+        self.locals_stack_w[:len(items_w)] = items_w
+        self.dropvaluesuntil(len(items_w))
 
     def getstate(self):
         # getfastscope() can return real None, for undefined locals
@@ -338,9 +272,7 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
             data.append(self.last_exception.w_type)
             data.append(self.last_exception.w_value)
         recursively_flatten(self.space, data)
-        nonmergeable = (self.get_blocklist(),
-            self.last_instr)   # == next_instr when between bytecodes
-        return FrameState(data, nonmergeable)
+        return FrameState(data, self.get_blocklist(), self.last_instr)
 
     def setstate(self, state):
         """ Reset the frame to the given state. """
@@ -352,8 +284,8 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
             self.last_exception = None
         else:
             self.last_exception = FSException(data[-2], data[-1])
-        blocklist, self.last_instr = state.nonmergeable
-        self.set_blocklist(blocklist)
+        self.last_instr = state.next_instr
+        self.set_blocklist(state.blocklist)
 
     def recording(self, block):
         """ Setup recording of the block and return the recorder. """
@@ -376,8 +308,8 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
     def record(self, spaceop):
         """Record an operation into the active block"""
         recorder = self.recorder
-        if getattr(recorder, 'last_join_point', None) is not None:
-            self.mergeblock(recorder.crnt_block, recorder.last_join_point)
+        if getattr(recorder, 'final_state', None) is not None:
+            self.mergeblock(recorder.crnt_block, recorder.final_state)
             raise StopFlowing
         recorder.append(spaceop)
 
@@ -398,14 +330,16 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         return self.recorder.guessexception(self, *exceptions)
 
     def build_flow(self):
+        graph = self.graph
+        self.pendingblocks = collections.deque([graph.startblock])
         while self.pendingblocks:
             block = self.pendingblocks.popleft()
             try:
                 self.recorder = self.recording(block)
                 self.frame_finished_execution = False
-                next_instr = self.last_instr
                 while True:
-                    next_instr = self.handle_bytecode(next_instr)
+                    self.last_instr = self.handle_bytecode(self.last_instr)
+                    self.recorder.final_state = self.getstate()
 
             except ImplicitOperationError, e:
                 if isinstance(e.w_type, Constant):
@@ -415,14 +349,14 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
                 msg = "implicit %s shouldn't occur" % exc_cls.__name__
                 w_type = Constant(AssertionError)
                 w_value = Constant(AssertionError(msg))
-                link = Link([w_type, w_value], self.graph.exceptblock)
+                link = Link([w_type, w_value], graph.exceptblock)
                 self.recorder.crnt_block.closeblock(link)
 
             except FSException, e:
                 if e.w_type is self.space.w_ImportError:
                     msg = 'import statement always raises %s' % e
                     raise ImportError(msg)
-                link = Link([e.w_type, e.w_value], self.graph.exceptblock)
+                link = Link([e.w_type, e.w_value], graph.exceptblock)
                 self.recorder.crnt_block.closeblock(link)
 
             except StopFlowing:
@@ -431,7 +365,7 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
             except Return:
                 w_result = self.popvalue()
                 assert w_result is not None
-                link = Link([w_result], self.graph.returnblock)
+                link = Link([w_result], graph.returnblock)
                 self.recorder.crnt_block.closeblock(link)
 
         del self.recorder
@@ -443,37 +377,35 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         candidates = self.joinpoints.setdefault(next_instr, [])
         for block in candidates:
             newstate = block.framestate.union(currentstate)
-            if newstate is not None:
-                # yes
-                finished = newstate == block.framestate
+            if newstate is None:
+                continue
+            elif newstate == block.framestate:
+                outputargs = currentstate.getoutputargs(newstate)
+                currentblock.closeblock(Link(outputargs, block))
+                return
+            else:
                 break
         else:
-            # no
             newstate = currentstate.copy()
-            finished = False
             block = None
 
-        if finished:
-            newblock = block
-        else:
-            newblock = SpamBlock(newstate)
+        newblock = SpamBlock(newstate)
         # unconditionally link the current block to the newblock
         outputargs = currentstate.getoutputargs(newstate)
         link = Link(outputargs, newblock)
         currentblock.closeblock(link)
-        # phew
-        if not finished:
-            if block is not None:
-                # to simplify the graph, we patch the old block to point
-                # directly at the new block which is its generalization
-                block.dead = True
-                block.operations = ()
-                block.exitswitch = None
-                outputargs = block.framestate.getoutputargs(newstate)
-                block.recloseblock(Link(outputargs, newblock))
-                candidates.remove(block)
-            candidates.insert(0, newblock)
-            self.pendingblocks.append(newblock)
+
+        if block is not None:
+            # to simplify the graph, we patch the old block to point
+            # directly at the new block which is its generalization
+            block.dead = True
+            block.operations = ()
+            block.exitswitch = None
+            outputargs = block.framestate.getoutputargs(newstate)
+            block.recloseblock(Link(outputargs, newblock))
+            candidates.remove(block)
+        candidates.insert(0, newblock)
+        self.pendingblocks.append(newblock)
 
     # hack for unrolling iterables, don't use this
     def replace_in_stack(self, oldvalue, newvalue):
@@ -489,45 +421,82 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
                     break
 
     def handle_bytecode(self, next_instr):
+        next_instr, methodname, oparg = self.pycode.read(next_instr)
         try:
-            while True:
-                self.last_instr = next_instr
-                self.recorder.bytecode_trace(self)
-                next_instr, methodname, oparg = self.pycode.read(next_instr)
-                res = getattr(self, methodname)(oparg, next_instr)
-                if res is not None:
-                    next_instr = res
-        except OperationThatShouldNotBePropagatedError, e:
-            raise Exception(
-                'found an operation that always raises %s: %s' % (
-                    self.space.unwrap(e.w_type).__name__,
-                    self.space.unwrap(e.w_value)))
+            res = getattr(self, methodname)(oparg, next_instr)
+            return res if res is not None else next_instr
         except FSException, operr:
-            self.attach_traceback(operr)
-            next_instr = self.handle_operation_error(operr)
-        except RaiseWithExplicitTraceback, e:
-            next_instr = self.handle_operation_error(e.operr)
-        return next_instr
-
-    def attach_traceback(self, operr):
-        if self.pycode.hidden_applevel:
-            return
-        tb = operr.get_traceback()
-        tb = PyTraceback(self.space, self, self.last_instr, tb)
-        operr.set_traceback(tb)
+            return self.handle_operation_error(operr)
 
     def handle_operation_error(self, operr):
-        block = self.unrollstack(SFlowException.kind)
+        block = self.unrollstack(SApplicationException.kind)
         if block is None:
-            # no handler found for the exception
-            # try to preserve the CPython-level traceback
-            import sys
-            tb = sys.exc_info()[2]
-            raise operr, None, tb
+            raise operr
         else:
-            unroller = SFlowException(operr)
+            unroller = SApplicationException(operr)
             next_instr = block.handle(self, unroller)
             return next_instr
+
+    def getlocalvarname(self, index):
+        return self.pycode.co_varnames[index]
+
+    def getconstant_w(self, index):
+        return self.space.wrap(self.pycode.consts[index])
+
+    def getname_u(self, index):
+        return self.pycode.names[index]
+
+    def getname_w(self, index):
+        return Constant(self.pycode.names[index])
+
+    def BAD_OPCODE(self, _, next_instr):
+        raise FlowingError(self, "This operation is not RPython")
+
+    def BREAK_LOOP(self, oparg, next_instr):
+        return self.unrollstack_and_jump(SBreakLoop.singleton)
+
+    def CONTINUE_LOOP(self, startofloop, next_instr):
+        unroller = SContinueLoop(startofloop)
+        return self.unrollstack_and_jump(unroller)
+
+    def cmp_lt(self, w_1, w_2):
+        return self.space.lt(w_1, w_2)
+
+    def cmp_le(self, w_1, w_2):
+        return self.space.le(w_1, w_2)
+
+    def cmp_eq(self, w_1, w_2):
+        return self.space.eq(w_1, w_2)
+
+    def cmp_ne(self, w_1, w_2):
+        return self.space.ne(w_1, w_2)
+
+    def cmp_gt(self, w_1, w_2):
+        return self.space.gt(w_1, w_2)
+
+    def cmp_ge(self, w_1, w_2):
+        return self.space.ge(w_1, w_2)
+
+    def cmp_in(self, w_1, w_2):
+        return self.space.contains(w_2, w_1)
+
+    def cmp_not_in(self, w_1, w_2):
+        return self.space.not_(self.space.contains(w_2, w_1))
+
+    def cmp_is(self, w_1, w_2):
+        return self.space.is_(w_1, w_2)
+
+    def cmp_is_not(self, w_1, w_2):
+        return self.space.not_(self.space.is_(w_1, w_2))
+
+    def cmp_exc_match(self, w_1, w_2):
+        return self.space.newbool(self.space.exception_match(w_1, w_2))
+
+    def COMPARE_OP(self, testnum, next_instr):
+        w_2 = self.popvalue()
+        w_1 = self.popvalue()
+        w_result = getattr(self, compare_method[testnum])(w_1, w_2)
+        self.pushvalue(w_result)
 
     def RAISE_VARARGS(self, nbargs, next_instr):
         space = self.space
@@ -538,7 +507,7 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
                     # re-raising an implicit operation makes it an explicit one
                     operr = FSException(operr.w_type, operr.w_value)
                 self.last_exception = operr
-                raise RaiseWithExplicitTraceback(operr)
+                raise operr
             else:
                 raise FSException(space.w_TypeError,
                     space.wrap("raise: no active exception to re-raise"))
@@ -550,8 +519,7 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
             w_value = self.popvalue()
         if 1:
             w_type = self.popvalue()
-        operror = FSException(w_type, w_value)
-        operror.normalize_exception(space)
+        operror = space.exc_from_raise(w_type, w_value)
         raise operror
 
     def IMPORT_NAME(self, nameindex, next_instr):
@@ -580,17 +548,45 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
             return next_instr    # now inside a 'finally' block
 
     def END_FINALLY(self, oparg, next_instr):
-        unroller = self.end_finally()
-        if isinstance(unroller, SuspendedUnroller):
-            # go on unrolling the stack
-            block = self.unrollstack(unroller.kind)
-            if block is None:
-                w_result = unroller.nomoreblocks()
-                self.pushvalue(w_result)
-                raise Return
-            else:
-                next_instr = block.handle(self, unroller)
-        return next_instr
+        # unlike CPython, there are two statically distinct cases: the
+        # END_FINALLY might be closing an 'except' block or a 'finally'
+        # block.  In the first case, the stack contains three items:
+        #   [exception type we are now handling]
+        #   [exception value we are now handling]
+        #   [wrapped SApplicationException]
+        # In the case of a finally: block, the stack contains only one
+        # item (unlike CPython which can have 1, 2 or 3 items):
+        #   [wrapped subclass of SuspendedUnroller]
+        w_top = self.popvalue()
+        if w_top == self.space.w_None:
+            # finally: block with no unroller active
+            return
+        try:
+            unroller = self.space.unwrap(w_top)
+        except UnwrapException:
+            pass
+        else:
+            if isinstance(unroller, SuspendedUnroller):
+                # case of a finally: block
+                return self.unroll_finally(unroller)
+        # case of an except: block.  We popped the exception type
+        self.popvalue()        #     Now we pop the exception value
+        unroller = self.space.unwrap(self.popvalue())
+        return self.unroll_finally(unroller)
+
+    def unroll_finally(self, unroller):
+        # go on unrolling the stack
+        block = self.unrollstack(unroller.kind)
+        if block is None:
+            w_result = unroller.nomoreblocks()
+            self.pushvalue(w_result)
+            raise Return
+        else:
+            return block.handle(self, unroller)
+
+    def POP_BLOCK(self, oparg, next_instr):
+        block = self.pop_block()
+        block.cleanupstack(self)  # the block knows how to clean up the value stack
 
     def JUMP_ABSOLUTE(self, jumpto, next_instr):
         return jumpto
@@ -603,11 +599,48 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         # isn't popped straightaway.
         self.pushvalue(None)
 
+    PRINT_EXPR = BAD_OPCODE
+    PRINT_ITEM_TO = BAD_OPCODE
+    PRINT_NEWLINE_TO = BAD_OPCODE
+
+    def PRINT_ITEM(self, oparg, next_instr):
+        w_item = self.popvalue()
+        w_s = self.space.do_operation('str', w_item)
+        self.space.appcall(rpython_print_item, w_s)
+
+    def PRINT_NEWLINE(self, oparg, next_instr):
+        self.space.appcall(rpython_print_newline)
+
+    def FOR_ITER(self, jumpby, next_instr):
+        w_iterator = self.peekvalue()
+        try:
+            w_nextitem = self.space.next(w_iterator)
+        except FSException, e:
+            if not self.space.exception_match(e.w_type, self.space.w_StopIteration):
+                raise
+            # iterator exhausted
+            self.popvalue()
+            next_instr += jumpby
+        else:
+            self.pushvalue(w_nextitem)
+        return next_instr
+
+    def SETUP_LOOP(self, offsettoend, next_instr):
+        block = LoopBlock(self, next_instr + offsettoend, self.lastblock)
+        self.lastblock = block
+
+    def SETUP_EXCEPT(self, offsettoend, next_instr):
+        block = ExceptBlock(self, next_instr + offsettoend, self.lastblock)
+        self.lastblock = block
+
+    def SETUP_FINALLY(self, offsettoend, next_instr):
+        block = FinallyBlock(self, next_instr + offsettoend, self.lastblock)
+        self.lastblock = block
+
     def SETUP_WITH(self, offsettoend, next_instr):
         # A simpler version than the 'real' 2.7 one:
         # directly call manager.__enter__(), don't use special lookup functions
         # which don't make sense on the RPython type system.
-        from pypy.interpreter.pyopcode import WithBlock
         w_manager = self.peekvalue()
         w_exit = self.space.getattr(w_manager, self.space.wrap("__exit__"))
         self.settopvalue(w_exit)
@@ -616,9 +649,49 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         self.lastblock = block
         self.pushvalue(w_result)
 
+    def WITH_CLEANUP(self, oparg, next_instr):
+        # Note: RPython context managers receive None in lieu of tracebacks
+        # and cannot suppress the exception.
+        # This opcode changed a lot between CPython versions
+        if sys.version_info >= (2, 6):
+            w_unroller = self.popvalue()
+            w_exitfunc = self.popvalue()
+            self.pushvalue(w_unroller)
+        else:
+            w_exitfunc = self.popvalue()
+            w_unroller = self.peekvalue(0)
+
+        unroller = self.space.unwrap(w_unroller)
+        w_None = self.space.w_None
+        if isinstance(unroller, SApplicationException):
+            operr = unroller.operr
+            # The annotator won't allow to merge exception types with None.
+            # Replace it with the exception value...
+            self.space.call_function(w_exitfunc,
+                    operr.w_value, operr.w_value, w_None)
+        else:
+            self.space.call_function(w_exitfunc, w_None, w_None, w_None)
+
+    def LOAD_FAST(self, varindex, next_instr):
+        w_value = self.locals_stack_w[varindex]
+        if w_value is None:
+            raise FlowingError(self, "Local variable referenced before assignment")
+        self.pushvalue(w_value)
+
     def LOAD_GLOBAL(self, nameindex, next_instr):
         w_result = self.space.find_global(self.w_globals, self.getname_u(nameindex))
         self.pushvalue(w_result)
+
+    def LOAD_ATTR(self, nameindex, next_instr):
+        "obj.attributename"
+        w_obj = self.popvalue()
+        w_attributename = self.getname_w(nameindex)
+        w_value = self.space.getattr(w_obj, w_attributename)
+        self.pushvalue(w_value)
+    LOOKUP_METHOD = LOAD_ATTR
+
+    def LOAD_DEREF(self, varindex, next_instr):
+        self.pushvalue(self.closure[varindex])
 
     def BUILD_LIST_FROM_ARG(self, _, next_instr):
         # This opcode was added with pypy-1.8.  Here is a simpler
@@ -626,6 +699,12 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         last_val = self.popvalue()
         self.pushvalue(self.space.newlist([]))
         self.pushvalue(last_val)
+
+    def MAKE_FUNCTION(self, numdefaults, next_instr):
+        w_codeobj = self.popvalue()
+        defaults = self.popvalues(numdefaults)
+        fn = self.space.newfunction(w_codeobj, self.w_globals, defaults)
+        self.pushvalue(fn)
 
     # XXX Unimplemented 2.7 opcodes ----------------
 
@@ -642,28 +721,184 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
     def MAP_ADD(self, oparg, next_instr):
         raise NotImplementedError("MAP_ADD")
 
+    # Closures
+
+    STORE_DEREF = BAD_OPCODE
+    LOAD_CLOSURE = BAD_OPCODE
+    MAKE_CLOSURE = BAD_OPCODE
+
     def make_arguments(self, nargs):
         return ArgumentsForTranslation(self.space, self.peekvalues(nargs))
     def argument_factory(self, *args):
         return ArgumentsForTranslation(self.space, *args)
 
-    def call_contextmanager_exit_function(self, w_func, w_typ, w_val, w_tb):
-        if w_typ is not self.space.w_None:
-            # The annotator won't allow to merge exception types with None.
-            # Replace it with the exception value...
-            w_typ = w_val
-        self.space.call_function(w_func, w_typ, w_val, w_tb)
-        # Return None so that the flow space statically knows that we didn't
-        # swallow the exception
-        return self.space.w_None
-
 ### Frame blocks ###
 
-class SFlowException(SApplicationException):
-    """Flowspace override for SApplicationException"""
+class SuspendedUnroller(object):
+    """Abstract base class for interpreter-level objects that
+    instruct the interpreter to change the control flow and the
+    block stack.
+
+    The concrete subclasses correspond to the various values WHY_XXX
+    values of the why_code enumeration in ceval.c:
+
+                WHY_NOT,        OK, not this one :-)
+                WHY_EXCEPTION,  SApplicationException
+                WHY_RERAISE,    implemented differently, see Reraise
+                WHY_RETURN,     SReturnValue
+                WHY_BREAK,      SBreakLoop
+                WHY_CONTINUE,   SContinueLoop
+                WHY_YIELD       not needed
+    """
+    def nomoreblocks(self):
+        raise BytecodeCorruption("misplaced bytecode - should not return")
+
+    # NB. for the flow object space, the state_(un)pack_variables methods
+    # give a way to "pickle" and "unpickle" the SuspendedUnroller by
+    # enumerating the Variables it contains.
+
+class SReturnValue(SuspendedUnroller):
+    """Signals a 'return' statement.
+    Argument is the wrapped object to return."""
+    kind = 0x01
+    def __init__(self, w_returnvalue):
+        self.w_returnvalue = w_returnvalue
+
+    def nomoreblocks(self):
+        return self.w_returnvalue
+
+    def state_unpack_variables(self, space):
+        return [self.w_returnvalue]
+
+    @staticmethod
+    def state_pack_variables(space, w_returnvalue):
+        return SReturnValue(w_returnvalue)
+
+class SApplicationException(SuspendedUnroller):
+    """Signals an application-level exception
+    (i.e. an OperationException)."""
+    kind = 0x02
+    def __init__(self, operr):
+        self.operr = operr
+
+    def nomoreblocks(self):
+        raise self.operr
+
     def state_unpack_variables(self, space):
         return [self.operr.w_type, self.operr.w_value]
 
     @staticmethod
     def state_pack_variables(space, w_type, w_value):
-        return SFlowException(FSException(w_type, w_value))
+        return SApplicationException(FSException(w_type, w_value))
+
+class SBreakLoop(SuspendedUnroller):
+    """Signals a 'break' statement."""
+    kind = 0x04
+
+    def state_unpack_variables(self, space):
+        return []
+
+    @staticmethod
+    def state_pack_variables(space):
+        return SBreakLoop.singleton
+
+SBreakLoop.singleton = SBreakLoop()
+
+class SContinueLoop(SuspendedUnroller):
+    """Signals a 'continue' statement.
+    Argument is the bytecode position of the beginning of the loop."""
+    kind = 0x08
+    def __init__(self, jump_to):
+        self.jump_to = jump_to
+
+    def state_unpack_variables(self, space):
+        return [space.wrap(self.jump_to)]
+
+    @staticmethod
+    def state_pack_variables(space, w_jump_to):
+        return SContinueLoop(space.int_w(w_jump_to))
+
+
+class FrameBlock(object):
+    """Abstract base class for frame blocks from the blockstack,
+    used by the SETUP_XXX and POP_BLOCK opcodes."""
+
+    def __init__(self, frame, handlerposition, previous):
+        self.handlerposition = handlerposition
+        self.valuestackdepth = frame.valuestackdepth
+        self.previous = previous   # this makes a linked list of blocks
+
+    def __eq__(self, other):
+        return (self.__class__ is other.__class__ and
+                self.handlerposition == other.handlerposition and
+                self.valuestackdepth == other.valuestackdepth)
+
+    def __ne__(self, other):
+        return not (self == other)
+
+    def __hash__(self):
+        return hash((self.handlerposition, self.valuestackdepth))
+
+    def cleanupstack(self, frame):
+        frame.dropvaluesuntil(self.valuestackdepth)
+
+    def handle(self, frame, unroller):
+        raise NotImplementedError
+
+class LoopBlock(FrameBlock):
+    """A loop block.  Stores the end-of-loop pointer in case of 'break'."""
+
+    _opname = 'SETUP_LOOP'
+    handling_mask = SBreakLoop.kind | SContinueLoop.kind
+
+    def handle(self, frame, unroller):
+        if isinstance(unroller, SContinueLoop):
+            # re-push the loop block without cleaning up the value stack,
+            # and jump to the beginning of the loop, stored in the
+            # exception's argument
+            frame.append_block(self)
+            return unroller.jump_to
+        else:
+            # jump to the end of the loop
+            self.cleanupstack(frame)
+            return self.handlerposition
+
+class ExceptBlock(FrameBlock):
+    """An try:except: block.  Stores the position of the exception handler."""
+
+    _opname = 'SETUP_EXCEPT'
+    handling_mask = SApplicationException.kind
+
+    def handle(self, frame, unroller):
+        # push the exception to the value stack for inspection by the
+        # exception handler (the code after the except:)
+        self.cleanupstack(frame)
+        assert isinstance(unroller, SApplicationException)
+        operationerr = unroller.operr
+        # the stack setup is slightly different than in CPython:
+        # instead of the traceback, we store the unroller object,
+        # wrapped.
+        frame.pushvalue(frame.space.wrap(unroller))
+        frame.pushvalue(operationerr.get_w_value(frame.space))
+        frame.pushvalue(operationerr.w_type)
+        frame.last_exception = operationerr
+        return self.handlerposition   # jump to the handler
+
+class FinallyBlock(FrameBlock):
+    """A try:finally: block.  Stores the position of the exception handler."""
+
+    _opname = 'SETUP_FINALLY'
+    handling_mask = -1     # handles every kind of SuspendedUnroller
+
+    def handle(self, frame, unroller):
+        # any abnormal reason for unrolling a finally: triggers the end of
+        # the block unrolling and the entering the finally: handler.
+        self.cleanupstack(frame)
+        frame.pushvalue(frame.space.wrap(unroller))
+        return self.handlerposition   # jump to the handler
+
+
+class WithBlock(FinallyBlock):
+
+    def handle(self, frame, unroller):
+        return FinallyBlock.handle(self, frame, unroller)

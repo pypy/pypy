@@ -111,8 +111,8 @@ def test_annotator_folding():
         else:
             return 'foo'
 
-    t = Translation(f)
-    t.rtype([int])
+    t = Translation(f, [int])
+    t.rtype()
     
     block = t.context.graphs[0].startblock
     assert len(block.exits[0].target.operations) == 0

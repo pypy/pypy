@@ -1,6 +1,6 @@
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.gateway import interp2app, unwrap_spec, NoneNotWrapped
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
 from pypy.module.micronumpy import interp_boxes, interp_dtype, loop
 from pypy.rlib import jit
@@ -17,14 +17,18 @@ def done_if_false(dtype, val):
     return not dtype.itemtype.bool(val)
 
 class W_Ufunc(Wrappable):
-    _attrs_ = ["name", "promote_to_float", "promote_bools", "identity"]
-    _immutable_fields_ = ["promote_to_float", "promote_bools", "name"]
+    _attrs_ = ["name", "promote_to_float", "promote_bools", "identity", 
+               "allow_complex", "complex_to_float"]
+    _immutable_fields_ = ["promote_to_float", "promote_bools", "name", 
+            "allow_complex", "complex_to_float"]
 
     def __init__(self, name, promote_to_float, promote_bools, identity,
-                 int_only):
+                 int_only, allow_complex, complex_to_float):
         self.name = name
         self.promote_to_float = promote_to_float
         self.promote_bools = promote_bools
+        self.allow_complex = allow_complex
+        self.complex_to_float = complex_to_float
 
         self.identity = identity
         self.int_only = int_only
@@ -72,7 +76,7 @@ class W_Ufunc(Wrappable):
         return self.call(space, args_w)
 
     @unwrap_spec(skipna=bool, keepdims=bool)
-    def descr_reduce(self, space, w_obj, w_axis=NoneNotWrapped, w_dtype=None,
+    def descr_reduce(self, space, w_obj, w_axis=None, w_dtype=None,
                      skipna=False, keepdims=False, w_out=None):
         """reduce(...)
         reduce(a, axis=0)
@@ -129,7 +133,7 @@ class W_Ufunc(Wrappable):
         from pypy.module.micronumpy.interp_numarray import W_NDimArray
         if w_axis is None:
             w_axis = space.wrap(0)
-        if space.is_w(w_out, space.w_None):
+        if space.is_none(w_out):
             out = None
         elif not isinstance(w_out, W_NDimArray):
             raise OperationError(space.w_TypeError, space.wrap(
@@ -215,10 +219,11 @@ class W_Ufunc1(W_Ufunc):
     _immutable_fields_ = ["func", "name"]
 
     def __init__(self, func, name, promote_to_float=False, promote_bools=False,
-        identity=None, bool_result=False, int_only=False):
+        identity=None, bool_result=False, int_only=False,
+        allow_complex=True, complex_to_float=False):
 
         W_Ufunc.__init__(self, name, promote_to_float, promote_bools, identity,
-                         int_only)
+                         int_only, allow_complex, complex_to_float)
         self.func = func
         self.bool_result = bool_result
 
@@ -233,7 +238,8 @@ class W_Ufunc1(W_Ufunc):
         calc_dtype = find_unaryop_result_dtype(space,
                                   w_obj.get_dtype(),
                                   promote_to_float=self.promote_to_float,
-                                  promote_bools=self.promote_bools)
+                                  promote_bools=self.promote_bools,
+                                  allow_complex=self.allow_complex)
         if out is not None:
             if not isinstance(out, W_NDimArray):
                 raise OperationError(space.w_TypeError, space.wrap(
@@ -246,6 +252,11 @@ class W_Ufunc1(W_Ufunc):
             res_dtype = interp_dtype.get_dtype_cache(space).w_booldtype
         else:
             res_dtype = calc_dtype
+            if self.complex_to_float and calc_dtype.is_complex_type():
+                if calc_dtype.name == 'complex64':
+                    res_dtype = interp_dtype.get_dtype_cache(space).w_float32dtype
+                else:    
+                    res_dtype = interp_dtype.get_dtype_cache(space).w_float64dtype
         if w_obj.is_scalar():
             w_val = self.func(calc_dtype,
                               w_obj.get_scalar_value().convert_to(calc_dtype))
@@ -258,7 +269,7 @@ class W_Ufunc1(W_Ufunc):
             return out
         shape = shape_agreement(space, w_obj.get_shape(), out,
                                 broadcast_down=False)
-        return loop.call1(shape, self.func, self.name, calc_dtype, res_dtype,
+        return loop.call1(shape, self.func, calc_dtype, res_dtype,
                           w_obj, out)
 
 
@@ -267,10 +278,11 @@ class W_Ufunc2(W_Ufunc):
     argcount = 2
 
     def __init__(self, func, name, promote_to_float=False, promote_bools=False,
-        identity=None, comparison_func=False, int_only=False):
+        identity=None, comparison_func=False, int_only=False, 
+        allow_complex=True, complex_to_float=False):
 
         W_Ufunc.__init__(self, name, promote_to_float, promote_bools, identity,
-                         int_only)
+                         int_only, allow_complex, complex_to_float)
         self.func = func
         self.comparison_func = comparison_func
         if name == 'logical_and':
@@ -289,14 +301,15 @@ class W_Ufunc2(W_Ufunc):
             w_out = None
         w_lhs = convert_to_array(space, w_lhs)
         w_rhs = convert_to_array(space, w_rhs)
-        if space.is_w(w_out, space.w_None) or w_out is None:
-            out = None
-            calc_dtype = find_binop_result_dtype(space,
-                w_lhs.get_dtype(), w_rhs.get_dtype(),
-                int_only=self.int_only,
-                promote_to_float=self.promote_to_float,
-                promote_bools=self.promote_bools,
+        calc_dtype = find_binop_result_dtype(space,
+            w_lhs.get_dtype(), w_rhs.get_dtype(),
+            int_only=self.int_only,
+            promote_to_float=self.promote_to_float,
+            promote_bools=self.promote_bools,
+            allow_complex=self.allow_complex,
             )
+        if space.is_none(w_out):
+            out = None
         elif not isinstance(w_out, W_NDimArray):
             raise OperationError(space.w_TypeError, space.wrap(
                     'output must be an array'))
@@ -322,7 +335,7 @@ class W_Ufunc2(W_Ufunc):
             return out
         new_shape = shape_agreement(space, w_lhs.get_shape(), w_rhs)
         new_shape = shape_agreement(space, new_shape, out, broadcast_down=False)
-        return loop.call2(new_shape, self.func, self.name, calc_dtype,
+        return loop.call2(new_shape, self.func, calc_dtype,
                           res_dtype, w_lhs, w_rhs, out)
 
 
@@ -340,15 +353,25 @@ W_Ufunc.typedef = TypeDef("ufunc",
 
 
 def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
-    promote_bools=False, int_only=False):
+    promote_bools=False, int_only=False, allow_complex=True):
     # dt1.num should be <= dt2.num
     if dt1.num > dt2.num:
         dt1, dt2 = dt2, dt1
     if int_only and (not dt1.is_int_type() or not dt2.is_int_type()):
         raise OperationError(space.w_TypeError, space.wrap("Unsupported types"))
+    if not allow_complex and (dt1.is_complex_type() or dt2.is_complex_type()):
+        raise OperationError(space.w_TypeError, space.wrap("Unsupported types"))
     # Some operations promote op(bool, bool) to return int8, rather than bool
     if promote_bools and (dt1.kind == dt2.kind == interp_dtype.BOOLLTR):
         return interp_dtype.get_dtype_cache(space).w_int8dtype
+
+    # Everything promotes to complex
+    if dt2.num == 14 or dt2.num == 15 or dt1.num == 14 or dt2.num == 15:
+        if dt2.num == 15 or dt1.num == 15:
+            return interp_dtype.get_dtype_cache(space).w_complex128dtype
+        else:
+            return interp_dtype.get_dtype_cache(space).w_complex64dtype
+    
     if promote_to_float:
         return find_unaryop_result_dtype(space, dt2, promote_to_float=True)
     # If they're the same kind, choose the greater one.
@@ -391,9 +414,11 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
 
 
 def find_unaryop_result_dtype(space, dt, promote_to_float=False,
-    promote_bools=False, promote_to_largest=False):
+    promote_bools=False, promote_to_largest=False, allow_complex=True):
     if promote_bools and (dt.kind == interp_dtype.BOOLLTR):
         return interp_dtype.get_dtype_cache(space).w_int8dtype
+    if not allow_complex and (dt.is_complex_type()):
+        raise OperationError(space.w_TypeError, space.wrap("Unsupported types"))
     if promote_to_float:
         if dt.kind == interp_dtype.FLOATINGLTR:
             return dt
@@ -419,7 +444,8 @@ def find_dtype_for_scalar(space, w_obj, current_guess=None):
     bool_dtype = interp_dtype.get_dtype_cache(space).w_booldtype
     long_dtype = interp_dtype.get_dtype_cache(space).w_longdtype
     int64_dtype = interp_dtype.get_dtype_cache(space).w_int64dtype
-
+    complex_type = interp_dtype.get_dtype_cache(space).w_complex128dtype
+    float_type = interp_dtype.get_dtype_cache(space).w_float64dtype
     if isinstance(w_obj, interp_boxes.W_GenericBox):
         dtype = w_obj.get_dtype(space)
         if current_guess is None:
@@ -440,6 +466,14 @@ def find_dtype_for_scalar(space, w_obj, current_guess=None):
             current_guess is long_dtype or current_guess is int64_dtype):
             return int64_dtype
         return current_guess
+    elif space.isinstance_w(w_obj, space.w_complex):
+        if (current_guess is None or current_guess is bool_dtype or
+            current_guess is long_dtype or current_guess is int64_dtype or
+            current_guess is complex_type or current_guess is float_type):
+            return complex_type
+        return current_guess
+    if current_guess is complex_type:
+        return complex_type
     return interp_dtype.get_dtype_cache(space).w_float64dtype
 
 
@@ -476,7 +510,7 @@ class UfuncState(object):
             ("floor_divide", "floordiv", 2, {"promote_bools": True}),
             ("divide", "div", 2, {"promote_bools": True}),
             ("true_divide", "div", 2, {"promote_to_float": True}),
-            ("mod", "mod", 2, {"promote_bools": True}),
+            ("mod", "mod", 2, {"promote_bools": True, 'allow_complex': False}),
             ("power", "pow", 2, {"promote_bools": True}),
             ("left_shift", "lshift", 2, {"int_only": True}),
             ("right_shift", "rshift", 2, {"int_only": True}),
@@ -489,8 +523,10 @@ class UfuncState(object):
             ("greater_equal", "ge", 2, {"comparison_func": True}),
             ("isnan", "isnan", 1, {"bool_result": True}),
             ("isinf", "isinf", 1, {"bool_result": True}),
-            ("isneginf", "isneginf", 1, {"bool_result": True}),
-            ("isposinf", "isposinf", 1, {"bool_result": True}),
+            ("isneginf", "isneginf", 1, {"bool_result": True,
+                                         "allow_complex": False}),
+            ("isposinf", "isposinf", 1, {"bool_result": True,
+                                         "allow_complex": False}),
             ("isfinite", "isfinite", 1, {"bool_result": True}),
 
             ('logical_and', 'logical_and', 2, {'comparison_func': True,
@@ -503,22 +539,32 @@ class UfuncState(object):
             ("maximum", "max", 2),
             ("minimum", "min", 2),
 
-            ("copysign", "copysign", 2, {"promote_to_float": True}),
+            ("copysign", "copysign", 2, {"promote_to_float": True,
+                                         "allow_complex": False}),
 
             ("positive", "pos", 1),
             ("negative", "neg", 1),
-            ("absolute", "abs", 1),
+            ("absolute", "abs", 1, {"complex_to_float": True}),
             ("sign", "sign", 1, {"promote_bools": True}),
-            ("signbit", "signbit", 1, {"bool_result": True}),
+            ("signbit", "signbit", 1, {"bool_result": True, 
+                                       "allow_complex": False}),
             ("reciprocal", "reciprocal", 1),
+            ("conjugate", "conj", 1),
+            ("real", "real", 1, {"complex_to_float": True}),
+            ("imag", "imag", 1, {"complex_to_float": True}),
 
-            ("fabs", "fabs", 1, {"promote_to_float": True}),
+            ("fabs", "fabs", 1, {"promote_to_float": True,
+                                 "allow_complex": False}),
             ("fmax", "fmax", 2, {"promote_to_float": True}),
             ("fmin", "fmin", 2, {"promote_to_float": True}),
-            ("fmod", "fmod", 2, {"promote_to_float": True}),
-            ("floor", "floor", 1, {"promote_to_float": True}),
-            ("ceil", "ceil", 1, {"promote_to_float": True}),
-            ("trunc", "trunc", 1, {"promote_to_float": True}),
+            ("fmod", "fmod", 2, {"promote_to_float": True, 
+                                 'allow_complex': False}),
+            ("floor", "floor", 1, {"promote_to_float": True,
+                                   "allow_complex": False}),
+            ("ceil", "ceil", 1, {"promote_to_float": True,
+                                   "allow_complex": False}),
+            ("trunc", "trunc", 1, {"promote_to_float": True,
+                                   "allow_complex": False}),
             ("exp", "exp", 1, {"promote_to_float": True}),
             ("exp2", "exp2", 1, {"promote_to_float": True}),
             ("expm1", "expm1", 1, {"promote_to_float": True}),
@@ -532,7 +578,8 @@ class UfuncState(object):
             ("arcsin", "arcsin", 1, {"promote_to_float": True}),
             ("arccos", "arccos", 1, {"promote_to_float": True}),
             ("arctan", "arctan", 1, {"promote_to_float": True}),
-            ("arctan2", "arctan2", 2, {"promote_to_float": True}),
+            ("arctan2", "arctan2", 2, {"promote_to_float": True,
+                                       "allow_complex": False}),
             ("sinh", "sinh", 1, {"promote_to_float": True}),
             ("cosh", "cosh", 1, {"promote_to_float": True}),
             ("tanh", "tanh", 1, {"promote_to_float": True}),
@@ -540,15 +587,19 @@ class UfuncState(object):
             ("arccosh", "arccosh", 1, {"promote_to_float": True}),
             ("arctanh", "arctanh", 1, {"promote_to_float": True}),
 
-            ("radians", "radians", 1, {"promote_to_float": True}),
-            ("degrees", "degrees", 1, {"promote_to_float": True}),
+            ("radians", "radians", 1, {"promote_to_float": True,
+                                       "allow_complex": False}),
+            ("degrees", "degrees", 1, {"promote_to_float": True,
+                                       "allow_complex": False}),
 
             ("log", "log", 1, {"promote_to_float": True}),
             ("log2", "log2", 1, {"promote_to_float": True}),
             ("log10", "log10", 1, {"promote_to_float": True}),
             ("log1p", "log1p", 1, {"promote_to_float": True}),
-            ("logaddexp", "logaddexp", 2, {"promote_to_float": True}),
-            ("logaddexp2", "logaddexp2", 2, {"promote_to_float": True}),
+            ("logaddexp", "logaddexp", 2, {"promote_to_float": True,
+                                       "allow_complex": False}),
+            ("logaddexp2", "logaddexp2", 2, {"promote_to_float": True,
+                                       "allow_complex": False}),
         ]:
             self.add_ufunc(space, *ufunc_def)
 

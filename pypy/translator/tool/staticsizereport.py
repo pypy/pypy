@@ -201,7 +201,7 @@ def dump_static_data_info(log, database, targetdir):
     f = infofile.open('w')
     pickle.dump(info, f)
     f.close()
-    log.info('static data informations dumped to %s' % infofile)
+    log.info('static data information dumped to %s' % infofile)
     return infofile
 
 

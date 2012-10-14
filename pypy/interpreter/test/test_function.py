@@ -760,7 +760,7 @@ class TestFunction:
 
     def test_func_defaults(self):
         from pypy.interpreter import gateway
-        def g(w_a=gateway.NoneNotWrapped):
+        def g(w_a=None):
             pass
         app_g = gateway.interp2app_temp(g)
         space = self.space

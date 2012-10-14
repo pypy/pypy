@@ -15,6 +15,7 @@ import os
 import py
 from pypy.tool.pairtype import pair
 from pypy.annotation import model as annmodel
+from pypy.annotation.annrpython import FAIL
 from pypy.objspace.flow.model import Variable, Constant
 from pypy.objspace.flow.model import SpaceOperation, c_last_exception
 from pypy.rpython.lltypesystem.lltype import \
@@ -185,7 +186,7 @@ class RPythonTyper(object):
         assert result is not None     # recursive getrepr()!
         return result
 
-    def binding(self, var, default=annmodel.SomeObject()):
+    def binding(self, var, default=FAIL):
         s_obj = self.annotator.binding(var, default)
         return s_obj
 
@@ -1017,7 +1018,6 @@ class LowLevelOpList(list):
 # _______________________________________________________________________
 # this has the side-effect of registering the unary and binary operations
 # and the rtyper_chooserepr() methods
-from pypy.rpython import robject
 from pypy.rpython import rint, rbool, rfloat
 from pypy.rpython import rrange
 from pypy.rpython import rstr, rdict, rlist

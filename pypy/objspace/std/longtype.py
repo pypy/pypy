@@ -1,5 +1,6 @@
 from pypy.interpreter.error import OperationError
-from pypy.interpreter import gateway, typedef
+from pypy.interpreter import typedef
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 from pypy.objspace.std.strutil import string_to_bigint, ParseStringError
@@ -8,7 +9,8 @@ def descr_conjugate(space, w_int):
     return space.long(w_int)
 
 
-def descr__new__(space, w_longtype, w_x=0, w_base=gateway.NoneNotWrapped):
+@unwrap_spec(w_x = WrappedDefault(0))
+def descr__new__(space, w_longtype, w_x, w_base=None):
     from pypy.objspace.std.longobject import W_LongObject
     from pypy.rlib.rbigint import rbigint
     if space.config.objspace.std.withsmalllong:
@@ -126,12 +128,12 @@ point argument will be truncated towards zero (this does not include a
 string representation of a floating point number!)  When converting a
 string, use the optional base.  It is an error to supply a base when
 converting a non-string.''',
-    __new__ = gateway.interp2app(descr__new__),
-    conjugate = gateway.interp2app(descr_conjugate),
+    __new__ = interp2app(descr__new__),
+    conjugate = interp2app(descr_conjugate),
     numerator = typedef.GetSetProperty(descr_get_numerator),
     denominator = typedef.GetSetProperty(descr_get_denominator),
     real = typedef.GetSetProperty(descr_get_real),
     imag = typedef.GetSetProperty(descr_get_imag),
-    bit_length = gateway.interp2app(bit_length),
+    bit_length = interp2app(bit_length),
 )
 long_typedef.registermethods(globals())

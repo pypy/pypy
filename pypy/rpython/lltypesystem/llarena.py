@@ -433,7 +433,8 @@ if sys.platform.startswith('linux'):
     class LinuxPageSize:
         def __init__(self):
             self.pagesize = 0
-        _freeze_ = __init__
+        def _cleanup_(self):
+            self.pagesize = 0
     linuxpagesize = LinuxPageSize()
 
     def clear_large_memory_chunk(baseaddr, size):

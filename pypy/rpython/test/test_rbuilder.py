@@ -1,10 +1,11 @@
 from __future__ import with_statement
+
 import py
 
 from pypy.rlib.rstring import StringBuilder, UnicodeBuilder
 from pypy.rpython.annlowlevel import llstr, hlstr
 from pypy.rpython.lltypesystem import rffi
-from pypy.rpython.lltypesystem.rbuilder import *
+from pypy.rpython.lltypesystem.rbuilder import StringBuilderRepr
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 
 
@@ -22,6 +23,7 @@ class TestStringBuilderDirect(object):
         sb = StringBuilderRepr.ll_new(3)
         StringBuilderRepr.ll_append(sb, llstr("abc"))
         assert StringBuilderRepr.ll_build(sb) == sb.buf
+
 
 class BaseTestStringBuilder(BaseRtypingTest):
     def test_simple(self):

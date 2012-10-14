@@ -120,7 +120,7 @@ def getsource(object):
 # various helper functions
 #
 class MyStr(str):
-    """ custom string which allows to add attributes. """
+    """ custom string which allows adding attributes. """
 
 def newcode(fromcode, **kwargs):
     names = [x for x in dir(fromcode) if x[:3] == 'co_']

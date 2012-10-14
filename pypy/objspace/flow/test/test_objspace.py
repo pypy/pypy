@@ -1,9 +1,8 @@
 from __future__ import with_statement
 import new
 import py, sys
-from pypy.objspace.flow.model import Constant, Block, Link, Variable
+from pypy.objspace.flow.model import Constant
 from pypy.objspace.flow.model import mkentrymap, c_last_exception
-from pypy.interpreter.argument import Arguments
 from pypy.translator.simplify import simplify_graph
 from pypy.objspace.flow.objspace import FlowObjSpace
 from pypy.objspace.flow.flowcontext import FlowingError, FlowSpaceFrame
@@ -100,6 +99,11 @@ class TestFlowObjSpace(Base):
     def test_print(self):
         x = self.codetest(self.print_)
 
+    def test_bad_print(self):
+        def f(x):
+            print >> x, "Hello"
+        with py.test.raises(FlowingError):
+            self.codetest(f)
     #__________________________________________________________
     def while_(i):
         while i > 0:
@@ -460,6 +464,15 @@ class TestFlowObjSpace(Base):
     def test_globalconstdict(self):
         x = self.codetest(self.globalconstdict)
 
+    def test_dont_write_globals(self):
+        def f():
+            global DATA
+            DATA = 5
+        with py.test.raises(FlowingError) as excinfo:
+            self.codetest(f)
+        assert "modify global" in str(excinfo.value)
+        assert DATA == {'x': 5, 'y': 6}
+
     #__________________________________________________________
     def dictliteral(name):
         x = {'x': 1}
@@ -499,6 +512,12 @@ class TestFlowObjSpace(Base):
                                        'gt', 'ge', 'is_', 'xor']
             assert len(op.args) == 2
             assert op.args[1].value == 3
+
+    def test_unary_ops(self):
+        def f(x):
+            return not ~-x
+        graph = self.codetest(f)
+        assert self.all_operations(graph) == {'is_true': 1, 'invert': 1, 'neg': 1}
 
     #__________________________________________________________
 
@@ -953,14 +972,32 @@ class TestFlowObjSpace(Base):
             return s[-3:]
         check(f3, 'llo')
 
-    def test_propagate_attribute_error(self):
+    def test_constfold_attribute_error(self):
         def f(x):
             try:
                 "".invalid
             finally:
                 if x and 0:
                     raise TypeError()
-        py.test.raises(Exception, self.codetest, f)
+        with py.test.raises(FlowingError) as excinfo:
+            self.codetest(f)
+        assert 'getattr' in str(excinfo.value)
+
+    def test_constfold_exception(self):
+        def f():
+            return (3 + 2) / (4 - 2 * 2)
+        with py.test.raises(FlowingError) as excinfo:
+            self.codetest(f)
+        assert 'div(5, 0)' in str(excinfo.value)
+
+    def test_nonconstant_except(self):
+        def f(exc_cls):
+            try:
+                raise AttributeError
+            except exc_cls:
+                pass
+        with py.test.raises(FlowingError):
+            self.codetest(f)
 
     def test__flowspace_rewrite_directly_as_(self):
         def g(x):
@@ -1014,6 +1051,80 @@ class TestFlowObjSpace(Base):
 
     def test_eval(self):
         exec("def f(): return a")
+        with py.test.raises(FlowingError):
+            self.codetest(f)
+
+    @py.test.mark.xfail(reason="closures aren't supported")
+    def test_cellvar_store(self):
+        def f():
+            x = 5
+            return x
+            lambda: x # turn x into a cell variable
+        graph = self.codetest(f)
+        assert len(graph.startblock.exits) == 1
+        assert graph.startblock.exits[0].target == graph.returnblock
+
+    @py.test.mark.xfail(reason="closures aren't supported")
+    def test_arg_as_cellvar(self):
+        def f(x, y, z):
+            a, b, c = 1, 2, 3
+            z = b
+            return z
+            lambda: (a, b, x, z) # make cell variables
+        graph = self.codetest(f)
+        assert len(graph.startblock.exits) == 1
+        assert graph.startblock.exits[0].target == graph.returnblock
+        assert not graph.startblock.operations
+        assert graph.startblock.exits[0].args[0].value == 2
+
+    def test_lambda(self):
+        def f():
+            g = lambda m, n: n*m
+            return g
+        graph = self.codetest(f)
+        assert len(graph.startblock.exits) == 1
+        assert graph.startblock.exits[0].target == graph.returnblock
+        g = graph.startblock.exits[0].args[0].value
+        assert g(4, 4) == 16
+
+    def test_lambda_with_defaults(self):
+        def f():
+            g = lambda m, n=5: n*m
+            return g
+        graph = self.codetest(f)
+        assert len(graph.startblock.exits) == 1
+        assert graph.startblock.exits[0].target == graph.returnblock
+        g = graph.startblock.exits[0].args[0].value
+        assert g(4) == 20
+
+        def f2(x):
+            g = lambda m, n=x: n*m
+            return g
+        with py.test.raises(FlowingError):
+            self.codetest(f2)
+
+    @py.test.mark.xfail(reason="closures aren't supported")
+    def test_closure(self):
+        def f():
+            m = 5
+            return lambda n: m * n
+        graph = self.codetest(f)
+        assert len(graph.startblock.exits) == 1
+        assert graph.startblock.exits[0].target == graph.returnblock
+        g = graph.startblock.exits[0].args[0].value
+        assert g(4) == 20
+
+    def test_closure_error(self):
+        def f():
+            m = 5
+            return lambda n: m * n
+        with py.test.raises(ValueError) as excinfo:
+            self.codetest(f)
+        assert "closure" in str(excinfo.value)
+
+    def test_unbound_local(self):
+        def f():
+            x += 1
         with py.test.raises(FlowingError):
             self.codetest(f)
 

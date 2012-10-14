@@ -1,7 +1,7 @@
 """
 Implementation of the interpreter-level functions in the module unicodedata.
 """
-from pypy.interpreter.gateway import  interp2app, unwrap_spec, NoneNotWrapped
+from pypy.interpreter.gateway import  interp2app, unwrap_spec
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
@@ -139,7 +139,7 @@ class UCD(Wrappable):
             raise OperationError(space.w_KeyError, msg)
         return space.wrap(code_to_unichr(code))
 
-    def name(self, space, w_unichr, w_default=NoneNotWrapped):
+    def name(self, space, w_unichr, w_default=None):
         code = unichr_to_code_w(space, w_unichr)
         try:
             name = self._name(code)
@@ -150,7 +150,7 @@ class UCD(Wrappable):
         return space.wrap(name)
 
 
-    def decimal(self, space, w_unichr, w_default=NoneNotWrapped):
+    def decimal(self, space, w_unichr, w_default=None):
         code = unichr_to_code_w(space, w_unichr)
         try:
             return space.wrap(self._decimal(code))
@@ -160,7 +160,7 @@ class UCD(Wrappable):
             return w_default
         raise OperationError(space.w_ValueError, space.wrap('not a decimal'))
 
-    def digit(self, space, w_unichr, w_default=NoneNotWrapped):
+    def digit(self, space, w_unichr, w_default=None):
         code = unichr_to_code_w(space, w_unichr)
         try:
             return space.wrap(self._digit(code))
@@ -170,7 +170,7 @@ class UCD(Wrappable):
             return w_default
         raise OperationError(space.w_ValueError, space.wrap('not a digit'))
 
-    def numeric(self, space, w_unichr, w_default=NoneNotWrapped):
+    def numeric(self, space, w_unichr, w_default=None):
         code = unichr_to_code_w(space, w_unichr)
         try:
             return space.wrap(self._numeric(code))

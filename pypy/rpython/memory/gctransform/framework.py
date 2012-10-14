@@ -5,8 +5,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory, rffi, llgroup
 from pypy.rpython.lltypesystem.lloperation import LL_OPERATIONS
 from pypy.rpython.memory import gctypelayout
 from pypy.rpython.memory.gctransform.log import log
-from pypy.rpython.memory.gctransform.support import get_rtti, \
-     ll_call_destructor, type_contains_pyobjs, var_ispyobj
+from pypy.rpython.memory.gctransform.support import get_rtti, ll_call_destructor
 from pypy.rpython.memory.gctransform.transform import GCTransformer
 from pypy.rpython.memory.gctypelayout import ll_weakref_deref, WEAKREF, \
      WEAKREFPTR
@@ -18,6 +17,7 @@ import types
 
 
 TYPE_ID = llgroup.HALFWORD
+
 
 class CollectAnalyzer(graphanalyze.BoolGraphAnalyzer):
 
@@ -1174,21 +1174,13 @@ class BaseFrameworkGCTransformer(GCTransformer):
     def var_needs_set_transform(self, var):
         return var_needsgc(var)
 
-    def push_alive_nopyobj(self, var, llops):
-        pass
-
-    def pop_alive_nopyobj(self, var, llops):
-        pass
-
     def get_livevars_for_roots(self, hop, keep_current_args=False):
         if self.gcdata.gc.moving_gc and not keep_current_args:
             # moving GCs don't borrow, so the caller does not need to keep
             # the arguments alive
-            livevars = [var for var in hop.livevars_after_op()
-                            if not var_ispyobj(var)]
+            livevars = [var for var in hop.livevars_after_op()]
         else:
             livevars = hop.livevars_after_op() + hop.current_op_keeps_alive()
-            livevars = [var for var in livevars if not var_ispyobj(var)]
         return livevars
 
     def compute_borrowed_vars(self, graph):
@@ -1244,7 +1236,6 @@ class TransformerLayoutBuilder(gctypelayout.TypeLayoutBuilder):
         rtti = get_rtti(TYPE)
         destrptr = rtti._obj.destructor_funcptr
         DESTR_ARG = lltype.typeOf(destrptr).TO.ARGS[0]
-        assert not type_contains_pyobjs(TYPE), "not implemented"
         typename = TYPE.__name__
         def ll_finalizer(addr, ignored):
             v = llmemory.cast_adr_to_ptr(addr, DESTR_ARG)

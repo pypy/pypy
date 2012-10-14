@@ -319,19 +319,18 @@ _make_wrapper_for._annspecialcase_ = 'specialize:memo'
 
 AroundFnPtr = lltype.Ptr(lltype.FuncType([], lltype.Void))
 class AroundState:
-    def _freeze_(self):
+    def _cleanup_(self):
         self.before = None    # or a regular RPython function
         self.after = None     # or a regular RPython function
-        return False
 aroundstate = AroundState()
-aroundstate._freeze_()
+aroundstate._cleanup_()
 
 class StackCounter:
-    def _freeze_(self):
+    def _cleanup_(self):
         self.stacks_counter = 1     # number of "stack pieces": callbacks
-        return False                # and threads increase it by one
+                                    # and threads increase it by one
 stackcounter = StackCounter()
-stackcounter._freeze_()
+stackcounter._cleanup_()
 
 def llexternal_use_eci(compilation_info):
     """Return a dummy function that, if called in a RPython program,
