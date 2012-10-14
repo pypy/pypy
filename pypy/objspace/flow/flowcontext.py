@@ -31,6 +31,10 @@ class FlowingError(Exception):
 class StopFlowing(Exception):
     pass
 
+class Return(Exception):
+    def __init__(self, value):
+        self.value = value
+
 class FSException(Exception):
     def __init__(self, w_type, w_value):
         assert w_type is not None
@@ -375,9 +379,8 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
             except StopFlowing:
                 pass
 
-            except Return:
-                w_result = self.popvalue()
-                assert w_result is not None
+            except Return as exc:
+                w_result = exc.value
                 link = Link([w_result], graph.returnblock)
                 self.recorder.crnt_block.closeblock(link)
 
@@ -553,8 +556,7 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         w_returnvalue = self.popvalue()
         block = self.unrollstack(SReturnValue.kind)
         if block is None:
-            self.pushvalue(w_returnvalue)   # XXX ping pong
-            raise Return
+            raise Return(w_returnvalue)
         else:
             unroller = SReturnValue(w_returnvalue)
             next_instr = block.handle(self, unroller)
@@ -587,9 +589,7 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         # go on unrolling the stack
         block = self.unrollstack(unroller.kind)
         if block is None:
-            w_result = unroller.nomoreblocks()
-            self.pushvalue(w_result)
-            raise Return
+            unroller.nomoreblocks()
         else:
             return block.handle(self, unroller)
 
@@ -773,7 +773,7 @@ class SReturnValue(SuspendedUnroller):
         self.w_returnvalue = w_returnvalue
 
     def nomoreblocks(self):
-        return self.w_returnvalue
+        raise Return(self.w_returnvalue)
 
     def state_unpack_variables(self, space):
         return [self.w_returnvalue]
