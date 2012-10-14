@@ -2254,6 +2254,12 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         a = array(['abc'])
         assert repr(a) == "array(['abc'])"
         assert str(a.dtype) == '|S3'
+        a = array(['abc','defg','ab'])
+        assert str(a.dtype) == '|S4'
+        assert a[0] == 'abc'
+        assert a[1] == 'defg'
+        assert a[2] == 'ab'
+        assert repr(a) == "array(['abc', 'defg', ab'])"
 
        
 class AppTestPyPy(BaseNumpyAppTest):
