@@ -167,11 +167,16 @@ stuff = "nothing"
         input = "\xEF\xBB\xBF# coding: utf-8\nx"
         self.parse(input, info=info)
         assert info.encoding == "utf-8"
+        #
         input = "# coding: utf-8\nx"
         info.flags |= consts.PyCF_SOURCE_IS_UTF8
         exc = py.test.raises(SyntaxError, self.parse, input, info=info).value
-        info.flags &= ~consts.PyCF_SOURCE_IS_UTF8
         assert exc.msg == "coding declaration in unicode string"
+        info.flags |= consts.PyCF_IGNORE_COOKIE
+        self.parse(input, info=info)
+        assert info.encoding == "utf-8"
+        info.flags &= ~(consts.PyCF_SOURCE_IS_UTF8 | consts.PyCF_IGNORE_COOKIE)
+        #
         input = "\xEF\xBB\xBF# coding: latin-1\nx"
         exc = py.test.raises(SyntaxError, self.parse, input).value
         assert exc.msg == "UTF-8 BOM with non-utf8 coding cookie"

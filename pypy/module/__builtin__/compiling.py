@@ -25,6 +25,13 @@ compile; if absent or zero these statements do influence the compilation,
 in addition to any features explicitly specified.
 """
 
+    ec = space.getexecutioncontext()
+    if flags & ~(ec.compiler.compiler_flags | consts.PyCF_ONLY_AST |
+                 consts.PyCF_DONT_IMPLY_DEDENT | consts.PyCF_SOURCE_IS_UTF8):
+        raise OperationError(space.w_ValueError,
+                             space.wrap("compile() unrecognized flags"))
+
+    flags |= consts.PyCF_SOURCE_IS_UTF8
     ast_node = None
     w_ast_type = space.gettypeobject(ast.AST.typedef)
     source_str = None
@@ -32,17 +39,11 @@ in addition to any features explicitly specified.
         ast_node = space.interp_w(ast.mod, w_source)
         ast_node.sync_app_attrs(space)
     elif space.isinstance_w(w_source, space.w_bytes):
-        source_str = space.bytes_w(w_source)
+        source_str = space.bytes0_w(w_source)
     else:
-        source_str = space.str_w(w_source)
-        # This flag tells the parser to reject any coding cookies it sees.
-        flags |= consts.PyCF_SOURCE_IS_UTF8
+        source_str = space.str0_w(w_source)
+        flags |= consts.PyCF_IGNORE_COOKIE
 
-    ec = space.getexecutioncontext()
-    if flags & ~(ec.compiler.compiler_flags | consts.PyCF_ONLY_AST |
-                 consts.PyCF_DONT_IMPLY_DEDENT | consts.PyCF_SOURCE_IS_UTF8):
-        raise OperationError(space.w_ValueError,
-                             space.wrap("compile() unrecognized flags"))
     if not dont_inherit:
         caller = ec.gettopframe_nohidden()
         if caller:
