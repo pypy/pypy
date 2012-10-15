@@ -107,6 +107,10 @@ If only globals is given, locals defaults to it.
     return codeobj.exec_code(space, w_globals, w_locals)
 
 def exec_(space, w_prog, w_globals=None, w_locals=None):
+    if w_globals is None:
+        w_globals = space.w_None
+    if w_locals is None:
+        w_locals = space.w_None
     ec = space.getexecutioncontext()
     frame = ec.gettopframe_nohidden()
     frame.exec_(w_prog, w_globals, w_locals)
