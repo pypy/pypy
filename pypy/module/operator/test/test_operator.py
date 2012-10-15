@@ -31,7 +31,7 @@ class AppTestOperator:
         assert operator.attrgetter('x','z','y')(a) == ('X', 'Z', 'Y')
         raises(TypeError, operator.attrgetter('x', (), 'y'), a)
 
-        data = map(str, range(20))
+        data = list(map(str, range(20)))
         assert operator.itemgetter(2,10,5)(data) == ('2', '10', '5')
         raises(TypeError, operator.itemgetter(2, 'x', 5), data)
 
