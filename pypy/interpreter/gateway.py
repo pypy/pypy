@@ -852,8 +852,7 @@ class interp2app(Wrappable):
     def _getdefaults(self, space):
         "NOT_RPYTHON"
         defs_w = []
-        unwrap_spec = self._code._unwrap_spec[-len(self._staticdefs):]
-        for i, (name, defaultval) in enumerate(self._staticdefs):
+        for name, defaultval in self._staticdefs:
             if name.startswith('w_'):
                 assert defaultval is None, (
                     "%s: default value for '%s' can only be None; "
@@ -861,11 +860,7 @@ class interp2app(Wrappable):
                     self._code.identifier, name))
                 defs_w.append(None)
             else:
-                spec = unwrap_spec[i]
-                if isinstance(defaultval, str) and spec not in [str]:
-                    defs_w.append(space.wrapbytes(defaultval))
-                else:
-                    defs_w.append(space.wrap(defaultval))
+                defs_w.append(space.wrap(defaultval))
         if self._code._unwrap_spec:
             UNDEFINED = object()
             alldefs_w = [UNDEFINED] * len(self._code.sig[0])
@@ -881,7 +876,11 @@ class interp2app(Wrappable):
                 if isinstance(spec, tuple) and spec[0] is W_Root:
                     assert False, "use WrappedDefault"
                 if isinstance(spec, WrappedDefault):
-                    w_default = space.wrap(spec.default_value)
+                    default_value = spec.default_value
+                    if isinstance(default_value, str):
+                        w_default = space.wrapbytes(default_value)
+                    else:
+                        w_default = space.wrap(default_value)
                     assert isinstance(w_default, W_Root)
                     assert argname.startswith('w_')
                     argname = argname[2:]
