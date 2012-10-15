@@ -20,7 +20,8 @@ class W_RSocket(Wrappable, RSocket):
         sock = space.allocate_instance(W_RSocket, w_subtype)
         return space.wrap(sock)
 
-    @unwrap_spec(family=int, type=int, proto=int)
+    @unwrap_spec(family=int, type=int, proto=int,
+                 w_fileno=WrappedDefault(None))
     def descr_init(self, space, family=AF_INET, type=SOCK_STREAM, proto=0,
                    w_fileno=None):
         try:
