@@ -735,6 +735,10 @@ class FlowSpaceFrame(pyframe.PyFrame):
             raise FlowingError(self, "Local variable referenced before assignment")
         self.pushvalue(w_value)
 
+    def LOAD_CONST(self, constindex, next_instr):
+        w_const = self.getconstant_w(constindex)
+        self.pushvalue(w_const)
+
     def LOAD_GLOBAL(self, nameindex, next_instr):
         w_result = self.space.find_global(self.w_globals, self.getname_u(nameindex))
         self.pushvalue(w_result)
