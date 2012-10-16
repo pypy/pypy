@@ -771,6 +771,48 @@ class FlowSpaceFrame(pyframe.PyFrame):
         self.pushvalue(self.space.newlist([]))
         self.pushvalue(last_val)
 
+    def call_function(self, oparg, w_star=None, w_starstar=None):
+        n_arguments = oparg & 0xff
+        n_keywords = (oparg>>8) & 0xff
+        if n_keywords:
+            keywords = [None] * n_keywords
+            keywords_w = [None] * n_keywords
+            while True:
+                n_keywords -= 1
+                if n_keywords < 0:
+                    break
+                w_value = self.popvalue()
+                w_key = self.popvalue()
+                key = self.space.str_w(w_key)
+                keywords[n_keywords] = key
+                keywords_w[n_keywords] = w_value
+        else:
+            keywords = None
+            keywords_w = None
+        arguments = self.popvalues(n_arguments)
+        args = self.argument_factory(arguments, keywords, keywords_w, w_star,
+                                     w_starstar)
+        w_function  = self.popvalue()
+        w_result = self.space.call_args(w_function, args)
+        self.pushvalue(w_result)
+
+    def CALL_FUNCTION(self, oparg, next_instr):
+        self.call_function(oparg)
+    CALL_METHOD = CALL_FUNCTION
+
+    def CALL_FUNCTION_VAR(self, oparg, next_instr):
+        w_varargs = self.popvalue()
+        self.call_function(oparg, w_varargs)
+
+    def CALL_FUNCTION_KW(self, oparg, next_instr):
+        w_varkw = self.popvalue()
+        self.call_function(oparg, None, w_varkw)
+
+    def CALL_FUNCTION_VAR_KW(self, oparg, next_instr):
+        w_varkw = self.popvalue()
+        w_varargs = self.popvalue()
+        self.call_function(oparg, w_varargs, w_varkw)
+
     def MAKE_FUNCTION(self, numdefaults, next_instr):
         w_codeobj = self.popvalue()
         defaults = self.popvalues(numdefaults)

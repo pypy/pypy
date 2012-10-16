@@ -427,10 +427,6 @@ class FlowObjSpace(object):
             raise FSException(self.w_ImportError,
                 self.wrap("cannot import name '%s'" % w_name.value))
 
-    def call_valuestack(self, w_func, nargs, frame):
-        args = frame.make_arguments(nargs)
-        return self.call_args(w_func, args)
-
     def call_method(self, w_obj, methname, *arg_w):
         w_meth = self.getattr(w_obj, self.wrap(methname))
         return self.call_function(w_meth, *arg_w)
