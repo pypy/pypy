@@ -307,11 +307,11 @@ def descr_maketrans(space, w_type, w_x, w_y=None, w_z=None):
     character at the same position in y. If there is a third argument, it
     must be a string, whose characters will be mapped to None in the result."""
 
-    if space.is_w(w_y, space.w_None):
+    if space.is_none(w_y):
         y = None
     else:
         y = space.unicode_w(w_y)
-    if space.is_w(w_z, space.w_None):
+    if space.is_none(w_z):
         z = None
     else:
         z = space.unicode_w(w_z)
