@@ -261,6 +261,32 @@ class FlowSpaceFrame(pyframe.PyFrame):
         self.valuestackdepth = code.co_nlocals
         self.locals_stack_w = [None] * (code.co_stacksize + code.co_nlocals)
 
+    def pushvalue(self, w_object):
+        depth = self.valuestackdepth
+        self.locals_stack_w[depth] = w_object
+        self.valuestackdepth = depth + 1
+
+    def popvalue(self):
+        depth = self.valuestackdepth - 1
+        assert depth >= self.pycode.co_nlocals, "pop from empty value stack"
+        w_object = self.locals_stack_w[depth]
+        self.locals_stack_w[depth] = None
+        self.valuestackdepth = depth
+        return w_object
+
+    def peekvalue(self, index_from_top=0):
+        # NOTE: top of the stack is peekvalue(0).
+        index = self.valuestackdepth + ~index_from_top
+        assert index >= self.pycode.co_nlocals, (
+            "peek past the bottom of the stack")
+        return self.locals_stack_w[index]
+
+    def settopvalue(self, w_object, index_from_top=0):
+        index = self.valuestackdepth + ~index_from_top
+        assert index >= self.pycode.co_nlocals, (
+            "settop past the bottom of the stack")
+        self.locals_stack_w[index] = w_object
+
     def dropvaluesuntil(self, finaldepth):
         for n in range(finaldepth, self.valuestackdepth):
             self.locals_stack_w[n] = None
