@@ -759,6 +759,11 @@ class FlowSpaceFrame(pyframe.PyFrame):
         assert w_newvalue is not None
         self.locals_stack_w[varindex] = w_newvalue
 
+    def STORE_GLOBAL(self, nameindex, next_instr):
+        varname = self.getname_u(nameindex)
+        raise FlowingError(self,
+                "Attempting to modify global variable  %r." % (varname))
+
     def BUILD_LIST_FROM_ARG(self, _, next_instr):
         # This opcode was added with pypy-1.8.  Here is a simpler
         # version, enough for annotation.
