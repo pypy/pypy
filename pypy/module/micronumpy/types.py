@@ -1494,7 +1494,7 @@ class StringType(BaseType, BaseStringType):
         #    builder.append(arr.storage[i])
         #    i += 1
         #return builder.build()
-    def to_str(self, item):    
+    def to_str(self, item):
         builder = StringBuilder()
         assert isinstance(item, interp_boxes.W_StringBox)
         i = 0
