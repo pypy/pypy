@@ -684,7 +684,6 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
     arr = W_NDimArray.from_shape(shape, dtype, order=order)
     arr_iter = arr.create_iter(arr.get_shape())
     for w_elem in elems_w:
-        print 'setting',arr_iter.offset,'to',w_elem
         arr_iter.setitem(dtype.coerce(space, w_elem))
         arr_iter.next()
     return arr

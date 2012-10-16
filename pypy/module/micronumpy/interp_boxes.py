@@ -275,6 +275,9 @@ class W_StringBox(W_CharacterBox):
             arr.storage[i] = arg[i]
         return W_StringBox(arr, 0, arr.dtype)
 
+    def convert_to(self, dtype):
+        return self.arr
+
 class W_UnicodeBox(W_CharacterBox):
     def descr__new__unicode_box(space, w_subtype, w_arg):
         from pypy.module.micronumpy.interp_dtype import new_unicode_dtype

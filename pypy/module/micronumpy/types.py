@@ -1478,28 +1478,23 @@ class StringType(BaseType, BaseStringType):
 
     def store(self, arr, i, offset, box):
         assert isinstance(box, interp_boxes.W_StringBox)
-        for k in range(min(self.size-i, box.arr.size-offset)):
+        for k in range(min(self.size, box.arr.size-offset)):
             arr.storage[k + i] = box.arr.storage[k + offset]
 
     def read(self, arr, i, offset, dtype=None):
         if dtype is None:
             dtype = arr.dtype
         return interp_boxes.W_StringBox(arr, i + offset, dtype)
-        #print 'read',arr, arr.dtype
-        #xxx
-        #builder = StringBuilder()
-        #i = 0
-        #while i < self.size:
-        #    assert isinstance(arr.storage[i], str)
-        #    builder.append(arr.storage[i])
-        #    i += 1
-        #return builder.build()
+
     def to_str(self, item):
         builder = StringBuilder()
         assert isinstance(item, interp_boxes.W_StringBox)
-        i = 0
-        while i < self.size:
+        i = item.ofs
+        end = i+self.size
+        while i < end:
             assert isinstance(item.arr.storage[i], str)
+            if item.arr.storage[i] == '\x00':
+                break
             builder.append(item.arr.storage[i])
             i += 1
         return builder.build()
