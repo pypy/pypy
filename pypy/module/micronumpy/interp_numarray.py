@@ -661,7 +661,7 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
             raise operationerrfmt(space.w_ValueError, "Unknown order: %s",
                                   order)
     if isinstance(w_object, W_NDimArray):
-        if (not space.is_w(w_dtype, space.w_None) and
+        if (not space.is_none(w_dtype) and
             w_object.get_dtype() is not w_dtype):
             raise OperationError(space.w_NotImplementedError, space.wrap(
                                   "copying over different dtypes unsupported"))
