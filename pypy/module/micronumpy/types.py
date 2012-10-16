@@ -1465,6 +1465,9 @@ class BaseStringType(object):
     def get_element_size(self):
         return self.size * rffi.sizeof(self.T)
 
+    def get_size(self):
+        return self.size
+
 class StringType(BaseType, BaseStringType):
     T = lltype.Char
 

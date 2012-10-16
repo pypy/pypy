@@ -478,7 +478,7 @@ def find_dtype_for_scalar(space, w_obj, current_guess=None):
             return interp_dtype.variable_dtype(space, 
                                                'S%d' % space.len_w(w_obj))
         elif current_guess.num ==18:
-            if  current_guess.itemtype.size < space.len_w(w_obj):
+            if  current_guess.itemtype.get_size() < space.len_w(w_obj):
                 return interp_dtype.variable_dtype(space, 
                                                    'S%d' % space.len_w(w_obj))
         return current_guess
