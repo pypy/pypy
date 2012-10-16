@@ -17,12 +17,6 @@ own improvement ideas. In any case, if you feel like working on some of those
 projects, or anything else in PyPy, pop up on IRC or write to us on the
 `mailing list`_.
 
-Make big integers faster
--------------------------
-
-PyPy's implementation of the Python ``long`` type is slower than CPython's.
-Find out why and optimize them.  **UPDATE:** this was done (thanks stian).
-
 Make bytearray type fast
 ------------------------
 
@@ -81,14 +75,6 @@ Translation Toolchain
 
 * Allow separate compilation of extension modules.
 
-Work on some of other languages
--------------------------------
-
-There are various languages implemented using the RPython translation toolchain.
-One of the most interesting is the `JavaScript implementation`_, but there
-are others like scheme or prolog. An interesting project would be to improve
-the jittability of those or to experiment with various optimizations.
-
 Various GCs
 -----------
 
@@ -143,8 +129,6 @@ script that can run without parameters. Example ideas (benchmarks need
 to be got from them!):
 
 * `hg`
-
-* `sympy`
 
 Experiment (again) with LLVM backend for RPython compilation
 ------------------------------------------------------------
