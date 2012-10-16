@@ -6,9 +6,10 @@ import sys
 import collections
 
 from pypy.tool.error import source_lines
+from pypy.tool.stdlib_opcode import host_bytecode_spec
 from pypy.interpreter import pyframe
 from pypy.interpreter.argument import ArgumentsForTranslation
-from pypy.interpreter.pyopcode import Return, BytecodeCorruption
+from pypy.interpreter.pyopcode import BytecodeCorruption
 from pypy.objspace.flow.model import (Constant, Variable, Block, Link,
     UnwrapException, c_last_exception)
 from pypy.objspace.flow.framestate import (FrameState, recursively_unflatten,
@@ -224,7 +225,8 @@ compare_method = [
     "cmp_exc_match",
     ]
 
-class FlowSpaceFrame(pyframe.CPythonFrame):
+class FlowSpaceFrame(pyframe.PyFrame):
+    opcode_method_names = host_bytecode_spec.method_names
 
     def __init__(self, space, graph, code):
         self.graph = graph
