@@ -754,6 +754,11 @@ class FlowSpaceFrame(pyframe.PyFrame):
     def LOAD_DEREF(self, varindex, next_instr):
         self.pushvalue(self.closure[varindex])
 
+    def STORE_FAST(self, varindex, next_instr):
+        w_newvalue = self.popvalue()
+        assert w_newvalue is not None
+        self.locals_stack_w[varindex] = w_newvalue
+
     def BUILD_LIST_FROM_ARG(self, _, next_instr):
         # This opcode was added with pypy-1.8.  Here is a simpler
         # version, enough for annotation.
