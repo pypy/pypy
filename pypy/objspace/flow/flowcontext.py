@@ -261,6 +261,11 @@ class FlowSpaceFrame(pyframe.PyFrame):
         self.valuestackdepth = code.co_nlocals
         self.locals_stack_w = [None] * (code.co_stacksize + code.co_nlocals)
 
+    def dropvaluesuntil(self, finaldepth):
+        for n in range(finaldepth, self.valuestackdepth):
+            self.locals_stack_w[n] = None
+        self.valuestackdepth = finaldepth
+
     def save_locals_stack(self):
         return self.locals_stack_w[:self.valuestackdepth]
 
