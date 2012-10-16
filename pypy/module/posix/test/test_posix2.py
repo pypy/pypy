@@ -52,6 +52,7 @@ class AppTestPosix:
     def setup_class(cls):
         cls.space = space
         cls.w_posix = space.appexec([], GET_POSIX)
+        cls.w_os = space.appexec([], "(): import os as m ; return m")
         cls.w_path = space.wrap(str(path))
         cls.w_path2 = space.wrap(str(path2))
         cls.w_pdir = space.wrap(str(pdir))
@@ -844,10 +845,9 @@ class AppTestPosix:
         assert hasattr(os, 'kill')
 
     def test_pipe_flush(self):
-        os = self.posix
-        ffd, gfd = os.pipe()
-        f = os.fdopen(ffd, 'r')
-        g = os.fdopen(gfd, 'w')
+        ffd, gfd = self.posix.pipe()
+        f = self.os.fdopen(ffd, 'r')
+        g = self.os.fdopen(gfd, 'w')
         g.write('he')
         g.flush()
         x = f.read(1)
