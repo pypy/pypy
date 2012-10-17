@@ -243,6 +243,10 @@ class AppTestW_SpecialisedTupleObject:
         assert a == (1, 2.2,) + b
         assert not a != (1, 2.2) + b
 
+    def test_ovfl_bug(self):
+        # previously failed
+        a = (0xffffffffffffffff, 0)
+
 
 class AppTestAll(test_tupleobject.AppTestW_TupleObject):
     pass

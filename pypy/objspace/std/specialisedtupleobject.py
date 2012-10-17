@@ -188,15 +188,26 @@ Cls_oo = make_specialised_class((object, object))
 Cls_ff = make_specialised_class((float, float))
 #Cls_ooo = make_specialised_class((object, object, object))
 
+def is_int_w(space, w_obj):
+    """Determine if obj can be safely casted to an int_w"""
+    try:
+        space.int_w(w_obj)
+    except OperationError, e:
+        if not (e.match(space, space.w_OverflowError) or
+                e.match(space, space.w_TypeError)):
+            raise
+        return False
+    return True
+
 def makespecialisedtuple(space, list_w):
     if len(list_w) == 2:
         w_arg1, w_arg2 = list_w
         w_type1 = space.type(w_arg1)
         #w_type2 = space.type(w_arg2)
         #
-        if w_type1 is space.w_int:
+        if w_type1 is space.w_int and is_int_w(space, w_arg1):
             w_type2 = space.type(w_arg2)
-            if w_type2 is space.w_int:
+            if w_type2 is space.w_int and is_int_w(space, w_arg2):
                 return Cls_ii(space, w_arg1, w_arg2)
             #elif w_type2 is space.w_str:
             #    return Cls_is(space, w_arg1, w_arg2)
