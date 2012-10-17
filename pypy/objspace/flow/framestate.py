@@ -2,10 +2,10 @@ from pypy.rlib.unroll import SpecTag
 from pypy.objspace.flow.model import *
 
 class FrameState:
-    def __init__(self, mergeable, nonmergeable):
+    def __init__(self, mergeable, blocklist, next_instr):
         self.mergeable = mergeable
-        self.nonmergeable = nonmergeable
-        self.next_instr = self.nonmergeable[1]
+        self.blocklist = blocklist
+        self.next_instr = next_instr
         for w1 in self.mergeable:
             assert isinstance(w1, (Variable, Constant)) or w1 is None, (
                 '%r found in frame state' % w1)
@@ -17,7 +17,7 @@ class FrameState:
             if isinstance(w, Variable):
                 w = Variable()
             newstate.append(w)
-        return FrameState(newstate, self.nonmergeable)
+        return FrameState(newstate, self.blocklist, self.next_instr)
 
     def getvariables(self):
         return [w for w in self.mergeable if isinstance(w, Variable)]
@@ -29,7 +29,8 @@ class FrameState:
         # nonmergeable states
         assert isinstance(other, FrameState)
         assert len(self.mergeable) == len(other.mergeable)
-        assert self.nonmergeable == other.nonmergeable
+        assert self.blocklist == other.blocklist
+        assert self.next_instr == other.next_instr
         for w1, w2 in zip(self.mergeable, other.mergeable):
             if not (w1 == w2 or (isinstance(w1, Variable) and
                                  isinstance(w2, Variable))):
@@ -50,7 +51,7 @@ class FrameState:
                 newstate.append(union(w1, w2))
         except UnionError:
             return None
-        return FrameState(newstate, self.nonmergeable)
+        return FrameState(newstate, self.blocklist, self.next_instr)
 
     def getoutputargs(self, targetstate):
         "Return the output arguments needed to link self to targetstate."

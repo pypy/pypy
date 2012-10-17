@@ -57,6 +57,9 @@ def c_div(x, y): #x/y
             denom = r2 + i2 * ratio
             rr = (r1 + i1 * ratio) / denom
             ir = (i1 - r1 * ratio) / denom
+    elif isnan(r2):
+        rr = NAN
+        ir = NAN
     else:
         ratio = r2 / i2
         denom = r2 * ratio + i2
