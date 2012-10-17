@@ -1471,6 +1471,7 @@ class BaseStringType(object):
 class StringType(BaseType, BaseStringType):
     T = lltype.Char
 
+    @jit.unroll_safe
     def coerce(self, space, dtype, w_item):
         from pypy.module.micronumpy.interp_dtype import new_string_dtype
         arg = space.str_w(space.str(w_item))
@@ -1479,6 +1480,7 @@ class StringType(BaseType, BaseStringType):
             arr.storage[i] = arg[i]
         return interp_boxes.W_StringBox(arr,  0, None)
 
+    @jit.unroll_safe
     def store(self, arr, i, offset, box):
         assert isinstance(box, interp_boxes.W_StringBox)
         for k in range(min(self.size, box.arr.size-offset)):
@@ -1489,6 +1491,7 @@ class StringType(BaseType, BaseStringType):
             dtype = arr.dtype
         return interp_boxes.W_StringBox(arr, i + offset, dtype)
 
+    @jit.unroll_safe
     def to_str(self, item):
         builder = StringBuilder()
         assert isinstance(item, interp_boxes.W_StringBox)
