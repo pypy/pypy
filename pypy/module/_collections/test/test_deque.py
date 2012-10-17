@@ -171,7 +171,7 @@ class AppTestBasic:
         assert list(d) == list(reversed(range(1000, 1200)))
         #
         n = 100
-        data = map(str, range(n))
+        data = list(map(str, range(n)))
         for i in range(n):
             d = deque(data[:i])
             r = d.reverse()
