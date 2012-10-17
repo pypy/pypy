@@ -251,8 +251,6 @@ class AppTestAppComplexTest:
         assert complex(NS(2.0)) == 2+0j
         assert complex(OS(2)) == 2+0j
         assert complex(NS(2)) == 2+0j
-        assert complex(OS(2L)) == 2+0j
-        assert complex(NS(2L)) == 2+0j
 
         raises(TypeError, complex, OS(None))
         raises(TypeError, complex, NS(None))

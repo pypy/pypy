@@ -185,7 +185,6 @@ def unpackcomplex(space, w_complex):
         # __complex__() must return a complex or (float,int,long) object
         # (XXX should not use isinstance here)
         if (space.isinstance_w(w_z, space.w_int) or 
-            space.isinstance_w(w_z, space.w_long) or
             space.isinstance_w(w_z, space.w_float)):
             return (space.float_w(w_z), 0.0)
         elif isinstance(w_z, W_ComplexObject):
