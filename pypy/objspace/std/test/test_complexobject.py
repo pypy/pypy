@@ -295,7 +295,7 @@ class AppTestAppComplexTest:
         assert self.almost_equal(complex(),  0)
         assert self.almost_equal(complex("-1"), -1)
         assert self.almost_equal(complex("+1"), +1)
-        assert self.almost_equal(complex(" ( +3.14-6J )"), 3.14-6j)
+        assert self.almost_equal(complex(" ( +3.14-6J ) "), 3.14-6j)
 
         class complex2(complex):
             pass
@@ -358,7 +358,7 @@ class AppTestAppComplexTest:
         b2 = '\N{MATHEMATICAL BOLD DIGIT TWO}' # 𝟐
         s = '{0} + {1}j'.format(b1, b2)
         assert complex(s) == 1+2j
-        assert complex('\N{EM SPACE}(1+1j)')
+        assert complex('\N{EM SPACE}(\N{EN SPACE}1+1j ) ') == 1+1j
 
     def test_hash(self):
         for x in range(-30, 30):
