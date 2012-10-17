@@ -1,5 +1,6 @@
 from pypy.conftest import gettestobjspace
 from pypy.interpreter import gateway
+from pypy.interpreter.astcompiler import consts
 import py
 
 class AppTestCodeIntrospection:
@@ -11,6 +12,7 @@ class AppTestCodeIntrospection:
             filename = filename[:-1]
 
         cls.w_file = space.wrap(filename)
+        cls.w_CO_CONTAINSGLOBALS = space.wrap(consts.CO_CONTAINSGLOBALS)
 
     def test_attributes(self):
         def f(): pass
@@ -194,7 +196,7 @@ class AppTestCodeIntrospection:
         assert d['f'](4).__code__.co_flags & 0x10
         assert d['f'].__code__.co_flags & 0x10 == 0
         # check for CO_CONTAINSGLOBALS
-        assert not d['f'].__code__.co_flags & 0x0800
+        assert not d['f'].__code__.co_flags & self.CO_CONTAINSGLOBALS
 
 
         exec("""if 1:
@@ -206,8 +208,8 @@ class AppTestCodeIntrospection:
 """, d)
 
         # check for CO_CONTAINSGLOBALS
-        assert d['f'].__code__.co_flags & 0x0800
-        assert not d['g'].__code__.co_flags & 0x0800
+        assert d['f'].__code__.co_flags & self.CO_CONTAINSGLOBALS
+        assert not d['g'].__code__.co_flags & self.CO_CONTAINSGLOBALS
 
         exec("""if 1:
         b = 2
@@ -216,4 +218,4 @@ class AppTestCodeIntrospection:
             return a + b + x
 """, d)
         # check for CO_CONTAINSGLOBALS
-        assert d['f'].__code__.co_flags & 0x0800
+        assert d['f'].__code__.co_flags & self.CO_CONTAINSGLOBALS
