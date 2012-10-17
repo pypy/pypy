@@ -611,6 +611,16 @@ class TestGateway:
             never_called
         py.test.raises(AssertionError, space.wrap, gateway.interp2app_temp(g))
 
+    def test_unwrap_spec_default_bytes(self):
+        space = self.space
+        @gateway.unwrap_spec(s='bufferstr')
+        def g(space, s=''):
+            return space.wrap(type(s) is str)
+        w_g = space.wrap(gateway.interp2app_temp(g))
+        args = argument.Arguments(space, [])
+        w_res = space.call_args(w_g, args)
+        assert space.eq_w(w_res, space.w_True)
+
     def test_unwrap_spec_default_applevel_bytes(self):
         space = self.space
         @gateway.unwrap_spec(w_x=WrappedDefault('foo'))
