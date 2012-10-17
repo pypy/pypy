@@ -1,3 +1,4 @@
+# -*- encoding: utf-8 -*-
 from __future__ import print_function
 
 import py
@@ -87,6 +88,8 @@ class TestW_ComplexObject:
 
 
 class AppTestAppComplexTest:
+    spaceconfig = {'usemodules': ('unicodedata',)}
+    
     def w_check_div(self, x, y):
         """Compute complex z=x*y, and check that z/x==y and z/y==x."""
         z = x * y
@@ -254,6 +257,7 @@ class AppTestAppComplexTest:
 
         raises(TypeError, complex, OS(None))
         raises(TypeError, complex, NS(None))
+        raises(TypeError, complex, b'10')
 
         # -- The following cases are not supported by CPython, but they
         # -- are supported by PyPy, which is most probably ok
@@ -348,6 +352,13 @@ class AppTestAppComplexTest:
         assert self.almost_equal(complex(float2(42.)), 42)
         assert self.almost_equal(complex(real=float2(17.), imag=float2(23.)), 17+23j)
         raises(TypeError, complex, float2(None))
+
+    def test_constructor_unicode(self):
+        b1 = '\N{MATHEMATICAL BOLD DIGIT ONE}' # 𝟏
+        b2 = '\N{MATHEMATICAL BOLD DIGIT TWO}' # 𝟐
+        s = '{0} + {1}j'.format(b1, b2)
+        assert complex(s) == 1+2j
+        assert complex('\N{EM SPACE}(1+1j)')
 
     def test_hash(self):
         for x in range(-30, 30):

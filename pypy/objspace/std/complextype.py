@@ -6,6 +6,7 @@ from pypy.objspace.std.strutil import string_to_float, ParseStringError
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.stdtypedef import GetSetProperty, StdTypeDef
 from pypy.objspace.std.stdtypedef import StdObjSpaceMultiMethod
+from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
 
 # ERRORCODES
 
@@ -130,15 +131,15 @@ def descr__new__(space, w_complextype, w_real, w_imag=None):
                and space.is_w(space.type(w_real), space.w_complex)):
         return w_real
 
-    if space.isinstance_w(w_real, space.w_str) or \
-            space.isinstance_w(w_real, space.w_unicode):
+    if space.isinstance_w(w_real, space.w_unicode):
         # a string argument
         if not noarg2:
             raise OperationError(space.w_TypeError,
                                  space.wrap("complex() can't take second arg"
                                             " if first is a string"))
+        unistr = unicode_to_decimal_w(space, w_real)
         try:
-            realstr, imagstr = _split_complex(space.unicode_w(w_real))
+            realstr, imagstr = _split_complex(unistr)
         except ValueError:
             raise OperationError(space.w_ValueError, space.wrap(ERR_MALFORMED))
         try:
