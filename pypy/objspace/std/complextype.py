@@ -26,9 +26,11 @@ def _split_complex(s):
     imagstop = 0
     imagsign = ' '
     i = 0
-    # ignore whitespace
+    # ignore whitespace at beginning and end
     while i < slen and s[i] == ' ':
         i += 1
+    while slen > 0 and s[slen-1] == ' ':
+        slen -= 1
 
     if s[i] == '(' and s[slen-1] == ')':
         i += 1

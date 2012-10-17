@@ -304,7 +304,7 @@ class AppTestAppComplexTest:
         assert self.almost_equal(complex(),  0)
         assert self.almost_equal(complex("-1"), -1)
         assert self.almost_equal(complex("+1"), +1)
-        assert self.almost_equal(complex(" ( +3.14-6J )"), 3.14-6j)
+        assert self.almost_equal(complex(" ( +3.14-6J ) "), 3.14-6j)
 
         class complex2(complex):
             pass
