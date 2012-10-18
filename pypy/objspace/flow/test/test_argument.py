@@ -151,6 +151,20 @@ class TestArgumentsForTranslation(object):
         assert args1.keywords is args.keywords
         assert args1.keywords_w is args.keywords_w
 
+    def test_fixedunpacked(self):
+        space = DummySpace()
+
+        args = ArgumentsForTranslation(space, [], ["k"], [1])
+        py.test.raises(ValueError, args.fixedunpack, 1)
+
+        args = ArgumentsForTranslation(space, ["a", "b"])
+        py.test.raises(ValueError, args.fixedunpack, 0)
+        py.test.raises(ValueError, args.fixedunpack, 1)
+        py.test.raises(ValueError, args.fixedunpack, 3)
+        py.test.raises(ValueError, args.fixedunpack, 4)
+
+        assert args.fixedunpack(2) == ['a', 'b']
+
     def test_unmatch_signature(self):
         space = DummySpace()
         args = make_arguments_for_translation(space, [1,2,3])
