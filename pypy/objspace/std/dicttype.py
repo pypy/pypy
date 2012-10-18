@@ -42,6 +42,7 @@ dict_itervalues = SMM('itervalues',    1,
                       doc='D.itervalues() -> an iterator over the values of D')
 dict_reversed   = SMM('__reversed__',      1)
 
+
 def dict_reversed__ANY(space, w_dict):
     raise OperationError(space.w_TypeError, space.wrap('argument to reversed() must be a sequence'))
 
@@ -192,12 +193,42 @@ dictiter_typedef = StdTypeDef("dictionaryiterator",
 # ____________________________________________________________
 # Dict views
 
+def descr_dictview_isdisjoin(space, w_self, w_other):
+    from pypy.objspace.std.dictmultiobject import W_DictViewObject
+    if w_self is w_other:
+        if space.len_w(w_self) == 0:
+            return space.w_True
+        else:
+            return space.w_False
+
+    # check whether w_other is a set-like object
+    if (space.isinstance_w(w_other, space.w_set) or
+        space.isinstance_w(w_other, space.w_frozenset) or
+        isinstance(w_other, W_DictViewObject)):
+        # if w_other is set-like and it's longer, we iterate over w_self
+        # instead
+        len_self = space.len_w(w_self)
+        len_other = space.len_w(w_other)
+        if len_other > len_self:
+            w_self, w_other = w_other, w_self
+
+    w_it = space.iter(w_other)
+    for w_item in space.iteriterable(w_it):
+        if space.is_true(space.contains(w_self, w_item)):
+            return space.w_False
+    return space.w_True
+
+
 dict_keys_typedef = StdTypeDef(
     "dict_keys",
+    isdisjoint = gateway.interp2app(descr_dictview_isdisjoin),
+
     )
+dict_keys_typedef.registermethods(globals())
 
 dict_items_typedef = StdTypeDef(
     "dict_items",
+    isdisjoint = gateway.interp2app(descr_dictview_isdisjoin),
     )
 
 dict_values_typedef = StdTypeDef(

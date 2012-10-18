@@ -1052,7 +1052,6 @@ def generate_setops():
 
 generate_setops()
 
-
 # ____________________________________________________________
 
 from pypy.objspace.std import dicttype

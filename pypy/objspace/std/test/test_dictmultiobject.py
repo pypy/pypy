@@ -752,6 +752,26 @@ class AppTestDictViews:
         assert d1.keys() - set(d2.keys()) == set('a')
         assert d1.keys() - set(d3.keys()) == set('ab')
 
+        assert not d1.keys().isdisjoint(d1.keys())
+        assert not d1.keys().isdisjoint(d2.keys())
+        assert not d1.keys().isdisjoint(list(d2.keys()))
+        assert not d1.keys().isdisjoint(set(d2.keys()))
+        
+        assert d1.keys().isdisjoint({'x', 'y', 'z'})
+        assert d1.keys().isdisjoint(['x', 'y', 'z'])
+        assert d1.keys().isdisjoint(set(['x', 'y', 'z']))
+        assert d1.keys().isdisjoint(set(['x', 'y']))
+        assert d1.keys().isdisjoint(['x', 'y'])
+        assert d1.keys().isdisjoint({})
+        assert d1.keys().isdisjoint(d3.keys())
+
+        de = {}
+        assert de.keys().isdisjoint(set())
+        assert de.keys().isdisjoint([])
+        assert de.keys().isdisjoint(de.keys())
+        assert de.keys().isdisjoint([1])
+
+
     def test_items_set_operations(self):
         d1 = {'a': 1, 'b': 2}
         d2 = {'a': 2, 'b': 2}
@@ -783,6 +803,23 @@ class AppTestDictViews:
         assert d1.items() - d1.items() == set()
         assert d1.items() - d2.items() == set([('a', 1)])
         assert d1.items() - d3.items() == set([('a', 1), ('b', 2)])
+
+        assert not d1.items().isdisjoint(d1.items())
+        assert not d1.items().isdisjoint(d2.items())
+        assert not d1.items().isdisjoint(list(d2.items()))
+        assert not d1.items().isdisjoint(set(d2.items()))
+        assert d1.items().isdisjoint({'x', 'y', 'z'})
+        assert d1.items().isdisjoint(['x', 'y', 'z'])
+        assert d1.items().isdisjoint(set(['x', 'y', 'z']))
+        assert d1.items().isdisjoint(set(['x', 'y']))
+        assert d1.items().isdisjoint({})
+        assert d1.items().isdisjoint(d3.items())
+
+        de = {}
+        assert de.items().isdisjoint(set())
+        assert de.items().isdisjoint([])
+        assert de.items().isdisjoint(de.items())
+        assert de.items().isdisjoint([1])
 
     def test_keys_set_operations_any_type(self):
         d = {1: 'a', 2: 'b', 3: 'c'}
