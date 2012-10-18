@@ -462,6 +462,15 @@ class TestFunctions(BaseCTypesTestChecker):
         callback = proto(callback)
         raises(ArgumentError, lambda: callback((1, 2, 3, 4), POINT()))
 
+    def test_argument_conversion_and_checks(self):
+        strlen = dll.my_strchr
+        strlen.argtypes = [c_char_p, c_int]
+        strlen.restype = c_char_p
+        assert strlen("eggs", ord("g")) == "ggs"
+
+        # Should raise ArgumentError, not segfault
+        py.test.raises(ArgumentError, strlen, False, 0)
+
     def test_union_as_passed_value(self):
         class UN(Union):
             _fields_ = [("x", c_short),
@@ -545,3 +554,5 @@ class TestFunctions(BaseCTypesTestChecker):
         res = test_errno()
         n = get_errno()
         assert (res, n) == (42, 43)
+        set_errno(0)
+        assert get_errno() == 0
