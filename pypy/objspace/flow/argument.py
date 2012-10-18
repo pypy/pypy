@@ -253,8 +253,7 @@ def _do_combine_starstarargs_wrapped(space, keys_w, w_starstararg, keywords,
         keywords_w[i] = space.getitem(w_starstararg, w_key)
         i += 1
 
-def _match_keywords(signature, blindargs, input_argcount,
-                    keywords, kwds_mapping):
+def _match_keywords(signature, input_argcount, keywords, kwds_mapping):
     # letting JIT unroll the loop is *only* safe if the callsite didn't
     # use **args because num_kwds can be arbitrarily large otherwise.
     num_kwds = num_remainingkwds = len(keywords)
@@ -265,15 +264,10 @@ def _match_keywords(signature, blindargs, input_argcount,
         if name is None:
             continue
         j = signature.find_argname(name)
-        # if j == -1 nothing happens, because j < input_argcount and
-        # blindargs > j
+        # if j == -1 nothing happens
         if j < input_argcount:
-            # check that no keyword argument conflicts with these. note
-            # that for this purpose we ignore the first blindargs,
-            # which were put into place by prepend().  This way,
-            # keywords do not conflict with the hidden extra argument
-            # bound by methods.
-            if blindargs <= j:
+            # check that no keyword argument conflicts with these.
+            if j >= 0:
                 raise ArgErrMultipleValues(name)
         else:
             kwds_mapping[j - input_argcount] = i # map to the right index
@@ -337,61 +331,35 @@ class ArgumentsForTranslation(Arguments):
                                        self.keywords, self.keywords_w, self.w_stararg,
                                        self.w_starstararg)
 
-    def _match_signature(self, w_firstarg, scope_w, signature, defaults_w=None,
-                         blindargs=0):
+    def _match_signature(self, scope_w, signature, defaults_w=None):
         """Parse args and kwargs according to the signature of a code object,
         or raise an ArgErr in case of failure.
         """
-        #   w_firstarg = a first argument to be inserted (e.g. self) or None
         #   args_w = list of the normal actual parameters, wrapped
         #   scope_w = resulting list of wrapped values
         #
         self.combine_if_necessary()
         co_argcount = signature.num_argnames() # expected formal arguments, without */**
 
-        # put the special w_firstarg into the scope, if it exists
-        if w_firstarg is not None:
-            upfront = 1
-            if co_argcount > 0:
-                scope_w[0] = w_firstarg
-        else:
-            upfront = 0
-
         args_w = self.arguments_w
         num_args = len(args_w)
-        avail = num_args + upfront
-
-        keywords = self.keywords
-        num_kwds = 0
-        if keywords is not None:
-            num_kwds = len(keywords)
-
+        keywords = self.keywords or []
+        num_kwds = len(keywords)
 
         # put as many positional input arguments into place as available
-        input_argcount = upfront
-        if input_argcount < co_argcount:
-            take = min(num_args, co_argcount - upfront)
-
-            # letting the JIT unroll this loop is safe, because take is always
-            # smaller than co_argcount
-            for i in range(take):
-                scope_w[i + input_argcount] = args_w[i]
-            input_argcount += take
+        take = min(num_args, co_argcount)
+        scope_w[:take] = args_w[:take]
+        input_argcount = take
 
         # collect extra positional arguments into the *vararg
         if signature.has_vararg():
-            args_left = co_argcount - upfront
-            if args_left < 0:  # check required by rpython
-                starargs_w = [w_firstarg]
-                if num_args:
-                    starargs_w = starargs_w + args_w
-            elif num_args > args_left:
-                starargs_w = args_w[args_left:]
+            if num_args > co_argcount:
+                starargs_w = args_w[co_argcount:]
             else:
                 starargs_w = []
             scope_w[co_argcount] = self.space.newtuple(starargs_w)
-        elif avail > co_argcount:
-            raise ArgErrCount(avail, num_kwds, signature, defaults_w, 0)
+        elif num_args > co_argcount:
+            raise ArgErrCount(num_args, num_kwds, signature, defaults_w, 0)
 
         # if a **kwargs argument is needed, create the dict
         w_kwds = None
@@ -406,25 +374,21 @@ class ArgumentsForTranslation(Arguments):
         if num_kwds:
             # kwds_mapping maps target indexes in the scope (minus input_argcount)
             # to positions in the keywords_w list
-            kwds_mapping = [0] * (co_argcount - input_argcount)
-            # initialize manually, for the JIT :-(
-            for i in range(len(kwds_mapping)):
-                kwds_mapping[i] = -1
+            kwds_mapping = [-1] * (co_argcount - input_argcount)
             # match the keywords given at the call site to the argument names
             # the called function takes
             # this function must not take a scope_w, to make the scope not
             # escape
-            num_remainingkwds = _match_keywords(
-                    signature, blindargs, input_argcount, keywords,
-                    kwds_mapping)
+            num_remainingkwds = _match_keywords(signature, input_argcount,
+                    keywords, kwds_mapping)
             if num_remainingkwds:
                 if w_kwds is not None:
                     # collect extra keyword arguments into the **kwarg
-                    _collect_keyword_args( self.space, keywords, keywords_w,
+                    _collect_keyword_args(self.space, keywords, keywords_w,
                             w_kwds, kwds_mapping, self.keyword_names_w)
                 else:
                     if co_argcount == 0:
-                        raise ArgErrCount(avail, num_kwds, signature, defaults_w, 0)
+                        raise ArgErrCount(num_args, num_kwds, signature, defaults_w, 0)
                     raise ArgErrUnknownKwds(self.space, num_remainingkwds, keywords,
                                             kwds_mapping, self.keyword_names_w)
 
@@ -448,7 +412,7 @@ class ArgumentsForTranslation(Arguments):
                 else:
                     missing += 1
             if missing:
-                raise ArgErrCount(avail, num_kwds, signature, defaults_w, missing)
+                raise ArgErrCount(num_args, num_kwds, signature, defaults_w, missing)
 
     def unpack(self):
         "Return a ([w1,w2...], {'kw':w3...}) pair."
@@ -466,7 +430,7 @@ class ArgumentsForTranslation(Arguments):
         """
         scopelen = signature.scope_length()
         scope_w = [None] * scopelen
-        self._match_signature(None, scope_w, signature, defaults_w, 0)
+        self._match_signature(scope_w, signature, defaults_w)
         return scope_w
 
     def unmatch_signature(self, signature, data_w):
