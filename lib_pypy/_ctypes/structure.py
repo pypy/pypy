@@ -69,7 +69,8 @@ def names_and_fields(self, _fields_, superclass, anonymous_fields=None):
                 resnames.append(name)
         names = resnames
     self._names = names
-    self.__dict__.update(fields)
+    for name, field in fields.items():
+        setattr(self, name, field)
 
 class Field(object):
     def __init__(self, name, offset, size, ctype, num, is_bitfield):
