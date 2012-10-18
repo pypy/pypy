@@ -188,21 +188,6 @@ class Arguments(object):
 
     ###  Parsing for function calls  ###
 
-    def parse_into_scope(self, w_firstarg,
-                         scope_w, fnname, signature, defaults_w=None):
-        """Parse args and kwargs to initialize a frame
-        according to the signature of code object.
-        Store the argumentvalues into scope_w.
-        scope_w must be big enough for signature.
-        """
-        try:
-            self._match_signature(w_firstarg,
-                                  scope_w, signature, defaults_w, 0)
-        except ArgErr, e:
-            raise operationerrfmt(self.space.w_TypeError,
-                                  "%s() %s", fnname, e.getmsg())
-        return signature.scope_length()
-
     def _parse(self, w_firstarg, signature, defaults_w, blindargs=0):
         """Parse args and kwargs according to the signature of a code object,
         or raise an ArgErr in case of failure.
