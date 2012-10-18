@@ -188,16 +188,6 @@ class Arguments(object):
 
     ###  Parsing for function calls  ###
 
-    def _parse(self, w_firstarg, signature, defaults_w, blindargs=0):
-        """Parse args and kwargs according to the signature of a code object,
-        or raise an ArgErr in case of failure.
-        """
-        scopelen = signature.scope_length()
-        scope_w = [None] * scopelen
-        self._match_signature(w_firstarg, scope_w, signature, defaults_w,
-                              blindargs)
-        return scope_w
-
     @staticmethod
     def frompacked(space, w_args=None, w_kwds=None):
         """Convenience static method to build an Arguments
@@ -474,7 +464,10 @@ class ArgumentsForTranslation(Arguments):
         """Parse args and kwargs according to the signature of a code object,
         or raise an ArgErr in case of failure.
         """
-        return self._parse(None, signature, defaults_w)
+        scopelen = signature.scope_length()
+        scope_w = [None] * scopelen
+        self._match_signature(None, scope_w, signature, defaults_w, 0)
+        return scope_w
 
     def unmatch_signature(self, signature, data_w):
         """kind of inverse of match_signature"""
