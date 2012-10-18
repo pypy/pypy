@@ -96,15 +96,6 @@ class Arguments(object):
 
     ###  Manipulation  ###
 
-    def replace_arguments(self, args_w):
-        "Return a new Arguments with a args_w as positional arguments."
-        return Arguments(self.space, args_w, self.keywords, self.keywords_w,
-                         keyword_names_w = self.keyword_names_w)
-
-    def prepend(self, w_firstarg):
-        "Return a new Arguments with a new argument inserted first."
-        return self.replace_arguments([w_firstarg] + self.arguments_w)
-
     def _combine_wrapped(self, w_stararg, w_starstararg):
         "unpack the *arg and **kwd into arguments_w and keywords_w"
         if w_stararg is not None:
@@ -187,12 +178,6 @@ class Arguments(object):
         return None
 
     ###  Parsing for function calls  ###
-
-    @staticmethod
-    def frompacked(space, w_args=None, w_kwds=None):
-        """Convenience static method to build an Arguments
-           from a wrapped sequence and a wrapped dictionary."""
-        return Arguments(space, [], w_stararg=w_args, w_starstararg=w_kwds)
 
     def topacked(self):
         """Express the Argument object as a pair of wrapped w_args, w_kwds."""
@@ -481,10 +466,6 @@ class ArgumentsForTranslation(Arguments):
             keywords_w.append(unfiltered_kwds_w[key])
 
         return ArgumentsForTranslation(self.space, args_w, keywords, keywords_w)
-
-    @staticmethod
-    def frompacked(space, w_args=None, w_kwds=None):
-        raise NotImplementedError("go away")
 
     @staticmethod
     def fromshape(space, (shape_cnt,shape_keys,shape_star,shape_stst), data_w):
