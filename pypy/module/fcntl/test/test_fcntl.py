@@ -138,6 +138,7 @@ class AppTestFcntl:
 
         try:
             from termios import TIOCGPGRP
+            import pty
         except ImportError:
             skip("don't know how to test ioctl() on this platform")
 
@@ -146,28 +147,32 @@ class AppTestFcntl:
         #raises(TypeError, fcntl.ioctl, 0, TIOCGPGRP, float(0))
         raises(TypeError, fcntl.ioctl, 0, TIOCGPGRP, 1, "foo")
 
-        if not os.isatty(0):
-            skip("stdin is not a tty")
-
-        buf = array.array('h', [0])
-        res = fcntl.ioctl(0, TIOCGPGRP, buf, True)
-        assert res == 0
-        assert buf[0] != 0
-        expected = buf.tostring()
-
-        if '__pypy__' in sys.builtin_module_names or sys.version_info >= (2,5):
+        child_pid, mfd = pty.fork()
+        if child_pid == 0:
+            # We're the child
+            return
+        try:
             buf = array.array('h', [0])
-            res = fcntl.ioctl(0, TIOCGPGRP, buf)
+            res = fcntl.ioctl(mfd, TIOCGPGRP, buf, True)
             assert res == 0
-            assert buf.tostring() == expected
+            assert buf[0] != 0
+            expected = buf.tostring()
 
-        res = fcntl.ioctl(0, TIOCGPGRP, buf, False)
-        assert res == expected
+            if '__pypy__' in sys.builtin_module_names or sys.version_info >= (2,5):
+                buf = array.array('h', [0])
+                res = fcntl.ioctl(mfd, TIOCGPGRP, buf)
+                assert res == 0
+                assert buf.tostring() == expected
 
-        raises(TypeError, fcntl.ioctl, 0, TIOCGPGRP, "\x00\x00", True)
+            res = fcntl.ioctl(mfd, TIOCGPGRP, buf, False)
+            assert res == expected
 
-        res = fcntl.ioctl(0, TIOCGPGRP, "\x00\x00")
-        assert res == expected
+            raises(TypeError, fcntl.ioctl, mfd, TIOCGPGRP, "\x00\x00", True)
+
+            res = fcntl.ioctl(mfd, TIOCGPGRP, "\x00\x00")
+            assert res == expected
+        finally:
+            os.close(mfd)
 
     def test_ioctl_int(self):
         import os
@@ -175,12 +180,16 @@ class AppTestFcntl:
 
         try:
             from termios import TCFLSH, TCIOFLUSH
+            import pty
         except ImportError:
             skip("don't know how to test ioctl() on this platform")
 
-        if not os.isatty(0):
-            skip("stdin is not a tty")
-        assert fcntl.ioctl(0, TCFLSH, TCIOFLUSH) == 0
+        mfd, sfd = pty.openpty()
+        try:
+            assert fcntl.ioctl(mfd, TCFLSH, TCIOFLUSH) == 0
+        finally:
+            os.close(mfd)
+            os.close(sfd)
 
     def test_lockf_with_ex(self):
         import fcntl
