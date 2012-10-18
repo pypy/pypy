@@ -876,8 +876,7 @@ def repr__Type(space, w_obj):
         mod = None
     else:
         mod = space.str_w(w_mod)
-    if (not w_obj.is_heaptype() or
-        (mod == '__builtin__' or mod == 'exceptions')):
+    if not w_obj.is_heaptype():
         kind = 'type'
     else:
         kind = 'class'

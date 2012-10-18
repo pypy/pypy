@@ -26,9 +26,11 @@ def _split_complex(s):
     imagstop = 0
     imagsign = ' '
     i = 0
-    # ignore whitespace
+    # ignore whitespace at beginning and end
     while i < slen and s[i] == ' ':
         i += 1
+    while slen > 0 and s[slen-1] == ' ':
+        slen -= 1
 
     if s[i] == '(' and s[slen-1] == ')':
         i += 1
@@ -190,13 +192,18 @@ def unpackcomplex(space, w_complex):
             w_z = space.get_and_call_function(w_method, w_complex)
     #
     if w_z is not None:
-        # __complex__() must return a complex object
+        # __complex__() must return a complex or (float,int,long) object
         # (XXX should not use isinstance here)
-        if not isinstance(w_z, W_ComplexObject):
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("__complex__() must return"
-                                            " a complex number"))
-        return (w_z.realval, w_z.imagval)
+        if (space.isinstance_w(w_z, space.w_int) or 
+            space.isinstance_w(w_z, space.w_long) or
+            space.isinstance_w(w_z, space.w_float)):
+            return (space.float_w(w_z), 0.0)
+        elif isinstance(w_z, W_ComplexObject):
+            return (w_z.realval, w_z.imagval)
+        raise OperationError(space.w_TypeError,
+                             space.wrap("__complex__() must return"
+                                        " a number"))
+
     #
     # no '__complex__' method, so we assume it is a float,
     # unless it is an instance of some subclass of complex.

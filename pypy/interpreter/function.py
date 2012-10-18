@@ -415,6 +415,7 @@ class Function(Wrappable):
             raise operationerrfmt(space.w_ValueError,
                 "%s() requires a code object with %d free vars, not %d",
                 self.name, closure_len, len(code.co_freevars))
+        self.fget_func_doc(space)    # see test_issue1293
         self.code = code
 
     def fget_func_closure(self, space):

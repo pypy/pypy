@@ -299,6 +299,12 @@ class AppTestFunction:
         assert f.__doc__ == u"hi"
         assert type(f.__doc__) is unicode
 
+    def test_issue1293(self):
+        def f1(): "doc f1"
+        def f2(): "doc f2"
+        f1.func_code = f2.func_code
+        assert f1.__doc__ == "doc f1"
+
     def test_subclassing(self):
         # cannot subclass 'function' or 'builtin_function'
         def f():
