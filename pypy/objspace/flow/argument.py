@@ -198,18 +198,6 @@ class Arguments(object):
                               blindargs)
         return scope_w
 
-
-    def parse_obj(self, w_firstarg,
-                  fnname, signature, defaults_w=None, blindargs=0):
-        """Parse args and kwargs to initialize a frame
-        according to the signature of code object.
-        """
-        try:
-            return self._parse(w_firstarg, signature, defaults_w, blindargs)
-        except ArgErr, e:
-            raise operationerrfmt(self.space.w_TypeError,
-                                  "%s() %s", fnname, e.getmsg())
-
     @staticmethod
     def frompacked(space, w_args=None, w_kwds=None):
         """Convenience static method to build an Arguments
