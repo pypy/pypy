@@ -93,48 +93,8 @@ class Arguments(object):
 
     ###  Construction  ###
 
-    def __init__(self, space, args_w, keywords=None, keywords_w=None,
-                 w_stararg=None, w_starstararg=None, keyword_names_w=None):
-        self.space = space
-        assert isinstance(args_w, list)
-        self.arguments_w = args_w
-        self.keywords = keywords
-        self.keywords_w = keywords_w
-        self.keyword_names_w = keyword_names_w  # matches the tail of .keywords
-        if keywords is not None:
-            assert keywords_w is not None
-            assert len(keywords_w) == len(keywords)
-            assert (keyword_names_w is None or
-                    len(keyword_names_w) <= len(keywords))
-            make_sure_not_resized(self.keywords)
-            make_sure_not_resized(self.keywords_w)
-
-        make_sure_not_resized(self.arguments_w)
-        self._combine_wrapped(w_stararg, w_starstararg)
-        # a flag that specifies whether the JIT can unroll loops that operate
-        # on the keywords
-        self._jit_few_keywords = self.keywords is None or jit.isconstant(len(self.keywords))
-
-    def __repr__(self):
-        """ NOT_RPYTHON """
-        name = self.__class__.__name__
-        if not self.keywords:
-            return '%s(%s)' % (name, self.arguments_w,)
-        else:
-            return '%s(%s, %s, %s)' % (name, self.arguments_w,
-                                       self.keywords, self.keywords_w)
-
 
     ###  Manipulation  ###
-
-    @jit.look_inside_iff(lambda self: self._jit_few_keywords)
-    def unpack(self): # slowish
-        "Return a ([w1,w2...], {'kw':w3...}) pair."
-        kwds_w = {}
-        if self.keywords:
-            for i in range(len(self.keywords)):
-                kwds_w[self.keywords[i]] = self.keywords_w[i]
-        return self.arguments_w, kwds_w
 
     def replace_arguments(self, args_w):
         "Return a new Arguments with a args_w as positional arguments."
@@ -228,7 +188,192 @@ class Arguments(object):
 
     ###  Parsing for function calls  ###
 
-    @jit.unroll_safe
+    def parse_into_scope(self, w_firstarg,
+                         scope_w, fnname, signature, defaults_w=None):
+        """Parse args and kwargs to initialize a frame
+        according to the signature of code object.
+        Store the argumentvalues into scope_w.
+        scope_w must be big enough for signature.
+        """
+        try:
+            self._match_signature(w_firstarg,
+                                  scope_w, signature, defaults_w, 0)
+        except ArgErr, e:
+            raise operationerrfmt(self.space.w_TypeError,
+                                  "%s() %s", fnname, e.getmsg())
+        return signature.scope_length()
+
+    def _parse(self, w_firstarg, signature, defaults_w, blindargs=0):
+        """Parse args and kwargs according to the signature of a code object,
+        or raise an ArgErr in case of failure.
+        """
+        scopelen = signature.scope_length()
+        scope_w = [None] * scopelen
+        self._match_signature(w_firstarg, scope_w, signature, defaults_w,
+                              blindargs)
+        return scope_w
+
+
+    def parse_obj(self, w_firstarg,
+                  fnname, signature, defaults_w=None, blindargs=0):
+        """Parse args and kwargs to initialize a frame
+        according to the signature of code object.
+        """
+        try:
+            return self._parse(w_firstarg, signature, defaults_w, blindargs)
+        except ArgErr, e:
+            raise operationerrfmt(self.space.w_TypeError,
+                                  "%s() %s", fnname, e.getmsg())
+
+    @staticmethod
+    def frompacked(space, w_args=None, w_kwds=None):
+        """Convenience static method to build an Arguments
+           from a wrapped sequence and a wrapped dictionary."""
+        return Arguments(space, [], w_stararg=w_args, w_starstararg=w_kwds)
+
+    def topacked(self):
+        """Express the Argument object as a pair of wrapped w_args, w_kwds."""
+        space = self.space
+        w_args = space.newtuple(self.arguments_w)
+        w_kwds = space.newdict()
+        if self.keywords is not None:
+            limit = len(self.keywords)
+            if self.keyword_names_w is not None:
+                limit -= len(self.keyword_names_w)
+            for i in range(len(self.keywords)):
+                if i < limit:
+                    w_key = space.wrap(self.keywords[i])
+                else:
+                    w_key = self.keyword_names_w[i - limit]
+                space.setitem(w_kwds, w_key, self.keywords_w[i])
+        return w_args, w_kwds
+
+# JIT helper functions
+# these functions contain functionality that the JIT is not always supposed to
+# look at. They should not get a self arguments, which makes the amount of
+# arguments annoying :-(
+
+def _check_not_duplicate_kwargs(space, existingkeywords, keywords, keywords_w):
+    # looks quadratic, but the JIT should remove all of it nicely.
+    # Also, all the lists should be small
+    for key in keywords:
+        for otherkey in existingkeywords:
+            if otherkey == key:
+                raise operationerrfmt(space.w_TypeError,
+                                      "got multiple values "
+                                      "for keyword argument "
+                                      "'%s'", key)
+
+def _do_combine_starstarargs_wrapped(space, keys_w, w_starstararg, keywords,
+        keywords_w, existingkeywords):
+    i = 0
+    for w_key in keys_w:
+        try:
+            key = space.str_w(w_key)
+        except OperationError, e:
+            if e.match(space, space.w_TypeError):
+                raise OperationError(
+                    space.w_TypeError,
+                    space.wrap("keywords must be strings"))
+            if e.match(space, space.w_UnicodeEncodeError):
+                # Allow this to pass through
+                key = None
+            else:
+                raise
+        else:
+            if existingkeywords and key in existingkeywords:
+                raise operationerrfmt(space.w_TypeError,
+                                      "got multiple values "
+                                      "for keyword argument "
+                                      "'%s'", key)
+        keywords[i] = key
+        keywords_w[i] = space.getitem(w_starstararg, w_key)
+        i += 1
+
+def _match_keywords(signature, blindargs, input_argcount,
+                    keywords, kwds_mapping):
+    # letting JIT unroll the loop is *only* safe if the callsite didn't
+    # use **args because num_kwds can be arbitrarily large otherwise.
+    num_kwds = num_remainingkwds = len(keywords)
+    for i in range(num_kwds):
+        name = keywords[i]
+        # If name was not encoded as a string, it could be None. In that
+        # case, it's definitely not going to be in the signature.
+        if name is None:
+            continue
+        j = signature.find_argname(name)
+        # if j == -1 nothing happens, because j < input_argcount and
+        # blindargs > j
+        if j < input_argcount:
+            # check that no keyword argument conflicts with these. note
+            # that for this purpose we ignore the first blindargs,
+            # which were put into place by prepend().  This way,
+            # keywords do not conflict with the hidden extra argument
+            # bound by methods.
+            if blindargs <= j:
+                raise ArgErrMultipleValues(name)
+        else:
+            kwds_mapping[j - input_argcount] = i # map to the right index
+            num_remainingkwds -= 1
+    return num_remainingkwds
+
+def _collect_keyword_args(space, keywords, keywords_w, w_kwds, kwds_mapping,
+                          keyword_names_w):
+    limit = len(keywords)
+    if keyword_names_w is not None:
+        limit -= len(keyword_names_w)
+    for i in range(len(keywords)):
+        # again a dangerous-looking loop that either the JIT unrolls
+        # or that is not too bad, because len(kwds_mapping) is small
+        for j in kwds_mapping:
+            if i == j:
+                break
+        else:
+            if i < limit:
+                w_key = space.wrap(keywords[i])
+            else:
+                w_key = keyword_names_w[i - limit]
+            space.setitem(w_kwds, w_key, keywords_w[i])
+
+class ArgumentsForTranslation(Arguments):
+    def __init__(self, space, args_w, keywords=None, keywords_w=None,
+                 w_stararg=None, w_starstararg=None):
+        self.w_stararg = w_stararg
+        self.w_starstararg = w_starstararg
+        self.combine_has_happened = False
+        self.space = space
+        assert isinstance(args_w, list)
+        self.arguments_w = args_w
+        self.keywords = keywords
+        self.keywords_w = keywords_w
+        self.keyword_names_w = None
+
+    def __repr__(self):
+        """ NOT_RPYTHON """
+        name = self.__class__.__name__
+        if not self.keywords:
+            return '%s(%s)' % (name, self.arguments_w,)
+        else:
+            return '%s(%s, %s, %s)' % (name, self.arguments_w,
+                                       self.keywords, self.keywords_w)
+
+    def combine_if_necessary(self):
+        if self.combine_has_happened:
+            return
+        self._combine_wrapped(self.w_stararg, self.w_starstararg)
+        self.combine_has_happened = True
+
+    def prepend(self, w_firstarg): # used often
+        "Return a new Arguments with a new argument inserted first."
+        return ArgumentsForTranslation(self.space, [w_firstarg] + self.arguments_w,
+                                       self.keywords, self.keywords_w, self.w_stararg,
+                                       self.w_starstararg)
+
+    def copy(self):
+        return ArgumentsForTranslation(self.space, self.arguments_w,
+                                       self.keywords, self.keywords_w, self.w_stararg,
+                                       self.w_starstararg)
+
     def _match_signature(self, w_firstarg, scope_w, signature, defaults_w=None,
                          blindargs=0):
         """Parse args and kwargs according to the signature of a code object,
@@ -238,10 +383,7 @@ class Arguments(object):
         #   args_w = list of the normal actual parameters, wrapped
         #   scope_w = resulting list of wrapped values
         #
-
-        # some comments about the JIT: it assumes that signature is a constant,
-        # so all values coming from there can be assumed constant. It assumes
-        # that the length of the defaults_w does not vary too much.
+        self.combine_if_necessary()
         co_argcount = signature.num_argnames() # expected formal arguments, without */**
 
         # put the special w_firstarg into the scope, if it exists
@@ -311,13 +453,12 @@ class Arguments(object):
             # escape
             num_remainingkwds = _match_keywords(
                     signature, blindargs, input_argcount, keywords,
-                    kwds_mapping, self._jit_few_keywords)
+                    kwds_mapping)
             if num_remainingkwds:
                 if w_kwds is not None:
                     # collect extra keyword arguments into the **kwarg
-                    _collect_keyword_args(
-                            self.space, keywords, keywords_w, w_kwds,
-                            kwds_mapping, self.keyword_names_w, self._jit_few_keywords)
+                    _collect_keyword_args( self.space, keywords, keywords_w,
+                            w_kwds, kwds_mapping, self.keyword_names_w)
                 else:
                     if co_argcount == 0:
                         raise ArgErrCount(avail, num_kwds, signature, defaults_w, 0)
@@ -346,202 +487,15 @@ class Arguments(object):
             if missing:
                 raise ArgErrCount(avail, num_kwds, signature, defaults_w, missing)
 
-
-
-    def parse_into_scope(self, w_firstarg,
-                         scope_w, fnname, signature, defaults_w=None):
-        """Parse args and kwargs to initialize a frame
-        according to the signature of code object.
-        Store the argumentvalues into scope_w.
-        scope_w must be big enough for signature.
-        """
-        try:
-            self._match_signature(w_firstarg,
-                                  scope_w, signature, defaults_w, 0)
-        except ArgErr, e:
-            raise operationerrfmt(self.space.w_TypeError,
-                                  "%s() %s", fnname, e.getmsg())
-        return signature.scope_length()
-
-    def _parse(self, w_firstarg, signature, defaults_w, blindargs=0):
-        """Parse args and kwargs according to the signature of a code object,
-        or raise an ArgErr in case of failure.
-        """
-        scopelen = signature.scope_length()
-        scope_w = [None] * scopelen
-        self._match_signature(w_firstarg, scope_w, signature, defaults_w,
-                              blindargs)
-        return scope_w
-
-
-    def parse_obj(self, w_firstarg,
-                  fnname, signature, defaults_w=None, blindargs=0):
-        """Parse args and kwargs to initialize a frame
-        according to the signature of code object.
-        """
-        try:
-            return self._parse(w_firstarg, signature, defaults_w, blindargs)
-        except ArgErr, e:
-            raise operationerrfmt(self.space.w_TypeError,
-                                  "%s() %s", fnname, e.getmsg())
-
-    @staticmethod
-    def frompacked(space, w_args=None, w_kwds=None):
-        """Convenience static method to build an Arguments
-           from a wrapped sequence and a wrapped dictionary."""
-        return Arguments(space, [], w_stararg=w_args, w_starstararg=w_kwds)
-
-    def topacked(self):
-        """Express the Argument object as a pair of wrapped w_args, w_kwds."""
-        space = self.space
-        w_args = space.newtuple(self.arguments_w)
-        w_kwds = space.newdict()
-        if self.keywords is not None:
-            limit = len(self.keywords)
-            if self.keyword_names_w is not None:
-                limit -= len(self.keyword_names_w)
-            for i in range(len(self.keywords)):
-                if i < limit:
-                    w_key = space.wrap(self.keywords[i])
-                else:
-                    w_key = self.keyword_names_w[i - limit]
-                space.setitem(w_kwds, w_key, self.keywords_w[i])
-        return w_args, w_kwds
-
-# JIT helper functions
-# these functions contain functionality that the JIT is not always supposed to
-# look at. They should not get a self arguments, which makes the amount of
-# arguments annoying :-(
-
-@jit.look_inside_iff(lambda space, existingkeywords, keywords, keywords_w:
-        jit.isconstant(len(keywords) and
-        jit.isconstant(existingkeywords)))
-def _check_not_duplicate_kwargs(space, existingkeywords, keywords, keywords_w):
-    # looks quadratic, but the JIT should remove all of it nicely.
-    # Also, all the lists should be small
-    for key in keywords:
-        for otherkey in existingkeywords:
-            if otherkey == key:
-                raise operationerrfmt(space.w_TypeError,
-                                      "got multiple values "
-                                      "for keyword argument "
-                                      "'%s'", key)
-
-def _do_combine_starstarargs_wrapped(space, keys_w, w_starstararg, keywords,
-        keywords_w, existingkeywords):
-    i = 0
-    for w_key in keys_w:
-        try:
-            key = space.str_w(w_key)
-        except OperationError, e:
-            if e.match(space, space.w_TypeError):
-                raise OperationError(
-                    space.w_TypeError,
-                    space.wrap("keywords must be strings"))
-            if e.match(space, space.w_UnicodeEncodeError):
-                # Allow this to pass through
-                key = None
-            else:
-                raise
-        else:
-            if existingkeywords and key in existingkeywords:
-                raise operationerrfmt(space.w_TypeError,
-                                      "got multiple values "
-                                      "for keyword argument "
-                                      "'%s'", key)
-        keywords[i] = key
-        keywords_w[i] = space.getitem(w_starstararg, w_key)
-        i += 1
-
-@jit.look_inside_iff(
-    lambda signature, blindargs, input_argcount,
-           keywords, kwds_mapping, jiton: jiton)
-def _match_keywords(signature, blindargs, input_argcount,
-                    keywords, kwds_mapping, _):
-    # letting JIT unroll the loop is *only* safe if the callsite didn't
-    # use **args because num_kwds can be arbitrarily large otherwise.
-    num_kwds = num_remainingkwds = len(keywords)
-    for i in range(num_kwds):
-        name = keywords[i]
-        # If name was not encoded as a string, it could be None. In that
-        # case, it's definitely not going to be in the signature.
-        if name is None:
-            continue
-        j = signature.find_argname(name)
-        # if j == -1 nothing happens, because j < input_argcount and
-        # blindargs > j
-        if j < input_argcount:
-            # check that no keyword argument conflicts with these. note
-            # that for this purpose we ignore the first blindargs,
-            # which were put into place by prepend().  This way,
-            # keywords do not conflict with the hidden extra argument
-            # bound by methods.
-            if blindargs <= j:
-                raise ArgErrMultipleValues(name)
-        else:
-            kwds_mapping[j - input_argcount] = i # map to the right index
-            num_remainingkwds -= 1
-    return num_remainingkwds
-
-@jit.look_inside_iff(
-    lambda space, keywords, keywords_w, w_kwds, kwds_mapping,
-        keyword_names_w, jiton: jiton)
-def _collect_keyword_args(space, keywords, keywords_w, w_kwds, kwds_mapping,
-                          keyword_names_w, _):
-    limit = len(keywords)
-    if keyword_names_w is not None:
-        limit -= len(keyword_names_w)
-    for i in range(len(keywords)):
-        # again a dangerous-looking loop that either the JIT unrolls
-        # or that is not too bad, because len(kwds_mapping) is small
-        for j in kwds_mapping:
-            if i == j:
-                break
-        else:
-            if i < limit:
-                w_key = space.wrap(keywords[i])
-            else:
-                w_key = keyword_names_w[i - limit]
-            space.setitem(w_kwds, w_key, keywords_w[i])
-
-class ArgumentsForTranslation(Arguments):
-    def __init__(self, space, args_w, keywords=None, keywords_w=None,
-                 w_stararg=None, w_starstararg=None):
-        self.w_stararg = w_stararg
-        self.w_starstararg = w_starstararg
-        self.combine_has_happened = False
-        Arguments.__init__(self, space, args_w, keywords, keywords_w)
-
-    def combine_if_necessary(self):
-        if self.combine_has_happened:
-            return
-        self._combine_wrapped(self.w_stararg, self.w_starstararg)
-        self.combine_has_happened = True
-
-    def prepend(self, w_firstarg): # used often
-        "Return a new Arguments with a new argument inserted first."
-        return ArgumentsForTranslation(self.space, [w_firstarg] + self.arguments_w,
-                                       self.keywords, self.keywords_w, self.w_stararg,
-                                       self.w_starstararg)
-
-    def copy(self):
-        return ArgumentsForTranslation(self.space, self.arguments_w,
-                                       self.keywords, self.keywords_w, self.w_stararg,
-                                       self.w_starstararg)
-
-
-
-    def _match_signature(self, w_firstarg, scope_w, signature, defaults_w=None,
-                         blindargs=0):
-        self.combine_if_necessary()
-        # _match_signature is destructive
-        return Arguments._match_signature(
-               self, w_firstarg, scope_w, signature,
-               defaults_w, blindargs)
-
     def unpack(self):
+        "Return a ([w1,w2...], {'kw':w3...}) pair."
         self.combine_if_necessary()
-        return Arguments.unpack(self)
+        kwds_w = {}
+        if self.keywords:
+            for i in range(len(self.keywords)):
+                kwds_w[self.keywords[i]] = self.keywords_w[i]
+        return self.arguments_w, kwds_w
+
 
     def match_signature(self, signature, defaults_w):
         """Parse args and kwargs according to the signature of a code object,
