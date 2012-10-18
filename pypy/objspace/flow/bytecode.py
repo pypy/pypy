@@ -6,7 +6,7 @@ from pypy.tool.stdlib_opcode import (host_bytecode_spec, EXTENDED_ARG,
         HAVE_ARGUMENT)
 from pypy.interpreter.astcompiler.consts import (CO_GENERATOR, CO_VARARGS,
         CO_VARKEYWORDS)
-from pypy.interpreter.argument import Signature
+from pypy.objspace.flow.argument import Signature
 
 def cpython_code_signature(code):
     "([list-of-arg-names], vararg-name-or-None, kwarg-name-or-None)."

@@ -8,7 +8,7 @@ import types
 from inspect import CO_NEWLOCALS
 
 from pypy.interpreter.baseobjspace import ObjSpace
-from pypy.interpreter.argument import ArgumentsForTranslation
+from pypy.objspace.flow.argument import ArgumentsForTranslation
 from pypy.objspace.flow.model import (Constant, Variable, WrapException,
     UnwrapException, checkgraph, SpaceOperation)
 from pypy.objspace.flow.bytecode import HostCode
