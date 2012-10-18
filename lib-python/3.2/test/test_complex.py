@@ -106,8 +106,9 @@ class ComplexTest(unittest.TestCase):
         self.assertRaises(ZeroDivisionError, complex.__truediv__, 1+1j, 0+0j)
 
     def test_floordiv(self):
-        self.assertRaises(TypeError, complex.__floordiv__, 3+0j, 1.5+0j)
-        self.assertRaises(TypeError, complex.__floordiv__, 3+0j, 0+0j)
+        import operator
+        self.assertRaises(TypeError, operator.__floordiv__, 3+0j, 1.5+0j)
+        self.assertRaises(TypeError, operator.__floordiv__, 3+0j, 0+0j)
 
     def test_richcompare(self):
         self.assertIs(complex.__eq__(1+1j, 1<<10000), False)
@@ -153,10 +154,11 @@ class ComplexTest(unittest.TestCase):
         check(2 ** 53, range(-100, 0), lambda delta: True)
 
     def test_mod(self):
+        import operator
         # % is no longer supported on complex numbers
-        self.assertRaises(TypeError, (1+1j).__mod__, 0+0j)
+        self.assertRaises(TypeError, operator.__mod__, (1+1j), 0+0j)
         self.assertRaises(TypeError, lambda: (3.33+4.43j) % 0)
-        self.assertRaises(TypeError, (1+1j).__mod__, 4.3j)
+        self.assertRaises(TypeError, operator.__mod__, (1+1j), 4.3j)
 
     def test_divmod(self):
         self.assertRaises(TypeError, divmod, 1+1j, 1+0j)
