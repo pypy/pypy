@@ -45,7 +45,7 @@ class TestW_ComplexObject:
         test_cparse('(1-6j)', '1', '-6')
         test_cparse(' ( +3.14-6J )', '+3.14', '-6')
         test_cparse(' +J', '0.0', '1.0')
-        test_cparse(' -J', '0.0', '-1.0')
+        test_cparse(' -J', '-0.0', '-1.0')
 
     def test_unpackcomplex(self):
         space = self.space
@@ -572,3 +572,20 @@ class AppTestAppComplexTest:
 
     def test_complex_two_arguments(self):
         raises(TypeError, complex, 5, None)
+
+    def test_negated_imaginary_literal(self):
+        def sign(x):
+            import math
+            return math.copysign(1.0, x)
+        z0 = -0j
+        z1 = -7j
+        z2 = -1e1000j
+        # Note: In versions of Python < 3.2, a negated imaginary literal
+        # accidentally ended up with real part 0.0 instead of -0.0
+        assert sign(z0.real) == -1
+        assert sign(z0.imag) == -1
+        assert sign(z1.real) == -1
+        assert sign(z1.imag) == -1
+        assert sign(z2.real) == -1
+        assert sign(z2.real) == -1
+        
