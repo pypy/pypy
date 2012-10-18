@@ -13,7 +13,7 @@ def teardown_module(mod):
 
 class AppTestFcntl:
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('fcntl', 'array', 'struct'))
+        space = gettestobjspace(usemodules=('fcntl', 'array', 'struct', 'termios'))
         cls.space = space
         tmpprefix = str(udir.ensure('test_fcntl', dir=1).join('tmp_'))
         cls.w_tmp = space.wrap(tmpprefix)
@@ -136,11 +136,9 @@ class AppTestFcntl:
         import array
         import sys, os
 
-        if "linux" in sys.platform:
-            TIOCGPGRP = 0x540f
-        elif "darwin" in sys.platform or "freebsd" in sys.platform:
-            TIOCGPGRP = 0x40047477
-        else:
+        try:
+            from termios import TIOCGPGRP
+        except ImportError:
             skip("don't know how to test ioctl() on this platform")
 
         raises(TypeError, fcntl.ioctl, "foo")
@@ -174,9 +172,11 @@ class AppTestFcntl:
     def test_ioctl_int(self):
         import os
         import fcntl
-        #from termios import TCFLSH, TCIOFLUSH
-        TCFLSH = 0x540b
-        TCIOFLUSH = 2
+
+        try:
+            from termios import TCFLSH, TCIOFLUSH
+        except ImportError:
+            skip("don't know how to test ioctl() on this platform")
 
         if not os.isatty(0):
             skip("stdin is not a tty")
