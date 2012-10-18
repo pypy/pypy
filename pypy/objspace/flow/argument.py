@@ -171,31 +171,6 @@ class Arguments(object):
             raise ValueError, "not enough arguments (%d expected)" % argcount
         return self.arguments_w
 
-    def firstarg(self):
-        "Return the first argument for inspection."
-        if self.arguments_w:
-            return self.arguments_w[0]
-        return None
-
-    ###  Parsing for function calls  ###
-
-    def topacked(self):
-        """Express the Argument object as a pair of wrapped w_args, w_kwds."""
-        space = self.space
-        w_args = space.newtuple(self.arguments_w)
-        w_kwds = space.newdict()
-        if self.keywords is not None:
-            limit = len(self.keywords)
-            if self.keyword_names_w is not None:
-                limit -= len(self.keyword_names_w)
-            for i in range(len(self.keywords)):
-                if i < limit:
-                    w_key = space.wrap(self.keywords[i])
-                else:
-                    w_key = self.keyword_names_w[i - limit]
-                space.setitem(w_kwds, w_key, self.keywords_w[i])
-        return w_args, w_kwds
-
 # JIT helper functions
 # these functions contain functionality that the JIT is not always supposed to
 # look at. They should not get a self arguments, which makes the amount of
