@@ -78,99 +78,6 @@ class Signature(object):
             return self.kwargname
         raise IndexError
 
-
-
-class Arguments(object):
-    """
-    Collects the arguments of a function call.
-
-    Instances should be considered immutable.
-
-    Some parts of this class are written in a slightly convoluted style to help
-    the JIT. It is really crucial to get this right, because Python's argument
-    semantics are complex, but calls occur everywhere.
-    """
-
-    ###  Construction  ###
-
-
-    ###  Manipulation  ###
-
-    def _combine_wrapped(self, w_stararg, w_starstararg):
-        "unpack the *arg and **kwd into arguments_w and keywords_w"
-        if w_stararg is not None:
-            self._combine_starargs_wrapped(w_stararg)
-        if w_starstararg is not None:
-            self._combine_starstarargs_wrapped(w_starstararg)
-
-    def _combine_starargs_wrapped(self, w_stararg):
-        # unpack the * arguments
-        space = self.space
-        try:
-            args_w = space.fixedview(w_stararg)
-        except OperationError, e:
-            if e.match(space, space.w_TypeError):
-                w_type = space.type(w_stararg)
-                typename = w_type.getname(space)
-                raise OperationError(
-                    space.w_TypeError,
-                    space.wrap("argument after * must be "
-                               "a sequence, not %s" % (typename,)))
-            raise
-        self.arguments_w = self.arguments_w + args_w
-
-    def _combine_starstarargs_wrapped(self, w_starstararg):
-        # unpack the ** arguments
-        space = self.space
-        keywords, values_w = space.view_as_kwargs(w_starstararg)
-        if keywords is not None: # this path also taken for empty dicts
-            if self.keywords is None:
-                self.keywords = keywords
-                self.keywords_w = values_w
-            else:
-                _check_not_duplicate_kwargs(
-                    self.space, self.keywords, keywords, values_w)
-                self.keywords = self.keywords + keywords
-                self.keywords_w = self.keywords_w + values_w
-            return
-        if space.isinstance_w(w_starstararg, space.w_dict):
-            keys_w = space.unpackiterable(w_starstararg)
-        else:
-            try:
-                w_keys = space.call_method(w_starstararg, "keys")
-            except OperationError, e:
-                if e.match(space, space.w_AttributeError):
-                    w_type = space.type(w_starstararg)
-                    typename = w_type.getname(space)
-                    raise OperationError(
-                        space.w_TypeError,
-                        space.wrap("argument after ** must be "
-                                   "a mapping, not %s" % (typename,)))
-                raise
-            keys_w = space.unpackiterable(w_keys)
-        keywords_w = [None] * len(keys_w)
-        keywords = [None] * len(keys_w)
-        _do_combine_starstarargs_wrapped(space, keys_w, w_starstararg, keywords, keywords_w, self.keywords)
-        self.keyword_names_w = keys_w
-        if self.keywords is None:
-            self.keywords = keywords
-            self.keywords_w = keywords_w
-        else:
-            self.keywords = self.keywords + keywords
-            self.keywords_w = self.keywords_w + keywords_w
-
-
-    def fixedunpack(self, argcount):
-        """The simplest argument parsing: get the 'argcount' arguments,
-        or raise a real ValueError if the length is wrong."""
-        if self.keywords:
-            raise ValueError, "no keyword arguments expected"
-        if len(self.arguments_w) > argcount:
-            raise ValueError, "too many arguments (%d expected)" % argcount
-        elif len(self.arguments_w) < argcount:
-            raise ValueError, "not enough arguments (%d expected)" % argcount
-        return self.arguments_w
-
 # JIT helper functions
 # these functions contain functionality that the JIT is not always supposed to
 # look at. They should not get a self arguments, which makes the amount of
@@ -252,7 +159,7 @@ def _collect_keyword_args(space, keywords, keywords_w, w_kwds, kwds_mapping,
                 w_key = keyword_names_w[i - limit]
             space.setitem(w_kwds, w_key, keywords_w[i])
 
-class ArgumentsForTranslation(Arguments):
+class ArgumentsForTranslation(object):
     def __init__(self, space, args_w, keywords=None, keywords_w=None,
                  w_stararg=None, w_starstararg=None):
         self.w_stararg = w_stararg
@@ -273,6 +180,81 @@ class ArgumentsForTranslation(Arguments):
         else:
             return '%s(%s, %s, %s)' % (name, self.arguments_w,
                                        self.keywords, self.keywords_w)
+
+    def _combine_wrapped(self, w_stararg, w_starstararg):
+        "unpack the *arg and **kwd into arguments_w and keywords_w"
+        if w_stararg is not None:
+            self._combine_starargs_wrapped(w_stararg)
+        if w_starstararg is not None:
+            self._combine_starstarargs_wrapped(w_starstararg)
+
+    def _combine_starargs_wrapped(self, w_stararg):
+        # unpack the * arguments
+        space = self.space
+        try:
+            args_w = space.fixedview(w_stararg)
+        except OperationError, e:
+            if e.match(space, space.w_TypeError):
+                w_type = space.type(w_stararg)
+                typename = w_type.getname(space)
+                raise OperationError(
+                    space.w_TypeError,
+                    space.wrap("argument after * must be "
+                               "a sequence, not %s" % (typename,)))
+            raise
+        self.arguments_w = self.arguments_w + args_w
+
+    def _combine_starstarargs_wrapped(self, w_starstararg):
+        # unpack the ** arguments
+        space = self.space
+        keywords, values_w = space.view_as_kwargs(w_starstararg)
+        if keywords is not None: # this path also taken for empty dicts
+            if self.keywords is None:
+                self.keywords = keywords
+                self.keywords_w = values_w
+            else:
+                _check_not_duplicate_kwargs(
+                    self.space, self.keywords, keywords, values_w)
+                self.keywords = self.keywords + keywords
+                self.keywords_w = self.keywords_w + values_w
+            return
+        if space.isinstance_w(w_starstararg, space.w_dict):
+            keys_w = space.unpackiterable(w_starstararg)
+        else:
+            try:
+                w_keys = space.call_method(w_starstararg, "keys")
+            except OperationError, e:
+                if e.match(space, space.w_AttributeError):
+                    w_type = space.type(w_starstararg)
+                    typename = w_type.getname(space)
+                    raise OperationError(
+                        space.w_TypeError,
+                        space.wrap("argument after ** must be "
+                                   "a mapping, not %s" % (typename,)))
+                raise
+            keys_w = space.unpackiterable(w_keys)
+        keywords_w = [None] * len(keys_w)
+        keywords = [None] * len(keys_w)
+        _do_combine_starstarargs_wrapped(space, keys_w, w_starstararg, keywords, keywords_w, self.keywords)
+        self.keyword_names_w = keys_w
+        if self.keywords is None:
+            self.keywords = keywords
+            self.keywords_w = keywords_w
+        else:
+            self.keywords = self.keywords + keywords
+            self.keywords_w = self.keywords_w + keywords_w
+
+
+    def fixedunpack(self, argcount):
+        """The simplest argument parsing: get the 'argcount' arguments,
+        or raise a real ValueError if the length is wrong."""
+        if self.keywords:
+            raise ValueError, "no keyword arguments expected"
+        if len(self.arguments_w) > argcount:
+            raise ValueError, "too many arguments (%d expected)" % argcount
+        elif len(self.arguments_w) < argcount:
+            raise ValueError, "not enough arguments (%d expected)" % argcount
+        return self.arguments_w
 
     def combine_if_necessary(self):
         if self.combine_has_happened:
