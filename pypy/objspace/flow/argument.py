@@ -72,50 +72,6 @@ class Signature(object):
             return self.kwargname
         raise IndexError
 
-# JIT helper functions
-# these functions contain functionality that the JIT is not always supposed to
-# look at. They should not get a self arguments, which makes the amount of
-# arguments annoying :-(
-
-def _match_keywords(signature, input_argcount, keywords, kwds_mapping):
-    # letting JIT unroll the loop is *only* safe if the callsite didn't
-    # use **args because num_kwds can be arbitrarily large otherwise.
-    num_kwds = num_remainingkwds = len(keywords)
-    for i in range(num_kwds):
-        name = keywords[i]
-        # If name was not encoded as a string, it could be None. In that
-        # case, it's definitely not going to be in the signature.
-        if name is None:
-            continue
-        j = signature.find_argname(name)
-        # if j == -1 nothing happens
-        if j < input_argcount:
-            # check that no keyword argument conflicts with these.
-            if j >= 0:
-                raise ArgErrMultipleValues(name)
-        else:
-            kwds_mapping[j - input_argcount] = i # map to the right index
-            num_remainingkwds -= 1
-    return num_remainingkwds
-
-def _collect_keyword_args(space, keywords, keywords_w, w_kwds, kwds_mapping,
-                          keyword_names_w):
-    limit = len(keywords)
-    if keyword_names_w is not None:
-        limit -= len(keyword_names_w)
-    for i in range(len(keywords)):
-        # again a dangerous-looking loop that either the JIT unrolls
-        # or that is not too bad, because len(kwds_mapping) is small
-        for j in kwds_mapping:
-            if i == j:
-                break
-        else:
-            if i < limit:
-                w_key = space.wrap(keywords[i])
-            else:
-                w_key = keyword_names_w[i - limit]
-            space.setitem(w_kwds, w_key, keywords_w[i])
-
 class ArgumentsForTranslation(object):
     def __init__(self, space, args_w, keywords=None, keywords_w=None,
                  w_stararg=None, w_starstararg=None):
@@ -263,13 +219,36 @@ class ArgumentsForTranslation(object):
             # the called function takes
             # this function must not take a scope_w, to make the scope not
             # escape
-            num_remainingkwds = _match_keywords(signature, input_argcount,
-                    keywords, kwds_mapping)
+            num_remainingkwds = len(keywords)
+            for i, name in enumerate(keywords):
+                # If name was not encoded as a string, it could be None. In that
+                # case, it's definitely not going to be in the signature.
+                if name is None:
+                    continue
+                j = signature.find_argname(name)
+                # if j == -1 nothing happens
+                if j < input_argcount:
+                    # check that no keyword argument conflicts with these.
+                    if j >= 0:
+                        raise ArgErrMultipleValues(name)
+                else:
+                    kwds_mapping[j - input_argcount] = i # map to the right index
+                    num_remainingkwds -= 1
+
             if num_remainingkwds:
                 if w_kwds is not None:
                     # collect extra keyword arguments into the **kwarg
-                    _collect_keyword_args(self.space, keywords, keywords_w,
-                            w_kwds, kwds_mapping, self.keyword_names_w)
+                    limit = len(keywords)
+                    if self.keyword_names_w is not None:
+                        limit -= len(self.keyword_names_w)
+                    for i in range(len(keywords)):
+                        if i in kwds_mapping:
+                            continue
+                        if i < limit:
+                            w_key = self.space.wrap(keywords[i])
+                        else:
+                            w_key = self.keyword_names_w[i - limit]
+                        self.space.setitem(w_kwds, w_key, keywords_w[i])
                 else:
                     if co_argcount == 0:
                         raise ArgErrCount(num_args, num_kwds, signature, defaults_w, 0)
