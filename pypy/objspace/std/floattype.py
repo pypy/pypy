@@ -296,7 +296,7 @@ def descr___round__(space, w_float, w_ndigits=None):
     ndigits = space.getindex_w(w_ndigits, None)
 
     # nans and infinities round to themselves
-    if rfloat.isinf(x) or rfloat.isnan(x):
+    if not rfloat.isfinite(x):
         return space.wrap(x)
 
     # Deal with extreme values for ndigits. For ndigits > NDIGITS_MAX, x
