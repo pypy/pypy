@@ -201,7 +201,8 @@ def ne__Long_Complex(space, w_long1, w_complex2):
     return ne__Complex_Long(space, w_complex2, w_long1)
 
 def lt__Complex_Complex(space, w_complex1, w_complex2):
-    raise OperationError(space.w_TypeError, space.wrap('cannot compare complex numbers using <, <=, >, >='))
+    from pypy.objspace.std.model import FailedToImplement
+    raise FailedToImplement
 
 gt__Complex_Complex = lt__Complex_Complex
 ge__Complex_Complex = lt__Complex_Complex

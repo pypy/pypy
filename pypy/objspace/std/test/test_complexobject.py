@@ -169,15 +169,20 @@ class AppTestAppComplexTest:
         raises(TypeError, "3+0j // 0+0j")
 
     def test_richcompare(self):
+        import operator
         assert complex.__lt__(1+1j, None) is NotImplemented
         assert complex.__eq__(1+1j, 2+2j) is False
         assert complex.__eq__(1+1j, 1+1j) is True
         assert complex.__ne__(1+1j, 1+1j) is False
         assert complex.__ne__(1+1j, 2+2j) is True
-        raises(TypeError, complex.__lt__, 1+1j, 2+2j)
-        raises(TypeError, complex.__le__, 1+1j, 2+2j)
-        raises(TypeError, complex.__gt__, 1+1j, 2+2j)
-        raises(TypeError, complex.__ge__, 1+1j, 2+2j)
+        assert complex.__lt__(1+1j, 2+2j) is NotImplemented
+        assert complex.__le__(1+1j, 2+2j) is NotImplemented
+        assert complex.__gt__(1+1j, 2+2j) is NotImplemented
+        assert complex.__ge__(1+1j, 2+2j) is NotImplemented
+        raises(TypeError, operator.lt, 1+1j, 2+2j)
+        raises(TypeError, operator.le, 1+1j, 2+2j)
+        raises(TypeError, operator.gt, 1+1j, 2+2j)
+        raises(TypeError, operator.ge, 1+1j, 2+2j)
         large = 1 << 10000
         assert not (5+0j) == large
         assert not large == (5+0j)
