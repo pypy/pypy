@@ -669,6 +669,41 @@ class FlowSpaceFrame(pyframe.PyFrame):
     def PRINT_NEWLINE(self, oparg, next_instr):
         self.space.appcall(rpython_print_newline)
 
+    def JUMP_FORWARD(self, jumpby, next_instr):
+        next_instr += jumpby
+        return next_instr
+
+    def POP_JUMP_IF_FALSE(self, target, next_instr):
+        w_value = self.popvalue()
+        if not self.space.is_true(w_value):
+            return target
+        return next_instr
+
+    def POP_JUMP_IF_TRUE(self, target, next_instr):
+        w_value = self.popvalue()
+        if self.space.is_true(w_value):
+            return target
+        return next_instr
+
+    def JUMP_IF_FALSE_OR_POP(self, target, next_instr):
+        w_value = self.peekvalue()
+        if not self.space.is_true(w_value):
+            return target
+        self.popvalue()
+        return next_instr
+
+    def JUMP_IF_TRUE_OR_POP(self, target, next_instr):
+        w_value = self.peekvalue()
+        if self.space.is_true(w_value):
+            return target
+        self.popvalue()
+        return next_instr
+
+    def GET_ITER(self, oparg, next_instr):
+        w_iterable = self.popvalue()
+        w_iterator = self.space.iter(w_iterable)
+        self.pushvalue(w_iterator)
+
     def FOR_ITER(self, jumpby, next_instr):
         w_iterator = self.peekvalue()
         try:
