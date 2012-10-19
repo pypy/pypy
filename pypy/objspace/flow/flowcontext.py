@@ -804,6 +804,40 @@ class FlowSpaceFrame(pyframe.PyFrame):
         raise FlowingError(self,
                 "Attempting to modify global variable  %r." % (varname))
 
+    def POP_TOP(self, oparg, next_instr):
+        self.popvalue()
+
+    def ROT_TWO(self, oparg, next_instr):
+        w_1 = self.popvalue()
+        w_2 = self.popvalue()
+        self.pushvalue(w_1)
+        self.pushvalue(w_2)
+
+    def ROT_THREE(self, oparg, next_instr):
+        w_1 = self.popvalue()
+        w_2 = self.popvalue()
+        w_3 = self.popvalue()
+        self.pushvalue(w_1)
+        self.pushvalue(w_3)
+        self.pushvalue(w_2)
+
+    def ROT_FOUR(self, oparg, next_instr):
+        w_1 = self.popvalue()
+        w_2 = self.popvalue()
+        w_3 = self.popvalue()
+        w_4 = self.popvalue()
+        self.pushvalue(w_1)
+        self.pushvalue(w_4)
+        self.pushvalue(w_3)
+        self.pushvalue(w_2)
+
+    def DUP_TOP(self, oparg, next_instr):
+        w_1 = self.peekvalue()
+        self.pushvalue(w_1)
+
+    def DUP_TOPX(self, itemcount, next_instr):
+        self.dupvalues(itemcount)
+
     def BUILD_LIST_FROM_ARG(self, _, next_instr):
         # This opcode was added with pypy-1.8.  Here is a simpler
         # version, enough for annotation.
