@@ -2247,7 +2247,7 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         assert a[0]['x'] == 'a'
 
     def test_stringarray(self):
-        from _numpypy import array
+        from _numpypy import array, flexible
         a = array(['abc'],'S3')
         assert str(a.dtype) == '|S3'
         a = array(['abc'])
@@ -2266,8 +2266,10 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         from _numpypy import array
         a = array(['abc'],'S3')
         s = repr(a)
-        # simplify \n in repr
+        # simplify test for \n in repr
         assert s.replace('\n', '') == "array(['abc'],       dtype='|S3')"
+        # but make sure it exists
+        assert s.find('\n') == 15
         a = array(['abc','defg','ab'])
         s = repr(a)
         assert s.replace('\n', '') == \
