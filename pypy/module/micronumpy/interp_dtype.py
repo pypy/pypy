@@ -143,6 +143,9 @@ class W_Dtype(Wrappable):
     def is_record_type(self):
         return self.fields is not None
 
+    def is_flexible_type(self):
+        return (self.num == 18 or self.num == 19 or self.num == 20)
+
     def __repr__(self):
         if self.fields is not None:
             return '<DType %r>' % self.fields

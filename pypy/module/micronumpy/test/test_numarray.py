@@ -2249,18 +2249,30 @@ class AppTestRecordDtype(BaseNumpyAppTest):
     def test_stringarray(self):
         from _numpypy import array
         a = array(['abc'],'S3')
-        assert repr(a) == "array(['abc'])"
         assert str(a.dtype) == '|S3'
         a = array(['abc'])
-        assert repr(a) == "array(['abc'])"
         assert str(a.dtype) == '|S3'
         a = array(['abc','defg','ab'])
         assert str(a.dtype) == '|S4'
         assert a[0] == 'abc'
         assert a[1] == 'defg'
         assert a[2] == 'ab'
-        assert repr(a) == "array(['abc', 'defg', 'ab'])"
+        raises(TypeError, a, 'sum')
+        raises(TypeError, 'a+a')
 
+    def test_flexible_repr(self):
+        # import overrides str(), repr() for array
+        from numpypy.core import arrayprint
+        from _numpypy import array
+        a = array(['abc'],'S3')
+        s = repr(a)
+        # simplify \n in repr
+        assert s.replace('\n', '') == "array(['abc'],       dtype='|S3')"
+        a = array(['abc','defg','ab'])
+        s = repr(a)
+        assert s.replace('\n', '') == \
+                      "array(['abc', 'defg', 'ab'],       dtype='|S4')"
+         
        
 class AppTestPyPy(BaseNumpyAppTest):
     def setup_class(cls):

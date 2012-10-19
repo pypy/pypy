@@ -150,6 +150,9 @@ class W_Ufunc(Wrappable):
                 "supported for binary functions"))
         assert isinstance(self, W_Ufunc2)
         obj = convert_to_array(space, w_obj)
+        if obj.get_dtype().is_flexible_type():
+            raise OperationError(space.w_TypeError, 
+                      space.wrap('cannot perform reduce for flexible type'))
         obj_shape = obj.get_shape()
         if obj.is_scalar():
             return obj.get_scalar_value()
@@ -235,6 +238,9 @@ class W_Ufunc1(W_Ufunc):
             if space.is_w(out, space.w_None):
                 out = None
         w_obj = convert_to_array(space, w_obj)
+        if w_obj.get_dtype().is_flexible_type():
+            raise OperationError(space.w_TypeError, 
+                      space.wrap('Not implemented for this type'))
         calc_dtype = find_unaryop_result_dtype(space,
                                   w_obj.get_dtype(),
                                   promote_to_float=self.promote_to_float,
@@ -301,6 +307,10 @@ class W_Ufunc2(W_Ufunc):
             w_out = None
         w_lhs = convert_to_array(space, w_lhs)
         w_rhs = convert_to_array(space, w_rhs)
+        if w_lhs.get_dtype().is_flexible_type() or \
+           w_rhs.get_dtype().is_flexible_type():
+            raise OperationError(space.w_TypeError, 
+                      space.wrap('unsupported operand types'))
         calc_dtype = find_binop_result_dtype(space,
             w_lhs.get_dtype(), w_rhs.get_dtype(),
             int_only=self.int_only,
