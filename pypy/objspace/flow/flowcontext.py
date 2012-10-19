@@ -287,6 +287,11 @@ class FlowSpaceFrame(pyframe.PyFrame):
             "settop past the bottom of the stack")
         self.locals_stack_w[index] = w_object
 
+    def popvalues(self, n):
+        values_w = [self.popvalue() for i in range(n)]
+        values_w.reverse()
+        return values_w
+
     def peekvalues(self, n):
         values_w = [None] * n
         base = self.valuestackdepth - n
