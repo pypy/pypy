@@ -2,11 +2,6 @@
 Arguments objects.
 """
 
-from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.rlib.debug import make_sure_not_resized
-from pypy.rlib import jit
-
-
 class Signature(object):
     _immutable_ = True
     _immutable_fields_ = ["argnames[*]"]
@@ -17,7 +12,6 @@ class Signature(object):
         self.varargname = varargname
         self.kwargname = kwargname
 
-    @jit.elidable
     def find_argname(self, name):
         try:
             return self.argnames.index(name)
@@ -84,41 +78,18 @@ class Signature(object):
 # arguments annoying :-(
 
 def _check_not_duplicate_kwargs(space, existingkeywords, keywords, keywords_w):
-    # looks quadratic, but the JIT should remove all of it nicely.
-    # Also, all the lists should be small
     for key in keywords:
-        for otherkey in existingkeywords:
-            if otherkey == key:
-                raise operationerrfmt(space.w_TypeError,
-                                      "got multiple values "
-                                      "for keyword argument "
-                                      "'%s'", key)
+        if key in existingkeywords:
+            raise TypeError("got multiple values for keyword argument '%s'", key)
 
 def _do_combine_starstarargs_wrapped(space, keys_w, w_starstararg, keywords,
         keywords_w, existingkeywords):
-    i = 0
-    for w_key in keys_w:
-        try:
-            key = space.str_w(w_key)
-        except OperationError, e:
-            if e.match(space, space.w_TypeError):
-                raise OperationError(
-                    space.w_TypeError,
-                    space.wrap("keywords must be strings"))
-            if e.match(space, space.w_UnicodeEncodeError):
-                # Allow this to pass through
-                key = None
-            else:
-                raise
-        else:
-            if existingkeywords and key in existingkeywords:
-                raise operationerrfmt(space.w_TypeError,
-                                      "got multiple values "
-                                      "for keyword argument "
-                                      "'%s'", key)
+    for i, w_key in enumerate(keys_w):
+        key = space.str_w(w_key)
+        if existingkeywords and key in existingkeywords:
+            raise TypeError("got multiple values for keyword argument '%s'" % key)
         keywords[i] = key
         keywords_w[i] = space.getitem(w_starstararg, w_key)
-        i += 1
 
 def _match_keywords(signature, input_argcount, keywords, kwds_mapping):
     # letting JIT unroll the loop is *only* safe if the callsite didn't
@@ -191,17 +162,7 @@ class ArgumentsForTranslation(object):
     def _combine_starargs_wrapped(self, w_stararg):
         # unpack the * arguments
         space = self.space
-        try:
-            args_w = space.fixedview(w_stararg)
-        except OperationError, e:
-            if e.match(space, space.w_TypeError):
-                w_type = space.type(w_stararg)
-                typename = w_type.getname(space)
-                raise OperationError(
-                    space.w_TypeError,
-                    space.wrap("argument after * must be "
-                               "a sequence, not %s" % (typename,)))
-            raise
+        args_w = space.fixedview(w_stararg)
         self.arguments_w = self.arguments_w + args_w
 
     def _combine_starstarargs_wrapped(self, w_starstararg):
@@ -221,21 +182,12 @@ class ArgumentsForTranslation(object):
         if space.isinstance_w(w_starstararg, space.w_dict):
             keys_w = space.unpackiterable(w_starstararg)
         else:
-            try:
-                w_keys = space.call_method(w_starstararg, "keys")
-            except OperationError, e:
-                if e.match(space, space.w_AttributeError):
-                    w_type = space.type(w_starstararg)
-                    typename = w_type.getname(space)
-                    raise OperationError(
-                        space.w_TypeError,
-                        space.wrap("argument after ** must be "
-                                   "a mapping, not %s" % (typename,)))
-                raise
+            w_keys = space.call_method(w_starstararg, "keys")
             keys_w = space.unpackiterable(w_keys)
         keywords_w = [None] * len(keys_w)
         keywords = [None] * len(keys_w)
-        _do_combine_starstarargs_wrapped(space, keys_w, w_starstararg, keywords, keywords_w, self.keywords)
+        _do_combine_starstarargs_wrapped(space, keys_w, w_starstararg,
+                keywords, keywords_w, self.keywords)
         self.keyword_names_w = keys_w
         if self.keywords is None:
             self.keywords = keywords
