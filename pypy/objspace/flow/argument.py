@@ -77,20 +77,6 @@ class Signature(object):
 # look at. They should not get a self arguments, which makes the amount of
 # arguments annoying :-(
 
-def _check_not_duplicate_kwargs(space, existingkeywords, keywords, keywords_w):
-    for key in keywords:
-        if key in existingkeywords:
-            raise TypeError("got multiple values for keyword argument '%s'", key)
-
-def _do_combine_starstarargs_wrapped(space, keys_w, w_starstararg, keywords,
-        keywords_w, existingkeywords):
-    for i, w_key in enumerate(keys_w):
-        key = space.str_w(w_key)
-        if existingkeywords and key in existingkeywords:
-            raise TypeError("got multiple values for keyword argument '%s'" % key)
-        keywords[i] = key
-        keywords_w[i] = space.getitem(w_starstararg, w_key)
-
 def _match_keywords(signature, input_argcount, keywords, kwds_mapping):
     # letting JIT unroll the loop is *only* safe if the callsite didn't
     # use **args because num_kwds can be arbitrarily large otherwise.
@@ -174,8 +160,8 @@ class ArgumentsForTranslation(object):
                 self.keywords = keywords
                 self.keywords_w = values_w
             else:
-                _check_not_duplicate_kwargs(
-                    self.space, self.keywords, keywords, values_w)
+                if set(keywords) & set(self.keywords):
+                    raise TypeError("got multiple values for keyword argument '%s'", key)
                 self.keywords = self.keywords + keywords
                 self.keywords_w = self.keywords_w + values_w
             return
@@ -186,8 +172,12 @@ class ArgumentsForTranslation(object):
             keys_w = space.unpackiterable(w_keys)
         keywords_w = [None] * len(keys_w)
         keywords = [None] * len(keys_w)
-        _do_combine_starstarargs_wrapped(space, keys_w, w_starstararg,
-                keywords, keywords_w, self.keywords)
+        for i, w_key in enumerate(keys_w):
+            key = space.str_w(w_key)
+            if key in self.keywords:
+                raise TypeError("got multiple values for keyword argument '%s'" % key)
+            keywords[i] = key
+            keywords_w[i] = space.getitem(w_starstararg, w_key)
         self.keyword_names_w = keys_w
         if self.keywords is None:
             self.keywords = keywords
