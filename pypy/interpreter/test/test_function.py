@@ -322,6 +322,12 @@ class AppTestFunction:
         assert f.__doc__ == "hi"
         assert type(f.__doc__) is str
 
+    def test_issue1293(self):
+        def f1(): "doc f1"
+        def f2(): "doc f2"
+        f1.__code__ = f2.__code__
+        assert f1.__doc__ == "doc f1"
+
     def test_subclassing(self):
         # cannot subclass 'function' or 'builtin_function'
         def f():
