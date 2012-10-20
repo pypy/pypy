@@ -622,6 +622,12 @@ class AppTestMMap:
             finally:
                 m.close()
 
+    def test_context_manager(self):
+        import mmap
+        with mmap.mmap(-1, 10) as m:
+            assert not m.closed
+        assert m.closed
+
     def test_all(self):
         # this is a global test, ported from test_mmap.py
         import mmap

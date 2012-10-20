@@ -1,6 +1,6 @@
 from pypy.interpreter.error import OperationError, wrap_oserror
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.rlib import rmmap, rarithmetic
 from pypy.rlib.rmmap import RValueError, RTypeError
@@ -132,6 +132,13 @@ class W_MMap(Wrappable):
     def __len__(self):
         return self.space.wrap(self.mmap.size)
 
+    def closed_get(self, space):
+        try:
+            self.mmap.check_valid()
+        except RValueError:
+            return space.w_True
+        return space.w_False
+
     def check_valid(self):
         try:
             self.mmap.check_valid()
@@ -199,6 +206,14 @@ class W_MMap(Wrappable):
         space = self.space
         return space.wrap(StringLikeBuffer(space, space.wrap(self)))
 
+    def descr_enter(self, space):
+        self.check_valid()
+        return space.wrap(self)
+
+    def descr_exit(self, space, __args__):
+        self.close()
+
+
 if rmmap._POSIX:
 
     @unwrap_spec(fileno=int, length=int, flags=int,
@@ -260,6 +275,10 @@ W_MMap.typedef = TypeDef("mmap",
     __getitem__ = interp2app(W_MMap.descr_getitem),
     __setitem__ = interp2app(W_MMap.descr_setitem),
     __buffer__ = interp2app(W_MMap.descr_buffer),
+    __enter__ = interp2app(W_MMap.descr_enter),
+    __exit__ = interp2app(W_MMap.descr_exit),
+
+    closed = GetSetProperty(W_MMap.closed_get),
 )
 
 constants = rmmap.constants
