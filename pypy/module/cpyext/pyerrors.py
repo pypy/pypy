@@ -284,6 +284,20 @@ def PyErr_Print(space):
     """Alias for PyErr_PrintEx(1)."""
     PyErr_PrintEx(space, 1)
 
+@cpython_api([PyObject, PyObject, PyObject], lltype.Void)
+def PyErr_Display(space, w_type, w_value, tb):
+    if tb:
+        w_tb = from_ref(space, tb)
+    else:
+        w_tb = space.w_None
+    try:
+        space.call_function(space.sys.get("excepthook"),
+                            w_type, w_value, w_tb)
+    except OperationError:
+        # Like CPython: This is wrong, but too many callers rely on
+        # this behavior.
+        pass
+
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
 def PyTraceBack_Print(space, w_tb, w_file):
     space.call_method(w_file, "write", space.wrap(
