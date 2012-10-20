@@ -89,7 +89,6 @@ class AppTestPyexpat:
         def gotText(text):
             assert text == "caf\xe9"
         p.CharacterDataHandler = gotText
-        assert p.returns_unicode
         p.Parse(xml)
 
     def test_explicit_encoding(self):

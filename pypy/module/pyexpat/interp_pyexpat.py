@@ -410,7 +410,6 @@ class W_XMLParserType(Wrappable):
 
         self.w_intern = w_intern
 
-        self.returns_unicode = True
         self.ordered_attributes = False
         self.specified_attributes = False
 
@@ -458,11 +457,8 @@ getting the advantage of providing document type information to the parser.
     # Handlers management
 
     def w_convert(self, space, s):
-        if self.returns_unicode:
-            from pypy.interpreter.unicodehelper import PyUnicode_DecodeUTF8
-            return space.wrap(PyUnicode_DecodeUTF8(space, s))
-        else:
-            return space.wrapbytes(s)
+        from pypy.interpreter.unicodehelper import PyUnicode_DecodeUTF8
+        return space.wrap(PyUnicode_DecodeUTF8(space, s))
 
     def w_convert_charp(self, space, data):
         if data:
@@ -755,7 +751,6 @@ W_XMLParserType.typedef = TypeDef(
     namespace_prefixes = GetSetProperty(W_XMLParserType.get_namespace_prefixes,
                                         W_XMLParserType.set_namespace_prefixes,
                                         cls=W_XMLParserType),
-    returns_unicode = bool_property('returns_unicode', W_XMLParserType),
     ordered_attributes = bool_property('ordered_attributes', W_XMLParserType),
     specified_attributes = bool_property('specified_attributes', W_XMLParserType),
     intern = GetSetProperty(W_XMLParserType.get_intern, cls=W_XMLParserType),
