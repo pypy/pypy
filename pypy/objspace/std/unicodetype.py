@@ -210,8 +210,7 @@ def encode_object(space, w_object, encoding, errors):
                 u = space.unicode_w(w_object)
                 eh = unicodehelper.encode_error_handler(space)
                 return space.wrapbytes(unicode_encode_utf_8(
-                        u, len(u), None, errorhandler=eh,
-                        allow_surrogates=True))
+                        u, len(u), None, errorhandler=eh))
         from pypy.module._codecs.interp_codecs import lookup_codec
         w_encoder = space.getitem(lookup_codec(space, encoding), space.wrap(0))
     if errors is None:
