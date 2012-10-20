@@ -48,7 +48,7 @@ class AppTestPyexpat:
                 p.CharacterDataHandler = lambda s: data.append(s)
                 encoding = encoding_arg is None and 'utf-8' or encoding_arg
 
-                res = p.Parse("<xml>\u00f6</xml>".encode(encoding), isfinal=True)
+                res = p.Parse("<xml>\u00f6</xml>".encode(encoding), True)
                 assert res == 1
                 assert data == ["\u00f6"]
 
@@ -79,7 +79,8 @@ class AppTestPyexpat:
         p = pyexpat.ParserCreate()
         p.buffer_size = 150
         assert p.buffer_size == 150
-        raises(TypeError, setattr, p, 'buffer_size', sys.maxint + 1)
+        raises((ValueError, TypeError),
+               setattr, p, 'buffer_size', sys.maxsize + 1)
 
     def test_encoding_xml(self):
         # use one of the few encodings built-in in expat
