@@ -157,7 +157,7 @@ class W_CTypePtrBase(W_CTypePtrOrArray):
         space = self.space
         ob = space.interpclass_w(w_ob)
         if not isinstance(ob, cdataobj.W_CData):
-            raise self._convert_error("compatible pointer", w_ob)
+            raise self._convert_error("cdata pointer", w_ob)
         other = ob.ctype
         if not isinstance(other, W_CTypePtrBase):
             from pypy.module._cffi_backend import ctypearray
