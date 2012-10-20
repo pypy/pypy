@@ -285,6 +285,10 @@ thus be larger than ``sys.maxint`` (i.e. it can be an arbitrary long).
 Miscellaneous
 -------------
 
+* Hash randomization is not supported in PyPy.  Passing ``-R`` to the
+  command line, or setting the ``PYTHONHASHSEED`` environment variable
+  will display a warning message.
+
 * ``sys.setrecursionlimit()`` is ignored (and not needed) on
   PyPy.  On CPython it would set the maximum number of nested
   calls that can occur before a RuntimeError is raised; on PyPy

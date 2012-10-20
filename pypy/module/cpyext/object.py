@@ -451,7 +451,7 @@ def PyObject_Print(space, w_obj, fp, flags):
 PyBUF_WRITABLE = 0x0001  # Copied from object.h
 
 @cpython_api([lltype.Ptr(Py_buffer), PyObject, rffi.VOIDP, Py_ssize_t,
-              lltype.Signed, lltype.Signed], rffi.INT, error=CANNOT_FAIL)
+              lltype.Signed, lltype.Signed], rffi.INT, error=-1)
 def PyBuffer_FillInfo(space, view, obj, buf, length, readonly, flags):
     """
     Fills in a buffer-info structure correctly for an exporter that can only
@@ -461,15 +461,16 @@ def PyBuffer_FillInfo(space, view, obj, buf, length, readonly, flags):
     This is not a complete re-implementation of the CPython API; it only
     provides a subset of CPython's behavior.
     """
+    if flags & PyBUF_WRITABLE and readonly:
+        raise OperationError(
+            space.w_ValueError, space.wrap(
+            "Object is not writable"))
     view.c_buf = buf
     view.c_len = length
     view.c_obj = obj
     Py_IncRef(space, obj)
     view.c_itemsize = 1
-    if flags & PyBUF_WRITABLE:
-        rffi.setintfield(view, 'c_readonly', 0)
-    else:
-        rffi.setintfield(view, 'c_readonly', 1)
+    rffi.setintfield(view, 'c_readonly', readonly)
     rffi.setintfield(view, 'c_ndim', 0)
     view.c_format = lltype.nullptr(rffi.CCHARP.TO)
     view.c_shape = lltype.nullptr(Py_ssize_tP.TO)

@@ -3,7 +3,6 @@ import sys
 
 from pypy.rlib import rfloat, unroll
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import NoneNotWrapped
 
 class State:
     def __init__(self, space):
@@ -204,7 +203,7 @@ def _log_any(space, w_x, base):
                              space.wrap('math domain error'))
     return space.wrap(result)
 
-def log(space, w_x, w_base=NoneNotWrapped):
+def log(space, w_x, w_base=None):
     """log(x[, base]) -> the logarithm of x to the given base.
        If the base not specified, returns the natural logarithm (base e) of x.
     """

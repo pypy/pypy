@@ -3,17 +3,6 @@ from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.annotation import model as annmodel
 import os
 
-def var_ispyobj(var):
-    if hasattr(var, 'concretetype'):
-        if isinstance(var.concretetype, lltype.Ptr):
-            return var.concretetype.TO._gckind == 'cpy'
-        else:
-            return False
-    else:
-        # assume PyObjPtr
-        return True
-
-PyObjPtr = lltype.Ptr(lltype.PyObject)
 
 def find_gc_ptrs_in_type(TYPE):
     if isinstance(TYPE, lltype.Array):
@@ -32,20 +21,6 @@ def find_gc_ptrs_in_type(TYPE):
         raise Exception("don't know what is in %r" % (TYPE,))
     else:
         return []
-
-def type_contains_pyobjs(TYPE):
-    if isinstance(TYPE, lltype.Array):
-        return type_contains_pyobjs(TYPE.OF)
-    elif isinstance(TYPE, lltype.Struct):
-        result = []
-        for name in TYPE._names:
-            if type_contains_pyobjs(TYPE._flds[name]):
-                return True
-        return False
-    elif isinstance(TYPE, lltype.Ptr) and TYPE.TO._gckind == 'cpy':
-        return True
-    else:
-        return False
 
 def get_rtti(TYPE):
     if isinstance(TYPE, lltype.RttiStruct):

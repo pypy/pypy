@@ -3,7 +3,7 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import GetSetProperty, TypeDef
 from pypy.interpreter.typedef import interp_attrproperty, interp_attrproperty_w
 from pypy.interpreter.typedef import make_weakref_descr
-from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError
 from pypy.rlib.rarithmetic import intmask
 from pypy.tool.pairtype import extendabletype
@@ -275,9 +275,6 @@ class W_SRE_Pattern(Wrappable):
         if last_pos < ctx.end:
             sublist_w.append(slice_w(space, ctx, last_pos, ctx.end,
                                      space.w_None))
-        if n == 0:
-            # not just an optimization -- see test_sub_unicode
-            return w_string, n
 
         if space.is_true(space.isinstance(w_string, space.w_unicode)):
             w_emptystr = space.wrap(u'')
@@ -288,7 +285,8 @@ class W_SRE_Pattern(Wrappable):
         return w_item, n
 
 
-@unwrap_spec(flags=int, groups=int)
+@unwrap_spec(flags=int, groups=int, w_groupindex=WrappedDefault(None),
+             w_indexgroup=WrappedDefault(None))
 def SRE_Pattern__new__(space, w_subtype, w_pattern, flags, w_code,
               groups=0, w_groupindex=None, w_indexgroup=None):
     n = space.len_w(w_code)
@@ -361,11 +359,13 @@ class W_SRE_Match(Wrappable):
                 results[i] = slice_w(space, ctx, start, end, space.w_None)
             return space.newtuple(results)
 
+    @unwrap_spec(w_default=WrappedDefault(None))
     def groups_w(self, w_default=None):
         fmarks = self.flatten_marks()
         num_groups = self.srepat.num_groups
         return allgroups_w(self.space, self.ctx, fmarks, num_groups, w_default)
 
+    @unwrap_spec(w_default=WrappedDefault(None))
     def groupdict_w(self, w_default=None):
         space = self.space
         w_dict = space.newdict()
@@ -390,13 +390,16 @@ class W_SRE_Match(Wrappable):
         return space.call_method(w_re, '_expand', space.wrap(self.srepat),
                                  space.wrap(self), w_template)
 
-    def start_w(self, w_groupnum=0):
+    @unwrap_spec(w_groupnum = WrappedDefault(0))
+    def start_w(self, w_groupnum):
         return self.space.wrap(self.do_span(w_groupnum)[0])
 
-    def end_w(self, w_groupnum=0):
+    @unwrap_spec(w_groupnum = WrappedDefault(0))
+    def end_w(self, w_groupnum):
         return self.space.wrap(self.do_span(w_groupnum)[1])
 
-    def span_w(self, w_groupnum=0):
+    @unwrap_spec(w_groupnum = WrappedDefault(0))
+    def span_w(self, w_groupnum):
         start, end = self.do_span(w_groupnum)
         return self.space.newtuple([self.space.wrap(start),
                                     self.space.wrap(end)])

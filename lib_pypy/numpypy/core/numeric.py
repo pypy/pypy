@@ -1,6 +1,7 @@
 
 from _numpypy import array, ndarray, int_, float_, bool_ #, complex_# , longlong
 from _numpypy import concatenate
+from .fromnumeric import any
 import math
 import sys
 import _numpypy as multiarray # ARGH
@@ -8,7 +9,11 @@ from numpypy.core.arrayprint import array2string
 
 newaxis = None
 
-def asanyarray(a, dtype=None, order=None, maskna=None, ownmaskna=False):
+# XXX this file to be reviewed
+def seterr(**args):
+    return args
+
+def asanyarray(a, dtype=None, order=None):
     """
     Convert the input to an ndarray, but pass ndarray subclasses through.
 
@@ -23,13 +28,6 @@ def asanyarray(a, dtype=None, order=None, maskna=None, ownmaskna=False):
     order : {'C', 'F'}, optional
         Whether to use row-major ('C') or column-major ('F') memory
         representation.  Defaults to 'C'.
-   maskna : bool or None, optional
-        If this is set to True, it forces the array to have an NA mask.
-        If this is set to False, it forces the array to not have an NA
-        mask.
-    ownmaskna : bool, optional
-        If this is set to True, forces the array to have a mask which
-        it owns.
 
     Returns
     -------
@@ -65,8 +63,7 @@ def asanyarray(a, dtype=None, order=None, maskna=None, ownmaskna=False):
     True
 
     """
-    return array(a, dtype, copy=False, order=order, subok=True,
-                                maskna=maskna, ownmaskna=ownmaskna)
+    return array(a, dtype, copy=False, order=order, subok=True)
 
 def base_repr(number, base=2, padding=0):
     """
@@ -347,7 +344,7 @@ def array_equal(a1, a2):
         return False
     return bool((a1 == a2).all())
 
-def asarray(a, dtype=None, order=None, maskna=None, ownmaskna=False):
+def asarray(a, dtype=None, order=None):
     """
     Convert the input to an array.
 
@@ -362,13 +359,6 @@ def asarray(a, dtype=None, order=None, maskna=None, ownmaskna=False):
     order : {'C', 'F'}, optional
         Whether to use row-major ('C') or column-major ('F' for FORTRAN)
         memory representation.  Defaults to 'C'.
-   maskna : bool or None, optional
-        If this is set to True, it forces the array to have an NA mask.
-        If this is set to False, it forces the array to not have an NA
-        mask.
-    ownmaskna : bool, optional
-        If this is set to True, forces the array to have a mask which
-        it owns.
 
     Returns
     -------
@@ -422,8 +412,7 @@ def asarray(a, dtype=None, order=None, maskna=None, ownmaskna=False):
     True
 
     """
-    return array(a, dtype, copy=False, order=order,
-                            maskna=maskna, ownmaskna=ownmaskna)
+    return array(a, dtype, copy=False, order=order)
 
 set_string_function(array_str, 0)
 set_string_function(array_repr, 1)

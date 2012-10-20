@@ -603,8 +603,9 @@ class MIFrame(object):
         if tobox is not None:
             # sanity check: see whether the current struct value
             # corresponds to what the cache thinks the value is
-            resbox = executor.execute(self.metainterp.cpu, self.metainterp,
-                                      rop.GETFIELD_GC, fielddescr, box)
+            #resbox = executor.execute(self.metainterp.cpu, self.metainterp,
+            #                          rop.GETFIELD_GC, fielddescr, box)
+            # XXX the sanity check does not seem to do anything, remove?
             return tobox
         resbox = self.execute_with_descr(opnum, fielddescr, box)
         self.metainterp.heapcache.getfield_now_known(box, fielddescr, resbox)
@@ -2039,8 +2040,9 @@ class MetaInterp(object):
                     memmgr = self.staticdata.warmrunnerdesc.memory_manager
                     if memmgr:
                         if self.cancel_count > memmgr.max_unroll_loops:
-                            self.staticdata.log('cancelled too many times!')
-                            raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP)
+                            self.compile_loop_or_abort(original_boxes,
+                                                       live_arg_boxes,
+                                                       start, resumedescr)
                 self.staticdata.log('cancelled, tracing more...')
 
         # Otherwise, no loop found so far, so continue tracing.
@@ -2140,7 +2142,8 @@ class MetaInterp(object):
                 return None
         return token
 
-    def compile_loop(self, original_boxes, live_arg_boxes, start, resume_at_jump_descr):
+    def compile_loop(self, original_boxes, live_arg_boxes, start,
+                     resume_at_jump_descr, try_disabling_unroll=False):
         num_green_args = self.jitdriver_sd.num_green_args
         greenkey = original_boxes[:num_green_args]
         if not self.partial_trace:
@@ -2156,7 +2159,8 @@ class MetaInterp(object):
             target_token = compile.compile_loop(self, greenkey, start,
                                                 original_boxes[num_green_args:],
                                                 live_arg_boxes[num_green_args:],
-                                                resume_at_jump_descr)
+                                                resume_at_jump_descr,
+                                     try_disabling_unroll=try_disabling_unroll)
             if target_token is not None:
                 assert isinstance(target_token, TargetToken)
                 self.jitdriver_sd.warmstate.attach_procedure_to_interp(greenkey, target_token.targeting_jitcell_token)
@@ -2167,6 +2171,18 @@ class MetaInterp(object):
             assert isinstance(target_token, TargetToken)
             jitcell_token = target_token.targeting_jitcell_token
             self.raise_continue_running_normally(live_arg_boxes, jitcell_token)
+
+    def compile_loop_or_abort(self, original_boxes, live_arg_boxes,
+                              start, resume_at_jump_descr):
+        """Called after we aborted more than 'max_unroll_loops' times.
+        As a last attempt, try to compile the loop with unrolling disabled.
+        """
+        if not self.partial_trace:
+            self.compile_loop(original_boxes, live_arg_boxes, start,
+                              resume_at_jump_descr, try_disabling_unroll=True)
+        #
+        self.staticdata.log('cancelled too many times!')
+        raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP)
 
     def compile_trace(self, live_arg_boxes, resume_at_jump_descr):
         num_green_args = self.jitdriver_sd.num_green_args

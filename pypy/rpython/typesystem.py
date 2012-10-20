@@ -119,7 +119,7 @@ class LowLevelTypeSystem(TypeSystem):
         return hop.genop('ptr_nonzero', vlist, resulttype=lltype.Bool)
 
     def getconcretetype(self, v):
-        return getattr(v, 'concretetype', lltype.Ptr(lltype.PyObject))
+        return v.concretetype
 
     def null_callable(self, T):
         return lltype.nullptr(T.TO)

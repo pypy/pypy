@@ -121,9 +121,8 @@ class BaseCPU(model.AbstractCPU):
         self._future_values = []
         self._descrs = {}
 
-    def _freeze_(self):
+    def _cleanup_(self):
         assert self.translate_support_code
-        return False
 
     def getdescr(self, ofs, typeinfo='?', extrainfo=None, name=None,
                  arg_types=None, count_fields_if_immut=-1, ffi_flags=0, width=-1):
@@ -184,6 +183,8 @@ class BaseCPU(model.AbstractCPU):
 
     def _compile_operations(self, c, operations, var2index, clt):
         for op in operations:
+            if op.getopnum() == -124: # force_spill
+                continue
             llimpl.compile_add(c, op.getopnum())
             descr = op.getdescr()
             if isinstance(descr, Descr):

@@ -220,6 +220,9 @@ class AppTestAppComplexTest:
         b = 5.1+2.3j
         raises(ValueError, pow, a, b, 0)
 
+        b = complex(float('inf'), 0.0) ** complex(10., 3.)
+        assert repr(b) == "(nan+nanj)"
+
     def test_boolcontext(self):
         from random import random
         for i in xrange(100):
@@ -246,10 +249,16 @@ class AppTestAppComplexTest:
         assert complex(NS(1+10j), 5) == 1+15j
         assert complex(OS(1+10j), 5j) == -4+10j
         assert complex(NS(1+10j), 5j) == -4+10j
+
+        assert complex(OS(2.0)) == 2+0j
+        assert complex(NS(2.0)) == 2+0j
+        assert complex(OS(2)) == 2+0j
+        assert complex(NS(2)) == 2+0j
+        assert complex(OS(2L)) == 2+0j
+        assert complex(NS(2L)) == 2+0j
+
         raises(TypeError, complex, OS(None))
         raises(TypeError, complex, NS(None))
-        raises(TypeError, complex, OS(2.0))   # __complex__ must really
-        raises(TypeError, complex, NS(2.0))   # return a complex, not a float
 
         # -- The following cases are not supported by CPython, but they
         # -- are supported by PyPy, which is most probably ok
@@ -295,7 +304,7 @@ class AppTestAppComplexTest:
         assert self.almost_equal(complex(),  0)
         assert self.almost_equal(complex("-1"), -1)
         assert self.almost_equal(complex("+1"), +1)
-        assert self.almost_equal(complex(" ( +3.14-6J )"), 3.14-6j)
+        assert self.almost_equal(complex(" ( +3.14-6J ) "), 3.14-6j)
 
         class complex2(complex):
             pass
@@ -567,3 +576,6 @@ class AppTestAppComplexTest:
         assert '{0:F}'.format(complex(NAN, 0)) == 'NAN+0.000000j'
         assert '{0:f}'.format(complex(NAN, NAN)) == 'nan+nanj'
         assert '{0:F}'.format(complex(NAN, NAN)) == 'NAN+NANj'
+
+    def test_complex_two_arguments(self):
+        raises(TypeError, complex, 5, None)

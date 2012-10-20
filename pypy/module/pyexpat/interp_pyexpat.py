@@ -1,7 +1,6 @@
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.interpreter.gateway import NoneNotWrapped
-from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError
 from pypy.rlib import rgc
 from pypy.rpython.lltypesystem import rffi, lltype
@@ -445,7 +444,8 @@ XML_PARAM_ENTITY_PARSING_ALWAYS. Returns true if setting the flag
 was successful."""
         XML_SetParamEntityParsing(self.itself, flag)
 
-    def UseForeignDTD(self, space, w_flag=True):
+    @unwrap_spec(w_flag=WrappedDefault(True))
+    def UseForeignDTD(self, space, w_flag):
         """UseForeignDTD([flag])
 Allows the application to provide an artificial external subset if one is
 not specified as part of the document instance.  This readily allows the
@@ -643,7 +643,7 @@ information passed to the ExternalEntityRefHandler."""
         else:
             context = space.str_w(w_context)
 
-        if space.is_w(w_encoding, space.w_None):
+        if space.is_none(w_encoding):
             encoding = None
         else:
             encoding = space.str_w(w_encoding)
@@ -774,10 +774,10 @@ W_XMLParserType.typedef = TypeDef(
     )
 
 def ParserCreate(space, w_encoding=None, w_namespace_separator=None,
-                 w_intern=NoneNotWrapped):
+                 w_intern=None):
     """ParserCreate([encoding[, namespace_separator]]) -> parser
 Return a new XML parser object."""
-    if space.is_w(w_encoding, space.w_None):
+    if space.is_none(w_encoding):
         encoding = None
     elif space.is_true(space.isinstance(w_encoding, space.w_str)):
         encoding = space.str_w(w_encoding)
@@ -788,7 +788,7 @@ Return a new XML parser object."""
             space.wrap('ParserCreate() argument 1 must be string or None,'
                        ' not %s' % (type_name,)))
 
-    if space.is_w(w_namespace_separator, space.w_None):
+    if space.is_none(w_namespace_separator):
         namespace_separator = 0
     elif space.is_true(space.isinstance(w_namespace_separator, space.w_str)):
         separator = space.str_w(w_namespace_separator)

@@ -8,7 +8,6 @@ from pypy.rlib.objectmodel import keepalive_until_here, specialize
 from pypy.rlib.debug import ll_assert
 from pypy.rlib import jit
 from pypy.rlib.rarithmetic import ovfcheck
-from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rpython.rmodel import inputconst, IntegerRepr
 from pypy.rpython.rstr import AbstractStringRepr,AbstractCharRepr,\
      AbstractUniCharRepr, AbstractStringIteratorRepr,\
@@ -16,7 +15,7 @@ from pypy.rpython.rstr import AbstractStringRepr,AbstractCharRepr,\
 from pypy.rpython.lltypesystem import ll_str
 from pypy.rpython.lltypesystem.lltype import \
      GcStruct, Signed, Array, Char, UniChar, Ptr, malloc, \
-     Bool, Void, GcArray, nullptr, pyobjectptr, cast_primitive, typeOf,\
+     Bool, Void, GcArray, nullptr, cast_primitive, typeOf,\
      staticAdtMethod, GcForwardReference
 from pypy.rpython.rmodel import Repr
 from pypy.rpython.lltypesystem import llmemory
@@ -193,42 +192,7 @@ class CharRepr(AbstractCharRepr, StringRepr):
 class UniCharRepr(AbstractUniCharRepr, UnicodeRepr):
     lowleveltype = UniChar
 
-class __extend__(pairtype(PyObjRepr, AbstractStringRepr)):
-    def convert_from_to((r_from, r_to), v, llops):
-        v_len = llops.gencapicall('PyString_Size', [v], resulttype=Signed)
-        cstr = inputconst(Void, STR)
-        cflags = inputconst(Void, {'flavor': 'gc'})
-        v_result = llops.genop('malloc_varsize', [cstr, cflags, v_len],
-                               resulttype=Ptr(STR))
-        llops.gencapicall('PyString_ToRPyString', [v, v_result])
-        string_repr = llops.rtyper.type_system.rstr.string_repr
-        v_result = llops.convertvar(v_result, string_repr, r_to)
-        return v_result
 
-
-class __extend__(pairtype(AbstractStringRepr, PyObjRepr)):
-    def convert_from_to((r_from, r_to), v, llops):
-        string_repr = llops.rtyper.type_system.rstr.string_repr
-        v = llops.convertvar(v, r_from, string_repr)
-        cchars = inputconst(Void, "chars")
-        # xxx put in table
-        return llops.gencapicall(
-            'PyString_FromRPyString',
-            [v],
-            resulttype=pyobj_repr,
-            _callable=lambda v: pyobjectptr(''.join(v.chars)))
-
-class __extend__(pairtype(AbstractUnicodeRepr, PyObjRepr)):
-    def convert_from_to((r_from, r_to), v, llops):
-        unicode_repr = llops.rtyper.type_system.rstr.unicode_repr
-        v = llops.convertvar(v, r_from, unicode_repr)
-        cchars = inputconst(Void, "chars")
-        # xxx put in table
-        return llops.gencapicall(
-            'PyUnicode_FromRPyUnicode',
-            [v],
-            resulttype=pyobj_repr,
-            _callable=lambda v: pyobjectptr(u''.join(v.chars)))
 
 # ____________________________________________________________
 #
@@ -405,12 +369,14 @@ class LLHelpers(AbstractLLHelpers):
         result = mallocstr(s_len)
         #        ^^^^^^^^^ specifically to explode on unicode
         while i < s_len:
-            ch = s_chars[i]
-            if 'a' <= ch <= 'z':
-                ch = chr(ord(ch) - 32)
-            result.chars[i] = ch
+            result.chars[i] = LLHelpers.ll_upper_char(s_chars[i])
             i += 1
         return result
+
+    def ll_upper_char(ch):
+        if 'a' <= ch <= 'z':
+            ch = chr(ord(ch) - 32)
+        return ch
 
     @jit.elidable
     def ll_lower(s):
@@ -422,12 +388,14 @@ class LLHelpers(AbstractLLHelpers):
         result = mallocstr(s_len)
         #        ^^^^^^^^^ specifically to explode on unicode
         while i < s_len:
-            ch = s_chars[i]
-            if 'A' <= ch <= 'Z':
-                ch = chr(ord(ch) + 32)
-            result.chars[i] = ch
+            result.chars[i] = LLHelpers.ll_lower_char(s_chars[i])
             i += 1
         return result
+
+    def ll_lower_char(ch):
+        if 'A' <= ch <= 'Z':
+            ch = chr(ord(ch) + 32)
+        return ch
 
     def ll_join(s, length, items):
         s_chars = s.chars

@@ -208,11 +208,11 @@ class W_Root(object):
     def int_w(self, space):
         raise OperationError(space.w_TypeError,
                              typed_unwrap_error_msg(space, "integer", self))
-    
+
     def uint_w(self, space):
         raise OperationError(space.w_TypeError,
                              typed_unwrap_error_msg(space, "integer", self))
-    
+
     def bigint_w(self, space):
         raise OperationError(space.w_TypeError,
                              typed_unwrap_error_msg(space, "integer", self))
@@ -291,8 +291,6 @@ wrappable_class_name._annspecialcase_ = 'specialize:memo'
 class ObjSpace(object):
     """Base class for the interpreter-level implementations of object spaces.
     http://pypy.readthedocs.org/en/latest/objspace.html"""
-
-    full_exceptions = True  # full support for exceptions (normalization & more)
 
     def __init__(self, config=None):
         "NOT_RPYTHON: Basic initialization of objects."
@@ -590,10 +588,6 @@ class ObjSpace(object):
                 w_exc = self.getitem(w_dic, w_name)
                 exc_types_w[name] = w_exc
                 setattr(self, "w_" + excname, w_exc)
-        # Make a prebuilt recursion error
-        w_msg = self.wrap("maximum recursion depth exceeded")
-        self.prebuilt_recursion_error = OperationError(self.w_RuntimeError,
-                                                       w_msg)
         return exc_types_w
 
     def install_mixedmodule(self, mixedname, installed_builtin_modules):
@@ -725,7 +719,14 @@ class ObjSpace(object):
         # done by a method call on w_two (and not on w_one, because of the
         # expected programming style where we say "if x is None" or
         # "if x is object").
+        assert w_two is not None
         return w_two.is_w(self, w_one)
+
+    def is_none(self, w_obj):
+        """ mostly for checking inputargs that have unwrap_spec and
+        can accept both w_None and None
+        """
+        return w_obj is None or self.is_w(w_obj, self.w_None)
 
     def id(self, w_obj):
         w_result = w_obj.immutable_unique_id(self)
@@ -810,7 +811,7 @@ class ObjSpace(object):
         interpreter class (a subclass of Wrappable).
         """
         assert RequiredClass is not None
-        if can_be_None and self.is_w(w_obj, self.w_None):
+        if can_be_None and self.is_none(w_obj):
             return None
         obj = self.interpclass_w(w_obj)
         if not isinstance(obj, RequiredClass):   # or obj is None
@@ -834,7 +835,8 @@ class ObjSpace(object):
         return isinstance(obj, RequiredClass)
 
     def unpackiterable(self, w_iterable, expected_length=-1):
-        """Unpack an iterable object into a real (interpreter-level) list.
+        """Unpack an iterable into a real (interpreter-level) list.
+
         Raise an OperationError(w_ValueError) if the length is wrong."""
         w_iterator = self.iter(w_iterable)
         if expected_length == -1:
@@ -854,12 +856,10 @@ class ObjSpace(object):
     def iteriterable(self, w_iterable):
         return W_InterpIterable(self, w_iterable)
 
-    @jit.dont_look_inside
     def _unpackiterable_unknown_length(self, w_iterator, w_iterable):
-        # Unpack a variable-size list of unknown length.
-        # The JIT does not look inside this function because it
-        # contains a loop (made explicit with the decorator above).
-        #
+        """Unpack an iterable of unknown length into an interp-level
+        list.
+        """
         # If we can guess the expected length we can preallocate.
         try:
             lgt_estimate = self.len_w(w_iterable)
@@ -1129,13 +1129,9 @@ class ObjSpace(object):
     def exception_is_valid_obj_as_class_w(self, w_obj):
         if not self.isinstance_w(w_obj, self.w_type):
             return False
-        if not self.full_exceptions:
-            return True
         return self.is_true(self.issubtype(w_obj, self.w_BaseException))
 
     def exception_is_valid_class_w(self, w_cls):
-        if not self.full_exceptions:
-            return True
         return self.is_true(self.issubtype(w_cls, self.w_BaseException))
 
     def exception_getclass(self, w_obj):
@@ -1386,7 +1382,7 @@ class ObjSpace(object):
         if not self.is_true(self.isinstance(w_obj, self.w_str)):
             raise OperationError(self.w_TypeError,
                                  self.wrap('argument must be a string'))
-        return self.str_w(w_obj)            
+        return self.str_w(w_obj)
 
     def unicode_w(self, w_obj):
         return w_obj.unicode_w(self)
@@ -1707,7 +1703,7 @@ ObjSpace.ExceptionTable = [
     'ValueError',
     'ZeroDivisionError',
     ]
-    
+
 if sys.platform.startswith("win"):
     ObjSpace.ExceptionTable += ['WindowsError']
 

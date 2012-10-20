@@ -5,7 +5,7 @@ import sys
 
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import unwrap_spec, NoneNotWrapped
+from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from pypy.rlib import jit
 from pypy.rlib.runicode import MAXUNICODE
 
@@ -20,7 +20,8 @@ def setbuiltinmodule(w_module, name):
             "trying to change the builtin-in module %r" % (name,))
     space.setitem(w_modules, space.wrap(name), w_module)
 
-def _getframe(space, w_depth=0):
+@unwrap_spec(w_depth = WrappedDefault(0))
+def _getframe(space, w_depth):
     """Return a frame object from the call stack.  If optional integer depth is
 given, return the frame object that many calls below the top of the stack.
 If that is deeper than the call stack, ValueError is raised.  The default
@@ -45,7 +46,8 @@ purposes only."""
     f.mark_as_escaped()
     return space.wrap(f)
 
-def setrecursionlimit(space, w_new_limit):
+@unwrap_spec(new_limit="c_int")
+def setrecursionlimit(space, new_limit):
     """setrecursionlimit() sets the maximum number of nested calls that
 can occur before a RuntimeError is raised.  On PyPy the limit is
 approximative and checked at a lower level.  The default 1000
@@ -54,7 +56,6 @@ depending on the compiler settings) for ~1400 calls.  Setting the
 value to N reserves N/1000 times 768KB of stack space.
 """
     from pypy.rlib.rstack import _stack_set_length_fraction
-    new_limit = space.int_w(w_new_limit)
     if new_limit <= 0:
         raise OperationError(space.w_ValueError,
                              space.wrap("recursion limit must be positive"))
@@ -252,7 +253,7 @@ def _get_dllhandle(space):
     cdll = RawCDLL(handle)
     return space.wrap(W_CDLL(space, "python api", cdll))
 
-def getsizeof(space, w_object, w_default=NoneNotWrapped):
+def getsizeof(space, w_object, w_default=None):
     """Not implemented on PyPy."""
     if w_default is None:
         raise OperationError(space.w_TypeError,

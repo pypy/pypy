@@ -4,9 +4,11 @@ Command-line options for translate:
 
     See below
 """
-import sys, os, new
 
-import autopath 
+import os
+import sys
+
+import autopath
 import py
 # clean up early pypy/_cache
 try:
@@ -14,25 +16,24 @@ try:
 except Exception:
     pass
 
-from pypy.config.config import to_optparse, OptionDescription, BoolOption, \
-                               ArbitraryOption, StrOption, IntOption, Config, \
-                               ChoiceOption, OptHelpFormatter
-from pypy.config.translationoption import get_combined_translation_config
-from pypy.config.translationoption import set_opt_level, final_check_config
-from pypy.config.translationoption import OPT_LEVELS, DEFAULT_OPT_LEVEL
-from pypy.config.translationoption import PLATFORMS, set_platform
+from pypy.config.config import (to_optparse, OptionDescription, BoolOption,
+    ArbitraryOption, StrOption, IntOption, Config, ChoiceOption, OptHelpFormatter)
+from pypy.config.translationoption import (get_combined_translation_config,
+    set_opt_level, final_check_config, OPT_LEVELS, DEFAULT_OPT_LEVEL, set_platform)
 
 
-GOALS= [
-        ("annotate", "do type inference", "-a --annotate", ""),
-        ("rtype", "do rtyping", "-t --rtype", ""),
-        ("pyjitpl", "JIT generation step", "--pyjitpl", ""),
-        ("jittest", "JIT test with llgraph backend", "--jittest", ""),
-        ("backendopt", "do backend optimizations", "--backendopt", ""),
-        ("source", "create source", "-s --source", ""),
-        ("compile", "compile", "-c --compile", " (default goal)"),
-        ("llinterpret", "interpret the rtyped flow graphs", "--llinterpret", ""),
-       ]
+GOALS = [
+    ("annotate", "do type inference", "-a --annotate", ""),
+    ("rtype", "do rtyping", "-t --rtype", ""),
+    ("pyjitpl", "JIT generation step", "--pyjitpl", ""),
+    ("jittest", "JIT test with llgraph backend", "--jittest", ""),
+    ("backendopt", "do backend optimizations", "--backendopt", ""),
+    ("source", "create source", "-s --source", ""),
+    ("compile", "compile", "-c --compile", " (default goal)"),
+    ("llinterpret", "interpret the rtyped flow graphs", "--llinterpret", ""),
+]
+
+
 def goal_options():
     result = []
     for name, doc, cmdline, extra in GOALS:
@@ -40,12 +41,12 @@ def goal_options():
         if name.startswith('?'):
             optional = True
             name = name[1:]
-        yesdoc = doc[0].upper()+doc[1:]+extra
+        yesdoc = doc[0].upper() + doc[1:] + extra
         result.append(BoolOption(name, yesdoc, default=False, cmdline=cmdline,
                                  negation=False))
         if not optional:
-            result.append(BoolOption("no_%s" % name, "Don't "+doc, default=False,
-                                     cmdline="--no-"+name, negation=False))
+            result.append(BoolOption("no_%s" % name, "Don't " + doc, default=False,
+                                     cmdline="--no-" + name, negation=False))
     return result
 
 translate_optiondescr = OptionDescription("translate", "XXX", [
@@ -79,14 +80,9 @@ translate_optiondescr = OptionDescription("translate", "XXX", [
     ArbitraryOption("skipped_goals", "XXX",
                     defaultfactory=list),
     OptionDescription("goal_options",
-                      "Goals that should be reached during translation", 
-                      goal_options()),        
+                      "Goals that should be reached during translation",
+                      goal_options()),
 ])
-
-    
-OVERRIDES = {
-    'translation.debug': False,
-}
 
 import optparse
 from pypy.tool.ansi_print import ansi_log
@@ -114,8 +110,7 @@ def parse_options_and_load_target():
 
     opt_parser.disable_interspersed_args()
 
-    config = get_combined_translation_config(
-                overrides=OVERRIDES, translating=True)
+    config = get_combined_translation_config(translating=True)
     to_optparse(config, parser=opt_parser, useoptions=['translation.*'])
     translateconfig = Config(translate_optiondescr)
     to_optparse(translateconfig, parser=opt_parser)
@@ -130,17 +125,17 @@ def parse_options_and_load_target():
         if getattr(translateconfig.goal_options, name):
             if name not in translateconfig.goals:
                 translateconfig.goals.append(name)
-        if getattr(translateconfig.goal_options, 'no_'+name):
+        if getattr(translateconfig.goal_options, 'no_' + name):
             if name not in translateconfig.skipped_goals:
                 if not reset:
                     translateconfig.skipped_goals[:] = []
                     reset = True
                 translateconfig.skipped_goals.append(name)
-        
+
     if args:
         arg = args[0]
         args = args[1:]
-        if os.path.isfile(arg+'.py'):
+        if os.path.isfile(arg + '.py'):
             assert not os.path.isfile(arg), (
                 "ambiguous file naming, please rename %s" % arg)
             translateconfig.targetspec = arg
@@ -187,7 +182,7 @@ def parse_options_and_load_target():
         print "\n\nFor detailed descriptions of the command line options see"
         print "http://pypy.readthedocs.org/en/latest/config/commandline.html"
         sys.exit(0)
-    
+
     return targetspec_dic, translateconfig, config, args
 
 def log_options(options, header="options in effect"):
@@ -197,8 +192,8 @@ def log_options(options, header="options in effect"):
     optnames.sort()
     for name in optnames:
         optvalue = getattr(options, name)
-        log('%25s: %s' %(name, optvalue))
-   
+        log('%25s: %s' % (name, optvalue))
+
 def log_config(config, header="config used"):
     log('%s:' % header)
     log(str(config))
@@ -230,7 +225,7 @@ def main():
             prof.disable()
             statfilename = 'prof.dump'
             log.info('Dumping profiler stats to: %s' % statfilename)
-            prof.dump_stats(statfilename)        
+            prof.dump_stats(statfilename)
 
     def debug(got_error):
         tb = None
@@ -253,7 +248,7 @@ def main():
         if translateconfig.batch:
             log.event("batch mode, not calling interactive helpers")
             return
-        
+
         log.event("start debugger...")
 
         if translateconfig.view:
@@ -300,7 +295,7 @@ def main():
                 samefile = this_exe.samefile(exe_name)
                 assert not samefile, (
                     'Output file %s is the currently running '
-                    'interpreter (use --output=...)'% exe_name)
+                    'interpreter (use --output=...)' % exe_name)
             except EnvironmentError:
                 pass
 

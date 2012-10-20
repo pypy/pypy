@@ -2,8 +2,8 @@
 """ error handling features, just a way of displaying errors
 """
 
-from pypy.tool.ansi_print import ansi_log, raise_nicer_exception
-from pypy.objspace.flow.model import Constant, Variable
+from pypy.tool.ansi_print import ansi_log
+from pypy.objspace.flow.model import Variable
 import sys
 
 import py
@@ -15,7 +15,6 @@ SHOW_ANNOTATIONS = True
 SHOW_DEFAULT_LINES_OF_CODE = 0
 
 from pypy.interpreter.pytraceback import offset2lineno
-import traceback
 
 def source_lines1(graph, block, operindex=None, offset=None, long=False, \
     show_lines_of_code=SHOW_DEFAULT_LINES_OF_CODE):
@@ -65,37 +64,29 @@ def source_lines(graph, *args, **kwds):
     lines = source_lines1(graph, *args, **kwds)
     return ['In %r:' % (graph,)] + lines
 
-class FlowingError(Exception):
-    pass
-
 class AnnotatorError(Exception):
     pass
 
 class NoSuchAttrError(Exception):
     pass
 
-def gather_error(annotator, block, graph):
+class ErrorWrapper(object):
+    def __init__(self, msg):
+        self.msg = msg
+
+    def __repr__(self):
+        return '<%s>' % (self.msg,)
+
+def gather_error(annotator, graph, block, operindex):
     msg = [""]
-    msg.append('-+' * 30)
-    from pypy.annotation import model
-    msg.append("Blocked block -- operation cannot succeed")
-    if model.DEBUG:
-        _, _, operindex = annotator.why_not_annotated[block][1].break_at
-    else:
-        # guess the blocked operation by the fact that its return value is
-        # not annotated
-        for operindex in range(len(block.operations)):
-            if block.operations[operindex].result not in annotator.bindings:
-                break
-        else:
-            operindex = None
 
     if operindex is not None:
         oper = block.operations[operindex]
-        msg.append(" " + str(oper))
+        if oper.opname == 'simple_call':
+            format_simple_call(annotator, oper, msg)
     else:
         oper = None
-        msg.append(" (inconsistency - the block is fully annotated??)")
+    msg.append(" " + str(oper))
     msg += source_lines(graph, block, operindex, long=True)
     if oper is not None:
         if SHOW_ANNOTATIONS:
@@ -106,18 +97,18 @@ def gather_error(annotator, block, graph):
                         msg.append(" " + str(arg) + " = " + str(annotator.binding(arg)))
                     except KeyError:
                         pass
-        if model.DEBUG and SHOW_TRACEBACK:
-            msg.extend(traceback.format_exception(*annotator.why_not_annotated[block]))
     return "\n".join(msg)
 
 def format_blocked_annotation_error(annotator, blocked_blocks):
     text = []
-    for block, graph in blocked_blocks.items():
-        text.append(gather_error(annotator, block, graph))
+    for block, (graph, index) in blocked_blocks.items():
+        text.append('-+' * 30)
+        text.append("Blocked block -- operation cannot succeed")
+        text.append(gather_error(annotator, graph, block, index))
     return '\n'.join(text)
 
-def format_simple_call(annotator, oper, what, msg):
-    msg.append("Simple call of incompatible family:")
+def format_simple_call(annotator, oper, msg):
+    msg.append("Occurred processing the following simple_call:")
     try:
         descs = annotator.bindings[oper.args[0]].descriptions
     except (KeyError, AttributeError), e:
@@ -140,49 +131,7 @@ def format_simple_call(annotator, oper, what, msg):
             except (AttributeError, TypeError):
                 r = repr(desc)
         msg.append("  %s returning" % (r,))
-        if hasattr(desc, 'getuniquegraph'):
-            graph = desc.getuniquegraph()
-            r = annotator.binding(graph.returnblock.inputargs[0],
-                                  "(no annotation)")
-        else:
-            r = '?'
-        msg.append("      %s" % (r,))
         msg.append("")
-
-def format_someobject_error(annotator, position_key, what, s_value, called_from_graph, binding=""):
-    #block = getattr(annotator, 'flowin_block', None) or block
-    msg = ["annotation of %r degenerated to SomeObject()" % (what,)]
-    if position_key is not None:
-        graph, block, operindex = position_key
-        if operindex is not None:
-            oper = block.operations[operindex]
-            if oper.opname == 'simple_call':
-                format_simple_call(annotator, oper, what, msg)
-            else:
-                msg.append(str(oper))
-        else:
-            msg.append("at the start of the block with input arguments:")
-            for v in block.inputargs:
-                s_v = annotator.binding(v, "(no annotation)")
-                msg.append("%8s: %s" % (v, s_v))
-        msg.append('')
-        msg += source_lines(graph, block, operindex, long=True)
-
-    if called_from_graph is not None:
-        msg.append(".. called from %r" % (called_from_graph,))
-    if s_value.origin is not None:
-        msg.append(".. SomeObject() origin: %s" % (
-            annotator.whereami(s_value.origin),))
-    msg.append("Previous annotation:")
-    msg.append("  " + str(binding))
-    return "\n".join(msg)
-
-def format_global_error(graph, offset, message):
-    msg = []
-    msg.append('-+' * 30)
-    msg.append(message)
-    msg += source_lines(graph, None, offset=offset)
-    return "\n".join(msg)
 
 def debug(drv, use_pdb=True):
     # XXX unify some code with pypy.translator.goal.translate

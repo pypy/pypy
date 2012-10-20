@@ -1,15 +1,12 @@
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.baseobjspace import Wrappable
-from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.rpython.lltypesystem import lltype, rffi
-
+from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from pypy.module._cffi_backend import ctypeobj, cdataobj
 
 
 # ____________________________________________________________
 
-@unwrap_spec(ctype=ctypeobj.W_CType)
-def newp(space, ctype, w_init=None):
+@unwrap_spec(ctype=ctypeobj.W_CType, w_init=WrappedDefault(None))
+def newp(space, ctype, w_init):
     return ctype.newp(w_init)
 
 # ____________________________________________________________
@@ -53,14 +50,18 @@ def alignof(space, ctype):
     align = ctype.alignof()
     return space.wrap(align)
 
-@unwrap_spec(ctype=ctypeobj.W_CType, fieldname=str)
-def offsetof(space, ctype, fieldname):
-    ofs = ctype.offsetof(fieldname)
-    return space.wrap(ofs)
+@unwrap_spec(ctype=ctypeobj.W_CType, fieldname="str_or_None")
+def typeoffsetof(space, ctype, fieldname):
+    ctype, offset = ctype.typeoffsetof(fieldname)
+    return space.newtuple([space.wrap(ctype), space.wrap(offset)])
 
 @unwrap_spec(ctype=ctypeobj.W_CType)
 def _getfields(space, ctype):
     return ctype._getfields()
+
+@unwrap_spec(ctype=ctypeobj.W_CType, cdata=cdataobj.W_CData, offset=int)
+def rawaddressof(space, ctype, cdata, offset=0):
+    return ctype.rawaddressof(cdata, offset)
 
 # ____________________________________________________________
 

@@ -165,10 +165,10 @@ class W_OutputType(RStringIO, W_InputOutputType):
         self.seek(i)
         return ''.join(bigbuffer[p:i])
 
-    def descr_truncate(self, w_size=None):  # note: a wrapped size!
+    def descr_truncate(self, w_size=None):
         self.check_closed()
         space = self.space
-        if w_size is None or space.is_w(w_size, space.w_None):
+        if space.is_none(w_size):
             size = self.tell()
         else:
             size = space.int_w(w_size)
@@ -249,7 +249,7 @@ W_OutputType.typedef = TypeDef(
 # ____________________________________________________________
 
 def StringIO(space, w_string=None):
-    if space.is_w(w_string, space.w_None):
+    if space.is_none(w_string):
         return space.wrap(W_OutputType(space))
     else:
         string = space.bufferstr_w(w_string)

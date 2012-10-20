@@ -311,7 +311,7 @@ def descr_instance_new(space, w_type, w_class, w_dict=None):
             space.w_TypeError,
             space.wrap("instance() first arg must be class"))
     w_result = w_class.instantiate(space)
-    if not space.is_w(w_dict, space.w_None):
+    if not space.is_none(w_dict):
         w_result.setdict(space, w_dict)
     return w_result
 
@@ -656,7 +656,7 @@ class W_InstanceObject(Wrappable):
 
 
     def descr_pow(self, space, w_other, w_modulo=None):
-        if space.is_w(w_modulo, space.w_None):
+        if space.is_none(w_modulo):
             w_a, w_b = _coerce_helper(space, self, w_other)
             if w_a is None:
                 w_a = self
@@ -676,7 +676,7 @@ class W_InstanceObject(Wrappable):
             return space.w_NotImplemented
 
     def descr_rpow(self, space, w_other, w_modulo=None):
-        if space.is_w(w_modulo, space.w_None):
+        if space.is_none(w_modulo):
             w_a, w_b = _coerce_helper(space, self, w_other)
             if w_a is None:
                 w_a = self

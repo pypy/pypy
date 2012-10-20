@@ -66,7 +66,7 @@ class SocketServerTest(unittest.TestCase):
     """Test all socket servers."""
 
     def setUp(self):
-        signal_alarm(20)  # Kill deadlocks after 20 seconds.
+        signal_alarm(60)  # Kill deadlocks after 60 seconds.
         self.port_seed = 0
         self.test_files = []
 
@@ -123,7 +123,6 @@ class SocketServerTest(unittest.TestCase):
         self.assertEqual(server.server_address, server.socket.getsockname())
         return server
 
-    @unittest.skipUnless(threading, 'Threading required for this test.')
     @reap_threads
     def run_server(self, svrcls, hdlrbase, testfunc):
         server = self.make_server(self.pickaddr(svrcls.address_family),
@@ -281,4 +280,3 @@ def test_main():
 
 if __name__ == "__main__":
     test_main()
-    signal_alarm(3)  # Shutdown shouldn't take more than 3 seconds.

@@ -20,7 +20,8 @@ class Test_Csv(unittest.TestCase):
     """
     def _test_arg_valid(self, ctor, arg):
         self.assertRaises(TypeError, ctor)
-        self.assertRaises(TypeError, ctor, None)
+        # PyPy gets an AttributeError instead of a TypeError
+        self.assertRaises((TypeError, AttributeError), ctor, None)
         self.assertRaises(TypeError, ctor, arg, bad_attr = 0)
         self.assertRaises(TypeError, ctor, arg, delimiter = 0)
         self.assertRaises(TypeError, ctor, arg, delimiter = 'XX')
@@ -59,7 +60,8 @@ class Test_Csv(unittest.TestCase):
         self.assertRaises((TypeError, AttributeError), setattr, obj.dialect,
                           'delimiter', ':')
         self.assertRaises(AttributeError, delattr, obj.dialect, 'quoting')
-        self.assertRaises(AttributeError, setattr, obj.dialect,
+        # PyPy gets a TypeError instead of an AttributeError
+        self.assertRaises((AttributeError, TypeError), setattr, obj.dialect,
                           'quoting', None)
 
     def test_reader_attrs(self):
@@ -133,7 +135,8 @@ class Test_Csv(unittest.TestCase):
             os.unlink(name)
 
     def test_write_arg_valid(self):
-        self.assertRaises(csv.Error, self._write_test, None, '')
+        # PyPy gets a TypeError instead of a csv.Error for "not a sequence"
+        self.assertRaises((csv.Error, TypeError), self._write_test, None, '')
         self._write_test((), '')
         self._write_test([None], '""')
         self.assertRaises(csv.Error, self._write_test,
@@ -208,6 +211,18 @@ class Test_Csv(unittest.TestCase):
         finally:
             fileobj.close()
             os.unlink(name)
+
+    def test_write_float(self):
+        # Issue 13573: loss of precision because csv.writer
+        # uses str() for floats instead of repr()
+        orig_row = [1.234567890123, 1.0/7.0, 'abc']
+        f = StringIO()
+        c = csv.writer(f, quoting=csv.QUOTE_NONNUMERIC)
+        c.writerow(orig_row)
+        f.seek(0)
+        c = csv.reader(f, quoting=csv.QUOTE_NONNUMERIC)
+        new_row = next(c)
+        self.assertEqual(orig_row, new_row)
 
     def _read_test(self, input, expect, **kwargs):
         reader = csv.reader(input, **kwargs)
@@ -786,7 +801,7 @@ class TestArrayWrites(unittest.TestCase):
         try:
             writer = csv.writer(fileobj, dialect="excel")
             writer.writerow(a)
-            expected = ",".join([str(i) for i in a])+"\r\n"
+            expected = ",".join([repr(i) for i in a])+"\r\n"
             fileobj.seek(0)
             self.assertEqual(fileobj.read(), expected)
         finally:
@@ -802,7 +817,7 @@ class TestArrayWrites(unittest.TestCase):
         try:
             writer = csv.writer(fileobj, dialect="excel")
             writer.writerow(a)
-            expected = ",".join([str(i) for i in a])+"\r\n"
+            expected = ",".join([repr(i) for i in a])+"\r\n"
             fileobj.seek(0)
             self.assertEqual(fileobj.read(), expected)
         finally:

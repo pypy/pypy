@@ -427,12 +427,14 @@ if sys.platform.startswith('linux'):
                                     sandboxsafe=True, _nowrapper=True,
                                     compilation_info=_eci)
     linux_getpagesize = rffi.llexternal('getpagesize', [], rffi.INT,
-                                        sandboxsafe=True, _nowrapper=True)
+                                        sandboxsafe=True, _nowrapper=True,
+                                        compilation_info=_eci)
 
     class LinuxPageSize:
         def __init__(self):
             self.pagesize = 0
-        _freeze_ = __init__
+        def _cleanup_(self):
+            self.pagesize = 0
     linuxpagesize = LinuxPageSize()
 
     def clear_large_memory_chunk(baseaddr, size):

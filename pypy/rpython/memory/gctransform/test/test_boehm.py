@@ -5,8 +5,7 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.translator.translator import graphof
 from pypy.translator.c.gc import BoehmGcPolicy
 from pypy.rpython.memory.gctransform.test.test_transform import LLInterpedTranformerTests
-from pypy import conftest
-import py
+
 
 class TestLLInterpedBoehm(LLInterpedTranformerTests):
     gcpolicy = BoehmGcPolicy
@@ -34,11 +33,6 @@ def test_boehm_finalizer_simple():
     f, t = make_boehm_finalizer(S)
     assert f is None
 
-def test_boehm_finalizer_pyobj():
-    S = lltype.GcStruct("S", ('x', lltype.Ptr(lltype.PyObject)))
-    f, t = make_boehm_finalizer(S)
-    assert f is not None
-
 def test_boehm_finalizer___del__():
     S = lltype.GcStruct("S", ('x', lltype.Signed), rtti=True)
     def f(s):
@@ -53,24 +47,6 @@ def test_boehm_finalizer___del__():
                                             lltype.Void),
                             "destructor_funcptr",
                             _callable=f)
-    pinf = lltype.attachRuntimeTypeInfo(S, qp, destrptr=dp)
+    lltype.attachRuntimeTypeInfo(S, qp, destrptr=dp)
     f, t = make_boehm_finalizer(S)
     assert f is not None
-
-def test_boehm_finalizer_nomix___del___and_pyobj():
-    S = lltype.GcStruct("S", ('x', lltype.Signed),
-                             ('y', lltype.Ptr(lltype.PyObject)), rtti=True)
-    def f(s):
-        s.x = 1
-    def type_info_S(p):
-        return lltype.getRuntimeTypeInfo(S)
-    qp = lltype.functionptr(lltype.FuncType([lltype.Ptr(S)],
-                                            lltype.Ptr(lltype.RuntimeTypeInfo)),
-                            "type_info_S",
-                            _callable=type_info_S)
-    dp = lltype.functionptr(lltype.FuncType([lltype.Ptr(S)],
-                                            lltype.Void),
-                            "destructor_funcptr",
-                            _callable=f)
-    pinf = lltype.attachRuntimeTypeInfo(S, qp, destrptr=dp)
-    py.test.raises(Exception, "make_boehm_finalizer(S)")

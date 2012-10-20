@@ -12,6 +12,7 @@ import sys
 import py
 
 def getllimpl(fn):
+    from pypy.rpython.module import ll_os
     return extregistry.lookup(fn).lltypeimpl
 
 def test_access():
@@ -30,7 +31,7 @@ def test_times():
     five-tuple giving float-representations (seconds, effectively) of the four
     fields from the underlying struct tms and the return value.
     """
-    times = compile(lambda: os.times(), ())()
+    times = eval(compile(lambda: str(os.times()), ())())
     assert isinstance(times, tuple)
     assert len(times) == 5
     for value in times:

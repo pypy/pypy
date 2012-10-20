@@ -1,5 +1,4 @@
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.interpreter.gateway import NoneNotWrapped
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.typedef import interp_attrproperty, interp_attrproperty_w
 from pypy.interpreter.gateway import interp2app, unwrap_spec
@@ -164,7 +163,7 @@ class W_Cursor(Wrappable):
     @unwrap_spec(name=str)
     def callfunc(self, space, name, w_returnType, w_parameters=None):
         retvar = interp_variable.newVariableByType(space, self, w_returnType, 1)
-        if space.is_w(w_parameters, space.w_None):
+        if space.is_none(w_parameters):
             w_parameters = None
 
         self._call(space, name, retvar, w_parameters)
@@ -174,7 +173,7 @@ class W_Cursor(Wrappable):
 
     @unwrap_spec(name=str)
     def callproc(self, space, name, w_parameters=None):
-        if space.is_w(w_parameters, space.w_None):
+        if space.is_none(w_parameters):
             w_parameters = None
 
         self._call(space, name, None, w_parameters)
@@ -763,7 +762,7 @@ class W_Cursor(Wrappable):
 
         return space.w_None
 
-    def fetchmany(self, space, w_numRows=NoneNotWrapped):
+    def fetchmany(self, space, w_numRows=None):
         if w_numRows is not None:
             numRows = space.int_w(w_numRows)
         else:
@@ -957,7 +956,7 @@ class W_Cursor(Wrappable):
     @unwrap_spec(size=int)
     def var(self, space, w_type, size=0, w_arraysize=None,
             w_inconverter=None, w_outconverter=None):
-        if space.is_w(w_arraysize, space.w_None):
+        if space.is_none(w_arraysize):
             arraySize = self.bindArraySize
         else:
             arraySize = space.int_w(w_arraysize)

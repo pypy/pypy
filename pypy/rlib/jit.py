@@ -426,11 +426,10 @@ PARAMETERS = {'threshold': 1039, # just above 1024, prime
               'loop_longevity': 1000,
               'retrace_limit': 5,
               'max_retrace_guards': 15,
-              'max_unroll_loops': 4,
+              'max_unroll_loops': 0,
               'enable_opts': 'all',
               }
 unroll_parameters = unrolling_iterable(PARAMETERS.items())
-DEFAULT = object()
 
 # ____________________________________________________________
 
@@ -552,7 +551,7 @@ class JitDriver(object):
 def _set_param(driver, name, value):
     # special-cased by ExtRegistryEntry
     # (internal, must receive a constant 'name')
-    # if value is DEFAULT, sets the default value.
+    # if value is None, sets the default value.
     assert name in PARAMETERS
 
 @specialize.arg(0, 1)
@@ -564,7 +563,7 @@ def set_param(driver, name, value):
 @specialize.arg(0, 1)
 def set_param_to_default(driver, name):
     """Reset one of the tunable JIT parameters to its default value."""
-    _set_param(driver, name, DEFAULT)
+    _set_param(driver, name, None)
 
 def set_user_param(driver, text):
     """Set the tunable JIT parameters from a user-supplied string
@@ -641,11 +640,7 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
             self.bookkeeper._jit_annotation_cache[driver] = cache
         for key, s_value in kwds_s.items():
             s_previous = cache.get(key, annmodel.s_ImpossibleValue)
-            s_value = annmodel.unionof(s_previous, s_value)
-            if annmodel.isdegenerated(s_value):
-                raise JitHintError("mixing incompatible types in argument %s"
-                                   " of jit_merge_point/can_enter_jit" %
-                                   key[2:])
+            s_value = annmodel.unionof(s_previous, s_value)  # where="mixing incompatible types in argument %s of jit_merge_point/can_enter_jit" % key[2:]
             cache[key] = s_value
 
         # add the attribute _dont_reach_me_in_del_ (see pypy.rpython.rclass)
@@ -775,11 +770,11 @@ class ExtSetParam(ExtRegistryEntry):
     def compute_result_annotation(self, s_driver, s_name, s_value):
         from pypy.annotation import model as annmodel
         assert s_name.is_constant()
-        if not self.bookkeeper.immutablevalue(DEFAULT).contains(s_value):
-            if s_name.const == 'enable_opts':
-                assert annmodel.SomeString(can_be_None=True).contains(s_value)
-            else:
-                assert annmodel.SomeInteger().contains(s_value)
+        if s_name.const == 'enable_opts':
+            assert annmodel.SomeString(can_be_None=True).contains(s_value)
+        else: 
+            assert (s_value == annmodel.s_None or
+                    annmodel.SomeInteger().contains(s_value))
         return annmodel.s_None
 
     def specialize_call(self, hop):
@@ -795,7 +790,7 @@ class ExtSetParam(ExtRegistryEntry):
         else:
             repr = lltype.Signed
         if (isinstance(hop.args_v[2], Constant) and
-            hop.args_v[2].value is DEFAULT):
+            hop.args_v[2].value is None):
             value = PARAMETERS[name]
             v_value = hop.inputconst(repr, value)
         else:

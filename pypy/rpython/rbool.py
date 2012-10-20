@@ -3,7 +3,6 @@ from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem.lltype import Signed, Unsigned, Bool, Float
 from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import IntegerRepr, BoolRepr
-from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rpython.rmodel import log
 
 
@@ -61,19 +60,4 @@ class __extend__(pairtype(IntegerRepr, BoolRepr)):
         if r_from.lowleveltype == Signed and r_to.lowleveltype == Bool:
             log.debug('explicit cast_int_to_bool')
             return llops.genop('int_is_true', [v], resulttype=Bool)
-        return NotImplemented
-
-class __extend__(pairtype(PyObjRepr, BoolRepr)):
-    def convert_from_to((r_from, r_to), v, llops):
-        if r_to.lowleveltype == Bool:
-            # xxx put in table
-            return llops.gencapicall('PyObject_IsTrue', [v], resulttype=Bool,
-                                     _callable=lambda pyo: bool(pyo._obj.value))
-        return NotImplemented
-
-class __extend__(pairtype(BoolRepr, PyObjRepr)):
-    def convert_from_to((r_from, r_to), v, llops):
-        if r_from.lowleveltype == Bool:
-            return llops.gencapicall('PyBool_FromLong', [v],
-                                     resulttype = pyobj_repr)
         return NotImplemented

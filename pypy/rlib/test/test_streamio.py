@@ -1026,7 +1026,7 @@ class TestReadlineInputStream:
             base.tell = f
         if not seek:
             base.seek = f
-        return streamio.ReadlineInputStream(base, bufsize)
+        return base
 
     def test_readline(self):
         for file in [self.makeStream(), self.makeStream(bufsize=2)]:
@@ -1076,6 +1076,49 @@ class TestReadlineInputStream:
         assert r == 'def\nxy\npq\nuvwx'
         r = file.readall()
         assert r == ''
+
+
+class TestDiskFile:
+    def test_read_interrupted(self):
+        try:
+            from signal import alarm, signal, SIG_DFL, SIGALRM
+        except:
+            skip('no alarm on this platform')
+        try:
+            read_fd, write_fd = os.pipe()
+            file = streamio.DiskFile(read_fd)
+            def handler(*a):
+                os.write(write_fd, "hello")
+            signal(SIGALRM, handler)
+            alarm(1)
+            assert file.read(10) == "hello"
+        finally:
+            signal(SIGALRM, SIG_DFL)
+
+    def test_write_interrupted(self):
+        try:
+            from signal import alarm, signal, SIG_DFL, SIGALRM
+        except:
+            skip('no alarm on this platform')
+        try:
+            read_fd, write_fd = os.pipe()
+            file = streamio.DiskFile(write_fd)
+            def handler(*a):
+                os.read(read_fd, 2000)
+                alarm(1)
+            signal(SIGALRM, handler)
+            alarm(1)
+            # Write to the pipe until it is full
+            buf = "FILL THE PIPE" * 1000
+            while True:
+                if os.write(write_fd, buf) < len(buf):
+                    break
+            # Write more, this should block, the write() syscall is
+            # interrupted, signal handler is called, and next write()
+            # can succeed.
+            file.write("hello")
+        finally:
+            signal(SIGALRM, SIG_DFL)
 
 
 # Speed test

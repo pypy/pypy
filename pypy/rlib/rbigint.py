@@ -7,12 +7,10 @@ from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.rlib import jit
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rpython import extregistry
-from pypy.rpython.tool import rffi_platform
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
 import math, sys
 
-SUPPORT_INT128 = rffi_platform.has('__int128', '')
+SUPPORT_INT128 = hasattr(rffi, '__INT128_T')
 
 # note about digit sizes:
 # In division, the native integer type must be able to hold
@@ -26,7 +24,7 @@ if SUPPORT_INT128:
         UDIGIT_MASK = intmask
     else:
         UDIGIT_MASK = longlongmask
-    LONG_TYPE = rffi.__INT128
+    LONG_TYPE = rffi.__INT128_T
     if LONG_BIT > SHIFT:
         STORE_TYPE = lltype.Signed
         UNSIGNED_TYPE = lltype.Unsigned
@@ -646,8 +644,7 @@ class rbigint(object):
             # j  = (m+) % SHIFT = (m+) - (i * SHIFT)
             # (computed without doing "i * SHIFT", which might overflow)
             j = size_b % 5
-            if j != 0:
-                j = 5 - j
+            j = _jmapping[j]
             if not we_are_translated():
                 assert j == (size_b*SHIFT+4)//5*5 - size_b*SHIFT
             #
@@ -867,6 +864,12 @@ class rbigint(object):
 ONERBIGINT = rbigint([ONEDIGIT], 1, 1)
 ONENEGATIVERBIGINT = rbigint([ONEDIGIT], -1, 1)
 NULLRBIGINT = rbigint()
+
+_jmapping = [(5 * SHIFT) % 5,
+             (4 * SHIFT) % 5,
+             (3 * SHIFT) % 5,
+             (2 * SHIFT) % 5,
+             (1 * SHIFT) % 5]
 
 #_________________________________________________________________
 
