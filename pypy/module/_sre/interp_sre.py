@@ -113,12 +113,18 @@ class W_SRE_Pattern(Wrappable):
         if endpos < pos: endpos = pos
         if space.is_true(space.isinstance(w_string, space.w_unicode)):
             unicodestr = space.unicode_w(w_string)
+            if not space.isinstance_w(self.w_pattern, space.w_unicode):
+                raise OperationError(space.w_TypeError, space.wrap(
+                        "can't use a string pattern on a bytes-like object"))
             if pos > len(unicodestr): pos = len(unicodestr)
             if endpos > len(unicodestr): endpos = len(unicodestr)
             return rsre_core.UnicodeMatchContext(self.code, unicodestr,
                                                  pos, endpos, self.flags)
         else:
             str = space.bufferstr_w(w_string)
+            if space.isinstance_w(self.w_pattern, space.w_unicode):
+                raise OperationError(space.w_TypeError, space.wrap(
+                        "can't use a bytes pattern on a string-like object"))
             if pos > len(str): pos = len(str)
             if endpos > len(str): endpos = len(str)
             return rsre_core.StrMatchContext(self.code, str,
