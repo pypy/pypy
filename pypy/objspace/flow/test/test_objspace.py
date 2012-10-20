@@ -55,6 +55,12 @@ class Base:
                 result[op.opname] += 1
         return result
 
+def test_all_opcodes_defined():
+    opnames = set(host_bytecode_spec.method_names)
+    methods = set([name for name in dir(FlowSpaceFrame) if name.upper() == name])
+    handled_elsewhere = set(['EXTENDED_ARG'])
+    missing = opnames - methods - handled_elsewhere
+    assert not missing
 
 class TestFlowObjSpace(Base):
 
