@@ -197,8 +197,8 @@ class AppTestSreMatch:
         # which (if interpreted literally, as CPython does) gives the
         # following strangeish rules:
         assert isinstance(re.sub("a", "b", "diwoiioamoi"), str)
-        assert isinstance(re.sub("a", "b", b"diwoiiobmoi"), bytes)
-        assert isinstance(re.sub('x', b'y', b'x'), bytes)
+        raises(TypeError, re.sub, "a", "b", b"diwoiiobmoi")
+        raises(TypeError, re.sub, 'x', b'y', b'x')
 
     def test_sub_callable(self):
         import re
