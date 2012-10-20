@@ -4,8 +4,9 @@ Function pointers.
 
 import sys
 from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import wrap_oserror
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
-from pypy.rlib import jit, clibffi, jit_libffi
+from pypy.rlib import jit, clibffi, jit_libffi, rposix
 from pypy.rlib.jit_libffi import CIF_DESCRIPTION, CIF_DESCRIPTION_P
 from pypy.rlib.jit_libffi import FFI_TYPE, FFI_TYPE_P, FFI_TYPE_PP
 from pypy.rlib.jit_libffi import SIZE_OF_FFI_ARG
@@ -177,8 +178,8 @@ def prepare_file_call_argument(fileobj):
     fileobj.direct_flush()
     fd = fileobj.direct_fileno()
     if fd < 0:
-        raise OperationError(self.space.w_ValueError,
-                             self.space.wrap("file has no OS file descriptor"))
+        raise OperationError(space.w_ValueError,
+                             space.wrap("file has no OS file descriptor"))
     try:
         fd2 = os.dup(fd)
         f = rffi_fdopen(fd2, fileobj.mode)
