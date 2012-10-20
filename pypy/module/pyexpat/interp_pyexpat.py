@@ -788,7 +788,7 @@ Return a new XML parser object."""
         type_name = space.type(w_encoding).getname(space)
         raise OperationError(
             space.w_TypeError,
-            space.wrap('ParserCreate() argument 1 must be string or None,'
+            space.wrap('ParserCreate() argument 1 must be str or None,'
                        ' not %s' % (type_name,)))
 
     if space.is_none(w_namespace_separator):
@@ -808,7 +808,7 @@ Return a new XML parser object."""
         type_name = space.type(w_namespace_separator).getname(space)
         raise OperationError(
             space.w_TypeError,
-            space.wrap('ParserCreate() argument 2 must be string or None,'
+            space.wrap('ParserCreate() argument 2 must be str or None,'
                        ' not %s' % (type_name,)))
 
     # Explicitly passing None means no interning is desired.

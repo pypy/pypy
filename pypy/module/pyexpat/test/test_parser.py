@@ -148,3 +148,17 @@ class AppTestPyexpat:
     def test_model(self):
         import pyexpat
         assert isinstance(pyexpat.model.XML_CTYPE_EMPTY, int)
+
+    def test_codes(self):
+        from pyexpat import errors
+        # verify mapping of errors.codes and errors.messages
+        message = errors.messages[errors.codes[errors.XML_ERROR_SYNTAX]]
+        assert errors.XML_ERROR_SYNTAX == message
+
+    def test_expaterror(self):
+        import pyexpat
+        from pyexpat import errors
+        xml = '<'
+        parser = pyexpat.ParserCreate()
+        e = raises(pyexpat.ExpatError, parser.Parse, xml, True)
+        assert e.value.code == errors.codes[errors.XML_ERROR_UNCLOSED_TOKEN]
