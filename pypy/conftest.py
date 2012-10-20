@@ -242,10 +242,12 @@ if 1:
     self = Test()
 """
     defs = []
-    for symbol, (code, args) in definitions.items():
-        defs.append(str(code))
-        args = ','.join(repr(arg) for arg in args)
-        defs.append("self.%s = anonymous(%s)\n" % (symbol, args))
+    for symbol, value in definitions.items():
+        if isinstance(value, tuple) and isinstance(value[0], py.code.Source):
+            code, args = value
+            defs.append(str(code))
+            args = ','.join(repr(arg) for arg in args)
+            defs.append("self.%s = anonymous(%s)\n" % (symbol, args))
     source = py.code.Source(target)[1:].deindent()
     pyfile = udir.join('src.py')
     source = helpers + '\n'.join(defs) + str(source)
