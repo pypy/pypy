@@ -174,6 +174,7 @@ rffi_fclose = rffi.llexternal("fclose", [rffi.CCHARP], rffi.INT)
 def prepare_file_call_argument(fileobj):
     import os
     space = fileobj.space
+    fileobj.direct_flush()
     fd = fileobj.direct_fileno()
     if fd < 0:
         raise OperationError(self.space.w_ValueError,
