@@ -177,7 +177,8 @@ class W_CTypePtrBase(W_CTypePtrOrArray):
 
 
 class W_CTypePointer(W_CTypePtrBase):
-    _attrs_ = []
+    _attrs_ = ['is_file']
+    _immutable_fields_ = ['is_file']
 
     def __init__(self, space, ctitem):
         from pypy.module._cffi_backend import ctypearray
@@ -186,6 +187,7 @@ class W_CTypePointer(W_CTypePtrBase):
             extra = "(*)"    # obscure case: see test_array_add
         else:
             extra = " *"
+        self.is_file = (ctitem.name == "struct _IO_FILE")
         W_CTypePtrBase.__init__(self, space, size, extra, 2, ctitem)
 
     def newp(self, w_init):
@@ -234,7 +236,7 @@ class W_CTypePointer(W_CTypePtrBase):
         p = rffi.ptradd(cdata, i * self.ctitem.size)
         return cdataobj.W_CData(space, p, self)
 
-    def _prepare_pointer_call_argument(self, w_init):
+    def _prepare_pointer_call_argument(self, w_init, cdata):
         space = self.space
         if (space.isinstance_w(w_init, space.w_list) or
             space.isinstance_w(w_init, space.w_tuple)):
@@ -242,10 +244,19 @@ class W_CTypePointer(W_CTypePtrBase):
         elif space.isinstance_w(w_init, space.w_basestring):
             # from a string, we add the null terminator
             length = space.int_w(space.len(w_init)) + 1
+        elif self.is_file:
+            from pypy.module._file.interp_file import W_File
+            from pypy.module._cffi_backend import ctypefunc
+            ob = space.interpclass_w(w_init)
+            if isinstance(ob, W_File):
+                result = ctypefunc.prepare_file_call_argument(ob)
+                rffi.cast(rffi.CCHARPP, cdata)[0] = result
+                return 2
+            return 0
         else:
-            return lltype.nullptr(rffi.CCHARP.TO)
+            return 0
         if self.ctitem.size <= 0:
-            return lltype.nullptr(rffi.CCHARP.TO)
+            return 0
         try:
             datasize = ovfcheck(length * self.ctitem.size)
         except OverflowError:
@@ -258,25 +269,19 @@ class W_CTypePointer(W_CTypePtrBase):
         except Exception:
             lltype.free(result, flavor='raw')
             raise
-        return result
+        rffi.cast(rffi.CCHARPP, cdata)[0] = result
+        return 1
 
     def convert_argument_from_object(self, cdata, w_ob):
         from pypy.module._cffi_backend.ctypefunc import set_mustfree_flag
         space = self.space
         ob = space.interpclass_w(w_ob)
-        if isinstance(ob, cdataobj.W_CData):
-            buffer = lltype.nullptr(rffi.CCHARP.TO)
-        else:
-            buffer = self._prepare_pointer_call_argument(w_ob)
-        #
-        if buffer:
-            rffi.cast(rffi.CCHARPP, cdata)[0] = buffer
-            set_mustfree_flag(cdata, True)
-            return True
-        else:
-            set_mustfree_flag(cdata, False)
+        result = (not isinstance(ob, cdataobj.W_CData) and
+                  self._prepare_pointer_call_argument(w_ob, cdata))
+        if result == 0:
             self.convert_from_object(cdata, w_ob)
-            return False
+        set_mustfree_flag(cdata, result)
+        return result
 
     def getcfield(self, attr):
         return self.ctitem.getcfield(attr)
