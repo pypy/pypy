@@ -1132,7 +1132,9 @@ class TestFlowObjSpace(Base):
         def f(x, y):
             lst[x] += y
         graph = self.codetest(f)
-        assert self.all_operations(graph) == {'xxx': 1}
+        assert self.all_operations(graph) == {'getitem': 1,
+                                              'inplace_add': 1,
+                                              'setitem': 1}
 
 DATA = {'x': 5,
         'y': 6}
