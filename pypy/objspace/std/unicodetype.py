@@ -265,6 +265,14 @@ def unicode_from_object(space, w_obj):
     w_unicode_method = space.lookup(w_obj, "__str__")
     return space.repr(w_obj) if w_unicode_method is None else space.str(w_obj)
 
+def ascii_from_object(space, w_obj):
+    """Implements builtins.ascii()"""
+    # repr is guaranteed to be unicode
+    w_repr = space.repr(w_obj)
+    w_encoded = encode_object(space, w_repr, 'ascii', 'backslashreplace')
+    return decode_object(space, w_encoded, 'ascii', None)
+
+
 @unwrap_spec(w_object = WrappedDefault(u''))
 def descr_new_(space, w_unicodetype, w_object=None, w_encoding=None,
                w_errors=None):
