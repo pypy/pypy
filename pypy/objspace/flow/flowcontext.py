@@ -211,6 +211,22 @@ class Replayer(Recorder):
 
 # ____________________________________________________________
 
+_unary_ops=[('UNARY_POSITIVE', "pos"),
+    ('UNARY_NEGATIVE', "neg"),
+    ('UNARY_NOT', "not_"),
+    ('UNARY_CONVERT', "repr"),
+    ('UNARY_INVERT', "invert"),]
+
+def unaryoperation(OPCODE, op):
+    def UNARY_OP(self, *ignored):
+        operation = getattr(self.space, op)
+        w_1 = self.popvalue()
+        w_result = operation(w_1)
+        self.pushvalue(w_result)
+    UNARY_OP.unaryop = op
+    UNARY_OP.func_name = OPCODE
+    return UNARY_OP
+
 compare_method = [
     "cmp_lt",   # "<"
     "cmp_le",   # "<="
@@ -225,7 +241,7 @@ compare_method = [
     "cmp_exc_match",
     ]
 
-class FlowSpaceFrame(pyframe.PyFrame):
+class FlowSpaceFrame(object):
     opcode_method_names = host_bytecode_spec.method_names
 
     def __init__(self, space, graph, code):
@@ -837,6 +853,9 @@ class FlowSpaceFrame(pyframe.PyFrame):
 
     def DUP_TOPX(self, itemcount, next_instr):
         self.dupvalues(itemcount)
+
+    for OPCODE, op in _unary_ops:
+        locals()[OPCODE] = unaryoperation(OPCODE, op)
 
     def BUILD_LIST_FROM_ARG(self, _, next_instr):
         # This opcode was added with pypy-1.8.  Here is a simpler
