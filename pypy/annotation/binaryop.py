@@ -31,21 +31,21 @@ def immutablevalue(x):
 
 # XXX unify this with ObjSpace.MethodTable
 BINARY_OPERATIONS = set(['add', 'sub', 'mul', 'div', 'mod',
-                         'truediv', 'floordiv', 'divmod', 'pow',
+                         'truediv', 'floordiv', 'divmod',
                          'and_', 'or_', 'xor',
                          'lshift', 'rshift',
                          'getitem', 'setitem', 'delitem',
                          'getitem_idx', 'getitem_key', 'getitem_idx_key',
                          'inplace_add', 'inplace_sub', 'inplace_mul',
                          'inplace_truediv', 'inplace_floordiv', 'inplace_div',
-                         'inplace_mod', 'inplace_pow',
+                         'inplace_mod',
                          'inplace_lshift', 'inplace_rshift',
                          'inplace_and', 'inplace_or', 'inplace_xor',
                          'lt', 'le', 'eq', 'ne', 'gt', 'ge', 'is_', 'cmp',
                          'coerce',
                          ]
                         +[opname+'_ovf' for opname in
-                          """add sub mul floordiv div mod pow lshift
+                          """add sub mul floordiv div mod lshift
                            """.split()
                           ])
 
@@ -65,7 +65,6 @@ class __extend__(pairtype(SomeObject, SomeObject)):
     def inplace_floordiv((obj1, obj2)): return pair(obj1, obj2).floordiv()
     def inplace_div((obj1, obj2)):      return pair(obj1, obj2).div()
     def inplace_mod((obj1, obj2)):      return pair(obj1, obj2).mod()
-    def inplace_pow((obj1, obj2)):      return pair(obj1, obj2).pow(s_None)
     def inplace_lshift((obj1, obj2)):   return pair(obj1, obj2).lshift()
     def inplace_rshift((obj1, obj2)):   return pair(obj1, obj2).rshift()
     def inplace_and((obj1, obj2)):      return pair(obj1, obj2).and_()
@@ -301,19 +300,6 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
             return SomeInteger(nonneg=int1.nonneg, knowntype=int1.knowntype)
     rshift.can_only_throw = []
 
-    def pow((int1, int2), obj3):
-        knowntype = rarithmetic.compute_restype(int1.knowntype, int2.knowntype)
-        return SomeInteger(nonneg = int1.nonneg,
-                           knowntype=knowntype)
-    pow.can_only_throw = [ZeroDivisionError]
-    pow_ovf = _clone(pow, [ZeroDivisionError, OverflowError])
-
-    def inplace_pow((int1, int2)):
-        knowntype = rarithmetic.compute_restype(int1.knowntype, int2.knowntype)
-        return SomeInteger(nonneg = int1.nonneg,
-                           knowntype=knowntype)
-    inplace_pow.can_only_throw = [ZeroDivisionError]
-
     def _compare_helper((int1, int2), opname, operation):
         r = SomeBool()
         if int1.is_immutable_constant() and int2.is_immutable_constant():
@@ -499,9 +485,6 @@ class __extend__(pairtype(SomeFloat, SomeFloat)):
         return SomeFloat()
     div.can_only_throw = []
     truediv = div
-
-    def pow((flt1, flt2), obj3):
-        raise NotImplementedError("float power not supported, use math.pow")
 
     # repeat these in order to copy the 'can_only_throw' attribute
     inplace_div = div

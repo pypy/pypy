@@ -13,7 +13,7 @@ from pypy.objspace.flow.model import *
 from pypy.rlib.rarithmetic import r_uint, base_int, r_longlong, r_ulonglong
 from pypy.rlib.rarithmetic import r_singlefloat
 from pypy.rlib import objectmodel
-from pypy.objspace.flow.objspace import FlowObjSpace
+from pypy.objspace.flow.objspace import FlowObjSpace, FlowingError
 
 from pypy.translator.test import snippet
 
@@ -1430,15 +1430,6 @@ class TestAnnotateTestCase:
         t.is_type_of = [ev]
         assert a.binding(et) == t
         assert isinstance(a.binding(ev), annmodel.SomeInstance) and a.binding(ev).classdef == a.bookkeeper.getuniqueclassdef(Exception)
-
-    def test_pow(self):
-        def f(n):
-            n **= 2
-            return 2 ** n
-        a = self.RPythonAnnotator()
-        s = a.build_types(f, [int])
-        # result should be an integer
-        assert s.knowntype == int
 
     def test_inplace_div(self):
         def f(n):
@@ -3156,10 +3147,9 @@ class TestAnnotateTestCase:
             x **= y
             return x ** y
         a = self.RPythonAnnotator()
-        s = a.build_types(f, [int, int])
-        assert isinstance(s, annmodel.SomeInteger)
+        py.test.raises(FlowingError, a.build_types, f, [int, int])
         a = self.RPythonAnnotator()
-        py.test.raises(NotImplementedError, a.build_types, f, [float, float])
+        py.test.raises(FlowingError, a.build_types, f, [float, float])
 
     def test_intcmp_bug(self):
         def g(x, y):

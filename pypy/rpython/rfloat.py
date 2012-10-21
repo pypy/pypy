@@ -53,8 +53,6 @@ class __extend__(pairtype(FloatRepr, FloatRepr)):
 
     # 'floordiv' on floats not supported in RPython
 
-    # pow on floats not supported in RPython
-
     #comparisons: eq is_ ne lt le gt ge
 
     def rtype_eq(_, hop):
