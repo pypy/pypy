@@ -1136,6 +1136,14 @@ class TestFlowObjSpace(Base):
                                               'inplace_add': 1,
                                               'setitem': 1}
 
+    def test_list_append(self):
+        def f(iterable):
+            return [5 for x in iterable]
+        graph = self.codetest(f)
+        assert self.all_operations(graph) == {'getattr': 1,
+                                              'iter': 1, 'newlist': 1,
+                                              'next': 1, 'simple_call': 1}
+
 DATA = {'x': 5,
         'y': 6}
 

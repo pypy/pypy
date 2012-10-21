@@ -761,6 +761,20 @@ class FlowSpaceFrame(object):
         next_instr += jumpby
         return next_instr
 
+    def JUMP_IF_FALSE(self, stepby, next_instr):
+        # Python <= 2.6 only
+        w_cond = self.peekvalue()
+        if not self.space.is_true(w_cond):
+            next_instr += stepby
+        return next_instr
+
+    def JUMP_IF_TRUE(self, stepby, next_instr):
+        # Python <= 2.6 only
+        w_cond = self.peekvalue()
+        if self.space.is_true(w_cond):
+            next_instr += stepby
+        return next_instr
+
     def POP_JUMP_IF_FALSE(self, target, next_instr):
         w_value = self.popvalue()
         if not self.space.is_true(w_value):
@@ -1068,7 +1082,10 @@ class FlowSpaceFrame(object):
 
     def LIST_APPEND(self, oparg, next_instr):
         w = self.popvalue()
-        v = self.peekvalue(oparg - 1)
+        if sys.version_info < (2, 7):
+            v = self.popvalue()
+        else:
+            v = self.peekvalue(oparg - 1)
         self.space.call_method(v, 'append', w)
 
     def DELETE_FAST(self, varindex, next_instr):
