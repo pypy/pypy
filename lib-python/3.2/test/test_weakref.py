@@ -640,9 +640,11 @@ class ReferencesTestCase(TestBase):
         gc.collect()
         self.assertEqual(alist, [])
 
+    @support.impl_detail(pypy=False)
     def test_gc_during_ref_creation(self):
         self.check_gc_during_creation(weakref.ref)
 
+    @support.impl_detail(pypy=False)
     def test_gc_during_proxy_creation(self):
         self.check_gc_during_creation(weakref.proxy)
 
