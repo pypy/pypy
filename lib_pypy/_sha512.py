@@ -32,10 +32,10 @@ def sha_transform(sha_info):
     W = []
     
     d = sha_info['data']
-    for i in xrange(0,16):
+    for i in range(0,16):
         W.append( (d[8*i]<<56) + (d[8*i+1]<<48) + (d[8*i+2]<<40) + (d[8*i+3]<<32) + (d[8*i+4]<<24) + (d[8*i+5]<<16) + (d[8*i+6]<<8) + d[8*i+7])
     
-    for i in xrange(16,80):
+    for i in range(16,80):
         W.append( (Gamma1(W[i - 2]) + W[i - 7] + Gamma0(W[i - 15]) + W[i - 16]) & 0xffffffffffffffff )
     
     ss = sha_info['digest'][:]
@@ -152,14 +152,6 @@ def sha384_init():
     sha_info['digestsize'] = 48
     return sha_info
 
-def getbuf(s):
-    if isinstance(s, str):
-        return s
-    elif isinstance(s, unicode):
-        return str(s)
-    else:
-        return buffer(s)
-
 def sha_update(sha_info, buffer):
     count = len(buffer)
     buffer_idx = 0
@@ -199,7 +191,7 @@ def sha_update(sha_info, buffer):
     
     # copy buffer
     pos = sha_info['local']
-    sha_info['data'][pos:pos+count] = [struct.unpack('B',c)[0] for c in buffer[buffer_idx:buffer_idx + count]]
+    sha_info['data'][pos:pos+count] = buffer[buffer_idx:buffer_idx + count]
     sha_info['local'] = count
 
 def sha_final(sha_info):
@@ -240,7 +232,7 @@ def sha_final(sha_info):
     dig = []
     for i in sha_info['digest']:
         dig.extend([ ((i>>56) & 0xff), ((i>>48) & 0xff), ((i>>40) & 0xff), ((i>>32) & 0xff), ((i>>24) & 0xff), ((i>>16) & 0xff), ((i>>8) & 0xff), (i & 0xff) ])
-    return ''.join([chr(i) for i in dig])
+    return bytes(dig)
 
 class sha512(object):
     digest_size = digestsize = SHA_DIGESTSIZE
@@ -249,10 +241,10 @@ class sha512(object):
     def __init__(self, s=None):
         self._sha = sha_init()
         if s:
-            sha_update(self._sha, getbuf(s))
+            sha_update(self._sha, s)
     
     def update(self, s):
-        sha_update(self._sha, getbuf(s))
+        sha_update(self._sha, s)
     
     def digest(self):
         return sha_final(self._sha.copy())[:self._sha['digestsize']]
@@ -271,7 +263,7 @@ class sha384(sha512):
     def __init__(self, s=None):
         self._sha = sha384_init()
         if s:
-            sha_update(self._sha, getbuf(s))
+            sha_update(self._sha, s)
 
     def copy(self):
         new = sha384.__new__(sha384)
