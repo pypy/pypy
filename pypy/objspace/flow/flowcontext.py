@@ -211,7 +211,7 @@ class Replayer(Recorder):
 
 # ____________________________________________________________
 
-_unary_ops=[('UNARY_POSITIVE', "pos"),
+_unary_ops = [('UNARY_POSITIVE', "pos"),
     ('UNARY_NEGATIVE', "neg"),
     ('UNARY_NOT', "not_"),
     ('UNARY_CONVERT', "repr"),
@@ -227,6 +227,46 @@ def unaryoperation(OPCODE, op):
     UNARY_OP.func_name = OPCODE
     return UNARY_OP
 
+_binary_ops = [
+    ('BINARY_MULTIPLY', "mul"),
+    ('BINARY_TRUE_DIVIDE', "truediv"),
+    ('BINARY_FLOOR_DIVIDE', "floordiv"),
+    ('BINARY_DIVIDE', "div"),
+    ('BINARY_MODULO', "mod"),
+    ('BINARY_ADD', "add"),
+    ('BINARY_SUBTRACT', "sub"),
+    ('BINARY_SUBSCR', "getitem"),
+    ('BINARY_LSHIFT', "lshift"),
+    ('BINARY_RSHIFT', "rshift"),
+    ('BINARY_AND', "and_"),
+    ('BINARY_XOR', "xor"),
+    ('BINARY_OR', "or_"),
+    ('INPLACE_MULTIPLY', "inplace_mul"),
+    ('INPLACE_TRUE_DIVIDE', "inplace_truediv"),
+    ('INPLACE_FLOOR_DIVIDE', "inplace_floordiv"),
+    ('INPLACE_DIVIDE', "inplace_div"),
+    ('INPLACE_MODULO', "inplace_mod"),
+    ('INPLACE_ADD', "inplace_add"),
+    ('INPLACE_SUBTRACT', "inplace_sub"),
+    ('INPLACE_LSHIFT', "inplace_lshift"),
+    ('INPLACE_RSHIFT', "inplace_rshift"),
+    ('INPLACE_AND', "inplace_and"),
+    ('INPLACE_XOR', "inplace_xor"),
+    ('INPLACE_OR', "inplace_or"),
+]
+
+def binaryoperation(OPCODE, op):
+    """NOT_RPYTHON"""
+    def BINARY_OP(self, *ignored):
+        operation = getattr(self.space, op)
+        w_2 = self.popvalue()
+        w_1 = self.popvalue()
+        w_result = operation(w_1, w_2)
+        self.pushvalue(w_result)
+    BINARY_OP.binop = op
+    BINARY_OP.func_name = OPCODE
+    return BINARY_OP
+
 compare_method = [
     "cmp_lt",   # "<"
     "cmp_le",   # "<="
@@ -241,7 +281,7 @@ compare_method = [
     "cmp_exc_match",
     ]
 
-class FlowSpaceFrame(object):
+class FlowSpaceFrame(pyframe.PyFrame):
     opcode_method_names = host_bytecode_spec.method_names
 
     def __init__(self, space, graph, code):
@@ -856,6 +896,9 @@ class FlowSpaceFrame(object):
 
     for OPCODE, op in _unary_ops:
         locals()[OPCODE] = unaryoperation(OPCODE, op)
+
+    for OPCODE, op in _binary_ops:
+        locals()[OPCODE] = binaryoperation(OPCODE, op)
 
     def BUILD_LIST_FROM_ARG(self, _, next_instr):
         # This opcode was added with pypy-1.8.  Here is a simpler
