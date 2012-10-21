@@ -920,7 +920,13 @@ class FlowSpaceFrame(object):
         self.pushvalue(w_1)
 
     def DUP_TOPX(self, itemcount, next_instr):
-        self.dupvalues(itemcount)
+        delta = itemcount - 1
+        while True:
+            itemcount -= 1
+            if itemcount < 0:
+                break
+            w_value = self.peekvalue(delta)
+            self.pushvalue(w_value)
 
     for OPCODE, op in _unary_ops:
         locals()[OPCODE] = unaryoperation(OPCODE, op)
