@@ -39,8 +39,15 @@ else:
 def fsencode_w(space, w_obj):
     if space.isinstance_w(w_obj, space.w_unicode):
         w_obj = space.call_method(w_obj, 'encode',
-                                  getfilesystemencoding(space))
+                                  getfilesystemencoding(space),
+                                  space.wrap('surrogateescape'))
     return space.bytes0_w(w_obj)
+
+def fsdecode(space, w_obj):
+    w_unicode = space.call_method(w_obj, 'decode',
+                                  getfilesystemencoding(space),
+                                  space.wrap('surrogateescape'))
+    return w_unicode
 
 class FileEncoder(object):
     def __init__(self, space, w_obj):
@@ -63,8 +70,7 @@ class FileDecoder(object):
 
     def as_unicode(self):
         space = self.space
-        w_unicode = space.call_method(self.w_obj, 'decode',
-                                      getfilesystemencoding(space))
+        w_unicode = fsdecode(space, self.w_obj)
         return space.unicode0_w(w_unicode)
 
 @specialize.memo()
@@ -544,17 +550,11 @@ entries '.' and '..' even if they are present in the directory."""
         if space.isinstance_w(w_dirname, space.w_unicode):
             dirname = FileEncoder(space, w_dirname)
             result = rposix.listdir(dirname)
-            w_fs_encoding = getfilesystemencoding(space)
             len_result = len(result)
             result_w = [None] * len_result
             for i in range(len_result):
                 w_bytes = space.wrapbytes(result[i])
-                try:
-                    result_w[i] = space.call_method(w_bytes,
-                                                    "decode", w_fs_encoding)
-                except OperationError, e:
-                    # fall back to the original byte string
-                    result_w[i] = w_bytes
+                result_w[i] = fsdecode(space, w_bytes)
         else:
             dirname = space.str0_w(w_dirname)
             result = rposix.listdir(dirname)
