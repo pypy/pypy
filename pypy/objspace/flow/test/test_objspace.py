@@ -1126,6 +1126,14 @@ class TestFlowObjSpace(Base):
         with py.test.raises(FlowingError):
             self.codetest(f)
 
+    def test_aug_assign(self):
+        # test for DUP_TOPX
+        lst = [2, 3, 4]
+        def f(x, y):
+            lst[x] += y
+        graph = self.codetest(f)
+        assert self.all_operations(graph) == {'xxx': 1}
+
 DATA = {'x': 5,
         'y': 6}
 
