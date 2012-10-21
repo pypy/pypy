@@ -436,17 +436,14 @@ def _gettmarg(space, w_tup, allowNone=True):
     accept2dyear = space.int_w(w_accept2dyear)
 
     if y < 1900:
-        if not accept2dyear:
-            raise OperationError(space.w_ValueError,
-                space.wrap("year >= 1900 required"))
-
-        if 69 <= y <= 99:
-            y += 1900
-        elif 0 <= y <= 68:
-            y += 2000
-        else:
-            raise OperationError(space.w_ValueError,
-                space.wrap("year out of range"))
+        if accept2dyear:
+            if 69 <= y <= 99:
+                y += 1900
+            elif 0 <= y <= 68:
+                y += 2000
+            else:
+                raise OperationError(space.w_ValueError,
+                                     space.wrap("year out of range"))
 
     if rffi.getintfield(glob_buf, 'c_tm_wday') < 0:
         raise OperationError(space.w_ValueError,
@@ -625,9 +622,13 @@ def strftime(space, format, w_tup=None):
     if rffi.getintfield(buf_value, 'c_tm_yday') < 0 or rffi.getintfield(buf_value, 'c_tm_yday') > 365:
         raise OperationError(space.w_ValueError,
                              space.wrap("day of year out of range"))
-    if rffi.getintfield(buf_value, 'c_tm_isdst') < -1 or rffi.getintfield(buf_value, 'c_tm_isdst') > 1:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("daylight savings flag out of range"))
+    # Normalize tm_isdst just in case someone foolishly implements %Z
+    # based on the assumption that tm_isdst falls within the range of
+    # [-1, 1]
+    if rffi.getintfield(buf_value, 'c_tm_isdst') < -1:
+        rffi.setintfield(buf_value, 'c_tm_isdst', -1)
+    elif rffi.getintfield(buf_value, 'c_tm_isdst') > 1:
+        rffi.setintfield(buf_value, 'c_tm_isdst', 1)
 
     if _WIN:
         # check that the format string contains only valid directives
