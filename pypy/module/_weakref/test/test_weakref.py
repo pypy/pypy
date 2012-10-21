@@ -419,14 +419,14 @@ class AppTestProxy(object):
             print(s)
             assert "dead" in s
 
-    def test_unicode(self):
+    def test_bytes(self):
         import _weakref
         class C(object):
-            def __str__(self):
-                return "string"
+            def __bytes__(self):
+                return b"string"
         instance = C()
-        assert "__str__" in dir(_weakref.proxy(instance))
-        assert str(_weakref.proxy(instance)) == "string"
+        assert "__bytes__" in dir(_weakref.proxy(instance))
+        assert bytes(_weakref.proxy(instance)) == b"string"
 
     def test_eq(self):
         import _weakref
