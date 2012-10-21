@@ -126,33 +126,6 @@ class __extend__(pairtype(IntegerRepr, IntegerRepr)):
         return _rtype_template(hop, 'rshift')
     rtype_inplace_rshift = rtype_rshift
 
-    def rtype_pow(_, hop):
-        raise MissingRTypeOperation("'**' not supported in RPython")
-
-    rtype_pow_ovf = rtype_pow
-    rtype_inplace_pow = rtype_pow
-
-##    def rtype_pow(_, hop, suffix=''):
-##        if hop.has_implicit_exception(ZeroDivisionError):
-##            suffix += '_zer'
-##        s_int3 = hop.args_s[2]
-##        rresult = hop.rtyper.makerepr(hop.s_result)
-##        if s_int3.is_constant() and s_int3.const is None:
-##            vlist = hop.inputargs(rresult, rresult, Void)[:2]
-##        else:
-##            vlist = hop.inputargs(rresult, rresult, rresult)
-##        hop.exception_is_here()
-##        return hop.genop(rresult.opprefix + 'pow' + suffix, vlist, resulttype=rresult)
-
-##    def rtype_pow_ovf(_, hop):
-##        if hop.s_result.unsigned:
-##            raise TyperError("forbidden uint_pow_ovf")
-##        hop.has_implicit_exception(OverflowError) # record that we know about it
-##        return self.rtype_pow(_, hop, suffix='_ovf')
-
-##    def rtype_inplace_pow(_, hop):
-##        return _rtype_template(hop, 'pow', [ZeroDivisionError])
-
     #comparisons: eq is_ ne lt le gt ge
 
     def rtype_eq(_, hop): 

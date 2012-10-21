@@ -267,6 +267,27 @@ def binaryoperation(OPCODE, op):
     BINARY_OP.func_name = OPCODE
     return BINARY_OP
 
+_unsupported_ops = [
+    ('BINARY_POWER', "a ** b"),
+    ('BUILD_CLASS', 'creating new classes'),
+    ('EXEC_STMT', 'exec statement'),
+    ('STOP_CODE', '???'),
+    ('STORE_NAME', 'modifying globals'),
+    ('INPLACE_POWER', 'a **= b'),
+    ('LOAD_LOCALS', 'locals()'),
+    ('IMPORT_STAR', 'import *'),
+    ('MISSING_OPCODE', '???'),
+    ('DELETE_GLOBAL', 'modifying globals'),
+    ('DELETE_NAME', 'modifying globals'),
+    ('DELETE_ATTR', 'deleting attributes'),
+]
+
+def unsupportedoperation(OPCODE, msg):
+    def UNSUPPORTED(self, *ignored):
+        raise FlowingError(self, "%s is not RPython" % (msg,))
+    UNSUPPORTED.func_name = OPCODE
+    return UNSUPPORTED
+
 compare_method = [
     "cmp_lt",   # "<"
     "cmp_le",   # "<="
@@ -281,7 +302,7 @@ compare_method = [
     "cmp_exc_match",
     ]
 
-class FlowSpaceFrame(pyframe.PyFrame):
+class FlowSpaceFrame(object):
     opcode_method_names = host_bytecode_spec.method_names
 
     def __init__(self, space, graph, code):
@@ -336,6 +357,11 @@ class FlowSpaceFrame(pyframe.PyFrame):
         assert index >= self.pycode.co_nlocals, (
             "peek past the bottom of the stack")
         return self.locals_stack_w[index]
+
+    def pushrevvalues(self, n, values_w): # n should be len(values_w)
+        assert len(values_w) == n
+        for i in range(n - 1, -1, -1):
+            self.pushvalue(values_w[i])
 
     def settopvalue(self, w_object, index_from_top=0):
         index = self.valuestackdepth + ~index_from_top
@@ -838,6 +864,7 @@ class FlowSpaceFrame(pyframe.PyFrame):
     def LOAD_GLOBAL(self, nameindex, next_instr):
         w_result = self.space.find_global(self.w_globals, self.getname_u(nameindex))
         self.pushvalue(w_result)
+    LOAD_NAME = LOAD_GLOBAL
 
     def LOAD_ATTR(self, nameindex, next_instr):
         "obj.attributename"
@@ -900,6 +927,9 @@ class FlowSpaceFrame(pyframe.PyFrame):
     for OPCODE, op in _binary_ops:
         locals()[OPCODE] = binaryoperation(OPCODE, op)
 
+    for OPCODE, op in _unsupported_ops:
+        locals()[OPCODE] = unsupportedoperation(OPCODE, op)
+
     def BUILD_LIST_FROM_ARG(self, _, next_instr):
         # This opcode was added with pypy-1.8.  Here is a simpler
         # version, enough for annotation.
@@ -954,6 +984,140 @@ class FlowSpaceFrame(pyframe.PyFrame):
         defaults = self.popvalues(numdefaults)
         fn = self.space.newfunction(w_codeobj, self.w_globals, defaults)
         self.pushvalue(fn)
+
+    def STORE_ATTR(self, nameindex, next_instr):
+        "obj.attributename = newvalue"
+        w_attributename = self.getname_w(nameindex)
+        w_obj = self.popvalue()
+        w_newvalue = self.popvalue()
+        self.space.setattr(w_obj, w_attributename, w_newvalue)
+
+    def UNPACK_SEQUENCE(self, itemcount, next_instr):
+        w_iterable = self.popvalue()
+        items = self.space.unpackiterable(w_iterable, itemcount)
+        self.pushrevvalues(itemcount, items)
+
+    def slice(self, w_start, w_end):
+        w_obj = self.popvalue()
+        w_result = self.space.getslice(w_obj, w_start, w_end)
+        self.pushvalue(w_result)
+
+    def SLICE_0(self, oparg, next_instr):
+        self.slice(self.space.w_None, self.space.w_None)
+
+    def SLICE_1(self, oparg, next_instr):
+        w_start = self.popvalue()
+        self.slice(w_start, self.space.w_None)
+
+    def SLICE_2(self, oparg, next_instr):
+        w_end = self.popvalue()
+        self.slice(self.space.w_None, w_end)
+
+    def SLICE_3(self, oparg, next_instr):
+        w_end = self.popvalue()
+        w_start = self.popvalue()
+        self.slice(w_start, w_end)
+
+    def storeslice(self, w_start, w_end):
+        w_obj = self.popvalue()
+        w_newvalue = self.popvalue()
+        self.space.setslice(w_obj, w_start, w_end, w_newvalue)
+
+    def STORE_SLICE_0(self, oparg, next_instr):
+        self.storeslice(self.space.w_None, self.space.w_None)
+
+    def STORE_SLICE_1(self, oparg, next_instr):
+        w_start = self.popvalue()
+        self.storeslice(w_start, self.space.w_None)
+
+    def STORE_SLICE_2(self, oparg, next_instr):
+        w_end = self.popvalue()
+        self.storeslice(self.space.w_None, w_end)
+
+    def STORE_SLICE_3(self, oparg, next_instr):
+        w_end = self.popvalue()
+        w_start = self.popvalue()
+        self.storeslice(w_start, w_end)
+
+    def deleteslice(self, w_start, w_end):
+        w_obj = self.popvalue()
+        self.space.delslice(w_obj, w_start, w_end)
+
+    def DELETE_SLICE_0(self, oparg, next_instr):
+        self.deleteslice(self.space.w_None, self.space.w_None)
+
+    def DELETE_SLICE_1(self, oparg, next_instr):
+        w_start = self.popvalue()
+        self.deleteslice(w_start, self.space.w_None)
+
+    def DELETE_SLICE_2(self, oparg, next_instr):
+        w_end = self.popvalue()
+        self.deleteslice(self.space.w_None, w_end)
+
+    def DELETE_SLICE_3(self, oparg, next_instr):
+        w_end = self.popvalue()
+        w_start = self.popvalue()
+        self.deleteslice(w_start, w_end)
+
+    def LIST_APPEND(self, oparg, next_instr):
+        w = self.popvalue()
+        v = self.peekvalue(oparg - 1)
+        self.space.call_method(v, 'append', w)
+
+    def DELETE_FAST(self, varindex, next_instr):
+        if self.locals_stack_w[varindex] is None:
+            varname = self.getlocalvarname(varindex)
+            message = "local variable '%s' referenced before assignment"
+            raise UnboundLocalError(message, varname)
+        self.locals_stack_w[varindex] = None
+
+    def STORE_MAP(self, oparg, next_instr):
+        w_key = self.popvalue()
+        w_value = self.popvalue()
+        w_dict = self.peekvalue()
+        self.space.setitem(w_dict, w_key, w_value)
+
+    def STORE_SUBSCR(self, oparg, next_instr):
+        "obj[subscr] = newvalue"
+        w_subscr = self.popvalue()
+        w_obj = self.popvalue()
+        w_newvalue = self.popvalue()
+        self.space.setitem(w_obj, w_subscr, w_newvalue)
+
+    def BUILD_SLICE(self, numargs, next_instr):
+        if numargs == 3:
+            w_step = self.popvalue()
+        elif numargs == 2:
+            w_step = self.space.w_None
+        else:
+            raise BytecodeCorruption
+        w_end = self.popvalue()
+        w_start = self.popvalue()
+        w_slice = self.space.newslice(w_start, w_end, w_step)
+        self.pushvalue(w_slice)
+
+    def DELETE_SUBSCR(self, oparg, next_instr):
+        "del obj[subscr]"
+        w_subscr = self.popvalue()
+        w_obj = self.popvalue()
+        self.space.delitem(w_obj, w_subscr)
+
+    def BUILD_TUPLE(self, itemcount, next_instr):
+        items = self.popvalues(itemcount)
+        w_tuple = self.space.newtuple(items)
+        self.pushvalue(w_tuple)
+
+    def BUILD_LIST(self, itemcount, next_instr):
+        items = self.popvalues(itemcount)
+        w_list = self.space.newlist(items)
+        self.pushvalue(w_list)
+
+    def BUILD_MAP(self, itemcount, next_instr):
+        w_dict = self.space.newdict()
+        self.pushvalue(w_dict)
+
+    def NOP(self, *args):
+        pass
 
     # XXX Unimplemented 2.7 opcodes ----------------
 

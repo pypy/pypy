@@ -226,7 +226,7 @@ class FlowObjSpace(object):
             w_real_class = self.wrap(rstackovf._StackOverflow)
             return self._exception_match(w_exc_type, w_real_class)
         # checking a tuple of classes
-        for w_klass in self.fixedview(w_check_class):
+        for w_klass in self.unpackiterable(w_check_class):
             if self.exception_match(w_exc_type, w_klass):
                 return True
         return False
@@ -284,10 +284,6 @@ class FlowObjSpace(object):
         if code.is_generator:
             tweak_generator_graph(graph)
         return graph
-
-    def fixedview(self, w_tuple, expected_length=None):
-        return self.unpackiterable(w_tuple, expected_length)
-    listview = fixedview_unroll = fixedview
 
     def unpackiterable(self, w_iterable, expected_length=None):
         if not isinstance(w_iterable, Variable):

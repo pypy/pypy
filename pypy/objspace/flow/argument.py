@@ -104,7 +104,7 @@ class ArgumentsForTranslation(object):
     def _combine_starargs_wrapped(self, w_stararg):
         # unpack the * arguments
         space = self.space
-        args_w = space.fixedview(w_stararg)
+        args_w = space.unpackiterable(w_stararg)
         self.arguments_w = self.arguments_w + args_w
 
     def _combine_starstarargs_wrapped(self, w_starstararg):
@@ -117,7 +117,7 @@ class ArgumentsForTranslation(object):
                 self.keywords_w = values_w
             else:
                 if set(keywords) & set(self.keywords):
-                    raise TypeError("got multiple values for keyword argument '%s'", key)
+                    raise TypeError("got multiple values for keyword arguments '%s'", set(keywords) & set(self.keywords))
                 self.keywords = self.keywords + keywords
                 self.keywords_w = self.keywords_w + values_w
             return
