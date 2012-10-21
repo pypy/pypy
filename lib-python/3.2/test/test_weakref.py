@@ -849,6 +849,7 @@ class MappingTestCase(TestBase):
         del items1, items2
         self.assertEqual(len(dict), self.COUNT)
         del objects[0]
+        gc_collect()
         self.assertEqual(len(dict), self.COUNT - 1,
                      "deleting object did not cause dictionary update")
         del objects, o
