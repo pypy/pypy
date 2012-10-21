@@ -14,26 +14,6 @@ def PyFile_AsFile(space, p):
     PyFile_DecUseCount() functions described below as appropriate."""
     raise NotImplementedError
 
-@cpython_api([PyInterpreterState], PyThreadState, error=CANNOT_FAIL)
-def PyThreadState_New(space, interp):
-    """Create a new thread state object belonging to the given interpreter object.
-    The global interpreter lock need not be held, but may be held if it is
-    necessary to serialize calls to this function."""
-    raise NotImplementedError
-
-@cpython_api([PyThreadState], lltype.Void)
-def PyThreadState_Clear(space, tstate):
-    """Reset all information in a thread state object.  The global interpreter lock
-    must be held."""
-    raise NotImplementedError
-
-@cpython_api([PyThreadState], lltype.Void)
-def PyThreadState_Delete(space, tstate):
-    """Destroy a thread state object.  The global interpreter lock need not be held.
-    The thread state must have been reset with a previous call to
-    PyThreadState_Clear()."""
-    raise NotImplementedError
-
 @cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
 def Py_MakePendingCalls(space):
     return 0
