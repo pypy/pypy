@@ -2,11 +2,12 @@
 Backend for the JVM.
 """
 
-import sys
 import os
+import re
+import subprocess
+import sys
 
 import py
-import subprocess
 from pypy.tool.udir import udir
 from pypy.translator.translator import TranslationContext
 from pypy.translator.oosupport.genoo import GenOO
@@ -24,6 +25,8 @@ from pypy.translator.jvm.constant import \
      JVMConstantGenerator, JVMStaticMethodConst, JVMCustomDictConst, \
      JVMWeakRefConst
 from pypy.translator.jvm.prebuiltnodes import create_interlink_node
+
+MIN_JAVA_VERSION = '1.6.0'
 
 class JvmError(Exception):
     """ Indicates an error occurred in JVM backend """
@@ -222,12 +225,35 @@ def generate_source_for_function(func, annotation, backendopt=False):
     jvm = GenJvm(tmpdir, t, EntryPoint(main_graph, True, True))
     return jvm.generate_source()
 
+_missing_support_programs = None
+
 def detect_missing_support_programs():
-    def check(exechelper):
-        if py.path.local.sysfind(exechelper) is None:
-            py.test.skip("%s is not on your path" % exechelper)
-    check(getoption('javac'))
-    check(getoption('java'))
+    global _missing_support_programs
+    if _missing_support_programs is not None:
+        if _missing_support_programs:
+            py.test.skip(_missing_support_programs)
+        return
+
+    def missing(msg):
+        global _missing_support_programs
+        _missing_support_programs = msg
+        py.test.skip(msg)
+
+    for cmd in 'javac', 'java':
+        if py.path.local.sysfind(getoption(cmd)) is None:
+            missing("%s is not on your path" % cmd)
+    if not _check_java_version(MIN_JAVA_VERSION):
+        missing('Minimum of Java %s required' % MIN_JAVA_VERSION)
+    _missing_support_programs = False
+
+def _check_java_version(version):
+    """Determine if java meets the specified version"""
+    cmd = [getoption('java'), '-version']
+    with open(os.devnull, 'w') as devnull:
+        stderr = subprocess.Popen(cmd, stdout=devnull,
+                                  stderr=subprocess.PIPE).communicate()[1]
+    search = re.search('[\.0-9]+', stderr)
+    return search and search.group() >= version
 
 class GenJvm(GenOO):
 
