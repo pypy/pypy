@@ -7,9 +7,7 @@ import collections
 
 from pypy.tool.error import source_lines
 from pypy.tool.stdlib_opcode import host_bytecode_spec
-from pypy.interpreter import pyframe
 from pypy.objspace.flow.argument import ArgumentsForTranslation
-from pypy.interpreter.pyopcode import BytecodeCorruption
 from pypy.objspace.flow.model import (Constant, Variable, Block, Link,
     UnwrapException, c_last_exception)
 from pypy.objspace.flow.framestate import (FrameState, recursively_unflatten,
@@ -49,6 +47,9 @@ class FSException(Exception):
         return '[%s: %s]' % (self.w_type, self.w_value)
 
 class ImplicitOperationError(FSException):
+    pass
+
+class BytecodeCorruption(Exception):
     pass
 
 class SpamBlock(Block):

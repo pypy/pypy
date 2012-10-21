@@ -7,7 +7,6 @@ import sys
 import types
 from inspect import CO_NEWLOCALS
 
-from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.objspace.flow.argument import ArgumentsForTranslation
 from pypy.objspace.flow.model import (Constant, Variable, WrapException,
     UnwrapException, checkgraph, SpaceOperation)
@@ -569,5 +568,5 @@ def make_op(name, arity):
     setattr(FlowObjSpace, name, generic_operator)
 
 
-for (name, symbol, arity, specialnames) in ObjSpace.MethodTable:
+for (name, symbol, arity, specialnames) in operation.MethodTable:
     make_op(name, arity)

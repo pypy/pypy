@@ -1,12 +1,14 @@
 """
 Bytecode handling classes and functions for use by the flow space.
 """
-from pypy.interpreter.pycode import BytecodeCorruption
 from pypy.tool.stdlib_opcode import (host_bytecode_spec, EXTENDED_ARG,
         HAVE_ARGUMENT)
-from pypy.interpreter.astcompiler.consts import (CO_GENERATOR, CO_VARARGS,
-        CO_VARKEYWORDS)
 from pypy.objspace.flow.argument import Signature
+from pypy.objspace.flow.flowcontext import BytecodeCorruption
+
+CO_GENERATOR = 0x0020
+CO_VARARGS = 0x0004
+CO_VARKEYWORDS = 0x0008
 
 def cpython_code_signature(code):
     "([list-of-arg-names], vararg-name-or-None, kwarg-name-or-None)."

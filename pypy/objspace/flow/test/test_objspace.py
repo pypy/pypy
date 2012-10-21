@@ -749,7 +749,7 @@ class TestFlowObjSpace(Base):
     def test_mergeable(self):
         def myfunc(x):
             if x:
-                from pypy.interpreter.error import OperationError
+                from pypy.objspace.flow.flowcontext import BytecodeCorruption
                 s = 12
             else:
                 s = x.abc
