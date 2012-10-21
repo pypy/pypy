@@ -128,3 +128,9 @@ class AppTestRLock(GenericTestThread):
         with lock:
             assert lock._is_owned() is True
 
+    def test_timeout(self):
+        import _thread
+        lock = _thread.RLock()
+        assert lock.acquire() is True
+        assert lock.acquire(False) is True
+        assert lock.acquire(True, timeout=.1) is True

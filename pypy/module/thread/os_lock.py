@@ -31,6 +31,26 @@ TIMEOUT_MAX = LONGLONG_MAX
 ##    sys.stderr.write(msg)
 
 
+def parse_acquire_args(space, blocking, timeout):
+    if not blocking and timeout != -1.0:
+        raise OperationError(space.w_ValueError, space.wrap(
+                "can't specify a timeout for a non-blocking call"))
+    if timeout < 0.0 and timeout != -1.0:
+        raise OperationError(space.w_ValueError, space.wrap(
+                "timeout value must be strictly positive"))
+    if not blocking:
+        microseconds = 0
+    elif timeout == -1.0:
+        microseconds = -1
+    else:
+        timeout *= 1e6
+        if timeout > float(TIMEOUT_MAX):
+            raise OperationError(space.w_ValueError, space.wrap(
+                    "timeout value is too large"))
+        microseconds = r_longlong(timeout)
+    return microseconds
+
+
 class Lock(Wrappable):
     "A wrappable box around an interp-level lock object."
 
@@ -49,22 +69,7 @@ the lock, and return None once the lock is acquired.
 With an argument, this will only block if the argument is true,
 and the return value reflects whether the lock is acquired.
 The blocking operation is interruptible."""
-        if not blocking and timeout != -1.0:
-            raise OperationError(space.w_ValueError, space.wrap(
-                    "can't specify a timeout for a non-blocking call"))
-        if timeout < 0.0 and timeout != -1.0:
-            raise OperationError(space.w_ValueError, space.wrap(
-                    "timeout value must be strictly positive"))
-        if not blocking:
-            microseconds = 0
-        elif timeout == -1.0:
-            microseconds = -1
-        else:
-            timeout *= 1e6
-            if timeout > float(TIMEOUT_MAX):
-                raise OperationError(space.w_ValueError, space.wrap(
-                        "timeout value is too large"))
-            microseconds = r_longlong(timeout)
+        microseconds = parse_acquire_args(space, blocking, timeout)
         mylock = self.lock
         result = mylock.acquire_timed(microseconds)
         return space.newbool(result)
@@ -150,8 +155,8 @@ class W_RLock(Wrappable):
         return space.wrap("<%s owner=%d count=%d>" % (
                 typename, self.rlock_owner, self.rlock_count))
 
-    @unwrap_spec(blocking=bool)
-    def acquire_w(self, space, blocking=True):
+    @unwrap_spec(blocking=bool, timeout=float)
+    def acquire_w(self, space, blocking=True, timeout=-1.0):
         """Lock the lock.  `blocking` indicates whether we should wait
         for the lock to be available or not.  If `blocking` is False
         and another thread holds the lock, the method will return False
@@ -164,6 +169,7 @@ class W_RLock(Wrappable):
         Precisely, if the current thread already holds the lock, its
         internal counter is simply incremented. If nobody holds the lock,
         the lock is taken and its internal counter initialized to 1."""
+        microseconds = parse_acquire_args(space, blocking, timeout)
         tid = thread.get_ident()
         if self.rlock_count > 0 and tid == self.rlock_owner:
             try:
@@ -177,7 +183,7 @@ class W_RLock(Wrappable):
         if self.rlock_count > 0 or not self.lock.acquire(False):
             if not blocking:
                 return space.w_False
-            r = self.lock.acquire(True)
+            r = self.lock.acquire_timed(microseconds)
         if r:
             assert self.rlock_count == 0
             self.rlock_owner = tid
@@ -212,9 +218,12 @@ class W_RLock(Wrappable):
         else:
             return space.w_False
 
-    @unwrap_spec(count=int, owner=int)
-    def acquire_restore_w(self, space, count, owner):
+    def acquire_restore_w(self, space, w_saved_state):
         """For internal use by `threading.Condition`."""
+        # saved_state is the value returned by release_save()
+        w_count, w_owner = space.unpackiterable(w_saved_state, 2)
+        count = space.int_w(w_count)
+        owner = space.int_w(w_owner)
         r = True
         if not self.lock.acquire(False):
             r = self.lock.acquire(True)
