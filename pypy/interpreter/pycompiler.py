@@ -101,7 +101,7 @@ class PythonAstCompiler(PyCodeCompiler):
     """
     def __init__(self, space, override_version=None):
         PyCodeCompiler.__init__(self, space)
-        self.future_flags = future.futureFlags_2_7
+        self.future_flags = future.futureFlags_3_2
         self.parser = pyparse.PythonParser(space, self.future_flags)
         self.additional_rules = {}
         self.compiler_flags = self.future_flags.allowed_flags

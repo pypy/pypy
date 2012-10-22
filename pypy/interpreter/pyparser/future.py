@@ -24,8 +24,9 @@ assembler like style. A further speedup could be achieved by replacing
 the "in" comparisons with explicit numeric comparisons.
 """
 
-from pypy.interpreter.astcompiler.consts import CO_GENERATOR_ALLOWED, \
-    CO_FUTURE_DIVISION, CO_FUTURE_WITH_STATEMENT, CO_FUTURE_ABSOLUTE_IMPORT
+from pypy.interpreter.astcompiler.consts import (
+    CO_GENERATOR_ALLOWED, CO_FUTURE_DIVISION, CO_FUTURE_WITH_STATEMENT,
+    CO_FUTURE_ABSOLUTE_IMPORT, CO_FUTURE_BARRY_AS_BDFL)
 
 def get_futures(future_flags, source):
     futures = FutureAutomaton(future_flags, source)

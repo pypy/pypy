@@ -15,6 +15,7 @@ CO_FUTURE_ABSOLUTE_IMPORT = 0x4000
 CO_FUTURE_WITH_STATEMENT = 0x8000
 CO_FUTURE_PRINT_FUNCTION = 0x10000
 CO_FUTURE_UNICODE_LITERALS = 0x20000
+CO_FUTURE_BARRY_AS_BDFL = 0x40000
 CO_CONTAINSGLOBALS = 0x80000 # pypy-specific: need to check that it's not used
                              # by any other flag
 

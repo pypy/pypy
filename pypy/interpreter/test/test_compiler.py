@@ -778,6 +778,22 @@ class AppTestCompiler:
         for case in cases:
             raises(SyntaxError, compile, case, "<test>", "exec")
 
+    def test_barry_as_bdfl(self):
+        # from test_flufl.py :-)
+        import __future__
+        code = "from __future__ import barry_as_FLUFL; 2 {0} 3"
+        compile(code.format('<>'), '<BDFL test>', 'exec',
+                __future__.CO_FUTURE_BARRY_AS_BDFL)
+        raises(SyntaxError, compile, code.format('!='),
+               '<FLUFL test>', 'exec',
+               __future__.CO_FUTURE_BARRY_AS_BDFL)
+
+    def test_guido_as_bdfl(self):
+        # from test_flufl.py :-)
+        code = '2 {0} 3'
+        compile(code.format('!='), '<BDFL test>', 'exec')
+        raises(SyntaxError, compile, code.format('<>'),
+               '<FLUFL test>', 'exec')
 
 
 class AppTestOptimizer:
