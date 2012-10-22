@@ -204,8 +204,7 @@ class ArgumentsForTranslation(object):
         # if a **kwargs argument is needed, create the dict
         w_kwds = None
         if signature.has_kwarg():
-            w_kwds = self.space.newdict()
-            scope_w[co_argcount + signature.has_vararg()] = w_kwds
+            raise TypeError("Keyword arguments as **kwargs is not supported by RPython")
 
         # handle keyword arguments
         num_remainingkwds = 0
