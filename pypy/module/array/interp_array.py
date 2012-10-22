@@ -485,8 +485,12 @@ def make_array(mytype):
         self.buffer = lltype.malloc(mytype.arraytype,
                       max(self.len - (j - i), 0), flavor='raw',
                       add_memory_pressure=True)
-        for k in range(0, i):
-            self.buffer[k] = oldbuffer[k]
+        if i:
+            rffi.c_memcpy(
+                rffi.cast(rffi.VOIDP, self.buffer),
+                rffi.cast(rffi.VOIDP, oldbuffer),
+                i * mytype.bytes
+            )
         m = i
         for k in range(j, self.len):
             self.buffer[m] = oldbuffer[k]
