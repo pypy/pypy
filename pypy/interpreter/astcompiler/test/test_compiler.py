@@ -877,6 +877,7 @@ class AppTestCompiler:
 class TestOptimizations:
     def count_instructions(self, source):
         code, blocks = generate_function_code(source, self.space)
+        import pdb;pdb.set_trace()
         instrs = []
         for block in blocks:
             instrs.extend(block.instructions)

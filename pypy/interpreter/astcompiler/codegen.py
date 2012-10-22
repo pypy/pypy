@@ -118,6 +118,19 @@ class __extend__(ast.GeneratorExp):
         codegen.emit_op(ops.POP_TOP)
 
 
+class __extend__(ast.ListComp):
+
+    def build_container(self, codegen):
+        codegen.emit_op_arg(ops.BUILD_LIST, 0)
+
+    def get_generators(self):
+        return self.generators
+
+    def accept_comp_iteration(self, codegen, index):
+        self.elt.walkabout(codegen)
+        codegen.emit_op_arg(ops.LIST_APPEND, index + 1)
+
+
 class __extend__(ast.SetComp):
 
     def build_container(self, codegen):
@@ -1080,13 +1093,17 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.use_next_block(anchor)
 
     def visit_ListComp(self, lc):
-        self.update_position(lc.lineno)
-        if len(lc.generators) != 1 or lc.generators[0].ifs:
-            single = False
-            self.emit_op_arg(ops.BUILD_LIST, 0)
-        else:
-            single = True
-        self._listcomp_generator(lc.generators, 0, lc.elt, single=single)
+        self._compile_comprehension(lc, "<listcomp>",
+                                    ComprehensionCodeGenerator)
+
+    ## def visit_ListComp(self, lc):
+    ##     self.update_position(lc.lineno)
+    ##     if len(lc.generators) != 1 or lc.generators[0].ifs:
+    ##         single = False
+    ##         self.emit_op_arg(ops.BUILD_LIST, 0)
+    ##     else:
+    ##         single = True
+    ##     self._listcomp_generator(lc.generators, 0, lc.elt, single=single)
 
     def _comp_generator(self, node, generators, gen_index):
         start = self.new_block()

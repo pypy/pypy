@@ -106,6 +106,9 @@ class TestSymbolTable:
     def test_genexp(self):
         self.check_comprehension("(%s)")
 
+    def test_listcomp(self):
+        self.check_comprehension("[%s]")
+
     def test_setcomp(self):
         self.check_comprehension("{%s}")
 

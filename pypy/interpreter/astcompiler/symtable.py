@@ -473,6 +473,9 @@ class SymtableBuilder(ast.GenericASTVisitor):
             item.walkabout(self)
         self.pop_scope()
 
+    def visit_ListComp(self, listcomp):
+        self._visit_comprehension(listcomp, listcomp.generators, listcomp.elt)
+
     def visit_GeneratorExp(self, genexp):
         self._visit_comprehension(genexp, genexp.generators, genexp.elt)
 
