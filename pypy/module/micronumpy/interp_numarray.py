@@ -307,7 +307,8 @@ class __extend__(W_NDimArray):
     def descr_take(self, space, w_obj, w_axis=None, w_out=None):
         # if w_axis is None and w_out is Nont this is an equivalent to
         # fancy indexing
-        raise Exception("unsupported for now")
+        raise OperationError(space.w_NotImplementedError,
+                             space.wrap("unsupported for now"))
         if not space.is_none(w_axis):
             raise OperationError(space.w_NotImplementedError,
                                  space.wrap("axis unsupported for take"))

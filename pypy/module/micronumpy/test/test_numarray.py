@@ -1961,8 +1961,11 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert (arange(6).reshape(2, 3).T.ravel() == [0, 3, 1, 4, 2, 5]).all()
 
     def test_take(self):
-        skip("we wait for int-based indexing")
         from _numpypy import arange
+        try:
+            arange(10).take([0])
+        except NotImplementedError:
+            skip("we wait for int-based indexing")
         assert (arange(10).take([1, 2, 1, 1]) == [1, 2, 1, 1]).all()
         raises(IndexError, "arange(3).take([15])")
         a = arange(6).reshape(2, 3)
