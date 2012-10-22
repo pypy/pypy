@@ -491,10 +491,11 @@ def make_array(mytype):
                 rffi.cast(rffi.VOIDP, oldbuffer),
                 i * mytype.bytes
             )
-        m = i
-        for k in range(j, self.len):
-            self.buffer[m] = oldbuffer[k]
-            m += 1
+        if j < self.len:
+            rffi.c_memcpy(
+                rffi.cast(rffi.VOIDP, rffi.ptradd(self.buffer, i)),
+                rffi.cast(rffi.VOIDP, rffi.ptradd(oldbuffer, j)),
+                (self.len - j) * mytype.bytes)
         self.len -= j - i
         self.allocated = self.len
         if oldbuffer:
