@@ -977,8 +977,8 @@ class FlowSpaceFrame(object):
             keywords = None
             keywords_w = None
         arguments = self.popvalues(n_arguments)
-        args = self.argument_factory(arguments, keywords, keywords_w, w_star,
-                                     w_starstar)
+        args = ArgumentsForTranslation(self.space, arguments, keywords,
+                keywords_w, w_star, w_starstar)
         w_function  = self.popvalue()
         w_result = self.space.call_args(w_function, args)
         self.pushvalue(w_result)
@@ -1163,11 +1163,6 @@ class FlowSpaceFrame(object):
     STORE_DEREF = BAD_OPCODE
     LOAD_CLOSURE = BAD_OPCODE
     MAKE_CLOSURE = BAD_OPCODE
-
-    def make_arguments(self, nargs):
-        return ArgumentsForTranslation(self.space, self.peekvalues(nargs))
-    def argument_factory(self, *args):
-        return ArgumentsForTranslation(self.space, *args)
 
 ### Frame blocks ###
 
