@@ -25,14 +25,13 @@ class Module(MixedModule):
         for name in """
             gethostbyname gethostbyname_ex gethostbyaddr gethostname
             getservbyname getservbyport getprotobyname
-            fromfd socketpair
+            dup socketpair
             ntohs ntohl htons htonl inet_aton inet_ntoa inet_pton inet_ntop
             getaddrinfo getnameinfo
             getdefaulttimeout setdefaulttimeout
             """.split():
 
-            if name in ('inet_pton', 'inet_ntop',
-                        'fromfd', 'socketpair',
+            if name in ('inet_pton', 'inet_ntop', 'socketpair',
                         ) and not hasattr(rsocket, name):
                 continue
             

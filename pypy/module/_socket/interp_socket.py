@@ -93,12 +93,6 @@ class W_RSocket(Wrappable, RSocket):
         error = self.connect_ex(addr)
         return space.wrap(error)
 
-    def dup_w(self, space):
-        try:
-            return self.dup(W_RSocket)
-        except SocketError, e:
-            raise converted_error(space, e)
-    
     def fileno_w(self, space):
         """fileno() -> integer
 
@@ -452,15 +446,11 @@ def converted_error(space, e):
 # ____________________________________________________________
 
 socketmethodnames = """
-_accept bind close connect connect_ex dup fileno detach
+_accept bind close connect connect_ex fileno detach
 getpeername getsockname getsockopt gettimeout listen
 recv recvfrom send sendall sendto setblocking
 setsockopt settimeout shutdown _reuse _drop recv_into recvfrom_into
 """.split()
-# Remove non-implemented methods
-for name in ('dup',):
-    if not hasattr(RSocket, name):
-        socketmethodnames.remove(name)
 if hasattr(rsocket._c, 'WSAIoctl'):
     socketmethodnames.append('ioctl')
 
@@ -488,7 +478,6 @@ bind(addr) -- bind the socket to a local address
 close() -- close the socket
 connect(addr) -- connect the socket to a remote address
 connect_ex(addr) -- connect, return an error code instead of an exception
-dup() -- return a new socket object identical to the current one [*]
 fileno() -- return underlying file descriptor
 getpeername() -- return remote address [*]
 getsockname() -- return local address

@@ -91,25 +91,6 @@ def test_getprotobyname():
                         "(_socket, name): return _socket.getprotobyname(name)")
     assert space.unwrap(w_n) == socket.IPPROTO_TCP
 
-def test_fromfd():
-    # XXX review
-    if not hasattr(socket, 'fromfd'):
-        py.test.skip("No socket.fromfd on this platform")
-    orig_fd = path.open()
-    fd = space.appexec([w_socket, space.wrap(orig_fd.fileno()),
-            space.wrap(socket.AF_INET), space.wrap(socket.SOCK_STREAM),
-            space.wrap(0)],
-           """(_socket, fd, family, type, proto): 
-                 return _socket.fromfd(fd, family, type, proto)""")
-
-    assert space.unwrap(space.call_method(fd, 'fileno'))
-    fd = space.appexec([w_socket, space.wrap(orig_fd.fileno()),
-            space.wrap(socket.AF_INET), space.wrap(socket.SOCK_STREAM)],
-                """(_socket, fd, family, type):
-                    return _socket.fromfd(fd, family, type)""")
-
-    assert space.unwrap(space.call_method(fd, 'fileno'))
-
 def test_ntohs():
     w_n = space.appexec([w_socket, space.wrap(125)],
                         "(_socket, x): return _socket.ntohs(x)")
@@ -503,13 +484,10 @@ class AppTestSocket:
 
     def test_dup(self):
         import _socket as socket
-        if not hasattr(socket.socket, 'dup'):
-            skip('No dup() on this platform')
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.bind(('localhost', 0))
-        s2 = s.dup()
-        assert s.fileno() != s2.fileno()
-        assert s.getsockname() == s2.getsockname()
+        fd = socket.dup(s.fileno())
+        assert s.fileno() != fd
 
     def test_buffer(self):
         # Test that send/sendall/sendto accept a buffer as arg
