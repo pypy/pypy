@@ -3805,6 +3805,20 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [annmodel.SomeInteger()])
         assert isinstance(s, annmodel.SomeBool)
 
+    def test_object_init(self):
+        class A(object):
+            pass
+
+        class B(A):
+            def __init__(self):
+                A.__init__(self)
+
+        def f():
+            B()
+
+        a = self.RPythonAnnotator()
+        a.build_types(f, []) # assert did not explode
+
 def g(n):
     return [0,1,2,n]
 

@@ -404,7 +404,10 @@ else:
     BUILTIN_ANALYZERS[unicodedata.decimal] = unicodedata_decimal # xxx
 
 # object - just ignore object.__init__
-BUILTIN_ANALYZERS[object.__init__] = object_init
+if hasattr(object.__init__, 'im_func'):
+    BUILTIN_ANALYZERS[object.__init__.im_func] = object_init
+else:
+    BUILTIN_ANALYZERS[object.__init__] = object_init    
 
 # import
 BUILTIN_ANALYZERS[__import__] = import_func

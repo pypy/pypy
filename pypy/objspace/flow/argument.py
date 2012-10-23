@@ -201,8 +201,7 @@ class ArgumentsForTranslation(object):
         elif num_args > co_argcount:
             raise ArgErrCount(num_args, num_kwds, signature, defaults_w, 0)
 
-        # if a **kwargs argument is needed, create the dict
-        w_kwds = None
+        # if a **kwargs argument is needed, explode
         if signature.has_kwarg():
             raise TypeError("Keyword arguments as **kwargs is not supported by RPython")
 
@@ -235,24 +234,10 @@ class ArgumentsForTranslation(object):
                     num_remainingkwds -= 1
 
             if num_remainingkwds:
-                if w_kwds is not None:
-                    # collect extra keyword arguments into the **kwarg
-                    limit = len(keywords)
-                    if self.keyword_names_w is not None:
-                        limit -= len(self.keyword_names_w)
-                    for i in range(len(keywords)):
-                        if i in kwds_mapping:
-                            continue
-                        if i < limit:
-                            w_key = self.space.wrap(keywords[i])
-                        else:
-                            w_key = self.keyword_names_w[i - limit]
-                        self.space.setitem(w_kwds, w_key, keywords_w[i])
-                else:
-                    if co_argcount == 0:
-                        raise ArgErrCount(num_args, num_kwds, signature, defaults_w, 0)
-                    raise ArgErrUnknownKwds(self.space, num_remainingkwds, keywords,
-                                            kwds_mapping, self.keyword_names_w)
+                if co_argcount == 0:
+                    raise ArgErrCount(num_args, num_kwds, signature, defaults_w, 0)
+                raise ArgErrUnknownKwds(self.space, num_remainingkwds, keywords,
+                                        kwds_mapping, self.keyword_names_w)
 
         # check for missing arguments and fill them from the kwds,
         # or with defaults, if available

@@ -81,9 +81,7 @@ class DummySpace(object):
             return [], []
         return None, None
 
-    def newdict(self, kwargs=False):
-        if kwargs:
-            return kwargsdict()
+    def newdict(self):
         return {}
 
     def newlist(self, l=[]):
@@ -199,31 +197,7 @@ class TestArgumentsForTranslation(object):
 
         args = make_arguments_for_translation(space, [1], {'c': 5, 'd': 7})
         sig = Signature(['a', 'b', 'c'], None, 'kw')
-        data = args.match_signature(sig, [2, 3])
-        new_args = args.unmatch_signature(sig, data)
-        assert args.unpack() == new_args.unpack()
-
-        args = make_arguments_for_translation(space, [1,2,3,4,5], {'e': 5, 'd': 7})
-        sig = Signature(['a', 'b', 'c'], 'r', 'kw')
-        data = args.match_signature(sig, [2, 3])
-        new_args = args.unmatch_signature(sig, data)
-        assert args.unpack() == new_args.unpack()
-
-        args = make_arguments_for_translation(space, [], {},
-                                       w_stararg=[1],
-                                       w_starstararg={'c': 5, 'd': 7})
-        sig = Signature(['a', 'b', 'c'], None, 'kw')
-        data = args.match_signature(sig, [2, 3])
-        new_args = args.unmatch_signature(sig, data)
-        assert args.unpack() == new_args.unpack()
-
-        args = make_arguments_for_translation(space, [1,2], {'g': 9},
-                                       w_stararg=[3,4,5],
-                                       w_starstararg={'e': 5, 'd': 7})
-        sig = Signature(['a', 'b', 'c'], 'r', 'kw')
-        data = args.match_signature(sig, [2, 3])
-        new_args = args.unmatch_signature(sig, data)
-        assert args.unpack() == new_args.unpack()
+        py.test.raises(TypeError, args.match_signature, sig, [2, 3])
 
     def test_rawshape(self):
         space = DummySpace()
