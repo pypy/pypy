@@ -855,9 +855,9 @@ class ASTBuilder(object):
             elif comp_type == tokens.NOTEQUAL:
                 flufl = self.compile_info.flags & consts.CO_FUTURE_BARRY_AS_BDFL
                 if flufl and comp_node.value == '!=':
-                    self.error('message', comp_node)
+                    self.error('invalid comparison', comp_node)
                 elif not flufl and comp_node.value == '<>':
-                    self.error('message', comp_node)
+                    self.error('invalid comparison', comp_node)
                 return ast.NotEq
             elif comp_type == tokens.NAME:
                 if comp_node.value == "is":
