@@ -15,15 +15,18 @@ class TestAstBuilder:
     def setup_class(cls):
         cls.parser = pyparse.PythonParser(cls.space)
 
-    def get_ast(self, source, p_mode="exec"):
-        info = pyparse.CompileInfo("<test>", p_mode,
-                                   consts.CO_FUTURE_WITH_STATEMENT)
+    def get_ast(self, source, p_mode=None, flags=None):
+        if p_mode is None:
+            p_mode = "exec"
+        if flags is None:
+            flags = consts.CO_FUTURE_WITH_STATEMENT
+        info = pyparse.CompileInfo("<test>", p_mode, flags)
         tree = self.parser.parse_source(source, info)
         ast_node = ast_from_node(self.space, tree, info)
         return ast_node
 
-    def get_first_expr(self, source):
-        mod = self.get_ast(source)
+    def get_first_expr(self, source, p_mode=None, flags=None):
+        mod = self.get_ast(source, p_mode, flags)
         assert len(mod.body) == 1
         expr = mod.body[0]
         assert isinstance(expr, ast.Expr)
@@ -853,7 +856,6 @@ class TestAstBuilder:
             ("<=", ast.LtE),
             ("==", ast.Eq),
             ("!=", ast.NotEq),
-            ("<>", ast.NotEq),
             ("in", ast.In),
             ("is", ast.Is),
             ("is not", ast.IsNot),
@@ -880,6 +882,20 @@ class TestAstBuilder:
             assert comp.ops == [tup[1] for tup in ops]
             names = comp.left.id + "".join(n.id for n in comp.comparators)
             assert names == vars
+
+    def test_flufl(self):
+        source = "x <> y"
+        raises(SyntaxError, self.get_ast, source)
+        comp = self.get_first_expr(source,
+                                   flags=consts.CO_FUTURE_BARRY_AS_BDFL)
+        assert isinstance(comp, ast.Compare)
+        assert isinstance(comp.left, ast.Name)
+        assert comp.left.ctx == ast.Load
+        assert len(comp.ops) == 1
+        assert comp.ops[0] == ast.NotEq
+        assert len(comp.comparators) == 1
+        assert isinstance(comp.comparators[0], ast.Name)
+        assert comp.comparators[0].ctx == ast.Load
 
     def test_binop(self):
         binops = (
