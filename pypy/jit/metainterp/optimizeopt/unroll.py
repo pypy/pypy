@@ -286,7 +286,7 @@ class UnrollOptimizer(Optimization):
 
             virtual_state = self.initial_virtual_state
             values = [self.getvalue(arg) for arg in exported_state.jump_args]
-            virtual_state = virtual_state.make_generalization_of(exported_state.generalize_virtual_state,
+            virtual_state = virtual_state.make_guarded_generalization_of(exported_state.generalize_virtual_state,
                                                                  exported_state.jump_args,
                                                                  self.optimizer)
             values = [self.getvalue(arg) for arg in exported_state.jump_args]            
