@@ -2,9 +2,9 @@ from __future__ import with_statement
 import py
 from pypy.jit.metainterp.optimize import InvalidLoop
 from pypy.jit.metainterp.optimizeopt.virtualstate import VirtualStateInfo, VStructStateInfo, \
-     VArrayStateInfo, NotVirtualStateInfo, VirtualState, ShortBoxes
+     VArrayStateInfo, NotVirtualStateInfo, VirtualState, ShortBoxes, VirtualStateAdder
 from pypy.jit.metainterp.optimizeopt.optimizer import OptValue
-from pypy.jit.metainterp.history import BoxInt, BoxFloat, BoxPtr, ConstInt, ConstPtr
+from pypy.jit.metainterp.history import BoxInt, BoxFloat, BoxPtr, ConstInt, ConstPtr, AbstractValue
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin, BaseTest, \
                                                            equaloplists, FakeDescrWithSnapshot
@@ -12,6 +12,7 @@ from pypy.jit.metainterp.optimizeopt.intutils import IntBound
 from pypy.jit.metainterp.history import TreeLoop, JitCellToken
 from pypy.jit.metainterp.optimizeopt.test.test_optimizeopt import FakeMetaInterpStaticData
 from pypy.jit.metainterp.resoperation import ResOperation, rop
+from pypy.jit.metainterp.optimizeopt.optimizer import LEVEL_UNKNOWN
 
 class TestBasic:
     someptr1 = LLtypeMixin.myptr
@@ -1163,3 +1164,51 @@ class TestShortBoxes:
                     if op and op.result == int_neg.getarg(0)]
         assert len(getfield) == 1
         assert getfield[0].getarg(0) == self.p1
+
+class FakeCPU(object):
+    pass
+
+class FakeOptimizer(object):
+    unknown_ptr1, unknown_ptr2 = BoxPtr(), BoxPtr()
+    unknown_int1, unknown_int2 = BoxInt(1), BoxInt(2)
+    const_int0, const_int1 = ConstInt(0), ConstInt(1)
+
+    def __init__(self):
+        self.values = {}
+        for n in dir(self):
+            box = getattr(self, n)
+            if isinstance(box, AbstractValue):
+                self.values[box] = OptValue(box)
+
+    def getvalue(self, box):
+        return self.values[box]
+
+    def force_at_end_of_preamble(self):
+        pass
+
+    optearlyforce = None
+    opaque_pointers = {}
+    cpu = FakeCPU()
+
+class CompareUnknown(object):
+    def __eq__(self, other):
+        return isinstance(other, NotVirtualStateInfo) and other.level == LEVEL_UNKNOWN
+Unknown = CompareUnknown()
+
+class TestGuardedGenerlaization:
+    optimizer = FakeOptimizer()
+
+    def combine(self, inputargs, jumpargs, expected):
+        modifier = VirtualStateAdder(self.optimizer)
+        vstate1 = modifier.get_virtual_state(inputargs)
+        vstate2 = modifier.get_virtual_state(jumpargs)
+        vstate = vstate1.make_guarded_generalization_of(vstate2, jumpargs, self.optimizer) 
+        assert vstate.state == expected
+        
+    def test_unknown(self):
+        o = self.optimizer
+        self.combine([o.unknown_ptr1, o.unknown_int1],
+                     [o.unknown_ptr2, o.unknown_int2],
+                     [Unknown, Unknown])
+
+
