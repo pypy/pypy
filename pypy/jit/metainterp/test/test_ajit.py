@@ -3052,7 +3052,52 @@ class BasicTests:
         res = self.meta_interp(f, [32])
         assert res == f(32)
 
-    def test_nested_loops(self):
+    def test_nested_loops_unboxed(self):
+        class A:
+            pass
+
+        bytecode = "iajb+JI"
+        def get_printable_location(i):
+            return "%d: %s" % (i, bytecode[i])
+        myjitdriver = JitDriver(greens = ['pc'], reds = ['n', 'sa', 'c', 'i', 'j', 'obj'],
+                                get_printable_location=get_printable_location)
+        def f(n):
+            pc = sa = 0
+            i = j = 0
+            c = n + 1
+            obj = A()
+            while pc < len(bytecode):
+                myjitdriver.jit_merge_point(pc=pc, n=n, sa=sa, i=i, j=j, c=c, obj=obj)
+                op = bytecode[pc]
+                if op == 'i':
+                    i = 0
+                elif op == 'j':
+                    j = 0
+                elif op == '+':
+                    sa += 3 * i + j + 5 * c
+                elif op == 'a':
+                    i = i + 1
+                    obj = A()
+                elif op == 'b':
+                    j = j + 1
+                elif op == 'J':
+                    if j < n:
+                        pc -= 2
+                        myjitdriver.can_enter_jit(pc=pc, n=n, sa=sa, i=i, j=j, c=c, obj=obj)
+                        continue
+                elif op == 'I':
+                    if i < n:
+                        pc -= 5
+                        myjitdriver.can_enter_jit(pc=pc, n=n, sa=sa, i=i, j=j, c=c, obj=obj)
+                        continue
+                pc += 1
+            return sa
+        res = self.meta_interp(f, [10])
+        assert res == f(10)
+        self.check_resops(new_with_vtable=0)
+        self.check_retraced_simple_loop(2, int_mul=0)
+
+    def test_nested_loops_boxed(self):
         class Int(object):
             def __init__(self, val):
                 self.val = val
@@ -3093,7 +3138,7 @@ class BasicTests:
         res = self.meta_interp(f, [10])
         assert res == f(10)
         self.check_resops(new_with_vtable=0)
-        self.check_retraced_simple_loop(2, getfield_gc=0)
+        self.check_retraced_simple_loop(2, getfield_gc=0, int_mul=0)
     
     def test_retrace_failure_fallback(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'a', 'sa'])        

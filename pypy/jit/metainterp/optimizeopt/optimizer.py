@@ -458,6 +458,7 @@ class Optimizer(Optimization):
     def make_equal_to(self, box, value, replace=False):
         assert isinstance(value, OptValue)
         assert replace or box not in self.values
+        assert not isinstance(box, Const)
         self.values[box] = value
 
     def make_constant(self, box, constbox):

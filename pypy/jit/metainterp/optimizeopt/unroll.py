@@ -207,7 +207,7 @@ class UnrollOptimizer(Optimization):
                 exported_values[box] = self.optimizer.getvalue(box)
             
         target_token.exported_state = ExportedState(short_boxes, inputarg_setup_ops,
-                                                    exported_values, jump_args, resume_at_jump_descr)
+                                                    exported_values, original_jump_args, resume_at_jump_descr)
 
     def import_state(self, targetop):
         if not targetop: # Trace did not start with a label
@@ -298,7 +298,6 @@ class UnrollOptimizer(Optimization):
             self.inputargs = inputargs
             short_inputargs = virtual_state.make_inputargs(values, self.optimizer, keyboxes=True)
             self.short[0] = ResOperation(rop.LABEL, short_inputargs, None)
-
 
     def close_bridge(self, start_label):
         inputargs = self.inputargs
