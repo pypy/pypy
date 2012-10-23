@@ -323,10 +323,12 @@ def robjmodel_r_dict(s_eqfn, s_hashfn, s_force_non_null=None):
 
 def robjmodel_hlinvoke(s_repr, s_llcallable, *args_s):
     from pypy.rpython import rmodel
-    assert s_repr.is_constant() and isinstance(s_repr.const, rmodel.Repr),"hlinvoke expects a constant repr as first argument"
-    r_func, nimplicitarg  = s_repr.const.get_r_implfunc()
+    from pypy.rpython.error import TyperError
 
-    nbargs = len(args_s) + nimplicitarg 
+    assert s_repr.is_constant() and isinstance(s_repr.const, rmodel.Repr), "hlinvoke expects a constant repr as first argument"
+    r_func, nimplicitarg = s_repr.const.get_r_implfunc()
+
+    nbargs = len(args_s) + nimplicitarg
     s_sigs = r_func.get_s_signatures((nbargs, (), False, False))
     if len(s_sigs) != 1:
         raise TyperError("cannot hlinvoke callable %r with not uniform"
@@ -336,6 +338,7 @@ def robjmodel_hlinvoke(s_repr, s_llcallable, *args_s):
     rresult = r_func.rtyper.getrepr(s_ret)
 
     return lltype_to_annotation(rresult.lowleveltype)
+
 
 def robjmodel_keepalive_until_here(*args_s):
     return immutablevalue(None)
