@@ -382,14 +382,11 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
                 return # It is enough if we can generate guards to make states compatibe, FIXME: rename method
             except InvalidLoop:
                 pass
-            if value.is_constant():
-                op = ResOperation(rop.SAME_AS, [box], box.clonebox())
-                #optimizer._newoperations.append(op) FIXME
-                return optimizer.getvalue(op.result)
-            else:
-                v = OptValue(box)
-                optimizer.make_equal_to(box, v, True)
-                return v
+            if isinstance(box, Const):
+                box = box.clonebox()
+            v = OptValue(box)
+            optimizer.make_equal_to(box, v, True)
+            return v
 
     def _generate_guards(self, other, box, cpu, extra_guards):
         if not isinstance(other, NotVirtualStateInfo):
