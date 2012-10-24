@@ -356,10 +356,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
         args = func.args
         assert isinstance(args, ast.arguments)
         self.visit_sequence(args.defaults)
-        if args.kw_defaults:
-            for arg in args.kw_defaults:
-                if arg:
-                    arg.walkabout(self)
+        self.visit_kwonlydefaults(args.kw_defaults)
         self._visit_annotations(func)
         self.visit_sequence(func.decorator_list)
         new_scope = FunctionScope(func.name, func.lineno, func.col_offset)
@@ -453,6 +450,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
         args = lamb.args
         assert isinstance(args, ast.arguments)
         self.visit_sequence(args.defaults)
+        self.visit_kwonlydefaults(args.kw_defaults)
         new_scope = FunctionScope("lambda", lamb.lineno, lamb.col_offset)
         self.push_scope(new_scope, lamb)
         lamb.args.walkabout(self)
