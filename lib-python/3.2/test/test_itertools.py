@@ -159,8 +159,9 @@ class TestBasicOps(unittest.TestCase):
                 self.assertEqual(result, list(combinations3(values, r))) # matches second pure python version
 
         # Test implementation detail:  tuple re-use
-        self.assertEqual(len(set(map(id, combinations('abcde', 3)))), 1)
-        self.assertNotEqual(len(set(map(id, list(combinations('abcde', 3))))), 1)
+        if support.check_impl_detail(pypy=False):
+            self.assertEqual(len(set(map(id, combinations('abcde', 3)))), 1)
+            self.assertNotEqual(len(set(map(id, list(combinations('abcde', 3))))), 1)
 
     def test_combinations_with_replacement(self):
         cwr = combinations_with_replacement
@@ -229,8 +230,9 @@ class TestBasicOps(unittest.TestCase):
                 self.assertEqual(result, list(cwr2(values, r)))         # matches second pure python version
 
         # Test implementation detail:  tuple re-use
-        self.assertEqual(len(set(map(id, cwr('abcde', 3)))), 1)
-        self.assertNotEqual(len(set(map(id, list(cwr('abcde', 3))))), 1)
+        if support.check_impl_detail(pypy=False):
+            self.assertEqual(len(set(map(id, cwr('abcde', 3)))), 1)
+            self.assertNotEqual(len(set(map(id, list(cwr('abcde', 3))))), 1)
 
     def test_permutations(self):
         self.assertRaises(TypeError, permutations)              # too few arguments
@@ -293,8 +295,9 @@ class TestBasicOps(unittest.TestCase):
                     self.assertEqual(result, list(permutations(values)))       # test default r
 
         # Test implementation detail:  tuple re-use
-        self.assertEqual(len(set(map(id, permutations('abcde', 3)))), 1)
-        self.assertNotEqual(len(set(map(id, list(permutations('abcde', 3))))), 1)
+        if support.check_impl_detail(pypy=False):
+            self.assertEqual(len(set(map(id, permutations('abcde', 3)))), 1)
+            self.assertNotEqual(len(set(map(id, list(permutations('abcde', 3))))), 1)
 
     def test_combinatorics(self):
         # Test relationships between product(), permutations(),
@@ -561,8 +564,9 @@ class TestBasicOps(unittest.TestCase):
                          lzip('abc', 'def'))
         self.assertEqual([pair for pair in zip('abc', 'def')],
                          lzip('abc', 'def'))
-        ids = list(map(id, zip('abc', 'def')))
-        self.assertEqual(min(ids), max(ids))
+        if support.check_impl_detail(pypy=False):
+            ids = list(map(id, zip('abc', 'def')))
+            self.assertEqual(min(ids), max(ids))
         ids = list(map(id, list(zip('abc', 'def'))))
         self.assertEqual(len(dict.fromkeys(ids)), len(ids))
 
@@ -608,8 +612,9 @@ class TestBasicOps(unittest.TestCase):
                          list(zip('abc', 'def')))
         self.assertEqual([pair for pair in zip_longest('abc', 'def')],
                          list(zip('abc', 'def')))
-        ids = list(map(id, zip_longest('abc', 'def')))
-        self.assertEqual(min(ids), max(ids))
+        if support.check_impl_detail(pypy=False):
+            ids = list(map(id, zip_longest('abc', 'def')))
+            self.assertEqual(min(ids), max(ids))
         ids = list(map(id, list(zip_longest('abc', 'def'))))
         self.assertEqual(len(dict.fromkeys(ids)), len(ids))
 
@@ -712,8 +717,9 @@ class TestBasicOps(unittest.TestCase):
             self.assertEqual(len(list(product(*args))), expected_len)
 
         # Test implementation detail:  tuple re-use
-        self.assertEqual(len(set(map(id, product('abc', 'def')))), 1)
-        self.assertNotEqual(len(set(map(id, list(product('abc', 'def'))))), 1)
+        if support.check_impl_detail(pypy=False):
+            self.assertEqual(len(set(map(id, product('abc', 'def')))), 1)
+            self.assertNotEqual(len(set(map(id, list(product('abc', 'def'))))), 1)
 
     def test_repeat(self):
         self.assertEqual(list(repeat(object='a', times=3)), ['a', 'a', 'a'])
@@ -804,11 +810,11 @@ class TestBasicOps(unittest.TestCase):
         self.assertRaises(ValueError, islice, range(10), 1, -5, -1)
         self.assertRaises(ValueError, islice, range(10), 1, 10, -1)
         self.assertRaises(ValueError, islice, range(10), 1, 10, 0)
-        self.assertRaises(ValueError, islice, range(10), 'a')
-        self.assertRaises(ValueError, islice, range(10), 'a', 1)
-        self.assertRaises(ValueError, islice, range(10), 1, 'a')
-        self.assertRaises(ValueError, islice, range(10), 'a', 1, 1)
-        self.assertRaises(ValueError, islice, range(10), 1, 'a', 1)
+        self.assertRaises((TypeError, ValueError), islice, range(10), 'a')
+        self.assertRaises((TypeError, ValueError), islice, range(10), 'a', 1)
+        self.assertRaises((TypeError, ValueError), range(10), 1, 'a')
+        self.assertRaises((TypeError, ValueError), range(10), 'a', 1, 1)
+        self.assertRaises((TypeError, ValueError), range(10), 1, 'a', 1)
         self.assertEqual(len(list(islice(count(), 1, 10, maxsize))), 1)
 
         # Issue #10323:  Less islice in a predictable state
