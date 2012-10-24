@@ -72,7 +72,7 @@ class W_Reader(Wrappable):
                             (len(field_builder.build()) > 0 or
                              state == IN_QUOTED_FIELD)):
                         if dialect.strict:
-                            raise self.error(u"newline inside string")
+                            raise self.error(u"unexpected end of data")
                         else:
                             self.save_field(field_builder)
                             break
