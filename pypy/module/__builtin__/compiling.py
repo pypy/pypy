@@ -40,6 +40,7 @@ in addition to any features explicitly specified.
         ast_node.sync_app_attrs(space)
     elif space.isinstance_w(w_source, space.w_bytes):
         source_str = space.bytes0_w(w_source)
+        flags |= consts.PyCF_IGNORE_COOKIE
     else:
         source_str = space.str0_w(w_source)
         flags |= consts.PyCF_IGNORE_COOKIE
