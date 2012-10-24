@@ -3,6 +3,7 @@ import py
 from pypy.jit.metainterp.optimize import InvalidLoop
 from pypy.jit.metainterp.optimizeopt.virtualstate import VirtualStateInfo, VStructStateInfo, \
      VArrayStateInfo, NotVirtualStateInfo, VirtualState, ShortBoxes, VirtualStateAdder
+from pypy.jit.metainterp.optimizeopt.virtualize import VirtualValue
 from pypy.jit.metainterp.optimizeopt.optimizer import OptValue
 from pypy.jit.metainterp.history import BoxInt, BoxFloat, BoxPtr, ConstInt, ConstPtr, AbstractValue
 from pypy.rpython.lltypesystem import lltype, llmemory
@@ -1167,17 +1168,24 @@ class TestShortBoxes:
 
 class FakeCPU(object):
     pass
+class FakeDescr(object):
+    pass
 
 class FakeOptimizer(object):
     unknown_ptr1, unknown_ptr2 = BoxPtr(), BoxPtr()
     unknown_int1, unknown_int2 = BoxInt(1), BoxInt(2)
-    const_int0, const_int1 = ConstInt(0), ConstInt(1)
+    const_int0, const_int1, const_int2 = ConstInt(0), ConstInt(1), ConstInt(2)
+    node_class = ConstInt(42)
+    node1, node2 = BoxPtr(), BoxPtr()
+    descr1, descr2 = FakeDescr(), FakeDescr()
 
     def __init__(self):
         self.values = {}
+        self.values[self.node1] = VirtualValue(self.cpu, self.node_class, self.node1)
+        self.values[self.node2] = VirtualValue(self.cpu, self.node_class, self.node2)
         for n in dir(self):
             box = getattr(self, n)
-            if isinstance(box, AbstractValue):
+            if isinstance(box, AbstractValue) and box not in self.values:
                 self.values[box] = OptValue(box)
 
     def getvalue(self, box):
@@ -1206,6 +1214,16 @@ class Const(object):
     def __eq__(self, other):
         return isinstance(other, NotVirtualStateInfo) and other.level == LEVEL_CONSTANT and \
                 other.constbox.same_constant(self.value)
+
+class Virtual(object):
+    def __init__(self, known_class, fields):
+        self.known_class = known_class
+        self.fields = fields
+
+    def __eq__(self, other):
+        return isinstance(other, VirtualStateInfo) and \
+               other.known_class.same_constant(self.known_class) and \
+               {k:v for k,v in zip(other.fielddescrs, other.fieldstate)} == self.fields
 
 class TestGuardedGenerlaization:
     def setup_method(self, m):
@@ -1238,6 +1256,17 @@ class TestGuardedGenerlaization:
         self.combine([o.unknown_ptr1, o.const_int0],
                      [o.unknown_ptr2, o.const_int1],
                      [Unknown, Unknown])
+
+    def test_virtual_simple(self):
+        o = self.optimizer
+        o.getvalue(o.node1).setfield(o.descr2, o.getvalue(o.const_int1))
+        o.getvalue(o.node2).setfield(o.descr2, o.getvalue(o.const_int2))
+        self.combine([o.node1, o.node2],
+                     [o.node1, o.node2],
+                     [Virtual(o.node_class, {o.descr2: Const(1)}), 
+                      Virtual(o.node_class, {o.descr2: Const(2)})])
+        self.combine([o.node1], [o.node2], [Virtual(o.node_class, {o.descr2: Unknown})])
+
 
 
 
