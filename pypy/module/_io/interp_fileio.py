@@ -212,15 +212,11 @@ class W_FileIO(W_RawIOBase):
 
     def _check_readable(self, space):
         if not self.readable:
-            raise OperationError(
-                space.w_ValueError,
-                space.wrap("file not open for reading"))
+            self._unsupportedoperation(space, "File not open for reading")
 
     def _check_writable(self, space):
         if not self.writable:
-            raise OperationError(
-                space.w_ValueError,
-                space.wrap("file not open for writing"))
+            self._unsupportedoperation(space, "File not open for writing")
 
     def _close(self, space):
         if self.fd < 0:

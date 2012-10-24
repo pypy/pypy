@@ -196,11 +196,6 @@ class W_TextIOBase(W_IOBase):
     def __init__(self, space):
         W_IOBase.__init__(self, space)
 
-    def _unsupportedoperation(self, space, message):
-        w_exc = space.getattr(space.getbuiltinmodule('_io'),
-                              space.wrap('UnsupportedOperation'))
-        raise OperationError(w_exc, space.wrap(message))
-
     def read_w(self, space, w_size=None):
         self._unsupportedoperation(space, "read")
 
@@ -544,7 +539,7 @@ class W_TextIOWrapper(W_TextIOBase):
         remain buffered in the decoder, yet to be converted."""
 
         if not self.w_decoder:
-            raise OperationError(space.w_IOError, space.wrap("not readable"))
+            self._unsupportedoperation(space, "not readable")
 
         if self.telling:
             # To prepare for tell(), we need to snapshot a point in the file
@@ -590,7 +585,7 @@ class W_TextIOWrapper(W_TextIOBase):
     def read_w(self, space, w_size=None):
         self._check_closed(space)
         if not self.w_decoder:
-            raise OperationError(space.w_IOError, space.wrap("not readable"))
+            self._unsupportedoperation(space, "not readable")
 
         size = convert_size(space, w_size)
         self._writeflush(space)

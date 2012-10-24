@@ -77,11 +77,6 @@ def trap_EINTR(space, e):
     return False
 
 class W_BufferedIOBase(W_IOBase):
-    def _unsupportedoperation(self, space, message):
-        w_exc = space.getattr(space.getbuiltinmodule('_io'),
-                              space.wrap('UnsupportedOperation'))
-        raise OperationError(w_exc, space.wrap(message))
-
     def _check_init(self, space):
         raise NotImplementedError
 
