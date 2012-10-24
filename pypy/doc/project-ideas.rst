@@ -17,12 +17,6 @@ own improvement ideas. In any case, if you feel like working on some of those
 projects, or anything else in PyPy, pop up on IRC or write to us on the
 `mailing list`_.
 
-Make big integers faster
--------------------------
-
-PyPy's implementation of the Python ``long`` type is slower than CPython's.
-Find out why and optimize them.  **UPDATE:** this was done (thanks stian).
-
 Make bytearray type fast
 ------------------------
 
@@ -81,14 +75,6 @@ Translation Toolchain
 
 * Allow separate compilation of extension modules.
 
-Work on some of other languages
--------------------------------
-
-There are various languages implemented using the RPython translation toolchain.
-One of the most interesting is the `JavaScript implementation`_, but there
-are others like scheme or prolog. An interesting project would be to improve
-the jittability of those or to experiment with various optimizations.
-
 Various GCs
 -----------
 
@@ -115,13 +101,16 @@ JIT-less pypy-stm version:
   which data structures would be more appropriate?  For example, a dict
   implemented as a hash table will suffer "stm collisions" in all threads
   whenever one thread writes anything to it; but there could be other
-  implementations.
+  implementations.  Maybe alternate strategies can be implemented at the
+  level of the Python interpreter (see list/dict strategies,
+  ``pypy/objspace/std/{list,dict}object.py``).
 
 * More generally, there is the idea that we would need some kind of
   "debugger"-like tool to "debug" things that are not bugs, but stm
   conflicts.  How would this tool look like to the end Python
   programmers?  Like a profiler?  Or like a debugger with breakpoints
-  on aborted transactions?
+  on aborted transactions?  It would probably be all app-level, with
+  a few hooks e.g. for transaction conflicts.
 
 * Find good ways to have libraries using internally threads and atomics,
   but not exposing threads to the user.  Right now there is a rough draft
@@ -140,8 +129,6 @@ script that can run without parameters. Example ideas (benchmarks need
 to be got from them!):
 
 * `hg`
-
-* `sympy`
 
 Experiment (again) with LLVM backend for RPython compilation
 ------------------------------------------------------------
@@ -188,4 +175,3 @@ extensions.
 .. _`issue tracker`: http://bugs.pypy.org
 .. _`mailing list`: http://mail.python.org/mailman/listinfo/pypy-dev
 .. _`jitviewer`: http://bitbucket.org/pypy/jitviewer
-.. _`JavaScript implementation`: https://bitbucket.org/pypy/lang-js/overview

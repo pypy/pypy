@@ -1,7 +1,7 @@
 from pypy.rlib.rarithmetic import LONG_BIT, intmask, longlongmask, r_uint, r_ulonglong, r_longlonglong
 from pypy.rlib.rarithmetic import ovfcheck, r_longlong, widen, is_valid_int
 from pypy.rlib.rarithmetic import most_neg_value_of_same_type
-from pypy.rlib.rfloat import isfinite
+from pypy.rlib.rfloat import isinf, isnan
 from pypy.rlib.debug import make_sure_not_resized, check_regular_int
 from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.rlib import jit
@@ -207,10 +207,11 @@ class rbigint(object):
     def fromfloat(dval):
         """ Create a new bigint object from a float """
         # This function is not marked as pure because it can raise
-        if isfinite(dval):
-            return rbigint._fromfloat_finite(dval)
-        else:
-            raise OverflowError
+        if isinf(dval):
+            raise OverflowError("cannot convert float infinity to integer")
+        if isnan(dval):
+            raise ValueError("cannot convert float NaN to integer")
+        return rbigint._fromfloat_finite(dval)
 
     @staticmethod
     @jit.elidable
@@ -644,8 +645,7 @@ class rbigint(object):
             # j  = (m+) % SHIFT = (m+) - (i * SHIFT)
             # (computed without doing "i * SHIFT", which might overflow)
             j = size_b % 5
-            if j != 0:
-                j = 5 - j
+            j = _jmapping[j]
             if not we_are_translated():
                 assert j == (size_b*SHIFT+4)//5*5 - size_b*SHIFT
             #
@@ -865,6 +865,12 @@ class rbigint(object):
 ONERBIGINT = rbigint([ONEDIGIT], 1, 1)
 ONENEGATIVERBIGINT = rbigint([ONEDIGIT], -1, 1)
 NULLRBIGINT = rbigint()
+
+_jmapping = [(5 * SHIFT) % 5,
+             (4 * SHIFT) % 5,
+             (3 * SHIFT) % 5,
+             (2 * SHIFT) % 5,
+             (1 * SHIFT) % 5]
 
 #_________________________________________________________________
 

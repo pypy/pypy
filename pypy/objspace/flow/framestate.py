@@ -1,15 +1,11 @@
-from pypy.interpreter.pyopcode import SuspendedUnroller
 from pypy.rlib.unroll import SpecTag
 from pypy.objspace.flow.model import *
 
 class FrameState:
-    def __init__(self, mergeable, nonmergeable):
+    def __init__(self, mergeable, blocklist, next_instr):
         self.mergeable = mergeable
-        self.nonmergeable = nonmergeable
-        self.next_instr = self.nonmergeable[1]
-        for w1 in self.mergeable:
-            assert isinstance(w1, (Variable, Constant)) or w1 is None, (
-                '%r found in frame state' % w1)
+        self.blocklist = blocklist
+        self.next_instr = next_instr
 
     def copy(self):
         "Make a copy of this state in which all Variables are fresh."
@@ -18,7 +14,7 @@ class FrameState:
             if isinstance(w, Variable):
                 w = Variable()
             newstate.append(w)
-        return FrameState(newstate, self.nonmergeable)
+        return FrameState(newstate, self.blocklist, self.next_instr)
 
     def getvariables(self):
         return [w for w in self.mergeable if isinstance(w, Variable)]
@@ -30,7 +26,8 @@ class FrameState:
         # nonmergeable states
         assert isinstance(other, FrameState)
         assert len(self.mergeable) == len(other.mergeable)
-        assert self.nonmergeable == other.nonmergeable
+        assert self.blocklist == other.blocklist
+        assert self.next_instr == other.next_instr
         for w1, w2 in zip(self.mergeable, other.mergeable):
             if not (w1 == w2 or (isinstance(w1, Variable) and
                                  isinstance(w2, Variable))):
@@ -51,7 +48,7 @@ class FrameState:
                 newstate.append(union(w1, w2))
         except UnionError:
             return None
-        return FrameState(newstate, self.nonmergeable)
+        return FrameState(newstate, self.blocklist, self.next_instr)
 
     def getoutputargs(self, targetstate):
         "Return the output arguments needed to link self to targetstate."
@@ -106,14 +103,13 @@ PICKLE_TAGS = {}
 UNPICKLE_TAGS = {}
 
 def recursively_flatten(space, lst):
+    from pypy.objspace.flow.flowcontext import SuspendedUnroller
     i = 0
     while i < len(lst):
-        item = lst[i]
-        if not (isinstance(item, Constant) and
-                isinstance(item.value, SuspendedUnroller)):
+        unroller = lst[i]
+        if not isinstance(unroller, SuspendedUnroller):
             i += 1
         else:
-            unroller = item.value
             vars = unroller.state_unpack_variables(space)
             key = unroller.__class__, len(vars)
             try:
@@ -131,4 +127,4 @@ def recursively_unflatten(space, lst):
             arguments = lst[i+1: i+1+argcount]
             del lst[i+1: i+1+argcount]
             unroller = unrollerclass.state_pack_variables(space, *arguments)
-            lst[i] = space.wrap(unroller)
+            lst[i] = unroller

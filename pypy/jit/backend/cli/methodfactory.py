@@ -27,7 +27,7 @@ class DynamicMethodWrapper(AbstractMethodWrapper):
         return self.dynmeth.CreateDelegate(delegatetype, consts)
 
 
-# the assemblyData singleton contains the informations about the
+# the assemblyData singleton contains the information about the
 # assembly we are currently writing to
 class AssemblyData:
     assembly = None

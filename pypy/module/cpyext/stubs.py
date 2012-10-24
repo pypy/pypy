@@ -434,10 +434,6 @@ def PyDescr_NewMember(space, type, meth):
 def PyDescr_NewWrapper(space, type, wrapper, wrapped):
     raise NotImplementedError
 
-@cpython_api([PyTypeObjectPtr, PyMethodDef], PyObject)
-def PyDescr_NewClassMethod(space, type, method):
-    raise NotImplementedError
-
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyDescr_IsData(space, descr):
     """Return true if the descriptor objects descr describes a data attribute, or

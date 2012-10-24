@@ -1,4 +1,4 @@
-from pypy.interpreter.gateway import unwrap_spec, NoneNotWrapped
+from pypy.interpreter.gateway import unwrap_spec
 from pypy.rlib import rposix, objectmodel, rurandom
 from pypy.rlib.objectmodel import specialize
 from pypy.rlib.rarithmetic import r_longlong
@@ -302,7 +302,7 @@ class StatState(object):
     def __init__(self, space):
         self.stat_float_times = True
 
-def stat_float_times(space, w_value=NoneNotWrapped):
+def stat_float_times(space, w_value=None):
     """stat_float_times([newval]) -> oldval
 
 Determine whether os.[lf]stat represents time stamps as float objects.

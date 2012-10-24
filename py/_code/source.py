@@ -118,7 +118,7 @@ class Source(object):
         # 1. find the start of the statement
         from codeop import compile_command
         end = None
-        for start in range(lineno, -1, -1):
+        for start in range(lineno, -1, max(-1, lineno - 10)):
             if assertion:
                 line = self.lines[start]
                 # the following lines are not fully tested, change with care
@@ -135,9 +135,9 @@ class Source(object):
                 compile_command(trysource)
             except (SyntaxError, OverflowError, ValueError):
                 continue
-
+ 
             # 2. find the end of the statement
-            for end in range(lineno+1, len(self)+1):
+            for end in range(lineno+1, min(len(self)+1, lineno + 10)):
                 trysource = self[start:end]
                 if trysource.isparseable():
                     return start, end

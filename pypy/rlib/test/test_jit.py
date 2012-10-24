@@ -1,18 +1,21 @@
 import py
+
 from pypy.conftest import option
-from pypy.rlib.jit import hint, we_are_jitted, JitDriver, elidable_promote
-from pypy.rlib.jit import JitHintError, oopspec, isconstant
+from pypy.annotation.model import UnionError
+from pypy.rlib.jit import (hint, we_are_jitted, JitDriver, elidable_promote,
+    JitHintError, oopspec, isconstant)
 from pypy.rlib.rarithmetic import r_uint
-from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 from pypy.rpython.lltypesystem import lltype
+
 
 def test_oopspec():
     @oopspec('foobar')
     def fn():
         pass
     assert fn.oopspec == 'foobar'
-    
+
+
 class BaseTestJIT(BaseRtypingTest):
     def test_hint(self):
         def f():
@@ -91,7 +94,7 @@ class BaseTestJIT(BaseRtypingTest):
             for graph in t.graphs:
                 if getattr(graph, 'func', None) is func:
                     return [v.concretetype for v in graph.getargs()]
-            raise Exception, 'function %r has not been annotated' % func
+            raise Exception('function %r has not been annotated' % func)
 
         get_printable_location_args = getargs(get_printable_location)
         assert get_printable_location_args == [lltype.Float]
@@ -108,15 +111,17 @@ class BaseTestJIT(BaseRtypingTest):
 
     def test_annotate_typeerror(self):
         myjitdriver = JitDriver(greens=['m'], reds=['n'])
-        class A(object): pass
-        class B(object): pass
+        class A(object):
+            pass
+        class B(object):
+            pass
         def fn(n):
             while n > 0:
                 myjitdriver.can_enter_jit(m=A(), n=n)
                 myjitdriver.jit_merge_point(m=B(), n=n)
                 n -= 1
             return n
-        py.test.raises(JitHintError, self.gengraph, fn, [int])
+        py.test.raises(UnionError, self.gengraph, fn, [int])
 
     def test_green_field(self):
         def get_printable_location(xfoo):

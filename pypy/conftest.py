@@ -101,15 +101,7 @@ def gettestobjspace(name=None, **kwds):
 def maketestobjspace(config=None):
     if config is None:
         config = make_config(option)
-    try:
-        space = make_objspace(config)
-    except OperationError, e:
-        check_keyboard_interrupt(e)
-        if option.verbose:
-            import traceback
-            traceback.print_exc()
-        py.test.fail("fatal: cannot initialize objspace: %r" %
-                         (config.objspace.name,))
+    space = make_objspace(config)
     space.startup() # Initialize all builtin modules
     space.setitem(space.builtin.w_dict, space.wrap('AssertionError'),
                   appsupport.build_pytest_assertion(space))

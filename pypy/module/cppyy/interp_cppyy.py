@@ -413,6 +413,7 @@ class W_CPPOverload(Wrappable):
     collection of (possibly) overloaded methods or functions. It calls these
     in order and deals with error handling and reporting."""
     _immutable_ = True
+    _immutable_fields_ = ["functions[*]"]
 
     def __init__(self, space, containing_scope, functions):
         self.space = space
@@ -421,7 +422,10 @@ class W_CPPOverload(Wrappable):
         self.functions = debug.make_sure_not_resized(functions)
 
     def is_static(self):
-        return self.space.wrap(isinstance(self.functions[0], CPPFunction))
+        if not isinstance(self.functions[0], CPPFunction):
+            return self.space.w_False
+        return self.space.w_True
+        #self.space.wrap(isinstance(self.functions[0], CPPFunction))
 
     @jit.unroll_safe
     @unwrap_spec(args_w='args_w')

@@ -467,7 +467,40 @@ def make_array(mytype):
         self.fromsequence(w_lst)
 
     def delslice__Array_ANY_ANY(space, self, w_i, w_j):
-        return space.delitem(self, space.newslice(w_i, w_j, space.w_None))
+        i = space.int_w(w_i)
+        if i < 0:
+            i += self.len
+        if i < 0:
+            i = 0
+        j = space.int_w(w_j)
+        if j < 0:
+            j += self.len
+        if j < 0:
+            j = 0
+        if j > self.len:
+            j = self.len
+        if i >= j:
+            return None
+        oldbuffer = self.buffer
+        self.buffer = lltype.malloc(mytype.arraytype,
+                      max(self.len - (j - i), 0), flavor='raw',
+                      add_memory_pressure=True)
+        if i:
+            rffi.c_memcpy(
+                rffi.cast(rffi.VOIDP, self.buffer),
+                rffi.cast(rffi.VOIDP, oldbuffer),
+                i * mytype.bytes
+            )
+        if j < self.len:
+            rffi.c_memcpy(
+                rffi.cast(rffi.VOIDP, rffi.ptradd(self.buffer, i)),
+                rffi.cast(rffi.VOIDP, rffi.ptradd(oldbuffer, j)),
+                (self.len - j) * mytype.bytes)
+        self.len -= j - i
+        self.allocated = self.len
+        if oldbuffer:
+            lltype.free(oldbuffer, flavor='raw')
+
 
     # Add and mul methods
 

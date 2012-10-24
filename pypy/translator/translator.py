@@ -8,6 +8,7 @@ import autopath, os, sys, types, copy
 
 from pypy.translator import simplify
 from pypy.objspace.flow.model import FunctionGraph, checkgraph, Block
+from pypy.objspace.flow.objspace import FlowObjSpace
 from pypy.tool.ansi_print import ansi_log
 from pypy.tool.sourcetools import nice_repr_for_func
 from pypy.config.pypyoption import pypy_optiondescription
@@ -35,24 +36,12 @@ class TranslationContext(object):
                 setattr(config.translation, attr, flowing_flags[attr])
         self.config = config
         self.platform = get_platform(config)
-        self.create_flowspace_config()
         self.annotator = None
         self.rtyper = None
         self.exceptiontransformer = None
         self.graphs = []      # [graph]
         self.callgraph = {}   # {opaque_tag: (caller-graph, callee-graph)}
         self._prebuilt_graphs = {}   # only used by the pygame viewer
-
-    def create_flowspace_config(self):
-        # XXX this is a hack: we create a new config, which is only used
-        # for the flow object space. The problem is that the flow obj space
-        # needs an objspace config, but the thing we are translating might not
-        # have one (or worse we are translating pypy and the flow space picks
-        # up strange options of the pypy we are translating). Therefore we need
-        # to construct this new config
-        self.flowconfig = get_combined_translation_config(
-                pypy_optiondescription, self.config, translating=True)
-        self.flowconfig.objspace.name = "flow"
 
     def buildflowgraph(self, func, mute_dot=False):
         """Get the flow graph for a function."""
@@ -64,8 +53,7 @@ class TranslationContext(object):
         else:
             if self.config.translation.verbose:
                 log.start(nice_repr_for_func(func))
-            from pypy.objspace.flow.objspace import FlowObjSpace
-            space = FlowObjSpace(self.flowconfig)
+            space = FlowObjSpace()
             graph = space.build_flow(func)
             if self.config.translation.simplifying:
                 simplify.simplify_graph(graph)
@@ -142,12 +130,15 @@ class TranslationContext(object):
         from pypy.translator.tool.graphpage import FlowGraphPage
         FlowGraphPage(self).display()
 
+    show = view
+
     def viewcg(self, center_graph=None, huge=100):
         """Shows the whole call graph and the class hierarchy, based on
         the computed annotations."""
         from pypy.translator.tool.graphpage import TranslatorPage
         TranslatorPage(self, center_graph=center_graph, huge=huge).display()
 
+    showcg = viewcg
 
 
 # _______________________________________________________________

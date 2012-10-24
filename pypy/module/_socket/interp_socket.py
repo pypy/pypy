@@ -1,7 +1,7 @@
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr,\
      interp_attrproperty
-from pypy.interpreter.gateway import NoneNotWrapped, interp2app, unwrap_spec
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib import rsocket
 from pypy.rlib.rsocket import RSocket, AF_INET, SOCK_STREAM
@@ -121,7 +121,7 @@ class W_RSocket(Wrappable, RSocket):
             raise converted_error(space, e)
 
     @unwrap_spec(level=int, optname=int)
-    def getsockopt_w(self, space, level, optname, w_buflen=NoneNotWrapped):
+    def getsockopt_w(self, space, level, optname, w_buflen=None):
         """getsockopt(level, option[, buffersize]) -> value
 
         Get a socket option.  See the Unix manual for level and option.
@@ -160,7 +160,9 @@ class W_RSocket(Wrappable, RSocket):
         except SocketError, e:
             raise converted_error(space, e)
 
-    def makefile_w(self, space, w_mode="r", w_buffsize=-1):
+    @unwrap_spec(w_mode = WrappedDefault("r"),
+                 w_buffsize = WrappedDefault(-1))
+    def makefile_w(self, space, w_mode=None, w_buffsize=None):
         """makefile([mode[, buffersize]]) -> file object
 
         Return a regular file object corresponding to the socket.
@@ -228,7 +230,7 @@ class W_RSocket(Wrappable, RSocket):
             raise converted_error(space, e)
 
     @unwrap_spec(data='bufferstr')
-    def sendto_w(self, space, data, w_param2, w_param3=NoneNotWrapped):
+    def sendto_w(self, space, data, w_param2, w_param3=None):
         """sendto(data[, flags], address) -> count
 
         Like send(data, flags) but allows specifying the destination address.

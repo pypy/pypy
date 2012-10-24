@@ -1,5 +1,5 @@
 
-""" Module for keeping detailed informations about
+""" Module for keeping detailed information about
 times of certain driver parts
 """
 

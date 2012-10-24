@@ -645,23 +645,23 @@ def new_sslobject(space, w_sock, side, w_key_file, w_cert_file,
 
     sock_fd = space.int_w(space.call_method(w_sock, "fileno"))
     w_timeout = space.call_method(w_sock, "gettimeout")
-    if space.is_w(w_timeout, space.w_None):
+    if space.is_none(w_timeout):
         has_timeout = False
     else:
         has_timeout = True
-    if space.is_w(w_key_file, space.w_None):
+    if space.is_none(w_key_file):
         key_file = None
     else:
         key_file = space.str_w(w_key_file)
-    if space.is_w(w_cert_file, space.w_None):
+    if space.is_none(w_cert_file):
         cert_file = None
     else:
         cert_file = space.str_w(w_cert_file)
-    if space.is_w(w_cacerts_file, space.w_None):
+    if space.is_none(w_cacerts_file):
         cacerts_file = None
     else:
         cacerts_file = space.str_w(w_cacerts_file)
-    if space.is_w(w_ciphers, space.w_None):
+    if space.is_none(w_ciphers):
         ciphers = None
     else:
         ciphers = space.str_w(w_ciphers)

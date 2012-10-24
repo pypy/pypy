@@ -981,7 +981,7 @@ def test_load_and_call_function():
     assert strlenaddr == cast(BVoidP, strlen)
 
 def test_read_variable():
-    if sys.platform == 'win32':
+    if sys.platform == 'win32' or sys.platform == 'darwin':
         py.test.skip("untested")
     BVoidP = new_pointer_type(new_void_type())
     ll = find_and_load_library('c')
@@ -989,7 +989,7 @@ def test_read_variable():
     assert stderr == cast(BVoidP, _testfunc(8))
 
 def test_read_variable_as_unknown_length_array():
-    if sys.platform == 'win32':
+    if sys.platform == 'win32' or sys.platform == 'darwin':
         py.test.skip("untested")
     BCharP = new_pointer_type(new_primitive_type("char"))
     BArray = new_array_type(BCharP, None)
@@ -999,7 +999,7 @@ def test_read_variable_as_unknown_length_array():
     # ^^ and not 'char[]', which is basically not allowed and would crash
 
 def test_write_variable():
-    if sys.platform == 'win32':
+    if sys.platform == 'win32' or sys.platform == 'darwin':
         py.test.skip("untested")
     BVoidP = new_pointer_type(new_void_type())
     ll = find_and_load_library('c')
@@ -1155,6 +1155,13 @@ def test_enum_in_struct():
     assert p.a1 == "c"
     e = py.test.raises(TypeError, newp, BStructPtr, [None])
     assert "must be a str or int, not NoneType" in str(e.value)
+
+def test_enum_overflow():
+    for ovf in (2**63, -2**63-1, 2**31, -2**31-1):
+        e = py.test.raises(OverflowError, new_enum_type, "foo", ('a', 'b'),
+                           (5, ovf))
+        assert str(e.value) == (
+            "enum 'foo' declaration for 'b' does not fit an int")
 
 def test_callback_returning_enum():
     BInt = new_primitive_type("int")
@@ -2123,9 +2130,9 @@ def test_bool():
     py.test.raises(OverflowError, newp, BBoolP, 2)
     py.test.raises(OverflowError, newp, BBoolP, -1)
     BCharP = new_pointer_type(new_primitive_type("char"))
-    p = newp(BCharP, 'X')
+    p = newp(BCharP, b'X')
     q = cast(BBoolP, p)
-    assert q[0] == ord('X')
+    assert q[0] == ord(b'X')
     py.test.raises(TypeError, string, cast(BBool, False))
     BDouble = new_primitive_type("double")
     assert int(cast(BBool, cast(BDouble, 0.1))) == 1
@@ -2204,3 +2211,56 @@ def test_newp_from_bytearray_doesnt_work():
     buffer(p)[:] = bytearray(b"foo\x00")
     assert len(p) == 4
     assert list(p) == [b"f", b"o", b"o", b"\x00"]
+
+def test_FILE():
+    if sys.platform == "win32":
+        py.test.skip("testing FILE not implemented")
+    #
+    BFILE = new_struct_type("_IO_FILE")
+    BFILEP = new_pointer_type(BFILE)
+    BChar = new_primitive_type("char")
+    BCharP = new_pointer_type(BChar)
+    BInt = new_primitive_type("int")
+    BFunc = new_function_type((BCharP, BFILEP), BInt, False)
+    BFunc2 = new_function_type((BFILEP, BCharP), BInt, True)
+    ll = find_and_load_library('c')
+    fputs = ll.load_function(BFunc, "fputs")
+    fscanf = ll.load_function(BFunc2, "fscanf")
+    #
+    import posix
+    fdr, fdw = posix.pipe()
+    fr1 = posix.fdopen(fdr, 'r', 256)
+    fw1 = posix.fdopen(fdw, 'w', 256)
+    #
+    fw1.write(b"X")
+    res = fputs(b"hello world\n", fw1)
+    assert res >= 0
+    fw1.close()
+    #
+    p = newp(new_array_type(BCharP, 100), None)
+    res = fscanf(fr1, b"%s\n", p)
+    assert res == 1
+    assert string(p) == b"Xhello"
+    fr1.close()
+
+def test_FILE_only_for_FILE_arg():
+    if sys.platform == "win32":
+        py.test.skip("testing FILE not implemented")
+    #
+    B_NOT_FILE = new_struct_type("NOT_FILE")
+    B_NOT_FILEP = new_pointer_type(B_NOT_FILE)
+    BChar = new_primitive_type("char")
+    BCharP = new_pointer_type(BChar)
+    BInt = new_primitive_type("int")
+    BFunc = new_function_type((BCharP, B_NOT_FILEP), BInt, False)
+    ll = find_and_load_library('c')
+    fputs = ll.load_function(BFunc, "fputs")
+    #
+    import posix
+    fdr, fdw = posix.pipe()
+    fr1 = posix.fdopen(fdr, 'r')
+    fw1 = posix.fdopen(fdw, 'w')
+    #
+    e = py.test.raises(TypeError, fputs, b"hello world\n", fw1)
+    assert str(e.value) == ("initializer for ctype 'struct NOT_FILE *' must "
+                            "be a cdata pointer, not file")

@@ -1519,7 +1519,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (a == [1, 1]).all()
 
     def test_int_array_index(self):
-        from numpypy import array, arange
+        from numpypy import array, arange, zeros
         b = arange(10)[array([3, 2, 1, 5])]
         assert (b == [3, 2, 1, 5]).all()
         raises(IndexError, "arange(10)[array([10])]")
@@ -1528,6 +1528,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = arange(1)
         a[[0, 0]] += 1
         assert a[0] == 1
+        assert (zeros(1)[[]] == []).all()
 
     def test_int_array_index_setitem(self):
         from numpypy import array, arange, zeros
@@ -1960,8 +1961,11 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert (arange(6).reshape(2, 3).T.ravel() == [0, 3, 1, 4, 2, 5]).all()
 
     def test_take(self):
-        skip("we wait for int-based indexing")
         from _numpypy import arange
+        try:
+            arange(10).take([0])
+        except NotImplementedError:
+            skip("we wait for int-based indexing")
         assert (arange(10).take([1, 2, 1, 1]) == [1, 2, 1, 1]).all()
         raises(IndexError, "arange(3).take([15])")
         a = arange(6).reshape(2, 3)
@@ -1999,6 +2003,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
 
     def test_int_array_index(self):
         from _numpypy import array
+        assert (array([])[[]] == []).all()
         a = array([[1, 2], [3, 4], [5, 6]])
         assert (a[slice(0, 3), [0, 0]] == [[1, 1], [3, 3], [5, 5]]).all()
         assert (a[array([0, 2]), slice(0, 2)] == [[1, 2], [5, 6]]).all()

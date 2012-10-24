@@ -1,4 +1,4 @@
-from pypy.interpreter.argument import ArgumentsForTranslation, ArgErr
+from pypy.objspace.flow.argument import ArgumentsForTranslation, ArgErr
 from pypy.annotation import model as annmodel
 from pypy.rpython import rtuple
 from pypy.rpython.error import TyperError

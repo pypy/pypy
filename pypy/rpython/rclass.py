@@ -173,6 +173,12 @@ class __extend__(annmodel.SomeInstance):
     def rtyper_makekey(self):
         return self.__class__, self.classdef
 
+class __extend__(annmodel.SomeType):
+    def rtyper_makerepr(self, rtyper):
+        return get_type_repr(rtyper)
+    def rtyper_makekey(self):
+        return self.__class__,
+
 
 class AbstractInstanceRepr(Repr):
     def __init__(self, rtyper, classdef):

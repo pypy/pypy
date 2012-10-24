@@ -32,12 +32,8 @@ def annotate(translator, func, result, args):
     return c
 
 def var_needsgc(var):
-    if hasattr(var, 'concretetype'):
-        vartype = var.concretetype
-        return isinstance(vartype, lltype.Ptr) and vartype._needsgc()
-    else:
-        # assume PyObjPtr
-        return True
+    vartype = var.concretetype
+    return isinstance(vartype, lltype.Ptr) and vartype._needsgc()
 
 def find_calls_from(translator, graph, memo=None):
     if memo and graph in memo:
