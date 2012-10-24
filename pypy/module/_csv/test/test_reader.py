@@ -107,9 +107,9 @@ class AppTestReader(object):
         self._read_test(['12,12,1",'], [['12', '12', '1"', '']])
 
     def test_read_eof(self):
-        self._read_test(['a,"'], [])
-        self._read_test(['"a'], 'Error')
-        self._read_test(['^'], 'Error', escapechar='^')
-        self._read_test(['a,"'], [], strict=True)
+        self._read_test(['a,"'], [['a', '']])
+        self._read_test(['"a'], [['a']])
+        self._read_test(['^'], [['\n']], escapechar='^')
+        self._read_test(['a,"'], 'Error', strict=True)
         self._read_test(['"a'], 'Error', strict=True)
         self._read_test(['^'], 'Error', escapechar='^', strict=True)
