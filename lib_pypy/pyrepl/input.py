@@ -32,8 +32,10 @@
 # executive, temporary decision: [tab] and [C-i] are distinct, but
 # [meta-key] is identified with [esc key].  We demand that any console
 # class does quite a lot towards emulating a unix terminal.
+from __future__ import print_function
+import unicodedata
+from collections import deque
 
-from pyrepl import unicodedata_
 
 class InputTranslator(object):
     def push(self, evt):
@@ -43,7 +45,9 @@ class InputTranslator(object):
     def empty(self):
         pass
 
+
 class KeymapTranslator(InputTranslator):
+
     def __init__(self, keymap, verbose=0,
                  invalid_cls=None, character_cls=None):
         self.verbose = verbose
@@ -58,8 +62,9 @@ class KeymapTranslator(InputTranslator):
         if self.verbose:
             print(d)
         self.k = self.ck = compile_keymap(d, ())
-        self.results = []
+        self.results = deque()
         self.stack = []
+
     def push(self, evt):
         if self.verbose:
             print("pushed", evt.data, end='')
@@ -74,7 +79,7 @@ class KeymapTranslator(InputTranslator):
             if d is None:
                 if self.verbose:
                     print("invalid")
-                if self.stack or len(key) > 1 or unicodedata_.category(key) == 'C':
+                if self.stack or len(key) > 1 or unicodedata.category(key) == 'C':
                     self.results.append(
                         (self.invalid_cls, self.stack + [key]))
                 else:
@@ -88,10 +93,12 @@ class KeymapTranslator(InputTranslator):
                 self.results.append((d, self.stack + [key]))
             self.stack = []
             self.k = self.ck
+
     def get(self):
         if self.results:
-            return self.results.pop(0)
+            return self.results.popleft()
         else:
             return None
+
     def empty(self):
         return not self.results

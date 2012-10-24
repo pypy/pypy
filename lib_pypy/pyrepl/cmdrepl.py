@@ -33,7 +33,7 @@ It was designed to let you do this:
 which is in fact done by the `pythoni' script that comes with
 pyrepl."""
 
-from __future__ import nested_scopes
+from __future__ import print_function
 
 from pyrepl import completing_reader as cr, reader, completer
 from pyrepl.completing_reader import CompletingReader as CR
@@ -96,7 +96,7 @@ def replize(klass, history_across_invocations=1):
             if intro is not None:
                 self.intro = intro
             if self.intro:
-                print self.intro
+                print(self.intro)
             stop = None
             while not stop:
                 if self.cmdqueue:

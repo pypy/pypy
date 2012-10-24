@@ -101,7 +101,7 @@ def _parse_key1(key, s):
     while not ret and s < len(key):
         if key[s] == '\\':
             c = key[s+1].lower()
-            if _escapes.has_key(c):
+            if c in _escapes:
                 ret = _escapes[c]
                 s += 2
             elif c == "c":
@@ -137,7 +137,7 @@ def _parse_key1(key, s):
                 if t == -1:
                     raise KeySpecError(
                               "unterminated \\< starting at char %d of %s"%(
-                        s + 1, repr(key)))                        
+                        s + 1, repr(key)))
                 ret = key[s+2:t].lower()
                 if ret not in _keynames:
                     raise KeySpecError(
@@ -170,13 +170,17 @@ def parse_keys(key):
         r.extend(k)
     return r
 
-def compile_keymap(keymap, empty=''):
+def compile_keymap(keymap, empty=b''):
     r = {}
     for key, value in keymap.items():
-        r.setdefault(key[0], {})[key[1:]] = value
+        if isinstance(key, bytes):
+            first = key[:1]
+        else:
+            first = key[0]
+        r.setdefault(first, {})[key[1:]] = value
     for key, value in r.items():
         if empty in value:
-            if len(value) <> 1:
+            if len(value) != 1:
                 raise KeySpecError(
                       "key definitions for %s clash"%(value.values(),))
             else:

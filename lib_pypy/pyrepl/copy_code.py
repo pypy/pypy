@@ -17,7 +17,7 @@
 # CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 # CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-import new
+from types import CodeType
 
 def copy_code_with_changes(codeobject,
                            argcount=None,
@@ -44,7 +44,7 @@ def copy_code_with_changes(codeobject,
     if name        is None: name        = codeobject.co_name
     if firstlineno is None: firstlineno = codeobject.co_firstlineno
     if lnotab      is None: lnotab      = codeobject.co_lnotab
-    return new.code(argcount,
+    return CodeType(argcount,
                     nlocals,
                     stacksize,
                     flags,
