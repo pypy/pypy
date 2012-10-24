@@ -323,7 +323,9 @@ class AppTestBuiltinApp:
         for attr in "__doc__", "fget", "fset", "fdel":
             try:
                 setattr(raw, attr, 42)
-            except AttributeError as msg:
+            # it raises TypeError on pypy, AttributeError on CPython: we catch
+            # both so that it runs also with -A
+            except (TypeError, AttributeError) as msg:
                 if str(msg).find('readonly') < 0:
                     raise Exception("when setting readonly attr %r on a "
                                     "property, got unexpected TypeError "
