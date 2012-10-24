@@ -12,7 +12,7 @@ from pypy.jit.metainterp.optimizeopt.intutils import IntBound
 from pypy.jit.metainterp.history import TreeLoop, JitCellToken
 from pypy.jit.metainterp.optimizeopt.test.test_optimizeopt import FakeMetaInterpStaticData
 from pypy.jit.metainterp.resoperation import ResOperation, rop
-from pypy.jit.metainterp.optimizeopt.optimizer import LEVEL_UNKNOWN
+from pypy.jit.metainterp.optimizeopt.optimizer import LEVEL_UNKNOWN, LEVEL_CONSTANT, Optimizer
 
 class TestBasic:
     someptr1 = LLtypeMixin.myptr
@@ -1186,6 +1186,9 @@ class FakeOptimizer(object):
     def force_at_end_of_preamble(self):
         pass
 
+    def make_equal_to(self, box, value, replace=False):
+        self.values[box] = value
+    
     optearlyforce = None
     opaque_pointers = {}
     cpu = FakeCPU()
@@ -1195,8 +1198,21 @@ class CompareUnknown(object):
         return isinstance(other, NotVirtualStateInfo) and other.level == LEVEL_UNKNOWN
 Unknown = CompareUnknown()
 
+class Const(object):
+    def __init__(self, value):
+        assert isinstance(value, int)
+        self.value = ConstInt(value)
+
+    def __eq__(self, other):
+        return isinstance(other, NotVirtualStateInfo) and other.level == LEVEL_CONSTANT and \
+                other.constbox.same_constant(self.value)
+
 class TestGuardedGenerlaization:
-    optimizer = FakeOptimizer()
+    def setup_method(self, m):
+        self.optimizer = FakeOptimizer()
+
+    def teardown_method(self, m):
+        del self.optimizer
 
     def combine(self, inputargs, jumpargs, expected):
         modifier = VirtualStateAdder(self.optimizer)
@@ -1210,5 +1226,19 @@ class TestGuardedGenerlaization:
         self.combine([o.unknown_ptr1, o.unknown_int1],
                      [o.unknown_ptr2, o.unknown_int2],
                      [Unknown, Unknown])
+
+    def test_matching_consts(self):
+        o = self.optimizer
+        self.combine([o.unknown_ptr1, o.const_int1],
+                     [o.unknown_ptr2, o.const_int1],
+                     [Unknown, Const(1)])
+
+    def test_not_matching_consts(self):
+        o = self.optimizer
+        self.combine([o.unknown_ptr1, o.const_int0],
+                     [o.unknown_ptr2, o.const_int1],
+                     [Unknown, Unknown])
+
+
 
 
