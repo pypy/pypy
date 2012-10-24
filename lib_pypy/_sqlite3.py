@@ -244,10 +244,10 @@ if HAS_LOAD_EXTENSION:
 # SQLite version information
 sqlite_version = sqlite.sqlite3_libversion()
 
-class Error(StandardError):
+class Error(Exception):
     pass
 
-class Warning(StandardError):
+class Warning(Exception):
     pass
 
 class InterfaceError(Error):
@@ -279,7 +279,7 @@ def connect(database, **kwargs):
     return factory(database, **kwargs)
 
 def unicode_text_factory(x):
-    return unicode(x, 'utf-8')
+    return str(x, 'utf-8')
 
 
 class StatementCache(object):
@@ -426,7 +426,7 @@ class Connection(object):
 
     def __call__(self, sql):
         self._check_closed()
-        if not isinstance(sql, (str, unicode)):
+        if not isinstance(sql, str):
             raise Warning("SQL is of wrong type. Must be string or unicode.")
         statement = self.statement_cache.get(sql, self.row_factory)
         return statement
@@ -436,7 +436,7 @@ class Connection(object):
     def _set_isolation_level(self, val):
         if val is None:
             self.commit()
-        if isinstance(val, unicode):
+        if isinstance(val, str):
             val = str(val)
         self._isolation_level = val
     isolation_level = property(_get_isolation_level, _set_isolation_level)
@@ -761,7 +761,7 @@ class Cursor(object):
         return CursorLock(self)
 
     def execute(self, sql, params=None):
-        if type(sql) is unicode:
+        if type(sql) is str:
             sql = sql.encode("utf-8")
 
         with self._check_and_lock():
@@ -801,7 +801,7 @@ class Cursor(object):
         return self
 
     def executemany(self, sql, many_params):
-        if type(sql) is unicode:
+        if type(sql) is str:
             sql = sql.encode("utf-8")
 
         with self._check_and_lock():
@@ -828,7 +828,7 @@ class Cursor(object):
     def executescript(self, sql):
         self._description = None
         self.reset = False
-        if type(sql) is unicode:
+        if type(sql) is str:
             sql = sql.encode("utf-8")
         self._check_closed()
         statement = c_void_p()
@@ -975,7 +975,7 @@ class Statement(object):
 
     def _build_row_cast_map(self):
         self.row_cast_map = []
-        for i in xrange(sqlite.sqlite3_column_count(self.statement)):
+        for i in range(sqlite.sqlite3_column_count(self.statement)):
             converter = None
 
             if self.con.detect_types & PARSE_COLNAMES:
@@ -1001,7 +1001,7 @@ class Statement(object):
             self.row_cast_map.append(converter)
 
     def _check_decodable(self, param):
-        if self.con.text_factory in (unicode, OptimizedUnicode, unicode_text_factory):
+        if self.con.text_factory in (str, OptimizedUnicode, unicode_text_factory):
             for c in param:
                 if ord(c) & 0x80 != 0:
                     raise self.con.ProgrammingError(
@@ -1020,7 +1020,7 @@ class Statement(object):
 
         if param is None:
             sqlite.sqlite3_bind_null(self.statement, idx)
-        elif type(param) in (bool, int, long):
+        elif type(param) in (bool, int, int):
             if -2147483648 <= param <= 2147483647:
                 sqlite.sqlite3_bind_int(self.statement, idx, param)
             else:
@@ -1030,7 +1030,7 @@ class Statement(object):
         elif isinstance(param, str):
             self._check_decodable(param)
             sqlite.sqlite3_bind_text(self.statement, idx, param, len(param), SQLITE_TRANSIENT)
-        elif isinstance(param, unicode):
+        elif isinstance(param, str):
             param = param.encode("utf-8")
             sqlite.sqlite3_bind_text(self.statement, idx, param, len(param), SQLITE_TRANSIENT)
         elif type(param) is buffer:
@@ -1096,14 +1096,14 @@ class Statement(object):
     def _readahead(self, cursor):
         self.column_count = sqlite.sqlite3_column_count(self.statement)
         row = []
-        for i in xrange(self.column_count):
+        for i in range(self.column_count):
             typ = sqlite.sqlite3_column_type(self.statement, i)
 
             converter = self.row_cast_map[i]
             if converter is None:
                 if typ == SQLITE_INTEGER:
                     val = sqlite.sqlite3_column_int64(self.statement, i)
-                    if -sys.maxint-1 <= val <= sys.maxint:
+                    if -sys.maxsize-1 <= val <= sys.maxsize:
                         val = int(val)
                 elif typ == SQLITE_FLOAT:
                     val = sqlite.sqlite3_column_double(self.statement, i)
@@ -1156,7 +1156,7 @@ class Statement(object):
         if self.kind == DML:
             return None
         desc = []
-        for i in xrange(sqlite.sqlite3_column_count(self.statement)):
+        for i in range(sqlite.sqlite3_column_count(self.statement)):
             name = sqlite.sqlite3_column_name(self.statement, i).split("[")[0].strip()
             desc.append((name, None, None, None, None, None, None))
         return desc
@@ -1242,7 +1242,7 @@ def _convert_params(con, nargs, params):
         typ = sqlite.sqlite3_value_type(params[i])
         if typ == SQLITE_INTEGER:
             val = sqlite.sqlite3_value_int64(params[i])
-            if -sys.maxint-1 <= val <= sys.maxint:
+            if -sys.maxsize-1 <= val <= sys.maxsize:
                 val = int(val)
         elif typ == SQLITE_FLOAT:
             val = sqlite.sqlite3_value_double(params[i])
@@ -1255,7 +1255,7 @@ def _convert_params(con, nargs, params):
         elif typ == SQLITE_TEXT:
             val = sqlite.sqlite3_value_text(params[i])
             # XXX changed from con.text_factory
-            val = unicode(val, 'utf-8')
+            val = str(val, 'utf-8')
         else:
             raise NotImplementedError
         _params.append(val)
@@ -1264,12 +1264,12 @@ def _convert_params(con, nargs, params):
 def _convert_result(con, val):
     if val is None:
         sqlite.sqlite3_result_null(con)
-    elif isinstance(val, (bool, int, long)):
+    elif isinstance(val, (bool, int)):
         sqlite.sqlite3_result_int64(con, int(val))
     elif isinstance(val, str):
         # XXX ignoring unicode issue
         sqlite.sqlite3_result_text(con, val, len(val), SQLITE_TRANSIENT)
-    elif isinstance(val, unicode):
+    elif isinstance(val, str):
         val = val.encode('utf-8')
         sqlite.sqlite3_result_text(con, val, len(val), SQLITE_TRANSIENT)
     elif isinstance(val, float):
@@ -1383,7 +1383,7 @@ register_adapters_and_converters()
 
 def OptimizedUnicode(s):
     try:
-        val = unicode(s, "ascii").encode("ascii")
+        val = str(s, "ascii").encode("ascii")
     except UnicodeDecodeError:
-        val = unicode(s, "utf-8")
+        val = str(s, "utf-8")
     return val

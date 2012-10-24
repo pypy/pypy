@@ -1,4 +1,3 @@
-from __future__ import absolute_import
 from lib_pypy.ctypes_config_cache import rebuild
 rebuild.rebuild_one('resource.ctc.py')
 
@@ -27,5 +26,5 @@ def test_resource():
         if i < 2:
             expected_type = float
         else:
-            expected_type = (int, long)
+            expected_type = int
         assert isinstance(x[i], expected_type)

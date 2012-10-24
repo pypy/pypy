@@ -4,21 +4,20 @@ These tests are supposed to run on the following platforms:
 2. CPython (with the stackless_new module in the path
 3. pypy-c
 """
-from __future__ import absolute_import
 from py.test import skip
 try:
     import stackless
 except ImportError:
     try:
         from lib_pypy import stackless
-    except ImportError, e:
+    except ImportError as e:
         skip('cannot import stackless: %s' % (e,))
 
 SHOW_STRANGE = False
 
 def dprint(txt):
     if SHOW_STRANGE:
-        print txt
+        print(txt)
 
 class Test_Stackless:
 
@@ -88,11 +87,11 @@ class Test_Stackless:
     def test_send_counter(self):
         import random
 
-        numbers = range(20)
+        numbers = list(range(20))
         random.shuffle(numbers)
 
         def counter(n, ch):
-            for i in xrange(n):
+            for i in range(n):
                 stackless.schedule()
             ch.send(n)
 
@@ -112,12 +111,12 @@ class Test_Stackless:
     def test_receive_counter(self):
         import random
 
-        numbers = range(20)
+        numbers = list(range(20))
         random.shuffle(numbers)
 
         rlist = []
         def counter(n, ch):
-            for i in xrange(n):
+            for i in range(n):
                 stackless.schedule()
             ch.receive()
             rlist.append(n)
@@ -184,7 +183,7 @@ class Test_Stackless:
         try:
             stackless.run()
         # cheating, can't test for ZeroDivisionError
-        except Exception, e:
+        except Exception as e:
             rlist.append('E')
         stackless.schedule()
         stackless.schedule()
@@ -457,7 +456,7 @@ class Test_Stackless:
         def exp_recv(chan):
             try:
                 val = chan.receive()
-            except Exception, exp:
+            except Exception as exp:
                 assert exp.__class__ is Exception
                 assert str(exp) == 'test'
 

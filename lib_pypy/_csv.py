@@ -82,12 +82,12 @@ class Dialect(object):
                                 (name,))
 
         if dialect is not None:
-            if isinstance(dialect, basestring):
+            if isinstance(dialect, str):
                 dialect = get_dialect(dialect)
         
             # Can we reuse this instance?
             if (isinstance(dialect, Dialect)
-                and all(value is None for value in kwargs.itervalues())):
+                and all(value is None for value in kwargs.values())):
                 return dialect
 
         self = object.__new__(cls)
@@ -167,7 +167,7 @@ def _call_dialect(dialect_inst, kwargs):
 def register_dialect(name, dialect=None, **kwargs):
     """Create a mapping from a string name to a dialect class.
     dialect = csv.register_dialect(name, dialect)"""
-    if not isinstance(name, basestring):
+    if not isinstance(name, str):
         raise TypeError("dialect name must be a string or unicode")
 
     dialect = _call_dialect(dialect, kwargs)
@@ -221,11 +221,11 @@ class Reader(object):
     def __iter__(self):
         return self
 
-    def next(self):
+    def __next__(self):
         self._parse_reset()
         while True:
             try:
-                line = self.input_iter.next()
+                line = next(self.input_iter)
             except StopIteration:
                 # End of input OR exception
                 if len(self.field) > 0:
@@ -565,7 +565,7 @@ def field_size_limit(limit=undefined):
     old_limit = _field_limit
     
     if limit is not undefined:
-        if not isinstance(limit, (int, long)):
+        if not isinstance(limit, int):
             raise TypeError("int expected, got %s" %
                             (limit.__class__.__name__,))
         _field_limit = limit

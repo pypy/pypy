@@ -153,7 +153,7 @@ _init_func('delete', (c_void_p, datum), restype=c_int)
 lib.DBM_INSERT = 0
 lib.DBM_REPLACE = 1
 
-def open(filename, flag='r', mode=0666):
+def open(filename, flag='r', mode=0o666):
     "open a DBM database"
     if not isinstance(filename, str):
         raise TypeError("expected string")

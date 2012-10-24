@@ -204,7 +204,7 @@ class groupby(object):
             key = lambda x: x
         self.keyfunc = key
         self.it = iter(iterable)
-        self.tgtkey = self.currkey = self.currvalue = xrange(0)
+        self.tgtkey = self.currkey = self.currvalue = range(0)
 
     def __iter__(self):
         return self
@@ -458,7 +458,7 @@ class repeat(object):
     def __init__(self, obj, times=None):
         self._obj = obj
         if times is not None:
-            xrange(times) # Raise a TypeError
+            range(times) # Raise a TypeError
             if times < 0:
                 times = 0
         self._times = times
@@ -610,6 +610,6 @@ def tee(iterable, n=2):
     if isinstance(iterable, TeeObject):
         # a,b = tee(range(10)) ; c,d = tee(a) ; self.assert_(a is c)
         return tuple([iterable] +
-        [TeeObject(tee_data=iterable.tee_data) for i in xrange(n-1)])
+        [TeeObject(tee_data=iterable.tee_data) for i in range(n - 1)])
     tee_data = TeeData(iter(iterable))
-    return tuple([TeeObject(tee_data=tee_data) for i in xrange(n)])
+    return tuple([TeeObject(tee_data=tee_data) for i in range(n)])

@@ -4,7 +4,6 @@ A note about performance: the pure Python MD5 takes roughly
 160 sec. per MB of data on a 233 MHz Intel Pentium CPU.
 """
 
-from __future__ import absolute_import
 import md5                              # CPython's implementation in C.
 from lib_pypy import _md5 as pymd5  
 
@@ -14,9 +13,9 @@ from lib_pypy import _md5 as pymd5
 def formatHex(str):
     "Print a string's HEX code in groups of two digits."
 
-    d = map(None, str)
+    d = list(str)
     d = map(ord, d)
-    d = map(lambda x:"%02x" % x, d)
+    d = ["%02x" % x for x in d]
     return ' '.join(d)
 
 
@@ -32,13 +31,13 @@ def format(str):
 def printDiff(message, d1, d2, expectedResult=None):
     "Print different outputs for same message."
     
-    print "Message: '%s'" % message
-    print "Message length: %d" % len(message)
+    print("Message: '%s'" % message)
+    print("Message length: %d" % len(message))
     if expectedResult:
-        print "%-48s (expected)" % format(expectedResult)
-    print "%-48s (Std. lib. MD5)" % formatHex(d1)
-    print "%-48s (Pure Python MD5)" % formatHex(d2)
-    print
+        print("%-48s (expected)" % format(expectedResult))
+    print("%-48s (Std. lib. MD5)" % formatHex(d1))
+    print("%-48s (Pure Python MD5)" % formatHex(d2))
+    print()
 
 
 # The real comparison function.
@@ -92,7 +91,7 @@ class TestMD5Compare:
            "57edf4a22be3c955ac49da2e2107b67a"),
         )
 
-        for i in xrange(len(cases)):
+        for i in range(len(cases)):
             res = compareImp(cases[i][0])
             if res is not None:
                 d1, d2 = res
@@ -129,7 +128,7 @@ class TestMD5Compare:
           "123456789 123456789 123456789 12345678",
          )
 
-        for i in xrange(len(cases)):
+        for i in range(len(cases)):
             res = compareImp(cases[i][0])
             if res is not None:
                 d1, d2 = res
@@ -147,7 +146,7 @@ class TestMD5Compare:
 ##          (2**20*'a',),  ## 1 MB, takes about 160 sec. on a 233 Mhz Pentium.
          )
 
-        for i in xrange(len(cases)):
+        for i in range(len(cases)):
             res = compareImp(cases[i][0])
             if res is not None:
                 d1, d2 = res
@@ -208,7 +207,7 @@ class TestMD5Compare:
         m2c = m2.copy()
 
         # Update and compare...
-        for i in xrange(len(cases)):
+        for i in range(len(cases)):
             message = cases[i][0]
 
             m1c.update(message)

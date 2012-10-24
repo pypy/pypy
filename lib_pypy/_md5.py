@@ -270,7 +270,7 @@ class md5:
         the hashed string.
         """
 
-        leninBuf = long(len(inBuf))
+        leninBuf = int(len(inBuf))
 
         # Compute number of bytes mod 64.
         index = (self.count[0] >> 3) & 0x3F

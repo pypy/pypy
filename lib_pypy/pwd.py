@@ -69,7 +69,7 @@ else:
             yield self.pw_dir
             yield self.pw_shell
 
-class struct_passwd:
+class struct_passwd(metaclass=structseqtype):
     """
     pwd.struct_passwd: Results from getpw*() routines.
 
@@ -77,7 +77,6 @@ class struct_passwd:
       (pw_name,pw_passwd,pw_uid,pw_gid,pw_gecos,pw_dir,pw_shell)
     or via the object attributes as named in the above tuple.
     """
-    __metaclass__ = structseqtype
     name = "pwd.struct_passwd"
     pw_name = structseqfield(0)
     pw_passwd = structseqfield(1)
@@ -167,9 +166,9 @@ if __name__ == "__main__":
     from os import getuid
     uid = getuid()
     pw = getpwuid(uid)
-    print("uid %s: %s" % (pw.pw_uid, pw))
+    print(("uid %s: %s" % (pw.pw_uid, pw)))
     name = pw.pw_name
-    print("name %r: %s" % (name, getpwnam(name)))
+    print(("name %r: %s" % (name, getpwnam(name))))
     print("All:")
     for pw in getpwall():
         print(pw)

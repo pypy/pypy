@@ -5,6 +5,7 @@ This module contains functions that can read and write Python values in a binary
 
 import types
 from _codecs import utf_8_decode, utf_8_encode
+import sys
 
 try: from __pypy__ import builtinify
 except ImportError: builtinify = lambda f: f
@@ -49,7 +50,7 @@ class _Marshaller:
                 if func:
                     break
             else:
-                raise ValueError, "unmarshallable object"
+                raise ValueError("unmarshallable object")
             func(self, x)
 
     def w_long64(self, x):
@@ -72,7 +73,7 @@ class _Marshaller:
 
     def dump_none(self, x):
         self._write(TYPE_NONE)
-    dispatch[types.NoneType] = dump_none
+    dispatch[type(None)] = dump_none
 
     def dump_bool(self, x):
         if x:
@@ -83,7 +84,7 @@ class _Marshaller:
 
     def dump_stopiter(self, x):
         if x is not StopIteration:
-            raise ValueError, "unmarshallable object"
+            raise ValueError("unmarshallable object")
         self._write(TYPE_STOPITER)
     dispatch[type(StopIteration)] = dump_stopiter
 
@@ -91,7 +92,7 @@ class _Marshaller:
         self._write(TYPE_ELLIPSIS)
     
     try:
-        dispatch[types.EllipsisType] = dump_ellipsis
+        dispatch[type(Ellipsis)] = dump_ellipsis
     except NameError:
         pass
 
@@ -103,7 +104,7 @@ class _Marshaller:
         else:
             self._write(TYPE_INT)
             self.w_long(x)
-    dispatch[types.IntType] = dump_int
+    dispatch[int] = dump_int
 
     def dump_long(self, x):
         self._write(TYPE_LONG)
@@ -118,27 +119,27 @@ class _Marshaller:
         self.w_long(len(digits) * sign)
         for d in digits:
             self.w_short(d)
-    dispatch[types.LongType] = dump_long
+    dispatch[int] = dump_long
 
     def dump_float(self, x):
         write = self._write
         write(TYPE_FLOAT)
-        s = `x`
+        s = repr(x)
         write(chr(len(s)))
         write(s)
-    dispatch[types.FloatType] = dump_float
+    dispatch[float] = dump_float
 
     def dump_complex(self, x):
         write = self._write
         write(TYPE_COMPLEX)
-        s = `x.real`
+        s = repr(x.real)
         write(chr(len(s)))
         write(s)
-        s = `x.imag`
+        s = repr(x.imag)
         write(chr(len(s)))
         write(s)
     try:
-        dispatch[types.ComplexType] = dump_complex
+        dispatch[complex] = dump_complex
     except NameError:
         pass
 
@@ -148,7 +149,7 @@ class _Marshaller:
         self._write(TYPE_STRING)
         self.w_long(len(x))
         self._write(x)
-    dispatch[types.StringType] = dump_string
+    dispatch[bytes] = dump_string
 
     def dump_unicode(self, x):
         self._write(TYPE_UNICODE)
@@ -156,21 +157,21 @@ class _Marshaller:
         s, len_s = utf_8_encode(x)
         self.w_long(len_s)
         self._write(s)
-    dispatch[types.UnicodeType] = dump_unicode
+    dispatch[str] = dump_unicode
 
     def dump_tuple(self, x):
         self._write(TYPE_TUPLE)
         self.w_long(len(x))
         for item in x:
             self.dump(item)
-    dispatch[types.TupleType] = dump_tuple
+    dispatch[tuple] = dump_tuple
 
     def dump_list(self, x):
         self._write(TYPE_LIST)
         self.w_long(len(x))
         for item in x:
             self.dump(item)
-    dispatch[types.ListType] = dump_list
+    dispatch[list] = dump_list
 
     def dump_dict(self, x):
         self._write(TYPE_DICT)
@@ -178,7 +179,7 @@ class _Marshaller:
             self.dump(key)
             self.dump(value)
         self._write(TYPE_NULL)
-    dispatch[types.DictionaryType] = dump_dict
+    dispatch[dict] = dump_dict
 
     def dump_code(self, x):
         self._write(TYPE_CODE)
@@ -252,7 +253,7 @@ class _Unmarshaller:
         try:
             return self.dispatch[c](self)
         except KeyError:
-            raise ValueError, "bad marshal code: %c (%d)" % (c, ord(c))
+            raise ValueError("bad marshal code: %c (%d)" % (c, ord(c)))
 
     def r_short(self):
         lo = ord(self._read(1))
@@ -270,7 +271,7 @@ class _Unmarshaller:
         d = ord(s[3])
         x = a | (b<<8) | (c<<16) | (d<<24)
         if d & 0x80 and x > 0:
-            x = -((1L<<32) - x)
+            x = -((1<<32) - x)
             return int(x)
         else:
             return x
@@ -280,14 +281,14 @@ class _Unmarshaller:
         b = ord(self._read(1))
         c = ord(self._read(1))
         d = ord(self._read(1))
-        e = long(ord(self._read(1)))
-        f = long(ord(self._read(1)))
-        g = long(ord(self._read(1)))
-        h = long(ord(self._read(1)))
+        e = int(ord(self._read(1)))
+        f = int(ord(self._read(1)))
+        g = int(ord(self._read(1)))
+        h = int(ord(self._read(1)))
         x = a | (b<<8) | (c<<16) | (d<<24)
         x = x | (e<<32) | (f<<40) | (g<<48) | (h<<56)
         if h & 0x80 and x > 0:
-            x = -((1L<<64) - x)
+            x = -((1<<64) - x)
         return x
 
     def load_null(self):
@@ -324,10 +325,10 @@ class _Unmarshaller:
         if size < 0:
             sign = -1
             size = -size
-        x = 0L
+        x = 0
         for i in range(size):
             d = self.r_short()
-            x = x | (d<<(i*15L))
+            x = x | (d<<(i*15))
         return x * sign
     dispatch[TYPE_LONG] = load_long
 
@@ -354,7 +355,7 @@ class _Unmarshaller:
 
     def load_interned(self):
         n = self.r_long()
-        ret = intern(self._read(n))
+        ret = sys.intern(self._read(n))
         self._stringtable.append(ret)
         return ret
     dispatch[TYPE_INTERNED] = load_interned
@@ -459,7 +460,7 @@ def _r_long(self):
     self.bufpos += 4
     x = a | (b<<8) | (c<<16) | (d<<24)
     if d & 0x80 and x > 0:
-        x = -((1L<<32) - x)
+        x = -((1<<32) - x)
         return int(x)
     else:
         return x
@@ -469,14 +470,14 @@ def _r_long64(self):
     b = ord(_read1(self))
     c = ord(_read1(self))
     d = ord(_read1(self))
-    e = long(ord(_read1(self)))
-    f = long(ord(_read1(self)))
-    g = long(ord(_read1(self)))
-    h = long(ord(_read1(self)))
+    e = int(ord(_read1(self)))
+    f = int(ord(_read1(self)))
+    g = int(ord(_read1(self)))
+    h = int(ord(_read1(self)))
     x = a | (b<<8) | (c<<16) | (d<<24)
     x = x | (e<<32) | (f<<40) | (g<<48) | (h<<56)
     if h & 0x80 and x > 0:
-        x = -((1L<<64) - x)
+        x = -((1<<64) - x)
     return x
 
 _load_dispatch = {}
@@ -498,7 +499,7 @@ class _FastUnmarshaller:
             self.bufpos += 1
             return _load_dispatch[c](self)
         except KeyError:
-            raise ValueError, "bad marshal code: %c (%d)" % (c, ord(c))
+            raise ValueError("bad marshal code: %c (%d)" % (c, ord(c)))
         except IndexError:
             raise EOFError
 
@@ -540,10 +541,10 @@ class _FastUnmarshaller:
         if size < 0:
             sign = -1
             size = -size
-        x = 0L
+        x = 0
         for i in range(size):
             d = _r_short(self)
-            x = x | (d<<(i*15L))
+            x = x | (d<<(i*15))
         return x * sign
     dispatch[TYPE_LONG] = load_long
 
@@ -570,7 +571,7 @@ class _FastUnmarshaller:
 
     def load_interned(self):
         n = _r_long(self)
-        ret = intern(_read(self, n))
+        ret = sys.intern(_read(self, n))
         self._stringtable.append(ret)
         return ret
     dispatch[TYPE_INTERNED] = load_interned

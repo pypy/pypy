@@ -93,7 +93,7 @@ class coroutine(object):
 
 
 try:
-    from thread import _local
+    from _thread import _local
 except ImportError:
     class _local(object):    # assume no threads
         pass
@@ -168,7 +168,7 @@ class bomb(object):
         self.traceback = exp_traceback
 
     def raise_(self):
-        raise self.type, self.value, self.traceback
+        raise self.type(self.value).with_traceback(self.traceback)
 
 #
 #
@@ -433,16 +433,16 @@ class tasklet(coroutine):
 
     def insert(self):
         if self.blocked:
-            raise RuntimeError, "You cannot run a blocked tasklet"
+            raise RuntimeError("You cannot run a blocked tasklet")
             if not self.alive:
-                raise RuntimeError, "You cannot run an unbound(dead) tasklet"
+                raise RuntimeError("You cannot run an unbound(dead) tasklet")
         _scheduler_append(self)
 
     def remove(self):
         if self.blocked:
-            raise RuntimeError, "You cannot remove a blocked tasklet."
+            raise RuntimeError("You cannot remove a blocked tasklet.")
         if self is getcurrent():
-            raise RuntimeError, "The current tasklet cannot be removed."
+            raise RuntimeError("The current tasklet cannot be removed.")
             # not sure if I will revive this  " Use t=tasklet().capture()"
         _scheduler_remove(self)
 
@@ -535,7 +535,7 @@ def _init():
     _main_tasklet = coroutine.getcurrent()
     _main_tasklet.__class__ = tasklet         # XXX HAAAAAAAAAAAAAAAAAAAAACK
     _last_task = _main_tasklet
-    tasklet._init.im_func(_main_tasklet, label='main')
+    tasklet._init.__func__(_main_tasklet, label='main')
     _squeue = deque()
     _scheduler_append(_main_tasklet)
 

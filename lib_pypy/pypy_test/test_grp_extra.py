@@ -1,4 +1,3 @@
-from __future__ import absolute_import
 import py
 try:
     from lib_pypy import grp

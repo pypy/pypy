@@ -28,10 +28,10 @@ def sha_transform(sha_info):
     W = []
     
     d = sha_info['data']
-    for i in xrange(0,16):
+    for i in range(0,16):
         W.append( (d[4*i]<<24) + (d[4*i+1]<<16) + (d[4*i+2]<<8) + d[4*i+3])
     
-    for i in xrange(16,64):
+    for i in range(16,64):
         W.append( (Gamma1(W[i - 2]) + W[i - 7] + Gamma0(W[i - 15]) + W[i - 16]) & 0xffffffff )
     
     ss = sha_info['digest'][:]
@@ -134,7 +134,7 @@ def sha224_init():
 def getbuf(s):
     if isinstance(s, str):
         return s
-    elif isinstance(s, unicode):
+    elif isinstance(s, str):
         return str(s)
     else:
         return buffer(s)

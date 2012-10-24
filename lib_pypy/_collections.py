@@ -7,7 +7,7 @@
 
 import operator
 try:
-    from thread import get_ident as _thread_ident
+    from _thread import get_ident as _thread_ident
 except ImportError:
     def _thread_ident():
         return -1
@@ -369,7 +369,7 @@ class deque_iterator(object):
         self._gen = itergen(deq.state, giveup)
 
     def __next__(self):
-        res =  self._gen.next()
+        res = next(self._gen)
         self.counter -= 1
         return res
 
@@ -423,5 +423,5 @@ class defaultdict(dict):
 
            This API is used by pickle.py and copy.py.
         """
-        return (type(self), (self.default_factory,), None, None, self.iteritems())
+        return (type(self), (self.default_factory,), None, None, iter(self.items()))
 

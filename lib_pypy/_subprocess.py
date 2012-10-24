@@ -155,7 +155,7 @@ def CreateProcess(name, command_line, process_attr, thread_attr,
 
     if env is not None:
         envbuf = ""
-        for k, v in env.iteritems():
+        for k, v in env.items():
             envbuf += "%s=%s\0" % (k, v)
         envbuf += '\0'
     else:

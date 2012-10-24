@@ -1,6 +1,5 @@
 # defaultdict Tests
 # from CPython2.5
-from __future__ import absolute_import
 import py
 import sys
 if sys.version_info < (2, 5):

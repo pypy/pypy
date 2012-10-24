@@ -1,4 +1,3 @@
-from __future__ import absolute_import
 from lib_pypy import _collections as collections
 import py
 
@@ -42,7 +41,7 @@ class TestDeque:
 
         d = collections.deque(range(100))
         d.reverse()
-        assert list(d) == range(99, -1, -1)
+        assert list(d) == list(range(99, -1, -1))
 
     def test_subclass_with_kwargs(self):
         class SubclassWithKwargs(collections.deque):

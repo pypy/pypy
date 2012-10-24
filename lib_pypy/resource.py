@@ -67,9 +67,7 @@ _getrusage.argtypes = (c_int, POINTER(_struct_rusage))
 _getrusage.restype = c_int
 
 
-class struct_rusage:
-    __metaclass__ = _structseq.structseqtype
-
+class struct_rusage(metaclass=_structseq.structseqtype):
     ru_utime = _structseq.structseqfield(0)
     ru_stime = _structseq.structseqfield(1)
     ru_maxrss = _structseq.structseqfield(2)

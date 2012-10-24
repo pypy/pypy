@@ -1,4 +1,3 @@
-from __future__ import absolute_import
 import py
 import sys
 import marshal as cpy_marshal
@@ -19,11 +18,11 @@ TESTCASES = [
     StopIteration,
     Ellipsis,
     42,
-    sys.maxint,
+    sys.maxsize,
     -1.25,
     2+5j,
-    42L,
-    -1234567890123456789012345678901234567890L,
+    42,
+    -1234567890123456789012345678901234567890,
     hello,   # not interned
     "hello",
     (),
@@ -32,9 +31,9 @@ TESTCASES = [
     [3, 4],
     {},
     {5: 6, 7: 8},
-    func.func_code,
-    scopefunc.func_code,
-    u'hello',
+    func.__code__,
+    scopefunc.__code__,
+    'hello',
     ]
 
 try:
@@ -64,13 +63,13 @@ def test_cases():
         yield dump_to_cpython, case
 
 def dumps_and_reload(case):
-    print 'dump_and_reload', `case`
+    print('dump_and_reload', repr(case))
     s = marshal.dumps(case)
     obj = marshal.loads(s)
     assert obj == case
 
 def loads_from_cpython(case):
-    print 'load_from_cpython', `case`
+    print('load_from_cpython', repr(case))
     try:
         s = cpy_marshal.dumps(case, *cpy_dump_version)
     except ValueError:
@@ -79,7 +78,7 @@ def loads_from_cpython(case):
     assert obj == case
 
 def dumps_to_cpython(case):
-    print 'dump_to_cpython', `case`
+    print('dump_to_cpython', repr(case))
     try:
         cpy_marshal.dumps(case, *cpy_dump_version)
     except ValueError:

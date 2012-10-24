@@ -2,12 +2,14 @@
 # One-liner implementation of cPickle
 #
 
+import marshal
+import struct
+import sys
 from pickle import Pickler, dump, dumps, PickleError, PicklingError, UnpicklingError, _EmptyClass
 from pickle import __doc__, __version__, format_version, compatible_formats
 from types import *
-from copy_reg import dispatch_table
-from copy_reg import _extension_registry, _inverted_registry, _extension_cache
-import marshal, struct, sys
+from copyreg import dispatch_table
+from copyreg import _extension_registry, _inverted_registry, _extension_cache
 
 try: from __pypy__ import builtinify
 except ImportError: builtinify = lambda f: f
@@ -186,7 +188,7 @@ class Unpickler(object):
     def load_proto(self):
         proto = ord(self.read(1))
         if not 0 <= proto <= 2:
-            raise ValueError, "unsupported pickle protocol: %d" % proto
+            raise ValueError("unsupported pickle protocol: %d" % proto)
     dispatch[PROTO] = load_proto
 
     def load_persid(self):
@@ -221,7 +223,7 @@ class Unpickler(object):
             try:
                 val = int(data)
             except ValueError:
-                val = long(data)
+                val = int(data)
         self.append(val)
     dispatch[INT] = load_int
 
@@ -238,7 +240,7 @@ class Unpickler(object):
     dispatch[BININT2] = load_binint2
 
     def load_long(self):
-        self.append(long(self.readline()[:-1], 0))
+        self.append(int(self.readline()[:-1], 0))
     dispatch[LONG] = load_long
 
     def load_long1(self):
@@ -264,13 +266,13 @@ class Unpickler(object):
     def load_string(self):
         rep = self.readline()
         if len(rep) < 3:
-            raise ValueError, "insecure string pickle"
+            raise ValueError("insecure string pickle")
         if rep[0] == "'" == rep[-2]:
             rep = rep[1:-2]
         elif rep[0] == '"' == rep[-2]:
             rep = rep[1:-2]
         else:
-            raise ValueError, "insecure string pickle"
+            raise ValueError("insecure string pickle")
         self.append(rep.decode("string-escape"))
     dispatch[STRING] = load_string
 
@@ -280,12 +282,12 @@ class Unpickler(object):
     dispatch[BINSTRING] = load_binstring
 
     def load_unicode(self):
-        self.append(unicode(self.readline()[:-1],'raw-unicode-escape'))
+        self.append(str(self.readline()[:-1],'raw-unicode-escape'))
     dispatch[UNICODE] = load_unicode
 
     def load_binunicode(self):
         L = mloads('i' + self.read(4))
-        self.append(unicode(self.read(L),'utf-8'))
+        self.append(str(self.read(L),'utf-8'))
     dispatch[BINUNICODE] = load_binunicode
 
     def load_short_binstring(self):
@@ -361,9 +363,9 @@ class Unpickler(object):
         if not instantiated:
             try:
                 value = klass(*args)
-            except TypeError, err:
-                raise TypeError, "in constructor for %s: %s" % (
-                    klass.__name__, str(err)), sys.exc_info()[2]
+            except TypeError as err:
+                raise TypeError("in constructor for %s: %s" % (
+                    klass.__name__, str(err))).with_traceback(sys.exc_info()[2])
         self.append(value)
 
     def load_inst(self):
@@ -523,8 +525,8 @@ class Unpickler(object):
             try:
                 d = inst.__dict__
                 try:
-                    for k, v in state.iteritems():
-                        d[intern(k)] = v
+                    for k, v in state.items():
+                        d[sys.intern(k)] = v
                 # keys in state don't have to be strings
                 # don't blow up, but don't go out of our way
                 except TypeError:
@@ -574,7 +576,7 @@ def decode_long(data):
 
     nbytes = len(data)
     if nbytes == 0:
-        return 0L
+        return 0
     ind = nbytes - 1
     while ind and ord(data[ind]) == 0:
         ind -= 1
@@ -585,7 +587,7 @@ def decode_long(data):
         if ord(data[ind]):
             n += ord(data[ind])
     if ord(data[nbytes - 1]) >= 128:
-        n -= 1L << (nbytes << 3)
+        n -= 1 << (nbytes << 3)
     return n
 
 def load(f):

@@ -1,5 +1,4 @@
 # Deque Tests
-from __future__ import absolute_import
 import py
 
 
@@ -23,17 +22,17 @@ class Test_deque:
     def test_deque_iter(self):
         it = iter(self.d)
         py.test.raises(TypeError, len, it)
-        assert it.next() == 0
+        assert next(it) == 0
         self.d.pop()
-        py.test.raises(RuntimeError, it.next)
+        py.test.raises(RuntimeError, next, it)
 
     def test_deque_reversed(self):
         it = reversed(self.d)
         py.test.raises(TypeError, len, it)
-        assert it.next() == n-1
-        assert it.next() == n-2
+        assert next(it) == n-1
+        assert next(it) == n-2
         self.d.pop()
-        py.test.raises(RuntimeError, it.next)
+        py.test.raises(RuntimeError, next, it)
 
     def test_deque_remove(self):
         d = self.d

@@ -10,7 +10,7 @@ class TestItertools(object):
 
     def test_compress_diff_len(self):
         it = itertools.compress(['a'], [])
-        raises(StopIteration, it.next)
+        raises(StopIteration, next, it)
 
     def test_product(self):
         l = [1, 2]

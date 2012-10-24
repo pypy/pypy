@@ -1,4 +1,3 @@
-from __future__ import absolute_import
 # XXX very minimal test
 
 from lib_pypy.ctypes_config_cache import rebuild
