@@ -1178,11 +1178,14 @@ class FakeOptimizer(object):
     node_class = ConstInt(42)
     node1, node2 = BoxPtr(), BoxPtr()
     descr1, descr2 = FakeDescr(), FakeDescr()
+    subnode_class = ConstInt(7)
+    subnode1 = BoxPtr()
 
     def __init__(self):
         self.values = {}
         self.values[self.node1] = VirtualValue(self.cpu, self.node_class, self.node1)
         self.values[self.node2] = VirtualValue(self.cpu, self.node_class, self.node2)
+        self.values[self.subnode1] = VirtualValue(self.cpu, self.subnode_class, self.subnode1)
         for n in dir(self):
             box = getattr(self, n)
             if isinstance(box, AbstractValue) and box not in self.values:
@@ -1236,8 +1239,12 @@ class TestGuardedGenerlaization:
         modifier = VirtualStateAdder(self.optimizer)
         vstate1 = modifier.get_virtual_state(inputargs)
         vstate2 = modifier.get_virtual_state(jumpargs)
-        vstate = vstate1.make_guarded_generalization_of(vstate2, jumpargs, self.optimizer) 
-        assert vstate.state == expected
+        if isinstance(expected, type) and issubclass(expected, Exception):
+            with raises(expected):
+                vstate = vstate1.make_guarded_generalization_of(vstate2, jumpargs, self.optimizer) 
+        else:
+            vstate = vstate1.make_guarded_generalization_of(vstate2, jumpargs, self.optimizer) 
+            assert vstate.state == expected
 
     def setfield(self, node, descr, box):
         self.optimizer.getvalue(node).setfield(descr, self.optimizer.getvalue(box))
@@ -1275,6 +1282,9 @@ class TestGuardedGenerlaization:
         self.setfield(o.node2, o.descr2, o.const_int2)
         self.combine([o.node1], [o.node2], [Virtual(o.node_class, {o.descr2: Unknown})])
 
+    def test_virtual_class_missmatch(self):
+        o = self.optimizer
+        self.combine([o.node1], [o.subnode1], InvalidLoop)
 
 
 
