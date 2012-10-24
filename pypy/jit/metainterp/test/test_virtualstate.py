@@ -1238,6 +1238,9 @@ class TestGuardedGenerlaization:
         vstate2 = modifier.get_virtual_state(jumpargs)
         vstate = vstate1.make_guarded_generalization_of(vstate2, jumpargs, self.optimizer) 
         assert vstate.state == expected
+
+    def setfield(self, node, descr, box):
+        self.optimizer.getvalue(node).setfield(descr, self.optimizer.getvalue(box))
         
     def test_unknown(self):
         o = self.optimizer
@@ -1257,14 +1260,19 @@ class TestGuardedGenerlaization:
                      [o.unknown_ptr2, o.const_int1],
                      [Unknown, Unknown])
 
-    def test_virtual_simple(self):
+    def test_virtual_simple1(self):
         o = self.optimizer
-        o.getvalue(o.node1).setfield(o.descr2, o.getvalue(o.const_int1))
-        o.getvalue(o.node2).setfield(o.descr2, o.getvalue(o.const_int2))
+        self.setfield(o.node1, o.descr2, o.const_int1)
+        self.setfield(o.node2, o.descr2, o.const_int2)
         self.combine([o.node1, o.node2],
                      [o.node1, o.node2],
                      [Virtual(o.node_class, {o.descr2: Const(1)}), 
                       Virtual(o.node_class, {o.descr2: Const(2)})])
+
+    def test_virtual_simple2(self):
+        o = self.optimizer
+        self.setfield(o.node1, o.descr2, o.const_int1)
+        self.setfield(o.node2, o.descr2, o.const_int2)
         self.combine([o.node1], [o.node2], [Virtual(o.node_class, {o.descr2: Unknown})])
 
 
