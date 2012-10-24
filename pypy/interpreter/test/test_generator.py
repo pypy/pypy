@@ -254,11 +254,11 @@ class AppTestGenerator:
         exec("""
 def f():
     total = sum(i for i in [x for x in z])
-    return total, x
+    return total
 z = [1, 2, 7]
 res = f()
 """, d, d)
-        assert d['res'] == (10, 7)
+        assert d['res'] == 10
 
     def test_repr(self):
         def myFunc():

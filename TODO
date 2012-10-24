@@ -19,3 +19,6 @@ unskip numpypy tests in module/test_lib_pypy/numpypy/
 
 optimize W_UnicodeObject, right now it stores both an unicode and an utf8
 version of the same string
+
+re-enable BUILD_LIST_FROM_ARG: see the comment in astcompiler/codegen.py in
+ast.ListComp.build_container

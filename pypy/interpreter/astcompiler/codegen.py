@@ -121,6 +121,10 @@ class __extend__(ast.GeneratorExp):
 class __extend__(ast.ListComp):
 
     def build_container(self, codegen):
+        # XXX: this is suboptimal: if we use BUILD_LIST_FROM_ARG it's faster
+        # because it preallocates the list; however, we cannot use it because
+        # at this point we only have the iterator, not the original iterable
+        # object
         codegen.emit_op_arg(ops.BUILD_LIST, 0)
 
     def get_generators(self):
@@ -1059,51 +1063,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op_arg(ops.CALL_METHOD, (kwarg_count << 8) | arg_count)
         return True
 
-    def _listcomp_generator(self, gens, gen_index, elt, single=False):
-        start = self.new_block()
-        skip = self.new_block()
-        if_cleanup = self.new_block()
-        anchor = self.new_block()
-        gen = gens[gen_index]
-        assert isinstance(gen, ast.comprehension)
-        gen.iter.walkabout(self)
-        if single:
-            self.emit_op_arg(ops.BUILD_LIST_FROM_ARG, 0)
-        self.emit_op(ops.GET_ITER)
-        self.use_next_block(start)
-        self.emit_jump(ops.FOR_ITER, anchor)
-        self.use_next_block()
-        gen.target.walkabout(self)
-        if gen.ifs:
-            if_count = len(gen.ifs)
-            for if_ in gen.ifs:
-                if_.accept_jump_if(self, False, if_cleanup)
-                self.use_next_block()
-        else:
-            if_count = 0
-        gen_index += 1
-        if gen_index < len(gens):
-            self._listcomp_generator(gens, gen_index, elt)
-        else:
-            elt.walkabout(self)
-            self.emit_op_arg(ops.LIST_APPEND, gen_index + 1)
-            self.use_next_block(skip)
-        self.use_next_block(if_cleanup)
-        self.emit_jump(ops.JUMP_ABSOLUTE, start, True)
-        self.use_next_block(anchor)
-
     def visit_ListComp(self, lc):
         self._compile_comprehension(lc, "<listcomp>",
                                     ComprehensionCodeGenerator)
-
-    ## def visit_ListComp(self, lc):
-    ##     self.update_position(lc.lineno)
-    ##     if len(lc.generators) != 1 or lc.generators[0].ifs:
-    ##         single = False
-    ##         self.emit_op_arg(ops.BUILD_LIST, 0)
-    ##     else:
-    ##         single = True
-    ##     self._listcomp_generator(lc.generators, 0, lc.elt, single=single)
 
     def _comp_generator(self, node, generators, gen_index):
         start = self.new_block()
