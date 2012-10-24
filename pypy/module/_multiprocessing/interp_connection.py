@@ -125,7 +125,7 @@ class W_BaseConnection(Wrappable):
             if newbuf:
                 rffi.free_charp(newbuf)
 
-        return space.wrapbytes(res)
+        return space.wrap(res)
 
     def send(self, space, w_obj):
         self._check_writable(space)
