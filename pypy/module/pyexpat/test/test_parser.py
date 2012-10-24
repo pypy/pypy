@@ -48,7 +48,7 @@ class AppTestPyexpat:
                 p.CharacterDataHandler = lambda s: data.append(s)
                 encoding = encoding_arg is None and 'utf-8' or encoding_arg
 
-                res = p.Parse("<xml>\u00f6</xml>".encode(encoding), isfinal=True)
+                res = p.Parse("<xml>\u00f6</xml>".encode(encoding), True)
                 assert res == 1
                 assert data == ["\u00f6"]
 
@@ -79,7 +79,8 @@ class AppTestPyexpat:
         p = pyexpat.ParserCreate()
         p.buffer_size = 150
         assert p.buffer_size == 150
-        raises(TypeError, setattr, p, 'buffer_size', sys.maxint + 1)
+        raises((ValueError, TypeError),
+               setattr, p, 'buffer_size', sys.maxsize + 1)
 
     def test_encoding_xml(self):
         # use one of the few encodings built-in in expat
@@ -89,7 +90,6 @@ class AppTestPyexpat:
         def gotText(text):
             assert text == "caf\xe9"
         p.CharacterDataHandler = gotText
-        assert p.returns_unicode
         p.Parse(xml)
 
     def test_explicit_encoding(self):
@@ -148,3 +148,17 @@ class AppTestPyexpat:
     def test_model(self):
         import pyexpat
         assert isinstance(pyexpat.model.XML_CTYPE_EMPTY, int)
+
+    def test_codes(self):
+        from pyexpat import errors
+        # verify mapping of errors.codes and errors.messages
+        message = errors.messages[errors.codes[errors.XML_ERROR_SYNTAX]]
+        assert errors.XML_ERROR_SYNTAX == message
+
+    def test_expaterror(self):
+        import pyexpat
+        from pyexpat import errors
+        xml = '<'
+        parser = pyexpat.ParserCreate()
+        e = raises(pyexpat.ExpatError, parser.Parse, xml, True)
+        assert e.value.code == errors.codes[errors.XML_ERROR_UNCLOSED_TOKEN]

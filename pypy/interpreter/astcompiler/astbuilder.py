@@ -853,6 +853,11 @@ class ASTBuilder(object):
             elif comp_type == tokens.GREATEREQUAL:
                 return ast.GtE
             elif comp_type == tokens.NOTEQUAL:
+                flufl = self.compile_info.flags & consts.CO_FUTURE_BARRY_AS_BDFL
+                if flufl and comp_node.value == '!=':
+                    self.error('invalid comparison', comp_node)
+                elif not flufl and comp_node.value == '<>':
+                    self.error('invalid comparison', comp_node)
                 return ast.NotEq
             elif comp_type == tokens.NAME:
                 if comp_node.value == "is":
@@ -1118,7 +1123,6 @@ class ASTBuilder(object):
         elif first_child_type == tokens.STRING:
             space = self.space
             encoding = self.compile_info.encoding
-            flags = self.compile_info.flags
             try:
                 sub_strings_w = [parsestring.parsestr(space, encoding, s.value)
                                  for s in atom_node.children]

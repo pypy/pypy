@@ -80,6 +80,8 @@ class BaseStringFormatTests:
         assert self.s('{0!s:15s}').format('Hello') == 'Hello          '
         assert self.s('{0!r}').format('Hello') == "'Hello'"
         assert self.s('{0!r:}').format('Hello') == "'Hello'"
+        assert self.s('{0!r}').format('Caf\xe9') == "'Caf\xe9'"
+        assert self.s('{0!a}').format('Caf\xe9') == "'Caf\\xe9'"
 
     def test_invalid_conversion(self):
         raises(ValueError, self.s("{!x}").format, 3)

@@ -9,10 +9,24 @@ class ErrorsModule(MixedModule):
 
     def setup_after_space_initialization(self):
         from pypy.module.pyexpat import interp_pyexpat
+        space = self.space
+        # Three mappings for errors: the module contains errors
+        # message by symbol (errors.XML_ERROR_SYNTAX == 'syntax error'),
+        # codes is a dict mapping messages to numeric codes
+        # (errors.codes['syntax error'] == 2), and messages is a dict
+        # mapping numeric codes to messages (messages[2] == 'syntax error').
+        w_codes = space.newdict()
+        w_messages = space.newdict()
         for name in interp_pyexpat.xml_error_list:
-            self.space.setattr(self, self.space.wrap(name),
-                    interp_pyexpat.ErrorString(self.space,
-                    getattr(interp_pyexpat, name)))
+            w_name = space.wrap(name)
+            num = getattr(interp_pyexpat, name)
+            w_num = space.wrap(num)
+            w_message = interp_pyexpat.ErrorString(space, num)
+            space.setattr(self, w_name, w_message)
+            space.setitem(w_codes, w_message, w_num)
+            space.setitem(w_messages, w_num, w_message)
+        space.setattr(self, space.wrap("codes"), w_codes)
+        space.setattr(self, space.wrap("messages"), w_messages)
 
 class ModelModule(MixedModule):
     "Definition of pyexpat.model module."

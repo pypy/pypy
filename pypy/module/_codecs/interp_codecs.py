@@ -454,7 +454,7 @@ if hasattr(runicode, 'str_decode_mbcs'):
     make_decoder_wrapper('mbcs_decode')
 
 # utf-8 functions are not regular, because we have to pass
-# "allow_surrogates=True"
+# "allow_surrogates=False"
 @unwrap_spec(uni=unicode, errors='str_or_None')
 def utf_8_encode(space, uni, errors="strict"):
     if errors is None:
@@ -462,7 +462,7 @@ def utf_8_encode(space, uni, errors="strict"):
     state = space.fromcache(CodecState)
     result = runicode.unicode_encode_utf_8(
         uni, len(uni), errors, state.encode_error_handler,
-        allow_surrogates=True)
+        allow_surrogates=False)
     return space.newtuple([space.wrapbytes(result), space.wrap(len(uni))])
 
 @unwrap_spec(string='bufferstr', errors='str_or_None',
@@ -475,7 +475,7 @@ def utf_8_decode(space, string, errors="strict", w_final=None):
     result, consumed = runicode.str_decode_utf_8(
         string, len(string), errors,
         final, state.decode_error_handler,
-        allow_surrogates=True)
+        allow_surrogates=False)
     return space.newtuple([space.wrap(result), space.wrap(consumed)])
 
 @unwrap_spec(data="bufferstr", errors='str_or_None', byteorder=int,

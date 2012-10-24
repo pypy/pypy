@@ -35,11 +35,10 @@ class AppTestBufferTooShort:
 
 class BaseConnectionTest(object):
     def test_connection(self):
-        py3k_skip('fixme later')
         rhandle, whandle = self.make_pair()
 
-        whandle.send_bytes("abc")
-        assert rhandle.recv_bytes(100) == "abc"
+        whandle.send_bytes(b"abc")
+        assert rhandle.recv_bytes(100) == b"abc"
 
         obj = [1, 2.0, "hello"]
         whandle.send(obj)
@@ -47,7 +46,6 @@ class BaseConnectionTest(object):
         assert obj == obj2
 
     def test_poll(self):
-        py3k_skip('fixme later')
         rhandle, whandle = self.make_pair()
 
         assert rhandle.poll() == False
@@ -61,7 +59,6 @@ class BaseConnectionTest(object):
         raises(IOError, whandle.poll)
 
     def test_read_into(self):
-        py3k_skip('fixme later')
         import array, multiprocessing
         rhandle, whandle = self.make_pair()
 
@@ -96,7 +93,7 @@ class AppTestWinpipeConnection(BaseConnectionTest):
 class AppTestSocketConnection(BaseConnectionTest):
     def setup_class(cls):
         space = gettestobjspace(usemodules=('_multiprocessing', 'thread', 'signal',
-                                            'struct', 'array'))
+                                            'struct', 'array', '_socket'))
         cls.space = space
         cls.w_connections = space.newlist([])
 
@@ -160,7 +157,6 @@ class AppTestSocketConnection(BaseConnectionTest):
         raises(IOError, _multiprocessing.Connection, -15)
 
     def test_byte_order(self):
-        py3k_skip('fixme later')
         import socket
         if not 'fromfd' in dir(socket):
             skip('No fromfd in socket')

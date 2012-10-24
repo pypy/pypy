@@ -40,6 +40,7 @@ class W_Reader(Wrappable):
 
     def save_field(self, field_builder):
         field = field_builder.build()
+        print "AFA SAVE FIELD", field
         if self.numeric_field:
             from pypy.objspace.std.strutil import ParseStringError
             from pypy.objspace.std.strutil import string_to_float
@@ -71,11 +72,7 @@ class W_Reader(Wrappable):
                             state != START_RECORD and state != EAT_CRNL and
                             (len(field_builder.build()) > 0 or
                              state == IN_QUOTED_FIELD)):
-                        if dialect.strict:
-                            raise self.error(u"newline inside string")
-                        else:
-                            self.save_field(field_builder)
-                            break
+                        raise self.error(u"newline inside string")
                 raise
             self.line_num += 1
             line = space.unicode_w(w_line)

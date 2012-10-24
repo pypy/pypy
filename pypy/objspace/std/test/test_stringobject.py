@@ -702,6 +702,12 @@ class AppTestStringObject:
         assert b[1:0] == b""
         raises(TypeError, "b[3] = 'x'")
 
+    def test_fromobject(self):
+        class S:
+            def __bytes__(self):
+                return b"bytes"
+        assert bytes(S()) == b"bytes"
+
     def test_getnewargs(self):
         assert  b"foo".__getnewargs__() == (b"foo",)
 

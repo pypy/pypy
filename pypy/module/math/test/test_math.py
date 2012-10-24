@@ -89,7 +89,7 @@ class AppTestMath:
             assert actual == expected
 
     def test_factorial(self):
-        import math
+        import math, sys
         assert math.factorial(0) == 1
         assert math.factorial(1) == 1
         assert math.factorial(2) == 2
@@ -98,6 +98,8 @@ class AppTestMath:
         raises(ValueError, math.factorial, -1)
         raises(ValueError, math.factorial, -1.)
         raises(ValueError, math.factorial, 1.1)
+        raises(OverflowError, math.factorial, sys.maxsize+1)
+        raises(OverflowError, math.factorial, 10e100)
 
     def test_log1p(self):
         import math

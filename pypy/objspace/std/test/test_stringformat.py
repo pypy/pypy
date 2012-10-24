@@ -281,3 +281,9 @@ class AppTestUnicodeObject:
     def test_invalid_char(self):
         f = 4
         raises(ValueError, '"%\u1234" % (f,)')
+
+    def test_ascii(self):
+        assert "<%a>" % "test" == "<'test'>"
+        assert "<%a>" % "\t\x80" == "<'\\t\\x80'>"
+        assert "<%r>" % "\xe9" == "<'\xe9'>"
+        assert "<%a>" % "\xe9" == "<'\\xe9'>"

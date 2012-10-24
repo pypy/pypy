@@ -543,12 +543,6 @@ def _make_comparison_impl(symbol, specialnames):
     left, right = specialnames
     op = getattr(operator, left)
     def comparison_impl(space, w_obj1, w_obj2):
-        # for == and !=, we do a quick check for identity.  This also
-        # guarantees that identity implies equality.
-        if left == '__eq__' or left == '__ne__':
-            if space.is_w(w_obj1, w_obj2):
-                return space.wrap(left == '__eq__')
-        #
         w_typ1 = space.type(w_obj1)
         w_typ2 = space.type(w_obj2)
         w_left_src, w_left_impl = space.lookup_in_type_where(w_typ1, left)
@@ -582,12 +576,11 @@ def _make_comparison_impl(symbol, specialnames):
         # we did not find any special method, let's do the default logic for
         # == and !=
         if left == '__eq__':
-            # they are not identical, else it would have been caught by the if
-            # at the top of the function
-            assert not space.is_w(w_obj1, w_obj2)
-            return space.w_False
+            if space.is_w(w_obj1, w_obj2):
+                return space.w_True
+            else:
+                return space.w_False
         elif left == '__ne__':
-            assert not space.is_w(w_obj1, w_obj2)
             return space.not_(space.eq(w_obj1, w_obj2))
         #
         # if we arrived here, they are unorderable

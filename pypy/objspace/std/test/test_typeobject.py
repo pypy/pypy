@@ -718,6 +718,12 @@ class AppTestTypeObject:
         assert repr(property) == "<class 'property'>"
         assert repr(TypeError) == "<class 'TypeError'>"
         
+    def test_repr_issue1292(self):
+        d = {'object': object}    # no __name__
+        exec("class A(object): pass\n", d)
+        assert d['A'].__module__ == 'builtins'    # obscure, follows CPython
+        assert repr(d['A']) == "<class 'A'>"
+
     def test_invalid_mro(self):
         class A(object):
             pass

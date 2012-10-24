@@ -3,11 +3,9 @@ Interp-level implementation of the basic space operations.
 """
 
 from pypy.interpreter import gateway
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from pypy.rlib.runicode import UNICHR
-from pypy.rlib.rfloat import isnan, isinf, round_double
-from pypy.rlib import rfloat
 import __builtin__
 
 def abs(space, w_val):
@@ -21,11 +19,8 @@ def ascii(space, w_obj):
     object, but escape the non-ASCII characters in the string returned by
     repr() using \\x, \\u or \\U escapes.  This generates a string similar
     to that returned by repr() in Python 2."""
-    from pypy.objspace.std.unicodetype import decode_object, encode_object
-    # repr is guaranteed to be unicode
-    w_repr = space.repr(w_obj)
-    w_encoded = encode_object(space, w_repr, 'ascii', 'backslashreplace')
-    return decode_object(space, w_encoded, 'ascii', None)
+    from pypy.objspace.std.unicodetype import ascii_from_object
+    return ascii_from_object(space, w_obj)
 
 @unwrap_spec(code=int)
 def chr(space, code):
@@ -102,40 +97,22 @@ def divmod(space, w_x, w_y):
 
 # ____________________________________________________________
 
-# Here 0.30103 is an upper bound for log10(2)
-NDIGITS_MAX = int((rfloat.DBL_MANT_DIG - rfloat.DBL_MIN_EXP) * 0.30103)
-NDIGITS_MIN = -int((rfloat.DBL_MAX_EXP + 1) * 0.30103)
-
-@unwrap_spec(number=float, w_ndigits = WrappedDefault(0))
-def round(space, number, w_ndigits):
-    """round(number[, ndigits]) -> floating point number
+@unwrap_spec(w_ndigits=WrappedDefault(None))
+def round(space, w_number, w_ndigits=None):
+    """round(number[, ndigits]) -> number
 
 Round a number to a given precision in decimal digits (default 0 digits).
-This always returns a floating point number.  Precision may be negative."""
-    # Algorithm copied directly from CPython
-
-    # interpret 2nd argument as a Py_ssize_t; clip on overflow
-    ndigits = space.getindex_w(w_ndigits, None)
-
-    # nans, infinities and zeros round to themselves
-    if number == 0 or isinf(number) or isnan(number):
-        return space.wrap(number)
-
-    # Deal with extreme values for ndigits. For ndigits > NDIGITS_MAX, x
-    # always rounds to itself.  For ndigits < NDIGITS_MIN, x always
-    # rounds to +-0.0.
-    if ndigits > NDIGITS_MAX:
-        return space.wrap(number)
-    elif ndigits < NDIGITS_MIN:
-        # return 0.0, but with sign of x
-        return space.wrap(0.0 * number)
-
-    # finite x, and ndigits is not unreasonably large
-    z = round_double(number, ndigits)
-    if isinf(z):
-        raise OperationError(space.w_OverflowError,
-                             space.wrap("rounded value too large to represent"))
-    return space.wrap(z)
+This returns an int when called with one argument, otherwise the
+same type as the number. ndigits may be negative."""
+    round = space.lookup(w_number, '__round__')
+    if round is None:
+        raise operationerrfmt(space.w_TypeError,
+                              "type %s doesn't define __round__ method",
+                              space.type(w_number).getname(space))
+    if space.is_none(w_ndigits):
+        return space.get_and_call_function(round, w_number)
+    else:
+        return space.get_and_call_function(round, w_number, w_ndigits)
 
 # ____________________________________________________________
 

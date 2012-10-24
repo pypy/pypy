@@ -642,6 +642,77 @@ def fn(): pass
         assert round(562949953421312.5, 1) == 562949953421312.5
         assert round(56294995342131.5, 3) == 56294995342131.5
 
+        assert round(0.0) == 0.0
+        assert type(round(0.0)) == int
+        assert round(1.0) == 1.0
+        assert round(10.0) == 10.0
+        assert round(1000000000.0) == 1000000000.0
+        assert round(1e20) == 1e20
+
+        assert round(-1.0) == -1.0
+        assert round(-10.0) == -10.0
+        assert round(-1000000000.0) == -1000000000.0
+        assert round(-1e20) == -1e20
+
+        assert round(0.1) == 0.0
+        assert round(1.1) == 1.0
+        assert round(10.1) == 10.0
+        assert round(1000000000.1) == 1000000000.0
+
+        assert round(-1.1) == -1.0
+        assert round(-10.1) == -10.0
+        assert round(-1000000000.1) == -1000000000.0
+
+        assert round(0.9) == 1.0
+        assert round(9.9) == 10.0
+        assert round(999999999.9) == 1000000000.0
+
+        assert round(-0.9) == -1.0
+        assert round(-9.9) == -10.0
+        assert round(-999999999.9) == -1000000000.0
+
+        assert round(-8.0, -1) == -10.0
+        assert type(round(-8.0, -1)) == float
+
+        assert type(round(-8.0, 0)) == float
+        assert type(round(-8.0, 1)) == float
+
+        # Check even / odd rounding behaviour
+        assert round(5.5) == 6
+        assert round(6.5) == 6
+        assert round(-5.5) == -6
+        assert round(-6.5) == -6
+
+        # Check behavior on ints
+        assert round(0) == 0
+        assert round(8) == 8
+        assert round(-8) == -8
+        assert type(round(0)) == int
+        assert type(round(-8, -1)) == int
+        assert type(round(-8, 0)) == int
+        assert type(round(-8, 1)) == int
+
+        assert round(number=-8.0, ndigits=-1) == -10.0
+        raises(TypeError, round)
+
+        # test generic rounding delegation for reals
+        class TestRound:
+            def __round__(self):
+                return 23
+
+        class TestNoRound:
+            pass
+
+        assert round(TestRound()) == 23
+
+        raises(TypeError, round, 1, 2, 3)
+        raises(TypeError, round, TestNoRound())
+
+        t = TestNoRound()
+        t.__round__ = lambda *args: args
+        raises(TypeError, round, t)
+        raises(TypeError, round, t, 0)
+
     def test_vars_obscure_case(self):
         class C_get_vars(object):
             def getDict(self):

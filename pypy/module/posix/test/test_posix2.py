@@ -292,9 +292,16 @@ class AppTestPosix:
             u = b"caf\xe9".decode(sys.getfilesystemencoding())
         except UnicodeDecodeError:
             # Could not decode, listdir returned the byte string
-            assert (bytes, b"caf\xe9") in typed_result
+            assert (str, 'caf\udce9') in typed_result
         else:
             assert (str, u) in typed_result
+
+    def test_undecodable_filename(self):
+        posix = self.posix
+        assert posix.access('caf\xe9', posix.R_OK) is False
+        assert posix.access(b'caf\xe9', posix.R_OK) is False
+        assert posix.access('caf\udcc0', posix.R_OK) is False
+        assert posix.access(b'caf\xc3', posix.R_OK) is False
 
     def test_access(self):
         pdir = self.pdir + '/file1'

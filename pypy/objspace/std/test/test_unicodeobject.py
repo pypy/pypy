@@ -839,6 +839,10 @@ class AppTestUnicodeString:
                 return '\u1234'
         '%s' % X()
 
+    def test_formatting_unicode__repr__(self):
+        # Printable character
+        assert '%r' % chr(0xe9) == "'\xe9'"
+
     def test_str_subclass(self):
         class Foo9(str):
             def __str__(self):

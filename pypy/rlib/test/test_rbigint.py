@@ -4,6 +4,7 @@ import operator, sys, array
 from random import random, randint, sample
 from pypy.rlib.rbigint import rbigint, SHIFT, MASK, KARATSUBA_CUTOFF
 from pypy.rlib.rbigint import _store_digit, _mask_digit
+from pypy.rlib.rfloat import NAN
 from pypy.rlib import rbigint as lobj
 from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong, intmask
 from pypy.rpython.test.test_llinterp import interpret
@@ -266,6 +267,7 @@ class Test_rbigint(object):
         x = 12345.6789e200
         x *= x
         assert raises(OverflowError, rbigint.fromfloat, x)
+        assert raises(ValueError, rbigint.fromfloat, NAN)
         #
         f1 = rbigint.fromfloat(9007199254740991.0)
         assert f1.tolong() == 9007199254740991

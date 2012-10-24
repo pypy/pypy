@@ -817,7 +817,17 @@ class TestCompiler:
         def f():
             try:
                 raise TypeError() from ValueError()
-            except TypeError:
+            except TypeError as e:
+                assert isinstance(e.__cause__, ValueError)
+                return 42
+        """
+        yield self.st, test, "f()", 42
+        test = """if 1:
+        def f():
+            try:
+                raise TypeError from ValueError
+            except TypeError as e:
+                assert isinstance(e.__cause__, ValueError)
                 return 42
         """
         yield self.st, test, "f()", 42

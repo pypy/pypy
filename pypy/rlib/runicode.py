@@ -295,13 +295,7 @@ def unicode_encode_utf_8_impl(s, size, errors, errorhandler,
                         r, pos = errorhandler(errors, 'utf-8',
                                               'surrogates not allowed',
                                               s, pos-1, pos)
-                        for ch in r:
-                            if ord(ch) < 0x80:
-                                result.append(chr(ord(ch)))
-                            else:
-                                errorhandler('strict', 'utf-8',
-                                             'surrogates not allowed',
-                                             s, pos-1, pos)
+                        result.append(r)
                         continue
                     # else: Fall through and handles isolated high surrogates
                 result.append((chr((0xe0 | (ch >> 12)))))

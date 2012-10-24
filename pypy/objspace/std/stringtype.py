@@ -310,6 +310,11 @@ def makebytesdata_w(space, w_source, encoding=None, errors=None):
     else:
         return [c for c in string]
 
+    w_bytes_method = space.lookup(w_source, "__bytes__")
+    if w_bytes_method:
+        w_bytes = space.call_function(w_bytes_method, w_source)
+        w_source = w_bytes
+
     # sequence of bytes
     data = []
     w_iter = space.iter(w_source)

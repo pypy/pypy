@@ -126,18 +126,10 @@ def getnameinfo(space, w_sockaddr, flags):
         raise converted_error(space, e)
     return space.newtuple([space.wrap(host), space.wrap(servport)])
 
-@unwrap_spec(fd=int, family=int, type=int, proto=int)
-def fromfd(space, fd, family, type, proto=0):
-    """fromfd(fd, family, type[, proto]) -> socket object
-
-    Create a socket object from the given file descriptor.
-    The remaining arguments are the same as for socket().
-    """
-    try:
-        sock = rsocket.fromfd(fd, family, type, proto, W_RSocket)
-    except SocketError, e:
-        raise converted_error(space, e)
-    return space.wrap(sock)
+@unwrap_spec(fd=int)
+def dup(space, fd):
+    newfd = rsocket.dup(fd)
+    return space.wrap(newfd)
 
 @unwrap_spec(family=int, type=int, proto=int)
 def socketpair(space, family=rsocket.socketpair_default_family,

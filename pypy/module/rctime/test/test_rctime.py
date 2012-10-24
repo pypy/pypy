@@ -94,14 +94,14 @@ class AppTestRCTime:
         ltime = rctime.localtime()
         rctime.accept2dyear == 0
         ltime = list(ltime)
-        ltime[0] = 1899
+        ltime[0] = -1
         raises(ValueError, rctime.mktime, tuple(ltime))
         rctime.accept2dyear == 1
 
         ltime = list(ltime)
         ltime[0] = 67
         ltime = tuple(ltime)
-        if os.name != "nt" and sys.maxint < 1<<32:   # time_t may be 64bit
+        if os.name != "nt" and sys.maxsize < 1<<32:   # time_t may be 64bit
             raises(OverflowError, rctime.mktime, ltime)
 
         ltime = list(ltime)
@@ -255,10 +255,13 @@ class AppTestRCTime:
         # of the time tuple.
 
         # check year
-        raises(ValueError, rctime.strftime, '', (1899, 1, 1, 0, 0, 0, 0, 1, -1))
         if rctime.accept2dyear:
             raises(ValueError, rctime.strftime, '', (-1, 1, 1, 0, 0, 0, 0, 1, -1))
             raises(ValueError, rctime.strftime, '', (100, 1, 1, 0, 0, 0, 0, 1, -1))
+        else:
+            rctime.strftime('', (1899, 1, 1, 0, 0, 0, 0, 1, -1))
+            rctime.strftime('', (0, 1, 1, 0, 0, 0, 0, 1, -1))
+
         # check month
         raises(ValueError, rctime.strftime, '', (1900, 13, 1, 0, 0, 0, 0, 1, -1))
         # check day of month
@@ -282,8 +285,8 @@ class AppTestRCTime:
         # check day of the year
         raises(ValueError, rctime.strftime, '', (1900, 1, 1, 0, 0, 0, 0, 367, -1))
         # check daylight savings flag
-        raises(ValueError, rctime.strftime, '', (1900, 1, 1, 0, 0, 0, 0, 1, -2))
-        raises(ValueError, rctime.strftime, '', (1900, 1, 1, 0, 0, 0, 0, 1, 2))
+        rctime.strftime('', (1900, 1, 1, 0, 0, 0, 0, 1, -2))
+        rctime.strftime('', (1900, 1, 1, 0, 0, 0, 0, 1, 2))
 
     def test_strptime(self):
         import time as rctime

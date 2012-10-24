@@ -8,6 +8,7 @@ import contextlib
 import copy
 
 from test import support
+from test.support import gc_collect
 
 # Used in ReferencesTestCase.test_ref_created_during_del() .
 ref_from_del = None
@@ -67,6 +68,7 @@ class ReferencesTestCase(TestBase):
         ref1 = weakref.ref(o, self.callback)
         ref2 = weakref.ref(o, self.callback)
         del o
+        gc_collect()
         self.assertTrue(ref1() is None,
                      "expected reference to be invalidated")
         self.assertTrue(ref2() is None,
@@ -98,13 +100,16 @@ class ReferencesTestCase(TestBase):
         ref1 = weakref.proxy(o, self.callback)
         ref2 = weakref.proxy(o, self.callback)
         del o
+        gc_collect()
 
         def check(proxy):
             proxy.bar
 
         self.assertRaises(ReferenceError, check, ref1)
         self.assertRaises(ReferenceError, check, ref2)
-        self.assertRaises(ReferenceError, bool, weakref.proxy(C()))
+        ref3 = weakref.proxy(C())
+        gc_collect()
+        self.assertRaises(ReferenceError, bool, ref3)
         self.assertEqual(self.cbcalled, 2)
 
     def check_basic_ref(self, factory):
@@ -121,6 +126,7 @@ class ReferencesTestCase(TestBase):
         o = factory()
         ref = weakref.ref(o, self.callback)
         del o
+        gc_collect()
         self.assertTrue(self.cbcalled == 1,
                      "callback did not properly set 'cbcalled'")
         self.assertTrue(ref() is None,
@@ -145,6 +151,7 @@ class ReferencesTestCase(TestBase):
         self.assertTrue(weakref.getweakrefcount(o) == 2,
                      "wrong weak ref count for object")
         del proxy
+        gc_collect()
         self.assertTrue(weakref.getweakrefcount(o) == 1,
                      "wrong weak ref count for object after deleting proxy")
 
@@ -320,6 +327,7 @@ class ReferencesTestCase(TestBase):
                      "got wrong number of weak reference objects")
 
         del ref1, ref2, proxy1, proxy2
+        gc_collect()
         self.assertTrue(weakref.getweakrefcount(o) == 0,
                      "weak reference objects not unlinked from"
                      " referent when discarded.")
@@ -333,6 +341,7 @@ class ReferencesTestCase(TestBase):
         ref1 = weakref.ref(o, self.callback)
         ref2 = weakref.ref(o, self.callback)
         del ref1
+        gc_collect()
         self.assertTrue(weakref.getweakrefs(o) == [ref2],
                      "list of refs does not match")
 
@@ -340,10 +349,12 @@ class ReferencesTestCase(TestBase):
         ref1 = weakref.ref(o, self.callback)
         ref2 = weakref.ref(o, self.callback)
         del ref2
+        gc_collect()
         self.assertTrue(weakref.getweakrefs(o) == [ref1],
                      "list of refs does not match")
 
         del ref1
+        gc_collect()
         self.assertTrue(weakref.getweakrefs(o) == [],
                      "list of refs not cleared")
 
@@ -629,9 +640,11 @@ class ReferencesTestCase(TestBase):
         gc.collect()
         self.assertEqual(alist, [])
 
+    @support.impl_detail(pypy=False)
     def test_gc_during_ref_creation(self):
         self.check_gc_during_creation(weakref.ref)
 
+    @support.impl_detail(pypy=False)
     def test_gc_during_proxy_creation(self):
         self.check_gc_during_creation(weakref.proxy)
 
@@ -709,6 +722,7 @@ class SubclassableWeakrefTestCase(TestBase):
         self.assertTrue(mr.called)
         self.assertEqual(mr.value, 24)
         del o
+        gc_collect()
         self.assertTrue(mr() is None)
         self.assertTrue(mr.called)
 
@@ -835,15 +849,18 @@ class MappingTestCase(TestBase):
         del items1, items2
         self.assertEqual(len(dict), self.COUNT)
         del objects[0]
+        gc_collect()
         self.assertEqual(len(dict), self.COUNT - 1,
                      "deleting object did not cause dictionary update")
         del objects, o
+        gc_collect()
         self.assertEqual(len(dict), 0,
                      "deleting the values did not clear the dictionary")
         # regression on SF bug #447152:
         dict = weakref.WeakValueDictionary()
         self.assertRaises(KeyError, dict.__getitem__, 1)
         dict[2] = C()
+        gc_collect()
         self.assertRaises(KeyError, dict.__getitem__, 2)
 
     def test_weak_keys(self):
@@ -864,9 +881,11 @@ class MappingTestCase(TestBase):
         del items1, items2
         self.assertEqual(len(dict), self.COUNT)
         del objects[0]
+        gc_collect()
         self.assertTrue(len(dict) == (self.COUNT - 1),
                      "deleting object did not cause dictionary update")
         del objects, o
+        gc_collect()
         self.assertTrue(len(dict) == 0,
                      "deleting the keys did not clear the dictionary")
         o = Object(42)
@@ -1225,6 +1244,7 @@ class MappingTestCase(TestBase):
         for o in objs:
             count += 1
             del d[o]
+        gc_collect()
         self.assertEqual(len(d), 0)
         self.assertEqual(count, 2)
 
@@ -1317,6 +1337,7 @@ True
 >>> id2obj(a_id) is a
 True
 >>> del a
+>>> gc_collect()
 >>> try:
 ...     id2obj(a_id)
 ... except KeyError:

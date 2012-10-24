@@ -2,7 +2,8 @@
 String formatting routines.
 """
 from pypy.interpreter.error import OperationError
-from pypy.objspace.std.unicodetype import unicode_from_object
+from pypy.objspace.std.unicodetype import (
+    unicode_from_object, ascii_from_object)
 from pypy.rlib import jit
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rlib.rfloat import formatd, DTSF_ALT, isnan, isinf
@@ -447,7 +448,11 @@ def make_formatter_subclass(do_unicode):
             self.std_wp(s)
 
         def fmt_r(self, w_value):
-            self.std_wp(self.space.str_w(self.space.repr(w_value)))
+            self.std_wp(self.space.unicode_w(self.space.repr(w_value)))
+
+        def fmt_a(self, w_value):
+            w_value = ascii_from_object(self.space, w_value)
+            self.std_wp(self.space.unicode_w(w_value))
 
         def fmt_c(self, w_value):
             self.prec = -1     # just because

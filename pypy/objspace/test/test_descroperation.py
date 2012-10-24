@@ -396,6 +396,16 @@ class AppTest_Descroperation:
         assert res1 == res2 == 123
         assert l == [A, B, B, A]
 
+    def test__eq__called(self):
+        l = []
+        class A(object):
+            def __eq__(self, other):
+                l.append((self, other))
+                return True
+        a = A()
+        a == a
+        assert l == [(a, a)]
+
     def test_subclass_comparison(self):
         # the __eq__ *is* called with reversed arguments
         l = []

@@ -1,3 +1,5 @@
+import sys
+
 def factorial(x):
     """Find x!."""
     if isinstance(x, float):
@@ -5,6 +7,8 @@ def factorial(x):
         if fl != x:
             raise ValueError("float arguments must be integral")
         x = fl
+    if x > sys.maxsize:
+        raise OverflowError("Too large for a factorial")
     if x < 0:
         raise ValueError("x must be >= 0")
     res = 1

@@ -43,7 +43,7 @@ def _long2bytesBigEndian(n, blocksize=0):
 
     # Strip off leading zeros.
     for i in range(len(s)):
-        if s[i] <> '\000':
+        if s[i] != '\000':
             break
     else:
         # Only happens when n == 0.

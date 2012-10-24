@@ -210,8 +210,7 @@ def encode_object(space, w_object, encoding, errors):
                 u = space.unicode_w(w_object)
                 eh = unicodehelper.encode_error_handler(space)
                 return space.wrapbytes(unicode_encode_utf_8(
-                        u, len(u), None, errorhandler=eh,
-                        allow_surrogates=True))
+                        u, len(u), None, errorhandler=eh))
         from pypy.module._codecs.interp_codecs import lookup_codec
         w_encoder = space.getitem(lookup_codec(space, encoding), space.wrap(0))
     if errors is None:
@@ -265,6 +264,14 @@ def unicode_from_object(space, w_obj):
 
     w_unicode_method = space.lookup(w_obj, "__str__")
     return space.repr(w_obj) if w_unicode_method is None else space.str(w_obj)
+
+def ascii_from_object(space, w_obj):
+    """Implements builtins.ascii()"""
+    # repr is guaranteed to be unicode
+    w_repr = space.repr(w_obj)
+    w_encoded = encode_object(space, w_repr, 'ascii', 'backslashreplace')
+    return decode_object(space, w_encoded, 'ascii', None)
+
 
 @unwrap_spec(w_object = WrappedDefault(u''))
 def descr_new_(space, w_unicodetype, w_object=None, w_encoding=None,

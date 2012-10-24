@@ -1,9 +1,11 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import typedef
-from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
+from pypy.interpreter.gateway import (applevel, interp2app, unwrap_spec,
+                                      WrappedDefault)
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 from pypy.objspace.std.strutil import string_to_bigint, ParseStringError
+from pypy.rlib.rbigint import rbigint
 
 def descr_conjugate(space, w_int):
     return space.int(w_int)
@@ -12,7 +14,6 @@ def descr_conjugate(space, w_int):
 @unwrap_spec(w_x = WrappedDefault(0))
 def descr__new__(space, w_longtype, w_x, w_base=None):
     from pypy.objspace.std.longobject import W_LongObject
-    from pypy.rlib.rbigint import rbigint
     if space.config.objspace.std.withsmalllong:
         from pypy.objspace.std.smalllongobject import W_SmallLongObject
     else:
@@ -120,12 +121,63 @@ def bit_length(space, w_obj):
 
 @unwrap_spec(s='bufferstr', byteorder=str)
 def descr_from_bytes(space, w_cls, s, byteorder):
-    from pypy.rlib.rbigint import rbigint
     bigint = rbigint.frombytes(s)
     from pypy.objspace.std.longobject import W_LongObject
     w_obj = space.allocate_instance(W_LongObject, w_cls)
     W_LongObject.__init__(w_obj, bigint)
     return w_obj
+
+divmod_near = applevel('''
+       def divmod_near(a, b):
+           """Return a pair (q, r) such that a = b * q + r, and abs(r)
+           <= abs(b)/2, with equality possible only if q is even.  In
+           other words, q == a / b, rounded to the nearest integer using
+           round-half-to-even."""
+           q, r = divmod(a, b)
+           # round up if either r / b > 0.5, or r / b == 0.5 and q is
+           # odd.  The expression r / b > 0.5 is equivalent to 2 * r > b
+           # if b is positive, 2 * r < b if b negative.
+           greater_than_half = 2*r > b if b > 0 else 2*r < b
+           exactly_half = 2*r == b
+           if greater_than_half or exactly_half and q % 2 == 1:
+               q += 1
+               r -= b
+           return q, r
+''', filename=__file__).interphook('divmod_near')
+
+@unwrap_spec(w_ndigits=WrappedDefault(None))
+def descr___round__(space, w_long, w_ndigits=None):
+    """To round an integer m to the nearest 10**n (n positive), we make
+    use of the divmod_near operation, defined by:
+
+    divmod_near(a, b) = (q, r)
+
+    where q is the nearest integer to the quotient a / b (the
+    nearest even integer in the case of a tie) and r == a - q * b.
+    Hence q * b = a - r is the nearest multiple of b to a,
+    preferring even multiples in the case of a tie.
+
+    So the nearest multiple of 10**n to m is:
+
+    m - divmod_near(m, 10**n)[1]
+
+    """
+    from pypy.objspace.std.longobject import W_AbstractIntObject, newlong
+    assert isinstance(w_long, W_AbstractIntObject)
+
+    if space.is_none(w_ndigits):
+        return space.int(w_long)
+
+    ndigits = space.bigint_w(space.index(w_ndigits))
+    # if ndigits >= 0 then no rounding is necessary; return self unchanged
+    if ndigits.ge(rbigint.fromint(0)):
+        return space.int(w_long)
+
+    # result = self - divmod_near(self, 10 ** -ndigits)[1]
+    right = rbigint.fromint(10).pow(ndigits.neg())
+    w_temp = divmod_near(space, w_long, newlong(space, right))
+    w_temp2 = space.getitem(w_temp, space.wrap(1))
+    return space.sub(w_long, w_temp2)
 
 # ____________________________________________________________
 
@@ -138,6 +190,7 @@ string representation of a floating point number!)  When converting a
 string, use the optional base.  It is an error to supply a base when
 converting a non-string.''',
     __new__ = interp2app(descr__new__),
+    __round__ = interp2app(descr___round__),
     conjugate = interp2app(descr_conjugate),
     numerator = typedef.GetSetProperty(descr_get_numerator),
     denominator = typedef.GetSetProperty(descr_get_denominator),

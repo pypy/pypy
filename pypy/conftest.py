@@ -158,9 +158,7 @@ class TinyObjSpace(object):
         body = body.lstrip()
         assert body.startswith('(')
         src = py.code.Source("def anonymous" + body)
-        d = {}
-        exec src.compile() in d
-        return d['anonymous'](*args)
+        return (src, args)
 
     def wrap(self, obj):
         return obj
@@ -208,7 +206,7 @@ def translation_test_so_skip_if_appdirect():
     if option.runappdirect:
         py.test.skip("translation test, skipped for appdirect")
 
-def run_with_python(python, target):
+def run_with_python(python, target, **definitions):
     if python is None:
         py.test.skip("Cannot find the default python3 interpreter to run with -A")
     # we assume that the source of target is in utf-8. Unfortunately, we don't
@@ -239,10 +237,20 @@ if 1:
             return res
         else:
             raise AssertionError("DID NOT RAISE")
+    class Test:
+        pass
+    self = Test()
 """
+    defs = []
+    for symbol, value in definitions.items():
+        if isinstance(value, tuple) and isinstance(value[0], py.code.Source):
+            code, args = value
+            defs.append(str(code))
+            args = ','.join(repr(arg) for arg in args)
+            defs.append("self.%s = anonymous(%s)\n" % (symbol, args))
     source = py.code.Source(target)[1:].deindent()
     pyfile = udir.join('src.py')
-    source = helpers + str(source)
+    source = helpers + '\n'.join(defs) + str(source)
     with pyfile.open('w') as f:
         f.write(source)
     res, stdout, stderr = runsubprocess.run_subprocess(
@@ -504,9 +512,11 @@ class AppTestMethod(AppTestFunction):
     def runtest(self):
         target = self.obj
         src = extract_docstring_if_empty_function(target.im_func)
-        if self.config.option.runappdirect:
-            return run_with_python(self.config.option.python, src)
         space = target.im_self.space
+        if self.config.option.runappdirect:
+            appexec_definitions = self.parent.obj.__dict__
+            return run_with_python(self.config.option.python, src,
+                                   **appexec_definitions)
         filename = self._getdynfilename(target)
         func = app2interp_temp(src, filename=filename)
         w_instance = self.parent.w_instance

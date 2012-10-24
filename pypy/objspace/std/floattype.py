@@ -263,6 +263,58 @@ def descr_get_real(space, w_obj):
 def descr_get_imag(space, w_obj):
     return space.wrap(0.0)
 
+# Here 0.30103 is an upper bound for log10(2)
+NDIGITS_MAX = int((rfloat.DBL_MANT_DIG - rfloat.DBL_MIN_EXP) * 0.30103)
+NDIGITS_MIN = -int((rfloat.DBL_MAX_EXP + 1) * 0.30103)
+
+@unwrap_spec(w_ndigits=WrappedDefault(None))
+def descr___round__(space, w_float, w_ndigits=None):
+    # Algorithm copied directly from CPython
+    from pypy.objspace.std.floatobject import W_FloatObject
+    from pypy.objspace.std.longobject import W_LongObject
+    assert isinstance(w_float, W_FloatObject)
+    x = w_float.floatval
+
+    if space.is_none(w_ndigits):
+        # single-argument round: round to nearest integer
+        rounded = rfloat.round_away(x)
+        if math.fabs(x - rounded) == 0.5:
+            # halfway case: round to even
+            rounded = 2.0 * rfloat.round_away(x / 2.0)
+        try:
+            return W_LongObject.fromfloat(space, rounded)
+        except OverflowError:
+            raise OperationError(
+                space.w_OverflowError,
+                space.wrap("cannot convert float infinity to integer"))
+        except ValueError:
+            raise OperationError(
+                space.w_ValueError,
+                space.wrap("cannot convert float NaN to integer"))
+
+    # interpret 2nd argument as a Py_ssize_t; clip on overflow
+    ndigits = space.getindex_w(w_ndigits, None)
+
+    # nans and infinities round to themselves
+    if not rfloat.isfinite(x):
+        return space.wrap(x)
+
+    # Deal with extreme values for ndigits. For ndigits > NDIGITS_MAX, x
+    # always rounds to itself.  For ndigits < NDIGITS_MIN, x always
+    # rounds to +-0.0
+    if ndigits > NDIGITS_MAX:
+        return space.wrap(x)
+    elif ndigits < NDIGITS_MIN:
+        # return 0.0, but with sign of x
+        return space.wrap(0.0 * x)
+
+    # finite x, and ndigits is not unreasonably large
+    z = rfloat.round_double(x, ndigits)
+    if rfloat.isinf(z):
+        raise OperationError(space.w_OverflowError,
+                             space.wrap("overflow occurred during round"))
+    return space.wrap(z)
+
 # ____________________________________________________________
 
 float_typedef = StdTypeDef("float",
@@ -271,6 +323,7 @@ float_typedef = StdTypeDef("float",
 Convert a string or number to a floating point number, if possible.''',
     __new__ = interp2app(descr__new__),
     __getformat__ = interp2app(descr___getformat__, as_classmethod=True),
+    __round__ = interp2app(descr___round__),
     fromhex = interp2app(descr_fromhex, as_classmethod=True),
     conjugate = interp2app(descr_conjugate),
     real = typedef.GetSetProperty(descr_get_real),

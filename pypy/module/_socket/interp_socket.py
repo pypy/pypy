@@ -93,12 +93,6 @@ class W_RSocket(Wrappable, RSocket):
         error = self.connect_ex(addr)
         return space.wrap(error)
 
-    def dup_w(self, space):
-        try:
-            return self.dup(W_RSocket)
-        except SocketError, e:
-            raise converted_error(space, e)
-    
     def fileno_w(self, space):
         """fileno() -> integer
 
@@ -178,16 +172,6 @@ class W_RSocket(Wrappable, RSocket):
             self.listen(backlog)
         except SocketError, e:
             raise converted_error(space, e)
-
-    @unwrap_spec(w_mode = WrappedDefault("r"),
-                 w_buffsize = WrappedDefault(-1))
-    def makefile_w(self, space, w_mode=None, w_buffsize=None):
-        """makefile([mode[, buffersize]]) -> file object
-
-        Return a regular file object corresponding to the socket.
-        The mode and buffersize arguments are as for the built-in open() function.
-        """
-        return app_makefile(space, self, w_mode, w_buffsize)
 
     @unwrap_spec(buffersize='nonnegint', flags=int)
     def recv_w(self, space, buffersize, flags=0):
@@ -422,17 +406,6 @@ class W_RSocket(Wrappable, RSocket):
             return
         self.close_w(space)
 
-app_makefile = gateway.applevel(r'''
-def makefile(self, mode="r", buffersize=-1):
-    """makefile([mode[, buffersize]]) -> file object
-
-    Return a regular file object corresponding to the socket.
-    The mode and buffersize arguments are as for the built-in open() function.
-    """
-    import os
-    newfd = os.dup(self.fileno())
-    return os.fdopen(newfd, mode, buffersize)
-''', filename =__file__).interphook('makefile')
 
 # ____________________________________________________________
 # Error handling
@@ -473,15 +446,11 @@ def converted_error(space, e):
 # ____________________________________________________________
 
 socketmethodnames = """
-_accept bind close connect connect_ex dup fileno detach
-getpeername getsockname getsockopt gettimeout listen makefile
+_accept bind close connect connect_ex fileno detach
+getpeername getsockname getsockopt gettimeout listen
 recv recvfrom send sendall sendto setblocking
 setsockopt settimeout shutdown _reuse _drop recv_into recvfrom_into
 """.split()
-# Remove non-implemented methods
-for name in ('dup',):
-    if not hasattr(RSocket, name):
-        socketmethodnames.remove(name)
 if hasattr(rsocket._c, 'WSAIoctl'):
     socketmethodnames.append('ioctl')
 
@@ -509,14 +478,12 @@ bind(addr) -- bind the socket to a local address
 close() -- close the socket
 connect(addr) -- connect the socket to a remote address
 connect_ex(addr) -- connect, return an error code instead of an exception
-dup() -- return a new socket object identical to the current one [*]
 fileno() -- return underlying file descriptor
 getpeername() -- return remote address [*]
 getsockname() -- return local address
 getsockopt(level, optname[, buflen]) -- get socket options
 gettimeout() -- return timeout or None
 listen(n) -- start listening for incoming connections
-makefile([mode, [bufsize]]) -- return a file object for the socket [*]
 recv(buflen[, flags]) -- receive data
 recvfrom(buflen[, flags]) -- receive data and sender's address
 sendall(data[, flags]) -- send all data
