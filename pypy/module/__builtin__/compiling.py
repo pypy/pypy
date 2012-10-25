@@ -38,12 +38,18 @@ in addition to any features explicitly specified.
     if space.is_true(space.isinstance(w_source, w_ast_type)):
         ast_node = space.interp_w(ast.mod, w_source)
         ast_node.sync_app_attrs(space)
+    elif space.isinstance_w(w_source, space.w_unicode):
+        w_utf_8_source = space.call_method(w_source, "encode",
+                                           space.wrap("utf-8"))
+        source_str = space.bytes0_w(w_utf_8_source)
+        flags |= consts.PyCF_IGNORE_COOKIE
     elif space.isinstance_w(w_source, space.w_bytes):
         source_str = space.bytes0_w(w_source)
         flags |= consts.PyCF_IGNORE_COOKIE
     else:
-        source_str = space.str0_w(w_source)
-        flags |= consts.PyCF_IGNORE_COOKIE
+        msg = space.wrap(
+            "compile() arg 1 must be a string, bytes, AST or code object")
+        raise OperationError(space.w_TypeError, msg)
 
     if not dont_inherit:
         caller = ec.gettopframe_nohidden()
@@ -76,11 +82,10 @@ If only globals is given, locals defaults to it.
 """
     w = space.wrap
 
-    if (space.is_true(space.isinstance(w_code, space.w_str)) or
-        space.is_true(space.isinstance(w_code, space.w_unicode))):
-        w_code = compile(space,
-                         space.call_method(w_code, 'lstrip',
-                                           space.wrap(' \t')),
+    is_unicode = space.is_true(space.isinstance(w_code, space.w_unicode))
+    if (is_unicode or space.is_true(space.isinstance(w_code, space.w_bytes))):
+        w_strip = w(u' \t') if is_unicode else space.wrapbytes(' \t')
+        w_code = compile(space, space.call_method(w_code, 'lstrip', w_strip),
                          "<string>", "eval")
 
     codeobj = space.interpclass_w(w_code)
