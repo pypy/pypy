@@ -467,6 +467,8 @@ def make_array(mytype):
         self.setlen(0)
         self.fromsequence(w_lst)
 
+    # We can't look into this function until ptradd works with things (in the
+    # JIT) other than rffi.CCHARP
     @jit.dont_look_inside
     def delslice__Array_ANY_ANY(space, self, w_i, w_j):
         i = space.int_w(w_i)
