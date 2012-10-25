@@ -199,10 +199,8 @@ static inline void fixup_args(G__param* libp) {
             break;
         }
         case 'f': {
-            assert(sizeof(float) <= sizeof(long));
-            long val = libp->para[i].obj.i;
-            void* pval = (void*)&val;
-            libp->para[i].obj.d = *(float*)pval;
+            float val = libp->para[i].obj.fl;
+            libp->para[i].obj.d = val;
             break;
         }
         case 'F': {
