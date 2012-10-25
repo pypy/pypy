@@ -424,7 +424,9 @@ class W_CPPOverload(Wrappable):
     def is_static(self):
         f = self.functions[0]
         assert isinstance(f, CPPMethod)
-        self.space.wrap(isinstance(f, CPPFunction))
+        if isinstance(f, CPPFunction):
+            return self.space.w_True
+        return self.space.w_False
 
     @jit.unroll_safe
     @unwrap_spec(args_w='args_w')
