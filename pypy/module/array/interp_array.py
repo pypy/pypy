@@ -9,6 +9,7 @@ from pypy.objspace.std.model import W_Object
 from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.objspace.std.stdtypedef import SMM, StdTypeDef
 from pypy.objspace.std.register_all import register_all
+from pypy.rlib import jit
 from pypy.rlib.rarithmetic import ovfcheck, widen
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.objectmodel import specialize, keepalive_until_here
@@ -466,6 +467,9 @@ def make_array(mytype):
         self.setlen(0)
         self.fromsequence(w_lst)
 
+    # We can't look into this function until ptradd works with things (in the
+    # JIT) other than rffi.CCHARP
+    @jit.dont_look_inside
     def delslice__Array_ANY_ANY(space, self, w_i, w_j):
         i = space.int_w(w_i)
         if i < 0:
@@ -495,12 +499,12 @@ def make_array(mytype):
             rffi.c_memcpy(
                 rffi.cast(rffi.VOIDP, rffi.ptradd(self.buffer, i)),
                 rffi.cast(rffi.VOIDP, rffi.ptradd(oldbuffer, j)),
-                (self.len - j) * mytype.bytes)
+                (self.len - j) * mytype.bytes
+            )
         self.len -= j - i
         self.allocated = self.len
         if oldbuffer:
             lltype.free(oldbuffer, flavor='raw')
-
 
     # Add and mul methods
 
