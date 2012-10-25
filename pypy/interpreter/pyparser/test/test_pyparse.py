@@ -168,10 +168,14 @@ stuff = "nothing"
         self.parse(input, info=info)
         assert info.encoding == "utf-8"
         #
-        input = "# coding: utf-8\nx"
         info.flags |= consts.PyCF_SOURCE_IS_UTF8
-        exc = py.test.raises(SyntaxError, self.parse, input, info=info).value
-        assert exc.msg == "coding declaration in unicode string"
+        input = "#\nx"
+        info.encoding = None
+        self.parse(input, info=info)
+        assert info.encoding == "utf-8"
+        input = "# coding: latin1\nquux"
+        self.parse(input, info=info)
+        assert info.encoding == "latin1"
         info.flags |= consts.PyCF_IGNORE_COOKIE
         self.parse(input, info=info)
         assert info.encoding == "utf-8"

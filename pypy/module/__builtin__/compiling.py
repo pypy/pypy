@@ -45,7 +45,6 @@ in addition to any features explicitly specified.
         flags |= consts.PyCF_IGNORE_COOKIE
     elif space.isinstance_w(w_source, space.w_bytes):
         source_str = space.bytes0_w(w_source)
-        flags |= consts.PyCF_IGNORE_COOKIE
     else:
         msg = space.wrap(
             "compile() arg 1 must be a string, bytes, AST or code object")

@@ -102,20 +102,18 @@ class PythonParser(parser.Parser):
         """
         # Detect source encoding.
         enc = None
-        if bytessrc.startswith("\xEF\xBB\xBF"):
+        if compile_info.flags & consts.PyCF_SOURCE_IS_UTF8:
+            enc = 'utf-8'
+
+        if compile_info.flags & consts.PyCF_IGNORE_COOKIE:
+            textsrc = bytessrc
+        elif bytessrc.startswith("\xEF\xBB\xBF"):
             bytessrc = bytessrc[3:]
             enc = 'utf-8'
             # If an encoding is explicitly given check that it is utf-8.
             decl_enc = _check_for_encoding(bytessrc)
             if decl_enc and decl_enc != "utf-8":
                 raise error.SyntaxError("UTF-8 BOM with non-utf8 coding cookie",
-                                        filename=compile_info.filename)
-            textsrc = bytessrc
-        elif compile_info.flags & consts.PyCF_SOURCE_IS_UTF8:
-            enc = 'utf-8'
-            if (not compile_info.flags & consts.PyCF_IGNORE_COOKIE and
-                _check_for_encoding(bytessrc) is not None):
-                raise error.SyntaxError("coding declaration in unicode string",
                                         filename=compile_info.filename)
             textsrc = bytessrc
         else:
