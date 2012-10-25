@@ -490,6 +490,11 @@ class AppTestBuiltinApp:
     def test_bytes_compile(self):
         code = b"# -*- coding: utf-8 -*-\npass\n"
         compile(code, "tmp", "exec")
+        c = compile(b"# coding: latin1\nfoo = 'caf\xe9'\n", "<string>", "exec")
+        ns = {}
+        exec(c, ns)
+        assert ns['foo'] == 'café'
+        assert eval(b"# coding: latin1\n'caf\xe9'\n") == 'café'
 
     def test_recompile_ast(self):
         import _ast
