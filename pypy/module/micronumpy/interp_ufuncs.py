@@ -413,6 +413,7 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
         return interp_dtype.get_dtype_cache(space).builtin_dtypes[dtypenum]
 
 
+@jit.unroll_safe
 def find_unaryop_result_dtype(space, dt, promote_to_float=False,
     promote_bools=False, promote_to_largest=False, allow_complex=True):
     if promote_bools and (dt.kind == interp_dtype.BOOLLTR):
