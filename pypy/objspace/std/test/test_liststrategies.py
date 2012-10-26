@@ -526,9 +526,8 @@ class TestW_ListStrategies(TestW_ListObject):
         w_l = self.space.newlist([self.space.wrap('a'), self.space.wrap('b')])
         w_l.getitems = None
         assert space.str_w(space.call_method(space.wrap("c"), "join", w_l)) == "acb"
-
-    def test_unicode_join_uses_listview_unicode(self):
-        space = self.space
+        #
+        # the same for unicode
         w_l = self.space.newlist([self.space.wrap(u'a'), self.space.wrap(u'b')])
         w_l.getitems = None
         assert space.unicode_w(space.call_method(space.wrap(u"c"), "join", w_l)) == u"acb"
@@ -539,6 +538,13 @@ class TestW_ListStrategies(TestW_ListObject):
         w_l = self.space.newlist([w_text])
         w_l.getitems = None
         assert space.is_w(space.call_method(space.wrap(" -- "), "join", w_l), w_text)
+        #
+        # the same for unicode
+        w_text = space.wrap(u"text")
+        w_l = self.space.newlist([w_text])
+        w_l.getitems = None
+        assert space.is_w(space.call_method(space.wrap(u" -- "), "join", w_l), w_text)
+        
 
     def test_newlist_str(self):
         space = self.space
