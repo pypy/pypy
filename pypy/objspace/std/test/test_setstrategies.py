@@ -1,7 +1,10 @@
 from pypy.objspace.std.setobject import W_SetObject
 from pypy.objspace.std.setobject import (IntegerSetStrategy, ObjectSetStrategy,
                                          EmptySetStrategy, StringSetStrategy,
-                                         UnicodeSetStrategy)
+                                         UnicodeSetStrategy,
+                                         IntegerIteratorImplementation,
+                                         StringIteratorImplementation,
+                                         UnicodeIteratorImplementation)
 from pypy.objspace.std.listobject import W_ListObject
 
 class TestW_SetStrategies:
@@ -118,3 +121,23 @@ class TestW_SetStrategies:
 
         assert s1.has_key(self.space.wrap(FakeInt(2)))
         assert s1.strategy is self.space.fromcache(ObjectSetStrategy)
+
+    def test_iter(self):
+        space = self.space
+        s = W_SetObject(space, self.wrapped([1,2]))
+        it = s.iter()
+        assert isinstance(it, IntegerIteratorImplementation)
+        assert space.unwrap(it.next()) == 1
+        assert space.unwrap(it.next()) == 2
+        #
+        s = W_SetObject(space, self.wrapped(["a", "b"]))
+        it = s.iter()
+        assert isinstance(it, StringIteratorImplementation)
+        assert space.unwrap(it.next()) == "a"
+        assert space.unwrap(it.next()) == "b"
+        #
+        s = W_SetObject(space, self.wrapped([u"a", u"b"]))
+        it = s.iter()
+        assert isinstance(it, UnicodeIteratorImplementation)
+        assert space.unwrap(it.next()) == u"a"
+        assert space.unwrap(it.next()) == u"b"

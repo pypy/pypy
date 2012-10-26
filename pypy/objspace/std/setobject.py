@@ -748,8 +748,7 @@ class UnicodeSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
         return self.space.wrap(item)
 
     def iter(self, w_set):
-        XXX
-        return StringIteratorImplementation(self.space, self, w_set)
+        return UnicodeIteratorImplementation(self.space, self, w_set)
 
 
 class IntegerSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
@@ -880,6 +879,18 @@ class EmptyIteratorImplementation(IteratorImplementation):
 
 
 class StringIteratorImplementation(IteratorImplementation):
+    def __init__(self, space, strategy, w_set):
+        IteratorImplementation.__init__(self, space, strategy, w_set)
+        d = strategy.unerase(w_set.sstorage)
+        self.iterator = d.iterkeys()
+
+    def next_entry(self):
+        for key in self.iterator:
+            return self.space.wrap(key)
+        else:
+            return None
+
+class UnicodeIteratorImplementation(IteratorImplementation):
     def __init__(self, space, strategy, w_set):
         IteratorImplementation.__init__(self, space, strategy, w_set)
         d = strategy.unerase(w_set.sstorage)
