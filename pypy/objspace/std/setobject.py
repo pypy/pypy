@@ -304,6 +304,8 @@ class EmptySetStrategy(SetStrategy):
             strategy = self.space.fromcache(IntegerSetStrategy)
         elif type(w_key) is W_StringObject:
             strategy = self.space.fromcache(StringSetStrategy)
+        elif type(w_key) is W_UnicodeObject:
+            strategy = self.space.fromcache(UnicodeSetStrategy)
         else:
             strategy = self.space.fromcache(ObjectSetStrategy)
         w_set.strategy = strategy
@@ -714,6 +716,42 @@ class StringSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
     def iter(self, w_set):
         return StringIteratorImplementation(self.space, self, w_set)
 
+
+class UnicodeSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
+    erase, unerase = rerased.new_erasing_pair("unicode")
+    erase = staticmethod(erase)
+    unerase = staticmethod(unerase)
+
+    def get_empty_storage(self):
+        return self.erase({})
+
+    def get_empty_dict(self):
+        return {}
+
+    ## def listview_unicode(self, w_set):
+    ##     return self.unerase(w_set.sstorage).keys()
+
+    def is_correct_type(self, w_key):
+        return type(w_key) is W_UnicodeObject
+
+    def may_contain_equal_elements(self, strategy):
+        if strategy is self.space.fromcache(IntegerSetStrategy):
+            return False
+        if strategy is self.space.fromcache(EmptySetStrategy):
+            return False
+        return True
+
+    def unwrap(self, w_item):
+        return self.space.unicode_w(w_item)
+
+    def wrap(self, item):
+        return self.space.wrap(item)
+
+    def iter(self, w_set):
+        XXX
+        return StringIteratorImplementation(self.space, self, w_set)
+
+
 class IntegerSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
     erase, unerase = rerased.new_erasing_pair("integer")
     erase = staticmethod(erase)
@@ -930,6 +968,13 @@ def set_strategy_and_setdata(space, w_set, w_iterable):
         strategy = space.fromcache(StringSetStrategy)
         w_set.strategy = strategy
         w_set.sstorage = strategy.get_storage_from_unwrapped_list(stringlist)
+        return
+
+    unicodelist = space.listview_unicode(w_iterable)
+    if unicodelist is not None:
+        strategy = space.fromcache(UnicodeSetStrategy)
+        w_set.strategy = strategy
+        w_set.sstorage = strategy.get_storage_from_unwrapped_list(unicodelist)
         return
 
     intlist = space.listview_int(w_iterable)

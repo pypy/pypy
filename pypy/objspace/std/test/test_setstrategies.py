@@ -1,6 +1,7 @@
 from pypy.objspace.std.setobject import W_SetObject
 from pypy.objspace.std.setobject import (IntegerSetStrategy, ObjectSetStrategy,
-                                         EmptySetStrategy, StringSetStrategy)
+                                         EmptySetStrategy, StringSetStrategy,
+                                         UnicodeSetStrategy)
 from pypy.objspace.std.listobject import W_ListObject
 
 class TestW_SetStrategies:
@@ -24,6 +25,9 @@ class TestW_SetStrategies:
         s = W_SetObject(self.space, self.wrapped(["a", "b"]))
         assert s.strategy is self.space.fromcache(StringSetStrategy)
 
+        s = W_SetObject(self.space, self.wrapped([u"a", u"b"]))
+        assert s.strategy is self.space.fromcache(UnicodeSetStrategy)
+
     def test_switch_to_object(self):
         s = W_SetObject(self.space, self.wrapped([1,2,3,4,5]))
         s.add(self.space.wrap("six"))
@@ -33,6 +37,11 @@ class TestW_SetStrategies:
         s2 = W_SetObject(self.space, self.wrapped(["six", "seven"]))
         s1.update(s2)
         assert s1.strategy is self.space.fromcache(ObjectSetStrategy)
+
+    def test_switch_to_unicode(self):
+        s = W_SetObject(self.space, self.wrapped([]))
+        s.add(self.space.wrap(u"six"))
+        assert s.strategy is self.space.fromcache(UnicodeSetStrategy)
 
     def test_symmetric_difference(self):
         s1 = W_SetObject(self.space, self.wrapped([1,2,3,4,5]))
