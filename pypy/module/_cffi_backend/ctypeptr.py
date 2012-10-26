@@ -148,15 +148,7 @@ class W_CTypePtrOrArray(W_CType):
 
 class W_CTypePtrBase(W_CTypePtrOrArray):
     # base class for both pointers and pointers-to-functions
-    _attrs_ = ['is_file']
-    _immutable_fields_ = ['is_file']
-
-    def __init__(self, space, size, extra, extra_position, ctitem,
-                 could_cast_anything=True, is_file=False):
-        W_CTypePtrOrArray.__init__(self, space, size,
-                                   extra, extra_position, ctitem,
-                                   could_cast_anything=could_cast_anything)
-        self.is_file = is_file
+    _attrs_ = []
 
     def convert_to_object(self, cdata):
         ptrdata = rffi.cast(rffi.CCHARPP, cdata)[0]
@@ -166,11 +158,6 @@ class W_CTypePtrBase(W_CTypePtrOrArray):
         space = self.space
         ob = space.interpclass_w(w_ob)
         if not isinstance(ob, cdataobj.W_CData):
-            if self.is_file:
-                result = self.prepare_file(w_ob)
-                if result:
-                    rffi.cast(rffi.CCHARPP, cdata)[0] = result
-                    return
             raise self._convert_error("cdata pointer", w_ob)
         other = ob.ctype
         if not isinstance(other, W_CTypePtrBase):
@@ -185,23 +172,14 @@ class W_CTypePtrBase(W_CTypePtrOrArray):
 
         rffi.cast(rffi.CCHARPP, cdata)[0] = ob._cdata
 
-    def prepare_file(self, w_ob):
-        from pypy.module._file.interp_file import W_File
-        from pypy.module._cffi_backend import ctypefunc
-        ob = self.space.interpclass_w(w_ob)
-        if isinstance(ob, W_File):
-            return prepare_file_argument(self.space, ob)
-        else:
-            return lltype.nullptr(rffi.CCHARP.TO)
-
     def _alignof(self):
         from pypy.module._cffi_backend import newtype
         return newtype.alignment_of_pointer
 
 
 class W_CTypePointer(W_CTypePtrBase):
-    _attrs_ = []
-    _immutable_fields_ = []
+    _attrs_ = ['is_file']
+    _immutable_fields_ = ['is_file']
 
     def __init__(self, space, ctitem):
         from pypy.module._cffi_backend import ctypearray
@@ -210,9 +188,8 @@ class W_CTypePointer(W_CTypePtrBase):
             extra = "(*)"    # obscure case: see test_array_add
         else:
             extra = " *"
-        is_file = (ctitem.name == "struct _IO_FILE")
-        W_CTypePtrBase.__init__(self, space, size, extra, 2, ctitem,
-                                is_file=is_file)
+        self.is_file = (ctitem.name == "struct _IO_FILE")
+        W_CTypePtrBase.__init__(self, space, size, extra, 2, ctitem)
 
     def newp(self, w_init):
         space = self.space
@@ -259,6 +236,22 @@ class W_CTypePointer(W_CTypePtrBase):
                                   self.name)
         p = rffi.ptradd(cdata, i * self.ctitem.size)
         return cdataobj.W_CData(space, p, self)
+
+    def cast(self, w_ob):
+        if self.is_file:
+            value = self.prepare_file(w_ob)
+            if value:
+                return cdataobj.W_CData(self.space, value, self)
+        return W_CTypePtrBase.cast(self, w_ob)
+
+    def prepare_file(self, w_ob):
+        from pypy.module._file.interp_file import W_File
+        from pypy.module._cffi_backend import ctypefunc
+        ob = self.space.interpclass_w(w_ob)
+        if isinstance(ob, W_File):
+            return prepare_file_argument(self.space, ob)
+        else:
+            return lltype.nullptr(rffi.CCHARP.TO)
 
     def _prepare_pointer_call_argument(self, w_init, cdata):
         space = self.space

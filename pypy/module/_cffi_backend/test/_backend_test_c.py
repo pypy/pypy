@@ -2271,7 +2271,6 @@ def test_FILE_object():
     #
     BFILE = new_struct_type("_IO_FILE")
     BFILEP = new_pointer_type(BFILE)
-    BFILEPP = new_pointer_type(BFILEP)
     BChar = new_primitive_type("char")
     BCharP = new_pointer_type(BChar)
     BInt = new_primitive_type("int")
@@ -2285,12 +2284,12 @@ def test_FILE_object():
     fdr, fdw = posix.pipe()
     fw1 = posix.fdopen(fdw, 'wb', 256)
     #
-    fw1p = newp(BFILEPP, fw1)
+    fw1p = cast(BFILEP, fw1)
     fw1.write(b"X")
     fw1.flush()
-    res = fputs(b"hello\n", fw1p[0])
+    res = fputs(b"hello\n", fw1p)
     assert res >= 0
-    res = fileno(fw1p[0])
+    res = fileno(fw1p)
     assert res == fdw
     fw1.close()
     #
