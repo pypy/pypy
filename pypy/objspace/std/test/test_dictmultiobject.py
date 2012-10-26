@@ -3,7 +3,7 @@ import sys
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.dictmultiobject import \
      W_DictMultiObject, setitem__DictMulti_ANY_ANY, getitem__DictMulti_ANY, \
-     StringDictStrategy, ObjectDictStrategy
+     StringDictStrategy, ObjectDictStrategy, UnicodeDictStrategy
 
 from pypy.conftest import gettestobjspace
 from pypy.conftest import option
