@@ -128,6 +128,7 @@ void stm_perform_transaction(long(*callback)(void*, long), void *arg,
 #ifndef USING_NO_GC_AT_ALL
   v_saved_value = *(void***)save_and_restore;
 #endif
+  PYPY_DEBUG_START("stm-perform-transaction");
   /***/
   setjmp(_jmpbuf);
   /* After setjmp(), the local variables v_* are preserved because they
@@ -178,6 +179,7 @@ void stm_perform_transaction(long(*callback)(void*, long), void *arg,
 #ifndef USING_NO_GC_AT_ALL
   *(void***)save_and_restore = v_saved_value;
 #endif
+  PYPY_DEBUG_STOP("stm-perform-transaction");
 }
 
 void stm_abort_and_retry(void)
