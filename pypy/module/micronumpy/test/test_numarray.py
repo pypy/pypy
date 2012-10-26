@@ -694,6 +694,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         r = 3 + array(range(3))
         for i in range(3):
             assert r[i] == i + 3
+        r = [1, 2] + array([1, 2])
+        assert (r == [2, 4]).all()
 
     def test_add_list(self):
         from _numpypy import array, ndarray
