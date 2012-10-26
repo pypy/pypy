@@ -202,6 +202,11 @@ def contains__Unicode_Unicode(space, w_container, w_item):
     return space.newbool(container.find(item) != -1)
 
 def unicode_join__Unicode_ANY(space, w_self, w_list):
+    l = space.listview_unicode(w_list)
+    if l is not None:
+        if len(l) == 1:
+            return space.wrap(l[0])
+        return space.wrap(w_self._value.join(l))
     list_w = space.listview(w_list)
     size = len(list_w)
 

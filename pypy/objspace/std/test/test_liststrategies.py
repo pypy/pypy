@@ -527,6 +527,12 @@ class TestW_ListStrategies(TestW_ListObject):
         w_l.getitems = None
         assert space.str_w(space.call_method(space.wrap("c"), "join", w_l)) == "acb"
 
+    def test_unicode_join_uses_listview_unicode(self):
+        space = self.space
+        w_l = self.space.newlist([self.space.wrap(u'a'), self.space.wrap(u'b')])
+        w_l.getitems = None
+        assert space.unicode_w(space.call_method(space.wrap(u"c"), "join", w_l)) == u"acb"
+
     def test_string_join_returns_same_instance(self):
         space = self.space
         w_text = space.wrap("text")
