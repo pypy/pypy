@@ -64,20 +64,18 @@ W_Count.typedef = TypeDef(
         next = interp2app(W_Count.next_w),
         __reduce__ = interp2app(W_Count.reduce_w),
         __repr__ = interp2app(W_Count.repr_w),
-        __doc__ = """Make an iterator that returns consecutive integers starting
-    with n.  If not specified n defaults to zero. Does not currently
-    support python long integers. Often used as an argument to imap()
-    to generate consecutive data points.  Also, used with izip() to
-    add sequence numbers.
+        __doc__ = """Make an iterator that returns evenly spaced values starting
+    with n.  If not specified n defaults to zero.  Often used as an
+    argument to imap() to generate consecutive data points.  Also,
+    used with izip() to add sequence numbers.
 
-    Equivalent to :
+    Equivalent to:
 
-    def count(n=0):
-        if not isinstance(n, int):
-            raise TypeError("%s is not a regular integer" % n)
+    def count(start=0, step=1):
+        n = start
         while True:
             yield n
-            n += 1
+            n += step
     """)
 
 
