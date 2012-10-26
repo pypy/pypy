@@ -489,6 +489,7 @@ class OptString(optimizer.Optimization):
 
     def optimize_COPYSTRCONTENT(self, op):
         self._optimize_COPYSTRCONTENT(op, mode_string)
+
     def optimize_COPYUNICODECONTENT(self, op):
         self._optimize_COPYSTRCONTENT(op, mode_unicode)
 
@@ -507,8 +508,8 @@ class OptString(optimizer.Optimization):
 
         if length.is_constant() and length.box.getint() == 0:
             return
-        elif (src.is_virtual() and dst.is_virtual() and srcstart.is_constant() and
-            dststart.is_constant() and length.is_constant()):
+        elif ((src.is_virtual() or src.is_constant()) and dst.is_virtual() and
+            srcstart.is_constant() and dststart.is_constant() and length.is_constant()):
 
             src_start = srcstart.force_box(self).getint()
             dst_start = dststart.force_box(self).getint()
