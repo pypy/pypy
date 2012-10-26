@@ -1,6 +1,9 @@
 from pypy.tool.staticmethods import StaticMethods
 from pypy.tool.pairtype import pairtype, pair
+from pypy.tool.sourcetools import func_with_new_name
 from pypy.annotation import model as annmodel
+from pypy.rlib import jit
+from pypy.rlib.nonconst import NonConstant
 from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import IntegerRepr, IteratorRepr
 from pypy.rpython.rmodel import inputconst, Repr
@@ -10,21 +13,81 @@ from pypy.rpython.lltypesystem.lltype import Signed, Bool, Void, UniChar,\
      cast_primitive, typeOf
 
 class AbstractStringRepr(Repr):
-    pass
+
+    def __init__(self, *args):
+        Repr.__init__(self, *args)
+        self.rstr_decode_utf_8 = None
+
+    def ensure_ll_decode_utf8(self):
+        from pypy.rlib.runicode import str_decode_utf_8_impl
+        self.rstr_decode_utf_8 = func_with_new_name(str_decode_utf_8_impl,
+                                                    'rstr_decode_utf_8_impl')
+
+    @jit.elidable
+    def ll_decode_utf8(self, llvalue):
+        from pypy.rpython.annlowlevel import hlstr
+        value = hlstr(llvalue)
+        assert value is not None
+        univalue, _ = self.rstr_decode_utf_8(
+            value, len(value), 'strict', final=False,
+            errorhandler=self.ll_raise_unicode_exception_decode,
+            allow_surrogates=False)
+        return self.ll.llunicode(univalue)
+
+    def ll_raise_unicode_exception_decode(self, errors, encoding, msg, s,
+                                       startingpos, endingpos):
+        raise UnicodeDecodeError(encoding, s, startingpos, endingpos, msg)
+    
 
 class AbstractCharRepr(AbstractStringRepr):
-    pass
+    def rtype_method_lower(self, hop):
+        char_repr = hop.args_r[0].char_repr
+        v_chr, = hop.inputargs(char_repr)
+        hop.exception_cannot_occur()
+        return hop.gendirectcall(self.ll.ll_lower_char, v_chr)
+
+    def rtype_method_upper(self, hop):
+        char_repr = hop.args_r[0].char_repr
+        v_chr, = hop.inputargs(char_repr)
+        hop.exception_cannot_occur()
+        return hop.gendirectcall(self.ll.ll_upper_char, v_chr)
+
 
 class AbstractUniCharRepr(AbstractStringRepr):
     pass
 
 class AbstractUnicodeRepr(AbstractStringRepr):
+
+    def __init__(self, *args):
+        AbstractStringRepr.__init__(self, *args)
+        self.runicode_encode_utf_8 = None
+
+    def ensure_ll_encode_utf8(self):
+        from pypy.rlib.runicode import unicode_encode_utf_8_impl
+        self.runicode_encode_utf_8 = func_with_new_name(
+            unicode_encode_utf_8_impl, 'runicode_encode_utf_8')
+
     def rtype_method_upper(self, hop):
         raise TypeError("Cannot do toupper on unicode string")
 
     def rtype_method_lower(self, hop):
         raise TypeError("Cannot do tolower on unicode string")
 
+    @jit.elidable
+    def ll_encode_utf8(self, ll_s):
+        from pypy.rpython.annlowlevel import hlunicode
+        s = hlunicode(ll_s)
+        assert s is not None
+        bytes = self.runicode_encode_utf_8(
+            s, len(s), 'strict',
+            errorhandler=self.ll_raise_unicode_exception_decode,
+            allow_surrogates=False)
+        return self.ll.llstr(bytes)
+
+    def ll_raise_unicode_exception_encode(self, errors, encoding, msg, u,
+                                          startingpos, endingpos):
+        raise UnicodeEncodeError(encoding, u, startingpos, endingpos, msg)
+    
 class __extend__(annmodel.SomeString):
     def rtyper_makerepr(self, rtyper):
         return rtyper.type_system.rstr.string_repr
@@ -309,6 +372,9 @@ class __extend__(AbstractStringRepr):
             return hop.gendirectcall(self.ll.ll_str2unicode, v_self)
         elif encoding == 'latin-1':
             return hop.gendirectcall(self.ll_decode_latin1, v_self)
+        elif encoding == 'utf-8':
+            self.ensure_ll_decode_utf8()
+            return hop.gendirectcall(self.ll_decode_utf8, v_self)
         else:
             raise TyperError("encoding %s not implemented" % (encoding, ))
 
@@ -340,6 +406,9 @@ class __extend__(AbstractUnicodeRepr):
             return hop.gendirectcall(self.ll_str, v_self)
         elif encoding == "latin-1":
             return hop.gendirectcall(self.ll_encode_latin1, v_self)
+        elif encoding == 'utf-8':
+            self.ensure_ll_encode_utf8()
+            return hop.gendirectcall(self.ll_encode_utf8, v_self)
         else:
             raise TyperError("encoding %s not implemented" % (encoding, ))
 

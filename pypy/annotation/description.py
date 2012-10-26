@@ -1,8 +1,7 @@
 import types, py
 from pypy.objspace.flow.model import Constant, FunctionGraph
-from pypy.interpreter.pycode import cpython_code_signature
-from pypy.interpreter.argument import rawshape
-from pypy.interpreter.argument import ArgErr
+from pypy.objspace.flow.bytecode import cpython_code_signature
+from pypy.objspace.flow.argument import rawshape, ArgErr
 from pypy.tool.sourcetools import valid_identifier
 from pypy.tool.pairtype import extendabletype
 
@@ -181,7 +180,7 @@ class FunctionDesc(Desc):
             name = pyobj.func_name
         if signature is None:
             if hasattr(pyobj, '_generator_next_method_of_'):
-                from pypy.interpreter.argument import Signature
+                from pypy.objspace.flow.argument import Signature
                 signature = Signature(['entry'])     # haaaaaack
                 defaults = ()
             else:
@@ -247,17 +246,20 @@ class FunctionDesc(Desc):
         defs_s = []
         if graph is None:
             signature = self.signature
-            defaults  = self.defaults
+            defaults = self.defaults
         else:
             signature = graph.signature
-            defaults  = graph.defaults
+            defaults = graph.defaults
         if defaults:
             for x in defaults:
-                defs_s.append(self.bookkeeper.immutablevalue(x))
+                if x is NODEFAULT:
+                    defs_s.append(None)
+                else:
+                    defs_s.append(self.bookkeeper.immutablevalue(x))
         try:
             inputcells = args.match_signature(signature, defs_s)
         except ArgErr, e:
-            raise TypeError("signature mismatch: %s() %s" % 
+            raise TypeError("signature mismatch: %s() %s" %
                             (self.name, e.getmsg()))
         return inputcells
 
@@ -449,6 +451,12 @@ class ClassDesc(Desc):
                                         % (pyobj,))
                     attrs.update(self.basedesc.all_enforced_attrs)
                 self.all_enforced_attrs = attrs
+
+            if (self.is_builtin_exception_class() and
+                self.all_enforced_attrs is None):
+                from pypy.annotation import classdef
+                if self.pyobj not in classdef.FORCE_ATTRIBUTES_INTO_CLASSES:
+                    self.all_enforced_attrs = []    # no attribute allowed
 
     def add_source_attribute(self, name, value, mixin=False):
         if isinstance(value, types.FunctionType):

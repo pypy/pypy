@@ -36,8 +36,6 @@ from pypy.rlib.rarithmetic import r_uint, r_ulonglong, base_int
 from pypy.rlib.rarithmetic import r_singlefloat, r_longfloat
 import inspect, weakref
 
-DEBUG = False    # set to False to disable recording of debugging information
-
 class State(object):
     # A global attribute :-(  Patch it with 'True' to enable checking of
     # the no_nul attribute...
@@ -48,8 +46,11 @@ class SomeObject(object):
     """The set of all objects.  Each instance stands
     for an arbitrary object about which nothing is known."""
     __metaclass__ = extendabletype
-    knowntype = object
     immutable = False
+    knowntype = object
+
+    def __init__(self):
+        assert type(self) is not SomeObject
 
     def __eq__(self, other):
         return (self.__class__ is other.__class__ and
@@ -105,60 +106,28 @@ class SomeObject(object):
         return self.immutable and 'const' in self.__dict__
 
     # delegate accesses to 'const' to accesses to 'const_box.value',
-    # where const_box is a Constant.  XXX the idea is to eventually
-    # use systematically 'const_box' instead of 'const' for
-    # non-immutable constant annotations
+    # where const_box is a Constant.  This is not a property, in order
+    # to allow 'self.const = xyz' to work as well.
     class ConstAccessDelegator(object):
         def __get__(self, obj, cls=None):
             return obj.const_box.value
     const = ConstAccessDelegator()
     del ConstAccessDelegator
 
-    # for debugging, record where each instance comes from
-    # this is disabled if DEBUG is set to False
-    def __new__(cls, *args, **kw):
-        new = super(SomeObject, cls).__new__
-        if new is object.__new__:
-            # Since python 2.6, object.__new__ warns
-            # when parameters are passed
-            self = new(cls)
-        else:
-            self = new(cls, *args, **kw)
-        if DEBUG:
-            try:
-                bookkeeper = pypy.annotation.bookkeeper.getbookkeeper()
-                position_key = bookkeeper.position_key
-            except AttributeError:
-                pass
-            else:
-                bookkeeper._isomeobject_coming_from[self] = position_key, None
-        return self
-
-    def origin(self):
-        bookkeeper = pypy.annotation.bookkeeper.getbookkeeper()
-        if bookkeeper is None:
-            return None
-        return bookkeeper._isomeobject_coming_from.get(self, (None, None))[0]
-    origin = property(origin)
-
-    def caused_by_merge(self):
-        bookkeeper = pypy.annotation.bookkeeper.getbookkeeper()
-        if bookkeeper is None:
-            return None
-        return bookkeeper._isomeobject_coming_from.get(self, (None, None))[1]
-    def set_caused_by_merge(self, nvalue):
-        bookkeeper = pypy.annotation.bookkeeper.getbookkeeper()
-        if bookkeeper is None:
-            return
-        bookkeeper._isomeobject_coming_from[self] = self.origin, nvalue
-    caused_by_merge = property(caused_by_merge, set_caused_by_merge)
-    del set_caused_by_merge
-
     def can_be_none(self):
         return True
-        
+
     def nonnoneify(self):
         return self
+
+
+class SomeType(SomeObject):
+    "Stands for a type.  We might not be sure which one it is."
+    knowntype = type
+    immutable = True
+
+    def can_be_none(self):
+        return False
 
 class SomeFloat(SomeObject):
     "Stands for a float or an integer."
@@ -517,6 +486,7 @@ class SomeImpossibleValue(SomeObject):
 
 s_None = SomePBC([], can_be_None=True)
 s_Bool = SomeBool()
+s_Int  = SomeInteger()
 s_ImpossibleValue = SomeImpossibleValue()
 s_Str0 = SomeString(no_nul=True)
 
@@ -710,13 +680,7 @@ def unionof(*somevalues):
         # this is just a performance shortcut
         if s1 != s2:
             s1 = pair(s1, s2).union()
-    if DEBUG:
-        if s1.caused_by_merge is None and len(somevalues) > 1:
-            s1.caused_by_merge = somevalues
     return s1
-
-def isdegenerated(s_value):
-    return s_value.__class__ is SomeObject and s_value.knowntype is not type
 
 # make knowntypedata dictionary
 

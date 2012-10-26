@@ -1,5 +1,5 @@
 from pypy.objspace.flow.model import FunctionGraph, Constant, Variable, c_last_exception
-from pypy.rlib.rarithmetic import intmask, r_uint, ovfcheck, r_longlong
+from pypy.rlib.rarithmetic import intmask, r_uint, ovfcheck, r_longlong, r_longlonglong
 from pypy.rlib.rarithmetic import r_ulonglong, is_valid_int
 from pypy.rpython.lltypesystem import lltype, llmemory, lloperation, llheap
 from pypy.rpython.lltypesystem import rclass
@@ -144,14 +144,13 @@ class LLInterpreter(object):
     def find_exception(self, exc):
         assert isinstance(exc, LLException)
         klass, inst = exc.args[0], exc.args[1]
-        exdata = self.typer.getexceptiondata()
-        frame = self.frame_class(None, [], self)
         for cls in enumerate_exceptions_top_down():
-            evalue = frame.op_direct_call(exdata.fn_pyexcclass2exc,
-                    lltype.pyobjectptr(cls))
-            etype = frame.op_direct_call(exdata.fn_type_of_exc_inst, evalue)
-            if etype == klass:
-                return cls
+            if hasattr(klass, 'name'):   # lltype
+                if "".join(klass.name).rstrip("\0") == cls.__name__:
+                    return cls
+            else:                        # ootype
+                if klass._INSTANCE._name.split('.')[-1] == cls.__name__:
+                    return cls
         raise ValueError("couldn't match exception, maybe it"
                       " has RPython attributes like OSError?")
 
@@ -427,7 +426,7 @@ class LLFrame(object):
                 if exc_data:
                     etype = e.args[0]
                     evalue = e.args[1]
-                    exc_data.exc_type  = etype
+                    exc_data.exc_type = etype
                     exc_data.exc_value = evalue
                     from pypy.translator import exceptiontransform
                     retval = exceptiontransform.error_value(
@@ -466,9 +465,7 @@ class LLFrame(object):
             self.op_direct_call(exdata.fn_raise_OSError, exc.errno)
             assert False, "op_direct_call above should have raised"
         else:
-            exc_class = exc.__class__
-            evalue = self.op_direct_call(exdata.fn_pyexcclass2exc,
-                                         self.heap.pyobjectptr(exc_class))
+            evalue = exdata.get_standard_ll_exc_instance_by_class(exc.__class__)
             etype = self.op_direct_call(exdata.fn_type_of_exc_inst, evalue)
         raise LLException(etype, evalue, *extraargs)
 
@@ -503,7 +500,7 @@ class LLFrame(object):
             vars.append(op.result)
 
         for v in vars:
-            TYPE = getattr(v, 'concretetype', None)
+            TYPE = v.concretetype
             if isinstance(TYPE, lltype.Ptr) and TYPE.TO._gckind == 'gc':
                 roots.append(_address_of_local_var(self, v))
 
@@ -853,12 +850,6 @@ class LLFrame(object):
     def op_gc_deallocate(self, TYPE, addr):
         raise NotImplementedError("gc_deallocate")
 
-    def op_gc_push_alive_pyobj(self, pyobj):
-        raise NotImplementedError("gc_push_alive_pyobj")
-
-    def op_gc_pop_alive_pyobj(self, pyobj):
-        raise NotImplementedError("gc_pop_alive_pyobj")
-
     def op_gc_reload_possibly_moved(self, v_newaddr, v_ptr):
         assert v_newaddr.concretetype is llmemory.Address
         assert isinstance(v_ptr.concretetype, lltype.Ptr)
@@ -945,28 +936,6 @@ class LLFrame(object):
     def op_stack_current(self):
         return 0
 
-    # operations on pyobjects!
-    for opname in lloperation.opimpls.keys():
-        exec py.code.Source("""
-        def op_%(opname)s(self, *pyobjs):
-            for pyo in pyobjs:
-                assert lltype.typeOf(pyo) == lltype.Ptr(lltype.PyObject)
-            func = lloperation.opimpls[%(opname)r]
-            try:
-                pyo = func(*[pyo._obj.value for pyo in pyobjs])
-            except Exception:
-                self.make_llexception()
-            return self.heap.pyobjectptr(pyo)
-        """ % locals()).compile()
-    del opname
-
-    def op_simple_call(self, f, *args):
-        assert lltype.typeOf(f) == lltype.Ptr(lltype.PyObject)
-        for pyo in args:
-            assert lltype.typeOf(pyo) == lltype.Ptr(lltype.PyObject)
-        res = f._obj.value(*[pyo._obj.value for pyo in args])
-        return self.heap.pyobjectptr(res)
-
     # __________________________________________________________
     # operations on addresses
 
@@ -987,7 +956,7 @@ class LLFrame(object):
         return llmemory.raw_malloc_usage(size)
 
     def op_raw_free(self, addr):
-        checkadr(addr) 
+        checkadr(addr)
         llmemory.raw_free(addr)
 
     def op_raw_memclear(self, addr, size):
@@ -1001,16 +970,33 @@ class LLFrame(object):
 
     op_raw_memmove = op_raw_memcopy # this is essentially the same here
 
-    def op_raw_load(self, addr, typ, offset):
+    def op_raw_load(self, RESTYPE, addr, offset):
         checkadr(addr)
-        value = getattr(addr, str(typ).lower())[offset]
-        assert lltype.typeOf(value) == typ
+        if isinstance(offset, int):
+            from pypy.rpython.lltypesystem import rffi
+            ll_p = rffi.cast(rffi.CCHARP, addr)
+            ll_p = rffi.cast(rffi.CArrayPtr(RESTYPE),
+                             rffi.ptradd(ll_p, offset))
+            value = ll_p[0]
+        else:
+            assert offset.TYPE == RESTYPE
+            value = getattr(addr, str(RESTYPE).lower())[offset.repeat]
+        assert lltype.typeOf(value) == RESTYPE
         return value
+    op_raw_load.need_result_type = True
 
-    def op_raw_store(self, addr, typ, offset, value):
+    def op_raw_store(self, addr, offset, value):
         checkadr(addr)
-        assert lltype.typeOf(value) == typ
-        getattr(addr, str(typ).lower())[offset] = value
+        ARGTYPE = lltype.typeOf(value)
+        if isinstance(offset, int):
+            from pypy.rpython.lltypesystem import rffi
+            ll_p = rffi.cast(rffi.CCHARP, addr)
+            ll_p = rffi.cast(rffi.CArrayPtr(ARGTYPE),
+                             rffi.ptradd(ll_p, offset))
+            ll_p[0] = value
+        else:
+            assert offset.TYPE == ARGTYPE
+            getattr(addr, str(ARGTYPE).lower())[offset.repeat] = value
 
     def op_stack_malloc(self, size): # mmh
         raise NotImplementedError("backend only")
@@ -1103,6 +1089,9 @@ class LLFrame(object):
     _makefunc2('op_ullong_floordiv_zer',  '//', 'r_ulonglong')
     _makefunc2('op_ullong_mod_zer',       '%',  'r_ulonglong')
 
+    _makefunc2('op_lllong_floordiv_zer',   '//', 'r_longlonglong')
+    _makefunc2('op_lllong_mod_zer',        '%',  'r_longlonglong')
+    
     def op_int_add_nonneg_ovf(self, x, y):
         if isinstance(y, int):
             assert y >= 0

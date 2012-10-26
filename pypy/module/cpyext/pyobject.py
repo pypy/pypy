@@ -150,10 +150,9 @@ class RefcountState:
         # For tests
         self.non_heaptypes_w = []
 
-    def _freeze_(self):
+    def _cleanup_(self):
         assert self.borrow_mapping == {None: {}}
         self.py_objects_r2w.clear() # is not valid anymore after translation
-        return False
 
     def init_r2w_from_w2r(self):
         """Rebuilds the dict py_objects_r2w on startup"""

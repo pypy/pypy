@@ -530,7 +530,7 @@ class AbstractX86CodeBuilder(object):
     NOT_r = insn(rex_w, '\xF7', register(1), '\xD0')
     NOT_b = insn(rex_w, '\xF7', orbyte(2<<3), stack_bp(1))
 
-    CMOVNS_rr = insn(rex_w, '\x0F\x49', register(2, 8), register(1), '\xC0')
+    CMOVNS_rr = insn(rex_w, '\x0F\x49', register(1, 8), register(2), '\xC0')
 
     # ------------------------------ Misc stuff ------------------------------
 
@@ -576,7 +576,7 @@ class AbstractX86CodeBuilder(object):
     J_il8 = insn(immediate(1, 'o'), '\x70', immediate(2, 'b'))
     J_il = insn('\x0F', immediate(1,'o'), '\x80', relative(2))
 
-    SET_ir = insn(rex_w, '\x0F', immediate(1,'o'),'\x90', byte_register(2), '\xC0')
+    SET_ir = insn(rex_fw, '\x0F', immediate(1,'o'),'\x90', byte_register(2), '\xC0')
 
     # The 64-bit version of this, CQO, is defined in X86_64_CodeBuilder
     CDQ = insn(rex_nw, '\x99')

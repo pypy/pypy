@@ -1,17 +1,19 @@
 import py
 from pypy.rpython.lltypesystem.lltype import *
-from pypy.translator.c.test import test_typed
+from pypy.translator.c.test.test_genc import compile
 from pypy.tool.sourcetools import func_with_new_name
 
 
-class TestLowLevelType(test_typed.CompilationTestCase):
+class TestLowLevelType(object):
+    def getcompiled(self, func, argtypes):
+        return compile(func, argtypes, backendopt=False)
 
     def test_simple(self):
         S = GcStruct("s", ('v', Signed))
         def llf():
             s = malloc(S)
             return s.v
-        fn = self.getcompiled(llf)
+        fn = self.getcompiled(llf, [])
         assert fn() == 0
 
     def test_simple2(self):
@@ -22,7 +24,7 @@ class TestLowLevelType(test_typed.CompilationTestCase):
             s.a.v = 6
             s.b.v = 12
             return s.a.v + s.b.v
-        fn = self.getcompiled(llf)
+        fn = self.getcompiled(llf, [])
         assert fn() == 18
 
     def test_fixedsizearray(self):
@@ -49,7 +51,7 @@ class TestLowLevelType(test_typed.CompilationTestCase):
             assert a42[0][0] == -5
             assert a42[5][6] == -6
             return len(a42)*100 + len(a42[4])
-        fn = self.getcompiled(llf)
+        fn = self.getcompiled(llf, [])
         res = fn()
         assert fn() == 607
 
@@ -62,7 +64,7 @@ class TestLowLevelType(test_typed.CompilationTestCase):
             tree.root[0].a = tree.root
             tree.root[1].a = tree.other
             assert tree.root[0].a[0].a[0].a[0].a[0].a[1].a == tree.other
-        fn = self.getcompiled(llf)
+        fn = self.getcompiled(llf, [])
         fn()
 
     def test_prebuilt_array(self):
@@ -78,7 +80,7 @@ class TestLowLevelType(test_typed.CompilationTestCase):
             for i in range(5):
                 s += chr(64+a[i])
             assert s == "HELLO"
-        fn = self.getcompiled(llf)
+        fn = self.getcompiled(llf, [])
         fn()
 
     def test_call_with_fixedsizearray(self):
@@ -92,7 +94,7 @@ class TestLowLevelType(test_typed.CompilationTestCase):
             s = malloc(S)
             s.a = a
             return g(s.a)
-        fn = self.getcompiled(llf)
+        fn = self.getcompiled(llf, [])
         res = fn()
         assert res == 123
 
@@ -218,7 +220,7 @@ class TestLowLevelType(test_typed.CompilationTestCase):
             s.y   +=    1
             return p1[0] + p2[0] + p3[0] + p4[0]
 
-        fn = self.getcompiled(llf)
+        fn = self.getcompiled(llf, [])
         res = fn()
         assert res == 8765
 
@@ -484,18 +486,12 @@ class TestLowLevelType(test_typed.CompilationTestCase):
                     x = getmax(cls)
                     res1 = OP(x, nn)
                     result = result + (res1,)
-            return result
-
-        def assert_eq(a, b):
-            # for better error messages when it fails
-            assert len(a) == len(b)
-            for i in range(len(a)):
-                assert a[i] == b[i]
+            return str(result)
 
         fn = self.getcompiled(f, [int])
         res = fn(1)
         print res
-        assert_eq(res, (
+        assert eval(res) == (
             # int
             -sys.maxint, undefined,               # add
             undefined, sys.maxint-1,              # sub
@@ -528,11 +524,11 @@ class TestLowLevelType(test_typed.CompilationTestCase):
             0, 0,                                 # mod
             0, maxlonglong*2,                     # lshift
             0, maxlonglong,                       # rshift
-            ))
+            )
 
         res = fn(5)
         print res
-        assert_eq(res, (
+        assert eval(res) == (
             # int
             -sys.maxint+4, undefined,             # add
             undefined, sys.maxint-5,              # sub
@@ -565,7 +561,7 @@ class TestLowLevelType(test_typed.CompilationTestCase):
             0, (maxlonglong*2+1)%5,               # mod
             0, maxlonglong*2-30,                  # lshift
             0, maxlonglong>>4,                    # rshift
-            ))
+            )
 
     def test_direct_ptradd_barebone(self):
         from pypy.rpython.lltypesystem import rffi
@@ -582,7 +578,7 @@ class TestLowLevelType(test_typed.CompilationTestCase):
                 assert a2[i] == a[i + 2]
             free(a, flavor='raw')
 
-        fn = self.getcompiled(llf)
+        fn = self.getcompiled(llf, [])
         fn()
 
     def test_r_singlefloat(self):
@@ -617,7 +613,7 @@ class TestLowLevelType(test_typed.CompilationTestCase):
         a[2][5] = 888000
         def llf():
             return b[3][4] + a[2][5]
-        fn = self.getcompiled(llf)
+        fn = self.getcompiled(llf, [])
         assert fn() == 888999
 
     def test_prebuilt_nolength_array(self):
@@ -633,7 +629,7 @@ class TestLowLevelType(test_typed.CompilationTestCase):
             for i in range(5):
                 s += chr(64+a[i])
             assert s == "HELLO"
-        fn = self.getcompiled(llf)
+        fn = self.getcompiled(llf, [])
         fn()
 
     def test_prebuilt_nolength_char_array(self):
@@ -654,7 +650,7 @@ class TestLowLevelType(test_typed.CompilationTestCase):
                     s += a[i]
                 print s
                 assert s == "85?!" + lastchar
-            fn = self.getcompiled(llf)
+            fn = self.getcompiled(llf, [])
             fn()
 
     def test_prebuilt_raw_arrays(self):
@@ -692,7 +688,7 @@ class TestLowLevelType(test_typed.CompilationTestCase):
                     return i    # returns the index of the failing function
                 i += 1
             return -42
-        fn = self.getcompiled(llf)
+        fn = self.getcompiled(llf, [])
         res = fn()
         assert res == -42, "failing function: %r" % (records[res],)
 
@@ -714,7 +710,7 @@ class TestLowLevelType(test_typed.CompilationTestCase):
                 s += a[i]
             return 'abcd' == s
 
-        fn = self.getcompiled(llf)
+        fn = self.getcompiled(llf, [])
         assert fn()
 
     def test_ll2ctypes_array_from_c(self):
@@ -736,7 +732,7 @@ class TestLowLevelType(test_typed.CompilationTestCase):
                 s += a[i]
             print s
             return s == 'abcd'
-        fn = self.getcompiled(llf)
+        fn = self.getcompiled(llf, [])
         assert fn()
 
     def test_cast_to_void_array(self):
@@ -744,13 +740,13 @@ class TestLowLevelType(test_typed.CompilationTestCase):
         def llf():
             TYPE = Ptr(rffi.CArray(Void))
             y = rffi.cast(TYPE, 0)
-        fn = self.getcompiled(llf)
+        fn = self.getcompiled(llf, [])
         fn()
 
     def test_llgroup(self):
         from pypy.rpython.lltypesystem.test import test_llgroup
         f = test_llgroup.build_test()
-        fn = self.getcompiled(f)
+        fn = self.getcompiled(f, [])
         res = fn()
         assert res == 42
 
@@ -797,9 +793,11 @@ class TestLowLevelType(test_typed.CompilationTestCase):
             assert res == 5
 
     def test_round_up_for_allocation(self):
+        import platform
         from pypy.rpython.lltypesystem import llmemory, llarena
         S = Struct('S', ('x', Char), ('y', Char))
         M = Struct('M', ('x', Char), ('y', Signed))
+        is_arm = platform.machine().startswith('arm')
         #
         def g():
             ssize = llarena.round_up_for_allocation(llmemory.sizeof(S))
@@ -813,7 +811,13 @@ class TestLowLevelType(test_typed.CompilationTestCase):
         glob_sizes = g()
         #
         def check((ssize, msize, smsize, mssize)):
-            assert ssize == llmemory.sizeof(Signed)
+            if is_arm:
+                # ARM has stronger rules about aligned memory access
+                # so according to the rules for round_up_for_allocation
+                # we get two words here
+                assert ssize == llmemory.sizeof(Signed) * 2
+            else:
+                assert ssize == llmemory.sizeof(Signed)
             assert msize == llmemory.sizeof(Signed) * 2
             assert smsize == msize
             assert mssize == msize
@@ -860,6 +864,7 @@ class TestLowLevelType(test_typed.CompilationTestCase):
                                            ("l3", Signed)])
         S = rffi_platform.configure(CConfig)['STRUCT']
         assert 'get_padding_drop' in S._hints
+        assert 'eci' in S._hints
         s1 = malloc(S, immortal=True)
         s1.c_c1 = rffi.cast(S.c_c1, -12)
         s1.c_s1 = rffi.cast(S.c_s1, -7843)
@@ -876,7 +881,6 @@ class TestLowLevelType(test_typed.CompilationTestCase):
                 s = s2
             return s.c_l3
         #
-        self.include_also_eci = eci
         fn = self.getcompiled(f, [int])
         res = fn(10)
         assert res == -98765432
@@ -893,7 +897,7 @@ class TestLowLevelType(test_typed.CompilationTestCase):
             render_immortal(a2)
             a2[0] = 3
             return a1[0] + a2[0]
-        fn = self.getcompiled(llf)
+        fn = self.getcompiled(llf, [])
         assert fn() == 45
 
     def test_rstring_to_float(self):

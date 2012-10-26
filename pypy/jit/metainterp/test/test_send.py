@@ -1,5 +1,5 @@
 import py
-from pypy.rlib.jit import JitDriver, promote, elidable
+from pypy.rlib.jit import JitDriver, promote, elidable, set_param
 from pypy.jit.codewriter.policy import StopAtXPolicy
 from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
 
@@ -181,6 +181,7 @@ class SendTests(object):
             def getvalue(self):
                 return self.y
         def f(x, y):
+            set_param(myjitdriver, 'max_unroll_loops', 5)
             if x & 1:
                 w = W1(x)
             else:
@@ -226,6 +227,7 @@ class SendTests(object):
         w2 = W2(20)
 
         def f(x, y):
+            set_param(myjitdriver, 'max_unroll_loops', 5)
             if x & 1:
                 w = w1
             else:

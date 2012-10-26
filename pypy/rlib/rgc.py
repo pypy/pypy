@@ -254,12 +254,9 @@ def _keep_object(x):
         return False      # don't keep any type
     if isinstance(x, (list, dict, str)):
         return True       # keep lists and dicts and strings
-    try:
-        return not x._freeze_()   # don't keep any frozen object
-    except AttributeError:
-        return type(x).__module__ != '__builtin__'   # keep non-builtins
-    except Exception:
-        return False      # don't keep objects whose _freeze_() method explodes
+    if hasattr(x, '_freeze_'):
+        return False
+    return type(x).__module__ != '__builtin__'   # keep non-builtins
 
 def add_memory_pressure(estimate):
     """Add memory pressure for OpaquePtrs."""
@@ -475,3 +472,6 @@ class Entry(ExtRegistryEntry):
     def specialize_call(self, hop):
         hop.exception_is_here()
         return hop.genop('gc_typeids_z', [], resulttype = hop.r_result)
+
+def lltype_is_gc(TP):
+    return getattr(getattr(TP, "TO", None), "_gckind", "?") == 'gc'

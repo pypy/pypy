@@ -75,7 +75,7 @@ class RSREPattern(object):
             else:
                 item = match.groups("")
             matchlist.append(item)
-        return matchlist        
+        return matchlist
 
     def finditer(self, string, pos=0, endpos=sys.maxint):
         return iter(self.scanner(string, pos, endpos).search, None)

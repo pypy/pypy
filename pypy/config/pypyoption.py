@@ -34,7 +34,7 @@ working_modules.update(dict.fromkeys(
      "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array",
      "_bisect", "binascii", "_multiprocessing", '_warnings',
      "_collections", "_multibytecodec", "micronumpy", "_ffi",
-     "_continuation"]
+     "_continuation", "_cffi_backend", "_csv"]
 ))
 
 translation_modules = default_modules.copy()
@@ -89,7 +89,6 @@ module_suggests = {
     "_rawffi": [("objspace.usemodules.struct", True)],
     "cpyext": [("translation.secondaryentrypoints", "cpyext"),
                ("translation.shared", sys.platform == "win32")],
-    "_ffi":    [("translation.jit_ffi", True)],
 }
 
 module_import_dependencies = {

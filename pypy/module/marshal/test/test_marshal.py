@@ -163,6 +163,7 @@ class AppTestMarshal:
     def test_unicode(self):
         import marshal, sys
         self.marshal_check(u'\uFFFF')
+        self.marshal_check(u'\ud800')
 
         self.marshal_check(unichr(sys.maxunicode))
 

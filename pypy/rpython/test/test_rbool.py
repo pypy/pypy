@@ -1,11 +1,10 @@
 from pypy.translator.translator import TranslationContext
-from pypy.rpython.lltypesystem.lltype import pyobjectptr
 from pypy.annotation import model as annmodel
 from pypy.rpython.test import snippet
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 
+
 class TestSnippet(object):
-    
     def _test(self, func, types):
         t = TranslationContext()
         t.buildannotator().build_types(func, types)

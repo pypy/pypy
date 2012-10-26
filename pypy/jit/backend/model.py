@@ -21,6 +21,11 @@ class AbstractCPU(object):
     total_freed_loops = 0
     total_freed_bridges = 0
 
+    # for heaptracker
+    # _all_size_descrs_with_vtable = None
+    _vtable_to_descr_dict = None
+
+
     def __init__(self):
         self.fail_descr_list = []
         self.fail_descr_free_list = []
@@ -92,7 +97,7 @@ class AbstractCPU(object):
         The FailDescr is the descr of the original guard that failed.
 
         Optionally, return a ``ops_offset`` dictionary.  See the docstring of
-        ``compiled_loop`` for more informations about it.
+        ``compiled_loop`` for more information about it.
         """
         raise NotImplementedError
 
@@ -126,13 +131,13 @@ class AbstractCPU(object):
     def get_latest_value_float(self, index):
         """Returns the value for the index'th argument to the
         last executed operation (from 'fail_args' if it was a guard,
-        or from 'args' if it was a FINISH).  Returns a float."""
+        or from 'args' if it was a FINISH).  Returns a FLOATSTORAGE."""
         raise NotImplementedError
 
     def get_latest_value_ref(self, index):
         """Returns the value for the index'th argument to the
         last executed operation (from 'fail_args' if it was a guard,
-        or from 'args' if it was a FINISH).  Returns a ptr or an obj."""
+        or from 'args' if it was a FINISH).  Returns a GCREF."""
         raise NotImplementedError
 
     def get_latest_value_count(self):
@@ -206,10 +211,6 @@ class AbstractCPU(object):
         raise NotImplementedError
 
     def interiorfielddescrof(self, A, fieldname):
-        raise NotImplementedError
-
-    def interiorfielddescrof_dynamic(self, offset, width, fieldsize, is_pointer,
-        is_float, is_signed):
         raise NotImplementedError
 
     def arraydescrof(self, A):

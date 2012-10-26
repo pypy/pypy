@@ -24,6 +24,7 @@ PLATFORMS = [
     'maemo',
     'host',
     'distutils',
+    'arm',
 ]
 
 translation_optiondescription = OptionDescription(
@@ -117,21 +118,17 @@ translation_optiondescription = OptionDescription(
                          ("translation.gcrootfinder", DEFL_ROOTFINDER_WITHJIT),
                          ("translation.list_comprehension_operations", True)]),
     ChoiceOption("jit_backend", "choose the backend for the JIT",
-                 ["auto", "x86", "x86-without-sse2", "llvm"],
+                 ["auto", "x86", "x86-without-sse2", "llvm", 'arm'],
                  default="auto", cmdline="--jit-backend"),
     ChoiceOption("jit_profiler", "integrate profiler support into the JIT",
                  ["off", "oprofile"],
                  default="off"),
-    # jit_ffi is automatically turned on by withmod-_ffi (which is enabled by default)
-    BoolOption("jit_ffi", "optimize libffi calls", default=False, cmdline=None),
     BoolOption("check_str_without_nul",
                "Forbid NUL chars in strings in some external function calls",
                default=False, cmdline=None),
 
     # misc
     BoolOption("verbose", "Print extra information", default=False),
-    BoolOption("debug", "Record extra annotation information",
-               cmdline="-d --debug", default=True),
     BoolOption("insist", "Try hard to go on RTyping", default=False,
                cmdline="--insist"),
     StrOption("cc", "Specify compiler to use for compiling generated C", cmdline="--cc"),
@@ -408,7 +405,7 @@ def set_platform(config):
     set_platform(config.translation.platform, config.translation.cc)
 
 def get_platform(config):
-    from pypy.translator.platform import pick_platform    
+    from pypy.translator.platform import pick_platform
     opt = config.translation.platform
     cc = config.translation.cc
     return pick_platform(opt, cc)

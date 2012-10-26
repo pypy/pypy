@@ -13,7 +13,7 @@ class PerfResult:
 
         
 class PerfResultCollection(object):
-    """Holds informations about several PerfResult objects. The
+    """Holds information about several PerfResult objects. The
     objects should have the same test_id and revision_id"""
     
     def __init__(self, results=None):
@@ -166,7 +166,7 @@ class PerfTable:
     count = py.std.itertools.count() 
     def annotate(self, result):
         """Try to put extra information for each revision on the
-        PerfResult objects. These informations are retrieved from a
+        PerfResult objects. These information are retrieved from a
         branch object.
         """
         #if self.branch is None:

@@ -106,7 +106,8 @@ def record_loop_or_bridge(metainterp_sd, loop):
 
 def compile_loop(metainterp, greenkey, start,
                  inputargs, jumpargs,
-                 resume_at_jump_descr, full_preamble_needed=True):
+                 resume_at_jump_descr, full_preamble_needed=True,
+                 try_disabling_unroll=False):
     """Try to compile a new procedure by closing the current history back
     to the first operation.
     """
@@ -115,6 +116,13 @@ def compile_loop(metainterp, greenkey, start,
     metainterp_sd = metainterp.staticdata
     jitdriver_sd = metainterp.jitdriver_sd
     history = metainterp.history
+
+    enable_opts = jitdriver_sd.warmstate.enable_opts
+    if try_disabling_unroll:
+        if 'unroll' not in enable_opts:
+            return None
+        enable_opts = enable_opts.copy()
+        del enable_opts['unroll']
 
     jitcell_token = make_jitcell_token(jitdriver_sd)
     part = create_empty_loop(metainterp)
@@ -126,7 +134,7 @@ def compile_loop(metainterp, greenkey, start,
                       [ResOperation(rop.LABEL, jumpargs, None, descr=jitcell_token)]
 
     try:
-        optimize_trace(metainterp_sd, part, jitdriver_sd.warmstate.enable_opts)
+        optimize_trace(metainterp_sd, part, enable_opts)
     except InvalidLoop:
         return None
     target_token = part.operations[0].getdescr()
@@ -153,7 +161,7 @@ def compile_loop(metainterp, greenkey, start,
         jumpargs = part.operations[-1].getarglist()
 
         try:
-            optimize_trace(metainterp_sd, part, jitdriver_sd.warmstate.enable_opts)
+            optimize_trace(metainterp_sd, part, enable_opts)
         except InvalidLoop:
             return None
             

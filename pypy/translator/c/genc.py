@@ -1,30 +1,36 @@
 import autopath
 import py
 import sys, os
+from pypy.rlib import exports
+from pypy.rpython.typesystem import getfunctionptr
+from pypy.tool import runsubprocess
+from pypy.tool.nullpath import NullPyPathLocal
+from pypy.tool.udir import udir
+from pypy.translator.c import gc
 from pypy.translator.c.database import LowLevelDatabase
 from pypy.translator.c.extfunc import pre_include_code_lines
-from pypy.translator.llsupport.wrapper import new_wrapper
+from pypy.translator.c.support import log
 from pypy.translator.gensupp import uniquemodulename, NameManager
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.rpython.lltypesystem import lltype
-from pypy.tool.udir import udir
-from pypy.tool import isolate, runsubprocess
-from pypy.translator.c.support import log, c_string_constant
-from pypy.rpython.typesystem import getfunctionptr
-from pypy.translator.c import gc
-from pypy.rlib import exports
-from pypy.tool.nullpath import NullPyPathLocal
 
 _CYGWIN = sys.platform == 'cygwin'
 
-def import_module_from_directory(dir, modname):
-    file, pathname, description = imp.find_module(modname, [str(dir)])
-    try:
-        mod = imp.load_module(modname, file, pathname, description)
-    finally:
-        if file:
-            file.close()
-    return mod
+_CPYTHON_RE = py.std.re.compile('^Python 2.[567]')
+
+def get_recent_cpython_executable():
+
+    if sys.platform == 'win32':
+        python = sys.executable.replace('\\', '/')
+    else:
+        python = sys.executable
+    # Is there a command 'python' that runs python 2.5-2.7?
+    # If there is, then we can use it instead of sys.executable
+    returncode, stdout, stderr = runsubprocess.run_subprocess(
+        "python", "-V")
+    if _CPYTHON_RE.match(stdout) or _CPYTHON_RE.match(stderr):
+        python = 'python'
+    return python
+
 
 class ProfOpt(object):
     #XXX assuming gcc style flags for now
@@ -37,7 +43,6 @@ class ProfOpt(object):
         platform = self.compiler.platform
         if platform.name.startswith('darwin'):
             # XXX incredible hack for darwin
-            cfiles = self.compiler.cfiles
             STR = '/*--no-profiling-for-this-file!--*/'
             no_prof = []
             prof = []
@@ -113,8 +118,7 @@ class CBuilder(object):
     _compiled = False
     modulename = None
     split = False
-    cpython_extension = False
-    
+
     def __init__(self, translator, entrypoint, config, gcpolicy=None,
             secondary_entrypoints=()):
         self.translator = translator
@@ -141,7 +145,6 @@ class CBuilder(object):
                 raise NotImplementedError("--gcrootfinder=asmgcc requires standalone")
 
         db = LowLevelDatabase(translator, standalone=self.standalone,
-                              cpython_extension=self.cpython_extension,
                               gcpolicyclass=gcpolicyclass,
                               thread_enabled=self.config.translation.thread,
                               sandbox=self.config.translation.sandbox)
@@ -188,13 +191,18 @@ class CBuilder(object):
             eci = node.compilation_info()
             if eci:
                 all.append(eci)
+        for node in self.db.getstructdeflist():
+            try:
+                all.append(node.STRUCT._hints['eci'])
+            except (AttributeError, KeyError):
+                pass
         self.merge_eci(*all)
 
     def get_gcpolicyclass(self):
         if self.gcpolicy is None:
             name = self.config.translation.gctransformer
-            if self.config.translation.gcrootfinder == "asmgcc":
-                name = "%s+asmgcroot" % (name,)
+            if name == "framework":
+                name = "%s+%s" % (name, self.config.translation.gcrootfinder)
             return gc.name_to_gcpolicy[name]
         return self.gcpolicy
 
@@ -218,7 +226,6 @@ class CBuilder(object):
 
     def generate_source(self, db=None, defines={}, exe_name=None):
         assert self.c_source_filename is None
-        translator = self.translator
 
         if db is None:
             db = self.build_database()
@@ -240,8 +247,6 @@ class CBuilder(object):
             CBuilder.have___thread = self.translator.platform.check___thread()
         if not self.standalone:
             assert not self.config.translation.instrument
-            if self.cpython_extension:
-                defines['PYPY_CPYTHON_EXTENSION'] = 1
         else:
             defines['PYPY_STANDALONE'] = db.get(pf)
             if self.config.translation.instrument:
@@ -272,156 +277,6 @@ class CBuilder(object):
             extrafiles.append(fn)
         return extrafiles
 
-class ModuleWithCleanup(object):
-    def __init__(self, mod):
-        self.__dict__['mod'] = mod
-
-    def __getattr__(self, name):
-        mod = self.__dict__['mod']
-        obj = getattr(mod, name)
-        parentself = self
-        if callable(obj) and getattr(obj, '__module__', None) == mod.__name__:
-            # The module must be kept alive with the function.
-            # This wrapper avoids creating a cycle.
-            class Wrapper:
-                def __init__(self, obj):
-                    self.myself = parentself
-                    self.func = obj
-                def __call__(self, *args, **kwargs):
-                    return self.func(*args, **kwargs)
-            obj = Wrapper(obj)
-        return obj
-
-    def __setattr__(self, name, val):
-        mod = self.__dict__['mod']
-        setattr(mod, name, val)
-
-    def __del__(self):
-        import sys
-        if sys.platform == "win32":
-            from _ctypes import FreeLibrary as dlclose
-        else:
-            from _ctypes import dlclose
-        # XXX fish fish fish
-        mod = self.__dict__['mod']
-        dlclose(mod._lib._handle)
-        try:
-            del sys.modules[mod.__name__]
-        except KeyError:
-            pass
-
-
-class CExtModuleBuilder(CBuilder):
-    standalone = False
-    cpython_extension = True
-    _module = None
-    _wrapper = None
-
-    def get_eci(self):
-        from distutils import sysconfig
-        python_inc = sysconfig.get_python_inc()
-        eci = ExternalCompilationInfo(
-            include_dirs=[python_inc],
-            includes=["Python.h",
-                      ],
-            )
-        return eci.merge(CBuilder.get_eci(self))
-
-    def getentrypointptr(self): # xxx
-        if self._wrapper is None:
-            self._wrapper = new_wrapper(self.entrypoint, self.translator)
-        return self._wrapper
-
-    def compile(self):
-        assert self.c_source_filename 
-        assert not self._compiled
-        export_symbols = [self.db.get(self.getentrypointptr()),
-                          'RPython_StartupCode',
-                          ]
-        if self.config.translation.countmallocs:
-            export_symbols.append('malloc_counters')
-        extsymeci = ExternalCompilationInfo(export_symbols=export_symbols)
-        self.eci = self.eci.merge(extsymeci)
-
-        if sys.platform == 'win32':
-            self.eci = self.eci.merge(ExternalCompilationInfo(
-                library_dirs = [py.path.local(sys.exec_prefix).join('LIBs'),
-                                py.path.local(sys.executable).dirpath(),
-                                ],
-                ))
-
-
-        files = [self.c_source_filename] + self.extrafiles
-        self.translator.platform.compile(files, self.eci, standalone=False)
-        self._compiled = True
-
-    def _make_wrapper_module(self):
-        fname = 'wrap_' + self.c_source_filename.purebasename
-        modfile = self.c_source_filename.new(purebasename=fname, ext=".py")
-
-        entrypoint_ptr = self.getentrypointptr()
-        wrapped_entrypoint_c_name = self.db.get(entrypoint_ptr)
-        
-        CODE = """
-import ctypes
-
-_lib = ctypes.PyDLL(r"%(so_name)s")
-
-_entry_point = getattr(_lib, "%(c_entrypoint_name)s")
-_entry_point.restype = ctypes.py_object
-_entry_point.argtypes = %(nargs)d*(ctypes.py_object,)
-
-def entrypoint(*args):
-    return _entry_point(*args)
-
-try:
-    _malloc_counters = _lib.malloc_counters
-except AttributeError:
-    pass
-else:
-    _malloc_counters.restype = ctypes.py_object
-    _malloc_counters.argtypes = 2*(ctypes.py_object,)
-
-    def malloc_counters():
-        return _malloc_counters(None, None)
-
-_rpython_startup = _lib.RPython_StartupCode
-_rpython_startup()
-""" % {'so_name': self.c_source_filename.new(ext=self.translator.platform.so_ext),
-       'c_entrypoint_name': wrapped_entrypoint_c_name,
-       'nargs': len(lltype.typeOf(entrypoint_ptr).TO.ARGS)}
-        modfile.write(CODE)
-        self._module_path = modfile
-       
-    def _import_module(self, isolated=False):
-        if self._module is not None:
-            return self._module
-        assert self._compiled
-        assert not self._module
-        self._make_wrapper_module()
-        if not isolated:
-            mod = ModuleWithCleanup(self._module_path.pyimport())
-        else:
-            mod = isolate.Isolate((str(self._module_path.dirpath()),
-                                   self._module_path.purebasename))
-        self._module = mod
-        return mod
-        
-    def get_entry_point(self, isolated=False):
-        self._import_module(isolated=isolated)
-        return getattr(self._module, "entrypoint")
-
-    def get_malloc_counters(self, isolated=False):
-        self._import_module(isolated=isolated)
-        return self._module.malloc_counters
-                       
-    def cleanup(self):
-        #assert self._module
-        if isinstance(self._module, isolate.Isolate):
-            isolate.close_isolate(self._module)
-
-    def gen_makefile(self, targetdir, exe_name=None):
-        pass
 
 class CStandaloneBuilder(CBuilder):
     standalone = True
@@ -552,6 +407,7 @@ class CStandaloneBuilder(CBuilder):
         for rule in rules:
             mk.rule(*rule)
 
+        #XXX: this conditional part is not tested at all
         if self.config.translation.gcrootfinder == 'asmgcc':
             trackgcfiles = [cfile[:cfile.rfind('.')] for cfile in mk.cfiles]
             if self.translator.platform.name == 'msvc':
@@ -574,18 +430,7 @@ class CStandaloneBuilder(CBuilder):
             else:
                 mk.definition('PYPY_MAIN_FUNCTION', "main")
 
-            if sys.platform == 'win32':
-                python = sys.executable.replace('\\', '/') + ' '
-            else:
-                python = sys.executable + ' '
-
-            # Is there a command 'python' that runs python 2.5-2.7?
-            # If there is, then we can use it instead of sys.executable
-            returncode, stdout, stderr = runsubprocess.run_subprocess(
-                "python", "-V")
-            if (stdout.startswith('Python 2.') or
-                stderr.startswith('Python 2.')):
-                python = 'python '
+            mk.definition('PYTHON', get_recent_cpython_executable())
 
             if self.translator.platform.name == 'msvc':
                 lblofiles = []
@@ -607,22 +452,22 @@ class CStandaloneBuilder(CBuilder):
                         'cmd /c $(MASM) /nologo /Cx /Cp /Zm /coff /Fo$@ /c $< $(INCLUDEDIRS)')
                 mk.rule('.c.gcmap', '',
                         ['$(CC) /nologo $(ASM_CFLAGS) /c /FAs /Fa$*.s $< $(INCLUDEDIRS)',
-                         'cmd /c ' + python + '$(PYPYDIR)/translator/c/gcc/trackgcroot.py -fmsvc -t $*.s > $@']
+                         'cmd /c $(PYTHON) $(PYPYDIR)/translator/c/gcc/trackgcroot.py -fmsvc -t $*.s > $@']
                         )
                 mk.rule('gcmaptable.c', '$(GCMAPFILES)',
-                        'cmd /c ' + python + '$(PYPYDIR)/translator/c/gcc/trackgcroot.py -fmsvc $(GCMAPFILES) > $@')
+                        'cmd /c $(PYTHON) $(PYPYDIR)/translator/c/gcc/trackgcroot.py -fmsvc $(GCMAPFILES) > $@')
 
             else:
                 mk.definition('OBJECTS', '$(ASMLBLFILES) gcmaptable.s')
                 mk.rule('%.s', '%.c', '$(CC) $(CFLAGS) $(CFLAGSEXTRA) -frandom-seed=$< -o $@ -S $< $(INCLUDEDIRS)')
                 mk.rule('%.lbl.s %.gcmap', '%.s',
-                        [python +
-                             '$(PYPYDIR)/translator/c/gcc/trackgcroot.py '
+                        [
+                             '$(PYTHON) $(PYPYDIR)/translator/c/gcc/trackgcroot.py '
                              '-t $< > $*.gctmp',
                          'mv $*.gctmp $*.gcmap'])
                 mk.rule('gcmaptable.s', '$(GCMAPFILES)',
-                        [python +
-                             '$(PYPYDIR)/translator/c/gcc/trackgcroot.py '
+                        [
+                             '$(PYTHON) $(PYPYDIR)/translator/c/gcc/trackgcroot.py '
                              '$(GCMAPFILES) > $@.tmp',
                          'mv $@.tmp $@'])
                 mk.rule('.PRECIOUS', '%.s', "# don't remove .s files if Ctrl-C'ed")
@@ -705,7 +550,7 @@ class SourceGenerator:
                     localpath = py.path.local(g.filename)
                     pypkgpath = localpath.pypkgpath()
                     if pypkgpath:
-                        relpypath =  localpath.relto(pypkgpath)
+                        relpypath = localpath.relto(pypkgpath.dirname)
                         return relpypath.replace('.py', '.c')
             return None
         if hasattr(node.obj, 'graph'):

@@ -6,20 +6,90 @@ built-in functions (or type constructors) implementing them.
 import __builtin__
 import __future__
 import operator
-import types
-import sys
-from pypy.interpreter.baseobjspace import ObjSpace
-from pypy.interpreter.error import OperationError
 from pypy.tool.sourcetools import compile2
 from pypy.rlib.rarithmetic import ovfcheck
-from pypy.objspace.flow import model
 
+# this is a copy that should be shared with standard objspace
 
-class OperationThatShouldNotBePropagatedError(OperationError):
-    pass
-
-class ImplicitOperationError(OperationError):
-    pass
+MethodTable = [
+# method name # symbol # number of arguments # special method name(s)
+    ('is_',             'is',        2, []),
+    ('id',              'id',        1, []),
+    ('type',            'type',      1, []),
+    ('isinstance',      'isinstance', 2, ['__instancecheck__']),
+    ('issubtype',       'issubtype', 2, ['__subclasscheck__']),  # not for old-style classes
+    ('repr',            'repr',      1, ['__repr__']),
+    ('str',             'str',       1, ['__str__']),
+    ('format',          'format',    2, ['__format__']),
+    ('len',             'len',       1, ['__len__']),
+    ('hash',            'hash',      1, ['__hash__']),
+    ('getattr',         'getattr',   2, ['__getattribute__']),
+    ('setattr',         'setattr',   3, ['__setattr__']),
+    ('delattr',         'delattr',   2, ['__delattr__']),
+    ('getitem',         'getitem',   2, ['__getitem__']),
+    ('setitem',         'setitem',   3, ['__setitem__']),
+    ('delitem',         'delitem',   2, ['__delitem__']),
+    ('getslice',        'getslice',  3, ['__getslice__']),
+    ('setslice',        'setslice',  4, ['__setslice__']),
+    ('delslice',        'delslice',  3, ['__delslice__']),
+    ('trunc',           'trunc',     1, ['__trunc__']),
+    ('pos',             'pos',       1, ['__pos__']),
+    ('neg',             'neg',       1, ['__neg__']),
+    ('nonzero',         'truth',     1, ['__nonzero__']),
+    ('abs' ,            'abs',       1, ['__abs__']),
+    ('hex',             'hex',       1, ['__hex__']),
+    ('oct',             'oct',       1, ['__oct__']),
+    ('ord',             'ord',       1, []),
+    ('invert',          '~',         1, ['__invert__']),
+    ('add',             '+',         2, ['__add__', '__radd__']),
+    ('sub',             '-',         2, ['__sub__', '__rsub__']),
+    ('mul',             '*',         2, ['__mul__', '__rmul__']),
+    ('truediv',         '/',         2, ['__truediv__', '__rtruediv__']),
+    ('floordiv',        '//',        2, ['__floordiv__', '__rfloordiv__']),
+    ('div',             'div',       2, ['__div__', '__rdiv__']),
+    ('mod',             '%',         2, ['__mod__', '__rmod__']),
+    ('divmod',          'divmod',    2, ['__divmod__', '__rdivmod__']),
+    ('pow',             '**',        3, ['__pow__', '__rpow__']),
+    ('lshift',          '<<',        2, ['__lshift__', '__rlshift__']),
+    ('rshift',          '>>',        2, ['__rshift__', '__rrshift__']),
+    ('and_',            '&',         2, ['__and__', '__rand__']),
+    ('or_',             '|',         2, ['__or__', '__ror__']),
+    ('xor',             '^',         2, ['__xor__', '__rxor__']),
+    ('int',             'int',       1, ['__int__']),
+    ('index',           'index',     1, ['__index__']),
+    ('float',           'float',     1, ['__float__']),
+    ('long',            'long',      1, ['__long__']),
+    ('inplace_add',     '+=',        2, ['__iadd__']),
+    ('inplace_sub',     '-=',        2, ['__isub__']),
+    ('inplace_mul',     '*=',        2, ['__imul__']),
+    ('inplace_truediv', '/=',        2, ['__itruediv__']),
+    ('inplace_floordiv','//=',       2, ['__ifloordiv__']),
+    ('inplace_div',     'div=',      2, ['__idiv__']),
+    ('inplace_mod',     '%=',        2, ['__imod__']),
+    ('inplace_pow',     '**=',       2, ['__ipow__']),
+    ('inplace_lshift',  '<<=',       2, ['__ilshift__']),
+    ('inplace_rshift',  '>>=',       2, ['__irshift__']),
+    ('inplace_and',     '&=',        2, ['__iand__']),
+    ('inplace_or',      '|=',        2, ['__ior__']),
+    ('inplace_xor',     '^=',        2, ['__ixor__']),
+    ('lt',              '<',         2, ['__lt__', '__gt__']),
+    ('le',              '<=',        2, ['__le__', '__ge__']),
+    ('eq',              '==',        2, ['__eq__', '__eq__']),
+    ('ne',              '!=',        2, ['__ne__', '__ne__']),
+    ('gt',              '>',         2, ['__gt__', '__lt__']),
+    ('ge',              '>=',        2, ['__ge__', '__le__']),
+    ('cmp',             'cmp',       2, ['__cmp__']),   # rich cmps preferred
+    ('coerce',          'coerce',    2, ['__coerce__', '__coerce__']),
+    ('contains',        'contains',  2, ['__contains__']),
+    ('iter',            'iter',      1, ['__iter__']),
+    ('next',            'next',      1, ['next']),
+#    ('call',            'call',      3, ['__call__']),
+    ('get',             'get',       3, ['__get__']),
+    ('set',             'set',       3, ['__set__']),
+    ('delete',          'delete',    2, ['__delete__']),
+    ('userdel',         'del',       1, ['__del__']),
+    ('buffer',          'buffer',    1, ['__buffer__']),   # see buffer.py
+    ]
 
 
 FunctionByName = {}   # dict {"operation_name": <built-in function>}
@@ -228,11 +298,13 @@ Table = [
     ('div_ovf',         div_ovf),
     ('mod_ovf',         mod_ovf),
     ('lshift_ovf',      lshift_ovf),
-    ]
+]
+if hasattr(__builtin__, 'next'):
+    Table.append(('next', __builtin__.next))
 
 def setup():
     # insert all operators
-    for line in ObjSpace.MethodTable:
+    for line in MethodTable:
         name = line[0]
         if hasattr(operator, name):
             Table.append((name, getattr(operator, name)))
@@ -243,7 +315,7 @@ def setup():
         if func not in OperationName:
             OperationName[func] = name
     # check that the result is complete
-    for line in ObjSpace.MethodTable:
+    for line in MethodTable:
         name = line[0]
         Arity[name] = line[2]
         assert name in FunctionByName
@@ -302,121 +374,3 @@ _add_except_ovf("""neg abs add sub mul
 _add_exceptions("""pow""",
                 OverflowError) # for the float case
 del _add_exceptions, _add_except_ovf
-
-def make_op(fs, name, symbol, arity, specialnames):
-    if getattr(fs, name, None) is not None:
-        return
-
-    op = None
-    skip = False
-    arithmetic = False
-
-    if (name.startswith('del') or
-        name.startswith('set') or
-        name.startswith('inplace_')):
-        # skip potential mutators
-        skip = True
-    elif name in ('id', 'hash', 'iter', 'userdel'):
-        # skip potential runtime context dependecies
-        skip = True
-    elif name in ('repr', 'str'):
-        rep = getattr(__builtin__, name)
-        def op(obj):
-            s = rep(obj)
-            if "at 0x" in s:
-                print >>sys.stderr, "Warning: captured address may be awkward"
-            return s
-    else:
-        op = FunctionByName[name]
-        arithmetic = (name + '_ovf') in FunctionByName
-
-    if not op and not skip:
-        raise ValueError("XXX missing operator: %s" % (name,))
-
-    def generic_operator(self, *args_w):
-        assert len(args_w) == arity, name + " got the wrong number of arguments"
-        if op:
-            args = []
-            for w_arg in args_w:
-                try:
-                    arg = self.unwrap_for_computation(w_arg)
-                except model.UnwrapException:
-                    break
-                else:
-                    args.append(arg)
-            else:
-                # All arguments are constants: call the operator now
-                try:
-                    result = op(*args)
-                except Exception, e:
-                    etype = e.__class__
-                    msg = "generated by a constant operation:\n\t%s%r" % (
-                        name, tuple(args))
-                    raise OperationThatShouldNotBePropagatedError(
-                        self.wrap(etype), self.wrap(msg))
-                else:
-                    # don't try to constant-fold operations giving a 'long'
-                    # result.  The result is probably meant to be sent to
-                    # an intmask(), but the 'long' constant confuses the
-                    # annotator a lot.
-                    if arithmetic and type(result) is long:
-                        pass
-                    # don't constant-fold getslice on lists, either
-                    elif name == 'getslice' and type(result) is list:
-                        pass
-                    # otherwise, fine
-                    else:
-                        try:
-                            return self.wrap(result)
-                        except model.WrapException:
-                            # type cannot sanely appear in flow graph,
-                            # store operation with variable result instead
-                            pass
-        w_result = self.do_operation_with_implicit_exceptions(name, *args_w)
-        return w_result
-
-    setattr(fs, name, generic_operator)
-
-
-"""
-This is just a placeholder for some code I'm checking in elsewhere.
-It is provenly possible to determine constantness of certain expressions
-a little later. I introduced this a bit too early, together with tieing
-this to something being global, which was a bad idea.
-The concept is still valid, and it can  be used to force something to
-be evaluated immediately because it is supposed to be a constant.
-One good possible use of this is loop unrolling.
-This will be found in an 'experimental' folder with some use cases.
-"""
-
-def special_overrides(fs):
-    def getattr(self, w_obj, w_name):
-        # handling special things like sys
-        # unfortunately this will never vanish with a unique import logic :-(
-        if w_obj in self.not_really_const:
-            const_w = self.not_really_const[w_obj]
-            if w_name not in const_w:
-                return self.do_operation_with_implicit_exceptions('getattr',
-                                                                  w_obj, w_name)
-        return self.regular_getattr(w_obj, w_name)
-
-    fs.regular_getattr = fs.getattr
-    fs.getattr = getattr
-
-    # protect us from globals write access
-    def setitem(self, w_obj, w_key, w_val):
-        ec = self.getexecutioncontext()
-        if not (ec and w_obj is ec.w_globals):
-            return self.regular_setitem(w_obj, w_key, w_val)
-        raise SyntaxError("attempt to modify global attribute %r in %r"
-                          % (w_key, ec.graph.func))
-
-    fs.regular_setitem = fs.setitem
-    fs.setitem = setitem
-
-
-def add_operations(fs):
-    """Add function operations to the flow space."""
-    for line in ObjSpace.MethodTable:
-        make_op(fs, *line)
-    special_overrides(fs)

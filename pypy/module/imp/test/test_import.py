@@ -104,11 +104,10 @@ def setup_directory_structure(space):
         filename = str(p.join("x.py"))
         stream = streamio.open_file_as_stream(filename, "r")
         try:
-            importing.load_source_module(space,
-                                         w_modname,
-                                         w(importing.Module(space, w_modname)),
-                                         filename,
-                                         stream.readall())
+            importing.load_source_module(
+                space, w_modname, w(importing.Module(space, w_modname)),
+                filename, stream.readall(),
+                stream.try_to_find_file_descriptor())
         finally:
             stream.close()
         if space.config.objspace.usepycfiles:
@@ -370,6 +369,15 @@ class AppTestImport:
     def test__import__empty_string(self):
         raises(ValueError, __import__, "")
 
+    def test_py_directory(self):
+        import imp, os, sys
+        source = os.path.join(sys.path[0], 'foo.py')
+        os.mkdir(source)
+        try:
+            raises(ImportError, imp.find_module, 'foo')
+        finally:
+            os.rmdir(source)
+
     def test_invalid__name__(self):
         glob = {}
         exec "__name__ = None; import sys" in glob
@@ -618,6 +626,19 @@ class AppTestImport:
             sys.path.insert(0, sys.path.pop())
         del sys.modules['itertools']
 
+    def test_invalid_pathname(self):
+        import imp
+        import pkg
+        import os
+
+        info = ('.py', 'r', imp.PY_SOURCE)
+        pathname = os.path.join(os.path.dirname(pkg.__file__), 'a.py')
+        
+        module = imp.load_module('a', open(pathname),
+                                 'invalid_path_name', ('.py', 'r', imp.PY_SOURCE))
+        assert module.__name__ == 'a'
+        assert module.__file__ == 'invalid_path_name'
+
 
 class TestAbi:
     def test_abi_tag(self):
@@ -783,11 +804,10 @@ class TestPycStuff:
         pathname = _testfilesource()
         stream = streamio.open_file_as_stream(pathname, "r")
         try:
-            w_ret = importing.load_source_module(space,
-                                                 w_modulename,
-                                                 w_mod,
-                                                 pathname,
-                                                 stream.readall())
+            w_ret = importing.load_source_module(
+                space, w_modulename, w_mod,
+                pathname, stream.readall(),
+                stream.try_to_find_file_descriptor())
         finally:
             stream.close()
         assert w_mod is w_ret
@@ -806,12 +826,11 @@ class TestPycStuff:
         pathname = _testfilesource()
         stream = streamio.open_file_as_stream(pathname, "r")
         try:
-            w_ret = importing.load_source_module(space,
-                                                 w_modulename,
-                                                 w_mod,
-                                                 pathname,
-                                                 stream.readall(),
-                                                 write_pyc=False)
+            w_ret = importing.load_source_module(
+                space, w_modulename, w_mod,
+                pathname, stream.readall(),
+                stream.try_to_find_file_descriptor(),
+                write_pyc=False)
         finally:
             stream.close()
         cpathname = udir.join('test.pyc')
@@ -826,11 +845,10 @@ class TestPycStuff:
         try:
             space.setattr(space.sys, space.wrap('dont_write_bytecode'),
                           space.w_True)
-            w_ret = importing.load_source_module(space,
-                                                 w_modulename,
-                                                 w_mod,
-                                                 pathname,
-                                                 stream.readall())
+            w_ret = importing.load_source_module(
+                space, w_modulename, w_mod,
+                pathname, stream.readall(),
+                stream.try_to_find_file_descriptor())
         finally:
             space.setattr(space.sys, space.wrap('dont_write_bytecode'),
                           space.w_False)
@@ -846,11 +864,10 @@ class TestPycStuff:
         pathname = _testfilesource(source="<Syntax Error>")
         stream = streamio.open_file_as_stream(pathname, "r")
         try:
-            w_ret = importing.load_source_module(space,
-                                                 w_modulename,
-                                                 w_mod,
-                                                 pathname,
-                                                 stream.readall())
+            w_ret = importing.load_source_module(
+                space, w_modulename, w_mod,
+                pathname, stream.readall(),
+                stream.try_to_find_file_descriptor())
         except OperationError:
             # OperationError("Syntax Error")
             pass
@@ -867,11 +884,10 @@ class TestPycStuff:
         pathname = _testfilesource(source="a = unknown_name")
         stream = streamio.open_file_as_stream(pathname, "r")
         try:
-            w_ret = importing.load_source_module(space,
-                                                 w_modulename,
-                                                 w_mod,
-                                                 pathname,
-                                                 stream.readall())
+            w_ret = importing.load_source_module(
+                space, w_modulename, w_mod,
+                pathname, stream.readall(),
+                stream.try_to_find_file_descriptor())
         except OperationError:
             # OperationError("NameError", "global name 'unknown_name' is not defined")
             pass

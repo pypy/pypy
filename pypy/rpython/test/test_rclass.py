@@ -1,14 +1,18 @@
-import py
 import sys
-from pypy.translator.translator import TranslationContext, graphof
-from pypy.rpython.lltypesystem.lltype import *
-from pypy.rpython.ootypesystem import ootype
-from pypy.rlib.rarithmetic import r_longlong
-from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
-from pypy.rpython.rclass import IR_IMMUTABLE, IR_IMMUTABLE_ARRAY
-from pypy.rpython.rclass import IR_QUASIIMMUTABLE, IR_QUASIIMMUTABLE_ARRAY
-from pypy.rpython.error import TyperError
+
+import py
+
 from pypy.objspace.flow.model import summary
+from pypy.rlib.rarithmetic import r_longlong
+from pypy.rpython.lltypesystem.lltype import (typeOf, Signed, getRuntimeTypeInfo,
+    identityhash)
+from pypy.rpython.ootypesystem import ootype
+from pypy.rpython.error import TyperError
+from pypy.rpython.rclass import (IR_IMMUTABLE, IR_IMMUTABLE_ARRAY,
+    IR_QUASIIMMUTABLE, IR_QUASIIMMUTABLE_ARRAY)
+from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+from pypy.translator.translator import TranslationContext, graphof
+
 
 class EmptyBase(object):
     pass
@@ -957,6 +961,16 @@ class BaseTestRclass(BaseRtypingTest):
             if op.opname == 'jit_force_quasi_immutable':
                 found.append(op.args[1].value)
         assert found == ['mutate_c']
+
+    def test_calling_object_init(self):
+        class A(object):
+            pass
+        class B(A):
+            def __init__(self):
+                A.__init__(self)
+        def f():
+            B()
+        self.gengraph(f, [])
 
 
 class TestLLtype(BaseTestRclass, LLRtypeMixin):

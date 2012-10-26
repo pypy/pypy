@@ -1,21 +1,22 @@
-from pypy.translator.translator import graphof
-from pypy.rpython.test import test_llinterp
-from pypy.rlib.objectmodel import instantiate, we_are_translated
-from pypy.rlib.objectmodel import running_on_llinterp
-from pypy.rlib.debug import llinterpcall
-from pypy.rpython.lltypesystem import lltype
-from pypy.tool import udir
-from pypy.rlib.rarithmetic import intmask, longlongmask, r_int64, is_valid_int
-from pypy.rlib.rarithmetic import r_int, r_uint, r_longlong, r_ulonglong
-from pypy.annotation.builtin import *
-from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
-from pypy.rpython.lltypesystem import rffi
-from pypy.rpython import extfunc
+import math
+import os
+
 import py
+
+from pypy.rlib.debug import llinterpcall
+from pypy.rlib.objectmodel import instantiate, running_on_llinterp, compute_unique_id, current_object_addr_as_int
+from pypy.rlib.rarithmetic import (intmask, longlongmask, r_int64, is_valid_int,
+    r_int, r_uint, r_longlong, r_ulonglong)
+from pypy.rlib.rstring import StringBuilder, UnicodeBuilder
+from pypy.rpython.annlowlevel import hlstr, LowLevelAnnotatorPolicy
+from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.rpython.test import test_llinterp
+from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+from pypy.tool import udir
+from pypy.translator.translator import graphof
 
 
 def enum_direct_calls(translator, func):
-    blocks = []
     graph = graphof(translator, func)
     for block in graph.iterblocks():
         for op in block.operations:
@@ -90,28 +91,28 @@ class BaseTestRbuiltin(BaseRtypingTest):
         assert type(res) is r_int64 and res == 5
 
     def test_rbuiltin_list(self):
-        def f(): 
-            l=list((1,2,3))
+        def f():
+            l = list((1,2,3))
             return l == [1,2,3]
         def g():
-            l=list(('he','llo'))
-            return l == ['he','llo']
+            l = list(('he', 'llo'))
+            return l == ['he', 'llo']
         def r():
             l = ['he','llo']
-            l1=list(l)
+            l1 = list(l)
             return l == l1 and l is not l1
-        result = self.interpret(f,[])
+        result = self.interpret(f, [])
         assert result
 
-        result = self.interpret(g,[])
+        result = self.interpret(g, [])
         assert result
 
-        result = self.interpret(r,[])
-        assert result    
+        result = self.interpret(r, [])
+        assert result
 
     def test_int_min(self):
         def fn(i, j):
-            return min(i,j)
+            return min(i ,j)
         ev_fun = self.interpret(fn, [0, 0])
         assert self.interpret(fn, (1, 2)) == 1
         assert self.interpret(fn, (1, -1)) == -1
@@ -145,28 +146,24 @@ class BaseTestRbuiltin(BaseRtypingTest):
         assert self.interpret(fn, (1.1, -1)) == 1.1
 
     def test_builtin_math_floor(self):
-        import math
         def fn(f):
             return math.floor(f)
-        import random 
         for i in range(5):
-            rv = 1000 * float(i-10) #random.random()
+            rv = 1000 * float(i-10)
             res = self.interpret(fn, [rv])
-            assert fn(rv) == res 
+            assert fn(rv) == res
 
     def test_builtin_math_fmod(self):
-        import math
         def fn(f,y):
             return math.fmod(f,y)
 
         for i in range(10):
             for j in range(10):
-                rv = 1000 * float(i-10) 
+                rv = 1000 * float(i-10)
                 ry = 100 * float(i-10) +0.1
                 assert self.float_eq(fn(rv,ry), self.interpret(fn, (rv, ry)))
 
     def test_builtin_math_frexp(self):
-        import math
         def fn(f):
             return math.frexp(f)
         for x in (.5, 1, 1.5, 10/3.0):
@@ -177,14 +174,12 @@ class BaseTestRbuiltin(BaseRtypingTest):
                         self.float_eq(res.item1, exponent))
 
     def test_builtin_math_ldexp(self):
-        import math
         def fn(a, b):
             return math.ldexp(a, b)
         assert self.interpret(fn, [1, 2]) == 4
         self.interpret_raises(OverflowError, fn, [1, 100000])
 
     def test_builtin_math_modf(self):
-        import math
         def fn(f):
             return math.modf(f)
         res = self.interpret(fn, [10/3.0])
@@ -192,15 +187,13 @@ class BaseTestRbuiltin(BaseRtypingTest):
         assert self.float_eq(res.item0, intpart) and self.float_eq(res.item1, fracpart)
 
     def test_os_getcwd(self):
-        import os
         def fn():
             return os.getcwd()
-        res = self.interpret(fn, []) 
+        res = self.interpret(fn, [])
         assert self.ll_to_string(res) == fn()
-        
+
     def test_os_write(self):
         tmpdir = str(udir.udir.join("os_write_test"))
-        import os
         def wr_open(fname):
             fd = os.open(fname, os.O_WRONLY|os.O_CREAT, 0777)
             os.write(fd, "hello world")
@@ -213,11 +206,10 @@ class BaseTestRbuiltin(BaseRtypingTest):
         assert hello == "hello world"
         fd = os.open(tmpdir, os.O_WRONLY|os.O_CREAT, 777)
         os.close(fd)
-        raises(OSError, os.write, fd, "hello world")    
+        raises(OSError, os.write, fd, "hello world")
 
     def test_os_write_single_char(self):
         tmpdir = str(udir.udir.join("os_write_test_char"))
-        import os
         def wr_open(fname):
             fd = os.open(fname, os.O_WRONLY|os.O_CREAT, 0777)
             os.write(fd, "x")
@@ -230,7 +222,6 @@ class BaseTestRbuiltin(BaseRtypingTest):
         assert hello == "x"
 
     def test_os_read(self):
-        import os
         tmpfile = str(udir.udir.join("os_read_test"))
         f = file(tmpfile, 'w')
         f.write('hello world')
@@ -243,7 +234,6 @@ class BaseTestRbuiltin(BaseRtypingTest):
 
     def test_os_lseek(self):
         self._skip_llinterpreter("os.lseek", skipOO=False)
-        import os
         tmpfile = str(udir.udir.join("os_lseek_test"))
         f = file(tmpfile, 'w')
         f.write('0123456789')
@@ -269,7 +259,6 @@ class BaseTestRbuiltin(BaseRtypingTest):
         assert res1 == res2
 
     def test_os_dup(self):
-        import os
         def fn(fd):
             return os.dup(fd)
         res = self.interpret(fn, [0])
@@ -286,7 +275,6 @@ class BaseTestRbuiltin(BaseRtypingTest):
 
     def test_os_open(self):
         tmpdir = str(udir.udir.join("os_open_test"))
-        import os
         def wr_open(fname):
             return os.open(fname, os.O_WRONLY|os.O_CREAT, 0777)
         def f():
@@ -302,9 +290,7 @@ class BaseTestRbuiltin(BaseRtypingTest):
 
     def test_os_path_exists(self):
         self._skip_llinterpreter("os.stat()")
-        from pypy.rpython.annlowlevel import hlstr
-        
-        import os
+
         def f(fn):
             fn = hlstr(fn)
             return os.path.exists(fn)
@@ -315,9 +301,7 @@ class BaseTestRbuiltin(BaseRtypingTest):
 
     def test_os_isdir(self):
         self._skip_llinterpreter("os.stat()")
-        from pypy.rpython.annlowlevel import hlstr
-        
-        import os
+
         def f(fn):
             fn = hlstr(fn)
             return os.path.isdir(fn)
@@ -332,14 +316,14 @@ class BaseTestRbuiltin(BaseRtypingTest):
 
         def g(obj):
             return bool(obj)
-        def fn(neg):    
+        def fn(neg):
             c = C.f
             return g(c)
         assert self.interpret(fn, [True])
-        def fn(neg):    
+        def fn(neg):
             c = None
             return g(c)
-        assert not self.interpret(fn, [True]) 
+        assert not self.interpret(fn, [True])
 
     def test_const_isinstance(self):
         class B(object):
@@ -417,7 +401,6 @@ class BaseTestRbuiltin(BaseRtypingTest):
 
     def test_os_path_join(self):
         self._skip_llinterpreter("os path oofakeimpl", skipLL=False)
-        import os.path
         def fn(a, b):
             return os.path.join(a, b)
         res = self.ll_to_string(self.interpret(fn, ['a', 'b']))
@@ -454,8 +437,6 @@ class BaseTestRbuiltin(BaseRtypingTest):
         assert res == 321
 
     def test_id(self):
-        from pypy.rlib.objectmodel import compute_unique_id
-        from pypy.rlib.objectmodel import current_object_addr_as_int
         class A:
             pass
         def fn():
@@ -477,8 +458,6 @@ class BaseTestRbuiltin(BaseRtypingTest):
             assert x3 == intmask(x2)
 
     def test_id_on_builtins(self):
-        from pypy.rlib.objectmodel import compute_unique_id
-        from pypy.rlib.rstring import StringBuilder, UnicodeBuilder
         def fn():
             return (compute_unique_id("foo"),
                     compute_unique_id(u"bar"),
@@ -491,7 +470,6 @@ class BaseTestRbuiltin(BaseRtypingTest):
             assert isinstance(id, (int, r_longlong))
 
     def test_uniqueness_of_id_on_strings(self):
-        from pypy.rlib.objectmodel import compute_unique_id
         def fn(s1, s2):
             return (compute_unique_id(s1), compute_unique_id(s2))
 
@@ -502,7 +480,6 @@ class BaseTestRbuiltin(BaseRtypingTest):
         assert i1 != i2
 
     def test_cast_primitive(self):
-        from pypy.rpython.annlowlevel import LowLevelAnnotatorPolicy
         def llf(u):
             return lltype.cast_primitive(lltype.Signed, u)
         res = self.interpret(llf, [r_uint(-1)], policy=LowLevelAnnotatorPolicy())
@@ -540,33 +517,28 @@ class BaseTestRbuiltin(BaseRtypingTest):
         res = self.interpret(llfn, [0x12345678])
         assert res == 0x5678
 
+    def test_builtin_next(self):
+        def f(n):
+            x = [1, n, 2]
+            s = iter(x)
+            return next(s) + next(s)
+        res = self.interpret(f, [10])
+        assert res == 11
+
+    def test_builtin_next_stop_iteration(self):
+        def f(n):
+            x = [n]
+            s = iter(x)
+            try:
+                return next(s) + next(s)
+            except StopIteration:
+                return n + 500
+
+        res = self.interpret(f, [12])
+        assert res == 512
+
 
 class TestLLtype(BaseTestRbuiltin, LLRtypeMixin):
-
-    def test_isinstance_obj(self):
-        _1 = lltype.pyobjectptr(1)
-        def f(x):
-            return isinstance(x, int)
-        res = self.interpret(f, [_1], someobjects=True)
-        assert res is True
-        _1_0 = lltype.pyobjectptr(1.0)
-        res = self.interpret(f, [_1_0], someobjects=True)
-        assert res is False
-
-    def test_hasattr(self):
-        class A(object):
-            def __init__(self):
-                self.x = 42
-        def f(i):
-            a = A()
-            if i==0: return int(hasattr(A, '__init__'))
-            if i==1: return int(hasattr(A, 'y'))
-            if i==2: return int(hasattr(42, 'x'))
-        for x, y in zip(range(3), (1, 0, 0)):
-            res = self.interpret(f, [x], someobjects=True)
-            assert res._obj.value == y
-        # hmm, would like to test against PyObj, is this the wrong place/way?
-
     def test_cast(self):
         def llfn(v):
             return rffi.cast(rffi.VOIDP, v)
@@ -587,7 +559,8 @@ class TestLLtype(BaseTestRbuiltin, LLRtypeMixin):
         res = self.interpret(llfn, [lltype.nullptr(rffi.VOIDP.TO)])
         assert res == 0
         assert isinstance(res, r_ulonglong)
-        
+
+
 class TestOOtype(BaseTestRbuiltin, OORtypeMixin):
 
     def test_instantiate_multiple_meta(self):

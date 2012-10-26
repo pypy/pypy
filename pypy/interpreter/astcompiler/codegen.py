@@ -376,9 +376,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op_name(ops.LOAD_GLOBAL, self.names, "AssertionError")
         if asrt.msg:
             asrt.msg.walkabout(self)
-            self.emit_op_arg(ops.RAISE_VARARGS, 2)
-        else:
-            self.emit_op_arg(ops.RAISE_VARARGS, 1)
+            self.emit_op_arg(ops.CALL_FUNCTION, 1)
+        self.emit_op_arg(ops.RAISE_VARARGS, 1)
         self.use_next_block(end)
 
     def _binop(self, op):
@@ -475,7 +474,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 if f_type == F_BLOCK_LOOP:
                     self.emit_jump(ops.CONTINUE_LOOP, block, True)
                     break
-                if self.frame_blocks[i][0] == F_BLOCK_FINALLY_END:
+                if f_type == F_BLOCK_FINALLY_END:
                     self.error("'continue' not supported inside 'finally' " \
                                    "clause",
                                cont)

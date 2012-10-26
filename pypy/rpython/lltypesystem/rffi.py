@@ -11,7 +11,7 @@ from pypy.rlib.objectmodel import keepalive_until_here
 from pypy.rlib import rarithmetic, rgc
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rlib.unroll import unrolling_iterable
-from pypy.rpython.tool.rfficache import platform
+from pypy.rpython.tool.rfficache import platform, sizeof_c_type
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rlib.objectmodel import we_are_translated
@@ -19,6 +19,7 @@ from pypy.rlib.rstring import StringBuilder, UnicodeBuilder, assert_str0
 from pypy.rlib import jit
 from pypy.rpython.lltypesystem import llmemory
 from pypy.rlib.rarithmetic import maxint, LONG_BIT
+from pypy.translator.platform import CompilationError
 import os, sys
 
 class CConstant(Symbolic):
@@ -318,19 +319,18 @@ _make_wrapper_for._annspecialcase_ = 'specialize:memo'
 
 AroundFnPtr = lltype.Ptr(lltype.FuncType([], lltype.Void))
 class AroundState:
-    def _freeze_(self):
+    def _cleanup_(self):
         self.before = None    # or a regular RPython function
         self.after = None     # or a regular RPython function
-        return False
 aroundstate = AroundState()
-aroundstate._freeze_()
+aroundstate._cleanup_()
 
 class StackCounter:
-    def _freeze_(self):
+    def _cleanup_(self):
         self.stacks_counter = 1     # number of "stack pieces": callbacks
-        return False                # and threads increase it by one
+                                    # and threads increase it by one
 stackcounter = StackCounter()
-stackcounter._freeze_()
+stackcounter._cleanup_()
 
 def llexternal_use_eci(compilation_info):
     """Return a dummy function that, if called in a RPython program,
@@ -437,6 +437,14 @@ TYPES += ['signed char', 'unsigned char',
           'size_t', 'time_t', 'wchar_t',
           'uintptr_t', 'intptr_t',
           'void*']    # generic pointer type
+
+# This is a bit of a hack since we can't use rffi_platform here.
+try:
+    sizeof_c_type('__int128_t', ignore_errors=True)
+    TYPES += ['__int128_t']
+except CompilationError:
+    pass
+    
 _TYPES_ARE_UNSIGNED = set(['size_t', 'uintptr_t'])   # plus "unsigned *"
 if os.name != 'nt':
     TYPES.append('mode_t')
@@ -651,6 +659,9 @@ DOUBLEP = lltype.Ptr(lltype.Array(DOUBLE, hints={'nolength': True}))
 
 # float *
 FLOATP = lltype.Ptr(lltype.Array(FLOAT, hints={'nolength': True}))
+
+# long double *
+LONGDOUBLEP = lltype.Ptr(lltype.Array(LONGDOUBLE, hints={'nolength': True}))
 
 # Signed, Signed *
 SIGNED = lltype.Signed
@@ -913,6 +924,11 @@ def sizeof(tp):
         return 8
     if tp is lltype.SingleFloat:
         return 4
+    if tp is lltype.LongFloat:
+        if globals()['r_void*'].BITS == 32:
+            return 12
+        else:
+            return 16
     assert isinstance(tp, lltype.Number)
     if tp is lltype.Signed:
         return LONG_BIT/8

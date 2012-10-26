@@ -9,7 +9,7 @@ def setup_module(mod):
     # In this module, we assume that ll_thread.start_new_thread() is not
     # providing us with a GIL equivalent, except in test_gc_locking
     # which installs its own aroundstate.
-    rffi.aroundstate._freeze_()
+    rffi.aroundstate._cleanup_()
 
 def test_lock():
     l = allocate_lock()
@@ -149,7 +149,7 @@ class AbstractThreadTests(AbstractGCTestClass):
         try:
             fn = self.getcompiled(f, [])
         finally:
-            rffi.aroundstate._freeze_()
+            rffi.aroundstate._cleanup_()
         answers = fn()
         assert answers == expected
 

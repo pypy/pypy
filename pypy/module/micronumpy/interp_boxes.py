@@ -1,13 +1,15 @@
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import operationerrfmt, OperationError
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.objspace.std.floattype import float_typedef
 from pypy.objspace.std.stringtype import str_typedef
 from pypy.objspace.std.unicodetype import unicode_typedef, unicode_from_object
 from pypy.objspace.std.inttype import int_typedef
+from pypy.objspace.std.complextype import complex_typedef
 from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.tool.sourcetools import func_with_new_name
+from pypy.module.micronumpy.arrayimpl.voidbox import VoidBoxStorage
 
 MIXIN_32 = (int_typedef,) if LONG_BIT == 32 else ()
 MIXIN_64 = (int_typedef,) if LONG_BIT == 64 else ()
@@ -33,6 +35,21 @@ class PrimitiveBox(object):
     def convert_to(self, dtype):
         return dtype.box(self.value)
 
+class ComplexBox(object):
+    _mixin_ = True
+
+    def __init__(self, real, imag=0.):
+        self.real = real
+        self.imag = imag
+
+    def convert_to(self, dtype):
+        return dtype.box_complex(self.real, self.imag)
+
+    def convert_real_to(self, dtype):
+        return dtype.box(self.real)
+
+    def convert_imag_to(self, dtype):
+        return dtype.box(self.imag)
 
 class W_GenericBox(Wrappable):
     _attrs_ = ()
@@ -142,7 +159,6 @@ class W_GenericBox(Wrappable):
     def item(self, space):
         return self.get_dtype(space).itemtype.to_builtin_type(space, self)
 
-
 class W_BoolBox(W_GenericBox, PrimitiveBox):
     descr__new__, _get_dtype = new_dtype_getter("bool")
 
@@ -221,6 +237,7 @@ class W_FlexibleBox(W_GenericBox):
 def descr_index(space, self):
     return space.index(self.item(space))
 
+
 class W_VoidBox(W_FlexibleBox):
     @unwrap_spec(item=str)
     def descr_getitem(self, space, item):
@@ -229,7 +246,7 @@ class W_VoidBox(W_FlexibleBox):
         except KeyError:
             raise OperationError(space.w_IndexError,
                                  space.wrap("Field %s does not exist" % item))
-        return dtype.itemtype.read(self.arr, 1, self.ofs, ofs, dtype)
+        return dtype.itemtype.read(self.arr, self.ofs, ofs, dtype)
 
     @unwrap_spec(item=str)
     def descr_setitem(self, space, item, w_value):
@@ -238,7 +255,7 @@ class W_VoidBox(W_FlexibleBox):
         except KeyError:
             raise OperationError(space.w_IndexError,
                                  space.wrap("Field %s does not exist" % item))
-        dtype.itemtype.store(self.arr, 1, self.ofs, ofs,
+        dtype.itemtype.store(self.arr, self.ofs, ofs,
                              dtype.coerce(space, w_value))
 
 class W_CharacterBox(W_FlexibleBox):
@@ -246,11 +263,10 @@ class W_CharacterBox(W_FlexibleBox):
 
 class W_StringBox(W_CharacterBox):
     def descr__new__string_box(space, w_subtype, w_arg):
-        from pypy.module.micronumpy.interp_numarray import W_NDimArray
         from pypy.module.micronumpy.interp_dtype import new_string_dtype
 
         arg = space.str_w(space.str(w_arg))
-        arr = W_NDimArray([1], new_string_dtype(space, len(arg)))
+        arr = VoidBoxStorage(len(arg), new_string_dtype(space, len(arg)))
         for i in range(len(arg)):
             arr.storage[i] = arg[i]
         return W_StringBox(arr, 0, arr.dtype)
@@ -258,16 +274,42 @@ class W_StringBox(W_CharacterBox):
 
 class W_UnicodeBox(W_CharacterBox):
     def descr__new__unicode_box(space, w_subtype, w_arg):
-        from pypy.module.micronumpy.interp_numarray import W_NDimArray
         from pypy.module.micronumpy.interp_dtype import new_unicode_dtype
 
         arg = space.unicode_w(unicode_from_object(space, w_arg))
-        arr = W_NDimArray([1], new_unicode_dtype(space, len(arg)))
+        # XXX size computations, we need tests anyway
+        arr = VoidBoxStorage(len(arg), new_unicode_dtype(space, len(arg)))
         # XXX not this way, we need store
         #for i in range(len(arg)):
         #    arr.storage[i] = arg[i]
         return W_UnicodeBox(arr, 0, arr.dtype)
 
+
+class W_ComplexFloatingBox(W_InexactBox):
+    _attrs_ = ()
+    def descr_get_real(self, space):
+        dtype = self._COMPONENTS_BOX._get_dtype(space)
+        box = self.convert_real_to(dtype)
+        assert isinstance(box, self._COMPONENTS_BOX)
+        return space.wrap(box)
+
+    def descr_get_imag(self, space):
+        dtype = self._COMPONENTS_BOX._get_dtype(space)
+        box = self.convert_imag_to(dtype)
+        assert isinstance(box, self._COMPONENTS_BOX)
+        return space.wrap(box)
+
+
+class W_Complex64Box(ComplexBox, W_ComplexFloatingBox):
+    descr__new__, _get_dtype = new_dtype_getter("complex64")
+    _COMPONENTS_BOX = W_Float32Box
+
+
+class W_Complex128Box(ComplexBox, W_ComplexFloatingBox):
+    descr__new__, _get_dtype = new_dtype_getter("complex128")
+    _COMPONENTS_BOX = W_Float64Box
+
+    
 W_GenericBox.typedef = TypeDef("generic",
     __module__ = "numpypy",
 
@@ -450,3 +492,21 @@ W_UnicodeBox.typedef = TypeDef("unicode_", (unicode_typedef, W_CharacterBox.type
     __new__ = interp2app(W_UnicodeBox.descr__new__unicode_box.im_func),
 )
 
+W_ComplexFloatingBox.typedef = TypeDef("complexfloating", W_InexactBox.typedef,
+    __module__ = "numpypy",
+)
+
+
+W_Complex128Box.typedef = TypeDef("complex128", (W_ComplexFloatingBox.typedef, complex_typedef),
+    __module__ = "numpypy",
+    __new__ = interp2app(W_Complex128Box.descr__new__.im_func),
+    real = GetSetProperty(W_ComplexFloatingBox.descr_get_real),
+    imag = GetSetProperty(W_ComplexFloatingBox.descr_get_imag),
+)
+
+W_Complex64Box.typedef = TypeDef("complex64", (W_ComplexFloatingBox.typedef),
+    __module__ = "numpypy",
+    __new__ = interp2app(W_Complex64Box.descr__new__.im_func),
+    real = GetSetProperty(W_ComplexFloatingBox .descr_get_real),
+    imag = GetSetProperty(W_ComplexFloatingBox.descr_get_imag),
+)

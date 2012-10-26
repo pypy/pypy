@@ -1,11 +1,8 @@
-import sys
-import math
-from pypy.tool.sourcetools import func_with_new_name
-from pypy.rpython.lltypesystem import lltype, llmemory
-from pypy.rpython.lltypesystem.lloperation import opimpls
+from pypy.objspace.flow.operation import FunctionByName
 from pypy.rlib import debug
 from pypy.rlib.rarithmetic import is_valid_int
-
+from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.tool.sourcetools import func_with_new_name
 
 # ____________________________________________________________
 # Implementation of the 'canfold' operations
@@ -20,7 +17,7 @@ ops_unary = {'is_true': True, 'neg': True, 'abs': True, 'invert': True}
 
 # global synonyms for some types
 from pypy.rlib.rarithmetic import intmask
-from pypy.rlib.rarithmetic import r_int, r_uint, r_longlong, r_ulonglong
+from pypy.rlib.rarithmetic import r_int, r_uint, r_longlong, r_ulonglong, r_longlonglong
 from pypy.rpython.lltypesystem.llmemory import AddressAsInt
 
 if r_longlong is r_int:
@@ -30,12 +27,17 @@ else:
     r_longlong_arg = r_longlong
     r_longlong_result = r_longlong
 
+
+r_longlonglong_arg = r_longlonglong
+r_longlonglong_result = r_longlonglong
+
 argtype_by_name = {
     'int': (int, long),
     'float': float,
     'uint': r_uint,
     'llong': r_longlong_arg,
     'ullong': r_ulonglong,
+    'lllong': r_longlonglong,
     }
 
 def no_op(x):
@@ -44,11 +46,11 @@ def no_op(x):
 def get_primitive_op_src(fullopname):
     assert '_' in fullopname, "%s: not a primitive op" % (fullopname,)
     typname, opname = fullopname.split('_', 1)
-    if opname not in opimpls and (opname + '_') in opimpls:
-        func = opimpls[opname + '_']   # or_, and_
+    if opname not in FunctionByName and (opname + '_') in FunctionByName:
+        func = FunctionByName[opname + '_']   # or_, and_
     else:
-        assert opname in opimpls, "%s: not a primitive op" % (fullopname,)
-        func = opimpls[opname]
+        assert opname in FunctionByName, "%s: not a primitive op" % (fullopname,)
+        func = FunctionByName[opname]
 
     if typname == 'char':
         # char_lt, char_eq, ...
@@ -283,6 +285,22 @@ def op_llong_mod(x, y):
         r -= y
     return r
 
+def op_lllong_floordiv(x, y):
+    assert isinstance(x, r_longlonglong_arg)
+    assert isinstance(y, r_longlonglong_arg)
+    r = x//y
+    if x^y < 0 and x%y != 0:
+        r += 1
+    return r
+
+def op_lllong_mod(x, y):
+    assert isinstance(x, r_longlonglong_arg)
+    assert isinstance(y, r_longlonglong_arg)
+    r = x%y
+    if x^y < 0 and x%y != 0:
+        r -= y
+    return r
+
 def op_uint_lshift(x, y):
     assert isinstance(x, r_uint)
     assert is_valid_int(y)
@@ -302,6 +320,16 @@ def op_llong_rshift(x, y):
     assert isinstance(x, r_longlong_arg)
     assert is_valid_int(y)
     return r_longlong_result(x >> y)
+
+def op_lllong_lshift(x, y):
+    assert isinstance(x, r_longlonglong_arg)
+    assert is_valid_int(y)
+    return r_longlonglong_result(x << y)
+
+def op_lllong_rshift(x, y):
+    assert isinstance(x, r_longlonglong_arg)
+    assert is_valid_int(y)
+    return r_longlonglong_result(x >> y)
 
 def op_ullong_lshift(x, y):
     assert isinstance(x, r_ulonglong)

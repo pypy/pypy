@@ -1,7 +1,6 @@
 from pypy.rlib import rgc, jit
 from pypy.rlib.objectmodel import enforceargs
 from pypy.rlib.rarithmetic import ovfcheck
-from pypy.rpython.annlowlevel import llstr
 from pypy.rpython.rptr import PtrRepr
 from pypy.rpython.lltypesystem import lltype, rstr
 from pypy.rpython.lltypesystem.lltype import staticAdtMethod, nullptr
@@ -13,7 +12,7 @@ from pypy.tool.sourcetools import func_with_new_name
 # Think about heuristics below, maybe we can come up with something
 # better or at least compare it with list heuristics
 
-GROW_FAST_UNTIL = 100*1024*1024      # 100 MB
+GROW_FAST_UNTIL = 100 * 1024 * 1024      # 100 MB
 
 def new_grow_func(name, mallocfn, copycontentsfn):
     @enforceargs(None, int)
@@ -59,7 +58,7 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
 
     @classmethod
     def ll_new(cls, init_size):
-        if init_size < 0 or init_size > MAX:
+        if init_size < 0:
             init_size = MAX
         ll_builder = lltype.malloc(cls.lowleveltype.TO)
         ll_builder.allocated = init_size

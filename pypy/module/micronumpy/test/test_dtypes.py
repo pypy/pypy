@@ -1,4 +1,4 @@
-import py
+import py, sys
 from pypy.conftest import option
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 from pypy.interpreter.gateway import interp2app
@@ -421,6 +421,64 @@ class AppTestTypes(BaseNumpyAppTest):
         assert numpy.float64('23.4') == numpy.float64(23.4)
         raises(ValueError, numpy.float64, '23.2df')
 
+    def test_complex_floating(self):
+        import _numpypy as numpy
+
+        assert numpy.complexfloating.__mro__ == (numpy.complexfloating,
+            numpy.inexact, numpy.number, numpy.generic, object)
+
+    def test_complex_format(self):
+        import _numpypy as numpy
+        
+        for complex_ in (numpy.complex128, numpy.complex64,):
+            for real, imag, should in [
+                (1, 2, '(1+2j)'),
+                (0, 1, '1j'),
+                (1, 0, '(1+0j)'),
+                (-1, -2, '(-1-2j)'),
+                (0.5, -0.75, '(0.5-0.75j)'),
+                #xxx
+                #(numpy.inf, numpy.inf, '(inf+inf*j)'),
+                ]:
+            
+                c = complex_(complex(real, imag))
+                assert c == complex(real, imag)
+                assert c.real == real
+                assert c.imag == imag
+                assert repr(c) == should
+            
+        real, imag, should = (1e100, 3e66, '(1e+100+3e+66j)')
+        c128 = numpy.complex128(complex(real, imag))
+        assert type(c128.real) is type(c128.imag) is numpy.float64
+        assert c128.real == real
+        assert c128.imag == imag
+        assert repr(c128) == should
+
+        c64 = numpy.complex64(complex(real, imag))
+        assert repr(c64.real) == 'inf'  
+        assert type(c64.real) is type(c64.imag) is numpy.float32
+        assert repr(c64.imag).startswith('inf')
+        assert repr(c64) in ('(inf+inf*j)', '(inf+infj)')
+
+
+        assert numpy.complex128(1.2) == numpy.complex128(complex(1.2, 0))
+        assert numpy.complex64(1.2) == numpy.complex64(complex(1.2, 0))
+        raises (TypeError, numpy.array, [3+4j], dtype=float)
+
+    def test_complex(self):
+        import _numpypy as numpy
+
+        assert numpy.complex_ is numpy.complex128
+        assert numpy.complex64.__mro__ == (numpy.complex64,
+            numpy.complexfloating, numpy.inexact, numpy.number, numpy.generic,
+            object)
+        assert numpy.complex128.__mro__ == (numpy.complex128,
+            numpy.complexfloating, numpy.inexact, numpy.number, numpy.generic,
+            complex, object)
+
+        assert numpy.dtype(complex).type is numpy.complex128
+        assert numpy.dtype("complex").type is numpy.complex128
+
     def test_subclass_type(self):
         import _numpypy as numpy
 
@@ -438,8 +496,8 @@ class AppTestTypes(BaseNumpyAppTest):
         raises(TypeError, lambda: (1, 2, 3)[float64(1)])
 
     def test_int(self):
-        import sys
         from _numpypy import int32, int64, int_
+        import sys
         assert issubclass(int_, int)
         if sys.maxint == (1<<31) - 1:
             assert issubclass(int32, int)
@@ -456,9 +514,9 @@ class AppTestTypes(BaseNumpyAppTest):
         assert numpy.int8 is numpy.byte
         assert numpy.bool_ is numpy.bool8
         if sys.maxint == (1 << 63) - 1:
-            assert numpy.intp is numpy.int64
+            assert '%r' % numpy.intp == '%r' % numpy.int64
         else:
-            assert numpy.intp is numpy.int32
+            assert '%r' % numpy.intp == '%r' % numpy.int32
 
     def test_mro(self):
         import _numpypy as numpy
@@ -507,13 +565,6 @@ class AppTestTypes(BaseNumpyAppTest):
     def test_alignment(self):
         from _numpypy import dtype
         assert dtype('i4').alignment == 4
-
-    def test_typeinfo(self):
-        from _numpypy import typeinfo, void, number, int64, bool_
-        assert typeinfo['Number'] == number
-        assert typeinfo['LONGLONG'] == ('q', 9, 64, 8, 9223372036854775807L, -9223372036854775808L, int64)
-        assert typeinfo['VOID'] == ('V', 20, 0, 1, void)
-        assert typeinfo['BOOL'] == ('?', 0, 8, 1, 1, 0, bool_)
 
 class AppTestStrUnicodeDtypes(BaseNumpyAppTest):
     def test_str_unicode(self):
@@ -583,14 +634,16 @@ class AppTestNotDirect(BaseNumpyAppTest):
     def setup_class(cls):
         BaseNumpyAppTest.setup_class.im_func(cls)
         def check_non_native(w_obj, w_obj2):
-            assert w_obj.storage[0] == w_obj2.storage[1]
-            assert w_obj.storage[1] == w_obj2.storage[0]
-            if w_obj.storage[0] == '\x00':
-                assert w_obj2.storage[1] == '\x00'
-                assert w_obj2.storage[0] == '\x01'
+            stor1 = w_obj.implementation.storage
+            stor2 = w_obj2.implementation.storage
+            assert stor1[0] == stor2[1]
+            assert stor1[1] == stor2[0]
+            if stor1[0] == '\x00':
+                assert stor2[1] == '\x00'
+                assert stor2[0] == '\x01'
             else:
-                assert w_obj2.storage[1] == '\x01'
-                assert w_obj2.storage[0] == '\x00'
+                assert stor2[1] == '\x01'
+                assert stor2[0] == '\x00'
         cls.w_check_non_native = cls.space.wrap(interp2app(check_non_native))
         if option.runappdirect:
             py.test.skip("not a direct test")
@@ -602,3 +655,15 @@ class AppTestNotDirect(BaseNumpyAppTest):
         assert (a + a)[1] == 4
         self.check_non_native(a, array([1, 2, 3], 'i2'))
 
+class AppTestPyPyOnly(BaseNumpyAppTest):
+    def setup_class(cls):
+        if option.runappdirect and '__pypy__' not in sys.builtin_module_names:
+            py.test.skip("pypy only test")
+        BaseNumpyAppTest.setup_class.im_func(cls)
+
+    def test_typeinfo(self):
+        from _numpypy import typeinfo, void, number, int64, bool_
+        assert typeinfo['Number'] == number
+        assert typeinfo['LONGLONG'] == ('q', 9, 64, 8, 9223372036854775807L, -9223372036854775808L, int64)
+        assert typeinfo['VOID'] == ('V', 20, 0, 1, void)
+        assert typeinfo['BOOL'] == ('?', 0, 8, 1, 1, 0, bool_)

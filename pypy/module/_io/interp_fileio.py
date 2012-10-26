@@ -333,6 +333,8 @@ class W_FileIO(W_RawIOBase):
         try:
             n = os.write(self.fd, data)
         except OSError, e:
+            if e.errno == errno.EAGAIN:
+                return space.w_None
             raise wrap_oserror(space, e,
                                exception_name='w_IOError')
 
@@ -408,7 +410,7 @@ class W_FileIO(W_RawIOBase):
     def truncate_w(self, space, w_size=None):
         self._check_closed(space)
         self._check_writable(space)
-        if space.is_w(w_size, space.w_None):
+        if space.is_none(w_size):
             w_size = self.tell_w(space)
 
         try:

@@ -3,13 +3,12 @@ The table of all LL operations.
 """
 
 from pypy.rpython.extregistry import ExtRegistryEntry
-from pypy.tool.descriptor import roproperty
 
 
 class LLOp(object):
 
     def __init__(self, sideeffects=True, canfold=False, canraise=(),
-                 pyobj=False, canmallocgc=False, canrun=False, oo=False,
+                 canmallocgc=False, canrun=False, oo=False,
                  tryfold=False):
         # self.opname = ... (set afterwards)
 
@@ -32,9 +31,6 @@ class LLOp(object):
         assert isinstance(canraise, tuple)
 
         assert not canraise or not canfold
-
-        # The operation manipulates PyObjects
-        self.pyobj = pyobj
 
         # The operation can go a GC malloc
         self.canmallocgc = canmallocgc
@@ -65,7 +61,10 @@ class LLOp(object):
             val = lltype.enforce(RESULTTYPE, val)
         return val
 
-    def get_fold_impl(self):
+    @property
+    def fold(self):
+        if hasattr(self, "_fold"):
+            return self._fold
         global lltype                 #  <- lazy import hack, worth an XXX
         from pypy.rpython.lltypesystem import lltype
         if self.canrun:
@@ -80,9 +79,8 @@ class LLOp(object):
             def op_impl(*args):
                 raise error
         # cache the implementation function into 'self'
-        self.fold = op_impl
+        self._fold = op_impl
         return op_impl
-    fold = roproperty(get_fold_impl)
 
     def is_pure(self, args_v):
         if self.canfold:                # canfold => pure operation
@@ -329,6 +327,30 @@ LL_OPERATIONS = {
     'ullong_rshift':        LLOp(canfold=True),  # args (r_ulonglong, int)
     'ullong_xor':           LLOp(canfold=True),
 
+    'lllong_is_true':        LLOp(canfold=True),
+    'lllong_neg':            LLOp(canfold=True),
+    'lllong_abs':            LLOp(canfold=True),
+    'lllong_invert':         LLOp(canfold=True),
+
+    'lllong_add':            LLOp(canfold=True),
+    'lllong_sub':            LLOp(canfold=True),
+    'lllong_mul':            LLOp(canfold=True),
+    'lllong_floordiv':       LLOp(canfold=True),
+    'lllong_floordiv_zer':   LLOp(canraise=(ZeroDivisionError,), tryfold=True),
+    'lllong_mod':            LLOp(canfold=True),
+    'lllong_mod_zer':        LLOp(canraise=(ZeroDivisionError,), tryfold=True),
+    'lllong_lt':             LLOp(canfold=True),
+    'lllong_le':             LLOp(canfold=True),
+    'lllong_eq':             LLOp(canfold=True),
+    'lllong_ne':             LLOp(canfold=True),
+    'lllong_gt':             LLOp(canfold=True),
+    'lllong_ge':             LLOp(canfold=True),
+    'lllong_and':            LLOp(canfold=True),
+    'lllong_or':             LLOp(canfold=True),
+    'lllong_lshift':         LLOp(canfold=True),  # args (r_longlonglong, int)
+    'lllong_rshift':         LLOp(canfold=True),  # args (r_longlonglong, int)
+    'lllong_xor':            LLOp(canfold=True),
+    
     'cast_primitive':       LLOp(canfold=True),
     'cast_bool_to_int':     LLOp(canfold=True),
     'cast_bool_to_uint':    LLOp(canfold=True),
@@ -451,8 +473,6 @@ LL_OPERATIONS = {
     'gc_restore_exception': LLOp(),
     'gc_call_rtti_destructor': LLOp(),
     'gc_deallocate':        LLOp(),
-    'gc_push_alive_pyobj':  LLOp(),
-    'gc_pop_alive_pyobj':   LLOp(),
     'gc_reload_possibly_moved': LLOp(),
     # see rlib/objectmodel for gc_identityhash and gc_id
     'gc_identityhash':      LLOp(sideeffects=False, canmallocgc=True),
@@ -576,17 +596,6 @@ LL_OPERATIONS = {
     'oounicode':            LLOp(oo=True, canraise=(UnicodeDecodeError,)),
 }
 # ***** Run test_lloperation after changes. *****
-
-
-    # __________ operations on PyObjects __________
-
-from pypy.objspace.flow.operation import FunctionByName
-opimpls = FunctionByName.copy()
-opimpls['is_true'] = bool
-for opname in opimpls:
-    LL_OPERATIONS[opname] = LLOp(canraise=(Exception,), pyobj=True)
-LL_OPERATIONS['simple_call'] = LLOp(canraise=(Exception,), pyobj=True)
-del opname, FunctionByName
 
 # ____________________________________________________________
 # Post-processing

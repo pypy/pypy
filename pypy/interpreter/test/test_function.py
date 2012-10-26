@@ -16,6 +16,7 @@ class AppTestFunctionIntrospection:
         assert f.func_defaults == None
         assert f.func_dict == {}
         assert type(f.func_globals) == dict
+        assert f.func_globals is f.__globals__
         assert f.func_closure is None
         assert f.func_doc == None
         assert f.func_name == 'f'
@@ -297,6 +298,12 @@ class AppTestFunction:
             u"hi"
         assert f.__doc__ == u"hi"
         assert type(f.__doc__) is unicode
+
+    def test_issue1293(self):
+        def f1(): "doc f1"
+        def f2(): "doc f2"
+        f1.func_code = f2.func_code
+        assert f1.__doc__ == "doc f1"
 
     def test_subclassing(self):
         # cannot subclass 'function' or 'builtin_function'
@@ -759,7 +766,7 @@ class TestFunction:
 
     def test_func_defaults(self):
         from pypy.interpreter import gateway
-        def g(w_a=gateway.NoneNotWrapped):
+        def g(w_a=None):
             pass
         app_g = gateway.interp2app_temp(g)
         space = self.space

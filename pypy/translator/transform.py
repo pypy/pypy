@@ -109,6 +109,34 @@ def transform_extend_with_char_count(self, block_subset):
                                         op.result)
                 block.operations[i] = new_op
 
+# x in [2, 3]
+# -->
+# b = newlist(2, 3)
+# c = contains(b, x)
+# -->
+# c = contains(Constant((2, 3)), x)
+
+def transform_list_contains(self, block_subset):
+    """Transforms x in [2, 3]"""
+    for block in block_subset:
+        newlist_sources = {}    # maps b to [2, 3] in the above notation
+        for i in range(len(block.operations)):
+            op = block.operations[i]
+            if op.opname == 'newlist':
+                newlist_sources[op.result] = op.args
+            elif op.opname == 'contains' and op.args[0] in newlist_sources:
+                items = {}
+                for v in newlist_sources[op.args[0]]:
+                    s = self.binding(v)
+                    if not s.is_immutable_constant():
+                        break
+                    items[s.const] = None
+                else:
+                    # all arguments of the newlist are annotation constants
+                    op.args[0] = Constant(items)
+                    s_dict = self.binding(op.args[0])
+                    s_dict.dictdef.generalize_key(self.binding(op.args[1]))
+
 
 def transform_dead_op_vars(self, block_subset):
     # we redo the same simplification from simplify.py,
@@ -166,8 +194,7 @@ def cutoff_alwaysraising_block(self, block):
     self.links_followed[errlink] = True
     # fix the annotation of the exceptblock.inputargs
     etype, evalue = graph.exceptblock.inputargs
-    s_type = annmodel.SomeObject()
-    s_type.knowntype = type
+    s_type = annmodel.SomeType()
     s_type.is_type_of = [evalue]
     s_value = annmodel.SomeInstance(self.bookkeeper.getuniqueclassdef(Exception))
     self.setbinding(etype, s_type)
@@ -221,6 +248,7 @@ default_extra_passes = [
     transform_allocate,
     transform_extend_with_str_slice,
     transform_extend_with_char_count,
+    transform_list_contains,
     ]
 
 def transform_graph(ann, extra_passes=None, block_subset=None):

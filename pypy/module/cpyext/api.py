@@ -144,8 +144,12 @@ def copy_header_files(dstdir):
         target.chmod(0444) # make the file read-only, to make sure that nobody
                            # edits it by mistake
 
-_NOT_SPECIFIED = object()
-CANNOT_FAIL = object()
+class NotSpecified(object):
+    pass
+_NOT_SPECIFIED = NotSpecified()
+class CannotFail(object):
+    pass
+CANNOT_FAIL = CannotFail()
 
 # The same function can be called in three different contexts:
 # (1) from C code
@@ -636,9 +640,12 @@ def setup_va_functions(eci):
         globals()['va_get_%s' % name_no_star] = func
 
 def setup_init_functions(eci):
-    init_buffer = rffi.llexternal('init_bufferobject', [], lltype.Void, compilation_info=eci)
-    init_pycobject = rffi.llexternal('init_pycobject', [], lltype.Void, compilation_info=eci)
-    init_capsule = rffi.llexternal('init_capsule', [], lltype.Void, compilation_info=eci)
+    init_buffer = rffi.llexternal('init_bufferobject', [], lltype.Void,
+                                  compilation_info=eci, _nowrapper=True)
+    init_pycobject = rffi.llexternal('init_pycobject', [], lltype.Void,
+                                     compilation_info=eci, _nowrapper=True)
+    init_capsule = rffi.llexternal('init_capsule', [], lltype.Void,
+                                   compilation_info=eci, _nowrapper=True)
     INIT_FUNCTIONS.extend([
         lambda space: init_buffer(),
         lambda space: init_pycobject(),

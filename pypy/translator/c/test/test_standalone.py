@@ -57,9 +57,9 @@ class TestStandalone(StandaloneTests):
 
         # Verify that the generated C files have sane names:
         gen_c_files = [str(f) for f in cbuilder.extrafiles]
-        for expfile in ('rlib_rposix.c', 
-                        'rpython_lltypesystem_rstr.c',
-                        'translator_c_test_test_standalone.c'):
+        for expfile in ('pypy_rlib_rposix.c',
+                        'pypy_rpython_lltypesystem_rstr.c',
+                        'pypy_translator_c_test_test_standalone.c'):
             assert cbuilder.targetdir.join(expfile) in gen_c_files
 
     def test_print(self):
@@ -131,14 +131,14 @@ class TestStandalone(StandaloneTests):
             os.write(1, str(tot))
             return 0
         from pypy.translator.interactive import Translation
-        t = Translation(entry_point, backend='c', standalone=True)
+        t = Translation(entry_point, backend='c')
         # no counters
         t.backendopt(inline_threshold=100, profile_based_inline="500")
         exe = t.compile()
         out = py.process.cmdexec("%s 500" % exe)
         assert int(out) == 500*501/2
 
-        t = Translation(entry_point, backend='c', standalone=True)
+        t = Translation(entry_point, backend='c')
         # counters
         t.backendopt(inline_threshold=all.INLINE_THRESHOLD_FOR_TEST*0.5,
                      profile_based_inline="500")
@@ -171,13 +171,13 @@ class TestStandalone(StandaloneTests):
             return 0
         from pypy.translator.interactive import Translation
         # XXX this is mostly a "does not crash option"
-        t = Translation(entry_point, backend='c', standalone=True, profopt="100")
+        t = Translation(entry_point, backend='c', profopt="100")
         # no counters
         t.backendopt()
         exe = t.compile()
         out = py.process.cmdexec("%s 500" % exe)
         assert int(out) == 500*501/2
-        t = Translation(entry_point, backend='c', standalone=True, profopt="100",
+        t = Translation(entry_point, backend='c', profopt="100",
                         noprofopt=True)
         # no counters
         t.backendopt()
@@ -208,12 +208,12 @@ class TestStandalone(StandaloneTests):
             return 0
         from pypy.translator.interactive import Translation
         # XXX this is mostly a "does not crash option"
-        t = Translation(entry_point, backend='c', standalone=True, profopt="")
+        t = Translation(entry_point, backend='c', profopt="")
         # no counters
         t.backendopt()
         exe = t.compile()
         #py.process.cmdexec(exe)
-        t = Translation(entry_point, backend='c', standalone=True, profopt="",
+        t = Translation(entry_point, backend='c', profopt="",
                         noprofopt=True)
         # no counters
         t.backendopt()
@@ -722,7 +722,11 @@ class TestStandalone(StandaloneTests):
     def test_inhibit_tail_call(self):
         # the point is to check that the f()->f() recursion stops
         from pypy.rlib.rstackovf import StackOverflow
+        class Glob:
+            pass
+        glob = Glob()
         def f(n):
+            glob.n = n
             if n <= 0:
                 return 42
             return f(n+1)
@@ -730,11 +734,14 @@ class TestStandalone(StandaloneTests):
             try:
                 return f(1)
             except StackOverflow:
-                print 'hi!'
+                print 'hi!', glob.n
                 return 0
         t, cbuilder = self.compile(entry_point, stackcheck=True)
         out = cbuilder.cmdexec("")
-        assert out.strip() == "hi!"
+        text = out.strip()
+        assert text.startswith("hi! ")
+        n = int(text[4:])
+        assert n > 500 and n < 5000000
 
     def test_set_length_fraction(self):
         # check for pypy.rlib.rstack._stack_set_length_fraction()

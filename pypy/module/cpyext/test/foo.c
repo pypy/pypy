@@ -72,6 +72,13 @@ foo_create(fooobject *self)
 }
 
 static PyObject *
+foo_classmeth(PyObject *cls)
+{
+    Py_INCREF(cls);
+    return cls;
+}
+
+static PyObject *
 foo_unset(fooobject *self)
 {
     self->foo_string = NULL;
@@ -82,6 +89,7 @@ foo_unset(fooobject *self)
 static PyMethodDef foo_methods[] = {
     {"copy",      (PyCFunction)foo_copy,      METH_NOARGS,  NULL},
     {"create",    (PyCFunction)foo_create,    METH_NOARGS|METH_STATIC,  NULL},
+    {"classmeth", (PyCFunction)foo_classmeth, METH_NOARGS|METH_CLASS,  NULL},
     {"unset_string_member", (PyCFunction)foo_unset, METH_NOARGS, NULL},
     {NULL, NULL}                 /* sentinel */
 };

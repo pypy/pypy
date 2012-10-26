@@ -49,6 +49,10 @@ def get_so_extension(space):
 
     return '.' + soabi + SO
 
+def file_exists(path):
+    """Tests whether the given path is an existing regular file."""
+    return os.path.isfile(path) and case_ok(path)
+
 def find_modtype(space, filepart):
     """Check which kind of module to import for the given filepart,
     which is a path without extension.  Returns PY_SOURCE, PY_COMPILED or
@@ -56,13 +60,13 @@ def find_modtype(space, filepart):
     """
     # check the .py file
     pyfile = filepart + ".py"
-    if os.path.exists(pyfile) and case_ok(pyfile):
+    if file_exists(pyfile):
         return PY_SOURCE, ".py", "U"
 
     # on Windows, also check for a .pyw file
     if CHECK_FOR_PYW:
         pyfile = filepart + ".pyw"
-        if os.path.exists(pyfile) and case_ok(pyfile):
+        if file_exists(pyfile):
             return PY_SOURCE, ".pyw", "U"
 
     # The .py file does not exist.  By default on PyPy, lonepycfiles
@@ -73,14 +77,14 @@ def find_modtype(space, filepart):
     # check the .pyc file
     if space.config.objspace.usepycfiles and space.config.objspace.lonepycfiles:
         pycfile = filepart + ".pyc"
-        if os.path.exists(pycfile) and case_ok(pycfile):
+        if file_exists(pycfile):
             # existing .pyc file
             return PY_COMPILED, ".pyc", "rb"
 
     if space.config.objspace.usemodules.cpyext:
         so_extension = get_so_extension(space)
         pydfile = filepart + so_extension
-        if os.path.exists(pydfile) and case_ok(pydfile):
+        if file_exists(pydfile):
             return C_EXTENSION, so_extension, "rb"
 
     return SEARCH_ERROR, None, None
@@ -602,8 +606,10 @@ def load_module(space, w_modulename, find_info, reuse=False):
 
         try:
             if find_info.modtype == PY_SOURCE:
-                load_source_module(space, w_modulename, w_mod, find_info.filename,
-                                   find_info.stream.readall())
+                load_source_module(
+                    space, w_modulename, w_mod, 
+                    find_info.filename, find_info.stream.readall(),
+                    find_info.stream.try_to_find_file_descriptor())
                 return w_mod
             elif find_info.modtype == PY_COMPILED:
                 magic = _r_long(find_info.stream)
@@ -878,7 +884,7 @@ def exec_code_module(space, w_mod, code_w):
 
 
 @jit.dont_look_inside
-def load_source_module(space, w_modulename, w_mod, pathname, source,
+def load_source_module(space, w_modulename, w_mod, pathname, source, fd,
                        write_pyc=True):
     """
     Load a source module from a given file and return its module
@@ -887,8 +893,8 @@ def load_source_module(space, w_modulename, w_mod, pathname, source,
     w = space.wrap
 
     if space.config.objspace.usepycfiles:
+        src_stat = os.fstat(fd)
         cpathname = pathname + 'c'
-        src_stat = os.stat(pathname)
         mtime = int(src_stat[stat.ST_MTIME])
         mode = src_stat[stat.ST_MODE]
         stream = check_compiled_module(space, cpathname, mtime)

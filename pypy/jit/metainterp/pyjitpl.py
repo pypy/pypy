@@ -451,12 +451,27 @@ class MIFrame(object):
     opimpl_getarrayitem_raw_f = _opimpl_getarrayitem_raw_any
 
     @arguments("box", "descr", "box")
+    def _opimpl_getarrayitem_raw_pure_any(self, arraybox,arraydescr, indexbox):
+        return self.execute_with_descr(rop.GETARRAYITEM_RAW_PURE,
+                                       arraydescr, arraybox, indexbox)
+
+    opimpl_getarrayitem_raw_i_pure = _opimpl_getarrayitem_raw_pure_any
+    opimpl_getarrayitem_raw_f_pure = _opimpl_getarrayitem_raw_pure_any
+
+    @arguments("box", "descr", "box")
     def _opimpl_getarrayitem_gc_pure_any(self, arraybox, arraydescr, indexbox):
+        if isinstance(arraybox, ConstPtr) and isinstance(indexbox, ConstInt):
+            # if the arguments are directly constants, bypass the heapcache
+            # completely
+            resbox = executor.execute(self.metainterp.cpu, self.metainterp,
+                                      rop.GETARRAYITEM_GC_PURE, arraydescr,
+                                      arraybox, indexbox)
+            return resbox.constbox()
         return self._do_getarrayitem_gc_any(rop.GETARRAYITEM_GC_PURE, arraybox, arraydescr, indexbox)
 
-    opimpl_getarrayitem_gc_pure_i = _opimpl_getarrayitem_gc_pure_any
-    opimpl_getarrayitem_gc_pure_r = _opimpl_getarrayitem_gc_pure_any
-    opimpl_getarrayitem_gc_pure_f = _opimpl_getarrayitem_gc_pure_any
+    opimpl_getarrayitem_gc_i_pure = _opimpl_getarrayitem_gc_pure_any
+    opimpl_getarrayitem_gc_r_pure = _opimpl_getarrayitem_gc_pure_any
+    opimpl_getarrayitem_gc_f_pure = _opimpl_getarrayitem_gc_pure_any
 
     @arguments("box", "descr", "box", "box")
     def _opimpl_setarrayitem_gc_any(self, arraybox, arraydescr,
@@ -563,6 +578,11 @@ class MIFrame(object):
 
     @arguments("box", "descr")
     def _opimpl_getfield_gc_pure_any(self, box, fielddescr):
+        if isinstance(box, ConstPtr):
+            # if 'box' is directly a ConstPtr, bypass the heapcache completely
+            resbox = executor.execute(self.metainterp.cpu, self.metainterp,
+                                      rop.GETFIELD_GC_PURE, fielddescr, box)
+            return resbox.constbox()
         return self._opimpl_getfield_gc_any_pureornot(
                 rop.GETFIELD_GC_PURE, box, fielddescr)
     opimpl_getfield_gc_i_pure = _opimpl_getfield_gc_pure_any
@@ -583,8 +603,9 @@ class MIFrame(object):
         if tobox is not None:
             # sanity check: see whether the current struct value
             # corresponds to what the cache thinks the value is
-            resbox = executor.execute(self.metainterp.cpu, self.metainterp,
-                                      rop.GETFIELD_GC, fielddescr, box)
+            #resbox = executor.execute(self.metainterp.cpu, self.metainterp,
+            #                          rop.GETFIELD_GC, fielddescr, box)
+            # XXX the sanity check does not seem to do anything, remove?
             return tobox
         resbox = self.execute_with_descr(opnum, fielddescr, box)
         self.metainterp.heapcache.getfield_now_known(box, fielddescr, resbox)
@@ -646,6 +667,20 @@ class MIFrame(object):
     opimpl_setfield_raw_i = _opimpl_setfield_raw_any
     opimpl_setfield_raw_r = _opimpl_setfield_raw_any
     opimpl_setfield_raw_f = _opimpl_setfield_raw_any
+
+    @arguments("box", "box", "descr", "box")
+    def _opimpl_raw_store(self, addrbox, offsetbox, arraydescr, valuebox):
+        self.execute_with_descr(rop.RAW_STORE, arraydescr,
+                                addrbox, offsetbox, valuebox)
+    opimpl_raw_store_i = _opimpl_raw_store
+    opimpl_raw_store_f = _opimpl_raw_store
+
+    @arguments("box", "box", "descr")
+    def _opimpl_raw_load(self, addrbox, offsetbox, arraydescr):
+        return self.execute_with_descr(rop.RAW_LOAD, arraydescr,
+                                       addrbox, offsetbox)
+    opimpl_raw_load_i = _opimpl_raw_load
+    opimpl_raw_load_f = _opimpl_raw_load
 
     @arguments("box", "descr", "descr", "orgpc")
     def opimpl_record_quasiimmut_field(self, box, fielddescr,
@@ -1368,6 +1403,8 @@ class MIFrame(object):
             if vablebox is not None:
                 self.metainterp.history.record(rop.KEEPALIVE, [vablebox], None)
             self.metainterp.handle_possible_exception()
+            if effectinfo.oopspecindex == effectinfo.OS_LIBFFI_CALL:
+                self.metainterp.direct_libffi_call()
             return resbox
         else:
             effect = effectinfo.extraeffect
@@ -1462,6 +1499,7 @@ class MetaInterpStaticData(object):
         self.jitdrivers_sd = codewriter.callcontrol.jitdrivers_sd
         self.virtualref_info = codewriter.callcontrol.virtualref_info
         self.callinfocollection = codewriter.callcontrol.callinfocollection
+        self.has_libffi_call = codewriter.callcontrol.has_libffi_call
         #
         # store this information for fastpath of call_assembler
         # (only the paths that can actually be taken)
@@ -2002,8 +2040,9 @@ class MetaInterp(object):
                     memmgr = self.staticdata.warmrunnerdesc.memory_manager
                     if memmgr:
                         if self.cancel_count > memmgr.max_unroll_loops:
-                            self.staticdata.log('cancelled too many times!')
-                            raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP)
+                            self.compile_loop_or_abort(original_boxes,
+                                                       live_arg_boxes,
+                                                       start, resumedescr)
                 self.staticdata.log('cancelled, tracing more...')
 
         # Otherwise, no loop found so far, so continue tracing.
@@ -2103,7 +2142,8 @@ class MetaInterp(object):
                 return None
         return token
 
-    def compile_loop(self, original_boxes, live_arg_boxes, start, resume_at_jump_descr):
+    def compile_loop(self, original_boxes, live_arg_boxes, start,
+                     resume_at_jump_descr, try_disabling_unroll=False):
         num_green_args = self.jitdriver_sd.num_green_args
         greenkey = original_boxes[:num_green_args]
         if not self.partial_trace:
@@ -2119,7 +2159,8 @@ class MetaInterp(object):
             target_token = compile.compile_loop(self, greenkey, start,
                                                 original_boxes[num_green_args:],
                                                 live_arg_boxes[num_green_args:],
-                                                resume_at_jump_descr)
+                                                resume_at_jump_descr,
+                                     try_disabling_unroll=try_disabling_unroll)
             if target_token is not None:
                 assert isinstance(target_token, TargetToken)
                 self.jitdriver_sd.warmstate.attach_procedure_to_interp(greenkey, target_token.targeting_jitcell_token)
@@ -2130,6 +2171,18 @@ class MetaInterp(object):
             assert isinstance(target_token, TargetToken)
             jitcell_token = target_token.targeting_jitcell_token
             self.raise_continue_running_normally(live_arg_boxes, jitcell_token)
+
+    def compile_loop_or_abort(self, original_boxes, live_arg_boxes,
+                              start, resume_at_jump_descr):
+        """Called after we aborted more than 'max_unroll_loops' times.
+        As a last attempt, try to compile the loop with unrolling disabled.
+        """
+        if not self.partial_trace:
+            self.compile_loop(original_boxes, live_arg_boxes, start,
+                              resume_at_jump_descr, try_disabling_unroll=True)
+        #
+        self.staticdata.log('cancelled too many times!')
+        raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP)
 
     def compile_trace(self, live_arg_boxes, resume_at_jump_descr):
         num_green_args = self.jitdriver_sd.num_green_args
@@ -2510,6 +2563,89 @@ class MetaInterp(object):
             return args[jd.index_of_virtualizable]
         else:
             return None
+
+    def direct_libffi_call(self):
+        """Generate a direct call to C code, patching the CALL_MAY_FORCE
+        to jit_ffi_call() that occurred just now.
+        """
+        # an 'assert' that constant-folds away the rest of this function
+        # if the codewriter didn't produce any OS_LIBFFI_CALL at all.
+        assert self.staticdata.has_libffi_call
+        #
+        from pypy.rpython.lltypesystem import llmemory
+        from pypy.rlib.jit_libffi import CIF_DESCRIPTION_P
+        from pypy.jit.backend.llsupport.ffisupport import get_arg_descr
+        #
+        num_extra_guards = 0
+        while True:
+            op = self.history.operations[-1-num_extra_guards]
+            if op.getopnum() == rop.CALL_MAY_FORCE:
+                break
+            assert op.is_guard()
+            num_extra_guards += 1
+        #
+        box_cif_description = op.getarg(1)
+        if not isinstance(box_cif_description, ConstInt):
+            return
+        cif_description = box_cif_description.getint()
+        cif_description = llmemory.cast_int_to_adr(cif_description)
+        cif_description = llmemory.cast_adr_to_ptr(cif_description,
+                                                   CIF_DESCRIPTION_P)
+        extrainfo = op.getdescr().get_extra_info()
+        calldescr = self.cpu.calldescrof_dynamic(cif_description, extrainfo)
+        if calldescr is None:
+            return
+        #
+        extra_guards = []
+        for i in range(num_extra_guards):
+            extra_guards.append(self.history.operations.pop())
+        extra_guards.reverse()
+        #
+        box_exchange_buffer = op.getarg(3)
+        self.history.operations.pop()
+        arg_boxes = []
+        for i in range(cif_description.nargs):
+            kind, descr = get_arg_descr(self.cpu, cif_description.atypes[i])
+            if kind == 'i':
+                box_arg = history.BoxInt()
+            elif kind == 'f':
+                box_arg = history.BoxFloat()
+            else:
+                assert kind == 'v'
+                continue
+            ofs = cif_description.exchange_args[i]
+            box_argpos = history.BoxInt()
+            self.history.record(rop.INT_ADD,
+                                [box_exchange_buffer, ConstInt(ofs)],
+                                box_argpos)
+            self.history.record(rop.GETARRAYITEM_RAW,
+                                [box_argpos, ConstInt(0)],
+                                box_arg, descr)
+            arg_boxes.append(box_arg)
+        #
+        kind, descr = get_arg_descr(self.cpu, cif_description.rtype)
+        if kind == 'i':
+            box_result = history.BoxInt()
+        elif kind == 'f':
+            box_result = history.BoxFloat()
+        else:
+            assert kind == 'v'
+            box_result = None
+        self.history.record(rop.CALL_RELEASE_GIL,
+                            [op.getarg(2)] + arg_boxes,
+                            box_result, calldescr)
+        #
+        self.history.operations.extend(extra_guards)
+        #
+        if box_result is not None:
+            ofs = cif_description.exchange_result
+            box_resultpos = history.BoxInt()
+            self.history.record(rop.INT_ADD,
+                                [box_exchange_buffer, ConstInt(ofs)],
+                                box_resultpos)
+            self.history.record(rop.SETARRAYITEM_RAW,
+                                [box_resultpos, ConstInt(0), box_result],
+                                None, descr)
 
 # ____________________________________________________________
 

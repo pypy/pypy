@@ -9,7 +9,7 @@ import dis, imp, struct, types, new, sys
 from pypy.interpreter import eval
 from pypy.interpreter.argument import Signature
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import NoneNotWrapped, unwrap_spec
+from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.astcompiler.consts import (
     CO_OPTIMIZED, CO_NEWLOCALS, CO_VARARGS, CO_VARKEYWORDS, CO_NESTED,
     CO_GENERATOR, CO_CONTAINSGLOBALS)
@@ -18,6 +18,10 @@ from pypy.rlib.debug import make_sure_not_resized
 from pypy.rlib import jit
 from pypy.rlib.objectmodel import compute_hash
 from pypy.tool.stdlib_opcode import opcodedesc, HAVE_ARGUMENT
+
+
+class BytecodeCorruption(Exception):
+    """Detected bytecode corruption.  Never caught; it's an error."""
 
 # helper
 
@@ -121,11 +125,10 @@ class PyCode(eval.Code):
             from pypy.objspace.std.mapdict import init_mapdict_cache
             init_mapdict_cache(self)
 
-    def _freeze_(self):
+    def _cleanup_(self):
         if (self.magic == cpython_magic and
             '__pypy__' not in sys.builtin_module_names):
             raise Exception("CPython host codes should not be rendered")
-        return False
 
     def _init_flags(self):
         co_code = self.co_code
@@ -338,8 +341,7 @@ class PyCode(eval.Code):
                           argcount, nlocals, stacksize, flags,
                           codestring, w_constants, w_names,
                           w_varnames, filename, name, firstlineno,
-                          lnotab, w_freevars=NoneNotWrapped,
-                          w_cellvars=NoneNotWrapped,
+                          lnotab, w_freevars=None, w_cellvars=None,
                           magic=default_magic):
         if argcount < 0:
             raise OperationError(space.w_ValueError,

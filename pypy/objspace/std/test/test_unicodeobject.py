@@ -485,16 +485,16 @@ class AppTestUnicodeString:
             (u'+?', '+-?'),
             (ur'\\?', '+AFwAXA?'),
             (ur'\\\?', '+AFwAXABc?'),
-            (ur'++--', '+-+---')
+            (ur'++--', '+-+---'),
         ]
 
         for (x, y) in utfTests:
             assert x.encode('utf-7') == y
 
-        # surrogates not supported
-        raises(UnicodeError, unicode, '+3ADYAA-', 'utf-7')
+        # surrogates are supported
+        assert unicode('+3ADYAA-', 'utf-7') == u'\udc00\ud800'
 
-        assert unicode('+3ADYAA-', 'utf-7', 'replace') == u'\ufffd\ufffd'
+        assert unicode('+AB', 'utf-7', 'replace') == u'\ufffd'
 
     def test_codecs_utf8(self):
         assert u''.encode('utf-8') == ''

@@ -79,7 +79,7 @@ class __extend__(PyFrame):
         except ExitFrame:
             return self.popvalue()
 
-    def jump_absolute(self, jumpto, _, ec=None):
+    def jump_absolute(self, jumpto, ec):
         if we_are_jitted():
             #
             # assume that only threads are using the bytecode counter
@@ -121,9 +121,8 @@ class __extend__(PyCode):
         PyCode__initialize(self)
         self.jit_cells = {}
 
-    def _freeze_(self):
+    def _cleanup_(self):
         self.jit_cells = {}
-        return False
 
 # ____________________________________________________________
 #

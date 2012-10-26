@@ -3,14 +3,11 @@ from pypy.translator.c.support import USESLOTS # set to False if necessary while
 from pypy.translator.c.support import cdecl
 from pypy.translator.c.support import llvalue_from_constant, gen_assignments
 from pypy.translator.c.support import c_string_constant, barebonearray
-from pypy.objspace.flow.model import Variable, Constant, Block
+from pypy.objspace.flow.model import Variable, Constant
 from pypy.objspace.flow.model import c_last_exception, copygraph
-from pypy.rpython.lltypesystem.lltype import Ptr, PyObject, Void, Bool, Signed
-from pypy.rpython.lltypesystem.lltype import Unsigned, SignedLongLong, Float
-from pypy.rpython.lltypesystem.lltype import UnsignedLongLong, Char, UniChar
-from pypy.rpython.lltypesystem.lltype import pyobjectptr, ContainerType
-from pypy.rpython.lltypesystem.lltype import Struct, Array, FixedSizeArray
-from pypy.rpython.lltypesystem.lltype import ForwardReference, FuncType
+from pypy.rpython.lltypesystem.lltype import (Ptr, Void, Bool, Signed, Unsigned,
+    SignedLongLong, Float, UnsignedLongLong, Char, UniChar, ContainerType,
+    Array, FixedSizeArray, ForwardReference, FuncType)
 from pypy.rpython.lltypesystem.rffi import INT
 from pypy.rpython.lltypesystem.llmemory import Address
 from pypy.translator.backendopt.ssa import SSI_to_SSA
@@ -18,7 +15,6 @@ from pypy.translator.backendopt.innerloop import find_inner_loops
 from pypy.tool.identity_dict import identity_dict
 
 
-PyObjPtr = Ptr(PyObject)
 LOCALVAR = 'l_%s'
 
 KEEP_INLINED_GRAPHS = False
@@ -57,7 +53,7 @@ class FunctionCodeGenerator(object):
         self.collect_var_and_types()
 
         for v in self.vars:
-            T = getattr(v, 'concretetype', PyObjPtr)
+            T = v.concretetype
             # obscure: skip forward references and hope for the best
             # (needed for delayed function pointers)
             if isinstance(T, Ptr) and T.TO.__class__ == ForwardReference:
@@ -125,7 +121,7 @@ class FunctionCodeGenerator(object):
         db = self.db
         lltypes = identity_dict()
         for v in self.vars:
-            T = getattr(v, 'concretetype', PyObjPtr)
+            T = v.concretetype
             typename = db.gettype(T)
             lltypes[v] = T, typename
         self.illtypes = lltypes
@@ -225,12 +221,6 @@ class FunctionCodeGenerator(object):
             if len(block.exits) == 0:
                 assert len(block.inputargs) == 1
                 # regular return block
-                if self.exception_policy == "CPython":
-                    assert self.lltypemap(self.graph.getreturnvar()) == PyObjPtr
-                    yield 'if (RPyExceptionOccurred()) {'
-                    yield '\tRPyConvertExceptionToCPython();'
-                    yield '\treturn NULL;'
-                    yield '}'
                 retval = self.expr(block.inputargs[0])
                 if self.exception_policy != "exc_helper":
                     yield 'RPY_DEBUG_RETURN();'
@@ -245,20 +235,12 @@ class FunctionCodeGenerator(object):
                 assert block.exitswitch != c_last_exception
                 # block ending in a switch on a value
                 TYPE = self.lltypemap(block.exitswitch)
-                if TYPE in (Bool, PyObjPtr):
+                if TYPE == Bool:
                     expr = self.expr(block.exitswitch)
                     for link in block.exits[:0:-1]:
                         assert link.exitcase in (False, True)
-                        if TYPE == Bool:
-                            if not link.exitcase:
-                                expr = '!' + expr
-                        elif TYPE == PyObjPtr:
-                            yield 'assert(%s == Py_True || %s == Py_False);' % (
-                                expr, expr)
-                            if link.exitcase:
-                                expr = '%s == Py_True' % expr
-                            else:
-                                expr = '%s == Py_False' % expr
+                        if not link.exitcase:
+                            expr = '!' + expr
                         yield 'if (%s) {' % expr
                         for op in self.gen_link(link):
                             yield '\t' + op
@@ -700,19 +682,23 @@ class FunctionCodeGenerator(object):
     #address operations
     def OP_RAW_STORE(self, op):
         addr = self.expr(op.args[0])
-        TYPE = op.args[1].value
-        offset = self.expr(op.args[2])
-        value = self.expr(op.args[3])
+        offset = self.expr(op.args[1])
+        value = self.expr(op.args[2])
+        TYPE = op.args[2].concretetype
         typename = cdecl(self.db.gettype(TYPE).replace('@', '*@'), '')
-        return "((%(typename)s) %(addr)s)[%(offset)s] = %(value)s;" % locals()
+        return (
+           '((%(typename)s) (((char *)%(addr)s) + %(offset)s))[0] = %(value)s;'
+           % locals())
 
     def OP_RAW_LOAD(self, op):
         addr = self.expr(op.args[0])
-        TYPE = op.args[1].value
-        offset = self.expr(op.args[2])
+        offset = self.expr(op.args[1])
         result = self.expr(op.result)
+        TYPE = op.result.concretetype
         typename = cdecl(self.db.gettype(TYPE).replace('@', '*@'), '')
-        return "%(result)s = ((%(typename)s) %(addr)s)[%(offset)s];" % locals()
+        return (
+          "%(result)s = ((%(typename)s) (((char *)%(addr)s) + %(offset)s))[0];"
+          % locals())
 
     def OP_CAST_PRIMITIVE(self, op):
         TYPE = self.lltypemap(op.result)

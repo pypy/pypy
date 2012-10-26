@@ -3,7 +3,8 @@
 
 """
 import py
-from pypy.interpreter.gateway import interp2app, BuiltinCode
+from pypy.interpreter.gateway import interp2app, BuiltinCode, unwrap_spec,\
+     WrappedDefault
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.baseobjspace import Wrappable, DescrMismatch
 from pypy.interpreter.error import OperationError, operationerrfmt
@@ -37,7 +38,7 @@ class TypeDef:
         assert __total_ordering__ in (None, 'auto'), "Unknown value for __total_ordering"
         if __total_ordering__ == 'auto':
             self.auto_total_ordering()
-    
+
     def add_entries(self, **rawdict):
         # xxx fix the names of the methods to match what app-level expects
         for key, value in rawdict.items():
@@ -228,7 +229,7 @@ def _builduserclswithfeature(config, supercls, *features):
 
     def add(Proto):
         for key, value in Proto.__dict__.items():
-            if (not key.startswith('__') and not key.startswith('_mixin_') 
+            if (not key.startswith('__') and not key.startswith('_mixin_')
                     or key == '__del__'):
                 if hasattr(value, "func_name"):
                     value = func_with_new_name(value, value.func_name)
@@ -315,10 +316,10 @@ def _builduserclswithfeature(config, supercls, *features):
         class Proto(object):
             def getdict(self, space):
                 return self.w__dict__
-            
+
             def setdict(self, space, w_dict):
                 self.w__dict__ = check_new_dictionary(space, w_dict)
-            
+
             def user_setup(self, space, w_subtype):
                 self.w__dict__ = space.newdict(
                     instance=True)
@@ -383,7 +384,7 @@ def _make_descr_typecheck_wrapper(tag, func, extraargs, cls, use_closure):
             return %(name)s(%(args)s, %(extra)s)
         """
         miniglobals[cls_name] = cls
-    
+
     name = func.__name__
     extra = ', '.join(extraargs)
     from pypy.interpreter import pycode
@@ -456,6 +457,7 @@ class GetSetProperty(Wrappable):
         self.objclass_getter = objclass_getter
         self.use_closure = use_closure
 
+    @unwrap_spec(w_cls = WrappedDefault(None))
     def descr_property_get(self, space, w_obj, w_cls=None):
         """property.__get__(obj[, type]) -> value
         Read the value of the property of the given obj."""
@@ -503,7 +505,7 @@ class GetSetProperty(Wrappable):
                 space, '__delattr__',
                 self.reqcls, Arguments(space, [w_obj,
                                                space.wrap(self.name)]))
-    
+
     def descr_get_objclass(space, property):
         return property.objclass_getter(space)
 
@@ -521,7 +523,7 @@ def interp_attrproperty_w(name, cls, doc=None):
             return space.w_None
         else:
             return w_value
-    
+
     return GetSetProperty(fget, cls=cls, doc=doc)
 
 GetSetProperty.typedef = TypeDef(
@@ -543,7 +545,7 @@ class Member(Wrappable):
         self.index = index
         self.name = name
         self.w_cls = w_cls
-    
+
     def typecheck(self, space, w_obj):
         if not space.is_true(space.isinstance(w_obj, self.w_cls)):
             raise operationerrfmt(space.w_TypeError,
@@ -552,8 +554,8 @@ class Member(Wrappable):
                                   self.name,
                                   self.w_cls.name,
                                   space.type(w_obj).getname(space))
-    
-    def descr_member_get(self, space, w_obj, w_w_cls=None):
+
+    def descr_member_get(self, space, w_obj, w_cls=None):
         """member.__get__(obj[, type]) -> value
         Read the slot 'member' of the given 'obj'."""
         if space.is_w(w_obj, space.w_None):
@@ -565,13 +567,13 @@ class Member(Wrappable):
                 raise OperationError(space.w_AttributeError,
                                      space.wrap(self.name)) # XXX better message
             return w_result
-    
+
     def descr_member_set(self, space, w_obj, w_value):
         """member.__set__(obj, value)
         Write into the slot 'member' of the given 'obj'."""
         self.typecheck(space, w_obj)
         w_obj.setslotvalue(self.index, w_value)
-    
+
     def descr_member_del(self, space, w_obj):
         """member.__delete__(obj)
         Delete the value of the slot 'member' from the given 'obj'."""
@@ -803,15 +805,16 @@ Function.typedef = TypeDef("function",
     func_dict = getset_func_dict,
     func_defaults = getset_func_defaults,
     func_globals = interp_attrproperty_w('w_func_globals', cls=Function),
-    func_closure = GetSetProperty( Function.fget_func_closure ),
+    func_closure = GetSetProperty(Function.fget_func_closure),
     __code__ = getset_func_code,
     __doc__ = getset_func_doc,
     __name__ = getset_func_name,
     __dict__ = getset_func_dict,
     __defaults__ = getset_func_defaults,
+    __globals__ = interp_attrproperty_w('w_func_globals', cls=Function),
     __module__ = getset___module__,
     __weakref__ = make_weakref_descr(Function),
-    )
+)
 Function.typedef.acceptable_as_base_class = False
 
 Method.typedef = TypeDef(

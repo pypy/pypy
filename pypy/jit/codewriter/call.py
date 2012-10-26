@@ -16,6 +16,7 @@ from pypy.translator.backendopt.writeanalyze import ReadWriteAnalyzer
 
 class CallControl(object):
     virtualref_info = None     # optionally set from outside
+    has_libffi_call = False    # default value
 
     def __init__(self, cpu=None, jitdrivers_sd=[]):
         assert isinstance(jitdrivers_sd, list)   # debugging
@@ -179,11 +180,8 @@ class CallControl(object):
         """
         fnptr = self.rtyper.type_system.getcallable(graph)
         FUNC = get_functype(lltype.typeOf(fnptr))
-        assert lltype.Ptr(lltype.PyObject) not in FUNC.ARGS
-        if self.rtyper.type_system.name == 'ootypesystem':
-            XXX
-        else:
-            fnaddr = llmemory.cast_ptr_to_adr(fnptr)
+        assert self.rtyper.type_system.name == "lltypesystem"
+        fnaddr = llmemory.cast_ptr_to_adr(fnptr)
         NON_VOID_ARGS = [ARG for ARG in FUNC.ARGS if ARG is not lltype.Void]
         calldescr = self.cpu.calldescrof(FUNC, tuple(NON_VOID_ARGS),
                                          FUNC.RESULT, EffectInfo.MOST_GENERAL)

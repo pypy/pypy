@@ -2028,6 +2028,7 @@ class BasicTests:
                 y -= 1
             return res
         def g(x, y):
+            set_param(myjitdriver, 'max_unroll_loops', 5)
             a1 = f(A(x), y)
             a2 = f(A(x), y)
             b1 = f(B(x), y)
@@ -2731,6 +2732,35 @@ class BasicTests:
             assert res == 23
             self.check_trace_count(0)
             self.check_aborted_count(2)
+        finally:
+            optimizeopt.optimize_trace = old_optimize_trace
+
+    def test_max_unroll_loops_retry_without_unroll(self):
+        from pypy.jit.metainterp.optimize import InvalidLoop
+        from pypy.jit.metainterp import optimizeopt
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'i'])
+        #
+        def f(n, limit):
+            set_param(myjitdriver, 'threshold', 5)
+            set_param(myjitdriver, 'max_unroll_loops', limit)
+            i = 0
+            while i < n:
+                myjitdriver.jit_merge_point(n=n, i=i)
+                print i
+                i += 1
+            return i
+        #
+        seen = []
+        def my_optimize_trace(metainterp_sd, loop, enable_opts, *args, **kwds):
+            seen.append('unroll' in enable_opts)
+            raise InvalidLoop
+        old_optimize_trace = optimizeopt.optimize_trace
+        optimizeopt.optimize_trace = my_optimize_trace
+        try:
+            res = self.meta_interp(f, [23, 4])
+            assert res == 23
+            assert False in seen
+            assert True in seen
         finally:
             optimizeopt.optimize_trace = old_optimize_trace
 
@@ -3797,6 +3827,7 @@ class BaseLLtypeTests(BasicTests):
         assert res == 3
 
     def test_float_bytes(self):
+        from pypy.rlib.rfloat import isnan
         def f(n):
             ll = float2longlong(n)
             return longlong2float(ll)
@@ -3804,7 +3835,7 @@ class BaseLLtypeTests(BasicTests):
         for x in [2.5, float("nan"), -2.5, float("inf")]:
             # There are tests elsewhere to verify the correctness of this.
             res = self.interp_operations(f, [x])
-            assert res == x or math.isnan(x) and math.isnan(res)
+            assert res == x or isnan(x) and isnan(res)
 
 
 class TestLLtype(BaseLLtypeTests, LLJitMixin):

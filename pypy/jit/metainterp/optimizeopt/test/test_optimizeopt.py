@@ -41,14 +41,6 @@ def test_build_opt_chain():
     #
     chain, _ = build_opt_chain(metainterp_sd, "aaa:bbb")
     check(chain, ["OptSimplify"])
-    #
-    chain, _ = build_opt_chain(metainterp_sd, "ffi")
-    check(chain, ["OptFfiCall", "OptSimplify"])
-    #
-    metainterp_sd.config = get_pypy_config(translating=True)
-    assert not metainterp_sd.config.translation.jit_ffi
-    chain, _ = build_opt_chain(metainterp_sd, "ffi")
-    check(chain, ["OptSimplify"])
 
 
 # ____________________________________________________________
@@ -7938,6 +7930,17 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+
+
+    def test_only_strengthen_guard_if_class_matches(self):
+        ops = """
+        [p1]
+        guard_class(p1, ConstClass(node_vtable2)) []
+        guard_value(p1, ConstPtr(myptr)) []
+        jump(p1)
+        """
+        self.raises(InvalidLoop, self.optimize_loop,
+                       ops, ops)
 
 
 class TestLLtype(OptimizeOptTest, LLtypeMixin):

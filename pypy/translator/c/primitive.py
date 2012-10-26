@@ -12,6 +12,8 @@ from pypy.rpython.lltypesystem.llmemory import Address, \
 from pypy.rpython.lltypesystem.llarena import RoundedUpForAllocation
 from pypy.translator.c.support import cdecl, barebonearray
 
+SUPPORT_INT128 = hasattr(rffi, '__INT128_T')
+
 # ____________________________________________________________
 #
 # Primitives
@@ -29,6 +31,11 @@ def name_signed(value, db):
     if isinstance(value, Symbolic):
         if isinstance(value, FieldOffset):
             structnode = db.gettypedefnode(value.TYPE)
+            if isinstance(value.TYPE, FixedSizeArray):
+                assert value.fldname.startswith('item')
+                repeat = value.fldname[4:]
+                size = 'sizeof(%s)' % (cdecl(db.gettype(value.TYPE.OF), ''),)
+                return '(%s * %s)' % (size, repeat)
             return 'offsetof(%s, %s)'%(
                 cdecl(db.gettype(value.TYPE), ''),
                 structnode.c_struct_field_name(value.fldname))
@@ -247,3 +254,5 @@ define_c_primitive(rffi.LONG, 'long', 'L')
 define_c_primitive(rffi.ULONG, 'unsigned long', 'UL')
 define_c_primitive(rffi.LONGLONG, 'long long', 'LL')
 define_c_primitive(rffi.ULONGLONG, 'unsigned long long', 'ULL')
+if SUPPORT_INT128:
+    define_c_primitive(rffi.__INT128_T, '__int128_t', 'LL') # Unless it's a 128bit platform, LL is the biggest

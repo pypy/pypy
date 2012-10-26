@@ -42,6 +42,9 @@ def _get_jitcodes(testself, CPUClass, func, values, type_system,
         trace_limit = sys.maxint
         enable_opts = ALL_OPTS_DICT
 
+    if kwds.pop('disable_optimizations', False):
+        FakeWarmRunnerState.enable_opts = {}
+
     func._jit_unroll_safe_ = True
     rtyper = support.annotate(func, values, type_system=type_system,
                               translationoptions=translationoptions)

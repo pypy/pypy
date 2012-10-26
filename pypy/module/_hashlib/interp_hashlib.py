@@ -96,6 +96,9 @@ class W_Hash(Wrappable):
         block_size = rffi.getintfield(digest_type, 'c_block_size')
         return space.wrap(block_size)
 
+    def get_name(self, space):
+        return space.wrap(self.name)
+
     def _digest(self, space):
         with lltype.scoped_alloc(ropenssl.EVP_MD_CTX.TO) as ctx:
             with self.lock:
@@ -118,6 +121,7 @@ W_Hash.typedef = TypeDef(
     digest_size=GetSetProperty(W_Hash.get_digest_size),
     digestsize=GetSetProperty(W_Hash.get_digest_size),
     block_size=GetSetProperty(W_Hash.get_block_size),
+    name=GetSetProperty(W_Hash.get_name),
     )
 W_Hash.acceptable_as_base_class = False
 

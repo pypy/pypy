@@ -4,6 +4,7 @@ import unittest
 import StringIO
 import cStringIO
 import types
+import array
 from test import test_support
 
 
@@ -126,6 +127,34 @@ class TestStringIO(TestGenericStringIO):
 
 class TestcStringIO(TestGenericStringIO):
     MODULE = cStringIO
+
+    def test_array_support(self):
+        # Issue #1730114: cStringIO should accept array objects
+        a = array.array('B', [0,1,2])
+        f = self.MODULE.StringIO(a)
+        self.assertEqual(f.getvalue(), '\x00\x01\x02')
+
+    def test_unicode(self):
+
+        if not test_support.have_unicode: return
+
+        # The cStringIO module converts Unicode strings to character
+        # strings when writing them to cStringIO objects.
+        # Check that this works.
+
+        f = self.MODULE.StringIO()
+        f.write(u'abcde')
+        s = f.getvalue()
+        self.assertEqual(s, 'abcde')
+        self.assertEqual(type(s), str)
+
+        f = self.MODULE.StringIO(u'abcde')
+        s = f.getvalue()
+        self.assertEqual(s, 'abcde')
+        self.assertEqual(type(s), str)
+
+        self.assertRaises(UnicodeEncodeError, self.MODULE.StringIO, u'\xf4')
+
 
 import sys
 if sys.platform.startswith('java'):

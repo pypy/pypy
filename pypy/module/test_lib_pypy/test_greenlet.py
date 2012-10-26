@@ -134,6 +134,40 @@ class AppTestGreenlet:
         res = g1.switch()
         assert res == "ok"
 
+    def test_throw_GreenletExit(self):
+        from greenlet import greenlet
+        gmain = greenlet.getcurrent()
+        l = [0]
+        #
+        def func():
+            l[0] += 1
+            gmain.switch()
+            l[0] += 1
+        #
+        g = greenlet(func)
+        g.switch()
+        assert l[0] == 1
+        g.throw()
+        assert l[0] == 1
+
+    def test_throw_GreenletExit_result(self):
+        from greenlet import greenlet
+        gmain = greenlet.getcurrent()
+        l = [0]
+        #
+        def func():
+            l[0] += 1
+            gmain.switch()
+            l[0] += 1
+        #
+        g = greenlet(func)
+        g.switch()
+        assert l[0] == 1
+        ge1 = greenlet.GreenletExit(1, 2, 3)
+        ge2 = g.throw(ge1)
+        assert l[0] == 1
+        assert ge1 is ge2
+
     def test_nondefault_parent(self):
         from greenlet import greenlet
         #

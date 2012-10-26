@@ -6,7 +6,7 @@ from pypy.tool.algo.unionfind import UnionFind
 from pypy.objspace.flow.model import Block, Link, Variable, SpaceOperation
 from pypy.objspace.flow.model import Constant, checkgraph
 from pypy.annotation import model as annmodel
-from pypy.interpreter.argument import Signature
+from pypy.objspace.flow.argument import Signature
 
 def flatten_star_args(funcdesc, args_s):
     argnames, vararg, kwarg = funcdesc.signature

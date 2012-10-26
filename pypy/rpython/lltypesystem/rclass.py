@@ -14,9 +14,8 @@ from pypy.rpython.lltypesystem.lltype import \
      cast_pointer, cast_ptr_to_int, castable, nullptr, \
      RuntimeTypeInfo, getRuntimeTypeInfo, typeOf, \
      Array, Char, Void, \
-     FuncType, Bool, Signed, functionptr, PyObject
+     FuncType, Bool, Signed, functionptr
 from pypy.rpython.lltypesystem import lltype
-from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.annotation import model as annmodel
 from pypy.rlib.rarithmetic import intmask

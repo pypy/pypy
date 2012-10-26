@@ -1,18 +1,12 @@
-from pypy.tool.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Constant
-from pypy.rpython.lltypesystem import lltype, rclass, llmemory
-from pypy.rpython import rint, raddress
 from pypy.rlib import rarithmetic, objectmodel
+from pypy.rpython import raddress, rptr, extregistry, rrange
 from pypy.rpython.error import TyperError
-from pypy.rpython.rmodel import Repr, IntegerRepr, inputconst
-from pypy.rpython.rrange import rtype_builtin_range, rtype_builtin_xrange
-from pypy.rpython.rrange import rtype_builtin_enumerate
-from pypy.rpython import rstr
-from pypy.rpython import rptr
-from pypy.rpython.robject import pyobj_repr
-from pypy.tool import sourcetools
-from pypy.rpython import extregistry
+from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.rmodel import Repr
+from pypy.tool.pairtype import pairtype
+
 
 class __extend__(annmodel.SomeBuiltin):
     def rtyper_makerepr(self, rtyper):
@@ -25,10 +19,7 @@ class __extend__(annmodel.SomeBuiltin):
             # built-in method case
             assert self.methodname is not None
             result = BuiltinMethodRepr(rtyper, self.s_self, self.methodname)
-            if result.self_repr == pyobj_repr:
-                return pyobj_repr   # special case: methods of 'PyObject*'
-            else:
-                return result
+            return result
     def rtyper_makekey(self):
         if self.s_self is None:
             # built-in function case
@@ -53,7 +44,7 @@ class __extend__(annmodel.SomeBuiltin):
 
 def call_args_expand(hop, takes_kwds = True):
     hop = hop.copy()
-    from pypy.interpreter.argument import ArgumentsForTranslation
+    from pypy.objspace.flow.argument import ArgumentsForTranslation
     arguments = ArgumentsForTranslation.fromshape(
             None, hop.args_s[1].const, # shape
             range(hop.nb_args-2))
@@ -84,7 +75,7 @@ def call_args_expand(hop, takes_kwds = True):
     kwds_i = {}
     for i, key in enumerate(keywords):
         index = arguments.keywords_w[i]
-        kwds_i['i_'+key] = index
+        kwds_i['i_' + key] = index
 
     return hop, kwds_i
 
@@ -273,10 +264,10 @@ def ll_max(i1, i2):
     return i2
 
 def rtype_Exception__init__(hop):
-    pass
+    hop.exception_cannot_occur()
 
 def rtype_object__init__(hop):
-    pass
+    hop.exception_cannot_occur()
 
 def rtype_OSError__init__(hop):
     hop.exception_cannot_occur()
@@ -307,7 +298,7 @@ def rtype_hlinvoke(hop):
     r_func, nimplicitarg = r_callable.get_r_implfunc()
     s_callable = r_callable.get_s_callable()
 
-    nbargs = len(hop.args_s) - 1 + nimplicitarg 
+    nbargs = len(hop.args_s) - 1 + nimplicitarg
     s_sigs = r_func.get_s_signatures((nbargs, (), False, False))
     if len(s_sigs) != 1:
         raise TyperError("cannot hlinvoke callable %r with not uniform"
@@ -334,9 +325,13 @@ def rtype_hlinvoke(hop):
 
     return hop.dispatch()
 
+rtype_builtin_range = rrange.rtype_builtin_range
+rtype_builtin_xrange = rrange.rtype_builtin_xrange
+rtype_builtin_enumerate = rrange.rtype_builtin_enumerate
+
 
 # collect all functions
-import __builtin__, exceptions
+import __builtin__
 BUILTIN_TYPER = {}
 for name, value in globals().items():
     if name.startswith('rtype_builtin_'):
@@ -388,7 +383,7 @@ def rtype_malloc(hop, i_flavor=None, i_zero=None, i_track_allocation=None,
 
     hop.has_implicit_exception(MemoryError)   # record that we know about it
     hop.exception_is_here()
-    return hop.genop(opname, vlist, resulttype = hop.r_result.lowleveltype)
+    return hop.genop(opname, vlist, resulttype=hop.r_result.lowleveltype)
 
 def rtype_free(hop, i_flavor, i_track_allocation=None):
     vlist = [hop.inputarg(hop.args_r[0], arg=0)]
@@ -508,7 +503,7 @@ def gen_cast(llops, TGT, v_value):
         elif ORIG == llmemory.Address:
             return llops.genop('cast_adr_to_ptr', [v_value], resulttype = TGT)
         elif isinstance(ORIG, lltype.Primitive):
-            v_value = gen_cast(llops, lltype.Signed, v_value)            
+            v_value = gen_cast(llops, lltype.Signed, v_value)
             return llops.genop('cast_int_to_ptr', [v_value], resulttype=TGT)
     elif TGT == llmemory.Address and isinstance(ORIG, lltype.Ptr):
         return llops.genop('cast_ptr_to_adr', [v_value], resulttype = TGT)
@@ -636,7 +631,7 @@ def rtype_free_non_gc_object(hop):
     flags = {'flavor': flavor}
     cflags = hop.inputconst(lltype.Void, flags)
     return hop.genop('free', [vinst, cflags])
-    
+
 BUILTIN_TYPER[objectmodel.free_non_gc_object] = rtype_free_non_gc_object
 
 # keepalive_until_here
@@ -686,4 +681,3 @@ BUILTIN_TYPER[llmemory.cast_ptr_to_adr] = rtype_cast_ptr_to_adr
 BUILTIN_TYPER[llmemory.cast_adr_to_ptr] = rtype_cast_adr_to_ptr
 BUILTIN_TYPER[llmemory.cast_adr_to_int] = rtype_cast_adr_to_int
 BUILTIN_TYPER[llmemory.cast_int_to_adr] = rtype_cast_int_to_adr
-

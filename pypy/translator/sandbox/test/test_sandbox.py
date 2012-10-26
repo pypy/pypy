@@ -21,7 +21,8 @@ def expect(f, g, fnname, args, result, resulttype=None):
         g.flush()
 
 def compile(f, gc='ref'):
-    t = Translation(f, backend='c', standalone=True, sandbox=True, gc=gc)
+    t = Translation(f, backend='c', sandbox=True, gc=gc,
+                    check_str_without_nul=True)
     return str(t.compile())
 
 
@@ -110,6 +111,21 @@ def test_time():
     g, f = os.popen2(exe, "t", 0)
     expect(f, g, "ll_time.ll_time_time", (), 3.141592)
     expect(f, g, "ll_os.ll_os_dup", (3141,), 3)
+    g.close()
+    tail = f.read()
+    f.close()
+    assert tail == ""
+
+def test_getcwd():
+    def entry_point(argv):
+        t = os.getcwd()
+        os.dup(len(t))
+        return 0
+
+    exe = compile(entry_point)
+    g, f = os.popen2(exe, "t", 0)
+    expect(f, g, "ll_os.ll_os_getcwd", (), "/tmp/foo/bar")
+    expect(f, g, "ll_os.ll_os_dup", (len("/tmp/foo/bar"),), 3)
     g.close()
     tail = f.read()
     f.close()

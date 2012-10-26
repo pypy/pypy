@@ -17,12 +17,6 @@ own improvement ideas. In any case, if you feel like working on some of those
 projects, or anything else in PyPy, pop up on IRC or write to us on the
 `mailing list`_.
 
-Make big integers faster
--------------------------
-
-PyPy's implementation of the Python ``long`` type is slower than CPython's.
-Find out why and optimize them.
-
 Make bytearray type fast
 ------------------------
 
@@ -81,14 +75,6 @@ Translation Toolchain
 
 * Allow separate compilation of extension modules.
 
-Work on some of other languages
--------------------------------
-
-There are various languages implemented using the RPython translation toolchain.
-One of the most interesting is the `JavaScript implementation`_, but there
-are others like scheme or prolog. An interesting project would be to improve
-the jittability of those or to experiment with various optimizations.
-
 Various GCs
 -----------
 
@@ -103,13 +89,35 @@ experiments can be done for the general purpose. Examples
 
 * A concurrent garbage collector (a lot of work)
 
-STM, a.k.a. "remove the GIL"
-----------------------------
+STM (Software Transactional Memory)
+-----------------------------------
 
-Removing the GIL --- or more precisely, a GIL-less thread-less solution ---
-is `now work in progress.`__  Contributions welcome.
+This is work in progress.  Besides the main development path, whose goal is
+to make a (relatively fast) version of pypy which includes STM, there are
+independent topics that can already be experimented with on the existing,
+JIT-less pypy-stm version:
+  
+* What kind of conflicts do we get in real use cases?  And, sometimes,
+  which data structures would be more appropriate?  For example, a dict
+  implemented as a hash table will suffer "stm collisions" in all threads
+  whenever one thread writes anything to it; but there could be other
+  implementations.  Maybe alternate strategies can be implemented at the
+  level of the Python interpreter (see list/dict strategies,
+  ``pypy/objspace/std/{list,dict}object.py``).
 
-.. __: http://pypy.org/tmdonate.html
+* More generally, there is the idea that we would need some kind of
+  "debugger"-like tool to "debug" things that are not bugs, but stm
+  conflicts.  How would this tool look like to the end Python
+  programmers?  Like a profiler?  Or like a debugger with breakpoints
+  on aborted transactions?  It would probably be all app-level, with
+  a few hooks e.g. for transaction conflicts.
+
+* Find good ways to have libraries using internally threads and atomics,
+  but not exposing threads to the user.  Right now there is a rough draft
+  in ``lib_pypy/transaction.py``, but much better is possible.  For example
+  we could probably have an iterator-like concept that allows each loop
+  iteration to run in parallel.
+
 
 Introduce new benchmarks
 ------------------------
@@ -121,8 +129,6 @@ script that can run without parameters. Example ideas (benchmarks need
 to be got from them!):
 
 * `hg`
-
-* `sympy`
 
 Experiment (again) with LLVM backend for RPython compilation
 ------------------------------------------------------------
@@ -169,4 +175,3 @@ extensions.
 .. _`issue tracker`: http://bugs.pypy.org
 .. _`mailing list`: http://mail.python.org/mailman/listinfo/pypy-dev
 .. _`jitviewer`: http://bitbucket.org/pypy/jitviewer
-.. _`JavaScript implementation`: https://bitbucket.org/pypy/lang-js/overview

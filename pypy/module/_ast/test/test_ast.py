@@ -51,8 +51,9 @@ class AppTestAST:
         s = mod.body
         assert s.s == "hi"
         s.s = "pypy"
+        assert eval(compile(mod, "<test>", "eval")) == "pypy"
         s.s = 43
-        assert eval(compile(mod, "<test>", "eval")) == 43
+        raises(TypeError, compile, mod, "<test>", "eval")
 
     def test_empty_initialization(self):
         ast = self.ast
@@ -253,14 +254,16 @@ from __future__ import generators""")
         assert x.right == n3
 
     def test_functiondef(self):
-        import _ast as ast
+        import ast
         fAst = ast.FunctionDef(
             name="foo",
             args=ast.arguments(
                 args=[], vararg=None, kwarg=None, defaults=[],
                 kwonlyargs=[], kw_defaults=[]),
-            body=[], decorator_list=[], lineno=5, col_offset=0)
+            body=[ast.Expr(ast.Str('docstring'))],
+            decorator_list=[], lineno=5, col_offset=0)
         exprAst = ast.Interactive(body=[fAst])
+        ast.fix_missing_locations(exprAst)
         compiled = compile(exprAst, "<foo>", "single")
         #
         d = {}
@@ -291,5 +294,17 @@ from __future__ import generators""")
         import _ast as ast
         pos = dict(lineno=2, col_offset=3)
         m = ast.Module([ast.Expr(ast.expr(**pos), **pos)])
+        exc = raises(TypeError, compile, m, "<test>", "exec")
+
+    def test_invalid_identitifer(self):
+        import ast
+        m = ast.Module([ast.Expr(ast.Name(u"x", ast.Load()))])
+        ast.fix_missing_locations(m)
+        exc = raises(TypeError, compile, m, "<test>", "exec")
+
+    def test_invalid_string(self):
+        import ast
+        m = ast.Module([ast.Expr(ast.Str(43))])
+        ast.fix_missing_locations(m)
         exc = raises(TypeError, compile, m, "<test>", "exec")
 

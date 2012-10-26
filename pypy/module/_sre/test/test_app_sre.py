@@ -5,16 +5,19 @@ from py.test import raises, skip
 from pypy.interpreter.gateway import app2interp_temp
 from pypy.conftest import gettestobjspace, option
 
-def init_globals_hack(space):
-    space.appexec([space.wrap(autopath.this_dir)], """(this_dir):
-    import __builtin__ as b
-    import sys, os.path
-    # Uh-oh, ugly hack
-    sys.path.insert(0, this_dir)
-    import support_test_app_sre
-    b.s = support_test_app_sre
-    sys.path.pop(0)
+def init_app_test(cls, space):
+    cls.w_s = space.appexec([space.wrap(autopath.this_dir)], 
+                              """(this_dir):
+        import sys
+        # Uh-oh, ugly hack
+        sys.path.insert(0, this_dir)
+        try:
+            import support_test_app_sre
+            return support_test_app_sre
+        finally:
+            sys.path.pop(0)
     """)
+
 
 class AppTestSrePy:
 
@@ -220,6 +223,24 @@ class AppTestSreMatch:
             return ''
         assert (u"bb\u3039b", 2) == re.subn("[aA]", call_me, "babAb")
 
+    def test_sub_subclass_of_str(self):
+        import re
+        class MyString(str):
+            pass
+        class MyUnicode(unicode):
+            pass
+        s1 = MyString('zz')
+        s2 = re.sub('aa', 'bb', s1)
+        assert s2 == s1
+        assert type(s2) is str       # and not MyString
+        s2 = re.sub(u'aa', u'bb', s1)
+        assert s2 == s1
+        assert type(s2) is str       # and not MyString
+        u1 = MyUnicode(u'zz')
+        u2 = re.sub(u'aa', u'bb', u1)
+        assert u2 == u1
+        assert type(u2) is unicode   # and not MyUnicode
+
     def test_match_array(self):
         import re, array
         a = array.array('c', 'hello')
@@ -308,7 +329,7 @@ class AppTestSreScanner:
     def test_scanner_zero_width_match(self):
         import re, sys
         if sys.version_info[:2] == (2, 3):
-            return
+            skip("2.3 is different here")
         p = re.compile(".*").scanner("bla")
         assert ("bla", "") == (p.search().group(0), p.search().group(0))
         assert None == p.search()
@@ -322,7 +343,7 @@ class AppTestGetlower:
             cls.space = gettestobjspace(usemodules=('_locale',))
         except py.test.skip.Exception:
             cls.space = gettestobjspace(usemodules=('_rawffi',))
-        init_globals_hack(cls.space)
+        init_app_test(cls, cls.space)
 
     def setup_method(self, method):
         import locale
@@ -333,11 +354,13 @@ class AppTestGetlower:
         locale.setlocale(locale.LC_ALL, (None, None))
 
     def test_getlower_no_flags(self):
+        s = self.s
         UPPER_AE = "\xc4"
         s.assert_lower_equal([("a", "a"), ("A", "a"), (UPPER_AE, UPPER_AE),
             (u"\u00c4", u"\u00c4"), (u"\u4444", u"\u4444")], 0)
 
     def test_getlower_locale(self):
+        s = self.s
         import locale, sre_constants
         UPPER_AE = "\xc4"
         LOWER_AE = "\xe4"
@@ -352,6 +375,7 @@ class AppTestGetlower:
             skip("unsupported locale de_DE")
 
     def test_getlower_unicode(self):
+        s = self.s
         import sre_constants
         UPPER_AE = "\xc4"
         LOWER_AE = "\xe4"
@@ -578,34 +602,41 @@ class AppTestMarksStack:
 class AppTestOpcodes:
 
     def setup_class(cls):
+        if option.runappdirect:
+            py.test.skip("can only be run on py.py: _sre opcodes don't match")
         try:
             cls.space = gettestobjspace(usemodules=('_locale',))
         except py.test.skip.Exception:
             cls.space = gettestobjspace(usemodules=('_rawffi',))
         # This imports support_test_sre as the global "s"
-        init_globals_hack(cls.space)
+        init_app_test(cls, cls.space)
 
     def test_length_optimization(self):
+        s = self.s
         pattern = "bla"
         opcodes = [s.OPCODES["info"], 3, 3, len(pattern)] \
             + s.encode_literal(pattern) + [s.OPCODES["success"]]
         s.assert_no_match(opcodes, ["b", "bl", "ab"])
 
     def test_literal(self):
+        s = self.s
         opcodes = s.encode_literal("bla") + [s.OPCODES["success"]]
         s.assert_no_match(opcodes, ["bl", "blu"])
         s.assert_match(opcodes, ["bla", "blab", "cbla", "bbla"])
 
     def test_not_literal(self):
+        s = self.s
         opcodes = s.encode_literal("b") \
             + [s.OPCODES["not_literal"], ord("a"), s.OPCODES["success"]]
         s.assert_match(opcodes, ["bx", "ababy"])
         s.assert_no_match(opcodes, ["ba", "jabadu"])
 
     def test_unknown(self):
+        s = self.s
         raises(RuntimeError, s.search, [55555], "b")
 
     def test_at_beginning(self):
+        s = self.s
         for atname in ["at_beginning", "at_beginning_string"]:
             opcodes = [s.OPCODES["at"], s.ATCODES[atname]] \
                 + s.encode_literal("bla") + [s.OPCODES["success"]]
@@ -613,30 +644,35 @@ class AppTestOpcodes:
             s.assert_no_match(opcodes, "abla")
 
     def test_at_beginning_line(self):
+        s = self.s
         opcodes = [s.OPCODES["at"], s.ATCODES["at_beginning_line"]] \
             + s.encode_literal("bla") + [s.OPCODES["success"]]
         s.assert_match(opcodes, ["bla", "x\nbla"])
         s.assert_no_match(opcodes, ["abla", "abla\nubla"])
 
     def test_at_end(self):
+        s = self.s
         opcodes = s.encode_literal("bla") \
             + [s.OPCODES["at"], s.ATCODES["at_end"], s.OPCODES["success"]]
         s.assert_match(opcodes, ["bla", "bla\n"])
         s.assert_no_match(opcodes, ["blau", "abla\nblau"])
 
     def test_at_end_line(self):
+        s = self.s
         opcodes = s.encode_literal("bla") \
             + [s.OPCODES["at"], s.ATCODES["at_end_line"], s.OPCODES["success"]]
         s.assert_match(opcodes, ["bla\n", "bla\nx", "bla"])
         s.assert_no_match(opcodes, ["blau"])
 
     def test_at_end_string(self):
+        s = self.s
         opcodes = s.encode_literal("bla") \
             + [s.OPCODES["at"], s.ATCODES["at_end_string"], s.OPCODES["success"]]
         s.assert_match(opcodes, "bla")
         s.assert_no_match(opcodes, ["blau", "bla\n"])
 
     def test_at_boundary(self):
+        s = self.s
         for atname in "at_boundary", "at_loc_boundary", "at_uni_boundary":
             opcodes = s.encode_literal("bla") \
                 + [s.OPCODES["at"], s.ATCODES[atname], s.OPCODES["success"]]
@@ -648,6 +684,7 @@ class AppTestOpcodes:
             s.assert_no_match(opcodes, "")
 
     def test_at_non_boundary(self):
+        s = self.s
         for atname in "at_non_boundary", "at_loc_non_boundary", "at_uni_non_boundary":
             opcodes = s.encode_literal("bla") \
                 + [s.OPCODES["at"], s.ATCODES[atname], s.OPCODES["success"]]
@@ -655,6 +692,7 @@ class AppTestOpcodes:
             s.assert_no_match(opcodes, ["bla ja", "bla"])
 
     def test_at_loc_boundary(self):
+        s = self.s
         import locale
         try:
             s.void_locale()
@@ -674,6 +712,7 @@ class AppTestOpcodes:
             skip("locale error")
 
     def test_at_uni_boundary(self):
+        s = self.s
         UPPER_PI = u"\u03a0"
         LOWER_PI = u"\u03c0"
         opcodes = s.encode_literal("bl") + [s.OPCODES["any"], s.OPCODES["at"],
@@ -685,6 +724,7 @@ class AppTestOpcodes:
         s.assert_match(opcodes, ["blaha", u"bl%sja" % UPPER_PI])
 
     def test_category_loc_word(self):
+        s = self.s
         import locale
         try:
             s.void_locale()
@@ -705,23 +745,27 @@ class AppTestOpcodes:
             skip("locale error")
 
     def test_any(self):
+        s = self.s
         opcodes = s.encode_literal("b") + [s.OPCODES["any"]] \
             + s.encode_literal("a") + [s.OPCODES["success"]]
         s.assert_match(opcodes, ["b a", "bla", "bboas"])
         s.assert_no_match(opcodes, ["b\na", "oba", "b"])
 
     def test_any_all(self):
+        s = self.s
         opcodes = s.encode_literal("b") + [s.OPCODES["any_all"]] \
             + s.encode_literal("a") + [s.OPCODES["success"]]
         s.assert_match(opcodes, ["b a", "bla", "bboas", "b\na"])
         s.assert_no_match(opcodes, ["oba", "b"])
 
     def test_in_failure(self):
+        s = self.s
         opcodes = s.encode_literal("b") + [s.OPCODES["in"], 2, s.OPCODES["failure"]] \
             + s.encode_literal("a") + [s.OPCODES["success"]]
         s.assert_no_match(opcodes, ["ba", "bla"])
 
     def test_in_literal(self):
+        s = self.s
         opcodes = s.encode_literal("b") + [s.OPCODES["in"], 7] \
             + s.encode_literal("la") + [s.OPCODES["failure"], s.OPCODES["failure"]] \
             + s.encode_literal("a") + [s.OPCODES["success"]]
@@ -729,6 +773,7 @@ class AppTestOpcodes:
         s.assert_no_match(opcodes, ["ba", "bja", "blla"])
 
     def test_in_category(self):
+        s = self.s
         opcodes = s.encode_literal("b") + [s.OPCODES["in"], 6, s.OPCODES["category"],
             s.CHCODES["category_digit"], s.OPCODES["category"], s.CHCODES["category_space"],
             s.OPCODES["failure"]] + s.encode_literal("a") + [s.OPCODES["success"]]
@@ -739,6 +784,7 @@ class AppTestOpcodes:
         import _sre
         if _sre.CODESIZE != 2:
             return
+        s = self.s
         # charset bitmap for characters "l" and "h"
         bitmap = 6 * [0] + [4352] + 9 * [0]
         opcodes = s.encode_literal("b") + [s.OPCODES["in"], 19, s.OPCODES["charset"]] \
@@ -750,6 +796,7 @@ class AppTestOpcodes:
         # disabled because this actually only works on big-endian machines
         if _sre.CODESIZE != 2:
             return
+        s = self.s
         # constructing bigcharset for lowercase pi (\u03c0)
         UPPER_PI = u"\u03a0"
         LOWER_PI = u"\u03c0"
@@ -765,6 +812,7 @@ class AppTestOpcodes:
     # XXX bigcharset test for ucs4 missing here
 
     def test_in_range(self):
+        s = self.s
         opcodes = s.encode_literal("b") + [s.OPCODES["in"], 5, s.OPCODES["range"],
             ord("1"), ord("9"), s.OPCODES["failure"]] \
             + s.encode_literal("a") + [s.OPCODES["success"]]
@@ -772,6 +820,7 @@ class AppTestOpcodes:
         s.assert_no_match(opcodes, ["baa", "b5"])
 
     def test_in_negate(self):
+        s = self.s
         opcodes = s.encode_literal("b") + [s.OPCODES["in"], 7, s.OPCODES["negate"]] \
             + s.encode_literal("la") + [s.OPCODES["failure"]] \
             + s.encode_literal("a") + [s.OPCODES["success"]]
@@ -779,12 +828,14 @@ class AppTestOpcodes:
         s.assert_no_match(opcodes, ["bla", "baa", "blbla"])
 
     def test_literal_ignore(self):
+        s = self.s
         opcodes = s.encode_literal("b") \
             + [s.OPCODES["literal_ignore"], ord("a"), s.OPCODES["success"]]
         s.assert_match(opcodes, ["ba", "bA"])
         s.assert_no_match(opcodes, ["bb", "bu"])
 
     def test_not_literal_ignore(self):
+        s = self.s
         UPPER_PI = u"\u03a0"
         opcodes = s.encode_literal("b") \
             + [s.OPCODES["not_literal_ignore"], ord("a"), s.OPCODES["success"]]
@@ -792,6 +843,7 @@ class AppTestOpcodes:
         s.assert_no_match(opcodes, ["ba", "bA"])
 
     def test_in_ignore(self):
+        s = self.s
         opcodes = s.encode_literal("b") + [s.OPCODES["in_ignore"], 8] \
             + s.encode_literal("abc") + [s.OPCODES["failure"]] \
             + s.encode_literal("a") + [s.OPCODES["success"]]
@@ -799,6 +851,7 @@ class AppTestOpcodes:
         s.assert_no_match(opcodes, ["ba", "bja", "blla"])
 
     def test_in_jump_info(self):
+        s = self.s
         for opname in "jump", "info":
             opcodes = s.encode_literal("b") \
                 + [s.OPCODES[opname], 3, s.OPCODES["failure"], s.OPCODES["failure"]] \
@@ -806,6 +859,7 @@ class AppTestOpcodes:
             s.assert_match(opcodes, "ba")
 
     def _test_mark(self):
+        s = self.s
         # XXX need to rewrite this implementation-independent
         opcodes = s.encode_literal("a") + [s.OPCODES["mark"], 0] \
             + s.encode_literal("b") + [s.OPCODES["mark"], 1, s.OPCODES["success"]]
@@ -817,6 +871,7 @@ class AppTestOpcodes:
         assert [1, 2] == state.marks
 
     def test_branch(self):
+        s = self.s
         opcodes = [s.OPCODES["branch"], 7] + s.encode_literal("ab") \
             + [s.OPCODES["jump"], 9, 7] + s.encode_literal("cd") \
             + [s.OPCODES["jump"], 2, s.OPCODES["failure"], s.OPCODES["success"]]
@@ -824,18 +879,21 @@ class AppTestOpcodes:
         s.assert_no_match(opcodes, ["aacas", "ac", "bla"])
 
     def test_repeat_one(self):
+        s = self.s
         opcodes = [s.OPCODES["repeat_one"], 6, 1, 65535] + s.encode_literal("a") \
             + [s.OPCODES["success"]] + s.encode_literal("ab") + [s.OPCODES["success"]]
         s.assert_match(opcodes, ["aab", "aaaab"])
         s.assert_no_match(opcodes, ["ab", "a"])
 
     def test_min_repeat_one(self):
+        s = self.s
         opcodes = [s.OPCODES["min_repeat_one"], 5, 1, 65535, s.OPCODES["any"]] \
             + [s.OPCODES["success"]] + s.encode_literal("b") + [s.OPCODES["success"]]
         s.assert_match(opcodes, ["aab", "ardb", "bb"])
         s.assert_no_match(opcodes, ["b"])
 
     def test_repeat_maximizing(self):
+        s = self.s
         opcodes = [s.OPCODES["repeat"], 5, 1, 65535] + s.encode_literal("a") \
             + [s.OPCODES["max_until"]] + s.encode_literal("b") + [s.OPCODES["success"]]
         s.assert_match(opcodes, ["ab", "aaaab", "baabb"])
@@ -847,6 +905,7 @@ class AppTestOpcodes:
         # CPython 2.3 fails with a recursion limit exceeded error here.
         import sys
         if not sys.version_info[:2] == (2, 3):
+            s = self.s
             opcodes = [s.OPCODES["repeat"], 10, 1, 65535, s.OPCODES["repeat_one"],
                 6, 0, 65535] + s.encode_literal("a") + [s.OPCODES["success"],
                 s.OPCODES["max_until"], s.OPCODES["success"]]
@@ -854,6 +913,7 @@ class AppTestOpcodes:
             assert "" == s.search(opcodes, "bb").group(0)
 
     def test_repeat_minimizing(self):
+        s = self.s
         opcodes = [s.OPCODES["repeat"], 4, 1, 65535, s.OPCODES["any"],
             s.OPCODES["min_until"]] + s.encode_literal("b") + [s.OPCODES["success"]]
         s.assert_match(opcodes, ["ab", "aaaab", "baabb"])
@@ -861,24 +921,28 @@ class AppTestOpcodes:
         assert "aab" == s.search(opcodes, "aabb").group(0)
 
     def test_groupref(self):
+        s = self.s
         opcodes = [s.OPCODES["mark"], 0, s.OPCODES["any"], s.OPCODES["mark"], 1] \
             + s.encode_literal("a") + [s.OPCODES["groupref"], 0, s.OPCODES["success"]]
         s.assert_match(opcodes, ["bab", "aaa", "dad"])
         s.assert_no_match(opcodes, ["ba", "bad", "baad"])
 
     def test_groupref_ignore(self):
+        s = self.s
         opcodes = [s.OPCODES["mark"], 0, s.OPCODES["any"], s.OPCODES["mark"], 1] \
             + s.encode_literal("a") + [s.OPCODES["groupref_ignore"], 0, s.OPCODES["success"]]
         s.assert_match(opcodes, ["bab", "baB", "Dad"])
         s.assert_no_match(opcodes, ["ba", "bad", "baad"])
 
     def test_assert(self):
+        s = self.s
         opcodes = s.encode_literal("a") + [s.OPCODES["assert"], 4, 0] \
             + s.encode_literal("b") + [s.OPCODES["success"], s.OPCODES["success"]]
         assert "a" == s.search(opcodes, "ab").group(0)
         s.assert_no_match(opcodes, ["a", "aa"])
 
     def test_assert_not(self):
+        s = self.s
         opcodes = s.encode_literal("a") + [s.OPCODES["assert_not"], 4, 0] \
             + s.encode_literal("b") + [s.OPCODES["success"], s.OPCODES["success"]]
         assert "a" == s.search(opcodes, "ac").group(0)

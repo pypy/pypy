@@ -1,7 +1,7 @@
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
-from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 
 class W_Count(Wrappable):
 
@@ -44,11 +44,12 @@ class W_Count(Wrappable):
 
 def check_number(space, w_obj):
     if (space.lookup(w_obj, '__int__') is None and
-            space.lookup(w_obj, '__float__') is None):
+        space.lookup(w_obj, '__float__') is None):
         raise OperationError(space.w_TypeError,
                              space.wrap("expected a number"))
 
-def W_Count___new__(space, w_subtype, w_start=0, w_step=1):
+@unwrap_spec(w_start=WrappedDefault(0), w_step=WrappedDefault(1))
+def W_Count___new__(space, w_subtype, w_start, w_step):
     check_number(space, w_start)
     check_number(space, w_step)
     r = space.allocate_instance(W_Count, w_subtype)
@@ -84,7 +85,7 @@ class W_Repeat(Wrappable):
         self.space = space
         self.w_obj = w_obj
 
-        if space.is_w(w_times, space.w_None):
+        if w_times is None:
             self.counting = False
             self.count = 0
         else:
@@ -808,7 +809,7 @@ def tee(space, w_iterable, n=2):
                     item = data[i] = next()
                     cnt[0] += 1
                 else:
-                    item = data.pop(i)
+                    item = data[i]   # data.pop(i) if it's the last one
                 yield item
         it = iter(iterable)
         return tuple([gen(it.next) for i in range(n)])
@@ -818,46 +819,42 @@ def tee(space, w_iterable, n=2):
 
     myiter = space.interpclass_w(w_iterable)
     if isinstance(myiter, W_TeeIterable):     # optimization only
-        tee_state = myiter.tee_state
+        chained_list = myiter.chained_list
+        w_iterator = myiter.w_iterator
         iterators_w = [w_iterable] * n
         for i in range(1, n):
-            iterators_w[i] = space.wrap(W_TeeIterable(space, tee_state))
+            iterators_w[i] = space.wrap(W_TeeIterable(space, w_iterator,
+                                                      chained_list))
     else:
-        tee_state = TeeState(space, w_iterable)
-        iterators_w = [space.wrap(W_TeeIterable(space, tee_state)) for x in range(n)]
+        w_iterator = space.iter(w_iterable)
+        chained_list = TeeChainedListNode()
+        iterators_w = [space.wrap(
+                           W_TeeIterable(space, w_iterator, chained_list))
+                       for x in range(n)]
     return space.newtuple(iterators_w)
 
-class TeeState(object):
-    def __init__(self, space, w_iterable):
-        self.space = space
-        self.w_iterable = self.space.iter(w_iterable)
-        self.num_saved = 0
-        self.saved_w = []
-
-    def get_next(self, index):
-        if index >= self.num_saved:
-            w_obj = self.space.next(self.w_iterable)
-            self.saved_w.append(w_obj)
-            self.num_saved += 1
-            return w_obj
-        else:
-            return self.saved_w[index]
+class TeeChainedListNode(object):
+    w_obj = None
 
 class W_TeeIterable(Wrappable):
-    def __init__(self, space, tee_state):
+    def __init__(self, space, w_iterator, chained_list):
         self.space = space
-        self.tee_state = tee_state
-        self.index = 0
+        self.w_iterator = w_iterator
+        assert chained_list is not None
+        self.chained_list = chained_list
 
     def iter_w(self):
         return self.space.wrap(self)
 
     def next_w(self):
-        try:
-            w_obj = self.tee_state.get_next(self.index)
-            return w_obj
-        finally:
-            self.index += 1
+        chained_list = self.chained_list
+        w_obj = chained_list.w_obj
+        if w_obj is None:
+            w_obj = self.space.next(self.w_iterator)
+            chained_list.next = TeeChainedListNode()
+            chained_list.w_obj = w_obj
+        self.chained_list = chained_list.next
+        return w_obj
 
 def W_TeeIterable___new__(space, w_subtype, w_iterable):
     # Obscure and undocumented function.  PyPy only supports w_iterable
@@ -866,8 +863,8 @@ def W_TeeIterable___new__(space, w_subtype, w_iterable):
     # semantics are then slightly different; see the XXX in lib-python's
     # test_itertools).
     myiter = space.interp_w(W_TeeIterable, w_iterable)
-    tee_state = myiter.tee_state
-    return space.wrap(W_TeeIterable(space, tee_state))
+    return space.wrap(W_TeeIterable(space, myiter.w_iterator,
+                                           myiter.chained_list))
 
 W_TeeIterable.typedef = TypeDef(
         '_tee',
@@ -885,8 +882,10 @@ class W_GroupBy(Wrappable):
     def __init__(self, space, w_iterable, w_fun):
         self.space = space
         self.w_iterable = self.space.iter(w_iterable)
-        self.identity_fun = self.space.is_w(w_fun, self.space.w_None)
-        self.w_fun = w_fun
+        if space.is_none(w_fun):
+            self.w_fun = None
+        else:
+            self.w_fun = w_fun
         self.index = 0
         self.lookahead = False
         self.exhausted = False
@@ -916,7 +915,7 @@ class W_GroupBy(Wrappable):
                 raise
             else:
                 self.w_lookahead = w_obj
-                if self.identity_fun:
+                if self.w_fun is None:
                     self.w_key = w_obj
                 else:
                     self.w_key = self.space.call_function(self.w_fun, w_obj)
@@ -953,7 +952,7 @@ class W_GroupBy(Wrappable):
                 else:
                     raise
             else:
-                if self.identity_fun:
+                if self.w_fun is None:
                     w_new_key = w_obj
                 else:
                     w_new_key = self.space.call_function(self.w_fun, w_obj)
@@ -1339,7 +1338,7 @@ class W_Permutations(Wrappable):
 
 def W_Permutations__new__(space, w_subtype, w_iterable, w_r=None):
     pool_w = space.fixedview(w_iterable)
-    if space.is_w(w_r, space.w_None):
+    if space.is_none(w_r):
         r = len(pool_w)
     else:
         r = space.gateway_nonnegint_w(w_r)

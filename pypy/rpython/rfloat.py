@@ -1,13 +1,11 @@
 from pypy.tool.pairtype import pairtype
 from pypy.annotation import model as annmodel
-from pypy.rpython.lltypesystem.lltype import (
-    Signed, Unsigned, SignedLongLong, UnsignedLongLong,
-    Bool, Float, Void, pyobjectptr)
+from pypy.rpython.lltypesystem.lltype import (Signed, Unsigned, SignedLongLong,
+    UnsignedLongLong, Bool, Float)
 from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import FloatRepr
 from pypy.rpython.rmodel import IntegerRepr, BoolRepr
 from pypy.rpython.rstr import AbstractStringRepr
-from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rpython.rmodel import log
 
 from pypy.rlib.rarithmetic import base_int
@@ -54,8 +52,6 @@ class __extend__(pairtype(FloatRepr, FloatRepr)):
     rtype_inplace_div = rtype_inplace_truediv
 
     # 'floordiv' on floats not supported in RPython
-
-    # pow on floats not supported in RPython
 
     #comparisons: eq is_ ne lt le gt ge
 
@@ -194,22 +190,6 @@ class __extend__(pairtype(FloatRepr, BoolRepr)):
         if r_from.lowleveltype == Float and r_to.lowleveltype == Bool:
             log.debug('explicit cast_float_to_bool')
             return llops.genop('float_is_true', [v], resulttype=Bool)
-        return NotImplemented
-
-class __extend__(pairtype(PyObjRepr, FloatRepr)):
-    def convert_from_to((r_from, r_to), v, llops):
-        if r_to.lowleveltype == Float:
-            return llops.gencapicall('PyFloat_AsDouble', [v],
-                                     resulttype=Float,
-                                   _callable=lambda pyo: float(pyo._obj.value))
-        return NotImplemented
-
-class __extend__(pairtype(FloatRepr, PyObjRepr)):
-    def convert_from_to((r_from, r_to), v, llops):
-        if r_from.lowleveltype == Float:
-            return llops.gencapicall('PyFloat_FromDouble', [v],
-                                     resulttype=pyobj_repr,
-                                     _callable=lambda x: pyobjectptr(x))
         return NotImplemented
 
 # ______________________________________________________________________
