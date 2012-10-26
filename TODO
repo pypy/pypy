@@ -7,7 +7,7 @@ dead code because the grammar changed
 
 re-enable IntDictStrategy
 
-re-enable StdObjSpace.listview_str
+write strategies for unicode list/dict/set, and add StdObjSpace.listview_unicode & co.
 
 re-enable the kwargs dict strategy in dictmultiobject.py
 re-enable view_as_kwargs

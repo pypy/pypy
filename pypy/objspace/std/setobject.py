@@ -682,7 +682,8 @@ class UnicodeSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
         return {}
 
     def listview_str(self, w_set):
-        return self.unerase(w_set.sstorage).keys()
+        return None # this is for bytes, not unicode
+        #return self.unerase(w_set.sstorage).keys()
 
     def is_correct_type(self, w_key):
         return type(w_key) is W_UnicodeObject

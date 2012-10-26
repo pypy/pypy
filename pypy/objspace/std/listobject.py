@@ -1034,7 +1034,8 @@ class UnicodeListStrategy(AbstractUnwrappedStrategy, ListStrategy):
             l.reverse()
 
     def getitems_str(self, w_list):
-        return self.unerase(w_list.lstorage)
+        return None # note that getitems_str is for bytes, not unicode
+        #return self.unerase(w_list.lstorage)
 
 # _______________________________________________________
 
