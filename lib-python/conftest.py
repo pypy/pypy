@@ -183,7 +183,7 @@ testmap = [
     RegrTest('test_cpickle.py', core=True),
     RegrTest('test_cprofile.py'), 
     RegrTest('test_crypt.py', usemodules='crypt', skip=skip_win32),
-    RegrTest('test_csv.py'),
+    RegrTest('test_csv.py', usemodules='_csv'),
 
     RegrTest('test_curses.py', skip="unsupported extension module"),
     RegrTest('test_datetime.py'),

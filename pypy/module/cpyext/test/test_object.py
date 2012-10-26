@@ -342,6 +342,29 @@ class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
         assert "hello, world." == result
 
 
+    def test_fillReadonly(self):
+        """
+        PyBuffer_FillInfo fails if WRITABLE is passed but object is readonly.
+        """
+        module = self.import_extension('foo', [
+                ("fillinfo", "METH_VARARGS",
+                 """
+    Py_buffer buf;
+    PyObject *str = PyString_FromString("hello, world.");
+    PyObject *result;
+
+    if (PyBuffer_FillInfo(&buf, str, PyString_AsString(str), 13,
+                          1, PyBUF_WRITABLE)) {
+        Py_DECREF(str);
+        return NULL;
+    }
+    Py_DECREF(str);
+    PyBuffer_Release(&buf);
+    Py_RETURN_NONE;
+                 """)])
+        raises(ValueError, module.fillinfo)
+
+
 class AppTestPyBuffer_Release(AppTestCpythonExtensionBase):
     """
     PyBuffer_Release releases the resources held by a Py_buffer.

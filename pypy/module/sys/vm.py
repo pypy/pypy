@@ -5,7 +5,7 @@ import sys
 
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import unwrap_spec, NoneNotWrapped
+from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from pypy.rlib import jit
 from pypy.rlib.runicode import MAXUNICODE
 
@@ -20,7 +20,8 @@ def setbuiltinmodule(w_module, name):
             "trying to change the builtin-in module %r" % (name,))
     space.setitem(w_modules, space.wrap(name), w_module)
 
-def _getframe(space, w_depth=0):
+@unwrap_spec(w_depth = WrappedDefault(0))
+def _getframe(space, w_depth):
     """Return a frame object from the call stack.  If optional integer depth is
 given, return the frame object that many calls below the top of the stack.
 If that is deeper than the call stack, ValueError is raised.  The default
@@ -252,7 +253,7 @@ def _get_dllhandle(space):
     cdll = RawCDLL(handle)
     return space.wrap(W_CDLL(space, "python api", cdll))
 
-def getsizeof(space, w_object, w_default=NoneNotWrapped):
+def getsizeof(space, w_object, w_default=None):
     """Not implemented on PyPy."""
     if w_default is None:
         raise OperationError(space.w_TypeError,

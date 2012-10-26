@@ -1,3 +1,4 @@
+import sys
 from pypy.objspace.std.listobject import W_ListObject, EmptyListStrategy, ObjectListStrategy, IntegerListStrategy, FloatListStrategy, StringListStrategy, RangeListStrategy, make_range_list
 from pypy.objspace.std import listobject
 from pypy.objspace.std.test.test_listobject import TestW_ListObject
@@ -325,13 +326,13 @@ class TestW_ListStrategies(TestW_ListObject):
         l.pop(l.length()-1)
         assert isinstance(l.strategy, RangeListStrategy)
         l.append(self.space.wrap(5))
-        assert isinstance(l.strategy, RangeListStrategy)
+        assert isinstance(l.strategy, IntegerListStrategy)
 
         # complex list
         l = make_range_list(self.space, 1,3,5)
         assert isinstance(l.strategy, RangeListStrategy)
         l.append(self.space.wrap(16))
-        assert isinstance(l.strategy, RangeListStrategy)
+        assert isinstance(l.strategy, IntegerListStrategy)
 
     def test_empty_range(self):
         l = make_range_list(self.space, 0, 0, 0)
@@ -344,10 +345,26 @@ class TestW_ListStrategies(TestW_ListObject):
 
         assert isinstance(l.strategy, RangeListStrategy)
 
+    def test_range_getslice_ovf(self):
+        l = make_range_list(self.space, -sys.maxint, sys.maxint // 10, 21)
+        assert isinstance(l.strategy, RangeListStrategy)
+        l2 = l.getslice(0, 21, 11, 2)
+        assert isinstance(l2.strategy, IntegerListStrategy)
+
     def test_range_setslice(self):
         l = make_range_list(self.space, 1, 3, 5)
         assert isinstance(l.strategy, RangeListStrategy)
         l.setslice(0, 1, 3, W_ListObject(self.space, [self.space.wrap(1), self.space.wrap(2), self.space.wrap(3)]))
+        assert isinstance(l.strategy, IntegerListStrategy)
+
+    def test_range_reverse_ovf(self):
+        l = make_range_list(self.space, 0, -sys.maxint - 1, 1)
+        assert isinstance(l.strategy, RangeListStrategy)
+        l.reverse()
+        assert isinstance(l.strategy, IntegerListStrategy)
+
+        l = make_range_list(self.space, 0, -sys.maxint - 1, 1)
+        l.sort(False)
         assert isinstance(l.strategy, IntegerListStrategy)
 
     def test_copy_list(self):

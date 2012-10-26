@@ -245,6 +245,7 @@ class BaseConcreteArray(base.BaseArrayImplementation):
     def setitem_index(self, space, index, value):
         self.setitem(self._lookup_by_unwrapped_index(space, index), value)
 
+    @jit.unroll_safe
     def _single_item_index(self, space, w_idx):
         """ Return an index of single item if possible, otherwise raises
         IndexError

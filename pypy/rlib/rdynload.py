@@ -44,6 +44,10 @@ class CConfig:
     RTLD_LOCAL = rffi_platform.DefinedConstantInteger('RTLD_LOCAL')
     RTLD_GLOBAL = rffi_platform.DefinedConstantInteger('RTLD_GLOBAL')
     RTLD_NOW = rffi_platform.DefinedConstantInteger('RTLD_NOW')
+    RTLD_LAZY = rffi_platform.DefinedConstantInteger('RTLD_LAZY')
+    RTLD_NODELETE = rffi_platform.DefinedConstantInteger('RTLD_NODELETE')
+    RTLD_NOLOAD = rffi_platform.DefinedConstantInteger('RTLD_NOLOAD')
+    RTLD_DEEPBIND = rffi_platform.DefinedConstantInteger('RTLD_DEEPBIND')
 
 class cConfig:
     pass
@@ -72,6 +76,7 @@ if not _WIN32:
     RTLD_LOCAL = cConfig.RTLD_LOCAL
     RTLD_GLOBAL = cConfig.RTLD_GLOBAL
     RTLD_NOW = cConfig.RTLD_NOW
+    RTLD_LAZY = cConfig.RTLD_LAZY
 
     def dlerror():
         # XXX this would never work on top of ll2ctypes, because
@@ -90,7 +95,8 @@ if not _WIN32:
                 mode = RTLD_LOCAL
             else:
                 mode = 0
-        mode |= RTLD_NOW
+        if (mode & (RTLD_LAZY | RTLD_NOW)) == 0:
+            mode |= RTLD_NOW
         res = c_dlopen(name, rffi.cast(rffi.INT, mode))
         if not res:
             err = dlerror()

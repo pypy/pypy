@@ -68,6 +68,8 @@ int pypy_main_function(int argc, char *argv[])
         pypy_debug_catch_fatal_exception();
     }
 
+    pypy_malloc_counters_results();
+
     return exitcode;
 
  memory_out:

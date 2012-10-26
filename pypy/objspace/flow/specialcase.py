@@ -1,11 +1,7 @@
-from pypy.objspace.flow.model import Constant, UnwrapException
+from pypy.objspace.flow.model import Constant
 from pypy.objspace.flow.operation import OperationName, Arity
-from pypy.interpreter.gateway import ApplevelClass
-from pypy.interpreter.error import OperationError
-from pypy.tool.cache import Cache
 from pypy.rlib.rarithmetic import r_uint
 from pypy.rlib.objectmodel import we_are_translated
-import py
 
 def sc_import(space, fn, args):
     args_w, kwds_w = args.unpack()
@@ -35,11 +31,13 @@ def sc_operator(space, fn, args):
 class StdOutBuffer:
     linebuf = []
 stdoutbuffer = StdOutBuffer()
+
 def rpython_print_item(s):
     buf = stdoutbuffer.linebuf
     for c in s:
         buf.append(c)
     buf.append(' ')
+
 def rpython_print_newline():
     buf = stdoutbuffer.linebuf
     if buf:
@@ -50,18 +48,6 @@ def rpython_print_newline():
         s = '\n'
     import os
     os.write(1, s)
-
-def sc_applevel(space, app, name, args_w):
-    # special case only for print_item and print_newline
-    if 'pyopcode' in app.filename and name == 'print_item':
-        w_s = space.do_operation('str', *args_w)
-        args_w = (w_s,)
-    elif 'pyopcode' in app.filename and name == 'print_newline':
-        pass
-    else:
-        raise Exception("not RPython: calling %r from %r" % (name, app))
-    func = globals()['rpython_' + name]
-    return space.do_operation('simple_call', Constant(func), *args_w)
 
 # _________________________________________________________________________
 
@@ -79,8 +65,8 @@ def sc_r_uint(space, r_uint, args):
 def sc_we_are_translated(space, we_are_translated, args):
     return Constant(True)
 
-SPECIAL_CASES = {__import__: sc_import, ApplevelClass: sc_applevel,
-        r_uint: sc_r_uint, we_are_translated: sc_we_are_translated}
+SPECIAL_CASES = {__import__: sc_import, r_uint: sc_r_uint,
+        we_are_translated: sc_we_are_translated}
 for fn in OperationName:
     SPECIAL_CASES[fn] = sc_operator
 

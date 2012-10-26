@@ -45,7 +45,7 @@ class W_CTypeEnum(W_CTypePrimitiveSigned):
         return w_result
 
     def convert_to_object(self, cdata):
-        value = intmask(misc.read_raw_signed_data(cdata, self.size))
+        value = misc.read_raw_long_data(cdata, self.size)
         try:
             enumerator = self.enumvalues2erators[value]
         except KeyError:

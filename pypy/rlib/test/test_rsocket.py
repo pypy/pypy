@@ -167,7 +167,8 @@ def test_simple_tcp():
     lock.acquire()
     thread.start_new_thread(connecting, ())
     print 'waiting for connection'
-    s1, addr2 = sock.accept()
+    fd1, addr2 = sock.accept()
+    s1 = RSocket(fd=fd1)
     print 'connection accepted'
     lock.acquire()
     print 'connecting side knows that the connection was accepted too'
@@ -255,7 +256,8 @@ def test_nonblocking():
     if errcodesok:
         assert err.value.errno in (errno.EINPROGRESS, errno.EWOULDBLOCK)
 
-    s1, addr2 = sock.accept()
+    fd1, addr2 = sock.accept()
+    s1 = RSocket(fd=fd1)
     s1.setblocking(False)
     assert addr.eq(s2.getpeername())
     assert addr2.get_port() == s2.getsockname().get_port()
@@ -414,7 +416,8 @@ def test_unix_socket_connect():
 
     clientsock = RSocket(AF_UNIX)
     clientsock.connect(a)
-    s, addr = serversock.accept()
+    fd, addr = serversock.accept()
+    s = RSocket(AF_UNIX, fd=fd)
 
     s.send('X')
     data = clientsock.recv(100)

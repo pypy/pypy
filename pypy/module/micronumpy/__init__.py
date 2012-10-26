@@ -64,6 +64,10 @@ class Module(MixedModule):
         'str_': 'interp_boxes.W_StringBox',
         'unicode_': 'interp_boxes.W_UnicodeBox',
         'void': 'interp_boxes.W_VoidBox',
+        'complexfloating': 'interp_boxes.W_ComplexFloatingBox',
+        'complex_': 'interp_boxes.W_Complex128Box',
+        'complex128': 'interp_boxes.W_Complex128Box',
+        'complex64': 'interp_boxes.W_Complex64Box',
     }
 
     # ufuncs
@@ -78,6 +82,8 @@ class Module(MixedModule):
         ("arccosh", "arccosh"),
         ("arcsinh", "arcsinh"),
         ("arctanh", "arctanh"),
+        ("conj", "conjugate"),
+        ("conjugate", "conjugate"),
         ("copysign", "copysign"),
         ("cos", "cos"),
         ("cosh", "cosh"),
@@ -141,6 +147,8 @@ class Module(MixedModule):
         ('floor_divide', 'floor_divide'),
         ('logaddexp', 'logaddexp'),
         ('logaddexp2', 'logaddexp2'),
+        ('real', 'real'),
+        ('imag', 'imag'),
     ]:
         interpleveldefs[exposed] = "interp_ufuncs.get(space).%s" % impl
 

@@ -1,18 +1,21 @@
 import random
-from pypy.rpython.lltypesystem.lltype import *
-from pypy.rpython.rstr import AbstractLLHelpers
-from pypy.rpython.lltypesystem.rstr import LLHelpers, STR
-from pypy.rpython.ootypesystem.ootype import make_string
-from pypy.rpython.rtyper import RPythonTyper, TyperError
-from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
-from pypy.rpython.llinterp import LLException
+
+import py
+
 from pypy.objspace.flow.model import summary
+from pypy.rpython.lltypesystem.lltype import typeOf, Signed, malloc
+from pypy.rpython.lltypesystem.rstr import LLHelpers, STR
+from pypy.rpython.rstr import AbstractLLHelpers
+from pypy.rpython.rtyper import TyperError
+from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+
 
 def test_parse_fmt():
     parse = AbstractLLHelpers.parse_fmt_string
     assert parse('a') == ['a']
     assert parse('%s') == [('s',)]
     assert parse("name '%s' is not defined") == ["name '", ("s",), "' is not defined"]
+
 
 class AbstractTestRstr(BaseRtypingTest):
     def test_simple(self):
@@ -145,6 +148,16 @@ class AbstractTestRstr(BaseRtypingTest):
         assert res is True
         res = self.interpret(lambda c1, c2: c1 <= c2,  [const('z'),
                                                         const('a')])
+        assert res is False
+
+    def test_char_string_compare(self):
+        const = self.const
+        lst = [const('a'), const('abc')]
+        res = self.interpret(lambda i1, c2: (lst[i1],) == (c2,),
+                             [1, const('b')])
+        assert res is False
+        res = self.interpret(lambda i1, c2: (c2,) == (lst[i1],),
+                             [1, const('b')])
         assert res is False
 
     def test_char_mul(self):
@@ -1026,6 +1039,19 @@ class BaseTestRstr(AbstractTestRstr):
     const = str
     constchar = chr
 
+    def test_lower_char(self):
+        def fn(i):
+            return chr(i).lower()
+        for c in ["a", "A", "1"]:
+            assert self.interpret(fn, [ord(c)]) == c.lower()
+
+    def test_upper_char(self):
+        def fn(i):
+            return chr(i).upper()
+        for c in ["a", "A", "1"]:
+            assert self.interpret(fn, [ord(c)]) == c.upper()
+
+
 class TestLLtype(BaseTestRstr, LLRtypeMixin):
 
     def test_ll_find_rfind(self):
@@ -1056,4 +1082,8 @@ class TestLLtype(BaseTestRstr, LLRtypeMixin):
 
 
 class TestOOtype(BaseTestRstr, OORtypeMixin):
-    pass
+    def test_lower_char(self):
+        py.test.skip()
+
+    def test_upper_char(self):
+        py.test.skip()
