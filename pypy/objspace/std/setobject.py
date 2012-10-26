@@ -13,6 +13,7 @@ from pypy.interpreter.generator import GeneratorIterator
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.stringobject import W_StringObject
+from pypy.objspace.std.unicodeobject import W_UnicodeObject
 
 class W_BaseSetObject(W_Object):
     typedef = None

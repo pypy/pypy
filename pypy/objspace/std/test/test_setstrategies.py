@@ -1,5 +1,6 @@
 from pypy.objspace.std.setobject import W_SetObject
-from pypy.objspace.std.setobject import IntegerSetStrategy, ObjectSetStrategy, EmptySetStrategy
+from pypy.objspace.std.setobject import (IntegerSetStrategy, ObjectSetStrategy,
+                                         EmptySetStrategy, StringSetStrategy)
 from pypy.objspace.std.listobject import W_ListObject
 
 class TestW_SetStrategies:
@@ -19,6 +20,9 @@ class TestW_SetStrategies:
 
         s = W_SetObject(self.space, self.wrapped([]))
         assert s.strategy is self.space.fromcache(EmptySetStrategy)
+
+        s = W_SetObject(self.space, self.wrapped(["a", "b"]))
+        assert s.strategy is self.space.fromcache(StringSetStrategy)
 
     def test_switch_to_object(self):
         s = W_SetObject(self.space, self.wrapped([1,2,3,4,5]))
