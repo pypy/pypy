@@ -379,6 +379,8 @@ class __extend__(W_NDimArray):
     def descr_argsort(self, space, w_axis=None, w_kind=None, w_order=None):
         # happily ignore the kind
         # create a contiguous copy of the array
+        # we must do that, because we need a working set. otherwise
+        # we would modify the array in-place
         contig = self.descr_copy(space)
         return contig.implementation.argsort(space, w_axis)
 
