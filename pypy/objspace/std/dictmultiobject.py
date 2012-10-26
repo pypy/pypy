@@ -207,6 +207,9 @@ class EmptyDictStrategy(DictStrategy):
         if type(w_key) is self.space.StringObjectCls:
             self.switch_to_string_strategy(w_dict)
             return
+        elif type(w_key) is self.space.UnicodeObjectCls:
+            self.switch_to_unicode_strategy(w_dict)
+            return
         w_type = self.space.type(w_key)
         if self.space.is_w(w_type, self.space.w_int):
             self.switch_to_int_strategy(w_dict)
@@ -217,6 +220,12 @@ class EmptyDictStrategy(DictStrategy):
 
     def switch_to_string_strategy(self, w_dict):
         strategy = self.space.fromcache(StringDictStrategy)
+        storage = strategy.get_empty_storage()
+        w_dict.strategy = strategy
+        w_dict.dstorage = storage
+
+    def switch_to_unicode_strategy(self, w_dict):
+        strategy = self.space.fromcache(UnicodeDictStrategy)
         storage = strategy.get_empty_storage()
         w_dict.strategy = strategy
         w_dict.dstorage = storage
@@ -623,6 +632,73 @@ class StringDictStrategy(AbstractTypedStrategy, DictStrategy):
         return keys, values
 
 create_iterator_classes(StringDictStrategy)
+
+
+class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
+
+    erase, unerase = rerased.new_erasing_pair("unicode")
+    erase = staticmethod(erase)
+    unerase = staticmethod(unerase)
+
+    def wrap(self, unwrapped):
+        return self.space.wrap(unwrapped)
+
+    def unwrap(self, wrapped):
+        return self.space.unicode_w(wrapped)
+
+    def is_correct_type(self, w_obj):
+        space = self.space
+        return space.is_w(space.type(w_obj), space.w_unicode)
+
+    def get_empty_storage(self):
+        res = {}
+        mark_dict_non_null(res)
+        return self.erase(res)
+
+    def _never_equal_to(self, w_lookup_type):
+        return _never_equal_to_string(self.space, w_lookup_type)
+
+    # we should implement the same shortcuts as we do for StringDictStrategy
+
+    ## def setitem_str(self, w_dict, key, w_value):
+    ##     assert key is not None
+    ##     self.unerase(w_dict.dstorage)[key] = w_value
+
+    ## def getitem(self, w_dict, w_key):
+    ##     space = self.space
+    ##     # -- This is called extremely often.  Hack for performance --
+    ##     if type(w_key) is space.StringObjectCls:
+    ##         return self.getitem_str(w_dict, w_key.unwrap(space))
+    ##     # -- End of performance hack --
+    ##     return AbstractTypedStrategy.getitem(self, w_dict, w_key)
+
+    ## def getitem_str(self, w_dict, key):
+    ##     assert key is not None
+    ##     return self.unerase(w_dict.dstorage).get(key, None)
+
+    ## def listview_str(self, w_dict):
+    ##     return self.unerase(w_dict.dstorage).keys()
+
+    ## def w_keys(self, w_dict):
+    ##     return self.space.newlist_str(self.listview_str(w_dict))
+
+    def wrapkey(space, key):
+        return space.wrap(key)
+
+    ## @jit.look_inside_iff(lambda self, w_dict:
+    ##                      w_dict_unrolling_heuristic(w_dict))
+    ## def view_as_kwargs(self, w_dict):
+    ##     d = self.unerase(w_dict.dstorage)
+    ##     l = len(d)
+    ##     keys, values = [None] * l, [None] * l
+    ##     i = 0
+    ##     for key, val in d.iteritems():
+    ##         keys[i] = key
+    ##         values[i] = val
+    ##         i += 1
+    ##     return keys, values
+
+create_iterator_classes(UnicodeDictStrategy)
 
 
 class IntDictStrategy(AbstractTypedStrategy, DictStrategy):

@@ -3,7 +3,7 @@ import sys
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.dictmultiobject import \
      W_DictMultiObject, setitem__DictMulti_ANY_ANY, getitem__DictMulti_ANY, \
-     StringDictStrategy, ObjectDictStrategy, UnicodeDictStrategy
+     StringDictStrategy, ObjectDictStrategy
 
 from pypy.conftest import gettestobjspace
 from pypy.conftest import option
@@ -798,6 +798,16 @@ class AppTestStrategies(object):
         assert "EmptyDictStrategy" in self.get_strategy(d)
         o.a = 1
         assert "StringDictStrategy" in self.get_strategy(d)
+
+    def test_empty_to_unicode(self):
+        d = {}
+        assert "EmptyDictStrategy" in self.get_strategy(d)
+        d[u"a"] = 1
+        assert "UnicodeDictStrategy" in self.get_strategy(d)
+        assert d[u"a"] == 1
+        assert d["a"] == 1
+        assert d.keys() == [u"a"]
+        assert type(d.keys()[0]) is unicode
 
     def test_empty_to_int(self):
         import sys

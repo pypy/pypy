@@ -29,6 +29,7 @@ from pypy.objspace.std.setobject import W_SetObject, W_FrozensetObject
 from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.objspace.std.smallintobject import W_SmallIntObject
 from pypy.objspace.std.stringobject import W_StringObject
+from pypy.objspace.std.unicodeobject import W_UnicodeObject
 from pypy.objspace.std.tupleobject import W_AbstractTupleObject
 from pypy.objspace.std.typeobject import W_TypeObject
 
@@ -52,6 +53,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
             self.StringObjectCls = W_RopeObject
         else:
             self.StringObjectCls = W_StringObject
+            
+        self.UnicodeObjectCls = W_UnicodeObject
 
         self._install_multimethods()
 
