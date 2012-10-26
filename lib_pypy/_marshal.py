@@ -3,6 +3,9 @@
 This module contains functions that can read and write Python values in a binary format. The format is specific to Python, but independent of machine architecture issues (e.g., you can write a Python value to a file on a PC, transport the file to a Sun, and read it back there). Details of the format may change between Python versions.
 """
 
+# NOTE: This module is used in the Python3 interpreter, but also by
+# the "sandboxed" process.  It must work for Python2 as well.
+
 import types
 from _codecs import utf_8_decode, utf_8_encode
 import sys
@@ -96,6 +99,7 @@ class _Marshaller:
     except NameError:
         pass
 
+    # In Python3, this function is not used; see dump_long() below.
     def dump_int(self, x):
         y = x>>31
         if y and y != -1:
@@ -119,7 +123,12 @@ class _Marshaller:
         self.w_long(len(digits) * sign)
         for d in digits:
             self.w_short(d)
-    dispatch[int] = dump_long
+    try:
+        long
+    except NameError:
+        dispatch[int] = dump_long
+    else:
+        dispatch[long] = dump_long
 
     def dump_float(self, x):
         write = self._write
@@ -157,7 +166,12 @@ class _Marshaller:
         s, len_s = utf_8_encode(x)
         self.w_long(len_s)
         self._write(s)
-    dispatch[str] = dump_unicode
+    try:
+        unicode
+    except NameError:
+        dispatch[str] = dump_unicode
+    else:
+        dispatch[unicode] = dump_unicode
 
     def dump_tuple(self, x):
         self._write(TYPE_TUPLE)
