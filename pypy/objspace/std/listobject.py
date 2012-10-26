@@ -223,6 +223,11 @@ class W_ListObject(W_AbstractListObject):
         not use the list strategy, return None. """
         return self.strategy.getitems_str(self)
 
+    def getitems_unicode(self):
+        """ Return the items in the list as unwrapped unicodes. If the list does
+        not use the list strategy, return None. """
+        return self.strategy.getitems_unicode(self)
+
     def getitems_int(self):
         """ Return the items in the list as unwrapped ints. If the list does
         not use the list strategy, return None. """
@@ -325,6 +330,9 @@ class ListStrategy(object):
         raise NotImplementedError
 
     def getitems_str(self, w_list):
+        return None
+
+    def getitems_unicode(self, w_list):
         return None
 
     def getitems_int(self, w_list):
@@ -1078,6 +1086,8 @@ class UnicodeListStrategy(AbstractUnwrappedStrategy, ListStrategy):
         if reverse:
             l.reverse()
 
+    def getitems_unicode(self, w_list):
+        return self.unerase(w_list.lstorage)
 
 # _______________________________________________________
 

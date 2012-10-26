@@ -953,6 +953,13 @@ class ObjSpace(object):
         """
         return None
 
+    def listview_unicode(self, w_list):
+        """ Return a list of unwrapped unicode out of a list of unicode. If the
+        argument is not a list or does not contain only unicode, return None.
+        May return None anyway.
+        """
+        return None
+
     def view_as_kwargs(self, w_dict):
         """ if w_dict is a kwargs-dict, return two lists, one of unwrapped
         strings and one of wrapped values. otherwise return (None, None)

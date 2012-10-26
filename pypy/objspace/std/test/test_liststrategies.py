@@ -515,6 +515,12 @@ class TestW_ListStrategies(TestW_ListObject):
         w_l = self.space.newlist([self.space.wrap('a'), self.space.wrap('b')])
         assert space.listview_str(w_l) == ["a", "b"]
 
+    def test_listview_unicode(self):
+        space = self.space
+        assert space.listview_unicode(space.wrap(1)) == None
+        w_l = self.space.newlist([self.space.wrap(u'a'), self.space.wrap(u'b')])
+        assert space.listview_unicode(w_l) == [u"a", u"b"]
+
     def test_string_join_uses_listview_str(self):
         space = self.space
         w_l = self.space.newlist([self.space.wrap('a'), self.space.wrap('b')])

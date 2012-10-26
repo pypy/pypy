@@ -464,6 +464,21 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return w_obj.getitems_str()
         return None
 
+    def listview_unicode(self, w_obj):
+        # note: uses exact type checking for objects with strategies,
+        # and isinstance() for others.  See test_listobject.test_uses_custom...
+        if type(w_obj) is W_ListObject:
+            return w_obj.getitems_unicode()
+        ## if type(w_obj) is W_DictMultiObject:
+        ##     return w_obj.listview_unicode()
+        ## if type(w_obj) is W_SetObject or type(w_obj) is W_FrozensetObject:
+        ##     return w_obj.listview_unicode()
+        ## if isinstance(w_obj, W_UnicodeObject):
+        ##     return w_obj.listview_unicode()
+        ## if isinstance(w_obj, W_ListObject) and self._uses_list_iter(w_obj):
+        ##     return w_obj.getitems_unicode()
+        return None
+
     def listview_int(self, w_obj):
         if type(w_obj) is W_ListObject:
             return w_obj.getitems_int()
