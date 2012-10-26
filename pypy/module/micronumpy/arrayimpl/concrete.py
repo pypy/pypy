@@ -10,7 +10,7 @@ from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rlib import jit
 from pypy.rlib.rawstorage import free_raw_storage
-from pypy.module.micronumpy.arrayimpl.sort import sort_array
+from pypy.module.micronumpy.arrayimpl.sort import argsort_array
 
 class ConcreteArrayIterator(base.BaseArrayIterator):
     def __init__(self, array):
@@ -404,8 +404,8 @@ class ConcreteArray(BaseConcreteArray):
                                                     self.order)
         return SliceArray(0, strides, backstrides, new_shape, self)
 
-    def argsort(self, space):
-        return sort_array(self, space)
+    def argsort(self, space, w_axis):
+        return argsort_array(self, space, w_axis)
 
 class SliceArray(BaseConcreteArray):
     def __init__(self, start, strides, backstrides, shape, parent, dtype=None):

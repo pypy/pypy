@@ -2141,6 +2141,22 @@ class AppTestSupport(BaseNumpyAppTest):
         assert array([1, 2, 3], '<i2')[::2].tostring() == '\x01\x00\x03\x00'
         assert array([1, 2, 3], '>i2')[::2].tostring() == '\x00\x01\x00\x03'
 
+    def test_argsort(self):
+        from _numpypy import array
+        a = array([[4, 2], [1, 3]])
+        assert (a.argsort() == [[1, 0], [0, 1]]).all()
+
+    def test_argsort_axis(self):
+        from _numpypy import array
+        a = array([[4, 2], [1, 3]]) 
+        assert (a.argsort(axis=None) == [2, 1, 3, 0]).all()
+        assert (a.argsort(axis=-1) == [[1, 0], [0, 1]]).all()
+        assert (a.argsort(axis=0) == [[1, 0], [0, 1]]).all()
+        assert (a.argsort(axis=1) == [[1, 0], [0, 1]]).all()
+        a = array([[3, 2, 1], [1, 2, 3]])
+        assert (a.argsort(axis=0) == [[1, 0, 0], [0, 1, 1]]).all()
+        assert (a.argsort(axis=1) == [[2, 1, 0], [0, 1, 2]]).all()
+
 class AppTestRanges(BaseNumpyAppTest):
     def test_arange(self):
         from _numpypy import arange, array, dtype

@@ -96,5 +96,5 @@ class Scalar(base.BaseArrayImplementation):
         raise OperationError(space.w_ValueError,
                              space.wrap("scalars have no address"))
 
-    def argsort(self, space):
+    def argsort(self, space, w_axis):
         return space.wrap(0)

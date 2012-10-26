@@ -56,21 +56,32 @@ def make_sort_classes(space, itemtype):
 
     return ArgArrayRepresentation, ArgSort
 
-def sort_array(arr, space):
+def argsort_array(arr, space, w_axis):
     itemtype = arr.dtype.itemtype
     if (not isinstance(itemtype, types.Float) and
         not isinstance(itemtype, types.Integer)):
+        # XXX this should probably be changed
         raise OperationError(space.w_NotImplementedError,
            space.wrap("sorting of non-numeric types is not implemented"))
+    if w_axis is space.w_None:
+        arr = arr.reshape(space, [arr.get_size()])
+        axis = 0
+    elif w_axis is None:
+        axis = -1
+    else:
+        axis = space.int_w(w_axis)
     itemsize = itemtype.get_element_size()
     # create array of indexes
     dtype = interp_dtype.get_dtype_cache(space).w_longdtype
-    indexes = W_NDimArray.from_shape([arr.get_size()], dtype)
-    storage = indexes.implementation.get_storage()
-    for i in range(arr.get_size()):
-        raw_storage_setitem(storage, i * INT_SIZE, i)
-    Repr, Sort = make_sort_classes(space, itemtype)
-    r = Repr(itemsize, arr.get_size(), arr.get_storage(),
-             indexes.implementation.get_storage())
-    Sort(r).sort()
+    indexes = W_NDimArray.from_shape(arr.get_shape(), dtype)
+    if len(arr.get_shape()) == 1:
+        storage = indexes.implementation.get_storage()
+        for i in range(arr.get_size()):
+            raw_storage_setitem(storage, i * INT_SIZE, i)
+        Repr, Sort = make_sort_classes(space, itemtype)
+        r = Repr(itemsize, arr.get_size(), arr.get_storage(),
+                 indexes.implementation.get_storage())
+        Sort(r).sort()
+    else:
+        xxx
     return indexes

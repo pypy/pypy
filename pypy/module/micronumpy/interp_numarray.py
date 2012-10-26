@@ -366,7 +366,7 @@ class __extend__(W_NDimArray):
         # happily ignore the kind
         # create a contiguous copy of the array
         contig = self.descr_copy(space)
-        return contig.implementation.argsort(space)
+        return contig.implementation.argsort(space, w_axis)
 
     def descr_astype(self, space, w_type):
         raise OperationError(space.w_NotImplementedError, space.wrap(
