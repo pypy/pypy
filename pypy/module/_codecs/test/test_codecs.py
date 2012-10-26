@@ -492,6 +492,14 @@ class AppTestPartialEvaluation:
         assert b'a\x80b'.decode('utf-8', 'surrogateescape') == 'a\udc80b'
         assert 'a\udc80b'.encode('utf-8', 'surrogateescape') == b'a\x80b'
 
+    def test_surrogatepass_handler(self):
+        import _codecs
+        assert _codecs.lookup_error("surrogatepass")
+        assert ("abc\ud800def".encode("utf-8", "surrogatepass") ==
+                b"abc\xed\xa0\x80def")
+        assert (b"abc\xed\xa0\x80def".decode("utf-8", "surrogatepass") ==
+                "abc\ud800def")
+
     def test_badhandler(self):
         import codecs
         results = ( 42, "foo", (1,2,3), ("foo", 1, 3), ("foo", None), ("foo",), ("foo", 1, 3), ("foo", None), ("foo",) )

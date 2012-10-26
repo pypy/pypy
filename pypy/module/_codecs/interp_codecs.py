@@ -248,6 +248,50 @@ def backslashreplace_errors(space, w_exc):
         raise operationerrfmt(space.w_TypeError,
             "don't know how to handle %s in error callback", typename)
 
+def surrogatepass_errors(space, w_exc):
+    check_exception(space, w_exc)
+    if space.isinstance_w(w_exc, space.w_UnicodeEncodeError):
+        obj = space.realunicode_w(space.getattr(w_exc, space.wrap('object')))
+        start = space.int_w(space.getattr(w_exc, space.wrap('start')))
+        w_end = space.getattr(w_exc, space.wrap('end'))
+        end = space.int_w(w_end)
+        res = ''
+        pos = start
+        while pos < end:
+            ch = ord(obj[pos])
+            pos += 1
+            if ch < 0xd800 or ch > 0xdfff:
+                # Not a surrogate, fail with original exception
+                raise OperationError(space.type(w_exc), w_exc)
+            res += chr(0xe0 | (ch >> 12))
+            res += chr(0x80 | ((ch >> 6) & 0x3f))
+            res += chr(0x80 | (ch >> 0x3f))
+        return space.newtuple([space.wrapbytes(res), w_end])
+    elif space.isinstance_w(w_exc, space.w_UnicodeDecodeError):
+        start = space.int_w(space.getattr(w_exc, space.wrap('start')))
+        obj = space.bytes_w(space.getattr(w_exc, space.wrap('object')))
+        ch = 0
+        # Try decoding a single surrogate character. If there are more,
+        # let the codec call us again
+        ch0 = ord(obj[start + 0])
+        ch1 = ord(obj[start + 1])
+        ch2 = ord(obj[start + 2])
+        if (ch0 & 0xf0 == 0xe0 or
+            ch1 & 0xc0 == 0x80 or
+            ch2 & 0xc0 == 0x80):
+            # it's a three-byte code
+            ch = ((ch0 & 0x0f) << 12) + ((ch1 & 0x3f) << 6) + (ch2 & 0x3f)
+            if ch < 0xd800 or ch > 0xdfff:
+                # it's not a surrogate - fail
+                ch = 0
+        if ch == 0:
+            raise OperationError(space.type(w_exc), w_exc)
+        return space.newtuple([space.wrap(unichr(ch)), space.wrap(start + 3)])
+    else:
+        typename = space.type(w_exc).getname(space)
+        raise operationerrfmt(space.w_TypeError,
+            "don't know how to handle %s in error callback", typename)
+
 def surrogateescape_errors(space, w_exc):
     check_exception(space, w_exc)
     if space.isinstance_w(w_exc, space.w_UnicodeEncodeError):
@@ -292,7 +336,7 @@ def register_builtin_error_handlers(space):
     "NOT_RPYTHON"
     state = space.fromcache(CodecState)
     for error in ("strict", "ignore", "replace", "xmlcharrefreplace",
-                  "backslashreplace", "surrogateescape"):
+                  "backslashreplace", "surrogateescape", "surrogatepass"):
         name = error + "_errors"
         state.codec_error_registry[error] = space.wrap(interp2app(globals()[name]))
 
