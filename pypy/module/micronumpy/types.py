@@ -919,6 +919,20 @@ class NonNativeFloat(NonNativePrimitive, Float):
         return struct.pack(self.format_code, self.unbox(box))
 
 
+class Float16(BaseType, Float):
+    _attrs_ = ()
+
+    T = rffi.FLOAT
+    BoxType = interp_boxes.W_Float16Box
+    format_code = "e"
+
+class NonNativeFloat16(BaseType, NonNativeFloat):
+    _attrs_ = ()
+
+    T = rffi.FLOAT
+    BoxType = interp_boxes.W_Float16Box
+    format_code = "e"
+
 class Float32(BaseType, Float):
     _attrs_ = ()
 

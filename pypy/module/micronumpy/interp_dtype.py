@@ -465,6 +465,14 @@ class DtypeCache(object):
             #alternate_constructors=[space.w_buffer],
             # XXX no buffer in space
         )
+        self.w_float16dtype = W_Dtype(
+            types.Float16(),
+            num=11,
+            kind=FLOATINGLTR,
+            name="float16",
+            char="e",
+            w_box_type=space.gettypefor(interp_boxes.W_Float16Box),
+        )
         ptr_size = rffi.sizeof(rffi.CCHARP)
         if ptr_size == 4:
             intp_box = interp_boxes.W_Int32Box
@@ -499,14 +507,14 @@ class DtypeCache(object):
             self.w_int16dtype, self.w_uint16dtype, self.w_int32dtype,
             self.w_uint32dtype, self.w_longdtype, self.w_ulongdtype,
             self.w_int64dtype, self.w_uint64dtype,
-            self.w_float32dtype, self.w_float64dtype, self.w_complex64dtype,
+            self.w_float12type, self.w_float32dtype, self.w_float64dtype, self.w_complex64dtype,
             self.w_complex128dtype,
             self.w_stringdtype, self.w_unicodedtype,
             self.w_voiddtype, self.w_intpdtype, self.w_uintpdtype,
         ]
         self.float_dtypes_by_num_bytes = sorted(
             (dtype.itemtype.get_element_size(), dtype)
-            for dtype in [self.w_float32dtype, self.w_float64dtype]
+            for dtype in [self.w_float16type, self.w_float32dtype, self.w_float64dtype]
         )
         self.dtypes_by_name = {}
         # we reverse, so the stuff with lower numbers override stuff with

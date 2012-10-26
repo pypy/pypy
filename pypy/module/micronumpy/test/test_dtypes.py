@@ -228,6 +228,7 @@ class AppTestDtypes(BaseNumpyAppTest):
             (numpy.int16, 5),
             (numpy.uint32, 7),
             (numpy.int64, 3),
+            (numpy.float16, 3.14156),
             (numpy.float32, 2.0),
             (numpy.float64, 4.32),
         ]:
@@ -426,6 +427,17 @@ class AppTestTypes(BaseNumpyAppTest):
         assert numpy.uint64(9223372036854775808) == 9223372036854775808
         assert numpy.uint64(18446744073709551615) == 18446744073709551615
         raises(OverflowError, numpy.uint64(18446744073709551616))
+
+    def test_float16(self):
+        import _numpypy as numpy
+        assert numpy.float16.mro() == [numpy.float16, numpy.floating, 
+                                       numpy.inexact, numpy.number, 
+                                       numpy.generic, object]
+
+        assert numpy.float16(12) == numpy.float64(12)
+        assert numpy.float16('23.4') == numpy.float16(23.4)
+        raises(ValueError, numpy.float16, '23.2df')
+
 
     def test_float32(self):
         import _numpypy as numpy
