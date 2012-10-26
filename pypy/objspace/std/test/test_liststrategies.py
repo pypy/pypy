@@ -277,72 +277,88 @@ class TestW_ListStrategies(TestW_ListObject):
         assert l.strategy is space.fromcache(ObjectListStrategy)
 
     def test_empty_setslice_with_objectlist(self):
-        l = W_ListObject(self.space, [])
-        o = W_ListObject(self.space, [self.space.wrap(1), self.space.wrap("2"), self.space.wrap(3)])
+        space = self.space
+        w = space.wrap
+        
+        l = W_ListObject(space, [])
+        o = W_ListObject(space, [space.wrap(1), space.wrap("2"), space.wrap(3)])
         l.setslice(0, 1, o.length(), o)
         assert l.getitems() == o.getitems()
-        l.append(self.space.wrap(17))
+        l.append(space.wrap(17))
         assert l.getitems() != o.getitems()
 
     def test_extend(self):
-        l = W_ListObject(self.space, [])
+        space = self.space
+        w = space.wrap
+
+        l = W_ListObject(space, [])
         assert isinstance(l.strategy, EmptyListStrategy)
-        l.extend(W_ListObject(self.space, [self.space.wrap(1), self.space.wrap(2), self.space.wrap(3)]))
+        l.extend(W_ListObject(space, [w(1), w(2), w(3)]))
         assert isinstance(l.strategy, IntegerListStrategy)
 
-        l = W_ListObject(self.space, [self.space.wrap(1), self.space.wrap(2), self.space.wrap(3)])
+        l = W_ListObject(space, [w(1), w(2), w(3)])
         assert isinstance(l.strategy, IntegerListStrategy)
-        l.extend(W_ListObject(self.space, [self.space.wrap('a'), self.space.wrap('b'), self.space.wrap('c')]))
+        l.extend(W_ListObject(space, [w('a'), w('b'), w('c')]))
         assert isinstance(l.strategy, ObjectListStrategy)
 
-        l = W_ListObject(self.space, [self.space.wrap(1), self.space.wrap(2), self.space.wrap(3)])
+        l = W_ListObject(space, [w(1), w(2), w(3)])
         assert isinstance(l.strategy, IntegerListStrategy)
-        l.extend(W_ListObject(self.space, [self.space.wrap(4), self.space.wrap(5), self.space.wrap(6)]))
+        l.extend(W_ListObject(space, [w(4), w(5), w(6)]))
         assert isinstance(l.strategy, IntegerListStrategy)
 
-        l = W_ListObject(self.space, [self.space.wrap(1.1), self.space.wrap(2.2), self.space.wrap(3.3)])
+        l = W_ListObject(space, [w(1.1), w(2.2), w(3.3)])
         assert isinstance(l.strategy, FloatListStrategy)
-        l.extend(W_ListObject(self.space, [self.space.wrap(4), self.space.wrap(5), self.space.wrap(6)]))
+        l.extend(W_ListObject(space, [w(4), w(5), w(6)]))
         assert isinstance(l.strategy, ObjectListStrategy)
 
     def test_empty_extend_with_any(self):
-        empty = W_ListObject(self.space, [])
+        space = self.space
+        w = space.wrap
+
+        empty = W_ListObject(space, [])
         assert isinstance(empty.strategy, EmptyListStrategy)
-        empty.extend(W_ListObject(self.space, [self.space.wrap(1), self.space.wrap(2), self.space.wrap(3)]))
+        empty.extend(W_ListObject(space, [w(1), w(2), w(3)]))
         assert isinstance(empty.strategy, IntegerListStrategy)
 
-        empty = W_ListObject(self.space, [])
+        empty = W_ListObject(space, [])
         assert isinstance(empty.strategy, EmptyListStrategy)
-        empty.extend(W_ListObject(self.space, [self.space.wrap("a"), self.space.wrap("b"), self.space.wrap("c")]))
+        empty.extend(W_ListObject(space, [w("a"), w("b"), w("c")]))
         assert isinstance(empty.strategy, StringListStrategy)
 
-        empty = W_ListObject(self.space, [])
+        empty = W_ListObject(space, [])
         assert isinstance(empty.strategy, EmptyListStrategy)
-        r = make_range_list(self.space, 1,3,7)
+        empty.extend(W_ListObject(space, [w(u"a"), w(u"b"), w(u"c")]))
+        assert isinstance(empty.strategy, UnicodeListStrategy)
+
+        empty = W_ListObject(space, [])
+        assert isinstance(empty.strategy, EmptyListStrategy)
+        r = make_range_list(space, 1,3,7)
         empty.extend(r)
         assert isinstance(empty.strategy, RangeListStrategy)
         print empty.getitem(6)
-        assert self.space.is_true(self.space.eq(empty.getitem(1), self.space.wrap(4)))
+        assert space.is_true(space.eq(empty.getitem(1), w(4)))
 
-        empty = W_ListObject(self.space, [])
+        empty = W_ListObject(space, [])
         assert isinstance(empty.strategy, EmptyListStrategy)
-        empty.extend(W_ListObject(self.space, [self.space.wrap(1), self.space.wrap(2), self.space.wrap(3)]))
+        empty.extend(W_ListObject(space, [w(1), w(2), w(3)]))
         assert isinstance(empty.strategy, IntegerListStrategy)
 
-        empty = W_ListObject(self.space, [])
+        empty = W_ListObject(space, [])
         assert isinstance(empty.strategy, EmptyListStrategy)
-        empty.extend(W_ListObject(self.space, [self.space.wrap(1.1), self.space.wrap(2.2), self.space.wrap(3.3)]))
+        empty.extend(W_ListObject(space, [w(1.1), w(2.2), w(3.3)]))
         assert isinstance(empty.strategy, FloatListStrategy)
 
-        empty = W_ListObject(self.space, [])
+        empty = W_ListObject(space, [])
         assert isinstance(empty.strategy, EmptyListStrategy)
-        empty.extend(W_ListObject(self.space, []))
+        empty.extend(W_ListObject(space, []))
         assert isinstance(empty.strategy, EmptyListStrategy)
 
     def test_extend_other_with_empty(self):
-        l = W_ListObject(self.space, [self.space.wrap(1), self.space.wrap(2), self.space.wrap(3)])
+        space = self.space
+        w = space.wrap
+        l = W_ListObject(space, [w(1), w(2), w(3)])
         assert isinstance(l.strategy, IntegerListStrategy)
-        l.extend(W_ListObject(self.space, []))
+        l.extend(W_ListObject(space, []))
         assert isinstance(l.strategy, IntegerListStrategy)
 
     def test_rangelist(self):
@@ -489,7 +505,7 @@ class TestW_ListStrategies(TestW_ListObject):
         l1 = W_ListObject(self.space, [self.space.wrap("eins"), self.space.wrap("zwei")])
         assert isinstance(l1.strategy, StringListStrategy)
         l2 = W_ListObject(self.space, [self.space.wrap(u"eins"), self.space.wrap(u"zwei")])
-        assert isinstance(l2.strategy, ObjectListStrategy)
+        assert isinstance(l2.strategy, UnicodeListStrategy)
         l3 = W_ListObject(self.space, [self.space.wrap("eins"), self.space.wrap(u"zwei")])
         assert isinstance(l3.strategy, ObjectListStrategy)
 
