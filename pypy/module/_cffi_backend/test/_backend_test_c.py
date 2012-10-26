@@ -2264,3 +2264,36 @@ def test_FILE_only_for_FILE_arg():
     e = py.test.raises(TypeError, fputs, b"hello world\n", fw1)
     assert str(e.value) == ("initializer for ctype 'struct NOT_FILE *' must "
                             "be a cdata pointer, not file")
+
+def test_FILE_object():
+    if sys.platform == "win32":
+        py.test.skip("testing FILE not implemented")
+    #
+    BFILE = new_struct_type("_IO_FILE")
+    BFILEP = new_pointer_type(BFILE)
+    BFILEPP = new_pointer_type(BFILEP)
+    BChar = new_primitive_type("char")
+    BCharP = new_pointer_type(BChar)
+    BInt = new_primitive_type("int")
+    BFunc = new_function_type((BCharP, BFILEP), BInt, False)
+    BFunc2 = new_function_type((BFILEP,), BInt, False)
+    ll = find_and_load_library('c')
+    fputs = ll.load_function(BFunc, "fputs")
+    fileno = ll.load_function(BFunc2, "fileno")
+    #
+    import posix
+    fdr, fdw = posix.pipe()
+    fw1 = posix.fdopen(fdw, 'wb', 256)
+    #
+    fw1p = newp(BFILEPP, fw1)
+    fw1.write(b"X")
+    fw1.flush()
+    res = fputs(b"hello\n", fw1p[0])
+    assert res >= 0
+    res = fileno(fw1p[0])
+    assert res == fdw
+    fw1.close()
+    #
+    data = posix.read(fdr, 256)
+    assert data == b"Xhello\n"
+    posix.close(fdr)

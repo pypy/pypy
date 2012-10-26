@@ -4,7 +4,6 @@ Function pointers.
 
 import sys
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.error import wrap_oserror
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rlib import jit, clibffi, jit_libffi, rposix
 from pypy.rlib.jit_libffi import CIF_DESCRIPTION, CIF_DESCRIPTION_P
@@ -152,9 +151,6 @@ class W_CTypeFunc(W_CTypePtrBase):
                     if flag == 1:
                         raw_string = rffi.cast(rffi.CCHARPP, data)[0]
                         lltype.free(raw_string, flavor='raw')
-                    elif flag == 2:
-                        file = rffi.cast(rffi.CCHARPP, data)[0]
-                        rffi_fclose(file)
             lltype.free(buffer, flavor='raw')
         return w_res
 
@@ -168,27 +164,6 @@ def _get_abi(space, name):
     abi = getattr(clibffi, name)
     assert isinstance(abi, int)
     return space.wrap(abi)
-
-rffi_fdopen = rffi.llexternal("fdopen", [rffi.INT, rffi.CCHARP], rffi.CCHARP)
-rffi_fclose = rffi.llexternal("fclose", [rffi.CCHARP], rffi.INT)
-
-def prepare_file_call_argument(fileobj):
-    import os
-    space = fileobj.space
-    fileobj.direct_flush()
-    fd = fileobj.direct_fileno()
-    if fd < 0:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("file has no OS file descriptor"))
-    try:
-        fd2 = os.dup(fd)
-        f = rffi_fdopen(fd2, fileobj.mode)
-        if not f:
-            os.close(fd2)
-            raise OSError(rposix.get_errno(), "fdopen failed")
-    except OSError, e:
-        raise wrap_oserror(space, e)
-    return f
 
 # ____________________________________________________________
 
