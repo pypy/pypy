@@ -141,3 +141,14 @@ class TestW_SetStrategies:
         assert isinstance(it, UnicodeIteratorImplementation)
         assert space.unwrap(it.next()) == u"a"
         assert space.unwrap(it.next()) == u"b"
+
+    def test_listview(self):
+        space = self.space
+        s = W_SetObject(space, self.wrapped([1,2]))
+        assert sorted(space.listview_int(s)) == [1, 2]
+        #
+        s = W_SetObject(space, self.wrapped(["a", "b"]))
+        assert sorted(space.listview_str(s)) == ["a", "b"]
+        #
+        s = W_SetObject(space, self.wrapped([u"a", u"b"]))
+        assert sorted(space.listview_unicode(s)) == [u"a", u"b"]

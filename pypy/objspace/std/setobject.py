@@ -93,6 +93,10 @@ class W_BaseSetObject(W_Object):
         """ If this is a string set return its contents as a list of uwnrapped strings. Otherwise return None. """
         return self.strategy.listview_str(self)
 
+    def listview_unicode(self):
+        """ If this is a unicode set return its contents as a list of uwnrapped unicodes. Otherwise return None. """
+        return self.strategy.listview_unicode(self)
+
     def listview_int(self):
         """ If this is an int set return its contents as a list of uwnrapped ints. Otherwise return None. """
         return self.strategy.listview_int(self)
@@ -200,6 +204,9 @@ class SetStrategy(object):
         raise NotImplementedError
 
     def listview_str(self, w_set):
+        return None
+
+    def listview_unicode(self, w_set):
         return None
 
     def listview_int(self, w_set):
@@ -728,8 +735,8 @@ class UnicodeSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
     def get_empty_dict(self):
         return {}
 
-    ## def listview_unicode(self, w_set):
-    ##     return self.unerase(w_set.sstorage).keys()
+    def listview_unicode(self, w_set):
+        return self.unerase(w_set.sstorage).keys()
 
     def is_correct_type(self, w_key):
         return type(w_key) is W_UnicodeObject

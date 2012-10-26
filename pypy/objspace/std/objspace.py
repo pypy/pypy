@@ -471,8 +471,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return w_obj.getitems_unicode()
         if type(w_obj) is W_DictMultiObject:
             return w_obj.listview_unicode()
-        ## if type(w_obj) is W_SetObject or type(w_obj) is W_FrozensetObject:
-        ##     return w_obj.listview_unicode()
+        if type(w_obj) is W_SetObject or type(w_obj) is W_FrozensetObject:
+            return w_obj.listview_unicode()
         ## if isinstance(w_obj, W_UnicodeObject):
         ##     return w_obj.listview_unicode()
         if isinstance(w_obj, W_ListObject) and self._uses_list_iter(w_obj):
