@@ -58,6 +58,7 @@ def raiseattrerror(space, w_obj, name, w_descr=None):
                               "'%s' object has no attribute '%s'",
                               typename, name)
     else:
+        import pdb;pdb.set_trace()
         raise operationerrfmt(space.w_AttributeError,
                               "'%s' object attribute '%s' is read-only",
                               typename, name)
