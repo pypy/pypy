@@ -469,8 +469,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
         # and isinstance() for others.  See test_listobject.test_uses_custom...
         if type(w_obj) is W_ListObject:
             return w_obj.getitems_unicode()
-        ## if type(w_obj) is W_DictMultiObject:
-        ##     return w_obj.listview_unicode()
+        if type(w_obj) is W_DictMultiObject:
+            return w_obj.listview_unicode()
         ## if type(w_obj) is W_SetObject or type(w_obj) is W_FrozensetObject:
         ##     return w_obj.listview_unicode()
         ## if isinstance(w_obj, W_UnicodeObject):

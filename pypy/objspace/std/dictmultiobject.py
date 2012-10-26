@@ -113,7 +113,7 @@ def _add_indirections():
                     getitem_str delitem length \
                     clear w_keys values \
                     items iterkeys itervalues iteritems setdefault \
-                    popitem listview_str listview_int".split()
+                    popitem listview_str listview_unicode listview_int".split()
 
     def make_method(method):
         def f(self, *args):
@@ -185,6 +185,9 @@ class DictStrategy(object):
         w_dict.dstorage = storage
 
     def listview_str(self, w_dict):
+        return None
+
+    def listview_unicode(self, w_dict):
         return None
 
     def listview_int(self, w_dict):
@@ -676,8 +679,8 @@ class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
     ##     assert key is not None
     ##     return self.unerase(w_dict.dstorage).get(key, None)
 
-    ## def listview_str(self, w_dict):
-    ##     return self.unerase(w_dict.dstorage).keys()
+    def listview_unicode(self, w_dict):
+        return self.unerase(w_dict.dstorage).keys()
 
     ## def w_keys(self, w_dict):
     ##     return self.space.newlist_str(self.listview_str(w_dict))
