@@ -9,6 +9,8 @@ re-enable IntDictStrategy
 
 write strategies for unicode list/dict/set, and add StdObjSpace.listview_unicode & co.
 
+re-enable the UnicodeSetStrategy in setobject.set_strategy_and_setdata
+
 re-enable the kwargs dict strategy in dictmultiobject.py
 re-enable view_as_kwargs
 

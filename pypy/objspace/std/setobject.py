@@ -915,12 +915,14 @@ def set_strategy_and_setdata(space, w_set, w_iterable):
         w_set.sstorage = w_iterable.get_storage_copy()
         return
 
-    stringlist = space.listview_str(w_iterable)
-    if stringlist is not None:
-        strategy = space.fromcache(UnicodeSetStrategy)
-        w_set.strategy = strategy
-        w_set.sstorage = strategy.get_storage_from_unwrapped_list(stringlist)
-        return
+    # we need to disable this for now: listview_str returns a list of bytes,
+    # we cannot use it with UnicodeSetStrategy
+    ## stringlist = space.listview_str(w_iterable)
+    ## if stringlist is not None:
+    ##     strategy = space.fromcache(UnicodeSetStrategy)
+    ##     w_set.strategy = strategy
+    ##     w_set.sstorage = strategy.get_storage_from_unwrapped_list(stringlist)
+    ##     return
 
     intlist = space.listview_int(w_iterable)
     if intlist is not None:
