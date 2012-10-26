@@ -475,8 +475,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
         ##     return w_obj.listview_unicode()
         ## if isinstance(w_obj, W_UnicodeObject):
         ##     return w_obj.listview_unicode()
-        ## if isinstance(w_obj, W_ListObject) and self._uses_list_iter(w_obj):
-        ##     return w_obj.getitems_unicode()
+        if isinstance(w_obj, W_ListObject) and self._uses_list_iter(w_obj):
+            return w_obj.getitems_unicode()
         return None
 
     def listview_int(self, w_obj):
