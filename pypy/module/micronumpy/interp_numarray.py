@@ -307,7 +307,8 @@ class __extend__(W_NDimArray):
     def descr_take(self, space, w_obj, w_axis=None, w_out=None):
         # if w_axis is None and w_out is Nont this is an equivalent to
         # fancy indexing
-        raise Exception("unsupported for now")
+        raise OperationError(space.w_NotImplementedError,
+                             space.wrap("unsupported for now"))
         if not space.is_none(w_axis):
             raise OperationError(space.w_NotImplementedError,
                                  space.wrap("axis unsupported for take"))
@@ -432,9 +433,7 @@ class __extend__(W_NDimArray):
 
     def _binop_right_impl(ufunc_name):
         def impl(self, space, w_other, w_out=None):
-            dtype = interp_ufuncs.find_dtype_for_scalar(space, w_other,
-                                                        self.get_dtype())
-            w_other = W_NDimArray.new_scalar(space, dtype, w_other)
+            w_other = convert_to_array(space, w_other)
             return getattr(interp_ufuncs.get(space), ufunc_name).call(space, [w_other, self, w_out])
         return func_with_new_name(impl, "binop_right_%s_impl" % ufunc_name)
 

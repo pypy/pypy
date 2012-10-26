@@ -13,6 +13,8 @@ from pypy.objspace.std.listobject import get_positive_index
 from pypy.objspace.std.listtype import get_list_index
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std.stringobject import W_StringObject
+from pypy.objspace.std.strutil import ParseStringError
+from pypy.objspace.std.strutil import string_to_float
 from pypy.objspace.std.tupleobject import W_TupleObject
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
 from pypy.objspace.std import slicetype
@@ -80,6 +82,14 @@ def init__Bytearray(space, w_bytearray, __args__):
 
     data = makebytearraydata_w(space, w_source)
     w_bytearray.data = data
+
+def float__Bytearray(space, w_bytearray):
+    try:
+        value = string_to_float(''.join(w_bytearray.data))
+    except ParseStringError, e:
+        raise OperationError(space.w_ValueError, space.wrap(e.msg))
+    else:
+        return space.wrap(value)
 
 def len__Bytearray(space, w_bytearray):
     result = len(w_bytearray.data)

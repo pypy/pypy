@@ -7,8 +7,7 @@ import sys
 import types
 from inspect import CO_NEWLOCALS
 
-from pypy.interpreter.baseobjspace import ObjSpace
-from pypy.interpreter.argument import ArgumentsForTranslation
+from pypy.objspace.flow.argument import ArgumentsForTranslation
 from pypy.objspace.flow.model import (Constant, Variable, WrapException,
     UnwrapException, checkgraph, SpaceOperation)
 from pypy.objspace.flow.bytecode import HostCode
@@ -226,7 +225,7 @@ class FlowObjSpace(object):
             w_real_class = self.wrap(rstackovf._StackOverflow)
             return self._exception_match(w_exc_type, w_real_class)
         # checking a tuple of classes
-        for w_klass in self.fixedview(w_check_class):
+        for w_klass in self.unpackiterable(w_check_class):
             if self.exception_match(w_exc_type, w_klass):
                 return True
         return False
@@ -284,10 +283,6 @@ class FlowObjSpace(object):
         if code.is_generator:
             tweak_generator_graph(graph)
         return graph
-
-    def fixedview(self, w_tuple, expected_length=None):
-        return self.unpackiterable(w_tuple, expected_length)
-    listview = fixedview_unroll = fixedview
 
     def unpackiterable(self, w_iterable, expected_length=None):
         if not isinstance(w_iterable, Variable):
@@ -426,10 +421,6 @@ class FlowObjSpace(object):
         except AttributeError:
             raise FSException(self.w_ImportError,
                 self.wrap("cannot import name '%s'" % w_name.value))
-
-    def call_valuestack(self, w_func, nargs, frame):
-        args = frame.make_arguments(nargs)
-        return self.call_args(w_func, args)
 
     def call_method(self, w_obj, methname, *arg_w):
         w_meth = self.getattr(w_obj, self.wrap(methname))
@@ -577,5 +568,5 @@ def make_op(name, arity):
     setattr(FlowObjSpace, name, generic_operator)
 
 
-for (name, symbol, arity, specialnames) in ObjSpace.MethodTable:
+for (name, symbol, arity, specialnames) in operation.MethodTable:
     make_op(name, arity)

@@ -250,13 +250,6 @@ class AppTestAppComplexTest:
         assert complex(OS(1+10j), 5j) == -4+10j
         assert complex(NS(1+10j), 5j) == -4+10j
 
-        assert complex(OS(2.0)) == 2+0j
-        assert complex(NS(2.0)) == 2+0j
-        assert complex(OS(2)) == 2+0j
-        assert complex(NS(2)) == 2+0j
-        assert complex(OS(2L)) == 2+0j
-        assert complex(NS(2L)) == 2+0j
-
         raises(TypeError, complex, OS(None))
         raises(TypeError, complex, NS(None))
 
@@ -362,6 +355,25 @@ class AppTestAppComplexTest:
         assert self.almost_equal(complex(float2(42.)), 42)
         assert self.almost_equal(complex(real=float2(17.), imag=float2(23.)), 17+23j)
         raises(TypeError, complex, float2(None))
+
+    def test___complex___returning_non_complex(self):
+        import cmath
+        class Obj(object):
+            def __init__(self, value):
+                self.value = value
+            def __complex__(self):
+                return self.value
+
+        # "bug-to-bug" compatibility to CPython: complex() is more relaxed in
+        # what __complex__ can return. cmath functions really wants a complex
+        # number to be returned by __complex__.
+        assert complex(Obj(2.0)) == 2+0j
+        assert complex(Obj(2)) == 2+0j
+        assert complex(Obj(2L)) == 2+0j
+        #
+        assert cmath.polar(1) == (1.0, 0.0)
+        raises(TypeError, "cmath.polar(Obj(1))")
+        
 
     def test_hash(self):
         for x in xrange(-30, 30):
