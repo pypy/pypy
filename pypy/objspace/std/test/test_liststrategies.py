@@ -68,12 +68,12 @@ class TestW_ListStrategies(TestW_ListObject):
         assert isinstance(l.strategy, ObjectListStrategy)
 
     def test_unicode_to_any(self):
-        l = W_ListObject(self.space,
-                         [self.space.wrap(u'a'),self.space.wrap(u'b'),self.space.wrap('c')])
-        assert isinstance(l.strategy, StringListStrategy)
-        l.append(self.space.wrap('d'))
-        assert isinstance(l.strategy, StringListStrategy)
-        l.append(self.space.wrap(3))
+        space = self.space
+        l = W_ListObject(space, [space.wrap(u'a'), space.wrap(u'b'), space.wrap(u'c')])
+        assert isinstance(l.strategy, UnicodeListStrategy)
+        l.append(space.wrap(u'd'))
+        assert isinstance(l.strategy, UnicodeListStrategy)
+        l.append(space.wrap(3))
         assert isinstance(l.strategy, ObjectListStrategy)
 
     def test_float_to_any(self):
