@@ -544,7 +544,6 @@ class TestW_ListStrategies(TestW_ListObject):
         w_l = self.space.newlist([w_text])
         w_l.getitems = None
         assert space.is_w(space.call_method(space.wrap(u" -- "), "join", w_l), w_text)
-        
 
     def test_newlist_str(self):
         space = self.space
@@ -604,6 +603,11 @@ class TestW_ListStrategies(TestW_ListObject):
         space = self.space
         w_l = W_ListObject(space, [space.wrap("a"), space.wrap("b")])
         assert self.space.listview_str(w_l) == ["a", "b"]
+
+    def test_listview_unicode_list(self):
+        space = self.space
+        w_l = W_ListObject(space, [space.wrap(u"a"), space.wrap(u"b")])
+        assert self.space.listview_unicode(w_l) == [u"a", u"b"]
 
     def test_listview_int_list(self):
         space = self.space
