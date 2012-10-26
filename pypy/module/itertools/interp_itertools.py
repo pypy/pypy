@@ -43,9 +43,8 @@ class W_Count(Wrappable):
                                space.newtuple(args_w)])
 
 def check_number(space, w_obj):
-    if (space.lookup(w_obj, '__add__') is None or
-        space.is_true(space.isinstance(w_obj, space.w_str)) or
-        space.is_true(space.isinstance(w_obj, space.w_unicode))):
+    if (space.lookup(w_obj, '__int__') is None and
+        space.lookup(w_obj, '__float__') is None):
         raise OperationError(space.w_TypeError,
                              space.wrap("expected a number"))
 

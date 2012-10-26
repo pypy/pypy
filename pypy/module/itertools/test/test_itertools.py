@@ -35,6 +35,7 @@ class AppTestItertools:
 
         raises(TypeError, itertools.count, None)
         raises(TypeError, itertools.count, 'a')
+        raises(TypeError, itertools.count, [])
 
     def test_repeat(self):
         import itertools
