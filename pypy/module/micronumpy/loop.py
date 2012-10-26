@@ -8,6 +8,7 @@ from pypy.rlib.rstring import StringBuilder
 from pypy.rlib import jit
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.module.micronumpy.base import W_NDimArray
+from pypy.module.micronumpy.iter import PureShapeIterator
 
 call2_driver = jit.JitDriver(name='numpy_call2',
                              greens = ['shapelen', 'func', 'calc_dtype',
@@ -394,38 +395,6 @@ def tostring(space, arr):
             builder.append(res_str_casted[i])
         iter.next()
     return builder.build()
-
-class PureShapeIterator(object):
-    def __init__(self, shape, idx_w):
-        self.shape = shape
-        self.shapelen = len(shape)
-        self.indexes = [0] * len(shape)
-        self._done = False
-        self.idx_w = [None] * len(idx_w)
-        for i, w_idx in enumerate(idx_w):
-            if isinstance(w_idx, W_NDimArray):
-                self.idx_w[i] = w_idx.create_iter(shape)
-
-    def done(self):
-        return self._done
-
-    @jit.unroll_safe
-    def next(self):
-        for w_idx in self.idx_w:
-            if w_idx is not None:
-                w_idx.next()
-        for i in range(self.shapelen - 1, -1, -1):
-            if self.indexes[i] < self.shape[i] - 1:
-                self.indexes[i] += 1
-                break
-            else:
-                self.indexes[i] = 0
-        else:
-            self._done = True
-
-    @jit.unroll_safe
-    def get_index(self, space, shapelen):
-        return [space.wrap(self.indexes[i]) for i in range(shapelen)]
 
 getitem_int_driver = jit.JitDriver(name = 'numpy_getitem_int',
                                    greens = ['shapelen', 'indexlen',

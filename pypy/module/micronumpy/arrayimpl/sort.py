@@ -11,6 +11,7 @@ from pypy.rlib.rawstorage import raw_storage_getitem, raw_storage_setitem
 from pypy.interpreter.error import OperationError
 from pypy.module.micronumpy.base import W_NDimArray
 from pypy.module.micronumpy import interp_dtype, types
+from pypy.module.micronumpy.iter import AxisIterator
 
 INT_SIZE = rffi.sizeof(lltype.Signed)
 
@@ -19,22 +20,30 @@ def make_sort_classes(space, itemtype):
     TP = itemtype.T
     
     class ArgArrayRepresentation(object):
-        def __init__(self, itemsize, size, values, indexes):
-            self.itemsize = itemsize
+        def __init__(self, index_stride_size, stride_size, size, values,
+                     indexes, index_start, start):
+            self.index_stride_size = index_stride_size
+            self.stride_size = stride_size
+            self.index_start = index_start
+            self.start = start
             self.size = size
             self.values = values
             self.indexes = indexes
+            self.start = start
 
         def getitem(self, item):
-            v = raw_storage_getitem(TP, self.values, item * self.itemsize)
+            v = raw_storage_getitem(TP, self.values, item * self.stride_size
+                                    + self.start)
             v = itemtype.for_computation(v)
             return (v, raw_storage_getitem(lltype.Signed, self.indexes,
-                                           item * INT_SIZE))
+                                           item * self.index_stride_size +
+                                           self.index_start))
 
         def setitem(self, idx, item):
-            raw_storage_setitem(self.values, idx * self.itemsize,
-                                rffi.cast(TP, item[0]))
-            raw_storage_setitem(self.indexes, idx * INT_SIZE, item[1])
+            raw_storage_setitem(self.values, idx * self.stride_size +
+                                self.start, rffi.cast(TP, item[0]))
+            raw_storage_setitem(self.indexes, idx * self.index_stride_size +
+                                self.index_start, item[1])
 
     def arg_getitem(lst, item):
         return lst.getitem(item)
@@ -73,15 +82,36 @@ def argsort_array(arr, space, w_axis):
     itemsize = itemtype.get_element_size()
     # create array of indexes
     dtype = interp_dtype.get_dtype_cache(space).w_longdtype
-    indexes = W_NDimArray.from_shape(arr.get_shape(), dtype)
+    index_arr = W_NDimArray.from_shape(arr.get_shape(), dtype)
+    storage = index_arr.implementation.get_storage()
     if len(arr.get_shape()) == 1:
-        storage = indexes.implementation.get_storage()
         for i in range(arr.get_size()):
             raw_storage_setitem(storage, i * INT_SIZE, i)
         Repr, Sort = make_sort_classes(space, itemtype)
-        r = Repr(itemsize, arr.get_size(), arr.get_storage(),
-                 indexes.implementation.get_storage())
+        r = Repr(INT_SIZE, itemsize, arr.get_size(), arr.get_storage(),
+                 storage, 0, arr.start)
         Sort(r).sort()
     else:
-        xxx
-    return indexes
+        shape = arr.get_shape()
+        if axis < 0:
+            axis = len(shape) + axis - 1
+        if axis < 0 or axis > len(shape):
+            raise OperationError(space.w_IndexError("Wrong axis %d" % axis))
+        iterable_shape = shape[:axis] + [0] + shape[axis + 1:]
+        iter = AxisIterator(arr, iterable_shape, axis)
+        index_impl = index_arr.implementation
+        index_iter = AxisIterator(index_impl, iterable_shape, axis)
+        stride_size = arr.strides[axis]
+        index_stride_size = index_impl.strides[axis]
+        axis_size = arr.shape[axis]
+        Repr, Sort = make_sort_classes(space, itemtype)
+        while not iter.done():
+            for i in range(axis_size):
+                raw_storage_setitem(storage, i * index_stride_size +
+                                    index_iter.offset, i)
+            r = Repr(index_stride_size, stride_size, axis_size,
+                     arr.get_storage(), storage, index_iter.offset, iter.offset)
+            Sort(r).sort()
+            iter.next()
+            index_iter.next()
+    return index_arr
