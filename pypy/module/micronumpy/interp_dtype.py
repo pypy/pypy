@@ -507,14 +507,14 @@ class DtypeCache(object):
             self.w_int16dtype, self.w_uint16dtype, self.w_int32dtype,
             self.w_uint32dtype, self.w_longdtype, self.w_ulongdtype,
             self.w_int64dtype, self.w_uint64dtype,
-            self.w_float12type, self.w_float32dtype, self.w_float64dtype, self.w_complex64dtype,
+            self.w_float16dtype, self.w_float32dtype, self.w_float64dtype, self.w_complex64dtype,
             self.w_complex128dtype,
             self.w_stringdtype, self.w_unicodedtype,
             self.w_voiddtype, self.w_intpdtype, self.w_uintpdtype,
         ]
         self.float_dtypes_by_num_bytes = sorted(
             (dtype.itemtype.get_element_size(), dtype)
-            for dtype in [self.w_float16type, self.w_float32dtype, self.w_float64dtype]
+            for dtype in [self.w_float16dtype, self.w_float32dtype, self.w_float64dtype]
         )
         self.dtypes_by_name = {}
         # we reverse, so the stuff with lower numbers override stuff with

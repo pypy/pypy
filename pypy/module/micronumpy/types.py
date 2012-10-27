@@ -933,6 +933,15 @@ class NonNativeFloat16(BaseType, NonNativeFloat):
     BoxType = interp_boxes.W_Float16Box
     format_code = "e"
 
+class Float16(BaseType, Float):
+    _attrs_ = ()
+
+    def get_element_size(self):
+        return 16
+
+    BoxType = interp_boxes.W_Float16Box
+    format_code = "e"
+
 class Float32(BaseType, Float):
     _attrs_ = ()
 
