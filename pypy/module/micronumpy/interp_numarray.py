@@ -25,7 +25,7 @@ def _find_shape(space, w_size):
     shape = []
     for w_item in space.fixedview(w_size):
         shape.append(space.int_w(w_item))
-    return shape
+    return shape[:]
 
 class __extend__(W_NDimArray):
     @jit.unroll_safe

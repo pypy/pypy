@@ -64,13 +64,13 @@ def find_shape_and_elems(space, w_iterable, dtype):
     while True:
         new_batch = []
         if not batch:
-            return shape, []
+            return shape[:], []
         if is_single_elem(space, batch[0], is_rec_type):
             for w_elem in batch:
                 if not is_single_elem(space, w_elem, is_rec_type):
                     raise OperationError(space.w_ValueError, space.wrap(
                         "setting an array element with a sequence"))
-            return shape, batch
+            return shape[:], batch
         size = space.len_w(batch[0])
         for w_elem in batch:
             if (is_single_elem(space, w_elem, is_rec_type) or

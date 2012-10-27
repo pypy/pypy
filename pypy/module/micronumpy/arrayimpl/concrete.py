@@ -10,6 +10,7 @@ from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rlib import jit
 from pypy.rlib.rawstorage import free_raw_storage
+from pypy.rlib.debug import make_sure_not_resized
 
 class ConcreteArrayIterator(base.BaseArrayIterator):
     def __init__(self, array):
@@ -379,6 +380,7 @@ class BaseConcreteArray(base.BaseArrayImplementation):
 
 class ConcreteArray(BaseConcreteArray):
     def __init__(self, shape, dtype, order, strides, backstrides):
+        make_sure_not_resized(shape)
         self.shape = shape
         self.size = support.product(shape) * dtype.get_size()
         self.storage = dtype.itemtype.malloc(self.size)
