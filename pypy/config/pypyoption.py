@@ -38,7 +38,7 @@ working_modules.update(dict.fromkeys(
 ))
 
 # Here is the list of modules known to not work yet
-for name in ["_rawffi", "_ffi", "cpyext",
+for name in ["cpyext",
              "_hashlib", "_md5",
              ]:
     del working_modules[name]
