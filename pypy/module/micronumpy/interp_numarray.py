@@ -384,9 +384,10 @@ class __extend__(W_NDimArray):
         contig = self.descr_copy(space)
         return contig.implementation.argsort(space, w_axis)
 
-    def descr_astype(self, space, w_type):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            "astype not implemented yet"))
+    def descr_astype(self, space, w_dtype):
+        dtype = space.interp_w(interp_dtype.W_Dtype,
+          space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype))
+        return self.implementation.astype(space, dtype)
 
     def descr_base(self, space):
         raise OperationError(space.w_NotImplementedError, space.wrap(
@@ -788,6 +789,7 @@ W_NDimArray.typedef = TypeDef(
     imag = GetSetProperty(W_NDimArray.descr_get_imag),
 
     argsort = interp2app(W_NDimArray.descr_argsort),
+    astype = interp2app(W_NDimArray.descr_astype),
 
     __array_interface__ = GetSetProperty(W_NDimArray.descr_array_iface),
 )

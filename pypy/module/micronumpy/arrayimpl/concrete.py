@@ -262,6 +262,11 @@ class ConcreteArray(BaseConcreteArray):
     def argsort(self, space, w_axis):
         return argsort_array(self, space, w_axis)
 
+    def astype(self, space, dtype):
+        new_arr = W_NDimArray.from_shape(self.get_shape(), dtype)
+        loop.copy_from_to(self, new_arr.implementation, dtype)
+        return new_arr
+
 class SliceArray(BaseConcreteArray):
     def __init__(self, start, strides, backstrides, shape, parent, dtype=None):
         self.strides = strides

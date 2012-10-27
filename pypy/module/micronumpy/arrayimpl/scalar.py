@@ -98,3 +98,6 @@ class Scalar(base.BaseArrayImplementation):
 
     def argsort(self, space, w_axis):
         return space.wrap(0)
+
+    def astype(self, space, dtype):
+        return W_NDimArray.new_scalar(space, dtype, self.value)

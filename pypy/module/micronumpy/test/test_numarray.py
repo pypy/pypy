@@ -1567,6 +1567,15 @@ class AppTestNumArray(BaseNumpyAppTest):
             a = arange(100)
             assert (a.argsort() == a).all()
 
+    def test_astype(self):
+        from _numpypy import array
+        b = array(1).astype(float)
+        assert b == 1
+        assert b.dtype == float
+        b = array([1, 2]).astype(float)
+        assert (b == [1, 2]).all()
+        assert b.dtype == 'float'
+
 class AppTestMultiDim(BaseNumpyAppTest):
     def test_init(self):
         import _numpypy
