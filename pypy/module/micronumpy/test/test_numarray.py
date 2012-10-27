@@ -344,6 +344,13 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[-1] == 8
         raises(IndexError, "a[-6]")
 
+    def test_getitem_float(self):
+        from _numpypy import array
+        a = array([1, 2, 3, 4])
+        assert a[1.2] == 2
+        assert a[1.6] == 2
+        assert a[-1.2] == 4
+
     def test_getitem_tuple(self):
         from _numpypy import array
         a = array(range(5))
