@@ -195,6 +195,10 @@ class SomeBool(SomeInteger):
     unsigned = False
     def __init__(self):
         pass
+    def set_knowntypedata(self, knowntypedata):
+        assert not hasattr(self, 'knowntypedata')
+        if knowntypedata:
+            self.knowntypedata = knowntypedata
 
 class SomeStringOrUnicode(SomeObject):
     immutable = True
