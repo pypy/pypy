@@ -23,11 +23,12 @@ class W_NDimArray(Wrappable):
         return W_NDimArray(impl)
 
     @staticmethod
-    def new_slice(offset, strides, backstrides, shape, parent, dtype=None):
+    def new_slice(offset, strides, backstrides, shape, parent, orig_arr,
+                  dtype=None):
         from pypy.module.micronumpy.arrayimpl import concrete
 
         impl = concrete.SliceArray(offset, strides, backstrides, shape, parent,
-                                   dtype)
+                                   orig_arr, dtype)
         return W_NDimArray(impl)
 
     @staticmethod

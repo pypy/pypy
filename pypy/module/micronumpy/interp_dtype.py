@@ -232,8 +232,6 @@ def descr__new__(space, w_subtype, w_dtype):
                 return dtype
             if w_dtype is dtype.w_box_type:
                 return dtype
-    import pdb
-    pdb.set_trace()
     raise OperationError(space.w_TypeError, space.wrap("data type not understood"))
 
 W_Dtype.typedef = TypeDef("dtype",

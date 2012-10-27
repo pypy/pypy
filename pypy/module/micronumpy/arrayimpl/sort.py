@@ -73,7 +73,9 @@ def argsort_array(arr, space, w_axis):
         raise OperationError(space.w_NotImplementedError,
            space.wrap("sorting of non-numeric types is not implemented"))
     if w_axis is space.w_None:
-        arr = arr.reshape(space, [arr.get_size()])
+        # note that it's fine ot pass None here as we're not going
+        # to pass the result around (None is the link to base in slices)
+        arr = arr.reshape(space, None, [arr.get_size()])
         axis = 0
     elif w_axis is None:
         axis = -1

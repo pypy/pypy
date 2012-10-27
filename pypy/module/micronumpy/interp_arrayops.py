@@ -123,7 +123,7 @@ def concatenate(space, w_args, axis=0):
     for arr in args_w:
         chunks[axis] = Chunk(axis_start, axis_start + arr.get_shape()[axis], 1,
                              arr.get_shape()[axis])
-        Chunks(chunks).apply(res.implementation).implementation.setslice(space, arr)
+        Chunks(chunks).apply(res).implementation.setslice(space, arr)
         axis_start += arr.get_shape()[axis]
     return res
 
@@ -137,7 +137,7 @@ def repeat(space, w_arr, repeats, w_axis=None):
         res = W_NDimArray.from_shape(shape, arr.get_dtype())
         for i in range(repeats):
             Chunks([Chunk(i, shape[0] - repeats + i, repeats,
-                          orig_size)]).apply(res.implementation).implementation.setslice(space, arr)
+                          orig_size)]).apply(res).implementation.setslice(space, arr)
     else:
         axis = space.int_w(w_axis)
         shape = arr.get_shape()[:]
@@ -148,7 +148,7 @@ def repeat(space, w_arr, repeats, w_axis=None):
         for i in range(repeats):
             chunks[axis] = Chunk(i, shape[axis] - repeats + i, repeats,
                                  orig_size)
-            Chunks(chunks).apply(res.implementation).implementation.setslice(space, arr)
+            Chunks(chunks).apply(res).implementation.setslice(space, arr)
     return res
 
 def count_nonzero(space, w_obj):

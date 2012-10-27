@@ -22,7 +22,7 @@ class MockDtype(object):
 
 
 def create_slice(a, chunks):
-    return Chunks(chunks).apply(a).implementation
+    return Chunks(chunks).apply(W_NDimArray(a)).implementation
 
 def create_array(*args, **kwargs):
     return W_NDimArray.from_shape(*args, **kwargs).implementation
@@ -1575,6 +1575,14 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = array([1, 2]).astype(float)
         assert (b == [1, 2]).all()
         assert b.dtype == 'float'
+
+    def test_base(self):
+        from _numpypy import array
+        assert array(1).base is None
+        assert array([1, 2]).base is None
+        a = array([1, 2, 3, 4])
+        b = a[::2]
+        assert b.base is a
 
 class AppTestMultiDim(BaseNumpyAppTest):
     def test_init(self):

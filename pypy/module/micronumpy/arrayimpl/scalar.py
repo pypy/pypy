@@ -51,10 +51,10 @@ class Scalar(base.BaseArrayImplementation):
     def get_size(self):
         return 1
 
-    def transpose(self):
+    def transpose(self, _):
         return self
 
-    def descr_getitem(self, space, w_idx):
+    def descr_getitem(self, space, _, w_idx):
         raise OperationError(space.w_IndexError,
                              space.wrap("scalars cannot be indexed"))
 
@@ -62,14 +62,14 @@ class Scalar(base.BaseArrayImplementation):
         raise OperationError(space.w_IndexError,
                              space.wrap("scalars cannot be indexed"))
 
-    def descr_setitem(self, space, w_idx, w_val):
+    def descr_setitem(self, space, _, w_idx, w_val):
         raise OperationError(space.w_IndexError,
                              space.wrap("scalars cannot be indexed"))
         
     def setitem_index(self, space, idx, w_val):
         raise OperationError(space.w_IndexError,
                              space.wrap("scalars cannot be indexed"))
-    def set_shape(self, space, new_shape):
+    def set_shape(self, space, orig_array, new_shape):
         if not new_shape:
             return self
         if support.product(new_shape) == 1:
@@ -80,8 +80,8 @@ class Scalar(base.BaseArrayImplementation):
         raise OperationError(space.w_ValueError, space.wrap(
             "total size of the array must be unchanged"))
 
-    def reshape(self, space, new_shape):
-        return self.set_shape(space, new_shape)
+    def reshape(self, space, orig_array, new_shape):
+        return self.set_shape(space, orig_array, new_shape)
         
     def create_axis_iter(self, shape, dim):
         raise Exception("axis iter should not happen on scalar")
@@ -101,3 +101,6 @@ class Scalar(base.BaseArrayImplementation):
 
     def astype(self, space, dtype):
         return W_NDimArray.new_scalar(space, dtype, self.value)
+
+    def base(self):
+        return None

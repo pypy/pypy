@@ -37,7 +37,7 @@ class __extend__(W_NDimArray):
         return self.implementation.get_shape()
 
     def descr_set_shape(self, space, w_new_shape):
-        self.implementation = self.implementation.set_shape(space,
+        self.implementation = self.implementation.set_shape(space, self,
             get_shape_from_iterable(space, self.get_size(), w_new_shape))
 
     def get_dtype(self):
@@ -148,7 +148,7 @@ class __extend__(W_NDimArray):
             w_idx.get_dtype().is_bool_type()):
             return self.getitem_filter(space, w_idx)
         try:
-            return self.implementation.descr_getitem(space, w_idx)
+            return self.implementation.descr_getitem(space, self, w_idx)
         except ArrayArgumentException:
             return self.getitem_array_int(space, w_idx)
         except OperationError:
@@ -166,7 +166,7 @@ class __extend__(W_NDimArray):
             return self.setitem_filter(space, w_idx,
                                        convert_to_array(space, w_value))
         try:
-            self.implementation.descr_setitem(space, w_idx, w_value)
+            self.implementation.descr_setitem(space, self, w_idx, w_value)
         except ArrayArgumentException:
             self.setitem_array_int(space, w_idx, w_value)
 
@@ -254,20 +254,21 @@ class __extend__(W_NDimArray):
         else:
             w_shape = space.newtuple(args_w)
         new_shape = get_shape_from_iterable(space, self.get_size(), w_shape)
-        new_impl = self.implementation.reshape(space, new_shape)
+        new_impl = self.implementation.reshape(space, self, new_shape)
         if new_impl is not None:
             return W_NDimArray(new_impl)
         # Create copy with contiguous data
         arr = self.descr_copy(space)
         if arr.get_size() > 0:
-            arr.implementation = arr.implementation.reshape(space, new_shape)
+            arr.implementation = arr.implementation.reshape(space, self,
+                                                            new_shape)
             assert arr.implementation
         else:
             arr.implementation.shape = new_shape
         return arr
 
     def descr_get_transpose(self, space):
-        return W_NDimArray(self.implementation.transpose())
+        return W_NDimArray(self.implementation.transpose(self))
 
     @unwrap_spec(axis1=int, axis2=int)
     def descr_swapaxes(self, space, axis1, axis2):
@@ -283,7 +284,7 @@ class __extend__(W_NDimArray):
         """
         if self.is_scalar():
             return self
-        return self.implementation.swapaxes(axis1, axis2)
+        return self.implementation.swapaxes(self, axis1, axis2)
 
     def descr_tolist(self, space):
         if len(self.get_shape()) == 0:
@@ -389,9 +390,8 @@ class __extend__(W_NDimArray):
           space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype))
         return self.implementation.astype(space, dtype)
 
-    def descr_base(self, space):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            "base not implemented yet"))
+    def descr_get_base(self, space):
+        return self.implementation.base()
 
     def descr_byteswap(self, space, w_inplace=False):
         raise OperationError(space.w_NotImplementedError, space.wrap(
@@ -790,6 +790,7 @@ W_NDimArray.typedef = TypeDef(
 
     argsort = interp2app(W_NDimArray.descr_argsort),
     astype = interp2app(W_NDimArray.descr_astype),
+    base = GetSetProperty(W_NDimArray.descr_get_base),
 
     __array_interface__ = GetSetProperty(W_NDimArray.descr_array_iface),
 )
