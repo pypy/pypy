@@ -169,7 +169,7 @@ class BaseConcreteArray(base.BaseArrayImplementation):
     
     def get_shape(self):
         shape = self.shape
-        jit.hint(shape, promote=True)
+        jit.hint(len(shape), promote=True)
         return shape
 
     def getitem(self, index):
