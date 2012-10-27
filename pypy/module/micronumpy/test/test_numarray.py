@@ -2238,7 +2238,49 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         assert arr[1]['y']['y'] == 3.5
         assert arr[1]['y']['x'] == 0.0
         assert arr[1]['x'] == 15
-        
+
+    def test_string_record(self):
+        from _numpypy import dtype, array
+        d = dtype([('x', str), ('y', 'int32')])
+        assert d.fields['x'] == (dtype(str), 0)
+        assert d.fields['y'] == (dtype('int32'), 1)
+        d = dtype([('x', 'S1'), ('y', 'int32')])
+        assert d.fields['x'] == (dtype(str), 0)
+        assert d.fields['y'] == (dtype('int32'), 1)
+        a = array([('a', 2), ('c', 1)], dtype=d)
+        assert a[1]['y'] == 1
+        assert a[0]['x'] == 'a'
+
+    def test_stringarray(self):
+        from _numpypy import array, flexible
+        a = array(['abc'],'S3')
+        assert str(a.dtype) == '|S3'
+        a = array(['abc'])
+        assert str(a.dtype) == '|S3'
+        a = array(['abc','defg','ab'])
+        assert str(a.dtype) == '|S4'
+        assert a[0] == 'abc'
+        assert a[1] == 'defg'
+        assert a[2] == 'ab'
+        raises(TypeError, a, 'sum')
+        raises(TypeError, 'a+a')
+
+    def test_flexible_repr(self):
+        # import overrides str(), repr() for array
+        from numpypy.core import arrayprint
+        from _numpypy import array
+        a = array(['abc'],'S3')
+        s = repr(a)
+        # simplify test for \n in repr
+        assert s.replace('\n', '') == "array(['abc'],       dtype='|S3')"
+        # but make sure it exists
+        assert s.find('\n') == 15
+        a = array(['abc','defg','ab'])
+        s = repr(a)
+        assert s.replace('\n', '') == \
+                      "array(['abc', 'defg', 'ab'],       dtype='|S4')"
+         
+       
 class AppTestPyPy(BaseNumpyAppTest):
     def setup_class(cls):
         if option.runappdirect and '__pypy__' not in sys.builtin_module_names:

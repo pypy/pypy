@@ -150,6 +150,9 @@ class W_Ufunc(Wrappable):
                 "supported for binary functions"))
         assert isinstance(self, W_Ufunc2)
         obj = convert_to_array(space, w_obj)
+        if obj.get_dtype().is_flexible_type():
+            raise OperationError(space.w_TypeError, 
+                      space.wrap('cannot perform reduce for flexible type'))
         obj_shape = obj.get_shape()
         if obj.is_scalar():
             return obj.get_scalar_value()
@@ -235,6 +238,9 @@ class W_Ufunc1(W_Ufunc):
             if space.is_w(out, space.w_None):
                 out = None
         w_obj = convert_to_array(space, w_obj)
+        if w_obj.get_dtype().is_flexible_type():
+            raise OperationError(space.w_TypeError, 
+                      space.wrap('Not implemented for this type'))
         calc_dtype = find_unaryop_result_dtype(space,
                                   w_obj.get_dtype(),
                                   promote_to_float=self.promote_to_float,
@@ -301,6 +307,10 @@ class W_Ufunc2(W_Ufunc):
             w_out = None
         w_lhs = convert_to_array(space, w_lhs)
         w_rhs = convert_to_array(space, w_rhs)
+        if w_lhs.get_dtype().is_flexible_type() or \
+           w_rhs.get_dtype().is_flexible_type():
+            raise OperationError(space.w_TypeError, 
+                      space.wrap('unsupported operand types'))
         calc_dtype = find_binop_result_dtype(space,
             w_lhs.get_dtype(), w_rhs.get_dtype(),
             int_only=self.int_only,
@@ -447,6 +457,7 @@ def find_dtype_for_scalar(space, w_obj, current_guess=None):
     int64_dtype = interp_dtype.get_dtype_cache(space).w_int64dtype
     complex_type = interp_dtype.get_dtype_cache(space).w_complex128dtype
     float_type = interp_dtype.get_dtype_cache(space).w_float64dtype
+    str_dtype = interp_dtype.get_dtype_cache(space).w_stringdtype
     if isinstance(w_obj, interp_boxes.W_GenericBox):
         dtype = w_obj.get_dtype(space)
         if current_guess is None:
@@ -472,6 +483,15 @@ def find_dtype_for_scalar(space, w_obj, current_guess=None):
             current_guess is long_dtype or current_guess is int64_dtype or
             current_guess is complex_type or current_guess is float_type):
             return complex_type
+        return current_guess
+    elif space.isinstance_w(w_obj, space.w_str):
+        if (current_guess is None):
+            return interp_dtype.variable_dtype(space, 
+                                               'S%d' % space.len_w(w_obj))
+        elif current_guess.num ==18:
+            if  current_guess.itemtype.get_size() < space.len_w(w_obj):
+                return interp_dtype.variable_dtype(space, 
+                                                   'S%d' % space.len_w(w_obj))
         return current_guess
     if current_guess is complex_type:
         return complex_type
