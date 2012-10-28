@@ -1,14 +1,22 @@
-# ______________________________________________________________________
+"""Implements the core parts of flow graph creation, in tandem
+with pypy.objspace.flow.flowcontext.
+"""
+
 import __builtin__
 import sys
 import types
-from pypy.interpreter.baseobjspace import ObjSpace
-from pypy.interpreter.argument import ArgumentsForTranslation
+from inspect import CO_NEWLOCALS
+
+from pypy.objspace.flow.argument import ArgumentsForTranslation
 from pypy.objspace.flow.model import (Constant, Variable, WrapException,
     UnwrapException, checkgraph, SpaceOperation)
+from pypy.objspace.flow.bytecode import HostCode
 from pypy.objspace.flow import operation
 from pypy.objspace.flow.flowcontext import (FlowSpaceFrame, fixeggblocks,
     FSException, FlowingError)
+from pypy.objspace.flow.generator import (tweak_generator_graph,
+        bootstrap_generator)
+from pypy.objspace.flow.pygraph import PyGraph
 from pypy.objspace.flow.specialcase import SPECIAL_CASES
 from pypy.rlib.unroll import unrolling_iterable, _unroller
 from pypy.rlib import rstackovf, rarithmetic
@@ -36,6 +44,17 @@ NOT_REALLY_CONST = {
         # might be considered for special objects.
         }
     }
+
+def _assert_rpythonic(func):
+    """Raise ValueError if ``func`` is obviously not RPython"""
+    if func.func_doc and func.func_doc.lstrip().startswith('NOT_RPYTHON'):
+        raise ValueError("%r is tagged as NOT_RPYTHON" % (func,))
+    if func.func_code.co_cellvars:
+        raise ValueError("RPython functions cannot create closures")
+    if not (func.func_code.co_flags & CO_NEWLOCALS):
+        raise ValueError("The code object for a RPython function should have "
+                "the flag CO_NEWLOCALS set.")
+
 
 # ______________________________________________________________________
 class FlowObjSpace(object):
@@ -93,6 +112,17 @@ class FlowObjSpace(object):
             return self.w_True
         else:
             return self.w_False
+
+    def newfunction(self, w_code, w_globals, defaults_w):
+        try:
+            code = self.unwrap(w_code)
+            globals = self.unwrap(w_globals)
+            defaults = tuple([self.unwrap(value) for value in defaults_w])
+        except UnwrapException:
+            raise FlowingError(self.frame, "Dynamically created function must"
+                    " have constant default values.")
+        fn = types.FunctionType(code, globals, code.co_name, defaults)
+        return Constant(fn)
 
     def wrap(self, obj):
         if isinstance(obj, (Variable, Constant)):
@@ -195,7 +225,7 @@ class FlowObjSpace(object):
             w_real_class = self.wrap(rstackovf._StackOverflow)
             return self._exception_match(w_exc_type, w_real_class)
         # checking a tuple of classes
-        for w_klass in self.fixedview(w_check_class):
+        for w_klass in self.unpackiterable(w_check_class):
             if self.exception_match(w_exc_type, w_klass):
                 return True
         return False
@@ -232,24 +262,27 @@ class FlowObjSpace(object):
             w_type = w_instclass
         return FSException(w_type, w_value)
 
-    def build_flow(self, func, constargs={}, tweak_for_generator=True):
+    def build_flow(self, func):
         """
         """
-        if func.func_doc and func.func_doc.lstrip().startswith('NOT_RPYTHON'):
-            raise Exception, "%r is tagged as NOT_RPYTHON" % (func,)
-        frame = self.frame = FlowSpaceFrame(self, func, constargs)
+        _assert_rpythonic(func)
+        code = HostCode._from_code(func.func_code)
+        if (code.is_generator and
+                not hasattr(func, '_generator_next_method_of_')):
+            graph = PyGraph(func, code)
+            block = graph.startblock
+            for name, w_value in zip(code.co_varnames, block.framestate.mergeable):
+                if isinstance(w_value, Variable):
+                    w_value.rename(name)
+            return bootstrap_generator(graph)
+        graph = PyGraph(func, code)
+        frame = self.frame = FlowSpaceFrame(self, graph, code)
         frame.build_flow()
-        graph = frame.graph
         fixeggblocks(graph)
         checkgraph(graph)
-        if graph.is_generator and tweak_for_generator:
-            from pypy.translator.generator import tweak_generator_graph
+        if code.is_generator:
             tweak_generator_graph(graph)
         return graph
-
-    def fixedview(self, w_tuple, expected_length=None):
-        return self.unpackiterable(w_tuple, expected_length)
-    listview = fixedview_unroll = fixedview
 
     def unpackiterable(self, w_iterable, expected_length=None):
         if not isinstance(w_iterable, Variable):
@@ -388,10 +421,6 @@ class FlowObjSpace(object):
         except AttributeError:
             raise FSException(self.w_ImportError,
                 self.wrap("cannot import name '%s'" % w_name.value))
-
-    def call_valuestack(self, w_func, nargs, frame):
-        args = frame.make_arguments(nargs)
-        return self.call_args(w_func, args)
 
     def call_method(self, w_obj, methname, *arg_w):
         w_meth = self.getattr(w_obj, self.wrap(methname))
@@ -539,5 +568,5 @@ def make_op(name, arity):
     setattr(FlowObjSpace, name, generic_operator)
 
 
-for (name, symbol, arity, specialnames) in ObjSpace.MethodTable:
+for (name, symbol, arity, specialnames) in operation.MethodTable:
     make_op(name, arity)

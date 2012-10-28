@@ -406,12 +406,16 @@ class ReadBZ2Filter(Stream):
             read += length
 
     def readall(self):
-        w_result = self.decompressor.decompress(self.stream.readall())
-        if self.decompressor.running:
-            raise OperationError(self.space.w_EOFError,
-                                 self.space.wrap("compressed file ended before the logical end-of-the-stream was detected"))
-        result = self.space.str_w(w_result)
-        self.readlength += len(result)
+        raw = self.stream.readall()
+        if raw:
+            w_result = self.decompressor.decompress(raw)
+            if self.decompressor.running:
+                raise OperationError(self.space.w_EOFError,
+                                     self.space.wrap("compressed file ended before the logical end-of-the-stream was detected"))
+            result = self.space.str_w(w_result)
+            self.readlength += len(result)
+        else:
+            result = ""
         if len(self.buffer) != self.pos:
             pos = self.pos
             assert pos >= 0
@@ -649,11 +653,11 @@ class W_BZ2Decompressor(Wrappable):
         was found after the end of stream, it'll be ignored and saved in
         unused_data attribute."""
 
-        if data == '':
-            return self.space.wrap('')
         if not self.running:
             raise OperationError(self.space.w_EOFError,
                 self.space.wrap("end of stream was already found"))
+        if data == '':
+            return self.space.wrap('')
 
         in_bufsize = len(data)
 

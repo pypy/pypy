@@ -38,6 +38,8 @@ The stdlib was updated to version 2.7.3
 
 .. branch: numpypy-complex2
 Complex dtype support for numpy
+.. branch: numpypy-problems
+Improve dtypes intp, uintp, void, string and record
 .. branch: kill-someobject
 major cleanups including killing some object support
 

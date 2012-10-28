@@ -1,31 +1,33 @@
+"""Flow graph building for generators"""
+
 from pypy.objspace.flow.model import Block, Link, SpaceOperation, checkgraph
-from pypy.objspace.flow.model import Variable, Constant, FunctionGraph
+from pypy.objspace.flow.model import Variable, Constant
 from pypy.translator.unsimplify import insert_empty_startblock
 from pypy.translator.unsimplify import split_block
 from pypy.translator.simplify import eliminate_empty_blocks, simplify_graph
 from pypy.tool.sourcetools import func_with_new_name
-from pypy.interpreter.argument import Signature
+from pypy.objspace.flow.argument import Signature
 
 
 class AbstractPosition(object):
     _immutable_ = True
     _attrs_ = ()
 
+def bootstrap_generator(graph):
+    # This is the first copy of the graph.  We replace it with
+    # a small bootstrap graph.
+    GeneratorIterator = make_generatoriterator_class(graph)
+    replace_graph_with_bootstrap(GeneratorIterator, graph)
+    # We attach a 'next' method to the GeneratorIterator class
+    # that will invoke the real function, based on a second
+    # copy of the graph.
+    attach_next_method(GeneratorIterator, graph)
+    return graph
 
 def tweak_generator_graph(graph):
-    if not hasattr(graph.func, '_generator_next_method_of_'):
-        # This is the first copy of the graph.  We replace it with
-        # a small bootstrap graph.
-        GeneratorIterator = make_generatoriterator_class(graph)
-        replace_graph_with_bootstrap(GeneratorIterator, graph)
-        # We attach a 'next' method to the GeneratorIterator class
-        # that will invoke the real function, based on a second
-        # copy of the graph.
-        attach_next_method(GeneratorIterator, graph)
-    else:
-        # This is the second copy of the graph.  Tweak it.
-        GeneratorIterator = graph.func._generator_next_method_of_
-        tweak_generator_body_graph(GeneratorIterator.Entry, graph)
+    # This is the second copy of the graph.  Tweak it.
+    GeneratorIterator = graph.func._generator_next_method_of_
+    tweak_generator_body_graph(GeneratorIterator.Entry, graph)
 
 
 def make_generatoriterator_class(graph):

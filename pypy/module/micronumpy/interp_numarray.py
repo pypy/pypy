@@ -25,7 +25,7 @@ def _find_shape(space, w_size):
     shape = []
     for w_item in space.fixedview(w_size):
         shape.append(space.int_w(w_item))
-    return shape
+    return shape[:]
 
 class __extend__(W_NDimArray):
     @jit.unroll_safe
@@ -190,7 +190,7 @@ class __extend__(W_NDimArray):
         return space.call_function(cache.w_array_str, self)
 
     def dump_data(self):
-        i = self.create_iter(self.get_shape())
+        i = self.create_iter()
         first = True
         dtype = self.get_dtype()
         s = StringBuilder()
@@ -206,8 +206,6 @@ class __extend__(W_NDimArray):
         return s.build()
 
     def create_iter(self, shape=None):
-        if shape is None:
-            shape = self.get_shape()
         return self.implementation.create_iter(shape)
 
     def create_axis_iter(self, shape, dim):
@@ -307,7 +305,8 @@ class __extend__(W_NDimArray):
     def descr_take(self, space, w_obj, w_axis=None, w_out=None):
         # if w_axis is None and w_out is Nont this is an equivalent to
         # fancy indexing
-        raise Exception("unsupported for now")
+        raise OperationError(space.w_NotImplementedError,
+                             space.wrap("unsupported for now"))
         if not space.is_none(w_axis):
             raise OperationError(space.w_NotImplementedError,
                                  space.wrap("axis unsupported for take"))
@@ -395,7 +394,7 @@ class __extend__(W_NDimArray):
         if self.get_size() > 1:
             raise OperationError(space.w_ValueError, space.wrap(
                 "The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()"))
-        iter = self.create_iter(self.get_shape())
+        iter = self.create_iter()
         return space.wrap(space.is_true(iter.getitem()))
 
     def _binop_impl(ufunc_name):
@@ -432,9 +431,7 @@ class __extend__(W_NDimArray):
 
     def _binop_right_impl(ufunc_name):
         def impl(self, space, w_other, w_out=None):
-            dtype = interp_ufuncs.find_dtype_for_scalar(space, w_other,
-                                                        self.get_dtype())
-            w_other = W_NDimArray.new_scalar(space, dtype, w_other)
+            w_other = convert_to_array(space, w_other)
             return getattr(interp_ufuncs.get(space), ufunc_name).call(space, [w_other, self, w_out])
         return func_with_new_name(impl, "binop_right_%s_impl" % ufunc_name)
 
@@ -661,7 +658,7 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
             raise operationerrfmt(space.w_ValueError, "Unknown order: %s",
                                   order)
     if isinstance(w_object, W_NDimArray):
-        if (not space.is_w(w_dtype, space.w_None) and
+        if (not space.is_none(w_dtype) and
             w_object.get_dtype() is not w_dtype):
             raise OperationError(space.w_NotImplementedError, space.wrap(
                                   "copying over different dtypes unsupported"))
@@ -682,7 +679,7 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
     if ndmin > len(shape):
         shape = [1] * (ndmin - len(shape)) + shape
     arr = W_NDimArray.from_shape(shape, dtype, order=order)
-    arr_iter = arr.create_iter(arr.get_shape())
+    arr_iter = arr.create_iter()
     for w_elem in elems_w:
         arr_iter.setitem(dtype.coerce(space, w_elem))
         arr_iter.next()

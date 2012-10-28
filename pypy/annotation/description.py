@@ -1,8 +1,7 @@
 import types, py
 from pypy.objspace.flow.model import Constant, FunctionGraph
-from pypy.interpreter.pycode import cpython_code_signature
-from pypy.interpreter.argument import rawshape
-from pypy.interpreter.argument import ArgErr
+from pypy.objspace.flow.bytecode import cpython_code_signature
+from pypy.objspace.flow.argument import rawshape, ArgErr
 from pypy.tool.sourcetools import valid_identifier
 from pypy.tool.pairtype import extendabletype
 
@@ -181,7 +180,7 @@ class FunctionDesc(Desc):
             name = pyobj.func_name
         if signature is None:
             if hasattr(pyobj, '_generator_next_method_of_'):
-                from pypy.interpreter.argument import Signature
+                from pypy.objspace.flow.argument import Signature
                 signature = Signature(['entry'])     # haaaaaack
                 defaults = ()
             else:
@@ -260,7 +259,7 @@ class FunctionDesc(Desc):
         try:
             inputcells = args.match_signature(signature, defs_s)
         except ArgErr, e:
-            raise TypeError("signature mismatch: %s() %s" % 
+            raise TypeError("signature mismatch: %s() %s" %
                             (self.name, e.getmsg()))
         return inputcells
 

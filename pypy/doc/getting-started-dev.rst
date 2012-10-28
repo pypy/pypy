@@ -100,7 +100,7 @@ executable in one of the ``/tmp/usession-*`` directories::
 To translate and run for the CLI you must have the SDK installed: Windows
 users need the `.NET Framework SDK`_, while Linux and Mac users
 can use Mono_.  To translate and run for the JVM you must have a JDK 
-installed (at least version 5) and ``java``/``javac`` on your path.
+installed (at least version 6) and ``java``/``javac`` on your path.
 
 A slightly larger example
 +++++++++++++++++++++++++

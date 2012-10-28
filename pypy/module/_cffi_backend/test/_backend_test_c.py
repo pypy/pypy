@@ -2211,3 +2211,88 @@ def test_newp_from_bytearray_doesnt_work():
     buffer(p)[:] = bytearray(b"foo\x00")
     assert len(p) == 4
     assert list(p) == [b"f", b"o", b"o", b"\x00"]
+
+def test_FILE():
+    if sys.platform == "win32":
+        py.test.skip("testing FILE not implemented")
+    #
+    BFILE = new_struct_type("_IO_FILE")
+    BFILEP = new_pointer_type(BFILE)
+    BChar = new_primitive_type("char")
+    BCharP = new_pointer_type(BChar)
+    BInt = new_primitive_type("int")
+    BFunc = new_function_type((BCharP, BFILEP), BInt, False)
+    BFunc2 = new_function_type((BFILEP, BCharP), BInt, True)
+    ll = find_and_load_library('c')
+    fputs = ll.load_function(BFunc, "fputs")
+    fscanf = ll.load_function(BFunc2, "fscanf")
+    #
+    import posix
+    fdr, fdw = posix.pipe()
+    fr1 = posix.fdopen(fdr, 'r', 256)
+    fw1 = posix.fdopen(fdw, 'w', 256)
+    #
+    fw1.write(b"X")
+    res = fputs(b"hello world\n", fw1)
+    assert res >= 0
+    fw1.close()
+    #
+    p = newp(new_array_type(BCharP, 100), None)
+    res = fscanf(fr1, b"%s\n", p)
+    assert res == 1
+    assert string(p) == b"Xhello"
+    fr1.close()
+
+def test_FILE_only_for_FILE_arg():
+    if sys.platform == "win32":
+        py.test.skip("testing FILE not implemented")
+    #
+    B_NOT_FILE = new_struct_type("NOT_FILE")
+    B_NOT_FILEP = new_pointer_type(B_NOT_FILE)
+    BChar = new_primitive_type("char")
+    BCharP = new_pointer_type(BChar)
+    BInt = new_primitive_type("int")
+    BFunc = new_function_type((BCharP, B_NOT_FILEP), BInt, False)
+    ll = find_and_load_library('c')
+    fputs = ll.load_function(BFunc, "fputs")
+    #
+    import posix
+    fdr, fdw = posix.pipe()
+    fr1 = posix.fdopen(fdr, 'r')
+    fw1 = posix.fdopen(fdw, 'w')
+    #
+    e = py.test.raises(TypeError, fputs, b"hello world\n", fw1)
+    assert str(e.value) == ("initializer for ctype 'struct NOT_FILE *' must "
+                            "be a cdata pointer, not file")
+
+def test_FILE_object():
+    if sys.platform == "win32":
+        py.test.skip("testing FILE not implemented")
+    #
+    BFILE = new_struct_type("_IO_FILE")
+    BFILEP = new_pointer_type(BFILE)
+    BChar = new_primitive_type("char")
+    BCharP = new_pointer_type(BChar)
+    BInt = new_primitive_type("int")
+    BFunc = new_function_type((BCharP, BFILEP), BInt, False)
+    BFunc2 = new_function_type((BFILEP,), BInt, False)
+    ll = find_and_load_library('c')
+    fputs = ll.load_function(BFunc, "fputs")
+    fileno = ll.load_function(BFunc2, "fileno")
+    #
+    import posix
+    fdr, fdw = posix.pipe()
+    fw1 = posix.fdopen(fdw, 'wb', 256)
+    #
+    fw1p = cast(BFILEP, fw1)
+    fw1.write(b"X")
+    fw1.flush()
+    res = fputs(b"hello\n", fw1p)
+    assert res >= 0
+    res = fileno(fw1p)
+    assert res == fdw
+    fw1.close()
+    #
+    data = posix.read(fdr, 256)
+    assert data == b"Xhello\n"
+    posix.close(fdr)

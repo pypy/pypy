@@ -1651,10 +1651,7 @@ class _array(_parentable):
         if n < 0:
             raise ValueError, "negative array length"
         _parentable.__init__(self, TYPE)
-        try:
-            myrange = range(n)
-        except OverflowError:
-            raise MemoryError("definitely too many items")
+        myrange = self._check_range(n)
         self.items = [TYPE.OF._allocate(initialization=initialization,
                                         parent=self, parentindex=j)
                       for j in myrange]
@@ -1663,6 +1660,14 @@ class _array(_parentable):
 
     def __repr__(self):
         return '<%s>' % (self,)
+
+    def _check_range(self, n):
+        # checks that it's ok to make an array of size 'n', and returns
+        # range(n).  Explicitly overridden by some tests.
+        try:
+            return range(n)
+        except OverflowError:
+            raise MemoryError("definitely too many items")
 
     def _str_item(self, item):
         if isinstance(item, _uninitialized):

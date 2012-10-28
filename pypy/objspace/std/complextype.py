@@ -26,9 +26,11 @@ def _split_complex(s):
     imagstop = 0
     imagsign = ' '
     i = 0
-    # ignore whitespace
+    # ignore whitespace at beginning and end
     while i < slen and s[i] == ' ':
         i += 1
+    while slen > 0 and s[slen-1] == ' ':
+        slen -= 1
 
     if s[i] == '(' and s[slen-1] == ')':
         i += 1
@@ -147,12 +149,12 @@ def descr__new__(space, w_complextype, w_real, w_imag=None):
 
     else:
         # non-string arguments
-        realval, imagval = unpackcomplex(space, w_real)
+        realval, imagval = unpackcomplex(space, w_real, strict_typing=False)
 
         # now take w_imag into account
         if not noarg2:
             # complex(x, y) == x+y*j, even if 'y' is already a complex.
-            realval2, imagval2 = unpackcomplex(space, w_imag)
+            realval2, imagval2 = unpackcomplex(space, w_imag, strict_typing=False)
 
             # try to preserve the signs of zeroes of realval and realval2
             if imagval2 != 0.0:
@@ -168,7 +170,13 @@ def descr__new__(space, w_complextype, w_real, w_imag=None):
     return w_obj
 
 
-def unpackcomplex(space, w_complex):
+def unpackcomplex(space, w_complex, strict_typing=True):
+    """
+    convert w_complex into a complex and return the unwrapped (real, imag)
+    tuple. If strict_typing==True, we also typecheck the value returned by
+    __complex__ to actually be a complex (and not e.g. a float).
+    See test___complex___returning_non_complex.
+    """
     from pypy.objspace.std.complexobject import W_ComplexObject
     if type(w_complex) is W_ComplexObject:
         return (w_complex.realval, w_complex.imagval)
@@ -190,13 +198,18 @@ def unpackcomplex(space, w_complex):
             w_z = space.get_and_call_function(w_method, w_complex)
     #
     if w_z is not None:
-        # __complex__() must return a complex object
+        # __complex__() must return a complex or (float,int,long) object
         # (XXX should not use isinstance here)
-        if not isinstance(w_z, W_ComplexObject):
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("__complex__() must return"
-                                            " a complex number"))
-        return (w_z.realval, w_z.imagval)
+        if not strict_typing and (space.isinstance_w(w_z, space.w_int) or 
+                                  space.isinstance_w(w_z, space.w_long) or
+                                  space.isinstance_w(w_z, space.w_float)):
+            return (space.float_w(w_z), 0.0)
+        elif isinstance(w_z, W_ComplexObject):
+            return (w_z.realval, w_z.imagval)
+        raise OperationError(space.w_TypeError,
+                             space.wrap("__complex__() must return"
+                                        " a complex number"))
+
     #
     # no '__complex__' method, so we assume it is a float,
     # unless it is an instance of some subclass of complex.

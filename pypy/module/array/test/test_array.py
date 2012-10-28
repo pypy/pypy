@@ -681,6 +681,22 @@ class BaseArrayTests:
         a.__delslice__(0, 2)
         assert repr(a) == "array('i', [5])"
 
+        a = self.array('i', [1, 2, 3, 4, 5])
+        del a[3:1]
+        assert repr(a) == "array('i', [1, 2, 3, 4, 5])"
+
+        del a[-100:1]
+        assert repr(a) == "array('i', [2, 3, 4, 5])"
+
+        del a[3:]
+        assert repr(a) == "array('i', [2, 3, 4])"
+
+        del a[-1:]
+        assert repr(a) == "array('i', [2, 3])"
+
+        del a[1:100]
+        assert repr(a) == "array('i', [2])"
+
     def test_iter(self):
         a = self.array('i', [1, 2, 3])
         assert 1 in a

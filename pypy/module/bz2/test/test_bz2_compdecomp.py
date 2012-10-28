@@ -156,6 +156,7 @@ class AppTestBZ2Decompressor(CheckAllocation):
         bz2d = BZ2Decompressor()
         bz2d.decompress(self.DATA)
         raises(EOFError, bz2d.decompress, "foo")
+        raises(EOFError, bz2d.decompress, "")
 
     def test_buffer(self):
         from bz2 import BZ2Decompressor
