@@ -689,6 +689,10 @@ class TestNonInteractive:
         child_out_err.close()
 
     def test_proper_sys_path(self, tmpdir):
+        data = self.run('-c "import _ctypes"', python_flags='-S')
+        if data.startswith('Traceback'):
+            py.test.skip("'python -S' cannot import extension modules: "
+                         "see probably http://bugs.python.org/issue586680")
 
         @contextmanager
         def chdir_and_unset_pythonpath(new_cwd):

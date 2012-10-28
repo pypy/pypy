@@ -76,7 +76,7 @@ class __extend__(SomeObject):
         s_obj.is_true_behavior(r)
 
         bk = getbookkeeper()
-        knowntypedata = r.knowntypedata = {}
+        knowntypedata = {}
         fn, block, i = bk.position_key
         op = block.operations[i]
         assert op.opname == "is_true" or op.opname == "nonzero"
@@ -86,8 +86,8 @@ class __extend__(SomeObject):
         if s_obj.can_be_none():
             s_nonnone_obj = s_obj.nonnoneify()
         add_knowntypedata(knowntypedata, True, [arg], s_nonnone_obj)
+        r.set_knowntypedata(knowntypedata)
         return r
-        
 
     def nonzero(obj):
         return obj.is_true()
