@@ -1,11 +1,12 @@
 import py
-from pypy.conftest import gettestobjspace, option
 
 class AppTest(object):
+    spaceconfig = {"objspace.usemodules.select": False,
+                   "objspace.std.withrangelist": True}
+
     def setup_class(cls):
-        if option.runappdirect:
+        if cls.option.runappdirect:
             py.test.skip("does not make sense on pypy-c")
-        cls.space = gettestobjspace(**{"objspace.usemodules.select": False, "objspace.std.withrangelist": True})
 
     def test__isfake(self):
         from __pypy__ import isfake

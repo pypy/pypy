@@ -1,6 +1,5 @@
 
 import py
-from pypy.conftest import gettestobjspace, option
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.pycode import PyCode
 from pypy.jit.metainterp.history import JitCellToken, ConstInt, ConstPtr
@@ -35,12 +34,11 @@ class MockSD(object):
     jitdrivers_sd = [MockJitDriverSD]
 
 class AppTestJitHook(object):
+    spaceconfig = dict(usemodules=('pypyjit',))
     def setup_class(cls):
-        if option.runappdirect:
+        if cls.option.runappdirect:
             py.test.skip("Can't run this test with -A")
-        space = gettestobjspace(usemodules=('pypyjit',))
-        cls.space = space
-        w_f = space.appexec([], """():
+        w_f = cls.space.appexec([], """():
         def function():
             pass
         return function
@@ -89,6 +87,7 @@ class AppTestJitHook(object):
             pypy_hooks.on_abort(Counters.ABORT_TOO_LONG, pypyjitdriver,
                                 greenkey, 'blah')
 
+        space = cls.space
         cls.w_on_compile = space.wrap(interp2app(interp_on_compile))
         cls.w_on_compile_bridge = space.wrap(interp2app(interp_on_compile_bridge))
         cls.w_on_abort = space.wrap(interp2app(interp_on_abort))
