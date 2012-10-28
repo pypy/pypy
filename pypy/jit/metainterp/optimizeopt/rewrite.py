@@ -5,7 +5,7 @@ from pypy.jit.metainterp.optimizeopt.intutils import IntBound
 from pypy.jit.metainterp.optimizeopt.optimizer import *
 from pypy.jit.metainterp.optimizeopt.util import _findall, make_dispatcher_method
 from pypy.jit.metainterp.resoperation import (opboolinvers, opboolreflex, rop,
-    ResOperation)
+    ResOperation, BoxPtr, BoxInt, BoxFloat)
 from pypy.rlib.rarithmetic import highest_bit
 
 
