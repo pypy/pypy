@@ -10,6 +10,7 @@ from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rlib import jit
 from pypy.rlib.rawstorage import free_raw_storage
+from pypy.rlib.debug import make_sure_not_resized
 
 class ConcreteArrayIterator(base.BaseArrayIterator):
     def __init__(self, array):
@@ -379,6 +380,9 @@ class BaseConcreteArray(base.BaseArrayImplementation):
 
 class ConcreteArray(BaseConcreteArray):
     def __init__(self, shape, dtype, order, strides, backstrides):
+        make_sure_not_resized(shape)
+        make_sure_not_resized(strides)
+        make_sure_not_resized(backstrides)
         self.shape = shape
         self.size = support.product(shape) * dtype.get_size()
         self.storage = dtype.itemtype.malloc(self.size)
@@ -387,8 +391,8 @@ class ConcreteArray(BaseConcreteArray):
         self.strides = strides
         self.backstrides = backstrides
 
-    def create_iter(self, shape):
-        if shape == self.get_shape():
+    def create_iter(self, shape=None):
+        if shape is None or shape == self.get_shape():
             return ConcreteArrayIterator(self)
         r = calculate_broadcast_strides(self.strides, self.backstrides,
                                         self.get_shape(), shape)
@@ -424,8 +428,8 @@ class SliceArray(BaseConcreteArray):
     def fill(self, box):
         loop.fill(self, box.convert_to(self.dtype))
 
-    def create_iter(self, shape):
-        if shape != self.get_shape():
+    def create_iter(self, shape=None):
+        if shape is not None and shape != self.get_shape():
             r = calculate_broadcast_strides(self.strides, self.backstrides,
                                             self.get_shape(), shape)
             return MultiDimViewIterator(self.parent,

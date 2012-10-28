@@ -3239,6 +3239,42 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         '''
         self.optimize_loop(ops, expected)
 
+    def test_arraycopy_not_virtual_2(self):
+        ops = '''
+        [p0]
+        p1 = new_array(3, descr=arraydescr)
+        call(0, p0, p1, 0, 0, 3, descr=arraycopydescr)
+        i0 = getarrayitem_gc(p1, 0, descr=arraydescr)
+        jump(i0)
+        '''
+        expected = '''
+        [p0]
+        i0 = getarrayitem_gc(p0, 0, descr=arraydescr)
+        i1 = getarrayitem_gc(p0, 1, descr=arraydescr) # removed by the backend
+        i2 = getarrayitem_gc(p0, 2, descr=arraydescr) # removed by the backend
+        jump(i0)
+        '''
+        self.optimize_loop(ops, expected)
+
+    def test_arraycopy_not_virtual_3(self):
+        ops = '''
+        [p0, p1]
+        call(0, p0, p1, 0, 0, 3, descr=arraycopydescr)
+        i0 = getarrayitem_gc(p1, 0, descr=arraydescr)
+        jump(i0)
+        '''
+        expected = '''
+        [p0, p1]
+        i0 = getarrayitem_gc(p0, 0, descr=arraydescr)
+        i1 = getarrayitem_gc(p0, 1, descr=arraydescr)
+        i2 = getarrayitem_gc(p0, 2, descr=arraydescr)
+        setarrayitem_gc(p1, 0, i0, descr=arraydescr)
+        setarrayitem_gc(p1, 1, i1, descr=arraydescr)
+        setarrayitem_gc(p1, 2, i2, descr=arraydescr)
+        jump(i0)
+        '''
+        self.optimize_loop(ops, expected)
+
     def test_arraycopy_no_elem(self):
         """ this was actually observed in the wild
         """

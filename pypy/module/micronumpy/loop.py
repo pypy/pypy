@@ -89,7 +89,7 @@ reduce_driver = jit.JitDriver(name='numpy_reduce',
                               reds = ['obj', 'obj_iter', 'cur_value'])
 
 def compute_reduce(obj, calc_dtype, func, done_func, identity):
-    obj_iter = obj.create_iter(obj.get_shape())
+    obj_iter = obj.create_iter()
     if identity is None:
         cur_value = obj_iter.getitem().convert_to(calc_dtype)
         obj_iter.next()
@@ -109,7 +109,7 @@ def compute_reduce(obj, calc_dtype, func, done_func, identity):
     return cur_value
 
 def fill(arr, box):
-    arr_iter = arr.create_iter(arr.get_shape())
+    arr_iter = arr.create_iter()
     while not arr_iter.done():
         arr_iter.setitem(box)
         arr_iter.next()
@@ -159,7 +159,7 @@ axis_reduce__driver = jit.JitDriver(name='numpy_axis_reduce',
 
 def do_axis_reduce(shape, func, arr, dtype, axis, out, identity):
     out_iter = out.create_axis_iter(arr.get_shape(), axis)
-    arr_iter = arr.create_iter(arr.get_shape())
+    arr_iter = arr.create_iter()
     if identity is not None:
         identity = identity.convert_to(dtype)
     shapelen = len(shape)
@@ -192,7 +192,7 @@ def _new_argmin_argmax(op_name):
         result = 0
         idx = 1
         dtype = arr.get_dtype()
-        iter = arr.create_iter(arr.get_shape())
+        iter = arr.create_iter()
         cur_best = iter.getitem()
         iter.next()
         shapelen = len(arr.get_shape())
