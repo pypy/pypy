@@ -1,12 +1,9 @@
-from pypy.conftest import gettestobjspace
 from pypy.module.clr.test.test_clr import skip_if_not_pythonnet
 
 skip_if_not_pythonnet()
 
 class AppTestDotnet:
-    def setup_class(cls):
-        space = gettestobjspace(usemodules=('clr', ))
-        cls.space = space
+    spaceconfig = dict(usemodules=('clr',))
 
     def test_list_of_namespaces_and_classes(self):
         import clr

@@ -1,5 +1,4 @@
 from __future__ import with_statement
-from pypy.conftest import gettestobjspace
 from pypy.rlib.rfloat import copysign, isnan, isinf
 from pypy.module.cmath import interp_cmath
 import os, sys, math
@@ -16,8 +15,7 @@ def test_special_values():
 
 
 class AppTestCMath:
-    def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['cmath'])
+    spaceconfig = dict(usemodules=['cmath'])
 
     def test_sign(self):
         import math
