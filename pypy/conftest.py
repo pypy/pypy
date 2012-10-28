@@ -328,7 +328,7 @@ def pytest_runtest_setup(__multicall__, item):
         if appclass is not None:
             # Make cls.space and cls.option available in tests.
             spaceconfig = getattr(appclass.obj, 'spaceconfig', None)
-            if spaceconfig:
+            if spaceconfig is not None:
                 appclass.obj.space = gettestobjspace(**spaceconfig)
             appclass.obj.option = option
 
