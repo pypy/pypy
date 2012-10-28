@@ -1,5 +1,4 @@
 from __future__ import with_statement
-from pypy.conftest import gettestobjspace, option
 from pypy.interpreter.gateway import interp2app
 from pypy.tool.udir import udir
 from pypy.module._io import interp_bufferedio
@@ -220,11 +219,12 @@ class AppTestBufferedReaderWithThreads(AppTestBufferedReader):
 
 
 class AppTestBufferedWriter:
+    spaceconfig = dict(usemodules=['_io', 'thread'])
+
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['_io', 'thread'])
         tmpfile = udir.join('tmpfile')
         cls.w_tmpfile = cls.space.wrap(str(tmpfile))
-        if option.runappdirect:
+        if cls.option.runappdirect:
             cls.w_readfile = tmpfile.read
         else:
             def readfile(space):
@@ -541,8 +541,9 @@ class AppTestBufferedRWPair:
         raises(IOError, _io.BufferedRWPair, _io.BytesIO(), NotWritable())
 
 class AppTestBufferedRandom:
+    spaceconfig = dict(usemodules=['_io'])
+
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['_io'])
         tmpfile = udir.join('tmpfile')
         tmpfile.write("a\nb\nc", mode='wb')
         cls.w_tmpfile = cls.space.wrap(str(tmpfile))
@@ -623,8 +624,9 @@ class AppTestBufferedRandom:
                 assert raw.getvalue() == b'1b\n2def\n3\n'
 
 class TestNonReentrantLock:
-    def test_trylock(self):
-        space = gettestobjspace(usemodules=['thread'])
+    spaceconfig = dict(usemodules=['thread'])
+
+    def test_trylock(self, space):
         lock = interp_bufferedio.TryLock(space)
         with lock:
             pass

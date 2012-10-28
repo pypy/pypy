@@ -1,8 +1,5 @@
-from pypy.conftest import gettestobjspace
-
 class AppTestBytesIO:
-    def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['_io'])
+    spaceconfig = dict(usemodules=['_io'])
 
     def test_init(self):
         import _io
