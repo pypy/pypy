@@ -4,6 +4,7 @@ import os as _os, sys as _sys
 
 __version__ = "1.1.0"
 
+import _ffi
 from _ctypes import Union, Structure, Array
 from _ctypes import _Pointer
 from _ctypes import CFuncPtr as _CFuncPtr
@@ -350,7 +351,10 @@ class CDLL(object):
         self._FuncPtr = _FuncPtr
 
         if handle is None:
-            self._handle = _dlopen(self._name, mode)
+            if flags & _FUNCFLAG_CDECL:
+                self._handle = _ffi.CDLL(name, mode)
+            else:
+                self._handle = _ffi.WinDLL(name, mode)
         else:
             self._handle = handle
 
