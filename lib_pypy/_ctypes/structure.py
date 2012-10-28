@@ -191,7 +191,7 @@ class StructOrUnionMeta(_CDataMeta):
         if isinstance(value, tuple):
             try:
                 value = self(*value)
-            except Exception, e:
+            except Exception as e:
                 # XXX CPython does not even respect the exception type
                 raise RuntimeError("(%s) %s: %s" % (self.__name__, type(e), e))
         return _CDataMeta.from_param(self, value)
@@ -211,8 +211,7 @@ class StructOrUnionMeta(_CDataMeta):
         res.__dict__['_index'] = -1
         return res
 
-class StructOrUnion(_CData):
-    __metaclass__ = StructOrUnionMeta
+class StructOrUnion(_CData, metaclass=StructOrUnionMeta):
 
     def __new__(cls, *args, **kwds):
         self = super(_CData, cls).__new__(cls, *args, **kwds)
@@ -254,5 +253,5 @@ class StructOrUnion(_CData):
 class StructureMeta(StructOrUnionMeta):
     _is_union = False
 
-class Structure(StructOrUnion):
-    __metaclass__ = StructureMeta
+class Structure(StructOrUnion, metaclass=StructureMeta):
+    pass

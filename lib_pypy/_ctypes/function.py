@@ -59,8 +59,7 @@ class CFuncPtrType(_CDataMeta):
     from_address = cdata_from_address
 
 
-class CFuncPtr(_CData):
-    __metaclass__ = CFuncPtrType
+class CFuncPtr(_CData, metaclass=CFuncPtrType):
 
     _argtypes_ = None
     _restype_ = None
@@ -214,7 +213,7 @@ class CFuncPtr(_CData):
         argument = argsl.pop(0)
 
         # Direct construction from raw address
-        if isinstance(argument, (int, long)) and not argsl:
+        if isinstance(argument, int) and not argsl:
             self._set_address(argument)
             restype = self._restype_
             if restype is None:
@@ -255,7 +254,7 @@ class CFuncPtr(_CData):
             return
 
         # A COM function call, by index
-        if (sys.platform == 'win32' and isinstance(argument, (int, long))
+        if (sys.platform == 'win32' and isinstance(argument, int)
             and argsl):
             ffiargs, ffires = self._ffishapes(self._argtypes_, self._restype_)
             self._com_index =  argument + 0x1000
@@ -301,7 +300,7 @@ class CFuncPtr(_CData):
 
             try:
                 newargs = self._convert_args_for_callback(argtypes, args)
-            except (UnicodeError, TypeError, ValueError), e:
+            except (UnicodeError, TypeError, ValueError) as e:
                 raise ArgumentError(str(e))
             try:
                 res = self.callable(*newargs)
@@ -468,7 +467,7 @@ class CFuncPtr(_CData):
             cobj = c_wchar_p(arg)
         elif arg is None:
             cobj = c_void_p()
-        elif isinstance(arg, (int, long)):
+        elif isinstance(arg, long):
             cobj = c_int(arg)
         else:
             raise TypeError("Don't know how to handle %s" % (arg,))
@@ -559,7 +558,7 @@ class CFuncPtr(_CData):
             else:
                 try:
                     keepalive, newarg, newargtype = self._conv_param(argtype, args[i])
-                except (UnicodeError, TypeError, ValueError), e:
+                except (UnicodeError, TypeError, ValueError) as e:
                     raise ArgumentError(str(e))
                 keepalives.append(keepalive)
                 newargs.append(newarg)
@@ -571,7 +570,7 @@ class CFuncPtr(_CData):
             for i, arg in enumerate(extra):
                 try:
                     keepalive, newarg, newargtype = self._conv_param(None, arg)
-                except (UnicodeError, TypeError, ValueError), e:
+                except (UnicodeError, TypeError, ValueError) as e:
                     raise ArgumentError(str(e))
                 keepalives.append(keepalive)
                 newargs.append(newarg)

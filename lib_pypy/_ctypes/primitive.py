@@ -308,8 +308,7 @@ class SimpleType(_CDataMeta):
     def _is_pointer_like(self):
         return self._type_ in "sPzUZXO"
 
-class _SimpleCData(_CData):
-    __metaclass__ = SimpleType
+class _SimpleCData(_CData, metaclass=SimpleType):
     _type_ = 'i'
 
     def __init__(self, value=DEFAULT_VALUE):

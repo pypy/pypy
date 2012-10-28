@@ -143,13 +143,12 @@ def array_slice_getitem(self, index):
     l = [self[i] for i in range(start, stop, step)]
     letter = getattr(self._type_, '_type_', None)
     if letter == 'c':
-        return "".join(l)
+        return b"".join(l)
     if letter == 'u':
-        return u"".join(l)
+        return "".join(l)
     return l
 
-class Array(_CData):
-    __metaclass__ = ArrayMeta
+class Array(_CData, metaclass=ArrayMeta):
     _ffiargshape = 'P'
 
     def __init__(self, *args):

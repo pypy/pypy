@@ -105,10 +105,9 @@ class CArgObject(object):
     def __ne__(self, other):
         return self._obj != other
 
-class _CData(object):
+class _CData(object, metaclass=_CDataMeta):
     """ The most basic object for all ctypes types
     """
-    __metaclass__ = _CDataMeta
     _objects = None
     _ffiargtype = None
 

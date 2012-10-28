@@ -74,8 +74,7 @@ class PointerType(_CDataMeta):
 
     from_address = cdata_from_address
 
-class _Pointer(_CData):
-    __metaclass__ = PointerType
+class _Pointer(_CData, metaclass=PointerType):
 
     def getcontents(self):
         addr = self._buffer[0]
