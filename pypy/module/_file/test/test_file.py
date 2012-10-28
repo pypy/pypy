@@ -1,8 +1,6 @@
 from __future__ import with_statement
 import py, os, errno
 
-from pypy.conftest import gettestobjspace, option
-
 def getfile(space):
     return space.appexec([], """():
         try:
@@ -13,8 +11,9 @@ def getfile(space):
     """)
 
 class AppTestFile(object):
+    spaceconfig = dict(usemodules=("_file",))
+
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=("_file", ))
         cls.w_temppath = cls.space.wrap(
             str(py.test.ensuretemp("fileimpl").join("foo.txt")))
         cls.w_file = getfile(cls.space)
@@ -263,7 +262,7 @@ class AppTestNonblocking(object):
 
         cls.old_read = os.read
 
-        if option.runappdirect:
+        if cls.option.runappdirect:
             py.test.skip("works with internals of _file impl on py.py")
         state = [0]
         def read(fd, n=None):
@@ -293,10 +292,11 @@ class AppTestConcurrency(object):
     # these tests only really make sense on top of a translated pypy-c,
     # because on top of py.py the inner calls to os.write() don't
     # release our object space's GIL.
+    spaceconfig = dict(usemodules=("_file",))
+
     def setup_class(cls):
-        if not option.runappdirect:
+        if not cls.option.runappdirect:
             py.test.skip("likely to deadlock when interpreted by py.py")
-        cls.space = gettestobjspace(usemodules=("_file", "thread"))
         cls.w_temppath = cls.space.wrap(
             str(py.test.ensuretemp("fileimpl").join("concurrency.txt")))
         cls.w_file = getfile(cls.space)
@@ -387,8 +387,9 @@ class AppTestConcurrency(object):
 
 
 class AppTestFile25:
+    spaceconfig = dict(usemodules=("_file",))
+
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=("_file", ))
         cls.w_temppath = cls.space.wrap(
             str(py.test.ensuretemp("fileimpl").join("foo.txt")))
         cls.w_file = getfile(cls.space)

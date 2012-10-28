@@ -1,11 +1,11 @@
 import py
 
-from pypy.conftest import gettestobjspace
 from pypy.module._file.test.test_file import getfile
 
 class AppTestLargeFile(object):
+    spaceconfig = dict(usemodules=("_file",))
+
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=("_file", ))
         cls.w_temppath = cls.space.wrap(
             str(py.test.ensuretemp("fileimpl").join("large.data")))
         cls.w_file = getfile(cls.space)

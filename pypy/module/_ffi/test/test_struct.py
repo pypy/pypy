@@ -1,5 +1,4 @@
 import sys
-from pypy.conftest import gettestobjspace, option
 from pypy.module._ffi.test.test_funcptr import BaseAppTestFFI
 from pypy.module._ffi.interp_struct import compute_size_and_alignement, W_Field
 from pypy.module._ffi.interp_ffitype import app_types, W_FFIType
@@ -62,7 +61,7 @@ class AppTestStruct(BaseAppTestFFI):
         dummy_type.c_alignment = rffi.cast(rffi.USHORT, 0)
         dummy_type.c_type = rffi.cast(rffi.USHORT, 0)
         cls.w_dummy_type = W_FFIType('dummy', dummy_type)
-        cls.w_runappdirect = cls.space.wrap(option.runappdirect)
+        cls.w_runappdirect = cls.space.wrap(cls.option.runappdirect)
         
     def test__StructDescr(self):
         from _ffi import _StructDescr, Field, types
