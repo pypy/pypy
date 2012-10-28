@@ -1,6 +1,5 @@
 import py
 import sys
-from pypy.conftest import gettestobjspace, option
 from pypy.interpreter.gateway import interp2app, W_Root
 
 class TestImport:
@@ -9,11 +8,10 @@ class TestImport:
         from pypy.module._multiprocessing import interp_semaphore
 
 class AppTestBufferTooShort:
-    def setup_class(cls):
-        space = gettestobjspace(usemodules=('_multiprocessing', 'thread', 'signal'))
-        cls.space = space
+    spaceconfig = dict(usemodules=['_multiprocessing', 'thread', 'signal'])
 
-        if option.runappdirect:
+    def setup_class(cls):
+        if cls.option.runappdirect:
             def raiseBufferTooShort(self, data):
                 import multiprocessing
                 raise multiprocessing.BufferTooShort(data)
@@ -22,7 +20,7 @@ class AppTestBufferTooShort:
             from pypy.module._multiprocessing import interp_connection
             def raiseBufferTooShort(space, w_data):
                 raise interp_connection.BufferTooShort(space, w_data)
-            cls.w_raiseBufferTooShort = space.wrap(
+            cls.w_raiseBufferTooShort = cls.space.wrap(
                 interp2app(raiseBufferTooShort))
 
     def test_exception(self):
@@ -69,14 +67,14 @@ class BaseConnectionTest(object):
         assert rhandle.readable
 
 class AppTestWinpipeConnection(BaseConnectionTest):
+    spaceconfig = dict(usemodules=('_multiprocessing', 'thread'))
+
     def setup_class(cls):
         if sys.platform != "win32":
             py.test.skip("win32 only")
 
-        if not option.runappdirect:
-            space = gettestobjspace(usemodules=('_multiprocessing', 'thread'))
-            cls.space = space
-
+        if not cls.option.runappdirect:
+            space = cls.space
             # stubs for some modules,
             # just for multiprocessing to import correctly on Windows
             w_modules = space.sys.get('modules')
@@ -91,11 +89,10 @@ class AppTestWinpipeConnection(BaseConnectionTest):
         return multiprocessing.Pipe(duplex=False)
 
 class AppTestSocketConnection(BaseConnectionTest):
+    spaceconfig = dict(usemodules=('_multiprocessing', 'thread', 'signal',
+                                   'struct', 'array'))
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('_multiprocessing', 'thread', 'signal',
-                                            'struct', 'array'))
-        cls.space = space
-        cls.w_connections = space.newlist([])
+        cls.w_connections = cls.space.newlist([])
 
         def socketpair(space):
             "A socket.socketpair() that works on Windows"
@@ -117,10 +114,10 @@ class AppTestSocketConnection(BaseConnectionTest):
             space.call_method(cls.w_connections, "append", space.wrap(client))
 
             return space.wrap((server.fileno(), client.fileno()))
-        if option.runappdirect:
-            cls.w_socketpair = lambda self: socketpair(space)
+        if cls.option.runappdirect:
+            cls.w_socketpair = lambda self: socketpair(cls.space)
         else:
-            cls.w_socketpair = space.wrap(interp2app(socketpair))
+            cls.w_socketpair = cls.space.wrap(interp2app(socketpair))
 
     def w_make_pair(self):
         import _multiprocessing

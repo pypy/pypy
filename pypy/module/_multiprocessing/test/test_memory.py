@@ -1,10 +1,6 @@
-from pypy.conftest import gettestobjspace
-
 class AppTestMemory:
-    def setup_class(cls):
-        space = gettestobjspace(
-            usemodules=('_multiprocessing', 'mmap', '_rawffi', '_ffi'))
-        cls.space = space
+    spaceconfig = dict(usemodules=('_multiprocessing', 'mmap',
+                                   '_rawffi', '_ffi'))
 
     def test_address_of(self):
         import _multiprocessing
