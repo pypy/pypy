@@ -4,8 +4,8 @@ from support import BaseCTypesTestChecker
 
 ctype_types = [c_byte, c_ubyte, c_short, c_ushort, c_int, c_uint,
                  c_long, c_ulong, c_longlong, c_ulonglong, c_double, c_float]
-python_types = [int, int, int, int, int, long,
-                int, long, long, long, float, float]
+python_types = [int, int, int, int, int, int,
+                int, int, int, int, float, float]
 
 def setup_module(mod):
     import conftest
@@ -231,12 +231,12 @@ class TestPointers(BaseCTypesTestChecker):
     def test_c_void_p(self):
         # http://sourceforge.net/tracker/?func=detail&aid=1518190&group_id=5470&atid=105470
         if sizeof(c_void_p) == 4:
-            assert c_void_p(0xFFFFFFFFL).value == c_void_p(-1).value
-            assert c_void_p(0xFFFFFFFFFFFFFFFFL).value == c_void_p(-1).value
+            assert c_void_p(0xFFFFFFFF).value == c_void_p(-1).value
+            assert c_void_p(0xFFFFFFFFFFFFFFFF).value == c_void_p(-1).value
         elif sizeof(c_void_p) == 8:
-            assert c_void_p(0xFFFFFFFFL).value == 0xFFFFFFFFL
-            assert c_void_p(0xFFFFFFFFFFFFFFFFL).value == c_void_p(-1).value
-            assert c_void_p(0xFFFFFFFFFFFFFFFFFFFFFFFFL).value == c_void_p(-1).value
+            assert c_void_p(0xFFFFFFFF).value == 0xFFFFFFFF
+            assert c_void_p(0xFFFFFFFFFFFFFFFF).value == c_void_p(-1).value
+            assert c_void_p(0xFFFFFFFFFFFFFFFFFFFFFFFF).value == c_void_p(-1).value
 
         py.test.raises(TypeError, c_void_p, 3.14) # make sure floats are NOT accepted
         py.test.raises(TypeError, c_void_p, object()) # nor other objects

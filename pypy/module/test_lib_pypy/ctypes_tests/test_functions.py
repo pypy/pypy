@@ -77,7 +77,7 @@ class TestFunctions(BaseCTypesTestChecker):
             return
         f = dll._testfunc_i_bhilfd
         f.argtypes = [c_byte, c_wchar, c_int, c_long, c_float, c_double]
-        result = f(1, u"x", 3, 4, 5.0, 6.0)
+        result = f(1, "x", 3, 4, 5.0, 6.0)
         assert result == 139
         assert type(result) == int
 
@@ -90,14 +90,14 @@ class TestFunctions(BaseCTypesTestChecker):
         f.argtypes = [c_byte, c_short, c_int, c_long, c_float, c_double]
         f.restype = c_wchar
         result = f(0, 0, 0, 0, 0, 0)
-        assert result == u'\x00'
+        assert result == '\x00'
 
     def test_char_result(self):
         f = dll._testfunc_i_bhilfd
         f.argtypes = [c_byte, c_short, c_int, c_long, c_float, c_double]
         f.restype = c_char
         result = f(0, 0, 0, 0, 0, 0)
-        assert result == '\x00'
+        assert result == b'\x00'
 
     def test_voidresult(self):
         f = dll._testfunc_v

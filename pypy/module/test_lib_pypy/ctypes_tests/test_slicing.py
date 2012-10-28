@@ -30,9 +30,9 @@ class TestSlices(BaseCTypesTestChecker):
         from operator import setslice
 
         # TypeError: int expected instead of str instance
-        raises(TypeError, setslice, a, 0, 5, "abcde")
+        raises(TypeError, setslice, a, 0, 5, b"abcde")
         # TypeError: int expected instead of str instance
-        raises(TypeError, setslice, a, 0, 5, ["a", "b", "c", "d", "e"])
+        raises(TypeError, setslice, a, 0, 5, [b"a", b"b", b"c", b"d", b"e"])
         # TypeError: int expected instead of float instance
         raises(TypeError, setslice, a, 0, 5, [1, 2, 3, 4, 3.14])
         # ValueError: Can only assign sequence of same size
@@ -48,7 +48,7 @@ class TestSlices(BaseCTypesTestChecker):
 
         import operator
         raises(TypeError, operator.setslice,
-                          res, 0, 5, u"abcde")
+                          res, 0, 5, "abcde")
         dll.my_free(res)
 
         dll.my_strdup.restype = POINTER(c_byte)
@@ -90,7 +90,7 @@ class TestSlices(BaseCTypesTestChecker):
         pass
     else:
         def test_wchar_ptr(self):
-            s = u"abcdefghijklmnopqrstuvwxyz\0"
+            s = "abcdefghijklmnopqrstuvwxyz\0"
 
             dll.my_wcsdup.restype = POINTER(c_wchar)
             dll.my_wcsdup.argtypes = POINTER(c_wchar),
@@ -100,7 +100,7 @@ class TestSlices(BaseCTypesTestChecker):
 
             import operator
             raises(TypeError, operator.setslice,
-                              res, 0, 5, u"abcde")
+                              res, 0, 5, "abcde")
             dll.my_free(res)
 
             if sizeof(c_wchar) == sizeof(c_short):

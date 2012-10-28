@@ -85,7 +85,7 @@ def positive_address(a):
     # View the bits in `a` as unsigned instead.
     import struct
     num_bits = struct.calcsize("P") * 8 # num bits in native machine address
-    a += 1L << num_bits
+    a += 1 << num_bits
     assert a >= 0
     return a
 
@@ -170,7 +170,7 @@ class TestCharPointers(BaseCTypesTestChecker):
             pass
         else:
             assert None == func(c_wchar_p(None))
-            assert u"123" == func(c_wchar_p(u"123"))
+            assert "123" == func(c_wchar_p("123"))
 
     def test_instance(self):
         func = testdll._testfunc_p_p
@@ -206,24 +206,24 @@ else:
             func.argtypes = POINTER(c_wchar),
 
             assert None == func(None)
-            assert u"123" == func(u"123")
+            assert "123" == func("123")
             assert None == func(c_wchar_p(None))
-            assert u"123" == func(c_wchar_p(u"123"))
+            assert "123" == func(c_wchar_p("123"))
 
-            assert u"123" == func(c_wbuffer(u"123"))
+            assert "123" == func(c_wbuffer("123"))
             ca = c_wchar("a")
-            assert u"a" == func(pointer(ca))[0]
-            assert u"a" == func(byref(ca))[0]
+            assert "a" == func(pointer(ca))[0]
+            assert "a" == func(byref(ca))[0]
 
         def test_c_wchar_p_arg(self):
             func = self.func
             func.restype = c_wchar_p
             func.argtypes = c_wchar_p,
 
-            c_wchar_p.from_param(u"123")
+            c_wchar_p.from_param("123")
 
             assert None == func(None)
-            assert "123" == func(u"123")
+            assert "123" == func("123")
             assert None == func(c_wchar_p(None))
             assert "123" == func(c_wchar_p("123"))
 

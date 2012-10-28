@@ -19,10 +19,10 @@ def test_wrap_args():
 
     assert guess(13) == c_int
     assert guess(0) == c_int
-    assert guess('xca') == c_char_p
+    assert guess(b'xca') == c_char_p
     assert guess(None) == c_void_p
     assert guess(c_int(3)) == c_int
-    assert guess(u'xca') == c_wchar_p
+    assert guess('xca') == c_wchar_p
 
     class Stuff:
         pass
@@ -37,5 +37,5 @@ def test_guess_unicode():
     import conftest
     dll = CDLL(str(conftest.sofile))
     wcslen = dll.my_wcslen
-    text = u"Some long unicode string"
+    text = "Some long unicode string"
     assert wcslen(text) == len(text)

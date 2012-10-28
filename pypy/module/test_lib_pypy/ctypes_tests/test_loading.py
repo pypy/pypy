@@ -1,7 +1,7 @@
 import py
 from ctypes import *
 import sys
-import os, StringIO
+import os
 from ctypes.util import find_library
 from ctypes.test import is_resource_enabled
 
@@ -16,8 +16,8 @@ else:
     libc_name = find_library("c")
 
 if True or is_resource_enabled("printing"):
-    print >> sys.stderr, "\tfind_library('c') -> ", find_library('c')
-    print >> sys.stderr, "\tfind_library('m') -> ", find_library('m')
+    print("\tfind_library('c') -> ", find_library('c'), file=sys.stderr)
+    print("\tfind_library('m') -> ", find_library('m'), file=sys.stderr)
 
 class TestLoader:
 
@@ -46,8 +46,8 @@ class TestLoader:
     if os.name in ("nt", "ce"):
         def test_load_library(self):
             if is_resource_enabled("printing"):
-                print find_library("kernel32")
-                print find_library("user32")
+                print(find_library("kernel32"))
+                print(find_library("user32"))
 
             if os.name == "nt":
                 windll.kernel32.GetModuleHandleW

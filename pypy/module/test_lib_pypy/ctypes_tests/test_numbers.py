@@ -13,10 +13,10 @@ def valid_ranges(*types):
     for t in types:
         fmt = t._type_
         size = struct.calcsize(fmt)
-        a = struct.unpack(fmt, ("\x00"*32)[:size])[0]
-        b = struct.unpack(fmt, ("\xFF"*32)[:size])[0]
-        c = struct.unpack(fmt, ("\x7F"+"\x00"*32)[:size])[0]
-        d = struct.unpack(fmt, ("\x80"+"\xFF"*32)[:size])[0]
+        a = struct.unpack(fmt, (b"\x00"*32)[:size])[0]
+        b = struct.unpack(fmt, (b"\xFF"*32)[:size])[0]
+        c = struct.unpack(fmt, (b"\x7F"+b"\x00"*32)[:size])[0]
+        d = struct.unpack(fmt, (b"\x80"+b"\xFF"*32)[:size])[0]
         result.append((min(a, b, c, d), max(a, b, c, d)))
     return result
 
@@ -99,11 +99,10 @@ class TestNumber(BaseCTypesTestChecker):
 
     def test_floats(self):
         # c_float and c_double can be created from
-        # Python int, long and float
+        # Python int and float
         for t in float_types:
             assert t(2.0).value == 2.0
             assert t(2).value == 2.0
-            assert t(2L).value == 2.0
 
     def test_integers(self):
         # integers cannot be constructed from floats
