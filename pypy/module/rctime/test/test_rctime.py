@@ -1,10 +1,5 @@
-from pypy.conftest import gettestobjspace
-import os
-
 class AppTestRCTime:
-    def setup_class(cls):
-        space = gettestobjspace(usemodules=('rctime', 'struct'))
-        cls.space = space
+    spaceconfig = dict(usemodules=['rctime', 'struct'])
 
     def test_attributes(self):
         import time as rctime
