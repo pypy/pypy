@@ -1,11 +1,14 @@
 from pypy.jit.codewriter.effectinfo import EffectInfo
-from pypy.jit.metainterp.history import ConstInt, make_hashable_int
+from pypy.jit.metainterp import compile
+from pypy.jit.metainterp.history import (Const, ConstInt, BoxInt, BoxFloat,
+    BoxPtr, make_hashable_int)
 from pypy.jit.metainterp.optimize import InvalidLoop
 from pypy.jit.metainterp.optimizeopt.intutils import IntBound
-from pypy.jit.metainterp.optimizeopt.optimizer import *
+from pypy.jit.metainterp.optimizeopt.optimizer import (Optimization, REMOVED,
+    CONST_0, CONST_1)
 from pypy.jit.metainterp.optimizeopt.util import _findall, make_dispatcher_method
 from pypy.jit.metainterp.resoperation import (opboolinvers, opboolreflex, rop,
-    ResOperation, BoxPtr, BoxInt, BoxFloat)
+    ResOperation)
 from pypy.rlib.rarithmetic import highest_bit
 
 
