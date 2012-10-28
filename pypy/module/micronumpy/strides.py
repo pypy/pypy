@@ -30,7 +30,7 @@ def calculate_slice_strides(shape, start, strides, backstrides, chunks):
             rstrides[j] = strides[i] * chunk.step
             rbackstrides[j] = strides[i] * (chunk.lgt - 1) * chunk.step
             rshape[j] = chunk.lgt
-            j += i
+            j += 1
         rstart += strides[i] * chunk.start
     # add a reminder
     s = i + 1
