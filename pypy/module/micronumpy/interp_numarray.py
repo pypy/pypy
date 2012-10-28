@@ -190,7 +190,7 @@ class __extend__(W_NDimArray):
         return space.call_function(cache.w_array_str, self)
 
     def dump_data(self):
-        i = self.create_iter(self.get_shape())
+        i = self.create_iter()
         first = True
         dtype = self.get_dtype()
         s = StringBuilder()
@@ -206,8 +206,6 @@ class __extend__(W_NDimArray):
         return s.build()
 
     def create_iter(self, shape=None):
-        if shape is None:
-            shape = self.get_shape()
         return self.implementation.create_iter(shape)
 
     def create_axis_iter(self, shape, dim):
@@ -396,7 +394,7 @@ class __extend__(W_NDimArray):
         if self.get_size() > 1:
             raise OperationError(space.w_ValueError, space.wrap(
                 "The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()"))
-        iter = self.create_iter(self.get_shape())
+        iter = self.create_iter()
         return space.wrap(space.is_true(iter.getitem()))
 
     def _binop_impl(ufunc_name):
@@ -681,7 +679,7 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
     if ndmin > len(shape):
         shape = [1] * (ndmin - len(shape)) + shape
     arr = W_NDimArray.from_shape(shape, dtype, order=order)
-    arr_iter = arr.create_iter(arr.get_shape())
+    arr_iter = arr.create_iter()
     for w_elem in elems_w:
         arr_iter.setitem(dtype.coerce(space, w_elem))
         arr_iter.next()

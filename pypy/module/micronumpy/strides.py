@@ -15,16 +15,22 @@ def enumerate_chunks(chunks):
     jit.isconstant(len(chunks))
 )
 def calculate_slice_strides(shape, start, strides, backstrides, chunks):
-    rstrides = []
-    rbackstrides = []
+    size = 0
+    for chunk in chunks:
+        if chunk.step != 0:
+            size += 1
+    rstrides = [0] * size
+    rbackstrides = [0] * size
     rstart = start
-    rshape = []
+    rshape = [0] * size
     i = -1
+    j = 0
     for i, chunk in enumerate_chunks(chunks):
         if chunk.step != 0:
-            rstrides.append(strides[i] * chunk.step)
-            rbackstrides.append(strides[i] * (chunk.lgt - 1) * chunk.step)
-            rshape.append(chunk.lgt)
+            rstrides[j] = strides[i] * chunk.step
+            rbackstrides[j] = strides[i] * (chunk.lgt - 1) * chunk.step
+            rshape[j] = chunk.lgt
+            j += i
         rstart += strides[i] * chunk.start
     # add a reminder
     s = i + 1
@@ -255,19 +261,19 @@ def calc_new_strides(new_shape, old_shape, old_strides, order):
                     cur_step = steps[oldI]
                     n_old_elems_to_use *= old_shape[oldI]
     assert len(new_strides) == len(new_shape)
-    return new_strides
+    return new_strides[:]
 
 
 def calculate_dot_strides(strides, backstrides, res_shape, skip_dims):
-    rstrides = []
-    rbackstrides = []
-    j=0
+    rstrides = [0] * len(res_shape)
+    rbackstrides = [0] * len(res_shape)
+    j = 0
     for i in range(len(res_shape)):
         if i in skip_dims:
-            rstrides.append(0)
-            rbackstrides.append(0)
+            rstrides[i] = 0
+            rbackstrides[i] = 0
         else:
-            rstrides.append(strides[j])
-            rbackstrides.append(backstrides[j])
+            rstrides[i] = strides[j]
+            rbackstrides[i] = backstrides[j]
             j += 1
     return rstrides, rbackstrides
