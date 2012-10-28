@@ -137,7 +137,7 @@ class ListTests:
             return l2[0] + l2[1] + l2[2] + l2[3]
 
         res = self.interp_operations(f, [], listops=True)
-        assert res == 10       
+        assert res == f()
 
     def test_arraycopy_full(self):
         jitdriver = JitDriver(greens = [], reds = ['n'])
