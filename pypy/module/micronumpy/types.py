@@ -16,6 +16,7 @@ from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.rstruct.runpack import runpack
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib import jit
+from pypy.rlib.rstring import StringBuilder
 
 
 degToRad = math.pi / 180.0
@@ -1467,8 +1468,52 @@ class BaseStringType(object):
     def get_element_size(self):
         return self.size * rffi.sizeof(self.T)
 
+    def get_size(self):
+        return self.size
+
 class StringType(BaseType, BaseStringType):
     T = lltype.Char
+
+    @jit.unroll_safe
+    def coerce(self, space, dtype, w_item):
+        from pypy.module.micronumpy.interp_dtype import new_string_dtype
+        arg = space.str_w(space.str(w_item))
+        arr = interp_boxes.VoidBoxStorage(len(arg), new_string_dtype(space, len(arg)))
+        for i in range(len(arg)):
+            arr.storage[i] = arg[i]
+        return interp_boxes.W_StringBox(arr,  0, None)
+
+    @jit.unroll_safe
+    def store(self, arr, i, offset, box):
+        assert isinstance(box, interp_boxes.W_StringBox)
+        for k in range(min(self.size, box.arr.size-offset)):
+            arr.storage[k + i] = box.arr.storage[k + offset]
+
+    def read(self, arr, i, offset, dtype=None):
+        if dtype is None:
+            dtype = arr.dtype
+        return interp_boxes.W_StringBox(arr, i + offset, dtype)
+
+    @jit.unroll_safe
+    def to_str(self, item):
+        builder = StringBuilder()
+        assert isinstance(item, interp_boxes.W_StringBox)
+        i = item.ofs
+        end = i+self.size
+        while i < end:
+            assert isinstance(item.arr.storage[i], str)
+            if item.arr.storage[i] == '\x00':
+                break
+            builder.append(item.arr.storage[i])
+            i += 1
+        return builder.build()
+
+    def str_format(self, item):
+        builder = StringBuilder()
+        builder.append("'")
+        builder.append(self.to_str(item))
+        builder.append("'")
+        return builder.build()
 
 class VoidType(BaseType, BaseStringType):
     T = lltype.Char

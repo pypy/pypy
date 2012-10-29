@@ -8,6 +8,7 @@ from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
 from pypy.module.micronumpy import types, interp_boxes
 from pypy.rlib.objectmodel import specialize
 from pypy.rlib.rarithmetic import LONG_BIT, r_longlong, r_ulonglong
+from pypy.rpython.lltypesystem import rffi
 
 
 UNSIGNEDLTR = "u"
@@ -17,6 +18,8 @@ FLOATINGLTR = "f"
 VOIDLTR = 'V'
 STRINGLTR = 'S'
 UNICODELTR = 'U'
+INTPLTR = 'p'
+UINTPLTR = 'P'
 
 def decode_w_dtype(space, w_dtype):
     if space.is_none(w_dtype):
@@ -66,11 +69,16 @@ class W_Dtype(Wrappable):
     def fill(self, storage, box, start, stop):
         self.itemtype.fill(storage, self.get_size(), box, start, stop, 0)
 
+    def get_name(self):
+        if self.char == 'S':
+            return '|S' + str(self.get_size())
+        return self.name
+
     def descr_str(self, space):
-        return space.wrap(self.name)
+        return space.wrap(self.get_name())
 
     def descr_repr(self, space):
-        return space.wrap("dtype('%s')" % self.name)
+        return space.wrap("dtype('%s')" % self.get_name())
 
     def descr_get_itemsize(self, space):
         return space.wrap(self.itemtype.get_element_size())
@@ -134,6 +142,9 @@ class W_Dtype(Wrappable):
 
     def is_record_type(self):
         return self.fields is not None
+
+    def is_flexible_type(self):
+        return (self.num == 18 or self.num == 19 or self.num == 20)
 
     def __repr__(self):
         if self.fields is not None:
@@ -455,6 +466,35 @@ class DtypeCache(object):
             #alternate_constructors=[space.w_buffer],
             # XXX no buffer in space
         )
+        ptr_size = rffi.sizeof(rffi.CCHARP)
+        if ptr_size == 4:
+            intp_box = interp_boxes.W_Int32Box
+            intp_type = types.Int32()
+            uintp_box = interp_boxes.W_UInt32Box
+            uintp_type = types.UInt32()
+        elif ptr_size == 8:
+            intp_box = interp_boxes.W_Int64Box
+            intp_type = types.Int64()
+            uintp_box = interp_boxes.W_UInt64Box
+            uintp_type = types.UInt64()
+        else:
+            raise ValueError('unknown point size %d' % ptr_size)
+        self.w_intpdtype = W_Dtype(
+            intp_type,
+            num=5,
+            kind=INTPLTR,
+            name='intp',
+            char=INTPLTR,
+            w_box_type = space.gettypefor(intp_box),
+        )    
+        self.w_uintpdtype = W_Dtype(
+            uintp_type,
+            num=6,
+            kind=UINTPLTR,
+            name='uintp',
+            char=UINTPLTR,
+            w_box_type = space.gettypefor(uintp_box),
+        )    
         self.builtin_dtypes = [
             self.w_booldtype, self.w_int8dtype, self.w_uint8dtype,
             self.w_int16dtype, self.w_uint16dtype, self.w_int32dtype,
@@ -463,7 +503,7 @@ class DtypeCache(object):
             self.w_float32dtype, self.w_float64dtype, self.w_complex64dtype,
             self.w_complex128dtype,
             self.w_stringdtype, self.w_unicodedtype,
-            self.w_voiddtype,
+            self.w_voiddtype, self.w_intpdtype, self.w_uintpdtype,
         ]
         self.float_dtypes_by_num_bytes = sorted(
             (dtype.itemtype.get_element_size(), dtype)
@@ -505,7 +545,8 @@ class DtypeCache(object):
             #'CDOUBLE',
             #'DATETIME',
             'UINT': self.w_uint32dtype,
-            'INTP': self.w_longdtype,
+            'INTP': self.w_intpdtype,
+            'UINTP': self.w_uintpdtype,
             #'HALF',
             'BYTE': self.w_int8dtype,
             #'CFLOAT': ,

@@ -61,8 +61,8 @@ class RecordChunk(BaseChunk):
         arr = orig_arr.implementation
         ofs, subdtype = arr.dtype.fields[self.name]
         # strides backstrides are identical, ofs only changes start
-        return W_NDimArray.new_slice(arr.start + ofs, arr.strides,
-                                     arr.backstrides,
+        return W_NDimArray.new_slice(arr.start + ofs, arr.get_strides(),
+                                     arr.get_backstrides(),
                                      arr.shape, arr, orig_arr, subdtype)
 
 class Chunks(BaseChunk):
@@ -83,8 +83,8 @@ class Chunks(BaseChunk):
     def apply(self, orig_arr):
         arr = orig_arr.implementation
         shape = self.extend_shape(arr.shape)
-        r = calculate_slice_strides(arr.shape, arr.start, arr.strides,
-                                    arr.backstrides, self.l)
+        r = calculate_slice_strides(arr.shape, arr.start, arr.get_strides(),
+                                    arr.get_backstrides(), self.l)
         _, start, strides, backstrides = r
         return W_NDimArray.new_slice(start, strides[:], backstrides[:],
                                      shape[:], arr, orig_arr)

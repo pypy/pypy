@@ -496,7 +496,7 @@ class UnixConsole(Console):
             if iscode:
                 self.__tputs(text)
             else:
-                os.write(self.output_fd, text.encode(self.encoding))
+                os.write(self.output_fd, text.encode(self.encoding, 'replace'))
         del self.__buffer[:]
 
     def __tputs(self, fmt, prog=delayprog):
