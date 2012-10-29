@@ -41,8 +41,7 @@ def test_direct():
 
 
 class AppTestSmallLong(test_longobject.AppTestLong):
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withsmalllong": True})
+    spaceconfig = {"objspace.std.withsmalllong": True}
 
     def test_sl_simple(self):
         import __pypy__

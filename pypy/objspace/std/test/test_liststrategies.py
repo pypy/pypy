@@ -3,8 +3,6 @@ from pypy.objspace.std.listobject import W_ListObject, EmptyListStrategy, Object
 from pypy.objspace.std import listobject
 from pypy.objspace.std.test.test_listobject import TestW_ListObject
 
-from pypy.conftest import gettestobjspace
-
 class TestW_ListStrategies(TestW_ListObject):
 
     def test_check_strategy(self):
@@ -520,9 +518,7 @@ class TestW_ListStrategies(TestW_ListObject):
 
 
 class TestW_ListStrategiesDisabled:
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withliststrategies" :
-                                       False})
+    spaceconfig = {"objspace.std.withliststrategies": False}
 
     def test_check_strategy(self):
         assert isinstance(W_ListObject(self.space, []).strategy, ObjectListStrategy)

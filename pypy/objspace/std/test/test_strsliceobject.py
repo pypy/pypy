@@ -1,14 +1,13 @@
 import py
 
 from pypy.objspace.std.test import test_stringobject
-from pypy.conftest import gettestobjspace
 from pypy.interpreter import gateway
 from pypy.objspace.std.strsliceobject import W_StringSliceObject
 
 class AppTestStringObject(test_stringobject.AppTestStringObject):
+    space_config = {"objspace.std.withstrslice": True}
 
     def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withstrslice": True})
         def not_forced(space, w_s):
             return space.wrap(isinstance(w_s, W_StringSliceObject) and
                               (w_s.start != 0 or w_s.stop != len(w_s.str)))

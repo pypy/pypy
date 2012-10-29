@@ -2,11 +2,9 @@
 """ test proxy internals like code, traceback, frame
 """
 import py
-from pypy.conftest import gettestobjspace, option
 
 class AppProxy(object):
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withtproxy": True})
+    spaceconfig = {"objspace.std.withtproxy": True}
 
     def setup_method(self, meth):
         self.w_get_proxy = self.space.appexec([], """():
@@ -24,7 +22,7 @@ class AppProxy(object):
 
 class AppTestProxyInterpOnly(AppProxy):
     def setup_class(cls):
-        if option.runappdirect:
+        if cls.option.runappdirect:
             py.test.skip("interp only test")
         from pypy.interpreter.typedef import TypeDef, interp2app
         from pypy.interpreter.baseobjspace import Wrappable

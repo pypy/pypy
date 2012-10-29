@@ -5,13 +5,7 @@ from pypy.objspace.std.dictmultiobject import \
      W_DictMultiObject, setitem__DictMulti_ANY_ANY, getitem__DictMulti_ANY, \
      StringDictStrategy, ObjectDictStrategy
 
-from pypy.conftest import gettestobjspace
-from pypy.conftest import option
-
 class TestW_DictObject:
-
-    def setup_class(cls):
-        cls.space = gettestobjspace()
 
     def test_empty(self):
         space = self.space
@@ -777,7 +771,7 @@ class AppTestDictViews:
 
 class AppTestStrategies(object):
     def setup_class(cls):
-        if option.runappdirect:
+        if cls.option.runappdirect:
             py.test.skip("__repr__ doesn't work on appdirect")
 
     def w_get_strategy(self, obj):
