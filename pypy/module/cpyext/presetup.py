@@ -19,7 +19,7 @@ f.close()
 sys.path.insert(0, os.getcwd())
 from distutils import sysconfig
 
-from pypy.conftest import gettestobjspace
+from pypy.tool.pytest.objspace import gettestobjspace
 from pypy.module.cpyext.api import build_bridge
 from pypy.module.imp.importing import get_so_extension
 

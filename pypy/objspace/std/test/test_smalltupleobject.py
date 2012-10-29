@@ -2,7 +2,7 @@ from pypy.objspace.std.tupleobject import W_TupleObject
 from pypy.objspace.std.smalltupleobject import W_SmallTupleObject
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.test.test_tupleobject import AppTestW_TupleObject
-from pypy.conftest import gettestobjspace
+from pypy.tool.pytest.objspace import gettestobjspace
 
 class AppTestW_SmallTupleObject(AppTestW_TupleObject):
     spaceconfig = {"objspace.std.withsmalltuple": True}

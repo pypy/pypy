@@ -3,8 +3,6 @@ from pypy.interpreter.gateway import app2interp_temp
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.function import Method
 from pypy.tool.pytest import appsupport
-from pypy.tool.option import make_config, make_objspace
-from pypy.config.config import ConflictConfigError
 from inspect import isclass, getmro
 from pypy.tool.udir import udir
 from pypy.tool.autopath import pypydir
@@ -70,48 +68,9 @@ def pytest_sessionstart():
         pass
 
 def pytest_funcarg__space(request):
+    from pypy.tool.pytest.objspace import gettestobjspace
     spaceconfig = getattr(request.cls, 'spaceconfig', {})
     return gettestobjspace(**spaceconfig)
-
-_SPACECACHE={}
-def gettestobjspace(name=None, **kwds):
-    """ helper for instantiating and caching space's for testing.
-    """
-    try:
-        config = make_config(option, objspace=name, **kwds)
-    except ConflictConfigError, e:
-        # this exception is typically only raised if a module is not available.
-        # in this case the test should be skipped
-        py.test.skip(str(e))
-    key = config.getkey()
-    try:
-        return _SPACECACHE[key]
-    except KeyError:
-        if getattr(option, 'runappdirect', None):
-            if name not in (None, 'std'):
-                myname = getattr(sys, 'pypy_objspaceclass', '')
-                if not myname.lower().startswith(name):
-                    py.test.skip("cannot runappdirect test: "
-                                 "%s objspace required" % (name,))
-            return TinyObjSpace(**kwds)
-        space = maketestobjspace(config)
-        _SPACECACHE[key] = space
-        return space
-
-def maketestobjspace(config=None):
-    if config is None:
-        config = make_config(option)
-    space = make_objspace(config)
-    space.startup() # Initialize all builtin modules
-    space.setitem(space.builtin.w_dict, space.wrap('AssertionError'),
-                  appsupport.build_pytest_assertion(space))
-    space.setitem(space.builtin.w_dict, space.wrap('raises'),
-                  space.wrap(appsupport.app_raises))
-    space.setitem(space.builtin.w_dict, space.wrap('skip'),
-                  space.wrap(appsupport.app_skip))
-    space.raises_w = appsupport.raises_w.__get__(space)
-    space.eq_w = appsupport.eq_w.__get__(space)
-    return space
 
 class TinyObjSpace(object):
     def __init__(self, **kwds):
@@ -311,6 +270,7 @@ def skip_on_missing_buildoption(**ropts):
 
 class LazyObjSpaceGetter(object):
     def __get__(self, obj, cls=None):
+        from pypy.tool.pytest.objspace import gettestobjspace
         space = gettestobjspace()
         if cls:
             cls.space = space
@@ -329,6 +289,7 @@ def pytest_runtest_setup(__multicall__, item):
             # Make cls.space and cls.runappdirect available in tests.
             spaceconfig = getattr(appclass.obj, 'spaceconfig', None)
             if spaceconfig is not None:
+                from pypy.tool.pytest.objspace import gettestobjspace
                 appclass.obj.space = gettestobjspace(**spaceconfig)
             appclass.obj.runappdirect = option.runappdirect
 
@@ -407,6 +368,7 @@ class AppTestFunction(py.test.collect.Function):
         target = self.obj
         if self.config.option.runappdirect:
             return target()
+        from pypy.tool.pytest.objspace import gettestobjspace
         space = gettestobjspace()
         filename = self._getdynfilename(target)
         func = app2interp_temp(target, filename=filename)

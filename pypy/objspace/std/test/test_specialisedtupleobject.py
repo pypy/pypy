@@ -3,7 +3,7 @@ from pypy.objspace.std.tupleobject import W_TupleObject
 from pypy.objspace.std.specialisedtupleobject import W_SpecialisedTupleObject
 from pypy.objspace.std.specialisedtupleobject import _specialisations
 from pypy.interpreter.error import OperationError
-from pypy.conftest import gettestobjspace
+from pypy.tool.pytest.objspace import gettestobjspace
 from pypy.objspace.std.test import test_tupleobject
 from pypy.interpreter import gateway
 
