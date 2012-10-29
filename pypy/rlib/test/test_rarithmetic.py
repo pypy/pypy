@@ -1,4 +1,5 @@
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+from pypy.rpython.test.test_llinterp import interpret
 from pypy.rlib.rarithmetic import *
 import sys
 import py
@@ -384,8 +385,14 @@ def test_int_between():
     assert not int_between(1, 1, 1)
 
 def test_byteswap():
-    from pypy.rpython.lltypesystem import rffi
+    from pypy.rpython.lltypesystem import rffi, lltype
     
-    assert byteswap(rffi.cast(rffi.USHORT, 0x0102)) == 0x0201
-    assert byteswap(rffi.cast(rffi.INT, 0x01020304)) == 0x04030201
+    assert rffi.cast(lltype.Signed, byteswap(rffi.cast(rffi.USHORT, 0x0102))) == 0x0201
+    assert rffi.cast(lltype.Signed, byteswap(rffi.cast(rffi.INT, 0x01020304))) == 0x04030201
     assert byteswap(rffi.cast(rffi.ULONGLONG, 0x0102030405060708L)) == 0x0807060504030201L
+    assert byteswap(rffi.cast(rffi.LONGLONG, 0x0102030405060708L)) == 0x0807060504030201L
+    assert ((byteswap(2.3) - 1.903598566252326e+185) / 1e185) < 0.000001
+    assert (rffi.cast(lltype.Float, byteswap(rffi.cast(lltype.SingleFloat, 2.3))) - 4.173496037651603e-08) < 1e-16
+
+def test_byteswap_interpret():
+    interpret(test_byteswap, [])
