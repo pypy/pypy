@@ -922,12 +922,10 @@ class NonNativeFloat(NonNativePrimitive, Float):
 class Float16(BaseType, Float):
     _attrs_ = ()
     T = rffi.USHORT
+    _COMPUTATION_T = rffi.FLOAT
 
     BoxType = interp_boxes.W_Float16Box
     format_code = "e"
-
-    def _coerce(self, space, w_item):
-        return self.box(space.float_w(space.call_function(space.w_float, w_item)))
 
     def str_format(self, box):
         return float2string(self.for_computation(self.unbox(box)), "g",
@@ -941,7 +939,24 @@ class Float16(BaseType, Float):
 
     @specialize.argtype(1)
     def box(self, value):
-        xxx
+        return self.BoxType(
+            rffi.cast(self._COMPUTATION_T, value))
+
+    def unbox(self, box):
+        assert isinstance(box, self.BoxType)
+        return box.tofloat()
+
+    def store(self, arr, i, offset, box):
+        raw_storage_setitem(arr.storage, i+offset, box.tobytes())
+
+    def _read(self, storage, i, offset):
+        byte_rep = raw_storage_getitem(self.T, storage, i + offset)
+        return self.BoxType.val_to_float(byte_rep)
+
+    def read(self, arr, i, offset, dtype=None):
+        val = self._read(arr.storage, i, offset)
+        return self.BoxType(val)
+
 
 class NonNativeFloat16(BaseType, NonNativeFloat):
     _attrs_ = ()
