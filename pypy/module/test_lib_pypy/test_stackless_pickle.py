@@ -1,16 +1,14 @@
 import py
 py.test.skip("in-progress, maybe")
-from pypy.conftest import gettestobjspace, option
 
 class AppTest_Stackless:
+    spaceconfig = dict(usemodules=('_continuation', '_socket'))
 
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('_continuation', '_socket'))
-        cls.space = space
-        if option.runappdirect:
-            cls.w_lev = space.wrap(14)
+        if cls.option.runappdirect:
+            cls.w_lev = cls.space.wrap(14)
         else:
-            cls.w_lev = space.wrap(2)
+            cls.w_lev = cls.space.wrap(2)
 
     def test_pickle(self):
         import new, sys
