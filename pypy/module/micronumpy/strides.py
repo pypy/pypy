@@ -133,6 +133,7 @@ def shape_agreement(space, shape1, w_arr2, broadcast_down=True):
         )
     return ret
 
+@jit.unroll_safe
 def _shape_agreement(shape1, shape2):
     """ Checks agreement about two shapes with respect to broadcasting. Returns
     the resulting shape.
