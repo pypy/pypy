@@ -401,7 +401,8 @@ class __extend__(W_NDimArray):
             loop.byteswap(self.implementation, res.implementation)
             return res
 
-    def descr_choose(self, space, w_choices, w_out=None, w_mode='raise'):
+    @unwrap_spec(mode=str)
+    def descr_choose(self, space, w_choices, w_out=None, mode='raise'):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "choose not implemented yet"))
 
@@ -792,10 +793,11 @@ W_NDimArray.typedef = TypeDef(
     real = GetSetProperty(W_NDimArray.descr_get_real),
     imag = GetSetProperty(W_NDimArray.descr_get_imag),
 
-    argsort = interp2app(W_NDimArray.descr_argsort),
-    astype = interp2app(W_NDimArray.descr_astype),
-    base = GetSetProperty(W_NDimArray.descr_get_base),
+    argsort  = interp2app(W_NDimArray.descr_argsort),
+    astype   = interp2app(W_NDimArray.descr_astype),
+    base     = GetSetProperty(W_NDimArray.descr_get_base),
     byteswap = interp2app(W_NDimArray.descr_byteswap),
+    choose   = interp2app(W_NDimArray.descr_choose),
 
     __array_interface__ = GetSetProperty(W_NDimArray.descr_array_iface),
 )

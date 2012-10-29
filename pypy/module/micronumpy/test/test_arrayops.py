@@ -83,3 +83,33 @@ class AppTestNumSupport(BaseNumpyAppTest):
         assert c == 12.0
         c = array(3.0).dot(array(4))
         assert c == 12.0
+
+    def test_choose_basic(self):
+        from _numpypy import array
+        a, b, c = array([1, 2, 3]), array([4, 5, 6]), array([7, 8, 9])
+        r = array([2, 1, 0]).choose([a, b, c])
+        assert (r == [7, 5, 3]).all()
+
+    def test_choose_broadcast(self):
+        from _numpypy import array
+        a, b, c = array([1, 2, 3]), [4, 5, 6], 13
+        r = array([2, 1, 0]).choose([a, b, c])
+        assert (r == [13, 5, 3]).all()
+
+    def test_choose_out(self):
+        from _numpypy import array
+        a, b, c = array([1, 2, 3]), [4, 5, 6], 13
+        r = array([2, 1, 0]).choose([a, b, c], out=a)
+        assert (r == [13, 5, 3]).all()
+        assert (a == [13, 5, 3]).all()
+        
+    def test_choose_modes(self):
+        from _numpypy import array
+        a, b, c = array([1, 2, 3]), [4, 5, 6], 13
+        raises(ValueError, "array([3, 1, 0]).choose([a, b, c])")
+        raises(ValueError, "array([3, 1, 0]).choose([a, b, c], 'raises')")
+        r = array([4, 1, 0]).choose([a, b, c], mode='clip')
+        assert (r == [13, 5, 3]).all()
+        r = array([4, 1, 0]).choose([a, b, c], mode='wrap')
+        assert (r == [4, 5, 3]).all()
+        
