@@ -499,6 +499,10 @@ class AppTestPartialEvaluation:
                 b"abc\xed\xa0\x80def")
         assert (b"abc\xed\xa0\x80def".decode("utf-8", "surrogatepass") ==
                 "abc\ud800def")
+        raises(UnicodeDecodeError, b"abc\xed\xa0".decode, "utf-8",
+               "surrogatepass")
+        raises(UnicodeDecodeError, b"abc\xed\xa0z".decode, "utf-8",
+               "surrogatepass")
 
     def test_badhandler(self):
         import codecs

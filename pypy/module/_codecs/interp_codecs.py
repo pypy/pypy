@@ -275,9 +275,10 @@ def surrogatepass_errors(space, w_exc):
         # let the codec call us again
         ch0 = ord(obj[start + 0])
         ch1 = ord(obj[start + 1])
-        ch2 = ord(obj[start + 2])
-        if (ch0 & 0xf0 == 0xe0 or
-            ch1 & 0xc0 == 0x80 or
+        ch2 = ord(obj[start + 2]) if len(obj) > start + 2 else -1
+        if (ch2 != -1 and
+            ch0 & 0xf0 == 0xe0 and
+            ch1 & 0xc0 == 0x80 and
             ch2 & 0xc0 == 0x80):
             # it's a three-byte code
             ch = ((ch0 & 0x0f) << 12) + ((ch1 & 0x3f) << 6) + (ch2 & 0x3f)
