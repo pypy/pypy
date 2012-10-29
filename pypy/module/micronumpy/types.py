@@ -204,6 +204,10 @@ class Primitive(object):
     def neg(self, v):
         return -v
 
+    def byteswap(self, w_v):
+        # no for_computation here
+        return self.box(byteswap(self.unbox(w_v)))
+
     @simple_unary_op
     def conj(self, v):
         return v

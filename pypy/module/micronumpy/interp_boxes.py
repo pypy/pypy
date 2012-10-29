@@ -35,6 +35,9 @@ class PrimitiveBox(object):
     def convert_to(self, dtype):
         return dtype.box(self.value)
 
+    def __repr__(self):
+        return '%s(%s)' % (self.__class__.__name__, self.value)
+
 class ComplexBox(object):
     _mixin_ = True
 

@@ -393,7 +393,6 @@ class __extend__(W_NDimArray):
 
     @unwrap_spec(inplace=bool)
     def descr_byteswap(self, space, inplace=False):
-        raise OperationError(space.w_NotImplementedError, space.wrap("not impl"))
         if inplace:
             loop.byteswap(self.implementation, self.implementation)
             return self
@@ -796,6 +795,7 @@ W_NDimArray.typedef = TypeDef(
     argsort = interp2app(W_NDimArray.descr_argsort),
     astype = interp2app(W_NDimArray.descr_astype),
     base = GetSetProperty(W_NDimArray.descr_get_base),
+    byteswap = interp2app(W_NDimArray.descr_byteswap),
 
     __array_interface__ = GetSetProperty(W_NDimArray.descr_array_iface),
 )

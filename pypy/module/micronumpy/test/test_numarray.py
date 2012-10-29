@@ -1593,7 +1593,11 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_byteswap(self):
         from _numpypy import array
-        xxx
+        a = array([1, 256 + 2, 3], dtype='i2')
+        assert (a.byteswap() == [0x0100, 0x0201, 0x0300]).all()
+        assert (a == [1, 256 + 2, 3]).all()
+        assert (a.byteswap(True) == [0x0100, 0x0201, 0x0300]).all()
+        assert (a == [0x0100, 0x0201, 0x0300]).all()
 
 class AppTestMultiDim(BaseNumpyAppTest):
     def test_init(self):

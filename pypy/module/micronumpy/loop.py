@@ -464,8 +464,8 @@ copy_from_to_driver = jit.JitDriver(greens = ['dtype'],
                                     reds = ['from_iter', 'to_iter'])
 
 def copy_from_to(from_, to, dtype):
-    from_iter = from_.create_iter(from_.get_shape())
-    to_iter = to.create_iter(to.get_shape())
+    from_iter = from_.create_iter()
+    to_iter = to.create_iter()
     while not from_iter.done():
         copy_from_to_driver.jit_merge_point(dtype=dtype, from_iter=from_iter,
                                             to_iter=to_iter)
@@ -473,3 +473,16 @@ def copy_from_to(from_, to, dtype):
         to_iter.next()
         from_iter.next()
 
+byteswap_driver = jit.JitDriver(greens = ['dtype'],
+                                reds = ['from_iter', 'to_iter'])
+
+def byteswap(from_, to):
+    dtype = from_.dtype
+    from_iter = from_.create_iter()
+    to_iter = to.create_iter()
+    while not from_iter.done():
+        byteswap_driver.jit_merge_point(dtype=dtype, from_iter=from_iter,
+                                        to_iter=to_iter)
+        to_iter.setitem(dtype.itemtype.byteswap(from_iter.getitem()))
+        to_iter.next()
+        from_iter.next()
