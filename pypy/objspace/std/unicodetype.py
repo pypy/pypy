@@ -261,9 +261,9 @@ def unicode_from_encoded_object(space, w_obj, encoding, errors):
 def unicode_from_object(space, w_obj):
     if space.is_w(space.type(w_obj), space.w_unicode):
         return w_obj
-
-    w_unicode_method = space.lookup(w_obj, "__str__")
-    return space.repr(w_obj) if w_unicode_method is None else space.str(w_obj)
+    if space.lookup(w_obj, "__str__") is not None:
+        return space.str(w_obj)
+    return space.repr(w_obj)
 
 def ascii_from_object(space, w_obj):
     """Implements builtins.ascii()"""
