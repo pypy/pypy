@@ -45,7 +45,7 @@ class OneDimViewIterator(ConcreteArrayIterator):
     def __init__(self, array):
         self.array = array
         self.offset = array.start
-        self.skip = array.strides[0]
+        self.skip = array.get_strides()[0]
         self.dtype = array.dtype
         self.index = 0
         self.size = array.get_shape()[0]
@@ -116,8 +116,8 @@ class MultiDimViewIterator(ConcreteArrayIterator):
 class AxisIterator(base.BaseArrayIterator):
     def __init__(self, array, shape, dim):
         self.shape = shape
-        strides = array.strides
-        backstrides = array.backstrides
+        strides = array.get_strides()
+        backstrides = array.get_backstrides()
         if len(shape) == len(strides):
             # keepdims = True
             self.strides = strides[:dim] + [0] + strides[dim + 1:]
@@ -167,11 +167,23 @@ def int_w(space, w_obj):
 class BaseConcreteArray(base.BaseArrayImplementation):
     start = 0
     parent = None
+
+    # JIT hints that length of all those arrays is a constant
     
     def get_shape(self):
         shape = self.shape
         jit.hint(len(shape), promote=True)
         return shape
+
+    def get_strides(self):
+        strides = self.strides
+        jit.hint(len(strides), promote=True)
+        return strides
+
+    def get_backstrides(self):
+        backstrides = self.backstrides
+        jit.hint(len(backstrides), promote=True)
+        return backstrides
 
     def getitem(self, index):
         return self.dtype.getitem(self, index)
@@ -197,7 +209,7 @@ class BaseConcreteArray(base.BaseArrayImplementation):
         new_strides = None
         if self.size > 0:
             new_strides = calc_new_strides(new_shape, self.get_shape(),
-                                           self.strides, self.order)
+                                           self.get_strides(), self.order)
         if new_strides:
             # We can create a view, strides somehow match up.
             ndims = len(new_shape)
@@ -214,6 +226,7 @@ class BaseConcreteArray(base.BaseArrayImplementation):
     @jit.unroll_safe
     def _lookup_by_index(self, space, view_w):
         item = self.start
+        strides = self.get_strides()
         for i, w_index in enumerate(view_w):
             if space.isinstance_w(w_index, space.w_slice):
                 raise IndexError
@@ -224,13 +237,14 @@ class BaseConcreteArray(base.BaseArrayImplementation):
                 raise operationerrfmt(space.w_IndexError,
                       "index (%d) out of range (0<=index<%d", i, self.get_shape()[i],
                 )
-            item += idx * self.strides[i]
+            item += idx * strides[i]
         return item
 
     @jit.unroll_safe
     def _lookup_by_unwrapped_index(self, space, lst):
         item = self.start
         shape = self.get_shape()
+        strides = self.get_strides()
         assert len(lst) == len(shape)
         for i, idx in enumerate(lst):
             if idx < 0:
@@ -239,7 +253,7 @@ class BaseConcreteArray(base.BaseArrayImplementation):
                 raise operationerrfmt(space.w_IndexError,
                       "index (%d) out of range (0<=index<%d", i, shape[i],
                 )
-            item += idx * self.strides[i]
+            item += idx * strides[i]
         return item
 
     def getitem_index(self, space, index):
@@ -344,8 +358,8 @@ class BaseConcreteArray(base.BaseArrayImplementation):
         backstrides = []
         shape = []
         for i in range(len(self.get_shape()) - 1, -1, -1):
-            strides.append(self.strides[i])
-            backstrides.append(self.backstrides[i])
+            strides.append(self.get_strides()[i])
+            backstrides.append(self.get_backstrides()[i])
             shape.append(self.get_shape()[i])
         return SliceArray(self.start, strides,
                           backstrides, shape, self)
@@ -361,14 +375,14 @@ class BaseConcreteArray(base.BaseArrayImplementation):
         return AxisIterator(self, shape, dim)
 
     def create_dot_iter(self, shape, skip):
-        r = calculate_dot_strides(self.strides, self.backstrides,
+        r = calculate_dot_strides(self.get_strides(), self.get_backstrides(),
                                   shape, skip)
         return MultiDimViewIterator(self, self.start, r[0], r[1], shape)
 
     def swapaxes(self, axis1, axis2):
         shape = self.get_shape()[:]
-        strides = self.strides[:]
-        backstrides = self.backstrides[:]
+        strides = self.get_strides()[:]
+        backstrides = self.get_backstrides()[:]
         shape[axis1], shape[axis2] = shape[axis2], shape[axis1]   
         strides[axis1], strides[axis2] = strides[axis2], strides[axis1]
         backstrides[axis1], backstrides[axis2] = backstrides[axis2], backstrides[axis1] 
@@ -394,7 +408,8 @@ class ConcreteArray(BaseConcreteArray):
     def create_iter(self, shape=None):
         if shape is None or shape == self.get_shape():
             return ConcreteArrayIterator(self)
-        r = calculate_broadcast_strides(self.strides, self.backstrides,
+        r = calculate_broadcast_strides(self.get_strides(),
+                                        self.get_backstrides(),
                                         self.get_shape(), shape)
         return MultiDimViewIterator(self, 0, r[0], r[1], shape)
 
@@ -430,14 +445,16 @@ class SliceArray(BaseConcreteArray):
 
     def create_iter(self, shape=None):
         if shape is not None and shape != self.get_shape():
-            r = calculate_broadcast_strides(self.strides, self.backstrides,
+            r = calculate_broadcast_strides(self.get_strides(),
+                                            self.get_backstrides(),
                                             self.get_shape(), shape)
             return MultiDimViewIterator(self.parent,
                                         self.start, r[0], r[1], shape)
         if len(self.get_shape()) == 1:
             return OneDimViewIterator(self)
-        return MultiDimViewIterator(self.parent, self.start, self.strides,
-                                    self.backstrides, self.get_shape())
+        return MultiDimViewIterator(self.parent, self.start,
+                                    self.get_strides(),
+                                    self.get_backstrides(), self.get_shape())
 
     def set_shape(self, space, new_shape):
         if len(self.get_shape()) < 2 or self.size == 0:
@@ -446,7 +463,7 @@ class SliceArray(BaseConcreteArray):
             strides = []
             backstrides = []
             dtype = self.dtype
-            s = self.strides[0] // dtype.get_size()
+            s = self.get_strides()[0] // dtype.get_size()
             if self.order == 'C':
                 new_shape.reverse()
             for sh in new_shape:
@@ -459,7 +476,8 @@ class SliceArray(BaseConcreteArray):
                 new_shape.reverse()
             return SliceArray(self.start, strides, backstrides, new_shape,
                               self)
-        new_strides = calc_new_strides(new_shape, self.get_shape(), self.strides,
+        new_strides = calc_new_strides(new_shape, self.get_shape(),
+                                       self.get_strides(),
                                        self.order)
         if new_strides is None:
             raise OperationError(space.w_AttributeError, space.wrap(
