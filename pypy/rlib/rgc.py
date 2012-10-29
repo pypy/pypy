@@ -145,8 +145,11 @@ def ll_arraycopy(source, dest, source_start, dest_start, length):
     from pypy.rlib.objectmodel import keepalive_until_here
 
     # XXX: Hack to ensure that we get a proper effectinfo.write_descrs_arrays
-    if NonConstant(False):
-        dest[dest_start] = source[source_start]
+    # and also, maybe, speed up very small cases
+    if length <= 1:
+        if length == 1:
+            dest[dest_start] = source[source_start]
+        return
 
     # supports non-overlapping copies only
     if not we_are_translated():

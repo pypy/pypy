@@ -77,8 +77,6 @@ def getcpuclassname(backend_name="auto"):
         return "pypy.jit.backend.x86.runner", "CPU_X86_64"
     elif backend_name == 'cli':
         return "pypy.jit.backend.cli.runner", "CliCPU"
-    elif backend_name == 'llvm':
-        return "pypy.jit.backend.llvm.runner", "LLVMCPU"
     elif backend_name == 'arm':
         return "pypy.jit.backend.arm.runner", "CPU_ARM"
     elif backend_name == 'armhf':

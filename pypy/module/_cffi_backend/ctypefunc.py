@@ -5,7 +5,7 @@ Function pointers.
 import sys
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
-from pypy.rlib import jit, clibffi, jit_libffi, rposix
+from pypy.rlib import jit, clibffi, jit_libffi
 from pypy.rlib.jit_libffi import CIF_DESCRIPTION, CIF_DESCRIPTION_P
 from pypy.rlib.jit_libffi import FFI_TYPE, FFI_TYPE_P, FFI_TYPE_PP
 from pypy.rlib.jit_libffi import SIZE_OF_FFI_ARG

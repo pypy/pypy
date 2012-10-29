@@ -233,7 +233,7 @@ class _ReadlineWrapper(object):
         try:
             return unicode(line, ENCODING)
         except UnicodeDecodeError:   # bah, silently fall back...
-            return unicode(line, 'utf-8')
+            return unicode(line, 'utf-8', 'replace')
 
     def get_history_length(self):
         return self.saved_history_length

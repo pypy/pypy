@@ -74,8 +74,11 @@ class Buffer(Wrappable):
         elif step == 1:
             length = stop - start
             if length != len(newstring):
-                msg = "buffer slice assignment is wrong size"
-                raise OperationError(space.w_ValueError, space.wrap(msg))
+                if length < 0 and len(newstring) == 0:
+                    pass     # ok anyway
+                else:
+                    msg = "right operand length must match slice length"
+                    raise OperationError(space.w_ValueError, space.wrap(msg))
             self.setslice(start, newstring)
         else:
             raise OperationError(space.w_ValueError,

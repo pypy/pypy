@@ -5,8 +5,6 @@ if sys.version_info < (3,):
     type_or_class = "type"
     mandatory_b_prefix = ''
     mandatory_u_prefix = 'u'
-    readbuf = str
-    bufchar = lambda x: x
     bytechr = chr
     class U(object):
         def __add__(self, other):
@@ -20,11 +18,6 @@ else:
     unichr = chr
     mandatory_b_prefix = 'b'
     mandatory_u_prefix = ''
-    readbuf = lambda buf: buf.tobytes()
-    if sys.version_info < (3, 3):
-        bufchar = lambda x: bytes([ord(x)])
-    else:
-        bufchar = ord
     bytechr = lambda n: bytes([n])
     u = ""
 
@@ -1811,36 +1804,76 @@ def test_cmp():
     assert (p < s) ^ (p > s)
 
 def test_buffer():
+    import __builtin__
     BShort = new_primitive_type("short")
     s = newp(new_pointer_type(BShort), 100)
     assert sizeof(s) == size_of_ptr()
     assert sizeof(BShort) == 2
-    assert len(readbuf(buffer(s))) == 2
+    assert len(buffer(s)) == 2
     #
     BChar = new_primitive_type("char")
     BCharArray = new_array_type(new_pointer_type(BChar), None)
     c = newp(BCharArray, b"hi there")
+    #
     buf = buffer(c)
-    assert readbuf(buf) == b"hi there\x00"
+    assert str(buf).startswith('<_cffi_backend.buffer object at 0x')
+    # --mb_length--
     assert len(buf) == len(b"hi there\x00")
-    assert buf[0] == bufchar('h')
-    assert buf[2] == bufchar(' ')
-    assert list(buf) == list(map(bufchar, "hi there\x00"))
-    buf[2] = bufchar('-')
-    assert c[2] == b'-'
-    assert readbuf(buf) == b"hi-there\x00"
-    c[2] = b'!'
-    assert buf[2] == bufchar('!')
-    assert readbuf(buf) == b"hi!there\x00"
-    c[2] = b'-'
-    buf[:2] = b'HI'
-    assert string(c) == b'HI-there'
-    if sys.version_info < (3,) or sys.version_info >= (3, 3):
-        assert buf[:4:2] == b'H-'
-        if '__pypy__' not in sys.builtin_module_names:
-            # XXX pypy doesn't support the following assignment so far
-            buf[:4:2] = b'XY'
-            assert string(c) == b'XIYthere'
+    # --mb_item--
+    for i in range(-12, 12):
+        try:
+            expected = b"hi there\x00"[i]
+        except IndexError:
+            py.test.raises(IndexError, "buf[i]")
+        else:
+            assert buf[i] == expected
+    # --mb_slice--
+    assert buf[:] == b"hi there\x00"
+    for i in range(-12, 12):
+        assert buf[i:] == b"hi there\x00"[i:]
+        assert buf[:i] == b"hi there\x00"[:i]
+        for j in range(-12, 12):
+            assert buf[i:j] == b"hi there\x00"[i:j]
+    # --misc--
+    assert list(buf) == list(b"hi there\x00")
+    # --mb_as_buffer--
+    py.test.raises(TypeError, __builtin__.buffer, c)
+    bf1 = __builtin__.buffer(buf)
+    assert len(bf1) == len(buf) and bf1[3] == "t"
+    if hasattr(__builtin__, 'memoryview'):      # Python >= 2.7
+        py.test.raises(TypeError, memoryview, c)
+        mv1 = memoryview(buf)
+        assert len(mv1) == len(buf) and mv1[3] == "t"
+    # --mb_ass_item--
+    expected = list(b"hi there\x00")
+    for i in range(-12, 12):
+        try:
+            expected[i] = chr(i & 0xff)
+        except IndexError:
+            py.test.raises(IndexError, "buf[i] = chr(i & 0xff)")
+        else:
+            buf[i] = chr(i & 0xff)
+        assert list(buf) == expected
+    # --mb_ass_slice--
+    buf[:] = b"hi there\x00"
+    assert list(buf) == list(c) == list(b"hi there\x00")
+    py.test.raises(ValueError, 'buf[:] = b"shorter"')
+    py.test.raises(ValueError, 'buf[:] = b"this is much too long!"')
+    buf[4:2] = b""   # no effect, but should work
+    assert buf[:] == b"hi there\x00"
+    expected = list(b"hi there\x00")
+    x = 0
+    for i in range(-12, 12):
+        for j in range(-12, 12):
+            start = i if i >= 0 else i + len(buf)
+            stop  = j if j >= 0 else j + len(buf)
+            start = max(0, min(len(buf), start))
+            stop  = max(0, min(len(buf), stop))
+            sample = chr(x & 0xff) * (stop - start)
+            x += 1
+            buf[i:j] = sample
+            expected[i:j] = sample
+            assert list(buf) == expected
 
 def test_getcname():
     BUChar = new_primitive_type("unsigned char")
@@ -2271,7 +2304,6 @@ def test_FILE_object():
     #
     BFILE = new_struct_type("_IO_FILE")
     BFILEP = new_pointer_type(BFILE)
-    BFILEPP = new_pointer_type(BFILEP)
     BChar = new_primitive_type("char")
     BCharP = new_pointer_type(BChar)
     BInt = new_primitive_type("int")
@@ -2285,12 +2317,12 @@ def test_FILE_object():
     fdr, fdw = posix.pipe()
     fw1 = posix.fdopen(fdw, 'wb', 256)
     #
-    fw1p = newp(BFILEPP, fw1)
+    fw1p = cast(BFILEP, fw1)
     fw1.write(b"X")
     fw1.flush()
-    res = fputs(b"hello\n", fw1p[0])
+    res = fputs(b"hello\n", fw1p)
     assert res >= 0
-    res = fileno(fw1p[0])
+    res = fileno(fw1p)
     assert res == fdw
     fw1.close()
     #

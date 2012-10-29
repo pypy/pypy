@@ -1,5 +1,5 @@
 
-from _numpypy import array, ndarray, int_, float_, bool_ #, complex_# , longlong
+from _numpypy import array, ndarray, int_, float_, bool_, flexible #, complex_# , longlong
 from _numpypy import concatenate
 from .fromnumeric import any
 import math
@@ -200,7 +200,7 @@ def array_repr(arr, max_line_width=None, precision=None, suppress_small=None):
             typename = "'%s'" % typename
 
         lf = ''
-        if 0: # or issubclass(arr.dtype.type, flexible):
+        if issubclass(arr.dtype.type, flexible):
             if arr.dtype.names:
                 typename = "%s" % str(arr.dtype)
             else:

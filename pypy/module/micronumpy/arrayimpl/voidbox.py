@@ -6,6 +6,7 @@ class VoidBoxStorage(BaseArrayImplementation):
     def __init__(self, size, dtype):
         self.storage = alloc_raw_storage(size)
         self.dtype = dtype
+        self.size = size
 
     def __del__(self):
         free_raw_storage(self.storage)
