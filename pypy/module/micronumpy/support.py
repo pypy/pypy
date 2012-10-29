@@ -1,5 +1,11 @@
 from pypy.rlib import jit
+from pypy.interpreter.error import OperationError
 
+def int_w(space, w_obj):
+    try:
+        return space.int_w(space.index(w_obj))
+    except OperationError:
+        return space.int_w(space.int(w_obj))
 
 @jit.unroll_safe
 def product(s):

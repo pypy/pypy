@@ -3,6 +3,7 @@ from pypy.module.micronumpy.base import convert_to_array, W_NDimArray
 from pypy.module.micronumpy import loop, interp_ufuncs
 from pypy.module.micronumpy.iter import Chunk, Chunks
 from pypy.module.micronumpy.strides import shape_agreement
+from pypy.module.micronumpy.constants import MODES
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import unwrap_spec
 
@@ -153,3 +154,28 @@ def repeat(space, w_arr, repeats, w_axis=None):
 
 def count_nonzero(space, w_obj):
     return space.wrap(loop.count_all_true(convert_to_array(space, w_obj)))
+
+def choose(space, arr, w_choices, out, mode):
+    choices = [convert_to_array(space, w_item) for w_item
+               in space.listview(w_choices)]
+    if not choices:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("choices list cannot be empty"))
+    # find the shape agreement
+    shape = arr.get_shape()
+    for choice in choices:
+        shape = shape_agreement(space, shape, choice)
+    if out is not None:
+        shape = shape_agreement(space, shape, out)
+    # find the correct dtype
+    dtype = choices[0].get_dtype()
+    for choice in choices[1:]:
+        dtype = interp_ufuncs.find_binop_result_dtype(space,
+                                                      dtype, choice.get_dtype())
+    if out is None:
+        out = W_NDimArray.from_shape(shape, dtype)
+    if mode not in MODES:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("mode %s not known" % (mode,)))
+    loop.choose(space, arr, choices, shape, dtype, out, MODES[mode])
+    return out

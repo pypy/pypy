@@ -13,12 +13,6 @@ from pypy.rlib.rawstorage import free_raw_storage
 from pypy.module.micronumpy.arrayimpl.sort import argsort_array
 from pypy.rlib.debug import make_sure_not_resized
 
-def int_w(space, w_obj):
-    try:
-        return space.int_w(space.index(w_obj))
-    except OperationError:
-        return space.int_w(space.int(w_obj))
-
 class BaseConcreteArray(base.BaseArrayImplementation):
     start = 0
     parent = None
@@ -85,7 +79,7 @@ class BaseConcreteArray(base.BaseArrayImplementation):
         for i, w_index in enumerate(view_w):
             if space.isinstance_w(w_index, space.w_slice):
                 raise IndexError
-            idx = int_w(space, w_index)
+            idx = support.int_w(space, w_index)
             if idx < 0:
                 idx = self.get_shape()[i] + idx
             if idx < 0 or idx >= self.get_shape()[i]:
@@ -159,7 +153,7 @@ class BaseConcreteArray(base.BaseArrayImplementation):
             return self._lookup_by_index(space, view_w)
         if shape_len > 1:
             raise IndexError
-        idx = int_w(space, w_idx)
+        idx = support.int_w(space, w_idx)
         return self._lookup_by_index(space, [space.wrap(idx)])
 
     @jit.unroll_safe

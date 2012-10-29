@@ -4,11 +4,14 @@ operations. This is the place to look for all the computations that iterate
 over all the array elements.
 """
 
+from pypy.interpreter.error import OperationError
 from pypy.rlib.rstring import StringBuilder
 from pypy.rlib import jit
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.module.micronumpy.base import W_NDimArray
 from pypy.module.micronumpy.iter import PureShapeIterator
+from pypy.module.micronumpy import constants
+from pypy.module.micronumpy.support import int_w
 
 call2_driver = jit.JitDriver(name='numpy_call2',
                              greens = ['shapelen', 'func', 'calc_dtype',
@@ -486,3 +489,36 @@ def byteswap(from_, to):
         to_iter.setitem(dtype.itemtype.byteswap(from_iter.getitem()))
         to_iter.next()
         from_iter.next()
+
+choose_driver = jit.JitDriver(greens = ['shapelen', 'mode', 'dtype'],
+                              reds = ['shape', 'iterators', 'arr_iter',
+                                      'out_iter'])
+
+def choose(space, arr, choices, shape, dtype, out, mode):
+    shapelen = len(shape)
+    iterators = [a.create_iter(shape) for a in choices]
+    arr_iter = arr.create_iter(shape)
+    out_iter = out.create_iter(shape)
+    while not arr_iter.done():
+        choose_driver.jit_merge_point(shapelen=shapelen, dtype=dtype,
+                                      mode=mode, shape=shape,
+                                      iterators=iterators, arr_iter=arr_iter,
+                                      out_iter=out_iter)
+        index = int_w(space, arr_iter.getitem())
+        if index < 0 or index >= len(iterators):
+            if mode == constants.MODE_RAISE:
+                raise OperationError(space.w_ValueError, space.wrap(
+                    "invalid entry in choice array"))
+            elif mode == constants.MODE_WRAP:
+                index = index % (len(iterators))
+            else:
+                assert mode == constants.MODE_CLIP
+                if index < 0:
+                    index = 0
+                else:
+                    index = len(iterators) - 1
+        out_iter.setitem(iterators[index].getitem().convert_to(dtype))
+        for iter in iterators:
+            iter.next()
+        out_iter.next()
+        arr_iter.next()

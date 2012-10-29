@@ -4,7 +4,8 @@ from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array,\
      ArrayArgumentException
-from pypy.module.micronumpy import interp_dtype, interp_ufuncs, interp_boxes
+from pypy.module.micronumpy import interp_dtype, interp_ufuncs, interp_boxes,\
+     interp_arrayops
 from pypy.module.micronumpy.strides import find_shape_and_elems,\
      get_shape_from_iterable, to_coords, shape_agreement
 from pypy.module.micronumpy.interp_flatiter import W_FlatIterator
@@ -402,9 +403,11 @@ class __extend__(W_NDimArray):
             return res
 
     @unwrap_spec(mode=str)
-    def descr_choose(self, space, w_choices, w_out=None, mode='raise'):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            "choose not implemented yet"))
+    def descr_choose(self, space, w_choices, mode='raise', w_out=None):
+        if w_out is not None and not isinstance(w_out, W_NDimArray):
+            raise OperationError(space.w_TypeError, space.wrap(
+                "return arrays must be of ArrayType"))
+        return interp_arrayops.choose(space, self, w_choices, w_out, mode)
 
     def descr_clip(self, space, w_min, w_max, w_out=None):
         raise OperationError(space.w_NotImplementedError, space.wrap(
