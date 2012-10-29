@@ -119,6 +119,17 @@ class rbigint(object):
         self.size = size or len(digits)
         self.sign = sign
 
+    # __eq__ and __ne__ method exist for testingl only, they are not RPython!
+    def __eq__(self, other):
+        # NOT_RPYTHON
+        if not isinstance(other, rbigint):
+            return NotImplemented
+        return self.eq(other)
+
+    def __ne__(self, other):
+        # NOT_RPYTHON
+        return not (self == other)
+
     def digit(self, x):
         """Return the x'th digit, as an int."""
         return self._digits[x]
