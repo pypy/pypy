@@ -64,7 +64,7 @@ class AppTestC(object):
             return space.wrap(addr)
 
         space = cls.space
-        if cls.option.runappdirect:
+        if cls.runappdirect:
             def interp2app(func):
                 def run(*args):
                     return func(space, *args)

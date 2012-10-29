@@ -22,7 +22,7 @@ class AppProxy(object):
 
 class AppTestProxyInterpOnly(AppProxy):
     def setup_class(cls):
-        if cls.option.runappdirect:
+        if cls.runappdirect:
             py.test.skip("interp only test")
         from pypy.interpreter.typedef import TypeDef, interp2app
         from pypy.interpreter.baseobjspace import Wrappable

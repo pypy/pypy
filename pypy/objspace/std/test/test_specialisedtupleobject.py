@@ -67,7 +67,7 @@ class AppTestW_SpecialisedTupleObject:
                 raise OperationError(space.w_ReferenceError, w_tuple)
             w_tuple.delegating = delegation_forbidden
             return w_tuple
-        if cls.option.runappdirect:
+        if cls.runappdirect:
             cls.w_forbid_delegation = lambda self, x: x
             cls.test_delegation = lambda self: skip("runappdirect")
         else:

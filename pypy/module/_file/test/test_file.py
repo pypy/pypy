@@ -262,7 +262,7 @@ class AppTestNonblocking(object):
 
         cls.old_read = os.read
 
-        if cls.option.runappdirect:
+        if cls.runappdirect:
             py.test.skip("works with internals of _file impl on py.py")
         state = [0]
         def read(fd, n=None):
@@ -295,7 +295,7 @@ class AppTestConcurrency(object):
     spaceconfig = dict(usemodules=("_file",))
 
     def setup_class(cls):
-        if not cls.option.runappdirect:
+        if not cls.runappdirect:
             py.test.skip("likely to deadlock when interpreted by py.py")
         cls.w_temppath = cls.space.wrap(
             str(py.test.ensuretemp("fileimpl").join("concurrency.txt")))

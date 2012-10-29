@@ -5,7 +5,7 @@ class AppTestDebug:
     spaceconfig = dict(usemodules=['__pypy__'])
 
     def setup_class(cls):
-        if cls.option.runappdirect:
+        if cls.runappdirect:
             py.test.skip("not meant to be run with -A")
         cls.w_check_log = cls.space.wrap(cls.check_log)
 

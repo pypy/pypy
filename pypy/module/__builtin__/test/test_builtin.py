@@ -20,7 +20,7 @@ class AppTestBuiltinApp:
         # For example if an object x has a __getattr__, we can get
         # AttributeError if attempting to call x.__getattr__ runs out
         # of stack.  That's annoying, so we just work around it.
-        if cls.option.runappdirect:
+        if cls.runappdirect:
             cls.w_safe_runtimerror = cls.space.wrap(True)
         else:
             cls.w_safe_runtimerror = cls.space.wrap(sys.version_info < (2, 6))

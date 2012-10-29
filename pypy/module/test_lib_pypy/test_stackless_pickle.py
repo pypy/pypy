@@ -5,7 +5,7 @@ class AppTest_Stackless:
     spaceconfig = dict(usemodules=('_continuation', '_socket'))
 
     def setup_class(cls):
-        if cls.option.runappdirect:
+        if cls.runappdirect:
             cls.w_lev = cls.space.wrap(14)
         else:
             cls.w_lev = cls.space.wrap(2)

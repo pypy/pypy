@@ -124,7 +124,7 @@ class TestDevolvedKwargsDictImplementation(BaseTestDevolvedDictImplementation):
 
 class AppTestKwargsDictStrategy(object):
     def setup_class(cls):
-        if cls.option.runappdirect:
+        if cls.runappdirect:
             py.test.skip("__repr__ doesn't work on appdirect")
 
     def w_get_strategy(self, obj):

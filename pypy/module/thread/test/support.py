@@ -32,7 +32,7 @@ class GenericTestThread:
     spaceconfig = dict(usemodules=('thread', 'time', 'signal'))
 
     def setup_class(cls):
-        if cls.option.runappdirect:
+        if cls.runappdirect:
             def plain_waitfor(self, condition, delay=1):
                 adaptivedelay = 0.04
                 limit = time.time() + NORMAL_TIMEOUT * delay

@@ -36,7 +36,7 @@ class MockSD(object):
 class AppTestJitHook(object):
     spaceconfig = dict(usemodules=('pypyjit',))
     def setup_class(cls):
-        if cls.option.runappdirect:
+        if cls.runappdirect:
             py.test.skip("Can't run this test with -A")
         w_f = cls.space.appexec([], """():
         def function():

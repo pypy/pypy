@@ -1082,7 +1082,7 @@ class AppTestOldStyleMapDict(AppTestOldstyle):
     spaceconfig = {"objspace.std.withmapdict": True}
 
     def setup_class(cls):
-        if cls.option.runappdirect:
+        if cls.runappdirect:
             py.test.skip("can only be run on py.py")
         def has_mapdict(space, w_inst):
             return space.wrap(w_inst._get_mapdict_map() is not None)

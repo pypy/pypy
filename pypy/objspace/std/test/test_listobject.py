@@ -404,10 +404,10 @@ class TestW_ListObject(object):
 class AppTestW_ListObject(object):
     def setup_class(cls):
         import sys
-        on_cpython = (cls.option.runappdirect and
+        on_cpython = (cls.runappdirect and
                       not hasattr(sys, 'pypy_translation_info'))
         cls.w_on_cpython = cls.space.wrap(on_cpython)
-        cls.w_runappdirect = cls.space.wrap(cls.option.runappdirect)
+        cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
 
     def test_getstrategyfromlist_w(self):
         l0 = ["a", "2", "a", True]

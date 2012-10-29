@@ -7,7 +7,7 @@ class AppTestUserObject:
     spaceconfig = {}
 
     def setup_class(cls):
-        cls.w_runappdirect = cls.space.wrap(bool(cls.option.runappdirect))
+        cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
         def rand(space):
             import random
             return space.wrap(random.randrange(0, 5))
@@ -281,7 +281,7 @@ class AppTestWithMultiMethodVersion2(AppTestUserObject):
 
         cls.prev_installer = multimethod.Installer
         multimethod.Installer = multimethod.InstallerVersion2
-        if cls.option.runappdirect:
+        if cls.runappdirect:
             py.test.skip("Cannot run different installers when runappdirect")
 
     def teardown_class(cls):

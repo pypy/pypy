@@ -598,7 +598,7 @@ class AppTestOpcodes:
     spaceconfig = dict(usemodules=('_locale',))
 
     def setup_class(cls):
-        if cls.option.runappdirect:
+        if cls.runappdirect:
             py.test.skip("can only be run on py.py: _sre opcodes don't match")
         # This imports support_test_sre as the global "s"
         init_app_test(cls, cls.space)

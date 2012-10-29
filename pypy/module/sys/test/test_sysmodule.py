@@ -12,7 +12,7 @@ def test_stdout_exists(space):
 class AppTestAppSysTests:
 
     def setup_class(cls):
-        cls.w_appdirect = cls.space.wrap(cls.option.runappdirect)
+        cls.w_appdirect = cls.space.wrap(cls.runappdirect)
         cls.w_filesystemenc = cls.space.wrap(sys.getfilesystemencoding())
 
     def test_sys_in_modules(self):
@@ -126,7 +126,7 @@ class AppTestAppSysTests:
 class AppTestSysModulePortedFromCPython:
 
     def setup_class(cls):
-        cls.w_appdirect = cls.space.wrap(cls.option.runappdirect)
+        cls.w_appdirect = cls.wrap(cls.runappdirect)
 
     def test_original_displayhook(self):
         import sys, cStringIO, __builtin__

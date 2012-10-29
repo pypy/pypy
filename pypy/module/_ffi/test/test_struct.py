@@ -61,7 +61,7 @@ class AppTestStruct(BaseAppTestFFI):
         dummy_type.c_alignment = rffi.cast(rffi.USHORT, 0)
         dummy_type.c_type = rffi.cast(rffi.USHORT, 0)
         cls.w_dummy_type = W_FFIType('dummy', dummy_type)
-        cls.w_runappdirect = cls.space.wrap(cls.option.runappdirect)
+        cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
         
     def test__StructDescr(self):
         from _ffi import _StructDescr, Field, types

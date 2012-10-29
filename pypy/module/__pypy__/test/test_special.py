@@ -5,7 +5,7 @@ class AppTest(object):
                    "objspace.std.withrangelist": True}
 
     def setup_class(cls):
-        if cls.option.runappdirect:
+        if cls.runappdirect:
             py.test.skip("does not make sense on pypy-c")
 
     def test__isfake(self):
