@@ -552,6 +552,12 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert(real(c2) == 3.0)
             assert(imag(c2) == 4.0)
 
+    def test_conj(self):
+        from _numpypy import array
+
+        a = array([1 + 2j, 1 - 2j])
+        assert (a.conj() == [1 - 2j, 1 + 2j]).all()
+
     def test_math(self):
         if self.isWindows:
             skip('windows does not support c99 complex')

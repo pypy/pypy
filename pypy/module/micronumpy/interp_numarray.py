@@ -422,10 +422,6 @@ class __extend__(W_NDimArray):
         loop.clip(space, self, shape, min, max, out)
         return out
 
-    def descr_conj(self, space):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            "conj not implemented yet"))
-
     def descr_ctypes(self, space):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "ctypes not implemented yet"))
@@ -467,10 +463,6 @@ class __extend__(W_NDimArray):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "getfield not implemented yet"))
 
-    def descr_imag(self, space):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            "imag not implemented yet"))
-
     def descr_itemset(self, space, w_arg):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "itemset not implemented yet"))
@@ -487,10 +479,6 @@ class __extend__(W_NDimArray):
     def descr_put(self, space, w_indices, w_values, w_mode='raise'):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "put not implemented yet"))
-
-    def descr_real(self, space):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            "real not implemented yet"))
 
     def descr_resize(self, space, w_new_shape, w_refcheck=True):
         raise OperationError(space.w_NotImplementedError, space.wrap(
@@ -556,6 +544,8 @@ class __extend__(W_NDimArray):
     descr_invert = _unaryop_impl("invert")
     descr_get_real = _unaryop_impl("real")
     descr_get_imag = _unaryop_impl("imag")
+
+    descr_conj = _unaryop_impl('conjugate')
 
     def descr_nonzero(self, space):
         if self.get_size() > 1:
@@ -804,6 +794,7 @@ W_NDimArray.typedef = TypeDef(
     item = interp2app(W_NDimArray.descr_item),
     real = GetSetProperty(W_NDimArray.descr_get_real),
     imag = GetSetProperty(W_NDimArray.descr_get_imag),
+    conj = interp2app(W_NDimArray.descr_conj),
 
     argsort  = interp2app(W_NDimArray.descr_argsort),
     astype   = interp2app(W_NDimArray.descr_astype),
