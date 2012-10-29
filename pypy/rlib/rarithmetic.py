@@ -533,6 +533,9 @@ class r_singlefloat(object):
     def __ne__(self, other):
         return not self.__eq__(other)
 
+    def __repr__(self):
+        return 'r_singlefloat(%s)' % (float(self),)
+
 class r_longfloat(object):
     """A value of the C type 'long double'.
 
@@ -595,22 +598,22 @@ def byteswap(arg):
     """ Convert little->big endian and the opposite
     """
     from pypy.rpython.lltypesystem import lltype, rffi
-    from pypy.rlib.longlong2float import longlong2float, float2longlong
+    from pypy.rlib.longlong2float import longlong2float, float2longlong,\
+         uint2singlefloat, singlefloat2uint
 
     T = lltype.typeOf(arg)
-    # XXX we cannot do arithmetics on small ints
-    #if isinstance(arg, base_int):
     is_float = False
     is_single_float = False
     if T == lltype.SingleFloat:
-        T = lltype.Float
-        arg = rffi.cast(T, arg)
+        T = rffi.UINT
         is_single_float = True
-    if T == lltype.Float:
+        arg = singlefloat2uint(arg)
+    elif T == lltype.Float:
         is_float = True
         T = rffi.LONGLONG
         arg = float2longlong(arg)
     else:
+        # we cannot do arithmetics on small ints
         arg = widen(arg)
     if rffi.sizeof(T) == 1:
         res = arg
@@ -634,9 +637,9 @@ def byteswap(arg):
                (f >> 24) | (g >> 40) | (h >> 56))
     else:
         assert False # unreachable code
+    if is_single_float:
+        return uint2singlefloat(rffi.cast(rffi.UINT, res))
     if is_float:
         res = rffi.cast(rffi.LONGLONG, res)
-        if is_single_float:
-            return rffi.cast(lltype.SingleFloat, longlong2float(res))
         return longlong2float(res)
     return rffi.cast(T, res)
