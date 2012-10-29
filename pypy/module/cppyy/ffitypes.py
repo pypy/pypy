@@ -12,7 +12,6 @@ from pypy.rlib import jit_libffi, rfloat
 
 class BoolTypeMixin(object):
     _mixin_     = True
-    _immutable_ = True
     libffitype  = jit_libffi.types.uchar
     c_type      = rffi.UCHAR
     c_ptrtype   = rffi.UCHARP
@@ -29,7 +28,6 @@ class BoolTypeMixin(object):
 
 class CharTypeMixin(object):
     _mixin_     = True
-    _immutable_ = True
     libffitype  = jit_libffi.types.schar
     c_type      = rffi.CHAR
     c_ptrtype   = rffi.CCHARP           # there's no such thing as rffi.CHARP
@@ -53,7 +51,6 @@ class CharTypeMixin(object):
 
 class ShortTypeMixin(object):
     _mixin_     = True
-    _immutable_ = True
     libffitype  = jit_libffi.types.sshort
     c_type      = rffi.SHORT
     c_ptrtype   = rffi.SHORTP
@@ -63,7 +60,6 @@ class ShortTypeMixin(object):
 
 class UShortTypeMixin(object):
     _mixin_     = True
-    _immutable_ = True
     libffitype  = jit_libffi.types.ushort
     c_type      = rffi.USHORT
     c_ptrtype   = rffi.USHORTP
@@ -73,7 +69,6 @@ class UShortTypeMixin(object):
 
 class IntTypeMixin(object):
     _mixin_     = True
-    _immutable_ = True
     libffitype  = jit_libffi.types.sint
     c_type      = rffi.INT
     c_ptrtype   = rffi.INTP
@@ -83,7 +78,6 @@ class IntTypeMixin(object):
 
 class UIntTypeMixin(object):
     _mixin_     = True
-    _immutable_ = True
     libffitype  = jit_libffi.types.uint
     c_type      = rffi.UINT
     c_ptrtype   = rffi.UINTP
@@ -93,7 +87,6 @@ class UIntTypeMixin(object):
 
 class LongTypeMixin(object):
     _mixin_     = True
-    _immutable_ = True
     libffitype  = jit_libffi.types.slong
     c_type      =  rffi.LONG
     c_ptrtype   = rffi.LONGP
@@ -103,7 +96,6 @@ class LongTypeMixin(object):
 
 class ULongTypeMixin(object):
     _mixin_     = True
-    _immutable_ = True
     libffitype  = jit_libffi.types.ulong
     c_type      = rffi.ULONG
     c_ptrtype   = rffi.ULONGP
@@ -113,7 +105,6 @@ class ULongTypeMixin(object):
 
 class LongLongTypeMixin(object):
     _mixin_     = True
-    _immutable_ = True
     libffitype  = jit_libffi.types.sint64
     c_type      = rffi.LONGLONG
     c_ptrtype   = rffi.LONGLONGP
@@ -123,7 +114,6 @@ class LongLongTypeMixin(object):
 
 class ULongLongTypeMixin(object):
     _mixin_     = True
-    _immutable_ = True
     libffitype  = jit_libffi.types.uint64
     c_type      = rffi.ULONGLONG
     c_ptrtype   = rffi.ULONGLONGP
@@ -133,7 +123,6 @@ class ULongLongTypeMixin(object):
 
 class FloatTypeMixin(object):
     _mixin_     = True
-    _immutable_ = True
     libffitype  = jit_libffi.types.float
     c_type      = rffi.FLOAT
     c_ptrtype   = rffi.FLOATP
@@ -147,7 +136,6 @@ class FloatTypeMixin(object):
 
 class DoubleTypeMixin(object):
     _mixin_     = True
-    _immutable_ = True
     libffitype  = jit_libffi.types.double
     c_type      = rffi.DOUBLE
     c_ptrtype   = rffi.DOUBLEP

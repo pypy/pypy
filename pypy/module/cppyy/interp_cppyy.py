@@ -117,7 +117,6 @@ class CPPMethod(object):
     function if available, makes the call, and returns the wrapped result. It
     also takes care of offset casting and recycling of known objects through
     the memory_regulator."""
-    _immutable_ = True
 
     def __init__(self, space, containing_scope, method_index, arg_defs, args_required):
         self.space = space
@@ -145,7 +144,7 @@ class CPPMethod(object):
 
     @jit.unroll_safe
     def call(self, cppthis, args_w):
-        jit.promote(self)
+        #jit.promote(self)
         assert lltype.typeOf(cppthis) == capi.C_OBJECT
 
         # check number of given arguments against required (== total - defaults)
@@ -189,7 +188,7 @@ class CPPMethod(object):
 
     @jit.unroll_safe
     def do_fast_call(self, cppthis, args_w, call_local):
-        jit.promote(self)
+        #jit.promote(self)
         if self.cif_descr is None:
             raise FastCallNotPossible
         cif_descr = self.cif_descr
@@ -313,7 +312,7 @@ class CPPMethod(object):
 
     @jit.unroll_safe
     def prepare_arguments(self, args_w, call_local):
-        jit.promote(self)
+        #jit.promote(self)
         args = capi.c_allocate_function_args(len(args_w))
         stride = capi.c_function_arg_sizeof()
         for i in range(len(args_w)):
@@ -364,7 +363,6 @@ class CPPFunction(CPPMethod):
     """Global (namespaced) function dispatcher. For now, the base class has
     all the needed functionality, by allowing the C++ this pointer to be null
     in the call. An optimization is expected there, however."""
-    _immutable_ = True
 
     def __repr__(self):
         return "CPPFunction: %s" % self.signature()
@@ -374,7 +372,6 @@ class CPPConstructor(CPPMethod):
     """Method dispatcher that constructs new objects. In addition to the call,
     it allocates memory for the newly constructed object and sets ownership
     to Python."""
-    _immutable_ = True
 
     def call(self, cppthis, args_w):
         newthis = capi.c_allocate(self.scope)
@@ -395,7 +392,6 @@ class CPPSetItem(CPPMethod):
     """Method dispatcher specific to Python's __setitem__ mapped onto C++'s
     operator[](int). The former function takes an extra argument to assign to
     the return type of the latter."""
-    _immutable_ = True
 
     def call(self, cppthis, args_w):
         end = len(args_w)-1
@@ -412,8 +408,7 @@ class W_CPPOverload(Wrappable):
     """Dispatcher that is actually available at the app-level: it is a
     collection of (possibly) overloaded methods or functions. It calls these
     in order and deals with error handling and reporting."""
-    _immutable_ = True
-    _immutable_fields_ = ["functions[*]"]
+    #_immutable_fields_ = ["functions[*]"]
 
     def __init__(self, space, containing_scope, functions):
         self.space = space
@@ -421,10 +416,9 @@ class W_CPPOverload(Wrappable):
         from pypy.rlib import debug
         self.functions = debug.make_sure_not_resized(functions)
 
+    @jit.elidable_promote()
     def is_static(self):
-        f = self.functions[0]
-        assert isinstance(f, CPPMethod)
-        if isinstance(f, CPPFunction):
+        if isinstance(self.functions[0], CPPFunction):
             return self.space.w_True
         return self.space.w_False
 
@@ -449,7 +443,7 @@ class W_CPPOverload(Wrappable):
         #
         # TODO: figure out what happens if a callback into from the C++ call
         # raises a Python exception.
-        jit.promote(self)
+        #jit.promote(self)
         for i in range(len(self.functions)):
             cppyyfunc = self.functions[i]
             try:
@@ -492,7 +486,6 @@ W_CPPOverload.typedef = TypeDef(
 
 
 class W_CPPDataMember(Wrappable):
-    _immutable_ = True
 
     def __init__(self, space, containing_scope, type_name, offset, is_static):
         self.space = space
@@ -539,8 +532,7 @@ W_CPPDataMember.typedef.acceptable_as_base_class = False
 
 
 class W_CPPScope(Wrappable):
-    _immutable_ = True
-    _immutable_fields_ = ["methods[*]", "datamembers[*]"]
+    #_immutable_fields_ = ["methods[*]", "datamembers[*]"]
 
     kind = "scope"
 
@@ -640,7 +632,6 @@ class W_CPPScope(Wrappable):
 # classes for inheritance. Both are python classes, though, and refactoring
 # may be in order at some point.
 class W_CPPNamespace(W_CPPScope):
-    _immutable_ = True
     kind = "namespace"
 
     def _make_cppfunction(self, pyname, index):
@@ -724,7 +715,6 @@ W_CPPNamespace.typedef.acceptable_as_base_class = False
 
 
 class W_CPPClass(W_CPPScope):
-    _immutable_ = True
     kind = "class"
 
     def __init__(self, space, name, opaque_handle):
@@ -808,7 +798,6 @@ W_CPPClass.typedef.acceptable_as_base_class = False
 
 
 class W_ComplexCPPClass(W_CPPClass):
-    _immutable_ = True
 
     def get_cppthis(self, cppinstance, calling_scope):
         assert self == cppinstance.cppclass
@@ -830,7 +819,6 @@ W_ComplexCPPClass.typedef.acceptable_as_base_class = False
 
 
 class W_CPPTemplateType(Wrappable):
-    _immutable_ = True
 
     def __init__(self, space, name, opaque_handle):
         self.space = space

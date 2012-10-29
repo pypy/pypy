@@ -27,7 +27,6 @@ from pypy.module.cppyy import helper, capi, ffitypes
 NULL = lltype.nullptr(jit_libffi.FFI_TYPE_P.TO)
 
 class FunctionExecutor(object):
-    _immutable_ = True
     libffitype = NULL
 
     def __init__(self, space, extra):
@@ -43,7 +42,6 @@ class FunctionExecutor(object):
 
 
 class PtrTypeExecutor(FunctionExecutor):
-    _immutable_ = True
     libffitype = jit_libffi.types.pointer
     typecode = 'P'
 
@@ -65,7 +63,6 @@ class PtrTypeExecutor(FunctionExecutor):
 
 
 class VoidExecutor(FunctionExecutor):
-    _immutable_ = True
     libffitype = jit_libffi.types.void
 
     def execute(self, space, cppmethod, cppthis, num_args, args):
@@ -79,7 +76,6 @@ class VoidExecutor(FunctionExecutor):
 
 class NumericExecutorMixin(object):
     _mixin_ = True
-    _immutable_ = True
 
     def _wrap_object(self, space, obj):
         return space.wrap(obj)
@@ -96,7 +92,6 @@ class NumericExecutorMixin(object):
 
 class NumericRefExecutorMixin(object):
     _mixin_ = True
-    _immutable_ = True
 
     def __init__(self, space, extra):
         FunctionExecutor.__init__(self, space, extra)
@@ -128,7 +123,6 @@ class NumericRefExecutorMixin(object):
 
 
 class CStringExecutor(FunctionExecutor):
-    _immutable_ = True
 
     def execute(self, space, cppmethod, cppthis, num_args, args):
         lresult = capi.c_call_l(cppmethod, cppthis, num_args, args)
@@ -138,7 +132,6 @@ class CStringExecutor(FunctionExecutor):
 
 
 class ConstructorExecutor(VoidExecutor):
-    _immutable_ = True
 
     def execute(self, space, cppmethod, cppthis, num_args, args):
         capi.c_constructor(cppmethod, cppthis, num_args, args)
@@ -146,7 +139,6 @@ class ConstructorExecutor(VoidExecutor):
 
 
 class InstancePtrExecutor(FunctionExecutor):
-    _immutable_ = True
     libffitype = jit_libffi.types.pointer
 
     def __init__(self, space, cppclass):
@@ -169,7 +161,6 @@ class InstancePtrExecutor(FunctionExecutor):
             space, space.w_None, self.cppclass, ptr_result, isref=False, python_owns=False)
 
 class InstancePtrPtrExecutor(InstancePtrExecutor):
-    _immutable_ = True
 
     def execute(self, space, cppmethod, cppthis, num_args, args):
         from pypy.module.cppyy import interp_cppyy
@@ -184,7 +175,6 @@ class InstancePtrPtrExecutor(InstancePtrExecutor):
         raise FastCallNotPossible
 
 class InstanceExecutor(InstancePtrExecutor):
-    _immutable_ = True
 
     def execute(self, space, cppmethod, cppthis, num_args, args):
         from pypy.module.cppyy import interp_cppyy
@@ -199,7 +189,6 @@ class InstanceExecutor(InstancePtrExecutor):
 
 
 class StdStringExecutor(InstancePtrExecutor):
-    _immutable_ = True
 
     def execute(self, space, cppmethod, cppthis, num_args, args):
         charp_result = capi.c_call_s(cppmethod, cppthis, num_args, args)
@@ -211,7 +200,6 @@ class StdStringExecutor(InstancePtrExecutor):
 
 
 class PyObjectExecutor(PtrTypeExecutor):
-    _immutable_ = True
 
     def wrap_result(self, space, lresult):
         space.getbuiltinmodule("cpyext")
@@ -326,10 +314,8 @@ def _build_basic_executors():
 
     for c_type, stub, names in type_info:
         class BasicExecutor(ffitypes.typeid(c_type), NumericExecutorMixin, FunctionExecutor):
-            _immutable_ = True
             c_stubcall  = staticmethod(stub)
         class BasicRefExecutor(ffitypes.typeid(c_type), NumericRefExecutorMixin, FunctionExecutor):
-            _immutable_ = True
             libffitype = jit_libffi.types.pointer
         for name in names:
             _executors[name]              = BasicExecutor
@@ -355,7 +341,6 @@ def _build_ptr_executors():
 
     for tcode, names in ptr_info:
         class PtrExecutor(PtrTypeExecutor):
-            _immutable_ = True
             typecode = tcode
         for name in names:
             _executors[name+'*'] = PtrExecutor
