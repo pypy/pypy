@@ -1,5 +1,4 @@
 
-from pypy.conftest import gettestobjspace
 import marshal
 import py, os
 import time
@@ -15,8 +14,10 @@ class AppTestZipimport:
     cpy's regression tests
     """
     compression = ZIP_STORED
+    spaceconfig = dict(usemodules=['zipimport', 'rctime', 'struct'])
     pathsep = os.path.sep
     
+    @classmethod
     def make_pyc(cls, space, co, mtime):
         data = marshal.dumps(co)
         if type(mtime) is type(0.0):
@@ -33,7 +34,8 @@ class AppTestZipimport:
             s.write(imp.get_magic())
         pyc = s.getvalue() + struct.pack("<i", int(mtime)) + data
         return pyc
-    make_pyc = classmethod(make_pyc)
+
+    @classmethod
     def make_class(cls):
         # XXX: this is (mostly) wrong: .compile() compiles the code object
         # using the host python compiler, but then in the tests we load it
@@ -45,13 +47,8 @@ class AppTestZipimport:
         def get_file():
             return __file__
         """).compile()
-
-        if cls.compression == ZIP_DEFLATED:
-            space = gettestobjspace(usemodules=['zipimport', 'zlib', 'rctime', 'struct'])
-        else:
-            space = gettestobjspace(usemodules=['zipimport', 'rctime', 'struct'])
             
-        cls.space = space
+        space = cls.space
         tmpdir = udir.ensure('zipimport_%s' % cls.__name__, dir=1)
         now = time.time()
         cls.w_now = space.wrap(now)
@@ -64,7 +61,6 @@ class AppTestZipimport:
         cls.w_tmpzip = space.wrap(str(ziptestmodule))
         cls.w_co = space.wrap(co)
         cls.tmpdir = tmpdir
-    make_class = classmethod(make_class)
 
     def setup_class(cls):
         cls.make_class()
@@ -357,6 +353,7 @@ def get_co_filename():
 
 class AppTestZipimportDeflated(AppTestZipimport):
     compression = ZIP_DEFLATED
+    spaceconfig = dict(usemodules=['zipimport', 'zlib', 'rctime', 'struct'])
 
     def setup_class(cls):
         try:
