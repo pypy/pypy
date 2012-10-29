@@ -1,4 +1,6 @@
 class AppTestItertools:
+    spaceconfig = dict(usemodules=['itertools'])
+
     def setup_class(cls):
         cls.w_itertools = cls.space.appexec([], "(): import itertools; return itertools")
 

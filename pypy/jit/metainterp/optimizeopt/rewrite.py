@@ -429,15 +429,17 @@ class OptRewrite(Optimization):
         source_start_box = self.get_constant_box(op.getarg(3))
         dest_start_box = self.get_constant_box(op.getarg(4))
         length = self.get_constant_box(op.getarg(5))
+        extrainfo = op.getdescr().get_extra_info()
         if (source_start_box and dest_start_box
             and length and (dest_value.is_virtual() or length.getint() <= 8) and
-            (source_value.is_virtual() or length.getint() <= 8)):
+            (source_value.is_virtual() or length.getint() <= 8) and
+            len(extrainfo.write_descrs_arrays) == 1):   # <-sanity check
             from pypy.jit.metainterp.optimizeopt.virtualize import VArrayValue
             source_start = source_start_box.getint()
             dest_start = dest_start_box.getint()
+            # XXX fish fish fish
+            arraydescr = extrainfo.write_descrs_arrays[0]
             for index in range(length.getint()):
-                # XXX fish fish fish
-                arraydescr = op.getdescr().get_extra_info().write_descrs_arrays[0]
                 if source_value.is_virtual():
                     assert isinstance(source_value, VArrayValue)
                     val = source_value.getitem(index + source_start)

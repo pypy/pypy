@@ -38,7 +38,7 @@ def setup_directory_structure(space):
                     test_reload = "def test():\n    raise ValueError\n",
                     infinite_reload = "import infinite_reload; reload(infinite_reload)",
                     del_sys_module = "import sys\ndel sys.modules['del_sys_module']\n",
-                    itertools = "hello_world = 42\n",
+                    _md5 = "hello_world = 42\n",
                     gc = "should_never_be_seen = 42\n",
                     )
     root.ensure("notapackage", dir=1)    # empty, no __init__.py
@@ -146,7 +146,7 @@ def _teardown(space, w_saved_modules):
     """)
 
 class AppTestImport:
-    spaceconfig = dict(usemodules=['itertools'])
+    spaceconfig = dict(usemodules=['_md5'])
 
     def setup_class(cls): # interpreter-level
         cls.w_runappdirect = cls.space.wrap(conftest.option.runappdirect)
@@ -597,34 +597,34 @@ class AppTestImport:
 
     def test_shadow_extension_1(self):
         if self.runappdirect: skip("hard to test: module is already imported")
-        # 'import itertools' is supposed to find itertools.py if there is
+        # 'import _md5' is supposed to find _md5.py if there is
         # one in sys.path.
         import sys
-        assert 'itertools' not in sys.modules
-        import itertools
-        assert hasattr(itertools, 'hello_world')
-        assert not hasattr(itertools, 'count')
-        assert '(built-in)' not in repr(itertools)
-        del sys.modules['itertools']
+        assert '_md5' not in sys.modules
+        import _md5
+        assert hasattr(_md5, 'hello_world')
+        assert not hasattr(_md5, 'count')
+        assert '(built-in)' not in repr(_md5)
+        del sys.modules['_md5']
 
     def test_shadow_extension_2(self):
         if self.runappdirect: skip("hard to test: module is already imported")
-        # 'import itertools' is supposed to find the built-in module even
+        # 'import _md5' is supposed to find the built-in module even
         # if there is also one in sys.path as long as it is *after* the
         # special entry '.../lib_pypy/__extensions__'.  (Note that for now
-        # there is one in lib_pypy/itertools.py, which should not be seen
+        # there is one in lib_pypy/_md5.py, which should not be seen
         # either; hence the (built-in) test below.)
         import sys
-        assert 'itertools' not in sys.modules
+        assert '_md5' not in sys.modules
         sys.path.append(sys.path.pop(0))
         try:
-            import itertools
-            assert not hasattr(itertools, 'hello_world')
-            assert hasattr(itertools, 'izip')
-            assert '(built-in)' in repr(itertools)
+            import _md5
+            assert not hasattr(_md5, 'hello_world')
+            assert hasattr(_md5, 'digest_size')
+            assert '(built-in)' in repr(_md5)
         finally:
             sys.path.insert(0, sys.path.pop())
-        del sys.modules['itertools']
+        del sys.modules['_md5']
 
     def test_invalid_pathname(self):
         import imp
@@ -1003,7 +1003,7 @@ def test_PYTHONPATH_takes_precedence(space):
             os.environ['LANG'] = oldlang
 
 class AppTestImportHooks(object):
-    spaceconfig = dict(usemodules=('struct',))
+    spaceconfig = dict(usemodules=('struct', 'itertools'))
 
     def setup_class(cls):
         mydir = os.path.dirname(__file__)

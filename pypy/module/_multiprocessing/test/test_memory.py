@@ -1,6 +1,6 @@
 class AppTestMemory:
     spaceconfig = dict(usemodules=('_multiprocessing', 'mmap',
-                                   '_rawffi', '_ffi'))
+                                   '_rawffi', '_ffi', 'itertools'))
 
     def test_address_of(self):
         import _multiprocessing

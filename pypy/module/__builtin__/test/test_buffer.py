@@ -116,6 +116,8 @@ class AppTestBuffer:
         b[:] = '12345'
         assert a.tostring() == 'hello 12345'
         raises(IndexError, 'b[5] = "."')
+        b[4:2] = ''
+        assert a.tostring() == 'hello 12345'
 
         b = buffer(b, 2)
         assert len(b) == 3

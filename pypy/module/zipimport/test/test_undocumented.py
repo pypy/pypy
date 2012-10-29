@@ -17,7 +17,8 @@ created_paths = dict.fromkeys(['_top_level',
                                ])
 
 class AppTestZipImport:
-    spaceconfig = dict(usemodules=['zipimport', 'rctime', 'struct'])
+    spaceconfig = dict(usemodules=['zipimport', 'rctime', 'struct',
+                                   'itertools'])
     def setup_class(cls):
         cls.w_created_paths = cls.space.wrap(created_paths)
     

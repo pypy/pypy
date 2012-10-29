@@ -1,7 +1,8 @@
 import py, sys
 
 class AppTestPwd:
-    spaceconfig = dict(usemodules=('_ffi', '_rawffi'))
+    spaceconfig = dict(usemodules=('_ffi', '_rawffi', 'itertools'))
+
     def setup_class(cls):
         if sys.platform == 'win32':
             py.test.skip("Unix only")

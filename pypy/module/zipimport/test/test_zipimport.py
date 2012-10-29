@@ -14,7 +14,8 @@ class AppTestZipimport:
     cpy's regression tests
     """
     compression = ZIP_STORED
-    spaceconfig = dict(usemodules=['zipimport', 'rctime', 'struct'])
+    spaceconfig = dict(usemodules=['zipimport', 'rctime', 'struct',
+                                   'itertools'])
     pathsep = os.path.sep
     
     @classmethod
@@ -49,6 +50,7 @@ class AppTestZipimport:
         """).compile()
             
         space = cls.space
+
         tmpdir = udir.ensure('zipimport_%s' % cls.__name__, dir=1)
         now = time.time()
         cls.w_now = space.wrap(now)
@@ -353,7 +355,8 @@ def get_co_filename():
 
 class AppTestZipimportDeflated(AppTestZipimport):
     compression = ZIP_DEFLATED
-    spaceconfig = dict(usemodules=['zipimport', 'zlib', 'rctime', 'struct'])
+    spaceconfig = dict(usemodules=['zipimport', 'zlib', 'rctime', 'struct',
+                                   'itertools'])
 
     def setup_class(cls):
         try:

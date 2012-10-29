@@ -357,8 +357,8 @@ class ReadBZ2Filter(Stream):
             buffering = 1024   # minimum amount of compressed data read at once
         self.buffering = buffering
 
-    def close(self):
-        self.stream.close()
+    def close1(self, closefileno):
+        self.stream.close1(closefileno)
 
     def tell(self):
         return self.readlength
@@ -479,9 +479,9 @@ class WriteBZ2Filter(Stream):
         self.compressor = W_BZ2Compressor(space, compresslevel)
         self.writtenlength = 0
 
-    def close(self):
+    def close1(self, closefileno):
         self.stream.write(self.space.str_w(self.compressor.flush()))
-        self.stream.close()
+        self.stream.close1(closefileno)
 
     def write(self, data):
         self.stream.write(self.space.str_w(self.compressor.compress(data)))

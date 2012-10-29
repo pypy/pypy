@@ -4,7 +4,7 @@ from pypy.module.math.test import test_direct
 
 
 class AppTestMath:
-    spaceconfig = dict(usemodules=['math', 'struct'])
+    spaceconfig = dict(usemodules=['math', 'struct', 'itertools'])
 
     def setup_class(cls):
         cls.w_cases = cls.space.wrap(test_direct.MathTests.TESTCASES)

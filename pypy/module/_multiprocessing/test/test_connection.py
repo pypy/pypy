@@ -8,7 +8,8 @@ class TestImport:
         from pypy.module._multiprocessing import interp_semaphore
 
 class AppTestBufferTooShort:
-    spaceconfig = dict(usemodules=['_multiprocessing', 'thread', 'signal'])
+    spaceconfig = dict(usemodules=['_multiprocessing', 'thread', 'signal',
+                                   'itertools'])
 
     def setup_class(cls):
         if cls.runappdirect:
