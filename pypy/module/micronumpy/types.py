@@ -910,16 +910,14 @@ class NonNativeFloat(NonNativePrimitive, Float):
 
     def _read(self, storage, i, offset):
         res = raw_storage_getitem(self.T, storage, i + offset)
-        #return byteswap(res) XXX
-        return res
+        return rffi.cast(lltype.Float, byteswap(res))
 
     def _write(self, storage, i, offset, value):
-        #value = byteswap(value) XXX
-        raw_storage_setitem(storage, i + offset, value)
+        swapped_value = byteswap(rffi.cast(self.T, value))
+        raw_storage_setitem(storage, i + offset, swapped_value)
 
     def pack_str(self, box):
-        # XXX byteswap
-        return struct.pack(self.format_code, self.unbox(box))
+        return struct.pack(self.format_code, byteswap(self.unbox(box)))
 
 
 class Float32(BaseType, Float):

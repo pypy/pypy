@@ -391,9 +391,16 @@ class __extend__(W_NDimArray):
     def descr_get_base(self, space):
         return self.implementation.base()
 
-    def descr_byteswap(self, space, w_inplace=False):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            "byteswap not implemented yet"))
+    @unwrap_spec(inplace=bool)
+    def descr_byteswap(self, space, inplace=False):
+        raise OperationError(space.w_NotImplementedError, space.wrap("not impl"))
+        if inplace:
+            loop.byteswap(self.implementation, self.implementation)
+            return self
+        else:
+            res = W_NDimArray.from_shape(self.get_shape(), self.get_dtype())
+            loop.byteswap(self.implementation, res.implementation)
+            return res
 
     def descr_choose(self, space, w_choices, w_out=None, w_mode='raise'):
         raise OperationError(space.w_NotImplementedError, space.wrap(

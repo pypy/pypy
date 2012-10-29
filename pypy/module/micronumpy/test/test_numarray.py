@@ -1591,6 +1591,10 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = a[::2]
         assert b.base is a
 
+    def test_byteswap(self):
+        from _numpypy import array
+        xxx
+
 class AppTestMultiDim(BaseNumpyAppTest):
     def test_init(self):
         import _numpypy
