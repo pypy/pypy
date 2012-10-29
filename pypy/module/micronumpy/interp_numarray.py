@@ -7,7 +7,8 @@ from pypy.module.micronumpy.base import W_NDimArray, convert_to_array,\
 from pypy.module.micronumpy import interp_dtype, interp_ufuncs, interp_boxes,\
      interp_arrayops
 from pypy.module.micronumpy.strides import find_shape_and_elems,\
-     get_shape_from_iterable, to_coords, shape_agreement
+     get_shape_from_iterable, to_coords, shape_agreement, \
+     shape_agreement_multiple
 from pypy.module.micronumpy.interp_flatiter import W_FlatIterator
 from pypy.module.micronumpy.interp_support import unwrap_axis_arg
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
@@ -410,8 +411,16 @@ class __extend__(W_NDimArray):
         return interp_arrayops.choose(space, self, w_choices, w_out, mode)
 
     def descr_clip(self, space, w_min, w_max, w_out=None):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            "clip not implemented yet"))
+        if w_out is not None and not isinstance(w_out, W_NDimArray):
+            raise OperationError(space.w_TypeError, space.wrap(
+                "return arrays must be of ArrayType"))
+        min = convert_to_array(space, w_min)
+        max = convert_to_array(space, w_max)
+        shape = shape_agreement_multiple(space, [self, min, max, w_out])
+        out = interp_dtype.dtype_agreement(space, [self, min, max], shape,
+                                           w_out)
+        loop.clip(space, self, shape, min, max, out)
+        return out
 
     def descr_conj(self, space):
         raise OperationError(space.w_NotImplementedError, space.wrap(
@@ -801,6 +810,7 @@ W_NDimArray.typedef = TypeDef(
     base     = GetSetProperty(W_NDimArray.descr_get_base),
     byteswap = interp2app(W_NDimArray.descr_byteswap),
     choose   = interp2app(W_NDimArray.descr_choose),
+    clip     = interp2app(W_NDimArray.descr_clip),
 
     __array_interface__ = GetSetProperty(W_NDimArray.descr_array_iface),
 )

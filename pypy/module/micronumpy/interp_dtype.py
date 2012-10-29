@@ -5,9 +5,10 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
     interp_attrproperty, interp_attrproperty_w)
-from pypy.module.micronumpy import types, interp_boxes
+from pypy.module.micronumpy import types, interp_boxes, base
 from pypy.rlib.objectmodel import specialize
 from pypy.rlib.rarithmetic import LONG_BIT, r_longlong, r_ulonglong
+from pypy.rlib import jit
 from pypy.rpython.lltypesystem import rffi
 
 
@@ -26,6 +27,21 @@ def decode_w_dtype(space, w_dtype):
         return None
     return space.interp_w(W_Dtype,
           space.call_function(space.gettypefor(W_Dtype), w_dtype))
+
+@jit.unroll_safe
+def dtype_agreement(space, w_arr_list, shape, out=None):
+    """ agree on dtype from a list of arrays. if out is allocated,
+    use it's dtype, otherwise allocate a new one with agreed dtype
+    """
+    from pypy.module.micronumpy.interp_ufuncs import find_binop_result_dtype
+
+    if not space.is_none(out):
+        return out
+    dtype = w_arr_list[0].get_dtype()
+    for w_arr in w_arr_list[1:]:
+        dtype = find_binop_result_dtype(space, dtype, w_arr.get_dtype())
+    out = base.W_NDimArray.from_shape(shape, dtype)
+    return out
 
 class W_Dtype(Wrappable):
     _immutable_fields_ = ["itemtype", "num", "kind"]

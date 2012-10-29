@@ -522,3 +522,31 @@ def choose(space, arr, choices, shape, dtype, out, mode):
             iter.next()
         out_iter.next()
         arr_iter.next()
+
+clip_driver = jit.JitDriver(greens = ['shapelen', 'dtype'],
+                            reds = ['min_iter', 'max_iter', 'arr_iter',
+                                    'out_iter'])
+
+def clip(space, arr, shape, min, max, out):
+    arr_iter = arr.create_iter(shape)
+    dtype = out.get_dtype()
+    shapelen = len(shape)
+    min_iter = min.create_iter(shape)
+    max_iter = max.create_iter(shape)
+    out_iter = out.create_iter(shape)
+    while not arr_iter.done():
+        clip_driver.jit_merge_point(shapelen=shapelen, dtype=dtype,
+                                    min_iter=min_iter, max_iter=max_iter,
+                                    arr_iter=arr_iter, out_iter=out_iter)
+        w_v = arr_iter.getitem().convert_to(dtype)
+        w_min = min_iter.getitem().convert_to(dtype)
+        w_max = max_iter.getitem().convert_to(dtype)
+        if dtype.itemtype.lt(w_v, w_min):
+            w_v = w_min
+        elif dtype.itemtype.gt(w_v, w_max):
+            w_v = w_max
+        out_iter.setitem(w_v)
+        arr_iter.next()
+        max_iter.next()
+        out_iter.next()
+        min_iter.next()
