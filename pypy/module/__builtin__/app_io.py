@@ -13,10 +13,6 @@ def _write_prompt(stdout, prompt):
         pass
     else:
         flush()
-    try:
-        stdout.softspace = 0
-    except (AttributeError, TypeError):
-        pass
 
 def input(prompt=''):
     """input([prompt]) -> string
@@ -33,11 +29,17 @@ is printed without a trailing newline before reading."""
         stdout = sys.stdout
     except AttributeError:
         raise RuntimeError("input: lost sys.stdout")
+    try:
+        stderr = sys.stderr
+    except AttributeError:
+        raise RuntimeError("input: lost sys.stderr")
+
+    stderr.flush()
 
     # hook for the readline module
     if (hasattr(sys, '__raw_input__') and
-        isinstance(stdin, file)  and stdin.fileno() == 0 and stdin.isatty() and
-        isinstance(stdout, file) and stdout.fileno() == 1):
+        stdin.fileno() == 0 and stdin.isatty() and
+        stdout.fileno() == 1):
         _write_prompt(stdout, '')
         return sys.__raw_input__(str(prompt))
 
