@@ -1,12 +1,9 @@
-from pypy.conftest import gettestobjspace
 from pypy.interpreter import gateway
 from pypy.interpreter.astcompiler import consts
 import py
 
 class AppTestCodeIntrospection:
     def setup_class(cls):
-        space = gettestobjspace()
-        cls.space = space
         filename = __file__
         if filename[-3:] != '.py':
             filename = filename[:-1]
