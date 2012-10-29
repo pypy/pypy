@@ -1063,6 +1063,21 @@ class AppTestTypeObject:
         A.__dict__['x'] = 5
         assert A.x == 5
 
+
+class AppTestWithMethodCacheCounter:
+    def setup_class(cls):
+        cls.space = gettestobjspace(
+            **{"objspace.std.withmethodcachecounter": True})
+
+    def test_module_from_handbuilt_type(self):
+        d = {'tuple': tuple, '__name__': 'foomod'}
+        exec """class foo(tuple): pass""" in d
+        t = d['foo']
+        t.__module__ = 'barmod'
+        # this last line used to crash; see ab926f846f39
+        assert t.__module__
+
+
 class AppTestMutableBuiltintypes:
 
     def setup_class(cls):
