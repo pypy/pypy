@@ -48,13 +48,15 @@ def PyUnicode_DecodeRawUnicodeEscape(space, string):
         final=True, errorhandler=decode_error_handler(space))
     return result
 
-def PyUnicode_DecodeUTF8(space, string):
+def PyUnicode_DecodeUTF8(space, string, allow_surrogates=False):
     result, consumed = runicode.str_decode_utf_8(
         string, len(string), "strict",
-        final=True, errorhandler=decode_error_handler(space))
+        final=True, errorhandler=decode_error_handler(space),
+        allow_surrogates=allow_surrogates)
     return result
 
-def PyUnicode_EncodeUTF8(space, uni):
+def PyUnicode_EncodeUTF8(space, uni, allow_surrogates=False):
     return runicode.unicode_encode_utf_8(
         uni, len(uni), "strict",
-        errorhandler=encode_error_handler(space))
+        errorhandler=encode_error_handler(space),
+        allow_surrogates=allow_surrogates)

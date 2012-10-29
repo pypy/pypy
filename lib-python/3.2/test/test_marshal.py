@@ -165,7 +165,7 @@ class BugsTestCase(unittest.TestCase):
         s = b'c' + (b'X' * 4*4) + b'{' * 2**20
         self.assertRaises(ValueError, marshal.loads, s)
 
-    @test_support.impl_detail('specific recursion check')
+    @support.impl_detail('specific recursion check')
     def test_recursion_limit(self):
         # Create a deeply nested structure.
         head = last = []
