@@ -15,16 +15,22 @@ def enumerate_chunks(chunks):
     jit.isconstant(len(chunks))
 )
 def calculate_slice_strides(shape, start, strides, backstrides, chunks):
-    rstrides = []
-    rbackstrides = []
+    size = 0
+    for chunk in chunks:
+        if chunk.step != 0:
+            size += 1
+    rstrides = [0] * size
+    rbackstrides = [0] * size
     rstart = start
-    rshape = []
+    rshape = [0] * size
     i = -1
+    j = 0
     for i, chunk in enumerate_chunks(chunks):
         if chunk.step != 0:
-            rstrides.append(strides[i] * chunk.step)
-            rbackstrides.append(strides[i] * (chunk.lgt - 1) * chunk.step)
-            rshape.append(chunk.lgt)
+            rstrides[j] = strides[i] * chunk.step
+            rbackstrides[j] = strides[i] * (chunk.lgt - 1) * chunk.step
+            rshape[j] = chunk.lgt
+            j += 1
         rstart += strides[i] * chunk.start
     # add a reminder
     s = i + 1
@@ -64,13 +70,13 @@ def find_shape_and_elems(space, w_iterable, dtype):
     while True:
         new_batch = []
         if not batch:
-            return shape, []
+            return shape[:], []
         if is_single_elem(space, batch[0], is_rec_type):
             for w_elem in batch:
                 if not is_single_elem(space, w_elem, is_rec_type):
                     raise OperationError(space.w_ValueError, space.wrap(
                         "setting an array element with a sequence"))
-            return shape, batch
+            return shape[:], batch
         size = space.len_w(batch[0])
         for w_elem in batch:
             if (is_single_elem(space, w_elem, is_rec_type) or
@@ -104,6 +110,7 @@ def to_coords(space, shape, size, order, w_item_or_slice):
             i //= shape[s]
     return coords, step, lngth
 
+@jit.unroll_safe
 def shape_agreement(space, shape1, w_arr2, broadcast_down=True):
     if w_arr2 is None:
         return shape1
@@ -126,6 +133,7 @@ def shape_agreement(space, shape1, w_arr2, broadcast_down=True):
         )
     return ret
 
+@jit.unroll_safe
 def _shape_agreement(shape1, shape2):
     """ Checks agreement about two shapes with respect to broadcasting. Returns
     the resulting shape.
@@ -255,19 +263,19 @@ def calc_new_strides(new_shape, old_shape, old_strides, order):
                     cur_step = steps[oldI]
                     n_old_elems_to_use *= old_shape[oldI]
     assert len(new_strides) == len(new_shape)
-    return new_strides
+    return new_strides[:]
 
 
 def calculate_dot_strides(strides, backstrides, res_shape, skip_dims):
-    rstrides = []
-    rbackstrides = []
-    j=0
+    rstrides = [0] * len(res_shape)
+    rbackstrides = [0] * len(res_shape)
+    j = 0
     for i in range(len(res_shape)):
         if i in skip_dims:
-            rstrides.append(0)
-            rbackstrides.append(0)
+            rstrides[i] = 0
+            rbackstrides[i] = 0
         else:
-            rstrides.append(strides[j])
-            rbackstrides.append(backstrides[j])
+            rstrides[i] = strides[j]
+            rbackstrides[i] = backstrides[j]
             j += 1
     return rstrides, rbackstrides

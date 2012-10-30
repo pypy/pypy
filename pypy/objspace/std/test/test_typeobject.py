@@ -743,7 +743,13 @@ class AppTestTypeObject:
         assert repr(complex) == "<type 'complex'>"
         assert repr(property) == "<type 'property'>"
         assert repr(TypeError) == "<type 'exceptions.TypeError'>"
-        
+
+    def test_repr_issue1292(self):
+        d = {'object': object}    # no __name__
+        exec "class A(object): pass\n" in d
+        assert d['A'].__module__ == '__builtin__'    # obscure, follows CPython
+        assert repr(d['A']) == "<class 'A'>"
+
     def test_invalid_mro(self):
         class A(object):
             pass
@@ -1056,6 +1062,21 @@ class AppTestTypeObject:
         assert A.__dict__["x"] == 1
         A.__dict__['x'] = 5
         assert A.x == 5
+
+
+class AppTestWithMethodCacheCounter:
+    def setup_class(cls):
+        cls.space = gettestobjspace(
+            **{"objspace.std.withmethodcachecounter": True})
+
+    def test_module_from_handbuilt_type(self):
+        d = {'tuple': tuple, '__name__': 'foomod'}
+        exec """class foo(tuple): pass""" in d
+        t = d['foo']
+        t.__module__ = 'barmod'
+        # this last line used to crash; see ab926f846f39
+        assert t.__module__
+
 
 class AppTestMutableBuiltintypes:
 

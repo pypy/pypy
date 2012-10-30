@@ -145,8 +145,11 @@ def ll_arraycopy(source, dest, source_start, dest_start, length):
     from pypy.rlib.objectmodel import keepalive_until_here
 
     # XXX: Hack to ensure that we get a proper effectinfo.write_descrs_arrays
-    if NonConstant(False):
-        dest[dest_start] = source[source_start]
+    # and also, maybe, speed up very small cases
+    if length <= 1:
+        if length == 1:
+            dest[dest_start] = source[source_start]
+        return
 
     # supports non-overlapping copies only
     if not we_are_translated():
@@ -254,12 +257,9 @@ def _keep_object(x):
         return False      # don't keep any type
     if isinstance(x, (list, dict, str)):
         return True       # keep lists and dicts and strings
-    try:
-        return not x._freeze_()   # don't keep any frozen object
-    except AttributeError:
-        return type(x).__module__ != '__builtin__'   # keep non-builtins
-    except Exception:
-        return False      # don't keep objects whose _freeze_() method explodes
+    if hasattr(x, '_freeze_'):
+        return False
+    return type(x).__module__ != '__builtin__'   # keep non-builtins
 
 def add_memory_pressure(estimate):
     """Add memory pressure for OpaquePtrs."""

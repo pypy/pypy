@@ -1,12 +1,18 @@
 from __future__ import division
-import py
-import operator, sys, array
+
+import operator
+import sys
 from random import random, randint, sample
-from pypy.rlib.rbigint import rbigint, SHIFT, MASK, KARATSUBA_CUTOFF
-from pypy.rlib.rbigint import _store_digit, _mask_digit
+
+import py
+
 from pypy.rlib import rbigint as lobj
 from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong, intmask
+from pypy.rlib.rbigint import (rbigint, SHIFT, MASK, KARATSUBA_CUTOFF,
+    _store_digit, _mask_digit)
+from pypy.rlib.rfloat import NAN
 from pypy.rpython.test.test_llinterp import interpret
+
 
 class TestRLong(object):
     def test_simple(self):
@@ -110,6 +116,17 @@ class TestRLong(object):
         result = r_uint(sys.maxint + 42)
         rl = rbigint.fromint(sys.maxint).add(rbigint.fromint(42))
         assert rl.touint() == result
+
+    def test_eq_ne_operators(self):
+        a1 = rbigint.fromint(12)
+        a2 = rbigint.fromint(12)
+        a3 = rbigint.fromint(123)
+
+        assert a1 == a2
+        assert a1 != a3
+        assert not (a1 != a2)
+        assert not (a1 == a3)
+
 
 def gen_signs(l):
     for s in l:
@@ -266,6 +283,7 @@ class Test_rbigint(object):
         x = 12345.6789e200
         x *= x
         assert raises(OverflowError, rbigint.fromfloat, x)
+        assert raises(ValueError, rbigint.fromfloat, NAN)
         #
         f1 = rbigint.fromfloat(9007199254740991.0)
         assert f1.tolong() == 9007199254740991

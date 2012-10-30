@@ -33,6 +33,9 @@ def test_mul():
         ]:
             assert c.c_mul(c1, c2) == result
 
+def test_div():
+    c.c_div((2., 3.), (float('nan'), 0.)) == (float('nan'), float('nan'))
+
 def parse_testfile2(fname):
     """Parse a file with test values
 

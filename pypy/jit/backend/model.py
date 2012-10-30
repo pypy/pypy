@@ -97,7 +97,7 @@ class AbstractCPU(object):
         The FailDescr is the descr of the original guard that failed.
 
         Optionally, return a ``ops_offset`` dictionary.  See the docstring of
-        ``compiled_loop`` for more informations about it.
+        ``compiled_loop`` for more information about it.
         """
         raise NotImplementedError
 

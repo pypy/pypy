@@ -1,6 +1,7 @@
 from pypy.interpreter.error import operationerrfmt
 from pypy.interpreter.buffer import RWBuffer
-from pypy.interpreter.gateway import unwrap_spec
+from pypy.interpreter.gateway import unwrap_spec, interp2app
+from pypy.interpreter.typedef import TypeDef
 from pypy.rpython.lltypesystem import rffi
 from pypy.module._cffi_backend import cdataobj, ctypeptr, ctypearray
 
@@ -33,6 +34,16 @@ class LLBuffer(RWBuffer):
         raw_cdata = rffi.ptradd(self.raw_cdata, start)
         for i in range(len(string)):
             raw_cdata[i] = string[i]
+
+LLBuffer.typedef = TypeDef(
+    "buffer",
+    __module__ = "_cffi_backend",
+    __len__ = interp2app(RWBuffer.descr_len),
+    __getitem__ = interp2app(RWBuffer.descr_getitem),
+    __setitem__ = interp2app(RWBuffer.descr_setitem),
+    __buffer__ = interp2app(RWBuffer.descr__buffer__),
+    )
+LLBuffer.typedef.acceptable_as_base_class = False
 
 
 @unwrap_spec(cdata=cdataobj.W_CData, size=int)

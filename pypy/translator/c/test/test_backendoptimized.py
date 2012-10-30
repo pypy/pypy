@@ -1,19 +1,12 @@
-from pypy.translator.c.test.test_typed import TestTypedTestCase as _TestTypedTestCase
-from pypy.translator.backendopt.all import backend_optimizations
-from pypy.rpython.lltypesystem import lltype
-from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.rlib.objectmodel import we_are_translated
-from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
 from pypy import conftest
+from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
+from pypy.translator.backendopt.all import backend_optimizations
+from pypy.translator.c.test.test_typed import TestTypedTestCase as _TestTypedTestCase
+from pypy.translator.c.test.test_genc import compile
+
 
 class TestTypedOptimizedTestCase(_TestTypedTestCase):
-
-    def process(self, t):
-        _TestTypedTestCase.process(self, t)
-        self.t = t
-        backend_optimizations(t, merge_if_blocks=False)
-        if conftest.option.view:
-            t.view()
+    getcompiled = staticmethod(compile)
 
     def test_remove_same_as(self):
         def f(n):
@@ -22,8 +15,6 @@ class TestTypedOptimizedTestCase(_TestTypedTestCase):
             else:
                 return 456
         fn = self.getcompiled(f, [bool])
-        assert f(True) == 123
-        assert f(False) == 456
         assert fn(True) == 123
         assert fn(False) == 456
 
@@ -45,17 +36,15 @@ class TestTypedOptimizedTestCase(_TestTypedTestCase):
             a = A()
             for i in range(x):
                 a = A()
-            if we_are_translated():
-                llop.gc__collect(lltype.Void)
             return b.num_deleted
 
-        fn = self.getcompiled(f, [int])
+        fn = self.getcompiled(f, [int], gcpolicy='ref')
         res = f(5)
         assert res == 5
         res = fn(5)
         # translated function loses its last reference earlier
         assert res == 6
-    
+
     def test_del_inheritance(self):
         class State:
             pass
@@ -77,13 +66,11 @@ class TestTypedOptimizedTestCase(_TestTypedTestCase):
             A()
             B()
             C()
-            if we_are_translated():
-                llop.gc__collect(lltype.Void)
             if x:
                 return s.a_dels * 10 + s.b_dels
             else:
                 return -1
-        fn = self.getcompiled(f, [int])
+        fn = self.getcompiled(f, [int], gcpolicy='ref')
         res = f(1)
         assert res == 42
         res = fn(1)
@@ -151,7 +138,7 @@ class TestTypedOptimizedSwitchTestCase:
         codegenerator = self.CodeGenerator()
         fn = codegenerator.getcompiled(f, [r_uint])
         for x in (0,1,2,3,9,27,48):
-            assert fn(x) == f(x)
+            assert fn(r_uint(x)) == f(r_uint(x))
 
     def test_longlong_switch(self):
         def f(x):
@@ -165,7 +152,7 @@ class TestTypedOptimizedSwitchTestCase:
         codegenerator = self.CodeGenerator()
         fn = codegenerator.getcompiled(f, [r_longlong])
         for x in (0,1,2,3,9,27,48, -9):
-            assert fn(x) == f(x)
+            assert fn(r_longlong(x)) == f(r_longlong(x))
 
     def test_ulonglong_switch(self):
         def f(x):
@@ -179,7 +166,7 @@ class TestTypedOptimizedSwitchTestCase:
         codegenerator = self.CodeGenerator()
         fn = codegenerator.getcompiled(f, [r_ulonglong])
         for x in (0,1,2,3,9,27,48, r_ulonglong(-9)):
-            assert fn(x) == f(x)
+            assert fn(r_ulonglong(x)) == f(r_ulonglong(x))
 
     def test_chr_switch(self):
         def f(y):

@@ -64,16 +64,6 @@ class BasicGcPolicy(object):
     def rtti_type(self):
         return ''
 
-    def OP_GC_PUSH_ALIVE_PYOBJ(self, funcgen, op):
-        expr = funcgen.expr(op.args[0])
-        if expr == 'NULL':
-            return ''
-        return 'Py_XINCREF(%s);' % expr
-
-    def OP_GC_POP_ALIVE_PYOBJ(self, funcgen, op):
-        expr = funcgen.expr(op.args[0])
-        return 'Py_XDECREF(%s);' % expr
-
     def OP_GC_SET_MAX_HEAP_SIZE(self, funcgen, op):
         return ''
 

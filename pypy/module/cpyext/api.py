@@ -144,8 +144,12 @@ def copy_header_files(dstdir):
         target.chmod(0444) # make the file read-only, to make sure that nobody
                            # edits it by mistake
 
-_NOT_SPECIFIED = object()
-CANNOT_FAIL = object()
+class NotSpecified(object):
+    pass
+_NOT_SPECIFIED = NotSpecified()
+class CannotFail(object):
+    pass
+CANNOT_FAIL = CannotFail()
 
 # The same function can be called in three different contexts:
 # (1) from C code

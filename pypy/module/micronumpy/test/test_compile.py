@@ -281,3 +281,13 @@ class TestRunner(object):
         d -> 1
         ''')
         assert interp.results[0].value == 0
+
+    def test_complex(self):
+        interp = self.run('''
+        a = (0, 1)
+        b = [(0, 1), (1, 0)]
+        b -> 0
+        ''')
+        assert interp.results[0].real == 0
+        assert interp.results[0].imag == 1
+        

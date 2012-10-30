@@ -970,6 +970,39 @@ class TestLLtype(BaseTestRdict, LLRtypeMixin):
         DICT = lltype.typeOf(llres.item1)
         assert sorted(DICT.TO.entries.TO.OF._flds) == ['f_hash', 'key', 'value']
 
+    def test_memoryerror_should_not_insert(self):
+        # This shows a misbehaviour that also exists in CPython 2.7, but not
+        # any more in CPython 3.3.  The behaviour is that even if a dict
+        # insertion raises MemoryError, the new item is still inserted.
+        # If we catch the MemoryError, we can keep inserting new items until
+        # the dict table is completely full.  Then the next insertion loops
+        # forever.  This test only checks that after a MemoryError the
+        # new item was not inserted.
+        def _check_small_range(self, n):
+            if n >= 128:
+                raise MemoryError
+            return range(n)
+        original_check_range = lltype._array._check_range
+        try:
+            lltype._array._check_range = _check_small_range
+            #
+            def do_insert(d, i):
+                d[i] = i
+            def func():
+                d = {}
+                i = 0
+                while True:
+                    try:
+                        do_insert(d, i)
+                    except MemoryError:
+                        return (i in d)
+                    i += 1
+            res = self.interpret(func, [])
+            assert res == 0
+            #
+        finally:
+            lltype._array._check_range = original_check_range
+
     # ____________________________________________________________
 
 

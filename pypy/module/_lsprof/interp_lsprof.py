@@ -3,7 +3,7 @@ import py
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.function import Method, Function
-from pypy.interpreter.gateway import interp2app, unwrap_spec, NoneNotWrapped
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
                                       interp_attrproperty)
 from pypy.rlib import jit
@@ -266,8 +266,8 @@ class W_Profiler(Wrappable):
                 return timer_size_int(0)
         return read_timestamp()
 
-    def enable(self, space, w_subcalls=NoneNotWrapped,
-               w_builtins=NoneNotWrapped):
+    def enable(self, space, w_subcalls=None,
+               w_builtins=None):
         if self.is_enabled:
             return      # ignored
         if w_subcalls is not None:
@@ -378,7 +378,7 @@ class W_Profiler(Wrappable):
                      factor)
 
 @unwrap_spec(time_unit=float, subcalls=bool, builtins=bool)
-def descr_new_profile(space, w_type, w_callable=NoneNotWrapped, time_unit=0.0,
+def descr_new_profile(space, w_type, w_callable=None, time_unit=0.0,
                       subcalls=True, builtins=True):
     p = space.allocate_instance(W_Profiler, w_type)
     p.__init__(space, w_callable, time_unit, subcalls, builtins)

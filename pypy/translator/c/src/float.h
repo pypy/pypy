@@ -27,7 +27,6 @@
 #define OP_FLOAT_SUB(x,y,r)     r = x - y
 #define OP_FLOAT_MUL(x,y,r)     r = x * y
 #define OP_FLOAT_TRUEDIV(x,y,r) r = x / y
-#define OP_FLOAT_POW(x,y,r)     r = pow(x, y)
 
 /*** conversions ***/
 

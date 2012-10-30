@@ -1,4 +1,4 @@
-from pypy.interpreter import gateway
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.strutil import string_to_float, ParseStringError
@@ -26,9 +26,11 @@ def _split_complex(s):
     imagstop = 0
     imagsign = ' '
     i = 0
-    # ignore whitespace
+    # ignore whitespace at beginning and end
     while i < slen and s[i] == ' ':
         i += 1
+    while slen > 0 and s[slen-1] == ' ':
+        slen -= 1
 
     if s[i] == '(' and s[slen-1] == ')':
         i += 1
@@ -115,14 +117,15 @@ def _split_complex(s):
     return realpart, imagpart
 
 
-def descr__new__(space, w_complextype, w_real=0.0, w_imag=None):
+@unwrap_spec(w_real = WrappedDefault(0.0))
+def descr__new__(space, w_complextype, w_real, w_imag=None):
     from pypy.objspace.std.complexobject import W_ComplexObject
 
     # if w_real is already a complex number and there is no second
     # argument, return it.  Note that we cannot return w_real if
     # it is an instance of a *subclass* of complex, or if w_complextype
     # is itself a subclass of complex.
-    noarg2 = space.is_w(w_imag, space.w_None)
+    noarg2 = w_imag is None
     if (noarg2 and space.is_w(w_complextype, space.w_complex)
                and space.is_w(space.type(w_real), space.w_complex)):
         return w_real
@@ -146,12 +149,12 @@ def descr__new__(space, w_complextype, w_real=0.0, w_imag=None):
 
     else:
         # non-string arguments
-        realval, imagval = unpackcomplex(space, w_real)
+        realval, imagval = unpackcomplex(space, w_real, strict_typing=False)
 
         # now take w_imag into account
         if not noarg2:
             # complex(x, y) == x+y*j, even if 'y' is already a complex.
-            realval2, imagval2 = unpackcomplex(space, w_imag)
+            realval2, imagval2 = unpackcomplex(space, w_imag, strict_typing=False)
 
             # try to preserve the signs of zeroes of realval and realval2
             if imagval2 != 0.0:
@@ -167,7 +170,13 @@ def descr__new__(space, w_complextype, w_real=0.0, w_imag=None):
     return w_obj
 
 
-def unpackcomplex(space, w_complex):
+def unpackcomplex(space, w_complex, strict_typing=True):
+    """
+    convert w_complex into a complex and return the unwrapped (real, imag)
+    tuple. If strict_typing==True, we also typecheck the value returned by
+    __complex__ to actually be a complex (and not e.g. a float).
+    See test___complex___returning_non_complex.
+    """
     from pypy.objspace.std.complexobject import W_ComplexObject
     if type(w_complex) is W_ComplexObject:
         return (w_complex.realval, w_complex.imagval)
@@ -189,13 +198,18 @@ def unpackcomplex(space, w_complex):
             w_z = space.get_and_call_function(w_method, w_complex)
     #
     if w_z is not None:
-        # __complex__() must return a complex object
+        # __complex__() must return a complex or (float,int,long) object
         # (XXX should not use isinstance here)
-        if not isinstance(w_z, W_ComplexObject):
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("__complex__() must return"
-                                            " a complex number"))
-        return (w_z.realval, w_z.imagval)
+        if not strict_typing and (space.isinstance_w(w_z, space.w_int) or 
+                                  space.isinstance_w(w_z, space.w_long) or
+                                  space.isinstance_w(w_z, space.w_float)):
+            return (space.float_w(w_z), 0.0)
+        elif isinstance(w_z, W_ComplexObject):
+            return (w_z.realval, w_z.imagval)
+        raise OperationError(space.w_TypeError,
+                             space.wrap("__complex__() must return"
+                                        " a complex number"))
+
     #
     # no '__complex__' method, so we assume it is a float,
     # unless it is an instance of some subclass of complex.
@@ -232,8 +246,8 @@ complex_typedef = StdTypeDef("complex",
 
 Create a complex number from a real part and an optional imaginary part.
 This is equivalent to (real + imag*1j) where imag defaults to 0.""",
-    __new__ = gateway.interp2app(descr__new__),
-    __getnewargs__ = gateway.interp2app(descr___getnewargs__),
+    __new__ = interp2app(descr__new__),
+    __getnewargs__ = interp2app(descr___getnewargs__),
     real = complexwprop('realval'),
     imag = complexwprop('imagval'),
     )

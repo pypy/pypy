@@ -5,8 +5,6 @@ if sys.version_info < (3,):
     type_or_class = "type"
     mandatory_b_prefix = ''
     mandatory_u_prefix = 'u'
-    readbuf = str
-    bufchar = lambda x: x
     bytechr = chr
     class U(object):
         def __add__(self, other):
@@ -20,11 +18,6 @@ else:
     unichr = chr
     mandatory_b_prefix = 'b'
     mandatory_u_prefix = ''
-    readbuf = lambda buf: buf.tobytes()
-    if sys.version_info < (3, 3):
-        bufchar = lambda x: bytes([ord(x)])
-    else:
-        bufchar = ord
     bytechr = lambda n: bytes([n])
     u = ""
 
@@ -1156,6 +1149,13 @@ def test_enum_in_struct():
     e = py.test.raises(TypeError, newp, BStructPtr, [None])
     assert "must be a str or int, not NoneType" in str(e.value)
 
+def test_enum_overflow():
+    for ovf in (2**63, -2**63-1, 2**31, -2**31-1):
+        e = py.test.raises(OverflowError, new_enum_type, "foo", ('a', 'b'),
+                           (5, ovf))
+        assert str(e.value) == (
+            "enum 'foo' declaration for 'b' does not fit an int")
+
 def test_callback_returning_enum():
     BInt = new_primitive_type("int")
     BEnum = new_enum_type("foo", ('def', 'c', 'ab'), (0, 1, -20))
@@ -1804,36 +1804,76 @@ def test_cmp():
     assert (p < s) ^ (p > s)
 
 def test_buffer():
+    import __builtin__
     BShort = new_primitive_type("short")
     s = newp(new_pointer_type(BShort), 100)
     assert sizeof(s) == size_of_ptr()
     assert sizeof(BShort) == 2
-    assert len(readbuf(buffer(s))) == 2
+    assert len(buffer(s)) == 2
     #
     BChar = new_primitive_type("char")
     BCharArray = new_array_type(new_pointer_type(BChar), None)
     c = newp(BCharArray, b"hi there")
+    #
     buf = buffer(c)
-    assert readbuf(buf) == b"hi there\x00"
+    assert str(buf).startswith('<_cffi_backend.buffer object at 0x')
+    # --mb_length--
     assert len(buf) == len(b"hi there\x00")
-    assert buf[0] == bufchar('h')
-    assert buf[2] == bufchar(' ')
-    assert list(buf) == list(map(bufchar, "hi there\x00"))
-    buf[2] = bufchar('-')
-    assert c[2] == b'-'
-    assert readbuf(buf) == b"hi-there\x00"
-    c[2] = b'!'
-    assert buf[2] == bufchar('!')
-    assert readbuf(buf) == b"hi!there\x00"
-    c[2] = b'-'
-    buf[:2] = b'HI'
-    assert string(c) == b'HI-there'
-    if sys.version_info < (3,) or sys.version_info >= (3, 3):
-        assert buf[:4:2] == b'H-'
-        if '__pypy__' not in sys.builtin_module_names:
-            # XXX pypy doesn't support the following assignment so far
-            buf[:4:2] = b'XY'
-            assert string(c) == b'XIYthere'
+    # --mb_item--
+    for i in range(-12, 12):
+        try:
+            expected = b"hi there\x00"[i]
+        except IndexError:
+            py.test.raises(IndexError, "buf[i]")
+        else:
+            assert buf[i] == expected
+    # --mb_slice--
+    assert buf[:] == b"hi there\x00"
+    for i in range(-12, 12):
+        assert buf[i:] == b"hi there\x00"[i:]
+        assert buf[:i] == b"hi there\x00"[:i]
+        for j in range(-12, 12):
+            assert buf[i:j] == b"hi there\x00"[i:j]
+    # --misc--
+    assert list(buf) == list(b"hi there\x00")
+    # --mb_as_buffer--
+    py.test.raises(TypeError, __builtin__.buffer, c)
+    bf1 = __builtin__.buffer(buf)
+    assert len(bf1) == len(buf) and bf1[3] == "t"
+    if hasattr(__builtin__, 'memoryview'):      # Python >= 2.7
+        py.test.raises(TypeError, memoryview, c)
+        mv1 = memoryview(buf)
+        assert len(mv1) == len(buf) and mv1[3] == "t"
+    # --mb_ass_item--
+    expected = list(b"hi there\x00")
+    for i in range(-12, 12):
+        try:
+            expected[i] = chr(i & 0xff)
+        except IndexError:
+            py.test.raises(IndexError, "buf[i] = chr(i & 0xff)")
+        else:
+            buf[i] = chr(i & 0xff)
+        assert list(buf) == expected
+    # --mb_ass_slice--
+    buf[:] = b"hi there\x00"
+    assert list(buf) == list(c) == list(b"hi there\x00")
+    py.test.raises(ValueError, 'buf[:] = b"shorter"')
+    py.test.raises(ValueError, 'buf[:] = b"this is much too long!"')
+    buf[4:2] = b""   # no effect, but should work
+    assert buf[:] == b"hi there\x00"
+    expected = list(b"hi there\x00")
+    x = 0
+    for i in range(-12, 12):
+        for j in range(-12, 12):
+            start = i if i >= 0 else i + len(buf)
+            stop  = j if j >= 0 else j + len(buf)
+            start = max(0, min(len(buf), start))
+            stop  = max(0, min(len(buf), stop))
+            sample = chr(x & 0xff) * (stop - start)
+            x += 1
+            buf[i:j] = sample
+            expected[i:j] = sample
+            assert list(buf) == expected
 
 def test_getcname():
     BUChar = new_primitive_type("unsigned char")
@@ -2123,9 +2163,9 @@ def test_bool():
     py.test.raises(OverflowError, newp, BBoolP, 2)
     py.test.raises(OverflowError, newp, BBoolP, -1)
     BCharP = new_pointer_type(new_primitive_type("char"))
-    p = newp(BCharP, 'X')
+    p = newp(BCharP, b'X')
     q = cast(BBoolP, p)
-    assert q[0] == ord('X')
+    assert q[0] == ord(b'X')
     py.test.raises(TypeError, string, cast(BBool, False))
     BDouble = new_primitive_type("double")
     assert int(cast(BBool, cast(BDouble, 0.1))) == 1
@@ -2204,3 +2244,88 @@ def test_newp_from_bytearray_doesnt_work():
     buffer(p)[:] = bytearray(b"foo\x00")
     assert len(p) == 4
     assert list(p) == [b"f", b"o", b"o", b"\x00"]
+
+def test_FILE():
+    if sys.platform == "win32":
+        py.test.skip("testing FILE not implemented")
+    #
+    BFILE = new_struct_type("_IO_FILE")
+    BFILEP = new_pointer_type(BFILE)
+    BChar = new_primitive_type("char")
+    BCharP = new_pointer_type(BChar)
+    BInt = new_primitive_type("int")
+    BFunc = new_function_type((BCharP, BFILEP), BInt, False)
+    BFunc2 = new_function_type((BFILEP, BCharP), BInt, True)
+    ll = find_and_load_library('c')
+    fputs = ll.load_function(BFunc, "fputs")
+    fscanf = ll.load_function(BFunc2, "fscanf")
+    #
+    import posix
+    fdr, fdw = posix.pipe()
+    fr1 = posix.fdopen(fdr, 'r', 256)
+    fw1 = posix.fdopen(fdw, 'w', 256)
+    #
+    fw1.write(b"X")
+    res = fputs(b"hello world\n", fw1)
+    assert res >= 0
+    fw1.close()
+    #
+    p = newp(new_array_type(BCharP, 100), None)
+    res = fscanf(fr1, b"%s\n", p)
+    assert res == 1
+    assert string(p) == b"Xhello"
+    fr1.close()
+
+def test_FILE_only_for_FILE_arg():
+    if sys.platform == "win32":
+        py.test.skip("testing FILE not implemented")
+    #
+    B_NOT_FILE = new_struct_type("NOT_FILE")
+    B_NOT_FILEP = new_pointer_type(B_NOT_FILE)
+    BChar = new_primitive_type("char")
+    BCharP = new_pointer_type(BChar)
+    BInt = new_primitive_type("int")
+    BFunc = new_function_type((BCharP, B_NOT_FILEP), BInt, False)
+    ll = find_and_load_library('c')
+    fputs = ll.load_function(BFunc, "fputs")
+    #
+    import posix
+    fdr, fdw = posix.pipe()
+    fr1 = posix.fdopen(fdr, 'r')
+    fw1 = posix.fdopen(fdw, 'w')
+    #
+    e = py.test.raises(TypeError, fputs, b"hello world\n", fw1)
+    assert str(e.value) == ("initializer for ctype 'struct NOT_FILE *' must "
+                            "be a cdata pointer, not file")
+
+def test_FILE_object():
+    if sys.platform == "win32":
+        py.test.skip("testing FILE not implemented")
+    #
+    BFILE = new_struct_type("_IO_FILE")
+    BFILEP = new_pointer_type(BFILE)
+    BChar = new_primitive_type("char")
+    BCharP = new_pointer_type(BChar)
+    BInt = new_primitive_type("int")
+    BFunc = new_function_type((BCharP, BFILEP), BInt, False)
+    BFunc2 = new_function_type((BFILEP,), BInt, False)
+    ll = find_and_load_library('c')
+    fputs = ll.load_function(BFunc, "fputs")
+    fileno = ll.load_function(BFunc2, "fileno")
+    #
+    import posix
+    fdr, fdw = posix.pipe()
+    fw1 = posix.fdopen(fdw, 'wb', 256)
+    #
+    fw1p = cast(BFILEP, fw1)
+    fw1.write(b"X")
+    fw1.flush()
+    res = fputs(b"hello\n", fw1p)
+    assert res >= 0
+    res = fileno(fw1p)
+    assert res == fdw
+    fw1.close()
+    #
+    data = posix.read(fdr, 256)
+    assert data == b"Xhello\n"
+    posix.close(fdr)

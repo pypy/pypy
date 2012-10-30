@@ -1,30 +1,31 @@
 import sys
 import re
+
 import py
-from pypy.translator.translator import TranslationContext
+
+from pypy.rlib.debug import ll_assert
 from pypy.rpython.error import TyperError
-from pypy.rpython.lltypesystem.lltype import *
-from pypy.rpython.ootypesystem import ootype
-from pypy.rpython.rlist import *
-from pypy.rpython.lltypesystem.rlist import ListRepr, FixedSizeListRepr, ll_newlist, ll_fixed_newlist
-from pypy.rpython.lltypesystem import rlist as ll_rlist
 from pypy.rpython.llinterp import LLException
+from pypy.rpython.lltypesystem import rlist as ll_rlist
+from pypy.rpython.lltypesystem.rlist import ListRepr, FixedSizeListRepr, ll_newlist, ll_fixed_newlist
 from pypy.rpython.ootypesystem import rlist as oo_rlist
 from pypy.rpython.rint import signed_repr
-from pypy.objspace.flow.model import Constant, Variable
+from pypy.rpython.rlist import *
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
-from pypy.rlib.debug import ll_assert
+from pypy.translator.translator import TranslationContext
+
 
 # undo the specialization parameter
 for n1 in 'get set del'.split():
-    for n2 in '','_nonneg':
+    for n2 in '', '_nonneg':
         name = 'll_%sitem%s' % (n1, n2)
-        globals()['_'+name] = globals()[name]
+        globals()['_' + name] = globals()[name]
         exec """if 1:
             def %s(*args):
                 return _%s(dum_checkidx, *args)
 """ % (name, name)
 del n1, n2, name
+
 
 class BaseTestListImpl:
 
@@ -79,8 +80,6 @@ class BaseTestListImpl:
 
 
 class TestListImpl(BaseTestListImpl):
-
-
     def sample_list(self):    # [42, 43, 44, 45]
         rlist = ListRepr(None, signed_repr)
         rlist.setup()
@@ -125,8 +124,8 @@ class TestListImpl(BaseTestListImpl):
                 del expected[start:stop]
                 self.check_list(l, expected)
 
-class TestFixedSizeListImpl(BaseTestListImpl):
 
+class TestFixedSizeListImpl(BaseTestListImpl):
     def sample_list(self):    # [42, 43, 44, 45]
         rlist = FixedSizeListRepr(None, signed_repr)
         rlist.setup()
@@ -198,7 +197,7 @@ class BaseTestRlist(BaseRtypingTest):
             l.append(90)
             return len(l), l[0], l[-1]
         res = self.interpret(dummyfn, [])
-        assert res.item0 == 5 
+        assert res.item0 == 5
         assert res.item1 == 50
         assert res.item2 == 90
 
@@ -262,7 +261,6 @@ class BaseTestRlist(BaseRtypingTest):
         res = self.interpret(dummyfn, [])
         assert res == 25
 
-
     def test_recursive(self):
         def dummyfn(N):
             l = []
@@ -285,14 +283,14 @@ class BaseTestRlist(BaseRtypingTest):
     def test_add(self):
         def dummyfn():
             l = [5]
-            l += [6,7]
+            l += [6, 7]
             return l + [8]
         res = self.interpret(dummyfn, [])
         assert self.ll_to_list(res) == [5, 6, 7, 8]
 
         def dummyfn():
             l = [5]
-            l += [6,7]
+            l += [6, 7]
             l2 =  l + [8]
             l2.append(9)
             return l2
@@ -360,7 +358,7 @@ class BaseTestRlist(BaseRtypingTest):
             return len(l)
         res = self.interpret(dummyfn, [])
         assert res == 0
-        
+
     def test_setslice(self):
         def dummyfn():
             l = [10, 9, 8, 7]
@@ -408,9 +406,11 @@ class BaseTestRlist(BaseRtypingTest):
             for resize2 in [False, True]:
                 def dummyfn():
                     l1 = [42]
-                    if resize1: l1.append(43)
+                    if resize1:
+                        l1.append(43)
                     l2 = list(l1)
-                    if resize2: l2.append(44)
+                    if resize2:
+                        l2.append(44)
                     l2[0] = 0
                     return l1[0]
                 res = self.interpret(dummyfn, ())
@@ -434,9 +434,9 @@ class BaseTestRlist(BaseRtypingTest):
 
     def test_list_index_simple(self):
         def dummyfn(i):
-            l = [5,6,7,8]
+            l = [5, 6, 7, 8]
             return l.index(i)
-        
+
         res = self.interpret(dummyfn, (6,))
         assert res == 1
         self.interpret_raises(ValueError, dummyfn, [42])
@@ -451,7 +451,7 @@ class BaseTestRlist(BaseRtypingTest):
             l.pop(-1)
             l.pop()
             return l[-1]
-        res = self.interpret(dummyfn, ())#, view=True)
+        res = self.interpret(dummyfn, ())
         assert res == 42
 
     def test_insert_bug(self):
@@ -483,7 +483,7 @@ class BaseTestRlist(BaseRtypingTest):
         res = self.interpret(f, [1])
         assert self.class_name(res) == 'A'
         #''.join(res.super.typeptr.name) == 'A\00'
-        
+
     def test_reverse(self):
         def dummyfn():
             l = [5, 3, 2]
@@ -612,6 +612,16 @@ class BaseTestRlist(BaseRtypingTest):
                 for case in False, True:
                     res = self.interpret(fn, [i,j,case])
                     assert res is fn(i, j, case)
+
+    def test_list_compare_char_str(self):
+        def fn(i, j):
+            l1 = [str(i)]
+            l2 = [chr(j)]
+            return l1 == l2
+        res = self.interpret(fn, [65, 65])
+        assert res is False
+        res = self.interpret(fn, [1, 49])
+        assert res is True
 
 
     def test_list_compareinst(self):
@@ -872,7 +882,7 @@ class BaseTestRlist(BaseRtypingTest):
                 i += 1
             return str(l)
         res = self.ll_to_string(self.interpret(fn, []))
-        res = res.replace('pypy.rpython.test.test_rlist.', '')        
+        res = res.replace('pypy.rpython.test.test_rlist.', '')
         res = re.sub(' at 0x[a-z0-9]+', '', res)
         assert res == '[<Foo object>, <Bar object>, <Bar object>, <Foo object>, <Foo object>]'
 
@@ -981,12 +991,12 @@ class BaseTestRlist(BaseRtypingTest):
             del l[1]
             l.append(i)
             listlen = len(l)
-            l.extend(l) 
+            l.extend(l)
             del l[listlen:]
-            l += [5,6] 
+            l += [5,6]
             l[1] = i
             return l[j]
-        for i in range(6): 
+        for i in range(6):
             for j in range(6):
                 res = self.interpret(list_basic_ops, [i, j])
                 assert res == list_basic_ops(i, j)
@@ -1129,7 +1139,7 @@ class BaseTestRlist(BaseRtypingTest):
         res = self.interpret(f, [0])
         assert res == 1
         res = self.interpret(f, [1])
-        assert res == -1        
+        assert res == -1
 
         def f(x):
             l = [1]
@@ -1152,7 +1162,7 @@ class BaseTestRlist(BaseRtypingTest):
 
         res = self.interpret(f, [0])
         assert res == 1
-        
+
     def test_getitem_exc_2(self):
         def f(x):
             l = [1]
@@ -1180,7 +1190,7 @@ class BaseTestRlist(BaseRtypingTest):
         res = self.interpret(f, [0])
         assert res == 1
         res = self.interpret(f, [1])
-        assert res == -1        
+        assert res == -1
 
         def f(x):
             l = [1]
@@ -1440,7 +1450,7 @@ class TestLLtype(BaseTestRlist, LLRtypeMixin):
         r_A_list = rtyper.getrepr(s_A_list)
         assert isinstance(r_A_list, self.rlist.FixedSizeListRepr)
         r_B_list = rtyper.getrepr(s_B_list)
-        assert isinstance(r_B_list, self.rlist.FixedSizeListRepr)    
+        assert isinstance(r_B_list, self.rlist.FixedSizeListRepr)
 
         assert r_A_list.lowleveltype == r_B_list.lowleveltype
 

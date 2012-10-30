@@ -4,9 +4,9 @@ from pypy.rpython.lltypesystem import rffi, lltype
 
 class TestImport(BaseApiTest):
     def test_import(self, space, api):
-        pdb = api.PyImport_Import(space.wrap("pdb"))
-        assert pdb
-        assert space.getattr(pdb, space.wrap("pm"))
+        stat = api.PyImport_Import(space.wrap("stat"))
+        assert stat
+        assert space.getattr(stat, space.wrap("S_IMODE"))
 
     def test_addmodule(self, space, api):
         with rffi.scoped_str2charp("sys") as modname:
@@ -32,10 +32,10 @@ class TestImport(BaseApiTest):
         assert space.is_true(space.contains(w_dict, space.wrap(testmod)))
 
     def test_reload(self, space, api):
-        pdb = api.PyImport_Import(space.wrap("pdb"))
-        space.delattr(pdb, space.wrap("set_trace"))
-        pdb = api.PyImport_ReloadModule(pdb)
-        assert space.getattr(pdb, space.wrap("set_trace"))
+        stat = api.PyImport_Import(space.wrap("stat"))
+        space.delattr(stat, space.wrap("S_IMODE"))
+        stat = api.PyImport_ReloadModule(stat)
+        assert space.getattr(stat, space.wrap("S_IMODE"))
 
 class AppTestImportLogic(AppTestCpythonExtensionBase):
     def test_import_logic(self):

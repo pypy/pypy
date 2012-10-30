@@ -43,9 +43,6 @@ class ComplexBox(object):
         self.imag = imag
 
     def convert_to(self, dtype):
-        from pypy.module.micronumpy.types import ComplexFloating
-        if not isinstance(dtype.itemtype, ComplexFloating):
-            raise TypeError('cannot convert %r to complex' % dtype)
         return dtype.box_complex(self.real, self.imag)
 
     def convert_real_to(self, dtype):
@@ -77,12 +74,7 @@ class W_GenericBox(Wrappable):
         return space.wrap(box.value)
 
     def descr_float(self, space):
-        try:
-            box = self.convert_to(W_Float64Box._get_dtype(space))
-        except TypeError:
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("Cannot convert %s to float" % self._get_dtype(space).name))
-
+        box = self.convert_to(W_Float64Box._get_dtype(space))
         assert isinstance(box, W_Float64Box)
         return space.wrap(box.value)
 
@@ -254,7 +246,11 @@ class W_VoidBox(W_FlexibleBox):
         except KeyError:
             raise OperationError(space.w_IndexError,
                                  space.wrap("Field %s does not exist" % item))
-        return dtype.itemtype.read(self.arr, self.ofs, ofs, dtype)
+        read_val = dtype.itemtype.read(self.arr, self.ofs, ofs, dtype)
+        if isinstance (read_val, W_StringBox):
+            # StringType returns a str
+            return space.wrap(dtype.itemtype.to_str(read_val))
+        return read_val
 
     @unwrap_spec(item=str)
     def descr_setitem(self, space, item, w_value):
@@ -278,7 +274,6 @@ class W_StringBox(W_CharacterBox):
         for i in range(len(arg)):
             arr.storage[i] = arg[i]
         return W_StringBox(arr, 0, arr.dtype)
-
 
 class W_UnicodeBox(W_CharacterBox):
     def descr__new__unicode_box(space, w_subtype, w_arg):
@@ -482,6 +477,7 @@ W_FlexibleBox.typedef = TypeDef("flexible", W_GenericBox.typedef,
 
 W_VoidBox.typedef = TypeDef("void", W_FlexibleBox.typedef,
     __module__ = "numpypy",
+    __new__ = interp2app(W_VoidBox.descr__new__.im_func),
     __getitem__ = interp2app(W_VoidBox.descr_getitem),
     __setitem__ = interp2app(W_VoidBox.descr_setitem),
 )
