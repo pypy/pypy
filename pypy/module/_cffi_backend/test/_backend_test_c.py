@@ -2279,13 +2279,14 @@ def test_FILE():
     fw1.write(b"X")
     res = fputs(b"hello world\n", fw1)
     assert res >= 0
-    fw1.close()
+    fw1.flush()     # should not be needed
     #
     p = newp(new_array_type(BCharP, 100), None)
     res = fscanf(fr1, b"%s\n", p)
     assert res == 1
     assert string(p) == b"Xhello"
     fr1.close()
+    fw1.close()
 
 def test_FILE_only_for_FILE_arg():
     if sys.platform == "win32":
