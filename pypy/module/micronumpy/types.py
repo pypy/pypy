@@ -18,6 +18,7 @@ from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib import jit
 from pypy.rlib.rstring import StringBuilder
 
+from pypy.module.micronumpy import halffloat 
 
 degToRad = math.pi / 180.0
 log2 = math.log(2)
@@ -938,20 +939,19 @@ class Float16(BaseType, Float):
         return self.box(-1.0)
 
     @specialize.argtype(1)
-    def box(self, value):
-        return self.BoxType(
-            rffi.cast(self._COMPUTATION_T, value))
-
     def unbox(self, box):
         assert isinstance(box, self.BoxType)
-        return box.tofloat()
+        return box.value
 
-    def store(self, arr, i, offset, box):
-        raw_storage_setitem(arr.storage, i+offset, box.tobytes())
+    @specialize.argtype(1)
+    def box(self, value):
+        return self.BoxType(rffi.cast(self._COMPUTATION_T, value))
+
 
     def _read(self, storage, i, offset):
         byte_rep = raw_storage_getitem(self.T, storage, i + offset)
-        return self.BoxType.val_to_float(byte_rep)
+        fbits = halffloat.halfbits_to_floatbits(byte_rep)
+        return rffi.cast(rffi.FLOAT, fbits)
 
     def read(self, arr, i, offset, dtype=None):
         val = self._read(arr.storage, i, offset)

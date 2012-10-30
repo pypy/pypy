@@ -467,7 +467,7 @@ class DtypeCache(object):
         )
         self.w_float16dtype = W_Dtype(
             types.Float16(),
-            num=11,
+            num=23,
             kind=FLOATINGLTR,
             name="float16",
             char="e",
