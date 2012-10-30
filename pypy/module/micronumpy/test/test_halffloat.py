@@ -10,8 +10,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
     def test_bitconvert_exact(self):
         #from _numpypy import array, uint32
         # These test cases were created by 
-        # numpy.float16(v).view(uint16)
         # numpy.float32(v).view(uint32)
+        # numpy.float16(v).view(uint16)
         cases = [[0., 0, 0], [10, 1092616192, 18688], [-10, 3240099840, 51456], 
                  [10e3, 1176256512, 28898], [float('inf'), 2139095040, 31744], 
                  [-float('inf'), 4286578688, 64512]]
@@ -23,6 +23,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
             f = self.halffloat.halfbits_to_floatbits(hbits)
             assert [f, v] == [fbits, v]
     def test_bitconvert_inexact(self):
+        # finexact is 
+        # numpy.float32(numpy.float16(v)).view(uint32)
         cases = [[10.001, 1092617241, 1092616192, 18688],
                  [-10.001, 3240100889, 3240099840, 51456],
                  [22001.0, 1185669632, 1185669120, 30047],]
@@ -31,4 +33,14 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert [f, v] == [hbits, v]
             f = self.halffloat.halfbits_to_floatbits(hbits)
             assert [f, v] == [finexact, v]
-
+    def test_bitconvert_overunderfloat(self):
+        cases = [[67000.0, 1199758336, 2139095040, 31744],
+                 [-67000.0, 3347241984, 4286578688, 64512],
+                 [1e-08, 841731191, 0, 0], 
+                 [-1e-08, 2989214839, 2147483648, 32768],
+                ]
+        for v, fexact, finexact, hbits in cases:
+            f = self.halffloat.floatbits_to_halfbits(fexact)
+            assert [f, v] == [hbits, v]
+            f = self.halffloat.halfbits_to_floatbits(hbits)
+            assert [f, v] == [finexact, v]
