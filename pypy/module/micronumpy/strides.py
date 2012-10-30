@@ -110,6 +110,7 @@ def to_coords(space, shape, size, order, w_item_or_slice):
             i //= shape[s]
     return coords, step, lngth
 
+@jit.unroll_safe
 def shape_agreement(space, shape1, w_arr2, broadcast_down=True):
     if w_arr2 is None:
         return shape1
@@ -132,6 +133,7 @@ def shape_agreement(space, shape1, w_arr2, broadcast_down=True):
         )
     return ret
 
+@jit.unroll_safe
 def _shape_agreement(shape1, shape2):
     """ Checks agreement about two shapes with respect to broadcasting. Returns
     the resulting shape.
