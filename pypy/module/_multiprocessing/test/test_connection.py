@@ -94,7 +94,7 @@ class AppTestWinpipeConnection(BaseConnectionTest):
 class AppTestSocketConnection(BaseConnectionTest):
     def setup_class(cls):
         space = gettestobjspace(usemodules=('_multiprocessing', 'thread', 'signal',
-                                            'struct', 'array'))
+                                            'struct', 'array', 'itertools'))
         cls.space = space
         cls.w_connections = space.newlist([])
 
