@@ -323,6 +323,7 @@ class W_CTypePointer(W_CTypePtrBase):
 
 
 rffi_fdopen = rffi.llexternal("fdopen", [rffi.INT, rffi.CCHARP], rffi.CCHARP)
+rffi_setbuf = rffi.llexternal("setbuf", [rffi.CCHARP,rffi.CCHARP], lltype.Void)
 rffi_fclose = rffi.llexternal("fclose", [rffi.CCHARP], rffi.INT)
 
 class CffiFileObj(object):
@@ -331,6 +332,7 @@ class CffiFileObj(object):
         self.llf = rffi_fdopen(fd, mode)
         if not self.llf:
             raise OSError(rposix.get_errno(), "fdopen failed")
+        rffi_setbuf(self.llf, lltype.nullptr(rffi.CCHARP.TO))
     def close(self):
         rffi_fclose(self.llf)
 
