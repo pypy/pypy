@@ -100,9 +100,9 @@ def argsort_array(arr, space, w_axis):
         if axis < 0 or axis > len(shape):
             raise OperationError(space.w_IndexError("Wrong axis %d" % axis))
         iterable_shape = shape[:axis] + [0] + shape[axis + 1:]
-        iter = AxisIterator(arr, iterable_shape, axis)
+        iter = AxisIterator(arr, iterable_shape, axis, False)
         index_impl = index_arr.implementation
-        index_iter = AxisIterator(index_impl, iterable_shape, axis)
+        index_iter = AxisIterator(index_impl, iterable_shape, axis, False)
         stride_size = arr.strides[axis]
         index_stride_size = index_impl.strides[axis]
         axis_size = arr.shape[axis]

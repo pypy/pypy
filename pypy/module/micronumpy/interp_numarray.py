@@ -210,8 +210,8 @@ class __extend__(W_NDimArray):
     def create_iter(self, shape=None):
         return self.implementation.create_iter(shape)
 
-    def create_axis_iter(self, shape, dim):
-        return self.implementation.create_axis_iter(shape, dim)
+    def create_axis_iter(self, shape, dim, cum):
+        return self.implementation.create_axis_iter(shape, dim, cum)
 
     def create_dot_iter(self, shape, skip):
         return self.implementation.create_dot_iter(shape, skip)
@@ -430,10 +430,6 @@ class __extend__(W_NDimArray):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "cumprod not implemented yet"))
 
-    def descr_cumsum(self, space, w_axis=None, w_dtype=None, w_out=None): 
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            "cumsum not implemented yet"))
-
     def descr_data(self, space):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "data not implemented yet"))
@@ -644,7 +640,8 @@ class __extend__(W_NDimArray):
 
     # ----------------------- reduce -------------------------------
 
-    def _reduce_ufunc_impl(ufunc_name, promote_to_largest=False):
+    def _reduce_ufunc_impl(ufunc_name, promote_to_largest=False,
+                           cumultative=False):
         def impl(self, space, w_axis=None, w_out=None, w_dtype=None):
             if space.is_none(w_out):
                 out = None
@@ -653,9 +650,9 @@ class __extend__(W_NDimArray):
                         'output must be an array'))
             else:
                 out = w_out
-            return getattr(interp_ufuncs.get(space), ufunc_name).reduce(space,
-                                        self, True, promote_to_largest, w_axis,
-                                                         False, out, w_dtype)
+            return getattr(interp_ufuncs.get(space), ufunc_name).reduce(
+                space, self, True, promote_to_largest, w_axis,
+                False, out, w_dtype, cumultative=cumultative)
         return func_with_new_name(impl, "reduce_%s_impl" % ufunc_name)
 
     descr_sum = _reduce_ufunc_impl("add")
@@ -666,6 +663,9 @@ class __extend__(W_NDimArray):
     descr_all = _reduce_ufunc_impl('logical_and')
     descr_any = _reduce_ufunc_impl('logical_or')
 
+    descr_cumsum = _reduce_ufunc_impl('add', cumultative=True)
+    descr_cumprod = _reduce_ufunc_impl('multiply', cumultative=True)
+    
     def descr_mean(self, space, w_axis=None, w_out=None):
         if space.is_none(w_axis):
             w_denom = space.wrap(self.get_size())
@@ -778,6 +778,9 @@ W_NDimArray.typedef = TypeDef(
     dot = interp2app(W_NDimArray.descr_dot),
     var = interp2app(W_NDimArray.descr_var),
     std = interp2app(W_NDimArray.descr_std),
+
+    cumsum = interp2app(W_NDimArray.descr_cumsum),
+    cumprod = interp2app(W_NDimArray.descr_cumprod),
 
     copy = interp2app(W_NDimArray.descr_copy),
     reshape = interp2app(W_NDimArray.descr_reshape),

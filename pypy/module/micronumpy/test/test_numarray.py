@@ -2077,6 +2077,29 @@ class AppTestMultiDim(BaseNumpyAppTest):
         a[array([0, 2]), slice(0, 2)] = [[10, 11], [12, 13]]
         assert (a == [[10, 11], [3, 4], [12, 13]]).all()
 
+    def test_cumsum(self):
+        from _numpypy import arange
+        a = arange(6).reshape(3, 2)
+        b = arange(6)
+        assert (a.cumsum() == [0, 1, 3, 6, 10, 15]).all()
+        a.cumsum(out=b)
+        assert (b == [0, 1, 3, 6, 10, 15]).all()
+        raises(ValueError, "a.cumsum(out=arange(6).reshape(3, 2))")
+
+    def test_cumprod(self):
+        from _numpypy import array
+        a = array([[1, 2], [3, 4], [5, 6]])
+        assert (a.cumprod() == [1, 2, 6, 24, 120, 720]).all()
+
+    def test_cumsum_axis(self):
+        from _numpypy import arange, array
+        a = arange(6).reshape(3, 2)
+        assert (a.cumsum(0) == [[0, 1], [2, 4], [6, 9]]).all()
+        assert (a.cumsum(1) == [[0, 1], [2, 5], [4, 9]]).all()
+        a = array([[1, 1], [2, 2], [3, 4]])
+        assert (a.cumsum(1) == [[1, 2], [2, 4], [3, 7]]).all()
+        assert (a.cumsum(0) == [[1, 1], [3, 3], [6, 7]]).all()
+
 class AppTestSupport(BaseNumpyAppTest):
     def setup_class(cls):
         import struct

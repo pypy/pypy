@@ -144,7 +144,7 @@ class W_Ufunc(Wrappable):
                            w_dtype)
 
     def reduce(self, space, w_obj, multidim, promote_to_largest, w_axis,
-               keepdims=False, out=None, dtype=None):
+               keepdims=False, out=None, dtype=None, cumultative=False):
         if self.argcount != 2:
             raise OperationError(space.w_ValueError, space.wrap("reduce only "
                 "supported for binary functions"))
@@ -158,7 +158,7 @@ class W_Ufunc(Wrappable):
             return obj.get_scalar_value()
         shapelen = len(obj_shape)
         axis = unwrap_axis_arg(space, shapelen, w_axis)    
-        assert axis>=0
+        assert axis >= 0
         size = obj.get_size()
         dtype = interp_dtype.decode_w_dtype(space, dtype)
         if dtype is None:
@@ -175,7 +175,14 @@ class W_Ufunc(Wrappable):
             raise operationerrfmt(space.w_ValueError, "zero-size array to "
                     "%s.reduce without identity", self.name)
         if shapelen > 1 and axis < shapelen:
-            if keepdims:
+            temp = None
+            if cumultative:
+                shape = obj_shape[:]
+                temp_shape = obj_shape[:axis] + obj_shape[axis + 1:]
+                if out:
+                    dtype = out.get_dtype()
+                temp = W_NDimArray.from_shape(temp_shape, dtype)
+            elif keepdims:
                 shape = obj_shape[:axis] + [1] + obj_shape[axis + 1:]
             else:
                 shape = obj_shape[:axis] + obj_shape[axis + 1:]
@@ -202,7 +209,17 @@ class W_Ufunc(Wrappable):
             else:
                 out = W_NDimArray.from_shape(shape, dtype)
             return loop.do_axis_reduce(shape, self.func, obj, dtype, axis, out,
-                                       self.identity)
+                                       self.identity, cumultative, temp)
+        if cumultative:
+            if out:
+                if out.get_shape() != [obj.get_size()]:
+                    raise OperationError(space.w_ValueError, space.wrap(
+                        "out of incompatible size"))
+            else:
+                out = W_NDimArray.from_shape([obj.get_size()], dtype)
+            loop.compute_reduce_cumultative(obj, out, dtype, self.func,
+                                            self.identity)
+            return out
         if out:
             if len(out.get_shape())>0:
                 raise operationerrfmt(space.w_ValueError, "output parameter "

@@ -112,6 +112,24 @@ def compute_reduce(obj, calc_dtype, func, done_func, identity):
         obj_iter.next()
     return cur_value
 
+reduce_cum_driver = jit.JitDriver(greens = ['shapelen', 'func', 'dtype'],
+                                  reds = ['obj_iter', 'out_iter'])
+
+def compute_reduce_cumultative(obj, out, calc_dtype, func, identity):
+    obj_iter = obj.create_iter()
+    out_iter = out.create_iter()
+    cur_value = identity.convert_to(calc_dtype)
+    shapelen = len(obj.get_shape())
+    while not obj_iter.done():
+        reduce_cum_driver.jit_merge_point(shapelen=shapelen, func=func,
+                                          dtype=calc_dtype, obj_iter=obj_iter,
+                                          out_iter=out_iter)
+        rval = obj_iter.getitem().convert_to(calc_dtype)
+        cur_value = func(calc_dtype, cur_value, rval)
+        out_iter.setitem(cur_value)
+        out_iter.next()
+        obj_iter.next()
+
 def fill(arr, box):
     arr_iter = arr.create_iter()
     while not arr_iter.done():
@@ -156,13 +174,20 @@ def where(out, shape, arr, x, y, dtype):
     return out
 
 axis_reduce__driver = jit.JitDriver(name='numpy_axis_reduce',
-                                    greens=['shapelen', 'func', 'dtype',
+                                    greens=['shapelen', 'cumultative',
+                                            'func', 'dtype',
                                             'identity'],
                                     reds=['axis', 'arr', 'out', 'shape',
-                                          'out_iter', 'arr_iter'])
+                                          'out_iter', 'arr_iter',
+                                          'temp_iter'])
 
-def do_axis_reduce(shape, func, arr, dtype, axis, out, identity):
-    out_iter = out.create_axis_iter(arr.get_shape(), axis)
+def do_axis_reduce(shape, func, arr, dtype, axis, out, identity, cumultative,
+                   temp):
+    out_iter = out.create_axis_iter(arr.get_shape(), axis, cumultative)
+    if cumultative:
+        temp_iter = temp.create_axis_iter(arr.get_shape(), axis, False)
+    else:
+        temp_iter = out_iter # hack
     arr_iter = arr.create_iter()
     if identity is not None:
         identity = identity.convert_to(dtype)
@@ -172,15 +197,20 @@ def do_axis_reduce(shape, func, arr, dtype, axis, out, identity):
                                             dtype=dtype, identity=identity,
                                             axis=axis, arr=arr, out=out,
                                             shape=shape, out_iter=out_iter,
-                                            arr_iter=arr_iter)
+                                            arr_iter=arr_iter,
+                                            cumultative=cumultative,
+                                            temp_iter=temp_iter)
         w_val = arr_iter.getitem().convert_to(dtype)
         if out_iter.first_line:
             if identity is not None:
                 w_val = func(dtype, identity, w_val)
         else:
-            cur = out_iter.getitem()
+            cur = temp_iter.getitem()
             w_val = func(dtype, cur, w_val)
         out_iter.setitem(w_val)
+        if cumultative:
+            temp_iter.setitem(w_val)
+            temp_iter.next()
         arr_iter.next()
         out_iter.next()
     return out

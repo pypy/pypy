@@ -220,8 +220,8 @@ class BaseConcreteArray(base.BaseArrayImplementation):
                              backstrides)
         return loop.setslice(self.get_shape(), impl, self)
 
-    def create_axis_iter(self, shape, dim):
-        return iter.AxisIterator(self, shape, dim)
+    def create_axis_iter(self, shape, dim, cum):
+        return iter.AxisIterator(self, shape, dim, cum)
 
     def create_dot_iter(self, shape, skip):
         r = calculate_dot_strides(self.get_strides(), self.get_backstrides(),

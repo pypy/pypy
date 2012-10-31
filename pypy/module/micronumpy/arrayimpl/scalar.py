@@ -83,7 +83,7 @@ class Scalar(base.BaseArrayImplementation):
     def reshape(self, space, orig_array, new_shape):
         return self.set_shape(space, orig_array, new_shape)
         
-    def create_axis_iter(self, shape, dim):
+    def create_axis_iter(self, shape, dim, cum):
         raise Exception("axis iter should not happen on scalar")
 
     def swapaxes(self, axis1, axis2):

@@ -259,11 +259,14 @@ class MultiDimViewIterator(ConcreteArrayIterator):
         self.offset %= self.size
 
 class AxisIterator(base.BaseArrayIterator):
-    def __init__(self, array, shape, dim):
+    def __init__(self, array, shape, dim, cumultative):
         self.shape = shape
         strides = array.strides
         backstrides = array.backstrides
-        if len(shape) == len(strides):
+        if cumultative:
+            self.strides = strides
+            self.backstrides = backstrides
+        elif len(shape) == len(strides):
             # keepdims = True
             self.strides = strides[:dim] + [0] + strides[dim + 1:]
             self.backstrides = backstrides[:dim] + [0] + backstrides[dim + 1:]
