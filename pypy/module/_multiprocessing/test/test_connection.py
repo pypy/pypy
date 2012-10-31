@@ -10,7 +10,8 @@ class TestImport:
 
 class AppTestBufferTooShort:
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('_multiprocessing', 'thread', 'signal'))
+        space = gettestobjspace(usemodules=('_multiprocessing', 'thread',
+                                            'signal', 'itertools'))
         cls.space = space
 
         if option.runappdirect:

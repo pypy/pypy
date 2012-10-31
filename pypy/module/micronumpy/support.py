@@ -8,6 +8,7 @@ def product(s):
         i *= x
     return i
 
+@jit.unroll_safe
 def calc_strides(shape, dtype, order):
     strides = []
     backstrides = []

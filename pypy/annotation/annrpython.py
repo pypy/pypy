@@ -548,7 +548,7 @@ class RPythonAnnotator(object):
                         if cell.is_constant():
                             newcell.const = cell.const
                         cell = newcell
-                        cell.knowntypedata = renamed_knowntypedata
+                        cell.set_knowntypedata(renamed_knowntypedata)
 
                     cells.append(cell)
 

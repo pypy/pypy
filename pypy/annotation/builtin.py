@@ -188,10 +188,10 @@ def builtin_isinstance(s_obj, s_type, variables=None):
             variables = [op.args[1]]
         for variable in variables:
             assert bk.annotator.binding(variable) == s_obj
-        r.knowntypedata = {}
-        
+        knowntypedata = {}
         if not hasattr(typ, '_freeze_') and isinstance(s_type, SomePBC):
-            add_knowntypedata(r.knowntypedata, True, variables, bk.valueoftype(typ))
+            add_knowntypedata(knowntypedata, True, variables, bk.valueoftype(typ))
+        r.set_knowntypedata(knowntypedata)
     return r
 
 # note that this one either needs to be constant, or we will create SomeObject

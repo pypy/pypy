@@ -144,7 +144,7 @@ class __extend__(pairtype(SomeObject, SomeObject)):
         # XXX HACK HACK HACK
         bk = getbookkeeper()
         if bk is not None: # for testing
-            knowntypedata = r.knowntypedata = {}
+            knowntypedata = {}
             fn, block, i = bk.position_key
 
             annotator = bk.annotator
@@ -168,6 +168,7 @@ class __extend__(pairtype(SomeObject, SomeObject)):
 
             bind(obj2, obj1, 0)
             bind(obj1, obj2, 1)
+            r.set_knowntypedata(knowntypedata)
 
         return r
 
@@ -337,8 +338,7 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
             case = opname in ('gt', 'ge', 'eq')
             add_knowntypedata(knowntypedata, case, [op.args[0]],
                               SomeInteger(nonneg=True, knowntype=tointtype(int1)))
-        if knowntypedata:
-            r.knowntypedata = knowntypedata
+        r.set_knowntypedata(knowntypedata)
         # a special case for 'x < 0' or 'x >= 0',
         # where 0 is a flow graph Constant
         # (in this case we are sure that it cannot become a r_uint later)
@@ -369,8 +369,7 @@ class __extend__(pairtype(SomeBool, SomeBool)):
         if hasattr(boo1, 'knowntypedata') and \
            hasattr(boo2, 'knowntypedata'):
             ktd = merge_knowntypedata(boo1.knowntypedata, boo2.knowntypedata)
-            if ktd:
-                s.knowntypedata = ktd
+            s.set_knowntypedata(ktd)
         return s 
 
     def and_((boo1, boo2)):
