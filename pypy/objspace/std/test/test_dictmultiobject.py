@@ -859,7 +859,7 @@ class AppTestStrategies(object):
         raises(RuntimeError, list, it)
 
 
-class FakeString(str):
+class FakeWrapper(object):
     hash_count = 0
     def unwrap(self, space):
         self.unwrapped = True
@@ -868,6 +868,12 @@ class FakeString(str):
     def __hash__(self):
         self.hash_count += 1
         return str.__hash__(self)
+
+class FakeString(FakeWrapper, str):
+    pass
+
+class FakeUnicode(FakeWrapper, unicode):
+    pass
 
 # the minimal 'space' needed to use a W_DictMultiObject
 class FakeSpace:
@@ -941,6 +947,7 @@ class FakeSpace:
     w_bool = bool
     w_float = float
     StringObjectCls = FakeString
+    UnicodeObjectCls = FakeUnicode
     w_dict = W_DictMultiObject
     iter = iter
     fixedview = list
