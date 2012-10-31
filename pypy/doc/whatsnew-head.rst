@@ -42,6 +42,8 @@ Complex dtype support for numpy
 Improve dtypes intp, uintp, void, string and record
 .. branch: kill-someobject
 major cleanups including killing some object support
+.. branch: cpyext-PyThreadState_New
+implement threadstate-related functions in cpyext
 
 
 .. "uninteresting" branches that we should just ignore for the whatsnew:
