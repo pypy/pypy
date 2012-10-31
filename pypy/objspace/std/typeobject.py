@@ -843,9 +843,13 @@ def call__Type(space, w_type, __args__):
             isinstance(w_newtype, W_TypeObject) and
             not w_newtype.is_heaptype() and
             not space.is_w(w_newtype, space.w_type)):
-            w_type.w_bltin_new = w_newfunc
+            w_type.w_bltin_new = w_bltin_new = w_newfunc
         w_newobject = space.call_obj_args(w_newfunc, w_type, __args__)
         call_init = space.isinstance_w(w_newobject, w_type)
+
+    # sanity check
+    if not we_are_translated() and w_bltin_new is not None:
+        assert space.isinstance_w(w_newobject, w_type)
 
     # maybe invoke the __init__ of the type
     if (call_init and not (space.is_w(w_type, space.w_type) and
