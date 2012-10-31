@@ -23,6 +23,10 @@ class TestUnicodeObject:
         print self.space.config.objspace.std.withrope
         assert len(warnings) == 2
 
+    def test_listview_unicode(self):
+        w_str = self.space.wrap(u'abcd')
+        assert self.space.listview_unicode(w_str) == list(u"abcd")
+
 
 class AppTestUnicodeStringStdOnly:
     def test_compares(self):

@@ -66,6 +66,15 @@ class W_UnicodeObject(W_AbstractUnicodeObject):
     def unicode_w(self, space):
         return self._value
 
+    def listview_unicode(w_self):
+        return _create_list_from_unicode(w_self._value)
+
+def _create_list_from_unicode(value):
+    # need this helper function to allow the jit to look inside and inline
+    # listview_unicode
+    return [s for s in value]
+
+
 W_UnicodeObject.EMPTY = W_UnicodeObject(u'')
 
 registerimplementation(W_UnicodeObject)
