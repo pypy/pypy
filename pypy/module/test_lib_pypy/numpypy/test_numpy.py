@@ -1,5 +1,5 @@
 class AppTestNumpy:
-    space_config = dict(usemodules=['micronumpy'])
+    spaceconfig = dict(usemodules=['micronumpy'])
 
     def test_imports(self):
         try:

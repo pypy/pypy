@@ -126,7 +126,7 @@ class AppTestAppSysTests:
 class AppTestSysModulePortedFromCPython:
 
     def setup_class(cls):
-        cls.w_appdirect = cls.wrap(cls.runappdirect)
+        cls.w_appdirect = cls.space.wrap(cls.runappdirect)
 
     def test_original_displayhook(self):
         import sys, cStringIO, __builtin__
@@ -596,7 +596,7 @@ class AppTestCurrentFramesWithThread(AppTestCurrentFrames):
 class AppTestSysExcInfoDirect:
 
     def setup_method(self, meth):
-        self.checking = not self.option.runappdirect
+        self.checking = not self.runappdirect
         if self.checking:
             self.seen = []
             from pypy.module.sys import vm

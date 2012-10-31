@@ -13,7 +13,7 @@ class AppTestSlow:
         if filename[-3:] != '.py':
             filename = filename[:-1]
 
-        cls.w_file = space.wrap(filename)
+        cls.w_file = cls.space.wrap(filename)
 
     def test_inspect(self):
         if not hasattr(len, 'func_code'):

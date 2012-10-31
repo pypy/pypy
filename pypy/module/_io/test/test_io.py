@@ -5,7 +5,7 @@ from pypy.tool.udir import udir
 
 class AppTestIoModule:
     spaceconfig = dict(usemodules=['_io'])
-xo
+
     def test_import(self):
         import io
 

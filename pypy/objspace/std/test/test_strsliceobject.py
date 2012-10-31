@@ -5,7 +5,7 @@ from pypy.interpreter import gateway
 from pypy.objspace.std.strsliceobject import W_StringSliceObject
 
 class AppTestStringObject(test_stringobject.AppTestStringObject):
-    space_config = {"objspace.std.withstrslice": True}
+    spaceconfig = {"objspace.std.withstrslice": True}
 
     def setup_class(cls):
         def not_forced(space, w_s):

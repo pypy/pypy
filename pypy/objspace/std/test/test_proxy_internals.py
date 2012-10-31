@@ -6,6 +6,9 @@ import py
 class AppProxy(object):
     spaceconfig = {"objspace.std.withtproxy": True}
 
+    def setup_class(cls):
+        pass  # So that subclasses can call the super method.
+
     def setup_method(self, meth):
         self.w_get_proxy = self.space.appexec([], """():
         class Controller(object):

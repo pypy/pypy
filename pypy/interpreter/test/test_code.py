@@ -8,8 +8,8 @@ class AppTestCodeIntrospection:
         if filename[-3:] != '.py':
             filename = filename[:-1]
 
-        cls.w_file = space.wrap(filename)
-        cls.w_CO_CONTAINSGLOBALS = space.wrap(consts.CO_CONTAINSGLOBALS)
+        cls.w_file = cls.space.wrap(filename)
+        cls.w_CO_CONTAINSGLOBALS = cls.space.wrap(consts.CO_CONTAINSGLOBALS)
 
     def test_attributes(self):
         def f(): pass

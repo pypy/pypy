@@ -5,7 +5,8 @@ from pypy.interpreter.error import OperationError
 import pypy.interpreter.pycode
 from pypy.tool.udir import udir
 from pypy.rlib import streamio
-from pypy.tool.option import make_config, make_objspace
+from pypy.tool.option import make_config
+from pypy.tool.pytest.objspace import maketestobjspace
 import pytest
 import sys, os
 import tempfile, marshal
@@ -642,8 +643,8 @@ class AppTestImport:
 
 class TestAbi:
     def test_abi_tag(self):
-        space1 = make_objspace(make_config(None, soabi='TEST'))
-        space2 = make_objspace(make_config(None, soabi=''))
+        space1 = maketestobjspace(make_config(None, soabi='TEST'))
+        space2 = maketestobjspace(make_config(None, soabi=''))
         if sys.platform == 'win32':
             assert importing.get_so_extension(space1) == '.TESTi.pyd'
             assert importing.get_so_extension(space2) == '.pyd'
@@ -953,7 +954,7 @@ class TestPycStuff:
         allspaces = [self.space]
         for opcodename in self.space.config.objspace.opcodes.getpaths():
             key = 'objspace.opcodes.' + opcodename
-            space2 = make_objspace(make_config(None, **{key: True}))
+            space2 = maketestobjspace(make_config(None, **{key: True}))
             allspaces.append(space2)
         for space1 in allspaces:
             for space2 in allspaces:
