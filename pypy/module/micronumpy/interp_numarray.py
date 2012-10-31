@@ -422,17 +422,12 @@ class __extend__(W_NDimArray):
         loop.clip(space, self, shape, min, max, out)
         return out
 
-    def descr_ctypes(self, space):
+    def descr_get_ctypes(self, space):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "ctypes not implemented yet"))
 
-    def descr_cumprod(self, space, w_axis=None, w_dtype=None, w_out=None): 
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            "cumprod not implemented yet"))
-
-    def descr_data(self, space):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            "data not implemented yet"))
+    def descr_get_data(self, space):
+        return self.implementation.get_buffer(space)
 
     def descr_diagonal(self, space, w_offset=0, w_axis1=0, w_axis2=1): 
         raise OperationError(space.w_NotImplementedError, space.wrap(
@@ -805,6 +800,9 @@ W_NDimArray.typedef = TypeDef(
     byteswap = interp2app(W_NDimArray.descr_byteswap),
     choose   = interp2app(W_NDimArray.descr_choose),
     clip     = interp2app(W_NDimArray.descr_clip),
+    data     = GetSetProperty(W_NDimArray.descr_get_data),
+
+    ctypes = GetSetProperty(W_NDimArray.descr_get_ctypes), # XXX unimplemented
 
     __array_interface__ = GetSetProperty(W_NDimArray.descr_array_iface),
 )

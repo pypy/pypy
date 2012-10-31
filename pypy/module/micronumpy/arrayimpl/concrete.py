@@ -7,9 +7,11 @@ from pypy.module.micronumpy.strides import calc_new_strides, shape_agreement,\
      calculate_broadcast_strides, calculate_dot_strides
 from pypy.module.micronumpy.iter import Chunk, Chunks, NewAxisChunk, RecordChunk
 from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.buffer import RWBuffer
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rlib import jit
-from pypy.rlib.rawstorage import free_raw_storage
+from pypy.rlib.rawstorage import free_raw_storage, raw_storage_getitem,\
+     raw_storage_setitem
 from pypy.module.micronumpy.arrayimpl.sort import argsort_array
 from pypy.rlib.debug import make_sure_not_resized
 
@@ -244,6 +246,9 @@ class BaseConcreteArray(base.BaseArrayImplementation):
     def get_storage(self):
         return self.storage
 
+    def get_buffer(self, space):
+        return ArrayBuffer(self)
+
 class ConcreteArray(BaseConcreteArray):
     def __init__(self, shape, dtype, order, strides, backstrides):
         make_sure_not_resized(shape)
@@ -356,3 +361,17 @@ class SliceArray(BaseConcreteArray):
             new_backstrides[nd] = (new_shape[nd] - 1) * new_strides[nd]
         return SliceArray(self.start, new_strides, new_backstrides, new_shape,
                           self, orig_array)
+
+class ArrayBuffer(RWBuffer):
+    def __init__(self, impl):
+        self.impl = impl
+
+    def getitem(self, item):
+        return raw_storage_getitem(lltype.Char, self.impl.storage, item)
+
+    def setitem(self, item, v):
+        return raw_storage_setitem(self.impl.storage, item,
+                                   rffi.cast(lltype.Char, v))
+
+    def getlength(self):
+        return self.impl.size

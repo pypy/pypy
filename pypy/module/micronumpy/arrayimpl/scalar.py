@@ -104,3 +104,8 @@ class Scalar(base.BaseArrayImplementation):
 
     def base(self):
         return None
+
+    def get_buffer(self, space):
+        raise OperationError(space.w_ValueError, space.wrap(
+            "cannot point buffer to a scalar"))
+

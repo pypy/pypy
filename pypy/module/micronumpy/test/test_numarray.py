@@ -1608,6 +1608,16 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (a.clip(-2, 13, out=a) == [1, 2, 13, -2, 12]).all()
         assert (a == [1, 2, 13, -2, 12]).all()
 
+    def test_data(self):
+        from _numpypy import array
+        a = array([1, 2, 3, 4], dtype='i4')
+        assert a.data[0] == '\x01'
+        assert a.data[1] == '\x00'
+        assert a.data[4] == '\x02'
+        a.data[4] = '\xff'
+        assert a[1] == 0xff
+        assert len(a.data) == 16
+
 class AppTestMultiDim(BaseNumpyAppTest):
     def test_init(self):
         import _numpypy
