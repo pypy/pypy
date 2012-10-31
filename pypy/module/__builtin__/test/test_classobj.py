@@ -1063,7 +1063,7 @@ class AppTestOldstyle(object):
 
 class AppTestOldStyleClassStrDict(object):
     def setup_class(cls):
-        if option.runappdirect:
+        if cls.runappdirect:
             py.test.skip("can only be run on py.py")
         def is_strdict(space, w_class):
             from pypy.objspace.std.dictmultiobject import StringDictStrategy
