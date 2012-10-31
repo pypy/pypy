@@ -439,6 +439,9 @@ class __extend__(W_NDimArray):
             raise operationerrfmt(space.w_ValueError,
                  "axis1(=%d) and axis2(=%d) must be withing range (ndim=%d)",
                                   axis1, axis2, len(self.get_shape()))
+        if axis1 == axis2:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "axis1 and axis2 cannot be the same"))
         return interp_arrayops.diagonal(space, self.implementation, offset,
                                         axis1, axis2)
     

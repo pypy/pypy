@@ -9,7 +9,7 @@ from pypy.rlib.rstring import StringBuilder
 from pypy.rlib import jit
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.module.micronumpy.base import W_NDimArray
-from pypy.module.micronumpy.iter import PureShapeIterator
+from pypy.module.micronumpy.iter import PureShapeIterator, ConcreteArrayIterator
 from pypy.module.micronumpy import constants
 from pypy.module.micronumpy.support import int_w
 
@@ -597,4 +597,22 @@ def diagonal_simple(space, arr, out, offset, axis1, axis2, size):
         index[axis2] = i + offset
         out_iter.setitem(arr.getitem_index(space, index))
         i += 1
+        out_iter.next()
+
+def diagonal_array(space, arr, out, offset, axis1, axis2, shape):
+    out_iter = out.create_iter()
+    iter = PureShapeIterator(shape, [])
+    shapelen = len(shape)
+    while not iter.done():
+        last_index = iter.indexes[-1]
+        if axis1 < axis2:
+            indexes = (iter.indexes[:axis1] + [last_index] +
+                       iter.indexes[axis1:axis2 - 1] + [last_index + offset] +
+                       iter.indexes[axis2 - 1:shapelen - 1])
+        else:
+            indexes = (iter.indexes[:axis2] + [last_index + offset] +
+                       iter.indexes[axis2:axis1 - 1] + [last_index] +
+                       iter.indexes[axis1 - 1:shapelen - 1])
+        out_iter.setitem(arr.getitem_index(space, indexes))
+        iter.next()
         out_iter.next()

@@ -173,12 +173,24 @@ def choose(space, arr, w_choices, out, mode):
 
 def diagonal(space, arr, offset, axis1, axis2):
     shape = arr.get_shape()
+    shapelen = len(shape)
+    if offset < 0:
+        offset = -offset
+        axis1, axis2 = axis2, axis1
     size = min(shape[axis1], shape[axis2] - offset)
     dtype = arr.dtype
-    if len(shape) == 2:
-        # simple case
-        out = W_NDimArray.from_shape([size], dtype)
-        loop.diagonal_simple(space, arr, out, offset, axis1, axis2, size)
-        return out
+    if axis1 < axis2:
+        shape = (shape[:axis1] + shape[axis1 + 1:axis2] +
+                 shape[axis2 + 1:] + [size])
     else:
-        xxx
+        shape = (shape[:axis2] + shape[axis2 + 1:axis1] +
+                 shape[axis1 + 1:] + [size])
+    out = W_NDimArray.from_shape(shape, dtype)
+    if size == 0:
+        return out
+    if shapelen == 2:
+        # simple case
+        loop.diagonal_simple(space, arr, out, offset, axis1, axis2, size)
+    else:
+        loop.diagonal_array(space, arr, out, offset, axis1, axis2, shape)
+    return out

@@ -2114,8 +2114,26 @@ class AppTestMultiDim(BaseNumpyAppTest):
         from _numpypy import array
         a = array([[1, 2], [3, 4], [5, 6]])
         raises(ValueError, 'array([1, 2]).diagonal()')
+        raises(ValueError, 'a.diagonal(0, 0, 0)')
+        raises(ValueError, 'a.diagonal(0, 0, 13)')
         assert (a.diagonal() == [1, 4]).all()
         assert (a.diagonal(1) == [2]).all()
+
+    def test_diagonal_axis(self):
+        from _numpypy import arange
+        a = arange(12).reshape(2, 3, 2)
+        assert (a.diagonal(0, 0, 1) == [[0, 8], [1, 9]]).all()
+        assert a.diagonal(3, 0, 1).shape == (2, 0)
+        assert (a.diagonal(1, 0, 1) == [[2, 10], [3, 11]]).all()         
+        assert (a.diagonal(0, 2, 1) == [[0, 3], [6, 9]]).all()        
+        assert (a.diagonal(2, 2, 1) == [[4], [10]]).all()        
+        assert (a.diagonal(1, 2, 1) == [[2, 5], [8, 11]]).all()        
+
+    def test_diagonal_axis_neg_ofs(self):
+        from _numpypy import arange
+        a = arange(12).reshape(2, 3, 2)
+        assert (a.diagonal(-1, 0, 1) == [[6], [7]]).all()
+        assert a.diagonal(-2, 0, 1).shape == (2, 0)
 
 class AppTestSupport(BaseNumpyAppTest):
     def setup_class(cls):
