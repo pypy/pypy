@@ -6,7 +6,7 @@ from pypy.rlib.jit import non_virtual_ref, vref_None
 
 class AppTestSlow:    
     def setup_class(cls):
-        space = gettestobjspace()
+        space = gettestobjspace(usemodules=['itertools'])
         cls.space = space
         if py.test.config.option.runappdirect:
             filename = __file__
