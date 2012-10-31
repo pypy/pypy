@@ -700,7 +700,7 @@ def merge_knowntypedata(ktd1, ktd2):
     return r
 
 def not_const(s_obj):
-    if s_obj.is_constant():
+    if s_obj.is_constant() and not isinstance(s_obj, SomePBC):
         new_s_obj = SomeObject.__new__(s_obj.__class__)
         dic = new_s_obj.__dict__ = s_obj.__dict__.copy()
         if 'const' in dic:
