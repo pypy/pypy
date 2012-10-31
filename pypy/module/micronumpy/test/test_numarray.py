@@ -2110,6 +2110,13 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert (a.cumsum(1) == [[1, 2], [2, 4], [3, 7]]).all()
         assert (a.cumsum(0) == [[1, 1], [3, 3], [6, 7]]).all()
 
+    def test_diagonal(self):
+        from _numpypy import array
+        a = array([[1, 2], [3, 4], [5, 6]])
+        raises(ValueError, 'array([1, 2]).diagonal()')
+        assert (a.diagonal() == [1, 4]).all()
+        assert (a.diagonal(1) == [2]).all()
+
 class AppTestSupport(BaseNumpyAppTest):
     def setup_class(cls):
         import struct

@@ -580,3 +580,21 @@ def clip(space, arr, shape, min, max, out):
         max_iter.next()
         out_iter.next()
         min_iter.next()
+
+diagonal_simple_driver = jit.JitDriver(greens = ['axis1', 'axis2'],
+                                       reds = ['i', 'offset', 'out_iter',
+                                               'arr'])
+
+def diagonal_simple(space, arr, out, offset, axis1, axis2, size):
+    out_iter = out.create_iter()
+    i = 0
+    index = [0] * 2
+    while i < size:
+        diagonal_simple_driver.jit_merge_point(axis1=axis1, axis2=axis2,
+                                               out_iter=out_iter, offset=offset,
+                                               i=i, arr=arr)
+        index[axis1] = i
+        index[axis2] = i + offset
+        out_iter.setitem(arr.getitem_index(space, index))
+        i += 1
+        out_iter.next()

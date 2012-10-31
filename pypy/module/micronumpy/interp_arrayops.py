@@ -170,3 +170,15 @@ def choose(space, arr, w_choices, out, mode):
                              space.wrap("mode %s not known" % (mode,)))
     loop.choose(space, arr, choices, shape, dtype, out, MODES[mode])
     return out
+
+def diagonal(space, arr, offset, axis1, axis2):
+    shape = arr.get_shape()
+    size = min(shape[axis1], shape[axis2] - offset)
+    dtype = arr.dtype
+    if len(shape) == 2:
+        # simple case
+        out = W_NDimArray.from_shape([size], dtype)
+        loop.diagonal_simple(space, arr, out, offset, axis1, axis2, size)
+        return out
+    else:
+        xxx

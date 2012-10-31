@@ -429,10 +429,19 @@ class __extend__(W_NDimArray):
     def descr_get_data(self, space):
         return self.implementation.get_buffer(space)
 
-    def descr_diagonal(self, space, w_offset=0, w_axis1=0, w_axis2=1): 
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            "diagonal not implemented yet"))
-
+    @unwrap_spec(offset=int, axis1=int, axis2=int)
+    def descr_diagonal(self, space, offset=0, axis1=0, axis2=1):
+        if len(self.get_shape()) < 2:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "need at least 2 dimensions for diagonal"))
+        if (axis1 < 0 or axis2 < 0 or axis1 >= len(self.get_shape()) or
+            axis2 >= len(self.get_shape())):
+            raise operationerrfmt(space.w_ValueError,
+                 "axis1(=%d) and axis2(=%d) must be withing range (ndim=%d)",
+                                  axis1, axis2, len(self.get_shape()))
+        return interp_arrayops.diagonal(space, self.implementation, offset,
+                                        axis1, axis2)
+    
     def descr_dump(self, space, w_file):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "dump not implemented yet"))
@@ -801,6 +810,7 @@ W_NDimArray.typedef = TypeDef(
     choose   = interp2app(W_NDimArray.descr_choose),
     clip     = interp2app(W_NDimArray.descr_clip),
     data     = GetSetProperty(W_NDimArray.descr_get_data),
+    diagonal = interp2app(W_NDimArray.descr_diagonal),
 
     ctypes = GetSetProperty(W_NDimArray.descr_get_ctypes), # XXX unimplemented
 
