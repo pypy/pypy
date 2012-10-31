@@ -19,7 +19,8 @@ from pypy.rpython.lltypesystem.ll2ctypes import (_llvm_needs_header,
      get_ctypes_type, lltype2ctypes, ctypes2lltype, _array_mixin)
 from pypy.rpython.memory.gctransform.refcounting import (
      RefcountingGCTransformer)
-from pypy.rpython.memory.gctransform.framework import FrameworkGCTransformer
+from pypy.rpython.memory.gctransform.shadowstack import (
+     ShadowStackFrameworkGCTransformer)
 from pypy.rpython.module.support import LLSupport
 from pypy.rpython.typesystem import getfunctionptr
 from pypy.translator.backendopt.removenoops import remove_same_as
@@ -705,8 +706,7 @@ _LL_TO_LLVM = {lltype.Ptr: PtrType,
                lltype.FuncType: FuncType,
                lltype.OpaqueType: OpaqueType, lltype.GcOpaqueType: OpaqueType,
                llgroup.GroupType: GroupType,
-               llmemory._WeakRefType: OpaqueType,
-               lltype.PyObjectType: OpaqueType}
+               llmemory._WeakRefType: OpaqueType}
 
 class Database(object):
     identifier_regex = re.compile('^[%@][a-zA-Z$._][a-zA-Z$._0-9]*$')
@@ -1463,7 +1463,7 @@ class FrameworkGCPolicy(GCPolicy):
 
     def __init__(self, genllvm):
         GCPolicy.__init__(self, genllvm)
-        self.gctransformer = FrameworkGCTransformer(genllvm.translator)
+        self.gctransformer = ShadowStackFrameworkGCTransformer(genllvm.translator)
 
     def add_startup_code(self):
         database.f.write('%ctor = type { i32, void ()* }\n')
@@ -1686,6 +1686,9 @@ class GenLLVM(object):
              self.export.add(bk.getdesc(secondary_entrypoint).getuniquegraph())
         for graph in self.translator.graphs:
             self.transform_graph(graph)
+        self.ovf_err = self.exctransformer.get_builtin_exception(OverflowError)
+        ovf_err_inst = self.ovf_err[1]
+        self.gcpolicy._consider_constant(ovf_err_inst._T, ovf_err_inst._obj)
         self.gcpolicy.finish()
 
     def gen_source(self):
@@ -1707,7 +1710,6 @@ class GenLLVM(object):
                         '{T} %a, {T} %b)\n'.format(op=op, T=SIGNED_TYPE))
             database = Database(self, f)
             exctrans = self.exctransformer
-            ll_exc_type, ll_exc = exctrans.get_builtin_exception(OverflowError)
             f.write('define internal void @_raise_ovf(i1 %x) alwaysinline {{\n'
                     '  block0:\n'
                     '    br i1 %x, label %block1, label %block2\n'
@@ -1717,8 +1719,8 @@ class GenLLVM(object):
                     '  block2:\n'
                     '    ret void\n'
                     '}}\n'.format(raise_=get_repr(exctrans.rpyexc_raise_ptr),
-                                  type_=get_repr(ll_exc_type),
-                                  inst=get_repr(ll_exc)))
+                                  type_=get_repr(self.ovf_err[0]),
+                                  inst=get_repr(self.ovf_err[1])))
 
             self.gcpolicy.add_startup_code()
             if not self.standalone:

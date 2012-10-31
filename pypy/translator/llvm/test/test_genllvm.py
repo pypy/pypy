@@ -1,5 +1,6 @@
 from cStringIO import StringIO
 import py
+from pypy.config.pypyoption import get_pypy_config
 from pypy.objspace.flow.model import FunctionGraph, Block, Link
 from pypy.rlib.rarithmetic import LONG_BIT, r_uint, r_singlefloat
 from pypy.rlib.test.test_longlong2float import enum_floats, fn, fnsingle
@@ -17,6 +18,7 @@ from pypy.translator.c.test import (test_typed, test_lltyped,
      test_backendoptimized, test_newgc, test_refcount)
 from pypy.translator.llvm import genllvm
 from pypy.translator.unsimplify import varoftype
+from pypy.translator.transform import insert_ll_stackcheck
 from pypy.translator.translator import TranslationContext
 
 
@@ -240,7 +242,7 @@ class TestDatabase(object):
         assert genllvm.database.unique_name('@test:') == '@"test:_1"'
 
 
-class _LLVMMixin(test_typed.CompilationTestCase):
+class _LLVMMixin(object):
     _func = None
     _types = None
 
@@ -248,32 +250,25 @@ class _LLVMMixin(test_typed.CompilationTestCase):
         self.config_override = {'translation.gc': 'ref'}
         self.annotator_policy = None
 
-    def annotatefunc(self, func, argtypes=None):
-        from pypy.config.pypyoption import get_pypy_config
+    def getcompiled(self, func, argtypes):
         config = get_pypy_config(translating=True)
         config.translation.backendopt.raisingop2direct_call = True
         config.translation.simplifying = True
         config.override(self.config_override)
         t = self._translator = TranslationContext(config=config)
-        if argtypes is None:
-            argtypes = []
         a = t.buildannotator(self.annotator_policy)
         a.build_types(func, argtypes)
         a.simplify()
-        return t
-
-    def compilefunc(self, t, func):
+        t.buildrtyper().specialize()
+        raisingop2direct_call(t)
+        if py.test.config.option.view:
+            t.view()
+        t.checkgraphs()
+        insert_ll_stackcheck(t)
         gen_llvm = self.genllvm = genllvm.GenLLVM(t, False)
-        if hasattr(self, 'include_also_eci'):
-            gen_llvm.ecis.append(self.include_also_eci)
-            del self.include_also_eci
         gen_llvm.prepare(func, ())
         gen_llvm.gen_source()
         return gen_llvm.compile_module()
-
-    def process(self, t):
-        t.buildrtyper().specialize()
-        raisingop2direct_call(t)
 
     def _compile(self, func, args, someobjects=False, policy=None):
         if someobjects:
@@ -306,7 +301,7 @@ class TestSpecialCases(_LLVMMixin):
     def test_float_e_notation(self):
         def f():
             return 1e-06
-        fc = self.getcompiled(f)
+        fc = self.getcompiled(f, [])
         assert fc() == 1e-06
 
     def test_two_exits_non_bool(self):
@@ -332,7 +327,7 @@ class TestSpecialCases(_LLVMMixin):
         x2 = lltype.malloc(T, immortal=True)
         def f():
             return (lltype.cast_ptr_to_int(x1), lltype.cast_ptr_to_int(x2))
-        fc = self.getcompiled(f)
+        fc = self.getcompiled(f, [])
         ret = fc()
         assert ret[0] != ret[1]
 
@@ -341,7 +336,7 @@ class TestSpecialCases(_LLVMMixin):
         x = llmemory.cast_ptr_to_adr(lltype.malloc(T))
         def f():
             return len([x])
-        fc = self.getcompiled(f)
+        fc = self.getcompiled(f, [])
         assert fc() == 1
 
     def test_consider_constant_with_llgroup(self):
@@ -355,7 +350,7 @@ class TestSpecialCases(_LLVMMixin):
         grpptr = grp._as_ptr()
         def f():
             return len([(offset, grpptr)])
-        fc = self.getcompiled(f)
+        fc = self.getcompiled(f, [])
         assert fc() == 1
 
     def test_consider_constant_with_llgroup_delayed(self):
@@ -520,7 +515,7 @@ class TestSpecialCases(_LLVMMixin):
 
         def f():
             return len([a])
-        self.getcompiled(f)
+        self.getcompiled(f, [])
         assert '@a = global %A' in self.genllvm.base_path.new(ext='.ll').read()
 
     def test_export_struct_cast(self):
@@ -539,7 +534,7 @@ class TestSpecialCases(_LLVMMixin):
         def f():
             use(rffi.cast(rffi.VOIDP, a))
             use(rffi.cast(rffi.VOIDP, b))
-        self.getcompiled(f)
+        self.getcompiled(f, [])
         assert '@a = global %A' in self.genllvm.base_path.new(ext='.ll').read()
         lltype.free(buf, 'raw')
 
@@ -573,7 +568,7 @@ class TestTypedLLVM(_LLVMMixin, test_typed.TestTypedTestCase):
 
 class TestTypedOptimizedTestCaseLLVM(_LLVMMixin, test_backendoptimized
                                                  .TestTypedOptimizedTestCase):
-    def process(self, t):
+    def process(self, t): #XXX
         test_backendoptimized.TestTypedOptimizedTestCase.process(self, t)
 
 class TestTypedOptimizedSwitchTestCaseLLVM(test_backendoptimized
@@ -581,7 +576,7 @@ class TestTypedOptimizedSwitchTestCaseLLVM(test_backendoptimized
     class CodeGenerator(_LLVMMixin, test_backendoptimized
                                     .TestTypedOptimizedSwitchTestCase
                                     .CodeGenerator):
-        def process(self, t):
+        def process(self, t): #XXX
             test_backendoptimized.TestTypedOptimizedSwitchTestCase \
                     .CodeGenerator.process(self, t)
 
