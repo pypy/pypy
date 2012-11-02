@@ -1043,7 +1043,7 @@ class AppTestWithMethodCacheCounter:
 
     def test_module_from_handbuilt_type(self):
         d = {'tuple': tuple, '__name__': 'foomod'}
-        exec """class foo(tuple): pass""" in d
+        exec("""class foo(tuple): pass""", d)
         t = d['foo']
         t.__module__ = 'barmod'
         # this last line used to crash; see ab926f846f39
