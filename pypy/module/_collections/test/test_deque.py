@@ -3,7 +3,7 @@ from pypy.conftest import gettestobjspace
 
 class AppTestBasic:
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['_collections'])
+        cls.space = gettestobjspace(usemodules=['_collections', 'itertools'])
 
     def test_basics(self):
         from _collections import deque
