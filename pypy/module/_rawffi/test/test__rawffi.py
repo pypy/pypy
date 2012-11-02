@@ -198,7 +198,7 @@ class AppTestFfi:
     
     def setup_class(cls):
         from pypy.rlib.clibffi import get_libc_name
-        space = gettestobjspace(usemodules=('_rawffi', 'struct'))
+        space = gettestobjspace(usemodules=('_rawffi', 'struct', 'itertools'))
         cls.space = space
         cls.w_lib_name = space.wrap(cls.prepare_c_example())
         cls.w_libc_name = space.wrap(get_libc_name())
