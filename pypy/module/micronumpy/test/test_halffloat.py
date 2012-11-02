@@ -14,7 +14,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
         # numpy.float16(v).view(uint16)
         cases = [[0., 0, 0], [10, 1092616192, 18688], [-10, 3240099840, 51456], 
                  [10e3, 1176256512, 28898], [float('inf'), 2139095040, 31744], 
-                 [-float('inf'), 4286578688, 64512]]
+                 [-float('inf'), 4286578688, 64512],
+                 [5., 1084227584, 17664],]
         for v, fbits, hbits in cases:
             # No 'view' in numpypy yet
             # fbits = array(v, dtype='float32').view(uint32)

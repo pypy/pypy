@@ -14,6 +14,7 @@ from pypy.rlib.objectmodel import specialize
 from pypy.rlib.rarithmetic import widen, byteswap
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.rstruct.runpack import runpack
+from pypy.rlib.rstruct.ieee import float_pack, float_unpack
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib import jit
 from pypy.rlib.rstring import StringBuilder
@@ -180,7 +181,8 @@ class Primitive(object):
             self._write(storage, i, offset, value)
 
     def runpack_str(self, s):
-        return self.box(runpack(self.format_code, s))
+        v = runpack(self.format_code, s)
+        return self.box(v)
 
     def pack_str(self, box):
         return struct.pack(self.format_code, self.unbox(box))
@@ -923,14 +925,21 @@ class NonNativeFloat(NonNativePrimitive, Float):
 class Float16(BaseType, Float):
     _attrs_ = ()
     T = rffi.USHORT
-    _COMPUTATION_T = rffi.FLOAT
+    _COMPUTATION_T = rffi.DOUBLE
 
     BoxType = interp_boxes.W_Float16Box
-    format_code = "e"
 
     def str_format(self, box):
         return float2string(self.for_computation(self.unbox(box)), "g",
                             rfloat.DTSF_STR_PRECISION)
+
+    def pack_str(self, box):
+        xxx
+
+    def runpack_str(self, s):
+        hbits = runpack('H', s)
+        fbits = halffloat.halfbits_to_floatbits(hbits)
+        return self.box(float_unpack(fbits, 4))
 
     def for_computation(self, v):
         return float(v)
@@ -945,24 +954,29 @@ class Float16(BaseType, Float):
 
     @specialize.argtype(1)
     def box(self, value):
-        return self.BoxType(rffi.cast(self._COMPUTATION_T, value))
+        ret_val =  self.BoxType(rffi.cast(self._COMPUTATION_T, value))
+        return ret_val
 
 
     def _read(self, storage, i, offset):
         byte_rep = raw_storage_getitem(self.T, storage, i + offset)
         fbits = halffloat.halfbits_to_floatbits(byte_rep)
-        return rffi.cast(rffi.FLOAT, fbits)
+        return float_unpack(fbits, 4)
 
     def read(self, arr, i, offset, dtype=None):
-        val = self._read(arr.storage, i, offset)
-        return self.BoxType(val)
+        value = self._read(arr.storage, i, offset)
+        ret_val =  self.BoxType(rffi.cast(self._COMPUTATION_T, value))
+        return ret_val
 
+    def _write(self, storage, i, offset, value):
+        fbits = float_pack(value,4)
+        hbits = halffloat.floatbits_to_halfbits(fbits)
+        raw_storage_setitem(storage, i + offset, rffi.cast(self.T, hbits))
 
 class NonNativeFloat16(BaseType, NonNativeFloat):
     _attrs_ = ()
 
     BoxType = interp_boxes.W_Float16Box
-    format_code = "e"
 
 class Float32(BaseType, Float):
     _attrs_ = ()

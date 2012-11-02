@@ -1,31 +1,15 @@
 # Based on numpy's halffloat.c, this is an implementation of routines
 # for 16 bit float values.
+from pypy.rpython.lltypesystem import rffi
 
-#from pypy.rpython.lltypesystem import rffi
-#from rffi import USHORT as uint16
-#def tofloat(x):
-#    return rffi.cast(rffi.FLOAT, x)
 
-'''
-def half_to_float(x):
-    assert isinstance(x, float16)
-    xbits = x.view(uint16)
-    fbits = halffloatbits_to_floatbits(xbits)
-    return uint32(fbits).view(float32) 
-
-def float_to_half(f):
-    assert isinstance(f, (float32, float))
-    fbits = float32(f).view(uint32)
-    xbits = floatbits_to_halfbits(fbits)
-    return uint16(xbits).view(float16)
-'''
 def halfbits_to_floatbits(x):
     h_exp = x & 0x7c00
-    f_sign = (x & 0x8000) << 16
+    f_sgn = (x & 0x8000) << 16
     if h_exp == 0: #0 or subnormal
         h_sig = x & 0x03ff
         if h_sig == 0:
-            return f_sign
+            return f_sgn
         #Subnormal
         h_sig <<= 1;
         while (h_sig & 0x0400) == 0:
@@ -33,11 +17,11 @@ def halfbits_to_floatbits(x):
             h_exp += 1
         f_exp = 127 - 15 - h_exp << 23
         f_sig = h_sig & 0x03ff << 13
-        return f_sign & f_exp & f_sig
+        return f_sgn + f_exp + f_sig
     elif h_exp == 0x7c00: # inf or nan
-        return f_sign + 0x7f800000 + ((x & 0x03ff) << 13)
+        return f_sgn + 0x7f800000 + ((x & 0x03ff) << 13)
     # Just need to adjust the exponent and shift
-    return f_sign + (((x & 0x7fff) + 0x1c000) << 13)
+    return f_sgn +((rffi.cast(rffi.UINT,(x & 0x7fff)) + 0x1c000) << 13)
 
 
 def floatbits_to_halfbits(f):

@@ -2038,7 +2038,7 @@ class AppTestSupport(BaseNumpyAppTest):
         BaseNumpyAppTest.setup_class.im_func(cls)
         cls.w_data = cls.space.wrap(struct.pack('dddd', 1, 2, 3, 4))
         cls.w_fdata = cls.space.wrap(struct.pack('f', 2.3))
-        cls.w_float16val = cls.space.wrap(struct.pack('e', 5.2))
+        cls.w_float16val = cls.space.wrap('\x00E') # 5.0 in float16 
         cls.w_float32val = cls.space.wrap(struct.pack('f', 5.2))
         cls.w_float64val = cls.space.wrap(struct.pack('d', 300.4))
         cls.w_ulongval = cls.space.wrap(struct.pack('L', 12))
@@ -2111,7 +2111,6 @@ class AppTestSupport(BaseNumpyAppTest):
     def test_fromstring_types(self):
         from _numpypy import (fromstring, int8, int16, int32, int64, uint8,
             uint16, uint32, float16, float32, float64)
-
         a = fromstring('\xFF', dtype=int8)
         assert a[0] == -1
         b = fromstring('\xFF', dtype=uint8)
@@ -2126,14 +2125,14 @@ class AppTestSupport(BaseNumpyAppTest):
         assert repr(f[0]) == '4294967295'
         g = fromstring('\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF', dtype=int64)
         assert g[0] == -1
-        h = fromstring(self.float16val, dtype=float16)
-        assert h[0] == float16(5.2)
         h = fromstring(self.float32val, dtype=float32)
         assert h[0] == float32(5.2)
         i = fromstring(self.float64val, dtype=float64)
         assert i[0] == float64(300.4)
         j = fromstring(self.ulongval, dtype='L')
         assert j[0] == 12
+        k = fromstring(self.float16val, dtype=float16)
+        assert k[0] == float16(5.)
 
     def test_fromstring_invalid(self):
         from _numpypy import fromstring, uint16, uint8, int32

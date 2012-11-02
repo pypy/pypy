@@ -228,7 +228,7 @@ class AppTestDtypes(BaseNumpyAppTest):
             (numpy.int16, 5),
             (numpy.uint32, 7),
             (numpy.int64, 3),
-            (numpy.float16, 3.14156),
+            (numpy.float16, 10.),
             (numpy.float32, 2.0),
             (numpy.float64, 4.32),
         ]:
