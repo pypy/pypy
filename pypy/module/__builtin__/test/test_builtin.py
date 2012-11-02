@@ -4,6 +4,8 @@ import sys
 from pypy import conftest
 
 class AppTestBuiltinApp:
+    spaceconfig = {'usemodules': ['itertools']}
+    
     def setup_class(cls):
         class X(object):
             def __eq__(self, other):
