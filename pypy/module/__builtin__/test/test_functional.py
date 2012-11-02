@@ -151,8 +151,6 @@ class AppTestFilter2:
         raises(StopIteration, next, it)
 
     def test_filter_wrongargs(self):
-        import itertools
-
         it = filter(0, [1])
         raises(TypeError, next, it)
 

@@ -68,8 +68,6 @@ class AppTestZip2:
         #assert it1.next() in [4, 5]
 
     def test_zip_wrongargs(self):
-        import re
-        
         # Duplicate python 2.4 behaviour for invalid arguments
         raises(TypeError, zip, None, 0)
 
