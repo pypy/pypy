@@ -6,7 +6,7 @@ from pypy.tool.udir import udir
 
 class AppTestIoModule:
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['_io'])
+        cls.space = gettestobjspace(usemodules=['_io', 'itertools'])
 
     def test_import(self):
         import io

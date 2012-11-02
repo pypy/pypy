@@ -4,7 +4,7 @@ import os
 
 class AppTestFileIO:
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['_io'])
+        cls.space = gettestobjspace(usemodules=['_io', 'itertools'])
         tmpfile = udir.join('tmpfile')
         tmpfile.write("a\nb\nc", mode='wb')
         cls.w_tmpfile = cls.space.wrap(str(tmpfile))
