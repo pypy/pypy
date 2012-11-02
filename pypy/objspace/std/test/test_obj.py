@@ -3,6 +3,8 @@ from pypy.conftest import option
 
 class AppTestObject:
 
+    spaceconfig = {'usemodules': ['itertools']}
+
     def setup_class(cls):
         from pypy.interpreter import gateway
         import sys
