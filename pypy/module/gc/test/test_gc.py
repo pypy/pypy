@@ -105,8 +105,10 @@ class AppTestGcDumpHeap(object):
 
 
 class AppTestGcMethodCache(object):
+    
     def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withmethodcache": True})
+        cls.space = gettestobjspace(**{"objspace.std.withmethodcache": True,
+                                       "usemodules": ['itertools']})
 
     def test_clear_method_cache(self):
         import gc, weakref
@@ -129,7 +131,8 @@ class AppTestGcMethodCache(object):
 class AppTestGcMapDictIndexCache(AppTestGcMethodCache):
     def setup_class(cls):
         cls.space = gettestobjspace(**{"objspace.std.withmethodcache": True,
-                                       "objspace.std.withmapdict": True})
+                                       "objspace.std.withmapdict": True,
+                                       "usemodules": ['itertools']})
 
 
     def test_clear_index_cache(self):
