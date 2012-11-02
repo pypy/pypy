@@ -32,7 +32,7 @@ class AppTestC(object):
     """Populated below, hack hack hack."""
 
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('_cffi_backend',))
+        space = gettestobjspace(usemodules=('_cffi_backend', 'itertools'))
         cls.space = space
         testfuncs_w = []
         keepalive_funcs = []
