@@ -4,7 +4,7 @@ from pypy.conftest import gettestobjspace
 
 class AppTestWarnings:
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('_warnings',))
+        space = gettestobjspace(usemodules=('_warnings', 'itertools'))
         cls.space = space
 
     def test_defaults(self):
