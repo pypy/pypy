@@ -846,7 +846,7 @@ class AppTestArray(BaseArrayTests):
     OPTIONS = {}
 
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=('array', 'struct', '_rawffi'),
+        cls.space = gettestobjspace(usemodules=('array', 'struct', '_rawffi', 'itertools'),
                                     **cls.OPTIONS)
         cls.w_array = cls.space.appexec([], """():
             import array
