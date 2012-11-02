@@ -188,7 +188,7 @@ def enforceargs(*types_, **kwds):
         src = py.code.Source("""
             def %(name)s(%(arglist)s):
                 if not we_are_translated():
-                    typecheck(%(arglist)s)
+                    typecheck(%(arglist)s)    # pypy.rlib.objectmodel
                 return %(name)s_original(%(arglist)s)
         """ % dict(name=f.func_name, arglist=arglist))
         #

@@ -68,7 +68,7 @@ class AppTest_IterObject(object):
         raises(TypeError, len, iter(iterable))
         
     def test_no_len_on_deque_iter(self):
-        from collections import deque
+        from _collections import deque
         iterable = deque([1,2,3,4])
         raises(TypeError, len, iter(iterable))
 
@@ -89,6 +89,19 @@ class AppTest_IterObject(object):
                 return range(self.i)[i]
         iterable = UserList([1,2,3,4])
         raises(TypeError, len, iter(iterable))
+
+    def test_no_len_on_UserList_iter_reversed(self):
+        import sys, _abcoll
+        sys.modules['collections'] = _abcoll
+        class UserList(object):
+            def __init__(self, i):
+                self.i = i
+            def __getitem__(self, i):
+                return range(self.i)[i]
+        iterable = UserList([1,2,3,4])
+        raises(TypeError, len, iter(iterable))
+        raises(TypeError, reversed, iterable)
+        del sys.modules['collections']
 
     def test_no_len_on_UserList_reversed(self):
         iterable = [1,2,3,4]

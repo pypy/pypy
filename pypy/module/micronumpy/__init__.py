@@ -62,6 +62,7 @@ class Module(MixedModule):
         'flexible': 'interp_boxes.W_FlexibleBox',
         'character': 'interp_boxes.W_CharacterBox',
         'str_': 'interp_boxes.W_StringBox',
+        'string_': 'interp_boxes.W_StringBox',
         'unicode_': 'interp_boxes.W_UnicodeBox',
         'void': 'interp_boxes.W_VoidBox',
         'complexfloating': 'interp_boxes.W_ComplexFloatingBox',

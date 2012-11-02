@@ -268,6 +268,9 @@ class Stream(object):
         return False
 
     def close(self):
+        self.close1(True)
+
+    def close1(self, closefileno):
         pass
 
     def peek(self):
@@ -333,8 +336,9 @@ class DiskFile(Stream):
             else:
                 data = data[n:]
 
-    def close(self):
-        os.close(self.fd)
+    def close1(self, closefileno):
+        if closefileno:
+            os.close(self.fd)
 
     if sys.platform == "win32":
         def truncate(self, size):
@@ -375,9 +379,10 @@ class MMapFile(Stream):
         size = os.fstat(self.fd).st_size
         self.mm = mmap.mmap(self.fd, size, access=self.access)
 
-    def close(self):
+    def close1(self, closefileno):
         self.mm.close()
-        os.close(self.fd)
+        if closefileno:
+            os.close(self.fd)
 
     def tell(self):
         return self.pos
@@ -470,7 +475,7 @@ STREAM_METHODS = dict([
     ("truncate", [r_longlong]),
     ("flush", []),
     ("flushable", []),
-    ("close", []),
+    ("close1", [int]),
     ("peek", []),
     ("try_to_find_file_descriptor", []),
     ("getnewlines", []),
@@ -715,7 +720,7 @@ class BufferingInputStream(Stream):
     truncate   = PassThrough("truncate",  flush_buffers=True)
     flush      = PassThrough("flush",     flush_buffers=True)
     flushable  = PassThrough("flushable", flush_buffers=False)
-    close      = PassThrough("close",     flush_buffers=False)
+    close1     = PassThrough("close1",    flush_buffers=False)
     try_to_find_file_descriptor = PassThrough("try_to_find_file_descriptor",
                                               flush_buffers=False)
 
@@ -770,7 +775,7 @@ class BufferingOutputStream(Stream):
     seek       = PassThrough("seek",     flush_buffers=True)
     truncate   = PassThrough("truncate", flush_buffers=True)
     flush      = PassThrough("flush",    flush_buffers=True)
-    close      = PassThrough("close",    flush_buffers=True)
+    close1     = PassThrough("close1",   flush_buffers=True)
     try_to_find_file_descriptor = PassThrough("try_to_find_file_descriptor",
                                               flush_buffers=False)
 
@@ -838,7 +843,7 @@ class CRLFFilter(Stream):
 
     flush    = PassThrough("flush", flush_buffers=False)
     flushable= PassThrough("flushable", flush_buffers=False)
-    close    = PassThrough("close", flush_buffers=False)
+    close1   = PassThrough("close1", flush_buffers=False)
     try_to_find_file_descriptor = PassThrough("try_to_find_file_descriptor",
                                               flush_buffers=False)
 
@@ -907,7 +912,7 @@ class TextCRLFFilter(Stream):
     truncate = PassThrough("truncate", flush_buffers=True)
     flush    = PassThrough("flush", flush_buffers=False)
     flushable= PassThrough("flushable", flush_buffers=False)
-    close    = PassThrough("close", flush_buffers=False)
+    close1   = PassThrough("close1", flush_buffers=False)
     try_to_find_file_descriptor = PassThrough("try_to_find_file_descriptor",
                                               flush_buffers=False)
     
@@ -1041,7 +1046,7 @@ class TextInputFilter(Stream):
     truncate   = PassThrough("truncate",  flush_buffers=True)
     flush      = PassThrough("flush",     flush_buffers=True)
     flushable  = PassThrough("flushable", flush_buffers=False)
-    close      = PassThrough("close",     flush_buffers=False)
+    close1     = PassThrough("close1",    flush_buffers=False)
     try_to_find_file_descriptor = PassThrough("try_to_find_file_descriptor",
                                               flush_buffers=False)
 
@@ -1067,7 +1072,7 @@ class TextOutputFilter(Stream):
     truncate   = PassThrough("truncate",  flush_buffers=False)
     flush      = PassThrough("flush",     flush_buffers=False)
     flushable  = PassThrough("flushable", flush_buffers=False)
-    close      = PassThrough("close",     flush_buffers=False)
+    close1     = PassThrough("close1",    flush_buffers=False)
     try_to_find_file_descriptor = PassThrough("try_to_find_file_descriptor",
                                               flush_buffers=False)
 
@@ -1091,7 +1096,7 @@ class CallbackReadFilter(Stream):
     peek       = PassThrough("peek",      flush_buffers=False)
     flush      = PassThrough("flush",     flush_buffers=False)
     flushable  = PassThrough("flushable", flush_buffers=False)
-    close      = PassThrough("close",     flush_buffers=False)
+    close1     = PassThrough("close1",    flush_buffers=False)
     write      = PassThrough("write",     flush_buffers=False)
     truncate   = PassThrough("truncate",  flush_buffers=False)
     getnewlines= PassThrough("getnewlines",flush_buffers=False)
@@ -1144,7 +1149,7 @@ class DecodingInputFilter(Stream):
     truncate   = PassThrough("truncate",  flush_buffers=False)
     flush      = PassThrough("flush",     flush_buffers=False)
     flushable  = PassThrough("flushable", flush_buffers=False)
-    close      = PassThrough("close",     flush_buffers=False)
+    close1     = PassThrough("close1",    flush_buffers=False)
     try_to_find_file_descriptor = PassThrough("try_to_find_file_descriptor",
                                               flush_buffers=False)
 
@@ -1172,6 +1177,6 @@ class EncodingOutputFilter(Stream):
     truncate   = PassThrough("truncate",  flush_buffers=False)
     flush      = PassThrough("flush",     flush_buffers=False)
     flushable  = PassThrough("flushable", flush_buffers=False)
-    close      = PassThrough("close",     flush_buffers=False)
+    close1     = PassThrough("close1",    flush_buffers=False)
     try_to_find_file_descriptor = PassThrough("try_to_find_file_descriptor",
                                               flush_buffers=False)

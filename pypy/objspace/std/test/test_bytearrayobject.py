@@ -435,6 +435,14 @@ class AppTestBytesArray:
         assert int(bytearray(b'-1234')) == -1234
         assert int(bytearray(b'10'), 16) == 16
 
+    def test_float(self):
+        assert float(bytearray(b'10.4')) == 10.4
+        assert float(bytearray(b'-1.7e-1')) == -1.7e-1
+        assert float(bytearray('.9e10', 'utf-8')) == .9e10
+        import math
+        assert math.isnan(float(bytearray(b'nan')))
+        raises(ValueError, float, bytearray(b'not_a_number'))
+
     def test_reduce(self):
         assert bytearray(b'caf\xe9').__reduce__() == (
             bytearray, ('caf\xe9', 'latin-1'), None)

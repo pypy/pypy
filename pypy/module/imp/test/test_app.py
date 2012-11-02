@@ -4,6 +4,8 @@ MARKER = 42
 class AppTestImpModule:
     def setup_class(cls):
         from pypy.tool.udir import udir
+        from pypy.conftest import gettestobjspace
+        cls.space = gettestobjspace(usemodules=('imp', 'itertools'))
         cls.w_imp = cls.space.getbuiltinmodule('imp')
         cls.w_file_module = cls.space.wrap(__file__)
         latin1 = udir.join('latin1.py')

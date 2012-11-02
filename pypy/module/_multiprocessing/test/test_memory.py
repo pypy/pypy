@@ -3,7 +3,8 @@ from pypy.conftest import gettestobjspace
 class AppTestMemory:
     def setup_class(cls):
         space = gettestobjspace(
-            usemodules=('_multiprocessing', 'mmap', '_rawffi', '_ffi'))
+            usemodules=('_multiprocessing', 'mmap', '_rawffi', '_ffi',
+                        'itertools'))
         cls.space = space
 
     def test_address_of(self):

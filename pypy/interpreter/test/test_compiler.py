@@ -7,6 +7,10 @@ from pypy.interpreter.argument import Arguments
 from pypy.conftest import gettestobjspace
 
 class TestPythonAstCompiler:
+    def setup_class(cls):
+        # itertools is required because it is imported indirectly by test_globals_warnings
+        cls.space = gettestobjspace(usemodules=['itertools'])
+
     def setup_method(self, method):
         self.compiler = self.space.createcompiler()
 

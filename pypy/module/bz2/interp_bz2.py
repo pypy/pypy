@@ -232,6 +232,7 @@ class OutBuffer(object):
     def __exit__(self, *args):
         self.free()
 
+
 @unwrap_spec(compresslevel=int)
 def descr_compressor__new__(space, w_subtype, compresslevel=9):
     x = space.allocate_instance(W_BZ2Compressor, w_subtype)
@@ -386,11 +387,11 @@ class W_BZ2Decompressor(Wrappable):
         was found after the end of stream, it'll be ignored and saved in
         unused_data attribute."""
 
-        if data == '':
-            return self.space.wrapbytes('')
         if not self.running:
             raise OperationError(self.space.w_EOFError,
                 self.space.wrap("end of stream was already found"))
+        if data == '':
+            return self.space.wrapbytes('')
 
         in_bufsize = len(data)
 

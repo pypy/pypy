@@ -8,6 +8,7 @@ from pypy.objspace.std.model import W_Object
 from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.objspace.std.stdtypedef import SMM, StdTypeDef
 from pypy.objspace.std.register_all import register_all
+from pypy.rlib import jit
 from pypy.rlib.rarithmetic import ovfcheck, widen
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.objectmodel import specialize, keepalive_until_here

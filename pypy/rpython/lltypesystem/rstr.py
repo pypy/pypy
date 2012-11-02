@@ -1,5 +1,4 @@
 from weakref import WeakValueDictionary
-from pypy.tool.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.rpython.error import TyperError
 from pypy.rlib.objectmodel import malloc_zero_filled, we_are_translated
@@ -9,9 +8,9 @@ from pypy.rlib.debug import ll_assert
 from pypy.rlib import jit
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rpython.rmodel import inputconst, IntegerRepr
-from pypy.rpython.rstr import AbstractStringRepr,AbstractCharRepr,\
-     AbstractUniCharRepr, AbstractStringIteratorRepr,\
-     AbstractLLHelpers, AbstractUnicodeRepr
+from pypy.rpython.rstr import (AbstractStringRepr, AbstractCharRepr,
+     AbstractUniCharRepr, AbstractStringIteratorRepr,
+     AbstractLLHelpers, AbstractUnicodeRepr)
 from pypy.rpython.lltypesystem import ll_str
 from pypy.rpython.lltypesystem.lltype import \
      GcStruct, Signed, Array, Char, UniChar, Ptr, malloc, \
@@ -20,7 +19,6 @@ from pypy.rpython.lltypesystem.lltype import \
 from pypy.rpython.rmodel import Repr
 from pypy.rpython.lltypesystem import llmemory
 from pypy.tool.sourcetools import func_with_new_name
-from pypy.rpython.lltypesystem.lloperation import llop
 
 # ____________________________________________________________
 #
@@ -84,7 +82,6 @@ def _new_copy_contents_fun(TP, CHAR_TP, name):
 copy_string_contents = _new_copy_contents_fun(STR, Char, 'string')
 copy_unicode_contents = _new_copy_contents_fun(UNICODE, UniChar, 'unicode')
 
-SIGNED_ARRAY = GcArray(Signed)
 CONST_STR_CACHE = WeakValueDictionary()
 CONST_UNICODE_CACHE = WeakValueDictionary()
 
@@ -201,28 +198,6 @@ class UniCharRepr(AbstractUniCharRepr, UnicodeRepr):
 #  get flowed and annotated, mostly with SomePtr.
 #
 
-def ll_construct_restart_positions(s, l):
-    # Construct the array of possible restarting positions
-    # T = Array_of_ints [-1..len2]
-    # T[-1] = -1 s2.chars[-1] is supposed to be unequal to everything else
-    T = malloc( SIGNED_ARRAY, l)
-    T[0] = 0
-    i = 1
-    j = 0
-    while i<l:
-        if s.chars[i] == s.chars[j]:
-            j += 1
-            T[i] = j
-            i += 1
-        elif j>0:
-            j = T[j-1]
-        else:
-            T[i] = 0
-            i += 1
-            j = 0
-    return T
-
-
 FAST_COUNT = 0
 FAST_FIND = 1
 FAST_RFIND = 2
@@ -233,6 +208,7 @@ from pypy.rlib.rarithmetic import LONG_BIT as BLOOM_WIDTH
 
 def bloom_add(mask, c):
     return mask | (1 << (ord(c) & (BLOOM_WIDTH - 1)))
+
 
 def bloom(mask, c):
     return mask & (1 << (ord(c) & (BLOOM_WIDTH - 1)))
@@ -284,8 +260,8 @@ class LLHelpers(AbstractLLHelpers):
 
     def ll_stritem_nonneg(s, i):
         chars = s.chars
-        ll_assert(i>=0, "negative str getitem index")
-        ll_assert(i<len(chars), "str getitem index out of bound")
+        ll_assert(i >= 0, "negative str getitem index")
+        ll_assert(i < len(chars), "str getitem index out of bound")
         return chars[i]
     ll_stritem_nonneg._annenforceargs_ = [None, int]
 
@@ -632,9 +608,9 @@ class LLHelpers(AbstractLLHelpers):
             i = start - 1
             while i + 1 <= start + w:
                 i += 1
-                if s1.chars[i+m-1] == s2.chars[m-1]:
+                if s1.chars[i + m - 1] == s2.chars[m - 1]:
                     for j in range(mlast):
-                        if s1.chars[i+j] != s2.chars[j]:
+                        if s1.chars[i + j] != s2.chars[j]:
                             break
                     else:
                         if mode != FAST_COUNT:
@@ -670,16 +646,16 @@ class LLHelpers(AbstractLLHelpers):
                 i -= 1
                 if s1.chars[i] == s2.chars[0]:
                     for j in xrange(mlast, 0, -1):
-                        if s1.chars[i+j] != s2.chars[j]:
+                        if s1.chars[i + j] != s2.chars[j]:
                             break
                     else:
                         return i
-                    if i-1 >= 0 and not bloom(mask, s1.chars[i-1]):
+                    if i - 1 >= 0 and not bloom(mask, s1.chars[i - 1]):
                         i -= m
                     else:
                         i -= skip
                 else:
-                    if i-1 >= 0 and not bloom(mask, s1.chars[i-1]):
+                    if i - 1 >= 0 and not bloom(mask, s1.chars[i - 1]):
                         i -= m
 
         if mode != FAST_COUNT:
@@ -710,7 +686,6 @@ class LLHelpers(AbstractLLHelpers):
             malloc = mallocunicode
             copy_contents = copy_unicode_contents
         result = malloc(itemslen)
-        res_chars = result.chars
         res_index = 0
         i = 0
         while i < num_items:
@@ -886,7 +861,7 @@ class LLHelpers(AbstractLLHelpers):
             sign = -1
             i += 1
         elif chars[i] == '+':
-            i += 1;
+            i += 1
         # skip whitespaces between sign and digits
         while i < strlen and chars[i] == ' ':
             i += 1
@@ -990,7 +965,7 @@ class LLHelpers(AbstractLLHelpers):
                     vchunk = hop.gendirectcall(ll_str.ll_int2oct, vitem,
                                                inputconst(Bool, False))
                 else:
-                    raise TyperError, "%%%s is not RPython" % (code, )
+                    raise TyperError("%%%s is not RPython" % (code,))
             else:
                 from pypy.rpython.lltypesystem.rstr import string_repr, unicode_repr
                 if is_unicode:

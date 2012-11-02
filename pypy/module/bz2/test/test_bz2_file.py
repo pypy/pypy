@@ -50,7 +50,7 @@ class AppTestBZ2File: #(CheckAllocation):
     # XXX for unknown reasons, we cannot do allocation checks, as sth is
     # keeping those objects alive (BZ2File objects)
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('bz2', 'thread'))
+        space = gettestobjspace(usemodules=('bz2', 'thread', 'itertools'))
         cls.space = space
         cls.w_TEXT = space.wrapbytes(TEXT)
         cls.w_DATA = space.wrapbytes(DATA)

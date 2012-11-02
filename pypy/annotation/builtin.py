@@ -188,10 +188,10 @@ def builtin_isinstance(s_obj, s_type, variables=None):
             variables = [op.args[1]]
         for variable in variables:
             assert bk.annotator.binding(variable) == s_obj
-        r.knowntypedata = {}
-        
+        knowntypedata = {}
         if not hasattr(typ, '_freeze_') and isinstance(s_type, SomePBC):
-            add_knowntypedata(r.knowntypedata, True, variables, bk.valueoftype(typ))
+            add_knowntypedata(knowntypedata, True, variables, bk.valueoftype(typ))
+        r.set_knowntypedata(knowntypedata)
     return r
 
 # note that this one either needs to be constant, or we will create SomeObject
@@ -323,10 +323,12 @@ def robjmodel_r_dict(s_eqfn, s_hashfn, s_force_non_null=None):
 
 def robjmodel_hlinvoke(s_repr, s_llcallable, *args_s):
     from pypy.rpython import rmodel
-    assert s_repr.is_constant() and isinstance(s_repr.const, rmodel.Repr),"hlinvoke expects a constant repr as first argument"
-    r_func, nimplicitarg  = s_repr.const.get_r_implfunc()
+    from pypy.rpython.error import TyperError
 
-    nbargs = len(args_s) + nimplicitarg 
+    assert s_repr.is_constant() and isinstance(s_repr.const, rmodel.Repr), "hlinvoke expects a constant repr as first argument"
+    r_func, nimplicitarg = s_repr.const.get_r_implfunc()
+
+    nbargs = len(args_s) + nimplicitarg
     s_sigs = r_func.get_s_signatures((nbargs, (), False, False))
     if len(s_sigs) != 1:
         raise TyperError("cannot hlinvoke callable %r with not uniform"
@@ -336,6 +338,7 @@ def robjmodel_hlinvoke(s_repr, s_llcallable, *args_s):
     rresult = r_func.rtyper.getrepr(s_ret)
 
     return lltype_to_annotation(rresult.lowleveltype)
+
 
 def robjmodel_keepalive_until_here(*args_s):
     return immutablevalue(None)
@@ -404,7 +407,10 @@ else:
     BUILTIN_ANALYZERS[unicodedata.decimal] = unicodedata_decimal # xxx
 
 # object - just ignore object.__init__
-BUILTIN_ANALYZERS[object.__init__] = object_init
+if hasattr(object.__init__, 'im_func'):
+    BUILTIN_ANALYZERS[object.__init__.im_func] = object_init
+else:
+    BUILTIN_ANALYZERS[object.__init__] = object_init    
 
 # import
 BUILTIN_ANALYZERS[__import__] = import_func

@@ -6,7 +6,7 @@ from pypy.rlib.jit import non_virtual_ref, vref_None
 
 class AppTestSlow:    
     def setup_class(cls):
-        space = gettestobjspace()
+        space = gettestobjspace(usemodules=['itertools'])
         cls.space = space
         if py.test.config.option.runappdirect:
             filename = __file__
@@ -75,7 +75,7 @@ def _detatch_helpers(space):
 class AppTestInterpObjectPickling:
     pytestmark = py.test.mark.skipif("config.option.runappdirect")
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['struct'])
+        cls.space = gettestobjspace(usemodules=['struct', 'itertools'])
         _attach_helpers(cls.space)
 
     def teardown_class(cls):

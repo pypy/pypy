@@ -4,7 +4,6 @@ import autopath
 from pypy.conftest import gettestobjspace
 
 class AppTestMemoryView:
-
     spaceconfig = dict(usemodules=['array'])
 
     def test_basic(self):

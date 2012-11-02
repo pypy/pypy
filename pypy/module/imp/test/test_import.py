@@ -624,8 +624,6 @@ class AppTestImport:
 
     def test_shadow_extension_1(self):
         if self.runappdirect: skip("hard to test: module is already imported")
-        # 'import itertools' is supposed to find itertools.py if there is
-        # one in sys.path.
         import sys
         sys.modules.pop('itertools', None)
         import itertools
@@ -636,9 +634,11 @@ class AppTestImport:
 
     def test_shadow_extension_2(self):
         if self.runappdirect: skip("hard to test: module is already imported")
-        # 'import itertools' is supposed to find the built-in module even
+        # 'import _md5' is supposed to find the built-in module even
         # if there is also one in sys.path as long as it is *after* the
-        # special entry '.../lib_pypy/__extensions__'.
+        # special entry '.../lib_pypy/__extensions__'.  (Note that for now
+        # there is one in lib_pypy/_md5.py, which should not be seen
+        # either; hence the (built-in) test below.)
         import sys
         sys.modules.pop('itertools', None)
         sys.path.append(sys.path.pop(0))
@@ -1068,7 +1068,7 @@ def test_PYTHONPATH_takes_precedence(space):
 class AppTestImportHooks(object):
 
     def setup_class(cls):
-        space = cls.space = gettestobjspace(usemodules=('struct',))
+        space = cls.space = gettestobjspace(usemodules=('struct', 'itertools'))
         mydir = os.path.dirname(__file__)
         cls.w_hooktest = space.wrap(os.path.join(mydir, 'hooktest'))
         space.appexec([space.wrap(mydir)], """
