@@ -45,6 +45,8 @@ major cleanups including killing some object support
 .. branch: cpyext-PyThreadState_New
 implement threadstate-related functions in cpyext
 
+.. branch: unicode-strategies
+add dict/list/set strategies optimized for unicode items
 
 .. "uninteresting" branches that we should just ignore for the whatsnew:
 .. branch: slightly-shorter-c
