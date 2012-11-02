@@ -455,6 +455,8 @@ class AppTestAppFloatTest:
 
 
 class AppTestFloatHex:
+    spaceconfig = {'usemodules': ['itertools']}
+
     def w_identical(self, x, y):
         import math
         # check that floats x and y are identical, or that both
