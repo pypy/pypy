@@ -32,6 +32,8 @@ class AppTestSrePy:
 
 class AppTestSrePattern:
 
+    spaceconfig = {'usemodules': ['itertools']}
+
     def test_copy(self):
         # copy support is disabled by default in _sre.c
         import re
@@ -95,7 +97,7 @@ class AppTestSrePattern:
 
 class AppTestSreMatch:
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=('array', ))
+        cls.space = gettestobjspace(usemodules=('array', 'itertools'))
         
     def test_copy(self):
         import re
@@ -282,7 +284,9 @@ class AppTestSreMatch:
 
 
 class AppTestSreScanner:
-
+    
+    spaceconfig = {'usemodules': ['itertools']}
+    
     def test_scanner_attributes(self):
         import re
         p = re.compile("bla")
@@ -329,9 +333,9 @@ class AppTestGetlower:
     def setup_class(cls):
         # This imports support_test_sre as the global "s"
         try:
-            cls.space = gettestobjspace(usemodules=('_locale',))
+            cls.space = gettestobjspace(usemodules=('_locale', 'itertools'))
         except py.test.skip.Exception:
-            cls.space = gettestobjspace(usemodules=('_rawffi',))
+            cls.space = gettestobjspace(usemodules=('_rawffi', 'itertools'))
         init_app_test(cls, cls.space)
 
     def setup_method(self, method):
@@ -377,7 +381,7 @@ class AppTestGetlower:
 
 class AppTestSimpleSearches:
 
-    spaceconfig = {'usemodules': ('array',)}
+    spaceconfig = {'usemodules': ('array', 'itertools')}
 
     def test_search_simple_literal(self):
         import re
@@ -558,6 +562,7 @@ class AppTestSimpleSearches:
 
 
 class AppTestMarksStack:
+    spaceconfig = {'usemodules': ['itertools']}
 
     def test_mark_stack_branch(self):
         import re
@@ -596,9 +601,9 @@ class AppTestOpcodes:
         if option.runappdirect:
             py.test.skip("can only be run on py.py: _sre opcodes don't match")
         try:
-            cls.space = gettestobjspace(usemodules=('_locale',))
+            cls.space = gettestobjspace(usemodules=('_locale', 'itertools'))
         except py.test.skip.Exception:
-            cls.space = gettestobjspace(usemodules=('_rawffi',))
+            cls.space = gettestobjspace(usemodules=('_rawffi', 'itertools'))
         # This imports support_test_sre as the global "s"
         init_app_test(cls, cls.space)
 
@@ -947,6 +952,8 @@ class AppTestOpcodes:
 class AppTestOptimizations:
     """These tests try to trigger optmized edge cases."""
 
+    spaceconfig = {'usemodules': ['itertools']}
+    
     def test_match_length_optimization(self):
         import re
         assert None == re.match("bla", "blub")
