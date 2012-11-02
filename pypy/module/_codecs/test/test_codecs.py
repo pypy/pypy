@@ -4,7 +4,7 @@ from pypy.conftest import gettestobjspace
 
 class AppTestCodecs:
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('unicodedata', 'struct'))
+        space = gettestobjspace(usemodules=('unicodedata', 'struct', 'itertools'))
         cls.space = space
 
     def test_register_noncallable(self):
