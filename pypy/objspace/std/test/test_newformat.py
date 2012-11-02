@@ -6,6 +6,8 @@ from pypy.conftest import gettestobjspace
 class BaseStringFormatTests:
     """Test format and __format__ methods of string objects."""
 
+    spaceconfig = {'usemodules': ['itertools']}
+
     def test_escape(self):
         assert self.s("{{").format() == "{"
         assert self.s("}}").format() == "}"
@@ -288,7 +290,7 @@ class AppTestIntFormatting(BaseIntegralFormattingTest):
 
 class AppTestFloatFormatting:
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=('_locale',))
+        cls.space = gettestobjspace(usemodules=('_locale', 'itertools'))
 
     def test_alternate(self):
         assert format(1.0, "#.0e") == "1.e+00"

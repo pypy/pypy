@@ -652,7 +652,8 @@ class AppTestWithMapDictAndCounters(object):
         cls.space = gettestobjspace(
             **{"objspace.std.withmapdict": True,
                "objspace.std.withmethodcachecounter": True,
-               "objspace.opcodes.CALL_METHOD": True})
+               "objspace.opcodes.CALL_METHOD": True,
+               "usemodules": ['itertools']})
         #
         def check(space, w_func, name):
             w_code = space.getattr(w_func, space.wrap('__code__'))
