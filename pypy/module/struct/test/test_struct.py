@@ -14,7 +14,7 @@ class AppTestStruct(object):
         Create a space with the struct module and import it for use by the
         tests.
         """
-        cls.space = gettestobjspace(usemodules=['struct'])
+        cls.space = gettestobjspace(usemodules=['struct', 'itertools'])
         cls.w_struct = cls.space.appexec([], """():
             import struct
             return struct

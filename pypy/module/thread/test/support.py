@@ -32,7 +32,7 @@ def timeout_killer(pid, delay):
 class GenericTestThread:
 
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('thread', 'time', 'signal'))
+        space = gettestobjspace(usemodules=('thread', 'time', 'signal', 'itertools'))
         cls.space = space
 
         if option.runappdirect:

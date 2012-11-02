@@ -142,6 +142,8 @@ class AppTestAppSysTests:
 
 class AppTestSysModulePortedFromCPython:
 
+    spaceconfig = {'usemodules': ['itertools']}
+
     def setup_class(cls):
         cls.w_appdirect = cls.space.wrap(option.runappdirect)
 
