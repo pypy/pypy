@@ -14,10 +14,11 @@ import signal
 
 def setup_module(mod):
     if os.name != 'nt':
-        mod.space = gettestobjspace(usemodules=['posix', 'fcntl', 'struct'])
+        mod.space = gettestobjspace(usemodules=['posix', 'fcntl', 'struct', 'itertools'])
     else:
         # On windows, os.popen uses the subprocess module
-        mod.space = gettestobjspace(usemodules=['posix', '_rawffi', 'thread', 'struct'])
+        mod.space = gettestobjspace(usemodules=['posix', '_rawffi', 'thread', 'struct',
+                                                'itertools'])
     mod.path = udir.join('posixtestfile.txt')
     mod.path.write("this is a test")
     mod.path2 = udir.join('test_posix2-')
@@ -49,6 +50,7 @@ def need_sparse_files():
 GET_POSIX = "(): import %s as m ; return m" % os.name
 
 class AppTestPosix:
+
     def setup_class(cls):
         cls.space = space
         cls.w_posix = space.appexec([], GET_POSIX)

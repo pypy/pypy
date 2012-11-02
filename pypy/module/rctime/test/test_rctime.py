@@ -3,7 +3,7 @@ import os
 
 class AppTestRCTime:
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('rctime', 'struct'))
+        space = gettestobjspace(usemodules=('rctime', 'struct', 'itertools'))
         cls.space = space
 
     def test_attributes(self):
