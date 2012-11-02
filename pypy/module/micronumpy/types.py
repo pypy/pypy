@@ -924,17 +924,16 @@ class NonNativeFloat(NonNativePrimitive, Float):
 
 class Float16(BaseType, Float):
     _attrs_ = ()
-    T = rffi.USHORT
-    _COMPUTATION_T = rffi.DOUBLE
+    _STORAGE_T = rffi.USHORT
+    T = rffi.DOUBLE
 
     BoxType = interp_boxes.W_Float16Box
 
-    def str_format(self, box):
-        return float2string(self.for_computation(self.unbox(box)), "g",
-                            rfloat.DTSF_STR_PRECISION)
-
     def pack_str(self, box):
         xxx
+
+    def get_element_size(self):
+        return rffi.sizeof(self._STORAGE_T)
 
     def runpack_str(self, s):
         hbits = runpack('H', s)
@@ -947,31 +946,15 @@ class Float16(BaseType, Float):
     def default_fromstring(self, space):
         return self.box(-1.0)
 
-    @specialize.argtype(1)
-    def unbox(self, box):
-        assert isinstance(box, self.BoxType)
-        return box.value
-
-    @specialize.argtype(1)
-    def box(self, value):
-        ret_val =  self.BoxType(rffi.cast(self._COMPUTATION_T, value))
-        return ret_val
-
-
     def _read(self, storage, i, offset):
-        byte_rep = raw_storage_getitem(self.T, storage, i + offset)
+        byte_rep = raw_storage_getitem(self._STORAGE_T, storage, i + offset)
         fbits = halffloat.halfbits_to_floatbits(byte_rep)
         return float_unpack(fbits, 4)
-
-    def read(self, arr, i, offset, dtype=None):
-        value = self._read(arr.storage, i, offset)
-        ret_val =  self.BoxType(rffi.cast(self._COMPUTATION_T, value))
-        return ret_val
 
     def _write(self, storage, i, offset, value):
         fbits = float_pack(value,4)
         hbits = halffloat.floatbits_to_halfbits(fbits)
-        raw_storage_setitem(storage, i + offset, rffi.cast(self.T, hbits))
+        raw_storage_setitem(storage, i + offset, rffi.cast(self._STORAGE_T, hbits))
 
 class NonNativeFloat16(BaseType, NonNativeFloat):
     _attrs_ = ()
