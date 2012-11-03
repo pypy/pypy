@@ -288,15 +288,19 @@ class AppTestPosix:
             skip("encoding not good enough")
         posix = self.posix
         result = posix.listdir(unicode_dir)
-        typed_result = [(type(x), x) for x in result]
-        assert (str, 'somefile') in typed_result
+        assert all(type(x) is str for x in result)
+        assert 'somefile' in result
         try:
             u = b"caf\xe9".decode(sys.getfilesystemencoding())
         except UnicodeDecodeError:
-            # Could not decode, listdir returned the byte string
-            assert (str, 'caf\udce9') in typed_result
+            # Could not decode, listdir returns it surrogateescape'd
+            if sys.platform != 'darwin':
+                assert 'caf\udce9' in result
+            else:
+                # darwin 'normalized' it
+                assert 'caf%E9' in result
         else:
-            assert (str, u) in typed_result
+            assert u in result
 
     def test_undecodable_filename(self):
         posix = self.posix
