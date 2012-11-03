@@ -120,7 +120,7 @@ def bit_length(space, w_obj):
                              space.wrap("too many digits in integer"))
 
 @unwrap_spec(s='bufferstr', byteorder=str, signed=bool)
-def descr_from_bytes(space, w_cls, s, byteorder, signed):
+def descr_from_bytes(space, w_cls, s, byteorder, signed=False):
     try:
         bigint = rbigint.frombytes(s, byteorder=byteorder, signed=signed)
     except InvalidEndiannessError:
@@ -130,7 +130,7 @@ def descr_from_bytes(space, w_cls, s, byteorder, signed):
     return newbigint(space, w_cls, bigint)
 
 @unwrap_spec(nbytes=int, byteorder=str, signed=bool)
-def descr_to_bytes(space, w_obj, nbytes, byteorder, signed):
+def descr_to_bytes(space, w_obj, nbytes, byteorder, signed=False):
     try:
         byte_string = space.bigint_w(w_obj).tobytes(nbytes, byteorder=byteorder, signed=signed)
     except InvalidEndiannessError:

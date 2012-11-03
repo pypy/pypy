@@ -310,6 +310,16 @@ class AppTestLong:
     def test_from_bytes(self):
         assert int.from_bytes(b'c', 'little') == 99
         assert int.from_bytes(b'\x01\x01', 'little') == 257
+        assert int.from_bytes(b'\x01\x00', 'big') == 256
+        assert int.from_bytes(b'\x00\x80', 'little', signed=True) == -32768
+        raises(TypeError, int.from_bytes, '', 'big')
+        raises(ValueError, int.from_bytes, b'c', 'foo')
+
+    def test_to_bytes(self):
+        assert 65535 .to_bytes(2, 'big') == b'\xff\xff'
+        assert (-8388608).to_bytes(3, 'little', signed=True) == b'\x00\x00\x80'
+        raises(OverflowError, (-5).to_bytes, 1, 'big')
+        raises(ValueError, (-5).to_bytes, 1, 'foo')
 
     def test_negative_zero(self):
         x = eval("-0")
