@@ -206,10 +206,10 @@ def translation_test_so_skip_if_appdirect():
     if option.runappdirect:
         py.test.skip("translation test, skipped for appdirect")
 
-def run_with_python(python, target, **definitions):
-    if python is None:
+def run_with_python(python_, target_, **definitions):
+    if python_ is None:
         py.test.skip("Cannot find the default python3 interpreter to run with -A")
-    # we assume that the source of target is in utf-8. Unfortunately, we don't
+    # we assume that the source of target_ is in utf-8. Unfortunately, we don't
     # have any easy/standard way to determine from here the original encoding
     # of the source file
     helpers = r"""# -*- encoding: utf-8 -*-
@@ -248,13 +248,13 @@ if 1:
             defs.append(str(code))
             args = ','.join(repr(arg) for arg in args)
             defs.append("self.%s = anonymous(%s)\n" % (symbol, args))
-    source = py.code.Source(target)[1:].deindent()
+    source = py.code.Source(target_)[1:].deindent()
     pyfile = udir.join('src.py')
     source = helpers + '\n'.join(defs) + str(source)
     with pyfile.open('w') as f:
         f.write(source)
     res, stdout, stderr = runsubprocess.run_subprocess(
-        python, [str(pyfile)])
+        python_, [str(pyfile)])
     print source
     print >> sys.stdout, stdout
     print >> sys.stderr, stderr
