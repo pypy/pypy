@@ -535,11 +535,6 @@ class Bookkeeper(object):
                     raise Exception("%s: %r" % (msg, pyobj))
                 result = self.getfrozen(pyobj)
             self.descs[pyobj] = result
-            #
-            if (isinstance(result, description.ClassDesc) and
-                    not result.specialize):
-                result.getuniqueclassdef()    # force it: see rpython/test's
-                #                 test_rpbc.test_pbc_of_classes_not_all_used
             return result
 
     def have_seen(self, x):
