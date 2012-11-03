@@ -3,7 +3,7 @@ from pypy.interpreter.error import operationerrfmt, OperationError
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array,\
-     ArrayArgumentException
+     ArrayArgumentException, issequence_w
 from pypy.module.micronumpy import interp_dtype, interp_ufuncs, interp_boxes
 from pypy.module.micronumpy.strides import find_shape_and_elems,\
      get_shape_from_iterable, to_coords, shape_agreement
@@ -644,7 +644,7 @@ W_NDimArray.typedef = TypeDef(
 @unwrap_spec(ndmin=int, copy=bool, subok=bool)
 def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
           ndmin=0):
-    if not space.issequence_w(w_object):
+    if not issequence_w(space, w_object):
         if space.is_none(w_dtype):
             w_dtype = interp_ufuncs.find_dtype_for_scalar(space, w_object)
         dtype = space.interp_w(interp_dtype.W_Dtype,

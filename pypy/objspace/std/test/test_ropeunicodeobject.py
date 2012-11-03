@@ -8,6 +8,8 @@ class TestRopeUnicodeObject(test_unicodeobject.TestUnicodeObject):
     def setup_class(cls):
         cls.space = gettestobjspace(**{"objspace.std.withropeunicode": True})
 
+    def test_listview_unicode(self):
+        py.test.skip("missing optimization for ropes")
 
 class AppTestRopeObject(test_stringobject.AppTestStringObject):
 

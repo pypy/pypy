@@ -1,5 +1,10 @@
 from pypy.objspace.std.setobject import W_SetObject
-from pypy.objspace.std.setobject import IntegerSetStrategy, ObjectSetStrategy, EmptySetStrategy
+from pypy.objspace.std.setobject import (IntegerSetStrategy, ObjectSetStrategy,
+                                         EmptySetStrategy, StringSetStrategy,
+                                         UnicodeSetStrategy,
+                                         IntegerIteratorImplementation,
+                                         StringIteratorImplementation,
+                                         UnicodeIteratorImplementation)
 from pypy.objspace.std.listobject import W_ListObject
 
 class TestW_SetStrategies:
@@ -20,6 +25,12 @@ class TestW_SetStrategies:
         s = W_SetObject(self.space, self.wrapped([]))
         assert s.strategy is self.space.fromcache(EmptySetStrategy)
 
+        s = W_SetObject(self.space, self.wrapped(["a", "b"]))
+        assert s.strategy is self.space.fromcache(StringSetStrategy)
+
+        s = W_SetObject(self.space, self.wrapped([u"a", u"b"]))
+        assert s.strategy is self.space.fromcache(UnicodeSetStrategy)
+
     def test_switch_to_object(self):
         s = W_SetObject(self.space, self.wrapped([1,2,3,4,5]))
         s.add(self.space.wrap("six"))
@@ -29,6 +40,11 @@ class TestW_SetStrategies:
         s2 = W_SetObject(self.space, self.wrapped(["six", "seven"]))
         s1.update(s2)
         assert s1.strategy is self.space.fromcache(ObjectSetStrategy)
+
+    def test_switch_to_unicode(self):
+        s = W_SetObject(self.space, self.wrapped([]))
+        s.add(self.space.wrap(u"six"))
+        assert s.strategy is self.space.fromcache(UnicodeSetStrategy)
 
     def test_symmetric_difference(self):
         s1 = W_SetObject(self.space, self.wrapped([1,2,3,4,5]))
@@ -105,3 +121,34 @@ class TestW_SetStrategies:
 
         assert s1.has_key(self.space.wrap(FakeInt(2)))
         assert s1.strategy is self.space.fromcache(ObjectSetStrategy)
+
+    def test_iter(self):
+        space = self.space
+        s = W_SetObject(space, self.wrapped([1,2]))
+        it = s.iter()
+        assert isinstance(it, IntegerIteratorImplementation)
+        assert space.unwrap(it.next()) == 1
+        assert space.unwrap(it.next()) == 2
+        #
+        s = W_SetObject(space, self.wrapped(["a", "b"]))
+        it = s.iter()
+        assert isinstance(it, StringIteratorImplementation)
+        assert space.unwrap(it.next()) == "a"
+        assert space.unwrap(it.next()) == "b"
+        #
+        s = W_SetObject(space, self.wrapped([u"a", u"b"]))
+        it = s.iter()
+        assert isinstance(it, UnicodeIteratorImplementation)
+        assert space.unwrap(it.next()) == u"a"
+        assert space.unwrap(it.next()) == u"b"
+
+    def test_listview(self):
+        space = self.space
+        s = W_SetObject(space, self.wrapped([1,2]))
+        assert sorted(space.listview_int(s)) == [1, 2]
+        #
+        s = W_SetObject(space, self.wrapped(["a", "b"]))
+        assert sorted(space.listview_str(s)) == ["a", "b"]
+        #
+        s = W_SetObject(space, self.wrapped([u"a", u"b"]))
+        assert sorted(space.listview_unicode(s)) == [u"a", u"b"]
