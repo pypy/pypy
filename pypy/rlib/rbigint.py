@@ -11,6 +11,7 @@ from pypy.rpython import extregistry
 import math, sys
 
 SUPPORT_INT128 = hasattr(rffi, '__INT128_T')
+BYTEORDER = sys.byteorder
 
 # note about digit sizes:
 # In division, the native integer type must be able to hold
@@ -94,6 +95,12 @@ def _check_digits(l):
         assert type(x) is type(NULLDIGIT)
         assert UDIGIT_MASK(x) & MASK == UDIGIT_MASK(x)
             
+class InvalidEndiannessError(Exception):
+    pass
+
+class InvalidSignednessError(Exception):
+    pass
+
 class Entry(extregistry.ExtRegistryEntry):
     _about_ = _check_digits
     def compute_result_annotation(self, s_list):
@@ -262,22 +269,121 @@ class rbigint(object):
         return _decimalstr_to_bigint(s)
 
     @staticmethod
-    def frombytes(s):
-        accum = 0
+    def frombytes(s, byteorder, signed):
+        if byteorder != "big" and byteorder != "little":
+            raise InvalidEndiannessError()
+
+        if byteorder != BYTEORDER:
+            msb = ord(s[0])
+            itr = range(len(s)-1, -1, -1)
+        else:
+            msb = ord(s[-1])
+            itr = range(0, len(s))
+
+        sign = -1 if msb >= 0x80 and signed else 1
+        accum = _widen_digit(0)
         accumbits = 0
         digits = []
-        for ch in s:
-            c = ord(ch)
-            accum <<= 8
-            accum |= c
+        carry = 1
+
+        for i in itr:
+            c = _widen_digit(ord(s[i]))
+            if sign == -1:
+                c = (0xFF ^ c) + carry
+                carry = c >> 8
+                c &= 0xFF
+
+            accum |= c << accumbits
             accumbits += 8
             if accumbits >= SHIFT:
                 digits.append(_store_digit(intmask(accum & MASK)))
                 accum >>= SHIFT
                 accumbits -= SHIFT
+
         if accumbits:
             digits.append(_store_digit(intmask(accum)))
-        return rbigint(digits[:], 1)
+        return rbigint(digits[:], sign)
+
+    @jit.elidable
+    def tobytes(self, nbytes, byteorder, signed):
+        if byteorder != "big" and byteorder != "little":
+            raise InvalidEndiannessError()
+        if not signed and self.sign == -1:
+            raise InvalidSignednessError()
+
+        bswap = byteorder != BYTEORDER
+        d = _widen_digit(0)
+        j = 0
+        imax = self.numdigits()
+        accum = _widen_digit(0)
+        accumbits = 0
+        digits = ''
+        carry = 1
+
+        for i in range(0, imax):
+            d = self.widedigit(i)
+            if self.sign == -1:
+                d = (d ^ MASK) + carry
+                carry = d >> SHIFT
+                d &= MASK
+
+            accum |= d << accumbits
+            if i == imax - 1:
+                # Avoid bogus 0's
+                s = d ^ MASK if self.sign == -1 else d
+                while s:
+                    s >>=1
+                    accumbits += 1
+            else:
+                accumbits += SHIFT
+
+            while accumbits >= 8:
+                if j >= nbytes:
+                    raise OverflowError()
+                j += 1
+
+                if bswap:
+                    digits = chr(accum & 0xFF) + digits
+                else:
+                    digits += chr(accum & 0xFF)
+                accum >>= 8
+                accumbits -= 8
+
+        if accumbits:
+            if j >= nbytes:
+                raise OverflowError()
+            j += 1
+
+            if self.sign == -1:
+                # Add a sign bit
+                accum |= (~_widen_digit(0)) << accumbits;
+
+            if bswap:
+                digits = chr(accum & 0xFF) + digits
+            else:
+                digits += chr(accum & 0xFF)
+
+        elif j == nbytes and nbytes > 0 and signed:
+            # If not already set, we cannot contain the sign bit
+            assert len(digits) > 0
+            if bswap:
+                msb = digits[0]
+            else:
+                msb = digits[-1]
+
+            if (self.sign == -1) != (ord(msb) >= 0x80):
+                raise OverflowError()
+
+        signbyte = 0xFF if self.sign == -1 else 0
+        while j < nbytes:
+            # Set INFINITE signbits!
+            if bswap:
+                digits = chr(signbyte) + digits
+            else:
+                digits += chr(signbyte)
+            j += 1
+
+        return digits
 
     @jit.elidable
     def toint(self):
@@ -1055,85 +1161,6 @@ for x in range(SHIFT-1):
     ptwotable[r_longlong(2 << x)] = x+1
     ptwotable[r_longlong(-2 << x)] = x+1
     
-def _x_mul(a, b, digit=0):
-    """
-    Grade school multiplication, ignoring the signs.
-    Returns the absolute value of the product, or None if error.
-    """
-
-    size_a = a.numdigits()
-    size_b = b.numdigits()
-
-    if a is b:
-        # Efficient squaring per HAC, Algorithm 14.16:
-        # http://www.cacr.math.uwaterloo.ca/hac/about/chap14.pdf
-        # Gives slightly less than a 2x speedup when a == b,
-        # via exploiting that each entry in the multiplication
-        # pyramid appears twice (except for the size_a squares).
-        z = rbigint([NULLDIGIT] * (size_a + size_b), 1)
-        i = UDIGIT_TYPE(0)
-        while i < size_a:
-            f = a.widedigit(i)
-            pz = i << 1
-            pa = i + 1
-
-            carry = z.widedigit(pz) + f * f
-            z.setdigit(pz, carry)
-            pz += 1
-            carry >>= SHIFT
-            assert carry <= MASK
-
-            # Now f is added in twice in each column of the
-            # pyramid it appears.  Same as adding f<<1 once.
-            f <<= 1
-            while pa < size_a:
-                carry += z.widedigit(pz) + a.widedigit(pa) * f
-                pa += 1
-                z.setdigit(pz, carry)
-                pz += 1
-                carry >>= SHIFT
-            if carry:
-                carry += z.widedigit(pz)
-                z.setdigit(pz, carry)
-                pz += 1
-                carry >>= SHIFT
-            if carry:
-                z.setdigit(pz, z.widedigit(pz) + carry)
-            assert (carry >> SHIFT) == 0
-            i += 1
-        z._normalize()
-        return z
-    
-    elif digit:
-        if digit & (digit - 1) == 0:
-            return b.lqshift(ptwotable[digit])
-        
-        # Even if it's not power of two it can still be useful.
-        return _muladd1(b, digit)
-        
-    z = rbigint([NULLDIGIT] * (size_a + size_b), 1)
-    # gradeschool long mult
-    i = UDIGIT_TYPE(0)
-    while i < size_a:
-        carry = 0
-        f = a.widedigit(i)
-        pz = i
-        pb = 0
-        while pb < size_b:
-            carry += z.widedigit(pz) + b.widedigit(pb) * f
-            pb += 1
-            z.setdigit(pz, carry)
-            pz += 1
-            carry >>= SHIFT
-            assert carry <= MASK
-        if carry:
-            assert pz >= 0
-            z.setdigit(pz, z.widedigit(pz) + carry)
-        assert (carry >> SHIFT) == 0
-        i += 1
-    z._normalize()
-    return z
-
 def _x_mul(a, b, digit=0):
     """
     Grade school multiplication, ignoring the signs.

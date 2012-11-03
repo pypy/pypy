@@ -765,5 +765,10 @@ class TestTranslatable(object):
 
     def test_frombytes(self):
         s = "\xFF\x12\x34\x56"
-        bigint = rbigint.frombytes(s)
+        bigint = rbigint.frombytes(s, byteorder="big", signed=False)
         assert bigint.tolong() == 0xFF123456
+        bigint = rbigint.frombytes(s, byteorder="little", signed=False)
+        assert bigint.tolong() == 0x563412FF
+        s = "\xFF\x02\x03\x04\x05\x06\x07\x08\x09\x10\x11\x12\x13\x14\x15\xFF"
+        bigint = rbigint.frombytes(s, byteorder="big", signed=False)
+        assert s == bigint.tobytes(byteorder="big", signed=False)

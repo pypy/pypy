@@ -5,7 +5,7 @@ from pypy.interpreter.gateway import (applevel, interp2app, unwrap_spec,
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 from pypy.objspace.std.strutil import string_to_bigint, ParseStringError
-from pypy.rlib.rbigint import rbigint
+from pypy.rlib.rbigint import rbigint, InvalidEndiannessError, InvalidSignednessError
 
 def descr_conjugate(space, w_int):
     return space.int(w_int)
@@ -119,13 +119,33 @@ def bit_length(space, w_obj):
         raise OperationError(space.w_OverflowError,
                              space.wrap("too many digits in integer"))
 
-@unwrap_spec(s='bufferstr', byteorder=str)
-def descr_from_bytes(space, w_cls, s, byteorder):
-    bigint = rbigint.frombytes(s)
-    from pypy.objspace.std.longobject import W_LongObject
-    w_obj = space.allocate_instance(W_LongObject, w_cls)
-    W_LongObject.__init__(w_obj, bigint)
-    return w_obj
+@unwrap_spec(s='bufferstr', byteorder=str, signed=bool)
+def descr_from_bytes(space, w_cls, s, byteorder, signed):
+    try:
+        bigint = rbigint.frombytes(s, byteorder=byteorder, signed=signed)
+    except InvalidEndiannessError:
+        raise OperationError(
+            space.w_ValueError,
+            space.wrap("byteorder must be either 'little' or 'big'"))
+    return newbigint(space, w_cls, bigint)
+
+@unwrap_spec(nbytes=int, byteorder=str, signed=bool)
+def descr_to_bytes(space, w_obj, nbytes, byteorder, signed):
+    try:
+        byte_string = space.bigint_w(w_obj).tobytes(nbytes, byteorder=byteorder, signed=signed)
+    except InvalidEndiannessError:
+        raise OperationError(
+            space.w_ValueError,
+            space.wrap("byteorder must be either 'little' or 'big'"))
+    except InvalidSignednessError:
+        raise OperationError(
+            space.w_OverflowError,
+            space.wrap("can't convert negative int to unsigned"))
+    except OverflowError:
+        raise OperationError(
+            space.w_OverflowError,
+            space.wrap('int too big to convert'))
+    return space.wrapbytes(byte_string)
 
 divmod_near = applevel('''
        def divmod_near(a, b):
@@ -198,5 +218,6 @@ converting a non-string.''',
     imag = typedef.GetSetProperty(descr_get_imag),
     bit_length = interp2app(bit_length),
     from_bytes = interp2app(descr_from_bytes, as_classmethod=True),
+    to_bytes = interp2app(descr_to_bytes)
 )
 long_typedef.registermethods(globals())
