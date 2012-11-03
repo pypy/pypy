@@ -270,7 +270,7 @@ class rbigint(object):
 
     @staticmethod
     def frombytes(s, byteorder, signed):
-        if byteorder != "big" and byteorder != "little":
+        if byteorder not in ('big', 'little'):
             raise InvalidEndiannessError()
 
         if byteorder != BYTEORDER:
@@ -306,7 +306,7 @@ class rbigint(object):
 
     @jit.elidable
     def tobytes(self, nbytes, byteorder, signed):
-        if byteorder != "big" and byteorder != "little":
+        if byteorder not in ('big', 'little'):
             raise InvalidEndiannessError()
         if not signed and self.sign == -1:
             raise InvalidSignednessError()
