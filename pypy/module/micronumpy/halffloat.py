@@ -4,6 +4,7 @@ from pypy.rpython.lltypesystem import rffi
 
 
 def halfbits_to_floatbits(x):
+    x = rffi.cast(rffi.UINT, x)
     h_exp = x & 0x7c00
     f_sgn = (x & 0x8000) << 16
     if h_exp == 0: #0 or subnormal
@@ -25,7 +26,7 @@ def halfbits_to_floatbits(x):
 
 
 def floatbits_to_halfbits(f):
-    h_sgn = (f & 0x80000000) >> 16
+    h_sgn = (f >>16) & 0x8000
     f_exp = f & 0x7f800000
     if f_exp >= 0x47800000:
         # Exponent overflow, convert to signed inf/nan

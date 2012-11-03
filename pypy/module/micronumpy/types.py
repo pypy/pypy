@@ -930,13 +930,16 @@ class Float16(BaseType, Float):
     BoxType = interp_boxes.W_Float16Box
 
     def pack_str(self, box):
-        xxx
+        fbits = float_pack(self.unbox(box))
+        hbits = halffloat.floatbits_to_halfbits(fbits)
+        return struct.pack('H', hbits)
 
     def get_element_size(self):
         return rffi.sizeof(self._STORAGE_T)
 
     def runpack_str(self, s):
-        hbits = runpack('H', s)
+        hbits = rffi.cast(rffi.UINT, runpack('H', s))
+        assert hbits >=0
         fbits = halffloat.halfbits_to_floatbits(hbits)
         return self.box(float_unpack(fbits, 4))
 
@@ -947,19 +950,34 @@ class Float16(BaseType, Float):
         return self.box(-1.0)
 
     def _read(self, storage, i, offset):
-        byte_rep = raw_storage_getitem(self._STORAGE_T, storage, i + offset)
+        byte_rep = rffi.cast(rffi.UINT, 
+                raw_storage_getitem(self._STORAGE_T, storage, i + offset))
+        assert byte_rep >=0
         fbits = halffloat.halfbits_to_floatbits(byte_rep)
         return float_unpack(fbits, 4)
 
     def _write(self, storage, i, offset, value):
         fbits = float_pack(value,4)
         hbits = halffloat.floatbits_to_halfbits(fbits)
-        raw_storage_setitem(storage, i + offset, rffi.cast(self._STORAGE_T, hbits))
+        raw_storage_setitem(storage, i + offset,
+                rffi.cast(self._STORAGE_T, hbits))
 
-class NonNativeFloat16(BaseType, NonNativeFloat):
+class NonNativeFloat16(Float16):
     _attrs_ = ()
-
     BoxType = interp_boxes.W_Float16Box
+
+    def _read(self, storage, i, offset):
+        res = Float16._read(self, storage, i, offset)
+        #return byteswap(res) XXX
+        return res
+
+    def _write(self, storage, i, offset, value):
+        #value = byteswap(value) XXX
+        Float16._write(self, storage, i, offset, value)
+
+    def pack_str(self, box):
+        # XXX byteswap
+        return Float16.pack_str(self, box)
 
 class Float32(BaseType, Float):
     _attrs_ = ()
