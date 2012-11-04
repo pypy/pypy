@@ -91,7 +91,7 @@ class AppTestWinpipeConnection(BaseConnectionTest):
 
 class AppTestSocketConnection(BaseConnectionTest):
     spaceconfig = dict(usemodules=('_multiprocessing', 'thread', 'signal',
-                                   'struct', 'array'))
+                                   'struct', 'array', 'itertools'))
     def setup_class(cls):
         cls.w_connections = cls.space.newlist([])
 

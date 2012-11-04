@@ -64,7 +64,7 @@ class Buffer(Wrappable):
         if not isinstance(self, RWBuffer):
             raise OperationError(space.w_TypeError,
                                  space.wrap("buffer is read-only"))
-        start, stop, step = space.decode_index(w_index, self.getlength())
+        start, stop, step, size = space.decode_index4(w_index, self.getlength())
         if step == 0:  # index only
             if len(newstring) != 1:
                 msg = 'buffer[index]=x: x must be a single character'
@@ -72,13 +72,9 @@ class Buffer(Wrappable):
             char = newstring[0]   # annotator hint
             self.setitem(start, char)
         elif step == 1:
-            length = stop - start
-            if length != len(newstring):
-                if length < 0 and len(newstring) == 0:
-                    pass     # ok anyway
-                else:
-                    msg = "right operand length must match slice length"
-                    raise OperationError(space.w_ValueError, space.wrap(msg))
+            if len(newstring) != size:
+                msg = "right operand length must match slice length"
+                raise OperationError(space.w_ValueError, space.wrap(msg))
             self.setslice(start, newstring)
         else:
             raise OperationError(space.w_ValueError,

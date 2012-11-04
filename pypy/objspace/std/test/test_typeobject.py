@@ -1164,9 +1164,9 @@ class TestNewShortcut:
 """)
         w_A, w_B, w_M = space.unpackiterable(w_tup)
 
-        assert w_A.w_bltin_new is None
-        assert w_B.w_bltin_new is None
-        assert w_M.w_bltin_new is None                
+        assert w_A.w_new_function is None
+        assert w_B.w_new_function is None
+        assert w_M.w_new_function is None                
 
         _, w_object_newdescr = space.lookup_in_type_where(space.w_object,
                                                           '__new__')
@@ -1174,17 +1174,18 @@ class TestNewShortcut:
                                      w_type=space.w_object)
 
         w_a = space.call_function(w_A)
-        assert w_A.w_bltin_new is w_object___new__
+        assert w_A.w_new_function is w_object___new__
 
         # will shortcut
         w_a = space.call_function(w_A)
 
         w_b = space.call_function(w_B)
-        assert w_B.w_bltin_new is None
+        assert w_B.w_new_function is not None
+        w_b = space.call_function(w_B)
 
         w_m = space.call_function(w_M, space.wrap('C'), space.newlist([]),
                                   space.newdict())
-        assert w_M.w_bltin_new is None                                  
+        assert w_M.w_new_function is not None
 
 
 class AppTestNewShortcut:

@@ -1186,9 +1186,10 @@ class AppTestW_ListObject(object):
         # strategies, to avoid surprizes depending on the strategy.
         class X: pass
         for base, arg in [
-                (list, []), (list, [5]), (list, ['x']), (list, [X]),
-                (set, []),  (set,  [5]), (set,  ['x']), (set, [X]),
+                (list, []), (list, [5]), (list, ['x']), (list, [X]), (list, [u'x']),
+                (set, []),  (set,  [5]), (set,  ['x']), (set, [X]), (set, [u'x']),
                 (dict, []), (dict, [(5,6)]), (dict, [('x',7)]), (dict, [(X,8)]),
+                (dict, [(u'x', 7)]),
                 ]:
             print base, arg
             class SubClass(base):

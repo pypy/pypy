@@ -384,6 +384,14 @@ class SomePBC(SomeObject):
                 desc, = descriptions
                 if desc.pyobj is not None:
                     self.const = desc.pyobj
+            elif len(descriptions) > 1:
+                from pypy.annotation.description import ClassDesc
+                if self.getKind() is ClassDesc:
+                    # a PBC of several classes: enforce them all to be
+                    # built, without support for specialization.  See
+                    # rpython/test/test_rpbc.test_pbc_of_classes_not_all_used
+                    for desc in descriptions:
+                        desc.getuniqueclassdef()
 
     def any_description(self):
         return iter(self.descriptions).next()
@@ -700,7 +708,7 @@ def merge_knowntypedata(ktd1, ktd2):
     return r
 
 def not_const(s_obj):
-    if s_obj.is_constant():
+    if s_obj.is_constant() and not isinstance(s_obj, SomePBC):
         new_s_obj = SomeObject.__new__(s_obj.__class__)
         dic = new_s_obj.__dict__ = s_obj.__dict__.copy()
         if 'const' in dic:

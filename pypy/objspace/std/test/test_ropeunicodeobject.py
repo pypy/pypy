@@ -5,6 +5,8 @@ from pypy.objspace.std.test import test_stringobject, test_unicodeobject
 class TestRopeUnicodeObject(test_unicodeobject.TestUnicodeObject):
     spaceconfig = {"objspace.std.withropeunicode": True}
 
+    def test_listview_unicode(self):
+        py.test.skip("missing optimization for ropes")
 
 class AppTestRopeObject(test_stringobject.AppTestStringObject):
     spaceconfig = {"objspace.std.withropeunicode": True}

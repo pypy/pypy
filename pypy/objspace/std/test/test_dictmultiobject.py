@@ -138,32 +138,47 @@ class TestW_DictObject:
 
     def test_listview_str_dict(self):
         w = self.space.wrap
-
         w_d = self.space.newdict()
         w_d.initialize_content([(w("a"), w(1)), (w("b"), w(2))])
-
         assert self.space.listview_str(w_d) == ["a", "b"]
+
+    def test_listview_unicode_dict(self):
+        w = self.space.wrap
+        w_d = self.space.newdict()
+        w_d.initialize_content([(w(u"a"), w(1)), (w(u"b"), w(2))])
+        assert self.space.listview_unicode(w_d) == [u"a", u"b"]
 
     def test_listview_int_dict(self):
         w = self.space.wrap
         w_d = self.space.newdict()
         w_d.initialize_content([(w(1), w("a")), (w(2), w("b"))])
-
         assert self.space.listview_int(w_d) == [1, 2]
 
-    def test_keys_on_string_int_dict(self):
+    def test_keys_on_string_unicode_int_dict(self, monkeypatch):
         w = self.space.wrap
+        
         w_d = self.space.newdict()
         w_d.initialize_content([(w(1), w("a")), (w(2), w("b"))])
-
         w_l = self.space.call_method(w_d, "keys")
         assert sorted(self.space.listview_int(w_l)) == [1,2]
-
+        
+        # make sure that .keys() calls newlist_str for string dicts
+        def not_allowed(*args):
+            assert False, 'should not be called'
+        monkeypatch.setattr(self.space, 'newlist', not_allowed)
+        #
         w_d = self.space.newdict()
         w_d.initialize_content([(w("a"), w(1)), (w("b"), w(6))])
-
         w_l = self.space.call_method(w_d, "keys")
         assert sorted(self.space.listview_str(w_l)) == ["a", "b"]
+
+        # XXX: it would be nice if the test passed without monkeypatch.undo(),
+        # but we need space.newlist_unicode for it
+        monkeypatch.undo() 
+        w_d = self.space.newdict()
+        w_d.initialize_content([(w(u"a"), w(1)), (w(u"b"), w(6))])
+        w_l = self.space.call_method(w_d, "keys")
+        assert sorted(self.space.listview_unicode(w_l)) == [u"a", u"b"]
 
 class AppTest_DictObject:
     def setup_class(cls):
@@ -793,6 +808,16 @@ class AppTestStrategies(object):
         o.a = 1
         assert "StringDictStrategy" in self.get_strategy(d)
 
+    def test_empty_to_unicode(self):
+        d = {}
+        assert "EmptyDictStrategy" in self.get_strategy(d)
+        d[u"a"] = 1
+        assert "UnicodeDictStrategy" in self.get_strategy(d)
+        assert d[u"a"] == 1
+        assert d["a"] == 1
+        assert d.keys() == [u"a"]
+        assert type(d.keys()[0]) is unicode
+
     def test_empty_to_int(self):
         import sys
         d = {}
@@ -828,7 +853,7 @@ class AppTestStrategies(object):
         raises(RuntimeError, list, it)
 
 
-class FakeString(str):
+class FakeWrapper(object):
     hash_count = 0
     def unwrap(self, space):
         self.unwrapped = True
@@ -837,6 +862,12 @@ class FakeString(str):
     def __hash__(self):
         self.hash_count += 1
         return str.__hash__(self)
+
+class FakeString(FakeWrapper, str):
+    pass
+
+class FakeUnicode(FakeWrapper, unicode):
+    pass
 
 # the minimal 'space' needed to use a W_DictMultiObject
 class FakeSpace:
@@ -910,6 +941,7 @@ class FakeSpace:
     w_bool = bool
     w_float = float
     StringObjectCls = FakeString
+    UnicodeObjectCls = FakeUnicode
     w_dict = W_DictMultiObject
     iter = iter
     fixedview = list

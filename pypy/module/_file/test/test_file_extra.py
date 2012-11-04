@@ -351,7 +351,7 @@ class AppTestLargeBufferUniversal(AppTestUniversalNewlines):
 #  A few extra tests
 
 class AppTestAFewExtra:
-    spaceconfig = dict(usemodules=('_ffi',))
+    spaceconfig = dict(usemodules=('array', '_socket'))
 
     def setup_method(self, method):
         fn = str(udir.join('temptestfile'))
@@ -602,3 +602,16 @@ class AppTestAFewExtra:
                                   repr(unicode(self.temptestfile)))
         f.close()
 
+    def test_EAGAIN(self):
+        import _socket, posix
+        s1, s2 = _socket.socketpair()
+        s2.setblocking(False)
+        s1.send("hello")
+
+        f2 = posix.fdopen(posix.dup(s2.fileno()), 'rb', 0)
+        data = f2.read(12)
+        assert data == "hello"
+
+        f2.close()
+        s2.close()
+        s1.close()

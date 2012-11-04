@@ -1620,6 +1620,26 @@ class BaseTestRPBC(BaseRtypingTest):
         res = self.interpret(g, [1])
         assert not res
 
+    def test_pbc_of_classes_not_all_used(self):
+        class Base(object): pass
+        class A(Base): pass
+        class B(Base): pass
+        def poke(lst):
+            pass
+        def g():
+            A()
+            poke([A, B])
+        self.interpret(g, [])
+
+    def test_pbc_of_classes_isinstance_only(self):
+        class Base(object): pass
+        class ASub(Base): pass
+        def g():
+            x = Base()
+            return isinstance(x, ASub)
+        res = self.interpret(g, [])
+        assert res == False
+
 class TestLLtype(BaseTestRPBC, LLRtypeMixin):
     pass
 

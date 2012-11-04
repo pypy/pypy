@@ -4,6 +4,8 @@ from pypy.interpreter import gateway
 from pypy.rlib.jit import non_virtual_ref, vref_None
 
 class AppTestSlow:    
+    spaceconfig = dict(usemodules=['itertools'])
+
     def setup_class(cls):
         if py.test.config.option.runappdirect:
             filename = __file__

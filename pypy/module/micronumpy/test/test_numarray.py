@@ -2272,6 +2272,11 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         raises(TypeError, a, 'sum')
         raises(TypeError, 'a+a')
 
+    def test_string_scalar(self):
+        from _numpypy import array
+        a = array('ffff')
+        assert a.shape == ()
+
     def test_flexible_repr(self):
         # import overrides str(), repr() for array
         from numpypy.core import arrayprint
