@@ -148,11 +148,8 @@ class PyPyTarget(object):
         global space, entry_point
 
         if config.translation.stm:
-            #config.objspace.usemodules.transaction = True
             config.objspace.usemodules.signal = False     # XXX! FIXME
             config.translation.thread = True
-        #elif config.objspace.usemodules.transaction:
-        #    raise Exception("use --stm, not --withmod-transaction alone")
 
         if config.objspace.allworkingmodules:
             from pypy.config.pypyoption import enable_allworkingmodules
