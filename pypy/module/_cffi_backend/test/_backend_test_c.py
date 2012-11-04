@@ -2342,3 +2342,22 @@ def test_FILE_object():
     data = posix.read(fdr, 256)
     assert data == b"Xhello\n"
     posix.close(fdr)
+
+def test_GetLastError():
+    if sys.platform != "win32":
+        py.test.skip("GetLastError(): only for Windows")
+    #
+    lib = find_and_load_library('KERNEL32')
+    BInt = new_primitive_type("int")
+    BVoid = new_void_type()
+    BFunc1 = new_function_type((BInt,), BVoid, False)
+    BFunc2 = new_function_type((), BInt, False)
+    SetLastError = lib.load_function(BFunc1, "SetLastError")
+    GetLastError = lib.load_function(BFunc2, "GetLastError")
+    #
+    SetLastError(42)
+    # a random function that will reset the real GetLastError() to 0
+    import nt; nt.stat('.')
+    #
+    res = GetLastError()
+    assert res == 42
