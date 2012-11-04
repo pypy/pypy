@@ -171,56 +171,71 @@ def _get_abi(space, name):
 W_CTypeFunc.cif_descr = lltype.nullptr(CIF_DESCRIPTION)     # default value
 
 BIG_ENDIAN = sys.byteorder == 'big'
+USE_C_LIBFFI_MSVC = getattr(clibffi, 'USE_C_LIBFFI_MSVC', False)
 
 
 # ----------
 # We attach to the classes small methods that return a 'ffi_type'
-def _missing_ffi_type(self, cifbuilder):
+def _missing_ffi_type(self, cifbuilder, is_result_type):
     space = self.space
     if self.size < 0:
         raise operationerrfmt(space.w_TypeError,
                               "ctype '%s' has incomplete type",
                               self.name)
+    if is_result_type:
+        place = "return value"
+    else:
+        place = "argument"
     raise operationerrfmt(space.w_NotImplementedError,
-                          "ctype '%s' (size %d) not supported as argument"
-                          " or return value",
-                          self.name, self.size)
+                          "ctype '%s' (size %d) not supported as %s",
+                          self.name, self.size, place)
 
-def _struct_ffi_type(self, cifbuilder):
+def _struct_ffi_type(self, cifbuilder, is_result_type):
     if self.size >= 0:
+        if USE_C_LIBFFI_MSVC:
+            # MSVC returns small structures in registers.  Pretend int32 or
+            # int64 return type.  This is needed as a workaround for what
+            # is really a bug of libffi_msvc seen as an independent library
+            # (ctypes has a similar workaround).
+            if self.size <= 4:
+                return clibffi.ffi_type_sint32
+            if self.size <= 8:
+                return clibffi.ffi_type_sint64
         return cifbuilder.fb_struct_ffi_type(self)
-    return _missing_ffi_type(self, cifbuilder)
+    return _missing_ffi_type(self, cifbuilder, is_result_type)
 
-def _primsigned_ffi_type(self, cifbuilder):
+def _primsigned_ffi_type(self, cifbuilder, is_result_type):
     size = self.size
     if   size == 1: return clibffi.ffi_type_sint8
     elif size == 2: return clibffi.ffi_type_sint16
     elif size == 4: return clibffi.ffi_type_sint32
     elif size == 8: return clibffi.ffi_type_sint64
-    return _missing_ffi_type(self, cifbuilder)
+    return _missing_ffi_type(self, cifbuilder, is_result_type)
 
-def _primunsigned_ffi_type(self, cifbuilder):
+def _primunsigned_ffi_type(self, cifbuilder, is_result_type):
     size = self.size
     if   size == 1: return clibffi.ffi_type_uint8
     elif size == 2: return clibffi.ffi_type_uint16
     elif size == 4: return clibffi.ffi_type_uint32
     elif size == 8: return clibffi.ffi_type_uint64
-    return _missing_ffi_type(self, cifbuilder)
+    return _missing_ffi_type(self, cifbuilder, is_result_type)
 
-def _primfloat_ffi_type(self, cifbuilder):
+def _primfloat_ffi_type(self, cifbuilder, is_result_type):
     size = self.size
     if   size == 4: return clibffi.ffi_type_float
     elif size == 8: return clibffi.ffi_type_double
-    return _missing_ffi_type(self, cifbuilder)
+    return _missing_ffi_type(self, cifbuilder, is_result_type)
 
-def _primlongdouble_ffi_type(self, cifbuilder):
+def _primlongdouble_ffi_type(self, cifbuilder, is_result_type):
     return clibffi.ffi_type_longdouble
 
-def _ptr_ffi_type(self, cifbuilder):
+def _ptr_ffi_type(self, cifbuilder, is_result_type):
     return clibffi.ffi_type_pointer
 
-def _void_ffi_type(self, cifbuilder):
-    return clibffi.ffi_type_void
+def _void_ffi_type(self, cifbuilder, is_result_type):
+    if is_result_type:
+        return clibffi.ffi_type_void
+    return _missing_ffi_type(self, cifbuilder, is_result_type)
 
 W_CType._get_ffi_type                       = _missing_ffi_type
 W_CTypeStruct._get_ffi_type                 = _struct_ffi_type
@@ -230,7 +245,7 @@ W_CTypePrimitiveUnsigned._get_ffi_type      = _primunsigned_ffi_type
 W_CTypePrimitiveFloat._get_ffi_type         = _primfloat_ffi_type
 W_CTypePrimitiveLongDouble._get_ffi_type    = _primlongdouble_ffi_type
 W_CTypePtrBase._get_ffi_type                = _ptr_ffi_type
-#W_CTypeVoid._get_ffi_type                  = _void_ffi_type -- special-cased
+W_CTypeVoid._get_ffi_type                   = _void_ffi_type
 # ----------
 
 
@@ -253,9 +268,7 @@ class CifDescrBuilder(object):
 
 
     def fb_fill_type(self, ctype, is_result_type):
-        if is_result_type and isinstance(ctype, W_CTypeVoid):
-            return clibffi.ffi_type_void
-        return ctype._get_ffi_type(self)
+        return ctype._get_ffi_type(self, is_result_type)
 
     def fb_struct_ffi_type(self, ctype):
         # We can't pass a struct that was completed by verify().
