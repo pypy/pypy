@@ -1,9 +1,6 @@
-import py
-from pypy.conftest import gettestobjspace
 
 class AppTestBasic:
-    def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['_collections'])
+    spaceconfig = dict(usemodules=['_collections'])
 
     def test_basics(self):
         from _collections import defaultdict

@@ -1,6 +1,3 @@
-
-
-from pypy.conftest import gettestobjspace
 from pypy.translator.platform import platform
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.module._rawffi.interp_rawffi import TYPEMAP
@@ -9,6 +6,8 @@ from pypy.module._rawffi.tracker import Tracker
 import os, sys, py
 
 class AppTestFfi:
+    spaceconfig = dict(usemodules=['_rawffi', 'struct'])
+
     def prepare_c_example():
         from pypy.tool.udir import udir
         c_file = udir.ensure("test__rawffi", dir=1).join("xlib.c")
@@ -197,9 +196,8 @@ class AppTestFfi:
     prepare_c_example = staticmethod(prepare_c_example)
     
     def setup_class(cls):
+        space = cls.space
         from pypy.rlib.clibffi import get_libc_name
-        space = gettestobjspace(usemodules=('_rawffi', 'struct'))
-        cls.space = space
         cls.w_lib_name = space.wrap(cls.prepare_c_example())
         cls.w_libc_name = space.wrap(get_libc_name())
         if sys.platform == 'win32':
@@ -1030,10 +1028,10 @@ class AppTestFfi:
         S2E.get_ffi_type()     # does not hang
 
 class AppTestAutoFree:
+    spaceconfig = dict(usemodules=['_rawffi', 'struct'])
+    
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('_rawffi', 'struct'))
-        cls.space = space
-        cls.w_sizes_and_alignments = space.wrap(dict(
+        cls.w_sizes_and_alignments = cls.space.wrap(dict(
             [(k, (v.c_size, v.c_alignment)) for k,v in TYPEMAP.iteritems()]))
         Tracker.DO_TRACING = True
 

@@ -1,14 +1,12 @@
 import py
 
-from pypy.conftest import gettestobjspace, option
-
 class AppTestRangeListObject(object):
+    spaceconfig = {"objspace.std.withrangelist": True}
 
     def setup_class(cls):
-        if option.runappdirect:
+        if cls.runappdirect:
             py.test.skip("__pypy__.internal_repr() cannot be used to see "
                          "if a range list was forced on top of pypy-c")
-        cls.space = gettestobjspace(**{"objspace.std.withrangelist": True})
         cls.w_not_forced = cls.space.appexec([], """():
             import __pypy__
             def f(r):

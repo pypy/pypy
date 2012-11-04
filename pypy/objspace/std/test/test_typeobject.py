@@ -1,6 +1,5 @@
 from pypy.objspace.std.model import W_Object
 from pypy.objspace.std.stdtypedef import StdTypeDef
-from pypy.conftest import gettestobjspace
 
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.interpreter.gateway import interp2app
@@ -1065,9 +1064,7 @@ class AppTestTypeObject:
 
 
 class AppTestWithMethodCacheCounter:
-    def setup_class(cls):
-        cls.space = gettestobjspace(
-            **{"objspace.std.withmethodcachecounter": True})
+    spaceconfig = {"objspace.std.withmethodcachecounter": True}
 
     def test_module_from_handbuilt_type(self):
         d = {'tuple': tuple, '__name__': 'foomod'}
@@ -1079,9 +1076,7 @@ class AppTestWithMethodCacheCounter:
 
 
 class AppTestMutableBuiltintypes:
-
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.mutable_builtintypes": True})
+    spaceconfig = {"objspace.std.mutable_builtintypes": True}
 
     def test_del_type_mro(self):
         del type.mro
@@ -1113,10 +1108,7 @@ class AppTestMutableBuiltintypes:
         assert "run-time error" in RuntimeError.__doc__
 
 class AppTestGetattributeShortcut:
-
-    def setup_class(cls):
-        cls.space = gettestobjspace(
-                        **{"objspace.std.getattributeshortcut": True})
+    spaceconfig = {"objspace.std.getattributeshortcut": True}
 
     def test_reset_logic(self):
         class X(object):
@@ -1157,10 +1149,7 @@ class AppTestGetattributeShortcut:
         assert y.x == 'GA2'
 
 class TestNewShortcut:
-
-    def setup_class(cls):
-        cls.space = gettestobjspace(
-                        **{"objspace.std.newshortcut": True})   
+    spaceconfig = {"objspace.std.newshortcut": True}
 
     def test_mechanics(self):
         space = self.space
@@ -1200,10 +1189,7 @@ class TestNewShortcut:
 
 
 class AppTestNewShortcut:
-
-    def setup_class(cls):
-        cls.space = gettestobjspace(
-                        **{"objspace.std.newshortcut": True})
+    spaceconfig = {"objspace.std.newshortcut": True}
 
     def test_reset_logic(self):
         class X(object):

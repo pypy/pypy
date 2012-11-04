@@ -1,17 +1,17 @@
-from pypy.conftest import gettestobjspace
 from pypy.tool.udir import udir
 import os
 
 def setup_module(mod):
-    mod.space = gettestobjspace(usemodules=['posix'])
     mod.path = udir.join('posixtestfile.txt')
     mod.path.write("this is a test")
 
 class AppTestPosix: 
+    spaceconfig = dict(usemodules=['posix'])
+
     def setup_class(cls): 
-        cls.space = space 
-        cls.w_posix = space.appexec([], "(): import %s as m ; return m" % os.name)
-        cls.w_path = space.wrap(str(path))
+        cls.w_posix = cls.space.appexec([], """():
+            import %s as m ; return m""" % os.name)
+        cls.w_path = cls.space.wrap(str(path))
     
     def test_posix_is_pypy_s(self): 
         assert self.posix.__file__ 
