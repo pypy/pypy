@@ -192,16 +192,7 @@ def _missing_ffi_type(self, cifbuilder, is_result_type):
 
 def _struct_ffi_type(self, cifbuilder, is_result_type):
     if self.size >= 0:
-        if USE_C_LIBFFI_MSVC:
-            # MSVC returns small structures in registers.  Pretend int32 or
-            # int64 return type.  This is needed as a workaround for what
-            # is really a bug of libffi_msvc seen as an independent library
-            # (ctypes has a similar workaround).
-            if self.size <= 4:
-                return clibffi.ffi_type_sint32
-            if self.size <= 8:
-                return clibffi.ffi_type_sint64
-        return cifbuilder.fb_struct_ffi_type(self)
+        return cifbuilder.fb_struct_ffi_type(self, is_result_type)
     return _missing_ffi_type(self, cifbuilder, is_result_type)
 
 def _primsigned_ffi_type(self, cifbuilder, is_result_type):
@@ -270,7 +261,7 @@ class CifDescrBuilder(object):
     def fb_fill_type(self, ctype, is_result_type):
         return ctype._get_ffi_type(self, is_result_type)
 
-    def fb_struct_ffi_type(self, ctype):
+    def fb_struct_ffi_type(self, ctype, is_result_type=False):
         # We can't pass a struct that was completed by verify().
         # Issue: assume verify() is given "struct { long b; ...; }".
         # Then it will complete it in the same way whether it is actually
@@ -290,6 +281,16 @@ class CifDescrBuilder(object):
                "cannot pass as an argument a struct that was completed "
                "with verify() (see pypy/module/_cffi_backend/ctypefunc.py "
                "for details)"))
+
+        if USE_C_LIBFFI_MSVC and is_result_type:
+            # MSVC returns small structures in registers.  Pretend int32 or
+            # int64 return type.  This is needed as a workaround for what
+            # is really a bug of libffi_msvc seen as an independent library
+            # (ctypes has a similar workaround).
+            if ctype.size <= 4:
+                return clibffi.ffi_type_sint32
+            if ctype.size <= 8:
+                return clibffi.ffi_type_sint64
 
         # allocate an array of (n + 1) ffi_types
         n = len(ctype.fields_list)
