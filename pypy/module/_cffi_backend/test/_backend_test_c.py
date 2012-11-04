@@ -1440,7 +1440,11 @@ def test_string_wchar():
     a = newp(BArray, [u+'A', u+'B', u+'C'])
     assert type(string(a)) is unicode and string(a) == u+'ABC'
     if 'PY_DOT_PY' not in globals() and sys.version_info < (3,):
-        assert string(a, 8).startswith(u+'ABC') # may contain additional garbage
+        try:
+            # may contain additional garbage
+            assert string(a, 8).startswith(u+'ABC')
+        except ValueError:    # garbage contains values > 0x10FFFF
+            assert sizeof(BWChar) == 4
 
 def test_string_typeerror():
     BShort = new_primitive_type("short")
