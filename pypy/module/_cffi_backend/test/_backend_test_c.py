@@ -1270,13 +1270,13 @@ def test_bitfield_instance_init():
     assert p.a1 == -1
 
 def test_weakref():
-    import weakref
+    import _weakref
     BInt = new_primitive_type("int")
     BPtr = new_pointer_type(BInt)
-    weakref.ref(BInt)
-    weakref.ref(newp(BPtr, 42))
-    weakref.ref(cast(BPtr, 42))
-    weakref.ref(cast(BInt, 42))
+    _weakref.ref(BInt)
+    _weakref.ref(newp(BPtr, 42))
+    _weakref.ref(cast(BPtr, 42))
+    _weakref.ref(cast(BInt, 42))
 
 def test_no_inheritance():
     BInt = new_primitive_type("int")
