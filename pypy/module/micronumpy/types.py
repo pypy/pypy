@@ -930,7 +930,7 @@ class Float16(BaseType, Float):
     BoxType = interp_boxes.W_Float16Box
 
     def pack_str(self, box):
-        fbits = float_pack(self.unbox(box))
+        fbits = float_pack(self.unbox(box), 4)
         hbits = halffloat.floatbits_to_halfbits(fbits)
         return struct.pack('H', hbits)
 

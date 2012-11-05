@@ -110,3 +110,33 @@ class TestFloatPacking:
             if isnan(x):
                 continue
             self.check_float(x)
+
+    def test_halffloat_exact(self):
+        cases = [[0, 0], [10, 18688], [-10, 51456], [10e3, 28898], 
+                 [float('inf'), 31744], [-float('inf'), 64512]]
+        for c,h in cases:
+            hbit = float_pack(c, 2)
+            assert hbit == h
+            assert c == float_unpack(h, 2)
+
+    def test_halffloat_inexact(self):
+        cases = [[10.001, 18688, 10.], [-10.001, 51456, -10],
+                 [0.027588, 10000, 0.027587890625],
+                 [22001, 30047, 22000]]
+        for c,h,f in cases:
+            hbit = float_pack(c, 2)
+            assert hbit == h
+            assert f == float_unpack(h, 2)
+
+    def test_halffloat_overunderflow(self):
+        import math
+        cases = [[670000, float('inf')], [-67000, -float('inf')],
+                 [1e-08, 0], [-1e-8, -0.]]
+        for f1, f2 in cases:
+            try:
+                f_out = float_unpack(float_pack(f1, 2), 2)
+            except OverflowError:
+                f_out = math.copysign(float('inf'), f1)
+            assert f_out == f2
+            assert math.copysign(1., f_out) == math.copysign(1., f2)
+
