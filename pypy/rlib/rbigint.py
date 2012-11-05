@@ -845,7 +845,8 @@ class rbigint(object):
 
         while i > 1 and self._digits[i - 1] == NULLDIGIT:
             i -= 1
-        
+        assert i > 0
+
         if i != self.numdigits():
             self.size = i
         if self.numdigits() == 1 and self._digits[0] == NULLDIGIT:
