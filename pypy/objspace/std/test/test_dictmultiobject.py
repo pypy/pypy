@@ -966,12 +966,12 @@ class AppTestStrategies(object):
     def test_empty_to_unicode(self):
         d = {}
         assert "EmptyDictStrategy" in self.get_strategy(d)
-        d[u"a"] = 1
+        d["a"] = 1
         assert "UnicodeDictStrategy" in self.get_strategy(d)
-        assert d[u"a"] == 1
         assert d["a"] == 1
-        assert d.keys() == [u"a"]
-        assert type(d.keys()[0]) is unicode
+        #assert d[b"a"] == 1 # this works in py2, but not in py3
+        assert list(d.keys()) == ["a"]
+        assert type(list(d.keys())[0]) is str
 
     def test_empty_to_int(self):
         skip('IntDictStrategy is disabled for now, re-enable it!')
