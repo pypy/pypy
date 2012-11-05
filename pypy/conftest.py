@@ -1,6 +1,5 @@
 import py, pytest, sys, os, textwrap
 from inspect import isclass
-from pypy.tool import leakfinder
 
 # pytest settings
 rsyncdirs = ['.', '../lib-python', '../lib_pypy', '../demo']
@@ -24,6 +23,12 @@ py.code.Source.deindent = braindead_deindent
 
 def pytest_report_header():
     return "pytest-%s from %s" %(pytest.__version__, pytest.__file__)
+
+
+def pytest_addhooks(pluginmanager):
+    from pypy.tool.pytest.plugins import LeakFinder
+    pluginmanager.register(LeakFinder())
+
 
 def pytest_configure(config):
     global option
@@ -210,27 +215,8 @@ def pytest_runtest_setup(__multicall__, item):
 
     __multicall__.execute()
 
-    if isinstance(item, py.test.collect.Function):
-        if not getattr(item.obj, 'dont_track_allocations', False):
-            leakfinder.start_tracking_allocations()
-
-def pytest_runtest_call(__multicall__, item):
-    __multicall__.execute()
-    item._success = True
-
 def pytest_runtest_teardown(__multicall__, item):
     __multicall__.execute()
-
-    if isinstance(item, py.test.collect.Function):
-        if (not getattr(item.obj, 'dont_track_allocations', False)
-            and leakfinder.TRACK_ALLOCATIONS):
-            item._pypytest_leaks = leakfinder.stop_tracking_allocations(False)
-        else:            # stop_tracking_allocations() already called
-            item._pypytest_leaks = None
-
-        # check for leaks, but only if the test passed so far
-        if getattr(item, '_success', False) and item._pypytest_leaks:
-            raise leakfinder.MallocMismatch(item._pypytest_leaks)
 
     if 'pygame' in sys.modules:
         assert option.view, ("should not invoke Pygame "
