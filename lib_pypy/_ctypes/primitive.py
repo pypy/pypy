@@ -64,7 +64,7 @@ pyobj_container = GlobalPyobjContainer()
 def generic_xxx_p_from_param(cls, value):
     if value is None:
         return cls(None)
-    if isinstance(value, basestring):
+    if isinstance(value, (str, bytes)):
         return cls(value)
     if isinstance(value, _SimpleCData) and \
            type(value)._type_ in 'zZP':
@@ -131,10 +131,7 @@ class SimpleType(_CDataMeta):
                     return _rawffi.charp2string(addr)
 
             def _setvalue(self, value):
-                if isinstance(value, basestring):
-                    if isinstance(value, unicode):
-                        value = value.encode(ConvMode.encoding,
-                                             ConvMode.errors)
+                if isinstance(value, bytes):
                     #self._objects = value
                     array = _rawffi.Array('c')(len(value)+1, value)
                     self._objects = CArgObject(value, array)
@@ -155,10 +152,7 @@ class SimpleType(_CDataMeta):
                     return _rawffi.wcharp2unicode(addr)
 
             def _setvalue(self, value):
-                if isinstance(value, basestring):
-                    if isinstance(value, str):
-                        value = value.decode(ConvMode.encoding,
-                                             ConvMode.errors)
+                if isinstance(value, str):
                     #self._objects = value
                     array = _rawffi.Array('u')(len(value)+1, value)
                     self._objects = CArgObject(value, array)

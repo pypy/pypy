@@ -216,7 +216,7 @@ class Array(_CData, metaclass=ArrayMeta):
 ARRAY_CACHE = {}
 
 def create_array_type(base, length):
-    if not isinstance(length, (int, long)):
+    if not isinstance(length, int):
         raise TypeError("Can't multiply a ctypes type by a non-integer")
     if length < 0:
         raise ValueError("Array length must be >= 0")

@@ -461,13 +461,13 @@ class CFuncPtr(_CData, metaclass=CFuncPtrType):
         # jit trace of the normal case
         from ctypes import c_char_p, c_wchar_p, c_void_p, c_int
         #
-        if isinstance(arg, str):
+        if isinstance(arg, bytes):
             cobj = c_char_p(arg)
-        elif isinstance(arg, unicode):
+        elif isinstance(arg, str):
             cobj = c_wchar_p(arg)
         elif arg is None:
             cobj = c_void_p()
-        elif isinstance(arg, long):
+        elif isinstance(arg, int):
             cobj = c_int(arg)
         else:
             raise TypeError("Don't know how to handle %s" % (arg,))
