@@ -1,6 +1,5 @@
 import functools
 import math
-import struct
 
 from pypy.interpreter.error import OperationError
 from pypy.module.micronumpy import interp_boxes
@@ -182,9 +181,6 @@ class Primitive(object):
         v = runpack(self.format_code, s)
         return self.box(v)
 
-    def pack_str(self, box):
-        return struct.pack(self.format_code, self.unbox(box))
-
     @simple_binary_op
     def add(self, v1, v2):
         return v1 + v2
@@ -298,9 +294,6 @@ class NonNativePrimitive(Primitive):
     def _write(self, storage, i, offset, value):
         value = byteswap(value)
         raw_storage_setitem(storage, i + offset, value)
-
-    def pack_str(self, box):
-        return struct.pack(self.format_code, byteswap(self.unbox(box)))
 
 class Bool(BaseType, Primitive):
     _attrs_ = ()
@@ -915,10 +908,6 @@ class NonNativeFloat(NonNativePrimitive, Float):
         #value = byteswap(value) XXX
         raw_storage_setitem(storage, i + offset, value)
 
-    def pack_str(self, box):
-        # XXX byteswap
-        return struct.pack(self.format_code, self.unbox(box))
-
 
 class Float16(BaseType, Float):
     _attrs_ = ()
@@ -926,10 +915,6 @@ class Float16(BaseType, Float):
     T = rffi.DOUBLE
 
     BoxType = interp_boxes.W_Float16Box
-
-    def pack_str(self, box):
-        hbits = float_pack(self.unbox(box), 2)
-        return struct.pack('H', hbits)
 
     def get_element_size(self):
         return rffi.sizeof(self._STORAGE_T)
@@ -968,10 +953,6 @@ class NonNativeFloat16(Float16):
     def _write(self, storage, i, offset, value):
         #value = byteswap(value) XXX
         Float16._write(self, storage, i, offset, value)
-
-    def pack_str(self, box):
-        # XXX byteswap
-        return Float16.pack_str(self, box)
 
 class Float32(BaseType, Float):
     _attrs_ = ()
