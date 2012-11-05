@@ -300,6 +300,13 @@ class Test_rbigint(object):
         assert not f1.eq(f2)
         assert not f1.eq(f3)
 
+    def test_eq_fastpath(self):
+        x = 1234
+        y = 1234
+        f1 = rbigint.fromint(x)
+        f2 = rbigint.fromint(y)
+        assert f1.eq(f2)
+
     def test_lt(self):
         val = [0, 0x111111111111, 0x111111111112, 0x111111111112FFFF]
         for x in gen_signs(val):

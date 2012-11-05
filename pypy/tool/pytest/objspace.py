@@ -1,4 +1,5 @@
 import py
+import sys
 from pypy.config.config import ConflictConfigError
 from pypy.tool.option import make_config, make_objspace
 from pypy.tool.pytest import appsupport
@@ -48,7 +49,6 @@ def maketestobjspace(config=None):
 class TinyObjSpace(object):
     """An object space that delegates everything to the hosting Python."""
     def __init__(self, **kwds):
-        import sys
         info = getattr(sys, 'pypy_translation_info', None)
         for key, value in kwds.iteritems():
             if key == 'usemodules':
