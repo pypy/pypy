@@ -14,6 +14,10 @@ def test_unicode_to_decimal_w():
     s2 = unicode_to_decimal_w(space, w_s)
     assert s2 == "10"
 
+    def test_listview_unicode(self):
+        w_str = self.space.wrap(u'abcd')
+        assert self.space.listview_unicode(w_str) == list(u"abcd")
+
 
 class AppTestUnicodeStringStdOnly:
     def test_compares(self):

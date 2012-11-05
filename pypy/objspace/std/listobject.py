@@ -32,7 +32,8 @@ def make_empty_list(space):
     storage = strategy.erase(None)
     return W_ListObject.from_storage_and_strategy(space, storage, strategy)
 
-@jit.look_inside_iff(lambda space, list_w, sizehint: jit.isconstant(len(list_w)) and len(list_w) < UNROLL_CUTOFF)
+@jit.look_inside_iff(lambda space, list_w, sizehint:
+                         jit.isconstant(len(list_w)) and len(list_w) < UNROLL_CUTOFF)
 def get_strategy_from_list_objects(space, list_w, sizehint):
     if not list_w:
         if sizehint != -1:
@@ -47,6 +48,13 @@ def get_strategy_from_list_objects(space, list_w, sizehint):
         return space.fromcache(IntegerListStrategy)
 
     # check for strings
+    for w_obj in list_w:
+        if not is_W_StringObject(w_obj):
+            break
+    else:
+        return space.fromcache(StringListStrategy)
+
+    # check for unicode
     for w_obj in list_w:
         if not is_W_UnicodeObject(w_obj):
             break
@@ -65,6 +73,10 @@ def get_strategy_from_list_objects(space, list_w, sizehint):
 def is_W_IntObject(w_object):
     from pypy.objspace.std.intobject import W_IntObject
     return type(w_object) is W_IntObject
+
+def is_W_StringObject(w_object):
+    from pypy.objspace.std.stringobject import W_StringObject
+    return type(w_object) is W_StringObject
 
 def is_W_UnicodeObject(w_object):
     from pypy.objspace.std.unicodeobject import W_UnicodeObject
@@ -100,7 +112,7 @@ class W_ListObject(W_AbstractListObject):
 
     @staticmethod
     def newlist_str(space, list_s):
-        strategy = space.fromcache(UnicodeListStrategy)
+        strategy = space.fromcache(StringListStrategy)
         storage = strategy.erase(list_s)
         return W_ListObject.from_storage_and_strategy(space, storage, strategy)
 
@@ -211,6 +223,11 @@ class W_ListObject(W_AbstractListObject):
         not use the list strategy, return None. """
         return self.strategy.getitems_str(self)
 
+    def getitems_unicode(self):
+        """ Return the items in the list as unwrapped unicodes. If the list does
+        not use the list strategy, return None. """
+        return self.strategy.getitems_unicode(self)
+
     def getitems_int(self):
         """ Return the items in the list as unwrapped ints. If the list does
         not use the list strategy, return None. """
@@ -315,6 +332,9 @@ class ListStrategy(object):
     def getitems_str(self, w_list):
         return None
 
+    def getitems_unicode(self, w_list):
+        return None
+
     def getitems_int(self, w_list):
         return None
 
@@ -417,6 +437,8 @@ class EmptyListStrategy(ListStrategy):
     def switch_to_correct_strategy(self, w_list, w_item):
         if is_W_IntObject(w_item):
             strategy = self.space.fromcache(IntegerListStrategy)
+        elif is_W_StringObject(w_item):
+            strategy = self.space.fromcache(StringListStrategy)
         elif is_W_UnicodeObject(w_item):
             strategy = self.space.fromcache(UnicodeListStrategy)
         elif is_W_FloatObject(w_item):
@@ -1006,9 +1028,40 @@ class FloatListStrategy(AbstractUnwrappedStrategy, ListStrategy):
         if reverse:
             l.reverse()
 
-class UnicodeListStrategy(AbstractUnwrappedStrategy, ListStrategy):
+class StringListStrategy(AbstractUnwrappedStrategy, ListStrategy):
     _none_value = None
     _applevel_repr = "str"
+
+    def wrap(self, stringval):
+        return self.space.wrap(stringval)
+
+    def unwrap(self, w_string):
+        return self.space.str_w(w_string)
+
+    erase, unerase = rerased.new_erasing_pair("string")
+    erase = staticmethod(erase)
+    unerase = staticmethod(unerase)
+
+    def is_correct_type(self, w_obj):
+        return is_W_StringObject(w_obj)
+
+    def list_is_correct_type(self, w_list):
+        return w_list.strategy is self.space.fromcache(StringListStrategy)
+
+    def sort(self, w_list, reverse):
+        l = self.unerase(w_list.lstorage)
+        sorter = StringSort(l, len(l))
+        sorter.sort()
+        if reverse:
+            l.reverse()
+
+    def getitems_str(self, w_list):
+        return self.unerase(w_list.lstorage)
+
+
+class UnicodeListStrategy(AbstractUnwrappedStrategy, ListStrategy):
+    _none_value = None
+    _applevel_repr = "unicode"
 
     def wrap(self, stringval):
         return self.space.wrap(stringval)
@@ -1033,7 +1086,7 @@ class UnicodeListStrategy(AbstractUnwrappedStrategy, ListStrategy):
         if reverse:
             l.reverse()
 
-    def getitems_str(self, w_list):
+    def getitems_unicode(self, w_list):
         return self.unerase(w_list.lstorage)
 
 # _______________________________________________________
@@ -1363,6 +1416,7 @@ def list_reverse__List(space, w_list):
 TimSort = make_timsort_class()
 IntBaseTimSort = make_timsort_class()
 FloatBaseTimSort = make_timsort_class()
+StringBaseTimSort = make_timsort_class()
 UnicodeBaseTimSort = make_timsort_class()
 
 class KeyContainer(baseobjspace.W_Root):
@@ -1387,9 +1441,27 @@ class FloatSort(FloatBaseTimSort):
     def lt(self, a, b):
         return a < b
 
+class StringSort(UnicodeBaseTimSort):
+    def lt(self, a, b):
+        return a < b
+
 class UnicodeSort(UnicodeBaseTimSort):
     def lt(self, a, b):
         return a < b
+
+class CustomCompareSort(SimpleSort):
+    def lt(self, a, b):
+        space = self.space
+        w_cmp = self.w_cmp
+        w_result = space.call_function(w_cmp, a, b)
+        try:
+            result = space.int_w(w_result)
+        except OperationError, e:
+            if e.match(space, space.w_TypeError):
+                raise OperationError(space.w_TypeError,
+                    space.wrap("comparison function must return int"))
+            raise
+        return result < 0
 
 class CustomKeySort(SimpleSort):
     def lt(self, a, b):

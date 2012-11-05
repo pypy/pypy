@@ -76,6 +76,15 @@ class W_UnicodeObject(W_AbstractUnicodeObject):
         self._utf8 = identifier
         return identifier
 
+    def listview_unicode(w_self):
+        return _create_list_from_unicode(w_self._value)
+
+def _create_list_from_unicode(value):
+    # need this helper function to allow the jit to look inside and inline
+    # listview_unicode
+    return [s for s in value]
+
+
 W_UnicodeObject.EMPTY = W_UnicodeObject(u'')
 
 registerimplementation(W_UnicodeObject)
@@ -143,12 +152,11 @@ def contains__Unicode_Unicode(space, w_container, w_item):
     return space.newbool(container.find(item) != -1)
 
 def unicode_join__Unicode_ANY(space, w_self, w_list):
-    l = space.listview_str(w_list)
+    l = space.listview_unicode(w_list)
     if l is not None:
         if len(l) == 1:
             return space.wrap(l[0])
         return space.wrap(w_self._value.join(l))
-
     list_w = space.listview(w_list)
     size = len(list_w)
 
