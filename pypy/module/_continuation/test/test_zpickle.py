@@ -1,13 +1,13 @@
 import py
-from pypy.conftest import gettestobjspace
 
 
 class AppTestCopy:
+    spaceconfig = dict(usemodules=['_continuation'],
+                       continuation=True,
+                       CALL_METHOD=True)
+
     def setup_class(cls):
         py.test.py3k_skip("_continuation not supported yet")
-        cls.space = gettestobjspace(usemodules=('_continuation',),
-                                    CALL_METHOD=True)
-        cls.space.config.translation.continuation = True
 
     def test_basic_setup(self):
         from _continuation import continulet
@@ -106,12 +106,12 @@ class AppTestCopy:
 
 class AppTestPickle:
     version = 0
+    spaceconfig = dict(usemodules=['_continuation', 'struct'],
+                       continuation=True,
+                       CALL_METHOD=True)
 
     def setup_class(cls):
         py.test.py3k_skip("_continuation not supported yet")
-        cls.space = gettestobjspace(usemodules=('_continuation', 'struct'),
-                                    CALL_METHOD=True)
-        cls.space.config.translation.continuation = True
         cls.space.appexec([], """():
             global continulet, A, __name__
 

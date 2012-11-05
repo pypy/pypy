@@ -1,13 +1,10 @@
 from pypy.module.marshal import interp_marshal
 from pypy.interpreter.error import OperationError
-from pypy.conftest import gettestobjspace
 import sys
 
 
 class AppTestMarshalMore:
-    def setup_class(cls):
-        space = gettestobjspace(usemodules=('array',))
-        cls.space = space
+    spaceconfig = dict(usemodules=('array',))
 
     def test_unmarshal_int64(self):
         # test that we can unmarshal 64-bit ints on 32-bit platforms
@@ -50,7 +47,5 @@ class AppTestMarshalMore:
 
 
 class AppTestMarshalSmallLong(AppTestMarshalMore):
-    def setup_class(cls):
-        space = gettestobjspace(usemodules=('array',),
-                                **{"objspace.std.withsmalllong": True})
-        cls.space = space
+    spaceconfig = dict(usemodules=('array',),
+                       **{"objspace.std.withsmalllong": True})

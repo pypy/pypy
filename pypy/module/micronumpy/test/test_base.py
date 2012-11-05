@@ -1,5 +1,4 @@
 import py
-from pypy.conftest import gettestobjspace
 from pypy.module.micronumpy.interp_dtype import get_dtype_cache
 from pypy.module.micronumpy.interp_ufuncs import (find_binop_result_dtype,
         find_unaryop_result_dtype)
@@ -9,6 +8,8 @@ from pypy.conftest import option
 import sys
 
 class BaseNumpyAppTest(object):
+    spaceconfig = dict(usemodules=['micronumpy'])
+
     @classmethod
     def setup_class(cls):
         py.test.py3k_skip("micronumpy not supported on py3k")
@@ -17,7 +18,6 @@ class BaseNumpyAppTest(object):
                 import numpy
                 sys.modules['numpypy'] = numpy
                 sys.modules['_numpypy'] = numpy
-        cls.space = gettestobjspace(usemodules=['micronumpy'])
         cls.w_non_native_prefix = cls.space.wrap(nonnative_byteorder_prefix)
         cls.w_native_prefix = cls.space.wrap(byteorder_prefix)
 

@@ -1,7 +1,6 @@
 
 # -*- coding: utf-8 -*-
 
-from pypy.conftest import gettestobjspace
 from pypy.interpreter import gateway, argument
 from pypy.interpreter.gateway import ObjSpace, W_Root, WrappedDefault
 import py
@@ -736,12 +735,8 @@ y = a.m(33)
         assert isinstance(called[0], argument.Arguments)
 
 class TestPassThroughArguments_CALL_METHOD(TestPassThroughArguments):
+    spaceconfig = {"objspace.opcodes.CALL_METHOD": True}
 
-    def setup_class(cls):
-        space = gettestobjspace(usemodules=('itertools',), **{
-            "objspace.opcodes.CALL_METHOD": True
-            })
-        cls.space = space
 
 class AppTestKeywordsToBuiltinSanity(object):
 

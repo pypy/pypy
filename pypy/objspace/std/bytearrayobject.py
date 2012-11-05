@@ -39,14 +39,6 @@ class W_BytearrayObject(W_Object):
 
 registerimplementation(W_BytearrayObject)
 
-def float__Bytearray(space, w_bytearray):
-    try:
-        value = string_to_float(''.join(w_bytearray.data))
-    except ParseStringError, e:
-        raise OperationError(space.w_ValueError, space.wrap(e.msg))
-    else:
-        return space.wrap(value)
-
 def len__Bytearray(space, w_bytearray):
     result = len(w_bytearray.data)
     return wrapint(space, result)

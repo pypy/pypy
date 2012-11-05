@@ -1,9 +1,5 @@
-from pypy.conftest import gettestobjspace
-
 class AppTestNested:
-    def setup_class(cls):
-        space = gettestobjspace(usemodules=('_rawffi', 'struct'))
-        cls.space = space
+    spaceconfig = dict(usemodules=['_rawffi', 'struct'])
 
     def test_inspect_structure(self):
         import _rawffi, struct

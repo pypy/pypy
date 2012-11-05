@@ -784,15 +784,15 @@ class Cursor(object):
                 self.statement.reset()
                 raise self.connection._get_exception(ret)
 
+            if self.statement.kind == DML:
+                self.statement.reset()
+
             if self.statement.kind == DQL and ret == SQLITE_ROW:
                 self.statement._build_row_cast_map()
                 self.statement._readahead(self)
             else:
                 self.statement.item = None
                 self.statement.exhausted = True
-
-            if self.statement.kind == DML:
-                self.statement.reset()
 
             self.rowcount = -1
             if self.statement.kind == DML:

@@ -14,7 +14,7 @@ from pypy.interpreter.module import Module as PyPyModule
 from pypy.interpreter.main import run_string, run_file
 
 # the following adds command line options as a side effect! 
-from pypy.conftest import gettestobjspace, option as pypy_option 
+from pypy.conftest import option as pypy_option 
 
 from pypy.tool.pytest import appsupport 
 from pypy.tool.pytest.confpath import pypydir, testdir, testresultdir

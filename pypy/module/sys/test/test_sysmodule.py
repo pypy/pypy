@@ -1,8 +1,4 @@
 # -*- coding: iso-8859-1 -*-
-import autopath
-from pypy.conftest import option, gettestobjspace
-from py.test import raises
-from pypy.interpreter.gateway import app2interp_temp
 import sys
 
 def test_stdin_exists(space):
@@ -16,7 +12,7 @@ def test_stdout_exists(space):
 class AppTestAppSysTests:
 
     def setup_class(cls):
-        cls.w_appdirect = cls.space.wrap(option.runappdirect)
+        cls.w_appdirect = cls.space.wrap(cls.runappdirect)
         cls.w_filesystemenc = cls.space.wrap(sys.getfilesystemencoding())
 
     def test_sys_in_modules(self):
@@ -141,11 +137,8 @@ class AppTestAppSysTests:
         assert isinstance(li.imag, int)
 
 class AppTestSysModulePortedFromCPython:
-
-    spaceconfig = {'usemodules': ['itertools']}
-
     def setup_class(cls):
-        cls.w_appdirect = cls.space.wrap(option.runappdirect)
+        cls.w_appdirect = cls.space.wrap(cls.runappdirect)
 
     def test_original_displayhook(self):
         import sys, _io, builtins
@@ -493,8 +486,7 @@ class AppTestCurrentFrames:
         assert frames[0].f_code.co_name in ('f', '?')
 
 class AppTestCurrentFramesWithThread(AppTestCurrentFrames):
-    def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=('thread',))
+    spaceconfig = dict(usemodules=('thread',))
 
     def test_current_frames(self):
         import sys
@@ -549,7 +541,7 @@ class AppTestCurrentFramesWithThread(AppTestCurrentFrames):
 class AppTestSysExcInfoDirect:
 
     def setup_method(self, meth):
-        self.checking = not option.runappdirect
+        self.checking = not self.runappdirect
         if self.checking:
             self.seen = []
             from pypy.module.sys import vm
@@ -663,5 +655,4 @@ class AppTestSysExcInfoDirect:
 
 
 class AppTestSysExcInfoDirectCallMethod(AppTestSysExcInfoDirect):
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.opcodes.CALL_METHOD": True})
+    spaceconfig = {"objspace.opcodes.CALL_METHOD": True}

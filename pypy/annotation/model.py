@@ -384,6 +384,14 @@ class SomePBC(SomeObject):
                 desc, = descriptions
                 if desc.pyobj is not None:
                     self.const = desc.pyobj
+            elif len(descriptions) > 1:
+                from pypy.annotation.description import ClassDesc
+                if self.getKind() is ClassDesc:
+                    # a PBC of several classes: enforce them all to be
+                    # built, without support for specialization.  See
+                    # rpython/test/test_rpbc.test_pbc_of_classes_not_all_used
+                    for desc in descriptions:
+                        desc.getuniqueclassdef()
 
     def any_description(self):
         return iter(self.descriptions).next()

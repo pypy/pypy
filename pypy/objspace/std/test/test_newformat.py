@@ -1,6 +1,5 @@
 """Test unicode/str's format method"""
 from __future__ import with_statement
-from pypy.conftest import gettestobjspace
 
 
 class BaseStringFormatTests:
@@ -289,8 +288,7 @@ class AppTestIntFormatting(BaseIntegralFormattingTest):
 
 
 class AppTestFloatFormatting:
-    def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=('_locale', 'itertools'))
+    spaceconfig = dict(usemodules=('_locale',))
 
     def test_alternate(self):
         assert format(1.0, "#.0e") == "1.e+00"

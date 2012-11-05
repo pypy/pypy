@@ -1,11 +1,9 @@
-from pypy.conftest import gettestobjspace
-
 class AppTestNumpy:
+    spaceconfig = dict(usemodules=['micronumpy'])
+
     def setup_class(cls):
         import py
         py.test.skip('the applevel parts are not ready for py3k')
-
-        cls.space = gettestobjspace(usemodules=['micronumpy'])
 
     def test_imports(self):
         try:

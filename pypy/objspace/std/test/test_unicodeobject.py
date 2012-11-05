@@ -1,7 +1,6 @@
 # -*- encoding: utf-8 -*-
 import py
 import sys
-from pypy.conftest import gettestobjspace
 
 def test_unicode_to_decimal_w():
     from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
@@ -30,9 +29,9 @@ class AppTestUnicodeStringStdOnly:
         
 
 class AppTestUnicodeString:
+    spaceconfig = dict(usemodules=('unicodedata',))
+
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('unicodedata',))
-        cls.space = space
         cls.w_version_info = cls.space.wrap(sys.version_info)
 
     def test_addition(self):

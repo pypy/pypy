@@ -1,8 +1,4 @@
 import py
-from pypy.objspace.std import stringobject
-from pypy.objspace.std.stringobject import W_StringObject
-from pypy.conftest import gettestobjspace
-
 
 class TestW_StringObject:
 
@@ -786,14 +782,11 @@ class AppTestStringObject:
             assert b.maketrans(bb, bb)
 
 class AppTestPrebuilt(AppTestStringObject):
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withprebuiltchar": True})
+    spaceconfig = {"objspace.std.withprebuiltchar": True}
 
 class AppTestShare(AppTestStringObject):
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.sharesmallstr": True})
+    spaceconfig = {"objspace.std.sharesmallstr": True}
 
 class AppTestPrebuiltShare(AppTestStringObject):
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withprebuiltchar": True,
-                                       "objspace.std.sharesmallstr": True})
+    spaceconfig = {"objspace.std.withprebuiltchar": True,
+                   "objspace.std.sharesmallstr": True}

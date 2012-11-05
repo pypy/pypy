@@ -1,4 +1,3 @@
-from pypy.conftest import gettestobjspace
 from pypy.module.bz2.test.support import CheckAllocation
 from pypy.module.bz2 import interp_bz2
 from pypy.interpreter.gateway import interp2app
@@ -38,14 +37,14 @@ def teardown_module(mod):
     interp_bz2.SMALLCHUNK = mod.OLD_SMALLCHUNK
 
 class AppTestBZ2Compressor(CheckAllocation):
+    spaceconfig = dict(usemodules=('bz2',))
+
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('bz2',))
-        cls.space = space
-        cls.w_TEXT = space.wrapbytes(TEXT)
-        cls.w_HUGE_OK = space.wrap(HUGE_OK)
+        cls.w_TEXT = cls.space.wrapbytes(TEXT)
+        cls.w_HUGE_OK = cls.space.wrap(HUGE_OK)
         def decompress_w(space, w_data):
             return space.wrapbytes(decompress(space.bytes_w(w_data)))
-        cls.w_decompress = space.wrap(interp2app(decompress_w))
+        cls.w_decompress = cls.space.wrap(interp2app(decompress_w))
         
     def test_creation(self):
         from bz2 import BZ2Compressor
@@ -100,12 +99,12 @@ class AppTestBZ2Compressor(CheckAllocation):
         assert self.decompress(data) == self.TEXT
 
 class AppTestBZ2Decompressor(CheckAllocation):
+    spaceconfig = dict(usemodules=('bz2',))
+
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('bz2',))
-        cls.space = space
-        cls.w_TEXT = space.wrapbytes(TEXT)
-        cls.w_DATA = space.wrapbytes(DATA)
-        cls.w_BUGGY_DATA = space.wrapbytes(BUGGY_DATA)
+        cls.w_TEXT = cls.space.wrapbytes(TEXT)
+        cls.w_DATA = cls.space.wrapbytes(DATA)
+        cls.w_BUGGY_DATA = cls.space.wrapbytes(BUGGY_DATA)
         
     def test_creation(self):
         from bz2 import BZ2Decompressor
@@ -175,15 +174,15 @@ class AppTestBZ2Decompressor(CheckAllocation):
         raises(IOError, bz2d.decompress, self.BUGGY_DATA)
 
 class AppTestBZ2ModuleFunctions(CheckAllocation):
+    spaceconfig = dict(usemodules=('bz2',))
+
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('bz2',))
-        cls.space = space
-        cls.w_TEXT = space.wrapbytes(TEXT)
-        cls.w_DATA = space.wrapbytes(DATA)
-        cls.w_HUGE_OK = space.wrap(HUGE_OK)
+        cls.w_TEXT = cls.space.wrapbytes(TEXT)
+        cls.w_DATA = cls.space.wrapbytes(DATA)
+        cls.w_HUGE_OK = cls.space.wrap(HUGE_OK)
         def decompress_w(space, w_data):
             return space.wrapbytes(decompress(space.bytes_w(w_data)))
-        cls.w_decompress = space.wrap(interp2app(decompress_w))
+        cls.w_decompress = cls.space.wrap(interp2app(decompress_w))
 
     def test_compress_function(self):
         from bz2 import compress

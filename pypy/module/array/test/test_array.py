@@ -1,12 +1,11 @@
-from pypy.conftest import gettestobjspace
 import sys
 import py
 import py.test
 
 
 ## class AppTestSimpleArray:
+##     spaceconfig = dict(usemodules=('array',))
 ##     def setup_class(cls):
-##         cls.space = gettestobjspace(usemodules=('array',))
 ##         cls.w_simple_array = cls.space.appexec([], """():
 ##             import array
 ##             return array.simple_array
@@ -843,11 +842,9 @@ class DontTestCPythonsOwnArray(BaseArrayTests):
         cls.maxint = sys.maxint
 
 class AppTestArray(BaseArrayTests):
-    OPTIONS = {}
+    spaceconfig = dict(usemodules=('array', 'struct', '_rawffi'))
 
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=('array', 'struct', '_rawffi', 'itertools'),
-                                    **cls.OPTIONS)
         cls.w_array = cls.space.appexec([], """():
             import array
             return array.array
@@ -920,4 +917,6 @@ class AppTestArray(BaseArrayTests):
 
 
 class AppTestArrayBuiltinShortcut(AppTestArray):
-    OPTIONS = {'objspace.std.builtinshortcut': True}
+    spaceconfig = AppTestArray.spaceconfig.copy()
+    spaceconfig['objspace.std.builtinshortcut'] = True
+

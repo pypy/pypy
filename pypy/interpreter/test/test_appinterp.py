@@ -134,7 +134,7 @@ class TestMixedModule:
         per-instance attribute, holding a fresh copy of the dictionary.
         """
         from pypy.interpreter.mixedmodule import MixedModule
-        from pypy.conftest import maketestobjspace
+        from pypy.tool.pytest.objspace import maketestobjspace
 
         class MyModule(MixedModule):
             interpleveldefs = {}
@@ -155,6 +155,9 @@ class TestMixedModule:
         w_str = space1.getattr(w_mymod1, space1.wrap("hi"))
         assert space1.str_w(w_str) == "hello"
 
+class TestMixedModuleUnfreeze:
+    spaceconfig = dict(usemodules=('_ssl', '_socket'))
+
     def test_random_stuff_can_unfreeze(self):
         # When a module contains an "import" statement in applevel code, the
         # imported module is initialized, possibly after it has been already
@@ -163,11 +166,8 @@ class TestMixedModule:
         # This is important when the module startup() function does something
         # at runtime, like setting os.environ (posix module) or initializing
         # the winsock library (_socket module)
-        from pypy.conftest import gettestobjspace
-        space = gettestobjspace(usemodules=('_ssl', '_socket'))
-
-        w_socket = space.builtin_modules['_socket']
-        w_ssl = space.builtin_modules['_ssl']
+        w_socket = self.space.builtin_modules['_socket']
+        w_ssl = self.space.builtin_modules['_ssl']
 
         # Uncomment this line for a workaround
         # space.getattr(w_ssl, space.wrap('SSLError'))

@@ -1,9 +1,7 @@
 import py
-from pypy.conftest import gettestobjspace
 
 class AppTestHashlib:
-    def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['_hashlib', 'array', 'struct'])
+    spaceconfig = dict(usemodules=['_hashlib', 'array', 'struct'])
 
     def test_method_names(self):
         import _hashlib

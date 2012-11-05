@@ -1,7 +1,6 @@
 
 import py
 import sys
-from pypy.conftest import gettestobjspace
 from pypy.tool.autopath import pypydir
 from pypy.tool.udir import udir
 
@@ -105,8 +104,9 @@ class TestTermios(object):
         child.expect('ok!')
 
 class AppTestTermios(object):
+    spaceconfig = dict(usemodules=['termios'])
+
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['termios'])
         d = {}
         import termios
         for name in dir(termios):

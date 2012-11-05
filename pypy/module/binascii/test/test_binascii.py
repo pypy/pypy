@@ -1,18 +1,10 @@
-from pypy.conftest import gettestobjspace
-
 
 class AppTestBinascii(object):
+    spaceconfig = dict(usemodules=['binascii'])
 
     def setup_class(cls):
-        """
-        Create a space with the binascii module and import it for use by the
-        tests.
-        """
-        cls.space = gettestobjspace(usemodules=['binascii'])
-        cls.w_binascii = cls.space.appexec([], """():
-            import binascii
-            return binascii
-        """)
+        """Make binascii module available as self.binascii."""
+        cls.w_binascii = cls.space.getbuiltinmodule('binascii')
 
     def test_a2b_uu(self):
         # obscure case, for compability with CPython
