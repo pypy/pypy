@@ -7,6 +7,17 @@ from pypy.interpreter.error import OperationError
 from pypy.conftest import PyPyClassCollector
 
 
+def check_keyboard_interrupt(e):
+    # we cannot easily convert w_KeyboardInterrupt to KeyboardInterrupt
+    # in general without a space -- here is an approximation
+    try:
+        if e.w_type.name == 'KeyboardInterrupt':
+            tb = sys.exc_info()[2]
+            raise KeyboardInterrupt, KeyboardInterrupt(), tb
+    except AttributeError:
+        pass
+
+
 class IntTestFunction(py.test.collect.Function):
     def __init__(self, *args, **kwargs):
         super(IntTestFunction, self).__init__(*args, **kwargs)

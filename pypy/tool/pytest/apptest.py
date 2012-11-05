@@ -36,7 +36,7 @@ class AppTestFunction(py.test.collect.Function):
         except OperationError, e:
             tb = sys.exc_info()[2]
             if e.match(space, space.w_KeyboardInterrupt):
-                raise OpErrKeyboardInterrupt, OpErrKeyboardInterrupt(), tb
+                raise KeyboardInterrupt, KeyboardInterrupt(), tb
             appexcinfo = appsupport.AppExceptionInfo(space, e)
             if appexcinfo.traceback:
                 raise AppError, AppError(appexcinfo), tb

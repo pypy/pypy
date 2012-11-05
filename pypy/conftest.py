@@ -76,19 +76,6 @@ def translation_test_so_skip_if_appdirect():
         py.test.skip("translation test, skipped for appdirect")
 
 
-class OpErrKeyboardInterrupt(KeyboardInterrupt):
-    pass
-
-def check_keyboard_interrupt(e):
-    # we cannot easily convert w_KeyboardInterrupt to KeyboardInterrupt
-    # in general without a space -- here is an approximation
-    try:
-        if e.w_type.name == 'KeyboardInterrupt':
-            tb = sys.exc_info()[2]
-            raise OpErrKeyboardInterrupt, OpErrKeyboardInterrupt(), tb
-    except AttributeError:
-        pass
-
 #
 # Interfacing/Integrating with py.test's collection process
 #
