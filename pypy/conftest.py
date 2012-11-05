@@ -30,8 +30,9 @@ def pytest_report_header():
 
 
 def pytest_addhooks(pluginmanager):
-    from pypy.tool.pytest.plugins import LeakFinder
-    pluginmanager.register(LeakFinder())
+    if sys.version_info < (3,):
+        from pypy.tool.pytest.plugins import LeakFinder
+        pluginmanager.register(LeakFinder())
 
 
 def pytest_configure(config):
@@ -93,10 +94,13 @@ def ensure_pytest_builtin_helpers(helpers='skip raises'.split()):
         apparently earlier on "raises" was already added
         to module's globals.
     """
-    import __builtin__
+    try:
+        import builtins
+    except ImportError:
+        import __builtin__ as builtins
     for helper in helpers:
-        if not hasattr(__builtin__, helper):
-            setattr(__builtin__, helper, getattr(py.test, helper))
+        if not hasattr(builtins, helper):
+            setattr(builtins, helper, getattr(py.test, helper))
 
 def pytest_sessionstart(session):
     """ before session.main() is called. """
