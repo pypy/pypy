@@ -19,8 +19,6 @@ from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib import jit
 from pypy.rlib.rstring import StringBuilder
 
-from pypy.module.micronumpy import halffloat 
-
 degToRad = math.pi / 180.0
 log2 = math.log(2)
 log2e = 1. / log2
@@ -930,8 +928,7 @@ class Float16(BaseType, Float):
     BoxType = interp_boxes.W_Float16Box
 
     def pack_str(self, box):
-        fbits = float_pack(self.unbox(box), 4)
-        hbits = halffloat.floatbits_to_halfbits(fbits)
+        hbits = float_pack(self.unbox(box), 2)
         return struct.pack('H', hbits)
 
     def get_element_size(self):
@@ -940,8 +937,7 @@ class Float16(BaseType, Float):
     def runpack_str(self, s):
         hbits = rffi.cast(rffi.UINT, runpack('H', s))
         assert hbits >=0
-        fbits = halffloat.halfbits_to_floatbits(hbits)
-        return self.box(float_unpack(fbits, 4))
+        return self.box(float_unpack(hbits, 2))
 
     def for_computation(self, v):
         return float(v)
@@ -950,15 +946,13 @@ class Float16(BaseType, Float):
         return self.box(-1.0)
 
     def _read(self, storage, i, offset):
-        byte_rep = rffi.cast(rffi.UINT, 
+        hbits = rffi.cast(rffi.UINT, 
                 raw_storage_getitem(self._STORAGE_T, storage, i + offset))
-        assert byte_rep >=0
-        fbits = halffloat.halfbits_to_floatbits(byte_rep)
-        return float_unpack(fbits, 4)
+        assert hbits >=0
+        return float_unpack(hbits, 2)
 
     def _write(self, storage, i, offset, value):
-        fbits = float_pack(value,4)
-        hbits = halffloat.floatbits_to_halfbits(fbits)
+        hbits = float_pack(value,2)
         raw_storage_setitem(storage, i + offset,
                 rffi.cast(self._STORAGE_T, hbits))
 

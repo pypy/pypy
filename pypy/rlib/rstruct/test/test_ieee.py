@@ -112,6 +112,7 @@ class TestFloatPacking:
             self.check_float(x)
 
     def test_halffloat_exact(self):
+        #testcases generated from numpy.float16(x).view('uint16')
         cases = [[0, 0], [10, 18688], [-10, 51456], [10e3, 28898], 
                  [float('inf'), 31744], [-float('inf'), 64512]]
         for c,h in cases:
@@ -120,6 +121,7 @@ class TestFloatPacking:
             assert c == float_unpack(h, 2)
 
     def test_halffloat_inexact(self):
+        #testcases generated from numpy.float16(x).view('uint16')
         cases = [[10.001, 18688, 10.], [-10.001, 51456, -10],
                  [0.027588, 10000, 0.027587890625],
                  [22001, 30047, 22000]]
