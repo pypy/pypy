@@ -1033,7 +1033,7 @@ class StringListStrategy(AbstractUnwrappedStrategy, ListStrategy):
     _applevel_repr = "str"
 
     def wrap(self, stringval):
-        return self.space.wrap(stringval)
+        return self.space.wrapbytes(stringval)
 
     def unwrap(self, w_string):
         return self.space.str_w(w_string)

@@ -621,6 +621,13 @@ class TestW_ListStrategies(TestW_ListObject):
         w_l = W_ListObject(space, [space.wrap(1), space.wrap(2), space.wrap(3)])
         assert self.space.listview_int(w_l) == [1, 2, 3]
 
+    def test_stringstrategy_wraps_bytes(self):
+        space = self.space
+        wb = space.wrapbytes
+        l = W_ListObject(space, [wb('a'), wb('b')])
+        w_item = l.getitem(0)
+        assert isinstance(w_item, space.StringObjectCls)
+
 
 class TestW_ListStrategiesDisabled:
     def setup_class(cls):
