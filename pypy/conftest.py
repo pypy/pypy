@@ -71,10 +71,6 @@ def pytest_funcarg__space(request):
     spaceconfig = getattr(request.cls, 'spaceconfig', {})
     return gettestobjspace(**spaceconfig)
 
-def translation_test_so_skip_if_appdirect():
-    if option.runappdirect:
-        py.test.skip("translation test, skipped for appdirect")
-
 
 #
 # Interfacing/Integrating with py.test's collection process
