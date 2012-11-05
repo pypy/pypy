@@ -589,7 +589,7 @@ class StringDictStrategy(AbstractTypedStrategy, DictStrategy):
 
     def is_correct_type(self, w_obj):
         space = self.space
-        return space.is_w(space.type(w_obj), space.w_text)
+        return space.is_w(space.type(w_obj), space.w_str)
 
     def get_empty_storage(self):
         res = {}

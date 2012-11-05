@@ -144,10 +144,10 @@ class TestW_DictObject:
         assert space.eq_w(w_d.getitem_str("b"), space.w_None)
 
     def test_listview_str_dict(self):
-        py.test.py3k_skip("StringDictStrategy not supported yet")
         w = self.space.wrap
+        wb = self.space.wrapbytes
         w_d = self.space.newdict()
-        w_d.initialize_content([(w("a"), w(1)), (w("b"), w(2))])
+        w_d.initialize_content([(wb("a"), w(1)), (wb("b"), w(2))])
         assert self.space.listview_str(w_d) == ["a", "b"]
 
     def test_listview_unicode_dict(self):
@@ -643,6 +643,7 @@ class AppTest_DictMultiObject(AppTest_DictObject):
         s = "abc"
         setattr(a, s, 123)
         assert holder.seen is s
+
 
 class AppTestDictViews:
     def test_dictview(self):
