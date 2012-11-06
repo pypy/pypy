@@ -118,6 +118,16 @@ class AppTestConnectedSSL:
         self.s.close()
         del ss; gc.collect()
 
+    def test_read_into(self):
+        import ssl, gc
+        ss = ssl.wrap_socket(self.s)
+        ss.write(b"hello\n")
+        b = bytearray(8)
+        read = ss.read(10, b)
+        assert read == 8
+        self.s.close()
+        del ss; gc.collect()
+
     def test_shutdown(self):
         import socket, ssl, sys, gc
         ss = ssl.wrap_socket(self.s)
