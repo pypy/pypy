@@ -1,3 +1,5 @@
+from pypy.tool.udir import udir
+
 class AppTestSSL:
     spaceconfig = dict(usemodules=('_ssl', '_socket'))
 
@@ -140,6 +142,7 @@ class AppTestConnectedSSL:
             raise
         raises(AttributeError, ss.write, b"hello\n")
         del ss; gc.collect()
+        
 
 class AppTestConnectedSSL_Timeout(AppTestConnectedSSL):
     # Same tests, with a socket timeout
@@ -155,3 +158,68 @@ class AppTestConnectedSSL_Timeout(AppTestConnectedSSL):
         cls.space.appexec([], """():
             import socket; socket.setdefaulttimeout(1)
             """)
+
+class AppTestContext:
+    spaceconfig = dict(usemodules=('_ssl',))
+
+    def setup_class(cls):
+        tmpfile = udir / "tmpfile.pem"
+        tmpfile.write(SSL_CERTIFICATE + SSL_PRIVATE_KEY)
+        cls.w_keycert = cls.space.wrap(str(tmpfile))
+        tmpfile = udir / "key.pem"
+        tmpfile.write(SSL_PRIVATE_KEY)
+        cls.w_key = cls.space.wrap(str(tmpfile))
+        tmpfile = udir / "cert.pem"
+        tmpfile.write(SSL_CERTIFICATE)
+        cls.w_cert = cls.space.wrap(str(tmpfile))
+
+    def test_load_cert_chain(self):
+        import _ssl
+        ctx = _ssl._SSLContext(_ssl.PROTOCOL_TLSv1)
+        raises(IOError, ctx.load_cert_chain, "inexistent.pem")
+        ctx.load_cert_chain(self.keycert)
+        ctx.load_cert_chain(self.cert, self.key)
+
+    def test_load_verify_locations(self):
+        import _ssl
+        ctx = _ssl._SSLContext(_ssl.PROTOCOL_TLSv1)
+        ctx.load_verify_locations(self.keycert)
+        ctx.load_verify_locations(cafile=self.keycert, capath=None)
+
+
+SSL_CERTIFICATE = """
+-----BEGIN CERTIFICATE-----
+MIICVDCCAb2gAwIBAgIJANfHOBkZr8JOMA0GCSqGSIb3DQEBBQUAMF8xCzAJBgNV
+BAYTAlhZMRcwFQYDVQQHEw5DYXN0bGUgQW50aHJheDEjMCEGA1UEChMaUHl0aG9u
+IFNvZnR3YXJlIEZvdW5kYXRpb24xEjAQBgNVBAMTCWxvY2FsaG9zdDAeFw0xMDEw
+MDgyMzAxNTZaFw0yMDEwMDUyMzAxNTZaMF8xCzAJBgNVBAYTAlhZMRcwFQYDVQQH
+Ew5DYXN0bGUgQW50aHJheDEjMCEGA1UEChMaUHl0aG9uIFNvZnR3YXJlIEZvdW5k
+YXRpb24xEjAQBgNVBAMTCWxvY2FsaG9zdDCBnzANBgkqhkiG9w0BAQEFAAOBjQAw
+gYkCgYEA21vT5isq7F68amYuuNpSFlKDPrMUCa4YWYqZRt2OZ+/3NKaZ2xAiSwr7
+6MrQF70t5nLbSPpqE5+5VrS58SY+g/sXLiFd6AplH1wJZwh78DofbFYXUggktFMt
+pTyiX8jtP66bkcPkDADA089RI1TQR6Ca+n7HFa7c1fabVV6i3zkCAwEAAaMYMBYw
+FAYDVR0RBA0wC4IJbG9jYWxob3N0MA0GCSqGSIb3DQEBBQUAA4GBAHPctQBEQ4wd
+BJ6+JcpIraopLn8BGhbjNWj40mmRqWB/NAWF6M5ne7KpGAu7tLeG4hb1zLaldK8G
+lxy2GPSRF6LFS48dpEj2HbMv2nvv6xxalDMJ9+DicWgAKTQ6bcX2j3GUkCR0g/T1
+CRlNBAAlvhKzO7Clpf9l0YKBEfraJByX
+-----END CERTIFICATE-----
+"""
+
+SSL_PRIVATE_KEY = """
+-----BEGIN PRIVATE KEY-----
+MIICdwIBADANBgkqhkiG9w0BAQEFAASCAmEwggJdAgEAAoGBANtb0+YrKuxevGpm
+LrjaUhZSgz6zFAmuGFmKmUbdjmfv9zSmmdsQIksK++jK0Be9LeZy20j6ahOfuVa0
+ufEmPoP7Fy4hXegKZR9cCWcIe/A6H2xWF1IIJLRTLaU8ol/I7T+um5HD5AwAwNPP
+USNU0Eegmvp+xxWu3NX2m1Veot85AgMBAAECgYA3ZdZ673X0oexFlq7AAmrutkHt
+CL7LvwrpOiaBjhyTxTeSNWzvtQBkIU8DOI0bIazA4UreAFffwtvEuPmonDb3F+Iq
+SMAu42XcGyVZEl+gHlTPU9XRX7nTOXVt+MlRRRxL6t9GkGfUAXI3XxJDXW3c0vBK
+UL9xqD8cORXOfE06rQJBAP8mEX1ERkR64Ptsoe4281vjTlNfIbs7NMPkUnrn9N/Y
+BLhjNIfQ3HFZG8BTMLfX7kCS9D593DW5tV4Z9BP/c6cCQQDcFzCcVArNh2JSywOQ
+ZfTfRbJg/Z5Lt9Fkngv1meeGNPgIMLN8Sg679pAOOWmzdMO3V706rNPzSVMME7E5
+oPIfAkEA8pDddarP5tCvTTgUpmTFbakm0KoTZm2+FzHcnA4jRh+XNTjTOv98Y6Ik
+eO5d1ZnKXseWvkZncQgxfdnMqqpj5wJAcNq/RVne1DbYlwWchT2Si65MYmmJ8t+F
+0mcsULqjOnEMwf5e+ptq5LzwbyrHZYq5FNk7ocufPv/ZQrcSSC+cFwJBAKvOJByS
+x56qyGeZLOQlWS2JS3KJo59XuLFGqcbgN9Om9xFa41Yb4N9NvplFivsvZdw3m1Q/
+SPIXQuT8RMPDVNQ=
+-----END PRIVATE KEY-----
+"""

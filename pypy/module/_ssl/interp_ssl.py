@@ -175,11 +175,11 @@ class SSLContext(Wrappable):
             libssl_SSL_CTX_set_options(self.ctx, set)
 
     def load_cert_chain_w(self, space, w_certfile, w_keyfile=None):
-        if space.is_w(w_certfile, space.w_None):
+        if space.is_none(w_certfile):
             certfile = None
         else:
             certfile = space.str_w(w_certfile)
-        if space.is_w(w_keyfile, space.w_None):
+        if space.is_none(w_keyfile):
             keyfile = certfile
         else:
             keyfile = space.str_w(w_keyfile)
@@ -210,11 +210,11 @@ class SSLContext(Wrappable):
             raise _ssl_seterror(space, None, -1)
 
     def load_verify_locations_w(self, space, w_cafile=None, w_capath=None):
-        if space.is_w(w_cafile, space.w_None):
+        if space.is_none(w_cafile):
             cafile = None
         else:
             cafile = space.str_w(w_cafile)
-        if space.is_w(w_capath, space.w_None):
+        if space.is_none(w_capath):
             capath = None
         else:
             capath = space.str_w(w_capath)
