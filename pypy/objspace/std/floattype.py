@@ -39,7 +39,7 @@ def descr__new__(space, w_floattype, w_x):
           space.isinstance_w(w_value, space.w_bytearray)):
         strvalue = space.bufferstr_w(w_value)
         try:
-            value = string_to_float(strvalue)
+            value = string_to_float(strvalue.decode('latin-1'))
         except ParseStringError, e:
             raise OperationError(space.w_ValueError,
                                  space.wrap(e.msg))
