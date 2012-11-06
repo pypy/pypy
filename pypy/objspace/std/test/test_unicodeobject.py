@@ -2,16 +2,18 @@
 import py
 import sys
 
-def test_unicode_to_decimal_w():
-    from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
-    space = gettestobjspace(usemodules=('unicodedata',))
-    w_s = space.wrap(u"\N{EM SPACE}-3\N{EN SPACE}")
-    s2 = unicode_to_decimal_w(space, w_s)
-    assert s2 == " -3 "
-    #
-    w_s = space.wrap(u'\U0001D7CF\U0001D7CE') # 𝟏𝟎
-    s2 = unicode_to_decimal_w(space, w_s)
-    assert s2 == "10"
+class TestUnicodeObject:
+    spaceconfig = dict(usemodules=('unicodedata',))
+
+    def test_unicode_to_decimal_w(self, space):
+        from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
+        w_s = space.wrap(u"\N{EM SPACE}-3\N{EN SPACE}")
+        s2 = unicode_to_decimal_w(space, w_s)
+        assert s2 == " -3 "
+        #
+        w_s = space.wrap(u'\U0001D7CF\U0001D7CE') # 𝟏𝟎
+        s2 = unicode_to_decimal_w(space, w_s)
+        assert s2 == "10"
 
     def test_listview_unicode(self):
         w_str = self.space.wrap(u'abcd')
