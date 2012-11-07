@@ -107,8 +107,9 @@ def do_get_referrers(w_arg):
                     w_obj = head.get_most_recent_w_obj()
                     if w_obj is not None:
                         result_w[w_obj] = None    # found!
-                rgc.toggle_gcflag_extra(gcref)
-                head = PathEntry(head, gcref, rgc.get_rpy_referents(gcref))
+                else:
+                    rgc.toggle_gcflag_extra(gcref)
+                    head = PathEntry(head, gcref, rgc.get_rpy_referents(gcref))
         else:
             # no more referents to visit
             head = head.prev
