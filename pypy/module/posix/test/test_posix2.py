@@ -501,6 +501,13 @@ class AppTestPosix:
             assert res == '1\n'
             assert stream.close() is None
 
+    def test_popen_with(self):
+        os = self.posix
+        stream = os.popen('echo 1')
+        with stream as fp:
+            res = fp.read()
+            assert res == '1\n'
+
     if hasattr(__import__(os.name), '_getfullpathname'):
         def test__getfullpathname(self):
             # nt specific
