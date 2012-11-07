@@ -3,7 +3,8 @@ License for files in the pypy/ directory
 
 Except when otherwise stated (look for LICENSE files in directories or
 information at the beginning of each file) all software and
-documentation in the 'pypy' directories is licensed as follows: 
+documentation in the 'pypy', 'ctype_configure', 'dotviewer', 'demo',
+and 'lib_pypy' directories is licensed as follows: 
 
     The MIT License
 
