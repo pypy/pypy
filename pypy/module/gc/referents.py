@@ -45,6 +45,109 @@ def missing_operation(space):
     return OperationError(space.w_NotImplementedError,
                           space.wrap("operation not implemented by this GC"))
 
+# ____________________________________________________________
+
+def clear_gcflag_extra(fromlist):
+    pending = fromlist[:]
+    while pending:
+        gcref = pending.pop()
+        if rgc.get_gcflag_extra(gcref):
+            rgc.toggle_gcflag_extra(gcref)
+            pending.extend(rgc.get_rpy_referents(gcref))
+
+def do_get_objects():
+    roots = [gcref for gcref in rgc.get_rpy_roots() if gcref]
+    pending = roots[:]
+    result_w = []
+    while pending:
+        gcref = pending.pop()
+        if not rgc.get_gcflag_extra(gcref):
+            rgc.toggle_gcflag_extra(gcref)
+            w_obj = try_cast_gcref_to_w_root(gcref)
+            if w_obj is not None:
+                result_w.append(w_obj)
+            pending.extend(rgc.get_rpy_referents(gcref))
+    clear_gcflag_extra(roots)
+    return result_w
+
+# ____________________________________________________________
+
+class PathEntry(object):
+    # PathEntries are nodes of a complete tree of all objects, but
+    # built lazily (there is only one branch alive at any time).
+    # Each node has a 'gcref' and the list of referents from this gcref.
+    def __init__(self, prev, gcref, referents):
+        self.prev = prev
+        self.gcref = gcref
+        self.referents = referents
+        self.remaining = len(referents)
+
+    def get_most_recent_w_obj(self):
+        entry = self
+        while entry is not None:
+            if entry.gcref:
+                w_obj = try_cast_gcref_to_w_root(entry.gcref)
+                if w_obj is not None:
+                    return w_obj
+            entry = entry.prev
+        return None
+
+def do_get_referrers(w_arg):
+    result_w = {}
+    gcarg = rgc.cast_instance_to_gcref(w_arg)
+    roots = [gcref for gcref in rgc.get_rpy_roots() if gcref]
+    head = PathEntry(None, rgc.NULL_GCREF, roots)
+    while True:
+        head.remaining -= 1
+        if head.remaining >= 0:
+            gcref = head.referents[head.remaining]
+            if not rgc.get_gcflag_extra(gcref):
+                # not visited so far
+                if gcref == gcarg:
+                    w_obj = head.get_most_recent_w_obj()
+                    if w_obj is not None:
+                        result_w[w_obj] = None    # found!
+                rgc.toggle_gcflag_extra(gcref)
+                head = PathEntry(head, gcref, rgc.get_rpy_referents(gcref))
+        else:
+            # no more referents to visit
+            head = head.prev
+            if head is None:
+                break
+    clear_gcflag_extra(roots)
+    return result_w.keys()
+
+# ____________________________________________________________
+
+def _list_w_obj_referents(gcref, result_w):
+    # Get all W_Root reachable directly from gcref, and add them to
+    # the list 'result_w'.
+    pending = []    # = list of all objects whose gcflag was toggled
+    i = 0
+    gcrefparent = gcref
+    while True:
+        for gcref in rgc.get_rpy_referents(gcrefparent):
+            if rgc.get_gcflag_extra(gcref):
+                continue
+            rgc.toggle_gcflag_extra(gcref)
+            pending.append(gcref)
+
+        while i < len(pending):
+            gcrefparent = pending[i]
+            i += 1
+            w_obj = try_cast_gcref_to_w_root(gcrefparent)
+            if w_obj is not None:
+                result_w.append(w_obj)
+            else:
+                break   # jump back to the start of the outermost loop
+        else:
+            break   # done
+
+    for gcref in pending:
+        rgc.toggle_gcflag_extra(gcref)    # reset the gcflag_extra's
+
+# ____________________________________________________________
+
 def get_rpy_roots(space):
     lst = rgc.get_rpy_roots()
     if lst is None:
@@ -79,93 +182,35 @@ def get_rpy_type_index(space, w_obj):
         raise missing_operation(space)
     return space.wrap(index)
 
-def _list_w_obj_referents(gcref, result_w):
-    # Get all W_Root reachable directly from gcref, and add them to
-    # the list 'result_w'.  The logic here is not robust against gc
-    # moves, and may return the same object several times.
-    seen = {}     # map {current_addr: obj}
-    pending = [gcref]
-    i = 0
-    while i < len(pending):
-        gcrefparent = pending[i]
-        i += 1
-        for gcref in rgc.get_rpy_referents(gcrefparent):
-            key = rgc.cast_gcref_to_int(gcref)
-            if gcref == seen.get(key, rgc.NULL_GCREF):
-                continue     # already in 'seen'
-            seen[key] = gcref
-            w_obj = try_cast_gcref_to_w_root(gcref)
-            if w_obj is not None:
-                result_w.append(w_obj)
-            else:
-                pending.append(gcref)
-
-def _get_objects_from_rpy(list_of_gcrefs):
-    # given a list of gcrefs that may or may not be W_Roots, build a list
-    # of W_Roots obtained by following references from there.
-    result_w = []   # <- list of W_Roots
-    for gcref in list_of_gcrefs:
-        if gcref:
-            w_obj = try_cast_gcref_to_w_root(gcref)
-            if w_obj is not None:
-                result_w.append(w_obj)
-            else:
-                _list_w_obj_referents(gcref, result_w)
-    return result_w
-
 def get_objects(space):
     """Return a list of all app-level objects."""
-    roots = rgc.get_rpy_roots()
-    pending_w = _get_objects_from_rpy(roots)
-    # continue by following every W_Root.  Note that this will force a hash
-    # on every W_Root, which is kind of bad, but not on every RPython object,
-    # which is really good.
-    result_w = {}
-    while len(pending_w) > 0:
-        previous_w = pending_w
-        pending_w = []
-        for w_obj in previous_w:
-            if w_obj not in result_w:
-                result_w[w_obj] = None
-                gcref = rgc.cast_instance_to_gcref(w_obj)
-                _list_w_obj_referents(gcref, pending_w)
-    return space.newlist(result_w.keys())
+    if not rgc.has_gcflag_extra():
+        raise missing_operation(space)
+    result_w = do_get_objects()
+    rgc.assert_no_more_gcflags()
+    return space.newlist(result_w)
 
 def get_referents(space, args_w):
     """Return a list of objects directly referred to by any of the arguments.
-    Approximative: follow references recursively until it finds
-    app-level objects.  May return several times the same object, too."""
-    result = []
+    """
+    if not rgc.has_gcflag_extra():
+        raise missing_operation(space)
+    result_w = []
     for w_obj in args_w:
         gcref = rgc.cast_instance_to_gcref(w_obj)
-        _list_w_obj_referents(gcref, result)
-    return space.newlist(result)
+        _list_w_obj_referents(gcref, result_w)
+    rgc.assert_no_more_gcflags()
+    return space.newlist(result_w)
 
 def get_referrers(space, args_w):
     """Return the list of objects that directly refer to any of objs."""
-    roots = rgc.get_rpy_roots()
-    pending_w = _get_objects_from_rpy(roots)
-    arguments_w = {}
-    for w_obj in args_w:
-        arguments_w[w_obj] = None
-    # continue by following every W_Root.  Same remark about hashes as
-    # in get_objects().
-    result_w = {}
-    seen_w = {}
-    while len(pending_w) > 0:
-        previous_w = pending_w
-        pending_w = []
-        for w_obj in previous_w:
-            if w_obj not in seen_w:
-                seen_w[w_obj] = None
-                gcref = rgc.cast_instance_to_gcref(w_obj)
-                referents_w = []
-                _list_w_obj_referents(gcref, referents_w)
-                for w_subobj in referents_w:
-                    if w_subobj in arguments_w:
-                        result_w[w_obj] = None
-                pending_w += referents_w
-    return space.newlist(result_w.keys())
+    if not rgc.has_gcflag_extra():
+        raise missing_operation(space)
+    result_w = []
+    for w_arg in args_w:
+        result_w += do_get_referrers(w_arg)
+    rgc.assert_no_more_gcflags()
+    return space.newlist(result_w)
 
 @unwrap_spec(fd=int)
 def _dump_rpy_heap(space, fd):

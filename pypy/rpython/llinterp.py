@@ -921,6 +921,9 @@ class LLFrame(object):
     def op_gc_typeids_z(self):
         raise NotImplementedError("gc_typeids_z")
 
+    def op_gc_gcflag_extra(self, subopnum, *args):
+        return self.heap.gcflag_extra(subopnum, *args)
+
     def op_do_malloc_fixedsize_clear(self):
         raise NotImplementedError("do_malloc_fixedsize_clear")
 
