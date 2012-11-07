@@ -238,11 +238,12 @@ class SSLContext(Wrappable):
         assert w_sock is not None
         # server_hostname is either None (or absent), or to be encoded
         # using the idna encoding.
-        if space.is_w(w_server_hostname, space.w_None):
+        if space.is_none(w_server_hostname):
             hostname = None
         else:
             hostname = space.bytes_w(
-                space.call_method(w_server_hostname, "idna"))
+                space.call_method(w_server_hostname,
+                                  "encode", space.wrap("idna")))
 
         if hostname and not HAS_SNI:
             raise OperationError(space.w_ValueError,

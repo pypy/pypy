@@ -66,7 +66,7 @@ class AppTestSSL:
 
 
 class AppTestConnectedSSL:
-    spaceconfig = dict(usemodules=('_ssl', '_socket', 'struct'))
+    spaceconfig = dict(usemodules=('_ssl', '_socket', 'struct', 'array'))
 
     def setup_method(self, method):
         # https://www.verisign.net/
@@ -142,12 +142,19 @@ class AppTestConnectedSSL:
             raise
         raises(AttributeError, ss.write, b"hello\n")
         del ss; gc.collect()
+
+    def test_server_hostname(self):
+        import socket, _ssl, gc
+        ctx = _ssl._SSLContext(_ssl.PROTOCOL_SSLv23)
+        ss = ctx._wrap_socket(self.s, False,
+                              server_hostname="svn.python.org")
+        self.s.close()
+        del ss; gc.collect()
         
 
 class AppTestConnectedSSL_Timeout(AppTestConnectedSSL):
     # Same tests, with a socket timeout
     # to exercise the poll() calls
-    spaceconfig = dict(usemodules=('_ssl', '_socket', 'struct'))
 
     def setup_class(cls):
         cls.space.appexec([], """():
