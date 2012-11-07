@@ -93,7 +93,7 @@ class PathEntry(object):
         return None
 
 def do_get_referrers(w_arg):
-    result_w = {}
+    result_w = []
     gcarg = rgc.cast_instance_to_gcref(w_arg)
     roots = [gcref for gcref in rgc.get_rpy_roots() if gcref]
     head = PathEntry(None, rgc.NULL_GCREF, roots)
@@ -106,17 +106,20 @@ def do_get_referrers(w_arg):
                 if gcref == gcarg:
                     w_obj = head.get_most_recent_w_obj()
                     if w_obj is not None:
-                        result_w[w_obj] = None    # found!
-                else:
-                    rgc.toggle_gcflag_extra(gcref)
-                    head = PathEntry(head, gcref, rgc.get_rpy_referents(gcref))
+                        result_w.append(w_obj)   # found!
+                        rgc.toggle_gcflag_extra(gcref)  # toggle twice
+                rgc.toggle_gcflag_extra(gcref)
+                head = PathEntry(head, gcref, rgc.get_rpy_referents(gcref))
         else:
             # no more referents to visit
             head = head.prev
             if head is None:
                 break
+    # done.  Clear flags carefully
+    rgc.toggle_gcflag_extra(gcarg)
     clear_gcflag_extra(roots)
-    return result_w.keys()
+    clear_gcflag_extra([gcarg])
+    return result_w
 
 # ____________________________________________________________
 
