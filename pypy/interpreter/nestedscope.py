@@ -181,11 +181,6 @@ class __extend__(pyframe.PyFrame):
         # is the variable given by index a cell or a free var?
         return index < len(self.pycode.co_cellvars)
 
-    @jit.unroll_safe
-    def mark_cells_as_final(self):
-        for in in range(self.pycode):
-            xxx
-
     ### extra opcodes ###
 
     def LOAD_CLOSURE(self, varindex, next_instr):

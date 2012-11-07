@@ -183,7 +183,6 @@ class PyFrame(eval.Frame):
             got_exception = False
         finally:
             executioncontext.leave(self, w_exitvalue, got_exception)
-            self.mark_cells_as_final() # implemented in nestedscope
         return w_exitvalue
     execute_frame.insert_stack_check_here = True
 
