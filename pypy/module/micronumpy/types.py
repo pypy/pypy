@@ -10,7 +10,7 @@ from pypy.rlib import rfloat, clibffi, rcomplex
 from pypy.rlib.rawstorage import (alloc_raw_storage, raw_storage_setitem,
                                   raw_storage_getitem)
 from pypy.rlib.objectmodel import specialize
-from pypy.rlib.rarithmetic import widen, byteswap
+from pypy.rlib.rarithmetic import widen, byteswap, intmask
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.rstruct.runpack import runpack
 from pypy.rlib.rstruct.ieee import float_pack, float_unpack
@@ -920,8 +920,7 @@ class Float16(BaseType, Float):
         return rffi.sizeof(self._STORAGE_T)
 
     def runpack_str(self, s):
-        hbits = rffi.cast(rffi.UINT, runpack('H', s))
-        assert hbits >=0
+        hbits = int(runpack('H', s))
         return self.box(float_unpack(hbits, 2))
 
     def for_computation(self, v):
@@ -931,9 +930,7 @@ class Float16(BaseType, Float):
         return self.box(-1.0)
 
     def _read(self, storage, i, offset):
-        hbits = rffi.cast(rffi.UINT, 
-                raw_storage_getitem(self._STORAGE_T, storage, i + offset))
-        assert hbits >=0
+        hbits = intmask(raw_storage_getitem(self._STORAGE_T, storage, i + offset))
         return float_unpack(hbits, 2)
 
     def _write(self, storage, i, offset, value):
