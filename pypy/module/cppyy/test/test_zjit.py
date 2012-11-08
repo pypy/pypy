@@ -14,12 +14,18 @@ if capi.identify() == 'CINT':
 # (note that the module is not otherwise used in the test itself)
 import pypy.module.cpyext
 
-# change capi's direct_ptradd to being jit-opaque
+# change capi's direct_ptradd and exchange_address to being jit-opaque
 @jit.dont_look_inside
 def _opaque_direct_ptradd(ptr, offset):
     address = rffi.cast(rffi.CCHARP, ptr)
     return rffi.cast(capi.C_OBJECT, lltype.direct_ptradd(address, offset))
 capi.direct_ptradd = _opaque_direct_ptradd
+
+@jit.dont_look_inside
+def _opaque_exchange_address(ptr, cif_descr, index):
+    offset = rffi.cast(rffi.LONG, cif_descr.exchange_args[index])
+    return rffi.ptradd(ptr, offset)
+capi.exchange_address = _opaque_exchange_address
 
 currpath = py.path.local(__file__).dirpath()
 test_dct = str(currpath.join("example01Dict.so"))

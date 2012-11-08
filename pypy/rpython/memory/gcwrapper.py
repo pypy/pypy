@@ -153,6 +153,20 @@ class GCManagedHeap(object):
         else:
             return True
 
+    def gcflag_extra(self, subopnum, *args):
+        if subopnum == 1:      # has_gcflag_extra
+            assert len(args) == 0
+            return self.gc.gcflag_extra != 0
+        assert len(args) == 1
+        addr = llmemory.cast_ptr_to_adr(args[0])
+        hdr = self.gc.header(addr)
+        if subopnum == 3:      # toggle_gcflag_extra
+            if hdr.tid & self.gc.gcflag_extra:
+                hdr.tid &= ~self.gc.gcflag_extra
+            else:
+                hdr.tid |= self.gc.gcflag_extra
+        return (hdr.tid & self.gc.gcflag_extra) != 0
+
 # ____________________________________________________________
 
 class LLInterpRootWalker:

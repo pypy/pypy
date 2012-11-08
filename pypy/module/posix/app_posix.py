@@ -311,6 +311,13 @@ else:
             self._stream.close()
             return self._proc.wait() or None    # 0 => None
         __del__ = close
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *k):
+            self.close()
+
         def __getattr__(self, name):
             return getattr(self._stream, name)
         def __iter__(self):

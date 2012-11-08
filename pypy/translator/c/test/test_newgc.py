@@ -1183,6 +1183,35 @@ class TestUsingFramework(object):
         assert data.startswith('member0')
         assert 'GcArray of * GcStruct S {' in data
 
+    def define_gcflag_extra(self):
+        class A:
+            pass
+        a1 = A()
+        def fn():
+            a2 = A()
+            if not rgc.has_gcflag_extra():
+                return 0     # cannot test it then
+            assert rgc.get_gcflag_extra(a1) == False
+            assert rgc.get_gcflag_extra(a2) == False
+            rgc.toggle_gcflag_extra(a1)
+            assert rgc.get_gcflag_extra(a1) == True
+            assert rgc.get_gcflag_extra(a2) == False
+            rgc.toggle_gcflag_extra(a2)
+            assert rgc.get_gcflag_extra(a1) == True
+            assert rgc.get_gcflag_extra(a2) == True
+            rgc.toggle_gcflag_extra(a1)
+            assert rgc.get_gcflag_extra(a1) == False
+            assert rgc.get_gcflag_extra(a2) == True
+            rgc.toggle_gcflag_extra(a2)
+            assert rgc.get_gcflag_extra(a1) == False
+            assert rgc.get_gcflag_extra(a2) == False
+            return 0
+        return fn
+
+    def test_gcflag_extra(self):
+        self.run("gcflag_extra")
+
+
 class TestSemiSpaceGC(TestUsingFramework, snippet.SemiSpaceGCTestDefines):
     gcpolicy = "semispace"
     should_be_moving = True

@@ -40,6 +40,9 @@ def direct_ptradd(ptr, offset):
     address = rffi.cast(rffi.CCHARP, ptr)
     return rffi.cast(C_OBJECT, lltype.direct_ptradd(address, offset))
 
+def exchange_address(ptr, cif_descr, index):
+    return rffi.ptradd(ptr, cif_descr.exchange_args[index])
+
 c_load_dictionary = backend.c_load_dictionary
 
 # name to opaque C++ scope representation ------------------------------------

@@ -195,7 +195,7 @@ class CPPMethod(object):
         buffer = lltype.malloc(rffi.CCHARP.TO, cif_descr.exchange_size, flavor='raw')
         try:
             # this pointer
-            data = rffi.ptradd(buffer, cif_descr.exchange_args[0])
+            data = capi.exchange_address(buffer, cif_descr, 0)
             x = rffi.cast(rffi.LONGP, data)       # LONGP needed for test_zjit.py
             x[0] = rffi.cast(rffi.LONG, cppthis)
 
@@ -204,11 +204,11 @@ class CPPMethod(object):
             for i in range(len(args_w)):
                 conv = self.converters[i]
                 w_arg = args_w[i]
-                data = rffi.ptradd(buffer, cif_descr.exchange_args[i+1])
+                data = capi.exchange_address(buffer, cif_descr, i+1)
                 conv.convert_argument_libffi(self.space, w_arg, data, call_local)
             for j in range(i+1, len(self.arg_defs)):
                 conv = self.converters[j]
-                data = rffi.ptradd(buffer, cif_descr.exchange_args[j+1])
+                data = capi.exchange_address(buffer, cif_descr, j+1)
                 conv.default_argument_libffi(self.space, data)
 
             w_res = self.executor.execute_libffi(
