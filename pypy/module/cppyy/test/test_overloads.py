@@ -1,11 +1,8 @@
 import py, os, sys
-from pypy.conftest import gettestobjspace
 
 
 currpath = py.path.local(__file__).dirpath()
 test_dct = str(currpath.join("overloadsDict.so"))
-
-space = gettestobjspace(usemodules=['cppyy', 'array'])
 
 def setup_module(mod):
     if sys.platform == 'win32':
@@ -15,10 +12,11 @@ def setup_module(mod):
         raise OSError("'make' failed (see stderr)")
 
 class AppTestOVERLOADS:
+    spaceconfig = dict(usemodules=['cppyy', 'array'])
+
     def setup_class(cls):
-        cls.space = space
         env = os.environ
-        cls.w_test_dct  = space.wrap(test_dct)
+        cls.w_test_dct  = cls.space.wrap(test_dct)
         cls.w_overloads = cls.space.appexec([], """():
             import cppyy
             return cppyy.load_reflection_info(%r)""" % (test_dct, ))

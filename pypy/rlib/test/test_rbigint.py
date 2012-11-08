@@ -1,13 +1,18 @@
 from __future__ import division
-import py
-import operator, sys, array
+
+import operator
+import sys
 from random import random, randint, sample
-from pypy.rlib.rbigint import rbigint, SHIFT, MASK, KARATSUBA_CUTOFF
-from pypy.rlib.rbigint import _store_digit, _mask_digit
-from pypy.rlib.rfloat import NAN
+
+import py
+
 from pypy.rlib import rbigint as lobj
 from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong, intmask
+from pypy.rlib.rbigint import (rbigint, SHIFT, MASK, KARATSUBA_CUTOFF,
+    _store_digit, _mask_digit)
+from pypy.rlib.rfloat import NAN
 from pypy.rpython.test.test_llinterp import interpret
+
 
 class TestRLong(object):
     def test_simple(self):
@@ -111,6 +116,17 @@ class TestRLong(object):
         result = r_uint(sys.maxint + 42)
         rl = rbigint.fromint(sys.maxint).add(rbigint.fromint(42))
         assert rl.touint() == result
+
+    def test_eq_ne_operators(self):
+        a1 = rbigint.fromint(12)
+        a2 = rbigint.fromint(12)
+        a3 = rbigint.fromint(123)
+
+        assert a1 == a2
+        assert a1 != a3
+        assert not (a1 != a2)
+        assert not (a1 == a3)
+
 
 def gen_signs(l):
     for s in l:
@@ -283,6 +299,13 @@ class Test_rbigint(object):
         assert f3.eq(f3)
         assert not f1.eq(f2)
         assert not f1.eq(f3)
+
+    def test_eq_fastpath(self):
+        x = 1234
+        y = 1234
+        f1 = rbigint.fromint(x)
+        f2 = rbigint.fromint(y)
+        assert f1.eq(f2)
 
     def test_lt(self):
         val = [0, 0x111111111111, 0x111111111112, 0x111111111112FFFF]

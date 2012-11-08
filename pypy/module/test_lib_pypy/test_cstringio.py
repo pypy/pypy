@@ -3,11 +3,8 @@
 Tests for the PyPy cStringIO implementation.
 """
 
-from pypy.conftest import gettestobjspace
-
 class AppTestcStringIO:
     def setup_class(cls):
-        cls.space = gettestobjspace()
         cls.w_io = cls.space.appexec([], "(): import cStringIO; return cStringIO")
         cls.w_bytes = cls.space.wrap('some bytes')
 

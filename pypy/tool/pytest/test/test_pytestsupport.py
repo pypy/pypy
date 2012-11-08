@@ -128,7 +128,7 @@ def test_expectcollect(testdir):
     assert passed == 1
 
 def test_safename():
-    from pypy.conftest import ExpectTestMethod
+    from pypy.tool.pytest.expecttest import ExpectTestMethod
 
     safe_name = ExpectTestMethod.safe_name
     assert safe_name(['pypy', 'tool', 'test', 'test_pytestsupport.py',

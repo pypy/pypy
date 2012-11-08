@@ -1,16 +1,13 @@
 import py
-from pypy.conftest import gettestobjspace
 
 class AppTestAST:
+    spaceconfig = dict(usemodules=['struct'])
 
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['struct'])
-        cls.w_ast = cls.space.appexec([], """():
-    import _ast
-    return _ast""")
+        cls.w_ast = cls.space.getbuiltinmodule('_ast')
 
     def w_get_ast(self, source, mode="exec"):
-        import _ast as ast
+        ast = self.ast
         mod = compile(source, "<test>", mode, ast.PyCF_ONLY_AST)
         assert isinstance(mod, ast.mod)
         return mod

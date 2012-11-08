@@ -134,6 +134,23 @@ def test_ll_arraycopy_5(monkeypatch):
 
     assert check.called
 
+def test_ll_arraycopy_small():
+    TYPE = lltype.GcArray(lltype.Signed)
+    for length in range(5):
+        a1 = lltype.malloc(TYPE, 10)
+        a2 = lltype.malloc(TYPE, 6)
+        org1 = range(20, 30)
+        org2 = range(50, 56)
+        for i in range(len(a1)): a1[i] = org1[i]
+        for i in range(len(a2)): a2[i] = org2[i]
+        rgc.ll_arraycopy(a1, a2, 4, 2, length)
+        for i in range(10):
+            assert a1[i] == org1[i]
+        for i in range(6):
+            if 2 <= i < 2 + length:
+                assert a2[i] == a1[i+2]
+            else:
+                assert a2[i] == org2[i]
 
 
 def test_ll_shrink_array_1():
