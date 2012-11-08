@@ -1,912 +1,970 @@
-"""
-Minimal-API wrapper around the llinterpreter to run operations.
-"""
-
-from pypy.rlib.unroll import unrolling_iterable
-from pypy.rlib.objectmodel import we_are_translated
-from pypy.rlib.jit_hooks import LOOP_RUN_CONTAINER
-from pypy.rpython.lltypesystem import lltype, llmemory, rclass
-from pypy.rpython.ootypesystem import ootype
-from pypy.rpython.llinterp import LLInterpreter
-from pypy.jit.metainterp import history
-from pypy.jit.metainterp.history import REF, INT, FLOAT, STRUCT
-from pypy.jit.metainterp.warmstate import unwrap
-from pypy.jit.metainterp.resoperation import rop
+import weakref
 from pypy.jit.backend import model
-from pypy.jit.backend.llgraph import llimpl, symbolic
-from pypy.jit.metainterp.typesystem import llhelper, oohelper
-from pypy.jit.codewriter import heaptracker, longlong
+from pypy.jit.backend.llgraph import support
+from pypy.jit.metainterp.history import AbstractDescr
+from pypy.jit.metainterp.resoperation import Const, getkind
+from pypy.jit.metainterp.resoperation import INT, REF, FLOAT, VOID, FLOAT_SIZE
+from pypy.jit.metainterp.resoperation import rop
+from pypy.jit.codewriter import longlong, heaptracker
+from pypy.jit.codewriter.effectinfo import EffectInfo
 
-class MiniStats:
-    pass
+from pypy.rpython.llinterp import LLInterpreter, LLException
+from pypy.rpython.lltypesystem import lltype, llmemory, rffi, rclass, rstr
 
+from pypy.rlib.rarithmetic import ovfcheck, r_uint, r_ulonglong
+from pypy.rlib.rtimer import read_timestamp
 
-class Descr(history.AbstractDescr):
+class LLTrace(object):
+    has_been_freed = False
+    invalid = False
 
-    def __init__(self, ofs, typeinfo, extrainfo=None, name=None,
-                 arg_types=None, count_fields_if_immut=-1, ffi_flags=0, width=-1):
+    def __init__(self, inputargs, operations):
+        # We need to clone the list of operations because the
+        # front-end will mutate them under our feet again.  We also
+        # need to make sure things get freed.
 
-        self.ofs = ofs
-        self.width = width
-        self.typeinfo = typeinfo
+        # XXX for now
+        for op in inputargs + operations:
+            assert op.type == VOID or op._varindex >= 0
+        self.operations = operations
+        self.inputargs = inputargs
+        return
+        def mapping(box, _cache={}):
+            if isinstance(box, Const) or box is None:
+                return box
+            try:
+                newbox = _cache[box]
+            except KeyError:
+                newbox = _cache[box] = box.clonebox()
+            return newbox
+        #
+        self.inputargs = map(mapping, inputargs)
+        self.operations = []
+        for op in operations:
+            if op.getdescr() is not None:
+                newdescr = WeakrefDescr(op.getdescr())
+            else:
+                newdescr = None
+            newop = op.copy_and_change(op.getopnum(),
+                                       map(mapping, op.getarglist()),
+                                       mapping(op.result),
+                                       newdescr)
+            self.operations.append(newop)
+
+class WeakrefDescr(AbstractDescr):
+    def __init__(self, realdescr):
+        self.realdescrref = weakref.ref(realdescr)
+
+class GuardFailed(Exception):
+    def __init__(self, descr):
+        self.descr = descr
+
+class ExecutionFinished(Exception):
+    def __init__(self, descr, arg):
+        self.descr = descr
+        self.arg = arg
+
+class Jump(Exception):
+    def __init__(self, descr, args):
+        self.descr = descr
+        self.args = args
+
+class CallDescr(AbstractDescr):
+    def __init__(self, RESULT, ARGS, extrainfo):
+        self.RESULT = RESULT
+        self.ARGS = ARGS
         self.extrainfo = extrainfo
-        self.name = name
-        self.arg_types = arg_types
-        self.count_fields_if_immut = count_fields_if_immut
-        self.ffi_flags = ffi_flags
-        self._debug = False
 
-    def set_debug(self, v):
-        self._debug = True
-
-    def get_arg_types(self):
-        return self.arg_types
-
-    def get_result_type(self):
-        return self.typeinfo
+    def __repr__(self):
+        return 'CallDescr(%r, %r, %r)' % (self.RESULT, self.ARGS,
+                                          self.extrainfo)
 
     def get_extra_info(self):
         return self.extrainfo
 
-    def sort_key(self):
-        """Returns an integer that can be used as a key when sorting the
-        field descrs of a single structure.  The property that this
-        number has is simply that two different field descrs of the same
-        structure give different numbers."""
-        return self.ofs
+    def get_arg_types(self):
+        return ''.join([getkind(ARG)[0] for ARG in self.ARGS])
 
-    def is_pointer_field(self):
-        return self.typeinfo == REF
+    def get_result_type(self):
+        return getkind(self.RESULT)[0]
 
-    def is_float_field(self):
-        return self.typeinfo == FLOAT
-
-    def is_array_of_pointers(self):
-        return self.typeinfo == REF
-
-    def is_array_of_floats(self):
-        return self.typeinfo == FLOAT
-
-    def is_array_of_structs(self):
-        return self.typeinfo == STRUCT
+class SizeDescr(AbstractDescr):
+    def __init__(self, S):
+        self.S = S
 
     def as_vtable_size_descr(self):
         return self
 
     def count_fields_if_immutable(self):
-        return self.count_fields_if_immut
-
-    def get_ffi_flags(self):
-        return self.ffi_flags
-
-    def __lt__(self, other):
-        raise TypeError("cannot use comparison on Descrs")
-    def __le__(self, other):
-        raise TypeError("cannot use comparison on Descrs")
-    def __gt__(self, other):
-        raise TypeError("cannot use comparison on Descrs")
-    def __ge__(self, other):
-        raise TypeError("cannot use comparison on Descrs")
+        return heaptracker.count_fields_if_immutable(self.S)
 
     def __repr__(self):
-        args = [repr(self.ofs), repr(self.typeinfo)]
-        if self.name is not None:
-            args.append(repr(self.name))
-        if self.extrainfo is not None:
-            args.append('E')
-        return '<Descr %r>' % (', '.join(args),)
+        return 'SizeDescr(%r)' % (self.S,)
 
+class FieldDescr(AbstractDescr):
+    def __init__(self, S, fieldname):
+        self.S = S
+        self.fieldname = fieldname
+        self.FIELD = getattr(S, fieldname)
 
-history.TreeLoop._compiled_version = lltype.nullptr(llimpl.COMPILEDLOOP.TO)
+    def __repr__(self):
+        return 'FieldDescr(%r, %r)' % (self.S, self.fieldname)
 
+    def sort_key(self):
+        return self.fieldname
 
-class BaseCPU(model.AbstractCPU):
+    def is_pointer_field(self):
+        return getkind(self.FIELD) == 'ref'
+
+    def is_float_field(self):
+        return getkind(self.FIELD) == 'float'
+
+    def is_field_signed(self):
+        return _is_signed_kind(self.FIELD)
+
+def _is_signed_kind(TYPE):
+    return (TYPE is not lltype.Bool and isinstance(TYPE, lltype.Number) and
+            rffi.cast(TYPE, -1) == -1)
+
+class ArrayDescr(AbstractDescr):
+    def __init__(self, A):
+        self.A = A
+
+    def __repr__(self):
+        return 'ArrayDescr(%r)' % (self.A,)
+
+    def is_array_of_pointers(self):
+        return getkind(self.A.OF) == 'ref'
+
+    def is_array_of_floats(self):
+        return getkind(self.A.OF) == 'float'
+
+    def is_item_signed(self):
+        return _is_signed_kind(self.A.OF)
+
+    def is_array_of_structs(self):
+        return isinstance(self.A.OF, lltype.Struct)
+
+class InteriorFieldDescr(AbstractDescr):
+    def __init__(self, A, fieldname):
+        self.A = A
+        self.fieldname = fieldname
+        self.FIELD = getattr(A.OF, fieldname)
+
+    def __repr__(self):
+        return 'InteriorFieldDescr(%r, %r)' % (self.A, self.fieldname)
+
+    def sort_key(self):
+        return self.fieldname
+
+    def is_pointer_field(self):
+        return getkind(self.FIELD) == 'ref'
+
+    def is_float_field(self):
+        return getkind(self.FIELD) == 'float'
+
+class JFDescrDescr(AbstractDescr):
+    def is_pointer_field(self):
+        return True
+
+class JFValueDescr(AbstractDescr):
+    def __init__(self, kind):
+        self.kind = kind
+    def is_pointer_field(self):
+        return self.kind == 'ref'
+    def is_float_field(self):
+        return self.kind == 'float'
+
+_example_res = {'v': None,
+                'r': lltype.nullptr(llmemory.GCREF.TO),
+                'i': 0,
+                'f': 0.0}
+
+class LLGraphCPU(model.AbstractCPU):
+    from pypy.jit.metainterp.typesystem import llhelper as ts
     supports_floats = True
-    supports_longlong = llimpl.IS_32_BIT
+    supports_longlong = r_uint is not r_ulonglong
     supports_singlefloats = True
+    translate_support_code = False
 
-    def __init__(self, rtyper, stats=None, opts=None,
-                 translate_support_code=False,
-                 annmixlevel=None, gcdescr=None):
-        assert type(opts) is not bool
+    JITFRAMEPTR = llmemory.GCREF
+
+    jfdescr_for_int   = JFValueDescr('int')
+    jfdescr_for_ref   = JFValueDescr('ref')
+    jfdescr_for_float = JFValueDescr('float')
+
+    def __init__(self, rtyper, stats=None, *ignored_args, **ignored_kwds):
         model.AbstractCPU.__init__(self)
         self.rtyper = rtyper
-        self.translate_support_code = translate_support_code
+        self.llinterp = LLInterpreter(rtyper)
+        self.descrs = {}
+        class MiniStats:
+            pass
         self.stats = stats or MiniStats()
-        self.stats.exec_counters = {}
-        self.stats.exec_jumps = 0
-        self.stats.exec_conditional_jumps = 0
-        llimpl._stats = self.stats
-        llimpl._llinterp = LLInterpreter(self.rtyper)
-        self._future_values = []
-        self._descrs = {}
+        self.TOKEN_TRACING_RESCALL = NotAFrame()
 
-    def _cleanup_(self):
-        assert self.translate_support_code
-
-    def getdescr(self, ofs, typeinfo='?', extrainfo=None, name=None,
-                 arg_types=None, count_fields_if_immut=-1, ffi_flags=0, width=-1):
-        key = (ofs, typeinfo, extrainfo, name, arg_types,
-               count_fields_if_immut, ffi_flags, width)
-        try:
-            return self._descrs[key]
-        except KeyError:
-            descr = Descr(ofs, typeinfo, extrainfo, name, arg_types,
-                          count_fields_if_immut, ffi_flags, width)
-            self._descrs[key] = descr
-            return descr
+    def compile_loop(self, inputargs, operations, looptoken, log=True, name=''):
+        clt = model.CompiledLoopToken(self, looptoken.number)
+        looptoken.compiled_loop_token = clt
+        lltrace = LLTrace(inputargs, operations)
+        clt._llgraph_loop = lltrace
+        clt._llgraph_alltraces = [lltrace]
+        self._record_labels(lltrace)
 
     def compile_bridge(self, faildescr, inputargs, operations,
                        original_loop_token, log=True):
-        c = llimpl.compile_start()
         clt = original_loop_token.compiled_loop_token
-        clt.loop_and_bridges.append(c)
         clt.compiling_a_bridge()
-        self._compile_loop_or_bridge(c, inputargs, operations, clt)
-        old, oldindex = faildescr._compiled_fail
-        llimpl.compile_redirect_fail(old, oldindex, c)
+        lltrace = LLTrace(inputargs, operations)
+        faildescr._llgraph_bridge = lltrace
+        clt._llgraph_alltraces.append(lltrace)
+        self._record_labels(lltrace)
 
-    def compile_loop(self, inputargs, operations, jitcell_token,
-                     log=True, name=''):
-        """In a real assembler backend, this should assemble the given
-        list of operations.  Here we just generate a similar CompiledLoop
-        instance.  The code here is RPython, whereas the code in llimpl
-        is not.
-        """
-        c = llimpl.compile_start()
-        clt = model.CompiledLoopToken(self, jitcell_token.number)
-        clt.loop_and_bridges = [c]
-        clt.compiled_version = c
-        jitcell_token.compiled_loop_token = clt
-        self._compile_loop_or_bridge(c, inputargs, operations, clt)
-
-    def free_loop_and_bridges(self, compiled_loop_token):
-        for c in compiled_loop_token.loop_and_bridges:
-            llimpl.mark_as_free(c)
-        model.AbstractCPU.free_loop_and_bridges(self, compiled_loop_token)
-
-    def _compile_loop_or_bridge(self, c, inputargs, operations, clt):
-        var2index = {}
-        for box in inputargs:
-            if isinstance(box, history.BoxInt):
-                var2index[box] = llimpl.compile_start_int_var(c)
-            elif isinstance(box, self.ts.BoxRef):
-                TYPE = self.ts.BASETYPE
-                var2index[box] = llimpl.compile_start_ref_var(c, TYPE)
-            elif isinstance(box, history.BoxFloat):
-                var2index[box] = llimpl.compile_start_float_var(c)
-            else:
-                raise Exception("box is: %r" % (box,))
-        llimpl.compile_started_vars(clt)
-        self._compile_operations(c, operations, var2index, clt)
-        return c
-
-    def _compile_operations(self, c, operations, var2index, clt):
-        for op in operations:
-            if op.getopnum() == -124: # force_spill
-                continue
-            llimpl.compile_add(c, op.getopnum())
-            descr = op.getdescr()
-            if isinstance(descr, Descr):
-                llimpl.compile_add_descr(c, descr.ofs, descr.typeinfo,
-                                         descr.arg_types, descr.extrainfo,
-                                         descr.width)
-            if isinstance(descr, history.JitCellToken):
-                assert op.getopnum() != rop.JUMP
-                llimpl.compile_add_loop_token(c, descr)
-            if isinstance(descr, history.TargetToken) and op.getopnum() == rop.LABEL:
-                llimpl.compile_add_target_token(c, descr, clt)
-            if self.is_oo and isinstance(descr, (OODescr, MethDescr)):
-                # hack hack, not rpython
-                c._obj.externalobj.operations[-1].setdescr(descr)
-            for i in range(op.numargs()):
-                x = op.getarg(i)
-                if isinstance(x, history.Box):
-                    llimpl.compile_add_var(c, var2index[x])
-                elif isinstance(x, history.ConstInt):
-                    llimpl.compile_add_int_const(c, x.value)
-                elif isinstance(x, self.ts.ConstRef):
-                    llimpl.compile_add_ref_const(c, x.value, self.ts.BASETYPE)
-                elif isinstance(x, history.ConstFloat):
-                    llimpl.compile_add_float_const(c, x.value)
-                elif isinstance(x, Descr):
-                    llimpl.compile_add_descr_arg(c, x.ofs, x.typeinfo,
-                                                 x.arg_types)
-                else:
-                    raise Exception("'%s' args contain: %r" % (op.getopname(),
-                                                               x))
-            if op.is_guard():
-                faildescr = op.getdescr()
-                assert isinstance(faildescr, history.AbstractFailDescr)
-                faildescr._fail_args_types = []
-                for box in op.getfailargs():
-                    if box is None:
-                        type = history.HOLE
-                    else:
-                        type = box.type
-                    faildescr._fail_args_types.append(type)
-                fail_index = self.get_fail_descr_number(faildescr)
-                index = llimpl.compile_add_fail(c, fail_index)
-                faildescr._compiled_fail = c, index
-                for box in op.getfailargs():
-                    if box is not None:
-                        llimpl.compile_add_fail_arg(c, var2index[box])
-                    else:
-                        llimpl.compile_add_fail_arg(c, -1)
-
-            x = op.result
-            if x is not None:
-                if isinstance(x, history.BoxInt):
-                    var2index[x] = llimpl.compile_add_int_result(c)
-                elif isinstance(x, self.ts.BoxRef):
-                    var2index[x] = llimpl.compile_add_ref_result(c, self.ts.BASETYPE)
-                elif isinstance(x, history.BoxFloat):
-                    var2index[x] = llimpl.compile_add_float_result(c)
-                else:
-                    raise Exception("%s.result contain: %r" % (op.getopname(),
-                                                               x))
-        op = operations[-1]
-        assert op.is_final()
-        if op.getopnum() == rop.JUMP:
-            targettoken = op.getdescr()
-            llimpl.compile_add_jump_target(c, targettoken, clt)
-        elif op.getopnum() == rop.FINISH:
-            faildescr = op.getdescr()
-            index = self.get_fail_descr_number(faildescr)
-            llimpl.compile_add_fail(c, index)
-        else:
-            assert False, "unknown operation"
-
-    def _execute_token(self, loop_token):
-        compiled_version = loop_token.compiled_loop_token.compiled_version
-        frame = llimpl.new_frame(self.is_oo, self)
-        # setup the frame
-        llimpl.frame_clear(frame, compiled_version)
-        # run the loop
-        fail_index = llimpl.frame_execute(frame)
-        # we hit a FAIL operation.
-        self.latest_frame = frame
-        return fail_index
-
-    def make_execute_token(self, *argtypes):
-        nb_args = len(argtypes)
-        unroll_argtypes = unrolling_iterable(list(enumerate(argtypes)))
-        #
-        def execute_token(loop_token, *args):
-            assert len(args) == nb_args
-            for index, TYPE in unroll_argtypes:
-                x = args[index]
-                assert TYPE == lltype.typeOf(x)
-                if TYPE == lltype.Signed:
-                    llimpl.set_future_value_int(index, x)
-                elif TYPE == llmemory.GCREF:
-                    llimpl.set_future_value_ref(index, x)
-                elif TYPE == longlong.FLOATSTORAGE:
-                    llimpl.set_future_value_float(index, x)
-                else:
-                    assert 0
-            #
-            fail_index = self._execute_token(loop_token)
-            return self.get_fail_descr_from_number(fail_index)
-        #
-        return execute_token
-
-    def get_latest_value_int(self, index):
-        return llimpl.frame_int_getvalue(self.latest_frame, index)
-
-    def get_latest_value_ref(self, index):
-        return llimpl.frame_ptr_getvalue(self.latest_frame, index)
-
-    def get_latest_value_float(self, index):
-        return llimpl.frame_float_getvalue(self.latest_frame, index)
-
-    def get_latest_value_count(self):
-        return llimpl.frame_get_value_count(self.latest_frame)
-
-    def get_latest_force_token(self):
-        token = llimpl.get_frame_forced_token(self.latest_frame)
-        return heaptracker.adr2int(token)
-
-    def clear_latest_values(self, count):
-        llimpl.frame_clear_latest_values(self.latest_frame, count)
-
-    def redirect_call_assembler(self, oldlooptoken, newlooptoken):
-        if we_are_translated():
-            raise ValueError("CALL_ASSEMBLER not supported")
-        llimpl.redirect_call_assembler(self, oldlooptoken, newlooptoken)
+    def _record_labels(self, lltrace):
+        for i, op in enumerate(lltrace.operations):
+            if op.getopnum() == rop.LABEL:
+                _getdescr(op)._llgraph_target = (lltrace, i)
 
     def invalidate_loop(self, looptoken):
-        for loop in looptoken.compiled_loop_token.loop_and_bridges:
-            loop._obj.externalobj.invalid = True
+        for trace in looptoken.compiled_loop_token._llgraph_alltraces:
+            trace.invalid = True
 
-    # ----------
+    def redirect_call_assembler(self, oldlooptoken, newlooptoken):
+        oldtrace = oldlooptoken.compiled_loop_token._llgraph_loop
+        newtrace = newlooptoken.compiled_loop_token._llgraph_loop
+        OLD = [box.type for box in oldtrace.inputargs]
+        NEW = [box.type for box in newtrace.inputargs]
+        assert OLD == NEW
+        assert not hasattr(oldlooptoken, '_llgraph_redirected')
+        oldlooptoken.compiled_loop_token._llgraph_redirected = True
+        oldlooptoken.compiled_loop_token._llgraph_loop = newtrace
+        alltraces = newlooptoken.compiled_loop_token._llgraph_alltraces
+        oldlooptoken.compiled_loop_token._llgraph_alltraces = alltraces
+
+    def free_loop_and_bridges(self, compiled_loop_token):
+        for c in compiled_loop_token._llgraph_alltraces:
+            c.has_been_freed = True
+        compiled_loop_token._llgraph_alltraces = []
+        compiled_loop_token._llgraph_loop = None
+        model.AbstractCPU.free_loop_and_bridges(self, compiled_loop_token)
+
+    def make_execute_token(self, *argtypes):
+        return self._execute_token
+
+    def _execute_token(self, loop_token, *args):
+        lltrace = loop_token.compiled_loop_token._llgraph_loop
+        frame = LLFrame(self, lltrace.inputargs, args)
+        try:
+            frame.execute(lltrace)
+            assert False
+        except ExecutionFinished, e:
+            frame.finish_value = e.arg
+            frame.latest_descr = e.descr
+            frame._fast_path_done = e.descr.fast_path_done
+            return frame
+        except GuardFailed, e:
+            frame.latest_descr = e.descr
+            return frame
+
+    def get_frame_value_int(self, frame, index):
+        return frame.framecontent[index]
+    get_frame_value_float = get_frame_value_int
+    get_frame_value_ref   = get_frame_value_int
+
+    def get_latest_descr(self, frame):
+        return frame.latest_descr
+
+    def grab_exc_value(self, frame):
+        if frame.last_exception is not None:
+            result = frame.last_exception.args[1]
+            gcref = lltype.cast_opaque_ptr(llmemory.GCREF, result)
+        else:
+            gcref = lltype.nullptr(llmemory.GCREF.TO)
+        frame.last_exception = None
+        return gcref
+
+    def force(self, frame):
+        assert not frame._forced
+        frame._forced = True
+
+    def force_vable_if_necessary(self, vable):
+        if vable.jitframe:
+            self.force(vable.jitframe)
+            vable.jitframe = lltype.nulltpr(llmemory.GCREF.TO)
+
+    def set_savedata_ref(self, frame, data):
+        frame.saved_data = data
+
+    def get_savedata_ref(self, frame):
+        return frame.saved_data
+
+    def jitframe_get_jfdescr_descr(self):
+        return JFDescrDescr()
+
+    def jitframe_cast_jfdescr_to_descr(self, descr):
+        return descr
+    
+    # ------------------------------------------------------------
+
+    def calldescrof(self, FUNC, ARGS, RESULT, effect_info):
+        key = ('call', getkind(RESULT),
+               tuple([getkind(A) for A in ARGS]),
+               effect_info)
+        try:
+            return self.descrs[key]
+        except KeyError:
+            descr = CallDescr(RESULT, ARGS, effect_info)
+            self.descrs[key] = descr
+            return descr
 
     def sizeof(self, S):
-        assert not isinstance(S, lltype.Ptr)
-        count = heaptracker.count_fields_if_immutable(S)
-        return self.getdescr(symbolic.get_size(S), count_fields_if_immut=count)
-
-
-class LLtypeCPU(BaseCPU):
-    is_oo = False
-    ts = llhelper
-
-    def __init__(self, *args, **kwds):
-        BaseCPU.__init__(self, *args, **kwds)
-        self.fielddescrof_vtable = self.fielddescrof(rclass.OBJECT, 'typeptr')
+        key = ('size', S)
+        try:
+            return self.descrs[key]
+        except KeyError:
+            descr = SizeDescr(S)
+            self.descrs[key] = descr
+            return descr
 
     def fielddescrof(self, S, fieldname):
-        ofs, size = symbolic.get_field_token(S, fieldname)
-        token = history.getkind(getattr(S, fieldname))
-        return self.getdescr(ofs, token[0], name=fieldname)
+        key = ('field', S, fieldname)
+        try:
+            return self.descrs[key]
+        except KeyError:
+            descr = FieldDescr(S, fieldname)
+            self.descrs[key] = descr
+            return descr
+
+    def arraydescrof(self, A):
+        key = ('array', A)
+        try:
+            return self.descrs[key]
+        except KeyError:
+            descr = ArrayDescr(A)
+            self.descrs[key] = descr
+            return descr
 
     def interiorfielddescrof(self, A, fieldname):
-        S = A.OF
-        width = symbolic.get_size(A)
-        ofs, size = symbolic.get_field_token(S, fieldname)
-        token = history.getkind(getattr(S, fieldname))
-        return self.getdescr(ofs, token[0], name=fieldname, width=width)
-
-    def calldescrof(self, FUNC, ARGS, RESULT, extrainfo):
-        arg_types = []
-        for ARG in ARGS:
-            token = history.getkind(ARG)
-            if token != 'void':
-                if token == 'float' and longlong.is_longlong(ARG):
-                    token = 'L'
-                arg_types.append(token[0])
-        token = history.getkind(RESULT)
-        if token == 'float' and longlong.is_longlong(RESULT):
-            token = 'L'
-        return self.getdescr(0, token[0], extrainfo=extrainfo,
-                             arg_types=''.join(arg_types))
-
-    def calldescrof_dynamic(self, cif_description, extrainfo):
-        from pypy.jit.backend.llsupport.ffisupport import get_ffi_type_kind
-        from pypy.jit.backend.llsupport.ffisupport import UnsupportedKind
-        arg_types = []
+        key = ('interiorfield', A, fieldname)
         try:
-            for itp in range(cif_description.nargs):
-                arg = cif_description.atypes[itp]
-                kind = get_ffi_type_kind(self, arg)
-                if kind != history.VOID:
-                    arg_types.append(kind)
-            reskind = get_ffi_type_kind(self, cif_description.rtype)
-        except UnsupportedKind:
-            return None
-        return self.getdescr(0, reskind, extrainfo=extrainfo,
-                             arg_types=''.join(arg_types),
-                             ffi_flags=cif_description.abi)
+            return self.descrs[key]
+        except KeyError:
+            descr = InteriorFieldDescr(A, fieldname)
+            self.descrs[key] = descr
+            return descr        
 
     def _calldescr_dynamic_for_tests(self, atypes, rtype,
                                      abiname='FFI_DEFAULT_ABI'):
+        # XXX WTF is that and why it breaks all abstractions?
         from pypy.jit.backend.llsupport import ffisupport
         return ffisupport.calldescr_dynamic_for_tests(self, atypes, rtype,
                                                       abiname)
 
-    def grab_exc_value(self):
-        return llimpl.grab_exc_value()
+    def calldescrof_dynamic(self, cif_description, extrainfo):
+        # XXX WTF, this is happy nonsense
+        from pypy.jit.backend.llsupport.ffisupport import get_ffi_type_kind
+        from pypy.jit.backend.llsupport.ffisupport import UnsupportedKind
+        ARGS = []
+        try:
+            for itp in range(cif_description.nargs):
+                arg = cif_description.atypes[itp]
+                kind = get_ffi_type_kind(self, arg)
+                if kind != VOID:
+                    ARGS.append(support.kind2TYPE[kind[0]])
+            RESULT = support.kind2TYPE[get_ffi_type_kind(self, cif_description.rtype)[0]]
+        except UnsupportedKind:
+            return None
+        key = ('call_dynamic', RESULT, tuple(ARGS),
+               extrainfo, cif_description.abi)
+        try:
+            return self.descrs[key]
+        except KeyError:
+            descr = CallDescr(RESULT, ARGS, extrainfo)
+            self.descrs[key] = descr
+            return descr
 
-    def arraydescrof(self, A):
-        assert A.OF != lltype.Void
-        assert isinstance(A, lltype.GcArray) or A._hints.get('nolength', False)
-        size = symbolic.get_size(A)
-        if isinstance(A.OF, lltype.Ptr) or isinstance(A.OF, lltype.Primitive):
-            token = history.getkind(A.OF)[0]
-        elif isinstance(A.OF, lltype.Struct):
-            token = 's'
+    # ------------------------------------------------------------
+
+    def maybe_on_top_of_llinterp(self, func, args, RESULT):
+        ptr = llmemory.cast_int_to_adr(func).ptr
+        if hasattr(ptr._obj, 'graph'):
+            res = self.llinterp.eval_graph(ptr._obj.graph, args)
         else:
-            token = '?'
-        return self.getdescr(size, token)
+            res = ptr._obj._callable(*args)
+        return support.cast_result(RESULT, res)
 
-    # ---------- the backend-dependent operations ----------
+    def _do_call(self, func, args_i, args_r, args_f, calldescr):
+        TP = llmemory.cast_int_to_adr(func).ptr._obj._TYPE
+        args = support.cast_call_args(TP.ARGS, args_i, args_r, args_f)
+        return self.maybe_on_top_of_llinterp(func, args, TP.RESULT)
 
-    def bh_strlen(self, string):
-        return llimpl.do_strlen(string)
+    bh_call_i = _do_call
+    bh_call_r = _do_call
+    bh_call_f = _do_call
+    bh_call_v = _do_call
 
-    def bh_strgetitem(self, string, index):
-        return llimpl.do_strgetitem(string, index)
+    def bh_getfield_gc(self, p, descr):
+        if isinstance(descr, JFDescrDescr):
+            result = p.latest_descr
+            if result is None:
+                return lltype.nullptr(llmemory.GCREF.TO)
+            # <XXX> HACK
+            result._TYPE = llmemory.GCREF
+            result._identityhash = lambda: hash(result)   # for rd_hash()
+            # <XXX/>
+            return result
+        p = support.cast_arg(lltype.Ptr(descr.S), p)
+        return support.cast_result(descr.FIELD, getattr(p, descr.fieldname))
+
+    bh_getfield_gc_pure = bh_getfield_gc
+    bh_getfield_gc_i = bh_getfield_gc
+    bh_getfield_gc_r = bh_getfield_gc
+    bh_getfield_gc_f = bh_getfield_gc
+
+    bh_getfield_raw = bh_getfield_gc
+    bh_getfield_raw_pure = bh_getfield_raw
+    bh_getfield_raw_i = bh_getfield_raw
+    bh_getfield_raw_r = bh_getfield_raw
+    bh_getfield_raw_f = bh_getfield_raw
+
+    def bh_setfield_gc(self, p, newvalue, descr):
+        p = support.cast_arg(lltype.Ptr(descr.S), p)
+        setattr(p, descr.fieldname, support.cast_arg(descr.FIELD, newvalue))
+
+    bh_setfield_gc_i = bh_setfield_gc
+    bh_setfield_gc_r = bh_setfield_gc
+    bh_setfield_gc_f = bh_setfield_gc
+
+    bh_setfield_raw   = bh_setfield_gc
+    bh_setfield_raw_i = bh_setfield_raw
+    bh_setfield_raw_r = bh_setfield_raw
+    bh_setfield_raw_f = bh_setfield_raw
+
+    def bh_arraylen_gc(self, a, descr):
+        array = a._obj.container
+        return array.getlength()
+
+    def bh_getarrayitem_gc(self, a, index, descr):
+        a = support.cast_arg(lltype.Ptr(descr.A), a)
+        array = a._obj
+        return support.cast_result(descr.A.OF, array.getitem(index))
+
+    bh_getarrayitem_gc_pure = bh_getarrayitem_gc
+    bh_getarrayitem_gc_i = bh_getarrayitem_gc
+    bh_getarrayitem_gc_r = bh_getarrayitem_gc
+    bh_getarrayitem_gc_f = bh_getarrayitem_gc
+
+    bh_getarrayitem_raw = bh_getarrayitem_gc
+    bh_getarrayitem_raw_pure = bh_getarrayitem_raw
+    bh_getarrayitem_raw_i = bh_getarrayitem_raw
+    bh_getarrayitem_raw_r = bh_getarrayitem_raw
+    bh_getarrayitem_raw_f = bh_getarrayitem_raw
+
+    def bh_setarrayitem_gc(self, a, index, item, descr):
+        a = support.cast_arg(lltype.Ptr(descr.A), a)
+        array = a._obj
+        array.setitem(index, support.cast_arg(descr.A.OF, item))
+
+    bh_setarrayitem_gc_i = bh_setarrayitem_gc
+    bh_setarrayitem_gc_r = bh_setarrayitem_gc
+    bh_setarrayitem_gc_f = bh_setarrayitem_gc
+
+    bh_setarrayitem_raw   = bh_setarrayitem_gc
+    bh_setarrayitem_raw_i = bh_setarrayitem_raw
+    bh_setarrayitem_raw_r = bh_setarrayitem_raw
+    bh_setarrayitem_raw_f = bh_setarrayitem_raw
+
+    def bh_getinteriorfield_gc(self, a, index, descr):
+        if isinstance(descr, JFValueDescr):
+            assert isinstance(a, LLFrame)
+            return a.framecontent[index]
+        array = a._obj.container
+        return support.cast_result(descr.FIELD,
+                          getattr(array.getitem(index), descr.fieldname))
+
+    bh_getinteriorfield_gc_i = bh_getinteriorfield_gc
+    bh_getinteriorfield_gc_r = bh_getinteriorfield_gc
+    bh_getinteriorfield_gc_f = bh_getinteriorfield_gc
+
+    def bh_setinteriorfield_gc(self, a, index, item, descr):
+        array = a._obj.container
+        setattr(array.getitem(index), descr.fieldname,
+                support.cast_arg(descr.FIELD, item))
+
+    bh_setinteriorfield_gc_i = bh_setinteriorfield_gc
+    bh_setinteriorfield_gc_r = bh_setinteriorfield_gc
+    bh_setinteriorfield_gc_f = bh_setinteriorfield_gc
+
+    def bh_raw_load_i(self, struct, offset, descr):
+        ll_p = rffi.cast(rffi.CCHARP, struct)
+        ll_p = rffi.cast(lltype.Ptr(descr.A), rffi.ptradd(ll_p, offset))
+        value = ll_p[0]
+        return support.cast_result(descr.A.OF, value)
+
+    def bh_raw_load_f(self, struct, offset, descr):
+        ll_p = rffi.cast(rffi.CCHARP, struct)
+        ll_p = rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE),
+                         rffi.ptradd(ll_p, offset))
+        return ll_p[0]
+
+    def bh_raw_load(self, struct, offset, descr):
+        if descr.A.OF == lltype.Float:
+            return self.bh_raw_load_f(struct, offset, descr)
+        else:
+            return self.bh_raw_load_i(struct, offset, descr)
+
+    def bh_raw_store_i(self, struct, offset, newvalue, descr):
+        ll_p = rffi.cast(rffi.CCHARP, struct)
+        ll_p = rffi.cast(lltype.Ptr(descr.A), rffi.ptradd(ll_p, offset))
+        ll_p[0] = rffi.cast(descr.A.OF, newvalue)
+
+    def bh_raw_store_f(self, struct, offset, newvalue, descr):
+        ll_p = rffi.cast(rffi.CCHARP, struct)
+        ll_p = rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE),
+                         rffi.ptradd(ll_p, offset))
+        ll_p[0] = newvalue
+
+    def bh_raw_store(self, struct, offset, newvalue, descr):
+        if descr.A.OF == lltype.Float:
+            self.bh_raw_store_f(struct, offset, newvalue, descr)
+        else:
+            self.bh_raw_store_i(struct, offset, newvalue, descr)
+
+    def bh_newstr(self, length):
+        return lltype.cast_opaque_ptr(llmemory.GCREF,
+                                      lltype.malloc(rstr.STR, length,
+                                                    zero=True))
+
+    def bh_strlen(self, s):
+        return s._obj.container.chars.getlength()
+
+    def bh_strgetitem(self, s, item):
+        return ord(s._obj.container.chars.getitem(item))
+
+    def bh_strsetitem(self, s, item, v):
+        s._obj.container.chars.setitem(item, chr(v))
+
+    def bh_copystrcontent(self, src, dst, srcstart, dststart, length):
+        src = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), src)
+        dst = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), dst)
+        assert 0 <= srcstart <= srcstart + length <= len(src.chars)
+        assert 0 <= dststart <= dststart + length <= len(dst.chars)
+        rstr.copy_string_contents(src, dst, srcstart, dststart, length)
+
+    def bh_newunicode(self, length):
+        return lltype.cast_opaque_ptr(llmemory.GCREF,
+                                      lltype.malloc(rstr.UNICODE, length,
+                                                    zero=True))
 
     def bh_unicodelen(self, string):
-        return llimpl.do_unicodelen(string)
+        return string._obj.container.chars.getlength()
 
     def bh_unicodegetitem(self, string, index):
-        return llimpl.do_unicodegetitem(string, index)
+        return ord(string._obj.container.chars.getitem(index))
 
-    def bh_getarrayitem_gc_i(self, arraydescr, array, index):
-        assert isinstance(arraydescr, Descr)
-        return llimpl.do_getarrayitem_gc_int(array, index)
-    def bh_getarrayitem_raw_i(self, arraydescr, array, index):
-        assert isinstance(arraydescr, Descr)
-        return llimpl.do_getarrayitem_raw_int(array, index, arraydescr.ofs)
-    def bh_getarrayitem_gc_r(self, arraydescr, array, index):
-        assert isinstance(arraydescr, Descr)
-        return llimpl.do_getarrayitem_gc_ptr(array, index)
-    def bh_getarrayitem_gc_f(self, arraydescr, array, index):
-        assert isinstance(arraydescr, Descr)
-        return llimpl.do_getarrayitem_gc_float(array, index)
-    def bh_getarrayitem_raw_f(self, arraydescr, array, index):
-        assert isinstance(arraydescr, Descr)
-        return llimpl.do_getarrayitem_raw_float(array, index)
+    def bh_unicodesetitem(self, string, index, newvalue):
+        string._obj.container.chars.setitem(index, unichr(newvalue))
 
-    def bh_getfield_gc_i(self, struct, fielddescr):
-        assert isinstance(fielddescr, Descr)
-        return llimpl.do_getfield_gc_int(struct, fielddescr.ofs)
-    def bh_getfield_gc_r(self, struct, fielddescr):
-        assert isinstance(fielddescr, Descr)
-        return llimpl.do_getfield_gc_ptr(struct, fielddescr.ofs)
-    def bh_getfield_gc_f(self, struct, fielddescr):
-        assert isinstance(fielddescr, Descr)
-        return llimpl.do_getfield_gc_float(struct, fielddescr.ofs)
-
-    def bh_getfield_raw_i(self, struct, fielddescr):
-        assert isinstance(fielddescr, Descr)
-        return llimpl.do_getfield_raw_int(struct, fielddescr.ofs)
-    def bh_getfield_raw_r(self, struct, fielddescr):
-        assert isinstance(fielddescr, Descr)
-        return llimpl.do_getfield_raw_ptr(struct, fielddescr.ofs)
-    def bh_getfield_raw_f(self, struct, fielddescr):
-        assert isinstance(fielddescr, Descr)
-        return llimpl.do_getfield_raw_float(struct, fielddescr.ofs)
-
-    def bh_getinteriorfield_gc_i(self, array, index, descr):
-        assert isinstance(descr, Descr)
-        return llimpl.do_getinteriorfield_gc_int(array, index, descr.ofs)
-    def bh_getinteriorfield_gc_r(self, array, index, descr):
-        assert isinstance(descr, Descr)
-        return llimpl.do_getinteriorfield_gc_ptr(array, index, descr.ofs)
-    def bh_getinteriorfield_gc_f(self, array, index, descr):
-        assert isinstance(descr, Descr)
-        return llimpl.do_getinteriorfield_gc_float(array, index, descr.ofs)
-
-    def bh_setinteriorfield_gc_i(self, array, index, descr, value):
-        assert isinstance(descr, Descr)
-        return llimpl.do_setinteriorfield_gc_int(array, index, descr.ofs,
-                                                 value)
-    def bh_setinteriorfield_gc_r(self, array, index, descr, value):
-        assert isinstance(descr, Descr)
-        return llimpl.do_setinteriorfield_gc_ptr(array, index, descr.ofs,
-                                                 value)
-    def bh_setinteriorfield_gc_f(self, array, index, descr, value):
-        assert isinstance(descr, Descr)
-        return llimpl.do_setinteriorfield_gc_float(array, index, descr.ofs,
-                                                   value)
-
-    def bh_raw_store_i(self, struct, offset, descr, newvalue):
-        assert isinstance(descr, Descr)
-        return llimpl.do_raw_store_int(struct, offset, descr.ofs, newvalue)
-    def bh_raw_store_f(self, struct, offset, descr, newvalue):
-        assert isinstance(descr, Descr)
-        return llimpl.do_raw_store_float(struct, offset, newvalue)
-    def bh_raw_load_i(self, struct, offset, descr):
-        assert isinstance(descr, Descr)
-        return llimpl.do_raw_load_int(struct, offset, descr.ofs)
-    def bh_raw_load_f(self, struct, offset, descr):
-        assert isinstance(descr, Descr)
-        return llimpl.do_raw_load_float(struct, offset)
+    def bh_copyunicodecontent(self, src, dst, srcstart, dststart, length):
+        src = lltype.cast_opaque_ptr(lltype.Ptr(rstr.UNICODE), src)
+        dst = lltype.cast_opaque_ptr(lltype.Ptr(rstr.UNICODE), dst)
+        assert 0 <= srcstart <= srcstart + length <= len(src.chars)
+        assert 0 <= dststart <= dststart + length <= len(dst.chars)
+        rstr.copy_unicode_contents(src, dst, srcstart, dststart, length)
 
     def bh_new(self, sizedescr):
-        assert isinstance(sizedescr, Descr)
-        return llimpl.do_new(sizedescr.ofs)
+        return lltype.cast_opaque_ptr(llmemory.GCREF,
+                                      lltype.malloc(sizedescr.S, zero=True))
 
-    def bh_new_with_vtable(self, sizedescr, vtable):
-        assert isinstance(sizedescr, Descr)
-        result = llimpl.do_new(sizedescr.ofs)
-        llimpl.do_setfield_gc_int(result, self.fielddescrof_vtable.ofs, vtable)
-        return result
+    def bh_new_with_vtable(self, vtable, descr):
+        result = lltype.malloc(descr.S, zero=True)
+        result_as_objptr = lltype.cast_pointer(rclass.OBJECTPTR, result)
+        result_as_objptr.typeptr = support.cast_from_int(rclass.CLASSTYPE,
+                                                         vtable)
+        return lltype.cast_opaque_ptr(llmemory.GCREF, result)
+
+    def bh_new_array(self, length, arraydescr):
+        array = lltype.malloc(arraydescr.A, length, zero=True)
+        return lltype.cast_opaque_ptr(llmemory.GCREF, array)
 
     def bh_classof(self, struct):
         struct = lltype.cast_opaque_ptr(rclass.OBJECTPTR, struct)
         result_adr = llmemory.cast_ptr_to_adr(struct.typeptr)
         return heaptracker.adr2int(result_adr)
 
-    def bh_new_array(self, arraydescr, length):
-        assert isinstance(arraydescr, Descr)
-        return llimpl.do_new_array(arraydescr.ofs, length)
+    def bh_read_timestamp(self):
+        return read_timestamp()
 
-    def bh_arraylen_gc(self, arraydescr, array):
-        assert isinstance(arraydescr, Descr)
-        return llimpl.do_arraylen_gc(arraydescr, array)
+class NotAFrame(object):
+    _TYPE = llmemory.GCREF
 
-    def bh_setarrayitem_gc_i(self, arraydescr, array, index, newvalue):
-        assert isinstance(arraydescr, Descr)
-        llimpl.do_setarrayitem_gc_int(array, index, newvalue)
+    class latest_descr:
+        pass
 
-    def bh_setarrayitem_raw_i(self, arraydescr, array, index, newvalue):
-        assert isinstance(arraydescr, Descr)
-        llimpl.do_setarrayitem_raw_int(array, index, newvalue, arraydescr.ofs)
+    def __eq__(self, other):
+        return isinstance(other, NotAFrame)
+    def __ne__(self, other):
+        return not (self == other)
 
-    def bh_setarrayitem_gc_r(self, arraydescr, array, index, newvalue):
-        assert isinstance(arraydescr, Descr)
-        llimpl.do_setarrayitem_gc_ptr(array, index, newvalue)
+class LLFrame(object):
+    _TYPE = llmemory.GCREF
 
-    def bh_setarrayitem_gc_f(self, arraydescr, array, index, newvalue):
-        assert isinstance(arraydescr, Descr)
-        llimpl.do_setarrayitem_gc_float(array, index, newvalue)
+    # some obscure hacks to support comparison with llmemory.GCREF
+    def __ne__(self, other):
+        return not self == other
+    def __eq__(self, other):
+        return isinstance(other, LLFrame) and self is other
+    
+    _forced = False
+    _fast_path_done = False
+    finish_value = None
+    
+    def __init__(self, cpu, argboxes, args):
+        self.env = {}
+        self.framecontent = {}
+        self.cpu = cpu
+        assert len(argboxes) == len(args)
+        for box, arg in zip(argboxes, args):
+            self.setenv(box, arg)
+        self.overflow_flag = False
+        self.last_exception = None
 
-    def bh_setarrayitem_raw_f(self, arraydescr, array, index, newvalue):
-        assert isinstance(arraydescr, Descr)
-        llimpl.do_setarrayitem_raw_float(array, index, newvalue)
-
-    def bh_setfield_gc_i(self, struct, fielddescr, newvalue):
-        assert isinstance(fielddescr, Descr)
-        llimpl.do_setfield_gc_int(struct, fielddescr.ofs, newvalue)
-    def bh_setfield_gc_r(self, struct, fielddescr, newvalue):
-        assert isinstance(fielddescr, Descr)
-        llimpl.do_setfield_gc_ptr(struct, fielddescr.ofs, newvalue)
-    def bh_setfield_gc_f(self, struct, fielddescr, newvalue):
-        assert isinstance(fielddescr, Descr)
-        llimpl.do_setfield_gc_float(struct, fielddescr.ofs, newvalue)
-
-    def bh_setfield_raw_i(self, struct, fielddescr, newvalue):
-        assert isinstance(fielddescr, Descr)
-        llimpl.do_setfield_raw_int(struct, fielddescr.ofs, newvalue)
-    def bh_setfield_raw_r(self, struct, fielddescr, newvalue):
-        assert isinstance(fielddescr, Descr)
-        llimpl.do_setfield_raw_ptr(struct, fielddescr.ofs, newvalue)
-    def bh_setfield_raw_f(self, struct, fielddescr, newvalue):
-        assert isinstance(fielddescr, Descr)
-        llimpl.do_setfield_raw_float(struct, fielddescr.ofs, newvalue)
-
-    def bh_newstr(self, length):
-        return llimpl.do_newstr(length)
-
-    def bh_newunicode(self, length):
-        return llimpl.do_newunicode(length)
-
-    def bh_strsetitem(self, string, index, newvalue):
-        llimpl.do_strsetitem(string, index, newvalue)
-
-    def bh_unicodesetitem(self, string, index, newvalue):
-        llimpl.do_unicodesetitem(string, index, newvalue)
-
-    def bh_call_i(self, func, calldescr, args_i, args_r, args_f):
-        self._prepare_call(INT, calldescr, args_i, args_r, args_f)
-        return llimpl.do_call_int(func)
-    def bh_call_r(self, func, calldescr, args_i, args_r, args_f):
-        self._prepare_call(REF, calldescr, args_i, args_r, args_f)
-        return llimpl.do_call_ptr(func)
-    def bh_call_f(self, func, calldescr, args_i, args_r, args_f):
-        self._prepare_call(FLOAT + 'L', calldescr, args_i, args_r, args_f)
-        return llimpl.do_call_float(func)
-    def bh_call_v(self, func, calldescr, args_i, args_r, args_f):
-        self._prepare_call('v', calldescr, args_i, args_r, args_f)
-        llimpl.do_call_void(func)
-
-    def _prepare_call(self, resulttypeinfo, calldescr, args_i, args_r, args_f):
-        assert isinstance(calldescr, Descr)
-        assert calldescr.typeinfo in resulttypeinfo
-        if args_i is not None:
-            for x in args_i:
-                llimpl.do_call_pushint(x)
-        if args_r is not None:
-            for x in args_r:
-                llimpl.do_call_pushptr(x)
-        if args_f is not None:
-            for x in args_f:
-                llimpl.do_call_pushfloat(x)
-
-    def get_all_loop_runs(self):
-        return lltype.malloc(LOOP_RUN_CONTAINER, 0)
-
-    def force(self, force_token):
-        token = llmemory.cast_int_to_adr(force_token)
-        frame = llimpl.get_forced_token_frame(token)
-        fail_index = llimpl.force(frame)
-        self.latest_frame = frame
-        return self.get_fail_descr_from_number(fail_index)
-
-
-class OOtypeCPU_xxx_disabled(BaseCPU):
-    is_oo = True
-    ts = oohelper
-
-    @staticmethod
-    def fielddescrof(T, fieldname):
-        # use class where the field is really defined as a key
-        T1, _ = T._lookup_field(fieldname)
-        return FieldDescr.new(T1, fieldname)
-
-    @staticmethod
-    def calldescrof(FUNC, ARGS, RESULT, extrainfo):
-        return StaticMethDescr.new(FUNC, ARGS, RESULT, extrainfo)
-
-    @staticmethod
-    def methdescrof(SELFTYPE, methname):
-        return MethDescr.new(SELFTYPE, methname)
-
-    @staticmethod
-    def typedescrof(TYPE):
-        return TypeDescr.new(TYPE)
-
-    @staticmethod
-    def arraydescrof(A):
-        assert isinstance(A, ootype.Array)
-        TYPE = A.ITEM
-        return TypeDescr.new(TYPE)
-
-    def typedescr2classbox(self, descr):
-        assert isinstance(descr, TypeDescr)
-        return history.ConstObj(ootype.cast_to_object(
-                            ootype.runtimeClass(descr.TYPE)))
-
-    def get_exception(self):
-        if llimpl._last_exception:
-            e = llimpl._last_exception.args[0]
-            return ootype.cast_to_object(e)
+    def setenv(self, box, arg):
+        if box.type == INT:
+            # typecheck the result
+            if isinstance(arg, bool):
+                arg = int(arg)
+            assert lltype.typeOf(arg) == lltype.Signed
+        elif box.type == REF:
+            assert lltype.typeOf(arg) == llmemory.GCREF
+        elif box.type == FLOAT:
+            assert lltype.typeOf(arg) == longlong.FLOATSTORAGE
         else:
-            return ootype.NULL
+            raise AssertionError(box)
+        #
+        assert box.getvarindex() >= 0
+        self.env[box] = arg
+        self.framecontent[box.getvarindex()] = arg
+        if box.type == FLOAT and FLOAT_SIZE > 1:
+            self.framecontent[box.getvarindex() + 1] = '2nd float word'
 
-    def get_exc_value(self):
-        if llimpl._last_exception:
-            earg = llimpl._last_exception.args[1]
-            return ootype.cast_to_object(earg)
-        else:
-            return ootype.NULL
+    def lookup(self, arg):
+        if isinstance(arg, Const):
+            return arg.value
+        result = self.env[arg]
+        assert result is self.framecontent[arg.getvarindex()]
+        if arg.type == FLOAT and FLOAT_SIZE > 1:
+            assert self.framecontent[arg.getvarindex() + 1] == '2nd float word'
+        return result
 
-    def get_overflow_error(self):
-        ll_err = llimpl._get_error(OverflowError)
-        return (ootype.cast_to_object(ll_err.args[0]),
-                ootype.cast_to_object(ll_err.args[1]))
-
-    def get_zero_division_error(self):
-        ll_err = llimpl._get_error(ZeroDivisionError)
-        return (ootype.cast_to_object(ll_err.args[0]),
-                ootype.cast_to_object(ll_err.args[1]))
-
-    def do_new_with_vtable(self, clsbox):
-        cls = clsbox.getref_base()
-        typedescr = self.class_sizes[cls]
-        return typedescr.create()
-
-    def do_new_array(self, lengthbox, typedescr):
-        assert isinstance(typedescr, TypeDescr)
-        return typedescr.create_array(lengthbox)
-
-    def do_new(self, typedescr):
-        assert isinstance(typedescr, TypeDescr)
-        return typedescr.create()
-
-    def do_runtimenew(self, classbox):
-        "NOT_RPYTHON"
-        classobj = classbox.getref(ootype.Class)
-        res = ootype.runtimenew(classobj)
-        return history.BoxObj(ootype.cast_to_object(res))
-
-    def do_instanceof(self, box1, typedescr):
-        assert isinstance(typedescr, TypeDescr)
-        return typedescr.instanceof(box1)
-
-    def do_getfield_gc(self, box1, fielddescr):
-        assert isinstance(fielddescr, FieldDescr)
-        return fielddescr.getfield(box1)
-
-    def do_setfield_gc(self, box1, box2, fielddescr):
-        assert isinstance(fielddescr, FieldDescr)
-        return fielddescr.setfield(box1, box2)
-
-    def do_getarrayitem_gc(self, box1, box2, typedescr):
-        assert isinstance(typedescr, TypeDescr)
-        return typedescr.getarrayitem(box1, box2)
-
-    def do_setarrayitem_gc(self, box1, box2, box3, typedescr):
-        assert isinstance(typedescr, TypeDescr)
-        return typedescr.setarrayitem(box1, box2, box3)
-
-    def do_arraylen_gc(self, box1, typedescr):
-        assert isinstance(typedescr, TypeDescr)
-        return typedescr.getarraylength(box1)
-
-    def do_call_XXX(self, args, descr):
-        assert isinstance(descr, StaticMethDescr)
-        funcbox = args[0]
-        argboxes = args[1:]
-        x = descr.callfunc(funcbox, argboxes)
-        # XXX: return None if RESULT is Void
-        return x
-
-    def do_oosend(self, args, descr):
-        assert isinstance(descr, MethDescr)
-        selfbox = args[0]
-        argboxes = args[1:]
-        x = descr.callmeth(selfbox, argboxes)
-        # XXX: return None if METH.RESULT is Void
-        return x
-
-
-def make_getargs(ARGS):
-    argsiter = unrolling_iterable(ARGS)
-    args_n = len([ARG for ARG in ARGS if ARG is not ootype.Void])
-    def getargs(argboxes):
-        funcargs = ()
-        assert len(argboxes) == args_n
+    def execute(self, lltrace):
+        self.lltrace = lltrace
+        del lltrace
         i = 0
-        for ARG in argsiter:
-            if ARG is ootype.Void:
-                funcargs += (None,)
+        while True:
+            assert not self.lltrace.has_been_freed
+            op = self.lltrace.operations[i]
+            args = [self.lookup(arg) for arg in op.getarglist()]
+            self.current_op = op # for label
+            self.current_index = i
+            execute = getattr(self, 'execute_' + op.getopname())
+            try:
+                resval = execute(_getdescr(op), *args)
+            except Jump, j:
+                self.lltrace, i = j.descr._llgraph_target
+                label_op = self.lltrace.operations[i]
+                self.do_renaming(label_op.getarglist(), j.args)
+                i += 1
+                continue
+            except GuardFailed, gf:
+                if hasattr(gf.descr, '_llgraph_bridge'):
+                    i = 0
+                    self.lltrace = gf.descr._llgraph_bridge
+                    newvals = [self.framecontent[arg._varindex]
+                               for arg in self.lltrace.inputargs]
+                    self.do_renaming(self.lltrace.inputargs, newvals)
+                    continue
+                raise
+            if op.type != VOID:
+                self.setenv(op, resval)
             else:
-                box = argboxes[i]
-                i+=1
-                funcargs += (unwrap(ARG, box),)
-        return funcargs
-    return getargs
+                assert resval is None
+            i += 1
 
-def boxresult(RESULT, result):
-    if isinstance(RESULT, ootype.OOType):
-        return history.BoxObj(ootype.cast_to_object(result))
-    elif RESULT is lltype.Float:
-        return history.BoxFloat(result)
-    else:
-        return history.BoxInt(lltype.cast_primitive(ootype.Signed, result))
-boxresult._annspecialcase_ = 'specialize:arg(0)'
+    def do_renaming(self, newargs, newvalues):
+        assert len(newargs) == len(newvalues)
+        self.env = {}
+        self.framecontent = {}
+        for new, newvalue in zip(newargs, newvalues):
+            self.setenv(new, newvalue)
 
+    # -----------------------------------------------------
 
-class KeyManager(object):
-    """
-    Helper class to convert arbitrary dictionary keys to integers.
-    """
+    def fail_guard(self, descr):
+        raise GuardFailed(descr)
 
-    def __init__(self):
-        self.keys = {}
+    def execute_force_spill(self, _, arg):
+        pass
 
-    def getkey(self, key):
+    def execute_finish(self, descr, arg=None):
+        raise ExecutionFinished(descr, arg)
+
+    def execute_label(self, descr, *args):
+        argboxes = self.current_op.getarglist()
+        self.do_renaming(argboxes, args)
+
+    def execute_guard_true(self, descr, arg):
+        if not arg:
+            self.fail_guard(descr)
+
+    def execute_guard_false(self, descr, arg):
+        if arg:
+            self.fail_guard(descr)
+
+    def execute_guard_value(self, descr, arg1, arg2):
+        if arg1 != arg2:
+            self.fail_guard(descr)
+
+    def execute_guard_nonnull(self, descr, arg):
+        if not arg:
+            self.fail_guard(descr)
+
+    def execute_guard_isnull(self, descr, arg):
+        if arg:
+            self.fail_guard(descr)
+
+    def execute_guard_class(self, descr, arg, klass):
+        value = lltype.cast_opaque_ptr(rclass.OBJECTPTR, arg)
+        expected_class = llmemory.cast_adr_to_ptr(
+            llmemory.cast_int_to_adr(klass),
+            rclass.CLASSTYPE)
+        if value.typeptr != expected_class:
+            self.fail_guard(descr)
+
+    def execute_guard_nonnull_class(self, descr, arg, klass):
+        self.execute_guard_nonnull(descr, arg)
+        self.execute_guard_class(descr, arg, klass)
+
+    def execute_guard_no_exception(self, descr):
+        if self.last_exception is not None:
+            self.fail_guard(descr)
+
+    def execute_guard_exception(self, descr, excklass):
+        lle = self.last_exception
+        if lle is None:
+            gotklass = lltype.nullptr(rclass.CLASSTYPE.TO)
+        else:
+            gotklass = lle.args[0]
+        excklass = llmemory.cast_adr_to_ptr(
+            llmemory.cast_int_to_adr(excklass),
+            rclass.CLASSTYPE)
+        if gotklass != excklass:
+            self.fail_guard(descr)
+        #
+        res = lle.args[1]
+        self.last_exception = None
+        return support.cast_to_ptr(res)
+
+    def execute_guard_not_forced(self, descr):
+        if self._forced:
+            self.fail_guard(descr)
+
+    def execute_guard_not_invalidated(self, descr):
+        if self.lltrace.invalid:
+            self.fail_guard(descr)
+
+    def execute_int_add_ovf(self, _, x, y):
         try:
-            return self.keys[key]
-        except KeyError:
-            n = len(self.keys)
-            self.keys[key] = n
-            return n
+            z = ovfcheck(x + y)
+        except OverflowError:
+            ovf = True
+            z = 0
+        else:
+            ovf = False
+        self.overflow_flag = ovf
+        return z
 
-    def _freeze_(self):
-        raise Exception("KeyManager is not supposed to be turned into a pbc")
-
-
-descr_cache = {}
-class OODescr(history.AbstractDescr):
-
-    @classmethod
-    def new(cls, *args):
-        'NOT_RPYTHON'
-        key = (cls, args)
+    def execute_int_sub_ovf(self, _, x, y):
         try:
-            return descr_cache[key]
+            z = ovfcheck(x - y)
+        except OverflowError:
+            ovf = True
+            z = 0
+        else:
+            ovf = False
+        self.overflow_flag = ovf
+        return z
+
+    def execute_int_mul_ovf(self, _, x, y):
+        try:
+            z = ovfcheck(x * y)
+        except OverflowError:
+            ovf = True
+            z = 0
+        else:
+            ovf = False
+        self.overflow_flag = ovf
+        return z        
+
+    def execute_guard_no_overflow(self, descr):
+        if self.overflow_flag:
+            self.fail_guard(descr)
+
+    def execute_guard_overflow(self, descr):
+        if not self.overflow_flag:
+            self.fail_guard(descr)
+
+    def execute_jump(self, descr, *args):
+        assert descr is not None
+        raise Jump(descr, args)
+
+    def _do_math_sqrt(self, value):
+        import math
+        y = support.cast_from_floatstorage(lltype.Float, value)
+        x = math.sqrt(y)
+        return support.cast_to_floatstorage(x)
+
+    def execute_call(self, calldescr, func, *args):
+        effectinfo = calldescr.get_extra_info()
+        if effectinfo is not None and hasattr(effectinfo, 'oopspecindex'):
+            oopspecindex = effectinfo.oopspecindex
+            if oopspecindex == EffectInfo.OS_MATH_SQRT:
+                return self._do_math_sqrt(args[0])
+        TP = llmemory.cast_int_to_adr(func).ptr._obj._TYPE
+        call_args = support.cast_call_args_in_order(TP.ARGS, args)
+        try:
+            res = self.cpu.maybe_on_top_of_llinterp(func, call_args, TP.RESULT)
+            self.last_exception = None
+        except LLException, lle:
+            self.last_exception = lle
+            res = _example_res[getkind(TP.RESULT)[0]]
+        return res
+    execute_call_i = execute_call
+    execute_call_r = execute_call
+    execute_call_f = execute_call
+    execute_call_v = execute_call
+
+    def execute_call_may_force(self, calldescr, func, *args):
+        call_op = self.lltrace.operations[self.current_index]
+        guard_op = self.lltrace.operations[self.current_index + 1]
+        assert guard_op.getopnum() == rop.GUARD_NOT_FORCED
+        self.latest_descr = _getdescr(guard_op)
+        res = self.execute_call(calldescr, func, *args)
+        del self.latest_descr
+        return res
+    execute_call_may_force_i = execute_call_may_force
+    execute_call_may_force_r = execute_call_may_force
+    execute_call_may_force_f = execute_call_may_force
+    execute_call_may_force_v = execute_call_may_force
+
+    def execute_call_release_gil(self, descr, func, *args):
+        call_args = support.cast_call_args_in_order(descr.ARGS, args)
+        FUNC = lltype.FuncType(descr.ARGS, descr.RESULT)
+        func_to_call = rffi.cast(lltype.Ptr(FUNC), func)
+        result = func_to_call(*call_args)
+        return support.cast_result(descr.RESULT, result)
+    execute_call_release_gil_i = execute_call_release_gil
+    execute_call_release_gil_r = execute_call_release_gil
+    execute_call_release_gil_f = execute_call_release_gil
+    execute_call_release_gil_v = execute_call_release_gil
+
+    def execute_call_assembler(self, descr, *args):
+        # pframe = CALL_ASSEMBLER(args..., descr=looptoken)
+        # ==>
+        #     pframe = CALL looptoken.loopaddr(*args)
+        #     JUMP_IF_NOT_CARRY @forward
+        #     pframe = CALL assembler_call_helper(pframe)
+        #     @forward:
+        #
+        # CARRY is set before most returns, and cleared only
+        # on FINISH with descr.fast_path_done.
+        #
+        call_op = self.lltrace.operations[self.current_index]
+        guard_op = self.lltrace.operations[self.current_index + 1]
+        assert guard_op.getopnum() == rop.GUARD_NOT_FORCED
+        self.latest_descr = _getdescr(guard_op)
+        #
+        pframe = self.cpu._execute_token(descr, *args)
+        if not pframe._fast_path_done:
+            jd = descr.outermost_jitdriver_sd
+            assembler_helper_ptr = jd.assembler_helper_adr.ptr  # fish
+            try:
+                result = assembler_helper_ptr(pframe)
+            except LLException, lle:
+                assert self.last_exception is None, "exception left behind"
+                self.last_exception = lle
+                return lltype.nullptr(llmemory.GCREF.TO)
+            assert result is pframe
+        #
+        del self.latest_descr
+        return pframe
+
+    def execute_same_as(self, _, x):
+        return x
+    execute_same_as_i = execute_same_as
+    execute_same_as_r = execute_same_as
+    execute_same_as_f = execute_same_as
+
+    def execute_debug_merge_point(self, descr, *args):
+        from pypy.jit.metainterp.warmspot import get_stats
+        try:
+            stats = get_stats()
+        except AttributeError:
+            pass
+        else:
+            stats.add_merge_point_location(args[1:])
+
+    def execute_new_with_vtable(self, _, vtable):
+        descr = heaptracker.vtable2descr(self.cpu, vtable)
+        return self.cpu.bh_new_with_vtable(vtable, descr)
+
+    def execute_jit_frame(self, _):
+        return self
+
+def _getdescr(op):
+    d = op.getdescr()
+    # XXX for now
+    #if d is not None:
+    #    d = d.realdescrref()
+    #    assert d is not None, "the descr disappeared: %r" % (op,)
+    return d
+
+def _setup():
+    def _make_impl_from_blackhole_interp(opname):
+        from pypy.jit.metainterp.blackhole import BlackholeInterpreter
+        name = 'bhimpl_' + opname.lower()
+        try:
+            func = BlackholeInterpreter.__dict__[name]
         except KeyError:
-            res = cls(*args)
-            descr_cache[key] = res
-            return res
+            return
+        for argtype in func.argtypes:
+            if argtype not in ('i', 'r', 'f'):
+                return
+        #
+        def _op_default_implementation(self, descr, *args):
+            # for all operations implemented in the blackhole interpreter
+            return func(*args)
+        #
+        _op_default_implementation.func_name = 'execute_' + opname
+        return _op_default_implementation
 
-class StaticMethDescr(OODescr):
+    def _new_execute(opname):
+        def execute(self, descr, *args):
+            if descr is not None:
+                new_args = args + (descr,)
+            else:
+                new_args = args
+            return getattr(self.cpu, 'bh_' + opname)(*new_args)
+        execute.func_name = 'execute_' + opname
+        return execute
 
-    def __init__(self, FUNC, ARGS, RESULT, extrainfo=None):
-        self.FUNC = FUNC
-        getargs = make_getargs(FUNC.ARGS)
-        def callfunc(funcbox, argboxes):
-            funcobj = funcbox.getref(FUNC)
-            funcargs = getargs(argboxes)
-            res = llimpl.call_maybe_on_top_of_llinterp(funcobj, funcargs)
-            if RESULT is not ootype.Void:
-                return boxresult(RESULT, res)
-        self.callfunc = callfunc
-        self.extrainfo = extrainfo
+    for k, v in rop.__dict__.iteritems():
+        if not k.startswith("_"):
+            fname = 'execute_' + k.lower()
+            if not hasattr(LLFrame, fname):
+                func = _make_impl_from_blackhole_interp(k)
+                if func is None:
+                    func = _new_execute(k.lower())
+                setattr(LLFrame, fname, func)
 
-    def get_extra_info(self):
-        return self.extrainfo
-
-class MethDescr(history.AbstractMethDescr):
-
-    callmeth = None
-
-    new = classmethod(OODescr.new.im_func)
-
-    def __init__(self, SELFTYPE, methname):
-        _, meth = SELFTYPE._lookup(methname)
-        METH = ootype.typeOf(meth)
-        self.SELFTYPE = SELFTYPE
-        self.METH = METH
-        self.methname = methname
-        RESULT = METH.RESULT
-        getargs = make_getargs(METH.ARGS)
-        def callmeth(selfbox, argboxes):
-            selfobj = selfbox.getref(SELFTYPE)
-            meth = getattr(selfobj, methname)
-            methargs = getargs(argboxes)
-            res = llimpl.call_maybe_on_top_of_llinterp(meth, methargs)
-            if RESULT is not ootype.Void:
-                return boxresult(RESULT, res)
-        self.callmeth = callmeth
-
-    def __repr__(self):
-        return '<MethDescr %r>' % self.methname
-
-class TypeDescr(OODescr):
-
-    create = None
-
-    def __init__(self, TYPE):
-        self.TYPE = TYPE
-        self.ARRAY = ARRAY = ootype.Array(TYPE)
-        def create():
-            return boxresult(TYPE, ootype.new(TYPE))
-
-        def create_array(lengthbox):
-            n = lengthbox.getint()
-            return boxresult(ARRAY, ootype.oonewarray(ARRAY, n))
-
-        def getarrayitem(arraybox, ibox):
-            array = arraybox.getref(ARRAY)
-            i = ibox.getint()
-            return boxresult(TYPE, array.ll_getitem_fast(i))
-
-        def setarrayitem(arraybox, ibox, valuebox):
-            array = arraybox.getref(ARRAY)
-            i = ibox.getint()
-            value = unwrap(TYPE, valuebox)
-            array.ll_setitem_fast(i, value)
-
-        def getarraylength(arraybox):
-            array = arraybox.getref(ARRAY)
-            return boxresult(ootype.Signed, array.ll_length())
-
-        def instanceof(box):
-            obj = box.getref(ootype.ROOT)
-            return history.BoxInt(ootype.instanceof(obj, TYPE))
-
-        self.create = create
-        self.create_array = create_array
-        self.getarrayitem = getarrayitem
-        self.setarrayitem = setarrayitem
-        self.getarraylength = getarraylength
-        self.instanceof = instanceof
-        self._is_array_of_pointers = (history.getkind(TYPE) == 'ref')
-        self._is_array_of_floats = (history.getkind(TYPE) == 'float')
-
-    def is_array_of_pointers(self):
-        # for arrays, TYPE is the type of the array item.
-        return self._is_array_of_pointers
-
-    def is_array_of_floats(self):
-        # for arrays, TYPE is the type of the array item.
-        return self._is_array_of_floats
-
-    def __repr__(self):
-        return '<TypeDescr %s>' % self.TYPE._short_name()
-
-class FieldDescr(OODescr):
-
-    getfield = None
-    _keys = KeyManager()
-
-    def __init__(self, TYPE, fieldname):
-        self.TYPE = TYPE
-        self.fieldname = fieldname
-
-        _, T = TYPE._lookup_field(fieldname)
-        def getfield(objbox):
-            obj = objbox.getref(TYPE)
-            value = getattr(obj, fieldname)
-            return boxresult(T, value)
-        def setfield(objbox, valuebox):
-            obj = objbox.getref(TYPE)
-            value = unwrap(T, valuebox)
-            setattr(obj, fieldname, value)
-
-        self.getfield = getfield
-        self.setfield = setfield
-        self._is_pointer_field = (history.getkind(T) == 'ref')
-        self._is_float_field = (history.getkind(T) == 'float')
-
-    def sort_key(self):
-        return self._keys.getkey((self.TYPE, self.fieldname))
-
-    def is_pointer_field(self):
-        return self._is_pointer_field
-
-    def is_float_field(self):
-        return self._is_float_field
-
-    def equals(self, other):
-        return self.TYPE == other.TYPE and \
-            self.fieldname == other.fieldname
-
-    def __repr__(self):
-        return '<FieldDescr %r>' % self.fieldname
+_setup()
