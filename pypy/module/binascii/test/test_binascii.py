@@ -410,3 +410,6 @@ class AppTestBinascii(object):
             ]:
             assert self.binascii.unhexlify(input) == expected
             assert self.binascii.a2b_hex(input) == expected
+
+    def test_error(self):
+        assert issubclass(self.binascii.Error, ValueError)
