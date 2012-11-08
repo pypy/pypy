@@ -8,18 +8,18 @@ def register(func, *args, **kwargs):
     kwargs - optional keyword arguments to pass to func
 
     func is returned to facilitate usage as a decorator."""
-    
+
     if not callable(func):
         raise TypeError("func must be callable")
 
     atexit_callbacks.append((func, args, kwargs))
     return func
-    
+
 def run_exitfuncs():
     "Run all registered exit functions."
     # Maintain the last exception
     last_exc, last_tb = None, None
-    for (func, args, kwargs) in atexit_callbacks:
+    for (func, args, kwargs) in reversed(atexit_callbacks):
         if func is None:
             # unregistered slot
             continue
@@ -27,6 +27,7 @@ def run_exitfuncs():
             func(*args, **kwargs)
         except BaseException as e:
             if not isinstance(e, SystemExit):
+                import sys
                 import traceback
                 last_type, last_exc, last_tb = sys.exc_info()
                 traceback.print_exception(last_type, last_exc, last_tb)
