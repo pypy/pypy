@@ -142,7 +142,9 @@ class AppTestDtypes(BaseNumpyAppTest):
             tests.extend([('b','I','l'), ('b','L','d'), ('h','I','l'),
                           ('h','L','d'), ('i','I','l'), ('i','L','d')])
         for d1, d2, dout in tests:
-            assert (array([1], d1) + array([1], d2)).dtype is dtype(dout)
+            # make a failed test print helpful info
+            d3 = (array([1], d1) + array([1], d2)).dtype
+            assert (d1, d2, repr(d3)) == (d1, d2, repr(dtype(dout)))
 
     def test_add_int8(self):
         from _numpypy import array, dtype

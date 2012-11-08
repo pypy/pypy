@@ -10,10 +10,11 @@ from pypy.rlib import rfloat, clibffi, rcomplex
 from pypy.rlib.rawstorage import (alloc_raw_storage, raw_storage_setitem,
                                   raw_storage_getitem)
 from pypy.rlib.objectmodel import specialize
-from pypy.rlib.rarithmetic import widen, byteswap, intmask
+from pypy.rlib.rarithmetic import widen, byteswap, r_ulonglong
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.rstruct.runpack import runpack
-from pypy.rlib.rstruct.ieee import float_pack, float_unpack
+from pypy.rlib.rstruct.nativefmttable import native_is_bigendian
+from pypy.rlib.rstruct.ieee import float_pack, float_unpack, unpack_float
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib import jit
 from pypy.rlib.rstring import StringBuilder
@@ -920,8 +921,9 @@ class Float16(BaseType, Float):
         return rffi.sizeof(self._STORAGE_T)
 
     def runpack_str(self, s):
-        hbits = int(runpack('H', s))
-        return self.box(float_unpack(hbits, 2))
+        assert len(s) == 2
+        fval = unpack_float(s, native_is_bigendian)
+        return self.box(fval)
 
     def for_computation(self, v):
         return float(v)
@@ -930,8 +932,8 @@ class Float16(BaseType, Float):
         return self.box(-1.0)
 
     def _read(self, storage, i, offset):
-        hbits = intmask(raw_storage_getitem(self._STORAGE_T, storage, i + offset))
-        return float_unpack(hbits, 2)
+        hbits = raw_storage_getitem(self._STORAGE_T, storage, i + offset)
+        return float_unpack(r_ulonglong(hbits), 2)
 
     def _write(self, storage, i, offset, value):
         hbits = float_pack(value,2)
