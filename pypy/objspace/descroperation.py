@@ -239,11 +239,10 @@ class DescrOperation(object):
         w_restype = space.type(w_res)
         # Note there is no check for bool here because the only possible
         # instances of bool are w_False and w_True, which are checked above.
-        if space.is_w(w_restype, space.w_int):
-            return space.int_w(w_res) != 0
-        else:
-            msg = "__bool__ should return bool or integer"
-            raise OperationError(space.w_TypeError, space.wrap(msg))
+        typename = space.type(w_obj).getname(space)
+        raise operationerrfmt(space.w_TypeError,
+                              "__bool__ should return bool, returned %s",
+                              typename)
 
     def nonzero(space, w_obj):
         if space.is_true(w_obj):
