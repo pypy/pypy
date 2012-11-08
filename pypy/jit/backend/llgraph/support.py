@@ -2,7 +2,7 @@
 from pypy.jit.codewriter import longlong
 from pypy.jit.codewriter import heaptracker
 
-from pypy.jit.metainterp.resoperation import getkind
+from pypy.jit.metainterp.history import getkind
 
 from pypy.rlib.rarithmetic import r_longlong, r_ulonglong, r_uint
 from pypy.rpython.lltypesystem import lltype, rffi, llmemory

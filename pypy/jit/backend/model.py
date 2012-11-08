@@ -155,9 +155,17 @@ class AbstractCPU(object):
         raise NotImplementedError
 
     def grab_exc_value(self, deadframe):
-        """Return and clear the exception set by the latest execute_token(),
+        """Return the exception set by the latest execute_token(),
         when it exits due to a failure of a GUARD_EXCEPTION or
         GUARD_NO_EXCEPTION.  (Returns a GCREF)"""        # XXX remove me
+        raise NotImplementedError
+
+    def set_savedata_ref(self, deadframe, data):
+        """For the front-end: store a GCREF on the deadframe object."""
+        raise NotImplementedError
+
+    def get_savedata_ref(self, deadframe):
+        """For the front-end: get the GCREF saved with set_savedata_ref()."""
         raise NotImplementedError
 
     def force(self, force_token):

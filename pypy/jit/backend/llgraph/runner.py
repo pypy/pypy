@@ -2,8 +2,8 @@ import weakref
 from pypy.jit.backend import model
 from pypy.jit.backend.llgraph import support
 from pypy.jit.metainterp.history import AbstractDescr
-from pypy.jit.metainterp.resoperation import Const, getkind
-from pypy.jit.metainterp.resoperation import INT, REF, FLOAT, VOID, FLOAT_SIZE
+from pypy.jit.metainterp.history import Const, getkind
+from pypy.jit.metainterp.history import INT, REF, FLOAT, VOID
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.codewriter import longlong, heaptracker
 from pypy.jit.codewriter.effectinfo import EffectInfo
@@ -22,13 +22,6 @@ class LLTrace(object):
         # We need to clone the list of operations because the
         # front-end will mutate them under our feet again.  We also
         # need to make sure things get freed.
-
-        # XXX for now
-        for op in inputargs + operations:
-            assert op.type == VOID or op._varindex >= 0
-        self.operations = operations
-        self.inputargs = inputargs
-        return
         def mapping(box, _cache={}):
             if isinstance(box, Const) or box is None:
                 return box
@@ -49,24 +42,26 @@ class LLTrace(object):
                                        map(mapping, op.getarglist()),
                                        mapping(op.result),
                                        newdescr)
+            if op.getfailargs() is not None:
+                newop.setfailargs(map(mapping, op.getfailargs()))
             self.operations.append(newop)
 
 class WeakrefDescr(AbstractDescr):
     def __init__(self, realdescr):
         self.realdescrref = weakref.ref(realdescr)
 
-class GuardFailed(Exception):
-    def __init__(self, descr):
-        self.descr = descr
+    def getrealdescr(self):
+        realdescr = self.realdescrref()
+        assert realdescr is not None, "the descr disappeared: %r" % (op,)
+        return realdescr
 
 class ExecutionFinished(Exception):
-    def __init__(self, descr, arg):
-        self.descr = descr
-        self.arg = arg
+    def __init__(self, deadframe):
+        self.deadframe = deadframe
 
 class Jump(Exception):
-    def __init__(self, descr, args):
-        self.descr = descr
+    def __init__(self, jump_target, args):
+        self.jump_target = jump_target
         self.args = args
 
 class CallDescr(AbstractDescr):
@@ -163,18 +158,6 @@ class InteriorFieldDescr(AbstractDescr):
     def is_float_field(self):
         return getkind(self.FIELD) == 'float'
 
-class JFDescrDescr(AbstractDescr):
-    def is_pointer_field(self):
-        return True
-
-class JFValueDescr(AbstractDescr):
-    def __init__(self, kind):
-        self.kind = kind
-    def is_pointer_field(self):
-        return self.kind == 'ref'
-    def is_float_field(self):
-        return self.kind == 'float'
-
 _example_res = {'v': None,
                 'r': lltype.nullptr(llmemory.GCREF.TO),
                 'i': 0,
@@ -187,12 +170,6 @@ class LLGraphCPU(model.AbstractCPU):
     supports_singlefloats = True
     translate_support_code = False
 
-    JITFRAMEPTR = llmemory.GCREF
-
-    jfdescr_for_int   = JFValueDescr('int')
-    jfdescr_for_ref   = JFValueDescr('ref')
-    jfdescr_for_float = JFValueDescr('float')
-
     def __init__(self, rtyper, stats=None, *ignored_args, **ignored_kwds):
         model.AbstractCPU.__init__(self)
         self.rtyper = rtyper
@@ -201,7 +178,6 @@ class LLGraphCPU(model.AbstractCPU):
         class MiniStats:
             pass
         self.stats = stats or MiniStats()
-        self.TOKEN_TRACING_RESCALL = NotAFrame()
 
     def compile_loop(self, inputargs, operations, looptoken, log=True, name=''):
         clt = model.CompiledLoopToken(self, looptoken.number)
@@ -258,51 +234,47 @@ class LLGraphCPU(model.AbstractCPU):
             frame.execute(lltrace)
             assert False
         except ExecutionFinished, e:
-            frame.finish_value = e.arg
-            frame.latest_descr = e.descr
-            frame._fast_path_done = e.descr.fast_path_done
-            return frame
-        except GuardFailed, e:
-            frame.latest_descr = e.descr
-            return frame
+            return e.deadframe
 
-    def get_frame_value_int(self, frame, index):
-        return frame.framecontent[index]
-    get_frame_value_float = get_frame_value_int
-    get_frame_value_ref   = get_frame_value_int
+    def get_latest_value_int(self, deadframe, index):
+        v = deadframe._values[index]
+        assert isinstance(v, int)
+        return v
 
-    def get_latest_descr(self, frame):
-        return frame.latest_descr
+    def get_latest_value_ref(self, deadframe, index):
+        v = deadframe._values[index]
+        assert lltype.typeOf(v) == llmemory.GCREF
+        return v
 
-    def grab_exc_value(self, frame):
-        if frame.last_exception is not None:
-            result = frame.last_exception.args[1]
+    def get_latest_value_float(self, deadframe, index):
+        v = deadframe._values[index]
+        assert lltype.typeOf(v) == longlong.FLOATSTORAGE
+        return v
+
+    def get_latest_descr(self, deadframe):
+        return deadframe._latest_descr
+
+    def get_latest_value_count(self, deadframe):
+        return len(deadframe._values)
+
+    def grab_exc_value(self, deadframe):
+        if deadframe._last_exception is not None:
+            result = deadframe._last_exception.args[1]
             gcref = lltype.cast_opaque_ptr(llmemory.GCREF, result)
         else:
             gcref = lltype.nullptr(llmemory.GCREF.TO)
-        frame.last_exception = None
         return gcref
 
-    def force(self, frame):
+    def force(self, force_token):
+        xxxx
         assert not frame._forced
         frame._forced = True
-
-    def force_vable_if_necessary(self, vable):
-        if vable.jitframe:
-            self.force(vable.jitframe)
-            vable.jitframe = lltype.nulltpr(llmemory.GCREF.TO)
 
     def set_savedata_ref(self, frame, data):
         frame.saved_data = data
 
     def get_savedata_ref(self, frame):
         return frame.saved_data
-
-    def jitframe_get_jfdescr_descr(self):
-        return JFDescrDescr()
-
-    def jitframe_cast_jfdescr_to_descr(self, descr):
-        return descr
     
     # ------------------------------------------------------------
 
@@ -393,7 +365,7 @@ class LLGraphCPU(model.AbstractCPU):
             res = ptr._obj._callable(*args)
         return support.cast_result(RESULT, res)
 
-    def _do_call(self, func, args_i, args_r, args_f, calldescr):
+    def _do_call(self, func, calldescr, args_i, args_r, args_f):
         TP = llmemory.cast_int_to_adr(func).ptr._obj._TYPE
         args = support.cast_call_args(TP.ARGS, args_i, args_r, args_f)
         return self.maybe_on_top_of_llinterp(func, args, TP.RESULT)
@@ -595,39 +567,26 @@ class LLGraphCPU(model.AbstractCPU):
     def bh_read_timestamp(self):
         return read_timestamp()
 
-class NotAFrame(object):
-    _TYPE = llmemory.GCREF
 
-    class latest_descr:
-        pass
+class LLDeadFrame(object):
 
-    def __eq__(self, other):
-        return isinstance(other, NotAFrame)
-    def __ne__(self, other):
-        return not (self == other)
+    def __init__(self, latest_descr, values, last_exception=None):
+        self._latest_descr = latest_descr
+        self._values = values
+        self._last_exception = last_exception
+
 
 class LLFrame(object):
-    _TYPE = llmemory.GCREF
+    killed = None
+    overflow_flag = False
+    last_exception = None
 
-    # some obscure hacks to support comparison with llmemory.GCREF
-    def __ne__(self, other):
-        return not self == other
-    def __eq__(self, other):
-        return isinstance(other, LLFrame) and self is other
-    
-    _forced = False
-    _fast_path_done = False
-    finish_value = None
-    
     def __init__(self, cpu, argboxes, args):
         self.env = {}
-        self.framecontent = {}
         self.cpu = cpu
         assert len(argboxes) == len(args)
         for box, arg in zip(argboxes, args):
             self.setenv(box, arg)
-        self.overflow_flag = False
-        self.last_exception = None
 
     def setenv(self, box, arg):
         if box.type == INT:
@@ -642,20 +601,12 @@ class LLFrame(object):
         else:
             raise AssertionError(box)
         #
-        assert box.getvarindex() >= 0
         self.env[box] = arg
-        self.framecontent[box.getvarindex()] = arg
-        if box.type == FLOAT and FLOAT_SIZE > 1:
-            self.framecontent[box.getvarindex() + 1] = '2nd float word'
 
     def lookup(self, arg):
         if isinstance(arg, Const):
             return arg.value
-        result = self.env[arg]
-        assert result is self.framecontent[arg.getvarindex()]
-        if arg.type == FLOAT and FLOAT_SIZE > 1:
-            assert self.framecontent[arg.getvarindex() + 1] == '2nd float word'
-        return result
+        return self.env[arg]
 
     def execute(self, lltrace):
         self.lltrace = lltrace
@@ -671,22 +622,18 @@ class LLFrame(object):
             try:
                 resval = execute(_getdescr(op), *args)
             except Jump, j:
-                self.lltrace, i = j.descr._llgraph_target
-                label_op = self.lltrace.operations[i]
-                self.do_renaming(label_op.getarglist(), j.args)
-                i += 1
-                continue
-            except GuardFailed, gf:
-                if hasattr(gf.descr, '_llgraph_bridge'):
+                self.lltrace, i = j.jump_target
+                if i >= 0:
+                    label_op = self.lltrace.operations[i]
+                    i += 1
+                    targetargs = label_op.getarglist()
+                else:
+                    targetargs = self.lltrace.inputargs
                     i = 0
-                    self.lltrace = gf.descr._llgraph_bridge
-                    newvals = [self.framecontent[arg._varindex]
-                               for arg in self.lltrace.inputargs]
-                    self.do_renaming(self.lltrace.inputargs, newvals)
-                    continue
-                raise
-            if op.type != VOID:
-                self.setenv(op, resval)
+                self.do_renaming(targetargs, j.args)
+                continue
+            if op.result is not None:
+                self.setenv(op.result, resval)
             else:
                 assert resval is None
             i += 1
@@ -701,13 +648,26 @@ class LLFrame(object):
     # -----------------------------------------------------
 
     def fail_guard(self, descr):
-        raise GuardFailed(descr)
+        values = []
+        for box in self.current_op.getfailargs():
+            if box is not None:
+                value = self.env[box]
+            else:
+                value = None
+            values.append(value)
+        if hasattr(descr, '_llgraph_bridge'):
+            target = (descr._llgraph_bridge, -1)
+            values = [value for value in values if value is not None]
+            raise Jump(target, values)
+        else:
+            raise ExecutionFinished(LLDeadFrame(descr, values,
+                                                self.last_exception))
 
     def execute_force_spill(self, _, arg):
         pass
 
-    def execute_finish(self, descr, arg=None):
-        raise ExecutionFinished(descr, arg)
+    def execute_finish(self, descr, *args):
+        raise ExecutionFinished(LLDeadFrame(descr, args))
 
     def execute_label(self, descr, *args):
         argboxes = self.current_op.getarglist()
@@ -815,8 +775,7 @@ class LLFrame(object):
             self.fail_guard(descr)
 
     def execute_jump(self, descr, *args):
-        assert descr is not None
-        raise Jump(descr, args)
+        raise Jump(descr._llgraph_target, args)
 
     def _do_math_sqrt(self, value):
         import math
@@ -923,10 +882,8 @@ class LLFrame(object):
 
 def _getdescr(op):
     d = op.getdescr()
-    # XXX for now
-    #if d is not None:
-    #    d = d.realdescrref()
-    #    assert d is not None, "the descr disappeared: %r" % (op,)
+    if d is not None:
+        d = d.getrealdescr()
     return d
 
 def _setup():
