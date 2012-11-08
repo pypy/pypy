@@ -15,6 +15,8 @@ Provides cppyy module (disabled by default) for access to C++ through Reflex.
 See doc/cppyy.rst for full details and functionality.
 .. branch: nupypy-axis-arg-check
 Check that axis arg is valid in _numpypy
+.. branch:less-gettestobjspace
+.. branch: move-apptest-support
 
 .. branch: iterator-in-rpython
 .. branch: numpypy_count_nonzero
