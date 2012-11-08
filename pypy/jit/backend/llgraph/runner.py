@@ -376,15 +376,6 @@ class LLGraphCPU(model.AbstractCPU):
     bh_call_v = _do_call
 
     def bh_getfield_gc(self, p, descr):
-        if isinstance(descr, JFDescrDescr):
-            result = p.latest_descr
-            if result is None:
-                return lltype.nullptr(llmemory.GCREF.TO)
-            # <XXX> HACK
-            result._TYPE = llmemory.GCREF
-            result._identityhash = lambda: hash(result)   # for rd_hash()
-            # <XXX/>
-            return result
         p = support.cast_arg(lltype.Ptr(descr.S), p)
         return support.cast_result(descr.FIELD, getattr(p, descr.fieldname))
 
@@ -447,9 +438,6 @@ class LLGraphCPU(model.AbstractCPU):
     bh_setarrayitem_raw_f = bh_setarrayitem_raw
 
     def bh_getinteriorfield_gc(self, a, index, descr):
-        if isinstance(descr, JFValueDescr):
-            assert isinstance(a, LLFrame)
-            return a.framecontent[index]
         array = a._obj.container
         return support.cast_result(descr.FIELD,
                           getattr(array.getitem(index), descr.fieldname))
