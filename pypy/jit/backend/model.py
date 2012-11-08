@@ -108,9 +108,8 @@ class AbstractCPU(object):
     def execute_token(self, looptoken, *args):
         """NOT_RPYTHON (for tests only)
         Execute the generated code referenced by the looptoken.
-        Returns the descr of the last executed operation: either the one
-        attached to the failing guard, or the one attached to the FINISH.
-        Use get_latest_value_xxx() afterwards to read the result(s).
+        When done, this returns a 'dead JIT frame' object that can
+        be inspected with the get_latest_xxx() methods.
         """
         argtypes = [lltype.typeOf(x) for x in args]
         execute = self.make_execute_token(*argtypes)
@@ -122,45 +121,47 @@ class AbstractCPU(object):
         """
         raise NotImplementedError
 
-    def get_latest_value_int(self, index):
+    def get_latest_value_int(self, deadframe, index):
         """Returns the value for the index'th argument to the
         last executed operation (from 'fail_args' if it was a guard,
         or from 'args' if it was a FINISH).  Returns an int."""
         raise NotImplementedError
 
-    def get_latest_value_float(self, index):
+    def get_latest_value_float(self, deadframe, index):
         """Returns the value for the index'th argument to the
         last executed operation (from 'fail_args' if it was a guard,
         or from 'args' if it was a FINISH).  Returns a FLOATSTORAGE."""
         raise NotImplementedError
 
-    def get_latest_value_ref(self, index):
+    def get_latest_value_ref(self, deadframe, index):
         """Returns the value for the index'th argument to the
         last executed operation (from 'fail_args' if it was a guard,
         or from 'args' if it was a FINISH).  Returns a GCREF."""
         raise NotImplementedError
 
-    def get_latest_value_count(self):
+    def get_latest_value_count(self, deadframe):
         """Return how many values are ready to be returned by
         get_latest_value_xxx().  Only after a guard failure; not
         necessarily correct after a FINISH."""
         raise NotImplementedError
 
-    def get_latest_force_token(self):
+    def get_latest_force_token(self, deadframe):
         """After a GUARD_NOT_FORCED fails, this function returns the
         same FORCE_TOKEN result as the one in the just-failed loop."""
         raise NotImplementedError
 
-    def clear_latest_values(self, count):
-        """Clear the latest values (at least the ref ones), so that
-        they no longer keep objects alive.  'count' is the number of
-        values -- normally get_latest_value_count()."""
-        raise NotImplementedError
-
-    def grab_exc_value(self):
+    def grab_exc_value(self, deadframe):
         """Return and clear the exception set by the latest execute_token(),
         when it exits due to a failure of a GUARD_EXCEPTION or
         GUARD_NO_EXCEPTION.  (Returns a GCREF)"""        # XXX remove me
+        raise NotImplementedError
+
+    def force(self, force_token):
+        """Take a 'force token' as produced by the FORCE_TOKEN operation,
+        and 'kill' the corresponding JIT frame, which should be somewhere
+        in the stack right now.  Returns it as a dead frame object.  When
+        we later return to the JIT frame, the next operation executed must
+        be a GUARD_NOT_FORCED, which will fail."""
         raise NotImplementedError
 
     def redirect_call_assembler(self, oldlooptoken, newlooptoken):
@@ -316,9 +317,6 @@ class AbstractCPU(object):
     def bh_copystrcontent(self, src, dst, srcstart, dststart, length):
         raise NotImplementedError
     def bh_copyunicodecontent(self, src, dst, srcstart, dststart, length):
-        raise NotImplementedError
-
-    def force(self, force_token):
         raise NotImplementedError
 
 
