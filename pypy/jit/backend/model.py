@@ -121,6 +121,10 @@ class AbstractCPU(object):
         """
         raise NotImplementedError
 
+    def get_latest_descr(self, deadframe):
+        """Returns the Descr for the last operation executed by the frame."""
+        raise NotImplementedError
+
     def get_latest_value_int(self, deadframe, index):
         """Returns the value for the index'th argument to the
         last executed operation (from 'fail_args' if it was a guard,
