@@ -365,7 +365,7 @@ class LLGraphCPU(model.AbstractCPU):
             res = ptr._obj._callable(*args)
         return support.cast_result(RESULT, res)
 
-    def _do_call(self, func, calldescr, args_i, args_r, args_f):
+    def _do_call(self, func, args_i, args_r, args_f, calldescr):
         TP = llmemory.cast_int_to_adr(func).ptr._obj._TYPE
         args = support.cast_call_args(TP.ARGS, args_i, args_r, args_f)
         return self.maybe_on_top_of_llinterp(func, args, TP.RESULT)

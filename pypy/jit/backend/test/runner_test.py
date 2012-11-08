@@ -524,7 +524,7 @@ class BaseBackendTest(Runner):
         calldescr = cpu.calldescrof(deref(FPTR), (lltype.Char,), lltype.Char,
                                     EffectInfo.MOST_GENERAL)
         x = cpu.bh_call_i(self.get_funcbox(cpu, func_ptr).value,
-                          calldescr, [ord('A')], None, None)
+                          [ord('A')], None, None, calldescr)
         assert x == ord('B')
         if cpu.supports_floats:
             def func(f, i):
@@ -538,8 +538,8 @@ class BaseBackendTest(Runner):
             calldescr = cpu.calldescrof(FTP, FTP.ARGS, FTP.RESULT,
                                         EffectInfo.MOST_GENERAL)
             x = cpu.bh_call_f(self.get_funcbox(cpu, func_ptr).value,
-                              calldescr,
-                              [42], None, [longlong.getfloatstorage(3.5)])
+                              [42], None, [longlong.getfloatstorage(3.5)],
+                              calldescr)
             assert longlong.getrealfloat(x) == 3.5 - 42
 
     def test_call(self):
@@ -1015,7 +1015,7 @@ class BaseBackendTest(Runner):
                                'void', descr=kdescr)
         f = self.cpu.bh_getinteriorfield_gc_f(a_box.getref_base(), 3, kdescr)
         assert longlong.getrealfloat(f) == 1.5
-        self.cpu.bh_setinteriorfield_gc_f(a_box.getref_base(), 3, kdescr, longlong.getfloatstorage(2.5))
+        self.cpu.bh_setinteriorfield_gc_f(a_box.getref_base(), 3, longlong.getfloatstorage(2.5), kdescr)
         r = self.execute_operation(rop.GETINTERIORFIELD_GC, [a_box, BoxInt(3)],
                                    'float', descr=kdescr)
         assert r.getfloat() == 2.5
@@ -1041,7 +1041,7 @@ class BaseBackendTest(Runner):
         for name, TYPE in NUMBER_FIELDS[::-1]:
             vdescr = self.cpu.interiorfielddescrof(A, name)
             self.cpu.bh_setinteriorfield_gc_i(a_box.getref_base(), 3,
-                                              vdescr, -25)
+                                              -25, vdescr)
         for name, TYPE in NUMBER_FIELDS:
             vdescr = self.cpu.interiorfielddescrof(A, name)
             r = self.execute_operation(rop.GETINTERIORFIELD_GC,
@@ -1054,8 +1054,8 @@ class BaseBackendTest(Runner):
                                'void', descr=pdescr)
         r = self.cpu.bh_getinteriorfield_gc_r(a_box.getref_base(), 4, pdescr)
         assert r == s_box.getref_base()
-        self.cpu.bh_setinteriorfield_gc_r(a_box.getref_base(), 3, pdescr,
-                                          s_box.getref_base())
+        self.cpu.bh_setinteriorfield_gc_r(a_box.getref_base(), 3,
+                                          s_box.getref_base(), pdescr)
         r = self.execute_operation(rop.GETINTERIORFIELD_GC, [a_box, BoxInt(3)],
                                    'ref', descr=pdescr)
         assert r.getref_base() == s_box.getref_base()
@@ -1224,7 +1224,8 @@ class BaseBackendTest(Runner):
                 print op
             self.cpu.compile_loop(inputargs, operations, looptoken)
             #
-            fail = self.cpu.execute_token(looptoken, *values)
+            deadframe = self.cpu.execute_token(looptoken, *values)
+            fail = self.cpu.get_latest_descr(deadframe)
             assert fail.identifier == 42
             #
             for k in range(len(retvalues)):
@@ -1939,7 +1940,7 @@ class LLtypeBackendTest(BaseBackendTest):
         assert s.parent.chr2 == chr(150)
         r = self.cpu.bh_getfield_gc_i(r1.value, descrshort)
         assert r == 1313
-        self.cpu.bh_setfield_gc_i(r1.value, descrshort, 1333)
+        self.cpu.bh_setfield_gc_i(r1.value, 1333, descrshort)
         r = self.cpu.bh_getfield_gc_i(r1.value, descrshort)
         assert r == 1333
         r = self.execute_operation(rop.GETFIELD_GC, [r1], 'int',
@@ -2577,13 +2578,13 @@ class LLtypeBackendTest(BaseBackendTest):
         A = lltype.GcArray(lltype.Char)
         descr_A = cpu.arraydescrof(A)
         a = lltype.malloc(A, 5)
-        x = cpu.bh_arraylen_gc(descr_A,
-                               lltype.cast_opaque_ptr(llmemory.GCREF, a))
+        x = cpu.bh_arraylen_gc(lltype.cast_opaque_ptr(llmemory.GCREF, a),
+                               descr_A)
         assert x == 5
         #
         a[2] = 'Y'
         x = cpu.bh_getarrayitem_gc_i(
-            descr_A, lltype.cast_opaque_ptr(llmemory.GCREF, a), 2)
+            lltype.cast_opaque_ptr(llmemory.GCREF, a), 2, descr_A)
         assert x == ord('Y')
         #
         B = lltype.GcArray(lltype.Ptr(A))
@@ -2591,7 +2592,7 @@ class LLtypeBackendTest(BaseBackendTest):
         b = lltype.malloc(B, 4)
         b[3] = a
         x = cpu.bh_getarrayitem_gc_r(
-            descr_B, lltype.cast_opaque_ptr(llmemory.GCREF, b), 3)
+            lltype.cast_opaque_ptr(llmemory.GCREF, b), 3, descr_B)
         assert lltype.cast_opaque_ptr(lltype.Ptr(A), x) == a
         if self.cpu.supports_floats:
             C = lltype.GcArray(lltype.Float)
@@ -2599,11 +2600,11 @@ class LLtypeBackendTest(BaseBackendTest):
             c[3] = 3.5
             descr_C = cpu.arraydescrof(C)
             x = cpu.bh_getarrayitem_gc_f(
-                descr_C, lltype.cast_opaque_ptr(llmemory.GCREF, c), 3)
+                lltype.cast_opaque_ptr(llmemory.GCREF, c), 3, descr_C)
             assert longlong.getrealfloat(x) == 3.5
             cpu.bh_setarrayitem_gc_f(
-                descr_C, lltype.cast_opaque_ptr(llmemory.GCREF, c), 4,
-                longlong.getfloatstorage(4.5))
+                lltype.cast_opaque_ptr(llmemory.GCREF, c), 4,
+                longlong.getfloatstorage(4.5), descr_C)
             assert c[4] == 4.5
         s = rstr.mallocstr(6)
         x = cpu.bh_strlen(lltype.cast_opaque_ptr(llmemory.GCREF, s))
@@ -2623,8 +2624,7 @@ class LLtypeBackendTest(BaseBackendTest):
         assert x == ord('Z')
         #
         cpu.bh_setfield_gc_i(lltype.cast_opaque_ptr(llmemory.GCREF, s),
-                             descrfld_x,
-                             ord('4'))
+                             ord('4'), descrfld_x)
         assert s.x == '4'
         #
         descrfld_y = cpu.fielddescrof(S, 'y')
@@ -2635,7 +2635,7 @@ class LLtypeBackendTest(BaseBackendTest):
         #
         s.y = lltype.nullptr(A)
         cpu.bh_setfield_gc_r(lltype.cast_opaque_ptr(llmemory.GCREF, s),
-                             descrfld_y, x)
+                             x, descrfld_y)
         assert s.y == a
         #
         RS = lltype.Struct('S', ('x', lltype.Char))  #, ('y', lltype.Ptr(A)))
@@ -2649,7 +2649,7 @@ class LLtypeBackendTest(BaseBackendTest):
         #
         cpu.bh_setfield_raw_i(
             heaptracker.adr2int(llmemory.cast_ptr_to_adr(rs)),
-            descrfld_rx, ord('!'))
+            ord('!'), descrfld_rx)
         assert rs.x == '!'
         #
 
@@ -2657,7 +2657,7 @@ class LLtypeBackendTest(BaseBackendTest):
             descrfld_z = cpu.fielddescrof(S, 'z')
             cpu.bh_setfield_gc_f(
                 lltype.cast_opaque_ptr(llmemory.GCREF, s),
-                descrfld_z, longlong.getfloatstorage(3.5))
+                longlong.getfloatstorage(3.5), descrfld_z)
             assert s.z == 3.5
             s.z = 3.2
             x = cpu.bh_getfield_gc_f(
@@ -2688,21 +2688,21 @@ class LLtypeBackendTest(BaseBackendTest):
         vtable2 = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
         vtable2_int = heaptracker.adr2int(llmemory.cast_ptr_to_adr(vtable2))
         heaptracker.register_known_gctype(cpu, vtable2, rclass.OBJECT)
-        x = cpu.bh_new_with_vtable(descrsize2, vtable2_int)
+        x = cpu.bh_new_with_vtable(vtable2_int, descrsize2)
         lltype.cast_opaque_ptr(lltype.Ptr(rclass.OBJECT), x)    # type check
         # well...
         #assert x.getref(rclass.OBJECTPTR).typeptr == vtable2
         #
         arraydescr = cpu.arraydescrof(A)
-        x = cpu.bh_new_array(arraydescr, 7)
+        x = cpu.bh_new_array(7, arraydescr)
         array = lltype.cast_opaque_ptr(lltype.Ptr(A), x)
         assert len(array) == 7
         #
-        cpu.bh_setarrayitem_gc_i(descr_A, x, 5, ord('*'))
+        cpu.bh_setarrayitem_gc_i(x, 5, ord('*'), descr_A)
         assert array[5] == '*'
         #
         cpu.bh_setarrayitem_gc_r(
-            descr_B, lltype.cast_opaque_ptr(llmemory.GCREF, b), 1, x)
+            lltype.cast_opaque_ptr(llmemory.GCREF, b), 1, x, descr_B)
         assert b[1] == array
         #
         x = cpu.bh_newstr(5)
@@ -3042,7 +3042,7 @@ class LLtypeBackendTest(BaseBackendTest):
             expected = rffi.cast(lltype.Signed, rffi.cast(RESTYPE, value))
             a[3] = rffi.cast(RESTYPE, value)
             x = cpu.bh_getarrayitem_gc_i(
-                descrarray, lltype.cast_opaque_ptr(llmemory.GCREF, a), 3)
+                lltype.cast_opaque_ptr(llmemory.GCREF, a), 3, descrarray)
             assert x == expected, (
                 "%r: got %r, expected %r" % (RESTYPE, x, expected))
 
@@ -3084,7 +3084,7 @@ class LLtypeBackendTest(BaseBackendTest):
             expected = rffi.cast(lltype.Signed, rffi.cast(RESTYPE, value))
             a[3] = rffi.cast(RESTYPE, value)
             a_rawint = heaptracker.adr2int(llmemory.cast_ptr_to_adr(a))
-            x = cpu.bh_getarrayitem_raw_i(descrarray, a_rawint, 3)
+            x = cpu.bh_getarrayitem_raw_i(a_rawint, 3, descrarray)
             assert x == expected, (
                 "%r: got %r, expected %r" % (RESTYPE, x, expected))
             lltype.free(a, flavor='raw')
@@ -3142,7 +3142,7 @@ class LLtypeBackendTest(BaseBackendTest):
             calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
                                              EffectInfo.MOST_GENERAL)
             x = self.cpu.bh_call_i(self.get_funcbox(self.cpu, f).value,
-                                   calldescr, [value], None, None)
+                                   [value], None, None, calldescr)
             assert x == expected, (
                 "%r: got %r, expected %r" % (RESTYPE, x, expected))
 
@@ -3211,7 +3211,7 @@ class LLtypeBackendTest(BaseBackendTest):
         calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
                                          EffectInfo.MOST_GENERAL)
         x = self.cpu.bh_call_f(self.get_funcbox(self.cpu, f).value,
-                               calldescr, None, None, [value])
+                               None, None, [value], calldescr)
         assert x == expected
 
     def test_longlong_result_of_call_compiled(self):
@@ -3270,7 +3270,7 @@ class LLtypeBackendTest(BaseBackendTest):
         ivalue = longlong.singlefloat2int(value)
         iexpected = longlong.singlefloat2int(expected)
         x = self.cpu.bh_call_i(self.get_funcbox(self.cpu, f).value,
-                               calldescr, [ivalue], None, None)
+                               [ivalue], None, None, calldescr)
         assert x == iexpected
 
     def test_singlefloat_result_of_call_compiled(self):
