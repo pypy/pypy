@@ -538,6 +538,17 @@ class AppTest_Descroperation:
         assert (D() >  A()) == 'D:A.gt'
         assert (D() >= A()) == 'D:A.ge'
 
+    def test_binop_rule(self):
+        called = []
+        class A:
+            def __eq__(self, other):
+                called.append(self)
+                return NotImplemented
+        a1 = A()
+        a2 = A()
+        a1 == a2
+        assert called == [a1, a2]
+
     def test_addition(self):
         class A:
             def __init__(self, a):
