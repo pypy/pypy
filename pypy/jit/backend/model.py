@@ -149,11 +149,6 @@ class AbstractCPU(object):
         necessarily correct after a FINISH."""
         raise NotImplementedError
 
-    def get_latest_force_token(self, deadframe):
-        """After a GUARD_NOT_FORCED fails, this function returns the
-        same FORCE_TOKEN result as the one in the just-failed loop."""
-        raise NotImplementedError
-
     def grab_exc_value(self, deadframe):
         """Return the exception set by the latest execute_token(),
         when it exits due to a failure of a GUARD_EXCEPTION or

@@ -1,4 +1,4 @@
-import weakref
+import py, weakref
 from pypy.jit.backend import model
 from pypy.jit.backend.llgraph import support
 from pypy.jit.metainterp.history import AbstractDescr
@@ -49,11 +49,6 @@ class LLTrace(object):
 class WeakrefDescr(AbstractDescr):
     def __init__(self, realdescr):
         self.realdescrref = weakref.ref(realdescr)
-
-    def getrealdescr(self):
-        realdescr = self.realdescrref()
-        assert realdescr is not None, "the descr disappeared: %r" % (op,)
-        return realdescr
 
 class ExecutionFinished(Exception):
     def __init__(self, deadframe):
@@ -266,15 +261,26 @@ class LLGraphCPU(model.AbstractCPU):
         return gcref
 
     def force(self, force_token):
-        xxxx
-        assert not frame._forced
-        frame._forced = True
+        frame = force_token
+        assert isinstance(frame, LLFrame)
+        assert frame.forced_deadframe is None
+        values = []
+        for box in frame.force_guard_op.getfailargs():
+            if box is not None and box is not frame.current_op.result:
+                value = frame.env[box]
+            else:
+                value = None
+            values.append(value)
+        frame.forced_deadframe = LLDeadFrame(
+            _getdescr(frame.force_guard_op), values)
+        return frame.forced_deadframe
 
-    def set_savedata_ref(self, frame, data):
-        frame.saved_data = data
+    def set_savedata_ref(self, deadframe, data):
+        deadframe._saved_data = data
 
-    def get_savedata_ref(self, frame):
-        return frame.saved_data
+    def get_savedata_ref(self, deadframe):
+        assert deadframe._saved_data is not None
+        return deadframe._saved_data
     
     # ------------------------------------------------------------
 
@@ -558,14 +564,18 @@ class LLGraphCPU(model.AbstractCPU):
 
 class LLDeadFrame(object):
 
-    def __init__(self, latest_descr, values, last_exception=None):
+    def __init__(self, latest_descr, values,
+                 last_exception=None, saved_data=None):
         self._latest_descr = latest_descr
         self._values = values
         self._last_exception = last_exception
+        self._saved_data = saved_data
 
 
 class LLFrame(object):
-    killed = None
+    _TYPE = lltype.Signed
+
+    forced_deadframe = None
     overflow_flag = False
     last_exception = None
 
@@ -635,7 +645,7 @@ class LLFrame(object):
 
     # -----------------------------------------------------
 
-    def fail_guard(self, descr):
+    def fail_guard(self, descr, saved_data=None):
         values = []
         for box in self.current_op.getfailargs():
             if box is not None:
@@ -649,7 +659,8 @@ class LLFrame(object):
             raise Jump(target, values)
         else:
             raise ExecutionFinished(LLDeadFrame(descr, values,
-                                                self.last_exception))
+                                                self.last_exception,
+                                                saved_data))
 
     def execute_force_spill(self, _, arg):
         pass
@@ -714,8 +725,9 @@ class LLFrame(object):
         return support.cast_to_ptr(res)
 
     def execute_guard_not_forced(self, descr):
-        if self._forced:
-            self.fail_guard(descr)
+        if self.forced_deadframe is not None:
+            saved_data = self.forced_deadframe._saved_data
+            self.fail_guard(descr, saved_data)
 
     def execute_guard_not_invalidated(self, descr):
         if self.lltrace.invalid:
@@ -786,23 +798,15 @@ class LLFrame(object):
             self.last_exception = lle
             res = _example_res[getkind(TP.RESULT)[0]]
         return res
-    execute_call_i = execute_call
-    execute_call_r = execute_call
-    execute_call_f = execute_call
-    execute_call_v = execute_call
 
     def execute_call_may_force(self, calldescr, func, *args):
         call_op = self.lltrace.operations[self.current_index]
         guard_op = self.lltrace.operations[self.current_index + 1]
         assert guard_op.getopnum() == rop.GUARD_NOT_FORCED
-        self.latest_descr = _getdescr(guard_op)
+        self.force_guard_op = guard_op
         res = self.execute_call(calldescr, func, *args)
-        del self.latest_descr
+        del self.force_guard_op
         return res
-    execute_call_may_force_i = execute_call_may_force
-    execute_call_may_force_r = execute_call_may_force
-    execute_call_may_force_f = execute_call_may_force
-    execute_call_may_force_v = execute_call_may_force
 
     def execute_call_release_gil(self, descr, func, *args):
         call_args = support.cast_call_args_in_order(descr.ARGS, args)
@@ -810,10 +814,6 @@ class LLFrame(object):
         func_to_call = rffi.cast(lltype.Ptr(FUNC), func)
         result = func_to_call(*call_args)
         return support.cast_result(descr.RESULT, result)
-    execute_call_release_gil_i = execute_call_release_gil
-    execute_call_release_gil_r = execute_call_release_gil
-    execute_call_release_gil_f = execute_call_release_gil
-    execute_call_release_gil_v = execute_call_release_gil
 
     def execute_call_assembler(self, descr, *args):
         # pframe = CALL_ASSEMBLER(args..., descr=looptoken)
@@ -829,7 +829,7 @@ class LLFrame(object):
         call_op = self.lltrace.operations[self.current_index]
         guard_op = self.lltrace.operations[self.current_index + 1]
         assert guard_op.getopnum() == rop.GUARD_NOT_FORCED
-        self.latest_descr = _getdescr(guard_op)
+        self.force_guard_op = guard_op
         #
         pframe = self.cpu._execute_token(descr, *args)
         if not pframe._fast_path_done:
@@ -843,14 +843,11 @@ class LLFrame(object):
                 return lltype.nullptr(llmemory.GCREF.TO)
             assert result is pframe
         #
-        del self.latest_descr
+        del self.force_guard_op
         return pframe
 
     def execute_same_as(self, _, x):
         return x
-    execute_same_as_i = execute_same_as
-    execute_same_as_r = execute_same_as
-    execute_same_as_f = execute_same_as
 
     def execute_debug_merge_point(self, descr, *args):
         from pypy.jit.metainterp.warmspot import get_stats
@@ -865,13 +862,20 @@ class LLFrame(object):
         descr = heaptracker.vtable2descr(self.cpu, vtable)
         return self.cpu.bh_new_with_vtable(vtable, descr)
 
-    def execute_jit_frame(self, _):
+    def execute_force_token(self, _):
         return self
+
+    def execute_cond_call_gc_wb(self, descr, a, b):
+        py.test.skip("cond_call_gc_wb not supported")
+
+    def execute_cond_call_gc_wb_array(self, descr, a, b, c):
+        py.test.skip("cond_call_gc_wb_array not supported")
 
 def _getdescr(op):
     d = op.getdescr()
     if d is not None:
-        d = d.getrealdescr()
+        d = d.realdescrref()
+        assert d is not None, "the descr disappeared: %r" % (op,)
     return d
 
 def _setup():

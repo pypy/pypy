@@ -78,7 +78,11 @@ class AbstractResOp(object):
             result = self.result
         if descr is None:
             descr = self.getdescr()
-        newop = ResOperation(opnum, args, result, descr)
+        newop = self.__class__(result)
+        newop.initarglist(args)
+        if descr is not None:
+            assert isinstance(newop, ResOpWithDescr)
+            newop.setdescr(descr)
         return newop
 
     def clone(self):
