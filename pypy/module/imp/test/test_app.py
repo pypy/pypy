@@ -4,7 +4,7 @@ from pypy.tool.udir import udir
 MARKER = 42
 
 class AppTestImpModule:
-    spaceconfig = dict(usemodules=('imp'))
+    spaceconfig = dict(usemodules=('imp',))
 
     def setup_class(cls):
         cls.w_imp = cls.space.getbuiltinmodule('imp')
