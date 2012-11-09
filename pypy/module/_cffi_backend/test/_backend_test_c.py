@@ -923,6 +923,20 @@ def test_call_function_21():
     lst = [(n << i) for (i, n) in enumerate(range(13, 3, -1))]
     assert res == sum(lst)
 
+def test_call_function_22():
+    BInt = new_primitive_type("int")
+    BArray10 = new_array_type(new_pointer_type(BInt), 10)
+    BStruct = new_struct_type("foo")
+    BStructP = new_pointer_type(BStruct)
+    complete_struct_or_union(BStruct, [('a', BArray10, -1)])
+    BFunc22 = new_function_type((BStruct, BStruct), BStruct, False)
+    f = cast(BFunc22, _testfunc(22))
+    p1 = newp(BStructP, {'a': range(100, 110)})
+    p2 = newp(BStructP, {'a': range(1000, 1100, 10)})
+    res = f(p1[0], p2[0])
+    for i in range(10):
+        assert res.a[i] == p1.a[i] - p2.a[i]
+
 def test_call_function_9():
     BInt = new_primitive_type("int")
     BFunc9 = new_function_type((BInt,), BInt, True)    # vararg

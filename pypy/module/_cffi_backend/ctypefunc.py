@@ -292,24 +292,42 @@ class CifDescrBuilder(object):
             if ctype.size <= 8:
                 return clibffi.ffi_type_sint64
 
-        # allocate an array of (n + 1) ffi_types
-        n = len(ctype.fields_list)
-        elements = self.fb_alloc(rffi.sizeof(FFI_TYPE_P) * (n + 1))
-        elements = rffi.cast(FFI_TYPE_PP, elements)
-
-        # fill it with the ffi types of the fields
+        # walk the fields, expanding arrays into repetitions; first,
+        # only count how many flattened fields there are
+        nflat = 0
         for i, cf in enumerate(ctype.fields_list):
             if cf.is_bitfield():
                 raise OperationError(space.w_NotImplementedError,
                     space.wrap("cannot pass as argument or return value "
                                "a struct with bit fields"))
-            ffi_subtype = self.fb_fill_type(cf.ctype, False)
+            flat = 1
+            ct = cf.ctype
+            while isinstance(ct, ctypearray.W_CTypeArray):
+                flat *= ct.length
+                ct = ct.ctitem
+            nflat += flat
+
+        # allocate an array of (nflat + 1) ffi_types
+        elements = self.fb_alloc(rffi.sizeof(FFI_TYPE_P) * (nflat + 1))
+        elements = rffi.cast(FFI_TYPE_PP, elements)
+
+        # fill it with the ffi types of the fields
+        nflat = 0
+        for i, cf in enumerate(ctype.fields_list):
+            flat = 1
+            ct = cf.ctype
+            while isinstance(ct, ctypearray.W_CTypeArray):
+                flat *= ct.length
+                ct = ct.ctitem
+            ffi_subtype = self.fb_fill_type(ct, False)
             if elements:
-                elements[i] = ffi_subtype
+                for j in range(flat):
+                    elements[nflat] = ffi_subtype
+                    nflat += 1
 
         # zero-terminate the array
         if elements:
-            elements[n] = lltype.nullptr(FFI_TYPE_P.TO)
+            elements[nflat] = lltype.nullptr(FFI_TYPE_P.TO)
 
         # allocate and fill an ffi_type for the struct itself
         ffistruct = self.fb_alloc(rffi.sizeof(FFI_TYPE))
