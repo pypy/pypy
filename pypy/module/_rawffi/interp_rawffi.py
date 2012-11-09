@@ -302,10 +302,7 @@ class W_DataInstance(Wrappable):
         raise NotImplementedError("abstract base class")
 
 def unwrap_truncate_int(TP, space, w_arg):
-    if space.is_true(space.isinstance(w_arg, space.w_int)):
-        return rffi.cast(TP, space.int_w(w_arg))
-    else:
-        return rffi.cast(TP, space.bigint_w(w_arg).ulonglongmask())
+    return rffi.cast(TP, space.bigint_w(w_arg).ulonglongmask())
 unwrap_truncate_int._annspecialcase_ = 'specialize:arg(0)'
 
 def unwrap_value(space, push_func, add_arg, argdesc, letter, w_arg):
