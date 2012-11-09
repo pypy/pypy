@@ -217,6 +217,9 @@ class W_InexactBox(W_NumberBox):
 class W_FloatingBox(W_InexactBox):
     _attrs_ = ()
 
+class W_Float16Box(W_FloatingBox, PrimitiveBox):
+    descr__new__, _get_dtype = new_dtype_getter("float16")
+
 class W_Float32Box(W_FloatingBox, PrimitiveBox):
     descr__new__, _get_dtype = new_dtype_getter("float32")
 
@@ -456,6 +459,12 @@ W_InexactBox.typedef = TypeDef("inexact", W_NumberBox.typedef,
 
 W_FloatingBox.typedef = TypeDef("floating", W_InexactBox.typedef,
     __module__ = "numpypy",
+)
+
+W_Float16Box.typedef = TypeDef("float16", W_FloatingBox.typedef,
+    __module__ = "numpypy",
+
+    __new__ = interp2app(W_Float16Box.descr__new__.im_func),
 )
 
 W_Float32Box.typedef = TypeDef("float32", W_FloatingBox.typedef,

@@ -44,6 +44,8 @@ The stdlib was updated to version 2.7.3
 Complex dtype support for numpy
 .. branch: numpypy-problems
 Improve dtypes intp, uintp, void, string and record
+.. branch: numpypy.float16
+Add float16 numpy dtype
 .. branch: kill-someobject
 major cleanups including killing some object support
 .. branch: cpyext-PyThreadState_New

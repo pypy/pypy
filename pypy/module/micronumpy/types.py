@@ -1,6 +1,5 @@
 import functools
 import math
-import struct
 
 from pypy.interpreter.error import OperationError
 from pypy.module.micronumpy import interp_boxes
@@ -11,13 +10,14 @@ from pypy.rlib import rfloat, clibffi, rcomplex
 from pypy.rlib.rawstorage import (alloc_raw_storage, raw_storage_setitem,
                                   raw_storage_getitem)
 from pypy.rlib.objectmodel import specialize
-from pypy.rlib.rarithmetic import widen, byteswap
+from pypy.rlib.rarithmetic import widen, byteswap, r_ulonglong
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.rstruct.runpack import runpack
+from pypy.rlib.rstruct.nativefmttable import native_is_bigendian
+from pypy.rlib.rstruct.ieee import float_pack, float_unpack, unpack_float
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib import jit
 from pypy.rlib.rstring import StringBuilder
-
 
 degToRad = math.pi / 180.0
 log2 = math.log(2)
@@ -179,10 +179,8 @@ class Primitive(object):
             self._write(storage, i, offset, value)
 
     def runpack_str(self, s):
-        return self.box(runpack(self.format_code, s))
-
-    def pack_str(self, box):
-        return struct.pack(self.format_code, self.unbox(box))
+        v = runpack(self.format_code, s)
+        return self.box(v)
 
     @simple_binary_op
     def add(self, v1, v2):
@@ -297,9 +295,6 @@ class NonNativePrimitive(Primitive):
     def _write(self, storage, i, offset, value):
         value = byteswap(value)
         raw_storage_setitem(storage, i + offset, value)
-
-    def pack_str(self, box):
-        return struct.pack(self.format_code, byteswap(self.unbox(box)))
 
 class Bool(BaseType, Primitive):
     _attrs_ = ()
@@ -914,10 +909,49 @@ class NonNativeFloat(NonNativePrimitive, Float):
         #value = byteswap(value) XXX
         raw_storage_setitem(storage, i + offset, value)
 
-    def pack_str(self, box):
-        # XXX byteswap
-        return struct.pack(self.format_code, self.unbox(box))
 
+class Float16(BaseType, Float):
+    _attrs_ = ()
+    _STORAGE_T = rffi.USHORT
+    T = rffi.DOUBLE
+
+    BoxType = interp_boxes.W_Float16Box
+
+    def get_element_size(self):
+        return rffi.sizeof(self._STORAGE_T)
+
+    def runpack_str(self, s):
+        assert len(s) == 2
+        fval = unpack_float(s, native_is_bigendian)
+        return self.box(fval)
+
+    def for_computation(self, v):
+        return float(v)
+
+    def default_fromstring(self, space):
+        return self.box(-1.0)
+
+    def _read(self, storage, i, offset):
+        hbits = raw_storage_getitem(self._STORAGE_T, storage, i + offset)
+        return float_unpack(r_ulonglong(hbits), 2)
+
+    def _write(self, storage, i, offset, value):
+        hbits = float_pack(value,2)
+        raw_storage_setitem(storage, i + offset,
+                rffi.cast(self._STORAGE_T, hbits))
+
+class NonNativeFloat16(Float16):
+    _attrs_ = ()
+    BoxType = interp_boxes.W_Float16Box
+
+    def _read(self, storage, i, offset):
+        res = Float16._read(self, storage, i, offset)
+        #return byteswap(res) XXX
+        return res
+
+    def _write(self, storage, i, offset, value):
+        #value = byteswap(value) XXX
+        Float16._write(self, storage, i, offset, value)
 
 class Float32(BaseType, Float):
     _attrs_ = ()

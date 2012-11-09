@@ -15,7 +15,7 @@ def round_to_nearest(x):
       - return an int, not a float
       - do round-half-to-even, not round-half-away-from-zero.
 
-    We assume that x is finite and nonnegative; except wrong results
+    We assume that x is finite and nonnegative; expect wrong results
     if you use this for negative x.
 
     """
@@ -27,7 +27,7 @@ def round_to_nearest(x):
 
 
 def float_unpack(Q, size):
-    """Convert a 32-bit or 64-bit integer created
+    """Convert a 16-bit, 32-bit or 64-bit integer created
     by float_pack into a Python float."""
 
     if size == 8:
@@ -40,6 +40,11 @@ def float_unpack(Q, size):
         MAX_EXP = 128    # FLT_MAX_EXP
         MANT_DIG = 24    # FLT_MANT_DIG
         BITS = 32
+    elif size == 2:
+        MIN_EXP = -13   
+        MAX_EXP = 16    
+        MANT_DIG = 11
+        BITS = 16
     else:
         raise ValueError("invalid size value")
 
@@ -83,6 +88,11 @@ def float_pack(x, size):
         MAX_EXP = 128    # FLT_MAX_EXP
         MANT_DIG = 24    # FLT_MANT_DIG
         BITS = 32
+    elif size == 2:
+        MIN_EXP = -13   
+        MAX_EXP = 16    
+        MANT_DIG = 11
+        BITS = 16
     else:
         raise ValueError("invalid size value")
 
