@@ -305,6 +305,10 @@ class CifDescrBuilder(object):
             while isinstance(ct, ctypearray.W_CTypeArray):
                 flat *= ct.length
                 ct = ct.ctitem
+            if flat <= 0:
+                raise OperationError(space.w_NotImplementedError,
+                    space.wrap("cannot pass as argument or return value "
+                               "a struct with a zero-length array"))
             nflat += flat
 
         # allocate an array of (nflat + 1) ffi_types

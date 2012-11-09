@@ -937,6 +937,16 @@ def test_call_function_22():
     for i in range(10):
         assert res.a[i] == p1.a[i] - p2.a[i]
 
+def test_cannot_pass_struct_with_array_of_length_0():
+    BInt = new_primitive_type("int")
+    BArray0 = new_array_type(new_pointer_type(BInt), 0)
+    BStruct = new_struct_type("foo")
+    complete_struct_or_union(BStruct, [('a', BArray0)])
+    py.test.raises(NotImplementedError, new_function_type,
+                   (BStruct,), BInt, False)
+    py.test.raises(NotImplementedError, new_function_type,
+                   (BInt,), BStruct, False)
+
 def test_call_function_9():
     BInt = new_primitive_type("int")
     BFunc9 = new_function_type((BInt,), BInt, True)    # vararg
