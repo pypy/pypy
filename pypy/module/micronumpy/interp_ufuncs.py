@@ -417,7 +417,7 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
         # we only promoted to long on 32-bit or to longlong on 64-bit
         # this is really for dealing with the Long and Ulong dtypes
         if LONG_BIT == 32:
-            dtypenum += 3
+            dtypenum += 2
         else:
             dtypenum += 4
         return interp_dtype.get_dtype_cache(space).builtin_dtypes[dtypenum]
