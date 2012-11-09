@@ -31,12 +31,6 @@ class Test_DescrOperation:
 
 
 class AppTest_Descroperation:
-    OPTIONS = {}
-
-    def setup_class(cls):
-        from pypy import conftest
-        cls.space = conftest.gettestobjspace(**cls.OPTIONS)
-
     def test_special_methods(self):
         class OldStyle:
             pass
@@ -728,4 +722,4 @@ class AppTest_Descroperation:
             
 
 class AppTestWithBuiltinShortcut(AppTest_Descroperation):
-    OPTIONS = {'objspace.std.builtinshortcut': True}
+    spaceconfig = {'objspace.std.builtinshortcut': True}

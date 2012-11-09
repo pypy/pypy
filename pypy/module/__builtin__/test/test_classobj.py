@@ -1,6 +1,5 @@
 from __future__ import with_statement
 import py
-from pypy.conftest import gettestobjspace, option
 from pypy.interpreter import gateway
 
 
@@ -1064,7 +1063,7 @@ class AppTestOldstyle(object):
 
 class AppTestOldStyleClassStrDict(object):
     def setup_class(cls):
-        if option.runappdirect:
+        if cls.runappdirect:
             py.test.skip("can only be run on py.py")
         def is_strdict(space, w_class):
             from pypy.objspace.std.dictmultiobject import StringDictStrategy
@@ -1080,9 +1079,10 @@ class AppTestOldStyleClassStrDict(object):
         assert self.is_strdict(A)
 
 class AppTestOldStyleMapDict(AppTestOldstyle):
+    spaceconfig = {"objspace.std.withmapdict": True}
+
     def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withmapdict": True})
-        if option.runappdirect:
+        if cls.runappdirect:
             py.test.skip("can only be run on py.py")
         def has_mapdict(space, w_inst):
             return space.wrap(w_inst._get_mapdict_map() is not None)

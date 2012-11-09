@@ -1,6 +1,5 @@
 from __future__ import with_statement
 import py
-from pypy.conftest import gettestobjspace
 
 def splitcases(s):
     lines = [line.rstrip() for line in s.split('\n')]

@@ -1,4 +1,3 @@
-from pypy.conftest import gettestobjspace
 import os
 from pypy.tool.udir import udir
 
@@ -12,11 +11,10 @@ def teardown_module(mod):
             os.unlink(i)
 
 class AppTestFcntl:
+    spaceconfig = dict(usemodules=('fcntl', 'array', 'struct', 'termios'))
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('fcntl', 'array', 'struct', 'termios'))
-        cls.space = space
         tmpprefix = str(udir.ensure('test_fcntl', dir=1).join('tmp_'))
-        cls.w_tmp = space.wrap(tmpprefix)
+        cls.w_tmp = cls.space.wrap(tmpprefix)
 
     def test_fcntl(self):
         import fcntl

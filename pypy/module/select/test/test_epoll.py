@@ -1,20 +1,17 @@
 import py
 import sys
 
-from pypy.conftest import gettestobjspace
-
 # add a larger timeout for slow ARM machines
 import platform
 
 class AppTestEpoll(object):
-
+    spaceconfig = dict(usemodules=["select", "_socket", "posix"])
 
     def setup_class(cls):
         # NB. we should ideally py.test.skip() if running on an old linux
         # where the kernel doesn't support epoll()
         if not sys.platform.startswith('linux'):
             py.test.skip("test requires linux (assumed >= 2.6)")
-        cls.space = gettestobjspace(usemodules=["select", "_socket", "posix"])
 
     def setup_method(self, meth):
         self.w_sockets = self.space.wrap([])

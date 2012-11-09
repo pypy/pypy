@@ -5,8 +5,6 @@ from pypy.objspace.std.listobject import W_ListObject, SizeListStrategy,\
 from pypy.interpreter.error import OperationError
 from pypy.rlib.rarithmetic import is_valid_int
 
-from pypy.conftest import gettestobjspace, option
-
 
 class TestW_ListObject(object):
     def test_is_true(self):
@@ -406,10 +404,10 @@ class TestW_ListObject(object):
 class AppTestW_ListObject(object):
     def setup_class(cls):
         import sys
-        on_cpython = (option.runappdirect and
-                            not hasattr(sys, 'pypy_translation_info'))
+        on_cpython = (cls.runappdirect and
+                      not hasattr(sys, 'pypy_translation_info'))
         cls.w_on_cpython = cls.space.wrap(on_cpython)
-        cls.w_runappdirect = cls.space.wrap(option.runappdirect)
+        cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
 
     def test_getstrategyfromlist_w(self):
         l0 = ["a", "2", "a", True]
@@ -1257,10 +1255,7 @@ class AppTestW_ListObject(object):
         assert ([5] >= [N]) is False
 
 class AppTestForRangeLists(AppTestW_ListObject):
-
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withrangelist" :
-                                       True})
+    spaceconfig = {"objspace.std.withrangelist": True}
 
     def test_range_simple_backwards(self):
         x = range(5,1)
@@ -1377,10 +1372,7 @@ class AppTestForRangeLists(AppTestW_ListObject):
 
 
 class AppTestWithoutStrategies(object):
-
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withliststrategies" :
-                                       False})
+    spaceconfig = {"objspace.std.withliststrategies": False}
 
     def test_no_shared_empty_list(self):
         l = []
@@ -1392,10 +1384,7 @@ class AppTestWithoutStrategies(object):
         assert notshared == []
 
 class AppTestListFastSubscr:
-
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.optimized_list_getitem" :
-                                       True})
+    spaceconfig = {"objspace.std.optimized_list_getitem": True}
 
     def test_getitem(self):
         import operator

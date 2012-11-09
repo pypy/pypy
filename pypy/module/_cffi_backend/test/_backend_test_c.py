@@ -1020,6 +1020,55 @@ def test_callback():
     e = py.test.raises(TypeError, f)
     assert str(e.value) == "'int(*)(int)' expects 1 arguments, got 0"
 
+def test_callback_exception():
+    import cStringIO, linecache
+    def matches(str, pattern):
+        while '$' in pattern:
+            i = pattern.index('$')
+            assert str[:i] == pattern[:i]
+            j = str.find(pattern[i+1], i)
+            assert i + 1 <= j <= str.find('\n', i)
+            str = str[j:]
+            pattern = pattern[i+1:]
+        assert str == pattern
+        return True
+    def check_value(x):
+        if x == 10000:
+            raise ValueError(42)
+    def cb1(x):
+        check_value(x)
+        return x * 3
+    BShort = new_primitive_type("short")
+    BFunc = new_function_type((BShort,), BShort, False)
+    f = callback(BFunc, cb1, -42)
+    orig_stderr = sys.stderr
+    orig_getline = linecache.getline
+    try:
+        linecache.getline = lambda *args: 'LINE'    # hack: speed up PyPy tests
+        sys.stderr = cStringIO.StringIO()
+        assert f(100) == 300
+        assert sys.stderr.getvalue() == ''
+        assert f(10000) == -42
+        assert matches(sys.stderr.getvalue(), """\
+From callback <function cb1 at 0x$>:
+Traceback (most recent call last):
+  File "$", line $, in cb1
+    $
+  File "$", line $, in check_value
+    $
+ValueError: 42
+""")
+        sys.stderr = cStringIO.StringIO()
+        bigvalue = 20000
+        assert f(bigvalue) == -42
+        assert matches(sys.stderr.getvalue(), """\
+From callback <function cb1 at 0x$>:
+OverflowError: integer 60000 does not fit 'short'
+""")
+    finally:
+        sys.stderr = orig_stderr
+        linecache.getline = orig_getline
+
 def test_callback_return_type():
     for rettype in ["signed char", "short", "int", "long", "long long",
                     "unsigned char", "unsigned short", "unsigned int",
@@ -1270,13 +1319,13 @@ def test_bitfield_instance_init():
     assert p.a1 == -1
 
 def test_weakref():
-    import weakref
+    import _weakref
     BInt = new_primitive_type("int")
     BPtr = new_pointer_type(BInt)
-    weakref.ref(BInt)
-    weakref.ref(newp(BPtr, 42))
-    weakref.ref(cast(BPtr, 42))
-    weakref.ref(cast(BInt, 42))
+    _weakref.ref(BInt)
+    _weakref.ref(newp(BPtr, 42))
+    _weakref.ref(cast(BPtr, 42))
+    _weakref.ref(cast(BInt, 42))
 
 def test_no_inheritance():
     BInt = new_primitive_type("int")
@@ -1440,7 +1489,11 @@ def test_string_wchar():
     a = newp(BArray, [u+'A', u+'B', u+'C'])
     assert type(string(a)) is unicode and string(a) == u+'ABC'
     if 'PY_DOT_PY' not in globals() and sys.version_info < (3,):
-        assert string(a, 8).startswith(u+'ABC') # may contain additional garbage
+        try:
+            # may contain additional garbage
+            assert string(a, 8).startswith(u+'ABC')
+        except ValueError:    # garbage contains values > 0x10FFFF
+            assert sizeof(BWChar) == 4
 
 def test_string_typeerror():
     BShort = new_primitive_type("short")
@@ -2342,3 +2395,22 @@ def test_FILE_object():
     data = posix.read(fdr, 256)
     assert data == b"Xhello\n"
     posix.close(fdr)
+
+def test_GetLastError():
+    if sys.platform != "win32":
+        py.test.skip("GetLastError(): only for Windows")
+    #
+    lib = find_and_load_library('KERNEL32')
+    BInt = new_primitive_type("int")
+    BVoid = new_void_type()
+    BFunc1 = new_function_type((BInt,), BVoid, False)
+    BFunc2 = new_function_type((), BInt, False)
+    SetLastError = lib.load_function(BFunc1, "SetLastError")
+    GetLastError = lib.load_function(BFunc2, "GetLastError")
+    #
+    SetLastError(42)
+    # a random function that will reset the real GetLastError() to 0
+    import nt; nt.stat('.')
+    #
+    res = GetLastError()
+    assert res == 42

@@ -35,8 +35,9 @@ def descr__new__(space, w_floattype, w_x):
         if space.is_w(w_floattype, space.w_float):
             return w_obj
         value = space.float_w(w_obj)
-    elif space.isinstance_w(w_value, space.w_str):
-        strvalue = space.str_w(w_value)
+    elif (space.isinstance_w(w_value, space.w_str) or
+          space.isinstance_w(w_value, space.w_bytearray)):
+        strvalue = space.bufferstr_w(w_value)
         try:
             value = string_to_float(strvalue)
         except ParseStringError, e:

@@ -1,10 +1,8 @@
 import py
-from pypy.conftest import gettestobjspace
 
 
 class AppTestItertools: 
-    def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['itertools'])
+    spaceconfig = dict(usemodules=['itertools'])
 
     def test_count(self):
         import itertools
@@ -678,8 +676,9 @@ class AppTestItertools:
 
 
 class AppTestItertools26:
+    spaceconfig = dict(usemodules=['itertools'])
+
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['itertools'])
         if cls.space.is_true(cls.space.appexec([], """():
             import sys; return sys.version_info < (2, 6)
             """)):
@@ -909,8 +908,9 @@ class AppTestItertools26:
 
 
 class AppTestItertools27:
+    spaceconfig = dict(usemodules=['itertools', 'struct'])
+
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['itertools', 'struct'])
         if cls.space.is_true(cls.space.appexec([], """():
             import sys; return sys.version_info < (2, 7)
             """)):
