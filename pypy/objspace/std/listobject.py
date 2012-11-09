@@ -48,11 +48,14 @@ def get_strategy_from_list_objects(space, list_w, sizehint):
         return space.fromcache(IntegerListStrategy)
 
     # check for strings
+    # XXX: StringListStrategy is currently broken
+    """
     for w_obj in list_w:
         if not is_W_StringObject(w_obj):
             break
     else:
         return space.fromcache(StringListStrategy)
+        """
 
     # check for unicode
     for w_obj in list_w:
@@ -112,7 +115,9 @@ class W_ListObject(W_AbstractListObject):
 
     @staticmethod
     def newlist_str(space, list_s):
-        strategy = space.fromcache(StringListStrategy)
+        # XXX: StringListStrategy is currently broken
+        #strategy = space.fromcache(StringListStrategy)
+        strategy = space.fromcache(UnicodeListStrategy)
         storage = strategy.erase(list_s)
         return W_ListObject.from_storage_and_strategy(space, storage, strategy)
 
@@ -437,8 +442,8 @@ class EmptyListStrategy(ListStrategy):
     def switch_to_correct_strategy(self, w_list, w_item):
         if is_W_IntObject(w_item):
             strategy = self.space.fromcache(IntegerListStrategy)
-        elif is_W_StringObject(w_item):
-            strategy = self.space.fromcache(StringListStrategy)
+        #elif is_W_StringObject(w_item):
+        #    strategy = self.space.fromcache(StringListStrategy)
         elif is_W_UnicodeObject(w_item):
             strategy = self.space.fromcache(UnicodeListStrategy)
         elif is_W_FloatObject(w_item):
