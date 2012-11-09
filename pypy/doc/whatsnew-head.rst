@@ -15,6 +15,8 @@ Provides cppyy module (disabled by default) for access to C++ through Reflex.
 See doc/cppyy.rst for full details and functionality.
 .. branch: nupypy-axis-arg-check
 Check that axis arg is valid in _numpypy
+.. branch:less-gettestobjspace
+.. branch: move-apptest-support
 
 .. branch: iterator-in-rpython
 .. branch: numpypy_count_nonzero
@@ -42,6 +44,8 @@ The stdlib was updated to version 2.7.3
 Complex dtype support for numpy
 .. branch: numpypy-problems
 Improve dtypes intp, uintp, void, string and record
+.. branch: numpypy.float16
+Add float16 numpy dtype
 .. branch: kill-someobject
 major cleanups including killing some object support
 .. branch: cpyext-PyThreadState_New
