@@ -313,7 +313,7 @@ def has_gcflag_extra():
     return True
 has_gcflag_extra._subopnum = 1
 
-_gcflag_extras = {}
+_gcflag_extras = set()
 
 def get_gcflag_extra(gcref):
     "NOT_RPYTHON"
@@ -325,9 +325,9 @@ def toggle_gcflag_extra(gcref):
     "NOT_RPYTHON"
     assert gcref   # not NULL!
     try:
-        del _gcflag_extras[gcref]
+        _gcflag_extras.remove(gcref)
     except KeyError:
-        _gcflag_extras[gcref] = None
+        _gcflag_extras.add(gcref)
 toggle_gcflag_extra._subopnum = 3
 
 def assert_no_more_gcflags():
