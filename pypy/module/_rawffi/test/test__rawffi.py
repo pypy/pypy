@@ -282,10 +282,10 @@ class AppTestFfi:
         import _rawffi
         A = _rawffi.Array('c')
         buf = A(10, autofree=True)
-        buf[0] = b'*'
+        buf[0] = ord('*')
         assert buf[1:5] == b'\x00' * 4
         buf[7:] = b'abc'
-        assert buf[9] == b'c'
+        assert buf[9] == ord('c')
         assert buf[:8] == b'*' + b'\x00'*6 + b'a'
 
     def test_returning_str(self):
@@ -450,13 +450,13 @@ class AppTestFfi:
         X = _rawffi.Structure([('x1', 'i'), ('x2', 'h'), ('x3', 'c'), ('next', 'P')])
         next = X()
         next.next = 0
-        next.x3 = b'x'
+        next.x3 = ord('x')
         x = X()
         x.next = next
         x.x1 = 1
         x.x2 = 2
-        x.x3 = b'x'
-        assert X.fromaddress(x.next).x3 == b'x'
+        x.x3 = ord('x')
+        assert X.fromaddress(x.next).x3 == ord('x')
         x.free()
         next.free()
         create_double_struct = lib.ptr("create_double_struct", [], 'P')
@@ -770,16 +770,10 @@ class AppTestFfi:
         b = _rawffi.Array('c').fromaddress(a.buffer, 38)
         if sys.maxunicode > 65535:
             # UCS4 build
-            assert b[0] == b'x'
-            assert b[1] == b'\x00'
-            assert b[2] == b'\x00'
-            assert b[3] == b'\x00'
-            assert b[4] == b'y'
+            assert b[0:5] == b'x\x00\x00\x00y'
         else:
             # UCS2 build
-            assert b[0] == b'x'
-            assert b[1] == b'\x00'
-            assert b[2] == b'y'
+            assert b[0:2] == b'x\x00y'
         a.free()
 
     def test_truncate(self):
@@ -1003,15 +997,15 @@ class AppTestFfi:
 
         A = _rawffi.Array('c')
         a = A(10, autofree=True)
-        a[3] = b'x'
+        a[3] = ord('x')
         b = memoryview(a)
         assert len(b) == 10
         assert b[3] == b'x'
         b[6] = b'y'
-        assert a[6] == b'y'
+        assert a[6] == ord('y')
         b[3:5] = b'zt'
-        assert a[3] == b'z'
-        assert a[4] == b't'
+        assert a[3] == ord('z')
+        assert a[4] == ord('t')
 
     def test_union(self):
         import _rawffi
@@ -1052,14 +1046,13 @@ class AppTestAutoFree:
         assert oldnum == _rawffi._num_of_allocated_objects()
 
     def test_array_autofree(self):
-        py3k_skip('bytes vs unicode')
         import gc, _rawffi
         gc.collect()
         oldnum = _rawffi._num_of_allocated_objects()
 
         A = _rawffi.Array('c')
         a = A(6, b'xxyxx\x00', autofree=True)
-        assert _rawffi.charp2string(a.buffer) == 'xxyxx'
+        assert _rawffi.charp2string(a.buffer) == b'xxyxx'
         a = None
         gc.collect()
         assert oldnum == _rawffi._num_of_allocated_objects()
