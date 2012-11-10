@@ -312,7 +312,7 @@ class AbstractLLCPU(AbstractCPU):
         ofs = arraydescr.lendescr.offset
         return rffi.cast(rffi.CArrayPtr(lltype.Signed), array)[ofs/WORD]
 
-    @specialize.argtype(2)
+    @specialize.argtype(1)
     def bh_getarrayitem_gc_i(self, gcref, itemindex, arraydescr):
         ofs, size, sign = self.unpack_arraydescr_size(arraydescr)
         # --- start of GC unsafe code (no GC operation!) ---
@@ -341,7 +341,7 @@ class AbstractLLCPU(AbstractCPU):
         # --- end of GC unsafe code ---
         return pval
 
-    @specialize.argtype(2)
+    @specialize.argtype(1)
     def bh_getarrayitem_gc_f(self, gcref, itemindex, arraydescr):
         ofs = self.unpack_arraydescr(arraydescr)
         # --- start of GC unsafe code (no GC operation!) ---
@@ -351,7 +351,7 @@ class AbstractLLCPU(AbstractCPU):
         # --- end of GC unsafe code ---
         return fval
 
-    @specialize.argtype(2)
+    @specialize.argtype(1)
     def bh_setarrayitem_gc_i(self, gcref, itemindex, newvalue, arraydescr):
         ofs, size, sign = self.unpack_arraydescr_size(arraydescr)
         # --- start of GC unsafe code (no GC operation!) ---
@@ -374,7 +374,7 @@ class AbstractLLCPU(AbstractCPU):
         items[itemindex] = self.cast_gcref_to_int(newvalue)
         # --- end of GC unsafe code ---
 
-    @specialize.argtype(2)
+    @specialize.argtype(1)
     def bh_setarrayitem_gc_f(self, gcref, itemindex, newvalue, arraydescr):
         ofs = self.unpack_arraydescr(arraydescr)
         # --- start of GC unsafe code (no GC operation!) ---
