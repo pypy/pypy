@@ -459,9 +459,10 @@ class BaseTest(unittest.TestCase):
         )
 
         b = array.array(self.badtypecode())
-        self.assertRaises(TypeError, a.__add__, b)
-
-        self.assertRaises(TypeError, a.__add__, "bad")
+        with self.assertRaises(TypeError):
+            a + b
+        with self.assertRaises(TypeError):
+            a + 'bad'
 
     def test_iadd(self):
         a = array.array(self.typecode, self.example[::-1])
@@ -480,9 +481,10 @@ class BaseTest(unittest.TestCase):
         )
 
         b = array.array(self.badtypecode())
-        self.assertRaises(TypeError, a.__add__, b)
-
-        self.assertRaises(TypeError, a.__iadd__, "bad")
+        with self.assertRaises(TypeError):
+            a += b
+        with self.assertRaises(TypeError):
+            a += 'bad'
 
     def test_mul(self):
         a = 5*array.array(self.typecode, self.example)
@@ -515,7 +517,8 @@ class BaseTest(unittest.TestCase):
             array.array(self.typecode, [a[0]] * 5)
         )
 
-        self.assertRaises(TypeError, a.__mul__, "bad")
+        with self.assertRaises(TypeError):
+            a * 'bad'
 
     def test_imul(self):
         a = array.array(self.typecode, self.example)
@@ -544,7 +547,8 @@ class BaseTest(unittest.TestCase):
         a *= -1
         self.assertEqual(a, array.array(self.typecode))
 
-        self.assertRaises(TypeError, a.__imul__, "bad")
+        with self.assertRaises(TypeError):
+            a *= 'bad'
 
     def test_getitem(self):
         a = array.array(self.typecode, self.example)
@@ -966,6 +970,7 @@ class BaseTest(unittest.TestCase):
         p = weakref.proxy(s)
         self.assertEqual(p.tobytes(), s.tobytes())
         s = None
+        support.gc_collect()
         self.assertRaises(ReferenceError, len, p)
 
     def test_bug_782369(self):
