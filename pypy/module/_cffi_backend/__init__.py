@@ -31,7 +31,6 @@ class Module(MixedModule):
         'typeof': 'func.typeof',
         'typeoffsetof': 'func.typeoffsetof',
         'rawaddressof': 'func.rawaddressof',
-        '_getfields': 'func._getfields',
         'getcname': 'func.getcname',
         '_get_types': 'func._get_types',
 

@@ -28,6 +28,7 @@ from pypy.module._cffi_backend import ctypearray, cdataobj, cerrno
 class W_CTypeFunc(W_CTypePtrBase):
     _attrs_            = ['fargs', 'ellipsis', 'cif_descr']
     _immutable_fields_ = ['fargs[*]', 'ellipsis', 'cif_descr']
+    kind = "function"
 
     def __init__(self, space, fargs, fresult, ellipsis):
         extra = self._compute_extra_text(fargs, fresult, ellipsis)
@@ -83,6 +84,18 @@ class W_CTypeFunc(W_CTypePtrBase):
             argnames.append('...')
         argnames.append(')')
         return ''.join(argnames)
+
+    def _fget_args(self):
+        return self.space.newtuple(self.fargs)
+
+    def _fget_result(self):
+        return self.space.wrap(self.ctitem)
+
+    def _fget_ellipsis(self):
+        return self.space.wrap(self.ellipsis)
+
+    def _fget_abi(self):
+        return self.space.wrap(clibffi.FFI_DEFAULT_ABI)     # XXX
 
 
     def call(self, funcaddr, args_w):

@@ -27,20 +27,20 @@ class W_CTypeStructOrUnion(W_CType):
         name = '%s %s' % (self.kind, name)
         W_CType.__init__(self, space, -1, name, len(name))
 
-    def check_complete(self):
+    def check_complete(self, w_errorcls=None):
         if self.fields_dict is None:
             space = self.space
-            raise operationerrfmt(space.w_TypeError,
+            raise operationerrfmt(w_errorcls or space.w_TypeError,
                                   "'%s' is not completed yet", self.name)
 
     def _alignof(self):
-        self.check_complete()
+        self.check_complete(w_errorcls=self.space.w_ValueError)
         return self.alignment
 
-    def _getfields(self):
-        if self.size < 0:
-            return None
+    def _fget_fields(self):
         space = self.space
+        if self.size < 0:
+            return space.w_None
         result = [None] * len(self.fields_list)
         for fname, field in self.fields_dict.iteritems():
             i = self.fields_list.index(field)

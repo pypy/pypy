@@ -78,6 +78,16 @@ def test_new_primitive_type():
     p = new_primitive_type("signed char")
     assert repr(p) == "<ctype 'signed char'>"
 
+def check_dir(p, expected):
+    got = set(name for name in dir(p) if not name.startswith('_'))
+    assert got == set(expected)
+
+def test_inspect_primitive_type():
+    p = new_primitive_type("signed char")
+    assert p.kind == "primitive"
+    assert p.cname == "signed char"
+    check_dir(p, ['cname', 'kind'])
+
 def test_cast_to_signed_char():
     p = new_primitive_type("signed char")
     x = cast(p, -65 + 17*256)
@@ -214,6 +224,16 @@ def test_pointer_type():
     assert repr(p) == "<ctype 'int * *'>"
     p = new_pointer_type(p)
     assert repr(p) == "<ctype 'int * * *'>"
+
+def test_inspect_pointer_type():
+    p1 = new_primitive_type("int")
+    p2 = new_pointer_type(p1)
+    assert p2.kind == "pointer"
+    assert p2.cname == "int *"
+    assert p2.item is p1
+    check_dir(p2, ['cname', 'kind', 'item'])
+    p3 = new_pointer_type(p2)
+    assert p3.item is p2
 
 def test_pointer_to_int():
     BInt = new_primitive_type("int")
@@ -416,6 +436,12 @@ def test_cast_from_cdataint():
     z = cast(BInt, y)
     assert int(z) == 42
 
+def test_void_type():
+    p = new_void_type()
+    assert p.kind == "void"
+    assert p.cname == "void"
+    check_dir(p, ['kind', 'cname'])
+
 def test_array_type():
     p = new_primitive_type("int")
     assert repr(p) == "<ctype 'int'>"
@@ -437,6 +463,21 @@ def test_array_type():
                    new_array_type, new_pointer_type(p), sys.maxsize+1)
     py.test.raises(OverflowError,
                    new_array_type, new_pointer_type(p), sys.maxsize // 3)
+
+def test_inspect_array_type():
+    p = new_primitive_type("int")
+    p1 = new_array_type(new_pointer_type(p), None)
+    assert p1.kind == "array"
+    assert p1.cname == "int[]"
+    assert p1.item is p
+    assert p1.length is None
+    check_dir(p1, ['cname', 'kind', 'item', 'length'])
+    p1 = new_array_type(new_pointer_type(p), 42)
+    assert p1.kind == "array"
+    assert p1.cname == "int[42]"
+    assert p1.item is p
+    assert p1.length == 42
+    check_dir(p1, ['cname', 'kind', 'item', 'length'])
 
 def test_array_instance():
     LENGTH = 1423
@@ -605,7 +646,8 @@ def test_new_struct_type():
     assert repr(BStruct) == "<ctype 'struct foo'>"
     BPtr = new_pointer_type(BStruct)
     assert repr(BPtr) == "<ctype 'struct foo *'>"
-    py.test.raises(TypeError, alignof, BStruct)
+    py.test.raises(ValueError, sizeof, BStruct)
+    py.test.raises(ValueError, alignof, BStruct)
 
 def test_new_union_type():
     BUnion = new_union_type("foo")
@@ -618,11 +660,15 @@ def test_complete_struct():
     BChar = new_primitive_type("char")
     BShort = new_primitive_type("short")
     BStruct = new_struct_type("foo")
-    assert _getfields(BStruct) is None
+    assert BStruct.kind == "struct"
+    assert BStruct.cname == "struct foo"
+    assert BStruct.fields is None
+    check_dir(BStruct, ['cname', 'kind', 'fields'])
+    #
     complete_struct_or_union(BStruct, [('a1', BLong, -1),
                                        ('a2', BChar, -1),
                                        ('a3', BShort, -1)])
-    d = _getfields(BStruct)
+    d = BStruct.fields
     assert len(d) == 3
     assert d[0][0] == 'a1'
     assert d[0][1].type is BLong
@@ -646,10 +692,12 @@ def test_complete_union():
     BLong = new_primitive_type("long")
     BChar = new_primitive_type("char")
     BUnion = new_union_type("foo")
-    assert _getfields(BUnion) is None
+    assert BUnion.kind == "union"
+    assert BUnion.cname == "union foo"
+    assert BUnion.fields is None
     complete_struct_or_union(BUnion, [('a1', BLong, -1),
                                       ('a2', BChar, -1)])
-    d = _getfields(BUnion)
+    d = BUnion.fields
     assert len(d) == 2
     assert d[0][0] == 'a1'
     assert d[0][1].type is BLong
@@ -769,6 +817,16 @@ def test_function_type():
     assert repr(BFunc) == "<ctype 'int(*)(int, int)'>"
     BFunc2 = new_function_type((), BFunc, False)
     assert repr(BFunc2) == "<ctype 'int(*(*)())(int, int)'>"
+
+def test_inspect_function_type():
+    BInt = new_primitive_type("int")
+    BFunc = new_function_type((BInt, BInt), BInt, False)
+    assert BFunc.kind == "function"
+    assert BFunc.cname == "int(*)(int, int)"
+    assert BFunc.args == (BInt, BInt)
+    assert BFunc.result is BInt
+    assert BFunc.ellipsis is False
+    assert BFunc.abi == FFI_DEFAULT_ABI
 
 def test_function_type_taking_struct():
     BChar = new_primitive_type("char")
@@ -1186,10 +1244,13 @@ def test_callback_returning_void():
 def test_enum_type():
     BEnum = new_enum_type("foo", (), ())
     assert repr(BEnum) == "<ctype 'enum foo'>"
-    assert _getfields(BEnum) == []
+    assert BEnum.kind == "enum"
+    assert BEnum.cname == "enum foo"
+    assert BEnum.elements == {}
     #
     BEnum = new_enum_type("foo", ('def', 'c', 'ab'), (0, 1, -20))
-    assert _getfields(BEnum) == [(-20, 'ab'), (0, 'def'), (1, 'c')]
+    assert BEnum.kind == "enum"
+    assert BEnum.elements == {-20: 'ab', 0: 'def', 1: 'c'}
 
 def test_cast_to_enum():
     BEnum = new_enum_type("foo", ('def', 'c', 'ab'), (0, 1, -20))
@@ -1283,7 +1344,7 @@ def test_struct_with_bitfields():
                                        ('a2', BLong, 2),
                                        ('a3', BLong, 3),
                                        ('a4', BLong, LONGBITS - 5)])
-    d = _getfields(BStruct)
+    d = BStruct.fields
     assert d[0][1].offset == d[1][1].offset == d[2][1].offset == 0
     assert d[3][1].offset == sizeof(BLong)
     assert d[0][1].bitshift == 0
@@ -1388,7 +1449,7 @@ def test_add_error():
     py.test.raises(TypeError, "x - 1")
 
 def test_void_errors():
-    py.test.raises(TypeError, alignof, new_void_type())
+    py.test.raises(ValueError, alignof, new_void_type())
     py.test.raises(TypeError, newp, new_pointer_type(new_void_type()), None)
     x = cast(new_pointer_type(new_void_type()), 42)
     py.test.raises(TypeError, "x + 1")
@@ -2160,7 +2221,7 @@ def test_nested_anonymous_struct():
                                        ('a3', BChar, -1)])
     assert sizeof(BInnerStruct) == sizeof(BInt) * 2   # with alignment
     assert sizeof(BStruct) == sizeof(BInt) * 3        # 'a3' is placed after
-    d = _getfields(BStruct)
+    d = BStruct.fields
     assert len(d) == 3
     assert d[0][0] == 'a1'
     assert d[0][1].type is BInt
