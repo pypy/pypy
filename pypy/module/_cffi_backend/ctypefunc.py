@@ -86,7 +86,7 @@ class W_CTypeFunc(W_CTypePtrBase):
         return ''.join(argnames)
 
     def _fget_args(self):
-        return self.space.newtuple(self.fargs)
+        return self.space.newtuple([self.space.wrap(a) for a in self.fargs])
 
     def _fget_result(self):
         return self.space.wrap(self.ctitem)
