@@ -320,8 +320,10 @@ class W_CTypePointer(W_CTypePtrBase):
             raise OperationError(space.w_TypeError,
                      space.wrap("expected a 'cdata struct-or-union' object"))
 
-    def _fget_item(self):
-        return self.space.wrap(self.ctitem)
+    def _fget(self, attrchar):
+        if attrchar == 'i':     # item
+            return self.space.wrap(self.ctitem)
+        return W_CTypePtrBase._fget(self, attrchar)
 
 # ____________________________________________________________
 

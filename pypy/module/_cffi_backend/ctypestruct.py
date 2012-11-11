@@ -37,16 +37,18 @@ class W_CTypeStructOrUnion(W_CType):
         self.check_complete(w_errorcls=self.space.w_ValueError)
         return self.alignment
 
-    def _fget_fields(self):
-        space = self.space
-        if self.size < 0:
-            return space.w_None
-        result = [None] * len(self.fields_list)
-        for fname, field in self.fields_dict.iteritems():
-            i = self.fields_list.index(field)
-            result[i] = space.newtuple([space.wrap(fname),
-                                        space.wrap(field)])
-        return space.newlist(result)
+    def _fget(self, attrchar):
+        if attrchar == 'f':     # fields
+            space = self.space
+            if self.size < 0:
+                return space.w_None
+            result = [None] * len(self.fields_list)
+            for fname, field in self.fields_dict.iteritems():
+                i = self.fields_list.index(field)
+                result[i] = space.newtuple([space.wrap(fname),
+                                            space.wrap(field)])
+            return space.newlist(result)
+        return W_CType._fget(self, attrchar)
 
     def convert_to_object(self, cdata):
         space = self.space

@@ -29,12 +29,15 @@ class W_CTypeEnum(W_CTypePrimitiveSigned):
             self.enumerators2values[enumerators[i]] = enumvalues[i]
             self.enumvalues2erators[enumvalues[i]] = enumerators[i]
 
-    def _fget_elements(self):
-        space = self.space
-        w_dct = space.newdict()
-        for enumvalue, enumerator in self.enumvalues2erators.iteritems():
-            space.setitem(w_dct, space.wrap(enumvalue), space.wrap(enumerator))
-        return w_dct
+    def _fget(self, attrchar):
+        if attrchar == 'e':     # elements
+            space = self.space
+            w_dct = space.newdict()
+            for enumvalue, enumerator in self.enumvalues2erators.iteritems():
+                space.setitem(w_dct, space.wrap(enumvalue),
+                                     space.wrap(enumerator))
+            return w_dct
+        return W_CTypePrimitiveSigned._fget(self, attrchar)
 
     def string(self, cdataobj, maxlen):
         w_result = self.convert_to_object(cdataobj._cdata)

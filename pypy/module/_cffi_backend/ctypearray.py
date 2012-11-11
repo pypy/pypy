@@ -98,14 +98,15 @@ class W_CTypeArray(W_CTypePtrOrArray):
     def get_vararg_type(self):
         return self.ctptr
 
-    def _fget_item(self):
-        return self.space.wrap(self.ctitem)
-
-    def _fget_length(self):
-        if self.length >= 0:
-            return self.space.wrap(self.length)
-        else:
-            return self.space.w_None
+    def _fget(self, attrchar):
+        if attrchar == 'i':     # item
+            return self.space.wrap(self.ctitem)
+        if attrchar == 'l':     # length
+            if self.length >= 0:
+                return self.space.wrap(self.length)
+            else:
+                return self.space.w_None
+        return W_CTypePtrOrArray._fget(self, attrchar)
 
 
 class W_CDataIter(Wrappable):

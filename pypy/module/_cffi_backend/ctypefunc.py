@@ -85,17 +85,17 @@ class W_CTypeFunc(W_CTypePtrBase):
         argnames.append(')')
         return ''.join(argnames)
 
-    def _fget_args(self):
-        return self.space.newtuple([self.space.wrap(a) for a in self.fargs])
-
-    def _fget_result(self):
-        return self.space.wrap(self.ctitem)
-
-    def _fget_ellipsis(self):
-        return self.space.wrap(self.ellipsis)
-
-    def _fget_abi(self):
-        return self.space.wrap(clibffi.FFI_DEFAULT_ABI)     # XXX
+    def _fget(self, attrchar):
+        if attrchar == 'a':    # args
+            return self.space.newtuple([self.space.wrap(a)
+                                        for a in self.fargs])
+        if attrchar == 'r':    # result
+            return self.space.wrap(self.ctitem)
+        if attrchar == 'E':    # ellipsis
+            return self.space.wrap(self.ellipsis)
+        if attrchar == 'A':    # abi
+            return self.space.wrap(clibffi.FFI_DEFAULT_ABI)     # XXX
+        return W_CTypePtrBase._fget(self, attrchar)
 
 
     def call(self, funcaddr, args_w):
