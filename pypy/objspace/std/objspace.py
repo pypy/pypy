@@ -483,7 +483,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
         if type(w_obj) is W_SetObject or type(w_obj) is W_FrozensetObject:
             return w_obj.listview_str()
         if isinstance(w_obj, W_StringObject):
-            return w_obj.listview_str()
+            # Python3 considers bytes strings as a list of numbers.
+            return None
         if isinstance(w_obj, W_ListObject) and self._uses_list_iter(w_obj):
             return w_obj.getitems_str()
         return None
