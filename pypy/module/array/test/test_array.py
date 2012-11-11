@@ -150,13 +150,26 @@ class BaseArrayTests:
     def test_fromstring(self):
         for t in 'bBhHiIlLfd':
             a = self.array(t)
-            a.fromstring(b'\x00' * a.itemsize * 2)
+            a.fromstring('\x00' * a.itemsize * 2)
             assert len(a) == 2 and a[0] == 0 and a[1] == 0
             if a.itemsize > 1:
-                raises(ValueError, a.fromstring, b'\x00' * (a.itemsize - 1))
-                raises(ValueError, a.fromstring, b'\x00' * (a.itemsize + 1))
-                raises(ValueError, a.fromstring, b'\x00' * (2 * a.itemsize - 1))
-                raises(ValueError, a.fromstring, b'\x00' * (2 * a.itemsize + 1))
+                raises(ValueError, a.fromstring, '\x00' * (a.itemsize - 1))
+                raises(ValueError, a.fromstring, '\x00' * (a.itemsize + 1))
+                raises(ValueError, a.fromstring, '\x00' * (2 * a.itemsize - 1))
+                raises(ValueError, a.fromstring, '\x00' * (2 * a.itemsize + 1))
+            b = self.array(t, b'\x00' * a.itemsize * 2)
+            assert len(b) == 2 and b[0] == 0 and b[1] == 0
+
+    def test_frombytes(self):
+        for t in 'bBhHiIlLfd':
+            a = self.array(t)
+            a.frombytes(b'\x00' * a.itemsize * 2)
+            assert len(a) == 2 and a[0] == 0 and a[1] == 0
+            if a.itemsize > 1:
+                raises(ValueError, a.frombytes, b'\x00' * (a.itemsize - 1))
+                raises(ValueError, a.frombytes, b'\x00' * (a.itemsize + 1))
+                raises(ValueError, a.frombytes, b'\x00' * (2 * a.itemsize - 1))
+                raises(ValueError, a.frombytes, b'\x00' * (2 * a.itemsize + 1))
             b = self.array(t, b'\x00' * a.itemsize * 2)
             assert len(b) == 2 and b[0] == 0 and b[1] == 0
 

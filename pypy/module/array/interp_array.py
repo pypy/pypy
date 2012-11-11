@@ -66,6 +66,7 @@ array_fromlist = SMM('fromlist', 2)
 array_tostring = SMM('tostring', 1)
 array_tobytes = SMM('tobytes', 1)
 array_fromstring = SMM('fromstring', 2)
+array_frombytes = SMM('frombytes', 2)
 array_tounicode = SMM('tounicode', 1)
 array_fromunicode = SMM('fromunicode', 2)
 array_tofile = SMM('tofile', 2)
@@ -547,8 +548,13 @@ def make_array(mytype):
     def array_fromlist__Array_List(space, self, w_lst):
         self.fromlist(w_lst)
 
-    def array_fromstring__Array_ANY(space, self, w_s):
+    def array_frombytes__Array_ANY(space, self, w_s):
         self.fromstring(space.bytes_w(w_s))
+
+    def array_fromstring__Array_ANY(space, self, w_s):
+        space.warn("fromstring() is deprecated. Use frombytes() instead.",
+                   self.space.w_DeprecationWarning)
+        self.fromstring(space.str_w(w_s))
 
     def array_tobytes__Array(space, self):
         cbuf = self._charbuf_start()
