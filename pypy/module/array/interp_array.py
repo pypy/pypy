@@ -72,7 +72,7 @@ array_tofile = SMM('tofile', 2)
 array_fromfile = SMM('fromfile', 3)
 
 array_buffer_info = SMM('buffer_info', 1)
-array_reduce = SMM('__reduce__', 1)
+array_reduce_ex = SMM('__reduce_ex__', 2)
 array_copy = SMM('__copy__', 1)
 array_byteswap = SMM('byteswap', 1)
 
@@ -123,6 +123,10 @@ class TypeCode(object):
     def _freeze_(self):
         # hint for the annotator: track individual constant instances
         return True
+
+    def is_integer_type(self):
+        return self.unwrap == 'int_w' or self.unwrap == 'bigint_w'
+
 
 types = {
     'u': TypeCode(lltype.UniChar,     'unicode_w'),
@@ -639,17 +643,41 @@ def make_array(mytype):
         w_len = space.wrap(self.len)
         return space.newtuple([w_ptr, w_len])
 
-    def array_reduce__Array(space, self):
-        if self.len > 0:
-            w_s = array_tobytes__Array(space, self)
-            args = [space.wrap(mytype.typecode), w_s]
-        else:
-            args = [space.wrap(mytype.typecode)]
+    def array_reduce_ex__Array_ANY(space, self, w_protocol):
+        protocol = space.int_w(w_protocol)
         try:
-            dct = space.getattr(self, space.wrap('__dict__'))
+            w_dict = space.getattr(self, space.wrap('__dict__'))
         except OperationError:
-            dct = space.w_None
-        return space.newtuple([space.type(self), space.newtuple(args), dct])
+            w_dict = space.w_None
+        from pypy.module.array import reconstructor
+        mformat_code = reconstructor.typecode_to_mformat_code(mytype.typecode)
+        if protocol < 3 or mformat_code == reconstructor.UNKNOWN_FORMAT:
+            # Convert the array to a list if we got something weird
+            # (e.g., non-IEEE floats), or we are pickling the array
+            # using a Python 2.x compatible protocol.
+            #
+            # It is necessary to use a list representation for Python
+            # 2.x compatible pickle protocol, since Python 2's str
+            # objects are unpickled as unicode by Python 3. Thus it is
+            # impossible to make arrays unpicklable by Python 3 by
+            # using their memory representation, unless we resort to
+            # ugly hacks such as coercing unicode objects to bytes in
+            # array_reconstructor.
+            w_list = array_tolist__Array(space, self)
+            return space.newtuple([
+                    space.type(self),
+                    space.newtuple([space.wrap(mytype.typecode), w_list]),
+                    w_dict])
+            
+        w_bytes = array_tobytes__Array(space, self)
+        w_array_reconstructor = space.fromcache(State).w_array_reconstructor
+        return space.newtuple([
+                w_array_reconstructor,
+                space.newtuple([space.type(self),
+                                space.wrap(mytype.typecode),
+                                space.wrap(mformat_code),
+                                w_bytes]),
+                w_dict])
 
     def array_copy__Array(space, self):
         w_a = mytype.w_class(self.space)
@@ -709,4 +737,10 @@ def make_array(mytype):
 for mytype in types.values():
     make_array(mytype)
 
-register_all(locals(), globals())
+
+class State:
+    def __init__(self, space):
+        w_module = space.getbuiltinmodule('array')
+        self.w_array_reconstructor = space.getattr(
+            w_module, space.wrap("_array_reconstructor"))
+
