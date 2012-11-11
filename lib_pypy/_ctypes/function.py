@@ -446,10 +446,6 @@ class CFuncPtr(_CData, metaclass=CFuncPtrType):
 
     @classmethod
     def _conv_param(cls, argtype, arg):
-        if isinstance(argtype, _CDataMeta):
-            cobj, ffiparam = argtype.get_ffi_param(arg)
-            return cobj, ffiparam, argtype
-        
         if argtype is not None:
             arg = argtype.from_param(arg)
         if hasattr(arg, '_as_parameter_'):
@@ -559,6 +555,7 @@ class CFuncPtr(_CData, metaclass=CFuncPtrType):
                 try:
                     keepalive, newarg, newargtype = self._conv_param(argtype, args[i])
                 except (UnicodeError, TypeError, ValueError) as e:
+                    raise
                     raise ArgumentError(str(e))
                 keepalives.append(keepalive)
                 newargs.append(newarg)

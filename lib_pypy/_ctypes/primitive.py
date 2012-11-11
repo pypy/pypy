@@ -90,7 +90,7 @@ def from_param_void_p(cls, value):
         return value
     if isinstance(value, (_Pointer, CFuncPtr)):
         return cls.from_address(value._buffer.buffer)
-    if isinstance(value, (int, long)):
+    if isinstance(value, int):
         return cls(value)
 
 FROM_PARAM_BY_TYPE = {
@@ -173,7 +173,7 @@ class SimpleType(_CDataMeta):
                 return addr
 
             def _setvalue(self, value):
-                if isinstance(value, str):
+                if isinstance(value, bytes):
                     array = _rawffi.Array('c')(len(value)+1, value)
                     self._objects = CArgObject(value, array)
                     value = array.buffer

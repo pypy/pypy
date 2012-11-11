@@ -130,6 +130,13 @@ SQLITE_FUNCTION                 = 31
 
 # SQLite C API
 
+class TEXT:
+    @classmethod
+    def from_param(cls, value):
+        if isinstance(value, bytes):
+            return value
+        return value.encode('utf-8')
+
 sqlite.sqlite3_value_int.argtypes = [c_void_p]
 sqlite.sqlite3_value_int.restype = c_int
 
@@ -167,7 +174,7 @@ sqlite.sqlite3_bind_parameter_index.argtypes = [c_void_p, c_char_p]
 sqlite.sqlite3_bind_parameter_index.restype = c_int
 sqlite.sqlite3_bind_parameter_name.argtypes = [c_void_p, c_int]
 sqlite.sqlite3_bind_parameter_name.restype = c_char_p
-sqlite.sqlite3_bind_text.argtypes = [c_void_p, c_int, c_char_p, c_int,c_void_p]
+sqlite.sqlite3_bind_text.argtypes = [c_void_p, c_int, TEXT, c_int,c_void_p]
 sqlite.sqlite3_bind_text.restype = c_int
 sqlite.sqlite3_busy_timeout.argtypes = [c_void_p, c_int]
 sqlite.sqlite3_busy_timeout.restype = c_int
@@ -206,11 +213,11 @@ sqlite.sqlite3_last_insert_rowid.argtypes = [c_void_p]
 sqlite.sqlite3_last_insert_rowid.restype = c_int64
 sqlite.sqlite3_libversion.argtypes = []
 sqlite.sqlite3_libversion.restype = c_char_p
-sqlite.sqlite3_open.argtypes = [c_char_p, c_void_p]
+sqlite.sqlite3_open.argtypes = [TEXT, c_void_p]
 sqlite.sqlite3_open.restype = c_int
 sqlite.sqlite3_prepare.argtypes = [c_void_p, c_char_p, c_int, c_void_p, POINTER(c_char_p)]
 sqlite.sqlite3_prepare.restype = c_int
-sqlite.sqlite3_prepare_v2.argtypes = [c_void_p, c_char_p, c_int, c_void_p, POINTER(c_char_p)]
+sqlite.sqlite3_prepare_v2.argtypes = [c_void_p, TEXT, c_int, c_void_p, POINTER(c_char_p)]
 sqlite.sqlite3_prepare_v2.restype = c_int
 sqlite.sqlite3_step.argtypes = [c_void_p]
 sqlite.sqlite3_step.restype = c_int
@@ -227,9 +234,9 @@ sqlite.sqlite3_result_null.argtypes = [c_void_p]
 sqlite.sqlite3_result_null.restype = None
 sqlite.sqlite3_result_double.argtypes = [c_void_p, c_double]
 sqlite.sqlite3_result_double.restype = None
-sqlite.sqlite3_result_error.argtypes = [c_void_p, c_char_p, c_int]
+sqlite.sqlite3_result_error.argtypes = [c_void_p, TEXT, c_int]
 sqlite.sqlite3_result_error.restype = None
-sqlite.sqlite3_result_text.argtypes = [c_void_p, c_char_p, c_int, c_void_p]
+sqlite.sqlite3_result_text.argtypes = [c_void_p, TEXT, c_int, c_void_p]
 sqlite.sqlite3_result_text.restype = None
 
 HAS_LOAD_EXTENSION = hasattr(sqlite, "sqlite3_enable_load_extension")
@@ -242,7 +249,7 @@ if HAS_LOAD_EXTENSION:
 ##########################################
 
 # SQLite version information
-sqlite_version = sqlite.sqlite3_libversion()
+sqlite_version = sqlite.sqlite3_libversion().decode('utf-8')
 
 class Error(Exception):
     pass
@@ -346,6 +353,7 @@ class Connection(object):
         if error_code is None:
             error_code = sqlite.sqlite3_errcode(self.db)
         error_message = sqlite.sqlite3_errmsg(self.db)
+        error_message = error_message.decode('utf-8')
 
         if error_code == SQLITE_OK:
             raise ValueError("error signalled but got SQLITE_OK")
@@ -761,9 +769,6 @@ class Cursor(object):
         return CursorLock(self)
 
     def execute(self, sql, params=None):
-        if type(sql) is str:
-            sql = sql.encode("utf-8")
-
         with self._check_and_lock():
             self._description = None
             self.reset = False
@@ -801,9 +806,6 @@ class Cursor(object):
         return self
 
     def executemany(self, sql, many_params):
-        if type(sql) is str:
-            sql = sql.encode("utf-8")
-
         with self._check_and_lock():
             self._description = None
             self.reset = False
@@ -953,7 +955,7 @@ class Statement(object):
 
         self.statement = c_void_p()
         next_char = c_char_p()
-        sql_char = c_char_p(sql)
+        sql_char = sql
         ret = sqlite.sqlite3_prepare_v2(self.con.db, sql_char, -1, byref(self.statement), byref(next_char))
         if ret == SQLITE_OK and self.statement.value is None:
             # an empty statement, we work around that, as it's the least trouble
@@ -963,9 +965,10 @@ class Statement(object):
         if ret != SQLITE_OK:
             raise self.con._get_exception(ret)
         self.con._remember_statement(self)
-        if _check_remaining_sql(next_char.value):
+        next_char = next_char.value.decode('utf-8')
+        if _check_remaining_sql(next_char):
             raise Warning("One and only one statement required: %r" %
-                          (next_char.value,))
+                          (next_char,))
         # sql_char should remain alive until here
 
         self._build_row_cast_map()
@@ -981,6 +984,7 @@ class Statement(object):
             if self.con.detect_types & PARSE_COLNAMES:
                 colname = sqlite.sqlite3_column_name(self.statement, i)
                 if colname is not None:
+                    colname = colname.decode('utf-8')
                     type_start = -1
                     key = None
                     for pos in range(len(colname)):
@@ -994,22 +998,12 @@ class Statement(object):
                 decltype = sqlite.sqlite3_column_decltype(self.statement, i)
                 if decltype is not None:
                     decltype = decltype.split()[0]      # if multiple words, use first, eg. "INTEGER NOT NULL" => "INTEGER"
+                    decltype = decltype.decode('utf-8')
                     if '(' in decltype:
                         decltype = decltype[:decltype.index('(')]
                     converter = converters.get(decltype.upper(), None)
 
             self.row_cast_map.append(converter)
-
-    def _check_decodable(self, param):
-        if self.con.text_factory in (str, OptimizedUnicode, unicode_text_factory):
-            for c in param:
-                if ord(c) & 0x80 != 0:
-                    raise self.con.ProgrammingError(
-                            "You must not use 8-bit bytestrings unless "
-                            "you use a text_factory that can interpret "
-                            "8-bit bytestrings (like text_factory = str). "
-                            "It is highly recommended that you instead "
-                            "just switch your application to Unicode strings.")
 
     def set_param(self, idx, param):
         cvt = converters.get(type(param))
@@ -1028,13 +1022,11 @@ class Statement(object):
         elif type(param) is float:
             sqlite.sqlite3_bind_double(self.statement, idx, param)
         elif isinstance(param, str):
-            self._check_decodable(param)
+            param = param.encode('utf-8')
             sqlite.sqlite3_bind_text(self.statement, idx, param, len(param), SQLITE_TRANSIENT)
-        elif isinstance(param, str):
-            param = param.encode("utf-8")
-            sqlite.sqlite3_bind_text(self.statement, idx, param, len(param), SQLITE_TRANSIENT)
-        elif type(param) is buffer:
-            sqlite.sqlite3_bind_blob(self.statement, idx, str(param), len(param), SQLITE_TRANSIENT)
+        elif type(param) in (bytes, memoryview):
+            param = bytes(param)
+            sqlite.sqlite3_bind_blob(self.statement, idx, param, len(param), SQLITE_TRANSIENT)
         else:
             raise InterfaceError("parameter type %s is not supported" % 
                                  type(param))
@@ -1067,11 +1059,11 @@ class Statement(object):
                 param_name = sqlite.sqlite3_bind_parameter_name(self.statement, idx)
                 if param_name is None:
                     raise ProgrammingError("need named parameters")
-                param_name = param_name[1:]
+                param_name = param_name[1:].decode('utf-8')
                 try:
                     param = params[param_name]
                 except KeyError:
-                    raise ProgrammingError("missing parameter '%s'" %param)
+                    raise ProgrammingError("missing parameter %r" % param_name)
                 self.set_param(idx, param)
 
     def next(self, cursor):
@@ -1110,7 +1102,7 @@ class Statement(object):
                 elif typ == SQLITE_BLOB:
                     blob_len = sqlite.sqlite3_column_bytes(self.statement, i)
                     blob = sqlite.sqlite3_column_blob(self.statement, i)
-                    val = buffer(string_at(blob, blob_len))
+                    val = bytes(string_at(blob, blob_len))
                 elif typ == SQLITE_NULL:
                     val = None
                 elif typ == SQLITE_TEXT:
@@ -1157,7 +1149,8 @@ class Statement(object):
             return None
         desc = []
         for i in range(sqlite.sqlite3_column_count(self.statement)):
-            name = sqlite.sqlite3_column_name(self.statement, i).split("[")[0].strip()
+            col_name = sqlite.sqlite3_column_name(self.statement, i)
+            name = col_name.decode('utf-8').split("[")[0].strip()
             desc.append((name, None, None, None, None, None, None))
         return desc
 
@@ -1249,7 +1242,7 @@ def _convert_params(con, nargs, params):
         elif typ == SQLITE_BLOB:
             blob_len = sqlite.sqlite3_value_bytes(params[i])
             blob = sqlite.sqlite3_value_blob(params[i])
-            val = buffer(string_at(blob, blob_len))
+            val = bytes(string_at(blob, blob_len))
         elif typ == SQLITE_NULL:
             val = None
         elif typ == SQLITE_TEXT:
@@ -1267,10 +1260,8 @@ def _convert_result(con, val):
     elif isinstance(val, (bool, int)):
         sqlite.sqlite3_result_int64(con, int(val))
     elif isinstance(val, str):
-        # XXX ignoring unicode issue
         sqlite.sqlite3_result_text(con, val, len(val), SQLITE_TRANSIENT)
-    elif isinstance(val, str):
-        val = val.encode('utf-8')
+    elif isinstance(val, bytes):
         sqlite.sqlite3_result_text(con, val, len(val), SQLITE_TRANSIENT)
     elif isinstance(val, float):
         sqlite.sqlite3_result_double(con, val)
@@ -1292,14 +1283,14 @@ def function_callback(real_cb, context, nargs, c_params):
 FUNC = CFUNCTYPE(None, c_void_p, c_int, POINTER(c_void_p))
 STEP = CFUNCTYPE(None, c_void_p, c_int, POINTER(c_void_p))
 FINAL = CFUNCTYPE(None, c_void_p)
-sqlite.sqlite3_create_function.argtypes = [c_void_p, c_char_p, c_int, c_int, c_void_p, FUNC, STEP, FINAL]
+sqlite.sqlite3_create_function.argtypes = [c_void_p, TEXT, c_int, c_int, c_void_p, FUNC, STEP, FINAL]
 sqlite.sqlite3_create_function.restype = c_int
 
 sqlite.sqlite3_aggregate_context.argtypes = [c_void_p, c_int]
 sqlite.sqlite3_aggregate_context.restype = c_void_p
 
 COLLATION = CFUNCTYPE(c_int, c_void_p, c_int, c_void_p, c_int, c_void_p)
-sqlite.sqlite3_create_collation.argtypes = [c_void_p, c_char_p, c_int, c_void_p, COLLATION]
+sqlite.sqlite3_create_collation.argtypes = [c_void_p, TEXT, c_int, c_void_p, COLLATION]
 sqlite.sqlite3_create_collation.restype = c_int
 
 PROGRESS = CFUNCTYPE(c_int, c_void_p)
