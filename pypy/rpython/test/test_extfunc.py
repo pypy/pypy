@@ -27,7 +27,6 @@ class TestExtFuncEntry:
             return b(2)
 
         policy = AnnotatorPolicy()
-        policy.allow_someobjects = False
         a = RPythonAnnotator(policy=policy)
         s = a.build_types(f, [])
         assert isinstance(s, annmodel.SomeInteger)
@@ -79,7 +78,6 @@ class TestExtFuncEntry:
             return d(callback)
 
         policy = AnnotatorPolicy()
-        policy.allow_someobjects = False
         a = RPythonAnnotator(policy=policy)
         s = a.build_types(f, [])
         assert isinstance(s, annmodel.SomeFloat)
@@ -97,7 +95,6 @@ class TestExtFuncEntry:
             return dd(3)
 
         policy = AnnotatorPolicy()
-        policy.allow_someobjects = False
         a = RPythonAnnotator(policy=policy)
         s = a.build_types(f, [])
         assert isinstance(s, annmodel.SomeInteger)
@@ -120,7 +117,6 @@ class TestExtFuncEntry:
             return function_with_tuple_arg((1,))
 
         policy = AnnotatorPolicy()
-        policy.allow_someobjects = False
         a = RPythonAnnotator(policy=policy)
         s = a.build_types(f, [])
 
@@ -145,7 +141,6 @@ class TestExtFuncEntry:
             return function_with_list(function_returning_list())
 
         policy = AnnotatorPolicy()
-        policy.allow_someobjects = False
         a = RPythonAnnotator(policy=policy)
         s = a.build_types(f, [])
         assert isinstance(s, annmodel.SomeInteger)
@@ -163,7 +158,6 @@ class TestExtFuncEntry:
             return x(33) + x("aaa") + x([]) + "\n"
 
         policy = AnnotatorPolicy()
-        policy.allow_someobjects = False
         a = RPythonAnnotator(policy=policy)
         s = a.build_types(f, [])
         assert isinstance(s, annmodel.SomeString)
@@ -176,7 +170,6 @@ class TestExtFuncEntry:
         def f(s):
             return os_open(s)
         policy = AnnotatorPolicy()
-        policy.allow_someobjects = False
         a = RPythonAnnotator(policy=policy)
         a.build_types(f, [str])  # Does not raise
         assert a.translator.config.translation.check_str_without_nul == False
@@ -195,7 +188,6 @@ class TestExtFuncEntry:
         def f(l):
             return os_execve(l)
         policy = AnnotatorPolicy()
-        policy.allow_someobjects = False
         a = RPythonAnnotator(policy=policy)
         a.build_types(f, [[str]])  # Does not raise
         assert a.translator.config.translation.check_str_without_nul == False

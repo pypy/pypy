@@ -344,6 +344,13 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[-1] == 8
         raises(IndexError, "a[-6]")
 
+    def test_getitem_float(self):
+        from _numpypy import array
+        a = array([1, 2, 3, 4])
+        assert a[1.2] == 2
+        assert a[1.6] == 2
+        assert a[-1.2] == 4
+
     def test_getitem_tuple(self):
         from _numpypy import array
         a = array(range(5))
@@ -694,6 +701,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         r = 3 + array(range(3))
         for i in range(3):
             assert r[i] == i + 3
+        r = [1, 2] + array([1, 2])
+        assert (r == [2, 4]).all()
 
     def test_add_list(self):
         from _numpypy import array, ndarray
@@ -1961,8 +1970,11 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert (arange(6).reshape(2, 3).T.ravel() == [0, 3, 1, 4, 2, 5]).all()
 
     def test_take(self):
-        skip("we wait for int-based indexing")
         from _numpypy import arange
+        try:
+            arange(10).take([0])
+        except NotImplementedError:
+            skip("we wait for int-based indexing")
         assert (arange(10).take([1, 2, 1, 1]) == [1, 2, 1, 1]).all()
         raises(IndexError, "arange(3).take([15])")
         a = arange(6).reshape(2, 3)
@@ -2233,7 +2245,54 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         assert arr[1]['y']['y'] == 3.5
         assert arr[1]['y']['x'] == 0.0
         assert arr[1]['x'] == 15
-        
+
+    def test_string_record(self):
+        from _numpypy import dtype, array
+        d = dtype([('x', str), ('y', 'int32')])
+        assert d.fields['x'] == (dtype(str), 0)
+        assert d.fields['y'] == (dtype('int32'), 1)
+        d = dtype([('x', 'S1'), ('y', 'int32')])
+        assert d.fields['x'] == (dtype(str), 0)
+        assert d.fields['y'] == (dtype('int32'), 1)
+        a = array([('a', 2), ('c', 1)], dtype=d)
+        assert a[1]['y'] == 1
+        assert a[0]['x'] == 'a'
+
+    def test_stringarray(self):
+        from _numpypy import array, flexible
+        a = array(['abc'],'S3')
+        assert str(a.dtype) == '|S3'
+        a = array(['abc'])
+        assert str(a.dtype) == '|S3'
+        a = array(['abc','defg','ab'])
+        assert str(a.dtype) == '|S4'
+        assert a[0] == 'abc'
+        assert a[1] == 'defg'
+        assert a[2] == 'ab'
+        raises(TypeError, a, 'sum')
+        raises(TypeError, 'a+a')
+
+    def test_string_scalar(self):
+        from _numpypy import array
+        a = array('ffff')
+        assert a.shape == ()
+
+    def test_flexible_repr(self):
+        # import overrides str(), repr() for array
+        from numpypy.core import arrayprint
+        from _numpypy import array
+        a = array(['abc'],'S3')
+        s = repr(a)
+        # simplify test for \n in repr
+        assert s.replace('\n', '') == "array(['abc'],       dtype='|S3')"
+        # but make sure it exists
+        assert s.find('\n') == 15
+        a = array(['abc','defg','ab'])
+        s = repr(a)
+        assert s.replace('\n', '') == \
+                      "array(['abc', 'defg', 'ab'],       dtype='|S4')"
+         
+       
 class AppTestPyPy(BaseNumpyAppTest):
     def setup_class(cls):
         if option.runappdirect and '__pypy__' not in sys.builtin_module_names:

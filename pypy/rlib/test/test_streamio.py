@@ -1026,7 +1026,7 @@ class TestReadlineInputStream:
             base.tell = f
         if not seek:
             base.seek = f
-        return streamio.ReadlineInputStream(base, bufsize)
+        return base
 
     def test_readline(self):
         for file in [self.makeStream(), self.makeStream(bufsize=2)]:

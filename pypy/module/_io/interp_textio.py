@@ -2,7 +2,7 @@ from pypy.module._io.interp_iobase import W_IOBase
 from pypy.interpreter.typedef import (
     TypeDef, GetSetProperty, interp_attrproperty_w, interp_attrproperty,
     generic_new_descr)
-from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError
 from pypy.rlib.rarithmetic import intmask, r_ulonglong, r_uint
@@ -46,13 +46,12 @@ class W_IncrementalNewlineDecoder(Wrappable):
     def descr_init(self, space, w_decoder, translate, w_errors=None):
         self.w_decoder = w_decoder
         self.translate = translate
-        if space.is_w(w_errors, space.w_None):
+        if space.is_none(w_errors):
             self.w_errors = space.wrap("strict")
         else:
             self.w_errors = w_errors
 
         self.seennl = 0
-        pendingcr = False
 
     def newlines_get_w(self, space):
         return self.w_newlines_dict.get(self.seennl, space.w_None)
@@ -365,11 +364,11 @@ class W_TextIOWrapper(W_TextIOBase):
             raise OperationError(space.w_IOError, space.wrap(
                 "could not determine default encoding"))
 
-        if space.is_w(w_errors, space.w_None):
+        if space.is_none(w_errors):
             w_errors = space.wrap("strict")
         self.w_errors = w_errors
 
-        if space.is_w(w_newline, space.w_None):
+        if space.is_none(w_newline):
             newline = None
         else:
             newline = space.unicode_w(w_newline)
@@ -484,6 +483,7 @@ class W_TextIOWrapper(W_TextIOBase):
         self._writeflush(space)
         space.call_method(self.w_buffer, "flush")
 
+    @unwrap_spec(w_pos = WrappedDefault(None))
     def truncate_w(self, space, w_pos=None):
         self._check_init(space)
 

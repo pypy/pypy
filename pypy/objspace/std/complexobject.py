@@ -8,7 +8,7 @@ from pypy.objspace.std.longobject import W_LongObject
 from pypy.rlib.rbigint import rbigint
 from pypy.rlib.rfloat import (
     formatd, DTSF_STR_PRECISION, isinf, isnan, copysign)
-from pypy.rlib import jit
+from pypy.rlib import jit, rcomplex
 from pypy.rlib.rarithmetic import intmask
 
 import math
@@ -63,6 +63,9 @@ class W_ComplexObject(W_AbstractComplexObject):
         """ representation for debugging purposes """
         return "<W_ComplexObject(%f,%f)>" % (w_self.realval, w_self.imagval)
 
+    def as_tuple(self):
+        return (self.realval, self.imagval)
+
     def sub(self, other):
         return W_ComplexObject(self.realval - other.realval,
                                self.imagval - other.imagval)
@@ -73,31 +76,8 @@ class W_ComplexObject(W_AbstractComplexObject):
         return W_ComplexObject(r, i)
 
     def div(self, other):
-        r1, i1 = self.realval, self.imagval
-        r2, i2 = other.realval, other.imagval
-        if r2 < 0:
-            abs_r2 = - r2
-        else:
-            abs_r2 = r2
-        if i2 < 0:
-            abs_i2 = - i2
-        else:
-            abs_i2 = i2
-        if abs_r2 >= abs_i2:
-            if abs_r2 == 0.0:
-                raise ZeroDivisionError
-            else:
-                ratio = i2 / r2
-                denom = r2 + i2 * ratio
-                rr = (r1 + i1 * ratio) / denom
-                ir = (i1 - r1 * ratio) / denom
-        else:
-            ratio = r2 / i2
-            denom = r2 * ratio + i2
-            assert i2 != 0.0
-            rr = (r1 * ratio + i1) / denom
-            ir = (i1 * ratio - r1) / denom
-        return W_ComplexObject(rr,ir)
+        rr, ir = rcomplex.c_div(self.as_tuple(), other.as_tuple())
+        return W_ComplexObject(rr, ir)
 
     def divmod(self, space, other):
         space.warn(
@@ -111,24 +91,7 @@ class W_ComplexObject(W_AbstractComplexObject):
         return (W_ComplexObject(div, 0), w_mod)
 
     def pow(self, other):
-        r1, i1 = self.realval, self.imagval
-        r2, i2 = other.realval, other.imagval
-        if r2 == 0.0 and i2 == 0.0:
-            rr, ir = 1, 0
-        elif r1 == 0.0 and i1 == 0.0:
-            if i2 != 0.0 or r2 < 0.0:
-                raise ZeroDivisionError
-            rr, ir = (0.0, 0.0)
-        else:
-            vabs = math.hypot(r1,i1)
-            len = math.pow(vabs,r2)
-            at = math.atan2(i1,r1)
-            phase = at * r2
-            if i2 != 0.0:
-                len /= math.exp(at * i2)
-                phase += i2 * math.log(vabs)
-            rr = len * math.cos(phase)
-            ir = len * math.sin(phase)
+        rr, ir = rcomplex.c_pow(self.as_tuple(), other.as_tuple())
         return W_ComplexObject(rr, ir)
 
     def pow_small_int(self, n):

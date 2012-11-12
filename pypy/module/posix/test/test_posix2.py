@@ -4,7 +4,7 @@
 from __future__ import with_statement
 from pypy.objspace.std import StdObjSpace
 from pypy.tool.udir import udir
-from pypy.conftest import gettestobjspace
+from pypy.tool.pytest.objspace import gettestobjspace
 from pypy.tool.autopath import pypydir
 from pypy.rpython.module.ll_os import RegisterOs
 import os
@@ -38,7 +38,7 @@ def setup_module(mod):
     os.stat_float_times(True)
 
     # Initialize sys.filesystemencoding
-    space.call_method(space.getbuiltinmodule('sys'), 'getfilesystemencoding')
+    # space.call_method(space.getbuiltinmodule('sys'), 'getfilesystemencoding')
 
 def need_sparse_files():
     if sys.platform == 'darwin':
@@ -500,6 +500,13 @@ class AppTestPosix:
             res = stream.read()
             assert res == '1\n'
             assert stream.close() is None
+
+    def test_popen_with(self):
+        os = self.posix
+        stream = os.popen('echo 1')
+        with stream as fp:
+            res = fp.read()
+            assert res == '1\n'
 
     if hasattr(__import__(os.name), '_getfullpathname'):
         def test__getfullpathname(self):
@@ -1008,7 +1015,7 @@ class AppTestPosixUnicode:
     def setup_class(cls):
         cls.space = space
         cls.w_posix = space.appexec([], GET_POSIX)
-        if py.test.config.option.runappdirect:
+        if cls.runappdirect:
             # Can't change encoding
             try:
                 u"ą".encode(sys.getfilesystemencoding())

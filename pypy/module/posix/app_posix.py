@@ -198,7 +198,7 @@ if osname == 'posix':
     def wait3(options):
         """ wait3(options) -> (pid, status, rusage)
 
-        Wait for completion of a child process and provides resource usage informations
+        Wait for completion of a child process and provides resource usage information
         """
         from _pypy_wait import wait3
         return wait3(options)
@@ -206,7 +206,7 @@ if osname == 'posix':
     def wait4(pid, options):
         """ wait4(pid, options) -> (pid, status, rusage)
 
-        Wait for completion of the child process "pid" and provides resource usage informations
+        Wait for completion of the child process "pid" and provides resource usage information
         """
         from _pypy_wait import wait4
         return wait4(pid, options)
@@ -311,6 +311,13 @@ else:
             self._stream.close()
             return self._proc.wait() or None    # 0 => None
         __del__ = close
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *k):
+            self.close()
+
         def __getattr__(self, name):
             return getattr(self._stream, name)
         def __iter__(self):

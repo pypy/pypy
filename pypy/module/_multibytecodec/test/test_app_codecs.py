@@ -1,9 +1,5 @@
-from pypy.conftest import gettestobjspace
-
-
 class AppTestCodecs:
-    def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['_multibytecodec'])
+    spaceconfig = dict(usemodules=['_multibytecodec'])
 
     def test_missing_codec(self):
         import _codecs_cn

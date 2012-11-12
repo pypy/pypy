@@ -603,8 +603,9 @@ class MIFrame(object):
         if tobox is not None:
             # sanity check: see whether the current struct value
             # corresponds to what the cache thinks the value is
-            resbox = executor.execute(self.metainterp.cpu, self.metainterp,
-                                      rop.GETFIELD_GC, fielddescr, box)
+            #resbox = executor.execute(self.metainterp.cpu, self.metainterp,
+            #                          rop.GETFIELD_GC, fielddescr, box)
+            # XXX the sanity check does not seem to do anything, remove?
             return tobox
         resbox = self.execute_with_descr(opnum, fielddescr, box)
         self.metainterp.heapcache.getfield_now_known(box, fielddescr, resbox)

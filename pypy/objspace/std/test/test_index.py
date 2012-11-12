@@ -1,9 +1,7 @@
 from py.test import raises
-from pypy.conftest import gettestobjspace
 
 class AppTest_IndexProtocol:
     def setup_class(self):
-        self.space = gettestobjspace()
         w_oldstyle = self.space.appexec([], """():
             class oldstyle:
                 def __index__(self):

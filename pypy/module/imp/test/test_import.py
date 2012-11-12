@@ -5,7 +5,8 @@ from pypy.interpreter.error import OperationError
 import pypy.interpreter.pycode
 from pypy.tool.udir import udir
 from pypy.rlib import streamio
-from pypy.conftest import gettestobjspace
+from pypy.tool.option import make_config
+from pypy.tool.pytest.objspace import maketestobjspace
 import pytest
 import sys, os
 import tempfile, marshal
@@ -38,7 +39,7 @@ def setup_directory_structure(space):
                     test_reload = "def test():\n    raise ValueError\n",
                     infinite_reload = "import infinite_reload; reload(infinite_reload)",
                     del_sys_module = "import sys\ndel sys.modules['del_sys_module']\n",
-                    itertools = "hello_world = 42\n",
+                    _md5 = "hello_world = 42\n",
                     gc = "should_never_be_seen = 42\n",
                     )
     root.ensure("notapackage", dir=1)    # empty, no __init__.py
@@ -146,9 +147,9 @@ def _teardown(space, w_saved_modules):
     """)
 
 class AppTestImport:
+    spaceconfig = dict(usemodules=['_md5'])
 
     def setup_class(cls): # interpreter-level
-        cls.space = gettestobjspace(usemodules=['itertools'])
         cls.w_runappdirect = cls.space.wrap(conftest.option.runappdirect)
         cls.saved_modules = _setup(cls.space)
         #XXX Compile class
@@ -597,34 +598,34 @@ class AppTestImport:
 
     def test_shadow_extension_1(self):
         if self.runappdirect: skip("hard to test: module is already imported")
-        # 'import itertools' is supposed to find itertools.py if there is
+        # 'import _md5' is supposed to find _md5.py if there is
         # one in sys.path.
         import sys
-        assert 'itertools' not in sys.modules
-        import itertools
-        assert hasattr(itertools, 'hello_world')
-        assert not hasattr(itertools, 'count')
-        assert '(built-in)' not in repr(itertools)
-        del sys.modules['itertools']
+        assert '_md5' not in sys.modules
+        import _md5
+        assert hasattr(_md5, 'hello_world')
+        assert not hasattr(_md5, 'count')
+        assert '(built-in)' not in repr(_md5)
+        del sys.modules['_md5']
 
     def test_shadow_extension_2(self):
         if self.runappdirect: skip("hard to test: module is already imported")
-        # 'import itertools' is supposed to find the built-in module even
+        # 'import _md5' is supposed to find the built-in module even
         # if there is also one in sys.path as long as it is *after* the
         # special entry '.../lib_pypy/__extensions__'.  (Note that for now
-        # there is one in lib_pypy/itertools.py, which should not be seen
+        # there is one in lib_pypy/_md5.py, which should not be seen
         # either; hence the (built-in) test below.)
         import sys
-        assert 'itertools' not in sys.modules
+        assert '_md5' not in sys.modules
         sys.path.append(sys.path.pop(0))
         try:
-            import itertools
-            assert not hasattr(itertools, 'hello_world')
-            assert hasattr(itertools, 'izip')
-            assert '(built-in)' in repr(itertools)
+            import _md5
+            assert not hasattr(_md5, 'hello_world')
+            assert hasattr(_md5, 'digest_size')
+            assert '(built-in)' in repr(_md5)
         finally:
             sys.path.insert(0, sys.path.pop())
-        del sys.modules['itertools']
+        del sys.modules['_md5']
 
     def test_invalid_pathname(self):
         import imp
@@ -642,8 +643,8 @@ class AppTestImport:
 
 class TestAbi:
     def test_abi_tag(self):
-        space1 = gettestobjspace(soabi='TEST')
-        space2 = gettestobjspace(soabi='')
+        space1 = maketestobjspace(make_config(None, soabi='TEST'))
+        space2 = maketestobjspace(make_config(None, soabi=''))
         if sys.platform == 'win32':
             assert importing.get_so_extension(space1) == '.TESTi.pyd'
             assert importing.get_so_extension(space2) == '.pyd'
@@ -953,7 +954,7 @@ class TestPycStuff:
         allspaces = [self.space]
         for opcodename in self.space.config.objspace.opcodes.getpaths():
             key = 'objspace.opcodes.' + opcodename
-            space2 = gettestobjspace(**{key: True})
+            space2 = maketestobjspace(make_config(None, **{key: True}))
             allspaces.append(space2)
         for space1 in allspaces:
             for space2 in allspaces:
@@ -1003,12 +1004,12 @@ def test_PYTHONPATH_takes_precedence(space):
             os.environ['LANG'] = oldlang
 
 class AppTestImportHooks(object):
+    spaceconfig = dict(usemodules=('struct', 'itertools'))
 
     def setup_class(cls):
-        space = cls.space = gettestobjspace(usemodules=('struct',))
         mydir = os.path.dirname(__file__)
-        cls.w_hooktest = space.wrap(os.path.join(mydir, 'hooktest'))
-        space.appexec([space.wrap(mydir)], """
+        cls.w_hooktest = cls.space.wrap(os.path.join(mydir, 'hooktest'))
+        cls.space.appexec([cls.space.wrap(mydir)], """
             (mydir):
                 import sys
                 sys.path.append(mydir)
@@ -1176,9 +1177,9 @@ class AppTestImportHooks(object):
             sys.path_hooks.pop()
 
 class AppTestPyPyExtension(object):
+    spaceconfig = dict(usemodules=['imp', 'zipimport', '__pypy__'])
+
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['imp', 'zipimport',
-                                                '__pypy__'])
         cls.w_udir = cls.space.wrap(str(udir))
 
     def test_run_compiled_module(self):
@@ -1262,10 +1263,11 @@ class AppTestLonePycFile(AppTestNoPycFile):
 
 
 class AppTestMultithreadedImp(object):
+    spaceconfig = dict(usemodules=['thread', 'time'])
+
     def setup_class(cls):
         #if not conftest.option.runappdirect:
         #    py.test.skip("meant as an -A test")
-        cls.space = gettestobjspace(usemodules=['thread', 'time'])
         tmpfile = udir.join('test_multithreaded_imp.py')
         tmpfile.write('''if 1:
             x = 666

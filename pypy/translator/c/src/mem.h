@@ -146,6 +146,8 @@ static __declspec(noinline) void pypy_asm_stack_bottom() { }
 #define COUNT_MALLOC	/* nothing */
 #define COUNT_FREE	/* nothing */
 
+#define pypy_malloc_counters_results()  /* nothing */
+
 /*------------------------------------------------------------*/
 #else /*COUNT_OP_MALLOCS*/
 /*------------------------------------------------------------*/
@@ -155,10 +157,8 @@ static int count_mallocs=0, count_frees=0;
 #define COUNT_MALLOC	count_mallocs++
 #define COUNT_FREE	count_frees++
 
-PyObject* malloc_counters(PyObject* self, PyObject* args)
-{
-  return Py_BuildValue("ii", count_mallocs, count_frees);
-}
+#define pypy_malloc_counters_results()  \
+    printf("MALLOC COUNTERS: %d %d\n", count_mallocs, count_frees)
 
 /*------------------------------------------------------------*/
 #endif /*COUNT_OP_MALLOCS*/

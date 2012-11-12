@@ -1,12 +1,12 @@
 from __future__ import with_statement
 import sys
-from pypy.conftest import gettestobjspace
 from pypy.module.math.test import test_direct
 
 
 class AppTestMath:
+    spaceconfig = dict(usemodules=['math', 'struct', 'itertools'])
+
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['math', 'struct'])
         cls.w_cases = cls.space.wrap(test_direct.MathTests.TESTCASES)
         cls.w_consistent_host = cls.space.wrap(test_direct.consistent_host)
 
@@ -130,7 +130,7 @@ class AppTestMath:
 
     def test_mtestfile(self):
         import math
-        import abc
+        import zipfile
         import os
         import struct
         def _parse_mtestfile(fname):
@@ -207,7 +207,7 @@ class AppTestMath:
         fail_fmt = "{}:{}({!r}): expected {!r}, got {!r}"
 
         failures = []
-        math_testcases = os.path.join(os.path.dirname(abc.__file__), "test",
+        math_testcases = os.path.join(os.path.dirname(zipfile.__file__), "test",
                                       "math_testcases.txt")
         for id, fn, arg, expected, flags in _parse_mtestfile(math_testcases):
             func = getattr(math, fn)

@@ -1,7 +1,6 @@
 import os, random, sys
 import pypy.tool.udir
 import py
-from pypy.conftest import gettestobjspace
 
 udir = pypy.tool.udir.udir.ensure('test_file_extra', dir=1)
 
@@ -352,10 +351,7 @@ class AppTestLargeBufferUniversal(AppTestUniversalNewlines):
 #  A few extra tests
 
 class AppTestAFewExtra:
-
-    def setup_class(cls):
-        space = gettestobjspace(usemodules=('array',))
-        cls.space = space
+    spaceconfig = dict(usemodules=('array', '_socket'))
 
     def setup_method(self, method):
         fn = str(udir.join('temptestfile'))
@@ -606,3 +602,16 @@ class AppTestAFewExtra:
                                   repr(unicode(self.temptestfile)))
         f.close()
 
+    def test_EAGAIN(self):
+        import _socket, posix
+        s1, s2 = _socket.socketpair()
+        s2.setblocking(False)
+        s1.send("hello")
+
+        f2 = posix.fdopen(posix.dup(s2.fileno()), 'rb', 0)
+        data = f2.read(12)
+        assert data == "hello"
+
+        f2.close()
+        s2.close()
+        s1.close()

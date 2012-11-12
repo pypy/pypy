@@ -1,24 +1,41 @@
 """
 Bytecode handling classes and functions for use by the flow space.
 """
-from pypy.interpreter.pycode import (PyCode, BytecodeCorruption, cpython_magic,
-        cpython_code_signature)
 from pypy.tool.stdlib_opcode import (host_bytecode_spec, EXTENDED_ARG,
         HAVE_ARGUMENT)
-from pypy.interpreter.astcompiler.consts import CO_GENERATOR
+from pypy.objspace.flow.argument import Signature
+from pypy.objspace.flow.flowcontext import BytecodeCorruption
 
-class HostCode(PyCode):
+CO_GENERATOR = 0x0020
+CO_VARARGS = 0x0004
+CO_VARKEYWORDS = 0x0008
+
+def cpython_code_signature(code):
+    "([list-of-arg-names], vararg-name-or-None, kwarg-name-or-None)."
+    argcount = code.co_argcount
+    argnames = list(code.co_varnames[:argcount])
+    if code.co_flags & CO_VARARGS:
+        varargname = code.co_varnames[argcount]
+        argcount += 1
+    else:
+        varargname = None
+    if code.co_flags & CO_VARKEYWORDS:
+        kwargname = code.co_varnames[argcount]
+        argcount += 1
+    else:
+        kwargname = None
+    return Signature(argnames, varargname, kwargname)
+
+class HostCode(object):
     """
     A wrapper around a native code object of the host interpreter
     """
     opnames = host_bytecode_spec.method_names
 
-    def __init__(self, space,  argcount, nlocals, stacksize, flags,
+    def __init__(self, argcount, nlocals, stacksize, flags,
                      code, consts, names, varnames, filename,
-                     name, firstlineno, lnotab, freevars, cellvars,
-                     hidden_applevel=False, magic=cpython_magic):
+                     name, firstlineno, lnotab, freevars):
         """Initialize a new code object"""
-        self.space = space
         self.co_name = name
         assert nlocals >= 0
         self.co_argcount = argcount
@@ -26,43 +43,39 @@ class HostCode(PyCode):
         self.co_stacksize = stacksize
         self.co_flags = flags
         self.co_code = code
-        self.co_consts_w = consts
-        self.co_names_w = [space.wrap(aname) for aname in names]
+        self.consts = consts
+        self.names = names
         self.co_varnames = varnames
         self.co_freevars = freevars
-        self.co_cellvars = cellvars
         self.co_filename = filename
         self.co_name = name
         self.co_firstlineno = firstlineno
         self.co_lnotab = lnotab
-        self.hidden_applevel = hidden_applevel
-        self.magic = magic
-        self._signature = cpython_code_signature(self)
-        self._initialize()
+        self.signature = cpython_code_signature(self)
 
-    def _initialize(self):
-        # Precompute what arguments need to be copied into cellvars
-        self._args_as_cellvars = []
+    @classmethod
+    def _from_code(cls, code):
+        """Initialize the code object from a real (CPython) one.
+        """
+        return cls(code.co_argcount,
+                      code.co_nlocals,
+                      code.co_stacksize,
+                      code.co_flags,
+                      code.co_code,
+                      list(code.co_consts),
+                      list(code.co_names),
+                      list(code.co_varnames),
+                      code.co_filename,
+                      code.co_name,
+                      code.co_firstlineno,
+                      code.co_lnotab,
+                      list(code.co_freevars))
 
-        if self.co_cellvars:
-            argcount = self.co_argcount
-            assert argcount >= 0     # annotator hint
-            if self.co_flags & CO_VARARGS:
-                argcount += 1
-            if self.co_flags & CO_VARKEYWORDS:
-                argcount += 1
-            # Cell vars could shadow already-set arguments.
-            # See comment in PyCode._initialize()
-            argvars  = self.co_varnames
-            cellvars = self.co_cellvars
-            for i in range(len(cellvars)):
-                cellname = cellvars[i]
-                for j in range(argcount):
-                    if cellname == argvars[j]:
-                        # argument j has the same name as the cell var i
-                        while len(self._args_as_cellvars) <= i:
-                            self._args_as_cellvars.append(-1)   # pad
-                        self._args_as_cellvars[i] = j
+    @property
+    def formalargcount(self):
+        """Total number of arguments passed into the frame, including *vararg
+        and **varkwarg, if they exist."""
+        return self.signature.scope_length()
 
     def read(self, pos):
         """

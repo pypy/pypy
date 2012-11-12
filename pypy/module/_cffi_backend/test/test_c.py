@@ -20,7 +20,6 @@ if sys.version_info < (2, 6):
     py.test.skip("requires the b'' literal syntax")
 
 from pypy.tool.udir import udir
-from pypy.conftest import gettestobjspace, option
 from pypy.interpreter import gateway
 from pypy.module._cffi_backend import Module
 from pypy.translator.platform import host
@@ -30,13 +29,15 @@ from pypy.translator.tool.cbuild import ExternalCompilationInfo
 class AppTestC(object):
     """Populated below, hack hack hack."""
 
+    spaceconfig = dict(usemodules=('_cffi_backend', 'cStringIO'))
+
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('_cffi_backend',))
-        cls.space = space
         testfuncs_w = []
         keepalive_funcs = []
 
-        def find_and_load_library_for_test(space, w_name, w_is_global=0):
+        def find_and_load_library_for_test(space, w_name, w_is_global=None):
+            if w_is_global is None:
+                w_is_global = space.wrap(0)
             if space.is_w(w_name, space.w_None):
                 path = None
             else:
@@ -62,7 +63,8 @@ class AppTestC(object):
             addr = cdll.gettestfunc(w_num)
             return space.wrap(addr)
 
-        if option.runappdirect:
+        space = cls.space
+        if cls.runappdirect:
             def interp2app(func):
                 def run(*args):
                     return func(space, *args)

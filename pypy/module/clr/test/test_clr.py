@@ -1,4 +1,3 @@
-from pypy.conftest import gettestobjspace
 from pypy.module.clr.assemblyname import mscorlib
 
 def skip_if_not_pythonnet():
@@ -11,10 +10,10 @@ def skip_if_not_pythonnet():
 skip_if_not_pythonnet()
 
 class AppTestDotnet:
+    spaceconfig = dict(usemodules=('clr',))
+
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('clr',))
-        cls.space = space
-        cls.w_mscorlib = space.wrap(mscorlib)
+        cls.w_mscorlib = cls.space.wrap(mscorlib)
         
     def test_cliobject(self):
         import clr

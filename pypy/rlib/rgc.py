@@ -145,8 +145,11 @@ def ll_arraycopy(source, dest, source_start, dest_start, length):
     from pypy.rlib.objectmodel import keepalive_until_here
 
     # XXX: Hack to ensure that we get a proper effectinfo.write_descrs_arrays
-    if NonConstant(False):
-        dest[dest_start] = source[source_start]
+    # and also, maybe, speed up very small cases
+    if length <= 1:
+        if length == 1:
+            dest[dest_start] = source[source_start]
+        return
 
     # supports non-overlapping copies only
     if not we_are_translated():
@@ -254,12 +257,9 @@ def _keep_object(x):
         return False      # don't keep any type
     if isinstance(x, (list, dict, str)):
         return True       # keep lists and dicts and strings
-    try:
-        return not x._freeze_()   # don't keep any frozen object
-    except AttributeError:
-        return type(x).__module__ != '__builtin__'   # keep non-builtins
-    except Exception:
-        return False      # don't keep objects whose _freeze_() method explodes
+    if hasattr(x, '_freeze_'):
+        return False
+    return type(x).__module__ != '__builtin__'   # keep non-builtins
 
 def add_memory_pressure(estimate):
     """Add memory pressure for OpaquePtrs."""
@@ -307,6 +307,32 @@ def dump_rpy_heap(fd):
 def get_typeids_z():
     "NOT_RPYTHON"
     raise NotImplementedError
+
+def has_gcflag_extra():
+    "NOT_RPYTHON"
+    return True
+has_gcflag_extra._subopnum = 1
+
+_gcflag_extras = []
+
+def get_gcflag_extra(gcref):
+    "NOT_RPYTHON"
+    assert gcref   # not NULL!
+    return gcref in _gcflag_extras    # XXX slow
+get_gcflag_extra._subopnum = 2
+
+def toggle_gcflag_extra(gcref):
+    "NOT_RPYTHON"
+    assert gcref   # not NULL!
+    try:
+        _gcflag_extras.remove(gcref)  # XXX slow
+    except ValueError:
+        _gcflag_extras.append(gcref)
+toggle_gcflag_extra._subopnum = 3
+
+def assert_no_more_gcflags():
+    if not we_are_translated():
+        assert not _gcflag_extras
 
 ARRAY_OF_CHAR = lltype.Array(lltype.Char)
 NULL_GCREF = lltype.nullptr(llmemory.GCREF.TO)
@@ -475,6 +501,18 @@ class Entry(ExtRegistryEntry):
     def specialize_call(self, hop):
         hop.exception_is_here()
         return hop.genop('gc_typeids_z', [], resulttype = hop.r_result)
+
+class Entry(ExtRegistryEntry):
+    _about_ = (has_gcflag_extra, get_gcflag_extra, toggle_gcflag_extra)
+    def compute_result_annotation(self, s_arg=None):
+        from pypy.annotation.model import s_Bool
+        return s_Bool
+    def specialize_call(self, hop):
+        subopnum = self.instance._subopnum
+        vlist = [hop.inputconst(lltype.Signed, subopnum)]
+        vlist += hop.inputargs(*hop.args_r)
+        hop.exception_cannot_occur()
+        return hop.genop('gc_gcflag_extra', vlist, resulttype = hop.r_result)
 
 def lltype_is_gc(TP):
     return getattr(getattr(TP, "TO", None), "_gckind", "?") == 'gc'

@@ -5,7 +5,7 @@ Interp-level definition of frequently used functionals.
 
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import NoneNotWrapped, interp2app, unwrap_spec
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.typedef import TypeDef
 from pypy.rlib import jit
 from pypy.rlib.objectmodel import specialize
@@ -47,7 +47,8 @@ def get_len_of_range(space, lo, hi, step):
         n = 0
     return n
 
-def range_int(space, w_x, w_y=NoneNotWrapped, w_step=1):
+@unwrap_spec(w_step = WrappedDefault(1))
+def range_int(space, w_x, w_y=None, w_step=None):
     """Return a list of integers in arithmetic position from start (defaults
 to zero) to stop - 1 by step (defaults to 1).  Use a negative step to
 get a list in decending order."""
@@ -207,7 +208,7 @@ class W_Enumerate(Wrappable):
         self.w_iter = w_iter
         self.w_index = w_start
 
-    def descr___new__(space, w_subtype, w_iterable, w_start=NoneNotWrapped):
+    def descr___new__(space, w_subtype, w_iterable, w_start=None):
         self = space.allocate_instance(W_Enumerate, w_subtype)
         if w_start is None:
             w_start = space.wrap(0)
@@ -325,13 +326,13 @@ class W_XRange(Wrappable):
 
     def descr_new(space, w_subtype, w_start, w_stop=None, w_step=None):
         start = _toint(space, w_start)
-        if space.is_w(w_step, space.w_None):  # no step argument provided
+        if space.is_none(w_step):  # no step argument provided
             step = 1
             promote_step = True
         else:
             step  = _toint(space, w_step)
             promote_step = False
-        if space.is_w(w_stop, space.w_None):  # only 1 argument provided
+        if space.is_none(w_stop):  # only 1 argument provided
             start, stop = 0, start
         else:
             stop = _toint(space, w_stop)

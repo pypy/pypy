@@ -1,9 +1,9 @@
 
 from pypy.interpreter.error import operationerrfmt, OperationError
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array,\
-     ArrayArgumentException
+     ArrayArgumentException, issequence_w
 from pypy.module.micronumpy import interp_dtype, interp_ufuncs, interp_boxes
 from pypy.module.micronumpy.strides import find_shape_and_elems,\
      get_shape_from_iterable, to_coords, shape_agreement
@@ -18,12 +18,14 @@ from pypy.rlib import jit
 from pypy.rlib.rstring import StringBuilder
 
 def _find_shape(space, w_size):
+    if space.is_none(w_size):
+        return []
     if space.isinstance_w(w_size, space.w_int):
         return [space.int_w(w_size)]
     shape = []
     for w_item in space.fixedview(w_size):
         shape.append(space.int_w(w_item))
-    return shape
+    return shape[:]
 
 class __extend__(W_NDimArray):
     @jit.unroll_safe
@@ -188,7 +190,7 @@ class __extend__(W_NDimArray):
         return space.call_function(cache.w_array_str, self)
 
     def dump_data(self):
-        i = self.create_iter(self.get_shape())
+        i = self.create_iter()
         first = True
         dtype = self.get_dtype()
         s = StringBuilder()
@@ -204,8 +206,6 @@ class __extend__(W_NDimArray):
         return s.build()
 
     def create_iter(self, shape=None):
-        if shape is None:
-            shape = self.get_shape()
         return self.implementation.create_iter(shape)
 
     def create_axis_iter(self, shape, dim):
@@ -293,7 +293,7 @@ class __extend__(W_NDimArray):
         return space.newlist(l_w)
 
     def descr_ravel(self, space, w_order=None):
-        if w_order is None or space.is_w(w_order, space.w_None):
+        if space.is_none(w_order):
             order = 'C'
         else:
             order = space.str_w(w_order)
@@ -305,16 +305,20 @@ class __extend__(W_NDimArray):
     def descr_take(self, space, w_obj, w_axis=None, w_out=None):
         # if w_axis is None and w_out is Nont this is an equivalent to
         # fancy indexing
-        raise Exception("unsupported for now")
-        if not space.is_w(w_axis, space.w_None):
+        raise OperationError(space.w_NotImplementedError,
+                             space.wrap("unsupported for now"))
+        if not space.is_none(w_axis):
             raise OperationError(space.w_NotImplementedError,
                                  space.wrap("axis unsupported for take"))
-        if not space.is_w(w_out, space.w_None):
+        if not space.is_none(w_out):
             raise OperationError(space.w_NotImplementedError,
                                  space.wrap("out unsupported for take"))
         return self.getitem_int(space, convert_to_array(space, w_obj))
 
     def descr_compress(self, space, w_obj, w_axis=None):
+        if not space.is_none(w_axis):
+            raise OperationError(space.w_NotImplementedError,
+                                 space.wrap("axis unsupported for compress"))
         index = convert_to_array(space, w_obj)
         return self.getitem_filter(space, index)
 
@@ -341,7 +345,7 @@ class __extend__(W_NDimArray):
         return coords
 
     def descr_item(self, space, w_arg=None):
-        if space.is_w(w_arg, space.w_None):
+        if space.is_none(w_arg):
             if self.is_scalar():
                 return self.get_scalar_value().item(space)
             if self.get_size() == 1:
@@ -383,12 +387,14 @@ class __extend__(W_NDimArray):
     descr_neg = _unaryop_impl("negative")
     descr_abs = _unaryop_impl("absolute")
     descr_invert = _unaryop_impl("invert")
+    descr_get_real = _unaryop_impl("real")
+    descr_get_imag = _unaryop_impl("imag")
 
     def descr_nonzero(self, space):
         if self.get_size() > 1:
             raise OperationError(space.w_ValueError, space.wrap(
                 "The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()"))
-        iter = self.create_iter(self.get_shape())
+        iter = self.create_iter()
         return space.wrap(space.is_true(iter.getitem()))
 
     def _binop_impl(ufunc_name):
@@ -425,9 +431,7 @@ class __extend__(W_NDimArray):
 
     def _binop_right_impl(ufunc_name):
         def impl(self, space, w_other, w_out=None):
-            dtype = interp_ufuncs.find_dtype_for_scalar(space, w_other,
-                                                        self.get_dtype())
-            w_other = W_NDimArray.new_scalar(space, dtype, w_other)
+            w_other = convert_to_array(space, w_other)
             return getattr(interp_ufuncs.get(space), ufunc_name).call(space, [w_other, self, w_out])
         return func_with_new_name(impl, "binop_right_%s_impl" % ufunc_name)
 
@@ -471,11 +475,13 @@ class __extend__(W_NDimArray):
         return loop.multidim_dot(space, self, other,  result, dtype,
                                  other_critical_dim)
 
-    def descr_var(self, space, w_axis=None):
+    @unwrap_spec(w_axis = WrappedDefault(None))
+    def descr_var(self, space, w_axis):
         return get_appbridge_cache(space).call_method(space, '_var', self,
                                                       w_axis)
 
-    def descr_std(self, space, w_axis=None):
+    @unwrap_spec(w_axis = WrappedDefault(None))
+    def descr_std(self, space, w_axis):
         return get_appbridge_cache(space).call_method(space, '_std', self,
                                                       w_axis)
 
@@ -483,7 +489,7 @@ class __extend__(W_NDimArray):
 
     def _reduce_ufunc_impl(ufunc_name, promote_to_largest=False):
         def impl(self, space, w_axis=None, w_out=None, w_dtype=None):
-            if space.is_w(w_out, space.w_None) or not w_out:
+            if space.is_none(w_out):
                 out = None
             elif not isinstance(w_out, W_NDimArray):
                 raise OperationError(space.w_TypeError, space.wrap( 
@@ -504,7 +510,7 @@ class __extend__(W_NDimArray):
     descr_any = _reduce_ufunc_impl('logical_or')
 
     def descr_mean(self, space, w_axis=None, w_out=None):
-        if space.is_w(w_axis, space.w_None):
+        if space.is_none(w_axis):
             w_denom = space.wrap(self.get_size())
         else:
             axis = unwrap_axis_arg(space, len(self.get_shape()), w_axis)
@@ -526,9 +532,9 @@ class __extend__(W_NDimArray):
 @unwrap_spec(offset=int)
 def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
                     offset=0, w_strides=None, w_order=None):
-    if (offset != 0 or not space.is_w(w_strides, space.w_None) or
-        not space.is_w(w_order, space.w_None) or
-        not space.is_w(w_buffer, space.w_None)):
+    if (offset != 0 or not space.is_none(w_strides) or
+        not space.is_none(w_order) or
+        not space.is_none(w_buffer)):
         raise OperationError(space.w_NotImplementedError,
                              space.wrap("unsupported param"))
     dtype = space.interp_w(interp_dtype.W_Dtype,
@@ -629,6 +635,8 @@ W_NDimArray.typedef = TypeDef(
     swapaxes = interp2app(W_NDimArray.descr_swapaxes),
     flat = GetSetProperty(W_NDimArray.descr_get_flatiter),
     item = interp2app(W_NDimArray.descr_item),
+    real = GetSetProperty(W_NDimArray.descr_get_real),
+    imag = GetSetProperty(W_NDimArray.descr_get_imag),
 
     __array_interface__ = GetSetProperty(W_NDimArray.descr_array_iface),
 )
@@ -636,13 +644,13 @@ W_NDimArray.typedef = TypeDef(
 @unwrap_spec(ndmin=int, copy=bool, subok=bool)
 def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
           ndmin=0):
-    if not space.issequence_w(w_object):
-        if w_dtype is None or space.is_w(w_dtype, space.w_None):
+    if not issequence_w(space, w_object):
+        if space.is_none(w_dtype):
             w_dtype = interp_ufuncs.find_dtype_for_scalar(space, w_object)
         dtype = space.interp_w(interp_dtype.W_Dtype,
           space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype))
         return W_NDimArray.new_scalar(space, dtype, w_object)
-    if w_order is None or space.is_w(w_order, space.w_None):
+    if space.is_none(w_order):
         order = 'C'
     else:
         order = space.str_w(w_order)
@@ -650,7 +658,7 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
             raise operationerrfmt(space.w_ValueError, "Unknown order: %s",
                                   order)
     if isinstance(w_object, W_NDimArray):
-        if (not space.is_w(w_dtype, space.w_None) and
+        if (not space.is_none(w_dtype) and
             w_object.get_dtype() is not w_dtype):
             raise OperationError(space.w_NotImplementedError, space.wrap(
                                   "copying over different dtypes unsupported"))
@@ -663,14 +671,15 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
         for w_elem in elems_w:
             dtype = interp_ufuncs.find_dtype_for_scalar(space, w_elem,
                                                         dtype)
-            if dtype is interp_dtype.get_dtype_cache(space).w_float64dtype:
-                break
+            #if dtype is interp_dtype.get_dtype_cache(space).w_float64dtype:
+            #    break
+            
         if dtype is None:
             dtype = interp_dtype.get_dtype_cache(space).w_float64dtype
     if ndmin > len(shape):
         shape = [1] * (ndmin - len(shape)) + shape
     arr = W_NDimArray.from_shape(shape, dtype, order=order)
-    arr_iter = arr.create_iter(arr.get_shape())
+    arr_iter = arr.create_iter()
     for w_elem in elems_w:
         arr_iter.setitem(dtype.coerce(space, w_elem))
         arr_iter.next()

@@ -2,7 +2,7 @@
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
      interp_attrproperty, interp_attrproperty_w)
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.interpreter.gateway import unwrap_spec, interp2app, NoneNotWrapped
+from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.error import OperationError
 from pypy.rpython.lltypesystem import lltype, llmemory
@@ -63,7 +63,7 @@ def set_optimize_hook(space, w_hook):
     """ set_optimize_hook(hook)
 
     Set a compiling hook that will be called each time a loop is optimized,
-    but before assembler compilation. This allows to add additional
+    but before assembler compilation. This allows adding additional
     optimizations on Python level.
 
     The hook will be called with the pypyjit.JitLoopInfo object. Refer to it's

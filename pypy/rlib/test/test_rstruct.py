@@ -43,9 +43,15 @@ class TestCompiled:
         def pack(x):
             result = []
             ieee.pack_float(result, x, 8, False)
-            return ''.join(result)
+            l = []
+            for x in result:
+                for c in x:
+                    l.append(str(ord(c)))
+            return ','.join(l)
         c_pack = compile(pack, [float])
         def unpack(s):
+            l = s.split(',')
+            s = ''.join([chr(int(x)) for x in l])
             return ieee.unpack_float(s, False)
         c_unpack = compile(unpack, [str])
 

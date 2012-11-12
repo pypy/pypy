@@ -719,7 +719,14 @@ class ObjSpace(object):
         # done by a method call on w_two (and not on w_one, because of the
         # expected programming style where we say "if x is None" or
         # "if x is object").
+        assert w_two is not None
         return w_two.is_w(self, w_one)
+
+    def is_none(self, w_obj):
+        """ mostly for checking inputargs that have unwrap_spec and
+        can accept both w_None and None
+        """
+        return w_obj is None or self.is_w(w_obj, self.w_None)
 
     def id(self, w_obj):
         w_result = w_obj.immutable_unique_id(self)
@@ -804,7 +811,7 @@ class ObjSpace(object):
         interpreter class (a subclass of Wrappable).
         """
         assert RequiredClass is not None
-        if can_be_None and self.is_w(w_obj, self.w_None):
+        if can_be_None and self.is_none(w_obj):
             return None
         obj = self.interpclass_w(w_obj)
         if not isinstance(obj, RequiredClass):   # or obj is None
@@ -964,6 +971,13 @@ class ObjSpace(object):
     def listview_str(self, w_list):
         """ Return a list of unwrapped strings out of a list of strings. If the
         argument is not a list or does not contain only strings, return None.
+        May return None anyway.
+        """
+        return None
+
+    def listview_unicode(self, w_list):
+        """ Return a list of unwrapped unicode out of a list of unicode. If the
+        argument is not a list or does not contain only unicode, return None.
         May return None anyway.
         """
         return None

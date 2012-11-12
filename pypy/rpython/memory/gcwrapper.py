@@ -5,6 +5,7 @@ from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.memory import gctypelayout
 from pypy.objspace.flow.model import Constant
 
+
 class GCManagedHeap(object):
 
     def __init__(self, llinterp, flowgraphs, gc_class, GC_PARAMS={}):
@@ -152,8 +153,19 @@ class GCManagedHeap(object):
         else:
             return True
 
-    def pyobjectptr(self, klass):
-        raise NotImplementedError(klass)
+    def gcflag_extra(self, subopnum, *args):
+        if subopnum == 1:      # has_gcflag_extra
+            assert len(args) == 0
+            return self.gc.gcflag_extra != 0
+        assert len(args) == 1
+        addr = llmemory.cast_ptr_to_adr(args[0])
+        hdr = self.gc.header(addr)
+        if subopnum == 3:      # toggle_gcflag_extra
+            if hdr.tid & self.gc.gcflag_extra:
+                hdr.tid &= ~self.gc.gcflag_extra
+            else:
+                hdr.tid |= self.gc.gcflag_extra
+        return (hdr.tid & self.gc.gcflag_extra) != 0
 
 # ____________________________________________________________
 
@@ -193,8 +205,7 @@ class DirectRunLayoutBuilder(gctypelayout.TypeLayoutBuilder):
         super(DirectRunLayoutBuilder, self).__init__(GCClass, lltype2vtable)
 
     def make_finalizer_funcptr_for_type(self, TYPE):
-        from pypy.rpython.memory.gctransform.support import get_rtti, \
-                type_contains_pyobjs
+        from pypy.rpython.memory.gctransform.support import get_rtti
         rtti = get_rtti(TYPE)
         if rtti is not None and hasattr(rtti._obj, 'destructor_funcptr'):
             destrptr = rtti._obj.destructor_funcptr
@@ -203,7 +214,6 @@ class DirectRunLayoutBuilder(gctypelayout.TypeLayoutBuilder):
         else:
             return None, False
 
-        assert not type_contains_pyobjs(TYPE), "not implemented"
         t = self.llinterp.typer.annotator.translator
         light = not FinalizerAnalyzer(t).analyze_light_finalizer(destrgraph)
         def ll_finalizer(addr, dummy):
@@ -218,8 +228,7 @@ class DirectRunLayoutBuilder(gctypelayout.TypeLayoutBuilder):
         return llhelper(gctypelayout.GCData.FINALIZER_OR_CT, ll_finalizer), light
 
     def make_custom_trace_funcptr_for_type(self, TYPE):
-        from pypy.rpython.memory.gctransform.support import get_rtti, \
-                type_contains_pyobjs
+        from pypy.rpython.memory.gctransform.support import get_rtti
         rtti = get_rtti(TYPE)
         if rtti is not None and hasattr(rtti._obj, 'custom_trace_funcptr'):
             return rtti._obj.custom_trace_funcptr
