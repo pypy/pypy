@@ -452,16 +452,26 @@ class JitDriver(object):
         if greens is not None:
             self.greens = greens
         self.name = name
-        if reds is not None:
+        if reds == 'auto':
+            self.autoreds = True
+            self.reds = []
+            self.numreds = None # see warmspot.autodetect_jit_markers_redvars
+        elif reds is not None:
+            self.autoreds = False
             self.reds = reds
+            self.numreds = len(reds)
         if not hasattr(self, 'greens') or not hasattr(self, 'reds'):
             raise AttributeError("no 'greens' or 'reds' supplied")
         if virtualizables is not None:
             self.virtualizables = virtualizables
         for v in self.virtualizables:
             assert v in self.reds
-        self._alllivevars = dict.fromkeys(
-            [name for name in self.greens + self.reds if '.' not in name])
+        # if reds are automatic, they won't be passed to jit_merge_point, so
+        # _check_arguments will receive only the green ones (i.e., the ones
+        # which are listed explicitly). So, it is fine to just ignore reds
+        self._somelivevars = set([name for name in
+                                  self.greens + (self.reds or [])
+                                  if '.' not in name])
         self._heuristic_order = {}   # check if 'reds' and 'greens' are ordered
         self._make_extregistryentries()
         self.get_jitcell_at = get_jitcell_at
@@ -475,7 +485,7 @@ class JitDriver(object):
         return True
 
     def _check_arguments(self, livevars):
-        assert dict.fromkeys(livevars) == self._alllivevars
+        assert set(livevars) == self._somelivevars
         # check heuristically that 'reds' and 'greens' are ordered as
         # the JIT will need them to be: first INTs, then REFs, then
         # FLOATs.

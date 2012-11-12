@@ -84,7 +84,8 @@ def decode_hp_hint_args(op):
     assert op.opname == 'jit_marker'
     jitdriver = op.args[1].value
     numgreens = len(jitdriver.greens)
-    numreds = len(jitdriver.reds)
+    assert jitdriver.numreds is not None
+    numreds = jitdriver.numreds
     greens_v = op.args[2:2+numgreens]
     reds_v = op.args[2+numgreens:]
     assert len(reds_v) == numreds

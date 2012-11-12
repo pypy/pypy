@@ -95,6 +95,30 @@ class BasicTests:
                     found += 1
             assert found == 2
 
+    def test_loop_automatic_reds(self):
+        myjitdriver = JitDriver(greens = ['m'], reds = 'auto')
+        def f(n, m):
+            res = 0
+            # try to have lots of red vars, so that if there is an error in
+            # the ordering of reds, there are low chances that the test passes
+            # by chance
+            a = b = c = d = n
+            while n > 0:
+                myjitdriver.can_enter_jit(m=m)
+                myjitdriver.jit_merge_point(m=m)
+                n -= 1
+                a += 1 # dummy unused red
+                b += 2 # dummy unused red
+                c += 3 # dummy unused red
+                d += 4 # dummy unused red
+                res += m*2
+            return res
+        expected = f(21, 5)
+        res = self.meta_interp(f, [21, 5])
+        assert res == expected
+        self.check_resops(int_sub=2, int_mul=0, int_add=10)
+
+
     def test_loop_variant_mul1(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'res', 'x'])
         def f(x, y):

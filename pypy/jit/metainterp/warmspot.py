@@ -251,6 +251,22 @@ class WarmRunnerDesc(object):
                 len(self.jitdrivers_sd)), \
                 "there are multiple jit_merge_points with the same jitdriver"
 
+    def autodetect_jit_markers_redvars(self, graph):
+        # the idea is to find all the jit_merge_point and can_enter_jit and
+        # add all the variables across the links to the reds.
+        for block, op in graph.iterblockops():
+            if op.opname == 'jit_marker':
+                jitdriver = op.args[1].value
+                greens_v = op.args[2:]
+                alive_v = set(block.inputargs) # XXX: there might be more
+                                               # alive vars?
+                reds_v = alive_v - set(greens_v)
+                reds_v = list(reds_v) # XXX: order the reds by type (INT, REF, FLOAT)
+                op.args.extend(reds_v)
+                assert jitdriver.autoreds
+                #assert jitdriver.numreds is None, 'autodetect_jit_markers_redvars called twice?!?'
+                jitdriver.numreds = len(reds_v)
+
     def split_graph_and_record_jitdriver(self, graph, block, pos):
         op = block.operations[pos]
         jd = JitDriverStaticData()
@@ -258,6 +274,7 @@ class WarmRunnerDesc(object):
         args = op.args[2:]
         s_binding = self.translator.annotator.binding
         jd._portal_args_s = [s_binding(v) for v in args]
+        self.autodetect_jit_markers_redvars(graph)
         graph = copygraph(graph)
         [jmpp] = find_jit_merge_points([graph])
         graph.startblock = support.split_before_jit_merge_point(*jmpp)
