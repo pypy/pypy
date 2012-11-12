@@ -79,7 +79,7 @@ def builtin_range(*args):
         s_item = s_ImpossibleValue
     else:
         nonneg = False # so far
-        if step > 0:
+        if step > 0 or s_step.nonneg:
             nonneg = s_start.nonneg
         elif step < 0:
             nonneg = s_stop.nonneg or (s_stop.is_constant() and
