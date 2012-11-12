@@ -939,6 +939,10 @@ class BaseTest(unittest.TestCase):
         # Resizing is forbidden when there are buffer exports.
         # For issue 4509, we also check after each error that
         # the array was not modified.
+        if support.check_impl_detail(pypy=True):
+            # PyPy export buffers differently, and allows reallocation
+            # of the underlying object.
+            return
         self.assertRaises(BufferError, a.append, a[0])
         self.assertEqual(m.tobytes(), expected)
         self.assertRaises(BufferError, a.extend, a[0:1])
