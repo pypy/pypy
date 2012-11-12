@@ -548,6 +548,29 @@ class EmptyListStrategy(ListStrategy):
     def _extend_from_list(self, w_list, w_other):
         w_other.copy_into(w_list)
 
+    def _extend_from_iterable(self, w_list, w_iterable):
+        from pypy.objspace.std.tupleobject import W_AbstractTupleObject
+        space = self.space
+        if isinstance(w_iterable, W_AbstractTupleObject):
+            w_list.__init__(space, w_iterable.getitems_copy())
+            return
+
+        intlist = space.listview_int(w_iterable)
+        if intlist is not None:
+            w_list.strategy = strategy = space.fromcache(IntegerListStrategy)
+            # need to copy because intlist can share with w_iterable
+            w_list.lstorage = strategy.erase(intlist[:])
+            return
+
+        strlist = space.listview_str(w_iterable)
+        if strlist is not None:
+            w_list.strategy = strategy = space.fromcache(StringListStrategy)
+            # need to copy because intlist can share with w_iterable
+            w_list.lstorage = strategy.erase(strlist[:])
+            return
+
+        ListStrategy._extend_from_iterable(self, w_list, w_iterable)
+
     def reverse(self, w_list):
         pass
 
