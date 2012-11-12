@@ -96,13 +96,14 @@ def array_reconstructor(space, w_cls, typecode, mformat_code, w_items):
         mformat_code == IEEE_754_DOUBLE_LE or
         mformat_code == IEEE_754_DOUBLE_BE):
 
-        memstr = space.bytes_w(w_items)
         descr = format_descriptors[mformat_code]
+        memstr = space.bytes_w(w_items)
+        step = descr.bytes
         converted_items = [
             space.wrap(ieee.unpack_float(
-                    memstr[i:i+descr.bytes],
+                    memstr[i:i+step],
                     descr.big_endian))
-            for i in range(0, len(memstr), descr.bytes)]
+            for i in range(0, len(memstr), step)]
         w_converted_items = space.newlist(converted_items)
 
     elif mformat_code == UTF16_LE:
@@ -137,12 +138,13 @@ def array_reconstructor(space, w_cls, typecode, mformat_code, w_items):
                 break
 
         memstr = space.bytes_w(w_items)
+        step = descr.bytes
         converted_items = [
             space.newlong_from_rbigint(rbigint.rbigint.frombytes(
-                memstr[i:i+descr.bytes],
+                memstr[i:i+step],
                 descr.big_endian and 'big' or 'little',
                 descr.signed))
-            for i in range(0, len(memstr), descr.bytes)]
+            for i in range(0, len(memstr), step)]
         w_converted_items = space.newlist(converted_items)
 
     return interp_array.w_array(
