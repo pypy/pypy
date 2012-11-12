@@ -104,9 +104,6 @@ class TraceWithIds(Function):
                     yield subchunk
 
     def compute_ids(self, ids):
-        # XXX: valid?
-        if not self.code:
-            return
         #
         # 1. compute the ids of self, i.e. the outer function
         id2opcodes = find_ids(self.code)
