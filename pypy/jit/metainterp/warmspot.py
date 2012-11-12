@@ -264,8 +264,11 @@ class WarmRunnerDesc(object):
                 reds_v = support.sort_vars(reds_v)
                 op.args.extend(reds_v)
                 assert jitdriver.autoreds
-                #assert jitdriver.numreds is None, 'autodetect_jit_markers_redvars called twice?!?'
-                jitdriver.numreds = len(reds_v)
+                if jitdriver.numreds is None:
+                    jitdriver.numreds = len(reds_v)
+                else:
+                    assert jitdriver.numreds == len(reds_v), 'inconsistent number of reds_v'
+
 
     def split_graph_and_record_jitdriver(self, graph, block, pos):
         op = block.operations[pos]
