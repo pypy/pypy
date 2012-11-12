@@ -259,9 +259,14 @@ class WarmRunnerDesc(object):
                 jitdriver = op.args[1].value
                 if not jitdriver.autoreds:
                     continue
+                # compute the set of live variables before the jit_marker
+                alive_v = set(block.inputargs)
+                for op1 in block.operations:
+                    if op1 is op:
+                        break # stop when the meet the jit_marker
+                    if op1.result.concretetype != lltype.Void:
+                        alive_v.add(op1.result)
                 greens_v = op.args[2:]
-                alive_v = set(block.inputargs) # XXX: there might be more
-                                               # alive vars?
                 reds_v = alive_v - set(greens_v)
                 reds_v = support.sort_vars(reds_v)
                 op.args.extend(reds_v)

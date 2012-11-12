@@ -154,6 +154,21 @@ class BasicTests:
         assert res == expected
         self.check_resops(int_sub=2, int_mul=0, int_add=18, float_add=8)
 
+    def test_loop_automatic_reds_livevars_before_jit_merge_point(self):
+        myjitdriver = JitDriver(greens = ['m'], reds = 'auto')
+        def f(n, m):
+            res = 0
+            while n > 0:
+                n -= 1
+                myjitdriver.can_enter_jit(m=m)
+                myjitdriver.jit_merge_point(m=m)
+                res += m*2
+            return res
+        expected = f(21, 5)
+        res = self.meta_interp(f, [21, 5])
+        assert res == expected
+        self.check_resops(int_sub=2, int_mul=0, int_add=2)
+
     def test_loop_variant_mul1(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'res', 'x'])
         def f(x, y):
