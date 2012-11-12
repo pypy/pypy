@@ -259,6 +259,7 @@ class WarmRunnerDesc(object):
                 jitdriver = op.args[1].value
                 if not jitdriver.autoreds:
                     continue
+                assert jitdriver.confirm_enter_jit is None
                 # compute the set of live variables before the jit_marker
                 alive_v = set(block.inputargs)
                 for op1 in block.operations:

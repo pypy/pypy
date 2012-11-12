@@ -15,6 +15,15 @@ def test_oopspec():
         pass
     assert fn.oopspec == 'foobar'
 
+def test_jitdriver_autoreds():
+    driver = JitDriver(greens=['foo'], reds='auto')
+    assert driver.autoreds
+    assert driver.reds == []
+    assert driver.numreds is None
+    #
+    py.test.raises(AssertionError, "JitDriver(greens=['foo'], reds='auto', confirm_enter_jit='something')")
+    
+    
 
 class BaseTestJIT(BaseRtypingTest):
     def test_hint(self):
