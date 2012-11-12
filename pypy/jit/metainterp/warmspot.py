@@ -257,13 +257,14 @@ class WarmRunnerDesc(object):
         for block, op in graph.iterblockops():
             if op.opname == 'jit_marker':
                 jitdriver = op.args[1].value
+                if not jitdriver.autoreds:
+                    continue
                 greens_v = op.args[2:]
                 alive_v = set(block.inputargs) # XXX: there might be more
                                                # alive vars?
                 reds_v = alive_v - set(greens_v)
                 reds_v = support.sort_vars(reds_v)
                 op.args.extend(reds_v)
-                assert jitdriver.autoreds
                 if jitdriver.numreds is None:
                     jitdriver.numreds = len(reds_v)
                 else:

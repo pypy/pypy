@@ -154,7 +154,6 @@ class BasicTests:
         assert res == expected
         self.check_resops(int_sub=2, int_mul=0, int_add=18, float_add=8)
 
-
     def test_loop_variant_mul1(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'res', 'x'])
         def f(x, y):
