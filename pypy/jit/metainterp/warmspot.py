@@ -261,7 +261,7 @@ class WarmRunnerDesc(object):
                 alive_v = set(block.inputargs) # XXX: there might be more
                                                # alive vars?
                 reds_v = alive_v - set(greens_v)
-                reds_v = list(reds_v) # XXX: order the reds by type (INT, REF, FLOAT)
+                reds_v = support.sort_vars(reds_v)
                 op.args.extend(reds_v)
                 assert jitdriver.autoreds
                 #assert jitdriver.numreds is None, 'autodetect_jit_markers_redvars called twice?!?'
