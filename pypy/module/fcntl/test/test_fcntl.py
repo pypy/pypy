@@ -156,11 +156,10 @@ class AppTestFcntl:
             assert buf[0] != 0
             expected = buf.tostring()
 
-            if '__pypy__' in sys.builtin_module_names or sys.version_info >= (2,5):
-                buf = array.array('h', [0])
-                res = fcntl.ioctl(mfd, TIOCGPGRP, buf)
-                assert res == 0
-                assert buf.tostring() == expected
+            buf = array.array('h', [0])
+            res = fcntl.ioctl(mfd, TIOCGPGRP, buf)
+            assert res == 0
+            assert buf.tostring() == expected
 
             res = fcntl.ioctl(mfd, TIOCGPGRP, buf, False)
             assert res == expected
