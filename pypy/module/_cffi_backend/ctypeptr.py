@@ -181,6 +181,7 @@ class W_CTypePtrBase(W_CTypePtrOrArray):
 class W_CTypePointer(W_CTypePtrBase):
     _attrs_ = ['is_file']
     _immutable_fields_ = ['is_file']
+    kind = "pointer"
 
     def __init__(self, space, ctitem):
         from pypy.module._cffi_backend import ctypearray
@@ -319,10 +320,16 @@ class W_CTypePointer(W_CTypePtrBase):
             raise OperationError(space.w_TypeError,
                      space.wrap("expected a 'cdata struct-or-union' object"))
 
+    def _fget(self, attrchar):
+        if attrchar == 'i':     # item
+            return self.space.wrap(self.ctitem)
+        return W_CTypePtrBase._fget(self, attrchar)
+
 # ____________________________________________________________
 
 
 rffi_fdopen = rffi.llexternal("fdopen", [rffi.INT, rffi.CCHARP], rffi.CCHARP)
+rffi_setbuf = rffi.llexternal("setbuf", [rffi.CCHARP,rffi.CCHARP], lltype.Void)
 rffi_fclose = rffi.llexternal("fclose", [rffi.CCHARP], rffi.INT)
 
 class CffiFileObj(object):
@@ -331,6 +338,7 @@ class CffiFileObj(object):
         self.llf = rffi_fdopen(fd, mode)
         if not self.llf:
             raise OSError(rposix.get_errno(), "fdopen failed")
+        rffi_setbuf(self.llf, lltype.nullptr(rffi.CCHARP.TO))
     def close(self):
         rffi_fclose(self.llf)
 

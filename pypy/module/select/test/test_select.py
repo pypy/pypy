@@ -1,5 +1,4 @@
 import py, sys
-from pypy.conftest import gettestobjspace
 
 class _AppTestSelect:
     def test_sleep(self):
@@ -228,11 +227,11 @@ class _AppTestSelect:
 
 class AppTestSelectWithPipes(_AppTestSelect):
     "Use a pipe to get pairs of file descriptors"
+    spaceconfig = dict(usemodules=["select"])
+
     def setup_class(cls):
         if sys.platform == 'win32':
             py.test.skip("select() doesn't work with pipes on win32")
-        space = gettestobjspace(usemodules=('select',))
-        cls.space = space
 
     def w_getpair(self):
         # Wraps a file descriptor in an socket-like object
@@ -255,11 +254,10 @@ class AppTestSelectWithSockets(_AppTestSelect):
     """Same tests with connected sockets.
     socket.socketpair() does not exists on win32,
     so we start our own server."""
-    def setup_class(cls):
-        space = gettestobjspace(usemodules=('select','_socket'))
-        cls.space = space
+    spaceconfig = dict(usemodules=["select", "_socket"])
 
-        cls.w_getpair = space.wrap(cls.getsocketpair)
+    def setup_class(cls):
+        cls.w_getpair = cls.space.wrap(cls.getsocketpair)
 
         import socket
         cls.sock = socket.socket()

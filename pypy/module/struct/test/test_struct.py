@@ -3,18 +3,17 @@ Tests for the struct module implemented at interp-level in pypy/module/struct.
 """
 
 import py
-from pypy.conftest import gettestobjspace
 from pypy.rlib.rstruct.nativefmttable import native_is_bigendian
 
 
 class AppTestStruct(object):
+    spaceconfig = dict(usemodules=['struct'])
 
     def setup_class(cls):
         """
         Create a space with the struct module and import it for use by the
         tests.
         """
-        cls.space = gettestobjspace(usemodules=['struct'])
         cls.w_struct = cls.space.appexec([], """():
             import struct
             return struct
@@ -387,12 +386,9 @@ class AppTestStruct(object):
 
 
 class AppTestStructBuffer(object):
+    spaceconfig = dict(usemodules=['struct', '__pypy__'])
 
     def setup_class(cls):
-        """
-        Create a space with the struct and __pypy__ modules.
-        """
-        cls.space = gettestobjspace(usemodules=['struct', '__pypy__'])
         cls.w_struct = cls.space.appexec([], """():
             import struct
             return struct

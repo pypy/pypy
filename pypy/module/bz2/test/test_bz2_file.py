@@ -1,7 +1,6 @@
 from __future__ import with_statement
 
 import py
-from pypy.conftest import gettestobjspace
 from pypy.module.bz2.test.support import CheckAllocation
 import os
 import random
@@ -48,17 +47,19 @@ def setup_module(mod):
 class AppTestBZ2File: #(CheckAllocation):
     # XXX for unknown reasons, we cannot do allocation checks, as sth is
     # keeping those objects alive (BZ2File objects)
+
+    spaceconfig = dict(usemodules=('bz2',))
+
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('bz2',))
-        cls.space = space
-        cls.w_TEXT = space.wrap(TEXT)
-        cls.w_DATA = space.wrap(DATA)
-        cls.w_DATA_CRLF = space.wrap(DATA_CRLF)
-        cls.w_temppath = space.wrap(str(py.test.ensuretemp("bz2").join("foo")))
-        cls.w_create_temp_file = space.wrap(create_temp_file)
-        cls.w_decompress = space.wrap(decompress)
-        cls.w_create_broken_temp_file = space.wrap(create_broken_temp_file)
-        cls.w_random_data = space.wrap(RANDOM_DATA)
+        cls.w_TEXT = cls.space.wrap(TEXT)
+        cls.w_DATA = cls.space.wrap(DATA)
+        cls.w_DATA_CRLF = cls.space.wrap(DATA_CRLF)
+        cls.w_temppath = cls.space.wrap(
+            str(py.test.ensuretemp("bz2").join("foo")))
+        cls.w_create_temp_file = cls.space.wrap(create_temp_file)
+        cls.w_decompress = cls.space.wrap(decompress)
+        cls.w_create_broken_temp_file = cls.space.wrap(create_broken_temp_file)
+        cls.w_random_data = cls.space.wrap(RANDOM_DATA)
         
     def test_attributes(self):
         from bz2 import BZ2File

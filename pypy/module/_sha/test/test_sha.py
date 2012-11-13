@@ -3,17 +3,12 @@ Tests for the sha module implemented at interp-level in pypy/module/sha.
 """
 
 import py
-from pypy.conftest import gettestobjspace
 
 
 class AppTestSHA(object):
+    spaceconfig = dict(usemodules=['_sha'])
 
     def setup_class(cls):
-        """
-        Create a space with the sha module and import it for use by the
-        tests.
-        """
-        cls.space = gettestobjspace(usemodules=['_sha'])
         cls.w_sha = cls.space.appexec([], """():
             import sha
             return sha

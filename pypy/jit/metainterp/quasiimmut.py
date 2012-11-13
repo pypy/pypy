@@ -22,7 +22,7 @@ def get_current_qmut_instance(cpu, gcref, mutatefielddescr):
         qmut = QuasiImmut.show(cpu, qmut_gcref)
     else:
         qmut = QuasiImmut(cpu)
-        cpu.bh_setfield_gc_r(gcref, mutatefielddescr, qmut.hide())
+        cpu.bh_setfield_gc_r(gcref, qmut.hide(), mutatefielddescr)
     return qmut
 
 def make_invalidation_function(STRUCT, mutatefieldname):
@@ -43,7 +43,7 @@ def make_invalidation_function(STRUCT, mutatefieldname):
 def do_force_quasi_immutable(cpu, p, mutatefielddescr):
     qmut_ref = cpu.bh_getfield_gc_r(p, mutatefielddescr)
     if qmut_ref:
-        cpu.bh_setfield_gc_r(p, mutatefielddescr, cpu.ts.NULLREF)
+        cpu.bh_setfield_gc_r(p, cpu.ts.NULLREF, mutatefielddescr)
         qmut_ptr = lltype.cast_opaque_ptr(rclass.OBJECTPTR, qmut_ref)
         qmut = cast_base_ptr_to_instance(QuasiImmut, qmut_ptr)
         qmut.invalidate()

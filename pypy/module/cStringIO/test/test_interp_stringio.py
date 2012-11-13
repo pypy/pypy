@@ -1,16 +1,12 @@
-
-from pypy.conftest import gettestobjspace
-
 import os, sys, py
 
 
 class AppTestcStringIO:
+    spaceconfig = dict(usemodules=('cStringIO',))
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('cStringIO',))
-        cls.space = space
-        cls.w_write_many_expected_result = space.wrap(''.join(
+        cls.w_write_many_expected_result = cls.space.wrap(''.join(
             [chr(i) for j in range(10) for i in range(253)]))
-        cls.w_StringIO = space.appexec([], """():
+        cls.w_StringIO = cls.space.appexec([], """():
             import cStringIO
             return cStringIO.StringIO
         """)

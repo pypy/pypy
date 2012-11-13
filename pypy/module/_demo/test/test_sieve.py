@@ -1,9 +1,5 @@
-from pypy.conftest import gettestobjspace
-
-
 class AppTestSieve:
-    def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=('_demo',))
+    spaceconfig = dict(usemodules=('_demo',))
 
     def test_sieve(self):
         import _demo

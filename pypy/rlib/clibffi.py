@@ -121,6 +121,7 @@ elif _MINGW:
          dict(prefix=r'c:\mingw64', include_dir='include', library_dir='lib'),
          ])
 else:
+    USE_C_LIBFFI_MSVC = True
     libffidir = py.path.local(pypydir).join('translator', 'c', 'src', 'libffi_msvc')
     if not _WIN64:
         asm_ifc = 'win32.c'

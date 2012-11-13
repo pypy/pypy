@@ -157,6 +157,12 @@ class FakeSpace(object):
         assert isinstance(w_obj, interp_boxes.W_GenericBox)
         return self.int(w_obj.descr_int(self))
 
+    def str(self, w_obj):
+        if isinstance(w_obj, StringObject):
+            return w_obj
+        assert isinstance(w_obj, interp_boxes.W_GenericBox)
+        return self.str(w_obj.descr_str(self))
+
     def is_true(self, w_obj):
         assert isinstance(w_obj, BoolObject)
         return False

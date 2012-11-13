@@ -1,4 +1,3 @@
-from pypy.conftest import gettestobjspace
 from pypy.module.bz2.test.support import CheckAllocation
 from pypy.module.bz2 import interp_bz2
 import os, py
@@ -37,12 +36,12 @@ def teardown_module(mod):
     interp_bz2.SMALLCHUNK = mod.OLD_SMALLCHUNK
 
 class AppTestBZ2Compressor(CheckAllocation):
+    spaceconfig = dict(usemodules=('bz2',))
+
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('bz2',))
-        cls.space = space
-        cls.w_TEXT = space.wrap(TEXT)
-        cls.w_decompress = space.wrap(decompress)
-        cls.w_HUGE_OK = space.wrap(HUGE_OK)
+        cls.w_TEXT = cls.space.wrap(TEXT)
+        cls.w_decompress = cls.space.wrap(decompress)
+        cls.w_HUGE_OK = cls.space.wrap(HUGE_OK)
         
     def test_creation(self):
         from bz2 import BZ2Compressor
@@ -97,12 +96,12 @@ class AppTestBZ2Compressor(CheckAllocation):
         assert self.decompress(data) == self.TEXT
 
 class AppTestBZ2Decompressor(CheckAllocation):
+    spaceconfig = dict(usemodules=('bz2',))
+
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('bz2',))
-        cls.space = space
-        cls.w_TEXT = space.wrap(TEXT)
-        cls.w_DATA = space.wrap(DATA)
-        cls.w_BUGGY_DATA = space.wrap(BUGGY_DATA)
+        cls.w_TEXT = cls.space.wrap(TEXT)
+        cls.w_DATA = cls.space.wrap(DATA)
+        cls.w_BUGGY_DATA = cls.space.wrap(BUGGY_DATA)
         
     def test_creation(self):
         from bz2 import BZ2Decompressor
@@ -172,13 +171,13 @@ class AppTestBZ2Decompressor(CheckAllocation):
         raises(IOError, bz2d.decompress, self.BUGGY_DATA)
 
 class AppTestBZ2ModuleFunctions(CheckAllocation):
+    spaceconfig = dict(usemodules=('bz2',))
+
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('bz2',))
-        cls.space = space
-        cls.w_TEXT = space.wrap(TEXT)
-        cls.w_DATA = space.wrap(DATA)
-        cls.w_decompress = space.wrap(decompress)
-        cls.w_HUGE_OK = space.wrap(HUGE_OK)
+        cls.w_TEXT = cls.space.wrap(TEXT)
+        cls.w_DATA = cls.space.wrap(DATA)
+        cls.w_decompress = cls.space.wrap(decompress)
+        cls.w_HUGE_OK = cls.space.wrap(HUGE_OK)
 
     def test_compress_function(self):
         from bz2 import compress

@@ -4,12 +4,10 @@ from pypy.objspace.test import test_descriptor
 
 
 class AppTestUserObject:
-    OPTIONS = {}    # for test_builtinshortcut.py
+    spaceconfig = {}
 
     def setup_class(cls):
-        from pypy import conftest
-        cls.space = conftest.gettestobjspace(**cls.OPTIONS)
-        cls.w_runappdirect = cls.space.wrap(bool(conftest.option.runappdirect))
+        cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
         def rand(space):
             import random
             return space.wrap(random.randrange(0, 5))
@@ -276,18 +274,15 @@ class AppTestUserObject:
 
 
 class AppTestWithMultiMethodVersion2(AppTestUserObject):
-    OPTIONS = {}    # for test_builtinshortcut.py
+    spaceconfig = {}
 
     def setup_class(cls):
-        from pypy import conftest
         from pypy.objspace.std import multimethod
 
         cls.prev_installer = multimethod.Installer
         multimethod.Installer = multimethod.InstallerVersion2
-        if conftest.option.runappdirect:
+        if cls.runappdirect:
             py.test.skip("Cannot run different installers when runappdirect")
-        config = conftest.make_config(conftest.option, **cls.OPTIONS)
-        cls.space = conftest.maketestobjspace(config)
 
     def teardown_class(cls):
         from pypy.objspace.std import multimethod
@@ -295,7 +290,7 @@ class AppTestWithMultiMethodVersion2(AppTestUserObject):
 
 
 class AppTestWithGetAttributeShortcut(AppTestUserObject):
-    OPTIONS = {"objspace.std.getattributeshortcut": True}
+    spaceconfig = {"objspace.std.getattributeshortcut": True}
 
 
 class AppTestDescriptorWithGetAttributeShortcut(
@@ -303,4 +298,4 @@ class AppTestDescriptorWithGetAttributeShortcut(
     # for the individual tests see
     # ====> ../../test/test_descriptor.py
 
-    OPTIONS = {"objspace.std.getattributeshortcut": True}
+    spaceconfig = {"objspace.std.getattributeshortcut": True}

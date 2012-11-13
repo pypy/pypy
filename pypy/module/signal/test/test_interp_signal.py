@@ -1,5 +1,4 @@
 import os, py
-from pypy import conftest; conftest.translation_test_so_skip_if_appdirect()
 from pypy.translator.c.test.test_genc import compile
 from pypy.module.signal import interp_signal
 

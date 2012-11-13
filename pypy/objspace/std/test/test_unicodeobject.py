@@ -1,6 +1,5 @@
 import py
 import sys
-from pypy.conftest import gettestobjspace
 
 class TestUnicodeObject:
 
@@ -22,6 +21,10 @@ class TestUnicodeObject:
             space.warn = prev_warn
         print self.space.config.objspace.std.withrope
         assert len(warnings) == 2
+
+    def test_listview_unicode(self):
+        w_str = self.space.wrap(u'abcd')
+        assert self.space.listview_unicode(w_str) == list(u"abcd")
 
 
 class AppTestUnicodeStringStdOnly:
@@ -45,9 +48,9 @@ class AppTestUnicodeStringStdOnly:
         
 
 class AppTestUnicodeString:
+    spaceconfig = dict(usemodules=('unicodedata',))
+
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('unicodedata',))
-        cls.space = space
         cls.w_version_info = cls.space.wrap(sys.version_info)
 
     def test_addition(self):
