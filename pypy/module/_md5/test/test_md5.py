@@ -3,17 +3,16 @@ Tests for the md5 module implemented at interp-level in pypy/module/_md5.
 """
 
 import py, sys
-from pypy.conftest import gettestobjspace
 
 
 class AppTestMD5(object):
+    spaceconfig = dict(usemodules=['_md5', 'binascii'])
 
     def setup_class(cls):
         """
         Create a space with the md5 module and import it for use by the
         tests.
         """
-        cls.space = gettestobjspace(usemodules=['_md5'])
         cls.w_md5 = cls.space.appexec([], """():
             import _md5
             return _md5
@@ -83,8 +82,8 @@ class AppTestMD5(object):
         Test passing a buffer object.
         """
         md5 = self.md5
-        d1 = md5.md5(buffer(b"abcde"))
-        d1.update(buffer(b"jkl"))
+        d1 = md5.md5(memoryview(b"abcde"))
+        d1.update(memoryview(b"jkl"))
         assert d1.hexdigest() == 'e570e7110ecef72fcb772a9c05d03373'
 
 
