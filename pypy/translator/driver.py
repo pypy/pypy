@@ -12,6 +12,7 @@ from pypy.annotation import policy as annpolicy
 from pypy.tool.udir import udir
 from pypy.tool.debug_print import debug_start, debug_print, debug_stop
 from pypy.rlib.entrypoint import secondary_entrypoints
+from pypy.rpython.typesystem import getfunctionptr
 
 import py
 from pypy.tool.ansi_print import ansi_log
@@ -589,8 +590,11 @@ class TranslationDriver(SimpleTaskEngine):
             raise ValueError, "llvm requires annotation."
 
         from pypy.translator.llvm import genllvm
-        self.llvmgen = genllvm.GenLLVM(translator, self.standalone)
-        self.llvmgen.prepare(self.entry_point, self.secondary_entrypoints)
+        self.llvmgen = genllvm.GenLLVM(translator)
+        getdesc = translator.annotator.bookkeeper.getdesc
+        secondary_entrypoints = [getfunctionptr(getdesc(func).getuniquegraph())
+                                 for func, _ in self.secondary_entrypoints]
+        self.llvmgen.prepare(self.entry_point, secondary_entrypoints)
 
     task_prepare_llvm = taskdef(task_prepare_llvm,
                                [STACKCHECKINSERTION, BACKENDOPT, RTYPE],
@@ -605,12 +609,9 @@ class TranslationDriver(SimpleTaskEngine):
 
     def task_compile_llvm(self):
         gen = self.llvmgen
-        if self.standalone:
-            exe_name = (self.exe_name or 'testing') % self.get_info()
-            self.c_entryp = gen.compile_standalone(exe_name)
-            self.create_exe()
-        else:
-            self.c_entryp = gen.compile_module()
+        exe_name = (self.exe_name or 'testing') % self.get_info()
+        self.c_entryp = gen.compile(exe_name)
+        self.create_exe()
 
     task_compile_llvm = taskdef(task_compile_llvm, ['source_llvm'],
                                 "Compiling llvm source")

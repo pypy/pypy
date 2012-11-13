@@ -1,22 +1,29 @@
+import __builtin__
 from cStringIO import StringIO
+import ctypes
 import py
 from pypy.config.pypyoption import get_pypy_config
 from pypy.objspace.flow.model import FunctionGraph, Block, Link
 from pypy.rlib.rarithmetic import LONG_BIT, r_uint, r_singlefloat
 from pypy.rlib.test.test_longlong2float import enum_floats, fn, fnsingle
 from pypy.rpython.lltypesystem import lltype, rffi, llmemory, llgroup
-from pypy.rpython.lltypesystem.ll2ctypes import force_cast
+from pypy.rpython.lltypesystem.ll2ctypes import (force_cast, get_ctypes_type,
+     lltype2ctypes, ctypes2lltype)
+from pypy.rpython.lltypesystem.rtuple import TupleRepr
+from pypy.rpython.lltypesystem.rstr import StringRepr, UnicodeRepr
 from pypy.rpython.lltypesystem.test.test_rffi import BaseTestRffi
+from pypy.rpython.module.support import LLSupport
 from pypy.rpython.test import (test_annlowlevel, test_exception,
      test_generator, test_rbool, test_rbuilder, test_rbuiltin, test_rclass,
      test_rconstantdict, test_rdict, test_remptydict, test_rfloat,
      test_rgeneric, test_rint, test_rlist, test_rpbc, test_rrange, test_rstr,
      test_rtuple, test_runicode, test_rvirtualizable2, test_rweakref)
+from pypy.rpython.typesystem import getfunctionptr
 from pypy.translator.backendopt.raisingop2direct_call import (
      raisingop2direct_call)
 from pypy.translator.c.test import (test_typed, test_lltyped,
      test_backendoptimized, test_newgc, test_refcount)
-from pypy.translator.llvm import genllvm
+from pypy.translator.llvm import genllvm as genllvm_mod
 from pypy.translator.unsimplify import varoftype
 from pypy.translator.transform import insert_ll_stackcheck
 from pypy.translator.translator import TranslationContext
@@ -35,54 +42,55 @@ def l(s):
 class TestDatabase(object):
     def setup_method(self, meth):
         self.f = StringIO()
-        genllvm.database = genllvm.Database(_Stub(), self.f)
+        genllvm_mod.database = genllvm_mod.Database(_Stub(), self.f)
 
     def test_repr_signed(self):
-        assert genllvm.get_repr(-1).TV == l('LONG -1')
+        assert genllvm_mod.get_repr(-1).TV == l('LONG -1')
         assert self.f.getvalue() == ''
 
     def test_repr_unsigned(self):
-        assert genllvm.get_repr(r_uint(1)).TV == l('LONG 1')
+        assert genllvm_mod.get_repr(r_uint(1)).TV == l('LONG 1')
         assert self.f.getvalue() == ''
 
     def test_repr_char(self):
-        assert genllvm.get_repr(chr(123)).TV == 'i8 123'
+        assert genllvm_mod.get_repr(chr(123)).TV == 'i8 123'
         assert self.f.getvalue() == ''
 
     def test_repr_bool(self):
-        assert genllvm.get_repr(True).TV == 'i1 true'
-        assert genllvm.get_repr(False).TV == 'i1 false'
+        assert genllvm_mod.get_repr(True).TV == 'i1 true'
+        assert genllvm_mod.get_repr(False).TV == 'i1 false'
         assert self.f.getvalue() == ''
 
     def test_repr_float(self):
-        assert genllvm.get_repr(0.3).TV == 'double 0.3'
+        assert genllvm_mod.get_repr(0.3).TV == 'double 0.3'
         assert self.f.getvalue() == ''
 
     def test_repr_fixed_size_array(self):
         array = lltype.FixedSizeArray(lltype.Signed, 2)._container_example()
-        assert genllvm.get_repr(array).TV == l('[2 x LONG] zeroinitializer')
+        assert genllvm_mod.get_repr(array).TV == l(
+                '[2 x LONG] zeroinitializer')
         array.setitem(0, 1)
         array.setitem(1, 2)
-        assert genllvm.get_repr(array).TV == l('[2 x LONG] [\n'
-                                               '    LONG 1, LONG 2\n'
-                                               ']')
+        assert genllvm_mod.get_repr(array).TV == l('[2 x LONG] [\n'
+                                                   '    LONG 1, LONG 2\n'
+                                                   ']')
         assert self.f.getvalue() == ''
 
     def test_repr_string(self):
         array = lltype.FixedSizeArray(lltype.Char, 7)._container_example()
         for i, c in enumerate("string\00"):
             array.setitem(i, c)
-        assert genllvm.get_repr(array).TV == r'[7 x i8] c"string\00"'
+        assert genllvm_mod.get_repr(array).TV == r'[7 x i8] c"string\00"'
         assert self.f.getvalue() == ''
 
     def test_repr_struct(self):
         struct = lltype.Struct(
                 'spam', ('eggs', lltype.Signed))._container_example()
-        assert genllvm.get_repr(struct).TV == '%spam zeroinitializer'
+        assert genllvm_mod.get_repr(struct).TV == '%spam zeroinitializer'
         struct.eggs = 1
-        assert genllvm.get_repr(struct).TV == l('%spam {\n'
-                                                '    LONG 1 ; eggs\n'
-                                                '}')
+        assert genllvm_mod.get_repr(struct).TV == l('%spam {\n'
+                                                    '    LONG 1 ; eggs\n'
+                                                    '}')
         assert self.f.getvalue() == l('%spam = type {\n'
                                       '    LONG ; eggs\n'
                                       '}\n')
@@ -91,13 +99,13 @@ class TestDatabase(object):
         struct = lltype.Struct(
                 'spam', ('eggs', lltype.Struct(
                         'foo', ('bar', lltype.Signed))))._container_example()
-        assert genllvm.get_repr(struct).TV == '%spam zeroinitializer'
+        assert genllvm_mod.get_repr(struct).TV == '%spam zeroinitializer'
         struct.eggs.bar = 1
-        assert genllvm.get_repr(struct).TV == l('%spam {\n'
-                                                '    %foo {\n'
-                                                '        LONG 1 ; bar\n'
-                                                '    } ; eggs\n'
-                                                '}')
+        assert genllvm_mod.get_repr(struct).TV == l('%spam {\n'
+                                                    '    %foo {\n'
+                                                    '        LONG 1 ; bar\n'
+                                                    '    } ; eggs\n'
+                                                    '}')
         assert self.f.getvalue() == l('%foo = type {\n'
                                       '    LONG ; bar\n'
                                       '}\n'
@@ -107,13 +115,13 @@ class TestDatabase(object):
 
     def test_repr_array(self):
         array = lltype.Array(lltype.Signed)._container_example()
-        assert genllvm.get_repr(array).TV == l(
+        assert genllvm_mod.get_repr(array).TV == l(
                 '%array_of_LONG_plus_1 {\n'
                 '    LONG 1, ; len\n'
                 '    [1 x LONG] zeroinitializer ; items\n'
                 '}')
         array.setitem(0, 1)
-        assert genllvm.get_repr(array).TV == l(
+        assert genllvm_mod.get_repr(array).TV == l(
                 '%array_of_LONG_plus_1 {\n'
                 '    LONG 1, ; len\n'
                 '    [1 x LONG] [\n'
@@ -133,13 +141,13 @@ class TestDatabase(object):
     def test_repr_array_of_ptr(self):
         struct_ptr_type = lltype.Ptr(lltype.Struct('x', ('y', lltype.Signed)))
         array = lltype.Array(struct_ptr_type)._container_example()
-        assert genllvm.get_repr(array).TV == l(
+        assert genllvm_mod.get_repr(array).TV == l(
                 '%array_of_x_ptr_plus_1 {\n'
                 '    LONG 1, ; len\n'
                 '    [1 x %x*] zeroinitializer ; items\n'
                 '}')
         array.setitem(0, struct_ptr_type._example())
-        assert genllvm.get_repr(array).TV == l(
+        assert genllvm_mod.get_repr(array).TV == l(
                 '%array_of_x_ptr_plus_1 {\n'
                 '    LONG 1, ; len\n'
                 '    [1 x %x*] [\n'
@@ -162,20 +170,20 @@ class TestDatabase(object):
 
     def test_repr_func_type(self):
         func_type = lltype.FuncType([lltype.Signed], lltype.Void)
-        assert genllvm.database.get_type(func_type).repr_type() == l(
+        assert genllvm_mod.database.get_type(func_type).repr_type() == l(
                 'void (LONG)')
 
     def test_repr_fixed_size_array_ptr(self):
         array_ptr = lltype.Ptr(
                 lltype.FixedSizeArray(lltype.Signed, 2))._example()
-        assert genllvm.get_repr(array_ptr).TV == l('[2 x LONG]* @global')
+        assert genllvm_mod.get_repr(array_ptr).TV == l('[2 x LONG]* @global')
         assert self.f.getvalue() == l(
                 '@global = internal global [2 x LONG] zeroinitializer\n')
 
     def test_repr_struct_ptr(self):
         struct_ptr = lltype.Ptr(
                 lltype.Struct('spam', ('eggs', lltype.Signed)))._example()
-        assert genllvm.get_repr(struct_ptr).TV == '%spam* @global'
+        assert genllvm_mod.get_repr(struct_ptr).TV == '%spam* @global'
         assert self.f.getvalue() == l(
                 '%spam = type {\n'
                 '    LONG ; eggs\n'
@@ -184,7 +192,7 @@ class TestDatabase(object):
 
     def test_repr_array_ptr(self):
         array_ptr = lltype.Ptr(lltype.Array(lltype.Signed))._example()
-        assert genllvm.get_repr(array_ptr).TV == l(
+        assert genllvm_mod.get_repr(array_ptr).TV == l(
                 '%array_of_LONG_varsize* bitcast(%array_of_LONG_plus_1* '
                 '@global to %array_of_LONG_varsize*)')
         assert self.f.getvalue() == l(
@@ -204,7 +212,7 @@ class TestDatabase(object):
     def test_repr_nested_array_ptr(self):
         nested_array_ptr = lltype.Ptr(lltype.Struct(
                 'foo', ('bar', lltype.Array(lltype.Signed))))._example()
-        assert genllvm.get_repr(nested_array_ptr).TV == (
+        assert genllvm_mod.get_repr(nested_array_ptr).TV == (
                 '%foo_varsize* bitcast(%foo_plus_1* @global to %foo_varsize*)')
         assert self.f.getvalue() == l(
                 '%array_of_LONG_varsize = type {\n'
@@ -230,16 +238,78 @@ class TestDatabase(object):
 
     def test_typedef(self):
         TD = lltype.Typedef(lltype.Signed, 'test')
-        assert genllvm.database.get_type(TD).repr_type() == l('LONG')
+        assert genllvm_mod.database.get_type(TD).repr_type() == l('LONG')
 
     def test_unique_name(self):
-        assert genllvm.database.unique_name('@test') == '@test'
-        assert genllvm.database.unique_name('@test') == '@test_1'
-        assert genllvm.database.unique_name('@test_1') == '@test_1_1'
-        assert genllvm.database.unique_name('%test') == '%test'
-        assert genllvm.database.unique_name('%test') == '%test_1'
-        assert genllvm.database.unique_name('@test:') == '@"test:"'
-        assert genllvm.database.unique_name('@test:') == '@"test:_1"'
+        assert genllvm_mod.database.unique_name('@test') == '@test'
+        assert genllvm_mod.database.unique_name('@test') == '@test_1'
+        assert genllvm_mod.database.unique_name('@test_1') == '@test_1_1'
+        assert genllvm_mod.database.unique_name('%test') == '%test'
+        assert genllvm_mod.database.unique_name('%test') == '%test_1'
+        assert genllvm_mod.database.unique_name('@test:') == '@"test:"'
+        assert genllvm_mod.database.unique_name('@test:') == '@"test:_1"'
+
+
+class CTypesFuncWrapper(object):
+    def __init__(self, genllvm, graph, path):
+        self.graph = graph
+        self.rtyper = genllvm.translator.rtyper
+        self.convert = True
+        cdll = ctypes.CDLL(path)
+        self.entry_point = self._func(
+                cdll, getfunctionptr(self.graph))
+        self.rpyexc_clear = self._func(
+                cdll, genllvm.exctransformer.rpyexc_clear_ptr.value)
+        self.rpyexc_occured = self._func(
+                cdll, genllvm.exctransformer.rpyexc_occured_ptr.value)
+        self.rpyexc_fetch_type = self._func(
+                cdll, genllvm.exctransformer.rpyexc_fetch_type_ptr.value)
+
+    def _func(self, cdll, func_ptr):
+        func = getattr(cdll, genllvm_mod.get_repr(func_ptr).V[1:])
+        func.restype = get_ctypes_type(func_ptr._T.RESULT)
+        func.argtypes = map(get_ctypes_type, func_ptr._T.ARGS)
+        def _call(*args):
+            ret = func(*(lltype2ctypes(arg) for arg in args))
+            return ctypes2lltype(func_ptr._T.RESULT, ret)
+        return _call
+
+    def __call__(self, *args, **kwds):
+        expected_exception_name = kwds.pop('expected_exception_name', None)
+        if self.convert:
+            getrepr = self.rtyper.bindingrepr
+            args = [self._Repr2lltype(getrepr(var), arg)
+                    for var, arg in zip(self.graph.getargs(), args)]
+        self.rpyexc_clear()
+        ret = self.entry_point(*args)
+        if self.rpyexc_occured():
+            name = ''.join(self.rpyexc_fetch_type().name._obj.items[:-1])
+            if expected_exception_name is not None:
+                assert name == expected_exception_name
+                return
+            if name == 'UnicodeEncodeError':
+                raise UnicodeEncodeError('', u'', 0, 0, '')
+            raise getattr(__builtin__, name, RuntimeError)
+        if self.convert:
+            return self._lltype2Repr(getrepr(self.graph.getreturnvar()), ret)
+        return ret
+
+    def _Repr2lltype(self, repr_, value):
+        if isinstance(repr_.lowleveltype, lltype.Primitive):
+            return value
+        return {StringRepr: LLSupport.to_rstr,
+                UnicodeRepr: LLSupport.to_runicode
+               }[repr_.__class__](value)
+
+    def _lltype2Repr(self, repr_, value):
+        if isinstance(repr_.lowleveltype, lltype.Primitive):
+            return value
+        return {TupleRepr: lambda repr_, value: tuple(
+                    self._lltype2Repr(item_r, getattr(value, name))
+                    for item_r, name in zip(repr_.items_r, repr_.fieldnames)),
+                StringRepr: lambda repr_, value: ''.join(value.chars),
+                UnicodeRepr: lambda repr_, value: u''.join(value.chars)
+               }[repr_.__class__](repr_, value)
 
 
 class _LLVMMixin(object):
@@ -247,13 +317,14 @@ class _LLVMMixin(object):
     _types = None
 
     def __init__(self):
-        self.config_override = {'translation.gc': 'ref'}
+        self.config_override = {}
         self.annotator_policy = None
 
-    def getcompiled(self, func, argtypes):
+    def getcompiled(self, func, argtypes, gcpolicy='ref'):
         config = get_pypy_config(translating=True)
         config.translation.backendopt.raisingop2direct_call = True
         config.translation.simplifying = True
+        config.translation.gc = gcpolicy
         config.override(self.config_override)
         t = self._translator = TranslationContext(config=config)
         a = t.buildannotator(self.annotator_policy)
@@ -265,19 +336,25 @@ class _LLVMMixin(object):
             t.view()
         t.checkgraphs()
         insert_ll_stackcheck(t)
-        gen_llvm = self.genllvm = genllvm.GenLLVM(t, False)
-        gen_llvm.prepare(func, ())
-        gen_llvm.gen_source()
-        return gen_llvm.compile_module()
 
-    def _compile(self, func, args, someobjects=False, policy=None):
-        if someobjects:
-            py.test.skip('PyObjects are not supported yet')
+        genllvm = self.genllvm = genllvm_mod.GenLLVM(t)
+        graph = a.bookkeeper.getdesc(func).getuniquegraph()
+        genllvm.prepare(None, [
+                getfunctionptr(graph),
+                genllvm.exctransformer.rpyexc_clear_ptr.value,
+                genllvm.exctransformer.rpyexc_occured_ptr.value,
+                genllvm.exctransformer.rpyexc_fetch_type_ptr.value])
+        genllvm.gen_source()
+        so_file = genllvm.base_path.new(ext='.so')
+        genllvm._compile('-shared -fPIC ', so_file)
+        return CTypesFuncWrapper(genllvm, graph, str(so_file))
+
+    def _compile(self, func, args, policy=None, gcpolicy=None):
         types = [lltype.typeOf(arg) for arg in args]
         if not (func == self._func and types == self._types):
             self.config_override['translation.gcremovetypeptr'] = False
             self.annotator_policy = policy
-            self._compiled = self.getcompiled(func, types)
+            self._compiled = self.getcompiled(func, types, gcpolicy=gcpolicy)
             self._compiled.convert = False
             self._func = func
             self._types = types
@@ -305,8 +382,8 @@ class TestSpecialCases(_LLVMMixin):
         assert fc() == 1e-06
 
     def test_two_exits_non_bool(self):
-        genllvm.database = genllvm.Database(_Stub(), None)
-        genllvm.database.genllvm.export = {}
+        genllvm_mod.database = genllvm_mod.Database(_Stub(), None)
+        genllvm_mod.database.genllvm.entrypoints = set()
         var = varoftype(lltype.Signed)
         startblock = Block([var])
         startblock.exitswitch = var
@@ -315,8 +392,8 @@ class TestSpecialCases(_LLVMMixin):
         startblock.exits[0].llexitcase = 0
         startblock.exits[1].llexitcase = 1
         graph = FunctionGraph('test', startblock, var)
-        writer = genllvm.FunctionWriter()
-        writer.write_graph('@test', graph)
+        writer = genllvm_mod.FunctionWriter()
+        writer.write_graph('@test', graph, False)
         assert [line.strip() for line in writer.lines[-4:-1]] == [
                 'badswitch:', 'call void @abort() noreturn nounwind',
                 'unreachable']
@@ -381,8 +458,7 @@ class TestSpecialCases(_LLVMMixin):
             # _consider_constant() before A1's vtable is added to the group
             return b.x * g(x)
 
-        self.config_override['translation.gc'] = 'minimark'
-        fc = self.getcompiled(f, [int])
+        fc = self.getcompiled(f, [int], 'minimark')
         assert fc(0) == 11
         assert fc(1) == 44
 
@@ -417,8 +493,7 @@ class TestSpecialCases(_LLVMMixin):
             else:
                 b = b2
             return unerase(b.x).y
-        self.config_override['translation.gc'] = 'minimark'
-        fc = self.getcompiled(f, [int])
+        fc = self.getcompiled(f, [int], 'minimark')
         assert fc(0) == 11
         assert fc(1) == 22
 
@@ -492,7 +567,7 @@ class TestSpecialCases(_LLVMMixin):
         from pypy.rlib.entrypoint import entrypoint
         from pypy.translator.interactive import Translation
 
-        def f():
+        def f(args):
             return 3
 
         key = 'test_entrypoints42'
@@ -500,7 +575,7 @@ class TestSpecialCases(_LLVMMixin):
         def g(x):
             return x + 42
 
-        t = Translation(f, [], backend='llvm', secondaryentrypoints=key,
+        t = Translation(f, None, backend='llvm', secondaryentrypoints=key,
                         gcremovetypeptr=False)
         t.annotate()
         t.source_llvm()
@@ -584,8 +659,7 @@ class TestTypedOptimizedSwitchTestCaseLLVM(test_backendoptimized
 class TestLLVMRffi(BaseTestRffi, _LLVMMixin):
     def compile(self, func, argtypes=None, backendopt=True, gcpolicy='ref'):
         # XXX do not ignore backendopt
-        self.config_override['translation.gc'] = gcpolicy
-        fn = self.getcompiled(func, argtypes)
+        fn = self.getcompiled(func, argtypes, gcpolicy)
         def fn2(*args, **kwds):
             kwds.pop('expected_extra_mallocs', None)
             return fn(*args, **kwds)
@@ -607,8 +681,7 @@ class TestRefcountLLVM(_LLVMMixin, test_refcount.TestRefcount):
     def compile_func(self, fn, inputtypes, t=None):
         if t is not None:
             py.test.skip('not supported yet')
-        self.config_override['translation.gc'] = 'ref'
-        return self.getcompiled(fn, inputtypes)
+        return self.getcompiled(fn, inputtypes, gcpolicy='ref')
 
 
 class TestRtypingLLVM(_LLVMMixin, test_annlowlevel.TestLLType):
@@ -713,5 +786,5 @@ class TestRvirtualizableLLVM(_LLVMMixin, test_rvirtualizable2.TestLLtype):
 
 class TestRweakrefLLVM(_LLVMMixin, test_rweakref.TestLLtype):
     def _compile(self, *args, **kwds):
-        self.config_override['translation.gc'] = 'minimark'
+        kwds['gcpolicy'] = 'minimark'
         return _LLVMMixin._compile(self, *args, **kwds)

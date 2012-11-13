@@ -1,6 +1,5 @@
-import __builtin__
-import ctypes
 from itertools import count
+from os import write
 import py
 import re
 
@@ -15,13 +14,11 @@ from pypy.rlib.objectmodel import (Symbolic, ComputedIntSymbolic,
      CDefinedIntSymbolic, malloc_zero_filled, running_on_llinterp)
 from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
 from pypy.rpython.lltypesystem import llarena, llgroup, llmemory, lltype, rffi
-from pypy.rpython.lltypesystem.ll2ctypes import (_llvm_needs_header,
-     get_ctypes_type, lltype2ctypes, ctypes2lltype, _array_mixin)
+from pypy.rpython.lltypesystem.ll2ctypes import (_llvm_needs_header, _array_mixin)
 from pypy.rpython.memory.gctransform.refcounting import (
      RefcountingGCTransformer)
 from pypy.rpython.memory.gctransform.shadowstack import (
      ShadowStackFrameworkGCTransformer)
-from pypy.rpython.module.support import LLSupport
 from pypy.rpython.typesystem import getfunctionptr
 from pypy.translator.backendopt.removenoops import remove_same_as
 from pypy.translator.backendopt.ssa import SSI_to_SSA
@@ -672,7 +669,7 @@ class FuncType(Type):
             ptr_type.refs[obj] = name
             if hasattr(obj, 'graph'): # XXX: needs test
                 writer = FunctionWriter()
-                writer.write_graph(name, obj.graph)
+                writer.write_graph(name, obj.graph, obj in database.genllvm.entrypoints)
                 database.f.writelines(writer.lines)
 
 
@@ -751,7 +748,7 @@ class Database(object):
 
 OPS = {
 }
-for type_ in ['int', 'uint', 'llong', 'ullong']:
+for type_ in ['int', 'uint', 'llong', 'ullong', 'lllong']:
     OPS[type_ + '_lshift'] = 'shl'
     OPS[type_ + '_rshift'] = 'lshr' if type_[0] == 'u' else 'ashr'
     OPS[type_ + '_add'] = 'add' if type_[0] == 'u' else 'add nsw'
@@ -870,7 +867,7 @@ class FunctionWriter(object):
     def w(self, line, indent='    '):
         self.lines.append('{}{}\n'.format(indent, line))
 
-    def write_graph(self, name, graph):
+    def write_graph(self, name, graph, export):
         genllvm = database.genllvm
         genllvm.gcpolicy.gctransformer.inline_helpers(graph)
         # the 'gc_reload_possibly_moved' operations make the graph not
@@ -901,7 +898,7 @@ class FunctionWriter(object):
         SSI_to_SSA(graph)
 
         self.w('define {linkage}{retvar.T} {name}({a}) {{'.format(
-                       linkage='' if graph in genllvm.export else 'internal ',
+                       linkage='' if export else 'internal ',
                        retvar=get_repr(graph.getreturnvar()),
                        name=name,
                        a=', '.join(get_repr(arg).TV for arg in graph.getargs()
@@ -1512,112 +1509,6 @@ class RefcountGCPolicy(GCPolicy):
         return [self.gctransformer.gcheaderbuilder.header_of_object(obj)._obj]
 
 
-def make_main(genllvm, entrypoint):
-    import os
-
-    def main(argc, argv):
-        args = [rffi.charp2str(argv[i]) for i in range(argc)]
-        try:
-            return entrypoint(args)
-        except Exception, exc:
-            os.write(2, 'DEBUG: An uncaught exception was raised in '
-                        'entrypoint: ' + str(exc) + '\n')
-            return 1
-    main.c_name = 'main'
-
-    mixlevelannotator = MixLevelHelperAnnotator(genllvm.translator.rtyper)
-    arg1 = annmodel.lltype_to_annotation(rffi.INT)
-    arg2 = annmodel.lltype_to_annotation(rffi.CCHARPP)
-    res = annmodel.lltype_to_annotation(lltype.Signed)
-    graph = mixlevelannotator.getgraph(main, [arg1, arg2], res)
-    mixlevelannotator.finish()
-    mixlevelannotator.backend_optimize()
-    genllvm.export.add(graph)
-    return graph
-
-
-class CTypesFuncWrapper(object):
-    def __init__(self, genllvm, entry_point):
-        self.rtyper = genllvm.translator.rtyper
-        self.graph = entry_point
-        self.entry_point_def = self._get_ctypes_def(
-                getfunctionptr(entry_point))
-        self.rpyexc_clear_def = self._get_ctypes_def(
-                genllvm.exctransformer.rpyexc_clear_ptr.value)
-        self.rpyexc_occured_def = self._get_ctypes_def(
-                genllvm.exctransformer.rpyexc_occured_ptr.value)
-        self.rpyexc_fetch_type_def = self._get_ctypes_def(
-                genllvm.exctransformer.rpyexc_fetch_type_ptr.value)
-        self.convert = True
-
-    def _get_ctypes_def(self, func_ptr):
-        database.genllvm.export.add(func_ptr._obj.graph)
-        return (get_repr(func_ptr).V[1:],
-                get_ctypes_type(func_ptr._T.RESULT),
-                map(get_ctypes_type, func_ptr._T.ARGS),
-                func_ptr._T.RESULT)
-
-    def load_cdll(self, path):
-        cdll = ctypes.CDLL(path)
-        self.entry_point = self._func(cdll, *self.entry_point_def)
-        self.rpyexc_clear = self._func(cdll, *self.rpyexc_clear_def)
-        self.rpyexc_occured = self._func(cdll, *self.rpyexc_occured_def)
-        self.rpyexc_fetch_type = self._func(cdll, *self.rpyexc_fetch_type_def)
-
-    def _func(self, cdll, name, restype, argtypes, ll_restype):
-        func = getattr(cdll, name)
-        func.restype = restype
-        func.argtypes = argtypes
-        def _call(*args):
-            ret = func(*(lltype2ctypes(arg) for arg in args))
-            return ctypes2lltype(ll_restype, ret)
-        return _call
-
-    def __call__(self, *args):
-        if self.convert:
-            getrepr = self.rtyper.bindingrepr
-            args = [self._Repr2lltype(getrepr(var), arg)
-                    for var, arg in zip(self.graph.getargs(), args)]
-        self.rpyexc_clear()
-        ret = self.entry_point(*args)
-        if self.rpyexc_occured():
-            name = ''.join(self.rpyexc_fetch_type().name._obj.items[:-1])
-            if name == 'UnicodeEncodeError':
-                raise UnicodeEncodeError('', u'', 0, 0, '')
-            raise getattr(__builtin__, name, RuntimeError)
-        if self.convert:
-            return self._lltype2Repr(getrepr(self.graph.getreturnvar()), ret)
-        return ret
-
-    def _StringRepr2lltype(self, repr_, value):
-        return LLSupport.to_rstr(value)
-
-    def _UnicodeRepr2lltype(self, repr_, value):
-        return LLSupport.to_runicode(value)
-
-    def _Repr2lltype(self, repr_, value):
-        if isinstance(repr_.lowleveltype, lltype.Primitive):
-            return value
-        convert = getattr(self, '_{}2lltype'.format(repr_.__class__.__name__))
-        return convert(repr_, value)
-
-    def _lltype2TupleRepr(self, repr_, value):
-        return tuple(self._lltype2Repr(item_r, getattr(value, name))
-                     for item_r, name in zip(repr_.items_r, repr_.fieldnames))
-
-    def _lltype2StringRepr(self, repr_, value):
-        return ''.join(value.chars)
-
-    def _lltype2UnicodeRepr(self, repr_, value):
-        return u''.join(value.chars)
-
-    def _lltype2Repr(self, repr_, value):
-        if isinstance(repr_.lowleveltype, lltype.Primitive):
-            return value
-        convert = getattr(self, '_lltype2' + repr_.__class__.__name__)
-        return convert(repr_, value)
-
-
 allocator_eci = ExternalCompilationInfo(
     include_dirs = [local(pypydir) / 'translator' / 'c'],
     includes = ['src/allocator.h']
@@ -1652,14 +1543,14 @@ null_int = ConstantRepr(LLVMInt, 0)
 null_char = ConstantRepr(LLVMChar, '\0')
 null_bool = ConstantRepr(LLVMBool, 0)
 
+
 class GenLLVM(object):
-    def __init__(self, translator, standalone):
+    def __init__(self, translator):
         # XXX refactor code to be less recursive
         import sys
         sys.setrecursionlimit(10000)
 
         self.translator = translator
-        self.standalone = standalone
         self.exctransformer = translator.getexceptiontransformer()
         self.gcpolicy = {
             'framework': FrameworkGCPolicy,
@@ -1667,7 +1558,7 @@ class GenLLVM(object):
         }[translator.config.translation.gctransformer](self)
         self.transformed_graphs = set()
         self.ecis = []
-        self.export = set()
+        self.entrypoints = set()
 
     def transform_graph(self, graph):
         if (graph not in self.transformed_graphs and
@@ -1676,14 +1567,28 @@ class GenLLVM(object):
             self.exctransformer.create_exception_handling(graph)
             self.gcpolicy.transform_graph(graph)
 
-    def prepare(self, entry_point, secondary_entrypoints):
-        bk = self.translator.annotator.bookkeeper
-        if self.standalone:
-            self.entry_point = make_main(self, entry_point)
-        else:
-            self.entry_point = bk.getdesc(entry_point).getuniquegraph()
-        for secondary_entrypoint, _ in secondary_entrypoints:
-             self.export.add(bk.getdesc(secondary_entrypoint).getuniquegraph())
+    def prepare(self, entrypoint, secondary_entrypoints):
+        if callable(entrypoint):
+            def main(argc, argv):
+                try:
+                    args = [rffi.charp2str(argv[i]) for i in range(argc)]
+                    return entrypoint(args)
+                except Exception, exc:
+                    write(2, 'DEBUG: An uncaught exception was raised in '
+                             'entrypoint: ' + str(exc) + '\n')
+                    return 1
+            main.c_name = 'main'
+
+            mixlevelannotator = MixLevelHelperAnnotator(self.translator.rtyper)
+            arg1 = annmodel.lltype_to_annotation(rffi.INT)
+            arg2 = annmodel.lltype_to_annotation(rffi.CCHARPP)
+            res = annmodel.lltype_to_annotation(lltype.Signed)
+            graph = mixlevelannotator.getgraph(main, [arg1, arg2], res)
+            mixlevelannotator.finish()
+            mixlevelannotator.backend_optimize()
+            self.entrypoints.add(getfunctionptr(graph)._obj)
+        self.entrypoints.update(ep._obj for ep in secondary_entrypoints)
+
         for graph in self.translator.graphs:
             self.transform_graph(graph)
         self.ovf_err = self.exctransformer.get_builtin_exception(OverflowError)
@@ -1691,42 +1596,46 @@ class GenLLVM(object):
         self.gcpolicy._consider_constant(ovf_err_inst._T, ovf_err_inst._obj)
         self.gcpolicy.finish()
 
+    def _parse_datalayout(self, output):
+        pointer = output.index('p:')
+        minus = output.index('-', pointer)
+        tmp = output[pointer:minus].split(':')
+        global align
+        align = int(tmp[3]) / 8
+
+    def _write_special_declarations(self, f):
+        f.write('declare void @abort() noreturn nounwind\n')
+        for op in ('sadd', 'ssub', 'smul'):
+            f.write('declare {{{T}, i1}} @llvm.{op}.with.overflow.{T}('
+                    '{T} %a, {T} %b)\n'.format(op=op, T=SIGNED_TYPE))
+        exctrans = self.exctransformer
+        f.write('define internal void @_raise_ovf(i1 %x) alwaysinline {{\n'
+                '  block0:\n'
+                '    br i1 %x, label %block1, label %block2\n'
+                '  block1:\n'
+                '    call void {raise_.V}({type_.TV}, {inst.TV})\n'
+                '    ret void\n'
+                '  block2:\n'
+                '    ret void\n'
+                '}}\n'.format(raise_=get_repr(exctrans.rpyexc_raise_ptr),
+                              type_=get_repr(self.ovf_err[0]),
+                              inst=get_repr(self.ovf_err[1])))
+
     def gen_source(self):
         global database
 
         self.base_path = udir.join(uniquemodulename('main'))
-
         with self.base_path.new(ext='.ll').open('w') as f:
             output = cmdexec('clang -emit-llvm -S -x c /dev/null -o -')
-            pointer = output.index('p:')
-            minus = output.index('-', pointer)
-            tmp = output[pointer:minus].split(':')
-            global align
-            align = int(tmp[3]) / 8
+            self._parse_datalayout(output)
             f.write(output)
-            f.write('declare void @abort() noreturn nounwind\n')
-            for op in ('sadd', 'ssub', 'smul'):
-                f.write('declare {{{T}, i1}} @llvm.{op}.with.overflow.{T}('
-                        '{T} %a, {T} %b)\n'.format(op=op, T=SIGNED_TYPE))
+
             database = Database(self, f)
-            exctrans = self.exctransformer
-            f.write('define internal void @_raise_ovf(i1 %x) alwaysinline {{\n'
-                    '  block0:\n'
-                    '    br i1 %x, label %block1, label %block2\n'
-                    '  block1:\n'
-                    '    call void {raise_.V}({type_.TV}, {inst.TV})\n'
-                    '    ret void\n'
-                    '  block2:\n'
-                    '    ret void\n'
-                    '}}\n'.format(raise_=get_repr(exctrans.rpyexc_raise_ptr),
-                                  type_=get_repr(self.ovf_err[0]),
-                                  inst=get_repr(self.ovf_err[1])))
+            self._write_special_declarations(f)
 
             self.gcpolicy.add_startup_code()
-            if not self.standalone:
-                self.wrapper = CTypesFuncWrapper(self, self.entry_point)
-            for export in self.export:
-                get_repr(getfunctionptr(export)).V
+            for export in self.entrypoints:
+                get_repr(export._as_ptr()).V
 
             if database.hashes:
                 items = ('i8* bitcast({}* {}_hash to i8*)'
@@ -1761,12 +1670,6 @@ class GenLLVM(object):
                 ''.join('{} '.format(mf) for mf in eci.separate_module_files),
                 self.base_path, outfile))
 
-    def compile_standalone(self, exe_name):
+    def compile(self, exe_name):
         self._compile('', self.base_path)
         return self.base_path
-
-    def compile_module(self):
-        so_file = self.base_path.new(ext='.so')
-        self._compile('-shared -fPIC ', so_file)
-        self.wrapper.load_cdll(str(so_file))
-        return self.wrapper
