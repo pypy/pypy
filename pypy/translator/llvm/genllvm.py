@@ -1316,6 +1316,26 @@ class FunctionWriter(object):
         self._cast(t2, t1)
         self.op_get_next_group_member(result, grpptr, t2, skipoffset)
 
+    def op_gc_gcflag_extra(self, result, subopnum, obj=None):
+        if subopnum.value == 1:
+            self.w('{result.V} = and i1 true, true'.format(**locals()))
+            return
+        gctransformer = database.genllvm.gcpolicy.gctransformer
+        gcflag_extra = get_repr(gctransformer.gcdata.gc.gcflag_extra)
+        t1 = self._tmp(database.get_type(lltype.Ptr(gctransformer.HDR)))
+        t2 = self._tmp(database.get_type(gctransformer.HDR._flds['tid']))
+        t3 = self._tmp(database.get_type(gctransformer.HDR._flds['tid']))
+        self._cast(t1, obj)
+        self._get_element(t2, t1, ConstantRepr(LLVMVoid, 'tid'))
+        if subopnum.value == 2:
+            self.w('{t3.V} = and {t2.TV}, {gcflag_extra.V}'.format(**locals()))
+            self._is_true(result, t3)
+        elif subopnum.value == 3:
+            self.w('{t3.V} = xor {t2.TV}, {gcflag_extra.V}'.format(**locals()))
+            self._set_element(result, t1, ConstantRepr(LLVMVoid, 'tid'), t3)
+        else:
+            assert False, "No subop {}".format(subopnum.value)
+
     def _ignore(self, *args):
         pass
     op_gc_stack_bottom = _ignore
