@@ -186,6 +186,7 @@ class WarmRunnerDesc(object):
         self.set_translator(translator)
         self.memory_manager = memmgr.MemoryManager()
         self.build_cpu(CPUClass, **kwds)
+        self.inline_inlineable_portals()
         self.find_portals()
         self.codewriter = codewriter.CodeWriter(self.cpu, self.jitdrivers_sd)
         if policy is None:
@@ -241,6 +242,46 @@ class WarmRunnerDesc(object):
         self.rtyper = translator.rtyper
         self.gcdescr = gc.get_description(translator.config)
 
+    def inline_inlineable_portals(self):
+        """
+        Find all the graphs which have been decorated with
+        @jitdriver.inline_in_portal and inline them in the callers, making
+        them JIT portals. Then, create a fresh copy of the jitdriver for each
+        of those new portals, because they cannot share the same one.  See
+        test_ajit::test_inline_in_portal.
+        """
+        from pypy.translator.backendopt import inline
+        lltype_to_classdef = self.translator.rtyper.lltype_to_classdef_mapping()
+        raise_analyzer = inline.RaiseAnalyzer(self.translator)
+        callgraph = inline.inlinable_static_callers(self.translator.graphs)
+        new_portals = set()
+        for caller, callee in callgraph:
+            func = getattr(callee, 'func', None)
+            _inline_in_portal_ = getattr(func, '_inline_in_portal_', True)
+            if _inline_in_portal_:
+                count = inline.inline_function(self.translator, callee, caller,
+                                               lltype_to_classdef, raise_analyzer)
+                assert count > 0, ('The function has been decorated with '
+                                   '@inline_in_portal, but it is not possible '
+                                   'to inline it')
+                new_portals.add(caller)
+        self.clone_inlined_jit_merge_points(new_portals)
+
+    def clone_inlined_jit_merge_points(self, graphs):
+        """
+        Find all the jit_merge_points in the given graphs, and replace the
+        original JitDriver with a fresh clone.
+        """
+        if not graphs:
+            return
+        for graph, block, pos in find_jit_merge_points(graphs):
+            op = block.operations[pos]
+            v_driver = op.args[1]
+            new_driver = v_driver.value.clone()
+            c_new_driver = Constant(new_driver, v_driver.concretetype)
+            op.args[1] = c_new_driver
+
+
     def find_portals(self):
         self.jitdrivers_sd = []
         graphs = self.translator.graphs
@@ -294,7 +335,13 @@ class WarmRunnerDesc(object):
         jd._jit_merge_point_in = graph
         args = op.args[2:]
         s_binding = self.translator.annotator.binding
-        jd._portal_args_s = [s_binding(v) for v in args]
+        if op.args[1].value.autoreds:
+            # _portal_args_s is used only by _make_hook_graph, but for now we
+            # declare the various set_jitcell_at, get_printable_location,
+            # etc. as incompatible with autoreds
+            jd._portal_args_s = None
+        else:
+            jd._portal_args_s = [s_binding(v) for v in args]
         graph = copygraph(graph)
         [jmpp] = find_jit_merge_points([graph])
         graph.startblock = support.split_before_jit_merge_point(*jmpp)
@@ -546,6 +593,7 @@ class WarmRunnerDesc(object):
         if func is None:
             return None
         #
+        assert not jitdriver_sd.jitdriver.autoreds
         extra_args_s = []
         if s_first_arg is not None:
             extra_args_s.append(s_first_arg)

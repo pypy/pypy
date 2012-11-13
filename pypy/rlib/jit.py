@@ -443,6 +443,7 @@ class JitDriver(object):
     active = True          # if set to False, this JitDriver is ignored
     virtualizables = []
     name = 'jitdriver'
+    inlined_in_portal = False
 
     def __init__(self, greens=None, reds=None, virtualizables=None,
                  get_jitcell_at=None, set_jitcell_at=None,
@@ -546,6 +547,18 @@ class JitDriver(object):
     def loop_header(self):
         # special-cased by ExtRegistryEntry
         pass
+
+    def inline_in_portal(self, func):
+        assert self.autoreds, "inline_in_portal works only with reds='auto'"
+        func._inline_in_portal_ = True
+        self.inlined_in_portal = True
+        return func
+
+    def clone(self):
+        assert self.inlined_in_portal, 'JitDriver.clone works only after @inline_in_portal'
+        newdriver = object.__new__(self.__class__)
+        newdriver.__dict__ = self.__dict__.copy()
+        return newdriver
 
     def _make_extregistryentries(self):
         # workaround: we cannot declare ExtRegistryEntries for functions

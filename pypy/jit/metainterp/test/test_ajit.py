@@ -3123,7 +3123,34 @@ class BasicTests:
         res = self.meta_interp(f, [32])
         assert res == f(32)
 
+    def test_inline_in_portal(self):
+        myjitdriver = JitDriver(greens = [], reds = 'auto')
+        class MyRange(object):
+            def __init__(self, n):
+                self.cur = 0
+                self.n = n
 
+            def __iter__(self):
+                return self
+
+            @myjitdriver.inline_in_portal
+            def next(self):
+                myjitdriver.jit_merge_point()
+                if self.cur == self.n:
+                    raise StopIteration
+                self.cur += 1
+                return self.cur
+
+        def f(n, m):
+            res = 0
+            for i in MyRange(100):
+                res += i
+            return res
+        expected = f(21, 5)
+        res = self.meta_interp(f, [21, 5])
+        assert res == expected
+        self.check_resops(int_eq=2, int_add=4)
+        
 class XXXDisabledTestOOtype(BasicTests, OOJitMixin):
 
     def test_oohash(self):
