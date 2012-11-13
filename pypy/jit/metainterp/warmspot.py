@@ -256,6 +256,16 @@ class WarmRunnerDesc(object):
         # add all the variables across the links to the reds.
         for block, op in graph.iterblockops():
             if op.opname == 'jit_marker':
+                # if we want to support also can_enter_jit, we should find a
+                # way to detect a consistent set of red vars to pass *both* to
+                # jit_merge_point and can_enter_jit. The current simple
+                # solution doesn't work because can_enter_jit might be in
+                # another block, so the set of alive_v will be different.
+                methname = op.args[0].value
+                assert methname == 'jit_merge_point', (
+                    "reds='auto' is supported only for jit drivers which " 
+                    "calls only jit_merge_point. Found a call to %s" % methname)
+                #
                 jitdriver = op.args[1].value
                 if not jitdriver.autoreds:
                     continue

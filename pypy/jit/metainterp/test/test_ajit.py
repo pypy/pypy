@@ -104,7 +104,6 @@ class BasicTests:
             # by chance
             a = b = c = d = n
             while n > 0:
-                myjitdriver.can_enter_jit(m=m)
                 myjitdriver.jit_merge_point(m=m)
                 n -= 1
                 a += 1 # dummy unused red
@@ -132,7 +131,6 @@ class BasicTests:
             f1 = f2 = f3 = f4 = float(n)
             r1 = r2 = r3 = r4 = MyObj(n)
             while n > 0:
-                myjitdriver.can_enter_jit(m=m)
                 myjitdriver.jit_merge_point(m=m)
                 n -= 1
                 i1 += 1 # dummy unused red
@@ -160,7 +158,6 @@ class BasicTests:
             res = 0
             while n > 0:
                 n -= 1
-                myjitdriver.can_enter_jit(m=m)
                 myjitdriver.jit_merge_point(m=m)
                 res += m*2
             return res
