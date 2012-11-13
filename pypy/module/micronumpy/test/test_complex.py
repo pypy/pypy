@@ -95,6 +95,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
                 retVal = c_pow(*args)
                 return retVal
             except ValueError, e:
+                if option.runappdirect:
+                    raise
                 raise OperationError(cls.space.w_ValueError,
                         cls.space.wrap(e.message))
         cls.w_c_pow = cls.space.wrap(cls_c_pow)
@@ -323,7 +325,11 @@ class AppTestUfuncs(BaseNumpyAppTest):
         cmpl = complex
         from math import copysign
         from _numpypy import power, array, complex128, complex64
-        for c,rel_err in ((complex128, 2e-15), (complex64, 4e-7)):
+        # note: in some settings (namely a x86-32 build without the JIT),
+        # gcc optimizes the code in rlib.rcomplex.c_pow() to not truncate
+        # the 10-byte values down to 8-byte values.  It ends up with more
+        # imprecision than usual (hence 2e-13 instead of 2e-15).
+        for c,rel_err in ((complex128, 2e-13), (complex64, 4e-7)):
             a = array([cmpl(-5., 0), cmpl(-5., -5.), cmpl(-5., 5.),
                        cmpl(0., -5.), cmpl(0., 0.), cmpl(0., 5.),
                        cmpl(-0., -5.), cmpl(-0., 0.), cmpl(-0., 5.),
