@@ -150,13 +150,13 @@ class AppTestFcntl:
             # We're the child
             return
         try:
-            buf = array.array('h', [0])
+            buf = array.array('i', [0])
             res = fcntl.ioctl(mfd, TIOCGPGRP, buf, True)
             assert res == 0
             assert buf[0] != 0
             expected = buf.tostring()
 
-            buf = array.array('h', [0])
+            buf = array.array('i', [0])
             res = fcntl.ioctl(mfd, TIOCGPGRP, buf)
             assert res == 0
             assert buf.tostring() == expected
@@ -166,7 +166,7 @@ class AppTestFcntl:
 
             raises(TypeError, fcntl.ioctl, mfd, TIOCGPGRP, "\x00\x00", True)
 
-            res = fcntl.ioctl(mfd, TIOCGPGRP, "\x00\x00")
+            res = fcntl.ioctl(mfd, TIOCGPGRP, "\x00\x00\x00\x00")
             assert res == expected
         finally:
             os.close(mfd)
