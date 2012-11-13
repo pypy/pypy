@@ -184,10 +184,11 @@ def truediv__Long_Long(space, w_long1, w_long2):
         f = w_long1.num.truediv(w_long2.num)
     except ZeroDivisionError:
         raise OperationError(space.w_ZeroDivisionError,
-                             space.wrap("long division or modulo by zero"))
+                             space.wrap("integer division or modulo by zero"))
     except OverflowError:
-        raise OperationError(space.w_OverflowError,
-                             space.wrap("long/long too large for a float"))
+        raise OperationError(
+            space.w_OverflowError,
+            space.wrap("integer division result too large for a float"))
     return space.newfloat(f)
 
 def floordiv__Long_Long(space, w_long1, w_long2):
@@ -195,7 +196,7 @@ def floordiv__Long_Long(space, w_long1, w_long2):
         z = w_long1.num.floordiv(w_long2.num)
     except ZeroDivisionError:
         raise OperationError(space.w_ZeroDivisionError,
-                             space.wrap("long division or modulo by zero"))
+                             space.wrap("integer division or modulo by zero"))
     return newlong(space, z)
 
 def div__Long_Long(space, w_long1, w_long2):
@@ -206,7 +207,7 @@ def mod__Long_Long(space, w_long1, w_long2):
         z = w_long1.num.mod(w_long2.num)
     except ZeroDivisionError:
         raise OperationError(space.w_ZeroDivisionError,
-                             space.wrap("long division or modulo by zero"))
+                             space.wrap("integer division or modulo by zero"))
     return newlong(space, z)
 
 def divmod__Long_Long(space, w_long1, w_long2):
@@ -214,7 +215,7 @@ def divmod__Long_Long(space, w_long1, w_long2):
         div, mod = w_long1.num.divmod(w_long2.num)
     except ZeroDivisionError:
         raise OperationError(space.w_ZeroDivisionError,
-                             space.wrap("long division or modulo by zero"))
+                             space.wrap("integer division or modulo by zero"))
     return space.newtuple([newlong(space, div), newlong(space, mod)])
 
 def pow__Long_Long_Long(space, w_long1, w_long2, w_long3):
@@ -236,7 +237,7 @@ def pow__Long_Long_None(space, w_long1, w_long2, w_long3):
     if w_long2.num.sign < 0:
         raise FailedToImplementArgs(
             space.w_ValueError,
-            space.wrap("long pow() too negative"))
+            space.wrap("int pow() too negative"))
     return W_LongObject(w_long1.num.pow(w_long2.num, None))
 
 def neg__Long(space, w_long1):
