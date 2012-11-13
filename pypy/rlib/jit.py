@@ -538,6 +538,8 @@ class JitDriver(object):
         _self._check_arguments(livevars)
 
     def can_enter_jit(_self, **livevars):
+        if _self.autoreds:
+            raise TypeError, "Cannot call can_enter_jit on a driver with reds='auto'"
         # special-cased by ExtRegistryEntry
         _self._check_arguments(livevars)
 
