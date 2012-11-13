@@ -118,6 +118,11 @@ class CPPMethod(object):
     also takes care of offset casting and recycling of known objects through
     the memory_regulator."""
 
+    _attrs_ = ['space', 'scope', 'index', 'cppmethod', 'arg_defs', 'args_required',
+               'args_expected', 'converters', 'executor', '_funcaddr', 'cif_descr',
+               'uses_local']
+    _immutable_ = True
+
     def __init__(self, space, containing_scope, method_index, arg_defs, args_required):
         self.space = space
         self.scope = containing_scope
@@ -144,7 +149,6 @@ class CPPMethod(object):
 
     @jit.unroll_safe
     def call(self, cppthis, args_w):
-        #jit.promote(self)
         assert lltype.typeOf(cppthis) == capi.C_OBJECT
 
         # check number of given arguments against required (== total - defaults)
@@ -160,7 +164,7 @@ class CPPMethod(object):
                 self._setup(cppthis)
             except Exception, e:
                 pass
-    
+
         # some calls, e.g. for ptr-ptr or reference need a local array to store data for
         # the duration of the call
         if self.uses_local:
@@ -188,7 +192,6 @@ class CPPMethod(object):
 
     @jit.unroll_safe
     def do_fast_call(self, cppthis, args_w, call_local):
-        #jit.promote(self)
         if self.cif_descr is None:
             raise FastCallNotPossible
         cif_descr = self.cif_descr
@@ -312,7 +315,6 @@ class CPPMethod(object):
 
     @jit.unroll_safe
     def prepare_arguments(self, args_w, call_local):
-        #jit.promote(self)
         args = capi.c_allocate_function_args(len(args_w))
         stride = capi.c_function_arg_sizeof()
         for i in range(len(args_w)):
@@ -364,6 +366,8 @@ class CPPFunction(CPPMethod):
     all the needed functionality, by allowing the C++ this pointer to be null
     in the call. An optimization is expected there, however."""
 
+    _immutable_ = True
+
     def __repr__(self):
         return "CPPFunction: %s" % self.signature()
 
@@ -372,6 +376,8 @@ class CPPConstructor(CPPMethod):
     """Method dispatcher that constructs new objects. In addition to the call,
     it allocates memory for the newly constructed object and sets ownership
     to Python."""
+
+    _immutable_ = True
 
     def call(self, cppthis, args_w):
         newthis = capi.c_allocate(self.scope)
@@ -393,6 +399,8 @@ class CPPSetItem(CPPMethod):
     operator[](int). The former function takes an extra argument to assign to
     the return type of the latter."""
 
+    _immutable_ = True
+
     def call(self, cppthis, args_w):
         end = len(args_w)-1
         if 0 <= end:
@@ -408,7 +416,9 @@ class W_CPPOverload(Wrappable):
     """Dispatcher that is actually available at the app-level: it is a
     collection of (possibly) overloaded methods or functions. It calls these
     in order and deals with error handling and reporting."""
-    #_immutable_fields_ = ["functions[*]"]
+
+    _attrs_ = ['space', 'scope', 'functions']
+    _immutable_fields_ = ['scope', 'functions[*]']
 
     def __init__(self, space, containing_scope, functions):
         self.space = space
@@ -443,7 +453,7 @@ class W_CPPOverload(Wrappable):
         #
         # TODO: figure out what happens if a callback into from the C++ call
         # raises a Python exception.
-        #jit.promote(self)
+        jit.promote(self)
         for i in range(len(self.functions)):
             cppyyfunc = self.functions[i]
             try:
@@ -486,6 +496,8 @@ W_CPPOverload.typedef = TypeDef(
 
 
 class W_CPPDataMember(Wrappable):
+    _attrs_ = ['space', 'scope', 'converter', 'offset', '_is_static']
+    _immutable_fields = ['scope', 'converter', 'offset', '_is_static']
 
     def __init__(self, space, containing_scope, type_name, offset, is_static):
         self.space = space
@@ -532,7 +544,8 @@ W_CPPDataMember.typedef.acceptable_as_base_class = False
 
 
 class W_CPPScope(Wrappable):
-    #_immutable_fields_ = ["methods[*]", "datamembers[*]"]
+    _attrs_ = ['space', 'name', 'handle', 'methods', 'datamembers']
+    _immutable_fields_ = ['kind', 'name']
 
     kind = "scope"
 
@@ -632,6 +645,8 @@ class W_CPPScope(Wrappable):
 # classes for inheritance. Both are python classes, though, and refactoring
 # may be in order at some point.
 class W_CPPNamespace(W_CPPScope):
+    _immutable_fields_ = ['kind']
+
     kind = "namespace"
 
     def _make_cppfunction(self, pyname, index):
@@ -715,6 +730,9 @@ W_CPPNamespace.typedef.acceptable_as_base_class = False
 
 
 class W_CPPClass(W_CPPScope):
+    _attrs_ = ['space', 'default_constructor', 'name', 'handle', 'methods', 'datamembers']
+    _immutable_fields_ = ['kind', 'default_constructor', 'methods[*]', 'datamembers[*]']
+
     kind = "class"
 
     def __init__(self, space, name, opaque_handle):
@@ -819,6 +837,8 @@ W_ComplexCPPClass.typedef.acceptable_as_base_class = False
 
 
 class W_CPPTemplateType(Wrappable):
+    _attrs_ = ['space', 'name', 'handle']
+    _immutable_fields = ['name', 'handle']
 
     def __init__(self, space, name, opaque_handle):
         self.space = space
@@ -840,6 +860,7 @@ W_CPPTemplateType.typedef.acceptable_as_base_class = False
 
 
 class W_CPPInstance(Wrappable):
+    _attrs_ = ['space', 'cppclass', '_rawobject', 'isref', 'python_owns']
     _immutable_fields_ = ["cppclass", "isref"]
 
     def __init__(self, space, cppclass, rawobject, isref, python_owns):

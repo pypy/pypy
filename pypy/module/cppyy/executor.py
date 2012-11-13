@@ -27,6 +27,8 @@ from pypy.module.cppyy import helper, capi, ffitypes
 NULL = lltype.nullptr(jit_libffi.FFI_TYPE_P.TO)
 
 class FunctionExecutor(object):
+    _immutable_fields_ = ['libffitype']
+
     libffitype = NULL
 
     def __init__(self, space, extra):
@@ -42,6 +44,8 @@ class FunctionExecutor(object):
 
 
 class PtrTypeExecutor(FunctionExecutor):
+    _immutable_fields_ = ['libffitype', 'typecode']
+
     libffitype = jit_libffi.types.pointer
     typecode = 'P'
 
@@ -63,6 +67,8 @@ class PtrTypeExecutor(FunctionExecutor):
 
 
 class VoidExecutor(FunctionExecutor):
+    _immutable_fields_ = ['libffitype']
+
     libffitype = jit_libffi.types.void
 
     def execute(self, space, cppmethod, cppthis, num_args, args):
@@ -139,6 +145,8 @@ class ConstructorExecutor(VoidExecutor):
 
 
 class InstancePtrExecutor(FunctionExecutor):
+    _immutable_fields_ = ['libffitype', 'cppclass']
+
     libffitype = jit_libffi.types.pointer
 
     def __init__(self, space, cppclass):
@@ -314,8 +322,10 @@ def _build_basic_executors():
 
     for c_type, stub, names in type_info:
         class BasicExecutor(ffitypes.typeid(c_type), NumericExecutorMixin, FunctionExecutor):
+            _immutable_ = True
             c_stubcall  = staticmethod(stub)
         class BasicRefExecutor(ffitypes.typeid(c_type), NumericRefExecutorMixin, FunctionExecutor):
+            _immutable_fields_ = ['libffitype']
             libffitype = jit_libffi.types.pointer
         for name in names:
             _executors[name]              = BasicExecutor
@@ -341,6 +351,7 @@ def _build_ptr_executors():
 
     for tcode, names in ptr_info:
         class PtrExecutor(PtrTypeExecutor):
+            _immutable_fields_ = ['typecode']
             typecode = tcode
         for name in names:
             _executors[name+'*'] = PtrExecutor
