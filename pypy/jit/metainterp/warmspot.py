@@ -257,7 +257,7 @@ class WarmRunnerDesc(object):
         new_portals = set()
         for caller, callee in callgraph:
             func = getattr(callee, 'func', None)
-            _inline_in_portal_ = getattr(func, '_inline_in_portal_', True)
+            _inline_in_portal_ = getattr(func, '_inline_in_portal_', False)
             if _inline_in_portal_:
                 count = inline.inline_function(self.translator, callee, caller,
                                                lltype_to_classdef, raise_analyzer)
