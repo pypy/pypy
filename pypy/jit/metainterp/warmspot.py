@@ -244,8 +244,9 @@ class WarmRunnerDesc(object):
     def find_portals(self):
         self.jitdrivers_sd = []
         graphs = self.translator.graphs
-        for jit_merge_point_pos in find_jit_merge_points(graphs):
-            self.split_graph_and_record_jitdriver(*jit_merge_point_pos)
+        for graph, block, pos in find_jit_merge_points(graphs):
+            self.autodetect_jit_markers_redvars(graph)
+            self.split_graph_and_record_jitdriver(graph, block, pos)
         #
         assert (len(set([jd.jitdriver for jd in self.jitdrivers_sd])) ==
                 len(self.jitdrivers_sd)), \
@@ -294,7 +295,6 @@ class WarmRunnerDesc(object):
         args = op.args[2:]
         s_binding = self.translator.annotator.binding
         jd._portal_args_s = [s_binding(v) for v in args]
-        self.autodetect_jit_markers_redvars(graph)
         graph = copygraph(graph)
         [jmpp] = find_jit_merge_points([graph])
         graph.startblock = support.split_before_jit_merge_point(*jmpp)
