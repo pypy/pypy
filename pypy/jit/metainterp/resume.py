@@ -772,9 +772,9 @@ class AbstractResumeDataReader(object):
 
 # ---------- when resuming for pyjitpl.py, make boxes ----------
 
-def rebuild_from_resumedata(metainterp, storage, virtualizable_info,
-                            greenfield_info):
-    resumereader = ResumeDataBoxReader(storage, metainterp)
+def rebuild_from_resumedata(metainterp, storage, deadframe,
+                            virtualizable_info, greenfield_info):
+    resumereader = ResumeDataBoxReader(storage, deadframe, metainterp)
     boxes = resumereader.consume_vref_and_vable_boxes(virtualizable_info,
                                                       greenfield_info)
     virtualizable_boxes, virtualref_boxes = boxes
@@ -793,10 +793,12 @@ def rebuild_from_resumedata(metainterp, storage, virtualizable_info,
 class ResumeDataBoxReader(AbstractResumeDataReader):
     unique_id = lambda: None
 
-    def __init__(self, storage, metainterp):
+    def __init__(self, storage, deadframe, metainterp):
         self._init(metainterp.cpu, storage)
+        self.deadframe = deadframe
         self.metainterp = metainterp
-        self.liveboxes = [None] * metainterp.cpu.get_latest_value_count()
+        count = metainterp.cpu.get_latest_value_count(deadframe)
+        self.liveboxes = [None] * count
         self._prepare(storage)
 
     def consume_boxes(self, info, boxes_i, boxes_r, boxes_f):
@@ -972,11 +974,11 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
             num += len(self.liveboxes)
             assert num >= 0
         if kind == INT:
-            box = BoxInt(self.cpu.get_latest_value_int(num))
+            box = BoxInt(self.cpu.get_latest_value_int(self.deadframe, num))
         elif kind == REF:
-            box = BoxPtr(self.cpu.get_latest_value_ref(num))
+            box = BoxPtr(self.cpu.get_latest_value_ref(self.deadframe, num))
         elif kind == FLOAT:
-            box = BoxFloat(self.cpu.get_latest_value_float(num))
+            box = BoxFloat(self.cpu.get_latest_value_float(self.deadframe,num))
         else:
             assert 0, "bad kind: %d" % ord(kind)
         self.liveboxes[num] = box
@@ -1253,7 +1255,7 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
             assert tag == TAGBOX
             if num < 0:
                 num += self.cpu.get_latest_value_count()
-            return self.cpu.get_latest_value_ref(num)
+            return self.cpu.get_latest_value_ref(self.deadframe, num)
 
     def decode_float(self, tagged):
         num, tag = untag(tagged)
@@ -1263,7 +1265,7 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
             assert tag == TAGBOX
             if num < 0:
                 num += self.cpu.get_latest_value_count()
-            return self.cpu.get_latest_value_float(num)
+            return self.cpu.get_latest_value_float(self.deadframe, num)
 
     def write_an_int(self, index, int):
         self.blackholeinterp.setarg_i(index, int)

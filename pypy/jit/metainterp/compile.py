@@ -415,34 +415,34 @@ class _DoneWithThisFrameDescr(AbstractFailDescr):
     pass
 
 class DoneWithThisFrameDescrVoid(_DoneWithThisFrameDescr):
-    def handle_fail(self, metainterp_sd, jitdriver_sd):
+    def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         assert jitdriver_sd.result_type == history.VOID
         raise metainterp_sd.DoneWithThisFrameVoid()
 
 class DoneWithThisFrameDescrInt(_DoneWithThisFrameDescr):
-    def handle_fail(self, metainterp_sd, jitdriver_sd):
+    def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         assert jitdriver_sd.result_type == history.INT
-        result = metainterp_sd.cpu.get_latest_value_int(0)
+        result = metainterp_sd.cpu.get_latest_value_int(deadframe, 0)
         raise metainterp_sd.DoneWithThisFrameInt(result)
 
 class DoneWithThisFrameDescrRef(_DoneWithThisFrameDescr):
-    def handle_fail(self, metainterp_sd, jitdriver_sd):
+    def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         assert jitdriver_sd.result_type == history.REF
         cpu = metainterp_sd.cpu
-        result = cpu.get_latest_value_ref(0)
+        result = cpu.get_latest_value_ref(deadframe, 0)
         cpu.clear_latest_values(1)
         raise metainterp_sd.DoneWithThisFrameRef(cpu, result)
 
 class DoneWithThisFrameDescrFloat(_DoneWithThisFrameDescr):
-    def handle_fail(self, metainterp_sd, jitdriver_sd):
+    def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         assert jitdriver_sd.result_type == history.FLOAT
-        result = metainterp_sd.cpu.get_latest_value_float(0)
+        result = metainterp_sd.cpu.get_latest_value_float(deadframe, 0)
         raise metainterp_sd.DoneWithThisFrameFloat(result)
 
 class ExitFrameWithExceptionDescrRef(_DoneWithThisFrameDescr):
-    def handle_fail(self, metainterp_sd, jitdriver_sd):
+    def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         cpu = metainterp_sd.cpu
-        value = cpu.get_latest_value_ref(0)
+        value = cpu.get_latest_value_ref(deadframe, 0)
         cpu.clear_latest_values(1)
         raise metainterp_sd.ExitFrameWithExceptionRef(cpu, value)
 
@@ -530,7 +530,7 @@ class ResumeGuardDescr(ResumeDescr):
         if self.must_compile(metainterp_sd, jitdriver_sd):
             self.start_compiling()
             try:
-                self._trace_and_compile_from_bridge(metainterp_sd,
+                self._trace_and_compile_from_bridge(deadframe, metainterp_sd,
                                                     jitdriver_sd)
             finally:
                 self.done_compiling()
@@ -539,14 +539,15 @@ class ResumeGuardDescr(ResumeDescr):
             resume_in_blackhole(metainterp_sd, jitdriver_sd, self, deadframe)
         assert 0, "unreachable"
 
-    def _trace_and_compile_from_bridge(self, metainterp_sd, jitdriver_sd):
+    def _trace_and_compile_from_bridge(self, deadframe, metainterp_sd,
+                                       jitdriver_sd):
         # 'jitdriver_sd' corresponds to the outermost one, i.e. the one
         # of the jit_merge_point where we started the loop, even if the
         # loop itself may contain temporarily recursion into other
         # jitdrivers.
         from pypy.jit.metainterp.pyjitpl import MetaInterp
         metainterp = MetaInterp(metainterp_sd, jitdriver_sd)
-        metainterp.handle_guard_failure(self)
+        metainterp.handle_guard_failure(self, deadframe)
     _trace_and_compile_from_bridge._dont_inline_ = True
 
     def must_compile(self, metainterp_sd, jitdriver_sd):
@@ -652,7 +653,7 @@ class ResumeGuardForcedDescr(ResumeGuardDescr):
         self.metainterp_sd = metainterp_sd
         self.jitdriver_sd = jitdriver_sd
 
-    def handle_fail(self, metainterp_sd, jitdriver_sd):
+    def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         # Failures of a GUARD_NOT_FORCED are never compiled, but
         # always just blackholed.  First fish for the data saved when
         # the virtualrefs and virtualizable have been forced by
@@ -858,9 +859,9 @@ def compile_trace(metainterp, resumekey, resume_at_jump_descr=None):
 # ____________________________________________________________
 
 class PropagateExceptionDescr(AbstractFailDescr):
-    def handle_fail(self, metainterp_sd, jitdriver_sd):
+    def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         cpu = metainterp_sd.cpu
-        exception = cpu.grab_exc_value()
+        exception = cpu.grab_exc_value(deadframe)
         assert exception, "PropagateExceptionDescr: no exception??"
         raise metainterp_sd.ExitFrameWithExceptionRef(cpu, exception)
 
