@@ -90,11 +90,11 @@ class TestLengthHint:
             space.call_method(w_reversed, '__length_hint__')) == self.SIZE
         self._test_length_hint(w_reversed)
 
-    def test_xrange(self):
+    def test_range(self):
         space = self.space
-        w_xrange = space.call_method(space.builtin, 'xrange',
+        w_range = space.call_method(space.builtin, 'range',
                                      space.newint(self.SIZE))
-        self._test_length_hint(w_xrange)
+        self._test_length_hint(w_range)
 
     def test_itertools_repeat(self):
         space = self.space

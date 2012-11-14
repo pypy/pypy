@@ -452,7 +452,7 @@ class W_RangeIterator(Wrappable):
         raise OperationError(space.w_StopIteration, space.w_None)
 
     def descr_len(self, space):
-        return space.sub(self.w_length, self.w_index)
+        return space.sub(self.w_len, self.w_index)
 
     def descr_reduce(self, space):
         from pypy.interpreter.mixedmodule import MixedModule
