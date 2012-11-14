@@ -4,7 +4,7 @@ functional programming.
 """
 from __future__ import with_statement
 import operator
-from __pypy__ import resizelist_hint
+from __pypy__ import resizelist_hint, newlist_hint
 
 # ____________________________________________________________
 
@@ -109,15 +109,8 @@ the items of the sequence (or a list of tuples if more than one sequence)."""
             else:
                 return result
 
-def _newlist_hint(length_hint):
-    """Return an empty list with an underlying capacity of length_hint"""
-    result = []
-    resizelist_hint(result, length_hint)
-    return result
-
 class _ManagedNewlistHint(object):
-
-    """Context manager returning a _newlist_hint upon entry.
+    """ Context manager returning a newlist_hint upon entry.
 
     Upon exit the list's underlying capacity will be cut back to match
     its length if necessary (incase the initial length_hint was too
@@ -126,7 +119,7 @@ class _ManagedNewlistHint(object):
 
     def __init__(self, length_hint):
         self.length_hint = length_hint
-        self.list = _newlist_hint(length_hint)
+        self.list = newlist_hint(length_hint)
 
     def __enter__(self):
         return self.list
@@ -183,7 +176,7 @@ def _filter_string(func, string, str_type):
     if func is bool and type(string) is str_type:
         return string
     length = len(string)
-    result = _newlist_hint(length)
+    result = newlist_hint(length)
     for i in range(length):
         # You must call __getitem__ on the strings, simply iterating doesn't
         # work :/
@@ -196,7 +189,7 @@ def _filter_string(func, string, str_type):
 
 def _filter_tuple(func, seq):
     length = len(seq)
-    result = _newlist_hint(length)
+    result = newlist_hint(length)
     for i in range(length):
         # Again, must call __getitem__, at least there are tests.
         item = seq[i]
