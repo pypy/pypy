@@ -250,11 +250,11 @@ class WarmspotTests(object):
                            'int_sub': 2})
 
     def test_void_red_variable(self):
-        mydriver = JitDriver(greens=[], reds=['a', 'm'])
+        mydriver = JitDriver(greens=[], reds=['m'])
         def f1(m):
             a = None
             while m > 0:
-                mydriver.jit_merge_point(a=a, m=m)
+                mydriver.jit_merge_point(m=m)
                 m = m - 1
                 if m == 10:
                     pass   # other case
