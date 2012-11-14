@@ -47,6 +47,7 @@ def test_jitdriver_clone():
     py.test.raises(AssertionError, "driver.clone()")
     foo = driver.inline_in_portal(foo)
     assert foo._inline_in_portal_ == True
+    assert foo._always_inline_ == True
     #
     driver.foo = 'bar'
     driver2 = driver.clone()

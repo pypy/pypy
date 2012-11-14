@@ -423,6 +423,31 @@ class WarmspotTests(object):
         self.check_resops(int_eq=4, int_add=8)
         self.check_trace_count(2)
 
+    def test_inline_in_portal_exception(self):
+        myjitdriver = JitDriver(greens = [], reds = 'auto')
+        def inc(n):
+            if n == 1000:
+                raise OverflowError
+            return n+1
+
+        @myjitdriver.inline_in_portal
+        def jitted_inc(n):
+            myjitdriver.jit_merge_point()
+            return inc(n)
+
+        def f():
+            res = 0
+            while True:
+                try:
+                    res = jitted_inc(res)
+                except OverflowError:
+                    break
+            return res
+        res = self.meta_interp(f, [])
+        assert res == 1000
+        self.check_resops(int_add=2)
+
+
 class TestLLWarmspot(WarmspotTests, LLJitMixin):
     CPUClass = runner.LLtypeCPU
     type_system = 'lltype'

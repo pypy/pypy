@@ -251,20 +251,24 @@ class WarmRunnerDesc(object):
         test_ajit::test_inline_in_portal.
         """
         from pypy.translator.backendopt import inline
-        lltype_to_classdef = self.translator.rtyper.lltype_to_classdef_mapping()
-        raise_analyzer = inline.RaiseAnalyzer(self.translator)
+
+        # find all the graphs which call an @inline_in_portal function
         callgraph = inline.inlinable_static_callers(self.translator.graphs)
+        new_callgraph = []
         new_portals = set()
         for caller, callee in callgraph:
             func = getattr(callee, 'func', None)
             _inline_in_portal_ = getattr(func, '_inline_in_portal_', False)
             if _inline_in_portal_:
-                count = inline.inline_function(self.translator, callee, caller,
-                                               lltype_to_classdef, raise_analyzer)
-                assert count > 0, ('The function has been decorated with '
-                                   '@inline_in_portal, but it is not possible '
-                                   'to inline it')
+                new_callgraph.append((caller, callee))
                 new_portals.add(caller)
+
+        # inline them!
+        inline_threshold = self.translator.config.translation.backendopt.inline_threshold
+        inline.auto_inlining(self.translator, inline_threshold, callgraph)
+
+        # make a fresh copy of the JitDriver in all newly created
+        # jit_merge_points
         self.clone_inlined_jit_merge_points(new_portals)
 
     def clone_inlined_jit_merge_points(self, graphs):
@@ -277,7 +281,10 @@ class WarmRunnerDesc(object):
         for graph, block, pos in find_jit_merge_points(graphs):
             op = block.operations[pos]
             v_driver = op.args[1]
-            new_driver = v_driver.value.clone()
+            driver = v_driver.value
+            if not driver.inlined_in_portal:
+                continue
+            new_driver = driver.clone()
             c_new_driver = Constant(new_driver, v_driver.concretetype)
             op.args[1] = c_new_driver
 

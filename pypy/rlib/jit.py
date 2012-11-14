@@ -554,6 +554,7 @@ class JitDriver(object):
     def inline_in_portal(self, func):
         assert self.autoreds, "inline_in_portal works only with reds='auto'"
         func._inline_in_portal_ = True
+        func._always_inline_ = True
         self.inlined_in_portal = True
         return func
 
