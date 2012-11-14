@@ -771,6 +771,16 @@ class AbstractLLHelpers:
         c = ord(ch)
         return 97 <= c <= 122
 
+    def ll_upper_char(ch):
+        if 'a' <= ch <= 'z':
+            ch = chr(ord(ch) - 32)
+        return ch
+
+    def ll_lower_char(ch):
+        if 'A' <= ch <= 'Z':
+            ch = chr(ord(ch) + 32)
+        return ch
+
     def ll_char_hash(ch):
         return ord(ch)
 

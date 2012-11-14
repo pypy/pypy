@@ -181,6 +181,7 @@ class W_CTypePtrBase(W_CTypePtrOrArray):
 class W_CTypePointer(W_CTypePtrBase):
     _attrs_ = ['is_file']
     _immutable_fields_ = ['is_file']
+    kind = "pointer"
 
     def __init__(self, space, ctitem):
         from pypy.module._cffi_backend import ctypearray
@@ -318,6 +319,11 @@ class W_CTypePointer(W_CTypePtrBase):
         else:
             raise OperationError(space.w_TypeError,
                      space.wrap("expected a 'cdata struct-or-union' object"))
+
+    def _fget(self, attrchar):
+        if attrchar == 'i':     # item
+            return self.space.wrap(self.ctitem)
+        return W_CTypePtrBase._fget(self, attrchar)
 
 # ____________________________________________________________
 

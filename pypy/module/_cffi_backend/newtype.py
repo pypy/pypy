@@ -23,6 +23,14 @@ PRIMITIVE_TYPES = {}
 def eptype(name, TYPE, ctypecls):
     PRIMITIVE_TYPES[name] = ctypecls, rffi.sizeof(TYPE), alignment(TYPE)
 
+def eptypesize(name, size, ctypecls):
+    for TYPE in [lltype.Signed, lltype.SignedLongLong, rffi.SIGNEDCHAR,
+                 rffi.SHORT, rffi.INT, rffi.LONG, rffi.LONGLONG]:
+        if rffi.sizeof(TYPE) == size:
+            eptype(name, TYPE, ctypecls)
+            return
+    raise NotImplementedError("no integer type of size %d??" % size)
+
 eptype("char",        lltype.Char,     ctypeprim.W_CTypePrimitiveChar)
 eptype("wchar_t",     lltype.UniChar,  ctypeprim.W_CTypePrimitiveUniChar)
 eptype("signed char", rffi.SIGNEDCHAR, ctypeprim.W_CTypePrimitiveSigned)
@@ -39,6 +47,21 @@ eptype("float",  rffi.FLOAT,  ctypeprim.W_CTypePrimitiveFloat)
 eptype("double", rffi.DOUBLE, ctypeprim.W_CTypePrimitiveFloat)
 eptype("long double", rffi.LONGDOUBLE, ctypeprim.W_CTypePrimitiveLongDouble)
 eptype("_Bool",  lltype.Bool,          ctypeprim.W_CTypePrimitiveBool)
+
+eptypesize("int8_t",   1, ctypeprim.W_CTypePrimitiveSigned)
+eptypesize("uint8_t",  1, ctypeprim.W_CTypePrimitiveUnsigned)
+eptypesize("int16_t",  2, ctypeprim.W_CTypePrimitiveSigned)
+eptypesize("uint16_t", 2, ctypeprim.W_CTypePrimitiveUnsigned)
+eptypesize("int32_t",  4, ctypeprim.W_CTypePrimitiveSigned)
+eptypesize("uint32_t", 4, ctypeprim.W_CTypePrimitiveUnsigned)
+eptypesize("int64_t",  8, ctypeprim.W_CTypePrimitiveSigned)
+eptypesize("uint64_t", 8, ctypeprim.W_CTypePrimitiveUnsigned)
+
+eptype("intptr_t",  rffi.INTPTR_T,  ctypeprim.W_CTypePrimitiveSigned)
+eptype("uintptr_t", rffi.UINTPTR_T, ctypeprim.W_CTypePrimitiveUnsigned)
+eptype("ptrdiff_t", rffi.INTPTR_T,  ctypeprim.W_CTypePrimitiveSigned) # <-xxx
+eptype("size_t",    rffi.SIZE_T,    ctypeprim.W_CTypePrimitiveUnsigned)
+eptype("ssize_t",   rffi.SSIZE_T,   ctypeprim.W_CTypePrimitiveSigned)
 
 @unwrap_spec(name=str)
 def new_primitive_type(space, name):
