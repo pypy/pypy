@@ -15,6 +15,7 @@ from pypy.module._cffi_backend import cdataobj, misc
 class W_CTypePrimitive(W_CType):
     _attrs_            = ['align']
     _immutable_fields_ = ['align']
+    kind = "primitive"
 
     def __init__(self, space, size, name, name_position, align):
         W_CType.__init__(self, space, size, name, name_position)

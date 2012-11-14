@@ -1,4 +1,5 @@
 from pypy.interpreter.error import OperationError
+from pypy.interpreter.gateway import unwrap_spec
 
 def index(space, w_a):
     return space.index(w_a)
@@ -196,3 +197,9 @@ def iconcat(space, w_obj1, w_obj2):
         raise OperationError(space.w_TypeError, space.w_None)
 
     return space.inplace_add(w_obj1, w_obj2)
+
+# _length_hint (to be length_hint in 3.4)
+
+@unwrap_spec(default=int)
+def _length_hint(space, w_iterable, default):
+    return space.wrap(space.length_hint(w_iterable, default))

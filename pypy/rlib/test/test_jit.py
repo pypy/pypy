@@ -15,6 +15,46 @@ def test_oopspec():
         pass
     assert fn.oopspec == 'foobar'
 
+def test_jitdriver_autoreds():
+    driver = JitDriver(greens=['foo'], reds='auto')
+    assert driver.autoreds
+    assert driver.reds == []
+    assert driver.numreds is None
+    py.test.raises(TypeError, "driver.can_enter_jit(foo='something')")
+    #
+    py.test.raises(AssertionError, "JitDriver(greens=['foo'], reds='auto', get_printable_location='something')")
+    py.test.raises(AssertionError, "JitDriver(greens=['foo'], reds='auto', confirm_enter_jit='something')")
+
+def test_jitdriver_numreds():
+    driver = JitDriver(greens=['foo'], reds=['a', 'b'])
+    assert driver.reds == ['a', 'b']
+    assert driver.numreds == 2
+    #
+    class MyJitDriver(JitDriver):
+        greens = ['foo']
+        reds = ['a', 'b']
+    driver = MyJitDriver()
+    assert driver.reds == ['a', 'b']
+    assert driver.numreds == 2
+
+def test_jitdriver_clone():
+    def foo():
+        pass
+    driver = JitDriver(greens=[], reds=[])
+    py.test.raises(AssertionError, "driver.inline_in_portal(foo)")
+    #
+    driver = JitDriver(greens=[], reds='auto')
+    py.test.raises(AssertionError, "driver.clone()")
+    foo = driver.inline_in_portal(foo)
+    assert foo._inline_in_portal_ == True
+    #
+    driver.foo = 'bar'
+    driver2 = driver.clone()
+    assert driver is not driver2
+    assert driver2.foo == 'bar'
+    driver.foo = 'xxx'
+    assert driver2.foo == 'bar'
+    
 
 class BaseTestJIT(BaseRtypingTest):
     def test_hint(self):

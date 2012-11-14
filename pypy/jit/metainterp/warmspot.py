@@ -186,6 +186,7 @@ class WarmRunnerDesc(object):
         self.set_translator(translator)
         self.memory_manager = memmgr.MemoryManager()
         self.build_cpu(CPUClass, **kwds)
+        self.inline_inlineable_portals()
         self.find_portals()
         self.codewriter = codewriter.CodeWriter(self.cpu, self.jitdrivers_sd)
         if policy is None:
@@ -241,15 +242,91 @@ class WarmRunnerDesc(object):
         self.rtyper = translator.rtyper
         self.gcdescr = gc.get_description(translator.config)
 
+    def inline_inlineable_portals(self):
+        """
+        Find all the graphs which have been decorated with
+        @jitdriver.inline_in_portal and inline them in the callers, making
+        them JIT portals. Then, create a fresh copy of the jitdriver for each
+        of those new portals, because they cannot share the same one.  See
+        test_ajit::test_inline_in_portal.
+        """
+        from pypy.translator.backendopt import inline
+        lltype_to_classdef = self.translator.rtyper.lltype_to_classdef_mapping()
+        raise_analyzer = inline.RaiseAnalyzer(self.translator)
+        callgraph = inline.inlinable_static_callers(self.translator.graphs)
+        new_portals = set()
+        for caller, callee in callgraph:
+            func = getattr(callee, 'func', None)
+            _inline_in_portal_ = getattr(func, '_inline_in_portal_', False)
+            if _inline_in_portal_:
+                count = inline.inline_function(self.translator, callee, caller,
+                                               lltype_to_classdef, raise_analyzer)
+                assert count > 0, ('The function has been decorated with '
+                                   '@inline_in_portal, but it is not possible '
+                                   'to inline it')
+                new_portals.add(caller)
+        self.clone_inlined_jit_merge_points(new_portals)
+
+    def clone_inlined_jit_merge_points(self, graphs):
+        """
+        Find all the jit_merge_points in the given graphs, and replace the
+        original JitDriver with a fresh clone.
+        """
+        if not graphs:
+            return
+        for graph, block, pos in find_jit_merge_points(graphs):
+            op = block.operations[pos]
+            v_driver = op.args[1]
+            new_driver = v_driver.value.clone()
+            c_new_driver = Constant(new_driver, v_driver.concretetype)
+            op.args[1] = c_new_driver
+
+
     def find_portals(self):
         self.jitdrivers_sd = []
         graphs = self.translator.graphs
-        for jit_merge_point_pos in find_jit_merge_points(graphs):
-            self.split_graph_and_record_jitdriver(*jit_merge_point_pos)
+        for graph, block, pos in find_jit_merge_points(graphs):
+            self.autodetect_jit_markers_redvars(graph)
+            self.split_graph_and_record_jitdriver(graph, block, pos)
         #
         assert (len(set([jd.jitdriver for jd in self.jitdrivers_sd])) ==
                 len(self.jitdrivers_sd)), \
                 "there are multiple jit_merge_points with the same jitdriver"
+
+    def autodetect_jit_markers_redvars(self, graph):
+        # the idea is to find all the jit_merge_point and can_enter_jit and
+        # add all the variables across the links to the reds.
+        for block, op in graph.iterblockops():
+            if op.opname == 'jit_marker':
+                jitdriver = op.args[1].value
+                if not jitdriver.autoreds:
+                    continue
+                # if we want to support also can_enter_jit, we should find a
+                # way to detect a consistent set of red vars to pass *both* to
+                # jit_merge_point and can_enter_jit. The current simple
+                # solution doesn't work because can_enter_jit might be in
+                # another block, so the set of alive_v will be different.
+                methname = op.args[0].value
+                assert methname == 'jit_merge_point', (
+                    "reds='auto' is supported only for jit drivers which " 
+                    "calls only jit_merge_point. Found a call to %s" % methname)
+                #
+                # compute the set of live variables before the jit_marker
+                alive_v = set(block.inputargs)
+                for op1 in block.operations:
+                    if op1 is op:
+                        break # stop when the meet the jit_marker
+                    if op1.result.concretetype != lltype.Void:
+                        alive_v.add(op1.result)
+                greens_v = op.args[2:]
+                reds_v = alive_v - set(greens_v)
+                reds_v = support.sort_vars(reds_v)
+                op.args.extend(reds_v)
+                if jitdriver.numreds is None:
+                    jitdriver.numreds = len(reds_v)
+                else:
+                    assert jitdriver.numreds == len(reds_v), 'inconsistent number of reds_v'
+
 
     def split_graph_and_record_jitdriver(self, graph, block, pos):
         op = block.operations[pos]
@@ -257,7 +334,13 @@ class WarmRunnerDesc(object):
         jd._jit_merge_point_in = graph
         args = op.args[2:]
         s_binding = self.translator.annotator.binding
-        jd._portal_args_s = [s_binding(v) for v in args]
+        if op.args[1].value.autoreds:
+            # _portal_args_s is used only by _make_hook_graph, but for now we
+            # declare the various set_jitcell_at, get_printable_location,
+            # etc. as incompatible with autoreds
+            jd._portal_args_s = None
+        else:
+            jd._portal_args_s = [s_binding(v) for v in args]
         graph = copygraph(graph)
         [jmpp] = find_jit_merge_points([graph])
         graph.startblock = support.split_before_jit_merge_point(*jmpp)
@@ -509,6 +592,9 @@ class WarmRunnerDesc(object):
         if func is None:
             return None
         #
+        assert not jitdriver_sd.jitdriver.autoreds, (
+            "reds='auto' is not compatible with JitDriver hooks such as "
+            "{get,set}_jitcell_at, get_printable_location, confirm_enter_jit, etc.")
         extra_args_s = []
         if s_first_arg is not None:
             extra_args_s.append(s_first_arg)

@@ -282,9 +282,9 @@ class TestRegAlloc:
         #    last_exc_value -> %r0
         #    ref_copy %r0 -> %r1    -- but expect to read the old value of %r0!
         self.check_assembler(graph, """
-            residual_call_r_r $<* fn bar>, <Descr>, R[%r0] -> %r1
+            residual_call_r_r $<* fn bar>, R[%r0], <Descr> -> %r1
             -live-
-            residual_call_ir_r $<* fn g>, <Descr>, I[%i0], R[] -> %r1
+            residual_call_ir_r $<* fn g>, I[%i0], R[], <Descr> -> %r1
             -live-
             catch_exception L1
             ref_return %r1
@@ -293,7 +293,7 @@ class TestRegAlloc:
             goto_if_exception_mismatch $<* struct object_vtable>, L2
             ref_copy %r0 -> %r1
             last_exc_value -> %r0
-            residual_call_r_r $<* fn foo>, <Descr>, R[%r0] -> %r0
+            residual_call_r_r $<* fn foo>, R[%r0], <Descr> -> %r0
             -live-
             ref_return %r1
             ---

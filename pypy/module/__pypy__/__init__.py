@@ -43,6 +43,8 @@ class Module(MixedModule):
         'do_what_I_mean'            : 'interp_magic.do_what_I_mean',
         'list_strategy'             : 'interp_magic.list_strategy',
         'validate_fd'               : 'interp_magic.validate_fd',
+        'resizelist_hint'           : 'interp_magic.resizelist_hint',
+        'newlist_hint'              : 'interp_magic.newlist_hint',
         'newdict'                   : 'interp_dict.newdict',
         'dictstrategy'              : 'interp_dict.dictstrategy',
     }

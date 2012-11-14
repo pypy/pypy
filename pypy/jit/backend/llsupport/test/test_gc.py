@@ -33,7 +33,7 @@ def test_boehm():
     # ---------- gc_malloc_array ----------
     A = lltype.GcArray(lltype.Signed)
     arraydescr = get_array_descr(gc_ll_descr, A)
-    p = gc_ll_descr.gc_malloc_array(arraydescr, 10)
+    p = gc_ll_descr.gc_malloc_array(10, arraydescr)
     assert record == [(arraydescr.basesize +
                        10 * arraydescr.itemsize, p)]
     del record[:]
@@ -357,7 +357,7 @@ class TestFramework(object):
     def test_gc_malloc_array(self):
         A = lltype.GcArray(lltype.Signed)
         arraydescr = get_array_descr(self.gc_ll_descr, A)
-        p = self.gc_ll_descr.gc_malloc_array(arraydescr, 10)
+        p = self.gc_ll_descr.gc_malloc_array(10, arraydescr)
         assert self.llop1.record == [("varsize", arraydescr.tid, 10,
                                       repr(arraydescr.basesize),
                                       repr(arraydescr.itemsize),

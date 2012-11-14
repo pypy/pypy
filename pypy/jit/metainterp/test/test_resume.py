@@ -250,11 +250,11 @@ class FakeResumeDataReader(AbstractResumeDataReader):
         return FakeBuiltObject(vtable=known_class)
     def allocate_struct(self, typedescr):
         return FakeBuiltObject(typedescr=typedescr)
-    def allocate_array(self, arraydescr, length):
+    def allocate_array(self, length, arraydescr):
         return FakeBuiltObject(arraydescr=arraydescr, items=[None]*length)
-    def setfield(self, descr, struct, fieldnum):
+    def setfield(self, struct, fieldnum, descr):
         setattr(struct, descr, fieldnum)
-    def setarrayitem_int(self, arraydescr, array, i, fieldnum):
+    def setarrayitem_int(self, array, i, fieldnum, arraydescr):
         assert 0 <= i < len(array.items)
         assert arraydescr is array.arraydescr
         array.items[i] = fieldnum
@@ -1342,12 +1342,12 @@ def test_resume_reader_fields_and_arrayitems():
         def __init__(self, got=None, got_array=None):
             self.got = got
             self.got_array = got_array
-        def setfield(self, descr, struct, fieldnum):
+        def setfield(self, struct, fieldnum, descr):
             assert lltype.typeOf(struct) is lltype.Signed
             assert lltype.typeOf(fieldnum) is rffi.SHORT
             fieldnum = rffi.cast(lltype.Signed, fieldnum)
             self.got.append((descr, struct, fieldnum))
-        def setarrayitem(self, arraydescr, array, index, fieldnum):
+        def setarrayitem(self, array, index, fieldnum, arraydescr):
             assert lltype.typeOf(array) is lltype.Signed
             assert lltype.typeOf(index) is lltype.Signed
             assert lltype.typeOf(fieldnum) is rffi.SHORT

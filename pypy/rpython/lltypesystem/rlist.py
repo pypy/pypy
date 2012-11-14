@@ -103,6 +103,7 @@ class ListRepr(AbstractListRepr, BaseListRepr):
                                           "_ll_resize_ge": _ll_list_resize_ge,
                                           "_ll_resize_le": _ll_list_resize_le,
                                           "_ll_resize": _ll_list_resize,
+                                          "_ll_resize_hint": _ll_list_resize_hint,
                                       }),
                                       hints = {'list': True})
                              )
@@ -171,11 +172,11 @@ class FixedSizeListRepr(AbstractFixedSizeListRepr, BaseListRepr):
 # adapted C code
 
 @enforceargs(None, int, None)
-def _ll_list_resize_really(l, newsize, overallocate):
+def _ll_list_resize_hint_really(l, newsize, overallocate):
     """
-    Ensure l.items has room for at least newsize elements, and set
-    l.length to newsize.  Note that l.items may change, and even if
-    newsize is less than l.length on entry.
+    Ensure l.items has room for at least newsize elements.  Note that
+    l.items may change, and even if newsize is less than l.length on
+    entry.
     """
     # This over-allocates proportional to the list size, making room
     # for additional growth.  The over-allocation is mild, but is
@@ -210,8 +211,31 @@ def _ll_list_resize_really(l, newsize, overallocate):
         else:
             p = newsize
         rgc.ll_arraycopy(items, newitems, 0, 0, p)
-    l.length = newsize
     l.items = newitems
+
+@jit.dont_look_inside
+def _ll_list_resize_hint(l, newsize):
+    """Ensure l.items has room for at least newsize elements without
+    setting l.length to newsize.
+
+    Used before (and after) a batch operation that will likely grow the
+    list to the newsize (and after the operation incase the initial
+    guess lied).
+    """
+    assert newsize >= 0, "negative list length"
+    allocated = len(l.items)
+    if allocated < newsize or newsize < (allocated >> 1) - 5:
+        _ll_list_resize_hint_really(l, newsize, False)
+
+@enforceargs(None, int, None)
+def _ll_list_resize_really(l, newsize, overallocate):
+    """
+    Ensure l.items has room for at least newsize elements, and set
+    l.length to newsize.  Note that l.items may change, and even if
+    newsize is less than l.length on entry.
+    """
+    _ll_list_resize_hint_really(l, newsize, overallocate)
+    l.length = newsize
 
 # this common case was factored out of _ll_list_resize
 # to see if inlining it gives some speed-up.

@@ -407,7 +407,7 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
         dtypenum = dt2.num + 1
         # UInt64 + signed = Float64
         if dt2.num == 10:
-            dtypenum += 1
+            dtypenum += 2
     newdtype = interp_dtype.get_dtype_cache(space).builtin_dtypes[dtypenum]
 
     if (newdtype.itemtype.get_element_size() > dt2.itemtype.get_element_size() or
@@ -419,7 +419,7 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
         if LONG_BIT == 32:
             dtypenum += 2
         else:
-            dtypenum += 3
+            dtypenum += 4
         return interp_dtype.get_dtype_cache(space).builtin_dtypes[dtypenum]
 
 
