@@ -216,3 +216,8 @@ class AppTestImpModule:
                 except KeyError:
                     pass
             rmtree(dir_name, True)
+
+    def test_get_tag(self):
+        import imp
+        import sys
+        assert imp.get_tag() == 'pypy-%d%d' % sys.version_info[0:2]
