@@ -66,13 +66,6 @@ def test_all_rtld_symbols():
         RTLD_NOLOAD
         RTLD_DEEPBIND
 
-def test_nonstandard_integer_types():
-    d = nonstandard_integer_types()
-    assert type(d) is dict
-    assert 'char' not in d
-    assert d['size_t'] in (0x1004, 0x1008)
-    assert d['size_t'] == d['ssize_t'] + 0x1000
-
 def test_new_primitive_type():
     py.test.raises(KeyError, new_primitive_type, "foo")
     p = new_primitive_type("signed char")
@@ -2499,3 +2492,9 @@ def test_GetLastError():
     #
     res = GetLastError()
     assert res == 42
+
+def test_nonstandard_integer_types():
+    for typename in ['int8_t', 'uint8_t', 'int16_t', 'uint16_t', 'int32_t',
+                     'uint32_t', 'int64_t', 'uint64_t', 'intptr_t',
+                     'uintptr_t', 'ptrdiff_t', 'size_t', 'ssize_t']:
+        new_primitive_type(typename)    # works
