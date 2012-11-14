@@ -95,6 +95,77 @@ class BasicTests:
                     found += 1
             assert found == 2
 
+    def test_loop_automatic_reds(self):
+        myjitdriver = JitDriver(greens = ['m'], reds = 'auto')
+        def f(n, m):
+            res = 0
+            # try to have lots of red vars, so that if there is an error in
+            # the ordering of reds, there are low chances that the test passes
+            # by chance
+            a = b = c = d = n
+            while n > 0:
+                myjitdriver.jit_merge_point(m=m)
+                n -= 1
+                a += 1 # dummy unused red
+                b += 2 # dummy unused red
+                c += 3 # dummy unused red
+                d += 4 # dummy unused red
+                res += m*2
+            return res
+        expected = f(21, 5)
+        res = self.meta_interp(f, [21, 5])
+        assert res == expected
+        self.check_resops(int_sub=2, int_mul=0, int_add=10)
+
+    def test_loop_automatic_reds_with_floats_and_refs(self):
+        myjitdriver = JitDriver(greens = ['m'], reds = 'auto')
+        class MyObj(object):
+            def __init__(self, val):
+                self.val = val
+        def f(n, m):
+            res = 0
+            # try to have lots of red vars, so that if there is an error in
+            # the ordering of reds, there are low chances that the test passes
+            # by chance
+            i1 = i2 = i3 = i4 = n
+            f1 = f2 = f3 = f4 = float(n)
+            r1 = r2 = r3 = r4 = MyObj(n)
+            while n > 0:
+                myjitdriver.jit_merge_point(m=m)
+                n -= 1
+                i1 += 1 # dummy unused red
+                i2 += 2 # dummy unused red
+                i3 += 3 # dummy unused red
+                i4 += 4 # dummy unused red
+                f1 += 1 # dummy unused red
+                f2 += 2 # dummy unused red
+                f3 += 3 # dummy unused red
+                f4 += 4 # dummy unused red
+                r1.val += 1 # dummy unused red
+                r2.val += 2 # dummy unused red
+                r3.val += 3 # dummy unused red
+                r4.val += 4 # dummy unused red
+                res += m*2
+            return res
+        expected = f(21, 5)
+        res = self.meta_interp(f, [21, 5])
+        assert res == expected
+        self.check_resops(int_sub=2, int_mul=0, int_add=18, float_add=8)
+
+    def test_loop_automatic_reds_livevars_before_jit_merge_point(self):
+        myjitdriver = JitDriver(greens = ['m'], reds = 'auto')
+        def f(n, m):
+            res = 0
+            while n > 0:
+                n -= 1
+                myjitdriver.jit_merge_point(m=m)
+                res += m*2
+            return res
+        expected = f(21, 5)
+        res = self.meta_interp(f, [21, 5])
+        assert res == expected
+        self.check_resops(int_sub=2, int_mul=0, int_add=2)
+
     def test_loop_variant_mul1(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'res', 'x'])
         def f(x, y):
@@ -3052,7 +3123,34 @@ class BasicTests:
         res = self.meta_interp(f, [32])
         assert res == f(32)
 
+    def test_inline_in_portal(self):
+        myjitdriver = JitDriver(greens = [], reds = 'auto')
+        class MyRange(object):
+            def __init__(self, n):
+                self.cur = 0
+                self.n = n
 
+            def __iter__(self):
+                return self
+
+            @myjitdriver.inline_in_portal
+            def next(self):
+                myjitdriver.jit_merge_point()
+                if self.cur == self.n:
+                    raise StopIteration
+                self.cur += 1
+                return self.cur
+
+        def f(n, m):
+            res = 0
+            for i in MyRange(100):
+                res += i
+            return res
+        expected = f(21, 5)
+        res = self.meta_interp(f, [21, 5])
+        assert res == expected
+        self.check_resops(int_eq=2, int_add=4)
+        
 class XXXDisabledTestOOtype(BasicTests, OOJitMixin):
 
     def test_oohash(self):

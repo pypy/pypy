@@ -924,6 +924,7 @@ def test_jit_merge_point_1():
             active = True
             greens = ['green1', 'green2', 'voidgreen3']
             reds = ['red1', 'red2', 'voidred3']
+            numreds = 3
     jd = FakeJitDriverSD()
     v1 = varoftype(lltype.Signed)
     v2 = varoftype(lltype.Signed)
