@@ -452,7 +452,7 @@ class BoxInt(Box):
             if is_valid_int(value):
                 value = int(value)    # bool -> int
             else:
-                assert isinstance(value, Symbolic)
+                assert lltype.typeOf(value) == lltype.Signed
         self.value = value
 
     def forget_value(self):
