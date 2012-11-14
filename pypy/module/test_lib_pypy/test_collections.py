@@ -4,12 +4,7 @@ Extra tests for the pure Python PyPy _collections module
 (not used in normal PyPy's)
 """
 
-from pypy.conftest import gettestobjspace
-
 class AppTestCollections:
-
-    spaceconfig = {'usemodules': ['itertools']}
-
     def test_copy(self):
         import _collections
         def f():

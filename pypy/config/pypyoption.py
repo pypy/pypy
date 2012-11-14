@@ -19,7 +19,7 @@ essential_modules = dict.fromkeys(
 default_modules = essential_modules.copy()
 default_modules.update(dict.fromkeys(
     ["_codecs", "atexit", "gc", "_weakref", "marshal", "errno", "imp",
-     "math", "cmath", "_sre", "_pickle_support", "operator",
+     "itertools", "math", "cmath", "_sre", "_pickle_support", "operator",
      "parser", "symbol", "token", "_ast", "_random", "__pypy__",
      "_string", "_testing"]))
 
@@ -38,8 +38,7 @@ working_modules.update(dict.fromkeys(
 ))
 
 # Here is the list of modules known to not work yet
-for name in ["_rawffi", "_ffi", "cpyext",
-             "_hashlib", "_md5",
+for name in ["cpyext",
              ]:
     del working_modules[name]
 

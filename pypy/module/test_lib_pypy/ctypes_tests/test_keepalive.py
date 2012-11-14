@@ -219,7 +219,7 @@ class TestKeepalive:
         x = c_char_p(xs)
         del xs
         import gc; gc.collect()
-        print 'x =', repr(x)
+        print('x = %r' % x)
         assert x.value == 'hellohello'
         assert x._objects == 'hellohello'
         #
@@ -243,8 +243,8 @@ class TestKeepalive:
             dat.dsize = 15
             del xs
             import gc; gc.collect()
-            print 'dat.dptr =', repr(dat.dptr)
-            print 'dat._objects =', repr(dat._objects)
+            print('dat.dptr = %r' % dat.dptr)
+            print('dat._objects = %r' % dat._objects)
             assert dat.dptr == "hellohello"
             assert dat._objects.keys() == ['0']
 
@@ -255,7 +255,7 @@ class TestKeepalive:
             dat.dptr = xs
             del xs
             import gc; gc.collect()
-            print 'dat.dptr =', repr(dat.dptr)
-            print 'dat._objects =', repr(dat._objects)
+            print('dat.dptr = %r' % dat.dptr)
+            print('dat._objects = %r' % dat._objects)
             assert dat.dptr == "hellohello"
             assert dat._objects.keys() == ['0']

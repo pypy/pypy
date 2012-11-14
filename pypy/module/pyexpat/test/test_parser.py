@@ -1,10 +1,8 @@
-from pypy.conftest import gettestobjspace
 from pypy.module.pyexpat.interp_pyexpat import global_storage
 from pytest import skip
 
 class AppTestPyexpat:
-    def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['pyexpat'])
+    spaceconfig = dict(usemodules=['pyexpat'])
 
     def teardown_class(cls):
         global_storage.clear()

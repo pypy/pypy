@@ -15,6 +15,7 @@ class Module(MixedModule):
         'get_suffixes':    'interp_imp.get_suffixes',
 
         'get_magic':       'interp_imp.get_magic',
+        'get_tag':         'interp_imp.get_tag',
         'find_module':     'interp_imp.find_module',
         'load_module':     'interp_imp.load_module',
         'load_source':     'interp_imp.load_source',

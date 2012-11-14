@@ -1,11 +1,8 @@
 # coding: utf-8
 import autopath
 import sys
-from pypy import conftest
 
 class AppTestBuiltinApp:
-    spaceconfig = {'usemodules': ['itertools']}
-    
     def setup_class(cls):
         class X(object):
             def __eq__(self, other):
@@ -24,7 +21,7 @@ class AppTestBuiltinApp:
         # For example if an object x has a __getattr__, we can get
         # AttributeError if attempting to call x.__getattr__ runs out
         # of stack.  That's annoying, so we just work around it.
-        if conftest.option.runappdirect:
+        if cls.runappdirect:
             cls.w_safe_runtimerror = cls.space.wrap(True)
         else:
             cls.w_safe_runtimerror = cls.space.wrap(sys.version_info < (2, 6))
@@ -485,6 +482,19 @@ class AppTestBuiltinApp:
         raises(ValueError, compile, "\n", "<string>", "exec", 0xff)
         raises(TypeError, compile, '1+2', 12, 34)
 
+        class M:
+            def __getitem__(self, key):
+                pass
+            def keys(self):
+                pass
+        m = M()
+        try:
+            exec('pass', m)
+        except TypeError:
+            pass
+        else:
+            assert False, 'Expected TypeError'
+
     def test_unicode_encoding_compile(self):
         code = "# -*- coding: utf-8 -*-\npass\n"
         compile(code, "tmp", "exec")
@@ -729,10 +739,7 @@ def fn(): pass
 
 
 class AppTestGetattr:
-    OPTIONS = {}
-
-    def setup_class(cls):
-        cls.space = conftest.gettestobjspace(**cls.OPTIONS)
+    spaceconfig = {}
 
     def test_getattr(self):
         class a(object):
@@ -757,4 +764,4 @@ class AppTestGetattr:
 
 
 class AppTestGetattrWithGetAttributeShortcut(AppTestGetattr):
-    OPTIONS = {"objspace.std.getattributeshortcut": True}
+    spaceconfig = {"objspace.std.getattributeshortcut": True}

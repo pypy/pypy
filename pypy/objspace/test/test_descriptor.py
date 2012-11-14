@@ -1,12 +1,4 @@
-from pypy.conftest import gettestobjspace
-
 class AppTest_Descriptor:
-
-    OPTIONS = {}
-
-    def setup_class(cls):
-        cls.space = gettestobjspace(**cls.OPTIONS)
-
     def test_non_data_descr(self):
         class X(object):
             def f(self):

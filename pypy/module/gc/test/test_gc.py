@@ -1,4 +1,3 @@
-from pypy.conftest import gettestobjspace
 import py
 
 class AppTestGC(object):
@@ -88,7 +87,6 @@ class AppTestGcDumpHeap(object):
         cls._heap_stats = rgc._heap_stats
         rgc._heap_stats = fake_heap_stats
         fname = udir.join('gcdump.log')
-        cls.space = gettestobjspace()
         cls.w_fname = cls.space.wrap(str(fname))
         cls._fname = fname
 
@@ -105,10 +103,7 @@ class AppTestGcDumpHeap(object):
 
 
 class AppTestGcMethodCache(object):
-    
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withmethodcache": True,
-                                       "usemodules": ['itertools']})
+    spaceconfig = {"objspace.std.withmethodcache": True}
 
     def test_clear_method_cache(self):
         import gc, weakref
@@ -129,11 +124,8 @@ class AppTestGcMethodCache(object):
             assert r() is None
 
 class AppTestGcMapDictIndexCache(AppTestGcMethodCache):
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withmethodcache": True,
-                                       "objspace.std.withmapdict": True,
-                                       "usemodules": ['itertools']})
-
+    spaceconfig = {"objspace.std.withmethodcache": True,
+                   "objspace.std.withmapdict": True}
 
     def test_clear_index_cache(self):
         import gc, weakref

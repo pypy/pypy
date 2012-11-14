@@ -9,15 +9,15 @@ class TestStringBuffer(BaseCTypesTestChecker):
         assert sizeof(b) == 32 * sizeof(c_char)
         assert type(b[0]) is str
 
-        b = create_string_buffer("abc")
+        b = create_string_buffer(b"abc")
         assert len(b) == 4 # trailing nul char
         assert sizeof(b) == 4 * sizeof(c_char)
-        assert type(b[0]) is str
-        assert b[0] == "a"
-        assert b[:] == "abc\0"
+        assert type(b[0]) is bytes
+        assert b[0] == b"a"
+        assert b[:] == b"abc\0"
 
     def test_string_conversion(self):
-        b = create_string_buffer(u"abc")
+        b = create_string_buffer("abc")
         assert len(b) == 4 # trailing nul char
         assert sizeof(b) == 4 * sizeof(c_char)
         assert type(b[0]) is str
@@ -35,18 +35,18 @@ class TestStringBuffer(BaseCTypesTestChecker):
             assert sizeof(b) == 32 * sizeof(c_wchar)
             assert type(b[0]) is unicode
 
-            b = create_unicode_buffer(u"abc")
-            assert len(b) == 4 # trailing nul char
-            assert sizeof(b) == 4 * sizeof(c_wchar)
-            assert type(b[0]) is unicode
-            assert b[0] == u"a"
-            assert b[:] == "abc\0"
-
-        def test_unicode_conversion(self):
             b = create_unicode_buffer("abc")
             assert len(b) == 4 # trailing nul char
             assert sizeof(b) == 4 * sizeof(c_wchar)
             assert type(b[0]) is unicode
-            assert b[0] == u"a"
+            assert b[0] == "a"
+            assert b[:] == "abc\0"
+
+        def test_unicode_conversion(self):
+            b = create_unicode_buffer(b"abc")
+            assert len(b) == 4 # trailing nul char
+            assert sizeof(b) == 4 * sizeof(c_wchar)
+            assert type(b[0]) is unicode
+            assert b[0] == "a"
             assert b[:] == "abc\0"
 

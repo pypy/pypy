@@ -1,4 +1,3 @@
-from pypy.conftest import gettestobjspace
 from pypy.rpython.lltypesystem import rffi
 from pypy.rlib.clibffi import get_libc_name
 from pypy.rlib.libffi import types
@@ -8,6 +7,7 @@ from pypy.rlib.test.test_clibffi import get_libm_name
 import sys, py
 
 class BaseAppTestFFI(object):
+    spaceconfig = dict(usemodules=('_ffi', '_rawffi'))
 
     @classmethod
     def prepare_c_example(cls):
@@ -37,8 +37,7 @@ class BaseAppTestFFI(object):
         return str(platform.compile([c_file], eci, 'x', standalone=False))
 
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('_ffi', '_rawffi'))
-        cls.space = space
+        space = cls.space
         cls.w_iswin32 = space.wrap(sys.platform == 'win32')
         cls.w_libfoo_name = space.wrap(cls.prepare_c_example())
         cls.w_libc_name = space.wrap(get_libc_name())

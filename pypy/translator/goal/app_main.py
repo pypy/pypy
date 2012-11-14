@@ -290,6 +290,10 @@ def create_stdio(fd, writing, name, encoding, errors, unbuffered):
     stream = io.TextIOWrapper(buf, encoding, errors,
                               newline=newline,
                               line_buffering=line_buffering)
+    if writing:
+        stream.mode = 'w'
+    else:
+        stream.mode = 'r'
     return stream
 
 

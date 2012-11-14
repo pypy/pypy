@@ -4,13 +4,8 @@ from pypy.interpreter.pycompiler import PythonAstCompiler
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.argument import Arguments
-from pypy.conftest import gettestobjspace
 
 class TestPythonAstCompiler:
-    def setup_class(cls):
-        # itertools is required because it is imported indirectly by test_globals_warnings
-        cls.space = gettestobjspace(usemodules=['itertools'])
-
     def setup_method(self, method):
         self.compiler = self.space.createcompiler()
 
@@ -960,8 +955,7 @@ class AppTestOptimizer:
         assert "LOAD_GLOBAL" not in output
 
 class AppTestCallMethod(object):
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{'objspace.opcodes.CALL_METHOD': True})
+    spaceconfig = {'objspace.opcodes.CALL_METHOD': True}
         
     def test_call_method_kwargs(self):
         source = """def _f(a):

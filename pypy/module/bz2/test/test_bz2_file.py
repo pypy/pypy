@@ -1,7 +1,6 @@
 from __future__ import with_statement
 
 import py
-from pypy.conftest import gettestobjspace
 from pypy.module.bz2.test.support import CheckAllocation
 from pypy.interpreter.gateway import interp2app
 import os
@@ -49,19 +48,21 @@ def setup_module(mod):
 class AppTestBZ2File: #(CheckAllocation):
     # XXX for unknown reasons, we cannot do allocation checks, as sth is
     # keeping those objects alive (BZ2File objects)
+
+    spaceconfig = dict(usemodules=('bz2', 'thread'))
+
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('bz2', 'thread', 'itertools'))
-        cls.space = space
-        cls.w_TEXT = space.wrapbytes(TEXT)
-        cls.w_DATA = space.wrapbytes(DATA)
-        cls.w_DATA_CRLF = space.wrapbytes(DATA_CRLF)
-        cls.w_temppath = space.wrap(str(py.test.ensuretemp("bz2").join("foo")))
-        cls.w_create_temp_file = space.wrap(create_temp_file)
+        cls.w_TEXT = cls.space.wrapbytes(TEXT)
+        cls.w_DATA = cls.space.wrapbytes(DATA)
+        cls.w_DATA_CRLF = cls.space.wrapbytes(DATA_CRLF)
+        cls.w_temppath = cls.space.wrap(
+            str(py.test.ensuretemp("bz2").join("foo")))
+        cls.w_create_temp_file = cls.space.wrap(create_temp_file)
         def decompress_w(space, w_data):
             return space.wrapbytes(decompress(space.bytes_w(w_data)))
-        cls.w_decompress = space.wrap(interp2app(decompress_w))
-        cls.w_create_broken_temp_file = space.wrap(create_broken_temp_file)
-        cls.w_random_data = space.wrapbytes(RANDOM_DATA)
+        cls.w_decompress = cls.space.wrap(interp2app(decompress_w))
+        cls.w_create_broken_temp_file = cls.space.wrap(create_broken_temp_file)
+        cls.w_random_data = cls.space.wrapbytes(RANDOM_DATA)
         
     def test_attributes(self):
         from bz2 import BZ2File

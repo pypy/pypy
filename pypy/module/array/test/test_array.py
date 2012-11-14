@@ -1,12 +1,11 @@
-from pypy.conftest import gettestobjspace
 import sys
 import py
 import py.test
 
 
 ## class AppTestSimpleArray:
+##     spaceconfig = dict(usemodules=('array',))
 ##     def setup_class(cls):
-##         cls.space = gettestobjspace(usemodules=('array',))
 ##         cls.w_simple_array = cls.space.appexec([], """():
 ##             import array
 ##             return array.simple_array
@@ -151,13 +150,26 @@ class BaseArrayTests:
     def test_fromstring(self):
         for t in 'bBhHiIlLfd':
             a = self.array(t)
-            a.fromstring(b'\x00' * a.itemsize * 2)
+            a.fromstring('\x00' * a.itemsize * 2)
             assert len(a) == 2 and a[0] == 0 and a[1] == 0
             if a.itemsize > 1:
-                raises(ValueError, a.fromstring, b'\x00' * (a.itemsize - 1))
-                raises(ValueError, a.fromstring, b'\x00' * (a.itemsize + 1))
-                raises(ValueError, a.fromstring, b'\x00' * (2 * a.itemsize - 1))
-                raises(ValueError, a.fromstring, b'\x00' * (2 * a.itemsize + 1))
+                raises(ValueError, a.fromstring, '\x00' * (a.itemsize - 1))
+                raises(ValueError, a.fromstring, '\x00' * (a.itemsize + 1))
+                raises(ValueError, a.fromstring, '\x00' * (2 * a.itemsize - 1))
+                raises(ValueError, a.fromstring, '\x00' * (2 * a.itemsize + 1))
+            b = self.array(t, b'\x00' * a.itemsize * 2)
+            assert len(b) == 2 and b[0] == 0 and b[1] == 0
+
+    def test_frombytes(self):
+        for t in 'bBhHiIlLfd':
+            a = self.array(t)
+            a.frombytes(b'\x00' * a.itemsize * 2)
+            assert len(a) == 2 and a[0] == 0 and a[1] == 0
+            if a.itemsize > 1:
+                raises(ValueError, a.frombytes, b'\x00' * (a.itemsize - 1))
+                raises(ValueError, a.frombytes, b'\x00' * (a.itemsize + 1))
+                raises(ValueError, a.frombytes, b'\x00' * (2 * a.itemsize - 1))
+                raises(ValueError, a.frombytes, b'\x00' * (2 * a.itemsize + 1))
             b = self.array(t, b'\x00' * a.itemsize * 2)
             assert len(b) == 2 and b[0] == 0 and b[1] == 0
 
@@ -525,18 +537,18 @@ class BaseArrayTests:
     def test_reduce(self):
         import pickle
         a = self.array('i', [1, 2, 3])
-        s = pickle.dumps(a, 1)
+        s = pickle.dumps(a)
         b = pickle.loads(s)
         assert a == b
 
         a = self.array('l')
-        s = pickle.dumps(a, 1)
+        s = pickle.dumps(a)
         b = pickle.loads(s)
         assert len(b) == 0 and b.typecode == 'l'
 
         a = self.array('i', [1, 2, 4])
         i = iter(a)
-        #raises(TypeError, pickle.dumps, i, 1)
+        #raises(TypeError, pickle.dumps, i)
 
     def test_copy_swap(self):
         a = self.array('i', [1, 2, 3])
@@ -843,11 +855,9 @@ class DontTestCPythonsOwnArray(BaseArrayTests):
         cls.maxint = sys.maxint
 
 class AppTestArray(BaseArrayTests):
-    OPTIONS = {}
+    spaceconfig = dict(usemodules=('array', 'struct', '_rawffi'))
 
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=('array', 'struct', '_rawffi', 'itertools'),
-                                    **cls.OPTIONS)
         cls.w_array = cls.space.appexec([], """():
             import array
             return array.array
@@ -920,4 +930,133 @@ class AppTestArray(BaseArrayTests):
 
 
 class AppTestArrayBuiltinShortcut(AppTestArray):
-    OPTIONS = {'objspace.std.builtinshortcut': True}
+    spaceconfig = AppTestArray.spaceconfig.copy()
+    spaceconfig['objspace.std.builtinshortcut'] = True
+
+
+class AppTestArrayReconstructor:
+    spaceconfig = dict(usemodules=('array', 'struct'))
+
+    def test_error(self):
+        import array
+        array_reconstructor = array._array_reconstructor
+        UNKNOWN_FORMAT = -1
+        raises(TypeError, array_reconstructor,
+               "", "b", 0, b"")
+        raises(TypeError, array_reconstructor,
+               str, "b", 0, b"")
+        raises(TypeError, array_reconstructor,
+               array.array, "b", '', b"")
+        raises(TypeError, array_reconstructor,
+               array.array, "b", 0, "")
+        raises(ValueError, array_reconstructor,
+               array.array, "?", 0, b"")
+        raises(ValueError, array_reconstructor,
+               array.array, "b", UNKNOWN_FORMAT, b"")
+        raises(ValueError, array_reconstructor,
+               array.array, "b", 22, b"")
+        raises(ValueError, array_reconstructor,
+               array.array, "d", 16, b"a")
+
+    def test_numbers(self):
+        import array, struct
+        array_reconstructor = array._array_reconstructor
+        UNSIGNED_INT8 = 0
+        SIGNED_INT8 = 1
+        UNSIGNED_INT16_LE = 2
+        UNSIGNED_INT16_BE = 3
+        SIGNED_INT16_LE = 4
+        SIGNED_INT16_BE = 5
+        UNSIGNED_INT32_LE = 6
+        UNSIGNED_INT32_BE = 7
+        SIGNED_INT32_LE = 8
+        SIGNED_INT32_BE = 9
+        UNSIGNED_INT64_LE = 10
+        UNSIGNED_INT64_BE = 11
+        SIGNED_INT64_LE = 12
+        SIGNED_INT64_BE = 13
+        IEEE_754_FLOAT_LE = 14
+        IEEE_754_FLOAT_BE = 15
+        IEEE_754_DOUBLE_LE = 16
+        IEEE_754_DOUBLE_BE = 17
+        testcases = (
+            (['B', 'H', 'I', 'L'], UNSIGNED_INT8, '=BBBB',
+             [0x80, 0x7f, 0, 0xff]),
+            (['b', 'h', 'i', 'l'], SIGNED_INT8, '=bbb',
+             [-0x80, 0x7f, 0]),
+            (['H', 'I', 'L'], UNSIGNED_INT16_LE, '<HHHH',
+             [0x8000, 0x7fff, 0, 0xffff]),
+            (['H', 'I', 'L'], UNSIGNED_INT16_BE, '>HHHH',
+             [0x8000, 0x7fff, 0, 0xffff]),
+            (['h', 'i', 'l'], SIGNED_INT16_LE, '<hhh',
+             [-0x8000, 0x7fff, 0]),
+            (['h', 'i', 'l'], SIGNED_INT16_BE, '>hhh',
+             [-0x8000, 0x7fff, 0]),
+            (['I', 'L'], UNSIGNED_INT32_LE, '<IIII',
+             [1<<31, (1<<31)-1, 0, (1<<32)-1]),
+            (['I', 'L'], UNSIGNED_INT32_BE, '>IIII',
+             [1<<31, (1<<31)-1, 0, (1<<32)-1]),
+            (['i', 'l'], SIGNED_INT32_LE, '<iii',
+             [-1<<31, (1<<31)-1, 0]),
+            (['i', 'l'], SIGNED_INT32_BE, '>iii',
+             [-1<<31, (1<<31)-1, 0]),
+            (['L'], UNSIGNED_INT64_LE, '<QQQQ',
+             [1<<31, (1<<31)-1, 0, (1<<32)-1]),
+            (['L'], UNSIGNED_INT64_BE, '>QQQQ',
+             [1<<31, (1<<31)-1, 0, (1<<32)-1]),
+            (['l'], SIGNED_INT64_LE, '<qqq',
+             [-1<<31, (1<<31)-1, 0]),
+            (['l'], SIGNED_INT64_BE, '>qqq',
+             [-1<<31, (1<<31)-1, 0]),
+            # The following tests for INT64 will raise an OverflowError
+            # when run on a 32-bit machine. The tests are simply skipped
+            # in that case.
+            (['L'], UNSIGNED_INT64_LE, '<QQQQ',
+             [1<<63, (1<<63)-1, 0, (1<<64)-1]),
+            (['L'], UNSIGNED_INT64_BE, '>QQQQ',
+             [1<<63, (1<<63)-1, 0, (1<<64)-1]),
+            (['l'], SIGNED_INT64_LE, '<qqq',
+             [-1<<63, (1<<63)-1, 0]),
+            (['l'], SIGNED_INT64_BE, '>qqq',
+             [-1<<63, (1<<63)-1, 0]),
+            (['f'], IEEE_754_FLOAT_LE, '<ffff',
+             [16711938.0, float('inf'), float('-inf'), -0.0]),
+            (['f'], IEEE_754_FLOAT_BE, '>ffff',
+             [16711938.0, float('inf'), float('-inf'), -0.0]),
+            (['d'], IEEE_754_DOUBLE_LE, '<dddd',
+             [9006104071832581.0, float('inf'), float('-inf'), -0.0]),
+            (['d'], IEEE_754_DOUBLE_BE, '>dddd',
+             [9006104071832581.0, float('inf'), float('-inf'), -0.0])
+        )
+        for testcase in testcases:
+            valid_typecodes, mformat_code, struct_fmt, values = testcase
+            arraystr = struct.pack(struct_fmt, *values)
+            for typecode in valid_typecodes:
+                try:
+                    a = array.array(typecode, values)
+                except OverflowError:
+                    continue  # Skip this test case.
+                b = array_reconstructor(
+                    array.array, typecode, mformat_code, arraystr)
+                assert a == b
+
+    def test_unicode(self):
+        import array
+        array_reconstructor = array._array_reconstructor
+        UTF16_LE = 18
+        UTF16_BE = 19
+        UTF32_LE = 20
+        UTF32_BE = 21
+        teststr = "Bonne Journ\xe9e \U0002030a\U00020347"
+        testcases = (
+            (UTF16_LE, "UTF-16-LE"),
+            (UTF16_BE, "UTF-16-BE"),
+            (UTF32_LE, "UTF-32-LE"),
+            (UTF32_BE, "UTF-32-BE")
+        )
+        for testcase in testcases:
+            mformat_code, encoding = testcase
+            a = array.array('u', teststr)
+            b = array_reconstructor(
+                array.array, 'u', mformat_code, teststr.encode(encoding))
+            assert a == b

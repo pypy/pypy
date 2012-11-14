@@ -1,8 +1,4 @@
 import py
-from pypy.objspace.std import stringobject
-from pypy.objspace.std.stringobject import W_StringObject
-from pypy.conftest import gettestobjspace
-
 
 class TestW_StringObject:
 
@@ -89,9 +85,9 @@ class TestW_StringObject:
         assert self.space.eq_w(space.getitem(w_str, w_slice), wb('el'))
 
     def test_listview_str(self):
-        py.test.py3k_skip("listview_str not supported yet")
-        w_str = self.space.wrap('abcd')
-        assert self.space.listview_str(w_str) == list("abcd")
+        w_str = self.space.wrapbytes('abcd')
+        # list(b'abcd') is a list of numbers
+        assert self.space.listview_str(w_str) == None
 
 class AppTestStringObject:
 
@@ -757,6 +753,10 @@ class AppTestStringObject:
         iterable = b"hello"
         raises(TypeError, len, iter(iterable))
 
+    def test_maketrans(self):
+        table = b'\000\001\002\003\004\005\006\007\010\011\012\013\014\015\016\017\020\021\022\023\024\025\026\027\030\031\032\033\034\035\036\037 !"#$%&\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`xyzdefghijklmnopqrstuvwxyz{|}~\177\200\201\202\203\204\205\206\207\210\211\212\213\214\215\216\217\220\221\222\223\224\225\226\227\230\231\232\233\234\235\236\237\240\241\242\243\244\245\246\247\250\251\252\253\254\255\256\257\260\261\262\263\264\265\266\267\270\271\272\273\274\275\276\277\300\301\302\303\304\305\306\307\310\311\312\313\314\315\316\317\320\321\322\323\324\325\326\327\330\331\332\333\334\335\336\337\340\341\342\343\344\345\346\347\350\351\352\353\354\355\356\357\360\361\362\363\364\365\366\367\370\371\372\373\374\375\376\377'
+        assert bytes.maketrans(b'abc', b'xyz') == table
+
     def test_compatibility(self):
         #a whole bunch of methods should accept bytearray/memoryview without complaining...
         #I don't know how slavishly we should follow the cpython spec here, since it appears
@@ -783,17 +783,15 @@ class AppTestStringObject:
             assert not b.startswith((bb, bb))
             assert not b.endswith(bb)
             assert not b.endswith((bb, bb))
-            assert b.maketrans(bb, bb)
+            assert bytes.maketrans(bb, bb)
+            assert bytearray.maketrans(bb, bb)
 
 class AppTestPrebuilt(AppTestStringObject):
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withprebuiltchar": True})
+    spaceconfig = {"objspace.std.withprebuiltchar": True}
 
 class AppTestShare(AppTestStringObject):
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.sharesmallstr": True})
+    spaceconfig = {"objspace.std.sharesmallstr": True}
 
 class AppTestPrebuiltShare(AppTestStringObject):
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withprebuiltchar": True,
-                                       "objspace.std.sharesmallstr": True})
+    spaceconfig = {"objspace.std.withprebuiltchar": True,
+                   "objspace.std.sharesmallstr": True}

@@ -1,9 +1,5 @@
-from pypy.conftest import gettestobjspace
-
 class AppTestNested:
-    def setup_class(cls):
-        space = gettestobjspace(usemodules=('_rawffi', 'struct'))
-        cls.space = space
+    spaceconfig = dict(usemodules=['_rawffi', 'struct'])
 
     def test_inspect_structure(self):
         import _rawffi, struct
@@ -47,14 +43,14 @@ class AppTestNested:
         assert S.fieldoffset('x') == 0
         assert S.fieldoffset('s1') == S1.alignment
         s = S()
-        s.x = b'G'
+        s.x = ord('G')
         raises(TypeError, 's.s1')
         assert s.fieldaddress('s1') == s.buffer + S.fieldoffset('s1')
         s1 = S1.fromaddress(s.fieldaddress('s1'))
-        s1.c = b'H'
+        s1.c = ord('H')
         rawbuf = _rawffi.Array('c').fromaddress(s.buffer, S.size)
-        assert rawbuf[0] == b'G'
-        assert rawbuf[S1.alignment + S1.fieldoffset('c')] == b'H'
+        assert rawbuf[0] == ord('G')
+        assert rawbuf[S1.alignment + S1.fieldoffset('c')] == ord('H')
         s.free()
 
     def test_array_of_structures(self):
@@ -64,17 +60,17 @@ class AppTestNested:
         a = A(3)
         raises(TypeError, "a[0]")
         s0 = S.fromaddress(a.buffer)
-        s0.c = b'B'
+        s0.c = ord('B')
         assert a.itemaddress(1) == a.buffer + S.size
         s1 = S.fromaddress(a.itemaddress(1))
-        s1.c = b'A'
+        s1.c = ord('A')
         s2 = S.fromaddress(a.itemaddress(2))
-        s2.c = b'Z'
+        s2.c = ord('Z')
         rawbuf = _rawffi.Array('c').fromaddress(a.buffer, S.size * len(a))
         ofs = S.fieldoffset('c')
-        assert rawbuf[0*S.size+ofs] == b'B'
-        assert rawbuf[1*S.size+ofs] == b'A'
-        assert rawbuf[2*S.size+ofs] == b'Z'
+        assert rawbuf[0*S.size+ofs] == ord('B')
+        assert rawbuf[1*S.size+ofs] == ord('A')
+        assert rawbuf[2*S.size+ofs] == ord('Z')
         a.free()
 
     def test_array_of_array(self):
@@ -107,16 +103,16 @@ class AppTestNested:
         assert S.fieldoffset('x') == 0
         assert S.fieldoffset('ar') == A5alignment
         s = S()
-        s.x = b'G'
+        s.x = ord('G')
         raises(TypeError, 's.ar')
         assert s.fieldaddress('ar') == s.buffer + S.fieldoffset('ar')
         a1 = A.fromaddress(s.fieldaddress('ar'), 5)
         a1[4] = 33
         rawbuf = _rawffi.Array('c').fromaddress(s.buffer, S.size)
-        assert rawbuf[0] == b'G'
+        assert rawbuf[0] == ord('G')
         sizeofint = struct.calcsize("i")
         v = 0
         for i in range(sizeofint):
-            v += ord(rawbuf[A5alignment + sizeofint*4+i])
+            v += rawbuf[A5alignment + sizeofint*4+i]
         assert v == 33
         s.free()

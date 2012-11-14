@@ -1,11 +1,8 @@
-from pypy.conftest import gettestobjspace
 from pypy.objspace.std.test import test_typeobject
 
 
 class AppTestMethodCaching(test_typeobject.AppTestTypeObject):
-    def setup_class(cls):
-        cls.space = gettestobjspace(
-            **{"objspace.std.withmethodcachecounter": True})
+    spaceconfig = {"objspace.std.withmethodcachecounter": True}
 
     def test_mix_classes(self):
         import __pypy__

@@ -1,12 +1,12 @@
-from pypy.conftest import gettestobjspace
 import sys
 import py
+from pypy.tool.pytest.objspace import gettestobjspace
 from pypy.tool.udir import udir
 from pypy.rlib import rsocket
 from pypy.rpython.lltypesystem import lltype, rffi
 
 def setup_module(mod):
-    mod.space = gettestobjspace(usemodules=['_socket', 'array', 'struct', 'itertools'])
+    mod.space = gettestobjspace(usemodules=['_socket', 'array', 'struct'])
     global socket
     import socket
     mod.w_socket = space.appexec([], "(): import _socket as m; return m")

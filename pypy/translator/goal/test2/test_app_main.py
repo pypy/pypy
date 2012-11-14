@@ -446,6 +446,14 @@ class TestInteraction:
         child.expect('789')    # expect to see it before the timeout hits
         child.sendline('X')
 
+    def test_file_modes(self):
+        child = self.spawn(['-c', 'import sys; print(sys.stdout.mode)'])
+        child.expect('w')
+        child = self.spawn(['-c', 'import sys; print(sys.stderr.mode)'])
+        child.expect('w')
+        child = self.spawn(['-c', 'import sys; print(sys.stdin.mode)'])
+        child.expect('r')
+
     def test_options_i_m(self):
         if sys.platform == "win32":
             skip("close_fds is not supported on Windows platforms")

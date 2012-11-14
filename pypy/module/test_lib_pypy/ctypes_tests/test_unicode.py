@@ -29,47 +29,47 @@ else:
         def test_ascii_strict(self):
             ctypes.set_conversion_mode("ascii", "strict")
             # no conversions take place with unicode arguments
-            assert wcslen(u"abc") == 3
-            assert wcslen(u"ab\u2070") == 3
-            # string args are converted
             assert wcslen("abc") == 3
-            py.test.raises(ctypes.ArgumentError, wcslen, "abה")
+            assert wcslen("ab\u2070") == 3
+            # string args are converted
+            assert wcslen(b"abc") == 3
+            py.test.raises(ctypes.ArgumentError, wcslen, b"aba")
 
         def test_ascii_replace(self):
             ctypes.set_conversion_mode("ascii", "replace")
-            assert wcslen(u"abc") == 3
-            assert wcslen(u"ab\u2070") == 3
             assert wcslen("abc") == 3
-            assert wcslen("abה") == 3
+            assert wcslen("ab\u2070") == 3
+            assert wcslen(b"abc") == 3
+            assert wcslen(b"abה") == 3
 
         def test_ascii_ignore(self):
             ctypes.set_conversion_mode("ascii", "ignore")
-            assert wcslen(u"abc") == 3
-            assert wcslen(u"ab\u2070") == 3
-            # ignore error mode skips non-ascii characters
             assert wcslen("abc") == 3
-            assert wcslen("הצüß") == 0
+            assert wcslen("ab\u2070") == 3
+            # ignore error mode skips non-ascii characters
+            assert wcslen(b"abc") == 3
+            assert wcslen(b"הצüß") == 0
 
         def test_latin1_strict(self):
             ctypes.set_conversion_mode("latin-1", "strict")
-            assert wcslen(u"abc") == 3
-            assert wcslen(u"ab\u2070") == 3
             assert wcslen("abc") == 3
-            assert wcslen("הצüß") == 4
+            assert wcslen("ab\u2070") == 3
+            assert wcslen(b"abc") == 3
+            assert wcslen(b"הצüß") == 4
 
         def test_buffers(self):
             ctypes.set_conversion_mode("ascii", "strict")
-            buf = ctypes.create_unicode_buffer("abc")
+            buf = ctypes.create_unicode_buffer(b"abc")
             assert len(buf) == 3+1
 
             ctypes.set_conversion_mode("ascii", "replace")
-            buf = ctypes.create_unicode_buffer("abהצü")
-            assert buf[:] == u"ab\uFFFD\uFFFD\uFFFD\0"
+            buf = ctypes.create_unicode_buffer(b"abהצü")
+            assert buf[:] == "ab\uFFFD\uFFFD\uFFFD\0"
 
             ctypes.set_conversion_mode("ascii", "ignore")
-            buf = ctypes.create_unicode_buffer("abהצü")
+            buf = ctypes.create_unicode_buffer(b"abהצü")
             # is that correct? not sure.  But with 'ignore', you get what you pay for..
-            assert buf[:] == u"ab\0\0\0\0"
+            assert buf[:] == "ab\0\0\0\0"
 
     class TestString(TestUnicode):
         def setup_method(self, method):
@@ -84,33 +84,33 @@ else:
 
         def test_ascii_replace(self):
             ctypes.set_conversion_mode("ascii", "strict")
+            assert func(b"abc") == "abc"
             assert func("abc") == "abc"
-            assert func(u"abc") == "abc"
-            raises(ctypes.ArgumentError, func, u"abה")
+            raises(ctypes.ArgumentError, func, "abה")
 
         def test_ascii_ignore(self):
             ctypes.set_conversion_mode("ascii", "ignore")
             assert func("abc") == "abc"
-            assert func(u"abc") == "abc"
-            assert func(u"הצüß") == ""
+            assert func("abc") == "abc"
+            assert func("הצüß") == ""
 
         def test_ascii_replace_2(self):
             ctypes.set_conversion_mode("ascii", "replace")
             assert func("abc") == "abc"
-            assert func(u"abc") == "abc"
-            assert func(u"הצüß") == "????"
+            assert func("abc") == "abc"
+            assert func("הצüß") == "????"
 
         def test_buffers(self):
             ctypes.set_conversion_mode("ascii", "strict")
-            buf = ctypes.create_string_buffer(u"abc")
+            buf = ctypes.create_string_buffer("abc")
             assert len(buf) == 3+1
 
             ctypes.set_conversion_mode("ascii", "replace")
-            buf = ctypes.create_string_buffer(u"abהצü")
+            buf = ctypes.create_string_buffer("abהצü")
             assert buf[:] == "ab???\0"
 
             ctypes.set_conversion_mode("ascii", "ignore")
-            buf = ctypes.create_string_buffer(u"abהצü")
+            buf = ctypes.create_string_buffer("abהצü")
             # is that correct? not sure.  But with 'ignore', you get what you pay for..
             assert buf[:] == "ab\0\0\0\0"
 

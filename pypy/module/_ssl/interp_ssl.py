@@ -175,11 +175,11 @@ class SSLContext(Wrappable):
             libssl_SSL_CTX_set_options(self.ctx, set)
 
     def load_cert_chain_w(self, space, w_certfile, w_keyfile=None):
-        if space.is_w(w_certfile, space.w_None):
+        if space.is_none(w_certfile):
             certfile = None
         else:
             certfile = space.str_w(w_certfile)
-        if space.is_w(w_keyfile, space.w_None):
+        if space.is_none(w_keyfile):
             keyfile = certfile
         else:
             keyfile = space.str_w(w_keyfile)
@@ -210,11 +210,11 @@ class SSLContext(Wrappable):
             raise _ssl_seterror(space, None, -1)
 
     def load_verify_locations_w(self, space, w_cafile=None, w_capath=None):
-        if space.is_w(w_cafile, space.w_None):
+        if space.is_none(w_cafile):
             cafile = None
         else:
             cafile = space.str_w(w_cafile)
-        if space.is_w(w_capath, space.w_None):
+        if space.is_none(w_capath):
             capath = None
         else:
             capath = space.str_w(w_capath)
@@ -238,11 +238,12 @@ class SSLContext(Wrappable):
         assert w_sock is not None
         # server_hostname is either None (or absent), or to be encoded
         # using the idna encoding.
-        if space.is_w(w_server_hostname, space.w_None):
+        if space.is_none(w_server_hostname):
             hostname = None
         else:
             hostname = space.bytes_w(
-                space.call_method(w_server_hostname, "idna"))
+                space.call_method(w_server_hostname,
+                                  "encode", space.wrap("idna")))
 
         if hostname and not HAS_SNI:
             raise OperationError(space.w_ValueError,
@@ -400,7 +401,7 @@ class SSLSocket(Wrappable):
         return space.wrap(count)
 
     @unwrap_spec(num_bytes=int)
-    def read(self, space, num_bytes=1024):
+    def read(self, space, num_bytes, w_buf=None):
         """read([len]) -> string
 
         Read up to len bytes from the SSL socket."""
@@ -419,6 +420,12 @@ class SSLSocket(Wrappable):
                     return space.wrapbytes('')
                 raise ssl_error(space, "Socket closed without SSL shutdown handshake")
 
+        rwbuffer = None
+        if not space.is_none(w_buf):
+            rwbuffer = space.rwbuffer_w(w_buf)
+            lgt = rwbuffer.getlength()
+            if num_bytes < 0 or num_bytes > lgt:
+                num_bytes = lgt
         raw_buf, gc_buf = rffi.alloc_buffer(num_bytes)
         while True:
             err = 0
@@ -453,7 +460,11 @@ class SSLSocket(Wrappable):
 
         result = rffi.str_from_buffer(raw_buf, gc_buf, num_bytes, count)
         rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
-        return space.wrapbytes(result)
+        if rwbuffer is not None:
+            rwbuffer.setslice(0, result)
+            return space.wrap(count)
+        else:
+            return space.wrapbytes(result)
 
     def _get_socket(self, space):
         w_socket = self.w_socket()

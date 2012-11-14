@@ -53,3 +53,10 @@ class AppTestAppBoolTest:
 
     def test_cant_subclass_bool(self):
         raises(TypeError, "class b(bool): pass")
+
+    def test_convert_to_bool(self):
+        check = lambda o: raises(TypeError, bool, o)
+        class Spam(int):
+            def __bool__(self):
+                return 1
+        raises(TypeError, bool, Spam())

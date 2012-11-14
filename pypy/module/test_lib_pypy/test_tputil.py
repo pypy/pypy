@@ -1,8 +1,5 @@
-from pypy.conftest import gettestobjspace
-
 class AppTest_make_proxy:
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withtproxy": True})
+    spaceconfig = {"objspace.std.withtproxy": True}
 
     def test_errors(self):
         from tputil import make_proxy 

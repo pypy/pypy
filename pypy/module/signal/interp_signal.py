@@ -179,10 +179,12 @@ class CheckSignalAction(PeriodicAsyncAction):
             w_handler = self.handlers_w[n]
         except KeyError:
             return    # no handler, ignore signal
+        space = self.space
+        if not space.is_true(space.callable(w_handler)):
+            return    # w_handler is SIG_IGN or SIG_DFL?
         # re-install signal handler, for OSes that clear it
         pypysig_reinstall(n)
         # invoke the app-level handler
-        space = self.space
         ec = space.getexecutioncontext()
         w_frame = space.wrap(ec.gettopframe_nohidden())
         space.call_function(w_handler, space.wrap(n), w_frame)
@@ -297,17 +299,15 @@ def signal(space, signum, w_handler):
     action = space.check_signal_action
     if space.eq_w(w_handler, space.wrap(SIG_DFL)):
         pypysig_default(signum)
-        action.handlers_w[signum] = w_handler
     elif space.eq_w(w_handler, space.wrap(SIG_IGN)):
         pypysig_ignore(signum)
-        action.handlers_w[signum] = w_handler
     else:
         if not space.is_true(space.callable(w_handler)):
             raise OperationError(space.w_TypeError,
                                  space.wrap("'handler' must be a callable "
                                             "or SIG_DFL or SIG_IGN"))
         pypysig_setflag(signum)
-        action.handlers_w[signum] = w_handler
+    action.handlers_w[signum] = w_handler
     return old_handler
 
 @jit.dont_look_inside

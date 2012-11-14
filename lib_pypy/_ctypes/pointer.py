@@ -74,8 +74,7 @@ class PointerType(_CDataMeta):
 
     from_address = cdata_from_address
 
-class _Pointer(_CData):
-    __metaclass__ = PointerType
+class _Pointer(_CData, metaclass=PointerType):
 
     def getcontents(self):
         addr = self._buffer[0]
@@ -129,7 +128,7 @@ def _cast_addr(obj, _, tp):
     if not (isinstance(tp, _CDataMeta) and tp._is_pointer_like()):
         raise TypeError("cast() argument 2 must be a pointer type, not %s"
                         % (tp,))
-    if isinstance(obj, (int, long)):
+    if isinstance(obj, int):
         result = tp()
         result._buffer[0] = obj
         return result

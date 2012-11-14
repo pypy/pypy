@@ -1,11 +1,8 @@
 import autopath
-from pypy.conftest import gettestobjspace
 
 
 class AppTestCodecs:
-    def setup_class(cls):
-        space = gettestobjspace(usemodules=('unicodedata', 'struct', 'itertools'))
-        cls.space = space
+    spaceconfig = dict(usemodules=('unicodedata', 'struct'))
 
     def test_register_noncallable(self):
         import _codecs
@@ -123,10 +120,7 @@ class AppTestCodecs:
         assert unicode_escape_decode(b'\\x61\\x62\\x63') == ('abc', 12)
 
 class AppTestPartialEvaluation:
-
-    def setup_class(cls):
-        space = gettestobjspace(usemodules=('array',))
-        cls.space = space
+    spaceconfig = dict(usemodules=('array',))
 
     def test_partial_utf8(self):
         import _codecs

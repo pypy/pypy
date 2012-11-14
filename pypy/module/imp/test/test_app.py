@@ -1,11 +1,12 @@
 from __future__ import with_statement
+from pypy.tool.udir import udir
+
 MARKER = 42
 
 class AppTestImpModule:
+    spaceconfig = dict(usemodules=('imp',))
+
     def setup_class(cls):
-        from pypy.tool.udir import udir
-        from pypy.conftest import gettestobjspace
-        cls.space = gettestobjspace(usemodules=('imp', 'itertools'))
         cls.w_imp = cls.space.getbuiltinmodule('imp')
         cls.w_file_module = cls.space.wrap(__file__)
         latin1 = udir.join('latin1.py')
@@ -215,3 +216,8 @@ class AppTestImpModule:
                 except KeyError:
                     pass
             rmtree(dir_name, True)
+
+    def test_get_tag(self):
+        import imp
+        import sys
+        assert imp.get_tag() == 'pypy-%d%d' % sys.version_info[0:2]

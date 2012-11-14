@@ -189,6 +189,10 @@ class AST_Tests(unittest.TestCase):
                 self._assertTrueorder(value, parent_pos)
 
     def test_AST_objects(self):
+        if not support.check_impl_detail():
+            # PyPy also provides a __dict__ to the ast.AST base class.
+            return
+
         x = ast.AST()
         self.assertEqual(x._fields, ())
 
@@ -362,21 +366,24 @@ class AST_Tests(unittest.TestCase):
         m = ast.Module([ast.Expr(ast.expr(**pos), **pos)])
         with self.assertRaises(TypeError) as cm:
             compile(m, "<test>", "exec")
-        self.assertIn("but got <_ast.expr", str(cm.exception))
+        if support.check_impl_detail():
+            self.assertIn("but got <_ast.expr", str(cm.exception))
 
     def test_invalid_identitifer(self):
         m = ast.Module([ast.Expr(ast.Name(42, ast.Load()))])
         ast.fix_missing_locations(m)
         with self.assertRaises(TypeError) as cm:
             compile(m, "<test>", "exec")
-        self.assertIn("identifier must be of type str", str(cm.exception))
+        if support.check_impl_detail():
+            self.assertIn("identifier must be of type str", str(cm.exception))
 
     def test_invalid_string(self):
         m = ast.Module([ast.Expr(ast.Str(42))])
         ast.fix_missing_locations(m)
         with self.assertRaises(TypeError) as cm:
             compile(m, "<test>", "exec")
-        self.assertIn("string must be of type str", str(cm.exception))
+        if support.check_impl_detail():
+            self.assertIn("string must be of type str or uni", str(cm.exception))
 
 
 class ASTHelpers_Test(unittest.TestCase):
@@ -493,9 +500,10 @@ class ASTHelpers_Test(unittest.TestCase):
                                level=None,
                                lineno=None, col_offset=None)]
         mod = ast.Module(body)
-        with self.assertRaises(ValueError) as cm:
+        with self.assertRaises((TypeError, ValueError)) as cm:
             compile(mod, 'test', 'exec')
-        self.assertIn("invalid integer value: None", str(cm.exception))
+        if support.check_impl_detail():
+            self.assertIn("invalid integer value: None", str(cm.exception))
 
 
 def test_main():

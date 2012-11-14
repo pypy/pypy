@@ -1,5 +1,3 @@
-import py, sys
-from pypy.conftest import gettestobjspace
 from pypy.module.thread.test.support import GenericTestThread
 
 class AppTestFork(GenericTestThread):

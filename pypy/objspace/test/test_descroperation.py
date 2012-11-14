@@ -31,12 +31,6 @@ class Test_DescrOperation:
 
 
 class AppTest_Descroperation:
-    OPTIONS = {}
-
-    def setup_class(cls):
-        from pypy import conftest
-        cls.space = conftest.gettestobjspace(**cls.OPTIONS)
-
     def test_special_methods(self):
         class A:
             def __lt__(self, other):
@@ -544,6 +538,17 @@ class AppTest_Descroperation:
         assert (D() >  A()) == 'D:A.gt'
         assert (D() >= A()) == 'D:A.ge'
 
+    def test_binop_rule(self):
+        called = []
+        class A:
+            def __eq__(self, other):
+                called.append(self)
+                return NotImplemented
+        a1 = A()
+        a2 = A()
+        a1 == a2
+        assert called == [a1, a2]
+
     def test_addition(self):
         class A:
             def __init__(self, a):
@@ -701,4 +706,4 @@ class AppTest_Descroperation:
         
             
 class AppTestWithBuiltinShortcut(AppTest_Descroperation):
-    OPTIONS = {'objspace.std.builtinshortcut': True}
+    spaceconfig = {'objspace.std.builtinshortcut': True}

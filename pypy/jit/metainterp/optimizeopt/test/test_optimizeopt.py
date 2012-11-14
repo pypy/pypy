@@ -5646,6 +5646,16 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_strunicode_loop(ops, expected, expected)
 
+    def test_newstr_toobig(self):
+        ops = """
+        [i0]
+        p1 = newstr(101)
+        strsetitem(p1, 0, i0)
+        i3 = strgetitem(p1, 0)
+        jump(i3)
+        """
+        self.optimize_strunicode_loop(ops, ops, ops)
+
     # XXX Should some of the call's below now be call_pure?
 
     def test_str_concat_1(self):

@@ -25,6 +25,13 @@ that's a lower number of lines of code to trust.  For the paranoid, in
 this case we also generate systematic run-time checks against buffer
 overflows.
 
+.. warning::
+  
+  The hard work from the PyPy side is done --- you get a fully secure
+  version.  What is only experimental and unpolished is the library to
+  use this sandboxed PyPy from a regular Python interpreter (CPython, or
+  an unsandboxed PyPy).  Contributions welcome.
+
 
 Overview
 --------

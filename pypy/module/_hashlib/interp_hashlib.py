@@ -6,7 +6,7 @@ from pypy.tool.sourcetools import func_renamer
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rlib import rgc, ropenssl
-from pypy.rlib.objectmodel import keepalive_until_here
+from pypy.rlib.objectmodel import keepalive_until_here, we_are_translated
 from pypy.rlib.rstring import StringBuilder
 from pypy.module.thread.os_lock import Lock
 
@@ -45,6 +45,8 @@ class State:
         self.generate_method_names(space)
     
     def generate_method_names(self, space):
+        if not we_are_translated():
+            ropenssl.init_digests()
         self.w_error = None
         try:
             global_state[0] = self

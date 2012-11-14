@@ -1,14 +1,9 @@
-import py
-from pypy.conftest import gettestobjspace, option
-
 class AppTestCProfile(object):
-    keywords = {}
+    spaceconfig = dict(usemodules=('_lsprof',))
 
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('_lsprof',), **cls.keywords)
-        cls.w_expected_output = space.wrap(expected_output)
-        cls.space = space
-        cls.w_file = space.wrap(__file__)
+        cls.w_expected_output = cls.space.wrap(expected_output)
+        cls.w_file = cls.space.wrap(__file__)
 
     def test_repr(self):
         import _lsprof
@@ -195,7 +190,8 @@ class AppTestCProfile(object):
 
 
 class AppTestWithDifferentBytecodes(AppTestCProfile):
-    keywords = {'objspace.opcodes.CALL_METHOD': True}
+    spaceconfig = AppTestCProfile.spaceconfig.copy()
+    spaceconfig['objspace.opcodes.CALL_METHOD'] = True
 
 
 expected_output = {}

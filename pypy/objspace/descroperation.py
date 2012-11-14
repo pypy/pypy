@@ -239,11 +239,10 @@ class DescrOperation(object):
         w_restype = space.type(w_res)
         # Note there is no check for bool here because the only possible
         # instances of bool are w_False and w_True, which are checked above.
-        if space.is_w(w_restype, space.w_int):
-            return space.int_w(w_res) != 0
-        else:
-            msg = "__bool__ should return bool or integer"
-            raise OperationError(space.w_TypeError, space.wrap(msg))
+        typename = space.type(w_obj).getname(space)
+        raise operationerrfmt(space.w_TypeError,
+                              "__bool__ should return bool, returned %s",
+                              typename)
 
     def nonzero(space, w_obj):
         if space.is_true(w_obj):
@@ -548,23 +547,16 @@ def _make_comparison_impl(symbol, specialnames):
         w_left_src, w_left_impl = space.lookup_in_type_where(w_typ1, left)
         w_first = w_obj1
         w_second = w_obj2
-        #
-        if left == right and space.is_w(w_typ1, w_typ2):
-            # for __eq__ and __ne__, if the objects have the same
-            # class, then don't try the opposite method, which is the
-            # same one.
-            w_right_impl = None
-        else:
-            # in all other cases, try the opposite method.
-            w_right_src, w_right_impl = space.lookup_in_type_where(w_typ2,right)
-            if space.is_w(w_typ1, w_typ2):
-                # if the type is the same, then don't reverse: try
-                # left first, right next.
-                pass
-            elif space.is_true(space.issubtype(w_typ2, w_typ1)):
-                # if typ2 is a subclass of typ1.
-                w_obj1, w_obj2 = w_obj2, w_obj1
-                w_left_impl, w_right_impl = w_right_impl, w_left_impl
+
+        w_right_src, w_right_impl = space.lookup_in_type_where(w_typ2,right)
+        if space.is_w(w_typ1, w_typ2):
+            # if the type is the same, then don't reverse: try
+            # left first, right next.
+            pass
+        elif space.is_true(space.issubtype(w_typ2, w_typ1)):
+            # if typ2 is a subclass of typ1.
+            w_obj1, w_obj2 = w_obj2, w_obj1
+            w_left_impl, w_right_impl = w_right_impl, w_left_impl
 
         w_res = _invoke_binop(space, w_left_impl, w_obj1, w_obj2)
         if w_res is not None:

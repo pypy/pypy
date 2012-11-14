@@ -390,17 +390,7 @@ def descr_maketrans(space, w_type, w_from, w_to):
         char_to = list_to[i]
         base_table[pos_from] = char_to
     
-    chars = ''.join(base_table)
-    if space.config.objspace.std.withrope:
-        from pypy.objspace.std.ropeobject import rope, W_RopeObject
-        w_obj = space.allocate_instance(W_RopeObject, w_type)
-        W_RopeObject.__init__(w_obj, rope.LiteralStringNode(chars))
-        return w_obj
-    else:
-        from pypy.objspace.std.stringobject import W_StringObject
-        w_obj = space.allocate_instance(W_StringObject, w_type)
-        W_StringObject.__init__(w_obj, chars)
-        return w_obj
+    return wrapstr(space, ''.join(base_table))
 
 # ____________________________________________________________
 

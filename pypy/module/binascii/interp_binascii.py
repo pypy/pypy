@@ -2,7 +2,8 @@ from pypy.interpreter.error import OperationError
 
 class Cache:
     def __init__(self, space):
-        self.w_error = space.new_exception_class("binascii.Error")
+        self.w_error = space.new_exception_class("binascii.Error",
+                                                 space.w_ValueError)
         self.w_incomplete = space.new_exception_class("binascii.Incomplete")
 
 def raise_Error(space, msg):

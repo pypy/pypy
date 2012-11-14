@@ -174,7 +174,7 @@ class TestExtra(BaseCTypesTestChecker):
         assert not c_float(0.0)
         assert not c_double(0.0)
         assert not c_ulonglong(0)
-        assert c_ulonglong(2L**42)
+        assert c_ulonglong(2**42)
 
         assert c_char_p("hello")
         assert c_char_p("")
@@ -230,7 +230,7 @@ class TestExtra(BaseCTypesTestChecker):
         assert isinstance(c_void_p.from_param((c_int * 4)()), c_int*4)
 
     def test_array_mul(self):
-        assert c_int * 10 == 10 * c_int == c_int * 10L == 10L * c_int
+        assert c_int * 10 == 10 * c_int
         py.test.raises(TypeError, 'c_int * c_int')
         py.test.raises(TypeError, 'c_int * (-1.5)')
         py.test.raises(TypeError, 'c_int * "foo"')

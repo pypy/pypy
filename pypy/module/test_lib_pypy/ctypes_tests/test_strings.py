@@ -58,17 +58,17 @@ else:
         def test(self):
             BUF = c_wchar * 4
 
-            buf = BUF(u"a", u"b", u"c")
-            assert buf.value == u"abc"
+            buf = BUF("a", "b", "c")
+            assert buf.value == "abc"
 
-            buf.value = u"ABCD"
-            assert buf.value == u"ABCD"
+            buf.value = "ABCD"
+            assert buf.value == "ABCD"
 
-            buf.value = u"x"
-            assert buf.value == u"x"
+            buf.value = "x"
+            assert buf.value == "x"
 
-            buf[1] = u"Z"
-            assert buf.value == u"xZCD"
+            buf[1] = "Z"
+            assert buf.value == "xZCD"
 
 # XXX write real tests for w_char
 
@@ -80,7 +80,7 @@ def run_test(rep, msg, func, arg):
     for i in items:
         func(arg); func(arg); func(arg); func(arg); func(arg)
     stop = clock()
-    print "%20s: %.2f us" % (msg, ((stop-start)*1e6/5/rep))
+    print("%20s: %.2f us" % (msg, ((stop-start)*1e6/5/rep)))
 
 def check_perf():
     # Construct 5 objects

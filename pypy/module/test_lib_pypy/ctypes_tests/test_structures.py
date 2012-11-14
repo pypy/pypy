@@ -275,15 +275,15 @@ class TestStructure(BaseCTypesTestChecker):
             _fields_ = [("name", c_wchar * 12),
                         ("age", c_int)]
 
-        p = PersonW(u"Someone")
+        p = PersonW("Someone")
         assert p.name == "Someone"
 
-        assert PersonW(u"1234567890").name == u"1234567890"
-        assert PersonW(u"12345678901").name == u"12345678901"
+        assert PersonW("1234567890").name == "1234567890"
+        assert PersonW("12345678901").name == "12345678901"
         # exact fit
-        assert PersonW(u"123456789012").name == u"123456789012"
+        assert PersonW("123456789012").name == "123456789012"
         #too long
-        raises(ValueError, PersonW, u"1234567890123")
+        raises(ValueError, PersonW, "1234567890123")
 
     def test_init_errors(self):
         py.test.skip("not implemented error details")
@@ -321,7 +321,7 @@ class TestStructure(BaseCTypesTestChecker):
         # XXX remove this, py.test.raises returns a nice inspectable object
         try:
             func(*args)
-        except Exception, detail:
+        except Exception as detail:
             return detail.__class__, str(detail)
 
 
@@ -441,11 +441,6 @@ class TestStructure(BaseCTypesTestChecker):
         p = pointer(obj)
         assert p.contents._b_base_ is p
 
-    def test_unicode_field_name(self):
-        # setattr autoconverts field names to bytes
-        class X(Structure):
-            _fields_ = [(u"i", c_int)]
-
 class TestPointerMember(BaseCTypesTestChecker):
 
     def test_1(self):
@@ -495,11 +490,11 @@ class TestRecursiveStructure(BaseCTypesTestChecker):
 
         try:
             Recursive._fields_ = [("next", Recursive)]
-        except AttributeError, details:
+        except AttributeError as details:
             assert ("Structure or union cannot contain itself" in
                             str(details))
         else:
-            raise AssertionError, "Structure or union cannot contain itself"
+            raise AssertionError("Structure or union cannot contain itself")
 
 
     def test_vice_versa(self):
@@ -513,11 +508,11 @@ class TestRecursiveStructure(BaseCTypesTestChecker):
 
         try:
             Second._fields_ = [("first", First)]
-        except AttributeError, details:
+        except AttributeError as details:
             assert ("_fields_ is final" in
                             str(details))
         else:
-            raise AssertionError, "AttributeError not raised"
+            raise AssertionError("AttributeError not raised")
 
     def test_nonfinal_struct(self):
         class X(Structure):
@@ -544,7 +539,7 @@ class TestPatologicalCases(BaseCTypesTestChecker):
             _fields_ = [('x', c_int)]
 
             def __getattr__(self, name):
-                raise AttributeError, name
+                raise AttributeError(name)
 
         x = X()
         assert x.x == 0
