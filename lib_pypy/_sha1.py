@@ -230,6 +230,9 @@ class sha:
         to the hashed string.
         """
 
+        if isinstance(inBuf, str):
+            raise TypeError("Unicode strings must be encoded before hashing")
+
         leninBuf = len(inBuf)
 
         # Compute number of bytes mod 64.

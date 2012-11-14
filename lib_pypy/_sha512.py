@@ -2,8 +2,6 @@
 This code was Ported from CPython's sha512module.c
 """
 
-import struct
-
 SHA_BLOCKSIZE = 128
 SHA_DIGESTSIZE = 64
 
@@ -153,6 +151,8 @@ def sha384_init():
     return sha_info
 
 def sha_update(sha_info, buffer):
+    if isinstance(buffer, str):
+        raise TypeError("Unicode strings must be encoded before hashing")
     count = len(buffer)
     buffer_idx = 0
     clo = (sha_info['count_lo'] + (count << 3)) & 0xffffffff
@@ -168,8 +168,7 @@ def sha_update(sha_info, buffer):
             i = count
         
         # copy buffer
-        for x in enumerate(buffer[buffer_idx:buffer_idx+i]):
-            sha_info['data'][sha_info['local']+x[0]] = struct.unpack('B', x[1])[0]
+        sha_info['data'][sha_info['local']:sha_info['local']+i] = buffer[buffer_idx:buffer_idx+i]
         
         count -= i
         buffer_idx += i
@@ -183,7 +182,7 @@ def sha_update(sha_info, buffer):
     
     while count >= SHA_BLOCKSIZE:
         # copy buffer
-        sha_info['data'] = [struct.unpack('B',c)[0] for c in buffer[buffer_idx:buffer_idx + SHA_BLOCKSIZE]]
+        sha_info['data'] = list(buffer[buffer_idx:buffer_idx + SHA_BLOCKSIZE])
         count -= SHA_BLOCKSIZE
         buffer_idx += SHA_BLOCKSIZE
         sha_transform(sha_info)
@@ -250,7 +249,7 @@ class sha512(object):
         return sha_final(self._sha.copy())[:self._sha['digestsize']]
     
     def hexdigest(self):
-        return ''.join(['%.2x' % ord(i) for i in self.digest()])
+        return ''.join(['%.2x' % i for i in self.digest()])
 
     def copy(self):
         new = sha512.__new__(sha512)

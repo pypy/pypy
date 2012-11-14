@@ -1,5 +1,3 @@
-import struct
-
 SHA_BLOCKSIZE = 64
 SHA_DIGESTSIZE = 32
 
@@ -131,15 +129,9 @@ def sha224_init():
     sha_info['digestsize'] = 28
     return sha_info
 
-def getbuf(s):
-    if isinstance(s, str):
-        return s
-    elif isinstance(s, str):
-        return str(s)
-    else:
-        return buffer(s)
-
 def sha_update(sha_info, buffer):
+    if isinstance(buffer, str):
+        raise TypeError("Unicode strings must be encoded before hashing")
     count = len(buffer)
     buffer_idx = 0
     clo = (sha_info['count_lo'] + (count << 3)) & 0xffffffff
@@ -155,8 +147,7 @@ def sha_update(sha_info, buffer):
             i = count
         
         # copy buffer
-        for x in enumerate(buffer[buffer_idx:buffer_idx+i]):
-            sha_info['data'][sha_info['local']+x[0]] = struct.unpack('B', x[1])[0]
+        sha_info['data'][sha_info['local']:sha_info['local']+i] = buffer[buffer_idx:buffer_idx+i]
         
         count -= i
         buffer_idx += i
@@ -170,7 +161,7 @@ def sha_update(sha_info, buffer):
     
     while count >= SHA_BLOCKSIZE:
         # copy buffer
-        sha_info['data'] = [struct.unpack('B',c)[0] for c in buffer[buffer_idx:buffer_idx + SHA_BLOCKSIZE]]
+        sha_info['data'] = list(buffer[buffer_idx:buffer_idx + SHA_BLOCKSIZE])
         count -= SHA_BLOCKSIZE
         buffer_idx += SHA_BLOCKSIZE
         sha_transform(sha_info)
@@ -178,7 +169,7 @@ def sha_update(sha_info, buffer):
     
     # copy buffer
     pos = sha_info['local']
-    sha_info['data'][pos:pos+count] = [struct.unpack('B',c)[0] for c in buffer[buffer_idx:buffer_idx + count]]
+    sha_info['data'][pos:pos+count] = buffer[buffer_idx:buffer_idx + count]
     sha_info['local'] = count
 
 def sha_final(sha_info):
@@ -219,10 +210,10 @@ class sha256(object):
     def __init__(self, s=None):
         self._sha = sha_init()
         if s:
-            sha_update(self._sha, getbuf(s))
+            sha_update(self._sha, s)
     
     def update(self, s):
-        sha_update(self._sha, getbuf(s))
+        sha_update(self._sha, s)
     
     def digest(self):
         return sha_final(self._sha.copy())[:self._sha['digestsize']]
@@ -241,7 +232,7 @@ class sha224(sha256):
     def __init__(self, s=None):
         self._sha = sha224_init()
         if s:
-            sha_update(self._sha, getbuf(s))
+            sha_update(self._sha, s)
 
     def copy(self):
         new = sha224.__new__(sha224)
