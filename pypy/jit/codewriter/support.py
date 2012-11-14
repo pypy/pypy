@@ -78,28 +78,32 @@ def split_before_jit_merge_point(graph, portalblock, portalopindex):
     link = split_block(None, portalblock, 0, greens_v + reds_v)
     return link.target
 
+def sort_vars(args_v):
+    from pypy.jit.metainterp.history import getkind
+    _kind2count = {'int': 1, 'ref': 2, 'float': 3}
+    return sorted(args_v, key=lambda v: _kind2count[getkind(v.concretetype)])
+
 def decode_hp_hint_args(op):
     # Returns (list-of-green-vars, list-of-red-vars) without Voids.
     # Both lists must be sorted: first INT, then REF, then FLOAT.
     assert op.opname == 'jit_marker'
     jitdriver = op.args[1].value
     numgreens = len(jitdriver.greens)
-    numreds = len(jitdriver.reds)
+    assert jitdriver.numreds is not None
+    numreds = jitdriver.numreds
     greens_v = op.args[2:2+numgreens]
     reds_v = op.args[2+numgreens:]
     assert len(reds_v) == numreds
     #
     def _sort(args_v, is_green):
-        from pypy.jit.metainterp.history import getkind
         lst = [v for v in args_v if v.concretetype is not lltype.Void]
         if is_green:
             assert len(lst) == len(args_v), (
                 "not supported so far: 'greens' variables contain Void")
-        _kind2count = {'int': 1, 'ref': 2, 'float': 3}
-        lst2 = sorted(lst, key=lambda v: _kind2count[getkind(v.concretetype)])
         # a crash here means that you have to reorder the variable named in
         # the JitDriver.  Indeed, greens and reds must both be sorted: first
         # all INTs, followed by all REFs, followed by all FLOATs.
+        lst2 = sort_vars(args_v)
         assert lst == lst2
         return lst
     #

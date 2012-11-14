@@ -3051,8 +3051,7 @@ class BasicTests:
                 i += 1
         res = self.meta_interp(f, [32])
         assert res == f(32)
-
-
+        
 class XXXDisabledTestOOtype(BasicTests, OOJitMixin):
 
     def test_oohash(self):
