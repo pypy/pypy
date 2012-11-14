@@ -39,10 +39,7 @@ def get_magic(space):
 def get_tag(space):
     """get_tag() -> string
     Return the magic tag for .pyc or .pyo files."""
-    version_info = space.sys.get('version_info')
-    major = space.int_w(space.getitem(version_info, space.wrap(0)))
-    minor = space.int_w(space.getitem(version_info, space.wrap(1)))
-    return space.wrap('pypy-%d%d' % (major, minor))
+    return space.wrap(importing.PYC_TAG)
 
 def get_file(space, w_file, filename, filemode):
     if space.is_none(w_file):

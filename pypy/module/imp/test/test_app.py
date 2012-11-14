@@ -220,4 +220,4 @@ class AppTestImpModule:
     def test_get_tag(self):
         import imp
         import sys
-        assert imp.get_tag() == 'pypy-%d%d' % sys.version_info[0:2]
+        assert imp.get_tag() == 'pypy-%d%d' % sys.pypy_version_info[0:2]
