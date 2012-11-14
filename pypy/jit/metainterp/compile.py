@@ -527,7 +527,7 @@ class ResumeGuardDescr(ResumeDescr):
             self._counter = cnt | i
 
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
-        if self.must_compile(metainterp_sd, jitdriver_sd):
+        if self.must_compile(deadframe, metainterp_sd, jitdriver_sd):
             self.start_compiling()
             try:
                 self._trace_and_compile_from_bridge(deadframe, metainterp_sd,
@@ -550,7 +550,7 @@ class ResumeGuardDescr(ResumeDescr):
         metainterp.handle_guard_failure(self, deadframe)
     _trace_and_compile_from_bridge._dont_inline_ = True
 
-    def must_compile(self, metainterp_sd, jitdriver_sd):
+    def must_compile(self, deadframe, metainterp_sd, jitdriver_sd):
         trace_eagerness = jitdriver_sd.warmstate.trace_eagerness
         #
         if self._counter <= self.CNT_BASE_MASK:
@@ -570,21 +570,24 @@ class ResumeGuardDescr(ResumeDescr):
             typetag = self._counter & self.CNT_TYPE_MASK
             counters = self._counters
             if typetag == self.CNT_INT:
-                intvalue = metainterp_sd.cpu.get_latest_value_int(index)
+                intvalue = metainterp_sd.cpu.get_latest_value_int(
+                    deadframe, index)
                 if counters is None:
                     self._counters = counters = ResumeGuardCountersInt()
                 else:
                     assert isinstance(counters, ResumeGuardCountersInt)
                 counter = counters.see_int(intvalue)
             elif typetag == self.CNT_REF:
-                refvalue = metainterp_sd.cpu.get_latest_value_ref(index)
+                refvalue = metainterp_sd.cpu.get_latest_value_ref(
+                    deadframe, index)
                 if counters is None:
                     self._counters = counters = ResumeGuardCountersRef()
                 else:
                     assert isinstance(counters, ResumeGuardCountersRef)
                 counter = counters.see_ref(refvalue)
             elif typetag == self.CNT_FLOAT:
-                floatvalue = metainterp_sd.cpu.get_latest_value_float(index)
+                floatvalue = metainterp_sd.cpu.get_latest_value_float(
+                    deadframe, index)
                 if counters is None:
                     self._counters = counters = ResumeGuardCountersFloat()
                 else:

@@ -233,7 +233,7 @@ class LLGraphCPU(model.AbstractCPU):
 
     def get_latest_value_int(self, deadframe, index):
         v = deadframe._values[index]
-        assert isinstance(v, int)
+        assert lltype.typeOf(v) == lltype.Signed
         return v
 
     def get_latest_value_ref(self, deadframe, index):

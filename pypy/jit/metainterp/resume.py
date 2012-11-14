@@ -1240,7 +1240,7 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
         else:
             assert tag == TAGBOX
             if num < 0:
-                num += self.cpu.get_latest_value_count()
+                num += self.cpu.get_latest_value_count(self.deadframe)
             return self.cpu.get_latest_value_int(self.deadframe, num)
 
     def decode_ref(self, tagged):
@@ -1254,7 +1254,7 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
         else:
             assert tag == TAGBOX
             if num < 0:
-                num += self.cpu.get_latest_value_count()
+                num += self.cpu.get_latest_value_count(self.deadframe)
             return self.cpu.get_latest_value_ref(self.deadframe, num)
 
     def decode_float(self, tagged):
@@ -1264,7 +1264,7 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
         else:
             assert tag == TAGBOX
             if num < 0:
-                num += self.cpu.get_latest_value_count()
+                num += self.cpu.get_latest_value_count(self.deadframe)
             return self.cpu.get_latest_value_float(self.deadframe, num)
 
     def write_an_int(self, index, int):
