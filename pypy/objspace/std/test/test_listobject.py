@@ -400,6 +400,11 @@ class TestW_ListObject(object):
         space.call_method(w_l, 'append', space.w_None)
         assert isinstance(w_l.strategy, ObjectListStrategy)
 
+    def test_newlist_hint(self):
+        space = self.space
+        w_lst = space.newlist_hint(13)
+        assert isinstance(w_lst.strategy, SizeListStrategy)
+        assert w_lst.strategy.sizehint == 13
 
 class AppTestW_ListObject(object):
     def setup_class(cls):

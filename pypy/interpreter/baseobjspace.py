@@ -991,6 +991,10 @@ class ObjSpace(object):
     def newlist_str(self, list_s):
         return self.newlist([self.wrap(s) for s in list_s])
 
+    def newlist_hint(self, sizehint):
+        from pypy.objspace.std.listobject import make_empty_list_with_size
+        return make_empty_list_with_size(self, sizehint)
+
     @jit.unroll_safe
     def exception_match(self, w_exc_type, w_check_class):
         """Checks if the given exception type matches 'w_check_class'."""

@@ -1,7 +1,7 @@
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.interpreter.error import OperationError, wrap_oserror
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.rlib.objectmodel import resizelist_hint, we_are_translated
+from pypy.rlib.objectmodel import we_are_translated
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.typeobject import MethodCache
 from pypy.objspace.std.mapdict import IndexCache
@@ -102,3 +102,7 @@ def resizelist_hint(space, w_iterable, sizehint):
         raise OperationError(space.w_TypeError,
                              space.wrap("arg 1 must be a 'list'"))
     w_iterable._resize_hint(sizehint)
+
+@unwrap_spec(sizehint=int)
+def newlist_hint(space, sizehint):
+    return space.newlist_hint(sizehint)

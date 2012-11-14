@@ -34,6 +34,11 @@ def make_empty_list(space):
     storage = strategy.erase(None)
     return W_ListObject.from_storage_and_strategy(space, storage, strategy)
 
+def make_empty_list_with_size(space, hint):
+    strategy = SizeListStrategy(space, hint)
+    storage = strategy.erase(None)
+    return W_ListObject.from_storage_and_strategy(space, storage, strategy)
+
 @jit.look_inside_iff(lambda space, list_w, sizehint:
                          jit.isconstant(len(list_w)) and len(list_w) < UNROLL_CUTOFF)
 def get_strategy_from_list_objects(space, list_w, sizehint):
