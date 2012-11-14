@@ -563,6 +563,7 @@ class LLGraphCPU(model.AbstractCPU):
 
 
 class LLDeadFrame(object):
+    _TYPE = llmemory.GCREF
 
     def __init__(self, latest_descr, values,
                  last_exception=None, saved_data=None):
@@ -816,35 +817,65 @@ class LLFrame(object):
         return support.cast_result(descr.RESULT, result)
 
     def execute_call_assembler(self, descr, *args):
+        # XXX simplify the following a bit
+        #
         # pframe = CALL_ASSEMBLER(args..., descr=looptoken)
         # ==>
         #     pframe = CALL looptoken.loopaddr(*args)
-        #     JUMP_IF_NOT_CARRY @forward
-        #     pframe = CALL assembler_call_helper(pframe)
-        #     @forward:
-        #
-        # CARRY is set before most returns, and cleared only
-        # on FINISH with descr.fast_path_done.
+        #     JUMP_IF_FAST_PATH @fastpath
+        #     res = CALL assembler_call_helper(pframe)
+        #     jmp @done
+        #   @fastpath:
+        #     RESET_VABLE
+        #     res = GETFIELD(pframe, 'result')
+        #   @done:
         #
         call_op = self.lltrace.operations[self.current_index]
         guard_op = self.lltrace.operations[self.current_index + 1]
         assert guard_op.getopnum() == rop.GUARD_NOT_FORCED
         self.force_guard_op = guard_op
-        #
         pframe = self.cpu._execute_token(descr, *args)
-        if not pframe._fast_path_done:
-            jd = descr.outermost_jitdriver_sd
-            assembler_helper_ptr = jd.assembler_helper_adr.ptr  # fish
-            try:
-                result = assembler_helper_ptr(pframe)
-            except LLException, lle:
-                assert self.last_exception is None, "exception left behind"
-                self.last_exception = lle
-                return lltype.nullptr(llmemory.GCREF.TO)
-            assert result is pframe
-        #
         del self.force_guard_op
-        return pframe
+        #
+        jd = descr.outermost_jitdriver_sd
+        assert jd is not None, ("call_assembler(): the loop_token needs "
+                                "to have 'outermost_jitdriver_sd'")
+        if jd.index_of_virtualizable != -1:
+            vable = args[jd.index_of_virtualizable]
+        else:
+            vable = lltype.nullptr(llmemory.GCREF.TO)
+        #
+        # Emulate the fast path
+        def reset_vable(jd, vable):
+            if jd.index_of_virtualizable != -1:
+                fielddescr = jd.vable_token_descr
+                do_setfield_gc_int(vable, fielddescr.ofs, 0)
+        faildescr = self.cpu.get_latest_descr(pframe)
+        failindex = self.cpu.get_fail_descr_number(faildescr)
+        if failindex == self.cpu.done_with_this_frame_int_v:
+            reset_vable(jd, vable)
+            return self.cpu.get_latest_value_int(pframe, 0)
+        if failindex == self.cpu.done_with_this_frame_ref_v:
+            reset_vable(jd, vable)
+            return self.cpu.get_latest_value_ref(pframe, 0)
+        if failindex == self.cpu.done_with_this_frame_float_v:
+            reset_vable(jd, vable)
+            return self.cpu.get_latest_value_float(pframe, 0)
+        if failindex == self.cpu.done_with_this_frame_void_v:
+            reset_vable(jd, vable)
+            return None
+        #
+        assembler_helper_ptr = jd.assembler_helper_adr.ptr  # fish
+        try:
+            return assembler_helper_ptr(pframe, vable)
+        except LLException, lle:
+            assert _last_exception is None, "exception left behind"
+            _last_exception = lle
+            # fish op
+            xxxxxxxxxxxx
+            op = self.loop.operations[self.opindex]
+            if op.result is not None:
+                return 0
 
     def execute_same_as(self, _, x):
         return x
