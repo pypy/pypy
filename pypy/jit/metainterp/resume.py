@@ -1044,8 +1044,8 @@ def blackhole_from_resumedata(blackholeinterpbuilder, jitdriver_sd, storage,
             break
     return firstbh
 
-def force_from_resumedata(metainterp_sd, storage, vinfo, ginfo):
-    resumereader = ResumeDataDirectReader(metainterp_sd, storage)
+def force_from_resumedata(metainterp_sd, storage, deadframe, vinfo, ginfo):
+    resumereader = ResumeDataDirectReader(metainterp_sd, storage, deadframe)
     resumereader.handling_async_forcing()
     vrefinfo = metainterp_sd.virtualref_info
     resumereader.consume_vref_and_vable(vrefinfo, vinfo, ginfo)

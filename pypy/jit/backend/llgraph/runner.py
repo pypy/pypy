@@ -852,7 +852,7 @@ class LLFrame(object):
         def reset_vable(jd, vable):
             if jd.index_of_virtualizable != -1:
                 fielddescr = jd.vable_token_descr
-                do_setfield_gc_int(vable, fielddescr.ofs, 0)
+                self.cpu.bh_setfield_gc(vable, 0, fielddescr)
         faildescr = self.cpu.get_latest_descr(pframe)
         failindex = self.cpu.get_fail_descr_number(faildescr)
         if failindex == self.cpu.done_with_this_frame_int_v:
@@ -872,13 +872,11 @@ class LLFrame(object):
         try:
             return assembler_helper_ptr(pframe, vable)
         except LLException, lle:
-            assert _last_exception is None, "exception left behind"
-            _last_exception = lle
+            assert self.last_exception is None, "exception left behind"
+            self.last_exception = lle
             # fish op
-            xxxxxxxxxxxx
-            op = self.loop.operations[self.opindex]
-            if op.result is not None:
-                return 0
+            op = self.current_op
+            return op.result and op.result.value
 
     def execute_same_as(self, _, x):
         return x
@@ -904,6 +902,9 @@ class LLFrame(object):
 
     def execute_cond_call_gc_wb_array(self, descr, a, b, c):
         py.test.skip("cond_call_gc_wb_array not supported")
+
+    def execute_keepalive(self, descr, x):
+        pass
 
 def _getdescr(op):
     d = op.getdescr()

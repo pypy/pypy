@@ -1556,8 +1556,6 @@ class MetaInterpGlobalData(object):
         self.indirectcall_dict = None
         self.addr2name = None
         self.loopnumbering = 0
-        self.resume_virtuals = {}
-        self.resume_virtuals_not_translated = []
 
 # ____________________________________________________________
 

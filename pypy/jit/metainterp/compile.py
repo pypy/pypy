@@ -4,7 +4,7 @@ from pypy.rpython.ootypesystem import ootype
 from pypy.objspace.flow.model import Constant, Variable
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.debug import debug_start, debug_stop, debug_print
-from pypy.rlib import rstack
+from pypy.rlib import rstack, rerased
 from pypy.rlib.jit import JitDebugInfo, Counters
 from pypy.conftest import option
 from pypy.tool.sourcetools import func_with_new_name
@@ -660,12 +660,13 @@ class ResumeGuardForcedDescr(ResumeGuardDescr):
         # the virtualrefs and virtualizable have been forced by
         # handle_async_forcing() just a moment ago.
         from pypy.jit.metainterp.blackhole import resume_in_blackhole
-        token = metainterp_sd.cpu.get_latest_force_token()
-        all_virtuals = self.fetch_data(token)
+        hidden_all_virtuals = metainterp_sd.cpu.get_savedata_ref(deadframe)
+        all_virtuals = av_unerase(hidden_all_virtuals)
         if all_virtuals is None:
             all_virtuals = []
         assert jitdriver_sd is self.jitdriver_sd
-        resume_in_blackhole(metainterp_sd, jitdriver_sd, self, all_virtuals)
+        resume_in_blackhole(metainterp_sd, jitdriver_sd, self, deadframe,
+                            all_virtuals)
         assert 0, "unreachable"
 
     @staticmethod
@@ -679,33 +680,25 @@ class ResumeGuardForcedDescr(ResumeGuardDescr):
         # an inconsistent state
         rstack._stack_criticalcode_start()
         try:
-            faildescr = cpu.force(token)
+            deadframe = cpu.force(token)
+            faildescr = cpu.get_latest_descr(deadframe)
             assert isinstance(faildescr, ResumeGuardForcedDescr)
-            faildescr.handle_async_forcing(token)
+            faildescr.handle_async_forcing(deadframe)
         finally:
             rstack._stack_criticalcode_stop()
 
-    def handle_async_forcing(self, force_token):
+    def handle_async_forcing(self, deadframe):
         from pypy.jit.metainterp.resume import force_from_resumedata
         metainterp_sd = self.metainterp_sd
         vinfo = self.jitdriver_sd.virtualizable_info
         ginfo = self.jitdriver_sd.greenfield_info
-        all_virtuals = force_from_resumedata(metainterp_sd, self, vinfo, ginfo)
+        all_virtuals = force_from_resumedata(metainterp_sd, self, deadframe,
+                                             vinfo, ginfo)
         # The virtualizable data was stored on the real virtualizable above.
         # Handle all_virtuals: keep them for later blackholing from the
         # future failure of the GUARD_NOT_FORCED
-        self.save_data(force_token, all_virtuals)
-
-    def save_data(self, key, value):
-        globaldata = self.metainterp_sd.globaldata
-        if we_are_translated():
-            assert key not in globaldata.resume_virtuals
-            globaldata.resume_virtuals[key] = value
-        else:
-            rv = globaldata.resume_virtuals_not_translated
-            for key1, value1 in rv:
-                assert key1 != key
-            rv.append((key, value))
+        hidden_all_virtuals = av_erase(all_virtuals)
+        metainterp_sd.cpu.set_savedata_ref(deadframe, hidden_all_virtuals)
 
     def fetch_data(self, key):
         globaldata = self.metainterp_sd.globaldata
@@ -729,6 +722,8 @@ class ResumeGuardForcedDescr(ResumeGuardDescr):
                                      self.jitdriver_sd)
         self.copy_all_attributes_into(res)
         return res
+
+av_erase, av_unerase = rerased.new_erasing_pair('all_virtuals')
 
 
 class AbstractResumeGuardCounters(object):
