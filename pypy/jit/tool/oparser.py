@@ -42,6 +42,12 @@ class FORCE_SPILL(UnaryOp, PlainResOp):
         op.initarglist(self.getarglist()[:])
         return op
 
+    def copy_and_change(self, opnum, args=None, result=None, descr=None):
+        assert opnum == self.OPNUM
+        newop = FORCE_SPILL(result or self.result)
+        newop.initarglist(args or self.getarglist())
+        return newop
+
 
 def default_fail_descr(model, fail_args=None):
     return model.BasicFailDescr()
