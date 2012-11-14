@@ -6,6 +6,7 @@ We're pleased to announce the 2.0 beta 1 release of PyPy. This release is
 not a typical beta, in a sense the stability is the same or better than 1.9
 and can be used in production. It does however include a few performance
 regressions documented below that don't allow us to label is as 2.0 final.
+(It also contains many performance improvements.)
 
 The main features of this release are support for ARM processor and
 compatibility with CFFI. It also includes
@@ -42,11 +43,12 @@ Reasons why this is not PyPy 2.0:
   probably going to rewrite ``ctypes`` using ``cffi``, which will make it
   universally faster.
 
-* ``cffi``, is very fast, but it is missing one optimization that will make
-  it as fast as a native call from C.
+* ``cffi`` (an alternative to interfacing with C code) is very fast, but
+  it is missing one optimization that will make it as fast as a native
+  call from C.
 
-* ``numpypy`` lazy computation was disabled in the sake of simplicity. We should
-  reenable this for the final 2.0 release.
+* ``numpypy`` lazy computation was disabled for the sake of simplicity.
+  We should reenable this for the final 2.0 release.
 
 Highlights
 ==========
@@ -65,9 +67,9 @@ Highlights
   in CPython is not solving the problem anyway. The reason can be
   found on the `CPython issue tracker`_.
 
-* ``gc.get_referrers`` is not faster. XXX: "not" or "now?
+* ``gc.get_referrers()`` is now faster.
 
-* Various numpy improvements. List include:
+* Various numpy improvements. The list includes:
 
   * axis argument support in many places
 
@@ -75,12 +77,13 @@ Highlights
 
   * ``complex128`` and ``complex64`` dtypes
 
-* `JIT hooks`_ are now powerful tool to introspect the JITting process that
+* `JIT hooks`_ are now a powerful tool to introspect the JITting process that
   PyPy performs.
 
-* ``**kwds`` usage is much faster in a typical scenario
+* ``**kwds`` usage is much faster in the typical scenario
 
-* ``long`` builtin type is now as fast as CPython's (from roughly 2x slower)
+* operations on ``long`` objects are now as fast as in CPython (from
+  roughly 2x slower)
 
 * We now have special strategies for ``dict``/``set``/``list`` which contain
   unicode strings, which means that now such collections will be both faster
