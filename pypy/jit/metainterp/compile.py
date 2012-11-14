@@ -526,7 +526,7 @@ class ResumeGuardDescr(ResumeDescr):
             assert cnt > self.CNT_BASE_MASK
             self._counter = cnt | i
 
-    def handle_fail(self, metainterp_sd, jitdriver_sd):
+    def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         if self.must_compile(metainterp_sd, jitdriver_sd):
             self.start_compiling()
             try:
@@ -536,7 +536,7 @@ class ResumeGuardDescr(ResumeDescr):
                 self.done_compiling()
         else:
             from pypy.jit.metainterp.blackhole import resume_in_blackhole
-            resume_in_blackhole(metainterp_sd, jitdriver_sd, self)
+            resume_in_blackhole(metainterp_sd, jitdriver_sd, self, deadframe)
         assert 0, "unreachable"
 
     def _trace_and_compile_from_bridge(self, metainterp_sd, jitdriver_sd):
