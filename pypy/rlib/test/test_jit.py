@@ -22,6 +22,7 @@ def test_jitdriver_autoreds():
     assert driver.numreds is None
     py.test.raises(TypeError, "driver.can_enter_jit(foo='something')")
     #
+    py.test.raises(AssertionError, "JitDriver(greens=['foo'], reds='auto', get_printable_location='something')")
     py.test.raises(AssertionError, "JitDriver(greens=['foo'], reds='auto', confirm_enter_jit='something')")
 
 def test_jitdriver_numreds():

@@ -311,7 +311,6 @@ class WarmRunnerDesc(object):
                     "reds='auto' is supported only for jit drivers which " 
                     "calls only jit_merge_point. Found a call to %s" % methname)
                 #
-                assert jitdriver.confirm_enter_jit is None
                 # compute the set of live variables before the jit_marker
                 alive_v = set(block.inputargs)
                 for op1 in block.operations:
@@ -593,7 +592,9 @@ class WarmRunnerDesc(object):
         if func is None:
             return None
         #
-        assert not jitdriver_sd.jitdriver.autoreds
+        assert not jitdriver_sd.jitdriver.autoreds, (
+            "reds='auto' is not compatible with JitDriver hooks such as "
+            "{get,set}_jitcell_at, get_printable_location, confirm_enter_jit, etc.")
         extra_args_s = []
         if s_first_arg is not None:
             extra_args_s.append(s_first_arg)
