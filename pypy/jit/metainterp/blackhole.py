@@ -1386,7 +1386,8 @@ class BlackholeInterpreter(object):
             assert kind == 'v'
         return lltype.nullptr(rclass.OBJECTPTR.TO)
 
-    def _prepare_resume_from_failure(self, opnum, dont_change_position=False):
+    def _prepare_resume_from_failure(self, opnum, dont_change_position,
+                                     deadframe):
         from pypy.jit.metainterp.resoperation import rop
         #
         if opnum == rop.GUARD_TRUE:
@@ -1418,7 +1419,7 @@ class BlackholeInterpreter(object):
               opnum == rop.GUARD_EXCEPTION or
               opnum == rop.GUARD_NOT_FORCED):
             return lltype.cast_opaque_ptr(rclass.OBJECTPTR,
-                                          self.cpu.grab_exc_value())
+                                          self.cpu.grab_exc_value(deadframe))
         #
         elif opnum == rop.GUARD_NO_OVERFLOW:
             # Produced by int_xxx_ovf().  The pc is just after the opcode.
@@ -1561,7 +1562,7 @@ def resume_in_blackhole(metainterp_sd, jitdriver_sd, resumedescr, deadframe,
         dont_change_position = False
 
     current_exc = blackholeinterp._prepare_resume_from_failure(
-        resumedescr.guard_opnum, dont_change_position)
+        resumedescr.guard_opnum, dont_change_position, deadframe)
 
     _run_forever(blackholeinterp, current_exc)
 

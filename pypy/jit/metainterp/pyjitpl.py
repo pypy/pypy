@@ -1896,13 +1896,13 @@ class MetaInterp(object):
         self.staticdata.try_to_free_some_loops()
         self.initialize_state_from_guard_failure(key, deadframe)
         try:
-            return self._handle_guard_failure(key)
+            return self._handle_guard_failure(key, deadframe)
         finally:
             self.resumekey_original_loop_token = None
             self.staticdata.profiler.end_tracing()
             debug_stop('jit-tracing')
 
-    def _handle_guard_failure(self, key):
+    def _handle_guard_failure(self, key, deadframe):
         self.current_merge_points = []
         self.resumekey = key
         self.seen_loop_header_for_jdindex = -1
@@ -1912,7 +1912,9 @@ class MetaInterp(object):
         else:
             dont_change_position = False
         try:
-            self.prepare_resume_from_failure(key.guard_opnum, dont_change_position)
+            self.prepare_resume_from_failure(key.guard_opnum,
+                                             dont_change_position,
+                                             deadframe)
             if self.resumekey_original_loop_token is None:   # very rare case
                 raise SwitchToBlackhole(Counters.ABORT_BRIDGE)
             self.interpret()
@@ -2049,7 +2051,8 @@ class MetaInterp(object):
             else: assert 0
         self.jitdriver_sd.warmstate.execute_assembler(loop_token, *args)
 
-    def prepare_resume_from_failure(self, opnum, dont_change_position=False):
+    def prepare_resume_from_failure(self, opnum, dont_change_position,
+                                    deadframe):
         frame = self.framestack[-1]
         if opnum == rop.GUARD_TRUE:     # a goto_if_not that jumps only now
             if not dont_change_position:
@@ -2063,7 +2066,7 @@ class MetaInterp(object):
               opnum == rop.GUARD_NONNULL_CLASS):
             pass        # the pc is already set to the *start* of the opcode
         elif opnum == rop.GUARD_NO_EXCEPTION or opnum == rop.GUARD_EXCEPTION:
-            exception = self.cpu.grab_exc_value()
+            exception = self.cpu.grab_exc_value(deadframe)
             if exception:
                 self.execute_ll_raised(lltype.cast_opaque_ptr(rclass.OBJECTPTR,
                                                               exception))
