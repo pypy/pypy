@@ -458,10 +458,11 @@ class JitDriver(object):
             self.reds = []
             self.numreds = None # see warmspot.autodetect_jit_markers_redvars
             assert confirm_enter_jit is None, 'cannot use automatic reds if confirm_enter_jit is given'
-        elif reds is not None:
+        else:
+            if reds is not None:
+                self.reds = reds
             self.autoreds = False
-            self.reds = reds
-            self.numreds = len(reds)
+            self.numreds = len(self.reds)
         if not hasattr(self, 'greens') or not hasattr(self, 'reds'):
             raise AttributeError("no 'greens' or 'reds' supplied")
         if virtualizables is not None:
