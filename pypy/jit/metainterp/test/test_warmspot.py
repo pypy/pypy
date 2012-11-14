@@ -401,16 +401,27 @@ class WarmspotTests(object):
                 self.cur += 1
                 return self.cur
 
-        def f(n, m):
+        def one():
             res = 0
-            for i in MyRange(100):
+            for i in MyRange(10):
                 res += i
+            return res
+
+        def two():
+            res = 0
+            for i in MyRange(13):
+                res += i * 2
+            return res
+
+        def f(n, m):
+            res = one() * 100
+            res += two()
             return res
         expected = f(21, 5)
         res = self.meta_interp(f, [21, 5])
         assert res == expected
-        self.check_resops(int_eq=2, int_add=4)
-
+        self.check_resops(int_eq=4, int_add=8)
+        self.check_trace_count(2)
 
 class TestLLWarmspot(WarmspotTests, LLJitMixin):
     CPUClass = runner.LLtypeCPU
