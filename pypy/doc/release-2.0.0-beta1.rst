@@ -58,7 +58,9 @@ Highlights
   ``0.4`` version of ``cffi`` has been released.
 
 * ARM is now an officially supported processor architecture.
-  XXX write down few words here
+  PyPy now work on soft-float ARM/Linux builds.  Currently ARM processors
+  supporting the ARMv7 and later ISA that include a floating-point unit are
+  supported.
 
 * This release contains the latest Python standard library 2.7.3 and is fully
   compatible with Python 2.7.3.
