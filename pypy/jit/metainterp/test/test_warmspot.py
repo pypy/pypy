@@ -312,101 +312,6 @@ class WarmspotTests(object):
         self.meta_interp(f1, [18])
 
 
-class TestLLWarmspot(WarmspotTests, LLJitMixin):
-    CPUClass = runner.LLtypeCPU
-    type_system = 'lltype'
-
-class TestOOWarmspot(WarmspotTests, OOJitMixin):
-    ##CPUClass = runner.OOtypeCPU
-    type_system = 'ootype'
-
-class TestWarmspotDirect(object):
-    def setup_class(cls):
-        from pypy.jit.metainterp.typesystem import llhelper
-        from pypy.jit.codewriter.support import annotate
-        from pypy.jit.metainterp.warmspot import WarmRunnerDesc
-        from pypy.rpython.lltypesystem.rclass import OBJECT, OBJECT_VTABLE
-        from pypy.rpython.lltypesystem import lltype, llmemory
-        exc_vtable = lltype.malloc(OBJECT_VTABLE, immortal=True)
-        cls.exc_vtable = exc_vtable
-
-        class FakeFailDescr(object):
-            def __init__(self, no):
-                self.no = no
-            def handle_fail(self, metainterp_sd, jitdrivers_sd):
-                no = self.no
-                if no == 0:
-                    raise metainterp_sd.warmrunnerdesc.DoneWithThisFrameInt(3)
-                if no == 1:
-                    raise metainterp_sd.warmrunnerdesc.ContinueRunningNormally(
-                        [0], [], [], [1], [], [])
-                if no == 3:
-                    exc = lltype.malloc(OBJECT)
-                    exc.typeptr = exc_vtable
-                    raise metainterp_sd.warmrunnerdesc.ExitFrameWithExceptionRef(
-                        metainterp_sd.cpu,
-                        lltype.cast_opaque_ptr(llmemory.GCREF, exc))
-                assert 0
-
-        class FakeDescr:
-            def as_vtable_size_descr(self):
-                return self
-
-        class FakeCPU(object):
-            supports_floats = False
-            supports_longlong = False
-            supports_singlefloats = False
-            ts = llhelper
-            translate_support_code = False
-            stats = "stats"
-
-            def get_fail_descr_number(self, d):
-                return -1
-
-            def __init__(self, *args, **kwds):
-                pass
-
-            def nodescr(self, *args, **kwds):
-                return FakeDescr()
-            fielddescrof = nodescr
-            calldescrof  = nodescr
-            sizeof       = nodescr
-
-            def get_fail_descr_from_number(self, no):
-                return FakeFailDescr(no)
-
-            def make_execute_token(self, *ARGS):
-                return "not callable"
-
-        driver = JitDriver(reds = ['red'], greens = ['green'])
-
-        def f(green):
-            red = 0
-            while red < 10:
-                driver.can_enter_jit(red=red, green=green)
-                driver.jit_merge_point(red=red, green=green)
-                red += 1
-            return red
-
-        rtyper = annotate(f, [0])
-        FakeCPU.rtyper = rtyper
-        translator = rtyper.annotator.translator
-        translator.config.translation.gc = 'hybrid'
-        cls.desc = WarmRunnerDesc(translator, CPUClass=FakeCPU)
-
-    def test_call_helper(self):
-        from pypy.rpython.llinterp import LLException
-
-        [jd] = self.desc.jitdrivers_sd
-        assert jd._assembler_call_helper(0, 0) == 3
-        assert jd._assembler_call_helper(1, 0) == 10
-        try:
-            jd._assembler_call_helper(3, 0)
-        except LLException, lle:
-            assert lle[0] == self.exc_vtable
-        else:
-            py.test.fail("DID NOT RAISE")
-
     def test_loop_automatic_reds(self):
         myjitdriver = JitDriver(greens = ['m'], reds = 'auto')
         def f(n, m):
@@ -505,3 +410,99 @@ class TestWarmspotDirect(object):
         res = self.meta_interp(f, [21, 5])
         assert res == expected
         self.check_resops(int_eq=2, int_add=4)
+
+
+class TestLLWarmspot(WarmspotTests, LLJitMixin):
+    CPUClass = runner.LLtypeCPU
+    type_system = 'lltype'
+
+class TestOOWarmspot(WarmspotTests, OOJitMixin):
+    ##CPUClass = runner.OOtypeCPU
+    type_system = 'ootype'
+
+class TestWarmspotDirect(object):
+    def setup_class(cls):
+        from pypy.jit.metainterp.typesystem import llhelper
+        from pypy.jit.codewriter.support import annotate
+        from pypy.jit.metainterp.warmspot import WarmRunnerDesc
+        from pypy.rpython.lltypesystem.rclass import OBJECT, OBJECT_VTABLE
+        from pypy.rpython.lltypesystem import lltype, llmemory
+        exc_vtable = lltype.malloc(OBJECT_VTABLE, immortal=True)
+        cls.exc_vtable = exc_vtable
+
+        class FakeFailDescr(object):
+            def __init__(self, no):
+                self.no = no
+            def handle_fail(self, metainterp_sd, jitdrivers_sd):
+                no = self.no
+                if no == 0:
+                    raise metainterp_sd.warmrunnerdesc.DoneWithThisFrameInt(3)
+                if no == 1:
+                    raise metainterp_sd.warmrunnerdesc.ContinueRunningNormally(
+                        [0], [], [], [1], [], [])
+                if no == 3:
+                    exc = lltype.malloc(OBJECT)
+                    exc.typeptr = exc_vtable
+                    raise metainterp_sd.warmrunnerdesc.ExitFrameWithExceptionRef(
+                        metainterp_sd.cpu,
+                        lltype.cast_opaque_ptr(llmemory.GCREF, exc))
+                assert 0
+
+        class FakeDescr:
+            def as_vtable_size_descr(self):
+                return self
+
+        class FakeCPU(object):
+            supports_floats = False
+            supports_longlong = False
+            supports_singlefloats = False
+            ts = llhelper
+            translate_support_code = False
+            stats = "stats"
+
+            def get_fail_descr_number(self, d):
+                return -1
+
+            def __init__(self, *args, **kwds):
+                pass
+
+            def nodescr(self, *args, **kwds):
+                return FakeDescr()
+            fielddescrof = nodescr
+            calldescrof  = nodescr
+            sizeof       = nodescr
+
+            def get_fail_descr_from_number(self, no):
+                return FakeFailDescr(no)
+
+            def make_execute_token(self, *ARGS):
+                return "not callable"
+
+        driver = JitDriver(reds = ['red'], greens = ['green'])
+
+        def f(green):
+            red = 0
+            while red < 10:
+                driver.can_enter_jit(red=red, green=green)
+                driver.jit_merge_point(red=red, green=green)
+                red += 1
+            return red
+
+        rtyper = annotate(f, [0])
+        FakeCPU.rtyper = rtyper
+        translator = rtyper.annotator.translator
+        translator.config.translation.gc = 'hybrid'
+        cls.desc = WarmRunnerDesc(translator, CPUClass=FakeCPU)
+
+    def test_call_helper(self):
+        from pypy.rpython.llinterp import LLException
+
+        [jd] = self.desc.jitdrivers_sd
+        assert jd._assembler_call_helper(0, 0) == 3
+        assert jd._assembler_call_helper(1, 0) == 10
+        try:
+            jd._assembler_call_helper(3, 0)
+        except LLException, lle:
+            assert lle[0] == self.exc_vtable
+        else:
+            py.test.fail("DID NOT RAISE")
