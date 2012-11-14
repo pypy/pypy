@@ -60,12 +60,12 @@ class TestLongLong:
         gotindex = getattr(EffectInfo,
                            'OS_' + op1.args[0].value.upper().lstrip('U'))
         assert gotindex == oopspecindex
-        assert op1.args[1] == 'calldescr-%d' % oopspecindex
-        assert list(op1.args[2]) == [v for v in vlist
+        assert list(op1.args[1]) == [v for v in vlist
                                      if not is_llf(v.concretetype)]
-        assert list(op1.args[3]) == []
-        assert list(op1.args[4]) == [v for v in vlist
+        assert list(op1.args[2]) == []
+        assert list(op1.args[3]) == [v for v in vlist
                                      if is_llf(v.concretetype)]
+        assert op1.args[4] == 'calldescr-%d' % oopspecindex
         assert op1.result == v_result
 
     def test_is_true(self):
@@ -79,19 +79,19 @@ class TestLongLong:
             assert len(oplist) == 2
             assert oplist[0].opname == 'residual_call_irf_f'
             assert oplist[0].args[0].value == opname.split('_')[0]+'_from_int'
-            assert oplist[0].args[1] == 'calldescr-84'
-            assert list(oplist[0].args[2]) == [const(0)]
+            assert list(oplist[0].args[1]) == [const(0)]
+            assert list(oplist[0].args[2]) == []
             assert list(oplist[0].args[3]) == []
-            assert list(oplist[0].args[4]) == []
+            assert oplist[0].args[4] == 'calldescr-84'
             v_x = oplist[0].result
             assert isinstance(v_x, Variable)
             assert v_x.concretetype is T
             assert oplist[1].opname == 'residual_call_irf_i'
             assert oplist[1].args[0].value == 'llong_ne'
-            assert oplist[1].args[1] == 'calldescr-76'
+            assert list(oplist[1].args[1]) == []
             assert list(oplist[1].args[2]) == []
-            assert list(oplist[1].args[3]) == []
-            assert list(oplist[1].args[4]) == [v, v_x]
+            assert list(oplist[1].args[3]) == [v, v_x]
+            assert oplist[1].args[4] == 'calldescr-76'
             assert oplist[1].result == v_result
 
     def test_llong_neg(self):
@@ -104,18 +104,18 @@ class TestLongLong:
         assert len(oplist) == 2
         assert oplist[0].opname == 'residual_call_irf_f'
         assert oplist[0].args[0].value == 'llong_from_int'
-        assert oplist[0].args[1] == 'calldescr-84'
-        assert list(oplist[0].args[2]) == [const(0)]
+        assert list(oplist[0].args[1]) == [const(0)]
+        assert list(oplist[0].args[2]) == []
         assert list(oplist[0].args[3]) == []
-        assert list(oplist[0].args[4]) == []
+        assert oplist[0].args[4] == 'calldescr-84'
         v_x = oplist[0].result
         assert isinstance(v_x, Variable)
         assert oplist[1].opname == 'residual_call_irf_f'
         assert oplist[1].args[0].value == 'llong_sub'
-        assert oplist[1].args[1] == 'calldescr-71'
+        assert list(oplist[1].args[1]) == []
         assert list(oplist[1].args[2]) == []
-        assert list(oplist[1].args[3]) == []
-        assert list(oplist[1].args[4]) == [v_x, v]
+        assert list(oplist[1].args[3]) == [v_x, v]
+        assert oplist[1].args[4] == 'calldescr-71'
         assert oplist[1].result == v_result
 
     def test_unary_op(self):
@@ -231,9 +231,9 @@ class TestLongLong:
             op1 = tr.rewrite_operation(op)
             #
             assert op1.opname == 'residual_call_irf_f'
+            assert list(op1.args[1]) == []
             assert list(op1.args[2]) == []
-            assert list(op1.args[3]) == []
-            assert list(op1.args[4]) == vlist
+            assert list(op1.args[3]) == vlist
             assert op1.result == v_result
 
 
