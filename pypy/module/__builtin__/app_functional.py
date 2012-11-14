@@ -2,6 +2,9 @@
 Plain Python definition of the builtin functions oriented towards
 functional programming.
 """
+from __future__ import with_statement
+import operator
+from __pypy__ import resizelist_hint, newlist_hint
 
 # ____________________________________________________________
 
@@ -66,38 +69,66 @@ the items of the sequence (or a list of tuples if more than one sequence)."""
     if num_collections == 1:
         if none_func:
             return list(collections[0])
-        else:
-            # Special case for the really common case of a single collection,
-            # this can be eliminated if we could unroll that loop that creates
-            # `args` based on whether or not len(collections) was constant
-            result = []
-            for item in collections[0]:
+        # Special case for the really common case of a single collection,
+        # this can be eliminated if we could unroll that loop that creates
+        # `args` based on whether or not len(collections) was constant
+        seq = collections[0]
+        with _ManagedNewlistHint(operator._length_hint(seq, 0)) as result:
+            for item in seq:
                 result.append(func(item))
             return result
-    result = []
-    # Pair of (iterator, has_finished)
-    iterators = [(iter(seq), False) for seq in collections]
-    while True:
-        cont = False
-        args = []
-        for idx, (iterator, has_finished) in enumerate(iterators):
-            val = None
-            if not has_finished:
-                try:
-                    val = next(iterator)
-                except StopIteration:
-                    iterators[idx] = (None, True)
+
+    # Gather the iterators (pair of (iter, has_finished)) and guess the
+    # result length (the max of the input lengths)
+    iterators = []
+    max_hint = 0
+    for seq in collections:
+        iterators.append((iter(seq), False))
+        max_hint = max(max_hint, operator._length_hint(seq, 0))
+
+    with _ManagedNewlistHint(max_hint) as result:
+        while True:
+            cont = False
+            args = []
+            for idx, (iterator, has_finished) in enumerate(iterators):
+                val = None
+                if not has_finished:
+                    try:
+                        val = next(iterator)
+                    except StopIteration:
+                        iterators[idx] = (None, True)
+                    else:
+                        cont = True
+                args.append(val)
+            args = tuple(args)
+            if cont:
+                if none_func:
+                    result.append(args)
                 else:
-                    cont = True
-            args.append(val)
-        args = tuple(args)
-        if cont:
-            if none_func:
-                result.append(args)
+                    result.append(func(*args))
             else:
-                result.append(func(*args))
-        else:
-            return result
+                return result
+
+class _ManagedNewlistHint(object):
+    """ Context manager returning a newlist_hint upon entry.
+
+    Upon exit the list's underlying capacity will be cut back to match
+    its length if necessary (incase the initial length_hint was too
+    large).
+    """
+
+    def __init__(self, length_hint):
+        self.length_hint = length_hint
+        self.list = newlist_hint(length_hint)
+
+    def __enter__(self):
+        return self.list
+
+    def __exit__(self, type, value, tb):
+        if type is None:
+            extended = len(self.list)
+            if extended < self.length_hint:
+                resizelist_hint(self.list, extended)
 
 sentinel = object()
 
@@ -135,17 +166,18 @@ or string, return the same type, else return a list."""
         return _filter_string(func, seq, unicode)
     elif isinstance(seq, tuple):
         return _filter_tuple(func, seq)
-    result = []
-    for item in seq:
-        if func(item):
-            result.append(item)
+    with _ManagedNewlistHint(operator._length_hint(seq, 0)) as result:
+        for item in seq:
+            if func(item):
+                result.append(item)
     return result
 
 def _filter_string(func, string, str_type):
     if func is bool and type(string) is str_type:
         return string
-    result = []
-    for i in range(len(string)):
+    length = len(string)
+    result = newlist_hint(length)
+    for i in range(length):
         # You must call __getitem__ on the strings, simply iterating doesn't
         # work :/
         item = string[i]
@@ -156,8 +188,9 @@ def _filter_string(func, string, str_type):
     return str_type().join(result)
 
 def _filter_tuple(func, seq):
-    result = []
-    for i in range(len(seq)):
+    length = len(seq)
+    result = newlist_hint(length)
+    for i in range(length):
         # Again, must call __getitem__, at least there are tests.
         item = seq[i]
         if func(item):
@@ -172,11 +205,23 @@ from each of the argument sequences.  The returned list is truncated
 in length to the length of the shortest argument sequence."""
     if not sequences:
         return []
-    result = []
-    iterators = [iter(seq) for seq in sequences]
-    while True:
-        try:
-            items = [next(it) for it in iterators]
-        except StopIteration:
-            return result
-        result.append(tuple(items))
+
+    # Gather the iterators and guess the result length (the min of the
+    # input lengths)
+    iterators = []
+    min_hint = -1
+    for seq in sequences:
+        iterators.append(iter(seq))
+        hint = operator._length_hint(seq, min_hint)
+        if min_hint == -1 or hint < min_hint:
+            min_hint = hint
+    if min_hint == -1:
+        min_hint = 0
+
+    with _ManagedNewlistHint(min_hint) as result:
+        while True:
+            try:
+                items = [next(it) for it in iterators]
+            except StopIteration:
+                return result
+            result.append(tuple(items))

@@ -840,6 +840,11 @@ namespace pypy.runtime
                 this._ll_resize_le(length);
         }
 
+        public void _ll_resize_hint(int length)
+        {
+            this.Capacity(length);
+        }
+
         public void _ll_resize_ge(int length)
         {
             if (this.Count < length) 
@@ -883,6 +888,7 @@ namespace pypy.runtime
         public void ll_getitem_fast(int index) { }
         public void ll_setitem_fast(int index) { }
         public void _ll_resize(int length) { this.Count = length; }
+        public void _ll_resize_hint(int length) { }
         public void _ll_resize_ge(int length) { this.Count = length; }
         public void _ll_resize_le(int length) { this.Count = length; }
     }

@@ -89,10 +89,14 @@ class AppTestItertools:
 
     def test_repeat_len(self):
         import itertools
+        import operator
 
         r = itertools.repeat('a', 15)
         r.next()
         raises(TypeError, "len(itertools.repeat('xkcd'))")
+
+        r = itertools.repeat('a', -3)
+        assert operator._length_hint(r, 3) == 0
 
     def test_takewhile(self):
         import itertools
