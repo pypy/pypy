@@ -3421,12 +3421,12 @@ class LLtypeBackendTest(BaseBackendTest):
         res = self.cpu.get_latest_value_int(deadframe, 0)
         assert res == 10
 
-        inputargs = [i0]
-        operations = [
+        inputargs2 = [i0]
+        operations2 = [
             ResOperation(rop.INT_SUB, [i0, ConstInt(20)], i2),
             ResOperation(rop.JUMP, [i2], None, descr=targettoken2),
             ]
-        self.cpu.compile_bridge(faildescr, inputargs, operations, looptoken)
+        self.cpu.compile_bridge(faildescr, inputargs2, operations2, looptoken)
 
         deadframe = self.cpu.execute_token(looptoken, 2)
         fail = self.cpu.get_latest_descr(deadframe)
@@ -3540,7 +3540,7 @@ class LLtypeBackendTest(BaseBackendTest):
         i15 = BoxInt(); i16 = BoxInt(); i17 = BoxInt(); i18 = BoxInt(); i19 = BoxInt()
         i20 = BoxInt()
         inputargs = [i0]
-        operations = [
+        operations2 = [
             ResOperation(rop.LABEL, [i0], None, descr=targettoken1),
             ResOperation(rop.INT_ADD, [i0, ConstInt(1)], i1),
             ResOperation(rop.INT_ADD, [i1, ConstInt(1)], i2),
@@ -3569,15 +3569,15 @@ class LLtypeBackendTest(BaseBackendTest):
             ResOperation(rop.GUARD_TRUE, [i20], None, descr=BasicFailDescr(42)),
             ResOperation(rop.JUMP, [i19], None, descr=targettoken1),
             ]
-        operations[-2].setfailargs([])
-        self.cpu.compile_bridge(faildescr1, inputargs, operations, looptoken1)
+        operations2[-2].setfailargs([])
+        self.cpu.compile_bridge(faildescr1, inputargs, operations2, looptoken1)
 
         looptoken2 = JitCellToken()
         inputargs = [BoxInt()]
-        operations = [
+        operations3 = [
             ResOperation(rop.JUMP, [ConstInt(0)], None, descr=targettoken1),
             ]
-        self.cpu.compile_loop(inputargs, operations, looptoken2)
+        self.cpu.compile_loop(inputargs, operations3, looptoken2)
 
         deadframe = self.cpu.execute_token(looptoken2, -9)
         fail = self.cpu.get_latest_descr(deadframe)
@@ -3710,7 +3710,6 @@ class LLtypeBackendTest(BaseBackendTest):
         def maybe_force(token, flag):
             deadframe = self.cpu.force(token)
             values.append(self.cpu.get_latest_value_int(deadframe, 0))
-            values.append(token)
             return 42
 
         FUNC = self.FuncType([lltype.Signed, lltype.Signed], lltype.Signed)
@@ -3740,5 +3739,3 @@ class LLtypeBackendTest(BaseBackendTest):
         # make sure that force reads the registers from a zeroed piece of
         # memory
         assert values[0] == 0
-        token = self.cpu.get_latest_force_token()
-        assert values[1] == token

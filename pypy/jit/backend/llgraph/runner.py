@@ -266,8 +266,11 @@ class LLGraphCPU(model.AbstractCPU):
         assert frame.forced_deadframe is None
         values = []
         for box in frame.force_guard_op.getfailargs():
-            if box is not None and box is not frame.current_op.result:
-                value = frame.env[box]
+            if box is not None:
+                if box is not frame.current_op.result:
+                    value = frame.env[box]
+                else:
+                    value = box.value    # 0 or 0.0 or NULL
             else:
                 value = None
             values.append(value)
