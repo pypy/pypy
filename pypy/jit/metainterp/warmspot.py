@@ -636,7 +636,7 @@ class WarmRunnerDesc(object):
         else:
             assert False
         (_, jd._PTR_ASSEMBLER_HELPER_FUNCTYPE) = self.cpu.ts.get_FuncType(
-            [lltype.Signed, llmemory.GCREF], ASMRESTYPE)
+            [llmemory.GCREF, llmemory.GCREF], ASMRESTYPE)
 
     def rewrite_can_enter_jits(self):
         sublists = {}
@@ -889,14 +889,14 @@ class WarmRunnerDesc(object):
 
         vinfo = jd.virtualizable_info
 
-        def assembler_call_helper(failindex, virtualizableref):
-            fail_descr = self.cpu.get_fail_descr_from_number(failindex)
+        def assembler_call_helper(deadframe, virtualizableref):
+            fail_descr = self.cpu.get_latest_descr(deadframe)
             if vinfo is not None:
                 virtualizable = lltype.cast_opaque_ptr(
                     vinfo.VTYPEPTR, virtualizableref)
                 vinfo.reset_vable_token(virtualizable)
             try:
-                fail_descr.handle_fail(self.metainterp_sd, jd)
+                fail_descr.handle_fail(deadframe, self.metainterp_sd, jd)
             except JitException, e:
                 return handle_jitexception(e)
             else:
