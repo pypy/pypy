@@ -103,7 +103,7 @@ def decode_hp_hint_args(op):
         # a crash here means that you have to reorder the variable named in
         # the JitDriver.  Indeed, greens and reds must both be sorted: first
         # all INTs, followed by all REFs, followed by all FLOATs.
-        lst2 = sort_vars(args_v)
+        lst2 = sort_vars(lst)
         assert lst == lst2
         return lst
     #

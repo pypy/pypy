@@ -22,7 +22,20 @@ def test_jitdriver_autoreds():
     assert driver.numreds is None
     py.test.raises(TypeError, "driver.can_enter_jit(foo='something')")
     #
+    py.test.raises(AssertionError, "JitDriver(greens=['foo'], reds='auto', get_printable_location='something')")
     py.test.raises(AssertionError, "JitDriver(greens=['foo'], reds='auto', confirm_enter_jit='something')")
+
+def test_jitdriver_numreds():
+    driver = JitDriver(greens=['foo'], reds=['a', 'b'])
+    assert driver.reds == ['a', 'b']
+    assert driver.numreds == 2
+    #
+    class MyJitDriver(JitDriver):
+        greens = ['foo']
+        reds = ['a', 'b']
+    driver = MyJitDriver()
+    assert driver.reds == ['a', 'b']
+    assert driver.numreds == 2
 
 def test_jitdriver_clone():
     def foo():
