@@ -2,11 +2,11 @@ from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.jit.codewriter import longlong
 
 
+# XXX not an actual union for now
 VALUEUNION = lltype.Struct('VALUEUNION',
                            ('int', lltype.Signed),
                            ('ref', llmemory.GCREF),
-                           ('float', longlong.FLOATSTORAGE),
-                           hints={'union': True})
+                           ('float', longlong.FLOATSTORAGE))
 
 DEADFRAME = lltype.GcStruct(
     'DEADFRAME',
@@ -26,8 +26,8 @@ DEADFRAME = lltype.GcStruct(
     # exception is not stored there, but in jf_values[0].ref.)
     ('jf_guard_exc', llmemory.GCREF),
 
-    # All values are stored in the following array, for now not very
-    # compactly on 32-bit machines.
+    # All values are stored in the following array, for now not
+    # compactly at all
     ('jf_values', lltype.Array(VALUEUNION)))
 
 DEADFRAMEPTR = lltype.Ptr(DEADFRAME)

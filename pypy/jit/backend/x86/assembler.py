@@ -2434,17 +2434,19 @@ class Assembler386(object):
         #
         if op.result is not None:
             # load the return value from the dead frame's value index 0
-            # (use descrs.as_int here, which is valid too for descrs.as_ref)
-            t = unpack_interiorfielddescr(descrs.as_int)
-            load_from = (eax.value, t[0])
             kind = op.result.type
             if kind == FLOAT:
-                self.mc.MOVSD_xm(xmm0.value, load_from)
+                t = unpack_interiorfielddescr(descrs.as_float)
+                self.mc.MOVSD_xm(xmm0.value, (eax.value, t[0]))
                 if result_loc is not xmm0:
                     self.mc.MOVSD(result_loc, xmm0)
             else:
                 assert result_loc is eax
-                self.mc.MOV_rm(eax.value, load_from)
+                if kind == INT:
+                    t = unpack_interiorfielddescr(descrs.as_int)
+                else:
+                    t = unpack_interiorfielddescr(descrs.as_ref)
+                self.mc.MOV_rm(eax.value, (eax.value, t[0]))
         #
         # Here we join Path A and Path B again
         offset = self.mc.get_relative_pos() - jmp_location
