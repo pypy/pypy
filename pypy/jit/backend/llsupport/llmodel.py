@@ -45,7 +45,6 @@ class AbstractLLCPU(AbstractCPU):
             self._setup_exception_handling_translated()
         else:
             self._setup_exception_handling_untranslated()
-        self.saved_exc_value = lltype.nullptr(llmemory.GCREF.TO)
         self.asmmemmgr = AsmMemoryManager()
         self.setup()
         if translate_support_code:
@@ -119,6 +118,7 @@ class AbstractLLCPU(AbstractCPU):
 
 
     def _setup_exception_handling_translated(self):
+        xxxxxxxxxxx
 
         def pos_exception():
             addr = llop.get_exception_addr(llmemory.Address)
@@ -132,12 +132,12 @@ class AbstractLLCPU(AbstractCPU):
             addr = llop.get_exception_addr(llmemory.Address)
             addr.address[0] = llmemory.NULL
             addr = llop.get_exc_value_addr(llmemory.Address)
-            exc_value = rffi.cast(llmemory.GCREF, addr.address[0])
+            exc_value = addr.address[0]
             addr.address[0] = llmemory.NULL
             # from now on, the state is again consistent -- no more RPython
             # exception is set.  The following code produces a write barrier
             # in the assignment to self.saved_exc_value, as needed.
-            self.saved_exc_value = exc_value
+            self.saved_exc_value = rffi.cast(llmemory.GCREF, exc_value)
 
         def save_exception_memoryerr():
             from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
@@ -207,7 +207,8 @@ class AbstractLLCPU(AbstractCPU):
             f = llhelper(self._ON_JIT_LEAVE_FUNC, self.on_leave_jitted_noexc)
         return rffi.cast(lltype.Signed, f)
 
-    def grab_exc_value(self):
+    def grab_exc_value(self, deadframe):
+        xxx
         exc = self.saved_exc_value
         self.saved_exc_value = lltype.nullptr(llmemory.GCREF.TO)
         return exc
@@ -263,8 +264,9 @@ class AbstractLLCPU(AbstractCPU):
     def arraydescrof(self, A):
         return get_array_descr(self.gc_ll_descr, A)
 
-    def interiorfielddescrof(self, A, fieldname):
-        return get_interiorfield_descr(self.gc_ll_descr, A, fieldname)
+    def interiorfielddescrof(self, A, fieldname, arrayfieldname=None):
+        return get_interiorfield_descr(self.gc_ll_descr, A, fieldname,
+                                       arrayfieldname)
 
     def unpack_arraydescr(self, arraydescr):
         assert isinstance(arraydescr, ArrayDescr)

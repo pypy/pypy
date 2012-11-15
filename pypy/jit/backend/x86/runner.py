@@ -49,15 +49,7 @@ class AbstractX86CPU(AbstractLLCPU):
         return self.assembler.set_debug(flag)
 
     def setup(self):
-        if self.opts is not None:
-            failargs_limit = self.opts.failargs_limit
-        else:
-            failargs_limit = 1000
-        self.assembler = Assembler386(self, self.translate_support_code,
-                                            failargs_limit)
-
-    def get_on_leave_jitted_hook(self):
-        return self.assembler.leave_jitted_hook
+        self.assembler = Assembler386(self, self.translate_support_code)
 
     def setup_once(self):
         self.profile_agent.startup()
@@ -118,7 +110,7 @@ class AbstractX86CPU(AbstractLLCPU):
         return self.assembler.fail_ebp
 
     def make_execute_token(self, *ARGS):
-        FUNCPTR = lltype.Ptr(lltype.FuncType(ARGS, lltype.Signed))
+        FUNCPTR = lltype.Ptr(lltype.FuncType(ARGS, llmemory.GCREF))
         #
         def execute_token(executable_token, *args):
             clt = executable_token.compiled_loop_token
@@ -132,12 +124,12 @@ class AbstractX86CPU(AbstractLLCPU):
                 prev_interpreter = LLInterpreter.current_interpreter
                 LLInterpreter.current_interpreter = self.debug_ll_interpreter
             try:
-                fail_index = func(*args)
+                deadframe = func(*args)
             finally:
                 if not self.translate_support_code:
                     LLInterpreter.current_interpreter = prev_interpreter
             #llop.debug_print(lltype.Void, "<<<< Back")
-            return self.get_fail_descr_from_number(fail_index)
+            return deadframe
         return execute_token
 
     def cast_ptr_to_int(x):

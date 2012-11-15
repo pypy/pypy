@@ -30,7 +30,6 @@ from pypy.jit.backend.x86.regloc import (eax, ecx, edx, ebx,
 from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.jit.backend.x86 import rx86, regloc, codebuf
 from pypy.jit.metainterp.resoperation import rop, ResOperation
-from pypy.jit.backend.x86.support import values_array
 from pypy.jit.backend.x86 import support
 from pypy.rlib.debug import (debug_print, debug_start, debug_stop,
                              have_debug_prints)
@@ -68,16 +67,10 @@ class Assembler386(object):
     _regalloc = None
     _output_loop_log = None
 
-    def __init__(self, cpu, translate_support_code=False,
-                            failargs_limit=1000):
+    def __init__(self, cpu, translate_support_code=False):
         self.cpu = cpu
         self.verbose = False
         self.rtyper = cpu.rtyper
-        self.fail_boxes_int = values_array(lltype.Signed, failargs_limit)
-        self.fail_boxes_ptr = values_array(llmemory.GCREF, failargs_limit)
-        self.fail_boxes_float = values_array(longlong.FLOATSTORAGE,
-                                             failargs_limit)
-        self.fail_ebp = 0
         self.loop_run_counters = []
         self.float_const_neg_addr = 0
         self.float_const_abs_addr = 0
@@ -88,17 +81,11 @@ class Assembler386(object):
         self.setup_failure_recovery()
         self._debug = False
         self.debug_counter_descr = cpu.fielddescrof(DEBUG_COUNTER, 'i')
-        self.fail_boxes_count = 0
         self.datablockwrapper = None
         self.stack_check_slowpath = 0
         self.propagate_exception_path = 0
         self.gcrootmap_retaddr_forced = 0
         self.teardown()
-
-    def leave_jitted_hook(self):
-        ptrs = self.fail_boxes_ptr.ar
-        llop.gc_assume_young_pointers(lltype.Void,
-                                      llmemory.cast_ptr_to_adr(ptrs))
 
     def set_debug(self, v):
         r = self._debug
@@ -1915,8 +1902,6 @@ class Assembler386(object):
                 n = self.CODE_HOLE
             mc.writechar(chr(n))
         mc.writechar(chr(self.CODE_STOP))
-        # assert that the fail_boxes lists are big enough
-        assert len(failargs) <= self.fail_boxes_int.SIZE
 
     def rebuild_faillocs_from_descr(self, bytecode):
         from pypy.jit.backend.x86.regalloc import X86FrameManager
@@ -2118,47 +2103,10 @@ class Assembler386(object):
         self.failure_recovery_code[exc + 2 * withfloats] = rawstart
         self.mc = None
 
-    def generate_failure(self, fail_index, locs, exc, locs_are_ref):
-        self.mc.begin_reuse_scratch_register()
-        for i in range(len(locs)):
-            loc = locs[i]
-            if isinstance(loc, RegLoc):
-                if loc.is_xmm:
-                    adr = self.fail_boxes_float.get_addr_for_num(i)
-                    self.mc.MOVSD(heap(adr), loc)
-                else:
-                    if locs_are_ref[i]:
-                        adr = self.fail_boxes_ptr.get_addr_for_num(i)
-                    else:
-                        adr = self.fail_boxes_int.get_addr_for_num(i)
-                    self.mc.MOV(heap(adr), loc)
-        for i in range(len(locs)):
-            loc = locs[i]
-            if not isinstance(loc, RegLoc):
-                if ((isinstance(loc, StackLoc) and loc.type == FLOAT) or
-                        isinstance(loc, ConstFloatLoc)):
-                    self.mc.MOVSD(xmm0, loc)
-                    adr = self.fail_boxes_float.get_addr_for_num(i)
-                    self.mc.MOVSD(heap(adr), xmm0)
-                else:
-                    if locs_are_ref[i]:
-                        adr = self.fail_boxes_ptr.get_addr_for_num(i)
-                    else:
-                        adr = self.fail_boxes_int.get_addr_for_num(i)
-                    self.mc.MOV(eax, loc)
-                    self.mc.MOV(heap(adr), eax)
-        self.mc.end_reuse_scratch_register()
-
-        # we call a provided function that will
-        # - call our on_leave_jitted_hook which will mark
-        #   the fail_boxes_ptr array as pointing to young objects to
-        #   avoid unwarranted freeing
-        # - optionally save exception depending on the flag
-        addr = self.cpu.get_on_leave_jitted_int(save_exception=exc)
-        self.mc.CALL(imm(addr))
-
-        self.mc.MOV_ri(eax.value, fail_index)
-
+    def genop_finish(self, op, arglocs, result_loc):
+        [argloc] = arglocs
+        if argloc is not eax:
+            self.mov(argloc, eax)
         # exit function
         self._call_footer()
 

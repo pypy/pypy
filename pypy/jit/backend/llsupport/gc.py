@@ -10,7 +10,7 @@ from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.jit.codewriter import heaptracker
 from pypy.jit.metainterp.history import ConstPtr, AbstractDescr
 from pypy.jit.metainterp.resoperation import ResOperation, rop
-from pypy.jit.backend.llsupport import symbolic
+from pypy.jit.backend.llsupport import symbolic, jitframe
 from pypy.jit.backend.llsupport.symbolic import WORD
 from pypy.jit.backend.llsupport.descr import SizeDescr, ArrayDescr
 from pypy.jit.backend.llsupport.descr import GcCache, get_field_descr
@@ -109,6 +109,15 @@ class GcLLDescription(GcCache):
         for op in newops:
             self._record_constptrs(op, gcrefs_output_list)
         return newops
+
+    @specialize.memo()
+    def getframedescrs(self, cpu):
+        return (
+            cpu.arraydescrof(jitframe.DEADFRAME),
+            cpu.interiorfielddescrof(jitframe.DEADFRAME, 'int', 'jf_values'),
+            cpu.interiorfielddescrof(jitframe.DEADFRAME, 'ref', 'jf_values'),
+            cpu.interiorfielddescrof(jitframe.DEADFRAME, 'float', 'jf_values'),
+            cpu.fielddescrof(jitframe.DEADFRAME, 'jf_descr'))
 
 # ____________________________________________________________
 

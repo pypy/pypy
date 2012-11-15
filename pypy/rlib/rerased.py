@@ -130,6 +130,7 @@ def new_static_erasing_pair(name):
 # ---------- implementation-specific ----------
 
 class Erased(object):
+    _TYPE = llmemory.GCREF
     def __init__(self, x, identity):
         self._x = x
         self._identity = identity
