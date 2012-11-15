@@ -2145,9 +2145,9 @@ class Assembler386(object):
 
         if exc:
             # save ebx into 'jf_guard_exc'
-            offset, size = symbolic.get_field_token(
-                jitframe.DEADFRAME, 'jf_guard_exc',
-                self.cpu.translate_support_code)
+            from pypy.jit.backend.llsupport.descr import unpack_fielddescr
+            descrs = self.cpu.gc_ll_descr.getframedescrs(self.cpu)
+            offset, size, _ = unpack_fielddescr(descrs.jf_guard_exc)
             mc.MOV_mr((eax.value, offset), ebx.value)
 
         # now we return from the complete frame, which starts from
@@ -2392,7 +2392,15 @@ class Assembler386(object):
                 value = self.cpu.done_with_this_frame_float_v
             else:
                 raise AssertionError(kind)
-        self.mc.CMP_ri(eax.value, value)
+
+        from pypy.jit.backend.llsupport.descr import unpack_fielddescr
+        from pypy.jit.backend.llsupport.descr import unpack_interiorfielddescr
+        descrs = self.cpu.gc_ll_descr.getframedescrs(self.cpu)
+        _offset, _size, _ = unpack_fielddescr(descrs.jf_descr)
+        fail_descr = self.cpu.get_fail_descr_from_number(value)
+        value = fail_descr.hide(self.cpu)
+        value = rffi.cast(lltype.Signed, value)       # XXX assumes non-moving
+        self.mc.CMP_mi((eax.value, _offset), value)
         # patched later
         self.mc.J_il8(rx86.Conditions['E'], 0) # goto B if we get 'done_with_this_frame'
         je_location = self.mc.get_relative_pos()
@@ -2420,29 +2428,23 @@ class Assembler386(object):
             fielddescr = jd.vable_token_descr
             assert isinstance(fielddescr, FieldDescr)
             ofs = fielddescr.offset
-            self.mc.MOV(eax, arglocs[1])
-            self.mc.MOV_mi((eax.value, ofs), 0)
+            self.mc.MOV(edx, arglocs[1])
+            self.mc.MOV_mi((edx.value, ofs), 0)
             # in the line above, TOKEN_NONE = 0
         #
         if op.result is not None:
-            # load the return value from fail_boxes_xxx[0]
+            # load the return value from the dead frame's value index 0
+            # (use descrs.as_int here, which is valid too for descrs.as_ref)
+            t = unpack_interiorfielddescr(descrs.as_int)
+            load_from = (eax.value, t[0])
             kind = op.result.type
             if kind == FLOAT:
-                xmmtmp = xmm0
-                adr = self.fail_boxes_float.get_addr_for_num(0)
-                self.mc.MOVSD(xmmtmp, heap(adr))
-                self.mc.MOVSD(result_loc, xmmtmp)
+                self.mc.MOVSD_xm(xmm0.value, load_from)
+                if result_loc is not xmm0:
+                    self.mc.MOVSD(result_loc, xmm0)
             else:
                 assert result_loc is eax
-                if kind == INT:
-                    adr = self.fail_boxes_int.get_addr_for_num(0)
-                    self.mc.MOV(eax, heap(adr))
-                elif kind == REF:
-                    adr = self.fail_boxes_ptr.get_addr_for_num(0)
-                    self.mc.MOV(eax, heap(adr))
-                    self.mc.MOV(heap(adr), imm0)
-                else:
-                    raise AssertionError(kind)
+                self.mc.MOV_rm(eax.value, load_from)
         #
         # Here we join Path A and Path B again
         offset = self.mc.get_relative_pos() - jmp_location

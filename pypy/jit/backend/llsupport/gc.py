@@ -112,12 +112,22 @@ class GcLLDescription(GcCache):
 
     @specialize.memo()
     def getframedescrs(self, cpu):
-        return (
-            cpu.arraydescrof(jitframe.DEADFRAME),
-            cpu.interiorfielddescrof(jitframe.DEADFRAME, 'int', 'jf_values'),
-            cpu.interiorfielddescrof(jitframe.DEADFRAME, 'ref', 'jf_values'),
-            cpu.interiorfielddescrof(jitframe.DEADFRAME, 'float', 'jf_values'),
-            cpu.fielddescrof(jitframe.DEADFRAME, 'jf_descr'))
+        descrs = JitFrameDescrs()
+        descrs.arraydescr = cpu.arraydescrof(jitframe.DEADFRAME)
+        descrs.as_int = cpu.interiorfielddescrof(jitframe.DEADFRAME,
+                                                 'int', 'jf_values')
+        descrs.as_ref = cpu.interiorfielddescrof(jitframe.DEADFRAME,
+                                                 'ref', 'jf_values')
+        descrs.as_float = cpu.interiorfielddescrof(jitframe.DEADFRAME,
+                                                   'float', 'jf_values')
+        descrs.jf_descr = cpu.fielddescrof(jitframe.DEADFRAME, 'jf_descr')
+        descrs.jf_guard_exc = cpu.fielddescrof(jitframe.DEADFRAME,
+                                               'jf_guard_exc')
+        return descrs
+
+class JitFrameDescrs:
+    def _freeze_(self):
+        return True
 
 # ____________________________________________________________
 

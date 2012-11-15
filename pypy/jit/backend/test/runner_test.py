@@ -2847,7 +2847,8 @@ class LLtypeBackendTest(BaseBackendTest):
             x = self.cpu.get_latest_value_float(deadframe, 0)
             assert longlong.getrealfloat(x) == 1.2 + 3.2
             called.append(self.cpu.get_latest_descr(deadframe))
-            return longlong.getfloatstorage(13.5)
+            print '!' * 30 + 'assembler_helper'
+            return 13.5
 
         FUNCPTR = lltype.Ptr(lltype.FuncType([llmemory.GCREF, llmemory.GCREF],
                                              lltype.Float))
@@ -2902,10 +2903,10 @@ class LLtypeBackendTest(BaseBackendTest):
             othertoken = JitCellToken()
             self.cpu.compile_loop(loop.inputargs, loop.operations, othertoken)
             args = [longlong.getfloatstorage(1.2),
-                    longlong.getfloatstorage(3.2)]
+                    longlong.getfloatstorage(4.2)]
             deadframe = self.cpu.execute_token(othertoken, *args)
             x = self.cpu.get_latest_value_float(deadframe, 0)
-            assert longlong.getrealfloat(x) == 1.2 + 3.2
+            assert longlong.getrealfloat(x) == 1.2 + 4.2
             assert not called
         finally:
             del self.cpu.done_with_this_frame_float_v

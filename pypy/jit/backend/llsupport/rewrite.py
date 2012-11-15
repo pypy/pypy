@@ -350,12 +350,11 @@ class GcRewriterAssembler(object):
         v_deadframe = BoxPtr()
         args_boxes = finish_op.getarglist()     # may contain Consts too
         #
-        arraydescr, int_descr, ref_descr, float_descr, jf_descr = (
-            self.gc_ll_descr.getframedescrs(self.cpu))
+        descrs = self.gc_ll_descr.getframedescrs(self.cpu)
         #
         op = ResOperation(rop.NEW_ARRAY,
                           [ConstInt(len(args_boxes))], v_deadframe,
-                          descr=arraydescr)
+                          descr=descrs.arraydescr)
         self.handle_malloc_operation(op)
         #
         for i in range(len(args_boxes)):
@@ -363,9 +362,9 @@ class GcRewriterAssembler(object):
             # deadframe object.  Ignore write barriers because it's a
             # recent object.
             box = args_boxes[i]
-            if box.type == history.INT: descr = int_descr
-            elif box.type == history.REF: descr = ref_descr
-            elif box.type == history.FLOAT: descr = float_descr
+            if box.type == history.INT: descr = descrs.as_int
+            elif box.type == history.REF: descr = descrs.as_ref
+            elif box.type == history.FLOAT: descr = descrs.as_float
             else: assert 0, "bad box type?"
             op = ResOperation(rop.SETINTERIORFIELD_GC,
                               [v_deadframe, ConstInt(i), box], None,
@@ -376,7 +375,7 @@ class GcRewriterAssembler(object):
         gcref_descr = finish_op.getdescr().hide(self.cpu)
         op = ResOperation(rop.SETFIELD_GC,
                           [v_deadframe, ConstPtr(gcref_descr)], None,
-                          descr=jf_descr)
+                          descr=descrs.jf_descr)
         self.newops.append(op)
         #
         op = ResOperation(rop.FINISH, [v_deadframe], None)
