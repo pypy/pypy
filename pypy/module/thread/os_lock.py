@@ -237,6 +237,7 @@ class W_RLock(Wrappable):
         """For internal use by `threading.Condition`."""
         count, self.rlock_count = self.rlock_count, 0
         owner, self.rlock_owner = self.rlock_owner, 0
+        self.lock.release()
         return space.newtuple([space.wrap(count), space.wrap(owner)])
 
     def descr__enter__(self, space):
