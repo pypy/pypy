@@ -127,8 +127,8 @@ class TestBase:
         def myreplace(exc):
             return ('x', sys.maxsize + 1)
         codecs.register_error("test.cjktest", myreplace)
-        self.assertRaises(IndexError, self.encode, self.unmappedunicode,
-                          'test.cjktest')
+        self.assertRaises((IndexError, OverflowError), self.encode,
+                          self.unmappedunicode, 'test.cjktest')
 
     def test_callback_None_index(self):
         def myreplace(exc):
