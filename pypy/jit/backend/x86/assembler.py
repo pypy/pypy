@@ -1,5 +1,5 @@
 import sys, os
-from pypy.jit.backend.llsupport import symbolic
+from pypy.jit.backend.llsupport import symbolic, jitframe
 from pypy.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from pypy.jit.metainterp.history import Const, Box, BoxInt, ConstInt
 from pypy.jit.metainterp.history import AbstractFailDescr, INT, REF, FLOAT
@@ -39,6 +39,7 @@ from pypy.jit.backend.x86.jump import remap_frame_layout
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.codewriter import longlong
 from pypy.rlib.rarithmetic import intmask
+from pypy.rlib import longlong2float
 from pypy.rlib.objectmodel import compute_unique_id
 
 # darwin requires the stack to be 16 bytes aligned on calls. Same for gcc 4.5.0,
@@ -1949,10 +1950,37 @@ class Assembler386(object):
             arglocs.append(loc)
         return arglocs[:]
 
-    @rgc.no_collect
-    def grab_frame_values(self, bytecode, frame_addr, allregisters):
-        # no malloc allowed here!!
-        self.fail_ebp = allregisters[16 + ebp.value]
+    #@rgc.no_collect XXX
+    @staticmethod
+    def grab_frame_values(cpu, bytecode, frame_addr, allregisters):
+        # no malloc allowed here!! XXX we allocate anyway the deadframe.
+        # It will only work on Boehm.
+        assert cpu.gc_ll_descr.kind == "boehm", "XXX Boehm only"
+        #self.fail_ebp = allregisters[16 + ebp.value]
+        num = 0
+        # step 1: lots of mess just to count the final value of 'num'
+        bytecode1 = bytecode
+        while 1:
+            code = rffi.cast(lltype.Signed, bytecode1[0])
+            bytecode1 = rffi.ptradd(bytecode1, 1)
+            if code >= Assembler386.CODE_FROMSTACK:
+                while code > 0x7F:
+                    code = rffi.cast(lltype.Signed, bytecode1[0])
+                    bytecode1 = rffi.ptradd(bytecode1, 1)
+            else:
+                kind = code & 3
+                if kind == Assembler386.DESCR_SPECIAL:
+                    if code == Assembler386.CODE_HOLE:
+                        num += 1
+                        continue
+                    if code == Assembler386.CODE_INPUTARG:
+                        continue
+                    assert code == Assembler386.CODE_STOP
+                    break
+            num += 1
+        # allocate the deadframe
+        deadframe = lltype.malloc(jitframe.DEADFRAME, num)
+        # fill it
         code_inputarg = False
         num = 0
         value_hi = 0
@@ -1960,7 +1988,7 @@ class Assembler386(object):
             # decode the next instruction from the bytecode
             code = rffi.cast(lltype.Signed, bytecode[0])
             bytecode = rffi.ptradd(bytecode, 1)
-            if code >= self.CODE_FROMSTACK:
+            if code >= Assembler386.CODE_FROMSTACK:
                 if code > 0x7F:
                     shift = 7
                     code &= 0x7F
@@ -1973,29 +2001,29 @@ class Assembler386(object):
                             break
                 # load the value from the stack
                 kind = code & 3
-                code = (code - self.CODE_FROMSTACK) >> 2
+                code = (code - Assembler386.CODE_FROMSTACK) >> 2
                 if code_inputarg:
                     code = ~code
                     code_inputarg = False
                 stackloc = frame_addr + get_ebp_ofs(code)
                 value = rffi.cast(rffi.LONGP, stackloc)[0]
-                if kind == self.DESCR_FLOAT and WORD == 4:
+                if kind == Assembler386.DESCR_FLOAT and WORD == 4:
                     value_hi = value
                     value = rffi.cast(rffi.LONGP, stackloc - 4)[0]
             else:
-                # 'code' identifies a register: load its value
                 kind = code & 3
-                if kind == self.DESCR_SPECIAL:
-                    if code == self.CODE_HOLE:
+                if kind == Assembler386.DESCR_SPECIAL:
+                    if code == Assembler386.CODE_HOLE:
                         num += 1
                         continue
-                    if code == self.CODE_INPUTARG:
+                    if code == Assembler386.CODE_INPUTARG:
                         code_inputarg = True
                         continue
-                    assert code == self.CODE_STOP
+                    assert code == Assembler386.CODE_STOP
                     break
+                # 'code' identifies a register: load its value
                 code >>= 2
-                if kind == self.DESCR_FLOAT:
+                if kind == Assembler386.DESCR_FLOAT:
                     if WORD == 4:
                         value = allregisters[2*code]
                         value_hi = allregisters[2*code + 1]
@@ -2005,29 +2033,37 @@ class Assembler386(object):
                     value = allregisters[16 + code]
 
             # store the loaded value into fail_boxes_<type>
-            if kind == self.DESCR_INT:
-                tgt = self.fail_boxes_int.get_addr_for_num(num)
-            elif kind == self.DESCR_REF:
-                tgt = self.fail_boxes_ptr.get_addr_for_num(num)
-            elif kind == self.DESCR_FLOAT:
-                tgt = self.fail_boxes_float.get_addr_for_num(num)
+            if kind == Assembler386.DESCR_INT:
+                deadframe.jf_values[num].int = value
+            elif kind == Assembler386.DESCR_REF:
+                deadframe.jf_values[num].ref = rffi.cast(llmemory.GCREF, value)
+            elif kind == Assembler386.DESCR_FLOAT:
                 if WORD == 4:
-                    rffi.cast(rffi.LONGP, tgt)[1] = value_hi
+                    assert not longlong.is_64_bit
+                    floatvalue = rffi.cast(lltype.SignedLongLong, value_hi)
+                    floatvalue <<= 32
+                    floatvalue |= rffi.cast(lltype.SignedLongLong,
+                                            rffi.cast(lltype.Unsigned, value))
+                else:
+                    assert longlong.is_64_bit
+                    floatvalue = longlong2float.longlong2float(value)
+                deadframe.jf_values[num].float = floatvalue
             else:
                 assert 0, "bogus kind"
-            rffi.cast(rffi.LONGP, tgt)[0] = value
             num += 1
         #
+        assert num == len(deadframe.jf_values)
         if not we_are_translated():
             assert bytecode[4] == 0xCC
-        self.fail_boxes_count = num
+        #self.fail_boxes_count = num
         fail_index = rffi.cast(rffi.INTP, bytecode)[0]
-        fail_index = rffi.cast(lltype.Signed, fail_index)
-        return fail_index
+        fail_descr = cpu.get_fail_descr_from_number(fail_index)
+        deadframe.jf_descr = fail_descr.hide(cpu)
+        return lltype.cast_opaque_ptr(llmemory.GCREF, deadframe)
 
     def setup_failure_recovery(self):
 
-        @rgc.no_collect
+        #@rgc.no_collect XXX
         def failure_recovery_func(registers):
             # 'registers' is a pointer to a structure containing the
             # original value of the registers, optionally the original
@@ -2036,13 +2072,14 @@ class Assembler386(object):
             stack_at_ebp = registers[ebp.value]
             bytecode = rffi.cast(rffi.UCHARP, registers[self.cpu.NUM_REGS])
             allregisters = rffi.ptradd(registers, -16)
-            return self.grab_frame_values(bytecode, stack_at_ebp, allregisters)
+            return self.grab_frame_values(self.cpu, bytecode, stack_at_ebp,
+                                          allregisters)
 
         self.failure_recovery_func = failure_recovery_func
         self.failure_recovery_code = [0, 0, 0, 0]
 
     _FAILURE_RECOVERY_FUNC = lltype.Ptr(lltype.FuncType([rffi.LONGP],
-                                                        lltype.Signed))
+                                                        llmemory.GCREF))
 
     def _build_failure_recovery(self, exc, withfloats=False):
         failure_recovery_func = llhelper(self._FAILURE_RECOVERY_FUNC,
@@ -2065,25 +2102,20 @@ class Assembler386(object):
             for i in range(self.cpu.NUM_REGS):
                 mc.MOVSD_sx(8*i, i)
 
-        # we call a provided function that will
-        # - call our on_leave_jitted_hook which will mark
-        #   the fail_boxes_ptr array as pointing to young objects to
-        #   avoid unwarranted freeing
-        # - optionally save exception depending on the flag
-        addr = self.cpu.get_on_leave_jitted_int(save_exception=exc)
-        mc.CALL(imm(addr))
+        if exc:
+            mc.UD2()     # XXX
 
         # the following call saves all values from the stack and from
-        # registers to the right 'fail_boxes_<type>' location.
+        # registers to a fresh new deadframe object.
         # Note that the registers are saved so far in esi[0] to esi[7],
         # as pushed above, plus optionally in esi[-16] to esi[-1] for
         # the XMM registers.  Moreover, esi[8] is a pointer to the recovery
         # bytecode, pushed just before by the CALL instruction written by
-        # generate_quick_failure().  XXX misaligned stack in the call, but
-        # it's ok because failure_recovery_func is not calling anything more
+        # generate_quick_failure().
 
         # XXX
         if IS_X86_32:
+            mc.SUB_ri(esp.value, 3*WORD)    # for stack alignment
             mc.PUSH_r(ebx.value)
         elif IS_X86_64:
             mc.MOV_rr(edi.value, ebx.value)
@@ -2091,7 +2123,7 @@ class Assembler386(object):
             raise AssertionError("Shouldn't happen")
 
         mc.CALL(imm(failure_recovery_func))
-        # returns in eax the fail_index
+        # returns in eax the deadframe object
 
         # now we return from the complete frame, which starts from
         # _call_header_with_stack_check().  The LEA in _call_footer below
