@@ -2093,17 +2093,22 @@ class Assembler386(object):
         for gpr in range(self.cpu.NUM_REGS-1, -1, -1):
             mc.PUSH_r(gpr)
 
-        # ebx/rbx is callee-save in both i386 and x86-64
-        mc.MOV_rr(ebx.value, esp.value)
+        if exc:
+            # We might have an exception pending.  Load it into ebx
+            # (this is a register saved across calls, both if 32 or 64)
+            mc.MOV(ebx, heap(self.cpu.pos_exc_value()))
+            mc.MOV(heap(self.cpu.pos_exception()), imm0)
+            mc.MOV(heap(self.cpu.pos_exc_value()), imm0)
+
+        # Load the current esp value into edi.  On 64-bit, this is the
+        # argument.  On 32-bit, it will be pushed as argument below.
+        mc.MOV_rr(edi.value, esp.value)
 
         if withfloats:
             # Push all float registers
             mc.SUB_ri(esp.value, self.cpu.NUM_REGS*8)
             for i in range(self.cpu.NUM_REGS):
                 mc.MOVSD_sx(8*i, i)
-
-        if exc:
-            mc.UD2()     # XXX
 
         # the following call saves all values from the stack and from
         # registers to a fresh new deadframe object.
@@ -2113,17 +2118,19 @@ class Assembler386(object):
         # bytecode, pushed just before by the CALL instruction written by
         # generate_quick_failure().
 
-        # XXX
         if IS_X86_32:
             mc.SUB_ri(esp.value, 3*WORD)    # for stack alignment
-            mc.PUSH_r(ebx.value)
-        elif IS_X86_64:
-            mc.MOV_rr(edi.value, ebx.value)
-        else:
-            raise AssertionError("Shouldn't happen")
+            mc.PUSH_r(edi.value)
 
         mc.CALL(imm(failure_recovery_func))
         # returns in eax the deadframe object
+
+        if exc:
+            # save ebx into 'jf_guard_exc'
+            offset, size = symbolic.get_field_token(
+                jitframe.DEADFRAME, 'jf_guard_exc',
+                self.cpu.translate_support_code)
+            mc.MOV_mr((eax.value, offset), ebx.value)
 
         # now we return from the complete frame, which starts from
         # _call_header_with_stack_check().  The LEA in _call_footer below

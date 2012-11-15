@@ -20,6 +20,12 @@ DEADFRAME = lltype.GcStruct(
     # For the front-end: a GCREF for the savedata
     ('jf_savedata', llmemory.GCREF),
 
+    # For GUARD_(NO)_EXCEPTION and GUARD_NOT_FORCED: the exception we
+    # got.  (Note that in case of a regular FINISH generated from
+    # RPython code that finishes the function with an exception, the
+    # exception is not stored there, but in jf_values[0].ref.)
+    ('jf_guard_exc', llmemory.GCREF),
+
     # All values are stored in the following array, for now not very
     # compactly on 32-bit machines.
     ('jf_values', lltype.Array(VALUEUNION)))
