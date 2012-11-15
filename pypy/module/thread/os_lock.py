@@ -45,7 +45,7 @@ def parse_acquire_args(space, blocking, timeout):
     else:
         timeout *= 1e6
         if timeout > float(TIMEOUT_MAX):
-            raise OperationError(space.w_ValueError, space.wrap(
+            raise OperationError(space.w_OverflowError, space.wrap(
                     "timeout value is too large"))
         microseconds = r_longlong(timeout)
     return microseconds
