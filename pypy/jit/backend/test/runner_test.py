@@ -33,9 +33,9 @@ def boxlonglong(ll):
     else:
         return BoxFloat(ll)
 
-class RandomGcRef(object):
-    _TYPE = llmemory.GCREF
-random_gcref = RandomGcRef()
+STUFF = lltype.GcStruct('STUFF')
+random_gcref = lltype.cast_opaque_ptr(llmemory.GCREF,
+                                      lltype.malloc(STUFF, immortal=True))
 
 
 class Runner(object):
@@ -2264,6 +2264,7 @@ class LLtypeBackendTest(BaseBackendTest):
         assert self.cpu.get_latest_value_int(deadframe, 0) == 1
         assert self.cpu.get_latest_value_int(deadframe, 1) == 10
         assert values == [faildescr, 1, 10]
+        assert self.cpu.get_savedata_ref(deadframe)   # not NULL
         assert self.cpu.get_savedata_ref(deadframe) == random_gcref
 
     def test_force_operations_returning_int(self):

@@ -194,6 +194,14 @@ class AbstractLLCPU(AbstractCPU):
         deadframe = lltype.cast_opaque_ptr(jitframe.DEADFRAMEPTR, deadframe)
         return deadframe.jf_guard_exc
 
+    def set_savedata_ref(self, deadframe, data):
+        deadframe = lltype.cast_opaque_ptr(jitframe.DEADFRAMEPTR, deadframe)
+        deadframe.jf_savedata = data
+
+    def get_savedata_ref(self, deadframe):
+        deadframe = lltype.cast_opaque_ptr(jitframe.DEADFRAMEPTR, deadframe)
+        return deadframe.jf_savedata
+
     def free_loop_and_bridges(self, compiled_loop_token):
         AbstractCPU.free_loop_and_bridges(self, compiled_loop_token)
         blocks = compiled_loop_token.asmmemmgr_blocks

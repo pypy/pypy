@@ -137,14 +137,17 @@ class AbstractX86CPU(AbstractLLCPU):
         rffi.cast(TP, addr_of_force_index)[0] = ~fail_index
         frb = self.assembler._find_failure_recovery_bytecode(faildescr)
         bytecode = rffi.cast(rffi.UCHARP, frb)
-        # start of "no gc operation!" block
+        assert (rffi.cast(lltype.Signed, bytecode[0]) ==
+                self.assembler.CODE_FORCED)
+        bytecode = rffi.ptradd(bytecode, 1)
         deadframe = self.assembler.grab_frame_values(
             self,
             bytecode,
             addr_of_force_token,
             self.all_null_registers)
-        # end of "no gc operation!" block
         assert self.get_latest_descr(deadframe) is faildescr
+        self.assembler.force_token_to_dead_frame[addr_of_force_token] = (
+            deadframe)
         return deadframe
 
     def redirect_call_assembler(self, oldlooptoken, newlooptoken):

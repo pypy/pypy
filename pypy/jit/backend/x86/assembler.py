@@ -52,12 +52,13 @@ def align_stack_words(words):
 
 class GuardToken(object):
     def __init__(self, faildescr, failargs, fail_locs, exc,
-                 is_guard_not_invalidated):
+                 is_guard_not_invalidated, is_guard_not_forced):
         self.faildescr = faildescr
         self.failargs = failargs
         self.fail_locs = fail_locs
         self.exc = exc
         self.is_guard_not_invalidated = is_guard_not_invalidated
+        self.is_guard_not_forced = is_guard_not_forced
 
 DEBUG_COUNTER = lltype.Struct('DEBUG_COUNTER', ('i', lltype.Signed),
                               ('type', lltype.Char), # 'b'ridge, 'l'abel or
@@ -87,6 +88,7 @@ class Assembler386(object):
         self.propagate_exception_path = 0
         self.gcrootmap_retaddr_forced = 0
         self.teardown()
+        self.force_token_to_dead_frame = {}    # XXX temporary hack
 
     def set_debug(self, v):
         r = self._debug
@@ -1818,8 +1820,9 @@ class Assembler386(object):
                guard_opnum == rop.GUARD_NO_EXCEPTION or
                guard_opnum == rop.GUARD_NOT_FORCED)
         is_guard_not_invalidated = guard_opnum == rop.GUARD_NOT_INVALIDATED
+        is_guard_not_forced = guard_opnum == rop.GUARD_NOT_FORCED
         return GuardToken(faildescr, failargs, fail_locs, exc,
-                          is_guard_not_invalidated)
+                          is_guard_not_invalidated, is_guard_not_forced)
 
     def generate_propagate_error_64(self):
         assert WORD == 8
@@ -1853,6 +1856,8 @@ class Assembler386(object):
             mc.CALL_r(X86_64_SCRATCH_REG.value)
             assert mc.get_relative_pos() == start + 13
         # write tight data that describes the failure recovery
+        if guardtok.is_guard_not_forced:
+            mc.writechar(chr(self.CODE_FORCED))
         self.write_failure_recovery_description(mc, guardtok.failargs,
                                                 guardtok.fail_locs)
         # write the fail_index too
@@ -1872,6 +1877,7 @@ class Assembler386(object):
     CODE_STOP       = 0 | DESCR_SPECIAL
     CODE_HOLE       = 4 | DESCR_SPECIAL
     CODE_INPUTARG   = 8 | DESCR_SPECIAL
+    CODE_FORCED     = 12 | DESCR_SPECIAL
 
     def write_failure_recovery_description(self, mc, failargs, locs):
         for i in range(len(failargs)):
@@ -1958,6 +1964,7 @@ class Assembler386(object):
         assert cpu.gc_ll_descr.kind == "boehm", "XXX Boehm only"
         #self.fail_ebp = allregisters[16 + ebp.value]
         num = 0
+        deadframe = lltype.nullptr(jitframe.DEADFRAME)
         # step 1: lots of mess just to count the final value of 'num'
         bytecode1 = bytecode
         while 1:
@@ -1975,11 +1982,20 @@ class Assembler386(object):
                         continue
                     if code == Assembler386.CODE_INPUTARG:
                         continue
+                    if code == Assembler386.CODE_FORCED:
+                        # resuming from a GUARD_NOT_FORCED
+                        token = allregisters[16 + ebp.value]
+                        deadframe = (
+                            cpu.assembler.force_token_to_dead_frame.pop(token))
+                        deadframe = lltype.cast_opaque_ptr(
+                            jitframe.DEADFRAMEPTR, deadframe)
+                        continue
                     assert code == Assembler386.CODE_STOP
                     break
             num += 1
         # allocate the deadframe
-        deadframe = lltype.malloc(jitframe.DEADFRAME, num)
+        if not deadframe:
+            deadframe = lltype.malloc(jitframe.DEADFRAME, num)
         # fill it
         code_inputarg = False
         num = 0
@@ -2018,6 +2034,8 @@ class Assembler386(object):
                         continue
                     if code == Assembler386.CODE_INPUTARG:
                         code_inputarg = True
+                        continue
+                    if code == Assembler386.CODE_FORCED:
                         continue
                     assert code == Assembler386.CODE_STOP
                     break
