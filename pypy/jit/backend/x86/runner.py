@@ -93,10 +93,6 @@ class AbstractX86CPU(AbstractLLCPU):
         for index in range(count):
             setitem(index, null)
 
-    def get_latest_force_token(self):
-        # the FORCE_TOKEN operation and this helper both return 'ebp'.
-        return self.assembler.fail_ebp
-
     def make_execute_token(self, *ARGS):
         FUNCPTR = lltype.Ptr(lltype.FuncType(ARGS, llmemory.GCREF))
         #
