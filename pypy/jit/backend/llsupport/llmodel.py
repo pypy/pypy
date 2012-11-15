@@ -6,7 +6,7 @@ from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.jit.metainterp import history
 from pypy.jit.codewriter import heaptracker, longlong
 from pypy.jit.backend.model import AbstractCPU
-from pypy.jit.backend.llsupport import symbolic
+from pypy.jit.backend.llsupport import symbolic, jitframe
 from pypy.jit.backend.llsupport.symbolic import WORD, unroll_basic_sizes
 from pypy.jit.backend.llsupport.descr import (
     get_size_descr, get_field_descr, get_array_descr,
@@ -306,6 +306,27 @@ class AbstractLLCPU(AbstractCPU):
         zer_inst = lltype.cast_opaque_ptr(llmemory.GCREF,
                                           self._zer_error_inst)
         return zer_vtable, zer_inst
+
+    def get_latest_descr(self, deadframe):
+        deadframe = lltype.cast_opaque_ptr(jitframe.DEADFRAMEPTR, deadframe)
+        descr = deadframe.jf_descr
+        return history.AbstractDescr.show(self, descr)
+
+    def get_latest_value_int(self, deadframe, index):
+        deadframe = lltype.cast_opaque_ptr(jitframe.DEADFRAMEPTR, deadframe)
+        return deadframe.jf_values[index].int
+
+    def get_latest_value_ref(self, deadframe, index):
+        deadframe = lltype.cast_opaque_ptr(jitframe.DEADFRAMEPTR, deadframe)
+        return deadframe.jf_values[index].ref
+
+    def get_latest_value_float(self, deadframe, index):
+        deadframe = lltype.cast_opaque_ptr(jitframe.DEADFRAMEPTR, deadframe)
+        return deadframe.jf_values[index].float
+
+    def get_latest_value_count(self, deadframe):
+        deadframe = lltype.cast_opaque_ptr(jitframe.DEADFRAMEPTR, deadframe)
+        return len(deadframe.jf_values)
 
     # ____________________________________________________________
 

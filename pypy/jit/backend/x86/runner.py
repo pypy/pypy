@@ -87,18 +87,6 @@ class AbstractX86CPU(AbstractLLCPU):
         return self.assembler.assemble_bridge(faildescr, inputargs, operations,
                                               original_loop_token, log=log)
 
-    def get_latest_value_int(self, index):
-        return self.assembler.fail_boxes_int.getitem(index)
-
-    def get_latest_value_float(self, index):
-        return self.assembler.fail_boxes_float.getitem(index)
-
-    def get_latest_value_ref(self, index):
-        return self.assembler.fail_boxes_ptr.getitem(index)
-
-    def get_latest_value_count(self):
-        return self.assembler.fail_boxes_count
-
     def clear_latest_values(self, count):
         setitem = self.assembler.fail_boxes_ptr.setitem
         null = lltype.nullptr(llmemory.GCREF.TO)
