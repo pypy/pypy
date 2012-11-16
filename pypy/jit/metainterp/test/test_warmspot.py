@@ -474,7 +474,7 @@ class WarmspotTests(object):
         self.check_resops(int_add=4)
         self.check_trace_count(2)
 
-    def test_inline_in_portal_exception(self):
+    def test_jitdriver_inline_exception(self):
         # this simulates what happens in a real case scenario: inside the next
         # we have a call which we cannot inline (e.g. space.next in the case
         # of W_InterpIterable), but we need to put it in a try/except block.

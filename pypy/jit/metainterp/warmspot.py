@@ -294,6 +294,7 @@ class WarmRunnerDesc(object):
             func = getattr(callee, 'func', None)
             _inline_jit_merge_point_ = getattr(func, '_inline_jit_merge_point_', None)
             if _inline_jit_merge_point_:
+                _inline_jit_merge_point_._always_inline_ = True
                 op_jmp_call, jmp_graph = get_jmp_call(callee, _inline_jit_merge_point_)
                 #
                 # now we move the op_jmp_call from callee to caller, just
@@ -312,7 +313,7 @@ class WarmRunnerDesc(object):
                 new_portals.add(caller)
 
         # inline them!
-        inline_threshold = self.translator.config.translation.backendopt.inline_threshold
+        inline_threshold = 0.1 # we rely on the _always_inline_ set above
         auto_inlining(self.translator, inline_threshold, new_callgraph)
 
         # make a fresh copy of the JitDriver in all newly created
