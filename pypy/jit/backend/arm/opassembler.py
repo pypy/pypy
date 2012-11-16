@@ -1446,3 +1446,20 @@ class ResOpAssembler(object):
         self.mc.MOV_ri(r.ip.value, 0)
         self.mc.VMOV_cr(res.value, tmp.value, r.ip.value)
         return fcond
+
+    def emit_op_cast_float_to_singlefloat(self, op, arglocs, regalloc, fcond):
+        arg, res = arglocs
+        assert arg.is_vfp_reg()
+        assert res.is_reg()
+        self.mc.VCVT_f64_f32(r.vfp_ip.value, arg.value)
+        self.mc.VMOV_rc(res.value, r.ip.value, r.vfp_ip.value)
+	return fcond
+    
+    def emit_op_cast_singlefloat_to_float(self, op, arglocs, regalloc, fcond):
+        arg, res = arglocs
+        assert res.is_vfp_reg()
+        assert arg.is_reg()
+        self.mc.MOV_ri(r.ip.value, 0)
+        self.mc.VMOV_cr(res.value, arg.value, r.ip.value)
+        self.mc.VCVT_f32_f64(res.value, res.value)
+        return fcond

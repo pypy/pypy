@@ -1245,6 +1245,16 @@ class Regalloc(object):
         res = self.vfprm.force_allocate_reg(op.result)
         return [loc, res]
 
+    def prepare_op_cast_float_to_singlefloat(self, op, fcond):
+        loc1 = self._ensure_value_is_boxed(op.getarg(0))
+        res = self.force_allocate_reg(op.result)
+        return [loc1, res]
+    
+    def prepare_op_cast_singlefloat_to_float(self, op, fcond):
+        loc1 = self._ensure_value_is_boxed(op.getarg(0))
+        res = self.force_allocate_reg(op.result)
+        return [loc1, res]
+
 
 def add_none_argument(fn):
     return lambda self, op, fcond: fn(self, op, None, fcond)
