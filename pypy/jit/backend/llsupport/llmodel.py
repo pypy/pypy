@@ -39,8 +39,6 @@ class AbstractLLCPU(AbstractCPU):
             self.vtable_offset, _ = symbolic.get_field_token(rclass.OBJECT,
                                                              'typeptr',
                                                         translate_support_code)
-        self._setup_prebuilt_error('ovf', OverflowError)
-        self._setup_prebuilt_error('zer', ZeroDivisionError)
         if translate_support_code:
             self._setup_exception_handling_translated()
         else:
@@ -55,21 +53,6 @@ class AbstractLLCPU(AbstractCPU):
 
     def setup(self):
         pass
-
-    def _setup_prebuilt_error(self, prefix, Class):
-        if self.rtyper is not None:   # normal case
-            bk = self.rtyper.annotator.bookkeeper
-            clsdef = bk.getuniqueclassdef(Class)
-            ll_inst = self.rtyper.exceptiondata.get_standard_ll_exc_instance(
-                self.rtyper, clsdef)
-        else:
-            # for tests, a random emulated ll_inst will do
-            ll_inst = lltype.malloc(rclass.OBJECT)
-            ll_inst.typeptr = lltype.malloc(rclass.OBJECT_VTABLE,
-                                            immortal=True)
-        setattr(self, '_%s_error_vtable' % prefix,
-                llmemory.cast_ptr_to_adr(ll_inst.typeptr))
-        setattr(self, '_%s_error_inst' % prefix, ll_inst)
 
 
     def _setup_exception_handling_untranslated(self):
@@ -292,18 +275,6 @@ class AbstractLLCPU(AbstractCPU):
         from pypy.jit.backend.llsupport import ffisupport
         return ffisupport.calldescr_dynamic_for_tests(self, atypes, rtype,
                                                       abiname)
-
-    def get_overflow_error(self):
-        ovf_vtable = self.cast_adr_to_int(self._ovf_error_vtable)
-        ovf_inst = lltype.cast_opaque_ptr(llmemory.GCREF,
-                                          self._ovf_error_inst)
-        return ovf_vtable, ovf_inst
-
-    def get_zero_division_error(self):
-        zer_vtable = self.cast_adr_to_int(self._zer_error_vtable)
-        zer_inst = lltype.cast_opaque_ptr(llmemory.GCREF,
-                                          self._zer_error_inst)
-        return zer_vtable, zer_inst
 
     # ____________________________________________________________
 
