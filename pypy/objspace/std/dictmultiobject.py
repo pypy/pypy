@@ -57,9 +57,9 @@ class W_DictMultiObject(W_Object):
             # the version tag
             strategy = ModuleDictStrategy(space)
 
-        elif instance or strdict or module:
-            assert w_type is None
-            strategy = space.fromcache(StringDictStrategy)
+        # elif instance or strdict or module:
+        #     assert w_type is None
+        #     strategy = space.fromcache(StringDictStrategy)
 
         elif False and kwargs:
             assert w_type is None
@@ -208,10 +208,10 @@ class EmptyDictStrategy(DictStrategy):
 
     def switch_to_correct_strategy(self, w_dict, w_key):
         withidentitydict = self.space.config.objspace.std.withidentitydict
-        if type(w_key) is self.space.StringObjectCls:
-            self.switch_to_string_strategy(w_dict)
-            return
-        elif type(w_key) is self.space.UnicodeObjectCls:
+        # if type(w_key) is self.space.StringObjectCls:
+        #     self.switch_to_string_strategy(w_dict)
+        #     return
+        if type(w_key) is self.space.UnicodeObjectCls:
             self.switch_to_unicode_strategy(w_dict)
             return
         w_type = self.space.type(w_key)
