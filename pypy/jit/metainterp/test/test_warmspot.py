@@ -474,6 +474,50 @@ class WarmspotTests(object):
         self.check_resops(int_add=4)
         self.check_trace_count(2)
 
+    def test_inline_in_portal_exception(self):
+        # this simulates what happens in a real case scenario: inside the next
+        # we have a call which we cannot inline (e.g. space.next in the case
+        # of W_InterpIterable), but we need to put it in a try/except block.
+        # With the first "inline_in_portal" approach, this case crashed
+        myjitdriver = JitDriver(greens = [], reds = 'auto')
+        
+        def inc(x, n):
+            if x == n:
+                raise OverflowError
+            return x+1
+        inc._dont_inline_ = True
+        
+        class MyRange(object):
+            def __init__(self, n):
+                self.cur = 0
+                self.n = n
+
+            def __iter__(self):
+                return self
+
+            def jit_merge_point(self):
+                myjitdriver.jit_merge_point()
+
+            @myjitdriver.inline(jit_merge_point)
+            def next(self):
+                try:
+                    self.cur = inc(self.cur, self.n)
+                except OverflowError:
+                    raise StopIteration
+                return self.cur
+
+        def f(n):
+            res = 0
+            for i in MyRange(n):
+                res += i
+            return res
+
+        expected = f(21)
+        res = self.meta_interp(f, [21])
+        assert res == expected
+        self.check_resops(int_eq=2, int_add=4)
+        self.check_trace_count(1)
+
 
 class TestLLWarmspot(WarmspotTests, LLJitMixin):
     CPUClass = runner.LLtypeCPU
