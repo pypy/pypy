@@ -110,7 +110,13 @@ def new_erasing_pair(name):
         _about_ = unerase
 
         def compute_result_annotation(self, s_obj):
-            assert SomeErased().contains(s_obj)
+            # unerase() accepts a GCREF which is normally SomeErased,
+            # tracked directly from a corresponding erase().  For corner
+            # cases, we might get a random GCREF too (only when translated).
+            if isinstance(s_obj, annmodel.SomePtr):
+                assert annmodel.SomePtr(llmemory.GCREF).contains(s_obj)
+            else:
+                assert SomeErased().contains(s_obj)
             return identity.leave_tunnel(self.bookkeeper)
 
         def specialize_call(self, hop):

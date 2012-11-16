@@ -85,20 +85,20 @@ class AbstractLLCPU(AbstractCPU):
             exc = _exception_emulator[1]
             _exception_emulator[0] = 0
             _exception_emulator[1] = 0
+            assert self.propagate_exception_v >= 0
+            faildescr = self.get_fail_descr_from_number(
+                self.propagate_exception_v)
+            faildescr = faildescr.hide(self)
             if not exc:
                 deadframe = self.deadframe_memoryerror
-                assert self.propagate_exception_v >= 0
-                faildescr = self.get_fail_descr_from_number(
-                    self.propagate_exception_v)
                 if not deadframe.jf_descr:
-                    deadframe.jf_descr = faildescr.hide(self)
+                    deadframe.jf_descr = faildescr
                 else:
-                    assert deadframe.jf_descr == faildescr.hide(self)
+                    assert deadframe.jf_descr == faildescr
             else:
                 deadframe = lltype.malloc(jitframe.DEADFRAME, 0)
                 deadframe.jf_guard_exc = rffi.cast(llmemory.GCREF, exc)
-                deadframe.jf_descr = self.get_fail_descr_from_number(
-                    self.propagate_exception_v)
+                deadframe.jf_descr = faildescr
             return lltype.cast_opaque_ptr(llmemory.GCREF, deadframe)
 
         self.pos_exception = pos_exception
@@ -107,7 +107,6 @@ class AbstractLLCPU(AbstractCPU):
         self._propagate_exception = propagate_exception
 
     def _setup_exception_handling_translated(self):
-        xxxxxxxxxxx
 
         def pos_exception():
             addr = llop.get_exception_addr(llmemory.Address)
@@ -116,26 +115,6 @@ class AbstractLLCPU(AbstractCPU):
         def pos_exc_value():
             addr = llop.get_exc_value_addr(llmemory.Address)
             return heaptracker.adr2int(addr)
-
-        def save_exception():
-            addr = llop.get_exception_addr(llmemory.Address)
-            addr.address[0] = llmemory.NULL
-            addr = llop.get_exc_value_addr(llmemory.Address)
-            exc_value = addr.address[0]
-            addr.address[0] = llmemory.NULL
-            # from now on, the state is again consistent -- no more RPython
-            # exception is set.  The following code produces a write barrier
-            # in the assignment to self.saved_exc_value, as needed.
-            self.saved_exc_value = rffi.cast(llmemory.GCREF, exc_value)
-
-        def save_exception_memoryerr():
-            from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
-            save_exception()
-            if not self.saved_exc_value:
-                exc = MemoryError()
-                exc = cast_instance_to_base_ptr(exc)
-                exc = lltype.cast_opaque_ptr(llmemory.GCREF, exc)
-                self.saved_exc_value = exc
 
         from pypy.rlib import rstack
         STACK_CHECK_SLOWPATH = lltype.Ptr(lltype.FuncType([lltype.Signed],
@@ -147,11 +126,42 @@ class AbstractLLCPU(AbstractCPU):
             slowpathaddr = rffi.cast(lltype.Signed, f)
             return endaddr, lengthaddr, slowpathaddr
 
+        self.deadframe_memoryerror = lltype.malloc(jitframe.DEADFRAME, 0)
+
+        def propagate_exception():
+            addr = llop.get_exception_addr(llmemory.Address)
+            addr.address[0] = llmemory.NULL
+            addr = llop.get_exc_value_addr(llmemory.Address)
+            exc = rffi.cast(llmemory.GCREF, addr.address[0])
+            addr.address[0] = llmemory.NULL
+            assert self.propagate_exception_v >= 0
+            faildescr = self.get_fail_descr_from_number(
+                self.propagate_exception_v)
+            faildescr = faildescr.hide(self)
+            deadframe = lltype.nullptr(jitframe.DEADFRAME)
+            if exc:
+                try:
+                    deadframe = lltype.malloc(jitframe.DEADFRAME, 0)
+                    deadframe.jf_guard_exc = rffi.cast(llmemory.GCREF, exc)
+                    deadframe.jf_descr = faildescr
+                except MemoryError:
+                    deadframe = lltype.nullptr(jitframe.DEADFRAME)
+            if not deadframe:
+                deadframe = self.deadframe_memoryerror
+                if not deadframe.jf_descr:
+                    exc = MemoryError()
+                    exc = cast_instance_to_base_ptr(exc)
+                    exc = lltype.cast_opaque_ptr(llmemory.GCREF, exc)
+                    deadframe.jf_guard_exc = exc
+                    deadframe.jf_descr = faildescr
+                else:
+                    assert deadframe.jf_descr == faildescr
+            return lltype.cast_opaque_ptr(llmemory.GCREF, deadframe)
+
         self.pos_exception = pos_exception
         self.pos_exc_value = pos_exc_value
-        self.save_exception = save_exception
-        self.save_exception_memoryerr = save_exception_memoryerr
         self.insert_stack_check = insert_stack_check
+        self._propagate_exception = propagate_exception
 
     PROPAGATE_EXCEPTION = lltype.Ptr(lltype.FuncType([], llmemory.GCREF))
 

@@ -330,12 +330,11 @@ class Assembler386(object):
         offset = mc.get_relative_pos() - jnz_location
         assert 0 < offset <= 127
         mc.overwrite(jnz_location-1, chr(offset))
-        # call on_leave_jitted_save_exc()
-        addr = self.cpu.get_on_leave_jitted_int(save_exception=True)
-        mc.CALL(imm(addr))
         #
-        xxxxxxxxxxxxxxxx
-        mc.MOV_ri(eax.value, self.cpu.propagate_exception_v)
+        # Call the helper, which will return a dead frame object with
+        # the correct exception set, or MemoryError by default
+        addr = rffi.cast(lltype.Signed, self.cpu.get_propagate_exception())
+        mc.CALL(imm(addr))
         #
         # footer -- note the ADD, which skips the return address of this
         # function, and will instead return to the caller's caller.  Note
@@ -1958,8 +1957,8 @@ class Assembler386(object):
             arglocs.append(loc)
         return arglocs[:]
 
-    #@rgc.no_collect XXX
     @staticmethod
+    @rgc.no_collect
     def grab_frame_values(cpu, bytecode, frame_addr, allregisters):
         # no malloc allowed here!! XXX we allocate anyway the deadframe.
         # It will only work on Boehm.
@@ -1997,6 +1996,7 @@ class Assembler386(object):
             num += 1
         # allocate the deadframe
         if not deadframe:
+            assert num <= cpu.get_failargs_limit()
             deadframe = lltype.malloc(jitframe.DEADFRAME, num)
         # fill it
         code_inputarg = False
@@ -2083,7 +2083,7 @@ class Assembler386(object):
 
     def setup_failure_recovery(self):
 
-        #@rgc.no_collect XXX
+        @rgc.no_collect
         def failure_recovery_func(registers):
             # 'registers' is a pointer to a structure containing the
             # original value of the registers, optionally the original
