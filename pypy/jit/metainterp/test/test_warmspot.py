@@ -387,7 +387,7 @@ class WarmspotTests(object):
         # test that the machinery to inline jit_merge_points in callers
         # works. The final user does not need to mess manually with the
         # _inline_jit_merge_point_ attribute and similar, it is all nicely
-        # handled by @JitDriver.inline()
+        # handled by @JitDriver.inline() (see next tests)
         myjitdriver = JitDriver(greens = ['a'], reds = 'auto')
 
         def jit_merge_point(a, b):
@@ -413,8 +413,7 @@ class WarmspotTests(object):
         self.check_resops(int_add=4)
 
 
-    def test_inline_in_portal(self):
-        py.test.skip('in-progress')
+    def test_jitdriver_inline(self):
         myjitdriver = JitDriver(greens = [], reds = 'auto')
         class MyRange(object):
             def __init__(self, n):
@@ -424,35 +423,27 @@ class WarmspotTests(object):
             def __iter__(self):
                 return self
 
-            @myjitdriver.inline_in_portal
-            def next(self):
+            def jit_merge_point(self):
                 myjitdriver.jit_merge_point()
+
+            @myjitdriver.inline(jit_merge_point)
+            def next(self):
                 if self.cur == self.n:
                     raise StopIteration
                 self.cur += 1
                 return self.cur
 
-        def one():
+        def f(n):
             res = 0
-            for i in MyRange(10):
+            for i in MyRange(n):
                 res += i
             return res
 
-        def two():
-            res = 0
-            for i in MyRange(13):
-                res += i * 2
-            return res
-
-        def f(n, m):
-            res = one() * 100
-            res += two()
-            return res
-        expected = f(21, 5)
-        res = self.meta_interp(f, [21, 5])
+        expected = f(21)
+        res = self.meta_interp(f, [21])
         assert res == expected
-        self.check_resops(int_eq=4, int_add=8)
-        self.check_trace_count(2)
+        self.check_resops(int_eq=2, int_add=4)
+        self.check_trace_count(1)
 
 
 class TestLLWarmspot(WarmspotTests, LLJitMixin):
