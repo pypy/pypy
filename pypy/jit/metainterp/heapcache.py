@@ -74,7 +74,9 @@ class HeapCache(object):
         elif (opnum != rop.GETFIELD_GC and
               opnum != rop.MARK_OPAQUE_PTR and
               opnum != rop.PTR_EQ and
-              opnum != rop.PTR_NE):
+              opnum != rop.PTR_NE and
+              opnum != rop.INSTANCE_PTR_EQ and
+              opnum != rop.INSTANCE_PTR_NE):
             idx = 0
             for box in argboxes:
                 # setarrayitem_gc don't escape its first argument
