@@ -207,18 +207,16 @@ in length to the length of the shortest argument sequence."""
         return []
 
     # Gather the iterators and guess the result length (the min of the
-    # input lengths)
+    # input lengths).  If any of the iterators doesn't know its length,
+    # we use 0 (instead of ignoring it and using the other iterators;
+    # see lib-python's test_builtin.test_zip).
     iterators = []
-    min_hint = -1
+    hint = 100000000   # max 100M
     for seq in sequences:
         iterators.append(iter(seq))
-        hint = operator._length_hint(seq, min_hint)
-        if min_hint == -1 or hint < min_hint:
-            min_hint = hint
-    if min_hint == -1:
-        min_hint = 0
+        hint = min(hint, operator._length_hint(seq, 0))
 
-    with _ManagedNewlistHint(min_hint) as result:
+    with _ManagedNewlistHint(hint) as result:
         while True:
             try:
                 items = [next(it) for it in iterators]
