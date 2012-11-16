@@ -178,6 +178,7 @@ class ProcessPoolShutdownTest(ProcessPoolMixin, ExecutorShutdownTest):
         queue_management_thread = executor._queue_management_thread
         processes = executor._processes
         del executor
+        test.support.gc_collect()
 
         queue_management_thread.join()
         for p in processes:
