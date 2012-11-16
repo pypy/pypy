@@ -167,7 +167,7 @@ class BaseTestRegalloc(object):
                 arguments.append(llgcref)
         loop._jitcelltoken = looptoken
         if run:
-            self.cpu.execute_token(looptoken, *arguments)
+            self.deadframe = self.cpu.execute_token(looptoken, *arguments)
         return loop
 
     def prepare_loop(self, ops):
@@ -178,17 +178,18 @@ class BaseTestRegalloc(object):
         return regalloc
 
     def getint(self, index):
-        return self.cpu.get_latest_value_int(index)
+        return self.cpu.get_latest_value_int(self.deadframe, index)
 
     def getfloat(self, index):
-        return self.cpu.get_latest_value_float(index)
+        return self.cpu.get_latest_value_float(self.deadframe, index)
 
     def getints(self, end):
-        return [self.cpu.get_latest_value_int(index) for
+        return [self.cpu.get_latest_value_int(self.deadframe, index) for
                 index in range(0, end)]
 
     def getfloats(self, end):
-        return [longlong.getrealfloat(self.cpu.get_latest_value_float(index))
+        return [longlong.getrealfloat(
+                    self.cpu.get_latest_value_float(self.deadframe, index))
                 for index in range(0, end)]
 
     def getptr(self, index, T):
@@ -207,7 +208,8 @@ class BaseTestRegalloc(object):
         return bridge
 
     def run(self, loop, *arguments):
-        return self.cpu.execute_token(loop._jitcelltoken, *arguments)
+        self.deadframe = self.cpu.execute_token(loop._jitcelltoken, *arguments)
+        return self.cpu.get_latest_descr(self.deadframe)
 
 class TestRegallocSimple(BaseTestRegalloc):
     def test_simple_loop(self):
