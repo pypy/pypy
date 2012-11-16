@@ -268,3 +268,26 @@ def nice_repr_for_func(fn, name=None):
     except AttributeError:
         firstlineno = -1
     return "(%s:%d)%s" % (mod or '?', firstlineno, name or 'UNKNOWN')
+
+
+def rpython_wrapper(f, template, **globaldict):
+    """  
+    We cannot simply wrap the function using *args, **kwds, because it's not
+    RPython. Instead, we generate a function from ``template`` with exactly
+    the same argument list.
+    """
+    srcargs, srcvarargs, srckeywords, defaults = inspect.getargspec(f)
+    assert not srcvarargs, '*args not supported by enforceargs'
+    assert not srckeywords, '**kwargs not supported by enforceargs'
+    #
+    arglist = ', '.join(srcargs)
+    src = template.format(name=f.func_name, arglist=arglist,
+                          original=f.func_name+'_original')
+    src = py.code.Source(src)
+    #
+    globaldict[f.func_name + '_original'] = f
+    exec src.compile() in globaldict
+    result = globaldict[f.func_name]
+    result.func_defaults = f.func_defaults
+    result.func_dict.update(f.func_dict)
+    return result
