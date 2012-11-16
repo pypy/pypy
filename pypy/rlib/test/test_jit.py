@@ -37,16 +37,35 @@ def test_jitdriver_numreds():
     assert driver.reds == ['a', 'b']
     assert driver.numreds == 2
 
+def test_jitdriver_inline():
+    driver = JitDriver(greens=[], reds='auto')
+    calls = []
+    def foo(a, b):
+        calls.append(('foo', a, b))
+
+    @driver.inline(foo)
+    def bar(a, b):
+        calls.append(('bar', a, b))
+        return a+b
+
+    assert bar._inline_jit_merge_point_ is foo
+    assert driver.inline_jit_merge_point
+    assert bar(40, 2) == 42
+    assert calls == [
+        ('foo', 40, 2),
+        ('bar', 40, 2),
+        ]
+
 def test_jitdriver_clone():
-    def foo():
-        pass
+    def bar(): pass
+    def foo(): pass
     driver = JitDriver(greens=[], reds=[])
-    py.test.raises(AssertionError, "driver.inline_in_portal(foo)")
+    py.test.raises(AssertionError, "driver.inline(bar)(foo)")
     #
     driver = JitDriver(greens=[], reds='auto')
     py.test.raises(AssertionError, "driver.clone()")
-    foo = driver.inline_in_portal(foo)
-    assert foo._inline_in_portal_ == True
+    foo = driver.inline(bar)(foo)
+    assert foo._inline_jit_merge_point_ == bar
     #
     driver.foo = 'bar'
     driver2 = driver.clone()
