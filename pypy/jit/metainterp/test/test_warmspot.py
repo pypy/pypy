@@ -412,7 +412,6 @@ class WarmspotTests(object):
         assert res == 1000 + 1002
         self.check_resops(int_add=4)
 
-
     def test_jitdriver_inline(self):
         myjitdriver = JitDriver(greens = [], reds = 'auto')
         class MyRange(object):
@@ -444,6 +443,36 @@ class WarmspotTests(object):
         assert res == expected
         self.check_resops(int_eq=2, int_add=4)
         self.check_trace_count(1)
+
+    def test_jitdriver_inline_twice(self):
+        myjitdriver = JitDriver(greens = [], reds = 'auto')
+
+        def jit_merge_point(a, b):
+            myjitdriver.jit_merge_point()
+
+        @myjitdriver.inline(jit_merge_point)
+        def add(a, b):
+            return a+b
+
+        def one(n):
+            res = 0
+            while res < 1000:
+                res = add(n, res)
+            return res
+
+        def two(n):
+            res = 0
+            while res < 2000:
+                res = add(n, res)
+            return res
+
+        def f(n):
+            return one(n) + two(n)
+
+        res = self.meta_interp(f, [1])
+        assert res == 3000
+        self.check_resops(int_add=4)
+        self.check_trace_count(2)
 
 
 class TestLLWarmspot(WarmspotTests, LLJitMixin):
