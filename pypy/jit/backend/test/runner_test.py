@@ -2943,7 +2943,7 @@ class LLtypeBackendTest(BaseBackendTest):
             x = self.cpu.get_latest_value_float(deadframe, 0)
             assert longlong.getrealfloat(x) == 1.25 + 3.25
             called.append(self.cpu.get_latest_descr(deadframe))
-            return longlong.getfloatstorage(13.5)
+            return 13.5
 
         FUNCPTR = lltype.Ptr(lltype.FuncType([llmemory.GCREF, llmemory.GCREF],
                                              lltype.Float))
@@ -3369,7 +3369,7 @@ class LLtypeBackendTest(BaseBackendTest):
         deadframe = self.cpu.execute_token(looptoken, sys.maxint // 4 + 1)
         fail = self.cpu.get_latest_descr(deadframe)
         assert fail.identifier == excdescr.identifier
-        exc = self.cpu.grab_exc_value()
+        exc = self.cpu.grab_exc_value(deadframe)
         assert exc == "memoryerror!"
 
     def test_math_sqrt(self):

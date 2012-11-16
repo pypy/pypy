@@ -1,7 +1,7 @@
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi, rclass, rstr
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.llinterp import LLInterpreter
-from pypy.rpython.annlowlevel import llhelper
+from pypy.rpython.annlowlevel import llhelper, cast_instance_to_base_ptr
 from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.jit.metainterp import history
 from pypy.jit.codewriter import heaptracker, longlong
@@ -45,10 +45,6 @@ class AbstractLLCPU(AbstractCPU):
             self._setup_exception_handling_untranslated()
         self.asmmemmgr = AsmMemoryManager()
         self.setup()
-        if translate_support_code:
-            self._setup_on_leave_jitted_translated()
-        else:
-            self._setup_on_leave_jitted_untranslated()
 
     def setup(self):
         pass
@@ -81,24 +77,34 @@ class AbstractLLCPU(AbstractCPU):
             return (rffi.cast(lltype.Signed, _exception_emulator) +
                     rffi.sizeof(lltype.Signed))
 
-        def save_exception():
-            # copy from _exception_emulator to the real attributes on self
-            v_i = _exception_emulator[1]
+        self._memoryerror_emulated = rffi.cast(llmemory.GCREF, -123)
+        self.deadframe_memoryerror = lltype.malloc(jitframe.DEADFRAME, 0)
+        self.deadframe_memoryerror.jf_guard_exc = self._memoryerror_emulated
+
+        def propagate_exception():
+            exc = _exception_emulator[1]
             _exception_emulator[0] = 0
             _exception_emulator[1] = 0
-            self.saved_exc_value = rffi.cast(llmemory.GCREF, v_i)
-
-        def save_exception_memoryerr():
-            save_exception()
-            if not self.saved_exc_value:
-                self.saved_exc_value = "memoryerror!"    # for tests
+            if not exc:
+                deadframe = self.deadframe_memoryerror
+                assert self.propagate_exception_v >= 0
+                faildescr = self.get_fail_descr_from_number(
+                    self.propagate_exception_v)
+                if not deadframe.jf_descr:
+                    deadframe.jf_descr = faildescr.hide(self)
+                else:
+                    assert deadframe.jf_descr == faildescr.hide(self)
+            else:
+                deadframe = lltype.malloc(jitframe.DEADFRAME, 0)
+                deadframe.jf_guard_exc = rffi.cast(llmemory.GCREF, exc)
+                deadframe.jf_descr = self.get_fail_descr_from_number(
+                    self.propagate_exception_v)
+            return lltype.cast_opaque_ptr(llmemory.GCREF, deadframe)
 
         self.pos_exception = pos_exception
         self.pos_exc_value = pos_exc_value
-        self.save_exception = save_exception
-        self.save_exception_memoryerr = save_exception_memoryerr
         self.insert_stack_check = lambda: (0, 0, 0)
-
+        self._propagate_exception = propagate_exception
 
     def _setup_exception_handling_translated(self):
         xxxxxxxxxxx
@@ -147,51 +153,15 @@ class AbstractLLCPU(AbstractCPU):
         self.save_exception_memoryerr = save_exception_memoryerr
         self.insert_stack_check = insert_stack_check
 
-    def _setup_on_leave_jitted_untranslated(self):
-        # assume we don't need a backend leave in this case
-        self.on_leave_jitted_save_exc = self.save_exception
-        self.on_leave_jitted_memoryerr = self.save_exception_memoryerr
-        self.on_leave_jitted_noexc = lambda : None
+    PROPAGATE_EXCEPTION = lltype.Ptr(lltype.FuncType([], llmemory.GCREF))
 
-    def _setup_on_leave_jitted_translated(self):
-        on_leave_jitted_hook = self.get_on_leave_jitted_hook()
-        save_exception = self.save_exception
-        save_exception_memoryerr = self.save_exception_memoryerr
-
-        def on_leave_jitted_noexc():
-            on_leave_jitted_hook()
-
-        def on_leave_jitted_save_exc():
-            save_exception()
-            on_leave_jitted_hook()
-
-        def on_leave_jitted_memoryerr():
-            save_exception_memoryerr()
-            on_leave_jitted_hook()
-
-        self.on_leave_jitted_noexc = on_leave_jitted_noexc
-        self.on_leave_jitted_save_exc = on_leave_jitted_save_exc
-        self.on_leave_jitted_memoryerr = on_leave_jitted_memoryerr
-
-    def get_on_leave_jitted_hook(self):
-        # this function needs to be overridden for things to work with
-        # our framework GCs
-        translation_time_error
-
-    _ON_JIT_LEAVE_FUNC = lltype.Ptr(lltype.FuncType([], lltype.Void))
-
-    def get_on_leave_jitted_int(self, save_exception,
-                                default_to_memoryerror=False):
-        if default_to_memoryerror:
-            f = llhelper(self._ON_JIT_LEAVE_FUNC, self.on_leave_jitted_memoryerr)
-        elif save_exception:
-            f = llhelper(self._ON_JIT_LEAVE_FUNC, self.on_leave_jitted_save_exc)
-        else:
-            f = llhelper(self._ON_JIT_LEAVE_FUNC, self.on_leave_jitted_noexc)
-        return rffi.cast(lltype.Signed, f)
+    def get_propagate_exception(self):
+        return llhelper(self.PROPAGATE_EXCEPTION, self._propagate_exception)
 
     def grab_exc_value(self, deadframe):
         deadframe = lltype.cast_opaque_ptr(jitframe.DEADFRAMEPTR, deadframe)
+        if not we_are_translated() and deadframe == self.deadframe_memoryerror:
+            return "memoryerror!"       # for tests
         return deadframe.jf_guard_exc
 
     def set_savedata_ref(self, deadframe, data):

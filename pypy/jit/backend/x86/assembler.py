@@ -262,11 +262,12 @@ class Assembler386(object):
             return      # not supported (for tests, or non-translated)
         #
         self.mc = codebuf.MachineCodeBlockWrapper()
-        # call on_leave_jitted_save_exc()
-        addr = self.cpu.get_on_leave_jitted_int(save_exception=True,
-                                                default_to_memoryerror=True)
+        #
+        # Call the helper, which will return a dead frame object with
+        # the correct exception set, or MemoryError by default
+        addr = rffi.cast(lltype.Signed, self.cpu.get_propagate_exception())
         self.mc.CALL(imm(addr))
-        self.mc.MOV_ri(eax.value, self.cpu.propagate_exception_v)
+        #
         self._call_footer()
         rawstart = self.mc.materialize(self.cpu.asmmemmgr, [])
         self.propagate_exception_path = rawstart
@@ -333,6 +334,7 @@ class Assembler386(object):
         addr = self.cpu.get_on_leave_jitted_int(save_exception=True)
         mc.CALL(imm(addr))
         #
+        xxxxxxxxxxxxxxxx
         mc.MOV_ri(eax.value, self.cpu.propagate_exception_v)
         #
         # footer -- note the ADD, which skips the return address of this
