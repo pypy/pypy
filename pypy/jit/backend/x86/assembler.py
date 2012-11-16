@@ -32,7 +32,7 @@ from pypy.jit.backend.x86 import rx86, regloc, codebuf
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.backend.x86 import support
 from pypy.rlib.debug import (debug_print, debug_start, debug_stop,
-                             have_debug_prints)
+                             have_debug_prints, fatalerror)
 from pypy.rlib import rgc
 from pypy.rlib.clibffi import FFI_DEFAULT_ABI
 from pypy.jit.backend.x86.jump import remap_frame_layout
@@ -1958,11 +1958,9 @@ class Assembler386(object):
         return arglocs[:]
 
     @staticmethod
-    @rgc.no_collect
+    #@rgc.no_collect -- XXX still true, but hacked gc_set_extra_threshold
     def grab_frame_values(cpu, bytecode, frame_addr, allregisters):
-        # no malloc allowed here!! XXX we allocate anyway the deadframe.
-        # It will only work on Boehm.
-        assert cpu.gc_ll_descr.kind == "boehm", "XXX Boehm only"
+        # no malloc allowed here!!  xxx apart from one, hacking a lot
         #self.fail_ebp = allregisters[16 + ebp.value]
         num = 0
         deadframe = lltype.nullptr(jitframe.DEADFRAME)
@@ -1996,8 +1994,16 @@ class Assembler386(object):
             num += 1
         # allocate the deadframe
         if not deadframe:
+            # Remove the "reserve" at the end of the nursery.  This means
+            # that it is guaranteed that the following malloc() works
+            # without requiring a collect(), but it needs to be re-added
+            # as soon as possible.
+            cpu.gc_clear_extra_threshold()
             assert num <= cpu.get_failargs_limit()
-            deadframe = lltype.malloc(jitframe.DEADFRAME, num)
+            try:
+                deadframe = lltype.malloc(jitframe.DEADFRAME, num)
+            except MemoryError:
+                fatalerror("memory usage error in grab_frame_values")
         # fill it
         code_inputarg = False
         num = 0
@@ -2083,7 +2089,7 @@ class Assembler386(object):
 
     def setup_failure_recovery(self):
 
-        @rgc.no_collect
+        #@rgc.no_collect -- XXX still true, but hacked gc_set_extra_threshold
         def failure_recovery_func(registers):
             # 'registers' is a pointer to a structure containing the
             # original value of the registers, optionally the original

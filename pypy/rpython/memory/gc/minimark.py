@@ -250,6 +250,7 @@ class MiniMarkGC(MovingGCBase):
         self.nursery_top  = NULL
         self.debug_tiny_nursery = -1
         self.debug_rotating_nurseries = None
+        self.extra_threshold = 0
         #
         # The ArenaCollection() handles the nonmovable objects allocation.
         if ArenaCollectionClass is None:
@@ -404,6 +405,7 @@ class MiniMarkGC(MovingGCBase):
         self.next_major_collection_initial = self.min_heap_size
         self.next_major_collection_threshold = self.min_heap_size
         self.set_major_threshold_from(0.0)
+        ll_assert(self.extra_threshold == 0, "extra_threshold set too early")
         debug_stop("gc-set-nursery-size")
 
 
@@ -1816,6 +1818,19 @@ class MiniMarkGC(MovingGCBase):
 
     def identityhash(self, gcobj):
         return self.id_or_identityhash(gcobj, True)
+
+    # ----------
+    # set_extra_threshold support
+
+    def set_extra_threshold(self, reserved_size):
+        ll_assert(reserved_size <= self.nonlarge_max,
+                  "set_extra_threshold: too big!")
+        diff = reserved_size - self.extra_threshold
+        if diff > 0 and self.nursery_free + diff > self.nursery_top:
+            self.minor_collection()
+        self.nursery_size -= diff
+        self.nursery_top -= diff
+        self.extra_threshold += diff
 
 
     # ----------

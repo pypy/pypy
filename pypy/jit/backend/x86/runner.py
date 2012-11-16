@@ -2,7 +2,7 @@ import py
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.llinterp import LLInterpreter
-from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.rlib.jit_hooks import LOOP_RUN_CONTAINER
 from pypy.jit.codewriter import longlong
 from pypy.jit.metainterp import history, compile
@@ -45,6 +45,10 @@ class AbstractX86CPU(AbstractLLCPU):
 
         self.profile_agent = profile_agent
 
+        from pypy.jit.backend.llsupport import jitframe
+        self.deadframe_size_max = llmemory.sizeof(jitframe.DEADFRAME,
+                                                  self.get_failargs_limit())
+
     def set_debug(self, flag):
         return self.assembler.set_debug(flag)
 
@@ -53,6 +57,12 @@ class AbstractX86CPU(AbstractLLCPU):
             return self.opts.failargs_limit
         else:
             return 1000
+
+    def gc_set_extra_threshold(self):
+        llop.gc_set_extra_threshold(lltype.Void, self.deadframe_size_max)
+
+    def gc_clear_extra_threshold(self):
+        llop.gc_set_extra_threshold(lltype.Void, 0)
 
     def setup(self):
         self.assembler = Assembler386(self, self.translate_support_code)
@@ -119,6 +129,7 @@ class AbstractX86CPU(AbstractLLCPU):
                 if not self.translate_support_code:
                     LLInterpreter.current_interpreter = prev_interpreter
             #llop.debug_print(lltype.Void, "<<<< Back")
+            self.gc_set_extra_threshold()
             return deadframe
         return execute_token
 

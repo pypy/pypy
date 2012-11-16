@@ -386,6 +386,10 @@ class BaseFrameworkGCTransformer(GCTransformer):
             self.obtainfreespace_ptr = getfn(GCClass.obtain_free_space.im_func,
                                              [s_gc, annmodel.SomeInteger()],
                                              annmodel.SomeAddress())
+        if getattr(GCClass, 'set_extra_threshold', False):
+            self.setextrathreshold_ptr = getfn(
+                GCClass.set_extra_threshold.im_func,
+                [s_gc, annmodel.SomeInteger()], annmodel.s_None)
 
         if GCClass.moving_gc:
             self.id_ptr = getfn(GCClass.id.im_func,
@@ -964,6 +968,13 @@ class BaseFrameworkGCTransformer(GCTransformer):
         hop.genop("direct_call",
                   [self.obtainfreespace_ptr, self.c_const_gc, v_number],
                   resultvar=hop.spaceop.result)
+        self.pop_roots(hop, livevars)
+
+    def gct_gc_set_extra_threshold(self, hop):
+        livevars = self.push_roots(hop)
+        [v_size] = hop.spaceop.args
+        hop.genop("direct_call",
+                  [self.setextrathreshold_ptr, self.c_const_gc, v_size])
         self.pop_roots(hop, livevars)
 
     def gct_gc_set_max_heap_size(self, hop):
