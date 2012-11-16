@@ -614,9 +614,15 @@ def inlining_heuristic(graph):
     return (0.9999 * measure_median_execution_cost(graph) +
             count), True
 
-def inlinable_static_callers(graphs):
+def inlinable_static_callers(graphs, store_calls=False):
     ok_to_call = set(graphs)
     result = []
+    def add(parentgraph, block, op, graph):
+        if store_calls:
+            result.append((parentgraph, block, op, graph))
+        else:
+            result.append((parentgraph, graph))
+    #
     for parentgraph in graphs:
         for block in parentgraph.iterblocks():
             for op in block.operations:
@@ -627,12 +633,12 @@ def inlinable_static_callers(graphs):
                         if getattr(getattr(funcobj, '_callable', None),
                                    '_dont_inline_', False):
                             continue
-                        result.append((parentgraph, graph))
+                        add(parentgraph, block, op, graph)
                 if op.opname == "oosend":
                     meth = get_meth_from_oosend(op)
                     graph = getattr(meth, 'graph', None)
                     if graph is not None and graph in ok_to_call:
-                        result.append((parentgraph, graph))
+                        add(parentgraph, block, op, graph)
     return result
     
 def instrument_inline_candidates(graphs, threshold):

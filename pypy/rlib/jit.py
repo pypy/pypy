@@ -559,7 +559,7 @@ class JitDriver(object):
         return func
 
     def clone(self):
-        assert self.inlined_in_portal, 'JitDriver.clone works only after @inline_in_portal'
+        assert self.inline_jit_merge_point, 'JitDriver.clone works only after @inline'
         newdriver = object.__new__(self.__class__)
         newdriver.__dict__ = self.__dict__.copy()
         return newdriver

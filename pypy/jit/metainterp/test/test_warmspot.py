@@ -383,7 +383,38 @@ class WarmspotTests(object):
         assert res == expected
         self.check_resops(int_sub=2, int_mul=0, int_add=2)
 
+    def test_inline_jit_merge_point(self):
+        # test that the machinery to inline jit_merge_points in callers
+        # works. The final user does not need to mess manually with the
+        # _inline_jit_merge_point_ attribute and similar, it is all nicely
+        # handled by @JitDriver.inline()
+        myjitdriver = JitDriver(greens = ['a'], reds = 'auto')
+
+        def jit_merge_point(a, b):
+            myjitdriver.jit_merge_point(a=a)
+
+        def add(a, b):
+            jit_merge_point(a, b)
+            return a+b
+        add._inline_jit_merge_point_ = jit_merge_point
+        myjitdriver.inline_jit_merge_point = True
+
+        def calc(n):
+            res = 0
+            while res < 1000:
+                res = add(n, res)
+            return res
+
+        def f():
+            return calc(1) + calc(3)
+
+        res = self.meta_interp(f, [])
+        assert res == 1000 + 1002
+        self.check_resops(int_add=4)
+
+
     def test_inline_in_portal(self):
+        py.test.skip('in-progress')
         myjitdriver = JitDriver(greens = [], reds = 'auto')
         class MyRange(object):
             def __init__(self, n):
@@ -422,30 +453,6 @@ class WarmspotTests(object):
         assert res == expected
         self.check_resops(int_eq=4, int_add=8)
         self.check_trace_count(2)
-
-    def test_inline_in_portal_exception(self):
-        myjitdriver = JitDriver(greens = [], reds = 'auto')
-        def inc(n):
-            if n == 1000:
-                raise OverflowError
-            return n+1
-
-        @myjitdriver.inline_in_portal
-        def jitted_inc(n):
-            myjitdriver.jit_merge_point()
-            return inc(n)
-
-        def f():
-            res = 0
-            while True:
-                try:
-                    res = jitted_inc(res)
-                except OverflowError:
-                    break
-            return res
-        res = self.meta_interp(f, [])
-        assert res == 1000
-        self.check_resops(int_add=2)
 
 
 class TestLLWarmspot(WarmspotTests, LLJitMixin):

@@ -244,28 +244,53 @@ class WarmRunnerDesc(object):
 
     def inline_inlineable_portals(self):
         """
-        Find all the graphs which have been decorated with
-        @jitdriver.inline_in_portal and inline them in the callers, making
-        them JIT portals. Then, create a fresh copy of the jitdriver for each
-        of those new portals, because they cannot share the same one.  See
-        test_ajit::test_inline_in_portal.
+        Find all the graphs which have been decorated with @jitdriver.inline
+        and inline them in the callers, making them JIT portals. Then, create
+        a fresh copy of the jitdriver for each of those new portals, because
+        they cannot share the same one.  See
+        test_ajit::test_inline_jit_merge_point
         """
-        from pypy.translator.backendopt import inline
+        from pypy.translator.backendopt.inline import (
+            get_funcobj, inlinable_static_callers, auto_inlining)
 
         # find all the graphs which call an @inline_in_portal function
-        callgraph = inline.inlinable_static_callers(self.translator.graphs)
+        callgraph = inlinable_static_callers(self.translator.graphs, store_calls=True)
         new_callgraph = []
         new_portals = set()
-        for caller, callee in callgraph:
+        for caller, block, op_call, callee in callgraph:
             func = getattr(callee, 'func', None)
-            _inline_in_portal_ = getattr(func, '_inline_in_portal_', False)
-            if _inline_in_portal_:
-                new_callgraph.append((caller, callee))
+            _inline_jit_merge_point_ = getattr(func, '_inline_jit_merge_point_', None)
+            if _inline_jit_merge_point_:
+                # we are calling a function which has been decorated with
+                # @jitdriver.inline: the very first op of the callee graph is
+                # a call to the function which contains the actual
+                # jit_merge_point: fish it!
+                jmp_block, op_jmp_call = next(callee.iterblockops())
+                msg = ("The first operation of an _inline_jit_merge_point_ graph must be "
+                       "a direct_call to the function passed to @jitdriver.inline()")
+                assert op_jmp_call.opname == 'direct_call', msg
+                jmp_funcobj = get_funcobj(op_jmp_call.args[0].value)
+                assert jmp_funcobj._callable is _inline_jit_merge_point_, msg
+                #
+                # now we move the op_jmp_call from callee to caller, just
+                # before op_call. We assume that the args passed to
+                # op_jmp_call are the very same which are received by callee
+                # (i.e., the one passed to op_call)
+                assert len(op_call.args) == len(op_jmp_call.args)
+                jmp_block.operations.remove(op_jmp_call)
+                op_jmp_call.args[1:] = op_call.args[1:]
+                idx = block.operations.index(op_call)
+                block.operations.insert(idx, op_jmp_call)
+                #
+                # finally, we signal that we want to inline op_jmp_call into
+                # caller, so that finally the actuall call to
+                # driver.jit_merge_point will be seen there
+                new_callgraph.append((caller, jmp_funcobj.graph))
                 new_portals.add(caller)
 
         # inline them!
         inline_threshold = self.translator.config.translation.backendopt.inline_threshold
-        inline.auto_inlining(self.translator, inline_threshold, callgraph)
+        auto_inlining(self.translator, inline_threshold, new_callgraph)
 
         # make a fresh copy of the JitDriver in all newly created
         # jit_merge_points
@@ -282,7 +307,7 @@ class WarmRunnerDesc(object):
             op = block.operations[pos]
             v_driver = op.args[1]
             driver = v_driver.value
-            if not driver.inlined_in_portal:
+            if not driver.inline_jit_merge_point:
                 continue
             new_driver = driver.clone()
             c_new_driver = Constant(new_driver, v_driver.concretetype)
@@ -327,6 +352,7 @@ class WarmRunnerDesc(object):
                         alive_v.add(op1.result)
                 greens_v = op.args[2:]
                 reds_v = alive_v - set(greens_v)
+                reds_v = [v for v in reds_v if v.concretetype is not lltype.Void]
                 reds_v = support.sort_vars(reds_v)
                 op.args.extend(reds_v)
                 if jitdriver.numreds is None:
