@@ -486,14 +486,9 @@ class RegAlloc(object):
     consider_guard_isnull = _consider_guard
 
     def consider_finish(self, op):
-        boxes = [op.getarg(i) for i in range(op.numargs())]
-        locs = [self.loc(box) for box in boxes]
-        fail_index = self.assembler.cpu.get_fail_descr_number(op.getdescr())
-        # note: no exception should currently be set in llop.get_exception_addr
-        # even if this finish may be an exit_frame_with_exception (in this case
-        # the exception instance is in locs[0]).
-        self.assembler.generate_failure(fail_index, locs, boxes)
-        self.possibly_free_vars_for_op(op)
+        loc = self.loc(op.getarg(0))
+        self.Perform(op, [loc], None)
+        self.possibly_free_var(op.getarg(0))
 
     def consider_guard_no_exception(self, op):
         self.perform_guard(op, [], None)

@@ -1082,8 +1082,4 @@ class TestLLtype(BaseTestRstr, LLRtypeMixin):
 
 
 class TestOOtype(BaseTestRstr, OORtypeMixin):
-    def test_lower_char(self):
-        py.test.skip()
-
-    def test_upper_char(self):
-        py.test.skip()
+    pass

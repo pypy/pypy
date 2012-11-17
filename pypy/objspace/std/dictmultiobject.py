@@ -743,26 +743,20 @@ create_iterator_classes(IntDictStrategy)
 init_signature = Signature(['seq_or_map'], None, 'kwargs')
 init_defaults = [None]
 
+
 def update1(space, w_dict, w_data):
     if space.findattr(w_data, space.wrap("keys")) is None:
         # no 'keys' method, so we assume it is a sequence of pairs
-        for w_pair in space.listview(w_data):
-            pair = space.fixedview(w_pair)
-            if len(pair) != 2:
-                raise OperationError(space.w_ValueError,
-                             space.wrap("sequence of pairs expected"))
-            w_key, w_value = pair
-            w_dict.setitem(w_key, w_value)
+        update1_pairs(space, w_dict, w_data)
     else:
         if isinstance(w_data, W_DictMultiObject):    # optimization case only
             update1_dict_dict(space, w_dict, w_data)
         else:
             # general case -- "for k in o.keys(): dict.__setitem__(d, k, o[k])"
-            w_keys = space.call_method(w_data, "keys")
-            for w_key in space.listview(w_keys):
-                w_value = space.getitem(w_data, w_key)
-                w_dict.setitem(w_key, w_value)
+            update1_keys(space, w_dict, w_data)
 
+
+@jit.look_inside_iff(lambda space, w_dict, w_data: w_dict_unrolling_heuristic(w_data))
 def update1_dict_dict(space, w_dict, w_data):
     iterator = w_data.iteritems()
     while 1:
@@ -770,6 +764,24 @@ def update1_dict_dict(space, w_dict, w_data):
         if w_key is None:
             break
         w_dict.setitem(w_key, w_value)
+
+
+def update1_pairs(space, w_dict, w_data):
+    for w_pair in space.listview(w_data):
+        pair = space.fixedview(w_pair)
+        if len(pair) != 2:
+            raise OperationError(space.w_ValueError,
+                         space.wrap("sequence of pairs expected"))
+        w_key, w_value = pair
+        w_dict.setitem(w_key, w_value)
+
+
+def update1_keys(space, w_dict, w_data):
+    w_keys = space.call_method(w_data, "keys")
+    for w_key in space.listview(w_keys):
+        w_value = space.getitem(w_data, w_key)
+        w_dict.setitem(w_key, w_value)
+
 
 def init_or_update(space, w_dict, __args__, funcname):
     w_src, w_kwds = __args__.parse_obj(

@@ -102,13 +102,17 @@ class MyCPU:
         CONST_NULL = ConstPtr(gcrefnull)
     def __init__(self, values):
         self.values = values
-    def get_latest_value_count(self):
+    def get_latest_value_count(self, deadframe):
+        assert deadframe == "deadframe"
         return len(self.values)
-    def get_latest_value_int(self, index):
+    def get_latest_value_int(self, deadframe, index):
+        assert deadframe == "deadframe"
         return self.values[index]
-    def get_latest_value_ref(self, index):
+    def get_latest_value_ref(self, deadframe, index):
+        assert deadframe == "deadframe"
         return self.values[index]
-    def get_latest_value_float(self, index):
+    def get_latest_value_float(self, deadframe, index):
+        assert deadframe == "deadframe"
         return self.values[index]
 
 class MyBlackholeInterp:
@@ -181,12 +185,12 @@ def test_simple_read():
     #
     cpu = MyCPU([42, gcref1, -66])
     metainterp = MyMetaInterp(cpu)
-    reader = ResumeDataDirectReader(metainterp, storage)
+    reader = ResumeDataDirectReader(metainterp, storage, "deadframe")
     _next_section(reader, 42, 111, gcrefnull, 42, gcref1)
     _next_section(reader, 222, 333)
     _next_section(reader, 42, gcref1, -66)
     #
-    reader = ResumeDataBoxReader(storage, metainterp)
+    reader = ResumeDataBoxReader(storage, "deadframe", metainterp)
     bi, br, bf = [None]*3, [None]*2, [None]*0
     info = MyBlackholeInterp([lltype.Signed, lltype.Signed,
                               llmemory.GCREF, lltype.Signed,
@@ -222,7 +226,7 @@ def test_simple_read_tagged_ints():
     storage.rd_numb = numb
     #
     cpu = MyCPU([])
-    reader = ResumeDataDirectReader(MyMetaInterp(cpu), storage)
+    reader = ResumeDataDirectReader(MyMetaInterp(cpu), storage, "deadframe")
     _next_section(reader, 100)
 
 
@@ -240,7 +244,8 @@ def test_prepare_virtuals():
     class FakeMetainterp(object):
         _already_allocated_resume_virtuals = None
         cpu = None
-    reader = ResumeDataDirectReader(MyMetaInterp(None), FakeStorage())
+    reader = ResumeDataDirectReader(MyMetaInterp(None), FakeStorage(),
+                                    "deadframe")
     assert reader.force_all_virtuals() == ["allocated", reader.virtual_default]
 
 # ____________________________________________________________
@@ -250,11 +255,11 @@ class FakeResumeDataReader(AbstractResumeDataReader):
         return FakeBuiltObject(vtable=known_class)
     def allocate_struct(self, typedescr):
         return FakeBuiltObject(typedescr=typedescr)
-    def allocate_array(self, arraydescr, length):
+    def allocate_array(self, length, arraydescr):
         return FakeBuiltObject(arraydescr=arraydescr, items=[None]*length)
-    def setfield(self, descr, struct, fieldnum):
+    def setfield(self, struct, fieldnum, descr):
         setattr(struct, descr, fieldnum)
-    def setarrayitem_int(self, arraydescr, array, i, fieldnum):
+    def setarrayitem_int(self, array, i, fieldnum, arraydescr):
         assert 0 <= i < len(array.items)
         assert arraydescr is array.arraydescr
         array.items[i] = fieldnum
@@ -959,7 +964,7 @@ def test_virtual_adder_int_constants():
     liveboxes = modifier.finish(FakeOptimizer({}))
     assert storage.rd_snapshot is None
     cpu = MyCPU([])
-    reader = ResumeDataDirectReader(MyMetaInterp(cpu), storage)
+    reader = ResumeDataDirectReader(MyMetaInterp(cpu), storage, "deadframe")
     _next_section(reader, sys.maxint, 2**16, -65)
     _next_section(reader, 2, 3)
     _next_section(reader, sys.maxint, 1, sys.maxint, 2**16)
@@ -1342,12 +1347,12 @@ def test_resume_reader_fields_and_arrayitems():
         def __init__(self, got=None, got_array=None):
             self.got = got
             self.got_array = got_array
-        def setfield(self, descr, struct, fieldnum):
+        def setfield(self, struct, fieldnum, descr):
             assert lltype.typeOf(struct) is lltype.Signed
             assert lltype.typeOf(fieldnum) is rffi.SHORT
             fieldnum = rffi.cast(lltype.Signed, fieldnum)
             self.got.append((descr, struct, fieldnum))
-        def setarrayitem(self, arraydescr, array, index, fieldnum):
+        def setarrayitem(self, array, index, fieldnum, arraydescr):
             assert lltype.typeOf(array) is lltype.Signed
             assert lltype.typeOf(index) is lltype.Signed
             assert lltype.typeOf(fieldnum) is rffi.SHORT

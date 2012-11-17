@@ -2,7 +2,7 @@ import py
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.llinterp import LLInterpreter
-from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.rlib.jit_hooks import LOOP_RUN_CONTAINER
 from pypy.jit.codewriter import longlong
 from pypy.jit.metainterp import history, compile
@@ -45,16 +45,27 @@ class AbstractX86CPU(AbstractLLCPU):
 
         self.profile_agent = profile_agent
 
+        from pypy.jit.backend.llsupport import jitframe
+        self.deadframe_size_max = llmemory.sizeof(jitframe.DEADFRAME,
+                                                  self.get_failargs_limit())
+
     def set_debug(self, flag):
         return self.assembler.set_debug(flag)
 
-    def setup(self):
+    def get_failargs_limit(self):
         if self.opts is not None:
-            assert self.opts.failargs_limit == stmtlocal.FAILARGS_LIMIT
-        self.assembler = Assembler386(self, self.translate_support_code)
+            return self.opts.failargs_limit
+        else:
+            return 1000
 
-    def get_on_leave_jitted_hook(self):
-        return self.assembler.leave_jitted_hook
+    def gc_set_extra_threshold(self):
+        llop.gc_set_extra_threshold(lltype.Void, self.deadframe_size_max)
+
+    def gc_clear_extra_threshold(self):
+        llop.gc_set_extra_threshold(lltype.Void, 0)
+
+    def setup(self):
+        self.assembler = Assembler386(self, self.translate_support_code)
 
     def setup_once(self):
         self.profile_agent.startup()
@@ -92,30 +103,14 @@ class AbstractX86CPU(AbstractLLCPU):
         return self.assembler.assemble_bridge(faildescr, inputargs, operations,
                                               original_loop_token, log=log)
 
-    def get_latest_value_int(self, index):
-        return stmtlocal.get_asm_tlocal(self).fail_boxes_int[index]
-
-    def get_latest_value_float(self, index):
-        return stmtlocal.get_asm_tlocal(self).fail_boxes_float[index]
-
-    def get_latest_value_ref(self, index):
-        return stmtlocal.get_asm_tlocal(self).fail_boxes_ptr[index]
-
-    def get_latest_value_count(self):
-        return stmtlocal.get_asm_tlocal(self).fail_boxes_count
-
     def clear_latest_values(self, count):
         asmtlocal = stmtlocal.get_asm_tlocal(self)
         null = lltype.nullptr(llmemory.GCREF.TO)
         for index in range(count):
             asmtlocal.fail_boxes_ptr[index] = null
 
-    def get_latest_force_token(self):
-        # the FORCE_TOKEN operation and this helper both return 'ebp'.
-        return stmtlocal.get_asm_tlocal(self).fail_ebp
-
     def make_execute_token(self, *ARGS):
-        FUNCPTR = lltype.Ptr(lltype.FuncType(ARGS, lltype.Signed))
+        FUNCPTR = lltype.Ptr(lltype.FuncType(ARGS, llmemory.GCREF))
         #
         def execute_token(executable_token, *args):
             stmtlocal.prepare_asm_tlocal(self)
@@ -131,7 +126,7 @@ class AbstractX86CPU(AbstractLLCPU):
                 LLInterpreter.current_interpreter = self.debug_ll_interpreter
             try:
                 #if not self.gc_ll_descr.stm:
-                    fail_index = func(*args)
+                    deadframe = func(*args)
                 #else:
                 #    fail_index = llop.stm_jit_invoke_code(lltype.Signed,
                 #                                          func, *args)
@@ -140,7 +135,8 @@ class AbstractX86CPU(AbstractLLCPU):
                 if not self.translate_support_code:
                     LLInterpreter.current_interpreter = prev_interpreter
             #llop.debug_print(lltype.Void, "<<<< Back")
-            return self.get_fail_descr_from_number(fail_index)
+            self.gc_set_extra_threshold()
+            return deadframe
         return execute_token
 
     def cast_ptr_to_int(x):
@@ -164,15 +160,18 @@ class AbstractX86CPU(AbstractLLCPU):
         rffi.cast(TP, addr_of_force_index)[0] = ~fail_index
         frb = self.assembler._find_failure_recovery_bytecode(faildescr)
         bytecode = rffi.cast(rffi.UCHARP, frb)
-        # start of "no gc operation!" block
-        fail_index_2 = self.assembler.grab_frame_values(
+        assert (rffi.cast(lltype.Signed, bytecode[0]) ==
+                self.assembler.CODE_FORCED)
+        bytecode = rffi.ptradd(bytecode, 1)
+        deadframe = self.assembler.grab_frame_values(
+            self,
             bytecode,
             addr_of_force_token,
             self.all_null_registers)
-        self.assembler.leave_jitted_hook()
-        # end of "no gc operation!" block
-        assert fail_index == fail_index_2
-        return faildescr
+        assert self.get_latest_descr(deadframe) is faildescr
+        self.assembler.force_token_to_dead_frame[addr_of_force_token] = (
+            deadframe)
+        return deadframe
 
     def redirect_call_assembler(self, oldlooptoken, newlooptoken):
         self.assembler.redirect_call_assembler(oldlooptoken, newlooptoken)

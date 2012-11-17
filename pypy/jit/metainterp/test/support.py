@@ -141,14 +141,15 @@ def _run_with_machine_code(testself, args):
     for i in range(len(args) - num_green_args):
         x = args[num_green_args + i]
         args1.append(unspecialize_value(x))
-    faildescr = cpu.execute_token(procedure_token, *args1)
+    deadframe = cpu.execute_token(procedure_token, *args1)
+    faildescr = cpu.get_latest_descr(deadframe)
     assert faildescr.__class__.__name__.startswith('DoneWithThisFrameDescr')
     if metainterp.jitdriver_sd.result_type == history.INT:
-        return cpu.get_latest_value_int(0)
+        return cpu.get_latest_value_int(deadframe, 0)
     elif metainterp.jitdriver_sd.result_type == history.REF:
-        return cpu.get_latest_value_ref(0)
+        return cpu.get_latest_value_ref(deadframe, 0)
     elif metainterp.jitdriver_sd.result_type == history.FLOAT:
-        return cpu.get_latest_value_float(0)
+        return cpu.get_latest_value_float(deadframe, 0)
     else:
         return None
 
@@ -233,7 +234,7 @@ class JitMixin:
 
 class LLJitMixin(JitMixin):
     type_system = 'lltype'
-    CPUClass = runner.LLtypeCPU
+    CPUClass = runner.LLGraphCPU
 
     @staticmethod
     def Ptr(T):

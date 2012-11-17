@@ -55,6 +55,7 @@ class Module(MixedModule):
         'inexact': 'interp_boxes.W_InexactBox',
         'floating': 'interp_boxes.W_FloatingBox',
         'float_': 'interp_boxes.W_Float64Box',
+        'float16': 'interp_boxes.W_Float16Box',
         'float32': 'interp_boxes.W_Float32Box',
         'float64': 'interp_boxes.W_Float64Box',
         'intp': 'types.IntP.BoxType',

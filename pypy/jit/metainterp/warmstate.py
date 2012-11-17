@@ -299,11 +299,12 @@ class WarmEnterState(object):
             else:
                 assert 0, kind
         func_execute_token = self.cpu.make_execute_token(*ARGS)
+        cpu = self.cpu
 
         def execute_assembler(loop_token, *args):
             # Call the backend to run the 'looptoken' with the given
             # input args.
-            fail_descr = func_execute_token(loop_token, *args)
+            deadframe = func_execute_token(loop_token, *args)
             #
             # If we have a virtualizable, we have to reset its
             # 'vable_token' field afterwards
@@ -317,7 +318,8 @@ class WarmEnterState(object):
             warmrunnerdesc.memory_manager.keep_loop_alive(loop_token)
             #
             # Handle the failure
-            fail_descr.handle_fail(metainterp_sd, jitdriver_sd)
+            fail_descr = cpu.get_latest_descr(deadframe)
+            fail_descr.handle_fail(deadframe, metainterp_sd, jitdriver_sd)
             #
             assert 0, "should have raised"
 

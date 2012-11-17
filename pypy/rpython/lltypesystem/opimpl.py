@@ -644,6 +644,9 @@ def op_get_member_index(memberoffset):
 def op_gc_assume_young_pointers(addr):
     pass
 
+def op_gc_set_extra_threshold(threshold):
+    pass
+
 def op_shrink_array(array, smallersize):
     return False
 
