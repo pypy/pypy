@@ -704,6 +704,12 @@ class AppTestStringObject:
                 return b"bytes"
         assert bytes(S()) == b"bytes"
 
+        class X:
+            __bytes__ = property(lambda self: self.bytes)
+            def bytes(self):
+                return b'pyramid'
+        assert bytes(X()) == b'pyramid'
+
     def test_getnewargs(self):
         assert  b"foo".__getnewargs__() == (b"foo",)
 

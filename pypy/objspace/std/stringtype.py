@@ -312,7 +312,7 @@ def makebytesdata_w(space, w_source, encoding=None, errors=None):
 
     w_bytes_method = space.lookup(w_source, "__bytes__")
     if w_bytes_method:
-        w_bytes = space.call_function(w_bytes_method, w_source)
+        w_bytes = space.get_and_call_function(w_bytes_method, w_source)
         w_source = w_bytes
 
     # sequence of bytes
