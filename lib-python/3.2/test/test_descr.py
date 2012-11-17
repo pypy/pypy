@@ -155,9 +155,7 @@ class OperatorsTest(unittest.TestCase):
         while meth not in t.__dict__:
             t = t.__bases__[0]
         m = getattr(t, meth)
-        # in some implementations (e.g. PyPy), 'm' can be a regular unbound
-        # method object; the getattr() below obtains its underlying function.
-        self.assertEqual(getattr(m, 'im_func', m), t.__dict__[meth])
+        self.assertEqual(m, t.__dict__[meth])
         dictionary['a'] = deepcopy(a)
         m(dictionary['a'], slice(b, c), d)
         self.assertEqual(dictionary['a'], res)
@@ -1186,8 +1184,8 @@ order (MRO) for bases """
         self.assertEqual(Counted.counter, 0)
 
         # Test lookup leaks [SF bug 572567]
-        import gc
-        if hasattr(gc, 'get_objects'):
+        if support.check_impl_detail():
+            import gc
             class G(object):
                 def __eq__(self, other):
                     return False
@@ -1742,7 +1740,6 @@ order (MRO) for bases """
             ("__reversed__", reversed, empty_seq, set(), {}),
             ("__length_hint__", list, zero, set(),
              {"__iter__" : iden, "__next__" : stop}),
-            ("__sizeof__", sys.getsizeof, zero, set(), {}),
             ("__instancecheck__", do_isinstance, return_true, set(), {}),
             ("__missing__", do_dict_missing, some_number,
              set(("__class__",)), {}),
@@ -1757,6 +1754,8 @@ order (MRO) for bases """
             ("__ceil__", math.ceil, zero, set(), {}),
             ("__dir__", dir, empty_seq, set(), {}),
             ]
+        if support.check_impl_detail():
+            specials.append(("__sizeof__", sys.getsizeof, zero, set(), {}))
 
         class Checker(object):
             def __getattr__(self, attr, test=self):
@@ -1924,7 +1923,9 @@ order (MRO) for bases """
         except TypeError as msg:
             self.assertTrue(str(msg).find("weak reference") >= 0)
         else:
-            self.fail("weakref.ref(no) should be illegal")
+            if support.check_impl_detail(pypy=False):
+                self.fail("weakref.ref(no) should be illegal")
+            #else: pypy supports taking weakrefs to some more objects
         class Weak(object):
             __slots__ = ['foo', '__weakref__']
         yes = Weak()
@@ -2998,7 +2999,16 @@ order (MRO) for bases """
         class R(J):
             __slots__ = ["__dict__", "__weakref__"]
 
-        for cls, cls2 in ((G, H), (G, I), (I, H), (Q, R), (R, Q)):
+        if support.check_impl_detail(pypy=False):
+            lst = ((G, H), (G, I), (I, H), (Q, R), (R, Q))
+        else:
+            # Not supported in pypy: changing the __class__ of an object
+            # to another __class__ that just happens to have the same slots.
+            # If needed, we can add the feature, but what we'll likely do
+            # then is to allow mostly any __class__ assignment, even if the
+            # classes have different __slots__, because we it's easier.
+            lst = ((Q, R), (R, Q))
+        for cls, cls2 in lst:
             x = cls()
             x.a = 1
             x.__class__ = cls2
@@ -3018,7 +3028,8 @@ order (MRO) for bases """
         # Issue5283: when __class__ changes in __del__, the wrong
         # type gets DECREF'd.
         class O(object):
-            pass
+            def __del__(self):
+                pass
         class A(object):
             def __del__(self):
                 self.__class__ = O
@@ -3081,7 +3092,8 @@ order (MRO) for bases """
             except TypeError:
                 pass
             else:
-                self.fail("%r's __dict__ can be modified" % cls)
+                if support.check_impl_detail(pypy=False):
+                    self.fail("%r's __dict__ can be modified" % cls)
 
         # Modules also disallow __dict__ assignment
         class Module1(types.ModuleType, Base):
@@ -4238,14 +4250,10 @@ order (MRO) for bases """
         self.assertTrue(l.__add__ != [5].__add__)
         self.assertTrue(l.__add__ != l.__mul__)
         self.assertTrue(l.__add__.__name__ == '__add__')
-        if hasattr(l.__add__, '__self__'):
+        self.assertTrue(l.__add__.__self__ is l)
+        if hasattr(l.__add__, '__objclass__'):
             # CPython
-            self.assertTrue(l.__add__.__self__ is l)
             self.assertTrue(l.__add__.__objclass__ is list)
-        else:
-            # Python implementations where [].__add__ is a normal bound method
-            self.assertTrue(l.__add__.im_self is l)
-            self.assertTrue(l.__add__.im_class is list)
         self.assertEqual(l.__add__.__doc__, list.__add__.__doc__)
         try:
             hash(l.__add__)
@@ -4417,8 +4425,12 @@ order (MRO) for bases """
             str.split(fake_str)
 
         # call a slot wrapper descriptor
-        with self.assertRaises(TypeError):
-            str.__add__(fake_str, "abc")
+        try:
+            r = str.__add__(fake_str, "abc")
+        except TypeError:
+            pass
+        else:
+            self.assertEqual(r, NotImplemented)
 
     def test_repr_as_str(self):
         # Issue #11603: crash or infinite loop when rebinding __str__ as
@@ -4427,7 +4439,10 @@ order (MRO) for bases """
             pass
         Foo.__repr__ = Foo.__str__
         foo = Foo()
-        str(foo)
+        # Behavior will change in CPython 3.2.4
+        # PyPy already does the right thing here.
+        self.assertRaises(RuntimeError, str, foo)
+        self.assertRaises(RuntimeError, repr, foo)
 
 class DictProxyTests(unittest.TestCase):
     def setUp(self):
@@ -4482,9 +4497,9 @@ class DictProxyTests(unittest.TestCase):
             return '{' + ', '.join(sorted(kvs)) + '}'
         dict_ = {k: v for k, v in self.C.__dict__.items()}
         repr_ = repr(self.C.__dict__)
-        self.assertTrue(repr_.startswith('dict_proxy('))
-        self.assertTrue(repr_.endswith(')'))
-        self.assertEqual(sorted_dict_repr(repr_[len('dict_proxy('):-len(')')]),
+        if repr_.startswith('dict_proxy('):
+            repr_ = repr_[len('dict_proxy('):-len(')')]
+        self.assertEqual(sorted_dict_repr(repr_),
                          sorted_dict_repr('{!r}'.format(dict_)))
 
 
