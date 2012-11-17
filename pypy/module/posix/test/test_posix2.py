@@ -14,10 +14,10 @@ import signal
 
 def setup_module(mod):
     if os.name != 'nt':
-        mod.space = gettestobjspace(usemodules=['posix', 'fcntl', 'struct'])
+        mod.space = gettestobjspace(usemodules=['posix', 'fcntl', 'struct', 'signal'])
     else:
         # On windows, os.popen uses the subprocess module
-        mod.space = gettestobjspace(usemodules=['posix', '_rawffi', 'thread', 'struct'])
+        mod.space = gettestobjspace(usemodules=['posix', '_rawffi', 'thread', 'struct', 'signal'])
     mod.path = udir.join('posixtestfile.txt')
     mod.path.write("this is a test")
     mod.path2 = udir.join('test_posix2-')
@@ -476,7 +476,7 @@ class AppTestPosix:
             assert ret == 42
 
     def test_popen(self):
-        os = self.posix
+        os = self.os
         for i in range(5):
             stream = os.popen('echo 1')
             res = stream.read()
@@ -484,7 +484,7 @@ class AppTestPosix:
             assert stream.close() is None
 
     def test_popen_with(self):
-        os = self.posix
+        os = self.os
         stream = os.popen('echo 1')
         with stream as fp:
             res = fp.read()
