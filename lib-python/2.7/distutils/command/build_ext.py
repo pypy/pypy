@@ -699,6 +699,9 @@ class build_ext (Command):
         shared extension.  On most platforms, this is just 'ext.libraries';
         on Windows and OS/2, we add the Python library (eg. python20.dll).
         """
+        # For PyPy, we must not add any such Python library, on any platform
+        if "__pypy__" in sys.builtin_module_names:
+            return ext.libraries
         # The python library is always needed on Windows.
         if sys.platform == "win32":
             template = "python%d%d"

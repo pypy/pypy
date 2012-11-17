@@ -1,6 +1,6 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef
-from pypy.interpreter.gateway import NoneNotWrapped, interp2app, unwrap_spec
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.rlib.rarithmetic import r_uint, intmask
 from pypy.rlib import rrandom
@@ -22,7 +22,7 @@ class W_Random(Wrappable):
     def random(self, space):
         return space.newfloat(self._rnd.random())
 
-    def seed(self, space, w_n=NoneNotWrapped):
+    def seed(self, space, w_n=None):
         if w_n is None:
             w_n = space.newint(int(time.time()))
         else:

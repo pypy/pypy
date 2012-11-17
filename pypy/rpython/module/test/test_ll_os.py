@@ -31,7 +31,7 @@ def test_times():
     five-tuple giving float-representations (seconds, effectively) of the four
     fields from the underlying struct tms and the return value.
     """
-    times = compile(lambda: os.times(), ())()
+    times = eval(compile(lambda: str(os.times()), ())())
     assert isinstance(times, tuple)
     assert len(times) == 5
     for value in times:

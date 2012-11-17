@@ -248,7 +248,17 @@ def new_enum_type(space, name, w_enumerators, w_enumvalues):
         raise OperationError(space.w_ValueError,
                              space.wrap("tuple args must have the same size"))
     enumerators = [space.str_w(w) for w in enumerators_w]
-    enumvalues  = [space.int_w(w) for w in enumvalues_w]
+    enumvalues = []
+    try:
+        for w in enumvalues_w:
+            enumvalues.append(space.c_int_w(w))
+    except OperationError, e:
+        if not e.match(space, space.w_OverflowError):
+            raise
+        i = len(enumvalues)
+        raise operationerrfmt(space.w_OverflowError,
+            "enum '%s' declaration for '%s' does not fit an int",
+                              name, enumerators[i])
     ctype = ctypeenum.W_CTypeEnum(space, name, enumerators, enumvalues)
     return ctype
 

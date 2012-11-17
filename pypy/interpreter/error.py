@@ -223,7 +223,8 @@ class OperationError(Exception):
             raise operationerrfmt(space.w_TypeError, msg, typename)
         return w_type
 
-    def write_unraisable(self, space, where, w_object=None):
+    def write_unraisable(self, space, where, w_object=None,
+                         with_traceback=False):
         if w_object is None:
             objrepr = ''
         else:
@@ -231,10 +232,25 @@ class OperationError(Exception):
                 objrepr = space.str_w(space.repr(w_object))
             except OperationError:
                 objrepr = '?'
-        msg = 'Exception %s in %s%s ignored\n' % (
-            self.errorstr(space, use_repr=True), where, objrepr)
+        #
         try:
-            space.call_method(space.sys.get('stderr'), 'write', space.wrap(msg))
+            if with_traceback:
+                w_t = self.w_type
+                w_v = self.get_w_value(space)
+                w_tb = space.wrap(self.get_traceback())
+                space.appexec([space.wrap(where),
+                               space.wrap(objrepr),
+                               w_t, w_v, w_tb],
+                """(where, objrepr, t, v, tb):
+                    import sys, traceback
+                    sys.stderr.write('From %s%s:\\n' % (where, objrepr))
+                    traceback.print_exception(t, v, tb)
+                """)
+            else:
+                msg = 'Exception %s in %s%s ignored\n' % (
+                    self.errorstr(space, use_repr=True), where, objrepr)
+                space.call_method(space.sys.get('stderr'), 'write',
+                                  space.wrap(msg))
         except OperationError:
             pass   # ignored
 

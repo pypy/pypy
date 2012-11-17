@@ -1,9 +1,9 @@
 import py
-from pypy.rpython.lltypesystem.lltype import *
-from pypy.rpython.rtyper import RPythonTyper
-from pypy.rpython.ootypesystem import ootype
-from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+
 from pypy.annotation import policy, specialize
+from pypy.rpython.lltypesystem.lltype import typeOf
+from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+
 
 class MyBase:
     def m(self, x):
@@ -1620,6 +1620,26 @@ class BaseTestRPBC(BaseRtypingTest):
         res = self.interpret(g, [1])
         assert not res
 
+    def test_pbc_of_classes_not_all_used(self):
+        class Base(object): pass
+        class A(Base): pass
+        class B(Base): pass
+        def poke(lst):
+            pass
+        def g():
+            A()
+            poke([A, B])
+        self.interpret(g, [])
+
+    def test_pbc_of_classes_isinstance_only(self):
+        class Base(object): pass
+        class ASub(Base): pass
+        def g():
+            x = Base()
+            return isinstance(x, ASub)
+        res = self.interpret(g, [])
+        assert res == False
+
 class TestLLtype(BaseTestRPBC, LLRtypeMixin):
     pass
 
@@ -1660,8 +1680,6 @@ class BaseTestRPBCExtra(BaseRtypingTest):
             return -1
 
         class P(policy.AnnotatorPolicy):
-            allow_someobjects = False
-
             def specialize__w(pol, funcdesc, args_s):
                 typ = args_s[1].knowntype
                 if args_s[0].is_constant() and args_s[1].is_constant():

@@ -10,7 +10,6 @@ from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import Repr, inputconst, CanBeNull, \
         mangle, inputdesc, warning, impossible_repr
 from pypy.rpython import rclass
-from pypy.rpython import robject
 from pypy.rpython.annlowlevel import llstr, llunicode
 
 from pypy.rpython import callparse
@@ -44,10 +43,6 @@ class __extend__(annmodel.SomePBC):
         elif issubclass(kind, description.ClassDesc):
             # user classes
             getRepr = rtyper.type_system.rpbc.ClassesPBCRepr
-            # XXX what about this?
-##                 elif type(x) is type and x.__module__ in sys.builtin_module_names:
-##                     # special case for built-in types, seen in faking
-##                     getRepr = getPyObjRepr
         elif issubclass(kind, description.MethodDesc):
             getRepr = rtyper.type_system.rpbc.MethodsPBCRepr
         elif issubclass(kind, description.FrozenDesc):
@@ -56,11 +51,6 @@ class __extend__(annmodel.SomePBC):
             getRepr = rtyper.type_system.rpbc.MethodOfFrozenPBCRepr
         else:
             raise TyperError("unexpected PBC kind %r"%(kind,))
-
-##             elif isinstance(x, builtin_descriptor_type):
-##                 # strange built-in functions, method objects, etc. from fake.py
-##                 getRepr = getPyObjRepr
-
 
         return getRepr(rtyper, self)
 
@@ -363,9 +353,6 @@ class OverriddenFunctionPBCRepr(Repr):
     def rtype_simple_call(self, hop):
         from pypy.rpython.rspecialcase import rtype_call_specialcase
         return rtype_call_specialcase(hop)
-        
-def getPyObjRepr(rtyper, s_pbc):
-    return robject.pyobj_repr
 
 def getFrozenPBCRepr(rtyper, s_pbc):
     descs = list(s_pbc.descriptions)

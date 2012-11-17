@@ -1,14 +1,3 @@
-
-class roproperty(object):
-    def __init__(self, getter):
-        self.getter = getter
-    def __get__(self, obj, cls=None):
-        if obj is None:
-            return self
-        else:
-            return self.getter(obj)
-
-
 class InstanceMethod(object):
     "Like types.InstanceMethod, but with a reasonable (structural) equality."
 

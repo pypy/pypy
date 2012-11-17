@@ -325,22 +325,21 @@ EnterCallbackFnPtr = lltype.Ptr(lltype.FuncType([], lltype.Signed))
 LeaveCallbackFnPtr = lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Void))
 class AroundState:
     _alloc_flavor_ = "raw"
-    def _freeze_(self):
+    def _cleanup_(self):
         self.before = None    # or a regular RPython function
         self.after = None     # or a regular RPython function
         self.enter_callback = None
         self.leave_callback = None
-        return False
 aroundstate = AroundState()
-aroundstate._freeze_()
+aroundstate._cleanup_()
 
 class StackCounter:
     _alloc_flavor_ = "raw"
-    def _freeze_(self):
+    def _cleanup_(self):
         self.stacks_counter = 1     # number of "stack pieces": callbacks
-        return False                # and threads increase it by one
+                                    # and threads increase it by one
 stackcounter = StackCounter()
-stackcounter._freeze_()
+stackcounter._cleanup_()
 
 def llexternal_use_eci(compilation_info):
     """Return a dummy function that, if called in a RPython program,

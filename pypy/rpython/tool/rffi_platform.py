@@ -328,13 +328,14 @@ class Struct(CConfigEntry):
         allfields = tuple(['c_' + name for name, _ in fields])
         padfields = tuple(padfields)
         name = self.name
-        padding_drop = PaddingDrop(name, allfields, padfields,
-                                   config_result.CConfig._compilation_info_)
+        eci = config_result.CConfig._compilation_info_
+        padding_drop = PaddingDrop(name, allfields, padfields, eci)
         hints = {'align': info['align'],
                  'size': info['size'],
                  'fieldoffsets': tuple(fieldoffsets),
                  'padding': padfields,
-                 'get_padding_drop': padding_drop}
+                 'get_padding_drop': padding_drop,
+                 'eci': eci}
         if name.startswith('struct '):
             name = name[7:]
         else:

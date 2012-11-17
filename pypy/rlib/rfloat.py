@@ -2,7 +2,7 @@
 
 import math
 
-from pypy.annotation.model import SomeString
+from pypy.annotation.model import SomeString, SomeChar
 from pypy.rlib import objectmodel
 from pypy.rpython.extfunc import register_external
 from pypy.rpython.tool import rffi_platform
@@ -152,6 +152,7 @@ def _formatd(x, code, precision, flags):
 
     return s
 
+@objectmodel.enforceargs(float, SomeChar(), int, int)
 def formatd(x, code, precision, flags=0):
     if USE_SHORT_FLOAT_REPR:
         from pypy.rlib.rdtoa import dtoa_formatd

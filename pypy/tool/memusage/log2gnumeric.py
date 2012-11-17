@@ -7,7 +7,7 @@ Run your program like this::
 
     $ PYPYLOG=gc-collect,jit-mem:logfile pypy your-program.py
 
-This will produce "logfile", containing informations about the memory used by
+This will produce "logfile", containing information about the memory used by
 the GC and the number of loops created/freed by the JIT.
 
 If you want, you can also measure the amout of used memory as seen by the OS

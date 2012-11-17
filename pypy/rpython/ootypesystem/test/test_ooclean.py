@@ -1,25 +1,21 @@
-from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.test.test_llinterp import get_interpreter
 import py
-import sys
 
 
 def check_only_ootype(graph):
     def check_ootype(v):
         t = v.concretetype
         assert isinstance(t, ootype.Primitive) or isinstance(t, ootype.OOType)
-        
     for block in graph.iterblocks():
         for var in block.getvariables():
             check_ootype(var)
         for const in block.getconstants():
             check_ootype(const)
 
-def interpret(func, values, view=False, viewbefore=False, policy=None,
-              someobjects=False):
+def interpret(func, values, view=False, viewbefore=False, policy=None):
     interp, graph = get_interpreter(func, values, view, viewbefore, policy,
-                             someobjects, type_system='ootype')
+                             type_system='ootype')
     for g in interp.typer.annotator.translator.graphs:
         check_only_ootype(g)
     return interp.eval_graph(graph, values)

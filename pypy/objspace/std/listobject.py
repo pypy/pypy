@@ -32,7 +32,8 @@ def make_empty_list(space):
     storage = strategy.erase(None)
     return W_ListObject.from_storage_and_strategy(space, storage, strategy)
 
-@jit.look_inside_iff(lambda space, list_w, sizehint: jit.isconstant(len(list_w)) and len(list_w) < UNROLL_CUTOFF)
+@jit.look_inside_iff(lambda space, list_w, sizehint:
+                         jit.isconstant(len(list_w)) and len(list_w) < UNROLL_CUTOFF)
 def get_strategy_from_list_objects(space, list_w, sizehint):
     if not list_w:
         if sizehint != -1:
@@ -53,6 +54,13 @@ def get_strategy_from_list_objects(space, list_w, sizehint):
     else:
         return space.fromcache(StringListStrategy)
 
+    # check for unicode
+    for w_obj in list_w:
+        if not is_W_UnicodeObject(w_obj):
+            break
+    else:
+        return space.fromcache(UnicodeListStrategy)
+
     # check for floats
     for w_obj in list_w:
         if not is_W_FloatObject(w_obj):
@@ -69,6 +77,10 @@ def is_W_IntObject(w_object):
 def is_W_StringObject(w_object):
     from pypy.objspace.std.stringobject import W_StringObject
     return type(w_object) is W_StringObject
+
+def is_W_UnicodeObject(w_object):
+    from pypy.objspace.std.unicodeobject import W_UnicodeObject
+    return type(w_object) is W_UnicodeObject
 
 def is_W_FloatObject(w_object):
     from pypy.objspace.std.floatobject import W_FloatObject
@@ -211,6 +223,11 @@ class W_ListObject(W_AbstractListObject):
         not use the list strategy, return None. """
         return self.strategy.getitems_str(self)
 
+    def getitems_unicode(self):
+        """ Return the items in the list as unwrapped unicodes. If the list does
+        not use the list strategy, return None. """
+        return self.strategy.getitems_unicode(self)
+
     def getitems_int(self):
         """ Return the items in the list as unwrapped ints. If the list does
         not use the list strategy, return None. """
@@ -313,6 +330,9 @@ class ListStrategy(object):
         raise NotImplementedError
 
     def getitems_str(self, w_list):
+        return None
+
+    def getitems_unicode(self, w_list):
         return None
 
     def getitems_int(self, w_list):
@@ -419,6 +439,8 @@ class EmptyListStrategy(ListStrategy):
             strategy = self.space.fromcache(IntegerListStrategy)
         elif is_W_StringObject(w_item):
             strategy = self.space.fromcache(StringListStrategy)
+        elif is_W_UnicodeObject(w_item):
+            strategy = self.space.fromcache(UnicodeListStrategy)
         elif is_W_FloatObject(w_item):
             strategy = self.space.fromcache(FloatListStrategy)
         else:
@@ -1036,6 +1058,37 @@ class StringListStrategy(AbstractUnwrappedStrategy, ListStrategy):
     def getitems_str(self, w_list):
         return self.unerase(w_list.lstorage)
 
+
+class UnicodeListStrategy(AbstractUnwrappedStrategy, ListStrategy):
+    _none_value = None
+    _applevel_repr = "unicode"
+
+    def wrap(self, stringval):
+        return self.space.wrap(stringval)
+
+    def unwrap(self, w_string):
+        return self.space.unicode_w(w_string)
+
+    erase, unerase = rerased.new_erasing_pair("unicode")
+    erase = staticmethod(erase)
+    unerase = staticmethod(unerase)
+
+    def is_correct_type(self, w_obj):
+        return is_W_UnicodeObject(w_obj)
+
+    def list_is_correct_type(self, w_list):
+        return w_list.strategy is self.space.fromcache(UnicodeListStrategy)
+
+    def sort(self, w_list, reverse):
+        l = self.unerase(w_list.lstorage)
+        sorter = UnicodeSort(l, len(l))
+        sorter.sort()
+        if reverse:
+            l.reverse()
+
+    def getitems_unicode(self, w_list):
+        return self.unerase(w_list.lstorage)
+
 # _______________________________________________________
 
 init_signature = Signature(['sequence'], None, None)
@@ -1387,6 +1440,7 @@ TimSort = make_timsort_class()
 IntBaseTimSort = make_timsort_class()
 FloatBaseTimSort = make_timsort_class()
 StringBaseTimSort = make_timsort_class()
+UnicodeBaseTimSort = make_timsort_class()
 
 class KeyContainer(baseobjspace.W_Root):
     def __init__(self, w_key, w_item):
@@ -1411,6 +1465,10 @@ class FloatSort(FloatBaseTimSort):
         return a < b
 
 class StringSort(StringBaseTimSort):
+    def lt(self, a, b):
+        return a < b
+
+class UnicodeSort(UnicodeBaseTimSort):
     def lt(self, a, b):
         return a < b
 

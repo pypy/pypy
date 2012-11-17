@@ -1,16 +1,15 @@
-from pypy.conftest import gettestobjspace
 from pypy.interpreter import gateway
+from pypy.interpreter.astcompiler import consts
 import py
 
 class AppTestCodeIntrospection:
     def setup_class(cls):
-        space = gettestobjspace()
-        cls.space = space
         filename = __file__
         if filename[-3:] != '.py':
             filename = filename[:-1]
 
-        cls.w_file = space.wrap(filename)
+        cls.w_file = cls.space.wrap(filename)
+        cls.w_CO_CONTAINSGLOBALS = cls.space.wrap(consts.CO_CONTAINSGLOBALS)
 
     def test_attributes(self):
         def f(): pass
@@ -185,7 +184,7 @@ class AppTestCodeIntrospection:
         assert f(4).func_code.co_flags & 0x10
         assert f.func_code.co_flags & 0x10 == 0
         # check for CO_CONTAINSGLOBALS
-        assert not f.func_code.co_flags & 0x0800
+        assert not f.func_code.co_flags & self.CO_CONTAINSGLOBALS
 
 
         exec """if 1:
@@ -197,8 +196,8 @@ class AppTestCodeIntrospection:
 """
 
         # check for CO_CONTAINSGLOBALS
-        assert f.func_code.co_flags & 0x0800
-        assert not g.func_code.co_flags & 0x0800
+        assert f.func_code.co_flags & self.CO_CONTAINSGLOBALS
+        assert not g.func_code.co_flags & self.CO_CONTAINSGLOBALS
 
         exec """if 1:
         b = 2
@@ -207,4 +206,4 @@ class AppTestCodeIntrospection:
             return a + b + x
 """
         # check for CO_CONTAINSGLOBALS
-        assert f.func_code.co_flags & 0x0800
+        assert f.func_code.co_flags & self.CO_CONTAINSGLOBALS

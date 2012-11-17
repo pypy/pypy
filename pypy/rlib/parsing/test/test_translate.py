@@ -1,11 +1,10 @@
-import py
-from pypy.translator.interactive import Translation
 from pypy.rlib.parsing.lexer import *
+# Unused, but needed for some obscure reason
+from pypy.rlib.parsing.makepackrat import BacktrackException, Status
 from pypy.rlib.parsing.regex import *
 from pypy.rlib.parsing.parsing import *
-from pypy.rlib.parsing import deterministic
-from pypy.rlib.parsing.pypackrat import BacktrackException, Status
-from pypy.conftest import option
+from pypy.translator.c.test.test_genc import compile
+
 
 class TestTranslateLexer(object):
     def get_lexer(self, rexs, names, ignore=None):
@@ -34,15 +33,13 @@ class TestTranslateLexer(object):
                        "INT WHITE KEYWORD").split()
         res = lex("if A a 12341 0 else", True).split("-%-")
         assert res == "KEYWORD VAR ATOM INT INT KEYWORD".split()
-        t = Translation(lex)
-        t.annotate([str, bool])
-        t.rtype()
-        func = t.compile_c()
+        func = compile(lex, [str, bool])
         res = lex("if A a 12341 0 else", False).split("-%-")
         assert res == ("KEYWORD WHITE VAR WHITE ATOM WHITE INT WHITE "
                        "INT WHITE KEYWORD").split()
         res = lex("if A a 12341 0 else", True).split("-%-")
         assert res == "KEYWORD VAR ATOM INT INT KEYWORD".split()
+
 
 def test_translate_parser():
     r0 = Rule("expression", [["additive", "EOF"]])
@@ -59,11 +56,7 @@ def test_translate_parser():
     def parse(choose):
         tree = p.parse(data, lazy=False)
         return tree.symbol + " " + "-%-".join([c.symbol for c in tree.children])
-    t = Translation(parse)
-    t.annotate([bool])
-    t.backendopt()
-    t.rtype()
-    func = t.compile_c()
+    func = compile(parse, [bool])
     res1 = parse(True)
     res2 = func(True)
     assert res1 == res2
@@ -88,14 +81,11 @@ def test_translate_compiled_parser():
     def parse(choose):
         tree = p.parse(data)
         return tree.symbol + " " + "-%-".join([c.symbol for c in tree.children])
-    t = Translation(parse)
-    t.annotate([bool])
-    t.backendopt()
-    t.rtype()
-    func = t.compile_c()
+    func = compile(parse, [bool])
     res1 = parse(True)
     res2 = func(True)
     assert res1 == res2
+
 
 def test_translate_ast_visitor():
     from pypy.rlib.parsing.ebnfparse import parse_ebnf, make_parse_function
@@ -114,13 +104,10 @@ primary: "(" <additive> ")" | <DECIMAL>;
         tree = tree[0]
         return tree.symbol + " " + "-&-".join([c.symbol for c in tree.children])
     res1 = f()
-    t = Translation(f)
-    t.annotate()
-    t.rtype()
-    t.backendopt()
-    func = t.compile_c()
+    func = compile(f, [])
     res2 = func()
     assert res1 == res2
+
 
 def test_translate_pypackrat():
     from pypy.rlib.parsing.pypackrat import PackratParser
@@ -149,13 +136,7 @@ def test_translate_pypackrat():
         return p.expr()
     res = parse("5-5-5")
     assert res == '((5 - 5) - 5)'
-    t = Translation(parse)
-    t.annotate([str])
-    t.rtype()
-    t.backendopt()
-    if option.view:
-        t.view()
-    func = t.compile_c()
+    func = compile(parse, [str])
     res = func("5-5-5")
     assert res == '((5 - 5) - 5)'
 
@@ -172,13 +153,7 @@ def test_translate_pypackrat_regex():
         return p.num()
     res = parse("1234")
     assert res == '1234'
-    t = Translation(parse)
-    t.annotate([str])
-    t.rtype()
-    t.backendopt()
-    if option.view:
-        t.view()
-    func = t.compile_c()
+    func = compile(parse, [str])
     res = func("12345")
     assert res == '12345'
     res = func("0")

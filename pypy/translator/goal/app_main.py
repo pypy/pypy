@@ -12,6 +12,7 @@ options:
   -m mod         library module to be run as a script (terminates option list)
   -W arg         warning control (arg is action:message:category:module:lineno)
   -E             ignore environment variables (such as PYTHONPATH)
+  -R             ignored (see http://bugs.python.org/issue14621)
   --version      print the PyPy version
   --info         print translation information about this PyPy executable
 """
@@ -226,17 +227,18 @@ else:
 def setup_and_fix_paths(ignore_environment=False, **extra):
     import os
     newpath = sys.path[:]
+    del sys.path[:]
+    # first prepend PYTHONPATH
     readenv = not ignore_environment
     path = readenv and os.getenv('PYTHONPATH')
     if path:
-        newpath = path.split(os.pathsep) + newpath
-    # remove duplicates
-    _seen = {}
-    del sys.path[:]
+        sys.path.extend(path.split(os.pathsep))
+    # then add again the original entries, ignoring duplicates
+    _seen = set()
     for dir in newpath:
         if dir not in _seen:
             sys.path.append(dir)
-            _seen[dir] = True
+            _seen.add(dir)
 
 def set_stdio_encodings(ignore_environment):
     import os
@@ -444,9 +446,11 @@ def parse_command_line(argv):
         (not options["ignore_environment"] and os.getenv('PYTHONINSPECT'))):
         options["inspect"] = 1
 
-    if (options["hash_randomization"] or os.getenv('PYTHONHASHSEED')):
-        print >> sys.stderr, (
-            "Warning: pypy does not implement hash randomization")
+##    We don't print the warning, because it offers no additional security
+##    in CPython either (http://bugs.python.org/issue14621)
+##    if (options["hash_randomization"] or os.getenv('PYTHONHASHSEED')):
+##        print >> sys.stderr, (
+##            "Warning: pypy does not implement hash randomization")
 
     if PYTHON26 and we_are_translated():
         flags = [options[flag] for flag in sys_flags]

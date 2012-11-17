@@ -13,6 +13,8 @@ from pypy.objspace.std.listobject import get_positive_index
 from pypy.objspace.std.listtype import get_list_index
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std.stringobject import W_StringObject
+from pypy.objspace.std.strutil import ParseStringError
+from pypy.objspace.std.strutil import string_to_float
 from pypy.objspace.std.tupleobject import W_TupleObject
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
 from pypy.objspace.std import slicetype

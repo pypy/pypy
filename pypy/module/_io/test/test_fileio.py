@@ -1,10 +1,10 @@
-from pypy.conftest import gettestobjspace
 from pypy.tool.udir import udir
 import os
 
 class AppTestFileIO:
+    spaceconfig = dict(usemodules=['_io'])
+
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['_io'])
         tmpfile = udir.join('tmpfile')
         tmpfile.write("a\nb\nc", mode='wb')
         cls.w_tmpfile = cls.space.wrap(str(tmpfile))

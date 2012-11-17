@@ -5,12 +5,9 @@ from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.interpreter.error import OperationError
 from pypy.rlib.rarithmetic import r_uint
 from pypy.rlib.rbigint import rbigint
-from pypy.conftest import gettestobjspace
 
 class TestW_LongObject:
-
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.nofaking": True})
+    spaceconfig = {"objspace.nofaking": True}
 
     def test_bigint_w(self):
         space = self.space

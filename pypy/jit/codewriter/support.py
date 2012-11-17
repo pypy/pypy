@@ -43,7 +43,6 @@ def annotate(func, values, inline=None, backendoptimize=True,
     for key, value in translationoptions.items():
         setattr(t.config.translation, key, value)
     annpolicy = AnnotatorPolicy()
-    annpolicy.allow_someobjects = False
     a = t.buildannotator(policy=annpolicy)
     argtypes = getargtypes(a, values)
     a.build_types(func, argtypes, main_entry_point=True)

@@ -3,9 +3,9 @@ import types
 from pypy.annotation.model import SomeBool, SomeInteger, SomeString,\
      SomeFloat, SomeList, SomeDict, s_None, \
      SomeObject, SomeInstance, SomeTuple, lltype_to_annotation,\
-     unionof, SomeUnicodeString
-from pypy.annotation.listdef import ListDef, MOST_GENERAL_LISTDEF
-from pypy.annotation.dictdef import DictDef, MOST_GENERAL_DICTDEF
+     unionof, SomeUnicodeString, SomeType
+from pypy.annotation.listdef import ListDef
+from pypy.annotation.dictdef import DictDef
 
 _annotation_cache = {}
 
@@ -78,24 +78,18 @@ def annotationoftype(t, bookkeeper=False):
         return SomeString()
     elif t is unicode:
         return SomeUnicodeString()
-    elif t is list:
-        return SomeList(MOST_GENERAL_LISTDEF)
-    elif t is dict:
-        return SomeDict(MOST_GENERAL_DICTDEF)
-    # can't do tuple
     elif t is types.NoneType:
         return s_None
     elif bookkeeper and extregistry.is_registered_type(t, bookkeeper.policy):
         entry = extregistry.lookup_type(t, bookkeeper.policy)
         return entry.compute_annotation_bk(bookkeeper)
-    elif bookkeeper and t.__module__ != '__builtin__' and t not in bookkeeper.pbctypes:
+    elif t is type:
+        return SomeType()
+    elif bookkeeper and not hasattr(t, '_freeze_'):
         classdef = bookkeeper.getuniqueclassdef(t)
         return SomeInstance(classdef)
     else:
-        o = SomeObject()
-        if t != object:
-            o.knowntype = t
-        return o
+        raise AssertionError("annotationoftype(%r)" % (t,))
 
 class Sig(object):
 

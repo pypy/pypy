@@ -108,6 +108,9 @@ GCFLAG_HAS_SHADOW   = first_gcflag << 3
 # collection.  See pypy/doc/discussion/finalizer-order.txt
 GCFLAG_FINALIZATION_ORDERING = first_gcflag << 4
 
+# This flag is reserved for RPython.
+GCFLAG_EXTRA        = first_gcflag << 5
+
 # The following flag is set on externally raw_malloc'ed arrays of pointers.
 # They are allocated with some extra space in front of them for a bitfield,
 # one bit per 'card_page_indices' indices.
@@ -116,7 +119,6 @@ GCFLAG_CARDS_SET    = first_gcflag << 7     # <- at least one card bit is set
 # note that GCFLAG_CARDS_SET is the most significant bit of a byte:
 # this is required for the JIT (x86)
 
-#GCFLAG_UNUSED      = first_gcflag << 5     # this flag is free
 TID_MASK            = (first_gcflag << 8) - 1
 
 
@@ -133,7 +135,7 @@ class MiniMarkGC(MovingGCBase):
     needs_write_barrier = True
     prebuilt_gc_objects_are_static_roots = False
     malloc_zero_filled = True    # xxx experiment with False
-    gcflag_extra = GCFLAG_FINALIZATION_ORDERING
+    gcflag_extra = GCFLAG_EXTRA
 
     # All objects start with a HDR, i.e. with a field 'tid' which contains
     # a word.  This word is divided in two halves: the lower half contains

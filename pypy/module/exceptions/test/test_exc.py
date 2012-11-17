@@ -1,9 +1,6 @@
 
-from pypy.conftest import gettestobjspace
-
 class AppTestExc(object):
-    def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=('exceptions',))
+    spaceconfig = dict(usemodules=('exceptions',))
 
     def test_baseexc(self):
         from exceptions import BaseException
