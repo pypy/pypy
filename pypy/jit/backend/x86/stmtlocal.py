@@ -1,15 +1,6 @@
-#
-# This is hopefully a temporary hack for x86 and x86-64
-#
-
-from pypy.rpython.lltypesystem import lltype, rffi, llmemory
-from pypy.rpython import annlowlevel
-from pypy.jit.codewriter import longlong
+from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.jit.backend.x86.arch import WORD
-from pypy.rlib.objectmodel import we_are_translated
-from pypy.rlib import rgc
-from pypy.module.thread.ll_thread import get_ident
 
 
 if WORD == 4:
@@ -39,55 +30,3 @@ def tl_segment_prefix(mc):
         mc.writechar('\x65')   # %gs:
     else:
         mc.writechar('\x64')   # %fs:
-
-# ____________________________________________________________
-
-
-FAILARGS_LIMIT = 1000     # xxx repeated constant
-
-ASSEMBLER_THREAD_LOCAL = lltype.GcStruct(
-    'ASSEMBLER_THREAD_LOCAL',
-    ('fail_ebp', lltype.Signed),
-    ('fail_boxes_count', lltype.Signed),
-    ('fail_boxes_ptr', lltype.FixedSizeArray(llmemory.GCREF, FAILARGS_LIMIT)),
-    ('fail_boxes_int', lltype.FixedSizeArray(lltype.Signed, FAILARGS_LIMIT)),
-    ('fail_boxes_float', lltype.FixedSizeArray(longlong.FLOATSTORAGE,
-                                               FAILARGS_LIMIT)),
-    )
-
-def get_thread_ident(cpu):
-    if cpu.with_threads:
-        return get_ident()
-    else:
-        return 0
-
-@rgc.no_collect
-def get_asm_tlocal(cpu):
-    id = get_thread_ident(cpu)
-    return cpu.assembler.asmtlocals[id]
-
-def prepare_asm_tlocal(cpu):
-    id = get_thread_ident(cpu)
-    if id not in cpu.assembler.asmtlocals:
-        cpu.assembler.asmtlocals[id] = lltype.malloc(ASSEMBLER_THREAD_LOCAL)
-
-def fail_boxes_int_addr(tlocal, num):
-    tgt = llmemory.cast_ptr_to_adr(tlocal)
-    tgt += rffi.offsetof(ASSEMBLER_THREAD_LOCAL, 'fail_boxes_int')
-    tgt = rffi.cast(lltype.Signed, tgt)
-    tgt += num * rffi.sizeof(lltype.Signed)
-    return tgt
-
-def fail_boxes_ptr_addr(tlocal, num):
-    tgt = llmemory.cast_ptr_to_adr(tlocal)
-    tgt += rffi.offsetof(ASSEMBLER_THREAD_LOCAL, 'fail_boxes_ptr')
-    tgt = rffi.cast(lltype.Signed, tgt)
-    tgt += num * rffi.sizeof(llmemory.GCREF)
-    return tgt
-
-def fail_boxes_float_addr(tlocal, num):
-    tgt = llmemory.cast_ptr_to_adr(tlocal)
-    tgt += rffi.offsetof(ASSEMBLER_THREAD_LOCAL, 'fail_boxes_float')
-    tgt = rffi.cast(lltype.Signed, tgt)
-    tgt += num * rffi.sizeof(longlong.FLOATSTORAGE)
-    return tgt

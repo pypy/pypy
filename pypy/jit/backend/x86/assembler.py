@@ -1895,9 +1895,12 @@ class Assembler386(object):
         if guardtok.is_guard_not_forced:
             mc.writechar(chr(self.CODE_FORCED))
         self.write_failure_recovery_description(mc, guardtok.failargs,
-                                                guardtok.fail_locs,
-                                                fail_index)
+                                                guardtok.fail_locs)
+        # write the fail_index too
+        mc.writeimm32(fail_index)
+        # for testing the decoding, write a final byte 0xCC
         if not we_are_translated():
+            mc.writechar('\xCC')
             faillocs = [loc for loc in guardtok.fail_locs if loc is not None]
             guardtok.faildescr._x86_debug_faillocs = faillocs
         return startpos
@@ -1912,8 +1915,7 @@ class Assembler386(object):
     CODE_INPUTARG   = 8 | DESCR_SPECIAL
     CODE_FORCED     = 12 | DESCR_SPECIAL
 
-    def write_failure_recovery_description(self, mc, failargs, locs,
-                                           fail_index):
+    def write_failure_recovery_description(self, mc, failargs, locs):
         for i in range(len(failargs)):
             arg = failargs[i]
             if arg is not None:

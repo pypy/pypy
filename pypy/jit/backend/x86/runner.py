@@ -103,17 +103,10 @@ class AbstractX86CPU(AbstractLLCPU):
         return self.assembler.assemble_bridge(faildescr, inputargs, operations,
                                               original_loop_token, log=log)
 
-    def clear_latest_values(self, count):
-        asmtlocal = stmtlocal.get_asm_tlocal(self)
-        null = lltype.nullptr(llmemory.GCREF.TO)
-        for index in range(count):
-            asmtlocal.fail_boxes_ptr[index] = null
-
     def make_execute_token(self, *ARGS):
         FUNCPTR = lltype.Ptr(lltype.FuncType(ARGS, llmemory.GCREF))
         #
         def execute_token(executable_token, *args):
-            stmtlocal.prepare_asm_tlocal(self)
             clt = executable_token.compiled_loop_token
             assert len(args) == clt._debug_nbargs
             #
