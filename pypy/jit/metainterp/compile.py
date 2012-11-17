@@ -4,7 +4,7 @@ from pypy.rpython.ootypesystem import ootype
 from pypy.objspace.flow.model import Constant, Variable
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.debug import debug_start, debug_stop, debug_print
-from pypy.rlib import rstack, rerased
+from pypy.rlib import rstack
 from pypy.rlib.jit import JitDebugInfo, Counters
 from pypy.conftest import option
 from pypy.tool.sourcetools import func_with_new_name
@@ -648,6 +648,18 @@ class ResumeAtPositionDescr(ResumeGuardDescr):
         self.copy_all_attributes_into(res)
         return res
 
+class AllVirtuals:
+    def __init__(self, list):
+        self.list = list
+    def hide(self, cpu):
+        ptr = cpu.ts.cast_instance_to_base_ref(self)
+        return cpu.ts.cast_to_ref(ptr)
+    @staticmethod
+    def show(cpu, gcref):
+        from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
+        ptr = cpu.ts.cast_to_baseclass(gcref)
+        return cast_base_ptr_to_instance(AllVirtuals, ptr)
+
 class ResumeGuardForcedDescr(ResumeGuardDescr):
 
     def __init__(self, metainterp_sd, jitdriver_sd):
@@ -661,7 +673,8 @@ class ResumeGuardForcedDescr(ResumeGuardDescr):
         # handle_async_forcing() just a moment ago.
         from pypy.jit.metainterp.blackhole import resume_in_blackhole
         hidden_all_virtuals = metainterp_sd.cpu.get_savedata_ref(deadframe)
-        all_virtuals = av_unerase(hidden_all_virtuals)
+        obj = AllVirtuals.show(metainterp_sd.cpu, hidden_all_virtuals)
+        all_virtuals = obj.list
         if all_virtuals is None:
             all_virtuals = []
         assert jitdriver_sd is self.jitdriver_sd
@@ -697,7 +710,8 @@ class ResumeGuardForcedDescr(ResumeGuardDescr):
         # The virtualizable data was stored on the real virtualizable above.
         # Handle all_virtuals: keep them for later blackholing from the
         # future failure of the GUARD_NOT_FORCED
-        hidden_all_virtuals = av_erase(all_virtuals)
+        obj = AllVirtuals(all_virtuals)
+        hidden_all_virtuals = obj.hide(metainterp_sd.cpu)
         metainterp_sd.cpu.set_savedata_ref(deadframe, hidden_all_virtuals)
 
     def fetch_data(self, key):
@@ -722,8 +736,6 @@ class ResumeGuardForcedDescr(ResumeGuardDescr):
                                      self.jitdriver_sd)
         self.copy_all_attributes_into(res)
         return res
-
-av_erase, av_unerase = rerased.new_erasing_pair('all_virtuals')
 
 
 class AbstractResumeGuardCounters(object):
