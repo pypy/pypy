@@ -13,7 +13,7 @@ from pypy.jit.metainterp.resoperation import ResOperation, rop, get_deep_immutab
 from pypy.jit.metainterp.history import TreeLoop, Box, History, JitCellToken, TargetToken
 from pypy.jit.metainterp.history import AbstractFailDescr, BoxInt
 from pypy.jit.metainterp.history import BoxPtr, BoxObj, BoxFloat, Const, ConstInt
-from pypy.jit.metainterp import history
+from pypy.jit.metainterp import history, resume
 from pypy.jit.metainterp.typesystem import llhelper, oohelper
 from pypy.jit.metainterp.optimize import InvalidLoop
 from pypy.jit.metainterp.inliner import Inliner
@@ -649,6 +649,7 @@ class ResumeAtPositionDescr(ResumeGuardDescr):
         return res
 
 class AllVirtuals:
+    list = [resume.ResumeDataDirectReader.virtual_default]   # annotation hack
     def __init__(self, list):
         self.list = list
     def hide(self, cpu):
