@@ -221,14 +221,14 @@ def unpackcomplex(space, w_complex, strict_typing=True):
     return (space.float_w(space.float(w_complex)), 0.0)
 
 
-def complexwprop(name):
+def complexwprop(name, doc):
     def fget(space, w_obj):
         from pypy.objspace.std.complexobject import W_ComplexObject
         if not isinstance(w_obj, W_ComplexObject):
             raise OperationError(space.w_TypeError,
                                  space.wrap("descriptor is for 'complex'"))
         return space.newfloat(getattr(w_obj, name))
-    return GetSetProperty(fget)
+    return GetSetProperty(fget, doc=doc)
 
 def descr___getnewargs__(space,  w_self):
     from pypy.objspace.std.complexobject import W_ComplexObject
@@ -243,8 +243,9 @@ Create a complex number from a real part and an optional imaginary part.
 This is equivalent to (real + imag*1j) where imag defaults to 0.""",
     __new__ = interp2app(descr__new__),
     __getnewargs__ = interp2app(descr___getnewargs__),
-    real = complexwprop('realval'),
-    imag = complexwprop('imagval'),
+    real = complexwprop('realval', doc="the real part of a complex number"),
+    imag = complexwprop('imagval',
+                        doc="the imaginary part of a complex number"),
     )
 
 complex_typedef.registermethods(globals())
