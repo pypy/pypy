@@ -131,14 +131,17 @@ def fork_exec(space, w_process_args, w_executable_list,
         for i in range(len(fds_to_keep)):
             l_fds_to_keep[i] = fds_to_keep[i]
 
-        # if not space.is_none(w_preexec_fn):
-        #     _PyImport_AcquireLock()
-        preexec.space = space
-        preexec.w_preexec_fn = w_preexec_fn
+        if not space.is_none(w_preexec_fn):
+            preexec.space = space
+            preexec.w_preexec_fn = w_preexec_fn
+        else:
+            preexec.w_preexec_fn = None
 
         if not space.is_none(w_cwd):
             cwd = fsencode_w(space, w_cwd)
             l_cwd = rffi.str2charp(cwd)
+            
+        run_fork_hooks('before', space)
 
         try:
             pid = os.fork()
@@ -169,8 +172,6 @@ def fork_exec(space, w_process_args, w_executable_list,
 
     # parent process
     finally:
-        # if not space.is_none(w_preexec_fn):
-        #     _PyImport_ReleaseLock()
         run_fork_hooks('parent', space)
         
         preexec.w_preexec_fn = None
