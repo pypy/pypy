@@ -113,13 +113,12 @@ class StmGCTLS(object):
     # set_extra_threshold support
 
     def set_extra_threshold(self, reserved_size):
-        ll_assert(self.nursery_free != NULL,
-                  "set_extra_threshold: not in a transaction")
         diff = reserved_size - self.extra_threshold
-        if diff > 0 and self.nursery_free + diff > self.nursery_top:
-            self.local_collection()
+        if self.nursery_top != NULL:
+            if diff > 0 and self.nursery_free + diff > self.nursery_top:
+                self.local_collection()
+            self.nursery_top -= diff
         self.nursery_size -= diff
-        self.nursery_top -= diff
         self.extra_threshold += diff
 
     # ------------------------------------------------------------
