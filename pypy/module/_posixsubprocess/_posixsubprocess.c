@@ -84,15 +84,15 @@ _is_fdescfs_mounted_on_dev_fd()
 
 /* Is fd found in the sorted Python Sequence? */
 static int
-_is_fd_in_sorted_fd_sequence(int fd, long *fd_sequence, size_t seq_len)
+_is_fd_in_sorted_fd_sequence(int fd, long *fd_sequence, ssize_t seq_len)
 {
     /* Binary search. */
-    size_t search_min = 0;
-    size_t search_max = seq_len - 1;
+    ssize_t search_min = 0;
+    ssize_t search_max = seq_len - 1;
     if (search_max < 0)
         return 0;
     do {
-        size_t middle = (search_min + search_max) / 2;
+        ssize_t middle = (search_min + search_max) / 2;
         long middle_fd = fd_sequence[middle];
         if (fd == middle_fd)
             return 1;
@@ -112,9 +112,9 @@ _is_fd_in_sorted_fd_sequence(int fd, long *fd_sequence, size_t seq_len)
  */
 static void
 _close_fds_by_brute_force(int start_fd, int end_fd, long *py_fds_to_keep,
-			  size_t num_fds_to_keep)
+			  ssize_t num_fds_to_keep)
 {
-    size_t keep_seq_idx;
+    ssize_t keep_seq_idx;
     int fd_num;
     /* As py_fds_to_keep is sorted we can loop through the list closing
      * fds inbetween any in the keep list falling within our range. */
@@ -173,7 +173,7 @@ struct linux_dirent {
  */
 static void
 _close_open_fd_range_safe(int start_fd, int end_fd, long *py_fds_to_keep,
-			  size_t num_fds_to_keep)
+			  ssize_t num_fds_to_keep)
 {
     int fd_dir_fd;
     if (start_fd >= end_fd)
@@ -239,7 +239,7 @@ _close_open_fd_range_safe(int start_fd, int end_fd, long *py_fds_to_keep,
  */
 static void
 _close_open_fd_range_maybe_unsafe(int start_fd, int end_fd,
-                                  long *py_fds_to_keep, size_t num_fds_to_keep)
+                                  long *py_fds_to_keep, ssize_t num_fds_to_keep)
 {
     DIR *proc_fd_dir;
 #ifndef HAVE_DIRFD
@@ -323,7 +323,7 @@ pypy_subprocess_child_exec(
            int close_fds, int restore_signals,
            int call_setsid,
            long *py_fds_to_keep,
-	   size_t num_fds_to_keep,
+	   ssize_t num_fds_to_keep,
            int (*preexec_fn)(void*),
            void *preexec_fn_arg)
 {
