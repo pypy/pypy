@@ -45,6 +45,8 @@ class StmGCTLS(object):
         #     never changes.
         self.nursery_size  = self.gc.nursery_size
         self.nursery_start = self._alloc_nursery(self.nursery_size)
+        self.extra_threshold = 0
+        self.set_extra_threshold(self.gc.maximum_extra_threshold)
         #
         # --- a thread-local allocator for the shared area
         from pypy.rpython.memory.gc.stmshared import StmGCThreadLocalAllocator
@@ -106,6 +108,19 @@ class StmGCTLS(object):
         self.nursery_pending_clear = self.nursery_free - self.nursery_start
         self.nursery_free = NULL
         self.nursery_top  = NULL
+
+    # ----------
+    # set_extra_threshold support
+
+    def set_extra_threshold(self, reserved_size):
+        ll_assert(self.nursery_free != NULL,
+                  "set_extra_threshold: not in a transaction")
+        diff = reserved_size - self.extra_threshold
+        if diff > 0 and self.nursery_free + diff > self.nursery_top:
+            self.local_collection()
+        self.nursery_size -= diff
+        self.nursery_top -= diff
+        self.extra_threshold += diff
 
     # ------------------------------------------------------------
 

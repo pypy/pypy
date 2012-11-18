@@ -171,6 +171,7 @@ class StmGC(MovingGCBase):
         from pypy.rpython.memory.gc import stmshared
         self.stm_operations = stm_operations
         self.nursery_size = nursery_size
+        self.maximum_extra_threshold = 0
         self.sharedarea = stmshared.StmGCSharedArea(self)
         #
         def _stm_duplicate(obj):     # indirection to hide 'self'
@@ -333,6 +334,15 @@ class StmGC(MovingGCBase):
         hdr.tid &= ~(GCFLAG_GLOBAL | GCFLAG_POSSIBLY_OUTDATED)
         hdr.tid |= (GCFLAG_VISITED | GCFLAG_LOCAL_COPY)
         return localobj
+
+    # ----------
+    # set_extra_threshold support
+
+    def set_extra_threshold(self, reserved_size):
+        if reserved_size > self.maximum_extra_threshold:
+            self.maximum_extra_threshold = reserved_size
+        stmtls = self.get_tls()
+        stmtls.set_extra_threshold(reserved_size)
 
     # ----------
     # id() and identityhash() support
