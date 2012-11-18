@@ -34,7 +34,9 @@ working_modules.update(dict.fromkeys(
      "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array",
      "_bisect", "binascii", "_multiprocessing", '_warnings',
      "_collections", "_multibytecodec", "_ffi",
-     "_continuation", "_csv"] #, "micronumpy", "_cffi_backend"]
+     "_continuation", "_csv", # "micronumpy", "_cffi_backend",
+     "_posixsubprocess",
+     ]
 ))
 
 # Here is the list of modules known to not work yet
@@ -67,6 +69,7 @@ if sys.platform == "win32":
     del working_modules["pwd"]
     del working_modules["termios"]
     del working_modules["_minimal_curses"]
+    del working_modules["_posixsubprocess"]
 
     # The _locale module is needed by site.py on Windows
     default_modules["_locale"] = None
