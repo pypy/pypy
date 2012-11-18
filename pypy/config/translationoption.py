@@ -380,6 +380,10 @@ def set_opt_level(config, level):
     # but only set it if it wasn't already suggested to be something else
     if config.translation._cfgimpl_value_owners['gc'] != 'suggested':
         config.translation.suggest(gc=gc)
+    else:
+        # a suggested GC becomes now definitive (it would be overridden with
+        # possibly different suggestions by the following loop)
+        config.translation.gc = config.translation.gc
 
     # set the backendopts
     for word in words:
