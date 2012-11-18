@@ -29,7 +29,7 @@ c_child_exec = rffi.llexternal(
     threadsafe=True)
 c_cloexec_pipe = rffi.llexternal(
     'pypy_subprocess_cloexec_pipe',
-    [rffi.CArrayPtr(rffi.LONG)], rffi.INT,
+    [rffi.CArrayPtr(rffi.INT)], rffi.INT,
     compilation_info=eci,
     threadsafe=True)     
     
@@ -112,7 +112,7 @@ def fork_exec(space, w_process_args, w_executable_list,
     # These conversions are done in the parent process to avoid allocating
     # or freeing memory in the child process.
     try:
-        exec_array = [space.bytes_w(w_item)
+        exec_array = [space.bytes0_w(w_item)
                       for w_item in space.listview(w_executable_list)]
         l_exec_array = rffi.liststr2charpp(exec_array)
 
@@ -122,7 +122,7 @@ def fork_exec(space, w_process_args, w_executable_list,
             l_argv = rffi.liststr2charpp(argv)
 
         if not space.is_none(w_env_list):
-            envp = [space.bytes_w(w_item)
+            envp = [space.bytes0_w(w_item)
                     for w_item in space.listview(w_env_list)]
             l_envp = rffi.liststr2charpp(envp)
 
@@ -193,7 +193,7 @@ def cloexec_pipe(space):
     """"cloexec_pipe() -> (read_end, write_end)
     Create a pipe whose ends have the cloexec flag set."""
 
-    with lltype.scoped_alloc(rffi.CArrayPtr(rffi.LONG).TO, 2) as fds:
+    with lltype.scoped_alloc(rffi.CArrayPtr(rffi.INT).TO, 2) as fds:
         res = c_cloexec_pipe(fds)
         if res != 0:
             raise exception_from_errno(space, space.w_OSError)
