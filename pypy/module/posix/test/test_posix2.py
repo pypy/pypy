@@ -27,10 +27,10 @@ def setup_module(mod):
     pdir.join('file2').write("test2")
     pdir.join('another_longer_file_name').write("test3")
     mod.pdir = pdir
-    unicode_dir = udir.ensure('fi\xc5\x9fier.txt', dir=True)
-    unicode_dir.join('somefile').write('who cares?')
-    unicode_dir.join('caf\xe9').write('who knows?')
-    mod.unicode_dir = unicode_dir
+    bytes_dir = udir.ensure('fi\xc5\x9fier.txt', dir=True)
+    bytes_dir.join('somefile').write('who cares?')
+    bytes_dir.join('caf\xe9').write('who knows?')
+    mod.bytes_dir = bytes_dir
 
     # in applevel tests, os.stat uses the CPython os.stat.
     # Be sure to return times with full precision
@@ -57,12 +57,7 @@ class AppTestPosix:
         cls.w_path = space.wrap(str(path))
         cls.w_path2 = space.wrap(str(path2))
         cls.w_pdir = space.wrap(str(pdir))
-        try:
-            cls.w_unicode_dir = space.wrap(
-                str(unicode_dir).decode(sys.getfilesystemencoding()))
-        except UnicodeDecodeError:
-            # filesystem encoding is not good enough
-            cls.w_unicode_dir = space.w_None
+        cls.w_bytes_dir = space.wrapbytes(str(bytes_dir))
         if hasattr(os, 'getuid'):
             cls.w_getuid = space.wrap(os.getuid())
             cls.w_geteuid = space.wrap(os.geteuid())
@@ -280,26 +275,14 @@ class AppTestPosix:
                           'file1',
                           'file2']
 
-    def test_listdir_unicode(self):
+    def test_listdir_bytes(self):
         import sys
-        unicode_dir = self.unicode_dir
-        if unicode_dir is None:
-            skip("encoding not good enough")
+        bytes_dir = self.bytes_dir
         posix = self.posix
-        result = posix.listdir(unicode_dir)
-        assert all(type(x) is str for x in result)
-        assert 'somefile' in result
-        try:
-            u = b"caf\xe9".decode(sys.getfilesystemencoding())
-        except UnicodeDecodeError:
-            # Could not decode, listdir returns it surrogateescape'd
-            if sys.platform != 'darwin':
-                assert 'caf\udce9' in result
-            else:
-                # darwin 'normalized' it
-                assert 'caf%E9' in result
-        else:
-            assert u in result
+        result = posix.listdir(bytes_dir)
+        assert all(type(x) is bytes for x in result)
+        assert b'somefile' in result
+        assert b'caf\xe9' in result
 
     def test_undecodable_filename(self):
         posix = self.posix
