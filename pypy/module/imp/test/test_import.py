@@ -149,16 +149,14 @@ def _teardown(space, w_saved_modules):
     """)
 
 class AppTestImport:
-    spaceconfig = dict(usemodules=['itertools'])
-
     def setup_class(cls): # interpreter-level
         cls.w_runappdirect = cls.space.wrap(conftest.option.runappdirect)
-        cls.saved_modules = _setup(cls.space)
+        cls.w_saved_modules = _setup(cls.space)
         #XXX Compile class
 
         
     def teardown_class(cls): # interpreter-level
-        _teardown(cls.space, cls.saved_modules)
+        _teardown(cls.space, cls.w_saved_modules)
 
     def w_exec_(self, cmd, ns):
         exec(cmd, ns)

@@ -66,6 +66,16 @@ if 1:
             defs.append(str(code))
             args = ','.join(repr(arg) for arg in args)
             defs.append("self.%s = anonymous(%s)\n" % (symbol, args))
+        elif isinstance(value, types.MethodType):
+            # "def w_method(self)"
+            code = py.code.Code(value)
+            defs.append(str(code.source()))
+            defs.append("type(self).%s = w_%s\n" % (symbol, symbol))
+        elif isinstance(value, types.ModuleType):
+            name = value.__name__
+            defs.append("import %s; self.%s = %s\n" % (name, symbol, name))
+        elif isinstance(value, (int, str)):
+            defs.append("self.%s = %r\n" % (symbol, value))
     source = py.code.Source(target_)[1:].deindent()
     pyfile = udir.join('src.py')
     source = helpers + '\n'.join(defs) + str(source)

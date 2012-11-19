@@ -1,8 +1,6 @@
 from __future__ import with_statement
 from pypy.tool.udir import udir
 
-MARKER = 42
-
 class AppTestImpModule:
     spaceconfig = dict(usemodules=('imp',))
 
@@ -16,11 +14,10 @@ class AppTestImpModule:
         cls.w_udir = cls.space.wrap(str(udir))
 
     def w__py_file(self):
-        fn = self.file_module
-        if fn.lower().endswith('c') or fn.lower().endswith('o'):
-            fn = fn[:-1]
-        assert fn.lower().endswith('.py')
-        return fn
+        f = open('@TEST.py', 'w')
+        f.write('MARKER = 42\n')
+        f.close()
+        return '@TEST.py'
 
     def w__pyc_file(self):
         import marshal, imp
