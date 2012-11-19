@@ -31,20 +31,7 @@ def _create_new_type(space, w_typetype, w_name, w_bases, w_dict):
 
     bases_w = space.fixedview(w_bases)
 
-    w_winner = w_typetype
-    for base in bases_w:
-        w_typ = space.type(base)
-        if space.is_true(space.issubtype(w_winner, w_typ)):
-            continue
-        if space.is_true(space.issubtype(w_typ, w_winner)):
-            w_winner = w_typ
-            continue
-        raise OperationError(space.w_TypeError,
-                             space.wrap("metaclass conflict: "
-                                        "the metaclass of a derived class "
-                                        "must be a (non-strict) subclass "
-                                        "of the metaclasses of all its bases"))
-
+    w_winner = _calculate_metaclass(space, w_typetype, bases_w)
     if not space.is_w(w_winner, w_typetype):
         newfunc = space.getattr(w_winner, space.wrap('__new__'))
         if not space.is_w(newfunc, space.getattr(space.w_type, space.wrap('__new__'))):
@@ -63,6 +50,23 @@ def _create_new_type(space, w_typetype, w_name, w_bases, w_dict):
                           dict_w)
     w_type.ready()
     return w_type
+
+def _calculate_metaclass(space, w_metaclass, bases_w):
+    """Determine the most derived metatype"""
+    w_winner = w_metaclass
+    for base in bases_w:
+        w_typ = space.type(base)
+        if space.is_true(space.issubtype(w_winner, w_typ)):
+            continue
+        if space.is_true(space.issubtype(w_typ, w_winner)):
+            w_winner = w_typ
+            continue
+        raise OperationError(space.w_TypeError,
+                             space.wrap("metaclass conflict: "
+                                        "the metaclass of a derived class "
+                                        "must be a (non-strict) subclass "
+                                        "of the metaclasses of all its bases"))
+    return w_winner
 
 def _precheck_for_new(space, w_type):
     from pypy.objspace.std.typeobject import W_TypeObject

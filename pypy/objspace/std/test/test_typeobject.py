@@ -1034,6 +1034,85 @@ class AppTestTypeObject:
         A.__dict__['x'] = 5
         assert A.x == 5
 
+    def test_metaclass_calc(self):
+        """
+        # issue1294232: correct metaclass calculation
+        new_calls = []  # to check the order of __new__ calls
+        class AMeta(type):
+            @staticmethod
+            def __new__(mcls, name, bases, ns):
+                new_calls.append('AMeta')
+                return super().__new__(mcls, name, bases, ns)
+            @classmethod
+            def __prepare__(mcls, name, bases):
+                return {}
+
+        class BMeta(AMeta):
+            @staticmethod
+            def __new__(mcls, name, bases, ns):
+                new_calls.append('BMeta')
+                return super().__new__(mcls, name, bases, ns)
+            @classmethod
+            def __prepare__(mcls, name, bases):
+                ns = super().__prepare__(name, bases)
+                ns['BMeta_was_here'] = True
+                return ns
+
+        class A(metaclass=AMeta):
+            pass
+        assert ['AMeta'] == new_calls
+        new_calls[:] = []
+
+        class B(metaclass=BMeta):
+            pass
+        # BMeta.__new__ calls AMeta.__new__ with super:
+        assert ['BMeta', 'AMeta'] == new_calls
+        new_calls[:] = []
+
+        class C(A, B):
+            pass
+        # The most derived metaclass is BMeta:
+        assert ['BMeta', 'AMeta'] == new_calls
+        new_calls[:] = []
+        # BMeta.__prepare__ should've been called:
+        assert 'BMeta_was_here' in C.__dict__
+
+        # The order of the bases shouldn't matter:
+        class C2(B, A):
+            pass
+        assert ['BMeta', 'AMeta'] == new_calls
+        new_calls[:] = []
+        assert 'BMeta_was_here' in C2.__dict__
+
+        # Check correct metaclass calculation when a metaclass is declared:
+        class D(C, metaclass=type):
+            pass
+        assert ['BMeta', 'AMeta'] == new_calls
+        new_calls[:] = []
+        assert 'BMeta_was_here' in D.__dict__
+
+        class E(C, metaclass=AMeta):
+            pass
+        assert ['BMeta', 'AMeta'] == new_calls
+        new_calls[:] = []
+        assert 'BMeta_was_here' in E.__dict__
+
+        # Special case: the given metaclass isn't a class,
+        # so there is no metaclass calculation.
+        marker = object()
+        def func(*args, **kwargs):
+            return marker
+        class X(metaclass=func):
+            pass
+        class Y(object, metaclass=func):
+            pass
+        class Z(D, metaclass=func):
+            pass
+        assert marker is X
+        assert marker is Y
+        assert marker is Z
+        """
+
 
 class AppTestWithMethodCacheCounter:
     spaceconfig = {"objspace.std.withmethodcachecounter": True}

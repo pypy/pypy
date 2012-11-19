@@ -125,11 +125,19 @@ def build_class(space, w_func, w_name, __args__):
     bases_w, kwds_w = __args__.unpack()
     w_bases = space.newtuple(bases_w)
     w_meta = kwds_w.pop('metaclass', None)
-    if w_meta is None:
+    if w_meta is not None:
+        isclass = space.isinstance_w(w_meta, space.w_type)
+    else:
         if bases_w:
             w_meta = space.type(bases_w[0])
         else:
             w_meta = space.w_type
+        isclass = True
+    if isclass:
+        # w_meta is really a class, so check for a more derived
+        # metaclass, or possible metaclass conflicts
+        from pypy.objspace.std.typetype import _calculate_metaclass
+        w_meta = _calculate_metaclass(space, w_meta, bases_w)
     
     try:
         w_prep = space.getattr(w_meta, space.wrap("__prepare__"))
