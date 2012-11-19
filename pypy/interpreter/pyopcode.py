@@ -1515,19 +1515,19 @@ app = gateway.applevel(r'''
 
         if not isinstance(globals, dict):
             raise TypeError(
-                "exec: arg 2 must be a dictionary or None, not %s" %
+                "exec() arg 2 must be a dictionary or None, not %s" %
                 type(globals).__name__)
         globals.setdefault('__builtins__', builtin)
         if not isinstance(locals, dict):
             if not hasattr(locals, '__getitem__'):
                 raise TypeError(
-                    "exec: arg 3 must be a mapping or None, not %s" %
+                    "exec() arg 3 must be a mapping or None, not %s" %
                     type(locals.__name__))
 
         if not isinstance(prog, codetype):
             filename = '<string>'
             if not isinstance(prog, (str, bytes)):
-                raise TypeError("exec: arg 1 must be a string, bytes, "
+                raise TypeError("exec() arg 1 must be a string, bytes, "
                                 "or code object")
             prog = compile(prog, filename, 'exec', compile_flags, 1)
         return (prog, globals, locals)
