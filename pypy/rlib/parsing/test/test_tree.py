@@ -90,7 +90,6 @@ class TestTreeTranslatedLLType(BaseTestTreeTranslated):
 class TestTreeTranslatedOOType(BaseTestTreeTranslated):
     
     def compile(self, f):
-        py.test.skip("XXX fix me maybe")
         from pypy.translator.cli.test.runtest import compile_function
         return compile_function(f, [], auto_raise_exc=True, exctrans=True)
 
