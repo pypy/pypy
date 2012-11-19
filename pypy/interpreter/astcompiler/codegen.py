@@ -679,10 +679,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.update_position(imp.lineno, True)
         for alias in imp.names:
             assert isinstance(alias, ast.alias)
-            if self.compile_info.flags & consts.CO_FUTURE_ABSOLUTE_IMPORT:
-                level = 0
-            else:
-                level = -1
+            level = 0
             self.load_const(self.space.wrap(level))
             self.load_const(self.space.w_None)
             self.emit_op_name(ops.IMPORT_NAME, self.names, alias.name)
@@ -721,12 +718,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                         self.error("not a chance", imp)
                     self.error("future feature %s is not defined" %
                                (alias.name,), imp)
-        if imp.level == 0 and \
-                not self.compile_info.flags & consts.CO_FUTURE_ABSOLUTE_IMPORT:
-            level = -1
-        else:
-            level = imp.level
-        self.load_const(space.wrap(level))
+        self.load_const(space.wrap(imp.level))
         names_w = [None]*len(imp.names)
         for i in range(len(imp.names)):
             alias = imp.names[i]
