@@ -217,7 +217,7 @@ eci = ExternalCompilationInfo(post_include_bits=["""
 is_nonnull_longdouble = rffi.llexternal(
     "pypy__is_nonnull_longdouble", [rffi.LONGDOUBLE], lltype.Bool,
     compilation_info=eci, _nowrapper=True, elidable_function=True,
-    sandboxsafe=True)
+    sandboxsafe=True, macro=True)
 
 def object_as_bool(space, w_ob):
     # convert and cast a Python object to a boolean.  Accept an integer
