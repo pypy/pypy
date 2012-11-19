@@ -1453,7 +1453,7 @@ class ResOpAssembler(object):
         assert res.is_reg()
         self.mc.VCVT_f64_f32(r.vfp_ip.value, arg.value)
         self.mc.VMOV_rc(res.value, r.ip.value, r.vfp_ip.value)
-	return fcond
+        return fcond
     
     def emit_op_cast_singlefloat_to_float(self, op, arglocs, regalloc, fcond):
         arg, res = arglocs
