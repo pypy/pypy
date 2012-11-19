@@ -474,6 +474,8 @@ class AppTestImport:
         def check_relative():
             self.exec_("from . import a", ns)
 
+        import pkg
+
         # Check both OK with __package__ and __name__ correct
         ns = dict(__package__='pkg', __name__='pkg.notarealmodule')
         check_absolute()
@@ -494,9 +496,9 @@ class AppTestImport:
         check_absolute() # XXX check warnings
         raises(SystemError, check_relative)
 
-        # Check both fail with package set to a non-string
+        # Check relative fails when __package__ set to a non-string
         ns = dict(__package__=object())
-        raises(ValueError, check_absolute)
+        check_absolute()
         raises(ValueError, check_relative)
 
     def test_universal_newlines(self):
