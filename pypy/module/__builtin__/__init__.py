@@ -68,7 +68,6 @@ class Module(MixedModule):
         '__build_class__': 'compiling.build_class',
 
         '__import__'    : 'pypy.module.imp.importing.importhook',
-        'reload'        : 'pypy.module.imp.importing.reload',
 
         'range'         : 'functional.W_Range',
         'enumerate'     : 'functional.W_Enumerate',
