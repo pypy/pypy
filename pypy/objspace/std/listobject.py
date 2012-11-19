@@ -161,10 +161,7 @@ class W_ListObject(W_AbstractListObject):
         return list(items)
 
     def switch_to_object_strategy(self):
-        if self.strategy is self.space.fromcache(EmptyListStrategy):
-            list_w = []
-        else:
-            list_w = self.getitems()
+        list_w = self.getitems()
         self.strategy = self.space.fromcache(ObjectListStrategy)
         # XXX this is quite indirect
         self.init_from_list_w(list_w)
@@ -443,6 +440,9 @@ class ListStrategy(object):
     def sort(self, w_list, reverse):
         raise NotImplementedError
 
+    def is_empty_strategy(self):
+        return False
+
 
 class EmptyListStrategy(ListStrategy):
     """EmptyListStrategy is used when a W_List withouth elements is created.
@@ -578,6 +578,9 @@ class EmptyListStrategy(ListStrategy):
 
     def reverse(self, w_list):
         pass
+
+    def is_empty_strategy(self):
+        return True
 
 class SizeListStrategy(EmptyListStrategy):
     """ Like empty, but when modified it'll preallocate the size to sizehint
@@ -900,7 +903,7 @@ class AbstractUnwrappedStrategy(object):
         if self.list_is_correct_type(w_other):
             l += self.unerase(w_other.lstorage)
             return
-        elif w_other.strategy is self.space.fromcache(EmptyListStrategy):
+        elif w_other.strategy.is_empty_strategy():
             return
 
         w_other = w_other._temporarily_as_objects()
@@ -958,7 +961,7 @@ class AbstractUnwrappedStrategy(object):
                   "assign sequence of size %d to extended slice of size %d",
                   len2, slicelength)
 
-        if w_other.strategy is self.space.fromcache(EmptyListStrategy):
+        if len2 == 0:
             other_items = []
         else:
             # at this point both w_list and w_other have the same type, so
