@@ -58,6 +58,7 @@ else:
 math_fabs = llexternal('fabs', [rffi.DOUBLE], rffi.DOUBLE)
 math_log = llexternal('log', [rffi.DOUBLE], rffi.DOUBLE)
 math_log10 = llexternal('log10', [rffi.DOUBLE], rffi.DOUBLE)
+math_log1p = llexternal('log1p', [rffi.DOUBLE], rffi.DOUBLE)
 math_copysign = llexternal(underscore + 'copysign',
                            [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE,
                            elidable_function=True)
@@ -363,6 +364,13 @@ def ll_math_log10(x):
         raise ValueError("math domain error")
     return math_log10(x)
 
+def ll_math_log1p(x):
+    if x == 0.0:
+        return x      # returns 0.0 or -0.0
+    if x <= -1.0:
+        raise ValueError("math domain error")
+    return math_log1p(x)
+
 def ll_math_sin(x):
     if isinf(x):
         raise ValueError("math domain error")
@@ -413,13 +421,13 @@ unary_math_functions = [
     'acos', 'asin', 'atan',
     'ceil', 'cosh', 'exp', 'fabs',
     'sinh', 'tan', 'tanh',
-    'acosh', 'asinh', 'atanh', 'log1p', 'expm1',
+    'acosh', 'asinh', 'atanh', 'expm1',
     ]
 unary_math_functions_can_overflow = [
-    'cosh', 'exp', 'log1p', 'sinh', 'expm1',
+    'cosh', 'exp', 'sinh', 'expm1',
     ]
 unary_math_functions_c99 = [
-    'acosh', 'asinh', 'atanh', 'log1p', 'expm1',
+    'acosh', 'asinh', 'atanh', 'expm1',
     ]
 
 for name in unary_math_functions:
