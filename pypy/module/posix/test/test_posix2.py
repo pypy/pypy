@@ -809,6 +809,33 @@ class AppTestPosix:
             os.symlink('foobar', self.path)
             os.lchown(self.path, os.getuid(), os.getgid())
 
+    if hasattr(os, 'fchown'):
+        def test_fchown(self):
+            os = self.posix
+            f = open(self.path, "w")
+            os.fchown(f.fileno(), os.getuid(), os.getgid())
+            f.close()
+
+    if hasattr(os, 'chmod'):
+        def test_chmod(self):
+            os = self.posix
+            os.unlink(self.path)
+            raises(OSError, os.chmod, self.path, 0600)
+            f = open(self.path, "w")
+            f.write("this is a test")
+            f.close()
+            os.chmod(self.path, 0200)
+            assert (os.stat(self.path).st_mode & 0777) == 0200
+
+    if hasattr(os, 'fchmod'):
+        def test_fchmod(self):
+            os = self.posix
+            f = open(self.path, "w")
+            os.fchmod(f.fileno(), 0200)
+            assert (os.fstat(f.fileno()).st_mode & 0777) == 0200
+            f.close()
+            assert (os.stat(self.path).st_mode & 0777) == 0200
+
     if hasattr(os, 'mkfifo'):
         def test_mkfifo(self):
             os = self.posix
