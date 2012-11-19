@@ -275,6 +275,10 @@ class AppTestPosix:
                           'file1',
                           'file2']
 
+    def test_listdir_default(self):
+        posix = self.posix
+        assert posix.listdir() == posix.listdir('.')
+
     def test_listdir_bytes(self):
         import sys
         bytes_dir = self.bytes_dir

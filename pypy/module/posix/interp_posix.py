@@ -1,4 +1,4 @@
-from pypy.interpreter.gateway import unwrap_spec
+from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from pypy.rlib import rposix, objectmodel, rurandom
 from pypy.rlib.objectmodel import specialize
 from pypy.rlib.rarithmetic import r_longlong
@@ -539,6 +539,7 @@ def unsetenv(space, w_name):
         raise wrap_oserror(space, e)
 
 
+@unwrap_spec(w_dirname=WrappedDefault(u"."))
 def listdir(space, w_dirname):
     """Return a list containing the names of the entries in the directory.
 
