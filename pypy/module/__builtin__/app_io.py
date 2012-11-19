@@ -57,9 +57,7 @@ def print_(*args, **kwargs):
     if fp is None:
         return
     def write(data):
-        if not isinstance(data, str):
-            data = str(data)
-        fp.write(data)
+        fp.write(str(data))
     sep = kwargs.pop("sep", None)
     if sep is not None:
         if not isinstance(sep, str):

@@ -629,6 +629,19 @@ def fn(): pass
         pr(None, file=out)
         assert out.getvalue() == "None\n"
 
+    def test_print_function2(self):
+        import builtins
+        import io
+        class MyStr(str):
+            def __str__(self):
+                return "sqlalchemy"
+        out = io.StringIO()
+        s = MyStr('A')
+        pr = getattr(builtins, 'print')
+        pr(s, file=out)
+        pr(str(s), file=out)
+        assert out.getvalue() == "sqlalchemy\nsqlalchemy\n"
+
     def test_print_exceptions(self):
         import builtins
         pr = getattr(builtins, "print")
