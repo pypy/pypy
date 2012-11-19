@@ -34,10 +34,9 @@ def setuppkg(pkgname, **entries):
 def setup_directory_structure(space):
     root = setuppkg("",
                     a = "imamodule = 1\ninpackage = 0",
-                    b = "imamodule = 1\ninpackage = 0",
                     ambig = "imamodule = 1",
                     test_reload = "def test():\n    raise ValueError\n",
-                    infinite_reload = "import infinite_reload; reload(infinite_reload)",
+                    infinite_reload = "import infinite_reload, imp; imp.reload(infinite_reload)",
                     del_sys_module = "import sys\ndel sys.modules['del_sys_module']\n",
                     itertools = "hello_world = 42\n",
                     gc = "should_never_be_seen = 42\n",
@@ -45,6 +44,7 @@ def setup_directory_structure(space):
     root.ensure("notapackage", dir=1)    # empty, no __init__.py
     setuppkg("pkg",
              a          = "imamodule = 1\ninpackage = 1",
+             b          = "imamodule = 1\ninpackage = 1",
              relative_a = "import a",
              abs_b      = "import b",
              abs_x_y    = "import x.y",
@@ -67,8 +67,8 @@ def setup_directory_structure(space):
              )
     setuppkg("pkg.pkg2", a='', b='')
     setuppkg("pkg_r", inpkg = "import x.y")
-    setuppkg("pkg_r.x")
-    setuppkg("x", y='')
+    setuppkg("pkg_r.x", y='')
+    setuppkg("x")
     setuppkg("ambig", __init__ = "imapackage = 1")
     setuppkg("pkg_relative_a",
              __init__ = "import a",
@@ -233,7 +233,7 @@ class AppTestImport:
         filename = pkg.a.__file__
         assert filename.endswith('.py')
         exc = raises(ImportError, __import__, filename[:-3])
-        assert exc.value.message == "Import by filename is not supported."
+        assert exc.value.args[0] == "Import by filename is not supported."
 
     def test_import_badcase(self):
         def missing(name):
@@ -298,21 +298,20 @@ class AppTestImport:
         aa = sys.modules.get('pkg.a')
         assert a == aa
 
-    def test_import_relative(self):
+    def test_import_absolute(self):
         from pkg import relative_a
-        assert relative_a.a.inpackage ==1
+        assert relative_a.a.inpackage == 0
 
-    def test_import_relative_back_to_absolute(self):
-        from pkg import abs_b
-        assert abs_b.b.inpackage ==0
-        import sys
-        assert sys.modules.get('pkg.b') ==None
+    def test_import_absolute_dont_default_to_relative(self):
+        def imp():
+            from pkg import abs_b
+        raises(ImportError, imp)
 
-    def test_import_pkg_relative(self):
+    def test_import_pkg_absolute(self):
         import pkg_relative_a
-        assert pkg_relative_a.a.inpackage ==1
+        assert pkg_relative_a.a.inpackage == 0
 
-    def test_import_relative_partial_success(self):
+    def test_import_absolute_partial_success(self):
         def imp():
             import pkg_r.inpkg
         raises(ImportError, imp)
@@ -336,15 +335,6 @@ class AppTestImport:
         assert sys == n
         o = __import__('sys', [], [], ['']) # CPython accepts this
         assert sys == o
-
-    def test_import_relative_back_to_absolute2(self):
-        from pkg import abs_x_y
-        import sys
-        assert abs_x_y.x.__name__ =='x'
-        assert abs_x_y.x.y.__name__ =='x.y'
-        # grrr XXX not needed probably...
-        #self.assertEquals(sys.modules.get('pkg.x'),None)
-        #self.assert_('pkg.x.y' not in sys.modules)
 
     def test_substituting_import(self):
         from pkg_substituting import mod
@@ -412,13 +402,13 @@ class AppTestImport:
         def imp():
             from pkg import relative_f
         exc = raises(ImportError, imp)
-        assert exc.value.message == "No module named pkg.imp"
+        assert exc.value.args[0] == "No module named pkg.imp"
 
     def test_no_relative_import_bug(self):
         def imp():
             from pkg import relative_g
         exc = raises(ImportError, imp)
-        assert exc.value.message == "No module named pkg.imp"
+        assert exc.value.args[0] == "No module named pkg.imp"
 
     def test_future_relative_import_level_1(self):
         from pkg import relative_c
@@ -520,7 +510,7 @@ class AppTestImport:
         assert mod.c == "foo\nbar"
 
     def test_reload(self):
-        import test_reload
+        import test_reload, imp
         try:
             test_reload.test()
         except ValueError:
@@ -536,7 +526,7 @@ class AppTestImport:
         f = open(test_reload.__file__, "w")
         f.write("def test():\n    raise NotImplementedError\n")
         f.close()
-        reload(test_reload)
+        imp.reload(test_reload)
         try:
             test_reload.test()
         except NotImplementedError:
@@ -549,32 +539,32 @@ class AppTestImport:
 
     def test_reload_failing(self):
         import test_reload
-        import time
+        import time, imp
         time.sleep(1)
         f = open(test_reload.__file__, "w")
         f.write("a = 10 // 0\n")
         f.close()
 
         # A failing reload should leave the previous module in sys.modules
-        raises(ZeroDivisionError, reload, test_reload)
+        raises(ZeroDivisionError, imp.reload, test_reload)
         import os, sys
         assert 'test_reload' in sys.modules
         assert test_reload.test
         os.unlink(test_reload.__file__)
 
     def test_reload_submodule(self):
-        import pkg.a
-        reload(pkg.a)
+        import pkg.a, imp
+        imp.reload(pkg.a)
 
     def test_reload_builtin(self):
-        import sys
+        import sys, imp
         oldpath = sys.path
         try:
             del sys.settrace
         except AttributeError:
             pass
 
-        reload(sys)
+        imp.reload(sys)
 
         assert sys.path is oldpath
         assert 'settrace' in dir(sys)
