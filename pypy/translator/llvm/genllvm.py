@@ -768,7 +768,7 @@ for type_ in ['float']:
 
 for type_, prefix in [('char', 'u'), ('unichar', 'u'), ('int', 's'),
                       ('uint', 'u'), ('llong', 's'), ('ullong', 'u'),
-                      ('adr', 's'), ('ptr', 's')]:
+                      ('lllong', 's'), ('adr', 's'), ('ptr', 's')]:
     OPS[type_ + '_eq'] = 'icmp eq'
     OPS[type_ + '_ne'] = 'icmp ne'
     for op in ['gt', 'ge', 'lt', 'le']:
@@ -1159,13 +1159,13 @@ class FunctionWriter(object):
         self.w('{result.V} = icmp ne {var.TV}, 0'.format(**locals()))
     op_int_is_true = op_uint_is_true = _is_true
     op_llong_is_true = op_ullong_is_true = _is_true
+    op_lllong_is_true = _is_true
 
-    def op_int_between(self, result, a, b, c):
-        t1 = self._tmp()
-        t2 = self._tmp()
-        self.w('{t1.V} = icmp sle {a.TV}, {b.V}'.format(**locals()))
-        self.w('{t2.V} = icmp slt {b.TV}, {c.V}'.format(**locals()))
-        self.w('{result.V} = and i1 {t1.V}, {t2.V}'.format(**locals()))
+    def _invert(self, result, var):
+        self.w('{result.V} = xor {var.TV}, -1'.format(**locals()))
+    op_int_invert = op_uint_invert = _invert
+    op_llong_invert = op_ullong_invert = _invert
+    op_bool_not = _invert
 
     def op_int_neg(self, result, var):
         self.w('{result.V} = sub {var.T} 0, {var.V}'.format(**locals()))
@@ -1179,12 +1179,6 @@ class FunctionWriter(object):
         self.w('{result.V} = select i1 {ispos.V}, {var.TV}, {neg.TV}'
                 .format(**locals()))
     op_llong_abs = op_int_abs
-
-    def _invert(self, result, var):
-        self.w('{result.V} = xor {var.TV}, -1'.format(**locals()))
-    op_int_invert = op_uint_invert = _invert
-    op_llong_invert = op_ullong_invert = _invert
-    op_bool_not = _invert
 
     def _ovf_op(int_op):
         def f(self, result, x, y):
@@ -1203,6 +1197,13 @@ class FunctionWriter(object):
     op_int_add_ovf = op_int_add_nonneg_ovf = _ovf_op('sadd')
     op_int_sub_ovf = _ovf_op('ssub')
     op_int_mul_ovf = _ovf_op('smul')
+
+    def op_int_between(self, result, a, b, c):
+        t1 = self._tmp()
+        t2 = self._tmp()
+        self.w('{t1.V} = icmp sle {a.TV}, {b.V}'.format(**locals()))
+        self.w('{t2.V} = icmp slt {b.TV}, {c.V}'.format(**locals()))
+        self.w('{result.V} = and i1 {t1.V}, {t2.V}'.format(**locals()))
 
     def op_ptr_iszero(self, result, var):
         self.w('{result.V} = icmp eq {var.TV}, null'.format(**locals()))
