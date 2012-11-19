@@ -304,6 +304,7 @@ class SysModuleTest(unittest.TestCase):
             self.assertEqual(sys.getdlopenflags(), oldflags+1)
             sys.setdlopenflags(oldflags)
 
+    @test.support.impl_detail("reference counting")
     def test_refcount(self):
         # n here must be a global in order for this test to pass while
         # tracing with a python function.  Tracing calls PyFrame_FastToLocals
@@ -327,7 +328,7 @@ class SysModuleTest(unittest.TestCase):
             is sys._getframe().f_code
         )
 
-    # sys._current_frames() is a CPython-only gimmick.
+    @test.support.impl_detail("current_frames")
     def test_current_frames(self):
         have_threads = True
         try:
@@ -423,7 +424,10 @@ class SysModuleTest(unittest.TestCase):
         self.assertEqual(len(sys.float_info), 11)
         self.assertEqual(sys.float_info.radix, 2)
         self.assertEqual(len(sys.int_info), 2)
-        self.assertTrue(sys.int_info.bits_per_digit % 5 == 0)
+        if test.support.check_impl_detail(cpython=True):
+            self.assertTrue(sys.long_info.bits_per_digit % 5 == 0)
+        else:
+            self.assertTrue(sys.long_info.bits_per_digit >= 1)
         self.assertTrue(sys.int_info.sizeof_digit >= 1)
         self.assertEqual(type(sys.int_info.bits_per_digit), int)
         self.assertEqual(type(sys.int_info.sizeof_digit), int)
@@ -511,6 +515,7 @@ class SysModuleTest(unittest.TestCase):
         self.assertTrue(repr(sys.flags))
         self.assertEqual(len(sys.flags), len(attrs))
 
+    @test.support.impl_detail("sys._clear_type_cache")
     def test_clear_type_cache(self):
         sys._clear_type_cache()
 
@@ -569,6 +574,7 @@ class SysModuleTest(unittest.TestCase):
         self.check_fsencoding(fs_encoding, expected)
 
 
+@unittest.skipUnless(test.support.check_impl_detail(), "sys.getsizeof()")
 class SizeofTest(unittest.TestCase):
 
     TPFLAGS_HAVE_GC = 1<<14
