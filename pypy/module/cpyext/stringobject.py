@@ -269,45 +269,6 @@ def PyString_InternInPlace(space, string):
     Py_DecRef(space, string[0])
     string[0] = make_ref(space, w_str)
 
-@cpython_api([PyObject, rffi.CCHARP, rffi.CCHARP], PyObject)
-def PyString_AsEncodedObject(space, w_str, encoding, errors):
-    """Encode a string object using the codec registered for encoding and return
-    the result as Python object. encoding and errors have the same meaning as
-    the parameters of the same name in the string encode() method. The codec to
-    be used is looked up using the Python codec registry. Return NULL if an
-    exception was raised by the codec.
-
-    This function is not available in 3.x and does not have a PyBytes alias."""
-    if not PyString_Check(space, w_str):
-        PyErr_BadArgument(space)
-
-    w_encoding = w_errors = space.w_None
-    if encoding:
-        w_encoding = space.wrap(rffi.charp2str(encoding))
-    if errors:
-        w_errors = space.wrap(rffi.charp2str(errors))
-    return space.call_method(w_str, 'encode', w_encoding, w_errors)
-
-@cpython_api([PyObject, rffi.CCHARP, rffi.CCHARP], PyObject)
-def PyString_AsDecodedObject(space, w_str, encoding, errors):
-    """Decode a string object by passing it to the codec registered
-    for encoding and return the result as Python object. encoding and
-    errors have the same meaning as the parameters of the same name in
-    the string encode() method.  The codec to be used is looked up
-    using the Python codec registry. Return NULL if an exception was
-    raised by the codec.
-
-    This function is not available in 3.x and does not have a PyBytes alias."""
-    if not PyString_Check(space, w_str):
-        PyErr_BadArgument(space)
-
-    w_encoding = w_errors = space.w_None
-    if encoding:
-        w_encoding = space.wrap(rffi.charp2str(encoding))
-    if errors:
-        w_errors = space.wrap(rffi.charp2str(errors))
-    return space.call_method(w_str, "decode", w_encoding, w_errors)
-
 @cpython_api([PyObject, PyObject], PyObject)
 def _PyString_Join(space, w_sep, w_seq):
     return space.call_method(w_sep, 'join', w_seq)

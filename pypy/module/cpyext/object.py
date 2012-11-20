@@ -14,6 +14,10 @@ from pypy.interpreter.error import OperationError
 import pypy.module.__builtin__.operation as operation
 
 
+# from include/object.h
+PyBUF_SIMPLE = 0x0000
+PyBUF_WRITABLE = 0x0001
+
 @cpython_api([Py_ssize_t], rffi.VOIDP)
 def PyObject_MALLOC(space, size):
     return lltype.malloc(rffi.VOIDP.TO, size,
@@ -403,18 +407,21 @@ def PyObject_AsCharBuffer(space, obj, bufferp, sizep):
     pto = obj.c_ob_type
 
     pb = pto.c_tp_as_buffer
-    if not (pb and pb.c_bf_getreadbuffer and pb.c_bf_getsegcount):
+    if not (pb and pb.c_bf_getbuffer):
         raise OperationError(space.w_TypeError, space.wrap(
-            "expected a character buffer object"))
-    if generic_cpy_call(space, pb.c_bf_getsegcount,
-                        obj, lltype.nullptr(Py_ssize_tP.TO)) != 1:
-        raise OperationError(space.w_TypeError, space.wrap(
-            "expected a single-segment buffer object"))
-    size = generic_cpy_call(space, pb.c_bf_getcharbuffer,
-                            obj, 0, bufferp)
-    if size < 0:
-        return -1
-    sizep[0] = size
+            "expected an object with the buffer interface"))
+    with lltype.scoped_alloc(Py_buffer) as view:
+        if generic_cpy_call(space, pb.c_bf_getbuffer,
+                            obj, view, rffi.cast(rffi.INT_real, PyBUF_SIMPLE)):
+            return -1
+
+        bufferp[0] = rffi.cast(rffi.CCHARP, view.c_buf)
+        sizep[0] = view.c_len
+            
+        if pb.c_bf_releasebuffer:
+            generic_cpy_call(space, pb.c_bf_releasebuffer,
+                             obj, view)
+        Py_DecRef(space, view.c_obj)
     return 0
 
 # Also in include/object.h
