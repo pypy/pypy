@@ -271,13 +271,13 @@ class AppTestZipimport:
         assert z.get_data(self.zipfile + os.sep + "xxx") == data
         assert z.is_package("xx")
         assert not z.is_package("yy")
-        assert z.get_source("yy") == b'3'
+        assert z.get_source("yy") == '3'
         assert z.get_source('uu') is None
         raises(ImportError, "z.get_source('zz')")
         #assert z.get_code('yy') == py.code.Source('3').compile()
         #assert z.get_code('uu') == self.co
         assert z.get_code('xx')
-        assert z.get_source('xx') == b"5"
+        assert z.get_source('xx') == "5"
         assert z.archive == self.zipfile
         mod = z.load_module('xx')
         assert z.get_filename('xx') == mod.__file__

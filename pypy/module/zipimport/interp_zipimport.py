@@ -316,10 +316,14 @@ class W_ZipImporter(Wrappable):
             fname = filename + ext
             if self.have_modulefile(space, fname):
                 if not compiled:
-                    return self.get_data(space, fname)
+                    w_data = self.get_data(space, fname)
+                    # XXX CPython does not handle the coding cookie either.
+                    return space.call_method(w_data, "decode",
+                                             space.wrap("utf-8")) 
                 else:
                     found = True
         if found:
+            # We have the module, but no source.
             return space.w_None
         raise operationerrfmt(get_error(space),
             "Cannot find source for %s in %s", filename, self.name)
