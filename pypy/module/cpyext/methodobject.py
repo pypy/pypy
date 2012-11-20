@@ -212,7 +212,7 @@ def cmethod_descr_get(space, w_function, w_obj, w_cls=None):
 def cclassmethod_descr_get(space, w_function, w_obj, w_cls=None):
     if not w_cls:
         w_cls = space.type(w_obj)
-    return space.wrap(Method(space, w_function, w_cls, space.w_None))
+    return space.wrap(Method(space, w_function, w_cls))
 
 
 W_PyCFunctionObject.typedef = TypeDef(
