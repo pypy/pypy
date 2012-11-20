@@ -123,6 +123,6 @@ def customize_compiler(compiler):
             compiler.linker_so.append(cflags)
 
 
-from sysconfig_cpython import (
+from .sysconfig_cpython import (
     parse_makefile, _variable_rx, expand_makefile_vars)
 
