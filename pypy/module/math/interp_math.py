@@ -60,6 +60,9 @@ math2._annspecialcase_ = 'specialize:arg(1)'
 
 def trunc(space, w_x):
     """Truncate x."""
+    w_descr = space.lookup(w_x, '__trunc__')
+    if w_descr is not None:
+        return space.get_and_call_function(w_descr, w_x)
     return space.trunc(w_x)
 
 def copysign(space, w_x, w_y):
@@ -158,6 +161,9 @@ def floor(space, w_x):
        Return the floor of x as a float.
        This is the largest integral value <= x.
     """
+    w_descr = space.lookup(w_x, '__floor__')
+    if w_descr is not None:
+        return space.get_and_call_function(w_descr, w_x)
     x = _get_double(space, w_x)
     return space.wrap(math.floor(x))
 
@@ -247,6 +253,9 @@ def ceil(space, w_x):
        Return the ceiling of x as a float.
        This is the smallest integral value >= x.
     """
+    w_descr = space.lookup(w_x, '__ceil__')
+    if w_descr is not None:
+        return space.get_and_call_function(w_descr, w_x)
     return math1(space, math.ceil, w_x)
 
 def sinh(space, w_x):

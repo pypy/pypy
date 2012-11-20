@@ -278,3 +278,12 @@ class AppTestMath:
         skip('sign of nan is undefined')
         import math
         assert math.copysign(1.0, float('-nan')) == -1.0
+
+    def test_special_methods(self):
+        import math
+        class Z:
+            pass
+        for i, name in enumerate(('ceil', 'floor', 'trunc')):
+            setattr(Z, '__{}__'.format(name), lambda self: i)
+            func = getattr(math, name)
+            assert func(Z()) == i
