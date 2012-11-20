@@ -83,6 +83,11 @@ class TinyObjSpace(object):
         return (src, args)
 
     def wrap(self, obj):
+        if isinstance(obj, str):
+            return obj.decode('utf-8')
+        return obj
+
+    def wrapbytes(self, obj):
         return obj
 
     def unpackiterable(self, itr):

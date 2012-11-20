@@ -74,11 +74,17 @@ if 1:
         elif isinstance(value, types.ModuleType):
             name = value.__name__
             defs.append("import %s; self.%s = %s\n" % (name, symbol, name))
-        elif isinstance(value, (int, str)):
+        elif isinstance(value, str):
+            # python2 string -> Bytes string
+            defs.append("self.%s = b%r\n" % (symbol, value))
+        elif isinstance(value, unicode):
+            # python2 unicode -> python3 string
+            defs.append("self.%s = %s\n" % (symbol, repr(value)[1:]))
+        elif isinstance(value, (int, float, list)):
             defs.append("self.%s = %r\n" % (symbol, value))
-    source = py.code.Source(target_)[1:].deindent()
+    source = py.code.Source(target_)[1:]
     pyfile = udir.join('src.py')
-    source = helpers + '\n'.join(defs) + str(source)
+    source = helpers + '\n'.join(defs) + 'if 1:\n' + str(source)
     with pyfile.open('w') as f:
         f.write(source)
     res, stdout, stderr = runsubprocess.run_subprocess(
