@@ -480,7 +480,7 @@ class GetSetProperty(Wrappable):
         Change the value of the property of the given obj."""
         fset = self.fset
         if fset is None:
-            raise OperationError(space.w_TypeError,
+            raise OperationError(space.w_AttributeError,
                                  space.wrap("readonly attribute"))
         try:
             fset(self, space, w_obj, w_value)
