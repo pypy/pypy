@@ -913,18 +913,15 @@ class ObjSpace(object):
                     raise
                 break  # done
             if idx == expected_length:
-                raise OperationError(self.w_ValueError,
-                                    self.wrap("too many values to unpack"))
+                raise operationerrfmt(self.w_ValueError,
+                                      "too many values to unpack (expected %d)",
+                                      expected_length)
             items[idx] = w_item
             idx += 1
         if idx < expected_length:
-            if idx == 1:
-                plural = ""
-            else:
-                plural = "s"
             raise operationerrfmt(self.w_ValueError,
                                   "need more than %d value%s to unpack",
-                                  idx, plural)
+                                  idx, idx != 1 and "s" or "")
         return items
 
     def unpackiterable_unroll(self, w_iterable, expected_length):
