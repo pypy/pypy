@@ -9,11 +9,12 @@ from pypy.rpython.lltypesystem import lltype, rffi
 #
 from pypy.rlib import jit
 from pypy.rlib import libffi
-from pypy.rlib.clibffi import get_libc_name, StackCheckError
+from pypy.rlib.clibffi import get_libc_name, StackCheckError, LibFFIError
 from pypy.rlib.rdynload import DLOpenError
 from pypy.rlib.rarithmetic import intmask, r_uint
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.module._ffi.type_converter import FromAppLevelConverter, ToAppLevelConverter
+from pypy.module._rawffi.interp_rawffi import got_libffi_error
 
 import os
 if os.name == 'nt':
@@ -29,6 +30,8 @@ if os.name == 'nt':
                 raise operationerrfmt(
                     space.w_AttributeError,
                     "No symbol %s found in library %s", name, CDLL.name)
+            except LibFFIError:
+                raise got_libffi_error(space)
 
             return W_FuncPtr(func, argtypes_w, w_restype)
         elif space.isinstance_w(w_name, space.w_int):
@@ -41,6 +44,9 @@ if os.name == 'nt':
                 raise operationerrfmt(
                     space.w_AttributeError,
                     "No ordinal %d found in library %s", ordinal, CDLL.name)
+            except LibFFIError:
+                raise got_libffi_error(space)
+
             return W_FuncPtr(func, argtypes_w, w_restype)
         else:
             raise OperationError(space.w_TypeError, space.wrap(
@@ -58,6 +64,8 @@ else:
             raise operationerrfmt(
                 space.w_AttributeError,
                 "No symbol %s found in library %s", name, CDLL.name)
+        except LibFFIError:
+            raise got_libffi_error(space)
 
         return W_FuncPtr(func, argtypes_w, w_restype)
 
@@ -286,12 +294,11 @@ def descr_fromaddr(space, w_cls, addr, name, w_argtypes,
                                                                w_argtypes,
                                                                w_restype)
     addr = rffi.cast(rffi.VOIDP, addr)
-    func = libffi.Func(name, argtypes, restype, addr, flags)
     try:
+        func = libffi.Func(name, argtypes, restype, addr, flags)
         return W_FuncPtr(func, argtypes_w, w_restype)
-    except OSError:
-        raise OperationError(space.w_SystemError,
-                         space.wrap("internal error building the Func object"))
+    except LibFFIError:
+        raise got_libffi_error(space)
 
 
 W_FuncPtr.typedef = TypeDef(
