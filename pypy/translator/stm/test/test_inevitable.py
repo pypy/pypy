@@ -1,4 +1,4 @@
-from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.llinterp import LLFrame
 from pypy.rpython.test import test_llinterp
 from pypy.rpython.test.test_llinterp import get_interpreter, clear_tcache
@@ -114,3 +114,92 @@ class TestTransform:
 
         res = self.interpret_inevitable(f1, [])
         assert res == 'malloc'
+
+
+    def test_ext_direct_call_safe(self):
+        TYPE = lltype.FuncType([], lltype.Void)
+        extfunc = lltype.functionptr(TYPE, 'extfunc',
+                                     external='C',
+                                     transactionsafe=True,
+                                     _callable=lambda:0)
+        def f1():
+            extfunc()
+
+        res = self.interpret_inevitable(f1, [])
+        assert res is None
+
+
+    def test_ext_direct_call_unsafe(self):
+        TYPE = lltype.FuncType([], lltype.Void)
+        extfunc = lltype.functionptr(TYPE, 'extfunc',
+                                     external='C',
+                                     _callable=lambda:0)
+        def f1():
+            extfunc()
+
+        res = self.interpret_inevitable(f1, [])
+        assert res == 'direct_call'
+
+    def test_rpy_direct_call(self):
+        def f2():
+            pass
+        def f1():
+            f2()
+
+        res = self.interpret_inevitable(f1, [])
+        assert res is None
+
+    def test_rpy_indirect_call(self):
+        def f2():
+            pass
+        def f3():
+            pass
+        def f1(i):
+            if i:
+                f = f2
+            else:
+                f = f3
+            f()
+
+        res = self.interpret_inevitable(f1, [True])
+        assert res is None
+
+    def test_ext_indirect_call(self):
+        TYPE = lltype.FuncType([], lltype.Void)
+        extfunc = lltype.functionptr(TYPE, 'extfunc',
+                                     external='C',
+                                     _callable=lambda:0)
+        rpyfunc = lltype.functionptr(TYPE, 'rpyfunc',
+                                     _callable=lambda:0)
+
+
+        def f1(i):
+            if i:
+                f = extfunc
+            else:
+                f = rpyfunc
+            f()
+
+        res = self.interpret_inevitable(f1, [True])
+        assert res == 'indirect_call'
+
+    def test_instantiate_indirect_call(self):
+        # inits are necessary to generate indirect_call
+        class A:
+            def __init__(self): pass
+        class B(A):
+            def __init__(self): pass
+        class C(A):
+            def __init__(self): pass
+
+        def f1(i):
+            if i:
+                c = B
+            else:
+                c = C
+            c()
+
+        res = self.interpret_inevitable(f1, [True])
+        assert res is None
+
+

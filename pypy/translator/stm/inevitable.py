@@ -1,13 +1,14 @@
-from pypy.rpython.lltypesystem import lltype, lloperation
+from pypy.rpython.lltypesystem import lltype, lloperation, rclass
 from pypy.translator.stm.writebarrier import is_immutable
 from pypy.objspace.flow.model import SpaceOperation, Constant
 from pypy.translator.unsimplify import varoftype
+from pypy.translator.simplify import get_funcobj
 
 
 ALWAYS_ALLOW_OPERATIONS = set([
-    'direct_call', 'force_cast', 'keepalive', 'cast_ptr_to_adr',
+    'force_cast', 'keepalive', 'cast_ptr_to_adr',
     'debug_print', 'debug_assert', 'cast_opaque_ptr', 'hint',
-    'indirect_call', 'stack_current', 'gc_stack_bottom',
+    'stack_current', 'gc_stack_bottom',
     'cast_current_ptr_to_int',   # this variant of 'cast_ptr_to_int' is ok
     'jit_force_virtual', 'jit_force_virtualizable',
     'jit_force_quasi_immutable', 'jit_marker', 'jit_is_virtual',
@@ -42,7 +43,7 @@ def should_turn_inevitable_getter_setter(op):
         return False
     return True
 
-def should_turn_inevitable(op):
+def should_turn_inevitable(op, block):
     # Always-allowed operations never cause a 'turn inevitable'
     if op.opname in ALWAYS_ALLOW_OPERATIONS:
         return False
@@ -61,6 +62,31 @@ def should_turn_inevitable(op):
     if op.opname in MALLOCS:
         flags = op.args[1].value
         return flags['flavor'] != 'gc'
+
+    #
+    # Function calls
+    if op.opname == 'direct_call':
+        funcptr = get_funcobj(op.args[0].value)
+        if not hasattr(funcptr, "external"):
+            return False
+        return not getattr(funcptr, "transactionsafe", False)
+
+    if op.opname == 'indirect_call':
+        tographs = op.args[-1].value
+        if tographs is not None:
+            # Set of RPython functions
+            return False
+        # special-case to detect 'instantiate'
+        v_func = op.args[0]
+        for op1 in block.operations:
+            if (v_func is op1.result and
+                op1.opname == 'getfield' and
+                op1.args[0].concretetype == rclass.CLASSTYPE and
+                op1.args[1].value == 'instantiate'):
+                return False
+        # unknown function
+        return True
+
     #
     # Entirely unsupported operations cause a 'turn inevitable'
     return True
@@ -75,6 +101,6 @@ def insert_turn_inevitable(translator, graph):
     for block in graph.iterblocks():
         for i in range(len(block.operations)-1, -1, -1):
             op = block.operations[i]
-            if should_turn_inevitable(op):
+            if should_turn_inevitable(op, block):
                 inev_op = turn_inevitable_op(op.opname)
                 block.operations.insert(i, inev_op)
