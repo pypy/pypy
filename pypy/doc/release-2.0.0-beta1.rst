@@ -28,9 +28,7 @@ Windows 32. It also supports ARM machines running Linux.
 Windows 64 work is still stalling, we would welcome a volunteer
 to handle that.
 
-.. XXX link
-
-XXX donors info?
+.. _`pypy 2.0 beta 1 and cpython 2.7.3`: http://bit.ly/USXqpP
 
 Regressions
 ===========
@@ -91,3 +89,17 @@ Highlights
   unicode strings, which means that now such collections will be both faster
   and more compact.
 
+Things we're working on
+=======================
+
+There are a few things that did not make it to the 2.0 beta 1, which
+are being actively worked on. Greenlets support in the JIT is one
+that we would like to have before 2.0 final. Two important items that
+will not make it to 2.0, but are being actively worked on, are:
+
+* Faster JIT warmup time.
+
+* Software Transactional Memory.
+
+Cheers,
+Maciej Fijalkowski, Armin Rigo and the PyPy team
