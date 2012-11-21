@@ -100,6 +100,9 @@ Highlights
   unicode strings, which means that now such collections will be both faster
   and more compact.
 
+.. _`cpython issue tracker`: http://bugs.python.org/issue14621
+.. _`jit hooks`: http://doc.pypy.org/en/latest/jit-hooks.html
+
 Things we're working on
 =======================
 
