@@ -30,6 +30,17 @@ to handle that.
 
 .. _`pypy 2.0 beta 1 and cpython 2.7.3`: http://bit.ly/USXqpP
 
+How to use PyPy?
+================
+
+We suggest using PyPy from a `virtualenv`_. Once you have a virtualenv
+installed, you can follow instructions from `pypy documentation`_ on how
+to proceed. This document also covers other `installation schemes`_.
+
+.. _`pypy documentation`: http://doc.pypy.org/en/latest/getting-started.html#installing-using-virtualenv
+.. _`virtualenv`: http://www.virtualenv.org/en/latest/
+.. _`installation schemes`: http://doc.pypy.org/en/latest/getting-started.html#installing-pypy
+
 Regressions
 ===========
 
