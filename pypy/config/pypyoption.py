@@ -39,11 +39,6 @@ working_modules.update(dict.fromkeys(
      ]
 ))
 
-# Here is the list of modules known to not work yet
-for name in ["cpyext",
-             ]:
-    del working_modules[name]
-
 translation_modules = default_modules.copy()
 translation_modules.update(dict.fromkeys(
     ["fcntl", "rctime", "select", "signal", "_rawffi", "zlib",
