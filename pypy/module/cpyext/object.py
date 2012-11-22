@@ -411,8 +411,10 @@ def PyObject_AsCharBuffer(space, obj, bufferp, sizep):
         raise OperationError(space.w_TypeError, space.wrap(
             "expected an object with the buffer interface"))
     with lltype.scoped_alloc(Py_buffer) as view:
-        if generic_cpy_call(space, pb.c_bf_getbuffer,
-                            obj, view, rffi.cast(rffi.INT_real, PyBUF_SIMPLE)):
+        ret = generic_cpy_call(
+            space, pb.c_bf_getbuffer,
+            obj, view, rffi.cast(rffi.INT_real, PyBUF_SIMPLE))
+        if rffi.cast(lltype.Signed, ret) == -1:
             return -1
 
         bufferp[0] = rffi.cast(rffi.CCHARP, view.c_buf)

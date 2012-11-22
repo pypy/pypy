@@ -246,9 +246,8 @@ def wrap_getbuffer(space, w_self, w_args, func):
     func_target = rffi.cast(getbufferproc, func)
     with lltype.scoped_alloc(Py_buffer) as view:
         flags = rffi.cast(rffi.INT_real, 0)
-        print "AFA CALL GETBUFFER"
         ret = generic_cpy_call(space, func_target, w_self, view, flags)
-        if ret < 0:
+        if rffi.cast(lltype.Signed, ret) == -1:
             space.fromcache(State).check_and_raise_exception(always=True)
         return space.wrap(CPyBuffer(view.c_buf, view.c_len, w_self))
 
