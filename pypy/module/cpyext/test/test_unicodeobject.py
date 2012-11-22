@@ -110,6 +110,27 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         res = module.test_unicode_format(1, "xyz")
         assert res == "bla 1 ble xyz\n"
 
+    def test_aswidecharstring(self):
+        module = self.import_extension('foo', [
+            ("aswidecharstring", "METH_O",
+             '''
+             PyObject *result;
+             Py_ssize_t size;
+             wchar_t *buffer;
+
+             buffer = PyUnicode_AsWideCharString(args, &size);
+             if (buffer == NULL)
+                 return NULL;
+
+             result = PyUnicode_FromWideChar(buffer, size + 1);
+             PyMem_Free(buffer);
+             if (result == NULL)
+                 return NULL;
+             return Py_BuildValue("(Nn)", result, size);
+             ''')])
+        res = module.aswidecharstring("Caf\xe9")
+        assert res == ("Caf\xe9\0", 4)
+
 
 class TestUnicode(BaseApiTest):
     def test_unicodeobject(self, space, api):

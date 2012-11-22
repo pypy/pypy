@@ -2173,22 +2173,6 @@ def PyUnicode_EncodeFSDefault(space, unicode):
     raise NotImplementedError
     
 
-@cpython_api([PyObject, Py_ssize_t], rffi.CWCHARP)
-def PyUnicode_AsWideCharString(space, unicode, size):
-    """Convert the Unicode object to a wide character string. The output string
-    always ends with a nul character. If size is not NULL, write the number
-    of wide characters (excluding the trailing 0-termination character) into
-    *size.
-    
-    Returns a buffer allocated by PyMem_Alloc() (use
-    PyMem_Free() to free it) on success. On error, returns NULL,
-    *size is undefined and raises a MemoryError. Note that the
-    resulting wchar_t* string might contain null characters, which
-    would cause the string to be truncated when used with most C functions.
-    """
-    raise NotImplementedError
-    
-
 @cpython_api([rffi.CArrayPtr(Py_UNICODE), Py_ssize_t, rffi.CCHARP, rffi.CCHARP], PyObject)
 def PyUnicode_Encode(space, s, size, encoding, errors):
     """Encode the Py_UNICODE buffer s of the given size and return a Python

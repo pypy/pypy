@@ -522,3 +522,35 @@ PyUnicode_FromFormat(const char *format, ...)
     return ret;
 }
 
+wchar_t*
+PyUnicode_AsWideCharString(PyObject *unicode,
+                           Py_ssize_t *size)
+{
+    wchar_t* buffer;
+    Py_ssize_t buflen;
+
+    if (unicode == NULL) {
+        PyErr_BadInternalCall();
+        return NULL;
+    }
+
+    buflen = PyUnicode_GET_SIZE(unicode) + 1;
+    if (PY_SSIZE_T_MAX / sizeof(wchar_t) < buflen) {
+        PyErr_NoMemory();
+        return NULL;
+    }
+
+    /* PyPy shortcut: Unicode is already an array of wchar_t */
+    buffer = PyMem_MALLOC(buflen * sizeof(wchar_t));
+    if (buffer == NULL) {
+        PyErr_NoMemory();
+        return NULL;
+    }
+
+    if (PyUnicode_AsWideChar(unicode, buffer, buflen) < 0)
+	return NULL;
+    if (size != NULL)
+        *size = buflen - 1;
+    return buffer;
+}
+

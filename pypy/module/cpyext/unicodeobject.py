@@ -255,12 +255,12 @@ def PyUnicode_AsWideChar(space, ref, buf, size):
     to make sure that the wchar_t string is 0-terminated in case this is
     required by the application."""
     c_buffer = PyUnicode_AS_UNICODE(space, ref)
+    ref = rffi.cast(PyUnicodeObject, ref)
     c_size = ref.c_size
 
     # If possible, try to copy the 0-termination as well
     if size > c_size:
         size = c_size + 1
-
 
     i = 0
     while i < size:
