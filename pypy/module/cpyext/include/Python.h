@@ -109,6 +109,7 @@ typedef long Py_ssize_t;
 #include "tupleobject.h"
 #include "dictobject.h"
 #include "intobject.h"
+#include "longobject.h"
 #include "listobject.h"
 #include "unicodeobject.h"
 #include "compile.h"
