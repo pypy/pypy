@@ -103,13 +103,6 @@ def PyByteArray_GET_SIZE(space, bytearray):
     raise NotImplementedError
     
 
-@cpython_api([PyObject], PyObject)
-def PyBytes_FromObject(space, o):
-    """Return the bytes representation of object o that implements the buffer
-    protocol."""
-    raise NotImplementedError
-    
-
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyCell_Check(space, ob):
     """Return true if ob is a cell object; ob must not be NULL."""
@@ -2110,65 +2103,6 @@ def PyUnicode_AsUnicodeCopy(space, unicode):
     the buffer). Note that the resulting Py_UNICODE* string may contain
     embedded null characters, which would cause the string to be truncated when
     used in most C functions.
-    """
-    raise NotImplementedError
-    
-
-@cpython_api([PyObject, rffi.VOIDP], rffi.INT_real, error=-1)
-def PyUnicode_FSConverter(space, obj, result):
-    """ParseTuple converter: encode str objects to bytes using
-    PyUnicode_EncodeFSDefault(); bytes objects are output as-is.
-    result must be a PyBytesObject* which must be released when it is
-    no longer used.
-    """
-    raise NotImplementedError
-    
-
-@cpython_api([PyObject, rffi.VOIDP], rffi.INT_real, error=-1)
-def PyUnicode_FSDecoder(space, obj, result):
-    """ParseTuple converter: decode bytes objects to str using
-    PyUnicode_DecodeFSDefaultAndSize(); str objects are output
-    as-is. result must be a PyUnicodeObject* which must be released
-    when it is no longer used.
-    """
-    raise NotImplementedError
-    
-
-@cpython_api([rffi.CCHARP, Py_ssize_t], PyObject)
-def PyUnicode_DecodeFSDefaultAndSize(space, s, size):
-    """Decode a string using Py_FileSystemDefaultEncoding and the
-    'surrogateescape' error handler, or 'strict' on Windows.
-    
-    If Py_FileSystemDefaultEncoding is not set, fall back to the
-    locale encoding.
-    
-    Use 'strict' error handler on Windows."""
-    raise NotImplementedError
-    
-
-@cpython_api([rffi.CCHARP], PyObject)
-def PyUnicode_DecodeFSDefault(space, s):
-    """Decode a null-terminated string using Py_FileSystemDefaultEncoding
-    and the 'surrogateescape' error handler, or 'strict' on Windows.
-    
-    If Py_FileSystemDefaultEncoding is not set, fall back to the
-    locale encoding.
-    
-    Use PyUnicode_DecodeFSDefaultAndSize() if you know the string length.
-    
-    Use 'strict' error handler on Windows."""
-    raise NotImplementedError
-    
-
-@cpython_api([PyObject], PyObject)
-def PyUnicode_EncodeFSDefault(space, unicode):
-    """Encode a Unicode object to Py_FileSystemDefaultEncoding with the
-    'surrogateescape' error handler, or 'strict' on Windows, and return
-    bytes. Note that the resulting bytes object may contain
-    null bytes.
-    
-    If Py_FileSystemDefaultEncoding is not set, fall back to the
-    locale encoding.
     """
     raise NotImplementedError
     

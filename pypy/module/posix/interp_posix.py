@@ -38,10 +38,14 @@ else:
 
 def fsencode_w(space, w_obj):
     if space.isinstance_w(w_obj, space.w_unicode):
-        w_obj = space.call_method(w_obj, 'encode',
-                                  getfilesystemencoding(space),
-                                  space.wrap('surrogateescape'))
+        w_obj = fsencode(space, w_obj)
     return space.bytes0_w(w_obj)
+
+def fsencode(space, w_obj):
+    w_bytes = space.call_method(w_obj, 'encode',
+                                getfilesystemencoding(space),
+                                space.wrap('surrogateescape'))
+    return w_bytes
 
 def fsdecode(space, w_obj):
     w_unicode = space.call_method(w_obj, 'decode',

@@ -5,13 +5,15 @@ from pypy.module.unicodedata import unicodedb
 from pypy.module.cpyext.api import (
     CANNOT_FAIL, Py_ssize_t, build_type_checkers, cpython_api,
     bootstrap_function, PyObjectFields, cpython_struct, CONST_STRING,
-    CONST_WSTRING)
+    CONST_WSTRING, Py_CLEANUP_SUPPORTED)
 from pypy.module.cpyext.pyerrors import PyErr_BadArgument
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, Py_DecRef, make_ref, from_ref, track_reference,
     make_typedescr, get_typedescr)
 from pypy.module.cpyext.stringobject import PyString_Check
+from pypy.module.cpyext.bytesobject import PyBytes_FromObject
 from pypy.module._codecs.interp_codecs import CodecState
+from pypy.module.posix.interp_posix import fsencode, fsdecode
 from pypy.objspace.std import unicodeobject, unicodetype, stringtype
 from pypy.rlib import runicode
 from pypy.tool.sourcetools import func_renamer
@@ -405,6 +407,96 @@ def PyUnicode_FromEncodedObject(space, w_obj, encoding, errors):
         raise OperationError(space.w_TypeError,
                              space.wrap("decoding Unicode is not supported"))
     return space.call_function(w_meth, w_encoding, w_errors)
+
+
+@cpython_api([PyObject, PyObjectP], rffi.INT_real, error=0)
+def PyUnicode_FSConverter(space, w_obj, result):
+    """ParseTuple converter: encode str objects to bytes using
+    PyUnicode_EncodeFSDefault(); bytes objects are output as-is.
+    result must be a PyBytesObject* which must be released when it is
+    no longer used.
+    """
+    if not w_obj:
+        # Implement ParseTuple cleanup support
+        Py_DecRef(space, result[0])
+        return 1
+    if space.isinstance_w(w_obj, space.w_bytes):
+        w_output = w_obj
+    else:
+        w_obj = PyUnicode_FromObject(space, w_obj)
+        w_output = fsencode(space, w_obj)
+        if not space.isinstance_w(w_output, space.w_bytes):
+            raise OperationError(space.w_TypeError,
+                                 space.wrap("encoder failed to return bytes"))
+    data = space.bytes0_w(w_output)  # Check for NUL bytes
+    result[0] = make_ref(space, w_output)
+    return Py_CLEANUP_SUPPORTED
+
+
+@cpython_api([PyObject, PyObjectP], rffi.INT_real, error=0)
+def PyUnicode_FSDecoder(space, w_obj, result):
+    """ParseTuple converter: decode bytes objects to str using
+    PyUnicode_DecodeFSDefaultAndSize(); str objects are output
+    as-is. result must be a PyUnicodeObject* which must be released
+    when it is no longer used.
+    """
+    if not w_obj:
+        # Implement ParseTuple cleanup support
+        Py_DecRef(space, result[0])
+        return 1
+    if space.isinstance_w(w_obj, space.w_unicode):
+        w_output = w_obj
+    else:
+        w_obj = PyBytes_FromObject(space, w_obj)
+        w_output = fsdecode(space, w_obj)
+        if not space.isinstance_w(w_output, space.w_unicode):
+            raise OperationError(space.w_TypeError,
+                                 space.wrap("decoder failed to return unicode"))
+    data = space.unicode0_w(w_output)  # Check for NUL bytes
+    result[0] = make_ref(space, w_output)
+    return Py_CLEANUP_SUPPORTED
+    
+
+@cpython_api([rffi.CCHARP, Py_ssize_t], PyObject)
+def PyUnicode_DecodeFSDefaultAndSize(space, s, size):
+    """Decode a string using Py_FileSystemDefaultEncoding and the
+    'surrogateescape' error handler, or 'strict' on Windows.
+    
+    If Py_FileSystemDefaultEncoding is not set, fall back to the
+    locale encoding.
+    
+    Use 'strict' error handler on Windows."""
+    w_bytes = space.wrapbytes(rffi.charpsize2str(s, size))
+    return fsdecode(space, w_bytes)
+
+
+@cpython_api([rffi.CCHARP], PyObject)
+def PyUnicode_DecodeFSDefault(space, s):
+    """Decode a null-terminated string using Py_FileSystemDefaultEncoding
+    and the 'surrogateescape' error handler, or 'strict' on Windows.
+    
+    If Py_FileSystemDefaultEncoding is not set, fall back to the
+    locale encoding.
+    
+    Use PyUnicode_DecodeFSDefaultAndSize() if you know the string length.
+    
+    Use 'strict' error handler on Windows."""
+    w_bytes = space.wrapbytes(rffi.charp2str(s))
+    return fsdecode(space, w_bytes)
+
+
+@cpython_api([PyObject], PyObject)
+def PyUnicode_EncodeFSDefault(space, w_unicode):
+    """Encode a Unicode object to Py_FileSystemDefaultEncoding with the
+    'surrogateescape' error handler, or 'strict' on Windows, and return
+    bytes. Note that the resulting bytes object may contain
+    null bytes.
+    
+    If Py_FileSystemDefaultEncoding is not set, fall back to the
+    locale encoding.
+    """
+    return fsencode(space, w_unicode)
+
 
 @cpython_api([CONST_STRING], PyObject)
 def PyUnicode_FromString(space, s):

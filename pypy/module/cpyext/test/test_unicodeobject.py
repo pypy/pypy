@@ -3,7 +3,7 @@ from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.unicodeobject import (
     Py_UNICODE, PyUnicodeObject, new_empty_unicode)
-from pypy.module.cpyext.api import PyObjectP, PyObject
+from pypy.module.cpyext.api import PyObjectP, PyObject, Py_CLEANUP_SUPPORTED
 from pypy.module.cpyext.pyobject import Py_DecRef, from_ref
 from pypy.rpython.lltypesystem import rffi, lltype
 import sys, py
@@ -272,6 +272,42 @@ class TestUnicode(BaseApiTest):
         assert res == 0
         assert s == "12&#4660;"
 
+    def test_encode_fsdefault(self, space, api):
+        w_u = space.wrap(u'späm')
+        w_s = api.PyUnicode_EncodeFSDefault(w_u)
+        with rffi.scoped_str2charp(space.str_w(w_s)) as encoded:
+            w_decoded = api.PyUnicode_DecodeFSDefaultAndSize(encoded, space.len_w(w_s))
+            assert space.eq_w(w_decoded, w_u)
+            w_decoded = api.PyUnicode_DecodeFSDefault(encoded)
+            assert space.eq_w(w_decoded, w_u)
+
+    def test_fsconverter(self, space, api):
+        # Input is bytes
+        w_input = space.wrapbytes("test")
+        with lltype.scoped_alloc(PyObjectP.TO, 1) as result:
+            # Decoder
+            ret = api.PyUnicode_FSDecoder(w_input, result)
+            assert ret == Py_CLEANUP_SUPPORTED
+            assert space.isinstance_w(from_ref(space, result[0]), space.w_unicode)
+            assert api.PyUnicode_FSDecoder(None, result) == 1
+            # Converter
+            ret = api.PyUnicode_FSConverter(w_input, result)
+            assert ret == Py_CLEANUP_SUPPORTED
+            assert space.eq_w(from_ref(space, result[0]), w_input)
+            assert api.PyUnicode_FSDecoder(None, result) == 1
+        # Input is unicode
+        w_input = space.wrap("test")
+        with lltype.scoped_alloc(PyObjectP.TO, 1) as result:
+            # Decoder
+            ret = api.PyUnicode_FSDecoder(w_input, result)
+            assert ret == Py_CLEANUP_SUPPORTED
+            assert space.eq_w(from_ref(space, result[0]), w_input)
+            assert api.PyUnicode_FSDecoder(None, result) == 1
+            # Converter
+            ret = api.PyUnicode_FSConverter(w_input, result)
+            assert ret == Py_CLEANUP_SUPPORTED
+            assert space.isinstance_w(from_ref(space, result[0]), space.w_bytes)
+            assert api.PyUnicode_FSDecoder(None, result) == 1
 
     def test_IS(self, space, api):
         for char in [0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x1c, 0x1d, 0x1e, 0x1f,
