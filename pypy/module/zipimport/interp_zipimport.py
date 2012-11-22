@@ -218,7 +218,7 @@ class W_ZipImporter(Wrappable):
         except KeyError:
             return False
 
-    @unwrap_spec(fullname=str)
+    @unwrap_spec(fullname='str0')
     def find_module(self, space, fullname, w_path=None):
         filename = self.make_filename(fullname)
         for _, _, ext in ENUMERATE_EXTS:
@@ -243,7 +243,7 @@ class W_ZipImporter(Wrappable):
         """
         return self.filename + os.path.sep + filename
 
-    @unwrap_spec(fullname=str)
+    @unwrap_spec(fullname='str0')
     def load_module(self, space, fullname):
         w = space.wrap
         filename = self.make_filename(fullname)
@@ -276,7 +276,7 @@ class W_ZipImporter(Wrappable):
         # should never happen I think
         return space.w_None
 
-    @unwrap_spec(filename=str)
+    @unwrap_spec(filename='str0')
     def get_data(self, space, filename):
         filename = self._find_relative_path(filename)
         try:
@@ -285,7 +285,7 @@ class W_ZipImporter(Wrappable):
         except (KeyError, OSError, BadZipfile):
             raise OperationError(space.w_IOError, space.wrap("Error reading file"))
 
-    @unwrap_spec(fullname=str)
+    @unwrap_spec(fullname='str0')
     def get_code(self, space, fullname):
         filename = self.make_filename(fullname)
         for compiled, _, ext in ENUMERATE_EXTS:
@@ -308,7 +308,7 @@ class W_ZipImporter(Wrappable):
         raise operationerrfmt(get_error(space),
             "Cannot find source or code for %s in %s", filename, self.name)
 
-    @unwrap_spec(fullname=str)
+    @unwrap_spec(fullname='str0')
     def get_source(self, space, fullname):
         filename = self.make_filename(fullname)
         found = False
@@ -328,7 +328,7 @@ class W_ZipImporter(Wrappable):
         raise operationerrfmt(get_error(space),
             "Cannot find source for %s in %s", filename, self.name)
 
-    @unwrap_spec(fullname=str)
+    @unwrap_spec(fullname='str0')
     def get_filename(self, space, fullname):
         filename = self.make_filename(fullname)
         for _, is_package, ext in ENUMERATE_EXTS:
@@ -338,7 +338,7 @@ class W_ZipImporter(Wrappable):
         raise operationerrfmt(get_error(space),
             "Cannot find module %s in %s", filename, self.name)
 
-    @unwrap_spec(fullname=str)
+    @unwrap_spec(fullname='str0')
     def is_package(self, space, fullname):
         filename = self.make_filename(fullname)
         for _, is_package, ext in ENUMERATE_EXTS:
