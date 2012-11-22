@@ -15,7 +15,7 @@ Getting into PyPy ...
 
 * `FAQ`_: some frequently asked questions.
 
-* `Release 1.9`_: the latest official release
+* `Release 2.0 beta 1`_: the latest official release
 
 * `PyPy Blog`_: news and status info about PyPy 
 
@@ -75,7 +75,7 @@ on the `development mailing list`_.
 .. _`Getting Started`: getting-started.html
 .. _`Papers`: extradoc.html
 .. _`Videos`: video-index.html
-.. _`Release 1.9`: http://pypy.org/download.html
+.. _`Release 2.0 beta1`: http://pypy.org/download.html
 .. _`speed.pypy.org`: http://speed.pypy.org
 .. _`RPython toolchain`: translation.html
 .. _`potential project ideas`: project-ideas.html
@@ -120,9 +120,9 @@ PyPy can be used to run Python programs on Linux, OS/X,
 Windows, on top of .NET, and on top of Java.
 To dig into PyPy it is recommended to try out the current
 Mercurial default branch, which is always working or mostly working,
-instead of the latest release, which is `1.9`__.
+instead of the latest release, which is `2.0 beta1`__.
 
-.. __: release-1.9.0.html
+.. __: release-2.0.0-beta1.html
 
 PyPy is mainly developed on Linux and Mac OS X.  Windows is supported,
 but platform-specific bugs tend to take longer before we notice and fix
