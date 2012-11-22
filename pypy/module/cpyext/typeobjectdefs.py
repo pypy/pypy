@@ -76,7 +76,7 @@ PyNumberMethods = cpython_struct("PyNumberMethods", (
     ("nb_negative", unaryfunc),
     ("nb_positive", unaryfunc),
     ("nb_absolute", unaryfunc),
-    ("nb_nonzero", inquiry),
+    ("nb_bool", inquiry),
     ("nb_invert", unaryfunc),
     ("nb_lshift", binaryfunc),
     ("nb_rshift", binaryfunc),
