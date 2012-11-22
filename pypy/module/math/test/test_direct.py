@@ -21,7 +21,7 @@ def finite(x):
 
 
 unary_math_functions = ['acos', 'asin', 'atan',
-                        'ceil', 'cos', 'cosh', 'exp', 'fabs', 'floor',
+                        'cos', 'cosh', 'exp', 'fabs', 'floor',
                         'sin', 'sinh', 'sqrt', 'tan', 'tanh', 'log', 'log10',
                         'acosh', 'asinh', 'atanh', 'log1p', 'expm1']
 binary_math_functions = ['atan2', 'fmod', 'hypot', 'pow']
@@ -86,8 +86,6 @@ class MathTests:
         ('atan', (-INFINITY,), -math.pi / 2),
         ('atanh', (INFINITY,), ValueError),
         ('atanh', (-INFINITY,), ValueError),
-        ('ceil', (INFINITY,), positiveinf),
-        ('ceil', (-INFINITY,), negativeinf),
         ('cos', (INFINITY,), ValueError),
         ('cos', (-INFINITY,), ValueError),
         ('cosh', (INFINITY,), positiveinf),

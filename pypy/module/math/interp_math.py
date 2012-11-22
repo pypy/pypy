@@ -256,7 +256,8 @@ def ceil(space, w_x):
     w_descr = space.lookup(w_x, '__ceil__')
     if w_descr is not None:
         return space.get_and_call_function(w_descr, w_x)
-    return math1(space, math.ceil, w_x)
+    w_ceil_float_result = space.wrap(math.ceil(space.float_w(w_x)))
+    return space.call_function(space.w_int, w_ceil_float_result)
 
 def sinh(space, w_x):
     """sinh(x)

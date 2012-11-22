@@ -3,10 +3,6 @@ import sys
 from pypy.module.math.test import test_direct
 
 # taken from cpython test case test/test_math.py
-eps = 1E-05
-
-def almost_equal(a, b):
-    return abs(a-b) <= eps
 
 class AppTestMath:
     spaceconfig = dict(usemodules=['math', 'struct'])
@@ -294,6 +290,11 @@ class AppTestMath:
             assert func(Z()) == i
 
     def test_ceil(self):
+        eps = 1E-05
+
+        def almost_equal(a, b):
+            return abs(a-b) <= eps
+        # adapted from the cpython test case
         import math
         raises(TypeError, math.ceil)
         assert type(math.ceil(0.4)) is int
@@ -307,7 +308,7 @@ class AppTestMath:
         class TestCeil:
             def __ceil__(self):
                 return 42
-        class TestNoCell:
+        class TestNoCeil:
             pass
         assert almost_equal(math.ceil(TestCeil()), 42)
         raises(TypeError, math.ceil, TestNoCeil())
@@ -316,3 +317,14 @@ class AppTestMath:
         t.__ceil__ = lambda *args: args
         raises(TypeError, math.ceil, t)
         raises(TypeError, math.ceil, t, 0)
+
+        # observed in a cpython interactive shell
+        raises(OverflowError, math.ceil, float("inf"))
+        raises(OverflowError, math.ceil, float("-inf"))
+        raises(ValueError, math.ceil, float("nan"))
+
+        class StrangeCeil:
+            def __ceil__(self):
+                return "this is a string"
+
+        assert math.ceil(StrangeCeil()) == "this is a string"
