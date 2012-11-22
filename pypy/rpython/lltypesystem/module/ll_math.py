@@ -58,7 +58,7 @@ else:
 math_fabs = llexternal('fabs', [rffi.DOUBLE], rffi.DOUBLE)
 math_log = llexternal('log', [rffi.DOUBLE], rffi.DOUBLE)
 math_log10 = llexternal('log10', [rffi.DOUBLE], rffi.DOUBLE)
-math_log1p = llexternal('log1p', [rffi.DOUBLE], rffi.DOUBLE)
+math_log1p = math_llexternal('log1p', [rffi.DOUBLE], rffi.DOUBLE)
 math_copysign = llexternal(underscore + 'copysign',
                            [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE,
                            elidable_function=True)
