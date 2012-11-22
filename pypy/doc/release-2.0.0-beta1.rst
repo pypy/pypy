@@ -40,6 +40,7 @@ to proceed. This document also covers other `installation schemes`_.
 .. _`pypy documentation`: http://doc.pypy.org/en/latest/getting-started.html#installing-using-virtualenv
 .. _`virtualenv`: http://www.virtualenv.org/en/latest/
 .. _`installation schemes`: http://doc.pypy.org/en/latest/getting-started.html#installing-pypy
+.. _`PyPy and pip`: http://doc.pypy.org/en/latest/getting-started.html#installing-pypy
 
 Regressions
 ===========
@@ -63,8 +64,8 @@ Highlights
 ==========
 
 * ``cffi`` is officially supported by PyPy. You can install it normally by
-  using ``pip install cffi`` once you have PyPy installed. The corresponding
-  ``0.4`` version of ``cffi`` has been released.
+  using ``pip install cffi`` once you have installed `PyPy and pip`_.
+  The corresponding ``0.4`` version of ``cffi`` has been released.
 
 * ARM is now an officially supported processor architecture.
   PyPy now work on soft-float ARM/Linux builds.  Currently ARM processors
