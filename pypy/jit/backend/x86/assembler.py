@@ -2407,7 +2407,8 @@ class Assembler386(object):
         _offset, _size, _ = unpack_fielddescr(descrs.jf_descr)
         fail_descr = self.cpu.get_fail_descr_from_number(value)
         value = fail_descr.hide(self.cpu)
-        value = rffi.cast(lltype.Signed, value)       # XXX assumes non-moving
+        rgc._make_sure_does_not_move(value)
+        value = rffi.cast(lltype.Signed, value)
         self.mc.CMP_mi((eax.value, _offset), value)
         # patched later
         self.mc.J_il8(rx86.Conditions['E'], 0) # goto B if we get 'done_with_this_frame'
