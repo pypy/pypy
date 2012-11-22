@@ -108,13 +108,6 @@ def PyMethod_Self(space, w_method):
     assert isinstance(w_method, Method)
     return borrow_from(w_method, w_method.w_instance)
 
-@cpython_api([PyObject], PyObject)
-def PyMethod_Class(space, w_method):
-    """Return the class object from which the method meth was created; if this was
-    created from an instance, it will be the class of the instance."""
-    assert isinstance(w_method, Method)
-    return borrow_from(w_method, w_method.w_class)
-
 def unwrap_list_of_strings(space, w_list):
     return [space.str_w(w_item) for w_item in space.fixedview(w_list)]
 
