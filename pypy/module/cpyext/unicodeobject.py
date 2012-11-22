@@ -245,7 +245,7 @@ def PyUnicode_GetSize(space, ref):
         w_obj = from_ref(space, ref)
         return space.len_w(w_obj)
 
-@cpython_api([PyUnicodeObject, rffi.CWCHARP, Py_ssize_t], Py_ssize_t, error=-1)
+@cpython_api([PyObject, rffi.CWCHARP, Py_ssize_t], Py_ssize_t, error=-1)
 def PyUnicode_AsWideChar(space, ref, buf, size):
     """Copy the Unicode object contents into the wchar_t buffer w.  At most
     size wchar_t characters are copied (excluding a possibly trailing
@@ -254,7 +254,7 @@ def PyUnicode_AsWideChar(space, ref, buf, size):
     string may or may not be 0-terminated.  It is the responsibility of the caller
     to make sure that the wchar_t string is 0-terminated in case this is
     required by the application."""
-    c_buffer = PyUnicode_AS_UNICODE(space, rffi.cast(PyObject, ref))
+    c_buffer = PyUnicode_AS_UNICODE(space, ref)
     c_size = ref.c_size
 
     # If possible, try to copy the 0-termination as well
