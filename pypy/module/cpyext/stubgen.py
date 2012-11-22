@@ -23,6 +23,7 @@ C_TYPE_TO_PYPY_TYPE = {
         "PyObject*": "PyObject",
         "PyObject**": "PyObjectP",
         "char*": "rffi.CCHARP",
+        "char**": "rffi.CCHARPP",
         "PyMethodDef*": "PyMethodDef",
         "Py_ssize_t": "Py_ssize_t",
         "Py_ssize_t*": "Py_ssize_t",
@@ -54,7 +55,9 @@ def c_param_to_type_and_name(string, is_arg=True):
 def process_doctree(app, doctree):
     for node in doctree.traverse(addnodes.desc_content):
         par = node.parent
-        if par['desctype'] != 'cfunction':
+        if par['domain'] != 'c':
+            continue
+        if par['desctype'] != 'function':
             continue
         if not par[0].has_key('names') or not par[0]['names']:
             continue
@@ -64,9 +67,13 @@ def process_doctree(app, doctree):
             print "Wow, you implemented already", functionname
             continue
         borrows = docstring = ""
-        crettype, _, cparameters = par[0]
+        try:
+            crettype, _, cparameters = par[0]
+        except:
+            import pdb;pdb.set_trace()
         crettype = crettype.astext()
         cparameters = cparameters.astext()
+        cparameters = cparameters.replace(u'\xa0', u' ')
         rettype, _ = c_param_to_type_and_name(crettype, False)
         params = ["space"]
         paramtypes = []

@@ -4,157 +4,137 @@ from pypy.module.cpyext.api import (
 from pypy.module.cpyext.complexobject import Py_complex_ptr as Py_complex
 from pypy.rpython.lltypesystem import rffi, lltype
 
+CWCHARPP = lltype.Ptr(lltype.Array(rffi.CWCHARP, hints={'nolength': True}))
+
 # we don't really care
 PyTypeObjectPtr = rffi.VOIDP
 Py_ssize_t = rffi.SSIZE_T
+PyModuleDef = rffi.VOIDP
 PyMethodDef = rffi.VOIDP
 PyGetSetDef = rffi.VOIDP
 PyMemberDef = rffi.VOIDP
 Py_buffer = rffi.VOIDP
 va_list = rffi.VOIDP
-PyDateTime_Date = rffi.VOIDP
-PyDateTime_DateTime = rffi.VOIDP
-PyDateTime_Time = rffi.VOIDP
 wrapperbase = rffi.VOIDP
 FILE = rffi.VOIDP
-PyFileObject = rffi.VOIDP
-PyCodeObject = rffi.VOIDP
 PyFrameObject = rffi.VOIDP
-PyFloatObject = rffi.VOIDP
 _inittab = rffi.VOIDP
 PyThreadState = rffi.VOIDP
 PyInterpreterState = rffi.VOIDP
 Py_UNICODE = lltype.UniChar
 PyCompilerFlags = rffi.VOIDP
-_node = rffi.VOIDP
+struct_node = rffi.VOIDP
 Py_tracefunc = rffi.VOIDP
 
-@cpython_api([PyObject], lltype.Void)
-def _PyObject_Del(space, op):
-    raise NotImplementedError
 
-@cpython_api([rffi.CCHARP], Py_ssize_t, error=CANNOT_FAIL)
+
+@cpython_api([rffi.CCHARP], Py_ssize_t, error=-1)
 def PyBuffer_SizeFromFormat(space, format):
-    """Return the implied ~Py_buffer.itemsize from the struct-stype
-    ~Py_buffer.format."""
+    """Return the implied itemsize from the struct-stype
+    format."""
     raise NotImplementedError
+    
 
 @cpython_api([rffi.INT_real, Py_ssize_t, Py_ssize_t, Py_ssize_t, lltype.Char], lltype.Void)
 def PyBuffer_FillContiguousStrides(space, ndim, shape, strides, itemsize, fortran):
     """Fill the strides array with byte-strides of a contiguous (C-style if
-    fortran is 'C' or Fortran-style if fortran is 'F' array of the
+    fortran is 'C' or Fortran-style if fortran is 'F') array of the
     given shape with the given number of bytes per element."""
     raise NotImplementedError
-
-@cpython_api([Py_buffer], PyObject)
-def PyMemoryView_FromBuffer(space, view):
-    """Create a memoryview object wrapping the given buffer-info structure view.
-    The memoryview object then owns the buffer, which means you shouldn't
-    try to release it yourself: it will be released on deallocation of the
-    memoryview object."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, rffi.INT_real, lltype.Char], PyObject)
-def PyMemoryView_GetContiguous(space, obj, buffertype, order):
-    """Create a memoryview object to a contiguous chunk of memory (in either
-    'C' or 'F'ortran order) from an object that defines the buffer
-    interface. If memory is contiguous, the memoryview object points to the
-    original memory. Otherwise copy is made and the memoryview points to a
-    new bytes object."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyMemoryView_Check(space, obj):
-    """Return true if the object obj is a memoryview object.  It is not
-    currently allowed to create subclasses of memoryview."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], Py_buffer)
-def PyMemoryView_GET_BUFFER(space, obj):
-    """Return a pointer to the buffer-info structure wrapped by the given
-    object.  The object must be a memoryview instance; this macro doesn't
-    check its type, you must do it yourself or you will risk crashes."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyByteArray_Check(space, o):
-    """Return true if the object o is a bytearray object or an instance of a
-    subtype of the bytearray type."""
-    raise NotImplementedError
+    
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyByteArray_CheckExact(space, o):
     """Return true if the object o is a bytearray object, but not an instance of a
     subtype of the bytearray type."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject], PyObject)
 def PyByteArray_FromObject(space, o):
     """Return a new bytearray object from any object, o, that implements the
     buffer protocol.
-
+    
     XXX expand about the buffer protocol, at least somewhere"""
     raise NotImplementedError
+    
 
 @cpython_api([rffi.CCHARP, Py_ssize_t], PyObject)
 def PyByteArray_FromStringAndSize(space, string, len):
     """Create a new bytearray object from string and its length, len.  On
     failure, NULL is returned."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject, PyObject], PyObject)
 def PyByteArray_Concat(space, a, b):
     """Concat bytearrays a and b and return a new bytearray with the result."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject], Py_ssize_t, error=-1)
 def PyByteArray_Size(space, bytearray):
     """Return the size of bytearray after checking for a NULL pointer."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject], rffi.CCHARP)
 def PyByteArray_AsString(space, bytearray):
     """Return the contents of bytearray as a char array after checking for a
     NULL pointer."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject, Py_ssize_t], rffi.INT_real, error=-1)
 def PyByteArray_Resize(space, bytearray, len):
     """Resize the internal buffer of bytearray to len."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject], rffi.CCHARP)
 def PyByteArray_AS_STRING(space, bytearray):
     """Macro version of PyByteArray_AsString()."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject], Py_ssize_t, error=-1)
 def PyByteArray_GET_SIZE(space, bytearray):
     """Macro version of PyByteArray_Size()."""
     raise NotImplementedError
+    
+
+@cpython_api([PyObject], PyObject)
+def PyBytes_FromObject(space, o):
+    """Return the bytes representation of object o that implements the buffer
+    protocol."""
+    raise NotImplementedError
+    
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyCell_Check(space, ob):
     """Return true if ob is a cell object; ob must not be NULL."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject], PyObject)
 def PyCell_New(space, ob):
     """Create and return a new cell object containing the value ob. The parameter may
     be NULL."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject], PyObject)
 def PyCell_Get(space, cell):
     """Return the contents of the cell cell."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject], PyObject)
 def PyCell_GET(space, cell):
     """Return the contents of the cell cell, but without checking that cell is
     non-NULL and a cell object."""
-    borrow_from()
     raise NotImplementedError
+    borrow_from()
 
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
 def PyCell_Set(space, cell, value):
@@ -163,6 +143,7 @@ def PyCell_Set(space, cell, value):
     must be non-NULL; if it is not a cell object, -1 will be returned.  On
     success, 0 will be returned."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject, PyObject], lltype.Void)
 def PyCell_SET(space, cell, value):
@@ -170,65 +151,69 @@ def PyCell_SET(space, cell, value):
     adjusted, and no checks are made for safety; cell must be non-NULL and must
     be a cell object."""
     raise NotImplementedError
-
-@cpython_api([PyObject, PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyClass_IsSubclass(space, klass, base):
-    """Return true if klass is a subclass of base. Return false in all other cases."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, PyObject, PyObject], PyObject)
-def PyInstance_New(space, cls, arg, kw):
-    """Create a new instance of a specific class.  The parameters arg and kw are
-    used as the positional and keyword parameters to the object's constructor."""
-    raise NotImplementedError
+    
 
 @cpython_api([PyObject], rffi.INT_real, error=-1)
 def PyCodec_Register(space, search_function):
     """Register a new codec search function.
-
+    
     As side effect, this tries to load the encodings package, if not yet
     done, to make sure that it is always first in the list of search functions."""
     raise NotImplementedError
+    
+
+@cpython_api([rffi.CCHARP], rffi.INT_real, error=-1)
+def PyCodec_KnownEncoding(space, encoding):
+    """Return 1 or 0 depending on whether there is a registered codec for
+    the given encoding."""
+    raise NotImplementedError
+    
 
 @cpython_api([PyObject, rffi.CCHARP, rffi.CCHARP], PyObject)
 def PyCodec_Encode(space, object, encoding, errors):
     """Generic codec based encoding API.
-
+    
     object is passed through the encoder function found for the given
     encoding using the error handling method defined by errors.  errors may
     be NULL to use the default method defined for the codec.  Raises a
     LookupError if no encoder can be found."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject, rffi.CCHARP, rffi.CCHARP], PyObject)
 def PyCodec_Decode(space, object, encoding, errors):
     """Generic codec based decoding API.
-
+    
     object is passed through the decoder function found for the given
     encoding using the error handling method defined by errors.  errors may
     be NULL to use the default method defined for the codec.  Raises a
     LookupError if no encoder can be found."""
     raise NotImplementedError
+    
 
 @cpython_api([rffi.CCHARP], PyObject)
 def PyCodec_Encoder(space, encoding):
     """Get an encoder function for the given encoding."""
     raise NotImplementedError
+    
 
 @cpython_api([rffi.CCHARP], PyObject)
 def PyCodec_Decoder(space, encoding):
     """Get a decoder function for the given encoding."""
     raise NotImplementedError
+    
 
 @cpython_api([rffi.CCHARP, PyObject, rffi.CCHARP], PyObject)
 def PyCodec_StreamReader(space, encoding, stream, errors):
     """Get a StreamReader factory function for the given encoding."""
     raise NotImplementedError
+    
 
 @cpython_api([rffi.CCHARP, PyObject, rffi.CCHARP], PyObject)
 def PyCodec_StreamWriter(space, encoding, stream, errors):
     """Get a StreamWriter factory function for the given encoding."""
     raise NotImplementedError
+    
 
 @cpython_api([rffi.CCHARP, PyObject], rffi.INT_real, error=-1)
 def PyCodec_RegisterError(space, name, error):
@@ -236,7 +221,7 @@ def PyCodec_RegisterError(space, name, error):
     This callback function will be called by a codec when it encounters
     unencodable characters/undecodable bytes and name is specified as the error
     parameter in the call to the encode/decode function.
-
+    
     The callback gets a single argument, an instance of
     UnicodeEncodeError, UnicodeDecodeError or
     UnicodeTranslateError that holds information about the problematic
@@ -246,9 +231,10 @@ def PyCodec_RegisterError(space, name, error):
     containing the replacement for the problematic sequence, and an integer
     giving the offset in the original string at which encoding/decoding should be
     resumed.
-
+    
     Return 0 on success, -1 on error."""
     raise NotImplementedError
+    
 
 @cpython_api([rffi.CCHARP], PyObject)
 def PyCodec_LookupError(space, name):
@@ -256,195 +242,185 @@ def PyCodec_LookupError(space, name):
     special case NULL can be passed, in which case the error handling callback
     for "strict" will be returned."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject], PyObject)
 def PyCodec_StrictErrors(space, exc):
     """Raise exc as an exception."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject], PyObject)
 def PyCodec_IgnoreErrors(space, exc):
     """Ignore the unicode error, skipping the faulty input."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject], PyObject)
 def PyCodec_ReplaceErrors(space, exc):
     """Replace the unicode encode error with ? or U+FFFD."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject], PyObject)
 def PyCodec_XMLCharRefReplaceErrors(space, exc):
     """Replace the unicode encode error with XML character references."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject], PyObject)
 def PyCodec_BackslashReplaceErrors(space, exc):
     r"""Replace the unicode encode error with backslash escapes (\x, \u and
     \U)."""
     raise NotImplementedError
+    
 
 @cpython_api([Py_complex, Py_complex], Py_complex)
 def _Py_c_sum(space, left, right):
     """Return the sum of two complex numbers, using the C Py_complex
     representation."""
     raise NotImplementedError
+    
 
 @cpython_api([Py_complex, Py_complex], Py_complex)
 def _Py_c_diff(space, left, right):
     """Return the difference between two complex numbers, using the C
     Py_complex representation."""
     raise NotImplementedError
+    
 
 @cpython_api([Py_complex], Py_complex)
 def _Py_c_neg(space, complex):
     """Return the negation of the complex number complex, using the C
     Py_complex representation."""
     raise NotImplementedError
+    
 
 @cpython_api([Py_complex, Py_complex], Py_complex)
 def _Py_c_prod(space, left, right):
     """Return the product of two complex numbers, using the C Py_complex
     representation."""
     raise NotImplementedError
+    
 
 @cpython_api([Py_complex, Py_complex], Py_complex)
 def _Py_c_quot(space, dividend, divisor):
     """Return the quotient of two complex numbers, using the C Py_complex
-    representation."""
+    representation.
+    
+    If divisor is null, this method returns zero and sets
+    errno to EDOM."""
     raise NotImplementedError
+    
 
 @cpython_api([Py_complex, Py_complex], Py_complex)
 def _Py_c_pow(space, num, exp):
     """Return the exponentiation of num by exp, using the C Py_complex
-    representation."""
+    representation.
+    
+    If num is null and exp is not a positive real number,
+    this method returns zero and sets errno to EDOM."""
     raise NotImplementedError
-
-@cpython_api([Py_complex], PyObject)
-def PyComplex_FromCComplex(space, v):
-    """Create a new Python complex number object from a C Py_complex value."""
-    raise NotImplementedError
-
-@cpython_api([rffi.CCHARP, rffi.CCHARPP], rffi.DOUBLE, error=CANNOT_FAIL)
-def PyOS_ascii_strtod(space, nptr, endptr):
-    """Convert a string to a double. This function behaves like the Standard C
-    function strtod() does in the C locale. It does this without changing the
-    current locale, since that would not be thread-safe.
-
-    PyOS_ascii_strtod() should typically be used for reading configuration
-    files or other non-user input that should be locale independent.
-
-    See the Unix man page strtod(2) for details.
-
-    Use PyOS_string_to_double() instead."""
-    raise NotImplementedError
-
-@cpython_api([rffi.CCHARP, rffi.SIZE_T, rffi.CCHARP, rffi.DOUBLE], rffi.CCHARP)
-def PyOS_ascii_formatd(space, buffer, buf_len, format, d):
-    """Convert a double to a string using the '.' as the decimal
-    separator. format is a printf()-style format string specifying the
-    number format. Allowed conversion characters are 'e', 'E', 'f',
-    'F', 'g' and 'G'.
-
-    The return value is a pointer to buffer with the converted string or NULL if
-    the conversion failed.
-
-    This function is removed in Python 2.7 and 3.1.  Use PyOS_double_to_string()
-    instead."""
-    raise NotImplementedError
+    
 
 @cpython_api([rffi.DOUBLE, lltype.Char, rffi.INT_real, rffi.INT_real, rffi.INTP], rffi.CCHARP)
 def PyOS_double_to_string(space, val, format_code, precision, flags, ptype):
     """Convert a double val to a string using supplied
     format_code, precision, and flags.
-
+    
     format_code must be one of 'e', 'E', 'f', 'F',
     'g', 'G' or 'r'.  For 'r', the supplied precision
     must be 0 and is ignored.  The 'r' format code specifies the
     standard repr() format.
-
+    
     flags can be zero or more of the values Py_DTSF_SIGN,
     Py_DTSF_ADD_DOT_0, or Py_DTSF_ALT, or-ed together:
-
+    
     Py_DTSF_SIGN means to always precede the returned string with a sign
     character, even if val is non-negative.
-
+    
     Py_DTSF_ADD_DOT_0 means to ensure that the returned string will not look
     like an integer.
-
+    
     Py_DTSF_ALT means to apply "alternate" formatting rules.  See the
     documentation for the PyOS_snprintf() '#' specifier for
     details.
-
+    
     If ptype is non-NULL, then the value it points to will be set to one of
     Py_DTST_FINITE, Py_DTST_INFINITE, or Py_DTST_NAN, signifying that
     val is a finite number, an infinite number, or not a number, respectively.
-
+    
     The return value is a pointer to buffer with the converted string or
     NULL if the conversion failed. The caller is responsible for freeing the
     returned string by calling PyMem_Free().
     """
     raise NotImplementedError
-
-@cpython_api([rffi.CCHARP], rffi.DOUBLE, error=CANNOT_FAIL)
-def PyOS_ascii_atof(space, nptr):
-    """Convert a string to a double in a locale-independent way.
-
-    See the Unix man page atof(2) for details.
-
-    Use PyOS_string_to_double() instead."""
-    raise NotImplementedError
+    
 
 @cpython_api([rffi.CCHARP, rffi.CCHARP], rffi.CCHARP)
 def PyOS_stricmp(space, s1, s2):
     """Case insensitive comparison of strings. The function works almost
-    identically to strcmp() except that it ignores the case.
-    """
+    identically to strcmp() except that it ignores the case."""
     raise NotImplementedError
+    
 
 @cpython_api([rffi.CCHARP, rffi.CCHARP, Py_ssize_t], rffi.CCHARP)
 def PyOS_strnicmp(space, s1, s2, size):
     """Case insensitive comparison of strings. The function works almost
-    identically to strncmp() except that it ignores the case.
-    """
+    identically to strncmp() except that it ignores the case."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyTZInfo_Check(space, ob):
     """Return true if ob is of type PyDateTime_TZInfoType or a subtype of
-    PyDateTime_TZInfoType.  ob must not be NULL.
-    """
+    PyDateTime_TZInfoType.  ob must not be NULL."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyTZInfo_CheckExact(space, ob):
     """Return true if ob is of type PyDateTime_TZInfoType. ob must not be
-    NULL.
-    """
+    NULL."""
     raise NotImplementedError
+    
 
 @cpython_api([PyTypeObjectPtr, PyGetSetDef], PyObject)
 def PyDescr_NewGetSet(space, type, getset):
     raise NotImplementedError
+    
 
 @cpython_api([PyTypeObjectPtr, PyMemberDef], PyObject)
 def PyDescr_NewMember(space, type, meth):
     raise NotImplementedError
+    
 
 @cpython_api([PyTypeObjectPtr, wrapperbase, rffi.VOIDP], PyObject)
 def PyDescr_NewWrapper(space, type, wrapper, wrapped):
     raise NotImplementedError
+    
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyDescr_IsData(space, descr):
     """Return true if the descriptor objects descr describes a data attribute, or
     false if it describes a method.  descr must be a descriptor object; there is
-    no error checking.
-    """
+    no error checking."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject, PyObject], PyObject)
-def PyWrapper_New(space, w_d, w_self):
+def PyWrapper_New(space, a, b):
     raise NotImplementedError
+    
+
+@cpython_api([PyObject, PyObject], PyObject)
+def PyDict_GetItemWithError(space, p, key):
+    """Variant of PyDict_GetItem() that does not suppress
+    exceptions. Return NULL with an exception set if an exception
+    occurred.  Return NULL without an exception set if the key
+    wasn't present."""
+    raise NotImplementedError
+    
 
 @cpython_api([PyObject, PyObject, rffi.INT_real], rffi.INT_real, error=-1)
 def PyDict_Merge(space, a, b, override):
@@ -453,9 +429,9 @@ def PyDict_Merge(space, a, b, override):
     and PyObject_GetItem(). If override is true, existing pairs in a
     will be replaced if a matching key is found in b, otherwise pairs will
     only be added if there is not a matching key in a. Return 0 on
-    success or -1 if an exception was raised.
-    """
+    success or -1 if an exception was raised."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject, PyObject, rffi.INT_real], rffi.INT_real, error=-1)
 def PyDict_MergeFromSeq2(space, a, seq2, override):
@@ -465,13 +441,13 @@ def PyDict_MergeFromSeq2(space, a, seq2, override):
     override is true, else the first wins. Return 0 on success or -1
     if an exception was raised. Equivalent Python (except for the return
     value):
-
+    
     def PyDict_MergeFromSeq2(a, seq2, override):
         for key, value in seq2:
             if override or key not in a:
-                a[key] = value
-    """
+                a[key] = value"""
     raise NotImplementedError
+    
 
 @cpython_api([rffi.INT_real], PyObject)
 def PyErr_SetFromWindowsErr(space, ierr):
@@ -485,30 +461,51 @@ def PyErr_SetFromWindowsErr(space, ierr):
     object). This function always returns NULL. Availability: Windows.
     Return value: always NULL."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject, rffi.INT_real], PyObject)
 def PyErr_SetExcFromWindowsErr(space, type, ierr):
     """Similar to PyErr_SetFromWindowsErr(), with an additional parameter
     specifying the exception type to be raised. Availability: Windows.
-
     Return value: always NULL."""
     raise NotImplementedError
+    
 
 @cpython_api([rffi.INT_real, rffi.CCHARP], PyObject)
 def PyErr_SetFromWindowsErrWithFilename(space, ierr, filename):
     """Similar to PyErr_SetFromWindowsErr(), with the additional behavior that
     if filename is not NULL, it is passed to the constructor of
-    WindowsError as a third parameter. Availability: Windows.
+    WindowsError as a third parameter.  filename is decoded from the
+    filesystem encoding (sys.getfilesystemencoding()).  Availability:
+    Windows.
     Return value: always NULL."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject, rffi.INT_real, rffi.CCHARP], PyObject)
 def PyErr_SetExcFromWindowsErrWithFilename(space, type, ierr, filename):
     """Similar to PyErr_SetFromWindowsErrWithFilename(), with an additional
     parameter specifying the exception type to be raised. Availability: Windows.
-
     Return value: always NULL."""
     raise NotImplementedError
+    
+
+@cpython_api([rffi.CCHARP, rffi.INT_real, rffi.INT_real], lltype.Void)
+def PyErr_SyntaxLocationEx(space, filename, lineno, col_offset):
+    """Set file, line, and offset information for the current exception.  If the
+    current exception is not a SyntaxError, then it sets additional
+    attributes, which make the exception printing subsystem think the exception
+    is a SyntaxError. filename is decoded from the filesystem encoding
+    (sys.getfilesystemencoding())."""
+    raise NotImplementedError
+    
+
+@cpython_api([rffi.CCHARP, rffi.INT_real], lltype.Void)
+def PyErr_SyntaxLocation(space, filename, lineno):
+    """Like PyErr_SyntaxLocationExc(), but the col_offset parameter is
+    omitted."""
+    raise NotImplementedError
+    
 
 @cpython_api([PyObject, rffi.CCHARP, rffi.CCHARP, rffi.INT_real, rffi.CCHARP, PyObject], rffi.INT_real, error=-1)
 def PyErr_WarnExplicit(space, category, message, filename, lineno, module, registry):
@@ -516,10 +513,22 @@ def PyErr_WarnExplicit(space, category, message, filename, lineno, module, regis
     is a straightforward wrapper around the Python function
     warnings.warn_explicit(), see there for more information.  The module
     and registry arguments may be set to NULL to get the default effect
-    described there."""
+    described there. message and module are UTF-8 encoded strings,
+    filename is decoded from the filesystem encoding
+    (sys.getfilesystemencoding())."""
     raise NotImplementedError
+    
 
-@cpython_api([rffi.INT_real], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([PyObject, Py_ssize_t, rffi.CCHARP, ], rffi.INT_real, error=-1)
+def PyErr_WarnFormat(space, category, stack_level, format, ):
+    """Function similar to PyErr_WarnEx(), but use
+    PyUnicode_FromFormat() to format the warning message.  format is
+    an ASCII-encoded string.
+    """
+    raise NotImplementedError
+    
+
+@cpython_api([rffi.INT_real], rffi.INT_real, error=-1)
 def PySignal_SetWakeupFd(space, fd):
     """This utility function specifies a file descriptor to which a '\0' byte will
     be written whenever a signal is received.  It returns the previous such file
@@ -528,34 +537,91 @@ def PySignal_SetWakeupFd(space, fd):
     error checking.  fd should be a valid file descriptor.  The function should
     only be called from the main thread."""
     raise NotImplementedError
+    
+
+@cpython_api([PyObject], PyObject)
+def PyException_GetTraceback(space, ex):
+    """Return the traceback associated with the exception as a new reference, as
+    accessible from Python through __traceback__.  If there is no
+    traceback associated, this returns NULL."""
+    raise NotImplementedError
+    
+
+@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
+def PyException_SetTraceback(space, ex, tb):
+    """Set the traceback associated with the exception to tb.  Use Py_None to
+    clear it."""
+    raise NotImplementedError
+    
+
+@cpython_api([PyObject], PyObject)
+def PyException_GetContext(space, ex):
+    """Return the context (another exception instance during whose handling ex was
+    raised) associated with the exception as a new reference, as accessible from
+    Python through __context__.  If there is no context associated, this
+    returns NULL."""
+    raise NotImplementedError
+    
+
+@cpython_api([PyObject, PyObject], lltype.Void)
+def PyException_SetContext(space, ex, ctx):
+    """Set the context associated with the exception to ctx.  Use NULL to clear
+    it.  There is no type check to make sure that ctx is an exception instance.
+    This steals a reference to ctx."""
+    raise NotImplementedError
+    
+
+@cpython_api([PyObject], PyObject)
+def PyException_GetCause(space, ex):
+    """Return the cause (another exception instance set by raise ... from ...)
+    associated with the exception as a new reference, as accessible from Python
+    through __cause__.  If there is no cause associated, this returns
+    NULL."""
+    raise NotImplementedError
+    
+
+@cpython_api([PyObject, PyObject], lltype.Void)
+def PyException_SetCause(space, ex, ctx):
+    """Set the cause associated with the exception to ctx.  Use NULL to clear
+    it.  There is no type check to make sure that ctx is an exception instance.
+    This steals a reference to ctx."""
+    raise NotImplementedError
+    
 
 @cpython_api([rffi.CCHARP, rffi.CCHARP, Py_ssize_t, Py_ssize_t, Py_ssize_t, rffi.CCHARP], PyObject)
 def PyUnicodeDecodeError_Create(space, encoding, object, length, start, end, reason):
     """Create a UnicodeDecodeError object with the attributes encoding,
-    object, length, start, end and reason."""
+    object, length, start, end and reason. encoding and reason are
+    UTF-8 encoded strings."""
     raise NotImplementedError
+    
 
-@cpython_api([rffi.CCHARP, rffi.CWCHARP, Py_ssize_t, Py_ssize_t, Py_ssize_t, rffi.CCHARP], PyObject)
+@cpython_api([rffi.CCHARP, rffi.CArrayPtr(Py_UNICODE), Py_ssize_t, Py_ssize_t, Py_ssize_t, rffi.CCHARP], PyObject)
 def PyUnicodeEncodeError_Create(space, encoding, object, length, start, end, reason):
     """Create a UnicodeEncodeError object with the attributes encoding,
-    object, length, start, end and reason."""
+    object, length, start, end and reason. encoding and reason are
+    UTF-8 encoded strings."""
     raise NotImplementedError
+    
 
-@cpython_api([rffi.CWCHARP, Py_ssize_t, Py_ssize_t, Py_ssize_t, rffi.CCHARP], PyObject)
+@cpython_api([rffi.CArrayPtr(Py_UNICODE), Py_ssize_t, Py_ssize_t, Py_ssize_t, rffi.CCHARP], PyObject)
 def PyUnicodeTranslateError_Create(space, object, length, start, end, reason):
     """Create a UnicodeTranslateError object with the attributes object,
-    length, start, end and reason."""
+    length, start, end and reason. reason is an UTF-8 encoded string."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject], PyObject)
 def PyUnicodeDecodeError_GetEncoding(space, exc):
     """Return the encoding attribute of the given exception object."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject], PyObject)
 def PyUnicodeDecodeError_GetObject(space, exc):
     """Return the object attribute of the given exception object."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject, Py_ssize_t], rffi.INT_real, error=-1)
 def PyUnicodeDecodeError_GetStart(space, exc, start):
@@ -563,12 +629,14 @@ def PyUnicodeDecodeError_GetStart(space, exc, start):
     *start.  start must not be NULL.  Return 0 on success, -1 on
     failure."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject, Py_ssize_t], rffi.INT_real, error=-1)
 def PyUnicodeDecodeError_SetStart(space, exc, start):
     """Set the start attribute of the given exception object to start.  Return
     0 on success, -1 on failure."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject, Py_ssize_t], rffi.INT_real, error=-1)
 def PyUnicodeDecodeError_GetEnd(space, exc, end):
@@ -576,239 +644,229 @@ def PyUnicodeDecodeError_GetEnd(space, exc, end):
     *end.  end must not be NULL.  Return 0 on success, -1 on
     failure."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject, Py_ssize_t], rffi.INT_real, error=-1)
 def PyUnicodeDecodeError_SetEnd(space, exc, end):
     """Set the end attribute of the given exception object to end.  Return 0
     on success, -1 on failure."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject], PyObject)
 def PyUnicodeDecodeError_GetReason(space, exc):
     """Return the reason attribute of the given exception object."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject, rffi.CCHARP], rffi.INT_real, error=-1)
 def PyUnicodeDecodeError_SetReason(space, exc, reason):
     """Set the reason attribute of the given exception object to reason.  Return
     0 on success, -1 on failure."""
     raise NotImplementedError
+    
 
-@cpython_api([rffi.CCHARP], rffi.INT_real, error=1)
+@cpython_api([rffi.CCHARP], rffi.INT_real, error=-1)
 def Py_EnterRecursiveCall(space, where):
     """Marks a point where a recursive C-level call is about to be performed.
-
+    
     If USE_STACKCHECK is defined, this function checks if the the OS
     stack overflowed using PyOS_CheckStack().  In this is the case, it
     sets a MemoryError and returns a nonzero value.
-
+    
     The function then checks if the recursion limit is reached.  If this is the
     case, a RuntimeError is set and a nonzero value is returned.
     Otherwise, zero is returned.
-
+    
     where should be a string such as " in instance check" to be
     concatenated to the RuntimeError message caused by the recursion depth
     limit."""
     raise NotImplementedError
+    
 
 @cpython_api([], lltype.Void)
-def Py_LeaveRecursiveCall(space):
+def Py_LeaveRecursiveCall(space, ):
     """Ends a Py_EnterRecursiveCall().  Must be called once for each
     successful invocation of Py_EnterRecursiveCall()."""
     raise NotImplementedError
+    
 
-@cpython_api([PyFileObject], lltype.Void)
-def PyFile_IncUseCount(space, p):
-    """Increments the PyFileObject's internal use count to indicate
-    that the underlying FILE* is being used.
-    This prevents Python from calling f_close() on it from another thread.
-    Callers of this must call PyFile_DecUseCount() when they are
-    finished with the FILE*.  Otherwise the file object will
-    never be closed by Python.
-
-    The GIL must be held while calling this function.
-
-    The suggested use is to call this after PyFile_AsFile() and before
-    you release the GIL:
-
-    FILE *fp = PyFile_AsFile(p);
-    PyFile_IncUseCount(p);
-    /* ... */
-    Py_BEGIN_ALLOW_THREADS
-    do_something(fp);
-    Py_END_ALLOW_THREADS
-    /* ... */
-    PyFile_DecUseCount(p);
-    """
+@cpython_api([PyObject], rffi.INT_real, error=-1)
+def Py_ReprEnter(space, object):
+    """Called at the beginning of the tp_repr implementation to
+    detect cycles.
+    
+    If the object has already been processed, the function returns a
+    positive integer.  In that case the tp_repr implementation
+    should return a string object indicating a cycle.  As examples,
+    dict objects return {...} and list objects
+    return [...].
+    
+    The function will return a negative integer if the recursion limit
+    is reached.  In that case the tp_repr implementation should
+    typically return NULL.
+    
+    Otherwise, the function returns zero and the tp_repr
+    implementation can continue normally."""
     raise NotImplementedError
+    
 
-@cpython_api([PyFileObject], lltype.Void)
-def PyFile_DecUseCount(space, p):
-    """Decrements the PyFileObject's internal unlocked_count member to
-    indicate that the caller is done with its own use of the FILE*.
-    This may only be called to undo a prior call to PyFile_IncUseCount().
-
-    The GIL must be held while calling this function (see the example
-    above).
-    """
+@cpython_api([PyObject], lltype.Void)
+def Py_ReprLeave(space, object):
+    """Ends a Py_ReprEnter().  Must be called once for each
+    invocation of Py_ReprEnter() that returns zero."""
     raise NotImplementedError
+    
 
-@cpython_api([PyFileObject, rffi.CCHARP], rffi.INT_real, error=0)
-def PyFile_SetEncoding(space, p, enc):
-    """Set the file's encoding for Unicode output to enc. Return 1 on success and 0
-    on failure.
-    """
+@cpython_api([rffi.INT_real, rffi.CCHARP, rffi.CCHARP, rffi.INT_real, rffi.CCHARP, rffi.CCHARP, rffi.CCHARP, rffi.INT_real], PyObject)
+def PyFile_FromFd(space, fd, name, mode, buffering, encoding, errors, newline, closefd):
+    """Create a Python file object from the file descriptor of an already
+    opened file fd.  The arguments name, encoding, errors and newline
+    can be NULL to use the defaults; buffering can be -1 to use the
+    default. name is ignored and kept for backward compatibility. Return
+    NULL on failure. For a more comprehensive description of the arguments,
+    please refer to the io.open() function documentation.
+    
+    Since Python streams have their own buffering layer, mixing them with
+    OS-level file descriptors can produce various issues (such as unexpected
+    ordering of data).
+    
+    Ignore name attribute."""
     raise NotImplementedError
-
-@cpython_api([PyFileObject, rffi.CCHARP, rffi.CCHARP], rffi.INT_real, error=0)
-def PyFile_SetEncodingAndErrors(space, p, enc, errors):
-    """Set the file's encoding for Unicode output to enc, and its error
-    mode to err. Return 1 on success and 0 on failure.
-    """
-    raise NotImplementedError
+    
 
 @cpython_api([], PyObject)
-def PyFloat_GetInfo(space):
+def PyFloat_GetInfo(space, ):
     """Return a structseq instance which contains information about the
     precision, minimum and maximum values of a float. It's a thin wrapper
-    around the header file float.h.
-    """
+    around the header file float.h."""
     raise NotImplementedError
+    
 
 @cpython_api([], rffi.DOUBLE, error=CANNOT_FAIL)
-def PyFloat_GetMax(space):
-    """Return the maximum representable finite float DBL_MAX as C double.
-    """
+def PyFloat_GetMax(space, ):
+    """Return the maximum representable finite float DBL_MAX as C double."""
     raise NotImplementedError
+    
 
 @cpython_api([], rffi.DOUBLE, error=CANNOT_FAIL)
-def PyFloat_GetMin(space):
-    """Return the minimum normalized positive float DBL_MIN as C double.
-    """
+def PyFloat_GetMin(space, ):
+    """Return the minimum normalized positive float DBL_MIN as C double."""
     raise NotImplementedError
+    
 
-@cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
-def PyFloat_ClearFreeList(space):
+@cpython_api([], rffi.INT_real, error=-1)
+def PyFloat_ClearFreeList(space, ):
     """Clear the float free list. Return the number of items that could not
-    be freed.
-    """
+    be freed."""
     raise NotImplementedError
-
-@cpython_api([rffi.CCHARP, PyFloatObject], lltype.Void)
-def PyFloat_AsString(space, buf, v):
-    """Convert the argument v to a string, using the same rules as
-    str(). The length of buf should be at least 100.
-
-    This function is unsafe to call because it writes to a buffer whose
-    length it does not know.
-
-    Use PyObject_Str() or PyOS_double_to_string() instead."""
-    raise NotImplementedError
-
-@cpython_api([rffi.CCHARP, PyFloatObject], lltype.Void)
-def PyFloat_AsReprString(space, buf, v):
-    """Same as PyFloat_AsString, except uses the same rules as
-    repr().  The length of buf should be at least 100.
-
-    This function is unsafe to call because it writes to a buffer whose
-    length it does not know.
-
-    Use PyObject_Repr() or PyOS_double_to_string() instead."""
-    raise NotImplementedError
+    
 
 @cpython_api([PyObject, PyObject], PyObject)
 def PyFunction_New(space, code, globals):
     """Return a new function object associated with the code object code. globals
     must be a dictionary with the global variables accessible to the function.
-
+    
     The function's docstring, name and __module__ are retrieved from the code
     object, the argument defaults and closure are set to NULL."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject], PyObject)
 def PyFunction_GetGlobals(space, op):
     """Return the globals dictionary associated with the function object op."""
-    borrow_from()
     raise NotImplementedError
+    borrow_from()
 
 @cpython_api([PyObject], PyObject)
 def PyFunction_GetModule(space, op):
     """Return the __module__ attribute of the function object op. This is normally
     a string containing the module name, but can be set to any other object by
     Python code."""
-    borrow_from()
     raise NotImplementedError
+    borrow_from()
 
 @cpython_api([PyObject], PyObject)
 def PyFunction_GetDefaults(space, op):
     """Return the argument default values of the function object op. This can be a
     tuple of arguments or NULL."""
-    borrow_from()
     raise NotImplementedError
+    borrow_from()
 
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
 def PyFunction_SetDefaults(space, op, defaults):
     """Set the argument default values for the function object op. defaults must be
     Py_None or a tuple.
-
+    
     Raises SystemError and returns -1 on failure."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject], PyObject)
 def PyFunction_GetClosure(space, op):
     """Return the closure associated with the function object op. This can be NULL
     or a tuple of cell objects."""
-    borrow_from()
     raise NotImplementedError
+    borrow_from()
 
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
 def PyFunction_SetClosure(space, op, closure):
     """Set the closure associated with the function object op. closure must be
     Py_None or a tuple of cell objects.
-
+    
     Raises SystemError and returns -1 on failure."""
     raise NotImplementedError
+    
 
-@cpython_api([PyTypeObjectPtr, Py_ssize_t], PyObject)
-def PyObject_GC_NewVar(space, type, size):
-    """Analogous to PyObject_NewVar() but for container objects with the
-    Py_TPFLAGS_HAVE_GC flag set.
-
-    This function used an int type for size. This might require
-    changes in your code for properly supporting 64-bit systems."""
+@cpython_api([PyObject], PyObject)
+def PyFunction_GetAnnotations(space, op):
+    """Return the annotations of the function object op. This can be a
+    mutable dictionary or NULL."""
     raise NotImplementedError
+    
+
+@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
+def PyFunction_SetAnnotations(space, op, annotations):
+    """Set the annotations for the function object op. annotations
+    must be a dictionary or Py_None.
+    
+    Raises SystemError and returns -1 on failure."""
+    raise NotImplementedError
+    
 
 @cpython_api([PyObject, Py_ssize_t], PyObject)
 def PyObject_GC_Resize(space, op, newsize):
     """Resize an object allocated by PyObject_NewVar().  Returns the
-    resized object or NULL on failure.
-
-    This function used an int type for newsize. This might
-    require changes in your code for properly supporting 64-bit systems."""
+    resized object or NULL on failure."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject], lltype.Void)
 def _PyObject_GC_TRACK(space, op):
     """A macro version of PyObject_GC_Track().  It should not be used for
     extension modules."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject], lltype.Void)
 def _PyObject_GC_UNTRACK(space, op):
     """A macro version of PyObject_GC_UnTrack().  It should not be used for
     extension modules."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyGen_Check(space, ob):
     """Return true if ob is a generator object; ob must not be NULL."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyGen_CheckExact(space, ob):
     """Return true if ob's type is PyGen_Type is a generator object; ob must not
     be NULL."""
     raise NotImplementedError
+    
 
 @cpython_api([PyFrameObject], PyObject)
 def PyGen_New(space, frame):
@@ -816,44 +874,66 @@ def PyGen_New(space, frame):
     reference to frame is stolen by this function. The parameter must not be
     NULL."""
     raise NotImplementedError
+    
 
 @cpython_api([rffi.CCHARP, PyObject, PyObject, PyObject], PyObject)
 def PyImport_ImportModuleEx(space, name, globals, locals, fromlist):
-    """Import a module.  This is best described by referring to the built-in
-    Python function __import__(), as the standard __import__() function calls
+    """
+    
+    
+    
+    Import a module.  This is best described by referring to the built-in Python
+    function __import__(), as the standard __import__() function calls
     this function directly.
-
-    The return value is a new reference to the imported module or top-level package,
-    or NULL with an exception set on failure (before Python 2.4, the module may
-    still be created in this case).  Like for __import__(), the return value
-    when a submodule of a package was requested is normally the top-level package,
-    unless a non-empty fromlist was given.
-
-    Failing imports remove incomplete module objects.
-
-    The function is an alias for PyImport_ImportModuleLevel() with
-    -1 as level, meaning relative import."""
+    
+    The return value is a new reference to the imported module or top-level
+    package, or NULL with an exception set on failure.  Like for
+    __import__(), the return value when a submodule of a package was
+    requested is normally the top-level package, unless a non-empty fromlist
+    was given.
+    
+    Failing imports remove incomplete module objects, like with
+    PyImport_ImportModule()."""
     raise NotImplementedError
+    
 
 @cpython_api([rffi.CCHARP, PyObject, PyObject, PyObject, rffi.INT_real], PyObject)
 def PyImport_ImportModuleLevel(space, name, globals, locals, fromlist, level):
     """Import a module.  This is best described by referring to the built-in Python
     function __import__(), as the standard __import__() function calls
     this function directly.
-
+    
     The return value is a new reference to the imported module or top-level package,
     or NULL with an exception set on failure.  Like for __import__(),
     the return value when a submodule of a package was requested is normally the
-    top-level package, unless a non-empty fromlist was given.
+    top-level package, unless a non-empty fromlist was given."""
+    raise NotImplementedError
+    
+
+@cpython_api([rffi.CCHARP, PyObject, rffi.CCHARP, rffi.CCHARP], PyObject)
+def PyImport_ExecCodeModuleWithPathnames(space, name, co, pathname, cpathname):
+    """Like PyImport_ExecCodeModuleEx(), but the __cached__
+    attribute of the module object is set to cpathname if it is
+    non-NULL.  Of the three functions, this is the preferred one to use.
     """
     raise NotImplementedError
+    
 
 @cpython_api([], lltype.Signed, error=CANNOT_FAIL)
-def PyImport_GetMagicNumber(space):
+def PyImport_GetMagicNumber(space, ):
     """Return the magic number for Python bytecode files (a.k.a. .pyc and
     .pyo files).  The magic number should be present in the first four bytes
     of the bytecode file, in little-endian byte order."""
     raise NotImplementedError
+    
+
+@cpython_api([], rffi.CCHARP)
+def PyImport_GetMagicTag(space, ):
+    """Return the magic tag string for PEP 3147 format Python bytecode file
+    names.
+    """
+    raise NotImplementedError
+    
 
 @cpython_api([PyObject], PyObject)
 def PyImport_GetImporter(space, path):
@@ -863,34 +943,27 @@ def PyImport_GetImporter(space, path):
     is found that can handle the path item.  Return None if no hook could;
     this tells our caller it should fall back to the built-in import mechanism.
     Cache the result in sys.path_importer_cache.  Return a new reference
-    to the importer object.
-    """
+    to the importer object."""
     raise NotImplementedError
+    
 
 @cpython_api([], lltype.Void)
-def _PyImport_Init(space):
+def _PyImport_Init(space, ):
     """Initialize the import mechanism.  For internal use only."""
     raise NotImplementedError
+    
 
 @cpython_api([], lltype.Void)
-def PyImport_Cleanup(space):
+def PyImport_Cleanup(space, ):
     """Empty the module table.  For internal use only."""
     raise NotImplementedError
+    
 
 @cpython_api([], lltype.Void)
-def _PyImport_Fini(space):
+def _PyImport_Fini(space, ):
     """Finalize the import mechanism.  For internal use only."""
     raise NotImplementedError
-
-@cpython_api([rffi.CCHARP, rffi.CCHARP], PyObject)
-def _PyImport_FindExtension(space, name, filename):
-    """For internal use only."""
-    raise NotImplementedError
-
-@cpython_api([rffi.CCHARP, rffi.CCHARP], PyObject)
-def _PyImport_FixupExtension(space, name, filename):
-    """For internal use only."""
-    raise NotImplementedError
+    
 
 @cpython_api([rffi.CCHARP], rffi.INT_real, error=-1)
 def PyImport_ImportFrozenModule(space, name):
@@ -900,6 +973,7 @@ def PyImport_ImportFrozenModule(space, name):
     PyImport_ImportModule().  (Note the misnomer --- this function would
     reload the module if it was already imported.)"""
     raise NotImplementedError
+    
 
 @cpython_api([rffi.CCHARP, rffi.VOIDP], rffi.INT_real, error=-1)
 def PyImport_AppendInittab(space, name, initfunc):
@@ -910,6 +984,7 @@ def PyImport_AppendInittab(space, name, initfunc):
     on the first attempted import.  This should be called before
     Py_Initialize()."""
     raise NotImplementedError
+    
 
 @cpython_api([_inittab], rffi.INT_real, error=-1)
 def PyImport_ExtendInittab(space, newtab):
@@ -920,31 +995,36 @@ def PyImport_ExtendInittab(space, newtab):
     extend the internal table.  In the event of failure, no modules are added to the
     internal table.  This should be called before Py_Initialize()."""
     raise NotImplementedError
+    
 
 @cpython_api([], lltype.Void)
-def Py_Initialize(space):
-    """Initialize the Python interpreter.  In an application embedding Python,
-    this should be called before using any other Python/C API functions; with
-    the exception of Py_SetProgramName(), PyEval_InitThreads(),
-    PyEval_ReleaseLock(), and PyEval_AcquireLock(). This initializes the table
-    of loaded modules (sys.modules), and creates the fundamental modules
-    __builtin__, __main__ and sys.  It also initializes the module search path
-    (sys.path). It does not set sys.argv; use PySys_SetArgvEx() for that.  This
-    is a no-op when called for a second time (without calling Py_Finalize()
-    first).  There is no return value; it is a fatal error if the initialization
-    fails."""
+def Py_Initialize(space, ):
+    """
+    
+    
+    
+    Initialize the Python interpreter.  In an application embedding  Python, this
+    should be called before using any other Python/C API functions; with the
+    exception of Py_SetProgramName(), Py_SetPythonHome() and Py_SetPath().  This initializes
+    the table of loaded modules (sys.modules), and creates the fundamental
+    modules builtins, __main__ and sys.  It also initializes
+    the module search path (sys.path). It does not set sys.argv; use
+    PySys_SetArgvEx() for that.  This is a no-op when called for a second time
+    (without calling Py_Finalize() first).  There is no return value; it is a
+    fatal error if the initialization fails."""
     raise NotImplementedError
+    
 
 @cpython_api([rffi.INT_real], lltype.Void)
 def Py_InitializeEx(space, initsigs):
     """This function works like Py_Initialize() if initsigs is 1. If
     initsigs is 0, it skips initialization registration of signal handlers, which
-    might be useful when Python is embedded.
-    """
+    might be useful when Python is embedded."""
     raise NotImplementedError
+    
 
 @cpython_api([], lltype.Void)
-def Py_Finalize(space):
+def Py_Finalize(space, ):
     """Undo all initializations made by Py_Initialize() and subsequent use of
     Python/C API functions, and destroy all sub-interpreters (see
     Py_NewInterpreter() below) that were created and not yet destroyed since
@@ -952,7 +1032,7 @@ def Py_Finalize(space):
     allocated by the Python interpreter.  This is a no-op when called for a second
     time (without calling Py_Initialize() again first).  There is no return
     value; errors during finalization are ignored.
-
+    
     This function is provided for a number of reasons.  An embedding application
     might want to restart Python without having to restart the application itself.
     An application that has loaded the Python interpreter from a dynamically
@@ -960,7 +1040,7 @@ def Py_Finalize(space):
     before unloading the DLL. During a hunt for memory leaks in an application a
     developer might want to free all memory allocated by Python before exiting from
     the application.
-
+    
     Bugs and caveats: The destruction of modules and objects in modules is done
     in random order; this may cause destructors (__del__() methods) to fail
     when they depend on other objects (even functions) or modules.  Dynamically
@@ -972,22 +1052,29 @@ def Py_Finalize(space):
     than once; this can happen if an application calls Py_Initialize() and
     Py_Finalize() more than once."""
     raise NotImplementedError
+    
 
-@cpython_api([rffi.CCHARP], lltype.Void)
+@cpython_api([rffi.CWCHARP], lltype.Void)
 def Py_SetProgramName(space, name):
-    """This function should be called before Py_Initialize() is called for the
-    first time, if it is called at all.  It tells the interpreter the value of
-    the argv[0] argument to the main() function of the program.  This is used by
-    Py_GetPath() and some other functions below to find the Python run-time
-    libraries relative to the interpreter executable.  The default value is
-    'python'.  The argument should point to a zero-terminated character string
-    in static storage whose contents will not change for the duration of the
-    program's execution.  No code in the Python interpreter will change the
-    contents of this storage."""
+    """
+    
+    
+    
+    This function should be called before Py_Initialize() is called for
+    the first time, if it is called at all.  It tells the interpreter the value
+    of the argv[0] argument to the main() function of the program
+    (converted to wide characters).
+    This is used by Py_GetPath() and some other functions below to find
+    the Python run-time libraries relative to the interpreter executable.  The
+    default value is 'python'.  The argument should point to a
+    zero-terminated wide character string in static storage whose contents will not
+    change for the duration of the program's execution.  No code in the Python
+    interpreter will change the contents of this storage."""
     raise NotImplementedError
+    
 
-@cpython_api([], rffi.CCHARP)
-def Py_GetPrefix(space):
+@cpython_api([], rffi.CWCHARP)
+def Py_GetPrefix(space, ):
     """Return the prefix for installed platform-independent files. This is derived
     through a number of complicated rules from the program name set with
     Py_SetProgramName() and some environment variables; for example, if the
@@ -998,9 +1085,10 @@ def Py_GetPrefix(space):
     script at build time.  The value is available to Python code as sys.prefix.
     It is only useful on Unix.  See also the next function."""
     raise NotImplementedError
+    
 
-@cpython_api([], rffi.CCHARP)
-def Py_GetExecPrefix(space):
+@cpython_api([], rffi.CWCHARP)
+def Py_GetExecPrefix(space, ):
     """Return the exec-prefix for installed platform-dependent files.  This is
     derived through a number of complicated rules from the program name set with
     Py_SetProgramName() and some environment variables; for example, if the
@@ -1010,13 +1098,13 @@ def Py_GetExecPrefix(space):
     variable in the top-level Makefile and the --exec-prefix
     argument to the configure script at build  time.  The value is
     available to Python code as sys.exec_prefix.  It is only useful on Unix.
-
+    
     Background: The exec-prefix differs from the prefix when platform dependent
     files (such as executables and shared libraries) are installed in a different
     directory tree.  In a typical installation, platform dependent files may be
     installed in the /usr/local/plat subtree while platform independent may
     be installed in /usr/local.
-
+    
     Generally speaking, a platform is a combination of hardware and software
     families, e.g.  Sparc machines running the Solaris 2.x operating system are
     considered the same platform, but Intel machines running Solaris 2.x are another
@@ -1027,162 +1115,232 @@ def Py_GetExecPrefix(space):
     meaningless, and set to the empty string. Note that compiled Python bytecode
     files are platform independent (but not independent from the Python version by
     which they were compiled!).
-
+    
     System administrators will know how to configure the mount or
     automount programs to share /usr/local between platforms
     while having /usr/local/plat be a different filesystem for each
     platform."""
     raise NotImplementedError
+    
 
-@cpython_api([], rffi.CCHARP)
-def Py_GetProgramFullPath(space):
-    """Return the full program name of the Python executable; this is computed
-    as a side-effect of deriving the default module search path from the program
-    name (set by Py_SetProgramName() above). The returned string points into
-    static storage; the caller should not modify its value.  The value is
-    available to Python code as sys.executable."""
+@cpython_api([], rffi.CWCHARP)
+def Py_GetProgramFullPath(space, ):
+    """
+    
+    
+    
+    Return the full program name of the Python executable; this is  computed as a
+    side-effect of deriving the default module search path  from the program name
+    (set by Py_SetProgramName() above). The returned string points into
+    static storage; the caller should not modify its value.  The value is available
+    to Python code as sys.executable."""
     raise NotImplementedError
+    
 
-@cpython_api([], rffi.CCHARP)
-def Py_GetPath(space):
-    """Return the default module search path; this is computed from the program
-    name (set by Py_SetProgramName() above) and some environment variables.  The
-    returned string consists of a series of directory names separated by a
-    platform dependent delimiter character.  The delimiter character is ':' on
-    Unix and Mac OS X, ';' on Windows.  The returned string points into static
-    storage; the caller should not modify its value.  The list sys.path is
-    initialized with this value on interpreter startup; it can be (and usually
-    is) modified later to change the search path for loading modules.
-
+@cpython_api([], rffi.CWCHARP)
+def Py_GetPath(space, ):
+    """
+    
+    
+    
+    Return the default module search path; this is computed from the program name
+    (set by Py_SetProgramName() above) and some environment variables.
+    The returned string consists of a series of directory names separated by a
+    platform dependent delimiter character.  The delimiter character is ':'
+    on Unix and Mac OS X, ';' on Windows.  The returned string points into
+    static storage; the caller should not modify its value.  The list
+    sys.path is initialized with this value on interpreter startup; it
+    can be (and usually is) modified later to change the search path for loading
+    modules.
+    
     XXX should give the exact rules"""
     raise NotImplementedError
+    
+
+@cpython_api([rffi.CWCHARP], lltype.Void)
+def Py_SetPath(space, path):
+    """
+    Set the default module search path.  If this function is called before
+    Py_Initialize(), then Py_GetPath() won't attempt to compute a
+    default search path but uses the one provided instead.  This is useful if
+    Python is embedded by an application that has full knowledge of the location
+    of all modules.  The path components should be separated by semicolons.
+    
+    This also causes sys.executable to be set only to the raw program
+    name (see Py_SetProgramName()) and for sys.prefix and
+    sys.exec_prefix to be empty.  It is up to the caller to modify these
+    if required after calling Py_Initialize()."""
+    raise NotImplementedError
+    
 
 @cpython_api([], rffi.CCHARP)
-def Py_GetPlatform(space):
-    """Return the platform identifier for the current platform.  On Unix, this
-    is formed from the"official" name of the operating system, converted to lower
+def Py_GetPlatform(space, ):
+    """
+    
+    
+    
+    Return the platform identifier for the current platform.  On Unix, this is
+    formed from the "official" name of the operating system, converted to lower
     case, followed by the major revision number; e.g., for Solaris 2.x, which is
     also known as SunOS 5.x, the value is 'sunos5'.  On Mac OS X, it is
     'darwin'.  On Windows, it is 'win'.  The returned string points into
     static storage; the caller should not modify its value.  The value is available
     to Python code as sys.platform."""
     raise NotImplementedError
+    
 
 @cpython_api([], rffi.CCHARP)
-def Py_GetCopyright(space):
+def Py_GetCopyright(space, ):
     """Return the official copyright string for the current Python version, for example
-
+    
     'Copyright 1991-1995 Stichting Mathematisch Centrum, Amsterdam'
-
+    
+    
+    
+    
+    
     The returned string points into static storage; the caller should not modify its
     value.  The value is available to Python code as sys.copyright."""
     raise NotImplementedError
+    
 
 @cpython_api([], rffi.CCHARP)
-def Py_GetCompiler(space):
+def Py_GetCompiler(space, ):
     """Return an indication of the compiler used to build the current Python version,
     in square brackets, for example:
-
+    
     "[GCC 2.7.2.2]"
-
+    
+    
+    
+    
+    
     The returned string points into static storage; the caller should not modify its
     value.  The value is available to Python code as part of the variable
     sys.version."""
     raise NotImplementedError
+    
 
 @cpython_api([], rffi.CCHARP)
-def Py_GetBuildInfo(space):
+def Py_GetBuildInfo(space, ):
     """Return information about the sequence number and build date and time  of the
     current Python interpreter instance, for example
-
-    "\#67, Aug  1 1997, 22:34:28"
-
+    
+    "#67, Aug  1 1997, 22:34:28"
+    
+    
+    
+    
+    
     The returned string points into static storage; the caller should not modify its
     value.  The value is available to Python code as part of the variable
     sys.version."""
     raise NotImplementedError
+    
 
-@cpython_api([rffi.INT_real, rffi.CCHARPP, rffi.INT_real], lltype.Void)
+@cpython_api([rffi.INT_real, CWCHARPP, rffi.INT_real], lltype.Void)
 def PySys_SetArgvEx(space, argc, argv, updatepath):
-    """Set sys.argv based on argc and argv.  These parameters are similar to
-    those passed to the program's main() function with the difference that the
-    first entry should refer to the script file to be executed rather than the
-    executable hosting the Python interpreter.  If there isn't a script that
-    will be run, the first entry in argv can be an empty string.  If this
-    function fails to initialize sys.argv, a fatal condition is signalled using
-    Py_FatalError().
-
+    """
+    
+    
+    
+    Set sys.argv based on argc and argv.  These parameters are
+    similar to those passed to the program's main() function with the
+    difference that the first entry should refer to the script file to be
+    executed rather than the executable hosting the Python interpreter.  If there
+    isn't a script that will be run, the first entry in argv can be an empty
+    string.  If this function fails to initialize sys.argv, a fatal
+    condition is signalled using Py_FatalError().
+    
     If updatepath is zero, this is all the function does.  If updatepath
     is non-zero, the function also modifies sys.path according to the
     following algorithm:
-
+    
     If the name of an existing script is passed in argv[0], the absolute
     path of the directory where the script is located is prepended to
     sys.path.
-
+    
     Otherwise (that is, if argc is 0 or argv[0] doesn't point
     to an existing file name), an empty string is prepended to
     sys.path, which is the same as prepending the current working
     directory (".").
-
+    
     It is recommended that applications embedding the Python interpreter
     for purposes other than executing a single script pass 0 as updatepath,
     and update sys.path themselves if desired.
     See CVE-2008-5983.
-
-    On versions before 2.6.6, you can achieve the same effect by manually
+    
+    On versions before 3.1.3, you can achieve the same effect by manually
     popping the first sys.path element after having called
     PySys_SetArgv(), for example using:
-
+    
     PyRun_SimpleString("import sys; sys.path.pop(0)\n");
-
+    
+    
+    
     XXX impl. doesn't seem consistent in allowing 0/NULL for the params;
     check w/ Guido."""
     raise NotImplementedError
+    
 
-@cpython_api([rffi.INT_real, rffi.CCHARPP], lltype.Void)
+@cpython_api([rffi.INT_real, CWCHARPP], lltype.Void)
 def PySys_SetArgv(space, argc, argv):
     """This function works like PySys_SetArgvEx() with updatepath set to 1."""
     raise NotImplementedError
+    
 
-@cpython_api([rffi.CCHARP], lltype.Void)
+@cpython_api([rffi.CWCHARP], lltype.Void)
 def Py_SetPythonHome(space, home):
     """Set the default "home" directory, that is, the location of the standard
     Python libraries.  See PYTHONHOME for the meaning of the
     argument string.
-
+    
     The argument should point to a zero-terminated character string in static
     storage whose contents will not change for the duration of the program's
     execution.  No code in the Python interpreter will change the contents of
     this storage."""
     raise NotImplementedError
+    
 
-@cpython_api([], rffi.CCHARP)
-def Py_GetPythonHome(space):
+@cpython_api([], rffi.CWCHARP)
+def Py_GetPythonHome(space, ):
     """Return the default "home", that is, the value set by a previous call to
     Py_SetPythonHome(), or the value of the PYTHONHOME
     environment variable if it is set."""
     raise NotImplementedError
+    
 
 @cpython_api([], lltype.Void)
-def PyEval_ReInitThreads(space):
+def PyEval_ReInitThreads(space, ):
     """This function is called from PyOS_AfterFork() to ensure that newly
     created child processes don't hold locks referring to threads which
     are not running in the child process."""
     raise NotImplementedError
+    
+
+@cpython_api([], PyThreadState)
+def PyGILState_GetThisThreadState(space, ):
+    """Get the current thread state for this thread.  May return NULL if no
+    GILState API has been used on the current thread.  Note that the main thread
+    always has such a thread-state, even if no auto-thread-state call has been
+    made on the main thread.  This is mainly a helper/diagnostic function."""
+    raise NotImplementedError
+    
 
 @cpython_api([], PyInterpreterState)
-def PyInterpreterState_New(space):
+def PyInterpreterState_New(space, ):
     """Create a new interpreter state object.  The global interpreter lock need not
     be held, but may be held if it is necessary to serialize calls to this
     function."""
     raise NotImplementedError
+    
 
 @cpython_api([PyInterpreterState], lltype.Void)
 def PyInterpreterState_Clear(space, interp):
     """Reset all information in an interpreter state object.  The global interpreter
     lock must be held."""
     raise NotImplementedError
+    
 
 @cpython_api([PyInterpreterState], lltype.Void)
 def PyInterpreterState_Delete(space, interp):
@@ -1190,19 +1348,7 @@ def PyInterpreterState_Delete(space, interp):
     held.  The interpreter state must have been reset with a previous call to
     PyInterpreterState_Clear()."""
     raise NotImplementedError
-
-@cpython_api([], PyObject)
-def PyThreadState_GetDict(space):
-    """Return a dictionary in which extensions can store thread-specific state
-    information.  Each extension should use a unique key to use to store state in
-    the dictionary.  It is okay to call this function when no current thread state
-    is available. If this function returns NULL, no exception has been raised and
-    the caller should assume no current thread state is available.
-
-    Previously this could only be called when a current thread is active, and NULL
-    meant that an exception was raised."""
-    borrow_from()
-    raise NotImplementedError
+    
 
 @cpython_api([lltype.Signed, PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyThreadState_SetAsyncExc(space, id, exc):
@@ -1212,40 +1358,47 @@ def PyThreadState_SetAsyncExc(space, id, exc):
     must write your own C extension to call this.  Must be called with the GIL held.
     Returns the number of thread states modified; this is normally one, but will be
     zero if the thread id isn't found.  If exc is NULL, the pending
-    exception (if any) for the thread is cleared. This raises no exceptions.
-    """
+    exception (if any) for the thread is cleared. This raises no exceptions."""
     raise NotImplementedError
+    
 
 @cpython_api([], lltype.Void)
-def PyEval_AcquireLock(space):
+def PyEval_AcquireLock(space, ):
     """Acquire the global interpreter lock.  The lock must have been created earlier.
     If this thread already has the lock, a deadlock ensues.
-
-    This function does not change the current thread state.  Please use
+    
+    This function does not update the current thread state.  Please use
     PyEval_RestoreThread() or PyEval_AcquireThread()
     instead."""
     raise NotImplementedError
+    
 
 @cpython_api([], lltype.Void)
-def PyEval_ReleaseLock(space):
+def PyEval_ReleaseLock(space, ):
     """Release the global interpreter lock.  The lock must have been created earlier.
-
-    This function does not change the current thread state.  Please use
+    
+    This function does not update the current thread state.  Please use
     PyEval_SaveThread() or PyEval_ReleaseThread()
     instead."""
     raise NotImplementedError
+    
 
 @cpython_api([], PyThreadState)
-def Py_NewInterpreter(space):
-    """Create a new sub-interpreter.  This is an (almost) totally separate
-    environment for the execution of Python code.  In particular, the new
-    interpreter has separate, independent versions of all imported modules,
-    including the fundamental modules builtins, __main__ and sys.  The table of
-    loaded modules (sys.modules) and the module search path (sys.path) are also
-    separate.  The new environment has no sys.argv variable.  It has new standard
-    I/O stream file objects sys.stdin, sys.stdout and sys.stderr (however these
-    refer to the same underlying file descriptors).
-
+def Py_NewInterpreter(space, ):
+    """
+    
+    
+    
+    Create a new sub-interpreter.  This is an (almost) totally separate environment
+    for the execution of Python code.  In particular, the new interpreter has
+    separate, independent versions of all imported modules, including the
+    fundamental modules builtins, __main__ and sys.  The
+    table of loaded modules (sys.modules) and the module search path
+    (sys.path) are also separate.  The new environment has no sys.argv
+    variable.  It has new standard I/O stream file objects sys.stdin,
+    sys.stdout and sys.stderr (however these refer to the same underlying
+    file descriptors).
+    
     The return value points to the first thread state created in the new
     sub-interpreter.  This thread state is made in the current thread state.
     Note that no actual thread is created; see the discussion of thread states
@@ -1256,7 +1409,11 @@ def Py_NewInterpreter(space):
     calling this function and is still held when it returns; however, unlike most
     other Python/C API functions, there needn't be a current thread state on
     entry.)
-
+    
+    
+    
+    
+    
     Extension modules are shared between (sub-)interpreters as follows: the first
     time a particular extension is imported, it is initialized normally, and a
     (shallow) copy of its module's dictionary is squirreled away.  When the same
@@ -1265,19 +1422,28 @@ def Py_NewInterpreter(space):
     not called.  Note that this is different from what happens when an extension is
     imported after the interpreter has been completely re-initialized by calling
     Py_Finalize() and Py_Initialize(); in that case, the extension's
-    initmodule function is called again."""
+    initmodule function is called again.
+    
+    
+    """
     raise NotImplementedError
+    
 
 @cpython_api([PyThreadState], lltype.Void)
 def Py_EndInterpreter(space, tstate):
-    """Destroy the (sub-)interpreter represented by the given thread state. The
-    given thread state must be the current thread state.  See the discussion of
-    thread states below.  When the call returns, the current thread state is
-    NULL.  All thread states associated with this interpreter are destroyed.
-    (The global interpreter lock must be held before calling this function and is
-    still held when it returns.)  Py_Finalize() will destroy all sub-interpreters
-    that haven't been explicitly destroyed at that point."""
+    """
+    
+    
+    
+    Destroy the (sub-)interpreter represented by the given thread state. The given
+    thread state must be the current thread state.  See the discussion of thread
+    states below.  When the call returns, the current thread state is NULL.  All
+    thread states associated with this interpreter are destroyed.  (The global
+    interpreter lock must be held before calling this function and is still held
+    when it returns.)  Py_Finalize() will destroy all sub-interpreters that
+    haven't been explicitly destroyed at that point."""
     raise NotImplementedError
+    
 
 @cpython_api([Py_tracefunc, PyObject], lltype.Void)
 def PyEval_SetProfile(space, func, obj):
@@ -1288,6 +1454,7 @@ def PyEval_SetProfile(space, func, obj):
     profile function is called for all monitored events except the line-number
     events."""
     raise NotImplementedError
+    
 
 @cpython_api([Py_tracefunc, PyObject], lltype.Void)
 def PyEval_SetTrace(space, func, obj):
@@ -1295,179 +1462,179 @@ def PyEval_SetTrace(space, func, obj):
     PyEval_SetProfile(), except the tracing function does receive line-number
     events."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject], PyObject)
 def PyEval_GetCallStats(space, self):
     """Return a tuple of function call counts.  There are constants defined for the
     positions within the tuple:
-
+    
+    
+    
+    
+    
     Name
-
+    
     Value
-
+    
     PCALL_ALL
-
+    
     0
-
+    
     PCALL_FUNCTION
-
+    
     1
-
+    
     PCALL_FAST_FUNCTION
-
+    
     2
-
+    
     PCALL_FASTER_FUNCTION
-
+    
     3
-
+    
     PCALL_METHOD
-
+    
     4
-
+    
     PCALL_BOUND_METHOD
-
+    
     5
-
+    
     PCALL_CFUNCTION
-
+    
     6
-
+    
     PCALL_TYPE
-
+    
     7
-
+    
     PCALL_GENERATOR
-
+    
     8
-
+    
     PCALL_OTHER
-
+    
     9
-
+    
     PCALL_POP
-
+    
     10
-
+    
     PCALL_FAST_FUNCTION means no argument tuple needs to be created.
     PCALL_FASTER_FUNCTION means that the fast-path frame setup code is used.
-
+    
     If there is a method call where the call can be optimized by changing
     the argument tuple and calling the function directly, it gets recorded
     twice.
-
+    
     This function is only present if Python is compiled with CALL_PROFILE
     defined."""
     raise NotImplementedError
+    
 
 @cpython_api([PyInterpreterState], PyThreadState)
 def PyInterpreterState_ThreadHead(space, interp):
     """Return the a pointer to the first PyThreadState object in the list of
-    threads associated with the interpreter interp.
-    """
+    threads associated with the interpreter interp."""
     raise NotImplementedError
+    
 
 @cpython_api([PyThreadState], PyThreadState)
 def PyThreadState_Next(space, tstate):
     """Return the next thread state object after tstate from the list of all such
-    objects belonging to the same PyInterpreterState object.
-    """
+    objects belonging to the same PyInterpreterState object."""
     raise NotImplementedError
-
-@cpython_api([PyObject], rffi.ULONGLONG, error=-1)
-def PyInt_AsUnsignedLongLongMask(space, io):
-    """Will first attempt to cast the object to a PyIntObject or
-    PyLongObject, if it is not already one, and then return its value as
-    unsigned long long, without checking for overflow.
-    """
-    raise NotImplementedError
-
-@cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
-def PyInt_ClearFreeList(space):
-    """Clear the integer free list. Return the number of items that could not
-    be freed.
-    """
-    raise NotImplementedError
+    
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PySeqIter_Check(space, op):
-    """Return true if the type of op is PySeqIter_Type.
-    """
+    """Return true if the type of op is PySeqIter_Type."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyCallIter_Check(space, op):
-    """Return true if the type of op is PyCallIter_Type.
-    """
+    """Return true if the type of op is PyCallIter_Type."""
     raise NotImplementedError
+    
 
 @cpython_api([rffi.SIZE_T], PyObject)
 def PyLong_FromSize_t(space, v):
     """Return a new PyLongObject object from a C size_t, or
-    NULL on failure.
-    """
+    NULL on failure."""
     raise NotImplementedError
+    
 
-@cpython_api([rffi.CWCHARP, Py_ssize_t, rffi.INT_real], PyObject)
+@cpython_api([rffi.CArrayPtr(Py_UNICODE), Py_ssize_t, rffi.INT_real], PyObject)
 def PyLong_FromUnicode(space, u, length, base):
-    """Convert a sequence of Unicode digits to a Python long integer value.  The first
-    parameter, u, points to the first character of the Unicode string, length
-    gives the number of characters, and base is the radix for the conversion.  The
-    radix must be in the range [2, 36]; if it is out of range, ValueError
-    will be raised.
-
-    This function used an int for length. This might require
-    changes in your code for properly supporting 64-bit systems."""
+    """Convert a sequence of Unicode digits to a Python integer value.  The Unicode
+    string is first encoded to a byte string using PyUnicode_EncodeDecimal()
+    and then converted using PyLong_FromString()."""
     raise NotImplementedError
+    
+
+@cpython_api([PyObject], rffi.SIZE_T, error=-1)
+def PyLong_AsSize_t(space, pylong):
+    """Return a C size_t representation of of pylong.  pylong must be
+    an instance of PyLongObject.
+    
+    Raise OverflowError if the value of pylong is out of range for a
+    size_t."""
+    raise NotImplementedError
+    
 
 @cpython_api([PyObject, rffi.CCHARP], rffi.INT_real, error=-1)
 def PyMapping_DelItemString(space, o, key):
     """Remove the mapping for object key from the object o. Return -1 on
     failure.  This is equivalent to the Python statement del o[key]."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
 def PyMapping_DelItem(space, o, key):
     """Remove the mapping for object key from the object o. Return -1 on
     failure.  This is equivalent to the Python statement del o[key]."""
     raise NotImplementedError
+    
 
 @cpython_api([lltype.Signed, FILE, rffi.INT_real], lltype.Void)
 def PyMarshal_WriteLongToFile(space, value, file, version):
     """Marshal a long integer, value, to file.  This will only write
     the least-significant 32 bits of value; regardless of the size of the
-    native long type.
-
-    version indicates the file format."""
+    native long type.  version indicates the file format."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject, FILE, rffi.INT_real], lltype.Void)
 def PyMarshal_WriteObjectToFile(space, value, file, version):
     """Marshal a Python object, value, to file.
-
     version indicates the file format."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject, rffi.INT_real], PyObject)
 def PyMarshal_WriteObjectToString(space, value, version):
     """Return a string object containing the marshalled representation of value.
-
     version indicates the file format."""
     raise NotImplementedError
+    
 
-@cpython_api([FILE], lltype.Signed, error=CANNOT_FAIL)
+@cpython_api([FILE], lltype.Signed, error=-1)
 def PyMarshal_ReadLongFromFile(space, file):
     """Return a C long from the data stream in a FILE* opened
     for reading.  Only a 32-bit value can be read in using this function,
     regardless of the native size of long."""
     raise NotImplementedError
+    
 
-@cpython_api([FILE], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([FILE], rffi.INT_real, error=-1)
 def PyMarshal_ReadShortFromFile(space, file):
     """Return a C short from the data stream in a FILE* opened
     for reading.  Only a 16-bit value can be read in using this function,
     regardless of the native size of short."""
     raise NotImplementedError
+    
 
 @cpython_api([FILE], PyObject)
 def PyMarshal_ReadObjectFromFile(space, file):
@@ -1475,6 +1642,7 @@ def PyMarshal_ReadObjectFromFile(space, file):
     reading.  On error, sets the appropriate exception (EOFError or
     TypeError) and returns NULL."""
     raise NotImplementedError
+    
 
 @cpython_api([FILE], PyObject)
 def PyMarshal_ReadLastObjectFromFile(space, file):
@@ -1487,100 +1655,206 @@ def PyMarshal_ReadLastObjectFromFile(space, file):
     anything else from the file.  On error, sets the appropriate exception
     (EOFError or TypeError) and returns NULL."""
     raise NotImplementedError
+    
 
 @cpython_api([rffi.CCHARP, Py_ssize_t], PyObject)
 def PyMarshal_ReadObjectFromString(space, string, len):
     """Return a Python object from the data stream in a character buffer
     containing len bytes pointed to by string.  On error, sets the
     appropriate exception (EOFError or TypeError) and returns
-    NULL.
-
-    This function used an int type for len. This might require
-    changes in your code for properly supporting 64-bit systems."""
+    NULL."""
     raise NotImplementedError
+    
 
-@cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
-def PyMethod_ClearFreeList(space):
-    """Clear the free list. Return the total number of freed items.
-    """
+@cpython_api([Py_buffer], PyObject)
+def PyMemoryView_FromBuffer(space, view):
+    """Create a memoryview object wrapping the given buffer structure view.
+    The memoryview object then owns the buffer represented by view, which
+    means you shouldn't try to call PyBuffer_Release() yourself: it
+    will be done on deallocation of the memoryview object."""
     raise NotImplementedError
+    
+
+@cpython_api([PyObject, rffi.INT_real, lltype.Char], PyObject)
+def PyMemoryView_GetContiguous(space, obj, buffertype, order):
+    """Create a memoryview object to a contiguous chunk of memory (in either
+    'C' or 'F'ortran order) from an object that defines the buffer
+    interface. If memory is contiguous, the memoryview object points to the
+    original memory. Otherwise, a copy is made and the memoryview points to a
+    new bytes object."""
+    raise NotImplementedError
+    
+
+@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+def PyMemoryView_Check(space, obj):
+    """Return true if the object obj is a memoryview object.  It is not
+    currently allowed to create subclasses of memoryview."""
+    raise NotImplementedError
+    
+
+@cpython_api([PyObject], Py_buffer)
+def PyMemoryView_GET_BUFFER(space, obj):
+    """Return a pointer to the buffer structure wrapped by the given
+    memoryview object.  The object must be a memoryview instance;
+    this macro doesn't check its type, you must do it yourself or you
+    will risk crashes."""
+    raise NotImplementedError
+    
+
+@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+def PyInstanceMethod_Check(space, o):
+    """Return true if o is an instance method object (has type
+    PyInstanceMethod_Type).  The parameter must not be NULL."""
+    raise NotImplementedError
+    
+
+@cpython_api([PyObject], PyObject)
+def PyInstanceMethod_New(space, func):
+    """Return a new instance method object, with func being any callable object
+    func is the function that will be called when the instance method is
+    called."""
+    raise NotImplementedError
+    
+
+@cpython_api([PyObject], PyObject)
+def PyInstanceMethod_Function(space, im):
+    """Return the function object associated with the instance method im."""
+    raise NotImplementedError
+    
+
+@cpython_api([PyObject], PyObject)
+def PyInstanceMethod_GET_FUNCTION(space, im):
+    """Macro version of PyInstanceMethod_Function() which avoids error checking."""
+    raise NotImplementedError
+    
+
+@cpython_api([], rffi.INT_real, error=-1)
+def PyMethod_ClearFreeList(space, ):
+    """Clear the free list. Return the total number of freed items."""
+    raise NotImplementedError
+    
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyModule_CheckExact(space, p):
     """Return true if p is a module object, but not a subtype of
-    PyModule_Type.
-    """
+    PyModule_Type."""
     raise NotImplementedError
+    
 
 @cpython_api([rffi.CCHARP], PyObject)
 def PyModule_New(space, name):
-    """Return a new module object with the __name__ attribute set to name.  Only
-    the module's __doc__ and __name__ attributes are filled in; the caller is
-    responsible for providing a __file__ attribute."""
+    """
+    
+    
+    
+    Return a new module object with the __name__ attribute set to name.
+    Only the module's __doc__ and __name__ attributes are filled in;
+    the caller is responsible for providing a __file__ attribute."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject], rffi.CCHARP)
 def PyModule_GetFilename(space, module):
-    """Return the name of the file from which module was loaded using module's
-    __file__ attribute.  If this is not defined, or if it is not a string, raise
-    SystemError and return NULL."""
+    """Similar to PyModule_GetFilenameObject() but return the filename
+    encoded to 'utf-8'.
+    
+    PyModule_GetFilename() raises UnicodeEncodeError on
+    unencodable filenames, use PyModule_GetFilenameObject() instead."""
     raise NotImplementedError
+    
 
-@cpython_api([PyObject, rffi.INT], rffi.INT_real, error=-1)
-def PyModule_AddIntMacro(space, module, macro):
-    """Add an int constant to module. The name and the value are taken from
-    macro. For example PyModule_AddConstant(module, AF_INET) adds the int
-    constant AF_INET with the value of AF_INET to module.
-    Return -1 on error, 0 on success.
+@cpython_api([PyObject], PyObject)
+def PyModule_GetFilenameObject(space, module):
+    """
+    
+    
+    
+    Return the name of the file from which module was loaded using module's
+    __file__ attribute.  If this is not defined, or if it is not a
+    unicode string, raise SystemError and return NULL; otherwise return
+    a reference to a PyUnicodeObject.
     """
     raise NotImplementedError
+    
 
-@cpython_api([PyObject, rffi.CCHARP], rffi.INT_real, error=-1)
-def PyModule_AddStringMacro(space, module, macro):
-    """Add a string constant to module.
-    """
+@cpython_api([PyObject], rffi.VOIDP)
+def PyModule_GetState(space, module):
+    """Return the "state" of the module, that is, a pointer to the block of memory
+    allocated at module creation time, or NULL.  See
+    PyModuleDef.m_size."""
     raise NotImplementedError
+    
 
+@cpython_api([PyObject], PyModuleDef)
+def PyModule_GetDef(space, module):
+    """Return a pointer to the PyModuleDef struct from which the module was
+    created, or NULL if the module wasn't created with
+    PyModule_Create()."""
+    raise NotImplementedError
+    
+
+@cpython_api([PyModuleDef], PyObject)
+def PyModule_Create(space, module):
+    """Create a new module object, given the definition in module.  This behaves
+    like PyModule_Create2() with module_api_version set to
+    PYTHON_API_VERSION."""
+    raise NotImplementedError
+    
+
+@cpython_api([PyModuleDef, rffi.INT_real], PyObject)
+def PyModule_Create2(space, module, module_api_version):
+    """Create a new module object, given the definition in module, assuming the
+    API version module_api_version.  If that version does not match the version
+    of the running interpreter, a RuntimeWarning is emitted.
+    
+    Most uses of this function should be using PyModule_Create()
+    instead; only use this if you are sure you need it."""
+    raise NotImplementedError
+    
 
 @cpython_api([PyObject, rffi.INT_real], PyObject)
 def PyNumber_ToBase(space, n, base):
-    """Returns the integer n converted to base as a string with a base
-    marker of '0b', '0o', or '0x' if applicable.  When
-    base is not 2, 8, 10, or 16, the format is 'x#num' where x is the
-    base. If n is not an int object, it is converted with
-    PyNumber_Index() first.
-    """
+    """Returns the integer n converted to base base as a string.  The base
+    argument must be one of 2, 8, 10, or 16.  For base 2, 8, or 16, the
+    returned string is prefixed with a base marker of '0b', '0o', or
+    '0x', respectively.  If n is not a Python int, it is converted with
+    PyNumber_Index() first."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject], PyObject)
 def PyObject_Bytes(space, o):
-    """Compute a bytes representation of object o.  In 2.x, this is just a alias
-    for PyObject_Str()."""
+    """
+    
+    
+    
+    Compute a bytes representation of object o.  NULL is returned on
+    failure and a bytes object on success.  This is equivalent to the Python
+    expression bytes(o), when o is not an integer.  Unlike bytes(o),
+    a TypeError is raised when o is an integer instead of a zero-initialized
+    bytes object."""
     raise NotImplementedError
+    
 
 @cpython_api([], PyFrameObject)
-def PyEval_GetFrame(space):
+def PyEval_GetFrame(space, ):
     """Return the current thread state's frame, which is NULL if no frame is
     currently executing."""
-    borrow_from()
     raise NotImplementedError
+    borrow_from()
 
-@cpython_api([PyFrameObject], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([PyFrameObject], rffi.INT_real, error=-1)
 def PyFrame_GetLineNumber(space, frame):
     """Return the line number that frame is currently executing."""
     raise NotImplementedError
-
-@cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
-def PyEval_GetRestricted(space):
-    """If there is a current frame and it is executing in restricted mode, return true,
-    otherwise false."""
-    raise NotImplementedError
+    
 
 @cpython_api([PyObject], rffi.CCHARP)
 def PyEval_GetFuncName(space, func):
     """Return the name of func if it is a function, class or instance object, else the
     name of funcs type."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject], rffi.CCHARP)
 def PyEval_GetFuncDesc(space, func):
@@ -1590,6 +1864,7 @@ def PyEval_GetFuncDesc(space, func):
     PyEval_GetFuncName(), the result will be a description of
     func."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject, PyObject], PyObject)
 def PySequence_InPlaceConcat(space, o1, o2):
@@ -1597,104 +1872,73 @@ def PySequence_InPlaceConcat(space, o1, o2):
     The operation is done in-place when o1 supports it.  This is the equivalent
     of the Python expression o1 += o2."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject, Py_ssize_t], PyObject)
 def PySequence_InPlaceRepeat(space, o, count):
     """Return the result of repeating sequence object o count times, or NULL on
     failure.  The operation is done in-place when o supports it.  This is the
-    equivalent of the Python expression o *= count.
-
-    This function used an int type for count. This might require
-    changes in your code for properly supporting 64-bit systems."""
+    equivalent of the Python expression o *= count."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject, PyObject], Py_ssize_t, error=-1)
 def PySequence_Count(space, o, value):
     """Return the number of occurrences of value in o, that is, return the number
     of keys for which o[key] == value.  On failure, return -1.  This is
-    equivalent to the Python expression o.count(value).
-
-    This function returned an int type. This might require changes
-    in your code for properly supporting 64-bit systems."""
+    equivalent to the Python expression o.count(value)."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject], PyObjectP)
 def PySequence_Fast_ITEMS(space, o):
     """Return the underlying array of PyObject pointers.  Assumes that o was returned
     by PySequence_Fast() and o is not NULL.
-
+    
     Note, if a list gets resized, the reallocation may relocate the items array.
     So, only use the underlying array pointer in contexts where the sequence
-    cannot change.
-    """
+    cannot change."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyFrozenSet_Check(space, p):
     """Return true if p is a frozenset object or an instance of a
-    subtype.
-    """
+    subtype."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyAnySet_Check(space, p):
     """Return true if p is a set object, a frozenset object, or an
     instance of a subtype."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyAnySet_CheckExact(space, p):
     """Return true if p is a set object or a frozenset object but
     not an instance of a subtype."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyFrozenSet_CheckExact(space, p):
     """Return true if p is a frozenset object but not an instance of a
     subtype."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject], PyObject)
 def PyFrozenSet_New(space, iterable):
     """Return a new frozenset containing objects returned by the iterable.
     The iterable may be NULL to create a new empty frozenset.  Return the new
     set on success or NULL on failure.  Raise TypeError if iterable is
-    not actually iterable.
-
-    Now guaranteed to return a brand-new frozenset.  Formerly,
-    frozensets of zero-length were a singleton.  This got in the way of
-    building-up new frozensets with PySet_Add()."""
+    not actually iterable."""
     raise NotImplementedError
+    
 
-@cpython_api([rffi.CCHARP, Py_ssize_t, rffi.CCHARP, rffi.CCHARP], PyObject)
-def PyString_Decode(space, s, size, encoding, errors):
-    """Create an object by decoding size bytes of the encoded buffer s using the
-    codec registered for encoding.  encoding and errors have the same meaning
-    as the parameters of the same name in the unicode() built-in function.
-    The codec to be used is looked up using the Python codec registry.  Return
-    NULL if an exception was raised by the codec.
-
-    This function is not available in 3.x and does not have a PyBytes alias.
-
-    This function used an int type for size. This might require
-    changes in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
-@cpython_api([rffi.CCHARP, Py_ssize_t, rffi.CCHARP, rffi.CCHARP], PyObject)
-def PyString_Encode(space, s, size, encoding, errors):
-    """Encode the char buffer of the given size by passing it to the codec
-    registered for encoding and return a Python object. encoding and errors
-    have the same meaning as the parameters of the same name in the string
-    encode() method. The codec to be used is looked up using the Python codec
-    registry.  Return NULL if an exception was raised by the codec.
-
-    This function is not available in 3.x and does not have a PyBytes alias.
-
-    This function used an int type for size. This might require
-    changes in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
-@cpython_api([FILE, rffi.CCHARP], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([FILE, rffi.CCHARP], rffi.INT_real, error=-1)
 def Py_FdIsInteractive(space, fp, filename):
     """Return true (nonzero) if the standard I/O file fp with name filename is
     deemed interactive.  This is the case for files for which isatty(fileno(fp))
@@ -1702,246 +1946,267 @@ def Py_FdIsInteractive(space, fp, filename):
     also returns true if the filename pointer is NULL or if the name is equal to
     one of the strings '<stdin>' or '???'."""
     raise NotImplementedError
+    
 
 @cpython_api([], lltype.Void)
-def PyOS_AfterFork(space):
+def PyOS_AfterFork(space, ):
     """Function to update some internal state after a process fork; this should be
     called in the new process if the Python interpreter will continue to be used.
     If a new executable is loaded into the new process, this function does not need
     to be called."""
     raise NotImplementedError
+    
 
 @cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
-def PyOS_CheckStack(space):
+def PyOS_CheckStack(space, ):
     """Return true when the interpreter runs out of stack space.  This is a reliable
     check, but is only available when USE_STACKCHECK is defined (currently
     on Windows using the Microsoft Visual C++ compiler).  USE_STACKCHECK
     will be defined automatically; you should never change the definition in your
     own code."""
     raise NotImplementedError
+    
 
 @cpython_api([rffi.CCHARP, FILE], FILE)
-def PySys_GetFile(space, name, default):
+def PySys_GetFile(space, name, def_):
     """Return the FILE* associated with the object name in the
     sys module, or def if name is not in the module or is not associated
     with a FILE*."""
     raise NotImplementedError
+    
 
 @cpython_api([], lltype.Void)
-def PySys_ResetWarnOptions(space):
+def PySys_ResetWarnOptions(space, ):
     """Reset sys.warnoptions to an empty list."""
     raise NotImplementedError
+    
 
-@cpython_api([rffi.CCHARP], lltype.Void)
+@cpython_api([rffi.CWCHARP], lltype.Void)
 def PySys_AddWarnOption(space, s):
     """Append s to sys.warnoptions."""
     raise NotImplementedError
+    
 
-@cpython_api([rffi.CCHARP], lltype.Void)
+@cpython_api([PyObject], lltype.Void)
+def PySys_AddWarnOptionUnicode(space, unicode):
+    """Append unicode to sys.warnoptions."""
+    raise NotImplementedError
+    
+
+@cpython_api([rffi.CWCHARP], lltype.Void)
 def PySys_SetPath(space, path):
     """Set sys.path to a list object of paths found in path which should
     be a list of paths separated with the platform's search path delimiter
     (: on Unix, ; on Windows)."""
     raise NotImplementedError
+    
+
+@cpython_api([rffi.CCHARP, ], lltype.Void)
+def PySys_FormatStdout(space, format, ):
+    """Function similar to PySys_WriteStdout() but format the message using
+    PyUnicode_FromFormatV() and don't truncate the message to an
+    arbitrary length.
+    """
+    raise NotImplementedError
+    
+
+@cpython_api([rffi.CCHARP, ], lltype.Void)
+def PySys_FormatStderr(space, format, ):
+    """As PySys_FormatStdout(), but write to sys.stderr or stderr
+    instead.
+    """
+    raise NotImplementedError
+    
+
+@cpython_api([rffi.CWCHARP], lltype.Void)
+def PySys_AddXOption(space, s):
+    """Parse s as a set of -X options and add them to the current
+    options mapping as returned by PySys_GetXOptions().
+    """
+    raise NotImplementedError
+    
+
+@cpython_api([], PyObject)
+def PySys_GetXOptions(space, ):
+    """Return the current dictionary of -X options, similarly to
+    sys._xoptions.  On error, NULL is returned and an exception is
+    set.
+    """
+    raise NotImplementedError
+    borrow_from()
 
 @cpython_api([rffi.INT_real], lltype.Void)
 def Py_Exit(space, status):
-    """Exit the current process.  This calls Py_Finalize() and then calls the
+    """
+    
+    
+    
+    Exit the current process.  This calls Py_Finalize() and then calls the
     standard C library function exit(status)."""
     raise NotImplementedError
+    
 
-@cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
-def PyTuple_ClearFreeList(space):
-    """Clear the free list. Return the total number of freed items.
-    """
+@cpython_api([], rffi.INT_real, error=-1)
+def PyTuple_ClearFreeList(space, ):
+    """Clear the free list. Return the total number of freed items."""
     raise NotImplementedError
+    
 
 @cpython_api([], rffi.UINT, error=CANNOT_FAIL)
-def PyType_ClearCache(space):
-    """Clear the internal lookup cache. Return the current version tag.
+def PyType_ClearCache(space, ):
+    """Clear the internal lookup cache. Return the current version tag."""
+    raise NotImplementedError
+    
+
+@cpython_api([PyTypeObjectPtr], lltype.Signed, error=CANNOT_FAIL)
+def PyType_GetFlags(space, type):
+    """Return the tp_flags member of type. This function is primarily
+    meant for use with Py_LIMITED_API; the individual flag bits are
+    guaranteed to be stable across Python releases, but access to
+    tp_flags itself is not part of the limited API.
     """
     raise NotImplementedError
+    
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyType_IS_GC(space, o):
     """Return true if the type object includes support for the cycle detector; this
-    tests the type flag Py_TPFLAGS_HAVE_GC.
-    """
+    tests the type flag Py_TPFLAGS_HAVE_GC."""
     raise NotImplementedError
+    
 
-@cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
-def PyUnicode_ClearFreeList(space):
-    """Clear the free list. Return the total number of freed items.
+@cpython_api([], rffi.INT_real, error=-1)
+def PyUnicode_ClearFreeList(space, ):
+    """Clear the free list. Return the total number of freed items."""
+    raise NotImplementedError
+    
+
+@cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
+def Py_UNICODE_ISPRINTABLE(space, ch):
+    """Return 1 or 0 depending on whether ch is a printable character.
+    Nonprintable characters are those characters defined in the Unicode character
+    database as "Other" or "Separator", excepting the ASCII space (0x20) which is
+    considered printable.  (Note that printable characters in this context are
+    those which should not be escaped when repr() is invoked on a string.
+    It has no bearing on the handling of strings written to sys.stdout or
+    sys.stderr.)"""
+    raise NotImplementedError
+    
+
+@cpython_api([rffi.CArrayPtr(Py_UNICODE), Py_ssize_t], PyObject)
+def PyUnicode_TransformDecimalToASCII(space, s, size):
+    """Create a Unicode object by replacing all decimal digits in
+    Py_UNICODE buffer of the given size by ASCII digits 0--9
+    according to their decimal value.  Return NULL if an exception
+    occurs."""
+    raise NotImplementedError
+    
+
+@cpython_api([PyObject], rffi.CArrayPtr(Py_UNICODE))
+def PyUnicode_AsUnicodeCopy(space, unicode):
+    """Create a copy of a Unicode string ending with a nul character. Return NULL
+    and raise a MemoryError exception on memory allocation failure,
+    otherwise return a new allocated buffer (use PyMem_Free() to free
+    the buffer). Note that the resulting Py_UNICODE* string may contain
+    embedded null characters, which would cause the string to be truncated when
+    used in most C functions.
     """
     raise NotImplementedError
+    
+
+@cpython_api([PyObject, rffi.VOIDP], rffi.INT_real, error=-1)
+def PyUnicode_FSConverter(space, obj, result):
+    """ParseTuple converter: encode str objects to bytes using
+    PyUnicode_EncodeFSDefault(); bytes objects are output as-is.
+    result must be a PyBytesObject* which must be released when it is
+    no longer used.
+    """
+    raise NotImplementedError
+    
+
+@cpython_api([PyObject, rffi.VOIDP], rffi.INT_real, error=-1)
+def PyUnicode_FSDecoder(space, obj, result):
+    """ParseTuple converter: decode bytes objects to str using
+    PyUnicode_DecodeFSDefaultAndSize(); str objects are output
+    as-is. result must be a PyUnicodeObject* which must be released
+    when it is no longer used.
+    """
+    raise NotImplementedError
+    
+
+@cpython_api([rffi.CCHARP, Py_ssize_t], PyObject)
+def PyUnicode_DecodeFSDefaultAndSize(space, s, size):
+    """Decode a string using Py_FileSystemDefaultEncoding and the
+    'surrogateescape' error handler, or 'strict' on Windows.
+    
+    If Py_FileSystemDefaultEncoding is not set, fall back to the
+    locale encoding.
+    
+    Use 'strict' error handler on Windows."""
+    raise NotImplementedError
+    
 
 @cpython_api([rffi.CCHARP], PyObject)
-def PyUnicode_FromFormat(space, format):
-    """Take a C printf()-style format string and a variable number of
-    arguments, calculate the size of the resulting Python unicode string and return
-    a string with the values formatted into it.  The variable arguments must be C
-    types and must correspond exactly to the format characters in the format
-    string.  The following format characters are allowed:
+def PyUnicode_DecodeFSDefault(space, s):
+    """Decode a null-terminated string using Py_FileSystemDefaultEncoding
+    and the 'surrogateescape' error handler, or 'strict' on Windows.
+    
+    If Py_FileSystemDefaultEncoding is not set, fall back to the
+    locale encoding.
+    
+    Use PyUnicode_DecodeFSDefaultAndSize() if you know the string length.
+    
+    Use 'strict' error handler on Windows."""
+    raise NotImplementedError
+    
 
-    Format Characters
-
-    Type
-
-    Comment
-
-    %%
-
-    n/a
-
-    The literal % character.
-
-    %c
-
-    int
-
-    A single character,
-    represented as an C int.
-
-    %d
-
-    int
-
-    Exactly equivalent to
-    printf("%d").
-
-    %u
-
-    unsigned int
-
-    Exactly equivalent to
-    printf("%u").
-
-    %ld
-
-    long
-
-    Exactly equivalent to
-    printf("%ld").
-
-    %lu
-
-    unsigned long
-
-    Exactly equivalent to
-    printf("%lu").
-
-    %zd
-
-    Py_ssize_t
-
-    Exactly equivalent to
-    printf("%zd").
-
-    %zu
-
-    size_t
-
-    Exactly equivalent to
-    printf("%zu").
-
-    %i
-
-    int
-
-    Exactly equivalent to
-    printf("%i").
-
-    %x
-
-    int
-
-    Exactly equivalent to
-    printf("%x").
-
-    %s
-
-    char*
-
-    A null-terminated C character
-    array.
-
-    %p
-
-    void*
-
-    The hex representation of a C
-    pointer. Mostly equivalent to
-    printf("%p") except that
-    it is guaranteed to start with
-    the literal 0x regardless
-    of what the platform's
-    printf yields.
-
-    %U
-
-    PyObject*
-
-    A unicode object.
-
-    %V
-
-    PyObject*, char *
-
-    A unicode object (which may be
-    NULL) and a null-terminated
-    C character array as a second
-    parameter (which will be used,
-    if the first parameter is
-    NULL).
-
-    %S
-
-    PyObject*
-
-    The result of calling
-    PyObject_Unicode().
-
-    %R
-
-    PyObject*
-
-    The result of calling
-    PyObject_Repr().
-
-    An unrecognized format character causes all the rest of the format string to be
-    copied as-is to the result string, and any extra arguments discarded.
+@cpython_api([PyObject], PyObject)
+def PyUnicode_EncodeFSDefault(space, unicode):
+    """Encode a Unicode object to Py_FileSystemDefaultEncoding with the
+    'surrogateescape' error handler, or 'strict' on Windows, and return
+    bytes. Note that the resulting bytes object may contain
+    null bytes.
+    
+    If Py_FileSystemDefaultEncoding is not set, fall back to the
+    locale encoding.
     """
     raise NotImplementedError
+    
 
-@cpython_api([rffi.CCHARP, va_list], PyObject)
-def PyUnicode_FromFormatV(space, format, vargs):
-    """Identical to PyUnicode_FromFormat() except that it takes exactly two
-    arguments.
+@cpython_api([PyObject, Py_ssize_t], rffi.CWCHARP)
+def PyUnicode_AsWideCharString(space, unicode, size):
+    """Convert the Unicode object to a wide character string. The output string
+    always ends with a nul character. If size is not NULL, write the number
+    of wide characters (excluding the trailing 0-termination character) into
+    *size.
+    
+    Returns a buffer allocated by PyMem_Alloc() (use
+    PyMem_Free() to free it) on success. On error, returns NULL,
+    *size is undefined and raises a MemoryError. Note that the
+    resulting wchar_t* string might contain null characters, which
+    would cause the string to be truncated when used with most C functions.
     """
     raise NotImplementedError
+    
 
-@cpython_api([rffi.CWCHARP, Py_ssize_t, rffi.CCHARP, rffi.CCHARP], PyObject)
+@cpython_api([rffi.CArrayPtr(Py_UNICODE), Py_ssize_t, rffi.CCHARP, rffi.CCHARP], PyObject)
 def PyUnicode_Encode(space, s, size, encoding, errors):
-    """Encode the Py_UNICODE buffer of the given size and return a Python
-    string object.  encoding and errors have the same meaning as the parameters
-    of the same name in the Unicode encode() method.  The codec to be used is
-    looked up using the Python codec registry.  Return NULL if an exception was
-    raised by the codec.
-
-    This function used an int type for size. This might require
-    changes in your code for properly supporting 64-bit systems."""
+    """Encode the Py_UNICODE buffer s of the given size and return a Python
+    bytes object.  encoding and errors have the same meaning as the
+    parameters of the same name in the Unicode encode() method.  The codec
+    to be used is looked up using the Python codec registry.  Return NULL if an
+    exception was raised by the codec."""
     raise NotImplementedError
+    
 
 @cpython_api([rffi.CCHARP, Py_ssize_t, rffi.CCHARP, Py_ssize_t], PyObject)
 def PyUnicode_DecodeUTF8Stateful(space, s, size, errors, consumed):
     """If consumed is NULL, behave like PyUnicode_DecodeUTF8(). If
     consumed is not NULL, trailing incomplete UTF-8 byte sequences will not be
     treated as an error. Those bytes will not be decoded and the number of bytes
-    that have been decoded will be stored in consumed.
-
-    This function used an int type for size. This might require
-    changes in your code for properly supporting 64-bit systems."""
+    that have been decoded will be stored in consumed."""
     raise NotImplementedError
+    
 
 @cpython_api([rffi.CCHARP, Py_ssize_t, rffi.CCHARP, rffi.INTP, Py_ssize_t], PyObject)
 def PyUnicode_DecodeUTF32Stateful(space, s, size, errors, byteorder, consumed):
@@ -1949,36 +2214,36 @@ def PyUnicode_DecodeUTF32Stateful(space, s, size, errors, byteorder, consumed):
     consumed is not NULL, PyUnicode_DecodeUTF32Stateful() will not treat
     trailing incomplete UTF-32 byte sequences (such as a number of bytes not divisible
     by four) as an error. Those bytes will not be decoded and the number of bytes
-    that have been decoded will be stored in consumed.
-    """
+    that have been decoded will be stored in consumed."""
     raise NotImplementedError
+    
 
-@cpython_api([rffi.CWCHARP, Py_ssize_t, rffi.CCHARP, rffi.INT_real], PyObject)
+@cpython_api([rffi.CArrayPtr(Py_UNICODE), Py_ssize_t, rffi.CCHARP, rffi.INT_real], PyObject)
 def PyUnicode_EncodeUTF32(space, s, size, errors, byteorder):
     """Return a Python bytes object holding the UTF-32 encoded value of the Unicode
     data in s.  Output is written according to the following byte order:
-
+    
     byteorder == -1: little endian
     byteorder == 0:  native byte order (writes a BOM mark)
     byteorder == 1:  big endian
-
+    
     If byteorder is 0, the output string will always start with the Unicode BOM
     mark (U+FEFF). In the other two modes, no BOM mark is prepended.
-
+    
     If Py_UNICODE_WIDE is not defined, surrogate pairs will be output
     as a single codepoint.
-
-    Return NULL if an exception was raised by the codec.
-    """
+    
+    Return NULL if an exception was raised by the codec."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject], PyObject)
 def PyUnicode_AsUTF32String(space, unicode):
-    """Return a Python string using the UTF-32 encoding in native byte order. The
-    string always starts with a BOM mark.  Error handling is "strict".  Return
-    NULL if an exception was raised by the codec.
-    """
+    """Return a Python byte string using the UTF-32 encoding in native byte
+    order. The string always starts with a BOM mark.  Error handling is "strict".
+    Return NULL if an exception was raised by the codec."""
     raise NotImplementedError
+    
 
 @cpython_api([rffi.CCHARP, Py_ssize_t, rffi.CCHARP, rffi.INTP, Py_ssize_t], PyObject)
 def PyUnicode_DecodeUTF16Stateful(space, s, size, errors, byteorder, consumed):
@@ -1986,47 +2251,44 @@ def PyUnicode_DecodeUTF16Stateful(space, s, size, errors, byteorder, consumed):
     consumed is not NULL, PyUnicode_DecodeUTF16Stateful() will not treat
     trailing incomplete UTF-16 byte sequences (such as an odd number of bytes or a
     split surrogate pair) as an error. Those bytes will not be decoded and the
-    number of bytes that have been decoded will be stored in consumed.
-
-    This function used an int type for size and an int *
-    type for consumed. This might require changes in your code for
-    properly supporting 64-bit systems."""
+    number of bytes that have been decoded will be stored in consumed."""
     raise NotImplementedError
+    
 
-@cpython_api([rffi.CWCHARP, Py_ssize_t, rffi.CCHARP, rffi.INT_real], PyObject)
+@cpython_api([rffi.CArrayPtr(Py_UNICODE), Py_ssize_t, rffi.CCHARP, rffi.INT_real], PyObject)
 def PyUnicode_EncodeUTF16(space, s, size, errors, byteorder):
-    """Return a Python string object holding the UTF-16 encoded value of the Unicode
+    """Return a Python bytes object holding the UTF-16 encoded value of the Unicode
     data in s.  Output is written according to the following byte order:
-
+    
     byteorder == -1: little endian
     byteorder == 0:  native byte order (writes a BOM mark)
     byteorder == 1:  big endian
-
+    
     If byteorder is 0, the output string will always start with the Unicode BOM
     mark (U+FEFF). In the other two modes, no BOM mark is prepended.
-
+    
     If Py_UNICODE_WIDE is defined, a single Py_UNICODE value may get
     represented as a surrogate pair. If it is not defined, each Py_UNICODE
     values is interpreted as an UCS-2 character.
-
-    Return NULL if an exception was raised by the codec.
-
-    This function used an int type for size. This might require
-    changes in your code for properly supporting 64-bit systems."""
+    
+    Return NULL if an exception was raised by the codec."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject], PyObject)
 def PyUnicode_AsUTF16String(space, unicode):
-    """Return a Python string using the UTF-16 encoding in native byte order. The
-    string always starts with a BOM mark.  Error handling is "strict".  Return
-    NULL if an exception was raised by the codec."""
+    """Return a Python byte string using the UTF-16 encoding in native byte
+    order. The string always starts with a BOM mark.  Error handling is "strict".
+    Return NULL if an exception was raised by the codec."""
     raise NotImplementedError
+    
 
 @cpython_api([rffi.CCHARP, Py_ssize_t, rffi.CCHARP], PyObject)
 def PyUnicode_DecodeUTF7(space, s, size, errors):
     """Create a Unicode object by decoding size bytes of the UTF-7 encoded string
     s.  Return NULL if an exception was raised by the codec."""
     raise NotImplementedError
+    
 
 @cpython_api([rffi.CCHARP, Py_ssize_t, rffi.CCHARP, Py_ssize_t], PyObject)
 def PyUnicode_DecodeUTF7Stateful(space, s, size, errors, consumed):
@@ -2035,56 +2297,50 @@ def PyUnicode_DecodeUTF7Stateful(space, s, size, errors, consumed):
     be treated as an error.  Those bytes will not be decoded and the number of
     bytes that have been decoded will be stored in consumed."""
     raise NotImplementedError
+    
 
-@cpython_api([rffi.CWCHARP, Py_ssize_t, rffi.INT_real, rffi.INT_real, rffi.CCHARP], PyObject)
+@cpython_api([rffi.CArrayPtr(Py_UNICODE), Py_ssize_t, rffi.INT_real, rffi.INT_real, rffi.CCHARP], PyObject)
 def PyUnicode_EncodeUTF7(space, s, size, base64SetO, base64WhiteSpace, errors):
     """Encode the Py_UNICODE buffer of the given size using UTF-7 and
     return a Python bytes object.  Return NULL if an exception was raised by
     the codec.
-
+    
     If base64SetO is nonzero, "Set O" (punctuation that has no otherwise
     special meaning) will be encoded in base-64.  If base64WhiteSpace is
     nonzero, whitespace will be encoded in base-64.  Both are set to zero for the
     Python "utf-7" codec."""
     raise NotImplementedError
+    
 
 @cpython_api([rffi.CCHARP, Py_ssize_t, rffi.CCHARP], PyObject)
 def PyUnicode_DecodeUnicodeEscape(space, s, size, errors):
     """Create a Unicode object by decoding size bytes of the Unicode-Escape encoded
-    string s.  Return NULL if an exception was raised by the codec.
-
-    This function used an int type for size. This might require
-    changes in your code for properly supporting 64-bit systems."""
+    string s.  Return NULL if an exception was raised by the codec."""
     raise NotImplementedError
+    
 
-@cpython_api([rffi.CWCHARP, Py_ssize_t], PyObject)
+@cpython_api([rffi.CArrayPtr(Py_UNICODE), Py_ssize_t], PyObject)
 def PyUnicode_EncodeUnicodeEscape(space, s, size):
     """Encode the Py_UNICODE buffer of the given size using Unicode-Escape and
     return a Python string object.  Return NULL if an exception was raised by the
-    codec.
-
-    This function used an int type for size. This might require
-    changes in your code for properly supporting 64-bit systems."""
+    codec."""
     raise NotImplementedError
+    
 
 @cpython_api([rffi.CCHARP, Py_ssize_t, rffi.CCHARP], PyObject)
 def PyUnicode_DecodeRawUnicodeEscape(space, s, size, errors):
     """Create a Unicode object by decoding size bytes of the Raw-Unicode-Escape
-    encoded string s.  Return NULL if an exception was raised by the codec.
-
-    This function used an int type for size. This might require
-    changes in your code for properly supporting 64-bit systems."""
+    encoded string s.  Return NULL if an exception was raised by the codec."""
     raise NotImplementedError
+    
 
-@cpython_api([rffi.CWCHARP, Py_ssize_t, rffi.CCHARP], PyObject)
+@cpython_api([rffi.CArrayPtr(Py_UNICODE), Py_ssize_t, rffi.CCHARP], PyObject)
 def PyUnicode_EncodeRawUnicodeEscape(space, s, size, errors):
     """Encode the Py_UNICODE buffer of the given size using Raw-Unicode-Escape
     and return a Python string object.  Return NULL if an exception was raised by
-    the codec.
-
-    This function used an int type for size. This might require
-    changes in your code for properly supporting 64-bit systems."""
+    the codec."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject], PyObject)
 def PyUnicode_AsRawUnicodeEscapeString(space, unicode):
@@ -2092,6 +2348,7 @@ def PyUnicode_AsRawUnicodeEscapeString(space, unicode):
     Python string object. Error handling is "strict". Return NULL if an exception
     was raised by the codec."""
     raise NotImplementedError
+    
 
 @cpython_api([rffi.CCHARP, Py_ssize_t, PyObject, rffi.CCHARP], PyObject)
 def PyUnicode_DecodeCharmap(space, s, size, mapping, errors):
@@ -2100,23 +2357,17 @@ def PyUnicode_DecodeCharmap(space, s, size, mapping, errors):
     codec. If mapping is NULL latin-1 decoding will be done. Else it can be a
     dictionary mapping byte or a unicode string, which is treated as a lookup table.
     Byte values greater that the length of the string and U+FFFE "characters" are
-    treated as "undefined mapping".
-
-    Allowed unicode string as mapping argument.
-
-    This function used an int type for size. This might require
-    changes in your code for properly supporting 64-bit systems."""
+    treated as "undefined mapping"."""
     raise NotImplementedError
+    
 
-@cpython_api([rffi.CWCHARP, Py_ssize_t, PyObject, rffi.CCHARP], PyObject)
+@cpython_api([rffi.CArrayPtr(Py_UNICODE), Py_ssize_t, PyObject, rffi.CCHARP], PyObject)
 def PyUnicode_EncodeCharmap(space, s, size, mapping, errors):
     """Encode the Py_UNICODE buffer of the given size using the given
     mapping object and return a Python string object. Return NULL if an
-    exception was raised by the codec.
-
-    This function used an int type for size. This might require
-    changes in your code for properly supporting 64-bit systems."""
+    exception was raised by the codec."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject, PyObject], PyObject)
 def PyUnicode_AsCharmapString(space, unicode, mapping):
@@ -2124,123 +2375,188 @@ def PyUnicode_AsCharmapString(space, unicode, mapping):
     as Python string object.  Error handling is "strict".  Return NULL if an
     exception was raised by the codec."""
     raise NotImplementedError
+    
 
-@cpython_api([rffi.CWCHARP, Py_ssize_t, PyObject, rffi.CCHARP], PyObject)
+@cpython_api([rffi.CArrayPtr(Py_UNICODE), Py_ssize_t, PyObject, rffi.CCHARP], PyObject)
 def PyUnicode_TranslateCharmap(space, s, size, table, errors):
-    """Translate a Py_UNICODE buffer of the given length by applying a
+    """Translate a Py_UNICODE buffer of the given size by applying a
     character mapping table to it and return the resulting Unicode object.  Return
     NULL when an exception was raised by the codec.
-
+    
     The mapping table must map Unicode ordinal integers to Unicode ordinal
     integers or None (causing deletion of the character).
-
+    
     Mapping tables need only provide the __getitem__() interface; dictionaries
     and sequences work well.  Unmapped character ordinals (ones which cause a
-    LookupError) are left untouched and are copied as-is.
-
-    This function used an int type for size. This might require
-    changes in your code for properly supporting 64-bit systems."""
+    LookupError) are left untouched and are copied as-is."""
     raise NotImplementedError
+    
+
+@cpython_api([rffi.CCHARP, Py_ssize_t, rffi.CCHARP], PyObject)
+def PyUnicode_DecodeMBCS(space, s, size, errors):
+    """Create a Unicode object by decoding size bytes of the MBCS encoded string s.
+    Return NULL if an exception was raised by the codec."""
+    raise NotImplementedError
+    
 
 @cpython_api([rffi.CCHARP, rffi.INT_real, rffi.CCHARP, rffi.INTP], PyObject)
 def PyUnicode_DecodeMBCSStateful(space, s, size, errors, consumed):
     """If consumed is NULL, behave like PyUnicode_DecodeMBCS(). If
     consumed is not NULL, PyUnicode_DecodeMBCSStateful() will not decode
     trailing lead byte and the number of bytes that have been decoded will be stored
-    in consumed.
-    """
+    in consumed."""
     raise NotImplementedError
+    
+
+@cpython_api([rffi.CArrayPtr(Py_UNICODE), Py_ssize_t, rffi.CCHARP], PyObject)
+def PyUnicode_EncodeMBCS(space, s, size, errors):
+    """Encode the Py_UNICODE buffer of the given size using MBCS and return
+    a Python bytes object.  Return NULL if an exception was raised by the
+    codec."""
+    raise NotImplementedError
+    
+
+@cpython_api([PyObject], PyObject)
+def PyUnicode_AsMBCSString(space, unicode):
+    """Encode a Unicode object using MBCS and return the result as Python bytes
+    object.  Error handling is "strict".  Return NULL if an exception was
+    raised by the codec."""
+    raise NotImplementedError
+    
 
 @cpython_api([PyObject, PyObject], PyObject)
 def PyUnicode_Concat(space, left, right):
     """Concat two strings giving a new Unicode string."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject, PyObject, rffi.CCHARP], PyObject)
 def PyUnicode_Translate(space, str, table, errors):
     """Translate a string by applying a character mapping table to it and return the
     resulting Unicode object.
-
+    
     The mapping table must map Unicode ordinal integers to Unicode ordinal integers
     or None (causing deletion of the character).
-
+    
     Mapping tables need only provide the __getitem__() interface; dictionaries
     and sequences work well.  Unmapped character ordinals (ones which cause a
     LookupError) are left untouched and are copied as-is.
-
+    
     errors has the usual meaning for codecs. It may be NULL which indicates to
     use the default error handling."""
     raise NotImplementedError
+    
+
+@cpython_api([PyObject, rffi.CCHARP], rffi.INT_real, error=-1)
+def PyUnicode_CompareWithASCIIString(space, uni, string):
+    """Compare a unicode object, uni, with string and return -1, 0, 1 for less
+    than, equal, and greater than, respectively. It is best to pass only
+    ASCII-encoded strings, but the function interprets the input string as
+    ISO-8859-1 if it contains non-ASCII characters"."""
+    raise NotImplementedError
+    
 
 @cpython_api([PyObject, PyObject, rffi.INT_real], PyObject)
 def PyUnicode_RichCompare(space, left, right, op):
     """Rich compare two unicode strings and return one of the following:
-
+    
     NULL in case an exception was raised
-
+    
     Py_True or Py_False for successful comparisons
-
+    
     Py_NotImplemented in case the type combination is unknown
-
+    
     Note that Py_EQ and Py_NE comparisons can cause a
     UnicodeWarning in case the conversion of the arguments to Unicode fails
     with a UnicodeDecodeError.
-
+    
     Possible values for op are Py_GT, Py_GE, Py_EQ,
     Py_NE, Py_LT, and Py_LE."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
 def PyUnicode_Contains(space, container, element):
     """Check whether element is contained in container and return true or false
     accordingly.
-
+    
     element has to coerce to a one element Unicode string. -1 is returned if
     there was an error."""
     raise NotImplementedError
+    
 
-@cpython_api([rffi.INT_real, rffi.CCHARPP], rffi.INT_real, error=2)
+@cpython_api([PyObjectP], lltype.Void)
+def PyUnicode_InternInPlace(space, string):
+    """Intern the argument *string in place.  The argument must be the address of a
+    pointer variable pointing to a Python unicode string object.  If there is an
+    existing interned string that is the same as *string, it sets *string to
+    it (decrementing the reference count of the old string object and incrementing
+    the reference count of the interned string object), otherwise it leaves
+    *string alone and interns it (incrementing its reference count).
+    (Clarification: even though there is a lot of talk about reference counts, think
+    of this function as reference-count-neutral; you own the object after the call
+    if and only if you owned it before the call.)"""
+    raise NotImplementedError
+    
+
+@cpython_api([rffi.CCHARP], PyObject)
+def PyUnicode_InternFromString(space, v):
+    """A combination of PyUnicode_FromString() and
+    PyUnicode_InternInPlace(), returning either a new unicode string object
+    that has been interned, or a new ("owned") reference to an earlier interned
+    string object with the same value."""
+    raise NotImplementedError
+    
+
+@cpython_api([rffi.INT_real, CWCHARPP], rffi.INT_real, error=1)
 def Py_Main(space, argc, argv):
     """The main program for the standard interpreter.  This is made available for
     programs which embed Python.  The argc and argv parameters should be
     prepared exactly as those which are passed to a C program's main()
-    function.  It is important to note that the argument list may be modified (but
-    the contents of the strings pointed to by the argument list are not). The return
-    value will be the integer passed to the sys.exit() function, 1 if the
-    interpreter exits due to an exception, or 2 if the parameter list does not
-    represent a valid Python command line.
-
-    Note that if an otherwise unhandled SystemError is raised, this
+    function (converted to wchar_t according to the user's locale).  It is
+    important to note that the argument list may be modified (but the contents of
+    the strings pointed to by the argument list are not). The return value will
+    be 0 if the interpreter exits normally (i.e., without an exception),
+    1 if the interpreter exits due to an exception, or 2 if the parameter
+    list does not represent a valid Python command line.
+    
+    Note that if an otherwise unhandled SystemExit is raised, this
     function will not return 1, but exit the process, as long as
     Py_InspectFlag is not set."""
     raise NotImplementedError
+    
 
 @cpython_api([FILE, rffi.CCHARP], rffi.INT_real, error=-1)
 def PyRun_AnyFile(space, fp, filename):
     """This is a simplified interface to PyRun_AnyFileExFlags() below, leaving
     closeit set to 0 and flags set to NULL."""
     raise NotImplementedError
+    
 
 @cpython_api([FILE, rffi.CCHARP, PyCompilerFlags], rffi.INT_real, error=-1)
 def PyRun_AnyFileFlags(space, fp, filename, flags):
     """This is a simplified interface to PyRun_AnyFileExFlags() below, leaving
     the closeit argument set to 0."""
     raise NotImplementedError
+    
 
 @cpython_api([FILE, rffi.CCHARP, rffi.INT_real], rffi.INT_real, error=-1)
 def PyRun_AnyFileEx(space, fp, filename, closeit):
     """This is a simplified interface to PyRun_AnyFileExFlags() below, leaving
     the flags argument set to NULL."""
     raise NotImplementedError
+    
 
 @cpython_api([FILE, rffi.CCHARP, rffi.INT_real, PyCompilerFlags], rffi.INT_real, error=-1)
 def PyRun_AnyFileExFlags(space, fp, filename, closeit, flags):
     """If fp refers to a file associated with an interactive device (console or
     terminal input or Unix pseudo-terminal), return the value of
     PyRun_InteractiveLoop(), otherwise return the result of
-    PyRun_SimpleFile().  If filename is NULL, this function uses
-    "???" as the filename."""
+    PyRun_SimpleFile().  filename is decoded from the filesystem
+    encoding (sys.getfilesystemencoding()).  If filename is NULL, this
+    function uses "???" as the filename."""
     raise NotImplementedError
+    
 
 @cpython_api([rffi.CCHARP, PyCompilerFlags], rffi.INT_real, error=-1)
 def PyRun_SimpleStringFlags(space, command, flags):
@@ -2249,135 +2565,181 @@ def PyRun_SimpleStringFlags(space, command, flags):
     is created.  Returns 0 on success or -1 if an exception was raised.  If
     there was an error, there is no way to get the exception information. For the
     meaning of flags, see below.
-
-    Note that if an otherwise unhandled SystemError is raised, this
+    
+    Note that if an otherwise unhandled SystemExit is raised, this
     function will not return -1, but exit the process, as long as
     Py_InspectFlag is not set."""
     raise NotImplementedError
+    
 
 @cpython_api([FILE, rffi.CCHARP], rffi.INT_real, error=-1)
 def PyRun_SimpleFile(space, fp, filename):
     """This is a simplified interface to PyRun_SimpleFileExFlags() below,
     leaving closeit set to 0 and flags set to NULL."""
     raise NotImplementedError
+    
 
 @cpython_api([FILE, rffi.CCHARP, PyCompilerFlags], rffi.INT_real, error=-1)
 def PyRun_SimpleFileFlags(space, fp, filename, flags):
     """This is a simplified interface to PyRun_SimpleFileExFlags() below,
     leaving closeit set to 0."""
     raise NotImplementedError
+    
 
 @cpython_api([FILE, rffi.CCHARP, rffi.INT_real], rffi.INT_real, error=-1)
 def PyRun_SimpleFileEx(space, fp, filename, closeit):
     """This is a simplified interface to PyRun_SimpleFileExFlags() below,
     leaving flags set to NULL."""
     raise NotImplementedError
+    
 
 @cpython_api([FILE, rffi.CCHARP, rffi.INT_real, PyCompilerFlags], rffi.INT_real, error=-1)
 def PyRun_SimpleFileExFlags(space, fp, filename, closeit, flags):
     """Similar to PyRun_SimpleStringFlags(), but the Python source code is read
-    from fp instead of an in-memory string. filename should be the name of the
-    file.  If closeit is true, the file is closed before PyRun_SimpleFileExFlags
-    returns."""
+    from fp instead of an in-memory string. filename should be the name of
+    the file, it is decoded from the filesystem encoding
+    (sys.getfilesystemencoding()).  If closeit is true, the file is
+    closed before PyRun_SimpleFileExFlags returns."""
     raise NotImplementedError
+    
 
 @cpython_api([FILE, rffi.CCHARP], rffi.INT_real, error=-1)
 def PyRun_InteractiveOne(space, fp, filename):
     """This is a simplified interface to PyRun_InteractiveOneFlags() below,
     leaving flags set to NULL."""
     raise NotImplementedError
+    
 
 @cpython_api([FILE, rffi.CCHARP, PyCompilerFlags], rffi.INT_real, error=-1)
 def PyRun_InteractiveOneFlags(space, fp, filename, flags):
     """Read and execute a single statement from a file associated with an
     interactive device according to the flags argument.  The user will be
-    prompted using sys.ps1 and sys.ps2.  Returns 0 when the input was
+    prompted using sys.ps1 and sys.ps2.  filename is decoded from the
+    filesystem encoding (sys.getfilesystemencoding()).
+    
+    Returns 0 when the input was
     executed successfully, -1 if there was an exception, or an error code
     from the errcode.h include file distributed as part of Python if
     there was a parse error.  (Note that errcode.h is not included by
     Python.h, so must be included specifically if needed.)"""
     raise NotImplementedError
+    
 
 @cpython_api([FILE, rffi.CCHARP], rffi.INT_real, error=-1)
 def PyRun_InteractiveLoop(space, fp, filename):
     """This is a simplified interface to PyRun_InteractiveLoopFlags() below,
     leaving flags set to NULL."""
     raise NotImplementedError
+    
 
 @cpython_api([FILE, rffi.CCHARP, PyCompilerFlags], rffi.INT_real, error=-1)
 def PyRun_InteractiveLoopFlags(space, fp, filename, flags):
     """Read and execute statements from a file associated with an interactive device
     until EOF is reached.  The user will be prompted using sys.ps1 and
-    sys.ps2.  Returns 0 at EOF."""
+    sys.ps2.  filename is decoded from the filesystem encoding
+    (sys.getfilesystemencoding()).  Returns 0 at EOF."""
     raise NotImplementedError
+    
 
-@cpython_api([rffi.CCHARP, rffi.INT_real], _node)
+@cpython_api([rffi.CCHARP, rffi.INT_real], struct_node)
 def PyParser_SimpleParseString(space, str, start):
     """This is a simplified interface to
     PyParser_SimpleParseStringFlagsFilename() below, leaving  filename set
     to NULL and flags set to 0."""
     raise NotImplementedError
+    
 
-@cpython_api([rffi.CCHARP, rffi.INT_real, rffi.INT_real], _node)
+@cpython_api([rffi.CCHARP, rffi.INT_real, rffi.INT_real], struct_node)
 def PyParser_SimpleParseStringFlags(space, str, start, flags):
     """This is a simplified interface to
     PyParser_SimpleParseStringFlagsFilename() below, leaving  filename set
     to NULL."""
     raise NotImplementedError
+    
 
-@cpython_api([rffi.CCHARP, rffi.CCHARP, rffi.INT_real, rffi.INT_real], _node)
+@cpython_api([rffi.CCHARP, rffi.CCHARP, rffi.INT_real, rffi.INT_real], struct_node)
 def PyParser_SimpleParseStringFlagsFilename(space, str, filename, start, flags):
     """Parse Python source code from str using the start token start according to
     the flags argument.  The result can be used to create a code object which can
     be evaluated efficiently. This is useful if a code fragment must be evaluated
-    many times."""
+    many times. filename is decoded from the filesystem encoding
+    (sys.getfilesystemencoding())."""
     raise NotImplementedError
+    
 
-@cpython_api([FILE, rffi.CCHARP, rffi.INT_real], _node)
+@cpython_api([FILE, rffi.CCHARP, rffi.INT_real], struct_node)
 def PyParser_SimpleParseFile(space, fp, filename, start):
     """This is a simplified interface to PyParser_SimpleParseFileFlags() below,
     leaving flags set to 0"""
     raise NotImplementedError
+    
 
-@cpython_api([FILE, rffi.CCHARP, rffi.INT_real, rffi.INT_real], _node)
+@cpython_api([FILE, rffi.CCHARP, rffi.INT_real, rffi.INT_real], struct_node)
 def PyParser_SimpleParseFileFlags(space, fp, filename, start, flags):
     """Similar to PyParser_SimpleParseStringFlagsFilename(), but the Python
     source code is read from fp instead of an in-memory string."""
     raise NotImplementedError
+    
 
 @cpython_api([FILE, rffi.CCHARP, rffi.INT_real, PyObject, PyObject, rffi.INT_real], PyObject)
 def PyRun_FileEx(space, fp, filename, start, globals, locals, closeit):
     """This is a simplified interface to PyRun_FileExFlags() below, leaving
     flags set to NULL."""
     raise NotImplementedError
+    
 
 @cpython_api([FILE, rffi.CCHARP, rffi.INT_real, PyObject, PyObject, PyCompilerFlags], PyObject)
 def PyRun_FileFlags(space, fp, filename, start, globals, locals, flags):
     """This is a simplified interface to PyRun_FileExFlags() below, leaving
     closeit set to 0."""
     raise NotImplementedError
+    
 
 @cpython_api([FILE, rffi.CCHARP, rffi.INT_real, PyObject, PyObject, rffi.INT_real, PyCompilerFlags], PyObject)
 def PyRun_FileExFlags(space, fp, filename, start, globals, locals, closeit, flags):
     """Similar to PyRun_StringFlags(), but the Python source code is read from
-    fp instead of an in-memory string. filename should be the name of the file.
+    fp instead of an in-memory string. filename should be the name of the file,
+    it is decoded from the filesystem encoding (sys.getfilesystemencoding()).
     If closeit is true, the file is closed before PyRun_FileExFlags()
     returns."""
     raise NotImplementedError
+    
 
-@cpython_api([PyCodeObject, PyObject, PyObject, PyObjectP, rffi.INT_real, PyObjectP, rffi.INT_real, PyObjectP, rffi.INT_real, PyObject], PyObject)
+@cpython_api([rffi.CCHARP, rffi.CCHARP, rffi.INT_real, PyCompilerFlags, rffi.INT_real], PyObject)
+def Py_CompileStringExFlags(space, str, filename, start, flags, optimize):
+    """Parse and compile the Python source code in str, returning the resulting code
+    object.  The start token is given by start; this can be used to constrain the
+    code which can be compiled and should be Py_eval_input,
+    Py_file_input, or Py_single_input.  The filename specified by
+    filename is used to construct the code object and may appear in tracebacks or
+    SyntaxError exception messages, it is decoded from the filesystem
+    encoding (sys.getfilesystemencoding()).  This returns NULL if the
+    code cannot be parsed or compiled.
+    
+    The integer optimize specifies the optimization level of the compiler; a
+    value of -1 selects the optimization level of the interpreter as given by
+    -O options.  Explicit levels are 0 (no optimization;
+    __debug__ is true), 1 (asserts are removed, __debug__ is false)
+    or 2 (docstrings are removed too).
+    """
+    raise NotImplementedError
+    
+
+@cpython_api([PyObject, PyObject, PyObject, PyObjectP, rffi.INT_real, PyObjectP, rffi.INT_real, PyObjectP, rffi.INT_real, PyObject], PyObject)
 def PyEval_EvalCodeEx(space, co, globals, locals, args, argcount, kws, kwcount, defs, defcount, closure):
     """Evaluate a precompiled code object, given a particular environment for its
     evaluation.  This environment consists of dictionaries of global and local
     variables, arrays of arguments, keywords and defaults, and a closure tuple of
     cells."""
     raise NotImplementedError
+    
 
 @cpython_api([PyFrameObject], PyObject)
 def PyEval_EvalFrame(space, f):
     """Evaluate an execution frame.  This is a simplified interface to
     PyEval_EvalFrameEx, for backward compatibility."""
     raise NotImplementedError
+    
 
 @cpython_api([PyFrameObject, rffi.INT_real], PyObject)
 def PyEval_EvalFrameEx(space, f, throwflag):
@@ -2388,21 +2750,22 @@ def PyEval_EvalFrameEx(space, f, throwflag):
     it causes an exception to immediately be thrown; this is used for the
     throw() methods of generator objects."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyWeakref_Check(space, ob):
-    """Return true if ob is either a reference or proxy object.
-    """
+    """Return true if ob is either a reference or proxy object."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyWeakref_CheckRef(space, ob):
-    """Return true if ob is a reference object.
-    """
+    """Return true if ob is a reference object."""
     raise NotImplementedError
+    
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyWeakref_CheckProxy(space, ob):
-    """Return true if ob is a proxy object.
-    """
+    """Return true if ob is a proxy object."""
     raise NotImplementedError
+    
