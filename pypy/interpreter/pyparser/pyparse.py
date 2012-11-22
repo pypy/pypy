@@ -2,6 +2,7 @@ from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.pyparser import future, parser, pytokenizer, pygram, error
 from pypy.interpreter.astcompiler import consts
+from pypy.rlib import rstring
 
 
 def recode_to_utf8(space, bytes, encoding=None):
@@ -72,6 +73,7 @@ class CompileInfo(object):
 
     def __init__(self, filename, mode="exec", flags=0, future_pos=(0, 0),
                  hidden_applevel=False):
+        rstring.check_str0(filename)
         self.filename = filename
         self.mode = mode
         self.encoding = None

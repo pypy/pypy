@@ -49,7 +49,7 @@ class STType(Wrappable):
         return self._build_app_tree(space, self.tree, space.newlist,
                                     line_info, col_info)
 
-    @unwrap_spec(filename=str)
+    @unwrap_spec(filename='str0')
     def descr_compile(self, space, filename="<syntax-tree>"):
         info = pyparse.CompileInfo(filename, self.mode)
         try:

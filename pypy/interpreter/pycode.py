@@ -15,7 +15,7 @@ from pypy.interpreter.astcompiler.consts import (
     CO_GENERATOR, CO_CONTAINSGLOBALS)
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.debug import make_sure_not_resized
-from pypy.rlib import jit
+from pypy.rlib import jit, rstring
 from pypy.rlib.objectmodel import compute_hash, we_are_translated
 from pypy.tool.stdlib_opcode import opcodedesc, HAVE_ARGUMENT
 
@@ -93,6 +93,7 @@ class PyCode(eval.Code):
         self.co_varnames = varnames
         self.co_freevars = freevars
         self.co_cellvars = cellvars
+        rstring.check_str0(filename)
         self.co_filename = filename
         self.co_name = name
         self.co_firstlineno = firstlineno
@@ -360,7 +361,7 @@ class PyCode(eval.Code):
 
     @unwrap_spec(argcount=int, kwonlyargcount=int, nlocals=int, stacksize=int, flags=int,
                  codestring=str,
-                 filename=str, name=str, firstlineno=int,
+                 filename='str0', name=str, firstlineno=int,
                  lnotab=str, magic=int)
     def descr_code__new__(space, w_subtype,
                           argcount, kwonlyargcount, nlocals, stacksize, flags,

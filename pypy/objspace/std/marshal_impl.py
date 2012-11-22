@@ -345,6 +345,16 @@ def unmarshal_str(u):
         else:
             raise
 
+def unmarshal_str0(u):
+    w_obj = u.get_w_obj()
+    try:
+        return u.space.bytes0_w(w_obj)
+    except OperationError, e:
+        if e.match(u.space, u.space.w_TypeError):
+            u.raise_exc('invalid marshal data for code object')
+        else:
+            raise
+
 def unmarshal_strlist(u, tc):
     lng = u.atom_lng(tc)
     res = [None] * lng
@@ -369,7 +379,7 @@ def unmarshal_pycode(space, u, tc):
     varnames    = unmarshal_strlist(u, TYPE_TUPLE)
     freevars    = unmarshal_strlist(u, TYPE_TUPLE)
     cellvars    = unmarshal_strlist(u, TYPE_TUPLE)
-    filename    = unmarshal_str(u)
+    filename    = unmarshal_str0(u)
     name        = unmarshal_str(u)
     firstlineno = u.get_int()
     lnotab      = unmarshal_str(u)

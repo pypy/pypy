@@ -9,7 +9,8 @@ from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.nestedscope import Cell
 
-@unwrap_spec(filename=str, mode=str, flags=int, dont_inherit=int, optimize=int)
+@unwrap_spec(filename='str0', mode=str, flags=int, dont_inherit=int,
+             optimize=int)
 def compile(space, w_source, filename, mode, flags=0, dont_inherit=0,
             optimize=0):
     """Compile the source string (a Python module, statement or expression)
