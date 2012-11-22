@@ -656,7 +656,7 @@ class ResOpAssembler(object):
             # must save the register loc_index before it is mutated
             self.mc.PUSH([loc_index.value])
             tmp1 = loc_index
-            tmp2 = arglocs[2]
+            tmp2 = arglocs[-1]  # the last item is a preallocated tmp
             # lr = byteofs
             s = 3 + descr.jit_wb_card_page_shift
             self.mc.MVN_rr(r.lr.value, loc_index.value,

@@ -1095,7 +1095,8 @@ class Regalloc(object):
         args = op.getarglist()
         arglocs = [self._ensure_value_is_boxed(op.getarg(i), args)
                                                               for i in range(N)]
-        tmp = self.get_scratch_reg(INT)
+        tmp = self.get_scratch_reg(INT, args)
+        assert tmp not in arglocs
         arglocs.append(tmp)
         return arglocs
 
