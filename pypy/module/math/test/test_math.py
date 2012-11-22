@@ -2,6 +2,11 @@ from __future__ import with_statement
 import sys
 from pypy.module.math.test import test_direct
 
+# taken from cpython test case test/test_math.py
+eps = 1E-05
+
+def almost_equal(a, b):
+    return abs(a-b) <= eps
 
 class AppTestMath:
     spaceconfig = dict(usemodules=['math', 'struct'])
@@ -287,3 +292,27 @@ class AppTestMath:
             setattr(Z, '__{}__'.format(name), lambda self: i)
             func = getattr(math, name)
             assert func(Z()) == i
+
+    def test_ceil(self):
+        import math
+        raises(TypeError, math.ceil)
+        assert type(math.ceil(0.4)) is int
+        assert almost_equal(math.ceil(0.5), 1)
+        assert almost_equal(math.ceil(1.0), 1)
+        assert almost_equal(math.ceil(1.5), 2)
+        assert almost_equal(math.ceil(-0.5), 0)
+        assert almost_equal(math.ceil(-1.0), -1)
+        assert almost_equal(math.ceil(-1.5), -1)
+
+        class TestCeil:
+            def __ceil__(self):
+                return 42
+        class TestNoCell:
+            pass
+        assert almost_equal(math.ceil(TestCeil()), 42)
+        raises(TypeError, math.ceil, TestNoCeil())
+ 
+        t = TestNoCeil()
+        t.__ceil__ = lambda *args: args
+        raises(TypeError, math.ceil, t)
+        raises(TypeError, math.ceil, t, 0)
