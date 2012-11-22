@@ -12,7 +12,6 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.eval import Code
 from pypy.interpreter.pycode import PyCode
 from pypy.rlib import streamio, jit
-from pypy.rlib.rstring import assert_str0
 from pypy.rlib.streamio import StreamErrors
 from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.module.sys.version import PYPY_VERSION
@@ -934,7 +933,7 @@ def get_sourcefile(space, filename):
     if py is None:
         py = filename[:-1]
     try:
-        st = os.stat(assert_str0(py))
+        st = os.stat(py)
     except OSError:
         pass
     else:
