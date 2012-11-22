@@ -36,7 +36,6 @@ import pypy.module.cpyext.pythonrun
 import pypy.module.cpyext.pyerrors
 import pypy.module.cpyext.typeobject
 import pypy.module.cpyext.object
-import pypy.module.cpyext.stringobject
 import pypy.module.cpyext.bytesobject
 import pypy.module.cpyext.tupleobject
 import pypy.module.cpyext.setobject

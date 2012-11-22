@@ -36,7 +36,7 @@ class AppTestFloatObject(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
             ("from_string", "METH_NOARGS",
              """
-                 PyObject* str = PyString_FromString("1234.56");
+                 PyObject* str = PyUnicode_FromString("1234.56");
                  PyObject* res = PyFloat_FromString(str, NULL);
                  Py_DECREF(str);
                  return res;

@@ -35,8 +35,8 @@ class AppTestStructSeq(AppTestCpythonExtensionBase):
                  if (!seq) return NULL;
                  PyStructSequence_SET_ITEM(seq, 0, PyInt_FromLong(42));
                  PyStructSequence_SET_ITEM(seq, 1, PyInt_FromLong(43));
-                 PyStructSequence_SET_ITEM(seq, 2, PyString_FromString("hello"));
-                 PyStructSequence_SET_ITEM(seq, 3, PyString_FromString("other"));
+                 PyStructSequence_SET_ITEM(seq, 2, PyUnicode_FromString("hello"));
+                 PyStructSequence_SET_ITEM(seq, 3, PyUnicode_FromString("other"));
                  Py_DECREF(&PyDatatype);
                  return seq;
              """)])

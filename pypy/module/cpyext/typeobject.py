@@ -388,19 +388,19 @@ def subtype_dealloc(space, obj):
 
 @cpython_api([PyObject, lltype.Ptr(Py_buffer), rffi.INT_real], rffi.INT_real,
               external=False, error=-1)
-def str_getbuffer(space, w_str, view, flags):
-    from pypy.module.cpyext.stringobject import PyString_AsString
+def bytes_getbuffer(space, w_str, view, flags):
+    from pypy.module.cpyext.bytesobject import PyBytes_AsString
     view.c_obj = make_ref(space, w_str)
-    view.c_buf = rffi.cast(rffi.VOIDP, PyString_AsString(space, view.c_obj))
+    view.c_buf = rffi.cast(rffi.VOIDP, PyBytes_AsString(space, view.c_obj))
     view.c_len = space.len_w(w_str)
     return 0
 
-def setup_string_buffer_procs(space, pto):
+def setup_bytes_buffer_procs(space, pto):
     c_buf = lltype.malloc(PyBufferProcs, flavor='raw', zero=True)
     lltype.render_immortal(c_buf)
     c_buf.c_bf_getbuffer = llhelper(
-        str_getbuffer.api_func.functype,
-        str_getbuffer.api_func.get_wrapper(space))
+        bytes_getbuffer.api_func.functype,
+        bytes_getbuffer.api_func.get_wrapper(space))
     pto.c_tp_as_buffer = c_buf
     pto.c_tp_flags |= Py_TPFLAGS_HAVE_GETCHARBUFFER
 
@@ -458,7 +458,7 @@ def type_attach(space, py_obj, w_type):
     pto.c_tp_dealloc = typedescr.get_dealloc(space)
     # buffer protocol
     if space.is_w(w_type, space.w_str):
-        setup_string_buffer_procs(space, pto)
+        setup_bytes_buffer_procs(space, pto)
 
     pto.c_tp_free = llhelper(PyObject_Del.api_func.functype,
             PyObject_Del.api_func.get_wrapper(space))

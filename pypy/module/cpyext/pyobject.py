@@ -303,7 +303,7 @@ def make_ref(space, w_obj):
 def from_ref(space, ref):
     """
     Finds the interpreter object corresponding to the given reference.  If the
-    object is not yet realized (see stringobject.py), creates it.
+    object is not yet realized (see bytesobject.py), creates it.
     """
     assert lltype.typeOf(ref) == PyObject
     if not ref:

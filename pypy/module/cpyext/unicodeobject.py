@@ -10,8 +10,7 @@ from pypy.module.cpyext.pyerrors import PyErr_BadArgument
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, Py_DecRef, make_ref, from_ref, track_reference,
     make_typedescr, get_typedescr)
-from pypy.module.cpyext.stringobject import PyString_Check
-from pypy.module.cpyext.bytesobject import PyBytes_FromObject
+from pypy.module.cpyext.bytesobject import PyBytes_Check, PyBytes_FromObject
 from pypy.module._codecs.interp_codecs import CodecState
 from pypy.module.posix.interp_posix import fsencode, fsdecode
 from pypy.objspace.std import unicodeobject, unicodetype, stringtype
@@ -19,7 +18,7 @@ from pypy.rlib import runicode
 from pypy.tool.sourcetools import func_renamer
 import sys
 
-## See comment in stringobject.py.
+## See comment in bytesobject.py.
 
 PyUnicodeObjectStruct = lltype.ForwardReference()
 PyUnicodeObject = lltype.Ptr(PyUnicodeObjectStruct)
@@ -310,9 +309,9 @@ def PyUnicode_AsEncodedString(space, w_unicode, llencoding, llerrors):
     the Python codec registry. Return NULL if an exception was raised by the
     codec."""
     w_str = PyUnicode_AsEncodedObject(space, w_unicode, llencoding, llerrors)
-    if not PyString_Check(space, w_str):
+    if not PyBytes_Check(space, w_str):
         raise OperationError(space.w_TypeError, space.wrap(
-            "encoder did not return a string object"))
+            "encoder did not return a bytes object"))
     return w_str
 
 @cpython_api([PyObject], PyObject)

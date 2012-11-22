@@ -229,16 +229,16 @@ class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
                 ("fillinfo", "METH_VARARGS",
                  """
     Py_buffer buf;
-    PyObject *str = PyString_FromString("hello, world.");
+    PyObject *str = PyBytes_FromString("hello, world.");
     PyObject *result;
 
-    if (PyBuffer_FillInfo(&buf, NULL, PyString_AsString(str), 13, 0, 0)) {
+    if (PyBuffer_FillInfo(&buf, NULL, PyBytes_AsString(str), 13, 0, 0)) {
         return NULL;
     }
 
     /* Check a few things we want to have happened.
      */
-    if (buf.buf != PyString_AsString(str)) {
+    if (buf.buf != PyBytes_AsString(str)) {
         PyErr_SetString(PyExc_ValueError, "buf field not initialized");
         return NULL;
     }
@@ -256,7 +256,7 @@ class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
     /* Give back a new string to the caller, constructed from data in the
      * Py_buffer.
      */
-    if (!(result = PyString_FromStringAndSize(buf.buf, buf.len))) {
+    if (!(result = PyBytes_FromStringAndSize(buf.buf, buf.len))) {
         return NULL;
     }
 
@@ -281,10 +281,10 @@ class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
                 ("fillinfo", "METH_VARARGS",
                  """
     Py_buffer buf;
-    PyObject *str = PyString_FromString("hello, world.");
+    PyObject *str = PyBytes_FromString("hello, world.");
     PyObject *result;
 
-    if (PyBuffer_FillInfo(&buf, str, PyString_AsString(str), 13, 0, 0)) {
+    if (PyBuffer_FillInfo(&buf, str, PyBytes_AsString(str), 13, 0, 0)) {
         return NULL;
     }
 
@@ -296,7 +296,7 @@ class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
     /* Give back a new string to the caller, constructed from data in the
      * Py_buffer.  It better still be valid.
      */
-    if (!(result = PyString_FromStringAndSize(buf.buf, buf.len))) {
+    if (!(result = PyBytes_FromStringAndSize(buf.buf, buf.len))) {
         return NULL;
     }
 
@@ -327,10 +327,10 @@ class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
                 ("fillinfo", "METH_VARARGS",
                  """
     Py_buffer buf;
-    PyObject *str = PyString_FromString("hello, world.");
+    PyObject *str = PyBytes_FromString("hello, world.");
     PyObject *result;
 
-    if (PyBuffer_FillInfo(&buf, str, PyString_AsString(str), 13,
+    if (PyBuffer_FillInfo(&buf, str, PyBytes_AsString(str), 13,
                           1, PyBUF_WRITABLE)) {
         Py_DECREF(str);
         return NULL;
@@ -355,9 +355,9 @@ class AppTestPyBuffer_Release(AppTestCpythonExtensionBase):
                 ("release", "METH_VARARGS",
                  """
     Py_buffer buf;
-    buf.obj = PyString_FromString("release me!");
-    buf.buf = PyString_AsString(buf.obj);
-    buf.len = PyString_Size(buf.obj);
+    buf.obj = PyBytes_FromString("release me!");
+    buf.buf = PyBytes_AsString(buf.obj);
+    buf.len = PyBytes_Size(buf.obj);
 
     /* The Py_buffer owns the only reference to that string.  Release the
      * Py_buffer and the string should be released as well.

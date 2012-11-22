@@ -122,7 +122,7 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
             if (!PyArg_ParseTuple(args, "s*", &buf)) {
                 return NULL;
             }
-            result = PyString_FromStringAndSize(buf.buf, buf.len);
+            result = PyBytes_FromStringAndSize(buf.buf, buf.len);
             PyBuffer_Release(&buf);
             return result;
             ''')
@@ -164,7 +164,7 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
             if (!PyArg_ParseTuple(args, "s#", &buf, &len)) {
                 return NULL;
             }
-            return PyString_FromStringAndSize(buf, len);
+            return PyBytes_FromStringAndSize(buf, len);
             ''')
         raises(TypeError, "charbuf(10)")
         assert b'foo\0bar\0baz' == charbuf(b'foo\0bar\0baz')

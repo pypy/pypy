@@ -38,7 +38,7 @@ def slice_attach(space, py_obj, w_obj):
 
 @cpython_api([PyObject], lltype.Void, external=False)
 def slice_dealloc(space, py_obj):
-    """Frees allocated PyStringObject resources.
+    """Frees allocated PySliceObject resources.
     """
     py_slice = rffi.cast(PySliceObject, py_obj)
     Py_DecRef(space, py_slice.c_start)

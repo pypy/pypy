@@ -9,7 +9,7 @@ class AppTestFrameObject(AppTestCpythonExtensionBase):
                  PyObject *py_srcfile = PyUnicode_FromString("filename");
                  PyObject *py_funcname = PyUnicode_FromString("funcname");
                  PyObject *py_globals = PyDict_New();
-                 PyObject *empty_bytes = PyString_FromString("");
+                 PyObject *empty_bytes = PyBytes_FromString("");
                  PyObject *empty_tuple = PyTuple_New(0);
                  PyCodeObject *py_code;
                  PyFrameObject *py_frame;
