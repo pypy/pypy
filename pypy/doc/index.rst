@@ -75,7 +75,7 @@ on the `development mailing list`_.
 .. _`Getting Started`: getting-started.html
 .. _`Papers`: extradoc.html
 .. _`Videos`: video-index.html
-.. _`Release 2.0 beta1`: http://pypy.org/download.html
+.. _`Release 2.0 beta 1`: http://pypy.org/download.html
 .. _`speed.pypy.org`: http://speed.pypy.org
 .. _`RPython toolchain`: translation.html
 .. _`potential project ideas`: project-ideas.html
