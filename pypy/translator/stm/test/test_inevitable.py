@@ -119,12 +119,10 @@ class TestTransform:
 
     def test_unknown_raw_free(self):
         X = lltype.Struct('X', ('foo', lltype.Signed))
-        def f2():
-            return lltype.malloc(X, flavor='raw')
-        def f1():
-            lltype.free(f2(), flavor='raw')
+        def f2(p):
+            lltype.free(p, flavor='raw')
 
-        res = self.interpret_inevitable(f1, [])
+        res = self.interpret_inevitable(f2, [lltype.malloc(X, flavor='raw')])
         assert res == 'free'
 
 
