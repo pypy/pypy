@@ -164,19 +164,19 @@ def floor(space, w_x):
     w_descr = space.lookup(w_x, '__floor__')
     if w_descr is not None:
         return space.get_and_call_function(w_descr, w_x)
-    w_floor_float_result = space.wrap(math.floor(space.float_w(w_x)))
+    w_floor_float_result = math1(space, math.floor, w_x)
     return space.call_function(space.w_int, w_floor_float_result)
 
 def ceil(space, w_x):
     """ceil(x)
 
-       Return the ceiling of x as a float.
+       Return the ceiling of x as an int.
        This is the smallest integral value >= x.
     """
     w_descr = space.lookup(w_x, '__ceil__')
     if w_descr is not None:
         return space.get_and_call_function(w_descr, w_x)
-    w_ceil_float_result = space.wrap(math.ceil(space.float_w(w_x)))
+    w_ceil_float_result = math1(space, math.ceil, w_x)
     return space.call_function(space.w_int, w_ceil_float_result)
 
 def sqrt(space, w_x):

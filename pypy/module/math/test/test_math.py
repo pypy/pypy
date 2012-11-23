@@ -325,6 +325,12 @@ class AppTestMath:
 
         assert math.ceil(StrangeCeil()) == "this is a string"
 
+        class CustomFloat:
+            def __float__(self):
+                return 99.9
+
+        assert math.ceil(CustomFloat()) == 100
+
     def test_floor(self):
         # adapted from the cpython test case
         import math
@@ -364,3 +370,9 @@ class AppTestMath:
         assert math.floor(StrangeCeil()) == "this is a string"
 
         assert math.floor(1.23e167) - 1.23e167 == 0.0
+ 
+        class CustomFloat:
+            def __float__(self):
+                return 99.9
+
+        assert math.floor(CustomFloat()) == 99
