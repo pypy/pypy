@@ -328,3 +328,45 @@ class AppTestMath:
                 return "this is a string"
 
         assert math.ceil(StrangeCeil()) == "this is a string"
+
+    def test_floor(self):
+        eps = 1E-05
+
+        def almost_equal(a, b):
+            return abs(a-b) <= eps
+        # adapted from the cpython test case
+        import math
+        raises(TypeError, math.floor)
+        assert type(math.floor(0.4)) is int
+        assert almost_equal(math.floor(0.5), 0)
+        assert almost_equal(math.floor(1.0), 1)
+        assert almost_equal(math.floor(1.5), 1)
+        assert almost_equal(math.floor(-0.5), -1)
+        assert almost_equal(math.floor(-1.0), -1)
+        assert almost_equal(math.floor(-1.5), -2)
+        #assert almost_equal(math.floor(1.23e167), 1.23e167)
+        #assert almost_equal(math.floor(-1.23e167), 1.23e167)
+
+        class TestFloor:
+            def __floor__(self):
+                return 42
+        class TestNoFloor:
+            pass
+        assert almost_equal(math.floor(TestFloor()), 42)
+        raises(TypeError, math.floor, TestNoFloor())
+ 
+        t = TestNoFloor()
+        t.__floor__ = lambda *args: args
+        raises(TypeError, math.floor, t)
+        raises(TypeError, math.floor, t, 0)
+
+        # observed in a cpython interactive shell
+        raises(OverflowError, math.floor, float("inf"))
+        raises(OverflowError, math.floor, float("-inf"))
+        raises(ValueError, math.floor, float("nan"))
+
+        class StrangeCeil:
+            def __floor__(self):
+                return "this is a string"
+
+        assert math.floor(StrangeCeil()) == "this is a string"
