@@ -532,55 +532,6 @@ def PySignal_SetWakeupFd(space, fd):
     raise NotImplementedError
     
 
-@cpython_api([PyObject], PyObject)
-def PyException_GetTraceback(space, ex):
-    """Return the traceback associated with the exception as a new reference, as
-    accessible from Python through __traceback__.  If there is no
-    traceback associated, this returns NULL."""
-    raise NotImplementedError
-    
-
-@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
-def PyException_SetTraceback(space, ex, tb):
-    """Set the traceback associated with the exception to tb.  Use Py_None to
-    clear it."""
-    raise NotImplementedError
-    
-
-@cpython_api([PyObject], PyObject)
-def PyException_GetContext(space, ex):
-    """Return the context (another exception instance during whose handling ex was
-    raised) associated with the exception as a new reference, as accessible from
-    Python through __context__.  If there is no context associated, this
-    returns NULL."""
-    raise NotImplementedError
-    
-
-@cpython_api([PyObject, PyObject], lltype.Void)
-def PyException_SetContext(space, ex, ctx):
-    """Set the context associated with the exception to ctx.  Use NULL to clear
-    it.  There is no type check to make sure that ctx is an exception instance.
-    This steals a reference to ctx."""
-    raise NotImplementedError
-    
-
-@cpython_api([PyObject], PyObject)
-def PyException_GetCause(space, ex):
-    """Return the cause (another exception instance set by raise ... from ...)
-    associated with the exception as a new reference, as accessible from Python
-    through __cause__.  If there is no cause associated, this returns
-    NULL."""
-    raise NotImplementedError
-    
-
-@cpython_api([PyObject, PyObject], lltype.Void)
-def PyException_SetCause(space, ex, ctx):
-    """Set the cause associated with the exception to ctx.  Use NULL to clear
-    it.  There is no type check to make sure that ctx is an exception instance.
-    This steals a reference to ctx."""
-    raise NotImplementedError
-    
-
 @cpython_api([rffi.CCHARP, rffi.CCHARP, Py_ssize_t, Py_ssize_t, Py_ssize_t, rffi.CCHARP], PyObject)
 def PyUnicodeDecodeError_Create(space, encoding, object, length, start, end, reason):
     """Create a UnicodeDecodeError object with the attributes encoding,
