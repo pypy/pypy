@@ -2504,3 +2504,8 @@ def test_nonstandard_integer_types():
                      'uint32_t', 'int64_t', 'uint64_t', 'intptr_t',
                      'uintptr_t', 'ptrdiff_t', 'size_t', 'ssize_t']:
         new_primitive_type(typename)    # works
+
+def test_cannot_convert_unicode_to_charp():
+    BCharP = new_pointer_type(new_primitive_type("char"))
+    BCharArray = new_array_type(BCharP, None)
+    py.test.raises(TypeError, newp, BCharArray, u+'foobar')
