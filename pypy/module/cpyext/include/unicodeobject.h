@@ -39,7 +39,19 @@ Py_LOCAL_INLINE(size_t) Py_UNICODE_strlen(const Py_UNICODE *u)
     return res;
 }
 
-
+Py_LOCAL_INLINE(int)
+Py_UNICODE_strcmp(const Py_UNICODE *s1, const Py_UNICODE *s2)
+{
+    while (*s1 && *s2 && *s1 == *s2)
+        s1++, s2++;
+    if (*s1 && *s2)
+        return (*s1 < *s2) ? -1 : +1;
+    if (*s1)
+        return 1;
+    if (*s2)
+        return -1;
+    return 0;
+}
 
 #ifdef __cplusplus
 }
