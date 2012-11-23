@@ -20,7 +20,7 @@ class TestTransform:
         interp, self.graph = get_interpreter(fn, args, view=False)
         interp.frame_class = LLSTMInevFrame
         self.translator = interp.typer.annotator.translator
-        insert_turn_inevitable(self.translator, self.graph)
+        insert_turn_inevitable(self.graph)
         if option.view:
             self.translator.view()
         #
@@ -113,7 +113,19 @@ class TestTransform:
             lltype.free(p, flavor='raw')
 
         res = self.interpret_inevitable(f1, [])
-        assert res == 'malloc'
+        assert res is None
+        assert 0, """we do not turn inevitable before
+        raw-mallocs which causes leaks on aborts"""
+
+    def test_unknown_raw_free(self):
+        X = lltype.Struct('X', ('foo', lltype.Signed))
+        def f2():
+            return lltype.malloc(X, flavor='raw')
+        def f1():
+            lltype.free(f2(), flavor='raw')
+
+        res = self.interpret_inevitable(f1, [])
+        assert res == 'free'
 
 
     def test_ext_direct_call_safe(self):

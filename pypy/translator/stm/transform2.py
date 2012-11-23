@@ -25,7 +25,7 @@ class STMTransformer(object):
         from pypy.translator.stm.inevitable import insert_turn_inevitable
         #
         for graph in self.translator.graphs:
-            insert_turn_inevitable(self.translator, graph)
+            insert_turn_inevitable(graph)
 
     def start_log(self):
         from pypy.translator.c.support import log

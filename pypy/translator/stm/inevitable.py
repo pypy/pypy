@@ -26,10 +26,9 @@ GETTERS = set(['getfield', 'getarrayitem', 'getinteriorfield'])
 SETTERS = set(['setfield', 'setarrayitem', 'setinteriorfield'])
 MALLOCS = set(['malloc', 'malloc_varsize',
                'malloc_nonmovable', 'malloc_nonmovable_varsize'])
-
 # ____________________________________________________________
 
-def should_turn_inevitable_getter_setter(op):
+def should_turn_inevitable_getter_setter(op, fresh_mallocs):
     # Getters and setters are allowed if their first argument is a GC pointer.
     # If it is a RAW pointer, and it is a read from a non-immutable place,
     # and it doesn't use the hint 'stm_dont_track_raw_accesses', then they
@@ -41,9 +40,9 @@ def should_turn_inevitable_getter_setter(op):
         return False
     if S._hints.get('stm_dont_track_raw_accesses', False):
         return False
-    return True
+    return not fresh_mallocs.is_fresh_malloc(op.args[0])
 
-def should_turn_inevitable(op, block):
+def should_turn_inevitable(op, block, fresh_mallocs):
     # Always-allowed operations never cause a 'turn inevitable'
     if op.opname in ALWAYS_ALLOW_OPERATIONS:
         return False
@@ -52,16 +51,24 @@ def should_turn_inevitable(op, block):
     if op.opname in GETTERS:
         if op.result.concretetype is lltype.Void:
             return False
-        return should_turn_inevitable_getter_setter(op)
+        return should_turn_inevitable_getter_setter(op, fresh_mallocs)
     if op.opname in SETTERS:
         if op.args[-1].concretetype is lltype.Void:
             return False
-        return should_turn_inevitable_getter_setter(op)
+        return should_turn_inevitable_getter_setter(op, fresh_mallocs)
     #
-    # Mallocs
+    # Mallocs & Frees
     if op.opname in MALLOCS:
-        flags = op.args[1].value
-        return flags['flavor'] != 'gc'
+        # flags = op.args[1].value
+        # return flags['flavor'] != 'gc'
+        return False # XXX: Produces memory leaks on aborts
+    if op.opname == 'free':
+        # We can only run a CFG in non-inevitable mode from start
+        # to end in one transaction (every free gets called once
+        # for every fresh malloc). No need to turn inevitable.
+        # If the transaction is splitted, the remaining parts of the
+        # CFG will always run in inevitable mode anyways.
+        return not fresh_mallocs.is_fresh_malloc(op.args[0])
 
     #
     # Function calls
@@ -97,10 +104,12 @@ def turn_inevitable_op(info):
     return SpaceOperation('stm_become_inevitable', [c_info],
                           varoftype(lltype.Void))
 
-def insert_turn_inevitable(translator, graph):
+def insert_turn_inevitable(graph):
+    from pypy.translator.backendopt.writeanalyze import FreshMallocs
+    fresh_mallocs = FreshMallocs(graph)
     for block in graph.iterblocks():
         for i in range(len(block.operations)-1, -1, -1):
             op = block.operations[i]
-            if should_turn_inevitable(op, block):
+            if should_turn_inevitable(op, block, fresh_mallocs):
                 inev_op = turn_inevitable_op(op.opname)
                 block.operations.insert(i, inev_op)
