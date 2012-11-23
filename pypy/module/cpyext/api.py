@@ -1021,7 +1021,7 @@ def setup_library(space):
     trunk_include = pypydir.dirpath() / 'include'
     copy_header_files(trunk_include)
 
-initfunctype = lltype.Ptr(lltype.FuncType([], lltype.Void))
+initfunctype = lltype.Ptr(lltype.FuncType([], PyObject))
 @unwrap_spec(path=str, name=str)
 def load_extension_module(space, path, name):
     if os.sep not in path:
@@ -1045,14 +1045,14 @@ def load_extension_module(space, path, name):
                 "unable to load extension module '%s': %s",
                 path, e.msg)
         try:
-            initptr = rdynload.dlsym(dll, 'init%s' % (name.split('.')[-1],))
+            initptr = rdynload.dlsym(dll, 'PyInit_%s' % (name.split('.')[-1],))
         except KeyError:
             raise operationerrfmt(
                 space.w_ImportError,
                 "function init%s not found in library %s",
                 name, path)
         initfunc = rffi.cast(initfunctype, initptr)
-        generic_cpy_call(space, initfunc)
+        w_mod = generic_cpy_call(space, initfunc)
         state.check_and_raise_exception()
     finally:
         state.package_context = old_context

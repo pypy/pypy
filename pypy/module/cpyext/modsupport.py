@@ -10,6 +10,19 @@ from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 from pypy.module.cpyext.state import State
 from pypy.interpreter.error import OperationError
 
+PyModuleDef_BaseStruct = cpython_struct(
+    'PyModuleDef_Base',
+    [])
+
+PyModuleDefStruct = cpython_struct(
+    'PyModuleDef',
+    [('m_base', PyModuleDef_BaseStruct),
+     ('m_name', rffi.CCHARP),
+     ('m_doc', rffi.CCHARP),
+     ('m_methods', lltype.Ptr(PyMethodDef)),
+     ], level=2)
+PyModuleDef = lltype.Ptr(PyModuleDefStruct)
+
 #@cpython_api([rffi.CCHARP], PyObject)
 def PyImport_AddModule(space, name):
     """Return the module object corresponding to a module name.  The name argument
@@ -31,27 +44,20 @@ def PyImport_AddModule(space, name):
 
     return w_mod
 
-# This is actually the Py_InitModule4 function,
-# renamed to refuse modules built against CPython headers.
-@cpython_api([CONST_STRING, lltype.Ptr(PyMethodDef), CONST_STRING,
-              PyObject, rffi.INT_real], PyObject)
-def _Py_InitPyPyModule(space, name, methods, doc, w_self, apiver):
-    """
-    Create a new module object based on a name and table of functions, returning
-    the new module object. If doc is non-NULL, it will be used to define the
-    docstring for the module. If self is non-NULL, it will passed to the
-    functions of the module as their (otherwise NULL) first parameter. (This was
-    added as an experimental feature, and there are no known uses in the current
-    version of Python.) For apiver, the only value which should be passed is
-    defined by the constant PYTHON_API_VERSION.
+@cpython_api([PyModuleDef, rffi.INT_real], PyObject)
+def PyModule_Create2(space, module, api_version):
+    """Create a new module object, given the definition in module, assuming the
+    API version module_api_version.  If that version does not match the version
+    of the running interpreter, a RuntimeWarning is emitted.
+    
+    Most uses of this function should be using PyModule_Create()
+    instead; only use this if you are sure you need it."""
 
-    Note that the name parameter is actually ignored, and the module name is
-    taken from the package_context attribute of the cpyext.State in the space
-    cache.  CPython includes some extra checking here to make sure the module
-    being initialized lines up with what's expected, but we don't.
-    """
-    from pypy.module.cpyext.typeobjectdefs import PyTypeObjectPtr
-    modname = rffi.charp2str(name)
+    modname = rffi.charp2str(module.c_m_name)
+    if module.c_m_doc:
+        doc = rffi.charp2str(module.c_m_doc)
+    methods = module.c_m_methods
+
     state = space.fromcache(State)
     f_name, f_path = state.package_context
     if f_name is not None:
@@ -63,13 +69,13 @@ def _Py_InitPyPyModule(space, name, methods, doc, w_self, apiver):
         dict_w = {'__file__': space.wrap(f_path)}
     else:
         dict_w = {}
-    convert_method_defs(space, dict_w, methods, None, w_self, modname)
+    convert_method_defs(space, dict_w, methods, None, w_mod, modname)
     for key, w_value in dict_w.items():
         space.setattr(w_mod, space.wrap(key), w_value)
     if doc:
         space.setattr(w_mod, space.wrap("__doc__"),
-                      space.wrap(rffi.charp2str(doc)))
-    return borrow_from(None, w_mod)
+                      space.wrap(doc))
+    return w_mod
 
 
 def convert_method_defs(space, dict_w, methods, w_type, w_self=None, name=None):
