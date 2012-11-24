@@ -83,8 +83,8 @@ def set_abort_hook(space, w_hook):
 
     The hook will be called as in: hook(jitdriver_name, greenkey, reason)
 
-    Where reason is the reason for abort, see documentation for set_compile_hook
-    for descriptions of other arguments.
+    Reason is a string, the meaning of other arguments is the same
+    as attributes on JitLoopInfo object
     """
     cache = space.fromcache(Cache)
     cache.w_abort_hook = w_hook
