@@ -118,6 +118,8 @@ class AppTestJitHook(object):
         assert info.greenkey[1] == 0
         assert info.greenkey[2] == False
         assert info.loop_no == 0
+        assert info.type == 'loop'
+        raises(TypeError, 'info.bridge_no')
         assert len(info.operations) == 4
         int_add = info.operations[0]
         dmp = info.operations[1]
