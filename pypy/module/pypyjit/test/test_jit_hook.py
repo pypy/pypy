@@ -120,6 +120,7 @@ class AppTestJitHook(object):
         assert info.loop_no == 0
         assert info.type == 'loop'
         raises(TypeError, 'info.bridge_no')
+        assert info.key == ('loop', 0)
         assert len(info.operations) == 4
         int_add = info.operations[0]
         dmp = info.operations[1]
