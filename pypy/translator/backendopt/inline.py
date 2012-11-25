@@ -676,6 +676,10 @@ def instrument_inline_candidates(graphs, threshold):
                         n += 1
     log.inlining("%d call sites instrumented" % n)
 
+def always_inline(graph):
+    return (hasattr(graph, 'func') and
+            getattr(graph.func, '_always_inline_', None))
+
 def auto_inlining(translator, threshold=None,
                   callgraph=None,
                   call_count_pred=None,
@@ -701,8 +705,7 @@ def auto_inlining(translator, threshold=None,
     while heap:
         weight, _, graph = heap[0]
         if not valid_weight.get(graph):
-            if hasattr(graph, 'func') and \
-                   getattr(graph.func, '_always_inline_', None):
+            if always_inline(graph):
                 weight, fixed = 0.0, True
             else:
                 weight, fixed = heuristic(graph)
@@ -710,7 +713,7 @@ def auto_inlining(translator, threshold=None,
             heapreplace(heap, (weight, -len(callers[graph]), graph))
             valid_weight[graph] = True
             if not fixed:
-                try_again[graph] = True
+                try_again[graph] = 'initial'
             continue
 
         if weight >= threshold:
@@ -745,8 +748,8 @@ def auto_inlining(translator, threshold=None,
                                            call_count_pred, cleanup=False)
                 to_cleanup[parentgraph] = True
                 res = bool(subcount)
-            except CannotInline:
-                try_again[graph] = True
+            except CannotInline, e:
+                try_again[graph] = str(e)
                 res = CannotInline
             if res is True:
                 count += subcount
@@ -762,6 +765,15 @@ def auto_inlining(translator, threshold=None,
                     del try_again[parentgraph]
                     heappush(heap, (0.0, -len(callers[parentgraph]), parentgraph))
                 valid_weight[parentgraph] = False
+
+    invalid = [(graph, msg) for graph, msg in try_again.items()
+                            if always_inline(graph) is True]
+    if invalid:
+        message = '\n'.join([
+            "%s has _always_inline_=True but inlining failed:\n\t%s" %
+            (graph, msg) for (graph, msg) in invalid])
+        raise CannotInline(message)
+
     for graph in to_cleanup:
         cleanup_graph(graph)
     return count

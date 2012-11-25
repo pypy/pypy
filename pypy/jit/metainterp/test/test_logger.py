@@ -104,6 +104,17 @@ class TestLogger(object):
         '''
         self.reparse(inp)
 
+    def test_guard_not_invalidated(self):
+        inp = '''
+        []
+        guard_not_invalidated(descr=descr) []
+        finish()
+        '''
+        loop = pure_parse(inp, namespace={'descr': Descr()})
+        logger = Logger(self.make_metainterp_sd())
+        output = logger.log_loop(loop, {'descr': Descr()})
+        assert 'guard_not_invalidated(descr=' in output
+
     def test_guard_w_hole(self):
         inp = '''
         [i0]

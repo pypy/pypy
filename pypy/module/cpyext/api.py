@@ -320,7 +320,7 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True):
                         Py_DecRef(space, arg)
             unwrapper.func = func
             unwrapper.api_func = api_function
-            unwrapper._always_inline_ = True
+            unwrapper._always_inline_ = 'try'
             return unwrapper
 
         unwrapper_catch = make_unwrapper(True)
@@ -625,7 +625,7 @@ def make_wrapper(space, callable):
                 pypy_debug_catch_fatal_exception()
         rffi.stackcounter.stacks_counter -= 1
         return retval
-    callable._always_inline_ = True
+    callable._always_inline_ = 'try'
     wrapper.__name__ = "wrapper for %r" % (callable, )
     return wrapper
 

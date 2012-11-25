@@ -610,11 +610,7 @@ class WarmRunnerDesc(object):
                 maybe_compile_and_run(state.increment_threshold, *args)
             maybe_enter_jit._always_inline_ = True
         jd._maybe_enter_jit_fn = maybe_enter_jit
-
-        def maybe_enter_from_start(*args):
-            maybe_compile_and_run(state.increment_function_threshold, *args)
-        maybe_enter_from_start._always_inline_ = True
-        jd._maybe_enter_from_start_fn = maybe_enter_from_start
+        jd._maybe_compile_and_run_fn = maybe_compile_and_run
 
     def make_driverhook_graphs(self):
         from pypy.rlib.jit import BaseJitCell
@@ -863,13 +859,26 @@ class WarmRunnerDesc(object):
         RESULT = PORTALFUNC.RESULT
         result_kind = history.getkind(RESULT)
         ts = self.cpu.ts
+        state = jd.warmstate
+        maybe_compile_and_run = jd._maybe_compile_and_run_fn
 
         def ll_portal_runner(*args):
             start = True
             while 1:
                 try:
+                    # maybe enter from the function's start.  Note that the
+                    # 'start' variable is constant-folded away because it's
+                    # the first statement in the loop.
                     if start:
-                        jd._maybe_enter_from_start_fn(*args)
+                        maybe_compile_and_run(
+                            state.increment_function_threshold, *args)
+                    #
+                    # then run the normal portal function, i.e. the
+                    # interpreter's main loop.  It might enter the jit
+                    # via maybe_enter_jit(), which typically ends with
+                    # handle_fail() being called, which raises on the
+                    # following exceptions --- catched here, because we
+                    # want to interrupt the whole interpreter loop.
                     return support.maybe_on_top_of_llinterp(rtyper,
                                                       portal_ptr)(*args)
                 except self.ContinueRunningNormally, e:
