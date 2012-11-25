@@ -299,10 +299,11 @@ class W_JitLoopInfo(Wrappable):
 
     def descr_get_key(self, space):
         if space.is_none(self.w_green_key):
-            return space.newtuple([space.wrap(self.type), space.wrap(
+            return space.newtuple([space.wrap(self.type[0]), space.wrap(
                 self.bridge_no)])
-        return space.newtuple([space.wrap(self.type), space.wrap(self.loop_no)])
-                              
+        return space.newtuple([space.wrap(self.type[0]),
+                               space.wrap(self.loop_no)])
+
 
 @unwrap_spec(loopno=int, asmaddr=int, asmlen=int, loop_no=int,
              type=str, jd_name=str, bridge_no=int)
