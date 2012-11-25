@@ -297,13 +297,6 @@ class W_JitLoopInfo(Wrappable):
             return space.wrap(self.bridge_no)
         raise OperationError(space.w_TypeError, space.wrap("not a bridge"))
 
-    def descr_get_key(self, space):
-        if space.is_none(self.w_green_key):
-            return space.newtuple([space.wrap(self.type[0]), space.wrap(
-                self.bridge_no)])
-        return space.newtuple([space.wrap(self.type[0]),
-                               space.wrap(self.loop_no)])
-
 
 @unwrap_spec(loopno=int, asmaddr=int, asmlen=int, loop_no=int,
              type=str, jd_name=str, bridge_no=int)
@@ -339,8 +332,6 @@ W_JitLoopInfo.typedef = TypeDef(
                                doc="bridge number (if a bridge)"),
     type = interp_attrproperty('type', cls=W_JitLoopInfo,
                                doc="Loop type"),
-    key = GetSetProperty(W_JitLoopInfo.descr_get_key,
-                         doc="bridge key in counters"),
     __repr__ = interp2app(W_JitLoopInfo.descr_repr),
 )
 W_JitLoopInfo.acceptable_as_base_class = False
