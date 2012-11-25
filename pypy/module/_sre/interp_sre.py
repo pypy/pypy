@@ -6,7 +6,6 @@ from pypy.interpreter.typedef import make_weakref_descr
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError
 from pypy.rlib.rarithmetic import intmask
-from pypy.tool.pairtype import extendabletype
 from pypy.rlib import jit
 
 # ____________________________________________________________
@@ -16,9 +15,11 @@ from pypy.rlib import jit
 from pypy.rlib.rsre import rsre_core
 from pypy.rlib.rsre.rsre_char import MAGIC, CODESIZE, getlower, set_unicode_db
 
+
 @unwrap_spec(char_ord=int, flags=int)
 def w_getlower(space, char_ord, flags):
     return space.wrap(getlower(char_ord, flags))
+
 
 def w_getcodesize(space):
     return space.wrap(CODESIZE)
@@ -29,32 +30,17 @@ set_unicode_db(pypy.objspace.std.unicodeobject.unicodedb)
 
 # ____________________________________________________________
 #
-# Additional methods on the classes XxxMatchContext
 
-class __extend__(rsre_core.AbstractMatchContext):
-    __metaclass__ = extendabletype
-    def _w_slice(self, space, start, end):
-        raise NotImplementedError
-    def _w_string(self, space):
-        raise NotImplementedError
-
-class __extend__(rsre_core.StrMatchContext):
-    __metaclass__ = extendabletype
-    def _w_slice(self, space, start, end):
-        return space.wrap(self._string[start:end])
-    def _w_string(self, space):
-        return space.wrap(self._string)
-
-class __extend__(rsre_core.UnicodeMatchContext):
-    __metaclass__ = extendabletype
-    def _w_slice(self, space, start, end):
-        return space.wrap(self._unicodestr[start:end])
-    def _w_string(self, space):
-        return space.wrap(self._unicodestr)
 
 def slice_w(space, ctx, start, end, w_default):
     if 0 <= start <= end:
-        return ctx._w_slice(space, start, end)
+        if isinstance(ctx, rsre_core.StrMatchContext):
+            return space.wrap(ctx._string[start:end])
+        elif isinstance(ctx, rsre_core.UnicodeMatchContext):
+            return space.wrap(ctx._unicodestr[start:end])
+        else:
+            # unreachable
+            raise SystemError
     return w_default
 
 def do_flatten_marks(ctx, num_groups):
@@ -472,7 +458,13 @@ class W_SRE_Match(Wrappable):
         return space.newtuple(result_w)
 
     def fget_string(self, space):
-        return self.ctx._w_string(space)
+        ctx = self.ctx
+        if isinstance(ctx, rsre_core.StrMatchContext):
+            return space.wrap(ctx._string)
+        elif isinstance(ctx, rsre_core.UnicodeMatchContext):
+            return space.wrap(ctx._unicodestr)
+        else:
+            raise SystemError
 
 
 W_SRE_Match.typedef = TypeDef(
