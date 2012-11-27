@@ -759,3 +759,23 @@ class TestInlineOOType(OORtypeMixin, BaseTestInline):
         eval_func = self.check_inline(g, f, [int, int])
         res = eval_func([10, 173])
         assert res == f(10, 173)
+
+    def test_cannot_inline_1(self):
+        from pypy.rpython.lltypesystem import lltype, rffi
+        for attr in [None, 'try', True]:
+            def h1(n):
+                return lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+            if attr is not None:
+                h1._always_inline_ = attr
+            def f(x):
+                try:
+                    return h1(x)
+                except Exception:
+                    return lltype.nullptr(rffi.INTP.TO)
+            #
+            def compile():
+                self.check_auto_inlining(f, [int])
+            if attr is True:
+                py.test.raises(CannotInline, compile)
+            else:
+                compile()    # assert does not raise

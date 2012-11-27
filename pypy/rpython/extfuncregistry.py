@@ -42,6 +42,7 @@ _register = [  # (module, [(method name, arg types, return type), ...], ...)
        ('sqrt', [float], float),
        ('log', [float], float),
        ('log10', [float], float),
+       ('log1p', [float], float),
        ('sin', [float], float),
        ('cos', [float], float),
        ('atan2', [float, float], float),

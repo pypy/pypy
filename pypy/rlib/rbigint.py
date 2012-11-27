@@ -797,7 +797,7 @@ class rbigint(object):
             wordshift += 1
         z._normalize()
         return z
-    rshift._always_inline_ = True # It's so fast that it's always benefitial.
+    rshift._always_inline_ = 'try' # It's so fast that it's always benefitial.
     
     @jit.elidable
     def and_(self, other):

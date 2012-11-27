@@ -273,7 +273,7 @@ def llexternal(name, args, result, _callable=None,
                 return cast(lltype.Unsigned, res)
         return res
     wrapper._annspecialcase_ = 'specialize:ll'
-    wrapper._always_inline_ = True
+    wrapper._always_inline_ = 'try'
     # for debugging, stick ll func ptr to that
     wrapper._ptr = funcptr
     wrapper = func_with_new_name(wrapper, name)
@@ -797,7 +797,7 @@ def make_string_mappings(strtype):
         """
         raw_buf = lltype.malloc(TYPEP.TO, count, flavor='raw')
         return raw_buf, lltype.nullptr(STRTYPE)
-    alloc_buffer._always_inline_ = True # to get rid of the returned tuple
+    alloc_buffer._always_inline_ = 'try' # to get rid of the returned tuple
     alloc_buffer._annenforceargs_ = [int]
 
     # (char*, str, int, int) -> None

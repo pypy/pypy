@@ -1317,7 +1317,7 @@ class Transformer(object):
     def promote_greens(self, args, jitdriver):
         ops = []
         num_green_args = len(jitdriver.greens)
-        assert len(args) == num_green_args + len(jitdriver.reds)
+        assert len(args) == num_green_args + jitdriver.numreds
         for v in args[:num_green_args]:
             if isinstance(v, Variable) and v.concretetype is not lltype.Void:
                 kind = getkind(v.concretetype)

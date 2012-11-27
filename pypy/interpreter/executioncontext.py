@@ -144,7 +144,10 @@ class ExecutionContext(object):
         actionflag = self.space.actionflag
         if actionflag.get_ticker() < 0:
             actionflag.action_dispatcher(self, frame)     # slow path
-    bytecode_trace_after_exception._always_inline_ = True
+    bytecode_trace_after_exception._always_inline_ = 'try'
+    # NB. this function is not inlined right now.  backendopt.inline would
+    # need some improvements to handle this case, but it's not really an
+    # issue
 
     def exception_trace(self, frame, operationerr):
         "Trace function called upon OperationError."

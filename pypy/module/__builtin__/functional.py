@@ -271,6 +271,9 @@ class W_ReversedIterator(Wrappable):
     def descr___iter__(self, space):
         return space.wrap(self)
 
+    def descr_length(self, space):
+        return space.wrap(0 if self.remaining == -1 else self.remaining + 1)
+
     def descr_next(self, space):
         if self.remaining >= 0:
             w_index = space.wrap(self.remaining)
@@ -297,9 +300,10 @@ class W_ReversedIterator(Wrappable):
         return space.newtuple([w_new_inst, w_info])
 
 W_ReversedIterator.typedef = TypeDef("reversed",
-    __iter__=interp2app(W_ReversedIterator.descr___iter__),
-    next=interp2app(W_ReversedIterator.descr_next),
-    __reduce__=interp2app(W_ReversedIterator.descr___reduce__),
+    __iter__        = interp2app(W_ReversedIterator.descr___iter__),
+    __length_hint__ = interp2app(W_ReversedIterator.descr_length),
+    next            = interp2app(W_ReversedIterator.descr_next),
+    __reduce__      = interp2app(W_ReversedIterator.descr___reduce__),
 )
 
 # exported through _pickle_support
@@ -423,7 +427,7 @@ class W_XRangeIterator(Wrappable):
         raise OperationError(self.space.w_StopIteration, self.space.w_None)
 
     def descr_len(self):
-        return self.space.wrap(self.remaining)
+        return self.space.wrap(self.get_remaining())
 
     def descr_reduce(self):
         from pypy.interpreter.mixedmodule import MixedModule
@@ -442,8 +446,7 @@ class W_XRangeIterator(Wrappable):
 
 W_XRangeIterator.typedef = TypeDef("rangeiterator",
     __iter__        = interp2app(W_XRangeIterator.descr_iter),
-# XXX __length_hint__()
-##    __len__         = interp2app(W_XRangeIterator.descr_len),
+    __length_hint__ = interp2app(W_XRangeIterator.descr_len),
     next            = interp2app(W_XRangeIterator.descr_next),
     __reduce__      = interp2app(W_XRangeIterator.descr_reduce),
 )

@@ -185,37 +185,52 @@ class ProfilerContext(object):
             if subentry is not None:
                 subentry._stop(tt, it)
 
+
 @jit.elidable_promote()
-def create_spec(space, w_arg):
-    if isinstance(w_arg, Method):
-        w_function = w_arg.w_function
-        if isinstance(w_function, Function):
-            name = w_function.name
-        else:
-            name = '?'
-        # try to get the real class that defines the method,
-        # which is a superclass of the class of the instance
-        from pypy.objspace.std.typeobject import W_TypeObject   # xxx
-        w_type = w_arg.w_class
-        class_name = w_type.getname(space)    # if the rest doesn't work
-        if isinstance(w_type, W_TypeObject) and name != '?':
-            w_realclass, _ = space.lookup_in_type_where(w_type, name)
-            if isinstance(w_realclass, W_TypeObject):
-                class_name = w_realclass.get_module_type_name()
-        return "{method '%s' of '%s' objects}" % (name, class_name)
-    elif isinstance(w_arg, Function):
-        if w_arg.w_module is None:
+def create_spec_for_method(space, w_function, w_type):
+    w_function = w_function
+    if isinstance(w_function, Function):
+        name = w_function.name
+    else:
+        name = '?'
+    # try to get the real class that defines the method,
+    # which is a superclass of the class of the instance
+    from pypy.objspace.std.typeobject import W_TypeObject   # xxx
+    class_name = w_type.getname(space)    # if the rest doesn't work
+    if isinstance(w_type, W_TypeObject) and name != '?':
+        w_realclass, _ = space.lookup_in_type_where(w_type, name)
+        if isinstance(w_realclass, W_TypeObject):
+            class_name = w_realclass.get_module_type_name()
+    return "{method '%s' of '%s' objects}" % (name, class_name)
+
+
+@jit.elidable_promote()
+def create_spec_for_function(space, w_func):
+    if w_func.w_module is None:
+        module = ''
+    else:
+        module = space.str_w(w_func.w_module)
+        if module == '__builtin__':
             module = ''
         else:
-            module = space.str_w(w_arg.w_module)
-            if module == '__builtin__':
-                module = ''
-            else:
-                module += '.'
-        return '{%s%s}' % (module, w_arg.name)
+            module += '.'
+    return '{%s%s}' % (module, w_func.name)
+
+
+@jit.elidable_promote()
+def create_spec_for_object(space, w_obj):
+    class_name = space.type(w_obj).getname(space)
+    return "{'%s' object}" % (class_name,)
+
+
+def create_spec(space, w_arg):
+    if isinstance(w_arg, Method):
+        return create_spec_for_method(space, w_arg.w_function, w_arg.w_class)
+    elif isinstance(w_arg, Function):
+        return create_spec_for_function(space, w_arg)
     else:
-        class_name = space.type(w_arg).getname(space)
-        return "{'%s' object}" % (class_name,)
+        return create_spec_for_object(space, w_arg)
+
 
 def lsprof_call(space, w_self, frame, event, w_arg):
     assert isinstance(w_self, W_Profiler)
