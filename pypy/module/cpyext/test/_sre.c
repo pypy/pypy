@@ -3882,7 +3882,19 @@ static PyMethodDef _functions[] = {
     {NULL, NULL}
 };
 
-PyMODINIT_FUNC init_sre(void)
+static struct PyModuleDef sremodule = {
+	PyModuleDef_HEAD_INIT,
+	"_" SRE_MODULE,
+	NULL,
+	-1,
+	_functions,
+	NULL,
+	NULL,
+	NULL,
+	NULL
+};
+
+PyMODINIT_FUNC PyInit__sre(void)
 {
     PyObject* m;
     PyObject* d;
@@ -3891,11 +3903,11 @@ PyMODINIT_FUNC init_sre(void)
     /* Patch object types */
     if (PyType_Ready(&Pattern_Type) || PyType_Ready(&Match_Type) ||
         PyType_Ready(&Scanner_Type))
-        return;
+        return NULL;
 
-    m = Py_InitModule("_" SRE_MODULE, _functions);
+    m = PyModule_Create(&sremodule);
     if (m == NULL)
-    	return;
+    	return NULL;
     d = PyModule_GetDict(m);
 
     x = PyLong_FromLong(SRE_MAGIC);
@@ -3915,6 +3927,7 @@ PyMODINIT_FUNC init_sre(void)
         PyDict_SetItemString(d, "copyright", x);
         Py_DECREF(x);
     }
+    return m;
 }
 
 #endif /* !defined(SRE_RECURSIVE) */

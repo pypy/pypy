@@ -632,9 +632,17 @@ static PyMethodDef foo_functions[] = {
 };
 
 
+static struct PyModuleDef moduledef = {
+    PyModuleDef_HEAD_INIT,
+    "foo",
+    "Module Doc",
+    -1,
+    &foo_functions
+};
+
 /* Initialize this module. */
 
-void initfoo(void)
+PyObject *PyInit_foo(void)
 {
     PyObject *m, *d;
 
@@ -645,38 +653,39 @@ void initfoo(void)
     MetaType.tp_base = &PyType_Type;
 
     if (PyType_Ready(&footype) < 0)
-        return;
+        return NULL;
     if (PyType_Ready(&UnicodeSubtype) < 0)
-        return;
+        return NULL;
     if (PyType_Ready(&UnicodeSubtype2) < 0)
-        return;
+        return NULL;
     if (PyType_Ready(&MetaType) < 0)
-        return;
+        return NULL;
     if (PyType_Ready(&InitErrType) < 0)
-        return;
+        return NULL;
     if (PyType_Ready(&SimplePropertyType) < 0)
-        return;
+        return NULL;
     CustomType.ob_type = &MetaType;
     if (PyType_Ready(&CustomType) < 0)
-        return;
-    m = Py_InitModule("foo", foo_functions);
+        return NULL;
+    m = PyModule_Create(&moduledef);
     if (m == NULL)
-        return;
+        return NULL;
     d = PyModule_GetDict(m);
     if (d == NULL)
-        return;
+        return NULL;
     if (PyDict_SetItemString(d, "fooType", (PyObject *)&footype) < 0)
-        return;
+        return NULL;
     if (PyDict_SetItemString(d, "UnicodeSubtype", (PyObject *) &UnicodeSubtype) < 0)
-        return;
+        return NULL;
     if (PyDict_SetItemString(d, "UnicodeSubtype2", (PyObject *) &UnicodeSubtype2) < 0)
-        return;
+        return NULL;
     if (PyDict_SetItemString(d, "MetaType", (PyObject *) &MetaType) < 0)
-        return;
+        return NULL;
     if (PyDict_SetItemString(d, "InitErrType", (PyObject *) &InitErrType) < 0)
-        return;
+        return NULL;
     if (PyDict_SetItemString(d, "Property", (PyObject *) &SimplePropertyType) < 0)
-        return;
+        return NULL;
     if (PyDict_SetItemString(d, "Custom", (PyObject *) &CustomType) < 0)
-        return;
+        return NULL;
+    return m;
 }

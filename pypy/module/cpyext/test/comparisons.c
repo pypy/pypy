@@ -86,22 +86,32 @@ PyTypeObject OldCmpType = {
 };
 
 
-void initcomparisons(void)
+static struct PyModuleDef moduledef = {
+    PyModuleDef_HEAD_INIT,
+    "comparisons",
+    "Module Doc",
+    -1,
+    NULL
+};
+
+
+PyObject *PyInit_comparisons(void)
 {
     PyObject *m, *d;
 
     if (PyType_Ready(&CmpType) < 0)
-        return;
+        return NULL;
     if (PyType_Ready(&OldCmpType) < 0)
-        return;
-    m = Py_InitModule("comparisons", NULL);
+        return NULL;
+    m = PyModule_Create(&moduledef);
     if (m == NULL)
-        return;
+        return NULL;
     d = PyModule_GetDict(m);
     if (d == NULL)
-        return;
+        return NULL;
     if (PyDict_SetItemString(d, "CmpType", (PyObject *)&CmpType) < 0)
-        return;
+        return NULL;
     if (PyDict_SetItemString(d, "OldCmpType", (PyObject *)&OldCmpType) < 0)
-        return;
+        return NULL;
+    return m;
 }

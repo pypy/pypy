@@ -504,7 +504,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                     return NULL;
 
                 IntLike_Type.tp_as_number = &intlike_as_number;
-                intlike_as_number.nb_nonzero = intlike_nb_nonzero;
+                intlike_as_number.nb_bool = intlike_nb_bool;
                 if (PyType_Ready(&IntLike_Type) < 0) return NULL;
                 intObj = PyObject_New(IntLikeObject, &IntLike_Type);
                 if (!intObj) {
@@ -522,7 +522,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             } IntLikeObject;
 
             static int
-            intlike_nb_nonzero(IntLikeObject *v)
+            intlike_nb_bool(IntLikeObject *v)
             {
                 if (v->value == -42) {
                     PyErr_SetNone(PyExc_ValueError);
