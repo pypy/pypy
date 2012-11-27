@@ -23,27 +23,6 @@ PyModuleDefStruct = cpython_struct(
      ], level=2)
 PyModuleDef = lltype.Ptr(PyModuleDefStruct)
 
-#@cpython_api([rffi.CCHARP], PyObject)
-def PyImport_AddModule(space, name):
-    """Return the module object corresponding to a module name.  The name argument
-    may be of the form package.module. First check the modules dictionary if
-    there's one there, and if not, create a new one and insert it in the modules
-    dictionary.
-
-    This function does not load or import the module; if the module wasn't already
-    loaded, you will get an empty module object. Use PyImport_ImportModule()
-    or one of its variants to import a module.  Package structures implied by a
-    dotted name for name are not created if not already present."""
-    w_name = space.wrap(name)
-    w_modules = space.sys.get('modules')
-
-    w_mod = space.finditem_str(w_modules, name)
-    if w_mod is None:
-        w_mod = space.wrap(Module(space, w_name))
-        space.setitem(w_modules, w_name, w_mod)
-
-    return w_mod
-
 @cpython_api([PyModuleDef, rffi.INT_real], PyObject)
 def PyModule_Create2(space, module, api_version):
     """Create a new module object, given the definition in module, assuming the
@@ -56,13 +35,15 @@ def PyModule_Create2(space, module, api_version):
     modname = rffi.charp2str(module.c_m_name)
     if module.c_m_doc:
         doc = rffi.charp2str(module.c_m_doc)
+    else:
+        doc = None
     methods = module.c_m_methods
 
     state = space.fromcache(State)
     f_name, f_path = state.package_context
     if f_name is not None:
         modname = f_name
-    w_mod = PyImport_AddModule(space, modname)
+    w_mod = space.wrap(Module(space, space.wrap(modname)))
     state.package_context = None, None
 
     if f_path is not None:

@@ -1056,7 +1056,7 @@ def load_extension_module(space, path, name):
         state.check_and_raise_exception()
     finally:
         state.package_context = old_context
-    state.fixup_extension(name, path)
+    state.fixup_extension(w_mod, name, path)
 
 @specialize.ll()
 def generic_cpy_call(space, func, *args):

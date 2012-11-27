@@ -4,7 +4,15 @@ static PyMethodDef banana_functions[] = {
     {NULL, NULL}
 };
 
-void initbanana(void)
+static struct PyModuleDef moduledef = {
+    PyModuleDef_HEAD_INIT,
+    "banana",
+    "Module Doc",
+    -1,
+    &banana_functions
+};
+
+PyObject *PyInit_banana(void)
 {
-    Py_InitModule("banana", banana_functions);
+    return PyModule_Create(&moduledef);
 }

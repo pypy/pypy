@@ -111,29 +111,27 @@ class State:
             self.version = rffi.str2charp(version)
             lltype.render_immortal(self.version)
         return self.version
+        foo = self.import_module(name='foo', init=init)
 
     def find_extension(self, name, path):
-        from pypy.module.cpyext.modsupport import PyImport_AddModule
+        from pypy.module.cpyext.import_ import PyImport_AddModule
         from pypy.interpreter.module import Module
         try:
             w_dict = self.extensions[path]
         except KeyError:
             return None
-        w_mod = PyImport_AddModule(self.space, name)
+        with rffi.scoped_str2charp(name) as ll_name:
+            w_mod = PyImport_AddModule(self.space, ll_name)
         assert isinstance(w_mod, Module)
         w_mdict = w_mod.getdict(self.space)
         self.space.call_method(w_mdict, 'update', w_dict)
         return w_mod
 
-    def fixup_extension(self, name, path):
+    def fixup_extension(self, w_mod, name, path):
         from pypy.interpreter.module import Module
         space = self.space
         w_modules = space.sys.get('modules')
-        w_mod = space.finditem_str(w_modules, name)
-        if not isinstance(w_mod, Module):
-            msg = "fixup_extension: module '%s' not loaded" % name
-            raise OperationError(space.w_SystemError,
-                                 space.wrap(msg))
+        space.setitem_str(w_modules, name, w_mod)
         w_dict = w_mod.getdict(space)
         w_copy = space.call_method(w_dict, 'copy')
         self.extensions[path] = w_copy

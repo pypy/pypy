@@ -4,10 +4,19 @@ static PyMethodDef date_functions[] = {
     {NULL, NULL}
 };
 
-void initdate(void)
+static struct PyModuleDef moduledef = {
+    PyModuleDef_HEAD_INIT,
+    "date",
+    "Module Doc",
+    -1,
+    &date_functions
+};
+
+PyObject *PyInit_date(void)
 {
-    PyObject *module;
-    Py_InitModule("date", date_functions);
-    module = PyImport_ImportModule("apple.banana");
-    Py_DECREF(module);
+    PyObject *module, *othermodule;
+    module = PyModule_Create(&moduledef);
+    othermodule = PyImport_ImportModule("apple.banana");
+    Py_DECREF(othermodule);
+    return module;
 }

@@ -70,9 +70,11 @@ def PyImport_AddModule(space, name):
     not already present."""
     from pypy.module.imp.importing import check_sys_modules_w
     modulename = rffi.charp2str(name)
+    w_modulename = space.wrap(modulename)
     w_mod = check_sys_modules_w(space, modulename)
     if not w_mod or space.is_w(w_mod, space.w_None):
-        w_mod = Module(space, space.wrap(modulename))
+        w_mod = Module(space, w_modulename)
+    space.setitem(space.sys.get('modules'), w_modulename, w_mod)
     return borrow_from(None, w_mod)
 
 @cpython_api([], PyObject)

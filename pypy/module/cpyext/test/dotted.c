@@ -4,7 +4,15 @@ static PyMethodDef dotted_functions[] = {
     {NULL, NULL}
 };
 
-void initdotted(void)
+static struct PyModuleDef moduledef = {
+    PyModuleDef_HEAD_INIT,
+    "pypy.module.cpyext.test.dotted",
+    "Module Doc",
+    -1,
+    &dotted_functions
+};
+
+PyObject *PyInit_dotted(void)
 {
-    Py_InitModule("pypy.module.cpyext.test.dotted", dotted_functions);
+    return PyModule_Create(&moduledef);
 }

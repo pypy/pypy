@@ -9,8 +9,16 @@ static PyMethodDef methods[] = {
     { NULL }
 };
 
+static struct PyModuleDef moduledef = {
+    PyModuleDef_HEAD_INIT,
+    "modinit",
+    "",
+    -1,
+    &methods
+};
+
 PyMODINIT_FUNC
-initmodinit(void) {
-    Py_InitModule3("modinit", methods, "");
+PyInit_modinit(void) {
+    return PyModule_Create(&moduledef);
 }
 

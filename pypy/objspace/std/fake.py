@@ -32,7 +32,7 @@ _fake_type_cache = {}
 def wrap_exception(space):
     """NOT_RPYTHON"""
     exc, value, tb = sys.exc_info()
-    if exc is OperationError:
+    if issubclass(exc, OperationError):
         raise exc, value, tb   # just re-raise it
     name = exc.__name__
     if hasattr(space, 'w_' + name):
