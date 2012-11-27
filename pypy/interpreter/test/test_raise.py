@@ -227,6 +227,22 @@ class AppTestRaise:
             raise A(42)
         raises(TypeError, f)
 
+    def test_userclass_catch(self):
+        # classes can't be caught unless they inherit from BaseException
+        class A(object):
+            pass
+
+        for exc in A, (ZeroDivisionError, A):
+            try:
+                try:
+                    1 / 0
+                except exc:
+                    pass
+            except TypeError:
+                pass
+            else:
+                fail('Expected TypeError')
+
     def test_it(self):
         class C:
             pass

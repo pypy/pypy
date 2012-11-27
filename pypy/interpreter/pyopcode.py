@@ -18,6 +18,9 @@ from pypy.rlib.debug import check_nonneg
 from pypy.tool.stdlib_opcode import (bytecode_spec,
                                      unrolling_all_opcode_descs)
 
+CANNOT_CATCH_MSG = ("catching classes that don't inherit from BaseException "
+                    "is not allowed in 3.x")
+
 def unaryoperation(operationname):
     """NOT_RPYTHON"""
     def opimpl(self, *ignored):
@@ -746,17 +749,16 @@ class __extend__(pyframe.PyFrame):
 
     @jit.unroll_safe
     def cmp_exc_match(self, w_1, w_2):
-        if self.space.is_true(self.space.isinstance(w_2, self.space.w_tuple)):
-            for w_t in self.space.fixedview(w_2):
-                if self.space.is_true(self.space.isinstance(w_t,
-                                                            self.space.w_str)):
-                    self.space.warn("catching of string exceptions is "
-                                    "deprecated",
-                                    self.space.w_DeprecationWarning)
-        elif self.space.is_true(self.space.isinstance(w_2, self.space.w_str)):
-            self.space.warn("catching of string exceptions is deprecated",
-                            self.space.w_DeprecationWarning)
-        return self.space.newbool(self.space.exception_match(w_1, w_2))
+        space = self.space
+        if space.isinstance_w(w_2, space.w_tuple):
+            for w_type in space.fixedview(w_2):
+                if not space.exception_is_valid_class_w(w_type):
+                    raise OperationError(space.w_TypeError,
+                                         space.wrap(CANNOT_CATCH_MSG))
+        elif not space.exception_is_valid_class_w(w_2):
+            raise OperationError(space.w_TypeError,
+                                 space.wrap(CANNOT_CATCH_MSG))
+        return space.newbool(space.exception_match(w_1, w_2))
 
     def COMPARE_OP(self, testnum, next_instr):
         w_2 = self.popvalue()
