@@ -23,6 +23,14 @@ Make bytearray type fast
 PyPy's bytearray type is very inefficient. It would be an interesting
 task to look into possible optimizations on this.
 
+Implement copy-on-write list slicing
+------------------------------------
+
+The idea is to have a special implementation of list objects which is used
+when doing ``myslice = mylist[a:b]``: the new list is not constructed
+immediately, but only when (and if) ``myslice`` or ``mylist`` are mutated.
+
+
 Numpy improvements
 ------------------
 
