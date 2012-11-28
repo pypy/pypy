@@ -1,9 +1,5 @@
-from pypy.conftest import gettestobjspace
-
-
 class AppTestGreenlet:
-    def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['_continuation'], continuation=True)
+    spaceconfig = dict(usemodules=['_continuation'], continuation=True)
 
     def test_simple(self):
         from greenlet import greenlet

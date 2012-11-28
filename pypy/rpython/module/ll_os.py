@@ -1286,6 +1286,19 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([str0, int, int], None, "ll_os.ll_os_lchown",
                       llimpl=os_lchown_llimpl)
 
+    @registering_if(os, 'fchown')
+    def register_os_fchown(self):
+        os_fchown = self.llexternal('fchown',[rffi.INT, rffi.INT, rffi.INT],
+                                    rffi.INT)
+
+        def os_fchown_llimpl(fd, uid, gid):
+            res = os_fchown(fd, uid, gid)
+            if res == -1:
+                raise OSError(rposix.get_errno(), "os_fchown failed")
+
+        return extdef([int, int, int], None, "ll_os.ll_os_fchown",
+                      llimpl=os_fchown_llimpl)
+
     @registering_if(os, 'readlink')
     def register_os_readlink(self):
         os_readlink = self.llexternal('readlink',
@@ -1493,6 +1506,20 @@ class RegisterOs(BaseLazyRegistering):
 
         return extdef([traits.str0, int], s_None, llimpl=chmod_llimpl,
                       export_name=traits.ll_os_name('chmod'))
+
+    @registering_if(os, 'fchmod')
+    def register_os_fchmod(self):
+        os_fchmod = self.llexternal('fchmod', [rffi.INT, rffi.MODE_T],
+                                    rffi.INT)
+
+        def fchmod_llimpl(fd, mode):
+            mode = rffi.cast(rffi.MODE_T, mode)
+            res = rffi.cast(lltype.Signed, os_fchmod(fd, mode))
+            if res < 0:
+                raise OSError(rposix.get_errno(), "os_fchmod failed")
+
+        return extdef([int, int], s_None, "ll_os.ll_os_fchmod",
+                      llimpl=fchmod_llimpl)
 
     @registering_str_unicode(os.rename)
     def register_os_rename(self, traits):

@@ -95,6 +95,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
                 retVal = c_pow(*args)
                 return retVal
             except ValueError, e:
+                if option.runappdirect:
+                    raise
                 raise OperationError(cls.space.w_ValueError,
                         cls.space.wrap(e.message))
         cls.w_c_pow = cls.space.wrap(cls_c_pow)
@@ -215,7 +217,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         ninf = -float('inf')
         nan = float('nan')
         cmpl = complex
-        for c,rel_err in ((complex128, 5e-323), (complex64, 1e-7)):
+        for c,rel_err in ((complex128, 2e-15), (complex64, 1e-7)):
             a = [cmpl(-5., 0), cmpl(-5., -5.), cmpl(-5., 5.),
                        cmpl(0., -5.), cmpl(0., 0.), cmpl(0., 5.),
                        cmpl(-0., -5.), cmpl(-0., 0.), cmpl(-0., 5.),
@@ -251,7 +253,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         ninf = -float('inf')
         nan = float('nan')
         cmpl = complex
-        for c,rel_err in ((complex128, 5e-323), (complex64, 1e-7)):
+        for c,rel_err in ((complex128, 2e-15), (complex64, 1e-7)):
             a = [cmpl(-5., 0), cmpl(-5., -5.), cmpl(-5., 5.),
                        cmpl(0., -5.), cmpl(0., 0.), cmpl(0., 5.),
                        cmpl(-0., -5.), cmpl(-0., 0.), cmpl(-0., 5.),
@@ -323,7 +325,11 @@ class AppTestUfuncs(BaseNumpyAppTest):
         cmpl = complex
         from math import copysign
         from _numpypy import power, array, complex128, complex64
-        for c,rel_err in ((complex128, 5e-323), (complex64, 4e-7)):
+        # note: in some settings (namely a x86-32 build without the JIT),
+        # gcc optimizes the code in rlib.rcomplex.c_pow() to not truncate
+        # the 10-byte values down to 8-byte values.  It ends up with more
+        # imprecision than usual (hence 2e-13 instead of 2e-15).
+        for c,rel_err in ((complex128, 2e-13), (complex64, 4e-7)):
             a = array([cmpl(-5., 0), cmpl(-5., -5.), cmpl(-5., 5.),
                        cmpl(0., -5.), cmpl(0., 0.), cmpl(0., 5.),
                        cmpl(-0., -5.), cmpl(-0., 0.), cmpl(-0., 5.),
@@ -394,7 +400,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
              cmpl(ninf, ninf), cmpl(5., inf), cmpl(5., ninf),
              cmpl(nan, 5.), cmpl(5., nan), cmpl(nan, nan),
             ]
-        for c,rel_err in ((complex128, 5e-323), (complex64, 1e-7)):
+        for c,rel_err in ((complex128, 2e-15), (complex64, 1e-7)):
             b = log2(array(a,dtype=c))
             for i in range(len(a)):
                 try:
@@ -414,7 +420,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
                 t1 = float(res.imag)        
                 t2 = float(b[i].imag)        
                 self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
-        for c,rel_err in ((complex128, 5e-323), (complex64, 1e-7)):
+        for c,rel_err in ((complex128, 2e-15), (complex64, 1e-7)):
             b = log1p(array(a,dtype=c))
             for i in range(len(a)):
                 try:

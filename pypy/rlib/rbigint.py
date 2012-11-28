@@ -337,6 +337,11 @@ class rbigint(object):
         if (self.sign != other.sign or
             self.numdigits() != other.numdigits()):
             return False
+        
+        # Fast path.
+        if len(self._digits) == len(other._digits):
+            return self._digits == other._digits
+
         i = 0
         ld = self.numdigits()
         while i < ld:
@@ -792,7 +797,7 @@ class rbigint(object):
             wordshift += 1
         z._normalize()
         return z
-    rshift._always_inline_ = True # It's so fast that it's always benefitial.
+    rshift._always_inline_ = 'try' # It's so fast that it's always benefitial.
     
     @jit.elidable
     def and_(self, other):
@@ -841,6 +846,7 @@ class rbigint(object):
         while i > 1 and self._digits[i - 1] == NULLDIGIT:
             i -= 1
         assert i > 0
+
         if i != self.numdigits():
             self.size = i
         if self.numdigits() == 1 and self._digits[0] == NULLDIGIT:

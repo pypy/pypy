@@ -1,4 +1,3 @@
-from pypy.conftest import gettestobjspace
 from pypy.module.micronumpy.interp_dtype import get_dtype_cache
 from pypy.module.micronumpy.interp_ufuncs import (find_binop_result_dtype,
         find_unaryop_result_dtype)
@@ -8,6 +7,8 @@ from pypy.conftest import option
 import sys
 
 class BaseNumpyAppTest(object):
+    spaceconfig = dict(usemodules=['micronumpy'])
+
     @classmethod
     def setup_class(cls):
         if option.runappdirect:
@@ -15,7 +16,6 @@ class BaseNumpyAppTest(object):
                 import numpy
                 sys.modules['numpypy'] = numpy
                 sys.modules['_numpypy'] = numpy
-        cls.space = gettestobjspace(usemodules=['micronumpy'])
         cls.w_non_native_prefix = cls.space.wrap(nonnative_byteorder_prefix)
         cls.w_native_prefix = cls.space.wrap(byteorder_prefix)
 
@@ -53,6 +53,7 @@ class TestUfuncCoerscion(object):
         ulong_dtype = get_dtype_cache(space).w_ulongdtype
         int64_dtype = get_dtype_cache(space).w_int64dtype
         uint64_dtype = get_dtype_cache(space).w_uint64dtype
+        float16_dtype = get_dtype_cache(space).w_float16dtype
         float32_dtype = get_dtype_cache(space).w_float32dtype
         float64_dtype = get_dtype_cache(space).w_float64dtype
 
@@ -73,9 +74,9 @@ class TestUfuncCoerscion(object):
 
         # Coerce to floats, some of these will eventually be float16, or
         # whatever our smallest float type is.
-        assert find_unaryop_result_dtype(space, bool_dtype, promote_to_float=True) is float32_dtype # will be float16 if we ever put that in
-        assert find_unaryop_result_dtype(space, int8_dtype, promote_to_float=True) is float32_dtype # will be float16 if we ever put that in
-        assert find_unaryop_result_dtype(space, uint8_dtype, promote_to_float=True) is float32_dtype # will be float16 if we ever put that in
+        assert find_unaryop_result_dtype(space, bool_dtype, promote_to_float=True) is float16_dtype 
+        assert find_unaryop_result_dtype(space, int8_dtype, promote_to_float=True) is float16_dtype 
+        assert find_unaryop_result_dtype(space, uint8_dtype, promote_to_float=True) is float16_dtype
         assert find_unaryop_result_dtype(space, int16_dtype, promote_to_float=True) is float32_dtype
         assert find_unaryop_result_dtype(space, uint16_dtype, promote_to_float=True) is float32_dtype
         assert find_unaryop_result_dtype(space, int32_dtype, promote_to_float=True) is float64_dtype

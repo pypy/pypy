@@ -14,6 +14,7 @@ from pypy.module._cffi_backend import misc
 class W_CTypeEnum(W_CTypePrimitiveSigned):
     _attrs_            = ['enumerators2values', 'enumvalues2erators']
     _immutable_fields_ = ['enumerators2values', 'enumvalues2erators']
+    kind = "enum"
 
     def __init__(self, space, name, enumerators, enumvalues):
         from pypy.module._cffi_backend.newtype import alignment
@@ -28,16 +29,15 @@ class W_CTypeEnum(W_CTypePrimitiveSigned):
             self.enumerators2values[enumerators[i]] = enumvalues[i]
             self.enumvalues2erators[enumvalues[i]] = enumerators[i]
 
-    def _getfields(self):
-        space = self.space
-        lst = []
-        for enumerator in self.enumerators2values:
-            enumvalue = self.enumerators2values[enumerator]
-            lst.append(space.newtuple([space.wrap(enumvalue),
-                                       space.wrap(enumerator)]))
-        w_lst = space.newlist(lst)
-        space.call_method(w_lst, 'sort')
-        return w_lst
+    def _fget(self, attrchar):
+        if attrchar == 'e':     # elements
+            space = self.space
+            w_dct = space.newdict()
+            for enumvalue, enumerator in self.enumvalues2erators.iteritems():
+                space.setitem(w_dct, space.wrap(enumvalue),
+                                     space.wrap(enumerator))
+            return w_dct
+        return W_CTypePrimitiveSigned._fget(self, attrchar)
 
     def string(self, cdataobj, maxlen):
         w_result = self.convert_to_object(cdataobj._cdata)

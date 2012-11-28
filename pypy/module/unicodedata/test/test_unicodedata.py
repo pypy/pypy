@@ -1,13 +1,8 @@
-from py.test import raises, skip
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin
-from pypy.conftest import gettestobjspace
-
 from pypy.module.unicodedata import unicodedb_3_2_0, unicodedb_5_2_0
 
 class AppTestUnicodeData:
-    def setup_class(cls):
-        space = gettestobjspace(usemodules=('unicodedata',))
-        cls.space = space
+    spaceconfig = dict(usemodules=('unicodedata',))
 
     def test_hangul_syllables(self):
         import unicodedata

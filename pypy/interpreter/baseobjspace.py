@@ -862,18 +862,10 @@ class ObjSpace(object):
         """
         # If we can guess the expected length we can preallocate.
         try:
-            lgt_estimate = self.len_w(w_iterable)
-        except OperationError, o:
-            if (not o.match(self, self.w_AttributeError) and
-                not o.match(self, self.w_TypeError)):
-                raise
-            items = []
-        else:
-            try:
-                items = newlist_hint(lgt_estimate)
-            except MemoryError:
-                items = [] # it might have lied
-        #
+            items = newlist_hint(self.length_hint(w_iterable, 0))
+        except MemoryError:
+            items = [] # it might have lied
+
         tp = self.type(w_iterator)
         while True:
             unpackiterable_driver.jit_merge_point(tp=tp,
@@ -933,6 +925,36 @@ class ObjSpace(object):
         return self._unpackiterable_known_length_jitlook(w_iterator,
                                                          expected_length)
 
+    def length_hint(self, w_obj, default):
+        """Return the length of an object, consulting its __length_hint__
+        method if necessary.
+        """
+        try:
+            return self.len_w(w_obj)
+        except OperationError, e:
+            if not (e.match(self, self.w_TypeError) or
+                    e.match(self, self.w_AttributeError)):
+                raise
+
+        w_descr = self.lookup(w_obj, '__length_hint__')
+        if w_descr is None:
+            return default
+        try:
+            w_hint = self.get_and_call_function(w_descr, w_obj)
+        except OperationError, e:
+            if not (e.match(self, self.w_TypeError) or
+                    e.match(self, self.w_AttributeError)):
+                raise
+            return default
+        if self.is_w(w_hint, self.w_NotImplemented):
+            return default
+
+        hint = self.int_w(w_hint)
+        if hint < 0:
+            raise OperationError(self.w_ValueError, self.wrap(
+                    "__length_hint__() should return >= 0"))
+        return hint
+
     def fixedview(self, w_iterable, expected_length=-1):
         """ A fixed list view of w_iterable. Don't modify the result
         """
@@ -953,6 +975,13 @@ class ObjSpace(object):
         """
         return None
 
+    def listview_unicode(self, w_list):
+        """ Return a list of unwrapped unicode out of a list of unicode. If the
+        argument is not a list or does not contain only unicode, return None.
+        May return None anyway.
+        """
+        return None
+
     def view_as_kwargs(self, w_dict):
         """ if w_dict is a kwargs-dict, return two lists, one of unwrapped
         strings and one of wrapped values. otherwise return (None, None)
@@ -961,6 +990,10 @@ class ObjSpace(object):
 
     def newlist_str(self, list_s):
         return self.newlist([self.wrap(s) for s in list_s])
+
+    def newlist_hint(self, sizehint):
+        from pypy.objspace.std.listobject import make_empty_list_with_size
+        return make_empty_list_with_size(self, sizehint)
 
     @jit.unroll_safe
     def exception_match(self, w_exc_type, w_check_class):

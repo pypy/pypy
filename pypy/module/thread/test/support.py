@@ -1,6 +1,5 @@
 import py
 import time, gc, thread, os
-from pypy.conftest import gettestobjspace, option
 from pypy.interpreter.gateway import ObjSpace, W_Root, interp2app_temp
 from pypy.module.thread import gil
 
@@ -30,12 +29,10 @@ def timeout_killer(pid, delay):
     thread.start_new_thread(kill, ())
 
 class GenericTestThread:
+    spaceconfig = dict(usemodules=('thread', 'time', 'signal'))
 
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('thread', 'time', 'signal'))
-        cls.space = space
-
-        if option.runappdirect:
+        if cls.runappdirect:
             def plain_waitfor(self, condition, delay=1):
                 adaptivedelay = 0.04
                 limit = time.time() + NORMAL_TIMEOUT * delay
@@ -49,10 +46,12 @@ class GenericTestThread:
                 
             cls.w_waitfor = plain_waitfor
         else:
-            cls.w_waitfor = space.wrap(lambda self, condition, delay=1: waitfor(space, condition, delay))
-        cls.w_busywait = space.appexec([], """():
+            cls.w_waitfor = cls.space.wrap(
+                lambda self, condition, delay=1: waitfor(cls.space, condition, delay))
+        cls.w_busywait = cls.space.appexec([], """():
             import time
             return time.sleep
         """)
         
-        cls.w_timeout_killer = space.wrap(lambda self, *args, **kwargs: timeout_killer(*args, **kwargs))
+        cls.w_timeout_killer = cls.space.wrap(
+            lambda self, *args, **kwargs: timeout_killer(*args, **kwargs))

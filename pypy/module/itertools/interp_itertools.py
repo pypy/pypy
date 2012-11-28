@@ -90,7 +90,7 @@ class W_Repeat(Wrappable):
             self.count = 0
         else:
             self.counting = True
-            self.count = self.space.int_w(w_times)
+            self.count = max(self.space.int_w(w_times), 0)
 
     def next_w(self):
         if self.counting:
@@ -101,6 +101,11 @@ class W_Repeat(Wrappable):
 
     def iter_w(self):
         return self.space.wrap(self)
+
+    def length_w(self):
+        if not self.counting:
+            return self.space.w_NotImplemented
+        return self.space.wrap(self.count)
 
     def repr_w(self):
         objrepr = self.space.str_w(self.space.repr(self.w_obj))
@@ -118,10 +123,11 @@ def W_Repeat___new__(space, w_subtype, w_object, w_times=None):
 W_Repeat.typedef = TypeDef(
         'repeat',
         __module__ = 'itertools',
-        __new__  = interp2app(W_Repeat___new__),
-        __iter__ = interp2app(W_Repeat.iter_w),
-        next     = interp2app(W_Repeat.next_w),
-        __repr__ = interp2app(W_Repeat.repr_w),
+        __new__          = interp2app(W_Repeat___new__),
+        __iter__         = interp2app(W_Repeat.iter_w),
+        __length_hint__  = interp2app(W_Repeat.length_w),
+        next             = interp2app(W_Repeat.next_w),
+        __repr__         = interp2app(W_Repeat.repr_w),
         __doc__  = """Make an iterator that returns object over and over again.
     Runs indefinitely unless the times argument is specified.  Used
     as argument to imap() for invariant parameters to the called

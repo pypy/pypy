@@ -64,8 +64,8 @@ double LL_strtod_parts_to_float(char *sign, char *beforept,
     return x;
 }
 
-char buffer[120]; /* this should be enough, from PyString_Format code */
-int buflen = 120;
+static char buffer[120]; /* this should be enough, from PyString_Format code */
+static const int buflen = 120;
 
 #ifdef _MSC_VER
 #define snprintf _snprintf

@@ -46,12 +46,20 @@ else:
     ORD = ord
 
 
-def raise_unicode_exception_decode(errors, encoding, msg, s,
-                                   startingpos, endingpos):
+def default_unicode_error_decode(errors, encoding, msg, s,
+                                 startingpos, endingpos):
+    if errors == 'replace':
+        return u'\ufffd', endingpos
+    if errors == 'ignore':
+        return u'', endingpos
     raise UnicodeDecodeError(encoding, s, startingpos, endingpos, msg)
 
-def raise_unicode_exception_encode(errors, encoding, msg, u,
-                                   startingpos, endingpos):
+def default_unicode_error_encode(errors, encoding, msg, u,
+                                 startingpos, endingpos):
+    if errors == 'replace':
+        return u'?', endingpos
+    if errors == 'ignore':
+        return u'', endingpos
     raise UnicodeEncodeError(encoding, u, startingpos, endingpos, msg)
 
 # ____________________________________________________________
@@ -79,7 +87,7 @@ utf8_code_length = [
 def str_decode_utf_8(s, size, errors, final=False,
                      errorhandler=None, allow_surrogates=False):
     if errorhandler is None:
-        errorhandler = raise_unicode_exception_decode
+        errorhandler = default_unicode_error_decode
     return str_decode_utf_8_impl(s, size, errors, final, errorhandler,
                                  allow_surrogates=allow_surrogates)
 
@@ -258,7 +266,7 @@ def _encodeUCS4(result, ch):
 def unicode_encode_utf_8(s, size, errors, errorhandler=None,
                          allow_surrogates=False):
     if errorhandler is None:
-        errorhandler = raise_unicode_exception_encode
+        errorhandler = default_unicode_error_encode
     return unicode_encode_utf_8_impl(s, size, errors, errorhandler,
                                      allow_surrogates=allow_surrogates)
 
@@ -336,7 +344,7 @@ def str_decode_utf_16_helper(s, size, errors, final=True,
                              errorhandler=None,
                              byteorder="native"):
     if errorhandler is None:
-        errorhandler = raise_unicode_exception_decode
+        errorhandler = default_unicode_error_decode
     bo = 0
 
     if BYTEORDER == 'little':
@@ -513,7 +521,7 @@ def str_decode_utf_32_helper(s, size, errors, final=True,
                              errorhandler=None,
                              byteorder="native"):
     if errorhandler is None:
-        errorhandler = raise_unicode_exception_decode
+        errorhandler = default_unicode_error_decode
     bo = 0
 
     if BYTEORDER == 'little':
@@ -737,7 +745,7 @@ def _utf7_ENCODE_CHAR(result, oc, base64bits, base64buffer):
 def str_decode_utf_7(s, size, errors, final=False,
                      errorhandler=None):
     if errorhandler is None:
-        errorhandler = raise_unicode_exception_decode
+        errorhandler = default_unicode_error_decode
     if size == 0:
         return u'', 0
 
@@ -925,7 +933,7 @@ def str_decode_latin_1(s, size, errors, final=False,
 def str_decode_ascii(s, size, errors, final=False,
                      errorhandler=None):
     if errorhandler is None:
-        errorhandler = raise_unicode_exception_decode
+        errorhandler = default_unicode_error_decode
     # ASCII is equivalent to the first 128 ordinals in Unicode.
     result = UnicodeBuilder(size)
     pos = 0
@@ -944,7 +952,7 @@ def str_decode_ascii(s, size, errors, final=False,
 def unicode_encode_ucs1_helper(p, size, errors,
                                errorhandler=None, limit=256):
     if errorhandler is None:
-        errorhandler = raise_unicode_exception_encode
+        errorhandler = default_unicode_error_encode
     if limit == 256:
         reason = "ordinal not in range(256)"
         encoding = "latin-1"
@@ -1002,7 +1010,7 @@ def str_decode_charmap(s, size, errors, final=False,
         return str_decode_latin_1(s, size, errors, final=final,
                                   errorhandler=errorhandler)
     if errorhandler is None:
-        errorhandler = raise_unicode_exception_decode
+        errorhandler = default_unicode_error_decode
     if size == 0:
         return u'', 0
 
@@ -1029,7 +1037,7 @@ def unicode_encode_charmap(s, size, errors, errorhandler=None,
                                       errorhandler=errorhandler)
 
     if errorhandler is None:
-        errorhandler = raise_unicode_exception_encode
+        errorhandler = default_unicode_error_encode
 
     if size == 0:
         return ''
@@ -1102,7 +1110,7 @@ def str_decode_unicode_escape(s, size, errors, final=False,
                               errorhandler=False,
                               unicodedata_handler=None):
     if errorhandler is None:
-        errorhandler = raise_unicode_exception_decode
+        errorhandler = default_unicode_error_decode
 
     if size == 0:
         return u'', 0
@@ -1344,7 +1352,7 @@ def make_unicode_escape_function(pass_printable=False, unicode_output=False,
 def str_decode_raw_unicode_escape(s, size, errors, final=False,
                                   errorhandler=None):
     if errorhandler is None:
-        errorhandler = raise_unicode_exception_decode
+        errorhandler = default_unicode_error_decode
     if size == 0:
         return u'', 0
 
@@ -1429,7 +1437,7 @@ def unicode_encode_raw_unicode_escape(s, size, errors, errorhandler=None):
 def str_decode_unicode_internal(s, size, errors, final=False,
                                 errorhandler=None):
     if errorhandler is None:
-        errorhandler = raise_unicode_exception_decode
+        errorhandler = default_unicode_error_decode
     if size == 0:
         return u'', 0
 
@@ -1540,7 +1548,7 @@ if sys.platform == 'win32':
             return u"", 0
 
         if errorhandler is None:
-            errorhandler = raise_unicode_exception_decode
+            errorhandler = default_unicode_error_decode
 
         # Skip trailing lead-byte unless 'final' is set
         if not final and is_dbcs_lead_byte(s[size-1]):
@@ -1604,7 +1612,7 @@ def unicode_encode_decimal(s, size, errors, errorhandler=None):
     are treated as errors. This includes embedded NULL bytes.
     """
     if errorhandler is None:
-        errorhandler = raise_unicode_exception_encode
+        errorhandler = default_unicode_error_encode
     if size == 0:
         return ''
     result = StringBuilder(size)

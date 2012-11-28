@@ -2,23 +2,15 @@
 Tests for the md5 module implemented at interp-level in pypy/module/md5.
 """
 
-import py, sys
-from pypy.conftest import gettestobjspace
-
 
 class AppTestMD5(object):
+    spaceconfig = dict(usemodules=['_md5'])
 
     def setup_class(cls):
-        """
-        Create a space with the md5 module and import it for use by the
-        tests.
-        """
-        cls.space = gettestobjspace(usemodules=['_md5'])
         cls.w_md5 = cls.space.appexec([], """():
             import md5
             return md5
         """)
-
 
     def test_digest_size(self):
         """

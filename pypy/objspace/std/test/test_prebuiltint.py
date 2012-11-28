@@ -1,10 +1,10 @@
 from pypy.objspace.std.test import test_intobject
-from pypy.conftest import gettestobjspace
 
 class AppTestInt(test_intobject.AppTestInt):
+    spaceconfig = {"objspace.std.withprebuiltint": True}
+
     def setup_class(cls):
-        cls.space = space = gettestobjspace(
-            **{"objspace.std.withprebuiltint": True})
+        space = cls.space
         cls.w_start = space.wrap(space.config.objspace.std.prebuiltintfrom)
         cls.w_stop = space.wrap(space.config.objspace.std.prebuiltintto)
 

@@ -6,6 +6,7 @@ from pypy.rlib.nonconst import NonConstant
 from pypy.rlib.objectmodel import CDefinedIntSymbolic, keepalive_until_here, specialize
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rpython.extregistry import ExtRegistryEntry
+from pypy.tool.sourcetools import rpython_wrapper
 
 DEBUG_ELIDABLE_FUNCTIONS = False
 
@@ -443,6 +444,7 @@ class JitDriver(object):
     active = True          # if set to False, this JitDriver is ignored
     virtualizables = []
     name = 'jitdriver'
+    inline_jit_merge_point = False
 
     def __init__(self, greens=None, reds=None, virtualizables=None,
                  get_jitcell_at=None, set_jitcell_at=None,
@@ -452,16 +454,30 @@ class JitDriver(object):
         if greens is not None:
             self.greens = greens
         self.name = name
-        if reds is not None:
-            self.reds = reds
+        if reds == 'auto':
+            self.autoreds = True
+            self.reds = []
+            self.numreds = None # see warmspot.autodetect_jit_markers_redvars
+            for hook in (get_jitcell_at, set_jitcell_at, get_printable_location,
+                         confirm_enter_jit):
+                assert hook is None, "reds='auto' is not compatible with JitDriver hooks"
+        else:
+            if reds is not None:
+                self.reds = reds
+            self.autoreds = False
+            self.numreds = len(self.reds)
         if not hasattr(self, 'greens') or not hasattr(self, 'reds'):
             raise AttributeError("no 'greens' or 'reds' supplied")
         if virtualizables is not None:
             self.virtualizables = virtualizables
         for v in self.virtualizables:
             assert v in self.reds
-        self._alllivevars = dict.fromkeys(
-            [name for name in self.greens + self.reds if '.' not in name])
+        # if reds are automatic, they won't be passed to jit_merge_point, so
+        # _check_arguments will receive only the green ones (i.e., the ones
+        # which are listed explicitly). So, it is fine to just ignore reds
+        self._somelivevars = set([name for name in
+                                  self.greens + (self.reds or [])
+                                  if '.' not in name])
         self._heuristic_order = {}   # check if 'reds' and 'greens' are ordered
         self._make_extregistryentries()
         self.get_jitcell_at = get_jitcell_at
@@ -475,7 +491,7 @@ class JitDriver(object):
         return True
 
     def _check_arguments(self, livevars):
-        assert dict.fromkeys(livevars) == self._alllivevars
+        assert set(livevars) == self._somelivevars
         # check heuristically that 'reds' and 'greens' are ordered as
         # the JIT will need them to be: first INTs, then REFs, then
         # FLOATs.
@@ -527,12 +543,38 @@ class JitDriver(object):
         _self._check_arguments(livevars)
 
     def can_enter_jit(_self, **livevars):
+        if _self.autoreds:
+            raise TypeError, "Cannot call can_enter_jit on a driver with reds='auto'"
         # special-cased by ExtRegistryEntry
         _self._check_arguments(livevars)
 
     def loop_header(self):
         # special-cased by ExtRegistryEntry
         pass
+
+    def inline(self, call_jit_merge_point):
+        assert self.autoreds, "@inline works only with reds='auto'"
+        self.inline_jit_merge_point = True
+        def decorate(func):
+            template = """
+                def {name}({arglist}):
+                    {call_jit_merge_point}({arglist})
+                    return {original}({arglist})
+            """
+            templateargs = {'call_jit_merge_point': call_jit_merge_point.__name__}
+            globaldict = {call_jit_merge_point.__name__: call_jit_merge_point}
+            result = rpython_wrapper(func, template, templateargs, **globaldict)
+            result._inline_jit_merge_point_ = call_jit_merge_point
+            return result
+
+        return decorate
+        
+
+    def clone(self):
+        assert self.inline_jit_merge_point, 'JitDriver.clone works only after @inline'
+        newdriver = object.__new__(self.__class__)
+        newdriver.__dict__ = self.__dict__.copy()
+        return newdriver
 
     def _make_extregistryentries(self):
         # workaround: we cannot declare ExtRegistryEntries for functions

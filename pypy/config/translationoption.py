@@ -169,10 +169,11 @@ translation_optiondescription = OptionDescription(
     BoolOption("no__thread",
                "don't use __thread for implementing TLS",
                default=False, cmdline="--no__thread", negation=False),
-    StrOption("compilerflags", "Specify flags for the C compiler",
-               cmdline="--cflags"),
-    StrOption("linkerflags", "Specify flags for the linker (C backend only)",
-               cmdline="--ldflags"),
+##  --- not supported since a long time.  Use the env vars CFLAGS/LDFLAGS.
+##    StrOption("compilerflags", "Specify flags for the C compiler",
+##               cmdline="--cflags"),
+##    StrOption("linkerflags", "Specify flags for the linker (C backend only)",
+##               cmdline="--ldflags"),
     IntOption("make_jobs", "Specify -j argument to make for compilation"
               " (C backend only)",
               cmdline="--make-jobs", default=detect_number_of_processors()),

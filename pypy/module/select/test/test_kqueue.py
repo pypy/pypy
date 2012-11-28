@@ -3,15 +3,13 @@
 import py
 import sys
 
-from pypy.conftest import gettestobjspace
-
-
 class AppTestKqueue(object):
+    spaceconfig = dict(usemodules=["select", "_socket", "posix"])
+
     def setup_class(cls):
         if not 'bsd' in sys.platform and \
            not sys.platform.startswith('darwin'):
             py.test.skip("test requires BSD")
-        cls.space = gettestobjspace(usemodules=["select", "_socket", "posix"])
 
     def test_create(self):
         import select

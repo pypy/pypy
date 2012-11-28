@@ -121,6 +121,7 @@ elif _MINGW:
          dict(prefix=r'c:\mingw64', include_dir='include', library_dir='lib'),
          ])
 else:
+    USE_C_LIBFFI_MSVC = True
     libffidir = py.path.local(pypydir).join('translator', 'c', 'src', 'libffi_msvc')
     if not _WIN64:
         asm_ifc = 'win32.c'
@@ -436,6 +437,9 @@ class StackCheckError(ValueError):
     def __init__(self, message):
         self.message = message
 
+class LibFFIError(Exception):
+    pass
+
 CHUNK = 4096
 CLOSURES = rffi.CArrayPtr(FFI_CLOSUREP.TO)
 
@@ -512,7 +516,7 @@ class AbstractFuncPtr(object):
                              rffi.cast(rffi.UINT, argnum), restype,
                              self.ll_argtypes)
         if not res == FFI_OK:
-            raise OSError(-1, "Wrong typedef")
+            raise LibFFIError
 
     def __del__(self):
         if self.ll_cif:
@@ -542,7 +546,7 @@ class CallbackFuncPtr(AbstractFuncPtr):
                                  ll_callback, rffi.cast(rffi.VOIDP,
                                                         self.ll_userdata))
         if not res == FFI_OK:
-            raise OSError(-1, "Unspecified error calling ffi_prep_closure")
+            raise LibFFIError
 
     def __del__(self):
         AbstractFuncPtr.__del__(self)
