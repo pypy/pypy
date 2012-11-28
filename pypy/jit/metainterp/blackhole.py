@@ -936,34 +936,34 @@ class BlackholeInterpreter(object):
     def bhimpl_recursive_call_i(self, jdindex, greens_i, greens_r, greens_f,
                                                reds_i,   reds_r,   reds_f):
         fnptr, calldescr = self.get_portal_runner(jdindex)
-        return self.cpu.bh_call_i(fnptr, calldescr,
+        return self.cpu.bh_call_i(fnptr,
                                   greens_i + reds_i,
                                   greens_r + reds_r,
-                                  greens_f + reds_f)
+                                  greens_f + reds_f, calldescr)
     @arguments("self", "i", "I", "R", "F", "I", "R", "F", returns="r")
     def bhimpl_recursive_call_r(self, jdindex, greens_i, greens_r, greens_f,
                                                reds_i,   reds_r,   reds_f):
         fnptr, calldescr = self.get_portal_runner(jdindex)
-        return self.cpu.bh_call_r(fnptr, calldescr,
+        return self.cpu.bh_call_r(fnptr,
                                   greens_i + reds_i,
                                   greens_r + reds_r,
-                                  greens_f + reds_f)
+                                  greens_f + reds_f, calldescr)
     @arguments("self", "i", "I", "R", "F", "I", "R", "F", returns="f")
     def bhimpl_recursive_call_f(self, jdindex, greens_i, greens_r, greens_f,
                                                reds_i,   reds_r,   reds_f):
         fnptr, calldescr = self.get_portal_runner(jdindex)
-        return self.cpu.bh_call_f(fnptr, calldescr,
+        return self.cpu.bh_call_f(fnptr,
                                   greens_i + reds_i,
                                   greens_r + reds_r,
-                                  greens_f + reds_f)
+                                  greens_f + reds_f, calldescr)
     @arguments("self", "i", "I", "R", "F", "I", "R", "F")
     def bhimpl_recursive_call_v(self, jdindex, greens_i, greens_r, greens_f,
                                                reds_i,   reds_r,   reds_f):
         fnptr, calldescr = self.get_portal_runner(jdindex)
-        return self.cpu.bh_call_v(fnptr, calldescr,
+        return self.cpu.bh_call_v(fnptr,
                                   greens_i + reds_i,
                                   greens_r + reds_r,
-                                  greens_f + reds_f)
+                                  greens_f + reds_f, calldescr)
 
     # ----------
     # virtual refs
@@ -979,222 +979,222 @@ class BlackholeInterpreter(object):
     # ----------
     # list operations
 
-    @arguments("cpu", "r", "d", "i", returns="i")
-    def bhimpl_check_neg_index(cpu, array, arraydescr, index):
+    @arguments("cpu", "r", "i", "d", returns="i")
+    def bhimpl_check_neg_index(cpu, array, index, arraydescr):
         if index < 0:
-            index += cpu.bh_arraylen_gc(arraydescr, array)
+            index += cpu.bh_arraylen_gc(array, arraydescr)
         return index
 
-    @arguments("cpu", "r", "d", "i", returns="i")
-    def bhimpl_check_resizable_neg_index(cpu, lst, lengthdescr, index):
+    @arguments("cpu", "r", "i", "d", returns="i")
+    def bhimpl_check_resizable_neg_index(cpu, lst, index, lengthdescr):
         if index < 0:
             index += cpu.bh_getfield_gc_i(lst, lengthdescr)
         return index
 
-    @arguments("cpu", "d", "d", "d", "d", "i", returns="r")
-    def bhimpl_newlist(cpu, structdescr, lengthdescr, itemsdescr,
-                       arraydescr, length):
+    @arguments("cpu", "i", "d", "d", "d", "d", returns="r")
+    def bhimpl_newlist(cpu, length, structdescr, lengthdescr,
+                       itemsdescr, arraydescr):
         result = cpu.bh_new(structdescr)
-        cpu.bh_setfield_gc_i(result, lengthdescr, length)
-        items = cpu.bh_new_array(arraydescr, length)
-        cpu.bh_setfield_gc_r(result, itemsdescr, items)
+        cpu.bh_setfield_gc_i(result, length, lengthdescr)
+        items = cpu.bh_new_array(length, arraydescr)
+        cpu.bh_setfield_gc_r(result, items, itemsdescr)
         return result
 
-    @arguments("cpu", "d", "d", "d", "d", "i", returns="r")
-    def bhimpl_newlist_hint(cpu, structdescr, lengthdescr, itemsdescr,
-                            arraydescr, lengthhint):
+    @arguments("cpu", "i", "d", "d", "d", "d", returns="r")
+    def bhimpl_newlist_hint(cpu, lengthhint, structdescr, lengthdescr,
+                            itemsdescr, arraydescr):
         result = cpu.bh_new(structdescr)
-        cpu.bh_setfield_gc_i(result, lengthdescr, 0)
-        items = cpu.bh_new_array(arraydescr, lengthhint)
-        cpu.bh_setfield_gc_r(result, itemsdescr, items)
+        cpu.bh_setfield_gc_i(result, 0, lengthdescr)
+        items = cpu.bh_new_array(lengthhint, arraydescr)
+        cpu.bh_setfield_gc_r(result, items, itemsdescr)
         return result
 
-    @arguments("cpu", "r", "d", "d", "i", returns="i")
-    def bhimpl_getlistitem_gc_i(cpu, lst, itemsdescr, arraydescr, index):
+    @arguments("cpu", "r", "i", "d", "d", returns="i")
+    def bhimpl_getlistitem_gc_i(cpu, lst, index, itemsdescr, arraydescr):
         items = cpu.bh_getfield_gc_r(lst, itemsdescr)
-        return cpu.bh_getarrayitem_gc_i(arraydescr, items, index)
-    @arguments("cpu", "r", "d", "d", "i", returns="r")
-    def bhimpl_getlistitem_gc_r(cpu, lst, itemsdescr, arraydescr, index):
+        return cpu.bh_getarrayitem_gc_i(items, index, arraydescr)
+    @arguments("cpu", "r", "i", "d", "d", returns="r")
+    def bhimpl_getlistitem_gc_r(cpu, lst, index, itemsdescr, arraydescr):
         items = cpu.bh_getfield_gc_r(lst, itemsdescr)
-        return cpu.bh_getarrayitem_gc_r(arraydescr, items, index)
-    @arguments("cpu", "r", "d", "d", "i", returns="f")
-    def bhimpl_getlistitem_gc_f(cpu, lst, itemsdescr, arraydescr, index):
+        return cpu.bh_getarrayitem_gc_r(items, index, arraydescr)
+    @arguments("cpu", "r", "i", "d", "d", returns="f")
+    def bhimpl_getlistitem_gc_f(cpu, lst, index, itemsdescr, arraydescr):
         items = cpu.bh_getfield_gc_r(lst, itemsdescr)
-        return cpu.bh_getarrayitem_gc_f(arraydescr, items, index)
+        return cpu.bh_getarrayitem_gc_f(items, index, arraydescr)
 
-    @arguments("cpu", "r", "d", "d", "i", "i")
-    def bhimpl_setlistitem_gc_i(cpu, lst, itemsdescr, arraydescr, index, nval):
+    @arguments("cpu", "r", "i", "i", "d", "d")
+    def bhimpl_setlistitem_gc_i(cpu, lst, index, nval, itemsdescr, arraydescr):
         items = cpu.bh_getfield_gc_r(lst, itemsdescr)
-        cpu.bh_setarrayitem_gc_i(arraydescr, items, index, nval)
-    @arguments("cpu", "r", "d", "d", "i", "r")
-    def bhimpl_setlistitem_gc_r(cpu, lst, itemsdescr, arraydescr, index, nval):
+        cpu.bh_setarrayitem_gc_i(items, index, nval, arraydescr)
+    @arguments("cpu", "r", "i", "r", "d", "d")
+    def bhimpl_setlistitem_gc_r(cpu, lst, index, nval, itemsdescr, arraydescr):
         items = cpu.bh_getfield_gc_r(lst, itemsdescr)
-        cpu.bh_setarrayitem_gc_r(arraydescr, items, index, nval)
-    @arguments("cpu", "r", "d", "d", "i", "f")
-    def bhimpl_setlistitem_gc_f(cpu, lst, itemsdescr, arraydescr, index, nval):
+        cpu.bh_setarrayitem_gc_r(items, index, nval, arraydescr)
+    @arguments("cpu", "r", "i", "f", "d", "d")
+    def bhimpl_setlistitem_gc_f(cpu, lst, index, nval, itemsdescr, arraydescr):
         items = cpu.bh_getfield_gc_r(lst, itemsdescr)
-        cpu.bh_setarrayitem_gc_f(arraydescr, items, index, nval)
+        cpu.bh_setarrayitem_gc_f(items, index, nval, arraydescr)
 
     # ----------
     # the following operations are directly implemented by the backend
 
-    @arguments("cpu", "i", "d", "R", returns="i")
-    def bhimpl_residual_call_r_i(cpu, func, calldescr, args_r):
-        return cpu.bh_call_i(func, calldescr, None, args_r, None)
-    @arguments("cpu", "i", "d", "R", returns="r")
-    def bhimpl_residual_call_r_r(cpu, func, calldescr, args_r):
-        return cpu.bh_call_r(func, calldescr, None, args_r, None)
-    @arguments("cpu", "i", "d", "R")
-    def bhimpl_residual_call_r_v(cpu, func, calldescr, args_r):
-        return cpu.bh_call_v(func, calldescr, None, args_r, None)
+    @arguments("cpu", "i", "R", "d", returns="i")
+    def bhimpl_residual_call_r_i(cpu, func, args_r, calldescr):
+        return cpu.bh_call_i(func, None, args_r, None, calldescr)
+    @arguments("cpu", "i", "R", "d", returns="r")
+    def bhimpl_residual_call_r_r(cpu, func, args_r, calldescr):
+        return cpu.bh_call_r(func, None, args_r, None, calldescr)
+    @arguments("cpu", "i", "R", "d")
+    def bhimpl_residual_call_r_v(cpu, func, args_r, calldescr):
+        return cpu.bh_call_v(func, None, args_r, None, calldescr)
 
-    @arguments("cpu", "i", "d", "I", "R", returns="i")
-    def bhimpl_residual_call_ir_i(cpu, func, calldescr, args_i, args_r):
-        return cpu.bh_call_i(func, calldescr, args_i, args_r, None)
-    @arguments("cpu", "i", "d", "I", "R", returns="r")
-    def bhimpl_residual_call_ir_r(cpu, func, calldescr, args_i, args_r):
-        return cpu.bh_call_r(func, calldescr, args_i, args_r, None)
-    @arguments("cpu", "i", "d", "I", "R")
-    def bhimpl_residual_call_ir_v(cpu, func, calldescr, args_i, args_r):
-        return cpu.bh_call_v(func, calldescr, args_i, args_r, None)
+    @arguments("cpu", "i", "I", "R", "d", returns="i")
+    def bhimpl_residual_call_ir_i(cpu, func, args_i, args_r, calldescr):
+        return cpu.bh_call_i(func, args_i, args_r, None, calldescr)
+    @arguments("cpu", "i", "I", "R", "d", returns="r")
+    def bhimpl_residual_call_ir_r(cpu, func, args_i, args_r, calldescr):
+        return cpu.bh_call_r(func, args_i, args_r, None, calldescr)
+    @arguments("cpu", "i", "I", "R", "d")
+    def bhimpl_residual_call_ir_v(cpu, func, args_i, args_r, calldescr):
+        return cpu.bh_call_v(func, args_i, args_r, None, calldescr)
 
-    @arguments("cpu", "i", "d", "I", "R", "F", returns="i")
-    def bhimpl_residual_call_irf_i(cpu, func, calldescr,args_i,args_r,args_f):
-        return cpu.bh_call_i(func, calldescr, args_i, args_r, args_f)
-    @arguments("cpu", "i", "d", "I", "R", "F", returns="r")
-    def bhimpl_residual_call_irf_r(cpu, func, calldescr,args_i,args_r,args_f):
-        return cpu.bh_call_r(func, calldescr, args_i, args_r, args_f)
-    @arguments("cpu", "i", "d", "I", "R", "F", returns="f")
-    def bhimpl_residual_call_irf_f(cpu, func, calldescr,args_i,args_r,args_f):
-        return cpu.bh_call_f(func, calldescr, args_i, args_r, args_f)
-    @arguments("cpu", "i", "d", "I", "R", "F")
-    def bhimpl_residual_call_irf_v(cpu, func, calldescr,args_i,args_r,args_f):
-        return cpu.bh_call_v(func, calldescr, args_i, args_r, args_f)
+    @arguments("cpu", "i", "I", "R", "F", "d", returns="i")
+    def bhimpl_residual_call_irf_i(cpu, func, args_i,args_r,args_f,calldescr):
+        return cpu.bh_call_i(func, args_i, args_r, args_f, calldescr)
+    @arguments("cpu", "i", "I", "R", "F", "d", returns="r")
+    def bhimpl_residual_call_irf_r(cpu, func, args_i,args_r,args_f,calldescr):
+        return cpu.bh_call_r(func, args_i, args_r, args_f, calldescr)
+    @arguments("cpu", "i", "I", "R", "F", "d", returns="f")
+    def bhimpl_residual_call_irf_f(cpu, func, args_i,args_r,args_f,calldescr):
+        return cpu.bh_call_f(func, args_i, args_r, args_f, calldescr)
+    @arguments("cpu", "i", "I", "R", "F", "d")
+    def bhimpl_residual_call_irf_v(cpu, func, args_i,args_r,args_f,calldescr):
+        return cpu.bh_call_v(func, args_i, args_r, args_f, calldescr)
 
     @arguments("cpu", "j", "R", returns="i")
     def bhimpl_inline_call_r_i(cpu, jitcode, args_r):
-        return cpu.bh_call_i(jitcode.get_fnaddr_as_int(), jitcode.calldescr,
-                             None, args_r, None)
+        return cpu.bh_call_i(jitcode.get_fnaddr_as_int(),
+                             None, args_r, None, jitcode.calldescr)
     @arguments("cpu", "j", "R", returns="r")
     def bhimpl_inline_call_r_r(cpu, jitcode, args_r):
-        return cpu.bh_call_r(jitcode.get_fnaddr_as_int(), jitcode.calldescr,
-                             None, args_r, None)
+        return cpu.bh_call_r(jitcode.get_fnaddr_as_int(),
+                             None, args_r, None, jitcode.calldescr)
     @arguments("cpu", "j", "R")
     def bhimpl_inline_call_r_v(cpu, jitcode, args_r):
-        return cpu.bh_call_v(jitcode.get_fnaddr_as_int(), jitcode.calldescr,
-                             None, args_r, None)
+        return cpu.bh_call_v(jitcode.get_fnaddr_as_int(),
+                             None, args_r, None, jitcode.calldescr)
 
     @arguments("cpu", "j", "I", "R", returns="i")
     def bhimpl_inline_call_ir_i(cpu, jitcode, args_i, args_r):
-        return cpu.bh_call_i(jitcode.get_fnaddr_as_int(), jitcode.calldescr,
-                             args_i, args_r, None)
+        return cpu.bh_call_i(jitcode.get_fnaddr_as_int(),
+                             args_i, args_r, None, jitcode.calldescr)
     @arguments("cpu", "j", "I", "R", returns="r")
     def bhimpl_inline_call_ir_r(cpu, jitcode, args_i, args_r):
-        return cpu.bh_call_r(jitcode.get_fnaddr_as_int(), jitcode.calldescr,
-                             args_i, args_r, None)
+        return cpu.bh_call_r(jitcode.get_fnaddr_as_int(),
+                             args_i, args_r, None, jitcode.calldescr)
     @arguments("cpu", "j", "I", "R")
     def bhimpl_inline_call_ir_v(cpu, jitcode, args_i, args_r):
-        return cpu.bh_call_v(jitcode.get_fnaddr_as_int(), jitcode.calldescr,
-                             args_i, args_r, None)
+        return cpu.bh_call_v(jitcode.get_fnaddr_as_int(),
+                             args_i, args_r, None, jitcode.calldescr)
 
     @arguments("cpu", "j", "I", "R", "F", returns="i")
     def bhimpl_inline_call_irf_i(cpu, jitcode, args_i, args_r, args_f):
-        return cpu.bh_call_i(jitcode.get_fnaddr_as_int(), jitcode.calldescr,
-                             args_i, args_r, args_f)
+        return cpu.bh_call_i(jitcode.get_fnaddr_as_int(),
+                             args_i, args_r, args_f, jitcode.calldescr)
     @arguments("cpu", "j", "I", "R", "F", returns="r")
     def bhimpl_inline_call_irf_r(cpu, jitcode, args_i, args_r, args_f):
-        return cpu.bh_call_r(jitcode.get_fnaddr_as_int(), jitcode.calldescr,
-                             args_i, args_r, args_f)
+        return cpu.bh_call_r(jitcode.get_fnaddr_as_int(),
+                             args_i, args_r, args_f, jitcode.calldescr)
     @arguments("cpu", "j", "I", "R", "F", returns="f")
     def bhimpl_inline_call_irf_f(cpu, jitcode, args_i, args_r, args_f):
-        return cpu.bh_call_f(jitcode.get_fnaddr_as_int(), jitcode.calldescr,
-                             args_i, args_r, args_f)
+        return cpu.bh_call_f(jitcode.get_fnaddr_as_int(),
+                             args_i, args_r, args_f, jitcode.calldescr)
     @arguments("cpu", "j", "I", "R", "F")
     def bhimpl_inline_call_irf_v(cpu, jitcode, args_i, args_r, args_f):
-        return cpu.bh_call_v(jitcode.get_fnaddr_as_int(), jitcode.calldescr,
-                             args_i, args_r, args_f)
+        return cpu.bh_call_v(jitcode.get_fnaddr_as_int(),
+                             args_i, args_r, args_f, jitcode.calldescr)
 
-    @arguments("cpu", "d", "i", returns="r")
-    def bhimpl_new_array(cpu, arraydescr, length):
-        return cpu.bh_new_array(arraydescr, length)
+    @arguments("cpu", "i", "d", returns="r")
+    def bhimpl_new_array(cpu, length, arraydescr):
+        return cpu.bh_new_array(length, arraydescr)
 
-    @arguments("cpu", "r", "d", "i", returns="i")
-    def bhimpl_getarrayitem_gc_i(cpu, array, arraydescr, index):
-        return cpu.bh_getarrayitem_gc_i(arraydescr, array, index)
-    @arguments("cpu", "r", "d", "i", returns="r")
-    def bhimpl_getarrayitem_gc_r(cpu, array, arraydescr, index):
-        return cpu.bh_getarrayitem_gc_r(arraydescr, array, index)
-    @arguments("cpu", "r", "d", "i", returns="f")
-    def bhimpl_getarrayitem_gc_f(cpu, array, arraydescr, index):
-        return cpu.bh_getarrayitem_gc_f(arraydescr, array, index)
+    @arguments("cpu", "r", "i", "d", returns="i")
+    def bhimpl_getarrayitem_gc_i(cpu, array, index, arraydescr):
+        return cpu.bh_getarrayitem_gc_i(array, index, arraydescr)
+    @arguments("cpu", "r", "i", "d", returns="r")
+    def bhimpl_getarrayitem_gc_r(cpu, array, index, arraydescr):
+        return cpu.bh_getarrayitem_gc_r(array, index, arraydescr)
+    @arguments("cpu", "r", "i", "d", returns="f")
+    def bhimpl_getarrayitem_gc_f(cpu, array, index, arraydescr):
+        return cpu.bh_getarrayitem_gc_f(array, index, arraydescr)
 
     bhimpl_getarrayitem_gc_i_pure = bhimpl_getarrayitem_gc_i
     bhimpl_getarrayitem_gc_r_pure = bhimpl_getarrayitem_gc_r
     bhimpl_getarrayitem_gc_f_pure = bhimpl_getarrayitem_gc_f
 
-    @arguments("cpu", "i", "d", "i", returns="i")
-    def bhimpl_getarrayitem_raw_i(cpu, array, arraydescr, index):
-        return cpu.bh_getarrayitem_raw_i(arraydescr, array, index)
-    @arguments("cpu", "i", "d", "i", returns="f")
-    def bhimpl_getarrayitem_raw_f(cpu, array, arraydescr, index):
-        return cpu.bh_getarrayitem_raw_f(arraydescr, array, index)
+    @arguments("cpu", "i", "i", "d", returns="i")
+    def bhimpl_getarrayitem_raw_i(cpu, array, index, arraydescr):
+        return cpu.bh_getarrayitem_raw_i(array, index, arraydescr)
+    @arguments("cpu", "i", "i", "d", returns="f")
+    def bhimpl_getarrayitem_raw_f(cpu, array, index, arraydescr):
+        return cpu.bh_getarrayitem_raw_f(array, index, arraydescr)
 
     bhimpl_getarrayitem_raw_i_pure = bhimpl_getarrayitem_raw_i
     bhimpl_getarrayitem_raw_f_pure = bhimpl_getarrayitem_raw_f
 
-    @arguments("cpu", "r", "d", "i", "i")
-    def bhimpl_setarrayitem_gc_i(cpu, array, arraydescr, index, newvalue):
-        cpu.bh_setarrayitem_gc_i(arraydescr, array, index, newvalue)
-    @arguments("cpu", "r", "d", "i", "r")
-    def bhimpl_setarrayitem_gc_r(cpu, array, arraydescr, index, newvalue):
-        cpu.bh_setarrayitem_gc_r(arraydescr, array, index, newvalue)
-    @arguments("cpu", "r", "d", "i", "f")
-    def bhimpl_setarrayitem_gc_f(cpu, array, arraydescr, index, newvalue):
-        cpu.bh_setarrayitem_gc_f(arraydescr, array, index, newvalue)
+    @arguments("cpu", "r", "i", "i", "d")
+    def bhimpl_setarrayitem_gc_i(cpu, array, index, newvalue, arraydescr):
+        cpu.bh_setarrayitem_gc_i(array, index, newvalue, arraydescr)
+    @arguments("cpu", "r", "i", "r", "d")
+    def bhimpl_setarrayitem_gc_r(cpu, array, index, newvalue, arraydescr):
+        cpu.bh_setarrayitem_gc_r(array, index, newvalue, arraydescr)
+    @arguments("cpu", "r", "i", "f", "d")
+    def bhimpl_setarrayitem_gc_f(cpu, array, index, newvalue, arraydescr):
+        cpu.bh_setarrayitem_gc_f(array, index, newvalue, arraydescr)
 
-    @arguments("cpu", "i", "d", "i", "i")
-    def bhimpl_setarrayitem_raw_i(cpu, array, arraydescr, index, newvalue):
-        cpu.bh_setarrayitem_raw_i(arraydescr, array, index, newvalue)
-    @arguments("cpu", "i", "d", "i", "f")
-    def bhimpl_setarrayitem_raw_f(cpu, array, arraydescr, index, newvalue):
-        cpu.bh_setarrayitem_raw_f(arraydescr, array, index, newvalue)
+    @arguments("cpu", "i", "i", "i", "d")
+    def bhimpl_setarrayitem_raw_i(cpu, array, index, newvalue, arraydescr):
+        cpu.bh_setarrayitem_raw_i(array, index, newvalue, arraydescr)
+    @arguments("cpu", "i", "i", "f", "d")
+    def bhimpl_setarrayitem_raw_f(cpu, array, index, newvalue, arraydescr):
+        cpu.bh_setarrayitem_raw_f(array, index, newvalue, arraydescr)
 
     # note, there is no 'r' here, since it can't happen
 
     @arguments("cpu", "r", "d", returns="i")
     def bhimpl_arraylen_gc(cpu, array, arraydescr):
-        return cpu.bh_arraylen_gc(arraydescr, array)
+        return cpu.bh_arraylen_gc(array, arraydescr)
 
-    @arguments("cpu", "r", "d", "d", "i", returns="i")
-    def bhimpl_getarrayitem_vable_i(cpu, vable, fielddescr, arraydescr, index):
+    @arguments("cpu", "r", "i", "d", "d", returns="i")
+    def bhimpl_getarrayitem_vable_i(cpu, vable, index, fielddescr, arraydescr):
         array = cpu.bh_getfield_gc_r(vable, fielddescr)
-        return cpu.bh_getarrayitem_gc_i(arraydescr, array, index)
-    @arguments("cpu", "r", "d", "d", "i", returns="r")
-    def bhimpl_getarrayitem_vable_r(cpu, vable, fielddescr, arraydescr, index):
+        return cpu.bh_getarrayitem_gc_i(array, index, arraydescr)
+    @arguments("cpu", "r", "i", "d", "d", returns="r")
+    def bhimpl_getarrayitem_vable_r(cpu, vable, index, fielddescr, arraydescr):
         array = cpu.bh_getfield_gc_r(vable, fielddescr)
-        return cpu.bh_getarrayitem_gc_r(arraydescr, array, index)
-    @arguments("cpu", "r", "d", "d", "i", returns="f")
-    def bhimpl_getarrayitem_vable_f(cpu, vable, fielddescr, arraydescr, index):
+        return cpu.bh_getarrayitem_gc_r(array, index, arraydescr)
+    @arguments("cpu", "r", "i", "d", "d", returns="f")
+    def bhimpl_getarrayitem_vable_f(cpu, vable, index, fielddescr, arraydescr):
         array = cpu.bh_getfield_gc_r(vable, fielddescr)
-        return cpu.bh_getarrayitem_gc_f(arraydescr, array, index)
+        return cpu.bh_getarrayitem_gc_f(array, index, arraydescr)
 
-    @arguments("cpu", "r", "d", "d", "i", "i")
-    def bhimpl_setarrayitem_vable_i(cpu, vable, fdescr, adescr, index, newval):
+    @arguments("cpu", "r", "i", "i", "d", "d")
+    def bhimpl_setarrayitem_vable_i(cpu, vable, index, newval, fdescr, adescr):
         array = cpu.bh_getfield_gc_r(vable, fdescr)
-        cpu.bh_setarrayitem_gc_i(adescr, array, index, newval)
-    @arguments("cpu", "r", "d", "d", "i", "r")
-    def bhimpl_setarrayitem_vable_r(cpu, vable, fdescr, adescr, index, newval):
+        cpu.bh_setarrayitem_gc_i(array, index, newval, adescr)
+    @arguments("cpu", "r", "i", "r", "d", "d")
+    def bhimpl_setarrayitem_vable_r(cpu, vable, index, newval, fdescr, adescr):
         array = cpu.bh_getfield_gc_r(vable, fdescr)
-        cpu.bh_setarrayitem_gc_r(adescr, array, index, newval)
-    @arguments("cpu", "r", "d", "d", "i", "f")
-    def bhimpl_setarrayitem_vable_f(cpu, vable, fdescr, adescr, index, newval):
+        cpu.bh_setarrayitem_gc_r(array, index, newval, adescr)
+    @arguments("cpu", "r", "i", "f", "d", "d")
+    def bhimpl_setarrayitem_vable_f(cpu, vable, index, newval, fdescr, adescr):
         array = cpu.bh_getfield_gc_r(vable, fdescr)
-        cpu.bh_setarrayitem_gc_f(adescr, array, index, newval)
+        cpu.bh_setarrayitem_gc_f(array, index, newval, adescr)
 
     @arguments("cpu", "r", "d", "d", returns="i")
     def bhimpl_arraylen_vable(cpu, vable, fdescr, adescr):
         array = cpu.bh_getfield_gc_r(vable, fdescr)
-        return cpu.bh_arraylen_gc(adescr, array)
+        return cpu.bh_arraylen_gc(array, adescr)
 
     @arguments("cpu", "r", "i", "d", returns="i")
     def bhimpl_getinteriorfield_gc_i(cpu, array, index, descr):
@@ -1208,13 +1208,13 @@ class BlackholeInterpreter(object):
 
     @arguments("cpu", "r", "i", "i", "d")
     def bhimpl_setinteriorfield_gc_i(cpu, array, index, value, descr):
-        cpu.bh_setinteriorfield_gc_i(array, index, descr, value)
+        cpu.bh_setinteriorfield_gc_i(array, index, value, descr)
     @arguments("cpu", "r", "i", "r", "d")
     def bhimpl_setinteriorfield_gc_r(cpu, array, index, value, descr):
-        cpu.bh_setinteriorfield_gc_r(array, index, descr, value)
+        cpu.bh_setinteriorfield_gc_r(array, index, value, descr)
     @arguments("cpu", "r", "i", "f", "d")
     def bhimpl_setinteriorfield_gc_f(cpu, array, index, value, descr):
-        cpu.bh_setinteriorfield_gc_f(array, index, descr, value)
+        cpu.bh_setinteriorfield_gc_f(array, index, value, descr)
 
     @arguments("cpu", "r", "d", returns="i")
     def bhimpl_getfield_gc_i(cpu, struct, fielddescr):
@@ -1252,36 +1252,36 @@ class BlackholeInterpreter(object):
     bhimpl_getfield_raw_r_pure = bhimpl_getfield_raw_r
     bhimpl_getfield_raw_f_pure = bhimpl_getfield_raw_f
 
-    @arguments("cpu", "r", "d", "i")
-    def bhimpl_setfield_gc_i(cpu, struct, fielddescr, newvalue):
-        cpu.bh_setfield_gc_i(struct, fielddescr, newvalue)
-    @arguments("cpu", "r", "d", "r")
-    def bhimpl_setfield_gc_r(cpu, struct, fielddescr, newvalue):
-        cpu.bh_setfield_gc_r(struct, fielddescr, newvalue)
-    @arguments("cpu", "r", "d", "f")
-    def bhimpl_setfield_gc_f(cpu, struct, fielddescr, newvalue):
-        cpu.bh_setfield_gc_f(struct, fielddescr, newvalue)
+    @arguments("cpu", "r", "i", "d")
+    def bhimpl_setfield_gc_i(cpu, struct, newvalue, fielddescr):
+        cpu.bh_setfield_gc_i(struct, newvalue, fielddescr)
+    @arguments("cpu", "r", "r", "d")
+    def bhimpl_setfield_gc_r(cpu, struct, newvalue, fielddescr):
+        cpu.bh_setfield_gc_r(struct, newvalue, fielddescr)
+    @arguments("cpu", "r", "f", "d")
+    def bhimpl_setfield_gc_f(cpu, struct, newvalue, fielddescr):
+        cpu.bh_setfield_gc_f(struct, newvalue, fielddescr)
 
     bhimpl_setfield_vable_i = bhimpl_setfield_gc_i
     bhimpl_setfield_vable_r = bhimpl_setfield_gc_r
     bhimpl_setfield_vable_f = bhimpl_setfield_gc_f
 
-    @arguments("cpu", "i", "d", "i")
-    def bhimpl_setfield_raw_i(cpu, struct, fielddescr, newvalue):
-        cpu.bh_setfield_raw_i(struct, fielddescr, newvalue)
-    @arguments("cpu", "i", "d", "r")
-    def bhimpl_setfield_raw_r(cpu, struct, fielddescr, newvalue):
-        cpu.bh_setfield_raw_r(struct, fielddescr, newvalue)
-    @arguments("cpu", "i", "d", "f")
-    def bhimpl_setfield_raw_f(cpu, struct, fielddescr, newvalue):
-        cpu.bh_setfield_raw_f(struct, fielddescr, newvalue)
+    @arguments("cpu", "i", "i", "d")
+    def bhimpl_setfield_raw_i(cpu, struct, newvalue, fielddescr):
+        cpu.bh_setfield_raw_i(struct, newvalue, fielddescr)
+    @arguments("cpu", "i", "r", "d")
+    def bhimpl_setfield_raw_r(cpu, struct, newvalue, fielddescr):
+        cpu.bh_setfield_raw_r(struct, newvalue, fielddescr)
+    @arguments("cpu", "i", "f", "d")
+    def bhimpl_setfield_raw_f(cpu, struct, newvalue, fielddescr):
+        cpu.bh_setfield_raw_f(struct, newvalue, fielddescr)
 
-    @arguments("cpu", "i", "i", "d", "i")
-    def bhimpl_raw_store_i(cpu, addr, offset, arraydescr, newvalue):
-        cpu.bh_raw_store_i(addr, offset, arraydescr, newvalue)
-    @arguments("cpu", "i", "i", "d", "f")
-    def bhimpl_raw_store_f(cpu, addr, offset, arraydescr, newvalue):
-        cpu.bh_raw_store_f(addr, offset, arraydescr, newvalue)
+    @arguments("cpu", "i", "i", "i", "d")
+    def bhimpl_raw_store_i(cpu, addr, offset, newvalue, arraydescr):
+        cpu.bh_raw_store_i(addr, offset, newvalue, arraydescr)
+    @arguments("cpu", "i", "i", "f", "d")
+    def bhimpl_raw_store_f(cpu, addr, offset, newvalue, arraydescr):
+        cpu.bh_raw_store_f(addr, offset, newvalue, arraydescr)
 
     @arguments("cpu", "i", "i", "d", returns="i")
     def bhimpl_raw_load_i(cpu, addr, offset, arraydescr):
@@ -1306,7 +1306,7 @@ class BlackholeInterpreter(object):
     @arguments("cpu", "d", returns="r")
     def bhimpl_new_with_vtable(cpu, descr):
         vtable = heaptracker.descr2vtable(cpu, descr)
-        return cpu.bh_new_with_vtable(descr, vtable)
+        return cpu.bh_new_with_vtable(vtable, descr)
 
     @arguments("cpu", "r", returns="i")
     def bhimpl_guard_class(cpu, struct):
@@ -1562,10 +1562,7 @@ def resume_in_blackhole(metainterp_sd, jitdriver_sd, resumedescr,
     current_exc = blackholeinterp._prepare_resume_from_failure(
         resumedescr.guard_opnum, dont_change_position)
 
-    #try:
     _run_forever(blackholeinterp, current_exc)
-    #finally:
-        #debug_stop('jit-blackhole')
 
 def convert_and_run_from_pyjitpl(metainterp, raising_exception=False):
     # Get a chain of blackhole interpreters and fill them by copying
@@ -1588,7 +1585,4 @@ def convert_and_run_from_pyjitpl(metainterp, raising_exception=False):
         firstbh.exception_last_value = current_exc
         current_exc = lltype.nullptr(rclass.OBJECTPTR.TO)
     #
-    #try:
     _run_forever(firstbh, current_exc)
-    #finally:
-        #debug_stop('jit-blackhole')

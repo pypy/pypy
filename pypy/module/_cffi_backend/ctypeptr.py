@@ -74,12 +74,9 @@ class W_CTypePtrOrArray(W_CType):
                 cdata = rffi.ptradd(cdata, ctitem.size)
         elif (self.ctitem.is_primitive_integer and
               self.ctitem.size == rffi.sizeof(lltype.Char)):
-            try:
-                s = space.str_w(w_ob)
-            except OperationError, e:
-                if not e.match(space, space.w_TypeError):
-                    raise
+            if not space.isinstance_w(w_ob, space.w_str):
                 raise self._convert_error("str or list or tuple", w_ob)
+            s = space.str_w(w_ob)
             n = len(s)
             if self.length >= 0 and n > self.length:
                 raise operationerrfmt(space.w_IndexError,
@@ -91,12 +88,9 @@ class W_CTypePtrOrArray(W_CType):
             if n != self.length:
                 cdata[n] = '\x00'
         elif isinstance(self.ctitem, ctypeprim.W_CTypePrimitiveUniChar):
-            try:
-                s = space.unicode_w(w_ob)
-            except OperationError, e:
-                if not e.match(space, space.w_TypeError):
-                    raise
+            if not space.isinstance_w(w_ob, space.w_unicode):
                 raise self._convert_error("unicode or list or tuple", w_ob)
+            s = space.unicode_w(w_ob)
             n = len(s)
             if self.length >= 0 and n > self.length:
                 raise operationerrfmt(space.w_IndexError,
@@ -181,6 +175,7 @@ class W_CTypePtrBase(W_CTypePtrOrArray):
 class W_CTypePointer(W_CTypePtrBase):
     _attrs_ = ['is_file']
     _immutable_fields_ = ['is_file']
+    kind = "pointer"
 
     def __init__(self, space, ctitem):
         from pypy.module._cffi_backend import ctypearray
@@ -318,6 +313,11 @@ class W_CTypePointer(W_CTypePtrBase):
         else:
             raise OperationError(space.w_TypeError,
                      space.wrap("expected a 'cdata struct-or-union' object"))
+
+    def _fget(self, attrchar):
+        if attrchar == 'i':     # item
+            return self.space.wrap(self.ctitem)
+        return W_CTypePtrBase._fget(self, attrchar)
 
 # ____________________________________________________________
 

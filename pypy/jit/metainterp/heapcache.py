@@ -74,7 +74,9 @@ class HeapCache(object):
         elif (opnum != rop.GETFIELD_GC and
               opnum != rop.MARK_OPAQUE_PTR and
               opnum != rop.PTR_EQ and
-              opnum != rop.PTR_NE):
+              opnum != rop.PTR_NE and
+              opnum != rop.INSTANCE_PTR_EQ and
+              opnum != rop.INSTANCE_PTR_NE):
             idx = 0
             for box in argboxes:
                 # setarrayitem_gc don't escape its first argument
@@ -165,7 +167,7 @@ class HeapCache(object):
         fieldbox = self._input_indirection(fieldbox)
         self.heap_cache.setdefault(descr, {})[box] = fieldbox
 
-    def setfield(self, box, descr, fieldbox):
+    def setfield(self, box, fieldbox, descr):
         d = self.heap_cache.get(descr, None)
         new_d = self._do_write_with_aliasing(d, box, fieldbox)
         self.heap_cache[descr] = new_d
@@ -190,7 +192,7 @@ class HeapCache(object):
         new_d[box] = fieldbox
         return new_d
 
-    def getarrayitem(self, box, descr, indexbox):
+    def getarrayitem(self, box, indexbox, descr):
         box = self._input_indirection(box)
         if not isinstance(indexbox, ConstInt):
             return
@@ -201,7 +203,7 @@ class HeapCache(object):
             if indexcache is not None:
                 return self._output_indirection(indexcache.get(box, None))
 
-    def getarrayitem_now_known(self, box, descr, indexbox, valuebox):
+    def getarrayitem_now_known(self, box, indexbox, valuebox, descr):
         box = self._input_indirection(box)
         valuebox = self._input_indirection(valuebox)
         if not isinstance(indexbox, ConstInt):
@@ -214,7 +216,7 @@ class HeapCache(object):
         else:
             cache[index] = {box: valuebox}
 
-    def setarrayitem(self, box, descr, indexbox, valuebox):
+    def setarrayitem(self, box, indexbox, valuebox, descr):
         if not isinstance(indexbox, ConstInt):
             cache = self.heap_array_cache.get(descr, None)
             if cache is not None:

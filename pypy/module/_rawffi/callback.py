@@ -5,9 +5,9 @@ from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.module._rawffi.array import push_elem
 from pypy.module._rawffi.structure import W_Structure
 from pypy.module._rawffi.interp_rawffi import (W_DataInstance, letter2tp,
-     unwrap_value, unpack_argshapes)
+     unwrap_value, unpack_argshapes, got_libffi_error)
 from pypy.rlib.clibffi import USERDATA_P, CallbackFuncPtr, FUNCFLAG_CDECL
-from pypy.rlib.clibffi import ffi_type_void
+from pypy.rlib.clibffi import ffi_type_void, LibFFIError
 from pypy.rlib import rweakref
 from pypy.module._rawffi.tracker import tracker
 from pypy.interpreter.error import OperationError
@@ -66,8 +66,11 @@ class W_CallbackPtr(W_DataInstance):
             self.result = None
             ffiresult = ffi_type_void
         self.number = global_counter.add(self)
-        self.ll_callback = CallbackFuncPtr(ffiargs, ffiresult,
-                                           callback, self.number, flags)
+        try:
+            self.ll_callback = CallbackFuncPtr(ffiargs, ffiresult,
+                                               callback, self.number, flags)
+        except LibFFIError:
+            raise got_libffi_error(space)
         self.ll_buffer = rffi.cast(rffi.VOIDP, self.ll_callback.ll_closure)
         if tracker.DO_TRACING:
             addr = rffi.cast(lltype.Signed, self.ll_callback.ll_closure)

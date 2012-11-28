@@ -116,7 +116,7 @@ class AppTestDtypes(BaseNumpyAppTest):
     def test_bool_binop_types(self):
         from _numpypy import array, dtype
         types = [
-            '?', 'b', 'B', 'h', 'H', 'i', 'I', 'l', 'L', 'q', 'Q', 'f', 'd'
+            '?', 'b', 'B', 'h', 'H', 'i', 'I', 'l', 'L', 'q', 'Q', 'f', 'd', 'e',
         ]
         a = array([True], '?')
         for t in types:
@@ -142,7 +142,9 @@ class AppTestDtypes(BaseNumpyAppTest):
             tests.extend([('b','I','l'), ('b','L','d'), ('h','I','l'),
                           ('h','L','d'), ('i','I','l'), ('i','L','d')])
         for d1, d2, dout in tests:
-            assert (array([1], d1) + array([1], d2)).dtype is dtype(dout)
+            # make a failed test print helpful info
+            d3 = (array([1], d1) + array([1], d2)).dtype
+            assert (d1, d2, repr(d3)) == (d1, d2, repr(dtype(dout)))
 
     def test_add_int8(self):
         from _numpypy import array, dtype
@@ -228,6 +230,7 @@ class AppTestDtypes(BaseNumpyAppTest):
             (numpy.int16, 5),
             (numpy.uint32, 7),
             (numpy.int64, 3),
+            (numpy.float16, 10.),
             (numpy.float32, 2.0),
             (numpy.float64, 4.32),
         ]:
@@ -426,6 +429,17 @@ class AppTestTypes(BaseNumpyAppTest):
         assert numpy.uint64(9223372036854775808) == 9223372036854775808
         assert numpy.uint64(18446744073709551615) == 18446744073709551615
         raises(OverflowError, numpy.uint64(18446744073709551616))
+
+    def test_float16(self):
+        import _numpypy as numpy
+        assert numpy.float16.mro() == [numpy.float16, numpy.floating, 
+                                       numpy.inexact, numpy.number, 
+                                       numpy.generic, object]
+
+        assert numpy.float16(12) == numpy.float64(12)
+        assert numpy.float16('23.4') == numpy.float16(23.4)
+        raises(ValueError, numpy.float16, '23.2df')
+
 
     def test_float32(self):
         import _numpypy as numpy

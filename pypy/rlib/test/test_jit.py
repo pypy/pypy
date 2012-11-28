@@ -15,6 +15,65 @@ def test_oopspec():
         pass
     assert fn.oopspec == 'foobar'
 
+def test_jitdriver_autoreds():
+    driver = JitDriver(greens=['foo'], reds='auto')
+    assert driver.autoreds
+    assert driver.reds == []
+    assert driver.numreds is None
+    py.test.raises(TypeError, "driver.can_enter_jit(foo='something')")
+    #
+    py.test.raises(AssertionError, "JitDriver(greens=['foo'], reds='auto', get_printable_location='something')")
+    py.test.raises(AssertionError, "JitDriver(greens=['foo'], reds='auto', confirm_enter_jit='something')")
+
+def test_jitdriver_numreds():
+    driver = JitDriver(greens=['foo'], reds=['a', 'b'])
+    assert driver.reds == ['a', 'b']
+    assert driver.numreds == 2
+    #
+    class MyJitDriver(JitDriver):
+        greens = ['foo']
+        reds = ['a', 'b']
+    driver = MyJitDriver()
+    assert driver.reds == ['a', 'b']
+    assert driver.numreds == 2
+
+def test_jitdriver_inline():
+    driver = JitDriver(greens=[], reds='auto')
+    calls = []
+    def foo(a, b):
+        calls.append(('foo', a, b))
+
+    @driver.inline(foo)
+    def bar(a, b):
+        calls.append(('bar', a, b))
+        return a+b
+
+    assert bar._inline_jit_merge_point_ is foo
+    assert driver.inline_jit_merge_point
+    assert bar(40, 2) == 42
+    assert calls == [
+        ('foo', 40, 2),
+        ('bar', 40, 2),
+        ]
+
+def test_jitdriver_clone():
+    def bar(): pass
+    def foo(): pass
+    driver = JitDriver(greens=[], reds=[])
+    py.test.raises(AssertionError, "driver.inline(bar)(foo)")
+    #
+    driver = JitDriver(greens=[], reds='auto')
+    py.test.raises(AssertionError, "driver.clone()")
+    foo = driver.inline(bar)(foo)
+    assert foo._inline_jit_merge_point_ == bar
+    #
+    driver.foo = 'bar'
+    driver2 = driver.clone()
+    assert driver is not driver2
+    assert driver2.foo == 'bar'
+    driver.foo = 'xxx'
+    assert driver2.foo == 'bar'
+    
 
 class BaseTestJIT(BaseRtypingTest):
     def test_hint(self):
