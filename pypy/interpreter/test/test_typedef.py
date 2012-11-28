@@ -44,7 +44,9 @@ class AppTestTraceBackAttributes:
         # but not to objects without a dict, obviously
         dictdescr = type.__dict__['__dict__']
         raises(TypeError, dictdescr.__get__, 5)
-        raises(TypeError, dictdescr.__set__, 5, d)
+        # TypeError on CPython because descr applies only to its
+        # __objclass__
+        raises((AttributeError, TypeError), dictdescr.__set__, 5, d)
 
     def test_descr_member_descriptor(self):
         class X(object):
