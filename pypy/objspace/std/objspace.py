@@ -562,7 +562,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
 
         # fast path: XXX this is duplicating most of the logic
         # from the default __getattribute__ and the getattr() method...
-        name = get_attribute_name(space, w_obj, w_name)
+        name = get_attribute_name(self, w_obj, w_name)
         w_descr = w_type.lookup(name)
         e = None
         if w_descr is not None:
