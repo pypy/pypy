@@ -72,6 +72,14 @@ class AppTest_Descriptor:
         raises(AttributeError, delattr, x, 'v')
         raises(AttributeError, X.v.__delete__, x)
 
+    def test_invalid_unicode_identifier(self):
+        class X(object):
+            pass
+        x = X()
+        raises(AttributeError, setattr, x, '\ud800', 1)
+        raises(AttributeError, getattr, x, '\ud800')
+        raises(AttributeError, delattr, x, '\ud800')
+
     def test_special_methods_returning_strings(self): 
         class A(object): 
             seen = []

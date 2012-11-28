@@ -49,17 +49,27 @@ def list_iter(space):
     return w_iter
 list_iter._annspecialcase_ = 'specialize:memo'
 
-def raiseattrerror(space, w_obj, name, w_descr=None):
+def raiseattrerror(space, w_obj, w_name, w_descr=None):
     w_type = space.type(w_obj)
     typename = w_type.getname(space)
+    # space.repr always returns an encodable string.
+    name = space.str_w(space.repr(w_name))
     if w_descr is None:
         raise operationerrfmt(space.w_AttributeError,
-                              "'%s' object has no attribute '%s'",
+                              "'%s' object has no attribute %s",
                               typename, name)
     else:
         raise operationerrfmt(space.w_AttributeError,
-                              "'%s' object attribute '%s' is read-only",
+                              "'%s' object attribute %s is read-only",
                               typename, name)
+
+def get_attribute_name(space, w_obj, w_name):
+    try:
+        return space.str_w(w_name)
+    except OperationError as e:
+        if e.match(space, space.w_UnicodeEncodeError):
+            raiseattrerror(space, w_obj, w_name)
+        raise
 
 def _same_class_w(space, w_obj1, w_obj2, w_typ1, w_typ2):
     return space.is_w(w_typ1, w_typ2)
@@ -67,7 +77,7 @@ def _same_class_w(space, w_obj1, w_obj2, w_typ1, w_typ2):
 
 class Object(object):
     def descr__getattribute__(space, w_obj, w_name):
-        name = space.str_w(w_name)
+        name = get_attribute_name(space, w_obj, w_name)
         w_descr = space.lookup(w_obj, name)
         if w_descr is not None:
             if space.is_data_descr(w_descr):
@@ -83,10 +93,10 @@ class Object(object):
             return w_value
         if w_descr is not None:
             return space.get(w_descr, w_obj)
-        raiseattrerror(space, w_obj, name)
+        raiseattrerror(space, w_obj, w_name)
 
     def descr__setattr__(space, w_obj, w_name, w_value):
-        name = space.str_w(w_name)
+        name = get_attribute_name(space, w_obj, w_name)
         w_descr = space.lookup(w_obj, name)
         if w_descr is not None:
             if space.is_data_descr(w_descr):
@@ -94,10 +104,10 @@ class Object(object):
                 return
         if w_obj.setdictvalue(space, name, w_value):
             return
-        raiseattrerror(space, w_obj, name, w_descr)
+        raiseattrerror(space, w_obj, w_name, w_descr)
 
     def descr__delattr__(space, w_obj, w_name):
-        name = space.str_w(w_name)
+        name = get_attribute_name(space, w_obj, w_name)
         w_descr = space.lookup(w_obj, name)
         if w_descr is not None:
             if space.is_data_descr(w_descr):
@@ -105,7 +115,7 @@ class Object(object):
                 return
         if w_obj.deldictvalue(space, name):
             return
-        raiseattrerror(space, w_obj, name, w_descr)
+        raiseattrerror(space, w_obj, w_name, w_descr)
 
     def descr__init__(space, w_obj, __args__):
         pass

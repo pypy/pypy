@@ -6,7 +6,8 @@ from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.typedef import get_unique_interplevel_subclass
 from pypy.objspace.std import (builtinshortcut, stdtypedef, frame, model,
                                transparent, callmethod, proxyobject)
-from pypy.objspace.descroperation import DescrOperation, raiseattrerror
+from pypy.objspace.descroperation import (
+    DescrOperation, get_attribute_name, raiseattrerror)
 from pypy.rlib.objectmodel import instantiate, r_dict, specialize, is_annotation_constant
 from pypy.rlib.debug import make_sure_not_resized
 from pypy.rlib.rarithmetic import base_int, widen, maxint, is_valid_int
@@ -561,7 +562,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
 
         # fast path: XXX this is duplicating most of the logic
         # from the default __getattribute__ and the getattr() method...
-        name = self.str_w(w_name)
+        name = get_attribute_name(space, w_obj, w_name)
         w_descr = w_type.lookup(name)
         e = None
         if w_descr is not None:
@@ -597,7 +598,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         elif e is not None:
             raise e
         else:
-            raiseattrerror(self, w_obj, name)
+            raiseattrerror(self, w_obj, w_name)
 
     def finditem_str(self, w_obj, key):
         """ Perform a getitem on w_obj with key (string). Returns found
