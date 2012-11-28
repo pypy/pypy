@@ -101,11 +101,11 @@ class TestStandalone(StandaloneTests):
         cbuilder.compile()
 
         counters_fname = udir.join("_counters_")
-        os.environ['_INSTRUMENT_COUNTERS'] = str(counters_fname)
+        os.environ['PYPY_INSTRUMENT_COUNTERS'] = str(counters_fname)
         try:
             data = cbuilder.cmdexec()
         finally:
-            del os.environ['_INSTRUMENT_COUNTERS']
+            del os.environ['PYPY_INSTRUMENT_COUNTERS']
 
         f = counters_fname.open('rb')
         counters_data = f.read()
@@ -241,7 +241,7 @@ class TestStandalone(StandaloneTests):
     def test_separate_files(self):
         # One file in translator/c/src
         fname = py.path.local(pypydir).join(
-            'translator', 'c', 'src', 'll_strtod.h')
+            'translator', 'c', 'src', 'll_strtod.c')
 
         # One file in (another) subdir of the temp directory
         dirname = udir.join("test_dir").ensure(dir=1)
@@ -273,7 +273,7 @@ class TestStandalone(StandaloneTests):
 
         # but files from pypy source dir must be copied
         assert "translator/c/src" not in makefile
-        assert "  ll_strtod.h" in makefile
+        assert "  ll_strtod.c" in makefile
         assert "  ll_strtod.o" in makefile
 
     def test_debug_print_start_stop(self):

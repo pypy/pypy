@@ -1,8 +1,162 @@
 
 /************************************************************/
- /***  C header subsection: operations on LowLevelTypes    ***/
+/***  C header subsection: operations on LowLevelTypes    ***/
+
+#include <string.h>
+
+/* used by pypy.rlib.rstack, but also by asmgcc */
+#define OP_STACK_CURRENT(r)  r = (Signed)&r
+
+
+#define RAW_MALLOC_ZERO_FILLED 0
+
+#if RAW_MALLOC_ZERO_FILLED
+
+#define OP_RAW_MALLOC(size, r, restype)  {				\
+	r = (restype) PyObject_Malloc(size);				\
+	if (r != NULL) {						\
+	    memset((void*)r, 0, size);					\
+	    COUNT_MALLOC;						\
+	}								\
+    }
+
+#else
+
+#define OP_RAW_MALLOC(size, r, restype)  {				\
+	r = (restype) PyObject_Malloc(size);				\
+	if (r != NULL) {						\
+	    COUNT_MALLOC;						\
+	}								\
+    }
+
+#endif
+
+#define OP_RAW_FREE(p, r) PyObject_Free(p); COUNT_FREE;
+
+#define OP_RAW_MEMCLEAR(p, size, r) memset((void*)p, 0, size)
+
+#define OP_RAW_MALLOC_USAGE(size, r) r = size
+
+#ifdef MS_WINDOWS
+#define alloca  _alloca
+#endif
+
+#define OP_STACK_MALLOC(size,r,restype)                                 \
+    r = (restype) alloca(size);                                         \
+    if (r != NULL) memset((void*) r, 0, size);
+    
+#define OP_RAW_MEMCOPY(x,y,size,r) memcpy(y,x,size);
+#define OP_RAW_MEMMOVE(x,y,size,r) memmove(y,x,size);
+
+/************************************************************/
+
+#define OP_FREE(p)	OP_RAW_FREE(p, do_not_use)
+
+#ifndef COUNT_OP_MALLOCS
+
+#define COUNT_MALLOC	/* nothing */
+#define COUNT_FREE	/* nothing */
+#define pypy_malloc_counters_results()  /* nothing */
+
+#else /* COUNT_OP_MALLOCS */
+
+static int count_mallocs=0, count_frees=0;
+
+#define COUNT_MALLOC	count_mallocs++
+#define COUNT_FREE	count_frees++
+
+#define pypy_malloc_counters_results()  \
+    printf("MALLOC COUNTERS: %d %d\n", count_mallocs, count_frees)
+
+#endif /* COUNT_OP_MALLOCS */
+
+
+/*** tracking raw mallocs and frees for debugging ***/
+
+#ifndef RPY_ASSERT
+
+#  define OP_TRACK_ALLOC_START(addr, r)   /* nothing */
+#  define OP_TRACK_ALLOC_STOP(addr, r)    /* nothing */
+#  define pypy_debug_alloc_results() /* nothing */
+
+#else /* RPY_ASSERT */
+
+#  define OP_TRACK_ALLOC_START(addr, r)  pypy_debug_alloc_start(addr, \
+                                                                __FUNCTION__)
+#  define OP_TRACK_ALLOC_STOP(addr, r)   pypy_debug_alloc_stop(addr)
+
+void pypy_debug_alloc_start(void*, const char*);
+void pypy_debug_alloc_stop(void*);
+void pypy_debug_alloc_results(void);
+
+#endif /* RPY_ASSERT */
+
+/* for Boehm GC */
+
+#ifdef PYPY_USING_BOEHM_GC
+
+#define BOEHM_MALLOC_0_0   GC_MALLOC
+#define BOEHM_MALLOC_1_0   GC_MALLOC_ATOMIC
+#define BOEHM_MALLOC_0_1   GC_MALLOC
+#define BOEHM_MALLOC_1_1   GC_MALLOC_ATOMIC
+/* #define BOEHM_MALLOC_0_1   GC_MALLOC_IGNORE_OFF_PAGE */
+/* #define BOEHM_MALLOC_1_1   GC_MALLOC_ATOMIC_IGNORE_OFF_PAGE */
+
+#define OP_BOEHM_ZERO_MALLOC(size, r, restype, is_atomic, is_varsize) { \
+	r = (restype) BOEHM_MALLOC_ ## is_atomic ## _ ## is_varsize (size); \
+	if (r && is_atomic)  /* the non-atomic versions return cleared memory */ \
+	    memset((void*) r, 0, size);					\
+    }
+
+#define OP_BOEHM_DISAPPEARING_LINK(link, obj, r)			\
+    if (GC_base(obj) == NULL)						\
+	; /* 'obj' is probably a prebuilt object - it makes no */	\
+    /* sense to register it then, and it crashes Boehm in */		\
+    /* quite obscure ways */						\
+    else								\
+	GC_GENERAL_REGISTER_DISAPPEARING_LINK(link, obj)
+
+extern int boehm_gc_finalizer_lock;
+void boehm_gc_startup_code(void);
+void boehm_gc_finalizer_notifier(void);
+
+#define OP_GC__DISABLE_FINALIZERS(r)  boehm_gc_finalizer_lock++
+#define OP_GC__ENABLE_FINALIZERS(r)  (boehm_gc_finalizer_lock--,	\
+				      boehm_gc_finalizer_notifier())
+
+#endif /* PYPY_USING_BOEHM_GC */
+
+
+#ifdef PYPY_USING_NO_GC_AT_ALL
+#define OP_BOEHM_ZERO_MALLOC(size, r, restype, is_atomic, is_varsize)	\
+    r = (restype) calloc(1, size);
+#define OP_BOEHM_DISAPPEARING_LINK(link, obj, r)  /* nothing */
+#define OP_GC__DISABLE_FINALIZERS(r)  /* nothing */
+#define OP_GC__ENABLE_FINALIZERS(r)  /* nothing */
+#endif
+
+/************************************************************/
+/* weakref support */
+
+#define OP_CAST_PTR_TO_WEAKREFPTR(x, r)  r = x
+#define OP_CAST_WEAKREFPTR_TO_PTR(x, r)  r = x
+
+/************************************************************/
+/* dummy version of these operations, e.g. with Boehm */
+
+#define OP_GC_GET_RPY_ROOTS(r)           r = 0
+#define OP_GC_GET_RPY_REFERENTS(x, r)    r = 0
+#define OP_GC_GET_RPY_MEMORY_USAGE(x, r) r = -1
+#define OP_GC_GET_RPY_TYPE_INDEX(x, r)   r = -1
+#define OP_GC_IS_RPY_INSTANCE(x, r)      r = 0
+#define OP_GC_DUMP_RPY_HEAP(fd, r)       r = 0
+
+/****************************/
+/* The "asmgcc" root finder */
+/****************************/
 
 #ifndef _MSC_VER
+/* Implementation for Linux */
 extern char __gcmapstart;
 extern char __gcmapend;
 extern char __gccallshapes;
@@ -29,9 +183,9 @@ extern long pypy_asm_stackwalk(void*, void*);
    dependency that we want. */
 
 #define pypy_asm_gcroot(p) ({void*_r; \
-               asm ("/* GCROOT %0 */" : "=g" (_r) : \
-                    "0" (p), "m" (__gcnoreorderhack)); \
-               _r; })
+	    asm ("/* GCROOT %0 */" : "=g" (_r) :       \
+		 "0" (p), "m" (__gcnoreorderhack));    \
+	    _r; })
 
 #define pypy_asm_gc_nocollect(f) asm volatile ("/* GC_NOCOLLECT " #f " */" \
                                                : : )
@@ -43,13 +197,14 @@ extern long pypy_asm_stackwalk(void*, void*);
 #define pypy_asm_stack_bottom()  asm volatile ("/* GC_STACK_BOTTOM */" : : : \
                                                "memory")
 
-#define OP_GC_ASMGCROOT_STATIC(i, r)   r =      \
-               i == 0 ? (void*)&__gcmapstart :         \
-               i == 1 ? (void*)&__gcmapend :           \
-               i == 2 ? (void*)&__gccallshapes :       \
-               NULL
+#define OP_GC_ASMGCROOT_STATIC(i, r)   r =	       \
+	i == 0 ? (void*)&__gcmapstart :		       \
+	i == 1 ? (void*)&__gcmapend :		       \
+	i == 2 ? (void*)&__gccallshapes :	       \
+	NULL
 
 #else
+/* implementation of asmgcroot for Windows */
 extern void* __gcmapstart;
 extern void* __gcmapend;
 extern char* __gccallshapes;
@@ -65,9 +220,9 @@ extern Signed pypy_asm_stackwalk(void*, void*);
 static __forceinline void*
 pypy_asm_gcroot(void* _r1)
 {
-	static volatile int _constant_always_one_ = 1;
-	(Signed)_r1 *= _constant_always_one_;
-	_ReadWriteBarrier();
+    static volatile int _constant_always_one_ = 1;
+    (Signed)_r1 *= _constant_always_one_;
+    _ReadWriteBarrier();
     return _r1;
 }
 
@@ -82,174 +237,10 @@ pypy_asm_gcroot(void* _r1)
 
 static __declspec(noinline) void pypy_asm_stack_bottom() { }
 
-#define OP_GC_ASMGCROOT_STATIC(i, r)   r =      \
-               i == 0 ? (void*)__gcmapstart :         \
-               i == 1 ? (void*)__gcmapend :           \
-               i == 2 ? (void*)&__gccallshapes :       \
-               NULL
+#define OP_GC_ASMGCROOT_STATIC(i, r)		       \
+    r =	i == 0 ? (void*)__gcmapstart :		       \
+	i == 1 ? (void*)__gcmapend :		       \
+	i == 2 ? (void*)&__gccallshapes :	       \
+	NULL
 
 #endif
-
-
-/* used by pypy.rlib.rstack, but also by asmgcc */
-#define OP_STACK_CURRENT(r)  r = (Signed)&r
-
-
-#define RAW_MALLOC_ZERO_FILLED 0
-
-#if RAW_MALLOC_ZERO_FILLED
-
-#define OP_RAW_MALLOC(size, r, restype)  {				\
-		r = (restype) PyObject_Malloc(size);			\
-		if (r != NULL) {					\
-			memset((void*)r, 0, size);			\
-			COUNT_MALLOC;					\
-		}							\
-	}
-
-#else
-
-#define OP_RAW_MALLOC(size, r, restype)  {				\
-		r = (restype) PyObject_Malloc(size);			\
-		if (r != NULL) {					\
-			COUNT_MALLOC;					\
-		} 							\
-	}
-
-#endif
-
-#define OP_RAW_FREE(p, r) PyObject_Free(p); COUNT_FREE;
-
-#define OP_RAW_MEMCLEAR(p, size, r) memset((void*)p, 0, size)
-
-#define OP_RAW_MALLOC_USAGE(size, r) r = size
-
-#ifdef MS_WINDOWS
-#define alloca  _alloca
-#endif
-
-#define OP_STACK_MALLOC(size,r,restype)                                 \
-    r = (restype) alloca(size);                                         \
-    if (r != NULL) memset((void*) r, 0, size);
-    
-#define OP_RAW_MEMCOPY(x,y,size,r) memcpy(y,x,size);
-#define OP_RAW_MEMMOVE(x,y,size,r) memmove(y,x,size);
-
-/************************************************************/
-
-#define OP_FREE(p)	OP_RAW_FREE(p, do_not_use)
-
-/*------------------------------------------------------------*/
-#ifndef COUNT_OP_MALLOCS
-/*------------------------------------------------------------*/
-
-#define COUNT_MALLOC	/* nothing */
-#define COUNT_FREE	/* nothing */
-
-#define pypy_malloc_counters_results()  /* nothing */
-
-/*------------------------------------------------------------*/
-#else /*COUNT_OP_MALLOCS*/
-/*------------------------------------------------------------*/
-
-static int count_mallocs=0, count_frees=0;
-
-#define COUNT_MALLOC	count_mallocs++
-#define COUNT_FREE	count_frees++
-
-#define pypy_malloc_counters_results()  \
-    printf("MALLOC COUNTERS: %d %d\n", count_mallocs, count_frees)
-
-/*------------------------------------------------------------*/
-#endif /*COUNT_OP_MALLOCS*/
-/*------------------------------------------------------------*/
-
-/* for Boehm GC */
-
-#ifdef USING_BOEHM_GC
-
-#define BOEHM_MALLOC_0_0   GC_MALLOC
-#define BOEHM_MALLOC_1_0   GC_MALLOC_ATOMIC
-#define BOEHM_MALLOC_0_1   GC_MALLOC
-#define BOEHM_MALLOC_1_1   GC_MALLOC_ATOMIC
-/* #define BOEHM_MALLOC_0_1   GC_MALLOC_IGNORE_OFF_PAGE */
-/* #define BOEHM_MALLOC_1_1   GC_MALLOC_ATOMIC_IGNORE_OFF_PAGE */
-
-#define OP_BOEHM_ZERO_MALLOC(size, r, restype, is_atomic, is_varsize)   {             \
-	r = (restype) BOEHM_MALLOC_ ## is_atomic ## _ ## is_varsize (size);    \
-	if (r && is_atomic)  /* the non-atomic versions return cleared memory */ \
-                memset((void*) r, 0, size);				\
-  }
-
-#define OP_BOEHM_DISAPPEARING_LINK(link, obj, r)			   \
-	if (GC_base(obj) == NULL)					   \
-		; /* 'obj' is probably a prebuilt object - it makes no */  \
-		  /* sense to register it then, and it crashes Boehm in */ \
-		  /* quite obscure ways */				   \
-	else								   \
-		GC_GENERAL_REGISTER_DISAPPEARING_LINK(link, obj)
-
-extern int boehm_gc_finalizer_lock;
-void boehm_gc_startup_code(void);
-void boehm_gc_finalizer_notifier(void);
-
-#define OP_GC__DISABLE_FINALIZERS(r)  boehm_gc_finalizer_lock++
-#define OP_GC__ENABLE_FINALIZERS(r)   (boehm_gc_finalizer_lock--,	\
-				       boehm_gc_finalizer_notifier())
-
-#ifndef PYPY_NOT_MAIN_FILE
-int boehm_gc_finalizer_lock = 0;
-void boehm_gc_finalizer_notifier(void)
-{
-	boehm_gc_finalizer_lock++;
-	while (GC_should_invoke_finalizers()) {
-		if (boehm_gc_finalizer_lock > 1) {
-			/* GC_invoke_finalizers() will be done by the
-			   boehm_gc_finalizer_notifier() that is
-			   currently in the C stack, when we return there */
-			break;
-		}
-		GC_invoke_finalizers();
-	}
-	boehm_gc_finalizer_lock--;
-}
-
-static void mem_boehm_ignore(char *msg, GC_word arg)
-{
-}
-
-void boehm_gc_startup_code(void)
-{
-	GC_init();
-	GC_finalizer_notifier = &boehm_gc_finalizer_notifier;
-	GC_finalize_on_demand = 1;
-  GC_set_warn_proc(mem_boehm_ignore);
-}
-#endif /* PYPY_NOT_MAIN_FILE */
-
-#endif /* USING_BOEHM_GC */
-
-
-#ifdef USING_NO_GC_AT_ALL
-#define OP_BOEHM_ZERO_MALLOC(size, r, restype, is_atomic, is_varsize)  \
-  r = (restype) calloc(1, size);
-#define OP_BOEHM_DISAPPEARING_LINK(link, obj, r)  /* nothing */
-#define OP_GC__DISABLE_FINALIZERS(r)  /* nothing */
-#define OP_GC__ENABLE_FINALIZERS(r)  /* nothing */
-#endif
-
-/************************************************************/
-/* weakref support */
-
-#define OP_CAST_PTR_TO_WEAKREFPTR(x, r)  r = x
-#define OP_CAST_WEAKREFPTR_TO_PTR(x, r)  r = x
-
-/************************************************************/
-/* dummy version of these operations, e.g. with Boehm */
-
-#define OP_GC_GET_RPY_ROOTS(r)           r = 0
-#define OP_GC_GET_RPY_REFERENTS(x, r)    r = 0
-#define OP_GC_GET_RPY_MEMORY_USAGE(x, r) r = -1
-#define OP_GC_GET_RPY_TYPE_INDEX(x, r)   r = -1
-#define OP_GC_IS_RPY_INSTANCE(x, r)      r = 0
-#define OP_GC_DUMP_RPY_HEAP(fd, r)       r = 0

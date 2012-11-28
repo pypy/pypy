@@ -822,7 +822,7 @@ class FunctionCodeGenerator(object):
         self.db.instrument_ncounter = max(self.db.instrument_ncounter,
                                           counter_label+1)
         counter_label = self.expr(op.args[1])
-        return 'INSTRUMENT_COUNT(%s);' % counter_label
+        return 'PYPY_INSTRUMENT_COUNT(%s);' % counter_label
             
     def OP_IS_EARLY_CONSTANT(self, op):
         return '%s = 0; /* IS_EARLY_CONSTANT */' % (self.expr(op.result),)
