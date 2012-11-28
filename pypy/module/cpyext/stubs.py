@@ -2316,15 +2316,6 @@ def PyUnicode_Translate(space, str, table, errors):
     raise NotImplementedError
     
 
-@cpython_api([PyObject, rffi.CCHARP], rffi.INT_real, error=-1)
-def PyUnicode_CompareWithASCIIString(space, uni, string):
-    """Compare a unicode object, uni, with string and return -1, 0, 1 for less
-    than, equal, and greater than, respectively. It is best to pass only
-    ASCII-encoded strings, but the function interprets the input string as
-    ISO-8859-1 if it contains non-ASCII characters"."""
-    raise NotImplementedError
-    
-
 @cpython_api([PyObject, PyObject, rffi.INT_real], PyObject)
 def PyUnicode_RichCompare(space, left, right, op):
     """Rich compare two unicode strings and return one of the following:

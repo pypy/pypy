@@ -131,6 +131,30 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         res = module.aswidecharstring("Caf\xe9")
         assert res == ("Caf\xe9\0", 4)
 
+    def test_CompareWithASCIIString(self):
+        module = self.import_extension('foo', [
+            ("compare", "METH_VARARGS",
+             '''
+             PyObject *uni;
+             const char* s;
+             int res;
+
+             if (!PyArg_ParseTuple(args, "Uy", &uni, &s))
+                 return NULL;
+
+             res = PyUnicode_CompareWithASCIIString(uni, s);
+             return PyLong_FromLong(res);
+             ''')])
+        assert module.compare("abc", b"abc") == 0
+        assert module.compare("abd", b"abc") == 1
+        assert module.compare("abb", b"abc") == -1
+        assert module.compare("caf\xe9", b"caf\xe9") == 0
+        assert module.compare("abc", b"ab") == 1
+        assert module.compare("ab\0", b"ab") == 1
+        assert module.compare("ab", b"abc") == -1
+        assert module.compare("", b"abc") == -1
+        assert module.compare("abc", b"") == 1
+
 
 class TestUnicode(BaseApiTest):
     def test_unicodeobject(self, space, api):

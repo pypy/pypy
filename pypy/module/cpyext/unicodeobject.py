@@ -748,6 +748,31 @@ def PyUnicode_Compare(space, w_left, w_right):
         return 1
     return 0
 
+@cpython_api([PyObject, CONST_STRING], rffi.INT_real, error=CANNOT_FAIL)
+def PyUnicode_CompareWithASCIIString(space, w_uni, string):
+    """Compare a unicode object, uni, with string and return -1, 0, 1 for less
+    than, equal, and greater than, respectively. It is best to pass only
+    ASCII-encoded strings, but the function interprets the input string as
+    ISO-8859-1 if it contains non-ASCII characters."""
+    uni = space.unicode_w(w_uni)
+    i = 0
+    # Compare Unicode string and source character set string
+    while i < len(uni) and string[i] != '\0':
+        u = ord(uni[i])
+        s = ord(string[i])
+        if u != s:
+            if u < s:
+                return -1
+            else:
+                return 1
+        i += 1
+    if i < len(uni):
+        return 1  # uni is longer
+    if string[i] != '\0':
+        return -1  # str is longer
+    return 0
+    
+
 @cpython_api([rffi.CWCHARP, rffi.CWCHARP, Py_ssize_t], lltype.Void)
 def Py_UNICODE_COPY(space, target, source, length):
     """Roughly equivalent to memcpy() only the base size is Py_UNICODE
