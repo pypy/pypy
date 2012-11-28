@@ -1,23 +1,18 @@
+#include "common_header.h"
+#ifdef PYPY_STANDALONE
+#include "structdef.h"
+#include "forwarddecl.h"
+#include "preimpl.h"
+#include <src/entrypoint.h>
+#include <src/commondefs.h>
+#include <src/mem.h>
+#include <src/instrument.h>
+#include <src/rtyper.h>
+#include <src/exception.h>
+#include <src/debug_traceback.h>
 
-#ifndef STANDALONE_ENTRY_POINT
-#  define STANDALONE_ENTRY_POINT   PYPY_STANDALONE
-#endif
-
-char *RPython_StartupCode(void);  /* forward */
-
-
-/* prototypes */
-
-int main(int argc, char *argv[]);
-
-
-/* implementations */
-
-#ifndef PYPY_NOT_MAIN_FILE
-
-#ifndef PYPY_MAIN_FUNCTION
-#define PYPY_MAIN_FUNCTION main
-#endif
+#include <stdlib.h>
+#include <stdio.h>
 
 #ifdef __GNUC__
 /* Hack to prevent this function from being inlined.  Helps asmgcc
@@ -59,9 +54,7 @@ int pypy_main_function(int argc, char *argv[])
 
     exitcode = STANDALONE_ENTRY_POINT(list);
 
-#ifdef RPY_ASSERT
     pypy_debug_alloc_results();
-#endif
 
     if (RPyExceptionOccurred()) {
         /* print the RPython traceback */
@@ -85,4 +78,4 @@ int PYPY_MAIN_FUNCTION(int argc, char *argv[])
     return pypy_main_function(argc, argv);
 }
 
-#endif /* PYPY_NOT_MAIN_FILE */
+#endif  /* PYPY_STANDALONE */

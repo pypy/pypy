@@ -2,14 +2,6 @@
 /************************************************************/
  /***  C header subsection: support functions              ***/
 
-#include <stdio.h>
-
-/*** misc ***/
-
-#if !defined(MIN)
-#define MIN(a,b) (((a)<(b))?(a):(b))
-#endif /* MIN */
-
 #define RUNNING_ON_LLINTERP	0
 #define OP_JIT_RECORD_KNOWN_CLASS(i, c, r)  /* nothing */
 
@@ -41,19 +33,11 @@
 
 void RPyAssertFailed(const char* filename, long lineno,
                      const char* function, const char *msg);
-#  ifndef PYPY_NOT_MAIN_FILE
-void RPyAssertFailed(const char* filename, long lineno,
-                     const char* function, const char *msg) {
-  fprintf(stderr,
-          "PyPy assertion failed at %s:%ld:\n"
-          "in %s: %s\n",
-          filename, lineno, function, msg);
-  abort();
-}
-#  endif
 #else
 #  define RPyAssert(x, msg)   /* nothing */
 #endif
+
+void RPyAbort(void);
 
 #if defined(RPY_LL_ASSERT) || defined(RPY_SANDBOXED)
 /* obscure macros that can be used as expressions and lvalues to refer
@@ -75,14 +59,6 @@ void RPyAssertFailed(const char* filename, long lineno,
      ((RPyCHECK((array) && (index) >= 0), (array))->items[index])
 #  define RPyBareItem(array, index)                                         \
      ((RPyCHECK((array) && (index) >= 0), (array))[index])
-
-void RPyAbort(void);
-#ifndef PYPY_NOT_MAIN_FILE
-void RPyAbort(void) {
-  fprintf(stderr, "Invalid RPython operation (NULL ptr or bad array index)\n");
-  abort();
-}
-#endif
 
 #else
 #  define RPyField(ptr, name)                ((ptr)->name)

@@ -41,10 +41,12 @@ includes = ['stdlib.h', 'src/signals.h']
 if sys.platform != 'win32':
     includes.append('sys/time.h')
 
+cdir = py.path.local(autopath.pypydir).join('translator', 'c')
+
 eci = ExternalCompilationInfo(
     includes = includes,
-    separate_module_sources = ['#include <src/signals.h>'],
-    include_dirs = [str(py.path.local(autopath.pypydir).join('translator', 'c'))],
+    separate_module_files = [cdir / 'src' / 'signals.c'],
+    include_dirs = [str(cdir)],
     export_symbols = ['pypysig_poll', 'pypysig_default',
                       'pypysig_ignore', 'pypysig_setflag',
                       'pypysig_reinstall',

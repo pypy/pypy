@@ -12,7 +12,7 @@ cdir = py.path.local(pypydir) / 'translator' / 'c'
 eci = ExternalCompilationInfo(
     include_dirs = [cdir],
     includes = ['src/stacklet/stacklet.h'],
-    separate_module_sources = ['#include "src/stacklet/stacklet.c"\n'],
+    separate_module_files = [cdir / 'src' / 'stacklet' / 'stacklet.c'],
 )
 if 'masm' in dir(eci.platform): # Microsoft compiler
     if is_emulated_long:

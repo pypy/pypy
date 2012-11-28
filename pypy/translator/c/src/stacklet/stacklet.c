@@ -2,7 +2,7 @@
  * By Armin Rigo
  */
 
-#include "stacklet.h"
+#include "src/stacklet/stacklet.h"
 
 #include <stddef.h>
 #include <assert.h>
@@ -17,7 +17,7 @@
  */
 #define STACK_DIRECTION 0   
 
-#include "slp_platformselect.h"
+#include "src/stacklet/slp_platformselect.h"
 
 #if STACK_DIRECTION != 0
 #  error "review this whole code, which depends on STACK_DIRECTION==0 so far"

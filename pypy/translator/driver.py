@@ -57,7 +57,7 @@ class ProfInstrument(object):
 
     def probe(self, exe, args):
         env = os.environ.copy()
-        env['_INSTRUMENT_COUNTERS'] = str(self.datafile)
+        env['PYPY_INSTRUMENT_COUNTERS'] = str(self.datafile)
         self.compiler.platform.execute(exe, args, env=env)
         
     def after(self):

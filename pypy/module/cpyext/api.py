@@ -727,7 +727,7 @@ def build_bridge(space):
     global_code = '\n'.join(global_objects)
 
     prologue = ("#include <Python.h>\n"
-                "#include <src/thread.h>\n")
+                "#include <src/thread.c>\n")
     code = (prologue +
             struct_declaration_code +
             global_code +
@@ -969,7 +969,7 @@ def build_eci(building_bridge, export_symbols, code):
                                source_dir / "structseq.c",
                                source_dir / "capsule.c",
                                source_dir / "pysignals.c",
-                               source_dir / "thread.c",
+                               source_dir / "pythread.c",
                                ],
         separate_module_sources=separate_module_sources,
         export_symbols=export_symbols_eci,
