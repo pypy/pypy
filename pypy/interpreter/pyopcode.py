@@ -1524,7 +1524,7 @@ app = gateway.applevel(r'''
             if not hasattr(locals, '__getitem__'):
                 raise TypeError(
                     "exec() arg 3 must be a mapping or None, not %s" %
-                    type(locals.__name__))
+                    type(locals).__name__)
 
         if not isinstance(prog, codetype):
             filename = '<string>'
