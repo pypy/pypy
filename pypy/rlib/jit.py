@@ -6,6 +6,7 @@ from pypy.rlib.nonconst import NonConstant
 from pypy.rlib.objectmodel import CDefinedIntSymbolic, keepalive_until_here, specialize
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rpython.extregistry import ExtRegistryEntry
+from pypy.tool.sourcetools import rpython_wrapper
 
 DEBUG_ELIDABLE_FUNCTIONS = False
 
@@ -443,7 +444,7 @@ class JitDriver(object):
     active = True          # if set to False, this JitDriver is ignored
     virtualizables = []
     name = 'jitdriver'
-    inlined_in_portal = False
+    inline_jit_merge_point = False
 
     def __init__(self, greens=None, reds=None, virtualizables=None,
                  get_jitcell_at=None, set_jitcell_at=None,
@@ -551,14 +552,26 @@ class JitDriver(object):
         # special-cased by ExtRegistryEntry
         pass
 
-    def inline_in_portal(self, func):
-        assert self.autoreds, "inline_in_portal works only with reds='auto'"
-        func._inline_in_portal_ = True
-        self.inlined_in_portal = True
-        return func
+    def inline(self, call_jit_merge_point):
+        assert self.autoreds, "@inline works only with reds='auto'"
+        self.inline_jit_merge_point = True
+        def decorate(func):
+            template = """
+                def {name}({arglist}):
+                    {call_jit_merge_point}({arglist})
+                    return {original}({arglist})
+            """
+            templateargs = {'call_jit_merge_point': call_jit_merge_point.__name__}
+            globaldict = {call_jit_merge_point.__name__: call_jit_merge_point}
+            result = rpython_wrapper(func, template, templateargs, **globaldict)
+            result._inline_jit_merge_point_ = call_jit_merge_point
+            return result
+
+        return decorate
+        
 
     def clone(self):
-        assert self.inlined_in_portal, 'JitDriver.clone works only after @inline_in_portal'
+        assert self.inline_jit_merge_point, 'JitDriver.clone works only after @inline'
         newdriver = object.__new__(self.__class__)
         newdriver.__dict__ = self.__dict__.copy()
         return newdriver

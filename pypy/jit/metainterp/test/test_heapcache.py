@@ -412,6 +412,19 @@ class TestHeapCache(object):
         assert not h.is_unescaped(box1)
         assert not h.is_unescaped(box2)
 
+    def test_ops_dont_escape(self):
+        h = HeapCache()
+        h.new(box1)
+        h.new(box2)
+        assert h.is_unescaped(box1)
+        assert h.is_unescaped(box2)
+        h.invalidate_caches(rop.INSTANCE_PTR_EQ, None, [box1, box2])
+        assert h.is_unescaped(box1)
+        assert h.is_unescaped(box2)
+        h.invalidate_caches(rop.INSTANCE_PTR_NE, None, [box1, box2])
+        assert h.is_unescaped(box1)
+        assert h.is_unescaped(box2)
+
     def test_circular_virtuals(self):
         h = HeapCache()
         h.new(box1)

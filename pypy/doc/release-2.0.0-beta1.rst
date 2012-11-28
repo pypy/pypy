@@ -28,9 +28,19 @@ Windows 32. It also supports ARM machines running Linux.
 Windows 64 work is still stalling, we would welcome a volunteer
 to handle that.
 
-.. XXX link
+.. _`pypy 2.0 beta 1 and cpython 2.7.3`: http://bit.ly/USXqpP
 
-XXX donors info?
+How to use PyPy?
+================
+
+We suggest using PyPy from a `virtualenv`_. Once you have a virtualenv
+installed, you can follow instructions from `pypy documentation`_ on how
+to proceed. This document also covers other `installation schemes`_.
+
+.. _`pypy documentation`: http://doc.pypy.org/en/latest/getting-started.html#installing-using-virtualenv
+.. _`virtualenv`: http://www.virtualenv.org/en/latest/
+.. _`installation schemes`: http://doc.pypy.org/en/latest/getting-started.html#installing-pypy
+.. _`PyPy and pip`: http://doc.pypy.org/en/latest/getting-started.html#installing-pypy
 
 Regressions
 ===========
@@ -54,8 +64,8 @@ Highlights
 ==========
 
 * ``cffi`` is officially supported by PyPy. You can install it normally by
-  using ``pip install cffi`` once you have PyPy installed. The corresponding
-  ``0.4`` version of ``cffi`` has been released.
+  using ``pip install cffi`` once you have installed `PyPy and pip`_.
+  The corresponding ``0.4`` version of ``cffi`` has been released.
 
 * ARM is now an officially supported processor architecture.
   PyPy now work on soft-float ARM/Linux builds.  Currently ARM processors
@@ -91,3 +101,20 @@ Highlights
   unicode strings, which means that now such collections will be both faster
   and more compact.
 
+.. _`cpython issue tracker`: http://bugs.python.org/issue14621
+.. _`jit hooks`: http://doc.pypy.org/en/latest/jit-hooks.html
+
+Things we're working on
+=======================
+
+There are a few things that did not make it to the 2.0 beta 1, which
+are being actively worked on. Greenlets support in the JIT is one
+that we would like to have before 2.0 final. Two important items that
+will not make it to 2.0, but are being actively worked on, are:
+
+* Faster JIT warmup time.
+
+* Software Transactional Memory.
+
+Cheers,
+Maciej Fijalkowski, Armin Rigo and the PyPy team

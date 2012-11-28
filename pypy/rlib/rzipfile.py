@@ -90,7 +90,8 @@ def _EndRecData(fpin):
     filesize = fpin.tell() + 22     # Get file size
     data = fpin.readall()
     start = len(data)-2
-    assert start > 0
+    if start <= 0:
+        return    # Error, return None
     if data[0:4] == stringEndArchive and data[start:] == "\000\000":
         endrec = runpack(structEndArchive, data)
         return EndRecStruct(endrec, "", filesize - 22)

@@ -6,6 +6,7 @@ import re, sys
 from pypy.rlib.rsre import rsre_core, rsre_char
 from pypy.rlib.rsre.test.test_match import get_code as _get_code
 from pypy.module.unicodedata import unicodedb
+from pypy.rlib.objectmodel import specialize
 rsre_char.set_unicode_db(unicodedb)
 
 
@@ -38,6 +39,7 @@ def subn(pattern, repl, string, count=0):
 def split(pattern, string, maxsplit=0):
     return compile(pattern).split(string, maxsplit)
 
+@specialize.memo()
 def compile(pattern, flags=0):
     code, flags, args = _get_code(pattern, flags, allargs=True)
     return RSREPattern(pattern, code, flags, *args)

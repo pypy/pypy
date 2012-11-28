@@ -383,7 +383,36 @@ class WarmspotTests(object):
         assert res == expected
         self.check_resops(int_sub=2, int_mul=0, int_add=2)
 
-    def test_inline_in_portal(self):
+    def test_inline_jit_merge_point(self):
+        # test that the machinery to inline jit_merge_points in callers
+        # works. The final user does not need to mess manually with the
+        # _inline_jit_merge_point_ attribute and similar, it is all nicely
+        # handled by @JitDriver.inline() (see next tests)
+        myjitdriver = JitDriver(greens = ['a'], reds = 'auto')
+
+        def jit_merge_point(a, b):
+            myjitdriver.jit_merge_point(a=a)
+
+        def add(a, b):
+            jit_merge_point(a, b)
+            return a+b
+        add._inline_jit_merge_point_ = jit_merge_point
+        myjitdriver.inline_jit_merge_point = True
+
+        def calc(n):
+            res = 0
+            while res < 1000:
+                res = add(n, res)
+            return res
+
+        def f():
+            return calc(1) + calc(3)
+
+        res = self.meta_interp(f, [])
+        assert res == 1000 + 1002
+        self.check_resops(int_add=4)
+
+    def test_jitdriver_inline(self):
         myjitdriver = JitDriver(greens = [], reds = 'auto')
         class MyRange(object):
             def __init__(self, n):
@@ -393,35 +422,102 @@ class WarmspotTests(object):
             def __iter__(self):
                 return self
 
-            @myjitdriver.inline_in_portal
-            def next(self):
+            def jit_merge_point(self):
                 myjitdriver.jit_merge_point()
+
+            @myjitdriver.inline(jit_merge_point)
+            def next(self):
                 if self.cur == self.n:
                     raise StopIteration
                 self.cur += 1
                 return self.cur
 
-        def one():
+        def f(n):
             res = 0
-            for i in MyRange(10):
+            for i in MyRange(n):
                 res += i
             return res
 
-        def two():
+        expected = f(21)
+        res = self.meta_interp(f, [21])
+        assert res == expected
+        self.check_resops(int_eq=2, int_add=4)
+        self.check_trace_count(1)
+
+    def test_jitdriver_inline_twice(self):
+        myjitdriver = JitDriver(greens = [], reds = 'auto')
+
+        def jit_merge_point(a, b):
+            myjitdriver.jit_merge_point()
+
+        @myjitdriver.inline(jit_merge_point)
+        def add(a, b):
+            return a+b
+
+        def one(n):
             res = 0
-            for i in MyRange(13):
-                res += i * 2
+            while res < 1000:
+                res = add(n, res)
             return res
 
-        def f(n, m):
-            res = one() * 100
-            res += two()
+        def two(n):
+            res = 0
+            while res < 2000:
+                res = add(n, res)
             return res
-        expected = f(21, 5)
-        res = self.meta_interp(f, [21, 5])
-        assert res == expected
-        self.check_resops(int_eq=4, int_add=8)
+
+        def f(n):
+            return one(n) + two(n)
+
+        res = self.meta_interp(f, [1])
+        assert res == 3000
+        self.check_resops(int_add=4)
         self.check_trace_count(2)
+
+    def test_jitdriver_inline_exception(self):
+        # this simulates what happens in a real case scenario: inside the next
+        # we have a call which we cannot inline (e.g. space.next in the case
+        # of W_InterpIterable), but we need to put it in a try/except block.
+        # With the first "inline_in_portal" approach, this case crashed
+        myjitdriver = JitDriver(greens = [], reds = 'auto')
+        
+        def inc(x, n):
+            if x == n:
+                raise OverflowError
+            return x+1
+        inc._dont_inline_ = True
+        
+        class MyRange(object):
+            def __init__(self, n):
+                self.cur = 0
+                self.n = n
+
+            def __iter__(self):
+                return self
+
+            def jit_merge_point(self):
+                myjitdriver.jit_merge_point()
+
+            @myjitdriver.inline(jit_merge_point)
+            def next(self):
+                try:
+                    self.cur = inc(self.cur, self.n)
+                except OverflowError:
+                    raise StopIteration
+                return self.cur
+
+        def f(n):
+            res = 0
+            for i in MyRange(n):
+                res += i
+            return res
+
+        expected = f(21)
+        res = self.meta_interp(f, [21])
+        assert res == expected
+        self.check_resops(int_eq=2, int_add=4)
+        self.check_trace_count(1)
+
 
 class TestLLWarmspot(WarmspotTests, LLJitMixin):
     CPUClass = runner.LLtypeCPU
