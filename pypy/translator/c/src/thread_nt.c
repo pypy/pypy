@@ -13,7 +13,6 @@
  * Thread support.
  */
 
-#define RPyOpaque_INITEXPR_ThreadLock  { 0, 0, NULL }
 typedef struct RPyOpaque_ThreadLock NRMUTEX, *PNRMUTEX;
 
 typedef struct {

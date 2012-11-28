@@ -976,7 +976,8 @@ class ExtType_OpaqueNode(ContainerNode):
 
     def initializationexpr(self, decoration=''):
         T = self.getTYPE()
-        yield 'RPyOpaque_INITEXPR_%s' % (T.tag,)
+        raise NotImplementedError(
+            'seeing an unexpected prebuilt object: %s' % (T.tag,))
 
     def startupcode(self):
         T = self.getTYPE()

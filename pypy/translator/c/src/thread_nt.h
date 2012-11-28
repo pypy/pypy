@@ -4,8 +4,6 @@
  * Thread support.
  */
 
-#define RPyOpaque_INITEXPR_ThreadLock  { 0, 0, NULL }
-
 typedef struct RPyOpaque_ThreadLock {
 	LONG   owned ;
 	DWORD  thread_id ;
