@@ -784,6 +784,8 @@ class TestTranslatable(object):
 
     def test_tobytes(self):
         assert rbigint.fromint(0).tobytes(1, 'big', signed=True) == '\x00'
+        assert rbigint.fromint(1).tobytes(2, 'big', signed=True) == '\x00\x01'
+        raises(OverflowError, rbigint.fromint(255).tobytes, 1, 'big', signed=True)
         assert rbigint.fromint(-129).tobytes(2, 'big', signed=True) == '\xff\x7f'
         assert rbigint.fromint(-129).tobytes(2, 'little', signed=True) == '\x7f\xff'
         assert rbigint.fromint(65535).tobytes(3, 'big', signed=True) == '\x00\xff\xff'
@@ -794,3 +796,4 @@ class TestTranslatable(object):
         raises(InvalidEndiannessError, i.tobytes, 3, 'foo', signed=True)
         raises(InvalidSignednessError, i.tobytes, 3, 'little', signed=False)
         raises(OverflowError, i.tobytes, 2, 'little', signed=True)
+

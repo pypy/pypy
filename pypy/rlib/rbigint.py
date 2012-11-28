@@ -2,6 +2,7 @@ from pypy.rlib.rarithmetic import LONG_BIT, intmask, longlongmask, r_uint, r_ulo
 from pypy.rlib.rarithmetic import ovfcheck, r_longlong, widen, is_valid_int
 from pypy.rlib.rarithmetic import most_neg_value_of_same_type
 from pypy.rlib.rfloat import isinf, isnan
+from pypy.rlib.rstring import StringBuilder
 from pypy.rlib.debug import make_sure_not_resized, check_regular_int
 from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.rlib import jit
@@ -317,7 +318,7 @@ class rbigint(object):
         imax = self.numdigits()
         accum = _widen_digit(0)
         accumbits = 0
-        digits = ''
+        result = StringBuilder(nbytes)
         carry = 1
 
         for i in range(0, imax):
@@ -342,10 +343,7 @@ class rbigint(object):
                     raise OverflowError()
                 j += 1
 
-                if bswap:
-                    digits = chr(accum & 0xFF) + digits
-                else:
-                    digits += chr(accum & 0xFF)
+                result.append(chr(accum & 0xFF))
                 accum >>= 8
                 accumbits -= 8
 
@@ -358,31 +356,26 @@ class rbigint(object):
                 # Add a sign bit
                 accum |= (~_widen_digit(0)) << accumbits;
 
-            if bswap:
-                digits = chr(accum & 0xFF) + digits
-            else:
-                digits += chr(accum & 0xFF)
+            result.append(chr(accum & 0xFF))
 
-        elif j == nbytes and nbytes > 0 and signed:
+        if j < nbytes:
+            signbyte = 0xFF if self.sign == -1 else 0
+            result.append_multiple_char(chr(signbyte), nbytes - j)
+
+        digits = result.build()
+
+        if j == nbytes and nbytes > 0 and signed:
             # If not already set, we cannot contain the sign bit
-            assert len(digits) > 0
-            if bswap:
-                msb = digits[0]
-            else:
-                msb = digits[-1]
-
+            msb = digits[-1]
             if (self.sign == -1) != (ord(msb) >= 0x80):
                 raise OverflowError()
 
-        signbyte = 0xFF if self.sign == -1 else 0
-        while j < nbytes:
-            # Set INFINITE signbits!
-            if bswap:
-                digits = chr(signbyte) + digits
-            else:
-                digits += chr(signbyte)
-            j += 1
-
+        if bswap:
+            # Bah, this is very inefficient. At least it's not
+            # quadratic.
+            length = len(digits)
+            if length >= 0:
+                digits = ''.join([digits[i] for i in range(length-1, -1, -1)])
         return digits
 
     @jit.elidable
