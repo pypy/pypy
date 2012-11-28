@@ -421,8 +421,8 @@ static void _debug_print(const char *msg)
 }
 
 static volatile long pending_acquires = -1;
-static pthread_mutex_t mutex_gil = PTHREAD_MUTEX_INITIALIZER;
-static pthread_cond_t cond_gil = PTHREAD_COND_INITIALIZER;
+static pthread_mutex_t mutex_gil;
+static pthread_cond_t cond_gil;
 
 static void assert_has_the_gil(void)
 {
@@ -434,11 +434,23 @@ static void assert_has_the_gil(void)
 
 long RPyGilAllocate(void)
 {
+    int status, error = 0;
     _debug_print("RPyGilAllocate\n");
-    pending_acquires = 0;
-    pthread_mutex_trylock(&mutex_gil);
-    assert_has_the_gil();
-    return 1;
+    pending_acquires = -1;
+
+    status = pthread_mutex_init(&mutex_gil,
+                                pthread_mutexattr_default);
+    CHECK_STATUS("pthread_mutex_init[GIL]");
+
+    status = pthread_cond_init(&cond_gil,
+                               pthread_condattr_default);
+    CHECK_STATUS("pthread_cond_init[GIL]");
+
+    if (error == 0) {
+        pending_acquires = 0;
+        RPyGilAcquire();
+    }
+    return (error == 0);
 }
 
 long RPyGilYieldThread(void)
