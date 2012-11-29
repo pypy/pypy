@@ -116,7 +116,8 @@ class AppTestDtypes(BaseNumpyAppTest):
     def test_bool_binop_types(self):
         from _numpypy import array, dtype
         types = [
-            '?', 'b', 'B', 'h', 'H', 'i', 'I', 'l', 'L', 'q', 'Q', 'f', 'd', 'e',
+            '?', 'b', 'B', 'h', 'H', 'i', 'I', 'l', 'L', 'q', 'Q', 'f', 'd', 
+            'e', 'g',
         ]
         a = array([True], '?')
         for t in types:
@@ -233,6 +234,7 @@ class AppTestDtypes(BaseNumpyAppTest):
             (numpy.float16, 10.),
             (numpy.float32, 2.0),
             (numpy.float64, 4.32),
+            (numpy.longdouble, 4.32),
         ]:
             assert hash(tp(value)) == hash(value)
 
@@ -468,6 +470,18 @@ class AppTestTypes(BaseNumpyAppTest):
         assert numpy.float64(2.0) == 2.0
         assert numpy.float64('23.4') == numpy.float64(23.4)
         raises(ValueError, numpy.float64, '23.2df')
+
+    def test_longfloat(self):
+        import _numpypy as numpy
+        # it can be float96 or float128
+        assert numpy.longfloat.mro()[1:] == [numpy.floating,
+                                       numpy.inexact, numpy.number, 
+                                       numpy.generic, object]
+        a = numpy.array([1, 2, 3], numpy.longdouble)
+        assert repr(type(a[1])) == repr(numpy.longdouble)
+        assert numpy.float64(12) == numpy.longdouble(12)
+        assert numpy.float64(12) == numpy.longfloat(12)
+        raises(ValueError, numpy.longfloat, '23.2df')
 
     def test_complex_floating(self):
         import _numpypy as numpy

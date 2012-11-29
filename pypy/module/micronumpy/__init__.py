@@ -58,6 +58,8 @@ class Module(MixedModule):
         'float16': 'interp_boxes.W_Float16Box',
         'float32': 'interp_boxes.W_Float32Box',
         'float64': 'interp_boxes.W_Float64Box',
+        'longdouble': 'interp_boxes.W_LongDoubleBox',
+        'longfloat': 'interp_boxes.W_LongDoubleBox',
         'intp': 'types.IntP.BoxType',
         'uintp': 'types.UIntP.BoxType',
         'flexible': 'interp_boxes.W_FlexibleBox',

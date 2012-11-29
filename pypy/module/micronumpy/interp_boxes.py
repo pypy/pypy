@@ -8,11 +8,15 @@ from pypy.objspace.std.unicodetype import unicode_typedef, unicode_from_object
 from pypy.objspace.std.inttype import int_typedef
 from pypy.objspace.std.complextype import complex_typedef
 from pypy.rlib.rarithmetic import LONG_BIT
+from pypy.rpython.lltypesystem import rffi
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.module.micronumpy.arrayimpl.voidbox import VoidBoxStorage
 
 MIXIN_32 = (int_typedef,) if LONG_BIT == 32 else ()
 MIXIN_64 = (int_typedef,) if LONG_BIT == 64 else ()
+
+# Is this the proper place for this?
+long_double_size = rffi.sizeof_c_type('long double', ignore_errors=True)
 
 
 def new_dtype_getter(name):
@@ -226,6 +230,16 @@ class W_Float32Box(W_FloatingBox, PrimitiveBox):
 class W_Float64Box(W_FloatingBox, PrimitiveBox):
     descr__new__, _get_dtype = new_dtype_getter("float64")
 
+if long_double_size == 12:
+    class W_Float96Box(W_FloatingBox, PrimitiveBox):
+        descr__new__, _get_dtype = new_dtype_getter("float96")
+    W_LongDoubleBox = W_Float96Box
+elif long_double_size == 16:
+    class W_Float128Box(W_FloatingBox, PrimitiveBox):
+        descr__new__, _get_dtype = new_dtype_getter("float128")
+    W_LongDoubleBox = W_Float128Box
+else:
+    W_LongDoubleBox = W_Float64Box
 
 class W_FlexibleBox(W_GenericBox):
     def __init__(self, arr, ofs, dtype):
@@ -479,6 +493,18 @@ W_Float64Box.typedef = TypeDef("float64", (W_FloatingBox.typedef, float_typedef)
     __new__ = interp2app(W_Float64Box.descr__new__.im_func),
 )
 
+if long_double_size == 12:
+    W_Float96Box.typedef = TypeDef("float96", (W_FloatingBox.typedef),
+        __module__ = "numpypy",
+
+        __new__ = interp2app(W_Float96Box.descr__new__.im_func),
+    )
+elif long_double_size == 16:
+    W_Float128Box.typedef = TypeDef("float128", (W_FloatingBox.typedef),
+        __module__ = "numpypy",
+
+        __new__ = interp2app(W_Float128Box.descr__new__.im_func),
+    )
 
 W_FlexibleBox.typedef = TypeDef("flexible", W_GenericBox.typedef,
     __module__ = "numpypy",

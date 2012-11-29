@@ -34,10 +34,20 @@ class TestFloatPacking:
             float_pack4 = "overflow"
         assert struct_pack4 == float_pack4
 
+        if float_pack4 == "overflow":
+            return
+
         # if we didn't overflow, try round-tripping the binary32 value
-        if float_pack4 != "overflow":
-            roundtrip = float_pack(float_unpack(float_pack4, 4), 4)
-            assert float_pack4 == roundtrip
+        roundtrip = float_pack(float_unpack(float_pack4, 4), 4)
+        assert float_pack4 == roundtrip
+
+        try:
+            float_pack2 = float_pack(x, 2)
+        except OverflowError:
+            return
+
+        roundtrip = float_pack(float_unpack(float_pack2, 2), 2)
+        assert (float_pack2,x) == (roundtrip,x)
 
     def test_infinities(self):
         self.check_float(float('inf'))
@@ -53,6 +63,9 @@ class TestFloatPacking:
         assert repr(y) == 'nan'
         L = float_pack(float('nan'), 4)
         z = float_unpack(L, 4)
+        assert repr(z) == 'nan'
+        L = float_pack(float('nan'), 2)
+        z = float_unpack(L, 2)
         assert repr(z) == 'nan'
 
     def test_simple(self):

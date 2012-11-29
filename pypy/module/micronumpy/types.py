@@ -981,6 +981,35 @@ class NonNativeFloat64(BaseType, NonNativeFloat):
     BoxType = interp_boxes.W_Float64Box
     format_code = "d"
 
+if interp_boxes.long_double_size == 12:
+    class Float96(BaseType, Float):
+        _attrs_ = ()
+
+        T = rffi.LONGDOUBLE
+        BoxType = interp_boxes.W_Float96Box
+        format_code = "q"
+
+    class NonNativeFloat96(BaseType, NonNativeFloat):
+        _attrs_ = ()
+
+        T = rffi.LONGDOUBLE
+        BoxType = interp_boxes.W_Float96Box
+        format_code = "q"
+elif interp_boxes.long_double_size == 16:
+    class Float128(BaseType, Float):
+        _attrs_ = ()
+
+        T = rffi.LONGDOUBLE
+        BoxType = interp_boxes.W_Float128Box
+        format_code = "q"
+
+    class NonNativeFloat128(BaseType, NonNativeFloat):
+        _attrs_ = ()
+
+        T = rffi.LONGDOUBLE
+        BoxType = interp_boxes.W_Float128Box
+        format_code = "q"
+
 class ComplexFloating(object):
     _mixin_ = True
     _attrs_ = ()
