@@ -1,8 +1,5 @@
 #include <Python.h>
 #include "pythread.h"
-
-/* With PYPY_NOT_MAIN_FILE only declarations are imported */
-#define PYPY_NOT_MAIN_FILE
 #include "src/thread.h"
 
 long

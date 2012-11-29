@@ -31,14 +31,11 @@
 #ifdef HAVE_RTYPER      /* only if we have an RTyper */
 #  include "src/rtyper.h"
 #  include "src/debug_traceback.h"
-#  include "src/debug_alloc.h"
-#  include "src/ll_os.h"
-#  include "src/ll_strtod.h"
 #endif
 
 #  include "src/allocator.h"
 #ifdef PYPY_STANDALONE
-#  include "src/main.h"
+#  include "src/entrypoint.h"
 #endif
 
 /* suppress a few warnings in the generated code */

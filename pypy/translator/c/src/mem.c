@@ -1,25 +1,11 @@
-/**************************************************************/
-/***  tracking raw mallocs and frees for debugging          ***/
+#include "common_header.h"
+#include "src/support.h"
+#include <stdlib.h>
+#include <stdio.h>
 
-#ifndef RPY_ASSERT
+/***  tracking raw mallocs and frees for debugging ***/
 
-#  define OP_TRACK_ALLOC_START(addr, r)   /* nothing */
-#  define OP_TRACK_ALLOC_STOP(addr, r)    /* nothing */
-
-#else   /* ifdef RPY_ASSERT */
-
-#  define OP_TRACK_ALLOC_START(addr, r)  pypy_debug_alloc_start(addr, \
-                                                                __FUNCTION__)
-#  define OP_TRACK_ALLOC_STOP(addr, r)   pypy_debug_alloc_stop(addr)
-
-void pypy_debug_alloc_start(void*, const char*);
-void pypy_debug_alloc_stop(void*);
-void pypy_debug_alloc_results(void);
-
-/************************************************************/
-
-
-#ifndef PYPY_NOT_MAIN_FILE
+#ifdef RPY_ASSERT
 
 struct pypy_debug_alloc_s {
   struct pypy_debug_alloc_s *next;
@@ -75,7 +61,38 @@ void pypy_debug_alloc_results(void)
     }
 }
 
-#endif
+#endif /* RPY_ASSERT */
 
 
-#endif  /* RPY_ASSERT */
+/* Boehm GC helper functions */
+
+#ifdef PYPY_USING_BOEHM_GC
+
+int boehm_gc_finalizer_lock = 0;
+void boehm_gc_finalizer_notifier(void)
+{
+    boehm_gc_finalizer_lock++;
+    while (GC_should_invoke_finalizers()) {
+        if (boehm_gc_finalizer_lock > 1) {
+            /* GC_invoke_finalizers() will be done by the
+               boehm_gc_finalizer_notifier() that is
+               currently in the C stack, when we return there */
+            break;
+        }
+        GC_invoke_finalizers();
+    }
+    boehm_gc_finalizer_lock--;
+}
+
+static void mem_boehm_ignore(char *msg, GC_word arg)
+{
+}
+
+void boehm_gc_startup_code(void)
+{
+    GC_init();
+    GC_finalizer_notifier = &boehm_gc_finalizer_notifier;
+    GC_finalize_on_demand = 1;
+    GC_set_warn_proc(mem_boehm_ignore);
+}
+#endif /* BOEHM GC */

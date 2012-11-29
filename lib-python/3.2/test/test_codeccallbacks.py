@@ -844,6 +844,7 @@ class CodecCallbackTest(unittest.TestCase):
                 raise TypeError("don't know how to handle %r" % exc)
         codecs.register_error("test.replacing", replacing)
         for (encoding, data) in baddata:
+            print((encoding, data))
             self.assertRaises(TypeError, data.decode, encoding, "test.replacing")
 
         def mutating(exc):
