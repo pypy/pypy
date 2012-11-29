@@ -1114,12 +1114,23 @@ class AppTestTypeObject:
         """
 
     def test_prepare(self):
+        """
         classdict = type.__prepare__()
         assert type(classdict) is dict
         assert classdict == {}
         assert type.__prepare__(3) == {}
         assert type.__prepare__(3, 4) == {}
         assert type.__prepare__(3, package='sqlalchemy') == {}
+        class M(type):
+            @classmethod
+            def __prepare__(cls, *args, **kwds):
+                d = super().__prepare__(*args, **kwds)
+                d['hello'] = 42
+                return d
+        class C(metaclass=M):
+            foo = hello
+        assert C.foo == 42
+        """
 
 
 class AppTestWithMethodCacheCounter:

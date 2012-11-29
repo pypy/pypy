@@ -276,5 +276,5 @@ type_typedef = StdTypeDef("type",
                                          descr_del___abstractmethods__),
     __subclasses__ = gateway.interp2app(descr___subclasses__),
     __weakref__ = weakref_descr,
-    __prepare__ = gateway.interp2app(descr___prepare__),
+    __prepare__ = gateway.interp2app(descr___prepare__, as_classmethod=True),
     )
