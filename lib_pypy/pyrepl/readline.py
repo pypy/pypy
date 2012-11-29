@@ -185,7 +185,7 @@ class _ReadlineWrapper(object):
 
     def __init__(self):
         self.f_in = os.dup(0)
-        self.f_ut = os.dup(1)
+        self.f_out = os.dup(1)
 
     def get_reader(self):
         if self.reader is None:
