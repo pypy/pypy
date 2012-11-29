@@ -2133,6 +2133,12 @@ class AppTestSupport(BaseNumpyAppTest):
         assert j[0] == 12
         k = fromstring(self.float16val, dtype=float16)
         assert k[0] == float16(5.)
+        try:
+            from _numpypy import float96
+        except:
+            skip('no float96 on this platform/compiler, maybe try float128?')
+        k = fromstring('\x00\x00\x00\x00\x00\x00\x00\xa0\x01@\x00\x00', dtype=float96)
+        assert k[0] == float96(5.)
 
     def test_fromstring_invalid(self):
         from _numpypy import fromstring, uint16, uint8, int32
