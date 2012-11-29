@@ -26,40 +26,39 @@ BaseException
  +-- GeneratorExit
  +-- Exception
       +-- StopIteration
-      +-- StandardError
-      |    +-- BufferError
-      |    +-- ArithmeticError
-      |    |    +-- FloatingPointError
-      |    |    +-- OverflowError
-      |    |    +-- ZeroDivisionError
-      |    +-- AssertionError
-      |    +-- AttributeError
-      |    +-- EnvironmentError
-      |    |    +-- IOError
-      |    |    +-- OSError
-      |    |         +-- WindowsError (Windows)
-      |    |         +-- VMSError (VMS)
-      |    +-- EOFError
-      |    +-- ImportError
-      |    +-- LookupError
-      |    |    +-- IndexError
-      |    |    +-- KeyError
-      |    +-- MemoryError
-      |    +-- NameError
-      |    |    +-- UnboundLocalError
-      |    +-- ReferenceError
-      |    +-- RuntimeError
-      |    |    +-- NotImplementedError
-      |    +-- SyntaxError
-      |    |    +-- IndentationError
-      |    |         +-- TabError
-      |    +-- SystemError
-      |    +-- TypeError
-      |    +-- ValueError
-      |         +-- UnicodeError
-      |              +-- UnicodeDecodeError
-      |              +-- UnicodeEncodeError
-      |              +-- UnicodeTranslateError
+      +-- ArithmeticError
+      |    +-- FloatingPointError
+      |    +-- OverflowError
+      |    +-- ZeroDivisionError
+      +-- AssertionError
+      +-- AttributeError
+      +-- BufferError
+      +-- EnvironmentError
+      |    +-- IOError
+      |    +-- OSError
+      |         +-- WindowsError (Windows)
+      |         +-- VMSError (VMS)
+      +-- EOFError
+      +-- ImportError
+      +-- LookupError
+      |    +-- IndexError
+      |    +-- KeyError
+      +-- MemoryError
+      +-- NameError
+      |    +-- UnboundLocalError
+      +-- ReferenceError
+      +-- RuntimeError
+      |    +-- NotImplementedError
+      +-- SyntaxError
+      |    +-- IndentationError
+      |         +-- TabError
+      +-- SystemError
+      +-- TypeError
+      +-- ValueError
+      |    +-- UnicodeError
+      |         +-- UnicodeDecodeError
+      |         +-- UnicodeEncodeError
+      |         +-- UnicodeTranslateError
       +-- Warning
            +-- DeprecationWarning
            +-- PendingDeprecationWarning
@@ -303,19 +302,16 @@ W_Exception = _new_exception('Exception', W_BaseException,
 W_GeneratorExit = _new_exception('GeneratorExit', W_BaseException,
                           """Request that a generator exit.""")
 
-W_StandardError = _new_exception('StandardError', W_Exception,
-                         """Base class for all standard Python exceptions.""")
-
-W_BufferError = _new_exception('BufferError', W_StandardError,
+W_BufferError = _new_exception('BufferError', W_Exception,
                          """Buffer error.""")
 
-W_ValueError = _new_exception('ValueError', W_StandardError,
+W_ValueError = _new_exception('ValueError', W_Exception,
                          """Inappropriate argument value (of correct type).""")
 
-W_ImportError = _new_exception('ImportError', W_StandardError,
+W_ImportError = _new_exception('ImportError', W_Exception,
                   """Import can't find module, or can't find name in module.""")
 
-W_RuntimeError = _new_exception('RuntimeError', W_StandardError,
+W_RuntimeError = _new_exception('RuntimeError', W_Exception,
                      """Unspecified run-time error.""")
 
 W_UnicodeError = _new_exception('UnicodeError', W_ValueError,
@@ -369,7 +365,7 @@ W_UnicodeTranslateError.typedef = TypeDef(
     reason = readwrite_attrproperty_w('w_reason', W_UnicodeTranslateError),
 )
 
-W_LookupError = _new_exception('LookupError', W_StandardError,
+W_LookupError = _new_exception('LookupError', W_Exception,
                                """Base class for lookup errors.""")
 
 def key_error_str(self, space):
@@ -394,7 +390,7 @@ W_PendingDeprecationWarning = _new_exception('PendingDeprecationWarning',
                                              W_Warning,
        """Base class for warnings about features which will be deprecated in the future.""")
 
-class W_EnvironmentError(W_StandardError):
+class W_EnvironmentError(W_Exception):
     """Base class for I/O related errors."""
 
     def __init__(self, space):
@@ -441,7 +437,7 @@ class W_EnvironmentError(W_StandardError):
 
 W_EnvironmentError.typedef = TypeDef(
     'EnvironmentError',
-    W_StandardError.typedef,
+    W_Exception.typedef,
     __doc__ = W_EnvironmentError.__doc__,
     __module__ = 'builtins',
     __new__ = _new(W_EnvironmentError),
@@ -513,23 +509,23 @@ W_DeprecationWarning = _new_exception('DeprecationWarning', W_Warning,
 W_ResourceWarning = _new_exception('ResourceWarning', W_Warning,
          """Base class for warnings about resource usage.""")
 
-W_ArithmeticError = _new_exception('ArithmeticError', W_StandardError,
+W_ArithmeticError = _new_exception('ArithmeticError', W_Exception,
                          """Base class for arithmetic errors.""")
 
 W_FloatingPointError = _new_exception('FloatingPointError', W_ArithmeticError,
                                       """Floating point operation failed.""")
 
-W_ReferenceError = _new_exception('ReferenceError', W_StandardError,
+W_ReferenceError = _new_exception('ReferenceError', W_Exception,
                            """Weak ref proxy used after referent went away.""")
 
-W_NameError = _new_exception('NameError', W_StandardError,
+W_NameError = _new_exception('NameError', W_Exception,
                              """Name not found globally.""")
 
 W_IOError = _new_exception('IOError', W_EnvironmentError,
                            """I/O operation failed.""")
 
 
-class W_SyntaxError(W_StandardError):
+class W_SyntaxError(W_Exception):
     """Invalid syntax."""
 
     def __init__(self, space):
@@ -598,11 +594,11 @@ class W_SyntaxError(W_StandardError):
             clsname = self.getclass(space).getname(space)
             return space.wrap(clsname + args_repr)
         else:
-            return W_StandardError.descr_repr(self, space)
+            return W_Exception.descr_repr(self, space)
 
 W_SyntaxError.typedef = TypeDef(
     'SyntaxError',
-    W_StandardError.typedef,
+    W_Exception.typedef,
     __new__ = _new(W_SyntaxError),
     __init__ = interp2app(W_SyntaxError.descr_init),
     __str__ = interp2app(W_SyntaxError.descr_str),
@@ -646,7 +642,7 @@ W_SystemExit.typedef = TypeDef(
     code    = readwrite_attrproperty_w('w_code', W_SystemExit)
 )
 
-W_EOFError = _new_exception('EOFError', W_StandardError,
+W_EOFError = _new_exception('EOFError', W_Exception,
                             """Read beyond end of file.""")
 
 W_IndentationError = _new_exception('IndentationError', W_SyntaxError,
@@ -658,13 +654,13 @@ W_TabError = _new_exception('TabError', W_IndentationError,
 W_ZeroDivisionError = _new_exception('ZeroDivisionError', W_ArithmeticError,
             """Second argument to a division or modulo operation was zero.""")
 
-W_SystemError = _new_exception('SystemError', W_StandardError,
+W_SystemError = _new_exception('SystemError', W_Exception,
             """Internal error in the Python interpreter.
 
 Please report this to the Python maintainer, along with the traceback,
 the Python version, and the hardware/OS platform and version.""")
 
-W_AssertionError = _new_exception('AssertionError', W_StandardError,
+W_AssertionError = _new_exception('AssertionError', W_Exception,
                                   """Assertion failed.""")
 
 class W_UnicodeDecodeError(W_UnicodeError):
@@ -720,7 +716,7 @@ W_UnicodeDecodeError.typedef = TypeDef(
     reason = readwrite_attrproperty_w('w_reason', W_UnicodeDecodeError),
 )
 
-W_TypeError = _new_exception('TypeError', W_StandardError,
+W_TypeError = _new_exception('TypeError', W_Exception,
                              """Inappropriate argument type.""")
 
 W_IndexError = _new_exception('IndexError', W_LookupError,
@@ -745,7 +741,7 @@ related to conversion problems.""")
 W_ImportWarning = _new_exception('ImportWarning', W_Warning,
     """Base class for warnings about probable mistakes in module imports""")
 
-W_MemoryError = _new_exception('MemoryError', W_StandardError,
+W_MemoryError = _new_exception('MemoryError', W_Exception,
                                """Out of memory.""")
 
 W_UnboundLocalError = _new_exception('UnboundLocalError', W_NameError,
@@ -754,7 +750,7 @@ W_UnboundLocalError = _new_exception('UnboundLocalError', W_NameError,
 W_NotImplementedError = _new_exception('NotImplementedError', W_RuntimeError,
                         """Method or function hasn't been implemented yet.""")
 
-W_AttributeError = _new_exception('AttributeError', W_StandardError,
+W_AttributeError = _new_exception('AttributeError', W_Exception,
                                   """Attribute not found.""")
 
 W_OverflowError = _new_exception('OverflowError', W_ArithmeticError,

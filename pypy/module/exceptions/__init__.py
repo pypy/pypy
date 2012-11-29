@@ -37,7 +37,6 @@ class Module(MixedModule):
         'ReferenceError' : 'interp_exceptions.W_ReferenceError',
         'RuntimeError' : 'interp_exceptions.W_RuntimeError',
         'RuntimeWarning' : 'interp_exceptions.W_RuntimeWarning',
-        'StandardError' : 'interp_exceptions.W_StandardError',
         'StopIteration' : 'interp_exceptions.W_StopIteration',
         'SyntaxError' : 'interp_exceptions.W_SyntaxError',
         'SyntaxWarning' : 'interp_exceptions.W_SyntaxWarning',
