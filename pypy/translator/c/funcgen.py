@@ -494,7 +494,8 @@ class FunctionCodeGenerator(object):
 
     def OP_GETSUBSTRUCT(self, op):
         RESULT = self.lltypemap(op.result).TO
-        if isinstance(RESULT, FixedSizeArray):
+        if (isinstance(RESULT, FixedSizeArray) or
+                (isinstance(RESULT, Array) and barebonearray(RESULT))):
             return self.OP_GETFIELD(op, ampersand='')
         else:
             return self.OP_GETFIELD(op, ampersand='&')
