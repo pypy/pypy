@@ -139,7 +139,7 @@ def build_class(space, w_func, w_name, __args__):
         # metaclass, or possible metaclass conflicts
         from pypy.objspace.std.typetype import _calculate_metaclass
         w_meta = _calculate_metaclass(space, w_meta, bases_w)
-    
+
     try:
         w_prep = space.getattr(w_meta, space.wrap("__prepare__"))
     except OperationError, e:
@@ -148,7 +148,7 @@ def build_class(space, w_func, w_name, __args__):
         w_namespace = space.newdict()
     else:
         keywords = kwds_w.keys()
-        args = Arguments(space, 
+        args = Arguments(space,
                          args_w=[w_name, w_bases],
                          keywords=keywords,
                          keywords_w=kwds_w.values())
