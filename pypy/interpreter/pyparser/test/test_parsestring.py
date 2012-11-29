@@ -37,6 +37,9 @@ class TestParsetring:
             space.raises_w(space.w_ValueError,
                            parsestring.parsestr, space, None, s)
 
+        space.raises_w(space.w_SyntaxError,
+                       parsestring.parsestr, space, None, "b'\xe9'")
+
     def test_unicode(self):
         space = self.space
         for s in ['hello world', 'hello\n world']:
