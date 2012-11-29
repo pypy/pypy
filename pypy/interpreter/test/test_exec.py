@@ -126,9 +126,6 @@ class AppTestExecStmt:
         raises(SyntaxError, x)
 
     def test_mapping_as_locals(self):
-        import sys
-        if sys.version_info < (2,5) or not hasattr(sys, 'pypy_objspaceclass'):
-            skip("need CPython 2.5 or PyPy for non-dictionaries in exec statements")
         class M(object):
             def __getitem__(self, key):
                 return key
@@ -140,8 +137,12 @@ class AppTestExecStmt:
         m.result = {}
         exec("x=m", {}, m)
         assert m.result == {'x': 'm'}
-        exec("y=n", m)
-        assert m.result == {'x': 'm', 'y': 'n'}
+        try:
+            exec("y=n", m)
+        except TypeError:
+            pass
+        else:
+            assert False, 'Expected TypeError'
 
     def test_filename(self):
         try:

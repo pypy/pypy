@@ -482,19 +482,6 @@ class AppTestBuiltinApp:
         raises(ValueError, compile, "\n", "<string>", "exec", 0xff)
         raises(TypeError, compile, '1+2', 12, 34)
 
-        class M:
-            def __getitem__(self, key):
-                pass
-            def keys(self):
-                pass
-        m = M()
-        try:
-            exec('pass', m)
-        except TypeError:
-            pass
-        else:
-            assert False, 'Expected TypeError'
-
     def test_unicode_encoding_compile(self):
         code = "# -*- coding: utf-8 -*-\npass\n"
         compile(code, "tmp", "exec")

@@ -1517,7 +1517,7 @@ app = gateway.applevel(r'''
 
         if not isinstance(globals, dict):
             raise TypeError(
-                "exec() arg 2 must be a dictionary or None, not %s" %
+                "exec() arg 2 must be a dict or None, not %s" %
                 type(globals).__name__)
         globals.setdefault('__builtins__', builtin)
         if not isinstance(locals, dict):
