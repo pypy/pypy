@@ -2,6 +2,7 @@
 """ This module provides ctypes version of cpython's grp module
 """
 
+import os
 import sys
 if sys.platform == 'win32':
     raise ImportError("No grp module on Windows")
@@ -65,8 +66,10 @@ def _group_from_gstruct(res):
     while res.contents.gr_mem[i]:
         mem.append(res.contents.gr_mem[i])
         i += 1
-    return Group(res.contents.gr_name, res.contents.gr_passwd,
-                 res.contents.gr_gid, mem)
+    return Group(os.fsdecode(res.contents.gr_name),
+                 os.fsdecode(res.contents.gr_passwd),
+                 res.contents.gr_gid,
+                 mem)
 
 @builtinify
 def getgrgid(gid):
@@ -80,7 +83,7 @@ def getgrgid(gid):
 def getgrnam(name):
     if not isinstance(name, str):
         raise TypeError("expected string")
-    res = libc.getgrnam(name)
+    res = libc.getgrnam(os.fsencode(name))
     if not res:
         raise KeyError(name)
     return _group_from_gstruct(res)
