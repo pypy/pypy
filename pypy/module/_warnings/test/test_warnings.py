@@ -3,8 +3,8 @@ class AppTestWarnings:
 
     def test_defaults(self):
         import _warnings
-        assert _warnings.once_registry == {}
-        assert _warnings.default_action == 'default'
+        assert _warnings._onceregistry == {}
+        assert _warnings._defaultaction == 'default'
         assert "PendingDeprecationWarning" in str(_warnings.filters)
 
     def test_warn(self):
