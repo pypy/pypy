@@ -354,3 +354,14 @@ def test_parse_nonpython():
     f = Function.from_operations(loop.operations, LoopStorage())
     assert f.chunks[-1].filename == 'x.py'
     assert f.filename is None
+
+def test_normalize_filename():
+    import os.path
+    abspath = os.path.expanduser('~/foo.py')
+    ops = parse('''
+    [i0]
+    debug_merge_point(0, 0, "<code object stuff. file '%s'. line 200> #10 ADD")
+    ''' % abspath)
+    res = Function.from_operations(ops.operations, LoopStorage())
+    assert res.filename == '~/foo.py'
+    assert res.chunks[0].filename == '~/foo.py'

@@ -1,4 +1,5 @@
 import re, sys
+import os
 
 from pypy.jit.metainterp.resoperation import opname
 from pypy.jit.tool.oparser import OpParser
@@ -160,18 +161,26 @@ class TraceForOpcode(object):
             if op.name == 'debug_merge_point':
                 self.inline_level = int(op.args[0])
                 parsed = parse_code_data(op.args[2][1:-1])
-                (self.name, self.bytecode_name, self.filename,
+                (self.name, self.bytecode_name, filename,
                  self.startlineno, self.bytecode_no) = parsed
                 break
         else:
             self.inline_level = 0
             parsed = parse_code_data(loopname)
-            (self.name, self.bytecode_name, self.filename,
+            (self.name, self.bytecode_name, filename,
              self.startlineno, self.bytecode_no) = parsed
+        self.filename = self.normalize_filename(filename)
         self.operations = operations
         self.storage = storage
-        self.code = storage.disassemble_code(self.filename, self.startlineno,
+        self.code = storage.disassemble_code(filename, self.startlineno,
                                              self.name)
+
+    def normalize_filename(self, filename):
+        home = os.path.expanduser('~') + os.path.sep
+        if filename is not None and filename.startswith(home):
+            filename = filename.replace(home, '~' + os.path.sep)
+        return filename
+
 
     def repr(self):
         if self.filename is None:
