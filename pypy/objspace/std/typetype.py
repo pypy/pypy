@@ -255,6 +255,9 @@ def descr___subclasses__(space, w_type):
     w_type = _check(space, w_type)
     return space.newlist(w_type.get_subclasses())
 
+def descr___prepare__(space, __args__):
+    return space.newdict()
+
 # ____________________________________________________________
 
 type_typedef = StdTypeDef("type",
@@ -273,4 +276,5 @@ type_typedef = StdTypeDef("type",
                                          descr_del___abstractmethods__),
     __subclasses__ = gateway.interp2app(descr___subclasses__),
     __weakref__ = weakref_descr,
+    __prepare__ = gateway.interp2app(descr___prepare__),
     )

@@ -1113,6 +1113,14 @@ class AppTestTypeObject:
         assert marker is Z
         """
 
+    def test_prepare(self):
+        classdict = type.__prepare__()
+        assert type(classdict) is dict
+        assert classdict == {}
+        assert type.__prepare__(3) == {}
+        assert type.__prepare__(3, 4) == {}
+        assert type.__prepare__(3, package='sqlalchemy') == {}
+
 
 class AppTestWithMethodCacheCounter:
     spaceconfig = {"objspace.std.withmethodcachecounter": True}
