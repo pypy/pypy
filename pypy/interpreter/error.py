@@ -226,8 +226,8 @@ class OperationError(Exception):
         w_type = space.exception_getclass(w_inst)
         if not space.exception_is_valid_class_w(w_type):
             typename = w_type.getname(space)
-            msg = ("exceptions must be old-style classes or derived "
-                   "from BaseException, not %s")
+            msg = ("exceptions must be classes or instances deriving from "
+                   "BaseException, not %s")
             raise operationerrfmt(space.w_TypeError, msg, typename)
         return w_type
 
