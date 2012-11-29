@@ -211,7 +211,7 @@ def show_warning(space, w_filename, lineno, w_text, w_category,
     if not w_sourceline:
         try:
             # sourceline = linecache.getline(filename, lineno).strip()
-            w_builtins = space.getbuiltinmodule('__builtin__')
+            w_builtins = space.getbuiltinmodule('builtins')
             w_linecachemodule = space.call_method(w_builtins, '__import__',
                                                   space.wrap("linecache"))
             w_sourceline = space.call_method(w_linecachemodule, "getline",
