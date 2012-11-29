@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <assert.h>
+#include <sys/time.h>
 
 /* The following is hopefully equivalent to what CPython does
    (which is trying to compile a snippet of code using it) */
@@ -168,6 +169,29 @@ long RPyThreadSetStackSize(long newsize)
 #else
 	return -2;
 #endif
+}
+
+#ifdef GETTIMEOFDAY_NO_TZ
+#define RPY_GETTIMEOFDAY(ptv) gettimeofday(ptv)
+#else
+#define RPY_GETTIMEOFDAY(ptv) gettimeofday(ptv, (struct timezone *)NULL)
+#endif
+
+#define RPY_MICROSECONDS_TO_TIMESPEC(microseconds, ts) \
+do { \
+    struct timeval tv; \
+    RPY_GETTIMEOFDAY(&tv); \
+    tv.tv_usec += microseconds % 1000000; \
+    tv.tv_sec += microseconds / 1000000; \
+    tv.tv_sec += tv.tv_usec / 1000000; \
+    tv.tv_usec %= 1000000; \
+    ts.tv_sec = tv.tv_sec; \
+    ts.tv_nsec = tv.tv_usec * 1000; \
+} while(0)
+
+int RPyThreadAcquireLock(struct RPyOpaque_ThreadLock *lock, int waitflag)
+{
+    return RPyThreadAcquireLockTimed(lock, waitflag ? -1 : 0, /*intr_flag=*/0);
 }
 
 /************************************************************/
