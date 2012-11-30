@@ -3,7 +3,7 @@ from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.rlib.rarithmetic import r_uint, r_longlong, intmask
-from pypy.rlib import rbigint, rrandom
+from pypy.rlib import rbigint, rrandom, rstring
 
 import time
 
@@ -73,26 +73,26 @@ class W_Random(Wrappable):
         w_item = space.getitem(w_state, space.newint(rrandom.N))
         self._rnd.index = space.int_w(w_item)
 
-    assert rbigint.SHIFT <= 64
     @unwrap_spec(k=int)
     def getrandbits(self, space, k):
         if k <= 0:
             strerror = space.wrap("number of bits must be greater than zero")
             raise OperationError(space.w_ValueError, strerror)
-        needed = (k - 1) // rbigint.SHIFT + 1
-        result = rbigint.rbigint([rbigint.NULLDIGIT] * needed, 1)
-        for i in range(needed):
-            if rbigint.SHIFT <= 32:
-                value = self._rnd.genrand32()
-            else:
-                value = self._rnd.genrand32() << 32 | self._rnd.genrand32()
-            # This wastes some random digits, but not too many since SHIFT=31
-            value = value & rbigint.MASK
-            if i < needed - 1:
-                result.setdigit(i, value)
-            else:
-                result.setdigit(i, value >> ((needed * rbigint.SHIFT) - k))
-        result._normalize()
+        bytes = ((k - 1) // 32 + 1) * 4
+        bytesarray = rstring.StringBuilder(bytes)
+        for i in range(0, bytes, 4):
+            r = self._rnd.genrand32()
+            if k < 32:
+                r >>= (32 - k)
+            bytesarray.append(chr(r & r_uint(0xff)))
+            bytesarray.append(chr((r >> 8) & r_uint(0xff)))
+            bytesarray.append(chr((r >> 16) & r_uint(0xff)))
+            bytesarray.append(chr((r >> 24) & r_uint(0xff)))
+            k -= 32
+
+        # little endian order to match bytearray assignment order
+        result = rbigint.rbigint.frombytes(
+            bytesarray.build(), 'little', signed=False)
         return space.newlong_from_rbigint(result)
 
 

@@ -303,7 +303,9 @@ class rbigint(object):
 
         if accumbits:
             digits.append(_store_digit(intmask(accum)))
-        return rbigint(digits[:], sign)
+        result = rbigint(digits[:], sign)
+        result._normalize()
+        return result
 
     @jit.elidable
     def tobytes(self, nbytes, byteorder, signed):
