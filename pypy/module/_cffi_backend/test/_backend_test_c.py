@@ -2390,8 +2390,11 @@ def test_newp_from_bytearray_doesnt_work():
 
 # XXX hack
 if sys.version_info >= (3,):
-    import posix, io
-    posix.fdopen = io.open
+    try:
+        import posix, io
+        posix.fdopen = io.open
+    except ImportError:
+        pass   # win32
 
 def test_FILE():
     if sys.platform == "win32":
@@ -2484,7 +2487,7 @@ def test_GetLastError():
     if sys.platform != "win32":
         py.test.skip("GetLastError(): only for Windows")
     #
-    lib = find_and_load_library('KERNEL32')
+    lib = find_and_load_library('KERNEL32.DLL')
     BInt = new_primitive_type("int")
     BVoid = new_void_type()
     BFunc1 = new_function_type((BInt,), BVoid, False)
