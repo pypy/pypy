@@ -988,6 +988,25 @@ def test_call_function_22():
     for i in range(10):
         assert res.a[i] == p1.a[i] - p2.a[i]
 
+def test_call_function_23():
+    BVoid = new_void_type()          # declaring the function as int(void*)
+    BVoidP = new_pointer_type(BVoid)
+    BInt = new_primitive_type("int")
+    BFunc23 = new_function_type((BVoidP,), BInt, False)
+    f = cast(BFunc23, _testfunc(23))
+    res = f(b"foo")
+    assert res == 1000 * ord(b'f')
+
+def test_call_function_23_bis():
+    # declaring the function as int(unsigned char*)
+    BUChar = new_primitive_type("unsigned char")
+    BUCharP = new_pointer_type(BUChar)
+    BInt = new_primitive_type("int")
+    BFunc23 = new_function_type((BUCharP,), BInt, False)
+    f = cast(BFunc23, _testfunc(23))
+    res = f(b"foo")
+    assert res == 1000 * ord(b'f')
+
 def test_cannot_pass_struct_with_array_of_length_0():
     BInt = new_primitive_type("int")
     BArray0 = new_array_type(new_pointer_type(BInt), 0)
