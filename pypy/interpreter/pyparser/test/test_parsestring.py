@@ -37,8 +37,14 @@ class TestParsetring:
             space.raises_w(space.w_ValueError,
                            parsestring.parsestr, space, None, s)
 
+        # only ASCII characters are allowed in bytes literals (but of course
+        # you can use escapes to get the non-ASCII ones (note that in the
+        # second case we use a raw string, the the parser actually sees the
+        # chars '\' 'x' 'e' '9'
         space.raises_w(space.w_SyntaxError,
                        parsestring.parsestr, space, None, "b'\xe9'")
+        self.parse_and_compare(r"b'\xe9'", chr(0xE9))
+
 
     def test_unicode(self):
         space = self.space
