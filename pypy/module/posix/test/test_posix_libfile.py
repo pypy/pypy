@@ -2,7 +2,7 @@ from pypy.tool.udir import udir
 import os
 
 def setup_module(mod):
-    mod.path = udir.join('posixtestfile.txt')
+    mod.path = udir.join('test_posix_libfile.txt')
     mod.path.write("this is a test")
 
 class AppTestPosix: 
