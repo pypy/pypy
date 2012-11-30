@@ -221,8 +221,12 @@ class BZ2FileTest(BaseTest):
         # "Test opening and deleting a file many times"
         self.createTempFile()
         for i in range(10000):
-            o = BZ2File(self.filename)
-            del o
+            if support.check_impl_detail(pypy=True):
+                with BZ2File(self.filename) as o:
+                    pass
+            else:
+                o = BZ2File(self.filename)
+                del o
 
     def testOpenNonexistent(self):
         # "Test opening a nonexistent file"
