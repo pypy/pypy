@@ -639,7 +639,7 @@ def run_command_line(interactive,
                     def execfile(filename, namespace):
                         with open(filename) as f:
                             code = f.read()
-                        exec_(code, namespace)
+                        exec_(compile(code, filename, 'exec'), namespace)
                     args = (execfile, filename, mainmodule.__dict__)
             success = run_toplevel(*args)
 
