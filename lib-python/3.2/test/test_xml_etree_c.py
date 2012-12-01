@@ -21,7 +21,7 @@ def sanity():
     >>> getattr(e, '\uD800')           # doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
-    UnicodeEncodeError: ...
+    AttributeError: 'Element' object has no attribute '\ud800'
 
     >>> p = cElementTree.XMLParser()
     >>> p.version.split()[0]
