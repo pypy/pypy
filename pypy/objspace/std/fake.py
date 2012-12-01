@@ -4,7 +4,7 @@ from pypy.interpreter.error import OperationError, debug_print
 from pypy.interpreter import baseobjspace
 from pypy.interpreter import eval
 from pypy.interpreter.function import Function, BuiltinFunction
-from pypy.objspace.std.stdtypedef import *
+from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.model import W_Object, UnwrapError
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef
