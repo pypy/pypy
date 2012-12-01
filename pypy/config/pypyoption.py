@@ -134,14 +134,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    default=False),
         ]),
 
-    BoolOption("nofaking", "disallow faking in the object space",
-               default=False,
-               requires=[
-                   ("objspace.usemodules.posix", True),
-                   ("objspace.usemodules.time", True),
-                   ("objspace.usemodules.errno", True)],
-               cmdline='--nofaking'),
-
     OptionDescription("usemodules", "Which Modules should be used", [
         BoolOption(modname, "use module %s" % (modname, ),
                    default=modname in default_modules,

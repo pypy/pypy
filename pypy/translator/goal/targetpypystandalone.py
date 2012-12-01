@@ -192,12 +192,11 @@ class PyPyTarget(object):
             config.objspace.lonepycfiles = False
             config.objspace.usepycfiles = False
 
-        config.objspace.nofaking = True
         config.translating = True
 
         import translate
         translate.log_config(config.objspace, "PyPy config object")
- 
+
         # obscure hack to stuff the translation options into the translated PyPy
         import pypy.module.sys
         options = make_dict(config)

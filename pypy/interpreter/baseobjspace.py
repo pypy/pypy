@@ -1,17 +1,19 @@
-from pypy.interpreter.executioncontext import ExecutionContext, ActionFlag
-from pypy.interpreter.executioncontext import UserDelAction, FrameTraceAction
-from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.error import new_exception_class, typed_unwrap_error_msg
+import sys
+
+from pypy.interpreter.executioncontext import (ExecutionContext, ActionFlag,
+    UserDelAction, FrameTraceAction)
+from pypy.interpreter.error import (OperationError, operationerrfmt,
+    new_exception_class, typed_unwrap_error_msg)
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.miscutils import ThreadLocals
 from pypy.tool.cache import Cache
 from pypy.tool.uid import HUGEVAL_BYTES
+from pypy.rlib import jit
+from pypy.rlib.debug import make_sure_not_resized
 from pypy.rlib.objectmodel import we_are_translated, newlist_hint,\
      compute_unique_id
-from pypy.rlib.debug import make_sure_not_resized
 from pypy.rlib.rarithmetic import r_uint
-from pypy.rlib import jit
-import os, sys
+
 
 __all__ = ['ObjSpace', 'OperationError', 'Wrappable', 'W_Root']
 
@@ -449,11 +451,6 @@ class ObjSpace(object):
         # XXX this could probably be done as a "requires" in the config
         if 'rctime' in modules and 'time' in modules:
             modules.remove('time')
-
-        if not self.config.objspace.nofaking:
-            for modname in self.ALL_BUILTIN_MODULES:
-                if not LIB_PYPY.join(modname+'.py').check(file=True):
-                    modules.append('faked+'+modname)
 
         self._builtinmodule_list = modules
         return self._builtinmodule_list

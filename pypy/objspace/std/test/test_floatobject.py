@@ -449,7 +449,12 @@ class AppTestAppFloatTest:
         else:
             assert False, 'did not raise'
 
+
 class AppTestFloatHex:
+    spaceconfig = {
+        "usemodules": ["binascii", "rctime"],
+    }
+
     def w_identical(self, x, y):
         import math
         # check that floats x and y are identical, or that both
