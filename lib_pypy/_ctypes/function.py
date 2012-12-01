@@ -27,7 +27,7 @@ VALID_PARAMFLAGS = (
     PARAMFLAG_FIN | PARAMFLAG_FLCID
     )
 
-WIN64 = sys.platform == 'win32' and sys.maxint == 2**63 - 1
+WIN64 = sys.platform == 'win32' and sys.maxsize == 2**63 - 1
 
 
 def get_com_error(errcode, riid, pIunk):

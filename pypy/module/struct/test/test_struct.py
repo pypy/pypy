@@ -354,12 +354,12 @@ class AppTestStruct(object):
         pack = self.struct.pack
         unpack = self.struct.unpack
         someerror = (OverflowError, self.struct.error)
-        raises(someerror, calcsize, "%dc" % (sys.maxint+1,))
+        raises(someerror, calcsize, "%dc" % (sys.maxsize+1,))
         raises(someerror, calcsize, "999999999999999999999999999c")
-        raises(someerror, calcsize, "%di" % (sys.maxint,))
-        raises(someerror, calcsize, "%dcc" % (sys.maxint,))
-        raises(someerror, calcsize, "c%dc" % (sys.maxint,))
-        raises(someerror, calcsize, "%dci" % (sys.maxint,))
+        raises(someerror, calcsize, "%di" % (sys.maxsize,))
+        raises(someerror, calcsize, "%dcc" % (sys.maxsize,))
+        raises(someerror, calcsize, "c%dc" % (sys.maxsize,))
+        raises(someerror, calcsize, "%dci" % (sys.maxsize,))
 
 
     def test_unicode(self):

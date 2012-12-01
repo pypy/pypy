@@ -13,10 +13,10 @@ class AppTestItertools:
         import sys
         itertools = self.itertools
 
-        slic = itertools.islice(itertools.count(), 1, 10, sys.maxint)
+        slic = itertools.islice(itertools.count(), 1, 10, sys.maxsize)
         assert len(list(slic)) == 1
 
         if '__pypy__' not in sys.builtin_module_names:
             skip("this takes ages on top of CPython's itertools module")
-        slic = itertools.islice(itertools.count(), 1, 10, sys.maxint-20)
+        slic = itertools.islice(itertools.count(), 1, 10, sys.maxsize-20)
         assert len(list(slic)) == 1

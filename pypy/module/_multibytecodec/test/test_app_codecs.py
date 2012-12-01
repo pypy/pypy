@@ -59,7 +59,7 @@ class AppTestCodecs:
         import codecs
         import sys
         codecs.register_error("test.test_decode_custom_error_handler_overflow",
-                              lambda e: ('', sys.maxint + 1))
+                              lambda e: ('', sys.maxsize + 1))
         raises((IndexError, OverflowError), b"abc\xDD".decode, "hz",
                "test.test_decode_custom_error_handler_overflow")
 

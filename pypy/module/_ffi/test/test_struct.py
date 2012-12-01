@@ -144,10 +144,10 @@ class AppTestStruct(BaseAppTestFFI):
         assert struct.getfield('sshort') == -32768
         struct.setfield('sint', 43)
         assert struct.getfield('sint') == 43
-        struct.setfield('slong', sys.maxint+1)
-        assert struct.getfield('slong') == -sys.maxint-1
-        struct.setfield('slong', sys.maxint*3)
-        assert struct.getfield('slong') == sys.maxint-2
+        struct.setfield('slong', sys.maxsize+1)
+        assert struct.getfield('slong') == -sys.maxsize-1
+        struct.setfield('slong', sys.maxsize*3)
+        assert struct.getfield('slong') == sys.maxsize-2
 
     def test_getfield_setfield_unsigned_types(self):
         import sys

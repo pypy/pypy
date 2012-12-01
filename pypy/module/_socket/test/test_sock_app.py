@@ -420,7 +420,7 @@ class AppTestSocket:
             else:
                 assert False
             try:
-                func(sys.maxint*2+2)
+                func(sys.maxsize*2+2)
             except OverflowError:
                 pass
             else:

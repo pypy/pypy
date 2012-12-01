@@ -199,7 +199,7 @@ class AppTestFcntl:
                for plat in ('darwin', 'openbsd', 'freebsd')):
             skip("Mac OS doesn't have any large flag in fcntl.h")
         import fcntl, sys
-        if sys.maxint == 2147483647:
+        if sys.maxsize == 2147483647:
             assert fcntl.DN_MULTISHOT == -2147483648
         else:
             assert fcntl.DN_MULTISHOT == 2147483648

@@ -48,9 +48,9 @@ class AppTestMarshal:
         case = -17
         self.marshal_check(case)
 
-    def test_sys_dot_maxint(self):
+    def test_sys_dot_maxsize(self):
         import sys
-        case = sys.maxint
+        case = sys.maxsize
         self.marshal_check(case)
 
     def test__minus_1_dot_25(self):

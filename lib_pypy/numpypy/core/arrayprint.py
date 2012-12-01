@@ -630,8 +630,8 @@ def _digits(x, precision, format):
     return precision - len(s) + len(z)
 
 
-_MAXINT = sys.maxint
-_MININT = -sys.maxint-1
+_MAXINT = sys.maxsize
+_MININT = -sys.maxsize
 class IntegerFormat(object):
     def __init__(self, data):
         try:

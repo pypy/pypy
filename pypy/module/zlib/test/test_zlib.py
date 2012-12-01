@@ -78,7 +78,7 @@ class AppTestZlib(object):
 
     def test_crc32_long_start(self):
         import sys
-        v = self.zlib.crc32(b'', sys.maxint*2)
+        v = self.zlib.crc32(b'', sys.maxsize*2)
         assert v == -2
         assert self.zlib.crc32(b'foo', 99999999999999999999999) == 1635107045
 

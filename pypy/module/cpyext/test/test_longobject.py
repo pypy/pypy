@@ -127,7 +127,7 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
                  return PyLong_FromUnsignedLong((unsigned long)-1);
              """)])
         import sys
-        assert module.from_unsignedlong() == 2 * sys.maxint + 1
+        assert module.from_unsignedlong() == 2 * sys.maxsize + 1
 
     def test_fromlonglong(self):
         module = self.import_extension('foo', [

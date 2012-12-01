@@ -94,7 +94,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         raises(TypeError, "obj.char_member = 42")
         #
         import sys
-        bignum = sys.maxint - 42
+        bignum = sys.maxsize - 42
         obj.short_member = -12345;     assert obj.short_member == -12345
         obj.long_member = -bignum;     assert obj.long_member == -bignum
         obj.ushort_member = 45678;     assert obj.ushort_member == 45678
@@ -107,7 +107,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         obj.double_member = 9.25;      assert obj.double_member == 9.25
         obj.longlong_member = -2**59;  assert obj.longlong_member == -2**59
         obj.ulonglong_member = 2**63;  assert obj.ulonglong_member == 2**63
-        obj.ssizet_member = sys.maxint;assert obj.ssizet_member == sys.maxint
+        obj.ssizet_member = sys.maxsize;assert obj.ssizet_member == sys.maxsize
         #
 
     def test_staticmethod(self):

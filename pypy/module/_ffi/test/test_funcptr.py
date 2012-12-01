@@ -95,9 +95,7 @@ class AppTestFFI(BaseAppTestFFI):
         from _ffi import CDLL
         libm = CDLL(self.libm_name)
         pow_addr = libm.getaddressindll('pow')
-        fff = sys.maxint*2-1
-        if sys.platform == 'win32':
-            fff = sys.maxint*2+1
+        fff = sys.maxsize*2-1
         assert pow_addr == self.pow_addr & fff
 
     def test_func_fromaddr(self):
@@ -121,7 +119,7 @@ class AppTestFFI(BaseAppTestFFI):
         libfoo = CDLL(self.libfoo_name)
         sum_xy = libfoo.getfunc('sum_xy', [types.sint, types.sint], types.sint)
         assert sum_xy(30, 12) == 42
-        assert sum_xy(sys.maxint*2, 0) == -2
+        assert sum_xy(sys.maxsize*2, 0) == -2
 
     def test_void_result(self):
         """
@@ -288,7 +286,7 @@ class AppTestFFI(BaseAppTestFFI):
         from _ffi import CDLL, types
         libfoo = CDLL(self.libfoo_name)
         is_null_ptr = libfoo.getfunc('is_null_ptr', [types.void_p], types.ulong)
-        assert not is_null_ptr(sys.maxint+1)
+        assert not is_null_ptr(sys.maxsize+1)
 
     def test_unsigned_long_args(self):
         """
@@ -303,10 +301,10 @@ class AppTestFFI(BaseAppTestFFI):
         libfoo = CDLL(self.libfoo_name)
         sum_xy = libfoo.getfunc('sum_xy_ul', [types.ulong, types.ulong],
                                 types.ulong)
-        assert sum_xy(sys.maxint, 12) == sys.maxint+12
-        assert sum_xy(sys.maxint+1, 12) == sys.maxint+13
+        assert sum_xy(sys.maxsize, 12) == sys.maxsize+12
+        assert sum_xy(sys.maxsize+1, 12) == sys.maxsize+13
         #
-        res = sum_xy(sys.maxint*2+3, 0)
+        res = sum_xy(sys.maxsize*2+3, 0)
         assert res == 1
 
     def test_unsigned_short_args(self):
