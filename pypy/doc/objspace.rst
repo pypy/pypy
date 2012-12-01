@@ -373,12 +373,7 @@ type object, visible to the user, and the actual implementation of its
 instances.  It is possible to provide *several* implementations of the
 instances of the same Python type, by writing several ``W_XxxObject``
 classes.  Every place that instantiates a new object of that Python type
-can decide which ``W_XxxObject`` class to instantiate.  For example, the
-regular string implementation is ``W_StringObject``, but we also have a
-``W_StringSliceObject`` class whose instances contain a string, a start
-index, and a stop index; it is used as the result of a string slicing
-operation to avoid the copy of all the characters in the slice into a
-new buffer.
+can decide which ``W_XxxObject`` class to instantiate.
 
 From the user's point of view, the multiple internal ``W_XxxObject``
 classes are not visible: they are still all instances of exactly the
@@ -424,16 +419,7 @@ multimethod:
   done with a slice object, and performs tuple slicing instead.
 
 * ``getitem__String_Slice``: called when the first argument is a
-  W_StringObject and the second argument is a slice object.  When the
-  special string slices optimization is enabled, this returns an
-  instance of W_StringSliceObject.
-
-* ``getitem__StringSlice_ANY``: called when the first argument is a
-  W_StringSliceObject.  This implementation adds the provided index to
-  the original start of the slice stored in the W_StringSliceObject
-  instance.  This allows constructs like ``a = s[10:100]; print a[5]``
-  to return the 15th character of ``s`` without having to perform any
-  buffer copying.
+  W_StringObject and the second argument is a slice object.
 
 Note how the multimethod dispatch logic helps writing new object
 implementations without having to insert hooks into existing code.  Note

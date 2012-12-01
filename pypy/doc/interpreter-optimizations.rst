@@ -31,26 +31,6 @@ them. And they are fun too!
 Object Optimizations
 ====================
 
-String Optimizations
---------------------
-
-String-Slice Objects
-++++++++++++++++++++
-
-String-slice objects are another implementation of the Python ``str`` type.
-They represent the lazy slicing of a string without actually performing the
-slicing (which would involve copying). This is only done for slices of step
-one. When the actual value of the string slice object is needed, the slicing
-is done (although a lot of string methods don't make this necessary). This
-makes string slicing a very efficient operation. It also saves memory in some
-cases but can also lead to memory leaks, since the string slice retains a
-reference to the original string (to make this a bit less likely, we don't
-use lazy slicing when the slice would be much shorter than the original
-string.  There is also a minimum number of characters below which being lazy
-is not saving any time over making the copy).
-
-You can enable this feature with the :config:`objspace.std.withstrslice` option.
-
 Integer Optimizations
 ---------------------
 

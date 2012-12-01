@@ -19,7 +19,6 @@ option_to_typename = {
     "withsmalltuple" : ["smalltupleobject.W_SmallTupleObject"],
     "withsmallint"   : ["smallintobject.W_SmallIntObject"],
     "withsmalllong"  : ["smalllongobject.W_SmallLongObject"],
-    "withstrslice"   : ["strsliceobject.W_StringSliceObject"],
     "withstrbuf"     : ["strbufobject.W_StringBufferObject"],
     "withtproxy" : ["proxyobject.W_TransparentList",
                     "proxyobject.W_TransparentDict"],
@@ -220,14 +219,6 @@ class StdTypeModel:
         self.typeorder[stringobject.W_StringObject] += [
             (unicodeobject.W_UnicodeObject, unicodeobject.delegate_String2Unicode),
             ]
-        if config.objspace.std.withstrslice:
-            from pypy.objspace.std import strsliceobject
-            self.typeorder[strsliceobject.W_StringSliceObject] += [
-                (stringobject.W_StringObject,
-                                       strsliceobject.delegate_slice2str),
-                (unicodeobject.W_UnicodeObject,
-                                       strsliceobject.delegate_slice2unicode),
-                ]
         if config.objspace.std.withstrbuf:
             from pypy.objspace.std import strbufobject
             self.typeorder[strbufobject.W_StringBufferObject] += [

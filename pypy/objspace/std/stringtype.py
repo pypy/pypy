@@ -37,11 +37,6 @@ def sliced(space, s, start, stop, orig_obj):
     assert stop >= 0
     if start == 0 and stop == len(s) and space.is_w(space.type(orig_obj), space.w_str):
         return orig_obj
-    if space.config.objspace.std.withstrslice:
-        from pypy.objspace.std.strsliceobject import W_StringSliceObject
-        # XXX heuristic, should be improved!
-        if (stop - start) > len(s) * 0.20 + 40:
-            return W_StringSliceObject(s, start, stop)
     return wrapstr(space, s[start:stop])
 
 def joined2(space, str1, str2):
