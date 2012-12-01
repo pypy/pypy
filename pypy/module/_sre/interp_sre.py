@@ -43,13 +43,15 @@ def slice_w(space, ctx, start, end, w_default):
             raise SystemError
     return w_default
 
+
+@jit.look_inside_iff(lambda ctx, num_groups: jit.isconstant(num_groups))
 def do_flatten_marks(ctx, num_groups):
     # Returns a list of RPython-level integers.
     # Unlike the app-level groups() method, groups are numbered from 0
     # and the returned list does not start with the whole match range.
     if num_groups == 0:
         return None
-    result = [-1] * (2*num_groups)
+    result = [-1] * (2 * num_groups)
     mark = ctx.match_marks
     while mark is not None:
         index = mark.gid
