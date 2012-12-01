@@ -137,8 +137,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
                                                          inline=True)
         if hasattr(self, 'GC_PARAMS'):
             # for tests: the GC choice can be specified as class attributes
-            from pypy.rpython.memory.gc.marksweep import MarkSweepGC
-            GCClass = getattr(self, 'GCClass', MarkSweepGC)
+            GCClass = self.GCClass
             GC_PARAMS = self.GC_PARAMS
         else:
             # for regular translation: pick the GC from the config
@@ -465,9 +464,6 @@ class BaseFrameworkGCTransformer(GCTransformer):
                                              getfn(func,
                                                    [annmodel.SomeAddress()],
                                                    annmodel.s_None)
-        self.statistics_ptr = getfn(GCClass.statistics.im_func,
-                                    [s_gc, annmodel.SomeInteger()],
-                                    annmodel.SomeInteger())
 
         # thread support
         if translator.config.translation.continuation:
@@ -826,13 +822,6 @@ class BaseFrameworkGCTransformer(GCTransformer):
     def gct_gc_start_fresh_new_state(self, hop):
         hop.genop("direct_call",
                   [self.root_walker.gc_start_fresh_new_state_ptr])
-
-    def gct_gc_x_swap_pool(self, hop):
-        raise NotImplementedError("old operation deprecated")
-    def gct_gc_x_clone(self, hop):
-        raise NotImplementedError("old operation deprecated")
-    def gct_gc_x_size_header(self, hop):
-        raise NotImplementedError("old operation deprecated")
 
     def gct_do_malloc_fixedsize_clear(self, hop):
         # used by the JIT (see pypy.jit.backend.llsupport.gc)

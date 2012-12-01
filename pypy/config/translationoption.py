@@ -58,21 +58,19 @@ translation_optiondescription = OptionDescription(
 
     # gc
     ChoiceOption("gc", "Garbage Collection Strategy",
-                 ["boehm", "ref", "marksweep", "semispace", "statistics",
-                  "generation", "hybrid", "markcompact", "minimark", "none"],
+                 ["boehm", "ref", "semispace", "statistics",
+                  "generation", "hybrid", "minimark", "none"],
                   "ref", requires={
                      "ref": [("translation.rweakref", False), # XXX
                              ("translation.gctransformer", "ref")],
                      "none": [("translation.rweakref", False), # XXX
                              ("translation.gctransformer", "none")],
                      "semispace": [("translation.gctransformer", "framework")],
-                     "marksweep": [("translation.gctransformer", "framework")],
                      "statistics": [("translation.gctransformer", "framework")],
                      "generation": [("translation.gctransformer", "framework")],
                      "hybrid": [("translation.gctransformer", "framework")],
                      "boehm": [("translation.continuation", False),  # breaks
                                ("translation.gctransformer", "boehm")],
-                     "markcompact": [("translation.gctransformer", "framework")],
                      "minimark": [("translation.gctransformer", "framework")],
                      },
                   cmdline="--gc"),
