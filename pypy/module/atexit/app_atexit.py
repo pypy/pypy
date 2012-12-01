@@ -31,7 +31,9 @@ def run_exitfuncs():
                 # obscure: we can't use sys.exc_info() here because this
                 # function is an appleveldef which marks its frame as
                 # hidden
-                traceback.print_exception(type(e), e, e.__traceback__)
+                last_exc = e
+                last_tb = e.__traceback__
+                traceback.print_exception(type(last_exc), last_exc, last_tb)
 
     clear()
 
