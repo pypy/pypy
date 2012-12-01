@@ -11,9 +11,6 @@ from sys import maxint
 
 def wrapunicode(space, uni):
     from pypy.objspace.std.unicodeobject import W_UnicodeObject
-    from pypy.objspace.std.ropeunicodeobject import wrapunicode
-    if space.config.objspace.std.withropeunicode:
-        return wrapunicode(space, uni)
     return W_UnicodeObject(uni)
 
 def plain_str2unicode(space, s):
@@ -290,9 +287,6 @@ def unicode_from_object(space, w_obj):
 
 def unicode_from_string(space, w_str):
     # this is a performance and bootstrapping hack
-    if space.config.objspace.std.withropeunicode:
-        from pypy.objspace.std.ropeunicodeobject import unicode_from_string
-        return unicode_from_string(space, w_str)
     encoding = getdefaultencoding(space)
     from pypy.objspace.std.unicodeobject import W_UnicodeObject
     if encoding != 'ascii':
@@ -315,7 +309,6 @@ def descr_new_(space, w_unicodetype, w_string, w_encoding=None, w_errors=None):
     # NB. the default value of w_obj is really a *wrapped* empty string:
     #     there is gateway magic at work
     from pypy.objspace.std.unicodeobject import W_UnicodeObject
-    from pypy.objspace.std.ropeunicodeobject import W_RopeUnicodeObject
     w_obj = w_string
 
     encoding, errors = _get_encoding_and_errors(space, w_encoding, w_errors)
@@ -336,12 +329,6 @@ def descr_new_(space, w_unicodetype, w_string, w_encoding=None, w_errors=None):
                                                   encoding, errors)
         if space.is_w(w_unicodetype, space.w_unicode):
             return w_value
-
-    if space.config.objspace.std.withropeunicode:
-        assert isinstance(w_value, W_RopeUnicodeObject)
-        w_newobj = space.allocate_instance(W_RopeUnicodeObject, w_unicodetype)
-        W_RopeUnicodeObject.__init__(w_newobj, w_value._node)
-        return w_newobj
 
     assert isinstance(w_value, W_UnicodeObject)
     w_newobj = space.allocate_instance(W_UnicodeObject, w_unicodetype)

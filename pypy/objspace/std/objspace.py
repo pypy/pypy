@@ -23,7 +23,6 @@ from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.longobject import W_LongObject, newlong
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.objectobject import W_ObjectObject
-from pypy.objspace.std.ropeobject import W_RopeObject
 from pypy.objspace.std.iterobject import W_SeqIterObject
 from pypy.objspace.std.setobject import W_SetObject, W_FrozensetObject
 from pypy.objspace.std.sliceobject import W_SliceObject
@@ -48,12 +47,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
         self.model = model.StdTypeModel(self.config)
 
         self.FrameClass = frame.build_frame(self)
+        self.StringObjectCls = W_StringObject
 
-        if self.config.objspace.std.withrope:
-            self.StringObjectCls = W_RopeObject
-        else:
-            self.StringObjectCls = W_StringObject
-            
         self.UnicodeObjectCls = W_UnicodeObject
 
         self._install_multimethods()

@@ -64,35 +64,6 @@ is not saving any time over making the copy).
 
 You can enable this feature with the :config:`objspace.std.withstrslice` option.
 
-Ropes
-+++++
-
-Ropes are a general flexible string implementation, following the paper `"Ropes:
-An alternative to Strings."`_ by Boehm, Atkinson and Plass. Strings are
-represented as balanced concatenation trees, which makes slicing and
-concatenation of huge strings efficient.
-
-Using ropes is usually not a huge benefit for normal Python programs that use
-the typical pattern of appending substrings to a list and doing a
-``"".join(l)`` at the end. If ropes are used, there is no need to do that.
-A somewhat silly example of things you can do with them is this::
-
-    $ bin/py.py --objspace-std-withrope
-    faking <type 'module'>
-    PyPy 1.5.0-alpha0 in StdObjSpace on top of Python 2.7.1+ (startuptime: 11.38 secs)
-    >>>> import sys
-    >>>> sys.maxint
-    2147483647
-    >>>> s = "a" * sys.maxint
-    >>>> s[10:20]
-    'aaaaaaaaaa'
-
-
-You can enable this feature with the :config:`objspace.std.withrope` option.
-
-.. _`"Ropes: An alternative to Strings."`: http://citeseer.ist.psu.edu/viewdoc/download?doi=10.1.1.14.9450&rep=rep1&type=pdf
-
-
 Integer Optimizations
 ---------------------
 

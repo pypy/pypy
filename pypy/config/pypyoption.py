@@ -254,18 +254,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    "use specialised tuples",
                    default=False),
 
-        BoolOption("withrope", "use ropes as the string implementation",
-                   default=False,
-                   requires=[("objspace.std.withstrslice", False),
-                             ("objspace.std.withstrjoin", False),
-                             ("objspace.std.withstrbuf", False)],
-                   suggests=[("objspace.std.withprebuiltchar", True),
-                             ("objspace.std.sharesmallstr", True)]),
-
-        BoolOption("withropeunicode", "use ropes for the unicode implementation",
-                   default=False,
-                   requires=[("objspace.std.withrope", True)]),
-
         BoolOption("withcelldict",
                    "use dictionaries that are optimized for being used as module dicts",
                    default=False,
@@ -394,7 +382,6 @@ def set_pypy_opt_level(config, level):
         config.objspace.std.suggest(withstrjoin=True)
         if not IS_64_BITS:
             config.objspace.std.suggest(withsmalllong=True)
-        # xxx other options? ropes maybe?
 
     # some optimizations have different effects depending on the typesystem
     if type_system == 'ootype':

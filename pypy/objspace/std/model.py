@@ -22,10 +22,6 @@ option_to_typename = {
     "withstrslice"   : ["strsliceobject.W_StringSliceObject"],
     "withstrjoin"    : ["strjoinobject.W_StringJoinObject"],
     "withstrbuf"     : ["strbufobject.W_StringBufferObject"],
-    "withrope"       : ["ropeobject.W_RopeObject",
-                        "ropeobject.W_RopeIterObject"],
-    "withropeunicode": ["ropeunicodeobject.W_RopeUnicodeObject",
-                        "ropeunicodeobject.W_RopeUnicodeIterObject"],
     "withtproxy" : ["proxyobject.W_TransparentList",
                     "proxyobject.W_TransparentDict"],
 }
@@ -151,9 +147,6 @@ class StdTypeModel:
                     else:
                         self.imported_but_not_registered[implcls] = True
 
-        if config.objspace.std.withrope:
-            del self.typeorder[stringobject.W_StringObject]
-
         # check if we missed implementations
         for implcls in _registered_implementations:
             if hasattr(implcls, 'register'):
@@ -225,22 +218,9 @@ class StdTypeModel:
         self.typeorder[setobject.W_FrozensetObject] += [
             (setobject.W_BaseSetObject, None)
             ]
-        if not config.objspace.std.withrope:
-            self.typeorder[stringobject.W_StringObject] += [
-             (unicodeobject.W_UnicodeObject, unicodeobject.delegate_String2Unicode),
-                ]
-        else:
-            from pypy.objspace.std import ropeobject
-            if config.objspace.std.withropeunicode:
-                from pypy.objspace.std import ropeunicodeobject
-                self.typeorder[ropeobject.W_RopeObject] += [
-                 (ropeunicodeobject.W_RopeUnicodeObject,
-                     ropeunicodeobject.delegate_Rope2RopeUnicode),
-                 ]
-            else:
-                self.typeorder[ropeobject.W_RopeObject] += [
-                 (unicodeobject.W_UnicodeObject, unicodeobject.delegate_String2Unicode),
-                    ]
+        self.typeorder[stringobject.W_StringObject] += [
+            (unicodeobject.W_UnicodeObject, unicodeobject.delegate_String2Unicode),
+            ]
         if config.objspace.std.withstrslice:
             from pypy.objspace.std import strsliceobject
             self.typeorder[strsliceobject.W_StringSliceObject] += [
