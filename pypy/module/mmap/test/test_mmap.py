@@ -448,6 +448,8 @@ class AppTestMMap:
         raises((IndexError, ValueError), fn)
         def fn(): m[:2] = b"z" * 5
         raises((IndexError, ValueError), fn)
+        def fn(): m[0] = 256
+        raises(ValueError, fn)
         m[1:3] = b'xx'
         assert m.read(6) == b"fxxbar"
         m[0] = ord('x')

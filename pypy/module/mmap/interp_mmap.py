@@ -21,7 +21,7 @@ class W_MMap(Wrappable):
 
     def read_byte(self):
         try:
-            return self.space.wrapbytes(self.mmap.read_byte())
+            return self.space.wrap(ord(self.mmap.read_byte()))
         except RValueError, v:
             raise OperationError(self.space.w_ValueError,
                                  self.space.wrap(v.message))
@@ -86,10 +86,10 @@ class W_MMap(Wrappable):
             raise OperationError(self.space.w_ValueError,
                                  self.space.wrap(v.message))
 
-    @unwrap_spec(byte='bufferstr')
+    @unwrap_spec(byte=int)
     def write_byte(self, byte):
         try:
-            self.mmap.write_byte(byte)
+            self.mmap.write_byte(chr(byte))
         except RValueError, v:
             raise OperationError(self.space.w_ValueError,
                                  self.space.wrap(v.message))
@@ -172,7 +172,7 @@ class W_MMap(Wrappable):
         space = self.space
         start, stop, step = space.decode_index(w_index, self.mmap.size)
         if step == 0:  # index only
-            return space.wrapbytes(self.mmap.getitem(start))
+            return space.wrap(ord(self.mmap.getitem(start)))
         else:
             res = "".join([self.mmap.getitem(i)
                            for i in range(start, stop, step)])
@@ -180,19 +180,18 @@ class W_MMap(Wrappable):
 
     def descr_setitem(self, w_index, w_value):
         space = self.space
-        value = space.realstr_w(w_value)
         self.check_valid()
-
         self.check_writeable()
 
         start, stop, step, length = space.decode_index4(w_index, self.mmap.size)
         if step == 0:  # index only
-            if len(value) != 1:
-                raise OperationError(space.w_ValueError,
-                                     space.wrap("mmap assignment must be "
-                                                "single-character string"))
-            self.mmap.setitem(start, value)
+            value = space.int_w(w_value)
+            if not 0 <= value < 256:
+                raise OperationError(space.w_ValueError, space.wrap(
+                        "mmap item value must be in range(0, 256)"))
+            self.mmap.setitem(start, chr(value))
         else:
+            value = space.realstr_w(w_value)
             if len(value) != length:
                 raise OperationError(space.w_ValueError,
                           space.wrap("mmap slice assignment is wrong size"))

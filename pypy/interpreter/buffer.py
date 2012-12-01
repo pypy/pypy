@@ -253,10 +253,16 @@ class StringLikeBuffer(Buffer):
 
     def getitem(self, index):
         space = self.space
-        s = space.str_w(space.getitem(self.w_obj, space.wrap(index)))
+        w_value = space.getitem(self.w_obj, space.wrap(index))
+        try:
+            return chr(space.int_w(w_value))
+        except OperationError as exc:
+            if not e.match(space, space.w_TypeError):
+                raise
+        s = space.bytes_w(w_value)
         if len(s) != 1:
             raise OperationError(space.w_ValueError,
-                                 space.wrap("character expected, got string"))
+                                 space.wrap("single byte expected, got string"))
         char = s[0]   # annotator hint
         return char
 
