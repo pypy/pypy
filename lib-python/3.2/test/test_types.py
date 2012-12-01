@@ -1,6 +1,6 @@
 # Python test set -- part 6, built-in types
 
-from test.support import run_unittest, run_with_locale
+from test.support import run_unittest, run_with_locale, impl_detail
 import unittest
 import sys
 import locale
@@ -564,6 +564,7 @@ class TypesTests(unittest.TestCase):
         for code in 'xXobns':
             self.assertRaises(ValueError, format, 0, ',' + code)
 
+    @impl_detail("PyPy has no object.__basicsize__", pypy=False)
     def test_internal_sizes(self):
         self.assertGreater(object.__basicsize__, 0)
         self.assertGreater(tuple.__itemsize__, 0)
