@@ -18,3 +18,8 @@ class AppTestAtexit:
         finally:
             sys.stdout = stdout
             sys.stderr = stderr
+
+    def test_badargs(self):
+        import atexit
+        atexit.register(lambda: 1, 0, 0, (x for x in (1,2)), 0, 0)
+        raises(TypeError, atexit._run_exitfuncs)

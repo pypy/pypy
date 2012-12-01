@@ -27,10 +27,11 @@ def run_exitfuncs():
             func(*args, **kwargs)
         except BaseException as e:
             if not isinstance(e, SystemExit):
-                import sys
                 import traceback
-                last_type, last_exc, last_tb = sys.exc_info()
-                traceback.print_exception(last_type, last_exc, last_tb)
+                # obscure: we can't use sys.exc_info() here because this
+                # function is an appleveldef which marks its frame as
+                # hidden
+                traceback.print_exception(type(e), e, e.__traceback__)
 
     clear()
 
