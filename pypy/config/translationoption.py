@@ -127,8 +127,6 @@ translation_optiondescription = OptionDescription(
 
     # misc
     BoolOption("verbose", "Print extra information", default=False),
-    BoolOption("insist", "Try hard to go on RTyping", default=False,
-               cmdline="--insist"),
     StrOption("cc", "Specify compiler to use for compiling generated C", cmdline="--cc"),
     StrOption("profopt", "Specify profile based optimization script",
               cmdline="--profopt"),
