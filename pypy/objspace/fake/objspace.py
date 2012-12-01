@@ -143,6 +143,9 @@ class FakeObjSpace(ObjSpace):
     def newcomplex(self, x, y):
         return w_some_obj()
 
+    def newlong_from_rbigint(self, x):
+        return w_some_obj()
+
     def marshal_w(self, w_obj):
         "NOT_RPYTHON"
         raise NotImplementedError
