@@ -1,10 +1,11 @@
-import autopath
-import py, os
 import sys
-from pypy.config.config import OptionDescription, BoolOption, IntOption, ArbitraryOption
-from pypy.config.config import ChoiceOption, StrOption, to_optparse, Config
-from pypy.config.config import ConflictConfigError
+
+import py
+
+from pypy.config.config import (OptionDescription, BoolOption, IntOption,
+  ChoiceOption, StrOption, to_optparse, ConflictConfigError)
 from pypy.config.translationoption import IS_64_BITS
+
 
 modulepath = py.path.local(__file__).dirpath().dirpath().join("module")
 all_modules = [p.basename for p in modulepath.listdir()
