@@ -365,9 +365,6 @@ class ObjSpace(object):
                 mod.shutdown(self)
         if self.config.objspace.logbytecodes:
             self.reportbytecodecounts()
-        if self.config.objspace.std.logspaceoptypes:
-            for s in self.FrameClass._space_op_types:
-                print s
 
     def wait_for_thread_shutdown(self):
         """Wait until threading._shutdown() completes, provided the threading

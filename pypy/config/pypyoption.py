@@ -318,10 +318,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    # weakrefs needed, because of get_subclasses()
                    requires=[("translation.rweakref", True)]),
 
-        BoolOption("logspaceoptypes",
-                   "a instrumentation option: before exit, print the types seen by "
-                   "certain simpler bytecodes",
-                   default=False),
         ChoiceOption("multimethods", "the multimethod implementation to use",
                      ["doubledispatch", "mrd"],
                      default="mrd"),

@@ -114,11 +114,6 @@ def build_frame(space):
         StdObjSpaceFrame.CALL_METHOD = CALL_METHOD
     if space.config.objspace.std.optimized_comparison_op:
         StdObjSpaceFrame.COMPARE_OP = fast_COMPARE_OP
-    if space.config.objspace.std.logspaceoptypes:
-        assert 0, "logspaceoptypes: a few fixes a missing here"
-        StdObjSpace._space_op_types = []
-        for name, new in get_logging():
-            setattr(StdObjSpaceFrame, name, new)
     return StdObjSpaceFrame
 
 
