@@ -662,8 +662,8 @@ class FlowSpaceFrame(object):
                 self.last_exception = operr
                 raise operr
             else:
-                raise FSException(space.w_TypeError,
-                    space.wrap("raise: no active exception to re-raise"))
+                raise FSException(space.w_RuntimeError,
+                    space.wrap("No active exception to reraise"))
 
         w_value = w_traceback = space.w_None
         if nbargs >= 3:

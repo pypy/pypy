@@ -479,8 +479,8 @@ class __extend__(pyframe.PyFrame):
                     break
                 frame = frame.f_backref()
             else:
-                raise OperationError(space.w_TypeError,
-                    space.wrap("raise: no active exception to re-raise"))
+                raise OperationError(space.w_RuntimeError,
+                    space.wrap("No active exception to reraise"))
             # re-raise, no new traceback obj will be attached
             self.last_exception = operror
             raise RaiseWithExplicitTraceback(operror)

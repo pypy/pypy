@@ -320,3 +320,11 @@ class AppTestRaise:
             except ValueError:
                 break
         assert sys.exc_info() == (None, None, None)
+
+    def test_invalid_reraise(self):
+        try:
+            raise
+        except RuntimeError as e:
+            assert "No active exception" in str(e)
+        else:
+            fail("Expected RuntimeError")
