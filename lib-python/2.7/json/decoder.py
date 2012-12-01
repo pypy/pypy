@@ -146,7 +146,7 @@ WHITESPACE = re.compile(r'[ \t\n\r]*', FLAGS)
 WHITESPACE_STR = ' \t\n\r'
 
 def JSONObject(s_and_end, encoding, strict, scan_once, object_hook,
-               object_pairs_hook, _w=WHITESPACE.match, _ws=WHITESPACE_STR):
+               object_pairs_hook):
     s, end = s_and_end
     pairs = []
     pairs_append = pairs.append
@@ -155,8 +155,8 @@ def JSONObject(s_and_end, encoding, strict, scan_once, object_hook,
     nextchar = s[end:end + 1]
     # Normally we expect nextchar == '"'
     if nextchar != '"':
-        if nextchar in _ws:
-            end = _w(s, end).end()
+        if nextchar in WHITESPACE_STR:
+            end = WHITESPACE.match(s, end).end()
             nextchar = s[end:end + 1]
         # Trivial empty object
         if nextchar == '}':
@@ -176,17 +176,17 @@ def JSONObject(s_and_end, encoding, strict, scan_once, object_hook,
         # To skip some function call overhead we optimize the fast paths where
         # the JSON key separator is ": " or just ":".
         if s[end:end + 1] != ':':
-            end = _w(s, end).end()
+            end = WHITESPACE.match(s, end).end()
             if s[end:end + 1] != ':':
                 raise ValueError(errmsg("Expecting : delimiter", s, end))
 
         end += 1
 
         try:
-            if s[end] in _ws:
+            if s[end] in WHITESPACE_STR:
                 end += 1
-                if s[end] in _ws:
-                    end = _w(s, end + 1).end()
+                if s[end] in WHITESPACE_STR:
+                    end = WHITESPACE.match(s, end + 1).end()
         except IndexError:
             pass
 
@@ -198,8 +198,8 @@ def JSONObject(s_and_end, encoding, strict, scan_once, object_hook,
 
         try:
             nextchar = s[end]
-            if nextchar in _ws:
-                end = _w(s, end + 1).end()
+            if nextchar in WHITESPACE_STR:
+                end = WHITESPACE.match(s, end + 1).end()
                 nextchar = s[end]
         except IndexError:
             nextchar = ''
@@ -212,11 +212,11 @@ def JSONObject(s_and_end, encoding, strict, scan_once, object_hook,
 
         try:
             nextchar = s[end]
-            if nextchar in _ws:
+            if nextchar in WHITESPACE_STR:
                 end += 1
                 nextchar = s[end]
-                if nextchar in _ws:
-                    end = _w(s, end + 1).end()
+                if nextchar in WHITESPACE_STR:
+                    end = WHITESPACE.match(s, end + 1).end()
                     nextchar = s[end]
         except IndexError:
             nextchar = ''
@@ -233,12 +233,12 @@ def JSONObject(s_and_end, encoding, strict, scan_once, object_hook,
         pairs = object_hook(pairs)
     return pairs, end
 
-def JSONArray(s_and_end, scan_once, _w=WHITESPACE.match, _ws=WHITESPACE_STR):
+def JSONArray(s_and_end, scan_once):
     s, end = s_and_end
     values = []
     nextchar = s[end:end + 1]
-    if nextchar in _ws:
-        end = _w(s, end + 1).end()
+    if nextchar in WHITESPACE_STR:
+        end = WHITESPACE.match(s, end + 1).end()
         nextchar = s[end:end + 1]
     # Look-ahead for trivial empty array
     if nextchar == ']':
@@ -251,8 +251,8 @@ def JSONArray(s_and_end, scan_once, _w=WHITESPACE.match, _ws=WHITESPACE_STR):
             raise ValueError(errmsg("Expecting object", s, end))
         _append(value)
         nextchar = s[end:end + 1]
-        if nextchar in _ws:
-            end = _w(s, end + 1).end()
+        if nextchar in WHITESPACE_STR:
+            end = WHITESPACE.match(s, end + 1).end()
             nextchar = s[end:end + 1]
         end += 1
         if nextchar == ']':
@@ -261,10 +261,10 @@ def JSONArray(s_and_end, scan_once, _w=WHITESPACE.match, _ws=WHITESPACE_STR):
             raise ValueError(errmsg("Expecting , delimiter", s, end))
 
         try:
-            if s[end] in _ws:
+            if s[end] in WHITESPACE_STR:
                 end += 1
-                if s[end] in _ws:
-                    end = _w(s, end + 1).end()
+                if s[end] in WHITESPACE_STR:
+                    end = WHITESPACE.match(s, end + 1).end()
         except IndexError:
             pass
 
