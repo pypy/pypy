@@ -256,7 +256,7 @@ class StringLikeBuffer(Buffer):
         w_value = space.getitem(self.w_obj, space.wrap(index))
         try:
             return chr(space.int_w(w_value))
-        except OperationError as exc:
+        except OperationError as e:
             if not e.match(space, space.w_TypeError):
                 raise
         s = space.bytes_w(w_value)
