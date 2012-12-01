@@ -395,6 +395,18 @@ class TestUnicode(BaseApiTest):
         assert api.Py_UNICODE_TONUMERIC(u'A') == -1.0
         assert api.Py_UNICODE_TONUMERIC(u'\N{VULGAR FRACTION ONE HALF}') == .5
 
+    def test_transform_decimal(self, space, api):
+        def transform_decimal(s):
+            with rffi.scoped_unicode2wcharp(s) as u:
+                return space.unwrap(
+                    api.PyUnicode_TransformDecimalToASCII(u, len(s)))
+        assert isinstance(transform_decimal(u'123'), unicode)
+        assert transform_decimal(u'123') == u'123'
+        assert transform_decimal(u'\u0663.\u0661\u0664') == u'3.14'
+        assert transform_decimal(u"\N{EM SPACE}3.14\N{EN SPACE}") == (
+            u"\N{EM SPACE}3.14\N{EN SPACE}")
+        assert transform_decimal(u'123\u20ac') == u'123\u20ac'
+
     def test_fromobject(self, space, api):
         w_u = space.wrap(u'a')
         assert api.PyUnicode_FromObject(w_u) is w_u

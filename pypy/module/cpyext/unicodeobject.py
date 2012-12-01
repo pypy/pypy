@@ -14,7 +14,7 @@ from pypy.module.cpyext.bytesobject import PyBytes_Check, PyBytes_FromObject
 from pypy.module._codecs.interp_codecs import CodecState
 from pypy.module.posix.interp_posix import fsencode, fsdecode
 from pypy.objspace.std import unicodeobject, unicodetype, stringtype
-from pypy.rlib import runicode
+from pypy.rlib import runicode, rstring
 from pypy.tool.sourcetools import func_renamer
 import sys
 
@@ -738,6 +738,23 @@ def PyUnicode_EncodeDecimal(space, s, length, output, llerrors):
         i -= 1
     return 0
 
+@cpython_api([rffi.CArrayPtr(Py_UNICODE), Py_ssize_t], PyObject)
+def PyUnicode_TransformDecimalToASCII(space, s, size):
+    """Create a Unicode object by replacing all decimal digits in
+    Py_UNICODE buffer of the given size by ASCII digits 0--9
+    according to their decimal value.  Return NULL if an exception
+    occurs."""
+    result = rstring.UnicodeBuilder(size)
+    for i in range(size):
+        ch = s[i]
+        if ord(ch) > 127:
+            decimal = Py_UNICODE_TODECIMAL(space, ch)
+            decimal = rffi.cast(lltype.Signed, decimal)
+            if decimal >= 0:
+                ch = unichr(ord('0') + decimal)
+        result.append(ch)
+    return space.wrap(result.build())
+    
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=-2)
 def PyUnicode_Compare(space, w_left, w_right):
     """Compare two strings and return -1, 0, 1 for less than, equal, and greater

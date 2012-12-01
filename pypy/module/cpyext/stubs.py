@@ -2037,15 +2037,6 @@ def Py_UNICODE_ISPRINTABLE(space, ch):
     raise NotImplementedError
     
 
-@cpython_api([rffi.CArrayPtr(Py_UNICODE), Py_ssize_t], PyObject)
-def PyUnicode_TransformDecimalToASCII(space, s, size):
-    """Create a Unicode object by replacing all decimal digits in
-    Py_UNICODE buffer of the given size by ASCII digits 0--9
-    according to their decimal value.  Return NULL if an exception
-    occurs."""
-    raise NotImplementedError
-    
-
 @cpython_api([PyObject], rffi.CArrayPtr(Py_UNICODE))
 def PyUnicode_AsUnicodeCopy(space, unicode):
     """Create a copy of a Unicode string ending with a nul character. Return NULL
