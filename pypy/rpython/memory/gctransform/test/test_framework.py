@@ -2,7 +2,7 @@ from pypy.annotation.listdef import s_list_of_strings
 from pypy.annotation.model import SomeInteger
 from pypy.objspace.flow.model import Constant, SpaceOperation
 from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.rpython.memory.gc.marksweep import MarkSweepGC
+from pypy.rpython.memory.gc.semispace import SemiSpaceGC
 from pypy.rpython.memory.gctransform.framework import (CollectAnalyzer,
      find_initializing_stores, find_clean_setarrayitems)
 from pypy.rpython.memory.gctransform.shadowstack import (
@@ -142,7 +142,7 @@ def test_no_collect_detection():
 class WriteBarrierTransformer(ShadowStackFrameworkGCTransformer):
     clean_sets = {}
     GC_PARAMS = {}
-    class GCClass(MarkSweepGC):
+    class GCClass(SemiSpaceGC):
         needs_write_barrier = True
         def writebarrier_before_copy(self, source, dest,
                                      source_start, dest_start, length):
