@@ -11,6 +11,9 @@ extern "C" {
     ((PyType_Check((x)) &&                                              \
       PyObject_IsSubclass((x), PyExc_BaseException)))
 
+#define PyExceptionInstance_Check(x)                                    \
+    (PyObject_IsSubclass((x)->ob_type, PyExc_BaseException))
+
 PyObject *PyErr_NewException(const char *name, PyObject *base, PyObject *dict);
 PyObject *PyErr_NewExceptionWithDoc(const char *name, const char *doc, PyObject *base, PyObject *dict);
 PyObject *PyErr_Format(PyObject *exception, const char *format, ...);
