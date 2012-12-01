@@ -370,6 +370,7 @@ class AppTestBytesArray:
         b.extend(c for c in b'hello')
         assert b == bytearray(b'worldhello')
 
+        raises(TypeError, b.extend, 3)
         raises(TypeError, b.extend, [b'fish'])
         raises(ValueError, b.extend, [256])
         raises(TypeError, b.extend, object())

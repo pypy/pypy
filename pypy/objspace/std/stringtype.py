@@ -271,7 +271,7 @@ def getbytevalue(space, w_value):
             "byte must be in range(0, 256)"))
     return chr(value)
 
-def makebytesdata_w(space, w_source, encoding=None, errors=None):
+def newbytesdata_w(space, w_source, encoding, errors):
     # None value
     if w_source is None:
         if encoding is not None or errors is not None:
@@ -300,6 +300,10 @@ def makebytesdata_w(space, w_source, encoding=None, errors=None):
         from pypy.objspace.std.unicodetype import encode_object
         w_source = encode_object(space, w_source, encoding, errors)
         # and continue with the encoded string
+
+    return makebytesdata_w(space, w_source)
+
+def makebytesdata_w(space, w_source):
 
     # String-like argument
     try:
@@ -335,7 +339,7 @@ def descr__new__(space, w_stringtype, w_source=None, encoding=None,
     if (w_source and space.is_w(space.type(w_source), space.w_bytes) and
         space.is_w(w_stringtype, space.w_bytes)):
         return w_source
-    value = ''.join(makebytesdata_w(space, w_source, encoding, errors))
+    value = ''.join(newbytesdata_w(space, w_source, encoding, errors))
     if space.config.objspace.std.withrope:
         from pypy.objspace.std.ropeobject import rope, W_RopeObject
         w_obj = space.allocate_instance(W_RopeObject, w_stringtype)

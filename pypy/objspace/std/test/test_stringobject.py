@@ -395,13 +395,13 @@ class AppTestStringObject:
         assert b'x\t\t'.expandtabs(-1) == b'x'
         assert b'x\t\t'.expandtabs(0) == b'x'
 
-        raises(OverflowError, b"t\tt\t".expandtabs, sys.maxint)
+        raises(OverflowError, b"t\tt\t".expandtabs, sys.maxsize)
 
     def test_expandtabs_overflows_gracefully(self):
         import sys
-        if sys.maxint > (1 << 32):
+        if sys.maxsize > (1 << 32):
             skip("Wrong platform")
-        raises((MemoryError, OverflowError), b't\tt\t'.expandtabs, sys.maxint)
+        raises((MemoryError, OverflowError), b't\tt\t'.expandtabs, sys.maxsize)
 
     def test_splitlines(self):
         s = b""
@@ -436,12 +436,12 @@ class AppTestStringObject:
         raises(TypeError, b'abcdef'.find, b'd', 1.0)
 
     def test_index(self):
-        from sys import maxint
+        from sys import maxsize
         assert b'abcdefghiabc'.index(b'') == 0
         assert b'abcdefghiabc'.index(b'def') == 3
         assert b'abcdefghiabc'.index(b'abc') == 0
         assert b'abcdefghiabc'.index(b'abc', 1) == 9
-        assert b'abcdefghiabc'.index(b'def', -4*maxint, 4*maxint) == 3
+        assert b'abcdefghiabc'.index(b'def', -4*maxsize, 4*maxsize) == 3
         assert b'abcdefgh'.index(b'def', 2, None) == 3
         assert b'abcdefgh'.index(b'def', None, None) == 3
         raises(ValueError, b'abcdefghiabc'.index, b'hib')
@@ -462,12 +462,12 @@ class AppTestStringObject:
         assert b'abcdefgh'.rfind(b'def', 2, None) == 3
 
     def test_rindex(self):
-        from sys import maxint
+        from sys import maxsize
         assert b'abcdefghiabc'.rindex(b'') == 12
         assert b'abcdefghiabc'.rindex(b'def') == 3
         assert b'abcdefghiabc'.rindex(b'abc') == 9
         assert b'abcdefghiabc'.rindex(b'abc', 0, -1) == 0
-        assert b'abcdefghiabc'.rindex(b'abc', -4*maxint, 4*maxint) == 9
+        assert b'abcdefghiabc'.rindex(b'abc', -4*maxsize, 4*maxsize) == 9
         raises(ValueError, b'abcdefghiabc'.rindex, b'hib')
         raises(ValueError, b'defghiabc'.rindex, b'def', 1)
         raises(ValueError, b'defghiabc'.rindex, b'abc', 0, -1)
@@ -762,6 +762,7 @@ class AppTestStringObject:
     def test_maketrans(self):
         table = b'\000\001\002\003\004\005\006\007\010\011\012\013\014\015\016\017\020\021\022\023\024\025\026\027\030\031\032\033\034\035\036\037 !"#$%&\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`xyzdefghijklmnopqrstuvwxyz{|}~\177\200\201\202\203\204\205\206\207\210\211\212\213\214\215\216\217\220\221\222\223\224\225\226\227\230\231\232\233\234\235\236\237\240\241\242\243\244\245\246\247\250\251\252\253\254\255\256\257\260\261\262\263\264\265\266\267\270\271\272\273\274\275\276\277\300\301\302\303\304\305\306\307\310\311\312\313\314\315\316\317\320\321\322\323\324\325\326\327\330\331\332\333\334\335\336\337\340\341\342\343\344\345\346\347\350\351\352\353\354\355\356\357\360\361\362\363\364\365\366\367\370\371\372\373\374\375\376\377'
         assert bytes.maketrans(b'abc', b'xyz') == table
+        raises(TypeError, bytes.maketrans, 5, 5)
 
     def test_compatibility(self):
         #a whole bunch of methods should accept bytearray/memoryview without complaining...

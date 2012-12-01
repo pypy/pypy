@@ -13,7 +13,7 @@ from pypy.objspace.std.stringtype import (
     str_expandtabs, str_ljust, str_rjust, str_center, str_zfill,
     str_join, str_split, str_rsplit, str_partition, str_rpartition,
     str_splitlines, str_translate)
-from pypy.objspace.std.stringtype import descr_maketrans, makebytesdata_w
+from pypy.objspace.std.stringtype import descr_maketrans, newbytesdata_w
 from pypy.objspace.std.listtype import (
     list_append, list_extend)
 
@@ -65,7 +65,7 @@ def descr__new__(space, w_bytearraytype, __args__):
 def descr__init__(space, w_self, w_source=None, encoding=None, errors=None):
     from pypy.objspace.std.bytearrayobject import W_BytearrayObject
     assert isinstance(w_self, W_BytearrayObject)
-    data = makebytesdata_w(space, w_source, encoding, errors)
+    data = newbytesdata_w(space, w_source, encoding, errors)
     w_self.data = data
 
 
