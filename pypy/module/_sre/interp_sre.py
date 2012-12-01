@@ -58,10 +58,13 @@ def do_flatten_marks(ctx, num_groups):
         mark = mark.prev
     return result
 
+
+@jit.look_inside_iff(lambda space, ctx, fmarks, num_groups, w_default: jit.isconstant(num_groups))
 def allgroups_w(space, ctx, fmarks, num_groups, w_default):
-    grps = [slice_w(space, ctx, fmarks[i*2], fmarks[i*2+1], w_default)
+    grps = [slice_w(space, ctx, fmarks[i * 2], fmarks[i * 2 + 1], w_default)
             for i in range(num_groups)]
     return space.newtuple(grps)
+
 
 def import_re(space):
     w_builtin = space.getbuiltinmodule('__builtin__')
@@ -85,7 +88,7 @@ def searchcontext(space, ctx):
 # SRE_Pattern class
 
 class W_SRE_Pattern(Wrappable):
-    _immutable_fields_ = ["code", "flags"]
+    _immutable_fields_ = ["code", "flags", "num_groups"]
 
     def cannot_copy_w(self):
         space = self.space
