@@ -228,9 +228,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    requires=[("objspace.std.withsmallint", False)]),
                              #  ^^^ because of missing delegate_xx2yy
 
-        BoolOption("withstrjoin", "use strings optimized for addition",
-                   default=False),
-
         BoolOption("withstrslice", "use strings optimized for slicing",
                    default=False),
 
@@ -372,7 +369,6 @@ def set_pypy_opt_level(config, level):
         config.objspace.std.suggest(withprebuiltchar=True)
         config.objspace.std.suggest(withmapdict=True)
         config.objspace.std.suggest(withstrslice=True)
-        config.objspace.std.suggest(withstrjoin=True)
         if not IS_64_BITS:
             config.objspace.std.suggest(withsmalllong=True)
 

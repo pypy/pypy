@@ -34,19 +34,6 @@ Object Optimizations
 String Optimizations
 --------------------
 
-String-Join Objects
-+++++++++++++++++++
-
-String-join objects are a different implementation of the Python ``str`` type,
-They represent the lazy addition of several strings without actually performing
-the addition (which involves copying etc.). When the actual value of the string
-join object is needed, the addition is performed. This makes it possible to
-perform repeated string additions in a loop without using the
-``"".join(list_of_strings)`` pattern.
-
-You can enable this feature enable with the :config:`objspace.std.withstrjoin`
-option.
-
 String-Slice Objects
 ++++++++++++++++++++
 
