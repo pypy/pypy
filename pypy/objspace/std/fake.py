@@ -178,16 +178,18 @@ class CPythonFakeFrame(eval.Frame):
     def getfastscope(self):
         raise OperationError(self.space.w_TypeError,
           self.space.wrap("cannot get fastscope of a CPythonFakeFrame"))
+
     def run(self):
         code = self.fakecode
         assert isinstance(code, CPythonFakeCode)
         fn = code.cpy_callable
         try:
-            result = apply(fn, self.unwrappedargs, self.unwrappedkwds)
+            result = fn(*self.unwrappedargs, **self.unwrappedkwds)
         except:
             wrap_exception(self.space)
             raise
         return self.space.wrap(result)
+
 
 class EvenMoreObscureWrapping(baseobjspace.Wrappable):
     def __init__(self, val):
