@@ -162,7 +162,7 @@ class W_TypeObject(W_Object):
         generic mutation.
         """
         space = w_self.space
-        assert w_self.is_heaptype() or space.config.objspace.std.mutable_builtintypes
+        assert w_self.is_heaptype()
         if (not space.config.objspace.std.withtypeversion and
             not space.config.objspace.std.getattributeshortcut and
             not space.config.objspace.std.withidentitydict and
@@ -191,8 +191,7 @@ class W_TypeObject(W_Object):
             w_subclass.mutated(key)
 
     def version_tag(w_self):
-        if (not we_are_jitted() or w_self.is_heaptype() or
-            w_self.space.config.objspace.std.mutable_builtintypes):
+        if not we_are_jitted() or w_self.is_heaptype():
             return w_self._version_tag
         # prebuilt objects cannot get their version_tag changed
         return w_self._pure_version_tag()
@@ -293,8 +292,7 @@ class W_TypeObject(W_Object):
         return w_self._getdictvalue_no_unwrapping(space, attr)
 
     def setdictvalue(w_self, space, name, w_value):
-        if (not space.config.objspace.std.mutable_builtintypes
-                and not w_self.is_heaptype()):
+        if not w_self.is_heaptype():
             msg = "can't set attributes on type object '%s'"
             raise operationerrfmt(space.w_TypeError, msg, w_self.name)
         if name == "__del__" and name not in w_self.dict_w:
@@ -317,8 +315,7 @@ class W_TypeObject(W_Object):
     def deldictvalue(w_self, space, key):
         if w_self.lazyloaders:
             w_self._cleanup_()    # force un-lazification
-        if (not space.config.objspace.std.mutable_builtintypes
-                and not w_self.is_heaptype()):
+        if not w_self.is_heaptype():
             msg = "can't delete attributes on type object '%s'"
             raise operationerrfmt(space.w_TypeError, msg, w_self.name)
         try:
