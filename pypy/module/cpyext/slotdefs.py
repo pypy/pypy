@@ -606,7 +606,7 @@ static slotdef slotdefs[] = {
         TPSLOT("__iter__", tp_iter, slot_tp_iter, wrap_unaryfunc,
                "x.__iter__() <==> iter(x)"),
         TPSLOT("__next__", tp_iternext, slot_tp_iternext, wrap_next,
-               "x.__next__() -> the next value, or raise StopIteration"),
+               "x.__next__() <==> next(x)"),
         TPSLOT("__get__", tp_descr_get, slot_tp_descr_get, wrap_descr_get,
                "descr.__get__(obj[, type]) -> value"),
         TPSLOT("__set__", tp_descr_set, slot_tp_descr_set, wrap_descr_set,
