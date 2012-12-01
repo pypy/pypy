@@ -23,6 +23,8 @@ test_suffixes = ["_Pure", "_Fast"]
 test_classes = []
 
 for module, suffix in zip(test_modules, test_suffixes):
+    if module is None:
+        continue
     for name, cls in module.__dict__.items():
         if not (isinstance(cls, type) and issubclass(cls, unittest.TestCase)):
             continue
