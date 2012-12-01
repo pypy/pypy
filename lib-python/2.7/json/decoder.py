@@ -62,8 +62,7 @@ BACKSLASH = {
 
 DEFAULT_ENCODING = "utf-8"
 
-def py_scanstring(s, end, encoding=None, strict=True,
-        _b=BACKSLASH, _m=STRINGCHUNK.match):
+def py_scanstring(s, end, encoding=None, strict=True):
     """Scan the string s for a JSON string. End is the index of the
     character in s after the quote that started the JSON string.
     Unescapes all valid JSON string escape sequences and raises ValueError
@@ -78,7 +77,7 @@ def py_scanstring(s, end, encoding=None, strict=True,
     _append = chunks.append
     begin = end - 1
     while 1:
-        chunk = _m(s, end)
+        chunk = STRINGCHUNK.match(s, end)
         if chunk is None:
             raise ValueError(
                 errmsg("Unterminated string starting at", s, begin))
@@ -109,7 +108,7 @@ def py_scanstring(s, end, encoding=None, strict=True,
         # If not a unicode escape sequence, must be in the lookup table
         if esc != 'u':
             try:
-                char = _b[esc]
+                char = BACKSLASH[esc]
             except KeyError:
                 msg = "Invalid \\escape: " + repr(esc)
                 raise ValueError(errmsg(msg, s, end))
