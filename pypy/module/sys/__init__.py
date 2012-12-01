@@ -23,7 +23,6 @@ class Module(MixedModule):
         '__doc__'               : '(space.wrap("PyPy sys module"))', 
 
         'platform'              : 'space.wrap(sys.platform)', 
-        'maxint'                : 'space.wrap(sys.maxint)',
         'maxsize'               : 'space.wrap(sys.maxint)',
         'byteorder'             : 'space.wrap(sys.byteorder)', 
         'maxunicode'            : 'space.wrap(vm.MAXUNICODE)',

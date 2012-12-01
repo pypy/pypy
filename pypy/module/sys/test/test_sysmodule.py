@@ -396,7 +396,6 @@ class AppTestSysModulePortedFromCPython:
         #assert isinstance(sys.exec_prefix, str) -- not present!
         assert isinstance(sys.executable, str)
         assert isinstance(sys.hexversion, int)
-        assert isinstance(sys.maxint, int)
         assert isinstance(sys.maxsize, int)
         assert isinstance(sys.maxunicode, int)
         assert isinstance(sys.platform, str)
