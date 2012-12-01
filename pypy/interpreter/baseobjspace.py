@@ -1,4 +1,3 @@
-import pypy
 from pypy.interpreter.executioncontext import ExecutionContext, ActionFlag
 from pypy.interpreter.executioncontext import UserDelAction, FrameTraceAction
 from pypy.interpreter.error import OperationError, operationerrfmt
@@ -10,10 +9,8 @@ from pypy.tool.uid import HUGEVAL_BYTES
 from pypy.rlib.objectmodel import we_are_translated, newlist_hint,\
      compute_unique_id
 from pypy.rlib.debug import make_sure_not_resized
-from pypy.rlib.timer import DummyTimer, Timer
 from pypy.rlib.rarithmetic import r_uint
 from pypy.rlib import jit
-from pypy.tool.sourcetools import func_with_new_name
 import os, sys
 
 __all__ = ['ObjSpace', 'OperationError', 'Wrappable', 'W_Root']
@@ -325,11 +322,6 @@ class ObjSpace(object):
             self.bytecodecounts = [0] * 256
             self.bytecodetransitioncount = {}
 
-        if self.config.objspace.timing:
-            self.timer = Timer()
-        else:
-            self.timer = DummyTimer()
-
         self.initialize()
 
     def startup(self):
@@ -349,9 +341,7 @@ class ObjSpace(object):
             modname = self.str_w(w_modname)
             mod = self.interpclass_w(w_mod)
             if isinstance(mod, Module) and not mod.startup_called:
-                self.timer.start("startup " + modname)
                 mod.init(self)
-                self.timer.stop("startup " + modname)
 
     def finish(self):
         self.wait_for_thread_shutdown()
@@ -458,9 +448,7 @@ class ObjSpace(object):
             from pypy.interpreter.module import Module
             mod = self.interpclass_w(w_mod)
             if isinstance(mod, Module):
-                self.timer.start("startup " + name)
                 mod.init(self)
-                self.timer.stop("startup " + name)
             return w_mod
 
     def get_builtinmodule_to_install(self):

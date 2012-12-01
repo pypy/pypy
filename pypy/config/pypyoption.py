@@ -196,10 +196,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                "make sure that all calls go through space.call_args",
                default=False),
 
-    BoolOption("timing",
-               "timing of various parts of the interpreter (simple profiling)",
-               default=False),
-
     OptionDescription("std", "Standard Object Space Options", [
         BoolOption("withtproxy", "support transparent proxies",
                    default=True),
