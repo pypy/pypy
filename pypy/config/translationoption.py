@@ -157,11 +157,6 @@ translation_optiondescription = OptionDescription(
                default=False, requires=[("translation.backend", "c")]),
 
     # portability options
-    BoolOption("vanilla",
-               "Try to be as portable as possible, which is not much",
-               default=False,
-               cmdline="--vanilla",
-               requires=[("translation.no__thread", True)]),
     BoolOption("no__thread",
                "don't use __thread for implementing TLS",
                default=False, cmdline="--no__thread", negation=False),
