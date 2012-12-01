@@ -79,6 +79,7 @@ class AppTest_Descriptor:
         raises(AttributeError, setattr, x, '\ud800', 1)
         raises(AttributeError, getattr, x, '\ud800')
         raises(AttributeError, delattr, x, '\ud800')
+        raises(AttributeError, getattr, x, '\uDAD1\uD51E')
 
     def test_special_methods_returning_strings(self): 
         class A(object): 

@@ -56,11 +56,11 @@ def raiseattrerror(space, w_obj, w_name, w_descr=None):
     name = space.str_w(space.repr(w_name))
     if w_descr is None:
         raise operationerrfmt(space.w_AttributeError,
-                              "'%s' object has no attribute %s",
+                              "'%s' object has no attribute %8",
                               typename, name)
     else:
         raise operationerrfmt(space.w_AttributeError,
-                              "'%s' object attribute %s is read-only",
+                              "'%s' object attribute %8 is read-only",
                               typename, name)
 
 def get_attribute_name(space, w_obj, w_name):
