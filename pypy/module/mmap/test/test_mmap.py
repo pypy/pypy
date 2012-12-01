@@ -48,7 +48,7 @@ class AppTestMMap:
             raises(TypeError, mmap, 0, 1, 2, 3, "foo", 5)
             raises(TypeError, mmap, 0, 1, foo="foo")
             raises((TypeError, OverflowError), mmap, 0, -1)
-            raises(OverflowError, mmap, 0, sys.maxint ** 3)
+            raises(OverflowError, mmap, 0, sys.maxsize ** 3)
             raises(ValueError, mmap, 0, 1, flags=2, access=3)
             raises(ValueError, mmap, 0, 1, access=123)
         elif os.name == "nt":
@@ -105,7 +105,7 @@ class AppTestMMap:
         f.write(b"c")
         f.flush()
         m = mmap(f.fileno(), 1)
-        assert m.read_byte() == b"c"
+        assert m.read_byte() == ord(b"c")
         raises(ValueError, m.read_byte)
         m.close()
         f.close()
@@ -275,9 +275,9 @@ class AppTestMMap:
         m = mmap.mmap(f.fileno(), 6, access=mmap.ACCESS_READ)
         raises(TypeError, m.write_byte, b"f")
         m = mmap.mmap(f.fileno(), 6, access=mmap.ACCESS_WRITE)
-        raises(TypeError, m.write_byte, 123)
-        raises(TypeError, m.write_byte, b"ab")
-        m.write_byte(b"x")
+        raises(TypeError, m.write_byte, "a")
+        raises(TypeError, m.write_byte, b"a")
+        m.write_byte(ord("x"))
         m.seek(0)
         assert m.read(6) == b"xoobar"
         m.close()
@@ -417,8 +417,8 @@ class AppTestMMap:
         raises(TypeError, fn)
         fn = lambda: m[-7]
         raises(IndexError, fn)
-        assert m[0] == b'f'
-        assert m[-1] == b'r'
+        assert m[0] == ord('f')
+        assert m[-1] == ord('r')
         assert m[1::2] == b'obr'
         assert m[4:1:-2] == b'ao'
         m.close()
@@ -439,9 +439,6 @@ class AppTestMMap:
         raises(TypeError, fn)
         def fn(): m[-7] = b'a'
         raises(IndexError, fn)
-        def fn(): m[0] = b'ab'
-        raises((IndexError, ValueError), fn)     # IndexError is in CPython,
-                                                 # but doesn't make much sense
         def fn(): m[1:3] = 'xx'
         raises((IndexError, TypeError), fn)      # IndexError is in CPython,
                                                  # but doesn't make much sense
@@ -453,9 +450,9 @@ class AppTestMMap:
         raises((IndexError, ValueError), fn)
         m[1:3] = b'xx'
         assert m.read(6) == b"fxxbar"
-        m[0] = b'x'
-        assert m[0] == b'x'
-        m[-6] = b'y'
+        m[0] = ord('x')
+        assert m[0] == ord('x')
+        m[-6] = ord('y')
         m[3:6:2] = b'BR'
         m.seek(0)
         data = m.read(6)
@@ -537,6 +534,7 @@ class AppTestMMap:
         assert len(b) == 6
         assert b[3] == b"b"
         assert b[:] == b"foobar"
+        del b  # For CPython: "exported pointers exist"
         m.close()
         f.close()
 
@@ -600,7 +598,7 @@ class AppTestMMap:
             m = mmap.mmap(f2.fileno(), 0, offset=0x140000000,
                           access=mmap.ACCESS_READ)
             try:
-                assert m[0xFFFFFFF] == b'A'
+                assert m[0xFFFFFFF] == ord('A')
             finally:
                 m.close()
 
@@ -649,15 +647,15 @@ class AppTestMMap:
         # sanity checks
         assert m.find(b"foo") == PAGESIZE
         assert len(m) == 2 * PAGESIZE
-        assert m[0] == b'\0'
+        assert m[0] == 0
         assert m[0:3] == b'\0\0\0'
 
         # modify the file's content
-        m[0] = b'3'
+        m[0] = ord('3')
         m[PAGESIZE+3:PAGESIZE+3+3] = b'bar'
 
         # check that the modification worked
-        assert m[0] == b'3'
+        assert m[0] == ord('3')
         assert m[0:3] == b'3\0\0'
         assert m[PAGESIZE-1:PAGESIZE+7] == b'\0foobar\0'
 
@@ -697,7 +695,7 @@ class AppTestMMap:
         f = open(filename, "wb")
         f.write(b"a" * mapsize)
         f.close()
-        f = open(filename, b"rb")
+        f = open(filename, "rb")
         m = mmap.mmap(f.fileno(), mapsize, access=mmap.ACCESS_READ)
         assert m[:] == b'a' * mapsize
         def f(m): m[:] = b'b' * mapsize
