@@ -357,13 +357,13 @@ class JSONDecoder(object):
         self.parse_string = scanstring
         self.scan_once = scanner.make_scanner(self)
 
-    def decode(self, s, _w=WHITESPACE.match):
+    def decode(self, s):
         """Return the Python representation of ``s`` (a ``str`` or ``unicode``
         instance containing a JSON document)
 
         """
-        obj, end = self.raw_decode(s, idx=_w(s, 0).end())
-        end = _w(s, end).end()
+        obj, end = self.raw_decode(s, idx=WHITESPACE.match(s, 0).end())
+        end = WHITESPACE.match(s, end).end()
         if end != len(s):
             raise ValueError(errmsg("Extra data", s, end, len(s)))
         return obj
