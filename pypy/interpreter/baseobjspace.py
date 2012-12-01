@@ -318,10 +318,6 @@ class ObjSpace(object):
         self.host_magic = cpython_magic
         # can be overridden to a subclass
 
-        if self.config.objspace.logbytecodes:
-            self.bytecodecounts = [0] * 256
-            self.bytecodetransitioncount = {}
-
         self.initialize()
 
     def startup(self):
@@ -353,8 +349,6 @@ class ObjSpace(object):
             mod = self.interpclass_w(w_mod)
             if isinstance(mod, Module) and mod.startup_called:
                 mod.shutdown(self)
-        if self.config.objspace.logbytecodes:
-            self.reportbytecodecounts()
 
     def wait_for_thread_shutdown(self):
         """Wait until threading._shutdown() completes, provided the threading
@@ -372,26 +366,6 @@ class ObjSpace(object):
             self.call_method(w_mod, "_shutdown")
         except OperationError, e:
             e.write_unraisable(self, "threading._shutdown()")
-
-    def reportbytecodecounts(self):
-        os.write(2, "Starting bytecode report.\n")
-        fd = os.open('bytecode.txt', os.O_CREAT|os.O_WRONLY|os.O_TRUNC, 0644)
-        os.write(fd, "bytecodecounts = {\n")
-        for opcode in range(len(self.bytecodecounts)):
-            count = self.bytecodecounts[opcode]
-            if not count:
-                continue
-            os.write(fd, "    %s: %s,\n" % (opcode, count))
-        os.write(fd, "}\n")
-        os.write(fd, "bytecodetransitioncount = {\n")
-        for opcode, probs in self.bytecodetransitioncount.iteritems():
-            os.write(fd, "    %s: {\n" % (opcode, ))
-            for nextcode, count in probs.iteritems():
-                os.write(fd, "        %s: %s,\n" % (nextcode, count))
-            os.write(fd, "    },\n")
-        os.write(fd, "}\n")
-        os.close(fd)
-        os.write(2, "Reporting done.\n")
 
     def __repr__(self):
         try:

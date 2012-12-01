@@ -172,10 +172,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                cmdline="--translationmodules",
                suggests=[("objspace.allworkingmodules", False)]),
 
-    BoolOption("logbytecodes",
-               "keep track of bytecode usage",
-               default=False),
-
     BoolOption("usepycfiles", "Write and read pyc files when importing",
                default=True),
 
