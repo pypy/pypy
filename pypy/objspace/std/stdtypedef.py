@@ -203,12 +203,6 @@ def make_perform_trampoline(prefix, exprargs, expr, miniglobals,  multimethod, s
             dest.append(expr_arg)
     renaming = ', '.join(dest) +" = "+', '.join(src)
 
-    # add a call to resolve_target to give the thunk space a chance to replace
-    # the thing with something else
-    offset = len(multimethod.argnames_before)
-    renaming += "; %s = space.resolve_target(%s)" % (
-            exprargs[selfindex+offset], exprargs[selfindex+offset])
-
     if allow_NotImplemented_results and (len(multimethod.specialnames) > 1 or
                                          multimethod.name.startswith('inplace_')):
         # turn FailedToImplement into NotImplemented

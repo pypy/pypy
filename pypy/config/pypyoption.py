@@ -128,11 +128,6 @@ def get_module_validator(modname):
 
 
 pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
-    ChoiceOption("name", "Object Space name",
-                 ["std", "flow", "thunk", "dump"],
-                 "std",
-                 cmdline='--objspace -o'),
-
     OptionDescription("opcodes", "opcodes to enable in the interpreter", [
         BoolOption("CALL_METHOD", "emit a special bytecode for expr.name()",
                    default=False),
