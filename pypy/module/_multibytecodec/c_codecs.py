@@ -279,10 +279,14 @@ def multibytecodec_encerror(encodebuf, e, errors,
             replace = "?"
     else:
         assert errorcb
-        ret, end = errorcb(errors, namecb, reason,
-                           unicodedata, start, end)
-        codec = pypy_cjk_enc_getcodec(encodebuf)
-        replace = encode(codec, ret, "strict", errorcb, namecb)
+        retu, rets, end = errorcb(errors, namecb, reason,
+                                  unicodedata, start, end)
+        if rets is not None:
+            # py3k only
+            replace = rets
+        else:
+            codec = pypy_cjk_enc_getcodec(encodebuf)
+            replace = encode(codec, retu, "strict", errorcb, namecb)
     inbuf = rffi.get_nonmovingbuffer(replace)
     try:
         r = pypy_cjk_enc_replace_on_error(encodebuf, inbuf, len(replace), end)
