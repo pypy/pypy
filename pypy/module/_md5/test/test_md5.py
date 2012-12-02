@@ -4,7 +4,9 @@ Tests for the md5 module implemented at interp-level in pypy/module/md5.
 
 
 class AppTestMD5(object):
-    spaceconfig = dict(usemodules=['_md5'])
+    spaceconfig = {
+        "usemodules": ['_md5', 'rctime'],
+    }
 
     def setup_class(cls):
         cls.w_md5 = cls.space.appexec([], """():
