@@ -485,6 +485,8 @@ class AppTestPartialEvaluation:
     def test_surrogateescape(self):
         assert b'a\x80b'.decode('utf-8', 'surrogateescape') == 'a\udc80b'
         assert 'a\udc80b'.encode('utf-8', 'surrogateescape') == b'a\x80b'
+        for enc in ('utf-8', 'ascii', 'latin-1', 'charmap'):
+            assert '\udcc3'.encode(enc, 'surrogateescape') == b'\xc3'
 
     def test_surrogatepass_handler(self):
         import _codecs

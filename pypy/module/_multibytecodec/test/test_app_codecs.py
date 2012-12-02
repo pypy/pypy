@@ -63,6 +63,14 @@ class AppTestCodecs:
         raises((IndexError, OverflowError), b"abc\xDD".decode, "hz",
                "test.test_decode_custom_error_handler_overflow")
 
+    def test_decode_custom_error_handler_type(self):
+        import codecs
+        import sys
+        codecs.register_error("test.test_decode_custom_error_handler_type",
+                              lambda e: (b'', e.end))
+        raises(TypeError, b"abc\xDD".decode, "hz",
+               "test.test_decode_custom_error_handler_type")
+
     def test_encode_hz(self):
         import _codecs_cn
         codec = _codecs_cn.getcodec("hz")
@@ -107,6 +115,6 @@ class AppTestCodecs:
         import codecs
         import sys
         codecs.register_error("test.test_encode_custom_error_handler_type",
-                              lambda e: ('\xc3', e.end))
+                              lambda e: (b'\xc3', e.end))
         result = "\uDDA1".encode("gbk", "test.test_encode_custom_error_handler_type")
-        assert '\xc3' in result
+        assert b'\xc3' in result
