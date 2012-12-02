@@ -450,11 +450,6 @@ class ObjSpace(object):
         if 'rctime' in modules and 'time' in modules:
             modules.remove('time')
 
-        if not self.config.objspace.nofaking:
-            for modname in self.ALL_BUILTIN_MODULES:
-                if not LIB_PYPY.join(modname+'.py').check(file=True):
-                    modules.append('faked+'+modname)
-
         self._builtinmodule_list = modules
         return self._builtinmodule_list
 

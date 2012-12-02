@@ -192,7 +192,6 @@ class PyPyTarget(object):
             config.objspace.lonepycfiles = False
             config.objspace.usepycfiles = False
 
-        config.objspace.nofaking = True
         config.translating = True
 
         import translate

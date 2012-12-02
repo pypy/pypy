@@ -127,13 +127,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
         ec._py_repr = None
         return ec
 
-    def createframe(self, code, w_globals, outer_func=None):
-        from pypy.objspace.std.fake import CPythonFakeCode, CPythonFakeFrame
-        if not we_are_translated() and isinstance(code, CPythonFakeCode):
-            return CPythonFakeFrame(self, code, w_globals)
-        else:
-            return ObjSpace.createframe(self, code, w_globals, outer_func)
-
     def gettypefor(self, cls):
         return self.gettypeobject(cls.typedef)
 
@@ -236,10 +229,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
             # '__builtin__.Ellipsis' avoids confusion with special.Ellipsis
             return self.w_Ellipsis
 
-        if self.config.objspace.nofaking:
-            raise OperationError(self.w_RuntimeError,
-                                 self.wrap("nofaking enabled: refusing "
-                                           "to wrap cpython value %r" %(x,)))
         if isinstance(x, type(Exception)) and issubclass(x, Exception):
             w_result = self.wrap_exception_cls(x)
             if w_result is not None:
