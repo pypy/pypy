@@ -21,7 +21,8 @@ class CBufferMixin(object):
         self.c_len = c_len
         self.w_obj = w_obj
 
-    def __del__(self):
+    def destructor(self):
+        assert isinstance(self, CBufferMixin)
         Py_DecRef(self.space, self.w_obj)
 
     def getlength(self):
@@ -31,7 +32,10 @@ class CBufferMixin(object):
         return self.c_buf[index]
 
     def as_str(self):
-        return rffi.charpsize2str(self.c_buf, self.c_len)
+        return rffi.charpsize2str(rffi.cast(rffi.CCHARP, self.c_buf),
+                                  self.c_len)
         
 class CBuffer(CBufferMixin, buffer.Buffer):
-    pass
+    def __del__(self):
+        self.enqueue_for_destruction(self.space, CBufferMixin.destructor,
+                                     'internal __del__ of ')
