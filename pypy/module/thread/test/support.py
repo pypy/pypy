@@ -1,10 +1,14 @@
-import py
-import time, gc, thread, os
-from pypy.interpreter.gateway import ObjSpace, W_Root, interp2app_temp
+import gc
+import time
+import thread
+import os
+
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.module.thread import gil
 
 
 NORMAL_TIMEOUT = 300.0   # 5 minutes
+
 
 def waitfor(space, w_condition, delay=1):
     adaptivedelay = 0.04
@@ -19,6 +23,7 @@ def waitfor(space, w_condition, delay=1):
         adaptivedelay *= 1.05
     print '*** timed out ***'
 
+
 def timeout_killer(pid, delay):
     def kill():
         for x in range(delay * 10):
@@ -27,6 +32,7 @@ def timeout_killer(pid, delay):
         os.kill(pid, 9)
         print "process %s killed!" % (pid,)
     thread.start_new_thread(kill, ())
+
 
 class GenericTestThread:
     spaceconfig = dict(usemodules=('thread', 'time', 'signal'))
@@ -43,15 +49,26 @@ class GenericTestThread:
                         return
                     adaptivedelay *= 1.05
                 print '*** timed out ***'
-                
+
             cls.w_waitfor = plain_waitfor
         else:
-            cls.w_waitfor = cls.space.wrap(
-                lambda self, condition, delay=1: waitfor(cls.space, condition, delay))
+            @unwrap_spec(delay=int)
+            def py_waitfor(space, w_condition, delay=1):
+                waitfor(space, w_condition, delay)
+
+            cls.w_waitfor = cls.space.wrap(interp2app(py_waitfor))
         cls.w_busywait = cls.space.appexec([], """():
             import time
             return time.sleep
         """)
-        
-        cls.w_timeout_killer = cls.space.wrap(
-            lambda self, *args, **kwargs: timeout_killer(*args, **kwargs))
+
+        def py_timeout_killer(space, __args__):
+            args_w, kwargs_w = __args__.unpack()
+            args = map(space.unwrap, args_w)
+            kwargs = dict([
+                (k, space.unwrap(v))
+                for k, v in kwargs_w.iteritems()
+            ])
+            timeout_killer(*args, **kwargs)
+
+        cls.w_timeout_killer = cls.space.wrap(interp2app(py_timeout_killer))
