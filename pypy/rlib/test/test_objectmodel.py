@@ -486,6 +486,18 @@ def test_enforceargs_translates():
     TYPES = [v.concretetype for v in graph.getargs()]
     assert TYPES == [lltype.Signed, lltype.Float]
 
+
+def test_signature_decorator():
+    @signature('x', 'y', returns='z')
+    def f(a, b):
+        return a + len(b)
+    f.foo = 'foo'
+    assert f._signature_ == (('x', 'y'), 'z')
+    assert f.func_name == 'f'
+    assert f.foo == 'foo'
+    assert f(1, 'hello') == 6
+
+
 def getgraph(f, argtypes):
     from pypy.translator.translator import TranslationContext, graphof
     from pypy.translator.backendopt.all import backend_optimizations
