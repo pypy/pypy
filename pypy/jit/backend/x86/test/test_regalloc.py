@@ -193,7 +193,7 @@ class BaseTestRegalloc(object):
                 for index in range(0, end)]
 
     def getptr(self, index, T):
-        gcref = self.cpu.get_latest_value_ref(index)
+        gcref = self.cpu.get_latest_value_ref(self.deadframe, index)
         return lltype.cast_opaque_ptr(T, gcref)
 
     def attach_bridge(self, ops, loop, guard_op_index, **kwds):

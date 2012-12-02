@@ -8,8 +8,8 @@ from pypy.jit.metainterp.history import BoxInt, ConstInt,\
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.codewriter import heaptracker
 from pypy.jit.codewriter.effectinfo import EffectInfo
-from pypy.jit.backend.llsupport.descr import GcCache, FieldDescr, FLAG_SIGNED
-from pypy.jit.backend.llsupport.gc import GcLLDescription
+from pypy.jit.backend.llsupport.descr import FieldDescr, FLAG_SIGNED
+from pypy.jit.backend.llsupport.gc import GcLLDescription, GcLLDescr_boehm
 from pypy.jit.backend.detect_cpu import getcpuclass
 from pypy.jit.backend.x86.regalloc import RegAlloc
 from pypy.jit.backend.x86.arch import WORD, FRAME_FIXED_SIZE
@@ -17,7 +17,6 @@ from pypy.jit.tool.oparser import parse
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.lltypesystem import rclass, rstr
-from pypy.jit.backend.llsupport.gc import GcLLDescr_framework
 
 from pypy.jit.backend.x86.test.test_regalloc import MockAssembler
 from pypy.jit.backend.x86.test.test_regalloc import BaseTestRegalloc
@@ -40,25 +39,15 @@ class MockGcRootMap(object):
         assert shape[0] == 'shape'
         return ['compressed'] + shape[1:]
 
-class MockGcDescr(GcCache):
-    get_malloc_slowpath_addr = None
-    write_barrier_descr = None
-    moving_gc = True
+class MockGcDescr(GcLLDescr_boehm):
     gcrootmap = MockGcRootMap()
-
-    def initialize(self):
-        pass
-
-    _record_constptrs = GcLLDescr_framework._record_constptrs.im_func
-    rewrite_assembler = GcLLDescr_framework.rewrite_assembler.im_func
-    getframedescrs    = GcLLDescr_framework.getframedescrs.im_func
 
 class TestRegallocDirectGcIntegration(object):
 
     def test_mark_gc_roots(self):
         cpu = CPU(None, None)
         cpu.setup_once()
-        regalloc = RegAlloc(MockAssembler(cpu, MockGcDescr(False)))
+        regalloc = RegAlloc(MockAssembler(cpu, MockGcDescr(None, None, None)))
         regalloc.assembler.datablockwrapper = 'fakedatablockwrapper'
         boxes = [BoxPtr() for i in range(len(X86RegisterManager.all_regs))]
         longevity = {}
@@ -91,7 +80,7 @@ class TestRegallocDirectGcIntegration(object):
 class TestRegallocGcIntegration(BaseTestRegalloc):
     
     cpu = CPU(None, None)
-    cpu.gc_ll_descr = MockGcDescr(False)
+    cpu.gc_ll_descr = GcLLDescr_boehm(None, None, None)
     cpu.setup_once()
     
     S = lltype.GcForwardReference()
