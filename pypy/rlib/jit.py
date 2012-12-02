@@ -172,6 +172,7 @@ def look_inside_iff(predicate):
                 else:
                     return trampoline(%(arguments)s)
             f.__name__ = func.__name__ + "_look_inside_iff"
+            f._always_inline = True
         """ % {"arguments": ", ".join(args)}).compile() in d
         return d["f"]
     return inner

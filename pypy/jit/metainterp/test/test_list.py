@@ -79,7 +79,7 @@ class ListTests:
         self.check_loops(setarrayitem_gc=0, call=0)
 
     def test_vlist_with_default_read(self):
-        jitdriver = JitDriver(greens = [], reds = ['n'])
+        jitdriver = JitDriver(greens=[], reds=['n'])
         def f(n):
             l = [1] * 20
             while n > 0:
@@ -93,7 +93,7 @@ class ListTests:
                 n -= 1
             return l[0]
 
-        res = self.meta_interp(f, [10], listops=True)
+        res = self.meta_interp(f, [10], listops=True, backendopt=True)
         assert res == f(10)
         self.check_resops(setarrayitem_gc=0, call=0, getarrayitem_gc=0)
 
