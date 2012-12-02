@@ -1,4 +1,9 @@
-import py, sys
+import sys
+
+import py
+
+from pypy.interpreter.error import OperationError
+
 
 class _AppTestSelect:
     def test_sleep(self):
@@ -253,40 +258,44 @@ class AppTestSelectWithPipes(_AppTestSelect):
         s1, s2 = os.pipe()
         return FileAsSocket(s1), FileAsSocket(s2)
 
+
 class AppTestSelectWithSockets(_AppTestSelect):
     """Same tests with connected sockets.
     socket.socketpair() does not exists on win32,
     so we start our own server."""
-    spaceconfig = dict(usemodules=["select", "_socket"])
+    spaceconfig = {
+        "usemodules": ["select", "_socket", "rctime", "thread"],
+    }
 
     def setup_class(cls):
-        cls.w_getpair = cls.space.wrap(cls.getsocketpair)
-
-        import socket
-        cls.sock = socket.socket()
+        space = cls.space
+        w_import = space.getattr(space.builtin, space.wrap("__import__"))
+        w_socketmod = space.call_function(w_import, space.wrap("socket"))
+        cls.w_sock = cls.space.call_method(w_socketmod, "socket")
 
         try_ports = [1023] + range(20000, 30000, 437)
         for port in try_ports:
             print 'binding to port %d:' % (port,),
-            cls.sockaddress = ('127.0.0.1', port)
+            cls.w_sockaddress = space.wrap(('127.0.0.1', port))
             try:
-                cls.sock.bind(cls.sockaddress)
+                space.call_method(cls.w_sock, "bind", cls.w_sockaddress)
                 print 'works'
                 break
-            except socket.error, e:   # should get a "Permission denied"
+            except OperationError, e:   # should get a "Permission denied"
+                if not e.match(space, space.getattr(w_socketmod, space.wrap("error"))):
+                    raise
                 print e
             else:
                 raise e
 
-    @classmethod
-    def getsocketpair(cls):
-        """Helper method which returns a pair of connected sockets.
-        Note that they become faked objects at AppLevel"""
-        import thread, socket
+    def w_getpair(self):
+        """Helper method which returns a pair of connected sockets."""
+        import socket
+        import thread
 
-        cls.sock.listen(1)
+        self.sock.listen(1)
         s2 = socket.socket()
-        thread.start_new_thread(s2.connect, (cls.sockaddress,))
-        s1, addr2 = cls.sock.accept()
+        thread.start_new_thread(s2.connect, (self.sockaddress,))
+        s1, addr2 = self.sock.accept()
 
         return s1, s2
