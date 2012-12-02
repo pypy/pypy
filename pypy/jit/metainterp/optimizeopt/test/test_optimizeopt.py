@@ -761,7 +761,6 @@ class OptimizeOptTest(BaseTestWithUnroll):
         self.optimize_loop(ops, expected)
 
     def test_compare_with_itself_uint(self):
-        py.test.skip("implement me")
         ops = """
         []
         i0 = escape()
@@ -782,7 +781,24 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
-
+    def test_redundant_compare_uint(self):
+        ops = """
+        []
+        i0 = escape()
+        i1 = uint_lt(i0, 10)
+        guard_true(i1) []
+        i3 = uint_lt(i0, 20)
+        guard_true(i3) []
+        jump()
+        """
+        expected = """
+        []
+        i0 = escape()
+        i1 = uint_lt(i0, 10)
+        guard_true(i1) []
+        jump()
+        """
+        self.optimize_loop(ops, expected)
 
     def test_p123_simple(self):
         ops = """
