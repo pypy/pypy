@@ -650,8 +650,12 @@ def setup_init_functions(eci):
         lambda space: init_capsule(),
     ])
     from pypy.module.posix.interp_posix import add_fork_hook
-    reinit_tls = rffi.llexternal('PyThread_ReInitTLS', [], lltype.Void,
-                                 compilation_info=eci)    
+    if we_are_translated():
+        reinit_tls = rffi.llexternal('PyThread_ReInitTLS', [], lltype.Void,
+                                     compilation_info=eci)
+    else:
+        reinit_tls = rffi.llexternal('PyPyThread_ReInitTLS', [], lltype.Void,
+                                     compilation_info=eci)
     add_fork_hook('child', reinit_tls)
 
 def init_function(func):
