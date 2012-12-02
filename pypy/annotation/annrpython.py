@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+
 import types
 from pypy.tool.ansi_print import ansi_log
 from pypy.tool.pairtype import pair
