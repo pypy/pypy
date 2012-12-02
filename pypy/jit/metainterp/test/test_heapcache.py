@@ -18,7 +18,7 @@ index1 = ConstInt(0)
 index2 = ConstInt(1)
 
 
-class FakeEffektinfo(object):
+class FakeEffectinfo(object):
     EF_ELIDABLE_CANNOT_RAISE           = 0 #elidable function (and cannot raise)
     EF_LOOPINVARIANT                   = 1 #special: call it only once per loop
     EF_CANNOT_RAISE                    = 2 #a function which cannot raise
@@ -39,7 +39,7 @@ class FakeCallDescr(object):
         self.oopspecindex = oopspecindex
 
     def get_extra_info(self):
-        return FakeEffektinfo(self.extraeffect, self.oopspecindex)
+        return FakeEffectinfo(self.extraeffect, self.oopspecindex)
 
 class TestHeapCache(object):
     def test_known_class_box(self):
@@ -252,7 +252,7 @@ class TestHeapCache(object):
         assert h.getarrayitem(box1, index2, descr1) is box4
 
         h.invalidate_caches(
-            rop.CALL, FakeCallDescr(FakeEffektinfo.EF_ELIDABLE_CANNOT_RAISE), [])
+            rop.CALL, FakeCallDescr(FakeEffectinfo.EF_ELIDABLE_CANNOT_RAISE), [])
         assert h.getfield(box1, descr1) is box2
         assert h.getarrayitem(box1, index1, descr1) is box2
         assert h.getarrayitem(box1, index2, descr1) is box4
@@ -263,10 +263,10 @@ class TestHeapCache(object):
         assert h.getarrayitem(box1, index2, descr1) is box4
 
         h.invalidate_caches(
-            rop.CALL_LOOPINVARIANT, FakeCallDescr(FakeEffektinfo.EF_LOOPINVARIANT), [])
+            rop.CALL_LOOPINVARIANT, FakeCallDescr(FakeEffectinfo.EF_LOOPINVARIANT), [])
 
         h.invalidate_caches(
-            rop.CALL, FakeCallDescr(FakeEffektinfo.EF_RANDOM_EFFECTS), [])
+            rop.CALL, FakeCallDescr(FakeEffectinfo.EF_RANDOM_EFFECTS), [])
         assert h.getfield(box1, descr1) is None
         assert h.getarrayitem(box1, index1, descr1) is None
         assert h.getarrayitem(box1, index2, descr1) is None
@@ -364,13 +364,13 @@ class TestHeapCache(object):
         # Just need the destination box for this call
         h.invalidate_caches(
             rop.CALL,
-            FakeCallDescr(FakeEffektinfo.EF_CANNOT_RAISE, FakeEffektinfo.OS_ARRAYCOPY),
+            FakeCallDescr(FakeEffectinfo.EF_CANNOT_RAISE, FakeEffectinfo.OS_ARRAYCOPY),
             [None, None, box2, None, None]
         )
         assert h.getarrayitem(box1, index1, descr1) is box2
         h.invalidate_caches(
             rop.CALL,
-            FakeCallDescr(FakeEffektinfo.EF_CANNOT_RAISE, FakeEffektinfo.OS_ARRAYCOPY),
+            FakeCallDescr(FakeEffectinfo.EF_CANNOT_RAISE, FakeEffectinfo.OS_ARRAYCOPY),
             [None, None, box3, None, None]
         )
         assert h.getarrayitem(box1, index1, descr1) is None
@@ -379,7 +379,7 @@ class TestHeapCache(object):
         assert h.getarrayitem(box4, index1, descr1) is box2
         h.invalidate_caches(
             rop.CALL,
-            FakeCallDescr(FakeEffektinfo.EF_CANNOT_RAISE, FakeEffektinfo.OS_ARRAYCOPY),
+            FakeCallDescr(FakeEffectinfo.EF_CANNOT_RAISE, FakeEffectinfo.OS_ARRAYCOPY),
             [None, None, box2, None, None]
         )
         assert h.getarrayitem(box4, index1, descr1) is None
@@ -451,7 +451,29 @@ class TestHeapCache(object):
         assert h.is_unescaped(box1)
         assert h.is_unescaped(box2)
         h.invalidate_caches(
-            rop.CALL, FakeCallDescr(FakeEffektinfo.EF_RANDOM_EFFECTS), [box1]
+            rop.CALL, FakeCallDescr(FakeEffectinfo.EF_RANDOM_EFFECTS), [box1]
         )
         assert not h.is_unescaped(box1)
         assert not h.is_unescaped(box2)
+
+    def test_call_doesnt_invalidate_unescaped_boxes(self):
+        h = HeapCache()
+        h.new(box1)
+        assert h.is_unescaped(box1)
+        h.setfield(box1, box2, descr1)
+        h.invalidate_caches(rop.CALL,
+            FakeCallDescr(FakeEffectinfo.EF_CAN_RAISE),
+            []
+        )
+        assert h.getfield(box1, descr1) is box2
+
+    def test_call_doesnt_invalidate_unescaped_array_boxes(self):
+        h = HeapCache()
+        h.new_array(box1, lengthbox1)
+        assert h.is_unescaped(box1)
+        h.setarrayitem(box1, index1, box3, descr1)
+        h.invalidate_caches(rop.CALL,
+            FakeCallDescr(FakeEffectinfo.EF_CAN_RAISE),
+            []
+        )
+        assert h.getarrayitem(box1, index1, descr1) is box3

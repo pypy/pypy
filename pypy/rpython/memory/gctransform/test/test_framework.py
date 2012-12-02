@@ -36,6 +36,7 @@ def test_framework_simple():
     from pypy.translator.c.genc import CStandaloneBuilder
 
     t = rtype(entrypoint, [s_list_of_strings])
+    t.config.translation.gc = "minimark"
     cbuild = CStandaloneBuilder(t, entrypoint, t.config,
                                 gcpolicy=FrameworkGcPolicy2)
     db = cbuild.generate_graphs_for_llinterp()
@@ -110,6 +111,7 @@ def test_no_collect():
         return g() + 2
     
     t = rtype(entrypoint, [s_list_of_strings])
+    t.config.translation.gc = "minimark"
     cbuild = CStandaloneBuilder(t, entrypoint, t.config,
                                 gcpolicy=FrameworkGcPolicy2)
     db = cbuild.generate_graphs_for_llinterp()
@@ -133,6 +135,7 @@ def test_no_collect_detection():
         return g() + 2
     
     t = rtype(entrypoint, [s_list_of_strings])
+    t.config.translation.gc = "minimark"
     cbuild = CStandaloneBuilder(t, entrypoint, t.config,
                                 gcpolicy=FrameworkGcPolicy2)
     f = py.test.raises(Exception, cbuild.generate_graphs_for_llinterp)

@@ -9,7 +9,6 @@ from pypy.objspace.std import StdObjSpace
 EPS = 1e-9
 
 class TestW_ComplexObject:
-
     def test_instantiation(self):
         def _t_complex(r=0.0,i=0.0):
             c = W_ComplexObject(r, i)
