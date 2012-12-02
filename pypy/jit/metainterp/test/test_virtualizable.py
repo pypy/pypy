@@ -660,13 +660,7 @@ class ImplicitVirtualizableTests:
         self.check_aborted_count(3)
         self.check_jitcell_token_count(0)
 
-    def _skip_if_untranslated_on_a_real_backend(self):
-        if not hasattr(self.CPUClass, 'is_llgraph'):
-            py.test.skip("xxx only works on the llgraph backend, or "
-                         "fully translated")
-
     def test_external_read_sometimes(self):
-        self._skip_if_untranslated_on_a_real_backend()
         jitdriver = JitDriver(greens = [], reds = ['frame'],
                               virtualizables = ['frame'])
         
@@ -703,7 +697,6 @@ class ImplicitVirtualizableTests:
         assert res == f(123)
 
     def test_external_read_sometimes_with_virtuals(self):
-        self._skip_if_untranslated_on_a_real_backend()
         jitdriver = JitDriver(greens = [], reds = ['frame'],
                               virtualizables = ['frame'])
         
@@ -747,7 +740,6 @@ class ImplicitVirtualizableTests:
         assert res == f(123)
 
     def test_external_read_sometimes_changing_virtuals(self):
-        self._skip_if_untranslated_on_a_real_backend()
         jitdriver = JitDriver(greens = [], reds = ['frame'],
                               virtualizables = ['frame'])
         
@@ -796,7 +788,6 @@ class ImplicitVirtualizableTests:
         assert res == f(123)
 
     def test_external_read_sometimes_with_exception(self):
-        self._skip_if_untranslated_on_a_real_backend()
         jitdriver = JitDriver(greens = [], reds = ['frame'],
                               virtualizables = ['frame'])
         
@@ -839,7 +830,6 @@ class ImplicitVirtualizableTests:
         assert res == f(123)
 
     def test_external_read_sometimes_dont_compile_guard(self):
-        self._skip_if_untranslated_on_a_real_backend()
         jitdriver = JitDriver(greens = [], reds = ['frame'],
                               virtualizables = ['frame'])
         
@@ -876,7 +866,6 @@ class ImplicitVirtualizableTests:
         assert res == f(123)
 
     def test_external_read_sometimes_recursive(self):
-        self._skip_if_untranslated_on_a_real_backend()
         jitdriver = JitDriver(greens = [], reds = ['rec', 'frame'],
                               virtualizables = ['frame'])
         
@@ -928,7 +917,6 @@ class ImplicitVirtualizableTests:
         assert res == main(123)
 
     def test_external_write_sometimes(self):
-        self._skip_if_untranslated_on_a_real_backend()
         jitdriver = JitDriver(greens = [], reds = ['frame'],
                               virtualizables = ['frame'])
         

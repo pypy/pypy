@@ -649,6 +649,7 @@ class ResumeAtPositionDescr(ResumeGuardDescr):
         return res
 
 class AllVirtuals:
+    llopaque = True
     list = [resume.ResumeDataDirectReader.virtual_default]   # annotation hack
     def __init__(self, list):
         self.list = list
