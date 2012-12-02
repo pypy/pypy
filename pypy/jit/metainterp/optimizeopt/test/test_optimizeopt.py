@@ -789,6 +789,10 @@ class OptimizeOptTest(BaseTestWithUnroll):
         guard_true(i1) []
         i3 = uint_lt(i0, 20)
         guard_true(i3) []
+        i4 = uint_ge(i0, 11)
+        guard_false(i4) []
+        i5 = uint_gt(i0, 12)
+        guard_false(i5) []
         jump()
         """
         expected = """

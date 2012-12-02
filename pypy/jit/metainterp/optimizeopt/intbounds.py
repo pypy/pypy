@@ -272,8 +272,16 @@ class OptIntBounds(Optimization):
     def optimize_UINT_GT(self, op):
         v1 = self.getvalue(op.getarg(0))
         v2 = self.getvalue(op.getarg(1))
+        zero = IntBound(0,0)
         if v1 is v2:
             self.make_constant_int(op.result, 0)
+        elif v1.intbound.known_ge(zero) and v2.intbound.known_ge(zero):
+            if v1.intbound.known_gt(v2.intbound):
+                self.make_constant_int(op.result, 1)
+            elif v1.intbound.known_le(v2.intbound):
+                self.make_constant_int(op.result, 0)
+            else:
+                self.emit_operation(op)
         else:
             self.emit_operation(op)
 
@@ -308,8 +316,16 @@ class OptIntBounds(Optimization):
     def optimize_UINT_GE(self, op):
         v1 = self.getvalue(op.getarg(0))
         v2 = self.getvalue(op.getarg(1))
+        zero = IntBound(0,0)
         if v1 is v2:
             self.make_constant_int(op.result, 1)
+        elif v1.intbound.known_ge(zero) and v2.intbound.known_ge(zero):
+            if v1.intbound.known_ge(v2.intbound):
+                self.make_constant_int(op.result, 1)
+            elif v1.intbound.known_lt(v2.intbound):
+                self.make_constant_int(op.result, 0)
+            else:
+                self.emit_operation(op)
         else:
             self.emit_operation(op)
 
