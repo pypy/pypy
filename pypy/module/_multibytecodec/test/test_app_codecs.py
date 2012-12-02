@@ -108,5 +108,5 @@ class AppTestCodecs:
         import sys
         codecs.register_error("test.test_encode_custom_error_handler_type",
                               lambda e: ('\xc3', e.end))
-        raises(TypeError, u"\uDDA1".encode, "gbk",
-               "test.test_encode_custom_error_handler_type")
+        result = "\uDDA1".encode("gbk", "test.test_encode_custom_error_handler_type")
+        assert '\xc3' in result

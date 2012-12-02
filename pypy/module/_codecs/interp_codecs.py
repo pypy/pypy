@@ -60,20 +60,27 @@ class CodecState(object):
                 raise operationerrfmt(
                     space.w_IndexError,
                     "position %d from error handler out of bounds", newpos)
-            replace = space.unicode_w(w_replace)
-            return replace, newpos
+            return w_replace, newpos
         return call_errorhandler
 
     def make_decode_errorhandler(self, space):
-        return self._make_errorhandler(space, True)
+        errorhandler = self._make_errorhandler(space, True)
+        def decode_call_errorhandler(errors, encoding, reason, input,
+                                     startpos, endpos):
+            w_replace, newpos = errorhandler(errors, encoding, reason, input,
+                                             startpos, endpos)
+            return space.unicode_w(w_replace), newpos
+        return decode_call_errorhandler
 
     def make_encode_errorhandler(self, space):
         errorhandler = self._make_errorhandler(space, False)
-        def encode_call_errorhandler(errors, encoding, reason, input, startpos,
-                                     endpos):
-            replace, newpos = errorhandler(errors, encoding, reason, input,
-                                           startpos, endpos)
-            return replace, None, newpos
+        def encode_call_errorhandler(errors, encoding, reason, input,
+                                     startpos, endpos):
+            w_replace, newpos = errorhandler(errors, encoding, reason, input,
+                                             startpos, endpos)
+            if space.isinstance_w(w_replace, space.w_unicode):
+                return space.unicode_w(w_replace), None, newpos
+            return None, space.bytes_w(w_replace), newpos
         return encode_call_errorhandler
 
     def get_unicodedata_handler(self, space):
