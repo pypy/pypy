@@ -161,8 +161,7 @@ def look_inside_iff(predicate):
             def trampoline(%(arguments)s):
                 return func(%(arguments)s)
             if hasattr(func, "oopspec"):
-                # XXX: This seems like it should be here, but it causes errors.
-                # trampoline.oopspec = func.oopspec
+                trampoline.oopspec = func.oopspec
                 del func.oopspec
             trampoline.__name__ = func.__name__ + "_trampoline"
             trampoline._annspecialcase_ = "specialize:call_location"

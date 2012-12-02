@@ -1,6 +1,6 @@
 import py
 from pypy.rlib.objectmodel import newlist_hint
-from pypy.rlib.jit import JitDriver
+from pypy.rlib.jit import JitDriver, promote
 from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
 
 
@@ -271,6 +271,22 @@ class ListTests:
         assert r == 3
         r = self.interp_operations(f, [-1])
         assert r == 0
+
+    def test_list_mul_nonzero(self):
+        driver = JitDriver(greens=[], reds=['i', 'n'])
+
+        def f(n):
+            i = 0
+            while i < n:
+                driver.jit_merge_point(i=i, n=n)
+                x = promote(n)
+                l = [-1] * x
+                i -= l[2]
+            return i
+        res = self.meta_interp(f, [5])
+        assert res == 5
+        self.check_resops(call=0)
+
 
 class TestOOtype(ListTests, OOJitMixin):
     pass
