@@ -1,7 +1,7 @@
-import sys
-from pypy.module._ffi.test.test_funcptr import BaseAppTestFFI
-from pypy.module._ffi.interp_struct import compute_size_and_alignement, W_Field
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.module._ffi.interp_ffitype import app_types, W_FFIType
+from pypy.module._ffi.interp_struct import compute_size_and_alignement, W_Field
+from pypy.module._ffi.test.test_funcptr import BaseAppTestFFI
 
 
 class TestStruct(object):
@@ -37,12 +37,14 @@ class TestStruct(object):
         assert self.sizeof([T.slonglong, T.sbyte, T.sbyte, T.sbyte]) == llong_size + llong_align
         assert self.sizeof([T.slonglong, T.sbyte, T.sbyte, T.sbyte, T.sbyte]) == llong_size + llong_align
 
+
 class AppTestStruct(BaseAppTestFFI):
 
     def setup_class(cls):
         BaseAppTestFFI.setup_class.im_func(cls)
-        #
-        def read_raw_mem(self, addr, typename, length):
+
+        @unwrap_spec(addr=int, typename=str, length=int)
+        def read_raw_mem(space, addr, typename, length):
             import ctypes
             addr = ctypes.cast(addr, ctypes.c_void_p)
             c_type = getattr(ctypes, typename)
@@ -50,8 +52,8 @@ class AppTestStruct(BaseAppTestFFI):
             ptr_array = ctypes.cast(addr, array_type)
             array = ptr_array[0]
             lst = [array[i] for i in range(length)]
-            return lst
-        cls.w_read_raw_mem = cls.space.wrap(read_raw_mem)
+            return space.wrap(lst)
+        cls.w_read_raw_mem = cls.space.wrap(interp2app(read_raw_mem))
         #
         from pypy.rlib import clibffi
         from pypy.rlib.rarithmetic import r_uint
