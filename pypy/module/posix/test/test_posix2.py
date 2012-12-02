@@ -48,7 +48,12 @@ def need_sparse_files():
 
 GET_POSIX = "(): import %s as m ; return m" % os.name
 
+
 class AppTestPosix:
+    spaceconfig = {
+        "usemodules": ["binascii", "struct"],
+    }
+
     def setup_class(cls):
         cls.space = space
         cls.w_posix = space.appexec([], GET_POSIX)

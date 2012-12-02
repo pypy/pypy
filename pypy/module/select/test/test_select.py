@@ -225,9 +225,12 @@ class _AppTestSelect:
             readend.close()
             writeend.close()
 
+
 class AppTestSelectWithPipes(_AppTestSelect):
     "Use a pipe to get pairs of file descriptors"
-    spaceconfig = dict(usemodules=["select"])
+    spaceconfig = {
+        "usemodules": ["select", "rctime"]
+    }
 
     def setup_class(cls):
         if sys.platform == 'win32':

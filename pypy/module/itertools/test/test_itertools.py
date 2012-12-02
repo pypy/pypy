@@ -912,7 +912,9 @@ class AppTestItertools26:
 
 
 class AppTestItertools27:
-    spaceconfig = dict(usemodules=['itertools', 'struct'])
+    spaceconfig = {
+        "usemodules": ['itertools', 'struct', 'binascii'],
+    }
 
     def setup_class(cls):
         if cls.space.is_true(cls.space.appexec([], """():
