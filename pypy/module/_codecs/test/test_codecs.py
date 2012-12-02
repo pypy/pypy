@@ -2,7 +2,7 @@ import autopath
 
 
 class AppTestCodecs:
-    spaceconfig = dict(usemodules=('unicodedata', 'struct'))
+    spaceconfig = dict(usemodules=('binascii', 'struct', 'unicodedata'))
 
     def test_register_noncallable(self):
         import _codecs

@@ -66,11 +66,18 @@ class UnicodeTests(object):
             assert t is s
             assert start == startingpos
             assert stop == endingpos
-            return "42424242", stop
+            return u"42424242", None, stop
         encoder = self.getencoder(encoding)
         result = encoder(s, len(s), "foo!", errorhandler)
         assert called[0]
         assert "42424242" in result
+
+        # ensure bytes results passthru
+        def errorhandler_bytes(errors, enc, msg, t, startingpos,
+                               endingpos):
+            return None, '\xc3', endingpos
+        result = encoder(s, len(s), "foo!", errorhandler_bytes)
+        assert '\xc3' in result
 
     def checkdecodeerror(self, s, encoding, start, stop,
                          addstuff=True, msg=None):
