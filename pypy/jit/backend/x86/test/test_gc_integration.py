@@ -51,6 +51,7 @@ class MockGcDescr(GcCache):
 
     _record_constptrs = GcLLDescr_framework._record_constptrs.im_func
     rewrite_assembler = GcLLDescr_framework.rewrite_assembler.im_func
+    getframedescrs    = GcLLDescr_framework.getframedescrs.im_func
 
 class TestRegallocDirectGcIntegration(object):
 

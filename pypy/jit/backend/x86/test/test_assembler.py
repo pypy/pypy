@@ -32,6 +32,12 @@ class FakeCPU:
         assert num == 0x1C3
         return FakeFailDescr()
 
+    def gc_clear_extra_threshold(self):
+        pass
+
+    def get_failargs_limit(self):
+        return 1000
+
 class FakeMC:
     def __init__(self):
         self.content = []
