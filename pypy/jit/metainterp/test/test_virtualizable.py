@@ -1386,6 +1386,55 @@ class ImplicitVirtualizableTests:
         print main(100)
         res = self.meta_interp(main, [100], inline=True, enable_opts='')
 
+    def test_stuff_from_backend_test(self):
+        class Thing(object):
+            def __init__(self, val):
+                self.val = val
+
+        class Frame(object):
+            _virtualizable2_ = ['thing']
+
+        driver = JitDriver(greens = ['codeno'], reds = ['i', 'frame'],
+                           virtualizables = ['frame'],
+                           get_printable_location = lambda codeno: str(codeno))
+        class SomewhereElse(object):
+            pass
+
+        somewhere_else = SomewhereElse()
+
+        @dont_look_inside
+        def change(newthing):
+            somewhere_else.frame.thing = newthing
+
+        def main(codeno):
+            frame = Frame()
+            somewhere_else.frame = frame
+            frame.thing = Thing(0)
+            portal(codeno, frame)
+            return frame.thing.val
+
+        def portal(codeno, frame):
+            i = 0
+            while i < 10:
+                driver.can_enter_jit(frame=frame, codeno=codeno, i=i)
+                driver.jit_merge_point(frame=frame, codeno=codeno, i=i)
+                nextval = frame.thing.val
+                if codeno == 0:
+                    subframe = Frame()
+                    subframe.thing = Thing(nextval)
+                    nextval = portal(1, subframe)
+                elif frame.thing.val > 40:
+                    change(Thing(13))
+                    nextval = 13
+                frame.thing = Thing(nextval + 1)
+                i += 1
+            return frame.thing.val
+
+        res = self.meta_interp(main, [0], inline=True)
+        print hex(res)
+        assert res == main(0)
+
+
 class TestOOtype(#ExplicitVirtualizableTests,
                  ImplicitVirtualizableTests,
                  OOJitMixin):
