@@ -1610,15 +1610,6 @@ def PyMarshal_ReadObjectFromString(space, string, len):
     raise NotImplementedError
     
 
-@cpython_api([Py_buffer], PyObject)
-def PyMemoryView_FromBuffer(space, view):
-    """Create a memoryview object wrapping the given buffer structure view.
-    The memoryview object then owns the buffer represented by view, which
-    means you shouldn't try to call PyBuffer_Release() yourself: it
-    will be done on deallocation of the memoryview object."""
-    raise NotImplementedError
-    
-
 @cpython_api([PyObject, rffi.INT_real, lltype.Char], PyObject)
 def PyMemoryView_GetContiguous(space, obj, buffertype, order):
     """Create a memoryview object to a contiguous chunk of memory (in either
@@ -1642,33 +1633,6 @@ def PyMemoryView_GET_BUFFER(space, obj):
     memoryview object.  The object must be a memoryview instance;
     this macro doesn't check its type, you must do it yourself or you
     will risk crashes."""
-    raise NotImplementedError
-    
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyInstanceMethod_Check(space, o):
-    """Return true if o is an instance method object (has type
-    PyInstanceMethod_Type).  The parameter must not be NULL."""
-    raise NotImplementedError
-    
-
-@cpython_api([PyObject], PyObject)
-def PyInstanceMethod_New(space, func):
-    """Return a new instance method object, with func being any callable object
-    func is the function that will be called when the instance method is
-    called."""
-    raise NotImplementedError
-    
-
-@cpython_api([PyObject], PyObject)
-def PyInstanceMethod_Function(space, im):
-    """Return the function object associated with the instance method im."""
-    raise NotImplementedError
-    
-
-@cpython_api([PyObject], PyObject)
-def PyInstanceMethod_GET_FUNCTION(space, im):
-    """Macro version of PyInstanceMethod_Function() which avoids error checking."""
     raise NotImplementedError
     
 

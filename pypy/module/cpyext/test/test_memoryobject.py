@@ -1,5 +1,6 @@
 import py
 from pypy.module.cpyext.test.test_api import BaseApiTest
+from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 
 class TestMemoryViewObject(BaseApiTest):
     def test_fromobject(self, space, api):
@@ -11,3 +12,29 @@ class TestMemoryViewObject(BaseApiTest):
         w_view = api.PyMemoryView_FromObject(w_hello)
         w_bytes = space.call_method(w_view, "tobytes")
         assert space.unwrap(w_bytes) == "hello"
+
+class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
+    def test_fillWithObject(self):
+        module = self.import_extension('foo', [
+                ("fillinfo", "METH_VARARGS",
+                 """
+                 Py_buffer buf;
+                 PyObject *str = PyBytes_FromString("hello, world.");
+                 PyObject *result;
+
+                 if (PyBuffer_FillInfo(&buf, str, PyBytes_AsString(str), 13,
+                                       0, 0)) {
+                     return NULL;
+                 }
+
+                 /* Get rid of our own reference to the object, but
+                  * the Py_buffer should still have a reference.
+                  */
+                 Py_DECREF(str);
+
+                 return PyMemoryView_FromBuffer(&buf);
+                 """)])
+        result = module.fillinfo()
+        assert b"hello, world." == result
+
+
