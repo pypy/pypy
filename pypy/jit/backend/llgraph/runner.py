@@ -164,6 +164,7 @@ class LLGraphCPU(model.AbstractCPU):
     supports_longlong = r_uint is not r_ulonglong
     supports_singlefloats = True
     translate_support_code = False
+    is_llgraph = True
 
     def __init__(self, rtyper, stats=None, *ignored_args, **ignored_kwds):
         model.AbstractCPU.__init__(self)

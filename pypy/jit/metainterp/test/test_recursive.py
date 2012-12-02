@@ -849,7 +849,13 @@ class RecursiveTests:
         res = self.meta_interp(main, [0], inline=True)
         assert res == main(0)
 
+    def _skip_if_untranslated_on_a_real_backend(self):
+        if not hasattr(self.CPUClass, 'is_llgraph'):
+            py.test.skip("xxx only works on the llgraph backend, or "
+                         "fully translated")
+
     def test_directly_call_assembler_virtualizable_force1(self):
+        self._skip_if_untranslated_on_a_real_backend()
         class Thing(object):
             def __init__(self, val):
                 self.val = val
@@ -944,6 +950,7 @@ class RecursiveTests:
         assert res == main(0, 10, 1)
 
     def test_directly_call_assembler_virtualizable_force_blackhole(self):
+        self._skip_if_untranslated_on_a_real_backend()
         class Thing(object):
             def __init__(self, val):
                 self.val = val
