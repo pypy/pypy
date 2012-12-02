@@ -715,23 +715,6 @@ class ResumeGuardForcedDescr(ResumeGuardDescr):
         hidden_all_virtuals = obj.hide(metainterp_sd.cpu)
         metainterp_sd.cpu.set_savedata_ref(deadframe, hidden_all_virtuals)
 
-    def fetch_data(self, key):
-        globaldata = self.metainterp_sd.globaldata
-        if we_are_translated():
-            assert key in globaldata.resume_virtuals
-            data = globaldata.resume_virtuals[key]
-            del globaldata.resume_virtuals[key]
-        else:
-            rv = globaldata.resume_virtuals_not_translated
-            for i in range(len(rv)):
-                if rv[i][0] == key:
-                    data = rv[i][1]
-                    del rv[i]
-                    break
-            else:
-                assert 0, "not found: %r" % (key,)
-        return data
-
     def _clone_if_mutable(self):
         res = ResumeGuardForcedDescr(self.metainterp_sd,
                                      self.jitdriver_sd)
