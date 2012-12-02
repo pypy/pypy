@@ -10,7 +10,7 @@ def gettestobjspace(**kwds):
     """ helper for instantiating and caching space's for testing.
     """
     try:
-        config = make_config(option,**kwds)
+        config = make_config(option, **kwds)
     except ConflictConfigError as e:
         # this exception is typically only raised if a module is not available.
         # in this case the test should be skipped

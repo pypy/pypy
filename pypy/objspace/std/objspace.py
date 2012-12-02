@@ -50,7 +50,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
 
         self.FrameClass = frame.build_frame(self)
         self.StringObjectCls = W_StringObject
-
         self.UnicodeObjectCls = W_UnicodeObject
 
         self._install_multimethods()
