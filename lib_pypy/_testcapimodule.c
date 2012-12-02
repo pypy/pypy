@@ -1,5 +1,4 @@
-/* Verbatim copy of Modules/_testcapimodule.c from CPython 3.2 w/ use
-   of PyInstanceMethod disabled */
+/* Verbatim copy of Modules/_testcapimodule.c from CPython 3.2 */
 /*
  * C Extension module to test Python interpreter C APIs.
  *
@@ -2626,10 +2625,8 @@ PyInit__testcapi(void)
     PyModule_AddObject(m, "PY_SSIZE_T_MAX", PyLong_FromSsize_t(PY_SSIZE_T_MAX));
     PyModule_AddObject(m, "PY_SSIZE_T_MIN", PyLong_FromSsize_t(PY_SSIZE_T_MIN));
     PyModule_AddObject(m, "SIZEOF_PYGC_HEAD", PyLong_FromSsize_t(sizeof(PyGC_Head)));
-#if 0 /* XXX: disabled for PyPy (for now) */
     Py_INCREF(&PyInstanceMethod_Type);
     PyModule_AddObject(m, "instancemethod", (PyObject *)&PyInstanceMethod_Type);
-#endif
 
     TestError = PyErr_NewException("_testcapi.error", NULL, NULL);
     Py_INCREF(TestError);
