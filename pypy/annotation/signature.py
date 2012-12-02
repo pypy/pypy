@@ -133,7 +133,15 @@ class Sig(object):
 
 
 def enforce_signature_args(funcdesc, argtypes, inputcells):
+    assert len(argtypes) == len(inputcells)
     args_s = []
     for i, argtype in enumerate(argtypes):
         args_s.append(annotation(argtype, bookkeeper=funcdesc.bookkeeper))
+    for i, (s_arg, s_input) in enumerate(zip(args_s, inputcells)):
+        if not s_arg.contains(s_input):
+            raise Exception("%r argument %d:\n"
+                            "expected %s,\n"
+                            "     got %s" % (funcdesc, i+1,
+                                         s_arg,
+                                         s_input))
     inputcells[:] = args_s

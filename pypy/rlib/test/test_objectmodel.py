@@ -511,6 +511,24 @@ def test_signature_basic():
         return a + len(b)
     assert getsig(f) == [model.SomeInteger(), model.SomeString(), model.SomeInteger()]
 
+def test_signature_errors():
+    @signature(types.int(), types.str(), returns=types.int())
+    def f(a, b):
+        return a + len(b)
+    def ok_for_body(): # would give no error without signature
+        f(2.0, 'b')
+    def bad_for_body(): # would give error inside 'f' body, instead errors at call
+        f('a', 'b')
+
+    def check_fails(caller):
+        t = TranslationContext()
+        a = t.buildannotator()
+        exc = py.test.raises(Exception, a.annotate_helper, caller, []).value
+        assert caller.func_name in repr(exc.args)
+
+    check_fails(ok_for_body)
+    check_fails(bad_for_body)
+
 
 def getgraph(f, argtypes):
     from pypy.translator.translator import TranslationContext, graphof
