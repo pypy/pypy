@@ -1610,15 +1610,6 @@ def PyMarshal_ReadObjectFromString(space, string, len):
     raise NotImplementedError
     
 
-@cpython_api([Py_buffer], PyObject)
-def PyMemoryView_FromBuffer(space, view):
-    """Create a memoryview object wrapping the given buffer structure view.
-    The memoryview object then owns the buffer represented by view, which
-    means you shouldn't try to call PyBuffer_Release() yourself: it
-    will be done on deallocation of the memoryview object."""
-    raise NotImplementedError
-    
-
 @cpython_api([PyObject, rffi.INT_real, lltype.Char], PyObject)
 def PyMemoryView_GetContiguous(space, obj, buffertype, order):
     """Create a memoryview object to a contiguous chunk of memory (in either
