@@ -10,7 +10,8 @@ http://codespeak.net/pypy/dist/pypy/doc/config/commandline.html"""
 
 def get_standard_options():
     config = get_pypy_config()
-    parser = to_optparse(config, extra_useage=extra_useage)
+    parser = to_optparse(config, useoptions=["objspace.*"],
+                         extra_useage=extra_useage)
     return config, parser
 
 def process_options(parser, argv=None):
