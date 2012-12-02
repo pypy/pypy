@@ -73,14 +73,15 @@ def find_module(space, w_name, w_path=None):
     stream = find_info.stream
 
     if stream is not None:
-        # try to find the declared encoding
         encoding = None
-        firstline = stream.readline()
-        stream.seek(0, 0) # reset position
-        if firstline.startswith('#'):
-            encoding = pytokenizer.match_encoding_declaration(firstline)
-        if encoding is None:
-            encoding = unicodetype.getdefaultencoding(space)
+        if find_info.modtype == importing.PY_SOURCE:
+            # try to find the declared encoding
+            firstline = stream.readline()
+            stream.seek(0, 0) # reset position
+            if firstline.startswith('#'):
+                encoding = pytokenizer.match_encoding_declaration(firstline)
+            if encoding is None:
+                encoding = unicodetype.getdefaultencoding(space)
         #
         # in python2, both CPython and PyPy pass the filename to
         # open(). However, CPython 3 just passes the fd, so the returned file
