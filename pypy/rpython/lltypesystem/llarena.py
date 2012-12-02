@@ -1,6 +1,9 @@
 import array, weakref
+from py.path import local
 from pypy.rpython.lltypesystem import llmemory
 from pypy.rlib.rarithmetic import is_valid_int
+from pypy.tool.autopath import pypydir
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
 
 # An "arena" is a large area of memory which can hold a number of
@@ -417,7 +420,6 @@ if sys.platform.startswith('linux'):
     # lazily-allocating pages on all Linux systems.
 
     from pypy.rpython.tool import rffi_platform
-    from pypy.translator.tool.cbuild import ExternalCompilationInfo
     _eci = ExternalCompilationInfo(includes=['sys/mman.h'])
     MADV_DONTNEED = rffi_platform.getconstantinteger('MADV_DONTNEED',
                                                      '#include <sys/mman.h>')
@@ -509,7 +511,6 @@ else:
     clear_large_memory_chunk = llmemory.raw_memclear
 
 if os.name == "posix":
-    from pypy.translator.tool.cbuild import ExternalCompilationInfo
     _eci = ExternalCompilationInfo(includes=['sys/mman.h'])
     raw_mprotect = rffi.llexternal('mprotect',
                                    [llmemory.Address, rffi.SIZE_T, rffi.INT],
@@ -596,12 +597,16 @@ register_external(arena_shrink_obj, [llmemory.Address, int], None,
                   llfakeimpl=arena_shrink_obj,
                   sandboxsafe=True)
 
+_eci = ExternalCompilationInfo(
+        include_dirs=[local(pypydir) / 'translator' / 'c'],
+        includes=['src/align.h'])
 llimpl_round_up_for_allocation = rffi.llexternal('ROUND_UP_FOR_ALLOCATION',
                                                 [lltype.Signed, lltype.Signed],
                                                  lltype.Signed,
                                                  sandboxsafe=True,
                                                  _nowrapper=True,
-                                                 macro=True)
+                                                 macro=True,
+                                                 compilation_info=_eci)
 register_external(_round_up_for_allocation, [int, int], int,
                   'll_arena.round_up_for_allocation',
                   llimpl=llimpl_round_up_for_allocation,

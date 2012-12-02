@@ -665,6 +665,9 @@ class TestLLVMRffi(BaseTestRffi, _LLVMMixin):
             return fn(*args, **kwds)
         return fn2
 
+    def test_string_reverse(self):
+        py.test.skip('Specific to GenC')
+
 
 class TestMiniMarkGCLLVM(test_newgc.TestMiniMarkGC):
     @classmethod
@@ -714,7 +717,8 @@ class TestRconstantdictLLVM(_LLVMMixin, test_rconstantdict.TestLLtype):
     pass
 
 class TestRdictLLVM(_LLVMMixin, test_rdict.TestLLtype):
-    pass
+    def test_memoryerror_should_not_insert(self):
+        py.test.skip('Impossible to pass if not running on LLInterpreter.')
 
 class TestRemptydictLLVM(_LLVMMixin, test_remptydict.TestLLtype):
     pass

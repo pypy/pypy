@@ -1530,9 +1530,11 @@ class RefcountGCPolicy(GCPolicy):
         return [self.gctransformer.gcheaderbuilder.header_of_object(obj)._obj]
 
 
+translator_dir = local(pypydir) / 'translator'
 allocator_eci = ExternalCompilationInfo(
-    include_dirs = [local(pypydir) / 'translator' / 'c'],
-    includes = ['src/allocator.h']
+    include_dirs = [translator_dir / 'c', translator_dir / 'llvm'],
+    includes = ['src/allocator.h'],
+    separate_module_files = [translator_dir / 'c' / 'src' / 'allocator.c']
 )
 llvm_eci = ExternalCompilationInfo()
 
@@ -1674,13 +1676,10 @@ class GenLLVM(object):
             abort();
         }
         ''')
-        eci = (ExternalCompilationInfo(
-            include_dirs = [local(pypydir) / 'translator' / 'c'],
-            includes = ['src/g_prerequisite.h']
-        ).merge(*self.ecis)
-         .convert_sources_to_files(being_main=True)
-         .merge(ExternalCompilationInfo(separate_module_sources=[stub_code]))
-         .convert_sources_to_files(being_main=False))
+        eci = ExternalCompilationInfo(
+            includes=['stdio.h', 'stdlib.h'],
+            separate_module_sources=[stub_code]
+        ).merge(*self.ecis).convert_sources_to_files()
         cmdexec('clang -O3 -pthread -Wall -Wno-unused {}{}{}{}{}{}{}.ll -o {}'
                 .format(
                 add_opts,
