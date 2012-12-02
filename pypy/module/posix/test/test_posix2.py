@@ -51,7 +51,7 @@ GET_POSIX = "(): import %s as m ; return m" % os.name
 
 class AppTestPosix:
     spaceconfig = {
-        "usemodules": ["binascii", "struct"],
+        "usemodules": ["binascii", "struct", "rctime"],
     }
 
     def setup_class(cls):
