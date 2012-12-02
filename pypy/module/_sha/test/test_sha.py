@@ -2,18 +2,17 @@
 Tests for the sha module implemented at interp-level in pypy/module/sha.
 """
 
-import py
-
 
 class AppTestSHA(object):
-    spaceconfig = dict(usemodules=['_sha'])
+    spaceconfig = {
+        "usemodules": ['_sha', 'rctime'],
+    }
 
     def setup_class(cls):
         cls.w_sha = cls.space.appexec([], """():
             import sha
             return sha
         """)
-
 
     def test_digest_size(self):
         """
