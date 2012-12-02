@@ -285,7 +285,13 @@ class VRefTests:
                           new_array=6)         # next1/2/3
         self.check_aborted_count(0)
 
+    def _skip_if_untranslated_on_a_real_backend(self):
+        if not hasattr(self.CPUClass, 'is_llgraph'):
+            py.test.skip("xxx only works on the llgraph backend, or "
+                         "fully translated")
+
     def test_simple_force_sometimes(self):
+        self._skip_if_untranslated_on_a_real_backend()
         myjitdriver = JitDriver(greens = [], reds = ['n'])
         #
         A = lltype.GcArray(lltype.Signed)
@@ -511,6 +517,7 @@ class VRefTests:
         self.check_aborted_count(0)
 
     def test_alloc_virtualref_and_then_alloc_structure(self):
+        self._skip_if_untranslated_on_a_real_backend()
         myjitdriver = JitDriver(greens = [], reds = ['n'])
         #
         class XY:
@@ -569,6 +576,7 @@ class VRefTests:
         py.test.raises(UnknownException, "self.meta_interp(fn, [10])")
 
     def test_call_virtualref_already_forced(self):
+        self._skip_if_untranslated_on_a_real_backend()
         myjitdriver = JitDriver(greens = [], reds = ['n', 'res'])
         #
         class XY:
