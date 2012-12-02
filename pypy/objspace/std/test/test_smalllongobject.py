@@ -100,7 +100,7 @@ class AppTestSmallLong(test_longobject.AppTestLong):
 
     def test_sl_add_32(self):
         import sys, __pypy__
-        if sys.maxint == 2147483647:
+        if sys.maxsize == 2147483647:
             x = 2147483647
             assert x + x == 4294967294
             assert 'SmallLong' in __pypy__.internal_repr(x + x)

@@ -101,8 +101,8 @@ class AppTestStringObject:
         assert '0x0' == '%#x' % z
         assert '23' == '%s' % n
         assert '23' == '%r' % n
-        assert ('%d' % (-sys.maxint-1,) == '-' + str(sys.maxint+1)
-                                        == '-%d' % (sys.maxint+1,))
+        assert ('%d' % (-sys.maxsize-1,) == '-' + str(sys.maxsize+1)
+                                         == '-%d' % (sys.maxsize+1,))
         n = 28
         m = 8
         assert '1C' == '%X' % n

@@ -321,7 +321,7 @@ class AppTestInt:
 
     def test_int_largenums(self):
         import sys
-        for x in [-sys.maxint-1, -1, sys.maxint]:
+        for x in [-sys.maxsize-1, -1, sys.maxsize]:
             y = int(str(x))
             assert y == x
             assert type(y) is int
@@ -332,7 +332,7 @@ class AppTestInt:
 
     def test_overflow(self):
         import sys
-        n = sys.maxint + 1
+        n = sys.maxsize + 1
         assert isinstance(n, int)
 
     def test_pow(self):

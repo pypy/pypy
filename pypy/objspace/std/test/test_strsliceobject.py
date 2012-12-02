@@ -41,7 +41,7 @@ class AppTestStringObject(test_stringobject.AppTestStringObject):
 
     def test_index(self):
         import __pypy__, sys
-        m = sys.maxint
+        m = sys.maxsize
         def slice(s): return (s*3)[len(s):-len(s)]
         s = slice(b'abcdefghiabc' * 20)
         assert 'W_StringSliceObject' in __pypy__.internal_repr(s)
@@ -69,7 +69,7 @@ class AppTestStringObject(test_stringobject.AppTestStringObject):
 
     def test_rindex(self):
         import __pypy__
-        from sys import maxint
+        from sys import maxsize
         def slice(s): return (s*3)[len(s):-len(s)]
         s = slice(b"X" * 100 + b'abcdefghiabc')
         assert 'W_StringSliceObject' in __pypy__.internal_repr(s)
@@ -77,7 +77,7 @@ class AppTestStringObject(test_stringobject.AppTestStringObject):
         assert s.rindex(b'def') == 103
         assert s.rindex(b'abc') == 109
         assert s.rindex(b'abc', 0, -1) == 100
-        assert s.rindex(b'abc', -4*maxint, 4*maxint) == 109
+        assert s.rindex(b'abc', -4*maxsize, 4*maxsize) == 109
         raises(ValueError, slice(b'abcdefghiabc' * 20).rindex, b'hib')
         raises(ValueError, slice(b'defghiabc' + b"X" * 100).rindex, b'def', 1)
         raises(ValueError, slice(b'defghiabc' + b"X" * 100).rindex, b'abc', 0, -101)

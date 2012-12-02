@@ -244,7 +244,7 @@ class AppTestLong:
 
     def test_long(self):
         import sys
-        n = -sys.maxint-1
+        n = -sys.maxsize-1
         assert int(n) == n
         assert str(int(n)) == str(n)
 
