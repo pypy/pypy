@@ -1,5 +1,6 @@
 import py
 from pypy.rlib.objectmodel import *
+from pypy.annotation import types, model
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 from pypy.rpython.test.test_llinterp import interpret
@@ -487,7 +488,7 @@ def test_enforceargs_translates():
     assert TYPES == [lltype.Signed, lltype.Float]
 
 
-def test_signature_decorator():
+def test_signature_bookkeeping():
     @signature('x', 'y', returns='z')
     def f(a, b):
         return a + len(b)
@@ -496,6 +497,19 @@ def test_signature_decorator():
     assert f.func_name == 'f'
     assert f.foo == 'foo'
     assert f(1, 'hello') == 6
+
+def getsig(f):
+    # returns [param1, param2, ..., ret]
+    t = TranslationContext()
+    a = t.buildannotator()
+    g = a.annotate_helper(f, [model.s_ImpossibleValue]*f.func_code.co_argcount)
+    return [a.bindings[v] for v in g.startblock.inputargs] + [a.bindings[g.getreturnvar()]]
+
+def test_signature_basic():
+    @signature(types.int(), types.str(), returns=types.int())
+    def f(a, b):
+        return a + len(b)
+    assert getsig(f) == [model.SomeInteger(), model.SomeString(), model.SomeInteger()]
 
 
 def getgraph(f, argtypes):

@@ -1,5 +1,6 @@
 from __future__ import absolute_import
 import types, py
+from pypy.annotation.signature import enforce_signature_args
 from pypy.objspace.flow.model import Constant, FunctionGraph
 from pypy.objspace.flow.bytecode import cpython_code_signature
 from pypy.objspace.flow.argument import rawshape, ArgErr
@@ -276,12 +277,17 @@ class FunctionDesc(Desc):
             policy = self.bookkeeper.annotator.policy
             self.specializer = policy.get_specializer(tag)
         enforceargs = getattr(self.pyobj, '_annenforceargs_', None)
+        signature = getattr(self.pyobj, '_signature_', None)
+        if enforceargs and signature:
+            raise Exception("%r: signature and enforceargs cannot both be used" % (self,))
         if enforceargs:
             if not callable(enforceargs):
                 from pypy.annotation.policy import Sig
                 enforceargs = Sig(*enforceargs)
                 self.pyobj._annenforceargs_ = enforceargs
             enforceargs(self, inputcells) # can modify inputcells in-place
+        if signature:
+            enforce_signature_args(self, signature[0], inputcells) # mutates inputcells
         if getattr(self.pyobj, '_annspecialcase_', '').endswith("call_location"):
             return self.specializer(self, inputcells, op)
         else:

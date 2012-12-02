@@ -130,3 +130,10 @@ class Sig(object):
                                              s_arg,
                                              s_input))
         inputcells[:] = args_s
+
+
+def enforce_signature_args(funcdesc, argtypes, inputcells):
+    args_s = []
+    for i, argtype in enumerate(argtypes):
+        args_s.append(annotation(argtype, bookkeeper=funcdesc.bookkeeper))
+    inputcells[:] = args_s
