@@ -1645,33 +1645,6 @@ def PyMemoryView_GET_BUFFER(space, obj):
     raise NotImplementedError
     
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyInstanceMethod_Check(space, o):
-    """Return true if o is an instance method object (has type
-    PyInstanceMethod_Type).  The parameter must not be NULL."""
-    raise NotImplementedError
-    
-
-@cpython_api([PyObject], PyObject)
-def PyInstanceMethod_New(space, func):
-    """Return a new instance method object, with func being any callable object
-    func is the function that will be called when the instance method is
-    called."""
-    raise NotImplementedError
-    
-
-@cpython_api([PyObject], PyObject)
-def PyInstanceMethod_Function(space, im):
-    """Return the function object associated with the instance method im."""
-    raise NotImplementedError
-    
-
-@cpython_api([PyObject], PyObject)
-def PyInstanceMethod_GET_FUNCTION(space, im):
-    """Macro version of PyInstanceMethod_Function() which avoids error checking."""
-    raise NotImplementedError
-    
-
 @cpython_api([], rffi.INT_real, error=-1)
 def PyMethod_ClearFreeList(space, ):
     """Clear the free list. Return the total number of freed items."""
