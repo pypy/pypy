@@ -234,7 +234,6 @@ def _get_relative_name(space, modulename, level, w_globals):
 def importhook(space, name, w_globals=None,
                w_locals=None, w_fromlist=None, level=0):
     modulename = name
-    space.timer.start_name("importhook", modulename)
     if not modulename and level == 0:
         raise OperationError(
             space.w_ValueError,
@@ -257,13 +256,11 @@ def importhook(space, name, w_globals=None,
             w_mod = absolute_import(space, rel_modulename, rel_level,
                                     fromlist_w, tentative=False)
             if w_mod is not None:
-                space.timer.stop_name("importhook", modulename)
                 return w_mod
 
     w_mod = absolute_import(space, modulename, 0, fromlist_w, tentative=0)
     if rel_modulename is not None:
         space.setitem(space.sys.get('modules'), w(rel_modulename), space.w_None)
-    space.timer.stop_name("importhook", modulename)
     return w_mod
 
 def absolute_import(space, modulename, baselevel, fromlist_w, tentative):

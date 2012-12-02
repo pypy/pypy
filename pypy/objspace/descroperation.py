@@ -525,7 +525,7 @@ def _make_binop_impl(symbol, specialnames):
             # sanity reasons, we just compare the two places where the
             # __xxx__ and __rxxx__ methods where found by identity.
             # Note that space.is_w() is potentially not happy if one of them
-            # is None (e.g. with the thunk space)...
+            # is None...
             if w_left_src is not w_right_src:    # XXX
                 # -- end of bug compatibility
                 if space.is_true(space.issubtype(w_typ2, w_typ1)):

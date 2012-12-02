@@ -194,21 +194,7 @@ def _unicode_join_many_items(space, w_self, list_w, size):
     return space.wrap(sb.build())
 
 def hash__Unicode(space, w_uni):
-    s = w_uni._value
-    if space.config.objspace.std.withrope:
-        # be compatible with the special ropes hash
-        # XXX no caching
-        if len(s) == 0:
-            return space.wrap(0)
-        x = 0
-        for c in s:
-            x = intmask((1000003 * x) + ord(c))
-        x <<= 1
-        x ^= len(s)
-        x ^= ord(s[0])
-        h = intmask(x)
-        return space.wrap(h)
-    x = compute_hash(s)
+    x = compute_hash(w_uni._value)
     return space.wrap(x)
 
 def len__Unicode(space, w_uni):

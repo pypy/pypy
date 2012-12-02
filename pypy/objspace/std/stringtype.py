@@ -9,14 +9,11 @@ from pypy.rlib.jit import we_are_jitted
 
 def wrapstr(space, s):
     from pypy.objspace.std.stringobject import W_StringObject
-    from pypy.objspace.std.ropeobject import rope, W_RopeObject
     if space.config.objspace.std.sharesmallstr:
         if space.config.objspace.std.withprebuiltchar:
             # share characters and empty string
             if len(s) <= 1:
                 if len(s) == 0:
-                    if space.config.objspace.std.withrope:
-                        return W_RopeObject.EMPTY
                     return W_StringObject.EMPTY
                 else:
                     s = s[0]     # annotator hint: a single char
@@ -24,44 +21,25 @@ def wrapstr(space, s):
         else:
             # only share the empty string
             if len(s) == 0:
-                if space.config.objspace.std.withrope:
-                    return W_RopeObject.EMPTY
                 return W_StringObject.EMPTY
-    if space.config.objspace.std.withrope:
-        return W_RopeObject(rope.LiteralStringNode(s))
     return W_StringObject(s)
 
 def wrapchar(space, c):
     from pypy.objspace.std.stringobject import W_StringObject
-    from pypy.objspace.std.ropeobject import rope, W_RopeObject
     if space.config.objspace.std.withprebuiltchar and not we_are_jitted():
-        if space.config.objspace.std.withrope:
-            return W_RopeObject.PREBUILT[ord(c)]
         return W_StringObject.PREBUILT[ord(c)]
     else:
-        if space.config.objspace.std.withrope:
-            return W_RopeObject(rope.LiteralStringNode(c))
         return W_StringObject(c)
 
 def sliced(space, s, start, stop, orig_obj):
     assert start >= 0
     assert stop >= 0
-    assert not space.config.objspace.std.withrope
     if start == 0 and stop == len(s) and space.is_w(space.type(orig_obj), space.w_str):
         return orig_obj
-    if space.config.objspace.std.withstrslice:
-        from pypy.objspace.std.strsliceobject import W_StringSliceObject
-        # XXX heuristic, should be improved!
-        if (stop - start) > len(s) * 0.20 + 40:
-            return W_StringSliceObject(s, start, stop)
     return wrapstr(space, s[start:stop])
 
 def joined2(space, str1, str2):
-    assert not space.config.objspace.std.withrope
-    if space.config.objspace.std.withstrjoin:
-        from pypy.objspace.std.strjoinobject import W_StringJoinObject
-        return W_StringJoinObject([str1, str2])
-    elif space.config.objspace.std.withstrbuf:
+    if space.config.objspace.std.withstrbuf:
         from pypy.objspace.std.strbufobject import joined2
         return joined2(str1, str2)
     else:
@@ -336,20 +314,14 @@ def makebytesdata_w(space, w_source):
 @unwrap_spec(encoding='str_or_None', errors='str_or_None')
 def descr__new__(space, w_stringtype, w_source=None, encoding=None,
                  errors=None):
+    from pypy.objspace.std.stringobject import W_StringObject
     if (w_source and space.is_w(space.type(w_source), space.w_bytes) and
         space.is_w(w_stringtype, space.w_bytes)):
         return w_source
     value = ''.join(newbytesdata_w(space, w_source, encoding, errors))
-    if space.config.objspace.std.withrope:
-        from pypy.objspace.std.ropeobject import rope, W_RopeObject
-        w_obj = space.allocate_instance(W_RopeObject, w_stringtype)
-        W_RopeObject.__init__(w_obj, rope.LiteralStringNode(value))
-        return w_obj
-    else:
-        from pypy.objspace.std.stringobject import W_StringObject
-        w_obj = space.allocate_instance(W_StringObject, w_stringtype)
-        W_StringObject.__init__(w_obj, value)
-        return w_obj
+    w_obj = space.allocate_instance(W_StringObject, w_stringtype)
+    W_StringObject.__init__(w_obj, value)
+    return w_obj
 
 def descr_fromhex(space, w_type, w_hexstring):
     "bytes.fromhex(string) -> bytes\n"
@@ -358,21 +330,15 @@ def descr_fromhex(space, w_type, w_hexstring):
     "Spaces between two numbers are accepted.\n"
     "Example: bytes.fromhex('B9 01EF') -> bytes(b'\\xb9\\x01\\xef')."
     from pypy.objspace.std.bytearraytype import _hexstring_to_array
+    from pypy.objspace.std.stringobject import W_StringObject
     if not space.is_w(space.type(w_hexstring), space.w_unicode):
         raise OperationError(space.w_TypeError, space.wrap(
                 "must be str, not %s" % space.type(w_hexstring).name))
     hexstring = space.unicode_w(w_hexstring)
     chars = ''.join(_hexstring_to_array(space, hexstring))
-    if space.config.objspace.std.withrope:
-        from pypy.objspace.std.ropeobject import rope, W_RopeObject
-        w_obj = space.allocate_instance(W_RopeObject, w_type)
-        W_RopeObject.__init__(w_obj, rope.LiteralStringNode(chars))
-        return w_obj
-    else:
-        from pypy.objspace.std.stringobject import W_StringObject
-        w_obj = space.allocate_instance(W_StringObject, w_type)
-        W_StringObject.__init__(w_obj, chars)
-        return w_obj
+    w_obj = space.allocate_instance(W_StringObject, w_type)
+    W_StringObject.__init__(w_obj, chars)
+    return w_obj
 
 def descr_maketrans(space, w_type, w_from, w_to):
     """bytes.maketrans(frm, to) -> translation table

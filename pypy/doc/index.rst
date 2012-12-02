@@ -249,13 +249,6 @@ Directory                          explanation/links
 
 `pypy/objspace/`_                  `object space`_ implementations
 
-`pypy/objspace/trace.py`_          the `trace object space`_ monitoring bytecode and space operations
-
-`pypy/objspace/dump.py`_           the dump object space saves a large, searchable log file
-                                   with all operations
-
-`pypy/objspace/thunk.py`_          the `thunk object space`_, providing unique object features 
-
 `pypy/objspace/flow/`_             the FlowObjSpace_ implementing `abstract interpretation`_
 
 `pypy/objspace/std/`_              the StdObjSpace_ implementing CPython's objects and types
@@ -308,8 +301,6 @@ Directory                          explanation/links
 .. _`basil`: http://people.cs.uchicago.edu/~jriehl/BasilTalk.pdf
 .. _`object space`: objspace.html
 .. _FlowObjSpace: objspace.html#the-flow-object-space 
-.. _`trace object space`: objspace.html#the-trace-object-space 
-.. _`thunk object space`: objspace-proxies.html#thunk
 .. _`transparent proxies`: objspace-proxies.html#tproxy
 .. _`Differences between PyPy and CPython`: cpython_differences.html
 .. _`What PyPy can do for your objects`: objspace-proxies.html

@@ -109,10 +109,7 @@ def wrapint(space, x):
 ##             value, w_longval = string_to_int_or_long(space, space.str_w(w_value))
 ##             ok = True
 ##         elif space.isinstance_w(w_value, space.w_unicode):
-##             if space.config.objspace.std.withropeunicode:
-##                 from pypy.objspace.std.ropeunicodeobject import unicode_to_decimal_w
-##             else:
-##                 from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
+##             from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
 ##             string = unicode_to_decimal_w(space, w_value)
 ##             value, w_longval = string_to_int_or_long(space, string)
 ##             ok = True
@@ -144,7 +141,7 @@ def wrapint(space, x):
 ##             try:
 ##                 value = space.int_w(w_obj)
 ##             except OperationError, e:
-##                 if e.match(space,space.w_TypeError):
+##                 if e.match(space, space.w_TypeError):
 ##                     raise OperationError(space.w_ValueError,
 ##                         space.wrap("value can't be converted to int"))
 ##                 raise e
@@ -152,10 +149,7 @@ def wrapint(space, x):
 ##         base = space.int_w(w_base)
 
 ##         if space.isinstance_w(w_value, space.w_unicode):
-##             if space.config.objspace.std.withropeunicode:
-##                 from pypy.objspace.std.ropeunicodeobject import unicode_to_decimal_w
-##             else:
-##                 from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
+##             from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
 ##             s = unicode_to_decimal_w(space, w_value)
 ##         else:
 ##             try:

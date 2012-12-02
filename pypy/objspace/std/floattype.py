@@ -44,10 +44,7 @@ def descr__new__(space, w_floattype, w_x):
             raise OperationError(space.w_ValueError,
                                  space.wrap(e.msg))
     elif space.isinstance_w(w_value, space.w_unicode):
-        if space.config.objspace.std.withropeunicode:
-            from pypy.objspace.std.ropeunicodeobject import unicode_to_decimal_w
-        else:
-            from unicodeobject import unicode_to_decimal_w
+        from unicodeobject import unicode_to_decimal_w
         strvalue = unicode_to_decimal_w(space, w_value)
         try:
             value = string_to_float(strvalue)

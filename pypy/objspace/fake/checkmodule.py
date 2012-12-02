@@ -12,4 +12,4 @@ def checkmodule(*modnames):
         for name in module.loaders:
             module._load_lazily(space, name)
     #
-    space.translates(**{'translation.list_comprehension_operations':True})
+    space.translates(**{'translation.list_comprehension_operations': True})

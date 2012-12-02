@@ -195,3 +195,10 @@ class AppTestEpoll(object):
 
         server.close()
         ep.unregister(fd)
+
+    def test_close_twice(self):
+        import select
+
+        ep = select.epoll()
+        ep.close()
+        ep.close()

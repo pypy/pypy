@@ -19,13 +19,7 @@ option_to_typename = {
     "withsmalltuple" : ["smalltupleobject.W_SmallTupleObject"],
     "withsmallint"   : ["smallintobject.W_SmallIntObject"],
     "withsmalllong"  : ["smalllongobject.W_SmallLongObject"],
-    "withstrslice"   : ["strsliceobject.W_StringSliceObject"],
-    "withstrjoin"    : ["strjoinobject.W_StringJoinObject"],
     "withstrbuf"     : ["strbufobject.W_StringBufferObject"],
-    "withrope"       : ["ropeobject.W_RopeObject",
-                        "ropeobject.W_RopeIterObject"],
-    "withropeunicode": ["ropeunicodeobject.W_RopeUnicodeObject",
-                        "ropeunicodeobject.W_RopeUnicodeIterObject"],
     "withtproxy" : ["proxyobject.W_TransparentList",
                     "proxyobject.W_TransparentDict"],
 }
@@ -150,9 +144,6 @@ class StdTypeModel:
                     else:
                         self.imported_but_not_registered[implcls] = True
 
-        if config.objspace.std.withrope:
-            del self.typeorder[stringobject.W_StringObject]
-
         # check if we missed implementations
         for implcls in _registered_implementations:
             if hasattr(implcls, 'register'):
@@ -224,19 +215,7 @@ class StdTypeModel:
         self.typeorder[setobject.W_FrozensetObject] += [
             (setobject.W_BaseSetObject, None)
             ]
-        if config.objspace.std.withstrslice:
-            from pypy.objspace.std import strsliceobject
-            self.typeorder[strsliceobject.W_StringSliceObject] += [
-                (stringobject.W_StringObject,
-                                       strsliceobject.delegate_slice2str),
-                ]
-        if config.objspace.std.withstrjoin:
-            from pypy.objspace.std import strjoinobject
-            self.typeorder[strjoinobject.W_StringJoinObject] += [
-                (stringobject.W_StringObject,
-                                       strjoinobject.delegate_join2str),
-                ]
-        elif config.objspace.std.withstrbuf:
+        if config.objspace.std.withstrbuf:
             from pypy.objspace.std import strbufobject
             self.typeorder[strbufobject.W_StringBufferObject] += [
                 (stringobject.W_StringObject,
