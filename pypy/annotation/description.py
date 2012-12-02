@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 import types, py
 from pypy.objspace.flow.model import Constant, FunctionGraph
 from pypy.objspace.flow.bytecode import cpython_code_signature

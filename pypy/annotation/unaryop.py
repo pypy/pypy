@@ -2,6 +2,8 @@
 Unary operations on SomeValues.
 """
 
+from __future__ import absolute_import
+
 from types import MethodType
 from pypy.annotation.model import \
      SomeObject, SomeInteger, SomeBool, SomeString, SomeChar, SomeList, \

@@ -1,4 +1,6 @@
 
+from __future__ import absolute_import
+
 import types
 from pypy.annotation.model import SomeBool, SomeInteger, SomeString,\
      SomeFloat, SomeList, SomeDict, s_None, \
