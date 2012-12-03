@@ -9,7 +9,6 @@ from pypy.objspace.std import StdObjSpace
 EPS = 1e-9
 
 class TestW_ComplexObject:
-
     def test_instantiation(self):
         def _t_complex(r=0.0,i=0.0):
             c = W_ComplexObject(r, i)
@@ -84,6 +83,8 @@ class TestW_ComplexObject:
 
 
 class AppTestAppComplexTest:
+    spaceconfig = dict(usemodules=['binascii', 'rctime'])
+    
     def w_check_div(self, x, y):
         """Compute complex z=x*y, and check that z/x==y and z/y==x."""
         z = x * y

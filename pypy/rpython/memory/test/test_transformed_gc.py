@@ -117,7 +117,7 @@ class GCTest(object):
         cls.rtyper = t.rtyper
         cls.db = db
 
-    def runner(self, name, statistics=False, transformer=False):
+    def runner(self, name, transformer=False):
         db = self.db
         name_to_func = self.name_to_func
         entrygraph = self.entrygraph
@@ -144,29 +144,13 @@ class GCTest(object):
             res = llinterp.eval_graph(entrygraph, [ll_args])
             return res
 
-        if statistics:
-            statisticsgraph = gct.statistics_ptr.value._obj.graph
-            ll_gc = gct.c_const_gc.value
-            def statistics(index):
-                return llinterp.eval_graph(statisticsgraph, [ll_gc, index])
-            return run, statistics
-        elif transformer:
+        if transformer:
             return run, gct
         else:
             return run
 
 class GenericGCTests(GCTest):
     GC_CAN_SHRINK_ARRAY = False
-
-    def heap_usage(self, statistics):
-        try:
-            GCClass = self.gcpolicy.transformerclass.GCClass
-        except AttributeError:
-            from pypy.rpython.memory.gc.marksweep import MarkSweepGC as GCClass
-        if hasattr(GCClass, 'STAT_HEAP_USAGE'):
-            return statistics(GCClass.STAT_HEAP_USAGE)
-        else:
-            return -1     # xxx
 
     def define_instances(cls):
         class A(object):
@@ -191,9 +175,8 @@ class GenericGCTests(GCTest):
         return malloc_a_lot
 
     def test_instances(self):
-        run, statistics = self.runner("instances", statistics=True)
+        run = self.runner("instances")
         run([])
-        heap_size = self.heap_usage(statistics)
 
 
     def define_llinterp_lists(cls):
@@ -210,10 +193,8 @@ class GenericGCTests(GCTest):
         return malloc_a_lot
 
     def test_llinterp_lists(self):
-        run, statistics = self.runner("llinterp_lists", statistics=True)
+        run = self.runner("llinterp_lists")
         run([])
-        heap_size = self.heap_usage(statistics)
-        assert heap_size < 16000 * WORD / 4 # xxx
 
     def define_llinterp_tuples(cls):
         def malloc_a_lot():
@@ -230,10 +211,8 @@ class GenericGCTests(GCTest):
         return malloc_a_lot
 
     def test_llinterp_tuples(self):
-        run, statistics = self.runner("llinterp_tuples", statistics=True)
+        run = self.runner("llinterp_tuples")
         run([])
-        heap_size = self.heap_usage(statistics)
-        assert heap_size < 16000 * WORD / 4 # xxx
 
     def define_llinterp_dict(self):
         class A(object):
@@ -285,11 +264,9 @@ class GenericGCTests(GCTest):
         return concat
 
     def test_string_concatenation(self):
-        run, statistics = self.runner("string_concatenation", statistics=True)
+        run = self.runner("string_concatenation")
         res = run([100, 0])
         assert res == len(''.join([str(x) for x in range(100)]))
-        heap_size = self.heap_usage(statistics)
-        assert heap_size < 16000 * WORD / 4 # xxx
 
     def define_nongc_static_root(cls):
         T1 = lltype.GcStruct("C", ('x', lltype.Signed))
@@ -929,25 +906,6 @@ class GenericMovingGCTests(GenericGCTests):
 
 # ________________________________________________________________
 
-class TestMarkSweepGC(GenericGCTests):
-    gcname = "marksweep"
-    class gcpolicy(gc.BasicFrameworkGcPolicy):
-        class transformerclass(shadowstack.ShadowStackFrameworkGCTransformer):
-            GC_PARAMS = {'start_heap_size': 1024*WORD,
-                         'translated_to_c': False}
-            root_stack_depth = 200
-
-
-class TestPrintingGC(GenericGCTests):
-    gcname = "statistics"
-
-    class gcpolicy(gc.BasicFrameworkGcPolicy):
-        class transformerclass(shadowstack.ShadowStackFrameworkGCTransformer):
-            from pypy.rpython.memory.gc.marksweep import PrintingMarkSweepGC as GCClass
-            GC_PARAMS = {'start_heap_size': 1024*WORD,
-                         'translated_to_c': False}
-            root_stack_depth = 200
-
 class TestSemiSpaceGC(GenericMovingGCTests):
     gcname = "semispace"
     GC_CAN_SHRINK_ARRAY = True
@@ -956,16 +914,6 @@ class TestSemiSpaceGC(GenericMovingGCTests):
         class transformerclass(shadowstack.ShadowStackFrameworkGCTransformer):
             from pypy.rpython.memory.gc.semispace import SemiSpaceGC as GCClass
             GC_PARAMS = {'space_size': 512*WORD,
-                         'translated_to_c': False}
-            root_stack_depth = 200
-
-class TestMarkCompactGC(GenericMovingGCTests):
-    gcname = 'markcompact'
-
-    class gcpolicy(gc.BasicFrameworkGcPolicy):
-        class transformerclass(shadowstack.ShadowStackFrameworkGCTransformer):
-            from pypy.rpython.memory.gc.markcompact import MarkCompactGC as GCClass
-            GC_PARAMS = {'space_size': 4096*WORD,
                          'translated_to_c': False}
             root_stack_depth = 200
 
@@ -1387,14 +1335,6 @@ class UnboxedObject(TaggedBase, UnboxedValue):
         return self.smallint + x + 3
 
 
-class TestMarkSweepTaggedPointerGC(TaggedPointerGCTests):
-    gcname = "marksweep"
-    class gcpolicy(gc.BasicFrameworkGcPolicy):
-        class transformerclass(shadowstack.ShadowStackFrameworkGCTransformer):
-            GC_PARAMS = {'start_heap_size': 1024*WORD,
-                         'translated_to_c': False}
-            root_stack_depth = 200
-
 class TestHybridTaggedPointerGC(TaggedPointerGCTests):
     gcname = "hybrid"
 
@@ -1404,15 +1344,5 @@ class TestHybridTaggedPointerGC(TaggedPointerGCTests):
                                                           GCClass
             GC_PARAMS = {'space_size': 512*WORD,
                          'nursery_size': 32*WORD,
-                         'translated_to_c': False}
-            root_stack_depth = 200
-
-class TestMarkCompactTaggedpointerGC(TaggedPointerGCTests):
-    gcname = 'markcompact'
-
-    class gcpolicy(gc.BasicFrameworkGcPolicy):
-        class transformerclass(shadowstack.ShadowStackFrameworkGCTransformer):
-            from pypy.rpython.memory.gc.markcompact import MarkCompactGC as GCClass
-            GC_PARAMS = {'space_size': 4096*WORD,
                          'translated_to_c': False}
             root_stack_depth = 200

@@ -129,7 +129,7 @@ class AbstractARMv7Builder(object):
         self._VCVT(target, source, cond, 0, 1)
 
     def _VCVT(self, target, source, cond, opc2, sz):
-        D = 0x0
+        D = 0
         M = 0
         op = 1
         instr = (cond << 28
@@ -144,6 +144,26 @@ class AbstractARMv7Builder(object):
                 | M << 5
                 | (source & 0xF))
         self.write32(instr)
+
+    def _VCVT_single_double(self, target, source, cond, sz):
+        # double_to_single = (sz == '1');
+        D = 0
+        M = 0
+        instr = (cond << 28
+                | 0xEB7 << 16
+                | 0xAC << 4
+                | D << 22
+                | (target & 0xF) << 12
+                | sz << 8
+                | M << 5
+                | (source & 0xF))
+        self.write32(instr)
+
+    def VCVT_f64_f32(self, target, source, cond=cond.AL):
+        self._VCVT_single_double(target, source, cond, 1)
+
+    def VCVT_f32_f64(self, target, source, cond=cond.AL):
+        self._VCVT_single_double(target, source, cond, 0)
 
     def POP(self, regs, cond=cond.AL):
         instr = self._encode_reg_list(cond << 28 | 0x8BD << 16, regs)

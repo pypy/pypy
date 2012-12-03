@@ -181,9 +181,6 @@ class AppTestMarshal:
         assert r"'\x01'" in exc.value.message
 
 
-class AppTestRope(AppTestMarshal):
-    spaceconfig = {"objspace.std.withrope": True}
-
 class AppTestSmallLong(AppTestMarshal):
     spaceconfig = {"objspace.std.withsmalllong": True}
 

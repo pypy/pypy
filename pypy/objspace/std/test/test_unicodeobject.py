@@ -19,7 +19,6 @@ class TestUnicodeObject:
             """)
         finally:
             space.warn = prev_warn
-        print self.space.config.objspace.std.withrope
         assert len(warnings) == 2
 
     def test_listview_unicode(self):

@@ -912,7 +912,6 @@ def mul_string_times(space, w_str, w_times):
         s = input[0] * mul
     else:
         s = input * mul
-    # xxx support again space.config.objspace.std.withstrjoin?
     return W_StringObject(s)
 
 def mul__String_ANY(space, w_str, w_times):

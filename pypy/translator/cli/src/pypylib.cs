@@ -495,7 +495,7 @@ namespace pypy.runtime
             try {
                 return Double.Parse(s.Trim());
             }
-            catch(FormatException e) {
+            catch (FormatException) {
                 Helpers.raise_ValueError();
                 return -1;
             }
@@ -555,7 +555,7 @@ namespace pypy.runtime
                 BinaryFormatter formatter = new BinaryFormatter();
                 return formatter.Deserialize(fs);
             }
-            catch (FileNotFoundException e) {
+            catch (FileNotFoundException) {
                 return null;
             }
             catch (SerializationException e) {
@@ -842,7 +842,7 @@ namespace pypy.runtime
 
         public void _ll_resize_hint(int length)
         {
-            this.Capacity(length);
+            this.Capacity = length;
         }
 
         public void _ll_resize_ge(int length)

@@ -58,21 +58,19 @@ translation_optiondescription = OptionDescription(
 
     # gc
     ChoiceOption("gc", "Garbage Collection Strategy",
-                 ["boehm", "ref", "marksweep", "semispace", "statistics",
-                  "generation", "hybrid", "markcompact", "minimark", "none"],
+                 ["boehm", "ref", "semispace", "statistics",
+                  "generation", "hybrid", "minimark", "none"],
                   "ref", requires={
                      "ref": [("translation.rweakref", False), # XXX
                              ("translation.gctransformer", "ref")],
                      "none": [("translation.rweakref", False), # XXX
                              ("translation.gctransformer", "none")],
                      "semispace": [("translation.gctransformer", "framework")],
-                     "marksweep": [("translation.gctransformer", "framework")],
                      "statistics": [("translation.gctransformer", "framework")],
                      "generation": [("translation.gctransformer", "framework")],
                      "hybrid": [("translation.gctransformer", "framework")],
                      "boehm": [("translation.continuation", False),  # breaks
                                ("translation.gctransformer", "boehm")],
-                     "markcompact": [("translation.gctransformer", "framework")],
                      "minimark": [("translation.gctransformer", "framework")],
                      },
                   cmdline="--gc"),
@@ -129,8 +127,6 @@ translation_optiondescription = OptionDescription(
 
     # misc
     BoolOption("verbose", "Print extra information", default=False),
-    BoolOption("insist", "Try hard to go on RTyping", default=False,
-               cmdline="--insist"),
     StrOption("cc", "Specify compiler to use for compiling generated C", cmdline="--cc"),
     StrOption("profopt", "Specify profile based optimization script",
               cmdline="--profopt"),
@@ -161,18 +157,14 @@ translation_optiondescription = OptionDescription(
                default=False, requires=[("translation.backend", "c")]),
 
     # portability options
-    BoolOption("vanilla",
-               "Try to be as portable as possible, which is not much",
-               default=False,
-               cmdline="--vanilla",
-               requires=[("translation.no__thread", True)]),
     BoolOption("no__thread",
                "don't use __thread for implementing TLS",
                default=False, cmdline="--no__thread", negation=False),
-    StrOption("compilerflags", "Specify flags for the C compiler",
-               cmdline="--cflags"),
-    StrOption("linkerflags", "Specify flags for the linker (C backend only)",
-               cmdline="--ldflags"),
+##  --- not supported since a long time.  Use the env vars CFLAGS/LDFLAGS.
+##    StrOption("compilerflags", "Specify flags for the C compiler",
+##               cmdline="--cflags"),
+##    StrOption("linkerflags", "Specify flags for the linker (C backend only)",
+##               cmdline="--ldflags"),
     IntOption("make_jobs", "Specify -j argument to make for compilation"
               " (C backend only)",
               cmdline="--make-jobs", default=detect_number_of_processors()),

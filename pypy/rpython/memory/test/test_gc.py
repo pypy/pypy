@@ -790,12 +790,6 @@ class UnboxedObject(TaggedBase, UnboxedValue):
         return self.smallint + x + 3
 
 
-class TestMarkSweepGC(GCTest):
-    from pypy.rpython.memory.gc.marksweep import MarkSweepGC as GCClass
-
-    def test_weakref_to_object_with_finalizer_ordering(self):
-        py.test.skip("Does not work")
-
 class TestSemiSpaceGC(GCTest, snippet.SemiSpaceGCTests):
     from pypy.rpython.memory.gc.semispace import SemiSpaceGC as GCClass
     GC_CAN_MOVE = True
@@ -808,15 +802,6 @@ class TestGrowingSemiSpaceGC(TestSemiSpaceGC):
 
 class TestGenerationalGC(TestSemiSpaceGC):
     from pypy.rpython.memory.gc.generation import GenerationGC as GCClass
-
-class TestMarkCompactGC(TestSemiSpaceGC):
-    from pypy.rpython.memory.gc.markcompact import MarkCompactGC as GCClass
-    GC_PARAMS = {'space_size': 65536+16384}
-    GC_CAN_SHRINK_ARRAY = False
-    GC_CAN_SHRINK_BIG_ARRAY = False
-
-    def test_finalizer_order(self):
-        py.test.skip("Not implemented yet")
 
 class TestHybridGC(TestGenerationalGC):
     from pypy.rpython.memory.gc.hybrid import HybridGC as GCClass

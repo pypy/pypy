@@ -57,7 +57,7 @@ class ProfInstrument(object):
 
     def probe(self, exe, args):
         env = os.environ.copy()
-        env['_INSTRUMENT_COUNTERS'] = str(self.datafile)
+        env['PYPY_INSTRUMENT_COUNTERS'] = str(self.datafile)
         self.compiler.platform.execute(exe, args, env=env)
         
     def after(self):
@@ -347,9 +347,7 @@ class TranslationDriver(SimpleTaskEngine):
         """ RTyping - lltype version
         """
         rtyper = self.translator.buildrtyper(type_system='lltype')
-        insist = not self.config.translation.insist
-        rtyper.specialize(dont_simplify_again=True,
-                          crash_on_first_typeerror=insist)
+        rtyper.specialize(dont_simplify_again=True)
     #
     task_rtype_lltype = taskdef(task_rtype_lltype, ['annotate'], "RTyping")
     RTYPE = 'rtype_lltype'
@@ -358,10 +356,8 @@ class TranslationDriver(SimpleTaskEngine):
         """ RTyping - ootype version
         """
         # Maybe type_system should simply be an option used in task_rtype
-        insist = not self.config.translation.insist
         rtyper = self.translator.buildrtyper(type_system="ootype")
-        rtyper.specialize(dont_simplify_again=True,
-                          crash_on_first_typeerror=insist)
+        rtyper.specialize(dont_simplify_again=True)
     #
     task_rtype_ootype = taskdef(task_rtype_ootype, ['annotate'], "ootyping")
     OOTYPE = 'rtype_ootype'

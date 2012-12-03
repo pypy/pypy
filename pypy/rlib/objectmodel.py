@@ -8,6 +8,7 @@ import sys
 import types
 import math
 import inspect
+from pypy.tool.sourcetools import rpython_wrapper
 
 # specialize is a decorator factory for attaching _annspecialcase_
 # attributes to functions: for example
@@ -170,9 +171,16 @@ def enforceargs(*types_, **kwds):
                         f.func_name, srcargs[i], expected_type)
                     raise TypeError, msg
         #
-        # we cannot simply wrap the function using *args, **kwds, because it's
-        # not RPython. Instead, we generate a function with exactly the same
-        # argument list
+        template = """
+            def {name}({arglist}):
+                if not we_are_translated():
+                    typecheck({arglist})    # pypy.rlib.objectmodel
+                return {original}({arglist})
+        """
+        result = rpython_wrapper(f, template,
+                                 typecheck=typecheck,
+                                 we_are_translated=we_are_translated)
+        #
         srcargs, srcvarargs, srckeywords, defaults = inspect.getargspec(f)
         if kwds:
             types = tuple([kwds.get(arg) for arg in srcargs])
@@ -181,27 +189,10 @@ def enforceargs(*types_, **kwds):
         assert len(srcargs) == len(types), (
             'not enough types provided: expected %d, got %d' %
             (len(types), len(srcargs)))
-        assert not srcvarargs, '*args not supported by enforceargs'
-        assert not srckeywords, '**kwargs not supported by enforceargs'
-        #
-        arglist = ', '.join(srcargs)
-        src = py.code.Source("""
-            def %(name)s(%(arglist)s):
-                if not we_are_translated():
-                    typecheck(%(arglist)s)    # pypy.rlib.objectmodel
-                return %(name)s_original(%(arglist)s)
-        """ % dict(name=f.func_name, arglist=arglist))
-        #
-        mydict = {f.func_name + '_original': f,
-                  'typecheck': typecheck,
-                  'we_are_translated': we_are_translated}
-        exec src.compile() in mydict
-        result = mydict[f.func_name]
-        result.func_defaults = f.func_defaults
-        result.func_dict.update(f.func_dict)
         result._annenforceargs_ = types
         return result
     return decorator
+
 
 # ____________________________________________________________
 

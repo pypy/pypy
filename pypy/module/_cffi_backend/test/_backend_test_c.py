@@ -982,11 +982,30 @@ def test_call_function_22():
     complete_struct_or_union(BStruct, [('a', BArray10, -1)])
     BFunc22 = new_function_type((BStruct, BStruct), BStruct, False)
     f = cast(BFunc22, _testfunc(22))
-    p1 = newp(BStructP, {'a': range(100, 110)})
-    p2 = newp(BStructP, {'a': range(1000, 1100, 10)})
+    p1 = newp(BStructP, {'a': list(range(100, 110))})
+    p2 = newp(BStructP, {'a': list(range(1000, 1100, 10))})
     res = f(p1[0], p2[0])
     for i in range(10):
         assert res.a[i] == p1.a[i] - p2.a[i]
+
+def test_call_function_23():
+    BVoid = new_void_type()          # declaring the function as int(void*)
+    BVoidP = new_pointer_type(BVoid)
+    BInt = new_primitive_type("int")
+    BFunc23 = new_function_type((BVoidP,), BInt, False)
+    f = cast(BFunc23, _testfunc(23))
+    res = f(b"foo")
+    assert res == 1000 * ord(b'f')
+
+def test_call_function_23_bis():
+    # declaring the function as int(unsigned char*)
+    BUChar = new_primitive_type("unsigned char")
+    BUCharP = new_pointer_type(BUChar)
+    BInt = new_primitive_type("int")
+    BFunc23 = new_function_type((BUCharP,), BInt, False)
+    f = cast(BFunc23, _testfunc(23))
+    res = f(b"foo")
+    assert res == 1000 * ord(b'f')
 
 def test_cannot_pass_struct_with_array_of_length_0():
     BInt = new_primitive_type("int")
@@ -1096,8 +1115,13 @@ def test_callback():
     assert str(e.value) == "'int(*)(int)' expects 1 arguments, got 0"
 
 def test_callback_exception():
-    import cStringIO, linecache
-    def matches(str, pattern):
+    try:
+        import cStringIO
+    except ImportError:
+        import io as cStringIO    # Python 3
+    import linecache
+    def matches(istr, ipattern):
+        str, pattern = istr, ipattern
         while '$' in pattern:
             i = pattern.index('$')
             assert str[:i] == pattern[:i]
@@ -1110,12 +1134,12 @@ def test_callback_exception():
     def check_value(x):
         if x == 10000:
             raise ValueError(42)
-    def cb1(x):
+    def Zcb1(x):
         check_value(x)
         return x * 3
     BShort = new_primitive_type("short")
     BFunc = new_function_type((BShort,), BShort, False)
-    f = callback(BFunc, cb1, -42)
+    f = callback(BFunc, Zcb1, -42)
     orig_stderr = sys.stderr
     orig_getline = linecache.getline
     try:
@@ -1125,9 +1149,9 @@ def test_callback_exception():
         assert sys.stderr.getvalue() == ''
         assert f(10000) == -42
         assert matches(sys.stderr.getvalue(), """\
-From callback <function cb1 at 0x$>:
+From callback <function$Zcb1 at 0x$>:
 Traceback (most recent call last):
-  File "$", line $, in cb1
+  File "$", line $, in Zcb1
     $
   File "$", line $, in check_value
     $
@@ -1137,7 +1161,8 @@ ValueError: 42
         bigvalue = 20000
         assert f(bigvalue) == -42
         assert matches(sys.stderr.getvalue(), """\
-From callback <function cb1 at 0x$>:
+From callback <function$Zcb1 at 0x$>:
+Trying to convert the result back to C:
 OverflowError: integer 60000 does not fit 'short'
 """)
     finally:
@@ -1243,6 +1268,9 @@ def test_enum_type():
     #
     BEnum = new_enum_type("foo", ('def', 'c', 'ab'), (0, 1, -20))
     assert BEnum.kind == "enum"
+    assert BEnum.elements == {-20: 'ab', 0: 'def', 1: 'c'}
+    # 'elements' is not the real dict, but merely a copy
+    BEnum.elements[2] = '??'
     assert BEnum.elements == {-20: 'ab', 0: 'def', 1: 'c'}
 
 def test_cast_to_enum():
@@ -2384,8 +2412,11 @@ def test_newp_from_bytearray_doesnt_work():
 
 # XXX hack
 if sys.version_info >= (3,):
-    import posix, io
-    posix.fdopen = io.open
+    try:
+        import posix, io
+        posix.fdopen = io.open
+    except ImportError:
+        pass   # win32
 
 def test_FILE():
     if sys.platform == "win32":
@@ -2478,7 +2509,7 @@ def test_GetLastError():
     if sys.platform != "win32":
         py.test.skip("GetLastError(): only for Windows")
     #
-    lib = find_and_load_library('KERNEL32')
+    lib = find_and_load_library('KERNEL32.DLL')
     BInt = new_primitive_type("int")
     BVoid = new_void_type()
     BFunc1 = new_function_type((BInt,), BVoid, False)
@@ -2498,3 +2529,8 @@ def test_nonstandard_integer_types():
                      'uint32_t', 'int64_t', 'uint64_t', 'intptr_t',
                      'uintptr_t', 'ptrdiff_t', 'size_t', 'ssize_t']:
         new_primitive_type(typename)    # works
+
+def test_cannot_convert_unicode_to_charp():
+    BCharP = new_pointer_type(new_primitive_type("char"))
+    BCharArray = new_array_type(BCharP, None)
+    py.test.raises(TypeError, newp, BCharArray, u+'foobar')

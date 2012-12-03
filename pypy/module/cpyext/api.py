@@ -320,7 +320,7 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True):
                         Py_DecRef(space, arg)
             unwrapper.func = func
             unwrapper.api_func = api_function
-            unwrapper._always_inline_ = True
+            unwrapper._always_inline_ = 'try'
             return unwrapper
 
         unwrapper_catch = make_unwrapper(True)
@@ -625,7 +625,7 @@ def make_wrapper(space, callable):
                 pypy_debug_catch_fatal_exception()
         rffi.stackcounter.stacks_counter -= 1
         return retval
-    callable._always_inline_ = True
+    callable._always_inline_ = 'try'
     wrapper.__name__ = "wrapper for %r" % (callable, )
     return wrapper
 
@@ -727,7 +727,7 @@ def build_bridge(space):
     global_code = '\n'.join(global_objects)
 
     prologue = ("#include <Python.h>\n"
-                "#include <src/thread.h>\n")
+                "#include <src/thread.c>\n")
     code = (prologue +
             struct_declaration_code +
             global_code +
@@ -969,7 +969,7 @@ def build_eci(building_bridge, export_symbols, code):
                                source_dir / "structseq.c",
                                source_dir / "capsule.c",
                                source_dir / "pysignals.c",
-                               source_dir / "thread.c",
+                               source_dir / "pythread.c",
                                ],
         separate_module_sources=separate_module_sources,
         export_symbols=export_symbols_eci,

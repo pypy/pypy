@@ -656,7 +656,7 @@ class ResOpAssembler(object):
             # must save the register loc_index before it is mutated
             self.mc.PUSH([loc_index.value])
             tmp1 = loc_index
-            tmp2 = arglocs[2]
+            tmp2 = arglocs[-1]  # the last item is a preallocated tmp
             # lr = byteofs
             s = 3 + descr.jit_wb_card_page_shift
             self.mc.MVN_rr(r.lr.value, loc_index.value,
@@ -1445,4 +1445,21 @@ class ResOpAssembler(object):
         self.mc.MRC(15, 0, tmp.value, 15, 12, 1)
         self.mc.MOV_ri(r.ip.value, 0)
         self.mc.VMOV_cr(res.value, tmp.value, r.ip.value)
+        return fcond
+
+    def emit_op_cast_float_to_singlefloat(self, op, arglocs, regalloc, fcond):
+        arg, res = arglocs
+        assert arg.is_vfp_reg()
+        assert res.is_reg()
+        self.mc.VCVT_f64_f32(r.vfp_ip.value, arg.value)
+        self.mc.VMOV_rc(res.value, r.ip.value, r.vfp_ip.value)
+        return fcond
+    
+    def emit_op_cast_singlefloat_to_float(self, op, arglocs, regalloc, fcond):
+        arg, res = arglocs
+        assert res.is_vfp_reg()
+        assert arg.is_reg()
+        self.mc.MOV_ri(r.ip.value, 0)
+        self.mc.VMOV_cr(res.value, arg.value, r.ip.value)
+        self.mc.VCVT_f32_f64(res.value, res.value)
         return fcond

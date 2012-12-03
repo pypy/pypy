@@ -96,8 +96,7 @@ class DictProxyStrategy(DictStrategy):
     def clear(self, w_dict):
         space = self.space
         w_type = self.unerase(w_dict.dstorage)
-        if (not space.config.objspace.std.mutable_builtintypes
-                and not w_type.is_heaptype()):
+        if not w_type.is_heaptype():
             msg = "can't clear dictionary of type '%s'"
             raise operationerrfmt(space.w_TypeError, msg, w_type.name)
         w_type.dict_w.clear()

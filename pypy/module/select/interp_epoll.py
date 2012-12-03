@@ -128,7 +128,6 @@ class W_Epoll(Wrappable):
         return space.wrap(self.epfd)
 
     def descr_close(self, space):
-        self.check_closed(space)
         self.close()
 
     @unwrap_spec(eventmask=int)
