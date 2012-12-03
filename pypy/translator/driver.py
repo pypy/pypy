@@ -6,7 +6,6 @@ from pypy.translator.translator import TranslationContext
 from pypy.translator.tool.taskengine import SimpleTaskEngine
 from pypy.translator.goal import query
 from pypy.translator.goal.timing import Timer
-from pypy.annotation import model as annmodel
 from pypy.annotation.listdef import s_list_of_strings
 from pypy.annotation import policy as annpolicy
 from pypy.tool.udir import udir
@@ -19,15 +18,17 @@ log = py.log.Producer("translation")
 py.log.setconsumer("translation", ansi_log)
 
 
-def taskdef(taskfunc, deps, title, new_state=None, expected_states=[],
+def taskdef(deps, title, new_state=None, expected_states=[],
             idemp=False, earlycheck=None):
-    taskfunc.task_deps = deps
-    taskfunc.task_title = title
-    taskfunc.task_newstate = None
-    taskfunc.task_expected_states = expected_states
-    taskfunc.task_idempotent = idemp
-    taskfunc.task_earlycheck = earlycheck
-    return taskfunc
+    def decorator(taskfunc):
+        taskfunc.task_deps = deps
+        taskfunc.task_title = title
+        taskfunc.task_newstate = None
+        taskfunc.task_expected_states = expected_states
+        taskfunc.task_idempotent = idemp
+        taskfunc.task_earlycheck = earlycheck
+        return taskfunc
+    return decorator
 
 # TODO:
 # sanity-checks using states
@@ -299,6 +300,7 @@ class TranslationDriver(SimpleTaskEngine):
         #import gc; gc.dump_rpy_heap('rpyheap-after-%s.dump' % goal)
         return res
 
+    @taskdef([], "Annotating&simplifying")
     def task_annotate(self):
         """ Annotate
         """
@@ -330,9 +332,6 @@ class TranslationDriver(SimpleTaskEngine):
         annotator.simplify()
         return s
 
-    #
-    task_annotate = taskdef(task_annotate, [], "Annotating&simplifying")
-
 
     def sanity_check_annotation(self):
         translator = self.translator
@@ -343,25 +342,24 @@ class TranslationDriver(SimpleTaskEngine):
         lost = query.qoutput(query.check_methods_qgen(translator))
         assert not lost, "lost methods, something gone wrong with the annotation of method defs"
 
+    RTYPE = 'rtype_lltype'
+    @taskdef(['annotate'], "RTyping")
     def task_rtype_lltype(self):
         """ RTyping - lltype version
         """
         rtyper = self.translator.buildrtyper(type_system='lltype')
         rtyper.specialize(dont_simplify_again=True)
-    #
-    task_rtype_lltype = taskdef(task_rtype_lltype, ['annotate'], "RTyping")
-    RTYPE = 'rtype_lltype'
 
+    OOTYPE = 'rtype_ootype'
+    @taskdef(['annotate'], "ootyping")
     def task_rtype_ootype(self):
         """ RTyping - ootype version
         """
         # Maybe type_system should simply be an option used in task_rtype
         rtyper = self.translator.buildrtyper(type_system="ootype")
         rtyper.specialize(dont_simplify_again=True)
-    #
-    task_rtype_ootype = taskdef(task_rtype_ootype, ['annotate'], "ootyping")
-    OOTYPE = 'rtype_ootype'
 
+    @taskdef([RTYPE], "JIT compiler generation")
     def task_pyjitpl_lltype(self):
         """ Generate bytecodes for JIT and flow the JIT helper functions
         ootype version
@@ -374,11 +372,8 @@ class TranslationDriver(SimpleTaskEngine):
                   backend_name=self.config.translation.jit_backend, inline=True)
         #
         self.log.info("the JIT compiler was generated")
-    #
-    task_pyjitpl_lltype = taskdef(task_pyjitpl_lltype,
-                                  [RTYPE],
-                                  "JIT compiler generation")
 
+    @taskdef([OOTYPE], "JIT compiler generation")
     def task_pyjitpl_ootype(self):
         """ Generate bytecodes for JIT and flow the JIT helper functions
         ootype version
@@ -391,11 +386,8 @@ class TranslationDriver(SimpleTaskEngine):
                   backend_name='cli', inline=True) #XXX
         #
         self.log.info("the JIT compiler was generated")
-    #
-    task_pyjitpl_ootype = taskdef(task_pyjitpl_ootype,
-                                  [OOTYPE],
-                                  "JIT compiler generation")
 
+    @taskdef([RTYPE], "test of the JIT on the llgraph backend")
     def task_jittest_lltype(self):
         """ Run with the JIT on top of the llgraph backend
         """
@@ -407,44 +399,31 @@ class TranslationDriver(SimpleTaskEngine):
         # and restart without needing to restart the whole translation process
         from pypy.jit.tl import jittest
         jittest.jittest(self)
-    #
-    task_jittest_lltype = taskdef(task_jittest_lltype,
-                                  [RTYPE],
-                                  "test of the JIT on the llgraph backend")
 
+    BACKENDOPT = 'backendopt_lltype'
+    @taskdef([RTYPE, '??pyjitpl_lltype', '??jittest_lltype'], "lltype back-end optimisations")
     def task_backendopt_lltype(self):
         """ Run all backend optimizations - lltype version
         """
         from pypy.translator.backendopt.all import backend_optimizations
         backend_optimizations(self.translator)
-    #
-    task_backendopt_lltype = taskdef(task_backendopt_lltype,
-                                     [RTYPE, '??pyjitpl_lltype',
-                                             '??jittest_lltype'],
-                                     "lltype back-end optimisations")
-    BACKENDOPT = 'backendopt_lltype'
 
+    OOBACKENDOPT = 'backendopt_ootype'
+    @taskdef([OOTYPE], "ootype back-end optimisations")
     def task_backendopt_ootype(self):
         """ Run all backend optimizations - ootype version
         """
         from pypy.translator.backendopt.all import backend_optimizations
         backend_optimizations(self.translator)
-    #
-    task_backendopt_ootype = taskdef(task_backendopt_ootype, 
-                                        [OOTYPE], "ootype back-end optimisations")
-    OOBACKENDOPT = 'backendopt_ootype'
 
 
+    STACKCHECKINSERTION = 'stackcheckinsertion_lltype'
+    @taskdef(['?'+BACKENDOPT, RTYPE, 'annotate'], "inserting stack checks")
     def task_stackcheckinsertion_lltype(self):
         from pypy.translator.transform import insert_ll_stackcheck
         count = insert_ll_stackcheck(self.translator)
         self.log.info("inserted %d stack checks." % (count,))
         
-    task_stackcheckinsertion_lltype = taskdef(
-        task_stackcheckinsertion_lltype,
-        ['?'+BACKENDOPT, RTYPE, 'annotate'],
-        "inserting stack checks")
-    STACKCHECKINSERTION = 'stackcheckinsertion_lltype'
 
     def possibly_check_for_boehm(self):
         if self.config.translation.gc == "boehm":
@@ -456,6 +435,9 @@ class TranslationDriver(SimpleTaskEngine):
                 i = 'Boehm GC not installed.  Try e.g. "translate.py --gc=hybrid"'
                 raise Exception(str(e) + '\n' + i)
 
+    @taskdef([STACKCHECKINSERTION, '?'+BACKENDOPT, RTYPE, '?annotate'],
+        "Creating database for generating c source",
+        earlycheck = possibly_check_for_boehm)
     def task_database_c(self):
         """ Create a database for further backend generation
         """
@@ -483,12 +465,8 @@ class TranslationDriver(SimpleTaskEngine):
         self.log.info("database for generating C source was created")
         self.cbuilder = cbuilder
         self.database = database
-    #
-    task_database_c = taskdef(task_database_c,
-                            [STACKCHECKINSERTION, '?'+BACKENDOPT, RTYPE, '?annotate'], 
-                            "Creating database for generating c source",
-                            earlycheck = possibly_check_for_boehm)
-    
+
+    @taskdef(['database_c'], "Generating c source")
     def task_source_c(self):
         """ Create C source files from the generated database
         """
@@ -512,9 +490,6 @@ class TranslationDriver(SimpleTaskEngine):
             dstname = self.compute_exe_name() + '.staticdata.info'
             shutil.copy(str(fname), str(dstname))
             self.log.info('Static data info written to %s' % dstname)
-
-    #
-    task_source_c = taskdef(task_source_c, ['database_c'], "Generating c source")
 
     def compute_exe_name(self):
         newexename = self.exe_name % self.get_info()
@@ -541,6 +516,7 @@ class TranslationDriver(SimpleTaskEngine):
         self.log.info('usession directory: %s' % (udir,))
         self.log.info("created: %s" % (self.c_entryp,))
 
+    taskdef(['source_c'], "Compiling c source")
     def task_compile_c(self):
         """ Compile the generated C code using either makefile or
         translator/platform
@@ -556,9 +532,8 @@ class TranslationDriver(SimpleTaskEngine):
             self.create_exe()
         else:
             self.c_entryp = cbuilder.get_entry_point()
-    #
-    task_compile_c = taskdef(task_compile_c, ['source_c'], "Compiling c source")
 
+    @taskdef([STACKCHECKINSERTION, '?'+BACKENDOPT, RTYPE], "LLInterpreting")
     def task_llinterpret_lltype(self):
         from pypy.rpython.llinterp import LLInterpreter
         py.log.setconsumer("llinterp operation", None)
@@ -572,11 +547,8 @@ class TranslationDriver(SimpleTaskEngine):
                                              lambda: [])())
 
         log.llinterpret.event("result -> %s" % v)
-    #
-    task_llinterpret_lltype = taskdef(task_llinterpret_lltype, 
-                                      [STACKCHECKINSERTION, '?'+BACKENDOPT, RTYPE], 
-                                      "LLInterpreting")
 
+    @taskdef(["?" + OOBACKENDOPT, OOTYPE], 'Generating CLI source')
     def task_source_cli(self):
         from pypy.translator.cli.gencli import GenCli
         from pypy.translator.cli.entrypoint import get_entrypoint
@@ -593,9 +565,8 @@ class TranslationDriver(SimpleTaskEngine):
         self.gen = GenCli(udir, self.translator, entry_point, config=self.config)
         filename = self.gen.generate_source()
         self.log.info("Wrote %s" % (filename,))
-    task_source_cli = taskdef(task_source_cli, ["?" + OOBACKENDOPT, OOTYPE],
-                             'Generating CLI source')
 
+    taskdef(['source_cli'], 'Compiling CLI source')
     def task_compile_cli(self):
         from pypy.translator.oosupport.support import unpatch_os
         from pypy.translator.cli.test.runtest import CliFunctionWrapper
@@ -608,8 +579,6 @@ class TranslationDriver(SimpleTaskEngine):
         self.log.info("Compiled %s" % filename)
         if self.standalone and self.exe_name:
             self.copy_cli_exe()
-    task_compile_cli = taskdef(task_compile_cli, ['source_cli'],
-                              'Compiling CLI source')
 
     def copy_cli_exe(self):
         # XXX messy
@@ -668,6 +637,7 @@ $LEDIT $MONO "$(dirname $EXE)/$(basename $EXE)-data/%s" "$@" # XXX doesn't work 
         shutil.copy(main_exe, '.')
         self.log.info("Copied to %s" % os.path.join(os.getcwd(), dllname))
 
+    @taskdef(["?" + OOBACKENDOPT, OOTYPE], 'Generating JVM source')
     def task_source_jvm(self):
         from pypy.translator.jvm.genjvm import GenJvm
         from pypy.translator.jvm.node import EntryPoint
@@ -678,9 +648,8 @@ $LEDIT $MONO "$(dirname $EXE)/$(basename $EXE)-data/%s" "$@" # XXX doesn't work 
         self.gen = GenJvm(udir, self.translator, entry_point)
         self.jvmsource = self.gen.generate_source()
         self.log.info("Wrote JVM code")
-    task_source_jvm = taskdef(task_source_jvm, ["?" + OOBACKENDOPT, OOTYPE],
-                             'Generating JVM source')
 
+    @taskdef(['source_jvm'], 'Compiling JVM source')
     def task_compile_jvm(self):
         from pypy.translator.oosupport.support import unpatch_os
         from pypy.translator.jvm.test.runtest import JvmGeneratedSourceWrapper
@@ -692,8 +661,6 @@ $LEDIT $MONO "$(dirname $EXE)/$(basename $EXE)-data/%s" "$@" # XXX doesn't work 
         self.log.info("Compiled JVM source")
         if self.standalone and self.exe_name:
             self.copy_jvm_jar()
-    task_compile_jvm = taskdef(task_compile_jvm, ['source_jvm'],
-                              'Compiling JVM source')
 
     def copy_jvm_jar(self):
         import subprocess
@@ -748,10 +715,9 @@ $LEDIT java -Xmx256m -jar $EXE.jar "$@"
         classlist.close()
         return filename
 
+    @taskdef(['compile_jvm'], 'XXX')
     def task_run_jvm(self):
         pass
-    task_run_jvm = taskdef(task_run_jvm, ['compile_jvm'],
-                           'XXX')
 
     def proceed(self, goals):
         if not goals:
