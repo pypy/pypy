@@ -509,15 +509,10 @@ class ObjSpace(object):
         for name, w_type in types_w:
             self.setitem(self.builtin.w_dict, self.wrap(name), w_type)
 
-        # install mixed and faked modules
+        # install mixed modules
         for mixedname in self.get_builtinmodule_to_install():
-            if (mixedname not in bootstrap_modules
-                and not mixedname.startswith('faked+')):
+            if mixedname not in bootstrap_modules:
                 self.install_mixedmodule(mixedname, installed_builtin_modules)
-        for mixedname in self.get_builtinmodule_to_install():
-            if mixedname.startswith('faked+'):
-                modname = mixedname[6:]
-                self.install_faked_module(modname, installed_builtin_modules)
 
         installed_builtin_modules.sort()
         w_builtin_module_names = self.newtuple(
@@ -559,19 +554,6 @@ class ObjSpace(object):
         "NOT_RPYTHON. Steal a module from CPython."
         cpy_module = __import__(modname, {}, {}, ['*'])
         return cpy_module
-
-    def install_faked_module(self, modname, installed_builtin_modules):
-        """NOT_RPYTHON"""
-        if modname in installed_builtin_modules:
-            return
-        try:
-            module = self.load_cpython_module(modname)
-        except ImportError:
-            return
-        else:
-            w_modules = self.sys.get('modules')
-            self.setitem(w_modules, self.wrap(modname), self.wrap(module))
-            installed_builtin_modules.append(modname)
 
     def setup_builtin_modules(self):
         "NOT_RPYTHON: only for initializing the space."
