@@ -18,3 +18,6 @@ def list(element):
 def array(element):
     listdef = ListDef(None, element, mutated=True, resized=False)
     return model.SomeList(listdef)
+
+def instance(class_):
+    return lambda bookkeeper: model.SomeInstance(bookkeeper.getuniqueclassdef(class_))

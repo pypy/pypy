@@ -126,3 +126,27 @@ def test_signature_array():
         l = f()
         l.append(2)
     check_annotator_fails(try_append)
+
+def test_signature_instance():
+    class C1(object):
+        pass
+    class C2(C1):
+        pass
+    class C3(C2):
+        pass
+    @signature(types.instance(C3), returns=types.instance(C2))
+    def f(x):
+        assert isinstance(x, C2)
+        return x
+    argtype, rettype = getsig(f)
+    assert isinstance(argtype, model.SomeInstance)
+    assert argtype.classdef.classdesc.pyobj == C3
+    assert isinstance(rettype, model.SomeInstance)
+    assert rettype.classdef.classdesc.pyobj == C2
+
+    @check_annotator_fails
+    def ok_for_body():
+        f(C2())
+    @check_annotator_fails
+    def bad_for_body():
+        f(C1())

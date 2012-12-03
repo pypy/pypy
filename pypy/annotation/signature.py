@@ -131,10 +131,15 @@ class Sig(object):
                                              s_input))
         inputcells[:] = args_s
 
+def apply_bookkeeper(paramtype, bookkeeper):
+    if isinstance(paramtype, SomeObject):
+        return paramtype
+    else:
+        return paramtype(bookkeeper)
 
 def enforce_signature_args(funcdesc, paramtypes, actualtypes):
     assert len(paramtypes) == len(actualtypes)
-    params_s = paramtypes
+    params_s = [apply_bookkeeper(paramtype, funcdesc.bookkeeper) for paramtype in paramtypes]
     for i, (s_param, s_actual) in enumerate(zip(params_s, actualtypes)):
         if not s_param.contains(s_actual):
             raise Exception("%r argument %d:\n"
@@ -142,6 +147,5 @@ def enforce_signature_args(funcdesc, paramtypes, actualtypes):
                             "     got %s" % (funcdesc, i+1, s_param, s_actual))
     actualtypes[:] = params_s
 
-
 def enforce_signature_return(funcdesc, sigtype, inferredtype):
-    return sigtype
+    return apply_bookkeeper(sigtype, funcdesc.bookkeeper)
