@@ -14,7 +14,8 @@ from pypy.rlib.objectmodel import (Symbolic, ComputedIntSymbolic,
      CDefinedIntSymbolic, malloc_zero_filled, running_on_llinterp)
 from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
 from pypy.rpython.lltypesystem import llarena, llgroup, llmemory, lltype, rffi
-from pypy.rpython.lltypesystem.ll2ctypes import (_llvm_needs_header, _array_mixin)
+from pypy.rpython.lltypesystem.ll2ctypes import (_llvm_needs_header,
+     _array_mixin)
 from pypy.rpython.memory.gctransform.refcounting import (
      RefcountingGCTransformer)
 from pypy.rpython.memory.gctransform.shadowstack import (
@@ -386,9 +387,10 @@ class PtrType(BasePtrType):
 
                 gep = GEP(None, None)
                 to = parent_type.add_indices(gep, child)
-                self.refs[obj] = 'bitcast({}* getelementptr inbounds({}, {}) to {})'\
+                self.refs[obj] = (
+                        'bitcast({}* getelementptr inbounds({}, {}) to {})'
                         .format(to.repr_type(), parent_ref,
-                                ', '.join(gep.indices), self.repr_type())
+                                ', '.join(gep.indices), self.repr_type()))
             else:
                 self.to.repr_ref(self, obj)
             return self.refs[obj]
@@ -618,8 +620,9 @@ class GroupType(Type):
             fields.append((database.get_type(member._TYPE), fldname))
             setattr(group, fldname, member)
             member_ptr_refs = database.get_type(lltype.Ptr(member._TYPE)).refs
-            member_ptr_refs[member] = 'getelementptr inbounds({}* {}, i64 0, i32 {})'\
-                    .format(self.typestr, groupname, i)
+            member_ptr_refs[member] = (
+                    'getelementptr inbounds({}* {}, i64 0, i32 {})'
+                    .format(self.typestr, groupname, i))
         struct_type = StructType()
         struct_type.setup(self.typestr, fields)
         database.f.write('{} = global {}\n'.format(
@@ -667,9 +670,10 @@ class FuncType(Type):
             else:
                 name = database.unique_name('@rpy_' + obj._name)
             ptr_type.refs[obj] = name
-            if hasattr(obj, 'graph'): # XXX: needs test
+            if hasattr(obj, 'graph'): # XXX: case without graph needs test
                 writer = FunctionWriter()
-                writer.write_graph(name, obj.graph, obj in database.genllvm.entrypoints)
+                writer.write_graph(name, obj.graph,
+                                   obj in database.genllvm.entrypoints)
                 database.f.writelines(writer.lines)
 
 
