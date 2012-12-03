@@ -498,18 +498,20 @@ def test_signature_bookkeeping():
     assert f.foo == 'foo'
     assert f(1, 'hello') == 6
 
-def getsig(f):
-    # returns [param1, param2, ..., ret]
+def annotate_at(f):
     t = TranslationContext()
     a = t.buildannotator()
-    g = a.annotate_helper(f, [model.s_ImpossibleValue]*f.func_code.co_argcount)
+    a.annotate_helper(f, [model.s_ImpossibleValue]*f.func_code.co_argcount)
+    return a, t
+
+def getsig(f):
+    # returns [param1, param2, ..., ret]
+    a, t = annotate_at(f)
+    g = graphof(t, f)
     return [a.bindings[v] for v in g.startblock.inputargs] + [a.bindings[g.getreturnvar()]]
 
 def check_annotator_fails(caller):
-    t = TranslationContext()
-    a = t.buildannotator()
-    exc = py.test.raises(Exception, a.annotate_helper, caller,
-                         [model.s_ImpossibleValue]*caller.func_code.co_argcount).value
+    exc = py.test.raises(Exception, annotate_at, caller).value
     assert caller.func_name in repr(exc.args)
 
 def test_signature_basic():
@@ -540,9 +542,7 @@ def test_signature_return():
         return x
     def g():
         return f('a')
-    t = TranslationContext()
-    a = t.buildannotator()
-    a.annotate_helper(g, [])
+    a, t = annotate_at(g)
     assert a.bindings[graphof(t, f).startblock.inputargs[0]] == model.SomeString()
     assert a.bindings[graphof(t, f).getreturnvar()] == model.SomeString()
 
