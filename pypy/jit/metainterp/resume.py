@@ -1085,9 +1085,6 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
     def consume_virtualref_info(self, vrefinfo, numb, end):
         # we have to decode a list of references containing pairs
         # [..., virtual, vref, ...]  stopping at 'end'
-        if vrefinfo is None:
-            assert end == 0
-            return
         assert (end & 1) == 0
         for i in range(0, end, 2):
             virtual = self.decode_ref(numb.nums[i])
