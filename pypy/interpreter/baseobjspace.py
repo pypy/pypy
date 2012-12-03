@@ -550,11 +550,6 @@ class ObjSpace(object):
                 "app-level module %r" % (modname,))
             installed_builtin_modules.append(modname)
 
-    def load_cpython_module(self, modname):
-        "NOT_RPYTHON. Steal a module from CPython."
-        cpy_module = __import__(modname, {}, {}, ['*'])
-        return cpy_module
-
     def setup_builtin_modules(self):
         "NOT_RPYTHON: only for initializing the space."
         if self.config.objspace.usemodules.cpyext:
