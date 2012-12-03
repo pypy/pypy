@@ -134,9 +134,7 @@ class Sig(object):
 
 def enforce_signature_args(funcdesc, paramtypes, actualtypes):
     assert len(paramtypes) == len(actualtypes)
-    params_s = []
-    for i, paramtype in enumerate(paramtypes):
-        params_s.append(annotation(paramtype, bookkeeper=funcdesc.bookkeeper))
+    params_s = paramtypes
     for i, (s_param, s_actual) in enumerate(zip(params_s, actualtypes)):
         if not s_param.contains(s_actual):
             raise Exception("%r argument %d:\n"
@@ -146,5 +144,4 @@ def enforce_signature_args(funcdesc, paramtypes, actualtypes):
 
 
 def enforce_signature_return(funcdesc, sigtype, inferredtype):
-    annsigtype = annotation(sigtype, bookkeeper=funcdesc.bookkeeper)
-    return annsigtype
+    return sigtype
