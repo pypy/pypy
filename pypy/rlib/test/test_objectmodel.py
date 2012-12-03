@@ -511,6 +511,24 @@ def test_signature_basic():
         return a + len(b)
     assert getsig(f) == [model.SomeInteger(), model.SomeString(), model.SomeInteger()]
 
+def test_signature_return():
+    @signature(returns=types.str())
+    def f():
+        return 'a'
+    assert getsig(f) == [model.SomeString()]
+
+    @signature(types.str(), returns=types.str())
+    def f(x):
+        return x
+    def g():
+        return f('a')
+    t = TranslationContext()
+    a = t.buildannotator()
+    a.annotate_helper(g, [])
+    assert a.bindings[graphof(t, f).startblock.inputargs[0]] == model.SomeString()
+    assert a.bindings[graphof(t, f).getreturnvar()] == model.SomeString()
+
+
 def test_signature_errors():
     @signature(types.int(), types.str(), returns=types.int())
     def f(a, b):

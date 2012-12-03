@@ -132,16 +132,19 @@ class Sig(object):
         inputcells[:] = args_s
 
 
-def enforce_signature_args(funcdesc, argtypes, inputcells):
-    assert len(argtypes) == len(inputcells)
-    args_s = []
-    for i, argtype in enumerate(argtypes):
-        args_s.append(annotation(argtype, bookkeeper=funcdesc.bookkeeper))
-    for i, (s_arg, s_input) in enumerate(zip(args_s, inputcells)):
-        if not s_arg.contains(s_input):
+def enforce_signature_args(funcdesc, paramtypes, actualtypes):
+    assert len(paramtypes) == len(actualtypes)
+    params_s = []
+    for i, paramtype in enumerate(paramtypes):
+        params_s.append(annotation(paramtype, bookkeeper=funcdesc.bookkeeper))
+    for i, (s_param, s_actual) in enumerate(zip(params_s, actualtypes)):
+        if not s_param.contains(s_actual):
             raise Exception("%r argument %d:\n"
                             "expected %s,\n"
-                            "     got %s" % (funcdesc, i+1,
-                                         s_arg,
-                                         s_input))
-    inputcells[:] = args_s
+                            "     got %s" % (funcdesc, i+1, s_param, s_actual))
+    actualtypes[:] = params_s
+
+
+def enforce_signature_return(funcdesc, sigtype, inferredtype):
+    annsigtype = annotation(sigtype, bookkeeper=funcdesc.bookkeeper)
+    return annsigtype

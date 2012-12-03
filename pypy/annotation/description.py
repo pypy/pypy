@@ -1,6 +1,6 @@
 from __future__ import absolute_import
 import types, py
-from pypy.annotation.signature import enforce_signature_args
+from pypy.annotation.signature import enforce_signature_args, enforce_signature_return
 from pypy.objspace.flow.model import Constant, FunctionGraph
 from pypy.objspace.flow.bytecode import cpython_code_signature
 from pypy.objspace.flow.argument import rawshape, ArgErr
@@ -304,6 +304,10 @@ class FunctionDesc(Desc):
             new_args = args.unmatch_signature(self.signature, inputcells)
             inputcells = self.parse_arguments(new_args, graph)
             result = schedule(graph, inputcells)
+            signature = getattr(self.pyobj, '_signature_', None)
+            if signature:
+                result = enforce_signature_return(self, signature[1], result)
+                self.bookkeeper.annotator.addpendingblock(graph, graph.returnblock, [result])
         # Some specializations may break the invariant of returning
         # annotations that are always more general than the previous time.
         # We restore it here:
