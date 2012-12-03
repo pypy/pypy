@@ -488,6 +488,14 @@ class OptIntBounds(Optimization):
             else:
                 self.make_int_gt(op.getarg(0), op.getarg(1))
 
+    def propagate_bounds_UINT_LE(self, op):
+        r = self.getvalue(op.result)
+        if r.is_constant():
+            if r.box.same_constant(CONST_1):
+                self.make_uint_le(op.getarg(0), op.getarg(1))
+            else:
+                self.make_uint_gt(op.getarg(0), op.getarg(1))
+
     def propagate_bounds_INT_GE(self, op):
         r = self.getvalue(op.result)
         if r.is_constant():
