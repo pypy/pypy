@@ -780,33 +780,15 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump()
         """
         self.optimize_loop(ops, expected)
-
-    def test_redundant_compare_uint(self):
+    
+    def test_redundant_lt_uint(self):
         ops = """
         []
         i0 = escape()
         i1 = uint_lt(i0, 10)
         guard_true(i1) []
-        i3 = uint_lt(i0, 20)
-        guard_true(i3) []
-        i4 = uint_ge(i0, 11)
-        guard_false(i4) []
-        i5 = uint_gt(i0, 12)
-        guard_false(i5) []
-        i6 = uint_ge(i0, 5)
-        guard_true(i6) []
-        i7 = uint_gt(i0, 2)
-        guard_true(i7) []
-        i8 = uint_gt(i0, 6)
-        guard_true(i8) []
-        i9 = uint_gt(i0, 5)
-        guard_true(i9) []
-        i10 = uint_le(i0, 2)
-        guard_false(i10) []
-        i11 = uint_le(i0, 8)
-        guard_true(i11) []
-        i12 = uint_ge(i0, 9)
-        guard_false(i12) []
+        i2 = uint_lt(i0, 20)
+        guard_true(i2) []
         jump()
         """
         expected = """
@@ -814,12 +796,71 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i0 = escape()
         i1 = uint_lt(i0, 10)
         guard_true(i1) []
-        i6 = uint_ge(i0, 5)
-        guard_true(i6) []
-        i8 = uint_gt(i0, 6)
-        guard_true(i8) []
-        i11 = uint_le(i0, 8)
-        guard_true(i11) []
+        jump()
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_redundant_le_uint(self):
+        ops = """
+        []
+        i0 = escape()
+        i1 = uint_le(i0, 10)
+        guard_true(i1) []
+        i2 = uint_le(i0, 20)
+        guard_true(i2) []
+        jump()
+        """
+        expected = """
+        []
+        i0 = escape()
+        i1 = uint_le(i0, 10)
+        guard_true(i1) []
+        jump()
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_redundant_gt_uint(self):
+        ops = """
+        []
+        i0 = escape()
+        i1 = uint_lt(i0, 20)
+        guard_true(i1) []
+        i2 = uint_gt(i0, 10)
+        guard_true(i2) []
+        i3 = uint_gt(i0, 5)
+        guard_true(i3) []
+        jump()
+        """
+        expected = """
+        []
+        i0 = escape()
+        i1 = uint_lt(i0, 20)
+        guard_true(i1) []
+        i2 = uint_gt(i0, 10)
+        guard_true(i2) []
+        jump()
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_redundant_ge_uint(self):
+        ops = """
+        []
+        i0 = escape()
+        i1 = uint_lt(i0, 20)
+        guard_true(i1) []
+        i2 = uint_ge(i0, 10)
+        guard_true(i2) []
+        i3 = uint_ge(i0, 5)
+        guard_true(i3) []
+        jump()
+        """
+        expected = """
+        []
+        i0 = escape()
+        i1 = uint_lt(i0, 20)
+        guard_true(i1) []
+        i2 = uint_ge(i0, 10)
+        guard_true(i2) []
         jump()
         """
         self.optimize_loop(ops, expected)
