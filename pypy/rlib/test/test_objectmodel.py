@@ -502,13 +502,16 @@ def annotate_at(f):
     t = TranslationContext()
     a = t.buildannotator()
     a.annotate_helper(f, [model.s_ImpossibleValue]*f.func_code.co_argcount)
-    return a, t
+    return a
+
+def sigof(a, f):
+    # returns [param1, param2, ..., ret]
+    g = graphof(a.translator, f)
+    return [a.bindings[v] for v in g.startblock.inputargs] + [a.bindings[g.getreturnvar()]]
 
 def getsig(f):
-    # returns [param1, param2, ..., ret]
-    a, t = annotate_at(f)
-    g = graphof(t, f)
-    return [a.bindings[v] for v in g.startblock.inputargs] + [a.bindings[g.getreturnvar()]]
+    a = annotate_at(f)
+    return sigof(a, f)
 
 def check_annotator_fails(caller):
     exc = py.test.raises(Exception, annotate_at, caller).value
@@ -542,9 +545,8 @@ def test_signature_return():
         return x
     def g():
         return f('a')
-    a, t = annotate_at(g)
-    assert a.bindings[graphof(t, f).startblock.inputargs[0]] == model.SomeString()
-    assert a.bindings[graphof(t, f).getreturnvar()] == model.SomeString()
+    a = annotate_at(g)
+    assert sigof(a, f) == [model.SomeString(), model.SomeString()]
 
 def test_signature_return_errors():
     @check_annotator_fails
