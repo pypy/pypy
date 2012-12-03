@@ -1,5 +1,5 @@
 from itertools import count
-from os import write
+from os import devnull, write
 import py
 import re
 
@@ -1649,7 +1649,8 @@ class GenLLVM(object):
 
         self.base_path = udir.join(uniquemodulename('main'))
         with self.base_path.new(ext='.ll').open('w') as f:
-            output = cmdexec('clang -emit-llvm -S -x c /dev/null -o -')
+            output = cmdexec('clang -emit-llvm -S -x c {} -o -'
+                    .format(devnull))
             self._parse_datalayout(output)
             f.write(output)
 
