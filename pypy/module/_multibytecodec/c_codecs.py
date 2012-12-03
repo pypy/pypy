@@ -285,6 +285,7 @@ def multibytecodec_encerror(encodebuf, e, errors,
             # py3k only
             replace = rets
         else:
+            assert retu is not None
             codec = pypy_cjk_enc_getcodec(encodebuf)
             replace = encode(codec, retu, "strict", errorcb, namecb)
     inbuf = rffi.get_nonmovingbuffer(replace)
