@@ -4,16 +4,6 @@ from pypy.annotation import types, model
 from pypy.translator.translator import TranslationContext, graphof
 
 
-def test_signature_bookkeeping():
-    @signature('x', 'y', returns='z')
-    def f(a, b):
-        return a + len(b)
-    f.foo = 'foo'
-    assert f._signature_ == (('x', 'y'), 'z')
-    assert f.func_name == 'f'
-    assert f.foo == 'foo'
-    assert f(1, 'hello') == 6
-
 def annotate_at(f):
     t = TranslationContext()
     a = t.buildannotator()
@@ -32,6 +22,17 @@ def getsig(f):
 def check_annotator_fails(caller):
     exc = py.test.raises(Exception, annotate_at, caller).value
     assert caller.func_name in repr(exc.args)
+
+
+def test_signature_bookkeeping():
+    @signature('x', 'y', returns='z')
+    def f(a, b):
+        return a + len(b)
+    f.foo = 'foo'
+    assert f._signature_ == (('x', 'y'), 'z')
+    assert f.func_name == 'f'
+    assert f.foo == 'foo'
+    assert f(1, 'hello') == 6
 
 def test_signature_basic():
     @signature(types.int(), types.str(), returns=types.char())
