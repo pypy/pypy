@@ -505,11 +505,29 @@ def getsig(f):
     g = a.annotate_helper(f, [model.s_ImpossibleValue]*f.func_code.co_argcount)
     return [a.bindings[v] for v in g.startblock.inputargs] + [a.bindings[g.getreturnvar()]]
 
+def check_annotator_fails(caller):
+    t = TranslationContext()
+    a = t.buildannotator()
+    exc = py.test.raises(Exception, a.annotate_helper, caller,
+                         [model.s_ImpossibleValue]*caller.func_code.co_argcount).value
+    assert caller.func_name in repr(exc.args)
+
 def test_signature_basic():
     @signature(types.int(), types.str(), returns=types.int())
     def f(a, b):
         return a + len(b)
     assert getsig(f) == [model.SomeInteger(), model.SomeString(), model.SomeInteger()]
+
+def test_signature_arg_errors():
+    @signature(types.int(), types.str(), returns=types.int())
+    def f(a, b):
+        return a + len(b)
+    @check_annotator_fails
+    def ok_for_body(): # would give no error without signature
+        f(2.0, 'b')
+    @check_annotator_fails
+    def bad_for_body(): # would give error inside 'f' body, instead errors at call
+        f('a', 'b')
 
 def test_signature_return():
     @signature(returns=types.str())
@@ -528,24 +546,15 @@ def test_signature_return():
     assert a.bindings[graphof(t, f).startblock.inputargs[0]] == model.SomeString()
     assert a.bindings[graphof(t, f).getreturnvar()] == model.SomeString()
 
-
-def test_signature_errors():
-    @signature(types.int(), types.str(), returns=types.int())
-    def f(a, b):
-        return a + len(b)
-    def ok_for_body(): # would give no error without signature
-        f(2.0, 'b')
-    def bad_for_body(): # would give error inside 'f' body, instead errors at call
-        f('a', 'b')
-
-    def check_fails(caller):
-        t = TranslationContext()
-        a = t.buildannotator()
-        exc = py.test.raises(Exception, a.annotate_helper, caller, []).value
-        assert caller.func_name in repr(exc.args)
-
-    check_fails(ok_for_body)
-    check_fails(bad_for_body)
+def test_signature_return_errors():
+    @check_annotator_fails
+    @signature(returns=types.int())
+    def int_not_char():
+        return 'a'
+    @check_annotator_fails
+    @signature(types.str(), returns=types.int())
+    def str_to_int(s):
+        return s
 
 
 def getgraph(f, argtypes):
