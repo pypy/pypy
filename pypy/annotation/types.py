@@ -8,6 +8,9 @@ def int():
 def str():
     return model.SomeString()
 
+def char():
+    return model.SomeChar()
+
 def list(element):
     listdef = ListDef(None, element, mutated=True, resized=True)
     return model.SomeList(listdef)

@@ -515,10 +515,10 @@ def check_annotator_fails(caller):
     assert caller.func_name in repr(exc.args)
 
 def test_signature_basic():
-    @signature(types.int(), types.str(), returns=types.int())
+    @signature(types.int(), types.str(), returns=types.char())
     def f(a, b):
-        return a + len(b)
-    assert getsig(f) == [model.SomeInteger(), model.SomeString(), model.SomeInteger()]
+        return b[a]
+    assert getsig(f) == [model.SomeInteger(), model.SomeString(), model.SomeChar()]
 
 def test_signature_arg_errors():
     @signature(types.int(), types.str(), returns=types.int())
