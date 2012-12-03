@@ -6,6 +6,7 @@ from pypy.tool import autopath
 from pypy.translator.platform import Platform, log, _run_subprocess
 
 class BasePosix(Platform):
+    o_ext = 'o'
     exe_ext = ''
     make_cmd = 'make'
 

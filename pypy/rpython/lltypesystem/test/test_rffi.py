@@ -312,7 +312,7 @@ class BaseTestRffi:
         ctype_pref = ["un", ""][signed]
         rffi_type = [UCHAR, SIGNEDCHAR][signed]
         h_source = py.code.Source("""
-        static %ssigned char returnchar(void)
+        %ssigned char returnchar(void)
         {
             return 42;
         }
@@ -325,8 +325,7 @@ class BaseTestRffi:
             includes=[h_file.basename],
             include_dirs=[str(udir)]
         )
-        ll_returnchar = llexternal('returnchar', [], rffi_type,
-                                   compilation_info=eci, llvm_wrapper=True)
+        ll_returnchar = llexternal('returnchar', [], rffi_type, compilation_info=eci)
     
         def f():
             result = ll_returnchar()

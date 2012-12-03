@@ -88,6 +88,7 @@ def find_msvc_env(x64flag=False):
 
 class MsvcPlatform(Platform):
     name = "msvc"
+    o_ext = 'obj'
     so_ext = 'dll'
     exe_ext = 'exe'
     

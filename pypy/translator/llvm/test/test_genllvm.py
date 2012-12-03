@@ -345,8 +345,7 @@ class _LLVMMixin(object):
                 genllvm.exctransformer.rpyexc_occured_ptr.value,
                 genllvm.exctransformer.rpyexc_fetch_type_ptr.value])
         genllvm.gen_source()
-        so_file = genllvm.base_path.new(ext='.so')
-        genllvm._compile('-shared -fPIC ', so_file)
+        so_file = genllvm._compile(True)
         return CTypesFuncWrapper(genllvm, graph, str(so_file))
 
     def _compile(self, func, args, policy=None, gcpolicy=None):
@@ -579,8 +578,7 @@ class TestSpecialCases(_LLVMMixin):
                         gcremovetypeptr=False)
         t.annotate()
         t.source_llvm()
-        assert l('define LONG @foobar') in t.driver.llvmgen.base_path.new(
-                ext='.ll').read()
+        assert l('define LONG @foobar') in t.driver.llvmgen.main_ll_file.read()
 
     def test_export_struct(self):
         from pypy.rlib.exports import export_struct
@@ -591,7 +589,7 @@ class TestSpecialCases(_LLVMMixin):
         def f():
             return len([a])
         self.getcompiled(f, [])
-        assert '@a = global %A' in self.genllvm.base_path.new(ext='.ll').read()
+        assert '@a = global %A' in self.genllvm.main_ll_file.read()
 
     def test_export_struct_cast(self):
         from pypy.rlib.exports import export_struct
@@ -610,7 +608,7 @@ class TestSpecialCases(_LLVMMixin):
             use(rffi.cast(rffi.VOIDP, a))
             use(rffi.cast(rffi.VOIDP, b))
         self.getcompiled(f, [])
-        assert '@a = global %A' in self.genllvm.base_path.new(ext='.ll').read()
+        assert '@a = global %A' in self.genllvm.main_ll_file.read()
         lltype.free(buf, 'raw')
 
     def test_ovf_op_in_loop(self):

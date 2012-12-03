@@ -645,7 +645,15 @@ class FuncType(Type):
 
     def repr_ref(self, ptr_type, obj):
         if getattr(obj, 'external', None) == 'C':
-            name = '@' + getattr(obj, 'llvm_name', obj._name)
+            if hasattr(obj, 'llvm_wrapper'):
+                wrapper_name, source = rffi._write_call_wrapper(
+                        obj._name, obj.llvm_wrapper, obj._TYPE)
+                name = '@' + wrapper_name
+                database.genllvm.sources.append(source)
+            else:
+                name = '@' + obj._name
+
+            # Hack to support functions with different function signatures
             prev_type = database.external_declared.get(name)
             if prev_type is None:
                 database.external_declared[name] = self
@@ -660,10 +668,7 @@ class FuncType(Type):
             database.f.write('declare {} {}({})\n'.format(
                     self.result.repr_type(), name,
                     ', '.join(arg.repr_type() for arg in self.args)))
-            eci = obj.compilation_info
-            if hasattr(eci, '_with_llvm'):
-                eci = eci._with_llvm
-            database.genllvm.ecis.append(eci)
+            database.genllvm.ecis.append(obj.compilation_info)
         else:
             if hasattr(getattr(obj, '_callable', None), 'c_name'):
                 name = '@' + obj._callable.c_name
@@ -1584,6 +1589,7 @@ class GenLLVM(object):
             'ref': RefcountGCPolicy
         }[translator.config.translation.gctransformer](self)
         self.transformed_graphs = set()
+        self.sources = []
         self.ecis = []
         self.entrypoints = set()
 
@@ -1651,8 +1657,10 @@ class GenLLVM(object):
     def gen_source(self):
         global database
 
-        self.base_path = udir.join(uniquemodulename('main'))
-        with self.base_path.new(ext='.ll').open('w') as f:
+        self.work_dir = udir.join(uniquemodulename('llvm'))
+        self.work_dir.mkdir()
+        self.main_ll_file = self.work_dir.join('main.ll')
+        with self.main_ll_file.open('w') as f:
             output = cmdexec('clang -emit-llvm -S -x c {} -o -'
                     .format(devnull))
             self._parse_datalayout(output)
@@ -1674,28 +1682,49 @@ class GenLLVM(object):
 
         exports.clear()
 
-    def _compile(self, add_opts, outfile):
-        stub_code = py.code.Source(r'''
+    def _compile(self, shared=False):
+        self.sources.append(py.code.Source(r'''
         void pypy_debug_catch_fatal_exception(void) {
             fprintf(stderr, "Fatal RPython error\n");
             abort();
         }
-        ''')
+        '''))
         eci = ExternalCompilationInfo(
             includes=['stdio.h', 'stdlib.h'],
-            separate_module_sources=[stub_code],
+            separate_module_sources=self.sources,
             post_include_bits=['typedef _Bool bool_t;']
         ).merge(*self.ecis).convert_sources_to_files()
-        cmdexec('clang -O3 -pthread -Wall -Wno-unused {}{}{}{}{}{}{}.ll -o {}'
-                .format(
-                add_opts,
-                ''.join('-I{} '.format(ic) for ic in eci.include_dirs),
-                ''.join('-l{} '.format(li) for li in eci.libraries),
-                ''.join('-L{} '.format(ld) for ld in eci.library_dirs),
-                ''.join('{} '.format(lf) for lf in eci.link_files),
-                ''.join('{} '.format(mf) for mf in eci.separate_module_files),
-                self.base_path, outfile))
+        include_dirs = ''.join('-I{} '.format(ic) for ic in eci.include_dirs)
+        ll_files = [str(self.main_ll_file)]
+        for c_file in eci.separate_module_files:
+            ll_file = str(local(c_file).new(dirname=self.work_dir, ext='.ll'))
+            ll_files.append(ll_file)
+            cmdexec('clang -O3 -Wall -Wno-unused -emit-llvm -S {}{} -o {}'
+                    .format(include_dirs, c_file, ll_file))
+
+        linked_bc = self.work_dir.join('output_unoptimized.bc')
+        optimized_bc = self.work_dir.join('output_optimized.bc')
+        object_file = self.work_dir.join('output.' +
+                                         self.translator.platform.o_ext)
+        if shared:
+            llc_add_opts = '-relocation-model=pic '
+            link_add_opts = '-shared '
+            output_file = object_file.new(ext=self.translator.platform.so_ext)
+        else:
+            llc_add_opts = ''
+            link_add_opts = ''
+            output_file = object_file.new(ext=self.translator.platform.exe_ext)
+        cmdexec('llvm-link {} -o {}'.format(' '.join(ll_files), linked_bc))
+        cmdexec('opt -O3 {} -o {}'.format(linked_bc, optimized_bc))
+        cmdexec('llc -O3 -filetype=obj {}{} -o {}'
+                .format(llc_add_opts, optimized_bc, object_file))
+        cmdexec('clang -O3 -pthread {}{}{}{}{} -o {}'
+                .format(link_add_opts,
+                        ''.join('-l{} '.format(li) for li in eci.libraries),
+                        ''.join('-L{} '.format(ld) for ld in eci.library_dirs),
+                        ''.join('{} '.format(lf) for lf in eci.link_files),
+                        object_file, output_file))
+        return output_file
 
     def compile(self, exe_name):
-        self._compile('', self.base_path)
-        return self.base_path
+        return self._compile()
