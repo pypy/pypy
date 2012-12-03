@@ -431,6 +431,9 @@ class OptIntBounds(Optimization):
     def make_int_gt(self, box1, box2):
         self.make_int_lt(box2, box1)
 
+    def make_uint_gt(self, box1, box2):
+        self.make_uint_lt(box2, box1)
+
     def make_int_ge(self, box1, box2):
         self.make_int_le(box2, box1)
 
@@ -461,6 +464,14 @@ class OptIntBounds(Optimization):
             else:
                 self.make_int_le(op.getarg(0), op.getarg(1))
 
+    def propagate_bounds_UINT_GT(self, op):
+        r = self.getvalue(op.result)
+        if r.is_constant():
+            if r.box.same_constant(CONST_1):
+                self.make_uint_gt(op.getarg(0), op.getarg(1))
+            else:
+                self.make_uint_le(op.getarg(0), op.getarg(1))
+
     def propagate_bounds_INT_LE(self, op):
         r = self.getvalue(op.result)
         if r.is_constant():
@@ -476,6 +487,14 @@ class OptIntBounds(Optimization):
                 self.make_int_ge(op.getarg(0), op.getarg(1))
             else:
                 self.make_int_lt(op.getarg(0), op.getarg(1))
+
+    def propagate_bounds_UINT_GE(self, op):
+        r = self.getvalue(op.result)
+        if r.is_constant():
+            if r.box.same_constant(CONST_1):
+                self.make_uint_ge(op.getarg(0), op.getarg(1))
+            else:
+                self.make_uint_lt(op.getarg(0), op.getarg(1))
 
     def propagate_bounds_INT_EQ(self, op):
         r = self.getvalue(op.result)

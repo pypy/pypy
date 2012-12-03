@@ -793,6 +793,14 @@ class OptimizeOptTest(BaseTestWithUnroll):
         guard_false(i4) []
         i5 = uint_gt(i0, 12)
         guard_false(i5) []
+        i6 = uint_ge(i0, 5)
+        guard_true(i6) []
+        i7 = uint_gt(i0, 2)
+        guard_true(i7) []
+        i8 = uint_gt(i0, 7)
+        guard_true(i8) []
+        i9 = uint_gt(i0, 6)
+        guard_true(i9) []
         jump()
         """
         expected = """
@@ -800,6 +808,10 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i0 = escape()
         i1 = uint_lt(i0, 10)
         guard_true(i1) []
+        i6 = uint_ge(i0, 5)
+        guard_true(i6) []
+        i8 = uint_gt(i0, 7)
+        guard_true(i8) []
         jump()
         """
         self.optimize_loop(ops, expected)
