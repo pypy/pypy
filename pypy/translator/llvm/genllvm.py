@@ -1679,7 +1679,8 @@ class GenLLVM(object):
         ''')
         eci = ExternalCompilationInfo(
             includes=['stdio.h', 'stdlib.h'],
-            separate_module_sources=[stub_code]
+            separate_module_sources=[stub_code],
+            post_include_bits=['typedef _Bool bool_t;']
         ).merge(*self.ecis).convert_sources_to_files()
         cmdexec('clang -O3 -pthread -Wall -Wno-unused {}{}{}{}{}{}{}.ll -o {}'
                 .format(
