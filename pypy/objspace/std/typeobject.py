@@ -469,8 +469,6 @@ class W_TypeObject(W_Object):
         return W_DictMultiObject(space, strategy, storage)
 
     def unwrap(w_self, space):
-        if w_self.instancetypedef.fakedcpytype is not None:
-            return w_self.instancetypedef.fakedcpytype
         from pypy.objspace.std.model import UnwrapError
         raise UnwrapError(w_self)
 

@@ -27,7 +27,7 @@ class TestLengthHint:
     def test_dict(self):
         space = self.space
         w_dict = space.call_function(space.w_dict,
-                                     space.wrap((i, None) for i in self.ITEMS))
+                                     space.wrap([(i, None) for i in self.ITEMS]))
         self._test_length_hint(w_dict)
 
     def test_dict_iterkeys(self):

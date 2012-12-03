@@ -1,14 +1,9 @@
 import py
-import sys
 from pypy.objspace.std import longobject as lobj
-from pypy.objspace.std.multimethod import FailedToImplement
-from pypy.interpreter.error import OperationError
-from pypy.rlib.rarithmetic import r_uint
 from pypy.rlib.rbigint import rbigint
 
-class TestW_LongObject:
-    spaceconfig = {"objspace.nofaking": True}
 
+class TestW_LongObject:
     def test_bigint_w(self):
         space = self.space
         fromlong = lobj.W_LongObject.fromlong
