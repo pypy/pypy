@@ -1,4 +1,5 @@
 from pypy.annotation import model
+from pypy.annotation.listdef import ListDef
 
 
 def int():
@@ -6,3 +7,7 @@ def int():
 
 def str():
     return model.SomeString()
+
+def list(element):
+    listdef = ListDef(None, element, mutated=True, resized=True)
+    return model.SomeList(listdef)

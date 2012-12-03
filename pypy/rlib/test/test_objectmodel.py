@@ -556,6 +556,22 @@ def test_signature_return_errors():
     def str_to_int(s):
         return s
 
+def test_signature_list():
+    @signature(types.list(types.int()), returns=types.int())
+    def f(a):
+        return len(a)
+    argtype = getsig(f)[0]
+    assert isinstance(argtype, model.SomeList)
+    item = argtype.listdef.listitem
+    assert item.s_value == model.SomeInteger()
+
+    @check_annotator_fails
+    def ok_for_body():
+        f(['a'])
+    @check_annotator_fails
+    def bad_for_body():
+        f('a')
+
 
 def getgraph(f, argtypes):
     from pypy.translator.translator import TranslationContext, graphof
