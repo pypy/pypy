@@ -516,7 +516,7 @@ class TranslationDriver(SimpleTaskEngine):
         self.log.info('usession directory: %s' % (udir,))
         self.log.info("created: %s" % (self.c_entryp,))
 
-    taskdef(['source_c'], "Compiling c source")
+    @taskdef(['source_c'], "Compiling c source")
     def task_compile_c(self):
         """ Compile the generated C code using either makefile or
         translator/platform
@@ -566,7 +566,7 @@ class TranslationDriver(SimpleTaskEngine):
         filename = self.gen.generate_source()
         self.log.info("Wrote %s" % (filename,))
 
-    taskdef(['source_cli'], 'Compiling CLI source')
+    @taskdef(['source_cli'], 'Compiling CLI source')
     def task_compile_cli(self):
         from pypy.translator.oosupport.support import unpatch_os
         from pypy.translator.cli.test.runtest import CliFunctionWrapper
