@@ -153,10 +153,8 @@ class PyCode(eval.Code):
 
     @classmethod
     def _from_code(cls, space, code, hidden_applevel=False, code_hook=None):
-        """ Initialize the code object from a real (CPython) one.
-            This is just a hack, until we have our own compile.
-            At the moment, we just fake this.
-            This method is called by our compile builtin function.
+        """
+        Hack to initialize the code object from a real (CPython) one.
         """
         assert isinstance(code, types.CodeType)
         newconsts_w = [None] * len(code.co_consts)
@@ -185,7 +183,6 @@ class PyCode(eval.Code):
                       list(code.co_freevars),
                       list(code.co_cellvars),
                       hidden_applevel, cpython_magic)
-
 
     def _compute_flatcall(self):
         # Speed hack!
