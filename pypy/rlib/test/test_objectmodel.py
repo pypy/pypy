@@ -574,6 +574,22 @@ def test_signature_list():
     def bad_for_body():
         f('a')
 
+    @signature(returns=types.list(types.char()))
+    def ff():
+        return ['a']
+    @check_annotator_fails
+    def mutate_broader():
+        ff()[0] = 'abc'
+    @check_annotator_fails
+    def mutate_unrelated():
+        ff()[0] = 1
+    @check_annotator_fails
+    @signature(types.list(types.char()), returns=types.int())
+    def mutate_in_body(l):
+        l[0] = 'abc'
+        return len(l)
+
+
 
 def getgraph(f, argtypes):
     from pypy.translator.translator import TranslationContext, graphof
