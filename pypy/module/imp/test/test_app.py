@@ -1,8 +1,11 @@
 from __future__ import with_statement
 from pypy.tool.udir import udir
 
+
 class AppTestImpModule:
-    spaceconfig = dict(usemodules=('imp',))
+    spaceconfig = {
+        "usemodules": ['imp', 'itertools', 'binascii', 'rctime'],
+    }
 
     def setup_class(cls):
         cls.w_imp = cls.space.getbuiltinmodule('imp')

@@ -66,7 +66,9 @@ class AppTestSSL:
 
 
 class AppTestConnectedSSL:
-    spaceconfig = dict(usemodules=('_ssl', '_socket', 'struct', 'array'))
+    spaceconfig = {
+        "usemodules": ['_ssl', '_socket', 'struct', 'array', 'binascii'],
+    }
 
     def setup_method(self, method):
         # https://www.verisign.net/

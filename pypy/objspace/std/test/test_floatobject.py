@@ -457,7 +457,9 @@ class AppTestAppFloatTest:
 
 
 class AppTestFloatHex:
-    spaceconfig = dict(usemodules=['binascii', 'rctime', 'itertools'])
+    spaceconfig = {
+        "usemodules": ["binascii", "rctime"],
+    }
 
     def w_identical(self, x, y):
         import math

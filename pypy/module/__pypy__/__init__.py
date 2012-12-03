@@ -59,7 +59,6 @@ class Module(MixedModule):
     def setup_after_space_initialization(self):
         """NOT_RPYTHON"""
         if not self.space.config.translating:
-            self.extra_interpdef('isfake', 'interp_magic.isfake')
             self.extra_interpdef('interp_pdb', 'interp_magic.interp_pdb')
         if self.space.config.objspace.std.withmethodcachecounter:
             self.extra_interpdef('method_cache_counter',

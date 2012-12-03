@@ -106,9 +106,11 @@ class AppTestCopy:
 
 class AppTestPickle:
     version = 0
-    spaceconfig = dict(usemodules=['_continuation', 'struct'],
-                       continuation=True,
-                       CALL_METHOD=True)
+    spaceconfig = {
+        "usemodules": ['_continuation', 'struct', 'binascii'],
+        "continuation": True,
+        "CALL_METHOD": True,
+    }
 
     def setup_class(cls):
         py.test.py3k_skip("_continuation not supported yet")

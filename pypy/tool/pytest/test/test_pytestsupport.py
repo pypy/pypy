@@ -80,21 +80,6 @@ def test_appexecinfo(space):
     assert not appex.errisinstance(A)
 
 
-def test_fakedexception(space):
-    from cPickle import PicklingError
-    def raise_error():
-        raise PicklingError("SomeMessage")
-    space.setitem(space.builtin.w_dict, space.wrap('raise_error'),
-                  space.wrap(raise_error))
-
-    try:
-        space.appexec([], "(): raise_error()")
-    except OperationError, e:
-        appex = AppExceptionInfo(space, e)
-    else:
-        py.test.fail("did not raise!")
-    assert "PicklingError" in appex.exconly()
-
 class AppTestWithWrappedInterplevelAttributes:
     def setup_class(cls):
         space = cls.space

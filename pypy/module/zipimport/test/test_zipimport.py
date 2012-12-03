@@ -7,16 +7,19 @@ from pypy.module.imp.importing import get_pyc_magic, _w_long
 from StringIO import StringIO
 
 from pypy.tool.udir import udir
-from zipfile import ZIP_STORED, ZIP_DEFLATED, ZipInfo
+from zipfile import ZIP_STORED, ZIP_DEFLATED
+
 
 class AppTestZipimport:
     """ A bit structurized tests stolen and adapted from
     cpy's regression tests
     """
     compression = ZIP_STORED
-    spaceconfig = dict(usemodules=['zipimport', 'rctime', 'struct'])
+    spaceconfig = {
+        "usemodules": ['zipimport', 'rctime', 'struct', 'binascii'],
+    }
     pathsep = os.path.sep
-    
+
     @classmethod
     def make_pyc(cls, space, co, mtime):
         data = marshal.dumps(co)
@@ -48,7 +51,7 @@ class AppTestZipimport:
         def get_file():
             return __file__
         """).compile()
-            
+
         space = cls.space
 
         tmpdir = udir.ensure('zipimport_%s' % cls.__name__, dir=1)
@@ -61,7 +64,6 @@ class AppTestZipimport:
         #ziptestmodule = tmpdir.ensure('ziptestmodule.zip').write(
         ziptestmodule = tmpdir.join("somezip.zip")
         cls.w_tmpzip = space.wrap(str(ziptestmodule))
-        cls.w_co = space.wrap(co)
         cls.tmpdir = tmpdir
 
     def setup_class(cls):
@@ -162,7 +164,7 @@ class AppTestZipimport:
         for key, val in expected.items():
             assert mod.__dict__[key] == val
         assert mod.__file__.endswith('.zip'+os.sep+'uuu.py')
-    
+
     def test_pyc(self):
         import sys, os
         self.writefile("uuu.pyc", self.test_pyc)
@@ -312,7 +314,7 @@ class AppTestZipimport:
 
     def test_subdirectory_twice(self):
         #import os, zipimport
- 
+
         self.writefile("package/__init__.py", "")
         self.writefile("package/subpackage/__init__.py", "")
         self.writefile("package/subpackage/foo.py", "")
@@ -355,7 +357,9 @@ def get_co_filename():
 
 class AppTestZipimportDeflated(AppTestZipimport):
     compression = ZIP_DEFLATED
-    spaceconfig = dict(usemodules=['zipimport', 'zlib', 'rctime', 'struct'])
+    spaceconfig = {
+        "usemodules": ['zipimport', 'zlib', 'rctime', 'struct', 'binascii'],
+    }
 
     def setup_class(cls):
         try:

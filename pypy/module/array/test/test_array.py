@@ -854,8 +854,9 @@ class DontTestCPythonsOwnArray(BaseArrayTests):
         cls.tempfile = str(py.test.ensuretemp('array').join('tmpfile'))
         cls.maxint = sys.maxint
 
+
 class AppTestArray(BaseArrayTests):
-    spaceconfig = dict(usemodules=('array', 'struct', '_rawffi'))
+    spaceconfig = {'usemodules': ['array', 'struct', '_rawffi', 'binascii']}
 
     def setup_class(cls):
         cls.w_array = cls.space.appexec([], """():
@@ -865,7 +866,7 @@ class AppTestArray(BaseArrayTests):
         cls.w_tempfile = cls.space.wrap(
             str(py.test.ensuretemp('array').join('tmpfile')))
         cls.w_maxint = cls.space.wrap(sys.maxint)
-    
+
     def test_buffer_info(self):
         a = self.array('b', b'Hi!')
         bi = a.buffer_info()

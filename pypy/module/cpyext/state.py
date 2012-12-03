@@ -78,11 +78,7 @@ class State:
         from pypy.module.cpyext.api import INIT_FUNCTIONS
 
         setup_new_method_def(space)
-        if not we_are_translated():
-            space.setattr(space.wrap(self),
-                          space.wrap('api_lib'),
-                          space.wrap(self.api_lib))
-        else:
+        if we_are_translated():
             refcountstate = space.fromcache(RefcountState)
             refcountstate.init_r2w_from_w2r()
 

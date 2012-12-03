@@ -33,9 +33,6 @@ class AppTestUnicodeStringStdOnly:
 class AppTestUnicodeString:
     spaceconfig = dict(usemodules=('unicodedata',))
 
-    def setup_class(cls):
-        cls.w_version_info = cls.space.wrap(sys.version_info)
-
     def test_addition(self):
         import operator
         assert 'a' + 'b' == 'ab'

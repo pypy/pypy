@@ -69,9 +69,12 @@ def _detach_helpers(space):
     space.delitem(space.builtin.w_dict,
                   space.wrap('restore_top_frame'))
 
+
 class AppTestInterpObjectPickling:
     pytestmark = py.test.mark.skipif("config.option.runappdirect")
-    spaceconfig = dict(usemodules=['struct'])
+    spaceconfig = {
+        "usemodules": ["struct", "binascii"]
+    }
 
     def setup_class(cls):
         _attach_helpers(cls.space)

@@ -7,16 +7,10 @@ from pypy.objspace.std.typeobject import MethodCache
 from pypy.objspace.std.mapdict import IndexCache
 from pypy.rlib import rposix
 
+
 def internal_repr(space, w_object):
     return space.wrap('%r' % (w_object,))
 
-def isfake(space, w_obj):
-    """Return whether the argument is faked (stolen from CPython). This is
-    always False after translation."""
-    if we_are_translated():
-        return space.w_False
-    return space.wrap(bool(w_obj.typedef.fakedcpytype))
-    #return space.wrap(bool(getattr(w_obj.typedef, 'fakedcpytype', None)))
 
 def interp_pdb(space):
     """Run an interp-level pdb.
@@ -24,6 +18,7 @@ def interp_pdb(space):
     assert not we_are_translated()
     import pdb
     pdb.set_trace()
+
 
 @unwrap_spec(name=str)
 def method_cache_counter(space, name):
