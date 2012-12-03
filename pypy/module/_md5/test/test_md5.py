@@ -5,7 +5,7 @@ Tests for the md5 module implemented at interp-level in pypy/module/md5.
 
 class AppTestMD5(object):
     spaceconfig = {
-        "usemodules": ['_md5', 'rctime'],
+        "usemodules": ['_md5', 'rctime', 'binascii'],
     }
 
     def setup_class(cls):
@@ -26,7 +26,6 @@ class AppTestMD5(object):
             assert self.md5.blocksize == 1
             assert self.md5.md5().digestsize == 16
 
-
     def test_MD5Type(self):
         """
         Test the two ways to construct an md5 object.
@@ -38,7 +37,6 @@ class AppTestMD5(object):
         assert isinstance(d, md5.MD5Type)
         d = md5.new()
         assert isinstance(d, md5.MD5Type)
-
 
     def test_md5object(self):
         """
@@ -59,14 +57,13 @@ class AppTestMD5(object):
            "c3fcd3d76192e4007dfb496cca67e13b"),
           ("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789",
            "d174ab98d277d9f5a5611c2c9f419d9f"),
-          ("1234567890"*8,
+          ("1234567890" * 8,
            "57edf4a22be3c955ac49da2e2107b67a"),
         )
         for input, expected in cases:
             d = md5.new(input)
             assert d.hexdigest() == expected
             assert d.digest() == expected.decode('hex')
-
 
     def test_copy(self):
         """
@@ -81,7 +78,6 @@ class AppTestMD5(object):
         assert d1.hexdigest() == 'e570e7110ecef72fcb772a9c05d03373'
         assert d2.hexdigest() == 'e8dc4081b13434b45189a720b77b6818'
 
-
     def test_buffer(self):
         """
         Test passing a buffer object.
@@ -90,7 +86,6 @@ class AppTestMD5(object):
         d1 = md5.md5(buffer("abcde"))
         d1.update(buffer("jkl"))
         assert d1.hexdigest() == 'e570e7110ecef72fcb772a9c05d03373'
-
 
     def test_unicode(self):
         """
