@@ -566,6 +566,7 @@ def test_signature_list():
     assert isinstance(argtype, model.SomeList)
     item = argtype.listdef.listitem
     assert item.s_value == model.SomeInteger()
+    assert item.resized == True
 
     @check_annotator_fails
     def ok_for_body():
@@ -589,6 +590,25 @@ def test_signature_list():
         l[0] = 'abc'
         return len(l)
 
+    def can_append():
+        l = ff()
+        l.append('b')
+    getsig(can_append)
+
+def test_signature_array():
+    @signature(returns=types.array(types.int()))
+    def f():
+        return [1]
+    rettype = getsig(f)[0]
+    assert isinstance(rettype, model.SomeList)
+    item = rettype.listdef.listitem
+    assert item.s_value == model.SomeInteger()
+    assert item.resized == False
+
+    def try_append():
+        l = f()
+        l.append(2)
+    check_annotator_fails(try_append)
 
 
 def getgraph(f, argtypes):

@@ -14,3 +14,7 @@ def char():
 def list(element):
     listdef = ListDef(None, element, mutated=True, resized=True)
     return model.SomeList(listdef)
+
+def array(element):
+    listdef = ListDef(None, element, mutated=True, resized=False)
+    return model.SomeList(listdef)
