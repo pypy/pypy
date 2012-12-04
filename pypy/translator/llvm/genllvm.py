@@ -1539,38 +1539,32 @@ class RefcountGCPolicy(GCPolicy):
         return [self.gctransformer.gcheaderbuilder.header_of_object(obj)._obj]
 
 
+def extfunc(name, args, result, compilation_info):
+    func_type = lltype.FuncType(args, result)
+    return lltype.functionptr(func_type, name, external='C', calling_conv='c',
+                              compilation_info=compilation_info)
+
 translator_dir = local(pypydir) / 'translator'
-allocator_eci = ExternalCompilationInfo(
-    include_dirs = [translator_dir / 'c', translator_dir / 'llvm'],
-    includes = ['src/allocator.h'],
-    separate_module_files = [translator_dir / 'c' / 'src' / 'allocator.c']
-)
-llvm_eci = ExternalCompilationInfo()
+eci = ExternalCompilationInfo(
+        include_dirs=[translator_dir / 'c', translator_dir / 'llvm'],
+        includes=['src/allocator.h'],
+        separate_module_files=[translator_dir / 'c' / 'src' / 'allocator.c'])
+raw_malloc = extfunc('PyObject_Malloc', [lltype.Signed], llmemory.Address, eci)
+raw_free = extfunc('PyObject_Free', [llmemory.Address], lltype.Void, eci)
 
-raw_malloc = lltype.functionptr(
-        lltype.FuncType([lltype.Signed], llmemory.Address), 'PyObject_Malloc',
-        external='C', compilation_info=allocator_eci)
-raw_free = lltype.functionptr(
-        lltype.FuncType([llmemory.Address], lltype.Void), 'PyObject_Free',
-        external='C', compilation_info=allocator_eci)
+eci = ExternalCompilationInfo()
+llvm_memcpy = extfunc('llvm.memcpy.p0i8.p0i8.i' + str(LLVMSigned.bitwidth),
+                      [llmemory.Address, llmemory.Address, lltype.Signed,
+                       rffi.INT, lltype.Bool], lltype.Void, eci)
+llvm_memset = extfunc('llvm.memset.p0i8.i' + str(LLVMSigned.bitwidth),
+                      [llmemory.Address, rffi.SIGNEDCHAR, lltype.Signed,
+                       rffi.INT, lltype.Bool], lltype.Void, eci)
+llvm_frameaddress = extfunc('llvm.frameaddress', [rffi.INT], llmemory.Address,
+                            eci)
+llvm_readcyclecounter = extfunc('llvm.readcyclecounter', [],
+                                lltype.SignedLongLong, eci)
+del eci
 
-
-llvm_memcpy = lltype.functionptr(
-        lltype.FuncType([llmemory.Address, llmemory.Address, lltype.Signed,
-                         rffi.INT, lltype.Bool], lltype.Void),
-        'llvm.memcpy.p0i8.p0i8.i' + str(LLVMSigned.bitwidth), external='C',
-        compilation_info=llvm_eci)
-llvm_memset = lltype.functionptr(
-        lltype.FuncType([llmemory.Address, rffi.SIGNEDCHAR, lltype.Signed,
-                         rffi.INT, lltype.Bool], lltype.Void),
-        'llvm.memset.p0i8.i' + str(LLVMSigned.bitwidth), external='C',
-        compilation_info=llvm_eci)
-llvm_frameaddress = lltype.functionptr(
-        lltype.FuncType([rffi.INT], llmemory.Address),
-        'llvm.frameaddress', external='C', compilation_info=llvm_eci)
-llvm_readcyclecounter = lltype.functionptr(
-        lltype.FuncType([], lltype.SignedLongLong),
-        'llvm.readcyclecounter', external='C', compilation_info=llvm_eci)
 null_int = ConstantRepr(LLVMInt, 0)
 null_char = ConstantRepr(LLVMChar, '\0')
 null_bool = ConstantRepr(LLVMBool, 0)
