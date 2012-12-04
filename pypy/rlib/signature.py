@@ -1,3 +1,4 @@
+from pypy.annotation import types
 
 def signature(*paramtypes, **kwargs):
     """Decorate a function to specify its type signature.
@@ -17,3 +18,22 @@ def signature(*paramtypes, **kwargs):
         f._signature_ = (paramtypes, returntype)
         return f
     return decorator
+
+
+def finishsigs(cls):
+    """Decorate a class to finish any method signatures involving types.self().
+
+    This is required if any method has a signature with types.self() in it.
+    """
+    # A bit annoying to have to use this, but it avoids performing any
+    # terrible hack in the implementation.  Eventually we'll offer signatures
+    # on classes, and then that decorator can do this on the side.
+    def fix(sigtype):
+        if isinstance(sigtype, types.SelfTypeMarker):
+            return types.instance(cls)
+        return sigtype
+    for attr in cls.__dict__.values():
+        if hasattr(attr, '_signature_'):
+            paramtypes, returntype = attr._signature_
+            attr._signature_ = (tuple(fix(t) for t in paramtypes), fix(returntype))
+    return cls

@@ -46,3 +46,9 @@ def dict(keytype, valuetype):
 
 def instance(class_):
     return lambda bookkeeper: model.SomeInstance(bookkeeper.getuniqueclassdef(class_))
+
+class SelfTypeMarker(object):
+    pass
+
+def self():
+    return SelfTypeMarker()

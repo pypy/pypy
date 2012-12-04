@@ -131,15 +131,18 @@ class Sig(object):
                                              s_input))
         inputcells[:] = args_s
 
-def apply_bookkeeper(paramtype, bookkeeper):
+def finish_type(paramtype, bookkeeper, func):
+    from pypy.annotation.types import SelfTypeMarker
     if isinstance(paramtype, SomeObject):
         return paramtype
+    elif isinstance(paramtype, SelfTypeMarker):
+        raise Exception("%r argument declared as annotation.types.self(); class needs decorator rlib.signature.finishsigs()" % (func,))
     else:
         return paramtype(bookkeeper)
 
 def enforce_signature_args(funcdesc, paramtypes, actualtypes):
     assert len(paramtypes) == len(actualtypes)
-    params_s = [apply_bookkeeper(paramtype, funcdesc.bookkeeper) for paramtype in paramtypes]
+    params_s = [finish_type(paramtype, funcdesc.bookkeeper, funcdesc.pyobj) for paramtype in paramtypes]
     for i, (s_param, s_actual) in enumerate(zip(params_s, actualtypes)):
         if not s_param.contains(s_actual):
             raise Exception("%r argument %d:\n"
@@ -148,4 +151,4 @@ def enforce_signature_args(funcdesc, paramtypes, actualtypes):
     actualtypes[:] = params_s
 
 def enforce_signature_return(funcdesc, sigtype, inferredtype):
-    return apply_bookkeeper(sigtype, funcdesc.bookkeeper)
+    return finish_type(sigtype, funcdesc.bookkeeper, funcdesc.pyobj)

@@ -1,5 +1,5 @@
 import py
-from pypy.rlib.signature import signature
+from pypy.rlib.signature import signature, finishsigs
 from pypy.annotation import types, model
 from pypy.translator.translator import TranslationContext, graphof
 
@@ -180,3 +180,32 @@ def test_signature_instance():
     @check_annotator_fails
     def bad_for_body():
         f(C1())
+
+def test_signature_self():
+    @finishsigs
+    class C(object):
+        @signature(types.self(), types.self(), returns=types.none())
+        def f(self, other):
+            pass
+    class D1(C):
+        pass
+    class D2(C):
+        pass
+
+    def g():
+        D1().f(D2())
+    a = annotate_at(g)
+
+    argtype = sigof(a, C.__dict__['f'])[0]
+    assert isinstance(argtype, model.SomeInstance)
+    assert argtype.classdef.classdesc.pyobj == C
+
+def test_signature_self_error():
+    class C(object):
+        @signature(types.self(), returns=types.none())
+        def incomplete_sig_meth(self):
+            pass
+
+    exc = py.test.raises(Exception, annotate_at, C.incomplete_sig_meth).value
+    assert 'incomplete_sig_meth' in repr(exc.args)
+    assert 'finishsigs' in repr(exc.args)
