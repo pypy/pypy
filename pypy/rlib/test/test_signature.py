@@ -75,6 +75,14 @@ def test_signature_return_errors():
     def str_to_int(s):
         return s
 
+
+def test_signature_float():
+    @signature(types.longfloat(), types.singlefloat(), returns=types.float())
+    def f(a, b):
+        return 3.0
+    assert getsig(f) == [model.SomeLongFloat(), model.SomeSingleFloat(), model.SomeFloat()]
+
+
 def test_signature_list():
     @signature(types.list(types.int()), returns=types.int())
     def f(a):
@@ -126,6 +134,7 @@ def test_signature_array():
         l = f()
         l.append(2)
     check_annotator_fails(try_append)
+
 
 def test_signature_instance():
     class C1(object):
