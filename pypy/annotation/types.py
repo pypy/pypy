@@ -1,5 +1,6 @@
 from pypy.annotation import model
 from pypy.annotation.listdef import ListDef
+from pypy.annotation.dictdef import DictDef
 
 
 def none():
@@ -37,6 +38,10 @@ def list(element):
 def array(element):
     listdef = ListDef(None, element, mutated=True, resized=False)
     return model.SomeList(listdef)
+
+def dict(keytype, valuetype):
+    dictdef = DictDef(None, keytype, valuetype)
+    return model.SomeDict(dictdef)
 
 
 def instance(class_):

@@ -147,6 +147,15 @@ def test_signature_array():
         l.append(2)
     check_annotator_fails(try_append)
 
+def test_signature_dict():
+    @signature(returns=types.dict(types.str(), types.int()))
+    def f():
+        return {'a': 1, 'b': 2}
+    rettype = getsig(f)[0]
+    assert isinstance(rettype, model.SomeDict)
+    assert rettype.dictdef.dictkey.s_value   == model.SomeString()
+    assert rettype.dictdef.dictvalue.s_value == model.SomeInteger()
+
 
 def test_signature_instance():
     class C1(object):
