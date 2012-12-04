@@ -20,6 +20,9 @@ def int():
     return model.SomeInteger()
 
 
+def unicode():
+    return model.SomeUnicodeString()
+
 def str():
     return model.SomeString()
 
