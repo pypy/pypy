@@ -665,8 +665,15 @@ class FuncType(Type):
                         prev_type.repr_type(), name, self.repr_type())
                 return
             ptr_type.refs[obj] = name
-            database.f.write('declare {} {}({})\n'.format(
-                    self.result.repr_type(), name,
+            if obj.calling_conv == 'c':
+                calling_conv = ''
+            elif obj.calling_conv == 'win':
+                # assume that x86_stdcallcc implies dllimport
+                calling_conv = 'dllimport x86_stdcallcc '
+            else:
+                raise NotImplementedError
+            database.f.write('declare {}{} {}({})\n'.format(
+                    calling_conv, self.result.repr_type(), name,
                     ', '.join(arg.repr_type() for arg in self.args)))
             database.genllvm.ecis.append(obj.compilation_info)
         else:
@@ -1088,13 +1095,19 @@ class FunctionWriter(object):
             tmp.append('{arg.TV}'.format(arg=arg))
         args = ', '.join(tmp)
 
+        if (isinstance(fn, ConstantRepr) and
+            getattr(fn.value._obj, 'calling_conv', None) == 'win'):
+            calling_conv = 'x86_stdcallcc '
+        else:
+            calling_conv = ''
+
         if result.type_ is LLVMVoid:
-            fmt = 'call void {fn.V}({args})'
+            fmt = 'call {calling_conv}void {fn.V}({args})'
         elif (isinstance(result.type_, PtrType) and
               isinstance(result.type_.to, FuncType)):
-            fmt = '{result.V} = call {fn.TV}({args})'
+            fmt = '{result.V} = call {calling_conv}{fn.TV}({args})'
         else:
-            fmt = '{result.V} = call {result.T} {fn.V}({args})'
+            fmt = '{result.V} = call {calling_conv}{result.T} {fn.V}({args})'
         self.w(fmt.format(**locals()))
     op_indirect_call = op_direct_call
 
