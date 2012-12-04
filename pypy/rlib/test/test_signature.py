@@ -76,6 +76,12 @@ def test_signature_return_errors():
         return s
 
 
+def test_signature_none():
+    @signature(returns=types.none())
+    def f():
+        pass
+    assert getsig(f) == [model.s_None]
+
 def test_signature_float():
     @signature(types.longfloat(), types.singlefloat(), returns=types.float())
     def f(a, b):

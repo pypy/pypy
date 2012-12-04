@@ -2,6 +2,10 @@ from pypy.annotation import model
 from pypy.annotation.listdef import ListDef
 
 
+def none():
+    return model.s_None
+
+
 def float():
     return model.SomeFloat()
 
