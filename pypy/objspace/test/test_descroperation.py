@@ -648,6 +648,7 @@ class AppTest_Descroperation:
         raises(ValueError, bool, X())
 
     def test_len_custom__int__(self):
+        import sys
         class X(object):
             def __init__(self, x):
                 self.x = x
@@ -656,14 +657,11 @@ class AppTest_Descroperation:
             def __int__(self):
                 return self.x
 
-        l = len(X(3.0))
-        assert l == 3 and type(l) is int
-        assert X(3.0)
-        assert not X(0.0)
-        l = len(X(X(2)))
-        assert l == 2 and type(l) is int
-        assert X(X(2))
-        assert not X(X(0))
+        raises(TypeError, len, X(3.0))
+        raises(TypeError, len, X(X(2)))
+        raises(TypeError, bool, X(3.0))
+        raises(TypeError, bool, X(X(2)))
+        raises(OverflowError, len, X(sys.maxsize + 1))
 
     def test_sane_len(self):
         # this test just tests our assumptions about __len__
