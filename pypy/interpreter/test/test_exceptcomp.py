@@ -84,21 +84,3 @@ class AppTestExceptionComp:
             pass
         except:
             self.fail("Exception does not match parent in tuple.") 
-
-    def test_nestedtuples(self):
-        try:
-            raise AssertionError("0")
-        except (SystemExit, (KeyboardInterrupt, AssertionError)):
-            pass
-        except:
-            self.fail("Exception does not match self in nested tuple.") 
-
-    def test_deeptuples(self):
-        try:
-            raise IOError
-        except (FloatingPointError,(OSError,
-                                    (SyntaxError,IOError,ZeroDivisionError)),
-                (MemoryError, NotImplementedError)):
-            pass
-        except:
-            self.fail("Exception does not match self in deeply nested tuple.")
