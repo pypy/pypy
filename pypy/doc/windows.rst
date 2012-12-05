@@ -13,8 +13,8 @@ preferred, but can also use the mingw32 port of gcc.
 Translating PyPy with Visual Studio
 -----------------------------------
 
-We routinely test the `RPython translation toolchain`_ using Visual Studio .NET
-2005, Professional Edition, and Visual Studio .NET 2008, Express
+We routinely test the `RPython translation toolchain`_ using 
+Visual Studio 2008, Express
 Edition.  Other configurations may work as well.
 
 The translation scripts will set up the appropriate environment variables
