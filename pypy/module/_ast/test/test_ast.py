@@ -1,7 +1,10 @@
 import py
 
+
 class AppTestAST:
-    spaceconfig = dict(usemodules=['struct'])
+    spaceconfig = {
+        "usemodules": ['struct', 'binascii'],
+    }
 
     def setup_class(cls):
         cls.w_ast = cls.space.getbuiltinmodule('_ast')

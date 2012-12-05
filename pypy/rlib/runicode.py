@@ -57,9 +57,9 @@ def default_unicode_error_decode(errors, encoding, msg, s,
 def default_unicode_error_encode(errors, encoding, msg, u,
                                  startingpos, endingpos):
     if errors == 'replace':
-        return u'?', endingpos
+        return u'?', None, endingpos
     if errors == 'ignore':
-        return u'', endingpos
+        return u'', None, endingpos
     raise UnicodeEncodeError(encoding, u, startingpos, endingpos, msg)
 
 # ____________________________________________________________
@@ -300,10 +300,14 @@ def unicode_encode_utf_8_impl(s, size, errors, errorhandler,
                             _encodeUCS4(result, ch3)
                             continue
                     if not allow_surrogates:
-                        r, pos = errorhandler(errors, 'utf-8',
-                                              'surrogates not allowed',
-                                              s, pos-1, pos)
-                        for ch in r:
+                        ru, rs, pos = errorhandler(errors, 'utf-8',
+                                                   'surrogates not allowed',
+                                                   s, pos-1, pos)
+                        if rs is not None:
+                            # py3k only
+                            result.append(rs)
+                            continue
+                        for ch in ru:
                             if ord(ch) < 0x80:
                                 result.append(chr(ord(ch)))
                             else:
@@ -976,9 +980,13 @@ def unicode_encode_ucs1_helper(p, size, errors,
             collend = pos+1
             while collend < len(p) and ord(p[collend]) >= limit:
                 collend += 1
-            r, pos = errorhandler(errors, encoding, reason, p,
-                                  collstart, collend)
-            for ch in r:
+            ru, rs, pos = errorhandler(errors, encoding, reason, p,
+                                       collstart, collend)
+            if rs is not None:
+                # py3k only
+                result.append(rs)
+                continue
+            for ch in ru:
                 if ord(ch) < limit:
                     result.append(chr(ord(ch)))
                 else:
@@ -1048,10 +1056,14 @@ def unicode_encode_charmap(s, size, errors, errorhandler=None,
 
         c = mapping.get(ch, '')
         if len(c) == 0:
-            res, pos = errorhandler(errors, "charmap",
-                                    "character maps to <undefined>",
-                                    s, pos, pos + 1)
-            for ch2 in res:
+            ru, rs, pos = errorhandler(errors, "charmap",
+                                       "character maps to <undefined>",
+                                       s, pos, pos + 1)
+            if rs is not None:
+                # py3k only
+                result.append(rs)
+                continue
+            for ch2 in ru:
                 c2 = mapping.get(ch2, '')
                 if len(c2) == 0:
                     errorhandler(
@@ -1650,9 +1662,12 @@ def unicode_encode_decimal(s, size, errors, errorhandler=None):
                 pass
             collend += 1
         msg = "invalid decimal Unicode string"
-        r, pos = errorhandler(errors, 'decimal',
-                              msg, s, collstart, collend)
-        for char in r:
+        ru, rs, pos = errorhandler(errors, 'decimal',
+                                   msg, s, collstart, collend)
+        if rs is not None:
+            # py3k only
+            errorhandler('strict', 'decimal', msg, s, collstart, collend)
+        for char in ru:
             ch = ord(char)
             if unicodedb.isspace(ch):
                 result.append(' ')

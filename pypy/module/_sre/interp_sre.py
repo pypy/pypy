@@ -43,13 +43,15 @@ def slice_w(space, ctx, start, end, w_default):
             raise SystemError
     return w_default
 
+
+@jit.look_inside_iff(lambda ctx, num_groups: jit.isconstant(num_groups))
 def do_flatten_marks(ctx, num_groups):
     # Returns a list of RPython-level integers.
     # Unlike the app-level groups() method, groups are numbered from 0
     # and the returned list does not start with the whole match range.
     if num_groups == 0:
         return None
-    result = [-1] * (2*num_groups)
+    result = [-1] * (2 * num_groups)
     mark = ctx.match_marks
     while mark is not None:
         index = mark.gid
@@ -58,10 +60,13 @@ def do_flatten_marks(ctx, num_groups):
         mark = mark.prev
     return result
 
+
+@jit.look_inside_iff(lambda space, ctx, fmarks, num_groups, w_default: jit.isconstant(num_groups))
 def allgroups_w(space, ctx, fmarks, num_groups, w_default):
-    grps = [slice_w(space, ctx, fmarks[i*2], fmarks[i*2+1], w_default)
+    grps = [slice_w(space, ctx, fmarks[i * 2], fmarks[i * 2 + 1], w_default)
             for i in range(num_groups)]
     return space.newtuple(grps)
+
 
 def import_re(space):
     w_builtin = space.getbuiltinmodule('__builtin__')
@@ -85,7 +90,7 @@ def searchcontext(space, ctx):
 # SRE_Pattern class
 
 class W_SRE_Pattern(Wrappable):
-    _immutable_fields_ = ["code", "flags"]
+    _immutable_fields_ = ["code", "flags", "num_groups"]
 
     def cannot_copy_w(self):
         space = self.space

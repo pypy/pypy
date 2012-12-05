@@ -23,7 +23,6 @@ from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.longobject import W_LongObject, newlong
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.objectobject import W_ObjectObject
-from pypy.objspace.std.ropeobject import W_RopeObject
 from pypy.objspace.std.iterobject import W_SeqIterObject
 from pypy.objspace.std.setobject import W_SetObject, W_FrozensetObject
 from pypy.objspace.std.sliceobject import W_SliceObject
@@ -48,12 +47,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
         self.model = model.StdTypeModel(self.config)
 
         self.FrameClass = frame.build_frame(self)
+        self.StringObjectCls = W_StringObject
 
-        if self.config.objspace.std.withrope:
-            self.StringObjectCls = W_RopeObject
-        else:
-            self.StringObjectCls = W_StringObject
-            
         self.UnicodeObjectCls = W_UnicodeObject
 
         self._install_multimethods()
@@ -131,13 +126,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
         ec = ObjSpace.createexecutioncontext(self)
         ec._py_repr = None
         return ec
-
-    def createframe(self, code, w_globals, outer_func=None):
-        from pypy.objspace.std.fake import CPythonFakeCode, CPythonFakeFrame
-        if not we_are_translated() and isinstance(code, CPythonFakeCode):
-            return CPythonFakeFrame(self, code, w_globals)
-        else:
-            return ObjSpace.createframe(self, code, w_globals, outer_func)
 
     def gettypefor(self, cls):
         return self.gettypeobject(cls.typedef)
@@ -241,16 +229,9 @@ class StdObjSpace(ObjSpace, DescrOperation):
             # '__builtin__.Ellipsis' avoids confusion with special.Ellipsis
             return self.w_Ellipsis
 
-        if self.config.objspace.nofaking:
-            raise OperationError(self.w_RuntimeError,
-                                 self.wrap("nofaking enabled: refusing "
-                                           "to wrap cpython value %r" %(x,)))
-        if isinstance(x, type(Exception)) and issubclass(x, Exception):
-            w_result = self.wrap_exception_cls(x)
-            if w_result is not None:
-                return w_result
-        from pypy.objspace.std.fake import fake_object
-        return fake_object(self, x)
+        raise OperationError(self.w_RuntimeError,
+            self.wrap("refusing to wrap cpython value %r" % (x,))
+        )
 
     def wrap_exception_cls(self, x):
         """NOT_RPYTHON"""

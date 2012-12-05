@@ -4,8 +4,11 @@ import sys
 # add a larger timeout for slow ARM machines
 import platform
 
+
 class AppTestEpoll(object):
-    spaceconfig = dict(usemodules=["select", "_socket", "posix"])
+    spaceconfig = {
+        "usemodules": ["select", "_socket", "posix", "rctime"],
+    }
 
     def setup_class(cls):
         # NB. we should ideally py.test.skip() if running on an old linux
@@ -195,3 +198,10 @@ class AppTestEpoll(object):
 
         server.close()
         ep.unregister(fd)
+
+    def test_close_twice(self):
+        import select
+
+        ep = select.epoll()
+        ep.close()
+        ep.close()

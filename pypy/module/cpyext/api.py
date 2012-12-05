@@ -639,7 +639,7 @@ def setup_va_functions(eci):
                                TP, compilation_info=eci)
         globals()['va_get_%s' % name_no_star] = func
 
-def setup_init_functions(eci):
+def setup_init_functions(eci, translating):
     init_buffer = rffi.llexternal('init_bufferobject', [], lltype.Void,
                                   compilation_info=eci, _nowrapper=True)
     init_pycobject = rffi.llexternal('init_pycobject', [], lltype.Void,
@@ -652,8 +652,12 @@ def setup_init_functions(eci):
         lambda space: init_capsule(),
     ])
     from pypy.module.posix.interp_posix import add_fork_hook
-    reinit_tls = rffi.llexternal('PyThread_ReInitTLS', [], lltype.Void,
-                                 compilation_info=eci)    
+    if translating:
+        reinit_tls = rffi.llexternal('PyThread_ReInitTLS', [], lltype.Void,
+                                     compilation_info=eci)
+    else:
+        reinit_tls = rffi.llexternal('PyPyThread_ReInitTLS', [], lltype.Void,
+                                     compilation_info=eci)
     add_fork_hook('child', reinit_tls)
 
 def init_function(func):
@@ -727,7 +731,7 @@ def build_bridge(space):
     global_code = '\n'.join(global_objects)
 
     prologue = ("#include <Python.h>\n"
-                "#include <src/thread.h>\n")
+                "#include <src/thread.c>\n")
     code = (prologue +
             struct_declaration_code +
             global_code +
@@ -805,7 +809,7 @@ def build_bridge(space):
 
     setup_va_functions(eci)
 
-    setup_init_functions(eci)
+    setup_init_functions(eci, translating=False)
     return modulename.new(ext='')
 
 def generate_macros(export_symbols, rename=True, do_deref=True):
@@ -969,7 +973,7 @@ def build_eci(building_bridge, export_symbols, code):
                                source_dir / "structseq.c",
                                source_dir / "capsule.c",
                                source_dir / "pysignals.c",
-                               source_dir / "thread.c",
+                               source_dir / "pythread.c",
                                ],
         separate_module_sources=separate_module_sources,
         export_symbols=export_symbols_eci,
@@ -1021,7 +1025,7 @@ def setup_library(space):
         deco = entrypoint("cpyext", func.argtypes, name, relax=True)
         deco(func.get_wrapper(space))
 
-    setup_init_functions(eci)
+    setup_init_functions(eci, translating=True)
     trunk_include = pypydir.dirpath() / 'include'
     copy_header_files(trunk_include)
 
