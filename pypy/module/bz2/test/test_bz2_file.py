@@ -64,7 +64,10 @@ class AppTestBZ2File: #(CheckAllocation):
         cls.w_DATA_CRLF = cls.space.wrap(DATA_CRLF)
         cls.w_temppath = cls.space.wrap(
             str(py.test.ensuretemp("bz2").join("foo")))
-        cls.w_create_temp_file = cls.space.wrap(interp2app(create_temp_file))
+        if cls.runappdirect:
+            cls.w_create_temp_file = create_temp_file
+        else:
+            cls.w_create_temp_file = cls.space.wrap(interp2app(create_temp_file))
         cls.w_decompress = cls.space.wrap(interp2app(decompress))
         cls.w_create_broken_temp_file = cls.space.wrap(interp2app(create_broken_temp_file))
         cls.w_random_data = cls.space.wrap(RANDOM_DATA)
