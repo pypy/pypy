@@ -44,7 +44,7 @@ class AppTestDotnet:
         import clr
         ArrayList = clr.load_cli_class(self.mscorlib, 'System.Collections', 'ArrayList')
         obj = ArrayList()
-        raises(StandardError, obj.get_Item, 0)
+        raises(Exception, obj.get_Item, 0)
 
     def test_float_conversion(self):
         import clr

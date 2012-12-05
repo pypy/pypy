@@ -80,7 +80,7 @@ class AppTestExceptionComp:
     def test_parenttuple(self):
         try:
             raise ZeroDivisionError("0")
-        except (StandardError, SystemExit):
+        except (Exception, SystemExit):
             pass
         except:
             self.fail("Exception does not match parent in tuple.") 

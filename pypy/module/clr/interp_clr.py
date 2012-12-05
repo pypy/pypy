@@ -60,8 +60,8 @@ def call_method(space, b_obj, b_type, name, w_args, startfrom):
     except TargetInvocationException, e:
         b_inner = native_exc(e).get_InnerException()
         message = str(b_inner.get_Message())
-        # TODO: use the appropriate exception, not StandardError
-        raise OperationError(space.w_StandardError, space.wrap(message))
+        # TODO: use the appropriate exception, not Exception
+        raise OperationError(space.w_Exception, space.wrap(message))
     if b_meth.get_ReturnType().get_Name() == 'Void':
         return space.w_None
     else:
@@ -346,8 +346,8 @@ def cli_object_new(space, w_subtype, typename, w_args):
     except TargetInvocationException, e:
         b_inner = native_exc(e).get_InnerException()
         message = str(b_inner.get_Message())
-        # TODO: use the appropriate exception, not StandardError
-        raise OperationError(space.w_StandardError, space.wrap(message))
+        # TODO: use the appropriate exception, not Exception
+        raise OperationError(space.w_Exception, space.wrap(message))
     return space.wrap(W_CliObject(space, b_obj))
 
 W_CliObject.typedef = TypeDef(

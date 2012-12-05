@@ -1,10 +1,10 @@
 version = '5.0.0'
 paramstyle = 'named'
 
-class Warning(StandardError):
+class Warning(Exception):
     pass
 
-class Error(StandardError):
+class Error(Exception):
     pass
 
 class InterfaceError(Error):

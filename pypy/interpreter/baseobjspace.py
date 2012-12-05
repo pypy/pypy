@@ -1643,7 +1643,6 @@ ObjSpace.ExceptionTable = [
     'OverflowError',
     'ReferenceError',
     'RuntimeError',
-    'StandardError',
     'StopIteration',
     'SyntaxError',
     'SystemError',
