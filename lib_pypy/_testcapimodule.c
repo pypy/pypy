@@ -1,4 +1,6 @@
-/* Verbatim copy of Modules/_testcapimodule.c from CPython 3.2 */
+/* Verbatim copy of Modules/_testcapimodule.c from CPython 3.2,
+ * except that "run_in_subinterp" is commented out
+ */
 /*
  * C Extension module to test Python interpreter C APIs.
  *
@@ -2301,6 +2303,8 @@ crash_no_current_thread(PyObject *self)
     return NULL;
 }
 
+#ifndef PYPY_VERSION
+
 /* To run some code in a sub-interpreter. */
 static PyObject *
 run_in_subinterp(PyObject *self, PyObject *args)
@@ -2325,6 +2329,8 @@ run_in_subinterp(PyObject *self, PyObject *args)
 
     return PyLong_FromLong(r);
 }
+
+#endif  /* PYPY_VERSION */
 
 
 static PyMethodDef TestMethods[] = {
@@ -2412,7 +2418,9 @@ static PyMethodDef TestMethods[] = {
     {"make_memoryview_from_NULL_pointer", (PyCFunction)make_memoryview_from_NULL_pointer,
      METH_NOARGS},
     {"crash_no_current_thread", (PyCFunction)crash_no_current_thread, METH_NOARGS},
+#ifndef PYPY_VERSION
     {"run_in_subinterp",        run_in_subinterp,                METH_VARARGS},
+#endif
     {NULL, NULL} /* sentinel */
 };
 
