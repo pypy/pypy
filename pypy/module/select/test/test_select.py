@@ -291,11 +291,11 @@ class AppTestSelectWithSockets(_AppTestSelect):
     def w_getpair(self):
         """Helper method which returns a pair of connected sockets."""
         import socket
-        import thread
+        import _thread
 
         self.sock.listen(1)
         s2 = socket.socket()
-        thread.start_new_thread(s2.connect, (self.sockaddress,))
+        _thread.start_new_thread(s2.connect, (self.sockaddress,))
         s1, addr2 = self.sock.accept()
 
         return s1, s2
