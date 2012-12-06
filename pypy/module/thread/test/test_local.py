@@ -75,9 +75,8 @@ class AppTestLocal(GenericTestThread):
     def test_local_setdict(self):
         import _thread
         x = _thread._local()
-        # XXX: On Cpython these are AttributeErrors
-        raises(TypeError, "x.__dict__ = 42")
-        raises(TypeError, "x.__dict__ = {}")
+        raises(AttributeError, "x.__dict__ = 42")
+        raises(AttributeError, "x.__dict__ = {}")
 
         done = []
         def f(n):
