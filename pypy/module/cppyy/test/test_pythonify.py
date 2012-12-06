@@ -325,7 +325,7 @@ class AppTestPYTHONIFY_UI:
     spaceconfig = dict(usemodules=['cppyy'])
 
     def setup_class(cls):
-        cls.w_test_dct  = self.space.wrap(test_dct)
+        cls.w_test_dct  = cls.space.wrap(test_dct)
         cls.w_example01 = cls.space.appexec([], """():
             import cppyy
             return cppyy.load_reflection_info(%r)""" % (test_dct, ))
