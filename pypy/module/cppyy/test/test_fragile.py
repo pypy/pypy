@@ -16,7 +16,7 @@ class AppTestFRAGILE:
 
     def setup_class(cls):
         cls.w_test_dct  = cls.space.wrap(test_dct)
-        cls.w_capi = cls.space.wrap(capi)
+        cls.w_identity = cls.space.wrap(capi.identify())
         cls.w_fragile = cls.space.appexec([], """():
             import cppyy
             return cppyy.load_reflection_info(%r)""" % (test_dct, ))
@@ -203,7 +203,7 @@ class AppTestFRAGILE:
 
         import cppyy
 
-        if self.capi.identify() == 'CINT':   # CINT only support classes on global space
+        if self.identity == 'CINT':          # CINT only support classes on global space
             members = dir(cppyy.gbl)
             assert 'TROOT' in members
             assert 'TSystem' in members
