@@ -45,6 +45,7 @@ class TestWeakSet(unittest.TestCase):
         self.assertEqual(len(self.s), len(self.d))
         self.assertEqual(len(self.fs), 1)
         del self.obj
+        support.gc_collect()
         self.assertEqual(len(self.fs), 0)
 
     def test_contains(self):
@@ -54,6 +55,7 @@ class TestWeakSet(unittest.TestCase):
         self.assertNotIn(1, self.s)
         self.assertIn(self.obj, self.fs)
         del self.obj
+        support.gc_collect()
         self.assertNotIn(ustr('F'), self.fs)
 
     def test_union(self):
@@ -192,6 +194,7 @@ class TestWeakSet(unittest.TestCase):
         self.assertEqual(self.s, dup)
         self.assertRaises(TypeError, self.s.add, [])
         self.fs.add(Foo())
+        support.gc_collect()
         self.assertTrue(len(self.fs) == 1)
         self.fs.add(self.obj)
         self.assertTrue(len(self.fs) == 1)

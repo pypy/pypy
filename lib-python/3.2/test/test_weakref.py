@@ -1266,6 +1266,7 @@ class WeakKeyDictionaryTestCase(mapping_tests.BasicTestMappingProtocol):
 
 libreftest = """ Doctest for examples in the library reference: weakref.rst
 
+>>> from test.support import gc_collect
 >>> import weakref
 >>> class Dict(dict):
 ...     pass
@@ -1285,6 +1286,7 @@ True
 >>> o is o2
 True
 >>> del o, o2
+>>> gc_collect()
 >>> print(r())
 None
 
