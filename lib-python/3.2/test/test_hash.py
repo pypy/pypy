@@ -8,6 +8,7 @@ import os
 import sys
 import unittest
 from test import support
+from test.support import impl_detail, check_impl_detail
 from test.script_helper import assert_python_ok
 from collections import Hashable
 
@@ -132,6 +133,7 @@ class HashRandomizationTests(unittest.TestCase):
     def get_hash_command(self, repr_):
         return 'print(hash(%s))' % repr_
 
+    @impl_detail("PyPy does not support hash randomization", pypy=False)
     def get_hash(self, repr_, seed=None):
         env = os.environ.copy()
         env['__cleanenv'] = True  # signal to assert_python not to do a copy
@@ -153,6 +155,11 @@ class HashRandomizationTests(unittest.TestCase):
         self.assertNotEqual(run1, run2)
 
 class StringlikeHashRandomizationTests(HashRandomizationTests):
+    if check_impl_detail(pypy=True):
+        EMPTY_STRING_HASH = -1
+    else:
+        EMPTY_STRING_HASH = 0
+
     def test_null_hash(self):
         # PYTHONHASHSEED=0 disables the randomized hash
         if IS_64BIT:
@@ -185,13 +192,13 @@ class StrHashRandomizationTests(StringlikeHashRandomizationTests):
     repr_ = repr('abc')
 
     def test_empty_string(self):
-        self.assertEqual(hash(""), 0)
+        self.assertEqual(hash(""), self.EMPTY_STRING_HASH)
 
 class BytesHashRandomizationTests(StringlikeHashRandomizationTests):
     repr_ = repr(b'abc')
 
     def test_empty_string(self):
-        self.assertEqual(hash(b""), 0)
+        self.assertEqual(hash(b""), self.EMPTY_STRING_HASH)
 
 class DatetimeTests(HashRandomizationTests):
     def get_hash_command(self, repr_):
