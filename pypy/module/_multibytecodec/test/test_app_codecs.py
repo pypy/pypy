@@ -71,6 +71,14 @@ class AppTestCodecs:
         raises(TypeError, b"abc\xDD".decode, "hz",
                "test.test_decode_custom_error_handler_type")
 
+    def test_decode_custom_error_handler_longindex(self):
+        import codecs
+        import sys
+        codecs.register_error("test.test_decode_custom_error_handler_longindex",
+                              lambda e: ('', sys.maxsize + 1))
+        raises(IndexError, b"abc\xDD".decode, "hz",
+               "test.test_decode_custom_error_handler_longindex")
+
     def test_encode_hz(self):
         import _codecs_cn
         codec = _codecs_cn.getcodec("hz")

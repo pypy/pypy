@@ -52,10 +52,17 @@ class CodecState(object):
                     msg = ("encoding error handler must return "
                            "(str/bytes, int) tuple")
                 raise OperationError(space.w_TypeError, space.wrap(msg))
+
             w_replace, w_newpos = space.fixedview(w_res, 2)
-            newpos = space.int_w(w_newpos)
-            if newpos < 0:
-                newpos = len(input) + newpos
+            try:
+                newpos = space.int_w(w_newpos)
+            except OperationError, e:
+                if not e.match(space, space.w_OverflowError):
+                    raise
+                newpos = -1
+            else:
+                if newpos < 0:
+                    newpos = len(input) + newpos
             if newpos < 0 or newpos > len(input):
                 raise operationerrfmt(
                     space.w_IndexError,

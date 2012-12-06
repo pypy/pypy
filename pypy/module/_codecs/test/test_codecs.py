@@ -529,6 +529,14 @@ class AppTestPartialEvaluation:
                     "test.badhandler"
                 )
 
+    def test_badhandler_longindex(self):
+        import codecs
+        import sys
+        errors = 'test.badhandler_longindex'
+        codecs.register_error(errors, lambda x: ('', sys.maxsize + 1))
+        # CPython raises OverflowError here
+        raises((IndexError, OverflowError), b'apple\x92ham\x93spam'.decode, 'utf-8', errors)
+
     def test_unicode_internal(self):
         import codecs
         import sys
