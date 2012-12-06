@@ -443,9 +443,7 @@ if _WIN32:
 else:
     def getcwd(space):
         """Return the current working directory as a string."""
-        filesystemencoding = space.sys.filesystemencoding
-        return space.call_method(getcwdb(space), 'decode',
-                                 space.wrap(filesystemencoding))
+        return fsdecode(space, getcwdb(space))
 
 def chdir(space, w_path):
     """Change the current working directory to the specified path."""

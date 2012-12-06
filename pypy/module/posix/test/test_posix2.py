@@ -31,6 +31,8 @@ def setup_module(mod):
     bytes_dir.join('somefile').write('who cares?')
     bytes_dir.join('caf\xe9').write('who knows?')
     mod.bytes_dir = bytes_dir
+    # an escaped surrogate
+    mod.esurrogate_dir = udir.ensure('foo\x80', dir=True)
 
     # in applevel tests, os.stat uses the CPython os.stat.
     # Be sure to return times with full precision
@@ -62,6 +64,7 @@ class AppTestPosix:
         cls.w_path2 = space.wrap(str(path2))
         cls.w_pdir = space.wrap(str(pdir))
         cls.w_bytes_dir = space.wrapbytes(str(bytes_dir))
+        cls.w_esurrogate_dir = space.wrapbytes(str(esurrogate_dir))
         if hasattr(os, 'getuid'):
             cls.w_getuid = space.wrap(os.getuid())
             cls.w_geteuid = space.wrap(os.geteuid())
@@ -265,7 +268,15 @@ class AppTestPosix:
         ex(self.posix.dup, UNUSEDFD)
 
     def test_getcwd(self):
-        assert isinstance(self.posix.getcwd(), str)
+        os, posix = self.os, self.posix
+        assert isinstance(posix.getcwd(), str)
+        cwdb = posix.getcwdb()
+        os.chdir(self.esurrogate_dir)
+        try:
+            cwd = posix.getcwd()
+            assert os.fsencode(cwd) == posix.getcwdb()
+        finally:
+            os.chdir(cwdb)
 
     def test_getcwdb(self):
         assert isinstance(self.posix.getcwdb(), bytes)
