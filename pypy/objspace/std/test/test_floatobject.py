@@ -433,6 +433,7 @@ class AppTestAppFloatTest:
 
     def test_from_string(self):
         raises(ValueError, float, "\0")
+        raises(UnicodeEncodeError, float, '\uD8F0')
 
     def test_format(self):
         f = 1.1234e200

@@ -213,4 +213,4 @@ def string_to_float(s):
     except ValueError:
         # note that we still put the original unicode string in the error
         # message, not ascii_s
-        raise ParseStringError(u"invalid literal for float(): '%s'" % s)
+        raise ParseStringError(u"invalid literal for float(): %r" % s)
