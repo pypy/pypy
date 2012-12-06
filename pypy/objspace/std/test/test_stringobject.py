@@ -96,6 +96,7 @@ class AppTestStringObject:
         assert bytes(3) == b'\0\0\0'
         assert bytes(b'abc') == b'abc'
         assert bytes('abc', 'ascii') == b'abc'
+        assert bytes(set(b'foo')) in (b'fo', b'of')
 
     def test_format(self):
         import operator

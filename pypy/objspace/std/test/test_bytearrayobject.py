@@ -14,6 +14,7 @@ class AppTestBytesArray:
         assert bytearray(b'abc') == b"abc"
         assert bytearray([65, 66, 67]) == b"ABC"
         assert bytearray(5) == b'\0' * 5
+        assert bytearray(set(b'foo')) in (b'fo', b'of')
         raises(TypeError, bytearray, ['a', 'bc'])
         raises(ValueError, bytearray, [65, -3])
         raises(TypeError, bytearray, [65.0])
