@@ -304,6 +304,7 @@ class AppTestLong:
         assert int.from_bytes(b'\x01\x01', 'little') == 257
         assert int.from_bytes(b'\x01\x00', 'big') == 256
         assert int.from_bytes(b'\x00\x80', 'little', signed=True) == -32768
+        assert int.from_bytes([255, 0, 0], 'big', signed=True) == -65536
         raises(TypeError, int.from_bytes, '', 'big')
         raises(ValueError, int.from_bytes, b'c', 'foo')
 

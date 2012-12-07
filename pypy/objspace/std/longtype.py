@@ -113,10 +113,11 @@ def bit_length(space, w_obj):
         raise OperationError(space.w_OverflowError,
                              space.wrap("too many digits in integer"))
 
-@unwrap_spec(s='bufferstr', byteorder=str, signed=bool)
-def descr_from_bytes(space, w_cls, s, byteorder, signed=False):
+@unwrap_spec(byteorder=str, signed=bool)
+def descr_from_bytes(space, w_cls, w_obj, byteorder, signed=False):
+    bytes = space.bytes_w(space.call_function(space.w_bytes, w_obj))
     try:
-        bigint = rbigint.frombytes(s, byteorder=byteorder, signed=signed)
+        bigint = rbigint.frombytes(bytes, byteorder=byteorder, signed=signed)
     except InvalidEndiannessError:
         raise OperationError(
             space.w_ValueError,
