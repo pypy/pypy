@@ -4,6 +4,7 @@ Implementation of the interpreter-level default import logic.
 
 import sys, os, stat
 
+from pypy.annotation import types
 from pypy.interpreter.module import Module
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, generic_new_descr
@@ -14,6 +15,7 @@ from pypy.interpreter.pycode import PyCode
 from pypy.rlib import streamio, jit
 from pypy.rlib.streamio import StreamErrors
 from pypy.rlib.objectmodel import we_are_translated, specialize
+from pypy.rlib.signature import signature
 from pypy.module.sys.version import PYPY_VERSION
 
 SEARCH_ERROR = 0
@@ -871,6 +873,7 @@ def rightmost_sep(filename):
         index = max(index, index2)
     return index
 
+@signature(types.str0(), returns=types.str0())
 def make_compiled_pathname(pathname):
     "Given the path to a .py file, return the path to its .pyc file."
     # foo.py -> __pycache__/foo.<tag>.pyc
@@ -893,6 +896,7 @@ def make_compiled_pathname(pathname):
               ext + PYC_TAG + '.pyc')
     return result
 
+@signature(types.str0(), returns=types.str0())
 def make_source_pathname(pathname):
     "Given the path to a .pyc file, return the path to its .py file."
     # (...)/__pycache__/foo.<tag>.pyc -> (...)/foo.py
