@@ -771,6 +771,8 @@ class TestTranslatable(object):
         assert res == -42.0
 
     def test_frombytes(self):
+        bigint = rbigint.frombytes('', byteorder='big', signed=True)
+        assert bigint.tolong() == 0
         s = "\xFF\x12\x34\x56"
         bigint = rbigint.frombytes(s, byteorder="big", signed=False)
         assert bigint.tolong() == 0xFF123456

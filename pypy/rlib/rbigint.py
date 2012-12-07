@@ -273,6 +273,8 @@ class rbigint(object):
     def frombytes(s, byteorder, signed):
         if byteorder not in ('big', 'little'):
             raise InvalidEndiannessError()
+        if not s:
+            return NULLRBIGINT
 
         if byteorder != BYTEORDER:
             msb = ord(s[0])
