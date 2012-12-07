@@ -730,6 +730,8 @@ def fn(): pass
         raises(TypeError, round, t)
         raises(TypeError, round, t, 0)
 
+        raises(TypeError, round, 3, None)
+
     def test_vars_obscure_case(self):
         class C_get_vars(object):
             def getDict(self):

@@ -97,7 +97,6 @@ def divmod(space, w_x, w_y):
 
 # ____________________________________________________________
 
-@unwrap_spec(w_ndigits=WrappedDefault(None))
 def round(space, w_number, w_ndigits=None):
     """round(number[, ndigits]) -> number
 
@@ -109,7 +108,7 @@ same type as the number. ndigits may be negative."""
         raise operationerrfmt(space.w_TypeError,
                               "type %s doesn't define __round__ method",
                               space.type(w_number).getname(space))
-    if space.is_none(w_ndigits):
+    if w_ndigits is None:
         return space.get_and_call_function(round, w_number)
     else:
         return space.get_and_call_function(round, w_number, w_ndigits)

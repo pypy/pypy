@@ -160,7 +160,6 @@ divmod_near = applevel('''
            return q, r
 ''', filename=__file__).interphook('divmod_near')
 
-@unwrap_spec(w_ndigits=WrappedDefault(None))
 def descr___round__(space, w_long, w_ndigits=None):
     """To round an integer m to the nearest 10**n (n positive), we make
     use of the divmod_near operation, defined by:
@@ -180,7 +179,7 @@ def descr___round__(space, w_long, w_ndigits=None):
     from pypy.objspace.std.longobject import W_AbstractIntObject, newlong
     assert isinstance(w_long, W_AbstractIntObject)
 
-    if space.is_none(w_ndigits):
+    if w_ndigits is None:
         return space.int(w_long)
 
     ndigits = space.bigint_w(space.index(w_ndigits))
