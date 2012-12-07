@@ -2409,7 +2409,11 @@ class Assembler386(object):
         value = fail_descr.hide(self.cpu)
         rgc._make_sure_does_not_move(value)
         value = rffi.cast(lltype.Signed, value)
-        self.mc.CMP_mi((eax.value, _offset), value)
+        if rx86.fits_in_32bits(value):
+            self.mc.CMP_mi((eax.value, _offset), value)
+        else:
+            self.mc.MOV_ri(X86_64_SCRATCH_REG.value, value)
+            self.mc.CMP_mr((eax.value, _offset), X86_64_SCRATCH_REG.value)
         # patched later
         self.mc.J_il8(rx86.Conditions['E'], 0) # goto B if we get 'done_with_this_frame'
         je_location = self.mc.get_relative_pos()
