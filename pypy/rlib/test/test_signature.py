@@ -1,6 +1,7 @@
 import py
 from pypy.rlib.signature import signature, finishsigs
-from pypy.annotation import types, model
+from pypy.rlib import types
+from pypy.annotation import model
 from pypy.translator.translator import TranslationContext, graphof
 
 
