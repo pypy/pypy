@@ -54,7 +54,7 @@ class AppTestStruct(BaseAppTestFFI):
             lst = [array[i] for i in range(length)]
             return space.wrap(lst)
         if cls.runappdirect:
-            cls.w_read_raw_mem = lambda self, addr, typename, length: read_raw_mem(cls.space, addr, typename, length)
+            cls.w_read_raw_mem = lambda self, *args: read_raw_mem(cls.space, *args)
         else:
             cls.w_read_raw_mem = cls.space.wrap(interp2app(read_raw_mem))
         #

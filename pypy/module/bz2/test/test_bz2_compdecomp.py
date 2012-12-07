@@ -46,7 +46,10 @@ class AppTestBZ2Compressor(CheckAllocation):
 
     def setup_class(cls):
         cls.w_TEXT = cls.space.wrap(TEXT)
-        cls.w_decompress = cls.space.wrap(interp2app(decompress))
+        if cls.runappdirect:
+            cls.w_decompress = lambda self, *args: decompress(cls.space, *args)
+        else:
+            cls.w_decompress = cls.space.wrap(interp2app(decompress))
         cls.w_HUGE_OK = cls.space.wrap(HUGE_OK)
 
     def test_creation(self):
@@ -184,7 +187,10 @@ class AppTestBZ2ModuleFunctions(CheckAllocation):
     def setup_class(cls):
         cls.w_TEXT = cls.space.wrap(TEXT)
         cls.w_DATA = cls.space.wrap(DATA)
-        cls.w_decompress = cls.space.wrap(interp2app(decompress))
+        if cls.runappdirect:
+            cls.w_decompress = lambda self, *args: decompress(cls.space, *args)
+        else:
+            cls.w_decompress = cls.space.wrap(interp2app(decompress))
         cls.w_HUGE_OK = cls.space.wrap(HUGE_OK)
 
     def test_compress_function(self):
