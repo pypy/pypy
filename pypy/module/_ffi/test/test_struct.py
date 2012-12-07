@@ -53,7 +53,10 @@ class AppTestStruct(BaseAppTestFFI):
             array = ptr_array[0]
             lst = [array[i] for i in range(length)]
             return space.wrap(lst)
-        cls.w_read_raw_mem = cls.space.wrap(interp2app(read_raw_mem))
+        if cls.runappdirect:
+            cls.w_read_raw_mem = lambda self, addr, typename, length: read_raw_mem(cls.space, addr, typename, length)
+        else:
+            cls.w_read_raw_mem = cls.space.wrap(interp2app(read_raw_mem))
         #
         from pypy.rlib import clibffi
         from pypy.rlib.rarithmetic import r_uint
