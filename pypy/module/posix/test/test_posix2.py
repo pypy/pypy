@@ -325,7 +325,11 @@ class AppTestPosix:
             u = "caf\xe9".decode(sys.getfilesystemencoding())
         except UnicodeDecodeError:
             # Could not decode, listdir returned the byte string
-            assert (str, "caf\xe9") in typed_result
+            if sys.platform != 'darwin':
+                assert (str, "caf\xe9") in typed_result
+            else:
+                # darwin 'normalized' it
+                assert (unicode, 'caf%E9') in typed_result
         else:
             assert (unicode, u) in typed_result
 
