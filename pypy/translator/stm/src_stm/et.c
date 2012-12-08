@@ -36,7 +36,7 @@ typedef Unsigned revision_t;
 /************************************************************/
 
 #define ABORT_REASONS 5
-#define SPINLOOP_REASONS 4
+#define SPINLOOP_REASONS 5
 
 struct tx_descriptor {
   jmp_buf *setjmp_buf;
@@ -61,7 +61,7 @@ static __thread struct tx_descriptor *thread_descriptor = NULL;
 
 /************************************************************/
 
-static void ValidateDuringTransaction(struct tx_descriptor *);
+static void ValidateNow(struct tx_descriptor *);
 static void CancelLocks(struct tx_descriptor *d);
 static void AbortTransaction(int num);
 static void SpinLoop(int num);
@@ -125,7 +125,7 @@ static gcptr LatestGlobalRevision(struct tx_descriptor *d, gcptr G,
           SpinLoop(1);     // spinloop until it is no longer LOCKED
           goto retry;
         }
-      ValidateDuringTransaction(d);    // try to move start_time forward
+      ValidateNow(d);                  // try to move start_time forward
       goto retry;                      // restart searching from R
     }
   PossiblyUpdateChain(d, G, R, R_Container, offset);
@@ -246,6 +246,7 @@ static gcptr Localize(struct tx_descriptor *d, gcptr R)
   assert(L->h_tid & GCFLAG_NOT_WRITTEN); /* must not be set in the 1st place */
   L->h_revision = (revision_t)R;     /* back-reference to the original */
   g2l_insert(&d->global_to_local, R, L);
+  gcptrlist_insert(&d->list_of_read_objects, R);
   return L;
 }
 
@@ -311,14 +312,11 @@ static revision_t GetGlobalCurTime(struct tx_descriptor *d)
     }
 }
 
-static void ValidateDuringTransaction(struct tx_descriptor *d)
+static _Bool ValidateDuringTransaction(struct tx_descriptor *d,
+                                       _Bool during_commit)
 {
-
   long i, size = d->list_of_read_objects.size;
   gcptr *items = d->list_of_read_objects.items;
-
-  assert(!is_inevitable(d));
-  d->start_time = GetGlobalCurTime(d);   // copy from the global time
 
   for (i=0; i<size; i++)
     {
@@ -329,32 +327,30 @@ static void ValidateDuringTransaction(struct tx_descriptor *d)
       vp = (volatile revision_t *)&R->h_revision;
       v = *vp;
       if (!(v & 1))               // "is a pointer", i.e.
-        AbortTransaction(1);      //   "has a more recent revision"
-      if (v >= LOCKED)            // locked
-        goto retry;
-    }
-}
-
-static _Bool ValidateDuringCommit(struct tx_descriptor *d)
-{
-  long i, size = d->list_of_read_objects.size;
-  gcptr *items = d->list_of_read_objects.items;
-  revision_t my_lock = d->my_lock;
-
-  for (i=0; i<size; i++)
-    {
-      gcptr R = items[i];
-      revision_t v;
-      volatile revision_t *vp;
-      vp = (volatile revision_t *)&R->h_revision;
-      v = *vp;
-      if (!(v & 1))               // "is a pointer", i.e.
         return 0;                 //   "has a more recent revision"
       if (v >= LOCKED)            // locked
-        if (v != my_lock)         // and not by me
-          return 0;               // XXX abort or spinloop??
+        {
+          if (!during_commit)
+            {
+              assert(v != d->my_lock);    // we don't hold any lock
+              SpinLoop(3);
+              goto retry;
+            }
+          else
+            {
+              if (v != d->my_lock)         // not locked by me: conflict
+                return 0;
+            }
+        }
     }
   return 1;
+}
+
+static void ValidateNow(struct tx_descriptor *d)
+{
+  d->start_time = GetGlobalCurTime(d);   // copy from the global time
+  if (!ValidateDuringTransaction(d, 0))
+    AbortTransaction(1);
 }
 
 /************************************************************/
@@ -588,7 +584,7 @@ void CommitTransaction(void)
         }
       // validate (but skip validation if nobody else committed)
       if (cur_time != d->start_time)
-        if (!ValidateDuringCommit(d))
+        if (!ValidateDuringTransaction(d, 1))
           AbortTransaction(2);
     }
   /* we cannot abort any more from here */
@@ -639,7 +635,7 @@ void BecomeInevitable(const char *why)
   if (d->start_time != cur_time)
     {
       d->start_time = cur_time;
-      if (!ValidateDuringCommit(d))
+      if (!ValidateDuringTransaction(d, 0))
         {
           global_cur_time = cur_time;   // must restore the old value
           inev_mutex_release();
@@ -723,7 +719,7 @@ gcptr stm_HashObject(gcptr P)
         }
       else if (__builtin_expect(v >= LOCKED, 0))
         {
-          SpinLoop(3);     // spinloop until it is no longer LOCKED, then retry
+          SpinLoop(4);     // spinloop until it is no longer LOCKED, then retry
         }
       else if (v & REV_FLAG_NEW_HASH)
         {
