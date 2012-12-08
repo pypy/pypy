@@ -13,11 +13,11 @@ import sys
 import signal
 
 def setup_module(mod):
-    usemodules = ['binascii', 'posix', 'struct', 'rctime']
+    usemodules = ['binascii', 'posix', 'signal', 'struct', 'rctime']
+    # py3k os.open uses subprocess, requiring the following per platform
     if os.name != 'nt':
-        usemodules += ['fcntl']
+        usemodules += ['fcntl', 'select']
     else:
-        # On windows, os.popen uses the subprocess module
         usemodules += ['_rawffi', 'thread']
     mod.space = gettestobjspace(usemodules=usemodules)
     mod.path = udir.join('posixtestfile.txt')
@@ -25,7 +25,7 @@ def setup_module(mod):
     mod.path2 = udir.join('test_posix2-')
     pdir = udir.ensure('posixtestdir', dir=True)
     pdir.join('file1').write("test1")
-    os.chmod(str(pdir.join('file1')), 0600)
+    os.chmod(str(pdir.join('file1')), 0o600)
     pdir.join('file2').write("test2")
     pdir.join('another_longer_file_name').write("test3")
     mod.pdir = pdir
@@ -300,7 +300,8 @@ class AppTestPosix:
         result = posix.listdir(bytes_dir)
         assert all(type(x) is bytes for x in result)
         assert b'somefile' in result
-        assert b'caf\xe9' in result
+        expected = b'caf%E9' if sys.platform == 'darwin' else b'caf\xe9'
+        assert expected in result
 
     def test_undecodable_filename(self):
         posix = self.posix
@@ -801,21 +802,21 @@ class AppTestPosix:
         def test_chmod(self):
             os = self.posix
             os.unlink(self.path)
-            raises(OSError, os.chmod, self.path, 0600)
+            raises(OSError, os.chmod, self.path, 0o600)
             f = open(self.path, "w")
             f.write("this is a test")
             f.close()
-            os.chmod(self.path, 0200)
-            assert (os.stat(self.path).st_mode & 0777) == 0200
+            os.chmod(self.path, 0o200)
+            assert (os.stat(self.path).st_mode & 0o777) == 0o200
 
     if hasattr(os, 'fchmod'):
         def test_fchmod(self):
             os = self.posix
             f = open(self.path, "w")
-            os.fchmod(f.fileno(), 0200)
-            assert (os.fstat(f.fileno()).st_mode & 0777) == 0200
+            os.fchmod(f.fileno(), 0o200)
+            assert (os.fstat(f.fileno()).st_mode & 0o777) == 0o200
             f.close()
-            assert (os.stat(self.path).st_mode & 0777) == 0200
+            assert (os.stat(self.path).st_mode & 0o777) == 0o200
 
     if hasattr(os, 'mkfifo'):
         def test_mkfifo(self):
@@ -876,11 +877,11 @@ class AppTestPosix:
     if hasattr(os, 'symlink'):
         def test_symlink(self):
             posix = self.posix
-            unicode_dir = self.unicode_dir
-            if unicode_dir is None:
+            bytes_dir = self.bytes_dir
+            if bytes_dir is None:
                 skip("encoding not good enough")
-            dest = "%s/file.txt" % unicode_dir
-            posix.symlink("%s/somefile" % unicode_dir, dest)
+            dest = bytes_dir + b"%s/file.txt"
+            posix.symlink(bytes_dir + b"%s/somefile", dest)
             with open(dest) as f:
                 data = f.read()
                 assert data == "who cares?"
