@@ -77,6 +77,7 @@ class FakeGC:
     HDR = lltype.Struct('header', ('tid', lltype.Signed),
                                   ('version', llmemory.Address))
     gcheaderbuilder = GCHeaderBuilder(HDR)
+    maximum_extra_threshold = 0
 
     def header(self, addr):
         addr -= self.gcheaderbuilder.size_gc_header
