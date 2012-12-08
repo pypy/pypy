@@ -1,6 +1,7 @@
 import py
 from pypy.rlib.objectmodel import *
-from pypy.annotation import types, model
+from pypy.rlib import types
+from pypy.annotation import model
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 from pypy.rpython.test.test_llinterp import interpret

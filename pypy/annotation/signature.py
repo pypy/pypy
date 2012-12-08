@@ -132,7 +132,7 @@ class Sig(object):
         inputcells[:] = args_s
 
 def finish_type(paramtype, bookkeeper, func):
-    from pypy.annotation.types import SelfTypeMarker
+    from pypy.rlib.types import SelfTypeMarker
     if isinstance(paramtype, SomeObject):
         return paramtype
     elif isinstance(paramtype, SelfTypeMarker):

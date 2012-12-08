@@ -24,14 +24,8 @@ def int():
 def unicode():
     return model.SomeUnicodeString()
 
-def unicode0():
-    return model.SomeUnicodeString(no_nul=True)
-
 def str():
     return model.SomeString()
-
-def str0():
-    return model.SomeString(no_nul=True)
 
 def char():
     return model.SomeChar()

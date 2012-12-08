@@ -1,4 +1,4 @@
-from pypy.annotation import types
+from pypy.rlib import types
 
 def signature(*paramtypes, **kwargs):
     """Decorate a function to specify its type signature.
