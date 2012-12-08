@@ -4,7 +4,6 @@ Implementation of the interpreter-level default import logic.
 
 import sys, os, stat
 
-from pypy.annotation import types
 from pypy.interpreter.module import Module
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, generic_new_descr
@@ -16,6 +15,7 @@ from pypy.rlib import streamio, jit
 from pypy.rlib.streamio import StreamErrors
 from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.rlib.signature import signature
+from pypy.rlib import types
 from pypy.module.sys.version import PYPY_VERSION
 
 SEARCH_ERROR = 0
