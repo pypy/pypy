@@ -714,6 +714,11 @@ class BaseArrayTests:
             assert type(self.array(t)) is self.array
             assert isinstance(self.array(t), self.array)
 
+    def test_iterable(self):
+        import collections
+        for t in 'bBhHiIlLfdu':
+            assert isinstance(self.array(t), collections.Iterable)
+
     def test_subclass(self):
         assert len(self.array('b')) == 0
 
