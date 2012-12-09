@@ -128,8 +128,9 @@ Verify late binding for the innermost for-expression
 
 Verify re-use of tuples (a side benefit of using genexps over listcomps)
 
+    >>> from test.support import check_impl_detail
     >>> tupleids = list(map(id, ((i,i) for i in range(10))))
-    >>> int(max(tupleids) - min(tupleids))
+    >>> int(max(tupleids) - min(tupleids)) if check_impl_detail() else 0
     0
 
 Verify that syntax error's are raised for genexps used as lvalues
