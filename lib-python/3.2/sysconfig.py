@@ -9,7 +9,6 @@ __all__ = [
     'get_config_h_filename',
     'get_config_var',
     'get_config_vars',
-    'get_makefile_filename',
     'get_path',
     'get_path_names',
     'get_paths',
