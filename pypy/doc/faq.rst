@@ -320,6 +320,30 @@ To learn more about backends take a look at the `translation document`_.
 .. _JVM: translation.html#genjvm
 .. _`translation document`: translation.html
 
+------------------
+Could we use LLVM?
+------------------
+
+In theory yes.  But we tried to use it 5 or 6 times already, as a
+translation backend or as a JIT backend --- and failed each time.
+
+In more details: using LLVM as a (static) translation backend is
+pointless nowadays because you can generate C code and compile it with
+clang.  (Note that compiling PyPy with clang gives a result that is not
+faster than compiling it with gcc.)  We might in theory get extra
+benefits from LLVM's GC integration, but this requires more work on the
+LLVM side before it would be remotely useful.  Anyway, it could be
+interfaced via a custom primitive in the C code.
+
+On the other hand, using LLVM as our JIT backend looks interesting as
+well --- but again we made an attempt, and it failed: LLVM has no way to
+patch the generated machine code.
+
+So the position of the core PyPy developers is that if anyone wants to
+make an N+1'th attempt with LLVM, he is welcome, and he will receive a
+bit of help on the IRC channel, but he is left with the burden of proof
+that it works.
+
 ----------------------
 How do I compile PyPy?
 ----------------------
