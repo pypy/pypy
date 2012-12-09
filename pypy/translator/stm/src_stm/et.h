@@ -74,6 +74,10 @@ typedef struct pypy_header0 *gcptr;
 #define STM_PTR_EQ(P1, P2)                      \
     stm_PtrEq((gcptr)(P1), (gcptr)(P2))
 
+/* special usage only */
+#define OP_STM_READ_BARRIER(P, R)   R = STM_BARRIER_P2R(P)
+#define OP_STM_WRITE_BARRIER(P, W)   W = STM_BARRIER_P2W(P)
+
 
 void BeginTransaction(jmp_buf *);
 void BeginInevitableTransaction(void);
