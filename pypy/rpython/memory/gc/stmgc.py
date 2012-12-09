@@ -116,10 +116,10 @@ GCFLAG_NOT_WRITTEN       = first_gcflag << 2     # keep in sync with et.h
 GCFLAG_LOCAL_COPY        = first_gcflag << 3     # keep in sync with et.h
 GCFLAG_VISITED           = first_gcflag << 4     # keep in sync with et.h
 GCFLAG_HASH_FIELD        = first_gcflag << 5     # keep in sync with et.h
+GCFLAG_NEW_HASH          = first_gcflag << 6     # keep in sync with et.h
 
 GCFLAG_PREBUILT          = GCFLAG_GLOBAL | GCFLAG_NOT_WRITTEN
 REV_INITIAL              = r_uint(1)
-REV_FLAG_NEW_HASH        = r_uint(2)
 
 
 def always_inline(fn):
@@ -352,8 +352,14 @@ class StmGC(MovingGCBase):
         return self.identityhash(gcobj)
 
     def identityhash(self, gcobj):
+        gcobj = llop.stm_read_barrier(lltype.typeOf(gcobj), gcobj)
         obj = llmemory.cast_ptr_to_adr(gcobj)
-        obj = self.stm_operations.stm_HashObject(obj)
+        if not (self.header(obj).tid & (GCFLAG_HASH_FIELD | GCFLAG_NEW_HASH)):
+            # 'obj' has no hash so far.  Force one; this is a write operation.
+            localgcobj = llop.stm_write_barrier(lltype.typeOf(gcobj), gcobj)
+            obj = llmemory.cast_ptr_to_adr(localgcobj)
+            self.header(obj).tid |= GCFLAG_NEW_HASH
+        #
         return self._get_object_hash(obj)
 
     def _get_object_hash(self, obj):

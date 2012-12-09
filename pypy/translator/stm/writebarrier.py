@@ -86,6 +86,10 @@ def insert_stm_barrier(stmtransformer, graph):
             elif (op.opname in ('ptr_eq', 'ptr_ne') and
                   op.args[0].concretetype.TO._gckind == 'gc'):
                 expand_comparison.add(op)
+            elif op.opname == 'stm_read_barrier':
+                wants_a_barrier[op] = 'R'
+            elif op.opname == 'stm_write_barrier':
+                wants_a_barrier[op] = 'W'
         #
         if wants_a_barrier or expand_comparison:
             # note: 'renamings' maps old vars to new vars, but cast_pointers
@@ -96,7 +100,8 @@ def insert_stm_barrier(stmtransformer, graph):
             newoperations = []
             for op in block.operations:
                 #
-                if op.opname == 'cast_pointer':
+                opname = op.opname
+                if opname == 'cast_pointer':
                     v = op.args[0]
                     renamings[op.result] = renamings.setdefault(v, [v])
                     continue
@@ -114,8 +119,10 @@ def insert_stm_barrier(stmtransformer, graph):
                         newoperations.append(newop)
                         v_holder[0] = w
                         category[w] = to
+                    if opname in ('stm_read_barrier', 'stm_write_barrier'):
+                        opname = 'same_as'      # done its job, remove op
                 #
-                newop = SpaceOperation(op.opname,
+                newop = SpaceOperation(opname,
                                        [renamings_get(v) for v in op.args],
                                        op.result)
                 newoperations.append(newop)

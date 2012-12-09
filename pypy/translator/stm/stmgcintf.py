@@ -70,6 +70,3 @@ class StmOperations(object):
 
     # for testing
     abort_and_retry  = smexternal('stm_abort_and_retry', [], lltype.Void)
-
-    stm_HashObject = smexternal('stm_HashObject',
-                                [llmemory.Address], llmemory.Address)

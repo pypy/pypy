@@ -36,7 +36,7 @@ typedef Unsigned revision_t;
 /************************************************************/
 
 #define ABORT_REASONS 5
-#define SPINLOOP_REASONS 5
+#define SPINLOOP_REASONS 4
 
 struct tx_descriptor {
   jmp_buf *setjmp_buf;
@@ -55,7 +55,7 @@ struct tx_descriptor {
   struct FXCache recent_reads_cache;
 };
 
-static volatile revision_t global_cur_time = 4;        /* always mult of 4 */
+static volatile revision_t global_cur_time = 2;        /* always mult of 2 */
 static volatile revision_t next_locked_value = LOCKED + 3;   /* always odd */
 static __thread struct tx_descriptor *thread_descriptor = NULL;
 
@@ -559,7 +559,7 @@ void CommitTransaction(void)
     {
       // no-one else can have changed global_cur_time if I'm inevitable
       cur_time = d->start_time;
-      if (!bool_cas(&global_cur_time, INEVITABLE, cur_time + 4))
+      if (!bool_cas(&global_cur_time, INEVITABLE, cur_time + 2))
         {
           assert(!"global_cur_time modified even though we are inev.");
           abort();
@@ -579,7 +579,7 @@ void CommitTransaction(void)
               AcquireLocks(d);
               continue;
             }
-          if (bool_cas(&global_cur_time, cur_time, cur_time + 4))
+          if (bool_cas(&global_cur_time, cur_time, cur_time + 2))
             break;
         }
       // validate (but skip validation if nobody else committed)
@@ -682,56 +682,6 @@ _Bool stm_PtrEq(gcptr P1, gcptr P2)
 {
   struct tx_descriptor *d = thread_descriptor;
   return GlobalizeForComparison(d, P1) == GlobalizeForComparison(d, P2);
-}
-
-gcptr stm_HashObject(gcptr P)
-{
-  /* return one of the objects in the chained list following P out of
-     which the stmgc can determine the hash of P.  The first time we ask
-     for the hash of an object, we set REV_FLAG_NEW_HASH on the last
-     object of the chain.  The hash is then the address of this object.
-     When stm_duplicate further duplicates an object with
-     REV_FLAG_NEW_HASH, it adds an extra field remembering the hash.
-     From then on all stm_duplicates of this object have GCFLAG_HASH_FIELD
-     and the same hash, copied over and over into the extra field. */
-  revision_t v;
-  volatile revision_t *vp;
-
-  if ((P->h_tid & (GCFLAG_GLOBAL|GCFLAG_LOCAL_COPY)) == 0)
-    {
-      // a local object newly created in this transaction
-      P->h_revision |= REV_FLAG_NEW_HASH;
-      return P;
-    }
-
-  while (1)
-    {
-      if (P->h_tid & GCFLAG_HASH_FIELD)
-        {
-          return P;   /* any HASH_FIELD object is fine; we'll read the hash
-                         out of the field. */
-        }
-      vp = (volatile revision_t *)&P->h_revision;
-      v = *vp;
-      if (!(v & 1))  // "is a pointer", i.e. "has a more recent revision"
-        {
-          P = (gcptr)v;    // look into the next one in the chained list
-        }
-      else if (__builtin_expect(v >= LOCKED, 0))
-        {
-          SpinLoop(4);     // spinloop until it is no longer LOCKED, then retry
-        }
-      else if (v & REV_FLAG_NEW_HASH)
-        {
-          return P;        // already has the flag
-        }
-      else
-        {
-          // must add the flag
-          if (bool_cas(vp, v, v | REV_FLAG_NEW_HASH))
-            return P;
-        }
-    }
 }
 
 /************************************************************/

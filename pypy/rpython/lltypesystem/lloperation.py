@@ -422,6 +422,8 @@ LL_OPERATIONS = {
     # to keep them as operations until the genc stage)
 
     'stm_barrier':            LLOp(sideeffects=False),
+    'stm_read_barrier':       LLOp(),    # explicit read barrier, special case
+    'stm_write_barrier':      LLOp(),    # explicit write barrier, special case
     'stm_become_inevitable':  LLOp(),
     'stm_ptr_eq':             LLOp(sideeffects=False),
     'stm_start_transaction':  LLOp(canrun=True, canmallocgc=True),

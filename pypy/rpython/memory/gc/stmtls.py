@@ -14,7 +14,7 @@ from pypy.rpython.memory.gc.stmgc import GCFLAG_GLOBAL, GCFLAG_VISITED
 from pypy.rpython.memory.gc.stmgc import GCFLAG_LOCAL_COPY
 from pypy.rpython.memory.gc.stmgc import GCFLAG_POSSIBLY_OUTDATED
 from pypy.rpython.memory.gc.stmgc import GCFLAG_NOT_WRITTEN
-from pypy.rpython.memory.gc.stmgc import GCFLAG_HASH_FIELD, REV_FLAG_NEW_HASH
+from pypy.rpython.memory.gc.stmgc import GCFLAG_HASH_FIELD, GCFLAG_NEW_HASH
 from pypy.rpython.memory.gc.stmgc import hdr_revision, set_hdr_revision
 
 SIZE_OF_SIGNED = llmemory.sizeof(lltype.Signed)
@@ -453,8 +453,7 @@ class StmGCTLS(object):
         size_gc_header = self.gc.gcheaderbuilder.size_gc_header
         totalsize_without_hash = size_gc_header + objsize
         hdr = self.gc.header(obj)
-        has_hash = (hdr.tid & GCFLAG_HASH_FIELD != 0 or
-                    hdr.revision & REV_FLAG_NEW_HASH != 0)
+        has_hash = (hdr.tid & (GCFLAG_HASH_FIELD | GCFLAG_NEW_HASH))
         if has_hash:
             newtotalsize = totalsize_without_hash + (
                 llmemory.sizeof(lltype.Signed))
