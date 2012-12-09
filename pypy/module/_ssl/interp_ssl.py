@@ -417,7 +417,10 @@ class SSLSocket(Wrappable):
                 raise ssl_error(space, "Underlying socket too large for select().")
             elif sockstate == SOCKET_HAS_BEEN_CLOSED:
                 if libssl_SSL_get_shutdown(self.ssl) == SSL_RECEIVED_SHUTDOWN:
-                    return space.wrapbytes('')
+                    if space.is_none(w_buf):
+                        return space.wrapbytes('')
+                    else:
+                        return space.wrap(0)
                 raise ssl_error(space, "Socket closed without SSL shutdown handshake")
 
         rwbuffer = None
@@ -441,7 +444,10 @@ class SSLSocket(Wrappable):
                     space, w_socket, True)
             elif (err == SSL_ERROR_ZERO_RETURN and
                   libssl_SSL_get_shutdown(self.ssl) == SSL_RECEIVED_SHUTDOWN):
-                return space.wrapbytes('')
+                if space.is_none(w_buf):
+                    return space.wrapbytes('')
+                else:
+                    return space.wrap(0)
             else:
                 sockstate = SOCKET_OPERATION_OK
 

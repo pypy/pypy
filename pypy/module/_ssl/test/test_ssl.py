@@ -1,7 +1,7 @@
 from pypy.tool.udir import udir
 
 class AppTestSSL:
-    spaceconfig = dict(usemodules=('_ssl', '_socket'))
+    spaceconfig = dict(usemodules=('_ssl', '_socket', 'binascii'))
 
     def test_init_module(self):
         import _ssl
@@ -129,6 +129,8 @@ class AppTestConnectedSSL:
         b = bytearray(8)
         read = ss.read(10, b)
         assert read == 8
+        read = ss.read(10, b)
+        assert read == 0
         self.s.close()
         del ss; gc.collect()
 
