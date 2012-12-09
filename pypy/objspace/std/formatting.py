@@ -87,15 +87,11 @@ class BaseStringFormatter(object):
     def fmt_o(self, w_value):
         "oct formatting"
         r = oct_num_helper(self.space, w_value)
-        keep_zero = False
         if self.f_alt:
-            if r == '0':
-                keep_zero = True
-            elif r.startswith('-'):
-                r = '-0' + r[1:]
-            else:
-                r = '0' + r
-        self.std_wp_int(r, keep_zero=keep_zero)
+            prefix = '0o'
+        else:
+            prefix = ''
+        self.std_wp_int(r, prefix, keep_zero=True)
 
     fmt_i = fmt_d
     fmt_u = fmt_d

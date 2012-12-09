@@ -108,24 +108,24 @@ class AppTestStringObject:
         assert '1C' == '%X' % n
         assert '0X1C' == '%#X' % n
         assert '10' == '%o' % m
-        assert '010' == '%#o' % m
-        assert '-010' == '%#o' % -m
+        assert '0o10' == '%#o' % m
+        assert '-0o10' == '%#o' % -m
         assert '0' == '%o' % z
-        assert '0' == '%#o' % z
+        assert '0o0' == '%#o' % z
 
         n = 23
         f = 5
         assert '-0x017' == '%#06x' % -n
-        assert '' == '%.0o' % z
-        assert '0' == '%#.0o' % z
+        assert '0' == '%.0o' % z
+        assert '0o0' == '%#.0o' % z
         assert '5' == '%.0o' % f
-        assert '05' == '%#.0o' % f
+        assert '0o5' == '%#.0o' % f
         assert '000' == '%.3o' % z
-        assert '000' == '%#.3o' % z
+        assert '0o000' == '%#.3o' % z
         assert '005' == '%.3o' % f
-        assert '005' == '%#.3o' % f
+        assert '0o005' == '%#.3o' % f
         assert '27' == '%.2o' % n
-        assert '027' == '%#.2o' % n
+        assert '0o27' == '%#.2o' % n
 
     def test_format_list(self):
         l = [1,2]
