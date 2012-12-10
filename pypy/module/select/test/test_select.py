@@ -94,7 +94,7 @@ class _AppTestSelect:
                 assert iwtd == [readend]
                 data = readend.recv(4096)
                 assert len(data) > 0
-                assert data == 'x' * len(data)
+                assert data == b'x' * len(data)
                 total_in += len(data)
             assert total_in == total_out
         finally:
@@ -126,7 +126,7 @@ class _AppTestSelect:
                 data = readend.recv(4096)
                 if len(data) == 0:
                     break
-                assert data == 'x' * len(data)
+                assert data == b'x' * len(data)
                 total_in += len(data)
                 # win32: check that closing the socket exits the loop
                 if sys.platform == 'win32' and total_in == total_out:
@@ -176,7 +176,7 @@ class _AppTestSelect:
                 assert iwtd == [readends[n]]
                 assert owtd == ewtd == []
                 data = readends[n].recv(1)
-                assert data == 'X'
+                assert data == b'X'
 
         finally:
             for fd in readends + writeends:
@@ -252,7 +252,7 @@ class AppTestSelectWithPipes(_AppTestSelect):
             def send(self, data):
                 return os.write(self.fd, data)
             def recv(self, length):
-                return os.read(self.fd, length).decode()
+                return os.read(self.fd, length)
             def close(self):
                 return os.close(self.fd)
         s1, s2 = os.pipe()
