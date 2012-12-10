@@ -69,8 +69,8 @@ class TinyObjSpace(object):
         for name in ('int', 'long', 'str', 'unicode', 'None', 'ValueError',
                 'OverflowError'):
             setattr(self, 'w_' + name, eval(name))
-        self.builtin = self
-        self.__import__ = __import__
+        import __builtin__ as __builtin__
+        self.builtin = __builtin__
 
     def appexec(self, args, body):
         body = body.lstrip()
