@@ -9,17 +9,6 @@ from pypy.rlib.objectmodel import keepalive_until_here
 from pypy.rlib import rzlib
 
 
-if intmask(2**31) == -2**31:
-    # 32-bit platforms
-    unsigned_to_signed_32bit = intmask
-else:
-    # 64-bit platforms
-    def unsigned_to_signed_32bit(x):
-        # assumes that 'x' is in range(0, 2**32) to start with
-        SIGN_EXTEND2 = 1 << 31
-        return intmask((x ^ SIGN_EXTEND2) - SIGN_EXTEND2)
-
-
 @unwrap_spec(string='bufferstr', start='truncatedint_w')
 def crc32(space, string, start = rzlib.CRC32_DEFAULT_START):
     """
@@ -30,14 +19,6 @@ def crc32(space, string, start = rzlib.CRC32_DEFAULT_START):
     """
     ustart = r_uint(start)
     checksum = rzlib.crc32(string, ustart)
-
-    # This is, perhaps, a little stupid.  zlib returns the checksum unsigned.
-    # CPython exposes it as a signed value, though. -exarkun
-    # Note that in CPython < 2.6 on 64-bit platforms the result is
-    # actually unsigned, but it was considered to be a bug so we stick to
-    # the 2.6 behavior and always return a number in range(-2**31, 2**31).
-    checksum = unsigned_to_signed_32bit(checksum)
-
     return space.wrap(checksum)
 
 
@@ -51,9 +32,6 @@ def adler32(space, string, start=rzlib.ADLER32_DEFAULT_START):
     """
     ustart = r_uint(start)
     checksum = rzlib.adler32(string, ustart)
-    # See comments in crc32() for the following line
-    checksum = unsigned_to_signed_32bit(checksum)
-
     return space.wrap(checksum)
 
 

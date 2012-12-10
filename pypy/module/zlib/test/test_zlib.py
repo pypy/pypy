@@ -8,16 +8,6 @@ try:
 except ImportError:
     import py; py.test.skip("no zlib module on this host Python")
 
-try:
-    from pypy.module.zlib import interp_zlib
-except ImportError:
-    import py; py.test.skip("no zlib C library on this machine")
- 
-def test_unsigned_to_signed_32bit():
-    assert interp_zlib.unsigned_to_signed_32bit(123) == 123
-    assert interp_zlib.unsigned_to_signed_32bit(2**31) == -2**31
-    assert interp_zlib.unsigned_to_signed_32bit(2**32-1) == -1
-
 
 class AppTestZlib(object):
     spaceconfig = dict(usemodules=['zlib'])
@@ -45,12 +35,11 @@ class AppTestZlib(object):
     def test_crc32(self):
         """
         When called with a string, zlib.crc32 should compute its CRC32 and
-        return it as a signed 32 bit integer.  On 64-bit machines too
-        (it is a bug in CPython < 2.6 to return unsigned values in this case).
+        return it as an unsigned 32 bit integer.
         """
         assert self.zlib.crc32(b'') == 0
-        assert self.zlib.crc32(b'\0') == -771559539
-        assert self.zlib.crc32(b'hello, world.') == -936931198
+        assert self.zlib.crc32(b'\0') == 3523407757
+        assert self.zlib.crc32(b'hello, world.') == 3358036098
 
 
     def test_crc32_start_value(self):
@@ -69,30 +58,28 @@ class AppTestZlib(object):
 
     def test_crc32_negative_start(self):
         v = self.zlib.crc32(b'', -1)
-        assert v == -1
+        assert v == 4294967295
 
     def test_crc32_negative_long_start(self):
         v = self.zlib.crc32(b'', -1)
-        assert v == -1
+        assert v == 4294967295
         assert self.zlib.crc32(b'foo', -99999999999999999999999) == 1611238463
 
     def test_crc32_long_start(self):
         import sys
         v = self.zlib.crc32(b'', sys.maxsize*2)
-        assert v == -2
+        assert v == 4294967294
         assert self.zlib.crc32(b'foo', 99999999999999999999999) == 1635107045
 
     def test_adler32(self):
         """
         When called with a string, zlib.adler32() should compute its adler 32
-        checksum and return it as a signed 32 bit integer.
-        On 64-bit machines too
-        (it is a bug in CPython < 2.6 to return unsigned values in this case).
+        checksum and return it as an unsigned 32 bit integer.
         """
         assert self.zlib.adler32(b'') == 1
         assert self.zlib.adler32(b'\0') == 65537
         assert self.zlib.adler32(b'hello, world.') == 571147447
-        assert self.zlib.adler32(b'x' * 23) == -2122904887
+        assert self.zlib.adler32(b'x' * 23) == 2172062409
 
 
     def test_adler32_start_value(self):
@@ -104,7 +91,7 @@ class AppTestZlib(object):
         assert self.zlib.adler32(b'', 42) == 42
         assert self.zlib.adler32(b'\0', 42) == 2752554
         assert self.zlib.adler32(b'hello, world.', 42) == 606078176
-        assert self.zlib.adler32(b'x' * 23, 42) == -2061104398
+        assert self.zlib.adler32(b'x' * 23, 42) == 2233862898
         hello = b'hello, '
         hellosum = self.zlib.adler32(hello)
         world = b'world.'
@@ -112,7 +99,7 @@ class AppTestZlib(object):
         assert helloworldsum == self.zlib.adler32(hello + world)
 
         assert self.zlib.adler32(b'foo', -1) == 45547858
-        assert self.zlib.adler32(b'foo', 99999999999999999999999) == -114818734
+        assert self.zlib.adler32(b'foo', 99999999999999999999999) == 4180148562
 
 
     def test_invalidLevel(self):
@@ -189,7 +176,7 @@ class AppTestZlib(object):
         assert d.unused_data == b'spam' * 100
         assert s1 + s2 + s3 == self.expanded
         s4 = d.decompress(b'egg' * 50)
-        assert d.unused_data == b'egg' * 50
+        assert d.unused_data == (b'spam' * 100) + (b'egg' * 50), d.unused_data
         assert s4 == b''
 
 
@@ -211,7 +198,7 @@ class AppTestZlib(object):
         """
         We should be able to pass buffer objects instead of strings.
         """
-        assert self.zlib.crc32(memoryview(b'hello, world.')) == -936931198
+        assert self.zlib.crc32(memoryview(b'hello, world.')) == 3358036098
         assert self.zlib.adler32(memoryview(b'hello, world.')) == 571147447
 
         compressor = self.zlib.compressobj()
