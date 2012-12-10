@@ -3,7 +3,7 @@ Implementation of the interpreter-level compile/eval builtins.
 """
 
 from pypy.interpreter.pycode import PyCode
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.astcompiler import consts, ast
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.argument import Arguments
@@ -85,6 +85,7 @@ If only globals is given, locals defaults to it.
     is_unicode = space.is_true(space.isinstance(w_code, space.w_unicode))
     if (is_unicode or space.is_true(space.isinstance(w_code, space.w_bytes))):
         w_strip = w(u' \t') if is_unicode else space.wrapbytes(' \t')
+        # XXX: w_code.lstrip could be overriden
         w_code = compile(space, space.call_method(w_code, 'lstrip', w_strip),
                          "<string>", "eval")
 
@@ -92,6 +93,17 @@ If only globals is given, locals defaults to it.
     if not isinstance(codeobj, PyCode):
         raise OperationError(space.w_TypeError,
               w('eval() arg 1 must be a string or code object'))
+
+    if (not space.is_none(w_globals) and
+        not space.isinstance_w(w_globals, space.w_dict)):
+        raise operationerrfmt(space.w_TypeError,
+                              'eval() arg 2 must be a dict, not %s',
+                              space.type(w_globals).getname(space))
+    if (not space.is_none(w_locals) and
+        space.lookup(w_locals, '__getitem__') is None):
+        raise operationerrfmt(space.w_TypeError,
+                              'eval() arg 3 must be a mapping or None, not %s',
+                              space.type(w_locals).getname(space))
 
     if space.is_none(w_globals):
         caller = space.getexecutioncontext().gettopframe_nohidden()

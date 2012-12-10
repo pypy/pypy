@@ -143,6 +143,7 @@ class AppTestExecStmt:
             pass
         else:
             assert False, 'Expected TypeError'
+        raises(TypeError, eval, "m", m)
 
     def test_filename(self):
         try:
