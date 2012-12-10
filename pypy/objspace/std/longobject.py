@@ -86,6 +86,20 @@ def newlong(space, bigint):
             return W_SmallLongObject(z)
     return W_LongObject(bigint)
 
+def newlong_from_float(space, floatval):
+    """Return a W_LongObject from an RPython float.
+
+    Raises app-level exceptions on failure.
+    """
+    try:
+        return W_LongObject.fromfloat(space, floatval)
+    except OverflowError:
+        raise OperationError(
+            space.w_OverflowError,
+            space.wrap("cannot convert float infinity to integer"))
+    except ValueError:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("cannot convert float NaN to integer"))
 
 # bool-to-long
 def delegate_Bool2Long(space, w_bool):

@@ -276,7 +276,7 @@ NDIGITS_MIN = -int((rfloat.DBL_MAX_EXP + 1) * 0.30103)
 def descr___round__(space, w_float, w_ndigits=None):
     # Algorithm copied directly from CPython
     from pypy.objspace.std.floatobject import W_FloatObject
-    from pypy.objspace.std.longobject import W_LongObject
+    from pypy.objspace.std.longobject import newlong_from_float
     assert isinstance(w_float, W_FloatObject)
     x = w_float.floatval
 
@@ -286,16 +286,7 @@ def descr___round__(space, w_float, w_ndigits=None):
         if math.fabs(x - rounded) == 0.5:
             # halfway case: round to even
             rounded = 2.0 * rfloat.round_away(x / 2.0)
-        try:
-            return W_LongObject.fromfloat(space, rounded)
-        except OverflowError:
-            raise OperationError(
-                space.w_OverflowError,
-                space.wrap("cannot convert float infinity to integer"))
-        except ValueError:
-            raise OperationError(
-                space.w_ValueError,
-                space.wrap("cannot convert float NaN to integer"))
+        return newlong_from_float(space, rounded)
 
     # interpret 2nd argument as a Py_ssize_t; clip on overflow
     ndigits = space.getindex_w(w_ndigits, None)

@@ -88,21 +88,14 @@ def float__Float(space, w_float1):
     return W_FloatObject(a)
 
 def int__Float(space, w_value):
+    from pypy.objspace.std.longobject import newlong_from_float
     try:
         value = ovfcheck_float_to_int(w_value.floatval)
     except OverflowError:
         pass
     else:
         return space.newint(value)
-    try:
-        return W_LongObject.fromfloat(space, w_value.floatval)
-    except OverflowError:
-        raise OperationError(
-            space.w_OverflowError,
-            space.wrap("cannot convert float infinity to integer"))
-    except ValueError:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("cannot convert float NaN to integer"))
+    return newlong_from_float(space, w_value.floatval)
 
 def trunc__Float(space, w_floatobj):
     whole = math.modf(w_floatobj.floatval)[1]
