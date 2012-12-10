@@ -444,6 +444,7 @@ class SSLSocket(Wrappable):
                     space, w_socket, True)
             elif (err == SSL_ERROR_ZERO_RETURN and
                   libssl_SSL_get_shutdown(self.ssl) == SSL_RECEIVED_SHUTDOWN):
+                rffi.keep_buffer_alive_until_here(raw_buf, gc_buf)
                 if space.is_none(w_buf):
                     return space.wrapbytes('')
                 else:

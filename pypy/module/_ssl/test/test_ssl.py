@@ -129,6 +129,7 @@ class AppTestConnectedSSL:
         b = bytearray(8)
         read = ss.read(10, b)
         assert read == 8
+        discard = ss.read()
         read = ss.read(10, b)
         assert read == 0
         self.s.close()
