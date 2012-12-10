@@ -15,7 +15,15 @@ try:
             if os.path.exists(os.path.join(PATH, FILENAME)):
                 raise StopIteration
     else:
-        PATH = EXT = FILENAME = FILEPATH = None
+        # Try a direct import
+        try:
+            import _testcapi
+        except ImportError:
+            PATH = EXT = FILENAME = FILEPATH = None
+        else:
+            FILEPATH = _testcapi.__file__
+            PATH, FILENAME = os.path.split(FILEPATH)
+            _, EXT = os.path.splitext(FILEPATH)
 except StopIteration:
     pass
 del _file_exts
