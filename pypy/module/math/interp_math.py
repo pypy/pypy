@@ -158,14 +158,15 @@ def fabs(space, w_x):
 def floor(space, w_x):
     """floor(x)
 
-       Return the floor of x as a float.
+       Return the floor of x as an int.
        This is the largest integral value <= x.
     """
+    from pypy.objspace.std.longobject import newlong_from_float
     w_descr = space.lookup(w_x, '__floor__')
     if w_descr is not None:
         return space.get_and_call_function(w_descr, w_x)
     x = _get_double(space, w_x)
-    return space.wrap(math.floor(x))
+    return newlong_from_float(space, math.floor(x))
 
 def sqrt(space, w_x):
     """sqrt(x)
@@ -250,13 +251,14 @@ def atan(space, w_x):
 def ceil(space, w_x):
     """ceil(x)
 
-       Return the ceiling of x as a float.
+       Return the ceiling of x as an int.
        This is the smallest integral value >= x.
     """
+    from pypy.objspace.std.longobject import newlong_from_float
     w_descr = space.lookup(w_x, '__ceil__')
     if w_descr is not None:
         return space.get_and_call_function(w_descr, w_x)
-    return math1(space, math.ceil, w_x)
+    return newlong_from_float(space, math1_w(space, math.ceil, w_x))
 
 def sinh(space, w_x):
     """sinh(x)

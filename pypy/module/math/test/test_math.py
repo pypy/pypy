@@ -307,3 +307,10 @@ class AppTestMath:
             setattr(Z, '__{}__'.format(name), lambda self: i)
             func = getattr(math, name)
             assert func(Z()) == i
+
+    def test_int_results(self):
+        import math
+        for func in math.ceil, math.floor:
+            assert type(func(0.5)) is int
+            raises(OverflowError, func, float('inf'))
+            raises(ValueError, func, float('nan'))
