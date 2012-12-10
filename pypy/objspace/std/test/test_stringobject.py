@@ -699,6 +699,10 @@ class AppTestStringObject:
         assert b[1:0] == b""
         raises(TypeError, "b[3] = 'x'")
 
+    def test_concat_array(self):
+        m = memoryview(b"123")
+        assert b"abc" + m == b'abc123'
+
     def test_fromobject(self):
         class S:
             def __bytes__(self):
