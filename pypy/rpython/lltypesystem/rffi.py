@@ -714,7 +714,7 @@ def make_string_mappings(strtype):
             i -= 1
         return array
     str2charp._annenforceargs_ = [strtype]
-    str2charp._always_inline_ = True
+    str2charp._always_inline_ = 'try'
 
     def free_charp(cp):
         lltype.free(cp, flavor='raw')
