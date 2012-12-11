@@ -950,7 +950,7 @@ def add__String_String(space, w_left, w_right):
 def add__String_ANY(space, w_left, w_right):
     left = w_left._value
     try:
-        right = space.buffer(w_right)
+        right = space.buffer_w(w_right)
     except OperationError, e:
         if e.match(space, space.w_TypeError):
             raise FailedToImplement
