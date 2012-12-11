@@ -180,6 +180,12 @@ class AppTestMarshal:
         exc = raises(ValueError, marshal.loads, b'\x01')
         assert r"'\x01'" in exc.value.message
 
+    def test_bad_data(self):
+        import marshal
+        # Yes, there is code that depends on this :-(
+        raises(EOFError, marshal.loads, b'<test>')
+        raises(MemoryError, marshal.loads, b'(test)')
+
 
 class AppTestSmallLong(AppTestMarshal):
     spaceconfig = {"objspace.std.withsmalllong": True}

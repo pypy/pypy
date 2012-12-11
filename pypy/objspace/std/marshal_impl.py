@@ -423,13 +423,14 @@ def marshal_w_frozenset(space, w_frozenset, m):
 handled_by_any.append( ('frozenset', marshal_w_frozenset) )
 
 def unmarshal_set_frozenset(space, u, tc):
-    items_w = u.get_tuple_w()
-    if tc == TYPE_SET:
-        w_frozen = space.w_False
-    else:
-        w_frozen = space.w_True
-    w_tup = space.newtuple(items_w)
-    return tuple_to_set(space, w_tup, w_frozen)
+    lng = u.get_lng()
+    w_set = space.call_function(space.w_set)
+    for i in xrange(lng):
+        w_obj = u.get_w_obj()
+        space.call_method(w_set, "add", w_obj)
+    if tc == TYPE_FROZENSET:
+        w_set = space.call_function(space.w_frozenset, w_set)
+    return w_set
 register(TYPE_SET + TYPE_FROZENSET, unmarshal_set_frozenset)
 
 # dispatching for all not directly dispatched types
