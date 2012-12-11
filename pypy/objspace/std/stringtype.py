@@ -1,5 +1,5 @@
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 from pypy.objspace.std.register_all import register_all
 
@@ -282,6 +282,14 @@ def newbytesdata_w(space, w_source, encoding, errors):
     return makebytesdata_w(space, w_source)
 
 def makebytesdata_w(space, w_source):
+    w_bytes_method = space.lookup(w_source, "__bytes__")
+    if w_bytes_method is not None:
+        w_bytes = space.get_and_call_function(w_bytes_method, w_source)
+        if not space.isinstance_w(w_bytes, space.w_bytes):
+            msg = "__bytes__ returned non-bytes (type '%s')"
+            raise operationerrfmt(space.w_TypeError, msg,
+                                  space.type(w_bytes).getname(space))
+        return [c for c in space.bytes_w(w_bytes)]
 
     # String-like argument
     try:
@@ -292,10 +300,10 @@ def makebytesdata_w(space, w_source):
     else:
         return [c for c in string]
 
-    w_bytes_method = space.lookup(w_source, "__bytes__")
-    if w_bytes_method:
-        w_bytes = space.get_and_call_function(w_bytes_method, w_source)
-        w_source = w_bytes
+    if space.isinstance_w(w_source, space.w_unicode):
+        raise OperationError(
+            space.w_TypeError,
+            space.wrap("cannot convert unicode object to bytes"))
 
     # sequence of bytes
     data = []

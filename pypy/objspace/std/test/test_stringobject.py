@@ -715,6 +715,11 @@ class AppTestStringObject:
                 return b'pyramid'
         assert bytes(X()) == b'pyramid'
 
+        class Z:
+            def __bytes__(self):
+                return [3, 4]
+        raises(TypeError, bytes, Z())
+
     def test_getnewargs(self):
         assert  b"foo".__getnewargs__() == (b"foo",)
 
