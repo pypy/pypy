@@ -63,7 +63,8 @@ def llexternal(name, args, result, _callable=None,
                sandboxsafe=False, threadsafe='auto',
                _nowrapper=False, calling_conv='c',
                oo_primitive=None, elidable_function=False,
-               macro=None, random_effects_on_gcobjs='auto'):
+               macro=None, random_effects_on_gcobjs='auto',
+               transactionsafe=False):
     """Build an external function that will invoke the C function 'name'
     with the given 'args' types and 'result' type.
 
@@ -125,6 +126,7 @@ def llexternal(name, args, result, _callable=None,
             has_callback)               # because the callback can do it
 
     funcptr = lltype.functionptr(ext_type, name, external='C',
+                                 transactionsafe=transactionsafe,
                                  compilation_info=compilation_info,
                                  _callable=_callable,
                                  _safe_not_sandboxed=sandboxsafe,
@@ -453,7 +455,7 @@ try:
     TYPES += ['__int128_t']
 except CompilationError:
     pass
-    
+
 _TYPES_ARE_UNSIGNED = set(['size_t', 'uintptr_t'])   # plus "unsigned *"
 if os.name != 'nt':
     TYPES.append('mode_t')
@@ -712,6 +714,7 @@ def make_string_mappings(strtype):
             i -= 1
         return array
     str2charp._annenforceargs_ = [strtype]
+    str2charp._always_inline_ = True
 
     def free_charp(cp):
         lltype.free(cp, flavor='raw')

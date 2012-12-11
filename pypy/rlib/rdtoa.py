@@ -52,9 +52,9 @@ dg_freedtoa = rffi.llexternal(
     compilation_info=eci, sandboxsafe=True)
 
 def strtod(input):
-    end_ptr = lltype.malloc(rffi.CCHARPP.TO, 1, flavor='raw')
+    ll_input = rffi.str2charp(input)
     try:
-        ll_input = rffi.str2charp(input)
+        end_ptr = lltype.malloc(rffi.CCHARPP.TO, 1, flavor='raw')
         try:
             result = dg_strtod(ll_input, end_ptr)
 
@@ -66,9 +66,10 @@ def strtod(input):
 
             return result
         finally:
-            rffi.free_charp(ll_input)
+            lltype.free(end_ptr, flavor='raw')
     finally:
-        lltype.free(end_ptr, flavor='raw')
+        rffi.free_charp(ll_input)
+
 
 lower_special_strings = ['inf', '+inf', '-inf', 'nan']
 upper_special_strings = ['INF', '+INF', '-INF', 'NAN']

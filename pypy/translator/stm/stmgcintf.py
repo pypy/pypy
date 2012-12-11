@@ -17,7 +17,8 @@ eci = ExternalCompilationInfo(
 
 def _llexternal(name, args, result, **kwds):
     return rffi.llexternal(name, args, result, compilation_info=eci,
-                           _nowrapper=True, **kwds)
+                           _nowrapper=True, transactionsafe=True,
+                           **kwds)
 
 def smexternal(name, args, result):
     return staticmethod(_llexternal(name, args, result))
