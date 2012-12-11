@@ -1,7 +1,7 @@
 # refer to 2.4.1/test/regrtest.py's runtest() for comparison
 import sys
 import unittest
-from test import support
+from test import regrtest, support
 support.verbose = 1
 sys.argv[:] = sys.argv[1:]
 
@@ -11,6 +11,7 @@ try:
     mod = __import__(impname, globals(), locals(), [modname])
     indirect_test = getattr(mod, 'test_main', None)
     if indirect_test is not None:
+        regrtest.replace_stdout()
         indirect_test()
 except unittest.SkipTest:
     sys.stderr.write("="*26 + "skipped" + "="*26 + "\n")
