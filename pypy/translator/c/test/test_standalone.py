@@ -435,7 +435,7 @@ class TestStandalone(StandaloneTests):
         out, err = cbuilder.cmdexec("foo bar", err=True, env={'PYPYLOG': ':-'})
         lines = err.splitlines()
         assert '{foo' in lines[0]
-        assert 'bar' == lines[1]
+        assert '0# bar' == lines[1]
         assert 'foo}' in lines[2]
 
 

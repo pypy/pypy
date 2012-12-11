@@ -21,8 +21,9 @@ __thread long pypy_have_debug_prints = -1;
 FILE *pypy_debug_file = NULL;   /* XXX make it thread-local too? */
 static unsigned char debug_ready = 0;
 static unsigned char debug_profile = 0;
-__thread char *debug_start_colors_1 = NULL;
-__thread char *debug_start_colors_2 = NULL;
+__thread char debug_start_colors_1[32];
+__thread char debug_start_colors_2[28];
+__thread char pypy_debug_threadid[16];
 static char *debug_stop_colors = "";
 static char *debug_prefix = NULL;
 
@@ -136,38 +137,38 @@ static void display_startstop(const char *prefix, const char *postfix,
           debug_stop_colors);
 }
 
-#ifdef RPY_STM
 typedef Unsigned revision_t;
-#include <src_stm/atomic_ops.h>
-static volatile revision_t threadcolor = 0;
+#ifdef RPY_STM
+# include <src_stm/atomic_ops.h>
+#else
+# define bool_cas(vp, o, n) (*(vp)=(n), 1)
 #endif
+static volatile revision_t threadcounter = 0;
 
 static void _prepare_display_colors(void)
 {
+    revision_t counter;
+    char *p;
+    while (1) {
+        counter = threadcounter;
+        if (bool_cas(&threadcounter, counter, counter + 1))
+            break;
+    }
     if (debug_stop_colors[0] == 0) {
-        debug_start_colors_1 = "";
-        debug_start_colors_2 = "";
+        /* not a tty output: no colors */
+        sprintf(debug_start_colors_1, "%d# ", (int)counter);
+        sprintf(debug_start_colors_2, "%d# ", (int)counter);
+        sprintf(pypy_debug_threadid, "%d#", (int)counter);
     }
     else {
-#ifndef RPY_STM
-        debug_start_colors_1 = "\033[1m\033[31m";
-        debug_start_colors_2 = "\033[31m";
-#else
-        revision_t color;
-        char *p;
-        while (1) {
-            color = threadcolor;
-            if (bool_cas(&threadcolor, color, color + 1))
-                break;
-        }
-        color = 31 + (color % 7);
-        p = malloc(20);    /* leak */
-        sprintf(p, "\033[1m\033[%dm", (int)color);
-        debug_start_colors_1 = p;
-        p = malloc(16);
-        sprintf(p, "\033[%dm", (int)color);
-        debug_start_colors_2 = p;
-#endif
+        /* tty output */
+        int color = 31 + (int)(counter % 7);
+        sprintf(debug_start_colors_1, "\033[%dm%d# \033[1m",
+                color, (int)counter);
+        sprintf(debug_start_colors_2, "\033[%dm%d# ",
+                color, (int)counter);
+        sprintf(pypy_debug_threadid, "\033[%dm%d#\033[0m",
+                color, (int)counter);
     }
 }
 
@@ -190,7 +191,7 @@ void pypy_debug_start(const char *category)
       /* else make this subsection active */
       pypy_have_debug_prints |= 1;
     }
-  if (!debug_start_colors_1)
+  if (!debug_start_colors_1[0])
     _prepare_display_colors();
   display_startstop("{", "", category, debug_start_colors_1);
 }
