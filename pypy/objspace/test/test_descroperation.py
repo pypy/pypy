@@ -591,6 +591,19 @@ class AppTest_Descroperation:
 
         raises(AttributeError, lambda: A().a)
 
+    def test_attribute_error2(self):
+        import operator
+        class A(object):
+            def __eq__(self, other):
+                raise AttributeError('doh')
+        raises(AttributeError, operator.eq, A(), A())
+
+        class E(object):
+            @property
+            def __eq__(self):
+                raise AttributeError('doh')
+        assert not (E() == E())
+
     def test_non_callable(self):
         meth = classmethod(1).__get__(1)
         raises(TypeError, meth)

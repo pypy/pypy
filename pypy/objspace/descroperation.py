@@ -548,6 +548,21 @@ def _make_binop_impl(symbol, specialnames):
 
     return func_with_new_name(binop_impl, "binop_%s_impl"%left.strip('_'))
 
+def _invoke_comparison(space, w_descr, w_obj1, w_obj2):
+    if w_descr is not None:
+        try:
+            w_impl = space.get(w_descr, w_obj1)
+        except OperationError as e:
+            # see testForExceptionsRaisedInInstanceGetattr2 in
+            # test_class
+            if not e.match(space, space.w_AttributeError):
+                raise
+        else:
+            w_res = space.call_function(w_impl, w_obj2)
+            if _check_notimplemented(space, w_res):
+                return w_res
+    return None
+
 def _make_comparison_impl(symbol, specialnames):
     left, right = specialnames
     op = getattr(operator, left)
@@ -568,10 +583,10 @@ def _make_comparison_impl(symbol, specialnames):
             w_obj1, w_obj2 = w_obj2, w_obj1
             w_left_impl, w_right_impl = w_right_impl, w_left_impl
 
-        w_res = _invoke_binop(space, w_left_impl, w_obj1, w_obj2)
+        w_res = _invoke_comparison(space, w_left_impl, w_obj1, w_obj2)
         if w_res is not None:
             return w_res
-        w_res = _invoke_binop(space, w_right_impl, w_obj2, w_obj1)
+        w_res = _invoke_comparison(space, w_right_impl, w_obj2, w_obj1)
         if w_res is not None:
             return w_res
         #
