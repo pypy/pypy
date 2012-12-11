@@ -15,6 +15,8 @@ ALWAYS_ALLOW_OPERATIONS = set([
     'jit_record_known_class',
     'gc_identityhash', 'gc_id',
     'gc_adr_of_root_stack_top',
+
+    'weakref_create', 'weakref_deref',
     ])
 ALWAYS_ALLOW_OPERATIONS |= set(lloperation.enum_tryfold_ops())
 
