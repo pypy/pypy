@@ -590,7 +590,7 @@ def COpaquePtr(*args, **kwds):
 
 def CExternVariable(TYPE, name, eci, _CConstantClass=CConstant,
                     sandboxsafe=False, _nowrapper=False,
-                    c_type=None):
+                    c_type=None, transactionsafe=False):
     """Return a pair of functions - a getter and a setter - to access
     the given global C variable.
     """
@@ -630,10 +630,12 @@ def CExternVariable(TYPE, name, eci, _CConstantClass=CConstant,
     ))
 
     getter = llexternal(getter_name, [], TYPE, compilation_info=new_eci,
-                        sandboxsafe=sandboxsafe, _nowrapper=_nowrapper)
+                        sandboxsafe=sandboxsafe, _nowrapper=_nowrapper,
+                        transactionsafe=transactionsafe)
     setter = llexternal(setter_name, [TYPE], lltype.Void,
                         compilation_info=new_eci, sandboxsafe=sandboxsafe,
-                        _nowrapper=_nowrapper)
+                        _nowrapper=_nowrapper,
+                        transactionsafe=transactionsafe)
     return getter, setter
 
 # char, represented as a Python character

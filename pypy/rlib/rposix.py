@@ -92,7 +92,8 @@ errno_eci = ExternalCompilationInfo(
 
 _get_errno, _set_errno = CExternVariable(INT, 'errno', errno_eci,
                                          CConstantErrno, sandboxsafe=True,
-                                         _nowrapper=True, c_type='int')
+                                         _nowrapper=True, c_type='int',
+                                         transactionsafe=True)
 # the default wrapper for set_errno is not suitable for use in critical places
 # like around GIL handling logic, so we provide our own wrappers.
 
@@ -252,4 +253,4 @@ if os.name == 'nt':
     os_kill = rwin32.os_kill
 else:
     os_kill = os.kill
-    
+

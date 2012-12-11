@@ -40,7 +40,8 @@ eci = ExternalCompilationInfo(
 
 dg_strtod = rffi.llexternal(
     '_PyPy_dg_strtod', [rffi.CCHARP, rffi.CCHARPP], rffi.DOUBLE,
-    compilation_info=eci, sandboxsafe=True)
+    compilation_info=eci, sandboxsafe=True,
+    transactionsafe=True)
 
 dg_dtoa = rffi.llexternal(
     '_PyPy_dg_dtoa', [rffi.DOUBLE, rffi.INT, rffi.INT,

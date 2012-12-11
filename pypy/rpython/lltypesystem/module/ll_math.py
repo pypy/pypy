@@ -43,12 +43,13 @@ else:
 
 def llexternal(name, ARGS, RESULT, **kwargs):
     return rffi.llexternal(name, ARGS, RESULT, compilation_info=eci,
-                           sandboxsafe=True, **kwargs)
+                           sandboxsafe=True, transactionsafe=True,
+                           **kwargs)
 
 def math_llexternal(name, ARGS, RESULT):
     return rffi.llexternal(math_prefix + name, ARGS, RESULT,
                            compilation_info=math_eci,
-                           sandboxsafe=True)
+                           sandboxsafe=True, transactionsafe=True)
 
 if sys.platform == 'win32':
     underscore = '_'

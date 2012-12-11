@@ -326,6 +326,12 @@ Bigint {
 
 typedef struct Bigint Bigint;
 
+#define Py_USING_MEMORY_DEBUGGER /* Set to use thread-safe malloc, free */
+#undef MALLOC
+#undef FREE
+#define MALLOC malloc /* use thread-safe malloc/free */
+#define FREE free
+
 #ifndef Py_USING_MEMORY_DEBUGGER
 
 /* Memory management: memory is allocated from, and returned to, Kmax+1 pools
