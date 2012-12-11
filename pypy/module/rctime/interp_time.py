@@ -435,7 +435,7 @@ def _gettmarg(space, w_tup, allowNone=True):
     w_accept2dyear = _get_module_object(space, "accept2dyear")
     accept2dyear = space.int_w(w_accept2dyear)
 
-    if y < 1900:
+    if y < 1000:
         if accept2dyear:
             if 69 <= y <= 99:
                 y += 1900
@@ -444,6 +444,8 @@ def _gettmarg(space, w_tup, allowNone=True):
             else:
                 raise OperationError(space.w_ValueError,
                                      space.wrap("year out of range"))
+            space.warn("Century info guessed for a 2-digit year.",
+                       space.w_DeprecationWarning)
 
     if rffi.getintfield(glob_buf, 'c_tm_wday') < 0:
         raise OperationError(space.w_ValueError,

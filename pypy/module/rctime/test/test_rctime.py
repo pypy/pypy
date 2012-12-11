@@ -255,9 +255,8 @@ class AppTestRCTime:
         if rctime.accept2dyear:
             raises(ValueError, rctime.strftime, '', (-1, 1, 1, 0, 0, 0, 0, 1, -1))
             raises(ValueError, rctime.strftime, '', (100, 1, 1, 0, 0, 0, 0, 1, -1))
-        else:
-            rctime.strftime('', (1899, 1, 1, 0, 0, 0, 0, 1, -1))
-            rctime.strftime('', (0, 1, 1, 0, 0, 0, 0, 1, -1))
+        rctime.strftime('', (1899, 1, 1, 0, 0, 0, 0, 1, -1))
+        rctime.strftime('', (0, 1, 1, 0, 0, 0, 0, 1, -1))
 
         # check month
         raises(ValueError, rctime.strftime, '', (1900, 13, 1, 0, 0, 0, 0, 1, -1))
