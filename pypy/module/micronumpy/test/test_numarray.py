@@ -2110,7 +2110,7 @@ class AppTestSupport(BaseNumpyAppTest):
 
     def test_fromstring_types(self):
         from _numpypy import (fromstring, int8, int16, int32, int64, uint8,
-            uint16, uint32, float16, float32, float64)
+            uint16, uint32, float16, float32, float64, longfloat, array)
         a = fromstring('\xFF', dtype=int8)
         assert a[0] == -1
         b = fromstring('\xFF', dtype=uint8)
@@ -2133,12 +2133,18 @@ class AppTestSupport(BaseNumpyAppTest):
         assert j[0] == 12
         k = fromstring(self.float16val, dtype=float16)
         assert k[0] == float16(5.)
-        try:
+        dt =  array([5],dtype=longfloat).dtype
+        if dt.itemsize == 12:
             from _numpypy import float96
-        except:
-            skip('no float96 on this platform/compiler, maybe try float128?')
-        k = fromstring('\x00\x00\x00\x00\x00\x00\x00\xa0\x01@\x00\x00', dtype=float96)
-        assert k[0] == float96(5.)
+            m = fromstring('\x00\x00\x00\x00\x00\x00\x00\xa0\x01@\x00\x00', dtype=float96)
+        elif dt.itemsize==16:
+            from _numpypy import float128
+            m = fromstring('\x00\x00\x00\x00\x00\x00\x00\xa0\x01@\x9c\xd3#\x7f\x00\x00', dtype=float128)
+        elif dt.itemsize == 8:
+            skip('longfloat is float64')
+        else:
+            skip('unknown itemsize for longfloat')
+        assert m[0] == longfloat(5.)
 
     def test_fromstring_invalid(self):
         from _numpypy import fromstring, uint16, uint8, int32

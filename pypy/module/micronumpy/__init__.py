@@ -1,4 +1,5 @@
 from pypy.interpreter.mixedmodule import MixedModule
+from pypy.module.micronumpy.interp_boxes import long_double_size
 
 
 class Module(MixedModule):
@@ -165,3 +166,8 @@ class Module(MixedModule):
         'max': 'app_numpy.max',
         'arange': 'app_numpy.arange',
     }
+
+if long_double_size == 16:
+    Module.interpleveldefs['float128'] = 'interp_boxes.W_Float128Box'
+elif long_double_size == 12:
+    Module.interpleveldefs['float96'] = 'interp_boxes.W_Float96Box'

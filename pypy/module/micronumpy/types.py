@@ -989,12 +989,10 @@ if interp_boxes.long_double_size == 12:
         BoxType = interp_boxes.W_Float96Box
         format_code = "q"
 
-    class NonNativeFloat96(BaseType, NonNativeFloat):
-        _attrs_ = ()
+    class NonNativeFloat96(Float96):
+        pass
 
-        T = rffi.LONGDOUBLE
-        BoxType = interp_boxes.W_Float96Box
-        format_code = "q"
+
 elif interp_boxes.long_double_size == 16:
     class Float128(BaseType, Float):
         _attrs_ = ()
@@ -1003,12 +1001,14 @@ elif interp_boxes.long_double_size == 16:
         BoxType = interp_boxes.W_Float128Box
         format_code = "q"
 
-    class NonNativeFloat128(BaseType, NonNativeFloat):
-        _attrs_ = ()
+        def runpack_str(self, s):
+            assert len(s) == 16
+            fval = unpack_float(s, native_is_bigendian)
+            return self.box(fval)
 
-        T = rffi.LONGDOUBLE
-        BoxType = interp_boxes.W_Float128Box
-        format_code = "q"
+    class NonNativeFloat128(Float128):
+        pass
+
 
 class ComplexFloating(object):
     _mixin_ = True

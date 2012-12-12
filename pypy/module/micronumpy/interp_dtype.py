@@ -430,7 +430,7 @@ class DtypeCache(object):
                 kind=FLOATINGLTR,
                 name="float128",
                 char="g",
-                w_box_type=space.gettypefor(interp_boxes.W_Floati128Box),
+                w_box_type=space.gettypefor(interp_boxes.W_Float128Box),
                 aliases=["longfloat", "longdouble"],
             )
             longdouble = self.w_float128dtype
