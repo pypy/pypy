@@ -3,12 +3,14 @@ from pypy.rlib.signature import signature, finishsigs
 from pypy.rlib import types
 from pypy.annotation import model
 from pypy.translator.translator import TranslationContext, graphof
+from pypy.rpython.lltypesystem import rstr
+from pypy.rpython.annlowlevel import LowLevelAnnotatorPolicy
 
 
-def annotate_at(f):
+def annotate_at(f, policy=None):
     t = TranslationContext()
-    a = t.buildannotator()
-    a.annotate_helper(f, [model.s_ImpossibleValue]*f.func_code.co_argcount)
+    a = t.buildannotator(policy=policy)
+    a.annotate_helper(f, [model.s_ImpossibleValue]*f.func_code.co_argcount, policy=policy)
     return a
 
 def sigof(a, f):
@@ -16,8 +18,8 @@ def sigof(a, f):
     g = graphof(a.translator, f)
     return [a.bindings[v] for v in g.startblock.inputargs] + [a.bindings[g.getreturnvar()]]
 
-def getsig(f):
-    a = annotate_at(f)
+def getsig(f, policy=None):
+    a = annotate_at(f, policy=policy)
     return sigof(a, f)
 
 def check_annotator_fails(caller):
@@ -100,6 +102,20 @@ def test_unicode():
     def f(u):
         return len(u)
     assert getsig(f) == [model.SomeUnicodeString(), model.SomeInteger()]
+
+
+def test_ptr():
+    policy = LowLevelAnnotatorPolicy()
+    @signature(types.ptr(rstr.STR), returns=types.none())
+    def f(buf):
+        pass
+    argtype = getsig(f, policy=policy)[0]
+    assert isinstance(argtype, model.SomePtr)
+    assert argtype.ll_ptrtype.TO == rstr.STR
+
+    def g():
+        f(rstr.mallocstr(10))
+    getsig(g, policy=policy)
 
 
 def test_list():
