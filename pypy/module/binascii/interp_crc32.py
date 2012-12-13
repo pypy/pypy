@@ -71,5 +71,4 @@ def crc32(space, data, oldcrc=0):
     for c in data:
         crc = crc_32_tab[(crc & 0xff) ^ ord(c)] ^ (crc >> 8)
 
-    crc = ~intmask(rffi.cast(rffi.INT, crc))   # unsigned => 32-bit signed
-    return space.wrap(crc)
+    return space.wrap(crc ^ 0xFFFFFFFF)
