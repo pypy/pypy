@@ -39,7 +39,7 @@ in addition to any features explicitly specified.
         ast_node.sync_app_attrs(space)
     else:
         source, flags = source_as_str(space, w_source, 'compile',
-                                      "string, bytes, AST or code", flags)
+                                      "string, bytes or AST", flags)
 
     if not dont_inherit:
         caller = ec.gettopframe_nohidden()
