@@ -356,15 +356,11 @@ def ll_math_sqrt(x):
 
 def ll_math_log(x):
     if x <= 0:
-        if x == 0:
-            raise OverflowError("math range  error")
         raise ValueError("math domain error")
     return math_log(x)
 
 def ll_math_log10(x):
     if x <= 0:
-        if x == 0:
-            raise OverflowError("math range  error")
         raise ValueError("math domain error")
     return math_log10(x)
 
