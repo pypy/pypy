@@ -89,6 +89,12 @@ def test_float():
         return 3.0
     assert getsig(f) == [model.SomeLongFloat(), model.SomeSingleFloat(), model.SomeFloat()]
 
+def test_basestring():
+    @signature(types.basestring(), returns=types.int())
+    def f(u):
+        return len(u)
+    assert getsig(f) == [model.SomeStringOrUnicode(), model.SomeInteger()]
+
 def test_unicode():
     @signature(types.unicode(), returns=types.int())
     def f(u):

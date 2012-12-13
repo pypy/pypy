@@ -21,6 +21,9 @@ def int():
     return model.SomeInteger()
 
 
+def basestring():
+    return model.SomeStringOrUnicode()
+
 def unicode():
     return model.SomeUnicodeString()
 
