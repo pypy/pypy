@@ -389,8 +389,9 @@ class BuiltinTest(unittest.TestCase):
         try:
             raise IndexError
         except:
-            self.assertEqual(len(dir(sys.exc_info()[2])), 4)
-
+            ns = dir(sys.exc_info()[2])
+            for name in 'tb_frame', 'tb_lasti', 'tb_lineno', 'tb_next':
+                self.assertIn(name, ns)
 
     def test_divmod(self):
         self.assertEqual(divmod(12, 7), (1, 5))
