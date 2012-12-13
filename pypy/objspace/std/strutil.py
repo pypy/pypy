@@ -131,13 +131,9 @@ def string_to_int(s, base=10):
 
 @enforceargs(unicode, None, None)
 def string_to_bigint(s, base=10, parser=None):
-    """As string_to_int(), but ignores an optional 'l' or 'L' suffix
-    and returns an rbigint."""
+    """As string_to_int() but returns an rbigint."""
     if parser is None:
         s = literal = strip_spaces(s)
-        if (s.endswith(u'l') or s.endswith(u'L')) and base < 22:
-            # in base 22 and above, 'L' is a valid digit!  try: long('L',22)
-            s = s[:-1]
         p = NumberStringParser(s, literal, base, u'int')
     else:
         p = parser

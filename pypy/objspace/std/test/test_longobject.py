@@ -325,6 +325,8 @@ class AppTestLong:
         assert type(b) is int
 
     def test_long_from_unicode(self):
+        raises(ValueError, int, '123L')
+        assert int('L', 22) == 21
         s = '\U0001D7CF\U0001D7CE' # 𝟏𝟎
         assert int(s) == 10
 
