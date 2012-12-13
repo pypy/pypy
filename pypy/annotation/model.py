@@ -773,7 +773,3 @@ if "WINGDB_PYTHON" not in os.environ:
     else:
         raise RuntimeError("The annotator relies on 'assert' statements from the\n"
                      "\tannotated program: you cannot run it with 'python -O'.")
-
-# this has the side-effect of registering the unary and binary operations
-from pypy.annotation.unaryop  import UNARY_OPERATIONS
-from pypy.annotation.binaryop import BINARY_OPERATIONS
