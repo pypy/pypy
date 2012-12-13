@@ -1273,6 +1273,14 @@ class ObjSpace(object):
         buffer = self.buffer_w(w_obj)
         return buffer.as_str()
 
+    def bufferstr0_new_w(self, w_obj):
+        from pypy.rlib import rstring
+        result = self.bufferstr_new_w(w_obj)
+        if '\x00' in result:
+            raise OperationError(self.w_TypeError, self.wrap(
+                    'argument must be a string without NUL characters'))
+        return rstring.assert_str0(result)
+
     def bufferstr_w(self, w_obj):
         # Directly returns an interp-level str.  Note that if w_obj is a
         # unicode string, this is different from str_w(buffer(w_obj)):
