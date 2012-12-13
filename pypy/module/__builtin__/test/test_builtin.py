@@ -495,6 +495,15 @@ class AppTestBuiltinApp:
         assert ns['foo'] == 'café'
         assert eval(b"# coding: latin1\n'caf\xe9'\n") == 'café'
 
+    def test_memoryview_compile(self):
+        m = memoryview(b'2 + 1')
+        co = compile(m, 'baz', 'eval')
+        assert eval(co) == 3
+        assert eval(m) == 3
+        ns = {}
+        exec(memoryview(b'r = 2 + 1'), ns)
+        assert ns['r'] == 3
+
     def test_recompile_ast(self):
         import _ast
         # raise exception when node type doesn't match with compile mode

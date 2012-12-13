@@ -498,23 +498,30 @@ class __extend__(pyframe.PyFrame):
         self.w_locals = self.popvalue()
 
     def exec_(self, w_prog, w_globals, w_locals):
-        """The ___builtin__.exec function."""
-        ec = self.space.getexecutioncontext()
+        """The builtins.exec function."""
+        space = self.space
+        ec = space.getexecutioncontext()
         flags = ec.compiler.getcodeflags(self.pycode)
-        w_compile_flags = self.space.wrap(flags)
-        w_resulttuple = prepare_exec(self.space, self.space.wrap(self), w_prog,
-                                     w_globals, w_locals,
-                                     w_compile_flags,
-                                     self.space.wrap(self.get_builtin()),
-                                     self.space.gettypeobject(PyCode.typedef))
-        w_prog, w_globals, w_locals = self.space.fixedview(w_resulttuple, 3)
+
+        if space.isinstance_w(w_prog, space.gettypeobject(PyCode.typedef)):
+            code = space.interp_w(PyCode, w_prog)
+        else:
+            from pypy.interpreter.astcompiler import consts
+            flags |= consts.PyCF_SOURCE_IS_UTF8
+            source, flags = source_as_str(
+                space, w_prog, 'exec', "string, bytes or code", flags)
+            code = ec.compiler.compile(source, "<string>", 'exec', flags)
+
+        w_globals, w_locals = ensure_ns(space, w_globals, w_locals, 'exec',
+                                        self)
+        space.call_method(w_globals, 'setdefault', space.wrap('__builtins__'),
+                          space.wrap(self.get_builtin()))
 
         plain = (self.w_locals is not None and
-                 self.space.is_w(w_locals, self.w_locals))
+                 space.is_w(w_locals, self.w_locals))
         if plain:
             w_locals = self.getdictscope()
-        co = self.space.interp_w(eval.Code, w_prog)
-        co.exec_code(self.space, w_globals, w_locals)
+        code.exec_code(space, w_globals, w_locals)
         if plain:
             self.setdictscope(w_locals)
 
@@ -1369,6 +1376,58 @@ class W_OperationError(Wrappable):
         self.operr = operr
 
 
+def source_as_str(space, w_source, funcname, what, flags):
+    """Return an unwrapped string (without NUL bytes) from some kind of
+    wrapped source string and adjusted compiler flags"""
+    from pypy.interpreter.astcompiler import consts
+
+    if space.isinstance_w(w_source, space.w_unicode):
+        source = space.unicode0_w(w_source).encode('utf-8')
+        flags |= consts.PyCF_IGNORE_COOKIE
+    elif space.isinstance_w(w_source, space.w_bytes):
+        source = space.bytes0_w(w_source)
+    else:
+        try:
+            source = space.bufferstr0_new_w(w_source)
+        except OperationError as e:
+            if not e.match(space, space.w_TypeError):
+                raise
+            raise operationerrfmt(space.w_TypeError,
+                                  "%s() arg 1 must be a %s object",
+                                  funcname, what)
+    return source, flags
+
+
+def ensure_ns(space, w_globals, w_locals, funcname, caller=None):
+    """Ensure globals/locals exist and are of the correct type"""
+    if (not space.is_none(w_globals) and
+        not space.isinstance_w(w_globals, space.w_dict)):
+        raise operationerrfmt(space.w_TypeError,
+                              '%s() arg 2 must be a dict, not %s',
+                              funcname, space.type(w_globals).getname(space))
+    if (not space.is_none(w_locals) and
+        space.lookup(w_locals, '__getitem__') is None):
+        raise operationerrfmt(space.w_TypeError,
+                              '%s() arg 3 must be a mapping or None, not %s',
+                              funcname, space.type(w_locals).getname(space))
+
+    if space.is_none(w_globals):
+        if caller is None:
+            caller = space.getexecutioncontext().gettopframe_nohidden()
+        if caller is None:
+            w_globals = space.newdict()
+            if space.is_none(w_locals):
+                w_locals = w_globals
+        else:
+            w_globals = caller.w_globals
+            if space.is_none(w_locals):
+                w_locals = caller.getdictscope()
+    elif space.is_none(w_locals):
+        w_locals = w_globals
+
+    return w_globals, w_locals
+
+
 ### helpers written at the application-level ###
 # Some of these functions are expected to be generally useful if other
 # parts of the code need to do the same thing as a non-trivial opcode,
@@ -1485,43 +1544,3 @@ app = gateway.applevel(r'''
 ''', filename=__file__)
 
 import_all_from = app.interphook('import_all_from')
-
-app = gateway.applevel(r'''
-    def prepare_exec(f, prog, globals, locals, compile_flags, builtin, codetype):
-        """Manipulate parameters to exec statement to (codeobject, dict, dict).
-        """
-        if (globals is None and locals is None and
-            isinstance(prog, tuple) and
-            (len(prog) == 2 or len(prog) == 3)):
-            globals = prog[1]
-            if len(prog) == 3:
-                locals = prog[2]
-            prog = prog[0]
-        if globals is None:
-            globals = f.f_globals
-            if locals is None:
-                locals = f.f_locals
-        if locals is None:
-            locals = globals
-
-        if not isinstance(globals, dict):
-            raise TypeError(
-                "exec() arg 2 must be a dict or None, not %s" %
-                type(globals).__name__)
-        globals.setdefault('__builtins__', builtin)
-        if not isinstance(locals, dict):
-            if not hasattr(locals, '__getitem__'):
-                raise TypeError(
-                    "exec() arg 3 must be a mapping or None, not %s" %
-                    type(locals).__name__)
-
-        if not isinstance(prog, codetype):
-            filename = '<string>'
-            if not isinstance(prog, (str, bytes)):
-                raise TypeError("exec() arg 1 must be a string, bytes, "
-                                "or code object")
-            prog = compile(prog, filename, 'exec', compile_flags, 1)
-        return (prog, globals, locals)
-''', filename=__file__)
-
-prepare_exec    = app.interphook('prepare_exec')

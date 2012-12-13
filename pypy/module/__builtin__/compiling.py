@@ -3,7 +3,7 @@ Implementation of the interpreter-level compile/eval builtins.
 """
 
 from pypy.interpreter.pycode import PyCode
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError
 from pypy.interpreter.astcompiler import consts, ast
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.argument import Arguments
@@ -25,7 +25,7 @@ the effects of any future statements in effect in the code calling
 compile; if absent or zero these statements do influence the compilation,
 in addition to any features explicitly specified.
 """
-
+    from pypy.interpreter.pyopcode import source_as_str
     ec = space.getexecutioncontext()
     if flags & ~(ec.compiler.compiler_flags | consts.PyCF_ONLY_AST |
                  consts.PyCF_DONT_IMPLY_DEDENT | consts.PyCF_SOURCE_IS_UTF8):
@@ -33,23 +33,13 @@ in addition to any features explicitly specified.
                              space.wrap("compile() unrecognized flags"))
 
     flags |= consts.PyCF_SOURCE_IS_UTF8
-    ast_node = None
-    w_ast_type = space.gettypeobject(ast.AST.typedef)
-    source_str = None
-    if space.is_true(space.isinstance(w_source, w_ast_type)):
+    ast_node = source = None
+    if space.isinstance_w(w_source, space.gettypeobject(ast.AST.typedef)):
         ast_node = space.interp_w(ast.mod, w_source)
         ast_node.sync_app_attrs(space)
-    elif space.isinstance_w(w_source, space.w_unicode):
-        w_utf_8_source = space.call_method(w_source, "encode",
-                                           space.wrap("utf-8"))
-        source_str = space.bytes0_w(w_utf_8_source)
-        flags |= consts.PyCF_IGNORE_COOKIE
-    elif space.isinstance_w(w_source, space.w_bytes):
-        source_str = space.bytes0_w(w_source)
     else:
-        msg = space.wrap(
-            "compile() arg 1 must be a string, bytes, AST or code object")
-        raise OperationError(space.w_TypeError, msg)
+        source, flags = source_as_str(space, w_source, 'compile',
+                                      "string, bytes, AST or code", flags)
 
     if not dont_inherit:
         caller = ec.gettopframe_nohidden()
@@ -58,16 +48,16 @@ in addition to any features explicitly specified.
 
     if mode not in ('exec', 'eval', 'single'):
         raise OperationError(space.w_ValueError,
-                             space.wrap("compile() arg 3 must be 'exec' "
-                                        "or 'eval' or 'single'"))
+                             space.wrap("compile() arg 3 must be 'exec', "
+                                        "'eval' or 'single'"))
     # XXX optimize is not used
 
     if ast_node is None:
         if flags & consts.PyCF_ONLY_AST:
-            mod = ec.compiler.compile_to_ast(source_str, filename, mode, flags)
+            mod = ec.compiler.compile_to_ast(source, filename, mode, flags)
             return space.wrap(mod)
         else:
-            code = ec.compiler.compile(source_str, filename, mode, flags)
+            code = ec.compiler.compile(source, filename, mode, flags)
     else:
         code = ec.compiler.compile_ast(ast_node, filename, mode, flags)
     return space.wrap(code)
@@ -80,58 +70,36 @@ or a code object as returned by compile().  The globals and locals
 are dictionaries, defaulting to the current current globals and locals.
 If only globals is given, locals defaults to it.
 """
-    w = space.wrap
+    from pypy.interpreter.pyopcode import ensure_ns, source_as_str
+    w_globals, w_locals = ensure_ns(space, w_globals, w_locals, 'eval')
 
-    is_unicode = space.is_true(space.isinstance(w_code, space.w_unicode))
-    if (is_unicode or space.is_true(space.isinstance(w_code, space.w_bytes))):
-        w_strip = w(u' \t') if is_unicode else space.wrapbytes(' \t')
-        # XXX: w_code.lstrip could be overriden
-        w_code = compile(space, space.call_method(w_code, 'lstrip', w_strip),
-                         "<string>", "eval")
+    if space.isinstance_w(w_code, space.gettypeobject(PyCode.typedef)):
+        code = space.interp_w(PyCode, w_code)
+    else:
+        source, flags = source_as_str(space, w_code, 'eval',
+                                      "string, bytes or code",
+                                      consts.PyCF_SOURCE_IS_UTF8)
+        # source.lstrip(' \t')
+        i = 0
+        for c in source:
+            if c not in ' \t':
+                if i:
+                    source = source[i:]
+                break
+            i += 1
 
-    codeobj = space.interpclass_w(w_code)
-    if not isinstance(codeobj, PyCode):
-        raise OperationError(space.w_TypeError,
-              w('eval() arg 1 must be a string or code object'))
-
-    if (not space.is_none(w_globals) and
-        not space.isinstance_w(w_globals, space.w_dict)):
-        raise operationerrfmt(space.w_TypeError,
-                              'eval() arg 2 must be a dict, not %s',
-                              space.type(w_globals).getname(space))
-    if (not space.is_none(w_locals) and
-        space.lookup(w_locals, '__getitem__') is None):
-        raise operationerrfmt(space.w_TypeError,
-                              'eval() arg 3 must be a mapping or None, not %s',
-                              space.type(w_locals).getname(space))
-
-    if space.is_none(w_globals):
-        caller = space.getexecutioncontext().gettopframe_nohidden()
-        if caller is None:
-            w_globals = space.newdict()
-            if space.is_none(w_locals):
-                w_locals = w_globals
-        else:
-            w_globals = caller.w_globals
-            if space.is_none(w_locals):
-                w_locals = caller.getdictscope()
-    elif space.is_none(w_locals):
-        w_locals = w_globals
+        ec = space.getexecutioncontext()
+        code = ec.compiler.compile(source, "<string>", 'eval', flags)
 
     # xxx removed: adding '__builtins__' to the w_globals dict, if there
     # is none.  This logic was removed as costly (it requires to get at
     # the gettopframe_nohidden()).  I bet no test fails, and it's a really
     # obscure case.
 
-    return codeobj.exec_code(space, w_globals, w_locals)
+    return code.exec_code(space, w_globals, w_locals)
 
 def exec_(space, w_prog, w_globals=None, w_locals=None):
-    if w_globals is None:
-        w_globals = space.w_None
-    if w_locals is None:
-        w_locals = space.w_None
-    ec = space.getexecutioncontext()
-    frame = ec.gettopframe_nohidden()
+    frame = space.getexecutioncontext().gettopframe_nohidden()
     frame.exec_(w_prog, w_globals, w_locals)
 
 def build_class(space, w_func, w_name, __args__):
