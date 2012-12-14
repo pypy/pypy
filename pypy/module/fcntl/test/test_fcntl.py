@@ -11,7 +11,7 @@ def teardown_module(mod):
             os.unlink(i)
 
 class AppTestFcntl:
-    spaceconfig = dict(usemodules=('fcntl', 'array', 'struct', 'termios', 'select'))
+    spaceconfig = dict(usemodules=('fcntl', 'array', 'struct', 'termios'))
     def setup_class(cls):
         tmpprefix = str(udir.ensure('test_fcntl', dir=1).join('tmp_'))
         cls.w_tmp = cls.space.wrap(tmpprefix)
@@ -174,7 +174,6 @@ class AppTestFcntl:
         import fcntl
         import array
         import os
-        import pty
 
         try:
             from termios import TIOCGPGRP
@@ -186,7 +185,10 @@ class AppTestFcntl:
         #raises(TypeError, fcntl.ioctl, 0, TIOCGPGRP, float(0))
         raises(TypeError, fcntl.ioctl, 0, TIOCGPGRP, 1, "foo")
 
-        mfd, sfd = pty.openpty()
+        try:
+            mfd = open("/dev/tty", 'r')
+        except IOError:
+            skip("couldn't open /dev/tty")
         try:
             buf = array.array('i', [0])
             res = fcntl.ioctl(mfd, TIOCGPGRP, buf, True)
@@ -207,25 +209,25 @@ class AppTestFcntl:
             res = fcntl.ioctl(mfd, TIOCGPGRP, "\x00\x00\x00\x00")
             assert res == expected
         finally:
-            os.close(mfd)
-            os.close(sfd)
+            mfd.close()
 
     def test_ioctl_int(self):
         import os
         import fcntl
-        import pty
 
         try:
             from termios import TCFLSH, TCIOFLUSH
         except ImportError:
             skip("don't know how to test ioctl() on this platform")
 
-        mfd, sfd = pty.openpty()
+        try:
+            mfd = open("/dev/tty", 'r')
+        except IOError:
+            skip("couldn't open /dev/tty")
         try:
             assert fcntl.ioctl(mfd, TCFLSH, TCIOFLUSH) == 0
         finally:
-            os.close(mfd)
-            os.close(sfd)
+            mfd.close()
 
     def test_large_flag(self):
         import sys
