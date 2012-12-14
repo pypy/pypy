@@ -165,12 +165,12 @@ def test_mixed_types():
             assert types.index(type(x)) == expected
 
 def test_limits():
-    for cls in r_uint, r_ulonglong:
+    for cls in r_uint, r_ulonglong, r_ulonglonglong:
         mask = cls.MASK
         assert cls(mask) == mask
         assert cls(mask+1) == 0
 
-    for cls in r_int, r_longlong:
+    for cls in r_int, r_longlong, r_longlonglong:
         mask = cls.MASK>>1
         assert cls(mask) == mask
         assert cls(-mask-1) == -mask-1
@@ -368,6 +368,11 @@ def test_r_ulonglong():
     x = r_longlong(-1)
     y = r_ulonglong(x)
     assert long(y) == 2**r_ulonglong.BITS - 1
+
+def test_r_ulonglonglong():
+    x = r_longlonglong(-1)
+    y = r_ulonglonglong(x)
+    assert long(y) == 2**r_ulonglonglong.BITS - 1
 
 def test_highest_bit():
     py.test.raises(AssertionError, highest_bit, 0)
