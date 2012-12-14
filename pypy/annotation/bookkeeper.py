@@ -1,6 +1,9 @@
 """
 The Bookkeeper class.
 """
+
+from __future__ import absolute_import
+
 import sys, types, inspect, weakref
 
 from pypy.objspace.flow.model import Constant

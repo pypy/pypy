@@ -3,7 +3,7 @@ from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.rlib.rarithmetic import r_uint, intmask
-from pypy.rlib import rrandom
+from pypy.rlib import rbigint, rrandom, rstring
 
 import time
 
@@ -89,25 +89,21 @@ class W_Random(Wrappable):
             strerror = space.wrap("number of bits must be greater than zero")
             raise OperationError(space.w_ValueError, strerror)
         bytes = ((k - 1) // 32 + 1) * 4
-        bytesarray = [0] * bytes
+        bytesarray = rstring.StringBuilder(bytes)
         for i in range(0, bytes, 4):
             r = self._rnd.genrand32()
             if k < 32:
                 r >>= (32 - k)
-            bytesarray[i + 0] = r & r_uint(0xff)
-            bytesarray[i + 1] = (r >> 8) & r_uint(0xff)
-            bytesarray[i + 2] = (r >> 16) & r_uint(0xff)
-            bytesarray[i + 3] = (r >> 24) & r_uint(0xff)
+            bytesarray.append(chr(r & r_uint(0xff)))
+            bytesarray.append(chr((r >> 8) & r_uint(0xff)))
+            bytesarray.append(chr((r >> 16) & r_uint(0xff)))
+            bytesarray.append(chr((r >> 24) & r_uint(0xff)))
             k -= 32
 
-        # XXX so far this is quadratic
-        w_result = space.newint(0)
-        w_eight = space.newint(8)
-        for i in range(len(bytesarray) - 1, -1, -1):
-            byte = bytesarray[i]
-            w_result = space.or_(space.lshift(w_result, w_eight),
-                                 space.newint(intmask(byte)))
-        return w_result
+        # little endian order to match bytearray assignment order
+        result = rbigint.rbigint.frombytes(
+            bytesarray.build(), 'little', signed=False)
+        return space.newlong_from_rbigint(result)
 
 
 W_Random.typedef = TypeDef("Random",

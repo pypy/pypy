@@ -460,7 +460,6 @@ class AbstractTypedStrategy(object):
         raise NotImplementedError("abstract base class")
 
     def setitem(self, w_dict, w_key, w_value):
-        space = self.space
         if self.is_correct_type(w_key):
             self.unerase(w_dict.dstorage)[self.unwrap(w_key)] = w_value
             return
@@ -473,7 +472,6 @@ class AbstractTypedStrategy(object):
         w_dict.setitem(self.space.wrap(key), w_value)
 
     def setdefault(self, w_dict, w_key, w_default):
-        space = self.space
         if self.is_correct_type(w_key):
             return self.unerase(w_dict.dstorage).setdefault(self.unwrap(w_key), w_default)
         else:
@@ -481,8 +479,6 @@ class AbstractTypedStrategy(object):
             return w_dict.setdefault(w_key, w_default)
 
     def delitem(self, w_dict, w_key):
-        space = self.space
-        w_key_type = space.type(w_key)
         if self.is_correct_type(w_key):
             del self.unerase(w_dict.dstorage)[self.unwrap(w_key)]
             return
@@ -539,10 +535,13 @@ class AbstractTypedStrategy(object):
 
     def getiterkeys(self, w_dict):
         return self.unerase(w_dict.dstorage).iterkeys()
+
     def getitervalues(self, w_dict):
         return self.unerase(w_dict.dstorage).itervalues()
+
     def getiteritems(self, w_dict):
         return self.unerase(w_dict.dstorage).iteritems()
+
 
 class ObjectDictStrategy(AbstractTypedStrategy, DictStrategy):
 

@@ -161,7 +161,7 @@ or start off at one of the following points:
    and grammar files that allow it to parse the syntax of various Python
    versions. Once the grammar has been processed, the parser can be
    translated by the above machinery into efficient code.
- 
+
 *  `pypy/interpreter/astcompiler`_ contains the compiler.  This
    contains a modified version of the compiler package from CPython
    that fixes some bugs and is translatable.
@@ -170,11 +170,6 @@ or start off at one of the following points:
    is `pypy/objspace/std/objspace.py`_.  For each type, the files ``xxxtype.py`` and
    ``xxxobject.py`` contain respectively the definition of the type and its
    (default) implementation.
-
-*  `pypy/objspace`_ contains a few other object spaces: the `pypy/objspace/thunk.py`_,
-   `pypy/objspace/trace.py`_ and `pypy/objspace/flow`_ object spaces.  The latter is a relatively short piece
-   of code that builds the control flow graphs when the bytecode interpreter
-   runs in it.
 
 *  `pypy/translator`_ contains the code analysis and generation stuff.
    Start reading from translator.py, from which it should be easy to follow

@@ -9,15 +9,19 @@ class CodecState(object):
         self.codec_search_cache = {}
         self.codec_error_registry = {}
         self.codec_need_encodings = True
-        self.decode_error_handler = self.make_errorhandler(space, True)
-        self.encode_error_handler = self.make_errorhandler(space, False)
+        self.decode_error_handler = self.make_decode_errorhandler(space)
+        self.encode_error_handler = self.make_encode_errorhandler(space)
 
         self.unicodedata_handler = None
 
-    def make_errorhandler(self, space, decode):
-        def unicode_call_errorhandler(errors,  encoding, reason, input,
-                                      startpos, endpos):
+    def _make_errorhandler(self, space, decode):
+        def call_errorhandler(errors, encoding, reason, input, startpos,
+                              endpos):
+            """Generic wrapper for calling into error handlers.
 
+            Returns (unicode_or_none, str_or_none, newpos) as error
+            handlers may return unicode or on Python 3, bytes.
+            """
             w_errorhandler = lookup_error(space, errors)
             if decode:
                 w_cls = space.w_UnicodeDecodeError
@@ -55,7 +59,19 @@ class CodecState(object):
                     "position %d from error handler out of bounds", newpos)
             replace = space.unicode_w(w_replace)
             return replace, newpos
-        return unicode_call_errorhandler
+        return call_errorhandler
+
+    def make_decode_errorhandler(self, space):
+        return self._make_errorhandler(space, True)
+
+    def make_encode_errorhandler(self, space):
+        errorhandler = self._make_errorhandler(space, False)
+        def encode_call_errorhandler(errors, encoding, reason, input, startpos,
+                                     endpos):
+            replace, newpos = errorhandler(errors, encoding, reason, input,
+                                           startpos, endpos)
+            return replace, None, newpos
+        return encode_call_errorhandler
 
     def get_unicodedata_handler(self, space):
         if self.unicodedata_handler:

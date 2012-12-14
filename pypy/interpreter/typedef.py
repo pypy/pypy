@@ -32,8 +32,6 @@ class TypeDef:
         self.rawdict = {}
         self.acceptable_as_base_class = '__new__' in rawdict
         self.applevel_subclasses_base = None
-        # xxx used by faking
-        self.fakedcpytype = None
         self.add_entries(**rawdict)
         assert __total_ordering__ in (None, 'auto'), "Unknown value for __total_ordering"
         if __total_ordering__ == 'auto':

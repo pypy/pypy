@@ -394,7 +394,7 @@ class AppTestADVANCEDCPP:
         pp.set_address_ptr_ptr(ptr)
         assert cppyy.addressof(ptr) == 0x4321
 
-    def test09_opaque_pointer_assing(self):
+    def test09_opaque_pointer_passing(self):
         """Test passing around of opaque pointers"""
 
         import cppyy

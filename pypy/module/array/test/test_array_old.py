@@ -89,7 +89,7 @@ class TestCPythonsOwnArray(BaseArrayTests):
 
 
 class AppTestArray(BaseArrayTests):
-    spaceconfig = dict(usemodules=['struct', 'array'])
+    spaceconfig = {'usemodules': ['struct', 'array', 'binascii']}
 
     def setup_class(cls):
         """Import the array module and make it available as self.array."""

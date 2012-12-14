@@ -1,7 +1,6 @@
 /* allocation functions */
 #include "common_header.h"
 #ifdef PYPY_STANDALONE
-#include <malloc.h>
 #include <stdlib.h>
 
 #if defined(PYPY_USE_TRIVIAL_MALLOC)

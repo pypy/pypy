@@ -8,6 +8,7 @@ class GraphAnalyzer(object):
     def __init__(self, translator):
         self.translator = translator
         self.analyzed_calls = {}
+        self.analyzed_indirect_calls = {}
         self.recursion_hit = False
 
     # method overridden by subclasses
@@ -140,10 +141,19 @@ class GraphAnalyzer(object):
         return result
 
     def analyze_indirect_call(self, graphs, seen=None):
-        results = []
-        for graph in graphs:
-            results.append(self.analyze_direct_call(graph, seen))
-        return self.join_results(results)
+        graphs_t = tuple(graphs)
+        try:
+            return self.analyzed_indirect_calls[graphs_t]
+        except KeyError:
+            results = []
+            cache = True
+            for graph in graphs:
+                results.append(self.analyze_direct_call(graph, seen))
+                cache = cache and (graph in self.analyzed_calls)
+            res = self.join_results(results)
+            if cache:
+                self.analyzed_indirect_calls[graphs_t] = res
+            return res
 
     def analyze_oosend(self, TYPE, name, seen=None):
         graphs = TYPE._lookup_graphs(name)

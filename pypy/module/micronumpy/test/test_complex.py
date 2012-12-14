@@ -1,13 +1,16 @@
 from __future__ import with_statement
+
 import sys
+
+from pypy.conftest import option
+from pypy.interpreter.error import OperationError
+from pypy.interpreter.gateway import interp2app
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 from pypy.rlib.rfloat import isnan, isinf, copysign
 from pypy.rlib.rcomplex import c_pow
-from pypy.interpreter.error import OperationError
 
-from pypy.conftest import option
 
-def rAlmostEqual(a, b, rel_err = 2e-15, abs_err = 5e-323, msg='', isnumpy=False):
+def rAlmostEqual(a, b, rel_err=2e-15, abs_err=5e-323, msg='', isnumpy=False):
     """Fail if the two floating-point numbers are not almost equal.
 
     Determine whether floating-point values a and b are equal to within
@@ -90,23 +93,43 @@ class AppTestUfuncs(BaseNumpyAppTest):
         fname64 = os.path.join(os.path.dirname(__file__), 'complex64_testcases.txt')
         cls.w_testcases128 = cls.space.wrap(list(parse_testfile(fname128)))
         cls.w_testcases64 = cls.space.wrap(list(parse_testfile(fname64)))
-        def cls_c_pow(self, *args):
-            try:
-                retVal = c_pow(*args)
-                return retVal
-            except ValueError, e:
-                if option.runappdirect:
-                    raise
-                raise OperationError(cls.space.w_ValueError,
-                        cls.space.wrap(e.message))
-        cls.w_c_pow = cls.space.wrap(cls_c_pow)
+
         cls.w_runAppDirect = cls.space.wrap(option.runappdirect)
         cls.w_isWindows = cls.space.wrap(os.name == 'nt')
-        def cls_rAlmostEqual(self, *args, **kwargs):
-            if '__pypy__' not in sys.builtin_module_names:
-                kwargs['isnumpy'] = True
-            return rAlmostEqual(*args, **kwargs)
-        cls.w_rAlmostEqual = cls.space.wrap(cls_rAlmostEqual)
+
+        if cls.runappdirect:
+            def cls_rAlmostEqual(space, *args, **kwargs):
+                return rAlmostEqual(*args, **kwargs)
+            cls.w_rAlmostEqual = cls.space.wrap(cls_rAlmostEqual)
+            def cls_c_pow(space, *args):
+                return c_pow(*args)
+            cls.w_c_pow = cls.space.wrap(cls_c_pow)
+        else:
+            def cls_rAlmostEqual(space, __args__):
+                args, kwargs = __args__.unpack()
+                args = map(space.unwrap, args)
+                kwargs = dict([
+                    (k, space.unwrap(v))
+                    for k, v in kwargs.iteritems()
+                ])
+                if '__pypy__' not in sys.builtin_module_names:
+                    kwargs['isnumpy'] = True
+                return space.wrap(rAlmostEqual(*args, **kwargs))
+            cls.w_rAlmostEqual = cls.space.wrap(interp2app(cls_rAlmostEqual))
+            def cls_c_pow(space, args_w):
+                try:
+                    retVal = c_pow(*map(space.unwrap, args_w))
+                    return space.wrap(retVal)
+                except ZeroDivisionError, e:
+                    raise OperationError(cls.space.w_ZeroDivisionError,
+                            cls.space.wrap(e.message))
+                except OverflowError, e:
+                    raise OperationError(cls.space.w_OverflowError,
+                            cls.space.wrap(e.message))
+                except ValueError, e:
+                    raise OperationError(cls.space.w_ValueError,
+                            cls.space.wrap(e.message))
+            cls.w_c_pow = cls.space.wrap(interp2app(cls_c_pow))
 
     def test_fabs(self):
         from _numpypy import fabs, complex128

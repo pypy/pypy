@@ -1075,38 +1075,6 @@ class AppTestWithMethodCacheCounter:
         assert t.__module__
 
 
-class AppTestMutableBuiltintypes:
-    spaceconfig = {"objspace.std.mutable_builtintypes": True}
-
-    def test_del_type_mro(self):
-        del type.mro
-        # Make sure the default mro function is used.
-        class X(object):
-            pass
-
-    def test_mutate_builtintype(self):
-        list.a = 1
-        def doublelen(self):
-            return len(self) * 2
-        list.doublelen = doublelen
-        l = []
-        assert l.a == 1
-        l.append(100)
-        assert l.doublelen() == 2
-        del list.doublelen
-        del list.a
-        raises(AttributeError, "l.a")
-
-    def test_doc(self):
-        class C(object):
-            pass
-
-        assert C.__dict__['__dict__'].__doc__.startswith("dictionary for")
-        assert C.__dict__['__weakref__'].__doc__.startswith("list of weak")
-        assert property.__doc__.startswith("property(fget=None,")
-        assert type.__doc__.startswith("type(object)")
-        assert "run-time error" in RuntimeError.__doc__
-
 class AppTestGetattributeShortcut:
     spaceconfig = {"objspace.std.getattributeshortcut": True}
 

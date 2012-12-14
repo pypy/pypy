@@ -10,7 +10,7 @@ from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rlib import rposix
 
 from pypy.module._cffi_backend.ctypeobj import W_CType
-from pypy.module._cffi_backend import cdataobj, misc, ctypeprim
+from pypy.module._cffi_backend import cdataobj, misc, ctypeprim, ctypevoid
 
 
 class W_CTypePtrOrArray(W_CType):
@@ -72,8 +72,9 @@ class W_CTypePtrOrArray(W_CType):
             for i in range(len(lst_w)):
                 ctitem.convert_from_object(cdata, lst_w[i])
                 cdata = rffi.ptradd(cdata, ctitem.size)
-        elif (self.ctitem.is_primitive_integer and
-              self.ctitem.size == rffi.sizeof(lltype.Char)):
+        elif (self.can_cast_anything or
+              (self.ctitem.is_primitive_integer and
+               self.ctitem.size == rffi.sizeof(lltype.Char))):
             if not space.isinstance_w(w_ob, space.w_str):
                 raise self._convert_error("str or list or tuple", w_ob)
             s = space.str_w(w_ob)
@@ -265,10 +266,14 @@ class W_CTypePointer(W_CTypePtrBase):
             return 0
         else:
             return 0
-        if self.ctitem.size <= 0:
-            return 0
+        itemsize = self.ctitem.size
+        if itemsize <= 0:
+            if isinstance(self.ctitem, ctypevoid.W_CTypeVoid):
+                itemsize = 1
+            else:
+                return 0
         try:
-            datasize = ovfcheck(length * self.ctitem.size)
+            datasize = ovfcheck(length * itemsize)
         except OverflowError:
             raise OperationError(space.w_OverflowError,
                 space.wrap("array size would overflow a ssize_t"))
