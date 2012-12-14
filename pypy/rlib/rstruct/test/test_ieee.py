@@ -3,7 +3,7 @@ import random
 import struct
 
 from pypy.rlib.rfloat import isnan
-from pypy.rlib.rstruct.ieee import float_pack, float_unpack, float_pack128
+from pypy.rlib.rstruct.ieee import float_pack, float_unpack, float_pack128, float_unpack80
 
 
 class TestFloatPacking:
@@ -19,11 +19,11 @@ class TestFloatPacking:
         assert repr(x) == repr(y)
 
         Q = float_pack128(x, 16)
-        y = float_unpack(Q, 16)
-        assert repr(x) == repr(y)
+        y = float_unpack80(Q, 16)
+        assert repr(x) == repr(y),'%r != %r, Q=%r'%(x, y, Q)
         Q = float_pack128(x, 12)
-        y = float_unpack(Q, 12)
-        assert repr(x) == repr(y)
+        y = float_unpack80(Q, 12)
+        assert repr(x) == repr(y),'%r != %r, Q=%r'%(x, y, Q)
 
         # check that packing agrees with the struct module
         struct_pack8 = struct.unpack('<Q', struct.pack('<d', x))[0]

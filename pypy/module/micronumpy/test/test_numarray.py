@@ -2139,7 +2139,7 @@ class AppTestSupport(BaseNumpyAppTest):
             m = fromstring('\x00\x00\x00\x00\x00\x00\x00\xa0\x01@\x00\x00', dtype=float96)
         elif dt.itemsize==16:
             from _numpypy import float128
-            m = fromstring('\x00\x00\x00\x00\x00\x00\x00\xa0\x01@\x9c\xd3#\x7f\x00\x00', dtype=float128)
+            m = fromstring('\x00\x00\x00\x00\x00\x00\x00\xa0\x01@\x00\x00\x00\x00\x00\x00', dtype=float128)
         elif dt.itemsize == 8:
             skip('longfloat is float64')
         else:
@@ -2147,7 +2147,7 @@ class AppTestSupport(BaseNumpyAppTest):
         assert m[0] == longfloat(5.)
 
     def test_fromstring_invalid(self):
-        from _numpypy import fromstring, uint16, uint8, int32
+        from _numpypy import fromstring, uint16, uint8
         #default dtype is 64-bit float, so 3 bytes should fail
         raises(ValueError, fromstring, "\x01\x02\x03")
         #3 bytes is not modulo 2 bytes (int16)

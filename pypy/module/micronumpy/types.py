@@ -14,7 +14,8 @@ from pypy.rlib.rarithmetic import widen, byteswap, r_ulonglong
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.rstruct.runpack import runpack
 from pypy.rlib.rstruct.nativefmttable import native_is_bigendian
-from pypy.rlib.rstruct.ieee import float_pack, float_unpack, unpack_float
+from pypy.rlib.rstruct.ieee import (float_pack, float_unpack, 
+                                    unpack_float, unpack_float128)
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib import jit
 from pypy.rlib.rstring import StringBuilder
@@ -1023,7 +1024,7 @@ elif interp_boxes.long_double_size == 16:
 
         def runpack_str(self, s):
             assert len(s) == 16
-            fval = unpack_float(s, native_is_bigendian)
+            fval = unpack_float128(s, native_is_bigendian)
             return self.box(fval)
 
     class NonNativeFloat128(Float128):
