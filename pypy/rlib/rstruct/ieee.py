@@ -49,10 +49,7 @@ def float_unpack80(Q, size):
 
     if exp == MAX_EXP - MIN_EXP + 2:
         # nan or infinity
-        result = rfloat.NAN if mant else rfloat.INFINITY
-    elif exp == 0:
-        # subnormal or zero
-        result = math.ldexp(mant, MIN_EXP - MANT_DIG)
+        result = rfloat.NAN if mant &((one << MANT_DIG - 1) - 1) else rfloat.INFINITY
     else:
         # normal
         result = math.ldexp(mant, exp + MIN_EXP - MANT_DIG - 1)

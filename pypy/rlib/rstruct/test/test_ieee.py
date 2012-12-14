@@ -65,6 +65,12 @@ class TestFloatPacking:
         self.check_float(-0.0)
 
     def test_nans(self):
+        Q = float_pack128(float('nan'), 16)
+        y = float_unpack80(Q, 16)
+        assert repr(y) == 'nan'
+        Q = float_pack128(float('nan'), 12)
+        y = float_unpack80(Q, 12)
+        assert repr(y) == 'nan'
         Q = float_pack(float('nan'), 8)
         y = float_unpack(Q, 8)
         assert repr(y) == 'nan'
