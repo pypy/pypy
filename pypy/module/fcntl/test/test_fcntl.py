@@ -186,10 +186,7 @@ class AppTestFcntl:
         #raises(TypeError, fcntl.ioctl, 0, TIOCGPGRP, float(0))
         raises(TypeError, fcntl.ioctl, 0, TIOCGPGRP, 1, "foo")
 
-        child_pid, mfd = pty.fork()
-        if child_pid == 0:
-            # We're the child
-            return
+        mfd, sfd = pty.openpty()
         try:
             buf = array.array('i', [0])
             res = fcntl.ioctl(mfd, TIOCGPGRP, buf, True)
@@ -211,6 +208,7 @@ class AppTestFcntl:
             assert res == expected
         finally:
             os.close(mfd)
+            os.close(sfd)
 
     def test_ioctl_int(self):
         import os
