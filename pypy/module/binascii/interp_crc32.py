@@ -71,4 +71,5 @@ def crc32(space, data, oldcrc=0):
     for c in data:
         crc = crc_32_tab[(crc & 0xff) ^ ord(c)] ^ (crc >> 8)
 
-    return space.wrap(crc ^ 0xFFFFFFFF)
+    return space.wrap(rffi.cast(rffi.UINT, ~crc))
+
