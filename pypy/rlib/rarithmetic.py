@@ -489,7 +489,6 @@ r_longlong = build_int('r_longlong', True, 64)
 r_ulonglong = build_int('r_ulonglong', False, 64)
 
 r_longlonglong = build_int('r_longlonglong', True, 128)
-r_ulonglonglong = build_int('r_ulonglonglong', False, 128)
 longlongmax = r_longlong(LONGLONG_TEST - 1)
 
 if r_longlong is not r_int:
