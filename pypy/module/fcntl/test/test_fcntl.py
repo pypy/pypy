@@ -11,7 +11,7 @@ def teardown_module(mod):
             os.unlink(i)
 
 class AppTestFcntl:
-    spaceconfig = dict(usemodules=('fcntl', 'array', 'struct', 'termios'))
+    spaceconfig = dict(usemodules=('fcntl', 'array', 'struct', 'termios', 'select'))
     def setup_class(cls):
         tmpprefix = str(udir.ensure('test_fcntl', dir=1).join('tmp_'))
         cls.w_tmp = cls.space.wrap(tmpprefix)
@@ -173,11 +173,11 @@ class AppTestFcntl:
     def test_ioctl(self):
         import fcntl
         import array
-        import sys, os
+        import os
+        import pty
 
         try:
             from termios import TIOCGPGRP
-            import pty
         except ImportError:
             skip("don't know how to test ioctl() on this platform")
 
@@ -215,10 +215,10 @@ class AppTestFcntl:
     def test_ioctl_int(self):
         import os
         import fcntl
+        import pty
 
         try:
             from termios import TCFLSH, TCIOFLUSH
-            import pty
         except ImportError:
             skip("don't know how to test ioctl() on this platform")
 
