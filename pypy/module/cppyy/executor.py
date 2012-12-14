@@ -188,7 +188,7 @@ class InstanceExecutor(InstancePtrExecutor):
         from pypy.module.cppyy import interp_cppyy
         long_result = capi.c_call_o(cppmethod, cppthis, num_args, args, self.cppclass)
         ptr_result = rffi.cast(capi.C_OBJECT, long_result)
-        return interp_cppyy.wrap_cppobject(
+        return interp_cppyy.wrap_cppobject_nocast(
             space, space.w_None, self.cppclass, ptr_result, isref=False, python_owns=True)
 
     def execute_libffi(self, space, cif_descr, funcaddr, buffer):
