@@ -451,10 +451,19 @@ char* cppyy_call_s(cppyy_method_t method, cppyy_object_t self, int nargs, void* 
     return cppstring_to_cstring("");
 }
 
-void cppyy_constructor(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
-    G__setgvp((long)self);
-    cppyy_call_T(method, self, nargs, args);
+cppyy_object_t cppyy_constructor(cppyy_method_t method, cppyy_type_t handle, int nargs, void* args) {
+    cppyy_object_t self = (cppyy_object_t)NULL;
+    if ((InterpretedFuncs_t::size_type)method >= g_interpreted.size()) {
+        G__setgvp((long)G__PVOID);
+        self = (cppyy_object_t)cppyy_call_l(method, (cppyy_object_t)NULL, nargs, args);
+    } else {
+    // for macro's/interpreted classes
+        self = cppyy_allocate(handle);
+        G__setgvp((long)self);
+        cppyy_call_T(method, self, nargs, args);
+    }
     G__setgvp((long)G__PVOID);
+    return self;
 }
 
 cppyy_object_t cppyy_call_o(cppyy_type_t method, cppyy_object_t self, int nargs, void* args,

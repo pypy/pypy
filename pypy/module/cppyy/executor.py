@@ -137,11 +137,13 @@ class CStringExecutor(FunctionExecutor):
         return space.wrap(result)
 
 
-class ConstructorExecutor(VoidExecutor):
+class ConstructorExecutor(FunctionExecutor):
 
-    def execute(self, space, cppmethod, cppthis, num_args, args):
-        capi.c_constructor(cppmethod, cppthis, num_args, args)
-        return space.w_None
+    def execute(self, space, cppmethod, cpptype, num_args, args):
+        from pypy.module.cppyy import interp_cppyy
+        newthis = capi.c_constructor(cppmethod, cpptype, num_args, args)
+        assert lltype.typeOf(newthis) == capi.C_OBJECT
+        return space.wrap(newthis)
 
 
 class InstancePtrExecutor(FunctionExecutor):

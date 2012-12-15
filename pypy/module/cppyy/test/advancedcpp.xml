@@ -37,4 +37,6 @@
 
   <class pattern="multi*" />
 
+  <class name="new_overloader" />
+
 </lcgdict>

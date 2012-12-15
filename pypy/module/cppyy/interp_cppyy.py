@@ -373,20 +373,19 @@ class CPPFunction(CPPMethod):
 
 
 class CPPConstructor(CPPMethod):
-    """Method dispatcher that constructs new objects. In addition to the call,
-    it allocates memory for the newly constructed object and sets ownership
-    to Python."""
+    """Method dispatcher that constructs new objects. This method can not have
+    a fast path, a the allocation of the object is currently left to the
+    reflection layer only, b/c the C++ class may have an overloaded operator
+    new, disallowing malloc here."""
 
     _immutable_ = True
 
     def call(self, cppthis, args_w):
-        newthis = capi.c_allocate(self.scope)
-        assert lltype.typeOf(newthis) == capi.C_OBJECT
-        try:
-            CPPMethod.call(self, newthis, args_w)
-        except:
-            capi.c_deallocate(self.scope, newthis)
-            raise
+        # TODO: these casts are very, very un-pretty; need to find a way of
+        # re-using CPPMethod's features w/o these roundabouts
+        vscope = rffi.cast(capi.C_OBJECT, self.scope.handle)
+        w_result = CPPMethod.call(self, vscope, args_w)
+        newthis = rffi.cast(capi.C_OBJECT, self.space.int_w(w_result))
         return wrap_new_cppobject_nocast(
             self.space, self.space.w_None, self.scope, newthis, isref=False, python_owns=True)
 

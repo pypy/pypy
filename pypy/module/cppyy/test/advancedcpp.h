@@ -1,3 +1,4 @@
+#include <new>
 #include <vector>
 
 
@@ -357,4 +358,16 @@ public:
 
 private:
     int m_int;
+};
+
+
+//===========================================================================
+class new_overloader {             // for testing calls to overloaded new
+public:
+    static int s_instances;
+
+public:
+    void* operator new(std::size_t size);
+    void* operator new(std::size_t, void* p) throw();
+    void operator delete(void* p, std::size_t size);
 };

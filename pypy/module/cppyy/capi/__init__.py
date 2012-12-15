@@ -168,7 +168,7 @@ c_call_s = rffi.llexternal(
 
 c_constructor = rffi.llexternal(
     "cppyy_constructor",
-    [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP], lltype.Void,
+    [C_METHOD, C_TYPE, rffi.INT, rffi.VOIDP], C_OBJECT,
     threadsafe=ts_call,
     compilation_info=backend.eci)
 _c_call_o = rffi.llexternal(

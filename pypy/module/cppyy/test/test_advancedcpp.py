@@ -509,3 +509,28 @@ class AppTestADVANCEDCPP:
         assert type(c2) == cppyy.gbl.c_class_2
         assert c2.m_c == 3
         c2.destruct()
+
+    def test14_new_overloader(self):
+        """Verify that class-level overloaded new/delete are called"""
+
+        # TODO: operator new appears to be respected by CINT, but operator
+        # delete is not called through root/meta. Anyway, Reflex gets it all
+        # wrong (clear from the generated code). Keep this test as it should
+        # be all better in the cling/llvm world ...
+
+        if self.capi_identity == 'Reflex':   # don't test anything
+            return
+
+        import cppyy
+
+        assert cppyy.gbl.new_overloader.s_instances == 0
+        nl = cppyy.gbl.new_overloader()
+        assert cppyy.gbl.new_overloader.s_instances == 1
+        nl.destruct()
+
+        if self.capi_identity == 'CINT':     # do not test delete
+            return
+
+        import gc
+        gc.collect()
+        assert cppyy.gbl.new_overloader.s_instances == 0

@@ -83,3 +83,23 @@ int some_class_with_data::some_data::s_num_data = 0;
 multi1::~multi1() {}
 multi2::~multi2() {}
 multi::~multi() {}
+
+
+// for testing calls to overloaded new
+int new_overloader::s_instances = 0;
+
+void* new_overloader::operator new(std::size_t size) {
+    ++s_instances;
+    return ::operator new(size);
+}
+
+void* new_overloader::operator new(std::size_t, void* p) throw() {
+    // no ++s_instances, as no memory is allocated
+    return p;
+}
+
+void new_overloader::operator delete(void* p, std::size_t) {
+    if (p == 0) return;
+    --s_instances;
+    ::operator delete(p);
+}

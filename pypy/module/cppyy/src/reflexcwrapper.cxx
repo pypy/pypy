@@ -177,8 +177,10 @@ char* cppyy_call_s(cppyy_method_t method, cppyy_object_t self, int nargs, void* 
     return cppstring_to_cstring(result);
 }
 
-void cppyy_constructor(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
+cppyy_object_t cppyy_constructor(cppyy_method_t method, cppyy_type_t handle, int nargs, void* args) {
+    cppyy_object_t self = cppyy_allocate(handle);
     cppyy_call_v(method, self, nargs, args);
+    return self;
 }
 
 cppyy_object_t cppyy_call_o(cppyy_method_t method, cppyy_object_t self, int nargs, void* args,

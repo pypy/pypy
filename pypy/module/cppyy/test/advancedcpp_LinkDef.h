@@ -64,4 +64,6 @@
 #pragma link C++ class multi2;
 #pragma link C++ class multi;
 
+#pragma link C++ class new_overloader;
+
 #endif
