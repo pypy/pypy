@@ -12,7 +12,8 @@ import types
 import builtins
 import random
 import traceback
-from test.support import fcmp, TESTFN, unlink,  run_unittest, check_warnings
+from test.support import (TESTFN, check_impl_detail, check_warnings, fcmp,
+                          run_unittest, unlink)
 from operator import neg
 try:
     import pty, signal
@@ -293,6 +294,8 @@ class BuiltinTest(unittest.TestCase):
         self.assertRaises(ValueError, compile, str('a = 1'), 'f', 'bad')
 
         # test the optimize argument
+        if check_impl_detail(pypy=True):
+            return
 
         codestr = '''def f():
         """doc"""
