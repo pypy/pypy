@@ -249,6 +249,12 @@ class __extend__(AbstractStringRepr):
         hop.exception_cannot_occur()
         return hop.gendirectcall(self.ll.ll_lower, v_str)
 
+    def rtype_method_isdigit(self, hop):
+        string_repr = hop.args_r[0].repr
+        [v_str] = hop.inputargs(string_repr)
+        hop.exception_cannot_occur()
+        return hop.gendirectcall(self.ll.ll_isdigit, v_str)
+
     def rtype_method_isalpha(self, hop):
         string_repr = hop.args_r[0].repr
         [v_str] = hop.inputargs(string_repr)
@@ -744,13 +750,16 @@ class AbstractStringIteratorRepr(IteratorRepr):
 class AbstractLLHelpers:
     __metaclass__ = StaticMethods
 
-    def ll_char_isspace(ch):
-        c = ord(ch)
-        return c == 32 or (9 <= c <= 13)   # c in (9, 10, 11, 12, 13, 32)
+    def ll_isdigit(s):
+        from pypy.rpython.annlowlevel import hlstr
 
-    def ll_char_isdigit(ch):
-        c = ord(ch)
-        return c <= 57 and c >= 48
+        s = hlstr(s)
+        if not s:
+            return False
+        for ch in s:
+            if not ch.isdigit():
+                return False
+        return True
 
     def ll_isalpha(s):
         from pypy.rpython.annlowlevel import hlstr
@@ -762,6 +771,14 @@ class AbstractLLHelpers:
             if not ch.isalpha():
                 return False
         return True
+
+    def ll_char_isspace(ch):
+        c = ord(ch)
+        return c == 32 or (9 <= c <= 13)   # c in (9, 10, 11, 12, 13, 32)
+
+    def ll_char_isdigit(ch):
+        c = ord(ch)
+        return c <= 57 and c >= 48
 
     def ll_char_isalpha(ch):
         c = ord(ch)

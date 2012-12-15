@@ -528,6 +528,9 @@ class __extend__(SomeUnicodeString):
 
 
 class __extend__(SomeString):
+    def method_isdigit(chr):
+        return s_Bool
+
     def method_isalpha(chr):
         return s_Bool
 
@@ -564,12 +567,6 @@ class __extend__(SomeChar, SomeUnicodeCodePoint):
 class __extend__(SomeChar):
 
     def method_isspace(chr):
-        return s_Bool
-
-    def method_isdigit(chr):
-        return s_Bool
-
-    def method_isalpha(chr):
         return s_Bool
 
     def method_isalnum(chr):
