@@ -272,7 +272,6 @@ def descr_get_imag(space, w_obj):
 NDIGITS_MAX = int((rfloat.DBL_MANT_DIG - rfloat.DBL_MIN_EXP) * 0.30103)
 NDIGITS_MIN = -int((rfloat.DBL_MAX_EXP + 1) * 0.30103)
 
-@unwrap_spec(w_ndigits=WrappedDefault(None))
 def descr___round__(space, w_float, w_ndigits=None):
     # Algorithm copied directly from CPython
     from pypy.objspace.std.floatobject import W_FloatObject
@@ -280,7 +279,7 @@ def descr___round__(space, w_float, w_ndigits=None):
     assert isinstance(w_float, W_FloatObject)
     x = w_float.floatval
 
-    if space.is_none(w_ndigits):
+    if w_ndigits is None:
         # single-argument round: round to nearest integer
         rounded = rfloat.round_away(x)
         if math.fabs(x - rounded) == 0.5:

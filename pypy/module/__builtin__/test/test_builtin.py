@@ -740,6 +740,7 @@ def fn(): pass
         raises(TypeError, round, t, 0)
 
         raises(TypeError, round, 3, None)
+        raises(TypeError, round, 3.0, None)
 
     def test_vars_obscure_case(self):
         class C_get_vars(object):
