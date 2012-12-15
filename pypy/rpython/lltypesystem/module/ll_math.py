@@ -368,6 +368,8 @@ def ll_math_log1p(x):
     if x == 0.0:
         return x      # returns 0.0 or -0.0
     if x <= -1.0:
+        if x == -1:
+            raise OverflowError("math range  error")
         raise ValueError("math domain error")
     return math_log1p(x)
 

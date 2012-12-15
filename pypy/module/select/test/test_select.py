@@ -272,6 +272,7 @@ class AppTestSelectWithSockets(_AppTestSelect):
         w_import = space.getattr(space.builtin, space.wrap("__import__"))
         w_socketmod = space.call_function(w_import, space.wrap("socket"))
         cls.w_sock = cls.space.call_method(w_socketmod, "socket")
+        cls.w_sock_err = space.getattr(w_socketmod, space.wrap("error"))
 
         try_ports = [1023] + range(20000, 30000, 437)
         for port in try_ports:
@@ -279,11 +280,8 @@ class AppTestSelectWithSockets(_AppTestSelect):
             cls.w_sockaddress = space.wrap(('127.0.0.1', port))
             try:
                 space.call_method(cls.w_sock, "bind", cls.w_sockaddress)
-                print 'works'
                 break
-            except OperationError, e:   # should get a "Permission denied"
-                if not e.match(space, space.getattr(w_socketmod, space.wrap("error"))):
-                    raise
+            except cls.w_sock_err, e:   # should get a "Permission denied"
                 print e
             else:
                 raise e
