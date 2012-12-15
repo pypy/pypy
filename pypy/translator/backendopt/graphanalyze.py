@@ -146,10 +146,13 @@ class GraphAnalyzer(object):
             return self.analyzed_indirect_calls[graphs_t]
         except KeyError:
             results = []
+            cache = True
             for graph in graphs:
                 results.append(self.analyze_direct_call(graph, seen))
+                cache = cache and (graph in self.analyzed_calls)
             res = self.join_results(results)
-            self.analyzed_indirect_calls[graphs_t] = res
+            if cache:
+                self.analyzed_indirect_calls[graphs_t] = res
             return res
 
     def analyze_oosend(self, TYPE, name, seen=None):
