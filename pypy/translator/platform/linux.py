@@ -14,7 +14,6 @@ class BaseLinux(BasePosix):
     extra_libs = ('-lrt',)
     cflags = tuple(
              ['-O3', '-pthread', '-fomit-frame-pointer',
-              '-fgcse-sm', '-fgcse-las', '-fmodulo-sched', '-fmodulo-sched-allow-regmoves', '-fmerge-all-constants',
               '-Wall', '-Wno-unused']
              + os.environ.get('CFLAGS', '').split())
     standalone_only = ()
