@@ -394,8 +394,8 @@ def log1p(space, w_x):
     try:
         return math1(space, rfloat.log1p, w_x)
     except OperationError as e:
-        # Python 2.x raises a OverflowError improperly.
-        if we_are_translated() or not e.match(space, space.w_OverflowError):
+        # Python 2.x (and thus ll_math) raises a OverflowError improperly.
+        if not e.match(space, space.w_OverflowError):
             raise
         raise OperationError(space.w_ValueError, space.wrap("math domain error"))
 

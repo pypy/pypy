@@ -14,6 +14,11 @@ class AppTestMath:
         space = cls.space
         cases = []
         for a, b, expected in test_direct.MathTests.TESTCASES:
+            # marked as OverflowError to match 2.x/ll_math in
+            # test_direct, but this is a ValueError on 3.x
+            if (a, b, expected) == ('log1p', (-1.0,), OverflowError):
+                expected = ValueError
+
             if type(expected) is type and issubclass(expected, Exception):
                 expected = getattr(space, "w_%s" % expected.__name__)
             elif callable(expected):

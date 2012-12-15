@@ -73,7 +73,11 @@ class MathTests:
         ('pow', (10.0, 40000.0), OverflowError),
         ('ldexp', (10.0, 40000), OverflowError),
         ('log', (0.0,), ValueError), #cpython does it this way
+
+        # an OverflowError to match 2.x/ll_math, but test_math switches
+        # this to ValueError to match 3.x
         ('log1p', (-1.0,), OverflowError),
+
         ('log', (-1.,), ValueError),
         ('log10', (0.0,), ValueError), #cpython does it this way
         ]
