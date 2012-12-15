@@ -304,7 +304,7 @@ def descr___round__(space, w_float, w_ndigits=None):
         return space.wrap(0.0 * x)
 
     # finite x, and ndigits is not unreasonably large
-    z = rfloat.round_double(x, ndigits)
+    z = rfloat.round_double(x, ndigits, half_even=True)
     if rfloat.isinf(z):
         raise OperationError(space.w_OverflowError,
                              space.wrap("overflow occurred during round"))

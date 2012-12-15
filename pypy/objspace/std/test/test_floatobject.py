@@ -188,6 +188,7 @@ class AppTestAppFloatTest:
         assert round(123.456, -700) == 0.0
         assert round(123.456, -2**100) == 0.0
         assert math.copysign(1., round(-123.456, -700)) == -1.
+        assert round(2.5, 0) == 2.0
 
     def test_special_float_method(self):
         class a(object):
