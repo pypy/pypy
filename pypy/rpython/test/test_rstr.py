@@ -138,6 +138,15 @@ class AbstractTestRstr(BaseRtypingTest):
             res = self.interpret(fn, [ch])
             assert res == fn(ch)
 
+    def test_str_isalpha(self):
+        const = self.const
+
+        def fn(i):
+            consts = [const(''), const('anc'), const('abc123')]
+            return consts[i].isalpha()
+        for i in xrange(3):
+            assert self.interpret(fn, [i]) == fn(i)
+
     def test_char_compare(self):
         const = self.const
         res = self.interpret(lambda c1, c2: c1 == c2,  [const('a'),

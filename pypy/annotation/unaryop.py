@@ -526,7 +526,11 @@ class __extend__(SomeUnicodeString):
         return SomeString()
     method_encode.can_only_throw = [UnicodeEncodeError]
 
+
 class __extend__(SomeString):
+    def method_isalpha(chr):
+        return s_Bool
+
     def method_upper(str):
         return SomeString()
 

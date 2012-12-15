@@ -249,6 +249,12 @@ class __extend__(AbstractStringRepr):
         hop.exception_cannot_occur()
         return hop.gendirectcall(self.ll.ll_lower, v_str)
 
+    def rtype_method_isalpha(self, hop):
+        string_repr = hop.args_r[0].repr
+        [v_str] = hop.inputargs(string_repr)
+        hop.exception_cannot_occur()
+        return hop.gendirectcall(self.ll.ll_isalpha, v_str)
+
     def _list_length_items(self, hop, v_lst, LIST):
         """Return two Variables containing the length and items of a
         list. Need to be overriden because it is typesystem-specific."""
@@ -745,6 +751,17 @@ class AbstractLLHelpers:
     def ll_char_isdigit(ch):
         c = ord(ch)
         return c <= 57 and c >= 48
+
+    def ll_isalpha(s):
+        from pypy.rpython.annlowlevel import hlstr
+
+        s = hlstr(s)
+        if not s:
+            return False
+        for ch in s:
+            if not ch.isalpha():
+                return False
+        return True
 
     def ll_char_isalpha(ch):
         c = ord(ch)
