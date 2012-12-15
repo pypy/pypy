@@ -374,6 +374,15 @@ class BaseTestRfloat(BaseRtypingTest):
         almost_equal(round_double(0.5e22, -22), 1e22)
         almost_equal(round_double(1.5e22, -22), 2e22)
 
+    def test_round_half_even(self):
+        from pypy.rlib import rfloat
+        for func in (rfloat.round_double_short_repr,
+                     rfloat.round_double_fallback_repr):
+            # 2.x behavior
+            assert func(2.5, 0, False) == 3.0
+            # 3.x behavior
+            assert func(2.5, 0, True) == 2.0
+
 
 class TestLLtype(BaseTestRfloat, LLRtypeMixin):
 
