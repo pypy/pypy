@@ -66,10 +66,12 @@ class AppTestBZ2File: #(CheckAllocation):
             str(py.test.ensuretemp("bz2").join("foo")))
         if cls.runappdirect:
             cls.w_create_temp_file = create_temp_file
+            cls.w_create_broken_temp_file = lambda self: create_broken_temp_file()
+            cls.w_decompress = lambda self, *args: decompress(cls.space, *args)
         else:
             cls.w_create_temp_file = cls.space.wrap(interp2app(create_temp_file))
-        cls.w_decompress = cls.space.wrap(interp2app(decompress))
-        cls.w_create_broken_temp_file = cls.space.wrap(interp2app(create_broken_temp_file))
+            cls.w_create_broken_temp_file = cls.space.wrap(interp2app(create_broken_temp_file))
+            cls.w_decompress = cls.space.wrap(interp2app(decompress))
         cls.w_random_data = cls.space.wrap(RANDOM_DATA)
 
     def test_attributes(self):

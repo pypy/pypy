@@ -17,7 +17,8 @@ class AppTestMath:
             if type(expected) is type and issubclass(expected, Exception):
                 expected = getattr(space, "w_%s" % expected.__name__)
             elif callable(expected):
-                expected = cls.make_callable_wrapper(expected)
+                if not cls.runappdirect:
+                    expected = cls.make_callable_wrapper(expected)
             else:
                 expected = space.wrap(expected)
             cases.append(space.newtuple([space.wrap(a), space.wrap(b), expected]))

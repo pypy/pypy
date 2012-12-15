@@ -1,5 +1,7 @@
 import py
 from pypy.rlib.objectmodel import *
+from pypy.rlib import types
+from pypy.annotation import model
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 from pypy.rpython.test.test_llinterp import interpret
@@ -485,6 +487,7 @@ def test_enforceargs_translates():
     graph = getgraph(f, [int, int])
     TYPES = [v.concretetype for v in graph.getargs()]
     assert TYPES == [lltype.Signed, lltype.Float]
+
 
 def getgraph(f, argtypes):
     from pypy.translator.translator import TranslationContext, graphof

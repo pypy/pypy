@@ -1272,6 +1272,10 @@ def test_enum_type():
     # 'elements' is not the real dict, but merely a copy
     BEnum.elements[2] = '??'
     assert BEnum.elements == {-20: 'ab', 0: 'def', 1: 'c'}
+    #
+    BEnum = new_enum_type("bar", ('ab', 'cd'), (5, 5))
+    assert BEnum.elements == {5: 'ab'}
+    assert BEnum.relements == {'ab': 5, 'cd': 5}
 
 def test_cast_to_enum():
     BEnum = new_enum_type("foo", ('def', 'c', 'ab'), (0, 1, -20))
