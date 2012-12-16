@@ -16,6 +16,15 @@ class WriteAnalyzer(graphanalyze.GraphAnalyzer):
         return result1.union(result2)
 
     @staticmethod
+    def join_results(results):
+        result = set()
+        for res in results:
+            if res is top_set:
+                return top_set
+            result |= res
+        return frozenset(result)
+
+    @staticmethod
     def bottom_result():
         return empty_set
 
