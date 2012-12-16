@@ -12,10 +12,6 @@ class GraphAnalyzer(object):
     # method overridden by subclasses
 
     @staticmethod
-    def join_two_results(result1, result2):
-        raise NotImplementedError("abstract base class")
-
-    @staticmethod
     def bottom_result():
         raise NotImplementedError("abstract base class")
 
@@ -27,6 +23,22 @@ class GraphAnalyzer(object):
     def is_top_result(result):
         # only an optimization, safe to always return False
         return False
+
+    @staticmethod
+    def result_builder():
+        raise NotImplementedError("abstract base class")
+
+    @staticmethod
+    def add_to_result(result, other):
+        raise NotImplementedError("abstract base class")
+
+    @staticmethod
+    def finalize_builder(result):
+        raise NotImplementedError("abstract base class")
+
+    @staticmethod
+    def join_two_results(result1, result2):
+        raise NotImplementedError("abstract base class")
 
     def analyze_simple_operation(self, op, graphinfo=None):
         raise NotImplementedError("abstract base class")
@@ -58,12 +70,6 @@ class GraphAnalyzer(object):
         return self.bottom_result()
 
     # general methods
-
-    def join_results(self, results):
-        result = self.bottom_result()
-        for sub in results:
-            result = self.join_two_results(result, sub)
-        return result
 
     def compute_graph_info(self, graph):
         return None
@@ -108,31 +114,51 @@ class GraphAnalyzer(object):
             seen = DependencyTracker(self)
         if not seen.enter(graph):
             return seen.get_cached_result(graph)
-        result = self.bottom_result()
+        result = self.result_builder()
         graphinfo = self.compute_graph_info(graph)
         for block in graph.iterblocks():
             if block is graph.startblock:
-                result = self.join_two_results(
-                        result, self.analyze_startblock(block, seen))
+                result = self.add_to_result(
+                    result,
+                    self.analyze_startblock(block, seen)
+                )
             elif block is graph.exceptblock:
-                result = self.join_two_results(
-                        result, self.analyze_exceptblock(block, seen))
-            for op in block.operations:
-                result = self.join_two_results(
-                        result, self.analyze(op, seen, graphinfo))
-            for exit in block.exits:
-                result = self.join_two_results(
-                        result, self.analyze_link(exit, seen))
+                result = self.add_to_result(
+                    result,
+                    self.analyze_exceptblock(block, seen)
+                )
+            if not self.is_top_result(result):
+                for op in block.operations:
+                    result = self.add_to_result(
+                        result,
+                        self.analyze(op, seen, graphinfo)
+                    )
+                    if self.is_top_result(result):
+                        break
+            if not self.is_top_result(result):
+                for exit in block.exits:
+                    result = self.add_to_result(
+                        result,
+                        self.analyze_link(exit, seen)
+                    )
+                    if self.is_top_result(result):
+                        break
             if self.is_top_result(result):
                 break
+        result = self.finalize_builder(result)
         seen.leave_with(result)
         return result
 
     def analyze_indirect_call(self, graphs, seen=None):
-        results = []
+        result = self.result_builder()
         for graph in graphs:
-            results.append(self.analyze_direct_call(graph, seen))
-        return self.join_results(results)
+            result = self.add_to_result(
+                result,
+                self.analyze_direct_call(graph, seen)
+            )
+            if self.is_top_result(result):
+                break
+        return self.finalize_builder(result)
 
     def analyze_oosend(self, TYPE, name, seen=None):
         graphs = TYPE._lookup_graphs(name)
@@ -210,18 +236,23 @@ class BoolGraphAnalyzer(GraphAnalyzer):
     """generic way to analyze graphs: recursively follow it until the first
     operation is found on which self.analyze_simple_operation returns True"""
 
-    @staticmethod
-    def join_two_results(result1, result2):
-        return result1 or result2
-
-    @staticmethod
-    def is_top_result(result):
-        return result
-
-    @staticmethod
-    def bottom_result():
+    def bottom_result(self):
         return False
 
-    @staticmethod
-    def top_result():
+    def top_result(self):
         return True
+
+    def is_top_result(self, result):
+        return result
+
+    def result_builder(self):
+        return False
+
+    def add_to_result(self, result, other):
+        return self.join_two_results(result, other)
+
+    def finalize_builder(self, result):
+        return result
+
+    def join_two_results(self, result1, result2):
+        return result1 or result2
