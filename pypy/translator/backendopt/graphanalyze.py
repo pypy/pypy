@@ -1,13 +1,14 @@
 from pypy.translator.simplify import get_graph, get_funcobj
 from pypy.rpython.lltypesystem.lloperation import llop, LL_OPERATIONS
 from pypy.rpython.lltypesystem import lltype
+from pypy.tool.algo.unionfind import UnionFind
 
 class GraphAnalyzer(object):
     verbose = False
 
     def __init__(self, translator):
         self.translator = translator
-        self._analyzed_calls = {}
+        self._analyzed_calls = UnionFind(lambda graph: Dependency(self))
 
     # method overridden by subclasses
 
@@ -146,75 +147,64 @@ class GraphAnalyzer(object):
                 self.analyze(op)
 
 
+class Dependency(object):
+    def __init__(self, analyzer):
+        self._analyzer = analyzer
+        self._result = analyzer.bottom_result()
+
+    def merge_with_result(self, result):
+        self._result = self._analyzer.join_two_results(self._result, result)
+
+    def absorb(self, other):
+        self.merge_with_result(other._result)
+
+
 class DependencyTracker(object):
     """This tracks the analysis of cyclic call graphs."""
 
-    # The point is that one analyzer works fine if the question we ask
-    # it is about a single graph, but in the case of recursion, it will
-    # fail if we ask it about multiple graphs.  The purpose of this
+    # The point is that GraphAnalyzer works fine if the question we ask
+    # is about a single graph; but in the case of recursion, it will
+    # fail if we ask about multiple graphs.  The purpose of this
     # class is to fix the cache in GraphAnalyzer._analyzed_calls after
     # each round, whenever a new set of graphs have been added to it.
-    # It works by assuming that we can simply use 'join_two_results'
-    # in order to do so.
+    # It works by assuming that the following is correct: for any set of
+    # graphs that can all (indirectly) call each other, all these graphs
+    # will get the same answer that is the 'join_two_results' of all of
+    # them.
 
     def __init__(self, analyzer):
         self.analyzer = analyzer
-        # mapping {graph: result} (shared with GraphAnalyzer._analyzed_calls)
+        # the UnionFind object, which works like a mapping {graph: Dependency}
+        # (shared with GraphAnalyzer._analyzed_calls)
         self.graph_results = analyzer._analyzed_calls
-        # mapping {graph: set_of_graphs_that_depend_on_it}
-        self.backward_dependencies = {}
         # the current stack of graphs being analyzed
         self.current_stack = []
-        # the set of graphs at which recursion occurs
-        self.recursion_points = set()
+        self.current_stack_set = set()
 
     def enter(self, graph):
-        if self.current_stack:
-            caller_graph = self.current_stack[-1]
-            # record a dependency between the old graph and the new one,
-            # i.e. going backward: FROM the new graph...
-            deps = self.backward_dependencies.setdefault(graph, set())
-            deps.add(caller_graph)                  # ... TO the caller one.
-        #
         if graph not in self.graph_results:
             self.current_stack.append(graph)
-            self.graph_results[graph] = Ellipsis
+            self.current_stack_set.add(graph)
+            self.graph_results.find(graph)
             return True
         else:
-            self.recursion_points.add(graph)
+            if graph in self.current_stack_set:
+                # found a cycle; merge all graphs in that cycle
+                i = len(self.current_stack) - 1
+                while self.current_stack[i] is not graph:
+                    self.graph_results.union(self.current_stack[i], graph)
+                    i -= 1
             return False
 
     def leave_with(self, result):
         graph = self.current_stack.pop()
-        assert self.graph_results[graph] is Ellipsis
-        self.graph_results[graph] = result
-        #
-        if not self.current_stack:
-            self._propagate_backward_recursion()
+        self.current_stack_set.remove(graph)
+        dep = self.graph_results[graph]
+        dep.merge_with_result(result)
 
     def get_cached_result(self, graph):
-        result = self.graph_results[graph]
-        if result is Ellipsis:
-            return self.analyzer.bottom_result()
-        return result
-
-    def _propagate_backward_recursion(self):
-        # called at the end of the analysis.  We need to back-propagate
-        # the results to all graphs, starting from the graphs in
-        # 'recursion_points', if any.
-        recpts = self.recursion_points
-        bwdeps = self.backward_dependencies
-        grpres = self.graph_results
-        join_two_res = self.analyzer.join_two_results
-        while recpts:
-            callee_graph = recpts.pop()
-            result = grpres[callee_graph]
-            for caller_graph in bwdeps.get(callee_graph, ()):
-                oldvalue1 = grpres[caller_graph]
-                result1 = join_two_res(result, oldvalue1)
-                if result1 != oldvalue1:
-                    grpres[caller_graph] = result1
-                    recpts.add(caller_graph)
+        dep = self.graph_results[graph]
+        return dep._result
 
 
 class BoolGraphAnalyzer(GraphAnalyzer):
