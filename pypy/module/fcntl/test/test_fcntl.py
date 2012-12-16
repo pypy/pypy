@@ -100,22 +100,43 @@ class AppTestFcntl:
 
     def test_flock(self):
         import fcntl
-        import sys
+        import os
+        import errno
 
         f = open(self.tmp + "c", "w+")
 
         raises(TypeError, fcntl.flock, "foo")
         raises(TypeError, fcntl.flock, f, "foo")
-        fcntl.flock(f, fcntl.LOCK_SH)
-        # this is an error EWOULDBLOCK, man: The file is locked and the
-        # LOCK_NB flag was selected.
-        raises(IOError, fcntl.flock, f, fcntl.LOCK_NB)
+
+        fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+        pid = os.fork()
+        if pid == 0:
+            rval = 2
+            try:
+                fcntl.flock(open(f.name, f.mode), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except IOError, e:
+                if e.errno not in (errno.EACCES, errno.EAGAIN):
+                    raise
+                rval = 0
+            else:
+                rval = 1
+            finally:
+                os._exit(rval)
+
+        assert pid > 0
+        (pid, status) = os.waitpid(pid, 0)
+        assert os.WIFEXITED(status) == True
+        assert os.WEXITSTATUS(status) == 0
+
         fcntl.flock(f, fcntl.LOCK_UN)
 
         f.close()
 
     def test_lockf(self):
         import fcntl
+        import os
+        import errno
 
         f = open(self.tmp + "d", "w+")
 
@@ -124,7 +145,27 @@ class AppTestFcntl:
         raises(ValueError, fcntl.lockf, f, -256)
         raises(ValueError, fcntl.lockf, f, 256)
 
-        fcntl.lockf(f, fcntl.LOCK_SH)
+        fcntl.lockf(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+        pid = os.fork()
+        if pid == 0:
+            rval = 2
+            try:
+                fcntl.lockf(open(f.name, f.mode), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except IOError, e:
+                if e.errno not in (errno.EACCES, errno.EAGAIN):
+                    raise
+                rval = 0
+            else:
+                rval = 1
+            finally:
+                os._exit(rval)
+
+        assert pid > 0
+        (pid, status) = os.waitpid(pid, 0)
+        assert os.WIFEXITED(status) == True
+        assert os.WEXITSTATUS(status) == 0
+
         fcntl.lockf(f, fcntl.LOCK_UN)
 
         f.close()
@@ -132,11 +173,10 @@ class AppTestFcntl:
     def test_ioctl(self):
         import fcntl
         import array
-        import sys, os
+        import os
 
         try:
             from termios import TIOCGPGRP
-            import pty
         except ImportError:
             skip("don't know how to test ioctl() on this platform")
 
@@ -145,10 +185,10 @@ class AppTestFcntl:
         #raises(TypeError, fcntl.ioctl, 0, TIOCGPGRP, float(0))
         raises(TypeError, fcntl.ioctl, 0, TIOCGPGRP, 1, "foo")
 
-        child_pid, mfd = pty.fork()
-        if child_pid == 0:
-            # We're the child
-            return
+        try:
+            mfd = open("/dev/tty", 'r')
+        except IOError:
+            skip("couldn't open /dev/tty")
         try:
             buf = array.array('i', [0])
             res = fcntl.ioctl(mfd, TIOCGPGRP, buf, True)
@@ -169,7 +209,7 @@ class AppTestFcntl:
             res = fcntl.ioctl(mfd, TIOCGPGRP, "\x00\x00\x00\x00")
             assert res == expected
         finally:
-            os.close(mfd)
+            mfd.close()
 
     def test_ioctl_int(self):
         import os
@@ -177,21 +217,17 @@ class AppTestFcntl:
 
         try:
             from termios import TCFLSH, TCIOFLUSH
-            import pty
         except ImportError:
             skip("don't know how to test ioctl() on this platform")
 
-        mfd, sfd = pty.openpty()
+        try:
+            mfd = open("/dev/tty", 'r')
+        except IOError:
+            skip("couldn't open /dev/tty")
         try:
             assert fcntl.ioctl(mfd, TCFLSH, TCIOFLUSH) == 0
         finally:
-            os.close(mfd)
-            os.close(sfd)
-
-    def test_lockf_with_ex(self):
-        import fcntl
-        f = open(self.tmp, "w")
-        fcntl.lockf(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            mfd.close()
 
     def test_large_flag(self):
         import sys
