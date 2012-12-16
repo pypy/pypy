@@ -1,4 +1,4 @@
-from pypy.objspace.flow.model import Variable, mkentrymap, Block
+from pypy.objspace.flow.model import Variable, mkentrymap
 from pypy.tool.algo.unionfind import UnionFind
 
 class DataFlowFamilyBuilder:
