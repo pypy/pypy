@@ -1,7 +1,6 @@
 from pypy.translator.simplify import get_graph, get_funcobj
-from pypy.rpython.lltypesystem.lloperation import llop, LL_OPERATIONS
-from pypy.rpython.lltypesystem import lltype
 from pypy.tool.algo.unionfind import UnionFind
+
 
 class GraphAnalyzer(object):
     verbose = False
@@ -226,4 +225,3 @@ class BoolGraphAnalyzer(GraphAnalyzer):
     @staticmethod
     def top_result():
         return True
-
