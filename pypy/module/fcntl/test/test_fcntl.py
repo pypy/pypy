@@ -11,7 +11,7 @@ def teardown_module(mod):
             os.unlink(i)
 
 class AppTestFcntl:
-    spaceconfig = dict(usemodules=('fcntl', 'array', 'struct', 'termios', 'select'))
+    spaceconfig = dict(usemodules=('fcntl', 'array', 'struct', 'termios', 'select', 'time'))
     def setup_class(cls):
         tmpprefix = str(udir.ensure('test_fcntl', dir=1).join('tmp_'))
         cls.w_tmp = cls.space.wrap(tmpprefix)
@@ -175,6 +175,7 @@ class AppTestFcntl:
         import array
         import os
         import pty
+        import time
 
         try:
             from termios import TIOCGPGRP
@@ -186,7 +187,11 @@ class AppTestFcntl:
         #raises(TypeError, fcntl.ioctl, 0, TIOCGPGRP, float(0))
         raises(TypeError, fcntl.ioctl, 0, TIOCGPGRP, 1, "foo")
 
-        mfd, sfd = pty.openpty()
+        child_pid, mfd = pty.fork()
+        if child_pid == 0:
+            # We're the child
+            time.sleep(1)
+            return
         try:
             buf = array.array('i', [0])
             res = fcntl.ioctl(mfd, TIOCGPGRP, buf, True)
@@ -208,7 +213,6 @@ class AppTestFcntl:
             assert res == expected
         finally:
             os.close(mfd)
-            os.close(sfd)
 
     def test_ioctl_int(self):
         import os
