@@ -3,7 +3,7 @@ from pypy.rlib.jit import JitDriver, promote, dont_look_inside
 from pypy.rlib.objectmodel import compute_unique_id
 from pypy.jit.codewriter.policy import StopAtXPolicy
 from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
-from pypy.rpython.lltypesystem import lltype, rclass
+from pypy.rpython.lltypesystem import lltype, rclass, rffi
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.ootypesystem import ootype
 from pypy.jit.codewriter import heaptracker
@@ -1195,8 +1195,6 @@ NODE = lltype.GcStruct('NODE', ('value', lltype.Signed),
                                ('floatval', lltype.Float),
                                ('extra', lltype.Signed))
 
-RAW_NODE = lltype.Struct('NODE', ('value', lltype.Signed))
-
 class TestLLtype_NotObject(VirtualTests, LLJitMixin):
     _new_op = 'new'
     _field_prefix = ''
@@ -1212,18 +1210,17 @@ class TestLLtype_NotObject(VirtualTests, LLJitMixin):
             res = 0
             while i < n:
                 mydriver.jit_merge_point()
-                node = lltype.malloc(RAW_NODE, flavor='raw')
-                node.value = i
-                node.value += 1
-                res += node.value
-                i = node.value
-                lltype.free(node, flavor='raw')
+                buffer = lltype.malloc(rffi.CCHARP.TO, 1, flavor='raw')
+                buffer[0] = chr(i+1)
+                res += ord(buffer[0])
+                i = ord(buffer[0])
+                lltype.free(buffer, flavor='raw')
             return res
         assert f(10) == 55
         res = self.meta_interp(f, [10])
         assert res == 55
         self.check_trace_count(1)
-        self.check_resops(setfield_raw=0, getfield_raw=0)
+        self.check_resops(setarrayitem_raw=0, getarrayitem_raw=0)
 
 
 
