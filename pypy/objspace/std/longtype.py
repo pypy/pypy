@@ -29,10 +29,7 @@ def descr__new__(space, w_longtype, w_x, w_base=None):
         elif space.isinstance_w(w_value, space.w_str):
             return string_to_w_long(space, w_longtype, space.str_w(w_value))
         elif space.isinstance_w(w_value, space.w_unicode):
-            if space.config.objspace.std.withropeunicode:
-                from pypy.objspace.std.ropeunicodeobject import unicode_to_decimal_w
-            else:
-                from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
+            from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
             return string_to_w_long(space, w_longtype,
                                     unicode_to_decimal_w(space, w_value))
         else:
@@ -54,10 +51,7 @@ def descr__new__(space, w_longtype, w_x, w_base=None):
         base = space.int_w(w_base)
 
         if space.isinstance_w(w_value, space.w_unicode):
-            if space.config.objspace.std.withropeunicode:
-                from pypy.objspace.std.ropeunicodeobject import unicode_to_decimal_w
-            else:
-                from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
+            from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
             s = unicode_to_decimal_w(space, w_value)
         else:
             try:

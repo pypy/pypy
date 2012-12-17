@@ -388,6 +388,17 @@ def test_os_chmod():
     os.chmod(tmpfile2, 0644)
     assert os.stat(tmpfile).st_mode & 0777 == os.stat(tmpfile2).st_mode & 0777
 
+if hasattr(os, 'fchmod'):
+    def test_os_fchmod():
+        tmpfile1 = str(udir.join('test_os_fchmod.txt'))
+        def does_stuff():
+            fd = os.open(tmpfile1, os.O_WRONLY | os.O_CREAT, 0777)
+            os.fchmod(fd, 0200)
+            os.close(fd)
+        f1 = compile(does_stuff, [])
+        f1()
+        assert os.stat(tmpfile1).st_mode & 0777 == 0200
+
 def test_os_rename():
     tmpfile1 = str(udir.join('test_os_rename_1.txt'))
     tmpfile2 = str(udir.join('test_os_rename_2.txt'))
@@ -588,6 +599,18 @@ if hasattr(os, 'chown') and hasattr(os, 'lchown'):
                 pass
             else:
                 raise AssertionError("os.chown(broken symlink) should raise")
+        f1 = compile(does_stuff, [])
+        f1()
+
+if hasattr(os, 'fchown'):
+    def test_os_fchown():
+        path1 = udir.join('test_os_fchown.txt')
+        tmpfile1 = str(path1)
+        def does_stuff():
+            # xxx not really a test, just checks that it is callable
+            fd = os.open(tmpfile1, os.O_WRONLY | os.O_CREAT, 0777)
+            os.fchown(fd, os.getuid(), os.getgid())
+            os.close(fd)
         f1 = compile(does_stuff, [])
         f1()
 

@@ -476,15 +476,13 @@ class AbstractUnwrappedSetStrategy(object):
         return True
 
     def _difference_wrapped(self, w_set, w_other):
-        strategy = self.space.fromcache(ObjectSetStrategy)
-
-        d_new = strategy.get_empty_dict()
-        for obj in self.unerase(w_set.sstorage):
-            w_item = self.wrap(obj)
+        iterator = self.unerase(w_set.sstorage).iterkeys()
+        result_dict = self.get_empty_dict()
+        for key in iterator:
+            w_item = self.wrap(key)
             if not w_other.has_key(w_item):
-                d_new[w_item] = None
-
-        return strategy.erase(d_new)
+                result_dict[key] = None
+        return self.erase(result_dict)
 
     def _difference_unwrapped(self, w_set, w_other):
         iterator = self.unerase(w_set.sstorage).iterkeys()
@@ -497,26 +495,50 @@ class AbstractUnwrappedSetStrategy(object):
 
     def _difference_base(self, w_set, w_other):
         if self is w_other.strategy:
-            strategy = w_set.strategy
             storage = self._difference_unwrapped(w_set, w_other)
         elif not w_set.strategy.may_contain_equal_elements(w_other.strategy):
-            strategy = w_set.strategy
             d = self.unerase(w_set.sstorage)
             storage = self.erase(d.copy())
         else:
-            strategy = self.space.fromcache(ObjectSetStrategy)
             storage = self._difference_wrapped(w_set, w_other)
-        return storage, strategy
+        return storage
 
     def difference(self, w_set, w_other):
-        storage, strategy = self._difference_base(w_set, w_other)
-        w_newset = w_set.from_storage_and_strategy(storage, strategy)
+        storage = self._difference_base(w_set, w_other)
+        w_newset = w_set.from_storage_and_strategy(storage, w_set.strategy)
         return w_newset
 
+    def _difference_update_unwrapped(self, w_set, w_other):
+        my_dict = self.unerase(w_set.sstorage)
+        if w_set.sstorage is w_other.sstorage:
+            my_dict.clear()
+            return
+        iterator = self.unerase(w_other.sstorage).iterkeys()
+        for key in iterator:
+            try:
+                del my_dict[key]
+            except KeyError:
+                pass
+
+    def _difference_update_wrapped(self, w_set, w_other):
+        w_iterator = w_other.iter()
+        while True:
+            w_item = w_iterator.next_entry()
+            if w_item is None:
+                break
+            w_set.remove(w_item)
+
     def difference_update(self, w_set, w_other):
-        storage, strategy = self._difference_base(w_set, w_other)
-        w_set.strategy = strategy
-        w_set.sstorage = storage
+        if self.length(w_set) < w_other.strategy.length(w_other):
+            # small_set -= big_set: compute the difference as a new set
+            storage = self._difference_base(w_set, w_other)
+            w_set.sstorage = storage
+        else:
+            # big_set -= small_set: be more subtle
+            if self is w_other.strategy:
+                self._difference_update_unwrapped(w_set, w_other)
+            elif w_set.strategy.may_contain_equal_elements(w_other.strategy):
+                self._difference_update_wrapped(w_set, w_other)
 
     def _symmetric_difference_unwrapped(self, w_set, w_other):
         d_new = self.get_empty_dict()

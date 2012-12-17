@@ -18,7 +18,7 @@ def storesink_graph(graph):
                 del cache[k]
 
     added_some_same_as = False
-    
+
     for block in graph.iterblocks():
         newops = []
         cache = {}

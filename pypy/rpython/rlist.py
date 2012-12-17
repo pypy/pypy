@@ -461,7 +461,6 @@ class AbstractListIteratorRepr(IteratorRepr):
         return self.r_list.recast(hop.llops, v_res)
 
 
-
 # ____________________________________________________________
 #
 #  Low-level methods.  These can be run for testing, but are meant to
@@ -481,6 +480,8 @@ class AbstractListIteratorRepr(IteratorRepr):
 #  done with it.  So in the sequel we don't bother checking for overflow
 #  when we compute "ll_length() + 1".
 
+@jit.look_inside_iff(lambda LIST, count, item: jit.isconstant(count) and count < 15)
+@jit.oopspec("newlist(count, item)")
 def ll_alloc_and_set(LIST, count, item):
     if count < 0:
         count = 0
@@ -492,14 +493,14 @@ def ll_alloc_and_set(LIST, count, item):
         check = widen(item)
     else:
         check = item
-    if (not malloc_zero_filled) or check: # as long as malloc it is known to zero the allocated memory avoid zeroing twice
-
+    # as long as malloc is known to zero the allocated memory avoid zeroing
+    # twice
+    if (not malloc_zero_filled) or check:
         i = 0
         while i < count:
             l.ll_setitem_fast(i, item)
             i += 1
     return l
-ll_alloc_and_set.oopspec = 'newlist(count, item)'
 
 
 # return a nullptr() if lst is a list of pointers it, else None.  Note

@@ -27,6 +27,7 @@ generic element in some specific subset of the set of all objects.
 #    \_____________________________________________________/
 #
 
+from __future__ import absolute_import
 
 from types import BuiltinFunctionType, MethodType, FunctionType
 import pypy

@@ -7,7 +7,7 @@ from pypy.tool.runsubprocess import run_subprocess as _run_subprocess
 from pypy.tool.udir import udir
 
 log = py.log.Producer("platform")
-py.log.setconsumer("platform", ansi_log)
+
 
 class CompilationError(Exception):
     def __init__(self, out, err):

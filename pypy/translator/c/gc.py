@@ -231,7 +231,9 @@ class BoehmGcPolicy(BasicGcPolicy):
 
         eci = eci.merge(ExternalCompilationInfo(
             pre_include_bits=pre_include_bits,
-            post_include_bits=['#define USING_BOEHM_GC'],
+            # The following define is required by the thread module,
+            # See module/thread/test/test_ll_thread.py
+            compile_extra=['-DPYPY_USING_BOEHM_GC'],
             ))
 
         return eci
@@ -305,7 +307,7 @@ class NoneGcPolicy(BoehmGcPolicy):
     def compilation_info(self):
         eci = BasicGcPolicy.compilation_info(self)
         eci = eci.merge(ExternalCompilationInfo(
-            pre_include_bits=['#define USING_NO_GC_AT_ALL'],
+            pre_include_bits=['#define PYPY_USING_NO_GC_AT_ALL'],
             ))
         return eci
 

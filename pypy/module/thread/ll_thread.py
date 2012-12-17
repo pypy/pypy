@@ -12,10 +12,13 @@ from pypy.tool import autopath
 class error(Exception):
     pass
 
+pypydir = py.path.local(autopath.pypydir)
+translator_c_dir = pypydir / 'translator' / 'c'
+
 eci = ExternalCompilationInfo(
     includes = ['src/thread.h'],
-    separate_module_sources = [''],
-    include_dirs = [str(py.path.local(autopath.pypydir).join('translator', 'c'))],
+    separate_module_files = [translator_c_dir / 'src' / 'thread.c'],
+    include_dirs = [translator_c_dir],
     export_symbols = ['RPyThreadGetIdent', 'RPyThreadLockInit',
                       'RPyThreadAcquireLock', 'RPyThreadReleaseLock',
                       'RPyGilAllocate', 'RPyGilYieldThread',

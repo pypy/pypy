@@ -12,6 +12,7 @@ class AbstractARMCPU(AbstractLLCPU):
     supports_floats = True
     supports_longlong = False # XXX requires an implementation of
                               # read_timestamp that works in user mode
+    supports_singlefloats = True
     
     use_hf_abi = False        # use hard float abi flag
 

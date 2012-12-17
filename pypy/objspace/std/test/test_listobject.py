@@ -1268,6 +1268,15 @@ class AppTestW_ListObject(object):
         assert ([5] >  [N]) is False
         assert ([5] >= [N]) is False
 
+    def test_resizelist_hint(self):
+        import __pypy__
+        l2 = []
+        __pypy__.resizelist_hint(l2, 100)
+        l1 = [1, 2, 3]
+        l1[:] = l2
+        assert len(l1) == 0
+
+
 class AppTestForRangeLists(AppTestW_ListObject):
     spaceconfig = {"objspace.std.withrangelist": True}
 

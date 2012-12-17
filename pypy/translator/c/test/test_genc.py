@@ -356,6 +356,19 @@ def test_infinite_float():
     res = f1(3)
     assert res == 1.5
 
+def test_infinite_float_in_array():
+    from pypy.rlib.rfloat import INFINITY, NAN, isnan
+    lst = [INFINITY, -INFINITY, NAN]
+    def fn(i):
+        return lst[i]
+    f1 = compile(fn, [int])
+    res = f1(0)
+    assert res == INFINITY
+    res = f1(1)
+    assert res == -INFINITY
+    res = f1(2)
+    assert isnan(res)
+
 def test_nan_and_special_values():
     from pypy.rlib.rfloat import isnan, isinf, isfinite, copysign
     inf = 1e300 * 1e300
