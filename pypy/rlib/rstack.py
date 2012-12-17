@@ -19,8 +19,13 @@ from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
 # ____________________________________________________________
 
+srcdir = py.path.local(pypydir) / 'translator' / 'c' / 'src'
+compilation_info = ExternalCompilationInfo(
+        includes=['src/stack.h'],
+        separate_module_files=[srcdir / 'stack.c', srcdir / 'threadlocal.c'])
+
 def llexternal(name, args, res, _callable=None):
-    return rffi.llexternal(name, args, res,
+    return rffi.llexternal(name, args, res, compilation_info=compilation_info,
                            sandboxsafe=True, _nowrapper=True,
                            _callable=_callable)
 
