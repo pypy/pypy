@@ -1195,6 +1195,8 @@ NODE = lltype.GcStruct('NODE', ('value', lltype.Signed),
                                ('floatval', lltype.Float),
                                ('extra', lltype.Signed))
 
+RAW_NODE = lltype.Struct('NODE', ('value', lltype.Signed))
+
 class TestLLtype_NotObject(VirtualTests, LLJitMixin):
     _new_op = 'new'
     _field_prefix = ''
@@ -1202,6 +1204,28 @@ class TestLLtype_NotObject(VirtualTests, LLJitMixin):
     @staticmethod
     def _new():
         return lltype.malloc(NODE)
+
+    def test_raw_malloc(self):
+        mydriver = JitDriver(greens=[], reds = 'auto')
+        def f(n):
+            i = 0
+            res = 0
+            while i < n:
+                mydriver.jit_merge_point()
+                node = lltype.malloc(RAW_NODE, flavor='raw')
+                node.value = i
+                node.value += 1
+                res += node.value
+                i = node.value
+                lltype.free(node, flavor='raw')
+            return res
+        assert f(10) == 55
+        res = self.meta_interp(f, [10])
+        assert res == 55
+        self.check_trace_count(1)
+        self.check_resops(setfield_raw=0, getfield_raw=0)
+
+
 
 
 OONODE = ootype.Instance('NODE', ootype.ROOT, {})
