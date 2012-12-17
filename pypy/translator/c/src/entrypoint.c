@@ -15,6 +15,7 @@
 #include <stdio.h>
 
 #ifdef RPY_STM
+#include <src/debug_print.h>
 #include "src_stm/et.c"
 #endif
 
