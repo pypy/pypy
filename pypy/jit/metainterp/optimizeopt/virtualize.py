@@ -1,4 +1,5 @@
 from pypy.jit.codewriter.heaptracker import vtable2descr
+from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.metainterp.executor import execute
 from pypy.jit.metainterp.history import Const, ConstInt, BoxInt
 from pypy.jit.metainterp.optimizeopt import optimizer
@@ -361,6 +362,24 @@ class VArrayStructValue(AbstractVirtualValue):
         return modifier.make_varraystruct(self.arraydescr, self._get_list_of_descrs())
 
 
+class VirtualRawMemoryValue(AbstractVirtualValue):
+
+    def __init__(self, cpu, size, keybox, source_op):
+        AbstractVirtualValue.__init__(self, keybox, source_op)
+        self.cpu = cpu
+        self.size = size
+        self._raw_items = {}
+
+    def _really_force(self, optforce):
+        import pdb;pdb.set_trace()
+
+    def setitem_raw(self, index, value):
+        self._raw_items[index] = value
+
+    def getitem_raw(self, index):
+        return self._raw_items[index]
+
+
 class OptVirtualize(optimizer.Optimization):
     "Virtualize objects until they escape."
 
@@ -383,6 +402,11 @@ class OptVirtualize(optimizer.Optimization):
 
     def make_vstruct(self, structdescr, box, source_op=None):
         vvalue = VStructValue(self.optimizer.cpu, structdescr, box, source_op)
+        self.make_equal_to(box, vvalue)
+        return vvalue
+
+    def make_virtual_raw_memory(self, size, box, source_op):
+        vvalue = VirtualRawMemoryValue(self.optimizer.cpu, size, box, source_op)
         self.make_equal_to(box, vvalue)
         return vvalue
 
@@ -490,6 +514,29 @@ class OptVirtualize(optimizer.Optimization):
             self.getvalue(op.result).ensure_nonnull()
             self.emit_operation(op)
 
+    def optimize_CALL(self, op):
+        effectinfo = op.getdescr().get_extra_info()
+        if effectinfo.oopspecindex == EffectInfo.OS_RAW_MALLOC_VARSIZE:
+            self.do_RAW_MALLOC_VARSIZE(op)
+        elif effectinfo.oopspecindex == EffectInfo.OS_RAW_FREE:
+            self.do_RAW_FREE(op)
+        else:
+            self.emit_operation(op)
+
+    def do_RAW_MALLOC_VARSIZE(self, op):
+        sizebox = op.getarg(1)
+        if not isinstance(sizebox, ConstInt):
+            self.emit_operation(op)
+            return
+        size = sizebox.value
+        self.make_virtual_raw_memory(size, op.result, op)
+
+    def do_RAW_FREE(self, op):
+        value = self.getvalue(op.getarg(1))
+        if value.is_virtual():
+            return
+        self.emit_operation(op)
+
     def optimize_ARRAYLEN_GC(self, op):
         value = self.getvalue(op.getarg(0))
         if value.is_virtual():
@@ -520,6 +567,29 @@ class OptVirtualize(optimizer.Optimization):
             indexbox = self.get_constant_box(op.getarg(1))
             if indexbox is not None:
                 value.setitem(indexbox.getint(), self.getvalue(op.getarg(2)))
+                return
+        value.ensure_nonnull()
+        self.emit_operation(op)
+
+    def optimize_GETARRAYITEM_RAW(self, op):
+        value = self.getvalue(op.getarg(0))
+        if value.is_virtual():
+            indexbox = self.get_constant_box(op.getarg(1))
+            if indexbox is not None:
+                itemvalue = value.getitem_raw(indexbox.getint())
+                self.make_equal_to(op.result, itemvalue)
+                return
+        value.ensure_nonnull()
+        self.emit_operation(op)
+
+    def optimize_SETARRAYITEM_RAW(self, op):
+        value = self.getvalue(op.getarg(0))
+        if value.is_virtual():
+            indexbox = self.get_constant_box(op.getarg(1))
+            if indexbox is not None:
+                # XXX: we should check that the descr is always the same, or
+                # we might get wrong results
+                value.setitem_raw(indexbox.getint(), self.getvalue(op.getarg(2)))
                 return
         value.ensure_nonnull()
         self.emit_operation(op)

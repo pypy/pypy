@@ -231,6 +231,12 @@ class OptValue(object):
     def setitem(self, index, value):
         raise NotImplementedError
 
+    def getitem_raw(self, index):
+        raise NotImplementedError
+
+    def setitem_raw(self, index, value):
+        raise NotImplementedError
+
     def getinteriorfield(self, index, ofs, default):
         raise NotImplementedError
 

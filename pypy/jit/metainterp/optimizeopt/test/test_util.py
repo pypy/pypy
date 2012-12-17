@@ -196,6 +196,15 @@ class LLtypeMixin(object):
                         EffectInfo.EF_CANNOT_RAISE,
                         oopspecindex=EffectInfo.OS_ARRAYCOPY))
 
+    raw_malloc_descr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+             EffectInfo([], [], [], [],
+                        EffectInfo.EF_CAN_RAISE,
+                        oopspecindex=EffectInfo.OS_RAW_MALLOC_VARSIZE))
+    raw_free_descr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+             EffectInfo([], [], [], [],
+                        EffectInfo.EF_CANNOT_RAISE,
+                        oopspecindex=EffectInfo.OS_RAW_FREE))
+
 
     # array of structs (complex data)
     complexarray = lltype.GcArray(

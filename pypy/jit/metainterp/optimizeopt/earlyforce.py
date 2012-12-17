@@ -1,3 +1,4 @@
+from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.metainterp.optimizeopt.optimizer import Optimization
 from pypy.jit.metainterp.optimizeopt.vstring import VAbstractStringValue
 from pypy.jit.metainterp.resoperation import rop, ResOperation
@@ -5,11 +6,19 @@ from pypy.jit.metainterp.resoperation import rop, ResOperation
 class OptEarlyForce(Optimization):
     def propagate_forward(self, op):
         opnum = op.getopnum()
+        def is_raw_free():
+            if opnum != rop.CALL:
+                return False
+            einfo = op.getdescr().get_extra_info()
+            return einfo.oopspecindex == EffectInfo.OS_RAW_FREE
+
         if (opnum != rop.SETFIELD_GC and 
             opnum != rop.SETARRAYITEM_GC and
+            opnum != rop.SETARRAYITEM_RAW and
             opnum != rop.QUASIIMMUT_FIELD and
             opnum != rop.SAME_AS and
-            opnum != rop.MARK_OPAQUE_PTR):
+            opnum != rop.MARK_OPAQUE_PTR and
+            not is_raw_free()):
                
             for arg in op.getarglist():
                 if arg in self.optimizer.values:

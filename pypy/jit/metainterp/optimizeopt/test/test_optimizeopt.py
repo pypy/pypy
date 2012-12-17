@@ -1742,6 +1742,21 @@ class OptimizeOptTest(BaseTestWithUnroll):
         # We cannot track virtuals that survive for more than two iterations.
         self.optimize_loop(ops, expected, preamble)
 
+    def test_virtual_raw_malloc(self):
+        ops = """
+        [i1]
+        i2 = call('malloc', 10, descr=raw_malloc_descr)
+        setarrayitem_raw(i2, 0, i1, descr=arraydescr)
+        i3 = getarrayitem_raw(i2, 0, descr=arraydescr)
+        call('free', i2, descr=raw_free_descr)
+        jump(i3)
+        """
+        expected = """
+        [i1]
+        jump(i1)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_duplicate_getfield_1(self):
         ops = """
         [p1, p2]
