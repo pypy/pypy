@@ -134,6 +134,7 @@ void boehm_gc_finalizer_notifier(void);
 #ifndef OP_BOEHM_ZERO_MALLOC    /* may be defined already by src_stm/et.h */
 #define OP_BOEHM_ZERO_MALLOC(size, r, restype, is_atomic, is_varsize)	\
     r = (restype) calloc(1, size);
+#endif
 #define OP_BOEHM_DISAPPEARING_LINK(link, obj, r)  /* nothing */
 #define OP_GC__DISABLE_FINALIZERS(r)  /* nothing */
 #define OP_GC__ENABLE_FINALIZERS(r)  /* nothing */
