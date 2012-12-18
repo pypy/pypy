@@ -406,10 +406,7 @@ class VirtualRawMemoryValue(AbstractVirtualValue):
         self.buffer.write_value(offset, length, descr, value)
 
     def getitem_raw(self, offset, length, descr):
-        try:
-            return self.buffer.read_value(offset, length, descr)
-        except InvalidRawOperation:
-            XXX
+        return self.buffer.read_value(offset, length, descr)
 
 
 class OptVirtualize(optimizer.Optimization):
@@ -617,8 +614,13 @@ class OptVirtualize(optimizer.Optimization):
             indexbox = self.get_constant_box(op.getarg(1))
             if indexbox is not None:
                 offset, itemsize, descr = self._unpack_arrayitem_raw_op(op, indexbox)
-                itemvalue = value.getitem_raw(offset, itemsize, descr)
-                self.make_equal_to(op.result, itemvalue)
+                try:
+                    itemvalue = value.getitem_raw(offset, itemsize, descr)
+                    self.make_equal_to(op.result, itemvalue)
+                except InvalidRawOperation:
+                    box = value.force_box(self)
+                    op.setarg(0, box)
+                    self.emit_operation(op)
                 return
         value.ensure_nonnull()
         self.emit_operation(op)
