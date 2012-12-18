@@ -208,8 +208,6 @@ class PyPyConsole(code.InteractiveConsole):
             self.space.settrace()
 
     def checktrace(self):
-        from pypy.objspace import trace
-
         s = self.space
 
         # Did we modify __pytrace__
@@ -221,7 +219,6 @@ class PyPyConsole(code.InteractiveConsole):
             print "Tracing disabled"
 
         if self.tracelevel == 0 and tracelevel > 0:
-            trace.create_trace_space(s)
             self.space.unsettrace()
             print "Tracing enabled"
 
@@ -230,4 +227,3 @@ class PyPyConsole(code.InteractiveConsole):
 
 class IncompleteInput(Exception):
     pass
-

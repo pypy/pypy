@@ -188,7 +188,7 @@ class W_CType(Wrappable):
         if attrchar == 'c':     # cname
             return space.wrap(self.name)
         raise operationerrfmt(space.w_AttributeError,
-                              "cdata '%s' has no such attribute",
+                              "ctype '%s' has no such attribute",
                               self.name)
 
     def fget_kind(self, space):     return self._fget('k')
@@ -201,6 +201,7 @@ class W_CType(Wrappable):
     def fget_ellipsis(self, space): return self._fget('E')
     def fget_abi(self, space):      return self._fget('A')
     def fget_elements(self, space): return self._fget('e')
+    def fget_relements(self, space):return self._fget('R')
 
 
 W_CType.typedef = TypeDef(
@@ -218,6 +219,8 @@ W_CType.typedef = TypeDef(
     ellipsis = GetSetProperty(W_CType.fget_ellipsis, doc="function has '...'"),
     abi = GetSetProperty(W_CType.fget_abi, doc="function ABI"),
     elements = GetSetProperty(W_CType.fget_elements, doc="enum elements"),
+    relements = GetSetProperty(W_CType.fget_relements,
+                               doc="enum elements, reversed"),
     __dir__ = interp2app(W_CType.dir),
     )
 W_CType.typedef.acceptable_as_base_class = False

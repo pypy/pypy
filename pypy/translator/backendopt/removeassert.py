@@ -1,10 +1,8 @@
 from pypy.objspace.flow.model import Constant, checkgraph, c_last_exception
-from pypy.rpython.rtyper import LowLevelOpList, inputconst
-from pypy.translator.simplify import eliminate_empty_blocks, join_blocks
-#from pypy.translator.simplify import transform_dead_op_vars
 from pypy.rpython.lltypesystem import lltype
-from pypy.rpython.lltypesystem import rclass
+from pypy.rpython.rtyper import LowLevelOpList, inputconst
 from pypy.translator.backendopt.support import log
+from pypy.translator.simplify import eliminate_empty_blocks, join_blocks
 
 
 def remove_asserts(translator, graphs):
@@ -40,7 +38,6 @@ def remove_asserts(translator, graphs):
             if translator.config.translation.verbose:
                 log.removeassert("removed %d asserts in %s" % (count, graph.name))
             checkgraph(graph)
-            #transform_dead_op_vars(graph, translator)
     total_count = tuple(total_count)
     if total_count[0] == 0:
         if total_count[1] == 0:
@@ -75,7 +72,7 @@ def kill_assertion_link(graph, link):
             newops = LowLevelOpList()
             if link.exitcase:
                 v = newops.genop('bool_not', [block.exitswitch],
-                                 resulttype = lltype.Bool)
+                                 resulttype=lltype.Bool)
             else:
                 v = block.exitswitch
             msg = "assertion failed in %s" % (graph.name,)

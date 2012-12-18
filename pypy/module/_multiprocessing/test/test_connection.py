@@ -89,40 +89,43 @@ class AppTestWinpipeConnection(BaseConnectionTest):
 
         return multiprocessing.Pipe(duplex=False)
 
+
 class AppTestSocketConnection(BaseConnectionTest):
-    spaceconfig = dict(usemodules=('_multiprocessing', 'thread', 'signal',
-                                   'struct', 'array', 'itertools'))
+    spaceconfig = {
+        "usemodules": [
+            '_multiprocessing', 'thread', 'signal', 'struct', 'array',
+            'itertools', '_socket', 'binascii',
+        ]
+    }
+
     def setup_class(cls):
         cls.w_connections = cls.space.newlist([])
 
-        def socketpair(space):
-            "A socket.socketpair() that works on Windows"
-            import socket, errno
-            serverSocket = socket.socket()
-            serverSocket.bind(('127.0.0.1', 0))
-            serverSocket.listen(1)
+    def w_socketpair(self):
+        "A socket.socketpair() that works on Windows"
+        import errno
+        import socket
 
-            client = socket.socket()
-            client.setblocking(False)
-            try:
-                client.connect(('127.0.0.1', serverSocket.getsockname()[1]))
-            except socket.error, e:
-                assert e.args[0] in (errno.EINPROGRESS, errno.EWOULDBLOCK)
-            server, addr = serverSocket.accept()
+        serverSocket = socket.socket()
+        serverSocket.bind(('127.0.0.1', 0))
+        serverSocket.listen(1)
 
-            # keep sockets alive during the test
-            space.call_method(cls.w_connections, "append", space.wrap(server))
-            space.call_method(cls.w_connections, "append", space.wrap(client))
+        client = socket.socket()
+        client.setblocking(False)
+        try:
+            client.connect(('127.0.0.1', serverSocket.getsockname()[1]))
+        except socket.error, e:
+            assert e.args[0] in (errno.EINPROGRESS, errno.EWOULDBLOCK)
+        server, addr = serverSocket.accept()
 
-            return space.wrap((server.fileno(), client.fileno()))
-        if cls.runappdirect:
-            cls.w_socketpair = lambda self: socketpair(cls.space)
-        else:
-            cls.w_socketpair = cls.space.wrap(interp2app(socketpair))
+        # keep sockets alive during the test
+        self.connections.append(server)
+        self.connections.append(client)
+
+        return server.fileno(), client.fileno()
 
     def w_make_pair(self):
         import _multiprocessing
-        import os
 
         fd1, fd2 = self.socketpair()
         rhandle = _multiprocessing.Connection(fd1, writable=False)
@@ -170,4 +173,3 @@ class AppTestSocketConnection(BaseConnectionTest):
         assert data1 == '\x00\x00\x00\x03abc'
         data2 = sock.recv(8)
         assert data2 == '\x00\x00\x00\x04defg'
-

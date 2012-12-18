@@ -42,8 +42,6 @@ struct RPyOpaque_ThreadLock {
 	int initialized;
 };
 
-#define RPyOpaque_INITEXPR_ThreadLock  { { /* sem */ }, 0 }
-
 #else /* !USE_SEMAPHORE */
 
 /* A pthread mutex isn't sufficient to model the Python lock type
@@ -57,11 +55,6 @@ struct RPyOpaque_ThreadLock {
 	struct RPyOpaque_ThreadLock *prev, *next;
 };
 
-#define RPyOpaque_INITEXPR_ThreadLock  {        \
-		0, 0,                           \
-		PTHREAD_COND_INITIALIZER,       \
-		PTHREAD_MUTEX_INITIALIZER       \
-	}
 #endif /* USE_SEMAPHORE */
 
 /* prototypes */

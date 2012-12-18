@@ -354,7 +354,8 @@ cppyy_index_t cppyy_method_index_at(cppyy_scope_t scope, int imeth) {
     return (cppyy_index_t)imeth;
 }
 
-cppyy_index_t cppyy_method_index_from_name(cppyy_scope_t handle, const char* name) {
+cppyy_index_t* cppyy_method_indices_from_name(cppyy_scope_t handle, const char* name) {
+    std::vector<cppyy_index_t> result;
     Reflex::Scope s = scope_from_handle(handle);
     // the following appears dumb, but the internal storage for Reflex is an
     // unsorted std::vector anyway, so there's no gain to be had in using the
@@ -364,11 +365,15 @@ cppyy_index_t cppyy_method_index_from_name(cppyy_scope_t handle, const char* nam
         Reflex::Member m = s.FunctionMemberAt(imeth);
         if (m.Name() == name) {
             if (m.IsPublic())
-               return (cppyy_index_t)imeth;
-            return (cppyy_index_t)-1;
+                result.push_back((cppyy_index_t)imeth);
         }
     }
-    return (cppyy_index_t)-1;
+    if (result.empty())
+        return (cppyy_index_t*)0;
+    cppyy_index_t* llresult = (cppyy_index_t*)malloc(sizeof(cppyy_index_t)*result.size()+1);
+    for (int i = 0; i < (int)result.size(); ++i) llresult[i] = result[i];
+    llresult[result.size()] = -1;
+    return llresult;
 }
 
 char* cppyy_method_name(cppyy_scope_t handle, cppyy_index_t method_index) {

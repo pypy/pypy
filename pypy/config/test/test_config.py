@@ -4,8 +4,6 @@ import py, sys
 def make_description():
     gcoption = ChoiceOption('name', 'GC name', ['ref', 'framework'], 'ref')
     gcdummy = BoolOption('dummy', 'dummy', default=False)
-    objspaceoption = ChoiceOption('objspace', 'Object space',
-                                ['std', 'thunk'], 'std')
     booloption = BoolOption('bool', 'Test boolean option', default=True)
     intoption = IntOption('int', 'Test int option', default=0)
     floatoption = FloatOption('float', 'Test float option', default=2.3)
@@ -18,7 +16,7 @@ def make_description():
                                       requires=[('gc.name', 'framework')])
     
     gcgroup = OptionDescription('gc', '', [gcoption, gcdummy, floatoption])
-    descr = OptionDescription('pypy', '', [gcgroup, booloption, objspaceoption,
+    descr = OptionDescription('pypy', '', [gcgroup, booloption,
                                            wantref_option, stroption,
                                            wantframework_option,
                                            intoption])
@@ -27,16 +25,12 @@ def make_description():
 def test_base_config():
     descr = make_description()
     config = Config(descr, bool=False)
-    
+
     assert config.gc.name == 'ref'
     config.gc.name = 'framework'
     assert config.gc.name == 'framework'
     assert getattr(config, "gc.name") == 'framework'
 
-    assert config.objspace == 'std'
-    config.objspace = 'thunk'
-    assert config.objspace == 'thunk'
-    
     assert config.gc.float == 2.3
     assert config.int == 0
     config.gc.float = 3.4
@@ -50,7 +44,6 @@ def test_base_config():
     config.str = "def"
     assert config.str == "def"
 
-    py.test.raises(ConfigError, 'config.objspace = "foo"')
     py.test.raises(ConfigError, 'config.gc.name = "foo"')
     py.test.raises(AttributeError, 'config.gc.foo = "bar"')
     py.test.raises(ConfigError, 'config.bool = 123')
@@ -71,7 +64,6 @@ def test___dir__():
     assert '_cfgimpl_values' in attrs # from self
     if sys.version_info >= (2, 6):
         assert 'gc' in attrs              # custom attribute
-        assert 'objspace' in attrs        # custom attribute
     #
     attrs = dir(config.gc)
     if sys.version_info >= (2, 6):
@@ -269,14 +261,14 @@ def test_getpaths():
     config = Config(descr)
     
     assert config.getpaths() == ['gc.name', 'gc.dummy', 'gc.float', 'bool',
-                                 'objspace', 'wantref', 'str', 'wantframework',
+                                 'wantref', 'str', 'wantframework',
                                  'int']
     assert config.getpaths() == descr.getpaths()
     assert config.gc.getpaths() == ['name', 'dummy', 'float']
     assert config.gc.getpaths() == descr.gc.getpaths()
     assert config.getpaths(include_groups=True) == [
         'gc', 'gc.name', 'gc.dummy', 'gc.float',
-        'bool', 'objspace', 'wantref', 'str', 'wantframework', 'int']
+        'bool', 'wantref', 'str', 'wantframework', 'int']
     assert config.getpaths(True) == descr.getpaths(True)
 
 def test_underscore_in_option_name():

@@ -91,7 +91,6 @@ class RPythonTyper(object):
 ##            self.order = __import__(order_module, {}, {},  ['*']).order
 ##            s = 'Using %s.%s for order' % (self.order.__module__, self.order.__name__)
 ##            self.log.info(s)
-        self.crash_on_first_typeerror = True
 
     def getconfig(self):
         return self.annotator.translator.config
@@ -193,9 +192,8 @@ class RPythonTyper(object):
     def bindingrepr(self, var):
         return self.getrepr(self.binding(var))
 
-    def specialize(self, dont_simplify_again=False, crash_on_first_typeerror = True):
+    def specialize(self, dont_simplify_again=False):
         """Main entry point: specialize all annotated blocks of the program."""
-        self.crash_on_first_typeerror = crash_on_first_typeerror
         # specialize depends on annotator simplifications
         assert dont_simplify_again in (False, True)  # safety check
         if not dont_simplify_again:
@@ -590,12 +588,7 @@ class RPythonTyper(object):
         graph = self.annotator.annotated.get(block)
         e.where = (graph, block, position)
         self.typererror_count += 1
-        if self.crash_on_first_typeerror:
-            raise
-        self.typererrors.append(e)
-        if llops:
-            c1 = inputconst(Void, Exception.__str__(e))
-            llops.genop('TYPER ERROR', [c1], resulttype=Void)
+        raise
 
     # __________ regular operations __________
 

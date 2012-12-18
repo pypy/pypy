@@ -1,13 +1,13 @@
-from pypy.translator.simplify import get_graph
-from pypy.rpython.lltypesystem.lloperation import llop, LL_OPERATIONS
-from pypy.rpython.lltypesystem import lltype
+import py
+
+from pypy.rpython.lltypesystem.lloperation import LL_OPERATIONS
+from pypy.tool.ansi_print import ansi_log
 from pypy.translator.backendopt import graphanalyze
 from pypy.translator.simplify import get_funcobj
 
-import py
-from pypy.tool.ansi_print import ansi_log
-log = py.log.Producer("canraise") 
-py.log.setconsumer("canraise", ansi_log) 
+log = py.log.Producer("canraise")
+py.log.setconsumer("canraise", ansi_log)
+
 
 class RaiseAnalyzer(graphanalyze.BoolGraphAnalyzer):
     def analyze_simple_operation(self, op, graphinfo):

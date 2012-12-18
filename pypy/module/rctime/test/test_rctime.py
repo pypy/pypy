@@ -1,5 +1,7 @@
 class AppTestRCTime:
-    spaceconfig = dict(usemodules=['rctime', 'struct'])
+    spaceconfig = {
+        "usemodules": ['rctime', 'struct', 'binascii'],
+    }
 
     def test_attributes(self):
         import time as rctime

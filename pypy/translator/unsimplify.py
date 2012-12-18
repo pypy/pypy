@@ -1,4 +1,6 @@
-from pypy.objspace.flow.model import *
+from pypy.objspace.flow.model import (Variable, Constant, Block, Link,
+    SpaceOperation, c_last_exception, checkgraph)
+
 
 def copyvar(annotator, v):
     """Make a copy of the Variable v, preserving annotations and concretetype."""
@@ -51,7 +53,7 @@ def starts_with_empty_block(graph):
 
 def split_block(annotator, block, index, _forcelink=None):
     """return a link where prevblock is the block leading up but excluding the
-    index'th operation and target is a new block with the neccessary variables 
+    index'th operation and target is a new block with the neccessary variables
     passed on.
     """
     assert 0 <= index <= len(block.operations)

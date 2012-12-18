@@ -128,6 +128,18 @@ class HeapCache(object):
                                 if frombox not in self.new_boxes:
                                     del cache[frombox]
                     return
+            else:
+                # Only invalidate things that are either escaped or arguments
+                for descr, boxes in self.heap_cache.iteritems():
+                    for box in boxes.keys():
+                        if not self.is_unescaped(box) or box in argboxes:
+                            del boxes[box]
+                for descr, indices in self.heap_array_cache.iteritems():
+                    for boxes in indices.itervalues():
+                        for box in boxes.keys():
+                            if not self.is_unescaped(box) or box in argboxes:
+                                del boxes[box]
+                return
 
         self.heap_cache.clear()
         self.heap_array_cache.clear()

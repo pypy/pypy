@@ -988,6 +988,25 @@ def test_call_function_22():
     for i in range(10):
         assert res.a[i] == p1.a[i] - p2.a[i]
 
+def test_call_function_23():
+    BVoid = new_void_type()          # declaring the function as int(void*)
+    BVoidP = new_pointer_type(BVoid)
+    BInt = new_primitive_type("int")
+    BFunc23 = new_function_type((BVoidP,), BInt, False)
+    f = cast(BFunc23, _testfunc(23))
+    res = f(b"foo")
+    assert res == 1000 * ord(b'f')
+
+def test_call_function_23_bis():
+    # declaring the function as int(unsigned char*)
+    BUChar = new_primitive_type("unsigned char")
+    BUCharP = new_pointer_type(BUChar)
+    BInt = new_primitive_type("int")
+    BFunc23 = new_function_type((BUCharP,), BInt, False)
+    f = cast(BFunc23, _testfunc(23))
+    res = f(b"foo")
+    assert res == 1000 * ord(b'f')
+
 def test_cannot_pass_struct_with_array_of_length_0():
     BInt = new_primitive_type("int")
     BArray0 = new_array_type(new_pointer_type(BInt), 0)
@@ -1250,6 +1269,13 @@ def test_enum_type():
     BEnum = new_enum_type("foo", ('def', 'c', 'ab'), (0, 1, -20))
     assert BEnum.kind == "enum"
     assert BEnum.elements == {-20: 'ab', 0: 'def', 1: 'c'}
+    # 'elements' is not the real dict, but merely a copy
+    BEnum.elements[2] = '??'
+    assert BEnum.elements == {-20: 'ab', 0: 'def', 1: 'c'}
+    #
+    BEnum = new_enum_type("bar", ('ab', 'cd'), (5, 5))
+    assert BEnum.elements == {5: 'ab'}
+    assert BEnum.relements == {'ab': 5, 'cd': 5}
 
 def test_cast_to_enum():
     BEnum = new_enum_type("foo", ('def', 'c', 'ab'), (0, 1, -20))
@@ -2390,8 +2416,11 @@ def test_newp_from_bytearray_doesnt_work():
 
 # XXX hack
 if sys.version_info >= (3,):
-    import posix, io
-    posix.fdopen = io.open
+    try:
+        import posix, io
+        posix.fdopen = io.open
+    except ImportError:
+        pass   # win32
 
 def test_FILE():
     if sys.platform == "win32":
@@ -2484,7 +2513,7 @@ def test_GetLastError():
     if sys.platform != "win32":
         py.test.skip("GetLastError(): only for Windows")
     #
-    lib = find_and_load_library('KERNEL32')
+    lib = find_and_load_library('KERNEL32.DLL')
     BInt = new_primitive_type("int")
     BVoid = new_void_type()
     BFunc1 = new_function_type((BInt,), BVoid, False)

@@ -132,8 +132,6 @@ sections`_.
 
 .. _`configuration sections`: config/index.html
 
-.. _`translate PyPy with the thunk object space`:
-
 Translating with non-standard options
 ++++++++++++++++++++++++++++++++++++++++
 
