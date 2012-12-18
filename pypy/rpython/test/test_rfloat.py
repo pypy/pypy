@@ -404,5 +404,5 @@ class TestOOtype(BaseTestRfloat, OORtypeMixin):
     def test_formatd_huge(self):
         skip('formatd is broken on ootype')
 
-    def test_string_to_float(self):
-        skip('string_to_float is broken on ootype')
+    def test_parts_to_float(self):
+        skip('parts_to_float is broken on ootype')
