@@ -34,7 +34,7 @@ class RawBuffer(object):
             if self.offsets[i] == offset:
                 if length != self.lengths[i] or descr != self.descrs[i]:
                     # in theory we could add support for the cases in which
-                    # the lenght or descr is different, but I don't think we
+                    # the length or descr is different, but I don't think we
                     # need it in practice
                     raise InvalidRawWrite
                 # update the value at this offset
@@ -45,6 +45,8 @@ class RawBuffer(object):
             i += 1
         #
         if i < len(self.offsets) and offset+length > self.offsets[i]:
+            raise InvalidRawWrite
+        if i > 0 and self.offsets[i-1]+self.lengths[i-1] > offset:
             raise InvalidRawWrite
         # insert a new value at offset
         self.offsets.insert(i, offset)

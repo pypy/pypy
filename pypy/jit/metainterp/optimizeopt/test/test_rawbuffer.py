@@ -35,12 +35,18 @@ def test_write_value_invalid_length():
         buf.write_value(0, 4, 'descr2', 'two')
 
     
-def test_write_value_overlapping():
+def test_write_value_overlapping_next():
     buf = RawBuffer()
     buf.write_value(0, 4, 'descr', 'one')
     buf.write_value(6, 4, 'descr', 'two')
     with py.test.raises(InvalidRawWrite):
         buf.write_value(4, 4, 'descr', 'three')
+
+def test_write_value_overlapping_prev():
+    buf = RawBuffer()
+    buf.write_value(0, 4, 'descr', 'one')
+    with py.test.raises(InvalidRawWrite):
+        buf.write_value(2, 1, 'descr', 'two')
 
 def test_read_value():
     buf = RawBuffer()
