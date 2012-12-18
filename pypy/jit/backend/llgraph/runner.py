@@ -3,9 +3,9 @@ Minimal-API wrapper around the llinterpreter to run operations.
 """
 
 from pypy.rlib.unroll import unrolling_iterable
-from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib.objectmodel import we_are_translated, Symbolic
 from pypy.rlib.jit_hooks import LOOP_RUN_CONTAINER
-from pypy.rpython.lltypesystem import lltype, llmemory, rclass
+from pypy.rpython.lltypesystem import lltype, llmemory, rclass, rffi
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.jit.metainterp import history
@@ -397,13 +397,18 @@ class LLtypeCPU(BaseCPU):
             token = 's'
         else:
             token = '?'
-        return self.getdescr(size, token)
+        # so that unpack_arraydescr_size returns something sensible
+        width = rffi.sizeof(A.OF)
+        if isinstance(width, Symbolic):
+            # we cannot compute anything reasonable, so we just make up a size
+            width = 8 * len(A.OF._flds)
+        return self.getdescr(size, token, width=width)
 
     def unpack_arraydescr_size(self, arraydescr):
         # so far this is used only by optimizeopt.virtualize for
-        # {GET,SET}ARRAYITEM_RAW: it's hard (if not impossible) to compute
-        # precise values, so we just return dummy ones for now
-        return 0, 8, True
+        # {GET,SET}ARRAYITEM_RAW: for now we just return dummy values for
+        # basesize and is_signed
+        return 0, arraydescr.width, True
 
     # ---------- the backend-dependent operations ----------
 

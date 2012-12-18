@@ -219,6 +219,9 @@ class LLtypeMixin(object):
 
     rawarraydescr = cpu.arraydescrof(lltype.Array(lltype.Signed,
                                                   hints={'nolength': True}))
+    rawarraydescr_char = cpu.arraydescrof(lltype.Array(lltype.Char,
+                                                       hints={'nolength': True}))
+
 
     for _name, _os in [
         ('strconcatdescr',               'OS_STR_CONCAT'),

@@ -403,10 +403,7 @@ class VirtualRawMemoryValue(AbstractVirtualValue):
             optforce.emit_operation(op)
 
     def setitem_raw(self, offset, length, descr, value):
-        try:
-            self.buffer.write_value(offset, length, descr, value)
-        except InvalidRawOperation:
-            XXX
+        self.buffer.write_value(offset, length, descr, value)
 
     def getitem_raw(self, offset, length, descr):
         try:
@@ -633,7 +630,12 @@ class OptVirtualize(optimizer.Optimization):
             if indexbox is not None:
                 offset, itemsize, descr = self._unpack_arrayitem_raw_op(op, indexbox)
                 itemvalue = self.getvalue(op.getarg(2))
-                value.setitem_raw(offset, itemsize, descr, itemvalue)
+                try:
+                    value.setitem_raw(offset, itemsize, descr, itemvalue)
+                except InvalidRawOperation:
+                    box = value.force_box(self)
+                    op.setarg(0, box)
+                    self.emit_operation(op)
                 return
         value.ensure_nonnull()
         self.emit_operation(op)

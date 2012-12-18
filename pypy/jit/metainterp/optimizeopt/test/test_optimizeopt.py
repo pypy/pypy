@@ -1784,6 +1784,27 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    def test_virtual_raw_malloc_invalid_write_force(self):
+        ops = """
+        [i1]
+        i2 = call('malloc', 10, descr=raw_malloc_descr)
+        setarrayitem_raw(i2, 0, i1, descr=rawarraydescr)
+        label('foo') # we expect the buffer to be forced *after* the label
+        setarrayitem_raw(i2, 2, 456, descr=rawarraydescr_char) # overlap!
+        call('free', i2, descr=raw_free_descr)
+        jump(i1)
+        """
+        expected = """
+        [i1]
+        label('foo')
+        i2 = call('malloc', 10, descr=raw_malloc_descr)
+        setarrayitem_raw(i2, 0, i1, descr=rawarraydescr)
+        setarrayitem_raw(i2, 2, 456, descr=rawarraydescr_char)
+        call('free', i2, descr=raw_free_descr)
+        jump(i1)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_duplicate_getfield_1(self):
         ops = """
         [p1, p2]
