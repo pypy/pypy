@@ -508,8 +508,8 @@ class __extend__(pyframe.PyFrame):
         else:
             from pypy.interpreter.astcompiler import consts
             flags |= consts.PyCF_SOURCE_IS_UTF8
-            source, flags = source_as_str(
-                space, w_prog, 'exec', "string, bytes or code", flags)
+            source, flags = source_as_str(space, w_prog, 'exec',
+                                          "string, bytes or code", flags)
             code = ec.compiler.compile(source, "<string>", 'exec', flags)
 
         w_globals, w_locals = ensure_ns(space, w_globals, w_locals, 'exec',
@@ -1377,8 +1377,10 @@ class W_OperationError(Wrappable):
 
 
 def source_as_str(space, w_source, funcname, what, flags):
-    """Return an unwrapped string (without NUL bytes) from some kind of
-    wrapped source string and adjusted compiler flags"""
+    """Return source code as str0 with adjusted compiler flags
+
+    w_source must be a str or support the buffer interface
+    """
     from pypy.interpreter.astcompiler import consts
 
     if space.isinstance_w(w_source, space.w_unicode):

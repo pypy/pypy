@@ -27,8 +27,10 @@ in addition to any features explicitly specified.
 """
     from pypy.interpreter.pyopcode import source_as_str
     ec = space.getexecutioncontext()
-    if flags & ~(ec.compiler.compiler_flags | consts.PyCF_ONLY_AST |
-                 consts.PyCF_DONT_IMPLY_DEDENT | consts.PyCF_SOURCE_IS_UTF8):
+    if flags & ~(ec.compiler.compiler_flags |
+                 consts.PyCF_ONLY_AST |
+                 consts.PyCF_DONT_IMPLY_DEDENT |
+                 consts.PyCF_SOURCE_IS_UTF8):
         raise OperationError(space.w_ValueError,
                              space.wrap("compile() unrecognized flags"))
 
@@ -47,23 +49,23 @@ in addition to any features explicitly specified.
             flags |= ec.compiler.getcodeflags(caller.getcode())
 
     if mode not in ('exec', 'eval', 'single'):
-        raise OperationError(space.w_ValueError,
-                             space.wrap("compile() arg 3 must be 'exec', "
-                                        "'eval' or 'single'"))
-    # XXX optimize is not used
+        raise OperationError(
+            space.w_ValueError,
+            space.wrap("compile() arg 3 must be 'exec', 'eval' or 'single'"))
 
-    if ast_node is None:
-        if flags & consts.PyCF_ONLY_AST:
-            mod = ec.compiler.compile_to_ast(source, filename, mode, flags)
-            return space.wrap(mod)
-        else:
-            code = ec.compiler.compile(source, filename, mode, flags)
-    else:
+    # XXX: optimize flag is not used
+
+    if ast_node is not None:
         code = ec.compiler.compile_ast(ast_node, filename, mode, flags)
+    elif flags & consts.PyCF_ONLY_AST:
+        ast_node = ec.compiler.compile_to_ast(source, filename, mode, flags)
+        return space.wrap(ast_node)
+    else:
+        code = ec.compiler.compile(source, filename, mode, flags)
     return space.wrap(code)
 
 
-def eval(space, w_code, w_globals=None, w_locals=None):
+def eval(space, w_prog, w_globals=None, w_locals=None):
     """Evaluate the source in the context of globals and locals.
 The source may be a string representing a Python expression
 or a code object as returned by compile().  The globals and locals
@@ -73,10 +75,10 @@ If only globals is given, locals defaults to it.
     from pypy.interpreter.pyopcode import ensure_ns, source_as_str
     w_globals, w_locals = ensure_ns(space, w_globals, w_locals, 'eval')
 
-    if space.isinstance_w(w_code, space.gettypeobject(PyCode.typedef)):
-        code = space.interp_w(PyCode, w_code)
+    if space.isinstance_w(w_prog, space.gettypeobject(PyCode.typedef)):
+        code = space.interp_w(PyCode, w_prog)
     else:
-        source, flags = source_as_str(space, w_code, 'eval',
+        source, flags = source_as_str(space, w_prog, 'eval',
                                       "string, bytes or code",
                                       consts.PyCF_SOURCE_IS_UTF8)
         # source.lstrip(' \t')
@@ -91,10 +93,9 @@ If only globals is given, locals defaults to it.
         ec = space.getexecutioncontext()
         code = ec.compiler.compile(source, "<string>", 'eval', flags)
 
-    # xxx removed: adding '__builtins__' to the w_globals dict, if there
-    # is none.  This logic was removed as costly (it requires to get at
-    # the gettopframe_nohidden()).  I bet no test fails, and it's a really
-    # obscure case.
+    # XXX: skip adding of __builtins__ to w_globals. it requires a
+    # costly gettopframe_nohidden() here and nobody seems to miss its
+    # absence
 
     return code.exec_code(space, w_globals, w_locals)
 
