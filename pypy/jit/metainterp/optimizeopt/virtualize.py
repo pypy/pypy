@@ -5,6 +5,7 @@ from pypy.jit.metainterp.history import Const, ConstInt, BoxInt
 from pypy.jit.metainterp.optimizeopt import optimizer
 from pypy.jit.metainterp.optimizeopt.util import (make_dispatcher_method,
     descrlist_dict, sort_descrs)
+from pypy.jit.metainterp.optimizeopt.rawbuffer import RawBuffer, InvalidRawOperation
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.jit.metainterp.optimizeopt.optimizer import OptValue
@@ -367,17 +368,27 @@ class VirtualRawMemoryValue(AbstractVirtualValue):
     def __init__(self, cpu, size, keybox, source_op):
         AbstractVirtualValue.__init__(self, keybox, source_op)
         self.cpu = cpu
+        # note that size is unused, because we assume that the buffer is big
+        # enough to write/read everything we need. If it's not, it's undefined
+        # behavior anyway, although in theory we could probably detect such
+        # cases here
         self.size = size
-        self._raw_items = {}
+        self.buffer = RawBuffer()
 
     def _really_force(self, optforce):
         import pdb;pdb.set_trace()
 
-    def setitem_raw(self, index, value):
-        self._raw_items[index] = value
+    def setitem_raw(self, offset, length, descr, value):
+        try:
+            self.buffer.write_value(offset, length, descr, value)
+        except InvalidRawOperation:
+            XXX
 
-    def getitem_raw(self, index):
-        return self._raw_items[index]
+    def getitem_raw(self, offset, length, descr):
+        try:
+            return self.buffer.read_value(offset, length, descr)
+        except InvalidRawOperation:
+            XXX
 
 
 class OptVirtualize(optimizer.Optimization):
@@ -571,12 +582,21 @@ class OptVirtualize(optimizer.Optimization):
         value.ensure_nonnull()
         self.emit_operation(op)
 
+    def _unpack_arrayitem_raw_op(self, op, indexbox):
+        index = indexbox.getint()
+        cpu = self.optimizer.cpu
+        descr = op.getdescr()
+        basesize, itemsize, _ = cpu.unpack_arraydescr_size(descr)
+        offset = basesize + (itemsize*index)
+        return offset, itemsize, descr
+
     def optimize_GETARRAYITEM_RAW(self, op):
         value = self.getvalue(op.getarg(0))
         if value.is_virtual():
             indexbox = self.get_constant_box(op.getarg(1))
             if indexbox is not None:
-                itemvalue = value.getitem_raw(indexbox.getint())
+                offset, itemsize, descr = self._unpack_arrayitem_raw_op(op, indexbox)
+                itemvalue = value.getitem_raw(offset, itemsize, descr)
                 self.make_equal_to(op.result, itemvalue)
                 return
         value.ensure_nonnull()
@@ -587,9 +607,9 @@ class OptVirtualize(optimizer.Optimization):
         if value.is_virtual():
             indexbox = self.get_constant_box(op.getarg(1))
             if indexbox is not None:
-                # XXX: we should check that the descr is always the same, or
-                # we might get wrong results
-                value.setitem_raw(indexbox.getint(), self.getvalue(op.getarg(2)))
+                offset, itemsize, descr = self._unpack_arrayitem_raw_op(op, indexbox)
+                itemvalue = self.getvalue(op.getarg(2))
+                value.setitem_raw(offset, itemsize, descr, itemvalue)
                 return
         value.ensure_nonnull()
         self.emit_operation(op)

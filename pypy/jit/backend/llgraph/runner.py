@@ -399,6 +399,12 @@ class LLtypeCPU(BaseCPU):
             token = '?'
         return self.getdescr(size, token)
 
+    def unpack_arraydescr_size(self, arraydescr):
+        # so far this is used only by optimizeopt.virtualize for
+        # {GET,SET}ARRAYITEM_RAW: it's hard (if not impossible) to compute
+        # precise values, so we just return dummy ones for now
+        return 0, 8, True
+
     # ---------- the backend-dependent operations ----------
 
     def bh_strlen(self, string):

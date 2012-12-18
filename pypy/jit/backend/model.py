@@ -228,6 +228,12 @@ class AbstractCPU(object):
     def typedescrof(self, TYPE):
         raise NotImplementedError
 
+    def unpack_arraydescr_size(self, arraydescr):
+        """
+        Return basesize, itemsize, is_signed
+        """
+        raise NotImplementedError
+
     # ---------- the backend-dependent operations ----------
 
     # lltype specific operations
@@ -365,3 +371,4 @@ class CompiledLoopToken(object):
         self.cpu.total_freed_loops += 1
         self.cpu.total_freed_bridges += self.bridges_count
         debug_stop("jit-mem-looptoken-free")
+

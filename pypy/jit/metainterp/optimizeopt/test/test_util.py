@@ -217,6 +217,9 @@ class LLtypeMixin(object):
     complexrealdescr = cpu.interiorfielddescrof(complexarray, "real")
     compleximagdescr = cpu.interiorfielddescrof(complexarray, "imag")
 
+    rawarraydescr = cpu.arraydescrof(lltype.Array(lltype.Signed,
+                                                  hints={'nolength': True}))
+
     for _name, _os in [
         ('strconcatdescr',               'OS_STR_CONCAT'),
         ('strslicedescr',                'OS_STR_SLICE'),

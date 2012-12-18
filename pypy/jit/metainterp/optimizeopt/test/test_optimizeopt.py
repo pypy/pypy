@@ -1746,8 +1746,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = """
         [i1]
         i2 = call('malloc', 10, descr=raw_malloc_descr)
-        setarrayitem_raw(i2, 0, i1, descr=arraydescr)
-        i3 = getarrayitem_raw(i2, 0, descr=arraydescr)
+        setarrayitem_raw(i2, 0, i1, descr=rawarraydescr)
+        i3 = getarrayitem_raw(i2, 0, descr=rawarraydescr)
         call('free', i2, descr=raw_free_descr)
         jump(i3)
         """

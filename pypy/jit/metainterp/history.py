@@ -172,7 +172,6 @@ class AbstractMethDescr(AbstractDescr):
     def get_jitcode_for_class(self, oocls):
         return self.jitcodes[oocls]
 
-
 class Const(AbstractValue):
     __slots__ = ()
 
