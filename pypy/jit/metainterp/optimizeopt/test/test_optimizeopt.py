@@ -1764,12 +1764,14 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setarrayitem_raw(i2, 0, i1, descr=rawarraydescr)
         setarrayitem_raw(i2, 2, 456, descr=rawarraydescr)
         setarrayitem_raw(i2, 1, 123, descr=rawarraydescr)
+        label('foo') # we expect the buffer to be forced *after* the label
         escape(i2)
         call('free', i2, descr=raw_free_descr)
         jump(i1)
         """
         expected = """
         [i1]
+        label('foo')
         i2 = call('malloc', 10, descr=raw_malloc_descr)
         setarrayitem_raw(i2, 0, i1, descr=rawarraydescr)
         i3 = int_add(i2, 8)
