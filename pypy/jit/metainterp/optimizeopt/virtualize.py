@@ -376,7 +376,31 @@ class VirtualRawMemoryValue(AbstractVirtualValue):
         self.buffer = RawBuffer()
 
     def _really_force(self, optforce):
-        import pdb;pdb.set_trace()
+        op = self.source_op
+        assert op is not None
+        if not we_are_translated():
+            op.name = 'FORCE ' + self.source_op.name
+        optforce.emit_operation(self.source_op)
+        self.box = box = self.source_op.result
+        for i in range(len(self.buffer.offsets)):
+            # get a pointer to self.box+offset
+            offset = self.buffer.offsets[i]
+            if offset == 0:
+                arraybox = self.box
+            else:
+                arraybox = BoxInt()
+                op = ResOperation(rop.INT_ADD,
+                                  [self.box, ConstInt(offset)], arraybox)
+                optforce.emit_operation(op)
+            #
+            # write the value
+            descr = self.buffer.descrs[i]
+            itemvalue = self.buffer.values[i]
+            itembox = itemvalue.force_box(optforce)
+            op = ResOperation(rop.SETARRAYITEM_RAW,
+                              [arraybox, ConstInt(0), itembox], None,
+                              descr=descr)
+            optforce.emit_operation(op)
 
     def setitem_raw(self, offset, length, descr, value):
         try:
