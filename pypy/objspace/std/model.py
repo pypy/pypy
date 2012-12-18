@@ -80,7 +80,6 @@ class StdTypeModel:
         from pypy.objspace.std import unicodeobject
         from pypy.objspace.std import dictproxyobject
         from pypy.objspace.std import proxyobject
-        from pypy.objspace.std import fake
         import pypy.objspace.std.default # register a few catch-all multimethods
 
         import pypy.objspace.std.marshal_impl # install marshal multimethods

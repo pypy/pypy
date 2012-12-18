@@ -1,17 +1,19 @@
-from pypy.interpreter.executioncontext import ExecutionContext, ActionFlag
-from pypy.interpreter.executioncontext import UserDelAction, FrameTraceAction
-from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.error import new_exception_class, typed_unwrap_error_msg
+import sys
+
+from pypy.interpreter.executioncontext import (ExecutionContext, ActionFlag,
+    UserDelAction, FrameTraceAction)
+from pypy.interpreter.error import (OperationError, operationerrfmt,
+    new_exception_class, typed_unwrap_error_msg)
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.miscutils import ThreadLocals
 from pypy.tool.cache import Cache
 from pypy.tool.uid import HUGEVAL_BYTES
+from pypy.rlib import jit
+from pypy.rlib.debug import make_sure_not_resized
 from pypy.rlib.objectmodel import we_are_translated, newlist_hint,\
      compute_unique_id
-from pypy.rlib.debug import make_sure_not_resized
 from pypy.rlib.rarithmetic import r_uint
-from pypy.rlib import jit
-import os, sys
+
 
 __all__ = ['ObjSpace', 'OperationError', 'Wrappable', 'W_Root']
 
@@ -507,15 +509,10 @@ class ObjSpace(object):
         for name, w_type in types_w:
             self.setitem(self.builtin.w_dict, self.wrap(name), w_type)
 
-        # install mixed and faked modules
+        # install mixed modules
         for mixedname in self.get_builtinmodule_to_install():
-            if (mixedname not in bootstrap_modules
-                and not mixedname.startswith('faked+')):
+            if mixedname not in bootstrap_modules:
                 self.install_mixedmodule(mixedname, installed_builtin_modules)
-        for mixedname in self.get_builtinmodule_to_install():
-            if mixedname.startswith('faked+'):
-                modname = mixedname[6:]
-                self.install_faked_module(modname, installed_builtin_modules)
 
         installed_builtin_modules.sort()
         w_builtin_module_names = self.newtuple(
@@ -551,24 +548,6 @@ class ObjSpace(object):
             assert modname not in installed_builtin_modules, (
                 "duplicate interp-level module enabled for the "
                 "app-level module %r" % (modname,))
-            installed_builtin_modules.append(modname)
-
-    def load_cpython_module(self, modname):
-        "NOT_RPYTHON. Steal a module from CPython."
-        cpy_module = __import__(modname, {}, {}, ['*'])
-        return cpy_module
-
-    def install_faked_module(self, modname, installed_builtin_modules):
-        """NOT_RPYTHON"""
-        if modname in installed_builtin_modules:
-            return
-        try:
-            module = self.load_cpython_module(modname)
-        except ImportError:
-            return
-        else:
-            w_modules = self.sys.get('modules')
-            self.setitem(w_modules, self.wrap(modname), self.wrap(module))
             installed_builtin_modules.append(modname)
 
     def setup_builtin_modules(self):

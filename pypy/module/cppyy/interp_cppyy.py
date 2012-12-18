@@ -5,10 +5,11 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
 from pypy.interpreter.baseobjspace import Wrappable, W_Root
 
-from pypy.rpython.lltypesystem import rffi, lltype
+from pypy.rpython.lltypesystem import rffi, lltype, llmemory
 
-from pypy.rlib import libffi, rdynload, rweakref
-from pypy.rlib import jit, debug, objectmodel
+from pypy.rlib import jit, rdynload, rweakref
+from pypy.rlib import jit_libffi, clibffi
+from pypy.rlib.objectmodel import we_are_translated
 
 from pypy.module.cppyy import converter, executor, helper
 
@@ -22,7 +23,7 @@ def load_dictionary(space, name):
     try:
         cdll = capi.c_load_dictionary(name)
     except rdynload.DLOpenError, e:
-        raise OperationError(space.w_RuntimeError, space.wrap(str(e)))
+        raise OperationError(space.w_RuntimeError, space.wrap(str(e.msg)))
     return W_CPPLibrary(space, cdll)
 
 class State(object):
@@ -116,8 +117,12 @@ class CPPMethod(object):
     function if available, makes the call, and returns the wrapped result. It
     also takes care of offset casting and recycling of known objects through
     the memory_regulator."""
+
+    _attrs_ = ['space', 'scope', 'index', 'cppmethod', 'arg_defs', 'args_required',
+               'args_expected', 'converters', 'executor', '_funcaddr', 'cif_descr',
+               'uses_local']
     _immutable_ = True
-    
+
     def __init__(self, space, containing_scope, method_index, arg_defs, args_required):
         self.space = space
         self.scope = containing_scope
@@ -131,7 +136,9 @@ class CPPMethod(object):
         # the method is actually used.
         self.converters = None
         self.executor = None
-        self._libffifunc = None
+        self.cif_descr = lltype.nullptr(jit_libffi.CIF_DESCRIPTION)
+        self._funcaddr = lltype.nullptr(rffi.VOIDP.TO)
+        self.uses_local = False
 
     def _address_from_local_buffer(self, call_local, idx):
         if not call_local:
@@ -142,7 +149,6 @@ class CPPMethod(object):
 
     @jit.unroll_safe
     def call(self, cppthis, args_w):
-        jit.promote(self)
         assert lltype.typeOf(cppthis) == capi.C_OBJECT
 
         # check number of given arguments against required (== total - defaults)
@@ -154,18 +160,21 @@ class CPPMethod(object):
 
         # initial setup of converters, executors, and libffi (if available)
         if self.converters is None:
-            self._setup(cppthis)
+            try:
+                self._setup(cppthis)
+            except Exception, e:
+                pass
 
         # some calls, e.g. for ptr-ptr or reference need a local array to store data for
         # the duration of the call
-        if [conv for conv in self.converters if conv.uses_local]:
+        if self.uses_local:
             call_local = lltype.malloc(rffi.VOIDP.TO, 2*len(args_w), flavor='raw')
         else:
             call_local = lltype.nullptr(rffi.VOIDP.TO)
 
         try:
             # attempt to call directly through ffi chain
-            if self._libffifunc:
+            if self._funcaddr:
                 try:
                     return self.do_fast_call(cppthis, args_w, call_local)
                 except FastCallNotPossible:
@@ -183,42 +192,129 @@ class CPPMethod(object):
 
     @jit.unroll_safe
     def do_fast_call(self, cppthis, args_w, call_local):
-        jit.promote(self)
-        argchain = libffi.ArgChain()
-        argchain.arg(cppthis)
-        i = len(self.arg_defs)
-        for i in range(len(args_w)):
-            conv = self.converters[i]
-            w_arg = args_w[i]
-            conv.convert_argument_libffi(self.space, w_arg, argchain, call_local)
-        for j in range(i+1, len(self.arg_defs)):
-            conv = self.converters[j]
-            conv.default_argument_libffi(self.space, argchain)
-        return self.executor.execute_libffi(self.space, self._libffifunc, argchain)
+        if self.cif_descr is None:
+            raise FastCallNotPossible
+        cif_descr = self.cif_descr
+        buffer = lltype.malloc(rffi.CCHARP.TO, cif_descr.exchange_size, flavor='raw')
+        try:
+            # this pointer
+            data = capi.exchange_address(buffer, cif_descr, 0)
+            x = rffi.cast(rffi.LONGP, data)       # LONGP needed for test_zjit.py
+            x[0] = rffi.cast(rffi.LONG, cppthis)
+
+            # other arguments and defaults
+            i = len(self.arg_defs) + 1
+            for i in range(len(args_w)):
+                conv = self.converters[i]
+                w_arg = args_w[i]
+                data = capi.exchange_address(buffer, cif_descr, i+1)
+                conv.convert_argument_libffi(self.space, w_arg, data, call_local)
+            for j in range(i+1, len(self.arg_defs)):
+                conv = self.converters[j]
+                data = capi.exchange_address(buffer, cif_descr, j+1)
+                conv.default_argument_libffi(self.space, data)
+
+            w_res = self.executor.execute_libffi(
+                self.space, cif_descr, self._funcaddr, buffer)
+        finally:
+            lltype.free(buffer, flavor='raw')
+        return w_res
 
     def _setup(self, cppthis):
         self.converters = [converter.get_converter(self.space, arg_type, arg_dflt)
                                for arg_type, arg_dflt in self.arg_defs]
         self.executor = executor.get_executor(self.space, capi.c_method_result_type(self.scope, self.index))
 
+        for conv in self.converters:
+            if conv.uses_local:
+                self.uses_local = True
+                break
+
         # Each CPPMethod corresponds one-to-one to a C++ equivalent and cppthis
         # has been offset to the matching class. Hence, the libffi pointer is
         # uniquely defined and needs to be setup only once.
         methgetter = capi.c_get_methptr_getter(self.scope, self.index)
         if methgetter and cppthis:      # methods only for now
-            funcptr = methgetter(rffi.cast(capi.C_OBJECT, cppthis))
-            argtypes_libffi = [conv.libffitype for conv in self.converters if conv.libffitype]
-            if (len(argtypes_libffi) == len(self.converters) and
-                    self.executor.libffitype):
-                # add c++ this to the arguments
-                libffifunc = libffi.Func("XXX",
-                                         [libffi.types.pointer] + argtypes_libffi,
-                                         self.executor.libffitype, funcptr)
-                self._libffifunc = libffifunc
+            cif_descr = lltype.nullptr(jit_libffi.CIF_DESCRIPTION)
+            try:
+                funcaddr = methgetter(rffi.cast(capi.C_OBJECT, cppthis))
+                self._funcaddr = rffi.cast(rffi.VOIDP, funcaddr)
+
+                nargs = self.args_expected + 1                   # +1: cppthis
+
+                # memory block for CIF description (note: not tracked as the life
+                # time of methods is normally the duration of the application)
+                size = llmemory.sizeof(jit_libffi.CIF_DESCRIPTION, nargs)
+
+                # allocate the buffer
+                cif_descr = lltype.malloc(jit_libffi.CIF_DESCRIPTION_P.TO,
+                                          llmemory.raw_malloc_usage(size),
+                                          flavor='raw', track_allocation=False)
+
+                # array of 'ffi_type*' values, one per argument
+                size = rffi.sizeof(jit_libffi.FFI_TYPE_P) * nargs
+                atypes = lltype.malloc(rffi.CCHARP.TO, llmemory.raw_malloc_usage(size),
+                                       flavor='raw', track_allocation=False)
+                cif_descr.atypes = rffi.cast(jit_libffi.FFI_TYPE_PP, atypes)
+
+                # argument type specification
+                cif_descr.atypes[0] = jit_libffi.types.pointer   # cppthis
+                for i, conv in enumerate(self.converters):
+                    if not conv.libffitype:
+                        raise FastCallNotPossible
+                    cif_descr.atypes[i+1] = conv.libffitype
+
+                # result type specification
+                cif_descr.rtype = self.executor.libffitype
+
+                # exchange ---
+
+                # first, enough room for an array of 'nargs' pointers
+                exchange_offset = rffi.sizeof(rffi.CCHARP) * nargs
+                exchange_offset = (exchange_offset + 7) & ~7     # alignment
+                cif_descr.exchange_result = exchange_offset
+                cif_descr.exchange_result_libffi = exchange_offset
+
+                # TODO: left this out while testing (see ctypefunc.py)
+                # For results of precisely these types, libffi has a
+                # strange rule that they will be returned as a whole
+                # 'ffi_arg' if they are smaller.  The difference
+                # only matters on big-endian.
+
+                # then enough room for the result, rounded up to sizeof(ffi_arg)
+                exchange_offset += max(rffi.getintfield(cif_descr.rtype, 'c_size'),
+                                       jit_libffi.SIZE_OF_FFI_ARG)
+
+                # loop over args
+                for i in range(nargs):
+                    exchange_offset = (exchange_offset + 7) & ~7 # alignment
+                    cif_descr.exchange_args[i] = exchange_offset
+                    exchange_offset += rffi.getintfield(cif_descr.atypes[i], 'c_size')
+
+                # store the exchange data size
+                cif_descr.exchange_size = exchange_offset
+
+                # --- exchange
+
+                # extra
+                cif_descr.abi = clibffi.FFI_DEFAULT_ABI
+                cif_descr.nargs = self.args_expected + 1         # +1: cppthis
+
+                res = jit_libffi.jit_ffi_prep_cif(cif_descr)
+                if res != clibffi.FFI_OK:
+                    raise FastCallNotPossible
+
+            except Exception, e:
+                if cif_descr:
+                    lltype.free(cif_descr.atypes, flavor='raw', track_allocation=False)
+                    lltype.free(cif_descr, flavor='raw', track_allocation=False)
+                cif_descr = lltype.nullptr(jit_libffi.CIF_DESCRIPTION)
+                self._funcaddr = lltype.nullptr(rffi.VOIDP.TO)
+
+            self.cif_descr = cif_descr
 
     @jit.unroll_safe
     def prepare_arguments(self, args_w, call_local):
-        jit.promote(self)
         args = capi.c_allocate_function_args(len(args_w))
         stride = capi.c_function_arg_sizeof()
         for i in range(len(args_w)):
@@ -253,6 +349,11 @@ class CPPMethod(object):
     def signature(self):
         return capi.c_method_signature(self.scope, self.index)
 
+    def __del__(self):
+        if self.cif_descr:
+            lltype.free(self.cif_descr.atypes, flavor='raw')
+            lltype.free(self.cif_descr, flavor='raw')
+
     def __repr__(self):
         return "CPPMethod: %s" % self.signature()
 
@@ -264,6 +365,7 @@ class CPPFunction(CPPMethod):
     """Global (namespaced) function dispatcher. For now, the base class has
     all the needed functionality, by allowing the C++ this pointer to be null
     in the call. An optimization is expected there, however."""
+
     _immutable_ = True
 
     def __repr__(self):
@@ -274,6 +376,7 @@ class CPPConstructor(CPPMethod):
     """Method dispatcher that constructs new objects. In addition to the call,
     it allocates memory for the newly constructed object and sets ownership
     to Python."""
+
     _immutable_ = True
 
     def call(self, cppthis, args_w):
@@ -295,6 +398,7 @@ class CPPSetItem(CPPMethod):
     """Method dispatcher specific to Python's __setitem__ mapped onto C++'s
     operator[](int). The former function takes an extra argument to assign to
     the return type of the latter."""
+
     _immutable_ = True
 
     def call(self, cppthis, args_w):
@@ -312,15 +416,21 @@ class W_CPPOverload(Wrappable):
     """Dispatcher that is actually available at the app-level: it is a
     collection of (possibly) overloaded methods or functions. It calls these
     in order and deals with error handling and reporting."""
-    _immutable_ = True
+
+    _attrs_ = ['space', 'scope', 'functions']
+    _immutable_fields_ = ['scope', 'functions[*]']
 
     def __init__(self, space, containing_scope, functions):
         self.space = space
         self.scope = containing_scope
+        from pypy.rlib import debug
         self.functions = debug.make_sure_not_resized(functions)
 
+    @jit.elidable_promote()
     def is_static(self):
-        return self.space.wrap(isinstance(self.functions[0], CPPFunction))
+        if isinstance(self.functions[0], CPPFunction):
+            return self.space.w_True
+        return self.space.w_False
 
     @jit.unroll_safe
     @unwrap_spec(args_w='args_w')
@@ -386,7 +496,8 @@ W_CPPOverload.typedef = TypeDef(
 
 
 class W_CPPDataMember(Wrappable):
-    _immutable_ = True
+    _attrs_ = ['space', 'scope', 'converter', 'offset', '_is_static']
+    _immutable_fields = ['scope', 'converter', 'offset', '_is_static']
 
     def __init__(self, space, containing_scope, type_name, offset, is_static):
         self.space = space
@@ -433,8 +544,8 @@ W_CPPDataMember.typedef.acceptable_as_base_class = False
 
 
 class W_CPPScope(Wrappable):
-    _immutable_ = True
-    _immutable_fields_ = ["methods[*]", "datamembers[*]"]
+    _attrs_ = ['space', 'name', 'handle', 'methods', 'datamembers']
+    _immutable_fields_ = ['kind', 'name']
 
     kind = "scope"
 
@@ -534,7 +645,8 @@ class W_CPPScope(Wrappable):
 # classes for inheritance. Both are python classes, though, and refactoring
 # may be in order at some point.
 class W_CPPNamespace(W_CPPScope):
-    _immutable_ = True
+    _immutable_fields_ = ['kind']
+
     kind = "namespace"
 
     def _make_cppfunction(self, pyname, index):
@@ -564,12 +676,14 @@ class W_CPPNamespace(W_CPPScope):
                 self._make_datamember(datamember_name, i)
 
     def find_overload(self, meth_name):
-        # TODO: collect all overloads, not just the non-overloaded version
-        meth_idx = capi.c_method_index_from_name(self, meth_name)
-        if meth_idx == -1:
+        indices = capi.c_method_indices_from_name(self, meth_name)
+        if not indices:
             raise self.missing_attribute_error(meth_name)
-        cppfunction = self._make_cppfunction(meth_name, meth_idx)
-        overload = W_CPPOverload(self.space, self, [cppfunction])
+        cppfunctions = []
+        for meth_idx in indices:
+            f = self._make_cppfunction(meth_name, meth_idx)
+            cppfunctions.append(f)
+        overload = W_CPPOverload(self.space, self, cppfunctions)
         return overload
 
     def find_datamember(self, dm_name):
@@ -616,7 +730,9 @@ W_CPPNamespace.typedef.acceptable_as_base_class = False
 
 
 class W_CPPClass(W_CPPScope):
-    _immutable_ = True
+    _attrs_ = ['space', 'default_constructor', 'name', 'handle', 'methods', 'datamembers']
+    _immutable_fields_ = ['kind', 'default_constructor', 'methods[*]', 'datamembers[*]']
+
     kind = "class"
 
     def __init__(self, space, name, opaque_handle):
@@ -700,7 +816,6 @@ W_CPPClass.typedef.acceptable_as_base_class = False
 
 
 class W_ComplexCPPClass(W_CPPClass):
-    _immutable_ = True
 
     def get_cppthis(self, cppinstance, calling_scope):
         assert self == cppinstance.cppclass
@@ -722,7 +837,8 @@ W_ComplexCPPClass.typedef.acceptable_as_base_class = False
 
 
 class W_CPPTemplateType(Wrappable):
-    _immutable_ = True
+    _attrs_ = ['space', 'name', 'handle']
+    _immutable_fields = ['name', 'handle']
 
     def __init__(self, space, name, opaque_handle):
         self.space = space
@@ -744,6 +860,7 @@ W_CPPTemplateType.typedef.acceptable_as_base_class = False
 
 
 class W_CPPInstance(Wrappable):
+    _attrs_ = ['space', 'cppclass', '_rawobject', 'isref', 'python_owns']
     _immutable_fields_ = ["cppclass", "isref"]
 
     def __init__(self, space, cppclass, rawobject, isref, python_owns):
@@ -779,22 +896,42 @@ class W_CPPInstance(Wrappable):
             ptrptr = rffi.cast(rffi.VOIDPP, self._rawobject)
             return rffi.cast(capi.C_OBJECT, ptrptr[0])
 
+    def _get_as_builtin(self):
+        try:
+            return self.space.call_method(self.space.wrap(self), "_cppyy_as_builtin")
+        except OperationError, e:
+            if not e.match(self.space, self.space.w_AttributeError):
+                raise
+        return None
+
     def instance__eq__(self, w_other):
-        other = self.space.interp_w(W_CPPInstance, w_other, can_be_None=False)
         # get here if no class-specific overloaded operator is available, try to
         # find a global overload in gbl, in __gnu_cxx (for iterators), or in the
-        # scopes of the argument classes (TODO: implement that last)
-        for name in ["", "__gnu_cxx"]:
-            nss = scope_byname(self.space, name)
-            meth_idx = capi.c_get_global_operator(nss, self.cppclass, other.cppclass, "==")
-            if meth_idx != -1:
-                f = nss._make_cppfunction("operator==", meth_idx)
-                ol = W_CPPOverload(self.space, nss, [f])
-                # TODO: cache this operator
-                return ol.call(self, [self, w_other])
-        
-        # fallback: direct pointer comparison (the class comparison is needed since the
-        # first data member in a struct and the struct have the same address)
+        # scopes of the argument classes (TODO: implement that last option)
+        try:
+            # TODO: expecting w_other to be an W_CPPInstance is too limiting
+            other = self.space.interp_w(W_CPPInstance, w_other, can_be_None=False)
+            for name in ["", "__gnu_cxx"]:
+                nss = scope_byname(self.space, name)
+                meth_idx = capi.c_get_global_operator(nss, self.cppclass, other.cppclass, "==")
+                if meth_idx != -1:
+                    f = nss._make_cppfunction("operator==", meth_idx)
+                    ol = W_CPPOverload(self.space, nss, [f])
+                    # TODO: cache this operator (not done yet, as the above does not
+                    # select all overloads)
+                    return ol.call(self, [self, w_other])
+        except OperationError, e:
+            if not e.match(self.space, self.space.w_TypeError):
+                raise
+
+        # fallback 1: convert the object to a builin equivalent
+        w_as_builtin = self._get_as_builtin()
+        if w_as_builtin is not None:
+            return self.space.eq(w_as_builtin, w_other)
+
+        # fallback 2: direct pointer comparison (the class comparison is needed since
+        # the first data member in a struct and the struct have the same address)
+        other = self.space.interp_w(W_CPPInstance, w_other, can_be_None=False)  # TODO: factor out
         iseq = (self._rawobject == other._rawobject) and (self.cppclass == other.cppclass)
         return self.space.wrap(iseq)
 
@@ -805,6 +942,29 @@ class W_CPPInstance(Wrappable):
         if not self._rawobject or (self.isref and not self.get_rawobject()):
             return self.space.w_False
         return self.space.w_True
+
+    def instance__len__(self):
+        w_as_builtin = self._get_as_builtin()
+        if w_as_builtin is not None:
+            return self.space.len(w_as_builtin)
+        raise OperationError(
+            self.space.w_TypeError,
+            self.space.wrap("'%s' has no length" % self.cppclass.name))
+
+    def instance__cmp__(self, w_other):
+        w_as_builtin = self._get_as_builtin()
+        if w_as_builtin is not None:
+            return self.space.cmp(w_as_builtin, w_other)
+        raise OperationError(
+            self.space.w_AttributeError,
+            self.space.wrap("'%s' has no attribute __cmp__" % self.cppclass.name))
+
+    def instance__repr__(self):
+        w_as_builtin = self._get_as_builtin()
+        if w_as_builtin is not None:
+            return self.space.repr(w_as_builtin)
+        return self.space.wrap("<%s object at 0x%x>" %
+                               (self.cppclass.name, rffi.cast(rffi.ULONG, self.get_rawobject())))
 
     def destruct(self):
         assert isinstance(self, W_CPPInstance)
@@ -825,6 +985,9 @@ W_CPPInstance.typedef = TypeDef(
     __eq__ = interp2app(W_CPPInstance.instance__eq__),
     __ne__ = interp2app(W_CPPInstance.instance__ne__),
     __nonzero__ = interp2app(W_CPPInstance.instance__nonzero__),
+    __len__ = interp2app(W_CPPInstance.instance__len__),
+    __cmp__ = interp2app(W_CPPInstance.instance__cmp__),
+    __repr__ = interp2app(W_CPPInstance.instance__repr__),
     destruct = interp2app(W_CPPInstance.destruct),
 )
 W_CPPInstance.typedef.acceptable_as_base_class = True

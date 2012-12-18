@@ -7,10 +7,13 @@ What's new in PyPy 2.0
 
 .. branch: length-hint
 Implement __lenght_hint__ according to PEP 424
-   
+
 .. branches we don't care about
 .. branch: autoreds
 
 .. branch: release-2.0-beta1
 
 .. branch: remove-PYPY_NOT_MAIN_FILE
+
+.. branch: fix-lookinside-iff-oopspec
+Fixed the interaction between two internal tools for controlling the JIT.

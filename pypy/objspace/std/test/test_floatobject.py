@@ -451,8 +451,11 @@ class AppTestAppFloatTest:
         else:
             assert False, 'did not raise'
 
+
 class AppTestFloatHex:
-    spaceconfig = dict(usemodules=['binascii', 'rctime'])
+    spaceconfig = {
+        "usemodules": ["binascii", "rctime"],
+    }
 
     def w_identical(self, x, y):
         import math

@@ -1,4 +1,6 @@
 
+from __future__ import absolute_import
+
 import types
 from pypy.annotation.model import SomeBool, SomeInteger, SomeString,\
      SomeFloat, SomeList, SomeDict, s_None, \
@@ -128,3 +130,25 @@ class Sig(object):
                                              s_arg,
                                              s_input))
         inputcells[:] = args_s
+
+def finish_type(paramtype, bookkeeper, func):
+    from pypy.rlib.types import SelfTypeMarker
+    if isinstance(paramtype, SomeObject):
+        return paramtype
+    elif isinstance(paramtype, SelfTypeMarker):
+        raise Exception("%r argument declared as annotation.types.self(); class needs decorator rlib.signature.finishsigs()" % (func,))
+    else:
+        return paramtype(bookkeeper)
+
+def enforce_signature_args(funcdesc, paramtypes, actualtypes):
+    assert len(paramtypes) == len(actualtypes)
+    params_s = [finish_type(paramtype, funcdesc.bookkeeper, funcdesc.pyobj) for paramtype in paramtypes]
+    for i, (s_param, s_actual) in enumerate(zip(params_s, actualtypes)):
+        if not s_param.contains(s_actual):
+            raise Exception("%r argument %d:\n"
+                            "expected %s,\n"
+                            "     got %s" % (funcdesc, i+1, s_param, s_actual))
+    actualtypes[:] = params_s
+
+def enforce_signature_return(funcdesc, sigtype, inferredtype):
+    return finish_type(sigtype, funcdesc.bookkeeper, funcdesc.pyobj)

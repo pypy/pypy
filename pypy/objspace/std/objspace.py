@@ -229,12 +229,9 @@ class StdObjSpace(ObjSpace, DescrOperation):
             # '__builtin__.Ellipsis' avoids confusion with special.Ellipsis
             return self.w_Ellipsis
 
-        if isinstance(x, type(Exception)) and issubclass(x, Exception):
-            w_result = self.wrap_exception_cls(x)
-            if w_result is not None:
-                return w_result
-        from pypy.objspace.std.fake import fake_object
-        return fake_object(self, x)
+        raise OperationError(self.w_RuntimeError,
+            self.wrap("refusing to wrap cpython value %r" % (x,))
+        )
 
     def wrap_exception_cls(self, x):
         """NOT_RPYTHON"""

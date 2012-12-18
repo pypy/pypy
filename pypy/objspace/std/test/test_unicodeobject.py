@@ -44,13 +44,10 @@ class AppTestUnicodeStringStdOnly:
         assert s != u
         assert not u == s
         assert u != s
-        
+
 
 class AppTestUnicodeString:
     spaceconfig = dict(usemodules=('unicodedata',))
-
-    def setup_class(cls):
-        cls.w_version_info = cls.space.wrap(sys.version_info)
 
     def test_addition(self):
         def check(a, b):
@@ -635,8 +632,6 @@ class AppTestUnicodeString:
         assert u'abcdefghiabc'.rfind(u'abcz') == -1
 
     def test_rfind_corner_case(self):
-        if self.version_info < (2, 5):
-            skip("fails on top of CPython <= 2.4")
         assert u'abc'.rfind('', 4) == -1
 
     def test_count(self):

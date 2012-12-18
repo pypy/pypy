@@ -13,11 +13,13 @@ import sys
 import signal
 
 def setup_module(mod):
+    usemodules = ['binascii', 'posix', 'struct', 'rctime']
     if os.name != 'nt':
-        mod.space = gettestobjspace(usemodules=['posix', 'fcntl', 'struct'])
+        usemodules += ['fcntl']
     else:
         # On windows, os.popen uses the subprocess module
-        mod.space = gettestobjspace(usemodules=['posix', '_rawffi', 'thread', 'struct'])
+        usemodules += ['_rawffi', 'thread']
+    mod.space = gettestobjspace(usemodules=usemodules)
     mod.path = udir.join('posixtestfile.txt')
     mod.path.write("this is a test")
     mod.path2 = udir.join('test_posix2-')
@@ -48,7 +50,9 @@ def need_sparse_files():
 
 GET_POSIX = "(): import %s as m ; return m" % os.name
 
+
 class AppTestPosix:
+
     def setup_class(cls):
         cls.space = space
         cls.w_posix = space.appexec([], GET_POSIX)
@@ -321,7 +325,11 @@ class AppTestPosix:
             u = "caf\xe9".decode(sys.getfilesystemencoding())
         except UnicodeDecodeError:
             # Could not decode, listdir returned the byte string
-            assert (str, "caf\xe9") in typed_result
+            if sys.platform != 'darwin':
+                assert (str, "caf\xe9") in typed_result
+            else:
+                # darwin 'normalized' it
+                assert (unicode, 'caf%E9') in typed_result
         else:
             assert (unicode, u) in typed_result
 

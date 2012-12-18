@@ -416,6 +416,26 @@ class Integer(Primitive):
             assert v == 0
             return 0
 
+    @raw_unary_op
+    def isfinite(self, v):
+        return True
+
+    @raw_unary_op
+    def isnan(self, v):
+        return False
+
+    @raw_unary_op
+    def isinf(self, v):
+        return False
+
+    @raw_unary_op
+    def isposinf(self, v):
+        return False
+
+    @raw_unary_op
+    def isneginf(self, v):
+        return False
+
     @simple_binary_op
     def bitwise_and(self, v1, v2):
         return v1 & v2

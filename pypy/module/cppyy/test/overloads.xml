@@ -11,4 +11,6 @@
   <class name="more_overloads" />
   <class name="more_overloads2" />
 
+  <function name="calc_mean" />
+
 </lcgdict>

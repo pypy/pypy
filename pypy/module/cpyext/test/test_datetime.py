@@ -78,6 +78,10 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
             ("get_types", "METH_NOARGS",
              """
                  PyDateTime_IMPORT;
+                 if (!PyDateTimeAPI) {
+                     PyErr_SetString(PyExc_RuntimeError, "No PyDateTimeAPI");
+                     return NULL;
+                 }
                  return PyTuple_Pack(4,
                                      PyDateTimeAPI->DateType,
                                      PyDateTimeAPI->DateTimeType,

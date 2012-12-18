@@ -10,7 +10,7 @@ from pypy.translator.c.support import cdecl, forward_cdecl, somelettersfrom
 from pypy.translator.c.support import c_char_array_constant, barebonearray
 from pypy.translator.c.primitive import PrimitiveType, name_signed
 from pypy.rlib import exports
-from pypy.rlib.rfloat import isfinite
+from pypy.rlib.rfloat import isfinite, isinf
 from pypy.rlib.rstackovf import _StackOverflow
 from pypy.translator.c import extfunc
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
@@ -733,8 +733,11 @@ class ArrayNode(ContainerNode):
                 yield '\t%s{' % length
             for j in range(len(self.obj.items)):
                 value = self.obj.items[j]
+                basename = self.name
+                if basename.endswith('.b'):
+                    basename = basename[:-2] + '.a'
                 lines = generic_initializationexpr(self.db, value,
-                                                '%s.items[%d]' % (self.name, j),
+                                                '%s.items[%d]' % (basename, j),
                                                 '%s%d' % (decoration, j))
                 for line in lines:
                     yield '\t' + line
@@ -791,8 +794,11 @@ def generic_initializationexpr(db, value, access_expr, decoration):
         comma = ','
         if typeOf(value) == Float and not isfinite(value):
             db.late_initializations.append(('%s' % access_expr, db.get(value)))
-            expr = '0.0 /* patched later by %sinfinity */' % (
-                '-+'[value > 0])
+            if isinf(value):
+                name = '-+'[value > 0] + 'inf'
+            else:
+                name = 'NaN'
+            expr = '0.0 /* patched later with %s */' % (name,)
         else:
             expr = db.get(value)
             if typeOf(value) is Void:

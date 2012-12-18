@@ -1,9 +1,9 @@
-# This is a general algorithm used by the annotator.
+# This is a general algorithm used by the annotator, translator, and other code
 
 # union-find impl, a info object is attached to the roots
 
-class UnionFind(object):
 
+class UnionFind(object):
     def __init__(self, info_factory=None):
         self.link_to_parent = {}
         self.weight = {}
@@ -13,7 +13,7 @@ class UnionFind(object):
     # mapping-like [] access
     def __getitem__(self, obj):
         if obj not in self.link_to_parent:
-            raise KeyError, obj
+            raise KeyError(obj)
 
         ignore, rep, info = self.find(obj)
 
@@ -64,7 +64,6 @@ class UnionFind(object):
 
         return False, parent, self.root_info[parent]
 
-
     def union(self, obj1, obj2): # -> not_noop, rep, info
 
         new1, rep1, info1 = self.find(obj1)
@@ -93,6 +92,3 @@ class UnionFind(object):
         self.root_info[rep1] = info1
 
         return True, rep1, info1
-        
-
-    

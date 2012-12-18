@@ -37,6 +37,13 @@ class W_CTypeEnum(W_CTypePrimitiveSigned):
                 space.setitem(w_dct, space.wrap(enumvalue),
                                      space.wrap(enumerator))
             return w_dct
+        if attrchar == 'R':     # relements
+            space = self.space
+            w_dct = space.newdict()
+            for enumerator, enumvalue in self.enumerators2values.iteritems():
+                space.setitem(w_dct, space.wrap(enumerator),
+                                     space.wrap(enumvalue))
+            return w_dct
         return W_CTypePrimitiveSigned._fget(self, attrchar)
 
     def string(self, cdataobj, maxlen):
