@@ -17,6 +17,7 @@ class RawBuffer(object):
         # overlaps
         self.offsets = []
         self.lengths = []
+        self.descrs = []
         self.values = []
 
     def _get_memory(self):
@@ -24,18 +25,19 @@ class RawBuffer(object):
         NOT_RPYTHON
         for testing only
         """
-        return zip(self.offsets, self.lengths, self.values)
+        return zip(self.offsets, self.lengths, self.descrs, self.values)
 
-    def write_value(self, offset, length, value):
+    def write_value(self, offset, length, descr, value):
         i = 0
         N = len(self.offsets)
         while i < N:
             if self.offsets[i] == offset:
-                if length != self.lengths[i]:
+                if length != self.lengths[i] or descr != self.descrs[i]:
+                    # in theory we could add support for the cases in which
+                    # the lenght or descr is different, but I don't think we
+                    # need it in practice
                     raise InvalidRawWrite
                 # update the value at this offset
-                self.offsets[i] = offset
-                self.lengths[i] = length
                 self.values[i] = value
                 return
             elif self.offsets[i] > offset:
@@ -47,14 +49,15 @@ class RawBuffer(object):
         # insert a new value at offset
         self.offsets.insert(i, offset)
         self.lengths.insert(i, length)
+        self.descrs.insert(i, descr)
         self.values.insert(i, value)
 
-    def read_value(self, offset, length):
+    def read_value(self, offset, length, descr):
         i = 0
         N = len(self.offsets)
         while i < N:
             if self.offsets[i] == offset:
-                if length != self.lengths[i]:
+                if length != self.lengths[i] or descr != self.descrs[i]:
                     raise InvalidRawRead
                 return self.values[i]
             i += 1
