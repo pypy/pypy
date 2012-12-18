@@ -190,9 +190,9 @@ def descr___round__(space, w_long, w_ndigits=None):
 
     # result = self - divmod_near(self, 10 ** -ndigits)[1]
     right = rbigint.fromint(10).pow(ndigits.neg())
-    w_temp = divmod_near(space, w_long, newlong(space, right))
-    w_temp2 = space.getitem(w_temp, space.wrap(1))
-    return space.sub(w_long, w_temp2)
+    w_tuple = divmod_near(space, w_long, newlong(space, right))
+    _, w_r = space.fixedview(w_tuple, 2)
+    return space.sub(w_long, w_r)
 
 # ____________________________________________________________
 
