@@ -3,6 +3,7 @@ from importlib import machinery
 from .. import abc
 from .. import util
 from . import util as builtin_util
+from test.support import impl_detail, run_unittest
 
 import sys
 import types
@@ -44,6 +45,8 @@ class LoaderTests(abc.LoaderTests):
         # Not way to force an imoprt failure.
         pass
 
+    @impl_detail("cannot initialize a built-in module twice in PyPy",
+                 pypy=False)
     def test_module_reuse(self):
         # Test that the same module is used in a reload.
         with util.uncache(builtin_util.NAME):
@@ -94,7 +97,6 @@ class InspectLoaderTests(unittest.TestCase):
 
 
 def test_main():
-    from test.support import run_unittest
     run_unittest(LoaderTests, InspectLoaderTests)
 
 

@@ -2,6 +2,7 @@ from ... import machinery
 from .. import abc
 
 import unittest
+from test.support import impl_detail, run_unittest
 
 
 class FinderTests(abc.FinderTests):
@@ -12,15 +13,18 @@ class FinderTests(abc.FinderTests):
         finder = machinery.FrozenImporter
         return finder.find_module(name, path)
 
+    @impl_detail("pypy doesn't support frozen modules", pypy=False)
     def test_module(self):
         name = '__hello__'
         loader = self.find(name)
         self.assertTrue(hasattr(loader, 'load_module'))
 
+    @impl_detail("pypy doesn't support frozen modules", pypy=False)
     def test_package(self):
         loader = self.find('__phello__')
         self.assertTrue(hasattr(loader, 'load_module'))
 
+    @impl_detail("pypy doesn't support frozen modules", pypy=False)
     def test_module_in_package(self):
         loader = self.find('__phello__.spam', ['__phello__'])
         self.assertTrue(hasattr(loader, 'load_module'))
@@ -39,7 +43,6 @@ class FinderTests(abc.FinderTests):
 
 
 def test_main():
-    from test.support import run_unittest
     run_unittest(FinderTests)
 
 

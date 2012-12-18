@@ -3,10 +3,11 @@ import imp
 import unittest
 from .. import abc
 from .. import util
-from test.support import captured_stdout
+from test.support import captured_stdout, impl_detail
 
 class LoaderTests(abc.LoaderTests):
 
+    @impl_detail("pypy doesn't support frozen modules", pypy=False)
     def test_module(self):
         with util.uncache('__hello__'), captured_stdout() as stdout:
             module = machinery.FrozenImporter.load_module('__hello__')
@@ -16,6 +17,7 @@ class LoaderTests(abc.LoaderTests):
                 self.assertEqual(getattr(module, attr), value)
             self.assertEqual(stdout.getvalue(), 'Hello world!\n')
 
+    @impl_detail("pypy doesn't support frozen modules", pypy=False)
     def test_package(self):
         with util.uncache('__phello__'),  captured_stdout() as stdout:
             module = machinery.FrozenImporter.load_module('__phello__')
@@ -29,6 +31,7 @@ class LoaderTests(abc.LoaderTests):
                                  (attr, attr_value, value))
             self.assertEqual(stdout.getvalue(), 'Hello world!\n')
 
+    @impl_detail("pypy doesn't support frozen modules", pypy=False)
     def test_lacking_parent(self):
         with util.uncache('__phello__', '__phello__.spam'), \
              captured_stdout() as stdout:
@@ -43,6 +46,7 @@ class LoaderTests(abc.LoaderTests):
                                  (attr, attr_value, value))
             self.assertEqual(stdout.getvalue(), 'Hello world!\n')
 
+    @impl_detail("pypy doesn't support frozen modules", pypy=False)
     def test_module_reuse(self):
         with util.uncache('__hello__'), captured_stdout() as stdout:
             module1 = machinery.FrozenImporter.load_module('__hello__')
@@ -65,6 +69,7 @@ class InspectLoaderTests(unittest.TestCase):
 
     """Tests for the InspectLoader methods for FrozenImporter."""
 
+    @impl_detail("pypy doesn't support frozen modules", pypy=False)
     def test_get_code(self):
         # Make sure that the code object is good.
         name = '__hello__'
@@ -75,11 +80,13 @@ class InspectLoaderTests(unittest.TestCase):
             self.assertTrue(hasattr(mod, 'initialized'))
             self.assertEqual(stdout.getvalue(), 'Hello world!\n')
 
+    @impl_detail("pypy doesn't support frozen modules", pypy=False)
     def test_get_source(self):
         # Should always return None.
         result = machinery.FrozenImporter.get_source('__hello__')
         self.assertTrue(result is None)
 
+    @impl_detail("pypy doesn't support frozen modules", pypy=False)
     def test_is_package(self):
         # Should be able to tell what is a package.
         test_for = (('__hello__', False), ('__phello__', True),
