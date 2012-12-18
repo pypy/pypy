@@ -143,6 +143,7 @@ class JvmGeneratedSource(object):
         """
         jascmd = [
             getoption('java'),
+            '-Djava.awt.headless=true',
             '-jar', str(self.jasminjar),
             '-g',
             '-d',
@@ -193,6 +194,7 @@ class JvmGeneratedSource(object):
         strargs = [self._make_str(a) for a in args]
         cmd = [getoption('java'),
                '-Xmx256M', # increase the heapsize so the microbenchmarks run
+               '-Djava.awt.headless=true',
                '-cp',
                str(self.javadir)+os.pathsep+str(self.jnajar),
                self.package+".Main"] + strargs
