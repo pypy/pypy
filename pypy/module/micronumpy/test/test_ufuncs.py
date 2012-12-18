@@ -672,6 +672,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
     def test_isnan_isinf(self):
         from _numpypy import isnan, isinf, float64, array
         assert isnan(float('nan'))
+        assert not isnan(3)
+        assert not isinf(3)
         assert isnan(float64(float('nan')))
         assert not isnan(3)
         assert isinf(float('inf'))
@@ -686,6 +688,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
     def test_isposinf_isneginf(self):
         from _numpypy import isneginf, isposinf
         assert isposinf(float('inf'))
+        assert not isposinf(3)
+        assert not isneginf(3)
         assert not isposinf(float('-inf'))
         assert not isposinf(float('nan'))
         assert not isposinf(0)
@@ -705,6 +709,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             [True, True, True, True]).all()
         assert (isfinite([ninf, inf, -nan, nan]) ==
             [False, False, False, False]).all()
+        assert (isfinite([1, 2, 3]) == [True, True, True]).all()
 
         a = [complex(0, 0), complex(1e50, -1e-50), complex(inf, 0),
              complex(inf, inf), complex(inf, ninf), complex(0, inf),

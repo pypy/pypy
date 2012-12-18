@@ -710,7 +710,10 @@ def make_string_mappings(strtype):
     # char* -> str
     # doesn't free char*
     def charp2str(cp):
-        b = builder_class()
+        size = 0
+        while cp[size] != lastchar:
+            size += 1
+        b = builder_class(size)
         i = 0
         while cp[i] != lastchar:
             b.append(cp[i])

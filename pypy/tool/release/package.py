@@ -93,7 +93,7 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
     shutil.copytree(str(basedir.join('lib_pypy')),
                     str(pypydir.join('lib_pypy')),
                     ignore=ignore_patterns('.svn', 'py', '*.pyc', '*~'))
-    for file in ['LICENSE', 'README']:
+    for file in ['LICENSE', 'README.rst']:
         shutil.copy(str(basedir.join(file)), str(pypydir))
     pypydir.ensure('include', dir=True)
     if sys.platform == 'win32':
