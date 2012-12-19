@@ -374,6 +374,21 @@ class VirtualRawBufferValue(AbstractVirtualValue):
         self.size = size
         self.buffer = RawBuffer()
 
+    def getitem_raw(self, offset, length, descr):
+        return self.buffer.read_value(offset, length, descr)
+
+    def setitem_raw(self, offset, length, descr, value):
+        self.buffer.write_value(offset, length, descr, value)
+
+    def force_at_end_of_preamble(self, already_forced, optforce):
+        if self in already_forced:
+            return self
+        already_forced[self] = self
+        for i in range(len(self.buffer.values)):
+            value = self.buffer.values[i]
+            self.buffer.values[i] = value.force_at_end_of_preamble(already_forced, optforce)
+        return self
+
     def _really_force(self, optforce):
         op = self.source_op
         assert op is not None
@@ -401,11 +416,19 @@ class VirtualRawBufferValue(AbstractVirtualValue):
                               descr=descr)
             optforce.emit_operation(op)
 
-    def setitem_raw(self, offset, length, descr, value):
-        self.buffer.write_value(offset, length, descr, value)
+    def get_args_for_fail(self, modifier):
+        if self.box is None and not modifier.already_seen_virtual(self.keybox):
+            # checks for recursion: it is False unless
+            # we have already seen the very same keybox
+            itemboxes = []
+            for itemvalue in self.buffer.values:
+                itemboxes.append(itemvalue.get_key_box())
+            modifier.register_virtual_fields(self.keybox, itemboxes)
+            for itemvalue in self.buffer.values:
+                itemvalue.get_args_for_fail(modifier)
 
-    def getitem_raw(self, offset, length, descr):
-        return self.buffer.read_value(offset, length, descr)
+    def _make_virtual(self, modifier):
+        return modifier.make_vrawbuffer()
 
 
 class VirtualRawSliceValue(AbstractVirtualValue):

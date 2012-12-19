@@ -782,8 +782,6 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
-
-
     def test_p123_simple(self):
         ops = """
         [i1, p2, p3]
@@ -1888,6 +1886,22 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    def test_virtual_raw_malloc_virtualstate(self):
+        ops = """
+        [i0]
+        i1 = getarrayitem_raw(i0, 0, descr=rawarraydescr)
+        i2 = int_add(i1, 1)
+        call('free', i0, descr=raw_free_descr)
+        i3 = call('malloc', 10, descr=raw_malloc_descr)
+        setarrayitem_raw(i3, 0, i2, descr=rawarraydescr)
+        jump(i3)
+        """
+        expected = """
+        [i1]
+        i2 = int_add(i1, 1)
+        jump(i2)
+        """
+        self.optimize_loop(ops, expected)
 
     def test_duplicate_getfield_1(self):
         ops = """

@@ -287,6 +287,56 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
         debug_print(indent + 'VArrayStructStateInfo(%d):' % self.position)
 
 
+class VRawBufferStateInfo(AbstractVirtualStateInfo):
+    def __init__(self):
+        pass
+
+    def _enum(self, virtual_state):
+        for s in self.fieldstate:
+            s.enum(virtual_state)
+
+    def generalization_of(self, other, renum, bad):
+        assert self.position != -1
+        if self.position in renum:
+            if renum[self.position] == other.position:
+                return True
+            bad[self] = True
+            bad[other] = True
+            return False
+        renum[self.position] = other.position
+        if not self._generalization_of(other):
+            bad[self] = True
+            bad[other] = True
+            return False
+        if len(self.fieldstate) != len(other.fieldstate):
+            bad[self] = True
+            bad[other] = True
+            return False
+        for i in range(len(self.fieldstate)):
+            if not self.fieldstate[i].generalization_of(other.fieldstate[i],
+                                                        renum, bad):
+                bad[self] = True
+                bad[other] = True
+                return False
+        return True
+
+    def _generalization_of(self, other):
+        return isinstance(other, VRawBufferStateInfo)
+
+    def enum_forced_boxes(self, boxes, value, optimizer):
+        if not isinstance(value, virtualize.VirtualRawBufferValue):
+            raise BadVirtualState
+        if not value.is_virtual():
+            raise BadVirtualState
+        for i in range(len(self.fieldstate)):
+            try:
+                v = value.buffer.values[i]
+            except IndexError:
+                raise BadVirtualState
+            s = self.fieldstate[i]
+            if s.position > self.position:
+                s.enum_forced_boxes(boxes, v, optimizer)
+
 class NotVirtualStateInfo(AbstractVirtualStateInfo):
     def __init__(self, value, is_opaque=False):
         self.is_opaque = is_opaque
@@ -578,6 +628,9 @@ class VirtualStateAdder(resume.ResumeDataVirtualAdder):
 
     def make_varraystruct(self, arraydescr, fielddescrs):
         return VArrayStructStateInfo(arraydescr, fielddescrs)
+
+    def make_vrawbuffer(self):
+        return VRawBufferStateInfo()
 
 class BoxNotProducable(Exception):
     pass
