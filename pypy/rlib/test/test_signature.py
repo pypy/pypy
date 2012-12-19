@@ -25,7 +25,7 @@ def check_annotator_fails(caller):
     assert caller.func_name in repr(exc.args)
 
 
-def test_signature_bookkeeping():
+def test_bookkeeping():
     @signature('x', 'y', returns='z')
     def f(a, b):
         return a + len(b)
@@ -35,13 +35,13 @@ def test_signature_bookkeeping():
     assert f.foo == 'foo'
     assert f(1, 'hello') == 6
 
-def test_signature_basic():
+def test_basic():
     @signature(types.int(), types.str(), returns=types.char())
     def f(a, b):
         return b[a]
     assert getsig(f) == [model.SomeInteger(), model.SomeString(), model.SomeChar()]
 
-def test_signature_arg_errors():
+def test_arg_errors():
     @signature(types.int(), types.str(), returns=types.int())
     def f(a, b):
         return a + len(b)
@@ -52,7 +52,7 @@ def test_signature_arg_errors():
     def bad_for_body(): # would give error inside 'f' body, instead errors at call
         f('a', 'b')
 
-def test_signature_return():
+def test_return():
     @signature(returns=types.str())
     def f():
         return 'a'
@@ -66,7 +66,7 @@ def test_signature_return():
     a = annotate_at(g)
     assert sigof(a, f) == [model.SomeString(), model.SomeString()]
 
-def test_signature_return_errors():
+def test_return_errors():
     @check_annotator_fails
     @signature(returns=types.int())
     def int_not_char():
@@ -77,26 +77,26 @@ def test_signature_return_errors():
         return s
 
 
-def test_signature_none():
+def test_none():
     @signature(returns=types.none())
     def f():
         pass
     assert getsig(f) == [model.s_None]
 
-def test_signature_float():
+def test_float():
     @signature(types.longfloat(), types.singlefloat(), returns=types.float())
     def f(a, b):
         return 3.0
     assert getsig(f) == [model.SomeLongFloat(), model.SomeSingleFloat(), model.SomeFloat()]
 
-def test_signature_unicode():
+def test_unicode():
     @signature(types.unicode(), returns=types.int())
     def f(u):
         return len(u)
     assert getsig(f) == [model.SomeUnicodeString(), model.SomeInteger()]
 
 
-def test_signature_list():
+def test_list():
     @signature(types.list(types.int()), returns=types.int())
     def f(a):
         return len(a)
@@ -133,7 +133,7 @@ def test_signature_list():
         l.append('b')
     getsig(can_append)
 
-def test_signature_array():
+def test_array():
     @signature(returns=types.array(types.int()))
     def f():
         return [1]
@@ -148,7 +148,7 @@ def test_signature_array():
         l.append(2)
     check_annotator_fails(try_append)
 
-def test_signature_dict():
+def test_dict():
     @signature(returns=types.dict(types.str(), types.int()))
     def f():
         return {'a': 1, 'b': 2}
@@ -158,7 +158,7 @@ def test_signature_dict():
     assert rettype.dictdef.dictvalue.s_value == model.SomeInteger()
 
 
-def test_signature_instance():
+def test_instance():
     class C1(object):
         pass
     class C2(C1):
@@ -182,7 +182,7 @@ def test_signature_instance():
     def bad_for_body():
         f(C1())
 
-def test_signature_self():
+def test_self():
     @finishsigs
     class C(object):
         @signature(types.self(), types.self(), returns=types.none())
@@ -201,7 +201,7 @@ def test_signature_self():
     assert isinstance(argtype, model.SomeInstance)
     assert argtype.classdef.classdesc.pyobj == C
 
-def test_signature_self_error():
+def test_self_error():
     class C(object):
         @signature(types.self(), returns=types.none())
         def incomplete_sig_meth(self):
