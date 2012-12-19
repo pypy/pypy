@@ -202,6 +202,10 @@ class SomeBool(SomeInteger):
             self.knowntypedata = knowntypedata
 
 class SomeStringOrUnicode(SomeObject):
+    """Base class for shared implementation of SomeString and SomeUnicodeString.
+
+    Cannot be an annotation."""
+
     immutable = True
     can_be_None=False
     no_nul = False  # No NUL character in the string.
