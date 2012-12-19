@@ -416,7 +416,13 @@ class VirtualRawSliceValue(AbstractVirtualValue):
         self.offset = offset
 
     def _really_force(self, optforce):
-        import pdb;pdb.set_trace()
+        op = self.source_op
+        assert op is not None
+        if not we_are_translated():
+            op.name = 'FORCE ' + self.source_op.name
+        self.box = self.source_op.result
+        self.rawbuffer_value.force_box(optforce)
+        optforce.emit_operation(op)
 
     def setitem_raw(self, offset, length, descr, value):
         self.rawbuffer_value.setitem_raw(self.offset+offset, length, descr, value)
