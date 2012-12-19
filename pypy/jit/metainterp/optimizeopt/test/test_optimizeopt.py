@@ -1845,6 +1845,23 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    def test_virtual_raw_slice_of_a_raw_slice(self):
+        ops = """
+        [i0, i1]
+        i2 = call('malloc', 10, descr=raw_malloc_descr)
+        i3 = int_add(i2, 1) # get a slice of the original buffer
+        i4 = int_add(i3, 1) # get a slice of a slice
+        setarrayitem_raw(i4, 0, i1, descr=rawarraydescr_char) # write to the slice
+        i5 = getarrayitem_raw(i2, 2, descr=rawarraydescr_char)
+        call('free', i2, descr=raw_free_descr)
+        jump(i0, i5)
+        """
+        expected = """
+        [i0, i1]
+        jump(i0, i1)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_virtual_raw_slice_force(self):
         ops = """
         [i0, i1]

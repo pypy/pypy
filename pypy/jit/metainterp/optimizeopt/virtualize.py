@@ -600,6 +600,10 @@ class OptVirtualize(optimizer.Optimization):
             if isinstance(value, VirtualRawBufferValue):
                 self.make_virtual_raw_slice(value, offset, op.result, op)
                 return
+            elif isinstance(value, VirtualRawSliceValue):
+                offset = offset + value.offset
+                self.make_virtual_raw_slice(value.rawbuffer_value, offset, op.result, op)
+                return
         self.emit_operation(op)
 
     def optimize_ARRAYLEN_GC(self, op):
