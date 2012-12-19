@@ -211,6 +211,7 @@ class SomeStringOrUnicode(SomeObject):
     no_nul = False  # No NUL character in the string.
 
     def __init__(self, can_be_None=False, no_nul=False):
+        assert type(self) is not SomeStringOrUnicode
         if can_be_None:
             self.can_be_None = True
         if no_nul:
@@ -229,19 +230,16 @@ class SomeStringOrUnicode(SomeObject):
             d2 = d2.copy(); d2['no_nul'] = 0   # ignored
         return d1 == d2
 
+    def nonnoneify(self):
+        return self.__class__(can_be_None=False, no_nul=self.no_nul)
+
 class SomeString(SomeStringOrUnicode):
     "Stands for an object which is known to be a string."
     knowntype = str
 
-    def nonnoneify(self):
-        return SomeString(can_be_None=False, no_nul=self.no_nul)
-
 class SomeUnicodeString(SomeStringOrUnicode):
     "Stands for an object which is known to be an unicode string"
     knowntype = unicode
-
-    def nonnoneify(self):
-        return SomeUnicodeString(can_be_None=False, no_nul=self.no_nul)
 
 class SomeChar(SomeString):
     "Stands for an object known to be a string of length 1."
