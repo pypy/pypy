@@ -363,11 +363,10 @@ class VArrayStructValue(AbstractVirtualValue):
         return modifier.make_varraystruct(self.arraydescr, self._get_list_of_descrs())
 
 
-class VirtualRawMemoryValue(AbstractVirtualValue):
+class VirtualRawBufferValue(AbstractVirtualValue):
 
-    def __init__(self, cpu, size, keybox, source_op):
+    def __init__(self, size, keybox, source_op):
         AbstractVirtualValue.__init__(self, keybox, source_op)
-        self.cpu = cpu
         # note that size is unused, because we assume that the buffer is big
         # enough to write/read everything we need. If it's not, it's undefined
         # behavior anyway, although in theory we could probably detect such
@@ -409,6 +408,22 @@ class VirtualRawMemoryValue(AbstractVirtualValue):
         return self.buffer.read_value(offset, length, descr)
 
 
+class VirtualRawSliceValue(AbstractVirtualValue):
+
+    def __init__(self, rawbuffer_value, offset, keybox, source_op):
+        AbstractVirtualValue.__init__(self, keybox, source_op)
+        self.rawbuffer_value = rawbuffer_value
+        self.offset = offset
+
+    def _really_force(self, optforce):
+        import pdb;pdb.set_trace()
+
+    def setitem_raw(self, offset, length, descr, value):
+        self.rawbuffer_value.setitem_raw(self.offset+offset, length, descr, value)
+
+    def getitem_raw(self, offset, length, descr):
+        return self.rawbuffer_value.getitem_raw(self.offset+offset, length, descr)
+
 class OptVirtualize(optimizer.Optimization):
     "Virtualize objects until they escape."
 
@@ -435,7 +450,12 @@ class OptVirtualize(optimizer.Optimization):
         return vvalue
 
     def make_virtual_raw_memory(self, size, box, source_op):
-        vvalue = VirtualRawMemoryValue(self.optimizer.cpu, size, box, source_op)
+        vvalue = VirtualRawBufferValue(size, box, source_op)
+        self.make_equal_to(box, vvalue)
+        return vvalue
+
+    def make_virtual_raw_slice(self, rawbuffer_value, offset, box, source_op):
+        vvalue = VirtualRawSliceValue(rawbuffer_value, offset, box, source_op)
         self.make_equal_to(box, vvalue)
         return vvalue
 
@@ -564,6 +584,16 @@ class OptVirtualize(optimizer.Optimization):
         value = self.getvalue(op.getarg(1))
         if value.is_virtual():
             return
+        self.emit_operation(op)
+
+    def optimize_INT_ADD(self, op):
+        value = self.getvalue(op.getarg(0))
+        offsetbox = self.get_constant_box(op.getarg(1))
+        if value.is_virtual() and offsetbox is not None:
+            offset = offsetbox.getint()
+            if isinstance(value, VirtualRawBufferValue):
+                self.make_virtual_raw_slice(value, offset, op.result, op)
+                return
         self.emit_operation(op)
 
     def optimize_ARRAYLEN_GC(self, op):
