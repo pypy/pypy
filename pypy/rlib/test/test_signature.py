@@ -73,10 +73,25 @@ def test_return_errors():
     @signature(returns=types.int())
     def int_not_char():
         return 'a'
+
     @check_annotator_fails
     @signature(types.str(), returns=types.int())
     def str_to_int(s):
         return s
+
+    @signature(returns=types.str())
+    def str_not_None():
+        return None
+    @check_annotator_fails
+    def caller_of_str_not_None():
+        return str_not_None()
+
+@py.test.mark.xfail
+def test_return_errors_xfail():
+    @check_annotator_fails
+    @signature(returns=types.str())
+    def str_not_None():
+        return None
 
 
 def test_none():
