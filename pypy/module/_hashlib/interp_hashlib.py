@@ -42,7 +42,6 @@ class W_Hash(Wrappable):
             raise
 
     def __del__(self):
-        # self.lock.free()
         if self.ctx:
             ropenssl.EVP_MD_CTX_cleanup(self.ctx)
             lltype.free(self.ctx, flavor='raw')
