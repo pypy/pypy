@@ -11,7 +11,7 @@ def teardown_module(mod):
             os.unlink(i)
 
 class AppTestFcntl:
-    spaceconfig = dict(usemodules=('fcntl', 'array', 'struct', 'termios', 'select', 'time'))
+    spaceconfig = dict(usemodules=('fcntl', 'array', 'struct', 'termios', 'select', 'rctime'))
     def setup_class(cls):
         tmpprefix = str(udir.ensure('test_fcntl', dir=1).join('tmp_'))
         cls.w_tmp = cls.space.wrap(tmpprefix)
@@ -191,8 +191,11 @@ class AppTestFcntl:
         if child_pid == 0:
             # We're the child
             time.sleep(1)
-            return
+            os._exit(0)
         try:
+            # We're the parent, we want TIOCGPGRP calls after child started but before it dies
+            time.sleep(0)
+
             buf = array.array('i', [0])
             res = fcntl.ioctl(mfd, TIOCGPGRP, buf, True)
             assert res == 0
