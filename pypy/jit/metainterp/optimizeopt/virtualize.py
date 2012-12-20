@@ -236,8 +236,46 @@ class VStructValue(AbstractVirtualStructValue):
     def _get_descr(self):
         return self.structdescr
 
+class AbstractVArrayValue(AbstractVirtualValue):
+    """
+    Base class for VArrayValue (for normal GC arrays) and VRawBufferValue (for
+    malloc()ed memory)
+    """
 
-class VArrayValue(AbstractVirtualValue):
+    def getlength(self):
+        return len(self._items)
+
+    def get_item_value(self, i):
+        raise NotImplementedError
+
+    def set_item_value(self, i, newval):
+        raise NotImplementedError
+
+    def force_at_end_of_preamble(self, already_forced, optforce):
+        if self in already_forced:
+            return self
+        already_forced[self] = self
+        for index in range(self.getlength()):
+            itemval = self.get_item_value(index)
+            itemval = itemval.force_at_end_of_preamble(already_forced, optforce)
+            self.set_item_value(index, itemval)
+        return self
+
+    def get_args_for_fail(self, modifier):
+        if self.box is None and not modifier.already_seen_virtual(self.keybox):
+            # checks for recursion: it is False unless
+            # we have already seen the very same keybox
+            itemboxes = []
+            for i in range(self.getlength()):
+                itemvalue = self.get_item_value(i)
+                itemboxes.append(itemvalue.get_key_box())
+            modifier.register_virtual_fields(self.keybox, itemboxes)
+            for i in range(self.getlength()):
+                itemvalue = self.get_item_value(i)
+                itemvalue.get_args_for_fail(modifier)
+
+
+class VArrayValue(AbstractVArrayValue):
 
     def __init__(self, arraydescr, constvalue, size, keybox, source_op=None):
         AbstractVirtualValue.__init__(self, keybox, source_op)
@@ -248,6 +286,12 @@ class VArrayValue(AbstractVirtualValue):
     def getlength(self):
         return len(self._items)
 
+    def get_item_value(self, i):
+        return self._items[i]
+
+    def set_item_value(self, i, newval):
+        self._items[i] = newval
+
     def getitem(self, index):
         res = self._items[index]
         return res
@@ -255,14 +299,6 @@ class VArrayValue(AbstractVirtualValue):
     def setitem(self, index, itemvalue):
         assert isinstance(itemvalue, optimizer.OptValue)
         self._items[index] = itemvalue
-
-    def force_at_end_of_preamble(self, already_forced, optforce):
-        if self in already_forced:
-            return self
-        already_forced[self] = self
-        for index in range(len(self._items)):
-            self._items[index] = self._items[index].force_at_end_of_preamble(already_forced, optforce)
-        return self
 
     def _really_force(self, optforce):
         assert self.source_op is not None
@@ -281,28 +317,15 @@ class VArrayValue(AbstractVirtualValue):
                                   descr=self.arraydescr)
                 optforce.emit_operation(op)
 
-    def get_args_for_fail(self, modifier):
-        if self.box is None and not modifier.already_seen_virtual(self.keybox):
-            # checks for recursion: it is False unless
-            # we have already seen the very same keybox
-            itemboxes = []
-            for itemvalue in self._items:
-                itemboxes.append(itemvalue.get_key_box())
-            modifier.register_virtual_fields(self.keybox, itemboxes)
-            for itemvalue in self._items:
-                itemvalue.get_args_for_fail(modifier)
-
     def _make_virtual(self, modifier):
         return modifier.make_varray(self.arraydescr)
+
 
 class VArrayStructValue(AbstractVirtualValue):
     def __init__(self, arraydescr, size, keybox, source_op=None):
         AbstractVirtualValue.__init__(self, keybox, source_op)
         self.arraydescr = arraydescr
         self._items = [{} for _ in xrange(size)]
-
-    def getlength(self):
-        return len(self._items)
 
     def getinteriorfield(self, index, ofs, default):
         return self._items[index].get(ofs, default)
@@ -363,7 +386,7 @@ class VArrayStructValue(AbstractVirtualValue):
         return modifier.make_varraystruct(self.arraydescr, self._get_list_of_descrs())
 
 
-class VirtualRawBufferValue(AbstractVirtualValue):
+class VRawBufferValue(AbstractVArrayValue):
 
     def __init__(self, size, keybox, source_op):
         AbstractVirtualValue.__init__(self, keybox, source_op)
@@ -374,20 +397,20 @@ class VirtualRawBufferValue(AbstractVirtualValue):
         self.size = size
         self.buffer = RawBuffer()
 
+    def getlength(self):
+        return len(self.buffer.values)
+
+    def get_item_value(self, i):
+        return self.buffer.values[i]
+
+    def set_item_value(self, i, newval):
+        self.buffer.values[i] = newval
+
     def getitem_raw(self, offset, length, descr):
         return self.buffer.read_value(offset, length, descr)
 
     def setitem_raw(self, offset, length, descr, value):
         self.buffer.write_value(offset, length, descr, value)
-
-    def force_at_end_of_preamble(self, already_forced, optforce):
-        if self in already_forced:
-            return self
-        already_forced[self] = self
-        for i in range(len(self.buffer.values)):
-            value = self.buffer.values[i]
-            self.buffer.values[i] = value.force_at_end_of_preamble(already_forced, optforce)
-        return self
 
     def _really_force(self, optforce):
         op = self.source_op
@@ -416,22 +439,11 @@ class VirtualRawBufferValue(AbstractVirtualValue):
                               descr=descr)
             optforce.emit_operation(op)
 
-    def get_args_for_fail(self, modifier):
-        if self.box is None and not modifier.already_seen_virtual(self.keybox):
-            # checks for recursion: it is False unless
-            # we have already seen the very same keybox
-            itemboxes = []
-            for itemvalue in self.buffer.values:
-                itemboxes.append(itemvalue.get_key_box())
-            modifier.register_virtual_fields(self.keybox, itemboxes)
-            for itemvalue in self.buffer.values:
-                itemvalue.get_args_for_fail(modifier)
-
     def _make_virtual(self, modifier):
         return modifier.make_vrawbuffer()
 
 
-class VirtualRawSliceValue(AbstractVirtualValue):
+class VRawSliceValue(AbstractVirtualValue):
 
     def __init__(self, rawbuffer_value, offset, keybox, source_op):
         AbstractVirtualValue.__init__(self, keybox, source_op)
@@ -479,12 +491,12 @@ class OptVirtualize(optimizer.Optimization):
         return vvalue
 
     def make_virtual_raw_memory(self, size, box, source_op):
-        vvalue = VirtualRawBufferValue(size, box, source_op)
+        vvalue = VRawBufferValue(size, box, source_op)
         self.make_equal_to(box, vvalue)
         return vvalue
 
     def make_virtual_raw_slice(self, rawbuffer_value, offset, box, source_op):
-        vvalue = VirtualRawSliceValue(rawbuffer_value, offset, box, source_op)
+        vvalue = VRawSliceValue(rawbuffer_value, offset, box, source_op)
         self.make_equal_to(box, vvalue)
         return vvalue
 
@@ -620,10 +632,10 @@ class OptVirtualize(optimizer.Optimization):
         offsetbox = self.get_constant_box(op.getarg(1))
         if value.is_virtual() and offsetbox is not None:
             offset = offsetbox.getint()
-            if isinstance(value, VirtualRawBufferValue):
+            if isinstance(value, VRawBufferValue):
                 self.make_virtual_raw_slice(value, offset, op.result, op)
                 return
-            elif isinstance(value, VirtualRawSliceValue):
+            elif isinstance(value, VRawSliceValue):
                 offset = offset + value.offset
                 self.make_virtual_raw_slice(value.rawbuffer_value, offset, op.result, op)
                 return

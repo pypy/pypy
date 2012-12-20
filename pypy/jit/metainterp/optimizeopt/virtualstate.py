@@ -324,7 +324,7 @@ class VRawBufferStateInfo(AbstractVirtualStateInfo):
         return isinstance(other, VRawBufferStateInfo)
 
     def enum_forced_boxes(self, boxes, value, optimizer):
-        if not isinstance(value, virtualize.VirtualRawBufferValue):
+        if not isinstance(value, virtualize.VRawBufferValue):
             raise BadVirtualState
         if not value.is_virtual():
             raise BadVirtualState
