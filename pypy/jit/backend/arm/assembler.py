@@ -30,7 +30,7 @@ from pypy.rlib.jit import AsmInfo
 from pypy.rlib.objectmodel import compute_unique_id
 
 # XXX Move to llsupport
-from pypy.jit.backend.x86.support import values_array, memcpy_fn
+from pypy.jit.backend.x86.support import memcpy_fn
 
 DEBUG_COUNTER = lltype.Struct('DEBUG_COUNTER', ('i', lltype.Signed),
                               ('type', lltype.Char),  # 'b'ridge, 'l'abel or
@@ -44,14 +44,8 @@ class AssemblerARM(ResOpAssembler):
 
     debug = True
 
-    def __init__(self, cpu, failargs_limit=1000):
+    def __init__(self, cpu, translate_support_code=False):
         self.cpu = cpu
-        self.fail_boxes_int = values_array(lltype.Signed, failargs_limit)
-        self.fail_boxes_float = values_array(longlong.FLOATSTORAGE,
-                                                            failargs_limit)
-        self.fail_boxes_ptr = values_array(llmemory.GCREF, failargs_limit)
-        self.fail_boxes_count = 0
-        self.fail_force_index = 0
         self.setup_failure_recovery()
         self.mc = None
         self.memcpy_addr = 0
@@ -68,6 +62,7 @@ class AssemblerARM(ResOpAssembler):
         self._debug = False
         self.loop_run_counters = []
         self.debug_counter_descr = cpu.fielddescrof(DEBUG_COUNTER, 'i')
+        self.force_token_to_dead_frame = {}    # XXX temporary hack
 
     def set_debug(self, v):
         r = self._debug
@@ -123,9 +118,6 @@ class AssemblerARM(ResOpAssembler):
             self._build_release_gil(gc_ll_descr.gcrootmap)
         self.memcpy_addr = self.cpu.cast_ptr_to_int(memcpy_fn)
         self._exit_code_addr = self._gen_exit_path()
-        self._leave_jitted_hook_save_exc = \
-                                    self._gen_leave_jitted_hook_code(True)
-        self._leave_jitted_hook = self._gen_leave_jitted_hook_code(False)
         if not self._debug:
             # if self._debug is already set it means that someone called
             # set_debug by hand before initializing the assembler. Leave it
@@ -239,17 +231,12 @@ class AssemblerARM(ResOpAssembler):
             return      # not supported (for tests, or non-translated)
         #
         mc = ARMv7Builder()
-        # call on_leave_jitted_save_exc()
-        if self.cpu.supports_floats:
-            floats = r.caller_vfp_resp
-        else:
-            floats = []
-        with saved_registers(mc, r.caller_resp + [r.lr], floats):
-            addr = self.cpu.get_on_leave_jitted_int(save_exception=True,
-                                                default_to_memoryerror=True)
-            mc.BL(addr)
-        mc.gen_load_int(r.ip.value, self.cpu.propagate_exception_v)
-        mc.MOV_rr(r.r0.value, r.ip.value)
+        #
+        # Call the helper, which will return a dead frame object with
+        # the correct exception set, or MemoryError by default
+	# XXX make sure we return the correct value here
+        addr = rffi.cast(lltype.Signed, self.cpu.get_propagate_exception())
+        mc.BL(addr)
         self.gen_func_epilog(mc=mc)
         self.propagate_exception_path = mc.materialize(self.cpu.asmmemmgr, [])
 
@@ -282,11 +269,11 @@ class AssemblerARM(ResOpAssembler):
         # restore registers and return 
         # We check for c.EQ here, meaning all bits zero in this case
         mc.POP([reg.value for reg in r.argument_regs] + [r.pc.value], cond=c.EQ)
-        # call on_leave_jitted_save_exc()
-        addr = self.cpu.get_on_leave_jitted_int(save_exception=True)
-        mc.BL(addr)
         #
-        mc.gen_load_int(r.r0.value, self.cpu.propagate_exception_v)
+        # Call the helper, which will return a dead frame object with
+        # the correct exception set, or MemoryError by default
+        addr = rffi.cast(lltype.Signed, self.cpu.get_propagate_exception())
+        mc.BL(addr)
         #
         # footer -- note the ADD, which skips the return address of this
         # function, and will instead return to the caller's caller.  Note
@@ -347,17 +334,18 @@ class AssemblerARM(ResOpAssembler):
             vfp_registers = rffi.cast(rffi.LONGLONGP, stack_pointer)
             registers = rffi.ptradd(vfp_registers, len(r.all_vfp_regs))
             registers = rffi.cast(rffi.LONGP, registers)
-            return self.decode_registers_and_descr(mem_loc, frame_pointer,
+            return self.decode_registers_and_descr(self.cpu, mem_loc, frame_pointer,
                                                     registers, vfp_registers)
 
         self.failure_recovery_func = failure_recovery_func
 
     recovery_func_sign = lltype.Ptr(lltype.FuncType([lltype.Signed] * 3,
-                                                        lltype.Signed))
+                                                        llmemory.GCREF))
 
-    @rgc.no_collect
-    def decode_registers_and_descr(self, mem_loc, frame_pointer,
+    @staticmethod
+    def decode_registers_and_descr(cpu, mem_loc, frame_pointer,
                                                 registers, vfp_registers):
+	# XXX rewrite
         """Decode locations encoded in memory at mem_loc and write the values
         to the failboxes.  Values for spilled vars and registers are stored on
         stack at frame_loc """
@@ -539,9 +527,10 @@ class AssemblerARM(ResOpAssembler):
     DESCR_FLOAT     = 0x02
     DESCR_SPECIAL   = 0x03
     CODE_FROMSTACK  = 64
-    CODE_STOP       = 0 | DESCR_SPECIAL
-    CODE_HOLE       = 4 | DESCR_SPECIAL
-    CODE_INPUTARG   = 8 | DESCR_SPECIAL
+    CODE_STOP       = 0  | DESCR_SPECIAL
+    CODE_HOLE       = 4  | DESCR_SPECIAL
+    CODE_INPUTARG   = 8  | DESCR_SPECIAL
+    CODE_FORCED     = 12 | DESCR_SPECIAL #XXX where should this be written?
 
     def gen_descr_encoding(self, descr, failargs, locs):
         assert self.mc is not None
@@ -578,9 +567,6 @@ class AssemblerARM(ResOpAssembler):
         fdescr = self.cpu.get_fail_descr_number(descr)
         self.mc.write32(fdescr)
         self.align()
-
-        # assert that the fail_boxes lists are big enough
-        assert len(failargs) <= self.fail_boxes_int.SIZE
 
     def _gen_path_to_exit_path(self, descr, args, arglocs,
                                             save_exc, fcond=c.AL):
@@ -860,7 +846,7 @@ class AssemblerARM(ResOpAssembler):
             descr._arm_failure_recovery_block = failure_recovery_pos
             relative_offset = tok.pos_recovery_stub - tok.offset
             guard_pos = block_start + tok.offset
-            if not tok.is_invalidate:
+            if not tok.is_guard_not_invalidated:
                 # patch the guard jumpt to the stub
                 # overwrite the generate NOP with a B_offs to the pos of the
                 # stub
@@ -1254,11 +1240,6 @@ class AssemblerARM(ResOpAssembler):
             self.mc.VPOP([loc.value], cond=cond)
         else:
             raise AssertionError('Trying to pop to an invalid location')
-
-    def leave_jitted_hook(self):
-        ptrs = self.fail_boxes_ptr.ar
-        llop.gc_assume_young_pointers(lltype.Void,
-                                      llmemory.cast_ptr_to_adr(ptrs))
 
     def malloc_cond(self, nursery_free_adr, nursery_top_adr, size):
         assert size & (WORD-1) == 0     # must be correctly aligned
