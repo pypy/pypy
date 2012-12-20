@@ -60,8 +60,8 @@ class TestARM(LLtypeBackendTest):
             ]
         cpu.compile_loop(inp, operations, looptoken)
         args = [i for i in range(1, 15)]
-        self.cpu.execute_token(looptoken, *args)
-        output = [self.cpu.get_latest_value_int(i - 1) for i in range(1, 15)]
+        deadframe = self.cpu.execute_token(looptoken, *args)
+        output = [self.cpu.get_latest_value_int(deadframe, i - 1) for i in range(1, 15)]
         expected = [3, 7, 11, 15, 19, 23, 27, 3, 7, 11, 15, 19, 23, 27]
         assert output == expected
 
