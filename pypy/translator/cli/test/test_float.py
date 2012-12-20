@@ -24,3 +24,15 @@ class TestCliFloat(CliTest, BaseTestRfloat):
 
     def test_r_singlefloat(self):
         py.test.skip("not implemented: single-precision floats")
+
+    def test_formatd(self):
+        py.test.skip('formatd is broken on ootype')
+
+    def test_formatd_repr(self):
+        py.test.skip('formatd is broken on ootype')
+
+    def test_formatd_huge(self):
+        py.test.skip('formatd is broken on ootype')
+
+    def test_parts_to_float(self):
+        py.test.skip('parts_to_float is broken on ootype')

@@ -190,7 +190,8 @@ class Timer:
         else:
             it = [None] * number
         gcold = gc.isenabled()
-        gc.disable()
+        if '__pypy__' not in sys.builtin_module_names:
+            gc.disable()    # only do that on CPython
         try:
             timing = self.inner(it, self.timer)
         finally:

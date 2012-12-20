@@ -8,7 +8,7 @@ from pypy.tool.error import (format_blocked_annotation_error,
 from pypy.objspace.flow.model import (Variable, Constant, FunctionGraph,
                                       c_last_exception, checkgraph)
 from pypy.translator import simplify, transform
-from pypy.annotation import model as annmodel, signature
+from pypy.annotation import model as annmodel, signature, unaryop, binaryop
 from pypy.annotation.bookkeeper import Bookkeeper
 import py
 log = py.log.Producer("annrpython")
@@ -453,12 +453,12 @@ class RPythonAnnotator(object):
         # occour for this specific, typed operation.
         if block.exitswitch == c_last_exception:
             op = block.operations[-1]
-            if op.opname in annmodel.BINARY_OPERATIONS:
+            if op.opname in binaryop.BINARY_OPERATIONS:
                 arg1 = self.binding(op.args[0])
                 arg2 = self.binding(op.args[1])
                 binop = getattr(pair(arg1, arg2), op.opname, None)
                 can_only_throw = annmodel.read_can_only_throw(binop, arg1, arg2)
-            elif op.opname in annmodel.UNARY_OPERATIONS:
+            elif op.opname in unaryop.UNARY_OPERATIONS:
                 arg1 = self.binding(op.args[0])
                 opname = op.opname
                 if opname == 'contains': opname = 'op_contains'
@@ -629,10 +629,10 @@ class RPythonAnnotator(object):
         return self.bookkeeper.newdict()
 
 
-    def _registeroperations(cls, model):
+    def _registeroperations(cls, unary_ops, binary_ops):
         # All unary operations
         d = {}
-        for opname in model.UNARY_OPERATIONS:
+        for opname in unary_ops:
             fnname = 'consider_op_' + opname
             exec py.code.Source("""
 def consider_op_%s(self, arg, *args):
@@ -640,7 +640,7 @@ def consider_op_%s(self, arg, *args):
 """ % (opname, opname)).compile() in globals(), d
             setattr(cls, fnname, d[fnname])
         # All binary operations
-        for opname in model.BINARY_OPERATIONS:
+        for opname in binary_ops:
             fnname = 'consider_op_' + opname
             exec py.code.Source("""
 def consider_op_%s(self, arg1, arg2, *args):
@@ -650,7 +650,7 @@ def consider_op_%s(self, arg1, arg2, *args):
     _registeroperations = classmethod(_registeroperations)
 
 # register simple operations handling
-RPythonAnnotator._registeroperations(annmodel)
+RPythonAnnotator._registeroperations(unaryop.UNARY_OPERATIONS, binaryop.BINARY_OPERATIONS)
 
 
 class BlockedInference(Exception):

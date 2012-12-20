@@ -7,7 +7,8 @@ from py.xml import raw
 pypydir = py.path.local(autopath.pypydir)
 
 def isdocfile(p):
-    return p.ext == '.txt' or p.basename in ('README', 'NOTES', 'LICENSE')
+    return (p.ext in ('.txt', '.rst') or
+            p.basename in ('README', 'NOTES', 'LICENSE'))
 
 def istestfile(p):
     if not p.check(file=1, ext='.py'): 

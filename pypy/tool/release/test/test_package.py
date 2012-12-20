@@ -33,7 +33,7 @@ def test_dir_structure(test='test'):
         assert not prefix.join('lib_pypy', 'py').check()
         assert not prefix.join('lib_pypy', 'ctypes_configure').check()
         assert prefix.join('LICENSE').check()
-        assert prefix.join('README').check()
+        assert prefix.join('README.rst').check()
         if package.USE_ZIPFILE_MODULE:
             zh = zipfile.ZipFile(str(builddir.join('%s.zip' % test)))
             assert zh.open('%s/lib_pypy/syslog.py' % test)
