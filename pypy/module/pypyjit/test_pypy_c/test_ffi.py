@@ -206,6 +206,12 @@ class Test__ffi(BaseTestPyPyC):
             f1 = call_release_gil(..., descr=<Callf 8 ff EF=6 OS=62>)
             ...
         """)
+        ops = loop.ops_by_id('cfficall')
+        assert 'raw_malloc' not in str(ops)
+        assert 'raw_free' not in str(ops)
+        assert 'getarrayitem_raw' not in log.opnames(ops)
+        assert 'setarrayitem_raw' not in log.opnames(ops)
         # so far just check that call_release_gil() is produced.
         # later, also check that the arguments to call_release_gil()
-        # are constants, and that the numerous raw_mallocs are removed
+        # are constants
+
