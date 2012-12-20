@@ -497,7 +497,7 @@ class FunctionGcRootTracker(object):
         'lock', 'pause',
         # non-temporal moves should be reserved for areas containing
         # raw data, not GC pointers
-        'movnt',
+        'movnt', 'mfence', 'lfence', 'sfence',
         ])
 
     # a partial list is hopefully good enough for now; it's all to support
