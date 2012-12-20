@@ -158,9 +158,7 @@ class VStructStateInfo(AbstractVirtualStructStateInfo):
     def debug_header(self, indent):
         debug_print(indent + 'VStructStateInfo(%d):' % self.position)
 
-class VArrayStateInfo(AbstractVirtualStateInfo):
-    def __init__(self, arraydescr):
-        self.arraydescr = arraydescr
+class AbstractVArrayStateInfo(AbstractVirtualStateInfo):
 
     def generalization_of(self, other, renum, bad):
         assert self.position != -1
@@ -187,18 +185,14 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
                 return False
         return True
 
-    def _generalization_of(self, other):
-        return (isinstance(other, VArrayStateInfo) and
-            self.arraydescr is other.arraydescr)
-
     def enum_forced_boxes(self, boxes, value, optimizer):
-        if not isinstance(value, virtualize.VArrayValue):
+        if not isinstance(value, self.ValueClass):
             raise BadVirtualState
         if not value.is_virtual():
             raise BadVirtualState
         for i in range(len(self.fieldstate)):
             try:
-                v = value._items[i]
+                v = value.get_item_value(i)
             except IndexError:
                 raise BadVirtualState
             s = self.fieldstate[i]
@@ -211,6 +205,18 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
 
     def debug_header(self, indent):
         debug_print(indent + 'VArrayStateInfo(%d):' % self.position)
+
+class VArrayStateInfo(AbstractVArrayStateInfo):
+
+    ValueClass = virtualize.VArrayValue
+    
+    def __init__(self, arraydescr):
+        self.arraydescr = arraydescr
+
+    def _generalization_of(self, other):
+        return (isinstance(other, VArrayStateInfo) and
+            self.arraydescr is other.arraydescr)
+
 
 class VArrayStructStateInfo(AbstractVirtualStateInfo):
     def __init__(self, arraydescr, fielddescrs):
@@ -287,55 +293,13 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
         debug_print(indent + 'VArrayStructStateInfo(%d):' % self.position)
 
 
-class VRawBufferStateInfo(AbstractVirtualStateInfo):
-    def __init__(self):
-        pass
+class VRawBufferStateInfo(AbstractVArrayStateInfo):
 
-    def _enum(self, virtual_state):
-        for s in self.fieldstate:
-            s.enum(virtual_state)
-
-    def generalization_of(self, other, renum, bad):
-        assert self.position != -1
-        if self.position in renum:
-            if renum[self.position] == other.position:
-                return True
-            bad[self] = True
-            bad[other] = True
-            return False
-        renum[self.position] = other.position
-        if not self._generalization_of(other):
-            bad[self] = True
-            bad[other] = True
-            return False
-        if len(self.fieldstate) != len(other.fieldstate):
-            bad[self] = True
-            bad[other] = True
-            return False
-        for i in range(len(self.fieldstate)):
-            if not self.fieldstate[i].generalization_of(other.fieldstate[i],
-                                                        renum, bad):
-                bad[self] = True
-                bad[other] = True
-                return False
-        return True
-
+    ValueClass = virtualize.VRawBufferValue
+    
     def _generalization_of(self, other):
         return isinstance(other, VRawBufferStateInfo)
 
-    def enum_forced_boxes(self, boxes, value, optimizer):
-        if not isinstance(value, virtualize.VRawBufferValue):
-            raise BadVirtualState
-        if not value.is_virtual():
-            raise BadVirtualState
-        for i in range(len(self.fieldstate)):
-            try:
-                v = value.buffer.values[i]
-            except IndexError:
-                raise BadVirtualState
-            s = self.fieldstate[i]
-            if s.position > self.position:
-                s.enum_forced_boxes(boxes, v, optimizer)
 
 class NotVirtualStateInfo(AbstractVirtualStateInfo):
     def __init__(self, value, is_opaque=False):
