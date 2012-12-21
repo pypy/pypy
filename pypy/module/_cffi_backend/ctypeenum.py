@@ -70,7 +70,7 @@ class W_CTypeEnum(W_CTypePrimitiveSigned):
         if space.isinstance_w(w_ob, space.w_str):
             value = self.convert_enum_string_to_int(space.str_w(w_ob))
             value = r_ulonglong(value)
-            misc.write_raw_integer_data(cdata, value, self.size)
+            misc.write_raw_signed_data(cdata, value, self.size)
         else:
             raise self._convert_error("str or int", w_ob)
 

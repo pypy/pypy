@@ -191,8 +191,13 @@ class W_CData(Wrappable):
         return self.ctype.iter(self)
 
     @specialize.argtype(1)
-    def write_raw_integer_data(self, source):
-        misc.write_raw_integer_data(self._cdata, source, self.ctype.size)
+    def write_raw_signed_data(self, source):
+        misc.write_raw_signed_data(self._cdata, source, self.ctype.size)
+        keepalive_until_here(self)
+
+    @specialize.argtype(1)
+    def write_raw_unsigned_data(self, source):
+        misc.write_raw_unsigned_data(self._cdata, source, self.ctype.size)
         keepalive_until_here(self)
 
     def write_raw_float_data(self, source):
