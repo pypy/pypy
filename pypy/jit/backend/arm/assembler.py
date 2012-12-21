@@ -108,9 +108,13 @@ class AssemblerARM(ResOpAssembler):
         gc_ll_descr.initialize()
         self._build_wb_slowpath(False)
         self._build_wb_slowpath(True)
+        self._build_failure_recovery(exc=True, withfloats=False)
+        self._build_failure_recovery(exc=False, withfloats=False)
         if self.cpu.supports_floats:
             self._build_wb_slowpath(False, withfloats=True)
             self._build_wb_slowpath(True, withfloats=True)
+            self._build_failure_recovery(exc=True, withfloats=True)
+            self._build_failure_recovery(exc=False, withfloats=True)
         self._build_propagate_exception_path()
         if gc_ll_descr.get_malloc_slowpath_addr is not None:
             self._build_malloc_slowpath()
@@ -118,7 +122,7 @@ class AssemblerARM(ResOpAssembler):
         if gc_ll_descr.gcrootmap and gc_ll_descr.gcrootmap.is_shadow_stack:
             self._build_release_gil(gc_ll_descr.gcrootmap)
         self.memcpy_addr = self.cpu.cast_ptr_to_int(memcpy_fn)
-        self._exit_code_addr = self._gen_exit_path()
+
         if not self._debug:
             # if self._debug is already set it means that someone called
             # set_debug by hand before initializing the assembler. Leave it
@@ -212,20 +216,6 @@ class AssemblerARM(ResOpAssembler):
                                  self._reacquire_gil_shadowstack)
         self.releasegil_addr = rffi.cast(lltype.Signed, releasegil_func)
         self.reacqgil_addr = rffi.cast(lltype.Signed, reacqgil_func)
-
-    def _gen_leave_jitted_hook_code(self, save_exc):
-        mc = ARMv7Builder()
-        if self.cpu.supports_floats:
-            floats = r.caller_vfp_resp
-        else:
-            floats = []
-        with saved_registers(mc, r.caller_resp + [r.lr], floats):
-            addr = self.cpu.get_on_leave_jitted_int(save_exception=save_exc)
-            mc.BL(addr)
-        assert self._exit_code_addr != 0
-        mc.B(self._exit_code_addr)
-        return mc.materialize(self.cpu.asmmemmgr, [],
-                               self.cpu.gc_ll_descr.gcrootmap)
 
     def _build_propagate_exception_path(self):
         if self.cpu.propagate_exception_v < 0:
@@ -332,15 +322,16 @@ class AssemblerARM(ResOpAssembler):
             """mem_loc is a structure in memory describing where the values for
             the failargs are stored.  frame loc is the address of the frame
             pointer for the frame to be decoded frame """
-            vfp_registers = rffi.cast(rffi.LONGLONGP, stack_pointer)
-            registers = rffi.ptradd(vfp_registers, len(r.all_vfp_regs))
+            vfp_registers = rffi.cast(rffi.LONGP, stack_pointer)
+            registers = rffi.ptradd(vfp_registers, 2*len(r.all_vfp_regs))
             registers = rffi.cast(rffi.LONGP, registers)
             return self.decode_registers_and_descr(self.cpu, mem_loc, frame_pointer,
                                                     registers, vfp_registers)
+        self.failure_recovery_code = [0, 0, 0, 0]
 
         self.failure_recovery_func = failure_recovery_func
 
-    recovery_func_sign = lltype.Ptr(lltype.FuncType([lltype.Signed] * 3,
+    _FAILURE_RECOVERY_FUNC = lltype.Ptr(lltype.FuncType([rffi.LONGP] * 3,
                                                         llmemory.GCREF))
 
     @staticmethod
@@ -553,12 +544,16 @@ class AssemblerARM(ResOpAssembler):
         self.mc.CMP_ri(r.r0.value, 0)
         self.mc.B(self.propagate_exception_path, c=c.EQ)
 
-    def _gen_exit_path(self):
+    def _build_failure_recovery(self, exc, withfloats=False):
         mc = ARMv7Builder()
-        decode_registers_addr = llhelper(self.recovery_func_sign,
+        decode_registers_addr = llhelper(self._FAILURE_RECOVERY_FUNC,
                                             self.failure_recovery_func)
         self._insert_checks(mc)
-        with saved_registers(mc, r.all_regs, r.all_vfp_regs):
+        if withfloats:
+            f = r.all_vfp_regs
+        else:
+            f = []
+        with saved_registers(mc, r.all_regs, f):
             if exc:
                 # We might have an exception pending.  Load it into r4
                 # (this is a register saved across calls)
@@ -586,8 +581,10 @@ class AssemblerARM(ResOpAssembler):
             mc.MOV_rr(r.ip.value, r.r0.value)
         mc.MOV_rr(r.r0.value, r.ip.value)
         self.gen_func_epilog(mc=mc)
-        return mc.materialize(self.cpu.asmmemmgr, [],
+        rawstart = mc.materialize(self.cpu.asmmemmgr, [],
                                    self.cpu.gc_ll_descr.gcrootmap)
+        self.failure_recovery_code[exc + 2 * withfloats] = rawstart
+        self.mc = None
 
     DESCR_REF       = 0x00
     DESCR_INT       = 0x01
@@ -599,7 +596,7 @@ class AssemblerARM(ResOpAssembler):
     CODE_INPUTARG   = 8  | DESCR_SPECIAL
     CODE_FORCED     = 12 | DESCR_SPECIAL #XXX where should this be written?
 
-    def gen_descr_encoding(self, descr, failargs, locs):
+    def write_failure_recovery_description(self, descr, failargs, locs):
         assert self.mc is not None
         for i in range(len(failargs)):
             arg = failargs[i]
@@ -631,23 +628,33 @@ class AssemblerARM(ResOpAssembler):
             self.mc.writechar(chr(n))
         self.mc.writechar(chr(self.CODE_STOP))
 
-        fdescr = self.cpu.get_fail_descr_number(descr)
-        self.mc.write32(fdescr)
+
+    def generate_quick_failure(self, guardtok, fcond=c.AL):
+        assert isinstance(guardtok.save_exc, bool)
+        fail_index = self.cpu.get_fail_descr_number(guardtok.descr)
+        startpos = self.mc.currpos()
+        withfloats = False
+        for box in guardtok.failargs:
+            if box is not None and box.type == FLOAT:
+                withfloats = True
+                break
+        exc = guardtok.save_exc
+        target = self.failure_recovery_code[exc + 2 * withfloats]
+        assert target != 0
+        self.mc.BL(target)
+        # write tight data that describes the failure recovery
+        if guardtok.is_guard_not_forced:
+            mc.writechar(chr(self.CODE_FORCED))
+        self.write_failure_recovery_description(guardtok.descr,
+                                guardtok.failargs, guardtok.faillocs[1:])
+        self.mc.write32(fail_index)
+        # for testing the decoding, write a final byte 0xCC
+        if not we_are_translated():
+            self.mc.writechar('\xCC')
+            faillocs = [loc for loc in guardtok.faillocs if loc is not None]
+            guardtok.descr._arm_debug_faillocs = faillocs
         self.align()
-
-    def _gen_path_to_exit_path(self, descr, args, arglocs,
-                                            save_exc, fcond=c.AL):
-        assert isinstance(save_exc, bool)
-        self.gen_exit_code(self.mc, save_exc, fcond)
-        self.gen_descr_encoding(descr, args, arglocs[1:])
-
-    def gen_exit_code(self, mc, save_exc, fcond=c.AL):
-        assert isinstance(save_exc, bool)
-        if save_exc:
-            path = self._leave_jitted_hook_save_exc
-        else:
-            path = self._leave_jitted_hook
-        mc.BL(path)
+        return startpos
 
     def align(self):
         while(self.mc.currpos() % FUNC_ALIGN != 0):
@@ -894,15 +901,10 @@ class AssemblerARM(ResOpAssembler):
 
     def write_pending_failure_recoveries(self):
         for tok in self.pending_guards:
-            descr = tok.descr
             #generate the exit stub and the encoded representation
-            pos = self.mc.currpos()
-            tok.pos_recovery_stub = pos
-
-            self._gen_path_to_exit_path(descr, tok.failargs,
-                                        tok.faillocs, save_exc=tok.save_exc)
+            tok.pos_recovery_stub = self.generate_quick_failure(tok)
             # store info on the descr
-            descr._arm_current_frame_depth = tok.faillocs[0].getint()
+            tok.descr._arm_current_frame_depth = tok.faillocs[0].getint()
 
     def process_pending_guards(self, block_start):
         clt = self.current_clt
