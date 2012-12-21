@@ -1,7 +1,7 @@
 from __future__ import with_statement
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
-from pypy.rlib.rarithmetic import r_uint, r_ulonglong, is_signed_integer_type
+from pypy.rlib.rarithmetic import r_uint, r_ulonglong
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.objectmodel import keepalive_until_here, specialize
 from pypy.rlib import jit
@@ -64,16 +64,10 @@ def read_raw_longdouble_data(target):
 
 @specialize.argtype(1)
 def write_raw_integer_data(target, source, size):
-    if is_signed_integer_type(lltype.typeOf(source)):
-        for TP, TPP in _prim_signed_types:
-            if size == rffi.sizeof(TP):
-                rffi.cast(TPP, target)[0] = rffi.cast(TP, source)
-                return
-    else:
-        for TP, TPP in _prim_unsigned_types:
-            if size == rffi.sizeof(TP):
-                rffi.cast(TPP, target)[0] = rffi.cast(TP, source)
-                return
+    for TP, TPP in _prim_unsigned_types:
+        if size == rffi.sizeof(TP):
+            rffi.cast(TPP, target)[0] = rffi.cast(TP, source)
+            return
     raise NotImplementedError("bad integer size")
 
 def write_raw_float_data(target, source, size):
