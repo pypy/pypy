@@ -8,13 +8,14 @@ class InvalidRawRead(InvalidRawOperation):
     pass
 
 class RawBuffer(object):
-    def __init__(self):
+    def __init__(self, cpu):
         # the following lists represents the writes in the buffer: values[i]
         # is the value of length lengths[i] stored at offset[i].
         #
         # the invariant is that they are ordered by offset, and that
         # offset[i]+length[i] <= offset[i+1], i.e. that the writes never
         # overlaps
+        self.cpu = cpu
         self.offsets = []
         self.lengths = []
         self.descrs = []
@@ -27,12 +28,19 @@ class RawBuffer(object):
         """
         return zip(self.offsets, self.lengths, self.descrs, self.values)
 
+    def _descrs_are_compatible(self, d1, d2):
+        # two arraydescrs are compatible if they have the same basesize,
+        # itemsize and sign, even if they are not identical
+        unpack = self.cpu.unpack_arraydescr_size
+        return unpack(d1) == unpack(d2)
+
     def write_value(self, offset, length, descr, value):
         i = 0
         N = len(self.offsets)
         while i < N:
             if self.offsets[i] == offset:
-                if length != self.lengths[i] or descr != self.descrs[i]:
+                if (length != self.lengths[i] or not
+                    self._descrs_are_compatible(descr, self.descrs[i])):
                     # in theory we could add support for the cases in which
                     # the length or descr is different, but I don't think we
                     # need it in practice
@@ -59,7 +67,8 @@ class RawBuffer(object):
         N = len(self.offsets)
         while i < N:
             if self.offsets[i] == offset:
-                if length != self.lengths[i] or descr != self.descrs[i]:
+                if (length != self.lengths[i] or
+                    not self._descrs_are_compatible(descr, self.descrs[i])):
                     raise InvalidRawRead
                 return self.values[i]
             i += 1
