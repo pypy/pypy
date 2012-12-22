@@ -388,14 +388,14 @@ class VArrayStructValue(AbstractVirtualValue):
 
 class VRawBufferValue(AbstractVArrayValue):
 
-    def __init__(self, cpu, size, keybox, source_op):
+    def __init__(self, cpu, logops, size, keybox, source_op):
         AbstractVirtualValue.__init__(self, keybox, source_op)
         # note that size is unused, because we assume that the buffer is big
         # enough to write/read everything we need. If it's not, it's undefined
         # behavior anyway, although in theory we could probably detect such
         # cases here
         self.size = size
-        self.buffer = RawBuffer(cpu)
+        self.buffer = RawBuffer(cpu, logops)
 
     def getlength(self):
         return len(self.buffer.values)
@@ -491,7 +491,8 @@ class OptVirtualize(optimizer.Optimization):
         return vvalue
 
     def make_virtual_raw_memory(self, size, box, source_op):
-        vvalue = VRawBufferValue(self.optimizer.cpu, size, box, source_op)
+        logops = self.optimizer.loop.logops
+        vvalue = VRawBufferValue(self.optimizer.cpu, logops, size, box, source_op)
         self.make_equal_to(box, vvalue)
         return vvalue
 
