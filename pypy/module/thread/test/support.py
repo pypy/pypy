@@ -49,26 +49,28 @@ class GenericTestThread:
                         return
                     adaptivedelay *= 1.05
                 print '*** timed out ***'
-
             cls.w_waitfor = plain_waitfor
+
+            def py_timeout_killer(self, *args, **kwargs):
+                timeout_killer(*args, **kwargs)
+            cls.w_timeout_killer = cls.space.wrap(py_timeout_killer)
         else:
             @unwrap_spec(delay=int)
             def py_waitfor(space, w_condition, delay=1):
                 waitfor(space, w_condition, delay)
-
             cls.w_waitfor = cls.space.wrap(interp2app(py_waitfor))
+
+            def py_timeout_killer(space, __args__):
+                args_w, kwargs_w = __args__.unpack()
+                args = map(space.unwrap, args_w)
+                kwargs = dict([
+                    (k, space.unwrap(v))
+                    for k, v in kwargs_w.iteritems()
+                ])
+                timeout_killer(*args, **kwargs)
+            cls.w_timeout_killer = cls.space.wrap(interp2app(py_timeout_killer))
+
         cls.w_busywait = cls.space.appexec([], """():
             import time
             return time.sleep
         """)
-
-        def py_timeout_killer(space, __args__):
-            args_w, kwargs_w = __args__.unpack()
-            args = map(space.unwrap, args_w)
-            kwargs = dict([
-                (k, space.unwrap(v))
-                for k, v in kwargs_w.iteritems()
-            ])
-            timeout_killer(*args, **kwargs)
-
-        cls.w_timeout_killer = cls.space.wrap(interp2app(py_timeout_killer))
