@@ -18,11 +18,14 @@ class CppyyNamespaceMeta(CppyyScopeMeta):
     def __dir__(cls):
         return cls._cpp_proxy.__dir__()
 
-class CppyyClass(CppyyScopeMeta):
+class CppyyClassMeta(CppyyScopeMeta):
     pass
 
-class CPPObject(cppyy.CPPInstance):
-    __metaclass__ = CppyyClass
+class CppyyClass(cppyy.CPPInstance):
+    __metaclass__ = CppyyClassMeta
+
+    def __init__(self, *args, **kwds):
+        pass   # ignored, for the C++ backend, ctor == __new__ + __init__
 
 
 class CppyyTemplateType(object):
@@ -155,7 +158,7 @@ def make_pycppclass(scope, class_name, final_class_name, cppclass):
     # get a list of base classes for class creation
     bases = [get_pycppclass(base) for base in cppclass.get_base_names()]
     if not bases:
-        bases = [CPPObject,]
+        bases = [CppyyClass,]
     else:
         # it's technically possible that the required class now has been built
         # if one of the base classes uses it in e.g. a function interface
@@ -166,7 +169,7 @@ def make_pycppclass(scope, class_name, final_class_name, cppclass):
 
     # create a meta class to allow properties (for static data write access)
     metabases = [type(base) for base in bases]
-    metacpp = type(CppyyClass)(class_name+'_meta', _drop_cycles(metabases), {})
+    metacpp = type(CppyyClassMeta)(class_name+'_meta', _drop_cycles(metabases), {})
 
     # create the python-side C++ class representation
     def dispatch(self, name, signature):

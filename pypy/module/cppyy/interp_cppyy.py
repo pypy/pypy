@@ -88,7 +88,6 @@ def set_class_generator(space, w_callback):
     state = space.fromcache(State)
     state.w_clgen_callback = w_callback
 
-@unwrap_spec(w_pycppclass=W_Root)
 def register_class(space, w_pycppclass):
     w_cppclass = space.findattr(w_pycppclass, space.wrap("_cpp_proxy"))
     cppclass = space.interp_w(W_CPPClass, w_cppclass, can_be_None=False)
@@ -1026,17 +1025,17 @@ def get_pythonized_cppclass(space, handle):
         final_name = capi.c_scoped_final_name(handle)
         # the callback will cache the class by calling register_class
         w_pycppclass = space.call_function(state.w_clgen_callback, space.wrap(final_name))
+        assert w_pycppclass is state.cppclass_registry[handle]
     return w_pycppclass
 
 def wrap_new_cppobject_nocast(space, w_pycppclass, cppclass, rawobject, isref, python_owns):
     rawobject = rffi.cast(capi.C_OBJECT, rawobject)
     if space.is_w(w_pycppclass, space.w_None):
         w_pycppclass = get_pythonized_cppclass(space, cppclass.handle)
-    w_cppinstance = space.allocate_instance(W_CPPInstance, w_pycppclass)
-    cppinstance = space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=False)
+    cppinstance = space.allocate_instance(W_CPPInstance, w_pycppclass)
     W_CPPInstance.__init__(cppinstance, space, cppclass, rawobject, isref, python_owns)
     memory_regulator.register(cppinstance)
-    return w_cppinstance
+    return space.wrap(cppinstance)
 
 def wrap_cppobject_nocast(space, w_pycppclass, cppclass, rawobject, isref, python_owns):
     rawobject = rffi.cast(capi.C_OBJECT, rawobject)
