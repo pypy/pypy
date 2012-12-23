@@ -199,7 +199,7 @@ class LLtypeMixin(object):
     raw_malloc_descr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
              EffectInfo([], [], [], [],
                         EffectInfo.EF_CAN_RAISE,
-                        oopspecindex=EffectInfo.OS_RAW_MALLOC_VARSIZE))
+                        oopspecindex=EffectInfo.OS_RAW_MALLOC_VARSIZE_CHAR))
     raw_free_descr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
              EffectInfo([], [], [], [],
                         EffectInfo.EF_CANNOT_RAISE,

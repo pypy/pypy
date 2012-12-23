@@ -1265,6 +1265,25 @@ class TestLLtype_NotObject(VirtualTests, LLJitMixin):
         # the getarrayitem_raw is in the preamble
         self.check_resops(getarrayitem_raw=1, setarrayitem_raw=0)
 
+    def test_raw_malloc_only_chars(self):
+        mydriver = JitDriver(greens=[], reds = 'auto')
+        def f(n):
+            i = 0
+            res = 0
+            while i < n:
+                mydriver.jit_merge_point()
+                # this is not virtualized because it's not a buffer of chars
+                buffer = lltype.malloc(rffi.LONGP.TO, 1, flavor='raw')
+                buffer[0] = i+1
+                res += buffer[0]
+                i = buffer[0]
+                lltype.free(buffer, flavor='raw')
+            return res
+        assert f(10) == 55
+        res = self.meta_interp(f, [10])
+        assert res == 55
+        self.check_trace_count(1)
+        self.check_resops(setarrayitem_raw=2, getarrayitem_raw=4)
 
 
 

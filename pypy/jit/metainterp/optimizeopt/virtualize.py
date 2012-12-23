@@ -612,14 +612,14 @@ class OptVirtualize(optimizer.Optimization):
 
     def optimize_CALL(self, op):
         effectinfo = op.getdescr().get_extra_info()
-        if effectinfo.oopspecindex == EffectInfo.OS_RAW_MALLOC_VARSIZE:
-            self.do_RAW_MALLOC_VARSIZE(op)
+        if effectinfo.oopspecindex == EffectInfo.OS_RAW_MALLOC_VARSIZE_CHAR:
+            self.do_RAW_MALLOC_VARSIZE_CHAR(op)
         elif effectinfo.oopspecindex == EffectInfo.OS_RAW_FREE:
             self.do_RAW_FREE(op)
         else:
             self.emit_operation(op)
 
-    def do_RAW_MALLOC_VARSIZE(self, op):
+    def do_RAW_MALLOC_VARSIZE_CHAR(self, op):
         sizebox = op.getarg(1)
         if not isinstance(sizebox, ConstInt):
             self.emit_operation(op)

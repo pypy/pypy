@@ -76,12 +76,12 @@ class EffectInfo(object):
     #
     OS_MATH_SQRT                = 100
     #
-    OS_RAW_MALLOC_VARSIZE       = 110
+    OS_RAW_MALLOC_VARSIZE_CHAR  = 110
     OS_RAW_FREE                 = 111
 
     # for debugging:
     _OS_CANRAISE = set([OS_NONE, OS_STR2UNICODE, OS_LIBFFI_CALL,
-                        OS_RAW_MALLOC_VARSIZE])
+                        OS_RAW_MALLOC_VARSIZE_CHAR])
 
     def __new__(cls, readonly_descrs_fields, readonly_descrs_arrays,
                 write_descrs_fields, write_descrs_arrays,

@@ -896,7 +896,7 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
 
     def allocate_raw_buffer(self, size):
         cic = self.metainterp.staticdata.callinfocollection
-        calldescr, func = cic.callinfo_for_oopspec(EffectInfo.OS_RAW_MALLOC_VARSIZE)
+        calldescr, func = cic.callinfo_for_oopspec(EffectInfo.OS_RAW_MALLOC_VARSIZE_CHAR)
         return self.metainterp.execute_and_record_varargs(
             rop.CALL, [ConstInt(func), ConstInt(size)], calldescr)
 

@@ -123,7 +123,7 @@ class FakeBuiltinCallControl:
             INT = lltype.Signed
             UNICHAR = lltype.UniChar
             FLOAT = lltype.Float
-            ARRAYPTR = rffi.CArrayPtr(lltype.Signed)
+            ARRAYPTR = rffi.CArrayPtr(lltype.Char)
             argtypes = {
              EI.OS_MATH_SQRT:  ([FLOAT], FLOAT),
              EI.OS_STR2UNICODE:([PSTR], PUNICODE),
@@ -140,7 +140,7 @@ class FakeBuiltinCallControl:
              EI.OS_UNIEQ_NONNULL_CHAR:   ([PUNICODE, UNICHAR], INT),
              EI.OS_UNIEQ_CHECKNULL_CHAR: ([PUNICODE, UNICHAR], INT),
              EI.OS_UNIEQ_LENGTHOK:       ([PUNICODE, PUNICODE], INT),
-             EI.OS_RAW_MALLOC_VARSIZE:   ([INT], ARRAYPTR),
+             EI.OS_RAW_MALLOC_VARSIZE_CHAR: ([INT], ARRAYPTR),
              EI.OS_RAW_FREE:             ([ARRAYPTR], lltype.Void),
             }
             argtypes = argtypes[oopspecindex]
@@ -148,7 +148,7 @@ class FakeBuiltinCallControl:
             assert argtypes[1] == op.result.concretetype
             if oopspecindex == EI.OS_STR2UNICODE:
                 assert extraeffect == EI.EF_ELIDABLE_CAN_RAISE
-            elif oopspecindex == EI.OS_RAW_MALLOC_VARSIZE:
+            elif oopspecindex == EI.OS_RAW_MALLOC_VARSIZE_CHAR:
                 assert extraeffect == EI.EF_CAN_RAISE
             elif oopspecindex == EI.OS_RAW_FREE:
                 assert extraeffect == EI.EF_CANNOT_RAISE
@@ -158,7 +158,7 @@ class FakeBuiltinCallControl:
 
     def calldescr_canraise(self, calldescr):
         EI = effectinfo.EffectInfo
-        if calldescr == 'calldescr-%d' % EI.OS_RAW_MALLOC_VARSIZE:
+        if calldescr == 'calldescr-%d' % EI.OS_RAW_MALLOC_VARSIZE_CHAR:
             return True
         return False
 
@@ -552,7 +552,7 @@ def test_malloc_new_with_destructor():
     assert op1.args == []
 
 def test_raw_malloc():
-    S = rffi.CArray(lltype.Signed)
+    S = rffi.CArray(lltype.Char)
     v1 = varoftype(lltype.Signed)
     v = varoftype(lltype.Ptr(S))
     flags = Constant({'flavor': 'raw'}, lltype.Void)
@@ -563,7 +563,7 @@ def test_raw_malloc():
     assert op0.opname == 'residual_call_ir_i'
     assert op0.args[0].value == 'raw_malloc_varsize' # pseudo-function as a str
     assert (op0.args[-1] == 'calldescr-%d' %
-            effectinfo.EffectInfo.OS_RAW_MALLOC_VARSIZE)
+            effectinfo.EffectInfo.OS_RAW_MALLOC_VARSIZE_CHAR)
 
     assert op1.opname == '-live-'
     assert op1.args == []
