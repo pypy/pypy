@@ -253,24 +253,6 @@ def builtin_max(*s_values):
                 s = SomeInteger(nonneg=True, knowntype=s.knowntype)
         return s
 
-def builtin_apply(*stuff):
-    getbookkeeper().warning("ignoring apply%r" % (stuff,))
-    return SomeObject()
-
-##def builtin_slice(*args):
-##    bk = getbookkeeper()
-##    if len(args) == 1:
-##        return SomeSlice(
-##            bk.immutablevalue(None), args[0], bk.immutablevalue(None))
-##    elif len(args) == 2:
-##        return SomeSlice(
-##            args[0], args[1], bk.immutablevalue(None))
-##    elif len(args) == 3:
-##        return SomeSlice(
-##            args[0], args[1], args[2])
-##    else:
-##        raise Exception, "bogus call to slice()"
-
 
 def OSError_init(s_self, *args):
     pass
