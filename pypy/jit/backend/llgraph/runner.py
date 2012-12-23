@@ -515,6 +515,9 @@ class LLtypeCPU(BaseCPU):
         assert isinstance(arraydescr, Descr)
         return llimpl.do_new_array(arraydescr.ofs, length)
 
+    def bh_new_raw_buffer(self, size):
+        return llimpl.do_new_raw_buffer(size)
+
     def bh_arraylen_gc(self, array, arraydescr):
         assert isinstance(arraydescr, Descr)
         return llimpl.do_arraylen_gc(arraydescr, array)

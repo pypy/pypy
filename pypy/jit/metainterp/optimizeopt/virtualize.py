@@ -440,7 +440,12 @@ class VRawBufferValue(AbstractVArrayValue):
             optforce.emit_operation(op)
 
     def _make_virtual(self, modifier):
-        return modifier.make_vrawbuffer()
+        # I *think* we need to make a copy of offsets and descrs because we
+        # want a snapshot of the virtual state right now: if we grow more
+        # elements later, we don't want them to go in this virtual state
+        return modifier.make_vrawbuffer(self.size,
+                                        self.buffer.offsets[:],
+                                        self.buffer.descrs[:])
 
 
 class VRawSliceValue(AbstractVirtualValue):

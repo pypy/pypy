@@ -1222,6 +1222,27 @@ class TestLLtype_NotObject(VirtualTests, LLJitMixin):
         self.check_trace_count(1)
         self.check_resops(setarrayitem_raw=0, getarrayitem_raw=0)
 
+    def test_raw_malloc_resume(self):
+        mydriver = JitDriver(greens=[], reds = 'auto')
+        def f(n):
+            i = 0
+            res = 0
+            while i < n:
+                mydriver.jit_merge_point()
+                buffer = lltype.malloc(rffi.CCHARP.TO, 1, flavor='raw')
+                buffer[0] = chr(i+1)
+                res += ord(buffer[0])
+                i = ord(buffer[0])
+                if i > 5:
+                    # when the guard fails, we need to resume the virtual
+                    res += ord(buffer[0])*100
+                lltype.free(buffer, flavor='raw')
+            return res
+        assert f(10) == 4000+55
+        res = self.meta_interp(f, [10])
+        assert res == 4000+55
+        # the getarrayitem_raw is in the bridge
+        self.check_resops(getarrayitem_raw=1, setarrayitem_raw=0)
 
 
 

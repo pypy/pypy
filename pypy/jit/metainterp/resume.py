@@ -279,6 +279,9 @@ class ResumeDataVirtualAdder(object):
     def make_varraystruct(self, arraydescr, fielddescrs):
         return VArrayStructInfo(arraydescr, fielddescrs)
 
+    def make_vrawbuffer(self, size, offsets, descrs):
+        return VRawBufferStateInfo(size, offsets, descrs)
+
     def make_vstrplain(self, is_unicode=False):
         if is_unicode:
             return VUniPlainInfo()
@@ -545,6 +548,30 @@ class VArrayInfo(AbstractVirtualInfo):
             debug_print("\t\t", str(untag(i)))
 
 
+class VRawBufferStateInfo(AbstractVirtualInfo):
+
+    def __init__(self, size, offsets, descrs):
+        self.size = size
+        self.offsets = offsets
+        self.descrs = descrs
+
+    @specialize.argtype(1)
+    def allocate_int(self, decoder, index):
+        length = len(self.fieldnums)
+        buffer = decoder.allocate_raw_buffer(self.size)
+        decoder.virtuals_int_cache[index] = buffer
+        for i in range(len(self.offsets)):
+            offset = self.offsets[i]
+            descr = self.descrs[i]
+            decoder.setrawbuffer_item(buffer, self.fieldnums[i], offset, descr)
+        return buffer
+
+    def debug_prints(self):
+        debug_print("\tvrawbufferinfo", " at ",  compute_unique_id(self))
+        for i in self.fieldnums:
+            debug_print("\t\t", str(untag(i)))
+
+
 class VArrayStructInfo(AbstractVirtualInfo):
     def __init__(self, arraydescr, fielddescrs):
         self.arraydescr = arraydescr
@@ -689,7 +716,9 @@ class AbstractResumeDataReader(object):
     _mixin_ = True
     rd_virtuals = None
     virtuals_cache = None
+    virtuals_int_cache = None
     virtual_default = None
+    virtual_int_default = 0
 
     def _init(self, cpu, storage):
         self.cpu = cpu
@@ -712,6 +741,14 @@ class AbstractResumeDataReader(object):
             ll_assert(v == self.virtuals_cache[index], "resume.py: bad cache")
         return v
 
+    def getvirtual_int(self, index):
+        assert self.virtuals_int_cache is not None
+        v = self.virtuals_int_cache[index]
+        if not v:
+            v = self.rd_virtuals[index].allocate_int(self, index)
+            ll_assert(v == self.virtuals_int_cache[index], "resume.py: bad cache")
+        return v
+
     def force_all_virtuals(self):
         rd_virtuals = self.rd_virtuals
         if rd_virtuals:
@@ -723,7 +760,12 @@ class AbstractResumeDataReader(object):
     def _prepare_virtuals(self, virtuals):
         if virtuals:
             self.rd_virtuals = virtuals
+            # XXX: this is suboptimal, because we are creating two lists, one
+            # for REFs and one for INTs: but for each index, we are using
+            # either one or the other, so we should think of a way to
+            # "compact" them
             self.virtuals_cache = [self.virtual_default] * len(virtuals)
+            self.virtuals_int_cache = [self.virtual_int_default] * len(virtuals)
 
     def _prepare_pendingfields(self, pendingfields):
         if pendingfields:
@@ -852,6 +894,12 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
         return self.metainterp.execute_and_record(rop.NEW_ARRAY,
                                                   arraydescr, ConstInt(length))
 
+    def allocate_raw_buffer(self, size):
+        cic = self.metainterp.staticdata.callinfocollection
+        calldescr, func = cic.callinfo_for_oopspec(EffectInfo.OS_RAW_MALLOC_VARSIZE)
+        return self.metainterp.execute_and_record_varargs(
+            rop.CALL, [ConstInt(func), ConstInt(size)], calldescr)
+
     def allocate_string(self, length):
         return self.metainterp.execute_and_record(rop.NEWSTR,
                                                   None, ConstInt(length))
@@ -945,6 +993,17 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
                                            arraydescr, arraybox,
                                            ConstInt(index), itembox)
 
+    def setrawbuffer_item(self, bufferbox, fieldnum, offset, arraydescr):
+        if arraydescr.is_array_of_pointers():
+            kind = REF
+        elif arraydescr.is_array_of_floats():
+            kind = FLOAT
+        else:
+            kind = INT
+        itembox = self.decode_box(fieldnum, kind)
+        return self.metainterp.execute_and_record(rop.RAW_STORE, arraydescr, bufferbox,
+                                                  ConstInt(offset), itembox)
+
     def decode_int(self, tagged):
         return self.decode_box(tagged, INT)
     def decode_ref(self, tagged):
@@ -960,7 +1019,10 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
             else:
                 box = self.consts[num]
         elif tag == TAGVIRTUAL:
-            box = self.getvirtual(num)
+            if kind == INT:
+                box = self.getvirtual_int(num)
+            else:
+                box = self.getvirtual(num)
         elif tag == TAGINT:
             box = ConstInt(num)
         else:
@@ -1148,6 +1210,11 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
     def allocate_string(self, length):
         return self.cpu.bh_newstr(length)
 
+    def allocate_raw_buffer(self, size):
+        buffer = self.cpu.bh_new_raw_buffer(size)
+        adr = llmemory.cast_ptr_to_adr(buffer)
+        return llmemory.cast_adr_to_int(adr, "symbolic")
+
     def string_setitem(self, str, index, charnum):
         char = self.decode_int(charnum)
         self.cpu.bh_strsetitem(str, index, char)
@@ -1233,12 +1300,25 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
         newvalue = self.decode_float(fieldnum)
         self.cpu.bh_setarrayitem_gc_f(array, index, newvalue, arraydescr)
 
+    def setrawbuffer_item(self, buffer, fieldnum, offset, descr):
+        if descr.is_array_of_pointers():
+            newvalue = self.decode_ref(fieldnum)
+            self.cpu.bh_raw_store_r(buffer, offset, newvalue, descr)
+        elif descr.is_array_of_floats():
+            newvalue = self.decode_float(fieldnum)
+            self.cpu.bh_raw_store_f(buffer, offset, newvalue, descr)
+        else:
+            newvalue = self.decode_int(fieldnum)
+            self.cpu.bh_raw_store_i(buffer, offset, newvalue, descr)
+
     def decode_int(self, tagged):
         num, tag = untag(tagged)
         if tag == TAGCONST:
             return self.consts[num].getint()
         elif tag == TAGINT:
             return num
+        elif tag == TAGVIRTUAL:
+            return self.getvirtual_int(num)
         else:
             assert tag == TAGBOX
             if num < 0:

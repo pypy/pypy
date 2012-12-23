@@ -1556,6 +1556,9 @@ def do_new_array(arraynum, count):
     x = lltype.malloc(TYPE, count, zero=True)
     return cast_to_ptr(x)
 
+def do_new_raw_buffer(size):
+    return lltype.malloc(rffi.CCHARP.TO, size, flavor='raw')
+
 def do_setarrayitem_gc_int(array, index, newvalue):
     array = array._obj.container
     ITEMTYPE = lltype.typeOf(array).OF
