@@ -3819,6 +3819,13 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         a.build_types(f, []) # assert did not explode
 
+    def test_bytearray(self):
+        def f():
+            return bytearray("xyz")
+
+        a = self.RPythonAnnotator()
+        assert isinstance(a.build_types(f, []), annmodel.SomeByteArray)
+
 def g(n):
     return [0,1,2,n]
 

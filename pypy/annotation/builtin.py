@@ -9,7 +9,7 @@ from pypy.annotation.model import SomeUnicodeCodePoint, SomeAddress
 from pypy.annotation.model import SomeFloat, unionof, SomeUnicodeString
 from pypy.annotation.model import SomePBC, SomeInstance, SomeDict, SomeList
 from pypy.annotation.model import SomeWeakRef, SomeIterator
-from pypy.annotation.model import SomeOOObject
+from pypy.annotation.model import SomeOOObject, SomeByteArray
 from pypy.annotation.model import annotation_to_lltype, lltype_to_annotation, ll_to_annotation
 from pypy.annotation.model import add_knowntypedata
 from pypy.annotation.model import s_ImpossibleValue
@@ -118,6 +118,9 @@ def builtin_unichr(s_int):
 
 def builtin_unicode(s_unicode):
     return constpropagate(unicode, [s_unicode], SomeUnicodeString())
+
+def builtin_bytearray(s_str):
+    return constpropagate(bytearray, [s_str], SomeByteArray())
 
 def our_issubclass(cls1, cls2):
     """ we're going to try to be less silly in the face of old-style classes"""

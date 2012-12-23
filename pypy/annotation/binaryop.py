@@ -10,7 +10,7 @@ from pypy.annotation.model import SomeString, SomeChar, SomeList, SomeDict
 from pypy.annotation.model import SomeUnicodeCodePoint, SomeUnicodeString
 from pypy.annotation.model import SomeTuple, SomeImpossibleValue, s_ImpossibleValue
 from pypy.annotation.model import SomeInstance, SomeBuiltin, SomeIterator
-from pypy.annotation.model import SomePBC, SomeFloat, s_None
+from pypy.annotation.model import SomePBC, SomeFloat, s_None, SomeByteArray
 from pypy.annotation.model import SomeExternalObject, SomeWeakRef
 from pypy.annotation.model import SomeAddress, SomeTypedAddressAccess
 from pypy.annotation.model import SomeSingleFloat, SomeLongFloat, SomeType
@@ -414,6 +414,11 @@ class __extend__(pairtype(SomeString, SomeString)):
         if str1.is_immutable_constant() and str2.is_immutable_constant():
             result.const = str1.const + str2.const
         return result
+
+class __extend__(pairtype(SomeByteArray, SomeByteArray)):
+    def union((b1, b2)):
+        can_be_None = b1.can_be_None or b2.can_be_None
+        return SomeByteArray(can_be_None=can_be_None)
 
 class __extend__(pairtype(SomeChar, SomeChar)):
 
