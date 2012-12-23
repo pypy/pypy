@@ -593,7 +593,7 @@ class VirtualStateAdder(resume.ResumeDataVirtualAdder):
     def make_varraystruct(self, arraydescr, fielddescrs):
         return VArrayStructStateInfo(arraydescr, fielddescrs)
 
-    def make_vrawbuffer(self):
+    def make_vrawbuffer(self, size, offsets, descrs):
         return VRawBufferStateInfo()
 
 class BoxNotProducable(Exception):

@@ -1244,6 +1244,28 @@ class TestLLtype_NotObject(VirtualTests, LLJitMixin):
         # the getarrayitem_raw is in the bridge
         self.check_resops(getarrayitem_raw=1, setarrayitem_raw=0)
 
+    def test_raw_malloc_two_iterations(self):
+        mydriver = JitDriver(greens=[], reds = 'auto')
+        def f(n):
+            res = 0
+            buffer = lltype.malloc(rffi.CCHARP.TO, 1, flavor='raw')
+            buffer[0] = chr(0)
+            while ord(buffer[0]) < n:
+                mydriver.jit_merge_point()
+                i = ord(buffer[0])
+                lltype.free(buffer, flavor='raw')
+                buffer = lltype.malloc(rffi.CCHARP.TO, 1, flavor='raw')
+                buffer[0] = chr(i+1)
+                res += i
+            lltype.free(buffer, flavor='raw')
+            return res
+        assert f(10) == 45
+        res = self.meta_interp(f, [10])
+        assert res == 45
+        # the getarrayitem_raw is in the preamble
+        self.check_resops(getarrayitem_raw=1, setarrayitem_raw=0)
+
+
 
 
 OONODE = ootype.Instance('NODE', ootype.ROOT, {})
