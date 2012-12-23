@@ -420,6 +420,22 @@ class __extend__(pairtype(SomeByteArray, SomeByteArray)):
         can_be_None = b1.can_be_None or b2.can_be_None
         return SomeByteArray(can_be_None=can_be_None)
 
+    def add((b1, b2)):
+        result = SomeByteArray()
+        if b1.is_immutable_constant() and b2.is_immutable_constant():
+            result.const = b1.const + b2.const
+        return result
+
+class __extend__(pairtype(SomeString, SomeByteArray),
+                 pairtype(SomeByteArray, SomeString),
+                 pairtype(SomeChar, SomeByteArray),
+                 pairtype(SomeByteArray, SomeChar)):
+    def add((b1, b2)):
+        result = SomeByteArray()
+        if b1.is_immutable_constant() and b2.is_immutable_constant():
+            result.const = b1.const + b2.const
+        return result
+
 class __extend__(pairtype(SomeChar, SomeChar)):
 
     def union((chr1, chr2)):
