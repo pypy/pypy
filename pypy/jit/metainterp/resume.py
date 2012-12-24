@@ -455,6 +455,7 @@ class ResumeDataVirtualAdder(object):
 
 
 class AbstractVirtualInfo(object):
+    kind = REF
     #def allocate(self, decoder, index):
     #    raise NotImplementedError
     def equals(self, fieldnums):
@@ -549,7 +550,8 @@ class VArrayInfo(AbstractVirtualInfo):
 
 
 class VRawBufferStateInfo(AbstractVirtualInfo):
-
+    kind = INT
+    
     def __init__(self, size, offsets, descrs):
         self.size = size
         self.offsets = offsets
@@ -753,8 +755,14 @@ class AbstractResumeDataReader(object):
         rd_virtuals = self.rd_virtuals
         if rd_virtuals:
             for i in range(len(rd_virtuals)):
-                if rd_virtuals[i] is not None:
-                    self.getvirtual(i)
+                rd_virtual = rd_virtuals[i]
+                if rd_virtual is not None:
+                    if rd_virtual.kind == REF:
+                        self.getvirtual(i)
+                    elif rd_virtual.kind == INT:
+                        self.getvirtual_int(i)
+                    else:
+                        assert False
         return self.virtuals_cache
 
     def _prepare_virtuals(self, virtuals):

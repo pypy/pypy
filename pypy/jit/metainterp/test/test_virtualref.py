@@ -1,5 +1,5 @@
 import py
-from pypy.rpython.lltypesystem import lltype, llmemory, lloperation
+from pypy.rpython.lltypesystem import lltype, llmemory, lloperation, rffi
 from pypy.rpython.exceptiondata import UnknownException
 from pypy.rlib.jit import JitDriver, dont_look_inside, vref_None
 from pypy.rlib.jit import virtual_ref, virtual_ref_finish, InvalidVirtualRef
@@ -307,12 +307,16 @@ class VRefTests:
                 xy.next1 = lltype.malloc(A, 0)
                 xy.next2 = lltype.malloc(A, 0)
                 xy.next3 = lltype.malloc(A, 0)
+                # this is a raw virtual
+                xy.next4 = lltype.malloc(rffi.CCHARP.TO, 1, flavor='raw')
                 xy.n = n
                 exctx.topframeref = vref = virtual_ref(xy)
                 n -= externalfn(n)
                 xy.next1 = lltype.nullptr(A)
                 xy.next2 = lltype.nullptr(A)
                 xy.next3 = lltype.nullptr(A)
+                lltype.free(xy.next4, flavor='raw')
+                xy.next4 = lltype.nullptr(rffi.CCHARP.TO)
                 virtual_ref_finish(vref, xy)
                 exctx.topframeref = vref_None
             return exctx.m
