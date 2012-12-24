@@ -15,7 +15,7 @@ from pypy.rpython.lltypesystem import ll_str
 from pypy.rpython.lltypesystem.lltype import \
      GcStruct, Signed, Array, Char, UniChar, Ptr, malloc, \
      Bool, Void, GcArray, nullptr, cast_primitive, typeOf,\
-     staticAdtMethod, GcForwardReference
+     staticAdtMethod, GcForwardReference, malloc
 from pypy.rpython.rmodel import Repr
 from pypy.rpython.lltypesystem import llmemory
 from pypy.tool.sourcetools import func_with_new_name
@@ -284,6 +284,15 @@ class LLHelpers(AbstractLLHelpers):
                 raise UnicodeDecodeError
             s.chars[i] = cast_primitive(UniChar, str.chars[i])
         return s
+
+    def ll_str2bytearray(str):
+        from pypy.rpython.lltypesystem.rbytearray import BYTEARRAY
+        
+        lgt = len(str.chars)
+        b = malloc(BYTEARRAY, lgt)
+        for i in range(lgt):
+            b[i] = str.chars[i]
+        return b
 
     @jit.elidable
     def ll_strhash(s):
