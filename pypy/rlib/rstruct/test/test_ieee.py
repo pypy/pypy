@@ -3,7 +3,7 @@ import random
 import struct
 
 from pypy.rlib.rfloat import isnan
-from pypy.rlib.rstruct.ieee import float_pack, float_unpack, float_pack128, float_unpack80
+from pypy.rlib.rstruct.ieee import float_pack, float_unpack, float_pack80, float_unpack80
 
 
 class TestFloatPacking:
@@ -18,10 +18,10 @@ class TestFloatPacking:
         y = float_unpack(Q, 8)
         assert repr(x) == repr(y)
 
-        Q = float_pack128(x, 16)
+        Q = float_pack80(x, 16)
         y = float_unpack80(Q, 16)
         assert repr(x) == repr(y),'%r != %r, Q=%r'%(x, y, Q)
-        Q = float_pack128(x, 12)
+        Q = float_pack80(x, 12)
         y = float_unpack80(Q, 12)
         assert repr(x) == repr(y),'%r != %r, Q=%r'%(x, y, Q)
 
@@ -65,10 +65,10 @@ class TestFloatPacking:
         self.check_float(-0.0)
 
     def test_nans(self):
-        Q = float_pack128(float('nan'), 16)
+        Q = float_pack80(float('nan'), 16)
         y = float_unpack80(Q, 16)
         assert repr(y) == 'nan'
-        Q = float_pack128(float('nan'), 12)
+        Q = float_pack80(float('nan'), 12)
         y = float_unpack80(Q, 12)
         assert repr(y) == 'nan'
         Q = float_pack(float('nan'), 8)
