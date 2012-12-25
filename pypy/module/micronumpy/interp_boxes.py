@@ -230,17 +230,6 @@ class W_Float32Box(W_FloatingBox, PrimitiveBox):
 class W_Float64Box(W_FloatingBox, PrimitiveBox):
     descr__new__, _get_dtype = new_dtype_getter("float64")
 
-if long_double_size == 12:
-    class W_Float96Box(W_FloatingBox, PrimitiveBox):
-        descr__new__, _get_dtype = new_dtype_getter("float96")
-    W_LongDoubleBox = W_Float96Box
-elif long_double_size == 16:
-    class W_Float128Box(W_FloatingBox, PrimitiveBox):
-        descr__new__, _get_dtype = new_dtype_getter("float128")
-    W_LongDoubleBox = W_Float128Box
-else:
-    W_LongDoubleBox = W_Float64Box
-
 class W_FlexibleBox(W_GenericBox):
     def __init__(self, arr, ofs, dtype):
         self.arr = arr # we have to keep array alive
@@ -328,6 +317,33 @@ class W_Complex64Box(ComplexBox, W_ComplexFloatingBox):
 class W_Complex128Box(ComplexBox, W_ComplexFloatingBox):
     descr__new__, _get_dtype = new_dtype_getter("complex128")
     _COMPONENTS_BOX = W_Float64Box
+
+if long_double_size == 12:
+    class W_Float96Box(W_FloatingBox, PrimitiveBox):
+        descr__new__, _get_dtype = new_dtype_getter("float96")
+
+    W_LongDoubleBox = W_Float96Box
+
+    class W_Complex192Box(ComplexBox, W_ComplexFloatingBox):
+        descr__new__, _get_dtype = new_dtype_getter("complex192")
+        _COMPONENTS_BOX = W_Float96Box
+
+    W_CLongDoubleBox = W_Complex192Box
+
+elif long_double_size == 16:
+    class W_Float128Box(W_FloatingBox, PrimitiveBox):
+        descr__new__, _get_dtype = new_dtype_getter("float128")
+    W_LongDoubleBox = W_Float128Box
+
+    class W_Complex256Box(ComplexBox, W_ComplexFloatingBox):
+        descr__new__, _get_dtype = new_dtype_getter("complex256")
+        _COMPONENTS_BOX = W_Float128Box
+
+    W_CLongDoubleBox = W_Complex256Box
+
+else:
+    W_LongDoubleBox = W_Float64Box
+    W_CLongDoubleBox = W_Complex64Box
 
     
 W_GenericBox.typedef = TypeDef("generic",
@@ -499,11 +515,26 @@ if long_double_size == 12:
 
         __new__ = interp2app(W_Float96Box.descr__new__.im_func),
     )
+
+    W_Complex192Box.typedef = TypeDef("complex192", (W_ComplexFloatingBox.typedef, complex_typedef),
+        __module__ = "numpypy",
+        __new__ = interp2app(W_Complex192Box.descr__new__.im_func),
+        real = GetSetProperty(W_ComplexFloatingBox.descr_get_real),
+        imag = GetSetProperty(W_ComplexFloatingBox.descr_get_imag),
+    )
+
 elif long_double_size == 16:
     W_Float128Box.typedef = TypeDef("float128", (W_FloatingBox.typedef),
         __module__ = "numpypy",
 
         __new__ = interp2app(W_Float128Box.descr__new__.im_func),
+    )
+
+    W_Complex256Box.typedef = TypeDef("complex256", (W_ComplexFloatingBox.typedef, complex_typedef),
+        __module__ = "numpypy",
+        __new__ = interp2app(W_Complex256Box.descr__new__.im_func),
+        real = GetSetProperty(W_ComplexFloatingBox.descr_get_real),
+        imag = GetSetProperty(W_ComplexFloatingBox.descr_get_imag),
     )
 
 W_FlexibleBox.typedef = TypeDef("flexible", W_GenericBox.typedef,

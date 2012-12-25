@@ -540,6 +540,12 @@ class AppTestTypes(BaseNumpyAppTest):
 
         assert numpy.dtype(complex).type is numpy.complex128
         assert numpy.dtype("complex").type is numpy.complex128
+        d = numpy.dtype('complex64')
+        assert d.kind == 'c'
+        assert d.num == 14
+        assert d.char == 'F'
+        
+
 
     def test_subclass_type(self):
         import _numpypy as numpy

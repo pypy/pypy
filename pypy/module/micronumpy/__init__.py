@@ -73,6 +73,8 @@ class Module(MixedModule):
         'complex_': 'interp_boxes.W_Complex128Box',
         'complex128': 'interp_boxes.W_Complex128Box',
         'complex64': 'interp_boxes.W_Complex64Box',
+        'clongdouble': 'interp_boxes.W_CLongDoubleBox',
+        'clongfloat': 'interp_boxes.W_CLongDoubleBox',
     }
 
     # ufuncs
@@ -169,5 +171,7 @@ class Module(MixedModule):
 
 if long_double_size == 16:
     Module.interpleveldefs['float128'] = 'interp_boxes.W_Float128Box'
+    Module.interpleveldefs['complex256'] = 'interp_boxes.W_Complex256Box'
 elif long_double_size == 12:
     Module.interpleveldefs['float96'] = 'interp_boxes.W_Float96Box'
+    Module.interpleveldefs['complex192'] = 'interp_boxes.W_Complex192Box'
