@@ -33,3 +33,15 @@ class TestJvmFloat(JvmTest, BaseTestRfloat):
 
         res = self.interpret(fn, [1])
         assert res == "10.0"
+
+    def test_formatd(self):
+        py.test.skip('formatd is broken on ootype')
+
+    def test_formatd_repr(self):
+        py.test.skip('formatd is broken on ootype')
+
+    def test_formatd_huge(self):
+        py.test.skip('formatd is broken on ootype')
+
+    def test_parts_to_float(self):
+        py.test.skip('parts_to_float is broken on ootype')
