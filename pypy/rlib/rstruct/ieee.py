@@ -25,19 +25,15 @@ def round_to_nearest(x):
         int_part += 1
     return int_part
 
-def float_unpack80(QQ, size):
-    '''Unpack a (mant, exp) tuple of r_ulonglong into a long double float
+def float_unpack80(QQ):
+    '''Unpack a (mant, exp) tuple of r_ulonglong in 80-bit extended format
+    into a long double float
     '''
-    if size == 16 or size == 12:
-        #Implement a x86-hardware extended 80 bit format as two 64 bit uints
-        # QQ[0] is the sign and exp, QQ[1] is the mant
-        MIN_EXP = -16381
-        MAX_EXP = 16384 
-        MANT_DIG = 64   
-        TOPBITS = 80 - 64
-        one = r_ulonglong(1)
-    else:
-        raise ValueError("invalid size value")
+    MIN_EXP = -16381
+    MAX_EXP = 16384 
+    MANT_DIG = 64   
+    TOPBITS = 80 - 64
+    one = r_ulonglong(1)
     if len(QQ) != 2:
         raise ValueError("QQ must be two 64 bit uints")
     if not objectmodel.we_are_translated():
@@ -188,18 +184,13 @@ def float_pack(x, size):
     sign = r_ulonglong(sign)
     return ((sign << BITS - 1) | (exp << MANT_DIG - 1)) | mant
 
-def float_pack80(x, size):
+def float_pack80(x):
     """Convert a Python float x into two 64-bit unsigned integers
-    with the same byte representation."""
-    if size == 16 or size == 12:
-        #Implement a x86-hardware extended 80 bit format
-        # with explicit 1 in bit 64
-        MIN_EXP = -16381
-        MAX_EXP = 16384
-        MANT_DIG = 64 
-        BITS = 80
-    else:
-        raise ValueError("invalid size value")
+    with 80 bit extended representation."""
+    MIN_EXP = -16381
+    MAX_EXP = 16384
+    MANT_DIG = 64 
+    BITS = 80
 
     sign = rfloat.copysign(1.0, x) < 0.0
     if not rfloat.isfinite(x):
@@ -207,7 +198,7 @@ def float_pack80(x, size):
             mant = r_ulonglong(0)
             exp = MAX_EXP - MIN_EXP + 2
         else:  # rfloat.isnan(x):
-            mant = r_ulonglong(1) << (MANT_DIG-2) # other values possible
+            mant = (r_ulonglong(1) << (MANT_DIG-2)) - 1 # other values possible
             exp = MAX_EXP - MIN_EXP + 2
     elif x == 0.0:
         mant = r_ulonglong(0)
@@ -241,8 +232,7 @@ def float_pack80(x, size):
         assert 0 <= mant < 1 << MANT_DIG - 1
         assert 0 <= exp <= MAX_EXP - MIN_EXP + 2
         assert 0 <= sign <= 1
-    if size==12 or size == 16:
-        mant = mant << 1
+    mant = mant << 1
     exp = r_ulonglong(exp)
     sign = r_ulonglong(sign)
     return (mant, (sign << BITS - MANT_DIG - 1) | exp)
@@ -251,9 +241,16 @@ def float_pack80(x, size):
 @jit.unroll_safe
 def pack_float(result, x, size, be):
     l = []
-    unsigned = float_pack(x, size)
-    for i in range(size):
-        l.append(chr((unsigned >> (i * 8)) & 0xFF))
+    if size == 12 or size == 16:
+        unsigned = float_pack80(x)
+        for i in range(8):
+            l.append(chr((unsigned[0] >> (i * 8)) & 0xFF))
+        for i in range(size - 8):
+            l.append(chr((unsigned[1] >> (i * 8)) & 0xFF))
+    else:
+        unsigned = float_pack(x, size)
+        for i in range(size):
+            l.append(chr((unsigned >> (i * 8)) & 0xFF))
     if be:
         l.reverse()
     result.append("".join(l))

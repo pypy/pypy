@@ -18,11 +18,8 @@ class TestFloatPacking:
         y = float_unpack(Q, 8)
         assert repr(x) == repr(y)
 
-        Q = float_pack80(x, 16)
-        y = float_unpack80(Q, 16)
-        assert repr(x) == repr(y),'%r != %r, Q=%r'%(x, y, Q)
-        Q = float_pack80(x, 12)
-        y = float_unpack80(Q, 12)
+        Q = float_pack80(x)
+        y = float_unpack80(Q)
         assert repr(x) == repr(y),'%r != %r, Q=%r'%(x, y, Q)
 
         # check that packing agrees with the struct module
@@ -65,11 +62,8 @@ class TestFloatPacking:
         self.check_float(-0.0)
 
     def test_nans(self):
-        Q = float_pack80(float('nan'), 16)
-        y = float_unpack80(Q, 16)
-        assert repr(y) == 'nan'
-        Q = float_pack80(float('nan'), 12)
-        y = float_unpack80(Q, 12)
+        Q = float_pack80(float('nan'))
+        y = float_unpack80(Q)
         assert repr(y) == 'nan'
         Q = float_pack(float('nan'), 8)
         y = float_unpack(Q, 8)
