@@ -269,5 +269,5 @@ def unpack_float128(s, be):
         QQ[0] |= r_ulonglong(c) << (i * 8)
     for i in range(8, len(s)):
         c = ord(s[len(s) - 1 - i if be else i])
-        QQ[1] |= r_ulonglong(c) << (i * 8)
-    return float_unpack80(QQ, len(s))
+        QQ[1] |= r_ulonglong(c) << ((i - 8) * 8)
+    return float_unpack80(QQ)
