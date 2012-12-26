@@ -3,7 +3,7 @@ import py
 from pypy.jit.metainterp.optimize import InvalidLoop
 from pypy.jit.metainterp.optimizeopt.virtualstate import VirtualStateInfo, VStructStateInfo, \
      VArrayStateInfo, NotVirtualStateInfo, VirtualState, ShortBoxes, VirtualStateAdder
-from pypy.jit.metainterp.optimizeopt.virtualize import VirtualValue
+from pypy.jit.metainterp.optimizeopt.virtualize import VirtualValue, VArrayValue
 from pypy.jit.metainterp.optimizeopt.optimizer import OptValue
 from pypy.jit.metainterp.history import BoxInt, BoxFloat, BoxPtr, ConstInt, ConstPtr, AbstractValue
 from pypy.rpython.lltypesystem import lltype, llmemory
@@ -1180,12 +1180,16 @@ class FakeOptimizer(object):
     descr1, descr2 = FakeDescr(), FakeDescr()
     subnode_class = ConstInt(7)
     subnode1 = BoxPtr()
+    array1, array2 = BoxPtr(), BoxPtr()
+    array_descr = FakeDescr()
 
     def __init__(self):
         self.values = {}
         self.values[self.node1] = VirtualValue(self.cpu, self.node_class, self.node1)
         self.values[self.node2] = VirtualValue(self.cpu, self.node_class, self.node2)
         self.values[self.subnode1] = VirtualValue(self.cpu, self.subnode_class, self.subnode1)
+        self.values[self.array1] = VArrayValue(self.array_descr, OptValue(self.const_int1), 7, self.array_descr)
+        self.values[self.array2] = VArrayValue(self.array_descr, OptValue(self.const_int2), 7, self.array_descr)
         for n in dir(self):
             box = getattr(self, n)
             if isinstance(box, AbstractValue) and box not in self.values:
@@ -1285,6 +1289,11 @@ class TestGuardedGenerlaization:
     def test_virtual_class_missmatch(self):
         o = self.optimizer
         self.combine([o.node1], [o.subnode1], InvalidLoop)
+
+    def test_currently_unsupported_case(self):
+        o = self.optimizer
+        self.combine([o.array1], [o.array2], InvalidLoop)
+
 
 
 
