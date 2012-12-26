@@ -1,6 +1,7 @@
 
 from pypy.rpython.rbytearray import AbstractByteArrayRepr
 from pypy.rpython.lltypesystem import lltype, rstr
+from pypy.rlib.debug import ll_assert
 
 BYTEARRAY = lltype.GcForwardReference()
 
@@ -24,12 +25,29 @@ BYTEARRAY.become(lltype.GcStruct('rpy_bytearray',
     'length': rstr.LLHelpers.ll_length,
 }))
 
+class LLHelpers(rstr.LLHelpers):
+    @classmethod
+    def ll_strsetitem(cls, s, i, item):
+        if i < 0:
+            i += s.length()
+        cls.ll_strsetitem_nonneg(s, i, item)
+
+    def ll_strsetitem_nonneg(s, i, item):
+        chars = s.chars
+        ll_assert(i >= 0, "negative str getitem index")
+        ll_assert(i < len(chars), "str getitem index out of bound")
+        chars[i] = chr(item)
+
+    def ll_stritem_nonneg(s, i):
+        return ord(rstr.LLHelpers.ll_stritem_nonneg(s, i))
+
 class ByteArrayRepr(AbstractByteArrayRepr):
     lowleveltype = lltype.Ptr(BYTEARRAY)
 
     def __init__(self, *args):
         AbstractByteArrayRepr.__init__(self, *args)
-        self.ll = rstr.LLHelpers
+        self.ll = LLHelpers
+        self.repr = self
 
     def convert_const(self, value):
         if value is None:

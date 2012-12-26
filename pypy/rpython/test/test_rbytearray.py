@@ -34,3 +34,12 @@ class TestByteArray(BaseRtypingTest, LLRtypeMixin):
 
         ll_res = self.interpret(f3, [llstr("def")])
         assert hlbytearray(ll_res) == "defa"
+
+    def test_getitem_setitem(self):
+        def f(s, i, c):
+            b = bytearray(hlstr(s))
+            b[i] = c
+            return b[i] + b[i + 1] * 255
+
+        ll_res = self.interpret(f, [llstr("abc"), 1, ord('d')])
+        assert ll_res == ord('d') + ord('c') * 255

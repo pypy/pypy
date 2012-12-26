@@ -3839,7 +3839,16 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         assert isinstance(a.build_types(f, [annmodel.SomeChar()]),
                           annmodel.SomeByteArray)
-        
+
+    def test_bytearray_setitem_getitem(self):
+        def f(b, i, c):
+            b[i] = c
+            return b[i + 1]
+
+        a = self.RPythonAnnotator()
+        assert isinstance(a.build_types(f, [annmodel.SomeByteArray(),
+                                            int, int]),
+                          annmodel.SomeInteger)
 
 def g(n):
     return [0,1,2,n]

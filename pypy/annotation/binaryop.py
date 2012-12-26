@@ -426,6 +426,13 @@ class __extend__(pairtype(SomeByteArray, SomeByteArray)):
             result.const = b1.const + b2.const
         return result
 
+class __extend__(pairtype(SomeByteArray, SomeInteger)):
+    def getitem((s_b, s_i)):
+        return SomeInteger()
+
+    def setitem((s_b, s_i), s_i2):
+        assert isinstance(s_i2, SomeInteger)
+
 class __extend__(pairtype(SomeString, SomeByteArray),
                  pairtype(SomeByteArray, SomeString),
                  pairtype(SomeChar, SomeByteArray),
