@@ -1011,8 +1011,6 @@ class WarmRunnerDesc(object):
         # the origportal now can raise (even if it did not raise before),
         # which means that we cannot inline it anywhere any more, but that's
         # fine since any forced inlining has been done before
-        if hasattr(origportalgraph, '_always_inline_'):
-            del origportalgraph._always_inline_
         #
         checkgraph(origportalgraph)
 
