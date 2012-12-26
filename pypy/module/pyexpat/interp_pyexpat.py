@@ -7,6 +7,7 @@ from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rpython.tool import rffi_platform
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.translator.platform import platform
+from pypy.rlib import jit
 
 import sys
 import weakref
@@ -773,6 +774,7 @@ W_XMLParserType.typedef = TypeDef(
     **_XMLParser_extras
     )
 
+@jit.dont_look_inside
 def ParserCreate(space, w_encoding=None, w_namespace_separator=None,
                  w_intern=None):
     """ParserCreate([encoding[, namespace_separator]]) -> parser
