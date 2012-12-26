@@ -1,6 +1,6 @@
 import py
 from pypy.annotation import model as annmodel
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, rstr
 from pypy.rpython.lltypesystem import ll2ctypes
 from pypy.rpython.lltypesystem.llmemory import cast_adr_to_ptr, cast_ptr_to_adr
 from pypy.rpython.lltypesystem.llmemory import itemoffsetof, raw_memcopy
@@ -13,7 +13,7 @@ from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rpython.tool.rfficache import platform, sizeof_c_type
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.rpython.annlowlevel import llhelper
+from pypy.rpython.annlowlevel import llhelper, llstr
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.rstring import StringBuilder, UnicodeBuilder, assert_str0
 from pypy.rlib import jit
@@ -288,7 +288,7 @@ def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
                     after()
                 callback_hook = aroundstate.callback_hook
                 if callback_hook:
-                    callback_hook("%s")
+                    callback_hook(llstr("%s"))
             # from now on we hold the GIL
             stackcounter.stacks_counter += 1
             try:
@@ -314,6 +314,7 @@ def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
     miniglobals = locals().copy()
     miniglobals['Exception'] = Exception
     miniglobals['os'] = os
+    miniglobals['llstr'] = llstr
     miniglobals['we_are_translated'] = we_are_translated
     miniglobals['stackcounter'] = stackcounter
     exec source.compile() in miniglobals
@@ -321,6 +322,7 @@ def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
 _make_wrapper_for._annspecialcase_ = 'specialize:memo'
 
 AroundFnPtr = lltype.Ptr(lltype.FuncType([], lltype.Void))
+CallbackHookPtr = lltype.Ptr(lltype.FuncType([lltype.Ptr(rstr.STR)], lltype.Void))
 
 class AroundState:
     def _cleanup_(self):

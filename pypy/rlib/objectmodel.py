@@ -595,14 +595,11 @@ def register_around_callback_hook(hook):
     """ Register a hook that's called before a callback from C calls RPython.
     Primary usage is for JIT to have 'started from' hook.
     """
-    from pypy.rpython.lltypesystem import lltype, rffi, rstr 
+    from pypy.rpython.lltypesystem import rffi
     from pypy.rpython.annlowlevel import llhelper
    
-    CallbackHookPtr = lltype.Ptr(lltype.FuncType([rstr.STR], lltype.Void))
-
-    hook._always_inline_ = True
     rffi.aroundstate.callback_hook = hook
-    llhelper(CallbackHookPtr, hook)
+    llhelper(rffi.CallbackHookPtr, hook)
 
 def is_in_callback():
     from pypy.rpython.lltypesystem import rffi
