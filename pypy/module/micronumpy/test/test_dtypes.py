@@ -117,8 +117,10 @@ class AppTestDtypes(BaseNumpyAppTest):
         from _numpypy import array, dtype
         types = [
             '?', 'b', 'B', 'h', 'H', 'i', 'I', 'l', 'L', 'q', 'Q', 'f', 'd', 
-            'e', 'g',
+            'e'
         ]
+        if array([0], dtype='longdouble').itemsize > 8:
+            types += ['g', 'G']
         a = array([True], '?')
         for t in types:
             assert (a + array([0], t)).dtype is dtype(t)
@@ -474,7 +476,8 @@ class AppTestTypes(BaseNumpyAppTest):
     def test_longfloat(self):
         import _numpypy as numpy
         # it can be float96 or float128
-        assert numpy.longfloat.mro()[1:] == [numpy.floating,
+        if numpy.longfloat != numpy.float64:
+            assert numpy.longfloat.mro()[1:] == [numpy.floating,
                                        numpy.inexact, numpy.number, 
                                        numpy.generic, object]
         a = numpy.array([1, 2, 3], numpy.longdouble)

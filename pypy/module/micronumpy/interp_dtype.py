@@ -413,6 +413,24 @@ class DtypeCache(object):
             alternate_constructors=[space.w_float],
             aliases=["float"],
         )
+        self.w_complex64dtype = W_Dtype(
+            types.Complex64(),
+            num=14,
+            kind=COMPLEXLTR,
+            name="complex64",
+            char="F",
+            w_box_type = space.gettypefor(interp_boxes.W_Complex64Box),
+        )
+        self.w_complex128dtype = W_Dtype(
+            types.Complex128(),
+            num=15,
+            kind=COMPLEXLTR,
+            name="complex128",
+            char="D",
+            w_box_type = space.gettypefor(interp_boxes.W_Complex128Box),
+            alternate_constructors=[space.w_complex],
+            aliases=["complex"],
+        )
         if interp_boxes.long_double_size == 12:
             self.w_float96dtype = W_Dtype(
                 types.Float96(),
@@ -461,27 +479,9 @@ class DtypeCache(object):
             )
             clongdouble = self.w_complex256dtype
         else:
-            self.w_float64type.aliases += ["longfloat", "longdouble"]
+            self.w_float64dtype.aliases += ["longfloat", "longdouble"]
             longdouble = self.w_float64dtype
-            clongdouble = self.w_complex64type
-        self.w_complex64dtype = W_Dtype(
-            types.Complex64(),
-            num=14,
-            kind=COMPLEXLTR,
-            name="complex64",
-            char="F",
-            w_box_type = space.gettypefor(interp_boxes.W_Complex64Box),
-        )
-        self.w_complex128dtype = W_Dtype(
-            types.Complex128(),
-            num=15,
-            kind=COMPLEXLTR,
-            name="complex128",
-            char="D",
-            w_box_type = space.gettypefor(interp_boxes.W_Complex128Box),
-            alternate_constructors=[space.w_complex],
-            aliases=["complex"],
-        )
+            clongdouble = self.w_complex64dtype
         self.w_stringdtype = W_Dtype(
             types.StringType(1),
             num=18,
