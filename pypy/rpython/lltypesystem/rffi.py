@@ -284,7 +284,7 @@ def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
         def inner_wrapper(%(args)s):
             callback_hook = aroundstate.callback_hook
             if callback_hook:
-                callback_hook("%(callable_name_descr)s")
+                callback_hook(llstr("%(callable_name_descr)s"))
             return callable(%(args)s)
         inner_wrapper._never_inline_ = True
         
