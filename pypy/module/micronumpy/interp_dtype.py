@@ -441,7 +441,7 @@ class DtypeCache(object):
                 w_box_type=space.gettypefor(interp_boxes.W_Float96Box),
                 aliases=["longfloat", "longdouble"],
             )
-            longdouble = self.w_float96dtype
+            self.w_longdouble = self.w_float96dtype
 
             self.w_complex192dtype = W_Dtype(
                 types.Complex192(),
@@ -453,7 +453,7 @@ class DtypeCache(object):
                 alternate_constructors=[space.w_complex],
                 aliases=["clongdouble", "clongfloat"],
             )
-            clongdouble = self.w_complex192type
+            self.w_clongdouble = self.w_complex192dtype
 
         elif interp_boxes.long_double_size == 16:
             self.w_float128dtype = W_Dtype(
@@ -465,7 +465,7 @@ class DtypeCache(object):
                 w_box_type=space.gettypefor(interp_boxes.W_Float128Box),
                 aliases=["longfloat", "longdouble"],
             )
-            longdouble = self.w_float128dtype
+            self.w_longdouble = self.w_float128dtype
 
             self.w_complex256dtype = W_Dtype(
                 types.Complex256(),
@@ -477,11 +477,11 @@ class DtypeCache(object):
                 alternate_constructors=[space.w_complex],
                 aliases=["clongdouble", "clongfloat"],
             )
-            clongdouble = self.w_complex256dtype
+            self.w_clongdouble = self.w_complex256dtype
         else:
             self.w_float64dtype.aliases += ["longfloat", "longdouble"]
-            longdouble = self.w_float64dtype
-            clongdouble = self.w_complex64dtype
+            self.w_longdouble = self.w_float64dtype
+            self.w_clongdouble = self.w_complex64dtype
         self.w_stringdtype = W_Dtype(
             types.StringType(1),
             num=18,
@@ -553,15 +553,15 @@ class DtypeCache(object):
             self.w_uint32dtype, self.w_longdtype, self.w_ulongdtype,
             self.w_int64dtype, self.w_uint64dtype,
             self.w_float16dtype, self.w_float32dtype, self.w_float64dtype,
-            longdouble,
-            self.w_complex64dtype, self.w_complex128dtype, clongdouble,
+            self.w_longdouble,
+            self.w_complex64dtype, self.w_complex128dtype, self.w_clongdouble,
             self.w_stringdtype, self.w_unicodedtype,
             self.w_voiddtype, self.w_intpdtype, self.w_uintpdtype,
         ]
         self.float_dtypes_by_num_bytes = sorted(
             (dtype.itemtype.get_element_size(), dtype)
             for dtype in [self.w_float16dtype, self.w_float32dtype,
-                          self.w_float64dtype, longdouble]
+                          self.w_float64dtype, self.w_longdouble]
         )
         self.dtypes_by_name = {}
         # we reverse, so the stuff with lower numbers override stuff with
@@ -587,7 +587,7 @@ class DtypeCache(object):
             'LONGLONG': self.w_int64dtype,
             'SHORT': self.w_int16dtype,
             'VOID': self.w_voiddtype,
-            'LONGDOUBLE': longdouble,
+            'LONGDOUBLE': self.w_longdouble,
             'UBYTE': self.w_uint8dtype,
             'UINTP': self.w_ulongdtype,
             'ULONG': self.w_ulongdtype,
@@ -610,7 +610,7 @@ class DtypeCache(object):
             'USHORT': self.w_uint16dtype,
             'FLOAT': self.w_float32dtype,
             'BOOL': self.w_booldtype,
-            'CLONGDOUBLE': clongdouble,
+            'CLONGDOUBLE': self.w_clongdouble,
         }
         typeinfo_partial = {
             'Generic': interp_boxes.W_GenericBox,

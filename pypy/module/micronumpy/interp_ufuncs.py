@@ -373,14 +373,20 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
         raise OperationError(space.w_TypeError, space.wrap("Unsupported types"))
     # Some operations promote op(bool, bool) to return int8, rather than bool
     if promote_bools and (dt1.kind == dt2.kind == interp_dtype.BOOLLTR):
+        print interp_dtype.get_dtype_cache(space).w_int8dtype
         return interp_dtype.get_dtype_cache(space).w_int8dtype
 
-    # Everything promotes to complex
+    # Everything numeric promotes to complex
     if dt2.is_complex_type() or dt1.is_complex_type():
-        if dt2.num == 14 and dt1.num == 14:
+        if dt2.num == 14:
             return interp_dtype.get_dtype_cache(space).w_complex64dtype
-        else:
+        elif dt2.num == 15:
             return interp_dtype.get_dtype_cache(space).w_complex128dtype
+        elif dt2.num == 16:
+            return interp_dtype.get_dtype_cache(space).w_clongdouble
+        else:
+            raise OperationError(space.w_TypeError, space.wrap("Unsupported types"))
+
     
     if promote_to_float:
         return find_unaryop_result_dtype(space, dt2, promote_to_float=True)

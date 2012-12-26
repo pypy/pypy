@@ -1518,6 +1518,11 @@ if interp_boxes.long_double_size == 12:
         BoxType = interp_boxes.W_Float96Box
         format_code = "q"
 
+        def runpack_str(self, s):
+            assert len(s) == 12
+            fval = unpack_float128(s, native_is_bigendian)
+            return self.box(fval)
+
     class NonNativeFloat96(Float96):
         pass
 
@@ -1528,7 +1533,6 @@ if interp_boxes.long_double_size == 12:
         _COMPONENTS_T = rffi.LONGDOUBLE
         BoxType = interp_boxes.W_Complex192Box
         ComponentBoxType = interp_boxes.W_Float96Box
-
 
     NonNativeComplex192 = Complex192
 

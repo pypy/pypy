@@ -17,6 +17,10 @@ MIXIN_64 = (int_typedef,) if LONG_BIT == 64 else ()
 
 # Is this the proper place for this?
 long_double_size = rffi.sizeof_c_type('long double', ignore_errors=True)
+import os
+if long_double_size == 8 and os.name == 'nt':
+    # this is a lie, or maybe a wish
+    long_double_size = 12
 
 
 def new_dtype_getter(name):
