@@ -73,6 +73,8 @@ def _new_copy_contents_fun(SRC_TP, DST_TP, CHAR_TP, name):
         # because it might move the strings.  The keepalive_until_here()
         # are obscurely essential to make sure that the strings stay alive
         # longer than the raw_memcopy().
+        assert typeOf(src).TO == SRC_TP
+        assert typeOf(dst).TO == DST_TP
         assert srcstart >= 0
         assert dststart >= 0
         assert length >= 0
