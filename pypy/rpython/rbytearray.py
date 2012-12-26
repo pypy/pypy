@@ -9,7 +9,10 @@ class AbstractByteArrayRepr(Repr):
 
 class __extend__(pairtype(AbstractByteArrayRepr, AbstractByteArrayRepr)):
     def rtype_add((r_b1, r_b2), hop):
-        xxx
+        if hop.s_result.is_constant():
+            return hop.inputconst(r_b1, hop.s_result.const)
+        v_b1, v_b2 = hop.inputargs(r_b1, r_b2)
+        return hop.gendirectcall(r_b1.ll.ll_strconcat, v_b1, v_b2)
 
 class __extend__(pairtype(AbstractByteArrayRepr, AbstractStringRepr)):
     def rtype_add((r_b1, r_s2), hop):

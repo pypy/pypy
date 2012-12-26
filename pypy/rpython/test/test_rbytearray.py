@@ -28,3 +28,9 @@ class TestByteArray(BaseRtypingTest, LLRtypeMixin):
 
         ll_res = self.interpret(f2, [llstr("def")])
         assert hlbytearray(ll_res) == "defa"
+
+        def f3(x):
+            return bytearray(hlstr(x)) + bytearray("a")
+
+        ll_res = self.interpret(f3, [llstr("def")])
+        assert hlbytearray(ll_res) == "defa"
