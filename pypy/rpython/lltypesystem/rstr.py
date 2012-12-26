@@ -328,13 +328,13 @@ class LLHelpers(AbstractLLHelpers):
         # a single '+' like this is allowed to overflow: it gets
         # a negative result, and the gc will complain
         # the typechecks below are if TP == BYTEARRAY
-        if typeOf(s1) == STR:
+        if typeOf(s1) == Ptr(STR):
             newstr = s2.malloc(len1 + len2)
             newstr.copy_contents_from_str(s1, newstr, 0, 0, len1)
         else:
             newstr = s1.malloc(len1 + len2)            
             newstr.copy_contents(s1, newstr, 0, 0, len1)
-        if typeOf(s2) == STR:
+        if typeOf(s2) == Ptr(STR):
             newstr.copy_contents_from_str(s2, newstr, 0, len1, len2)
         else:
             newstr.copy_contents(s2, newstr, 0, len1, len2)

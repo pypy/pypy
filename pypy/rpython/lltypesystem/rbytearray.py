@@ -13,7 +13,7 @@ copy_bytearray_contents = rstr._new_copy_contents_fun(BYTEARRAY, BYTEARRAY,
 copy_bytearray_contents_from_str = rstr._new_copy_contents_fun(rstr.STR,
                                                                BYTEARRAY,
                                                                lltype.Char,
-                                                               'bytearray')
+                                                               'bytearray_from_str')
 
 BYTEARRAY.become(lltype.GcStruct('rpy_bytearray',
                  ('chars', lltype.Array(lltype.Char)), adtmeths={

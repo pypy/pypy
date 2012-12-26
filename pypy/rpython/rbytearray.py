@@ -20,8 +20,12 @@ class __extend__(pairtype(AbstractByteArrayRepr, AbstractStringRepr)):
         return hop.gendirectcall(r_b1.ll.ll_strconcat, v_b1, v_str2)
 
 class __extend__(pairtype(AbstractStringRepr, AbstractByteArrayRepr)):
-    def rtype_add((r_s2, r_b1), hop):
-        xxx
+    def rtype_add((r_s1, r_b2), hop):
+        str_repr = r_s1.repr
+        if hop.s_result.is_constant():
+            return hop.inputconst(r_b2, hop.s_result.const)
+        v_str1, v_b2 = hop.inputargs(str_repr, r_b2)
+        return hop.gendirectcall(r_b2.ll.ll_strconcat, v_str1, v_b2)
 
 class __extend__(annmodel.SomeByteArray):
     def rtyper_makekey(self):
