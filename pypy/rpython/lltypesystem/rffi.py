@@ -278,21 +278,26 @@ def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
     callable_name = getattr(callable, '__name__', '?')
     if callbackholder is not None:
         callbackholder.callbacks[callable] = True
+    callable_name_descr = str(callable).replace('"', '\\"')
     args = ', '.join(['a%d' % i for i in range(len(TP.TO.ARGS))])
     source = py.code.Source(r"""
-        def wrapper(%s):    # no *args - no GIL for mallocing the tuple
+        def inner_wrapper(%(args)s):
+            callback_hook = aroundstate.callback_hook
+            if callback_hook:
+                callback_hook("%(callable_name_descr)s")
+            return callable(%(args)s)
+        inner_wrapper._never_inline_ = True
+        
+        def wrapper(%(args)s):    # no *args - no GIL for mallocing the tuple
             llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py
             if aroundstate is not None:
                 after = aroundstate.after
                 if after:
                     after()
-                callback_hook = aroundstate.callback_hook
-                if callback_hook:
-                    callback_hook(llstr("%s"))
             # from now on we hold the GIL
             stackcounter.stacks_counter += 1
             try:
-                result = callable(%s)
+                result = inner_wrapper(%(args)s)
             except Exception, e:
                 os.write(2,
                     "Warning: uncaught exception in callback: %%s %%s\n" %%
@@ -310,7 +315,7 @@ def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
             # by llexternal, it is essential that no exception checking occurs
             # after the call to before().
             return result
-    """ % (args, str(callable).replace('"', '\\"'), args))
+    """ % locals())
     miniglobals = locals().copy()
     miniglobals['Exception'] = Exception
     miniglobals['os'] = os
