@@ -31,7 +31,10 @@ def create_entry_point(space, w_dict):
     def entry_point(argv):
         if withjit:
             from pypy.jit.backend.hlinfo import highleveljitinfo
+            from pypy.module.pypyjit.interp_jit import callback_hook
+            from pypy.rlib import objectmodel
             highleveljitinfo.sys_executable = argv[0]
+            objectmodel.register_around_callback_hook(callback_hook)
 
         #debug("entry point starting") 
         #for arg in argv: 

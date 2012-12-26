@@ -106,8 +106,6 @@ def callback_merge_point(name):
 def callback_hook(name):
     pass
 
-objectmodel.register_around_callback_hook(callback_hook)
-
 def _get_adapted_tick_counter():
     # Normally, the tick counter is decremented by 100 for every
     # Python opcode.  Here, to better support JIT compilation of
