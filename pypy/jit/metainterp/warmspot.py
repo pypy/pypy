@@ -290,11 +290,13 @@ class WarmRunnerDesc(object):
         callgraph = inlinable_static_callers(self.translator.graphs, store_calls=True)
         new_callgraph = []
         new_portals = set()
+        inlined_jit_merge_points = set()
         for caller, block, op_call, callee in callgraph:
             func = getattr(callee, 'func', None)
             _inline_jit_merge_point_ = getattr(func, '_inline_jit_merge_point_', None)
             if _inline_jit_merge_point_:
                 _inline_jit_merge_point_._always_inline_ = True
+                inlined_jit_merge_points.add(_inline_jit_merge_point_)
                 op_jmp_call, jmp_graph = get_jmp_call(callee, _inline_jit_merge_point_)
                 #
                 # now we move the op_jmp_call from callee to caller, just
@@ -315,6 +317,9 @@ class WarmRunnerDesc(object):
         # inline them!
         inline_threshold = 0.1 # we rely on the _always_inline_ set above
         auto_inlining(self.translator, inline_threshold, new_callgraph)
+        # clean up _always_inline_ = True, it can explode later
+        for item in inlined_jit_merge_points:
+            del item._always_inline_
 
         # make a fresh copy of the JitDriver in all newly created
         # jit_merge_points
