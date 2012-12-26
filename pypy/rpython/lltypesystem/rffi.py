@@ -286,6 +286,9 @@ def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
                 after = aroundstate.after
                 if after:
                     after()
+                callback_hook = aroundstate.callback_hook
+                if callback_hook:
+                    callback_hook("%s")
             # from now on we hold the GIL
             stackcounter.stacks_counter += 1
             try:
@@ -307,7 +310,7 @@ def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
             # by llexternal, it is essential that no exception checking occurs
             # after the call to before().
             return result
-    """ % (args, args))
+    """ % (args, str(callable).replace('"', '\\"'), args))
     miniglobals = locals().copy()
     miniglobals['Exception'] = Exception
     miniglobals['os'] = os
@@ -318,10 +321,12 @@ def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
 _make_wrapper_for._annspecialcase_ = 'specialize:memo'
 
 AroundFnPtr = lltype.Ptr(lltype.FuncType([], lltype.Void))
+
 class AroundState:
     def _cleanup_(self):
-        self.before = None    # or a regular RPython function
-        self.after = None     # or a regular RPython function
+        self.before = None        # or a regular RPython function
+        self.after = None         # or a regular RPython function
+        self.callback_hook = None # or a regular RPython function
 aroundstate = AroundState()
 aroundstate._cleanup_()
 
