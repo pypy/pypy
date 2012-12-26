@@ -98,12 +98,13 @@ def long__Float(space, w_floatobj):
     try:
         return W_LongObject.fromfloat(space, w_floatobj.floatval)
     except OverflowError:
-        if isnan(w_floatobj.floatval):
-            raise OperationError(
-                space.w_ValueError,
-                space.wrap("cannot convert float NaN to integer"))
-        raise OperationError(space.w_OverflowError,
-                             space.wrap("cannot convert float infinity to long"))
+        raise OperationError(
+            space.w_OverflowError,
+            space.wrap("cannot convert float infinity to integer"))
+    except ValueError:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("cannot convert float NaN to integer"))
+
 def trunc__Float(space, w_floatobj):
     whole = math.modf(w_floatobj.floatval)[1]
     try:
@@ -308,7 +309,7 @@ def _hash_float(space, v):
             # Convert to long and use its hash.
             try:
                 w_lval = W_LongObject.fromfloat(space, v)
-            except OverflowError:
+            except (OverflowError, ValueError):
                 # can't convert to long int -- arbitrary
                 if v < 0:
                     return -271828

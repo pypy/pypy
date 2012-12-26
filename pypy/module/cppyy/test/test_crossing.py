@@ -1,5 +1,4 @@
 import py, os, sys
-from pypy.conftest import gettestobjspace
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 
 currpath = py.path.local(__file__).dirpath()
@@ -14,9 +13,10 @@ def setup_module(mod):
 
 
 class AppTestCrossing(AppTestCpythonExtensionBase):
+    spaceconfig = dict(usemodules=['cpyext', 'cppyy', 'thread', '_rawffi', '_ffi', 'array'])
+
     def setup_class(cls):
         # following from AppTestCpythonExtensionBase, with cppyy added
-        cls.space = gettestobjspace(usemodules=['cpyext', 'cppyy', 'thread', '_rawffi', '_ffi', 'array'])
         cls.space.getbuiltinmodule("cpyext")
         from pypy.module.imp.importing import importhook
         importhook(cls.space, "os") # warm up reference counts

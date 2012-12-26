@@ -1,9 +1,5 @@
-from pypy.conftest import gettestobjspace
-
-
 class AppTestBuilders(object):
-    def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['__pypy__'])
+    spaceconfig = dict(usemodules=['__pypy__'])
 
     def test_simple(self):
         from __pypy__.builders import UnicodeBuilder

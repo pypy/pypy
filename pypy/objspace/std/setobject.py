@@ -13,6 +13,7 @@ from pypy.interpreter.generator import GeneratorIterator
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.stringobject import W_StringObject
+from pypy.objspace.std.unicodeobject import W_UnicodeObject
 
 class W_BaseSetObject(W_Object):
     typedef = None
@@ -91,6 +92,10 @@ class W_BaseSetObject(W_Object):
     def listview_str(self):
         """ If this is a string set return its contents as a list of uwnrapped strings. Otherwise return None. """
         return self.strategy.listview_str(self)
+
+    def listview_unicode(self):
+        """ If this is a unicode set return its contents as a list of uwnrapped unicodes. Otherwise return None. """
+        return self.strategy.listview_unicode(self)
 
     def listview_int(self):
         """ If this is an int set return its contents as a list of uwnrapped ints. Otherwise return None. """
@@ -201,6 +206,9 @@ class SetStrategy(object):
     def listview_str(self, w_set):
         return None
 
+    def listview_unicode(self, w_set):
+        return None
+
     def listview_int(self, w_set):
         return None
 
@@ -303,6 +311,8 @@ class EmptySetStrategy(SetStrategy):
             strategy = self.space.fromcache(IntegerSetStrategy)
         elif type(w_key) is W_StringObject:
             strategy = self.space.fromcache(StringSetStrategy)
+        elif type(w_key) is W_UnicodeObject:
+            strategy = self.space.fromcache(UnicodeSetStrategy)
         else:
             strategy = self.space.fromcache(ObjectSetStrategy)
         w_set.strategy = strategy
@@ -713,6 +723,41 @@ class StringSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
     def iter(self, w_set):
         return StringIteratorImplementation(self.space, self, w_set)
 
+
+class UnicodeSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
+    erase, unerase = rerased.new_erasing_pair("unicode")
+    erase = staticmethod(erase)
+    unerase = staticmethod(unerase)
+
+    def get_empty_storage(self):
+        return self.erase({})
+
+    def get_empty_dict(self):
+        return {}
+
+    def listview_unicode(self, w_set):
+        return self.unerase(w_set.sstorage).keys()
+
+    def is_correct_type(self, w_key):
+        return type(w_key) is W_UnicodeObject
+
+    def may_contain_equal_elements(self, strategy):
+        if strategy is self.space.fromcache(IntegerSetStrategy):
+            return False
+        if strategy is self.space.fromcache(EmptySetStrategy):
+            return False
+        return True
+
+    def unwrap(self, w_item):
+        return self.space.unicode_w(w_item)
+
+    def wrap(self, item):
+        return self.space.wrap(item)
+
+    def iter(self, w_set):
+        return UnicodeIteratorImplementation(self.space, self, w_set)
+
+
 class IntegerSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
     erase, unerase = rerased.new_erasing_pair("integer")
     erase = staticmethod(erase)
@@ -852,6 +897,18 @@ class StringIteratorImplementation(IteratorImplementation):
         else:
             return None
 
+class UnicodeIteratorImplementation(IteratorImplementation):
+    def __init__(self, space, strategy, w_set):
+        IteratorImplementation.__init__(self, space, strategy, w_set)
+        d = strategy.unerase(w_set.sstorage)
+        self.iterator = d.iterkeys()
+
+    def next_entry(self):
+        for key in self.iterator:
+            return self.space.wrap(key)
+        else:
+            return None
+
 class IntegerIteratorImplementation(IteratorImplementation):
     #XXX same implementation in dictmultiobject on dictstrategy-branch
     def __init__(self, space, strategy, w_set):
@@ -929,6 +986,13 @@ def set_strategy_and_setdata(space, w_set, w_iterable):
         strategy = space.fromcache(StringSetStrategy)
         w_set.strategy = strategy
         w_set.sstorage = strategy.get_storage_from_unwrapped_list(stringlist)
+        return
+
+    unicodelist = space.listview_unicode(w_iterable)
+    if unicodelist is not None:
+        strategy = space.fromcache(UnicodeSetStrategy)
+        w_set.strategy = strategy
+        w_set.sstorage = strategy.get_storage_from_unwrapped_list(unicodelist)
         return
 
     intlist = space.listview_int(w_iterable)

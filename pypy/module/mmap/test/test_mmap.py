@@ -1,13 +1,12 @@
 from __future__ import with_statement
-from pypy.conftest import gettestobjspace
 from pypy.tool.udir import udir
 import os
 
 class AppTestMMap:
+    spaceconfig = dict(usemodules=('mmap',))
+
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('mmap',))
-        cls.space = space
-        cls.w_tmpname = space.wrap(str(udir.join('mmap-')))
+        cls.w_tmpname = cls.space.wrap(str(udir.join('mmap-')))
 
     def test_page_size(self):
         import mmap

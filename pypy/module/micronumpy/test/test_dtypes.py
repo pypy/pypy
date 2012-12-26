@@ -31,6 +31,8 @@ class AppTestDtypes(BaseNumpyAppTest):
         from _numpypy import dtype
 
         assert dtype(bool).num == 0
+        assert dtype('intp').num == 5
+        assert dtype('uintp').num == 6
         assert dtype(int).num == 7
         assert dtype(long).num == 9
         assert dtype(float).num == 12
@@ -114,7 +116,7 @@ class AppTestDtypes(BaseNumpyAppTest):
     def test_bool_binop_types(self):
         from _numpypy import array, dtype
         types = [
-            '?', 'b', 'B', 'h', 'H', 'i', 'I', 'l', 'L', 'q', 'Q', 'f', 'd'
+            '?', 'b', 'B', 'h', 'H', 'i', 'I', 'l', 'L', 'q', 'Q', 'f', 'd', 'e',
         ]
         a = array([True], '?')
         for t in types:
@@ -140,7 +142,9 @@ class AppTestDtypes(BaseNumpyAppTest):
             tests.extend([('b','I','l'), ('b','L','d'), ('h','I','l'),
                           ('h','L','d'), ('i','I','l'), ('i','L','d')])
         for d1, d2, dout in tests:
-            assert (array([1], d1) + array([1], d2)).dtype is dtype(dout)
+            # make a failed test print helpful info
+            d3 = (array([1], d1) + array([1], d2)).dtype
+            assert (d1, d2, repr(d3)) == (d1, d2, repr(dtype(dout)))
 
     def test_add_int8(self):
         from _numpypy import array, dtype
@@ -176,9 +180,14 @@ class AppTestDtypes(BaseNumpyAppTest):
 
     def test_cant_subclass(self):
         from _numpypy import dtype
-
         # You can't subclass dtype
         raises(TypeError, type, "Foo", (dtype,), {})
+
+    def test_can_subclass(self):
+        import _numpypy
+        class xyz(_numpypy.void):
+            pass
+        assert True
 
     def test_aliases(self):
         from _numpypy import dtype
@@ -221,6 +230,7 @@ class AppTestDtypes(BaseNumpyAppTest):
             (numpy.int16, 5),
             (numpy.uint32, 7),
             (numpy.int64, 3),
+            (numpy.float16, 10.),
             (numpy.float32, 2.0),
             (numpy.float64, 4.32),
         ]:
@@ -228,6 +238,17 @@ class AppTestDtypes(BaseNumpyAppTest):
 
 
 class AppTestTypes(BaseNumpyAppTest):
+    def setup_class(cls):
+        BaseNumpyAppTest.setup_class.im_func(cls)
+        if option.runappdirect:
+            import platform
+            bits, linkage = platform.architecture()
+            ptr_size = int(bits[:-3]) // 8
+        else:
+            from pypy.rpython.lltypesystem import rffi
+            ptr_size = rffi.sizeof(rffi.CCHARP)
+        cls.w_ptr_size = cls.space.wrap(ptr_size)
+
     def test_abstract_types(self):
         import _numpypy as numpy
         raises(TypeError, numpy.generic, 0)
@@ -269,7 +290,9 @@ class AppTestTypes(BaseNumpyAppTest):
     def test_int8(self):
         import _numpypy as numpy
 
-        assert numpy.int8.mro() == [numpy.int8, numpy.signedinteger, numpy.integer, numpy.number, numpy.generic, object]
+        assert numpy.int8.mro() == [numpy.int8, numpy.signedinteger,
+                                    numpy.integer, numpy.number, 
+                                    numpy.generic, object]
 
         a = numpy.array([1, 2, 3], numpy.int8)
         assert type(a[1]) is numpy.int8
@@ -291,7 +314,9 @@ class AppTestTypes(BaseNumpyAppTest):
     def test_uint8(self):
         import _numpypy as numpy
 
-        assert numpy.uint8.mro() == [numpy.uint8, numpy.unsignedinteger, numpy.integer, numpy.number, numpy.generic, object]
+        assert numpy.uint8.mro() == [numpy.uint8, numpy.unsignedinteger, 
+                                     numpy.integer, numpy.number, 
+                                     numpy.generic, object]
 
         a = numpy.array([1, 2, 3], numpy.uint8)
         assert type(a[1]) is numpy.uint8
@@ -361,16 +386,22 @@ class AppTestTypes(BaseNumpyAppTest):
         import _numpypy as numpy
 
         assert numpy.int_ is numpy.dtype(int).type
-        assert numpy.int_.mro() == [numpy.int_, numpy.signedinteger, numpy.integer, numpy.number, numpy.generic, int, object]
+        assert numpy.int_.mro() == [numpy.int_, numpy.signedinteger, 
+                                    numpy.integer, numpy.number, 
+                                    numpy.generic, int, object]
 
     def test_int64(self):
         import sys
         import _numpypy as numpy
 
         if sys.maxint == 2 ** 63 -1:
-            assert numpy.int64.mro() == [numpy.int64, numpy.signedinteger, numpy.integer, numpy.number, numpy.generic, int, object]
+            assert numpy.int64.mro() == [numpy.int64, numpy.signedinteger, 
+                                         numpy.integer, numpy.number, 
+                                         numpy.generic, int, object]
         else:
-            assert numpy.int64.mro() == [numpy.int64, numpy.signedinteger, numpy.integer, numpy.number, numpy.generic, object]
+            assert numpy.int64.mro() == [numpy.int64, numpy.signedinteger, 
+                                         numpy.integer, numpy.number, 
+                                         numpy.generic, object]
 
         assert numpy.dtype(numpy.int64).type is numpy.int64
         assert numpy.int64(3) == 3
@@ -385,7 +416,9 @@ class AppTestTypes(BaseNumpyAppTest):
         import sys
         import _numpypy as numpy
 
-        assert numpy.uint64.mro() == [numpy.uint64, numpy.unsignedinteger, numpy.integer, numpy.number, numpy.generic, object]
+        assert numpy.uint64.mro() == [numpy.uint64, numpy.unsignedinteger, 
+                                      numpy.integer, numpy.number, 
+                                      numpy.generic, object]
 
         assert numpy.dtype(numpy.uint64).type is numpy.uint64
         skip("see comment")
@@ -397,10 +430,23 @@ class AppTestTypes(BaseNumpyAppTest):
         assert numpy.uint64(18446744073709551615) == 18446744073709551615
         raises(OverflowError, numpy.uint64(18446744073709551616))
 
+    def test_float16(self):
+        import _numpypy as numpy
+        assert numpy.float16.mro() == [numpy.float16, numpy.floating, 
+                                       numpy.inexact, numpy.number, 
+                                       numpy.generic, object]
+
+        assert numpy.float16(12) == numpy.float64(12)
+        assert numpy.float16('23.4') == numpy.float16(23.4)
+        raises(ValueError, numpy.float16, '23.2df')
+
+
     def test_float32(self):
         import _numpypy as numpy
 
-        assert numpy.float32.mro() == [numpy.float32, numpy.floating, numpy.inexact, numpy.number, numpy.generic, object]
+        assert numpy.float32.mro() == [numpy.float32, numpy.floating, 
+                                       numpy.inexact, numpy.number, 
+                                       numpy.generic, object]
 
         assert numpy.float32(12) == numpy.float64(12)
         assert numpy.float32('23.4') == numpy.float32(23.4)
@@ -409,7 +455,9 @@ class AppTestTypes(BaseNumpyAppTest):
     def test_float64(self):
         import _numpypy as numpy
 
-        assert numpy.float64.mro() == [numpy.float64, numpy.floating, numpy.inexact, numpy.number, numpy.generic, float, object]
+        assert numpy.float64.mro() == [numpy.float64, numpy.floating, 
+                                       numpy.inexact, numpy.number, 
+                                       numpy.generic, float, object]
 
         a = numpy.array([1, 2, 3], numpy.float64)
         assert type(a[1]) is numpy.float64
@@ -508,15 +556,16 @@ class AppTestTypes(BaseNumpyAppTest):
 
     def test_various_types(self):
         import _numpypy as numpy
-        import sys
 
         assert numpy.int16 is numpy.short
         assert numpy.int8 is numpy.byte
         assert numpy.bool_ is numpy.bool8
-        if sys.maxint == (1 << 63) - 1:
-            assert '%r' % numpy.intp == '%r' % numpy.int64
-        else:
-            assert '%r' % numpy.intp == '%r' % numpy.int32
+        if self.ptr_size == 4:
+            assert numpy.intp is numpy.int32
+            assert numpy.uintp is numpy.uint32
+        elif self.ptr_size == 8:
+            assert numpy.intp is numpy.int64
+            assert numpy.uintp is numpy.uint64
 
     def test_mro(self):
         import _numpypy as numpy
@@ -561,6 +610,11 @@ class AppTestTypes(BaseNumpyAppTest):
         assert dtype(nnp + 'i8').byteorder == nnp
         assert dtype('=i8').byteorder == '='
         assert dtype(byteorder + 'i8').byteorder == '='
+
+    def test_intp(self):
+        from _numpypy import dtype
+        assert dtype('p') == dtype('intp')
+        assert dtype('P') == dtype('uintp')
 
     def test_alignment(self):
         from _numpypy import dtype

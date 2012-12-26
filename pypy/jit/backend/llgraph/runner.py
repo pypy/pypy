@@ -413,19 +413,19 @@ class LLtypeCPU(BaseCPU):
     def bh_unicodegetitem(self, string, index):
         return llimpl.do_unicodegetitem(string, index)
 
-    def bh_getarrayitem_gc_i(self, arraydescr, array, index):
+    def bh_getarrayitem_gc_i(self, array, index, arraydescr):
         assert isinstance(arraydescr, Descr)
         return llimpl.do_getarrayitem_gc_int(array, index)
-    def bh_getarrayitem_raw_i(self, arraydescr, array, index):
+    def bh_getarrayitem_raw_i(self, array, index, arraydescr):
         assert isinstance(arraydescr, Descr)
         return llimpl.do_getarrayitem_raw_int(array, index, arraydescr.ofs)
-    def bh_getarrayitem_gc_r(self, arraydescr, array, index):
+    def bh_getarrayitem_gc_r(self, array, index, arraydescr):
         assert isinstance(arraydescr, Descr)
         return llimpl.do_getarrayitem_gc_ptr(array, index)
-    def bh_getarrayitem_gc_f(self, arraydescr, array, index):
+    def bh_getarrayitem_gc_f(self, array, index, arraydescr):
         assert isinstance(arraydescr, Descr)
         return llimpl.do_getarrayitem_gc_float(array, index)
-    def bh_getarrayitem_raw_f(self, arraydescr, array, index):
+    def bh_getarrayitem_raw_f(self, array, index, arraydescr):
         assert isinstance(arraydescr, Descr)
         return llimpl.do_getarrayitem_raw_float(array, index)
 
@@ -459,23 +459,23 @@ class LLtypeCPU(BaseCPU):
         assert isinstance(descr, Descr)
         return llimpl.do_getinteriorfield_gc_float(array, index, descr.ofs)
 
-    def bh_setinteriorfield_gc_i(self, array, index, descr, value):
+    def bh_setinteriorfield_gc_i(self, array, index, value, descr):
         assert isinstance(descr, Descr)
         return llimpl.do_setinteriorfield_gc_int(array, index, descr.ofs,
                                                  value)
-    def bh_setinteriorfield_gc_r(self, array, index, descr, value):
+    def bh_setinteriorfield_gc_r(self, array, index, value, descr):
         assert isinstance(descr, Descr)
         return llimpl.do_setinteriorfield_gc_ptr(array, index, descr.ofs,
                                                  value)
-    def bh_setinteriorfield_gc_f(self, array, index, descr, value):
+    def bh_setinteriorfield_gc_f(self, array, index, value, descr):
         assert isinstance(descr, Descr)
         return llimpl.do_setinteriorfield_gc_float(array, index, descr.ofs,
                                                    value)
 
-    def bh_raw_store_i(self, struct, offset, descr, newvalue):
+    def bh_raw_store_i(self, struct, offset, newvalue, descr):
         assert isinstance(descr, Descr)
         return llimpl.do_raw_store_int(struct, offset, descr.ofs, newvalue)
-    def bh_raw_store_f(self, struct, offset, descr, newvalue):
+    def bh_raw_store_f(self, struct, offset, newvalue, descr):
         assert isinstance(descr, Descr)
         return llimpl.do_raw_store_float(struct, offset, newvalue)
     def bh_raw_load_i(self, struct, offset, descr):
@@ -489,7 +489,7 @@ class LLtypeCPU(BaseCPU):
         assert isinstance(sizedescr, Descr)
         return llimpl.do_new(sizedescr.ofs)
 
-    def bh_new_with_vtable(self, sizedescr, vtable):
+    def bh_new_with_vtable(self, vtable, sizedescr):
         assert isinstance(sizedescr, Descr)
         result = llimpl.do_new(sizedescr.ofs)
         llimpl.do_setfield_gc_int(result, self.fielddescrof_vtable.ofs, vtable)
@@ -500,51 +500,51 @@ class LLtypeCPU(BaseCPU):
         result_adr = llmemory.cast_ptr_to_adr(struct.typeptr)
         return heaptracker.adr2int(result_adr)
 
-    def bh_new_array(self, arraydescr, length):
+    def bh_new_array(self, length, arraydescr):
         assert isinstance(arraydescr, Descr)
         return llimpl.do_new_array(arraydescr.ofs, length)
 
-    def bh_arraylen_gc(self, arraydescr, array):
+    def bh_arraylen_gc(self, array, arraydescr):
         assert isinstance(arraydescr, Descr)
         return llimpl.do_arraylen_gc(arraydescr, array)
 
-    def bh_setarrayitem_gc_i(self, arraydescr, array, index, newvalue):
+    def bh_setarrayitem_gc_i(self, array, index, newvalue, arraydescr):
         assert isinstance(arraydescr, Descr)
         llimpl.do_setarrayitem_gc_int(array, index, newvalue)
 
-    def bh_setarrayitem_raw_i(self, arraydescr, array, index, newvalue):
+    def bh_setarrayitem_raw_i(self, array, index, newvalue, arraydescr):
         assert isinstance(arraydescr, Descr)
         llimpl.do_setarrayitem_raw_int(array, index, newvalue, arraydescr.ofs)
 
-    def bh_setarrayitem_gc_r(self, arraydescr, array, index, newvalue):
+    def bh_setarrayitem_gc_r(self, array, index, newvalue, arraydescr):
         assert isinstance(arraydescr, Descr)
         llimpl.do_setarrayitem_gc_ptr(array, index, newvalue)
 
-    def bh_setarrayitem_gc_f(self, arraydescr, array, index, newvalue):
+    def bh_setarrayitem_gc_f(self, array, index, newvalue, arraydescr):
         assert isinstance(arraydescr, Descr)
         llimpl.do_setarrayitem_gc_float(array, index, newvalue)
 
-    def bh_setarrayitem_raw_f(self, arraydescr, array, index, newvalue):
+    def bh_setarrayitem_raw_f(self, array, index, newvalue, arraydescr):
         assert isinstance(arraydescr, Descr)
         llimpl.do_setarrayitem_raw_float(array, index, newvalue)
 
-    def bh_setfield_gc_i(self, struct, fielddescr, newvalue):
+    def bh_setfield_gc_i(self, struct, newvalue, fielddescr):
         assert isinstance(fielddescr, Descr)
         llimpl.do_setfield_gc_int(struct, fielddescr.ofs, newvalue)
-    def bh_setfield_gc_r(self, struct, fielddescr, newvalue):
+    def bh_setfield_gc_r(self, struct, newvalue, fielddescr):
         assert isinstance(fielddescr, Descr)
         llimpl.do_setfield_gc_ptr(struct, fielddescr.ofs, newvalue)
-    def bh_setfield_gc_f(self, struct, fielddescr, newvalue):
+    def bh_setfield_gc_f(self, struct, newvalue, fielddescr):
         assert isinstance(fielddescr, Descr)
         llimpl.do_setfield_gc_float(struct, fielddescr.ofs, newvalue)
 
-    def bh_setfield_raw_i(self, struct, fielddescr, newvalue):
+    def bh_setfield_raw_i(self, struct, newvalue, fielddescr):
         assert isinstance(fielddescr, Descr)
         llimpl.do_setfield_raw_int(struct, fielddescr.ofs, newvalue)
-    def bh_setfield_raw_r(self, struct, fielddescr, newvalue):
+    def bh_setfield_raw_r(self, struct, newvalue, fielddescr):
         assert isinstance(fielddescr, Descr)
         llimpl.do_setfield_raw_ptr(struct, fielddescr.ofs, newvalue)
-    def bh_setfield_raw_f(self, struct, fielddescr, newvalue):
+    def bh_setfield_raw_f(self, struct, newvalue, fielddescr):
         assert isinstance(fielddescr, Descr)
         llimpl.do_setfield_raw_float(struct, fielddescr.ofs, newvalue)
 
@@ -560,20 +560,20 @@ class LLtypeCPU(BaseCPU):
     def bh_unicodesetitem(self, string, index, newvalue):
         llimpl.do_unicodesetitem(string, index, newvalue)
 
-    def bh_call_i(self, func, calldescr, args_i, args_r, args_f):
-        self._prepare_call(INT, calldescr, args_i, args_r, args_f)
+    def bh_call_i(self, func, args_i, args_r, args_f, calldescr):
+        self._prepare_call(INT, args_i, args_r, args_f, calldescr)
         return llimpl.do_call_int(func)
-    def bh_call_r(self, func, calldescr, args_i, args_r, args_f):
-        self._prepare_call(REF, calldescr, args_i, args_r, args_f)
+    def bh_call_r(self, func, args_i, args_r, args_f, calldescr):
+        self._prepare_call(REF, args_i, args_r, args_f, calldescr)
         return llimpl.do_call_ptr(func)
-    def bh_call_f(self, func, calldescr, args_i, args_r, args_f):
-        self._prepare_call(FLOAT + 'L', calldescr, args_i, args_r, args_f)
+    def bh_call_f(self, func, args_i, args_r, args_f, calldescr):
+        self._prepare_call(FLOAT + 'L', args_i, args_r, args_f, calldescr)
         return llimpl.do_call_float(func)
-    def bh_call_v(self, func, calldescr, args_i, args_r, args_f):
-        self._prepare_call('v', calldescr, args_i, args_r, args_f)
+    def bh_call_v(self, func, args_i, args_r, args_f, calldescr):
+        self._prepare_call('v', args_i, args_r, args_f, calldescr)
         llimpl.do_call_void(func)
 
-    def _prepare_call(self, resulttypeinfo, calldescr, args_i, args_r, args_f):
+    def _prepare_call(self, resulttypeinfo, args_i, args_r, args_f, calldescr):
         assert isinstance(calldescr, Descr)
         assert calldescr.typeinfo in resulttypeinfo
         if args_i is not None:

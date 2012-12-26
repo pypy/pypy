@@ -3239,6 +3239,42 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         '''
         self.optimize_loop(ops, expected)
 
+    def test_arraycopy_not_virtual_2(self):
+        ops = '''
+        [p0]
+        p1 = new_array(3, descr=arraydescr)
+        call(0, p0, p1, 0, 0, 3, descr=arraycopydescr)
+        i0 = getarrayitem_gc(p1, 0, descr=arraydescr)
+        jump(i0)
+        '''
+        expected = '''
+        [p0]
+        i0 = getarrayitem_gc(p0, 0, descr=arraydescr)
+        i1 = getarrayitem_gc(p0, 1, descr=arraydescr) # removed by the backend
+        i2 = getarrayitem_gc(p0, 2, descr=arraydescr) # removed by the backend
+        jump(i0)
+        '''
+        self.optimize_loop(ops, expected)
+
+    def test_arraycopy_not_virtual_3(self):
+        ops = '''
+        [p0, p1]
+        call(0, p0, p1, 0, 0, 3, descr=arraycopydescr)
+        i0 = getarrayitem_gc(p1, 0, descr=arraydescr)
+        jump(i0)
+        '''
+        expected = '''
+        [p0, p1]
+        i0 = getarrayitem_gc(p0, 0, descr=arraydescr)
+        i1 = getarrayitem_gc(p0, 1, descr=arraydescr)
+        i2 = getarrayitem_gc(p0, 2, descr=arraydescr)
+        setarrayitem_gc(p1, 0, i0, descr=arraydescr)
+        setarrayitem_gc(p1, 1, i1, descr=arraydescr)
+        setarrayitem_gc(p1, 2, i2, descr=arraydescr)
+        jump(i0)
+        '''
+        self.optimize_loop(ops, expected)
+
     def test_arraycopy_no_elem(self):
         """ this was actually observed in the wild
         """
@@ -4306,14 +4342,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         expected = """
         []
-        p0 = newstr(11)
-        copystrcontent(s"hello world", p0, 0, 0, 11)
-        # Eventually this should just return s"hello", but ATM this test is
-        # just verifying that it doesn't return "\0\0\0\0\0", so being
-        # slightly underoptimized is ok.
-        p1 = newstr(5)
-        copystrcontent(p0, p1, 0, 0, 5)
-        finish(p1)
+        finish(s"hello")
         """
         self.optimize_strunicode_loop(ops, expected)
 
@@ -4963,12 +4992,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         expected = """
         [i1]
-        p0 = newstr(6)
-        copystrcontent(s"hello!", p0, 0, 0, 6)
-        p1 = newstr(12)
-        copystrcontent(p0, p1, 0, 0, 6)
-        copystrcontent(s"abc123", p1, 0, 6, 6)
-        i0 = strgetitem(p1, i1)
+        i0 = strgetitem(s"hello!abc123", i1)
         finish(i0)
         """
         self.optimize_strunicode_loop(ops, expected)
@@ -4984,10 +5008,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         expected = """
         []
-        p0 = newstr(6)
-        copystrcontent(s"hello!", p0, 0, 0, 6)
-        i0 = strgetitem(p0, 0)
-        finish(i0)
+        finish(104)
         """
         self.optimize_strunicode_loop(ops, expected)
 
@@ -5064,6 +5085,21 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         strsetitem(p1, 7, i0)
         strsetitem(p1, 8, 3)
         finish(p1)
+        """
+        self.optimize_strunicode_loop(ops, expected)
+
+    def test_str_copy_constant_virtual(self):
+        ops = """
+        []
+        p0 = newstr(10)
+        copystrcontent(s"abcd", p0, 0, 0, 4)
+        strsetitem(p0, 4, 101)
+        copystrcontent(s"fghij", p0, 0, 5, 5)
+        finish(p0)
+        """
+        expected = """
+        []
+        finish(s"abcdefghij")
         """
         self.optimize_strunicode_loop(ops, expected)
 

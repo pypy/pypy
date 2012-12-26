@@ -6,7 +6,7 @@ from pypy.translator.unsimplify import insert_empty_startblock
 from pypy.translator.unsimplify import split_block
 from pypy.translator.simplify import eliminate_empty_blocks, simplify_graph
 from pypy.tool.sourcetools import func_with_new_name
-from pypy.interpreter.argument import Signature
+from pypy.objspace.flow.argument import Signature
 
 
 class AbstractPosition(object):

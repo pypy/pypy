@@ -307,13 +307,13 @@ class AbstractLLCPU(AbstractCPU):
 
     # ____________________________________________________________
 
-    def bh_arraylen_gc(self, arraydescr, array):
+    def bh_arraylen_gc(self, array, arraydescr):
         assert isinstance(arraydescr, ArrayDescr)
         ofs = arraydescr.lendescr.offset
         return rffi.cast(rffi.CArrayPtr(lltype.Signed), array)[ofs/WORD]
 
-    @specialize.argtype(2)
-    def bh_getarrayitem_gc_i(self, arraydescr, gcref, itemindex):
+    @specialize.argtype(1)
+    def bh_getarrayitem_gc_i(self, gcref, itemindex, arraydescr):
         ofs, size, sign = self.unpack_arraydescr_size(arraydescr)
         # --- start of GC unsafe code (no GC operation!) ---
         items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
@@ -332,7 +332,7 @@ class AbstractLLCPU(AbstractCPU):
         else:
             raise NotImplementedError("size = %d" % size)
 
-    def bh_getarrayitem_gc_r(self, arraydescr, gcref, itemindex):
+    def bh_getarrayitem_gc_r(self, gcref, itemindex, arraydescr):
         ofs = self.unpack_arraydescr(arraydescr)
         # --- start of GC unsafe code (no GC operation!) ---
         items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
@@ -341,8 +341,8 @@ class AbstractLLCPU(AbstractCPU):
         # --- end of GC unsafe code ---
         return pval
 
-    @specialize.argtype(2)
-    def bh_getarrayitem_gc_f(self, arraydescr, gcref, itemindex):
+    @specialize.argtype(1)
+    def bh_getarrayitem_gc_f(self, gcref, itemindex, arraydescr):
         ofs = self.unpack_arraydescr(arraydescr)
         # --- start of GC unsafe code (no GC operation!) ---
         items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
@@ -351,8 +351,8 @@ class AbstractLLCPU(AbstractCPU):
         # --- end of GC unsafe code ---
         return fval
 
-    @specialize.argtype(2)
-    def bh_setarrayitem_gc_i(self, arraydescr, gcref, itemindex, newvalue):
+    @specialize.argtype(1)
+    def bh_setarrayitem_gc_i(self, gcref, itemindex, newvalue, arraydescr):
         ofs, size, sign = self.unpack_arraydescr_size(arraydescr)
         # --- start of GC unsafe code (no GC operation!) ---
         items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
@@ -365,7 +365,7 @@ class AbstractLLCPU(AbstractCPU):
         else:
             raise NotImplementedError("size = %d" % size)
 
-    def bh_setarrayitem_gc_r(self, arraydescr, gcref, itemindex, newvalue):
+    def bh_setarrayitem_gc_r(self, gcref, itemindex, newvalue, arraydescr):
         ofs = self.unpack_arraydescr(arraydescr)
         self.gc_ll_descr.do_write_barrier(gcref, newvalue)
         # --- start of GC unsafe code (no GC operation!) ---
@@ -374,8 +374,8 @@ class AbstractLLCPU(AbstractCPU):
         items[itemindex] = self.cast_gcref_to_int(newvalue)
         # --- end of GC unsafe code ---
 
-    @specialize.argtype(2)
-    def bh_setarrayitem_gc_f(self, arraydescr, gcref, itemindex, newvalue):
+    @specialize.argtype(1)
+    def bh_setarrayitem_gc_f(self, gcref, itemindex, newvalue, arraydescr):
         ofs = self.unpack_arraydescr(arraydescr)
         # --- start of GC unsafe code (no GC operation!) ---
         items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
@@ -440,7 +440,7 @@ class AbstractLLCPU(AbstractCPU):
         # --- end of GC unsafe code ---
         return fval
 
-    def bh_setinteriorfield_gc_i(self, gcref, itemindex, descr, value):
+    def bh_setinteriorfield_gc_i(self, gcref, itemindex, value, descr):
         assert isinstance(descr, InteriorFieldDescr)
         arraydescr = descr.arraydescr
         ofs, size, _ = self.unpack_arraydescr_size(arraydescr)
@@ -458,7 +458,7 @@ class AbstractLLCPU(AbstractCPU):
         else:
             raise NotImplementedError("size = %d" % fieldsize)
 
-    def bh_setinteriorfield_gc_r(self, gcref, itemindex, descr, newvalue):
+    def bh_setinteriorfield_gc_r(self, gcref, itemindex, newvalue, descr):
         assert isinstance(descr, InteriorFieldDescr)
         arraydescr = descr.arraydescr
         ofs, size, _ = self.unpack_arraydescr_size(arraydescr)
@@ -471,7 +471,7 @@ class AbstractLLCPU(AbstractCPU):
         items[0] = self.cast_gcref_to_int(newvalue)
         # --- end of GC unsafe code ---
 
-    def bh_setinteriorfield_gc_f(self, gcref, itemindex, descr, newvalue):
+    def bh_setinteriorfield_gc_f(self, gcref, itemindex, newvalue, descr):
         assert isinstance(descr, InteriorFieldDescr)
         arraydescr = descr.arraydescr
         ofs, size, _ = self.unpack_arraydescr_size(arraydescr)
@@ -547,7 +547,7 @@ class AbstractLLCPU(AbstractCPU):
     bh_getfield_raw_f = _base_do_getfield_f
 
     @specialize.argtype(1)
-    def _base_do_setfield_i(self, struct, fielddescr, newvalue):
+    def _base_do_setfield_i(self, struct, newvalue, fielddescr):
         ofs, size, sign = self.unpack_fielddescr_size(fielddescr)
         # --- start of GC unsafe code (no GC operation!) ---
         fieldptr = rffi.ptradd(rffi.cast(rffi.CCHARP, struct), ofs)
@@ -561,7 +561,7 @@ class AbstractLLCPU(AbstractCPU):
             raise NotImplementedError("size = %d" % size)
 
     @specialize.argtype(1)
-    def _base_do_setfield_r(self, struct, fielddescr, newvalue):
+    def _base_do_setfield_r(self, struct, newvalue, fielddescr):
         ofs = self.unpack_fielddescr(fielddescr)
         assert lltype.typeOf(struct) is not lltype.Signed, (
             "can't handle write barriers for setfield_raw")
@@ -573,7 +573,7 @@ class AbstractLLCPU(AbstractCPU):
         # --- end of GC unsafe code ---
 
     @specialize.argtype(1)
-    def _base_do_setfield_f(self, struct, fielddescr, newvalue):
+    def _base_do_setfield_f(self, struct, newvalue, fielddescr):
         ofs = self.unpack_fielddescr(fielddescr)
         # --- start of GC unsafe code (no GC operation!) ---
         fieldptr = rffi.ptradd(rffi.cast(rffi.CCHARP, struct), ofs)
@@ -588,7 +588,7 @@ class AbstractLLCPU(AbstractCPU):
     bh_setfield_raw_r = _base_do_setfield_r
     bh_setfield_raw_f = _base_do_setfield_f
 
-    def bh_raw_store_i(self, addr, offset, descr, newvalue):
+    def bh_raw_store_i(self, addr, offset, newvalue, descr):
         ofs, size, sign = self.unpack_arraydescr_size(descr)
         items = addr + offset
         for TYPE, _, itemsize in unroll_basic_sizes:
@@ -597,7 +597,7 @@ class AbstractLLCPU(AbstractCPU):
                 items[0] = rffi.cast(TYPE, newvalue)
                 break
 
-    def bh_raw_store_f(self, addr, offset, descr, newvalue):
+    def bh_raw_store_f(self, addr, offset, newvalue, descr):
         items = rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), addr + offset)
         items[0] = newvalue
 
@@ -617,7 +617,7 @@ class AbstractLLCPU(AbstractCPU):
     def bh_new(self, sizedescr):
         return self.gc_ll_descr.gc_malloc(sizedescr)
 
-    def bh_new_with_vtable(self, sizedescr, vtable):
+    def bh_new_with_vtable(self, vtable, sizedescr):
         res = self.gc_ll_descr.gc_malloc(sizedescr)
         if self.vtable_offset is not None:
             as_array = rffi.cast(rffi.CArrayPtr(lltype.Signed), res)
@@ -629,8 +629,8 @@ class AbstractLLCPU(AbstractCPU):
         result_adr = llmemory.cast_ptr_to_adr(struct.typeptr)
         return heaptracker.adr2int(result_adr)
 
-    def bh_new_array(self, arraydescr, length):
-        return self.gc_ll_descr.gc_malloc_array(arraydescr, length)
+    def bh_new_array(self, length, arraydescr):
+        return self.gc_ll_descr.gc_malloc_array(length, arraydescr)
 
     def bh_newstr(self, length):
         return self.gc_ll_descr.gc_malloc_str(length)
@@ -656,25 +656,25 @@ class AbstractLLCPU(AbstractCPU):
         dst = lltype.cast_opaque_ptr(lltype.Ptr(rstr.UNICODE), dst)
         rstr.copy_unicode_contents(src, dst, srcstart, dststart, length)
 
-    def bh_call_i(self, func, calldescr, args_i, args_r, args_f):
+    def bh_call_i(self, func, args_i, args_r, args_f, calldescr):
         assert isinstance(calldescr, CallDescr)
         if not we_are_translated():
             calldescr.verify_types(args_i, args_r, args_f, history.INT + 'S')
         return calldescr.call_stub_i(func, args_i, args_r, args_f)
 
-    def bh_call_r(self, func, calldescr, args_i, args_r, args_f):
+    def bh_call_r(self, func, args_i, args_r, args_f, calldescr):
         assert isinstance(calldescr, CallDescr)
         if not we_are_translated():
             calldescr.verify_types(args_i, args_r, args_f, history.REF)
         return calldescr.call_stub_r(func, args_i, args_r, args_f)
 
-    def bh_call_f(self, func, calldescr, args_i, args_r, args_f):
+    def bh_call_f(self, func, args_i, args_r, args_f, calldescr):
         assert isinstance(calldescr, CallDescr)
         if not we_are_translated():
             calldescr.verify_types(args_i, args_r, args_f, history.FLOAT + 'L')
         return calldescr.call_stub_f(func, args_i, args_r, args_f)
 
-    def bh_call_v(self, func, calldescr, args_i, args_r, args_f):
+    def bh_call_v(self, func, args_i, args_r, args_f, calldescr):
         assert isinstance(calldescr, CallDescr)
         if not we_are_translated():
             calldescr.verify_types(args_i, args_r, args_f, history.VOID)

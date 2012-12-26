@@ -1,4 +1,4 @@
-from pypy.conftest import gettestobjspace
+from pypy.tool.pytest.objspace import gettestobjspace
 from pypy.interpreter import gateway
 
 class AppTest_Thunk:

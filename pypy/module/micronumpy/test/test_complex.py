@@ -215,7 +215,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         ninf = -float('inf')
         nan = float('nan')
         cmpl = complex
-        for c,rel_err in ((complex128, 5e-323), (complex64, 1e-7)):
+        for c,rel_err in ((complex128, 2e-15), (complex64, 1e-7)):
             a = [cmpl(-5., 0), cmpl(-5., -5.), cmpl(-5., 5.),
                        cmpl(0., -5.), cmpl(0., 0.), cmpl(0., 5.),
                        cmpl(-0., -5.), cmpl(-0., 0.), cmpl(-0., 5.),
@@ -251,7 +251,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         ninf = -float('inf')
         nan = float('nan')
         cmpl = complex
-        for c,rel_err in ((complex128, 5e-323), (complex64, 1e-7)):
+        for c,rel_err in ((complex128, 2e-15), (complex64, 1e-7)):
             a = [cmpl(-5., 0), cmpl(-5., -5.), cmpl(-5., 5.),
                        cmpl(0., -5.), cmpl(0., 0.), cmpl(0., 5.),
                        cmpl(-0., -5.), cmpl(-0., 0.), cmpl(-0., 5.),
@@ -323,7 +323,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         cmpl = complex
         from math import copysign
         from _numpypy import power, array, complex128, complex64
-        for c,rel_err in ((complex128, 5e-323), (complex64, 4e-7)):
+        for c,rel_err in ((complex128, 2e-15), (complex64, 4e-7)):
             a = array([cmpl(-5., 0), cmpl(-5., -5.), cmpl(-5., 5.),
                        cmpl(0., -5.), cmpl(0., 0.), cmpl(0., 5.),
                        cmpl(-0., -5.), cmpl(-0., 0.), cmpl(-0., 5.),
@@ -394,7 +394,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
              cmpl(ninf, ninf), cmpl(5., inf), cmpl(5., ninf),
              cmpl(nan, 5.), cmpl(5., nan), cmpl(nan, nan),
             ]
-        for c,rel_err in ((complex128, 5e-323), (complex64, 1e-7)):
+        for c,rel_err in ((complex128, 2e-15), (complex64, 1e-7)):
             b = log2(array(a,dtype=c))
             for i in range(len(a)):
                 try:
@@ -414,7 +414,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
                 t1 = float(res.imag)        
                 t2 = float(b[i].imag)        
                 self.rAlmostEqual(t1, t2, rel_err=rel_err, msg=msg)
-        for c,rel_err in ((complex128, 5e-323), (complex64, 1e-7)):
+        for c,rel_err in ((complex128, 2e-15), (complex64, 1e-7)):
             b = log1p(array(a,dtype=c))
             for i in range(len(a)):
                 try:

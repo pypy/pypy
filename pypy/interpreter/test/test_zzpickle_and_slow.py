@@ -1,13 +1,12 @@
 import py
 from pypy import conftest
-from pypy.conftest import gettestobjspace
 from pypy.interpreter import gateway
 from pypy.rlib.jit import non_virtual_ref, vref_None
 
 class AppTestSlow:    
+    spaceconfig = dict(usemodules=['itertools'])
+
     def setup_class(cls):
-        space = gettestobjspace()
-        cls.space = space
         if py.test.config.option.runappdirect:
             filename = __file__
         else:
@@ -16,7 +15,7 @@ class AppTestSlow:
         if filename[-3:] != '.py':
             filename = filename[:-1]
 
-        cls.w_file = space.wrap(filename)
+        cls.w_file = cls.space.wrap(filename)
 
     def test_inspect(self):
         if not hasattr(len, 'func_code'):
@@ -66,7 +65,7 @@ def _attach_helpers(space):
                   space.wrap('read_exc_type'),
                   space.wrap(read_exc_type_gw))
     
-def _detatch_helpers(space):
+def _detach_helpers(space):
     space.delitem(space.builtin.w_dict,
                   space.wrap('hide_top_frame'))
     space.delitem(space.builtin.w_dict,
@@ -74,12 +73,13 @@ def _detatch_helpers(space):
 
 class AppTestInterpObjectPickling:
     pytestmark = py.test.mark.skipif("config.option.runappdirect")
+    spaceconfig = dict(usemodules=['struct'])
+
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['struct'])
         _attach_helpers(cls.space)
 
     def teardown_class(cls):
-        _detatch_helpers(cls.space)
+        _detach_helpers(cls.space)
 
     def test_pickle_code(self):
         def f():

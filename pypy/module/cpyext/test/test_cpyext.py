@@ -4,7 +4,6 @@ import os.path
 
 import py
 
-from pypy.conftest import gettestobjspace
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app
 from pypy.rpython.lltypesystem import rffi, lltype, ll2ctypes
@@ -32,28 +31,6 @@ class TestApi:
     def test_signature(self):
         assert 'PyModule_Check' in api.FUNCTIONS
         assert api.FUNCTIONS['PyModule_Check'].argtypes == [api.PyObject]
-
-class AppTestApi:
-    def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['cpyext', 'thread', '_rawffi', 'array'])
-        from pypy.rlib.clibffi import get_libc_name
-        cls.w_libc = cls.space.wrap(get_libc_name())
-
-    def test_load_error(self):
-        import cpyext
-        raises(ImportError, cpyext.load_module, "missing.file", "foo")
-        raises(ImportError, cpyext.load_module, self.libc, "invalid.function")
-
-    def test_dllhandle(self):
-        import sys
-        if sys.platform != "win32" or sys.version_info < (2, 6):
-            skip("Windows Python >= 2.6 only")
-        assert sys.dllhandle
-        assert sys.dllhandle.getaddressindll('PyPyErr_NewException')
-        import ctypes # slow
-        PyUnicode_GetDefaultEncoding = ctypes.pythonapi.PyPyUnicode_GetDefaultEncoding
-        PyUnicode_GetDefaultEncoding.restype = ctypes.c_char_p
-        assert PyUnicode_GetDefaultEncoding() == 'ascii'
 
 def compile_module(space, modname, **kwds):
     """
@@ -92,6 +69,9 @@ def freeze_refcnts(self):
     self.frozen_ll2callocations = set(ll2ctypes.ALLOCATED.values())
 
 class LeakCheckingTest(object):
+    """Base class for all cpyext tests."""
+    spaceconfig = dict(usemodules=['cpyext', 'thread', '_rawffi', 'array',
+                                   'itertools'])
     enable_leak_checking = True
 
     @staticmethod
@@ -164,10 +144,30 @@ class LeakCheckingTest(object):
         # enabled automatically by pypy.conftest.
         return leaking
 
+class AppTestApi(LeakCheckingTest):
+    def setup_class(cls):
+        from pypy.rlib.clibffi import get_libc_name
+        cls.w_libc = cls.space.wrap(get_libc_name())
+
+    def test_load_error(self):
+        import cpyext
+        raises(ImportError, cpyext.load_module, "missing.file", "foo")
+        raises(ImportError, cpyext.load_module, self.libc, "invalid.function")
+
+    def test_dllhandle(self):
+        import sys
+        if sys.platform != "win32" or sys.version_info < (2, 6):
+            skip("Windows Python >= 2.6 only")
+        assert sys.dllhandle
+        assert sys.dllhandle.getaddressindll('PyPyErr_NewException')
+        import ctypes # slow
+        PyUnicode_GetDefaultEncoding = ctypes.pythonapi.PyPyUnicode_GetDefaultEncoding
+        PyUnicode_GetDefaultEncoding.restype = ctypes.c_char_p
+        assert PyUnicode_GetDefaultEncoding() == 'ascii'
+
 class AppTestCpythonExtensionBase(LeakCheckingTest):
     
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['cpyext', 'thread', '_rawffi', 'array'])
         cls.space.getbuiltinmodule("cpyext")
         from pypy.module.imp.importing import importhook
         importhook(cls.space, "os") # warm up reference counts

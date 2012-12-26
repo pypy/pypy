@@ -1,4 +1,4 @@
 from pypy.objspace.fake.checkmodule import checkmodule
 
-def test__ffi_translates():
+def test__ssl_translates():
     checkmodule('_ssl')

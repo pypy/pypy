@@ -3156,7 +3156,7 @@ class BasicTests:
         assert res == f(10)
 
 
-class TestOOtype(BasicTests, OOJitMixin):
+class XXXDisabledTestOOtype(BasicTests, OOJitMixin):
 
     def test_oohash(self):
         def f(n):

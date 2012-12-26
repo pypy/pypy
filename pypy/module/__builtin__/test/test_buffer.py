@@ -1,7 +1,6 @@
 """Tests some behaviour of the buffer type that is not tested in
 lib-python/2.5.2/test/test_types.py where the stdlib buffer tests live."""
 import autopath
-from pypy.conftest import gettestobjspace
 
 class AppTestBuffer:
     spaceconfig = dict(usemodules=['array'])
@@ -117,6 +116,8 @@ class AppTestBuffer:
         b[:] = '12345'
         assert a.tostring() == 'hello 12345'
         raises(IndexError, 'b[5] = "."')
+        b[4:2] = ''
+        assert a.tostring() == 'hello 12345'
 
         b = buffer(b, 2)
         assert len(b) == 3

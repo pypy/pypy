@@ -1,7 +1,7 @@
 from pypy.rlib.rarithmetic import LONG_BIT, intmask, longlongmask, r_uint, r_ulonglong, r_longlonglong
 from pypy.rlib.rarithmetic import ovfcheck, r_longlong, widen, is_valid_int
 from pypy.rlib.rarithmetic import most_neg_value_of_same_type
-from pypy.rlib.rfloat import isfinite
+from pypy.rlib.rfloat import isinf, isnan
 from pypy.rlib.debug import make_sure_not_resized, check_regular_int
 from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.rlib import jit
@@ -119,6 +119,17 @@ class rbigint(object):
         self.size = size or len(digits)
         self.sign = sign
 
+    # __eq__ and __ne__ method exist for testingl only, they are not RPython!
+    def __eq__(self, other):
+        # NOT_RPYTHON
+        if not isinstance(other, rbigint):
+            return NotImplemented
+        return self.eq(other)
+
+    def __ne__(self, other):
+        # NOT_RPYTHON
+        return not (self == other)
+
     def digit(self, x):
         """Return the x'th digit, as an int."""
         return self._digits[x]
@@ -207,10 +218,11 @@ class rbigint(object):
     def fromfloat(dval):
         """ Create a new bigint object from a float """
         # This function is not marked as pure because it can raise
-        if isfinite(dval):
-            return rbigint._fromfloat_finite(dval)
-        else:
-            raise OverflowError
+        if isinf(dval):
+            raise OverflowError("cannot convert float infinity to integer")
+        if isnan(dval):
+            raise ValueError("cannot convert float NaN to integer")
+        return rbigint._fromfloat_finite(dval)
 
     @staticmethod
     @jit.elidable
@@ -325,6 +337,11 @@ class rbigint(object):
         if (self.sign != other.sign or
             self.numdigits() != other.numdigits()):
             return False
+        
+        # Fast path.
+        if len(self._digits) == len(other._digits):
+            return self._digits == other._digits
+
         i = 0
         ld = self.numdigits()
         while i < ld:
@@ -829,6 +846,7 @@ class rbigint(object):
         while i > 1 and self._digits[i - 1] == NULLDIGIT:
             i -= 1
         assert i > 0
+
         if i != self.numdigits():
             self.size = i
         if self.numdigits() == 1 and self._digits[0] == NULLDIGIT:
