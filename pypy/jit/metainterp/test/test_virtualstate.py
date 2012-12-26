@@ -1171,7 +1171,7 @@ class FakeCPU(object):
 class FakeDescr(object):
     pass
 
-class FakeOptimizer(object):
+class FakeGuardedGenerlaizationOptimizer(object):
     unknown_ptr1, unknown_ptr2 = BoxPtr(), BoxPtr()
     unknown_int1, unknown_int2 = BoxInt(1), BoxInt(2)
     const_int0, const_int1, const_int2 = ConstInt(0), ConstInt(1), ConstInt(2)
@@ -1234,7 +1234,7 @@ class Virtual(object):
 
 class TestGuardedGenerlaization:
     def setup_method(self, m):
-        self.optimizer = FakeOptimizer()
+        self.optimizer = FakeGuardedGenerlaizationOptimizer()
 
     def teardown_method(self, m):
         del self.optimizer
