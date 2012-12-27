@@ -476,5 +476,5 @@ def test_zero_repetition_production():
 IGNORE: " ";
 foo: "A"?;
 """
-    excinfo = py.test.raises(AssertionError, parse_ebnf, grammar)
-    assert "Rule 'foo'" in str(excinfo.value)
+    excinfo = py.test.raises(ValueError, parse_ebnf, grammar)
+    assert "foo" in str(excinfo.value)
