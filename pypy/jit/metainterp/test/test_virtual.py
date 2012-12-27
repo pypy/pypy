@@ -1244,7 +1244,7 @@ class TestLLtype_NotObject(VirtualTests, LLJitMixin):
         # the getarrayitem_raw is in the bridge
         self.check_resops(getarrayitem_raw=1, setarrayitem_raw=0)
 
-    def test_raw_malloc_two_iterations(self):
+    def test_raw_malloc_no_virtualstate(self):
         mydriver = JitDriver(greens=[], reds = 'auto')
         def f(n):
             res = 0
@@ -1262,8 +1262,9 @@ class TestLLtype_NotObject(VirtualTests, LLJitMixin):
         assert f(10) == 45
         res = self.meta_interp(f, [10])
         assert res == 45
-        # the getarrayitem_raw is in the preamble
-        self.check_resops(getarrayitem_raw=1, setarrayitem_raw=0)
+        # make sure that the raw buffer is *not* virtualized because we do not
+        # support virtualstate
+        self.check_resops(getarrayitem_raw=2, setarrayitem_raw=2)
 
     def test_raw_malloc_only_chars(self):
         mydriver = JitDriver(greens=[], reds = 'auto')

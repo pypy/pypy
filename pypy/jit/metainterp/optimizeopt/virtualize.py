@@ -251,16 +251,6 @@ class AbstractVArrayValue(AbstractVirtualValue):
     def set_item_value(self, i, newval):
         raise NotImplementedError
 
-    def force_at_end_of_preamble(self, already_forced, optforce):
-        if self in already_forced:
-            return self
-        already_forced[self] = self
-        for index in range(self.getlength()):
-            itemval = self.get_item_value(index)
-            itemval = itemval.force_at_end_of_preamble(already_forced, optforce)
-            self.set_item_value(index, itemval)
-        return self
-
     def get_args_for_fail(self, modifier):
         if self.box is None and not modifier.already_seen_virtual(self.keybox):
             # checks for recursion: it is False unless
@@ -299,6 +289,19 @@ class VArrayValue(AbstractVArrayValue):
     def setitem(self, index, itemvalue):
         assert isinstance(itemvalue, optimizer.OptValue)
         self._items[index] = itemvalue
+
+    def force_at_end_of_preamble(self, already_forced, optforce):
+        # note that this method is on VArrayValue instead of
+        # AbstractVArrayValue because we do not want to support virtualstate
+        # for rawbuffers for now
+        if self in already_forced:
+            return self
+        already_forced[self] = self
+        for index in range(self.getlength()):
+            itemval = self.get_item_value(index)
+            itemval = itemval.force_at_end_of_preamble(already_forced, optforce)
+            self.set_item_value(index, itemval)
+        return self
 
     def _really_force(self, optforce):
         assert self.source_op is not None

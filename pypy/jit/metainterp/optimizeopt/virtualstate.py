@@ -158,7 +158,15 @@ class VStructStateInfo(AbstractVirtualStructStateInfo):
     def debug_header(self, indent):
         debug_print(indent + 'VStructStateInfo(%d):' % self.position)
 
-class AbstractVArrayStateInfo(AbstractVirtualStateInfo):
+
+class VArrayStateInfo(AbstractVirtualStateInfo):
+
+    def __init__(self, arraydescr):
+        self.arraydescr = arraydescr
+
+    def _generalization_of(self, other):
+        return (isinstance(other, VArrayStateInfo) and
+            self.arraydescr is other.arraydescr)
 
     def generalization_of(self, other, renum, bad):
         assert self.position != -1
@@ -186,7 +194,7 @@ class AbstractVArrayStateInfo(AbstractVirtualStateInfo):
         return True
 
     def enum_forced_boxes(self, boxes, value, optimizer):
-        if not isinstance(value, self.ValueClass):
+        if not isinstance(value, virtualize.VArrayValue):
             raise BadVirtualState
         if not value.is_virtual():
             raise BadVirtualState
@@ -206,16 +214,6 @@ class AbstractVArrayStateInfo(AbstractVirtualStateInfo):
     def debug_header(self, indent):
         debug_print(indent + 'VArrayStateInfo(%d):' % self.position)
 
-class VArrayStateInfo(AbstractVArrayStateInfo):
-
-    ValueClass = virtualize.VArrayValue
-    
-    def __init__(self, arraydescr):
-        self.arraydescr = arraydescr
-
-    def _generalization_of(self, other):
-        return (isinstance(other, VArrayStateInfo) and
-            self.arraydescr is other.arraydescr)
 
 
 class VArrayStructStateInfo(AbstractVirtualStateInfo):
@@ -292,13 +290,6 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
     def debug_header(self, indent):
         debug_print(indent + 'VArrayStructStateInfo(%d):' % self.position)
 
-
-class VRawBufferStateInfo(AbstractVArrayStateInfo):
-
-    ValueClass = virtualize.VRawBufferValue
-    
-    def _generalization_of(self, other):
-        return isinstance(other, VRawBufferStateInfo)
 
 
 class NotVirtualStateInfo(AbstractVirtualStateInfo):
@@ -594,7 +585,7 @@ class VirtualStateAdder(resume.ResumeDataVirtualAdder):
         return VArrayStructStateInfo(arraydescr, fielddescrs)
 
     def make_vrawbuffer(self, size, offsets, descrs):
-        return VRawBufferStateInfo()
+        raise NotImplementedError
 
 class BoxNotProducable(Exception):
     pass

@@ -1894,12 +1894,18 @@ class OptimizeOptTest(BaseTestWithUnroll):
         call('free', i0, descr=raw_free_descr)
         i3 = call('malloc', 10, descr=raw_malloc_descr)
         setarrayitem_raw(i3, 0, i2, descr=rawarraydescr)
+        label('foo')
         jump(i3)
         """
         expected = """
-        [i1]
+        [i0]
+        i1 = getarrayitem_raw(i0, 0, descr=rawarraydescr)
         i2 = int_add(i1, 1)
-        jump(i2)
+        call('free', i0, descr=raw_free_descr)
+        label('foo')
+        i3 = call('malloc', 10, descr=raw_malloc_descr)
+        setarrayitem_raw(i3, 0, i2, descr=rawarraydescr)
+        jump(i3)
         """
         self.optimize_loop(ops, expected)
 
