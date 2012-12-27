@@ -373,7 +373,6 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
         raise OperationError(space.w_TypeError, space.wrap("Unsupported types"))
     # Some operations promote op(bool, bool) to return int8, rather than bool
     if promote_bools and (dt1.kind == dt2.kind == interp_dtype.BOOLLTR):
-        print interp_dtype.get_dtype_cache(space).w_int8dtype
         return interp_dtype.get_dtype_cache(space).w_int8dtype
 
     # Everything numeric promotes to complex
