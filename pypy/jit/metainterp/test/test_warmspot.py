@@ -554,6 +554,7 @@ class WarmspotTests(object):
             lltype.free(raw, flavor='raw')
 
         self.meta_interp(main, [])
+        self.check_trace_count(1)
 
 
 class TestLLWarmspot(WarmspotTests, LLJitMixin):
