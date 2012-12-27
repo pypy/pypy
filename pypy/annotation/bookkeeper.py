@@ -1,6 +1,9 @@
 """
 The Bookkeeper class.
 """
+
+from __future__ import absolute_import
+
 import sys, types, inspect, weakref
 
 from pypy.objspace.flow.model import Constant
@@ -10,7 +13,7 @@ from pypy.annotation.model import SomeString, SomeChar, SomeFloat, \
      SomeUnicodeCodePoint, SomeOOStaticMeth, s_None, s_ImpossibleValue, \
      SomeLLADTMeth, SomeBool, SomeTuple, SomeOOClass, SomeImpossibleValue, \
      SomeUnicodeString, SomeList, SomeObject, HarmlesslyBlocked, \
-     SomeWeakRef, lltype_to_annotation, SomeType
+     SomeWeakRef, lltype_to_annotation, SomeType, SomeByteArray
 from pypy.annotation.classdef import InstanceSource, ClassDef
 from pypy.annotation.listdef import ListDef, ListItem
 from pypy.annotation.dictdef import DictDef
@@ -346,6 +349,8 @@ class Bookkeeper(object):
                 result = SomeUnicodeCodePoint()
             else:
                 result = SomeUnicodeString()
+        elif tp is bytearray:
+            result = SomeByteArray()
         elif tp is tuple:
             result = SomeTuple(items = [self.immutablevalue(e, need_const) for e in x])
         elif tp is float:

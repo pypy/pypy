@@ -365,6 +365,17 @@ def test_most_neg_value_of():
     assert most_neg_value_of_same_type(r_longlong(123)) == llmin
     assert most_neg_value_of_same_type(r_ulonglong(123)) == 0
 
+def test_is_signed_integer_type():
+    from pypy.rpython.lltypesystem import lltype, rffi
+    assert is_signed_integer_type(lltype.Signed)
+    assert is_signed_integer_type(rffi.SIGNEDCHAR)
+    assert is_signed_integer_type(lltype.SignedLongLong)
+    assert not is_signed_integer_type(lltype.Unsigned)
+    assert not is_signed_integer_type(lltype.UnsignedLongLong)
+    assert not is_signed_integer_type(lltype.Char)
+    assert not is_signed_integer_type(lltype.UniChar)
+    assert not is_signed_integer_type(lltype.Bool)
+
 def test_r_ulonglong():
     x = r_longlong(-1)
     y = r_ulonglong(x)

@@ -1,9 +1,5 @@
-from pypy.conftest import gettestobjspace
-
 class AppTestWeakref(object):
-    def setup_class(cls):
-        space = gettestobjspace(usemodules=('_weakref',))
-        cls.space = space
+    spaceconfig = dict(usemodules=('_weakref',))
                     
     def test_simple(self):
         import _weakref, gc
@@ -304,9 +300,7 @@ class AppTestWeakref(object):
 
 
 class AppTestProxy(object):
-    def setup_class(cls):
-        space = gettestobjspace(usemodules=('_weakref',))
-        cls.space = space
+    spaceconfig = dict(usemodules=('_weakref',))
                     
     def test_simple(self):
         import _weakref, gc

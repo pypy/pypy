@@ -1,7 +1,7 @@
 from __future__ import with_statement
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
-from pypy.rlib.rarithmetic import r_uint, r_ulonglong
+from pypy.rlib.rarithmetic import r_uint, r_ulonglong, is_signed_integer_type
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.objectmodel import keepalive_until_here, specialize
 from pypy.rlib import jit
@@ -64,10 +64,16 @@ def read_raw_longdouble_data(target):
 
 @specialize.argtype(1)
 def write_raw_integer_data(target, source, size):
-    for TP, TPP in _prim_unsigned_types:
-        if size == rffi.sizeof(TP):
-            rffi.cast(TPP, target)[0] = rffi.cast(TP, source)
-            return
+    if is_signed_integer_type(lltype.typeOf(source)):
+        for TP, TPP in _prim_signed_types:
+            if size == rffi.sizeof(TP):
+                rffi.cast(TPP, target)[0] = rffi.cast(TP, source)
+                return
+    else:
+        for TP, TPP in _prim_unsigned_types:
+            if size == rffi.sizeof(TP):
+                rffi.cast(TPP, target)[0] = rffi.cast(TP, source)
+                return
     raise NotImplementedError("bad integer size")
 
 def write_raw_float_data(target, source, size):
@@ -92,35 +98,6 @@ def longdouble2str(lvalue):
     with lltype.scoped_alloc(rffi.CCHARP.TO, 128) as p:    # big enough
         sprintf_longdouble(p, FORMAT_LONGDOUBLE, lvalue)
         return rffi.charp2str(p)
-
-# ____________________________________________________________
-
-
-UNSIGNED = 0x1000
-
-TYPES = [
-    ("int8_t",        1),
-    ("uint8_t",       1 | UNSIGNED),
-    ("int16_t",       2),
-    ("uint16_t",      2 | UNSIGNED),
-    ("int32_t",       4),
-    ("uint32_t",      4 | UNSIGNED),
-    ("int64_t",       8),
-    ("uint64_t",      8 | UNSIGNED),
-
-    ("intptr_t",      rffi.sizeof(rffi.INTPTR_T)),
-    ("uintptr_t",     rffi.sizeof(rffi.UINTPTR_T) | UNSIGNED),
-    ("ptrdiff_t",     rffi.sizeof(rffi.INTPTR_T)),   # XXX can it be different?
-    ("size_t",        rffi.sizeof(rffi.SIZE_T) | UNSIGNED),
-    ("ssize_t",       rffi.sizeof(rffi.SSIZE_T)),
-]
-
-
-def nonstandard_integer_types(space):
-    w_d = space.newdict()
-    for name, size in TYPES:
-        space.setitem(w_d, space.wrap(name), space.wrap(size))
-    return w_d
 
 # ____________________________________________________________
 

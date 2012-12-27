@@ -1,12 +1,9 @@
 import py
+
 from pypy.rpython.lltypesystem import lltype
-from pypy.translator.simplify import get_graph
-from pypy.rpython.rmodel import inputconst 
+from pypy.rpython.rmodel import inputconst
 from pypy.tool.ansi_print import ansi_log
-from pypy.annotation.model import s_ImpossibleValue
-from pypy.translator.unsimplify import split_block, copyvar, insert_empty_block
-from pypy.objspace.flow.model import Constant, Variable, SpaceOperation, c_last_exception
-from pypy.rpython.lltypesystem import lltype
+from pypy.translator.simplify import get_graph
 
 
 log = py.log.Producer("backendopt")
@@ -15,20 +12,20 @@ py.log.setconsumer("backendopt", ansi_log)
 
 def graph_operations(graph):
     for block in graph.iterblocks():
-        for op in block.operations: 
+        for op in block.operations:
             yield op
 
 def all_operations(graphs):
     for graph in graphs:
         for block in graph.iterblocks():
-            for op in block.operations: 
+            for op in block.operations:
                 yield op
 
 def annotate(translator, func, result, args):
     args   = [arg.concretetype for arg in args]
     graph  = translator.rtyper.annotate_helper(func, args)
     fptr   = lltype.functionptr(lltype.FuncType(args, result.concretetype), func.func_name, graph=graph)
-    c      = inputconst(lltype.typeOf(fptr), fptr) 
+    c      = inputconst(lltype.typeOf(fptr), fptr)
     return c
 
 def var_needsgc(var):

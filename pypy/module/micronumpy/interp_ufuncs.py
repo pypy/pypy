@@ -392,12 +392,17 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
     if promote_bools and (dt1.kind == dt2.kind == interp_dtype.BOOLLTR):
         return interp_dtype.get_dtype_cache(space).w_int8dtype
 
-    # Everything promotes to complex
-    if dt2.num == 14 or dt2.num == 15 or dt1.num == 14 or dt2.num == 15:
-        if dt2.num == 15 or dt1.num == 15:
-            return interp_dtype.get_dtype_cache(space).w_complex128dtype
-        else:
+    # Everything numeric promotes to complex
+    if dt2.is_complex_type() or dt1.is_complex_type():
+        if dt2.num == 14:
             return interp_dtype.get_dtype_cache(space).w_complex64dtype
+        elif dt2.num == 15:
+            return interp_dtype.get_dtype_cache(space).w_complex128dtype
+        elif dt2.num == 16:
+            return interp_dtype.get_dtype_cache(space).w_clongdouble
+        else:
+            raise OperationError(space.w_TypeError, space.wrap("Unsupported types"))
+
     
     if promote_to_float:
         return find_unaryop_result_dtype(space, dt2, promote_to_float=True)
@@ -424,7 +429,7 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
         dtypenum = dt2.num + 1
         # UInt64 + signed = Float64
         if dt2.num == 10:
-            dtypenum += 1
+            dtypenum += 2
     newdtype = interp_dtype.get_dtype_cache(space).builtin_dtypes[dtypenum]
 
     if (newdtype.itemtype.get_element_size() > dt2.itemtype.get_element_size() or
@@ -436,7 +441,7 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
         if LONG_BIT == 32:
             dtypenum += 2
         else:
-            dtypenum += 3
+            dtypenum += 4
         return interp_dtype.get_dtype_cache(space).builtin_dtypes[dtypenum]
 
 
@@ -448,7 +453,7 @@ def find_unaryop_result_dtype(space, dt, promote_to_float=False,
     if not allow_complex and (dt.is_complex_type()):
         raise OperationError(space.w_TypeError, space.wrap("Unsupported types"))
     if promote_to_float:
-        if dt.kind == interp_dtype.FLOATINGLTR:
+        if dt.kind == interp_dtype.FLOATINGLTR or dt.kind==interp_dtype.COMPLEXLTR:
             return dt
         if dt.num >= 5:
             return interp_dtype.get_dtype_cache(space).w_float64dtype

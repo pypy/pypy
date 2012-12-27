@@ -9,7 +9,7 @@ import py
 from pypy.rlib import rbigint as lobj
 from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong, intmask
 from pypy.rlib.rbigint import (rbigint, SHIFT, MASK, KARATSUBA_CUTOFF,
-    _store_digit, _mask_digit)
+    _store_digit, _mask_digit, InvalidEndiannessError, InvalidSignednessError)
 from pypy.rlib.rfloat import NAN
 from pypy.rpython.test.test_llinterp import interpret
 
@@ -299,6 +299,13 @@ class Test_rbigint(object):
         assert f3.eq(f3)
         assert not f1.eq(f2)
         assert not f1.eq(f3)
+
+    def test_eq_fastpath(self):
+        x = 1234
+        y = 1234
+        f1 = rbigint.fromint(x)
+        f2 = rbigint.fromint(y)
+        assert f1.eq(f2)
 
     def test_lt(self):
         val = [0, 0x111111111111, 0x111111111112, 0x111111111112FFFF]
@@ -762,3 +769,33 @@ class TestTranslatable(object):
 
         res = interpret(fn, [])
         assert res == -42.0
+
+    def test_frombytes(self):
+        bigint = rbigint.frombytes('', byteorder='big', signed=True)
+        assert bigint.tolong() == 0
+        s = "\xFF\x12\x34\x56"
+        bigint = rbigint.frombytes(s, byteorder="big", signed=False)
+        assert bigint.tolong() == 0xFF123456
+        bigint = rbigint.frombytes(s, byteorder="little", signed=False)
+        assert bigint.tolong() == 0x563412FF
+        s = "\xFF\x02\x03\x04\x05\x06\x07\x08\x09\x10\x11\x12\x13\x14\x15\xFF"
+        bigint = rbigint.frombytes(s, byteorder="big", signed=False)
+        assert s == bigint.tobytes(16, byteorder="big", signed=False)
+        raises(InvalidEndiannessError, bigint.frombytes, '\xFF', 'foo',
+               signed=True)
+
+    def test_tobytes(self):
+        assert rbigint.fromint(0).tobytes(1, 'big', signed=True) == '\x00'
+        assert rbigint.fromint(1).tobytes(2, 'big', signed=True) == '\x00\x01'
+        raises(OverflowError, rbigint.fromint(255).tobytes, 1, 'big', signed=True)
+        assert rbigint.fromint(-129).tobytes(2, 'big', signed=True) == '\xff\x7f'
+        assert rbigint.fromint(-129).tobytes(2, 'little', signed=True) == '\x7f\xff'
+        assert rbigint.fromint(65535).tobytes(3, 'big', signed=True) == '\x00\xff\xff'
+        assert rbigint.fromint(-65536).tobytes(3, 'little', signed=True) == '\x00\x00\xff'
+        assert rbigint.fromint(65535).tobytes(2, 'big', signed=False) == '\xff\xff'
+        assert rbigint.fromint(-8388608).tobytes(3, 'little', signed=True) == '\x00\x00\x80'
+        i = rbigint.fromint(-8388608)
+        raises(InvalidEndiannessError, i.tobytes, 3, 'foo', signed=True)
+        raises(InvalidSignednessError, i.tobytes, 3, 'little', signed=False)
+        raises(OverflowError, i.tobytes, 2, 'little', signed=True)
+

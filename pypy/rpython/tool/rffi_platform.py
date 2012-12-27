@@ -719,7 +719,7 @@ void dump(char* key, int value) {
 """
 
 def run_example_code(filepath, eci, ignore_errors=False):
-    eci = eci.convert_sources_to_files(being_main=True)
+    eci = eci.convert_sources_to_files()
     files = [filepath]
     output = build_executable_cache(files, eci, ignore_errors=ignore_errors)
     section = None

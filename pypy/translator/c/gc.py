@@ -91,6 +91,11 @@ class BasicGcPolicy(object):
     def OP_GC_STACK_BOTTOM(self, funcgen, op):
         return ''
 
+    def OP_GC_GCFLAG_EXTRA(self, funcgen, op):
+        return '%s = 0;  /* gc_gcflag_extra%r */' % (
+            funcgen.expr(op.result),
+            op.args[0])
+
 
 class RefcountingInfo:
     static_deallocator = None
@@ -224,7 +229,9 @@ class BoehmGcPolicy(BasicGcPolicy):
 
         eci = eci.merge(ExternalCompilationInfo(
             pre_include_bits=pre_include_bits,
-            post_include_bits=['#define USING_BOEHM_GC'],
+            # The following define is required by the thread module,
+            # See module/thread/test/test_ll_thread.py
+            compile_extra=['-DPYPY_USING_BOEHM_GC'],
             ))
 
         return eci
@@ -292,7 +299,7 @@ class NoneGcPolicy(BoehmGcPolicy):
     def compilation_info(self):
         eci = BasicGcPolicy.compilation_info(self)
         eci = eci.merge(ExternalCompilationInfo(
-            post_include_bits=['#define USING_NO_GC_AT_ALL'],
+            post_include_bits=['#define PYPY_USING_NO_GC_AT_ALL'],
             ))
         return eci
 
@@ -370,16 +377,23 @@ class BasicFrameworkGcPolicy(BasicGcPolicy):
         config = self.db.translator.config
         return config.translation.gcremovetypeptr
 
+    def header_type(self, extra='*'):
+        # Fish out the C name of the 'struct pypy_header0'
+        HDR = self.db.gctransformer.HDR
+        return self.db.gettype(HDR).replace('@', extra)
+
+    def tid_fieldname(self, tid_field='tid'):
+        # Fish out the C name of the tid field.
+        HDR = self.db.gctransformer.HDR
+        hdr_node = self.db.gettypedefnode(HDR)
+        return hdr_node.c_struct_field_name(tid_field)
+
     def OP_GC_GETTYPEPTR_GROUP(self, funcgen, op):
         # expands to a number of steps, as per rpython/lltypesystem/opimpl.py,
         # all implemented by a single call to a C macro.
         [v_obj, c_grpptr, c_skipoffset, c_vtableinfo] = op.args
-        typename = funcgen.db.gettype(op.result.concretetype)
         tid_field = c_vtableinfo.value[2]
-        # Fish out the C name of the tid field.
-        HDR = self.db.gctransformer.HDR
-        hdr_node = self.db.gettypedefnode(HDR)
-        fieldname = hdr_node.c_struct_field_name(tid_field)
+        typename = funcgen.db.gettype(op.result.concretetype)
         return (
         '%s = (%s)_OP_GET_NEXT_GROUP_MEMBER(%s, (pypy_halfword_t)%s->'
             '_gcheader.%s, %s);'
@@ -387,11 +401,35 @@ class BasicFrameworkGcPolicy(BasicGcPolicy):
                cdecl(typename, ''),
                funcgen.expr(c_grpptr),
                funcgen.expr(v_obj),
-               fieldname,
+               self.tid_fieldname(tid_field),
                funcgen.expr(c_skipoffset)))
 
     def OP_GC_ASSUME_YOUNG_POINTERS(self, funcgen, op):
         raise Exception("the FramewokGCTransformer should handle this")
+
+    def OP_GC_GCFLAG_EXTRA(self, funcgen, op):
+        gcflag_extra = self.db.gctransformer.gcdata.gc.gcflag_extra
+        if gcflag_extra == 0:
+            return BasicGcPolicy.OP_GC_GCFLAG_EXTRA(self, funcgen, op)
+        subopnum = op.args[0].value
+        if subopnum == 1:
+            return '%s = 1;  /* has_gcflag_extra */' % (
+                funcgen.expr(op.result),)
+        hdrfield = '((%s)%s)->%s' % (self.header_type(),
+                                     funcgen.expr(op.args[1]),
+                                     self.tid_fieldname())
+        parts = ['%s = (%s & %dL) != 0;' % (funcgen.expr(op.result),
+                                            hdrfield,
+                                            gcflag_extra)]
+        if subopnum == 2:     # get_gcflag_extra
+            parts.append('/* get_gcflag_extra */')
+        elif subopnum == 3:     # toggle_gcflag_extra
+            parts.insert(0, '%s ^= %dL;' % (hdrfield,
+                                            gcflag_extra))
+            parts.append('/* toggle_gcflag_extra */')
+        else:
+            raise AssertionError(subopnum)
+        return ' '.join(parts)
 
 class ShadowStackFrameworkGcPolicy(BasicFrameworkGcPolicy):
 

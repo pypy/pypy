@@ -1,4 +1,5 @@
 from pypy.interpreter.mixedmodule import MixedModule
+from pypy.module.micronumpy.interp_boxes import long_double_size
 
 
 class Module(MixedModule):
@@ -55,8 +56,11 @@ class Module(MixedModule):
         'inexact': 'interp_boxes.W_InexactBox',
         'floating': 'interp_boxes.W_FloatingBox',
         'float_': 'interp_boxes.W_Float64Box',
+        'float16': 'interp_boxes.W_Float16Box',
         'float32': 'interp_boxes.W_Float32Box',
         'float64': 'interp_boxes.W_Float64Box',
+        'longdouble': 'interp_boxes.W_LongDoubleBox',
+        'longfloat': 'interp_boxes.W_LongDoubleBox',
         'intp': 'types.IntP.BoxType',
         'uintp': 'types.UIntP.BoxType',
         'flexible': 'interp_boxes.W_FlexibleBox',
@@ -69,6 +73,8 @@ class Module(MixedModule):
         'complex_': 'interp_boxes.W_Complex128Box',
         'complex128': 'interp_boxes.W_Complex128Box',
         'complex64': 'interp_boxes.W_Complex64Box',
+        'clongdouble': 'interp_boxes.W_CLongDoubleBox',
+        'clongfloat': 'interp_boxes.W_CLongDoubleBox',
     }
 
     # ufuncs
@@ -162,3 +168,10 @@ class Module(MixedModule):
         'max': 'app_numpy.max',
         'arange': 'app_numpy.arange',
     }
+
+if long_double_size == 16:
+    Module.interpleveldefs['float128'] = 'interp_boxes.W_Float128Box'
+    Module.interpleveldefs['complex256'] = 'interp_boxes.W_Complex256Box'
+elif long_double_size == 12:
+    Module.interpleveldefs['float96'] = 'interp_boxes.W_Float96Box'
+    Module.interpleveldefs['complex192'] = 'interp_boxes.W_Complex192Box'

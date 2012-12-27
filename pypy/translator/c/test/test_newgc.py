@@ -16,8 +16,8 @@ from pypy.tool.udir import udir
 from pypy.translator.interactive import Translation
 
 
-class TestUsingFramework(object):
-    gcpolicy = "marksweep"
+class UsingFrameworkTest(object):
+    #gcpolicy = ... specified by subclasses
     should_be_moving = False
     removetypeptr = False
     taggedpointers = False
@@ -1183,7 +1183,36 @@ class TestUsingFramework(object):
         assert data.startswith('member0')
         assert 'GcArray of * GcStruct S {' in data
 
-class TestSemiSpaceGC(TestUsingFramework, snippet.SemiSpaceGCTestDefines):
+    def define_gcflag_extra(self):
+        class A:
+            pass
+        a1 = A()
+        def fn():
+            a2 = A()
+            if not rgc.has_gcflag_extra():
+                return 0     # cannot test it then
+            assert rgc.get_gcflag_extra(a1) == False
+            assert rgc.get_gcflag_extra(a2) == False
+            rgc.toggle_gcflag_extra(a1)
+            assert rgc.get_gcflag_extra(a1) == True
+            assert rgc.get_gcflag_extra(a2) == False
+            rgc.toggle_gcflag_extra(a2)
+            assert rgc.get_gcflag_extra(a1) == True
+            assert rgc.get_gcflag_extra(a2) == True
+            rgc.toggle_gcflag_extra(a1)
+            assert rgc.get_gcflag_extra(a1) == False
+            assert rgc.get_gcflag_extra(a2) == True
+            rgc.toggle_gcflag_extra(a2)
+            assert rgc.get_gcflag_extra(a1) == False
+            assert rgc.get_gcflag_extra(a2) == False
+            return 0
+        return fn
+
+    def test_gcflag_extra(self):
+        self.run("gcflag_extra")
+
+
+class TestSemiSpaceGC(UsingFrameworkTest, snippet.SemiSpaceGCTestDefines):
     gcpolicy = "semispace"
     should_be_moving = True
     GC_CAN_MOVE = True
@@ -1372,67 +1401,6 @@ class TestHybridGCRemoveTypePtr(TestHybridGC):
     removetypeptr = True
 
 
-class TestMarkCompactGC(TestSemiSpaceGC):
-    gcpolicy = "markcompact"
-    should_be_moving = True
-    GC_CAN_SHRINK_ARRAY = False
-
-    def test_gc_set_max_heap_size(self):
-        py.test.skip("not implemented")
-
-    def test_gc_heap_stats(self):
-        py.test.skip("not implemented")
-
-    def test_finalizer_order(self):
-        py.test.skip("not implemented")
-
-    def define_adding_a_hash(cls):
-        from pypy.rlib.objectmodel import compute_identity_hash
-        S1 = lltype.GcStruct('S1', ('x', lltype.Signed))
-        S2 = lltype.GcStruct('S2', ('p1', lltype.Ptr(S1)),
-                                   ('p2', lltype.Ptr(S1)),
-                                   ('p3', lltype.Ptr(S1)),
-                                   ('p4', lltype.Ptr(S1)),
-                                   ('p5', lltype.Ptr(S1)),
-                                   ('p6', lltype.Ptr(S1)),
-                                   ('p7', lltype.Ptr(S1)),
-                                   ('p8', lltype.Ptr(S1)),
-                                   ('p9', lltype.Ptr(S1)))
-        def g():
-            lltype.malloc(S1)   # forgotten, will be shifted over
-            s2 = lltype.malloc(S2)   # a big object, overlaps its old position
-            s2.p1 = lltype.malloc(S1); s2.p1.x = 1010
-            s2.p2 = lltype.malloc(S1); s2.p2.x = 1020
-            s2.p3 = lltype.malloc(S1); s2.p3.x = 1030
-            s2.p4 = lltype.malloc(S1); s2.p4.x = 1040
-            s2.p5 = lltype.malloc(S1); s2.p5.x = 1050
-            s2.p6 = lltype.malloc(S1); s2.p6.x = 1060
-            s2.p7 = lltype.malloc(S1); s2.p7.x = 1070
-            s2.p8 = lltype.malloc(S1); s2.p8.x = 1080
-            s2.p9 = lltype.malloc(S1); s2.p9.x = 1090
-            return s2
-        def f():
-            rgc.collect()
-            s2 = g()
-            h2 = compute_identity_hash(s2)
-            rgc.collect()    # shift s2 to the left, but add a hash field
-            assert s2.p1.x == 1010
-            assert s2.p2.x == 1020
-            assert s2.p3.x == 1030
-            assert s2.p4.x == 1040
-            assert s2.p5.x == 1050
-            assert s2.p6.x == 1060
-            assert s2.p7.x == 1070
-            assert s2.p8.x == 1080
-            assert s2.p9.x == 1090
-            return h2 - compute_identity_hash(s2)
-        return f
-
-    def test_adding_a_hash(self):
-        res = self.run("adding_a_hash")
-        assert res == 0
-
-
 class TestMiniMarkGC(TestSemiSpaceGC):
     gcpolicy = "minimark"
     should_be_moving = True
@@ -1589,10 +1557,6 @@ class UnboxedObject(TaggedBase, UnboxedValue):
 
 class TestHybridTaggedPointers(TaggedPointersTest, TestHybridGC):
     pass
-
-
-class TestMarkCompactGCMostCompact(TaggedPointersTest, TestMarkCompactGC):
-    removetypeptr = True
 
 
 class TestMiniMarkGCMostCompact(TaggedPointersTest, TestMiniMarkGC):

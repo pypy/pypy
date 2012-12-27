@@ -19,14 +19,14 @@ class FinalizerAnalyzer(graphanalyze.BoolGraphAnalyzer):
     ok_operations = ['ptr_nonzero', 'ptr_eq', 'ptr_ne', 'free', 'same_as',
                      'direct_ptradd', 'force_cast', 'track_alloc_stop',
                      'raw_free']
-    
+
     def analyze_light_finalizer(self, graph):
         result = self.analyze_direct_call(graph)
         if (result is self.top_result() and
             getattr(graph.func, '_must_be_light_finalizer_', False)):
             raise FinalizerError(FinalizerError.__doc__, graph)
         return result
-    
+
     def analyze_simple_operation(self, op, graphinfo):
         if op.opname in self.ok_operations:
             return self.bottom_result()
@@ -42,5 +42,5 @@ class FinalizerAnalyzer(graphanalyze.BoolGraphAnalyzer):
             TP = op.result.concretetype
             if not isinstance(TP, lltype.Ptr) or TP.TO._gckind == 'raw':
                 # primitive type
-                return self.bottom_result()            
+                return self.bottom_result()
         return self.top_result()

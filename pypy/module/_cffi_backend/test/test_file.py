@@ -10,4 +10,8 @@ def test_same_file():
     dest = py.path.local(__file__).join('..', '_backend_test_c.py').read()
     #
     source = source[source.index('# _____________'):]
-    assert source == dest
+    if source.strip() != dest.strip():
+        raise AssertionError(
+            "Update test/_backend_test_c.py by copying it from "
+            "https://bitbucket.org/cffi/cffi/raw/default/c/test_c.py "
+            "and killing the import lines at the start")

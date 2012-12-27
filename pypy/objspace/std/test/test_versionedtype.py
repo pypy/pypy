@@ -1,9 +1,7 @@
 from pypy.objspace.std.test import test_typeobject
-from pypy.conftest import gettestobjspace
 
 class TestVersionedType(test_typeobject.TestTypeObject):
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withtypeversion": True})
+    spaceconfig = {"objspace.std.withtypeversion": True}
 
     def get_three_classes(self):
         space = self.space
@@ -214,6 +212,5 @@ class TestVersionedType(test_typeobject.TestTypeObject):
 
 
 class AppTestVersionedType(test_typeobject.AppTestTypeObject):
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withtypeversion": True})
+    spaceconfig = {"objspace.std.withtypeversion": True}
 

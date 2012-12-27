@@ -1,20 +1,19 @@
-import pypy
-from pypy.interpreter.executioncontext import ExecutionContext, ActionFlag
-from pypy.interpreter.executioncontext import UserDelAction, FrameTraceAction
-from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.error import new_exception_class, typed_unwrap_error_msg
+import sys
+
+from pypy.interpreter.executioncontext import (ExecutionContext, ActionFlag,
+    UserDelAction, FrameTraceAction)
+from pypy.interpreter.error import (OperationError, operationerrfmt,
+    new_exception_class, typed_unwrap_error_msg)
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.miscutils import ThreadLocals
 from pypy.tool.cache import Cache
 from pypy.tool.uid import HUGEVAL_BYTES
+from pypy.rlib import jit
+from pypy.rlib.debug import make_sure_not_resized
 from pypy.rlib.objectmodel import we_are_translated, newlist_hint,\
      compute_unique_id
-from pypy.rlib.debug import make_sure_not_resized
-from pypy.rlib.timer import DummyTimer, Timer
 from pypy.rlib.rarithmetic import r_uint
-from pypy.rlib import jit
-from pypy.tool.sourcetools import func_with_new_name
-import os, sys
+
 
 __all__ = ['ObjSpace', 'OperationError', 'Wrappable', 'W_Root']
 
@@ -321,15 +320,6 @@ class ObjSpace(object):
         self.host_magic = cpython_magic
         # can be overridden to a subclass
 
-        if self.config.objspace.logbytecodes:
-            self.bytecodecounts = [0] * 256
-            self.bytecodetransitioncount = {}
-
-        if self.config.objspace.timing:
-            self.timer = Timer()
-        else:
-            self.timer = DummyTimer()
-
         self.initialize()
 
     def startup(self):
@@ -349,9 +339,7 @@ class ObjSpace(object):
             modname = self.str_w(w_modname)
             mod = self.interpclass_w(w_mod)
             if isinstance(mod, Module) and not mod.startup_called:
-                self.timer.start("startup " + modname)
                 mod.init(self)
-                self.timer.stop("startup " + modname)
 
     def finish(self):
         self.wait_for_thread_shutdown()
@@ -363,11 +351,6 @@ class ObjSpace(object):
             mod = self.interpclass_w(w_mod)
             if isinstance(mod, Module) and mod.startup_called:
                 mod.shutdown(self)
-        if self.config.objspace.logbytecodes:
-            self.reportbytecodecounts()
-        if self.config.objspace.std.logspaceoptypes:
-            for s in self.FrameClass._space_op_types:
-                print s
 
     def wait_for_thread_shutdown(self):
         """Wait until threading._shutdown() completes, provided the threading
@@ -385,26 +368,6 @@ class ObjSpace(object):
             self.call_method(w_mod, "_shutdown")
         except OperationError, e:
             e.write_unraisable(self, "threading._shutdown()")
-
-    def reportbytecodecounts(self):
-        os.write(2, "Starting bytecode report.\n")
-        fd = os.open('bytecode.txt', os.O_CREAT|os.O_WRONLY|os.O_TRUNC, 0644)
-        os.write(fd, "bytecodecounts = {\n")
-        for opcode in range(len(self.bytecodecounts)):
-            count = self.bytecodecounts[opcode]
-            if not count:
-                continue
-            os.write(fd, "    %s: %s,\n" % (opcode, count))
-        os.write(fd, "}\n")
-        os.write(fd, "bytecodetransitioncount = {\n")
-        for opcode, probs in self.bytecodetransitioncount.iteritems():
-            os.write(fd, "    %s: {\n" % (opcode, ))
-            for nextcode, count in probs.iteritems():
-                os.write(fd, "        %s: %s,\n" % (nextcode, count))
-            os.write(fd, "    },\n")
-        os.write(fd, "}\n")
-        os.close(fd)
-        os.write(2, "Reporting done.\n")
 
     def __repr__(self):
         try:
@@ -461,9 +424,7 @@ class ObjSpace(object):
             from pypy.interpreter.module import Module
             mod = self.interpclass_w(w_mod)
             if isinstance(mod, Module):
-                self.timer.start("startup " + name)
                 mod.init(self)
-                self.timer.stop("startup " + name)
             return w_mod
 
     def get_builtinmodule_to_install(self):
@@ -490,11 +451,6 @@ class ObjSpace(object):
         # XXX this could probably be done as a "requires" in the config
         if 'rctime' in modules and 'time' in modules:
             modules.remove('time')
-
-        if not self.config.objspace.nofaking:
-            for modname in self.ALL_BUILTIN_MODULES:
-                if not LIB_PYPY.join(modname+'.py').check(file=True):
-                    modules.append('faked+'+modname)
 
         self._builtinmodule_list = modules
         return self._builtinmodule_list
@@ -553,15 +509,10 @@ class ObjSpace(object):
         for name, w_type in types_w:
             self.setitem(self.builtin.w_dict, self.wrap(name), w_type)
 
-        # install mixed and faked modules
+        # install mixed modules
         for mixedname in self.get_builtinmodule_to_install():
-            if (mixedname not in bootstrap_modules
-                and not mixedname.startswith('faked+')):
+            if mixedname not in bootstrap_modules:
                 self.install_mixedmodule(mixedname, installed_builtin_modules)
-        for mixedname in self.get_builtinmodule_to_install():
-            if mixedname.startswith('faked+'):
-                modname = mixedname[6:]
-                self.install_faked_module(modname, installed_builtin_modules)
 
         installed_builtin_modules.sort()
         w_builtin_module_names = self.newtuple(
@@ -597,24 +548,6 @@ class ObjSpace(object):
             assert modname not in installed_builtin_modules, (
                 "duplicate interp-level module enabled for the "
                 "app-level module %r" % (modname,))
-            installed_builtin_modules.append(modname)
-
-    def load_cpython_module(self, modname):
-        "NOT_RPYTHON. Steal a module from CPython."
-        cpy_module = __import__(modname, {}, {}, ['*'])
-        return cpy_module
-
-    def install_faked_module(self, modname, installed_builtin_modules):
-        """NOT_RPYTHON"""
-        if modname in installed_builtin_modules:
-            return
-        try:
-            module = self.load_cpython_module(modname)
-        except ImportError:
-            return
-        else:
-            w_modules = self.sys.get('modules')
-            self.setitem(w_modules, self.wrap(modname), self.wrap(module))
             installed_builtin_modules.append(modname)
 
     def setup_builtin_modules(self):
@@ -862,18 +795,10 @@ class ObjSpace(object):
         """
         # If we can guess the expected length we can preallocate.
         try:
-            lgt_estimate = self.len_w(w_iterable)
-        except OperationError, o:
-            if (not o.match(self, self.w_AttributeError) and
-                not o.match(self, self.w_TypeError)):
-                raise
-            items = []
-        else:
-            try:
-                items = newlist_hint(lgt_estimate)
-            except MemoryError:
-                items = [] # it might have lied
-        #
+            items = newlist_hint(self.length_hint(w_iterable, 0))
+        except MemoryError:
+            items = [] # it might have lied
+
         tp = self.type(w_iterator)
         while True:
             unpackiterable_driver.jit_merge_point(tp=tp,
@@ -933,6 +858,36 @@ class ObjSpace(object):
         return self._unpackiterable_known_length_jitlook(w_iterator,
                                                          expected_length)
 
+    def length_hint(self, w_obj, default):
+        """Return the length of an object, consulting its __length_hint__
+        method if necessary.
+        """
+        try:
+            return self.len_w(w_obj)
+        except OperationError, e:
+            if not (e.match(self, self.w_TypeError) or
+                    e.match(self, self.w_AttributeError)):
+                raise
+
+        w_descr = self.lookup(w_obj, '__length_hint__')
+        if w_descr is None:
+            return default
+        try:
+            w_hint = self.get_and_call_function(w_descr, w_obj)
+        except OperationError, e:
+            if not (e.match(self, self.w_TypeError) or
+                    e.match(self, self.w_AttributeError)):
+                raise
+            return default
+        if self.is_w(w_hint, self.w_NotImplemented):
+            return default
+
+        hint = self.int_w(w_hint)
+        if hint < 0:
+            raise OperationError(self.w_ValueError, self.wrap(
+                    "__length_hint__() should return >= 0"))
+        return hint
+
     def fixedview(self, w_iterable, expected_length=-1):
         """ A fixed list view of w_iterable. Don't modify the result
         """
@@ -953,6 +908,13 @@ class ObjSpace(object):
         """
         return None
 
+    def listview_unicode(self, w_list):
+        """ Return a list of unwrapped unicode out of a list of unicode. If the
+        argument is not a list or does not contain only unicode, return None.
+        May return None anyway.
+        """
+        return None
+
     def view_as_kwargs(self, w_dict):
         """ if w_dict is a kwargs-dict, return two lists, one of unwrapped
         strings and one of wrapped values. otherwise return (None, None)
@@ -961,6 +923,10 @@ class ObjSpace(object):
 
     def newlist_str(self, list_s):
         return self.newlist([self.wrap(s) for s in list_s])
+
+    def newlist_hint(self, sizehint):
+        from pypy.objspace.std.listobject import make_empty_list_with_size
+        return make_empty_list_with_size(self, sizehint)
 
     @jit.unroll_safe
     def exception_match(self, w_exc_type, w_check_class):
@@ -1532,11 +1498,6 @@ class ObjSpace(object):
             import _warnings
             _warnings.warn(msg, warningcls, stacklevel=2)
         """)
-
-    def resolve_target(self, w_obj):
-        """ A space method that can be used by special object spaces (like
-        thunk) to replace an object by another. """
-        return w_obj
 
 
 class AppExecCache(SpaceCache):

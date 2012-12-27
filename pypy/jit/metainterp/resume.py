@@ -472,7 +472,7 @@ class AbstractVirtualStructInfo(AbstractVirtualInfo):
     def setfields(self, decoder, struct):
         for i in range(len(self.fielddescrs)):
             descr = self.fielddescrs[i]
-            decoder.setfield(descr, struct, self.fieldnums[i])
+            decoder.setfield(struct, self.fieldnums[i], descr)
         return struct
 
     def debug_prints(self):
@@ -522,21 +522,21 @@ class VArrayInfo(AbstractVirtualInfo):
     def allocate(self, decoder, index):
         length = len(self.fieldnums)
         arraydescr = self.arraydescr
-        array = decoder.allocate_array(arraydescr, length)
+        array = decoder.allocate_array(length, arraydescr)
         decoder.virtuals_cache[index] = array
         # NB. the check for the kind of array elements is moved out of the loop
         if arraydescr.is_array_of_pointers():
             for i in range(length):
-                decoder.setarrayitem_ref(arraydescr, array, i,
-                                         self.fieldnums[i])
+                decoder.setarrayitem_ref(array, i, self.fieldnums[i],
+                                         arraydescr)
         elif arraydescr.is_array_of_floats():
             for i in range(length):
-                decoder.setarrayitem_float(arraydescr, array, i,
-                                           self.fieldnums[i])
+                decoder.setarrayitem_float(array, i, self.fieldnums[i],
+                                           arraydescr)
         else:
             for i in range(length):
-                decoder.setarrayitem_int(arraydescr, array, i,
-                                         self.fieldnums[i])
+                decoder.setarrayitem_int(array, i, self.fieldnums[i],
+                                         arraydescr)
         return array
 
     def debug_prints(self):
@@ -557,12 +557,13 @@ class VArrayStructInfo(AbstractVirtualInfo):
 
     @specialize.argtype(1)
     def allocate(self, decoder, index):
-        array = decoder.allocate_array(self.arraydescr, len(self.fielddescrs))
+        array = decoder.allocate_array(len(self.fielddescrs), self.arraydescr)
         decoder.virtuals_cache[index] = array
         p = 0
         for i in range(len(self.fielddescrs)):
             for j in range(len(self.fielddescrs[i])):
-                decoder.setinteriorfield(i, self.fielddescrs[i][j], array, self.fieldnums[p])
+                decoder.setinteriorfield(i, array, self.fieldnums[p],
+                                         self.fielddescrs[i][j])
                 p += 1
         return array
 
@@ -736,17 +737,17 @@ class AbstractResumeDataReader(object):
                 struct = self.decode_ref(num)
                 itemindex = rffi.cast(lltype.Signed, itemindex)
                 if itemindex < 0:
-                    self.setfield(descr, struct, fieldnum)
+                    self.setfield(struct, fieldnum, descr)
                 else:
-                    self.setarrayitem(descr, struct, itemindex, fieldnum)
+                    self.setarrayitem(struct, itemindex, fieldnum, descr)
 
-    def setarrayitem(self, arraydescr, array, index, fieldnum):
+    def setarrayitem(self, array, index, fieldnum, arraydescr):
         if arraydescr.is_array_of_pointers():
-            self.setarrayitem_ref(arraydescr, array, index, fieldnum)
+            self.setarrayitem_ref(array, index, fieldnum, arraydescr)
         elif arraydescr.is_array_of_floats():
-            self.setarrayitem_float(arraydescr, array, index, fieldnum)
+            self.setarrayitem_float(array, index, fieldnum, arraydescr)
         else:
-            self.setarrayitem_int(arraydescr, array, index, fieldnum)
+            self.setarrayitem_int(array, index, fieldnum, arraydescr)
 
     def _prepare_next_section(self, info):
         # Use info.enumerate_vars(), normally dispatching to
@@ -847,7 +848,7 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
     def allocate_struct(self, typedescr):
         return self.metainterp.execute_and_record(rop.NEW, typedescr)
 
-    def allocate_array(self, arraydescr, length):
+    def allocate_array(self, length, arraydescr):
         return self.metainterp.execute_and_record(rop.NEW_ARRAY,
                                                   arraydescr, ConstInt(length))
 
@@ -907,7 +908,7 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
         return self.metainterp.execute_and_record_varargs(
             rop.CALL, [ConstInt(func), strbox, startbox, stopbox], calldescr)
 
-    def setfield(self, descr, structbox, fieldnum):
+    def setfield(self, structbox, fieldnum, descr):
         if descr.is_pointer_field():
             kind = REF
         elif descr.is_float_field():
@@ -918,7 +919,7 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
         self.metainterp.execute_and_record(rop.SETFIELD_GC, descr,
                                            structbox, fieldbox)
 
-    def setinteriorfield(self, index, descr, array, fieldnum):
+    def setinteriorfield(self, index, array, fieldnum, descr):
         if descr.is_pointer_field():
             kind = REF
         elif descr.is_float_field():
@@ -929,16 +930,16 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
         self.metainterp.execute_and_record(rop.SETINTERIORFIELD_GC, descr,
                                            array, ConstInt(index), fieldbox)
 
-    def setarrayitem_int(self, arraydescr, arraybox, index, fieldnum):
-        self._setarrayitem(arraydescr, arraybox, index, fieldnum, INT)
+    def setarrayitem_int(self, arraybox, index, fieldnum, arraydescr):
+        self._setarrayitem(arraybox, index, fieldnum, arraydescr, INT)
 
-    def setarrayitem_ref(self, arraydescr, arraybox, index, fieldnum):
-        self._setarrayitem(arraydescr, arraybox, index, fieldnum, REF)
+    def setarrayitem_ref(self, arraybox, index, fieldnum, arraydescr):
+        self._setarrayitem(arraybox, index, fieldnum, arraydescr, REF)
 
-    def setarrayitem_float(self, arraydescr, arraybox, index, fieldnum):
-        self._setarrayitem(arraydescr, arraybox, index, fieldnum, FLOAT)
+    def setarrayitem_float(self, arraybox, index, fieldnum, arraydescr):
+        self._setarrayitem(arraybox, index, fieldnum, arraydescr, FLOAT)
 
-    def _setarrayitem(self, arraydescr, arraybox, index, fieldnum, kind):
+    def _setarrayitem(self, arraybox, index, fieldnum, arraydescr, kind):
         itembox = self.decode_box(fieldnum, kind)
         self.metainterp.execute_and_record(rop.SETARRAYITEM_GC,
                                            arraydescr, arraybox,
@@ -1141,8 +1142,8 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
     def allocate_struct(self, typedescr):
         return self.cpu.bh_new(typedescr)
 
-    def allocate_array(self, arraydescr, length):
-        return self.cpu.bh_new_array(arraydescr, length)
+    def allocate_array(self, length, arraydescr):
+        return self.cpu.bh_new_array(length, arraydescr)
 
     def allocate_string(self, length):
         return self.cpu.bh_newstr(length)
@@ -1198,39 +1199,39 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
         result = funcptr(str, start, start + length)
         return lltype.cast_opaque_ptr(llmemory.GCREF, result)
 
-    def setfield(self, descr, struct, fieldnum):
+    def setfield(self, struct, fieldnum, descr):
         if descr.is_pointer_field():
             newvalue = self.decode_ref(fieldnum)
-            self.cpu.bh_setfield_gc_r(struct, descr, newvalue)
+            self.cpu.bh_setfield_gc_r(struct, newvalue, descr)
         elif descr.is_float_field():
             newvalue = self.decode_float(fieldnum)
-            self.cpu.bh_setfield_gc_f(struct, descr, newvalue)
+            self.cpu.bh_setfield_gc_f(struct, newvalue, descr)
         else:
             newvalue = self.decode_int(fieldnum)
-            self.cpu.bh_setfield_gc_i(struct, descr, newvalue)
+            self.cpu.bh_setfield_gc_i(struct, newvalue, descr)
 
-    def setinteriorfield(self, index, descr, array, fieldnum):
+    def setinteriorfield(self, index, array, fieldnum, descr):
         if descr.is_pointer_field():
             newvalue = self.decode_ref(fieldnum)
-            self.cpu.bh_setinteriorfield_gc_r(array, index, descr, newvalue)
+            self.cpu.bh_setinteriorfield_gc_r(array, index, newvalue, descr)
         elif descr.is_float_field():
             newvalue = self.decode_float(fieldnum)
-            self.cpu.bh_setinteriorfield_gc_f(array, index, descr, newvalue)
+            self.cpu.bh_setinteriorfield_gc_f(array, index, newvalue, descr)
         else:
             newvalue = self.decode_int(fieldnum)
-            self.cpu.bh_setinteriorfield_gc_i(array, index, descr, newvalue)
+            self.cpu.bh_setinteriorfield_gc_i(array, index, newvalue, descr)
 
-    def setarrayitem_int(self, arraydescr, array, index, fieldnum):
+    def setarrayitem_int(self, array, index, fieldnum, arraydescr):
         newvalue = self.decode_int(fieldnum)
-        self.cpu.bh_setarrayitem_gc_i(arraydescr, array, index, newvalue)
+        self.cpu.bh_setarrayitem_gc_i(array, index, newvalue, arraydescr)
 
-    def setarrayitem_ref(self, arraydescr, array, index, fieldnum):
+    def setarrayitem_ref(self, array, index, fieldnum, arraydescr):
         newvalue = self.decode_ref(fieldnum)
-        self.cpu.bh_setarrayitem_gc_r(arraydescr, array, index, newvalue)
+        self.cpu.bh_setarrayitem_gc_r(array, index, newvalue, arraydescr)
 
-    def setarrayitem_float(self, arraydescr, array, index, fieldnum):
+    def setarrayitem_float(self, array, index, fieldnum, arraydescr):
         newvalue = self.decode_float(fieldnum)
-        self.cpu.bh_setarrayitem_gc_f(arraydescr, array, index, newvalue)
+        self.cpu.bh_setarrayitem_gc_f(array, index, newvalue, arraydescr)
 
     def decode_int(self, tagged):
         num, tag = untag(tagged)

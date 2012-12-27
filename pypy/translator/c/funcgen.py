@@ -494,7 +494,8 @@ class FunctionCodeGenerator(object):
 
     def OP_GETSUBSTRUCT(self, op):
         RESULT = self.lltypemap(op.result).TO
-        if isinstance(RESULT, FixedSizeArray):
+        if (isinstance(RESULT, FixedSizeArray) or
+                (isinstance(RESULT, Array) and barebonearray(RESULT))):
             return self.OP_GETFIELD(op, ampersand='')
         else:
             return self.OP_GETFIELD(op, ampersand='&')
@@ -822,7 +823,7 @@ class FunctionCodeGenerator(object):
         self.db.instrument_ncounter = max(self.db.instrument_ncounter,
                                           counter_label+1)
         counter_label = self.expr(op.args[1])
-        return 'INSTRUMENT_COUNT(%s);' % counter_label
+        return 'PYPY_INSTRUMENT_COUNT(%s);' % counter_label
             
     def OP_IS_EARLY_CONSTANT(self, op):
         return '%s = 0; /* IS_EARLY_CONSTANT */' % (self.expr(op.result),)

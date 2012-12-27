@@ -1,6 +1,5 @@
 from pypy.objspace.std.model import W_Object
 from pypy.objspace.std.stdtypedef import StdTypeDef
-from pypy.conftest import gettestobjspace
 
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.interpreter.gateway import interp2app
@@ -1063,45 +1062,21 @@ class AppTestTypeObject:
         A.__dict__['x'] = 5
         assert A.x == 5
 
-class AppTestMutableBuiltintypes:
 
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.mutable_builtintypes": True})
+class AppTestWithMethodCacheCounter:
+    spaceconfig = {"objspace.std.withmethodcachecounter": True}
 
-    def test_del_type_mro(self):
-        del type.mro
-        # Make sure the default mro function is used.
-        class X(object):
-            pass
+    def test_module_from_handbuilt_type(self):
+        d = {'tuple': tuple, '__name__': 'foomod'}
+        exec """class foo(tuple): pass""" in d
+        t = d['foo']
+        t.__module__ = 'barmod'
+        # this last line used to crash; see ab926f846f39
+        assert t.__module__
 
-    def test_mutate_builtintype(self):
-        list.a = 1
-        def doublelen(self):
-            return len(self) * 2
-        list.doublelen = doublelen
-        l = []
-        assert l.a == 1
-        l.append(100)
-        assert l.doublelen() == 2
-        del list.doublelen
-        del list.a
-        raises(AttributeError, "l.a")
-
-    def test_doc(self):
-        class C(object):
-            pass
-
-        assert C.__dict__['__dict__'].__doc__.startswith("dictionary for")
-        assert C.__dict__['__weakref__'].__doc__.startswith("list of weak")
-        assert property.__doc__.startswith("property(fget=None,")
-        assert type.__doc__.startswith("type(object)")
-        assert "run-time error" in RuntimeError.__doc__
 
 class AppTestGetattributeShortcut:
-
-    def setup_class(cls):
-        cls.space = gettestobjspace(
-                        **{"objspace.std.getattributeshortcut": True})
+    spaceconfig = {"objspace.std.getattributeshortcut": True}
 
     def test_reset_logic(self):
         class X(object):
@@ -1142,10 +1117,7 @@ class AppTestGetattributeShortcut:
         assert y.x == 'GA2'
 
 class TestNewShortcut:
-
-    def setup_class(cls):
-        cls.space = gettestobjspace(
-                        **{"objspace.std.newshortcut": True})   
+    spaceconfig = {"objspace.std.newshortcut": True}
 
     def test_mechanics(self):
         space = self.space
@@ -1160,9 +1132,9 @@ class TestNewShortcut:
 """)
         w_A, w_B, w_M = space.unpackiterable(w_tup)
 
-        assert w_A.w_bltin_new is None
-        assert w_B.w_bltin_new is None
-        assert w_M.w_bltin_new is None                
+        assert w_A.w_new_function is None
+        assert w_B.w_new_function is None
+        assert w_M.w_new_function is None                
 
         _, w_object_newdescr = space.lookup_in_type_where(space.w_object,
                                                           '__new__')
@@ -1170,24 +1142,22 @@ class TestNewShortcut:
                                      w_type=space.w_object)
 
         w_a = space.call_function(w_A)
-        assert w_A.w_bltin_new is w_object___new__
+        assert w_A.w_new_function is w_object___new__
 
         # will shortcut
         w_a = space.call_function(w_A)
 
         w_b = space.call_function(w_B)
-        assert w_B.w_bltin_new is None
+        assert w_B.w_new_function is not None
+        w_b = space.call_function(w_B)
 
         w_m = space.call_function(w_M, space.wrap('C'), space.newlist([]),
                                   space.newdict())
-        assert w_M.w_bltin_new is None                                  
+        assert w_M.w_new_function is not None
 
 
 class AppTestNewShortcut:
-
-    def setup_class(cls):
-        cls.space = gettestobjspace(
-                        **{"objspace.std.newshortcut": True})
+    spaceconfig = {"objspace.std.newshortcut": True}
 
     def test_reset_logic(self):
         class X(object):

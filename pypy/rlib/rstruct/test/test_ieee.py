@@ -3,7 +3,7 @@ import random
 import struct
 
 from pypy.rlib.rfloat import isnan
-from pypy.rlib.rstruct.ieee import float_pack, float_unpack
+from pypy.rlib.rstruct.ieee import float_pack, float_unpack, float_pack80, float_unpack80
 
 
 class TestFloatPacking:
@@ -17,6 +17,10 @@ class TestFloatPacking:
         Q = float_pack(x, 8)
         y = float_unpack(Q, 8)
         assert repr(x) == repr(y)
+
+        Q = float_pack80(x)
+        y = float_unpack80(Q)
+        assert repr(x) == repr(y),'%r != %r, Q=%r'%(x, y, Q)
 
         # check that packing agrees with the struct module
         struct_pack8 = struct.unpack('<Q', struct.pack('<d', x))[0]
@@ -34,10 +38,20 @@ class TestFloatPacking:
             float_pack4 = "overflow"
         assert struct_pack4 == float_pack4
 
+        if float_pack4 == "overflow":
+            return
+
         # if we didn't overflow, try round-tripping the binary32 value
-        if float_pack4 != "overflow":
-            roundtrip = float_pack(float_unpack(float_pack4, 4), 4)
-            assert float_pack4 == roundtrip
+        roundtrip = float_pack(float_unpack(float_pack4, 4), 4)
+        assert float_pack4 == roundtrip
+
+        try:
+            float_pack2 = float_pack(x, 2)
+        except OverflowError:
+            return
+
+        roundtrip = float_pack(float_unpack(float_pack2, 2), 2)
+        assert (float_pack2,x) == (roundtrip,x)
 
     def test_infinities(self):
         self.check_float(float('inf'))
@@ -48,11 +62,17 @@ class TestFloatPacking:
         self.check_float(-0.0)
 
     def test_nans(self):
+        Q = float_pack80(float('nan'))
+        y = float_unpack80(Q)
+        assert repr(y) == 'nan'
         Q = float_pack(float('nan'), 8)
         y = float_unpack(Q, 8)
         assert repr(y) == 'nan'
         L = float_pack(float('nan'), 4)
         z = float_unpack(L, 4)
+        assert repr(z) == 'nan'
+        L = float_pack(float('nan'), 2)
+        z = float_unpack(L, 2)
         assert repr(z) == 'nan'
 
     def test_simple(self):
@@ -110,3 +130,35 @@ class TestFloatPacking:
             if isnan(x):
                 continue
             self.check_float(x)
+
+    def test_halffloat_exact(self):
+        #testcases generated from numpy.float16(x).view('uint16')
+        cases = [[0, 0], [10, 18688], [-10, 51456], [10e3, 28898], 
+                 [float('inf'), 31744], [-float('inf'), 64512]]
+        for c,h in cases:
+            hbit = float_pack(c, 2)
+            assert hbit == h
+            assert c == float_unpack(h, 2)
+
+    def test_halffloat_inexact(self):
+        #testcases generated from numpy.float16(x).view('uint16')
+        cases = [[10.001, 18688, 10.], [-10.001, 51456, -10],
+                 [0.027588, 10000, 0.027587890625],
+                 [22001, 30047, 22000]]
+        for c,h,f in cases:
+            hbit = float_pack(c, 2)
+            assert hbit == h
+            assert f == float_unpack(h, 2)
+
+    def test_halffloat_overunderflow(self):
+        import math
+        cases = [[670000, float('inf')], [-67000, -float('inf')],
+                 [1e-08, 0], [-1e-8, -0.]]
+        for f1, f2 in cases:
+            try:
+                f_out = float_unpack(float_pack(f1, 2), 2)
+            except OverflowError:
+                f_out = math.copysign(float('inf'), f1)
+            assert f_out == f2
+            assert math.copysign(1., f_out) == math.copysign(1., f2)
+

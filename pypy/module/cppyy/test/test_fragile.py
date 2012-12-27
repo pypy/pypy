@@ -1,12 +1,8 @@
 import py, os, sys
-from pypy.conftest import gettestobjspace
-
 from pypy.module.cppyy import capi
 
 currpath = py.path.local(__file__).dirpath()
 test_dct = str(currpath.join("fragileDict.so"))
-
-space = gettestobjspace(usemodules=['cppyy'])
 
 def setup_module(mod):
     if sys.platform == 'win32':
@@ -16,11 +12,11 @@ def setup_module(mod):
         raise OSError("'make' failed (see stderr)")
 
 class AppTestFRAGILE:
+    spaceconfig = dict(usemodules=['cppyy'])
+
     def setup_class(cls):
-        cls.space = space
-        env = os.environ
-        cls.w_test_dct  = space.wrap(test_dct)
-        cls.w_capi = space.wrap(capi)
+        cls.w_test_dct  = cls.space.wrap(test_dct)
+        cls.w_identity = cls.space.wrap(capi.identify())
         cls.w_fragile = cls.space.appexec([], """():
             import cppyy
             return cppyy.load_reflection_info(%r)""" % (test_dct, ))
@@ -30,6 +26,11 @@ class AppTestFRAGILE:
 
         import cppyy
         raises(RuntimeError, cppyy.load_reflection_info, "does_not_exist.so")
+
+        try:
+            cppyy.load_reflection_info("does_not_exist.so")
+        except RuntimeError, e:
+            assert "does_not_exist.so" in str(e)
 
     def test02_missing_classes(self):
         """Test (non-)access to missing classes"""
@@ -202,7 +203,7 @@ class AppTestFRAGILE:
 
         import cppyy
 
-        if self.capi.identify() == 'CINT':   # CINT only support classes on global space
+        if self.identity == 'CINT':          # CINT only support classes on global space
             members = dir(cppyy.gbl)
             assert 'TROOT' in members
             assert 'TSystem' in members

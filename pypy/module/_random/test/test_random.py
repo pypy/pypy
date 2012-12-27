@@ -1,9 +1,7 @@
-import py
-from pypy.conftest import gettestobjspace
-
 class AppTestRandom:
-    def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['_random'])
+    spaceconfig = {
+        "usemodules": ['_random', 'rctime'],
+    }
 
     def test_dict(self):
         import _random

@@ -1,9 +1,5 @@
-import py
-from pypy.conftest import gettestobjspace
-
 class AppTest(object):
-    def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['__pypy__'])
+    spaceconfig = dict(usemodules=['__pypy__'])
 
     def test_bytebuffer(self):
         from __pypy__ import bytebuffer

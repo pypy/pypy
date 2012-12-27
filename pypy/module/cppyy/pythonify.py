@@ -311,13 +311,16 @@ def _pythonize(pyclass):
     except KeyError:
         pass
 
+    # general note: use 'in pyclass.__dict__' rather than 'hasattr' to prevent
+    # adding pythonizations multiple times in derived classes
+
     # map size -> __len__ (generally true for STL)
-    if hasattr(pyclass, 'size') and \
-            not hasattr(pyclass, '__len__') and callable(pyclass.size):
+    if 'size' in pyclass.__dict__ and not '__len__' in pyclass.__dict__ \
+           and callable(pyclass.size):
         pyclass.__len__ = pyclass.size
 
     # map push_back -> __iadd__ (generally true for STL)
-    if hasattr(pyclass, 'push_back') and not hasattr(pyclass, '__iadd__'):
+    if 'push_back' in pyclass.__dict__ and not '__iadd__' in pyclass.__dict__:
         def __iadd__(self, ll):
             [self.push_back(x) for x in ll]
             return self
@@ -327,7 +330,7 @@ def _pythonize(pyclass):
     # not on vector, for which otherwise the user has to make sure that the
     # global == and != for its iterators are reflected, which is a hassle ...
     if not 'vector' in pyclass.__name__[:11] and \
-            (hasattr(pyclass, 'begin') and hasattr(pyclass, 'end')):
+            ('begin' in pyclass.__dict__ and 'end' in pyclass.__dict__):
         # TODO: check return type of begin() and end() for existence
         def __iter__(self):
             iter = self.begin()
@@ -339,9 +342,9 @@ def _pythonize(pyclass):
         pyclass.__iter__ = __iter__
 
     # combine __getitem__ and __len__ to make a pythonized __getitem__
-    if hasattr(pyclass, '__getitem__') and hasattr(pyclass, '__len__'):
+    if '__getitem__' in pyclass.__dict__ and '__len__' in pyclass.__dict__:
         pyclass._getitem__unchecked = pyclass.__getitem__
-        if hasattr(pyclass, '__setitem__') and hasattr(pyclass, '__iadd__'):
+        if '__setitem__' in pyclass.__dict__ and '__iadd__' in pyclass.__dict__:
             pyclass.__getitem__ = python_style_sliceable_getitem
         else:
             pyclass.__getitem__ = python_style_getitem

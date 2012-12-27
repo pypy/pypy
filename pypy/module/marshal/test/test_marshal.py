@@ -181,17 +181,8 @@ class AppTestMarshal:
         assert r"'\x01'" in exc.value.message
 
 
-class AppTestRope(AppTestMarshal):
-    def setup_class(cls):
-        from pypy.conftest import gettestobjspace
-        cls.space = gettestobjspace(**{"objspace.std.withrope": True})
-        AppTestMarshal.setup_class.im_func(cls)
-
 class AppTestSmallLong(AppTestMarshal):
-    def setup_class(cls):
-        from pypy.conftest import gettestobjspace
-        cls.space = gettestobjspace(**{"objspace.std.withsmalllong": True})
-        AppTestMarshal.setup_class.im_func(cls)
+    spaceconfig = {"objspace.std.withsmalllong": True}
 
     def test_smalllong(self):
         import __pypy__

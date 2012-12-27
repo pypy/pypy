@@ -320,39 +320,19 @@ class TestObjSpace:
 
 class TestModuleMinimal: 
     def test_sys_exists(self):
-        assert self.space.sys 
+        assert self.space.sys
 
     def test_import_exists(self):
         space = self.space
-        assert space.builtin 
+        assert space.builtin
         w_name = space.wrap('__import__')
         w_builtin = space.sys.getmodule('__builtin__')
-        w_import = self.space.getattr(w_builtin, w_name) 
+        w_import = self.space.getattr(w_builtin, w_name)
         assert space.is_true(w_import)
 
     def test_sys_import(self):
         from pypy.interpreter.main import run_string
         run_string('import sys', space=self.space)
-
-    def test_get_builtinmodule_to_install(self):
-        space = self.space
-        try:
-            # force rebuilding with this fake builtin
-            space.ALL_BUILTIN_MODULES.append('this_doesnt_exist')
-            del space._builtinmodule_list
-            mods = space.get_builtinmodule_to_install()
-            
-            assert '__pypy__' in mods                # real builtin
-            assert '_functools' not in mods               # in lib_pypy
-            assert 'faked+_functools' not in mods         # in lib_pypy
-            assert 'this_doesnt_exist' not in mods   # not in lib_pypy
-            assert 'faked+this_doesnt_exist' in mods # not in lib_pypy, but in
-                                                     # ALL_BUILTIN_MODULES
-        finally:
-            # rebuild the original list
-            space.ALL_BUILTIN_MODULES.pop()
-            del space._builtinmodule_list
-            mods = space.get_builtinmodule_to_install()
 
     def test_dont_reload_builtin_mods_on_startup(self):
         from pypy.tool.option import make_config, make_objspace

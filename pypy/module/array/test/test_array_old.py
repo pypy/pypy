@@ -3,7 +3,6 @@
 import py
 from py.test import raises
 import struct
-from pypy.conftest import gettestobjspace
 
 
 class BaseArrayTests:
@@ -90,18 +89,11 @@ class TestCPythonsOwnArray(BaseArrayTests):
 
 
 class AppTestArray(BaseArrayTests):
-    usemodules = ['struct', 'array']
+    spaceconfig = {'usemodules': ['struct', 'array', 'binascii']}
 
     def setup_class(cls):
-        """
-        Create a space with the array module and import it for use by the
-        tests.
-        """
-        cls.space = gettestobjspace(usemodules=cls.usemodules)
-        cls.w_array = cls.space.appexec([], """():
-            import array
-            return array
-        """)
+        """Import the array module and make it available as self.array."""
+        cls.w_array = cls.space.getbuiltinmodule('array')
         cls.w_native_sizes = cls.space.wrap(cls.native_sizes)
 
 
@@ -110,7 +102,7 @@ class AppTestArray(BaseArrayTests):
 ##     The same as the base class, but with a space that also includes the
 ##     _rawffi module.  The array module internally uses it in this case.
 ##     """
-##     usemodules = ['struct', '_rawffi']
+##     spaceconfig = dict(usemodules=['struct', '_rawffi'])
 
 ##     def test_buffer_info(self):
 ##         a = self.array.array('l', [123, 456])

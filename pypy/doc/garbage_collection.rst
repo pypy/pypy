@@ -33,8 +33,8 @@ GC (which is the default when translating) is the last one below.
 Mark and Sweep
 --------------
 
-Classical Mark and Sweep collector.  Also contains a lot of experimental
-and half-unmaintained features.  See `pypy/rpython/memory/gc/marksweep.py`_.
+Classical Mark and Sweep collector.  Also contained a lot of experimental
+and half-unmaintained features.  Was removed.
 
 Semispace copying collector
 ---------------------------
@@ -91,6 +91,9 @@ source code, in `pypy/rpython/memory/gc/hybrid.py`_.
 Mark & Compact GC
 -----------------
 
+Killed in trunk.  The following documentation is for historical purposes
+only.
+
 Inspired, at least partially, by Squeak's garbage collector, this is a
 single-arena GC in which collection compacts the objects in-place.  The
 main point of this GC is to save as much memory as possible (to be not
@@ -122,9 +125,6 @@ extra memory usage during collection: an array containing 2 bytes per
 surviving object is needed to make a backup of (half of) the surviving
 objects' header, in order to let the collector store temporary relation
 information in the regular headers.
-
-More details are available as comments at the start of the source
-in `pypy/rpython/memory/gc/markcompact.py`_.
 
 Minimark GC
 -----------

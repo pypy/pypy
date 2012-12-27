@@ -3,6 +3,11 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.tool.pairtype import extendabletype
 from pypy.module.micronumpy.support import calc_strides
 
+def issequence_w(space, w_obj):
+    return (space.isinstance_w(w_obj, space.w_tuple) or
+            space.isinstance_w(w_obj, space.w_list) or
+            isinstance(w_obj, W_NDimArray))
+
 class ArrayArgumentException(Exception):
     pass
 
@@ -45,7 +50,7 @@ def convert_to_array(space, w_obj):
     
     if isinstance(w_obj, W_NDimArray):
         return w_obj
-    elif space.issequence_w(w_obj):
+    elif issequence_w(space, w_obj):
         # Convert to array.
         return array(space, w_obj, w_order=None)
     else:

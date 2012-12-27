@@ -27,6 +27,7 @@ generic element in some specific subset of the set of all objects.
 #    \_____________________________________________________/
 #
 
+from __future__ import absolute_import
 
 from types import BuiltinFunctionType, MethodType, FunctionType
 import pypy
@@ -201,11 +202,16 @@ class SomeBool(SomeInteger):
             self.knowntypedata = knowntypedata
 
 class SomeStringOrUnicode(SomeObject):
+    """Base class for shared implementation of SomeString and SomeUnicodeString.
+
+    Cannot be an annotation."""
+
     immutable = True
     can_be_None=False
     no_nul = False  # No NUL character in the string.
 
     def __init__(self, can_be_None=False, no_nul=False):
+        assert type(self) is not SomeStringOrUnicode
         if can_be_None:
             self.can_be_None = True
         if no_nul:
@@ -224,19 +230,19 @@ class SomeStringOrUnicode(SomeObject):
             d2 = d2.copy(); d2['no_nul'] = 0   # ignored
         return d1 == d2
 
+    def nonnoneify(self):
+        return self.__class__(can_be_None=False, no_nul=self.no_nul)
+
 class SomeString(SomeStringOrUnicode):
     "Stands for an object which is known to be a string."
     knowntype = str
-
-    def nonnoneify(self):
-        return SomeString(can_be_None=False, no_nul=self.no_nul)
 
 class SomeUnicodeString(SomeStringOrUnicode):
     "Stands for an object which is known to be an unicode string"
     knowntype = unicode
 
-    def nonnoneify(self):
-        return SomeUnicodeString(can_be_None=False, no_nul=self.no_nul)
+class SomeByteArray(SomeStringOrUnicode):
+    knowntype = bytearray
 
 class SomeChar(SomeString):
     "Stands for an object known to be a string of length 1."
@@ -384,6 +390,14 @@ class SomePBC(SomeObject):
                 desc, = descriptions
                 if desc.pyobj is not None:
                     self.const = desc.pyobj
+            elif len(descriptions) > 1:
+                from pypy.annotation.description import ClassDesc
+                if self.getKind() is ClassDesc:
+                    # a PBC of several classes: enforce them all to be
+                    # built, without support for specialization.  See
+                    # rpython/test/test_rpbc.test_pbc_of_classes_not_all_used
+                    for desc in descriptions:
+                        desc.getuniqueclassdef()
 
     def any_description(self):
         return iter(self.descriptions).next()
@@ -700,7 +714,7 @@ def merge_knowntypedata(ktd1, ktd2):
     return r
 
 def not_const(s_obj):
-    if s_obj.is_constant():
+    if s_obj.is_constant() and not isinstance(s_obj, SomePBC):
         new_s_obj = SomeObject.__new__(s_obj.__class__)
         dic = new_s_obj.__dict__ = s_obj.__dict__.copy()
         if 'const' in dic:
@@ -764,7 +778,3 @@ if "WINGDB_PYTHON" not in os.environ:
     else:
         raise RuntimeError("The annotator relies on 'assert' statements from the\n"
                      "\tannotated program: you cannot run it with 'python -O'.")
-
-# this has the side-effect of registering the unary and binary operations
-from pypy.annotation.unaryop  import UNARY_OPERATIONS
-from pypy.annotation.binaryop import BINARY_OPERATIONS

@@ -1,11 +1,11 @@
-from pypy.objspace.flow.model import Variable, Constant, Block, Link
-from pypy.objspace.flow.model import SpaceOperation
+from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
 from pypy.tool.algo.unionfind import UnionFind
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.ootypesystem import ootype
 from pypy.translator import simplify
 from pypy.translator.backendopt import removenoops
 from pypy.translator.backendopt.support import log
+
 
 class LifeTime:
 
@@ -165,24 +165,24 @@ class BaseMallocRemover(object):
                     set_use_point(node, node.exitswitch, "exitswitch", node)
 
         for node in graph.iterlinks():
-                if isinstance(node.last_exception, Variable):
-                    set_creation_point(node.prevblock, node.last_exception,
-                                       "last_exception")
-                if isinstance(node.last_exc_value, Variable):
-                    set_creation_point(node.prevblock, node.last_exc_value,
-                                       "last_exc_value")
-                d = {}
-                for i, arg in enumerate(node.args):
-                    union(node.prevblock, arg,
-                          node.target, node.target.inputargs[i])
-                    if isinstance(arg, Variable):
-                        if arg in d:
-                            # same variable present several times in link.args
-                            # consider it as a 'use' of the variable, which
-                            # will disable malloc optimization (aliasing problems)
-                            set_use_point(node.prevblock, arg, "dup", node, i)
-                        else:
-                            d[arg] = True
+            if isinstance(node.last_exception, Variable):
+                set_creation_point(node.prevblock, node.last_exception,
+                                   "last_exception")
+            if isinstance(node.last_exc_value, Variable):
+                set_creation_point(node.prevblock, node.last_exc_value,
+                                   "last_exc_value")
+            d = {}
+            for i, arg in enumerate(node.args):
+                union(node.prevblock, arg,
+                      node.target, node.target.inputargs[i])
+                if isinstance(arg, Variable):
+                    if arg in d:
+                        # same variable present several times in link.args
+                        # consider it as a 'use' of the variable, which
+                        # will disable malloc optimization (aliasing problems)
+                        set_use_point(node.prevblock, arg, "dup", node, i)
+                    else:
+                        d[arg] = True
 
         return lifetimes.infos()
 
@@ -407,13 +407,12 @@ class LLTypeMallocRemover(BaseMallocRemover):
                 isinstance(S._flds[S._names[0]], lltype.Struct) and
                 S._flds[S._names[0]]._hints.get('union'))
 
-
     def RTTI_dtor(self, STRUCT):
         try:
             destr_ptr = lltype.getRuntimeTypeInfo(STRUCT)._obj.destructor_funcptr
             if destr_ptr:
                 return True
-        except (ValueError, AttributeError), e:
+        except (ValueError, AttributeError):
             pass
         return False
 
@@ -535,7 +534,7 @@ class LLTypeMallocRemover(BaseMallocRemover):
             newop = SpaceOperation('same_as', [c], op.result)
             self.newops.append(newop)
         else:
-            raise AssertionError, op.opname
+            raise AssertionError(op.opname)
 
 
 class OOTypeMallocRemover(BaseMallocRemover):
@@ -614,7 +613,7 @@ class OOTypeMallocRemover(BaseMallocRemover):
             newop = SpaceOperation('same_as', [c], op.result)
             self.newops.append(newop)
         else:
-            raise AssertionError, op.opname
+            raise AssertionError(op.opname)
 
 
 def remove_simple_mallocs(graph, type_system='lltypesystem', verbose=True):
@@ -639,5 +638,3 @@ def remove_mallocs(translator, graphs=None, type_system="lltypesystem"):
             tot += count
     log.malloc("removed %d simple mallocs in total" % tot)
     return tot
-
-

@@ -1085,6 +1085,10 @@ public class PyPy implements Constants {
             _ll_resize_le(self, length); 
     }
 
+    public static void _ll_resize_hint(ArrayList self, int length) {
+        self.ensureCapacity(length);
+    }
+
     // ----------------------------------------------------------------------
     // ll_math
     //

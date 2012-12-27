@@ -1,12 +1,5 @@
-from pypy.conftest import gettestobjspace
-import os
-import py
-
-
 class AppTestSSL:
-    def setup_class(cls):
-        space = gettestobjspace(usemodules=('_ssl', '_socket'))
-        cls.space = space
+    spaceconfig = dict(usemodules=('_ssl', '_socket'))
 
     def test_init_module(self):
         import _ssl
@@ -89,9 +82,9 @@ class AppTestSSL:
 
 
 class AppTestConnectedSSL:
-    def setup_class(cls):
-        space = gettestobjspace(usemodules=('_ssl', '_socket', 'struct'))
-        cls.space = space
+    spaceconfig = {
+        "usemodules": ['_ssl', '_socket', 'struct', 'binascii'],
+    }
 
     def setup_method(self, method):
         # https://www.verisign.net/
@@ -174,13 +167,15 @@ class AppTestConnectedSSL:
         raises(ssl.SSLError, ss.write, "hello\n")
         del ss; gc.collect()
 
+
 class AppTestConnectedSSL_Timeout(AppTestConnectedSSL):
     # Same tests, with a socket timeout
     # to exercise the poll() calls
+    spaceconfig = {
+        "usemodules": ['_ssl', '_socket', 'struct', 'binascii'],
+    }
 
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('_ssl', '_socket', 'struct'))
-        cls.space = space
         cls.space.appexec([], """():
             import socket; socket.setdefaulttimeout(1)
             """)

@@ -1,5 +1,4 @@
 import py, os, sys
-from pypy.conftest import gettestobjspace
 
 
 currpath = py.path.local(__file__).dirpath()
@@ -13,8 +12,7 @@ def setup_module(mod):
 
 
 class AppTestACLASSLOADER:
-    def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['cppyy'])
+    spaceconfig = dict(usemodules=['cppyy'])
 
     def test01_class_autoloading(self):
         """Test whether a class can be found through .rootmap."""

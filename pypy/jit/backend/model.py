@@ -233,11 +233,11 @@ class AbstractCPU(object):
     # lltype specific operations
     # --------------------------
 
-    def bh_getarrayitem_gc_i(self, arraydescr, array, index):
+    def bh_getarrayitem_gc_i(self, array, index, arraydescr):
         raise NotImplementedError
-    def bh_getarrayitem_gc_r(self, arraydescr, array, index):
+    def bh_getarrayitem_gc_r(self, array, index, arraydescr):
         raise NotImplementedError
-    def bh_getarrayitem_gc_f(self, arraydescr, array, index):
+    def bh_getarrayitem_gc_f(self, array, index, arraydescr):
         raise NotImplementedError
 
     def bh_getfield_gc_i(self, struct, fielddescr):
@@ -256,49 +256,49 @@ class AbstractCPU(object):
 
     def bh_new(self, sizedescr):
         raise NotImplementedError
-    def bh_new_with_vtable(self, sizedescr, vtable):
+    def bh_new_with_vtable(self, vtable, sizedescr):
         raise NotImplementedError
-    def bh_new_array(self, arraydescr, length):
+    def bh_new_array(self, length, arraydescr):
         raise NotImplementedError
     def bh_newstr(self, length):
         raise NotImplementedError
     def bh_newunicode(self, length):
         raise NotImplementedError
 
-    def bh_arraylen_gc(self, arraydescr, array):
+    def bh_arraylen_gc(self, array, arraydescr):
         raise NotImplementedError
 
     def bh_classof(self, struct):
         raise NotImplementedError
 
-    def bh_setarrayitem_gc_i(self, arraydescr, array, index, newvalue):
+    def bh_setarrayitem_gc_i(self, array, index, newvalue, arraydescr):
         raise NotImplementedError
-    def bh_setarrayitem_gc_r(self, arraydescr, array, index, newvalue):
+    def bh_setarrayitem_gc_r(self, array, index, newvalue, arraydescr):
         raise NotImplementedError
-    def bh_setarrayitem_gc_f(self, arraydescr, array, index, newvalue):
-        raise NotImplementedError
-
-    def bh_setfield_gc_i(self, struct, fielddescr, newvalue):
-        raise NotImplementedError
-    def bh_setfield_gc_r(self, struct, fielddescr, newvalue):
-        raise NotImplementedError
-    def bh_setfield_gc_f(self, struct, fielddescr, newvalue):
+    def bh_setarrayitem_gc_f(self, array, index, newvalue, arraydescr):
         raise NotImplementedError
 
-    def bh_setfield_raw_i(self, struct, fielddescr, newvalue):
+    def bh_setfield_gc_i(self, struct, newvalue, fielddescr):
         raise NotImplementedError
-    def bh_setfield_raw_r(self, struct, fielddescr, newvalue):
+    def bh_setfield_gc_r(self, struct, newvalue, fielddescr):
         raise NotImplementedError
-    def bh_setfield_raw_f(self, struct, fielddescr, newvalue):
+    def bh_setfield_gc_f(self, struct, newvalue, fielddescr):
         raise NotImplementedError
 
-    def bh_call_i(self, func, calldescr, args_i, args_r, args_f):
+    def bh_setfield_raw_i(self, struct, newvalue, fielddescr):
         raise NotImplementedError
-    def bh_call_r(self, func, calldescr, args_i, args_r, args_f):
+    def bh_setfield_raw_r(self, struct, newvalue, fielddescr):
         raise NotImplementedError
-    def bh_call_f(self, func, calldescr, args_i, args_r, args_f):
+    def bh_setfield_raw_f(self, struct, newvalue, fielddescr):
         raise NotImplementedError
-    def bh_call_v(self, func, calldescr, args_i, args_r, args_f):
+
+    def bh_call_i(self, func, args_i, args_r, args_f, calldescr):
+        raise NotImplementedError
+    def bh_call_r(self, func, args_i, args_r, args_f, calldescr):
+        raise NotImplementedError
+    def bh_call_f(self, func, args_i, args_r, args_f, calldescr):
+        raise NotImplementedError
+    def bh_call_v(self, func, args_i, args_r, args_f, calldescr):
         raise NotImplementedError
 
     def bh_strlen(self, string):

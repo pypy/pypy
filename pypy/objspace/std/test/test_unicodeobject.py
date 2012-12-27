@@ -1,6 +1,5 @@
 import py
 import sys
-from pypy.conftest import gettestobjspace
 
 class TestUnicodeObject:
 
@@ -20,8 +19,11 @@ class TestUnicodeObject:
             """)
         finally:
             space.warn = prev_warn
-        print self.space.config.objspace.std.withrope
         assert len(warnings) == 2
+
+    def test_listview_unicode(self):
+        w_str = self.space.wrap(u'abcd')
+        assert self.space.listview_unicode(w_str) == list(u"abcd")
 
 
 class AppTestUnicodeStringStdOnly:
@@ -42,13 +44,10 @@ class AppTestUnicodeStringStdOnly:
         assert s != u
         assert not u == s
         assert u != s
-        
+
 
 class AppTestUnicodeString:
-    def setup_class(cls):
-        space = gettestobjspace(usemodules=('unicodedata',))
-        cls.space = space
-        cls.w_version_info = cls.space.wrap(sys.version_info)
+    spaceconfig = dict(usemodules=('unicodedata',))
 
     def test_addition(self):
         def check(a, b):
@@ -633,8 +632,6 @@ class AppTestUnicodeString:
         assert u'abcdefghiabc'.rfind(u'abcz') == -1
 
     def test_rfind_corner_case(self):
-        if self.version_info < (2, 5):
-            skip("fails on top of CPython <= 2.4")
         assert u'abc'.rfind('', 4) == -1
 
     def test_count(self):

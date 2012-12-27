@@ -1,11 +1,8 @@
-from pypy.conftest import gettestobjspace
 from pypy.objspace.std.test import test_typeobject
 
 
 class AppTestMethodCaching(test_typeobject.AppTestTypeObject):
-    def setup_class(cls):
-        cls.space = gettestobjspace(
-            **{"objspace.std.withmethodcachecounter": True})
+    spaceconfig = {"objspace.std.withmethodcachecounter": True}
 
     def test_mix_classes(self):
         import __pypy__
@@ -206,8 +203,3 @@ class AppTestMethodCaching(test_typeobject.AppTestTypeObject):
             setattr(a, "a%s" % i, i)
         cache_counter = __pypy__.method_cache_counter("x")
         assert cache_counter[0] == 0 # 0 hits, because all the attributes are new
-
-    def test_get_module_from_namedtuple(self):
-        # this used to crash
-        from collections import namedtuple
-        assert namedtuple("a", "b").__module__

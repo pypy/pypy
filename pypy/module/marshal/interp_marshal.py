@@ -50,10 +50,8 @@ def load(space, w_f):
 def loads(space, w_str):
     """Convert a string back to a value.  Extra characters in the string are
 ignored."""
-    space.timer.start("marshal loads")
     u = StringUnmarshaller(space, w_str)
     obj = u.load_w_obj()
-    space.timer.stop("marshal loads")
     return obj
 
 

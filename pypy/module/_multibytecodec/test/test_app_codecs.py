@@ -1,9 +1,5 @@
-from pypy.conftest import gettestobjspace
-
-
 class AppTestCodecs:
-    def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['_multibytecodec'])
+    spaceconfig = dict(usemodules=['_multibytecodec'])
 
     def test_missing_codec(self):
         import _codecs_cn
@@ -106,3 +102,11 @@ class AppTestCodecs:
         repl = u"\u2014"
         s = u"\uDDA1".encode("gbk", "test.multi_bad_handler")
         assert s == '\xA1\xAA'
+
+    def test_encode_custom_error_handler_type(self):
+        import codecs
+        import sys
+        codecs.register_error("test.test_encode_custom_error_handler_type",
+                              lambda e: ('\xc3', e.end))
+        raises(TypeError, u"\uDDA1".encode, "gbk",
+               "test.test_encode_custom_error_handler_type")
