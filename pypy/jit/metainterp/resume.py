@@ -720,7 +720,7 @@ class AbstractResumeDataReader(object):
     virtuals_cache = None
     virtuals_int_cache = None
     virtual_default = None
-    virtual_int_default = 0
+    virtual_int_default = None
 
     def _init(self, cpu, storage):
         self.cpu = cpu
@@ -1127,6 +1127,7 @@ def force_from_resumedata(metainterp_sd, storage, vinfo, ginfo):
 class ResumeDataDirectReader(AbstractResumeDataReader):
     unique_id = lambda: None
     virtual_default = lltype.nullptr(llmemory.GCREF.TO)
+    virtual_int_default = 0
     resume_after_guard_not_forced = 0
     #             0: not a GUARD_NOT_FORCED
     #             1: in handle_async_forcing
