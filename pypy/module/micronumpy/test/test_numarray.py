@@ -1598,6 +1598,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (a == [1, 256 + 2, 3]).all()
         assert (a.byteswap(True) == [0x0100, 0x0201, 0x0300]).all()
         assert (a == [0x0100, 0x0201, 0x0300]).all()
+        assert False, 'test float, float16, complex byteswap'
 
     def test_clip(self):
         from _numpypy import array

@@ -936,9 +936,6 @@ class NonNativeFloat(NonNativePrimitive, Float):
         swapped_value = byteswap(rffi.cast(self.T, value))
         raw_storage_setitem(storage, i + offset, swapped_value)
 
-    def pack_str(self, box):
-        return struct.pack(self.format_code, byteswap(self.unbox(box)))
-
 class Float16(BaseType, Float):
     _attrs_ = ()
     _STORAGE_T = rffi.USHORT
@@ -974,13 +971,14 @@ class NonNativeFloat16(Float16):
     BoxType = interp_boxes.W_Float16Box
 
     def _read(self, storage, i, offset):
-        res = Float16._read(self, storage, i, offset)
-        #return byteswap(res) XXX
-        return res
+        hbits = raw_storage_getitem(self._STORAGE_T, storage, i + offset)
+        return float_unpack(r_ulonglong(byteswap(hbits)), 2)
 
     def _write(self, storage, i, offset, value):
-        #value = byteswap(value) XXX
-        Float16._write(self, storage, i, offset, value)
+        hbits = float_pack(value,2)
+        raw_storage_setitem(storage, i + offset,
+                byteswap(rffi.cast(self._STORAGE_T, hbits)))
+
 
 class Float32(BaseType, Float):
     _attrs_ = ()

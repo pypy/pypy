@@ -738,6 +738,15 @@ class AppTestNotDirect(BaseNumpyAppTest):
         a = array([1, 2, 3], dtype=self.non_native_prefix + 'f4')
         assert a[0] == 1
         assert (a + a)[1] == 4
+        a = array([1, 2, 3], dtype=self.non_native_prefix + 'f2')
+        assert a[0] == 1
+        assert (a + a)[1] == 4
+        a = array([1, 2, 3], dtype=self.non_native_prefix + 'g') # longdouble
+        assert a[0] == 1
+        assert (a + a)[1] == 4
+        a = array([1, 2, 3], dtype=self.non_native_prefix + 'G') # clongdouble
+        assert a[0] == 1
+        assert (a + a)[1] == 4
 
 class AppTestPyPyOnly(BaseNumpyAppTest):
     def setup_class(cls):
