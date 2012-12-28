@@ -202,8 +202,8 @@ class TestARM(LLtypeBackendTest):
             ARGS = [lltype.Signed] * numargs
             RES = lltype.Signed
             args = [i+1 for i in range(numargs)]
-            res = self.cpu.execute_token(looptoken, *args)
-            assert self.cpu.get_latest_value_int(0) == sum(args)
+            deadframe = self.cpu.execute_token(looptoken, *args)
+            assert self.cpu.get_latest_value_int(deadframe, 0) == sum(args)
 
     def test_debugger_on(self):
         from pypy.rlib import debug
