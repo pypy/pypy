@@ -242,7 +242,7 @@ def compile_retrace(metainterp, greenkey, start,
                               [ResOperation(rop.JUMP, original_target_token.exported_state.jump_args,
                                             None, descr=loop_jitcell_token)]
         try:
-            optimize_trace(metainterp_sd, preamble, jitdriver_sd.warmstate.enable_opts, retraced_preamble=True)
+            optimize_trace(metainterp_sd, preamble, jitdriver_sd.warmstate.enable_opts)
         except InvalidLoop:
             assert False
 
