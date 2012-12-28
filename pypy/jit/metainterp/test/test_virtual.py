@@ -1133,75 +1133,6 @@ class VirtualMiscTests:
         res = self.meta_interp(f, [16])
         assert res == f(16)
         self.check_resops(getfield_gc=7)
-     
-
-# ____________________________________________________________
-# Run 1: all the tests instantiate a real RPython class
-
-class MyClass:
-    pass
-
-class TestLLtype_Instance(VirtualTests, LLJitMixin):
-    _new_op = 'new_with_vtable'
-    _field_prefix = 'inst_'
-    
-    @staticmethod
-    def _new():
-        return MyClass()
-
-    def test_class_with_default_fields(self):
-        class MyClass:
-            value = 2
-            value2 = 0
-
-        class Subclass(MyClass):
-            pass
-
-        myjitdriver = JitDriver(greens = [], reds = ['n', 'res'])
-        def f(n):
-            res = 0
-            node = MyClass()
-            node.value = n  # so that the annotator doesn't think that value is constant
-            node.value2 = n # ditto
-            while n > 0:
-                myjitdriver.can_enter_jit(n=n, res=res)
-                myjitdriver.jit_merge_point(n=n, res=res)
-                node = Subclass()
-                res += node.value
-                res += node.value2
-                n -= 1
-            return res
-        assert f(10) == 20
-        res = self.meta_interp(f, [10])
-        assert res == 20
-        self.check_trace_count(1)
-        self.check_resops(new_with_vtable=0, setfield_gc=0, getfield_gc=0,
-                          new=0)
-
-class TestOOtype_Instance(VirtualTests, OOJitMixin):
-    _new_op = 'new_with_vtable'
-    _field_prefix = 'o'
-    
-    @staticmethod
-    def _new():
-        return MyClass()
-
-    test_class_with_default_fields = TestLLtype_Instance.test_class_with_default_fields.im_func
-
-# ____________________________________________________________
-# Run 2: all the tests use lltype.malloc to make a NODE
-
-NODE = lltype.GcStruct('NODE', ('value', lltype.Signed),
-                               ('floatval', lltype.Float),
-                               ('extra', lltype.Signed))
-
-class TestLLtype_NotObject(VirtualTests, LLJitMixin):
-    _new_op = 'new'
-    _field_prefix = ''
-    
-    @staticmethod
-    def _new():
-        return lltype.malloc(NODE)
 
     def test_raw_malloc(self):
         mydriver = JitDriver(greens=[], reds = 'auto')
@@ -1285,6 +1216,76 @@ class TestLLtype_NotObject(VirtualTests, LLJitMixin):
         assert res == 55
         self.check_trace_count(1)
         self.check_resops(setarrayitem_raw=2, getarrayitem_raw=4)
+
+
+# ____________________________________________________________
+# Run 1: all the tests instantiate a real RPython class
+
+class MyClass:
+    pass
+
+class TestLLtype_Instance(VirtualTests, LLJitMixin):
+    _new_op = 'new_with_vtable'
+    _field_prefix = 'inst_'
+    
+    @staticmethod
+    def _new():
+        return MyClass()
+
+    def test_class_with_default_fields(self):
+        class MyClass:
+            value = 2
+            value2 = 0
+
+        class Subclass(MyClass):
+            pass
+
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'res'])
+        def f(n):
+            res = 0
+            node = MyClass()
+            node.value = n  # so that the annotator doesn't think that value is constant
+            node.value2 = n # ditto
+            while n > 0:
+                myjitdriver.can_enter_jit(n=n, res=res)
+                myjitdriver.jit_merge_point(n=n, res=res)
+                node = Subclass()
+                res += node.value
+                res += node.value2
+                n -= 1
+            return res
+        assert f(10) == 20
+        res = self.meta_interp(f, [10])
+        assert res == 20
+        self.check_trace_count(1)
+        self.check_resops(new_with_vtable=0, setfield_gc=0, getfield_gc=0,
+                          new=0)
+
+class TestOOtype_Instance(VirtualTests, OOJitMixin):
+    _new_op = 'new_with_vtable'
+    _field_prefix = 'o'
+    
+    @staticmethod
+    def _new():
+        return MyClass()
+
+    test_class_with_default_fields = TestLLtype_Instance.test_class_with_default_fields.im_func
+
+# ____________________________________________________________
+# Run 2: all the tests use lltype.malloc to make a NODE
+
+NODE = lltype.GcStruct('NODE', ('value', lltype.Signed),
+                               ('floatval', lltype.Float),
+                               ('extra', lltype.Signed))
+
+class TestLLtype_NotObject(VirtualTests, LLJitMixin):
+    _new_op = 'new'
+    _field_prefix = ''
+    
+    @staticmethod
+    def _new():
+        return lltype.malloc(NODE)
+
 
 
 
