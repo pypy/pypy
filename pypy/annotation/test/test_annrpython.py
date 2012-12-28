@@ -255,13 +255,6 @@ class TestAnnotateTestCase:
         assert getcdef(snippet.H).about_attribute('attr') == (
                           a.bookkeeper.immutablevalue(1))
 
-    def DISABLED_test_knownkeysdict(self):
-        # disabled, SomeDict() is now a general {s_key: s_value} dict
-        a = self.RPythonAnnotator()
-        s = a.build_types(snippet.knownkeysdict, [int])
-        # result should be an integer
-        assert s.knowntype == int
-
     def test_generaldict(self):
         a = self.RPythonAnnotator()
         s = a.build_types(snippet.generaldict, [str, int, str, int])
@@ -482,6 +475,13 @@ class TestAnnotateTestCase:
             return a_str * 3
         s = a.build_types(f, [str])
         assert isinstance(s, annmodel.SomeString)
+
+    def test_str_isalpha(self):
+        def f(s):
+            return s.isalpha()
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [str])
+        assert isinstance(s, annmodel.SomeBool)
 
     def test_simple_slicing(self):
         a = self.RPythonAnnotator()

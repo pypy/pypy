@@ -10,6 +10,8 @@ from pypy.jit.metainterp import pyjitpl, history
 from pypy.jit.codewriter.policy import JitPolicy
 from pypy.jit.codewriter import codewriter, longlong
 from pypy.rlib.rfloat import isnan
+from pypy.translator.backendopt.all import backend_optimizations
+
 
 def _get_jitcodes(testself, CPUClass, func, values, type_system,
                   supports_longlong=False, translationoptions={}, **kwds):
@@ -68,7 +70,9 @@ def _get_jitcodes(testself, CPUClass, func, values, type_system,
     policy = JitPolicy()
     policy.set_supports_floats(True)
     policy.set_supports_longlong(supports_longlong)
-    cw.find_all_graphs(policy)
+    graphs = cw.find_all_graphs(policy)
+    if kwds.get("backendopt"):
+        backend_optimizations(rtyper.annotator.translator, graphs=graphs)
     #
     testself.warmrunnerstate = FakeWarmRunnerState()
     testself.warmrunnerstate.cpu = cpu

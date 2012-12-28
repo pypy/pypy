@@ -1,5 +1,7 @@
 /************************************************************/
- /***  C header subsection: debug_print & related tools    ***/
+/***  C header subsection: debug_print & related tools    ***/
+
+#include <stdio.h>
 
 /* values of the PYPYLOG environment variable:
    ("top-level" debug_prints means not between debug_start and debug_stop)

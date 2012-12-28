@@ -122,3 +122,10 @@ def test_encode_jisx0208():
     c = getcodec('iso2022_jp')
     s = encode(c, u'\u83ca\u5730\u6642\u592b')
     assert s == '\x1b$B5FCO;~IW\x1b(B' and type(s) is str
+
+def test_encode_custom_error_handler_bytes():
+    c = getcodec("hz")
+    def errorhandler(errors, enc, msg, t, startingpos, endingpos):
+        return None, '\xc3', endingpos
+    s = encode(c, u'abc\u1234def', 'foo', errorhandler)
+    assert '\xc3' in s

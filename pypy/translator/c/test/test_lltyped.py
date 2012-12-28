@@ -907,3 +907,15 @@ class TestLowLevelType(object):
             return rstring_to_float(s)
         fn = self.getcompiled(llf, [int])
         assert fn(0) == 42.3
+
+    def test_raw_array_field(self):
+        from pypy.rpython.lltypesystem import rffi
+        S = Struct('S', ('array', rffi.CArray(Signed)))
+        def llf(i):
+            s = malloc(S, i, flavor='raw')
+            s.array[i-2] = 42
+            x = s.array[i-2]
+            free(s, flavor='raw')
+            return x
+        fn = self.getcompiled(llf, [int])
+        assert fn(5) == 42

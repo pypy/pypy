@@ -644,16 +644,6 @@ class OOtypeCPU_xxx_disabled(BaseCPU):
         else:
             return ootype.NULL
 
-    def get_overflow_error(self):
-        ll_err = llimpl._get_error(OverflowError)
-        return (ootype.cast_to_object(ll_err.args[0]),
-                ootype.cast_to_object(ll_err.args[1]))
-
-    def get_zero_division_error(self):
-        ll_err = llimpl._get_error(ZeroDivisionError)
-        return (ootype.cast_to_object(ll_err.args[0]),
-                ootype.cast_to_object(ll_err.args[1]))
-
     def do_new_with_vtable(self, clsbox):
         cls = clsbox.getref_base()
         typedescr = self.class_sizes[cls]

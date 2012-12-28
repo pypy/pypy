@@ -144,6 +144,8 @@ def parse_options_and_load_target():
         else:
             log.ERROR("Could not find target %r" % (arg, ))
             sys.exit(1)
+    else:
+        show_help(translateconfig, opt_parser, None, config)
 
     # apply the platform settings
     set_platform(config)
@@ -163,6 +165,9 @@ def parse_options_and_load_target():
                 existing_config=config,
                 translating=True)
 
+    # show the target-specific help if --help was given
+    show_help(translateconfig, opt_parser, targetspec_dic, config)
+
     # apply the optimization level settings
     set_opt_level(config, translateconfig.opt)
 
@@ -174,16 +179,25 @@ def parse_options_and_load_target():
     # perform checks (if any) on the final config
     final_check_config(config)
 
+    return targetspec_dic, translateconfig, config, args
+
+def show_help(translateconfig, opt_parser, targetspec_dic, config):
     if translateconfig.help:
-        opt_parser.print_help()
-        if 'print_help' in targetspec_dic:
-            print "\n\nTarget specific help:\n\n"
+        if targetspec_dic is None:
+            opt_parser.print_help()
+            print "\n\nDefault target: %s" % translateconfig.targetspec
+            print "Run '%s --help %s' for target-specific help" % (
+                sys.argv[0], translateconfig.targetspec)
+        elif 'print_help' in targetspec_dic:
+            print "\n\nTarget specific help for %s:\n\n" % (
+                translateconfig.targetspec,)
             targetspec_dic['print_help'](config)
+        else:
+            print "\n\nNo target-specific help available for %s" % (
+                translateconfig.targetspec,)
         print "\n\nFor detailed descriptions of the command line options see"
         print "http://pypy.readthedocs.org/en/latest/config/commandline.html"
         sys.exit(0)
-
-    return targetspec_dic, translateconfig, config, args
 
 def log_options(options, header="options in effect"):
     # list options (xxx filter, filter for target)

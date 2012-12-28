@@ -74,7 +74,9 @@ class HeapCache(object):
         elif (opnum != rop.GETFIELD_GC and
               opnum != rop.MARK_OPAQUE_PTR and
               opnum != rop.PTR_EQ and
-              opnum != rop.PTR_NE):
+              opnum != rop.PTR_NE and
+              opnum != rop.INSTANCE_PTR_EQ and
+              opnum != rop.INSTANCE_PTR_NE):
             idx = 0
             for box in argboxes:
                 # setarrayitem_gc don't escape its first argument
@@ -126,6 +128,18 @@ class HeapCache(object):
                                 if frombox not in self.new_boxes:
                                     del cache[frombox]
                     return
+            else:
+                # Only invalidate things that are either escaped or arguments
+                for descr, boxes in self.heap_cache.iteritems():
+                    for box in boxes.keys():
+                        if not self.is_unescaped(box) or box in argboxes:
+                            del boxes[box]
+                for descr, indices in self.heap_array_cache.iteritems():
+                    for boxes in indices.itervalues():
+                        for box in boxes.keys():
+                            if not self.is_unescaped(box) or box in argboxes:
+                                del boxes[box]
+                return
 
         self.heap_cache.clear()
         self.heap_array_cache.clear()

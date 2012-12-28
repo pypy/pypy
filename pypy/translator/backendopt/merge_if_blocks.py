@@ -1,5 +1,4 @@
-from pypy.objspace.flow.model import Block, Constant, Variable
-from pypy.objspace.flow.model import checkgraph, mkentrymap
+from pypy.objspace.flow.model import Constant, Variable, checkgraph, mkentrymap
 from pypy.translator.backendopt.support import log
 
 log = log.mergeifblocks
@@ -27,7 +26,7 @@ def merge_chain(chain, checkvar, varmap, graph):
         return varmap[var_or_const]
     firstblock, case = chain[0]
     firstblock.operations = firstblock.operations[:-1]
-    firstblock.exitswitch = checkvar 
+    firstblock.exitswitch = checkvar
     values = {}
     links = []
     default = chain[-1][0].exits[0]

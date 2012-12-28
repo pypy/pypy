@@ -13,11 +13,13 @@ import sys
 import signal
 
 def setup_module(mod):
+    usemodules = ['binascii', 'posix', 'struct', 'rctime']
     if os.name != 'nt':
-        mod.space = gettestobjspace(usemodules=['posix', 'fcntl', 'struct'])
+        usemodules += ['fcntl']
     else:
         # On windows, os.popen uses the subprocess module
-        mod.space = gettestobjspace(usemodules=['posix', '_rawffi', 'thread', 'struct'])
+        usemodules += ['_rawffi', 'thread']
+    mod.space = gettestobjspace(usemodules=usemodules)
     mod.path = udir.join('posixtestfile.txt')
     mod.path.write("this is a test")
     mod.path2 = udir.join('test_posix2-')
@@ -48,7 +50,9 @@ def need_sparse_files():
 
 GET_POSIX = "(): import %s as m ; return m" % os.name
 
+
 class AppTestPosix:
+
     def setup_class(cls):
         cls.space = space
         cls.w_posix = space.appexec([], GET_POSIX)
@@ -321,7 +325,11 @@ class AppTestPosix:
             u = "caf\xe9".decode(sys.getfilesystemencoding())
         except UnicodeDecodeError:
             # Could not decode, listdir returned the byte string
-            assert (str, "caf\xe9") in typed_result
+            if sys.platform != 'darwin':
+                assert (str, "caf\xe9") in typed_result
+            else:
+                # darwin 'normalized' it
+                assert (unicode, 'caf%E9') in typed_result
         else:
             assert (unicode, u) in typed_result
 
@@ -808,6 +816,33 @@ class AppTestPosix:
             raises(OSError, os.lchown, self.path, os.getuid(), os.getgid())
             os.symlink('foobar', self.path)
             os.lchown(self.path, os.getuid(), os.getgid())
+
+    if hasattr(os, 'fchown'):
+        def test_fchown(self):
+            os = self.posix
+            f = open(self.path, "w")
+            os.fchown(f.fileno(), os.getuid(), os.getgid())
+            f.close()
+
+    if hasattr(os, 'chmod'):
+        def test_chmod(self):
+            os = self.posix
+            os.unlink(self.path)
+            raises(OSError, os.chmod, self.path, 0600)
+            f = open(self.path, "w")
+            f.write("this is a test")
+            f.close()
+            os.chmod(self.path, 0200)
+            assert (os.stat(self.path).st_mode & 0777) == 0200
+
+    if hasattr(os, 'fchmod'):
+        def test_fchmod(self):
+            os = self.posix
+            f = open(self.path, "w")
+            os.fchmod(f.fileno(), 0200)
+            assert (os.fstat(f.fileno()).st_mode & 0777) == 0200
+            f.close()
+            assert (os.stat(self.path).st_mode & 0777) == 0200
 
     if hasattr(os, 'mkfifo'):
         def test_mkfifo(self):

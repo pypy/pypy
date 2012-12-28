@@ -1,14 +1,35 @@
 from __future__ import with_statement
-import sys
+
+from pypy.interpreter.function import Function
+from pypy.interpreter.gateway import BuiltinCode
 from pypy.module.math.test import test_direct
 
 
 class AppTestMath:
-    spaceconfig = dict(usemodules=['math', 'struct', 'itertools'])
+    spaceconfig = {
+        "usemodules": ['math', 'struct', 'itertools', 'rctime', 'binascii'],
+    }
 
     def setup_class(cls):
-        cls.w_cases = cls.space.wrap(test_direct.MathTests.TESTCASES)
-        cls.w_consistent_host = cls.space.wrap(test_direct.consistent_host)
+        space = cls.space
+        cases = []
+        for a, b, expected in test_direct.MathTests.TESTCASES:
+            if type(expected) is type and issubclass(expected, Exception):
+                expected = getattr(space, "w_%s" % expected.__name__)
+            elif callable(expected):
+                if not cls.runappdirect:
+                    expected = cls.make_callable_wrapper(expected)
+            else:
+                expected = space.wrap(expected)
+            cases.append(space.newtuple([space.wrap(a), space.wrap(b), expected]))
+        cls.w_cases = space.newlist(cases)
+        cls.w_consistent_host = space.wrap(test_direct.consistent_host)
+
+    @classmethod
+    def make_callable_wrapper(cls, func):
+        def f(space, w_x):
+            return space.wrap(func(space.unwrap(w_x)))
+        return Function(cls.space, BuiltinCode(f))
 
     def w_ftest(self, actual, expected):
         assert abs(actual - expected) < 10E-5

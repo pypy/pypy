@@ -27,12 +27,10 @@ def test_parse_old_format():
     assert (parse_info("                          objspace.allworkingmodules: True\n"
                        "                    objspace.disable_call_speedhacks: False\n"
                        "                                 objspace.extmodules: None\n"
-                       "                                       objspace.name: std\n"
                        "                        objspace.std.prebuiltintfrom: -5\n")
             == {
         'objspace.allworkingmodules': True,
         'objspace.disable_call_speedhacks': False,
         'objspace.extmodules': None,
-        'objspace.name': 'std',
         'objspace.std.prebuiltintfrom': -5,
         })

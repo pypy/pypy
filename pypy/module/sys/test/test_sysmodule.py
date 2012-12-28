@@ -538,8 +538,8 @@ class AppTestSysModulePortedFromCPython:
         # be changed.
         assert sys.float_repr_style == "short"
 
-class AppTestCurrentFrames:
 
+class AppTestCurrentFrames:
     def test_current_frames(self):
         try:
             import thread
@@ -555,8 +555,11 @@ class AppTestCurrentFrames:
         assert frames.keys() == [0]
         assert frames[0].f_code.co_name in ('f', '?')
 
+
 class AppTestCurrentFramesWithThread(AppTestCurrentFrames):
-    spaceconfig = dict(usemodules=('thread',))
+    spaceconfig = {
+        "usemodules": ["rctime", "thread"],
+    }
 
     def test_current_frames(self):
         import sys

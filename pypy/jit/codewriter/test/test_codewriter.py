@@ -1,8 +1,11 @@
 import py
-from pypy.jit.codewriter.codewriter import CodeWriter
+
 from pypy.jit.codewriter import support
+from pypy.jit.codewriter.codewriter import CodeWriter
 from pypy.jit.metainterp.history import AbstractDescr
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
+from pypy.translator.backendopt.all import backend_optimizations
+
 
 class FakeCallDescr(AbstractDescr):
     def __init__(self, FUNC, ARGS, RESULT, effectinfo):
@@ -230,7 +233,8 @@ def test_newlist_negativ():
     rtyper = support.annotate(f, [-1])
     jitdriver_sd = FakeJitDriverSD(rtyper.annotator.translator.graphs[0])
     cw = CodeWriter(FakeCPU(rtyper), [jitdriver_sd])
-    cw.find_all_graphs(FakePolicy())
+    graphs = cw.find_all_graphs(FakePolicy())
+    backend_optimizations(rtyper.annotator.translator, graphs=graphs)
     cw.make_jitcodes(verbose=True)
     s = jitdriver_sd.mainjitcode.dump()
     assert 'int_force_ge_zero' in s

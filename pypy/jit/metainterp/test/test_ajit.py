@@ -3051,7 +3051,7 @@ class BasicTests:
                 i += 1
         res = self.meta_interp(f, [32])
         assert res == f(32)
-
+        
     def test_nested_loops_unboxed(self):
         class A:
             pass
@@ -3154,7 +3154,6 @@ class BasicTests:
 
         res = self.meta_interp(f, [10])
         assert res == f(10)
-
 
 class XXXDisabledTestOOtype(BasicTests, OOJitMixin):
 

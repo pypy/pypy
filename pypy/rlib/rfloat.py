@@ -170,13 +170,17 @@ def double_to_string(value, tp, precision, flags):
     result = formatd(value, tp, precision, flags)
     return result, special
 
-def round_double(value, ndigits):
-    if USE_SHORT_FLOAT_REPR:
-        return round_double_short_repr(value, ndigits)
-    else:
-        return round_double_fallback_repr(value, ndigits)
+def round_double(value, ndigits, half_even=False):
+    """Round a float half away from zero.
 
-def round_double_short_repr(value, ndigits):
+    Specify half_even=True to round half even instead.
+    """
+    if USE_SHORT_FLOAT_REPR:
+        return round_double_short_repr(value, ndigits, half_even)
+    else:
+        return round_double_fallback_repr(value, ndigits, half_even)
+
+def round_double_short_repr(value, ndigits, half_even):
     # The basic idea is very simple: convert and round the double to
     # a decimal string using _Py_dg_dtoa, then convert that decimal
     # string back to a double with _Py_dg_strtod.  There's one minor
@@ -209,7 +213,7 @@ def round_double_short_repr(value, ndigits):
 
     # determine whether this is a halfway case.
     halfway_case = 0
-    if expo == -ndigits - 1:
+    if not half_even and expo == -ndigits - 1:
         if ndigits >= 0:
             halfway_case = 1
         elif ndigits >= -22:
@@ -224,7 +228,7 @@ def round_double_short_repr(value, ndigits):
     # round to a decimal string; use an extra place for halfway case
     strvalue = formatd(value, 'f', ndigits + halfway_case)
 
-    if halfway_case:
+    if not half_even and halfway_case:
         buf = [c for c in strvalue]
         if ndigits >= 0:
             endpos = len(buf) - 1
@@ -263,7 +267,7 @@ def round_double_short_repr(value, ndigits):
 
 # fallback version, to be used when correctly rounded
 # binary<->decimal conversions aren't available
-def round_double_fallback_repr(value, ndigits):
+def round_double_fallback_repr(value, ndigits, half_even):
     if ndigits >= 0:
         if ndigits > 22:
             # pow1 and pow2 are each safe from overflow, but
@@ -284,12 +288,17 @@ def round_double_fallback_repr(value, ndigits):
         pow2 = 1.0 # unused; for translation
         y = value / pow1
 
-    if y >= 0.0:
-        z = math.floor(y + 0.5)
+    if half_even:
+        z = round_away(y)
+        if math.fabs(y - z) == 0.5:
+            z = 2.0 * round_away(y / 2.0)
     else:
-        z = math.ceil(y - 0.5)
-    if math.fabs(y-z) == 1.0:   # obscure case, see the test
-        z = y
+        if y >= 0.0:
+            z = math.floor(y + 0.5)
+        else:
+            z = math.ceil(y - 0.5)
+        if math.fabs(y - z) == 1.0:   # obscure case, see the test
+            z = y
 
     if ndigits >= 0:
         z = (z / pow2) / pow1
