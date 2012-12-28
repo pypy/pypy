@@ -330,10 +330,11 @@ AroundFnPtr = lltype.Ptr(lltype.FuncType([], lltype.Void))
 CallbackHookPtr = lltype.Ptr(lltype.FuncType([lltype.Ptr(rstr.STR)], lltype.Void))
 
 class AroundState:
+    callback_hook = None
+    
     def _cleanup_(self):
         self.before = None        # or a regular RPython function
         self.after = None         # or a regular RPython function
-        self.callback_hook = None # or a regular RPython function
 aroundstate = AroundState()
 aroundstate._cleanup_()
 
