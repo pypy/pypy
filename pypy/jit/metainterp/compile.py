@@ -252,14 +252,20 @@ def compile_retrace(metainterp, greenkey, start,
         assert jumpop.getopnum() == rop.JUMP
         preamble.operations = preamble.operations[1:-1]
         
-        newargs = [a.clonebox() for a in jumpop.getarglist()]
+        usedboxes = {}
+        newargs = [None] * jumpop.numargs()
         for i in range(jumpop.numargs()):
-            a1, a2 = jumpop.getarg(i), newargs[i]
-            preamble.operations.append(ResOperation(rop.SAME_AS, [a1], a2))
+            arg = jumpop.getarg(i)
+            if isinstance(arg, Const) or arg in usedboxes:
+                newargs[i] = arg.clonebox()
+                preamble.operations.append(ResOperation(rop.SAME_AS, [arg], newargs[i]))
+            else:
+                newargs[i] = arg
+                usedboxes[arg] = True
 
         inliner = Inliner(loop.operations[0].getarglist(), newargs)
         loop.operations = [inliner.inline_op(op, clone=False) for op in loop.operations]
-        
+
 
     except InvalidLoop:
         preamble.operations = [orignial_label] + \
