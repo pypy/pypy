@@ -1310,10 +1310,8 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
         self.cpu.bh_setarrayitem_gc_f(array, index, newvalue, arraydescr)
 
     def setrawbuffer_item(self, buffer, fieldnum, offset, descr):
-        if descr.is_array_of_pointers():
-            newvalue = self.decode_ref(fieldnum)
-            self.cpu.bh_raw_store_r(buffer, offset, newvalue, descr)
-        elif descr.is_array_of_floats():
+        assert not descr.is_array_of_pointers()
+        if descr.is_array_of_floats():
             newvalue = self.decode_float(fieldnum)
             self.cpu.bh_raw_store_f(buffer, offset, newvalue, descr)
         else:
