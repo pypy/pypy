@@ -14,9 +14,10 @@ import sys, os
 
 # FIXME: Introduce some VirtualOptimizer super class instead
 
-def optimize_unroll(metainterp_sd, loop, optimizations, inline_short_preamble=True):
+def optimize_unroll(metainterp_sd, loop, optimizations, inline_short_preamble=True, retraced_preamble=False):
     opt = UnrollOptimizer(metainterp_sd, loop, optimizations)
     opt.inline_short_preamble = inline_short_preamble
+    opt.retraced_preamble = retraced_preamble
     opt.propagate_all_forward()
 
 class UnrollableOptimizer(Optimizer):
@@ -139,9 +140,25 @@ class UnrollOptimizer(Optimization):
         self.optimizer.flush()
         KillHugeIntBounds(self.optimizer).apply()
 
+        if self.retraced_preamble:
+            self.rename_sruviving_boxes(start_label, stop_label)
         loop.operations = self.optimizer.get_newoperations()
         self.export_state(stop_label)
         loop.operations.append(stop_label)
+
+    def rename_sruviving_boxes(self, start, stop):
+        assert start.getdescr().targeting_jitcell_token is not stop.getdescr().targeting_jitcell_token
+        assert start.numargs() == stop.numargs()
+        start_args = {}
+        for a in start.getarglist():
+            start_args[a] = True
+        for i in range(start.numargs()):
+            arg = stop.getarg(i)
+            if arg is not start.getarg(i) and arg in start_args:
+                newarg = arg.clonebox()
+                op = ResOperation(rop.SAME_AS, [arg], newarg)
+                self.optimizer.send_extra_operation(op)
+                stop.setarg(i, newarg)
 
     def jump_to_start_label(self, start_label, stop_label):
         if not start_label or not stop_label:
