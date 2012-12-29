@@ -307,6 +307,8 @@ class VRefTests:
                 xy.next1 = lltype.malloc(A, 0)
                 xy.next2 = lltype.malloc(A, 0)
                 xy.next3 = lltype.malloc(A, 0)
+                buf = lltype.malloc(rffi.CCHARP.TO, 1, flavor='raw')
+                buf[0] = chr(n)
                 # this is a raw virtual
                 xy.next4 = lltype.malloc(rffi.CCHARP.TO, 1, flavor='raw')
                 xy.n = n
@@ -319,6 +321,7 @@ class VRefTests:
                 xy.next4 = lltype.nullptr(rffi.CCHARP.TO)
                 virtual_ref_finish(vref, xy)
                 exctx.topframeref = vref_None
+                lltype.free(buf, flavor='raw')
             return exctx.m
         #
         res = self.meta_interp(f, [30])

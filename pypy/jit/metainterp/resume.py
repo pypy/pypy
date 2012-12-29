@@ -763,7 +763,7 @@ class AbstractResumeDataReader(object):
                         self.getvirtual_int(i)
                     else:
                         assert False
-        return self.virtuals_cache
+        return self.virtuals_cache, self.virtuals_int_cache
 
     def _prepare_virtuals(self, virtuals):
         if virtuals:
@@ -1142,7 +1142,7 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
             # special case for resuming after a GUARD_NOT_FORCED: we already
             # have the virtuals
             self.resume_after_guard_not_forced = 2
-            self.virtuals_cache = all_virtuals
+            self.virtuals_cache, self.virtuals_int_cache = all_virtuals
             # self.rd_virtuals can remain None, because virtuals_cache is
             # already filled
 
