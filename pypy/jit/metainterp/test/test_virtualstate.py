@@ -1245,9 +1245,9 @@ class TestGuardedGenerlaization:
         vstate2 = modifier.get_virtual_state(jumpargs)
         if isinstance(expected, type) and issubclass(expected, Exception):
             with raises(expected):
-                vstate = vstate1.make_guarded_generalization_of(vstate2, jumpargs, self.optimizer) 
+                vstate = vstate1.make_guardable_generalization_of(vstate2, jumpargs, self.optimizer) 
         else:
-            vstate = vstate1.make_guarded_generalization_of(vstate2, jumpargs, self.optimizer) 
+            vstate = vstate1.make_guardable_generalization_of(vstate2, jumpargs, self.optimizer) 
             assert vstate.state == expected
 
     def setfield(self, node, descr, box):
