@@ -244,12 +244,16 @@ def compile_retrace(metainterp, greenkey, start,
         try:
             optimize_trace(metainterp_sd, preamble, jitdriver_sd.warmstate.enable_opts)
         except InvalidLoop:
-            assert False
+            assert loop_jitcell_token.target_tokens.pop() is loop.operations[0].getdescr()
+            raise InvalidLoop
 
         assert loop.operations[0].getopnum() == rop.LABEL
         assert preamble.operations[0].getopnum() == rop.LABEL
         jumpop = preamble.operations[-1]
         assert jumpop.getopnum() == rop.JUMP
+        if jumpop.getdescr() is not loop.operations[0].getdescr():
+            assert loop_jitcell_token.target_tokens.pop() is loop.operations[0].getdescr()
+            raise InvalidLoop
         preamble.operations = preamble.operations[1:-1]
         
         usedboxes = {}
