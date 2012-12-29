@@ -119,8 +119,7 @@ class VFPRegisterManager(RegisterManager):
                             forbidden_vars=self.temp_boxes + forbidden_vars)
         return loc
 
-    def get_scratch_reg(self, type=FLOAT, forbidden_vars=[],
-                                                        selected_reg=None):
+    def get_scratch_reg(self, type=FLOAT, forbidden_vars=[], selected_reg=None):
         assert type == FLOAT  # for now
         box = TempFloat()
         self.temp_boxes.append(box)
