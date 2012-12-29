@@ -23,6 +23,10 @@ class AbstractVirtualStateInfo(resume.AbstractVirtualInfo):
     def generalization_of(self, other, renum, bad):
         raise NotImplementedError
 
+    def generalization_of_null(self, renum, bad):
+        bad[self] = True
+        return False
+
     def make_guardable_generalization_of(self, other, value, optimizer):
         pass
 
@@ -81,38 +85,48 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
         self.fielddescrs = fielddescrs[:]
 
     def generalization_of(self, other, renum, bad):
+        bad[self] = True
+        bad[other] = True
+
         assert self.position != -1
         if self.position in renum:
             if renum[self.position] == other.position:
                 return True
-            bad[self] = True
-            bad[other] = True
             return False
         renum[self.position] = other.position
         if not self._generalization_of(other):
-            bad[self] = True
-            bad[other] = True
             return False
 
         assert isinstance(other, AbstractVirtualStructStateInfo)
         assert len(self.fielddescrs) == len(self.fieldstate)
         assert len(other.fielddescrs) == len(other.fieldstate)
-        if len(self.fielddescrs) != len(other.fielddescrs):
-            bad[self] = True
-            bad[other] = True
-            return False
 
-        for i in range(len(self.fielddescrs)):
-            if other.fielddescrs[i] is not self.fielddescrs[i]:
-                bad[self] = True
-                bad[other] = True
-                return False
-            if not self.fieldstate[i].generalization_of(other.fieldstate[i],
-                                                        renum, bad):
-                bad[self] = True
-                bad[other] = True
-                return False
 
+        i = j = 0
+        while i < len(self.fielddescrs) and j < len(other.fielddescrs):
+            if other.fielddescrs[j] is self.fielddescrs[i]:
+                if not self.fieldstate[i].generalization_of(other.fieldstate[j], renum, bad):
+                    return False
+                i += 1
+                j += 1
+            elif other.fielddescrs[j].sort_key() > self.fielddescrs[i].sort_key():
+                if not self.fieldstate[i].generalization_of_null(renum, bad):
+                    return False
+                i += 1
+            else:
+                # The only generalization of the constant null would be the constant null
+                # in which case the fielddescr would not show up om either state
+                return False
+        if j < len(other.fielddescrs):
+            return False 
+        while i < len(self.fielddescrs):
+            if not self.fieldstate[i].generalization_of_null(renum, bad):
+                return False
+            i += 1
+
+        del bad[self]
+        if other in bad: 
+            del bad[other]
         return True
 
     def make_guardable_generalization_of(self, other, value, optimizer):
@@ -381,6 +395,12 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
             bad[other] = True
             return False
         return True
+
+    def generalization_of_null(self, renum, bad):
+        if self.level == LEVEL_UNKNOWN and not self.lenbound and self.intbound.contains(0):
+            return True
+        bad[self] = True
+        return False
 
     def make_guardable_generalization_of(self, other, value, optimizer):
         if not self.generalization_of(other, {}, {}):

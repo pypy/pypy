@@ -14,6 +14,7 @@ from pypy.jit.metainterp.history import TreeLoop, JitCellToken
 from pypy.jit.metainterp.optimizeopt.test.test_optimizeopt import FakeMetaInterpStaticData
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.metainterp.optimizeopt.optimizer import LEVEL_UNKNOWN, LEVEL_CONSTANT, Optimizer
+import itertools
 
 class TestBasic:
     someptr1 = LLtypeMixin.myptr
@@ -1169,15 +1170,16 @@ class TestShortBoxes:
 class FakeCPU(object):
     pass
 class FakeDescr(object):
-    pass
+    def sort_key(self):
+        return id(self)
 
 class FakeGuardedGenerlaizationOptimizer(object):
     unknown_ptr1, unknown_ptr2 = BoxPtr(), BoxPtr()
-    unknown_int1, unknown_int2 = BoxInt(1), BoxInt(2)
+    unknown_int1, unknown_int2, unknown_int3 = BoxInt(1), BoxInt(2), BoxInt(3)
     const_int0, const_int1, const_int2 = ConstInt(0), ConstInt(1), ConstInt(2)
     node_class = ConstInt(42)
     node1, node2 = BoxPtr(), BoxPtr()
-    descr1, descr2 = FakeDescr(), FakeDescr()
+    descr1, descr2, descr3 = FakeDescr(), FakeDescr(), FakeDescr()
     subnode_class = ConstInt(7)
     subnode1 = BoxPtr()
     array1, array2 = BoxPtr(), BoxPtr()
@@ -1295,6 +1297,83 @@ class TestGuardedGenerlaization:
         self.combine([o.array1], [o.array2], InvalidLoop)
 
 
+class TestGenerlaization:
+    def setup_method(self, m):
+        self.optimizer = FakeGuardedGenerlaizationOptimizer()
 
+    def teardown_method(self, m):
+        del self.optimizer
 
+    def is_more_general(self, args1, args2):
+        modifier = VirtualStateAdder(self.optimizer)
+        vstate1 = modifier.get_virtual_state(args1)
+        vstate2 = modifier.get_virtual_state(args2)
+        return vstate1.generalization_of(vstate2)
+    
+    def setfield(self, node, descr, box):
+        self.optimizer.getvalue(node).setfield(descr, self.optimizer.getvalue(box))
 
+    def test_int(self):
+        o = self.optimizer
+        assert self.is_more_general([o.unknown_int1], [o.const_int1])
+        assert not self.is_more_general([o.const_int1], [o.unknown_int1])
+        assert self.is_more_general([o.unknown_int1], [o.unknown_int2])
+
+    def test_boxed_int_one(self):
+        o = self.optimizer
+        self.setfield(o.node1, o.descr1, o.unknown_int1)
+        self.setfield(o.node2, o.descr1, o.const_int1)
+        assert self.is_more_general([o.node1], [o.node2])
+        assert not self.is_more_general([o.node2], [o.node1])
+        assert self.is_more_general([o.node1], [o.node1])
+
+    def test_boxed_int_zero(self):
+        o = self.optimizer
+        self.setfield(o.node1, o.descr1, o.unknown_int1)
+        self.setfield(o.node2, o.descr1, o.const_int0)
+        assert self.is_more_general([o.node1], [o.node2])
+        assert not self.is_more_general([o.node2], [o.node1])
+        assert self.is_more_general([o.node1], [o.node1])
+
+    def test_two_boxed_int_one(self):
+        o = self.optimizer
+        self.setfield(o.node1, o.descr1, o.unknown_int1)
+        self.setfield(o.node2, o.descr1, o.const_int1)
+        self.setfield(o.node1, o.descr2, o.const_int2)
+        self.setfield(o.node2, o.descr2, o.const_int2)
+        assert self.is_more_general([o.node1], [o.node2])
+        assert not self.is_more_general([o.node2], [o.node1])
+        assert self.is_more_general([o.node1], [o.node1])
+
+    def test_three_boxed_int_zero(self):
+        o = self.optimizer
+        self.setfield(o.node1, o.descr1, o.unknown_int1)
+        self.setfield(o.node1, o.descr2, o.unknown_int2)
+        self.setfield(o.node1, o.descr3, o.unknown_int3)
+        
+        for consts in itertools.permutations([o.const_int0, o.const_int1, o.const_int2]):
+            self.setfield(o.node2, o.descr1, consts[0])
+            self.setfield(o.node2, o.descr2, consts[1])
+            self.setfield(o.node2, o.descr3, consts[2])
+            assert self.is_more_general([o.node1], [o.node2])
+            assert not self.is_more_general([o.node2], [o.node1])
+            assert self.is_more_general([o.node1], [o.node1])
+
+    def test_three_boxed_int_zero_missmatch(self):
+        o = self.optimizer
+        self.setfield(o.node1, o.descr1, o.unknown_int1)
+        self.setfield(o.node1, o.descr2, o.unknown_int2)
+        self.setfield(o.node1, o.descr3, o.unknown_int3)
+        
+        constmap = {o.const_int0: o.const_int1, 
+                    o.const_int1: o.const_int1, 
+                    o.const_int2: o.const_int2}
+        for consts in itertools.permutations([o.const_int0, o.const_int1, o.const_int2]):
+            self.setfield(o.node1, o.descr1, constmap[consts[0]])
+            self.setfield(o.node1, o.descr2, constmap[consts[1]])
+            self.setfield(o.node1, o.descr3, constmap[consts[2]])
+            self.setfield(o.node2, o.descr1, consts[0])
+            self.setfield(o.node2, o.descr2, consts[1])
+            self.setfield(o.node2, o.descr3, consts[2])
+            assert not self.is_more_general([o.node1], [o.node2])
+            assert not self.is_more_general([o.node2], [o.node1])
