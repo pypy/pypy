@@ -69,10 +69,16 @@ class AbstractVirtualStateInfo(resume.AbstractVirtualInfo):
     def debug_header(self, indent):
         raise NotImplementedError
 
+    def kill_null_fields(self):
+        pass
+
+    def is_null(self):
+        return False
+
 
 class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
     def __init__(self, fielddescrs):
-        self.fielddescrs = fielddescrs
+        self.fielddescrs = fielddescrs[:]
 
     def generalization_of(self, other, renum, bad):
         assert self.position != -1
@@ -111,25 +117,28 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
 
     def make_guardable_generalization_of(self, other, value, optimizer):
         if not self._generalization_of(other):
-            raise InvalidLoop
+            raise InvalidLoop('Cant combine virtuals of different classes.')
         assert isinstance(other, AbstractVirtualStructStateInfo)
         assert len(self.fielddescrs) == len(self.fieldstate)
         assert len(other.fielddescrs) == len(other.fieldstate)
         assert isinstance(value, virtualize.AbstractVirtualStructValue)
         if len(self.fielddescrs) != len(other.fielddescrs):
-            raise InvalidLoop
+            raise InvalidLoop('Cant combine virtuals with different numbers of fields.')
         for i in range(len(self.fielddescrs)):
             if other.fielddescrs[i] is not self.fielddescrs[i]:
-                raise InvalidLoop
+                raise InvalidLoop('Cant combine virtuals with different fields.')
             new_field_value = self.fieldstate[i].make_guardable_generalization_of(other.fieldstate[i],
                                                                         value.getfield(self.fielddescrs[i], None),
                                                                         optimizer)
             if new_field_value:
                 value.setfield(self.fielddescrs[i], new_field_value)
-            #FIXME: default value of getfield
 
-
-
+    def kill_null_fields(self):
+        assert len(self.fielddescrs) == len(self.fieldstate)
+        for i in reversed(range(len(self.fielddescrs))):
+            if self.fieldstate[i].is_null():
+                del self.fieldstate[i]
+                del self.fielddescrs[i]
 
     def _generalization_of(self, other):
         raise NotImplementedError
@@ -310,7 +319,6 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
 
     def debug_header(self, indent):
         debug_print(indent + 'VArrayStructStateInfo(%d):' % self.position)
-
 
 class NotVirtualStateInfo(AbstractVirtualStateInfo):
     def __init__(self, value, is_opaque=False):
@@ -497,6 +505,13 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
         debug_print(indent + mark + 'NotVirtualInfo(%d' % self.position +
                     ', ' + l + ', ' + self.intbound.__repr__() + lb + ')')
 
+    def is_null(self):
+        if self.level == LEVEL_CONSTANT:
+            box = self.constbox
+            assert isinstance(box, Const)
+            return not box.nonnull()
+        return False
+
 class VirtualState(object):
     def __init__(self, state):
         self.state = state
@@ -596,6 +611,7 @@ class VirtualStateAdder(resume.ResumeDataVirtualAdder):
                 self.info[box] = info = value.make_virtual_info(self, None)
                 flds = self.fieldboxes[box]
                 info.fieldstate = [self.state(b) for b in flds]
+                info.kill_null_fields()
             else:
                 self.info[box] = info = self.make_not_virtual(value)
         return info

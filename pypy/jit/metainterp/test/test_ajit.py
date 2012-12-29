@@ -3097,7 +3097,7 @@ class BasicTests:
         self.check_resops(new_with_vtable=0)
         self.check_retraced_simple_loop(2, int_mul=0)
 
-    def test_nested_loops_boxed(self):
+    def test_nested_loops_boxed_one(self):
         class Int(object):
             def __init__(self, val):
                 self.val = val
@@ -3116,7 +3116,50 @@ class BasicTests:
                 if op == 'i':
                     i = Int(1)
                 elif op == 'j':
-                    j = Int(1) # FIXME: test with 0 aswell
+                    j = Int(1)
+                elif op == '+':
+                    sa += 3 * i.val + j.val + 5 * c.val
+                elif op == 'a':
+                    i = Int(i.val + 1)
+                elif op == 'b':
+                    j = Int(j.val + 1)
+                elif op == 'J':
+                    if j.val < n:
+                        pc -= 2
+                        myjitdriver.can_enter_jit(pc=pc, n=n, sa=sa, i=i, j=j, c=c)
+                        continue
+                elif op == 'I':
+                    if i.val < n:
+                        pc -= 5
+                        myjitdriver.can_enter_jit(pc=pc, n=n, sa=sa, i=i, j=j, c=c)
+                        continue
+                pc += 1
+            return sa
+        res = self.meta_interp(f, [10])
+        assert res == f(10)
+        self.check_resops(new_with_vtable=0)
+        self.check_retraced_simple_loop(2, getfield_gc=0, int_mul=0)
+
+    def test_nested_loops_boxed_zero(self):
+        class Int(object):
+            def __init__(self, val):
+                self.val = val
+        bytecode = "iajb+JI"
+        def get_printable_location(i):
+            return "%d: %s" % (i, bytecode[i])
+        myjitdriver = JitDriver(greens = ['pc'], reds = ['n', 'sa', 'c', 'i', 'j'],
+                                get_printable_location=get_printable_location)
+        def f(n):
+            pc = sa = 0
+            i = j = Int(0)
+            c = Int(n)
+            while pc < len(bytecode):
+                myjitdriver.jit_merge_point(pc=pc, n=n, sa=sa, i=i, j=j, c=c)
+                op = bytecode[pc]
+                if op == 'i':
+                    i = Int(0)
+                elif op == 'j':
+                    j = Int(0)
                 elif op == '+':
                     sa += 3 * i.val + j.val + 5 * c.val
                 elif op == 'a':
