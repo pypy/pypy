@@ -109,14 +109,10 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
                     return False
                 i += 1
                 j += 1
-            elif other.fielddescrs[j].sort_key() > self.fielddescrs[i].sort_key():
+            else:
                 if not self.fieldstate[i].generalization_of_null(renum, bad):
                     return False
                 i += 1
-            else:
-                # The only generalization of the constant null would be the constant null
-                # in which case the fielddescr would not show up om either state
-                return False
         if j < len(other.fielddescrs):
             return False 
         while i < len(self.fielddescrs):
