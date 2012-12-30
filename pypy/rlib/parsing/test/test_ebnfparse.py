@@ -318,7 +318,7 @@ primary: "(" additive ")" | DECIMAL;
 """)
     excinfo = py.test.raises(ValueError, make_parse_function, regexs, rules)
     assert "primari" in str(excinfo.value)
- 
+
 def test_starred_star():
     regexs, rules, ToAST = parse_ebnf("""
 IGNORE: " ";
@@ -470,3 +470,11 @@ empty: ;
     t = ToAST().transform(t)
     assert len(t.children) == 6
     excinfo = py.test.raises(ParseError, parse, "a")
+
+def test_zero_repetition_production():
+    grammar = """
+IGNORE: " ";
+foo: "A"?;
+"""
+    excinfo = py.test.raises(ValueError, parse_ebnf, grammar)
+    assert "foo" in str(excinfo.value)

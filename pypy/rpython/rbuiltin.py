@@ -222,6 +222,9 @@ def rtype_builtin_unichr(hop):
 def rtype_builtin_unicode(hop):
     return hop.args_r[0].rtype_unicode(hop)
 
+def rtype_builtin_bytearray(hop):
+    return hop.args_r[0].rtype_bytearray(hop)
+
 def rtype_builtin_list(hop):
     return hop.args_r[0].rtype_bltn_list(hop)
 

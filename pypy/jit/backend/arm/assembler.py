@@ -8,7 +8,7 @@ from pypy.jit.backend.arm.arch import WORD, DOUBLE_WORD, FUNC_ALIGN, \
 from pypy.jit.backend.arm.codebuilder import ARMv7Builder, OverwritingBuilder
 from pypy.jit.backend.arm.locations import get_fp_offset
 from pypy.jit.backend.arm.regalloc import (Regalloc, ARMFrameManager,
-                    ARMv7RegisterManager, check_imm_arg,
+                    CoreRegisterManager, check_imm_arg,
                     operations as regalloc_operations,
                     operations_with_guard as regalloc_operations_with_guard)
 from pypy.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
@@ -492,10 +492,10 @@ class AssemblerARM(ResOpAssembler):
             # are stored in r0 and r1.
             mc.SUB_rr(r.r0.value, r.r1.value, r.r0.value)
             addr = self.cpu.gc_ll_descr.get_malloc_slowpath_addr()
-            for reg, ofs in ARMv7RegisterManager.REGLOC_TO_COPY_AREA_OFS.items():
+            for reg, ofs in CoreRegisterManager.REGLOC_TO_COPY_AREA_OFS.items():
                 mc.STR_ri(reg.value, r.fp.value, imm=ofs)
             mc.BL(addr)
-            for reg, ofs in ARMv7RegisterManager.REGLOC_TO_COPY_AREA_OFS.items():
+            for reg, ofs in CoreRegisterManager.REGLOC_TO_COPY_AREA_OFS.items():
                 mc.LDR_ri(reg.value, r.fp.value, imm=ofs)
 
         mc.CMP_ri(r.r0.value, 0)
