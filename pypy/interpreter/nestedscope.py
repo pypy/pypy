@@ -3,7 +3,7 @@ from pypy.interpreter import function, pycode, pyframe
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.mixedmodule import MixedModule
 from pypy.interpreter.astcompiler import consts
-from pypy.rlib import jit
+from rpython.rlib import jit
 from pypy.tool.uid import uid
 
 class Cell(Wrappable):

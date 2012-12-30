@@ -3,7 +3,7 @@
 """
 
 from pypy.tool.ansi_print import ansi_log
-from pypy.objspace.flow.model import Variable
+from rpython.flowspace.model import Variable
 import sys
 
 import py
@@ -134,9 +134,9 @@ def format_simple_call(annotator, oper, msg):
         msg.append("")
 
 def debug(drv, use_pdb=True):
-    # XXX unify some code with pypy.translator.goal.translate
-    from pypy.translator.tool.pdbplus import PdbPlusShow
-    from pypy.translator.driver import log
+    # XXX unify some code with rpython.translator.goal.translate
+    from rpython.translator.tool.pdbplus import PdbPlusShow
+    from rpython.translator.driver import log
     t = drv.translator
     class options:
         huge = 100

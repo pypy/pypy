@@ -1,12 +1,12 @@
 
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.interpreter.error import OperationError
 from pypy.module.cpyext.api import (
     cpython_api, cpython_struct, build_type_checkers, bootstrap_function,
     PyObject, PyObjectFields, CONST_STRING, CANNOT_FAIL, Py_ssize_t)
 from pypy.module.cpyext.pyobject import (
     make_typedescr, track_reference, RefcountState, from_ref)
-from pypy.rlib.rarithmetic import r_uint, intmask, LONG_TEST, r_ulonglong
+from rpython.rlib.rarithmetic import r_uint, intmask, LONG_TEST, r_ulonglong
 from pypy.objspace.std.intobject import W_IntObject
 import sys
 

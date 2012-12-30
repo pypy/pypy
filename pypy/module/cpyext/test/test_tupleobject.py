@@ -2,7 +2,7 @@ import py
 
 from pypy.module.cpyext.pyobject import PyObject, PyObjectP, make_ref, from_ref
 from pypy.module.cpyext.test.test_api import BaseApiTest
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi, lltype
 
 
 class TestTupleObject(BaseApiTest):

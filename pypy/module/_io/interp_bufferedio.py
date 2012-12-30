@@ -4,9 +4,9 @@ from pypy.interpreter.typedef import (
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.buffer import RWBuffer
-from pypy.rlib.rstring import StringBuilder
-from pypy.rlib.rarithmetic import r_longlong, intmask
-from pypy.rlib import rposix
+from rpython.rlib.rstring import StringBuilder
+from rpython.rlib.rarithmetic import r_longlong, intmask
+from rpython.rlib import rposix
 from pypy.tool.sourcetools import func_renamer
 from pypy.module._io.interp_iobase import (
     W_IOBase, DEFAULT_BUFFER_SIZE, convert_size,

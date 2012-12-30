@@ -3,11 +3,11 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import wrap_oserror, OperationError
-from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.rlib import rgc
-from pypy.rlib.rarithmetic import r_uint
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.rpython.tool import rffi_platform as platform
+from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib import rgc
+from rpython.rlib.rarithmetic import r_uint
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rtyper.tool import rffi_platform as platform
 from pypy.module.thread import ll_thread
 from pypy.module._multiprocessing.interp_connection import w_handle
 import sys, os, time, errno
@@ -15,7 +15,7 @@ import sys, os, time, errno
 RECURSIVE_MUTEX, SEMAPHORE = range(2)
 
 if sys.platform == 'win32':
-    from pypy.rlib import rwin32
+    from rpython.rlib import rwin32
     from pypy.module._multiprocessing.interp_win32 import (
         handle_w, _GetTickCount)
 
@@ -31,7 +31,7 @@ if sys.platform == 'win32':
         rwin32.BOOL)
 
 else:
-    from pypy.rlib import rposix
+    from rpython.rlib import rposix
 
     if sys.platform == 'darwin':
         libraries = []

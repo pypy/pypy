@@ -3,10 +3,10 @@ Callbacks.
 """
 import os
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.rpython.lltypesystem import lltype, llmemory, rffi
-from pypy.rlib.objectmodel import compute_unique_id, keepalive_until_here
-from pypy.rlib import clibffi, rweakref, rgc
-from pypy.rlib.rarithmetic import r_ulonglong
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rlib.objectmodel import compute_unique_id, keepalive_until_here
+from rpython.rlib import clibffi, rweakref, rgc
+from rpython.rlib.rarithmetic import r_ulonglong
 
 from pypy.module._cffi_backend.cdataobj import W_CData
 from pypy.module._cffi_backend.ctypefunc import SIZE_OF_FFI_ARG, BIG_ENDIAN

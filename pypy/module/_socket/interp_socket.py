@@ -2,10 +2,10 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr,\
      interp_attrproperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
-from pypy.rlib.rarithmetic import intmask
-from pypy.rlib import rsocket
-from pypy.rlib.rsocket import RSocket, AF_INET, SOCK_STREAM
-from pypy.rlib.rsocket import SocketError, SocketErrorWithErrno
+from rpython.rlib.rarithmetic import intmask
+from rpython.rlib import rsocket
+from rpython.rlib.rsocket import RSocket, AF_INET, SOCK_STREAM
+from rpython.rlib.rsocket import SocketError, SocketErrorWithErrno
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter import gateway
 
@@ -328,9 +328,9 @@ class W_RSocket(Wrappable, RSocket):
 
     @unwrap_spec(cmd=int)
     def ioctl_w(self, space, cmd, w_option):
-        from pypy.rpython.lltypesystem import rffi, lltype
-        from pypy.rlib import rwin32
-        from pypy.rlib.rsocket import _c
+        from rpython.rtyper.lltypesystem import rffi, lltype
+        from rpython.rlib import rwin32
+        from rpython.rlib.rsocket import _c
 
         recv_ptr = lltype.malloc(rwin32.LPDWORD.TO, 1, flavor='raw')
         try:

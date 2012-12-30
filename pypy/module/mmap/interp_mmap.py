@@ -2,8 +2,8 @@ from pypy.interpreter.error import OperationError, wrap_oserror
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.rlib import rmmap, rarithmetic
-from pypy.rlib.rmmap import RValueError, RTypeError
+from rpython.rlib import rmmap, rarithmetic
+from rpython.rlib.rmmap import RValueError, RTypeError
 
 if rmmap.HAVE_LARGEFILE_SUPPORT:
     OFF_T = rarithmetic.r_longlong

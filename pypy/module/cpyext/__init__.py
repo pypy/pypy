@@ -1,8 +1,8 @@
 from pypy.interpreter.mixedmodule import MixedModule
-from pypy.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext import api
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi, lltype
 
 class Module(MixedModule):
     interpleveldefs = {

@@ -10,7 +10,7 @@ except ImportError:
 from pypy.interpreter.mixedmodule import MixedModule
 from pypy.module._minimal_curses import fficurses
 from pypy.module._minimal_curses import interp_curses
-from pypy.rlib.nonconst import NonConstant
+from rpython.rlib.nonconst import NonConstant
 
 
 class Module(MixedModule):

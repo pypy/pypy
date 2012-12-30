@@ -1,12 +1,12 @@
 
-from pypy.rpython.lltypesystem import rffi, lltype, llmemory
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
 import py
-from pypy.rlib import jit, rgc
-from pypy.rlib.debug import ll_assert
-from pypy.rlib.objectmodel import we_are_translated, specialize
-from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.rpython.tool import rffi_platform
+from rpython.rlib import jit, rgc
+from rpython.rlib.debug import ll_assert
+from rpython.rlib.objectmodel import we_are_translated, specialize
+from rpython.rtyper.lltypesystem.lloperation import llop
+from rpython.rtyper.tool import rffi_platform
 from pypy.tool import autopath
 
 class error(Exception):

@@ -100,7 +100,7 @@ class BytecodeSpec(object):
 
 # Initialization
 
-from pypy.rlib.unroll import unrolling_iterable
+from rpython.rlib.unroll import unrolling_iterable
 
 from opcode import (
     opmap as host_opmap, HAVE_ARGUMENT as host_HAVE_ARGUMENT)

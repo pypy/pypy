@@ -5,8 +5,8 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.module import Module
 from pypy.module.imp import importing
-from pypy.rlib.unroll import unrolling_iterable
-from pypy.rlib.rzipfile import RZipFile, BadZipfile
+from rpython.rlib.unroll import unrolling_iterable
+from rpython.rlib.rzipfile import RZipFile, BadZipfile
 import os
 import stat
 

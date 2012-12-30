@@ -6,7 +6,7 @@ from pypy.objspace.std import StdObjSpace
 from pypy.tool.udir import udir
 from pypy.tool.pytest.objspace import gettestobjspace
 from pypy.tool.autopath import pypydir
-from pypy.rpython.module.ll_os import RegisterOs
+from rpython.rtyper.module.ll_os import RegisterOs
 import os
 import py
 import sys

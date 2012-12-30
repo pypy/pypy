@@ -12,7 +12,7 @@ like: (on the left, without the new bytecodes; on the right, with them)
 
 from pypy.interpreter import function
 from pypy.objspace.descroperation import object_getattribute
-from pypy.rlib import jit
+from rpython.rlib import jit
 from pypy.objspace.std.mapdict import LOOKUP_METHOD_mapdict, \
     LOOKUP_METHOD_mapdict_fill_cache_method
 

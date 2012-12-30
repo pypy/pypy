@@ -2,8 +2,8 @@
 """
 
 import py, sys, math
-from pypy.rlib import rfloat
-from pypy.rlib.rfloat import isinf, isnan, INFINITY, NAN
+from rpython.rlib import rfloat
+from rpython.rlib.rfloat import isinf, isnan, INFINITY, NAN
 
 consistent_host = True
 if '__pypy__' not in sys.builtin_module_names:

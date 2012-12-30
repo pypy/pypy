@@ -4,10 +4,10 @@ from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.error import OperationError
 from pypy.tool.sourcetools import func_renamer
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.rpython.lltypesystem import lltype, llmemory, rffi
-from pypy.rlib import rgc, ropenssl
-from pypy.rlib.objectmodel import keepalive_until_here
-from pypy.rlib.rstring import StringBuilder
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rlib import rgc, ropenssl
+from rpython.rlib.objectmodel import keepalive_until_here
+from rpython.rlib.rstring import StringBuilder
 from pypy.module.thread.os_lock import Lock
 
 algorithms = ('md5', 'sha1', 'sha224', 'sha256', 'sha384', 'sha512')

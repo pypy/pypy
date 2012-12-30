@@ -1,7 +1,7 @@
 from pypy.interpreter import gateway
 from pypy.interpreter.astcompiler import ast
-from pypy.rlib.objectmodel import we_are_translated
-from pypy.rlib.unroll import unrolling_iterable
+from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.unroll import unrolling_iterable
 
 
 app = gateway.applevel("""

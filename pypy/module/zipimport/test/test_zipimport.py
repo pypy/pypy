@@ -362,7 +362,7 @@ class AppTestZipimportDeflated(AppTestZipimport):
 
     def setup_class(cls):
         try:
-            import pypy.rlib.rzlib
+            import rpython.rlib.rzlib
         except ImportError:
             py.test.skip("zlib not available, cannot test compressed zipfiles")
         cls.make_class()

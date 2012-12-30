@@ -2,11 +2,11 @@ import errno
 from pypy.interpreter.error import OperationError
 from pypy.module.cpyext.api import cpython_api
 from pypy.module.cpyext.pyobject import PyObject
-from pypy.rlib import rdtoa
-from pypy.rlib import rfloat
-from pypy.rlib import rposix
-from pypy.rpython.lltypesystem import lltype
-from pypy.rpython.lltypesystem import rffi
+from rpython.rlib import rdtoa
+from rpython.rlib import rfloat
+from rpython.rlib import rposix
+from rpython.rtyper.lltypesystem import lltype
+from rpython.rtyper.lltypesystem import rffi
 
 
 @cpython_api([rffi.CCHARP, rffi.CCHARPP, PyObject], rffi.DOUBLE, error=-1.0)

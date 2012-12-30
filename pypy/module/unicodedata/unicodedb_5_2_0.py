@@ -2,7 +2,7 @@
 # This file was generated with the command:
 #     ./generate_unicodedb.py --unidata_version=5.2.0 --output=unicodedb_5_2_0
 
-from pypy.rlib.rarithmetic import r_longlong
+from rpython.rlib.rarithmetic import r_longlong
 
 
 base_mod = None

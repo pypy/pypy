@@ -7,13 +7,13 @@ from pypy.interpreter import gateway
 from pypy.interpreter.argument import Signature
 from pypy.interpreter.error import OperationError, operationerrfmt
 
-from pypy.rlib.objectmodel import r_dict, we_are_translated, specialize,\
+from rpython.rlib.objectmodel import r_dict, we_are_translated, specialize,\
      newlist_hint
-from pypy.rlib.debug import mark_dict_non_null
+from rpython.rlib.debug import mark_dict_non_null
 from pypy.tool.sourcetools import func_with_new_name
 
-from pypy.rlib import rerased
-from pypy.rlib import jit
+from rpython.rlib import rerased
+from rpython.rlib import jit
 
 def _is_str(space, w_key):
     return space.is_w(space.type(w_key), space.w_str)

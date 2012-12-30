@@ -1,4 +1,4 @@
-from pypy.rlib import rstring
+from rpython.rlib import rstring
 
 
 #- type name manipulations --------------------------------------------------

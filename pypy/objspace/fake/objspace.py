@@ -1,15 +1,15 @@
-from pypy.annotation.model import SomeInstance, s_None
+from rpython.annotator.model import SomeInstance, s_None
 from pypy.interpreter import argument, gateway
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace, Wrappable, SpaceCache
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.rlib.objectmodel import instantiate, we_are_translated
-from pypy.rlib.nonconst import NonConstant
-from pypy.rlib.rarithmetic import r_uint, r_singlefloat
-from pypy.rpython.extregistry import ExtRegistryEntry
-from pypy.rpython.lltypesystem import lltype
+from rpython.rlib.objectmodel import instantiate, we_are_translated
+from rpython.rlib.nonconst import NonConstant
+from rpython.rlib.rarithmetic import r_uint, r_singlefloat
+from rpython.rtyper.extregistry import ExtRegistryEntry
+from rpython.rtyper.lltypesystem import lltype
 from pypy.tool.option import make_config
 from pypy.tool.sourcetools import compile2, func_with_new_name
-from pypy.translator.translator import TranslationContext
+from rpython.translator.translator import TranslationContext
 
 
 class W_MyObject(Wrappable):
@@ -50,7 +50,7 @@ class W_MyObject(Wrappable):
         return r_uint(NonConstant(42))
     
     def bigint_w(self, space):
-        from pypy.rlib.rbigint import rbigint
+        from rpython.rlib.rbigint import rbigint
         return rbigint.fromint(NonConstant(42))
 
 class W_MyType(W_MyObject):

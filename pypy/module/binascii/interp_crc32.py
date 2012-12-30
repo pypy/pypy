@@ -1,6 +1,6 @@
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.rlib.rarithmetic import r_uint, intmask
-from pypy.rpython.lltypesystem import rffi
+from rpython.rlib.rarithmetic import r_uint, intmask
+from rpython.rtyper.lltypesystem import rffi
 
 # ____________________________________________________________
 

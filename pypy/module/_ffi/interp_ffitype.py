@@ -1,6 +1,6 @@
-from pypy.rlib import libffi, clibffi
-from pypy.rlib.rarithmetic import intmask
-from pypy.rlib import jit
+from rpython.rlib import libffi, clibffi
+from rpython.rlib.rarithmetic import intmask
+from rpython.rlib import jit
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.gateway import interp2app

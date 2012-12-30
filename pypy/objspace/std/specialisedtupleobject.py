@@ -5,9 +5,9 @@ from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.objspace.std.tupleobject import W_AbstractTupleObject
 from pypy.objspace.std.tupleobject import W_TupleObject
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
-from pypy.rlib.rarithmetic import intmask
-from pypy.rlib.objectmodel import compute_hash
-from pypy.rlib.unroll import unrolling_iterable
+from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.objectmodel import compute_hash
+from rpython.rlib.unroll import unrolling_iterable
 from pypy.tool.sourcetools import func_with_new_name
 
 class NotSpecialised(Exception):

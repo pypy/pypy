@@ -1,11 +1,11 @@
 from __future__ import with_statement
-from pypy.rlib.rfloat import copysign, isnan, isinf
+from rpython.rlib.rfloat import copysign, isnan, isinf
 from pypy.module.cmath import interp_cmath
 import os, sys, math
 
 
 def test_special_values():
-    from pypy.rlib.special_value import sqrt_special_values
+    from rpython.rlib.special_value import sqrt_special_values
     assert len(sqrt_special_values) == 7
     assert len(sqrt_special_values[4]) == 7
     assert isinstance(sqrt_special_values[5][1], tuple)

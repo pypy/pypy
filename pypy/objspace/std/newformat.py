@@ -3,9 +3,9 @@
 import string
 
 from pypy.interpreter.error import OperationError
-from pypy.rlib import rstring, runicode, rlocale, rarithmetic, rfloat, jit
-from pypy.rlib.objectmodel import specialize
-from pypy.rlib.rfloat import copysign, formatd
+from rpython.rlib import rstring, runicode, rlocale, rarithmetic, rfloat, jit
+from rpython.rlib.objectmodel import specialize
+from rpython.rlib.rfloat import copysign, formatd
 from pypy.tool import sourcetools
 
 

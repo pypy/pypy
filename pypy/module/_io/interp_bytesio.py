@@ -2,13 +2,13 @@ from pypy.interpreter.typedef import (
     TypeDef, generic_new_descr, GetSetProperty)
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.rlib.rarithmetic import r_longlong
+from rpython.rlib.rarithmetic import r_longlong
 from pypy.module._io.interp_bufferedio import W_BufferedIOBase
 from pypy.module._io.interp_iobase import convert_size
 import sys
 
 def buffer2string(buffer, start, end):
-    from pypy.rlib.rstring import StringBuilder
+    from rpython.rlib.rstring import StringBuilder
     builder = StringBuilder(end - start)
     for i in range(start, end):
         builder.append(buffer[i])

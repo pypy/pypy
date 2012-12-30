@@ -6,16 +6,16 @@ import py
 
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.rpython.lltypesystem import rffi, lltype, ll2ctypes
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.translator import platform
-from pypy.translator.gensupp import uniquemodulename
+from rpython.rtyper.lltypesystem import rffi, lltype, ll2ctypes
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.translator import platform
+from rpython.translator.gensupp import uniquemodulename
 from pypy.tool.udir import udir
 from pypy.module.cpyext import api
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.pyobject import RefcountState
 from pypy.module.cpyext.pyobject import Py_DecRef, InvalidPointerException
-from pypy.translator.goal import autopath
+from rpython.translator.goal import autopath
 from pypy.tool.identity_dict import identity_dict
 from pypy.tool import leakfinder
 
@@ -157,7 +157,7 @@ class LeakCheckingTest(object):
 
 class AppTestApi(LeakCheckingTest):
     def setup_class(cls):
-        from pypy.rlib.clibffi import get_libc_name
+        from rpython.rlib.clibffi import get_libc_name
         cls.w_libc = cls.space.wrap(get_libc_name())
 
     def test_load_error(self):

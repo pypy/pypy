@@ -19,9 +19,9 @@ from pypy.interpreter.baseobjspace import (W_Root, ObjSpace, Wrappable,
     SpaceCache, DescrMismatch)
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.function import ClassMethod, FunctionWithFixedCode
-from pypy.rlib import rstackovf
-from pypy.rlib.objectmodel import we_are_translated
-from pypy.rlib.rarithmetic import r_longlong, r_int, r_ulonglong, r_uint
+from rpython.rlib import rstackovf
+from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.rarithmetic import r_longlong, r_int, r_ulonglong, r_uint
 from pypy.tool.sourcetools import func_with_new_name, compile2
 
 

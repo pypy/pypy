@@ -4,7 +4,7 @@ Module objects.
 
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError
-from pypy.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated
 
 class Module(Wrappable):
     """A module."""

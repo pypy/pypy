@@ -90,7 +90,7 @@ def test_arbitrary_option():
     assert c1.a == [1]
 
 def test_annotator_folding():
-    from pypy.translator.interactive import Translation
+    from rpython.translator.interactive import Translation
 
     gcoption = ChoiceOption('name', 'GC name', ['ref', 'framework'], 'ref')
     gcgroup = OptionDescription('gc', '', [gcoption])

@@ -4,7 +4,7 @@ from pypy.conftest import option
 class AppTestReferents(object):
 
     def setup_class(cls):
-        from pypy.rlib import rgc
+        from rpython.rlib import rgc
         cls._backup = [rgc.get_rpy_roots]
         w = cls.space.wrap
         space = cls.space
@@ -21,7 +21,7 @@ class AppTestReferents(object):
         cls.w_runappdirect = cls.space.wrap(option.runappdirect)
 
     def teardown_class(cls):
-        from pypy.rlib import rgc
+        from rpython.rlib import rgc
         rgc.get_rpy_roots = cls._backup[0]
 
     def test_get_objects(self):

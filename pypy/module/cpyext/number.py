@@ -1,7 +1,7 @@
 from pypy.interpreter.error import OperationError
 from pypy.module.cpyext.api import cpython_api, CANNOT_FAIL, Py_ssize_t
 from pypy.module.cpyext.pyobject import PyObject
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.tool.sourcetools import func_with_new_name
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)

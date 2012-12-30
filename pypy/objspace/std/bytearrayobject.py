@@ -4,9 +4,9 @@ from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.objspace.std.noneobject import W_NoneObject
-from pypy.rlib.rarithmetic import intmask
-from pypy.rlib.rstring import StringBuilder
-from pypy.rlib.debug import check_annotation
+from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rstring import StringBuilder
+from rpython.rlib.debug import check_annotation
 from pypy.objspace.std import stringobject
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.listobject import get_positive_index

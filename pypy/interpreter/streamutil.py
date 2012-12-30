@@ -1,4 +1,4 @@
-from pypy.rlib.streamio import StreamError
+from rpython.rlib.streamio import StreamError
 from pypy.interpreter.error import OperationError, wrap_oserror2
 
 def wrap_streamerror(space, e, w_filename=None):

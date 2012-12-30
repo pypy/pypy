@@ -1,5 +1,5 @@
 from pypy.interpreter.error import OperationError
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import CANNOT_FAIL, cpython_api, CONST_STRING
 from pypy.module.cpyext.pyobject import PyObject, borrow_from
 

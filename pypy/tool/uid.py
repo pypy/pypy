@@ -48,7 +48,7 @@ class Hashable(object):
         # we also have to avoid confusing 0.0 and -0.0 (needed e.g. for
         # translating the cmath module)
         if key[0] is float and not self.value:
-            from pypy.rlib.rfloat import copysign
+            from rpython.rlib.rfloat import copysign
             if copysign(1., self.value) == -1.:    # -0.0
                 key = (float, "-0.0")
         #

@@ -93,25 +93,25 @@ module_suggests = {
 }
 
 module_import_dependencies = {
-    # no _rawffi if importing pypy.rlib.clibffi raises ImportError
+    # no _rawffi if importing rpython.rlib.clibffi raises ImportError
     # or CompilationError or py.test.skip.Exception
-    "_rawffi"   : ["pypy.rlib.clibffi"],
-    "_ffi"      : ["pypy.rlib.clibffi"],
+    "_rawffi"   : ["rpython.rlib.clibffi"],
+    "_ffi"      : ["rpython.rlib.clibffi"],
 
-    "zlib"      : ["pypy.rlib.rzlib"],
+    "zlib"      : ["rpython.rlib.rzlib"],
     "bz2"       : ["pypy.module.bz2.interp_bz2"],
     "pyexpat"   : ["pypy.module.pyexpat.interp_pyexpat"],
     "_ssl"      : ["pypy.module._ssl.interp_ssl"],
     "_hashlib"  : ["pypy.module._ssl.interp_ssl"],
     "_minimal_curses": ["pypy.module._minimal_curses.fficurses"],
-    "_continuation": ["pypy.rlib.rstacklet"],
+    "_continuation": ["rpython.rlib.rstacklet"],
     }
 
 def get_module_validator(modname):
     if modname in module_import_dependencies:
         modlist = module_import_dependencies[modname]
         def validator(config):
-            from pypy.rpython.tool.rffi_platform import CompilationError
+            from rpython.rtyper.tool.rffi_platform import CompilationError
             try:
                 for name in modlist:
                     __import__(name)

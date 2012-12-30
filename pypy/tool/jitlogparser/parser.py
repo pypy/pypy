@@ -1,7 +1,7 @@
 import re, sys
 
-from pypy.jit.metainterp.resoperation import opname
-from pypy.jit.tool.oparser import OpParser
+from rpython.jit.metainterp.resoperation import opname
+from rpython.jit.tool.oparser import OpParser
 from pypy.tool.logparser import parse_log_file, extract_category
 from copy import copy
 
@@ -113,7 +113,7 @@ class SimpleParser(OpParser):
         return loop
 
     def _asm_disassemble(self, d, origin_addr, tp):
-        from pypy.jit.backend.tool.viewcode import machine_code_dump
+        from rpython.jit.backend.tool.viewcode import machine_code_dump
         return list(machine_code_dump(d, tp, origin_addr))
 
     @classmethod

@@ -9,8 +9,8 @@ from pypy.interpreter.argument import Arguments
 from pypy.interpreter.baseobjspace import Wrappable, DescrMismatch
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.tool.sourcetools import compile2, func_with_new_name
-from pypy.rlib.objectmodel import instantiate, compute_identity_hash, specialize
-from pypy.rlib.jit import promote
+from rpython.rlib.objectmodel import instantiate, compute_identity_hash, specialize
+from rpython.rlib.jit import promote
 
 class TypeDef:
     def __init__(self, __name, __base=None, __total_ordering__=None, **rawdict):

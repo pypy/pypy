@@ -6,8 +6,8 @@ import sys
 import os
 import stat
 import errno
-from pypy.rlib import rpath
-from pypy.rlib.objectmodel import we_are_translated
+from rpython.rlib import rpath
+from rpython.rlib.objectmodel import we_are_translated
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.module.sys.state import get as get_state
 

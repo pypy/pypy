@@ -24,9 +24,9 @@ Try dir(snippet) for list of current snippets.
 """
 
 import autopath, os, sys
-from pypy.translator.interactive import Translation
-from pypy.rpython.rtyper import *
-from pypy.rlib.rarithmetic import *
+from rpython.translator.interactive import Translation
+from rpython.rtyper.rtyper import *
+from rpython.rlib.rarithmetic import *
 
 import py
 
@@ -53,8 +53,8 @@ if __name__ == '__main__':
         setup_readline()
     except ImportError, err:
         print "Disabling readline support (%s)" % err
-    from pypy.translator.test import snippet
-    from pypy.rpython.rtyper import RPythonTyper
+    from rpython.translator.test import snippet
+    from rpython.rtyper.rtyper import RPythonTyper
 
     if (os.getcwd() not in sys.path and
         os.path.curdir not in sys.path):

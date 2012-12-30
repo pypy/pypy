@@ -5,15 +5,15 @@ from pypy.interpreter.typedef import interp_attrproperty, interp_attrproperty_w
 from pypy.interpreter.typedef import make_weakref_descr
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError
-from pypy.rlib.rarithmetic import intmask
-from pypy.rlib import jit
+from rpython.rlib.rarithmetic import intmask
+from rpython.rlib import jit
 
 # ____________________________________________________________
 #
 # Constants and exposed functions
 
-from pypy.rlib.rsre import rsre_core
-from pypy.rlib.rsre.rsre_char import MAGIC, CODESIZE, getlower, set_unicode_db
+from rpython.rlib.rsre import rsre_core
+from rpython.rlib.rsre.rsre_char import MAGIC, CODESIZE, getlower, set_unicode_db
 
 
 @unwrap_spec(char_ord=int, flags=int)

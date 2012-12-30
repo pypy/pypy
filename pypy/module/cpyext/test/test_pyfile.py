@@ -1,7 +1,7 @@
 from pypy.module.cpyext.api import fopen, fclose, fwrite
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.object import Py_PRINT_RAW
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.tool.udir import udir
 import pytest
 

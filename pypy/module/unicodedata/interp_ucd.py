@@ -5,9 +5,9 @@ from pypy.interpreter.gateway import  interp2app, unwrap_spec
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
-from pypy.rlib.rarithmetic import r_longlong
-from pypy.rlib.objectmodel import we_are_translated
-from pypy.rlib.runicode import MAXUNICODE
+from rpython.rlib.rarithmetic import r_longlong
+from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.runicode import MAXUNICODE
 import sys
 
 from pypy.module.unicodedata import unicodedb_5_2_0, unicodedb_3_2_0

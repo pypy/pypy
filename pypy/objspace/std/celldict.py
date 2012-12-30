@@ -7,7 +7,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.objspace.std.dictmultiobject import create_iterator_classes
 from pypy.objspace.std.dictmultiobject import DictStrategy, _never_equal_to_string
 from pypy.objspace.std.dictmultiobject import ObjectDictStrategy
-from pypy.rlib import jit, rerased
+from rpython.rlib import jit, rerased
 
 class VersionTag(object):
     pass

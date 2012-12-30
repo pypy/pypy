@@ -45,7 +45,7 @@ dimension, perhaps we could overflow times in one big step.
 from pypy.module.micronumpy.strides import enumerate_chunks,\
      calculate_slice_strides
 from pypy.module.micronumpy.base import W_NDimArray
-from pypy.rlib import jit
+from rpython.rlib import jit
 
 # structures to describe slicing
 

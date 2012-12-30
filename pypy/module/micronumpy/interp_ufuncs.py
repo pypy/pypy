@@ -3,8 +3,8 @@ from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
 from pypy.module.micronumpy import interp_boxes, interp_dtype, loop
-from pypy.rlib import jit
-from pypy.rlib.rarithmetic import LONG_BIT
+from rpython.rlib import jit
+from rpython.rlib.rarithmetic import LONG_BIT
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.module.micronumpy.interp_support import unwrap_axis_arg
 from pypy.module.micronumpy.strides import shape_agreement

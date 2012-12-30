@@ -1,7 +1,7 @@
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.pyopcode import LoopBlock
-from pypy.rlib import jit
+from rpython.rlib import jit
 
 
 class GeneratorIterator(Wrappable):

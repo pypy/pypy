@@ -10,13 +10,13 @@ a callback and a state variable.
 
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.register_all import register_all
-from pypy.rlib.rarithmetic import LONG_BIT, r_longlong, r_uint, intmask
+from rpython.rlib.rarithmetic import LONG_BIT, r_longlong, r_uint, intmask
 from pypy.objspace.std import model
 from pypy.interpreter.special import Ellipsis
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter import gateway, unicodehelper
-from pypy.rlib.rstruct import ieee
-from pypy.rlib.rstring import StringBuilder
+from rpython.rlib.rstruct import ieee
+from rpython.rlib.rstring import StringBuilder
 
 from pypy.objspace.std.boolobject    import W_BoolObject
 from pypy.objspace.std.complexobject import W_ComplexObject
@@ -206,7 +206,7 @@ def unmarshal_Complex_bin(space, u, tc):
 register(TYPE_BINARY_COMPLEX, unmarshal_Complex_bin)
 
 def marshal_w__Long(space, w_long, m):
-    from pypy.rlib.rbigint import rbigint
+    from rpython.rlib.rbigint import rbigint
     m.start(TYPE_LONG)
     SHIFT = 15
     MASK = (1 << SHIFT) - 1
@@ -223,7 +223,7 @@ def marshal_w__Long(space, w_long, m):
         m.put_short(i)
 
 def unmarshal_Long(space, u, tc):
-    from pypy.rlib.rbigint import rbigint
+    from rpython.rlib.rbigint import rbigint
     lng = u.get_int()
     if lng < 0:
         negative = True

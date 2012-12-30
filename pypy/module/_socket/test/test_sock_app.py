@@ -2,8 +2,8 @@ import sys
 import py
 from pypy.tool.pytest.objspace import gettestobjspace
 from pypy.tool.udir import udir
-from pypy.rlib import rsocket
-from pypy.rpython.lltypesystem import lltype, rffi
+from rpython.rlib import rsocket
+from rpython.rtyper.lltypesystem import lltype, rffi
 
 def setup_module(mod):
     mod.space = gettestobjspace(usemodules=['_socket', 'array', 'struct'])

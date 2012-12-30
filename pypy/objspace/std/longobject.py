@@ -6,7 +6,7 @@ from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.multimethod import FailedToImplementArgs
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.noneobject import W_NoneObject
-from pypy.rlib.rbigint import rbigint, SHIFT
+from rpython.rlib.rbigint import rbigint, SHIFT
 
 class W_AbstractLongObject(W_Object):
     __slots__ = ()

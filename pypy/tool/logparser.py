@@ -9,7 +9,7 @@ Actions:
 """
 import autopath
 import sys, re
-from pypy.rlib.debug import DebugLog
+from rpython.rlib.debug import DebugLog
 from pypy.tool import progressbar
 
 def parse_log_file(filename, verbose=True):

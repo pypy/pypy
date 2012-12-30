@@ -1,8 +1,8 @@
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.module.struct.formatiterator import PackFormatIterator, UnpackFormatIterator
-from pypy.rlib import jit
-from pypy.rlib.rstruct.error import StructError
-from pypy.rlib.rstruct.formatiterator import CalcSizeFormatIterator
+from rpython.rlib import jit
+from rpython.rlib.rstruct.error import StructError
+from rpython.rlib.rstruct.formatiterator import CalcSizeFormatIterator
 
 
 @unwrap_spec(format=str)

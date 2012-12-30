@@ -3,12 +3,12 @@ from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.multimethod import FailedToImplement
-from pypy.rlib.rarithmetic import intmask
+from rpython.rlib.rarithmetic import intmask
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway
-from pypy.rlib.debug import make_sure_not_resized
-from pypy.rlib.unroll import unrolling_iterable
+from rpython.rlib.debug import make_sure_not_resized
+from rpython.rlib.unroll import unrolling_iterable
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.objspace.std.tupleobject import W_AbstractTupleObject, W_TupleObject
 

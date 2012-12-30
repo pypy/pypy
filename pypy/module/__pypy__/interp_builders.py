@@ -2,7 +2,7 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
-from pypy.rlib.rstring import UnicodeBuilder, StringBuilder
+from rpython.rlib.rstring import UnicodeBuilder, StringBuilder
 from pypy.tool.sourcetools import func_with_new_name
 
 

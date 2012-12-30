@@ -8,14 +8,14 @@ from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import slicetype, newformat
 from pypy.objspace.std.tupleobject import W_TupleObject
-from pypy.rlib.rarithmetic import intmask, ovfcheck
-from pypy.rlib.objectmodel import compute_hash, specialize
-from pypy.rlib.objectmodel import compute_unique_id
-from pypy.rlib.rstring import UnicodeBuilder
-from pypy.rlib.runicode import make_unicode_escape_function
+from rpython.rlib.rarithmetic import intmask, ovfcheck
+from rpython.rlib.objectmodel import compute_hash, specialize
+from rpython.rlib.objectmodel import compute_unique_id
+from rpython.rlib.rstring import UnicodeBuilder
+from rpython.rlib.runicode import make_unicode_escape_function
 from pypy.module.unicodedata import unicodedb
 from pypy.tool.sourcetools import func_with_new_name
-from pypy.rlib import jit
+from rpython.rlib import jit
 
 from pypy.objspace.std.formatting import mod_format
 from pypy.objspace.std.stringtype import stringstartswith, stringendswith

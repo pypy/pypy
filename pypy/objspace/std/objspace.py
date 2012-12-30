@@ -7,11 +7,11 @@ from pypy.interpreter.typedef import get_unique_interplevel_subclass
 from pypy.objspace.std import (builtinshortcut, stdtypedef, frame, model,
                                transparent, callmethod, proxyobject)
 from pypy.objspace.descroperation import DescrOperation, raiseattrerror
-from pypy.rlib.objectmodel import instantiate, r_dict, specialize, is_annotation_constant
-from pypy.rlib.debug import make_sure_not_resized
-from pypy.rlib.rarithmetic import base_int, widen, maxint, is_valid_int
-from pypy.rlib.objectmodel import we_are_translated
-from pypy.rlib import jit
+from rpython.rlib.objectmodel import instantiate, r_dict, specialize, is_annotation_constant
+from rpython.rlib.debug import make_sure_not_resized
+from rpython.rlib.rarithmetic import base_int, widen, maxint, is_valid_int
+from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib import jit
 
 # Object imports
 from pypy.objspace.std.boolobject import W_BoolObject
@@ -169,8 +169,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
         if isinstance(x, base_int):
             if self.config.objspace.std.withsmalllong:
                 from pypy.objspace.std.smalllongobject import W_SmallLongObject
-                from pypy.rlib.rarithmetic import r_longlong, r_ulonglong
-                from pypy.rlib.rarithmetic import longlongmax
+                from rpython.rlib.rarithmetic import r_longlong, r_ulonglong
+                from rpython.rlib.rarithmetic import longlongmax
                 if (not isinstance(x, r_ulonglong)
                     or x <= r_ulonglong(longlongmax)):
                     return W_SmallLongObject(r_longlong(x))
@@ -243,7 +243,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
     def wraplong(self, x):
         "NOT_RPYTHON"
         if self.config.objspace.std.withsmalllong:
-            from pypy.rlib.rarithmetic import r_longlong
+            from rpython.rlib.rarithmetic import r_longlong
             try:
                 rx = r_longlong(x)
             except OverflowError:

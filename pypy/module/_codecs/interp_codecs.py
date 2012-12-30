@@ -1,7 +1,7 @@
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
-from pypy.rlib.rstring import UnicodeBuilder
-from pypy.rlib.objectmodel import we_are_translated
+from rpython.rlib.rstring import UnicodeBuilder
+from rpython.rlib.objectmodel import we_are_translated
 
 class CodecState(object):
     def __init__(self, space):
@@ -352,7 +352,7 @@ def register_error(space, errors, w_handler):
 # ____________________________________________________________
 # delegation to runicode
 
-from pypy.rlib import runicode
+from rpython.rlib import runicode
 
 def make_encoder_wrapper(name):
     rname = "unicode_encode_%s" % (name.replace("_encode", ""), )

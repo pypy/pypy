@@ -4,10 +4,10 @@ This is transformed to become a JIT by code elsewhere: pypy/jit/*
 """
 
 from pypy.tool.pairtype import extendabletype
-from pypy.rlib.rarithmetic import r_uint, intmask
-from pypy.rlib.jit import JitDriver, hint, we_are_jitted, dont_look_inside
-from pypy.rlib import jit
-from pypy.rlib.jit import current_trace_length, unroll_parameters
+from rpython.rlib.rarithmetic import r_uint, intmask
+from rpython.rlib.jit import JitDriver, hint, we_are_jitted, dont_look_inside
+from rpython.rlib import jit
+from rpython.rlib.jit import current_trace_length, unroll_parameters
 import pypy.interpreter.pyopcode   # for side-effects
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.pycode import PyCode, CO_GENERATOR

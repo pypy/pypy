@@ -1,7 +1,7 @@
 import py
 
 from pypy.interpreter.gateway import interp2app
-from pypy.rlib import debug
+from rpython.rlib import debug
 
 
 class AppTestDebug:

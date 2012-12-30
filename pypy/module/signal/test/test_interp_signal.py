@@ -1,5 +1,5 @@
 import os, py
-from pypy.translator.c.test.test_genc import compile
+from rpython.translator.c.test.test_genc import compile
 from pypy.module.signal import interp_signal
 
 def setup_module(mod):

@@ -13,8 +13,8 @@ class curses_error(Exception):
     def __init__(self, msg):
         self.msg = msg
 
-from pypy.annotation.classdef import FORCE_ATTRIBUTES_INTO_CLASSES
-from pypy.annotation.model import SomeString
+from rpython.annotator.classdef import FORCE_ATTRIBUTES_INTO_CLASSES
+from rpython.annotator.model import SomeString
 
 # this is necessary due to annmixlevel
 FORCE_ATTRIBUTES_INTO_CLASSES[curses_error] = {'msg': SomeString()}

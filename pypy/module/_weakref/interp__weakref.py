@@ -3,9 +3,9 @@ from pypy.interpreter.baseobjspace import Wrappable, W_Root
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app, ObjSpace
 from pypy.interpreter.typedef import TypeDef
-from pypy.rlib import jit
-from pypy.rlib.rshrinklist import AbstractShrinkList
-from pypy.rlib.objectmodel import specialize
+from rpython.rlib import jit
+from rpython.rlib.rshrinklist import AbstractShrinkList
+from rpython.rlib.objectmodel import specialize
 import weakref
 
 

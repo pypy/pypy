@@ -1,7 +1,7 @@
 import gc
 from pypy.module.thread.ll_thread import *
-from pypy.translator.c.test.test_boehm import AbstractGCTestClass
-from pypy.rpython.lltypesystem import lltype, rffi
+from rpython.translator.c.test.test_boehm import AbstractGCTestClass
+from rpython.rtyper.lltypesystem import lltype, rffi
 import py
 
 def setup_module(mod):
@@ -65,8 +65,8 @@ class AbstractThreadTests(AbstractGCTestClass):
 
     def test_gc_locking(self):
         import time
-        from pypy.rlib.objectmodel import invoke_around_extcall
-        from pypy.rlib.debug import ll_assert
+        from rpython.rlib.objectmodel import invoke_around_extcall
+        from rpython.rlib.debug import ll_assert
 
         class State:
             pass

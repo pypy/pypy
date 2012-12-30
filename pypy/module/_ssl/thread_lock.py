@@ -1,6 +1,6 @@
-from pypy.rlib.ropenssl import *
-from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rlib.ropenssl import *
+from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 # CRYPTO_set_locking_callback:
 #

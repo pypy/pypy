@@ -31,7 +31,7 @@ def rebuild_one(name):
         sys.path[:] = path
 
 def try_rebuild():
-    from pypy.jit.backend import detect_cpu
+    from rpython.jit.backend import detect_cpu
     model = detect_cpu.autodetect_main_model_and_size()
     # remove the files '_*_model_.py'
     left = {}

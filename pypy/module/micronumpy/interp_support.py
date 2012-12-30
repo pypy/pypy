@@ -1,9 +1,9 @@
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
-from pypy.rpython.lltypesystem import lltype, rffi
+from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.module.micronumpy import interp_dtype, loop
 from pypy.objspace.std.strutil import strip_spaces
-from pypy.rlib.rarithmetic import maxint
+from rpython.rlib.rarithmetic import maxint
 from pypy.module.micronumpy.base import W_NDimArray
 
 FLOAT_SIZE = rffi.sizeof(lltype.Float)

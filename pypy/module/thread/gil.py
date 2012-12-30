@@ -11,8 +11,8 @@ from pypy.module.thread import ll_thread as thread
 from pypy.module.thread.error import wrap_thread_error
 from pypy.interpreter.executioncontext import PeriodicAsyncAction
 from pypy.module.thread.threadlocals import OSThreadLocals
-from pypy.rlib.objectmodel import invoke_around_extcall
-from pypy.rlib.rposix import get_errno, set_errno
+from rpython.rlib.objectmodel import invoke_around_extcall
+from rpython.rlib.rposix import get_errno, set_errno
 
 class GILThreadLocals(OSThreadLocals):
     """A version of OSThreadLocals that enforces a GIL."""

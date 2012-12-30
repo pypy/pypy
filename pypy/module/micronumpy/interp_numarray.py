@@ -14,8 +14,8 @@ from pypy.module.micronumpy import loop
 from pypy.module.micronumpy.dot import match_dot_shapes
 from pypy.module.micronumpy.interp_arrayops import repeat
 from pypy.tool.sourcetools import func_with_new_name
-from pypy.rlib import jit
-from pypy.rlib.rstring import StringBuilder
+from rpython.rlib import jit
+from rpython.rlib.rstring import StringBuilder
 
 def _find_shape(space, w_size):
     if space.is_none(w_size):

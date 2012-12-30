@@ -2,7 +2,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.rlib.rStringIO import RStringIO
+from rpython.rlib.rStringIO import RStringIO
 
 
 class W_InputOutputType(Wrappable):

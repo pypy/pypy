@@ -6,7 +6,7 @@ from pypy.interpreter.argument import Arguments
 from pypy.interpreter.typedef import default_identity_hash
 from pypy.tool.sourcetools import compile2, func_with_new_name
 from pypy.module.__builtin__.interp_classobj import W_InstanceObject
-from pypy.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize
 
 def object_getattribute(space):
     "Utility that returns the app-level descriptor object.__getattribute__."

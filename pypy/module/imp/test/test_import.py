@@ -4,7 +4,7 @@ from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
 import pypy.interpreter.pycode
 from pypy.tool.udir import udir
-from pypy.rlib import streamio
+from rpython.rlib import streamio
 from pypy.tool.option import make_config
 from pypy.tool.pytest.objspace import maketestobjspace
 import pytest

@@ -694,7 +694,7 @@ def main():
     print >> outfile, '# This file was generated with the command:'
     print >> outfile, '#    ', ' '.join(sys.argv)
     print >> outfile
-    print >> outfile, 'from pypy.rlib.rarithmetic import r_longlong'
+    print >> outfile, 'from rpython.rlib.rarithmetic import r_longlong'
     print >> outfile
     print >> outfile
     writeUnicodedata(options.unidata_version, table, outfile, options.base)

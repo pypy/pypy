@@ -1,6 +1,6 @@
 from pypy.tool.autopath import pypydir
-from pypy.translator.platform import CompilationError
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.translator.platform import CompilationError
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.tool.compat import md5
 import py
 
@@ -9,7 +9,7 @@ cache_dir_root = py.path.local(pypydir).join('_cache').ensure(dir=1)
 def cache_file_path(c_files, eci, cachename):
     "Builds a filename to cache compilation data"
     # Import 'platform' every time, the compiler may have been changed
-    from pypy.translator.platform import platform
+    from rpython.translator.platform import platform
     cache_dir = cache_dir_root.join(cachename).ensure(dir=1)
     filecontents = [c_file.read() for c_file in c_files]
     key = repr((filecontents, eci, platform.key()))
@@ -19,7 +19,7 @@ def cache_file_path(c_files, eci, cachename):
 def build_executable_cache(c_files, eci, ignore_errors=False):
     "Builds and run a program; caches the result"
     # Import 'platform' every time, the compiler may have been changed
-    from pypy.translator.platform import platform
+    from rpython.translator.platform import platform
     path = cache_file_path(c_files, eci, 'build_executable_cache')
     try:
         return path.read()
@@ -42,7 +42,7 @@ def build_executable_cache(c_files, eci, ignore_errors=False):
 def try_compile_cache(c_files, eci):
     "Try to compile a program; caches the result (starts with 'True' or 'FAIL')"
     # Import 'platform' every time, the compiler may have been changed
-    from pypy.translator.platform import platform
+    from rpython.translator.platform import platform
     path = cache_file_path(c_files, eci, 'try_compile_cache')
     try:
         data = path.read()

@@ -5,9 +5,9 @@ from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.multimethod import FailedToImplementArgs
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.register_all import register_all
-from pypy.rlib import jit
-from pypy.rlib.rarithmetic import ovfcheck, LONG_BIT, r_uint, is_valid_int
-from pypy.rlib.rbigint import rbigint
+from rpython.rlib import jit
+from rpython.rlib.rarithmetic import ovfcheck, LONG_BIT, r_uint, is_valid_int
+from rpython.rlib.rbigint import rbigint
 
 """
 In order to have the same behavior running

@@ -1,9 +1,9 @@
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.rpython.tool import rffi_platform
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rtyper.tool import rffi_platform
+from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.rlib.rarithmetic import intmask
+from rpython.rlib.rarithmetic import intmask
 
 eci = ExternalCompilationInfo(
     includes=['pwd.h']

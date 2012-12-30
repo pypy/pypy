@@ -4,14 +4,14 @@ from pypy.interpreter.executioncontext import AsyncAction, AbstractActionFlag
 from pypy.interpreter.executioncontext import PeriodicAsyncAction
 from pypy.interpreter.gateway import unwrap_spec
 import signal as cpy_signal
-from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.rpython.tool import rffi_platform
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.tool import rffi_platform
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
 import py
 import sys
 from pypy.tool import autopath
-from pypy.rlib import jit, rposix
-from pypy.rlib.rarithmetic import intmask, is_valid_int
+from rpython.rlib import jit, rposix
+from rpython.rlib.rarithmetic import intmask, is_valid_int
 
 def setup():
     for key, value in cpy_signal.__dict__.items():

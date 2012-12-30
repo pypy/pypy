@@ -1,5 +1,5 @@
 import os, py
-from pypy.rlib import rlocale
+from rpython.rlib import rlocale
 from pypy.module.sys.interp_encoding import _getfilesystemencoding
 from pypy.module.sys.interp_encoding import base_encoding
 

@@ -1,5 +1,5 @@
 from pypy.interpreter.mixedmodule import MixedModule
-from pypy.rlib.rarithmetic import intmask
+from rpython.rlib.rarithmetic import intmask
 
 class Module(MixedModule):
     interpleveldefs = {

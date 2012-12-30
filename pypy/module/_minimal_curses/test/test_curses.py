@@ -75,7 +75,7 @@ class ExpectTestCCurses(object):
     """ Test compiled version
     """
     def test_csetupterm(self):
-        from pypy.translator.c.test.test_genc import compile
+        from rpython.translator.c.test.test_genc import compile
         from pypy.module._minimal_curses import interp_curses
         def runs_setupterm():
             interp_curses._curses_setupterm_null(1)
@@ -84,7 +84,7 @@ class ExpectTestCCurses(object):
         fn()
 
     def test_ctgetstr(self):
-        from pypy.translator.c.test.test_genc import compile
+        from rpython.translator.c.test.test_genc import compile
         from pypy.module._minimal_curses import interp_curses
         def runs_ctgetstr():
             interp_curses._curses_setupterm("xterm", 1)
@@ -95,7 +95,7 @@ class ExpectTestCCurses(object):
         assert res == '\x1b[%i%p1%d;%p2%dH'
 
     def test_ctparm(self):
-        from pypy.translator.c.test.test_genc import compile
+        from rpython.translator.c.test.test_genc import compile
         from pypy.module._minimal_curses import interp_curses
         def runs_tparm():
             interp_curses._curses_setupterm("xterm", 1)

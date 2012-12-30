@@ -4,7 +4,7 @@ from pypy.interpreter.typedef import (TypeDef, interp_attrproperty_w,
                                       GetSetProperty)
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.error import OperationError
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi, lltype
 
 from pypy.module.oracle import roci, interp_error
 from pypy.module.oracle.config import string_w, StringBuffer, MAX_STRING_CHARS

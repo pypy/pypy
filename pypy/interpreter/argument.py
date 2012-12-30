@@ -3,8 +3,8 @@ Arguments objects.
 """
 
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.rlib.debug import make_sure_not_resized
-from pypy.rlib import jit
+from rpython.rlib.debug import make_sure_not_resized
+from rpython.rlib import jit
 
 
 class Signature(object):

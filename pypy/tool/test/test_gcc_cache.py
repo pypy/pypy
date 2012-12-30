@@ -2,7 +2,7 @@ import sys
 from pypy.tool.gcc_cache import *
 from pypy.tool.udir import udir
 import md5, cStringIO
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 localudir = udir.join('test_gcc_cache').ensure(dir=1)
 

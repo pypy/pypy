@@ -7,10 +7,10 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.typedef import TypeDef
-from pypy.rlib import jit
-from pypy.rlib.objectmodel import specialize
-from pypy.rlib.rarithmetic import r_uint, intmask
-from pypy.rlib.rbigint import rbigint
+from rpython.rlib import jit
+from rpython.rlib.objectmodel import specialize
+from rpython.rlib.rarithmetic import r_uint, intmask
+from rpython.rlib.rbigint import rbigint
 
 
 def get_len_of_range(space, lo, hi, step):

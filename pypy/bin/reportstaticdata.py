@@ -28,7 +28,7 @@ Options:
 """
 
 import autopath
-from pypy.translator.tool.staticsizereport import print_report
+from rpython.translator.tool.staticsizereport import print_report
 
 def parse_options(argv):
     kwds = {}

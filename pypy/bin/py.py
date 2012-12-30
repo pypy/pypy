@@ -57,7 +57,7 @@ def pypy_init(import_site):
 
 
 def set_compiler(option, opt, value, parser):
-    from pypy.translator.platform import set_platform
+    from rpython.translator.platform import set_platform
     set_platform('host', value)
 
 def main_(argv=None):

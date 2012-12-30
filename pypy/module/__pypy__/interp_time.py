@@ -3,9 +3,9 @@ import sys
 
 from pypy.interpreter.error import exception_from_errno
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.rpython.tool import rffi_platform
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rtyper.tool import rffi_platform
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 if sys.platform == 'linux2':
     libraries = ["rt"]

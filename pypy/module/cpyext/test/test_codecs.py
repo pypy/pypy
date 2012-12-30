@@ -1,6 +1,6 @@
 # encoding: iso-8859-15
 from pypy.module.cpyext.test.test_api import BaseApiTest
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi, lltype
 
 class TestCodecs(BaseApiTest):
     def test_incremental(self, space, api):

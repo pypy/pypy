@@ -4,7 +4,7 @@ from pypy.module.pypyjit.test_pypy_c.test_00_model import BaseTestPyPyC
 class Test__ffi(BaseTestPyPyC):
 
     def test__ffi_call(self):
-        from pypy.rlib.test.test_clibffi import get_libm_name
+        from rpython.rlib.test.test_clibffi import get_libm_name
         def main(libm_name):
             try:
                 from _ffi import CDLL, types
@@ -42,7 +42,7 @@ class Test__ffi(BaseTestPyPyC):
 
 
     def test__ffi_call_frame_does_not_escape(self):
-        from pypy.rlib.test.test_clibffi import get_libm_name
+        from rpython.rlib.test.test_clibffi import get_libm_name
         def main(libm_name):
             try:
                 from _ffi import CDLL, types
@@ -75,7 +75,7 @@ class Test__ffi(BaseTestPyPyC):
         assert opnames.count('new_with_vtable') == 1
 
     def test__ffi_call_releases_gil(self):
-        from pypy.rlib.clibffi import get_libc_name
+        from rpython.rlib.clibffi import get_libc_name
         def main(libc_name, n):
             import time
             import os
@@ -112,7 +112,7 @@ class Test__ffi(BaseTestPyPyC):
 
 
     def test_ctypes_call(self):
-        from pypy.rlib.test.test_clibffi import get_libm_name
+        from rpython.rlib.test.test_clibffi import get_libm_name
         def main(libm_name):
             import ctypes
             libm = ctypes.CDLL(libm_name)
@@ -172,7 +172,7 @@ class Test__ffi(BaseTestPyPyC):
 
 
     def test__cffi_call(self):
-        from pypy.rlib.test.test_clibffi import get_libm_name
+        from rpython.rlib.test.test_clibffi import get_libm_name
         def main(libm_name):
             try:
                 import _cffi_backend

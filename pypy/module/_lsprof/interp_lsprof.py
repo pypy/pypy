@@ -6,13 +6,13 @@ from pypy.interpreter.function import Method, Function
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
                                       interp_attrproperty)
-from pypy.rlib import jit
-from pypy.rlib.objectmodel import we_are_translated
-from pypy.rlib.rtimer import read_timestamp, _is_64_bit
-from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rlib import jit
+from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.rtimer import read_timestamp, _is_64_bit
+from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.tool.autopath import pypydir
-from pypy.rlib.rarithmetic import r_longlong
+from rpython.rlib.rarithmetic import r_longlong
 
 import time, sys
 

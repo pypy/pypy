@@ -1,4 +1,4 @@
-from pypy.rpython.lltypesystem import lltype, rffi
+from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.module.cpyext.api import (
     cpython_api, cpython_struct, PyObject, build_type_checkers)
 from pypy.module.cpyext.floatobject import PyFloat_AsDouble

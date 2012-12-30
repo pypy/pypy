@@ -197,7 +197,7 @@ class TestGateway:
                        space.call_function, w_app_g, space.wrap(-1))
 
     def test_interp2app_unwrap_spec_c_int(self):
-        from pypy.rlib.rarithmetic import r_longlong
+        from rpython.rlib.rarithmetic import r_longlong
         space = self.space
         w = space.wrap
         def g(space, x):

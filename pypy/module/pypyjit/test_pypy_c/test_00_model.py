@@ -6,7 +6,7 @@ import py
 from lib_pypy import disassembler
 from pypy.tool.udir import udir
 from pypy.tool import logparser
-from pypy.jit.tool.jitoutput import parse_prof
+from rpython.jit.tool.jitoutput import parse_prof
 from pypy.module.pypyjit.test_pypy_c.model import (Log, find_ids_range,
                                                    find_ids,
                                                    OpMatcher, InvalidMatch)

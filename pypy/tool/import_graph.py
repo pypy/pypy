@@ -97,8 +97,8 @@ class ModuleGraph(object):
         self.topgraph_properties = ["rankdir=LR"]
 
     def remove_object_refs(self):
-        # reduces cases like import pypy.translator.genc.basetype.CType to
-        # import pypy.translator.genc.basetype
+        # reduces cases like import rpython.translator.genc.basetype.CType to
+        # import rpython.translator.genc.basetype
         for mod, refs in self.imports.iteritems():
             i = 0
             while i < len(refs):

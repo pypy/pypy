@@ -198,7 +198,7 @@ translation_optiondescription = OptionDescription(
                   default=DEFL_INLINE_THRESHOLD, cmdline="--inline-threshold"),
         StrOption("inline_heuristic", "Dotted name of an heuristic function "
                   "for inlining",
-                default="pypy.translator.backendopt.inline.inlining_heuristic",
+                default="rpython.translator.backendopt.inline.inlining_heuristic",
                 cmdline="--inline-heuristic"),
 
         BoolOption("print_statistics", "Print statistics while optimizing",
@@ -226,7 +226,7 @@ translation_optiondescription = OptionDescription(
         StrOption("profile_based_inline_heuristic",
                   "Dotted name of an heuristic function "
                   "for profile based inlining",
-                default="pypy.translator.backendopt.inline.inlining_heuristic",
+                default="rpython.translator.backendopt.inline.inlining_heuristic",
                 ),  # cmdline="--prof-based-inline-heuristic" fix me
         # control clever malloc removal
         BoolOption("clever_malloc_removal",
@@ -241,7 +241,7 @@ translation_optiondescription = OptionDescription(
         StrOption("clever_malloc_removal_heuristic",
                   "Dotted name of an heuristic function "
                   "for inlining in clever malloc removal",
-                default="pypy.translator.backendopt.inline.inlining_heuristic",
+                default="rpython.translator.backendopt.inline.inlining_heuristic",
                 cmdline="--clever-malloc-removal-heuristic"),
 
         BoolOption("remove_asserts",
@@ -339,7 +339,7 @@ OPT_TABLE = {
 def final_check_config(config):
     # XXX: this should be a real config option, but it is hard to refactor it;
     # instead, we "just" patch it from here
-    from pypy.rlib import rfloat
+    from rpython.rlib import rfloat
     if config.translation.type_system == 'ootype':
         rfloat.USE_SHORT_FLOAT_REPR = False
 
@@ -393,11 +393,11 @@ def set_opt_level(config, level):
 # ----------------------------------------------------------------
 
 def set_platform(config):
-    from pypy.translator.platform import set_platform
+    from rpython.translator.platform import set_platform
     set_platform(config.translation.platform, config.translation.cc)
 
 def get_platform(config):
-    from pypy.translator.platform import pick_platform
+    from rpython.translator.platform import pick_platform
     opt = config.translation.platform
     cc = config.translation.cc
     return pick_platform(opt, cc)

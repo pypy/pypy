@@ -2,9 +2,9 @@
 """ Tests some error handling routines
 """
 
-from pypy.translator.translator import TranslationContext
+from rpython.translator.translator import TranslationContext
 from pypy.tool.error import AnnotatorError
-from pypy.annotation.model import UnionError
+from rpython.annotator.model import UnionError
 
 import py
 

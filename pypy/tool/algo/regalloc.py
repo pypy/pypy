@@ -1,5 +1,5 @@
 import sys
-from pypy.objspace.flow.model import Variable
+from rpython.flowspace.model import Variable
 from pypy.tool.algo.color import DependencyGraph
 from pypy.tool.algo.unionfind import UnionFind
 

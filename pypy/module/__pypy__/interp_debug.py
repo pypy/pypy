@@ -1,5 +1,5 @@
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.rlib import debug, jit
+from rpython.rlib import debug, jit
 
 
 @jit.dont_look_inside

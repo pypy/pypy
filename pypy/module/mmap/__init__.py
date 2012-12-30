@@ -1,5 +1,5 @@
 from pypy.interpreter.mixedmodule import MixedModule
-from pypy.rlib import rmmap
+from rpython.rlib import rmmap
 
 class Module(MixedModule):
     interpleveldefs = {

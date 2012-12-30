@@ -295,7 +295,7 @@ def break_cycles_v(vertices, edges):
 
 
 def show_graph(vertices, edges):
-    from pypy.translator.tool.graphpage import GraphPage, DotGen
+    from rpython.translator.tool.graphpage import GraphPage, DotGen
     class MathGraphPage(GraphPage):
         def compute(self):
             dotgen = DotGen('mathgraph')

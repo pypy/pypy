@@ -1,4 +1,4 @@
-from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin
+from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin
 from pypy.module.unicodedata import unicodedb_3_2_0, unicodedb_5_2_0
 
 class AppTestUnicodeData:

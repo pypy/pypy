@@ -2,7 +2,7 @@
 
 import operator
 
-from pypy.rlib.unroll import unrolling_iterable
+from rpython.rlib.unroll import unrolling_iterable
 from pypy.interpreter import pyopcode
 from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.error import OperationError

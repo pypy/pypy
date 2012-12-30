@@ -1,6 +1,6 @@
 import os, sys
-from pypy.rlib import jit
-from pypy.rlib.objectmodel import we_are_translated
+from rpython.rlib import jit
+from rpython.rlib.objectmodel import we_are_translated
 from errno import EINTR
 
 AUTO_DEBUG = os.getenv('PYPY_DEBUG')
@@ -324,7 +324,7 @@ def get_operrcls2(valuefmt):
     try:
         OpErrFmt = _fmtcache2[formats]
     except KeyError:
-        from pypy.rlib.unroll import unrolling_iterable
+        from rpython.rlib.unroll import unrolling_iterable
         attrs = ['x%d' % i for i in range(len(formats))]
         entries = unrolling_iterable(enumerate(attrs))
         #
@@ -382,7 +382,7 @@ else:
     _WINDOWS = True
 
     def wrap_windowserror(space, e, w_filename=None):
-        from pypy.rlib import rwin32
+        from rpython.rlib import rwin32
 
         winerror = e.winerror
         try:
@@ -440,7 +440,7 @@ def wrap_oserror(space, e, filename=None, exception_name='w_OSError',
 wrap_oserror._annspecialcase_ = 'specialize:arg(3)'
 
 def exception_from_errno(space, w_type):
-    from pypy.rlib.rposix import get_errno
+    from rpython.rlib.rposix import get_errno
 
     errno = get_errno()
     msg = os.strerror(errno)

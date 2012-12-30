@@ -5,9 +5,9 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.baseobjspace import Wrappable
 
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.rpython.lltypesystem import rffi
-from pypy.rlib import libffi, rdynload
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rtyper.lltypesystem import rffi
+from rpython.rlib import libffi, rdynload
 
 from pypy.module.itertools import interp_itertools
 

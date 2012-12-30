@@ -1,7 +1,7 @@
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from pypy.module._socket.interp_socket import converted_error, W_RSocket
-from pypy.rlib import rsocket
-from pypy.rlib.rsocket import SocketError, INVALID_SOCKET
+from rpython.rlib import rsocket
+from rpython.rlib.rsocket import SocketError, INVALID_SOCKET
 from pypy.interpreter.error import OperationError
 
 def gethostname(space):

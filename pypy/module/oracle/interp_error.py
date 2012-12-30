@@ -1,12 +1,12 @@
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.rpython.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.typedef import interp_attrproperty, interp_attrproperty_w
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.error import OperationError
 
 from pypy.module.oracle import roci, config
-from pypy.rlib.unroll import unrolling_iterable
+from rpython.rlib.unroll import unrolling_iterable
 
 exported_names = unrolling_iterable("""
     DatabaseError OperationalError InterfaceError ProgrammingError

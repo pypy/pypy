@@ -5,11 +5,11 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
 from pypy.interpreter.baseobjspace import Wrappable, W_Root
 
-from pypy.rpython.lltypesystem import rffi, lltype, llmemory
+from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
 
-from pypy.rlib import jit, rdynload, rweakref
-from pypy.rlib import jit_libffi, clibffi
-from pypy.rlib.objectmodel import we_are_translated
+from rpython.rlib import jit, rdynload, rweakref
+from rpython.rlib import jit_libffi, clibffi
+from rpython.rlib.objectmodel import we_are_translated
 
 from pypy.module.cppyy import converter, executor, helper
 
@@ -423,7 +423,7 @@ class W_CPPOverload(Wrappable):
     def __init__(self, space, containing_scope, functions):
         self.space = space
         self.scope = containing_scope
-        from pypy.rlib import debug
+        from rpython.rlib import debug
         self.functions = debug.make_sure_not_resized(functions)
 
     @jit.elidable_promote()

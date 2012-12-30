@@ -1,5 +1,5 @@
 from pypy.interpreter.mixedmodule import MixedModule
-from pypy.rlib import runicode
+from rpython.rlib import runicode
 from pypy.module._codecs import interp_codecs
 
 class Module(MixedModule):

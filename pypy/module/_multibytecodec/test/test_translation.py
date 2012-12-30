@@ -1,5 +1,5 @@
 from pypy.module._multibytecodec import c_codecs
-from pypy.translator.c.test import test_standalone
+from rpython.translator.c.test import test_standalone
 
 
 class TestTranslation(test_standalone.StandaloneTests):

@@ -1,9 +1,9 @@
 import math
-from pypy.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.interpreter.error import OperationError
 from pypy.module.cmath import names_and_docstrings
-from pypy.rlib import rcomplex
+from rpython.rlib import rcomplex
 
 pi = math.pi
 e  = math.e
