@@ -25,26 +25,59 @@ def round_to_nearest(x):
         int_part += 1
     return int_part
 
+def float_unpack80(QQ):
+    '''Unpack a (mant, exp) tuple of r_ulonglong in 80-bit extended format
+    into a long double float
+    '''
+    MIN_EXP = -16381
+    MAX_EXP = 16384 
+    MANT_DIG = 64   
+    TOPBITS = 80 - 64
+    one = r_ulonglong(1)
+    if len(QQ) != 2:
+        raise ValueError("QQ must be two 64 bit uints")
+    if not objectmodel.we_are_translated():
+        # This tests generates wrong code when translated:
+        # with gcc, shifting a 64bit int by 64 bits does
+        # not change the value.
+        if QQ[1] >> TOPBITS:
+            raise ValueError("input '%r' out of range '%r'" % (QQ, QQ[1]>>TOPBITS))
+
+    # extract pieces with explicit one in MANT_DIG
+    sign = rarithmetic.intmask(QQ[1] >> TOPBITS - 1)
+    exp = rarithmetic.intmask((QQ[1] & ((one << TOPBITS - 1) - 1)))
+    mant = QQ[0]
+
+    if exp == MAX_EXP - MIN_EXP + 2:
+        # nan or infinity
+        result = rfloat.NAN if mant &((one << MANT_DIG - 1) - 1) else rfloat.INFINITY
+    else:
+        # normal
+        result = math.ldexp(mant, exp + MIN_EXP - MANT_DIG - 1)
+    return -result if sign else result
+
 
 def float_unpack(Q, size):
-    """Convert a 16-bit, 32-bit or 64-bit integer created
+    """Convert a 16-bit, 32-bit 64-bit integer created
     by float_pack into a Python float."""
-
     if size == 8:
         MIN_EXP = -1021  # = sys.float_info.min_exp
         MAX_EXP = 1024   # = sys.float_info.max_exp
         MANT_DIG = 53    # = sys.float_info.mant_dig
         BITS = 64
+        one = r_ulonglong(1)
     elif size == 4:
         MIN_EXP = -125   # C's FLT_MIN_EXP
         MAX_EXP = 128    # FLT_MAX_EXP
         MANT_DIG = 24    # FLT_MANT_DIG
         BITS = 32
+        one = r_ulonglong(1)
     elif size == 2:
         MIN_EXP = -13   
         MAX_EXP = 16    
         MANT_DIG = 11
         BITS = 16
+        one = r_ulonglong(1)
     else:
         raise ValueError("invalid size value")
 
@@ -53,10 +86,9 @@ def float_unpack(Q, size):
         # with gcc, shifting a 64bit int by 64 bits does
         # not change the value.
         if Q >> BITS:
-            raise ValueError("input out of range")
+            raise ValueError("input '%r' out of range '%r'" % (Q, Q>>BITS))
 
-    # extract pieces
-    one = r_ulonglong(1)
+    # extract pieces with assumed 1.mant values
     sign = rarithmetic.intmask(Q >> BITS - 1)
     exp = rarithmetic.intmask((Q & ((one << BITS - 1) - (one << MANT_DIG - 1))) >> MANT_DIG - 1)
     mant = Q & ((one << MANT_DIG - 1) - 1)
@@ -68,7 +100,7 @@ def float_unpack(Q, size):
         # subnormal or zero
         result = math.ldexp(mant, MIN_EXP - MANT_DIG)
     else:
-        # normal
+        # normal: add implicit one value
         mant += one << MANT_DIG - 1
         result = math.ldexp(mant, exp + MIN_EXP - MANT_DIG - 1)
     return -result if sign else result
@@ -77,7 +109,6 @@ def float_unpack(Q, size):
 def float_pack(x, size):
     """Convert a Python float x into a 64-bit unsigned integer
     with the same byte representation."""
-
     if size == 8:
         MIN_EXP = -1021  # = sys.float_info.min_exp
         MAX_EXP = 1024   # = sys.float_info.max_exp
@@ -93,6 +124,13 @@ def float_pack(x, size):
         MAX_EXP = 16    
         MANT_DIG = 11
         BITS = 16
+    elif size == 16 or size == 12:
+        #Implement a x86-hardware extended 80 bit format
+        # with explicit 1 in bit 64
+        MIN_EXP = -16381
+        MAX_EXP = 16384
+        MANT_DIG = 64 
+        BITS = 80
     else:
         raise ValueError("invalid size value")
 
@@ -139,22 +177,83 @@ def float_pack(x, size):
         assert 0 <= mant < 1 << MANT_DIG - 1
         assert 0 <= exp <= MAX_EXP - MIN_EXP + 2
         assert 0 <= sign <= 1
-
+    if size==12 or size == 16:
+        mant |= r_ulonglong(1) <<(MANT_DIG-1) #1 is explicit for 80bit extended format
+        exp = exp << 1
     exp = r_ulonglong(exp)
     sign = r_ulonglong(sign)
     return ((sign << BITS - 1) | (exp << MANT_DIG - 1)) | mant
+
+def float_pack80(x):
+    """Convert a Python float x into two 64-bit unsigned integers
+    with 80 bit extended representation."""
+    MIN_EXP = -16381
+    MAX_EXP = 16384
+    MANT_DIG = 64 
+    BITS = 80
+
+    sign = rfloat.copysign(1.0, x) < 0.0
+    if not rfloat.isfinite(x):
+        if rfloat.isinf(x):
+            mant = r_ulonglong(0)
+            exp = MAX_EXP - MIN_EXP + 2
+        else:  # rfloat.isnan(x):
+            mant = (r_ulonglong(1) << (MANT_DIG-2)) - 1 # other values possible
+            exp = MAX_EXP - MIN_EXP + 2
+    elif x == 0.0:
+        mant = r_ulonglong(0)
+        exp = 0
+    else:
+        m, e = math.frexp(abs(x))  # abs(x) == m * 2**e
+        exp = e - (MIN_EXP - 1)
+        if exp > 0:
+            # Normal case. Avoid uint64 overflow by using MANT_DIG-1
+            mant = round_to_nearest(m * (r_ulonglong(1) << MANT_DIG - 1))
+        else:
+            # Subnormal case.
+            if exp + MANT_DIG - 1 >= 0:
+                mant = round_to_nearest(m * (r_ulonglong(1) << exp + MANT_DIG - 1))
+            else:
+                mant = r_ulonglong(0)
+            exp = 0
+
+        # Special case: rounding produced a MANT_DIG-bit mantissa.
+        if mant == r_ulonglong(1) << MANT_DIG - 1:
+            mant = r_ulonglong(0)
+            exp += 1
+
+        # Raise on overflow (in some circumstances, may want to return
+        # infinity instead).
+        if exp >= MAX_EXP - MIN_EXP + 2:
+             raise OverflowError("float too large to pack in this format")
+
+    # check constraints
+    if not objectmodel.we_are_translated():
+        assert 0 <= mant < 1 << MANT_DIG - 1
+        assert 0 <= exp <= MAX_EXP - MIN_EXP + 2
+        assert 0 <= sign <= 1
+    mant = mant << 1
+    exp = r_ulonglong(exp)
+    sign = r_ulonglong(sign)
+    return (mant, (sign << BITS - MANT_DIG - 1) | exp)
 
 
 @jit.unroll_safe
 def pack_float(result, x, size, be):
     l = []
-    unsigned = float_pack(x, size)
-    for i in range(size):
-        l.append(chr((unsigned >> (i * 8)) & 0xFF))
+    if size == 12 or size == 16:
+        unsigned = float_pack80(x)
+        for i in range(8):
+            l.append(chr((unsigned[0] >> (i * 8)) & 0xFF))
+        for i in range(size - 8):
+            l.append(chr((unsigned[1] >> (i * 8)) & 0xFF))
+    else:
+        unsigned = float_pack(x, size)
+        for i in range(size):
+            l.append(chr((unsigned >> (i * 8)) & 0xFF))
     if be:
         l.reverse()
     result.append("".join(l))
-
 
 def unpack_float(s, be):
     unsigned = r_ulonglong(0)
@@ -162,3 +261,13 @@ def unpack_float(s, be):
         c = ord(s[len(s) - 1 - i if be else i])
         unsigned |= r_ulonglong(c) << (i * 8)
     return float_unpack(unsigned, len(s))
+
+def unpack_float128(s, be):
+    QQ = [r_ulonglong(0), r_ulonglong(0)]
+    for i in range(8):
+        c = ord(s[len(s) - 1 - i if be else i])
+        QQ[0] |= r_ulonglong(c) << (i * 8)
+    for i in range(8, len(s)):
+        c = ord(s[len(s) - 1 - i if be else i])
+        QQ[1] |= r_ulonglong(c) << ((i - 8) * 8)
+    return float_unpack80(QQ)

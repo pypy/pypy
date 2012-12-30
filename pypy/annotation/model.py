@@ -241,6 +241,9 @@ class SomeUnicodeString(SomeStringOrUnicode):
     "Stands for an object which is known to be an unicode string"
     knowntype = unicode
 
+class SomeByteArray(SomeStringOrUnicode):
+    knowntype = bytearray
+
 class SomeChar(SomeString):
     "Stands for an object known to be a string of length 1."
     can_be_None = False
