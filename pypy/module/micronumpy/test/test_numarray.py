@@ -1169,8 +1169,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (d == [[1, 0, 0], [0, 1, 0], [0, 0, 1]]).all()
    
     def test_eye(self):
-        from _numpypy import eye, array
-        from _numpypy import int32, float64, dtype
+        from _numpypy import eye
+        from _numpypy import int32, dtype
         a = eye(0)
         assert len(a) == 0
         assert a.dtype == dtype('float64')
@@ -1344,6 +1344,25 @@ class AppTestNumArray(BaseNumpyAppTest):
         c[:] = 3
         assert b[0] == 3
         assert b[1] == 2
+
+    def test_realimag_views(self):
+        from _numpypy import arange, array
+        a = arange(15)
+        b = a.real
+        b[5]=50
+        assert a[5] == 50
+        b = a.imag
+        assert b[7] == 0
+        raises(RuntimeError, 'b[7] = -2')
+        a = array(['abc','def'],dtype='S3')
+        b = a.real
+        assert (b==a).all()
+        b[1] = 'xyz'
+        assert a[1] == 'xyz'
+        a=array([1+1j, 2-3j]) 
+        assert a.real[1] == 2
+        a.real[1] = -20
+        assert a[1].real == -20
 
     def test_tolist_scalar(self):
         from _numpypy import int32, bool_
@@ -2273,7 +2292,7 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         assert a[0]['x'] == 'a'
 
     def test_stringarray(self):
-        from _numpypy import array, flexible
+        from _numpypy import array
         a = array(['abc'],'S3')
         assert str(a.dtype) == '|S3'
         a = array(['abc'])
@@ -2293,7 +2312,6 @@ class AppTestRecordDtype(BaseNumpyAppTest):
 
     def test_flexible_repr(self):
         # import overrides str(), repr() for array
-        from numpypy.core import arrayprint
         from _numpypy import array
         a = array(['abc'],'S3')
         s = repr(a)
