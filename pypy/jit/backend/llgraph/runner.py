@@ -877,13 +877,16 @@ class LLFrame(object):
         #
         assembler_helper_ptr = jd.assembler_helper_adr.ptr  # fish
         try:
-            return assembler_helper_ptr(pframe, vable)
+            result = assembler_helper_ptr(pframe, vable)
         except LLException, lle:
             assert self.last_exception is None, "exception left behind"
             self.last_exception = lle
             # fish op
             op = self.current_op
             return op.result and op.result.value
+        if isinstance(result, float):
+            result = support.cast_to_floatstorage(result)
+        return result
 
     def execute_same_as(self, _, x):
         return x

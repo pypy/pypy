@@ -283,9 +283,10 @@ def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
     args = ', '.join(['a%d' % i for i in range(len(TP.TO.ARGS))])
     source = py.code.Source(r"""
         def inner_wrapper(%(args)s):
-            callback_hook = aroundstate.callback_hook
-            if callback_hook:
-                callback_hook(llstr("%(callable_name_descr)s"))
+            if aroundstate is not None:
+                callback_hook = aroundstate.callback_hook
+                if callback_hook:
+                    callback_hook(llstr("%(callable_name_descr)s"))
             return callable(%(args)s)
         inner_wrapper._never_inline_ = True
         

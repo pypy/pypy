@@ -5,6 +5,11 @@ What's new in PyPy 2.0
 .. this is a revision shortly after release-2.0-beta1
 .. startrev: 0e6161a009c6
 
+.. branch: callback-jit
+Callbacks from C are now better JITted
+
+.. branch: remove-globals-in-jit
+
 .. branch: length-hint
 Implement __lenght_hint__ according to PEP 424
 
