@@ -235,6 +235,24 @@ class __extend__(W_NDimArray):
     def descr_copy(self, space):
         return W_NDimArray(self.implementation.copy())
 
+    def descr_get_real(self, space):
+        return W_NDimArray(self.implementation.get_real())
+
+    def descr_get_imag(self, space):
+        ret = self.implementation.get_imag()
+        if ret:
+            return W_NDimArray(ret)
+        raise OperationError(space.w_NotImplementedError, 
+                    space.wrap('imag not implemented for this dtype'))
+
+    def descr_set_real(self, space, w_new_val):
+        # copy (broadcast) values into self
+        self.implementation.descr_set_real(space, w_new_val)
+
+    def descr_set_imag(self, space, w_new_val):
+        # if possible, copy (broadcast) values into self
+        self.implementation.descr_set_imag(space, w_new_val)
+
     def descr_reshape(self, space, args_w):
         """reshape(...)
         a.reshape(shape)
@@ -387,8 +405,6 @@ class __extend__(W_NDimArray):
     descr_neg = _unaryop_impl("negative")
     descr_abs = _unaryop_impl("absolute")
     descr_invert = _unaryop_impl("invert")
-    descr_get_real = _unaryop_impl("real")
-    descr_get_imag = _unaryop_impl("imag")
 
     def descr_nonzero(self, space):
         if self.get_size() > 1:
@@ -635,9 +651,10 @@ W_NDimArray.typedef = TypeDef(
     swapaxes = interp2app(W_NDimArray.descr_swapaxes),
     flat = GetSetProperty(W_NDimArray.descr_get_flatiter),
     item = interp2app(W_NDimArray.descr_item),
-    real = GetSetProperty(W_NDimArray.descr_get_real),
-    imag = GetSetProperty(W_NDimArray.descr_get_imag),
-
+    real = GetSetProperty(W_NDimArray.descr_get_real, 
+                          W_NDimArray.descr_set_real),
+    imag = GetSetProperty(W_NDimArray.descr_get_imag,
+                          W_NDimArray.descr_set_imag),
     __array_interface__ = GetSetProperty(W_NDimArray.descr_array_iface),
 )
 

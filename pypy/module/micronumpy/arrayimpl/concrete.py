@@ -220,6 +220,27 @@ class BaseConcreteArray(base.BaseArrayImplementation):
                               new_shape, self)
         else:
             return None
+    
+    def get_real(self):
+        if self.dtype.is_complex_type():
+            raise NotImplementedError('waiting for astype()')
+        return SliceArray(self.start, self.get_strides(), 
+                          self.get_backstrides(), self.get_shape(), self)
+
+    def get_imag(self):
+        if self.dtype.is_complex_type():
+            raise NotImplementedError('waiting for astype()')
+        if self.dtype.is_flexible_type():
+            # numpy returns self for self.imag
+            return SliceArray(self.start, self.get_strides(), 
+                          self.get_backstrides(), self.get_shape(), self)
+   
+        strides, backstrides = support.calc_strides(self.get_shape(), self.dtype,
+                                                    self.order)
+        impl = NonWritableArray(self.get_shape(), self.dtype, self.order, strides,
+                             backstrides)
+        impl.fill(self.dtype.box(0))
+        return impl
 
     # -------------------- applevel get/setitem -----------------------
 
@@ -423,6 +444,12 @@ class ConcreteArray(BaseConcreteArray):
         strides, backstrides = support.calc_strides(new_shape, self.dtype,
                                                     self.order)
         return SliceArray(0, strides, backstrides, new_shape, self)
+
+class NonWritableArray(ConcreteArray):
+    def descr_setitem(self, space, w_index, w_value):
+        raise OperationError(space.w_RuntimeError, space.wrap(
+            "array is not writable"))
+        
 
 class SliceArray(BaseConcreteArray):
     def __init__(self, start, strides, backstrides, shape, parent, dtype=None):

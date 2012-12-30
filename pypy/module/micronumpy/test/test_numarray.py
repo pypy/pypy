@@ -1356,7 +1356,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         raises(RuntimeError, 'b[7] = -2')
         a = array(['abc','def'],dtype='S3')
         b = a.real
-        assert (b==a).all()
+        assert a[0] == b[0]
+        assert a[1] == b[1]
         b[1] = 'xyz'
         assert a[1] == 'xyz'
         a=array([1+1j, 2-3j]) 
