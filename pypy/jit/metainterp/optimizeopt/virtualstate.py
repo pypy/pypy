@@ -30,6 +30,9 @@ class AbstractVirtualStateInfo(resume.AbstractVirtualInfo):
     def make_guardable_generalization_of(self, other, value, optimizer):
         pass
 
+    def make_guardable_generalization_of_null(self, value, optimizer):
+        pass
+
     def generate_guards(self, other, box, cpu, extra_guards, renum):
         if self.generalization_of(other, renum, {}):
             return
@@ -44,7 +47,7 @@ class AbstractVirtualStateInfo(resume.AbstractVirtualInfo):
         raise InvalidLoop('Generating guards for making the VirtualStates ' +
                           'at hand match have not been implemented')
 
-    def enum_forced_boxes(self, boxes, value, optimizer):
+    def enum_forced_boxes(self, boxes, value, optimizer, doforce):
         raise NotImplementedError
 
     def enum(self, virtual_state):
@@ -132,16 +135,40 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
         assert len(self.fielddescrs) == len(self.fieldstate)
         assert len(other.fielddescrs) == len(other.fieldstate)
         assert isinstance(value, virtualize.AbstractVirtualStructValue)
-        if len(self.fielddescrs) != len(other.fielddescrs):
-            raise InvalidLoop('Cant combine virtuals with different numbers of fields.')
-        for i in range(len(self.fielddescrs)):
-            if other.fielddescrs[i] is not self.fielddescrs[i]:
-                raise InvalidLoop('Cant combine virtuals with different fields.')
-            new_field_value = self.fieldstate[i].make_guardable_generalization_of(other.fieldstate[i],
-                                                                        value.getfield(self.fielddescrs[i], None),
-                                                                        optimizer)
+
+        i = j = 0
+        while i < len(self.fielddescrs) and j < len(other.fielddescrs):
+            if other.fielddescrs[j] is self.fielddescrs[i]:
+                new_field_value = self.fieldstate[i].make_guardable_generalization_of(other.fieldstate[j],
+                                                       value.getfield(self.fielddescrs[i], None), optimizer)
+                if new_field_value:
+                    value.setfield(self.fielddescrs[i], new_field_value)
+                i += 1
+                j += 1
+            elif self.fielddescrs[i].sort_key() < other.fielddescrs[j].sort_key():
+                new_field_value = self.fieldstate[i].make_guardable_generalization_of_null(
+                                                       value.getfield(self.fielddescrs[i], None), optimizer)
+                if new_field_value:
+                    value.setfield(self.fielddescrs[i], new_field_value)
+                i += 1
+            else:
+                new_field_value = other.fieldstate[j].make_guardable_generalization_of_null(
+                                                       value.getfield(other.fielddescrs[j], None), optimizer)
+                if new_field_value:
+                    value.setfield(other.fielddescrs[j], new_field_value)
+                j += 1
+        while i < len(self.fielddescrs):
+            new_field_value = self.fieldstate[i].make_guardable_generalization_of_null(
+                                                   value.getfield(self.fielddescrs[i], None), optimizer)
             if new_field_value:
                 value.setfield(self.fielddescrs[i], new_field_value)
+            i += 1
+        while j < len(other.fielddescrs):
+            new_field_value = other.fieldstate[j].make_guardable_generalization_of_null(
+                                                   value.getfield(other.fielddescrs[j], None), optimizer)
+            if new_field_value:
+                value.setfield(other.fielddescrs[j], new_field_value)
+            j += 1
 
     def kill_null_fields(self):
         assert len(self.fielddescrs) == len(self.fieldstate)
@@ -153,19 +180,18 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
     def _generalization_of(self, other):
         raise NotImplementedError
 
-    def enum_forced_boxes(self, boxes, value, optimizer):
+    def enum_forced_boxes(self, boxes, value, optimizer, doforce):
         if not isinstance(value, virtualize.AbstractVirtualStructValue):
             raise BadVirtualState
         if not value.is_virtual():
             raise BadVirtualState
         for i in range(len(self.fielddescrs)):
-            try:
-                v = value._fields[self.fielddescrs[i]]
-            except KeyError:
-                raise BadVirtualState
+            v = value.getfield(self.fielddescrs[i], None)
+            if v is None:
+                v = optimizer.new_const(self.fielddescrs[i])
             s = self.fieldstate[i]
             if s.position > self.position:
-                s.enum_forced_boxes(boxes, v, optimizer)
+                s.enum_forced_boxes(boxes, v, optimizer, doforce)
 
     def _enum(self, virtual_state):
         for s in self.fieldstate:
@@ -235,7 +261,7 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
         return (isinstance(other, VArrayStateInfo) and
             self.arraydescr is other.arraydescr)
 
-    def enum_forced_boxes(self, boxes, value, optimizer):
+    def enum_forced_boxes(self, boxes, value, optimizer, doforce):
         if not isinstance(value, virtualize.VArrayValue):
             raise BadVirtualState
         if not value.is_virtual():
@@ -247,7 +273,7 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
                 raise BadVirtualState
             s = self.fieldstate[i]
             if s.position > self.position:
-                s.enum_forced_boxes(boxes, v, optimizer)
+                s.enum_forced_boxes(boxes, v, optimizer, doforce)
 
     def _enum(self, virtual_state):
         for s in self.fieldstate:
@@ -308,7 +334,7 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
         for s in self.fieldstate:
             s.enum(virtual_state)
 
-    def enum_forced_boxes(self, boxes, value, optimizer):
+    def enum_forced_boxes(self, boxes, value, optimizer, doforce):
         if not isinstance(value, virtualize.VArrayStructValue):
             raise BadVirtualState
         if not value.is_virtual():
@@ -324,7 +350,7 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
                     raise BadVirtualState
                 s = self.fieldstate[p]
                 if s.position > self.position:
-                    s.enum_forced_boxes(boxes, v, optimizer)
+                    s.enum_forced_boxes(boxes, v, optimizer, doforce)
                 p += 1
 
     def debug_header(self, indent):
@@ -412,6 +438,14 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
             optimizer.make_equal_to(box, v, True)
             return v
 
+    def make_guardable_generalization_of_null(self, value, optimizer):
+        box = value.get_key_box()
+        if isinstance(box, Const):
+            box = box.clonebox()
+        v = OptValue(box)
+        optimizer.make_equal_to(box, v, True)
+        return v
+
     def _generate_guards(self, other, box, cpu, extra_guards):
         if not isinstance(other, NotVirtualStateInfo):
             raise InvalidLoop('The VirtualStates does not match as a ' +
@@ -479,11 +513,11 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
             import pdb; pdb.set_trace()
             raise NotImplementedError
 
-    def enum_forced_boxes(self, boxes, value, optimizer):
+    def enum_forced_boxes(self, boxes, value, optimizer, doforce):
         if self.level == LEVEL_CONSTANT:
             return
         assert 0 <= self.position_in_notvirtuals
-        if optimizer:
+        if doforce:
             box = value.force_box(optimizer)
         else:
             if value.is_virtual():
@@ -579,9 +613,9 @@ class VirtualState(object):
         # which might change the virtual state if the box appear in more
         # than one place among the inputargs.
         for i in range(len(values)):
-            self.state[i].enum_forced_boxes(inputargs, values[i], optimizer)
+            self.state[i].enum_forced_boxes(inputargs, values[i], optimizer, True)
         for i in range(len(values)):
-            self.state[i].enum_forced_boxes(inputargs, values[i], None)
+            self.state[i].enum_forced_boxes(inputargs, values[i], optimizer, False)
 
         if keyboxes:
             for i in range(len(values)):

@@ -1292,6 +1292,50 @@ class TestGuardedGenerlaization:
         o = self.optimizer
         self.combine([o.node1], [o.subnode1], InvalidLoop)
 
+    def test_boxed_int_zero1(self):
+        o = self.optimizer
+        self.setfield(o.node1, o.descr1, o.const_int1)
+        self.setfield(o.node2, o.descr1, o.const_int0)
+        self.combine([o.node1], [o.node1], [Virtual(o.node_class, {o.descr1: Const(1)})])
+
+    def test_boxed_int_zero2(self):
+        o = self.optimizer
+        self.setfield(o.node1, o.descr1, o.const_int1)
+        self.setfield(o.node2, o.descr1, o.const_int0)
+        self.combine([o.node2], [o.node2], [Virtual(o.node_class, {})])
+
+    def test_boxed_int_zero3(self):
+        o = self.optimizer
+        self.setfield(o.node1, o.descr1, o.const_int1)
+        self.setfield(o.node2, o.descr1, o.const_int0)
+        self.combine([o.node1], [o.node2], [Virtual(o.node_class, {o.descr1: Unknown})])
+
+    def test_boxed_int_zero4(self):
+        o = self.optimizer
+        self.setfield(o.node1, o.descr1, o.const_int1)
+        self.setfield(o.node2, o.descr1, o.const_int0)
+        self.combine([o.node2], [o.node1], [Virtual(o.node_class, {o.descr1: Unknown})])
+
+    def test_three_boxed_int_zero(self):
+        o = self.optimizer
+        for consts1 in itertools.permutations([o.const_int0, o.const_int1, o.const_int2]):
+            for consts2 in itertools.permutations([o.const_int0, o.const_int1, o.const_int2]):
+                self.setfield(o.node1, o.descr1, consts1[0])
+                self.setfield(o.node1, o.descr2, consts1[1])
+                self.setfield(o.node1, o.descr3, consts1[2])
+                self.setfield(o.node2, o.descr1, consts2[0])
+                self.setfield(o.node2, o.descr2, consts2[1])
+                self.setfield(o.node2, o.descr3, consts2[2])
+                flds = {d: Const(c1.value) if c1 is c2 else Unknown 
+                        for d, c1, c2 in zip([o.descr1, o.descr2, o.descr3], consts1, consts2)}
+                for d in flds.keys():
+                    try:
+                        if flds[d].value.value == 0:
+                            del flds[d]
+                    except AttributeError:
+                        pass
+                self.combine([o.node1], [o.node2], [Virtual(o.node_class, flds)])
+
     def test_currently_unsupported_case(self):
         o = self.optimizer
         self.combine([o.array1], [o.array2], InvalidLoop)
