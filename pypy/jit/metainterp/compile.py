@@ -217,7 +217,9 @@ def compile_retrace(metainterp, greenkey, start,
         assert label.getopnum() == rop.LABEL
         target_token = label.getdescr()
         assert isinstance(target_token, TargetToken)
-        target_token.exported_state.generalize_virtual_state = original_target_token.virtual_state
+        exported_state = target_token.exported_state
+        assert exported_state is not None
+        exported_state.generalize_virtual_state = original_target_token.virtual_state
 
         loop.inputargs = inputargs[:]
         loop.resume_at_jump_descr = resume_at_jump_descr
@@ -238,8 +240,10 @@ def compile_retrace(metainterp, greenkey, start,
         if target_token.short_preamble:
             metainterp_sd.logger_ops.log_short_preamble([], target_token.short_preamble)
 
+        exported_state = original_target_token.exported_state
+        assert exported_state is not None
         preamble.operations = [orignial_label] + \
-                              [ResOperation(rop.JUMP, original_target_token.exported_state.jump_args,
+                              [ResOperation(rop.JUMP, exported_state.jump_args,
                                             None, descr=loop_jitcell_token)]
         try:
             optimize_trace(metainterp_sd, preamble, jitdriver_sd.warmstate.enable_opts)
@@ -254,7 +258,9 @@ def compile_retrace(metainterp, greenkey, start,
         if jumpop.getdescr() is not loop.operations[0].getdescr():
             assert loop_jitcell_token.target_tokens.pop() is loop.operations[0].getdescr()
             raise InvalidLoop
-        preamble.operations = preamble.operations[1:-1]
+        stop = len(preamble.operations) - 1
+        assert stop >= 1 # There should always be atleast one label and one jump
+        preamble.operations = preamble.operations[1:stop]
         
         usedboxes = {}
         newargs = [None] * jumpop.numargs()

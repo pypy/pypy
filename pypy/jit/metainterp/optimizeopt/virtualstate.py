@@ -172,7 +172,9 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
 
     def kill_null_fields(self):
         assert len(self.fielddescrs) == len(self.fieldstate)
-        for i in reversed(range(len(self.fielddescrs))):
+        i = len(self.fielddescrs)
+        while i > 0:
+            i -= 1
             if self.fieldstate[i].is_null():
                 del self.fieldstate[i]
                 del self.fielddescrs[i]
