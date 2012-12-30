@@ -14,7 +14,7 @@ computation part.
 import os
 import py
 from pypy.tool.pairtype import pair
-from pypy.annotation import model as annmodel
+from pypy.annotation import model as annmodel, unaryop, binaryop
 from pypy.annotation.annrpython import FAIL
 from pypy.objspace.flow.model import Variable, Constant
 from pypy.objspace.flow.model import SpaceOperation, c_last_exception
@@ -592,10 +592,10 @@ class RPythonTyper(object):
 
     # __________ regular operations __________
 
-    def _registeroperations(cls, model):
+    def _registeroperations(cls, unary_ops, binary_ops):
         d = {}
         # All unary operations
-        for opname in model.UNARY_OPERATIONS:
+        for opname in unary_ops:
             fnname = 'translate_op_' + opname
             exec py.code.compile("""
                 def translate_op_%s(self, hop):
@@ -604,7 +604,7 @@ class RPythonTyper(object):
                 """ % (opname, opname)) in globals(), d
             setattr(cls, fnname, d[fnname])
         # All binary operations
-        for opname in model.BINARY_OPERATIONS:
+        for opname in binary_ops:
             fnname = 'translate_op_' + opname
             exec py.code.compile("""
                 def translate_op_%s(self, hop):
@@ -714,7 +714,7 @@ class RPythonTyper(object):
         attachRuntimeTypeInfo(GCSTRUCT, funcptr, destrptr, None)
 
 # register operations from annotation model
-RPythonTyper._registeroperations(annmodel)
+RPythonTyper._registeroperations(unaryop.UNARY_OPERATIONS, binaryop.BINARY_OPERATIONS)
 
 # ____________________________________________________________
 
@@ -1013,7 +1013,7 @@ class LowLevelOpList(list):
 # and the rtyper_chooserepr() methods
 from pypy.rpython import rint, rbool, rfloat
 from pypy.rpython import rrange
-from pypy.rpython import rstr, rdict, rlist
+from pypy.rpython import rstr, rdict, rlist, rbytearray
 from pypy.rpython import rclass, rbuiltin, rpbc
 from pypy.rpython import rexternalobj
 from pypy.rpython import rptr
