@@ -8,3 +8,6 @@ class TestDistutils(BasicTest):
 
     def test_nice_errors(self):
         py.test.skip("Unsupported")
+
+    def test_900_files(self):
+        py.test.skip('Makefiles not suppoerted')
