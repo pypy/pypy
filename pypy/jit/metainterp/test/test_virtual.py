@@ -909,6 +909,7 @@ class VirtualTests:
             def __init__(self, val):
                 self.val = val
         myjitdriver = JitDriver(greens = ['pc'], reds = ['n', 'sa', 'i', 'j'])
+        #           0123456
         bytecode = "iajb+JI"
         def f(n):
             pc = sa = 0
