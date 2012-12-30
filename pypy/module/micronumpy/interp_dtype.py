@@ -260,7 +260,7 @@ def descr__new__(space, w_subtype, w_dtype):
                 return dtype
             if w_dtype is dtype.w_box_type:
                 return dtype
-    raise OperationError(space.w_TypeError, space.wrap("data type not understood"))
+    raise OperationError(space.w_TypeError, space.wrap("data type %s not understood"))
 
 W_Dtype.typedef = TypeDef("dtype",
     __module__ = "numpypy",
@@ -596,6 +596,16 @@ class DtypeCache(object):
                 itemtype,
                 dtype.num, dtype.kind, new_name, dtype.char, dtype.w_box_type,
                 native=False)
+            if dtype.kind != dtype.char:
+                can_name = dtype.char
+                self.dtypes_by_name[byteorder_prefix + can_name] = dtype
+                self.dtypes_by_name['=' + can_name] = dtype
+                new_name = nonnative_byteorder_prefix + can_name
+                self.dtypes_by_name[new_name] = W_Dtype(
+                    itemtype,
+                    dtype.num, dtype.kind, new_name, dtype.char, dtype.w_box_type,
+                    native=False)
+
             for alias in dtype.aliases:
                 self.dtypes_by_name[alias] = dtype
             self.dtypes_by_name[dtype.char] = dtype
