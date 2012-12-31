@@ -239,18 +239,23 @@ def float_pack80(_x):
 
 
 @jit.unroll_safe
+def pack_float80(result, x, size, be):
+    l = []
+    unsigned = float_pack80(x)
+    for i in range(8):
+        l.append(chr((unsigned[0] >> (i * 8)) & 0xFF))
+    for i in range(size - 8):
+        l.append(chr((unsigned[1] >> (i * 8)) & 0xFF))
+    if be:
+        l.reverse()
+    result.append("".join(l))
+
+@jit.unroll_safe
 def pack_float(result, x, size, be):
     l = []
-    if size == 12 or size == 16:
-        unsigned = float_pack80(x)
-        for i in range(8):
-            l.append(chr((unsigned[0] >> (i * 8)) & 0xFF))
-        for i in range(size - 8):
-            l.append(chr((unsigned[1] >> (i * 8)) & 0xFF))
-    else:
-        unsigned = float_pack(x, size)
-        for i in range(size):
-            l.append(chr((unsigned >> (i * 8)) & 0xFF))
+    unsigned = float_pack(x, size)
+    for i in range(size):
+        l.append(chr((unsigned >> (i * 8)) & 0xFF))
     if be:
         l.reverse()
     result.append("".join(l))
