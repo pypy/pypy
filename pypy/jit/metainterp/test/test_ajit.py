@@ -1,24 +1,19 @@
-import math
 import sys
 
 import py
 
-from pypy import conftest
-from pypy.jit.codewriter import longlong
-from pypy.jit.codewriter.policy import JitPolicy, StopAtXPolicy
-from pypy.jit.metainterp import pyjitpl, history
-from pypy.jit.metainterp.optimizeopt import ALL_OPTS_DICT
+from pypy.jit.codewriter.policy import StopAtXPolicy
+from pypy.jit.metainterp import history
 from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin, noConst
-from pypy.jit.metainterp.typesystem import LLTypeHelper, OOTypeHelper
 from pypy.jit.metainterp.warmspot import get_stats
 from pypy.rlib import rerased
 from pypy.rlib.jit import (JitDriver, we_are_jitted, hint, dont_look_inside,
     loop_invariant, elidable, promote, jit_debug, assert_green,
     AssertGreenFailed, unroll_safe, current_trace_length, look_inside_iff,
-    isconstant, isvirtual, promote_string, set_param, record_known_class)
+    isconstant, isvirtual, set_param, record_known_class)
 from pypy.rlib.longlong2float import float2longlong, longlong2float
 from pypy.rlib.rarithmetic import ovfcheck, is_valid_int
-from pypy.rpython.lltypesystem import lltype, llmemory, rffi
+from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rpython.ootypesystem import ootype
 
 
@@ -3962,3 +3957,17 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
             return 42
         self.interp_operations(f, [1, 2, 3])
         self.check_operations_history(call=1, guard_no_exception=0)
+
+    def test_weakref(self):
+        import weakref
+        
+        class A(object):
+            def __init__(self, x):
+                self.x = x
+
+        def f(i):
+            a = A(i)
+            w = weakref.ref(a)
+            return w().x + a.x
+
+        assert self.interp_operations(f, [3]) == 6

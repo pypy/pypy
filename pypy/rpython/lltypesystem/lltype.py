@@ -1456,7 +1456,7 @@ class _container(object):
         return _ptr(Ptr(self._TYPE), self, True)
     def _as_obj(self, check=True):
         return self
-    def _normalizedcontainer(self):
+    def _normalizedcontainer(self, check=True):
         return self
     def _getid(self):
         return id(self)
