@@ -299,6 +299,10 @@ class Entry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         return hop.inputconst(lltype.Bool, hop.s_result.const)
 
+def int_to_bytearray(i):
+    # XXX this can be made more efficient in the future
+    return bytearray(str(i))
+
 # ____________________________________________________________
 
 class FREED_OBJECT(object):
