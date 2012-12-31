@@ -1,6 +1,5 @@
 import py
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
-from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.rlib.jit_hooks import LOOP_RUN_CONTAINER
@@ -57,12 +56,6 @@ class AbstractX86CPU(AbstractLLCPU):
             return self.opts.failargs_limit
         else:
             return 1000
-
-    def gc_set_extra_threshold(self):
-        llop.gc_set_extra_threshold(lltype.Void, self.deadframe_size_max)
-
-    def gc_clear_extra_threshold(self):
-        llop.gc_set_extra_threshold(lltype.Void, 0)
 
     def setup(self):
         self.assembler = Assembler386(self, self.translate_support_code)
