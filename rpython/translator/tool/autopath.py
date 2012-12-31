@@ -125,7 +125,7 @@ _myname = 'autopath.py'
 
 # set guaranteed attributes
 
-pypydir, this_dir = __dirinfo('pypy')
+pypydir, this_dir = __dirinfo('rpython')
 
 if __name__ == '__main__':
     __clone()
