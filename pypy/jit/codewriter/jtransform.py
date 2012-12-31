@@ -487,6 +487,7 @@ class Transformer(object):
     rewrite_op_cast_uint_to_float = _do_builtin_call
     rewrite_op_weakref_create = _do_builtin_call
     rewrite_op_weakref_deref = _do_builtin_call
+    rewrite_op_gc_add_memory_pressure = _do_builtin_call
 
     # ----------
     # getfield/setfield/mallocs etc.

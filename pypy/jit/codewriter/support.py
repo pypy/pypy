@@ -653,6 +653,9 @@ class LLtypeHelpers:
         return llop.weakref_deref(lltype.Ptr(TP), obj)
     _ll_1_weakref_deref.need_result_type = True
 
+    def _ll_1_gc_add_memory_pressure(num):
+        llop.gc_add_memory_pressure(lltype.Void, num)
+
 class OOtypeHelpers:
 
     # ---------- dict ----------

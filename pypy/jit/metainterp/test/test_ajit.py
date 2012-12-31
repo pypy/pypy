@@ -3971,3 +3971,13 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
             return w().x + a.x
 
         assert self.interp_operations(f, [3]) == 6
+
+    def test_gc_add_memory_pressure(self):
+        from pypy.rlib import rgc
+
+        def f():
+            rgc.add_memory_pressure(1234)
+            return 3
+
+        self.interp_operations(f, [])
+        
