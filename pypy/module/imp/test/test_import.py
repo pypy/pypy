@@ -1268,7 +1268,7 @@ class AppTestLonePycFile(AppTestNoPycFile):
 
 
 class AppTestMultithreadedImp(object):
-    spaceconfig = dict(usemodules=['thread', 'time'])
+    spaceconfig = dict(usemodules=['thread', 'rctime'])
 
     def setup_class(cls):
         #if not conftest.option.runappdirect:

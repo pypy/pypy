@@ -1456,7 +1456,7 @@ class _container(object):
         return _ptr(Ptr(self._TYPE), self, True)
     def _as_obj(self, check=True):
         return self
-    def _normalizedcontainer(self):
+    def _normalizedcontainer(self, check=True):
         return self
     def _getid(self):
         return id(self)
@@ -1965,12 +1965,12 @@ def malloc(T, n=None, flavor='gc', immortal=False, zero=False,
         assert n is None
         o = _opaque(T, initialization=initialization)
     else:
-        raise TypeError, "malloc for Structs and Arrays only"
-    if T._gckind != 'gc' and not immortal and flavor.startswith('gc'):
+        raise TypeError, "malloc: unmallocable type"
+    if flavor == 'gc' and T._gckind != 'gc' and not immortal:
         raise TypeError, "gc flavor malloc of a non-GC non-immortal structure"
     if flavor == "raw" and not immortal and track_allocation:
         leakfinder.remember_malloc(o, framedepth=2)
-    solid = immortal or not flavor.startswith('gc') # immortal or non-gc case
+    solid = immortal or flavor == 'raw'
     return _ptr(Ptr(T), o, solid)
 
 def free(p, flavor, track_allocation=True):

@@ -119,8 +119,9 @@ def winexternal(name, args, result, **kwargs):
 PTR = rffi.CCHARP
 
 if _CYGWIN:
-    c_malloc, _ = external('malloc', [size_t], PTR)
-    c_free, _ = external('free', [PTR], lltype.Void)
+    # XXX: macro=True hack for newer versions of Cygwin (as of 12/2012)
+    c_malloc, _ = external('malloc', [size_t], PTR, macro=True)
+    c_free, _ = external('free', [PTR], lltype.Void, macro=True)
 
 c_memmove, _ = external('memmove', [PTR, PTR, size_t], lltype.Void)
 
