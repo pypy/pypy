@@ -988,8 +988,8 @@ class ResOpAssembler(object):
     def _emit_copystrcontent(self, op, regalloc, fcond, is_unicode):
         # compute the source address
         args = op.getarglist()
-        base_loc = regalloc._ensure_value_is_boxed(args[0], args)
-        ofs_loc = regalloc._ensure_value_is_boxed(args[2], args)
+        base_loc = regalloc.make_sure_var_in_reg(args[0], args)
+        ofs_loc = regalloc.make_sure_var_in_reg(args[2], args)
         assert args[0] is not args[1]    # forbidden case of aliasing
         regalloc.possibly_free_var(args[0])
         regalloc.free_temp_vars()
@@ -1009,8 +1009,8 @@ class ResOpAssembler(object):
         dstaddr_loc = regalloc.force_allocate_reg(dstaddr_box,
                                                         selected_reg=r.r0)
         forbidden_vars.append(dstaddr_box)
-        base_loc = regalloc._ensure_value_is_boxed(args[1], forbidden_vars)
-        ofs_loc = regalloc._ensure_value_is_boxed(args[3], forbidden_vars)
+        base_loc = regalloc.make_sure_var_in_reg(args[1], forbidden_vars)
+        ofs_loc = regalloc.make_sure_var_in_reg(args[3], forbidden_vars)
         assert base_loc.is_reg()
         assert ofs_loc.is_reg()
         regalloc.possibly_free_var(args[1])
@@ -1026,7 +1026,7 @@ class ResOpAssembler(object):
         # need the box here
         if isinstance(args[4], Box):
             length_box = args[4]
-            length_loc = regalloc._ensure_value_is_boxed(args[4],
+            length_loc = regalloc.make_sure_var_in_reg(args[4],
                                                         forbidden_vars)
         else:
             length_box = TempInt()

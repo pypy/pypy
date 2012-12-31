@@ -151,4 +151,9 @@ def enforce_signature_args(funcdesc, paramtypes, actualtypes):
     actualtypes[:] = params_s
 
 def enforce_signature_return(funcdesc, sigtype, inferredtype):
-    return finish_type(sigtype, funcdesc.bookkeeper, funcdesc.pyobj)
+    s_sigret = finish_type(sigtype, funcdesc.bookkeeper, funcdesc.pyobj)
+    if not s_sigret.contains(inferredtype):
+        raise Exception("%r return value:\n"
+                        "expected %s,\n"
+                        "     got %s" % (funcdesc, s_sigret, inferredtype))
+    return s_sigret

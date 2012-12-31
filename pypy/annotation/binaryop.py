@@ -7,10 +7,10 @@ import operator
 from pypy.tool.pairtype import pair, pairtype
 from pypy.annotation.model import SomeObject, SomeInteger, SomeBool, s_Bool
 from pypy.annotation.model import SomeString, SomeChar, SomeList, SomeDict
-from pypy.annotation.model import SomeUnicodeCodePoint, SomeStringOrUnicode
+from pypy.annotation.model import SomeUnicodeCodePoint, SomeUnicodeString
 from pypy.annotation.model import SomeTuple, SomeImpossibleValue, s_ImpossibleValue
 from pypy.annotation.model import SomeInstance, SomeBuiltin, SomeIterator
-from pypy.annotation.model import SomePBC, SomeFloat, s_None
+from pypy.annotation.model import SomePBC, SomeFloat, s_None, SomeByteArray
 from pypy.annotation.model import SomeExternalObject, SomeWeakRef
 from pypy.annotation.model import SomeAddress, SomeTypedAddressAccess
 from pypy.annotation.model import SomeSingleFloat, SomeLongFloat, SomeType
@@ -19,7 +19,6 @@ from pypy.annotation.model import TLS
 from pypy.annotation.model import read_can_only_throw
 from pypy.annotation.model import add_knowntypedata, merge_knowntypedata
 from pypy.annotation.model import SomeGenericCallable
-from pypy.annotation.model import SomeUnicodeString
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.objspace.flow.model import Variable, Constant
 from pypy.rlib import rarithmetic
@@ -416,6 +415,34 @@ class __extend__(pairtype(SomeString, SomeString)):
             result.const = str1.const + str2.const
         return result
 
+class __extend__(pairtype(SomeByteArray, SomeByteArray)):
+    def union((b1, b2)):
+        can_be_None = b1.can_be_None or b2.can_be_None
+        return SomeByteArray(can_be_None=can_be_None)
+
+    def add((b1, b2)):
+        result = SomeByteArray()
+        if b1.is_immutable_constant() and b2.is_immutable_constant():
+            result.const = b1.const + b2.const
+        return result
+
+class __extend__(pairtype(SomeByteArray, SomeInteger)):
+    def getitem((s_b, s_i)):
+        return SomeInteger()
+
+    def setitem((s_b, s_i), s_i2):
+        assert isinstance(s_i2, SomeInteger)
+
+class __extend__(pairtype(SomeString, SomeByteArray),
+                 pairtype(SomeByteArray, SomeString),
+                 pairtype(SomeChar, SomeByteArray),
+                 pairtype(SomeByteArray, SomeChar)):
+    def add((b1, b2)):
+        result = SomeByteArray()
+        if b1.is_immutable_constant() and b2.is_immutable_constant():
+            result.const = b1.const + b2.const
+        return result
+
 class __extend__(pairtype(SomeChar, SomeChar)):
 
     def union((chr1, chr2)):
@@ -458,7 +485,8 @@ class __extend__(pairtype(SomeString, SomeTuple),
         for s_item in s_tuple.items:
             if isinstance(s_item, SomeFloat):
                 pass   # or s_item is a subclass, like SomeInteger
-            elif isinstance(s_item, SomeStringOrUnicode) and s_item.no_nul:
+            elif (isinstance(s_item, SomeString) or
+                  isinstance(s_item, SomeUnicodeString)) and s_item.no_nul:
                 pass
             else:
                 no_nul = False
