@@ -515,8 +515,8 @@ def Random():
 
 def get_cpu():
     if pytest.config.option.backend == 'llgraph':
-        from pypy.jit.backend.llgraph.runner import LLtypeCPU
-        return LLtypeCPU(None)
+        from pypy.jit.backend.llgraph.runner import LLGraphCPU
+        return LLGraphCPU(None)
     elif pytest.config.option.backend == 'cpu':
         from pypy.jit.backend.detect_cpu import getcpuclass
         return getcpuclass()(None, None)
