@@ -16,6 +16,7 @@ from pypy.jit.backend.arm.helper.assembler import (gen_emit_op_by_helper_call,
                                                 gen_emit_unary_float_op,
                                                 saved_registers,
                                                 count_reg_args)
+from pypy.jit.backend.arm.helper.regalloc import check_imm_arg
 from pypy.jit.backend.arm.codebuilder import ARMv7Builder, OverwritingBuilder
 from pypy.jit.backend.arm.jump import remap_frame_layout
 from pypy.jit.backend.arm.regalloc import TempInt, TempPtr
@@ -27,7 +28,8 @@ from pypy.jit.metainterp.history import (Box, AbstractFailDescr,
 from pypy.jit.metainterp.history import JitCellToken, TargetToken
 from pypy.jit.metainterp.resoperation import rop
 from pypy.rlib.objectmodel import we_are_translated
-from pypy.rpython.lltypesystem import rstr
+from pypy.rlib import rgc
+from pypy.rpython.lltypesystem import rstr, rffi, lltype, llmemory
 
 NO_FORCE_INDEX = -1
 
@@ -1117,8 +1119,26 @@ class ResOpAssembler(object):
                 value = self.cpu.done_with_this_frame_float_v
             else:
                 raise AssertionError(kind)
-        self.mc.gen_load_int(r.ip.value, value)
-        self.mc.CMP_rr(tmploc.value, r.ip.value)
+        from pypy.jit.backend.llsupport.descr import unpack_fielddescr
+        from pypy.jit.backend.llsupport.descr import unpack_interiorfielddescr
+        descrs = self.cpu.gc_ll_descr.getframedescrs(self.cpu)
+        _offset, _size, _ = unpack_fielddescr(descrs.jf_descr)
+        fail_descr = self.cpu.get_fail_descr_from_number(value)
+        value = fail_descr.hide(self.cpu)
+        rgc._make_sure_does_not_move(value)
+        value = rffi.cast(lltype.Signed, value)
+
+        if check_imm_arg(_offset):
+            self.mc.LDR_ri(r.ip.value, tmploc.value, imm=_offset)
+        else:
+            self.mc.gen_load_int(r.ip.value, _offset)
+            self.mc.LDR_rr(r.ip.value, tmploc.value, r.ip.value)
+        if check_imm_arg(value):
+            self.mc.CMP_ri(r.ip.value, imm=value)
+        else:
+            self.mc.gen_load_int(r.lr.value, value)
+            self.mc.CMP_rr(r.lr.value, r.ip.value)
+
 
         #if values are equal we take the fast path
         # Slow path, calling helper
@@ -1145,19 +1165,31 @@ class ResOpAssembler(object):
         if op.result is not None:
             # load the return value from fail_boxes_xxx[0]
             kind = op.result.type
-            if kind == INT:
-                adr = self.fail_boxes_int.get_addr_for_num(0)
-            elif kind == REF:
-                adr = self.fail_boxes_ptr.get_addr_for_num(0)
-            elif kind == FLOAT:
-                adr = self.fail_boxes_float.get_addr_for_num(0)
+            if kind == FLOAT:
+                t = unpack_interiorfielddescr(descrs.as_float)[0]
+                if not check_imm_arg(t):
+                    self.mc.gen_load_int(r.ip.value, t, cond=fast_path_cond)
+                    self.mc.ADD_rr(r.ip.value, r.r0.value, r.ip.value,
+                                          cond=fast_path_cond)
+                    t = 0
+                    base = r.ip
+                else:
+                    base = r.r0
+                self.mc.VLDR(resloc.value, base.value, imm=t,
+                                          cond=fast_path_cond)
             else:
-                raise AssertionError(kind)
-            self.mc.gen_load_int(r.ip.value, adr, cond=fast_path_cond)
-            if op.result.type == FLOAT:
-                self.mc.VLDR(resloc.value, r.ip.value, cond=fast_path_cond)
-            else:
-                self.mc.LDR_ri(resloc.value, r.ip.value, cond=fast_path_cond)
+                assert resloc is r.r0
+                if kind == INT:
+                    t = unpack_interiorfielddescr(descrs.as_int)[0]
+                else:
+                    t = unpack_interiorfielddescr(descrs.as_ref)[0]
+                if not check_imm_arg(t):
+                    self.mc.gen_load_int(r.ip.value, t, cond=fast_path_cond)
+                    self.mc.LDR_rr(resloc.value, resloc.value, r.ip.value,
+                                          cond=fast_path_cond)
+                else:
+                    self.mc.LDR_ri(resloc.value, resloc.value, imm=t,
+                                          cond=fast_path_cond)
         # jump to merge point
         jmp_pos = self.mc.currpos()
         self.mc.BKPT()
