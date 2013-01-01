@@ -1,7 +1,7 @@
 from __future__ import division
 import cPickle as pickle
 
-from pypy.tool.ansicolor import red, yellow, green
+from rpython.tool.ansicolor import red, yellow, green
 from rpython.rtyper.lltypesystem.lltype import typeOf, _ptr, Ptr, ContainerType
 from rpython.rtyper.lltypesystem import llmemory
 from rpython.rtyper.memory.lltypelayout import convert_offset_to_int

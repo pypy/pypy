@@ -5,7 +5,7 @@ times of certain driver parts
 
 import time
 import py
-from pypy.tool.ansi_print import ansi_log
+from rpython.tool.ansi_print import ansi_log
 log = py.log.Producer("Timer")
 py.log.setconsumer("Timer", ansi_log)
 

@@ -1,6 +1,6 @@
 import autopath
 from pypy.tool import testit
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 from rpython.translator.tool.cbuild import build_cfunc
 from rpython.translator.test.test_cltrans import global_cl, make_cl_func
 

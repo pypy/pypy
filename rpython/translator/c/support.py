@@ -165,6 +165,6 @@ def gen_assignments(assignments):
 # logging
 
 import py
-from pypy.tool.ansi_print import ansi_log
+from rpython.tool.ansi_print import ansi_log
 log = py.log.Producer("c")
 py.log.setconsumer("c", ansi_log)

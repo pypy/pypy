@@ -6,7 +6,7 @@ from rpython.jit.backend.arm.instruction_builder import define_instructions
 from rpython.jit.backend.llsupport.asmmemmgr import BlockBuilderMixin
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 
 clear_cache = rffi.llexternal(
     "__clear_cache",

@@ -202,7 +202,7 @@ class TestLibffiCall(BaseFfiTest):
 
     @classmethod
     def setup_class(cls):
-        from pypy.tool.udir import udir
+        from rpython.tool.udir import udir
         from rpython.translator.tool.cbuild import ExternalCompilationInfo
         from rpython.translator.tool.cbuild import STANDARD_DEFINES
         from rpython.translator.platform import platform

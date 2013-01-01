@@ -6,7 +6,7 @@ from rpython.rlib import exports
 from rpython.rtyper.typesystem import getfunctionptr
 from pypy.tool import runsubprocess
 from pypy.tool.nullpath import NullPyPathLocal
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 from rpython.translator.c import gc
 from rpython.translator.c.database import LowLevelDatabase
 from rpython.translator.c.extfunc import pre_include_code_lines

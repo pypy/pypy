@@ -1,7 +1,7 @@
 import py
 
 from rpython.rtyper.lltypesystem.lloperation import LL_OPERATIONS
-from pypy.tool.ansi_print import ansi_log
+from rpython.tool.ansi_print import ansi_log
 from rpython.translator.backendopt import graphanalyze
 from rpython.translator.simplify import get_funcobj
 

@@ -1248,7 +1248,7 @@ class Tracer(object):
         # start of a dump file
         if not self.TRACE:
             return
-        from pypy.tool.udir import udir
+        from rpython.tool.udir import udir
         n = Tracer.Counter
         Tracer.Counter += 1
         filename = 'llinterp_trace_%d.html' % n
@@ -1400,5 +1400,5 @@ class _address_of_local_var_accessor(object):
 # by default we route all logging messages to nothingness
 # e.g. tests can then switch on logging to get more help
 # for failing tests
-from pypy.tool.ansi_print import ansi_log
+from rpython.tool.ansi_print import ansi_log
 py.log.setconsumer('llinterp', ansi_log)

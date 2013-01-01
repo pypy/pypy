@@ -4,7 +4,7 @@ from rpython.jit.backend.x86.tool.viewcode import find_objdump
 import os
 import py
 import tempfile
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 
 def test_format_code_dump_with_labels():
     lines = StringIO("""

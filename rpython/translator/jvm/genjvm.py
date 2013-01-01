@@ -10,7 +10,7 @@ import sys
 
 import py
 from rpython.rtyper.ootypesystem import ootype
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 from rpython.translator.backendopt.all import backend_optimizations
 from rpython.translator.backendopt.checkvirtual import check_virtual_methods
 from rpython.translator.oosupport.genoo import GenOO

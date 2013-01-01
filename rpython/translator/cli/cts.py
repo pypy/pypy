@@ -11,7 +11,7 @@ from rpython.rtyper.ootypesystem import ootype
 from rpython.translator.cli.option import getoption
 from rpython.translator.cli import oopspec
 
-from pypy.tool.ansi_print import ansi_log
+from rpython.tool.ansi_print import ansi_log
 import py
 log = py.log.Producer("cli") 
 py.log.setconsumer("cli", ansi_log) 

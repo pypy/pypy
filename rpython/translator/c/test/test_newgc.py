@@ -12,7 +12,7 @@ from rpython.rlib.rstring import StringBuilder
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.memory.test import snippet
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 from rpython.translator.interactive import Translation
 
 

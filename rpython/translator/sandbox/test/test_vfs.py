@@ -1,7 +1,7 @@
 import py
 import sys, stat, os
 from rpython.translator.sandbox.vfs import *
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 
 HASLINK = hasattr(os, 'symlink')
 

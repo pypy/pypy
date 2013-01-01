@@ -10,7 +10,7 @@ from rpython.rtyper.lltypesystem import rffi, lltype, ll2ctypes
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator import platform
 from rpython.translator.gensupp import uniquemodulename
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 from pypy.module.cpyext import api
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.pyobject import RefcountState

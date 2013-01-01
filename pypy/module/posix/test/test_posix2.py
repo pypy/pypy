@@ -3,7 +3,7 @@
 
 from __future__ import with_statement
 from pypy.objspace.std import StdObjSpace
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 from pypy.tool.pytest.objspace import gettestobjspace
 from pypy.tool.autopath import pypydir
 from rpython.rtyper.module.ll_os import RegisterOs

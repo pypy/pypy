@@ -13,7 +13,7 @@ import py
 def create_log():
     """Make and return a log for the sandbox to use, if needed."""
     # These imports are local to avoid importing pypy if we don't need to.
-    from pypy.tool.ansi_print import AnsiLog
+    from rpython.tool.ansi_print import AnsiLog
 
     class MyAnsiLog(AnsiLog):
         KW_TO_COLOR = {

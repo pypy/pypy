@@ -15,7 +15,7 @@ import sys
 import py
 import os
 import fnmatch
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 
 if sys.version_info < (2,6): py.test.skip("requires 2.6 so far")
 

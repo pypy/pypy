@@ -8,7 +8,7 @@ from rpython.jit.codewriter.liveness import compute_liveness
 from rpython.jit.codewriter.call import CallControl
 from rpython.jit.codewriter.policy import log
 from rpython.flowspace.model import copygraph
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 
 
 class CodeWriter(object):

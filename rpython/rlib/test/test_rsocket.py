@@ -406,7 +406,7 @@ def test_inet_ntop():
 def test_unix_socket_connect():
     if getattr(rsocket, 'AF_UNIX', None) is None:
         py.test.skip('AF_UNIX not supported.')
-    from pypy.tool.udir import udir
+    from rpython.tool.udir import udir
     sockpath = str(udir.join('test_unix_socket_connect'))
     a = UNIXAddress(sockpath)
 

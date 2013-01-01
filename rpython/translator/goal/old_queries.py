@@ -464,7 +464,7 @@ def backcalls(t):
 #
 
 def worstblocks_topten(t, n=10):
-    from pypy.tool.ansi_print import ansi_print
+    from rpython.tool.ansi_print import ansi_print
     ann = t.annotator
     h = [(count, block) for block, count in ann.reflowcounter.iteritems()]
     h.sort()

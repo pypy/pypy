@@ -1,7 +1,7 @@
 
 from rpython.translator.platform import host, CompilationError
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 from StringIO import StringIO
 import sys, os
 

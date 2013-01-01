@@ -12,7 +12,7 @@ from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.gensupp import NameManager
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 from rpython.translator import platform
 from pypy.module.cpyext.state import State
 from pypy.interpreter.error import OperationError, operationerrfmt

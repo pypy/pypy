@@ -56,7 +56,7 @@ def test_proc_cyclic_structure():
 class TestMkrffi(object):
     def setup_class(cls):
         import ctypes
-        from pypy.tool.udir import udir
+        from rpython.tool.udir import udir
         from rpython.translator.platform import platform
         from rpython.translator.tool.cbuild import ExternalCompilationInfo
         

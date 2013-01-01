@@ -3,7 +3,7 @@ import py
 from rpython.rtyper.ootypesystem import ootype
 from rpython.translator.cli.rte import Support
 
-from pypy.tool.ansi_print import ansi_log
+from rpython.tool.ansi_print import ansi_log
 log = py.log.Producer("cli")
 py.log.setconsumer("cli", ansi_log) 
 

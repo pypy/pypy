@@ -1,5 +1,5 @@
 import py, os, sys
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 from rpython.rlib.jit import JitDriver, unroll_parameters, set_param
 from rpython.rlib.jit import PARAMETERS, dont_look_inside
 from rpython.rlib.jit import promote

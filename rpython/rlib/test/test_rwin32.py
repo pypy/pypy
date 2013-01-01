@@ -3,7 +3,7 @@ if os.name != 'nt':
     skip('tests for win32 only')
 
 from rpython.rlib import rwin32
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 
 
 def test_get_osfhandle():

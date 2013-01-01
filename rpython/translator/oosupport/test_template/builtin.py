@@ -2,7 +2,7 @@ import os, math
 import errno
 import stat
 from py.builtin import sorted
-from pypy.tool import udir
+from rpython.tool import udir
 from rpython.rtyper.test.test_rbuiltin import BaseTestRbuiltin
 from rpython.rtyper.module.test.test_ll_time import BaseTestTime as llBaseTestTime
 

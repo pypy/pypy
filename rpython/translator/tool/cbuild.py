@@ -3,7 +3,7 @@ import sys
 
 from pypy.tool.autopath import pypydir
 from rpython.translator.platform import host
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 
 
 class ExternalCompilationInfo(object):

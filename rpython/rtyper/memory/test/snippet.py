@@ -1,5 +1,5 @@
 import os, py
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem.lloperation import llop
 

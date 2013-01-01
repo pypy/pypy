@@ -59,7 +59,7 @@ def objdump(input):
 
 
 def get_tmp_file():
-    # don't use pypy.tool.udir here to avoid removing old usessions which
+    # don't use rpython.tool.udir here to avoid removing old usessions which
     # might still contain interesting executables
     udir = py.path.local.make_numbered_dir(prefix='viewcode-', keep=2)
     tmpfile = str(udir.join('dump.tmp'))

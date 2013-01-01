@@ -1,7 +1,7 @@
 import os, py
 from rpython.rtyper.memory.gc import env
 from rpython.rlib.rarithmetic import r_uint
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 
 
 class FakeEnviron:

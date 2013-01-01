@@ -1,5 +1,5 @@
 
-from pypy.tool import udir
+from rpython.tool import udir
 
 def test_make_udir():
     root = str(udir.udir.ensure('make_udir1', dir=1))

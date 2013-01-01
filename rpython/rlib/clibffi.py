@@ -20,7 +20,7 @@ import os
 import sys
 import ctypes.util
 
-from pypy.tool.ansi_print import ansi_log
+from rpython.tool.ansi_print import ansi_log
 log = py.log.Producer("libffi")
 py.log.setconsumer("libffi", ansi_log)
 

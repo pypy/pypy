@@ -1,8 +1,8 @@
 from rpython.jit.metainterp import history
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 
 import py
-from pypy.tool.ansi_print import ansi_log
+from rpython.tool.ansi_print import ansi_log
 log = py.log.Producer('jitcodewriter')
 py.log.setconsumer('jitcodewriter', ansi_log)
 

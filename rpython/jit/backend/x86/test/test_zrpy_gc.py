@@ -12,7 +12,7 @@ from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rlib.jit import JitDriver, dont_look_inside
 from rpython.rlib.jit import elidable, unroll_safe
 from rpython.jit.backend.llsupport.gc import GcLLDescr_framework
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 from pypy.config.translationoption import DEFL_GC
 
 class X(object):

@@ -12,7 +12,7 @@ from rpython.rtyper.annlowlevel import hlstr, LowLevelAnnotatorPolicy
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.test import test_llinterp
 from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
-from pypy.tool import udir
+from rpython.tool import udir
 from rpython.translator.translator import graphof
 
 

@@ -368,7 +368,7 @@ operationerrfmt._annspecialcase_ = 'specialize:arg(1)'
 # ____________________________________________________________
 
 # Utilities
-from pypy.tool.ansi_print import ansi_print
+from rpython.tool.ansi_print import ansi_print
 
 def debug_print(text, file=None, newline=True):
     # 31: ANSI color code "red"

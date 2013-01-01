@@ -12,7 +12,7 @@ from rpython.rtyper.lltypesystem.ll2ctypes import _llgcopaque
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib import rposix
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 from rpython.rtyper.test.test_llinterp import interpret
 from rpython.annotator.annrpython import RPythonAnnotator
 from rpython.rtyper.rtyper import RPythonTyper

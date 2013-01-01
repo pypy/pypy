@@ -17,17 +17,17 @@ import sys
 import subprocess
 from bisect import bisect_left
 
-# don't use pypy.tool.udir here to avoid removing old usessions which
+# don't use rpython.tool.udir here to avoid removing old usessions which
 # might still contain interesting executables
 udir = py.path.local.make_numbered_dir(prefix='viewcode-', keep=2)
 tmpfile = str(udir.join('dump.tmp'))
 
 # hack hack
 import pypy.tool
-mod = new.module('pypy.tool.udir')
+mod = new.module('rpython.tool.udir')
 mod.udir = udir
-sys.modules['pypy.tool.udir'] = mod
-pypy.tool.udir = mod
+sys.modules['rpython.tool.udir'] = mod
+rpython.tool.udir = mod
 
 # ____________________________________________________________
 # Some support code from Psyco.  There is more over there,

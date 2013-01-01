@@ -3,7 +3,7 @@ import cPickle as pickle
 import os.path
 import py
 import subprocess
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 from rpython.rtyper.ootypesystem import ootype
 from rpython.translator.cli.rte import Query
 from rpython.translator.cli.sdk import SDK

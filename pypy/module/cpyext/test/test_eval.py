@@ -6,7 +6,7 @@ from pypy.module.cpyext.eval import (
 from pypy.module.cpyext.api import fopen, fclose, fileno, Py_ssize_tP
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.astcompiler import consts
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 import sys, os
 
 class TestEval(BaseApiTest):

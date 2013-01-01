@@ -1,6 +1,6 @@
 
 import py, sys, ctypes, os
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 from rpython.translator.platform import CompilationError, Platform
 from rpython.translator.platform import host
 from rpython.translator.tool.cbuild import ExternalCompilationInfo

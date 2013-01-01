@@ -3,7 +3,7 @@
 import os
 import time
 import random
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 
 from rpython.rlib import streamio
 

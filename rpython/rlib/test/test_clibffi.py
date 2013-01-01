@@ -264,7 +264,7 @@ class TestCLibffi(BaseFfiTest):
     def test_struct_by_val(self):
         from rpython.translator.tool.cbuild import ExternalCompilationInfo
         from rpython.translator.platform import platform
-        from pypy.tool.udir import udir
+        from rpython.tool.udir import udir
 
         c_file = udir.ensure("test_libffi", dir=1).join("xlib.c")
         c_file.write(py.code.Source('''
@@ -315,7 +315,7 @@ class TestCLibffi(BaseFfiTest):
     def test_ret_struct_val(self):
         from rpython.translator.tool.cbuild import ExternalCompilationInfo
         from rpython.translator.platform import platform
-        from pypy.tool.udir import udir
+        from rpython.tool.udir import udir
 
         c_file = udir.ensure("test_libffi", dir=1).join("xlib.c")
         c_file.write(py.code.Source('''
@@ -391,7 +391,7 @@ class TestCLibffi(BaseFfiTest):
     def test_cdll_life_time(self):
         from rpython.translator.tool.cbuild import ExternalCompilationInfo
         from rpython.translator.platform import platform
-        from pypy.tool.udir import udir
+        from rpython.tool.udir import udir
 
         c_file = udir.ensure("test_libffi", dir=1).join("xlib.c")
         c_file.write(py.code.Source('''

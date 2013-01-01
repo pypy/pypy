@@ -9,7 +9,7 @@ class AppTestFfi:
     spaceconfig = dict(usemodules=['_rawffi', 'struct'])
 
     def prepare_c_example():
-        from pypy.tool.udir import udir
+        from rpython.tool.udir import udir
         c_file = udir.ensure("test__rawffi", dir=1).join("xlib.c")
         c_file.write(py.code.Source('''
         #include <stdlib.h>

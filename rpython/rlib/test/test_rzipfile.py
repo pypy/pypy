@@ -1,7 +1,7 @@
 import py
 
 from rpython.rlib.rzipfile import RZipFile
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 from zipfile import ZIP_STORED, ZIP_DEFLATED, ZipInfo, ZipFile
 from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 import os

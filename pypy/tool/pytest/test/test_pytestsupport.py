@@ -5,7 +5,7 @@ from pypy.interpreter.pycode import PyCode
 from pypy.tool.pytest.appsupport import (AppFrame, build_pytest_assertion,
     AppExceptionInfo, interpret)
 import py
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 import os
 import sys
 import pypy

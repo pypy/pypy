@@ -1,7 +1,7 @@
 import autopath
 import py
 import os, time, sys
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 from rpython.rlib.rarithmetic import r_longlong
 from rpython.annotator import model as annmodel
 from rpython.translator.c.test.test_genc import compile

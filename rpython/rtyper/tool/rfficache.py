@@ -5,7 +5,7 @@
 import py
 import os
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 from rpython.rlib import rarithmetic
 from rpython.rtyper.lltypesystem import lltype
 from pypy.tool.gcc_cache import build_executable_cache

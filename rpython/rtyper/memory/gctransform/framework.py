@@ -587,7 +587,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
 
     def write_typeid_list(self):
         """write out the list of type ids together with some info"""
-        from pypy.tool.udir import udir
+        from rpython.tool.udir import udir
         # XXX not ideal since it is not per compilation, but per run
         # XXX argh argh, this only gives the member index but not the
         #     real typeid, which is a complete mess to obtain now...

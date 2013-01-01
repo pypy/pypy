@@ -1,6 +1,6 @@
 import sys
 from pypy.tool.gcc_cache import *
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 import md5, cStringIO
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 

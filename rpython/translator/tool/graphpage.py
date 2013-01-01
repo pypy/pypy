@@ -6,7 +6,7 @@ from rpython.annotator.model import SomePBC
 from rpython.annotator.description import MethodDesc
 from rpython.annotator.classdef import ClassDef
 from pypy.tool.uid import uid
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 
 from dotviewer.graphpage import GraphPage as BaseGraphPage
 

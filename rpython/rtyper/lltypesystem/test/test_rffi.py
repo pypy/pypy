@@ -8,7 +8,7 @@ from rpython.translator.c.test.test_genc import compile as compile_c
 from rpython.rtyper.lltypesystem.lltype import Signed, Ptr, Char, malloc
 from rpython.rtyper.lltypesystem.rstr import STR
 from rpython.rtyper.lltypesystem import lltype
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 from rpython.rtyper.test.test_llinterp import interpret
 from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 from rpython.annotator.annrpython import RPythonAnnotator

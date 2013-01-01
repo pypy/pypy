@@ -1,7 +1,7 @@
 
 from rpython.rtyper.tool.rfficache import *
 from rpython.rtyper.lltypesystem import rffi
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 
 def test_sizeof_c_type():
     sizeofchar = sizeof_c_type('char')

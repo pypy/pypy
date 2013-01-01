@@ -6,7 +6,7 @@ import struct
 from pypy.module.imp.importing import get_pyc_magic, _w_long
 from StringIO import StringIO
 
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 from zipfile import ZIP_STORED, ZIP_DEFLATED
 
 

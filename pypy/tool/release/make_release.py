@@ -14,7 +14,7 @@ import urllib2
 from xml.dom import minidom
 import re
 import py
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 from pypy.tool.release.package import package
 import tarfile
 import os

@@ -9,7 +9,7 @@ import shutil
 import py
 import subprocess
 from rpython.translator.cli.sdk import SDK
-from pypy.tool.ansi_print import ansi_log
+from rpython.tool.ansi_print import ansi_log
 log = py.log.Producer("cli")
 py.log.setconsumer("cli", ansi_log)
 

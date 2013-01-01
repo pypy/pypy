@@ -1,7 +1,7 @@
 import sys
 import py
 from pypy.tool.pytest.objspace import gettestobjspace
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 from rpython.rlib import rsocket
 from rpython.rtyper.lltypesystem import lltype, rffi
 

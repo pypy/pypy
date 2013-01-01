@@ -3,7 +3,7 @@ Common types, functions from core win32 libraries, such as kernel32
 """
 
 from rpython.rtyper.tool import rffi_platform
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import CompilationError
 from rpython.rtyper.lltypesystem import lltype, rffi

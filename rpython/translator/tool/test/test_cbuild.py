@@ -1,6 +1,6 @@
 import py
 
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from subprocess import Popen, PIPE, STDOUT
 

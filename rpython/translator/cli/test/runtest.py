@@ -3,7 +3,7 @@ import platform
 
 import py
 import subprocess
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 from rpython.translator.translator import TranslationContext
 from rpython.rtyper.test.tool import BaseRtypingTest, OORtypeMixin
 from rpython.rtyper.lltypesystem.lltype import typeOf

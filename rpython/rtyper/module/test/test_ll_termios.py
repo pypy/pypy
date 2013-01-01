@@ -1,5 +1,5 @@
 import py, re, sys
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 # tests here are run as snippets through a pexpected python subprocess
 
 def setup_module(mod):

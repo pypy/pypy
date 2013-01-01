@@ -1,7 +1,7 @@
 from __future__ import absolute_import
 
 import types
-from pypy.tool.ansi_print import ansi_log
+from rpython.tool.ansi_print import ansi_log
 from rpython.tool.pairtype import pair
 from pypy.tool.error import (format_blocked_annotation_error,
                              AnnotatorError, gather_error, ErrorWrapper)

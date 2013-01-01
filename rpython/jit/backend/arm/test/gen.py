@@ -1,5 +1,5 @@
 import os
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 import tempfile
 from rpython.jit.backend.arm.test.support import AS
 class ASMInstruction(object):

@@ -3,7 +3,7 @@
 """
 
 import py
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 from rpython.translator.platform.maemo import Maemo, check_scratchbox
 from rpython.translator.platform.test.test_platform import TestPlatform as BasicTest
 from rpython.translator.tool.cbuild import ExternalCompilationInfo

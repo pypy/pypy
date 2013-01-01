@@ -2,7 +2,7 @@
 """ error handling features, just a way of displaying errors
 """
 
-from pypy.tool.ansi_print import ansi_log
+from rpython.tool.ansi_print import ansi_log
 from rpython.flowspace.model import Variable
 import sys
 

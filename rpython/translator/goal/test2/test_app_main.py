@@ -5,7 +5,7 @@ from __future__ import with_statement
 import py
 import sys, os, re, runpy, subprocess
 import autopath
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 from contextlib import contextmanager
 
 banner = sys.version.splitlines()[0]

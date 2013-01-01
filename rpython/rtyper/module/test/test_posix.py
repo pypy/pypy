@@ -1,6 +1,6 @@
 import py
 from rpython.rtyper.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 from rpython.rlib.rarithmetic import is_valid_int
 
 import os

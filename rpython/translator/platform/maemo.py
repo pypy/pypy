@@ -2,7 +2,7 @@
 
 import py, os
 
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 from rpython.translator.platform import ExecutionResult, log
 from rpython.translator.platform.linux import Linux
 from rpython.translator.platform.posix import GnuMakefile, _run_subprocess

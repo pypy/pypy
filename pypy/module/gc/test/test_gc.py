@@ -73,7 +73,7 @@ class AppTestGcDumpHeap(object):
 
     def setup_class(cls):
         import py
-        from pypy.tool.udir import udir
+        from rpython.tool.udir import udir
         from rpython.rlib import rgc
         class X(object):
             def __init__(self, count, size, links):

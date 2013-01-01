@@ -2,7 +2,7 @@ import py, sys, struct
 from rpython.rtyper.tool import rffi_platform
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem import rffi
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import platform
 from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong

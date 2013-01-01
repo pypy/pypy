@@ -13,7 +13,7 @@ from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
 from rpython.jit.backend.x86 import regloc
 import sys
 
-from pypy.tool.ansi_print import ansi_log
+from rpython.tool.ansi_print import ansi_log
 log = py.log.Producer('jitbackend')
 py.log.setconsumer('jitbackend', ansi_log)
 

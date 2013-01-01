@@ -13,7 +13,7 @@ from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.metainterp.executor import execute
 from rpython.jit.backend.test.runner_test import LLtypeBackendTest
 from rpython.jit.tool.oparser import parse
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 import ctypes
 import sys
 import os

@@ -2,7 +2,7 @@ import os, random, struct
 import py
 from rpython.jit.backend.x86 import rx86
 from rpython.rlib.rarithmetic import intmask
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 
 INPUTNAME = 'checkfile_%s.s'
 FILENAME = 'checkfile_%s.o'

@@ -28,7 +28,7 @@ from rpython.rlib.rarithmetic import r_longlong, r_ulonglong, r_uint
 from rpython.rlib.rtimer import read_timestamp
 
 import py
-from pypy.tool.ansi_print import ansi_log
+from rpython.tool.ansi_print import ansi_log
 log = py.log.Producer('runner')
 py.log.setconsumer('runner', ansi_log)
 

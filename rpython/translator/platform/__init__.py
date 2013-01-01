@@ -2,9 +2,9 @@
 
 import py, os, sys
 
-from pypy.tool.ansi_print import ansi_log
+from rpython.tool.ansi_print import ansi_log
 from pypy.tool.runsubprocess import run_subprocess as _run_subprocess
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 
 log = py.log.Producer("platform")
 

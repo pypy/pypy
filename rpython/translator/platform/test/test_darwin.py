@@ -6,7 +6,7 @@ import py, sys, platform
 if sys.platform != 'darwin':
     py.test.skip("Darwin only")
 
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 from rpython.translator.platform.darwin import Darwin_i386, Darwin_x86_64, Darwin_PowerPC
 from rpython.translator.platform.test.test_platform import TestPlatform as BasicTest
 from rpython.translator.tool.cbuild import ExternalCompilationInfo

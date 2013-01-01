@@ -85,7 +85,7 @@ translate_optiondescr = OptionDescription("translate", "XXX", [
 ])
 
 import optparse
-from pypy.tool.ansi_print import ansi_log
+from rpython.tool.ansi_print import ansi_log
 log = py.log.Producer("translation")
 py.log.setconsumer("translation", ansi_log)
 

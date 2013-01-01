@@ -1,5 +1,5 @@
 from pypy.tool.autopath import pypydir
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 import py
 import sys
 # tests here are run as snippets through a pexpected python subprocess

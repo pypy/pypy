@@ -1,5 +1,5 @@
 from rpython.rtyper.test.test_llinterp import interpret
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 from rpython.rlib import rposix
 import os, sys
 import py

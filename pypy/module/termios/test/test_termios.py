@@ -2,7 +2,7 @@
 import py
 import sys
 from pypy.tool.autopath import pypydir
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 
 class TestTermios(object):
     def setup_class(cls):

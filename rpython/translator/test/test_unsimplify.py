@@ -5,7 +5,7 @@ from rpython.translator.unsimplify import call_initial_function
 from rpython.rtyper.llinterp import LLInterpreter
 from rpython.flowspace.model import checkgraph
 from rpython.rlib.objectmodel import we_are_translated
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 
 def translate(func, argtypes, type_system="lltype"):
     t = TranslationContext()

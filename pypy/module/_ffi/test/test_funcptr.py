@@ -11,7 +11,7 @@ class BaseAppTestFFI(object):
 
     @classmethod
     def prepare_c_example(cls):
-        from pypy.tool.udir import udir
+        from rpython.tool.udir import udir
         from rpython.translator.tool.cbuild import ExternalCompilationInfo
         from rpython.translator.platform import platform
 

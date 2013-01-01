@@ -8,12 +8,12 @@ from rpython.translator.goal import query
 from rpython.translator.goal.timing import Timer
 from rpython.annotator.listdef import s_list_of_strings
 from rpython.annotator import policy as annpolicy
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 from pypy.tool.debug_print import debug_start, debug_print, debug_stop
 from rpython.rlib.entrypoint import secondary_entrypoints
 
 import py
-from pypy.tool.ansi_print import ansi_log
+from rpython.tool.ansi_print import ansi_log
 log = py.log.Producer("translation")
 py.log.setconsumer("translation", ansi_log)
 

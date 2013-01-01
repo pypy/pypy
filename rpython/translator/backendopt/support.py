@@ -2,7 +2,7 @@ import py
 
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.rmodel import inputconst
-from pypy.tool.ansi_print import ansi_log
+from rpython.tool.ansi_print import ansi_log
 from rpython.translator.simplify import get_graph
 
 

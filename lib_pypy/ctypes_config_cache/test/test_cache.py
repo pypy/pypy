@@ -1,6 +1,6 @@
 import py
 import sys, os
-from pypy.tool.udir import udir
+from rpython.tool.udir import udir
 
 dirpath = py.path.local(__file__).dirpath().dirpath()
 

@@ -4,7 +4,7 @@ A color print.
 
 import sys
 from py.io import ansi_print
-from pypy.tool.ansi_mandelbrot import Driver
+from rpython.tool.ansi_mandelbrot import Driver
 
 class AnsiLog:
     wrote_dot = False # XXX sharing state with all instances
