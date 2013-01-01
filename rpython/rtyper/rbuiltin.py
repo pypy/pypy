@@ -5,7 +5,7 @@ from rpython.rtyper import raddress, rptr, extregistry, rrange
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.rmodel import Repr
-from pypy.tool.pairtype import pairtype
+from rpython.tool.pairtype import pairtype
 
 
 class __extend__(annmodel.SomeBuiltin):

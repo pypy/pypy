@@ -1,6 +1,6 @@
 import py
 import errno, os, StringIO
-from pypy.tool.sourcetools import func_with_new_name
+from rpython.tool.sourcetools import func_with_new_name
 from rpython.rtyper.lltypesystem import rffi
 from rpython.translator.sandbox.sandlib import SandboxedProc
 from rpython.translator.sandbox.sandlib import SimpleIOSandboxedProc

@@ -8,7 +8,7 @@ from rpython.rtyper.rlist import (AbstractBaseListRepr, AbstractListRepr,
     AbstractFixedSizeListRepr, AbstractListIteratorRepr, ll_setitem_nonneg,
     ADTIList, ADTIFixedList, dum_nocheck)
 from rpython.rtyper.rmodel import Repr, inputconst, externalvsinternal
-from pypy.tool.pairtype import pairtype, pair
+from rpython.tool.pairtype import pairtype, pair
 
 
 # ____________________________________________________________

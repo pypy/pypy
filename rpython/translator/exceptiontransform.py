@@ -15,7 +15,7 @@ from rpython.rlib.rarithmetic import r_singlefloat
 from rpython.rlib.debug import ll_assert
 from rpython.annotator import model as annmodel
 from rpython.rtyper.annlowlevel import MixLevelHelperAnnotator
-from pypy.tool.sourcetools import func_with_new_name
+from rpython.tool.sourcetools import func_with_new_name
 
 PrimitiveErrorValue = {lltype.Signed: -1,
                        lltype.Unsigned: r_uint(-1),

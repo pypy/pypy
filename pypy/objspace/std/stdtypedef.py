@@ -8,7 +8,7 @@ from pypy.objspace.std import model
 from pypy.objspace.std.model import StdObjSpaceMultiMethod
 from pypy.objspace.std.multimethod import FailedToImplement
 from rpython.rlib import jit
-from pypy.tool.sourcetools import compile2
+from rpython.tool.sourcetools import compile2
 
 __all__ = ['StdTypeDef', 'SMM']
 

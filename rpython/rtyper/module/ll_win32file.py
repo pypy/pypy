@@ -7,7 +7,7 @@ from __future__ import with_statement
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.tool import rffi_platform as platform
-from pypy.tool.sourcetools import func_renamer
+from rpython.tool.sourcetools import func_renamer
 from rpython.rlib.objectmodel import specialize
 
 def make_win32_traits(traits):

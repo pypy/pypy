@@ -6,7 +6,7 @@ of cyclic imports
 from pypy.objspace.std.model import W_ANY, W_Object
 from pypy.interpreter import baseobjspace
 from pypy.interpreter.argument import Arguments
-from pypy.tool.sourcetools import func_with_new_name
+from rpython.tool.sourcetools import func_with_new_name
 
 def create_mm_names(classname, mm, is_local):
     s = ""

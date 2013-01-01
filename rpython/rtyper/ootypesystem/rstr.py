@@ -1,4 +1,4 @@
-from pypy.tool.pairtype import pairtype
+from rpython.tool.pairtype import pairtype
 from rpython.annotator import model as annmodel
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import ovfcheck

@@ -6,7 +6,7 @@ from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.objectmodel import CDefinedIntSymbolic, keepalive_until_here, specialize
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.extregistry import ExtRegistryEntry
-from pypy.tool.sourcetools import rpython_wrapper
+from rpython.tool.sourcetools import rpython_wrapper
 
 DEBUG_ELIDABLE_FUNCTIONS = False
 

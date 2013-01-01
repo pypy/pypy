@@ -5,7 +5,7 @@ from rpython.flowspace.model import Variable, Constant
 from rpython.translator.unsimplify import insert_empty_startblock
 from rpython.translator.unsimplify import split_block
 from rpython.translator.simplify import eliminate_empty_blocks, simplify_graph
-from pypy.tool.sourcetools import func_with_new_name
+from rpython.tool.sourcetools import func_with_new_name
 from rpython.flowspace.argument import Signature
 
 

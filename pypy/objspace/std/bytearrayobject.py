@@ -25,7 +25,7 @@ from pypy.objspace.std.bytearraytype import (
     makebytearraydata_w, getbytevalue,
     new_bytearray
 )
-from pypy.tool.sourcetools import func_with_new_name
+from rpython.tool.sourcetools import func_with_new_name
 
 
 class W_BytearrayObject(W_Object):

@@ -32,7 +32,7 @@ from __future__ import absolute_import
 from types import BuiltinFunctionType, MethodType, FunctionType
 import pypy
 from pypy.tool import descriptor
-from pypy.tool.pairtype import pair, extendabletype
+from rpython.tool.pairtype import pair, extendabletype
 from rpython.rlib.rarithmetic import r_uint, r_ulonglong, base_int
 from rpython.rlib.rarithmetic import r_singlefloat, r_longfloat
 import inspect, weakref

@@ -18,7 +18,7 @@ from rpython.rtyper.lltypesystem.lltype import \
      staticAdtMethod, GcForwardReference, malloc
 from rpython.rtyper.rmodel import Repr
 from rpython.rtyper.lltypesystem import llmemory
-from pypy.tool.sourcetools import func_with_new_name
+from rpython.tool.sourcetools import func_with_new_name
 
 # ____________________________________________________________
 #

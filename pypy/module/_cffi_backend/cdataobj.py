@@ -6,7 +6,7 @@ from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.objectmodel import keepalive_until_here, specialize
 from rpython.rlib import objectmodel, rgc
-from pypy.tool.sourcetools import func_with_new_name
+from rpython.tool.sourcetools import func_with_new_name
 
 from pypy.module._cffi_backend import misc
 

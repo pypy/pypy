@@ -10,7 +10,7 @@ import sys
 import types
 import math
 import inspect
-from pypy.tool.sourcetools import rpython_wrapper
+from rpython.tool.sourcetools import rpython_wrapper
 
 # specialize is a decorator factory for attaching _annspecialcase_
 # attributes to functions: for example

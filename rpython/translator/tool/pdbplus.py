@@ -422,7 +422,7 @@ show the program's call graph"""
 
 def pdbcatch(f):
     "A decorator that throws you in a pdbplus if the given function raises."
-    from pypy.tool.sourcetools import func_with_new_name
+    from rpython.tool.sourcetools import func_with_new_name
     def wrapper(*args, **kwds):
         try:
             return f(*args, **kwds)

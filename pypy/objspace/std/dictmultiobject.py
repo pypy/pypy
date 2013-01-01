@@ -10,7 +10,7 @@ from pypy.interpreter.error import OperationError, operationerrfmt
 from rpython.rlib.objectmodel import r_dict, we_are_translated, specialize,\
      newlist_hint
 from rpython.rlib.debug import mark_dict_non_null
-from pypy.tool.sourcetools import func_with_new_name
+from rpython.tool.sourcetools import func_with_new_name
 
 from rpython.rlib import rerased
 from rpython.rlib import jit

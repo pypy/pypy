@@ -9,7 +9,7 @@ from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter import gateway, function, eval, pyframe, pytraceback
 from pypy.interpreter.pycode import PyCode, BytecodeCorruption
-from pypy.tool.sourcetools import func_with_new_name
+from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib import jit, rstackovf
 from rpython.rlib.rarithmetic import r_uint, intmask

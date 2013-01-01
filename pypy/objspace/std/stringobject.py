@@ -349,7 +349,7 @@ def str_rsplit__String_None_ANY(space, w_self, w_none, w_maxsplit=-1):
     return space.newlist(res_w)
 
 def make_rsplit_with_delim(funcname, sliced):
-    from pypy.tool.sourcetools import func_with_new_name
+    from rpython.tool.sourcetools import func_with_new_name
 
     def fn(space, w_self, w_by, w_maxsplit=-1):
         maxsplit = space.int_w(w_maxsplit)

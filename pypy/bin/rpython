@@ -8,7 +8,7 @@ run with --help for more information
 """
 
 import sys
-from pypy.translator.goal.translate import main
+from rpython.translator.goal.translate import main
 
 # no implicit targets
 if len(sys.argv) == 1:

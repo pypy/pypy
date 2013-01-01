@@ -15,7 +15,7 @@ from pypy.module.sys.interp_encoding import setdefaultencoding
 from pypy.module._codecs.interp_codecs import CodecState
 from pypy.objspace.std import unicodeobject, unicodetype, stringtype
 from rpython.rlib import runicode
-from pypy.tool.sourcetools import func_renamer
+from rpython.tool.sourcetools import func_renamer
 import sys
 
 ## See comment in stringobject.py.

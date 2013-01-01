@@ -84,7 +84,7 @@ def format__Int_ANY(space, w_int, w_format_spec):
 
 def declare_new_int_comparison(opname):
     import operator
-    from pypy.tool.sourcetools import func_with_new_name
+    from rpython.tool.sourcetools import func_with_new_name
     op = getattr(operator, opname)
     def f(space, w_int1, w_int2):
         i = w_int1.intval

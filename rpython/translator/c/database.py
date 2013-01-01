@@ -6,7 +6,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.llmemory import WeakRef, _WeakRefType, GCREF
 from rpython.rtyper.lltypesystem.rffi import CConstant
 from rpython.rtyper.lltypesystem import llgroup
-from pypy.tool.sourcetools import valid_identifier
+from rpython.tool.sourcetools import valid_identifier
 from rpython.translator.c.primitive import PrimitiveName, PrimitiveType
 from rpython.translator.c.node import StructDefNode, ArrayDefNode
 from rpython.translator.c.node import FixedSizeArrayDefNode, BareBoneArrayDefNode

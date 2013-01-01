@@ -2,7 +2,7 @@ from __future__ import with_statement
 from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.error import OperationError
-from pypy.tool.sourcetools import func_renamer
+from rpython.tool.sourcetools import func_renamer
 from pypy.interpreter.baseobjspace import Wrappable
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rlib import rgc, ropenssl

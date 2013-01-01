@@ -5,7 +5,7 @@ from rpython.flowspace.model import (Variable, Constant, Block, Link,
 from rpython.rlib.objectmodel import ComputedIntSymbolic
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.rmodel import getgcflavor
-from pypy.tool.sourcetools import valid_identifier
+from rpython.tool.sourcetools import valid_identifier
 
 
 def normalize_call_familes(annotator):

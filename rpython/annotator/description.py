@@ -4,8 +4,8 @@ from rpython.annotator.signature import enforce_signature_args, enforce_signatur
 from rpython.flowspace.model import Constant, FunctionGraph
 from rpython.flowspace.bytecode import cpython_code_signature
 from rpython.flowspace.argument import rawshape, ArgErr
-from pypy.tool.sourcetools import valid_identifier
-from pypy.tool.pairtype import extendabletype
+from rpython.tool.sourcetools import valid_identifier
+from rpython.tool.pairtype import extendabletype
 
 class CallFamily(object):
     """A family of Desc objects that could be called from common call sites.

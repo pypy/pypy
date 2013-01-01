@@ -1,7 +1,7 @@
 import py
 import os
 from rpython.rlib.debug import debug_start, debug_stop
-from pypy.tool.pairtype import extendabletype
+from rpython.tool.pairtype import extendabletype
 from rpython.rtyper.ootypesystem import ootype
 from rpython.translator.cli import dotnet
 from rpython.translator.cli.dotnet import CLR

@@ -4,8 +4,8 @@ indexed like a tuple but also exposes the st_xxx attributes.
 """
 import os, sys
 from rpython.annotator import model as annmodel
-from pypy.tool.pairtype import pairtype
-from pypy.tool.sourcetools import func_with_new_name, func_renamer
+from rpython.tool.pairtype import pairtype
+from rpython.tool.sourcetools import func_with_new_name, func_renamer
 from rpython.rtyper import extregistry
 from rpython.rtyper.extfunc import register_external, extdef
 from rpython.rtyper.lltypesystem import rffi, lltype

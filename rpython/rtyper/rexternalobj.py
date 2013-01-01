@@ -6,7 +6,7 @@ from rpython.rtyper import rbuiltin
 from rpython.flowspace.model import Constant, Variable
 from rpython.rtyper import extregistry
 from rpython.annotator.signature import annotation
-from pypy.tool.pairtype import pairtype
+from rpython.tool.pairtype import pairtype
 
 # ExternalObjects
 

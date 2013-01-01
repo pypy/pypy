@@ -8,7 +8,7 @@ from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.objectmodel import compute_hash
 from rpython.rlib.unroll import unrolling_iterable
-from pypy.tool.sourcetools import func_with_new_name
+from rpython.tool.sourcetools import func_with_new_name
 
 class NotSpecialised(Exception):
     pass

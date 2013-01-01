@@ -8,7 +8,7 @@ from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rlib.rfloat import formatd, DTSF_ALT, isnan, isinf
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
 from rpython.rlib.unroll import unrolling_iterable
-from pypy.tool.sourcetools import func_with_new_name
+from rpython.tool.sourcetools import func_with_new_name
 
 
 class BaseStringFormatter(object):

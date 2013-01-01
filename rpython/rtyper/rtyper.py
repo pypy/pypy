@@ -13,7 +13,7 @@ computation part.
 
 import os
 import py
-from pypy.tool.pairtype import pair
+from rpython.tool.pairtype import pair
 from rpython.annotator import model as annmodel, unaryop, binaryop
 from rpython.annotator.annrpython import FAIL
 from rpython.flowspace.model import Variable, Constant

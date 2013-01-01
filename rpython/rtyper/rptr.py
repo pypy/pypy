@@ -1,4 +1,4 @@
-from pypy.tool.pairtype import pairtype
+from rpython.tool.pairtype import pairtype
 from rpython.annotator import model as annmodel
 from rpython.flowspace import model as flowmodel
 from rpython.rtyper.lltypesystem import lltype

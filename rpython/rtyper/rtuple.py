@@ -1,5 +1,5 @@
 import operator
-from pypy.tool.pairtype import pairtype
+from rpython.tool.pairtype import pairtype
 from rpython.annotator import model as annmodel
 from rpython.flowspace.model import Constant
 from rpython.rtyper.error import TyperError

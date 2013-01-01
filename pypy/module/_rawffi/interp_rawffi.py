@@ -13,7 +13,7 @@ _MS_WINDOWS = os.name == "nt"
 if _MS_WINDOWS:
     from rpython.rlib import rwin32
 
-from pypy.tool.sourcetools import func_with_new_name
+from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib.rarithmetic import intmask, r_uint
 from pypy.module._rawffi.tracker import tracker
 

@@ -1,6 +1,6 @@
 import math
 from rpython.rlib.objectmodel import specialize
-from pypy.tool.sourcetools import func_with_new_name
+from rpython.tool.sourcetools import func_with_new_name
 from pypy.interpreter.error import OperationError
 from pypy.module.cmath import names_and_docstrings
 from rpython.rlib import rcomplex

@@ -219,7 +219,7 @@ class ParserCompiler(object):
         self.made = {}
 
     def compile(self):
-        from pypy.tool.sourcetools import func_with_new_name
+        from rpython.tool.sourcetools import func_with_new_name
         self.allcode.append("class CompileableParser(baseclass):")
         self.make_matcher(self.parser.startsymbol)
         self.make_fixed()

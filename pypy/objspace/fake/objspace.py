@@ -8,7 +8,7 @@ from rpython.rlib.rarithmetic import r_uint, r_singlefloat
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.lltypesystem import lltype
 from pypy.tool.option import make_config
-from pypy.tool.sourcetools import compile2, func_with_new_name
+from rpython.tool.sourcetools import compile2, func_with_new_name
 from rpython.translator.translator import TranslationContext
 
 

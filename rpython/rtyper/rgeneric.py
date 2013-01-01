@@ -2,7 +2,7 @@ from rpython.annotator import model as annmodel
 from rpython.rtyper.rmodel import Repr
 from rpython.rtyper.rpbc import AbstractFunctionsPBCRepr,\
      AbstractMethodsPBCRepr
-from pypy.tool.pairtype import pairtype
+from rpython.tool.pairtype import pairtype
 from rpython.rtyper.lltypesystem import lltype
 
 class AbstractGenericCallableRepr(Repr):

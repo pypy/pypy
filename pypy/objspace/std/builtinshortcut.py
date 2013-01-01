@@ -3,7 +3,7 @@ from pypy.interpreter.error import OperationError
 from pypy.objspace.descroperation import DescrOperation
 from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.objspace.std.boolobject import W_BoolObject
-from pypy.tool.sourcetools import func_with_new_name
+from rpython.tool.sourcetools import func_with_new_name
 
 # ____________________________________________________________
 #

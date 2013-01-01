@@ -69,7 +69,7 @@ class RWeakKeyDictionary(object):
 from rpython.rtyper import extregistry
 from rpython.annotator import model as annmodel
 from rpython.annotator.bookkeeper import getbookkeeper
-from pypy.tool.pairtype import pairtype
+from rpython.tool.pairtype import pairtype
 
 class Entry(extregistry.ExtRegistryEntry):
     _about_ = has_weakref_support

@@ -8,7 +8,7 @@ Low-level implementations for the external functions of the 'os' module.
 import os, sys, errno
 import py
 from rpython.rtyper.module.support import OOSupport
-from pypy.tool.sourcetools import func_renamer
+from rpython.tool.sourcetools import func_renamer
 from rpython.rlib.rarithmetic import r_longlong
 from rpython.rtyper.extfunc import (
     BaseLazyRegistering, register_external)

@@ -188,7 +188,7 @@ class ExtFuncEntry(ExtRegistryEntry):
             if hasattr(self, fake_method_name):
                 # If we have both an {ll,oo}impl and a {ll,oo}fakeimpl,
                 # we need a wrapper that selects the proper one and calls it
-                from pypy.tool.sourcetools import func_with_new_name
+                from rpython.tool.sourcetools import func_with_new_name
                 # Using '*args' is delicate because this wrapper is also
                 # created for init-time functions like llarena.arena_malloc
                 # which are called before the GC is fully initialized

@@ -4,7 +4,7 @@ from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.interpreter.function import Function, Method, FunctionWithFixedCode
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.typedef import default_identity_hash
-from pypy.tool.sourcetools import compile2, func_with_new_name
+from rpython.tool.sourcetools import compile2, func_with_new_name
 from pypy.module.__builtin__.interp_classobj import W_InstanceObject
 from rpython.rlib.objectmodel import specialize
 

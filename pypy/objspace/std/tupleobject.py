@@ -8,7 +8,7 @@ from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import slicetype
 from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib import jit
-from pypy.tool.sourcetools import func_with_new_name
+from rpython.tool.sourcetools import func_with_new_name
 
 # Tuples of known length up to UNROLL_TUPLE_LIMIT have unrolled certain methods
 UNROLL_TUPLE_LIMIT = 10

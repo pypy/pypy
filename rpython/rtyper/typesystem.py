@@ -1,7 +1,7 @@
 
 """typesystem.py -- Typesystem-specific operations for RTyper."""
 
-from pypy.tool.pairtype import extendabletype
+from rpython.tool.pairtype import extendabletype
 
 from rpython.rtyper.ootypesystem import ootype
 from rpython.rtyper.lltypesystem import lltype
@@ -189,7 +189,7 @@ getfunctionptr = LowLevelTypeSystem.instance.getcallable
 
 # Multiple dispatch on type system and high-level annotation
 
-from pypy.tool.pairtype import pairtype
+from rpython.tool.pairtype import pairtype
 from rpython.annotator.model import SomeObject
 
 class __extend__(pairtype(TypeSystem, SomeObject)):

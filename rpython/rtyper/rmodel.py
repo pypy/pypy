@@ -1,4 +1,4 @@
-from pypy.tool.pairtype import pairtype, extendabletype, pair
+from rpython.tool.pairtype import pairtype, extendabletype, pair
 from rpython.annotator import model as annmodel, unaryop, binaryop
 from rpython.annotator import description
 from rpython.flowspace.model import Constant

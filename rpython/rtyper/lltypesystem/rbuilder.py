@@ -7,7 +7,7 @@ from rpython.rtyper.lltypesystem.lltype import staticAdtMethod, nullptr
 from rpython.rtyper.lltypesystem.rstr import (STR, UNICODE, char_repr,
     string_repr, unichar_repr, unicode_repr)
 from rpython.rtyper.rbuilder import AbstractStringBuilderRepr
-from pypy.tool.sourcetools import func_with_new_name
+from rpython.tool.sourcetools import func_with_new_name
 
 # Think about heuristics below, maybe we can come up with something
 # better or at least compare it with list heuristics

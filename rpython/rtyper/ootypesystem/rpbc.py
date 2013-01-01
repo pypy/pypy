@@ -12,7 +12,7 @@ from rpython.rtyper.ootypesystem.rclass import ClassRepr, InstanceRepr
 from rpython.rtyper.ootypesystem.rclass import mangle, META
 from rpython.annotator import model as annmodel
 from rpython.annotator import description
-from pypy.tool.pairtype import pairtype
+from rpython.tool.pairtype import pairtype
 from rpython.flowspace.model import Constant, Variable
 import types
 

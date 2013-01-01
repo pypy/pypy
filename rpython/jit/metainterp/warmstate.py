@@ -12,7 +12,7 @@ from rpython.rlib.jit import BaseJitCell
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
 from rpython.jit.metainterp import history
 from rpython.jit.codewriter import support, heaptracker, longlong
-from pypy.tool.sourcetools import func_with_new_name
+from rpython.tool.sourcetools import func_with_new_name
 
 # ____________________________________________________________
 

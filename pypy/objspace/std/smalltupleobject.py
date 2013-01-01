@@ -9,7 +9,7 @@ from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway
 from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.unroll import unrolling_iterable
-from pypy.tool.sourcetools import func_with_new_name
+from rpython.tool.sourcetools import func_with_new_name
 from pypy.objspace.std.tupleobject import W_AbstractTupleObject, W_TupleObject
 
 class W_SmallTupleObject(W_AbstractTupleObject):

@@ -9,7 +9,7 @@ the tuples returned by os.stat().
 """
 from rpython.annotator import model as annmodel
 from rpython.flowspace.model import Constant
-from pypy.tool.pairtype import pairtype
+from rpython.tool.pairtype import pairtype
 from rpython.rtyper.rmodel import Repr, IntegerRepr
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.module import ll_os_stat

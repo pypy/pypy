@@ -3,7 +3,7 @@
 This is transformed to become a JIT by code elsewhere: pypy/jit/*
 """
 
-from pypy.tool.pairtype import extendabletype
+from rpython.tool.pairtype import extendabletype
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib.jit import JitDriver, hint, we_are_jitted, dont_look_inside
 from rpython.rlib import jit

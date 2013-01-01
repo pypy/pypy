@@ -7,7 +7,7 @@ from pypy.interpreter.buffer import RWBuffer
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rarithmetic import r_longlong, intmask
 from rpython.rlib import rposix
-from pypy.tool.sourcetools import func_renamer
+from rpython.tool.sourcetools import func_renamer
 from pypy.module._io.interp_iobase import (
     W_IOBase, DEFAULT_BUFFER_SIZE, convert_size,
     check_readable_w, check_writable_w, check_seekable_w)

@@ -1,4 +1,4 @@
-from pypy.tool.pairtype import extendabletype
+from rpython.tool.pairtype import extendabletype
 from rpython.rtyper.ootypesystem import ootype
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.jit.metainterp import history

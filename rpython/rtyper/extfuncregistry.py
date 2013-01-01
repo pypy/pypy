@@ -71,7 +71,7 @@ for module, methods in _register:
 # ___________________________
 # os.path functions
 
-from pypy.tool.sourcetools import func_with_new_name
+from rpython.tool.sourcetools import func_with_new_name
 import os.path
 
 # os.path.join is RPython, but we don't want to compile it directly

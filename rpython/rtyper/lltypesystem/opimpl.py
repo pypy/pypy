@@ -2,7 +2,7 @@ from rpython.flowspace.operation import FunctionByName
 from rpython.rlib import debug
 from rpython.rlib.rarithmetic import is_valid_int
 from rpython.rtyper.lltypesystem import lltype, llmemory
-from pypy.tool.sourcetools import func_with_new_name
+from rpython.tool.sourcetools import func_with_new_name
 
 # ____________________________________________________________
 # Implementation of the 'canfold' operations

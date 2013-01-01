@@ -8,8 +8,8 @@ from rpython.rtyper.rclass import AbstractClassRepr, AbstractInstanceRepr, \
                                 getinstancerepr, getclassrepr, get_type_repr
 from rpython.rtyper.ootypesystem import ootype
 from rpython.rtyper.exceptiondata import standardexceptions
-from pypy.tool.pairtype import pairtype
-from pypy.tool.sourcetools import func_with_new_name
+from rpython.tool.pairtype import pairtype
+from rpython.tool.sourcetools import func_with_new_name
 from pypy.tool.identity_dict import identity_dict
 
 OBJECT = ootype.ROOT

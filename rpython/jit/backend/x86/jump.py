@@ -1,5 +1,5 @@
 import sys
-from pypy.tool.pairtype import extendabletype
+from rpython.tool.pairtype import extendabletype
 from rpython.jit.backend.x86.regloc import ImmediateAssemblerLocation, StackLoc
 
 def remap_frame_layout(assembler, src_locations, dst_locations, tmpreg):

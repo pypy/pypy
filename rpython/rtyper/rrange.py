@@ -1,4 +1,4 @@
-from pypy.tool.pairtype import pairtype
+from rpython.tool.pairtype import pairtype
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem.lltype import Signed, Void, Ptr
 from rpython.rtyper.rmodel import Repr, IntegerRepr, IteratorRepr

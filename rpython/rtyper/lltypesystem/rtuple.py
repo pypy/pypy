@@ -1,4 +1,4 @@
-from pypy.tool.pairtype import pairtype
+from rpython.tool.pairtype import pairtype
 from rpython.rtyper.rmodel import inputconst
 from rpython.rtyper.rtuple import AbstractTupleRepr, AbstractTupleIteratorRepr
 from rpython.rtyper.lltypesystem.lltype import \

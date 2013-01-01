@@ -1,6 +1,6 @@
 import types
 import sys
-from pypy.tool.pairtype import pair, pairtype
+from rpython.tool.pairtype import pair, pairtype
 from rpython.annotator import model as annmodel
 from rpython.annotator import description
 from rpython.flowspace.model import Constant

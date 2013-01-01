@@ -1,4 +1,4 @@
-from pypy.tool.pairtype import extendabletype
+from rpython.tool.pairtype import extendabletype
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.floatobject import W_FloatObject

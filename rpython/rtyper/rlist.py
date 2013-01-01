@@ -1,4 +1,4 @@
-from pypy.tool.pairtype import pairtype, pair
+from rpython.tool.pairtype import pairtype, pair
 from rpython.flowspace.model import Constant
 from rpython.annotator import model as annmodel
 from rpython.rtyper.error import TyperError

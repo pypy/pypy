@@ -19,7 +19,7 @@ from pypy.interpreter.buffer import Buffer as W_Buffer
 from pypy.interpreter.argument import Arguments
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize
-from pypy.tool.sourcetools import func_renamer
+from rpython.tool.sourcetools import func_renamer
 from rpython.rtyper.annlowlevel import llhelper
 
 # XXX: Also defined in object.h

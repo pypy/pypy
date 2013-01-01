@@ -2,7 +2,7 @@ from rpython.jit.metainterp.history import AbstractValue, ConstInt
 from rpython.jit.backend.x86 import rx86
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.jit.backend.x86.arch import WORD, IS_X86_32, IS_X86_64
-from pypy.tool.sourcetools import func_with_new_name
+from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib.objectmodel import specialize, instantiate
 from rpython.rlib.rarithmetic import intmask
 from rpython.jit.metainterp.history import FLOAT

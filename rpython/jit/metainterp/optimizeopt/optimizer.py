@@ -7,7 +7,7 @@ from rpython.jit.metainterp.optimizeopt.intutils import IntBound, IntUnbounded, 
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.resoperation import rop, ResOperation, AbstractResOp
 from rpython.jit.metainterp.typesystem import llhelper, oohelper
-from pypy.tool.pairtype import extendabletype
+from rpython.tool.pairtype import extendabletype
 from rpython.rlib.debug import debug_print
 from rpython.rlib.objectmodel import specialize
 

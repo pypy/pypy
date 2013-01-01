@@ -1,6 +1,6 @@
 
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.tool.pairtype import extendabletype
+from rpython.tool.pairtype import extendabletype
 from pypy.module.micronumpy.support import calc_strides
 
 def issequence_w(space, w_obj):

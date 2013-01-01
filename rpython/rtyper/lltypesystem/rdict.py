@@ -1,4 +1,4 @@
-from pypy.tool.pairtype import pairtype
+from rpython.tool.pairtype import pairtype
 from rpython.flowspace.model import Constant
 from rpython.rtyper.rdict import (AbstractDictRepr, AbstractDictIteratorRepr,
      rtype_newdict)

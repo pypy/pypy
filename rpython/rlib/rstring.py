@@ -4,7 +4,7 @@
 from rpython.annotator.model import (SomeObject, SomeString, s_None, SomeChar,
     SomeInteger, SomeUnicodeCodePoint, SomeUnicodeString, SomePtr, SomePBC)
 from rpython.rlib.rarithmetic import ovfcheck
-from pypy.tool.pairtype import pair, pairtype
+from rpython.tool.pairtype import pair, pairtype
 from rpython.rtyper.extregistry import ExtRegistryEntry
 
 

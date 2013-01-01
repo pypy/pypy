@@ -13,7 +13,7 @@ from rpython.rlib.rfloat import (
     DTSF_ADD_DOT_0, DTSF_STR_PRECISION)
 from rpython.rlib.rbigint import rbigint
 from rpython.rlib import rfloat
-from pypy.tool.sourcetools import func_with_new_name
+from rpython.tool.sourcetools import func_with_new_name
 
 
 import math

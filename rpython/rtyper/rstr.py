@@ -1,6 +1,6 @@
 from pypy.tool.staticmethods import StaticMethods
-from pypy.tool.pairtype import pairtype, pair
-from pypy.tool.sourcetools import func_with_new_name
+from rpython.tool.pairtype import pairtype, pair
+from rpython.tool.sourcetools import func_with_new_name
 from rpython.annotator import model as annmodel
 from rpython.rlib import jit
 from rpython.rlib.nonconst import NonConstant

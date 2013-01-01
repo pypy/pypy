@@ -16,7 +16,7 @@ from rpython.rlib.rstruct.runpack import runpack
 from rpython.rlib.rstruct.nativefmttable import native_is_bigendian
 from rpython.rlib.rstruct.ieee import (float_pack, float_unpack, 
                                     unpack_float, unpack_float128)
-from pypy.tool.sourcetools import func_with_new_name
+from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib import jit
 from rpython.rlib.rstring import StringBuilder
 

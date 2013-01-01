@@ -1,7 +1,7 @@
 """ PyFrame class implementation with the interpreter main loop.
 """
 
-from pypy.tool.pairtype import extendabletype
+from rpython.tool.pairtype import extendabletype
 from pypy.interpreter import eval, baseobjspace, pycode
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.error import OperationError, operationerrfmt

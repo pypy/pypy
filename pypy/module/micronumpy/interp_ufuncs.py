@@ -5,7 +5,7 @@ from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrpropert
 from pypy.module.micronumpy import interp_boxes, interp_dtype, loop
 from rpython.rlib import jit
 from rpython.rlib.rarithmetic import LONG_BIT
-from pypy.tool.sourcetools import func_with_new_name
+from rpython.tool.sourcetools import func_with_new_name
 from pypy.module.micronumpy.interp_support import unwrap_axis_arg
 from pypy.module.micronumpy.strides import shape_agreement
 from pypy.module.micronumpy.base import convert_to_array, W_NDimArray

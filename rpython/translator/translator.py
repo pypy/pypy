@@ -10,7 +10,7 @@ from rpython.translator import simplify
 from rpython.flowspace.model import FunctionGraph, checkgraph, Block
 from rpython.flowspace.objspace import FlowObjSpace
 from pypy.tool.ansi_print import ansi_log
-from pypy.tool.sourcetools import nice_repr_for_func
+from rpython.tool.sourcetools import nice_repr_for_func
 from pypy.config.pypyoption import pypy_optiondescription
 from pypy.config.translationoption import get_combined_translation_config
 from pypy.config.translationoption import get_platform

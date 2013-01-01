@@ -4,7 +4,7 @@ Binary operations between SomeValues.
 
 import py
 import operator
-from pypy.tool.pairtype import pair, pairtype
+from rpython.tool.pairtype import pair, pairtype
 from rpython.annotator.model import SomeObject, SomeInteger, SomeBool, s_Bool
 from rpython.annotator.model import SomeString, SomeChar, SomeList, SomeDict
 from rpython.annotator.model import SomeUnicodeCodePoint, SomeUnicodeString

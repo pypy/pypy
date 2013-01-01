@@ -1,7 +1,7 @@
 import py
 from rpython.rtyper.lltypesystem.lltype import *
 from rpython.translator.c.test.test_genc import compile
-from pypy.tool.sourcetools import func_with_new_name
+from rpython.tool.sourcetools import func_with_new_name
 
 
 class TestLowLevelType(object):

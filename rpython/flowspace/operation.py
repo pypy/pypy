@@ -6,7 +6,7 @@ built-in functions (or type constructors) implementing them.
 import __builtin__
 import __future__
 import operator
-from pypy.tool.sourcetools import compile2
+from rpython.tool.sourcetools import compile2
 from rpython.rlib.rarithmetic import ovfcheck
 
 # this is a copy that should be shared with standard objspace

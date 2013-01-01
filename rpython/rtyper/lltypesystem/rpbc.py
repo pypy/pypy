@@ -1,6 +1,6 @@
 import types
 import sys
-from pypy.tool.pairtype import pairtype, pair
+from rpython.tool.pairtype import pairtype, pair
 from rpython.annotator import model as annmodel
 from rpython.annotator import description
 from rpython.flowspace.model import Constant, Variable
@@ -15,7 +15,7 @@ from rpython.rtyper.rpbc import samesig,\
      AbstractFunctionsPBCRepr, AbstractMultipleUnrelatedFrozenPBCRepr, \
      SingleFrozenPBCRepr, none_frozen_pbc_repr, get_concrete_calltable
 from rpython.rtyper.lltypesystem import rclass, llmemory
-from pypy.tool.sourcetools import has_varargs
+from rpython.tool.sourcetools import has_varargs
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.debug import ll_assert
 

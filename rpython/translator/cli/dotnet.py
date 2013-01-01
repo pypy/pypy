@@ -1,6 +1,6 @@
 import types
 
-from pypy.tool.pairtype import pair, pairtype
+from rpython.tool.pairtype import pair, pairtype
 from rpython.annotator.model import SomeObject, SomeInstance, SomeOOInstance, SomeInteger, s_None,\
      s_ImpossibleValue, lltype_to_annotation, annotation_to_lltype, SomeChar, SomeString, SomeOOStaticMeth
 from rpython.annotator.unaryop import immutablevalue

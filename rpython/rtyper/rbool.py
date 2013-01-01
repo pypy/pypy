@@ -1,4 +1,4 @@
-from pypy.tool.pairtype import pairtype
+from rpython.tool.pairtype import pairtype
 from rpython.annotator import model as annmodel
 from rpython.rtyper.lltypesystem.lltype import Signed, Unsigned, Bool, Float
 from rpython.rtyper.error import TyperError

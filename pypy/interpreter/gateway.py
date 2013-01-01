@@ -22,7 +22,7 @@ from pypy.interpreter.function import ClassMethod, FunctionWithFixedCode
 from rpython.rlib import rstackovf
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import r_longlong, r_int, r_ulonglong, r_uint
-from pypy.tool.sourcetools import func_with_new_name, compile2
+from rpython.tool.sourcetools import func_with_new_name, compile2
 
 
 # internal non-translatable parts:

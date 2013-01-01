@@ -2,7 +2,7 @@ import sys
 from rpython.rlib.debug import check_nonneg
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.rsre import rsre_char
-from pypy.tool.sourcetools import func_with_new_name
+from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib import jit
 from rpython.rlib.rsre.rsre_jit import install_jitdriver, install_jitdriver_spec

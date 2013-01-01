@@ -5,7 +5,7 @@
 # a discussion in Berlin, 4th of october 2003
 import py
 from pypy.tool.uid import uid, Hashable
-from pypy.tool.sourcetools import PY_IDENTIFIER, nice_repr_for_func
+from rpython.tool.sourcetools import PY_IDENTIFIER, nice_repr_for_func
 from rpython.rlib.rarithmetic import is_valid_int, r_longlong, r_ulonglong, r_uint
 
 
@@ -57,7 +57,7 @@ class FunctionGraph(object):
     def source(self):
         if hasattr(self, "_source"):
             return self._source
-        from pypy.tool.sourcetools import getsource
+        from rpython.tool.sourcetools import getsource
         self.func    # can raise AttributeError
         src = getsource(self.func)
         if src is None:

@@ -1,4 +1,4 @@
-from pypy.tool.sourcetools import func_with_new_name
+from rpython.tool.sourcetools import func_with_new_name
 
 def forbid(*args):
     raise TypeError, "cannot mutate a frozenlist"

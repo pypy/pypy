@@ -1,5 +1,5 @@
 
-from pypy.tool.sourcetools import compile2
+from rpython.tool.sourcetools import compile2
 
 # This provide two compatible implementations of "multimethods".  A
 # multimethod is a callable object which chooses and calls a real

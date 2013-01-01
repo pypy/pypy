@@ -1,4 +1,4 @@
-from pypy.tool.sourcetools import func_with_new_name, func_renamer, rpython_wrapper
+from rpython.tool.sourcetools import func_with_new_name, func_renamer, rpython_wrapper
 
 def test_rename():
     def f(x, y=5):

@@ -1,6 +1,6 @@
 import sys
 import types
-from pypy.tool.pairtype import pairtype, pair
+from rpython.tool.pairtype import pairtype, pair
 from rpython.flowspace.model import Constant
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.rmodel import Repr, inputconst, warning, mangle

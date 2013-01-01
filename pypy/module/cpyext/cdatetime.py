@@ -5,7 +5,7 @@ from pypy.module.cpyext.api import (cpython_api, CANNOT_FAIL, cpython_struct,
 from pypy.module.cpyext.import_ import PyImport_Import
 from pypy.module.cpyext.typeobject import PyTypeObjectPtr
 from pypy.interpreter.error import OperationError
-from pypy.tool.sourcetools import func_renamer
+from rpython.tool.sourcetools import func_renamer
 
 # API import function
 

@@ -5,7 +5,7 @@ but accessible to RPython programs.
 from rpython.annotator import model as annmodel
 from rpython.annotator.signature import annotation
 from rpython.annotator.listdef import ListDef, TooLateForChange
-from pypy.tool.pairtype import pair, pairtype
+from rpython.tool.pairtype import pair, pairtype
 from rpython.rlib.rarithmetic import r_longlong, intmask, LONG_BIT
 from rpython.rlib.rfloat import formatd, rstring_to_float
 from rpython.rlib.unroll import unrolling_iterable

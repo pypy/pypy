@@ -16,7 +16,7 @@ corresponding to the original creator's erase function.  Otherwise, segfault.
 
 import sys
 from rpython.annotator import model as annmodel
-from pypy.tool.pairtype import pairtype
+from rpython.tool.pairtype import pairtype
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.rclass import getinstancerepr
 from rpython.rtyper.rmodel import Repr

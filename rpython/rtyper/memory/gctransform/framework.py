@@ -9,7 +9,7 @@ from rpython.rtyper.memory.gctransform.support import get_rtti, ll_call_destruct
 from rpython.rtyper.memory.gctransform.transform import GCTransformer
 from rpython.rtyper.memory.gctypelayout import ll_weakref_deref, WEAKREF, \
      WEAKREFPTR
-from pypy.tool.sourcetools import func_with_new_name
+from rpython.tool.sourcetools import func_with_new_name
 from rpython.translator.backendopt import graphanalyze
 from rpython.translator.backendopt.finalizer import FinalizerAnalyzer
 from rpython.translator.backendopt.support import var_needsgc

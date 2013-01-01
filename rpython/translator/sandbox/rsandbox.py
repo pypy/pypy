@@ -14,7 +14,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.annotator import model as annmodel
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import CDefinedIntSymbolic
-from pypy.tool.sourcetools import func_with_new_name
+from rpython.tool.sourcetools import func_with_new_name
 from rpython.rtyper.annlowlevel import MixLevelHelperAnnotator
 from pypy.tool.ansi_print import ansi_log
 import py

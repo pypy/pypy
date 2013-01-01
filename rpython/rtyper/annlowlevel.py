@@ -3,7 +3,7 @@ The code needed to flow and annotate low-level helpers -- the ll_*() functions
 """
 
 import types
-from pypy.tool.sourcetools import valid_identifier
+from rpython.tool.sourcetools import valid_identifier
 from rpython.annotator import model as annmodel
 from rpython.annotator.policy import AnnotatorPolicy, Sig
 from rpython.annotator.specialize import flatten_star_args

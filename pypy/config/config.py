@@ -1,6 +1,6 @@
 import py
 import optparse
-from pypy.tool.pairtype import extendabletype
+from rpython.tool.pairtype import extendabletype
 
 SUPPRESS_USAGE = optparse.SUPPRESS_USAGE
 

@@ -1,5 +1,5 @@
 from rpython.rtyper.error import TyperError
-from pypy.tool.pairtype import pairtype
+from rpython.tool.pairtype import pairtype
 from rpython.flowspace.model import Constant
 from rpython.rtyper.rdict import AbstractDictRepr, AbstractDictIteratorRepr
 from rpython.rtyper.rpbc import (MethodOfFrozenPBCRepr, AbstractFunctionsPBCRepr,

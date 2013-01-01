@@ -11,7 +11,7 @@ from pypy.interpreter.error import OperationError
 from rpython.rlib.objectmodel import UnboxedValue
 from rpython.rlib.rbigint import rbigint
 from rpython.rlib.rarithmetic import r_uint
-from pypy.tool.sourcetools import func_with_new_name
+from rpython.tool.sourcetools import func_with_new_name
 from pypy.objspace.std.inttype import wrapint
 
 class W_SmallIntObject(W_AbstractIntObject, UnboxedValue):
