@@ -61,6 +61,7 @@ class W_Dtype(Wrappable):
         self.fields = fields
         self.fieldnames = fieldnames
         self.native = native
+        self.float_type = None
 
     @specialize.argtype(1)
     def box(self, value):
@@ -172,7 +173,6 @@ class W_Dtype(Wrappable):
         return self.itemtype.get_element_size()
 
 class W_ComplexDtype(W_Dtype):
-
     def __init__(self, itemtype, num, kind, name, char, w_box_type,
                  alternate_constructors=[], aliases=[],
                  fields=None, fieldnames=None, native=True, float_type=None):

@@ -65,8 +65,9 @@ class TestNumpyJIt(LLJitMixin):
             self.__class__.graph = graph
         reset_stats()
         pyjitpl._warmrunnerdesc.memory_manager.alive_loops.clear()
+        retval = self.interp.eval_graph(self.graph, [i])
         py.test.skip("don't run for now")
-        return self.interp.eval_graph(self.graph, [i])
+        return retval
 
     def define_add():
         return """
@@ -290,6 +291,7 @@ class TestNumpyJIt(LLJitMixin):
         """
 
     def test_take(self):
+        skip('"take" not implmenented yet')
         result = self.run("take")
         assert result == 3
         self.check_simple_loop({'raw_load': 2,
