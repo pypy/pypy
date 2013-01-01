@@ -155,9 +155,8 @@ def where(out, shape, arr, x, y, dtype):
         iter = x_iter
     shapelen = len(shape)
     while not iter.done():
-        where_driver.jit_merge_point(shapelen=shapelen, shape=shape,
-                                     dtype=dtype, arr_dtype=arr_dtype,
-                                    )
+        where_driver.jit_merge_point(shapelen=shapelen, dtype=dtype, 
+                                        arr_dtype=arr_dtype)
         w_cond = arr_iter.getitem()
         if arr_dtype.itemtype.bool(w_cond):
             w_val = x_iter.getitem().convert_to(dtype)
