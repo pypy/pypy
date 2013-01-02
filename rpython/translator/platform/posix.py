@@ -88,7 +88,7 @@ class BasePosix(Platform):
         if path is None:
             path = cfiles[0].dirpath()
 
-        pypypath = py.path.local(autopath.rpythondir)
+        pypypath = py.path.local(autopath.pypydir)
 
         if exe_name is None:
             exe_name = cfiles[0].new(ext=self.exe_ext)
@@ -139,7 +139,7 @@ class BasePosix(Platform):
 
         m.comment('automatically generated makefile')
         definitions = [
-            ('PYPYDIR', '"%s"' % autopath.rpythondir),
+            ('PYPYDIR', '"%s"' % autopath.pypydir),
             ('TARGET', target_name),
             ('DEFAULT_TARGET', exe_name.basename),
             ('SOURCES', rel_cfiles),

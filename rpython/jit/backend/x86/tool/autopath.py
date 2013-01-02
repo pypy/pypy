@@ -16,7 +16,7 @@ it finds under the pypy root directory.
 
 This module always provides these attributes:
 
-    rpythondir    rpython root directory path 
+    pypydir    pypy root directory path 
     this_dir   directory where this autopath.py resides 
 
 """
@@ -37,7 +37,7 @@ def __dirinfo(part):
         partdir = head
         head, tail = os.path.split(head)
         if tail == part:
-            checkfile = os.path.join(partdir, os.pardir, 'rpython', '__init__.py')
+            checkfile = os.path.join(partdir, os.pardir, 'pypy', '__init__.py')
             if not os.path.exists(checkfile):
                 error = "Cannot find %r" % (os.path.normpath(checkfile),)
             break
@@ -102,7 +102,7 @@ def __clone():
     from os.path import join, walk
     if not this_dir.endswith(join('pypy','tool')):
         raise EnvironmentError("can only clone master version "
-                               "'%s'" % join(rpythondir, 'tool',_myname))
+                               "'%s'" % join(pypydir, 'tool',_myname))
 
 
     def sync_walker(arg, dirname, fnames):
@@ -118,14 +118,14 @@ def __clone():
                     f.write(arg)
             finally:
                 f.close()
-    s = open(join(rpythondir, 'tool', _myname), 'rb').read()
-    walk(rpythondir, sync_walker, s)
+    s = open(join(pypydir, 'tool', _myname), 'rb').read()
+    walk(pypydir, sync_walker, s)
 
 _myname = 'autopath.py'
 
 # set guaranteed attributes
 
-rpythondir, this_dir = __dirinfo('rpython')
+pypydir, this_dir = __dirinfo('rpython')
 
 if __name__ == '__main__':
     __clone()

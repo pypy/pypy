@@ -523,7 +523,7 @@ class TestInteraction:
             assert line.rstrip() == 'Not at all. They could be carried.'
             print 'A five ounce bird could not carry a one pound coconut.'
             """)
-        py_py = os.path.join(autopath.rpythondir, 'bin', 'py.py')
+        py_py = os.path.join(autopath.pypydir, 'bin', 'py.py')
         child = self._spawn(sys.executable, [py_py, '-S', path])
         child.expect('Are you suggesting coconuts migrate?', timeout=120)
         child.sendline('Not at all. They could be carried.')
@@ -850,7 +850,7 @@ class AppTestAppMain:
         self.w_goal_dir = self.space.wrap(goal_dir)
         self.w_fake_exe = self.space.wrap(str(fake_exe))
         self.w_expected_path = self.space.wrap(expected_path)
-        self.w_trunkdir = self.space.wrap(os.path.dirname(autopath.rpythondir))
+        self.w_trunkdir = self.space.wrap(os.path.dirname(autopath.pypydir))
         #
         foo_py = prefix.join('foo.py').write("pass")
         self.w_foo_py = self.space.wrap(str(foo_py))

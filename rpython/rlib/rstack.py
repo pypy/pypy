@@ -14,12 +14,12 @@ from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.controllerentry import Controller, SomeControlledInstance
-from rpython.tool.autopath import rpythondir
+from pypy.tool.autopath import pypydir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 # ____________________________________________________________
 
-srcdir = py.path.local(rpythondir) / 'translator' / 'c' / 'src'
+srcdir = py.path.local(pypydir) / 'translator' / 'c' / 'src'
 compilation_info = ExternalCompilationInfo(
         includes=['src/stack.h'],
         separate_module_files=[srcdir / 'stack.c', srcdir / 'threadlocal.c'])
