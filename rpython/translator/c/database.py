@@ -15,7 +15,7 @@ from rpython.translator.c.support import cdecl, CNameManager
 from rpython.translator.c.support import log, barebonearray
 from rpython.translator.c.extfunc import do_the_getting
 from rpython.translator.c import gc
-from pypy.tool.identity_dict import identity_dict
+from rpython.tool.identity_dict import identity_dict
 
 
 class NoCorrespondingNode(Exception):

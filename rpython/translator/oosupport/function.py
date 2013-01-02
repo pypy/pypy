@@ -7,7 +7,7 @@ from rpython.flowspace import model as flowmodel
 from rpython.rtyper.ootypesystem import ootype
 from rpython.translator.oosupport.treebuilder import SubOperation
 from rpython.translator.oosupport.metavm import InstructionList, StoreResult
-from pypy.tool.identity_dict import identity_dict
+from rpython.tool.identity_dict import identity_dict
 
 
 def render_sub_op(sub_op, db, generator):

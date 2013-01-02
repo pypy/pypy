@@ -7,7 +7,7 @@ from pypy.interpreter.error import (OperationError, operationerrfmt,
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.miscutils import ThreadLocals
 from pypy.tool.cache import Cache
-from pypy.tool.uid import HUGEVAL_BYTES
+from rpython.tool.uid import HUGEVAL_BYTES
 from rpython.rlib import jit
 from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.objectmodel import we_are_translated, newlist_hint,\

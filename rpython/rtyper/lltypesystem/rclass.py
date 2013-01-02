@@ -20,7 +20,7 @@ from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.annotator import model as annmodel
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib import objectmodel
-from pypy.tool.identity_dict import identity_dict
+from rpython.tool.identity_dict import identity_dict
 from rpython.rtyper.lltypesystem.lloperation import llop
 
 #

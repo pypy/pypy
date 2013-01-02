@@ -3,7 +3,7 @@ from rpython.rtyper.lltypesystem import rclass
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib.debug import ll_assert
 from rpython.rlib.rarithmetic import intmask
-from pypy.tool.identity_dict import identity_dict
+from rpython.tool.identity_dict import identity_dict
 
 
 class GCData(object):

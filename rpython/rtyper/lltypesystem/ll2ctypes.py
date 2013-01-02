@@ -19,7 +19,7 @@ from pypy import conftest
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.extfunc import ExtRegistryEntry
 from rpython.rlib.objectmodel import Symbolic, ComputedIntSymbolic
-from pypy.tool.uid import fixid
+from rpython.tool.uid import fixid
 from rpython.rlib.rarithmetic import r_singlefloat, r_longfloat, base_int, intmask
 from rpython.rlib.rarithmetic import is_emulated_long, maxint
 from rpython.annotator import model as annmodel

@@ -25,7 +25,7 @@ from pypy.tool.algo.unionfind import UnionFind
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.ootypesystem import ootype
 from rpython.rtyper import extregistry
-from pypy.tool.identity_dict import identity_dict
+from rpython.tool.identity_dict import identity_dict
 
 class Stats(object):
 

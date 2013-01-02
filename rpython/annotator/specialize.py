@@ -1,6 +1,6 @@
 # specialization support
 import py
-from pypy.tool.uid import uid
+from rpython.tool.uid import uid
 from rpython.tool.sourcetools import func_with_new_name
 from pypy.tool.algo.unionfind import UnionFind
 from rpython.flowspace.model import Block, Link, Variable, SpaceOperation

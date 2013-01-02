@@ -2,7 +2,7 @@ from rpython.rlib.rarithmetic import (r_int, r_uint, intmask, r_singlefloat,
                                    r_ulonglong, r_longlong, r_longfloat, r_longlonglong,
                                    base_int, normalizedinttype, longlongmask, longlonglongmask)
 from rpython.rlib.objectmodel import Symbolic
-from pypy.tool.identity_dict import identity_dict
+from rpython.tool.identity_dict import identity_dict
 from pypy.tool import leakfinder
 from types import NoneType
 from rpython.rlib.rarithmetic import maxint, is_valid_int, is_emulated_long

@@ -6,7 +6,7 @@ Convention:
   'edges' is a dict mapping vertices to a list of edges with its source.
   Note that we can usually use 'edges' as the set of 'vertices' too.
 """
-from pypy.tool.identity_dict import identity_dict
+from rpython.tool.identity_dict import identity_dict
 
 
 class Edge:

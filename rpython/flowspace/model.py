@@ -4,7 +4,7 @@
 # the below object/attribute model evolved from
 # a discussion in Berlin, 4th of october 2003
 import py
-from pypy.tool.uid import uid, Hashable
+from rpython.tool.uid import uid, Hashable
 from rpython.tool.sourcetools import PY_IDENTIFIER, nice_repr_for_func
 from rpython.rlib.rarithmetic import is_valid_int, r_longlong, r_ulonglong, r_uint
 

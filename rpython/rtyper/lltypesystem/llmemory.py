@@ -7,7 +7,7 @@
 import weakref
 from rpython.rlib.objectmodel import Symbolic
 from rpython.rtyper.lltypesystem import lltype
-from pypy.tool.uid import uid
+from rpython.tool.uid import uid
 from rpython.rlib.rarithmetic import is_valid_int
 
 

@@ -7,7 +7,7 @@ from rpython.rtyper.lltypesystem.lltype import frozendict
 from rpython.rtyper.lltypesystem.lltype import identityhash
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib import objectmodel
-from pypy.tool.uid import uid
+from rpython.tool.uid import uid
 
 
 STATICNESS = True

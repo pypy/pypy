@@ -1,6 +1,6 @@
 import weakref
 import UserDict
-from pypy.tool.uid import Hashable
+from rpython.tool.uid import Hashable
 
 
 class AutoRegisteringType(type):

@@ -4,7 +4,7 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.mixedmodule import MixedModule
 from pypy.interpreter.astcompiler import consts
 from rpython.rlib import jit
-from pypy.tool.uid import uid
+from rpython.tool.uid import uid
 
 class Cell(Wrappable):
     "A simple container for a wrapped value."

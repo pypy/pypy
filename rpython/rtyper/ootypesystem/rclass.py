@@ -10,7 +10,7 @@ from rpython.rtyper.ootypesystem import ootype
 from rpython.rtyper.exceptiondata import standardexceptions
 from rpython.tool.pairtype import pairtype
 from rpython.tool.sourcetools import func_with_new_name
-from pypy.tool.identity_dict import identity_dict
+from rpython.tool.identity_dict import identity_dict
 
 OBJECT = ootype.ROOT
 META = ootype.Instance("Meta", ootype.ROOT,

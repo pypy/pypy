@@ -16,7 +16,7 @@ from pypy.module.cpyext.state import State
 from pypy.module.cpyext.pyobject import RefcountState
 from pypy.module.cpyext.pyobject import Py_DecRef, InvalidPointerException
 from rpython.translator.goal import autopath
-from pypy.tool.identity_dict import identity_dict
+from rpython.tool.identity_dict import identity_dict
 from pypy.tool import leakfinder
 
 @api.cpython_api([], api.PyObject)

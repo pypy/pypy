@@ -12,7 +12,7 @@ from rpython.rtyper.lltypesystem.rffi import INT
 from rpython.rtyper.lltypesystem.llmemory import Address
 from rpython.translator.backendopt.ssa import SSI_to_SSA
 from rpython.translator.backendopt.innerloop import find_inner_loops
-from pypy.tool.identity_dict import identity_dict
+from rpython.tool.identity_dict import identity_dict
 
 
 LOCALVAR = 'l_%s'

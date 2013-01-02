@@ -1,4 +1,4 @@
-from pypy.tool.uid import uid
+from rpython.tool.uid import uid
 
 # Support for explicit specialization: in code using global constants
 # that are instances of SpecTag, code paths are not merged when

@@ -7,8 +7,8 @@ import gc
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.memory.gcheader import header2obj
 from rpython.translator.tool.reftracker import BaseRefTrackerPage, MARKER
-from pypy.tool.uid import uid
-from pypy.tool.identity_dict import identity_dict
+from rpython.tool.uid import uid
+from rpython.tool.identity_dict import identity_dict
 
 
 class LLRefTrackerPage(BaseRefTrackerPage):

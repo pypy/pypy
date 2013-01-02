@@ -6,7 +6,7 @@ Usage: call track(obj).
 import autopath, sys, os, types
 import gc
 from rpython.translator.tool.graphpage import GraphPage, DotGen
-from pypy.tool.uid import uid
+from rpython.tool.uid import uid
 
 
 MARKER = object()

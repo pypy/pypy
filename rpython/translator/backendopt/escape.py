@@ -1,7 +1,7 @@
 from rpython.flowspace.model import Variable
 from rpython.rtyper.lltypesystem import lltype
 from rpython.translator.simplify import get_graph
-from pypy.tool.uid import uid
+from rpython.tool.uid import uid
 
 
 class CreationPoint(object):
