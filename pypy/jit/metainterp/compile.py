@@ -17,7 +17,7 @@ from pypy.jit.metainterp import history
 from pypy.jit.metainterp.typesystem import llhelper, oohelper
 from pypy.jit.metainterp.optimize import InvalidLoop
 from pypy.jit.metainterp.inliner import Inliner
-from pypy.jit.metainterp.resume import NUMBERING, PENDINGFIELDSP
+from pypy.jit.metainterp.resume import NUMBERING, PENDINGFIELDSP, ResumeDataDirectReader
 from pypy.jit.codewriter import heaptracker, longlong
 
 def giveup():
@@ -661,7 +661,7 @@ class ResumeGuardForcedDescr(ResumeGuardDescr):
         token = metainterp_sd.cpu.get_latest_force_token()
         all_virtuals = self.fetch_data(token)
         if all_virtuals is None:
-            all_virtuals = []
+            all_virtuals = ResumeDataDirectReader.VirtualCache([], [])
         assert jitdriver_sd is self.jitdriver_sd
         resume_in_blackhole(metainterp_sd, jitdriver_sd, self, all_virtuals)
         assert 0, "unreachable"
