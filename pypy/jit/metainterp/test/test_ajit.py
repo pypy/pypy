@@ -3980,4 +3980,4 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
             return 3
 
         self.interp_operations(f, [])
-        
+

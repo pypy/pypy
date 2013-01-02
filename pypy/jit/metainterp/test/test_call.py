@@ -24,4 +24,4 @@ class TestCall(LLJitMixin):
 
         res = self.interp_operations(f, [3])
         assert res == f(3)
-        
+    
